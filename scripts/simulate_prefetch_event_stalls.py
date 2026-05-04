@@ -114,6 +114,30 @@ def parse_args() -> argparse.Namespace:
         help="Minimum per-layer ready factor required for full_fetch MTP extras.",
     )
     parser.add_argument(
+        "--metadata-bytes",
+        type=int,
+        default=65_536,
+        help="Estimated actual bytes for metadata-only preparation per expert candidate.",
+    )
+    parser.add_argument(
+        "--premap-bytes",
+        type=int,
+        default=4_096,
+        help="Estimated actual bytes for descriptor/pre-map preparation per expert candidate.",
+    )
+    parser.add_argument(
+        "--metadata-supplemental-saved-us",
+        type=float,
+        default=20.0,
+        help="Estimated supplemental-fetch setup latency saved when metadata was prepared.",
+    )
+    parser.add_argument(
+        "--premap-supplemental-saved-us",
+        type=float,
+        default=5.0,
+        help="Estimated supplemental-fetch setup latency saved when premap was prepared.",
+    )
+    parser.add_argument(
         "--disable-unique-payload-counters",
         action="store_true",
         help="Skip expensive sample/layer/expert unique payload counters.",
@@ -308,6 +332,10 @@ def main() -> None:
         gated_metadata_threshold_ratio=float(args.downgrade_metadata_threshold_ratio),
         gated_premap_threshold_ratio=float(args.downgrade_premap_threshold_ratio),
         gated_full_fetch_ready_threshold=float(args.downgrade_full_fetch_ready_threshold),
+        metadata_bytes=int(args.metadata_bytes),
+        premap_bytes=int(args.premap_bytes),
+        metadata_supplemental_saved_us=float(args.metadata_supplemental_saved_us),
+        premap_supplemental_saved_us=float(args.premap_supplemental_saved_us),
         include_unique_payload_counters=not bool(args.disable_unique_payload_counters),
     )
     written_path = write_stall_proxy_report(report, output)
@@ -360,6 +388,12 @@ def main() -> None:
                 "downgrade_full_fetch_ready_threshold": float(
                     args.downgrade_full_fetch_ready_threshold
                 ),
+                "metadata_bytes": int(args.metadata_bytes),
+                "premap_bytes": int(args.premap_bytes),
+                "metadata_supplemental_saved_us": float(
+                    args.metadata_supplemental_saved_us
+                ),
+                "premap_supplemental_saved_us": float(args.premap_supplemental_saved_us),
                 "unique_payload_counters_enabled": not bool(
                     args.disable_unique_payload_counters
                 ),

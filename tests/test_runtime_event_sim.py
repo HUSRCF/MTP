@@ -154,6 +154,21 @@ def test_simulate_stall_proxy_downgrades_gated_actions_without_prefetching():
     assert gated["admission_action_counters"]["metadata"]["count"] == pytest.approx(1.0)
     assert gated["admission_action_counters"]["premap"]["count"] == pytest.approx(1.0)
     assert gated["admission_action_counters"]["skip"]["count"] == pytest.approx(2.0)
+    assert gated["admission_action_outcomes"]["metadata"]["later_used_count"] == pytest.approx(
+        1.0
+    )
+    assert gated["admission_action_outcomes"]["premap"]["later_used_count"] == pytest.approx(
+        1.0
+    )
+    assert gated["admission_action_outcomes"]["metadata"]["actual_bytes"] == pytest.approx(
+        65_536.0
+    )
+    assert gated["admission_action_outcomes"]["premap"]["actual_bytes"] == pytest.approx(
+        4_096.0
+    )
+    assert gated["metadata_premap_setup_saved_ms"] == pytest.approx(0.025)
+    assert gated["serial_action_actual_transfer_ms"] > 0.0
+    assert "serial_net_benefit_ms_vs_transition" in gated
     matrix = gated["admission_action_reason_matrix"]
     assert matrix["admitted_metadata"]["metadata"]["count"] == pytest.approx(1.0)
     assert matrix["admitted_premap"]["premap"]["count"] == pytest.approx(1.0)

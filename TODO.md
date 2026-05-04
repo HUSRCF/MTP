@@ -993,6 +993,42 @@ future MoE expert demand on Qwen3.6-35B-A3B.
   - tests:
     - added downgrade regression in `tests/test_runtime_event_sim.py`
     - current policy/eval runtime subset: `34 passed`
+- [x] Add metadata/premap cost and later-used outcome accounting:
+  - module: `src/mtp_expert_prefetch/runtime/event_sim.py`
+  - script: `scripts/simulate_prefetch_event_stalls.py`
+  - new simulator/API and CLI cost knobs:
+    - `metadata_bytes` / `--metadata-bytes` default `65536`
+    - `premap_bytes` / `--premap-bytes` default `4096`
+    - `metadata_supplemental_saved_us` / `--metadata-supplemental-saved-us` default `20`
+    - `premap_supplemental_saved_us` / `--premap-supplemental-saved-us` default `5`
+  - gated reports now include `admission_action_outcomes`:
+    - per-action `payload_equivalent_bytes`
+    - per-action `actual_bytes`
+    - `later_used_count`
+    - `later_used_rate`
+    - `unused_rate`
+    - metadata/premap setup-saved proxy
+    - skip `would_have_used_count`
+  - aggregate proxy fields:
+    - `metadata_premap_setup_saved_ms`
+    - `serial_action_actual_transfer_ms`
+    - `serial_net_benefit_ms_vs_transition`
+  - naming note:
+    - `serial_*` intentionally treats all action cost as non-overlapped; it is a stress/proxy bound, not a runtime-overlap speedup claim
+    - existing stall reduction remains based only on ready full-fetch experts
+  - GPU0 W7900 cached smoke:
+    - output: `outputs/reports/prefetch_shadow_256sample_mtp_extra/event_stall_proxy_gpu0_cap160_downgrade_cost_smoke.json`
+    - score keep-top-50% later-used:
+      - metadata `20408` / rate `0.0459`
+      - premap `3014` / rate `0.0288`
+      - metadata+premap setup-saved proxy `423.23ms`
+    - utility keep-top-50% later-used:
+      - metadata `8871` / rate `0.0387`
+      - premap `4148` / rate `0.0296`
+      - metadata+premap setup-saved proxy `198.16ms`
+  - tests:
+    - metadata/premap later-used and actual-byte counters covered in `tests/test_runtime_event_sim.py`
+    - current policy/eval runtime subset: `34 passed`
 - [x] Extend score-threshold metadata into a reproducible artifact:
   - dataclass: `ScoreThresholdMetadata`
   - added fields:

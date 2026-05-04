@@ -60,6 +60,10 @@ def simulate_stall_proxy(
     gated_metadata_threshold_ratio: float = 0.5,
     gated_premap_threshold_ratio: float = 0.25,
     gated_full_fetch_ready_threshold: float = 0.75,
+    metadata_bytes: int = 65_536,
+    premap_bytes: int = 4_096,
+    metadata_supplemental_saved_us: float = 20.0,
+    premap_supplemental_saved_us: float = 5.0,
     include_unique_payload_counters: bool = True,
 ) -> StallProxyReport:
     """Estimate true-router supplemental fetch/stall after prefetch readiness.
@@ -371,6 +375,16 @@ def simulate_stall_proxy(
                     expert_bytes=expert_bytes,
                 )
             )
+            metrics["admission_action_outcomes"] = _decision_action_outcome_metrics(
+                decisions,
+                target_mass=target_mass,
+                expert_bytes=expert_bytes,
+                metadata_bytes=metadata_bytes,
+                premap_bytes=premap_bytes,
+                metadata_supplemental_saved_us=metadata_supplemental_saved_us,
+                premap_supplemental_saved_us=premap_supplemental_saved_us,
+                bandwidth_gbps=bandwidth_gbps,
+            )
             metrics["saved_supplemental_fetch_count_vs_transition"] = float(
                 baseline_missing_fetches - metrics["supplemental_fetch_count"]
             )
@@ -387,6 +401,19 @@ def simulate_stall_proxy(
                 metrics["saved_supplemental_stall_ms_vs_transition"] / baseline_stall_ms
                 if baseline_stall_ms > 0.0
                 else 0.0
+            )
+            action_outcomes = metrics["admission_action_outcomes"]
+            metrics["metadata_premap_setup_saved_ms"] = float(
+                action_outcomes["metadata"]["later_used_setup_saved_ms"]
+                + action_outcomes["premap"]["later_used_setup_saved_ms"]
+            )
+            metrics["serial_action_actual_transfer_ms"] = float(
+                action_outcomes["summary"]["actual_transfer_ms_sum"]
+            )
+            metrics["serial_net_benefit_ms_vs_transition"] = float(
+                metrics["saved_supplemental_stall_ms_vs_transition"]
+                + metrics["metadata_premap_setup_saved_ms"]
+                - metrics["serial_action_actual_transfer_ms"]
             )
             _add_transition_delta_metrics(metrics, transition_metrics)
             policies[f"transition_top{transition_topk}_plus_gated_{policy_name}"] = metrics
@@ -428,7 +455,7 @@ def simulate_stall_proxy(
                 "issued, ready, used, unused, and skipped byte counters. When "
                 "downgrade actions are enabled, only full_fetch MTP extras enter "
                 "the ready/prefetch mask; metadata and premap remain lightweight "
-                "preparation actions."
+                "preparation actions with separate cost and later-used counters."
             ),
             "unique_payload_counters": (
                 "Unique sample/layer/expert payload counters are optional because "
@@ -714,6 +741,82 @@ def _decision_action_reason_matrix_metrics(
             }
         matrix[str(reason)] = reason_row
     return matrix
+
+
+def _decision_action_outcome_metrics(
+    decisions: Any,
+    *,
+    target_mass: torch.Tensor,
+    expert_bytes: int,
+    metadata_bytes: int,
+    premap_bytes: int,
+    metadata_supplemental_saved_us: float,
+    premap_supplemental_saved_us: float,
+    bandwidth_gbps: float,
+) -> dict[str, Any]:
+    action_masks = decisions.action_masks()
+    demand = target_mass.float().gt(0.0)
+    bytes_per_ms = float(bandwidth_gbps) * 1_000_000_000.0 / 1000.0
+    action_cost_bytes = {
+        "full_fetch": int(expert_bytes),
+        "metadata": int(metadata_bytes),
+        "premap": int(premap_bytes),
+        "skip": 0,
+    }
+    setup_saved_us = {
+        "full_fetch": 0.0,
+        "metadata": float(metadata_supplemental_saved_us),
+        "premap": float(premap_supplemental_saved_us),
+        "skip": 0.0,
+    }
+    outcomes: dict[str, Any] = {}
+    total_actual_bytes = 0.0
+    total_payload_equivalent_bytes = 0.0
+    total_later_used_setup_saved_ms = 0.0
+    for action, mask in action_masks.items():
+        selected = mask.bool()
+        count = float(selected.float().sum().item())
+        later_used = selected & demand
+        unused = selected & ~demand
+        later_used_count = float(later_used.float().sum().item())
+        unused_count = float(unused.float().sum().item())
+        actual_bytes = count * float(action_cost_bytes[str(action)])
+        payload_equivalent_bytes = count * float(expert_bytes)
+        later_used_setup_saved_ms = (
+            later_used_count * float(setup_saved_us[str(action)]) / 1000.0
+        )
+        total_actual_bytes += actual_bytes
+        total_payload_equivalent_bytes += payload_equivalent_bytes
+        total_later_used_setup_saved_ms += later_used_setup_saved_ms
+        outcomes[str(action)] = {
+            "count": count,
+            "payload_equivalent_bytes": payload_equivalent_bytes,
+            "actual_bytes": actual_bytes,
+            "later_used_count": later_used_count,
+            "later_used_payload_equivalent_bytes": later_used_count * float(expert_bytes),
+            "later_used_rate": later_used_count / max(1.0, count),
+            "unused_count": unused_count,
+            "unused_payload_equivalent_bytes": unused_count * float(expert_bytes),
+            "unused_rate": unused_count / max(1.0, count),
+            "later_used_setup_saved_ms": later_used_setup_saved_ms,
+        }
+    skip_would_have_used = action_masks["skip"].bool() & demand
+    skip_would_have_used_count = float(skip_would_have_used.float().sum().item())
+    outcomes["skip"]["would_have_used_count"] = skip_would_have_used_count
+    outcomes["skip"]["would_have_used_payload_equivalent_bytes"] = (
+        skip_would_have_used_count * float(expert_bytes)
+    )
+    outcomes["summary"] = {
+        "actual_bytes": total_actual_bytes,
+        "payload_equivalent_bytes": total_payload_equivalent_bytes,
+        "actual_transfer_ms_sum": total_actual_bytes / max(bytes_per_ms, 1e-12),
+        "metadata_premap_setup_saved_ms": total_later_used_setup_saved_ms,
+        "metadata_bytes_per_action": float(metadata_bytes),
+        "premap_bytes_per_action": float(premap_bytes),
+        "metadata_supplemental_saved_us": float(metadata_supplemental_saved_us),
+        "premap_supplemental_saved_us": float(premap_supplemental_saved_us),
+    }
+    return outcomes
 
 
 def _unique_payload_counter_metrics(
