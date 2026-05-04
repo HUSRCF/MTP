@@ -372,6 +372,8 @@ def score_threshold_mtp_extra_decision_masks(
     max_extra: int,
     score_threshold: float,
     policy_allowed_mask: torch.Tensor | None = None,
+    metadata_allowed_mask: torch.Tensor | None = None,
+    premap_allowed_mask: torch.Tensor | None = None,
 ):
     return _runtime_score_threshold_mtp_extra_decision_masks(
         base_mask,
@@ -380,6 +382,8 @@ def score_threshold_mtp_extra_decision_masks(
         max_extra=max_extra,
         score_threshold=score_threshold,
         policy_allowed_mask=policy_allowed_mask,
+        metadata_allowed_mask=metadata_allowed_mask,
+        premap_allowed_mask=premap_allowed_mask,
     )
 
 

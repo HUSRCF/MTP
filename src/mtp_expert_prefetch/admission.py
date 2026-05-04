@@ -11,6 +11,8 @@ AdmissionGoal = Literal["stall_reduction", "bandwidth_efficiency"]
 AdmissionAction = Literal["skip", "premap", "metadata", "full_fetch"]
 AdmissionReason = Literal[
     "admitted_score_gate",
+    "admitted_metadata",
+    "admitted_premap",
     "skipped_not_novel",
     "skipped_rank_cap",
     "skipped_below_threshold",
@@ -69,6 +71,8 @@ class AdmissionDecisionMasks:
     skipped_below_threshold: torch.Tensor
     skipped_invalid_score: torch.Tensor
     skipped_policy: torch.Tensor
+    admitted_metadata: torch.Tensor | None = None
+    admitted_premap: torch.Tensor | None = None
 
     @property
     def admitted_score_gate(self) -> torch.Tensor:
@@ -77,15 +81,49 @@ class AdmissionDecisionMasks:
     def final_prefetch_mask(self, base_mask: torch.Tensor) -> torch.Tensor:
         return base_mask | self.admitted_full_fetch
 
+    def admitted_any_mtp_mask(self) -> torch.Tensor:
+        return (
+            self.admitted_full_fetch
+            | self._metadata_mask()
+            | self._premap_mask()
+        )
+
+    def action_masks(self) -> dict[AdmissionAction, torch.Tensor]:
+        skipped = (
+            self.skipped_not_novel
+            | self.skipped_rank_cap
+            | self.skipped_below_threshold
+            | self.skipped_invalid_score
+            | self.skipped_policy
+        )
+        return {
+            "skip": skipped,
+            "premap": self._premap_mask(),
+            "metadata": self._metadata_mask(),
+            "full_fetch": self.admitted_full_fetch,
+        }
+
     def reason_masks(self) -> dict[AdmissionReason, torch.Tensor]:
         return {
             "admitted_score_gate": self.admitted_full_fetch,
+            "admitted_metadata": self._metadata_mask(),
+            "admitted_premap": self._premap_mask(),
             "skipped_not_novel": self.skipped_not_novel,
             "skipped_rank_cap": self.skipped_rank_cap,
             "skipped_below_threshold": self.skipped_below_threshold,
             "skipped_invalid_score": self.skipped_invalid_score,
             "skipped_policy": self.skipped_policy,
         }
+
+    def _metadata_mask(self) -> torch.Tensor:
+        if self.admitted_metadata is None:
+            return torch.zeros_like(self.admitted_full_fetch, dtype=torch.bool)
+        return self.admitted_metadata
+
+    def _premap_mask(self) -> torch.Tensor:
+        if self.admitted_premap is None:
+            return torch.zeros_like(self.admitted_full_fetch, dtype=torch.bool)
+        return self.admitted_premap
 
 
 def select_topk_mask(scores: torch.Tensor, *, k: int) -> torch.Tensor:
@@ -265,6 +303,8 @@ def score_threshold_mtp_extra_decision_masks(
     max_extra: int,
     score_threshold: float,
     policy_allowed_mask: torch.Tensor | None = None,
+    metadata_allowed_mask: torch.Tensor | None = None,
+    premap_allowed_mask: torch.Tensor | None = None,
 ) -> AdmissionDecisionMasks:
     """Return score-gated MTP-extra admission masks with skip reasons.
 
@@ -273,8 +313,10 @@ def score_threshold_mtp_extra_decision_masks(
     2. novel candidates with invalid scores are `skipped_invalid_score`;
     3. valid novel candidates past `max_extra` are `skipped_rank_cap`;
     4. valid in-cap candidates below threshold are `skipped_below_threshold`;
-    5. score-passing candidates blocked by runtime pressure are `skipped_policy`;
-    6. remaining score-passing candidates are `admitted_full_fetch`.
+    5. score-passing candidates allowed by runtime pressure are `full_fetch`;
+    6. candidates blocked from full fetch may fall back to `metadata` or
+       `premap` when those action masks allow it;
+    7. remaining score-passing candidates are `skipped_policy`.
     """
     if base_mask.shape != mtp_scores.shape:
         msg = (
@@ -286,6 +328,18 @@ def score_threshold_mtp_extra_decision_masks(
         msg = (
             "policy_allowed_mask must have the same shape as base_mask, got "
             f"{tuple(policy_allowed_mask.shape)} and {tuple(base_mask.shape)}."
+        )
+        raise ValueError(msg)
+    if metadata_allowed_mask is not None and metadata_allowed_mask.shape != base_mask.shape:
+        msg = (
+            "metadata_allowed_mask must have the same shape as base_mask, got "
+            f"{tuple(metadata_allowed_mask.shape)} and {tuple(base_mask.shape)}."
+        )
+        raise ValueError(msg)
+    if premap_allowed_mask is not None and premap_allowed_mask.shape != base_mask.shape:
+        msg = (
+            "premap_allowed_mask must have the same shape as base_mask, got "
+            f"{tuple(premap_allowed_mask.shape)} and {tuple(base_mask.shape)}."
         )
         raise ValueError(msg)
 
@@ -300,6 +354,8 @@ def score_threshold_mtp_extra_decision_masks(
             skipped_below_threshold=empty,
             skipped_invalid_score=empty,
             skipped_policy=empty,
+            admitted_metadata=empty,
+            admitted_premap=empty,
         )
 
     finite = torch.isfinite(mtp_scores.float())
@@ -327,26 +383,50 @@ def score_threshold_mtp_extra_decision_masks(
     score_pass = in_cap & finite_scores.ge(float(score_threshold))
     skipped_below_threshold = in_cap & ~score_pass
 
-    if policy_allowed_mask is None:
-        policy_allowed = torch.ones_like(base_mask, dtype=torch.bool)
-    else:
-        policy_allowed = policy_allowed_mask.to(dtype=torch.bool)
-    skipped_policy = score_pass & ~policy_allowed
-    admitted = score_pass & policy_allowed
+    full_fetch_allowed = _optional_allowed_mask(policy_allowed_mask, reference=base_mask, default=True)
+    metadata_allowed = _optional_allowed_mask(
+        metadata_allowed_mask,
+        reference=base_mask,
+        default=False,
+    )
+    premap_allowed = _optional_allowed_mask(
+        premap_allowed_mask,
+        reference=base_mask,
+        default=False,
+    )
+    admitted_full_fetch = score_pass & full_fetch_allowed
+    remaining = score_pass & ~admitted_full_fetch
+    admitted_metadata = remaining & metadata_allowed
+    remaining = remaining & ~admitted_metadata
+    admitted_premap = remaining & premap_allowed
+    skipped_policy = remaining & ~admitted_premap
 
     return AdmissionDecisionMasks(
-        admitted_full_fetch=admitted,
+        admitted_full_fetch=admitted_full_fetch,
         skipped_not_novel=skipped_not_novel,
         skipped_rank_cap=skipped_rank_cap,
         skipped_below_threshold=skipped_below_threshold,
         skipped_invalid_score=skipped_invalid_score,
         skipped_policy=skipped_policy,
+        admitted_metadata=admitted_metadata,
+        admitted_premap=admitted_premap,
     )
 
 
 def _finite_scores(scores: torch.Tensor) -> torch.Tensor:
     finite = torch.isfinite(scores.float())
     return scores.float().masked_fill(~finite, -float("inf"))
+
+
+def _optional_allowed_mask(
+    mask: torch.Tensor | None,
+    *,
+    reference: torch.Tensor,
+    default: bool,
+) -> torch.Tensor:
+    if mask is None:
+        return torch.full_like(reference, bool(default), dtype=torch.bool)
+    return mask.to(dtype=torch.bool)
 
 
 def _prepare_layer_factor(

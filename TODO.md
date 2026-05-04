@@ -910,6 +910,29 @@ future MoE expert demand on Qwen3.6-35B-A3B.
     - `skipped_policy`
   - tests now verify that reason masks are disjoint, preserve transition candidates, reject invalid scores, and report policy-pressure skips
   - current test suite for the runtime/evaluation policy surface: `33 passed`
+- [x] Add action-level admission decisions:
+  - extended `AdmissionDecisionMasks` with:
+    - `admitted_full_fetch`
+    - `admitted_metadata`
+    - `admitted_premap`
+    - skip reason masks
+  - added `action_masks()` with runtime actions:
+    - `full_fetch`
+    - `metadata`
+    - `premap`
+    - `skip`
+  - added `admitted_any_mtp_mask()` for runtime shadow accounting
+  - preserved `final_prefetch_mask(base_mask)` semantics:
+    - includes protected transition base
+    - includes only full-fetch MTP extras
+    - does not treat metadata/pre-map as ready weight fetches
+  - `score_threshold_mtp_extra_decision_masks` now supports:
+    - `policy_allowed_mask` for full fetch
+    - `metadata_allowed_mask` for metadata-only fallback
+    - `premap_allowed_mask` for descriptor/pre-map fallback
+  - tests:
+    - metadata/premap/full-fetch action routing is covered in `tests/test_prefetch_shadow.py`
+    - latest subset: `33 passed`
 - [x] Extend score-threshold metadata into a reproducible artifact:
   - dataclass: `ScoreThresholdMetadata`
   - added fields:
@@ -1068,6 +1091,22 @@ future MoE expert demand on Qwen3.6-35B-A3B.
     - cache read/write path is healthy on GPU0
     - this removes the main Python overhead for repeated Pareto/threshold sweeps
     - future full 256-sample sweeps should use a persistent tensor cache instead of rebuilding from trace manifests each run
+  - full 256-sample cache:
+    - cache path: `outputs/reports/prefetch_shadow_256sample_mtp_extra/event_stall_tensor_cache_256sample.pt`
+    - cached sweep output: `outputs/reports/prefetch_shadow_256sample_mtp_extra/event_stall_proxy_gpu0_cap160_gated_pareto_256sample_cached.json`
+    - cached summary output: `outputs/reports/prefetch_shadow_256sample_mtp_extra/event_stall_proxy_gpu0_cap160_gated_pareto_256sample_cached.md`
+    - metrics match the non-cached Pareto report, confirming cache path preserves semantics
+    - remaining bottleneck is multi-policy event replay, not manifest parsing
+- [x] Create initial git commit:
+  - commit: `8d8c032`
+  - message: `Initial MTP expert prefetch prototype`
+  - scoped to source, configs, tests, docs, and `.gitkeep` placeholders
+  - large local artifacts remain ignored:
+    - model downloads / checkpoints
+    - trace payloads
+    - reports and tensor caches
+    - logs
+    - third-party local checkouts
 - [x] Add runtime policy contract:
   - module: `src/mtp_expert_prefetch/runtime/policy.py`
   - exported via `src/mtp_expert_prefetch/runtime/__init__.py`

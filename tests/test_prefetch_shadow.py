@@ -219,6 +219,69 @@ def test_score_threshold_decision_masks_report_policy_skips():
     ]
 
 
+def test_score_threshold_decision_masks_support_metadata_and_premap_actions():
+    transition_scores = torch.tensor([[[[0.9, 0.8, 0.0, 0.0, 0.0]]]])
+    mtp_scores = torch.tensor([[[[0.1, 0.2, 0.95, 0.9, 0.85]]]])
+    base = topk_mask(transition_scores, k=2)
+    full_fetch_allowed = torch.zeros_like(base)
+    full_fetch_allowed[..., 2] = True
+    metadata_allowed = torch.zeros_like(base)
+    metadata_allowed[..., 3] = True
+    premap_allowed = torch.zeros_like(base)
+    premap_allowed[..., 4] = True
+
+    decisions = score_threshold_mtp_extra_decision_masks(
+        base,
+        mtp_scores,
+        mtp_topk=5,
+        max_extra=3,
+        score_threshold=0.8,
+        policy_allowed_mask=full_fetch_allowed,
+        metadata_allowed_mask=metadata_allowed,
+        premap_allowed_mask=premap_allowed,
+    )
+
+    assert decisions.admitted_full_fetch[0, 0, 0].tolist() == [
+        False,
+        False,
+        True,
+        False,
+        False,
+    ]
+    assert decisions.admitted_metadata[0, 0, 0].tolist() == [
+        False,
+        False,
+        False,
+        True,
+        False,
+    ]
+    assert decisions.admitted_premap[0, 0, 0].tolist() == [
+        False,
+        False,
+        False,
+        False,
+        True,
+    ]
+    assert decisions.final_prefetch_mask(base)[0, 0, 0].tolist() == [
+        True,
+        True,
+        True,
+        False,
+        False,
+    ]
+    assert decisions.admitted_any_mtp_mask()[0, 0, 0].tolist() == [
+        False,
+        False,
+        True,
+        True,
+        True,
+    ]
+    assert decisions.action_masks()["full_fetch"].equal(decisions.admitted_full_fetch)
+    assert decisions.action_masks()["metadata"].equal(decisions.admitted_metadata)
+    assert decisions.action_masks()["premap"].equal(decisions.admitted_premap)
+    assert not decisions.action_masks()["skip"][..., 2:].any()
+
+
 def test_tail_swap_mtp_extra_mask_replaces_transition_tail_only():
     transition_scores = torch.tensor([[[[0.9, 0.8, 0.7, 0.6, 0.0, 0.0, 0.0]]]])
     mtp_scores = torch.tensor([[[[0.1, 0.2, 0.3, 0.4, 0.95, 0.85, 0.75]]]])
