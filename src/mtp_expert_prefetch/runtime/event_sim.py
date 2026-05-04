@@ -378,6 +378,10 @@ def simulate_stall_proxy(
             metrics["admission_action_outcomes"] = _decision_action_outcome_metrics(
                 decisions,
                 target_mass=target_mass,
+                score_tensor=score_tensor.to(transition_scores.device),
+                base_mask=base_mask,
+                mtp_topk=mtp_topk,
+                max_extra=gated_cap,
                 expert_bytes=expert_bytes,
                 metadata_bytes=metadata_bytes,
                 premap_bytes=premap_bytes,
@@ -747,6 +751,10 @@ def _decision_action_outcome_metrics(
     decisions: Any,
     *,
     target_mass: torch.Tensor,
+    score_tensor: torch.Tensor,
+    base_mask: torch.Tensor,
+    mtp_topk: int,
+    max_extra: int,
     expert_bytes: int,
     metadata_bytes: int,
     premap_bytes: int,
@@ -756,6 +764,7 @@ def _decision_action_outcome_metrics(
 ) -> dict[str, Any]:
     action_masks = decisions.action_masks()
     demand = target_mass.float().gt(0.0)
+    novel_rank = _novel_rank_tensor(base_mask, score_tensor, mtp_topk=mtp_topk)
     bytes_per_ms = float(bandwidth_gbps) * 1_000_000_000.0 / 1000.0
     action_cost_bytes = {
         "full_fetch": int(expert_bytes),
@@ -782,6 +791,7 @@ def _decision_action_outcome_metrics(
         unused_count = float(unused.float().sum().item())
         actual_bytes = count * float(action_cost_bytes[str(action)])
         payload_equivalent_bytes = count * float(expert_bytes)
+        actual_transfer_ms = actual_bytes / max(bytes_per_ms, 1e-12)
         later_used_setup_saved_ms = (
             later_used_count * float(setup_saved_us[str(action)]) / 1000.0
         )
@@ -792,6 +802,7 @@ def _decision_action_outcome_metrics(
             "count": count,
             "payload_equivalent_bytes": payload_equivalent_bytes,
             "actual_bytes": actual_bytes,
+            "actual_transfer_ms": actual_transfer_ms,
             "later_used_count": later_used_count,
             "later_used_payload_equivalent_bytes": later_used_count * float(expert_bytes),
             "later_used_rate": later_used_count / max(1.0, count),
@@ -799,6 +810,14 @@ def _decision_action_outcome_metrics(
             "unused_payload_equivalent_bytes": unused_count * float(expert_bytes),
             "unused_rate": unused_count / max(1.0, count),
             "later_used_setup_saved_ms": later_used_setup_saved_ms,
+            "net_setup_benefit_ms": later_used_setup_saved_ms - actual_transfer_ms,
+            "by_layer": _action_by_layer_metrics(selected, later_used),
+            "by_rank": _action_by_rank_metrics(
+                selected,
+                later_used,
+                novel_rank=novel_rank,
+                max_extra=max_extra,
+            ),
         }
     skip_would_have_used = action_masks["skip"].bool() & demand
     skip_would_have_used_count = float(skip_would_have_used.float().sum().item())
@@ -817,6 +836,72 @@ def _decision_action_outcome_metrics(
         "premap_supplemental_saved_us": float(premap_supplemental_saved_us),
     }
     return outcomes
+
+
+def _novel_rank_tensor(
+    base_mask: torch.Tensor,
+    scores: torch.Tensor,
+    *,
+    mtp_topk: int,
+) -> torch.Tensor:
+    mtp_topk = min(max(0, int(mtp_topk)), int(scores.shape[-1]))
+    ranks = torch.zeros_like(base_mask, dtype=torch.int16)
+    if mtp_topk == 0:
+        return ranks
+    finite_scores = scores.float().masked_fill(~torch.isfinite(scores.float()), -float("inf"))
+    ranked = torch.topk(finite_scores, k=mtp_topk, dim=-1).indices
+    ranked_novel = ~base_mask.gather(-1, ranked)
+    ranked_novel_rank = ranked_novel.to(torch.int16).cumsum(dim=-1)
+    ranks.scatter_(
+        -1,
+        ranked,
+        torch.where(ranked_novel, ranked_novel_rank, torch.zeros_like(ranked_novel_rank)).to(
+            ranks.dtype
+        ),
+    )
+    return ranks
+
+
+def _action_by_layer_metrics(
+    selected: torch.Tensor,
+    later_used: torch.Tensor,
+) -> dict[str, list[float]]:
+    count_by_layer = selected.float().sum(dim=(0, 1, 3))
+    later_used_by_layer = later_used.float().sum(dim=(0, 1, 3))
+    rate_by_layer = later_used_by_layer / count_by_layer.clamp_min(1.0)
+    return {
+        "count": [float(value) for value in count_by_layer.detach().cpu().tolist()],
+        "later_used_count": [
+            float(value) for value in later_used_by_layer.detach().cpu().tolist()
+        ],
+        "later_used_rate": [float(value) for value in rate_by_layer.detach().cpu().tolist()],
+    }
+
+
+def _action_by_rank_metrics(
+    selected: torch.Tensor,
+    later_used: torch.Tensor,
+    *,
+    novel_rank: torch.Tensor,
+    max_extra: int,
+) -> dict[str, list[float]]:
+    max_rank = max(0, int(max_extra))
+    counts = []
+    later_counts = []
+    rates = []
+    for rank in range(1, max_rank + 1):
+        rank_mask = selected & novel_rank.eq(rank)
+        rank_later_used = later_used & novel_rank.eq(rank)
+        count = float(rank_mask.float().sum().item())
+        later_count = float(rank_later_used.float().sum().item())
+        counts.append(count)
+        later_counts.append(later_count)
+        rates.append(later_count / max(1.0, count))
+    return {
+        "count": counts,
+        "later_used_count": later_counts,
+        "later_used_rate": rates,
+    }
 
 
 def _unique_payload_counter_metrics(

@@ -166,6 +166,20 @@ def test_simulate_stall_proxy_downgrades_gated_actions_without_prefetching():
     assert gated["admission_action_outcomes"]["premap"]["actual_bytes"] == pytest.approx(
         4_096.0
     )
+    assert gated["admission_action_outcomes"]["metadata"]["by_layer"]["later_used_rate"] == [
+        pytest.approx(1.0)
+    ]
+    assert gated["admission_action_outcomes"]["premap"]["by_layer"]["later_used_rate"] == [
+        pytest.approx(1.0)
+    ]
+    assert gated["admission_action_outcomes"]["metadata"]["by_rank"]["later_used_rate"] == [
+        pytest.approx(1.0),
+        pytest.approx(0.0),
+    ]
+    assert gated["admission_action_outcomes"]["premap"]["by_rank"]["later_used_rate"] == [
+        pytest.approx(0.0),
+        pytest.approx(1.0),
+    ]
     assert gated["metadata_premap_setup_saved_ms"] == pytest.approx(0.025)
     assert gated["serial_action_actual_transfer_ms"] > 0.0
     assert "serial_net_benefit_ms_vs_transition" in gated

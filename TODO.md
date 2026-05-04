@@ -1029,6 +1029,33 @@ future MoE expert demand on Qwen3.6-35B-A3B.
   - tests:
     - metadata/premap later-used and actual-byte counters covered in `tests/test_runtime_event_sim.py`
     - current policy/eval runtime subset: `34 passed`
+- [x] Add per-layer/per-rank action outcome breakdowns:
+  - module: `src/mtp_expert_prefetch/runtime/event_sim.py`
+  - `admission_action_outcomes` now reports, for every action:
+    - `by_layer.count`
+    - `by_layer.later_used_count`
+    - `by_layer.later_used_rate`
+    - `by_rank.count`
+    - `by_rank.later_used_count`
+    - `by_rank.later_used_rate`
+    - per-action `actual_transfer_ms`
+    - per-action `net_setup_benefit_ms`
+  - GPU0 W7900 cached smoke:
+    - output: `outputs/reports/prefetch_shadow_256sample_mtp_extra/event_stall_proxy_gpu0_cap160_downgrade_cost_breakdown_smoke.json`
+  - score keep-top-50% action later-used rates:
+    - metadata overall `0.0459`, by rank `[0.0548, 0.0462, 0.0439, 0.0416]`
+    - premap overall `0.0288`, by rank `[0.0314, 0.0301, 0.0294, 0.0275]`
+  - utility keep-top-50% action later-used rates:
+    - metadata overall `0.0387`, by rank `[0.0289, 0.0310, 0.0376, 0.0467]`
+    - premap overall `0.0296`, by rank `[0.0311, 0.0304, 0.0287, 0.0299]`
+  - interpretation:
+    - metadata/premap later-used is low but non-zero
+    - score-gated metadata/premap has the expected rank decay
+    - rank/layer/ready utility redistributes metadata to different rank buckets, so future cost-aware downgrade should use utility/layer/ready jointly rather than rank-only thresholds
+    - serial net setup benefit is negative under the conservative non-overlap cost model, so metadata/premap should stay opportunistic until runtime overlap or measured setup savings justify broader use
+  - tests:
+    - small regression checks metadata rank-1 and premap rank-2 later-used breakdowns
+    - current policy/eval runtime subset: `34 passed`
 - [x] Extend score-threshold metadata into a reproducible artifact:
   - dataclass: `ScoreThresholdMetadata`
   - added fields:
