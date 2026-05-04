@@ -60,10 +60,13 @@ def simulate_stall_proxy(
     gated_metadata_threshold_ratio: float = 0.5,
     gated_premap_threshold_ratio: float = 0.25,
     gated_full_fetch_ready_threshold: float = 0.75,
+    gated_metadata_downgrade_enabled: bool = True,
+    gated_premap_downgrade_enabled: bool = True,
     metadata_bytes: int = 65_536,
     premap_bytes: int = 4_096,
     metadata_supplemental_saved_us: float = 20.0,
     premap_supplemental_saved_us: float = 5.0,
+    action_cost_overlap_factor: float = 0.0,
     include_unique_payload_counters: bool = True,
 ) -> StallProxyReport:
     """Estimate true-router supplemental fetch/stall after prefetch readiness.
@@ -290,6 +293,8 @@ def simulate_stall_proxy(
                     expert_bytes=expert_bytes,
                     max_extra=gated_cap,
                     full_fetch_ready_threshold=gated_full_fetch_ready_threshold,
+                    metadata_enabled=gated_metadata_downgrade_enabled,
+                    premap_enabled=gated_premap_downgrade_enabled,
                 )
             decisions = score_threshold_mtp_extra_decision_masks(
                 base_mask,
@@ -346,6 +351,12 @@ def simulate_stall_proxy(
                 metrics["full_fetch_ready_threshold"] = float(
                     gated_full_fetch_ready_threshold
                 )
+                metrics["metadata_downgrade_enabled"] = float(
+                    bool(gated_metadata_downgrade_enabled)
+                )
+                metrics["premap_downgrade_enabled"] = float(
+                    bool(gated_premap_downgrade_enabled)
+                )
                 metrics.update(_prefixed_float_dict(downgrade_stats, "downgrade"))
             metrics["requested_pool_mass_coverage"] = float(
                 requested_metrics["pool_mass_coverage"]
@@ -387,6 +398,7 @@ def simulate_stall_proxy(
                 premap_bytes=premap_bytes,
                 metadata_supplemental_saved_us=metadata_supplemental_saved_us,
                 premap_supplemental_saved_us=premap_supplemental_saved_us,
+                action_cost_overlap_factor=action_cost_overlap_factor,
                 bandwidth_gbps=bandwidth_gbps,
             )
             metrics["saved_supplemental_fetch_count_vs_transition"] = float(
@@ -414,10 +426,18 @@ def simulate_stall_proxy(
             metrics["serial_action_actual_transfer_ms"] = float(
                 action_outcomes["summary"]["actual_transfer_ms_sum"]
             )
+            metrics["overlap_adjusted_action_cost_ms"] = float(
+                action_outcomes["summary"]["overlap_adjusted_actual_transfer_ms_sum"]
+            )
             metrics["serial_net_benefit_ms_vs_transition"] = float(
                 metrics["saved_supplemental_stall_ms_vs_transition"]
                 + metrics["metadata_premap_setup_saved_ms"]
                 - metrics["serial_action_actual_transfer_ms"]
+            )
+            metrics["overlap_adjusted_net_benefit_ms_vs_transition"] = float(
+                metrics["saved_supplemental_stall_ms_vs_transition"]
+                + metrics["metadata_premap_setup_saved_ms"]
+                - metrics["overlap_adjusted_action_cost_ms"]
             )
             _add_transition_delta_metrics(metrics, transition_metrics)
             policies[f"transition_top{transition_topk}_plus_gated_{policy_name}"] = metrics
@@ -561,6 +581,8 @@ def _gated_action_downgrade_masks(
     expert_bytes: int,
     max_extra: int,
     full_fetch_ready_threshold: float,
+    metadata_enabled: bool,
+    premap_enabled: bool,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, dict[str, float]]:
     """Build action masks for score-gated MTP extras.
 
@@ -589,8 +611,16 @@ def _gated_action_downgrade_masks(
     )
     ready_mask = ready_mask.expand_as(score)
     full_fetch_allowed = finite & score.ge(full_threshold) & ready_mask
-    metadata_allowed = finite & score.ge(metadata_threshold)
-    premap_allowed = finite & score.ge(premap_threshold)
+    metadata_allowed = (
+        finite & score.ge(metadata_threshold)
+        if bool(metadata_enabled)
+        else torch.zeros_like(finite, dtype=torch.bool)
+    )
+    premap_allowed = (
+        finite & score.ge(premap_threshold)
+        if bool(premap_enabled)
+        else torch.zeros_like(finite, dtype=torch.bool)
+    )
     ready_min = float(layer_ready.min().item()) if layer_ready.numel() else 0.0
     ready_mean = float(layer_ready.mean().item()) if layer_ready.numel() else 0.0
     ready_max = float(layer_ready.max().item()) if layer_ready.numel() else 0.0
@@ -760,12 +790,14 @@ def _decision_action_outcome_metrics(
     premap_bytes: int,
     metadata_supplemental_saved_us: float,
     premap_supplemental_saved_us: float,
+    action_cost_overlap_factor: float,
     bandwidth_gbps: float,
 ) -> dict[str, Any]:
     action_masks = decisions.action_masks()
     demand = target_mass.float().gt(0.0)
     novel_rank = _novel_rank_tensor(base_mask, score_tensor, mtp_topk=mtp_topk)
     bytes_per_ms = float(bandwidth_gbps) * 1_000_000_000.0 / 1000.0
+    overlap_factor = min(max(float(action_cost_overlap_factor), 0.0), 1.0)
     action_cost_bytes = {
         "full_fetch": int(expert_bytes),
         "metadata": int(metadata_bytes),
@@ -792,6 +824,7 @@ def _decision_action_outcome_metrics(
         actual_bytes = count * float(action_cost_bytes[str(action)])
         payload_equivalent_bytes = count * float(expert_bytes)
         actual_transfer_ms = actual_bytes / max(bytes_per_ms, 1e-12)
+        overlap_adjusted_transfer_ms = actual_transfer_ms * (1.0 - overlap_factor)
         later_used_setup_saved_ms = (
             later_used_count * float(setup_saved_us[str(action)]) / 1000.0
         )
@@ -803,6 +836,7 @@ def _decision_action_outcome_metrics(
             "payload_equivalent_bytes": payload_equivalent_bytes,
             "actual_bytes": actual_bytes,
             "actual_transfer_ms": actual_transfer_ms,
+            "overlap_adjusted_actual_transfer_ms": overlap_adjusted_transfer_ms,
             "later_used_count": later_used_count,
             "later_used_payload_equivalent_bytes": later_used_count * float(expert_bytes),
             "later_used_rate": later_used_count / max(1.0, count),
@@ -811,6 +845,8 @@ def _decision_action_outcome_metrics(
             "unused_rate": unused_count / max(1.0, count),
             "later_used_setup_saved_ms": later_used_setup_saved_ms,
             "net_setup_benefit_ms": later_used_setup_saved_ms - actual_transfer_ms,
+            "overlap_adjusted_net_setup_benefit_ms": later_used_setup_saved_ms
+            - overlap_adjusted_transfer_ms,
             "by_layer": _action_by_layer_metrics(selected, later_used),
             "by_rank": _action_by_rank_metrics(
                 selected,
@@ -825,6 +861,7 @@ def _decision_action_outcome_metrics(
                 actual_bytes_per_action=float(action_cost_bytes[str(action)]),
                 setup_saved_us=float(setup_saved_us[str(action)]),
                 bytes_per_ms=bytes_per_ms,
+                overlap_factor=overlap_factor,
             ),
         }
     skip_would_have_used = action_masks["skip"].bool() & demand
@@ -837,6 +874,11 @@ def _decision_action_outcome_metrics(
         "actual_bytes": total_actual_bytes,
         "payload_equivalent_bytes": total_payload_equivalent_bytes,
         "actual_transfer_ms_sum": total_actual_bytes / max(bytes_per_ms, 1e-12),
+        "overlap_adjusted_actual_transfer_ms_sum": (
+            total_actual_bytes / max(bytes_per_ms, 1e-12)
+        )
+        * (1.0 - overlap_factor),
+        "action_cost_overlap_factor": overlap_factor,
         "metadata_premap_setup_saved_ms": total_later_used_setup_saved_ms,
         "metadata_bytes_per_action": float(metadata_bytes),
         "premap_bytes_per_action": float(premap_bytes),
@@ -920,6 +962,7 @@ def _action_by_score_bin_metrics(
     actual_bytes_per_action: float,
     setup_saved_us: float,
     bytes_per_ms: float,
+    overlap_factor: float,
 ) -> dict[str, list[float] | list[str]]:
     selected_scores = scores[selected & torch.isfinite(scores)]
     labels = ["0_10", "10_25", "25_50", "50_75", "75_90", "90_100"]
@@ -934,6 +977,7 @@ def _action_by_score_bin_metrics(
             "later_used_rate": [0.0 for _ in labels],
             "actual_transfer_ms": [0.0 for _ in labels],
             "net_setup_benefit_ms": [0.0 for _ in labels],
+            "overlap_adjusted_net_setup_benefit_ms": [0.0 for _ in labels],
         }
     boundaries = torch.quantile(
         selected_scores.float(),
@@ -944,6 +988,7 @@ def _action_by_score_bin_metrics(
     rates = []
     actual_transfer_ms = []
     net_setup_benefit_ms = []
+    overlap_adjusted_net_setup_benefit_ms = []
     score_min = []
     score_max = []
     for idx, label in enumerate(labels):
@@ -957,12 +1002,14 @@ def _action_by_score_bin_metrics(
         count = float(bin_mask.float().sum().item())
         later_count = float(bin_later_used.float().sum().item())
         transfer_ms = count * float(actual_bytes_per_action) / max(bytes_per_ms, 1e-12)
+        overlap_transfer_ms = transfer_ms * (1.0 - float(overlap_factor))
         setup_saved_ms = later_count * float(setup_saved_us) / 1000.0
         counts.append(count)
         later_counts.append(later_count)
         rates.append(later_count / max(1.0, count))
         actual_transfer_ms.append(transfer_ms)
         net_setup_benefit_ms.append(setup_saved_ms - transfer_ms)
+        overlap_adjusted_net_setup_benefit_ms.append(setup_saved_ms - overlap_transfer_ms)
         score_min.append(float(lower.item()))
         score_max.append(float(upper.item()))
     return {
@@ -974,6 +1021,7 @@ def _action_by_score_bin_metrics(
         "later_used_rate": rates,
         "actual_transfer_ms": actual_transfer_ms,
         "net_setup_benefit_ms": net_setup_benefit_ms,
+        "overlap_adjusted_net_setup_benefit_ms": overlap_adjusted_net_setup_benefit_ms,
     }
 
 

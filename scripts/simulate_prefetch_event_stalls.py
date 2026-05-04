@@ -114,6 +114,16 @@ def parse_args() -> argparse.Namespace:
         help="Minimum per-layer ready factor required for full_fetch MTP extras.",
     )
     parser.add_argument(
+        "--disable-metadata-downgrade",
+        action="store_true",
+        help="Disable metadata fallback actions for gated MTP extras.",
+    )
+    parser.add_argument(
+        "--disable-premap-downgrade",
+        action="store_true",
+        help="Disable premap fallback actions for gated MTP extras.",
+    )
+    parser.add_argument(
         "--metadata-bytes",
         type=int,
         default=65_536,
@@ -136,6 +146,12 @@ def parse_args() -> argparse.Namespace:
         type=float,
         default=5.0,
         help="Estimated supplemental-fetch setup latency saved when premap was prepared.",
+    )
+    parser.add_argument(
+        "--action-cost-overlap-factor",
+        type=float,
+        default=0.0,
+        help="Fraction of action transfer/setup cost assumed overlapped in adjusted net benefit.",
     )
     parser.add_argument(
         "--disable-unique-payload-counters",
@@ -332,10 +348,13 @@ def main() -> None:
         gated_metadata_threshold_ratio=float(args.downgrade_metadata_threshold_ratio),
         gated_premap_threshold_ratio=float(args.downgrade_premap_threshold_ratio),
         gated_full_fetch_ready_threshold=float(args.downgrade_full_fetch_ready_threshold),
+        gated_metadata_downgrade_enabled=not bool(args.disable_metadata_downgrade),
+        gated_premap_downgrade_enabled=not bool(args.disable_premap_downgrade),
         metadata_bytes=int(args.metadata_bytes),
         premap_bytes=int(args.premap_bytes),
         metadata_supplemental_saved_us=float(args.metadata_supplemental_saved_us),
         premap_supplemental_saved_us=float(args.premap_supplemental_saved_us),
+        action_cost_overlap_factor=float(args.action_cost_overlap_factor),
         include_unique_payload_counters=not bool(args.disable_unique_payload_counters),
     )
     written_path = write_stall_proxy_report(report, output)
@@ -388,12 +407,15 @@ def main() -> None:
                 "downgrade_full_fetch_ready_threshold": float(
                     args.downgrade_full_fetch_ready_threshold
                 ),
+                "metadata_downgrade_enabled": not bool(args.disable_metadata_downgrade),
+                "premap_downgrade_enabled": not bool(args.disable_premap_downgrade),
                 "metadata_bytes": int(args.metadata_bytes),
                 "premap_bytes": int(args.premap_bytes),
                 "metadata_supplemental_saved_us": float(
                     args.metadata_supplemental_saved_us
                 ),
                 "premap_supplemental_saved_us": float(args.premap_supplemental_saved_us),
+                "action_cost_overlap_factor": float(args.action_cost_overlap_factor),
                 "unique_payload_counters_enabled": not bool(
                     args.disable_unique_payload_counters
                 ),

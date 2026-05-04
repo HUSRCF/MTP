@@ -1087,6 +1087,36 @@ future MoE expert demand on Qwen3.6-35B-A3B.
   - tests:
     - small regression checks score-bin coverage and later-used accounting
     - current policy/eval runtime subset: `34 passed`
+- [x] Add action-specific downgrade controls and overlap-adjusted cost proxy:
+  - module: `src/mtp_expert_prefetch/runtime/event_sim.py`
+  - script: `scripts/simulate_prefetch_event_stalls.py`
+  - new simulator/API and CLI controls:
+    - `gated_metadata_downgrade_enabled` / `--disable-metadata-downgrade`
+    - `gated_premap_downgrade_enabled` / `--disable-premap-downgrade`
+    - `action_cost_overlap_factor` / `--action-cost-overlap-factor`
+  - reports now include:
+    - per-action `overlap_adjusted_actual_transfer_ms`
+    - per-action `overlap_adjusted_net_setup_benefit_ms`
+    - policy-level `overlap_adjusted_action_cost_ms`
+    - policy-level `overlap_adjusted_net_benefit_ms_vs_transition`
+  - metadata high-tail / premap-off trial:
+    - output: `outputs/reports/prefetch_shadow_256sample_mtp_extra/event_stall_proxy_gpu0_cap160_metadata_high_tail_no_premap.json`
+    - config: metadata threshold ratio `0.9`, premap disabled, overlap factor `0.0`
+    - score keep-top-50% metadata: count `102109`, later-used `8965`, rate `0.0878`, serial net setup benefit `-836.3ms`
+    - utility keep-top-50% metadata: count `34264`, later-used `1571`, rate `0.0458`, serial net setup benefit `-309.4ms`
+  - overlap-adjusted high-tail / premap-off trial:
+    - output: `outputs/reports/prefetch_shadow_256sample_mtp_extra/event_stall_proxy_gpu0_cap160_metadata_high_tail_no_premap_overlap08.json`
+    - overlap factor `0.8`
+    - score keep-top-50% metadata overlap-adjusted net setup benefit improves to `-23.8ms`
+    - utility keep-top-50% metadata overlap-adjusted net setup benefit improves to `-36.7ms`
+  - interpretation:
+    - score-gated high-tail metadata is close to break-even only under aggressive overlap assumptions
+    - metadata should be high-score + opportunistic, not an unconditional downgrade target
+    - premap remains disabled in this trial because score bins showed weak prediction signal
+    - next action gate should use separate utility/cost rules per action, not one shared threshold ladder
+  - tests:
+    - overlap-adjusted cost accounting covered in `tests/test_runtime_event_sim.py`
+    - current policy/eval runtime subset: `34 passed`
 - [x] Extend score-threshold metadata into a reproducible artifact:
   - dataclass: `ScoreThresholdMetadata`
   - added fields:

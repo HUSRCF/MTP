@@ -144,6 +144,7 @@ def test_simulate_stall_proxy_downgrades_gated_actions_without_prefetching():
         gated_metadata_threshold_ratio=0.5,
         gated_premap_threshold_ratio=0.25,
         gated_full_fetch_ready_threshold=1.1,
+        action_cost_overlap_factor=0.5,
     )
 
     gated = report.policies["transition_top2_plus_gated_utility_keep_top"]
@@ -190,6 +191,13 @@ def test_simulate_stall_proxy_downgrades_gated_actions_without_prefetching():
     assert gated["metadata_premap_setup_saved_ms"] == pytest.approx(0.025)
     assert gated["serial_action_actual_transfer_ms"] > 0.0
     assert "serial_net_benefit_ms_vs_transition" in gated
+    assert gated["overlap_adjusted_action_cost_ms"] == pytest.approx(
+        gated["serial_action_actual_transfer_ms"] * 0.5
+    )
+    assert "overlap_adjusted_net_benefit_ms_vs_transition" in gated
+    assert gated["admission_action_outcomes"]["metadata"][
+        "overlap_adjusted_net_setup_benefit_ms"
+    ] > gated["admission_action_outcomes"]["metadata"]["net_setup_benefit_ms"]
     matrix = gated["admission_action_reason_matrix"]
     assert matrix["admitted_metadata"]["metadata"]["count"] == pytest.approx(1.0)
     assert matrix["admitted_premap"]["premap"]["count"] == pytest.approx(1.0)
