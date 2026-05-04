@@ -311,6 +311,16 @@ def simulate_stall_proxy(
                 decisions,
                 expert_bytes=expert_bytes,
             )
+            metrics["admission_action_counters"] = _decision_action_counter_metrics(
+                decisions,
+                expert_bytes=expert_bytes,
+            )
+            metrics["admission_action_reason_matrix"] = (
+                _decision_action_reason_matrix_metrics(
+                    decisions,
+                    expert_bytes=expert_bytes,
+                )
+            )
             metrics["saved_supplemental_fetch_count_vs_transition"] = float(
                 baseline_missing_fetches - metrics["supplemental_fetch_count"]
             )
@@ -364,8 +374,8 @@ def simulate_stall_proxy(
             ),
             "gated_policies": (
                 "Optional gated policies use canonical score-threshold MTP-extra "
-                "admission masks and report reason counters alongside issued, "
-                "ready, used, unused, and skipped byte counters."
+                "admission masks and report action/reason counters alongside "
+                "issued, ready, used, unused, and skipped byte counters."
             ),
             "unique_payload_counters": (
                 "Unique sample/layer/expert payload counters are optional because "
@@ -527,6 +537,40 @@ def _decision_reason_counter_metrics(
             "bytes": float(count * int(expert_bytes)),
         }
     return counters
+
+
+def _decision_action_counter_metrics(
+    decisions: Any,
+    *,
+    expert_bytes: int,
+) -> dict[str, dict[str, float]]:
+    counters = {}
+    for action, mask in decisions.action_masks().items():
+        count = float(mask.float().sum().item())
+        counters[str(action)] = {
+            "count": count,
+            "bytes": float(count * int(expert_bytes)),
+        }
+    return counters
+
+
+def _decision_action_reason_matrix_metrics(
+    decisions: Any,
+    *,
+    expert_bytes: int,
+) -> dict[str, dict[str, dict[str, float]]]:
+    matrix = {}
+    action_masks = decisions.action_masks()
+    for reason, reason_mask in decisions.reason_masks().items():
+        reason_row = {}
+        for action, action_mask in action_masks.items():
+            count = float((reason_mask & action_mask).float().sum().item())
+            reason_row[str(action)] = {
+                "count": count,
+                "bytes": float(count * int(expert_bytes)),
+            }
+        matrix[str(reason)] = reason_row
+    return matrix
 
 
 def _unique_payload_counter_metrics(

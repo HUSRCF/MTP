@@ -107,3 +107,13 @@ def test_simulate_stall_proxy_reports_gated_policy_counters():
     assert gated["admission_reason_counters"]["skipped_below_threshold"]["count"] == pytest.approx(
         1.0
     )
+    assert gated["admission_action_counters"]["full_fetch"]["count"] == pytest.approx(1.0)
+    assert gated["admission_action_counters"]["metadata"]["count"] == pytest.approx(0.0)
+    assert gated["admission_action_counters"]["premap"]["count"] == pytest.approx(0.0)
+    assert gated["admission_action_counters"]["skip"]["count"] == pytest.approx(3.0)
+    assert gated["admission_action_counters"]["full_fetch"]["bytes"] == pytest.approx(100.0)
+    matrix = gated["admission_action_reason_matrix"]
+    assert matrix["admitted_score_gate"]["full_fetch"]["count"] == pytest.approx(1.0)
+    assert matrix["admitted_score_gate"]["skip"]["count"] == pytest.approx(0.0)
+    assert matrix["skipped_below_threshold"]["skip"]["count"] == pytest.approx(1.0)
+    assert matrix["skipped_not_novel"]["skip"]["count"] == pytest.approx(2.0)

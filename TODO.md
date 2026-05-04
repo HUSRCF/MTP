@@ -933,6 +933,31 @@ future MoE expert demand on Qwen3.6-35B-A3B.
   - tests:
     - metadata/premap/full-fetch action routing is covered in `tests/test_prefetch_shadow.py`
     - latest subset: `33 passed`
+- [x] Report action-level runtime shadow counters:
+  - module: `src/mtp_expert_prefetch/runtime/event_sim.py`
+  - gated policy reports now include:
+    - `admission_action_counters`
+    - `admission_action_reason_matrix`
+  - action counters report `count/bytes` for:
+    - `full_fetch`
+    - `metadata`
+    - `premap`
+    - `skip`
+  - action x reason matrix reports each reason split by action, e.g.:
+    - `admitted_score_gate -> full_fetch`
+    - `skipped_below_threshold -> skip`
+    - `skipped_not_novel -> skip`
+    - `skipped_rank_cap -> skip`
+  - smoke output:
+    - `outputs/reports/prefetch_shadow_256sample_mtp_extra/event_stall_proxy_gpu0_cap160_action_matrix_smoke.json`
+  - current smoke interpretation:
+    - score keep-top-50% full fetch: `423089` candidates, `698.1GB`
+    - utility keep-top-50% full fetch: `457438` candidates, `754.8GB`
+    - metadata/premap are currently `0` because the event sim has not yet connected downgrade policy masks
+    - full-fetch-only ready semantics are preserved; metadata/premap do not enter `final_prefetch_mask`
+  - tests:
+    - `tests/test_runtime_event_sim.py` now checks action counters and action x reason matrix
+    - latest subset: `33 passed`
 - [x] Extend score-threshold metadata into a reproducible artifact:
   - dataclass: `ScoreThresholdMetadata`
   - added fields:
