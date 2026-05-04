@@ -958,6 +958,41 @@ future MoE expert demand on Qwen3.6-35B-A3B.
   - tests:
     - `tests/test_runtime_event_sim.py` now checks action counters and action x reason matrix
     - latest subset: `33 passed`
+- [x] Connect downgrade policy masks for action-level MTP extras:
+  - module: `src/mtp_expert_prefetch/runtime/event_sim.py`
+  - script: `scripts/simulate_prefetch_event_stalls.py`
+  - new simulator/API options:
+    - `enable_gated_action_downgrade`
+    - `gated_metadata_threshold_ratio`
+    - `gated_premap_threshold_ratio`
+    - `gated_full_fetch_ready_threshold`
+  - new CLI options:
+    - `--enable-downgrade-actions`
+    - `--downgrade-metadata-threshold-ratio`
+    - `--downgrade-premap-threshold-ratio`
+    - `--downgrade-full-fetch-ready-threshold`
+  - policy semantics:
+    - full fetch requires the original calibrated threshold plus a per-layer ready-factor gate
+    - metadata uses a lower score threshold
+    - premap uses the lowest score threshold
+    - only `full_fetch` enters `final_prefetch_mask` / ready-before-demand / stall proxy
+    - `metadata` and `premap` are action-level counters only until their separate cost/latency model is added
+  - GPU0 W7900 cached smoke:
+    - output: `outputs/reports/prefetch_shadow_256sample_mtp_extra/event_stall_proxy_gpu0_cap160_downgrade_smoke.json`
+    - config: cap160, calibrated `6.589GB/s`, `1ms/layer`, `MTP delay=2ms`, token-level counters, `gate_max_extra=4`, keep-top-50%, downgrade enabled
+    - forced strict full-fetch ready threshold: `0.99`, so early/low-lead layers downgrade instead of full-fetch
+    - score keep-top-50% actions:
+      - full_fetch `379060` candidates / `625.4GB`
+      - metadata `444480` / `733.4GB`
+      - premap `104681` / `172.7GB`
+    - utility keep-top-50% actions:
+      - full_fetch `457438` / `754.8GB`
+      - metadata `229116` / `378.0GB`
+      - premap `140191` / `231.3GB`
+    - full-fetch ready/stall accounting remains unchanged in meaning: metadata/premap do not inflate ready mass
+  - tests:
+    - added downgrade regression in `tests/test_runtime_event_sim.py`
+    - current policy/eval runtime subset: `34 passed`
 - [x] Extend score-threshold metadata into a reproducible artifact:
   - dataclass: `ScoreThresholdMetadata`
   - added fields:

@@ -88,6 +88,32 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--disable-utility-layer-factor", action="store_true")
     parser.add_argument("--disable-utility-ready-factor", action="store_true")
     parser.add_argument(
+        "--enable-downgrade-actions",
+        action="store_true",
+        help=(
+            "Downgrade gated MTP extras to metadata/premap instead of treating "
+            "every score-passing candidate as full_fetch."
+        ),
+    )
+    parser.add_argument(
+        "--downgrade-metadata-threshold-ratio",
+        type=float,
+        default=0.5,
+        help="metadata threshold as a ratio of the calibrated full_fetch threshold.",
+    )
+    parser.add_argument(
+        "--downgrade-premap-threshold-ratio",
+        type=float,
+        default=0.25,
+        help="premap threshold as a ratio of the calibrated full_fetch threshold.",
+    )
+    parser.add_argument(
+        "--downgrade-full-fetch-ready-threshold",
+        type=float,
+        default=0.75,
+        help="Minimum per-layer ready factor required for full_fetch MTP extras.",
+    )
+    parser.add_argument(
         "--disable-unique-payload-counters",
         action="store_true",
         help="Skip expensive sample/layer/expert unique payload counters.",
@@ -278,6 +304,10 @@ def main() -> None:
         gated_score_tensors=gated_score_tensors,
         gated_score_thresholds=gated_score_thresholds,
         gated_max_extra=int(args.gate_max_extra),
+        enable_gated_action_downgrade=bool(args.enable_downgrade_actions),
+        gated_metadata_threshold_ratio=float(args.downgrade_metadata_threshold_ratio),
+        gated_premap_threshold_ratio=float(args.downgrade_premap_threshold_ratio),
+        gated_full_fetch_ready_threshold=float(args.downgrade_full_fetch_ready_threshold),
         include_unique_payload_counters=not bool(args.disable_unique_payload_counters),
     )
     written_path = write_stall_proxy_report(report, output)
@@ -320,6 +350,16 @@ def main() -> None:
                 "utility_rank_alpha": float(args.utility_rank_alpha),
                 "utility_layer_factor_enabled": not bool(args.disable_utility_layer_factor),
                 "utility_ready_factor_enabled": not bool(args.disable_utility_ready_factor),
+                "downgrade_actions_enabled": bool(args.enable_downgrade_actions),
+                "downgrade_metadata_threshold_ratio": float(
+                    args.downgrade_metadata_threshold_ratio
+                ),
+                "downgrade_premap_threshold_ratio": float(
+                    args.downgrade_premap_threshold_ratio
+                ),
+                "downgrade_full_fetch_ready_threshold": float(
+                    args.downgrade_full_fetch_ready_threshold
+                ),
                 "unique_payload_counters_enabled": not bool(
                     args.disable_unique_payload_counters
                 ),

@@ -56,6 +56,10 @@ def simulate_stall_proxy(
     gated_score_tensors: dict[str, torch.Tensor] | None = None,
     gated_score_thresholds: dict[str, float] | None = None,
     gated_max_extra: int | None = None,
+    enable_gated_action_downgrade: bool = False,
+    gated_metadata_threshold_ratio: float = 0.5,
+    gated_premap_threshold_ratio: float = 0.25,
+    gated_full_fetch_ready_threshold: float = 0.75,
     include_unique_payload_counters: bool = True,
 ) -> StallProxyReport:
     """Estimate true-router supplemental fetch/stall after prefetch readiness.
@@ -255,12 +259,43 @@ def simulate_stall_proxy(
                 )
                 raise ValueError(msg)
             threshold = float(gated_score_thresholds[policy_name])
+            action_threshold = threshold
+            policy_allowed_mask = None
+            metadata_allowed_mask = None
+            premap_allowed_mask = None
+            downgrade_stats: dict[str, float] = {}
+            if enable_gated_action_downgrade:
+                metadata_threshold = threshold * float(gated_metadata_threshold_ratio)
+                premap_threshold = threshold * float(gated_premap_threshold_ratio)
+                action_threshold = premap_threshold
+                (
+                    policy_allowed_mask,
+                    metadata_allowed_mask,
+                    premap_allowed_mask,
+                    downgrade_stats,
+                ) = _gated_action_downgrade_masks(
+                    score_tensor.to(transition_scores.device),
+                    full_fetch_score_threshold=threshold,
+                    metadata_score_threshold=metadata_threshold,
+                    premap_score_threshold=premap_threshold,
+                    num_layers=num_layers,
+                    layer_ms=layer_ms,
+                    sampling_ms=sampling_ms,
+                    mtp_delay_ms=mtp_delay_ms,
+                    bandwidth_gbps=bandwidth_gbps,
+                    expert_bytes=expert_bytes,
+                    max_extra=gated_cap,
+                    full_fetch_ready_threshold=gated_full_fetch_ready_threshold,
+                )
             decisions = score_threshold_mtp_extra_decision_masks(
                 base_mask,
                 score_tensor.to(transition_scores.device),
                 mtp_topk=mtp_topk,
                 max_extra=gated_cap,
-                score_threshold=threshold,
+                score_threshold=action_threshold,
+                policy_allowed_mask=policy_allowed_mask,
+                metadata_allowed_mask=metadata_allowed_mask,
+                premap_allowed_mask=premap_allowed_mask,
             )
             requested_mask = decisions.final_prefetch_mask(base_mask)
             issued_mask = requested_mask & gated_admission
@@ -292,7 +327,22 @@ def simulate_stall_proxy(
             requested_metrics = mask_metrics(requested_mask, target_mass, base_mask=base_mask)
             admitted_metrics = mask_metrics(issued_mask, target_mass, base_mask=base_issued_mask)
             metrics["score_threshold"] = threshold
+            metrics["action_score_threshold"] = float(action_threshold)
             metrics["gated_max_extra"] = float(gated_cap)
+            metrics["gated_action_downgrade_enabled"] = float(
+                bool(enable_gated_action_downgrade)
+            )
+            if enable_gated_action_downgrade:
+                metrics["metadata_score_threshold"] = float(
+                    threshold * float(gated_metadata_threshold_ratio)
+                )
+                metrics["premap_score_threshold"] = float(
+                    threshold * float(gated_premap_threshold_ratio)
+                )
+                metrics["full_fetch_ready_threshold"] = float(
+                    gated_full_fetch_ready_threshold
+                )
+                metrics.update(_prefixed_float_dict(downgrade_stats, "downgrade"))
             metrics["requested_pool_mass_coverage"] = float(
                 requested_metrics["pool_mass_coverage"]
             )
@@ -375,7 +425,10 @@ def simulate_stall_proxy(
             "gated_policies": (
                 "Optional gated policies use canonical score-threshold MTP-extra "
                 "admission masks and report action/reason counters alongside "
-                "issued, ready, used, unused, and skipped byte counters."
+                "issued, ready, used, unused, and skipped byte counters. When "
+                "downgrade actions are enabled, only full_fetch MTP extras enter "
+                "the ready/prefetch mask; metadata and premap remain lightweight "
+                "preparation actions."
             ),
             "unique_payload_counters": (
                 "Unique sample/layer/expert payload counters are optional because "
@@ -461,6 +514,96 @@ def _admission_mask(
         max_extra=max_extra,
         capacity=int(capacity),
     )
+
+
+def _gated_action_downgrade_masks(
+    score_tensor: torch.Tensor,
+    *,
+    full_fetch_score_threshold: float,
+    metadata_score_threshold: float,
+    premap_score_threshold: float,
+    num_layers: int,
+    layer_ms: float,
+    sampling_ms: float,
+    mtp_delay_ms: float,
+    bandwidth_gbps: float,
+    expert_bytes: int,
+    max_extra: int,
+    full_fetch_ready_threshold: float,
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, dict[str, float]]:
+    """Build action masks for score-gated MTP extras.
+
+    The score threshold passed into the canonical admission helper is the
+    premap threshold. These masks then promote eligible candidates to metadata
+    or full_fetch only when their stronger thresholds and ready constraints pass.
+    """
+    score = score_tensor.float()
+    metadata_threshold = max(float(premap_score_threshold), float(metadata_score_threshold))
+    full_threshold = max(metadata_threshold, float(full_fetch_score_threshold))
+    premap_threshold = float(premap_score_threshold)
+    finite = torch.isfinite(score)
+    actual_layers = int(score.shape[2])
+    layer_ready = _mtp_extra_ready_layer_factors(
+        num_layers=actual_layers,
+        layer_ms=float(layer_ms),
+        sampling_ms=float(sampling_ms),
+        mtp_delay_ms=float(mtp_delay_ms),
+        bandwidth_gbps=float(bandwidth_gbps),
+        expert_bytes=int(expert_bytes),
+        max_extra=int(max_extra),
+        device=score.device,
+    )
+    ready_mask = layer_ready.view(1, 1, actual_layers, 1).ge(
+        float(full_fetch_ready_threshold)
+    )
+    ready_mask = ready_mask.expand_as(score)
+    full_fetch_allowed = finite & score.ge(full_threshold) & ready_mask
+    metadata_allowed = finite & score.ge(metadata_threshold)
+    premap_allowed = finite & score.ge(premap_threshold)
+    ready_min = float(layer_ready.min().item()) if layer_ready.numel() else 0.0
+    ready_mean = float(layer_ready.mean().item()) if layer_ready.numel() else 0.0
+    ready_max = float(layer_ready.max().item()) if layer_ready.numel() else 0.0
+    ready_layer_count = float(
+        layer_ready.ge(float(full_fetch_ready_threshold)).float().sum().item()
+    )
+    return (
+        full_fetch_allowed,
+        metadata_allowed,
+        premap_allowed,
+        {
+            "layer_ready_min": ready_min,
+            "layer_ready_mean": ready_mean,
+            "layer_ready_max": ready_max,
+            "full_fetch_ready_layer_count": ready_layer_count,
+            "full_fetch_ready_layer_fraction": ready_layer_count
+            / max(1.0, float(actual_layers)),
+        },
+    )
+
+
+def _mtp_extra_ready_layer_factors(
+    *,
+    num_layers: int,
+    layer_ms: float,
+    sampling_ms: float,
+    mtp_delay_ms: float,
+    bandwidth_gbps: float,
+    expert_bytes: int,
+    max_extra: int,
+    device: torch.device,
+) -> torch.Tensor:
+    if max_extra <= 0:
+        return torch.ones(num_layers, dtype=torch.float32, device=device)
+    bytes_per_ms = float(bandwidth_gbps) * 1_000_000_000.0 / 1000.0
+    values = []
+    for layer_idx in range(int(num_layers)):
+        lead_ms = max(
+            0.0,
+            float(layer_idx) * float(layer_ms) + float(sampling_ms) - float(mtp_delay_ms),
+        )
+        fetch_capacity = lead_ms * bytes_per_ms / max(1.0, float(expert_bytes))
+        values.append(min(1.0, fetch_capacity / float(max_extra)))
+    return torch.tensor(values, dtype=torch.float32, device=device)
 
 
 def _shadow_counter_metrics(
