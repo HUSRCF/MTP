@@ -180,6 +180,13 @@ def test_simulate_stall_proxy_downgrades_gated_actions_without_prefetching():
         pytest.approx(0.0),
         pytest.approx(1.0),
     ]
+    metadata_bins = gated["admission_action_outcomes"]["metadata"]["by_score_bin"]
+    premap_bins = gated["admission_action_outcomes"]["premap"]["by_score_bin"]
+    assert metadata_bins["labels"] == ["0_10", "10_25", "25_50", "50_75", "75_90", "90_100"]
+    assert sum(metadata_bins["count"]) == pytest.approx(1.0)
+    assert sum(premap_bins["count"]) == pytest.approx(1.0)
+    assert sum(metadata_bins["later_used_count"]) == pytest.approx(1.0)
+    assert sum(premap_bins["later_used_count"]) == pytest.approx(1.0)
     assert gated["metadata_premap_setup_saved_ms"] == pytest.approx(0.025)
     assert gated["serial_action_actual_transfer_ms"] > 0.0
     assert "serial_net_benefit_ms_vs_transition" in gated

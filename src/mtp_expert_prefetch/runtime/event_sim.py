@@ -818,6 +818,14 @@ def _decision_action_outcome_metrics(
                 novel_rank=novel_rank,
                 max_extra=max_extra,
             ),
+            "by_score_bin": _action_by_score_bin_metrics(
+                selected,
+                later_used,
+                scores=score_tensor.float(),
+                actual_bytes_per_action=float(action_cost_bytes[str(action)]),
+                setup_saved_us=float(setup_saved_us[str(action)]),
+                bytes_per_ms=bytes_per_ms,
+            ),
         }
     skip_would_have_used = action_masks["skip"].bool() & demand
     skip_would_have_used_count = float(skip_would_have_used.float().sum().item())
@@ -901,6 +909,71 @@ def _action_by_rank_metrics(
         "count": counts,
         "later_used_count": later_counts,
         "later_used_rate": rates,
+    }
+
+
+def _action_by_score_bin_metrics(
+    selected: torch.Tensor,
+    later_used: torch.Tensor,
+    *,
+    scores: torch.Tensor,
+    actual_bytes_per_action: float,
+    setup_saved_us: float,
+    bytes_per_ms: float,
+) -> dict[str, list[float] | list[str]]:
+    selected_scores = scores[selected & torch.isfinite(scores)]
+    labels = ["0_10", "10_25", "25_50", "50_75", "75_90", "90_100"]
+    quantiles = [0.0, 0.10, 0.25, 0.50, 0.75, 0.90, 1.0]
+    if selected_scores.numel() == 0:
+        return {
+            "labels": labels,
+            "score_min": [],
+            "score_max": [],
+            "count": [0.0 for _ in labels],
+            "later_used_count": [0.0 for _ in labels],
+            "later_used_rate": [0.0 for _ in labels],
+            "actual_transfer_ms": [0.0 for _ in labels],
+            "net_setup_benefit_ms": [0.0 for _ in labels],
+        }
+    boundaries = torch.quantile(
+        selected_scores.float(),
+        torch.tensor(quantiles, dtype=torch.float32, device=selected_scores.device),
+    )
+    counts = []
+    later_counts = []
+    rates = []
+    actual_transfer_ms = []
+    net_setup_benefit_ms = []
+    score_min = []
+    score_max = []
+    for idx, label in enumerate(labels):
+        lower = boundaries[idx]
+        upper = boundaries[idx + 1]
+        if label == labels[0]:
+            bin_mask = selected & torch.isfinite(scores) & scores.ge(lower) & scores.le(upper)
+        else:
+            bin_mask = selected & torch.isfinite(scores) & scores.gt(lower) & scores.le(upper)
+        bin_later_used = later_used & bin_mask
+        count = float(bin_mask.float().sum().item())
+        later_count = float(bin_later_used.float().sum().item())
+        transfer_ms = count * float(actual_bytes_per_action) / max(bytes_per_ms, 1e-12)
+        setup_saved_ms = later_count * float(setup_saved_us) / 1000.0
+        counts.append(count)
+        later_counts.append(later_count)
+        rates.append(later_count / max(1.0, count))
+        actual_transfer_ms.append(transfer_ms)
+        net_setup_benefit_ms.append(setup_saved_ms - transfer_ms)
+        score_min.append(float(lower.item()))
+        score_max.append(float(upper.item()))
+    return {
+        "labels": labels,
+        "score_min": score_min,
+        "score_max": score_max,
+        "count": counts,
+        "later_used_count": later_counts,
+        "later_used_rate": rates,
+        "actual_transfer_ms": actual_transfer_ms,
+        "net_setup_benefit_ms": net_setup_benefit_ms,
     }
 
 

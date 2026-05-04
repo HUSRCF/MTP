@@ -1056,6 +1056,37 @@ future MoE expert demand on Qwen3.6-35B-A3B.
   - tests:
     - small regression checks metadata rank-1 and premap rank-2 later-used breakdowns
     - current policy/eval runtime subset: `34 passed`
+- [x] Add score-bin action outcome breakdowns:
+  - module: `src/mtp_expert_prefetch/runtime/event_sim.py`
+  - every action now reports `by_score_bin` over quantile bins:
+    - `0_10`
+    - `10_25`
+    - `25_50`
+    - `50_75`
+    - `75_90`
+    - `90_100`
+  - each score bin includes:
+    - score range
+    - count
+    - later-used count/rate
+    - actual transfer cost
+    - net setup benefit
+  - GPU0 W7900 cached smoke:
+    - output: `outputs/reports/prefetch_shadow_256sample_mtp_extra/event_stall_proxy_gpu0_cap160_downgrade_scorebin_smoke.json`
+  - score keep-top-50% score-bin later-used rates:
+    - metadata: `[0.0273, 0.0285, 0.0320, 0.0393, 0.0472, 0.1402]`
+    - premap: `[0.0279, 0.0313, 0.0290, 0.0290, 0.0262, 0.0288]`
+  - utility keep-top-50% score-bin later-used rates:
+    - metadata: `[0.0310, 0.0359, 0.0360, 0.0394, 0.0434, 0.0485]`
+    - premap: `[0.0284, 0.0289, 0.0281, 0.0291, 0.0334, 0.0310]`
+  - interpretation:
+    - score-gated metadata has a strong high-score tail: the top score bin reaches `14.0%` later-used
+    - utility-gated metadata has smoother score bins because the utility score already mixes rank/layer/ready factors
+    - premap later-used is nearly flat across score bins, so score alone is not a strong premap gate
+    - all metadata/premap bins remain negative under conservative serial cost accounting; they should remain opportunistic unless overlap or measured setup-saved cost improves the balance
+  - tests:
+    - small regression checks score-bin coverage and later-used accounting
+    - current policy/eval runtime subset: `34 passed`
 - [x] Extend score-threshold metadata into a reproducible artifact:
   - dataclass: `ScoreThresholdMetadata`
   - added fields:
