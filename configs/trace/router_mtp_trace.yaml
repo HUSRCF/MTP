@@ -1,0 +1,12 @@
+model: configs/model/qwen3_6_35b_a3b_gptq_int4.yaml
+data: configs/data/smoke_text.yaml
+output_dir: data/traces/smoke
+
+trace:
+  capture_router_topk: true
+  capture_router_scores: true
+  capture_hidden_states: last
+  capture_mtp_shapes: true
+  future_window: 4
+  max_length: 512
+

@@ -1,0 +1,19 @@
+data:
+  alignment_path: data/processed/mtp_router_alignment_smoke/sample_000000.pt
+
+output_dir: outputs/checkpoints/mtp_predictor_smoke
+
+model:
+  num_experts: 256
+  num_layers: 40
+  future_window: 4
+  predictor_width: 128
+  dropout: 0.0
+
+training:
+  device: cpu
+  learning_rate: 0.003
+  max_steps: 40
+  max_tokens: 124
+  pos_weight: auto
+  recall_at_m: 16

@@ -1,0 +1,48 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mtp-expert-prefetch"
+version = "0.1.0"
+description = "MTP-hidden-based MoE expert demand prediction and prefetch research."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "accelerate>=0.34",
+    "datasets>=2.20",
+    "huggingface-hub>=0.25",
+    "numpy>=1.26",
+    "packaging>=24.0",
+    "pyyaml>=6.0",
+    "safetensors>=0.4",
+    "torch>=2.4",
+    "transformers>=4.57.1",
+    "typer>=0.12",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.6",
+]
+train = [
+    "tensorboard>=2.17",
+    "wandb>=0.17",
+]
+
+[project.scripts]
+mtp-prefetch = "mtp_expert_prefetch.cli.main:app"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]

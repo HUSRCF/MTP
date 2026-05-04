@@ -1,0 +1,23 @@
+data:
+  trace_manifest: data/traces/aya_dataset_smoke_merged_mtp_vllm/manifest.jsonl
+  future_window: 4
+  call_index: 0
+  batch_index: 0
+
+output_dir: outputs/checkpoints/mtp_predictor_merged_vllm_smoke
+
+model:
+  num_experts: 256
+  num_layers: 40
+  future_window: 4
+  predictor_width: 128
+  dropout: 0.0
+
+training:
+  device: cpu
+  learning_rate: 0.003
+  max_steps: 40
+  max_tokens: 123
+  val_fraction: 0.25
+  pos_weight: auto
+  recall_at_ms: [8, 16, 32]

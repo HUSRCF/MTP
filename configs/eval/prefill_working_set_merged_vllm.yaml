@@ -1,0 +1,4 @@
+manifest_path: data/traces/aya_dataset_smoke_merged_mtp_vllm/manifest.jsonl
+output_path: outputs/reports/prefill_working_set_merged_vllm/report.json
+budgets: [8, 16, 32, 64, 128, 256]
+max_samples: 64

@@ -1,0 +1,14 @@
+merged_manifest: data/traces/aya_dataset_256_merged_mtp_vllm_prefc_fixed/manifest.jsonl
+mtp_token_manifest: data/traces/mtp_token_topm_256sample_prefc_fixed/manifest.jsonl
+output_path: outputs/reports/prefetch_shadow_256sample_mtp_extra/report.json
+future_window: 1
+num_experts: 256
+val_fraction: 0.25
+max_samples:
+max_tokens:
+transition_topk: 32
+mtp_topk: 64
+max_extras: [1, 2, 4, 8]
+default_max_extra: 4
+high_budget_max_extra: 8
+cache_capacities: [96, 128, 160, 192, 224, 256]

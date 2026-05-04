@@ -1,0 +1,16 @@
+trace_dir: data/traces/smoke
+prediction_dir: outputs/reports/expert_predictor_smoke
+output_dir: outputs/reports/cache_sim_smoke
+
+cache:
+  expert_budget_per_layer: 32
+  prefetch_budget_per_step: 16
+  eviction_policy: lru
+
+baselines:
+  - no_prefetch
+  - lru
+  - frequency
+  - oracle
+  - mtp_predictor
+

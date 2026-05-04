@@ -1,0 +1,1247 @@
+# TODO
+
+This project should move in small, verifiable steps. The first objective is not
+runtime prefetch yet; it is to prove that MTP / hidden lookahead can predict
+future MoE expert demand on Qwen3.6-35B-A3B.
+
+## Phase 0: Environment And Model Access
+
+- [x] Create maintainable project layout.
+- [x] Materialize Aya smoke data into `data/raw/aya_dataset_smoke.jsonl`.
+- [x] Install a transformers build that supports `qwen3_5_moe`.
+- [x] Build/install ROCm `causal-conv1d`.
+- [x] Install GPTQ loading dependencies: `optimum`, `gptqmodel`, `pypcre`.
+- [x] Finish downloading all 6 GPTQ checkpoint shards.
+- [x] Verify local snapshot exists and matches `model.safetensors.index.json`.
+- [x] Verify `snapshot_download(..., local_files_only=True)` resolves the cached snapshot.
+- [ ] Run a 1-sample model load smoke test without trace hooks.
+- [ ] Work around ROCm/GPTQ backend crash:
+  - observed: auto backend loads `kernels-community/quantization-gptq`
+  - observed: prebuilt CPU x86_64 HF kernel requests an impossible ~140 TB `mmap`
+  - current mitigation: force `gptq_backend: gptq_torch`
+- [x] Add offline GPTQ MoE expert repacking script:
+  - `scripts/repack_qwen3_moe_gptq.py`
+  - source scope: `model.language_model.layers.*.mlp.experts.*`
+  - output: per-layer fused safetensors plus manifest
+- [x] Add random slice verifier for repacked GPTQ MoE experts:
+  - `scripts/verify_repacked_qwen3_moe_gptq.py`
+  - compares original shard tensor with `layer_XX.safetensors` expert slice
+- [x] Add lazy repacked expert store / inspection CLI:
+  - `src/mtp_expert_prefetch/repack/store.py`
+  - `scripts/inspect_repacked_qwen3_moe_gptq.py`
+  - validates layer files, fused keys, shapes, and dtypes without loading the full model
+- [x] Add minimal GPTQ projection unpack/dequant smoke path:
+  - `src/mtp_expert_prefetch/repack/gptq_unpack.py`
+  - `scripts/dequantize_repacked_projection.py`
+  - restores one expert projection to bf16/fp16/fp32 Linear weight and runs a matmul smoke test
+- [x] Add SingleExpertMlp smoke path:
+  - dequantizes gate/up/down projections for one expert
+  - validates `silu(gate(x)) * up(x) -> down(...)` on real repacked GPTQ weights
+- [x] Add TopKExpertMlp smoke path:
+  - loads a small set of dense-dequantized experts
+  - validates weighted aggregation `sum_i router_weight_i * expert_i(x)`
+- [x] Add RouterTrace -> TopKExpertMlp bridge smoke:
+  - selects `expert_ids` and weights from `router_topk/router_scores`
+  - uses trace hidden state when available
+  - validates bridge path with fake trace plus real repacked expert weights
+- [x] Download Intel AutoRound int4 checkpoint as the primary MTP-capable source:
+  - local path: `data/modelscope_downloads/Intel/Qwen3.6-35B-A3B-int4-AutoRound`
+  - index metadata: 10 shards, total size ~20.44GB
+  - `model_extra_tensors.safetensors` contains native `mtp.*` tensors
+- [x] Verify Intel AutoRound MTP extra tensors are real and complete:
+  - `model_extra_tensors.safetensors` is ~432MB, not an LFS pointer
+  - index has 33 `mtp.*` top-level entries all pointing to extra tensors
+  - safetensors file contains 256 per-expert MTP MoE GPTQ-style projections
+- [x] Add Intel AutoRound model config:
+  - `configs/model/qwen3_6_35b_a3b_autoround_int4.yaml`
+  - `configs/trace/router_mtp_trace_aya_dataset_autoround.yaml`
+- [x] Add bypass MTP extra tensor runner:
+  - `src/mtp_expert_prefetch/mtp/extra_tensors.py`
+  - `scripts/smoke_mtp_extra_runner.py`
+  - covers real `embed_tokens.weight` gather from `input_ids`
+  - covers `pre_fc -> MTP self-attention/RoPE -> MTP router top-k -> one-token TopK MoE`
+
+## Phase 1: Router / MTP Trace Collection
+
+- [x] Add vLLM AWQ router trace backend for high-throughput backbone targets:
+  - model config: `configs/model/qwen3_6_35b_a3b_awq_4bit.yaml`
+  - trace config: `configs/trace/router_mtp_trace_aya_dataset_awq_vllm.yaml`
+  - script: `scripts/trace_router_mtp_vllm.py`
+  - current path uses `vllm_router_logits_recorder` and records real top-k weights
+  - patches vLLM `BaseRouter.select_experts` so compressed-tensors/AWQ internal router still exposes `(topk_weights, topk_ids)`
+  - disables vLLM built-in routed-experts capturer in recorder mode to avoid shared-memory block-id overflow
+  - converts to existing `router_topk` / `router_weights` format for training-side loaders
+- [x] Add vLLM router trace sanity checker:
+  - module: `src/mtp_expert_prefetch/evaluation/router_trace_sanity.py`
+  - script: `scripts/validate_router_trace.py`
+  - config: `configs/eval/router_trace_sanity_awq_vllm.yaml`
+  - report: `outputs/reports/router_trace_sanity_awq_vllm/report.json`
+  - validates trace source, layer count, top-k shape, expert id range, weight shape, sorted top-k order, and top-1 position
+  - 64-sample AWQ trace result: `ok=true`, 40 layers, top-k=8, weight sum mean `1.0`, sorted fraction `1.0`, first-is-argmax fraction `1.0`
+  - observed weight range: `0.000323859..0.996057`, nonuniform sample fraction `1.0`
+- [x] Add same-token MoE input hidden oracle:
+  - recorder now stores `router_oracle_topk` from `topk(softmax(router_logits_from_true_moe_input_hidden))`
+  - optional `capture_router_input_hidden: true` saves per-layer true router input hidden
+  - script: `scripts/validate_router_hidden_oracle.py`
+  - config: `configs/trace/router_mtp_trace_aya_dataset_awq_vllm_hidden_oracle_smoke.yaml`
+  - report: `outputs/reports/router_hidden_oracle_awq_vllm_smoke/report.json`
+  - 1-sample result: `ok=true`, 40 layers, 40 hidden tensors, each `[127, 2048]`
+  - oracle expert set result: `set_recall=1.0`, `exact_set_match_rate=1.0`
+  - ordered element match is `0.911` and top1 match is `0.983`, indicating vLLM internal router weight/order semantics differ from simple softmax ordering while the selected expert set is perfectly reconstructable
+  - 4-sample stress result: `ok=true`, `set_recall=1.0`, `exact_set_match_rate=1.0`, `hidden_tensor_count=160`
+- [x] Add AutoRound-MTP + vLLM-router alignment merger:
+  - module: `src/mtp_expert_prefetch/training/alignment_merge.py`
+  - script: `scripts/merge_mtp_vllm_traces.py`
+  - output: `data/traces/aya_dataset_smoke_merged_mtp_vllm/sample_000000.pt`
+  - validates shared `input_ids` prefix before merging
+  - merged smoke alignment target: `[123, 4, 40, 8]`
+- [ ] Optional: add native MTP-source features inside the vLLM/AWQ path itself:
+  - implement an AWQ `model_extra_tensors.safetensors` MTP runner
+  - current resolved path uses the merger: AutoRound native MTP inputs + vLLM router targets
+- [x] Run `trace_router_mtp` on 1 Aya sample with Intel AutoRound and `max_length=128`.
+- [x] Confirm output files:
+  - `data/traces/aya_dataset_smoke_autoround/manifest.jsonl`
+  - `data/traces/aya_dataset_smoke_autoround/sample_000000.pt`
+- [x] Inspect one trace payload and document tensor shapes:
+  - `last_hidden_state`: `[1, 128, 2048]`
+  - router modules: 40
+  - per-layer router top-k: `[128, 8]`
+  - HF-native MTP hook count: 0
+- [x] Verify router hook coverage:
+  - expected: 40 layers
+  - each layer: top-8 experts
+  - each expert id range: `[0, 255]`
+- [x] Verify native MTP module discovery on Intel AutoRound:
+  - Transformers loads 93726 weights while index has 93759 entries
+  - the 33 skipped entries are `mtp.*` tensors in `model_extra_tensors.safetensors`
+  - current path bypass-loads MTP extra tensors instead of relying on HF module discovery
+- [x] Verify bypass MTP runner with real token embeddings:
+  - `input_ids`: `[1, 128]`
+  - `token_embeddings`: `[1, 128, 2048]`
+  - `attention_states`: `[1, 128, 2048]`
+  - `mtp_moe_inputs`: `[1, 128, 2048]`
+  - `router_logits`: `[1, 128, 256]`
+- [x] Add native MTP token top-M tracer:
+  - script: `scripts/trace_mtp_token_topm.py`
+  - batch script: `scripts/trace_mtp_token_topm_manifest.py`
+  - path: AutoRound `model_extra_tensors.safetensors` + real token embeddings + `lm_head`
+  - saves `native_mtp_token_topm_ids`, `native_mtp_token_topm_probs`, and native MTP router top-k
+  - 1-sample GPU smoke passed with `top_m_tokens=8` and `max_tokens=8`
+- [x] Fix bypass MTP pre-fc concat order:
+  - bug: runner used `[hidden_norm, embedding_norm]`
+  - vLLM Qwen3.5 MTP uses `[embedding_norm, hidden_norm]`
+  - impact: old native MTP router/token sidecars generated before this fix should be treated as invalid
+  - fixed sidecar: `data/traces/mtp_token_topm_64sample_prefc_fixed/manifest.jsonl`
+- [x] Add MTP predicted-token prior evaluator:
+  - script: `scripts/evaluate_mtp_token_prior.py`
+  - compares train frequency, source-token frequency, true target-token oracle, MTP predicted-token frequency, transition, logit fusion, and transition/MTP candidate union
+  - reports recall, gate-mass coverage, top1 hit, weighted top1 miss, transition overlap, and introduced expert mass
+  - includes MTP token alignment diagnostics for offsets `0/1/2`
+- [x] Run full 64-sample fixed MTP token top-M trace:
+  - `top_m_tokens=64`
+  - offset result: correct alignment is `t -> t+1`
+  - val next-token top1 accuracy: `0.456`
+  - val next-token top64 recall: `0.901`
+  - mean top64 probability assigned to true next token: `0.352`
+- [x] Evaluate fixed MTP predicted-token expert prior:
+  - MTP token prior alone val mass@8/16/32: `0.354/0.476/0.606`
+  - transition val mass@8/16/32: `0.464/0.604/0.736`
+  - direct transition+MTP log fusion still hurts transition at fixed budgets
+  - candidate-pool diagnostic is positive: `transition@32` mass `0.736`; `transition@32 union MTP-token@16` mass `0.762`, avg pool size `35.7`; `union MTP-token@32` mass `0.784`, avg pool size `43.7`
+  - interpretation: MTP token prior is useful as optional candidate expansion under larger budget, not as a replacement/reranker for transition
+- [x] Build corrected merged manifest with fixed native MTP router:
+  - script: `scripts/replace_merged_native_mtp_router.py`
+  - output: `data/traces/aya_dataset_smoke_merged_mtp_vllm_prefc_fixed/manifest.jsonl`
+  - replaces stale `native_mtp_router_topk/weights` in merged payloads using fixed sidecar outputs
+- [x] Save native MTP router outputs in trace payloads:
+  - `native_mtp_router_topk`: `[1, 128, 8]`
+  - `native_mtp_router_weights`: `[1, 128, 8]`
+  - manifest records `has_native_mtp_router: true`
+- [x] Build first MTP-router alignment sample:
+  - script: `scripts/build_mtp_router_alignment.py`
+  - output: `data/processed/mtp_router_alignment_smoke/sample_000000.pt`
+  - `mtp_expert_ids`: `[124, 8]`
+  - `target_expert_ids`: `[124, 4, 40, 8]`
+- [ ] Reduce trace payload size if needed:
+  - avoid saving full hidden states for every token/layer by default
+  - optionally save only selected positions or projected hidden states
+
+## Phase 2: Training Dataset Construction
+
+- [ ] Define the supervised training example:
+  - input: current hidden or MTP future hidden at position `t`
+  - target: future expert set at `t + delta`
+  - indices: `layer`, `delta`, `expert_id`
+- [x] Implement a trace alignment loader under `src/mtp_expert_prefetch/training/`:
+  - `build_mtp_router_alignment`
+  - aligns native MTP router at token `t` to backbone router at `t + 1 ... t + future_window`
+- [ ] Convert router top-k lists into multi-hot labels:
+  - shape option A: `[future_window, num_layers, num_experts]`
+  - shape option B: `[num_layers, future_window, num_experts]`
+- [x] Convert alignment `target_expert_ids` to multi-hot labels:
+  - `target_expert_ids`: `[124, 4, 40, 8]`
+  - `future_expert_multihot`: `[124, 4, 40, 256]`
+  - utility: `target_expert_ids_to_multihot`
+- [x] Add minimal text-only MTP router predictor smoke:
+  - input feature: dense MTP router distribution `[124, 256]`
+  - output logits: `[124, 4, 40, 256]`
+  - script: `scripts/train_mtp_predictor_smoke.py`
+  - smoke result: loss `1.43 -> 0.68`, recall@16 `0.684` on one-sample overfit
+- [x] Extend predictor smoke to consume merged AutoRound-MTP + vLLM-router traces directly:
+  - config: `configs/train/mtp_predictor_merged_vllm_smoke.yaml`
+  - input source: `data/traces/aya_dataset_smoke_merged_mtp_vllm/manifest.jsonl`
+  - reports recall@8/16/32 plus random, copy-router, and train-frequency baselines
+  - one-sample result: recall@8/16/32 `0.518/0.681/0.818`
+  - important caveat: train-frequency baseline is `0.530/0.698/0.856`, so current tiny smoke mostly confirms pipeline health, not predictive superiority
+- [x] Run 8-sample sample-level train/val smoke:
+  - AutoRound native MTP source trace: 8 samples
+  - vLLM AWQ router target trace: 8 samples
+  - vLLM trace reuses AutoRound `input_ids` to avoid tokenizer mismatch on multilingual data
+  - merged trace: `data/traces/aya_dataset_smoke_merged_mtp_vllm/manifest.jsonl`
+  - split: train samples `[0..5]`, val samples `[6,7]`
+  - 40-step val recall@8/16/32: `0.273/0.389/0.517`
+  - 40-step val delta vs train-frequency baseline: `-0.013/-0.010/-0.026`
+  - 200-step wider overfit train recall@8/16/32: `0.489/0.685/0.850`
+  - 200-step wider val recall@8/16/32: `0.226/0.334/0.469`
+  - interpretation: current router-only feature can fit train but does not beat frequency baseline on held-out samples yet
+- [x] Add gate-mass coverage metric plumbing:
+  - alignment now preserves `target_expert_weights` when present in trace payloads
+  - training smoke reports `mass_coverage_at_{8,16,32}` and baseline deltas
+  - vLLM recorder path now provides non-uniform top-k weights; 64-sample trace weight range observed `0.00032..0.996`
+  - 40-step val mass coverage@8/16/32: `0.278/0.392/0.531`
+  - 40-step val mass coverage delta vs train-frequency baseline: `-0.018/-0.018/-0.020`
+- [x] Add top-1 gate-mass risk metrics:
+  - utility: `top1_risk_at_m`
+  - training smoke reports `top1_hit_at_{8,16,32}` and `weighted_top1_miss_at_{8,16,32}`
+  - 64-sample 40-step val top1_hit@8/16/32: `0.366/0.484/0.614`
+  - 64-sample 40-step val weighted_top1_miss@8/16/32: `0.162/0.132/0.099`
+- [x] Add stronger non-hidden baselines:
+  - alignment now carries current backbone router top-k, source token ids, and future target token ids
+  - module: `src/mtp_expert_prefetch/training/baselines.py`
+  - baselines: train frequency, previous-token same-layer transition, source-token frequency, target-token frequency, and frequency+transition+target-token combination
+  - important caveat: target-token frequency uses the true future token id in this smoke, so it is a diagnostic/oracle-like baseline unless replaced by predicted MTP token ids
+  - 64-sample 40-step val transition recall@8/16/32: `0.357/0.492/0.637`
+  - 64-sample 40-step val transition mass coverage@8/16/32: `0.416/0.545/0.678`
+  - 64-sample 40-step val transition top1_hit@8/16/32: `0.579/0.688/0.791`
+- [x] Run 64-sample sample-level train/val smoke:
+  - AutoRound native MTP source trace: 64 samples
+  - vLLM AWQ router target trace: 64 samples
+  - vLLM target trace uses one uniproc engine in logits-recorder mode; repeated engine reloads leak/hold VRAM under vLLM V1
+  - split: train samples `[0..47]`, val samples `[48..63]`
+  - 40-step val recall@8/16/32: `0.241/0.354/0.495`
+  - 40-step val delta vs train-frequency baseline: `-0.012/-0.013/-0.017`
+  - 200-step wider val recall@8/16/32: `0.264/0.379/0.518`
+  - 200-step wider val delta vs train-frequency baseline: `+0.010/+0.011/+0.006`
+  - latest 40-step val mass coverage@8/16/32: `0.278/0.395/0.532`
+  - latest 40-step val mass coverage delta vs train-frequency baseline: `-0.018/-0.016/-0.019`
+  - latest 40-step val top1_hit@8/16/32: `0.366/0.484/0.614`
+  - latest after stronger baselines: model val mass coverage@8/16/32 `0.279/0.396/0.532`
+  - model still trails previous-token transition baseline by mass coverage `-0.137/-0.149/-0.146`
+  - interpretation: true backbone router at token `t` is currently a stronger online signal than native MTP router-only feature; hidden/MTP-hidden predictors must beat this baseline before runtime work is justified
+- [ ] Add dataset validation checks:
+  - no out-of-range expert ids
+  - token count is sufficient for `future_window`
+  - all expected layers are present
+- [ ] Create a tiny cached training split from 2-8 samples for CI/smoke.
+
+## Phase 3: Future Expert Predictor
+
+- [ ] Implement a minimal BF16 expert predictor:
+  - hidden projection
+  - layer embedding
+  - future-step embedding
+  - 256-way expert logits
+- [ ] Start with frozen backbone and train only the predictor.
+- [ ] Primary loss:
+  - multi-label BCE over future expert sets
+- [ ] Add recall-oriented weighting:
+  - positive class weight
+  - optional focal loss
+- [ ] Add config:
+  - `configs/train/expert_predictor_smoke.yaml`
+  - `configs/train/expert_predictor_aya.yaml`
+- [ ] Run overfit test on a tiny trace set.
+
+## Phase 4: Metrics
+
+- [ ] Implement expert prediction metrics:
+  - recall@M
+  - precision@M
+  - hit rate
+  - average over-prefetch count
+  - per-layer recall
+  - per-delta recall
+- [x] Implement gate-mass risk metrics:
+  - mass coverage@M
+  - miss mass proxy: `1 - mass_coverage@M`
+  - top1 hit@M
+  - weighted top1 miss@M
+- [x] Establish cheap non-hidden baselines:
+  - last-token expert reuse
+  - global frequency
+  - per-layer frequency
+  - previous-token same-layer transition
+  - token-id frequency
+  - frequency + previous experts + token id
+- [ ] Establish oracle future expert set baseline:
+  - oracle future expert set
+- [x] Add same-token MoE input hidden oracle:
+  - record or recompute the exact pre-router hidden state for each MoE layer
+  - verify `topk(router_weight @ hidden)` reconstructs recorder top-k nearly perfectly
+  - use this as the feature/label alignment upper-bound check before training larger MTP predictors
+- [x] Add previous-token MoE input hidden predictor:
+  - use available hidden at token `t` to predict future routed experts at `t + delta`
+  - compare against frequency and transition baselines before adding MTP hidden
+- [x] Add previous-token MoE input hidden residual predictor smoke:
+  - module: `src/mtp_expert_prefetch/training/hidden_residual.py`
+  - script: `scripts/train_hidden_residual_predictor_smoke.py`
+  - model: `final_logits = log(freq_prior) + log(transition_prior) + residual_scale * hidden_residual`
+  - loss: recorder-weighted top-k soft CE when `router_weights` are present; BCE fallback otherwise
+  - regularization controls: zero-init output head, residual L2, prior-only codepath, logit-scale diagnostics, and early stopping by val soft CE
+  - smoke config: `configs/train/hidden_residual_predictor_smoke.yaml`
+  - 4-sample config: `configs/train/hidden_residual_predictor_4sample.yaml`
+  - 16-sample config: `configs/train/hidden_residual_predictor_16sample.yaml`
+  - 64-sample config: `configs/train/hidden_residual_predictor_64sample.yaml`
+  - 1-sample overfit train confirms capacity: model mass coverage@8/16/32 `0.806/0.935/0.983`
+  - 4-sample held-out with `residual_scale=0.1`: model mass coverage@8/16/32 `0.359/0.486/0.614`
+  - 4-sample held-out transition baseline mass coverage@8/16/32 `0.361/0.491/0.619`
+  - 16-sample hidden oracle trace: `data/traces/aya_dataset_smoke_awq_vllm_hidden_oracle_16sample/manifest.jsonl`
+  - 16-sample oracle result: `set_recall=1.0`, `exact_set_match_rate=1.0`, `hidden_tensor_count=640`
+  - 16-sample held-out transition baseline mass coverage@8/16/32 `0.235/0.350/0.490`
+  - 16-sample held-out model mass coverage@8/16/32 `0.221/0.328/0.453`
+  - 16-sample held-out delta vs transition mass coverage@8/16/32 `-0.014/-0.022/-0.037`
+  - 16-sample held-out transition top1_hit@8/16/32 `0.288/0.402/0.536`
+  - 16-sample held-out model top1_hit@8/16/32 `0.274/0.371/0.482`
+  - 16-sample held-out delta vs transition top1_hit@8/16/32 `-0.013/-0.031/-0.054`
+  - 16-sample logit diagnostics: effective residual std `0.479`, prior std `7.456`, prior-vs-model top-k overlap@8/16/32 `0.758/0.835/0.895`
+  - 64-sample hidden oracle trace: `data/traces/aya_dataset_smoke_awq_vllm_hidden_oracle_64sample/manifest.jsonl`
+  - 64-sample oracle result: `set_recall=1.0`, `exact_set_match_rate=1.0`, `hidden_tensor_count=2560`
+  - 64-sample held-out transition baseline mass coverage@8/16/32 `0.437/0.570/0.703`
+  - 64-sample held-out model mass coverage@8/16/32 `0.438/0.561/0.680`
+  - 64-sample held-out delta vs transition mass coverage@8/16/32 `+0.001/-0.010/-0.023`
+  - 64-sample held-out transition top1_hit@8/16/32 `0.585/0.700/0.802`
+  - 64-sample held-out model top1_hit@8/16/32 `0.593/0.695/0.781`
+  - 64-sample held-out delta vs transition top1_hit@8/16/32 `+0.008/-0.006/-0.021`
+  - 64-sample held-out weighted_top1_miss delta@8/16/32 `-0.002/+0.001/+0.005`
+  - 64-sample logit diagnostics: effective residual std `0.533`, prior std `4.400`, prior-vs-model top-k overlap@8/16/32 `0.754/0.799/0.855`
+  - interpretation: residual path is implemented and trainable, same-token hidden alignment is healthy, but previous-token hidden residual still only gives a tiny @8 gain and hurts @16/@32; it is not eligible for runtime prefetch promotion yet
+- [x] Sweep 64-sample hidden residual settings:
+  - script: `scripts/sweep_hidden_residual_predictor.py`
+  - config: `configs/train/hidden_residual_predictor_64sample_sweep.yaml`
+  - output: `outputs/sweeps/hidden_residual_predictor_64sample/summary.json`
+  - total runs: 12 = 2 seeds x (`scale=0/0.03/0.1/0.3` + `gamma_scalar=0.03/0.1`)
+  - note: effective W7900 VRAM budget should be treated as ~45GB because RECC reserves about 3GB; this sweep used only about 11GB peak VRAM and stayed well below that
+  - best aggregate variant: `scale=0.3`
+  - `scale=0.3` mean delta mass@8/16/32: `+0.0046/-0.0075/-0.0204`
+  - `scale=0.3` mean delta top1@8/16/32: `+0.0124/-0.0038/-0.0173`
+  - `scale=0.3` mean weighted_top1_miss delta@8/16/32: `-0.0034/+0.0007/+0.0043`
+  - `scale=0.3` positive-layer count@8/16/32: `27.0/9.0/3.5` out of 40
+  - best per-layer @8 gain repeatedly appears near layer 23, with delta mass about `+0.0245`
+  - learnable scalar gamma did not help: `gamma_scalar=0.1` mean delta mass@8/16/32 `-0.0127/-0.0230/-0.0339`
+  - interpretation: previous-token hidden residual has a narrow, budget-8/local-layer signal, but it does not provide stable global improvement over transition prior at deployment-relevant budgets 16/32
+- [x] Evaluate hidden residual as a constrained reranker instead of candidate generator:
+  - config: `configs/train/hidden_residual_predictor_64sample_reranker.yaml`
+  - output: `outputs/checkpoints/hidden_residual_predictor_64sample_reranker/metrics.json`
+  - candidate set: `transition top32`
+  - reranker score: `prior_score + 0.3 * hidden_residual`
+  - outside candidate set: `-inf`
+  - pass condition: @32 must not degrade, while @8 mass/top1 or weighted_top1_miss improves
+  - held-out transition mass@8/16/32: `0.437/0.570/0.703`
+  - held-out constrained reranker mass@8/16/32: `0.442/0.563/0.703`
+  - held-out constrained reranker delta mass@8/16/32: `+0.0045/-0.0069/+0.0000`
+  - held-out transition top1_hit@8/16/32: `0.585/0.700/0.802`
+  - held-out constrained reranker top1_hit@8/16/32: `0.597/0.696/0.802`
+  - held-out constrained reranker delta top1_hit@8/16/32: `+0.0119/-0.0047/+0.0000`
+  - held-out constrained reranker weighted_top1_miss delta@8/16/32: `-0.0032/+0.0011/+0.0000`
+  - per-layer positive delta mass count@8/16/32: `29/11/0` out of 40
+  - best held-out @8 layers by delta mass: layer 3 `+0.0250`, layer 34 `+0.0241`, layer 32 `+0.0221`, layer 33 `+0.0210`, layer 24 `+0.0205`
+  - interpretation: transition-top32 constrained reranking is the right form for hidden residual; it protects @32 and improves @8/top1 risk, but still hurts @16 slightly, so it should remain an experimental reranker rather than runtime default
+- [x] Lock hidden residual promotion decision:
+  - same-token oracle passed, so hidden/label alignment is valid
+  - full-space hidden residual is not a qualified expert candidate generator
+  - transition prior remains the runtime candidate generator
+  - hidden residual may only be evaluated as constrained reranking over transition candidates
+  - candidate-generator gate and reranker gate are separate:
+    - generator gate: must beat transition on mass/top1 risk at `B=8/16/32`
+    - reranker gate: must preserve candidate-set coverage, keep @32 non-degrading, and improve @8/top1 risk on held-out splits
+- [ ] Add layer-gated reranker ablation:
+  - all layers transition only
+  - all layers constrained reranker
+  - only layer 23 constrained reranker
+  - train/inner-val selected positive layers constrained reranker
+  - final selection must be evaluated on held-out split to avoid layer-selection leakage
+- [ ] Add MTP hidden residual predictor:
+  - score form: `log p_freq(layer, expert) + residual(mtp_hidden, layer_embedding, expert)`
+  - optimize gate-mass aware objective rather than only uniform multi-hot recall
+  - do not train as full-space generator until cheaper priors are exhausted
+  - preferred form: rerank candidate union from transition/token/cross-layer priors
+- [x] Add MTP predicted-token prior:
+  - diagnostic oracle already exists as true `target_token_id -> expert frequency`
+  - fixed native MTP token top-M trace is available and uses correct `t -> t+1` alignment
+  - prior form: `p(e | layer, MTP) = sum_v p_MTP(v) * p(e | layer, v)`
+  - primary comparison: transition prior and transition + MTP-token prior
+  - current result: direct fixed-budget fusion/reranking still trails transition
+  - useful form: optional candidate expansion, e.g. transition@32 plus MTP-token@16 increases pool mass from `0.736` to `0.762`
+  - dynamic extra-budget result with MTP-token top64:
+    - transition@32 pool mass/top1_hit/weighted_top1_miss: `0.736/0.848/0.0368`
+    - max_extra=1: pool mass `0.744`, top1_hit `0.858`, weighted_top1_miss `0.0344`
+    - max_extra=2: pool mass `0.750`, top1_hit `0.863`, weighted_top1_miss `0.0331`
+    - max_extra=4: pool mass `0.759`, top1_hit `0.869`, weighted_top1_miss `0.0318`
+    - max_extra=8: pool mass `0.772`, top1_hit `0.878`, weighted_top1_miss `0.0298`
+  - promotion decision:
+    - transition@32 remains the protected runtime candidate generator
+    - MTP-token prior is promoted only as optional extra-budget expansion over novel experts
+    - default experimental budget point: `max_extra=4`
+    - high-budget experimental point: `max_extra=8`
+  - model-source caveat:
+    - MTP sidecar features currently come from `Intel/Qwen3.6-35B-A3B-int4-AutoRound`
+    - vLLM router labels currently come from `cyankiwi/Qwen3.6-35B-A3B-AWQ-4bit`
+    - same-checkpoint validation is still required before paper/runtime claims
+- [x] Add dynamic MTP-token extra-budget evaluator:
+  - script: `scripts/evaluate_mtp_token_prior.py`
+  - output: `outputs/mtp_token_prior_dynamic_budget_prefc_fixed_mtp64_metrics.json`
+  - policy: keep transition@32 protected, append at most `max_extra` MTP-token experts not already in the transition pool
+  - reports pool mass, top1 hit, weighted top1 miss, average extra count, introduced mass, and marginal mass per added expert
+- [x] Evaluate fixed-budget capped union:
+  - script support added to `scripts/evaluate_mtp_token_prior.py`
+  - compare transition@32 against `transition_top(32-R) + MTP-token top64`, capped at total budget 32
+  - replacement counts: `R=1/2/4/8`
+  - output: `outputs/mtp_token_prior_budget_prefc_fixed_mtp64_metrics.json`
+  - R=1: pool mass `0.739`, top1_hit `0.854`, weighted_top1_miss `0.0353`
+  - R=2: pool mass `0.740`, top1_hit `0.856`, weighted_top1_miss `0.0347`
+  - R=4: pool mass `0.738`, top1_hit `0.856`, weighted_top1_miss `0.0349`
+  - R=8: pool mass `0.728`, top1_hit `0.849`, weighted_top1_miss `0.0366`
+  - interpretation: replacing 1-2 transition tail experts has small positive signal, but larger replacement hurts mass; MTP-token prior is primarily an extra-budget expansion signal
+- [x] Add 256-sample expansion configs:
+  - data: `configs/data/aya_dataset_256.yaml`
+  - AutoRound source trace: `configs/trace/router_mtp_trace_aya_dataset_autoround_256sample.yaml`
+  - vLLM AWQ target trace: `configs/trace/router_mtp_trace_aya_dataset_awq_vllm_256sample.yaml`
+  - purpose: validate whether MTP-token extra-budget gains survive a larger sample-level held-out split before increasing predictor complexity
+- [x] Run 256-sample expanded forward/evaluation pass:
+  - raw data: `data/raw/aya_dataset_256.jsonl`
+  - AutoRound source trace: `data/traces/aya_dataset_256_autoround/manifest.jsonl`
+  - vLLM AWQ router target trace: `data/traces/aya_dataset_256_awq_vllm/manifest.jsonl`
+  - merged trace: `data/traces/aya_dataset_256_merged_mtp_vllm/manifest.jsonl`
+  - fixed MTP-token sidecar: `data/traces/mtp_token_topm_256sample_prefc_fixed/manifest.jsonl`
+  - fixed merged payload: `data/traces/aya_dataset_256_merged_mtp_vllm_prefc_fixed/manifest.jsonl`
+  - budget report: `outputs/mtp_token_prior_budget_256sample_prefc_fixed_mtp64_metrics.json`
+  - note: AutoRound source trace initially hit one ROCm `unspecified launch failure` after 35 samples; trace code now supports `skip_existing` and per-sample manifest flushing, and the resumed run completed all 256 samples
+  - note: vLLM target trace used `configs/model/qwen3_6_35b_a3b_awq_4bit_vram45.yaml` with `gpu_memory_utilization=0.85`; observed VRAM stayed below the effective 45GB budget
+- [x] Evaluate 256-sample MTP-token prior and dynamic budget:
+  - MTP next-token alignment: top1 `0.434`, top64 recall `0.903`, mean true-token top64 prob `0.339`
+  - MTP-token prior alone val mass@8/16/32: `0.395/0.521/0.658`
+  - transition val mass@8/16/32: `0.494/0.651/0.783`
+  - detailed report with per-layer diagnostics:
+    - `outputs/mtp_token_prior_budget_256sample_prefc_fixed_mtp64_per_layer_metrics.json`
+  - extra-budget dynamic policy with `transition@32 + MTP-token top64 novel extras`:
+    - max_extra=1: pool mass `0.794`, top1_hit `0.899`, weighted_top1_miss `0.0241`
+    - max_extra=2: pool mass `0.801`, top1_hit `0.905`, weighted_top1_miss `0.0228`
+    - max_extra=4: pool mass `0.811`, top1_hit `0.911`, weighted_top1_miss `0.0213`
+    - max_extra=8: pool mass `0.825`, top1_hit `0.919`, weighted_top1_miss `0.0195`
+  - per-layer extra-budget result:
+    - max_extra=1/2/4/8 each improves pool mass on all `40/40` layers
+    - max_extra=1/2/4/8 each reduces weighted top1 miss on all `40/40` layers
+    - max_extra=4 mean delta mass `+0.0283`; best layer `layer_00` `+0.0653`; worst layer `layer_36` `+0.0133`
+    - max_extra=8 mean delta mass `+0.0423`; best layer `layer_00` `+0.0959`; worst layer `layer_36` `+0.0203`
+    - shallow layers `0/1/4/9` benefit most; deep layers `35/36/37` still benefit but with lower marginal mass per extra expert
+  - fixed-budget capped replacement at total budget 32:
+    - R=1: pool mass `0.789`, delta `+0.0058`
+    - R=2: pool mass `0.791`, delta `+0.0080`
+    - R=4: pool mass `0.791`, delta `+0.0086`
+    - R=8: pool mass `0.785`, delta `+0.0027`
+  - same-candidate-count transition-tail baseline:
+    - output: `outputs/mtp_token_prior_budget_256sample_prefc_fixed_mtp64_transition_tail_baselines.json`
+    - `transition_top36`: pool mass `0.802`, top1_hit `0.901`, weighted miss `0.0238`
+    - `transition_top32 + MTP_extra4`: pool mass `0.811`, top1_hit `0.911`, weighted miss `0.0213`
+    - `transition_top40`: pool mass `0.819`, top1_hit `0.911`, weighted miss `0.0213`
+    - `transition_top32 + MTP_extra8`: pool mass `0.825`, top1_hit `0.919`, weighted miss `0.0195`
+    - interpretation: MTP extras add information beyond simply extending the transition tail at the same total candidate count
+  - layer-aware same-budget diagnostic:
+    - output: `outputs/mtp_token_prior_budget_256sample_prefc_fixed_mtp64_layer_aware_tail_baselines.json`
+    - all layers `MTP_extra4`: pool mass `0.811`, top1_hit `0.911`, weighted miss `0.0213`
+    - early layers `0..3` use `transition_top36`, later layers use `MTP_extra4`: pool mass `0.808`, top1_hit `0.908`, weighted miss `0.0221`
+    - early layers `0..7` use `transition_top36`, later layers use `MTP_extra4`: pool mass `0.807`, top1_hit `0.907`, weighted miss `0.0225`
+    - interpretation: all-layer MTP extra4 is best offline, but disabling early-layer MTP full fetch under lead-time pressure only costs a small amount of mass; this supports layer-level metadata-only guards for early layers
+  - interpretation: 256-sample data strengthens the promotion decision; MTP-token is useful for extra-budget expansion across every layer and can replace a small number of transition tail candidates, but transition remains the protected base generator
+  - runtime budget guidance:
+    - default all-layer policy: `transition_top32 + MTP_extra4`
+    - high-budget policy: `transition_top32 + MTP_extra8`
+    - bandwidth-tight policy: keep `transition_top32`, or use `MTP_extra1/2`
+    - optional layer-aware policy: shallow layers can justify larger MTP extras earlier than deep layers
+- [x] Add offline prefetch shadow-mode simulator:
+  - module: `src/mtp_expert_prefetch/evaluation/prefetch_shadow.py`
+  - script: `scripts/simulate_prefetch_shadow.py`
+  - config: `configs/eval/prefetch_shadow_256sample_mtp_extra.yaml`
+  - output: `outputs/reports/prefetch_shadow_256sample_mtp_extra/report.json`
+  - policy is still prefetch-only: true router remains the only execution source
+  - 256-sample priority tier result:
+    - `P2_transition_top16`: avg count `16`, mass `0.651`, exclusive top1 hit `0.802`
+    - `P3_transition_top17_to_32`: avg count `16`, mass `0.131`, exclusive top1 hit `0.086`
+    - `P4_mtp_extra1_to_4`: avg count `4`, mass `0.0283`, exclusive top1 hit `0.023`
+    - `P5_mtp_extra5_to_8`: avg count `4`, mass `0.0140`, exclusive top1 hit `0.008`
+  - 256-sample sample/layer unique working-set result:
+    - `transition_top32`: mean `93.6`, p90 `112`, p95 `137`, max `209`
+    - `transition_top32 + MTP_extra4`: mean `119.6`, p90 `139`, p95 `161`, max `218`
+    - `transition_top32 + MTP_extra8`: mean `136.1`, p90 `158`, p95 `181`, max `226`
+  - cache-capacity fit fraction:
+    - capacity 128: transition `0.945`, extra4 `0.766`, extra8 `0.335`
+    - capacity 160: transition `0.963`, extra4 `0.950`, extra8 `0.912`
+    - capacity 192: transition `0.994`, extra4 `0.983`, extra8 `0.967`
+  - capacity-guarded policy result:
+    - capacity 128 guarded extra4: avg extra `2.88`, mass `0.801`, top1_hit `0.902`, weighted miss `0.0237`
+    - capacity 128 guarded extra8: avg extra `1.84`, mass `0.791`, top1_hit `0.894`, weighted miss `0.0255`
+    - capacity 160 guarded extra4: avg extra `3.77`, mass `0.808`, top1_hit `0.908`, weighted miss `0.0222`
+    - capacity 160 guarded extra8: avg extra `7.18`, mass `0.818`, top1_hit `0.913`, weighted miss `0.0211`
+    - capacity 192 guarded extra8: avg extra `7.69`, mass `0.822`, top1_hit `0.917`, weighted miss `0.0201`
+  - interpretation:
+    - P2/P3 transition candidates should be protected and higher priority
+    - `MTP_extra1_to_4` is the useful default low-priority extra prefetch region
+    - `MTP_extra5_to_8` still helps, but should be enabled only when bandwidth/cache pressure is low
+    - prefill/chunk-level union grows much faster than token-level budget; MTP extras should be opportunistic under cache/bandwidth guards rather than unconditional full-weight prefetch
+    - if layer cache capacity is around 128 routed experts, extra4 should not be unconditional full-weight prefetch; if capacity is around 160+, extra4 becomes much more viable
+    - guarded extra8 is only attractive once capacity is around 160+; around 128, guarded extra4 dominates guarded extra8
+- [x] Add runtime pre-map descriptor prototype:
+  - module: `src/mtp_expert_prefetch/runtime/premap.py`
+  - script: `scripts/export_prefetch_premap_descriptors.py`
+  - descriptor fields: `sample_idx`, `layer_idx`, `expert_id`, `priority`, `source`, `score`
+  - priority convention:
+    - `P2`: transition top16
+    - `P3`: transition top17-32
+    - `P4`: MTP-token extra1-4
+    - `P5`: MTP-token extra5-8
+    - `P0/P1` remain reserved for true-router urgent misses and shared/always-on expert handling
+  - default extra4 export:
+    - output: `outputs/reports/prefetch_shadow_256sample_mtp_extra/descriptors_extra4.jsonl`
+    - summary: `outputs/reports/prefetch_shadow_256sample_mtp_extra/descriptors_extra4_summary.json`
+    - descriptors: `306249`
+    - per sample/layer count mean `119.6`, p90 `139`, p95 `161`, max `218`
+    - approximate per sample/layer full expert bytes with `1.65MB/expert`: mean `197MB`, p90 `229MB`, p95 `266MB`, max `360MB`
+    - source counts: transition head `153940`, transition tail `85553`, MTP extra head `66756`
+  - high-budget extra8 export:
+    - output: `outputs/reports/prefetch_shadow_256sample_mtp_extra/descriptors.jsonl`
+    - summary: `outputs/reports/prefetch_shadow_256sample_mtp_extra/descriptors_summary.json`
+    - descriptors: `348543`
+    - per sample/layer count mean `136.1`, p90 `158`, p95 `181`, max `226`
+    - approximate per sample/layer full expert bytes with `1.65MB/expert`: mean `225MB`, p90 `261MB`, p95 `299MB`, max `373MB`
+    - extra8 adds `42294` additional P5 MTP-tail descriptors over extra4
+  - interpretation: extra4 is the default pre-map queue; extra8 should be high-budget/idle-bandwidth only; real full-prefetch must subtract already resident experts before issuing CPU/GPU transfers
+- [x] Add resident-aware descriptor cache simulator:
+  - module: `src/mtp_expert_prefetch/runtime/cache_sim.py`
+  - script: `scripts/simulate_descriptor_cache.py`
+  - sweep summary: `outputs/reports/prefetch_shadow_256sample_mtp_extra/cache_lru_sweep_summary.json`
+  - model: per-layer LRU cache over pre-map descriptors; reports hits, misses, evictions, priority/source hit rates, and approximate load bytes
+  - extra4 descriptor cache sweep:
+    - cap 96: hit `0.189`, load `409.8GB`, P4 hit `0.049`
+    - cap 112: hit `0.403`, load `301.5GB`, P4 hit `0.171`
+    - cap 128: hit `0.652`, load `175.8GB`, P4 hit `0.375`
+    - cap 144: hit `0.776`, load `113.0GB`, P4 hit `0.565`
+    - cap 160: hit `0.848`, load `76.6GB`, P4 hit `0.701`
+    - cap 192: hit `0.931`, load `34.6GB`, P4 hit `0.855`
+  - extra8 descriptor cache sweep:
+    - cap 128: hit `0.412`, load `338.3GB`, P4 hit `0.301`, P5 hit `0.109`
+    - cap 144: hit `0.641`, load `206.6GB`, P4 hit `0.513`, P5 hit `0.273`
+    - cap 160: hit `0.769`, load `132.8GB`, P4 hit `0.671`, P5 hit `0.473`
+    - cap 192: hit `0.901`, load `57.0GB`, P4 hit `0.852`, P5 hit `0.752`
+  - interpretation:
+    - extra4 becomes reasonably cache-friendly around capacity 144-160
+    - extra8 is too aggressive at capacity 128 and remains substantially heavier at 160
+    - P5 MTP-tail has low residency until capacity is high, so it should be metadata-only or disabled under pressure
+- [x] Add priority-protected descriptor cache simulator:
+  - implemented in `src/mtp_expert_prefetch/runtime/cache_sim.py`
+  - script option: `scripts/simulate_descriptor_cache.py --policy priority_protected`
+  - policy: P4/P5 MTP extras cannot evict protected P2/P3 transition candidates; they are skipped when no unprotected cache slot is available
+  - regression test verifies that ordinary LRU evicts a transition entry for P4, while priority-protected cache skips P4 and preserves transition
+  - extra4 priority-protected results:
+    - cap128: hit `0.763`, load `65.3GB`, P4 admitted `0.506`, P2/P3 admitted `1.000/1.000`
+    - cap160: hit `0.873`, load `39.8GB`, P4 admitted `0.779`, P2/P3 admitted `1.000/1.000`
+    - cap192: hit `0.937`, load `29.2GB`, P4 admitted `0.975`, P2/P3 admitted `1.000/1.000`
+  - extra8 priority-protected results:
+    - cap128: hit `0.714`, load `68.7GB`, P4/P5 admitted `0.511/0.397`, P2/P3 admitted `1.000/1.000`
+    - cap160: hit `0.837`, load `49.1GB`, P4/P5 admitted `0.780/0.709`, P2/P3 admitted `1.000/1.000`
+    - cap192: hit `0.913`, load `44.6GB`, P4/P5 admitted `0.975/0.964`, P2/P3 admitted `1.000/1.000`
+  - interpretation:
+    - priority protection aligns the simulator with the runtime contract: MTP extras may be dropped, but protected transition candidates are not evicted by them
+    - cap160 is adequate for extra4 but still marginal for extra8 P5; cap192 is the first clean high-budget point for extra8
+- [x] Add transfer-budget constrained descriptor cache simulation:
+  - implemented in `src/mtp_expert_prefetch/runtime/cache_sim.py`
+  - script option: `scripts/simulate_descriptor_cache.py --transfer-budget-mb-per-sample-layer`
+  - fixed the report denominator so `admitted_rate` includes skipped descriptors
+  - cap160, extra4, per sample/layer transfer budget:
+    - 50MB: overall hit `0.853`, skipped `13211`, load `52.5GB`, P4 admitted `0.922`
+    - 100MB: overall hit `0.859`, skipped `6045`, load `61.3GB`, P4 admitted `0.963`
+    - 150MB: overall hit `0.857`, skipped `3441`, load `66.4GB`, P4 admitted `0.976`
+    - 200MB: overall hit `0.854`, skipped `1367`, load `71.4GB`, P4 admitted `0.991`
+  - interpretation:
+    - larger transfer budgets admit more candidates but also increase load bytes and eviction pressure
+    - around cap160, `MTP_extra1_to_4` remains mostly admissible even under 50-100MB/sample/layer budgets
+    - budget control should be coupled with resident cache pressure rather than simply maximizing admitted descriptors
+- [x] Add priority-admission sample/layer cache policy:
+  - implemented in `src/mtp_expert_prefetch/evaluation/prefetch_shadow.py`
+  - policy: for each sample/layer, union token-level candidates, sort by priority then score, and admit up to capacity
+  - important interpretation caveat:
+    - this is a prefill/chunk resident-cache metric, not a token-level top32/top36 pool metric
+    - it asks "if these experts are resident for the whole sample/layer chunk, how much true router mass is covered?"
+    - therefore its mass numbers are much higher and should not be compared directly to token-level pool mass
+  - priority admission result on 256-sample val:
+    - capacity 96 extra4: mass `0.932`, top1_hit `0.975`, weighted miss `0.00587`
+    - capacity 128 extra4: mass `0.955`, top1_hit `0.987`, weighted miss `0.00316`
+    - capacity 160 extra4: mass `0.961`, top1_hit `0.989`, weighted miss `0.00254`
+    - capacity 128 extra8: mass `0.958`, top1_hit `0.987`, weighted miss `0.00304`
+    - capacity 160 extra8: mass `0.967`, top1_hit `0.991`, weighted miss `0.00222`
+  - interpretation:
+    - chunk-level cache admission can cover much more mass than per-token budget because expert demand is unioned across tokens
+    - priority admission makes capacity 96/128 meaningful for prefill-style resident cache, even though token-level extra8 remains too heavy under low capacity
+    - next runtime simulator should combine this with actual transfer deadlines, not just resident-set coverage
+- [x] Add lead-time / fetch-overlap envelope for prefetch descriptors:
+  - module: `src/mtp_expert_prefetch/runtime/lead_time.py`
+  - script: `scripts/analyze_prefetch_lead_time.py`
+  - reports whether descriptor groups are fetchable before demand under a simple bandwidth and layer-time model
+  - model assumptions:
+    - transition P2/P3 is emitted when token `t` layer `l` router finishes and targets token `t+1` layer `l`, so it has about one full forward pass of lead time
+    - MTP-token P4/P5 is emitted after token `t` MTP-token prediction, so its lead time to token `t+1` layer `l` is approximately `l * layer_ms - mtp_delay_ms`
+    - default expert payload estimate remains `1.65MB/expert`
+  - output reports:
+    - `outputs/reports/prefetch_shadow_256sample_mtp_extra/lead_time_extra4_bw16_layer1ms.json`
+    - `outputs/reports/prefetch_shadow_256sample_mtp_extra/lead_time_extra8_bw16_layer1ms.json`
+    - `outputs/reports/prefetch_shadow_256sample_mtp_extra/lead_time_extra4_bw16_layer1ms_mtpdelay2.json`
+    - `outputs/reports/prefetch_shadow_256sample_mtp_extra/lead_time_extra4_bw8_layer1ms.json`
+  - 16GB/s, 1ms/layer, no MTP delay:
+    - transition P2/P3 fetchable fraction: `1.000/1.000`
+    - MTP extra1-4 fetchable fraction: `0.953`
+    - MTP extra5-8 fetchable fraction: `0.963`
+    - MTP extra mean lead time: `19.5ms`, min `0ms`, median `19.5ms`
+  - 16GB/s, 1ms/layer, 2ms MTP delay:
+    - MTP extra1-4 fetchable fraction: `0.906`
+    - MTP extra mean lead time: `17.6ms`
+  - 8GB/s, 1ms/layer, no MTP delay:
+    - MTP extra1-4 fetchable fraction: `0.922`
+  - interpretation:
+    - the one-token transition path has ample lead time in this envelope model
+    - MTP extras are still mostly fetchable, but early-layer MTP extras have near-zero lead time and should start as pre-map/metadata warmup or opportunistic low-priority fetches
+    - future runtime evaluation should report ready-before-demand mass, not only candidate coverage
+- [x] Add token-level ready-before-demand metric:
+  - function: `lead_time_ready_mask` in `src/mtp_expert_prefetch/evaluation/prefetch_shadow.py`
+  - script: `scripts/evaluate_prefetch_ready_before_demand.py`
+  - stress sweep script: `scripts/sweep_prefetch_ready_before_demand.py`
+  - both scripts support `--device`; GPU0 run used `HIP_VISIBLE_DEVICES=0 --device cuda`
+  - queue-aware mode: `scripts/sweep_prefetch_ready_before_demand.py --mode queue`
+  - purpose: remove MTP extras that cannot be fetched before token `t+1` layer demand, then recompute real gate-mass coverage and top1 risk
+  - output reports:
+    - `outputs/reports/prefetch_shadow_256sample_mtp_extra/ready_before_demand_bw16_layer1ms.json`
+    - `outputs/reports/prefetch_shadow_256sample_mtp_extra/ready_before_demand_bw16_layer1ms_mtpdelay2.json`
+    - `outputs/reports/prefetch_shadow_256sample_mtp_extra/ready_before_demand_bw8_layer1ms.json`
+    - `outputs/reports/prefetch_shadow_256sample_mtp_extra/ready_before_demand_stress_sweep_gpu0.json`
+    - `outputs/reports/prefetch_shadow_256sample_mtp_extra/ready_before_demand_queue_sweep_gpu0.json`
+  - baseline transition ready policy:
+    - mass `0.7827`, top1_hit `0.8882`, weighted miss `0.02679`
+  - 16GB/s, 1ms/layer, no MTP delay:
+    - ready extra4 avg extras `3.90`, mass `0.8094`, delta `+0.0266`, top1_hit `0.9095`, weighted miss `0.02181`
+    - ready extra8 avg extras `7.80`, mass `0.8226`, delta `+0.0399`, top1_hit `0.9170`, weighted miss `0.02008`
+  - 16GB/s, 1ms/layer, 2ms MTP delay:
+    - ready extra4 avg extras `3.70`, mass `0.8069`, delta `+0.0242`, weighted miss `0.02249`
+    - ready extra8 avg extras `7.40`, mass `0.8190`, delta `+0.0363`, weighted miss `0.02097`
+  - 8GB/s, 1ms/layer, no MTP delay:
+    - ready extra4 avg extras `3.90`, mass `0.8094`, delta `+0.0266`, weighted miss `0.02181`
+    - ready extra8 avg extras `7.70`, mass `0.8219`, delta `+0.0391`, weighted miss `0.02022`
+  - interpretation:
+    - lead-time filtering only modestly reduces the extra-budget gains because `max_extra=4/8` is small relative to available transfer capacity after the earliest layers
+    - MTP extra4 remains the default runtime candidate even under a 2ms MTP-token delay assumption
+    - early layers with zero/near-zero MTP lead should still rely on transition candidates and metadata/pre-map rather than full MTP-extra fetch
+  - stress sweep result:
+    - grid: bandwidth `2/4/8/16/32 GB/s`, layer time `0.25/0.5/1/2 ms`, MTP delay `0/1/2/4/8 ms`, budgets `extra4/extra8`
+    - extra4: `85/100` combinations keep positive delta mass; `46/100` keep `realized_gain_ratio >= 0.8`
+    - extra8: `85/100` combinations keep positive delta mass; `44/100` keep `realized_gain_ratio >= 0.8`
+    - recommended envelope around `8-16GB/s`, `1ms/layer`, MTP delay `0/2/4/8ms` for extra4:
+      - delta mass `+0.0266/+0.0242/+0.0224/+0.0192`
+      - realized gain ratio `0.942/0.856/0.792/0.680`
+    - failure region is mainly `2GB/s`, `0.25ms/layer`, high MTP delay; in that region the protected transition pool itself is not fully ready, so the bottleneck is system transfer capacity rather than MTP candidate quality
+  - queue-aware stress sweep:
+    - model: transition P2/P3 candidates can consume the transfer window before P4/P5 MTP extras; MTP extras only use remaining late-window capacity
+    - extra4: `85/100` combinations keep positive delta mass; `46/100` keep `realized_gain_ratio >= 0.8`
+    - extra8: `85/100` combinations keep positive delta mass; `44/100` keep `realized_gain_ratio >= 0.8`
+    - recommended `8/16GB/s`, `1ms/layer`, delay `0/2/4/8ms` for extra4 is unchanged:
+      - delta mass `+0.0266/+0.0242/+0.0224/+0.0192`
+      - realized gain ratio `0.942/0.856/0.792/0.680`
+    - low-bandwidth failure is more severe than independent-envelope mode because P2/P3 transition consumes the queue first; this supports disabling full MTP-extra fetch when protected transition itself is not ready
+- [x] Add trace-driven stall proxy simulator:
+  - module: `src/mtp_expert_prefetch/runtime/event_sim.py`
+  - script: `scripts/simulate_prefetch_event_stalls.py`
+  - test: `tests/test_runtime_event_sim.py`
+  - model:
+    - derives true expert demand from recorded router top-k mass
+    - derives ready candidates from queue-aware prefetch readiness
+    - counts missing true experts as supplemental fetches at demand time
+    - reports supplemental fetch count/bytes, miss mass, top1 supplemental miss, and serial transfer stall proxy
+  - important caveat:
+    - this is a stall proxy, not a real DMA/runtime measurement
+    - absolute stall numbers assume serial supplemental transfer at configured bandwidth
+    - deltas between policies are the useful signal
+  - 256-sample output:
+    - `outputs/reports/prefetch_shadow_256sample_mtp_extra/event_stall_proxy_bw16_layer1ms_mtpdelay2.json`
+  - envelope: `16GB/s`, `1ms/layer`, `MTP delay=2ms`, expert bytes `1.65MB`
+  - transition-only ready baseline:
+    - ready mass `0.7827`
+    - supplemental fetches `507824`
+    - supplemental bytes `837.9GB`
+    - serial stall proxy sum `52.37s`
+    - mean stall proxy per token/layer `0.221ms`
+  - `transition_top32 + MTP_extra4`:
+    - ready mass `0.8069`
+    - supplemental fetches `457778`
+    - supplemental bytes `755.3GB`
+    - saved supplemental fetches `50046`
+    - saved supplemental bytes `82.6GB`
+    - serial stall proxy sum `47.21s`
+    - saved stall proxy `5.16s`
+    - stall reduction ratio `9.85%`
+  - `transition_top32 + MTP_extra8`:
+    - ready mass `0.8190`
+    - supplemental fetches `430376`
+    - supplemental bytes `710.1GB`
+    - saved supplemental fetches `77448`
+    - saved supplemental bytes `127.8GB`
+    - serial stall proxy sum `44.38s`
+    - saved stall proxy `7.99s`
+    - stall reduction ratio `15.25%`
+  - low-budget curve under the same envelope:
+    - output: `outputs/reports/prefetch_shadow_256sample_mtp_extra/event_stall_proxy_bw16_layer1ms_mtpdelay2_extra1_2_4_8.json`
+    - extra1: saved fetches `18065`, saved bytes `29.8GB`, saved stall proxy `1.86s`, reduction `3.56%`
+    - extra2: saved fetches `30822`, saved bytes `50.9GB`, saved stall proxy `3.18s`, reduction `6.07%`
+    - extra4: saved fetches `50046`, saved bytes `82.6GB`, saved stall proxy `5.16s`, reduction `9.85%`
+    - extra8: saved fetches `77448`, saved bytes `127.8GB`, saved stall proxy `7.99s`, reduction `15.25%`
+    - interpretation: the new runtime policy's pressure-degraded `extra1/2` modes have meaningful but smaller stall-proxy reductions, so they are better than dropping immediately to `extra0` when resources are moderately pressured
+  - stall-proxy stress sweep:
+    - script: `scripts/sweep_prefetch_event_stalls.py`
+    - output: `outputs/reports/prefetch_shadow_256sample_mtp_extra/event_stall_sweep_gpu0.json`
+    - grid: bandwidth `2/4/8/16/32GB/s`, layer time `0.25/0.5/1/2ms`, MTP delay `0/1/2/4/8ms`, max extra `1/2/4/8`
+    - positive saved-stall rows:
+      - extra1: `85/100`
+      - extra2: `85/100`
+      - extra4: `85/100`
+      - extra8: `85/100`
+    - rows with >= `5%` stall-proxy reduction:
+      - extra1: `0/100`
+      - extra2: `63/100`
+      - extra4: `82/100`
+      - extra8: `82/100`
+    - mean stall-proxy reduction:
+      - extra1: `2.78%`
+      - extra2: `4.72%`
+      - extra4: `7.56%`
+      - extra8: `11.50%`
+    - recommended `8/16GB/s`, `1ms/layer`, MTP delay `0/2/4/8ms` for extra4:
+      - stall reduction `10.74% / 9.85% / 9.07% / 7.85%`
+      - saved supplemental fetches `54537 / 50046 / 46056 / 39878`
+    - recommended `8/16GB/s`, `1ms/layer`, MTP delay `0/2/4/8ms` for extra8:
+      - stall reduction at `16GB/s`: `16.65% / 15.25% / 14.02% / 12.14%`
+      - saved supplemental fetches `84544 / 77448 / 71175 / 61636`
+    - interpretation:
+      - extra4 is the best default point by ROI: strong stall-proxy reduction without the cache pressure of extra8
+      - extra8 gives larger stall proxy savings but still remains high-budget because cache/admission simulations show it is much heavier
+      - extra1/2 are useful degradation modes under pressure, especially when full extra4 would be too expensive
+  - interpretation:
+    - extra4 converts a meaningful amount of ready-before-demand mass into fewer true-router supplemental fetches
+    - extra8 has larger stall proxy reduction but still needs the stricter high-budget gate because cache/priority simulations show it is much heavier
+    - this closes the loop from coverage -> ready mass -> stall proxy, but real runtime counters are still required before claiming end-to-end speedup
+- [x] Add expert-transfer microbench calibration:
+  - script: `scripts/benchmark_expert_transfer.py`
+  - output: `outputs/reports/prefetch_shadow_256sample_mtp_extra/expert_transfer_bench_gpu0.json`
+  - device: `AMD Radeon Pro W7900`, `torch 2.9.1+rocm7.2`
+  - payload: contiguous uint8 H2D transfer with expert bytes `1.65MB`
+  - batch sizes: `1/2/4/8/16/32` experts
+  - measured H2D:
+    - pageable p50 bandwidth grows from `6.55GB/s` at 1 expert to `7.10GB/s` at 32 experts
+    - pinned p50 bandwidth grows from `6.80GB/s` at 1 expert to `7.10GB/s` at 32 experts
+    - pinned p95 conservative bandwidth: `6.59GB/s`
+    - large-batch p50 bandwidth: `7.10GB/s`
+  - interpretation:
+    - previous `8/16GB/s` envelopes were optimistic for this W7900 host path
+    - calibrated stall proxy should use about `6.6-7.1GB/s` until real runtime/DMA overlap measurements are available
+  - calibrated event-stall proxy:
+    - output: `outputs/reports/prefetch_shadow_256sample_mtp_extra/event_stall_proxy_calibrated_h2d6p59_layer1ms_mtpdelay2_extra1_2_4_8.json`
+    - bandwidth: `6.589GB/s`, layer time `1ms`, MTP delay `2ms`
+    - transition-only supplemental fetches: `507824`, serial stall proxy `127.17s`
+    - extra1: saved fetches `18065`, saved stall proxy `4.52s`, reduction `3.56%`
+    - extra2: saved fetches `30822`, saved stall proxy `7.72s`, reduction `6.07%`
+    - extra4: saved fetches `49497`, saved stall proxy `12.39s`, reduction `9.75%`
+    - extra8: saved fetches `75430`, saved stall proxy `18.89s`, reduction `14.85%`
+  - important note:
+    - lower calibrated bandwidth increases absolute stall proxy but preserves relative reductions
+    - this microbench measures contiguous H2D copy only; real expert materialization, mmap/page faults, dequant layout, and compute overlap still need runtime counters
+- [x] Add runtime shadow counters to event simulator:
+  - implemented in `src/mtp_expert_prefetch/runtime/event_sim.py`
+  - counters per policy:
+    - `requested_count/bytes`
+    - `issued_count/bytes`
+    - `ready_count/bytes`
+    - `late_count/bytes`
+    - `used_count/bytes`
+    - `unused_count/bytes`
+    - `skipped_count/bytes`
+  - current trace replay semantics:
+    - requested = policy-requested candidate pool before cache/admission
+    - issued = requested candidates accepted by optional priority-protected admission
+    - ready = issued candidates that queue-aware lead-time model says are ready before demand
+    - late = issued candidates not ready before demand
+    - used = ready candidates hit by true router demand
+    - unused = ready candidates not used by true router demand
+    - skipped = requested candidates rejected by priority-protected admission
+  - calibrated output:
+    - `outputs/reports/prefetch_shadow_256sample_mtp_extra/event_stall_proxy_calibrated_h2d6p59_shadow_counters.json`
+  - calibrated `6.589GB/s`, `1ms/layer`, `MTP delay=2ms` counters:
+    - transition-only: issued/ready `12.52TB`, late `0`, unused ready `10.23TB`
+    - extra1: issued `12.91TB`, ready `12.88TB`, late `29.35GB`, unused ready `10.56TB`
+    - extra2: issued `13.30TB`, ready `13.25TB`, late `58.70GB`, unused ready `10.90TB`
+    - extra4: issued `14.09TB`, ready `13.96TB`, late `127.18GB`, unused ready `11.59TB`
+    - extra8: issued `15.65TB`, ready `15.36TB`, late `293.49GB`, unused ready `12.94TB`
+  - interpretation:
+    - shadow counters expose the cost side of the policy: extra4 reduces supplemental fetches, but it also increases unused-ready bytes
+    - next optimization should combine these counters with priority-protected cache/admission to reduce unused bytes, not simply add more candidates
+- [x] Combine event counters with priority-protected admission:
+  - implemented in `src/mtp_expert_prefetch/runtime/event_sim.py`
+  - script option: `scripts/simulate_prefetch_event_stalls.py --admission-capacity-per-layer`
+  - tests verify admission capacity creates `skipped_count/bytes` instead of silently dropping candidates
+  - calibrated GPU0 outputs:
+    - cap160: `outputs/reports/prefetch_shadow_256sample_mtp_extra/event_stall_proxy_calibrated_h2d6p59_shadow_counters_admit160.json`
+    - cap192: `outputs/reports/prefetch_shadow_256sample_mtp_extra/event_stall_proxy_calibrated_h2d6p59_shadow_counters_admit192.json`
+  - new ROI fields:
+    - `delta_*_vs_transition`
+    - `saved_supplemental_fetch_bytes_vs_transition`
+    - `saved_supplemental_bytes_per_extra_issued_byte`
+    - `delta_used_bytes_per_extra_issued_byte`
+    - `delta_unused_bytes_per_extra_issued_byte`
+    - `stall_saved_ms_per_extra_issued_gb`
+  - cap160, calibrated `6.589GB/s`, `1ms/layer`, `MTP delay=2ms`:
+    - extra1: issued `12.90TB`, skipped `9.1GB`, used/issued `0.180`, unused/issued `0.818`, stall reduction `3.55%`, saved supplemental / extra issued byte `0.0765`
+    - extra2: issued `13.29TB`, skipped `11.0GB`, used/issued `0.176`, unused/issued `0.820`, stall reduction `6.07%`, saved supplemental / extra issued byte `0.0653`
+    - extra4: issued `14.07TB`, skipped `16.0GB`, used/issued `0.169`, unused/issued `0.823`, stall reduction `9.74%`, saved supplemental / extra issued byte `0.0525`
+    - extra8: issued `15.62TB`, skipped `30.8GB`, used/issued `0.155`, unused/issued `0.828`, stall reduction `14.84%`, saved supplemental / extra issued byte `0.0401`
+  - cap192:
+    - admission skips are tiny: extra4 skipped `2.1GB`, extra8 skipped `5.6GB`
+    - stall reductions are essentially unchanged: extra4 `9.75%`, extra8 `14.85%`
+  - interpretation:
+    - priority-protected admission protects transition candidates but does not by itself solve unused bytes at cap160/192, because almost all policy-requested extras are still admitted
+    - marginal ROI decays monotonically from extra1 to extra8: `stall_saved_ms_per_extra_issued_gb` is about `11.6 / 9.9 / 8.0 / 6.1`
+    - if the goal is used-per-issued-byte rather than raw stall reduction, extra1/2 are more efficient; extra4 remains the default only when the system values stronger stall reduction over bandwidth efficiency
+    - next optimization should be utility admission over P4/P5 extras, not larger fixed extra budgets
+- [x] Add unique-payload counters to event simulator:
+  - implemented in `src/mtp_expert_prefetch/runtime/event_sim.py`
+  - output: `outputs/reports/prefetch_shadow_256sample_mtp_extra/event_stall_proxy_calibrated_h2d6p59_shadow_counters_admit160_unique.json`
+  - semantics:
+    - token-candidate counters count every token/layer/expert request
+    - unique-payload counters coalesce requests by sample/layer/expert, closer to actual expert weight transfer units
+  - cap160, calibrated `6.589GB/s`, `1ms/layer`, `MTP delay=2ms`:
+    - transition-only token issued `12.51TB`, token used/issued `0.183`, unique issued `392.2GB`, unique used/issued `0.754`, reuse factor `31.9x`
+    - extra1 unique issued `425.3GB`, unique used/issued `0.718`, unique unused/issued `0.279`, delta unique issued `33.1GB`
+    - extra2 unique issued `453.0GB`, unique used/issued `0.690`, unique unused/issued `0.305`, delta unique issued `60.9GB`
+    - extra4 unique issued `499.7GB`, unique used/issued `0.646`, unique unused/issued `0.346`, delta unique issued `107.5GB`
+    - extra8 unique issued `565.1GB`, unique used/issued `0.591`, unique unused/issued `0.395`, delta unique issued `172.9GB`
+  - interpretation:
+    - token-candidate unused ratios around `0.82` overstate actual transfer waste because each payload is reused by roughly `28-32x`
+    - unique-payload accounting still shows the same ROI decay: extra4/8 reduce stall more, but extra1/2 are more efficient per transferred payload
+    - future runtime reports should lead with unique payload counters, while retaining token counters for route-level analysis
+- [x] Add MTP-extra utility admission evaluator:
+  - script: `scripts/evaluate_mtp_extra_utility_admission.py`
+  - reusable admission helpers:
+    - canonical implementation: `src/mtp_expert_prefetch/admission.py`
+    - runtime re-export: `src/mtp_expert_prefetch/runtime/admission.py`
+    - evaluation wrapper remains in `src/mtp_expert_prefetch/evaluation/prefetch_shadow.py`
+    - `novel_mtp_extra_rank_mask`
+    - `score_threshold_mtp_extra_mask`
+    - `select_topk_mask`
+  - `runtime/premap.py` now depends on the reusable admission helpers instead of importing from evaluation code, avoiding runtime/evaluation circular dependencies
+  - admission contract invariants are covered by tests:
+    - protected transition candidates are always preserved in the final mask
+    - MTP extras are novel-only and cannot consume budget for experts already in transition_top32
+    - admitted extra count cannot exceed `max_extra`
+    - higher score thresholds produce subset masks
+    - `NaN` / `inf` MTP scores are rejected by default
+  - score threshold metadata:
+    - dataclass: `ScoreThresholdMetadata` in `src/mtp_expert_prefetch/admission.py`
+    - records threshold value, threshold type, optimization goal, target budget, metric, calibration split, and held-out split
+    - utility evaluator now writes metadata into each threshold policy report
+  - output: `outputs/reports/prefetch_shadow_256sample_mtp_extra/mtp_extra_utility_admission_gpu0_cap160.json`
+  - held-out output: `outputs/reports/prefetch_shadow_256sample_mtp_extra/mtp_extra_utility_admission_gpu0_cap160_calib_heldout.json`
+  - run setting: GPU0 W7900 for tensor replay, CPU precompute for priority admission to avoid ROCm instability in the small-grained `.item()` loop
+  - model: cap160, calibrated `6.589GB/s`, `1ms/layer`, `MTP delay=2ms`, `max_extra=8`
+  - per-rank ROI:
+    - rank1: issued `389.5GB`, used/issued `0.0758`, stall saved per issued GB `11.51ms/GB`
+    - rank2: issued `389.3GB`, used/issued `0.0535`, stall saved per issued GB `8.12ms/GB`
+    - rank3: issued `389.0GB`, used/issued `0.0432`, stall saved per issued GB `6.56ms/GB`
+    - rank4: issued `388.8GB`, used/issued `0.0373`, stall saved per issued GB `5.66ms/GB`
+    - rank5-8 continue decaying to rank8 used/issued `0.0249`, stall saved per issued GB `3.79ms/GB`
+  - global MTP-prior score threshold sweep:
+    - keep top `12.5%`: extra issued `386.2GB`, stall reduction `4.45%`, saved supplemental / extra issued byte `0.0966`
+    - keep top `25%`: extra issued `772.9GB`, stall reduction `6.92%`, saved supplemental / extra issued byte `0.0750`
+    - keep top `50%`: extra issued `1.55TB`, stall reduction `10.40%`, saved supplemental / extra issued byte `0.0563`
+    - keep top `75%`: extra issued `2.33TB`, stall reduction `12.78%`, saved supplemental / extra issued byte `0.0460`
+    - keep all `100%`: extra issued `3.11TB`, stall reduction `14.84%`, saved supplemental / extra issued byte `0.0401`
+  - oracle-used upper bound:
+    - same stall reduction as fixed extra8, `14.84%`, with only `145.5GB` extra issued
+    - saved supplemental / extra issued byte `0.8555`, no extra unused bytes
+  - calibration / held-out split:
+    - calibration samples: `192..223`, `2786` token examples
+    - held-out samples: `224..255`, `3143` token examples
+    - thresholds are selected on calibration scores and evaluated only on held-out samples
+  - held-out fixed vs MTP-score threshold admission:
+    - fixed extra1: extra issued `206.4GB`, stall reduction `4.00%`; score keep top `12.5%`: extra issued `193.2GB`, stall reduction `4.80%`
+    - fixed extra2: extra issued `412.8GB`, stall reduction `6.82%`; score keep top `25%`: extra issued `396.9GB`, stall reduction `7.55%`
+    - fixed extra4: extra issued `825.2GB`, stall reduction `11.06%`; score keep top `50%`: extra issued `812.1GB`, stall reduction `11.59%`
+    - fixed extra8 equals keep top `100%`: extra issued `1.65TB`, stall reduction `16.71%`
+  - held-out oracle-used upper bound:
+    - extra issued `82.9GB`, stall reduction `16.71%`, saved supplemental / extra issued byte `0.8567`
+  - interpretation:
+    - MTP extra rank has sharply decaying ROI; fixed rank budgets are too coarse
+    - simple global score-threshold admission already beats fixed extraK at similar issued bytes: keep top `50%` gives more stall reduction than fixed extra4 with about the same extra issued bytes
+    - the score-threshold gain survives sample-level calibration/held-out splitting, so it is not just eval-threshold leakage
+    - there is still a large gap to oracle admission, so a lightweight utility gate over P4/P5 is worth doing before any larger predictor work
+    - first utility gate can be score-threshold / score-per-byte based; learned admission should be considered only after this heuristic is exhausted
+- [x] Promote admission helpers into a runtime contract surface:
+  - canonical module: `src/mtp_expert_prefetch/admission.py`
+  - runtime re-export: `src/mtp_expert_prefetch/runtime/admission.py`
+  - evaluation wrapper: `src/mtp_expert_prefetch/evaluation/prefetch_shadow.py`
+  - added `AdmissionDecisionMasks` and `score_threshold_mtp_extra_decision_masks`
+  - decision masks expose:
+    - `admitted_score_gate`
+    - `skipped_not_novel`
+    - `skipped_rank_cap`
+    - `skipped_below_threshold`
+    - `skipped_invalid_score`
+    - `skipped_policy`
+  - tests now verify that reason masks are disjoint, preserve transition candidates, reject invalid scores, and report policy-pressure skips
+  - current test suite for the runtime/evaluation policy surface: `33 passed`
+- [x] Extend score-threshold metadata into a reproducible artifact:
+  - dataclass: `ScoreThresholdMetadata`
+  - added fields:
+    - `schema_version`
+    - `model_id`, `trace_id`, `sidecar_model_id`, `router_trace_model_id`
+    - `prefc_fixed`
+    - `num_samples`, `num_tokens`, `num_token_layer_examples`
+    - `num_layers`, `num_experts`, `top_m_tokens`
+    - `base_policy`, `max_extra`, `score_source`
+    - `calibration_report_path`, `heldout_report_path`
+    - `created_at`, `git_commit`, `experiment_id`
+  - latest GPU0 report with metadata:
+    - `outputs/reports/prefetch_shadow_256sample_mtp_extra/mtp_extra_utility_admission_gpu0_cap160_metadata.json`
+  - metadata confirms:
+    - `prefc_fixed=true`
+    - `base_policy=transition_top32`
+    - `max_extra=8`
+    - `score_source=mtp_token_top64_prior_score`
+    - `num_layers=40`
+    - `num_experts=256`
+    - `top_m_tokens=64`
+- [x] Add admission reason counters to utility reports:
+  - latest GPU0 report:
+    - `outputs/reports/prefetch_shadow_256sample_mtp_extra/mtp_extra_utility_admission_gpu0_cap160_reason_counters.json`
+  - example full-eval keep-top-50% counters:
+    - `admitted_score_gate`: `948640` token candidates
+    - `skipped_below_threshold`: `948640`
+    - `skipped_not_novel`: `6524948`
+    - `skipped_rank_cap`: `6756012`
+    - `skipped_invalid_score`: `0`
+    - `skipped_policy`: `0`
+  - interpretation:
+    - current evaluator has no runtime pressure mask in score gate, so `skipped_policy=0`
+    - these counters are now ready for runtime shadow logging, where pressure/capacity/lead-time gates should populate policy skip reasons
+- [x] Add fixed-budget tail-swap pressure policy:
+  - helper: `tail_swap_mtp_extra_mask`
+  - policy: protect `transition_top(32-R)` and replace the weakest transition-tail slots with up to `R` novel MTP-token extras
+  - latest GPU0 report:
+    - `outputs/reports/prefetch_shadow_256sample_mtp_extra/mtp_extra_utility_admission_gpu0_cap160_tail_swap.json`
+  - full val, calibrated cap160 event proxy:
+    - `tail_swap_1`: ready mass `0.7866`, stall reduction `1.24%`, delta issued `-0.88GB`, weighted miss `0.02549`
+    - `tail_swap_2`: ready mass `0.7870`, stall reduction `1.30%`, delta issued `-2.08GB`, weighted miss `0.02535`
+    - `tail_swap_4`: ready mass `0.7838`, stall reduction `-0.11%`, delta issued `-5.29GB`, weighted miss `0.02592`
+    - `tail_swap_8`: ready mass `0.7676`, stall reduction `-6.88%`, delta issued `-17.92GB`, weighted miss `0.02876`
+  - held-out split:
+    - `tail_swap_1`: ready mass `0.8003`, stall reduction `1.68%`, delta issued `-0.54GB`
+    - `tail_swap_2`: ready mass `0.8013`, stall reduction `2.01%`, delta issued `-1.19GB`
+    - `tail_swap_4`: ready mass `0.7993`, stall reduction `0.98%`, delta issued `-2.89GB`
+    - `tail_swap_8`: ready mass `0.7847`, stall reduction `-5.56%`, delta issued `-9.98GB`
+  - interpretation:
+    - MTP extras can replace a very small transition tail under pressure
+    - `tail_swap_1/2` are plausible bandwidth-tight pressure modes
+    - larger replacement (`tail_swap_4/8`) should not be default; transition_top32 remains protected in normal runtime policy
+- [x] Add rank/layer/ready-aware utility gate:
+  - canonical helper: `build_mtp_extra_utility_scores` in `src/mtp_expert_prefetch/admission.py`
+  - runtime export: `src/mtp_expert_prefetch/runtime/admission.py`
+  - utility form:
+    - `utility = mtp_score * rank_decay[rank] * layer_factor[layer] * ready_factor[layer]`
+    - default `rank_alpha=1.0`
+    - `layer_factor` is calibrated only on the calibration split from per-layer MTP-extra target mass
+    - `ready_factor` is derived from layer lead time, MTP delay, bandwidth, and expert payload size
+  - latest GPU0 report:
+    - `outputs/reports/prefetch_shadow_256sample_mtp_extra/mtp_extra_utility_admission_gpu0_cap160_utility_rank_layer_ready.json`
+  - held-out score-only vs rank/layer/ready utility threshold:
+    - keep top `12.5%`: score `4.80%` stall reduction at `193.2GB`; utility `5.24%` at `205.1GB`
+    - keep top `25%`: score `7.55%` at `396.9GB`; utility `8.03%` at `407.7GB`
+    - keep top `50%`: score `11.59%` at `812.1GB`; utility `12.08%` at `813.3GB`
+    - keep top `75%`: score `14.33%` at `1209.5GB`; utility `15.14%` at `1226.0GB`
+    - keep top `100%`: both recover the same `16.71%` stall reduction
+  - interpretation:
+    - utility gate improves over score-only on every held-out budget point
+    - keep-top-50% is the clearest default comparison: roughly the same extra issued bytes as score-only, but `+0.49%` absolute stall-reduction gain
+    - this should replace raw score threshold as the default admission score for runtime shadow
+- [x] Connect score/utility admission gates into runtime shadow counters:
+  - module: `src/mtp_expert_prefetch/runtime/event_sim.py`
+  - script: `scripts/simulate_prefetch_event_stalls.py`
+  - gated policies now use canonical `score_threshold_mtp_extra_decision_masks`
+  - report fields now include admission reason counters for gated policies:
+    - `admitted_score_gate`
+    - `skipped_not_novel`
+    - `skipped_rank_cap`
+    - `skipped_below_threshold`
+    - `skipped_invalid_score`
+    - `skipped_policy`
+  - added optional `--include-gated-policies`
+  - added optional `--disable-unique-payload-counters` because unique sample/layer/expert coalescing is much more expensive than token-level shadow counters
+  - added `--max-samples` / `--max-tokens` overrides for quick shadow reports
+  - tests:
+    - `tests/test_runtime_event_sim.py`
+    - current policy/eval runtime test subset: `35 passed`
+  - 64-sample GPU0 W7900 shadow report:
+    - output: `outputs/reports/prefetch_shadow_256sample_mtp_extra/event_stall_proxy_gpu0_cap160_gated_64sample.json`
+    - config: cap160, calibrated `6.589GB/s`, `1ms/layer`, `MTP delay=2ms`, token-level counters, `gate_max_extra=4`, keep-top-50%
+    - transition baseline: supplemental fetches `134159`, stall proxy `33.60s`
+    - fixed extra4: saved fetches `8933`, stall reduction `6.66%`, extra issued `348.9GB`, used/extra-issued `0.0422`, unused/extra-issued `0.8809`
+    - score keep-top-50%: saved fetches `6081`, stall reduction `4.53%`, extra issued `151.4GB`, used/extra-issued `0.0663`, unused/extra-issued `0.8379`
+    - rank/layer/ready utility keep-top-50%: saved fetches `6477`, stall reduction `4.83%`, extra issued `170.5GB`, used/extra-issued `0.0627`, unused/extra-issued `0.9292`
+  - interpretation:
+    - runtime shadow now directly compares fixed extraK vs score gate vs utility gate under the same issued/ready/late/used/unused/skipped byte counters
+    - on this 64-sample quick report, fixed extra4 still has the largest raw stall reduction, while score/utility gates spend about half the extra issued bytes and have better saved-supplemental-bytes per extra issued byte
+    - utility gate beats score gate in stall reduction at the same keep fraction, matching the larger utility-admission evaluator trend
+    - full 256-sample gated shadow report is still too slow with the current Python replay path; next engineering step is to cache/load precomputed transition/MTP score tensors or reuse the existing utility evaluator artifacts instead of rebuilding the dataset every run
+  - 256-sample GPU0 W7900 narrow shadow report:
+    - output: `outputs/reports/prefetch_shadow_256sample_mtp_extra/event_stall_proxy_gpu0_cap160_gated_256sample_narrow.json`
+    - config: cap160, calibrated `6.589GB/s`, `1ms/layer`, `MTP delay=2ms`, token-level counters, `gate_max_extra=4`, keep-top-50%
+    - transition baseline: supplemental fetches `508189`, stall proxy `127.26s`
+    - fixed extra4: saved fetches `49497`, stall reduction `9.74%`, extra issued `1.56TB`, used/extra-issued `0.0525`, unused/extra-issued `0.8714`
+    - score keep-top-50%: saved fetches `33353`, stall reduction `6.56%`, extra issued `0.692TB`, used/extra-issued `0.0795`, unused/extra-issued `0.8188`
+    - rank/layer/ready utility keep-top-50%: saved fetches `35459`, stall reduction `6.98%`, extra issued `0.755TB`, used/extra-issued `0.0775`, unused/extra-issued `0.9153`
+  - interpretation update:
+    - 256-sample shadow counters confirm the contract-level tradeoff:
+      - fixed extra4 maximizes raw stall reduction
+      - score/utility gates spend roughly half the extra issued bytes and improve byte efficiency
+      - utility gate again beats score gate in raw stall reduction at the same keep fraction
+    - default runtime wording should remain `transition_top32 + up to MTP_extra4 + utility gate`, not unconditional fixed extra4
+    - bandwidth-efficiency mode should prefer score/utility gated extras; stall-reduction mode can lower the threshold or approach fixed extra4 behavior when queue/cache pressure is low
+- [x] Add 256-sample score/utility/fixed Pareto shadow report:
+  - script: `scripts/summarize_prefetch_pareto.py`
+  - report: `outputs/reports/prefetch_shadow_256sample_mtp_extra/event_stall_proxy_gpu0_cap160_gated_pareto_256sample.json`
+  - summary artifacts:
+    - `outputs/reports/prefetch_shadow_256sample_mtp_extra/event_stall_proxy_gpu0_cap160_gated_pareto_256sample.csv`
+    - `outputs/reports/prefetch_shadow_256sample_mtp_extra/event_stall_proxy_gpu0_cap160_gated_pareto_256sample.md`
+    - `outputs/reports/prefetch_shadow_256sample_mtp_extra/event_stall_proxy_gpu0_cap160_gated_pareto_256sample.png`
+  - config: GPU0 W7900, cap160, calibrated `6.589GB/s`, `1ms/layer`, `MTP delay=2ms`, token-level counters, `gate_max_extra=4`
+  - fixed baselines:
+    - fixed extra1: `0.389TB` extra issued, `3.55%` stall reduction, `11.61ms/GB`
+    - fixed extra2: `0.779TB`, `6.07%`, `9.91ms/GB`
+    - fixed extra4: `1.557TB`, `9.74%`, `7.96ms/GB`
+    - fixed extra8: `3.107TB`, `14.84%`, `6.08ms/GB`
+  - score gate Pareto:
+    - keep top `25%`: `0.336TB`, `4.17%`, `15.76ms/GB`
+    - keep top `50%`: `0.692TB`, `6.56%`, `12.07ms/GB`
+    - keep top `75%`: `1.118TB`, `8.39%`, `9.55ms/GB`
+  - rank/layer/ready utility gate Pareto:
+    - keep top `25%`: `0.361TB`, `4.43%`, `15.62ms/GB`
+    - keep top `50%`: `0.755TB`, `6.98%`, `11.76ms/GB`
+    - keep top `75%`: `1.176TB`, `8.86%`, `9.59ms/GB`
+  - interpretation:
+    - fixed extra4 remains the aggressive stall-reduction baseline
+    - score/utility gates form a better runtime Pareto curve for bandwidth-sensitive modes
+    - utility gate consistently gives higher raw stall reduction than score gate at the same keep fraction, while score gate can be slightly better on pure `ms/GB` efficiency at some mid-budget points
+    - default runtime policy should be expressed as `transition_top32 + up to MTP_extra4 + utility gate`; threshold/keep fraction selects the point on the Pareto curve
+  - tests:
+    - added `tests/test_prefetch_pareto_summary.py`
+    - latest subset: `32 passed` for Pareto summary + runtime event/policy/admission tests
+- [x] Add event-stall tensor cache support:
+  - script: `scripts/simulate_prefetch_event_stalls.py`
+  - new options:
+    - `--write-tensor-cache`: saves precomputed train/eval transition scores, MTP token-prior scores, target mass, and sample indices
+    - `--tensor-cache`: reloads those tensors and skips manifest parsing / score rebuilding
+  - smoke output:
+    - build path: `outputs/reports/prefetch_shadow_256sample_mtp_extra/event_stall_proxy_cache_smoke_build.json`
+    - cache path: `outputs/reports/prefetch_shadow_256sample_mtp_extra/event_stall_tensor_cache_smoke.pt`
+    - load path: `outputs/reports/prefetch_shadow_256sample_mtp_extra/event_stall_proxy_cache_smoke_load.json`
+  - interpretation:
+    - cache read/write path is healthy on GPU0
+    - this removes the main Python overhead for repeated Pareto/threshold sweeps
+    - future full 256-sample sweeps should use a persistent tensor cache instead of rebuilding from trace manifests each run
+- [x] Add runtime policy contract:
+  - module: `src/mtp_expert_prefetch/runtime/policy.py`
+  - exported via `src/mtp_expert_prefetch/runtime/__init__.py`
+  - test: `tests/test_runtime_policy.py`
+  - priority tiers:
+    - `P0`: current true-router top8 miss supplemental fetch
+    - `P1`: shared/always-on expert branch
+    - `P2`: transition top16
+    - `P3`: transition top17-32
+    - `P4`: MTP extra1-4
+    - `P5`: MTP extra5-8
+    - `P6`: fallback weak signals
+  - policy modes:
+    - `fallback`: transition only; MTP full fetch disabled, metadata/pre-map allowed
+    - `low_budget`: `transition_top32 + MTP_extra1/2` under moderate pressure, with `tail_swap_count=1/2` as the fixed-budget pressure alternative
+    - `default`: `transition_top32 + MTP_extra4`
+    - `high_budget`: `transition_top32 + MTP_extra8`
+  - optimization goals:
+    - `stall_reduction`: current default; uses extra4 normally and extra8 only when capacity/queue/cache are comfortably idle
+    - `bandwidth_efficiency`: chooses extra2 in normal envelopes and extra1 under moderate pressure, and exposes `tail_swap_count=2/1` because fixed-budget replacement is preferable when extra issued bytes are tightly constrained
+  - default thresholds:
+    - require transition ready rate >= `0.90` for full MTP prefetch
+    - default extra4 requires cache/queue pressure <= `0.80`, capacity >= `128`, MTP delay <= `4ms`
+    - low-budget extra2 is allowed when cache/queue pressure <= `0.85`
+    - low-budget extra1 is allowed when cache/queue pressure <= `0.90`
+    - high-budget extra8 requires capacity >= `192`, cache pressure <= `0.55`, queue pressure <= `0.45`, MTP delay <= `2ms`
+    - capacity `160` now intentionally stays in default `extra4` mode even under low pressure, because LRU/cache sweeps showed `extra8` remains much heavier at cap160 than cap192
+  - safety rule: predictions still never change true router execution or logits; this module only controls pre-map/prefetch/cache admission
+  - latest policy update:
+    - `RuntimePrefetchPolicy` now includes `tail_swap_count`
+    - default/high-budget modes keep `tail_swap_count=0`
+    - pressure-degraded and bandwidth-efficiency modes set `tail_swap_count=max_extra` for `1/2`
+    - reason strings now include the tail-swap hint, e.g. `pressure_degraded_extra2_tail_swap2`
+- [x] Run 256-sample wider native-MTP-router predictor check:
+  - config: `configs/train/mtp_predictor_merged_vllm_prefc_fixed_256sample_wide_gpu.yaml`
+  - output: `outputs/checkpoints/mtp_predictor_merged_vllm_prefc_fixed_256sample_wide_gpu/metrics.json`
+  - model: width `512`, dropout `0.05`, steps `120`
+  - val model mass@8/16/32: `0.311/0.438/0.590`
+  - val transition mass@8/16/32: `0.445/0.592/0.730`
+  - val delta vs transition mass@8/16/32: `-0.134/-0.154/-0.140`
+  - val model top1_hit@8/16/32: `0.408/0.533/0.675`
+  - val transition top1_hit@8/16/32: `0.617/0.739/0.839`
+  - interpretation: increasing router-only predictor capacity does not fix the core information bottleneck; do not spend more effort on native MTP-router-only full-space predictors for now
+- [x] Add same-checkpoint AutoRound score-trace sanity:
+  - config: `configs/trace/router_mtp_trace_aya_dataset_autoround_scores_64sample.yaml`
+  - trace output: `data/traces/aya_dataset_64_autoround_scores/manifest.jsonl`
+  - evaluator output: `outputs/mtp_token_prior_budget_64sample_autoround_self_prefc_fixed_mtp64_metrics.json`
+  - alignment fallback: if `router_weights` are missing but `router_scores` exist, top-k logits are converted with softmax into top-k normalized weights
+  - MTP next-token alignment: top1 `0.456`, top64 recall `0.902`, mean true-token top64 prob `0.352`
+  - AutoRound transition val mass@8/16/32: `0.464/0.604/0.735`
+  - AutoRound MTP-token prior alone val mass@8/16/32: `0.354/0.476/0.606`
+  - AutoRound same-checkpoint extra-budget result:
+    - max_extra=1: pool mass `0.744`, delta `+0.0090`, weighted miss `0.0341`
+    - max_extra=2: pool mass `0.750`, delta `+0.0152`, weighted miss `0.0329`
+    - max_extra=4: pool mass `0.759`, delta `+0.0238`, weighted miss `0.0314`
+    - max_extra=8: pool mass `0.772`, delta `+0.0369`, weighted miss `0.0294`
+  - per-layer result:
+    - max_extra=4/8 both improve mass on all `40/40` layers
+    - max_extra=4 mean delta mass `+0.0238`; best `+0.0580`; worst `+0.0100`
+    - max_extra=8 mean delta mass `+0.0369`; best `+0.0842`; worst `+0.0167`
+  - interpretation: MTP-token extra-budget expansion also works when MTP sidecar and router target are from the same AutoRound checkpoint; this reduces the cross-quantization concern, though vLLM/AWQ true-router-weight validation remains the runtime-relevant result
+- [x] Re-evaluate fixed native MTP router-only predictor:
+  - fixed merged manifest: `data/traces/aya_dataset_smoke_merged_mtp_vllm_prefc_fixed/manifest.jsonl`
+  - GPU config: `configs/train/mtp_predictor_merged_vllm_prefc_fixed_gpu.yaml`
+  - val mass@8/16/32: `0.282/0.401/0.536`
+  - val transition mass@8/16/32: `0.416/0.545/0.678`
+  - interpretation: even after the pre-fc fix, native MTP router-only features do not beat previous-token transition; they are not runtime candidate-generator material
+- [x] Add minimal native MTP token top-M tracer:
+  - script: `scripts/trace_mtp_token_topm.py`
+  - bypass path: AutoRound `model_extra_tensors.safetensors` + real `lm_head.weight`
+  - computes `MTP attention -> MTP MoE -> final norm -> lm_head -> token top-M`
+  - smoke output: `data/traces/aya_dataset_smoke_autoround/sample_000000_mtp_token_topm_smoke.pt`
+  - smoke config: 8 tokens, token top-8, expert top-8, CUDA bf16
+  - smoke result: `ok=true`, loaded 47 MTP experts, output shapes:
+    - `native_mtp_token_topm_ids`: `[1, 8, 8]`
+    - `native_mtp_token_topm_probs`: `[1, 8, 8]`
+    - `native_mtp_router_topk`: `[1, 8, 8]`
+  - next: batch this over AutoRound source traces, merge `native_mtp_token_topm_*` into vLLM target alignments, and evaluate MTP-token prior
+- [ ] Add cross-layer gate prediction baseline:
+  - same-token current-layer hidden predicts next-layer experts
+  - examples: `router[l+1](h[l,t])`, learned `h[l,t] -> experts[l+1,t]`, `h[l,t] -> experts[l+2,t]`
+  - report mass/top1 risk and available I/O overlap time
+- [ ] Add pre-attention same-layer expert prediction:
+  - hook `pre_attention_hidden[layer, token]`
+  - predict same-layer MoE experts while attention compute overlaps expert transfer
+  - this is orthogonal to previous-token transition
+- [ ] Add retrieval/cache priors:
+  - expert-map retrieval from prompt/language/template similarity
+  - cache-residency-aware ranking bias for prefetch only
+  - LFU/ARC/shallow-favoring cache policies instead of plain LRU
+- [ ] Add certainty/utility dynamic budget:
+  - use router entropy, top1 margin, mass concentration, cache pressure, and I/O overlap
+  - replace fixed budgets with `B(layer, token)` for runtime simulation
+- [ ] Define the prefetch budget:
+  - e.g. top-16 / top-32 predicted experts per layer
+- [ ] Define learned-predictor promotion gate:
+  - learned predictor must beat previous-token same-layer transition on held-out sample-level split
+  - primary metrics: mass coverage@B, top1_hit@B, weighted_top1_miss@B
+  - primary budgets: `B = 8, 16, 32`
+  - runtime prefetch work should not start from a predictor that only improves raw recall or only beats static frequency
+- [ ] Report metrics for `delta = 1, 2, 4`.
+- [x] Add prefill expert working-set analyzer:
+  - module: `src/mtp_expert_prefetch/evaluation/prefill_working_set.py`
+  - script: `scripts/analyze_prefill_working_set.py`
+  - report: `outputs/reports/prefill_working_set_merged_vllm/report.json`
+  - 64-sample result: per-sample/layer unique experts mean `99.1`, p90 `136`, max `221`
+  - global per-layer hot cache hit rate: budget 32 `0.537`, 64 `0.723`, 128 `0.902`
+  - interpretation: prefill has a very large expert working set; wrong/missed prefetch should be treated as blocking-load risk, not as permission to execute wrong experts
+
+## Phase 5: Cache Simulator
+
+- [ ] Implement expert cache simulator under `src/mtp_expert_prefetch/evaluation/`.
+- [ ] Simulate per-layer expert residency with constrained budget.
+- [ ] Baselines:
+  - no prefetch
+  - LRU
+  - frequency cache
+  - oracle
+  - MTP predictor
+- [ ] Metrics:
+  - blocking load rate
+  - prefetch waste
+  - cache hit rate
+  - normalized latency proxy
+- [ ] Use simulator results to decide whether runtime work is justified.
+
+## Phase 6: Scaling Data
+
+- [ ] Increase Aya trace size:
+  - 64 samples
+  - 1K samples
+  - 10K samples
+- [ ] Add language/task stratification.
+- [ ] Compare datasets:
+  - `CohereForAI/aya_dataset`
+  - sampled `CohereForAI/aya_collection`
+  - code/math/instruction mixture
+- [ ] Track trace storage cost per token.
+- [ ] Decide whether to store hidden states, MTP states, or recompute them.
+
+## Phase 7: Runtime Prototype
+
+- [ ] Only start after Phase 4/5 shows useful recall and cache benefit.
+- [ ] Define runtime contract:
+  - predictor input
+  - predicted expert ids
+  - prefetch budget
+  - eviction policy
+- [ ] Prototype in Python first.
+- [ ] Then map the policy to llama.cpp:
+  - expert residency table
+  - async prefetch queue
+  - score-aware eviction
+  - trace logging for real load misses
+
+## Immediate Next Tasks
+
+- [x] Finish checkpoint download.
+- [x] Finish Intel AutoRound MTP-capable checkpoint download.
+- [x] Verify Intel AutoRound model load smoke without HF kernel crash.
+- [x] Verify native MTP extra tensor smoke through committed script.
+- [x] Run offline MoE expert repack for all 40 layers.
+- [x] Verify repacked tensor count and random slices against original checkpoint.
+- [x] Inspect repacked store metadata on all 40 layers.
+- [x] Run 1-sample Intel AutoRound trace with `max_length=128`.
+- [x] Inspect router/MTP trace shapes.
+- [x] Implement trace dataset loader.
+- [x] Implement minimal expert predictor.
+- [x] Validate vLLM router logits recorder trace semantics.
+- [x] Add gate-mass and top1 risk reporting to training smoke.
+- [x] Add stronger non-hidden baselines: per-layer frequency, transition, token-id.
+- [x] Add same-token MoE input hidden oracle before MTP-hidden training.
+- [x] Add previous-token MoE input hidden predictor with frequency+transition residual scoring.
+- [x] Expand hidden trace to 16 samples and rerun same-token oracle validation.
+- [x] Add residual regularization, zero-init residual head, prior-only codepath, logit diagnostics, and early stopping to hidden residual training.
+- [x] Run 64-sample hidden trace and hidden residual predictor smoke.
+- [x] Sweep 64-sample hidden residual settings: residual_scale/gamma, seeds, and per-layer deltas.

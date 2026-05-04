@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.venv/
+venv/
+
+# Local environment
+.env
+.env.*
+
+# Heavy artifacts
+data/raw/*
+data/interim/*
+data/traces/*
+data/processed/*
+data/modelscope_downloads/*
+data/modelscope/*
+data/hf_downloads/*
+data/repacked/*
+outputs/*
+models/*
+third_party/GPTQModel/
+
+# Keep directory placeholders
+!data/raw/.gitkeep
+!data/interim/.gitkeep
+!data/traces/.gitkeep
+!data/processed/.gitkeep
+!outputs/checkpoints/.gitkeep
+!outputs/runs/.gitkeep
+!outputs/reports/.gitkeep
+!outputs/figures/.gitkeep
+
+# Logs
+*.log
+*.strace
+logs/
+wandb/
+mlruns/

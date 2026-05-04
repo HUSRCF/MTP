@@ -1,0 +1,15 @@
+model: configs/model/qwen3_6_35b_a3b_autoround_int4.yaml
+data: configs/data/aya_dataset_256.yaml
+output_dir: data/traces/aya_dataset_256_autoround
+
+trace:
+  capture_router_topk: true
+  capture_router_scores: false
+  capture_hidden_states: last
+  capture_mtp_shapes: true
+  capture_native_mtp_router: true
+  native_mtp_device: cpu
+  future_window: 4
+  max_samples: 256
+  max_length: 128
+  skip_existing: true

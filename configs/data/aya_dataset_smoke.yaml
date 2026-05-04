@@ -1,0 +1,8 @@
+name: aya_dataset_smoke
+source: huggingface
+dataset_name: CohereForAI/aya_dataset
+split: train
+streaming: true
+max_samples: 64
+material_path: data/raw/aya_dataset_smoke.jsonl
+text_template: "User:\n{inputs}\n\nAssistant:\n{targets}"

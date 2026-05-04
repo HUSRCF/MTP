@@ -1,0 +1,27 @@
+data:
+  trace_manifest: data/traces/aya_dataset_smoke_awq_vllm_hidden_oracle_16sample/manifest.jsonl
+  max_samples: 16
+
+output_dir: outputs/checkpoints/hidden_residual_predictor_16sample
+
+model:
+  hidden_size: 2048
+  num_experts: 256
+  num_layers: 40
+  future_window: 4
+  predictor_width: 256
+  dropout: 0.05
+  residual_scale: 0.1
+  zero_init_output: true
+
+training:
+  device: cpu
+  learning_rate: 0.001
+  max_steps: 120
+  max_tokens: 64
+  val_fraction: 0.25
+  pos_weight: auto
+  residual_l2: 0.0001
+  early_stopping_patience: 4
+  eval_interval: 10
+  recall_at_ms: [8, 16, 32]

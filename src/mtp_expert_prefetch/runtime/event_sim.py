@@ -1,0 +1,674 @@
+from __future__ import annotations
+
+import json
+from dataclasses import asdict, dataclass
+from pathlib import Path
+from typing import Any
+
+import torch
+
+from mtp_expert_prefetch.admission import score_threshold_mtp_extra_decision_masks
+from mtp_expert_prefetch.evaluation.prefetch_shadow import (
+    mask_metrics,
+    novel_mtp_extra_mask,
+    priority_admission_mask,
+    queue_aware_ready_mask,
+    topk_mask,
+)
+
+
+@dataclass(frozen=True)
+class StallProxyReport:
+    transition_topk: int
+    mtp_topk: int
+    num_layers: int
+    layer_ms: float
+    sampling_ms: float
+    mtp_delay_ms: float
+    bandwidth_gbps: float
+    expert_bytes: int
+    admission_capacity_per_layer: int | None
+    policies: dict[str, dict[str, float]]
+    notes: dict[str, Any]
+
+    def as_dict(self) -> dict[str, Any]:
+        payload = asdict(self)
+        payload["ok"] = True
+        return payload
+
+
+def simulate_stall_proxy(
+    transition_scores: torch.Tensor,
+    mtp_scores: torch.Tensor,
+    target_mass: torch.Tensor,
+    *,
+    transition_topk: int = 32,
+    mtp_topk: int = 64,
+    max_extras: list[int] | None = None,
+    num_layers: int = 40,
+    layer_ms: float = 1.0,
+    sampling_ms: float = 0.0,
+    mtp_delay_ms: float = 0.0,
+    bandwidth_gbps: float = 16.0,
+    expert_bytes: int = 1_650_000,
+    token_sample_indices: torch.Tensor | None = None,
+    admission_capacity_per_layer: int | None = None,
+    gated_score_tensors: dict[str, torch.Tensor] | None = None,
+    gated_score_thresholds: dict[str, float] | None = None,
+    gated_max_extra: int | None = None,
+    include_unique_payload_counters: bool = True,
+) -> StallProxyReport:
+    """Estimate true-router supplemental fetch/stall after prefetch readiness.
+
+    This is a trace-driven proxy, not a real DMA runtime. It derives token/layer
+    demand from the recorded true router top-k mass and derives ready candidates
+    from the queue-aware prefetch model. Missing true experts are counted as
+    supplemental fetches at demand time.
+    """
+    _validate_shapes(transition_scores, mtp_scores, target_mass)
+    max_extras = sorted({int(value) for value in (max_extras or [0, 4, 8]) if int(value) >= 0})
+    if 0 not in max_extras:
+        max_extras = [0, *max_extras]
+
+    base_mask = topk_mask(transition_scores, k=transition_topk)
+    base_admission = _admission_mask(
+        transition_scores,
+        mtp_scores,
+        token_sample_indices=token_sample_indices,
+        transition_topk=transition_topk,
+        mtp_topk=mtp_topk,
+        max_extra=0,
+        capacity=admission_capacity_per_layer,
+    )
+    base_issued_mask = base_mask & base_admission
+    offline_masks = {"transition_ready": base_mask}
+    for max_extra in max_extras:
+        if max_extra == 0:
+            continue
+        extra = novel_mtp_extra_mask(
+            base_mask,
+            mtp_scores,
+            mtp_topk=mtp_topk,
+            max_extra=max_extra,
+        )
+        offline_masks[f"transition_top{transition_topk}_plus_offline_mtp_extra{max_extra}"] = (
+            base_mask | extra
+        )
+
+    policies: dict[str, dict[str, float]] = {}
+    transition_ready_raw, transition_queue_stats = queue_aware_ready_mask(
+        transition_scores,
+        mtp_scores,
+        transition_topk=transition_topk,
+        mtp_topk=mtp_topk,
+        max_extra=0,
+        num_layers=num_layers,
+        layer_ms=layer_ms,
+        sampling_ms=sampling_ms,
+        mtp_delay_ms=mtp_delay_ms,
+        bandwidth_gbps=bandwidth_gbps,
+        expert_bytes=expert_bytes,
+    )
+    transition_ready = transition_ready_raw & base_issued_mask
+    transition_metrics = _policy_stall_metrics(
+        transition_ready,
+        target_mass,
+        bandwidth_gbps=bandwidth_gbps,
+        expert_bytes=expert_bytes,
+    )
+    transition_metrics.update(
+        _shadow_counter_metrics(
+            requested_mask=base_mask,
+            issued_mask=base_issued_mask,
+            ready_mask=transition_ready,
+            target_mass=target_mass,
+            expert_bytes=expert_bytes,
+            token_sample_indices=token_sample_indices,
+            include_unique_payload_counters=include_unique_payload_counters,
+        )
+    )
+    transition_metrics.update(
+        _prefixed_float_dict(mask_metrics(transition_ready, target_mass), "ready")
+    )
+    transition_metrics.update(_prefixed_float_dict(transition_queue_stats, "queue"))
+    policies["transition_ready"] = transition_metrics
+
+    baseline_missing_fetches = transition_metrics["supplemental_fetch_count"]
+    baseline_stall_ms = transition_metrics["supplemental_stall_ms_sum"]
+    baseline_miss_mass = transition_metrics["supplemental_miss_mass_fraction"]
+
+    for max_extra in max_extras:
+        if max_extra == 0:
+            continue
+        ready, queue_stats = queue_aware_ready_mask(
+            transition_scores,
+            mtp_scores,
+            transition_topk=transition_topk,
+            mtp_topk=mtp_topk,
+            max_extra=max_extra,
+            num_layers=num_layers,
+            layer_ms=layer_ms,
+            sampling_ms=sampling_ms,
+            mtp_delay_ms=mtp_delay_ms,
+            bandwidth_gbps=bandwidth_gbps,
+            expert_bytes=expert_bytes,
+        )
+        offline_name = f"transition_top{transition_topk}_plus_offline_mtp_extra{max_extra}"
+        admitted = _admission_mask(
+            transition_scores,
+            mtp_scores,
+            token_sample_indices=token_sample_indices,
+            transition_topk=transition_topk,
+            mtp_topk=mtp_topk,
+            max_extra=max_extra,
+            capacity=admission_capacity_per_layer,
+        )
+        issued_mask = offline_masks[offline_name] & admitted
+        ready = ready & issued_mask
+        metrics = _policy_stall_metrics(
+            ready,
+            target_mass,
+            bandwidth_gbps=bandwidth_gbps,
+            expert_bytes=expert_bytes,
+        )
+        metrics.update(
+            _shadow_counter_metrics(
+                requested_mask=offline_masks[offline_name],
+                issued_mask=issued_mask,
+                ready_mask=ready,
+                target_mass=target_mass,
+                expert_bytes=expert_bytes,
+                token_sample_indices=token_sample_indices,
+                include_unique_payload_counters=include_unique_payload_counters,
+            )
+        )
+        metrics.update(
+            _prefixed_float_dict(mask_metrics(ready, target_mass, base_mask=base_mask), "ready")
+        )
+        metrics.update(_prefixed_float_dict(queue_stats, "queue"))
+        offline_metrics = mask_metrics(offline_masks[offline_name], target_mass, base_mask=base_mask)
+        admitted_metrics = mask_metrics(issued_mask, target_mass, base_mask=base_issued_mask)
+        metrics["offline_pool_mass_coverage"] = float(offline_metrics["pool_mass_coverage"])
+        metrics["offline_delta_pool_mass_coverage"] = float(
+            offline_metrics["pool_mass_coverage"]
+            - mask_metrics(base_mask, target_mass)["pool_mass_coverage"]
+        )
+        metrics["admitted_pool_mass_coverage"] = float(admitted_metrics["pool_mass_coverage"])
+        metrics["admitted_delta_pool_mass_coverage"] = float(
+            admitted_metrics["pool_mass_coverage"]
+            - mask_metrics(base_issued_mask, target_mass)["pool_mass_coverage"]
+        )
+        metrics["saved_supplemental_fetch_count_vs_transition"] = float(
+            baseline_missing_fetches - metrics["supplemental_fetch_count"]
+        )
+        metrics["saved_supplemental_fetch_bytes_vs_transition"] = float(
+            metrics["saved_supplemental_fetch_count_vs_transition"] * float(expert_bytes)
+        )
+        metrics["saved_supplemental_stall_ms_vs_transition"] = float(
+            baseline_stall_ms - metrics["supplemental_stall_ms_sum"]
+        )
+        metrics["saved_miss_mass_fraction_vs_transition"] = float(
+            baseline_miss_mass - metrics["supplemental_miss_mass_fraction"]
+        )
+        metrics["stall_reduction_ratio_vs_transition"] = (
+            metrics["saved_supplemental_stall_ms_vs_transition"] / baseline_stall_ms
+            if baseline_stall_ms > 0.0
+            else 0.0
+        )
+        _add_transition_delta_metrics(metrics, transition_metrics)
+        policies[f"transition_top{transition_topk}_plus_ready_mtp_extra{max_extra}"] = metrics
+
+    if gated_score_tensors:
+        gated_score_thresholds = gated_score_thresholds or {}
+        gated_cap = int(gated_max_extra if gated_max_extra is not None else max(max_extras))
+        gated_cap = max(0, gated_cap)
+        gated_ready_raw, gated_queue_stats = queue_aware_ready_mask(
+            transition_scores,
+            mtp_scores,
+            transition_topk=transition_topk,
+            mtp_topk=mtp_topk,
+            max_extra=gated_cap,
+            num_layers=num_layers,
+            layer_ms=layer_ms,
+            sampling_ms=sampling_ms,
+            mtp_delay_ms=mtp_delay_ms,
+            bandwidth_gbps=bandwidth_gbps,
+            expert_bytes=expert_bytes,
+        )
+        gated_admission = _admission_mask(
+            transition_scores,
+            mtp_scores,
+            token_sample_indices=token_sample_indices,
+            transition_topk=transition_topk,
+            mtp_topk=mtp_topk,
+            max_extra=gated_cap,
+            capacity=admission_capacity_per_layer,
+        )
+        for policy_name, score_tensor in gated_score_tensors.items():
+            if policy_name not in gated_score_thresholds:
+                msg = f"Missing score threshold for gated policy {policy_name!r}."
+                raise ValueError(msg)
+            if score_tensor.shape != transition_scores.shape:
+                msg = (
+                    f"Gated score tensor {policy_name!r} must have shape "
+                    f"{tuple(transition_scores.shape)}, got {tuple(score_tensor.shape)}."
+                )
+                raise ValueError(msg)
+            threshold = float(gated_score_thresholds[policy_name])
+            decisions = score_threshold_mtp_extra_decision_masks(
+                base_mask,
+                score_tensor.to(transition_scores.device),
+                mtp_topk=mtp_topk,
+                max_extra=gated_cap,
+                score_threshold=threshold,
+            )
+            requested_mask = decisions.final_prefetch_mask(base_mask)
+            issued_mask = requested_mask & gated_admission
+            ready_mask = gated_ready_raw & issued_mask
+            metrics = _policy_stall_metrics(
+                ready_mask,
+                target_mass,
+                bandwidth_gbps=bandwidth_gbps,
+                expert_bytes=expert_bytes,
+            )
+            metrics.update(
+                _shadow_counter_metrics(
+                    requested_mask=requested_mask,
+                    issued_mask=issued_mask,
+                    ready_mask=ready_mask,
+                    target_mass=target_mass,
+                    expert_bytes=expert_bytes,
+                    token_sample_indices=token_sample_indices,
+                    include_unique_payload_counters=include_unique_payload_counters,
+                )
+            )
+            metrics.update(
+                _prefixed_float_dict(
+                    mask_metrics(ready_mask, target_mass, base_mask=base_mask),
+                    "ready",
+                )
+            )
+            metrics.update(_prefixed_float_dict(gated_queue_stats, "queue"))
+            requested_metrics = mask_metrics(requested_mask, target_mass, base_mask=base_mask)
+            admitted_metrics = mask_metrics(issued_mask, target_mass, base_mask=base_issued_mask)
+            metrics["score_threshold"] = threshold
+            metrics["gated_max_extra"] = float(gated_cap)
+            metrics["requested_pool_mass_coverage"] = float(
+                requested_metrics["pool_mass_coverage"]
+            )
+            metrics["requested_delta_pool_mass_coverage"] = float(
+                requested_metrics["pool_mass_coverage"]
+                - mask_metrics(base_mask, target_mass)["pool_mass_coverage"]
+            )
+            metrics["admitted_pool_mass_coverage"] = float(
+                admitted_metrics["pool_mass_coverage"]
+            )
+            metrics["admitted_delta_pool_mass_coverage"] = float(
+                admitted_metrics["pool_mass_coverage"]
+                - mask_metrics(base_issued_mask, target_mass)["pool_mass_coverage"]
+            )
+            metrics["admission_reason_counters"] = _decision_reason_counter_metrics(
+                decisions,
+                expert_bytes=expert_bytes,
+            )
+            metrics["saved_supplemental_fetch_count_vs_transition"] = float(
+                baseline_missing_fetches - metrics["supplemental_fetch_count"]
+            )
+            metrics["saved_supplemental_fetch_bytes_vs_transition"] = float(
+                metrics["saved_supplemental_fetch_count_vs_transition"] * float(expert_bytes)
+            )
+            metrics["saved_supplemental_stall_ms_vs_transition"] = float(
+                baseline_stall_ms - metrics["supplemental_stall_ms_sum"]
+            )
+            metrics["saved_miss_mass_fraction_vs_transition"] = float(
+                baseline_miss_mass - metrics["supplemental_miss_mass_fraction"]
+            )
+            metrics["stall_reduction_ratio_vs_transition"] = (
+                metrics["saved_supplemental_stall_ms_vs_transition"] / baseline_stall_ms
+                if baseline_stall_ms > 0.0
+                else 0.0
+            )
+            _add_transition_delta_metrics(metrics, transition_metrics)
+            policies[f"transition_top{transition_topk}_plus_gated_{policy_name}"] = metrics
+
+    return StallProxyReport(
+        transition_topk=int(transition_topk),
+        mtp_topk=int(mtp_topk),
+        num_layers=int(num_layers),
+        layer_ms=float(layer_ms),
+        sampling_ms=float(sampling_ms),
+        mtp_delay_ms=float(mtp_delay_ms),
+        bandwidth_gbps=float(bandwidth_gbps),
+        expert_bytes=int(expert_bytes),
+        admission_capacity_per_layer=(
+            int(admission_capacity_per_layer)
+            if admission_capacity_per_layer is not None
+            else None
+        ),
+        policies=policies,
+        notes={
+            "model": (
+                "Queue-aware ready-before-demand candidates are compared with "
+                "recorded true router top-k demand. Missing true experts are "
+                "counted as supplemental fetches at demand time."
+            ),
+            "stall_proxy": (
+                "stall_ms assumes serial supplemental transfer at configured "
+                "bandwidth and does not include kernel scheduling or real DMA "
+                "contention; use deltas rather than absolute latency claims."
+            ),
+            "admission": (
+                "When admission_capacity_per_layer is set, token-policy issued "
+                "candidates are intersected with sample/layer priority admission "
+                "so P4/P5 cannot displace protected transition candidates."
+            ),
+            "gated_policies": (
+                "Optional gated policies use canonical score-threshold MTP-extra "
+                "admission masks and report reason counters alongside issued, "
+                "ready, used, unused, and skipped byte counters."
+            ),
+            "unique_payload_counters": (
+                "Unique sample/layer/expert payload counters are optional because "
+                "they are substantially more expensive than token-level runtime "
+                "shadow counters."
+            ),
+        },
+    )
+
+
+def write_stall_proxy_report(report: StallProxyReport, output: str | Path) -> Path:
+    output = Path(output).expanduser().resolve()
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(json.dumps(report.as_dict(), indent=2, ensure_ascii=False), encoding="utf-8")
+    return output
+
+
+def _policy_stall_metrics(
+    ready_mask: torch.Tensor,
+    target_mass: torch.Tensor,
+    *,
+    bandwidth_gbps: float,
+    expert_bytes: int,
+) -> dict[str, float]:
+    demand_mask = target_mass.float().gt(0.0)
+    missing = demand_mask & ~ready_mask
+    ready_true = demand_mask & ready_mask
+    mass = target_mass.float().clamp_min(0.0)
+    total_mass = mass.sum().clamp_min(1e-12)
+    bytes_per_ms = float(bandwidth_gbps) * 1_000_000_000.0 / 1000.0
+    per_expert_ms = float(expert_bytes) / max(bytes_per_ms, 1e-12)
+    missing_counts = missing.float().sum(dim=-1)
+    true_top1 = mass.argmax(dim=-1, keepdim=True)
+    true_top1_weight = mass.gather(-1, true_top1).squeeze(-1)
+    top1_missing = ~ready_mask.gather(-1, true_top1).squeeze(-1)
+    top1_weighted_miss = true_top1_weight * top1_missing.float()
+    token_layer_count = int(missing_counts.numel())
+    return {
+        "true_demand_count": float(demand_mask.float().sum().item()),
+        "ready_true_demand_count": float(ready_true.float().sum().item()),
+        "ready_true_demand_rate": float(
+            ready_true.float().sum().item() / max(1.0, demand_mask.float().sum().item())
+        ),
+        "supplemental_fetch_count": float(missing.float().sum().item()),
+        "supplemental_fetch_bytes": float(missing.float().sum().item() * float(expert_bytes)),
+        "supplemental_stall_ms_sum": float(missing_counts.sum().item() * per_expert_ms),
+        "supplemental_stall_ms_mean_per_token_layer": float(
+            missing_counts.mean().item() * per_expert_ms
+        ),
+        "supplemental_stall_ms_p95_per_token_layer": float(
+            torch.quantile(missing_counts.flatten(), 0.95).item() * per_expert_ms
+        ),
+        "supplemental_miss_mass_fraction": float((mass[missing].sum() / total_mass).item()),
+        "ready_mass_fraction": float((mass[ready_true].sum() / total_mass).item()),
+        "top1_supplemental_fetch_rate": float(top1_missing.float().mean().item()),
+        "weighted_top1_supplemental_miss": float(top1_weighted_miss.mean().item()),
+        "token_layer_count": float(token_layer_count),
+        "per_expert_supplemental_fetch_ms": float(per_expert_ms),
+    }
+
+
+def _admission_mask(
+    transition_scores: torch.Tensor,
+    mtp_scores: torch.Tensor,
+    *,
+    token_sample_indices: torch.Tensor | None,
+    transition_topk: int,
+    mtp_topk: int,
+    max_extra: int,
+    capacity: int | None,
+) -> torch.Tensor:
+    if capacity is None:
+        return torch.ones_like(transition_scores, dtype=torch.bool)
+    if token_sample_indices is None:
+        msg = "token_sample_indices is required when admission_capacity_per_layer is set."
+        raise ValueError(msg)
+    return priority_admission_mask(
+        transition_scores,
+        mtp_scores,
+        token_sample_indices.to(torch.long).to(transition_scores.device),
+        transition_topk=transition_topk,
+        mtp_topk=mtp_topk,
+        max_extra=max_extra,
+        capacity=int(capacity),
+    )
+
+
+def _shadow_counter_metrics(
+    *,
+    requested_mask: torch.Tensor,
+    issued_mask: torch.Tensor,
+    ready_mask: torch.Tensor,
+    target_mass: torch.Tensor,
+    expert_bytes: int,
+    token_sample_indices: torch.Tensor | None = None,
+    include_unique_payload_counters: bool = True,
+) -> dict[str, float]:
+    requested = requested_mask.bool()
+    issued = issued_mask.bool()
+    ready = ready_mask.bool() & issued
+    late = issued & ~ready
+    demand = target_mass.float().gt(0.0)
+    used = ready & demand
+    unused = ready & ~demand
+    skipped = requested & ~issued
+    issued_count = issued.float().sum().item()
+    ready_count = ready.float().sum().item()
+    used_count = used.float().sum().item()
+    unused_count = unused.float().sum().item()
+    skipped_count = skipped.float().sum().item()
+    metrics = {
+        "requested_count": float(requested.float().sum().item()),
+        "requested_bytes": float(requested.float().sum().item() * float(expert_bytes)),
+        "issued_count": float(issued_count),
+        "issued_bytes": float(issued_count * float(expert_bytes)),
+        "ready_count": float(ready_count),
+        "ready_bytes": float(ready_count * float(expert_bytes)),
+        "late_count": float(late.float().sum().item()),
+        "late_bytes": float(late.float().sum().item() * float(expert_bytes)),
+        "unused_count": float(unused_count),
+        "unused_bytes": float(unused_count * float(expert_bytes)),
+        "used_count": float(used_count),
+        "used_bytes": float(used_count * float(expert_bytes)),
+        "skipped_count": float(skipped_count),
+        "skipped_bytes": float(skipped_count * float(expert_bytes)),
+        "issued_ratio_of_requested": float(issued_count / max(1.0, requested.float().sum().item())),
+        "skipped_ratio_of_requested": float(
+            skipped_count / max(1.0, requested.float().sum().item())
+        ),
+        "ready_ratio_of_issued": float(ready_count / max(1.0, issued_count)),
+        "used_ratio_of_issued": float(used_count / max(1.0, issued_count)),
+        "unused_ratio_of_issued": float(unused_count / max(1.0, issued_count)),
+        "unused_ratio_of_ready": float(unused_count / max(1.0, ready_count)),
+    }
+    if token_sample_indices is not None and include_unique_payload_counters:
+        metrics.update(
+            _unique_payload_counter_metrics(
+                requested=requested,
+                issued=issued,
+                ready=ready,
+                demand=demand,
+                token_sample_indices=token_sample_indices,
+                expert_bytes=expert_bytes,
+            )
+        )
+    return metrics
+
+
+def _decision_reason_counter_metrics(
+    decisions: Any,
+    *,
+    expert_bytes: int,
+) -> dict[str, dict[str, float]]:
+    counters = {}
+    for reason, mask in decisions.reason_masks().items():
+        count = float(mask.float().sum().item())
+        counters[str(reason)] = {
+            "count": count,
+            "bytes": float(count * int(expert_bytes)),
+        }
+    return counters
+
+
+def _unique_payload_counter_metrics(
+    *,
+    requested: torch.Tensor,
+    issued: torch.Tensor,
+    ready: torch.Tensor,
+    demand: torch.Tensor,
+    token_sample_indices: torch.Tensor,
+    expert_bytes: int,
+) -> dict[str, float]:
+    sample_ids = token_sample_indices.to(device=requested.device, dtype=torch.long)
+    totals = {
+        "requested": 0.0,
+        "issued": 0.0,
+        "ready": 0.0,
+        "late": 0.0,
+        "used": 0.0,
+        "unused": 0.0,
+        "skipped": 0.0,
+    }
+    for sample_id in torch.unique(sample_ids):
+        rows = sample_ids.eq(sample_id)
+        if not rows.any():
+            continue
+        unique_requested = requested[rows].any(dim=(0, 1))
+        unique_issued = issued[rows].any(dim=(0, 1))
+        unique_ready = ready[rows].any(dim=(0, 1)) & unique_issued
+        unique_demand = demand[rows].any(dim=(0, 1))
+        unique_late = unique_issued & ~unique_ready
+        unique_used = unique_ready & unique_demand
+        unique_unused = unique_ready & ~unique_demand
+        unique_skipped = unique_requested & ~unique_issued
+        totals["requested"] += float(unique_requested.float().sum().item())
+        totals["issued"] += float(unique_issued.float().sum().item())
+        totals["ready"] += float(unique_ready.float().sum().item())
+        totals["late"] += float(unique_late.float().sum().item())
+        totals["used"] += float(unique_used.float().sum().item())
+        totals["unused"] += float(unique_unused.float().sum().item())
+        totals["skipped"] += float(unique_skipped.float().sum().item())
+    unique_issued = max(1.0, totals["issued"])
+    unique_ready = max(1.0, totals["ready"])
+    return {
+        "unique_requested_count": totals["requested"],
+        "unique_requested_bytes": totals["requested"] * float(expert_bytes),
+        "unique_issued_count": totals["issued"],
+        "unique_issued_bytes": totals["issued"] * float(expert_bytes),
+        "unique_ready_count": totals["ready"],
+        "unique_ready_bytes": totals["ready"] * float(expert_bytes),
+        "unique_late_count": totals["late"],
+        "unique_late_bytes": totals["late"] * float(expert_bytes),
+        "unique_used_count": totals["used"],
+        "unique_used_bytes": totals["used"] * float(expert_bytes),
+        "unique_unused_count": totals["unused"],
+        "unique_unused_bytes": totals["unused"] * float(expert_bytes),
+        "unique_skipped_count": totals["skipped"],
+        "unique_skipped_bytes": totals["skipped"] * float(expert_bytes),
+        "unique_used_ratio_of_issued": totals["used"] / unique_issued,
+        "unique_unused_ratio_of_issued": totals["unused"] / unique_issued,
+        "unique_unused_ratio_of_ready": totals["unused"] / unique_ready,
+        "payload_reuse_factor_issued": float(issued_count := issued.float().sum().item())
+        / unique_issued,
+    }
+
+
+def _add_transition_delta_metrics(
+    metrics: dict[str, float],
+    transition_metrics: dict[str, float],
+) -> None:
+    for name in (
+        "requested_bytes",
+        "issued_bytes",
+        "ready_bytes",
+        "late_bytes",
+        "used_bytes",
+        "unused_bytes",
+        "skipped_bytes",
+        "requested_count",
+        "issued_count",
+        "ready_count",
+        "late_count",
+        "used_count",
+        "unused_count",
+        "skipped_count",
+        "unique_requested_bytes",
+        "unique_issued_bytes",
+        "unique_ready_bytes",
+        "unique_late_bytes",
+        "unique_used_bytes",
+        "unique_unused_bytes",
+        "unique_skipped_bytes",
+        "unique_requested_count",
+        "unique_issued_count",
+        "unique_ready_count",
+        "unique_late_count",
+        "unique_used_count",
+        "unique_unused_count",
+        "unique_skipped_count",
+    ):
+        if name in metrics or name in transition_metrics:
+            metrics[f"delta_{name}_vs_transition"] = float(
+                metrics.get(name, 0.0) - transition_metrics.get(name, 0.0)
+            )
+
+    extra_issued_gb = metrics["delta_issued_bytes_vs_transition"] / 1_000_000_000.0
+    extra_issued_bytes = max(metrics["delta_issued_bytes_vs_transition"], 1.0)
+    metrics["stall_saved_ms_per_extra_issued_gb"] = float(
+        metrics.get("saved_supplemental_stall_ms_vs_transition", 0.0)
+        / max(extra_issued_gb, 1e-12)
+    )
+    metrics["saved_supplemental_bytes_per_extra_issued_byte"] = float(
+        metrics.get("saved_supplemental_fetch_bytes_vs_transition", 0.0)
+        / extra_issued_bytes
+    )
+    metrics["delta_used_bytes_per_extra_issued_byte"] = float(
+        metrics["delta_used_bytes_vs_transition"] / extra_issued_bytes
+    )
+    metrics["delta_unused_bytes_per_extra_issued_byte"] = float(
+        metrics["delta_unused_bytes_vs_transition"] / extra_issued_bytes
+    )
+
+
+def _prefixed_float_dict(values: dict[str, float], prefix: str) -> dict[str, float]:
+    return {
+        f"{prefix}_{key}": float(value)
+        for key, value in values.items()
+        if isinstance(value, int | float)
+    }
+
+
+def _validate_shapes(
+    transition_scores: torch.Tensor,
+    mtp_scores: torch.Tensor,
+    target_mass: torch.Tensor,
+) -> None:
+    if transition_scores.shape != mtp_scores.shape or transition_scores.shape != target_mass.shape:
+        msg = (
+            "transition_scores, mtp_scores, and target_mass must share shape; "
+            f"got {tuple(transition_scores.shape)}, {tuple(mtp_scores.shape)}, "
+            f"{tuple(target_mass.shape)}"
+        )
+        raise ValueError(msg)
+    if transition_scores.ndim != 4:
+        msg = f"Expected [tokens, future, layers, experts], got {transition_scores.shape}."
+        raise ValueError(msg)

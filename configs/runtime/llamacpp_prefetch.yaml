@@ -1,0 +1,12 @@
+backend: llamacpp
+status: design_only
+
+runtime:
+  expert_residency_table: true
+  async_prefetch_queue: true
+  prefetch_window: 4
+  eviction_policy: score_aware_lru
+
+notes:
+  - "Keep this config as the contract between PyTorch evaluation and runtime implementation."
+

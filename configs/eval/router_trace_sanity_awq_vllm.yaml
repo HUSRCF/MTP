@@ -1,0 +1,6 @@
+manifest_path: data/traces/aya_dataset_smoke_awq_vllm/manifest.jsonl
+output_path: outputs/reports/router_trace_sanity_awq_vllm/report.json
+expected_trace_source: vllm_router_logits_recorder
+expected_layers: 40
+num_experts: 256
+max_samples: 64

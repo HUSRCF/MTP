@@ -1,0 +1,2 @@
+manifest_path: data/traces/aya_dataset_smoke_awq_vllm_hidden_oracle_16sample/manifest.jsonl
+output_path: outputs/reports/router_hidden_oracle_awq_vllm_16sample/report.json

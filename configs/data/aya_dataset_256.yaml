@@ -1,0 +1,8 @@
+name: aya_dataset_256
+source: huggingface
+dataset_name: CohereForAI/aya_dataset
+split: train
+streaming: true
+max_samples: 256
+material_path: data/raw/aya_dataset_256.jsonl
+text_template: "User:\n{inputs}\n\nAssistant:\n{targets}"

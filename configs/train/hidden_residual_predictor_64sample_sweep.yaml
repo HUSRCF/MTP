@@ -1,0 +1,16 @@
+base_config: configs/train/hidden_residual_predictor_64sample.yaml
+output_dir: outputs/sweeps/hidden_residual_predictor_64sample
+
+sweep:
+  seeds: [0, 1]
+  residual_scales: [0.0, 0.03, 0.1, 0.3]
+  learnable_gamma_initials: [0.03, 0.1]
+  learnable_gamma_scopes: [scalar]
+  budgets: [8, 16, 32]
+  overrides:
+    training:
+      device: cuda
+      max_steps: 80
+      early_stopping_patience: 4
+      eval_interval: 10
+      max_tokens: 64
