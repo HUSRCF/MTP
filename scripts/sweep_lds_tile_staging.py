@@ -38,6 +38,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--interference-elems", type=int, default=1 << 20)
     parser.add_argument("--tile-stride", type=int, action="append", default=None)
     parser.add_argument("--cache-flush-elems", type=int, action="append", default=None)
+    parser.add_argument(
+        "--lds-layout",
+        choices=["linear", "padded32", "xor_swizzle"],
+        action="append",
+        default=None,
+    )
     parser.add_argument("--seed", type=int, default=17)
     parser.add_argument("--force-build", action="store_true")
     parser.add_argument(
@@ -92,6 +98,7 @@ def _run_combo(combo: dict[str, Any]) -> dict[str, Any]:
         interference_elems=combo["interference_elems"],
         tile_stride=combo["tile_stride"],
         cache_flush_elems=combo["cache_flush_elems"],
+        lds_layout=combo["lds_layout"],
         miss_rate=combo["miss_rate"],
         seed=combo["seed"],
     )
@@ -118,6 +125,7 @@ def _flatten_rows(reports: list[dict[str, Any]]) -> list[dict[str, Any]]:
                     "device": combo["device"],
                     "tile_elems": combo["tile_elems"],
                     "tile_bytes": row["tile_bytes"],
+                    "tile_storage_bytes": row.get("tile_storage_bytes", row["tile_bytes"]),
                     "validate_iters": combo["validate_iters"],
                     "metadata_tokens": combo["metadata_tokens"],
                     "compute_iters": combo["compute_iters"],
@@ -127,6 +135,7 @@ def _flatten_rows(reports: list[dict[str, Any]]) -> list[dict[str, Any]]:
                     "interference_iters": combo["interference_iters"],
                     "tile_stride": combo["tile_stride"],
                     "cache_flush_elems": combo["cache_flush_elems"],
+                    "lds_layout": combo["lds_layout"],
                     "mode": mode,
                     "observed_miss_fraction": row["observed_miss_fraction"],
                     "staged_tile_count": row.get("staged_tile_count", 0),
@@ -303,6 +312,7 @@ def main() -> None:
     interference_iters = _values(args.interference_iters, [0])
     tile_strides = _values(args.tile_stride, [1])
     cache_flush_elems = _values(args.cache_flush_elems, [0])
+    lds_layouts = _values(args.lds_layout, ["linear"])
 
     bench.build(force=args.force_build)
 
@@ -318,29 +328,31 @@ def main() -> None:
                                 for interference in interference_iters:
                                     for stride in tile_strides:
                                         for flush_elems in cache_flush_elems:
-                                            combos.append(
-                                                {
-                                                    "device": devices[index % len(devices)],
-                                                    "tile_elems": tile,
-                                                    "validate_iters": wait,
-                                                    "metadata_tokens": meta_tokens,
-                                                    "compute_iters": compute,
-                                                    "consumer_rows": rows_per_tile,
-                                                    "miss_rate": miss,
-                                                    "block_threads": threads,
-                                                    "interference_iters": interference,
-                                                    "interference_elems": args.interference_elems,
-                                                    "tile_stride": stride,
-                                                    "cache_flush_elems": flush_elems,
-                                                    "include_controls": args.include_controls,
-                                                    "requests": args.requests,
-                                                    "experts": args.experts,
-                                                    "warmup": args.warmup,
-                                                    "iters": args.iters,
-                                                    "seed": args.seed,
-                                                }
-                                            )
-                                            index += 1
+                                            for layout in lds_layouts:
+                                                combos.append(
+                                                    {
+                                                        "device": devices[index % len(devices)],
+                                                        "tile_elems": tile,
+                                                        "validate_iters": wait,
+                                                        "metadata_tokens": meta_tokens,
+                                                        "compute_iters": compute,
+                                                        "consumer_rows": rows_per_tile,
+                                                        "miss_rate": miss,
+                                                        "block_threads": threads,
+                                                        "interference_iters": interference,
+                                                        "interference_elems": args.interference_elems,
+                                                        "tile_stride": stride,
+                                                        "cache_flush_elems": flush_elems,
+                                                        "lds_layout": layout,
+                                                        "include_controls": args.include_controls,
+                                                        "requests": args.requests,
+                                                        "experts": args.experts,
+                                                        "warmup": args.warmup,
+                                                        "iters": args.iters,
+                                                        "seed": args.seed,
+                                                    }
+                                                )
+                                                index += 1
 
     reports: list[dict[str, Any]] = []
     max_workers = max(1, len(devices))
@@ -370,6 +382,7 @@ def main() -> None:
             "interference_elems": args.interference_elems,
             "tile_strides": tile_strides,
             "cache_flush_elems": cache_flush_elems,
+            "lds_layouts": lds_layouts,
             "requests": args.requests,
             "experts": args.experts,
             "warmup": args.warmup,

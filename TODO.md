@@ -77,6 +77,7 @@ Latest implementation status:
   - `compute_iters` repeated FMA consumer over staged LDS tile
 - [ ] Add WMMA / real grouped-GEMM compute mock for RDNA3 W7900:
   - [x] add lightweight multi-row grouped-consumer mock via `--consumer-rows`
+  - [x] add pre-rocWMMA LDS layout sweep via `--lds-layout`
   - add a WMMA-like multi-wave tile consumer after the prologue-only envelope is stable
   - add rocWMMA variant for W7900 / RDNA3 after the hand-written HIP benchmark remains positive
   - keep MFMA wording out of the W7900 path; MFMA is a CDNA-oriented follow-up, not the current hardware target

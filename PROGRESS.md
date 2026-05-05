@@ -755,6 +755,79 @@ Interpretation:
   desired bridge from microbench timing to runtime policy: LDS staging is an
   admitted action, not a default behavior.
 
+LDS layout sweep:
+
+The hand-written HIP bench now supports `--lds-layout`:
+
+```text
+linear:
+  direct logical index -> LDS index
+
+padded32:
+  adds one padding float per 32 logical elements
+
+xor_swizzle:
+  XOR-swizzles lane positions inside each 32-element group without increasing
+  storage size
+```
+
+Layout sweep artifacts:
+
+- Report: `outputs/reports/lds_tile_staging/sweep_lds_layout_2gpu.json`
+- CSV: `outputs/reports/lds_tile_staging/sweep_lds_layout_2gpu.csv`
+- Markdown: `outputs/reports/lds_tile_staging/sweep_lds_layout_2gpu.md`
+- Plot: `outputs/reports/lds_tile_staging/sweep_lds_layout_2gpu.png`
+
+Grid:
+
+```text
+tile_elems = [1024]
+metadata_tokens = [64]
+validate_iters = [0]
+compute_iters = [2]
+consumer_rows = [4]
+miss_rate = [0.25, 0.5]
+block_threads = [256]
+tile_stride = [4]
+cache_flush_elems = [1048576]
+lds_layout = [linear, padded32, xor_swizzle]
+devices = [GPU0, GPU1]
+```
+
+Summary by layout:
+
+```text
+linear:
+  spec_hit mean ~= 1.282x
+  mixed mean ~= 1.155x
+  spec_miss mean ~= 1.087x
+  lds_bytes_per_block = 6144
+  occupancy_blocks_per_cu = 8
+
+padded32:
+  spec_hit mean ~= 1.263x
+  mixed mean ~= 1.178x
+  spec_miss mean ~= 1.054x
+  lds_bytes_per_block = 6272
+  occupancy_blocks_per_cu = 8
+
+xor_swizzle:
+  spec_hit mean ~= 1.256x
+  mixed mean ~= 1.160x
+  spec_miss mean ~= 1.049x
+  lds_bytes_per_block = 6144
+  occupancy_blocks_per_cu = 8
+```
+
+Interpretation:
+
+- All three layouts preserve a positive overlap-model envelope in this small
+  W7900 sweep.
+- `linear` is best for the pure hit path here; `padded32` gives slightly better
+  mixed-mode mean but costs extra LDS storage.
+- At `tile_elems=1024`, all layouts remain thread-limited at 8 blocks/CU rather
+  than LDS-limited. Larger tiles are needed to stress the occupancy gate.
+
 ## Current Scale-Up
 
 512-sample configs are committed in:

@@ -34,6 +34,12 @@ mock. It is not rocWMMA yet.
 `--tile-stride` spaces logical experts apart in the physical tile array, creating
 a larger strided working set. `--cache-flush-elems` touches a separate power-of-two
 global buffer before each measured kernel to reduce cache-warming artifacts.
+`--lds-layout` selects the staged tile layout:
+
+- `linear`: direct logical index to LDS index;
+- `padded32`: inserts one padding float per 32 logical elements;
+- `xor_swizzle`: keeps the same storage size but XOR-swizzles lane positions
+  within each 32-element group.
 
 The JSON report includes staged-tile outcome counters:
 
@@ -71,6 +77,8 @@ python scripts/run_lds_tile_staging_bench.py \
   --validate-iters 256 \
   --metadata-tokens 64 \
   --compute-iters 4 \
+  --consumer-rows 4 \
+  --lds-layout linear \
   --output outputs/reports/lds_tile_staging/spec_miss.json
 ```
 

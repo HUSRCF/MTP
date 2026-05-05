@@ -89,6 +89,8 @@ def bench_one(args: argparse.Namespace, mode: str) -> dict[str, Any]:
         str(args.tile_stride),
         "--cache-flush-elems",
         str(args.cache_flush_elems),
+        "--lds-layout",
+        args.lds_layout,
         "--miss-rate",
         str(args.miss_rate),
         "--seed",
@@ -221,6 +223,12 @@ def parse_args() -> argparse.Namespace:
         default=0,
         help="If >0, touch this many float elements before each measured kernel to reduce cache-warming artifacts. Must be a power of two.",
     )
+    parser.add_argument(
+        "--lds-layout",
+        choices=["linear", "padded32", "xor_swizzle"],
+        default="linear",
+        help="LDS tile layout used for staging and consumption.",
+    )
     parser.add_argument("--miss-rate", type=float, default=0.25)
     parser.add_argument("--seed", type=int, default=17)
     parser.add_argument("--force-build", action="store_true")
@@ -260,6 +268,7 @@ def main() -> None:
         "interference_elems": args.interference_elems,
         "tile_stride": args.tile_stride,
         "cache_flush_elems": args.cache_flush_elems,
+        "lds_layout": args.lds_layout,
         "miss_rate": args.miss_rate,
         "seed": args.seed,
         "binary": str(BIN),

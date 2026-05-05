@@ -26,6 +26,12 @@ enum Mode : int {
   kGlobalNoLds = 7,
 };
 
+enum LdsLayout : int {
+  kLayoutLinear = 0,
+  kLayoutPadded32 = 1,
+  kLayoutXorSwizzle = 2,
+};
+
 struct Options {
   Mode mode = kMixed;
   int device = 0;
@@ -43,6 +49,7 @@ struct Options {
   int interference_elems = 1 << 20;
   int tile_stride = 1;
   int cache_flush_elems = 0;
+  LdsLayout lds_layout = kLayoutLinear;
   double miss_rate = 0.25;
   unsigned int seed = 17;
 };
@@ -91,6 +98,26 @@ __device__ __forceinline__ int align_up_int(int value, int alignment) {
   return ((value + alignment - 1) / alignment) * alignment;
 }
 
+__host__ __device__ __forceinline__ int lds_tile_storage_elems(int tile_elems,
+                                                               int lds_layout) {
+  if (lds_layout == kLayoutPadded32) {
+    return tile_elems + ((tile_elems + 31) / 32);
+  }
+  return tile_elems;
+}
+
+__host__ __device__ __forceinline__ int lds_tile_index(int logical_idx, int lds_layout) {
+  if (lds_layout == kLayoutPadded32) {
+    return logical_idx + (logical_idx / 32);
+  }
+  if (lds_layout == kLayoutXorSwizzle) {
+    const int lane = logical_idx & 31;
+    const int group = logical_idx >> 5;
+    return (group << 5) | (lane ^ (group & 31));
+  }
+  return logical_idx;
+}
+
 __global__ void lds_tile_staging_kernel(
     const float* __restrict__ expert_tiles,
     const float* __restrict__ activations,
@@ -106,10 +133,12 @@ __global__ void lds_tile_staging_kernel(
     int metadata_tokens,
     int compute_iters,
     int consumer_rows,
-    int tile_stride) {
+    int tile_stride,
+    int lds_layout) {
   extern __shared__ unsigned char shared_raw[];
   float* lds = reinterpret_cast<float*>(shared_raw);
-  const int tile_bytes = tile_elems * static_cast<int>(sizeof(float));
+  const int tile_storage_elems = lds_tile_storage_elems(tile_elems, lds_layout);
+  const int tile_bytes = tile_storage_elems * static_cast<int>(sizeof(float));
   const int counts_offset = align_up_int(tile_bytes, 16);
   int* expert_counts = reinterpret_cast<int*>(shared_raw + counts_offset);
   int* expert_offsets = expert_counts + experts;
@@ -143,7 +172,8 @@ __global__ void lds_tile_staging_kernel(
     const float* src = expert_tiles + static_cast<size_t>(staged_slot) * tile_elems;
     if (dummy_lds_store) {
       for (int i = tid; i < tile_elems; i += blockDim.x) {
-        lds[i] = static_cast<float>((i + request) & 255) * 0.00390625f;
+        lds[lds_tile_index(i, lds_layout)] =
+            static_cast<float>((i + request) & 255) * 0.00390625f;
       }
     } else if (global_no_lds) {
       for (int i = tid; i < tile_elems; i += blockDim.x) {
@@ -151,7 +181,7 @@ __global__ void lds_tile_staging_kernel(
       }
     } else {
       for (int i = tid; i < tile_elems; i += blockDim.x) {
-        lds[i] = src[i];
+        lds[lds_tile_index(i, lds_layout)] = src[i];
       }
     }
     __syncthreads();
@@ -191,7 +221,7 @@ __global__ void lds_tile_staging_kernel(
   if (reactive || (miss && !wrong_no_consume && !global_no_lds)) {
     const float* src = expert_tiles + static_cast<size_t>(true_slot) * tile_elems;
     for (int i = tid; i < tile_elems; i += blockDim.x) {
-      lds[i] = src[i];
+      lds[lds_tile_index(i, lds_layout)] = src[i];
     }
     __syncthreads();
     t_overwrite = read_timer();
@@ -210,7 +240,7 @@ __global__ void lds_tile_staging_kernel(
       const float* act =
           activations + (static_cast<size_t>(request) * consumer_rows + row) * tile_elems;
       for (int i = tid; i < tile_elems; i += blockDim.x) {
-        const float x = consume_global ? true_src[i] : lds[i];
+        const float x = consume_global ? true_src[i] : lds[lds_tile_index(i, lds_layout)];
         acc = fmaf(x, act[i] * scale, acc);
       }
     }
@@ -295,6 +325,13 @@ Mode parse_mode(const std::string& value) {
   throw std::runtime_error("unknown mode: " + value);
 }
 
+LdsLayout parse_lds_layout(const std::string& value) {
+  if (value == "linear") return kLayoutLinear;
+  if (value == "padded32") return kLayoutPadded32;
+  if (value == "xor_swizzle") return kLayoutXorSwizzle;
+  throw std::runtime_error("unknown LDS layout: " + value);
+}
+
 const char* mode_name(Mode mode) {
   switch (mode) {
     case kReactive: return "reactive";
@@ -305,6 +342,15 @@ const char* mode_name(Mode mode) {
     case kDummyLdsStore: return "dummy_lds_store";
     case kWrongNoConsume: return "wrong_no_consume";
     case kGlobalNoLds: return "global_no_lds";
+  }
+  return "unknown";
+}
+
+const char* lds_layout_name(LdsLayout layout) {
+  switch (layout) {
+    case kLayoutLinear: return "linear";
+    case kLayoutPadded32: return "padded32";
+    case kLayoutXorSwizzle: return "xor_swizzle";
   }
   return "unknown";
 }
@@ -371,6 +417,8 @@ Options parse_args(int argc, char** argv) {
       opt.tile_stride = parse_int(need_value("--tile-stride"), "--tile-stride");
     } else if (arg == "--cache-flush-elems") {
       opt.cache_flush_elems = parse_int(need_value("--cache-flush-elems"), "--cache-flush-elems");
+    } else if (arg == "--lds-layout") {
+      opt.lds_layout = parse_lds_layout(need_value("--lds-layout"));
     } else if (arg == "--miss-rate") {
       opt.miss_rate = parse_double(need_value("--miss-rate"), "--miss-rate");
     } else if (arg == "--seed") {
@@ -394,6 +442,7 @@ Options parse_args(int argc, char** argv) {
           << "  --interference-elems N\n"
           << "  --tile-stride N\n"
           << "  --cache-flush-elems N\n"
+          << "  --lds-layout linear|padded32|xor_swizzle\n"
           << "  --miss-rate F\n";
       std::exit(0);
     } else {
@@ -490,7 +539,10 @@ int main(int argc, char** argv) {
     hipDeviceProp_t prop{};
     HIP_CHECK(hipGetDeviceProperties(&prop, opt.device));
 
-    const int tile_bytes = opt.tile_elems * static_cast<int>(sizeof(float));
+    const int tile_storage_elems = lds_tile_storage_elems(
+        opt.tile_elems,
+        static_cast<int>(opt.lds_layout));
+    const int tile_bytes = tile_storage_elems * static_cast<int>(sizeof(float));
     const int counts_offset = ((tile_bytes + 15) / 16) * 16;
     const size_t shared_bytes =
         static_cast<size_t>(counts_offset) + static_cast<size_t>(2 * opt.experts) * sizeof(int);
@@ -585,7 +637,7 @@ int main(int argc, char** argv) {
                          d_activations, d_true_ids, d_pred_ids, d_sink, d_metrics, opt.requests,
                          opt.experts, opt.tile_elems, static_cast<int>(opt.mode),
                          opt.validate_iters, opt.metadata_tokens, opt.compute_iters,
-                         opt.consumer_rows, opt.tile_stride);
+                         opt.consumer_rows, opt.tile_stride, static_cast<int>(opt.lds_layout));
       HIP_CHECK(hipGetLastError());
     };
 
@@ -691,6 +743,9 @@ int main(int argc, char** argv) {
     std::cout << "  \"experts\": " << opt.experts << ",\n";
     std::cout << "  \"tile_elems\": " << opt.tile_elems << ",\n";
     std::cout << "  \"tile_bytes\": " << (opt.tile_elems * static_cast<int>(sizeof(float))) << ",\n";
+    std::cout << "  \"tile_storage_elems\": " << tile_storage_elems << ",\n";
+    std::cout << "  \"tile_storage_bytes\": " << tile_bytes << ",\n";
+    std::cout << "  \"lds_layout\": \"" << lds_layout_name(opt.lds_layout) << "\",\n";
     std::cout << "  \"tile_stride\": " << opt.tile_stride << ",\n";
     std::cout << "  \"physical_tile_bytes\": " << (h_tiles.size() * sizeof(float)) << ",\n";
     std::cout << "  \"block_threads\": " << opt.block_threads << ",\n";
