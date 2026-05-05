@@ -19,6 +19,8 @@ BIN = BUILD_DIR / "lds_tile_staging_bench"
 
 
 DEFAULT_MODES = ["reactive", "oracle", "spec_hit", "spec_miss", "mixed"]
+CONTROL_MODES = ["dummy_lds_store", "wrong_no_consume", "global_no_lds"]
+ALL_MODES = DEFAULT_MODES + CONTROL_MODES
 
 
 def run(cmd: list[str], *, env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
@@ -75,6 +77,8 @@ def bench_one(args: argparse.Namespace, mode: str) -> dict[str, Any]:
         str(args.validate_iters),
         "--metadata-tokens",
         str(args.metadata_tokens),
+        "--compute-iters",
+        str(args.compute_iters),
         "--interference-iters",
         str(args.interference_iters),
         "--interference-elems",
@@ -157,7 +161,12 @@ def summarize(results: list[dict[str, Any]]) -> dict[str, Any]:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--mode", choices=DEFAULT_MODES + ["all"], default="all")
+    parser.add_argument("--mode", choices=ALL_MODES + ["all", "controls"], default="all")
+    parser.add_argument(
+        "--include-controls",
+        action="store_true",
+        help="Include anti-artifact control modes when --mode=all.",
+    )
     parser.add_argument("--device", type=int, default=0)
     parser.add_argument(
         "--hip-visible-devices",
@@ -177,6 +186,12 @@ def parse_args() -> argparse.Namespace:
         default=0,
         help="Synthetic same-kernel router/metadata tokens per request. 0 keeps spin-only wait.",
     )
+    parser.add_argument(
+        "--compute-iters",
+        type=int,
+        default=1,
+        help="Number of FMA passes over the staged tile; >1 is a grouped-GEMM compute mock.",
+    )
     parser.add_argument("--interference-iters", type=int, default=0)
     parser.add_argument("--interference-elems", type=int, default=1 << 20)
     parser.add_argument("--miss-rate", type=float, default=0.25)
@@ -193,7 +208,12 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     build(force=args.force_build)
-    modes = DEFAULT_MODES if args.mode == "all" else [args.mode]
+    if args.mode == "all":
+        modes = ALL_MODES if args.include_controls else DEFAULT_MODES
+    elif args.mode == "controls":
+        modes = CONTROL_MODES
+    else:
+        modes = [args.mode]
     results = [bench_one(args, mode) for mode in modes]
     payload = summarize(results)
     payload["config"] = {
@@ -207,6 +227,7 @@ def main() -> None:
         "iters": args.iters,
         "validate_iters": args.validate_iters,
         "metadata_tokens": args.metadata_tokens,
+        "compute_iters": args.compute_iters,
         "interference_iters": args.interference_iters,
         "interference_elems": args.interference_elems,
         "miss_rate": args.miss_rate,

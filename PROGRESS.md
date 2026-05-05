@@ -403,6 +403,74 @@ p_min = (T_miss - T_base) / (T_miss - T_hit)
 If `T_miss < T_base`, the report marks the configuration as profitable for any
 positive hit rate.
 
+Anti-artifact controls and grouped-compute mock:
+
+The LDS bench now includes three control modes:
+
+```text
+dummy_lds_store:
+  write dummy values into LDS, then load the true tile
+
+wrong_no_consume:
+  stage a wrong tile but consume the true tile from global memory
+
+global_no_lds:
+  touch the predicted global tile but do not stage it into LDS
+```
+
+It also supports `--compute-iters`, a lightweight grouped-GEMM consumer mock
+that repeats FMA passes over the staged tile. This is not rocWMMA or MFMA yet;
+it only verifies that the staged LDS state is consumed by nontrivial compute.
+
+Control / compute report:
+
+- `outputs/reports/lds_tile_staging/controls_compute_gpu0.json`
+- `outputs/reports/lds_tile_staging/sweep_compute_controls_2gpu.json`
+- `outputs/reports/lds_tile_staging/sweep_compute_controls_2gpu.csv`
+
+Config:
+
+```text
+tile_elems = 1024
+metadata_tokens = 64
+validate_iters = 0
+compute_iters = [1, 4, 16]
+miss_rate = [0.25, 0.5]
+block_threads = 256
+devices = [GPU0, GPU1]
+```
+
+Grouped by compute intensity:
+
+```text
+compute_iters=1:
+  spec_hit wall ~= 0.04794 ms, overlap ~= 1.174x
+  mixed    wall ~= 0.05296 ms, overlap ~= 1.116x
+  spec_miss wall ~= 0.05126 ms, overlap ~= 1.030x
+
+compute_iters=4:
+  spec_hit wall ~= 0.05430 ms, overlap ~= 1.173x
+  mixed    wall ~= 0.05864 ms, overlap ~= 1.117x
+  spec_miss wall ~= 0.06046 ms, overlap ~= 1.035x
+
+compute_iters=16:
+  spec_hit wall ~= 0.07840 ms, overlap ~= 1.136x
+  mixed    wall ~= 0.07999 ms, overlap ~= 1.089x
+  spec_miss wall ~= 0.08241 ms, overlap ~= 1.013x
+```
+
+Control interpretation:
+
+- Control modes should not use the overlap model as a profitability claim,
+  because they intentionally do not consume staged LDS tile state.
+- Their wall-time behavior is the anti-artifact check. In the compute mock,
+  `wrong_no_consume` and `global_no_lds` do not reproduce the low-cost
+  `spec_hit` path, so ordinary global cache warming is not enough to explain
+  the speculative LDS hit result.
+- As compute becomes heavier, first-FMA/prologue savings are diluted in total
+  wall time; this is expected and means the next MFMA/rocWMMA stage should
+  report both first-FMA/prologue latency and end-to-end kernel time.
+
 ## Current Scale-Up
 
 512-sample configs are committed in:

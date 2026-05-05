@@ -21,6 +21,9 @@ enum Mode : int {
   kSpecHit = 2,
   kSpecMiss = 3,
   kMixed = 4,
+  kDummyLdsStore = 5,
+  kWrongNoConsume = 6,
+  kGlobalNoLds = 7,
 };
 
 struct Options {
@@ -34,6 +37,7 @@ struct Options {
   int iters = 100;
   int validate_iters = 256;
   int metadata_tokens = 0;
+  int compute_iters = 1;
   int interference_iters = 0;
   int interference_elems = 1 << 20;
   double miss_rate = 0.25;
@@ -91,7 +95,8 @@ __global__ void lds_tile_staging_kernel(
     int tile_elems,
     int mode,
     int validate_iters,
-    int metadata_tokens) {
+    int metadata_tokens,
+    int compute_iters) {
   extern __shared__ unsigned char shared_raw[];
   float* lds = reinterpret_cast<float*>(shared_raw);
   const int tile_bytes = tile_elems * static_cast<int>(sizeof(float));
@@ -113,15 +118,29 @@ __global__ void lds_tile_staging_kernel(
   unsigned long long t_stage = t0;
   unsigned long long t_validate = t0;
   unsigned long long t_overwrite = t0;
+  float stage_register_acc = 0.0f;
 
   const bool reactive = (mode == kReactive);
   const bool oracle = (mode == kOracle);
+  const bool dummy_lds_store = (mode == kDummyLdsStore);
+  const bool wrong_no_consume = (mode == kWrongNoConsume);
+  const bool global_no_lds = (mode == kGlobalNoLds);
 
   if (!reactive) {
     const int staged_expert = oracle ? true_expert : pred_expert;
     const float* src = expert_tiles + static_cast<size_t>(staged_expert) * tile_elems;
-    for (int i = tid; i < tile_elems; i += blockDim.x) {
-      lds[i] = src[i];
+    if (dummy_lds_store) {
+      for (int i = tid; i < tile_elems; i += blockDim.x) {
+        lds[i] = static_cast<float>((i + request) & 255) * 0.00390625f;
+      }
+    } else if (global_no_lds) {
+      for (int i = tid; i < tile_elems; i += blockDim.x) {
+        stage_register_acc = fmaf(src[i], 0.0009765625f, stage_register_acc);
+      }
+    } else {
+      for (int i = tid; i < tile_elems; i += blockDim.x) {
+        lds[i] = src[i];
+      }
     }
     __syncthreads();
     t_stage = read_timer();
@@ -154,9 +173,10 @@ __global__ void lds_tile_staging_kernel(
   __syncthreads();
   t_validate = read_timer();
 
-  const bool miss = (!reactive && !oracle && pred_expert != true_expert);
+  const bool miss =
+      dummy_lds_store || (!reactive && !oracle && pred_expert != true_expert);
 
-  if (reactive || miss) {
+  if (reactive || (miss && !wrong_no_consume && !global_no_lds)) {
     const float* src = expert_tiles + static_cast<size_t>(true_expert) * tile_elems;
     for (int i = tid; i < tile_elems; i += blockDim.x) {
       lds[i] = src[i];
@@ -170,9 +190,14 @@ __global__ void lds_tile_staging_kernel(
   const unsigned long long t_first_fma = read_timer();
 
   float acc = 0.0f;
-  for (int i = tid; i < tile_elems; i += blockDim.x) {
-    const float x = lds[i];
-    acc = fmaf(x, 1.0009765625f, acc);
+  const float* true_src = expert_tiles + static_cast<size_t>(true_expert) * tile_elems;
+  const bool consume_global = wrong_no_consume || global_no_lds;
+  for (int iter = 0; iter < compute_iters; ++iter) {
+    const float scale = 1.0009765625f + static_cast<float>(iter & 7) * 0.0001220703125f;
+    for (int i = tid; i < tile_elems; i += blockDim.x) {
+      const float x = consume_global ? true_src[i] : lds[i];
+      acc = fmaf(x, scale, acc);
+    }
   }
 
   for (int offset = warpSize / 2; offset > 0; offset >>= 1) {
@@ -180,7 +205,8 @@ __global__ void lds_tile_staging_kernel(
   }
 
   if ((tid & (warpSize - 1)) == 0) {
-    atomicAdd(sink + request, acc + static_cast<float>(scratch & 7u) * 1.0e-7f);
+    atomicAdd(sink + request,
+              acc + stage_register_acc + static_cast<float>(scratch & 7u) * 1.0e-7f);
   }
 
   if (tid == 0) {
@@ -220,6 +246,9 @@ Mode parse_mode(const std::string& value) {
   if (value == "spec_hit") return kSpecHit;
   if (value == "spec_miss") return kSpecMiss;
   if (value == "mixed") return kMixed;
+  if (value == "dummy_lds_store") return kDummyLdsStore;
+  if (value == "wrong_no_consume") return kWrongNoConsume;
+  if (value == "global_no_lds") return kGlobalNoLds;
   throw std::runtime_error("unknown mode: " + value);
 }
 
@@ -230,6 +259,9 @@ const char* mode_name(Mode mode) {
     case kSpecHit: return "spec_hit";
     case kSpecMiss: return "spec_miss";
     case kMixed: return "mixed";
+    case kDummyLdsStore: return "dummy_lds_store";
+    case kWrongNoConsume: return "wrong_no_consume";
+    case kGlobalNoLds: return "global_no_lds";
   }
   return "unknown";
 }
@@ -282,6 +314,8 @@ Options parse_args(int argc, char** argv) {
       opt.validate_iters = parse_int(need_value("--validate-iters"), "--validate-iters");
     } else if (arg == "--metadata-tokens") {
       opt.metadata_tokens = parse_int(need_value("--metadata-tokens"), "--metadata-tokens");
+    } else if (arg == "--compute-iters") {
+      opt.compute_iters = parse_int(need_value("--compute-iters"), "--compute-iters");
     } else if (arg == "--interference-iters") {
       opt.interference_iters = parse_int(
           need_value("--interference-iters"), "--interference-iters");
@@ -295,7 +329,7 @@ Options parse_args(int argc, char** argv) {
     } else if (arg == "--help" || arg == "-h") {
       std::cout
           << "Usage: lds_tile_staging_bench [options]\n"
-          << "  --mode reactive|oracle|spec_hit|spec_miss|mixed\n"
+          << "  --mode reactive|oracle|spec_hit|spec_miss|mixed|dummy_lds_store|wrong_no_consume|global_no_lds\n"
           << "  --device N\n"
           << "  --requests N\n"
           << "  --experts N\n"
@@ -305,6 +339,7 @@ Options parse_args(int argc, char** argv) {
           << "  --iters N\n"
           << "  --validate-iters N\n"
           << "  --metadata-tokens N\n"
+          << "  --compute-iters N\n"
           << "  --interference-iters N\n"
           << "  --interference-elems N\n"
           << "  --miss-rate F\n";
@@ -352,9 +387,9 @@ void fill_inputs(const Options& opt, std::vector<float>& tiles, std::vector<int>
     true_ids[i] = truth;
 
     bool miss = false;
-    if (opt.mode == kSpecMiss) {
+    if (opt.mode == kSpecMiss || opt.mode == kWrongNoConsume || opt.mode == kDummyLdsStore) {
       miss = true;
-    } else if (opt.mode == kMixed) {
+    } else if (opt.mode == kMixed || opt.mode == kGlobalNoLds) {
       const double u = static_cast<double>((state >> 1) & 0x00ffffffu) /
                        static_cast<double>(0x01000000u);
       miss = u < opt.miss_rate;
@@ -371,7 +406,7 @@ int main(int argc, char** argv) {
     if (opt.requests <= 0 || opt.experts <= 1 || opt.tile_elems <= 0 ||
         opt.block_threads <= 0 || opt.iters <= 0 || opt.warmup < 0 ||
         opt.interference_iters < 0 || opt.interference_elems <= 0 ||
-        opt.metadata_tokens < 0) {
+        opt.metadata_tokens < 0 || opt.compute_iters <= 0) {
       throw std::runtime_error("invalid non-positive benchmark parameter");
     }
     if ((opt.interference_elems & (opt.interference_elems - 1)) != 0) {
@@ -458,7 +493,7 @@ int main(int argc, char** argv) {
       hipLaunchKernelGGL(lds_tile_staging_kernel, grid, block, shared_bytes, bench_stream, d_tiles,
                          d_true_ids, d_pred_ids, d_sink, d_metrics, opt.requests,
                          opt.experts, opt.tile_elems, static_cast<int>(opt.mode),
-                         opt.validate_iters, opt.metadata_tokens);
+                         opt.validate_iters, opt.metadata_tokens, opt.compute_iters);
       HIP_CHECK(hipGetLastError());
     };
 
@@ -540,6 +575,7 @@ int main(int argc, char** argv) {
     std::cout << "  \"block_threads\": " << opt.block_threads << ",\n";
     std::cout << "  \"validate_iters\": " << opt.validate_iters << ",\n";
     std::cout << "  \"metadata_tokens\": " << opt.metadata_tokens << ",\n";
+    std::cout << "  \"compute_iters\": " << opt.compute_iters << ",\n";
     std::cout << "  \"interference_iters\": " << opt.interference_iters << ",\n";
     std::cout << "  \"interference_elems\": " << opt.interference_elems << ",\n";
     std::cout << "  \"configured_miss_rate\": " << opt.miss_rate << ",\n";

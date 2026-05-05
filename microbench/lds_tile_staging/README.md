@@ -15,11 +15,20 @@ kernel yet. The P0 goal is to measure the cost envelope for:
 - speculative hit: stage the predicted tile, validate it as correct, then compute;
 - speculative miss: stage the predicted tile, validate it as wrong, overwrite LDS with the true tile, then compute;
 - mixed speculation: a controlled miss-rate blend of hit and miss.
+- anti-artifact controls:
+  - `dummy_lds_store`: write dummy values into LDS, then load the true tile;
+  - `wrong_no_consume`: stage a wrong tile but do not consume it;
+  - `global_no_lds`: touch the predicted global tile without staging it into LDS.
 
 The benchmark records per-block cycle counters around the LDS prologue and also
 reports HIP event wall time. `validate_iters` is a synthetic true-router /
 metadata wait window. It is not a router benchmark; it simply creates a window
 where speculative HBM->LDS staging can be hidden before the commit point.
+
+`--metadata-tokens` replaces the pure spin wait with a same-kernel metadata
+builder mock that constructs expert counts and offsets in LDS before validation.
+`--compute-iters` repeats the FMA pass over the staged tile and acts as a
+lightweight grouped-GEMM consumer mock. It is not rocWMMA/MFMA yet.
 
 Important boundary:
 
@@ -43,7 +52,20 @@ python scripts/run_lds_tile_staging_bench.py \
   --requests 4096 \
   --tile-elems 1024 \
   --validate-iters 256 \
+  --metadata-tokens 64 \
+  --compute-iters 4 \
   --output outputs/reports/lds_tile_staging/spec_miss.json
+```
+
+To run controls:
+
+```bash
+python scripts/run_lds_tile_staging_bench.py \
+  --device 0 \
+  --include-controls \
+  --metadata-tokens 64 \
+  --compute-iters 4 \
+  --output outputs/reports/lds_tile_staging/controls.json
 ```
 
 Use `--device 1` for the second ROCm-visible GPU.
@@ -56,3 +78,12 @@ variables we need to isolate: LDS bytes, overwrite penalty, hit/miss behavior,
 and first-FMA latency. A rocWMMA version should be added after this microbench
 shows that the prologue-level effect is worth integrating into a real GEMM
 pipeline.
+
+## Interpreting Controls
+
+The overlap model is meaningful for `reactive`, `oracle`, `spec_hit`,
+`spec_miss`, and `mixed`. It is intentionally not a profitability model for
+the anti-artifact controls, because those controls do not consume the staged LDS
+tile as the real speculative path does. Use control-mode wall time and sink
+checksums to detect whether the observed effect could be explained by ordinary
+global cache warming, dummy LDS writes, or measurement imbalance.

@@ -56,7 +56,12 @@ Latest implementation status:
   - discarded tile fraction
   - occupancy / LDS pressure
   - `cost_stage < saved_prologue_us` break-even report
-- [ ] Add grouped-GEMM compute mock:
+- [x] Add anti-artifact controls and lightweight grouped-compute mock:
+  - `dummy_lds_store`
+  - `wrong_no_consume`
+  - `global_no_lds`
+  - `compute_iters` repeated FMA consumer over staged LDS tile
+- [ ] Add MFMA / real grouped-GEMM compute mock:
   - add a real FMA/MFMA grouped-GEMM mock after the prologue-only envelope is stable
   - add rocWMMA or CK variant only after the hand-written HIP prologue benchmark remains positive
 - [ ] Add HIP Graph metadata-patching microbench as secondary system-shell evidence:

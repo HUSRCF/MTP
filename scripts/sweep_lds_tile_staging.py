@@ -27,6 +27,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--metadata-tokens", type=int, action="append", default=None)
     parser.add_argument("--miss-rate", type=float, action="append", default=None)
     parser.add_argument("--block-threads", type=int, action="append", default=None)
+    parser.add_argument("--compute-iters", type=int, action="append", default=None)
+    parser.add_argument("--include-controls", action="store_true")
     parser.add_argument("--requests", type=int, default=4096)
     parser.add_argument("--experts", type=int, default=256)
     parser.add_argument("--warmup", type=int, default=5)
@@ -81,12 +83,14 @@ def _run_combo(combo: dict[str, Any]) -> dict[str, Any]:
         iters=combo["iters"],
         validate_iters=combo["validate_iters"],
         metadata_tokens=combo["metadata_tokens"],
+        compute_iters=combo["compute_iters"],
         interference_iters=combo["interference_iters"],
         interference_elems=combo["interference_elems"],
         miss_rate=combo["miss_rate"],
         seed=combo["seed"],
     )
-    results = [bench.bench_one(ns, mode) for mode in bench.DEFAULT_MODES]
+    modes = bench.ALL_MODES if combo["include_controls"] else bench.DEFAULT_MODES
+    results = [bench.bench_one(ns, mode) for mode in modes]
     summary = bench.summarize(results)
     summary["combo"] = combo
     return summary
@@ -99,7 +103,7 @@ def _flatten_rows(reports: list[dict[str, Any]]) -> list[dict[str, Any]]:
         by_mode = {row["mode"]: row for row in report["results"]}
         derived = report["derived"]
         reactive = by_mode["reactive"]
-        for mode in bench.DEFAULT_MODES:
+        for mode in [row["mode"] for row in report["results"]]:
             row = by_mode[mode]
             d = derived[mode]
             rows.append(
@@ -109,6 +113,7 @@ def _flatten_rows(reports: list[dict[str, Any]]) -> list[dict[str, Any]]:
                     "tile_bytes": row["tile_bytes"],
                     "validate_iters": combo["validate_iters"],
                     "metadata_tokens": combo["metadata_tokens"],
+                    "compute_iters": combo["compute_iters"],
                     "miss_rate": combo["miss_rate"],
                     "block_threads": combo["block_threads"],
                     "interference_iters": combo["interference_iters"],
@@ -259,6 +264,7 @@ def main() -> None:
     metadata_tokens = _values(args.metadata_tokens, [0])
     miss_rates = _values(args.miss_rate, [0.0, 0.1, 0.25, 0.5, 1.0])
     block_threads = _values(args.block_threads, [128, 256])
+    compute_iters = _values(args.compute_iters, [1])
     interference_iters = _values(args.interference_iters, [0])
 
     bench.build(force=args.force_build)
@@ -268,27 +274,30 @@ def main() -> None:
     for tile in tile_elems:
         for wait in validate_iters:
             for meta_tokens in metadata_tokens:
-                for miss in miss_rates:
-                    for threads in block_threads:
-                        for interference in interference_iters:
-                            combos.append(
-                                {
-                                    "device": devices[index % len(devices)],
-                                    "tile_elems": tile,
-                                    "validate_iters": wait,
-                                    "metadata_tokens": meta_tokens,
-                                    "miss_rate": miss,
-                                    "block_threads": threads,
-                                    "interference_iters": interference,
-                                    "interference_elems": args.interference_elems,
-                                    "requests": args.requests,
-                                    "experts": args.experts,
-                                    "warmup": args.warmup,
-                                    "iters": args.iters,
-                                    "seed": args.seed,
-                                }
-                            )
-                            index += 1
+                for compute in compute_iters:
+                    for miss in miss_rates:
+                        for threads in block_threads:
+                            for interference in interference_iters:
+                                combos.append(
+                                    {
+                                        "device": devices[index % len(devices)],
+                                        "tile_elems": tile,
+                                        "validate_iters": wait,
+                                        "metadata_tokens": meta_tokens,
+                                        "compute_iters": compute,
+                                        "miss_rate": miss,
+                                        "block_threads": threads,
+                                        "interference_iters": interference,
+                                        "interference_elems": args.interference_elems,
+                                        "include_controls": args.include_controls,
+                                        "requests": args.requests,
+                                        "experts": args.experts,
+                                        "warmup": args.warmup,
+                                        "iters": args.iters,
+                                        "seed": args.seed,
+                                    }
+                                )
+                                index += 1
 
     reports: list[dict[str, Any]] = []
     max_workers = max(1, len(devices))
@@ -310,6 +319,7 @@ def main() -> None:
             "tile_elems": tile_elems,
             "validate_iters": validate_iters,
             "metadata_tokens": metadata_tokens,
+            "compute_iters": compute_iters,
             "miss_rates": miss_rates,
             "block_threads": block_threads,
             "interference_iters": interference_iters,
@@ -320,6 +330,7 @@ def main() -> None:
             "iters": args.iters,
             "seed": args.seed,
             "num_combos": len(combos),
+            "include_controls": args.include_controls,
         },
         "summary": summary,
         "rows": rows,
