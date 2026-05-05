@@ -130,8 +130,18 @@ current GPU0 smoke, both visible-device masking and `--agent-index
 type-relative` still leave only `SQ_WAVES` non-zero, so the current traffic
 counters remain non-informative.
 
-For cleaner static evidence, prefer mode-specialized kernels over a single
-runtime mode-switch kernel. A single kernel can contain branches for
-`global_frag_reuse`, `global_reload_per_row`, `lds_hit`, and
-`lds_miss_overwrite` at the same time, which makes static instruction counts
-conservative but mixed.
+For cleaner static evidence, the tile-stage binary now launches
+mode-specialized kernels instead of a single device-side mode switch:
+
+```text
+global_frag_reuse_kernel
+global_reload_per_row_kernel
+lds_hit_kernel
+lds_miss_overwrite_kernel
+```
+
+This lets rocprof and static ISA inspection filter one mode at a time. Static
+instruction counts still do not expand runtime loops, so `global_frag_reuse`
+and `global_reload_per_row` may look similar in ISA even when their timing
+differs with `consumer_rows`. Treat static ISA as a structural sanity check and
+use timing / p_min for reload-pressure classification.

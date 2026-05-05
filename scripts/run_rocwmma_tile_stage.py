@@ -14,7 +14,13 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 SRC = REPO_ROOT / "microbench" / "rocwmma_smoke" / "rocwmma_tile_stage.hip"
 BUILD_DIR = REPO_ROOT / "microbench" / "rocwmma_smoke" / "build"
 BIN = BUILD_DIR / "rocwmma_tile_stage"
-DEFAULT_MODES = ["global_frag_reuse", "global_reload_per_row", "lds_hit", "lds_miss_overwrite"]
+DEFAULT_MODES = [
+    "global_frag_reuse",
+    "global_reload_per_row",
+    "global_reload_distinct_per_row",
+    "lds_hit",
+    "lds_miss_overwrite",
+]
 
 
 def run(cmd: list[str]) -> subprocess.CompletedProcess[str]:
@@ -59,6 +65,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--num-cta", type=int, action="append", default=None)
     parser.add_argument("--b-pool-tiles", type=int, action="append", default=None)
     parser.add_argument("--tile-stride", type=int, action="append", default=None)
+    parser.add_argument("--row-tile-stride", type=int, action="append", default=None)
     parser.add_argument("--cache-flush-elems", type=int, action="append", default=None)
     parser.add_argument("--offload-arch", default="gfx1100")
     parser.add_argument("--force-build", action="store_true")
@@ -71,7 +78,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def summarize(results: list[dict[str, Any]]) -> dict[str, Any]:
-    by_config: dict[tuple[int, int, int, int, int, int, int], dict[str, dict[str, Any]]] = {}
+    by_config: dict[tuple[int, int, int, int, int, int, int, int], dict[str, dict[str, Any]]] = {}
     for row in results:
         key = (
             int(row["device"]),
@@ -80,6 +87,7 @@ def summarize(results: list[dict[str, Any]]) -> dict[str, Any]:
             int(row["num_cta"]),
             int(row["b_pool_tiles"]),
             int(row["tile_stride"]),
+            int(row["row_tile_stride"]),
             int(row["cache_flush_elems"]),
         )
         by_config.setdefault(key, {})[str(row["mode"])] = row
@@ -87,8 +95,17 @@ def summarize(results: list[dict[str, Any]]) -> dict[str, Any]:
     comparisons: list[dict[str, Any]] = []
     p_min_rows: list[dict[str, Any]] = []
     for key, rows in sorted(by_config.items()):
-        device, consumer_rows, validate_iters, num_cta, b_pool_tiles, tile_stride, cache_flush_elems = key
-        for baseline_name in ("global_frag_reuse", "global_reload_per_row"):
+        (
+            device,
+            consumer_rows,
+            validate_iters,
+            num_cta,
+            b_pool_tiles,
+            tile_stride,
+            row_tile_stride,
+            cache_flush_elems,
+        ) = key
+        for baseline_name in ("global_frag_reuse", "global_reload_per_row", "global_reload_distinct_per_row"):
             baseline = rows.get(baseline_name)
             if not baseline:
                 continue
@@ -106,6 +123,7 @@ def summarize(results: list[dict[str, Any]]) -> dict[str, Any]:
                         "num_cta": num_cta,
                         "b_pool_tiles": b_pool_tiles,
                         "tile_stride": tile_stride,
+                        "row_tile_stride": row_tile_stride,
                         "cache_flush_elems": cache_flush_elems,
                         "baseline": baseline_name,
                         "mode": mode,
@@ -139,6 +157,7 @@ def summarize(results: list[dict[str, Any]]) -> dict[str, Any]:
                         "num_cta": num_cta,
                         "b_pool_tiles": b_pool_tiles,
                         "tile_stride": tile_stride,
+                        "row_tile_stride": row_tile_stride,
                         "cache_flush_elems": cache_flush_elems,
                         "baseline": baseline_name,
                         "global_ms": base_ms,
@@ -160,6 +179,7 @@ def main() -> None:
     num_cta_values = sorted(set(args.num_cta or [1]))
     b_pool_tiles_values = sorted(set(args.b_pool_tiles or [1]))
     tile_stride_values = sorted(set(args.tile_stride or [1]))
+    row_tile_stride_values = sorted(set(args.row_tile_stride or [1]))
     cache_flush_values = sorted(set(args.cache_flush_elems or [0]))
     build(force=args.force_build, offload_arch=args.offload_arch)
     results: list[dict[str, Any]] = []
@@ -169,37 +189,40 @@ def main() -> None:
                 for num_cta in num_cta_values:
                     for b_pool_tiles in b_pool_tiles_values:
                         for tile_stride in tile_stride_values:
-                            for cache_flush_elems in cache_flush_values:
-                                for mode in modes:
-                                    result = run(
-                                        [
-                                            str(BIN),
-                                            "--device",
-                                            str(device),
-                                            "--mode",
-                                            mode,
-                                            "--consumer-rows",
-                                            str(consumer_rows),
-                                            "--validate-iters",
-                                            str(validate_iters),
-                                            "--num-cta",
-                                            str(num_cta),
-                                            "--b-pool-tiles",
-                                            str(b_pool_tiles),
-                                            "--tile-stride",
-                                            str(tile_stride),
-                                            "--cache-flush-elems",
-                                            str(cache_flush_elems),
-                                            "--warmup",
-                                            str(args.warmup),
-                                            "--iters",
-                                            str(args.iters),
-                                        ]
-                                    )
-                                    payload = json.loads(result.stdout)
-                                    if result.stderr:
-                                        payload["stderr"] = result.stderr
-                                    results.append(payload)
+                            for row_tile_stride in row_tile_stride_values:
+                                for cache_flush_elems in cache_flush_values:
+                                    for mode in modes:
+                                        result = run(
+                                            [
+                                                str(BIN),
+                                                "--device",
+                                                str(device),
+                                                "--mode",
+                                                mode,
+                                                "--consumer-rows",
+                                                str(consumer_rows),
+                                                "--validate-iters",
+                                                str(validate_iters),
+                                                "--num-cta",
+                                                str(num_cta),
+                                                "--b-pool-tiles",
+                                                str(b_pool_tiles),
+                                                "--tile-stride",
+                                                str(tile_stride),
+                                                "--row-tile-stride",
+                                                str(row_tile_stride),
+                                                "--cache-flush-elems",
+                                                str(cache_flush_elems),
+                                                "--warmup",
+                                                str(args.warmup),
+                                                "--iters",
+                                                str(args.iters),
+                                            ]
+                                        )
+                                        payload = json.loads(result.stdout)
+                                        if result.stderr:
+                                            payload["stderr"] = result.stderr
+                                        results.append(payload)
     report = {
         "ok": all(bool(row.get("ok")) for row in results),
         "config": {
@@ -210,6 +233,7 @@ def main() -> None:
             "num_cta": num_cta_values,
             "b_pool_tiles": b_pool_tiles_values,
             "tile_stride": tile_stride_values,
+            "row_tile_stride": row_tile_stride_values,
             "cache_flush_elems": cache_flush_values,
             "warmup": args.warmup,
             "iters": args.iters,

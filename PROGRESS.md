@@ -1890,6 +1890,93 @@ static ISA fallback:
   barrier, waitcnt, and a WMMA/matrix bucket. This is static supporting
   evidence only; it cannot replace hardware byte counters, but it is a safe
   fallback when profiler counters are non-informative.
+
+mode-specialized rocWMMA kernels:
+  The rocWMMA tile-stage benchmark no longer relies on one device kernel with a
+  runtime mode switch. It now launches separate kernels:
+
+    global_frag_reuse_kernel
+    global_reload_per_row_kernel
+    lds_hit_kernel
+    lds_miss_overwrite_kernel
+
+  This makes rocprof kernel filtering and static ISA inspection mode-specific.
+  Host CLI semantics remain unchanged through --mode.
+
+  GPU0 specialized smoke:
+    rows=8, num_cta=64, b_pool=1024, stride=17, cache_flush=1M
+    correctness: all four modes pass
+    timing:
+      global_frag_reuse      0.0109996 ms
+      global_reload_per_row  0.0114240 ms
+      lds_hit                0.0120080 ms
+      lds_miss_overwrite     0.0126960 ms
+    p_min status:
+      vs global_frag_reuse: not_profitable_even_at_full_hit
+      vs global_reload_per_row: not_profitable_even_at_full_hit
+
+  Static ISA now separates the four symbols. The LDS modes show LDS load/store
+  buckets, while global modes do not. However, static instruction counts do not
+  expand runtime loops, so global_frag_reuse and global_reload_per_row can still
+  look structurally similar in ISA. Reload pressure therefore still needs
+  timing classification; static ISA is a structural sanity check, not a dynamic
+  traffic substitute.
+
+reload-pressure ladder:
+  A two-GPU specialized ladder was run with:
+
+    devices: GPU0 W7900, GPU1 W7900 Dual Slot
+    rows: 8, 32
+    num_cta: 64, 256
+    b_pool_tiles: 1024, 16384
+    cache_flush_elems: 0, 16M
+    modes: frag, reload, distinct-reload, lds_hit, lds_miss
+
+  Artifact:
+    outputs/reports/rocwmma_smoke/rocwmma_tile_stage_specialized_ladder_2gpu.json
+    outputs/reports/rocwmma_smoke/rocwmma_tile_stage_specialized_ladder_2gpu_summary.md
+
+  Summary:
+    config rows: 32
+    LDS hit beats global_frag_reuse: 7 / 32
+    LDS hit beats global_reload_per_row: 7 / 32
+    LDS hit beats global_reload_distinct_per_row: 17 / 32
+
+  Interpretation:
+    distinct-B reload amplification can create reload pressure, and LDS hit can
+    beat that distinct-reload control in some rows. However, this is not yet a
+    clean default-positive LDS result: several wins depend on cache-flush /
+    large-pool conditions, miss behavior remains unstable, and the direct
+    global-fragment path is often still the fastest baseline. Naive LDS payload
+    staging therefore remains a gated branch, not the main runtime direction.
+
+  Current branch condition:
+    If further official-like rocWMMA LB2/PGR1/CP or double-buffer tests do not
+    show a robust hit-path win against a reload-heavy baseline, demote LDS
+    payload staging to a negative result / optional future action.
+
+New engineering direction from review:
+  The higher-ROI systems direction is now:
+
+    MTP/transition-guided cache-aware tile ordering for exact MoE grouped dispatch.
+
+  In this pivot, MTP/transition hints do not stage payload into LDS. They guide:
+    tile visitation order
+    expert-major / B-tile grouped scheduling
+    hot-first ordering
+    descriptor precompute / patching
+    persistent grouped scheduler work assignment
+
+  Candidate metrics:
+    tile-order hit rate
+    B tile reuse distance
+    unique B tiles per scheduling window
+    wall time under hot/cold expert ordering
+    descriptor build / patch / overwrite time
+
+  This aligns better with MetaShuffling / persistent grouped-GEMM directions
+  while preserving the project's low-trust MTP prior: true router remains
+  authoritative, but hint quality can influence cache-aware scheduling order.
 ```
 
 Next LDS / rocWMMA steps:
@@ -1913,10 +2000,15 @@ Next LDS / rocWMMA steps:
    WMMA utilization proxy, B_reload_ratio, p_min_status
 
 4. Only if the target path is reload-like:
-   move to double-buffer / producer-consumer / persistent grouped-GEMM
-   pipeline experiments.
+   first test official-like rocWMMA LB2/PGR1/CP and a small double-buffer
+   skeleton. Only move to producer-consumer / persistent grouped-GEMM if those
+   hit paths beat the reload-heavy baseline.
 
 5. If the target path is fragment-reuse-like:
    demote LDS staging from primary runtime action and focus on dispatch /
    metadata / premap scheduling instead.
+
+6. Independent of LDS, start the no-payload pivot:
+   MTP/transition-guided tile-order / cache-locality bench over the direct
+   global-fragment path.
 ```

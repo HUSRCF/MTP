@@ -36,6 +36,7 @@ enum class Mode : int {
   kLdsHit = 1,
   kLdsMissOverwrite = 2,
   kGlobalReloadPerRow = 3,
+  kGlobalReloadDistinctPerRow = 4,
 };
 
 struct Options {
@@ -47,6 +48,7 @@ struct Options {
   int num_cta = 1;
   int b_pool_tiles = 1;
   int tile_stride = 1;
+  int row_tile_stride = 1;
   int cache_flush_elems = 0;
   Mode mode = Mode::kGlobalFragReuse;
 };
@@ -64,6 +66,7 @@ Mode parse_mode(const std::string& value) {
   if (value == "global_baseline") return Mode::kGlobalFragReuse;
   if (value == "global_frag_reuse") return Mode::kGlobalFragReuse;
   if (value == "global_reload_per_row") return Mode::kGlobalReloadPerRow;
+  if (value == "global_reload_distinct_per_row") return Mode::kGlobalReloadDistinctPerRow;
   if (value == "lds_hit") return Mode::kLdsHit;
   if (value == "lds_miss_overwrite") return Mode::kLdsMissOverwrite;
   throw std::runtime_error("unknown mode: " + value);
@@ -79,6 +82,8 @@ const char* mode_name(Mode mode) {
       return "lds_miss_overwrite";
     case Mode::kGlobalReloadPerRow:
       return "global_reload_per_row";
+    case Mode::kGlobalReloadDistinctPerRow:
+      return "global_reload_distinct_per_row";
   }
   return "unknown";
 }
@@ -129,6 +134,8 @@ Options parse_args(int argc, char** argv) {
       opt.b_pool_tiles = parse_int(need_value("--b-pool-tiles"), "--b-pool-tiles");
     } else if (arg == "--tile-stride") {
       opt.tile_stride = parse_int(need_value("--tile-stride"), "--tile-stride");
+    } else if (arg == "--row-tile-stride") {
+      opt.row_tile_stride = parse_int(need_value("--row-tile-stride"), "--row-tile-stride");
     } else if (arg == "--cache-flush-elems") {
       opt.cache_flush_elems = parse_int(need_value("--cache-flush-elems"), "--cache-flush-elems");
     } else if (arg == "--mode") {
@@ -144,17 +151,18 @@ Options parse_args(int argc, char** argv) {
   return opt;
 }
 
-__global__ void rocwmma_tile_stage_kernel(
+template <Mode kMode>
+__device__ __forceinline__ void rocwmma_tile_stage_body(
     const rocwmma::float16_t* __restrict__ a,
     const rocwmma::float16_t* __restrict__ b_true,
     const rocwmma::float16_t* __restrict__ b_wrong,
     float* __restrict__ c,
     unsigned int* __restrict__ validation_sink,
-    int mode,
     int consumer_rows,
     int validate_iters,
     int b_pool_tiles,
-    int tile_stride) {
+    int tile_stride,
+    int row_tile_stride) {
   using namespace rocwmma;
   using FragA = fragment<matrix_a, kM, kN, kK, float16_t, row_major>;
   using FragB = fragment<matrix_b, kM, kN, kK, float16_t, row_major>;
@@ -176,12 +184,12 @@ __global__ void rocwmma_tile_stage_kernel(
   const rocwmma::float16_t* a_block = a + block * consumer_rows * kTileElems;
   float* c_block = c + block * consumer_rows * kTileElems;
 
-  if (mode == static_cast<int>(Mode::kGlobalFragReuse)) {
+  if constexpr (kMode == Mode::kGlobalFragReuse) {
     validation_work(validate_iters, validation_sink);
     load_matrix_sync(frag_b, b_true_tile, kN);
-  } else if (mode == static_cast<int>(Mode::kGlobalReloadPerRow)) {
+  } else if constexpr (kMode == Mode::kGlobalReloadPerRow) {
     validation_work(validate_iters, validation_sink);
-  } else if (mode == static_cast<int>(Mode::kLdsHit)) {
+  } else if constexpr (kMode == Mode::kLdsHit) {
     for (int idx = threadIdx.x; idx < kTileElems; idx += blockDim.x) {
       s_b[idx] = b_true_tile[idx];
     }
@@ -189,7 +197,7 @@ __global__ void rocwmma_tile_stage_kernel(
     validation_work(validate_iters, validation_sink);
     __syncthreads();
     load_matrix_sync(frag_b, s_b, kN);
-  } else {
+  } else if constexpr (kMode == Mode::kLdsMissOverwrite) {
     for (int idx = threadIdx.x; idx < kTileElems; idx += blockDim.x) {
       s_b[idx] = b_wrong_tile[idx];
     }
@@ -207,14 +215,98 @@ __global__ void rocwmma_tile_stage_kernel(
 
   for (int row = 0; row < consumer_rows; ++row) {
     FragA frag_a;
-    if (mode == static_cast<int>(Mode::kGlobalReloadPerRow)) {
+    if constexpr (kMode == Mode::kGlobalReloadPerRow) {
       load_matrix_sync(frag_b, b_true_tile, kN);
+    } else if constexpr (kMode == Mode::kGlobalReloadDistinctPerRow) {
+      const int safe_row_stride = row_tile_stride > 0 ? row_tile_stride : 1;
+      const int row_tile = (true_tile + row * safe_row_stride) % safe_pool;
+      load_matrix_sync(frag_b, b_true + row_tile * kTileElems, kN);
     }
     load_matrix_sync(frag_a, a_block + row * kTileElems, kK);
     fill_fragment(frag_c, 0.0f);
     mma_sync(frag_d, frag_a, frag_b, frag_c);
     store_matrix_sync(c_block + row * kTileElems, frag_d, kN, mem_row_major);
   }
+}
+
+__global__ void global_frag_reuse_kernel(
+    const rocwmma::float16_t* __restrict__ a,
+    const rocwmma::float16_t* __restrict__ b_true,
+    const rocwmma::float16_t* __restrict__ b_wrong,
+    float* __restrict__ c,
+    unsigned int* __restrict__ validation_sink,
+    int consumer_rows,
+    int validate_iters,
+    int b_pool_tiles,
+    int tile_stride,
+    int row_tile_stride) {
+  rocwmma_tile_stage_body<Mode::kGlobalFragReuse>(
+      a, b_true, b_wrong, c, validation_sink, consumer_rows, validate_iters, b_pool_tiles, tile_stride,
+      row_tile_stride);
+}
+
+__global__ void global_reload_per_row_kernel(
+    const rocwmma::float16_t* __restrict__ a,
+    const rocwmma::float16_t* __restrict__ b_true,
+    const rocwmma::float16_t* __restrict__ b_wrong,
+    float* __restrict__ c,
+    unsigned int* __restrict__ validation_sink,
+    int consumer_rows,
+    int validate_iters,
+    int b_pool_tiles,
+    int tile_stride,
+    int row_tile_stride) {
+  rocwmma_tile_stage_body<Mode::kGlobalReloadPerRow>(
+      a, b_true, b_wrong, c, validation_sink, consumer_rows, validate_iters, b_pool_tiles, tile_stride,
+      row_tile_stride);
+}
+
+__global__ void global_reload_distinct_per_row_kernel(
+    const rocwmma::float16_t* __restrict__ a,
+    const rocwmma::float16_t* __restrict__ b_true,
+    const rocwmma::float16_t* __restrict__ b_wrong,
+    float* __restrict__ c,
+    unsigned int* __restrict__ validation_sink,
+    int consumer_rows,
+    int validate_iters,
+    int b_pool_tiles,
+    int tile_stride,
+    int row_tile_stride) {
+  rocwmma_tile_stage_body<Mode::kGlobalReloadDistinctPerRow>(
+      a, b_true, b_wrong, c, validation_sink, consumer_rows, validate_iters, b_pool_tiles, tile_stride,
+      row_tile_stride);
+}
+
+__global__ void lds_hit_kernel(
+    const rocwmma::float16_t* __restrict__ a,
+    const rocwmma::float16_t* __restrict__ b_true,
+    const rocwmma::float16_t* __restrict__ b_wrong,
+    float* __restrict__ c,
+    unsigned int* __restrict__ validation_sink,
+    int consumer_rows,
+    int validate_iters,
+    int b_pool_tiles,
+    int tile_stride,
+    int row_tile_stride) {
+  rocwmma_tile_stage_body<Mode::kLdsHit>(
+      a, b_true, b_wrong, c, validation_sink, consumer_rows, validate_iters, b_pool_tiles, tile_stride,
+      row_tile_stride);
+}
+
+__global__ void lds_miss_overwrite_kernel(
+    const rocwmma::float16_t* __restrict__ a,
+    const rocwmma::float16_t* __restrict__ b_true,
+    const rocwmma::float16_t* __restrict__ b_wrong,
+    float* __restrict__ c,
+    unsigned int* __restrict__ validation_sink,
+    int consumer_rows,
+    int validate_iters,
+    int b_pool_tiles,
+    int tile_stride,
+    int row_tile_stride) {
+  rocwmma_tile_stage_body<Mode::kLdsMissOverwrite>(
+      a, b_true, b_wrong, c, validation_sink, consumer_rows, validate_iters, b_pool_tiles, tile_stride,
+      row_tile_stride);
 }
 
 __global__ void cache_flush_kernel(const float* __restrict__ data,
@@ -264,19 +356,25 @@ std::vector<float> reference(const std::vector<rocwmma::float16_t>& a,
                              int num_cta,
                              int consumer_rows,
                              int b_pool_tiles,
-                             int tile_stride) {
+                             int tile_stride,
+                             int row_tile_stride,
+                             Mode mode) {
   const int rows = num_cta * consumer_rows;
   std::vector<float> ref(rows * kM * kN, 0.0f);
   for (int block = 0; block < num_cta; ++block) {
     const int true_tile = select_b_tile(block, b_pool_tiles, tile_stride);
+    const int safe_pool = b_pool_tiles > 0 ? b_pool_tiles : 1;
+    const int safe_row_stride = row_tile_stride > 0 ? row_tile_stride : 1;
     for (int row = 0; row < consumer_rows; ++row) {
       const int global_row = block * consumer_rows + row;
+      const int row_tile =
+          mode == Mode::kGlobalReloadDistinctPerRow ? (true_tile + row * safe_row_stride) % safe_pool : true_tile;
       for (int m = 0; m < kM; ++m) {
         for (int n = 0; n < kN; ++n) {
           float acc = 0.0f;
           for (int k = 0; k < kK; ++k) {
             acc += static_cast<float>(a[global_row * kTileElems + m * kK + k]) *
-                   static_cast<float>(b[true_tile * kTileElems + k * kN + n]);
+                   static_cast<float>(b[row_tile * kTileElems + k * kN + n]);
           }
           ref[global_row * kTileElems + m * kN + n] = acc;
         }
@@ -293,8 +391,9 @@ int main(int argc, char** argv) {
     const Options opt = parse_args(argc, argv);
     if (opt.warmup < 0 || opt.iters <= 0 || opt.consumer_rows <= 0 || opt.consumer_rows > 32 ||
         opt.validate_iters < 0 || opt.num_cta <= 0 || opt.b_pool_tiles <= 0 ||
-        opt.tile_stride <= 0 || opt.cache_flush_elems < 0) {
-      throw std::runtime_error("invalid warmup/iters/consumer_rows/validate_iters/num_cta/b_pool/cache_flush");
+        opt.tile_stride <= 0 || opt.row_tile_stride <= 0 || opt.cache_flush_elems < 0) {
+      throw std::runtime_error(
+          "invalid warmup/iters/consumer_rows/validate_iters/num_cta/b_pool/stride/cache_flush");
     }
     HIP_CHECK(hipSetDevice(opt.device));
     hipDeviceProp_t prop{};
@@ -305,8 +404,8 @@ int main(int argc, char** argv) {
     std::vector<rocwmma::float16_t> h_b_wrong(opt.b_pool_tiles * kTileElems);
     std::vector<float> h_c(opt.num_cta * opt.consumer_rows * kM * kN, 0.0f);
     fill_inputs(h_a, h_b, h_b_wrong);
-    const std::vector<float> ref =
-        reference(h_a, h_b, opt.num_cta, opt.consumer_rows, opt.b_pool_tiles, opt.tile_stride);
+    const std::vector<float> ref = reference(
+        h_a, h_b, opt.num_cta, opt.consumer_rows, opt.b_pool_tiles, opt.tile_stride, opt.row_tile_stride, opt.mode);
 
     rocwmma::float16_t* d_a = nullptr;
     rocwmma::float16_t* d_b = nullptr;
@@ -337,25 +436,98 @@ int main(int argc, char** argv) {
     HIP_CHECK(hipMemset(d_c, 0, h_c.size() * sizeof(float)));
     HIP_CHECK(hipMemset(d_validation_sink, 0, sizeof(unsigned int)));
 
-    const int mode_int = static_cast<int>(opt.mode);
-    for (int i = 0; i < opt.warmup; ++i) {
-      hipLaunchKernelGGL(
-          rocwmma_tile_stage_kernel,
-          dim3(opt.num_cta),
-          dim3(64),
-          0,
-          0,
-          d_a,
-          d_b,
-          d_b_wrong,
-          d_c,
-          d_validation_sink,
-          mode_int,
-          opt.consumer_rows,
-          opt.validate_iters,
-          opt.b_pool_tiles,
-          opt.tile_stride);
+    auto launch_tile_stage = [&]() {
+      if (opt.mode == Mode::kGlobalFragReuse) {
+        hipLaunchKernelGGL(
+            global_frag_reuse_kernel,
+            dim3(opt.num_cta),
+            dim3(64),
+            0,
+            0,
+            d_a,
+            d_b,
+            d_b_wrong,
+            d_c,
+            d_validation_sink,
+            opt.consumer_rows,
+            opt.validate_iters,
+            opt.b_pool_tiles,
+            opt.tile_stride,
+            opt.row_tile_stride);
+      } else if (opt.mode == Mode::kGlobalReloadPerRow) {
+        hipLaunchKernelGGL(
+            global_reload_per_row_kernel,
+            dim3(opt.num_cta),
+            dim3(64),
+            0,
+            0,
+            d_a,
+            d_b,
+            d_b_wrong,
+            d_c,
+            d_validation_sink,
+            opt.consumer_rows,
+            opt.validate_iters,
+            opt.b_pool_tiles,
+            opt.tile_stride,
+            opt.row_tile_stride);
+      } else if (opt.mode == Mode::kGlobalReloadDistinctPerRow) {
+        hipLaunchKernelGGL(
+            global_reload_distinct_per_row_kernel,
+            dim3(opt.num_cta),
+            dim3(64),
+            0,
+            0,
+            d_a,
+            d_b,
+            d_b_wrong,
+            d_c,
+            d_validation_sink,
+            opt.consumer_rows,
+            opt.validate_iters,
+            opt.b_pool_tiles,
+            opt.tile_stride,
+            opt.row_tile_stride);
+      } else if (opt.mode == Mode::kLdsHit) {
+        hipLaunchKernelGGL(
+            lds_hit_kernel,
+            dim3(opt.num_cta),
+            dim3(64),
+            0,
+            0,
+            d_a,
+            d_b,
+            d_b_wrong,
+            d_c,
+            d_validation_sink,
+            opt.consumer_rows,
+            opt.validate_iters,
+            opt.b_pool_tiles,
+            opt.tile_stride,
+            opt.row_tile_stride);
+      } else {
+        hipLaunchKernelGGL(
+            lds_miss_overwrite_kernel,
+            dim3(opt.num_cta),
+            dim3(64),
+            0,
+            0,
+            d_a,
+            d_b,
+            d_b_wrong,
+            d_c,
+            d_validation_sink,
+            opt.consumer_rows,
+            opt.validate_iters,
+            opt.b_pool_tiles,
+            opt.tile_stride,
+            opt.row_tile_stride);
+      }
       HIP_CHECK(hipGetLastError());
+    };
+
+    for (int i = 0; i < opt.warmup; ++i) {
+      launch_tile_stage();
     }
     HIP_CHECK(hipDeviceSynchronize());
 
@@ -379,23 +551,7 @@ int main(int argc, char** argv) {
         HIP_CHECK(hipGetLastError());
       }
       HIP_CHECK(hipEventRecord(start));
-      hipLaunchKernelGGL(
-          rocwmma_tile_stage_kernel,
-          dim3(opt.num_cta),
-          dim3(64),
-          0,
-          0,
-          d_a,
-          d_b,
-          d_b_wrong,
-          d_c,
-          d_validation_sink,
-          mode_int,
-          opt.consumer_rows,
-          opt.validate_iters,
-          opt.b_pool_tiles,
-          opt.tile_stride);
-      HIP_CHECK(hipGetLastError());
+      launch_tile_stage();
       HIP_CHECK(hipEventRecord(stop));
       HIP_CHECK(hipEventSynchronize(stop));
       float ms = 0.0f;
@@ -430,6 +586,7 @@ int main(int argc, char** argv) {
     std::cout << "  \"num_cta\": " << opt.num_cta << ",\n";
     std::cout << "  \"b_pool_tiles\": " << opt.b_pool_tiles << ",\n";
     std::cout << "  \"tile_stride\": " << opt.tile_stride << ",\n";
+    std::cout << "  \"row_tile_stride\": " << opt.row_tile_stride << ",\n";
     std::cout << "  \"cache_flush_elems\": " << opt.cache_flush_elems << ",\n";
     std::cout << "  \"total_tiles\": " << (opt.num_cta * opt.consumer_rows) << ",\n";
     std::cout << "  \"block_threads\": 64,\n";

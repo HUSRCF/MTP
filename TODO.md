@@ -1669,10 +1669,40 @@ Interpretation:
   - decide whether it is closer to `global_frag_reuse` or `global_reload_per_row`
   - report wall time, static global/LDS instruction buckets, timing similarity, and p_min status
   - only report hardware B-reload ratio if counters pass positive controls
-- [ ] Add mode-specialized static inspection targets:
+- [x] Add mode-specialized static inspection targets:
   - avoid relying on one mode-switch kernel whose static instruction counts mix all branches
-  - prefer separate kernels or `template<int Mode>` / `if constexpr` specializations for `global_frag_reuse`, `global_reload_per_row`, `lds_hit`, and `lds_miss_overwrite`
+  - separate launched kernels now exist for `global_frag_reuse`, `global_reload_per_row`, `lds_hit`, and `lds_miss_overwrite`
+  - rocprof classification filters by the corresponding mode-specific kernel name
+  - static ISA inspection can now select these symbols independently
+- [ ] Add mode-specialized classification sweep:
+  - run rows/CTA/b-pool/cache-flush grid on the specialized kernels
+  - report p_min separately against `global_frag_reuse` and `global_reload_per_row`
+  - report static global/LDS bucket table next to timing rows
+  - stop condition: if LDS hit is not profitable even against reload-like baseline across high-reload rows, demote LDS staging to future/pipeline-only work
+- [x] Add reload-pressure amplification control:
+  - new mode: `global_reload_distinct_per_row`
+  - new option: `--row-tile-stride`
+  - row-level B tile selection: `(base_tile + row * row_tile_stride) % b_pool`
+  - purpose: separate distinct row-wise B pressure from same-tile fragment/cache reuse
+- [x] Run a small two-GPU specialized reload-pressure ladder:
+  - artifact: `outputs/reports/rocwmma_smoke/rocwmma_tile_stage_specialized_ladder_2gpu.json`
+  - summary: `outputs/reports/rocwmma_smoke/rocwmma_tile_stage_specialized_ladder_2gpu_summary.md`
+  - result: LDS hit beats distinct-reload in some rows, but not robustly enough to promote naive LDS payload staging as a default action
+- [ ] Add static ISA compact table generator:
+  - mode-specialized rows: frag, reload, distinct-reload, lds_hit, lds_miss
+  - columns: global_load, global_store, ds_load, ds_store, ds_swizzle, barrier, waitcnt, WMMA/matrix, derived ratios
+- [ ] Add cache-aware tile-order bench as the non-LDS pivot:
+  - compare linear, expert-major, B-tile grouped, transition-prior, MTP/transition hot-first, and oracle cache-aware ordering
+  - use the direct/global-fragment consumer first; do not stage payload into LDS
+  - report B tile reuse distance, unique B tiles per window, wall time, and tile-order hit rate
+- [ ] Add descriptor precompute / patch timing:
+  - true-router rebuild baseline
+  - transition/MTP candidate descriptor prebuild
+  - validate + patch / overwrite cost
+  - stop condition: if patch is not cheaper than rebuild, keep descriptor precompute as implementation detail only
 - [ ] Only continue LDS staging pipeline if target path is reload-like:
+  - official-like rocWMMA LB2/PGR1/CP positive control must beat LB0/direct
+  - double-buffer hit path must beat global streaming reload
   - double-buffer B tile
   - producer/consumer wave split
   - persistent grouped-GEMM skeleton

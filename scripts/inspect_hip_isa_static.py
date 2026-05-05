@@ -152,12 +152,26 @@ def parse_objdump(text: str, kernel_patterns: list[str] | None) -> dict[str, Any
     for item in selected.values():
         aggregate["bucket_counts"].update(item["bucket_counts"])
 
+    def derived(bucket_counts: Counter[str]) -> dict[str, Any]:
+        matrix = float(bucket_counts.get("wmma_or_matrix", 0))
+        lds_total = float(bucket_counts.get("lds_load", 0) + bucket_counts.get("lds_store", 0))
+        if matrix <= 0.0:
+            return {
+                "global_load_to_wmma_ratio": None,
+                "lds_load_store_to_wmma_ratio": None,
+            }
+        return {
+            "global_load_to_wmma_ratio": float(bucket_counts.get("global_load", 0)) / matrix,
+            "lds_load_store_to_wmma_ratio": lds_total / matrix,
+        }
+
     def normalize(item: dict[str, Any]) -> dict[str, Any]:
         return {
             "symbol": item["symbol"],
             "selected": item["selected"],
             "instruction_count": item["instruction_count"],
             "bucket_counts": dict(sorted(item["bucket_counts"].items())),
+            "derived": derived(item["bucket_counts"]),
             "top_mnemonics": dict(item["mnemonic_counts"].most_common(24)),
         }
 
@@ -166,6 +180,7 @@ def parse_objdump(text: str, kernel_patterns: list[str] | None) -> dict[str, Any
             "kernel_count": aggregate["kernel_count"],
             "instruction_count": aggregate["instruction_count"],
             "bucket_counts": dict(sorted(aggregate["bucket_counts"].items())),
+            "derived": derived(aggregate["bucket_counts"]),
         },
         "kernels": {name: normalize(item) for name, item in sorted(kernels.items())},
     }
@@ -196,19 +211,37 @@ def write_markdown(report: dict[str, Any]) -> str:
     ]
     for bucket, count in agg["bucket_counts"].items():
         lines.append(f"| {bucket} | {count} |")
-    lines.extend(["", "## Per Kernel", "", "| selected | symbol | instructions | buckets |", "|---|---|---:|---|"])
+    lines.extend(
+        [
+            "",
+            "## Per Kernel",
+            "",
+            "| selected | symbol | instructions | global/WMMA | LDS load+store/WMMA | buckets |",
+            "|---|---|---:|---:|---:|---|",
+        ]
+    )
     for kernel in report["inspection"]["kernels"].values():
         buckets = ", ".join(f"{key}={value}" for key, value in kernel["bucket_counts"].items()) or "none"
+        global_ratio = _fmt_optional(kernel["derived"]["global_load_to_wmma_ratio"])
+        lds_ratio = _fmt_optional(kernel["derived"]["lds_load_store_to_wmma_ratio"])
         lines.append(
-            "| {selected} | `{symbol}` | {inst} | {buckets} |".format(
+            "| {selected} | `{symbol}` | {inst} | {global_ratio} | {lds_ratio} | {buckets} |".format(
                 selected=kernel["selected"],
                 symbol=kernel["symbol"],
                 inst=kernel["instruction_count"],
+                global_ratio=global_ratio,
+                lds_ratio=lds_ratio,
                 buckets=buckets,
             )
         )
     lines.append("")
     return "\n".join(lines)
+
+
+def _fmt_optional(value: Any) -> str:
+    if value is None:
+        return "n/a"
+    return f"{float(value):.3f}"
 
 
 def main() -> None:
