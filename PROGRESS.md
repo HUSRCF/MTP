@@ -580,6 +580,49 @@ token1..126 x 40 layers are joined
 matrix_topk has passed the real vLLM online summary/outcome join check
 ```
 
+Held-out replay consistency:
+
+```text
+script:
+  scripts/replay_matrix_transition_shadow.py
+
+inputs:
+  configs/eval/prefetch_shadow_512sample_mtp_extra.yaml
+  outputs/artifacts/transition_matrix_512sample_calibrated.pt
+
+output summary:
+  outputs/reports/matrix_transition_shadow_replay/heldout128_summary.json
+
+heldout split:
+  samples = 128
+  positions = 384..511
+  joined token-layer outcomes = 455,400
+  token0 outcome-only sentinel rows = 5,120
+
+comparison:
+  online matrix_top32 joined-only
+  vs offline calibrated transition@32
+```
+
+Result:
+
+```text
+metric                       online joined      offline transition@32    abs diff
+covered_mass_mean            0.8006447121       0.8006447554            4.32e-08
+top1_ready_rate              0.9065700483       0.9065700769            2.86e-08
+weighted_top1_miss_mean      0.02241862245      0.02241862193           5.24e-10
+miss_mass_mean               0.1993552877       0.1993552446            4.31e-08
+outcome_count                455,400            455,400                 0
+```
+
+Interpretation:
+
+```text
+online matrix_top32 == offline calibrated transition@32 on heldout replay.
+The comparison must use joined-only outcomes; aggregate all-outcome metrics
+include token0 outcome-only sentinels and are intentionally lower.
+```
+
 ## Current Default Evaluation Settings
 
 ```text
