@@ -623,6 +623,118 @@ The comparison must use joined-only outcomes; aggregate all-outcome metrics
 include token0 outcome-only sentinels and are intentionally lower.
 ```
 
+## Online Action Policy Replay
+
+After `matrix_top32` was validated as the online transition base, the full
+action-level MTP policy was replayed through the runtime shadow schema:
+
+```text
+full_fetch:
+  utility-gated, up to MTP_extra4
+
+metadata:
+  raw-score high-tail, max_extra=1
+
+premap:
+  tiny descriptor budget, max_extra=1
+
+skip:
+  default fallback for remaining candidates
+```
+
+512 held-out summary-only replay:
+
+```text
+command:
+  python scripts/export_runtime_shadow_jsonl.py \
+    --tensor-cache outputs/reports/prefetch_shadow_512sample_mtp_extra/event_stall_tensor_cache_512sample.pt \
+    --summary-only \
+    --full-fetch-max-extra 4 \
+    --metadata-max-extra 1 \
+    --premap-max-extra 1 \
+    --action-keep-fraction 0.5 \
+    --metadata-score-ratio 0.95 \
+    --bandwidth-gbps 6.589 \
+    --layer-ms 1.0 \
+    --mtp-delay-ms 2.0
+
+summary:
+  outputs/reports/action_shadow_replay_512/utility_keep50_summary.json
+```
+
+Action replay result:
+
+```text
+ready_mass_mean           = 0.8185046113
+top1_ready_rate           = 0.9205775143
+weighted_top1_miss_mean   = 0.0192181603
+
+full_fetch_count          = 900,460
+metadata_count            = 170,805
+premap_count              = 455,400
+
+full_fetch_later_used     = 70,268
+metadata_later_used       = 12,183
+premap_later_used         = 21,298
+
+policy_mode               = default
+policy_reason             = normal_envelope
+ready_base_fraction       = 1.0
+ready_extra_fraction      = 0.91875
+```
+
+Consistency against the event-sim normal report:
+
+```text
+report:
+  outputs/reports/action_shadow_replay_512/utility_keep50_consistency.json
+
+policy:
+  transition_top32_plus_gated_utility_keep_top_0.500
+
+result:
+  ok = true
+  metric_group = all
+  rtol = 0.002
+```
+
+Observed differences:
+
+```text
+ready_mass_fraction       abs diff = 8.71e-05
+top1_ready_rate           abs diff = 2.42e-05
+weighted_top1_miss        abs diff = 5.20e-06
+full_fetch_count          exact
+metadata_count            exact
+premap_count              exact
+full_fetch_later_used     exact
+metadata_later_used       exact
+premap_later_used         diff = 1 count
+```
+
+Small JSONL smoke:
+
+```text
+output:
+  outputs/reports/action_shadow_replay_512/utility_keep50_smoke_16.jsonl
+
+num_eval_token_examples = 16
+summary_count = 640
+outcome_count = 640
+full_fetch_count = 1,116
+metadata_count = 178
+premap_count = 640
+```
+
+Interpretation:
+
+```text
+The full action policy can be emitted through the runtime shadow schema and
+matches the event simulator within tolerance on 512 held-out data.
+The next runtime gate is wiring this action producer into the online vLLM
+shadow path after live MTP-token sidecar/action features are available.
+```
+
 ## Current Default Evaluation Settings
 
 ```text
