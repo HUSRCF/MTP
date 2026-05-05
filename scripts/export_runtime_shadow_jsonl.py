@@ -167,7 +167,7 @@ def main() -> None:
         max_extra=int(args.full_fetch_max_extra),
         keep_fraction=float(args.action_keep_fraction),
     )
-    _, ready_stats = queue_aware_ready_mask(
+    queue_ready_mask, ready_stats = queue_aware_ready_mask(
         tensors["transition_scores"].cpu(),
         tensors["mtp_scores"].cpu(),
         transition_topk=int(args.transition_topk),
@@ -180,6 +180,7 @@ def main() -> None:
         bandwidth_gbps=float(args.bandwidth_gbps),
         expert_bytes=int(args.expert_bytes),
     )
+    queue_ready_mask = queue_ready_mask.to(device)
     runtime_policy = select_runtime_prefetch_policy(
         RuntimeSignals(
             transition_ready_rate=float(ready_stats["ready_base_fraction"]),
@@ -249,6 +250,7 @@ def main() -> None:
             base_mask=eval_base,
             decisions=decisions,
             target_mass=tensors["target_mass"],
+            ready_mask=queue_ready_mask,
             expert_bytes=int(args.expert_bytes),
             metadata_bytes=int(args.metadata_bytes),
             premap_bytes=int(args.premap_bytes),
@@ -267,6 +269,7 @@ def main() -> None:
             base_mask=eval_base,
             decisions=decisions,
             target_mass=tensors["target_mass"],
+            ready_mask=queue_ready_mask,
             policy=policy_config,
             request_id=str(args.request_id),
             token_sample_indices=tensors.get("token_sample_indices"),

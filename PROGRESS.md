@@ -243,6 +243,33 @@ The full JSONL path is intended for small debug samples. Scale validation should
 use `--summary-only`, which aggregates the same action/outcome semantics with
 vectorized tensors and avoids multi-hundred-MB partial logs.
 
+Online runtime logging bridge:
+
+```text
+OnlineShadowLogger
+  writes the same summary/outcome JSONL schema from a serving/runtime path
+  after action decision and true-router outcome are available
+
+check_shadow_replay_consistency.py
+  compares online/offline shadow aggregates against event-sim policies
+```
+
+Consistency checks:
+
+```text
+normal envelope:
+  metric_group = all
+  result = pass
+  ready/action counters align with event sim within rtol=0.002
+
+severe stress envelope:
+  metric_group = ready
+  result = pass
+  action counters intentionally differ because runtime fallback suppresses
+  MTP full_fetch/metadata while the event sim stress report still records
+  requested-but-late actions.
+```
+
 ## Current Default Evaluation Settings
 
 ```text

@@ -48,6 +48,7 @@ from mtp_expert_prefetch.runtime.policy import (
     priority_name,
     select_runtime_prefetch_policy,
 )
+from mtp_expert_prefetch.runtime.online_shadow import OnlineShadowLogger
 from mtp_expert_prefetch.runtime.shadow_log import (
     ShadowCandidateEvent,
     ShadowEventId,
@@ -70,6 +71,7 @@ __all__ = [
     "PolicyThresholds",
     "PrefetchGoal",
     "PrefetchPriority",
+    "OnlineShadowLogger",
     "RuntimePrefetchPolicy",
     "RuntimeSignals",
     "AdmissionAction",

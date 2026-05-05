@@ -105,3 +105,39 @@ def test_iter_shadow_summary_outcome_events_exports_action_outcomes():
         aggregate["covered_mass_mean"]
     )
     assert tensor_aggregate["miss_mass_mean"] == pytest.approx(aggregate["miss_mass_mean"])
+
+
+def test_shadow_export_ready_mask_can_mark_full_fetch_late():
+    shape = (1, 1, 1, 4)
+    base = torch.zeros(shape, dtype=torch.bool)
+    base[..., 0] = True
+    target_mass = torch.zeros(shape, dtype=torch.float32)
+    target_mass[..., 0] = 0.2
+    target_mass[..., 1] = 0.8
+    full_fetch = torch.zeros(shape, dtype=torch.bool)
+    full_fetch[..., 1] = True
+    empty = torch.zeros(shape, dtype=torch.bool)
+    decisions = AdmissionDecisionMasks(
+        admitted_full_fetch=full_fetch,
+        admitted_metadata=empty,
+        admitted_premap=empty,
+        skipped_not_novel=empty,
+        skipped_rank_cap=empty,
+        skipped_below_threshold=empty,
+        skipped_invalid_score=empty,
+        skipped_policy=empty,
+    )
+    ready_mask = base.clone()
+    aggregate = aggregate_shadow_tensors(
+        base_mask=base,
+        decisions=decisions,
+        target_mass=target_mass,
+        ready_mask=ready_mask,
+    )
+
+    assert aggregate["full_fetch_count"] == 1
+    assert aggregate["full_fetch_used_count"] == 1
+    assert aggregate["covered_mass_mean"] == pytest.approx(0.2)
+    assert aggregate["miss_mass_mean"] == pytest.approx(0.8)
+    assert aggregate["top1_ready_rate"] == 0.0
+    assert aggregate["weighted_top1_miss_mean"] == pytest.approx(0.8)

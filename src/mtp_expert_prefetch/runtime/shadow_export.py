@@ -18,6 +18,7 @@ def iter_shadow_summary_outcome_events(
     base_mask: torch.Tensor,
     decisions: AdmissionDecisionMasks,
     target_mass: torch.Tensor,
+    ready_mask: torch.Tensor | None = None,
     policy: ShadowPolicyConfig,
     request_id: str = "offline",
     token_sample_indices: torch.Tensor | None = None,
@@ -49,7 +50,12 @@ def iter_shadow_summary_outcome_events(
     """
     _validate_replay_shapes(base_mask=base_mask, decisions=decisions, target_mass=target_mass)
     action_masks = decisions.action_masks()
-    ready_mask = base_mask.bool() | action_masks["full_fetch"].bool()
+    candidate_ready_mask = base_mask.bool() | action_masks["full_fetch"].bool()
+    ready_mask = (
+        candidate_ready_mask
+        if ready_mask is None
+        else ready_mask.to(dtype=torch.bool, device=base_mask.device) & candidate_ready_mask
+    )
     demand = target_mass.float().gt(0.0)
     sample_ids = _sample_ids_for_tokens(base_mask, token_sample_indices)
 
@@ -131,6 +137,7 @@ def aggregate_shadow_tensors(
     base_mask: torch.Tensor,
     decisions: AdmissionDecisionMasks,
     target_mass: torch.Tensor,
+    ready_mask: torch.Tensor | None = None,
     expert_bytes: int = 1_650_000,
     metadata_bytes: int = 65_536,
     premap_bytes: int = 4_096,
@@ -143,7 +150,12 @@ def aggregate_shadow_tensors(
     """Vectorized aggregate matching `aggregate_shadow_events` core fields."""
     _validate_replay_shapes(base_mask=base_mask, decisions=decisions, target_mass=target_mass)
     action_masks = decisions.action_masks()
-    ready = base_mask.bool() | action_masks["full_fetch"].bool()
+    candidate_ready = base_mask.bool() | action_masks["full_fetch"].bool()
+    ready = (
+        candidate_ready
+        if ready_mask is None
+        else ready_mask.to(dtype=torch.bool, device=base_mask.device) & candidate_ready
+    )
     demand = target_mass.float().gt(0.0)
     mass = target_mass.float().clamp_min(0.0)
     true_top1 = mass.argmax(dim=-1, keepdim=True)
