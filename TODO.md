@@ -1117,6 +1117,50 @@ future MoE expert demand on Qwen3.6-35B-A3B.
   - tests:
     - overlap-adjusted cost accounting covered in `tests/test_runtime_event_sim.py`
     - current policy/eval runtime subset: `34 passed`
+- [x] Add reusable metadata action-gate sweep:
+  - script: `scripts/sweep_metadata_action_gate.py`
+  - uses cached 256-sample event tensors by default:
+    - `outputs/reports/prefetch_shadow_256sample_mtp_extra/event_stall_tensor_cache_256sample.pt`
+  - sweeps metadata high-tail threshold ratios and action-cost overlap factors with premap disabled
+  - default JSON stays lightweight and stores row summaries only; full per-point event reports require `--include-full-reports`
+  - GPU0 smoke output:
+    - `outputs/reports/prefetch_shadow_256sample_mtp_extra/metadata_action_gate_sweep_smoke.json`
+    - `outputs/reports/prefetch_shadow_256sample_mtp_extra/metadata_action_gate_sweep_smoke.csv`
+  - smoke config:
+    - metadata threshold ratio `0.9`
+    - overlap factor `0.8`
+    - full-fetch ready threshold `0.99`
+    - premap disabled
+  - smoke result:
+    - score keep-top-50% metadata: count `102109`, later-used rate `0.0878`, overlap-adjusted net setup benefit `-23.8ms`
+    - utility keep-top-50% metadata: count `34264`, later-used rate `0.0458`, overlap-adjusted net setup benefit `-36.7ms`
+  - interpretation:
+    - the reusable sweep reproduces the prior hand-run result
+    - score-gated metadata remains the better candidate for metadata-specific high-tail gating
+    - full sweep is intended to find the smallest high-tail/overlap regime where metadata becomes net positive, if any
+  - full two-GPU sharded sweep:
+    - shard outputs:
+      - `outputs/reports/prefetch_shadow_256sample_mtp_extra/metadata_action_gate_sweep_shard0.json`
+      - `outputs/reports/prefetch_shadow_256sample_mtp_extra/metadata_action_gate_sweep_shard1.json`
+    - merged outputs:
+      - `outputs/reports/prefetch_shadow_256sample_mtp_extra/metadata_action_gate_sweep.json`
+      - `outputs/reports/prefetch_shadow_256sample_mtp_extra/metadata_action_gate_sweep.csv`
+    - summary script:
+      - `scripts/summarize_metadata_action_gate_sweep.py`
+    - summary outputs:
+      - `outputs/reports/prefetch_shadow_256sample_mtp_extra/metadata_action_gate_sweep_summary.md`
+      - `outputs/reports/prefetch_shadow_256sample_mtp_extra/metadata_action_gate_sweep_summary.csv`
+    - score-gated metadata:
+      - ratio `0.95`: later-used `10.54%`, first positive overlap `0.80`, best net `+115.7ms` at overlap `0.95`
+      - ratio `0.99`: later-used `13.06%`, first positive overlap `0.80`, best net `+104.6ms` at overlap `0.95`
+      - ratio `0.90`: later-used `8.78%`, first positive overlap `0.90`, best net `+128.5ms` at overlap `0.95`
+    - utility-gated metadata:
+      - ratio `0.99`: later-used `5.01%`, first positive overlap `0.90`, best net `+1.6ms` at overlap `0.95`
+      - ratios `0.50/0.75/0.90/0.95` only turn positive at overlap `0.95`
+    - interpretation:
+      - metadata-specific gating should use raw MTP-score high tail, not the full-fetch utility score
+      - metadata is only justified as a high-overlap / idle-window action; score ratios `0.95` or `0.99` are the current safest metadata candidates
+      - full-fetch remains utility-gated; metadata should have its own action-specific gate
 - [x] Extend score-threshold metadata into a reproducible artifact:
   - dataclass: `ScoreThresholdMetadata`
   - added fields:
