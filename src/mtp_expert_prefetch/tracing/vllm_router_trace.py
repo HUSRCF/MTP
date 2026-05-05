@@ -45,6 +45,9 @@ class VllmRouterRecorder:
     top_k: int
     capture_router_input_hidden: bool = False
     shadow_outcome_sink: RouterShadowOutcomeSink | None = None
+    shadow_emit_transition_summary: bool = False
+    shadow_num_experts: int = 256
+    shadow_transition_topk_count: int | None = None
     request_id: str = "vllm"
     sequence_id: int = 0
     token_offset: int = 0
@@ -126,6 +129,12 @@ class VllmRouterRecorder:
         if ids.ndim != 2 or weights.shape != ids.shape:
             return
         for token_idx in range(int(ids.shape[0])):
+            if self.shadow_emit_transition_summary and token_idx > 0:
+                self._write_previous_token_transition_summary(
+                    layer_id=layer_id,
+                    token_idx=token_idx,
+                    previous_topk_ids=ids[token_idx - 1],
+                )
             token_ids = [int(value) for value in ids[token_idx].tolist()]
             token_weights = [float(value) for value in weights[token_idx].tolist()]
             total = float(sum(max(0.0, value) for value in token_weights))
@@ -148,6 +157,68 @@ class VllmRouterRecorder:
                 weighted_top1_miss=float(token_weights[0]) if token_weights else 0.0,
             )
             self.shadow_outcome_sink.write_outcome(event)
+
+    def _write_previous_token_transition_summary(
+        self,
+        *,
+        layer_id: int,
+        token_idx: int,
+        previous_topk_ids: torch.Tensor,
+    ) -> None:
+        sink = self.shadow_outcome_sink
+        if sink is None or not hasattr(sink, "write_action_summary"):
+            return
+        num_experts = max(int(self.shadow_num_experts), int(previous_topk_ids.max().item()) + 1)
+        shape = (1, 1, 1, num_experts)
+        empty = torch.zeros(shape, dtype=torch.bool)
+        base = torch.zeros(shape, dtype=torch.bool)
+        for expert_id in previous_topk_ids.tolist():
+            expert_idx = int(expert_id)
+            if 0 <= expert_idx < num_experts:
+                base[..., expert_idx] = True
+        decisions = AdmissionDecisionMasks(
+            admitted_full_fetch=empty,
+            admitted_metadata=empty,
+            admitted_premap=empty,
+            skipped_not_novel=empty,
+            skipped_rank_cap=empty,
+            skipped_below_threshold=empty,
+            skipped_invalid_score=empty,
+            skipped_policy=empty,
+        )
+        transition_count = (
+            int(self.shadow_transition_topk_count)
+            if self.shadow_transition_topk_count is not None
+            else int(previous_topk_ids.numel())
+        )
+        event_id = ShadowEventId(
+            request_id=str(self.request_id),
+            sequence_id=int(self.sequence_id),
+            token_index=int(self.token_offset + token_idx),
+            layer=int(layer_id),
+        )
+        policy = ShadowPolicyConfig(
+            policy_mode="transition_only_shadow",
+            optimization_goal="stall_reduction",
+            action_keep_fraction=0.0,
+            metadata_score_ratio=1.0,
+            full_fetch_max_extra=0,
+            metadata_max_extra=0,
+            premap_max_extra=0,
+            policy_reason="previous_token_same_layer_transition_summary",
+            allow_full_mtp_fetch=False,
+            allow_mtp_metadata=False,
+            allow_mtp_premap=False,
+        )
+        sink.write_action_summary(
+            event_id=event_id,
+            policy=policy,
+            decisions=decisions,
+            base_mask=base,
+            ready_mask=base,
+            transition_topk_count=transition_count,
+            mtp_requested_count=0,
+        )
 
     def to_payload(
         self,
@@ -675,6 +746,8 @@ def _build_runtime_shadow_controller(
         output_path = output_dir / "runtime_shadow.jsonl"
     else:
         output_path = resolve_path(raw_output, base_dir=project_root)
+    if bool(options.get("overwrite", False)) and output_path.exists():
+        output_path.unlink()
     logger = OnlineShadowLogger(
         output_path,
         flush_every=int(options.get("flush_every", 1)),
@@ -853,6 +926,18 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                                 trace_options.get("capture_router_input_hidden", False)
                             ),
                             shadow_outcome_sink=runtime_shadow_controller,
+                            shadow_emit_transition_summary=bool(
+                                runtime_shadow_options.get("emit_transition_summaries", False)
+                            ),
+                            shadow_num_experts=int(
+                                model_config["architecture"].get("num_experts", 256)
+                            ),
+                            shadow_transition_topk_count=int(
+                                runtime_shadow_options.get(
+                                    "transition_topk_count",
+                                    model_config["architecture"].get("num_experts_per_tok", 8),
+                                )
+                            ),
                         )
                         for sample_idx, record, input_ids, prompt in chunk:
                             recorder.clear()

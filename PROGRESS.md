@@ -423,6 +423,38 @@ Summary-side action decisions are wired through
 `write_active_runtime_shadow_action_summary(...)`; they will appear as joined
 records once the runtime policy hook calls the summary side during serving.
 
+Transition-only summary producer:
+
+```text
+trace.runtime_shadow.emit_transition_summaries = true
+  writes transition_only_shadow summaries for token t+1 / same layer
+  source = token t true routed top-k from the recorder
+  no MTP action policy
+  no real prefetch
+```
+
+Clean smoke run with `runtime_shadow.overwrite = true`, GPU1:
+
+```text
+runtime_shadow rows = 10,120
+summary_count = 5,040
+outcome_count = 5,080
+joined_outcome_count = 5,040
+outcome_only_count = 40
+summary_only_timeout_count = 0
+```
+
+Interpretation:
+
+```text
+40 outcome_only rows = token 0 for each of 40 layers
+5,040 joined rows = token 1..126 for each of 40 layers
+```
+
+This validates online shadow_event_id alignment for previous-token same-layer
+summary production. The current summary is intentionally a minimal transition
+sanity hook, not the final trained transition_top32 + MTP action policy.
+
 ## Current Default Evaluation Settings
 
 ```text

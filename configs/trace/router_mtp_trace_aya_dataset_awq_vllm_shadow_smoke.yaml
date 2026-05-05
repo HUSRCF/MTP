@@ -17,8 +17,11 @@ trace:
   runtime_shadow:
     enabled: true
     output_path: data/traces/aya_dataset_smoke_awq_vllm_shadow_smoke/runtime_shadow.jsonl
+    overwrite: true
     flush_every: 1
     max_pending: 10000
+    emit_transition_summaries: true
+    transition_topk_count: 8
     request_id_prefix: sample_
     sequence_id: 0
     token_offset: 0

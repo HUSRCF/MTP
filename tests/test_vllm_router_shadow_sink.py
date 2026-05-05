@@ -133,3 +133,41 @@ def test_active_runtime_shadow_hook_joins_with_vllm_router_outcome(tmp_path):
     assert outcome["metadata_later_used_count"] == 1
     assert outcome["covered_mass"] == pytest.approx(0.8)
     assert outcome["top1_ready"] is True
+
+
+def test_vllm_router_recorder_emits_previous_token_transition_summaries(tmp_path):
+    path = tmp_path / "transition_shadow.jsonl"
+    with RuntimeShadowController(OnlineShadowLogger(path)) as controller:
+        recorder = VllmRouterRecorder(
+            top_k=2,
+            shadow_outcome_sink=controller,
+            shadow_emit_transition_summary=True,
+            shadow_num_experts=6,
+            request_id="req",
+            sequence_id=0,
+            token_offset=0,
+        )
+        recorder.record_topk(
+            layer_id=1,
+            topk_ids=torch.tensor([[1, 2], [2, 3], [4, 5]]),
+            topk_weights=torch.tensor([[0.8, 0.2], [0.7, 0.3], [0.6, 0.4]]),
+        )
+
+    rows = read_shadow_jsonl(path)
+    assert [row["event_type"] for row in rows] == [
+        "outcome",
+        "summary",
+        "outcome",
+        "summary",
+        "outcome",
+    ]
+    assert rows[0]["shadow_event_id"] == "req:0:0:1"
+    assert rows[0]["join_status"] == "outcome_only"
+    assert rows[1]["shadow_event_id"] == "req:0:1:1"
+    assert rows[1]["policy_mode"] == "transition_only_shadow"
+    assert rows[1]["transition_topk_count"] == 2
+    assert rows[2]["shadow_event_id"] == "req:0:1:1"
+    assert rows[2]["join_status"] == "joined"
+    assert rows[2]["covered_mass"] == pytest.approx(0.7)
+    assert rows[2]["top1_ready"] is True
+    assert rows[4]["join_status"] == "joined"
