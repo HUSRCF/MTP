@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import time
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -106,7 +107,9 @@ def main() -> None:
     tensors = _load_cached_tensors(cache, device=device, max_token_examples=args.max_token_examples)
 
     train_base = topk_mask(tensors["train_transition_scores"], k=int(args.transition_topk))
+    candidate_start = time.perf_counter()
     eval_base = topk_mask(tensors["transition_scores"], k=int(args.transition_topk))
+    candidate_elapsed = time.perf_counter() - candidate_start
     ready_factors = (
         _ready_layer_factors(
             num_layers=int(tensors["target_mass"].shape[2]),
@@ -191,6 +194,7 @@ def main() -> None:
         optimization_goal=str(args.optimization_goal),
     )
     allow_full = torch.full_like(eval_base, bool(runtime_policy.allow_full_mtp_fetch))
+    admission_start = time.perf_counter()
     decisions = score_threshold_mtp_extra_decision_masks(
         eval_base,
         eval_utility,
@@ -216,6 +220,14 @@ def main() -> None:
             mtp_topk=int(args.mtp_topk),
             premap_max_extra=int(args.premap_max_extra),
         )
+    admission_elapsed = time.perf_counter() - admission_start
+    summary_count = int(
+        tensors["target_mass"].shape[0]
+        * tensors["target_mass"].shape[1]
+        * tensors["target_mass"].shape[2]
+    )
+    candidate_construction_us = _per_summary_us(candidate_elapsed, summary_count)
+    admission_decision_us = _per_summary_us(admission_elapsed, summary_count)
 
     policy_config = ShadowPolicyConfig(
         policy_mode=str(runtime_policy.mode),
@@ -232,6 +244,7 @@ def main() -> None:
         allow_mtp_premap=bool(runtime_policy.allow_mtp_premap),
     )
     if bool(args.summary_only):
+        counter_start = time.perf_counter()
         aggregate = aggregate_shadow_tensors(
             base_mask=eval_base,
             decisions=decisions,
@@ -239,7 +252,16 @@ def main() -> None:
             expert_bytes=int(args.expert_bytes),
             metadata_bytes=int(args.metadata_bytes),
             premap_bytes=int(args.premap_bytes),
+            candidate_construction_us=candidate_construction_us,
+            admission_decision_us=admission_decision_us,
         )
+        counter_elapsed = time.perf_counter() - counter_start
+        counter_update_us = _per_summary_us(counter_elapsed, summary_count)
+        decision_us = candidate_construction_us + admission_decision_us + counter_update_us
+        aggregate["counter_update_us_sum"] = counter_update_us * summary_count
+        aggregate["counter_update_us_mean"] = counter_update_us
+        aggregate["decision_us_sum"] = decision_us * summary_count
+        aggregate["decision_us_mean"] = decision_us
     else:
         events = iter_shadow_summary_outcome_events(
             base_mask=eval_base,
@@ -260,6 +282,9 @@ def main() -> None:
             layer_ms=float(args.layer_ms),
             cache_pressure=float(args.cache_pressure),
             queue_pressure=float(args.queue_pressure),
+            decision_us=candidate_construction_us + admission_decision_us,
+            candidate_construction_us=candidate_construction_us,
+            admission_decision_us=admission_decision_us,
         )
         aggregate = aggregate_shadow_events(_write_and_yield(events, output))
     payload = {
@@ -276,6 +301,12 @@ def main() -> None:
         "full_fetch_threshold": float(full_threshold),
         "metadata_score_threshold": float(raw_threshold) * float(args.metadata_score_ratio),
         "aggregate": aggregate,
+        "overhead": {
+            "candidate_construction_us_mean": candidate_construction_us,
+            "admission_decision_us_mean": admission_decision_us,
+            "counter_update_us_mean": float(aggregate.get("counter_update_us_mean", 0.0)),
+            "decision_us_mean": float(aggregate.get("decision_us_mean", 0.0)),
+        },
     }
     summary_output.parent.mkdir(parents=True, exist_ok=True)
     summary_output.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
@@ -346,6 +377,10 @@ def _write_and_yield(events: Iterable[Any], output: Path) -> Iterable[dict[str, 
             payload = event.as_dict() if hasattr(event, "as_dict") else dict(event)
             handle.write(json.dumps(payload, ensure_ascii=False, sort_keys=True) + "\n")
             yield payload
+
+
+def _per_summary_us(elapsed_seconds: float, summary_count: int) -> float:
+    return float(elapsed_seconds) * 1_000_000.0 / max(1, int(summary_count))
 
 
 if __name__ == "__main__":

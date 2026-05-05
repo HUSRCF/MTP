@@ -224,6 +224,9 @@ normal envelope, GPU1:
   full_fetch_count = 900,460
   metadata_count = 170,805
   premap_count = 455,400
+  action_admission_overhead = 0.094 us/token-layer
+  aggregate_counter_overhead = 0.448 us/token-layer
+  total_shadow_decision_overhead = 0.542 us/token-layer
 
 severe stress envelope, GPU1:
   policy_mode = fallback
