@@ -4,6 +4,38 @@ This project should move in small, verifiable steps. The first objective is not
 runtime prefetch yet; it is to prove that MTP / hidden lookahead can predict
 future MoE expert demand on Qwen3.6-35B-A3B.
 
+## Progress Version: 2026-05-05 Runtime Action Policy
+
+Current runtime MVP contract:
+
+- protected base: `transition_top32`
+- primary action: `full_fetch` for up to `MTP_extra4`, selected by utility gate
+- opportunistic action: `metadata` for up to `MTP_extra1`, selected by raw-score high tail and high-overlap / idle conditions
+- fallback action: `premap`, selected by independent tiny budget over remaining novel MTP candidates
+- safety boundary: only `full_fetch` enters the ready-before-demand mask; `metadata` and `premap` only contribute setup-preparation accounting
+
+Latest implementation status:
+
+- [x] Add independent metadata budget on top of full-fetch utility admission.
+- [x] Add runtime policy fields for separate `max_extra` and `metadata_max_extra`.
+- [x] Add action-level counters for `full_fetch` / `metadata` / `premap` / `skip`.
+- [x] Add independent premap budget in the event simulator.
+- [x] Extend metadata-action sweep script to report premap counts, bytes, later-used rate, and net setup proxy.
+- [x] Regression tests: `36 passed` for runtime event sim, shadow admission, runtime policy, and Pareto summary.
+
+Latest 256-sample GPU smoke, using `metadata_max_extra=1`, `metadata_ratio=0.95`, `overlap=0.90`:
+
+- `premap_max_extra=0`: utility policy metadata later-used `6077`, overlap-adjusted metadata net `+40.0ms`
+- `premap_max_extra=1`: utility policy premap later-used `10552`, later-used rate `4.45%`, overlap-adjusted premap net `+38.0ms`
+- `premap_max_extra=2`: utility policy premap later-used `20040`, later-used rate `4.22%`, overlap-adjusted premap net `+70.7ms`
+- `premap_max_extra=4`: utility policy premap later-used `36103`, later-used rate `3.81%`, overlap-adjusted premap net `+121.5ms`
+
+Interpretation:
+
+- premap has positive high-overlap setup proxy under the current tiny-cost model, but marginal later-used rate decays with wider budget.
+- premap should remain an independent idle / descriptor budget, not a score-driven default expansion.
+- next gate: add runtime shadow counters that consume the canonical action policy and report action outcomes under real token flow.
+
 ## Phase 0: Environment And Model Access
 
 - [x] Create maintainable project layout.

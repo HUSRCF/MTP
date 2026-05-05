@@ -57,6 +57,15 @@ def parse_args() -> argparse.Namespace:
         default=4,
         help="Maximum independent metadata extras when --enable-metadata-budget is set.",
     )
+    parser.add_argument(
+        "--premap-budget-max-extra",
+        type=int,
+        default=0,
+        help=(
+            "Maximum independent premap extras from remaining novel MTP candidates. "
+            "Zero disables the premap budget."
+        ),
+    )
     parser.add_argument("--metadata-ratio", type=float, action="append", default=None)
     parser.add_argument("--overlap-factor", type=float, action="append", default=None)
     parser.add_argument(
@@ -78,7 +87,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--mtp-delay-ms", type=float, default=2.0)
     parser.add_argument("--expert-bytes", type=int, default=1_650_000)
     parser.add_argument("--metadata-bytes", type=int, default=65_536)
+    parser.add_argument("--premap-bytes", type=int, default=4_096)
     parser.add_argument("--metadata-supplemental-saved-us", type=float, default=20.0)
+    parser.add_argument("--premap-supplemental-saved-us", type=float, default=5.0)
     parser.add_argument("--full-fetch-ready-threshold", type=float, default=0.99)
     parser.add_argument(
         "--include-full-reports",
@@ -196,6 +207,11 @@ def main() -> None:
                 else None
             ),
             gated_metadata_budget_max_extra=int(args.metadata_budget_max_extra),
+            gated_premap_budget_max_extra=(
+                int(args.premap_budget_max_extra)
+                if int(args.premap_budget_max_extra) > 0
+                else None
+            ),
             gated_max_extra=int(args.gate_max_extra),
             enable_gated_action_downgrade=True,
             gated_metadata_threshold_ratio=float(metadata_ratio),
@@ -203,7 +219,9 @@ def main() -> None:
             gated_premap_downgrade_enabled=False,
             gated_full_fetch_ready_threshold=float(args.full_fetch_ready_threshold),
             metadata_bytes=int(args.metadata_bytes),
+            premap_bytes=int(args.premap_bytes),
             metadata_supplemental_saved_us=float(args.metadata_supplemental_saved_us),
+            premap_supplemental_saved_us=float(args.premap_supplemental_saved_us),
             action_cost_overlap_factor=float(overlap_factor),
             include_unique_payload_counters=False,
         )
@@ -215,11 +233,13 @@ def main() -> None:
             if "_gated_" not in policy_name:
                 continue
             metadata = metrics["admission_action_outcomes"]["metadata"]
+            premap = metrics["admission_action_outcomes"]["premap"]
             rows.append(
                 {
                     "metadata_ratio": float(metadata_ratio),
                     "overlap_factor": float(overlap_factor),
                     "policy": policy_name,
+                    "premap_budget_max_extra": int(args.premap_budget_max_extra),
                     "metadata_count": metadata["count"],
                     "metadata_later_used_count": metadata["later_used_count"],
                     "metadata_later_used_rate": metadata["later_used_rate"],
@@ -229,6 +249,15 @@ def main() -> None:
                         "overlap_adjusted_net_setup_benefit_ms"
                     ],
                     "metadata_setup_saved_ms": metadata["later_used_setup_saved_ms"],
+                    "premap_count": premap["count"],
+                    "premap_later_used_count": premap["later_used_count"],
+                    "premap_later_used_rate": premap["later_used_rate"],
+                    "premap_actual_bytes": premap["actual_bytes"],
+                    "premap_net_setup_benefit_ms": premap["net_setup_benefit_ms"],
+                    "premap_overlap_adjusted_net_setup_benefit_ms": premap[
+                        "overlap_adjusted_net_setup_benefit_ms"
+                    ],
+                    "premap_setup_saved_ms": premap["later_used_setup_saved_ms"],
                     "stall_reduction_ratio_vs_transition": metrics[
                         "stall_reduction_ratio_vs_transition"
                     ],
@@ -256,6 +285,7 @@ def main() -> None:
         "shard_index": int(args.shard_index),
         "enable_metadata_budget": bool(args.enable_metadata_budget),
         "metadata_budget_max_extra": int(args.metadata_budget_max_extra),
+        "premap_budget_max_extra": int(args.premap_budget_max_extra),
         "sweep_points": [
             {"metadata_ratio": ratio, "overlap_factor": overlap}
             for ratio, overlap in sweep_pairs
