@@ -32,6 +32,17 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Read p_min rows from scripts/run_rocwmma_tile_stage.py JSON output.",
     )
+    parser.add_argument(
+        "--rocwmma-baseline",
+        default="global_frag_reuse",
+        help="When reading rocWMMA JSON, keep only p_min rows for this baseline.",
+    )
+    parser.add_argument(
+        "--rocwmma-default-occupancy-blocks",
+        type=int,
+        default=8,
+        help="Conservative occupancy proxy for rocWMMA JSON rows until rocprof counters are available.",
+    )
     parser.add_argument("--mode", default="mixed")
     parser.add_argument("--safety-margin", type=float, default=0.05)
     parser.add_argument("--min-occupancy-blocks", type=int, default=2)
@@ -74,35 +85,52 @@ def _read_rows(path: Path, mode: str) -> list[dict[str, str]]:
     return rows
 
 
-def _read_rocwmma_rows(path: Path) -> list[dict[str, str]]:
+def _read_rocwmma_rows(
+    path: Path,
+    *,
+    baseline: str,
+    default_occupancy_blocks: int,
+) -> list[dict[str, str]]:
     payload = json.loads(path.read_text(encoding="utf-8"))
     rows: list[dict[str, str]] = []
     for item in payload.get("summary", {}).get("p_min", []):
+        if str(item.get("baseline", "")) != baseline:
+            continue
         p_min = item.get("p_min_hit_rate")
         status = str(item.get("status", ""))
+        global_ms = item.get("global_ms")
+        hit_ms = item.get("hit_ms")
+        hit_speedup = ""
+        if global_ms is not None and hit_ms not in (None, 0):
+            hit_speedup = str(float(global_ms) / float(hit_ms))
         rows.append(
             {
                 "source": "rocwmma_json",
                 "mode": "mixed",
+                "baseline": baseline,
                 "p_min_status": status,
                 "p_min_hit_rate_clamped": "" if p_min is None else str(float(p_min)),
-                "occupancy_blocks_per_cu": str(item.get("occupancy_blocks_per_cu", 0)),
+                "occupancy_blocks_per_cu": str(
+                    item.get("occupancy_blocks_per_cu", default_occupancy_blocks)
+                ),
                 "tile_elems": "256",
                 "metadata_tokens": "0",
                 "compute_iters": "0",
                 "consumer_rows": str(item.get("consumer_rows", 0)),
                 "validate_iters": str(item.get("validate_iters", 0)),
+                "num_cta": str(item.get("num_cta", 0)),
+                "b_pool_tiles": str(item.get("b_pool_tiles", 0)),
                 "miss_rate": "0",
                 "tile_stride": "0",
                 "cache_flush_elems": "0",
-                "overlap_model_speedup_vs_reactive": "0",
-                "global_ms": str(item.get("global_ms", "")),
-                "hit_ms": str(item.get("hit_ms", "")),
+                "overlap_model_speedup_vs_reactive": hit_speedup,
+                "global_ms": str(global_ms if global_ms is not None else ""),
+                "hit_ms": str(hit_ms if hit_ms is not None else ""),
                 "miss_ms": str(item.get("miss_ms", "")),
             }
         )
     if not rows:
-        msg = f"No summary.p_min rows found in {path}."
+        msg = f"No summary.p_min rows found in {path} for baseline={baseline!r}."
         raise RuntimeError(msg)
     return rows
 
@@ -177,6 +205,8 @@ def evaluate(
                     "compute_iters": _int(row, "compute_iters", 0),
                     "consumer_rows": _int(row, "consumer_rows", 0),
                     "validate_iters": _int(row, "validate_iters", 0),
+                    "num_cta": _int(row, "num_cta", 0),
+                    "b_pool_tiles": _int(row, "b_pool_tiles", 0),
                     "miss_rate": _float(row, "miss_rate", 0.0),
                     "tile_stride": _int(row, "tile_stride", 0),
                     "cache_flush_elems": _int(row, "cache_flush_elems", 0),
@@ -243,7 +273,15 @@ def _write_md(path: Path, payload: dict[str, Any]) -> None:
 
 def main() -> None:
     args = parse_args()
-    rows = _read_rocwmma_rows(args.rocwmma_json) if args.rocwmma_json else _read_rows(args.csv, args.mode)
+    rows = (
+        _read_rocwmma_rows(
+            args.rocwmma_json,
+            baseline=args.rocwmma_baseline,
+            default_occupancy_blocks=args.rocwmma_default_occupancy_blocks,
+        )
+        if args.rocwmma_json
+        else _read_rows(args.csv, args.mode)
+    )
     payload = evaluate(
         rows,
         _tiers(args.tier),
@@ -253,6 +291,7 @@ def main() -> None:
     payload["config"] = {
         "csv": str(args.csv) if not args.rocwmma_json else None,
         "rocwmma_json": str(args.rocwmma_json) if args.rocwmma_json else None,
+        "rocwmma_baseline": args.rocwmma_baseline if args.rocwmma_json else None,
         "mode": args.mode,
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)

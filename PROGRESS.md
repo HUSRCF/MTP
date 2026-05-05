@@ -1028,6 +1028,97 @@ Interpretation:
   safety margin. The runtime gate now reports `lds_p_min_not_profitable` for
   non-finite / not-profitable p_min artifacts.
 
+rocWMMA multi-CTA / large B-pool throughput sweep:
+
+The rocWMMA tile-stage benchmark now supports:
+
+```text
+num_cta
+b_pool_tiles
+tile_stride
+cache_flush_elems
+global_frag_reuse baseline
+global_reload_per_row baseline
+wall_us_per_output_tile
+```
+
+Motivation:
+
+```text
+global_frag_reuse:
+  B is loaded once into a rocWMMA fragment and reused across rows.
+  This is a strong baseline and LDS staging adds an extra global->LDS->fragment hop.
+
+global_reload_per_row:
+  B is reloaded for each consumer row.
+  This is the scenario where sharing B through LDS can plausibly help.
+```
+
+Artifact:
+
+- Report: `outputs/reports/rocwmma_smoke/rocwmma_tile_stage_multicta_2gpu.json`
+- Strong-baseline policy eval:
+  `outputs/reports/rocwmma_smoke/lds_stage_policy_eval_rocwmma_multicta_frag_reuse.json`
+- Reload-baseline policy eval:
+  `outputs/reports/rocwmma_smoke/lds_stage_policy_eval_rocwmma_multicta_reload.json`
+
+Grid:
+
+```text
+devices = [GPU0, GPU1]
+consumer_rows = [4, 8, 16]
+num_cta = [64, 256]
+b_pool_tiles = [1024]
+tile_stride = [17]
+cache_flush_elems = [1048576]
+validate_iters = [0]
+```
+
+Summary:
+
+```text
+against global_frag_reuse:
+  not_profitable_even_at_full_hit = 11 / 12
+  finite p_min rows = 1 / 12
+  enabled rows under default tier table = 1 / 12 for non-random tiers
+
+against global_reload_per_row:
+  not_profitable_even_at_full_hit = 7 / 12
+  finite / always-profitable rows = 5 / 12
+  enabled rows under default tier table = 4 / 12 for transition/MTP tiers
+```
+
+Representative profitable rows against `global_reload_per_row`:
+
+```text
+GPU0 rows=8 num_cta=256:
+  p_min ~= 0.136
+
+GPU0 rows=16 num_cta=256:
+  p_min = 0.0  # profitable for any hit rate in this run
+
+GPU1 rows=8 num_cta=256:
+  p_min ~= 0.067
+
+GPU1 rows=16 num_cta=256:
+  p_min = 0.0
+```
+
+Interpretation:
+
+- The earlier serial negative result is not solely a single-CTA artifact.
+  Against the strong `global_frag_reuse` baseline, LDS staging remains mostly
+  unprofitable.
+- LDS staging starts to look useful only against the weaker
+  `global_reload_per_row` baseline, where the baseline repeatedly reloads B.
+- Therefore the safe claim is narrower: rocWMMA LDS staging may help only when
+  the real grouped-GEMM path cannot already reuse the expert B tile in
+  fragments/registers and when enough rows share that B tile.
+- The next required gate is rocprof/counter validation. We need to confirm
+  whether the actual target kernel resembles `global_frag_reuse` or
+  `global_reload_per_row`, and whether the observed wins correspond to lower
+  global B traffic rather than timing noise.
+
 ## Current Scale-Up
 
 512-sample configs are committed in:

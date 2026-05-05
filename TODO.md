@@ -85,6 +85,8 @@ Latest implementation status:
   - [x] add rocWMMA tile-stage benchmark with same-kernel validation window
   - [x] add rocWMMA hit / miss / overwrite p_min report
   - [x] route rocWMMA serial not-profitable p_min artifacts through the LDS policy evaluator
+  - [x] add multi-CTA / large B-pool rocWMMA throughput sweep
+  - [x] split rocWMMA baselines into `global_frag_reuse` and `global_reload_per_row`
   - [ ] add producer/validator wave split or persistent-kernel pipeline to test real overlap
   - [ ] add rocprof counters for global reads, LDS traffic, occupancy, and wave scheduling
   - [ ] add a WMMA-like multi-wave tile consumer after the prologue-only envelope is stable
