@@ -26,6 +26,9 @@ class RuntimeSignals:
     queue_pressure: float
     effective_capacity: int
     mtp_delay_ms: float
+    mtp_ready_fraction: float | None = None
+    bandwidth_gbps: float | None = None
+    layer_ms: float | None = None
     layer_idx: int | None = None
     num_layers: int = 40
 
@@ -64,6 +67,8 @@ class PolicyThresholds:
     max_mtp_delay_default_ms: float = 4.0
     max_mtp_delay_high_budget_ms: float = 2.0
     metadata_max_extra_default: int = 1
+    min_mtp_ready_fraction_for_full_fetch: float = 0.05
+    min_bandwidth_layer_product_for_full_fetch: float = 2.0
 
 
 def select_runtime_prefetch_policy(
@@ -103,6 +108,41 @@ def select_runtime_prefetch_policy(
             allow_mtp_metadata=False,
             allow_mtp_premap=True,
             reason="transition_not_ready",
+        )
+    if (
+        signals.mtp_ready_fraction is not None
+        and float(signals.mtp_ready_fraction)
+        < float(thresholds.min_mtp_ready_fraction_for_full_fetch)
+    ):
+        return RuntimePrefetchPolicy(
+            mode="fallback",
+            transition_topk=transition_topk,
+            mtp_topk=mtp_topk,
+            max_extra=0,
+            metadata_max_extra=0,
+            tail_swap_count=0,
+            allow_full_mtp_fetch=False,
+            allow_mtp_metadata=False,
+            allow_mtp_premap=True,
+            reason="mtp_not_ready",
+        )
+    if (
+        signals.bandwidth_gbps is not None
+        and signals.layer_ms is not None
+        and float(signals.bandwidth_gbps) * float(signals.layer_ms)
+        < float(thresholds.min_bandwidth_layer_product_for_full_fetch)
+    ):
+        return RuntimePrefetchPolicy(
+            mode="fallback",
+            transition_topk=transition_topk,
+            mtp_topk=mtp_topk,
+            max_extra=0,
+            metadata_max_extra=0,
+            tail_swap_count=0,
+            allow_full_mtp_fetch=False,
+            allow_mtp_metadata=False,
+            allow_mtp_premap=True,
+            reason="transfer_envelope_tight",
         )
     if (
         int(signals.effective_capacity) < int(thresholds.min_capacity_for_default)

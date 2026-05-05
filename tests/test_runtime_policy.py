@@ -184,6 +184,68 @@ def test_select_runtime_prefetch_policy_falls_back_when_transition_not_ready():
     assert policy.reason == "transition_not_ready"
 
 
+def test_select_runtime_prefetch_policy_falls_back_when_mtp_extras_cannot_be_ready():
+    policy = select_runtime_prefetch_policy(
+        RuntimeSignals(
+            transition_ready_rate=0.95,
+            cache_pressure=0.10,
+            queue_pressure=0.10,
+            effective_capacity=192,
+            mtp_delay_ms=2.0,
+            mtp_ready_fraction=0.0,
+        )
+    )
+
+    assert policy.mode == "fallback"
+    assert policy.max_extra == 0
+    assert policy.metadata_max_extra == 0
+    assert policy.allow_full_mtp_fetch is False
+    assert policy.allow_mtp_metadata is False
+    assert policy.allow_mtp_premap is True
+    assert policy.reason == "mtp_not_ready"
+
+
+def test_select_runtime_prefetch_policy_falls_back_when_transfer_envelope_is_tight():
+    policy = select_runtime_prefetch_policy(
+        RuntimeSignals(
+            transition_ready_rate=0.95,
+            cache_pressure=0.10,
+            queue_pressure=0.10,
+            effective_capacity=192,
+            mtp_delay_ms=2.0,
+            mtp_ready_fraction=0.50,
+            bandwidth_gbps=2.0,
+            layer_ms=0.25,
+        )
+    )
+
+    assert policy.mode == "fallback"
+    assert policy.max_extra == 0
+    assert policy.metadata_max_extra == 0
+    assert policy.allow_full_mtp_fetch is False
+    assert policy.allow_mtp_metadata is False
+    assert policy.allow_mtp_premap is True
+    assert policy.reason == "transfer_envelope_tight"
+
+
+def test_select_runtime_prefetch_policy_prefers_transition_not_ready_reason():
+    policy = select_runtime_prefetch_policy(
+        RuntimeSignals(
+            transition_ready_rate=0.40,
+            cache_pressure=0.10,
+            queue_pressure=0.10,
+            effective_capacity=192,
+            mtp_delay_ms=2.0,
+            mtp_ready_fraction=0.0,
+            bandwidth_gbps=2.0,
+            layer_ms=0.25,
+        )
+    )
+
+    assert policy.mode == "fallback"
+    assert policy.reason == "transition_not_ready"
+
+
 def test_priority_name_matches_runtime_tiers():
     assert priority_name(PrefetchPriority.TRANSITION_HEAD) == "transition_head"
     assert priority_name(4) == "mtp_extra_head"

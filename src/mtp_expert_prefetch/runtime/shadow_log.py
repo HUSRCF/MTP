@@ -39,6 +39,10 @@ class ShadowPolicyConfig:
     metadata_max_extra: int
     premap_max_extra: int
     threshold_metadata_id: str | None = None
+    policy_reason: str | None = None
+    allow_full_mtp_fetch: bool | None = None
+    allow_mtp_metadata: bool | None = None
+    allow_mtp_premap: bool | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -58,8 +62,16 @@ class ShadowSummaryEvent:
     metadata_actual_bytes: int
     premap_actual_bytes: int
     decision_us: float | None = None
+    candidate_construction_us: float | None = None
+    admission_decision_us: float | None = None
+    counter_update_us: float | None = None
+    logging_us: float | None = None
     mtp_delay_ms: float | None = None
     estimated_lead_ms: float | None = None
+    transition_ready_rate: float | None = None
+    mtp_ready_fraction: float | None = None
+    bandwidth_gbps: float | None = None
+    layer_ms: float | None = None
     cache_pressure: float | None = None
     queue_pressure: float | None = None
 
@@ -79,8 +91,16 @@ class ShadowSummaryEvent:
             "premap_actual_bytes": int(self.premap_actual_bytes),
         }
         _put_optional(payload, "decision_us", self.decision_us)
+        _put_optional(payload, "candidate_construction_us", self.candidate_construction_us)
+        _put_optional(payload, "admission_decision_us", self.admission_decision_us)
+        _put_optional(payload, "counter_update_us", self.counter_update_us)
+        _put_optional(payload, "logging_us", self.logging_us)
         _put_optional(payload, "mtp_delay_ms", self.mtp_delay_ms)
         _put_optional(payload, "estimated_lead_ms", self.estimated_lead_ms)
+        _put_optional(payload, "transition_ready_rate", self.transition_ready_rate)
+        _put_optional(payload, "mtp_ready_fraction", self.mtp_ready_fraction)
+        _put_optional(payload, "bandwidth_gbps", self.bandwidth_gbps)
+        _put_optional(payload, "layer_ms", self.layer_ms)
         _put_optional(payload, "cache_pressure", self.cache_pressure)
         _put_optional(payload, "queue_pressure", self.queue_pressure)
         return payload
@@ -190,6 +210,11 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
         "weighted_top1_miss_sum": 0.0,
         "covered_mass_sum": 0.0,
         "miss_mass_sum": 0.0,
+        "decision_us_sum": 0.0,
+        "candidate_construction_us_sum": 0.0,
+        "admission_decision_us_sum": 0.0,
+        "counter_update_us_sum": 0.0,
+        "logging_us_sum": 0.0,
     }
     for event in events:
         event_type = event.get("event_type")
@@ -205,6 +230,14 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
                 "premap_actual_bytes",
             ):
                 totals[key] += int(event.get(key, 0) or 0)
+            for key in (
+                "decision_us",
+                "candidate_construction_us",
+                "admission_decision_us",
+                "counter_update_us",
+                "logging_us",
+            ):
+                totals[f"{key}_sum"] += float(event.get(key, 0.0) or 0.0)
         elif event_type == "candidate":
             totals["candidate_count"] += 1
         elif event_type == "outcome":
@@ -228,6 +261,14 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
     totals["covered_mass_mean"] = totals["covered_mass_sum"] / outcome_count
     totals["miss_mass_mean"] = totals["miss_mass_sum"] / outcome_count
     totals["decision_summary_count"] = summary_count
+    for key in (
+        "decision_us",
+        "candidate_construction_us",
+        "admission_decision_us",
+        "counter_update_us",
+        "logging_us",
+    ):
+        totals[f"{key}_mean"] = totals[f"{key}_sum"] / summary_count
     return totals
 
 

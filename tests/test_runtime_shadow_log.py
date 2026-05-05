@@ -22,6 +22,10 @@ def test_shadow_log_schema_round_trip_and_aggregate(tmp_path):
         metadata_max_extra=1,
         premap_max_extra=1,
         threshold_metadata_id="threshold-v1",
+        policy_reason="normal_envelope",
+        allow_full_mtp_fetch=True,
+        allow_mtp_metadata=True,
+        allow_mtp_premap=True,
     )
     summary = ShadowSummaryEvent(
         event_id=event_id,
@@ -36,6 +40,14 @@ def test_shadow_log_schema_round_trip_and_aggregate(tmp_path):
         metadata_actual_bytes=65_536,
         premap_actual_bytes=4_096,
         decision_us=12.5,
+        candidate_construction_us=3.0,
+        admission_decision_us=5.0,
+        counter_update_us=2.0,
+        logging_us=1.0,
+        transition_ready_rate=0.95,
+        mtp_ready_fraction=0.50,
+        bandwidth_gbps=6.589,
+        layer_ms=1.0,
     )
     outcome = ShadowOutcomeEvent(
         event_id=event_id,
@@ -56,7 +68,12 @@ def test_shadow_log_schema_round_trip_and_aggregate(tmp_path):
     aggregate = aggregate_shadow_events(rows)
 
     assert rows[0]["shadow_event_id"] == "req:0:7:3"
+    assert rows[0]["policy_reason"] == "normal_envelope"
+    assert rows[0]["allow_full_mtp_fetch"] is True
     assert rows[0]["full_fetch_count"] == 3
+    assert rows[0]["transition_ready_rate"] == 0.95
+    assert rows[0]["mtp_ready_fraction"] == 0.50
+    assert rows[0]["bandwidth_gbps"] == 6.589
     assert rows[1]["true_top1_expert"] == 5
     assert aggregate["summary_count"] == 1
     assert aggregate["outcome_count"] == 1
@@ -66,3 +83,8 @@ def test_shadow_log_schema_round_trip_and_aggregate(tmp_path):
     assert aggregate["full_fetch_used_count"] == 2
     assert aggregate["metadata_later_used_count"] == 1
     assert aggregate["top1_ready_rate"] == 1.0
+    assert aggregate["decision_us_mean"] == 12.5
+    assert aggregate["candidate_construction_us_mean"] == 3.0
+    assert aggregate["admission_decision_us_mean"] == 5.0
+    assert aggregate["counter_update_us_mean"] == 2.0
+    assert aggregate["logging_us_mean"] == 1.0

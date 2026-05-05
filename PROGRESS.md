@@ -2,7 +2,7 @@
 
 ## Progress Version
 
-- Version: `v0.4-scale512-action-runtime`
+- Version: `v0.5-runtime-shadow-fallback`
 - Updated: 2026-05-05
 - Current phase: 512-sample scale-up validation for action-level runtime policy
 
@@ -36,6 +36,8 @@ Safety boundaries:
 - Utility-gated `full_fetch` beats fixed extraK on issued-byte efficiency.
 - Action-level counters report `full_fetch` / `metadata` / `premap` / `skip`.
 - Metadata and premap are tracked with separate setup-prep accounting.
+- Transfer-capacity fallback gate is implemented in runtime policy.
+- Runtime shadow schema records gate outcome and policy overhead fields.
 
 ## Current Scale-Up
 
@@ -106,6 +108,62 @@ Interpretation:
 - Utility-gated full-fetch remains the best default gate among score/utility gates.
 - Fixed extra4/extra8 remain aggressive upper baselines, not default runtime behavior.
 - In the severe transfer-insufficient regime, MTP full-fetch correctly has no ready-before-demand value; runtime should fall back to transition-only plus optional metadata/premap shadow/prep.
+
+## Runtime Fallback Gate
+
+The runtime policy now explicitly disables MTP `full_fetch` when any primary
+capacity gate fails:
+
+```text
+transition_ready_rate < 0.90
+=> fallback reason: transition_not_ready
+
+mtp_ready_fraction < 0.05
+=> fallback reason: mtp_not_ready
+
+bandwidth_gbps * layer_ms < 2.0
+=> fallback reason: transfer_envelope_tight
+```
+
+Fallback behavior:
+
+```text
+full_fetch max_extra = 0
+metadata max_extra = 0
+allow_full_mtp_fetch = false
+allow_mtp_metadata = false
+allow_mtp_premap = true
+```
+
+This maps the 512-sample severe stress result into a concrete runtime gate:
+when MTP extras cannot become ready before demand, full expert prefetch is
+disabled rather than adding transfer pressure.
+
+## Runtime Shadow Logging
+
+Shadow summary events now carry policy and overhead fields needed for online
+shadow validation:
+
+```text
+policy_reason
+allow_full_mtp_fetch
+allow_mtp_metadata
+allow_mtp_premap
+transition_ready_rate
+mtp_ready_fraction
+bandwidth_gbps
+layer_ms
+candidate_construction_us
+admission_decision_us
+counter_update_us
+logging_us
+```
+
+These fields are intended to support the next gate:
+
+```text
+offline event sim ≈ online shadow replay
+```
 
 ## Current Default Evaluation Settings
 
