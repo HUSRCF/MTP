@@ -4,6 +4,20 @@ This document frames **Tick-Tock Residency with Native MTP Hints** from a strict
 reviewer perspective. The goal is to avoid overclaiming in the crowded MoE
 prefetch/offloading literature while preserving the real system moat.
 
+The current strongest positioning is micro-architectural rather than
+cache-policy-level:
+
+```text
+Native MTP is not a router and not a full expert prefetcher.
+It is a low-trust hint for speculative tile-state staging inside a graph-stable
+grouped-GEMM path.
+```
+
+In this framing, the protected transition policy still selects candidate
+experts, but the deepest system claim moves below expert-cache residency and
+below graph metadata patching: the hint changes the order and priority of
+LDS-level tile/prologue staging while the true router remains authoritative.
+
 ## 1. Core Differentiation Table
 
 | Work type | Representative work | Prediction source / cost | Routing authority | Scheduling abstraction | Our differentiation |
@@ -12,7 +26,8 @@ prefetch/offloading literature while preserving the real system moat.
 | Cross-layer / hidden-state expert prediction | FATE, cross-layer gate, pre-attention predictors | Neighbor-layer hidden/gate inputs; medium online cost | Medium trust; can influence cache/prefetch aggressively | Layer-wise prefetch and shallow-favoring cache | Our negative result matters: native MTP router/hidden predictors are not promoted. The useful signal is MTP predicted-token prior as semantic novelty beyond transition, not a hidden-state full-space generator. |
 | Speculative decoding / draft-model expert prefetch | SP-MoE, MoE-SpeQ-like designs | Draft model, speculative tree, or future-token path | High trust in speculative branch; often tied to verification scheduling | Runtime governor over speculative expert set | Native MTP is never allowed to route or execute experts. It only produces prefetch/premap hints; true router remains authoritative. A miss only wastes or downgrades preparation work, not model correctness. |
 | Traditional expert cache/offload | MoE-Infinity, SpecMD-style policies | Frequency, recency, local statistics, future-info baselines | Router decides; cache is reactive | Page/cache residency and eviction | We add an online low-trust semantic novelty source and an action-level admission contract: `full_fetch`, `metadata`, `premap`, or `skip`. The value is not just cache hit rate, but ready-before-demand utility per issued byte. |
-| Static graph compiler | MIGraphX / TensorRT-like compilation | No token-level route predictor; compiler optimizes stable graph | Not intended for per-token dynamic routing patch | AOT or compile-time graph lowering | We avoid putting token-level MoE route patching in a graph compiler hot path. The intended system path is HIP Graph replay plus fixed-size descriptor buffers. |
+| Static graph compiler | MIGraphX / TensorRT-like compilation | No token-level route predictor; compiler optimizes stable graph | Not intended for per-token dynamic routing patch | AOT or compile-time graph lowering | We avoid putting token-level MoE route patching in a graph compiler hot path. The intended system path is graph-stable dispatch plus fixed metadata buffers; the primary novelty is not graph compatibility itself. |
+| GPU-resident fused MoE | FlashMoE, MetaShuffling, Megatron-Core fused MoE | True router builds metadata on device, then grouped GEMM consumes it | Fully authoritative true routing | Device-side token sorting / metadata rebuild / grouped GEMM | We do not claim first device-side routing. The target question is whether low-trust MTP/transition hints can enter below the metadata layer as speculative tile-staging priorities inside the grouped-GEMM prologue. |
 
 ## 2. Core Moat A: RSEP Decomposition
 
@@ -99,7 +114,7 @@ skip:
 This structure is a "blast-radius" control: prediction errors cannot change
 executed experts or logits.
 
-## 4. Core Moat C: Topology-Static, Metadata-Dynamic Dispatch
+## 4. Core Moat C: Patchability-Aware Speculative LDS Tile Staging
 
 This is the deepest systems hypothesis and should be described carefully.
 
@@ -107,79 +122,100 @@ This is the deepest systems hypothesis and should be described carefully.
 
 For large-batch or long prefill MoE, the active expert set can approach the full
 expert set. In that regime, predicting a small absolute subset of experts is not
-the main problem. The remaining bottleneck may shift toward:
+the main problem. The remaining bottleneck may shift toward grouped-GEMM startup
+and on-device execution ordering:
 
 ```text
-dynamic dispatch metadata construction
-token sorting / offsets
-pointer or descriptor preparation
-host-side launch overhead
-queue timing under PCIe / ROCm
+true router metadata becomes available late
+grouped-GEMM waits before beginning useful HBM -> LDS tile movement
+strictly reactive tile loading leaves router/prologue overlap on the table
 ```
 
 ### Safe academic claim
 
 ```text
-We use low-trust MTP hints to pre-materialize a topology-static dispatch
-skeleton. Prediction errors do not invalidate the graph; they only increase
-metadata patching or overwrite work. The true router remains authoritative, and
-the system falls back to full metadata overwrite or eager dispatch when patching
-is not profitable.
+Existing GPU-resident MoE systems rebuild routing metadata and then execute
+grouped GEMM. We study whether low-trust MTP/transition hints can enter below
+the metadata layer: as speculative tile-staging priorities inside a graph-stable
+grouped-GEMM path.
 ```
+
+Prediction errors do not affect routing correctness. They only discard,
+overwrite, or reorder speculative LDS tile state. The true router remains the
+only source of executed expert-token assignments.
+
+### Important hardware boundary
+
+Do not claim that the CPU can pre-write LDS or that LDS persists across kernels.
+On AMD GPUs, LDS is workgroup-local and kernel-lifetime state.
+
+The viable forms are:
+
+```text
+1. A fused/persistent grouped-MoE kernel stages speculative tile/prologue state
+   into LDS before the true-router commit point.
+
+2. A graph-stable kernel receives global-memory descriptor buffers and pulls the
+   most likely tile descriptors / tile payloads into LDS early in its prologue.
+
+3. If true metadata disagrees, the kernel overwrites or invalidates the LDS
+   entries and proceeds with true-router metadata.
+```
+
+This makes LDS staging a micro-architectural hint path, not a host-side cache
+write.
 
 ### Intended execution abstraction
 
-The graph topology stays fixed. Dynamic MoE state is represented by fixed-size
-metadata buffers:
+The macro dispatch path stays graph-stable. Dynamic MoE state is represented by
+fixed-size descriptor buffers, but the performance-sensitive speculation happens
+inside the grouped-GEMM prologue:
 
 ```text
-token_counts[num_experts]
-expert_offsets[num_experts]
-expert pointer / descriptor arrays
-sorted token indices
-workspace pointers
-optional node enable masks
+speculative_tile_table
+tile_valid / tile_version tags
+expert tile descriptors
+token-block to expert-block mapping
+small LDS-resident prologue state
 ```
-
-Inactive experts use zero counts rather than changing graph topology.
 
 The execution flow is:
 
 ```text
 Tick:
-  transition + MTP estimate hot expert distribution
-  pre-allocate workspace
-  optionally pre-fill descriptor buffers
-  optionally bind stable graph nodes to descriptor buffers
+  transition + MTP estimate hot expert/tile priorities
+  grouped-GEMM prologue stages the most likely tile descriptors or first tiles
+  into LDS while true router metadata is still becoming available
 
 Tock:
-  true router produces authoritative metadata
-  compare speculative metadata against true metadata
+  true router publishes authoritative metadata
+  validate speculative LDS tile state against true tile demand
 
-small delta:
-  patch descriptor buffer
-  hipGraphLaunch
+hit / partial hit:
+  consume already staged LDS state and continue FMA
 
-large delta:
-  overwrite full descriptor buffer
-  hipGraphLaunch or eager fallback
+miss / large delta:
+  invalidate or overwrite LDS entries and load the true tile from HBM
 ```
 
 ### Important correction
 
-Do not claim `O(missing experts)`. A route miss may change many token-expert
-assignments even if the active expert set barely changes.
+Do not claim `O(missing experts)`. A route miss may change many tile and
+token-expert assignments even if the active expert set barely changes.
 
 Use:
 
 ```text
-O(delta metadata)
+O(delta tile state / delta metadata)
 ```
 
-where delta metadata includes changed expert counts, offsets, sorted indices,
-and token-expert assignments.
+where delta includes changed expert counts, offsets, sorted indices,
+token-expert assignments, and tile descriptors.
 
-## 5. ROCm / HIP Graph Boundary
+## 5. Secondary Systems Path: Topology-Static Metadata Buffers
+
+Topology-static metadata remains useful, but it is no longer the primary novelty
+claim. It is the safe outer shell that makes LDS-level speculation executable.
 
 ### Do not put token-level routing patching in MIGraphX
 
@@ -212,7 +248,44 @@ beta graph-update APIs.
 This systems claim must be validated by microbenchmarks before it becomes a
 paper-level contribution.
 
-### Required microbenchmarks
+### P0 LDS-staging microbenchmarks
+
+The key baselines are no longer just eager dispatch versus graph launch. The
+main microbench must isolate grouped-GEMM prologue and LDS effects:
+
+```text
+1. baseline reactive grouped-GEMM prologue:
+   true metadata -> HBM tile load -> LDS -> FMA
+
+2. oracle tile staging:
+   true future tile order is known; stage the right first tiles into LDS
+
+3. speculative tile staging:
+   stage tiles according to transition + MTP action policy, then validate
+
+4. worst-case staging:
+   deliberately stage wrong tiles, measure invalidate / overwrite penalty
+
+5. router-interference stress:
+   measure whether speculative staging steals waves, LDS, or memory bandwidth
+   from the router or metadata builder
+```
+
+Required counters:
+
+```text
+GEMM_prologue_latency_us
+first_FMA_latency_us
+LDS_tile_reuse_rate
+LDS_bytes_written
+miss_overwrite_us
+discarded_tile_fraction
+router_overlap_loss_us
+occupancy / LDS pressure
+global load transactions saved or reordered
+```
+
+### Secondary metadata/graph microbenchmarks
 
 ```text
 1. eager dummy grouped-MoE dispatch latency
@@ -230,34 +303,38 @@ paper-level contribution.
 Define:
 
 ```text
-saved_us = eager_dispatch_us - graph_launch_us
+saved_us =
+  reactive_prologue_us - speculative_prologue_us
 
-cost_patch =
+cost_stage =
   validation_us
-  + speculative_patch_us
-  + (1 - partial_hit_rate) * miss_overwrite_us
+  + LDS_stage_us
+  + (1 - tile_hit_rate) * miss_overwrite_us
+  + router_overlap_loss_us
 ```
 
-The skeleton path is profitable only if:
+The speculative LDS path is profitable only if:
 
 ```text
-cost_patch < saved_us
+cost_stage < saved_us
 ```
 
 or, with action costs:
 
 ```text
 net_gain_us =
-  saved_dispatch_us
+  saved_prologue_us
   + saved_setup_us
   - validation_us
-  - patch_us
-  - overwrite_penalty_us
-  - extra_metadata_copy_us
+  - LDS_stage_us
+  - miss_overwrite_us
+  - router_overlap_loss_us
 ```
 
-The paper should report the measured break-even region rather than assume graph
-patching is always profitable.
+The paper should report the measured break-even tile-hit region rather than
+assume MTP hints are always profitable. The expected advantage over HBM-level
+expert prefetch is that a miss is bounded to LDS overwrite/discard work, not a
+large expert-weight transfer or a correctness rollback.
 
 ## 7. Claim Boundaries
 
@@ -321,4 +398,3 @@ deadline semantics. A separate topology-static dispatch skeleton study evaluates
 whether the same hints can reduce metadata and dispatch overhead without ever
 requiring graph recompilation or changing model outputs.
 ```
-

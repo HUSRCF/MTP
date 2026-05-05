@@ -2,9 +2,9 @@
 
 ## Progress Version
 
-- Version: `v0.7-online-matrix-transition-shadow`
+- Version: `v0.8-speculative-lds-staging`
 - Updated: 2026-05-05
-- Current phase: online matrix_topk transition shadow validation
+- Current phase: online action shadow validated; pivoting system moat to speculative LDS tile staging
 
 ## Runtime Policy Contract
 
@@ -52,6 +52,9 @@ Safe positioning:
   a protected same-layer transition baseline
   utility/action admission determines whether hints become full_fetch,
   metadata, premap, or skip
+  the primary systems claim should move below expert prefetch / metadata
+  rebuild: MTP/transition hints are used as speculative tile-staging priorities
+  inside a graph-stable grouped-GEMM path
 ```
 
 Required baselines for paper-level claims:
@@ -85,6 +88,53 @@ utility/action policy ablations
 - Runtime shadow replay exporter writes action-level summary/outcome JSONL from tensor caches.
 - vLLM online runtime shadow joins action summaries and true-router outcomes.
 - Online `matrix_topk` transition summaries are wired with calibrated transition artifacts.
+- Heldout online `matrix_topk` replay matches offline transition@32 baseline.
+- Full MTP action replay matches the normal-envelope event simulator.
+- Reviewer-safe differentiation has been tightened around LDS-level tile staging rather than broad expert prefetch.
+
+## Micro-Architectural Direction
+
+The current strongest originality claim is:
+
+```text
+Patchability-aware speculative LDS tile staging for exact MoE dispatch.
+```
+
+Interpretation:
+
+```text
+MTP is not a router.
+MTP is not a trusted full-expert prefetcher.
+MTP is a low-trust hint for ordering or staging the first grouped-GEMM tiles.
+```
+
+Important hardware boundary:
+
+```text
+LDS cannot be written by the CPU and does not persist across kernels.
+Speculative LDS staging must happen inside a fused / persistent grouped-MoE
+kernel or inside a graph-stable grouped-GEMM prologue that pulls descriptor/tile
+state from global memory into LDS before the true commit point.
+```
+
+Proposed execution semantics:
+
+```text
+Tick:
+  transition + MTP estimate hot expert/tile priorities
+  grouped-GEMM prologue speculatively stages selected tile descriptors or
+  first tiles in LDS
+
+Tock:
+  true router publishes authoritative metadata
+  hit: consume staged LDS tile state
+  miss: invalidate / overwrite LDS state and load true tile from HBM
+```
+
+This avoids overclaiming against FlashMoE / MetaShuffling / fused-MoE systems:
+they already rebuild routing metadata on GPU. The differentiated question is
+whether low-trust native MTP hints can profitably act below that layer, as
+micro-architectural tile-stage priorities with bounded miss cost.
 
 ## Current Scale-Up
 

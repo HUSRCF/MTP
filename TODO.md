@@ -29,7 +29,19 @@ Latest implementation status:
   - `docs/differentiation_analysis.md`
   - positions native MTP as a low-trust hint source, not a router replacement
   - separates verified RSEP/action-admission claims from HIP Graph metadata-patching hypotheses
-- [ ] Add HIP Graph metadata-patching microbench:
+- [x] Refine differentiation around micro-architectural LDS staging:
+  - primary moat is now speculative tile/prologue staging in LDS
+  - HIP Graph / descriptor patching remains a secondary execution shell
+  - explicit boundary: CPU cannot prewrite LDS; LDS staging must happen inside a kernel / persistent prologue
+- [ ] Add speculative LDS tile-staging microbench:
+  - baseline reactive grouped-GEMM prologue: true metadata -> HBM tile load -> LDS -> FMA
+  - oracle tile staging: stage the correct first tiles in LDS
+  - speculative tile staging: transition + MTP priority -> LDS stage -> validate
+  - worst-case staging: deliberately wrong tiles -> invalidate / overwrite penalty
+  - router-interference stress: measure wave/LDS/bandwidth interference with router or metadata builder
+  - metrics: first-FMA latency, prologue latency, LDS tile reuse rate, LDS bytes written, miss overwrite cost, discarded tile fraction, router overlap loss, occupancy/LDS pressure
+  - break-even report: `cost_stage < saved_prologue_us`
+- [ ] Add HIP Graph metadata-patching microbench as secondary system-shell evidence:
   - eager dummy grouped-MoE dispatch latency
   - HIP graph launch latency
   - descriptor buffer overwrite + graph launch latency
