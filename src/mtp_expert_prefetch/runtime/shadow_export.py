@@ -126,6 +126,76 @@ def iter_shadow_summary_outcome_events(
                 yield outcome
 
 
+def aggregate_shadow_tensors(
+    *,
+    base_mask: torch.Tensor,
+    decisions: AdmissionDecisionMasks,
+    target_mass: torch.Tensor,
+    expert_bytes: int = 1_650_000,
+    metadata_bytes: int = 65_536,
+    premap_bytes: int = 4_096,
+    decision_us: float | None = None,
+    candidate_construction_us: float | None = None,
+    admission_decision_us: float | None = None,
+    counter_update_us: float | None = None,
+    logging_us: float | None = None,
+) -> dict[str, float | int]:
+    """Vectorized aggregate matching `aggregate_shadow_events` core fields."""
+    _validate_replay_shapes(base_mask=base_mask, decisions=decisions, target_mass=target_mass)
+    action_masks = decisions.action_masks()
+    ready = base_mask.bool() | action_masks["full_fetch"].bool()
+    demand = target_mass.float().gt(0.0)
+    mass = target_mass.float().clamp_min(0.0)
+    true_top1 = mass.argmax(dim=-1, keepdim=True)
+    true_top1_weight = mass.gather(-1, true_top1).squeeze(-1)
+    top1_ready = ready.gather(-1, true_top1).squeeze(-1).bool()
+    covered_mass = (mass * ready.float()).sum(dim=-1)
+    total_mass = mass.sum(dim=-1)
+    miss_mass = (total_mass - covered_mass).clamp_min(0.0)
+    summary_count = int(base_mask.shape[0] * base_mask.shape[1] * base_mask.shape[2])
+
+    totals: dict[str, float | int] = {
+        "summary_count": summary_count,
+        "candidate_count": 0,
+        "outcome_count": summary_count,
+        "full_fetch_count": _mask_count(action_masks["full_fetch"]),
+        "metadata_count": _mask_count(action_masks["metadata"]),
+        "premap_count": _mask_count(action_masks["premap"]),
+        "skip_count": _mask_count(action_masks["skip"]),
+        "full_fetch_payload_bytes": _mask_count(action_masks["full_fetch"]) * int(expert_bytes),
+        "metadata_actual_bytes": _mask_count(action_masks["metadata"]) * int(metadata_bytes),
+        "premap_actual_bytes": _mask_count(action_masks["premap"]) * int(premap_bytes),
+        "full_fetch_used_count": _mask_count(action_masks["full_fetch"] & demand),
+        "metadata_later_used_count": _mask_count(action_masks["metadata"] & demand),
+        "premap_later_used_count": _mask_count(action_masks["premap"] & demand),
+        "skip_would_have_used_count": _mask_count(action_masks["skip"] & demand),
+        "top1_ready_count": _mask_count(top1_ready),
+        "weighted_top1_miss_sum": float(
+            (true_top1_weight * (~top1_ready).float()).sum().item()
+        ),
+        "covered_mass_sum": float(covered_mass.sum().item()),
+        "miss_mass_sum": float(miss_mass.sum().item()),
+    }
+    for key, value in {
+        "decision_us": decision_us,
+        "candidate_construction_us": candidate_construction_us,
+        "admission_decision_us": admission_decision_us,
+        "counter_update_us": counter_update_us,
+        "logging_us": logging_us,
+    }.items():
+        totals[f"{key}_sum"] = float(value or 0.0) * summary_count
+        totals[f"{key}_mean"] = float(value or 0.0)
+    outcome_count = max(1, summary_count)
+    totals["top1_ready_rate"] = float(totals["top1_ready_count"]) / outcome_count
+    totals["weighted_top1_miss_mean"] = (
+        float(totals["weighted_top1_miss_sum"]) / outcome_count
+    )
+    totals["covered_mass_mean"] = float(totals["covered_mass_sum"]) / outcome_count
+    totals["miss_mass_mean"] = float(totals["miss_mass_sum"]) / outcome_count
+    totals["decision_summary_count"] = summary_count
+    return totals
+
+
 def _validate_replay_shapes(
     *,
     base_mask: torch.Tensor,

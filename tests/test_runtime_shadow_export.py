@@ -2,7 +2,10 @@ import torch
 import pytest
 
 from mtp_expert_prefetch.runtime.admission import AdmissionDecisionMasks
-from mtp_expert_prefetch.runtime.shadow_export import iter_shadow_summary_outcome_events
+from mtp_expert_prefetch.runtime.shadow_export import (
+    aggregate_shadow_tensors,
+    iter_shadow_summary_outcome_events,
+)
 from mtp_expert_prefetch.runtime.shadow_log import ShadowPolicyConfig, aggregate_shadow_events
 
 
@@ -84,7 +87,21 @@ def test_iter_shadow_summary_outcome_events_exports_action_outcomes():
     assert rows[1]["weighted_top1_miss"] == 0.0
 
     aggregate = aggregate_shadow_events(rows)
+    tensor_aggregate = aggregate_shadow_tensors(
+        base_mask=base,
+        decisions=decisions,
+        target_mass=target_mass,
+        decision_us=10.0,
+    )
     assert aggregate["summary_count"] == 1
     assert aggregate["outcome_count"] == 1
     assert aggregate["top1_ready_rate"] == 1.0
     assert aggregate["decision_us_mean"] == 10.0
+    assert tensor_aggregate["summary_count"] == aggregate["summary_count"]
+    assert tensor_aggregate["full_fetch_count"] == aggregate["full_fetch_count"]
+    assert tensor_aggregate["metadata_later_used_count"] == aggregate["metadata_later_used_count"]
+    assert tensor_aggregate["skip_would_have_used_count"] == aggregate["skip_would_have_used_count"]
+    assert tensor_aggregate["covered_mass_mean"] == pytest.approx(
+        aggregate["covered_mass_mean"]
+    )
+    assert tensor_aggregate["miss_mass_mean"] == pytest.approx(aggregate["miss_mass_mean"])

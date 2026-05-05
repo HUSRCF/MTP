@@ -213,6 +213,33 @@ This is the bridge for the next validation gate:
 offline event sim ≈ runtime shadow JSONL replay
 ```
 
+512-sample summary-only replay:
+
+```text
+normal envelope, GPU1:
+  policy_mode = default
+  ready_mass = 0.8187
+  top1_ready = 0.9207
+  weighted_top1_miss = 0.0192
+  full_fetch_count = 900,460
+  metadata_count = 170,805
+  premap_count = 455,400
+
+severe stress envelope, GPU1:
+  policy_mode = fallback
+  reason = transition_not_ready
+  full_fetch_count = 0
+  metadata_count = 0
+  premap_count = 455,400
+  ready_mass = 0.8006
+  top1_ready = 0.9066
+  weighted_top1_miss = 0.0224
+```
+
+The full JSONL path is intended for small debug samples. Scale validation should
+use `--summary-only`, which aggregates the same action/outcome semantics with
+vectorized tensors and avoids multi-hundred-MB partial logs.
+
 ## Current Default Evaluation Settings
 
 ```text

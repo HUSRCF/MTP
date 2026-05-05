@@ -58,7 +58,10 @@ from mtp_expert_prefetch.runtime.shadow_log import (
     read_shadow_jsonl,
     write_shadow_jsonl,
 )
-from mtp_expert_prefetch.runtime.shadow_export import iter_shadow_summary_outcome_events
+from mtp_expert_prefetch.runtime.shadow_export import (
+    aggregate_shadow_tensors,
+    iter_shadow_summary_outcome_events,
+)
 
 __all__ = [
     "DescriptorCacheReport",
@@ -89,6 +92,7 @@ __all__ = [
     "build_mtp_extra_utility_scores",
     "descriptor_summary",
     "aggregate_shadow_events",
+    "aggregate_shadow_tensors",
     "iter_shadow_summary_outcome_events",
     "load_descriptor_jsonl",
     "novel_mtp_extra_mask",

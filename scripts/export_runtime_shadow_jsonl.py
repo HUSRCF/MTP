@@ -24,6 +24,7 @@ from mtp_expert_prefetch.runtime import (  # noqa: E402
     add_metadata_budget_decisions,
     add_premap_budget_decisions,
     aggregate_shadow_events,
+    aggregate_shadow_tensors,
     build_mtp_extra_utility_scores,
     iter_shadow_summary_outcome_events,
     score_threshold_mtp_extra_decision_masks,
@@ -50,6 +51,11 @@ def parse_args() -> argparse.Namespace:
         help="Optional aggregate JSON report path. Defaults to <output>.summary.json.",
     )
     parser.add_argument("--request-id", default="offline-replay")
+    parser.add_argument(
+        "--summary-only",
+        action="store_true",
+        help="Skip JSONL emission and compute aggregate counters with vectorized tensors.",
+    )
     parser.add_argument("--device", default="cpu")
     parser.add_argument("--transition-topk", type=int, default=32)
     parser.add_argument("--mtp-topk", type=int, default=64)
@@ -225,31 +231,42 @@ def main() -> None:
         allow_mtp_metadata=bool(runtime_policy.allow_mtp_metadata),
         allow_mtp_premap=bool(runtime_policy.allow_mtp_premap),
     )
-    events = iter_shadow_summary_outcome_events(
-        base_mask=eval_base,
-        decisions=decisions,
-        target_mass=tensors["target_mass"],
-        policy=policy_config,
-        request_id=str(args.request_id),
-        token_sample_indices=tensors.get("token_sample_indices"),
-        transition_topk_count=int(args.transition_topk),
-        mtp_requested_count=int(args.mtp_topk),
-        expert_bytes=int(args.expert_bytes),
-        metadata_bytes=int(args.metadata_bytes),
-        premap_bytes=int(args.premap_bytes),
-        mtp_delay_ms=float(args.mtp_delay_ms),
-        transition_ready_rate=float(ready_stats["ready_base_fraction"]),
-        mtp_ready_fraction=float(ready_stats["ready_extra_fraction"]),
-        bandwidth_gbps=float(args.bandwidth_gbps),
-        layer_ms=float(args.layer_ms),
-        cache_pressure=float(args.cache_pressure),
-        queue_pressure=float(args.queue_pressure),
-    )
-    aggregate = aggregate_shadow_events(_write_and_yield(events, output))
+    if bool(args.summary_only):
+        aggregate = aggregate_shadow_tensors(
+            base_mask=eval_base,
+            decisions=decisions,
+            target_mass=tensors["target_mass"],
+            expert_bytes=int(args.expert_bytes),
+            metadata_bytes=int(args.metadata_bytes),
+            premap_bytes=int(args.premap_bytes),
+        )
+    else:
+        events = iter_shadow_summary_outcome_events(
+            base_mask=eval_base,
+            decisions=decisions,
+            target_mass=tensors["target_mass"],
+            policy=policy_config,
+            request_id=str(args.request_id),
+            token_sample_indices=tensors.get("token_sample_indices"),
+            transition_topk_count=int(args.transition_topk),
+            mtp_requested_count=int(args.mtp_topk),
+            expert_bytes=int(args.expert_bytes),
+            metadata_bytes=int(args.metadata_bytes),
+            premap_bytes=int(args.premap_bytes),
+            mtp_delay_ms=float(args.mtp_delay_ms),
+            transition_ready_rate=float(ready_stats["ready_base_fraction"]),
+            mtp_ready_fraction=float(ready_stats["ready_extra_fraction"]),
+            bandwidth_gbps=float(args.bandwidth_gbps),
+            layer_ms=float(args.layer_ms),
+            cache_pressure=float(args.cache_pressure),
+            queue_pressure=float(args.queue_pressure),
+        )
+        aggregate = aggregate_shadow_events(_write_and_yield(events, output))
     payload = {
         "ok": True,
         "tensor_cache": str(tensor_cache),
         "output": str(output),
+        "summary_only": bool(args.summary_only),
         "summary_output": str(summary_output),
         "device": str(device),
         "num_eval_token_examples": int(tensors["target_mass"].shape[0]),
