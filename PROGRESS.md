@@ -2012,3 +2012,91 @@ Next LDS / rocWMMA steps:
    MTP/transition-guided tile-order / cache-locality bench over the direct
    global-fragment path.
 ```
+
+## Cache-Aware Tile-Order Pivot
+
+The no-payload tile-order simulator is now implemented:
+
+```text
+module:  src/mtp_expert_prefetch/runtime/tile_order.py
+script:  scripts/simulate_tile_order_cache.py
+tests:   tests/test_runtime_tile_order.py
+```
+
+Supported inputs:
+
+```text
+synthetic locality traces
+JSON tile-request traces
+event-stall tensor caches with transition_scores / mtp_scores / target_mass
+```
+
+The first real-cache smoke used:
+
+```text
+cache:       outputs/reports/prefetch_shadow_512sample_mtp_extra/event_stall_tensor_cache_512sample.pt
+examples:    512
+window size: 64 token examples per layer window
+topk:        target top8 experts
+tiles/expert: 1
+artifact:    outputs/reports/tile_order_cache/tile_order_cache_512sample_smoke.md
+```
+
+Key trace-level results:
+
+```text
+linear:
+  reuse_distance_mean = 29.23
+  LRU@8 = 0.391
+  LRU@32 = 0.758
+  tile_order_hit_rate = 0.414
+
+B-tile/expert grouped:
+  reuse_distance_mean = 20.19
+  LRU@8 = 0.833
+  LRU@32 = 0.833
+  tile_order_hit_rate = 0.119
+
+transition_hot_first:
+  reuse_distance_mean = 25.36
+  LRU@8 = 0.591
+  LRU@32 = 0.798
+  tile_order_hit_rate = 0.461
+
+MTP+transition hot-first:
+  reuse_distance_mean = 26.13
+  LRU@8 = 0.549
+  LRU@32 = 0.793
+  tile_order_hit_rate = 0.489
+
+utility_hot_first:
+  reuse_distance_mean = 25.98
+  LRU@8 = 0.557
+  LRU@32 = 0.794
+  tile_order_hit_rate = 0.491
+
+oracle_cache_aware:
+  reuse_distance_mean = 19.19
+  LRU@8 = 0.834
+  LRU@32 = 0.836
+  tile_order_hit_rate = 0.983
+```
+
+Interpretation:
+
+```text
+Pure B-tile grouping maximizes small-cache locality but loses hot-first order.
+Transition/MTP/utility hot-first improves tile-order hit rate while preserving
+part of the locality gain over linear order.
+
+This validates the pivot as a schedulability question:
+  choose between locality-first and hot-first tile visitation,
+  then measure the selected orders in a direct/global-fragment consumer.
+```
+
+Current claim boundary:
+
+```text
+This simulator does not claim kernel speedup. It filters tile-order policies
+before HIP/rocWMMA timing. LDS payload staging remains a gated/future branch.
+```

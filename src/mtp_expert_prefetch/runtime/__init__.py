@@ -72,6 +72,15 @@ from mtp_expert_prefetch.runtime.shadow_export import (
     aggregate_shadow_tensors,
     iter_shadow_summary_outcome_events,
 )
+from mtp_expert_prefetch.runtime.tile_order import (
+    TileRequest,
+    evaluate_tile_order_policies,
+    evaluate_tile_order_policy,
+    generate_synthetic_tile_requests,
+    load_tile_requests_json,
+    order_tile_requests,
+    simulate_lru_hit_rate,
+)
 
 __all__ = [
     "DescriptorCacheReport",
@@ -93,6 +102,7 @@ __all__ = [
     "AdmissionReason",
     "ScoreThresholdMetadata",
     "ThresholdType",
+    "TileRequest",
     "StallProxyReport",
     "ShadowCandidateEvent",
     "ShadowEventId",
@@ -109,6 +119,10 @@ __all__ = [
     "aggregate_shadow_events",
     "aggregate_shadow_tensors",
     "iter_shadow_summary_outcome_events",
+    "evaluate_tile_order_policies",
+    "evaluate_tile_order_policy",
+    "generate_synthetic_tile_requests",
+    "load_tile_requests_json",
     "load_descriptor_jsonl",
     "novel_mtp_extra_mask",
     "novel_mtp_extra_rank_mask",
@@ -119,6 +133,8 @@ __all__ = [
     "tail_swap_mtp_extra_mask",
     "select_lds_stage_gate",
     "select_runtime_prefetch_policy",
+    "order_tile_requests",
+    "simulate_lru_hit_rate",
     "simulate_descriptor_lru_cache",
     "simulate_descriptor_priority_cache",
     "simulate_stall_proxy",

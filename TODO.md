@@ -1691,10 +1691,19 @@ Interpretation:
 - [ ] Add static ISA compact table generator:
   - mode-specialized rows: frag, reload, distinct-reload, lds_hit, lds_miss
   - columns: global_load, global_store, ds_load, ds_store, ds_swizzle, barrier, waitcnt, WMMA/matrix, derived ratios
-- [ ] Add cache-aware tile-order bench as the non-LDS pivot:
+- [x] Add cache-aware tile-order bench as the non-LDS pivot:
+  - module: `src/mtp_expert_prefetch/runtime/tile_order.py`
+  - script: `scripts/simulate_tile_order_cache.py`
+  - supports synthetic traces, JSON request traces, and real event-stall tensor caches
+  - first real-cache smoke: `outputs/reports/tile_order_cache/tile_order_cache_512sample_smoke.md`
   - compare linear, expert-major, B-tile grouped, transition-prior, MTP/transition hot-first, and oracle cache-aware ordering
-  - use the direct/global-fragment consumer first; do not stage payload into LDS
-  - report B tile reuse distance, unique B tiles per window, wall time, and tile-order hit rate
+  - reports B tile reuse distance, unique B tiles per window, simulated LRU hit-rate, run length, and tile-order hit rate
+  - current scope is trace-level locality filtering; next step is direct/global-fragment HIP/rocWMMA timing for selected orders
+- [ ] Add direct/global-fragment tile-order timing bench:
+  - consume the same tile multiset under selected orders
+  - compare linear, B-tile grouped, transition hot-first, MTP/transition hot-first, utility hot-first, and oracle
+  - do not stage payload into LDS
+  - report wall time per tile next to trace-level reuse metrics
 - [ ] Add descriptor precompute / patch timing:
   - true-router rebuild baseline
   - transition/MTP candidate descriptor prebuild
