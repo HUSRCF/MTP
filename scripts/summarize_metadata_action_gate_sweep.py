@@ -80,6 +80,14 @@ def _summarize(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "best_overlap": float(best["overlap_factor"]),
                 "best_net_ms": float(best["metadata_overlap_adjusted_net_setup_benefit_ms"]),
                 "setup_saved_ms": float(best["metadata_setup_saved_ms"]),
+                "premap_budget_max_extra": int(
+                    float(best.get("premap_budget_max_extra", 0.0))
+                ),
+                "premap_count": int(float(best.get("premap_count", 0.0))),
+                "premap_later_used_rate": float(best.get("premap_later_used_rate", 0.0)),
+                "premap_best_net_ms": float(
+                    best.get("premap_overlap_adjusted_net_setup_benefit_ms", 0.0)
+                ),
                 "stall_reduction_pct": 100.0
                 * float(best["stall_reduction_ratio_vs_transition"]),
             }
@@ -115,6 +123,10 @@ def _write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
         "best_overlap",
         "best_net_ms",
         "setup_saved_ms",
+        "premap_budget_max_extra",
+        "premap_count",
+        "premap_later_used_rate",
+        "premap_best_net_ms",
         "stall_reduction_pct",
     ]
     with path.open("w", encoding="utf-8", newline="") as handle:
@@ -125,8 +137,8 @@ def _write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
 
 def _format_markdown(rows: list[dict[str, Any]]) -> str:
     lines = [
-        "| policy | metadata ratio | later-used % | serial net ms | first positive overlap | best overlap | best net ms | stall reduction % |",
-        "|---|---:|---:|---:|---:|---:|---:|---:|",
+        "| policy | metadata ratio | metadata later-used % | serial net ms | first positive overlap | best overlap | metadata best net ms | premap max | premap later-used % | premap best net ms | stall reduction % |",
+        "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
     for row in rows:
         first_positive = row["first_positive_overlap"]
@@ -136,7 +148,9 @@ def _format_markdown(rows: list[dict[str, Any]]) -> str:
         lines.append(
             "| {policy} | {metadata_ratio:.2f} | {later_used_rate:.2%} | "
             "{serial_net_ms:.1f} | {first_positive} | {best_overlap:.2f} | "
-            "{best_net_ms:.1f} | {stall_reduction_pct:.2f} |".format(
+            "{best_net_ms:.1f} | {premap_budget_max_extra:d} | "
+            "{premap_later_used_rate:.2%} | {premap_best_net_ms:.1f} | "
+            "{stall_reduction_pct:.2f} |".format(
                 **row,
                 first_positive=first_positive_text,
             )
