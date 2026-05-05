@@ -61,6 +61,15 @@ Latest implementation status:
   - `--cache-flush-elems` touches a separate global buffer before measurement
   - staged consumed/discarded counters confirm hit/miss semantics
   - control overlap-model values are not used as profitability claims
+- [x] Connect LDS `p_min` to runtime policy:
+  - runtime policy now reports `allow_lds_stage` and `lds_stage_reason`
+  - LDS staging is gated by `expected_hit_rate >= p_min + safety_margin`
+  - occupancy guard uses `lds_occupancy_blocks_per_cu`
+  - H2D full-fetch fallback does not automatically disable on-chip LDS staging
+- [x] Add LDS stage policy evaluator:
+  - `scripts/evaluate_lds_stage_policy.py`
+  - maps sweep CSV `p_min_hit_rate_clamped` to tier-level eligibility
+  - default tiers: transition head/tail, MTP extra head/tail, random control
 - [x] Add anti-artifact controls and lightweight grouped-compute mock:
   - `dummy_lds_store`
   - `wrong_no_consume`

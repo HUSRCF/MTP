@@ -5,6 +5,7 @@ from mtp_expert_prefetch.runtime import (
     RuntimeSignals,
     ScoreThresholdMetadata,
     priority_name,
+    select_lds_stage_gate,
     select_runtime_prefetch_policy,
 )
 
@@ -27,6 +28,8 @@ def test_select_runtime_prefetch_policy_defaults_to_extra4():
     assert policy.allow_full_mtp_fetch is True
     assert policy.allow_mtp_metadata is True
     assert policy.allow_mtp_premap is True
+    assert policy.allow_lds_stage is False
+    assert policy.lds_stage_reason == "lds_missing_calibration"
     assert policy.reason == "normal_envelope"
 
 
@@ -244,6 +247,106 @@ def test_select_runtime_prefetch_policy_prefers_transition_not_ready_reason():
 
     assert policy.mode == "fallback"
     assert policy.reason == "transition_not_ready"
+    assert policy.allow_lds_stage is False
+    assert policy.lds_stage_reason == "transition_not_ready"
+
+
+def test_select_runtime_prefetch_policy_allows_lds_stage_when_hit_rate_beats_p_min():
+    policy = select_runtime_prefetch_policy(
+        RuntimeSignals(
+            transition_ready_rate=0.95,
+            cache_pressure=0.70,
+            queue_pressure=0.70,
+            effective_capacity=144,
+            mtp_delay_ms=2.0,
+            lds_expected_hit_rate=0.72,
+            lds_p_min_hit_rate=0.60,
+            lds_occupancy_blocks_per_cu=8,
+        )
+    )
+
+    assert policy.mode == "default"
+    assert policy.allow_lds_stage is True
+    assert policy.lds_stage_reason == "lds_hit_rate_above_p_min"
+
+
+def test_select_runtime_prefetch_policy_rejects_lds_stage_below_p_min_margin():
+    policy = select_runtime_prefetch_policy(
+        RuntimeSignals(
+            transition_ready_rate=0.95,
+            cache_pressure=0.70,
+            queue_pressure=0.70,
+            effective_capacity=144,
+            mtp_delay_ms=2.0,
+            lds_expected_hit_rate=0.62,
+            lds_p_min_hit_rate=0.60,
+            lds_occupancy_blocks_per_cu=8,
+        )
+    )
+
+    assert policy.mode == "default"
+    assert policy.allow_lds_stage is False
+    assert policy.lds_stage_reason == "lds_hit_rate_below_p_min"
+
+
+def test_select_runtime_prefetch_policy_rejects_lds_stage_when_occupancy_low():
+    policy = select_runtime_prefetch_policy(
+        RuntimeSignals(
+            transition_ready_rate=0.95,
+            cache_pressure=0.70,
+            queue_pressure=0.70,
+            effective_capacity=144,
+            mtp_delay_ms=2.0,
+            lds_expected_hit_rate=0.90,
+            lds_p_min_hit_rate=0.20,
+            lds_occupancy_blocks_per_cu=1,
+        )
+    )
+
+    assert policy.allow_lds_stage is False
+    assert policy.lds_stage_reason == "lds_occupancy_low"
+
+
+def test_select_runtime_prefetch_policy_can_allow_lds_stage_when_h2d_fallbacks():
+    policy = select_runtime_prefetch_policy(
+        RuntimeSignals(
+            transition_ready_rate=0.95,
+            cache_pressure=0.10,
+            queue_pressure=0.10,
+            effective_capacity=192,
+            mtp_delay_ms=2.0,
+            mtp_ready_fraction=0.50,
+            bandwidth_gbps=2.0,
+            layer_ms=0.25,
+            lds_expected_hit_rate=0.80,
+            lds_p_min_hit_rate=0.20,
+            lds_occupancy_blocks_per_cu=8,
+        )
+    )
+
+    assert policy.mode == "fallback"
+    assert policy.reason == "transfer_envelope_tight"
+    assert policy.allow_full_mtp_fetch is False
+    assert policy.allow_lds_stage is True
+    assert policy.lds_stage_reason == "lds_hit_rate_above_p_min"
+
+
+def test_select_lds_stage_gate_returns_reason_without_prefetch_policy():
+    allowed, reason = select_lds_stage_gate(
+        RuntimeSignals(
+            transition_ready_rate=0.95,
+            cache_pressure=0.99,
+            queue_pressure=0.99,
+            effective_capacity=1,
+            mtp_delay_ms=99.0,
+            lds_expected_hit_rate=0.55,
+            lds_p_min_hit_rate=0.40,
+            lds_occupancy_blocks_per_cu=2,
+        )
+    )
+
+    assert allowed is True
+    assert reason == "lds_hit_rate_above_p_min"
 
 
 def test_priority_name_matches_runtime_tiers():

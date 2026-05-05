@@ -31,6 +31,9 @@ class RuntimeSignals:
     layer_ms: float | None = None
     layer_idx: int | None = None
     num_layers: int = 40
+    lds_expected_hit_rate: float | None = None
+    lds_p_min_hit_rate: float | None = None
+    lds_occupancy_blocks_per_cu: int | None = None
 
 
 @dataclass(frozen=True)
@@ -44,7 +47,9 @@ class RuntimePrefetchPolicy:
     allow_full_mtp_fetch: bool
     allow_mtp_metadata: bool
     allow_mtp_premap: bool
+    allow_lds_stage: bool
     reason: str
+    lds_stage_reason: str
 
     def as_dict(self) -> dict[str, bool | float | int | str]:
         return asdict(self)
@@ -69,6 +74,8 @@ class PolicyThresholds:
     metadata_max_extra_default: int = 1
     min_mtp_ready_fraction_for_full_fetch: float = 0.05
     min_bandwidth_layer_product_for_full_fetch: float = 2.0
+    lds_hit_rate_safety_margin: float = 0.05
+    min_lds_occupancy_blocks_per_cu: int = 2
 
 
 def select_runtime_prefetch_policy(
@@ -88,6 +95,10 @@ def select_runtime_prefetch_policy(
     if optimization_goal not in ("stall_reduction", "bandwidth_efficiency"):
         msg = f"Unknown optimization_goal={optimization_goal!r}."
         raise ValueError(msg)
+    allow_lds_stage, lds_stage_reason = select_lds_stage_gate(
+        signals,
+        thresholds=thresholds,
+    )
     metadata_allowed = (
         signals.cache_pressure <= thresholds.max_cache_pressure_for_metadata
         and signals.queue_pressure <= thresholds.max_queue_pressure_for_metadata
@@ -107,7 +118,9 @@ def select_runtime_prefetch_policy(
             allow_full_mtp_fetch=False,
             allow_mtp_metadata=False,
             allow_mtp_premap=True,
+            allow_lds_stage=allow_lds_stage,
             reason="transition_not_ready",
+            lds_stage_reason=lds_stage_reason,
         )
     if (
         signals.mtp_ready_fraction is not None
@@ -124,7 +137,9 @@ def select_runtime_prefetch_policy(
             allow_full_mtp_fetch=False,
             allow_mtp_metadata=False,
             allow_mtp_premap=True,
+            allow_lds_stage=allow_lds_stage,
             reason="mtp_not_ready",
+            lds_stage_reason=lds_stage_reason,
         )
     if (
         signals.bandwidth_gbps is not None
@@ -142,7 +157,9 @@ def select_runtime_prefetch_policy(
             allow_full_mtp_fetch=False,
             allow_mtp_metadata=False,
             allow_mtp_premap=True,
+            allow_lds_stage=allow_lds_stage,
             reason="transfer_envelope_tight",
+            lds_stage_reason=lds_stage_reason,
         )
     if (
         int(signals.effective_capacity) < int(thresholds.min_capacity_for_default)
@@ -157,7 +174,9 @@ def select_runtime_prefetch_policy(
             allow_full_mtp_fetch=False,
             allow_mtp_metadata=False,
             allow_mtp_premap=True,
+            allow_lds_stage=allow_lds_stage,
             reason="resource_pressure",
+            lds_stage_reason=lds_stage_reason,
         )
     if float(signals.mtp_delay_ms) > float(thresholds.max_mtp_delay_default_ms):
         return RuntimePrefetchPolicy(
@@ -170,7 +189,9 @@ def select_runtime_prefetch_policy(
             allow_full_mtp_fetch=False,
             allow_mtp_metadata=False,
             allow_mtp_premap=True,
+            allow_lds_stage=allow_lds_stage,
             reason="mtp_delay_high",
+            lds_stage_reason=lds_stage_reason,
         )
     if (
         optimization_goal == "stall_reduction"
@@ -190,7 +211,9 @@ def select_runtime_prefetch_policy(
             allow_full_mtp_fetch=True,
             allow_mtp_metadata=metadata_allowed,
             allow_mtp_premap=True,
+            allow_lds_stage=allow_lds_stage,
             reason="capacity_and_queue_idle",
+            lds_stage_reason=lds_stage_reason,
         )
     if optimization_goal == "bandwidth_efficiency":
         if (
@@ -207,7 +230,9 @@ def select_runtime_prefetch_policy(
                 allow_full_mtp_fetch=True,
                 allow_mtp_metadata=metadata_allowed,
                 allow_mtp_premap=True,
+                allow_lds_stage=allow_lds_stage,
                 reason="bandwidth_efficiency_extra2_tail_swap2",
+                lds_stage_reason=lds_stage_reason,
             )
         if (
             signals.cache_pressure <= thresholds.max_cache_pressure_for_low_budget
@@ -223,7 +248,9 @@ def select_runtime_prefetch_policy(
                 allow_full_mtp_fetch=True,
                 allow_mtp_metadata=False,
                 allow_mtp_premap=True,
+                allow_lds_stage=allow_lds_stage,
                 reason="bandwidth_efficiency_extra1_tail_swap1",
+                lds_stage_reason=lds_stage_reason,
             )
         return RuntimePrefetchPolicy(
             mode="fallback",
@@ -235,7 +262,9 @@ def select_runtime_prefetch_policy(
             allow_full_mtp_fetch=False,
             allow_mtp_metadata=False,
             allow_mtp_premap=True,
+            allow_lds_stage=allow_lds_stage,
             reason="resource_pressure",
+            lds_stage_reason=lds_stage_reason,
         )
     if (
         signals.cache_pressure <= thresholds.max_cache_pressure_for_default
@@ -251,7 +280,9 @@ def select_runtime_prefetch_policy(
             allow_full_mtp_fetch=True,
             allow_mtp_metadata=metadata_allowed,
             allow_mtp_premap=True,
+            allow_lds_stage=allow_lds_stage,
             reason="normal_envelope",
+            lds_stage_reason=lds_stage_reason,
         )
     if (
         signals.cache_pressure <= thresholds.max_cache_pressure_for_low_budget
@@ -273,7 +304,9 @@ def select_runtime_prefetch_policy(
             allow_full_mtp_fetch=True,
             allow_mtp_metadata=False,
             allow_mtp_premap=True,
+            allow_lds_stage=allow_lds_stage,
             reason=f"pressure_degraded_extra{max_extra}_tail_swap{max_extra}",
+            lds_stage_reason=lds_stage_reason,
         )
     return RuntimePrefetchPolicy(
         mode="fallback",
@@ -285,8 +318,39 @@ def select_runtime_prefetch_policy(
         allow_full_mtp_fetch=False,
         allow_mtp_metadata=False,
         allow_mtp_premap=True,
+        allow_lds_stage=allow_lds_stage,
         reason="resource_pressure",
+        lds_stage_reason=lds_stage_reason,
     )
+
+
+def select_lds_stage_gate(
+    signals: RuntimeSignals,
+    *,
+    thresholds: PolicyThresholds | None = None,
+) -> tuple[bool, str]:
+    """Decide whether on-chip speculative LDS tile staging is eligible.
+
+    This gate is intentionally independent from H2D expert full-fetch admission:
+    LDS staging is a kernel-internal action. It is allowed only when the
+    expected tile hit rate beats the microbench break-even `p_min` with a safety
+    margin and the occupancy budget is not obviously too low.
+    """
+    thresholds = thresholds or PolicyThresholds()
+    if signals.transition_ready_rate < thresholds.min_transition_ready_for_full_mtp:
+        return False, "transition_not_ready"
+    if signals.lds_expected_hit_rate is None or signals.lds_p_min_hit_rate is None:
+        return False, "lds_missing_calibration"
+    if signals.lds_occupancy_blocks_per_cu is not None and int(
+        signals.lds_occupancy_blocks_per_cu
+    ) < int(thresholds.min_lds_occupancy_blocks_per_cu):
+        return False, "lds_occupancy_low"
+    required_hit_rate = float(signals.lds_p_min_hit_rate) + float(
+        thresholds.lds_hit_rate_safety_margin
+    )
+    if float(signals.lds_expected_hit_rate) < required_hit_rate:
+        return False, "lds_hit_rate_below_p_min"
+    return True, "lds_hit_rate_above_p_min"
 
 
 def priority_name(priority: int | PrefetchPriority) -> str:

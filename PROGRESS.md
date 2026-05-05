@@ -661,6 +661,100 @@ Interpretation:
 - This is still not a real WMMA/rocWMMA grouped-GEMM claim. It is the last
   hand-written HIP stage before a true matrix-tile consumer.
 
+LDS p_min runtime-policy bridge:
+
+Runtime policy now carries an explicit on-chip staging gate:
+
+```text
+allow_lds_stage = (
+    transition_ready_rate is healthy
+    and lds_expected_hit_rate >= lds_p_min_hit_rate + safety_margin
+    and lds_occupancy_blocks_per_cu >= min_occupancy
+)
+```
+
+This gate is intentionally independent from H2D `full_fetch` admission. A tight
+PCIe / H2D transfer envelope can disable MTP expert full-fetch while still
+allowing kernel-internal LDS staging when the microbench p_min and occupancy
+conditions are satisfied.
+
+New fields:
+
+```text
+RuntimeSignals:
+  lds_expected_hit_rate
+  lds_p_min_hit_rate
+  lds_occupancy_blocks_per_cu
+
+RuntimePrefetchPolicy:
+  allow_lds_stage
+  lds_stage_reason
+```
+
+Unit tests:
+
+```text
+tests/test_runtime_policy.py:
+  LDS missing calibration -> disabled
+  expected hit rate above p_min + margin -> enabled
+  expected hit rate below margin -> disabled
+  low occupancy -> disabled
+  H2D transfer fallback can still allow LDS stage
+```
+
+LDS stage policy evaluator:
+
+- Script: `scripts/evaluate_lds_stage_policy.py`
+- Normal grouped-consumer report:
+  `outputs/reports/lds_tile_staging/lds_stage_policy_eval_grouped_consumer.json`
+- Boundary report:
+  `outputs/reports/lds_tile_staging/lds_stage_policy_eval_boundary.json`
+
+The evaluator maps sweep CSV rows to tier-level eligibility:
+
+```text
+transition_top16: expected hit 0.90
+transition_top17_32: expected hit 0.65
+mtp_extra1_4: expected hit 0.45
+mtp_extra5_8: expected hit 0.30
+random_control: expected hit 0.125
+```
+
+Grouped-consumer normal envelope:
+
+```text
+mtp_extra1_4: enabled 6/6
+mtp_extra5_8: enabled 6/6
+random_control: enabled 5/6
+mean required hit rate ~= 0.073
+```
+
+Boundary sweep without same-kernel metadata-builder window:
+
+- Report: `outputs/reports/lds_tile_staging/sweep_lds_stage_gate_boundary_2gpu.json`
+- CSV: `outputs/reports/lds_tile_staging/sweep_lds_stage_gate_boundary_2gpu.csv`
+
+```text
+mixed:
+  positive rows = 3 / 6
+  mean overlap-model speedup = 1.100x
+
+p_min-gated eligibility:
+  transition_top16: enabled 4/6
+  transition_top17_32: enabled 4/6
+  mtp_extra1_4: enabled 4/6
+  mtp_extra5_8: enabled 3/6
+  random_control: enabled 3/6
+```
+
+Interpretation:
+
+- In normal same-kernel metadata windows, p_min is low and LDS stage is broadly
+  eligible.
+- In poor/no-window regimes, p_min gates off lower-confidence tiers. This is the
+  desired bridge from microbench timing to runtime policy: LDS staging is an
+  admitted action, not a default behavior.
+
 ## Current Scale-Up
 
 512-sample configs are committed in:

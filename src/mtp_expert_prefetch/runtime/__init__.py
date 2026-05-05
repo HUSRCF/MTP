@@ -46,6 +46,7 @@ from mtp_expert_prefetch.runtime.policy import (
     RuntimePrefetchPolicy,
     RuntimeSignals,
     priority_name,
+    select_lds_stage_gate,
     select_runtime_prefetch_policy,
 )
 from mtp_expert_prefetch.runtime.online_shadow import (
@@ -116,6 +117,7 @@ __all__ = [
     "score_threshold_mtp_extra_mask",
     "select_topk_mask",
     "tail_swap_mtp_extra_mask",
+    "select_lds_stage_gate",
     "select_runtime_prefetch_policy",
     "simulate_descriptor_lru_cache",
     "simulate_descriptor_priority_cache",
