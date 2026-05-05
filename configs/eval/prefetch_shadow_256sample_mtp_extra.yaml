@@ -12,3 +12,7 @@ max_extras: [1, 2, 4, 8]
 default_max_extra: 4
 high_budget_max_extra: 8
 cache_capacities: [96, 128, 160, 192, 224, 256]
+action_keep_fraction: 0.5
+metadata_score_ratio: 0.95
+metadata_max_extra: 1
+premap_max_extra: 1

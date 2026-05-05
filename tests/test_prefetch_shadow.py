@@ -19,7 +19,11 @@ from mtp_expert_prefetch.evaluation.prefetch_shadow import (
     tail_swap_mtp_extra_mask,
     topk_mask,
 )
-from mtp_expert_prefetch.runtime import build_mtp_extra_utility_scores
+from mtp_expert_prefetch.runtime import (
+    add_metadata_budget_decisions,
+    add_premap_budget_decisions,
+    build_mtp_extra_utility_scores,
+)
 
 
 def test_novel_mtp_extra_mask_keeps_transition_pool_protected():
@@ -321,6 +325,64 @@ def test_build_mtp_extra_utility_scores_applies_rank_layer_ready_factors():
     # Novel rank 2 expert 3 is rank-decayed.
     assert utility[0, 0, 0, 3].item() == pytest.approx(0.4 * 0.5 * 1.0 * 0.25)
 
+
+def test_action_decision_helpers_support_independent_metadata_and_premap_budgets():
+    transition_scores = torch.tensor([[[[0.9, 0.8, 0.0, 0.0, 0.0]]]])
+    mtp_scores = torch.tensor([[[[0.1, 0.2, 0.95, 0.8, 0.7]]]])
+    base = topk_mask(transition_scores, k=2)
+
+    full = score_threshold_mtp_extra_decision_masks(
+        base,
+        mtp_scores,
+        mtp_topk=5,
+        max_extra=1,
+        score_threshold=0.9,
+    )
+    with_metadata = add_metadata_budget_decisions(
+        base,
+        full_decisions=full,
+        metadata_scores=mtp_scores,
+        mtp_topk=5,
+        metadata_max_extra=1,
+        metadata_score_threshold=0.75,
+    )
+    with_premap = add_premap_budget_decisions(
+        base,
+        decisions=with_metadata,
+        premap_scores=mtp_scores,
+        mtp_topk=5,
+        premap_max_extra=1,
+    )
+
+    actions = with_premap.action_masks()
+    assert actions["full_fetch"][0, 0, 0].tolist() == [
+        False,
+        False,
+        True,
+        False,
+        False,
+    ]
+    assert actions["metadata"][0, 0, 0].tolist() == [
+        False,
+        False,
+        False,
+        True,
+        False,
+    ]
+    assert actions["premap"][0, 0, 0].tolist() == [
+        False,
+        False,
+        False,
+        False,
+        True,
+    ]
+    assert with_premap.final_prefetch_mask(base)[0, 0, 0].tolist() == [
+        True,
+        True,
+        True,
+        False,
+        False,
+    ]
 
 def test_mask_metrics_reports_added_mass_and_top1_risk():
     target_mass = torch.tensor([[[[0.7, 0.2, 0.1, 0.0]]]])

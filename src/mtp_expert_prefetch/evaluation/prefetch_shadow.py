@@ -8,6 +8,8 @@ from typing import Any
 import torch
 
 from mtp_expert_prefetch.admission import (
+    add_metadata_budget_decisions,
+    add_premap_budget_decisions,
     build_mtp_extra_utility_scores as _runtime_build_mtp_extra_utility_scores,
     novel_mtp_extra_mask as _runtime_novel_mtp_extra_mask,
     novel_mtp_extra_rank_mask as _runtime_novel_mtp_extra_rank_mask,
@@ -59,6 +61,7 @@ class PrefetchShadowReport:
     policies: dict[str, dict[str, float]]
     capacity_guarded_policies: dict[str, dict[str, float]]
     priority_admission_policies: dict[str, dict[str, float]]
+    action_shadow_policies: dict[str, dict[str, Any]]
     priority_tiers: dict[str, dict[str, float]]
     policy_working_sets: dict[str, dict[str, float]]
     per_layer: dict[str, dict[str, Any]]
@@ -81,6 +84,7 @@ class PrefetchShadowReport:
             "policies": self.policies,
             "capacity_guarded_policies": self.capacity_guarded_policies,
             "priority_admission_policies": self.priority_admission_policies,
+            "action_shadow_policies": self.action_shadow_policies,
             "priority_tiers": self.priority_tiers,
             "policy_working_sets": self.policy_working_sets,
             "per_layer": self.per_layer,
@@ -104,6 +108,10 @@ def simulate_prefetch_shadow(
     default_max_extra: int = 4,
     high_budget_max_extra: int = 8,
     cache_capacities: list[int] | None = None,
+    action_keep_fraction: float = 0.5,
+    metadata_score_ratio: float = 0.95,
+    metadata_max_extra: int = 1,
+    premap_max_extra: int = 1,
 ) -> PrefetchShadowReport:
     if future_window != 1:
         msg = "Prefetch shadow simulation currently expects future_window=1."
@@ -139,6 +147,7 @@ def simulate_prefetch_shadow(
     eval_data = val if val is not None else train
 
     transition = train_transition_matrix(train.current_feature, train.target_mass)
+    train_transition_scores = apply_transition_matrix(train.current_feature, transition)
     transition_scores = apply_transition_matrix(eval_data.current_feature, transition)
     frequency_scores = train_frequency_scores(train.target_mass)
     target_token_table = build_token_frequency_table(
@@ -150,6 +159,11 @@ def simulate_prefetch_shadow(
         target_token_table,
         eval_data.mtp_topm_ids,
         eval_data.mtp_topm_probs,
+    )
+    train_mtp_scores = _apply_mtp_token_frequency_table(
+        target_token_table,
+        train.mtp_topm_ids,
+        train.mtp_topm_probs,
     )
 
     base_mask = topk_mask(transition_scores, k=transition_topk)
@@ -168,6 +182,21 @@ def simulate_prefetch_shadow(
         ] = base_mask | extra_mask
 
     base_metrics = mask_metrics(base_mask, eval_data.target_mass)
+    action_shadow_policies = _action_shadow_policy_metrics(
+        train_transition_scores,
+        train_mtp_scores,
+        train.target_mass,
+        transition_scores,
+        mtp_scores,
+        eval_data.target_mass,
+        transition_topk=transition_topk,
+        mtp_topk=mtp_topk,
+        full_fetch_max_extra=default_max_extra,
+        action_keep_fraction=float(action_keep_fraction),
+        metadata_score_ratio=float(metadata_score_ratio),
+        metadata_max_extra=int(metadata_max_extra),
+        premap_max_extra=int(premap_max_extra),
+    )
     policies = {}
     for name, mask in policy_masks.items():
         metrics = mask_metrics(mask, eval_data.target_mass, base_mask=base_mask)
@@ -276,6 +305,7 @@ def simulate_prefetch_shadow(
         policies=policies,
         capacity_guarded_policies=capacity_guarded_policies,
         priority_admission_policies=priority_admission_policies,
+        action_shadow_policies=action_shadow_policies,
         priority_tiers=priority_tiers,
         policy_working_sets=policy_working_sets,
         per_layer=per_layer,
@@ -292,6 +322,11 @@ def simulate_prefetch_shadow(
             "runtime_rule": (
                 "Never evict protected transition candidates for MTP extras unless "
                 "a fixed-budget replacement policy is explicitly selected."
+            ),
+            "action_policy": (
+                "transition_topK + utility-gated full_fetch up to default_max_extra "
+                "+ raw-score metadata max1 + tiny premap budget; only full_fetch "
+                "contributes to ready-before-demand."
             ),
         },
         notes={
@@ -311,6 +346,194 @@ def write_prefetch_shadow_report(report: PrefetchShadowReport, output: str | Pat
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(report.as_dict(), indent=2, ensure_ascii=False), encoding="utf-8")
     return output
+
+
+def _action_shadow_policy_metrics(
+    train_transition_scores: torch.Tensor,
+    train_mtp_scores: torch.Tensor,
+    train_target_mass: torch.Tensor,
+    eval_transition_scores: torch.Tensor,
+    eval_mtp_scores: torch.Tensor,
+    eval_target_mass: torch.Tensor,
+    *,
+    transition_topk: int,
+    mtp_topk: int,
+    full_fetch_max_extra: int,
+    action_keep_fraction: float,
+    metadata_score_ratio: float,
+    metadata_max_extra: int,
+    premap_max_extra: int,
+    expert_bytes: int = 1_650_000,
+    metadata_bytes: int = 65_536,
+    premap_bytes: int = 4_096,
+) -> dict[str, dict[str, Any]]:
+    train_base = topk_mask(train_transition_scores, k=transition_topk)
+    eval_base = topk_mask(eval_transition_scores, k=transition_topk)
+    layer_factors = _calibrated_layer_factors(
+        train_base,
+        train_mtp_scores,
+        train_target_mass,
+        mtp_topk=mtp_topk,
+        max_extra=full_fetch_max_extra,
+    )
+    train_utility = build_mtp_extra_utility_scores(
+        train_base,
+        train_mtp_scores,
+        mtp_topk=mtp_topk,
+        rank_alpha=1.0,
+        layer_factors=layer_factors,
+    )
+    eval_utility = build_mtp_extra_utility_scores(
+        eval_base,
+        eval_mtp_scores,
+        mtp_topk=mtp_topk,
+        rank_alpha=1.0,
+        layer_factors=layer_factors,
+    )
+    full_threshold = _threshold_from_keep_fraction(
+        train_base,
+        train_mtp_scores,
+        train_utility,
+        mtp_topk=mtp_topk,
+        max_extra=full_fetch_max_extra,
+        keep_fraction=action_keep_fraction,
+    )
+    raw_threshold = _threshold_from_keep_fraction(
+        train_base,
+        train_mtp_scores,
+        train_mtp_scores,
+        mtp_topk=mtp_topk,
+        max_extra=full_fetch_max_extra,
+        keep_fraction=action_keep_fraction,
+    )
+    full_decisions = score_threshold_mtp_extra_decision_masks(
+        eval_base,
+        eval_utility,
+        mtp_topk=mtp_topk,
+        max_extra=full_fetch_max_extra,
+        score_threshold=full_threshold,
+    )
+    decisions = add_metadata_budget_decisions(
+        eval_base,
+        full_decisions=full_decisions,
+        metadata_scores=eval_mtp_scores,
+        mtp_topk=mtp_topk,
+        metadata_max_extra=metadata_max_extra,
+        metadata_score_threshold=raw_threshold * float(metadata_score_ratio),
+    )
+    if int(premap_max_extra) > 0:
+        decisions = add_premap_budget_decisions(
+            eval_base,
+            decisions=decisions,
+            premap_scores=eval_mtp_scores,
+            mtp_topk=mtp_topk,
+            premap_max_extra=premap_max_extra,
+        )
+    return {
+        "utility_keep50_action_policy": {
+            "full_fetch_max_extra": float(full_fetch_max_extra),
+            "metadata_max_extra": float(metadata_max_extra),
+            "premap_max_extra": float(premap_max_extra),
+            "action_keep_fraction": float(action_keep_fraction),
+            "full_fetch_threshold": float(full_threshold),
+            "metadata_score_ratio": float(metadata_score_ratio),
+            "metadata_score_threshold": float(raw_threshold * float(metadata_score_ratio)),
+            "actions": _action_shadow_counter_metrics(
+                decisions,
+                eval_target_mass,
+                expert_bytes=expert_bytes,
+                metadata_bytes=metadata_bytes,
+                premap_bytes=premap_bytes,
+            ),
+        }
+    }
+
+
+def _threshold_from_keep_fraction(
+    base: torch.Tensor,
+    mtp_scores: torch.Tensor,
+    score_tensor: torch.Tensor,
+    *,
+    mtp_topk: int,
+    max_extra: int,
+    keep_fraction: float,
+) -> float:
+    candidate = novel_mtp_extra_mask(
+        base,
+        mtp_scores,
+        mtp_topk=mtp_topk,
+        max_extra=max_extra,
+    )
+    valid = candidate & torch.isfinite(score_tensor.float())
+    scores = score_tensor.float()[valid]
+    if scores.numel() == 0:
+        return float("inf")
+    keep_fraction = min(max(float(keep_fraction), 0.0), 1.0)
+    if keep_fraction <= 0.0:
+        return float("inf")
+    if keep_fraction >= 1.0:
+        return float(scores.min().item())
+    return float(torch.quantile(scores, 1.0 - keep_fraction).item())
+
+
+def _calibrated_layer_factors(
+    base: torch.Tensor,
+    mtp_scores: torch.Tensor,
+    target_mass: torch.Tensor,
+    *,
+    mtp_topk: int,
+    max_extra: int,
+) -> torch.Tensor:
+    extra = novel_mtp_extra_mask(
+        base,
+        mtp_scores,
+        mtp_topk=mtp_topk,
+        max_extra=max_extra,
+    )
+    count_by_layer = extra.float().sum(dim=(0, 1, 3)).clamp_min(1.0)
+    gain_by_layer = (extra.float() * target_mass).sum(dim=(0, 1, 3)) / count_by_layer
+    positive = gain_by_layer[gain_by_layer.gt(0.0)]
+    if positive.numel() == 0:
+        return torch.ones_like(gain_by_layer)
+    return (gain_by_layer / positive.mean().clamp_min(1e-12)).clamp(0.5, 1.5)
+
+
+def _action_shadow_counter_metrics(
+    decisions: Any,
+    target_mass: torch.Tensor,
+    *,
+    expert_bytes: int,
+    metadata_bytes: int,
+    premap_bytes: int,
+) -> dict[str, Any]:
+    demand = target_mass.float().gt(0.0)
+    action_bytes = {
+        "full_fetch": int(expert_bytes),
+        "metadata": int(metadata_bytes),
+        "premap": int(premap_bytes),
+        "skip": 0,
+    }
+    payload_bytes = int(expert_bytes)
+    counters: dict[str, Any] = {}
+    for action, mask in decisions.action_masks().items():
+        selected = mask.bool()
+        later_used = selected & demand
+        count = float(selected.float().sum().item())
+        later_used_count = float(later_used.float().sum().item())
+        counters[str(action)] = {
+            "count": count,
+            "payload_equivalent_bytes": float(count * payload_bytes),
+            "actual_bytes": float(count * action_bytes[str(action)]),
+            "later_used_count": later_used_count,
+            "later_used_rate": later_used_count / max(1.0, count),
+        }
+    counters["summary"] = {
+        "full_fetch_count": counters["full_fetch"]["count"],
+        "metadata_count": counters["metadata"]["count"],
+        "premap_count": counters["premap"]["count"],
+        "skip_count": counters["skip"]["count"],
+    }
+    return counters
 
 
 def topk_mask(scores: torch.Tensor, *, k: int) -> torch.Tensor:

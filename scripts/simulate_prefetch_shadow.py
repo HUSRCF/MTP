@@ -73,6 +73,10 @@ def main() -> None:
             config.get("cache_capacities"),
             default=[96, 128, 160, 192, 224, 256],
         ),
+        action_keep_fraction=float(config.get("action_keep_fraction", 0.5)),
+        metadata_score_ratio=float(config.get("metadata_score_ratio", 0.95)),
+        metadata_max_extra=int(config.get("metadata_max_extra", 1)),
+        premap_max_extra=int(config.get("premap_max_extra", 1)),
     )
     written_path = write_prefetch_shadow_report(report, output_path)
     print(
@@ -85,6 +89,7 @@ def main() -> None:
                 "num_eval_token_examples": report.num_eval_token_examples,
                 "policies": report.policies,
                 "priority_tiers": report.priority_tiers,
+                "action_shadow_policies": report.action_shadow_policies,
                 "policy_working_sets": report.policy_working_sets,
                 "priority_admission_policies": report.priority_admission_policies,
                 "recommendation": report.recommendation,

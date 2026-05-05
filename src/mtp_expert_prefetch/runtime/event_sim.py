@@ -8,7 +8,8 @@ from typing import Any
 import torch
 
 from mtp_expert_prefetch.admission import (
-    AdmissionDecisionMasks,
+    add_metadata_budget_decisions,
+    add_premap_budget_decisions,
     score_threshold_mtp_extra_decision_masks,
 )
 from mtp_expert_prefetch.evaluation.prefetch_shadow import (
@@ -319,7 +320,7 @@ def simulate_stall_proxy(
                 and policy_name in gated_metadata_budget_score_tensors
                 and policy_name in gated_metadata_budget_score_thresholds
             ):
-                decisions = _merge_metadata_budget_decisions(
+                decisions = add_metadata_budget_decisions(
                     base_mask,
                     full_decisions=full_decisions,
                     metadata_scores=gated_metadata_budget_score_tensors[policy_name].to(
@@ -338,7 +339,7 @@ def simulate_stall_proxy(
             else:
                 decisions = full_decisions
             if gated_premap_budget_max_extra is not None and int(gated_premap_budget_max_extra) > 0:
-                decisions = _merge_premap_budget_decisions(
+                decisions = add_premap_budget_decisions(
                     base_mask,
                     decisions=decisions,
                     premap_scores=mtp_scores.to(transition_scores.device),
@@ -694,118 +695,6 @@ def _gated_action_downgrade_masks(
             "full_fetch_ready_layer_fraction": ready_layer_count
             / max(1.0, float(actual_layers)),
         },
-    )
-
-
-def _merge_metadata_budget_decisions(
-    base_mask: torch.Tensor,
-    *,
-    full_decisions: AdmissionDecisionMasks,
-    metadata_scores: torch.Tensor,
-    mtp_topk: int,
-    metadata_max_extra: int,
-    metadata_score_threshold: float,
-) -> AdmissionDecisionMasks:
-    """Add a separate metadata budget without changing full-fetch decisions."""
-    existing_metadata = full_decisions.admitted_metadata
-    if existing_metadata is None:
-        existing_metadata = torch.zeros_like(base_mask, dtype=torch.bool)
-    existing_premap = full_decisions.admitted_premap
-    if existing_premap is None:
-        existing_premap = torch.zeros_like(base_mask, dtype=torch.bool)
-
-    already_actioned = (
-        base_mask
-        | full_decisions.admitted_full_fetch
-        | existing_metadata
-        | existing_premap
-    )
-    empty = torch.zeros_like(base_mask, dtype=torch.bool)
-    metadata_decisions = score_threshold_mtp_extra_decision_masks(
-        already_actioned,
-        metadata_scores,
-        mtp_topk=mtp_topk,
-        max_extra=metadata_max_extra,
-        score_threshold=metadata_score_threshold,
-        policy_allowed_mask=None,
-        metadata_allowed_mask=empty,
-        premap_allowed_mask=empty,
-    )
-    budget_metadata = metadata_decisions.admitted_full_fetch & ~already_actioned
-    admitted_metadata = existing_metadata | budget_metadata
-    action_mask = full_decisions.admitted_full_fetch | admitted_metadata | existing_premap
-
-    def _merge_skip(name: str) -> torch.Tensor:
-        merged = getattr(full_decisions, name) | getattr(metadata_decisions, name)
-        return merged & ~action_mask
-
-    return AdmissionDecisionMasks(
-        admitted_full_fetch=full_decisions.admitted_full_fetch,
-        admitted_metadata=admitted_metadata,
-        admitted_premap=existing_premap,
-        skipped_not_novel=_merge_skip("skipped_not_novel"),
-        skipped_rank_cap=_merge_skip("skipped_rank_cap"),
-        skipped_below_threshold=_merge_skip("skipped_below_threshold"),
-        skipped_invalid_score=_merge_skip("skipped_invalid_score"),
-        skipped_policy=_merge_skip("skipped_policy"),
-    )
-
-
-def _merge_premap_budget_decisions(
-    base_mask: torch.Tensor,
-    *,
-    decisions: AdmissionDecisionMasks,
-    premap_scores: torch.Tensor,
-    mtp_topk: int,
-    premap_max_extra: int,
-) -> AdmissionDecisionMasks:
-    """Add a tiny independent premap budget without changing fetch actions.
-
-    Premap is intentionally not score-threshold driven: `premap_scores` only
-    provides a stable MTP candidate order. Full-fetch and metadata actions are
-    protected and remain mutually exclusive with this premap budget.
-    """
-    existing_metadata = decisions.admitted_metadata
-    if existing_metadata is None:
-        existing_metadata = torch.zeros_like(base_mask, dtype=torch.bool)
-    existing_premap = decisions.admitted_premap
-    if existing_premap is None:
-        existing_premap = torch.zeros_like(base_mask, dtype=torch.bool)
-
-    already_actioned = (
-        base_mask
-        | decisions.admitted_full_fetch
-        | existing_metadata
-        | existing_premap
-    )
-    empty = torch.zeros_like(base_mask, dtype=torch.bool)
-    premap_decisions = score_threshold_mtp_extra_decision_masks(
-        already_actioned,
-        premap_scores,
-        mtp_topk=mtp_topk,
-        max_extra=max(0, int(premap_max_extra)),
-        score_threshold=-float("inf"),
-        policy_allowed_mask=None,
-        metadata_allowed_mask=empty,
-        premap_allowed_mask=empty,
-    )
-    budget_premap = premap_decisions.admitted_full_fetch & ~already_actioned
-    admitted_premap = existing_premap | budget_premap
-    action_mask = decisions.admitted_full_fetch | existing_metadata | admitted_premap
-
-    def _merge_skip(name: str) -> torch.Tensor:
-        merged = getattr(decisions, name) | getattr(premap_decisions, name)
-        return merged & ~action_mask
-
-    return AdmissionDecisionMasks(
-        admitted_full_fetch=decisions.admitted_full_fetch,
-        admitted_metadata=existing_metadata,
-        admitted_premap=admitted_premap,
-        skipped_not_novel=_merge_skip("skipped_not_novel"),
-        skipped_rank_cap=_merge_skip("skipped_rank_cap"),
-        skipped_below_threshold=_merge_skip("skipped_below_threshold"),
-        skipped_invalid_score=_merge_skip("skipped_invalid_score"),
-        skipped_policy=_merge_skip("skipped_policy"),
     )
 
 
