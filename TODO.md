@@ -21,6 +21,7 @@ Latest implementation status:
 - [x] Add action-level counters for `full_fetch` / `metadata` / `premap` / `skip`.
 - [x] Add independent premap budget in the event simulator.
 - [x] Extend metadata-action sweep script to report premap counts, bytes, later-used rate, and net setup proxy.
+- [x] Wire independent metadata/premap budgets into the main event-stall CLI so single reports expose the same action-level counters as sweeps.
 - [x] Regression tests: `36 passed` for runtime event sim, shadow admission, runtime policy, and Pareto summary.
 
 Latest 256-sample GPU smoke, using `metadata_max_extra=1`, `metadata_ratio=0.95`, `overlap=0.90`:
@@ -29,6 +30,7 @@ Latest 256-sample GPU smoke, using `metadata_max_extra=1`, `metadata_ratio=0.95`
 - `premap_max_extra=1`: utility policy premap later-used `10552`, later-used rate `4.45%`, overlap-adjusted premap net `+38.0ms`
 - `premap_max_extra=2`: utility policy premap later-used `20040`, later-used rate `4.22%`, overlap-adjusted premap net `+70.7ms`
 - `premap_max_extra=4`: utility policy premap later-used `36103`, later-used rate `3.81%`, overlap-adjusted premap net `+121.5ms`
+- main event-stall CLI smoke with utility keep50, metadata max1, premap max1: stall reduction `6.98%`, metadata later-used `6077`, metadata overlap-adjusted net `+40.0ms`, premap later-used `10552`, premap overlap-adjusted net `+38.0ms`
 
 Interpretation:
 

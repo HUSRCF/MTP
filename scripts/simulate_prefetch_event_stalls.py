@@ -84,6 +84,35 @@ def parse_args() -> argparse.Namespace:
         help="Calibration keep fraction for gated policies, e.g. 0.5.",
     )
     parser.add_argument("--gate-max-extra", type=int, default=8)
+    parser.add_argument(
+        "--enable-metadata-budget",
+        action="store_true",
+        help="Add a separate raw-MTP-score metadata budget on top of full-fetch gating.",
+    )
+    parser.add_argument(
+        "--metadata-budget-max-extra",
+        type=int,
+        default=1,
+        help="Maximum independent metadata extras when --enable-metadata-budget is set.",
+    )
+    parser.add_argument(
+        "--metadata-budget-threshold-ratio",
+        type=float,
+        default=0.95,
+        help=(
+            "Ratio applied to the matched raw-score keep-fraction threshold for "
+            "independent metadata budget admission."
+        ),
+    )
+    parser.add_argument(
+        "--premap-budget-max-extra",
+        type=int,
+        default=0,
+        help=(
+            "Maximum independent premap extras from remaining novel MTP candidates. "
+            "Zero disables the premap budget."
+        ),
+    )
     parser.add_argument("--utility-rank-alpha", type=float, default=1.0)
     parser.add_argument("--disable-utility-layer-factor", action="store_true")
     parser.add_argument("--disable-utility-ready-factor", action="store_true")
@@ -296,6 +325,8 @@ def main() -> None:
     device = _resolve_device(args.device)
     gated_score_tensors = None
     gated_score_thresholds = None
+    gated_metadata_budget_score_tensors = None
+    gated_metadata_budget_score_thresholds = None
     if args.include_gated_policies:
         keep_fractions = sorted(
             {float(value) for value in (args.gate_keep_fraction or [0.125, 0.25, 0.5, 0.75])}
@@ -320,6 +351,30 @@ def main() -> None:
             use_ready_factor=not bool(args.disable_utility_ready_factor),
             device=device,
         )
+        if bool(args.enable_metadata_budget):
+            gated_metadata_budget_score_tensors = {
+                name: mtp_scores.to(device) for name in gated_score_tensors
+            }
+            gated_metadata_budget_score_thresholds = {}
+            for policy_name in gated_score_tensors:
+                if "_keep_top_" not in policy_name:
+                    msg = (
+                        "Metadata budget threshold matching expects gated policy names "
+                        f"with '_keep_top_', got {policy_name!r}."
+                    )
+                    raise ValueError(msg)
+                suffix = policy_name.split("_keep_top_", maxsplit=1)[1]
+                source_policy = f"score_keep_top_{suffix}"
+                if source_policy not in gated_score_thresholds:
+                    msg = (
+                        f"Missing raw-score threshold {source_policy!r} required for "
+                        f"metadata budget policy {policy_name!r}."
+                    )
+                    raise ValueError(msg)
+                gated_metadata_budget_score_thresholds[policy_name] = (
+                    float(gated_score_thresholds[source_policy])
+                    * float(args.metadata_budget_threshold_ratio)
+                )
     report = simulate_stall_proxy(
         transition_scores.to(device),
         mtp_scores.to(device),
@@ -343,6 +398,18 @@ def main() -> None:
         ),
         gated_score_tensors=gated_score_tensors,
         gated_score_thresholds=gated_score_thresholds,
+        gated_metadata_budget_score_tensors=gated_metadata_budget_score_tensors,
+        gated_metadata_budget_score_thresholds=gated_metadata_budget_score_thresholds,
+        gated_metadata_budget_max_extra=(
+            int(args.metadata_budget_max_extra)
+            if bool(args.enable_metadata_budget)
+            else None
+        ),
+        gated_premap_budget_max_extra=(
+            int(args.premap_budget_max_extra)
+            if int(args.premap_budget_max_extra) > 0
+            else None
+        ),
         gated_max_extra=int(args.gate_max_extra),
         enable_gated_action_downgrade=bool(args.enable_downgrade_actions),
         gated_metadata_threshold_ratio=float(args.downgrade_metadata_threshold_ratio),
@@ -397,6 +464,16 @@ def main() -> None:
                 "utility_rank_alpha": float(args.utility_rank_alpha),
                 "utility_layer_factor_enabled": not bool(args.disable_utility_layer_factor),
                 "utility_ready_factor_enabled": not bool(args.disable_utility_ready_factor),
+                "metadata_budget_enabled": bool(args.enable_metadata_budget),
+                "metadata_budget_max_extra": (
+                    int(args.metadata_budget_max_extra)
+                    if bool(args.enable_metadata_budget)
+                    else 0
+                ),
+                "metadata_budget_threshold_ratio": float(
+                    args.metadata_budget_threshold_ratio
+                ),
+                "premap_budget_max_extra": int(args.premap_budget_max_extra),
                 "downgrade_actions_enabled": bool(args.enable_downgrade_actions),
                 "downgrade_metadata_threshold_ratio": float(
                     args.downgrade_metadata_threshold_ratio
