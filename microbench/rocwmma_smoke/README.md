@@ -41,16 +41,18 @@ global_baseline:
   rocWMMA loads A/B directly from global memory
 
 lds_hit:
-  stage A/B into LDS, then rocWMMA loads fragments from LDS
+  stage the B/expert tile into LDS, then rocWMMA reuses it across
+  one or more synthetic token rows
 
 lds_miss_overwrite:
-  stage A and the wrong B tile into LDS, overwrite B after validation,
-  then rocWMMA consumes the corrected LDS tile
+  stage the wrong B tile into LDS, overwrite B after validation,
+  then rocWMMA consumes the corrected LDS B tile
 ```
 
-This proves the fragment can consume LDS-staged tiles on gfx1100. It is not yet
-a speedup claim: without a same-kernel validation window or tile reuse, LDS
-staging is expected to add overhead relative to a direct global load.
+This proves the fragment can consume LDS-staged B tiles on gfx1100. It is not
+yet a speedup claim: without a same-kernel validation window or enough grouped
+tile reuse, LDS staging is expected to add overhead relative to a direct global
+load.
 
 ## Run
 
@@ -66,6 +68,9 @@ python scripts/run_rocwmma_hello.py \
 python scripts/run_rocwmma_tile_stage.py \
   --device 0 \
   --device 1 \
+  --consumer-rows 1 \
+  --consumer-rows 4 \
+  --consumer-rows 8 \
   --offload-arch gfx1100 \
-  --output outputs/reports/rocwmma_smoke/rocwmma_tile_stage_2gpu.json
+  --output outputs/reports/rocwmma_smoke/rocwmma_tile_stage_reuse_2gpu.json
 ```

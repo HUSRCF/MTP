@@ -41,6 +41,7 @@ struct Options {
   int device = 0;
   int warmup = 20;
   int iters = 200;
+  int consumer_rows = 1;
   Mode mode = Mode::kGlobalBaseline;
 };
 
@@ -88,6 +89,8 @@ Options parse_args(int argc, char** argv) {
       opt.warmup = parse_int(need_value("--warmup"), "--warmup");
     } else if (arg == "--iters") {
       opt.iters = parse_int(need_value("--iters"), "--iters");
+    } else if (arg == "--consumer-rows") {
+      opt.consumer_rows = parse_int(need_value("--consumer-rows"), "--consumer-rows");
     } else if (arg == "--mode") {
       opt.mode = parse_mode(need_value("--mode"));
     } else if (arg == "--help" || arg == "-h") {
@@ -106,34 +109,29 @@ __global__ void rocwmma_tile_stage_kernel(
     const rocwmma::float16_t* __restrict__ b_true,
     const rocwmma::float16_t* __restrict__ b_wrong,
     float* __restrict__ c,
-    int mode) {
+    int mode,
+    int consumer_rows) {
   using namespace rocwmma;
   using FragA = fragment<matrix_a, kM, kN, kK, float16_t, row_major>;
   using FragB = fragment<matrix_b, kM, kN, kK, float16_t, row_major>;
   using FragC = fragment<accumulator, kM, kN, kK, float>;
 
-  __shared__ float16_t s_a[kTileElems];
   __shared__ float16_t s_b[kTileElems];
 
-  FragA frag_a;
   FragB frag_b;
   FragC frag_c;
   FragC frag_d;
 
   if (mode == static_cast<int>(Mode::kGlobalBaseline)) {
-    load_matrix_sync(frag_a, a, kK);
     load_matrix_sync(frag_b, b_true, kN);
   } else if (mode == static_cast<int>(Mode::kLdsHit)) {
     for (int idx = threadIdx.x; idx < kTileElems; idx += blockDim.x) {
-      s_a[idx] = a[idx];
       s_b[idx] = b_true[idx];
     }
     __syncthreads();
-    load_matrix_sync(frag_a, s_a, kK);
     load_matrix_sync(frag_b, s_b, kN);
   } else {
     for (int idx = threadIdx.x; idx < kTileElems; idx += blockDim.x) {
-      s_a[idx] = a[idx];
       s_b[idx] = b_wrong[idx];
     }
     __syncthreads();
@@ -143,13 +141,16 @@ __global__ void rocwmma_tile_stage_kernel(
       s_b[idx] = b_true[idx];
     }
     __syncthreads();
-    load_matrix_sync(frag_a, s_a, kK);
     load_matrix_sync(frag_b, s_b, kN);
   }
 
-  fill_fragment(frag_c, 0.0f);
-  mma_sync(frag_d, frag_a, frag_b, frag_c);
-  store_matrix_sync(c, frag_d, kN, mem_row_major);
+  for (int row = 0; row < consumer_rows; ++row) {
+    FragA frag_a;
+    load_matrix_sync(frag_a, a + row * kTileElems, kK);
+    fill_fragment(frag_c, 0.0f);
+    mma_sync(frag_d, frag_a, frag_b, frag_c);
+    store_matrix_sync(c + row * kTileElems, frag_d, kN, mem_row_major);
+  }
 }
 
 double mean(const std::vector<float>& xs) {
@@ -160,10 +161,13 @@ double mean(const std::vector<float>& xs) {
 void fill_inputs(std::vector<rocwmma::float16_t>& a,
                  std::vector<rocwmma::float16_t>& b,
                  std::vector<rocwmma::float16_t>& b_wrong) {
-  for (int m = 0; m < kM; ++m) {
-    for (int k = 0; k < kK; ++k) {
-      const float v = 0.01f * static_cast<float>((m * 3 + k * 5) % 11 - 5);
-      a[m * kK + k] = static_cast<rocwmma::float16_t>(v);
+  const int rows = static_cast<int>(a.size()) / kTileElems;
+  for (int row = 0; row < rows; ++row) {
+    for (int m = 0; m < kM; ++m) {
+      for (int k = 0; k < kK; ++k) {
+        const float v = 0.01f * static_cast<float>((row * 7 + m * 3 + k * 5) % 11 - 5);
+        a[row * kTileElems + m * kK + k] = static_cast<rocwmma::float16_t>(v);
+      }
     }
   }
   for (int k = 0; k < kK; ++k) {
@@ -178,14 +182,18 @@ void fill_inputs(std::vector<rocwmma::float16_t>& a,
 
 std::vector<float> reference(const std::vector<rocwmma::float16_t>& a,
                              const std::vector<rocwmma::float16_t>& b) {
-  std::vector<float> ref(kM * kN, 0.0f);
-  for (int m = 0; m < kM; ++m) {
-    for (int n = 0; n < kN; ++n) {
-      float acc = 0.0f;
-      for (int k = 0; k < kK; ++k) {
-        acc += static_cast<float>(a[m * kK + k]) * static_cast<float>(b[k * kN + n]);
+  const int rows = static_cast<int>(a.size()) / kTileElems;
+  std::vector<float> ref(rows * kM * kN, 0.0f);
+  for (int row = 0; row < rows; ++row) {
+    for (int m = 0; m < kM; ++m) {
+      for (int n = 0; n < kN; ++n) {
+        float acc = 0.0f;
+        for (int k = 0; k < kK; ++k) {
+          acc += static_cast<float>(a[row * kTileElems + m * kK + k]) *
+                 static_cast<float>(b[k * kN + n]);
+        }
+        ref[row * kTileElems + m * kN + n] = acc;
       }
-      ref[m * kN + n] = acc;
     }
   }
   return ref;
@@ -196,17 +204,17 @@ std::vector<float> reference(const std::vector<rocwmma::float16_t>& a,
 int main(int argc, char** argv) {
   try {
     const Options opt = parse_args(argc, argv);
-    if (opt.warmup < 0 || opt.iters <= 0) {
-      throw std::runtime_error("invalid warmup/iters");
+    if (opt.warmup < 0 || opt.iters <= 0 || opt.consumer_rows <= 0 || opt.consumer_rows > 16) {
+      throw std::runtime_error("invalid warmup/iters/consumer_rows");
     }
     HIP_CHECK(hipSetDevice(opt.device));
     hipDeviceProp_t prop{};
     HIP_CHECK(hipGetDeviceProperties(&prop, opt.device));
 
-    std::vector<rocwmma::float16_t> h_a(kTileElems);
+    std::vector<rocwmma::float16_t> h_a(opt.consumer_rows * kTileElems);
     std::vector<rocwmma::float16_t> h_b(kTileElems);
     std::vector<rocwmma::float16_t> h_b_wrong(kTileElems);
-    std::vector<float> h_c(kM * kN, 0.0f);
+    std::vector<float> h_c(opt.consumer_rows * kM * kN, 0.0f);
     fill_inputs(h_a, h_b, h_b_wrong);
     const std::vector<float> ref = reference(h_a, h_b);
 
@@ -229,7 +237,17 @@ int main(int argc, char** argv) {
     const int mode_int = static_cast<int>(opt.mode);
     for (int i = 0; i < opt.warmup; ++i) {
       hipLaunchKernelGGL(
-          rocwmma_tile_stage_kernel, dim3(1), dim3(64), 0, 0, d_a, d_b, d_b_wrong, d_c, mode_int);
+          rocwmma_tile_stage_kernel,
+          dim3(1),
+          dim3(64),
+          0,
+          0,
+          d_a,
+          d_b,
+          d_b_wrong,
+          d_c,
+          mode_int,
+          opt.consumer_rows);
       HIP_CHECK(hipGetLastError());
     }
     HIP_CHECK(hipDeviceSynchronize());
@@ -243,7 +261,17 @@ int main(int argc, char** argv) {
     for (int i = 0; i < opt.iters; ++i) {
       HIP_CHECK(hipEventRecord(start));
       hipLaunchKernelGGL(
-          rocwmma_tile_stage_kernel, dim3(1), dim3(64), 0, 0, d_a, d_b, d_b_wrong, d_c, mode_int);
+          rocwmma_tile_stage_kernel,
+          dim3(1),
+          dim3(64),
+          0,
+          0,
+          d_a,
+          d_b,
+          d_b_wrong,
+          d_c,
+          mode_int,
+          opt.consumer_rows);
       HIP_CHECK(hipGetLastError());
       HIP_CHECK(hipEventRecord(stop));
       HIP_CHECK(hipEventSynchronize(stop));
@@ -274,8 +302,9 @@ int main(int argc, char** argv) {
     std::cout << "  \"matrix_m\": " << kM << ",\n";
     std::cout << "  \"matrix_n\": " << kN << ",\n";
     std::cout << "  \"matrix_k\": " << kK << ",\n";
+    std::cout << "  \"consumer_rows\": " << opt.consumer_rows << ",\n";
     std::cout << "  \"block_threads\": 64,\n";
-    std::cout << "  \"lds_bytes_per_block\": " << (2 * kTileElems * static_cast<int>(sizeof(rocwmma::float16_t))) << ",\n";
+    std::cout << "  \"lds_bytes_per_block\": " << (kTileElems * static_cast<int>(sizeof(rocwmma::float16_t))) << ",\n";
     std::cout << "  \"input_dtype\": \"rocwmma::float16_t\",\n";
     std::cout << "  \"accum_dtype\": \"float\",\n";
     std::cout << "  \"layout_a\": \"row_major\",\n";

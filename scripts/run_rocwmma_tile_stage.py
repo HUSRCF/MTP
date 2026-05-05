@@ -54,6 +54,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--mode", action="append", default=None, choices=DEFAULT_MODES)
     parser.add_argument("--warmup", type=int, default=20)
     parser.add_argument("--iters", type=int, default=200)
+    parser.add_argument("--consumer-rows", type=int, action="append", default=None)
     parser.add_argument("--offload-arch", default="gfx1100")
     parser.add_argument("--force-build", action="store_true")
     parser.add_argument(
@@ -65,12 +66,13 @@ def parse_args() -> argparse.Namespace:
 
 
 def summarize(results: list[dict[str, Any]]) -> dict[str, Any]:
-    by_device: dict[int, dict[str, dict[str, Any]]] = {}
+    by_device_rows: dict[tuple[int, int], dict[str, dict[str, Any]]] = {}
     for row in results:
-        by_device.setdefault(int(row["device"]), {})[str(row["mode"])] = row
+        key = (int(row["device"]), int(row["consumer_rows"]))
+        by_device_rows.setdefault(key, {})[str(row["mode"])] = row
 
     comparisons: list[dict[str, Any]] = []
-    for device, rows in sorted(by_device.items()):
+    for (device, consumer_rows), rows in sorted(by_device_rows.items()):
         baseline = rows.get("global_baseline")
         if not baseline:
             continue
@@ -83,6 +85,7 @@ def summarize(results: list[dict[str, Any]]) -> dict[str, Any]:
             comparisons.append(
                 {
                     "device": device,
+                    "consumer_rows": consumer_rows,
                     "mode": mode,
                     "delta_vs_global_ms": mode_ms - base_ms,
                     "speedup_vs_global": base_ms / mode_ms if mode_ms > 0 else None,
@@ -95,32 +98,37 @@ def main() -> None:
     args = parse_args()
     devices = sorted(set(args.device or [0]))
     modes = args.mode or DEFAULT_MODES
+    consumer_rows_values = sorted(set(args.consumer_rows or [1]))
     build(force=args.force_build, offload_arch=args.offload_arch)
     results: list[dict[str, Any]] = []
     for device in devices:
-        for mode in modes:
-            result = run(
-                [
-                    str(BIN),
-                    "--device",
-                    str(device),
-                    "--mode",
-                    mode,
-                    "--warmup",
-                    str(args.warmup),
-                    "--iters",
-                    str(args.iters),
-                ]
-            )
-            payload = json.loads(result.stdout)
-            if result.stderr:
-                payload["stderr"] = result.stderr
-            results.append(payload)
+        for consumer_rows in consumer_rows_values:
+            for mode in modes:
+                result = run(
+                    [
+                        str(BIN),
+                        "--device",
+                        str(device),
+                        "--mode",
+                        mode,
+                        "--consumer-rows",
+                        str(consumer_rows),
+                        "--warmup",
+                        str(args.warmup),
+                        "--iters",
+                        str(args.iters),
+                    ]
+                )
+                payload = json.loads(result.stdout)
+                if result.stderr:
+                    payload["stderr"] = result.stderr
+                results.append(payload)
     report = {
         "ok": all(bool(row.get("ok")) for row in results),
         "config": {
             "devices": devices,
             "modes": modes,
+            "consumer_rows": consumer_rows_values,
             "warmup": args.warmup,
             "iters": args.iters,
             "offload_arch": args.offload_arch,

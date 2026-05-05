@@ -81,7 +81,8 @@ Latest implementation status:
   - [x] add independent rocWMMA hello-world smoke for W7900 / RDNA3 / gfx1100
   - [x] add global rocWMMA tile baseline smoke
   - [x] add LDS-staged rocWMMA tile consumer smoke with hit / miss overwrite correctness
-  - [ ] add rocWMMA tile-stage benchmark with same-kernel validation window and repeated tile reuse
+  - [x] add repeated B/expert tile reuse sweep via `--consumer-rows`
+  - [ ] add rocWMMA tile-stage benchmark with same-kernel validation window
   - [ ] add rocWMMA hit / miss / overwrite p_min report
   - [ ] add a WMMA-like multi-wave tile consumer after the prologue-only envelope is stable
   - keep MFMA wording out of the W7900 path; MFMA is a CDNA-oriented follow-up, not the current hardware target

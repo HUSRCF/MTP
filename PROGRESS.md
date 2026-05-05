@@ -890,8 +890,8 @@ lds_hit:
   stage A/B into LDS, then rocWMMA loads fragments from LDS
 
 lds_miss_overwrite:
-  stage A and a wrong B tile into LDS, overwrite B after validation,
-  then rocWMMA consumes the corrected LDS tile
+  stage a wrong B tile into LDS, overwrite B after validation,
+  then rocWMMA consumes the corrected LDS B tile
 ```
 
 Artifacts:
@@ -899,34 +899,53 @@ Artifacts:
 - Source: `microbench/rocwmma_smoke/rocwmma_tile_stage.hip`
 - Runner: `scripts/run_rocwmma_tile_stage.py`
 - Report: `outputs/reports/rocwmma_smoke/rocwmma_tile_stage_2gpu.json`
+- Reuse report: `outputs/reports/rocwmma_smoke/rocwmma_tile_stage_reuse_2gpu.json`
+
+The smoke now treats B as the expert weight tile and supports `--consumer-rows`.
+`lds_hit` stages B once into LDS, then reuses it across multiple synthetic
+token rows while each row loads a separate A tile from global memory.
 
 Two-GPU result:
 
 ```text
-GPU0 AMD Radeon Pro W7900:
-  global_baseline wall_ms_mean ~= 0.00978
-  lds_hit          wall_ms_mean ~= 0.01034
-  lds_miss         wall_ms_mean ~= 0.01129
-  all max_abs_err = 0.0
+consumer_rows = 1 / 4 / 8
+all modes max_abs_err = 0.0
 
-GPU1 AMD Radeon Pro W7900 Dual Slot:
-  global_baseline wall_ms_mean ~= 0.01647
-  lds_hit          wall_ms_mean ~= 0.01742
-  lds_miss         wall_ms_mean ~= 0.01871
-  all max_abs_err = 0.0
+GPU0 lds_hit speedup vs global:
+  rows=1: 0.968x
+  rows=4: 0.949x
+  rows=8: 0.947x
+
+GPU1 lds_hit speedup vs global:
+  rows=1: 0.988x
+  rows=4: 0.971x
+  rows=8: 0.966x
+
+GPU0 lds_miss_overwrite speedup vs global:
+  rows=1: 0.902x
+  rows=4: 0.898x
+  rows=8: 0.889x
+
+GPU1 lds_miss_overwrite speedup vs global:
+  rows=1: 0.914x
+  rows=4: 0.910x
+  rows=8: 0.895x
 ```
 
 Interpretation:
 
 - rocWMMA fragments can consume LDS-staged tiles correctly on gfx1100.
-- In this minimal no-overlap/no-reuse one-tile smoke, `lds_hit` is slower than
-  direct global load and `lds_miss_overwrite` is slower still. This is expected:
-  speculative LDS staging is not a default speedup mechanism unless a
-  same-kernel validation window or tile reuse hides the staging cost.
+- In this minimal no-overlap smoke, even B-tile reuse across 1/4/8 synthetic
+  rows does not beat direct rocWMMA global loads. `lds_miss_overwrite` is slower
+  still. This is expected and useful: simple LDS staging is not a default
+  speedup mechanism unless a same-kernel validation window, larger grouped tile
+  reuse, or scheduling overlap hides the staging cost.
 - This result strengthens the contract: LDS staging must remain gated by
   expected hit rate, p_min, occupancy, and available validation/metadata window.
-- Next gates are a rocWMMA tile-stage benchmark with a same-kernel validation
-  window, repeated tile reuse, and hit/miss p_min reporting.
+- Next gates are a rocWMMA tile-stage benchmark with explicit same-kernel
+  validation-window timing, more realistic grouped tile shapes, and hit/miss
+  p_min reporting. A rocprof pass should also confirm global/LDS traffic and
+  occupancy effects before any performance claim is made.
 
 ## Current Scale-Up
 
