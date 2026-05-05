@@ -1636,6 +1636,26 @@ Interpretation:
 
 ## Immediate Next Tasks
 
+- [x] Add rocWMMA multi-CTA baseline split:
+  - script: `scripts/run_rocwmma_tile_stage.py`
+  - artifact: `outputs/reports/rocwmma_smoke/rocwmma_tile_stage_multicta_2gpu.json`
+  - conclusion: LDS staging is mostly rejected against `global_frag_reuse`, but can have finite/zero `p_min` against `global_reload_per_row`
+- [x] Add rocprof classification harness:
+  - script: `scripts/run_rocwmma_rocprof_classification.py`
+  - supports legacy `rocprof` and `rocprofv3`
+  - stores raw counter CSVs and compact JSON/Markdown reports
+  - records `metric_completeness` so zero-valued counters are not misread as real no-traffic evidence
+- [ ] Find trustworthy gfx1100 rocWMMA counters:
+  - current `rocprof`/`rocprofv3` smoke reports non-zero `SQ_WAVES`, but `SQ_INSTS_LDS`, `SQ_INSTS_TEX_LOAD`, and `FETCH_SIZE` are zero on this kernel path
+  - try alternative rocprofv3 counters / agent-index settings
+  - if counters remain uninformative, use ISA/static-load inspection plus timing-based baseline classification as interim evidence
+- [ ] Classify target grouped-GEMM path:
+  - decide whether it is closer to `global_frag_reuse` or `global_reload_per_row`
+  - report wall time, global-read proxy, LDS proxy, occupancy, B reload ratio, and p_min status
+- [ ] Only continue LDS staging pipeline if target path is reload-like:
+  - double-buffer B tile
+  - producer/consumer wave split
+  - persistent grouped-GEMM skeleton
 - [x] Finish checkpoint download.
 - [x] Finish Intel AutoRound MTP-capable checkpoint download.
 - [x] Verify Intel AutoRound model load smoke without HF kernel crash.

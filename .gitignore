@@ -44,3 +44,4 @@ mlruns/
 
 # Native microbench builds
 microbench/**/build/
+.rocprofv3/

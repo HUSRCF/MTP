@@ -1784,3 +1784,84 @@ layer time = 1.0 ms
 MTP delay = 2.0 ms
 action cost overlap = 0.90
 ```
+
+## rocWMMA / LDS Staging Microbench Status
+
+Current LDS direction is deliberately gated by kernel-specific evidence:
+
+```text
+hand-written HIP LDS mock:
+  supports a speculative staging envelope under anti-artifact controls
+
+rocWMMA serial stage -> validate -> consume:
+  rejected by p_min gate
+  all tested serial configs were not_profitable_even_at_full_hit
+
+rocWMMA multi-CTA baseline split:
+  global_frag_reuse baseline:
+    LDS staging is almost always rejected
+    interpretation: no room when B fragment/register reuse is already strong
+
+  global_reload_per_row baseline:
+    several rows have finite or zero p_min
+    representative:
+      GPU0 rows=8  cta=256  p_min ~= 0.136
+      GPU0 rows=16 cta=256  p_min = 0.0
+      GPU1 rows=8  cta=256  p_min ~= 0.067
+      GPU1 rows=16 cta=256  p_min = 0.0
+    interpretation: LDS staging is conditionally viable when B-tile reload
+    pressure exists
+```
+
+Safe claim:
+
+```text
+LDS staging is conditionally viable, not universally beneficial.
+The next gate is classifying whether the real target grouped-GEMM path is
+fragment-reuse-like or reload-per-row-like.
+```
+
+rocprof classification harness:
+
+```text
+script:
+  scripts/run_rocwmma_rocprof_classification.py
+
+smoke output:
+  outputs/reports/rocwmma_smoke/rocprofv3_classification_raw_smoke/
+
+tool status:
+  rocprof-compute is not usable in the current environment because Python UI
+  dependencies are missing.
+  legacy rocprof works only when counters are split into HW-feasible groups.
+  rocprofv3 is available and the harness supports per-metric runs to avoid
+  multi-counter hangs.
+
+current counter caveat:
+  On the W7900/gfx1100 rocWMMA smoke, SQ_WAVES is non-zero but SQ_INSTS_LDS /
+  SQ_INSTS_TEX_LOAD / FETCH_SIZE currently report zero under rocprof/rocprofv3.
+  Therefore these counters are not yet trusted for B-reload classification.
+  The harness explicitly records metric_completeness so zero-valued counter
+  runs are not misread as real no-traffic evidence.
+```
+
+Next LDS / rocWMMA steps:
+
+```text
+1. Find a trustworthy counter path for gfx1100:
+   - try rocprofv3 alternative counters / agent-index settings
+   - if counters remain uninformative, use ISA/static-load inspection plus
+     timing-based baseline classification as an interim result
+
+2. Once counters are trustworthy, report:
+   kernel, wall_time, global_read_bytes, LDS traffic, occupancy,
+   WMMA utilization proxy, B_reload_ratio, p_min_status
+
+3. Only if the target path is reload-like:
+   move to double-buffer / producer-consumer / persistent grouped-GEMM
+   pipeline experiments.
+
+4. If the target path is fragment-reuse-like:
+   demote LDS staging from primary runtime action and focus on dispatch /
+   metadata / premap scheduling instead.
+```
