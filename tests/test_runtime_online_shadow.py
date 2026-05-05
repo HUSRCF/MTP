@@ -3,6 +3,7 @@ import torch
 from mtp_expert_prefetch.runtime import (
     AdmissionDecisionMasks,
     OnlineShadowLogger,
+    RuntimeShadowController,
     build_shadow_summary_from_decisions,
 )
 from mtp_expert_prefetch.runtime.shadow_log import (
@@ -164,3 +165,99 @@ def test_online_shadow_logger_write_action_summary_uses_adapter(tmp_path):
     assert aggregate["summary_count"] == 1
     assert aggregate["full_fetch_count"] == 1
     assert aggregate["decision_us_mean"] == 3.0
+
+
+def test_runtime_shadow_controller_joins_action_summary_and_router_outcome(tmp_path):
+    shape = (1, 1, 1, 6)
+    full_fetch = torch.zeros(shape, dtype=torch.bool)
+    full_fetch[..., 1] = True
+    metadata = torch.zeros(shape, dtype=torch.bool)
+    metadata[..., 2] = True
+    premap = torch.zeros(shape, dtype=torch.bool)
+    premap[..., 3] = True
+    skipped = torch.zeros(shape, dtype=torch.bool)
+    skipped[..., 4] = True
+    empty = torch.zeros(shape, dtype=torch.bool)
+    ready = torch.zeros(shape, dtype=torch.bool)
+    ready[..., 0] = True
+    ready[..., 1] = True
+    decisions = AdmissionDecisionMasks(
+        admitted_full_fetch=full_fetch,
+        admitted_metadata=metadata,
+        admitted_premap=premap,
+        skipped_not_novel=empty,
+        skipped_rank_cap=empty,
+        skipped_below_threshold=skipped,
+        skipped_invalid_score=empty,
+        skipped_policy=empty,
+    )
+    event_id = ShadowEventId("req", 0, 7, 4)
+    policy = ShadowPolicyConfig(
+        policy_mode="default",
+        optimization_goal="stall_reduction",
+        action_keep_fraction=0.5,
+        metadata_score_ratio=0.95,
+        full_fetch_max_extra=4,
+        metadata_max_extra=1,
+        premap_max_extra=1,
+    )
+    path = tmp_path / "joined_shadow.jsonl"
+
+    with RuntimeShadowController(OnlineShadowLogger(path)) as controller:
+        controller.write_action_summary(
+            event_id=event_id,
+            policy=policy,
+            decisions=decisions,
+            ready_mask=ready,
+        )
+        controller.write_router_outcome(
+            event_id=event_id,
+            true_topk_experts=[1, 2, 4, 5],
+            true_topk_weights=[0.6, 0.25, 0.1, 0.05],
+        )
+        aggregate = controller.aggregate()
+
+    rows = read_shadow_jsonl(path)
+    assert [row["event_type"] for row in rows] == ["summary", "outcome"]
+    outcome = rows[1]
+    assert outcome["shadow_event_id"] == "req:0:7:4"
+    assert outcome["full_fetch_used_count"] == 1
+    assert outcome["metadata_later_used_count"] == 1
+    assert outcome["premap_later_used_count"] == 0
+    assert outcome["skip_would_have_used_count"] == 1
+    assert outcome["covered_mass"] == 0.6
+    assert outcome["miss_mass"] == 0.4
+    assert outcome["top1_ready"] is True
+    assert outcome["weighted_top1_miss"] == 0.0
+    assert aggregate["summary_count"] == 1
+    assert aggregate["outcome_count"] == 1
+    assert aggregate["full_fetch_used_count"] == 1
+    assert aggregate["metadata_later_used_count"] == 1
+    assert aggregate["top1_ready_rate"] == 1.0
+
+
+def test_runtime_shadow_controller_preserves_outcome_when_summary_missing(tmp_path):
+    event_id = ShadowEventId("req", 0, 8, 5)
+    path = tmp_path / "fallback_shadow.jsonl"
+    event = ShadowOutcomeEvent(
+        event_id=event_id,
+        true_topk_experts=[3],
+        true_topk_weights=[1.0],
+        full_fetch_used_count=0,
+        metadata_later_used_count=0,
+        premap_later_used_count=0,
+        skip_would_have_used_count=0,
+        covered_mass=0.0,
+        miss_mass=1.0,
+        top1_ready=False,
+        weighted_top1_miss=1.0,
+    )
+
+    with RuntimeShadowController(OnlineShadowLogger(path)) as controller:
+        controller.write_outcome(event)
+
+    rows = read_shadow_jsonl(path)
+    assert len(rows) == 1
+    assert rows[0]["event_type"] == "outcome"
+    assert rows[0]["shadow_event_id"] == "req:0:8:5"
+    assert rows[0]["miss_mass"] == 1.0

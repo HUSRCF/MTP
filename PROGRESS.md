@@ -307,6 +307,45 @@ Offline shadow replay now uses the same adapter for small JSONL summary events,
 so future online summary hooks and offline replay share one summary-construction
 path.
 
+Joined online shadow controller:
+
+```text
+RuntimeShadowController
+  writes action summaries through OnlineShadowLogger.write_action_summary(...)
+  caches action masks by shadow_event_id
+  implements the vLLM recorder outcome sink protocol
+  enriches true-router outcomes with later-used / ready metrics
+```
+
+The controller is still shadow-only:
+
+```text
+no real prefetch
+no cache mutation
+no scheduler mutation
+no router/logit changes
+```
+
+Outcome join semantics:
+
+```text
+summary side:
+  stores full_fetch / metadata / premap / skip masks
+  optionally stores queue/cache-aware ready_mask
+
+outcome side:
+  joins by request_id:sequence_id:token_index:layer
+  full_fetch_used_count = full_fetch action ∩ true_topk
+  metadata_later_used_count = metadata action ∩ true_topk
+  premap_later_used_count = premap action ∩ true_topk
+  skip_would_have_used_count = skip action ∩ true_topk
+  covered_mass / top1_ready come only from ready_mask
+```
+
+If no matching summary is pending, the controller writes the recorder's
+outcome-only skeleton unchanged. This keeps outcome-only vLLM logging safe while
+allowing full action/outcome joining when both sides are wired.
+
 ## Current Default Evaluation Settings
 
 ```text

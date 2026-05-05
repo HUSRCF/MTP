@@ -52,6 +52,10 @@ from mtp_expert_prefetch.runtime.online_shadow import (
     OnlineShadowLogger,
     build_shadow_summary_from_decisions,
 )
+from mtp_expert_prefetch.runtime.shadow_controller import (
+    PendingShadowDecision,
+    RuntimeShadowController,
+)
 from mtp_expert_prefetch.runtime.shadow_log import (
     ShadowCandidateEvent,
     ShadowEventId,
@@ -75,7 +79,9 @@ __all__ = [
     "PrefetchGoal",
     "PrefetchPriority",
     "OnlineShadowLogger",
+    "PendingShadowDecision",
     "build_shadow_summary_from_decisions",
+    "RuntimeShadowController",
     "RuntimePrefetchPolicy",
     "RuntimeSignals",
     "AdmissionAction",
