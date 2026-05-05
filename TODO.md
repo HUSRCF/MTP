@@ -1161,6 +1161,34 @@ future MoE expert demand on Qwen3.6-35B-A3B.
       - metadata-specific gating should use raw MTP-score high tail, not the full-fetch utility score
       - metadata is only justified as a high-overlap / idle-window action; score ratios `0.95` or `0.99` are the current safest metadata candidates
       - full-fetch remains utility-gated; metadata should have its own action-specific gate
+- [x] Add two-budget metadata action policy:
+  - module: `src/mtp_expert_prefetch/runtime/event_sim.py`
+  - script controls in `scripts/sweep_metadata_action_gate.py`:
+    - `--enable-metadata-budget`
+    - `--metadata-budget-max-extra`
+  - semantics:
+    - full-fetch budget remains controlled by the policy score tensor, normally utility-gated
+    - metadata gets a separate raw-MTP-score budget and does not consume full-fetch `max_extra`
+    - metadata remains action-only and does not enter `final_prefetch_mask` / ready-before-demand / supplemental-fetch reduction
+    - action masks remain mutually exclusive
+  - regression:
+    - `tests/test_runtime_event_sim.py::test_simulate_stall_proxy_supports_separate_metadata_budget`
+  - GPU0 smoke:
+    - output: `outputs/reports/prefetch_shadow_256sample_mtp_extra/metadata_two_budget_smoke.json`
+    - config: metadata budget max-extra `4`, metadata ratio `0.95`, overlap `0.8`
+    - result: still net-negative because the independent metadata budget is too broad
+  - narrow metadata-budget trial:
+    - output: `outputs/reports/prefetch_shadow_256sample_mtp_extra/metadata_two_budget_extra1_tail_sweep.json`
+    - config: metadata budget max-extra `1`, metadata ratios `0.95/0.99`, overlaps `0.9/0.95`
+    - utility full-fetch policy + metadata budget:
+      - ratio `0.95`, overlap `0.9`: metadata later-used `7.41%`, net setup `+40.0ms`
+      - ratio `0.95`, overlap `0.95`: metadata later-used `7.41%`, net setup `+80.8ms`
+      - ratio `0.99`, overlap `0.9`: metadata later-used `7.64%`, net setup `+39.6ms`
+      - ratio `0.99`, overlap `0.95`: metadata later-used `7.64%`, net setup `+76.5ms`
+  - interpretation:
+    - metadata should be an independent, narrow, opportunistic budget
+    - current safe default candidate: metadata budget max-extra `1`, ratio `0.95`, enabled only when overlap is at least about `0.9`
+    - broader metadata budgets require stronger idle/overlap evidence or a better metadata-specific utility model
 - [x] Extend score-threshold metadata into a reproducible artifact:
   - dataclass: `ScoreThresholdMetadata`
   - added fields:

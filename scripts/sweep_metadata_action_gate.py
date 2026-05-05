@@ -46,6 +46,17 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--mtp-topk", type=int, default=64)
     parser.add_argument("--gate-max-extra", type=int, default=4)
     parser.add_argument("--gate-keep-fraction", type=float, default=0.5)
+    parser.add_argument(
+        "--enable-metadata-budget",
+        action="store_true",
+        help="Add a separate raw-MTP-score metadata budget on top of full-fetch gating.",
+    )
+    parser.add_argument(
+        "--metadata-budget-max-extra",
+        type=int,
+        default=4,
+        help="Maximum independent metadata extras when --enable-metadata-budget is set.",
+    )
     parser.add_argument("--metadata-ratio", type=float, action="append", default=None)
     parser.add_argument("--overlap-factor", type=float, action="append", default=None)
     parser.add_argument(
@@ -112,6 +123,11 @@ def main() -> None:
         use_ready_factor=True,
         device=device,
     )
+    metadata_budget_score_policy = f"score_keep_top_{float(args.gate_keep_fraction):.3f}"
+    if args.enable_metadata_budget and metadata_budget_score_policy not in gated_score_thresholds:
+        raise ValueError(
+            f"Missing metadata budget source threshold {metadata_budget_score_policy!r}."
+        )
     metadata_ratios = args.metadata_ratio or [0.5, 0.75, 0.9, 0.95, 0.99]
     overlap_factors = args.overlap_factor or [0.0, 0.5, 0.8, 0.9, 0.95]
     if args.num_shards < 1:
@@ -165,9 +181,25 @@ def main() -> None:
             admission_capacity_per_layer=int(args.admission_capacity_per_layer),
             gated_score_tensors=gated_score_tensors,
             gated_score_thresholds=gated_score_thresholds,
+            gated_metadata_budget_score_tensors=(
+                {policy_name: mtp_scores_device for policy_name in gated_score_tensors}
+                if args.enable_metadata_budget
+                else None
+            ),
+            gated_metadata_budget_score_thresholds=(
+                {
+                    policy_name: float(gated_score_thresholds[metadata_budget_score_policy])
+                    * float(metadata_ratio)
+                    for policy_name in gated_score_tensors
+                }
+                if args.enable_metadata_budget
+                else None
+            ),
+            gated_metadata_budget_max_extra=int(args.metadata_budget_max_extra),
             gated_max_extra=int(args.gate_max_extra),
             enable_gated_action_downgrade=True,
             gated_metadata_threshold_ratio=float(metadata_ratio),
+            gated_metadata_downgrade_enabled=not bool(args.enable_metadata_budget),
             gated_premap_downgrade_enabled=False,
             gated_full_fetch_ready_threshold=float(args.full_fetch_ready_threshold),
             metadata_bytes=int(args.metadata_bytes),
@@ -222,6 +254,8 @@ def main() -> None:
         "overlap_factors": [float(value) for value in overlap_factors],
         "num_shards": int(args.num_shards),
         "shard_index": int(args.shard_index),
+        "enable_metadata_budget": bool(args.enable_metadata_budget),
+        "metadata_budget_max_extra": int(args.metadata_budget_max_extra),
         "sweep_points": [
             {"metadata_ratio": ratio, "overlap_factor": overlap}
             for ratio, overlap in sweep_pairs

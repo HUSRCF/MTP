@@ -7,7 +7,10 @@ from typing import Any
 
 import torch
 
-from mtp_expert_prefetch.admission import score_threshold_mtp_extra_decision_masks
+from mtp_expert_prefetch.admission import (
+    AdmissionDecisionMasks,
+    score_threshold_mtp_extra_decision_masks,
+)
 from mtp_expert_prefetch.evaluation.prefetch_shadow import (
     mask_metrics,
     novel_mtp_extra_mask,
@@ -55,6 +58,9 @@ def simulate_stall_proxy(
     admission_capacity_per_layer: int | None = None,
     gated_score_tensors: dict[str, torch.Tensor] | None = None,
     gated_score_thresholds: dict[str, float] | None = None,
+    gated_metadata_budget_score_tensors: dict[str, torch.Tensor] | None = None,
+    gated_metadata_budget_score_thresholds: dict[str, float] | None = None,
+    gated_metadata_budget_max_extra: int | None = None,
     gated_max_extra: int | None = None,
     enable_gated_action_downgrade: bool = False,
     gated_metadata_threshold_ratio: float = 0.5,
@@ -296,7 +302,7 @@ def simulate_stall_proxy(
                     metadata_enabled=gated_metadata_downgrade_enabled,
                     premap_enabled=gated_premap_downgrade_enabled,
                 )
-            decisions = score_threshold_mtp_extra_decision_masks(
+            full_decisions = score_threshold_mtp_extra_decision_masks(
                 base_mask,
                 score_tensor.to(transition_scores.device),
                 mtp_topk=mtp_topk,
@@ -306,6 +312,30 @@ def simulate_stall_proxy(
                 metadata_allowed_mask=metadata_allowed_mask,
                 premap_allowed_mask=premap_allowed_mask,
             )
+            if (
+                gated_metadata_budget_score_tensors is not None
+                and gated_metadata_budget_score_thresholds is not None
+                and policy_name in gated_metadata_budget_score_tensors
+                and policy_name in gated_metadata_budget_score_thresholds
+            ):
+                decisions = _merge_metadata_budget_decisions(
+                    base_mask,
+                    full_decisions=full_decisions,
+                    metadata_scores=gated_metadata_budget_score_tensors[policy_name].to(
+                        transition_scores.device
+                    ),
+                    mtp_topk=mtp_topk,
+                    metadata_max_extra=(
+                        gated_cap
+                        if gated_metadata_budget_max_extra is None
+                        else int(gated_metadata_budget_max_extra)
+                    ),
+                    metadata_score_threshold=float(
+                        gated_metadata_budget_score_thresholds[policy_name]
+                    ),
+                )
+            else:
+                decisions = full_decisions
             requested_mask = decisions.final_prefetch_mask(base_mask)
             issued_mask = requested_mask & gated_admission
             ready_mask = gated_ready_raw & issued_mask
@@ -341,6 +371,18 @@ def simulate_stall_proxy(
             metrics["gated_action_downgrade_enabled"] = float(
                 bool(enable_gated_action_downgrade)
             )
+            if (
+                gated_metadata_budget_score_thresholds is not None
+                and policy_name in gated_metadata_budget_score_thresholds
+            ):
+                metrics["metadata_budget_score_threshold"] = float(
+                    gated_metadata_budget_score_thresholds[policy_name]
+                )
+                metrics["metadata_budget_max_extra"] = float(
+                    gated_cap
+                    if gated_metadata_budget_max_extra is None
+                    else int(gated_metadata_budget_max_extra)
+                )
             if enable_gated_action_downgrade:
                 metrics["metadata_score_threshold"] = float(
                     threshold * float(gated_metadata_threshold_ratio)
@@ -639,6 +681,60 @@ def _gated_action_downgrade_masks(
             "full_fetch_ready_layer_fraction": ready_layer_count
             / max(1.0, float(actual_layers)),
         },
+    )
+
+
+def _merge_metadata_budget_decisions(
+    base_mask: torch.Tensor,
+    *,
+    full_decisions: AdmissionDecisionMasks,
+    metadata_scores: torch.Tensor,
+    mtp_topk: int,
+    metadata_max_extra: int,
+    metadata_score_threshold: float,
+) -> AdmissionDecisionMasks:
+    """Add a separate metadata budget without changing full-fetch decisions."""
+    existing_metadata = full_decisions.admitted_metadata
+    if existing_metadata is None:
+        existing_metadata = torch.zeros_like(base_mask, dtype=torch.bool)
+    existing_premap = full_decisions.admitted_premap
+    if existing_premap is None:
+        existing_premap = torch.zeros_like(base_mask, dtype=torch.bool)
+
+    already_actioned = (
+        base_mask
+        | full_decisions.admitted_full_fetch
+        | existing_metadata
+        | existing_premap
+    )
+    empty = torch.zeros_like(base_mask, dtype=torch.bool)
+    metadata_decisions = score_threshold_mtp_extra_decision_masks(
+        already_actioned,
+        metadata_scores,
+        mtp_topk=mtp_topk,
+        max_extra=metadata_max_extra,
+        score_threshold=metadata_score_threshold,
+        policy_allowed_mask=None,
+        metadata_allowed_mask=empty,
+        premap_allowed_mask=empty,
+    )
+    budget_metadata = metadata_decisions.admitted_full_fetch & ~already_actioned
+    admitted_metadata = existing_metadata | budget_metadata
+    action_mask = full_decisions.admitted_full_fetch | admitted_metadata | existing_premap
+
+    def _merge_skip(name: str) -> torch.Tensor:
+        merged = getattr(full_decisions, name) | getattr(metadata_decisions, name)
+        return merged & ~action_mask
+
+    return AdmissionDecisionMasks(
+        admitted_full_fetch=full_decisions.admitted_full_fetch,
+        admitted_metadata=admitted_metadata,
+        admitted_premap=existing_premap,
+        skipped_not_novel=_merge_skip("skipped_not_novel"),
+        skipped_rank_cap=_merge_skip("skipped_rank_cap"),
+        skipped_below_threshold=_merge_skip("skipped_below_threshold"),
+        skipped_invalid_score=_merge_skip("skipped_invalid_score"),
+        skipped_policy=_merge_skip("skipped_policy"),
     )
 
 

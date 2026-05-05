@@ -202,3 +202,42 @@ def test_simulate_stall_proxy_downgrades_gated_actions_without_prefetching():
     assert matrix["admitted_metadata"]["metadata"]["count"] == pytest.approx(1.0)
     assert matrix["admitted_premap"]["premap"]["count"] == pytest.approx(1.0)
     assert matrix["admitted_score_gate"]["full_fetch"]["count"] == pytest.approx(0.0)
+
+
+def test_simulate_stall_proxy_supports_separate_metadata_budget():
+    transition = torch.tensor([[[[0.9, 0.8, 0.0, 0.0, 0.0]]]])
+    mtp = torch.tensor([[[[0.0, 0.0, 0.95, 0.80, 0.70]]]])
+    utility = torch.tensor([[[[0.0, 0.0, 0.10, 0.01, 0.01]]]])
+    target_mass = torch.tensor([[[[0.5, 0.3, 0.2, 0.0, 0.1]]]])
+
+    report = simulate_stall_proxy(
+        transition,
+        mtp,
+        target_mass,
+        transition_topk=2,
+        mtp_topk=5,
+        max_extras=[2],
+        num_layers=1,
+        layer_ms=1.0,
+        sampling_ms=1.0,
+        bandwidth_gbps=1.0,
+        expert_bytes=100,
+        gated_score_tensors={"utility_keep_top": utility},
+        gated_score_thresholds={"utility_keep_top": 0.05},
+        gated_metadata_budget_score_tensors={"utility_keep_top": mtp},
+        gated_metadata_budget_score_thresholds={"utility_keep_top": 0.75},
+        gated_metadata_budget_max_extra=2,
+        gated_max_extra=1,
+    )
+
+    gated = report.policies["transition_top2_plus_gated_utility_keep_top"]
+    assert gated["admission_action_counters"]["full_fetch"]["count"] == pytest.approx(1.0)
+    assert gated["admission_action_counters"]["metadata"]["count"] == pytest.approx(1.0)
+    assert gated["requested_count"] == pytest.approx(3.0)
+    assert gated["issued_count"] == pytest.approx(3.0)
+    assert gated["supplemental_fetch_count"] == pytest.approx(1.0)
+    assert gated["admission_action_outcomes"]["metadata"]["later_used_count"] == pytest.approx(
+        0.0
+    )
+    assert gated["metadata_budget_score_threshold"] == pytest.approx(0.75)
+    assert gated["metadata_budget_max_extra"] == pytest.approx(2.0)
