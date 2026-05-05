@@ -250,11 +250,10 @@ class VllmRouterRecorder:
                 if self.shadow_transition_topk_count is not None
                 else min(32, num_experts)
             )
-            topk = torch.topk(
+            topk = _stable_desc_topk_indices(
                 transition_scores,
                 k=max(1, min(transition_count, num_experts)),
-                dim=-1,
-            ).indices
+            )
             base = torch.zeros(shape, dtype=torch.bool)
             base[..., topk] = True
             return base, transition_count
@@ -430,11 +429,26 @@ def _transition_scores_from_topk(
     if ids.shape != weights.shape:
         msg = "previous_topk_ids and previous_topk_weights must share shape."
         raise ValueError(msg)
+    valid_weight_sum = 0.0
+    valid_pairs: list[tuple[int, float]] = []
     for expert_id, weight in zip(ids.tolist(), weights.tolist()):
         expert_idx = int(expert_id)
         if 0 <= expert_idx < num_experts:
-            feature[expert_idx] += max(0.0, float(weight))
+            clipped = max(0.0, float(weight))
+            valid_pairs.append((expert_idx, clipped))
+            valid_weight_sum += clipped
+    if valid_weight_sum <= 0.0:
+        return feature
+    for expert_idx, weight in valid_pairs:
+        feature[expert_idx] += float(weight) / valid_weight_sum
     return feature @ matrix[0, int(layer_id), :num_experts, :num_experts]
+
+
+def _stable_desc_topk_indices(scores: torch.Tensor, *, k: int) -> torch.Tensor:
+    values = scores.detach().cpu().float().flatten().tolist()
+    k = max(0, min(int(k), len(values)))
+    selected = sorted(range(len(values)), key=lambda idx: (-float(values[idx]), int(idx)))[:k]
+    return torch.tensor(selected, dtype=torch.long)
 
 
 def patch_vllm_qwen35_moe_router_trace() -> None:

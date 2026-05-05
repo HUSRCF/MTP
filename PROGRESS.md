@@ -2,9 +2,9 @@
 
 ## Progress Version
 
-- Version: `v0.6-runtime-shadow-replay`
+- Version: `v0.7-online-matrix-transition-shadow`
 - Updated: 2026-05-05
-- Current phase: 512-sample scale-up validation for action-level runtime policy
+- Current phase: online matrix_topk transition shadow validation
 
 ## Runtime Policy Contract
 
@@ -26,6 +26,50 @@ Safety boundaries:
 - `metadata` and `premap` are setup-preparation actions only.
 - MTP extras must be novel additions and cannot replace `transition_top32`.
 
+## Novelty / Prior-Art Guard
+
+Independent novelty check result, 2026-05-05:
+
+```text
+Do not claim:
+  first MoE expert prefetch
+  first speculative/draft/MTP-assisted expert prefetch
+  new cross-layer expert prediction
+  new cache scheduling framework
+
+Closest-overlap areas:
+  ProMoE / MoE-Infinity style expert prefetch and offload
+  FATE / pre-attention / internal-state expert prediction
+  SP-MoE / MoE-SpeQ style speculative or draft-token expert prefetch
+  Speculating Experts style representation-based future expert speculation
+  SpecMD-style cache policy benchmarks
+
+Safe positioning:
+  native MTP signals are evaluated as low-trust future expert-map hints
+  true router remains authoritative
+  native MTP router/hidden predictors are negative baselines on Qwen3.6-A3B
+  MTP token prior is useful only as novel-extra candidate expansion beyond
+  a protected same-layer transition baseline
+  utility/action admission determines whether hints become full_fetch,
+  metadata, premap, or skip
+```
+
+Required baselines for paper-level claims:
+
+```text
+load-on-demand / no prefetch
+LRU / LFU / least-stale cache policies
+transition_top32 only
+frequency / popularity-only
+ProMoE-style learned predictor
+FATE-style cross-layer or gate-input predictor
+DuoServe-style layer predictor
+MTP token-prior / hidden-router-only / full-hidden variants
+SP-MoE or MoE-SpeQ-style speculative token baseline under matched budget
+oracle next-token experts and oracle queue/lead-time upper bound
+utility/action policy ablations
+```
+
 ## Passed Gates
 
 - vLLM router recorder labels are trusted.
@@ -39,6 +83,8 @@ Safety boundaries:
 - Transfer-capacity fallback gate is implemented in runtime policy.
 - Runtime shadow schema records gate outcome and policy overhead fields.
 - Runtime shadow replay exporter writes action-level summary/outcome JSONL from tensor caches.
+- vLLM online runtime shadow joins action summaries and true-router outcomes.
+- Online `matrix_topk` transition summaries are wired with calibrated transition artifacts.
 
 ## Current Scale-Up
 
@@ -469,10 +515,70 @@ matrix_topk:
   purpose = real online transition_topK summary path
 ```
 
-The smoke config currently keeps `previous_topk` so the offset sentinel remains
-simple. `matrix_topk` is implemented and covered by tests; the next validation
-step is to provide a calibrated transition matrix artifact and run the same
-online joined-rate check with `transition_topk_count = 32`.
+`previous_topk` remains the offset sentinel. `matrix_topk` is now backed by a
+calibrated transition matrix artifact and is the formal online
+`transition_topK` summary path.
+
+Calibrated matrix artifact:
+
+```text
+path:
+  outputs/artifacts/transition_matrix_512sample_calibrated.pt
+
+metadata:
+  outputs/artifacts/transition_matrix_512sample_calibrated.json
+
+shape:
+  transition_matrix = [1, 40, 256, 256]
+  frequency_scores  = [1, 1, 40, 256]
+
+split:
+  train samples   = 384
+  heldout samples = 128
+  train token examples = 35,223
+
+semantics:
+  delta=1 means token t -> token t+1 same-layer transition
+  previous-token top-k weights are renormalized before matrix lookup
+  stable tie-break is score descending, expert_id ascending
+```
+
+Matrix smoke config:
+
+```text
+configs/trace/router_mtp_trace_aya_dataset_awq_vllm_matrix_shadow_smoke.yaml
+```
+
+Smoke run, GPU1 W7900 Dual Slot:
+
+```text
+command:
+  HIP_VISIBLE_DEVICES=1 python scripts/trace_router_mtp_vllm.py \
+    configs/trace/router_mtp_trace_aya_dataset_awq_vllm_matrix_shadow_smoke.yaml
+
+runtime_shadow rows = 10,120
+summary_count = 5,040
+outcome_count = 5,080
+joined_outcome_count = 5,040
+outcome_only_count = 40
+summary_only_timeout_count = 0
+```
+
+Online matrix_top32 smoke metrics on the 1-sample trace:
+
+```text
+covered_mass_mean = 0.8515
+top1_ready_rate = 0.9384
+weighted_top1_miss_mean = 0.01635
+```
+
+Interpretation:
+
+```text
+token0 outcome_only remains the expected sentinel
+token1..126 x 40 layers are joined
+matrix_topk has passed the real vLLM online summary/outcome join check
+```
 
 ## Current Default Evaluation Settings
 

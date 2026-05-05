@@ -1,0 +1,29 @@
+model: configs/model/qwen3_6_35b_a3b_awq_4bit.yaml
+data: configs/data/aya_dataset_smoke.yaml
+output_dir: data/traces/aya_dataset_smoke_awq_vllm_matrix_shadow_smoke
+trace:
+  capture_router_topk: true
+  capture_router_scores: true
+  use_router_logits_recorder: true
+  capture_hidden_states: none
+  capture_native_mtp_router: false
+  future_window: 4
+  max_samples: 1
+  max_length: 128
+  max_tokens: 1
+  router_module_prefix: model.language_model
+  token_source_manifest: data/traces/aya_dataset_smoke_autoround/manifest.jsonl
+  runtime_shadow:
+    enabled: true
+    output_path: data/traces/aya_dataset_smoke_awq_vllm_matrix_shadow_smoke/runtime_shadow.jsonl
+    overwrite: true
+    flush_every: 1
+    max_pending: 10000
+    emit_transition_summaries: true
+    transition_summary_mode: matrix_topk
+    transition_topk_count: 32
+    transition_matrix_path: outputs/artifacts/transition_matrix_512sample_calibrated.pt
+    request_id_prefix: sample_
+    sequence_id: 0
+    token_offset: 0
+    flush_pending_as_timeouts: true

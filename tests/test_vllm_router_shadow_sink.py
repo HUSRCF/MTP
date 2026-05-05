@@ -203,3 +203,40 @@ def test_vllm_router_recorder_emits_matrix_topk_transition_summaries(tmp_path):
     assert rows[2]["join_status"] == "joined"
     assert rows[2]["covered_mass"] == pytest.approx(1.0)
     assert rows[2]["top1_ready"] is True
+
+
+def test_vllm_matrix_topk_transition_is_weighted_and_stable(tmp_path):
+    path = tmp_path / "matrix_transition_weighted_shadow.jsonl"
+    transition = torch.zeros(1, 1, 6, 6)
+    transition[0, 0, 1, 4] = 1.0
+    transition[0, 0, 2, 5] = 10.0
+    transition[0, 0, 1, 0] = 0.5
+    transition[0, 0, 2, 0] = 0.5
+    transition[0, 0, 1, 3] = 0.5
+    transition[0, 0, 2, 3] = 0.5
+    with RuntimeShadowController(OnlineShadowLogger(path)) as controller:
+        recorder = VllmRouterRecorder(
+            top_k=3,
+            shadow_outcome_sink=controller,
+            shadow_emit_transition_summary=True,
+            shadow_num_experts=6,
+            shadow_transition_topk_count=3,
+            shadow_transition_summary_mode="matrix_topk",
+            shadow_transition_matrix=transition,
+            request_id="req",
+            sequence_id=0,
+            token_offset=0,
+        )
+        recorder.record_topk(
+            layer_id=0,
+            topk_ids=torch.tensor([[1, 2, 0], [4, 0, 3]]),
+            topk_weights=torch.tensor([[8.0, 2.0, 0.0], [0.6, 0.3, 0.1]]),
+        )
+
+    rows = read_shadow_jsonl(path)
+    assert rows[1]["full_fetch_count"] == 0
+    assert rows[2]["join_status"] == "joined"
+    # Weight renormalization makes expert 4 outrank expert 5. Experts 0 and 3
+    # tie, so expert-id ascending tie-break includes expert 0 for top3.
+    assert rows[2]["covered_mass"] == pytest.approx(0.9)
+    assert rows[2]["top1_ready"] is True
