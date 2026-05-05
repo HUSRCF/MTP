@@ -41,3 +41,6 @@ third_party/GPTQModel/
 logs/
 wandb/
 mlruns/
+
+# Native microbench builds
+microbench/**/build/

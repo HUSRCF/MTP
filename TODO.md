@@ -33,14 +33,18 @@ Latest implementation status:
   - primary moat is now speculative tile/prologue staging in LDS
   - HIP Graph / descriptor patching remains a secondary execution shell
   - explicit boundary: CPU cannot prewrite LDS; LDS staging must happen inside a kernel / persistent prologue
-- [ ] Add speculative LDS tile-staging microbench:
+- [x] Add speculative LDS tile-staging microbench skeleton:
   - baseline reactive grouped-GEMM prologue: true metadata -> HBM tile load -> LDS -> FMA
   - oracle tile staging: stage the correct first tiles in LDS
   - speculative tile staging: transition + MTP priority -> LDS stage -> validate
   - worst-case staging: deliberately wrong tiles -> invalidate / overwrite penalty
-  - router-interference stress: measure wave/LDS/bandwidth interference with router or metadata builder
-  - metrics: first-FMA latency, prologue latency, LDS tile reuse rate, LDS bytes written, miss overwrite cost, discarded tile fraction, router overlap loss, occupancy/LDS pressure
-  - break-even report: `cost_stage < saved_prologue_us`
+  - current metrics: first-FMA cycles, stage cycles, metadata-wait cycles, miss overwrite cycles, wall-time, overlap-model speedup
+- [ ] Extend LDS tile-staging microbench:
+  - sweep `tile_elems`, `validate_iters`, `block_threads`, and `miss_rate`
+  - add router-interference stress: measure wave/LDS/bandwidth interference with router or metadata builder
+  - add explicit LDS tile reuse rate, discarded tile fraction, occupancy/LDS pressure, and `cost_stage < saved_prologue_us` break-even report
+  - add a real FMA/MFMA grouped-GEMM mock after the prologue-only envelope is stable
+  - add rocWMMA or CK variant only after the hand-written HIP prologue benchmark remains positive
 - [ ] Add HIP Graph metadata-patching microbench as secondary system-shell evidence:
   - eager dummy grouped-MoE dispatch latency
   - HIP graph launch latency

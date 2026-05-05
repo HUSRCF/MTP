@@ -136,6 +136,96 @@ they already rebuild routing metadata on GPU. The differentiated question is
 whether low-trust native MTP hints can profitably act below that layer, as
 micro-architectural tile-stage priorities with bounded miss cost.
 
+## LDS Tile-Staging Microbench Skeleton
+
+Implemented P0 skeleton:
+
+- `microbench/lds_tile_staging/lds_tile_staging_bench.hip`
+- `scripts/run_lds_tile_staging_bench.py`
+- `microbench/lds_tile_staging/README.md`
+
+The benchmark is intentionally hand-written HIP rather than rocWMMA/CK. The
+reason is measurement isolation: P0 needs to expose LDS bytes, staged tile
+latency, validation wait, miss overwrite cost, and first-FMA timing before
+integrating with a real grouped-GEMM pipeline.
+
+Measured modes:
+
+```text
+reactive:
+  wait for true metadata, then load true tile HBM -> LDS
+
+oracle:
+  stage the correct tile before validation
+
+spec_hit:
+  stage predicted tile, validate as correct
+
+spec_miss:
+  stage predicted tile, validate as wrong, overwrite LDS with true tile
+
+mixed:
+  controlled hit/miss blend
+```
+
+Default smoke config:
+
+```text
+requests=4096
+experts=256
+tile_elems=1024  # 4KB tile
+block_threads=256
+validate_iters=256
+iters=100
+miss_rate=0.25
+```
+
+Reports:
+
+- GPU0 W7900: `outputs/reports/lds_tile_staging/default_gpu0.json`
+- GPU1 W7900 Dual Slot: `outputs/reports/lds_tile_staging/default_gpu1.json`
+
+Key default-smoke result:
+
+```text
+GPU0 mixed 25% miss:
+  overlap_model_speedup_vs_reactive ~= 1.32x
+  overlap_model_delta_vs_reactive   ~= -4431 cycles
+
+GPU0 spec_hit:
+  overlap_model_speedup_vs_reactive ~= 1.37x
+
+GPU0 spec_miss:
+  overlap_model_speedup_vs_reactive ~= 1.20x
+  overwrite_cycles_p50_miss         ~= 1413 cycles
+
+GPU1 mixed 25% miss:
+  overlap_model_speedup_vs_reactive ~= 1.32x
+
+GPU1 spec_miss:
+  overlap_model_speedup_vs_reactive ~= 1.21x
+```
+
+Interpretation:
+
+- The raw single-kernel first-FMA timing is mostly serial and should not be
+  overinterpreted as true router/staging overlap.
+- The benchmark therefore reports an explicit overlap model:
+  `reactive = wait + true_load`, `hit = max(wait, stage)`,
+  `miss = max(wait, stage) + overwrite`.
+- Under that model, LDS miss overwrite remains small relative to the hidden
+  staging window, which supports the premise that the miss blast radius is much
+  smaller than HBM-level expert prefetch.
+
+Next LDS microbench gates:
+
+```text
+1. sweep tile_elems, validate_iters, block_threads, and miss_rate
+2. add router-interference mode that runs a competing metadata/router-like kernel
+3. add rocWMMA/CK grouped-GEMM variant if the isolated prologue envelope remains positive
+4. compare against a reactive grouped-GEMM mock with real MFMA/FMA work
+```
+
 ## Current Scale-Up
 
 512-sample configs are committed in:
