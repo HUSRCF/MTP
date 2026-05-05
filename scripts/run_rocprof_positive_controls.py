@@ -62,6 +62,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--skip-discovery", action="store_true")
+    parser.add_argument(
+        "--agent-index",
+        choices=["absolute", "relative", "type-relative"],
+        default=None,
+        help="Optional rocprofv3 -A/--agent-index mode for agent-index A/B checks.",
+    )
     return parser.parse_args()
 
 
@@ -89,7 +95,7 @@ def binary_command(args: argparse.Namespace, *, device: int, mode: str) -> list[
 
 def profile_command(args: argparse.Namespace, *, device: int, mode: str, metric: str, out_prefix: Path) -> list[str]:
     kernel_regex = "global_load_heavy_kernel" if mode == "global_load" else "lds_heavy_kernel"
-    return [
+    cmd = [
         "rocprofv3",
         "--pmc",
         metric,
@@ -104,6 +110,9 @@ def profile_command(args: argparse.Namespace, *, device: int, mode: str, metric:
         "--",
         *binary_command(args, device=device, mode=mode),
     ]
+    if args.agent_index is not None:
+        cmd[1:1] = ["--agent-index", args.agent_index]
+    return cmd
 
 
 def counter_csv(out_prefix: Path, metric: str) -> Path:
@@ -217,6 +226,7 @@ def main() -> None:
             "source": str(SRC),
             "dry_run": args.dry_run,
             "discovery_enabled": not args.skip_discovery,
+            "agent_index": args.agent_index,
         },
         "discovery": collect_discovery(devices=devices, metrics=metrics, skip=args.skip_discovery),
         "commands": commands,

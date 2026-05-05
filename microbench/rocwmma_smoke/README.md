@@ -123,3 +123,15 @@ python scripts/inspect_hip_isa_static.py \
 Static inspection is supporting evidence only. It can show that the target
 kernel contains global loads, LDS loads/stores, barriers, and WMMA/matrix ops,
 but it cannot replace trustworthy hardware byte counters.
+
+For counter salvage, the scripts support `--agent-index` so `rocprofv3` can be
+checked under `relative`, `type-relative`, or `absolute` agent indexing. On the
+current GPU0 smoke, both visible-device masking and `--agent-index
+type-relative` still leave only `SQ_WAVES` non-zero, so the current traffic
+counters remain non-informative.
+
+For cleaner static evidence, prefer mode-specialized kernels over a single
+runtime mode-switch kernel. A single kernel can contain branches for
+`global_frag_reuse`, `global_reload_per_row`, `lds_hit`, and
+`lds_miss_overwrite` at the same time, which makes static instruction counts
+conservative but mixed.

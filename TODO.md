@@ -1654,18 +1654,24 @@ Interpretation:
   - `microbench/rocwmma_smoke/rocprof_positive_controls.hip`
   - `scripts/run_rocprof_positive_controls.py`
   - GPU0 smoke: `global_load_heavy` and `lds_heavy` both produce non-zero `SQ_WAVES`, but `SQ_INSTS_LDS`, `SQ_INSTS_TEX_LOAD`, and `FETCH_SIZE` remain zero
+  - `HIP_VISIBLE_DEVICES=0 ROCR_VISIBLE_DEVICES=0 HSA_VISIBLE_DEVICES=0` does not change the result
+  - `rocprofv3 --agent-index type-relative` does not change the result
   - conclusion: current rocprofv3 counter path is non-informative even for obvious traffic; do not infer B-reload behavior from these counter values
 - [x] Add static ISA inspection fallback:
   - `scripts/inspect_hip_isa_static.py`
   - extracts `.hip_fatbin`, unbundles gfx1100 device object, runs `llvm-objdump -d`
   - counts global-load, LDS-load/store, barrier, waitcnt, and WMMA/matrix instruction buckets
 - [ ] Find trustworthy gfx1100 counters or an accepted fallback:
-  - try alternative rocprofv3 counters / agent-index settings only if positive controls can become informative
+  - try alternative raw-ish global/L2/TA/LDS counters only if positive controls can become informative
+  - current visibility-mask and `--agent-index type-relative` checks did not recover traffic counters
   - otherwise use static ISA inspection plus timing-based baseline classification as interim evidence
 - [ ] Classify target grouped-GEMM path:
   - decide whether it is closer to `global_frag_reuse` or `global_reload_per_row`
   - report wall time, static global/LDS instruction buckets, timing similarity, and p_min status
   - only report hardware B-reload ratio if counters pass positive controls
+- [ ] Add mode-specialized static inspection targets:
+  - avoid relying on one mode-switch kernel whose static instruction counts mix all branches
+  - prefer separate kernels or `template<int Mode>` / `if constexpr` specializations for `global_frag_reuse`, `global_reload_per_row`, `lds_hit`, and `lds_miss_overwrite`
 - [ ] Only continue LDS staging pipeline if target path is reload-like:
   - double-buffer B tile
   - producer/consumer wave split

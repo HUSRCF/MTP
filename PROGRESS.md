@@ -1867,6 +1867,16 @@ counter discovery / positive-control follow-up:
   trustworthy counter path is found, B-reload classification must not use these
   counter values.
 
+  Visibility / agent-index salvage checks:
+    HIP_VISIBLE_DEVICES=0 / ROCR_VISIBLE_DEVICES=0 / HSA_VISIBLE_DEVICES=0
+    does not change the result.
+    rocprofv3 --agent-index type-relative also does not change the result.
+
+  Both runs still report SQ_WAVES = 2048 for 256 blocks x 256 threads on
+  wave32, while the selected traffic counters remain zero. This confirms that
+  the kernel filter, parser, and basic agent selection are working, but the
+  traffic/LDS counter values remain unsuitable for claims.
+
 static ISA fallback:
   scripts/inspect_hip_isa_static.py extracts .hip_fatbin, unbundles the
   gfx1100 device object, disassembles it, and counts instruction buckets such
@@ -1885,11 +1895,12 @@ static ISA fallback:
 Next LDS / rocWMMA steps:
 
 ```text
-1. Keep trying for a trustworthy counter path, but treat the current
-   rocprofv3 counter values as non-informative:
+1. Keep trying for a trustworthy counter path only through positive controls,
+   but treat the current rocprofv3 counter values as non-informative:
    - rocprofv3-avail discovery is recorded
    - positive-control kernels fail to produce non-zero LDS/global traffic
      counters beyond SQ_WAVES
+   - visibility masks and --agent-index type-relative did not fix the issue
 
 2. Use static ISA inspection plus timing-based baseline classification as the
    interim path:
