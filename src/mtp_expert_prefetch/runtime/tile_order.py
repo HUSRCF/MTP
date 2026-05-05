@@ -11,7 +11,7 @@ from collections import Counter, OrderedDict
 from dataclasses import dataclass
 import random
 from statistics import mean
-from typing import Any, Iterable, Mapping, Sequence
+from typing import Any, Callable, Iterable, Mapping, Sequence
 
 
 @dataclass(frozen=True)
@@ -182,6 +182,15 @@ def order_window(
             requests,
             key=lambda item: (-item.utility_score, item.tile_id, item.expert_id, item.request_id),
         )
+    if policy == "transition_tile_grouped":
+        return _order_tile_groups_by_score(requests, lambda item: item.transition_score)
+    if policy == "mtp_transition_tile_grouped":
+        return _order_tile_groups_by_score(
+            requests,
+            lambda item: item.transition_score + item.mtp_score,
+        )
+    if policy == "utility_tile_grouped":
+        return _order_tile_groups_by_score(requests, lambda item: item.utility_score)
     if policy == "oracle_cache_aware":
         counts = Counter(item.tile_id for item in requests)
         return sorted(
@@ -189,6 +198,28 @@ def order_window(
             key=lambda item: (-counts[item.tile_id], item.tile_id, item.expert_id, item.request_id),
         )
     raise ValueError(f"unknown tile-order policy: {policy}")
+
+
+def _order_tile_groups_by_score(
+    requests: Sequence[TileRequest],
+    score_fn: Callable[[TileRequest], float],
+) -> list[TileRequest]:
+    groups: dict[int, list[TileRequest]] = {}
+    for item in requests:
+        groups.setdefault(item.tile_id, []).append(item)
+    group_items = []
+    for tile_id, items in groups.items():
+        max_score = max(score_fn(item) for item in items)
+        total_score = sum(score_fn(item) for item in items)
+        group_items.append((tile_id, max_score, total_score, len(items), items))
+    ordered_groups = sorted(
+        group_items,
+        key=lambda row: (-row[1], -row[2], -row[3], row[0]),
+    )
+    ordered: list[TileRequest] = []
+    for _, _, _, _, items in ordered_groups:
+        ordered.extend(sorted(items, key=lambda item: (item.expert_id, item.request_id)))
+    return ordered
 
 
 def order_tile_requests(
@@ -380,4 +411,3 @@ def evaluate_tile_order_policies(
         "best_by_cache_size": best_by_cache,
         "best_reuse_distance_policy": best_reuse["policy"],
     }
-

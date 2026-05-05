@@ -37,6 +37,20 @@ def test_transition_hot_first_uses_transition_score_before_mtp_score():
     assert [item.tile_id for item in ordered] == [20, 30, 10]
 
 
+def test_utility_tile_grouped_keeps_tile_runs_while_ordering_hot_groups():
+    requests = [
+        TileRequest(0, 0, 1, 1, utility_score=0.1),
+        TileRequest(0, 1, 2, 2, utility_score=0.9),
+        TileRequest(0, 2, 1, 1, utility_score=0.2),
+        TileRequest(0, 3, 2, 2, utility_score=0.8),
+        TileRequest(0, 4, 3, 3, utility_score=0.7),
+    ]
+
+    ordered = order_tile_requests(requests, policy="utility_tile_grouped")
+
+    assert [item.tile_id for item in ordered] == [2, 2, 3, 1, 1]
+
+
 def test_tile_order_report_identifies_oracle_reuse_policy():
     requests = [
         TileRequest(0, 0, 1, 1, utility_score=0.2),

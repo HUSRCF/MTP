@@ -2075,6 +2075,24 @@ utility_hot_first:
   LRU@32 = 0.794
   tile_order_hit_rate = 0.491
 
+transition_tile_grouped:
+  reuse_distance_mean = 19.45
+  LRU@8 = 0.833
+  LRU@32 = 0.835
+  tile_order_hit_rate = 0.461
+
+MTP+transition_tile_grouped:
+  reuse_distance_mean = 19.40
+  LRU@8 = 0.833
+  LRU@32 = 0.835
+  tile_order_hit_rate = 0.489
+
+utility_tile_grouped:
+  reuse_distance_mean = 19.41
+  LRU@8 = 0.833
+  LRU@32 = 0.835
+  tile_order_hit_rate = 0.491
+
 oracle_cache_aware:
   reuse_distance_mean = 19.19
   LRU@8 = 0.834
@@ -2088,6 +2106,11 @@ Interpretation:
 Pure B-tile grouping maximizes small-cache locality but loses hot-first order.
 Transition/MTP/utility hot-first improves tile-order hit rate while preserving
 part of the locality gain over linear order.
+
+The hybrid tile-grouped policies are the current best non-oracle candidates:
+they keep the locality of B-tile grouping while ordering tile groups by
+transition/MTP/utility score. `utility_tile_grouped` keeps LRU@8 near `0.833`
+and raises tile-order hit rate from `0.119` to `0.491`.
 
 This validates the pivot as a schedulability question:
   choose between locality-first and hot-first tile visitation,

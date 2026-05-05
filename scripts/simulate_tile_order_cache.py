@@ -27,6 +27,9 @@ DEFAULT_POLICIES = [
     "transition_hot_first",
     "mtp_transition_hot_first",
     "utility_hot_first",
+    "transition_tile_grouped",
+    "mtp_transition_tile_grouped",
+    "utility_tile_grouped",
     "oracle_cache_aware",
 ]
 
