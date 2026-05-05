@@ -63,6 +63,50 @@ Active chain:
 - Does premap remain positive only as tiny/idle descriptor prep?
 - Are 512-scale results consistent with 256-sample conclusions?
 
+## Latest 512-Sample Results
+
+Artifacts:
+
+- Tensor cache: `outputs/reports/prefetch_shadow_512sample_mtp_extra/event_stall_tensor_cache_512sample.pt`
+- Baseline action report: `outputs/reports/prefetch_shadow_512sample_mtp_extra/event_stall_action_policy_512_baseline.json`
+- Normal Pareto report: `outputs/reports/prefetch_shadow_512sample_mtp_extra/event_stall_action_pareto_512_normal.json`
+- Stress report: `outputs/reports/prefetch_shadow_512sample_mtp_extra/event_stall_action_stress_512_bw2_layer025_delay8.json`
+- Compact summary: `outputs/reports/prefetch_shadow_512sample_mtp_extra/action_sweep_512_compact.md`
+
+Normal envelope (`6.589 GB/s`, `1.0 ms/layer`, `2.0 ms MTP delay`, `cap160`):
+
+```text
+transition@32: ready_mass=0.8006, top1=0.9065, weighted_miss=0.0224
+fixed extra4: ready_mass=0.8245, top1=0.9234, stall_reduction=10.69%
+fixed extra8: ready_mass=0.8362, top1=0.9293, stall_reduction=16.33%
+score keep50: ready_mass=0.8174, top1=0.9199, stall_reduction=7.10%
+utility keep50: ready_mass=0.8184, top1=0.9206, stall_reduction=7.61%
+```
+
+Normal-envelope action results:
+
+```text
+utility keep50 metadata later-used = 12183
+utility keep50 premap later-used   = 21299
+score keep50 metadata later-used   = 8734
+score keep50 premap later-used     = 20631
+```
+
+Stress envelope (`2 GB/s`, `0.25 ms/layer`, `8.0 ms MTP delay`, `cap160`):
+
+```text
+transition@32: ready_mass=0.5485, top1=0.7069, weighted_miss=0.0713
+MTP extra ready fraction = 0.0
+fixed/gated MTP full-fetch stall reduction = 0.0
+```
+
+Interpretation:
+
+- 512-sample normal-envelope results are consistent with and stronger than the 256-sample direction.
+- Utility-gated full-fetch remains the best default gate among score/utility gates.
+- Fixed extra4/extra8 remain aggressive upper baselines, not default runtime behavior.
+- In the severe transfer-insufficient regime, MTP full-fetch correctly has no ready-before-demand value; runtime should fall back to transition-only plus optional metadata/premap shadow/prep.
+
 ## Current Default Evaluation Settings
 
 ```text
