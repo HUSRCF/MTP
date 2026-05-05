@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Evaluate p_min-gated LDS staging eligibility from a microbench sweep CSV."""
+"""Evaluate p_min-gated LDS staging eligibility from a microbench sweep."""
 
 from __future__ import annotations
 
@@ -25,6 +25,12 @@ def parse_args() -> argparse.Namespace:
         "--csv",
         type=Path,
         default=Path("outputs/reports/lds_tile_staging/sweep_grouped_consumer_rows_2gpu.csv"),
+    )
+    parser.add_argument(
+        "--rocwmma-json",
+        type=Path,
+        default=None,
+        help="Read p_min rows from scripts/run_rocwmma_tile_stage.py JSON output.",
     )
     parser.add_argument("--mode", default="mixed")
     parser.add_argument("--safety-margin", type=float, default=0.05)
@@ -68,6 +74,39 @@ def _read_rows(path: Path, mode: str) -> list[dict[str, str]]:
     return rows
 
 
+def _read_rocwmma_rows(path: Path) -> list[dict[str, str]]:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    rows: list[dict[str, str]] = []
+    for item in payload.get("summary", {}).get("p_min", []):
+        p_min = item.get("p_min_hit_rate")
+        status = str(item.get("status", ""))
+        rows.append(
+            {
+                "source": "rocwmma_json",
+                "mode": "mixed",
+                "p_min_status": status,
+                "p_min_hit_rate_clamped": "" if p_min is None else str(float(p_min)),
+                "occupancy_blocks_per_cu": str(item.get("occupancy_blocks_per_cu", 0)),
+                "tile_elems": "256",
+                "metadata_tokens": "0",
+                "compute_iters": "0",
+                "consumer_rows": str(item.get("consumer_rows", 0)),
+                "validate_iters": str(item.get("validate_iters", 0)),
+                "miss_rate": "0",
+                "tile_stride": "0",
+                "cache_flush_elems": "0",
+                "overlap_model_speedup_vs_reactive": "0",
+                "global_ms": str(item.get("global_ms", "")),
+                "hit_ms": str(item.get("hit_ms", "")),
+                "miss_ms": str(item.get("miss_ms", "")),
+            }
+        )
+    if not rows:
+        msg = f"No summary.p_min rows found in {path}."
+        raise RuntimeError(msg)
+    return rows
+
+
 def _float(row: dict[str, str], key: str, default: float = 0.0) -> float:
     value = row.get(key)
     if value in (None, ""):
@@ -101,28 +140,35 @@ def evaluate(
         for row in rows:
             occupancy = _int(row, "occupancy_blocks_per_cu", 0)
             p_min = row.get("p_min_hit_rate_clamped")
+            p_min_status = row.get("p_min_status", "")
             if p_min in (None, ""):
                 missing_pmin += 1
                 gate = False
                 required = None
+                reason = "lds_p_min_not_profitable" if p_min_status else "lds_missing_calibration"
             else:
                 required = float(p_min) + float(safety_margin)
                 if occupancy < int(min_occupancy_blocks):
                     occupancy_blocked += 1
                     gate = False
+                    reason = "lds_occupancy_low"
                 elif float(expected_hit) >= required:
                     enabled += 1
                     gate = True
+                    reason = "lds_hit_rate_above_p_min"
                     thresholds.append(required)
                     speedups.append(_float(row, "overlap_model_speedup_vs_reactive", 0.0))
                 else:
                     below_pmin += 1
                     gate = False
+                    reason = "lds_hit_rate_below_p_min"
             tier_rows.append(
                 {
                     "tier": tier_name,
                     "expected_hit_rate": expected_hit,
                     "gate_enabled": gate,
+                    "gate_reason": reason,
+                    "p_min_status": p_min_status,
                     "required_hit_rate": required,
                     "p_min_hit_rate_clamped": None if p_min in (None, "") else float(p_min),
                     "occupancy_blocks_per_cu": occupancy,
@@ -130,6 +176,7 @@ def evaluate(
                     "metadata_tokens": _int(row, "metadata_tokens", 0),
                     "compute_iters": _int(row, "compute_iters", 0),
                     "consumer_rows": _int(row, "consumer_rows", 0),
+                    "validate_iters": _int(row, "validate_iters", 0),
                     "miss_rate": _float(row, "miss_rate", 0.0),
                     "tile_stride": _int(row, "tile_stride", 0),
                     "cache_flush_elems": _int(row, "cache_flush_elems", 0),
@@ -169,15 +216,15 @@ def _write_md(path: Path, payload: dict[str, Any]) -> None:
     lines = [
         "# LDS Stage Policy Evaluation",
         "",
-        "| tier | expected hit | enabled | total | enabled fraction | mean required hit | mean speedup | blocked low occupancy | below p_min |",
-        "|---|---:|---:|---:|---:|---:|---:|---:|---:|",
+        "| tier | expected hit | enabled | total | enabled fraction | mean required hit | mean speedup | blocked low occupancy | below p_min | missing / not-profitable p_min |",
+        "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
     for tier, item in payload["summary"].items():
         mean_required = item["mean_required_hit_rate_when_enabled"]
         mean_speedup = item["mean_speedup_when_enabled"]
         lines.append(
             "| {tier} | {expected:.3f} | {enabled} | {total} | {frac:.3f} | "
-            "{required} | {speedup} | {occ} | {below} |".format(
+            "{required} | {speedup} | {occ} | {below} | {missing} |".format(
                 tier=tier,
                 expected=float(item["expected_hit_rate"]),
                 enabled=int(item["enabled_rows"]),
@@ -187,6 +234,7 @@ def _write_md(path: Path, payload: dict[str, Any]) -> None:
                 speedup="-" if mean_speedup is None else f"{float(mean_speedup):.3f}",
                 occ=int(item["occupancy_blocked_rows"]),
                 below=int(item["below_pmin_rows"]),
+                missing=int(item["missing_pmin_rows"]),
             )
         )
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -195,7 +243,7 @@ def _write_md(path: Path, payload: dict[str, Any]) -> None:
 
 def main() -> None:
     args = parse_args()
-    rows = _read_rows(args.csv, args.mode)
+    rows = _read_rocwmma_rows(args.rocwmma_json) if args.rocwmma_json else _read_rows(args.csv, args.mode)
     payload = evaluate(
         rows,
         _tiers(args.tier),
@@ -203,7 +251,8 @@ def main() -> None:
         min_occupancy_blocks=args.min_occupancy_blocks,
     )
     payload["config"] = {
-        "csv": str(args.csv),
+        "csv": str(args.csv) if not args.rocwmma_json else None,
+        "rocwmma_json": str(args.rocwmma_json) if args.rocwmma_json else None,
         "mode": args.mode,
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)

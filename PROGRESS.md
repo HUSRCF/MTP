@@ -974,6 +974,8 @@ profitable when T_spec < T_global
 Artifact:
 
 - Report: `outputs/reports/rocwmma_smoke/rocwmma_tile_stage_validate_2gpu.json`
+- Policy eval: `outputs/reports/rocwmma_smoke/lds_stage_policy_eval_rocwmma_serial.json`
+- Policy eval markdown: `outputs/reports/rocwmma_smoke/lds_stage_policy_eval_rocwmma_serial.md`
 
 Grid:
 
@@ -990,6 +992,12 @@ Result:
 all rows ok = true
 all max_abs_err = 0.0
 all 18 p_min rows = not_profitable_even_at_full_hit
+policy evaluator:
+  transition_top16 enabled = 0 / 18
+  transition_top17_32 enabled = 0 / 18
+  mtp_extra1_4 enabled = 0 / 18
+  mtp_extra5_8 enabled = 0 / 18
+  random_control enabled = 0 / 18
 ```
 
 Representative rows:
@@ -1017,7 +1025,8 @@ Interpretation:
   shapes, or rocprof-confirmed latency hiding.
 - The runtime policy implication remains conservative: `lds_stage` is disabled
   unless measured p_min is finite and the expected hit rate clears it with a
-  safety margin.
+  safety margin. The runtime gate now reports `lds_p_min_not_profitable` for
+  non-finite / not-profitable p_min artifacts.
 
 ## Current Scale-Up
 

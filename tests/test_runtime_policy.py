@@ -307,6 +307,25 @@ def test_select_runtime_prefetch_policy_rejects_lds_stage_when_occupancy_low():
     assert policy.lds_stage_reason == "lds_occupancy_low"
 
 
+def test_select_runtime_prefetch_policy_rejects_lds_stage_when_p_min_not_profitable():
+    policy = select_runtime_prefetch_policy(
+        RuntimeSignals(
+            transition_ready_rate=0.95,
+            cache_pressure=0.70,
+            queue_pressure=0.70,
+            effective_capacity=144,
+            mtp_delay_ms=2.0,
+            lds_expected_hit_rate=1.0,
+            lds_p_min_hit_rate=float("inf"),
+            lds_occupancy_blocks_per_cu=8,
+        )
+    )
+
+    assert policy.mode == "default"
+    assert policy.allow_lds_stage is False
+    assert policy.lds_stage_reason == "lds_p_min_not_profitable"
+
+
 def test_select_runtime_prefetch_policy_can_allow_lds_stage_when_h2d_fallbacks():
     policy = select_runtime_prefetch_policy(
         RuntimeSignals(

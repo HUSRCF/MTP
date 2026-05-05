@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 from enum import IntEnum
+import math
 from typing import Literal
 
 
@@ -341,6 +342,8 @@ def select_lds_stage_gate(
         return False, "transition_not_ready"
     if signals.lds_expected_hit_rate is None or signals.lds_p_min_hit_rate is None:
         return False, "lds_missing_calibration"
+    if not math.isfinite(float(signals.lds_p_min_hit_rate)):
+        return False, "lds_p_min_not_profitable"
     if signals.lds_occupancy_blocks_per_cu is not None and int(
         signals.lds_occupancy_blocks_per_cu
     ) < int(thresholds.min_lds_occupancy_blocks_per_cu):
