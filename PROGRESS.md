@@ -2,8 +2,8 @@
 
 ## Progress Version
 
-- Version: `v0.8-speculative-lds-staging`
-- Updated: 2026-05-05
+- Version: `v0.9-lds-anti-artifact-controls`
+- Updated: 2026-05-06
 - Current phase: online action shadow validated; pivoting system moat to speculative LDS tile staging
 
 ## Runtime Policy Contract
@@ -222,8 +222,8 @@ Next LDS microbench gates:
 ```text
 1. sweep tile_elems, validate_iters, block_threads, and miss_rate
 2. add router-interference mode that runs a competing metadata/router-like kernel
-3. add rocWMMA/CK grouped-GEMM variant if the isolated prologue envelope remains positive
-4. compare against a reactive grouped-GEMM mock with real MFMA/FMA work
+3. add rocWMMA grouped-GEMM variant for RDNA3 W7900 if the isolated prologue envelope remains positive
+4. compare against a reactive grouped-GEMM mock with real WMMA-like / rocWMMA work
 ```
 
 Completed sweep scripts:
@@ -419,7 +419,7 @@ global_no_lds:
 ```
 
 It also supports `--compute-iters`, a lightweight grouped-GEMM consumer mock
-that repeats FMA passes over the staged tile. This is not rocWMMA or MFMA yet;
+that repeats FMA passes over the staged tile. This is not rocWMMA yet;
 it only verifies that the staged LDS state is consumed by nontrivial compute.
 
 Control / compute report:
@@ -468,8 +468,198 @@ Control interpretation:
   `spec_hit` path, so ordinary global cache warming is not enough to explain
   the speculative LDS hit result.
 - As compute becomes heavier, first-FMA/prologue savings are diluted in total
-  wall time; this is expected and means the next MFMA/rocWMMA stage should
+  wall time; this is expected and means the next WMMA/rocWMMA stage should
   report both first-FMA/prologue latency and end-to-end kernel time.
+- The compute mock now supports `--consumer-rows`, where each workgroup reuses
+  the staged expert tile across multiple synthetic token rows. This is still
+  hand-written FMA, not rocWMMA, but it is closer to grouped-GEMM tile
+  reuse than a single pass over the tile.
+
+Hardware target note:
+
+```text
+The current local GPUs are W7900 / RDNA3. The next real matrix path should be
+WMMA / rocWMMA-oriented. MFMA is a CDNA-oriented follow-up and should not be
+used as the primary W7900 claim.
+```
+
+Anti-artifact counters and stride/flush controls:
+
+The LDS bench now reports explicit staged-tile outcomes:
+
+```text
+staged_tile_count
+staged_tile_consumed_count
+staged_tile_discarded_count
+fallback_true_tile_load_count
+staged_tile_consumed_fraction
+staged_tile_discarded_fraction
+```
+
+It also reports LDS pressure / occupancy proxies:
+
+```text
+lds_bytes_per_block
+lds_limited_blocks_per_cu
+thread_limited_blocks_per_cu
+occupancy_blocks_per_cu
+```
+
+New anti-artifact knobs:
+
+```text
+--tile-stride:
+  spaces logical expert tiles apart in the physical tile array, increasing the
+  working set and reducing accidental locality
+
+--cache-flush-elems:
+  touches a separate global buffer before the measured kernel, reducing cache
+  warming artifacts
+```
+
+Stride/flush control sweep:
+
+- Report: `outputs/reports/lds_tile_staging/sweep_antifact_stride_flush_2gpu.json`
+- CSV: `outputs/reports/lds_tile_staging/sweep_antifact_stride_flush_2gpu.csv`
+- Markdown: `outputs/reports/lds_tile_staging/sweep_antifact_stride_flush_2gpu.md`
+- Plot: `outputs/reports/lds_tile_staging/sweep_antifact_stride_flush_2gpu.png`
+
+Grid:
+
+```text
+tile_elems = [1024]
+metadata_tokens = [64]
+validate_iters = [0]
+compute_iters = [4]
+miss_rate = [0.25, 0.5]
+block_threads = [256]
+tile_stride = [1, 4]
+cache_flush_elems = [0, 1048576]
+devices = [GPU0, GPU1]
+include_controls = true
+```
+
+Summary:
+
+```text
+spec_hit:
+  positive rows = 8 / 8
+  speedup >= 1.1x = 8 / 8
+  mean overlap-model speedup = 1.183x
+  staged consumed fraction = 1.000
+
+mixed:
+  positive rows = 8 / 8
+  speedup >= 1.1x = 8 / 8
+  mean overlap-model speedup = 1.128x
+  staged consumed fraction ~= 0.629
+  staged discarded fraction ~= 0.371
+
+spec_miss:
+  positive rows = 8 / 8
+  speedup >= 1.1x = 0 / 8
+  mean overlap-model speedup = 1.043x
+  staged discarded fraction = 1.000
+```
+
+Control wall-time check:
+
+```text
+spec_hit:
+  mean wall delta vs reactive ~= -0.00079 ms
+  staged consumed fraction = 1.000
+
+wrong_no_consume:
+  mean wall delta vs reactive ~= +0.00111 ms
+  staged consumed fraction = 0.000
+  staged discarded fraction = 1.000
+
+global_no_lds:
+  mean wall delta vs reactive ~= +0.00118 ms
+  staged consumed fraction = 0.000
+```
+
+Interpretation:
+
+- Stride/flush controls do not erase the `spec_hit` prologue envelope under the
+  same-kernel metadata-builder mock.
+- `wrong_no_consume` and `global_no_lds` do not reproduce the `spec_hit`
+  wall-time path, so the hit result is less likely to be explained only by
+  global cache warming.
+- Control-mode overlap-model values are not used as speedup claims, because
+  those modes intentionally do not consume staged LDS tile state.
+- Miss paths remain lower value than hit paths. This reinforces the need for a
+  hit-rate / utility gate before enabling LDS staging.
+
+Grouped-consumer sweep:
+
+- Report: `outputs/reports/lds_tile_staging/sweep_grouped_consumer_rows_2gpu.json`
+- CSV: `outputs/reports/lds_tile_staging/sweep_grouped_consumer_rows_2gpu.csv`
+- Markdown: `outputs/reports/lds_tile_staging/sweep_grouped_consumer_rows_2gpu.md`
+- Plot: `outputs/reports/lds_tile_staging/sweep_grouped_consumer_rows_2gpu.png`
+
+Grid:
+
+```text
+tile_elems = [1024]
+metadata_tokens = [64]
+validate_iters = [0]
+compute_iters = [2]
+consumer_rows = [1, 4, 8]
+miss_rate = [0.25, 0.5]
+block_threads = [256]
+tile_stride = [4]
+cache_flush_elems = [1048576]
+devices = [GPU0, GPU1]
+```
+
+Summary:
+
+```text
+spec_hit:
+  positive rows = 6 / 6
+  speedup >= 1.1x = 6 / 6
+  mean overlap-model speedup = 1.269x
+
+mixed:
+  positive rows = 6 / 6
+  speedup >= 1.1x = 6 / 6
+  mean overlap-model speedup = 1.156x
+
+spec_miss:
+  positive rows = 5 / 6
+  speedup >= 1.1x = 0 / 6
+  mean overlap-model speedup = 1.024x
+```
+
+Grouped by tile reuse:
+
+```text
+consumer_rows=1:
+  spec_hit mean ~= 1.289x
+  mixed mean ~= 1.151x
+  spec_miss mean ~= 1.040x
+
+consumer_rows=4:
+  spec_hit mean ~= 1.280x
+  mixed mean ~= 1.167x
+  spec_miss mean ~= 1.003x
+
+consumer_rows=8:
+  spec_hit mean ~= 1.237x
+  mixed mean ~= 1.150x
+  spec_miss mean ~= 1.028x
+```
+
+Interpretation:
+
+- The staged-hit path remains positive when the same LDS tile is consumed by
+  multiple synthetic token rows.
+- Mixed speculation remains positive across the row-reuse sweep, while miss-only
+  paths stay marginal. That is the desired shape for a utility-gated
+  low-trust hint.
+- This is still not a real WMMA/rocWMMA grouped-GEMM claim. It is the last
+  hand-written HIP stage before a true matrix-tile consumer.
 
 ## Current Scale-Up
 

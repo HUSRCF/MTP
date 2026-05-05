@@ -27,8 +27,25 @@ where speculative HBM->LDS staging can be hidden before the commit point.
 
 `--metadata-tokens` replaces the pure spin wait with a same-kernel metadata
 builder mock that constructs expert counts and offsets in LDS before validation.
-`--compute-iters` repeats the FMA pass over the staged tile and acts as a
-lightweight grouped-GEMM consumer mock. It is not rocWMMA/MFMA yet.
+`--compute-iters` repeats the FMA pass over the staged tile.
+`--consumer-rows` makes each workgroup consume the same staged expert tile for
+multiple synthetic token rows, acting as a lightweight grouped-GEMM tile-reuse
+mock. It is not rocWMMA yet.
+`--tile-stride` spaces logical experts apart in the physical tile array, creating
+a larger strided working set. `--cache-flush-elems` touches a separate power-of-two
+global buffer before each measured kernel to reduce cache-warming artifacts.
+
+The JSON report includes staged-tile outcome counters:
+
+- `staged_tile_count`
+- `staged_tile_consumed_count`
+- `staged_tile_discarded_count`
+- `fallback_true_tile_load_count`
+- consumed / discarded fractions
+
+It also reports `lds_bytes_per_block`, `occupancy_blocks_per_cu`, and related
+LDS/thread-limited occupancy proxies so tile-staging gains can be interpreted
+against LDS pressure.
 
 Important boundary:
 
@@ -79,6 +96,14 @@ and first-FMA latency. A rocWMMA version should be added after this microbench
 shows that the prologue-level effect is worth integrating into a real GEMM
 pipeline.
 
+Hardware note:
+
+```text
+The current local target is W7900 / RDNA3, so the matrix path should be
+WMMA / rocWMMA-oriented. MFMA is a CDNA-oriented follow-up and should not be
+used as the main W7900 validation claim.
+```
+
 ## Interpreting Controls
 
 The overlap model is meaningful for `reactive`, `oracle`, `spec_hit`,
@@ -87,3 +112,9 @@ the anti-artifact controls, because those controls do not consume the staged LDS
 tile as the real speculative path does. Use control-mode wall time and sink
 checksums to detect whether the observed effect could be explained by ordinary
 global cache warming, dummy LDS writes, or measurement imbalance.
+
+For example, `wrong_no_consume` and `global_no_lds` may show favorable synthetic
+overlap-model values because they do not pay the same LDS-consumption or miss
+overwrite path. That is not a speedup claim. The relevant anti-artifact question
+is whether their wall time and staged-consumed counters reproduce the `spec_hit`
+path. They should not.

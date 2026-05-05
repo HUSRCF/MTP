@@ -38,8 +38,11 @@ struct Options {
   int validate_iters = 256;
   int metadata_tokens = 0;
   int compute_iters = 1;
+  int consumer_rows = 1;
   int interference_iters = 0;
   int interference_elems = 1 << 20;
+  int tile_stride = 1;
+  int cache_flush_elems = 0;
   double miss_rate = 0.25;
   unsigned int seed = 17;
 };
@@ -51,6 +54,10 @@ struct MetricsDevice {
   unsigned long long metadata_wait_cycles;
   unsigned long long overwrite_cycles;
   unsigned int miss;
+  unsigned int staged_tile;
+  unsigned int staged_consumed;
+  unsigned int staged_discarded;
+  unsigned int fallback_true_tile_load;
 };
 
 #define HIP_CHECK(expr)                                                     \
@@ -86,6 +93,7 @@ __device__ __forceinline__ int align_up_int(int value, int alignment) {
 
 __global__ void lds_tile_staging_kernel(
     const float* __restrict__ expert_tiles,
+    const float* __restrict__ activations,
     const int* __restrict__ true_ids,
     const int* __restrict__ pred_ids,
     float* __restrict__ sink,
@@ -96,7 +104,9 @@ __global__ void lds_tile_staging_kernel(
     int mode,
     int validate_iters,
     int metadata_tokens,
-    int compute_iters) {
+    int compute_iters,
+    int consumer_rows,
+    int tile_stride) {
   extern __shared__ unsigned char shared_raw[];
   float* lds = reinterpret_cast<float*>(shared_raw);
   const int tile_bytes = tile_elems * static_cast<int>(sizeof(float));
@@ -112,6 +122,8 @@ __global__ void lds_tile_staging_kernel(
   const int tid = threadIdx.x;
   const int true_expert = true_ids[request];
   const int pred_expert = pred_ids[request];
+  const int true_slot = true_expert * tile_stride;
+  const int pred_slot = pred_expert * tile_stride;
   unsigned int scratch = static_cast<unsigned int>(request * 131u + tid);
 
   const unsigned long long t0 = read_timer();
@@ -127,8 +139,8 @@ __global__ void lds_tile_staging_kernel(
   const bool global_no_lds = (mode == kGlobalNoLds);
 
   if (!reactive) {
-    const int staged_expert = oracle ? true_expert : pred_expert;
-    const float* src = expert_tiles + static_cast<size_t>(staged_expert) * tile_elems;
+    const int staged_slot = oracle ? true_slot : pred_slot;
+    const float* src = expert_tiles + static_cast<size_t>(staged_slot) * tile_elems;
     if (dummy_lds_store) {
       for (int i = tid; i < tile_elems; i += blockDim.x) {
         lds[i] = static_cast<float>((i + request) & 255) * 0.00390625f;
@@ -177,7 +189,7 @@ __global__ void lds_tile_staging_kernel(
       dummy_lds_store || (!reactive && !oracle && pred_expert != true_expert);
 
   if (reactive || (miss && !wrong_no_consume && !global_no_lds)) {
-    const float* src = expert_tiles + static_cast<size_t>(true_expert) * tile_elems;
+    const float* src = expert_tiles + static_cast<size_t>(true_slot) * tile_elems;
     for (int i = tid; i < tile_elems; i += blockDim.x) {
       lds[i] = src[i];
     }
@@ -190,13 +202,17 @@ __global__ void lds_tile_staging_kernel(
   const unsigned long long t_first_fma = read_timer();
 
   float acc = 0.0f;
-  const float* true_src = expert_tiles + static_cast<size_t>(true_expert) * tile_elems;
+  const float* true_src = expert_tiles + static_cast<size_t>(true_slot) * tile_elems;
   const bool consume_global = wrong_no_consume || global_no_lds;
   for (int iter = 0; iter < compute_iters; ++iter) {
     const float scale = 1.0009765625f + static_cast<float>(iter & 7) * 0.0001220703125f;
-    for (int i = tid; i < tile_elems; i += blockDim.x) {
-      const float x = consume_global ? true_src[i] : lds[i];
-      acc = fmaf(x, scale, acc);
+    for (int row = 0; row < consumer_rows; ++row) {
+      const float* act =
+          activations + (static_cast<size_t>(request) * consumer_rows + row) * tile_elems;
+      for (int i = tid; i < tile_elems; i += blockDim.x) {
+        const float x = consume_global ? true_src[i] : lds[i];
+        acc = fmaf(x, act[i] * scale, acc);
+      }
     }
   }
 
@@ -210,6 +226,14 @@ __global__ void lds_tile_staging_kernel(
   }
 
   if (tid == 0) {
+    const bool staged_hbm_to_lds =
+        !reactive && !dummy_lds_store && !global_no_lds;
+    const bool staged_consumed =
+        staged_hbm_to_lds && !wrong_no_consume && !miss;
+    const bool staged_discarded =
+        staged_hbm_to_lds && !staged_consumed;
+    const bool fallback_true_tile_load =
+        reactive || (miss && !wrong_no_consume && !global_no_lds);
     metrics[request].first_fma_cycles = timer_delta(t_first_fma, t0);
     metrics[request].stage_cycles = reactive ? 0ull : timer_delta(t_stage, t0);
     metrics[request].validate_cycles = timer_delta(t_validate, t0);
@@ -218,6 +242,10 @@ __global__ void lds_tile_staging_kernel(
     metrics[request].overwrite_cycles =
         (reactive || miss) ? timer_delta(t_overwrite, t_validate) : 0ull;
     metrics[request].miss = miss ? 1u : 0u;
+    metrics[request].staged_tile = staged_hbm_to_lds ? 1u : 0u;
+    metrics[request].staged_consumed = staged_consumed ? 1u : 0u;
+    metrics[request].staged_discarded = staged_discarded ? 1u : 0u;
+    metrics[request].fallback_true_tile_load = fallback_true_tile_load ? 1u : 0u;
   }
 }
 
@@ -237,6 +265,21 @@ __global__ void router_interference_kernel(
   }
   if (tid < 1024) {
     output[tid] = acc;
+  }
+}
+
+__global__ void cache_flush_kernel(float* __restrict__ data, int elems, int iters) {
+  const int tid = blockIdx.x * blockDim.x + threadIdx.x;
+  const int stride = blockDim.x * gridDim.x;
+  float acc = 0.0f;
+  for (int iter = 0; iter < iters; ++iter) {
+    for (int i = tid; i < elems; i += stride) {
+      const int j = (i * 1103515245u + iter * 12345u) & (elems - 1);
+      acc = fmaf(data[j], 1.0001220703125f, acc);
+    }
+  }
+  if (tid < elems) {
+    data[tid] = acc + static_cast<float>(tid & 7) * 1.0e-6f;
   }
 }
 
@@ -316,12 +359,18 @@ Options parse_args(int argc, char** argv) {
       opt.metadata_tokens = parse_int(need_value("--metadata-tokens"), "--metadata-tokens");
     } else if (arg == "--compute-iters") {
       opt.compute_iters = parse_int(need_value("--compute-iters"), "--compute-iters");
+    } else if (arg == "--consumer-rows") {
+      opt.consumer_rows = parse_int(need_value("--consumer-rows"), "--consumer-rows");
     } else if (arg == "--interference-iters") {
       opt.interference_iters = parse_int(
           need_value("--interference-iters"), "--interference-iters");
     } else if (arg == "--interference-elems") {
       opt.interference_elems = parse_int(
           need_value("--interference-elems"), "--interference-elems");
+    } else if (arg == "--tile-stride") {
+      opt.tile_stride = parse_int(need_value("--tile-stride"), "--tile-stride");
+    } else if (arg == "--cache-flush-elems") {
+      opt.cache_flush_elems = parse_int(need_value("--cache-flush-elems"), "--cache-flush-elems");
     } else if (arg == "--miss-rate") {
       opt.miss_rate = parse_double(need_value("--miss-rate"), "--miss-rate");
     } else if (arg == "--seed") {
@@ -340,8 +389,11 @@ Options parse_args(int argc, char** argv) {
           << "  --validate-iters N\n"
           << "  --metadata-tokens N\n"
           << "  --compute-iters N\n"
+          << "  --consumer-rows N\n"
           << "  --interference-iters N\n"
           << "  --interference-elems N\n"
+          << "  --tile-stride N\n"
+          << "  --cache-flush-elems N\n"
           << "  --miss-rate F\n";
       std::exit(0);
     } else {
@@ -366,16 +418,23 @@ double percentile(std::vector<double> xs, double q) {
   return xs[lo] * (1.0 - frac) + xs[hi] * frac;
 }
 
+int physical_slot(int expert, int tile_stride) {
+  return expert * tile_stride;
+}
+
 void fill_inputs(const Options& opt, std::vector<float>& tiles, std::vector<int>& true_ids,
-                 std::vector<int>& pred_ids) {
-  tiles.resize(static_cast<size_t>(opt.experts) * opt.tile_elems);
+                 std::vector<int>& pred_ids, std::vector<float>& activations) {
+  const int physical_experts = physical_slot(opt.experts - 1, opt.tile_stride) + 1;
+  tiles.resize(static_cast<size_t>(physical_experts) * opt.tile_elems);
   true_ids.resize(opt.requests);
   pred_ids.resize(opt.requests);
+  activations.resize(static_cast<size_t>(opt.requests) * opt.consumer_rows * opt.tile_elems);
 
   for (int expert = 0; expert < opt.experts; ++expert) {
+    const int slot = physical_slot(expert, opt.tile_stride);
     for (int i = 0; i < opt.tile_elems; ++i) {
       const int v = (expert * 17 + i * 13) & 1023;
-      tiles[static_cast<size_t>(expert) * opt.tile_elems + i] =
+      tiles[static_cast<size_t>(slot) * opt.tile_elems + i] =
           static_cast<float>(v) * 0.0009765625f;
     }
   }
@@ -395,6 +454,14 @@ void fill_inputs(const Options& opt, std::vector<float>& tiles, std::vector<int>
       miss = u < opt.miss_rate;
     }
     pred_ids[i] = miss ? ((truth + 1 + (i % (opt.experts - 1))) % opt.experts) : truth;
+
+    for (int row = 0; row < opt.consumer_rows; ++row) {
+      for (int elem = 0; elem < opt.tile_elems; ++elem) {
+        const int v = (i * 31 + row * 17 + elem * 7) & 1023;
+        activations[(static_cast<size_t>(i) * opt.consumer_rows + row) * opt.tile_elems + elem] =
+            0.5f + static_cast<float>(v) * 0.000244140625f;
+      }
+    }
   }
 }
 
@@ -406,11 +473,16 @@ int main(int argc, char** argv) {
     if (opt.requests <= 0 || opt.experts <= 1 || opt.tile_elems <= 0 ||
         opt.block_threads <= 0 || opt.iters <= 0 || opt.warmup < 0 ||
         opt.interference_iters < 0 || opt.interference_elems <= 0 ||
-        opt.metadata_tokens < 0 || opt.compute_iters <= 0) {
+        opt.metadata_tokens < 0 || opt.compute_iters <= 0 ||
+        opt.consumer_rows <= 0 || opt.tile_stride <= 0 || opt.cache_flush_elems < 0) {
       throw std::runtime_error("invalid non-positive benchmark parameter");
     }
     if ((opt.interference_elems & (opt.interference_elems - 1)) != 0) {
       throw std::runtime_error("--interference-elems must be a power of two");
+    }
+    if (opt.cache_flush_elems > 0 &&
+        (opt.cache_flush_elems & (opt.cache_flush_elems - 1)) != 0) {
+      throw std::runtime_error("--cache-flush-elems must be zero or a power of two");
     }
 
     HIP_CHECK(hipSetDevice(opt.device));
@@ -430,19 +502,23 @@ int main(int argc, char** argv) {
     }
 
     std::vector<float> h_tiles;
+    std::vector<float> h_activations;
     std::vector<int> h_true_ids;
     std::vector<int> h_pred_ids;
-    fill_inputs(opt, h_tiles, h_true_ids, h_pred_ids);
+    fill_inputs(opt, h_tiles, h_true_ids, h_pred_ids, h_activations);
 
     float* d_tiles = nullptr;
+    float* d_activations = nullptr;
     int* d_true_ids = nullptr;
     int* d_pred_ids = nullptr;
     float* d_sink = nullptr;
     MetricsDevice* d_metrics = nullptr;
     float* d_interference = nullptr;
     float* d_interference_out = nullptr;
+    float* d_cache_flush = nullptr;
 
     HIP_CHECK(hipMalloc(&d_tiles, h_tiles.size() * sizeof(float)));
+    HIP_CHECK(hipMalloc(&d_activations, h_activations.size() * sizeof(float)));
     HIP_CHECK(hipMalloc(&d_true_ids, h_true_ids.size() * sizeof(int)));
     HIP_CHECK(hipMalloc(&d_pred_ids, h_pred_ids.size() * sizeof(int)));
     HIP_CHECK(hipMalloc(&d_sink, static_cast<size_t>(opt.requests) * sizeof(float)));
@@ -452,8 +528,23 @@ int main(int argc, char** argv) {
                           static_cast<size_t>(opt.interference_elems) * sizeof(float)));
       HIP_CHECK(hipMalloc(&d_interference_out, static_cast<size_t>(1024) * sizeof(float)));
     }
+    if (opt.cache_flush_elems > 0) {
+      HIP_CHECK(hipMalloc(&d_cache_flush,
+                          static_cast<size_t>(opt.cache_flush_elems) * sizeof(float)));
+      const size_t copy_elems =
+          std::min(h_tiles.size(), static_cast<size_t>(opt.cache_flush_elems));
+      HIP_CHECK(hipMemcpy(d_cache_flush, h_tiles.data(), copy_elems * sizeof(float),
+                          hipMemcpyHostToDevice));
+      if (static_cast<size_t>(opt.cache_flush_elems) > copy_elems) {
+        HIP_CHECK(hipMemset(d_cache_flush + copy_elems, 0,
+                            (static_cast<size_t>(opt.cache_flush_elems) - copy_elems) *
+                                sizeof(float)));
+      }
+    }
 
     HIP_CHECK(hipMemcpy(d_tiles, h_tiles.data(), h_tiles.size() * sizeof(float), hipMemcpyHostToDevice));
+    HIP_CHECK(hipMemcpy(d_activations, h_activations.data(),
+                        h_activations.size() * sizeof(float), hipMemcpyHostToDevice));
     HIP_CHECK(hipMemcpy(d_true_ids, h_true_ids.data(), h_true_ids.size() * sizeof(int), hipMemcpyHostToDevice));
     HIP_CHECK(hipMemcpy(d_pred_ids, h_pred_ids.data(), h_pred_ids.size() * sizeof(int), hipMemcpyHostToDevice));
     HIP_CHECK(hipMemset(d_sink, 0, static_cast<size_t>(opt.requests) * sizeof(float)));
@@ -491,14 +582,26 @@ int main(int argc, char** argv) {
 
     auto launch = [&]() {
       hipLaunchKernelGGL(lds_tile_staging_kernel, grid, block, shared_bytes, bench_stream, d_tiles,
-                         d_true_ids, d_pred_ids, d_sink, d_metrics, opt.requests,
+                         d_activations, d_true_ids, d_pred_ids, d_sink, d_metrics, opt.requests,
                          opt.experts, opt.tile_elems, static_cast<int>(opt.mode),
-                         opt.validate_iters, opt.metadata_tokens, opt.compute_iters);
+                         opt.validate_iters, opt.metadata_tokens, opt.compute_iters,
+                         opt.consumer_rows, opt.tile_stride);
+      HIP_CHECK(hipGetLastError());
+    };
+
+    auto launch_cache_flush = [&]() {
+      if (opt.cache_flush_elems <= 0) {
+        return;
+      }
+      const int flush_blocks = std::min(4096, std::max(1, opt.cache_flush_elems / 256));
+      hipLaunchKernelGGL(cache_flush_kernel, dim3(flush_blocks), dim3(256), 0, bench_stream,
+                         d_cache_flush, opt.cache_flush_elems, 1);
       HIP_CHECK(hipGetLastError());
     };
 
     for (int i = 0; i < opt.warmup; ++i) {
       launch_interference();
+      launch_cache_flush();
       launch();
     }
     HIP_CHECK(hipStreamSynchronize(bench_stream));
@@ -512,6 +615,7 @@ int main(int argc, char** argv) {
     HIP_CHECK(hipEventCreate(&stop));
     for (int i = 0; i < opt.iters; ++i) {
       launch_interference();
+      launch_cache_flush();
       HIP_CHECK(hipEventRecord(start, bench_stream));
       launch();
       HIP_CHECK(hipEventRecord(stop, bench_stream));
@@ -545,6 +649,10 @@ int main(int argc, char** argv) {
     overwrite_cycles_all.reserve(opt.requests);
 
     int miss_count = 0;
+    int staged_tile_count = 0;
+    int staged_consumed_count = 0;
+    int staged_discarded_count = 0;
+    int fallback_true_tile_load_count = 0;
     for (const auto& m : h_metrics) {
       first_cycles.push_back(static_cast<double>(m.first_fma_cycles));
       stage_cycles.push_back(static_cast<double>(m.stage_cycles));
@@ -555,12 +663,23 @@ int main(int argc, char** argv) {
         miss_count += 1;
         overwrite_cycles_miss.push_back(static_cast<double>(m.overwrite_cycles));
       }
+      staged_tile_count += static_cast<int>(m.staged_tile);
+      staged_consumed_count += static_cast<int>(m.staged_consumed);
+      staged_discarded_count += static_cast<int>(m.staged_discarded);
+      fallback_true_tile_load_count += static_cast<int>(m.fallback_true_tile_load);
     }
     const double sink_checksum = std::accumulate(h_sink.begin(), h_sink.end(), 0.0);
     const double clock_khz = static_cast<double>(prop.clockRate);
     auto cycles_to_us = [&](double cycles) {
       return clock_khz > 0.0 ? cycles * 1000.0 / clock_khz : 0.0;
     };
+    int occupancy_blocks_per_cu = 0;
+    HIP_CHECK(hipOccupancyMaxActiveBlocksPerMultiprocessor(
+        &occupancy_blocks_per_cu, lds_tile_staging_kernel, opt.block_threads, shared_bytes));
+    const int lds_limited_blocks_per_cu =
+        shared_bytes > 0 ? static_cast<int>(prop.sharedMemPerBlock / shared_bytes) : 0;
+    const int thread_limited_blocks_per_cu =
+        opt.block_threads > 0 ? prop.maxThreadsPerMultiProcessor / opt.block_threads : 0;
 
     std::cout << std::fixed << std::setprecision(6);
     std::cout << "{\n";
@@ -572,15 +691,42 @@ int main(int argc, char** argv) {
     std::cout << "  \"experts\": " << opt.experts << ",\n";
     std::cout << "  \"tile_elems\": " << opt.tile_elems << ",\n";
     std::cout << "  \"tile_bytes\": " << (opt.tile_elems * static_cast<int>(sizeof(float))) << ",\n";
+    std::cout << "  \"tile_stride\": " << opt.tile_stride << ",\n";
+    std::cout << "  \"physical_tile_bytes\": " << (h_tiles.size() * sizeof(float)) << ",\n";
     std::cout << "  \"block_threads\": " << opt.block_threads << ",\n";
+    std::cout << "  \"lds_bytes_per_block\": " << shared_bytes << ",\n";
+    std::cout << "  \"shared_mem_per_block\": " << prop.sharedMemPerBlock << ",\n";
+    std::cout << "  \"multi_processor_count\": " << prop.multiProcessorCount << ",\n";
+    std::cout << "  \"max_threads_per_multiprocessor\": " << prop.maxThreadsPerMultiProcessor << ",\n";
+    std::cout << "  \"lds_limited_blocks_per_cu\": " << lds_limited_blocks_per_cu << ",\n";
+    std::cout << "  \"thread_limited_blocks_per_cu\": " << thread_limited_blocks_per_cu << ",\n";
+    std::cout << "  \"occupancy_blocks_per_cu\": " << occupancy_blocks_per_cu << ",\n";
     std::cout << "  \"validate_iters\": " << opt.validate_iters << ",\n";
     std::cout << "  \"metadata_tokens\": " << opt.metadata_tokens << ",\n";
     std::cout << "  \"compute_iters\": " << opt.compute_iters << ",\n";
+    std::cout << "  \"consumer_rows\": " << opt.consumer_rows << ",\n";
     std::cout << "  \"interference_iters\": " << opt.interference_iters << ",\n";
     std::cout << "  \"interference_elems\": " << opt.interference_elems << ",\n";
+    std::cout << "  \"cache_flush_elems\": " << opt.cache_flush_elems << ",\n";
     std::cout << "  \"configured_miss_rate\": " << opt.miss_rate << ",\n";
     std::cout << "  \"observed_miss_fraction\": "
               << (static_cast<double>(miss_count) / static_cast<double>(opt.requests)) << ",\n";
+    std::cout << "  \"staged_tile_count\": " << staged_tile_count << ",\n";
+    std::cout << "  \"staged_tile_consumed_count\": " << staged_consumed_count << ",\n";
+    std::cout << "  \"staged_tile_discarded_count\": " << staged_discarded_count << ",\n";
+    std::cout << "  \"fallback_true_tile_load_count\": " << fallback_true_tile_load_count << ",\n";
+    std::cout << "  \"staged_tile_consumed_fraction\": "
+              << (staged_tile_count > 0
+                      ? static_cast<double>(staged_consumed_count) /
+                            static_cast<double>(staged_tile_count)
+                      : 0.0)
+              << ",\n";
+    std::cout << "  \"staged_tile_discarded_fraction\": "
+              << (staged_tile_count > 0
+                      ? static_cast<double>(staged_discarded_count) /
+                            static_cast<double>(staged_tile_count)
+                      : 0.0)
+              << ",\n";
     std::cout << "  \"wall_ms_mean\": " << mean(std::vector<double>(wall_ms.begin(), wall_ms.end())) << ",\n";
     std::cout << "  \"wall_ms_p50\": " << percentile(std::vector<double>(wall_ms.begin(), wall_ms.end()), 0.50) << ",\n";
     std::cout << "  \"wall_ms_p95\": " << percentile(std::vector<double>(wall_ms.begin(), wall_ms.end()), 0.95) << ",\n";
@@ -611,12 +757,14 @@ int main(int argc, char** argv) {
     std::cout << "}\n";
 
     HIP_CHECK(hipFree(d_tiles));
+    HIP_CHECK(hipFree(d_activations));
     HIP_CHECK(hipFree(d_true_ids));
     HIP_CHECK(hipFree(d_pred_ids));
     HIP_CHECK(hipFree(d_sink));
     HIP_CHECK(hipFree(d_metrics));
     if (d_interference != nullptr) HIP_CHECK(hipFree(d_interference));
     if (d_interference_out != nullptr) HIP_CHECK(hipFree(d_interference_out));
+    if (d_cache_flush != nullptr) HIP_CHECK(hipFree(d_cache_flush));
     HIP_CHECK(hipStreamDestroy(bench_stream));
     HIP_CHECK(hipStreamDestroy(interference_stream));
     return 0;

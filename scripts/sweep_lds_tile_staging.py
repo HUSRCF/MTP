@@ -28,6 +28,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--miss-rate", type=float, action="append", default=None)
     parser.add_argument("--block-threads", type=int, action="append", default=None)
     parser.add_argument("--compute-iters", type=int, action="append", default=None)
+    parser.add_argument("--consumer-rows", type=int, action="append", default=None)
     parser.add_argument("--include-controls", action="store_true")
     parser.add_argument("--requests", type=int, default=4096)
     parser.add_argument("--experts", type=int, default=256)
@@ -35,6 +36,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--iters", type=int, default=30)
     parser.add_argument("--interference-iters", type=int, action="append", default=None)
     parser.add_argument("--interference-elems", type=int, default=1 << 20)
+    parser.add_argument("--tile-stride", type=int, action="append", default=None)
+    parser.add_argument("--cache-flush-elems", type=int, action="append", default=None)
     parser.add_argument("--seed", type=int, default=17)
     parser.add_argument("--force-build", action="store_true")
     parser.add_argument(
@@ -84,8 +87,11 @@ def _run_combo(combo: dict[str, Any]) -> dict[str, Any]:
         validate_iters=combo["validate_iters"],
         metadata_tokens=combo["metadata_tokens"],
         compute_iters=combo["compute_iters"],
+        consumer_rows=combo["consumer_rows"],
         interference_iters=combo["interference_iters"],
         interference_elems=combo["interference_elems"],
+        tile_stride=combo["tile_stride"],
+        cache_flush_elems=combo["cache_flush_elems"],
         miss_rate=combo["miss_rate"],
         seed=combo["seed"],
     )
@@ -100,6 +106,7 @@ def _flatten_rows(reports: list[dict[str, Any]]) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for report in reports:
         combo = report["combo"]
+        break_even = report.get("break_even", {})
         by_mode = {row["mode"]: row for row in report["results"]}
         derived = report["derived"]
         reactive = by_mode["reactive"]
@@ -114,11 +121,24 @@ def _flatten_rows(reports: list[dict[str, Any]]) -> list[dict[str, Any]]:
                     "validate_iters": combo["validate_iters"],
                     "metadata_tokens": combo["metadata_tokens"],
                     "compute_iters": combo["compute_iters"],
+                    "consumer_rows": combo["consumer_rows"],
                     "miss_rate": combo["miss_rate"],
                     "block_threads": combo["block_threads"],
                     "interference_iters": combo["interference_iters"],
+                    "tile_stride": combo["tile_stride"],
+                    "cache_flush_elems": combo["cache_flush_elems"],
                     "mode": mode,
                     "observed_miss_fraction": row["observed_miss_fraction"],
+                    "staged_tile_count": row.get("staged_tile_count", 0),
+                    "staged_tile_consumed_count": row.get("staged_tile_consumed_count", 0),
+                    "staged_tile_discarded_count": row.get("staged_tile_discarded_count", 0),
+                    "fallback_true_tile_load_count": row.get("fallback_true_tile_load_count", 0),
+                    "staged_tile_consumed_fraction": row.get(
+                        "staged_tile_consumed_fraction", 0.0
+                    ),
+                    "staged_tile_discarded_fraction": row.get(
+                        "staged_tile_discarded_fraction", 0.0
+                    ),
                     "wall_ms_mean": row["wall_ms_mean"],
                     "first_fma_cycles_p50": row["first_fma_cycles_p50"],
                     "metadata_wait_cycles_p50": row.get("metadata_wait_cycles_p50", 0.0),
@@ -130,6 +150,20 @@ def _flatten_rows(reports: list[dict[str, Any]]) -> list[dict[str, Any]]:
                         "overlap_model_speedup_vs_reactive"
                     ],
                     "wall_ms_delta_vs_reactive": d["wall_ms_delta_vs_reactive"],
+                    "p_min_hit_rate": break_even.get("p_min_hit_rate"),
+                    "p_min_hit_rate_clamped": break_even.get("p_min_hit_rate_clamped"),
+                    "profitable_for_any_positive_hit_rate": break_even.get(
+                        "profitable_for_any_positive_hit_rate"
+                    ),
+                    "hit_better_than_base": break_even.get("hit_better_than_base"),
+                    "miss_better_than_base": break_even.get("miss_better_than_base"),
+                    "lds_bytes_per_block": row.get("lds_bytes_per_block", 0),
+                    "shared_mem_per_block": row.get("shared_mem_per_block", 0),
+                    "lds_limited_blocks_per_cu": row.get("lds_limited_blocks_per_cu", 0),
+                    "thread_limited_blocks_per_cu": row.get(
+                        "thread_limited_blocks_per_cu", 0
+                    ),
+                    "occupancy_blocks_per_cu": row.get("occupancy_blocks_per_cu", 0),
                     "reactive_overlap_model_cycles_p50": derived["reactive"][
                         "overlap_model_cycles_p50"
                     ],
@@ -265,7 +299,10 @@ def main() -> None:
     miss_rates = _values(args.miss_rate, [0.0, 0.1, 0.25, 0.5, 1.0])
     block_threads = _values(args.block_threads, [128, 256])
     compute_iters = _values(args.compute_iters, [1])
+    consumer_rows = _values(args.consumer_rows, [1])
     interference_iters = _values(args.interference_iters, [0])
+    tile_strides = _values(args.tile_stride, [1])
+    cache_flush_elems = _values(args.cache_flush_elems, [0])
 
     bench.build(force=args.force_build)
 
@@ -275,29 +312,35 @@ def main() -> None:
         for wait in validate_iters:
             for meta_tokens in metadata_tokens:
                 for compute in compute_iters:
-                    for miss in miss_rates:
-                        for threads in block_threads:
-                            for interference in interference_iters:
-                                combos.append(
-                                    {
-                                        "device": devices[index % len(devices)],
-                                        "tile_elems": tile,
-                                        "validate_iters": wait,
-                                        "metadata_tokens": meta_tokens,
-                                        "compute_iters": compute,
-                                        "miss_rate": miss,
-                                        "block_threads": threads,
-                                        "interference_iters": interference,
-                                        "interference_elems": args.interference_elems,
-                                        "include_controls": args.include_controls,
-                                        "requests": args.requests,
-                                        "experts": args.experts,
-                                        "warmup": args.warmup,
-                                        "iters": args.iters,
-                                        "seed": args.seed,
-                                    }
-                                )
-                                index += 1
+                    for rows_per_tile in consumer_rows:
+                        for miss in miss_rates:
+                            for threads in block_threads:
+                                for interference in interference_iters:
+                                    for stride in tile_strides:
+                                        for flush_elems in cache_flush_elems:
+                                            combos.append(
+                                                {
+                                                    "device": devices[index % len(devices)],
+                                                    "tile_elems": tile,
+                                                    "validate_iters": wait,
+                                                    "metadata_tokens": meta_tokens,
+                                                    "compute_iters": compute,
+                                                    "consumer_rows": rows_per_tile,
+                                                    "miss_rate": miss,
+                                                    "block_threads": threads,
+                                                    "interference_iters": interference,
+                                                    "interference_elems": args.interference_elems,
+                                                    "tile_stride": stride,
+                                                    "cache_flush_elems": flush_elems,
+                                                    "include_controls": args.include_controls,
+                                                    "requests": args.requests,
+                                                    "experts": args.experts,
+                                                    "warmup": args.warmup,
+                                                    "iters": args.iters,
+                                                    "seed": args.seed,
+                                                }
+                                            )
+                                            index += 1
 
     reports: list[dict[str, Any]] = []
     max_workers = max(1, len(devices))
@@ -320,10 +363,13 @@ def main() -> None:
             "validate_iters": validate_iters,
             "metadata_tokens": metadata_tokens,
             "compute_iters": compute_iters,
+            "consumer_rows": consumer_rows,
             "miss_rates": miss_rates,
             "block_threads": block_threads,
             "interference_iters": interference_iters,
             "interference_elems": args.interference_elems,
+            "tile_strides": tile_strides,
+            "cache_flush_elems": cache_flush_elems,
             "requests": args.requests,
             "experts": args.experts,
             "warmup": args.warmup,

@@ -79,10 +79,16 @@ def bench_one(args: argparse.Namespace, mode: str) -> dict[str, Any]:
         str(args.metadata_tokens),
         "--compute-iters",
         str(args.compute_iters),
+        "--consumer-rows",
+        str(args.consumer_rows),
         "--interference-iters",
         str(args.interference_iters),
         "--interference-elems",
         str(args.interference_elems),
+        "--tile-stride",
+        str(args.tile_stride),
+        "--cache-flush-elems",
+        str(args.cache_flush_elems),
         "--miss-rate",
         str(args.miss_rate),
         "--seed",
@@ -145,13 +151,16 @@ def summarize(results: list[dict[str, Any]]) -> dict[str, Any]:
             denom = miss_t - hit_t
             if denom > 0.0:
                 p_min = (miss_t - base_t) / denom
+                p_min_clamped = max(0.0, min(1.0, p_min))
             else:
                 p_min = None
+                p_min_clamped = None
             summary["break_even"] = {
                 "base_cycles": base_t,
                 "hit_cycles": hit_t,
                 "miss_cycles": miss_t,
                 "p_min_hit_rate": p_min,
+                "p_min_hit_rate_clamped": p_min_clamped,
                 "profitable_for_any_positive_hit_rate": miss_t < base_t,
                 "hit_better_than_base": hit_t < base_t,
                 "miss_better_than_base": miss_t < base_t,
@@ -192,8 +201,26 @@ def parse_args() -> argparse.Namespace:
         default=1,
         help="Number of FMA passes over the staged tile; >1 is a grouped-GEMM compute mock.",
     )
+    parser.add_argument(
+        "--consumer-rows",
+        type=int,
+        default=1,
+        help="Number of synthetic token rows that consume each staged expert tile; >1 approximates grouped-GEMM tile reuse.",
+    )
     parser.add_argument("--interference-iters", type=int, default=0)
     parser.add_argument("--interference-elems", type=int, default=1 << 20)
+    parser.add_argument(
+        "--tile-stride",
+        type=int,
+        default=1,
+        help="Physical spacing between logical expert tiles. >1 creates a larger strided working set.",
+    )
+    parser.add_argument(
+        "--cache-flush-elems",
+        type=int,
+        default=0,
+        help="If >0, touch this many float elements before each measured kernel to reduce cache-warming artifacts. Must be a power of two.",
+    )
     parser.add_argument("--miss-rate", type=float, default=0.25)
     parser.add_argument("--seed", type=int, default=17)
     parser.add_argument("--force-build", action="store_true")
@@ -228,8 +255,11 @@ def main() -> None:
         "validate_iters": args.validate_iters,
         "metadata_tokens": args.metadata_tokens,
         "compute_iters": args.compute_iters,
+        "consumer_rows": args.consumer_rows,
         "interference_iters": args.interference_iters,
         "interference_elems": args.interference_elems,
+        "tile_stride": args.tile_stride,
+        "cache_flush_elems": args.cache_flush_elems,
         "miss_rate": args.miss_rate,
         "seed": args.seed,
         "binary": str(BIN),

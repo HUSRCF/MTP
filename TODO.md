@@ -51,19 +51,26 @@ Latest implementation status:
   - generate token/expert counts and offsets on device with a closer grouped-MoE metadata layout
   - run concurrently with speculative LDS staging or as a persistent-kernel phase
   - measure router overlap loss and policy-dependent prologue speedup
-- [ ] Add next-stage LDS tile-staging counters:
+- [x] Add next-stage LDS tile-staging counters:
   - explicit LDS tile reuse rate
   - discarded tile fraction
   - occupancy / LDS pressure
   - `cost_stage < saved_prologue_us` break-even report
+- [x] Add random-stride / cache-flush anti-artifact controls:
+  - `--tile-stride` creates a larger physical tile working set
+  - `--cache-flush-elems` touches a separate global buffer before measurement
+  - staged consumed/discarded counters confirm hit/miss semantics
+  - control overlap-model values are not used as profitability claims
 - [x] Add anti-artifact controls and lightweight grouped-compute mock:
   - `dummy_lds_store`
   - `wrong_no_consume`
   - `global_no_lds`
   - `compute_iters` repeated FMA consumer over staged LDS tile
-- [ ] Add MFMA / real grouped-GEMM compute mock:
-  - add a real FMA/MFMA grouped-GEMM mock after the prologue-only envelope is stable
-  - add rocWMMA or CK variant only after the hand-written HIP prologue benchmark remains positive
+- [ ] Add WMMA / real grouped-GEMM compute mock for RDNA3 W7900:
+  - [x] add lightweight multi-row grouped-consumer mock via `--consumer-rows`
+  - add a WMMA-like multi-wave tile consumer after the prologue-only envelope is stable
+  - add rocWMMA variant for W7900 / RDNA3 after the hand-written HIP benchmark remains positive
+  - keep MFMA wording out of the W7900 path; MFMA is a CDNA-oriented follow-up, not the current hardware target
 - [ ] Add HIP Graph metadata-patching microbench as secondary system-shell evidence:
   - eager dummy grouped-MoE dispatch latency
   - HIP graph launch latency
