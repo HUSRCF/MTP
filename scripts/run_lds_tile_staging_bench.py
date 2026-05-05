@@ -73,6 +73,10 @@ def bench_one(args: argparse.Namespace, mode: str) -> dict[str, Any]:
         str(args.iters),
         "--validate-iters",
         str(args.validate_iters),
+        "--interference-iters",
+        str(args.interference_iters),
+        "--interference-elems",
+        str(args.interference_elems),
         "--miss-rate",
         str(args.miss_rate),
         "--seed",
@@ -147,6 +151,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--warmup", type=int, default=10)
     parser.add_argument("--iters", type=int, default=100)
     parser.add_argument("--validate-iters", type=int, default=256)
+    parser.add_argument("--interference-iters", type=int, default=0)
+    parser.add_argument("--interference-elems", type=int, default=1 << 20)
     parser.add_argument("--miss-rate", type=float, default=0.25)
     parser.add_argument("--seed", type=int, default=17)
     parser.add_argument("--force-build", action="store_true")
@@ -174,6 +180,8 @@ def main() -> None:
         "warmup": args.warmup,
         "iters": args.iters,
         "validate_iters": args.validate_iters,
+        "interference_iters": args.interference_iters,
+        "interference_elems": args.interference_elems,
         "miss_rate": args.miss_rate,
         "seed": args.seed,
         "binary": str(BIN),

@@ -39,10 +39,19 @@ Latest implementation status:
   - speculative tile staging: transition + MTP priority -> LDS stage -> validate
   - worst-case staging: deliberately wrong tiles -> invalidate / overwrite penalty
   - current metrics: first-FMA cycles, stage cycles, metadata-wait cycles, miss overwrite cycles, wall-time, overlap-model speedup
-- [ ] Extend LDS tile-staging microbench:
+- [x] Extend LDS tile-staging microbench:
   - sweep `tile_elems`, `validate_iters`, `block_threads`, and `miss_rate`
-  - add router-interference stress: measure wave/LDS/bandwidth interference with router or metadata builder
-  - add explicit LDS tile reuse rate, discarded tile fraction, occupancy/LDS pressure, and `cost_stage < saved_prologue_us` break-even report
+  - add synthetic router-interference stress: concurrent HBM/ALU kernel on a separate stream
+- [ ] Add realistic router/metadata-builder interference mock:
+  - generate token/expert counts and offsets on device
+  - run concurrently with speculative LDS staging
+  - measure router overlap loss and policy-dependent prologue speedup
+- [ ] Add next-stage LDS tile-staging counters:
+  - explicit LDS tile reuse rate
+  - discarded tile fraction
+  - occupancy / LDS pressure
+  - `cost_stage < saved_prologue_us` break-even report
+- [ ] Add grouped-GEMM compute mock:
   - add a real FMA/MFMA grouped-GEMM mock after the prologue-only envelope is stable
   - add rocWMMA or CK variant only after the hand-written HIP prologue benchmark remains positive
 - [ ] Add HIP Graph metadata-patching microbench as secondary system-shell evidence:

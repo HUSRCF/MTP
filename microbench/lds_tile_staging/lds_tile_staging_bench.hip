@@ -33,6 +33,8 @@ struct Options {
   int warmup = 10;
   int iters = 100;
   int validate_iters = 256;
+  int interference_iters = 0;
+  int interference_elems = 1 << 20;
   double miss_rate = 0.25;
   unsigned int seed = 17;
 };
@@ -159,6 +161,25 @@ __global__ void lds_tile_staging_kernel(
   }
 }
 
+__global__ void router_interference_kernel(
+    const float* __restrict__ input,
+    float* __restrict__ output,
+    int elems,
+    int iters) {
+  const int tid = blockIdx.x * blockDim.x + threadIdx.x;
+  const int stride = blockDim.x * gridDim.x;
+  float acc = 0.0f;
+  for (int iter = 0; iter < iters; ++iter) {
+    for (int i = tid; i < elems; i += stride) {
+      const int j = (i * 17 + iter * 131) & (elems - 1);
+      acc = fmaf(input[j], 1.000244140625f, acc);
+    }
+  }
+  if (tid < 1024) {
+    output[tid] = acc;
+  }
+}
+
 Mode parse_mode(const std::string& value) {
   if (value == "reactive") return kReactive;
   if (value == "oracle") return kOracle;
@@ -225,6 +246,12 @@ Options parse_args(int argc, char** argv) {
       opt.iters = parse_int(need_value("--iters"), "--iters");
     } else if (arg == "--validate-iters") {
       opt.validate_iters = parse_int(need_value("--validate-iters"), "--validate-iters");
+    } else if (arg == "--interference-iters") {
+      opt.interference_iters = parse_int(
+          need_value("--interference-iters"), "--interference-iters");
+    } else if (arg == "--interference-elems") {
+      opt.interference_elems = parse_int(
+          need_value("--interference-elems"), "--interference-elems");
     } else if (arg == "--miss-rate") {
       opt.miss_rate = parse_double(need_value("--miss-rate"), "--miss-rate");
     } else if (arg == "--seed") {
@@ -241,6 +268,8 @@ Options parse_args(int argc, char** argv) {
           << "  --warmup N\n"
           << "  --iters N\n"
           << "  --validate-iters N\n"
+          << "  --interference-iters N\n"
+          << "  --interference-elems N\n"
           << "  --miss-rate F\n";
       std::exit(0);
     } else {
@@ -303,8 +332,12 @@ int main(int argc, char** argv) {
   try {
     const Options opt = parse_args(argc, argv);
     if (opt.requests <= 0 || opt.experts <= 1 || opt.tile_elems <= 0 ||
-        opt.block_threads <= 0 || opt.iters <= 0 || opt.warmup < 0) {
+        opt.block_threads <= 0 || opt.iters <= 0 || opt.warmup < 0 ||
+        opt.interference_iters < 0 || opt.interference_elems <= 0) {
       throw std::runtime_error("invalid non-positive benchmark parameter");
+    }
+    if ((opt.interference_elems & (opt.interference_elems - 1)) != 0) {
+      throw std::runtime_error("--interference-elems must be a power of two");
     }
 
     HIP_CHECK(hipSetDevice(opt.device));
@@ -330,23 +363,58 @@ int main(int argc, char** argv) {
     int* d_pred_ids = nullptr;
     float* d_sink = nullptr;
     MetricsDevice* d_metrics = nullptr;
+    float* d_interference = nullptr;
+    float* d_interference_out = nullptr;
 
     HIP_CHECK(hipMalloc(&d_tiles, h_tiles.size() * sizeof(float)));
     HIP_CHECK(hipMalloc(&d_true_ids, h_true_ids.size() * sizeof(int)));
     HIP_CHECK(hipMalloc(&d_pred_ids, h_pred_ids.size() * sizeof(int)));
     HIP_CHECK(hipMalloc(&d_sink, static_cast<size_t>(opt.requests) * sizeof(float)));
     HIP_CHECK(hipMalloc(&d_metrics, static_cast<size_t>(opt.requests) * sizeof(MetricsDevice)));
+    if (opt.interference_iters > 0) {
+      HIP_CHECK(hipMalloc(&d_interference,
+                          static_cast<size_t>(opt.interference_elems) * sizeof(float)));
+      HIP_CHECK(hipMalloc(&d_interference_out, static_cast<size_t>(1024) * sizeof(float)));
+    }
 
     HIP_CHECK(hipMemcpy(d_tiles, h_tiles.data(), h_tiles.size() * sizeof(float), hipMemcpyHostToDevice));
     HIP_CHECK(hipMemcpy(d_true_ids, h_true_ids.data(), h_true_ids.size() * sizeof(int), hipMemcpyHostToDevice));
     HIP_CHECK(hipMemcpy(d_pred_ids, h_pred_ids.data(), h_pred_ids.size() * sizeof(int), hipMemcpyHostToDevice));
     HIP_CHECK(hipMemset(d_sink, 0, static_cast<size_t>(opt.requests) * sizeof(float)));
     HIP_CHECK(hipMemset(d_metrics, 0, static_cast<size_t>(opt.requests) * sizeof(MetricsDevice)));
+    if (opt.interference_iters > 0) {
+      HIP_CHECK(hipMemcpy(d_interference, h_tiles.data(),
+                          std::min(h_tiles.size(), static_cast<size_t>(opt.interference_elems)) *
+                              sizeof(float),
+                          hipMemcpyHostToDevice));
+      if (static_cast<size_t>(opt.interference_elems) > h_tiles.size()) {
+        HIP_CHECK(hipMemset(d_interference + h_tiles.size(), 0,
+                            (static_cast<size_t>(opt.interference_elems) - h_tiles.size()) *
+                                sizeof(float)));
+      }
+      HIP_CHECK(hipMemset(d_interference_out, 0, static_cast<size_t>(1024) * sizeof(float)));
+    }
 
     const dim3 grid(opt.requests);
     const dim3 block(opt.block_threads);
+    hipStream_t bench_stream = nullptr;
+    hipStream_t interference_stream = nullptr;
+    HIP_CHECK(hipStreamCreate(&bench_stream));
+    HIP_CHECK(hipStreamCreate(&interference_stream));
+
+    auto launch_interference = [&]() {
+      if (opt.interference_iters <= 0) {
+        return;
+      }
+      const int interference_blocks = std::min(1024, std::max(1, opt.requests));
+      hipLaunchKernelGGL(router_interference_kernel, dim3(interference_blocks), dim3(256), 0,
+                         interference_stream, d_interference, d_interference_out,
+                         opt.interference_elems, opt.interference_iters);
+      HIP_CHECK(hipGetLastError());
+    };
+
     auto launch = [&]() {
-      hipLaunchKernelGGL(lds_tile_staging_kernel, grid, block, shared_bytes, 0, d_tiles,
+      hipLaunchKernelGGL(lds_tile_staging_kernel, grid, block, shared_bytes, bench_stream, d_tiles,
                          d_true_ids, d_pred_ids, d_sink, d_metrics, opt.requests,
                          opt.experts, opt.tile_elems, static_cast<int>(opt.mode),
                          opt.validate_iters);
@@ -354,9 +422,11 @@ int main(int argc, char** argv) {
     };
 
     for (int i = 0; i < opt.warmup; ++i) {
+      launch_interference();
       launch();
     }
-    HIP_CHECK(hipDeviceSynchronize());
+    HIP_CHECK(hipStreamSynchronize(bench_stream));
+    HIP_CHECK(hipStreamSynchronize(interference_stream));
 
     std::vector<float> wall_ms;
     wall_ms.reserve(opt.iters);
@@ -365,13 +435,15 @@ int main(int argc, char** argv) {
     HIP_CHECK(hipEventCreate(&start));
     HIP_CHECK(hipEventCreate(&stop));
     for (int i = 0; i < opt.iters; ++i) {
-      HIP_CHECK(hipEventRecord(start, 0));
+      launch_interference();
+      HIP_CHECK(hipEventRecord(start, bench_stream));
       launch();
-      HIP_CHECK(hipEventRecord(stop, 0));
+      HIP_CHECK(hipEventRecord(stop, bench_stream));
       HIP_CHECK(hipEventSynchronize(stop));
       float ms = 0.0f;
       HIP_CHECK(hipEventElapsedTime(&ms, start, stop));
       wall_ms.push_back(ms);
+      HIP_CHECK(hipStreamSynchronize(interference_stream));
     }
     HIP_CHECK(hipEventDestroy(start));
     HIP_CHECK(hipEventDestroy(stop));
@@ -426,6 +498,8 @@ int main(int argc, char** argv) {
     std::cout << "  \"tile_bytes\": " << (opt.tile_elems * static_cast<int>(sizeof(float))) << ",\n";
     std::cout << "  \"block_threads\": " << opt.block_threads << ",\n";
     std::cout << "  \"validate_iters\": " << opt.validate_iters << ",\n";
+    std::cout << "  \"interference_iters\": " << opt.interference_iters << ",\n";
+    std::cout << "  \"interference_elems\": " << opt.interference_elems << ",\n";
     std::cout << "  \"configured_miss_rate\": " << opt.miss_rate << ",\n";
     std::cout << "  \"observed_miss_fraction\": "
               << (static_cast<double>(miss_count) / static_cast<double>(opt.requests)) << ",\n";
@@ -463,6 +537,10 @@ int main(int argc, char** argv) {
     HIP_CHECK(hipFree(d_pred_ids));
     HIP_CHECK(hipFree(d_sink));
     HIP_CHECK(hipFree(d_metrics));
+    if (d_interference != nullptr) HIP_CHECK(hipFree(d_interference));
+    if (d_interference_out != nullptr) HIP_CHECK(hipFree(d_interference_out));
+    HIP_CHECK(hipStreamDestroy(bench_stream));
+    HIP_CHECK(hipStreamDestroy(interference_stream));
     return 0;
   } catch (const std::exception& ex) {
     std::cerr << "error: " << ex.what() << "\n";

@@ -226,6 +226,107 @@ Next LDS microbench gates:
 4. compare against a reactive grouped-GEMM mock with real MFMA/FMA work
 ```
 
+Completed sweep scripts:
+
+- `scripts/sweep_lds_tile_staging.py`
+
+Default two-GPU break-even sweep:
+
+- Report: `outputs/reports/lds_tile_staging/sweep_default_2gpu.json`
+- CSV: `outputs/reports/lds_tile_staging/sweep_default_2gpu.csv`
+- Markdown: `outputs/reports/lds_tile_staging/sweep_default_2gpu.md`
+- Plot: `outputs/reports/lds_tile_staging/sweep_default_2gpu.png`
+
+Default grid:
+
+```text
+tile_elems = [256, 512, 1024, 2048]
+validate_iters = [0, 64, 256, 1024]
+miss_rate = [0.0, 0.1, 0.25, 0.5, 1.0]
+block_threads = [128, 256]
+devices = [GPU0, GPU1]
+```
+
+Default sweep summary:
+
+```text
+oracle:
+  positive rows = 160 / 160
+  speedup >= 1.1x = 129 / 160
+  mean overlap-model speedup = 1.323x
+
+spec_hit:
+  positive rows = 160 / 160
+  speedup >= 1.1x = 126 / 160
+  mean overlap-model speedup = 1.323x
+
+spec_miss:
+  positive rows = 105 / 160
+  speedup >= 1.1x = 90 / 160
+  mean overlap-model speedup = 1.033x
+
+mixed:
+  positive rows = 128 / 160
+  speedup >= 1.1x = 116 / 160
+  mean overlap-model speedup = 1.203x
+```
+
+Interpretation:
+
+- If there is no wait window (`validate_iters=0`) and miss rate is high, LDS
+  speculation loses, as expected.
+- Once there is a modest metadata/router wait window, speculative LDS staging
+  has a broad positive break-even region.
+
+Router-interference stress:
+
+- Report: `outputs/reports/lds_tile_staging/sweep_interference_2gpu.json`
+- CSV: `outputs/reports/lds_tile_staging/sweep_interference_2gpu.csv`
+- Markdown: `outputs/reports/lds_tile_staging/sweep_interference_2gpu.md`
+- Plot: `outputs/reports/lds_tile_staging/sweep_interference_2gpu.png`
+
+Stress grid:
+
+```text
+tile_elems = [1024, 2048]
+validate_iters = [64, 256]
+miss_rate = [0.25, 0.5]
+block_threads = [128, 256]
+interference_iters = [0, 2, 8]
+devices = [GPU0, GPU1]
+```
+
+Stress summary:
+
+```text
+mixed:
+  positive rows = 47 / 48
+  speedup >= 1.1x = 46 / 48
+  mean overlap-model speedup = 1.370x
+
+spec_miss:
+  positive rows = 35 / 48
+  speedup >= 1.1x = 26 / 48
+  mean overlap-model speedup = 1.115x
+```
+
+Grouped by interference:
+
+```text
+mixed interference=0: positive=15/16, mean=1.348x
+mixed interference=2: positive=16/16, mean=1.404x
+mixed interference=8: positive=16/16, mean=1.357x
+
+spec_miss interference=0: positive=11/16, mean=1.092x
+spec_miss interference=2: positive=11/16, mean=1.121x
+spec_miss interference=8: positive=13/16, mean=1.133x
+```
+
+This stress mode is still a synthetic concurrent HBM/ALU kernel, not a real
+router. It is sufficient as a P0 guard that the envelope does not disappear
+under a simple competing stream. The next gate should use a more realistic
+router/metadata-builder mock before moving to rocWMMA or CK.
+
 ## Current Scale-Up
 
 512-sample configs are committed in:
