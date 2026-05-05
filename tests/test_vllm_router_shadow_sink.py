@@ -1,7 +1,21 @@
 import torch
 import pytest
 
+from mtp_expert_prefetch.runtime import (
+    AdmissionDecisionMasks,
+    OnlineShadowLogger,
+    RuntimeShadowController,
+)
+from mtp_expert_prefetch.runtime.shadow_log import (
+    ShadowEventId,
+    ShadowPolicyConfig,
+    read_shadow_jsonl,
+)
 from mtp_expert_prefetch.tracing.vllm_router_trace import VllmRouterRecorder
+from mtp_expert_prefetch.tracing.vllm_router_trace import (
+    set_active_runtime_shadow_controller,
+    write_active_runtime_shadow_action_summary,
+)
 
 
 class _Sink:
@@ -49,3 +63,73 @@ def test_vllm_router_recorder_writes_shadow_outcome_events():
     assert first["weighted_top1_miss"] == pytest.approx(0.8)
     assert second["shadow_event_id"] == "req:5:11:3"
     assert second["true_topk_experts"] == [3, 4]
+
+
+def test_active_runtime_shadow_hook_joins_with_vllm_router_outcome(tmp_path):
+    shape = (1, 1, 1, 5)
+    full_fetch = torch.zeros(shape, dtype=torch.bool)
+    full_fetch[..., 1] = True
+    metadata = torch.zeros(shape, dtype=torch.bool)
+    metadata[..., 2] = True
+    premap = torch.zeros(shape, dtype=torch.bool)
+    premap[..., 3] = True
+    skipped = torch.zeros(shape, dtype=torch.bool)
+    skipped[..., 4] = True
+    empty = torch.zeros(shape, dtype=torch.bool)
+    ready = torch.zeros(shape, dtype=torch.bool)
+    ready[..., 1] = True
+    decisions = AdmissionDecisionMasks(
+        admitted_full_fetch=full_fetch,
+        admitted_metadata=metadata,
+        admitted_premap=premap,
+        skipped_not_novel=empty,
+        skipped_rank_cap=empty,
+        skipped_below_threshold=skipped,
+        skipped_invalid_score=empty,
+        skipped_policy=empty,
+    )
+    event_id = ShadowEventId("req", 5, 10, 3)
+    policy = ShadowPolicyConfig(
+        policy_mode="default",
+        optimization_goal="stall_reduction",
+        action_keep_fraction=0.5,
+        metadata_score_ratio=0.95,
+        full_fetch_max_extra=4,
+        metadata_max_extra=1,
+        premap_max_extra=1,
+    )
+    path = tmp_path / "runtime_shadow.jsonl"
+
+    with RuntimeShadowController(OnlineShadowLogger(path)) as controller:
+        set_active_runtime_shadow_controller(controller)
+        try:
+            summary = write_active_runtime_shadow_action_summary(
+                event_id=event_id,
+                policy=policy,
+                decisions=decisions,
+                ready_mask=ready,
+            )
+        finally:
+            set_active_runtime_shadow_controller(None)
+        assert summary is not None
+        recorder = VllmRouterRecorder(
+            top_k=2,
+            shadow_outcome_sink=controller,
+            request_id="req",
+            sequence_id=5,
+            token_offset=10,
+        )
+        recorder.record_topk(
+            layer_id=3,
+            topk_ids=torch.tensor([[1, 2]]),
+            topk_weights=torch.tensor([[0.8, 0.2]]),
+        )
+
+    rows = read_shadow_jsonl(path)
+    assert [row["event_type"] for row in rows] == ["summary", "outcome"]
+    outcome = rows[1]
+    assert outcome["join_status"] == "joined"
+    assert outcome["full_fetch_used_count"] == 1
+    assert outcome["metadata_later_used_count"] == 1
+    assert outcome["covered_mass"] == pytest.approx(0.8)
+    assert outcome["top1_ready"] is True

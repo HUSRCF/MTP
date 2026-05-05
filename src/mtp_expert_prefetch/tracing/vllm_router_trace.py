@@ -11,7 +11,15 @@ from typing import Any, Protocol
 
 import torch
 
-from mtp_expert_prefetch.runtime.shadow_log import ShadowOutcomeEvent
+from mtp_expert_prefetch.runtime.admission import AdmissionDecisionMasks
+from mtp_expert_prefetch.runtime.online_shadow import OnlineShadowLogger
+from mtp_expert_prefetch.runtime.shadow_controller import RuntimeShadowController
+from mtp_expert_prefetch.runtime.shadow_log import (
+    ShadowEventId,
+    ShadowOutcomeEvent,
+    ShadowPolicyConfig,
+    ShadowSummaryEvent,
+)
 from mtp_expert_prefetch.tracing.router_mtp import _load_trace_texts
 from mtp_expert_prefetch.utils.config import find_project_root, load_yaml, resolve_path
 
@@ -221,6 +229,7 @@ class VllmRouterRecorder:
 
 
 _ACTIVE_RECORDER: VllmRouterRecorder | None = None
+_ACTIVE_RUNTIME_SHADOW_CONTROLLER: RuntimeShadowController | None = None
 _PATCHED = False
 
 
@@ -231,6 +240,45 @@ def get_active_vllm_router_recorder() -> VllmRouterRecorder | None:
 def set_active_vllm_router_recorder(recorder: VllmRouterRecorder | None) -> None:
     global _ACTIVE_RECORDER
     _ACTIVE_RECORDER = recorder
+
+
+def get_active_runtime_shadow_controller() -> RuntimeShadowController | None:
+    return _ACTIVE_RUNTIME_SHADOW_CONTROLLER
+
+
+def set_active_runtime_shadow_controller(
+    controller: RuntimeShadowController | None,
+) -> None:
+    global _ACTIVE_RUNTIME_SHADOW_CONTROLLER
+    _ACTIVE_RUNTIME_SHADOW_CONTROLLER = controller
+
+
+def write_active_runtime_shadow_action_summary(
+    *,
+    event_id: ShadowEventId,
+    policy: ShadowPolicyConfig,
+    decisions: AdmissionDecisionMasks,
+    base_mask: torch.Tensor | None = None,
+    ready_mask: torch.Tensor | None = None,
+    **summary_kwargs: Any,
+) -> ShadowSummaryEvent | None:
+    """Write a runtime shadow summary through the active controller.
+
+    Patched runtime code can call this hook in shadow-only mode. If runtime
+    shadow logging is disabled, it is a no-op and returns `None`.
+    """
+
+    controller = get_active_runtime_shadow_controller()
+    if controller is None:
+        return None
+    return controller.write_action_summary(
+        event_id=event_id,
+        policy=policy,
+        decisions=decisions,
+        base_mask=base_mask,
+        ready_mask=ready_mask,
+        **summary_kwargs,
+    )
 
 
 def patch_vllm_qwen35_moe_router_trace() -> None:
@@ -599,6 +647,64 @@ def _write_vllm_sample_trace(
     manifest.flush()
 
 
+def _runtime_shadow_options(
+    trace_options: dict[str, Any],
+    vllm_options: dict[str, Any],
+) -> dict[str, Any]:
+    raw = trace_options.get("runtime_shadow", vllm_options.get("runtime_shadow", {}))
+    if raw is None:
+        return {"enabled": False}
+    if isinstance(raw, bool):
+        return {"enabled": bool(raw)}
+    if not isinstance(raw, dict):
+        msg = "runtime_shadow must be a mapping or boolean."
+        raise TypeError(msg)
+    return {"enabled": False, **raw}
+
+
+def _build_runtime_shadow_controller(
+    *,
+    options: dict[str, Any],
+    output_dir: Path,
+    project_root: Path,
+) -> RuntimeShadowController | None:
+    if not bool(options.get("enabled", False)):
+        return None
+    raw_output = options.get("output_path")
+    if raw_output is None:
+        output_path = output_dir / "runtime_shadow.jsonl"
+    else:
+        output_path = resolve_path(raw_output, base_dir=project_root)
+    logger = OnlineShadowLogger(
+        output_path,
+        flush_every=int(options.get("flush_every", 1)),
+    )
+    return RuntimeShadowController(
+        logger,
+        max_pending=int(options.get("max_pending", 100_000)),
+    )
+
+
+def _shadow_request_id(
+    *,
+    sample_idx: int,
+    record: dict[str, Any],
+    options: dict[str, Any],
+) -> str:
+    field = options.get("request_id_field")
+    if field is not None and record.get(str(field)) is not None:
+        return str(record[str(field)])
+    prefix = str(options.get("request_id_prefix", "sample_"))
+    return f"{prefix}{int(sample_idx)}"
+
+
+def _shadow_sequence_id(record: dict[str, Any], options: dict[str, Any]) -> int:
+    field = options.get("sequence_id_field")
+    if field is not None and record.get(str(field)) is not None:
+        return int(record[str(field)])
+    return int(options.get("sequence_id", 0))
+
+
 def trace_router_mtp_vllm(config_path: str | Path) -> Path:
     config_path = Path(config_path)
     project_root = find_project_root(config_path)
@@ -628,6 +734,10 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
             ),
         )
     )
+    runtime_shadow_options = _runtime_shadow_options(trace_options, vllm_options)
+    if bool(runtime_shadow_options.get("enabled", False)) and not use_router_logits_recorder:
+        msg = "runtime_shadow.enabled requires use_router_logits_recorder."
+        raise ValueError(msg)
     if bool(vllm_options.get("disable_flash_attn_probe", True)):
         _set_text_only_vllm_env()
     if use_router_logits_recorder and bool(
@@ -724,72 +834,100 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
         msg = f"engine_chunk_size must be positive, got {engine_chunk_size}"
         raise ValueError(msg)
 
+    runtime_shadow_controller = _build_runtime_shadow_controller(
+        options=runtime_shadow_options,
+        output_dir=output_dir,
+        project_root=project_root,
+    )
     manifest_path = output_dir / "manifest.jsonl"
-    with manifest_path.open("w", encoding="utf-8") as manifest:
-        for chunk_start in range(0, len(prepared_records), engine_chunk_size):
-            chunk = prepared_records[chunk_start : chunk_start + engine_chunk_size]
-            llm = LLM(**llm_kwargs)
-            try:
-                if use_router_logits_recorder:
-                    recorder = VllmRouterRecorder(
-                        top_k=int(model_config["architecture"].get("num_experts_per_tok", 8)),
-                        capture_router_input_hidden=bool(
-                            trace_options.get("capture_router_input_hidden", False)
-                        ),
-                    )
-                    for sample_idx, record, input_ids, prompt in chunk:
-                        recorder.clear()
-                        set_active_vllm_router_recorder(recorder)
-                        try:
-                            outputs = llm.generate([prompt], sampling, use_tqdm=False)
-                        finally:
-                            set_active_vllm_router_recorder(None)
-                        if len(outputs) != 1:
-                            msg = f"vLLM returned {len(outputs)} outputs for one prompt."
+    try:
+        with manifest_path.open("w", encoding="utf-8") as manifest:
+            for chunk_start in range(0, len(prepared_records), engine_chunk_size):
+                chunk = prepared_records[chunk_start : chunk_start + engine_chunk_size]
+                llm = LLM(**llm_kwargs)
+                try:
+                    if use_router_logits_recorder:
+                        recorder = VllmRouterRecorder(
+                            top_k=int(model_config["architecture"].get("num_experts_per_tok", 8)),
+                            capture_router_input_hidden=bool(
+                                trace_options.get("capture_router_input_hidden", False)
+                            ),
+                            shadow_outcome_sink=runtime_shadow_controller,
+                        )
+                        for sample_idx, record, input_ids, prompt in chunk:
+                            recorder.clear()
+                            recorder.request_id = _shadow_request_id(
+                                sample_idx=sample_idx,
+                                record=record,
+                                options=runtime_shadow_options,
+                            )
+                            recorder.sequence_id = _shadow_sequence_id(
+                                record,
+                                runtime_shadow_options,
+                            )
+                            recorder.token_offset = int(
+                                runtime_shadow_options.get("token_offset", 0)
+                            )
+                            set_active_vllm_router_recorder(recorder)
+                            set_active_runtime_shadow_controller(runtime_shadow_controller)
+                            try:
+                                outputs = llm.generate([prompt], sampling, use_tqdm=False)
+                            finally:
+                                set_active_vllm_router_recorder(None)
+                                set_active_runtime_shadow_controller(None)
+                            if len(outputs) != 1:
+                                msg = f"vLLM returned {len(outputs)} outputs for one prompt."
+                                raise RuntimeError(msg)
+                            _write_vllm_sample_trace(
+                                manifest=manifest,
+                                output_dir=output_dir,
+                                sample_idx=sample_idx,
+                                record=record,
+                                input_ids=input_ids,
+                                request_output=outputs[0],
+                                module_prefix=module_prefix,
+                                recorder=recorder,
+                            )
+                    else:
+                        outputs = llm.generate(
+                            [prompt for *_prefix, prompt in chunk],
+                            sampling,
+                            use_tqdm=False,
+                        )
+                        if len(outputs) != len(chunk):
+                            msg = f"vLLM returned {len(outputs)} outputs for {len(chunk)} prompts."
                             raise RuntimeError(msg)
-                        _write_vllm_sample_trace(
-                            manifest=manifest,
-                            output_dir=output_dir,
-                            sample_idx=sample_idx,
-                            record=record,
-                            input_ids=input_ids,
-                            request_output=outputs[0],
-                            module_prefix=module_prefix,
-                            recorder=recorder,
-                        )
-                else:
-                    outputs = llm.generate(
-                        [prompt for *_prefix, prompt in chunk],
-                        sampling,
-                        use_tqdm=False,
-                    )
-                    if len(outputs) != len(chunk):
-                        msg = f"vLLM returned {len(outputs)} outputs for {len(chunk)} prompts."
-                        raise RuntimeError(msg)
 
-                    for (sample_idx, record, input_ids, _prompt), request_output in zip(
-                        chunk,
-                        outputs,
-                        strict=True,
-                    ):
-                        _write_vllm_sample_trace(
-                            manifest=manifest,
-                            output_dir=output_dir,
-                            sample_idx=sample_idx,
-                            record=record,
-                            input_ids=input_ids,
-                            request_output=request_output,
-                            module_prefix=module_prefix,
-                            recorder=None,
-                        )
-            finally:
-                set_active_vllm_router_recorder(None)
-                shutdown = getattr(llm, "shutdown", None)
-                if callable(shutdown):
-                    shutdown()
-                del llm
-                gc.collect()
-                if torch.cuda.is_available():
-                    torch.cuda.empty_cache()
+                        for (sample_idx, record, input_ids, _prompt), request_output in zip(
+                            chunk,
+                            outputs,
+                            strict=True,
+                        ):
+                            _write_vllm_sample_trace(
+                                manifest=manifest,
+                                output_dir=output_dir,
+                                sample_idx=sample_idx,
+                                record=record,
+                                input_ids=input_ids,
+                                request_output=request_output,
+                                module_prefix=module_prefix,
+                                recorder=None,
+                            )
+                finally:
+                    set_active_vllm_router_recorder(None)
+                    set_active_runtime_shadow_controller(None)
+                    shutdown = getattr(llm, "shutdown", None)
+                    if callable(shutdown):
+                        shutdown()
+                    del llm
+                    gc.collect()
+                    if torch.cuda.is_available():
+                        torch.cuda.empty_cache()
+    finally:
+        set_active_runtime_shadow_controller(None)
+        if runtime_shadow_controller is not None:
+            if bool(runtime_shadow_options.get("flush_pending_as_timeouts", True)):
+                runtime_shadow_controller.flush_pending_as_timeouts()
+            runtime_shadow_controller.close()
 
     return manifest_path

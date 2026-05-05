@@ -369,6 +369,60 @@ The pending summary cache is bounded by `max_pending`. Evicted summaries and
 summary-only timeouts are explicitly counted, so online shadow replay can
 separate policy misses from logging/join failures.
 
+vLLM shadow-only runtime wiring:
+
+```text
+trace.runtime_shadow.enabled = true
+  creates OnlineShadowLogger + RuntimeShadowController
+  passes the controller as VllmRouterRecorder.shadow_outcome_sink
+  sets the same controller as the active summary hook during llm.generate(...)
+```
+
+Summary-side hook:
+
+```text
+write_active_runtime_shadow_action_summary(...)
+  no-op when runtime shadow is disabled
+  otherwise calls RuntimeShadowController.write_action_summary(...)
+```
+
+Recorder-side hook:
+
+```text
+VllmRouterRecorder.record_topk(...)
+  writes true-router ShadowOutcomeEvent through the same controller
+```
+
+This is still shadow-only. It only records JSONL events and does not trigger
+prefetch, cache mutation, scheduler mutation, router changes, or logit changes.
+Smoke config:
+
+```text
+configs/trace/router_mtp_trace_aya_dataset_awq_vllm_shadow_smoke.yaml
+```
+
+Smoke run, GPU1 W7900 Dual Slot:
+
+```text
+command:
+  HIP_VISIBLE_DEVICES=1 python scripts/trace_router_mtp_vllm.py \
+    configs/trace/router_mtp_trace_aya_dataset_awq_vllm_shadow_smoke.yaml
+
+outputs:
+  data/traces/aya_dataset_smoke_awq_vllm_shadow_smoke/manifest.jsonl
+  data/traces/aya_dataset_smoke_awq_vllm_shadow_smoke/runtime_shadow.jsonl
+
+runtime_shadow rows:
+  outcomes = 5,080
+  summaries = 0
+  join_status = outcome_only
+```
+
+This validates the recorder-side online outcome path under an actual vLLM run.
+Summary-side action decisions are wired through
+`write_active_runtime_shadow_action_summary(...)`; they will appear as joined
+records once the runtime policy hook calls the summary side during serving.
+
 ## Current Default Evaluation Settings
 
 ```text
