@@ -24,6 +24,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--device", type=int, action="append", default=None)
     parser.add_argument("--tile-elems", type=int, action="append", default=None)
     parser.add_argument("--validate-iters", type=int, action="append", default=None)
+    parser.add_argument("--metadata-tokens", type=int, action="append", default=None)
     parser.add_argument("--miss-rate", type=float, action="append", default=None)
     parser.add_argument("--block-threads", type=int, action="append", default=None)
     parser.add_argument("--requests", type=int, default=4096)
@@ -79,6 +80,7 @@ def _run_combo(combo: dict[str, Any]) -> dict[str, Any]:
         warmup=combo["warmup"],
         iters=combo["iters"],
         validate_iters=combo["validate_iters"],
+        metadata_tokens=combo["metadata_tokens"],
         interference_iters=combo["interference_iters"],
         interference_elems=combo["interference_elems"],
         miss_rate=combo["miss_rate"],
@@ -106,6 +108,7 @@ def _flatten_rows(reports: list[dict[str, Any]]) -> list[dict[str, Any]]:
                     "tile_elems": combo["tile_elems"],
                     "tile_bytes": row["tile_bytes"],
                     "validate_iters": combo["validate_iters"],
+                    "metadata_tokens": combo["metadata_tokens"],
                     "miss_rate": combo["miss_rate"],
                     "block_threads": combo["block_threads"],
                     "interference_iters": combo["interference_iters"],
@@ -156,6 +159,7 @@ def _row_key(row: dict[str, Any]) -> dict[str, Any]:
         "device": row["device"],
         "tile_elems": row["tile_elems"],
         "validate_iters": row["validate_iters"],
+        "metadata_tokens": row["metadata_tokens"],
         "miss_rate": row["miss_rate"],
         "block_threads": row["block_threads"],
         "speedup": row["overlap_model_speedup_vs_reactive"],
@@ -202,14 +206,15 @@ def _format_md(summary: dict[str, Any], rows: list[dict[str, Any]]) -> str:
     )[:12]
     lines.extend(
         [
-            "| device | tile | wait iters | miss | threads | interference | speedup | delta cycles |",
-            "|---:|---:|---:|---:|---:|---:|---:|---:|",
+            "| device | tile | wait iters | metadata tokens | miss | threads | interference | speedup | delta cycles |",
+            "|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
         ]
     )
     for row in mixed:
         lines.append(
-            "| {device} | {tile_elems} | {validate_iters} | {miss_rate:.2f} | "
-            "{block_threads} | {interference_iters} | {overlap_model_speedup_vs_reactive:.3f} | "
+            "| {device} | {tile_elems} | {validate_iters} | {metadata_tokens} | "
+            "{miss_rate:.2f} | {block_threads} | {interference_iters} | "
+            "{overlap_model_speedup_vs_reactive:.3f} | "
             "{overlap_model_delta_vs_reactive:.1f} |".format(**row)
         )
     return "\n".join(lines) + "\n"
@@ -251,6 +256,7 @@ def main() -> None:
     devices = _values(args.device, [0])
     tile_elems = _values(args.tile_elems, [256, 512, 1024, 2048])
     validate_iters = _values(args.validate_iters, [0, 64, 256, 1024])
+    metadata_tokens = _values(args.metadata_tokens, [0])
     miss_rates = _values(args.miss_rate, [0.0, 0.1, 0.25, 0.5, 1.0])
     block_threads = _values(args.block_threads, [128, 256])
     interference_iters = _values(args.interference_iters, [0])
@@ -261,26 +267,28 @@ def main() -> None:
     index = 0
     for tile in tile_elems:
         for wait in validate_iters:
-            for miss in miss_rates:
-                for threads in block_threads:
-                    for interference in interference_iters:
-                        combos.append(
-                            {
-                                "device": devices[index % len(devices)],
-                                "tile_elems": tile,
-                                "validate_iters": wait,
-                                "miss_rate": miss,
-                                "block_threads": threads,
-                                "interference_iters": interference,
-                                "interference_elems": args.interference_elems,
-                                "requests": args.requests,
-                                "experts": args.experts,
-                                "warmup": args.warmup,
-                                "iters": args.iters,
-                                "seed": args.seed,
-                            }
-                        )
-                        index += 1
+            for meta_tokens in metadata_tokens:
+                for miss in miss_rates:
+                    for threads in block_threads:
+                        for interference in interference_iters:
+                            combos.append(
+                                {
+                                    "device": devices[index % len(devices)],
+                                    "tile_elems": tile,
+                                    "validate_iters": wait,
+                                    "metadata_tokens": meta_tokens,
+                                    "miss_rate": miss,
+                                    "block_threads": threads,
+                                    "interference_iters": interference,
+                                    "interference_elems": args.interference_elems,
+                                    "requests": args.requests,
+                                    "experts": args.experts,
+                                    "warmup": args.warmup,
+                                    "iters": args.iters,
+                                    "seed": args.seed,
+                                }
+                            )
+                            index += 1
 
     reports: list[dict[str, Any]] = []
     max_workers = max(1, len(devices))
@@ -301,6 +309,7 @@ def main() -> None:
             "devices": devices,
             "tile_elems": tile_elems,
             "validate_iters": validate_iters,
+            "metadata_tokens": metadata_tokens,
             "miss_rates": miss_rates,
             "block_threads": block_threads,
             "interference_iters": interference_iters,

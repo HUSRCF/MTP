@@ -327,6 +327,82 @@ router. It is sufficient as a P0 guard that the envelope does not disappear
 under a simple competing stream. The next gate should use a more realistic
 router/metadata-builder mock before moving to rocWMMA or CK.
 
+Same-kernel metadata-builder mock:
+
+The LDS microbench now supports a same-kernel metadata phase via
+`--metadata-tokens`. Each workgroup:
+
+```text
+1. speculatively stages a tile in LDS
+2. builds synthetic expert_counts and expert_offsets in the same LDS allocation
+3. validates true vs predicted expert
+4. consumes staged LDS tile on hit or overwrites LDS on miss
+```
+
+This is the correct semantic model for LDS: staged state remains live only
+inside the same kernel/workgroup execution window.
+
+Metadata-builder sweep:
+
+- Report: `outputs/reports/lds_tile_staging/sweep_metadata_builder_2gpu.json`
+- CSV: `outputs/reports/lds_tile_staging/sweep_metadata_builder_2gpu.csv`
+- Markdown: `outputs/reports/lds_tile_staging/sweep_metadata_builder_2gpu.md`
+- Plot: `outputs/reports/lds_tile_staging/sweep_metadata_builder_2gpu.png`
+
+Grid:
+
+```text
+tile_elems = [512, 1024]
+metadata_tokens = [0, 32, 64, 128]
+validate_iters = [0]
+miss_rate = [0.25, 0.5, 1.0]
+block_threads = [128, 256]
+devices = [GPU0, GPU1]
+```
+
+Summary by metadata window:
+
+```text
+mixed metadata_tokens=0:
+  positive=3/12, mean=0.880x
+mixed metadata_tokens=32:
+  positive=12/12, mean=1.159x
+mixed metadata_tokens=64:
+  positive=12/12, mean=1.149x
+mixed metadata_tokens=128:
+  positive=12/12, mean=1.144x
+
+spec_miss metadata_tokens=0:
+  positive=1/12, mean=0.770x
+spec_miss metadata_tokens=32:
+  positive=12/12, mean=1.098x
+spec_miss metadata_tokens=64:
+  positive=12/12, mean=1.088x
+spec_miss metadata_tokens=128:
+  positive=12/12, mean=1.085x
+```
+
+Interpretation:
+
+- Without a same-kernel router/metadata window, speculative LDS staging often
+  loses under miss-heavy regimes.
+- Once the workgroup has even a modest metadata-builder window, both mixed and
+  worst-case miss modes become consistently positive in this mock.
+- This is stronger evidence for the core claim than separate-stream
+  interference: the staged tile is validated and consumed/overwritten within
+  the same workgroup.
+
+The runner now reports a break-even hit-rate estimate:
+
+```text
+T_spec = p * T_hit + (1 - p) * T_miss
+profitable when T_spec < T_base
+p_min = (T_miss - T_base) / (T_miss - T_hit)
+```
+
+If `T_miss < T_base`, the report marks the configuration as profitable for any
+positive hit rate.
+
 ## Current Scale-Up
 
 512-sample configs are committed in:

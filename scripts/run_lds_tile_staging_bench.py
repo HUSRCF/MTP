@@ -73,6 +73,8 @@ def bench_one(args: argparse.Namespace, mode: str) -> dict[str, Any]:
         str(args.iters),
         "--validate-iters",
         str(args.validate_iters),
+        "--metadata-tokens",
+        str(args.metadata_tokens),
         "--interference-iters",
         str(args.interference_iters),
         "--interference-elems",
@@ -132,6 +134,24 @@ def summarize(results: list[dict[str, Any]]) -> dict[str, Any]:
                     reactive_overlap_model / overlap_model if overlap_model > 0 else None
                 ),
             }
+        if "spec_hit" in by_mode and "spec_miss" in by_mode:
+            hit_t = float(summary["derived"]["spec_hit"]["overlap_model_cycles_p50"])
+            miss_t = float(summary["derived"]["spec_miss"]["overlap_model_cycles_p50"])
+            base_t = float(summary["derived"]["reactive"]["overlap_model_cycles_p50"])
+            denom = miss_t - hit_t
+            if denom > 0.0:
+                p_min = (miss_t - base_t) / denom
+            else:
+                p_min = None
+            summary["break_even"] = {
+                "base_cycles": base_t,
+                "hit_cycles": hit_t,
+                "miss_cycles": miss_t,
+                "p_min_hit_rate": p_min,
+                "profitable_for_any_positive_hit_rate": miss_t < base_t,
+                "hit_better_than_base": hit_t < base_t,
+                "miss_better_than_base": miss_t < base_t,
+            }
     return summary
 
 
@@ -151,6 +171,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--warmup", type=int, default=10)
     parser.add_argument("--iters", type=int, default=100)
     parser.add_argument("--validate-iters", type=int, default=256)
+    parser.add_argument(
+        "--metadata-tokens",
+        type=int,
+        default=0,
+        help="Synthetic same-kernel router/metadata tokens per request. 0 keeps spin-only wait.",
+    )
     parser.add_argument("--interference-iters", type=int, default=0)
     parser.add_argument("--interference-elems", type=int, default=1 << 20)
     parser.add_argument("--miss-rate", type=float, default=0.25)
@@ -180,6 +206,7 @@ def main() -> None:
         "warmup": args.warmup,
         "iters": args.iters,
         "validate_iters": args.validate_iters,
+        "metadata_tokens": args.metadata_tokens,
         "interference_iters": args.interference_iters,
         "interference_elems": args.interference_elems,
         "miss_rate": args.miss_rate,

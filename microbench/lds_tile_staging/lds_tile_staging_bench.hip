@@ -33,6 +33,7 @@ struct Options {
   int warmup = 10;
   int iters = 100;
   int validate_iters = 256;
+  int metadata_tokens = 0;
   int interference_iters = 0;
   int interference_elems = 1 << 20;
   double miss_rate = 0.25;
@@ -75,6 +76,10 @@ __device__ __forceinline__ unsigned long long timer_delta(unsigned long long end
   return end >= begin ? (end - begin) : 0ull;
 }
 
+__device__ __forceinline__ int align_up_int(int value, int alignment) {
+  return ((value + alignment - 1) / alignment) * alignment;
+}
+
 __global__ void lds_tile_staging_kernel(
     const float* __restrict__ expert_tiles,
     const int* __restrict__ true_ids,
@@ -85,8 +90,14 @@ __global__ void lds_tile_staging_kernel(
     int experts,
     int tile_elems,
     int mode,
-    int validate_iters) {
-  extern __shared__ float lds[];
+    int validate_iters,
+    int metadata_tokens) {
+  extern __shared__ unsigned char shared_raw[];
+  float* lds = reinterpret_cast<float*>(shared_raw);
+  const int tile_bytes = tile_elems * static_cast<int>(sizeof(float));
+  const int counts_offset = align_up_int(tile_bytes, 16);
+  int* expert_counts = reinterpret_cast<int*>(shared_raw + counts_offset);
+  int* expert_offsets = expert_counts + experts;
 
   const int request = blockIdx.x;
   if (request >= requests) {
@@ -116,6 +127,29 @@ __global__ void lds_tile_staging_kernel(
     t_stage = read_timer();
   }
 
+  if (metadata_tokens > 0) {
+    for (int i = tid; i < experts; i += blockDim.x) {
+      expert_counts[i] = 0;
+      expert_offsets[i] = 0;
+    }
+    __syncthreads();
+
+    for (int token = tid; token < metadata_tokens; token += blockDim.x) {
+      const int expert = (true_expert + token * 17 + request * 13) & (experts - 1);
+      atomicAdd(expert_counts + expert, 1);
+    }
+    __syncthreads();
+
+    if (tid == 0) {
+      int prefix = 0;
+      for (int expert = 0; expert < experts; ++expert) {
+        const int count = expert_counts[expert];
+        expert_offsets[expert] = prefix;
+        prefix += count;
+      }
+      scratch ^= static_cast<unsigned int>(prefix + expert_offsets[true_expert]);
+    }
+  }
   scratch = spin_wait(validate_iters, scratch);
   __syncthreads();
   t_validate = read_timer();
@@ -246,6 +280,8 @@ Options parse_args(int argc, char** argv) {
       opt.iters = parse_int(need_value("--iters"), "--iters");
     } else if (arg == "--validate-iters") {
       opt.validate_iters = parse_int(need_value("--validate-iters"), "--validate-iters");
+    } else if (arg == "--metadata-tokens") {
+      opt.metadata_tokens = parse_int(need_value("--metadata-tokens"), "--metadata-tokens");
     } else if (arg == "--interference-iters") {
       opt.interference_iters = parse_int(
           need_value("--interference-iters"), "--interference-iters");
@@ -268,6 +304,7 @@ Options parse_args(int argc, char** argv) {
           << "  --warmup N\n"
           << "  --iters N\n"
           << "  --validate-iters N\n"
+          << "  --metadata-tokens N\n"
           << "  --interference-iters N\n"
           << "  --interference-elems N\n"
           << "  --miss-rate F\n";
@@ -333,7 +370,8 @@ int main(int argc, char** argv) {
     const Options opt = parse_args(argc, argv);
     if (opt.requests <= 0 || opt.experts <= 1 || opt.tile_elems <= 0 ||
         opt.block_threads <= 0 || opt.iters <= 0 || opt.warmup < 0 ||
-        opt.interference_iters < 0 || opt.interference_elems <= 0) {
+        opt.interference_iters < 0 || opt.interference_elems <= 0 ||
+        opt.metadata_tokens < 0) {
       throw std::runtime_error("invalid non-positive benchmark parameter");
     }
     if ((opt.interference_elems & (opt.interference_elems - 1)) != 0) {
@@ -345,7 +383,10 @@ int main(int argc, char** argv) {
     hipDeviceProp_t prop{};
     HIP_CHECK(hipGetDeviceProperties(&prop, opt.device));
 
-    const size_t shared_bytes = static_cast<size_t>(opt.tile_elems) * sizeof(float);
+    const int tile_bytes = opt.tile_elems * static_cast<int>(sizeof(float));
+    const int counts_offset = ((tile_bytes + 15) / 16) * 16;
+    const size_t shared_bytes =
+        static_cast<size_t>(counts_offset) + static_cast<size_t>(2 * opt.experts) * sizeof(int);
     if (shared_bytes > static_cast<size_t>(prop.sharedMemPerBlock)) {
       std::ostringstream oss;
       oss << "tile uses " << shared_bytes << " bytes of LDS, but device limit is "
@@ -417,7 +458,7 @@ int main(int argc, char** argv) {
       hipLaunchKernelGGL(lds_tile_staging_kernel, grid, block, shared_bytes, bench_stream, d_tiles,
                          d_true_ids, d_pred_ids, d_sink, d_metrics, opt.requests,
                          opt.experts, opt.tile_elems, static_cast<int>(opt.mode),
-                         opt.validate_iters);
+                         opt.validate_iters, opt.metadata_tokens);
       HIP_CHECK(hipGetLastError());
     };
 
@@ -498,6 +539,7 @@ int main(int argc, char** argv) {
     std::cout << "  \"tile_bytes\": " << (opt.tile_elems * static_cast<int>(sizeof(float))) << ",\n";
     std::cout << "  \"block_threads\": " << opt.block_threads << ",\n";
     std::cout << "  \"validate_iters\": " << opt.validate_iters << ",\n";
+    std::cout << "  \"metadata_tokens\": " << opt.metadata_tokens << ",\n";
     std::cout << "  \"interference_iters\": " << opt.interference_iters << ",\n";
     std::cout << "  \"interference_elems\": " << opt.interference_elems << ",\n";
     std::cout << "  \"configured_miss_rate\": " << opt.miss_rate << ",\n";

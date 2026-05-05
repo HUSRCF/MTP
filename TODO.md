@@ -42,9 +42,14 @@ Latest implementation status:
 - [x] Extend LDS tile-staging microbench:
   - sweep `tile_elems`, `validate_iters`, `block_threads`, and `miss_rate`
   - add synthetic router-interference stress: concurrent HBM/ALU kernel on a separate stream
+- [x] Add same-kernel router/metadata-builder mock:
+  - generate synthetic expert counts and offsets in LDS
+  - validate staged tile in the same workgroup
+  - consume staged LDS tile on hit or overwrite on miss
+  - report break-even `p_min` from reactive / hit / miss overlap-model timings
 - [ ] Add realistic router/metadata-builder interference mock:
-  - generate token/expert counts and offsets on device
-  - run concurrently with speculative LDS staging
+  - generate token/expert counts and offsets on device with a closer grouped-MoE metadata layout
+  - run concurrently with speculative LDS staging or as a persistent-kernel phase
   - measure router overlap loss and policy-dependent prologue speedup
 - [ ] Add next-stage LDS tile-staging counters:
   - explicit LDS tile reuse rate
