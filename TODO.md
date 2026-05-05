@@ -82,8 +82,10 @@ Latest implementation status:
   - [x] add global rocWMMA tile baseline smoke
   - [x] add LDS-staged rocWMMA tile consumer smoke with hit / miss overwrite correctness
   - [x] add repeated B/expert tile reuse sweep via `--consumer-rows`
-  - [ ] add rocWMMA tile-stage benchmark with same-kernel validation window
-  - [ ] add rocWMMA hit / miss / overwrite p_min report
+  - [x] add rocWMMA tile-stage benchmark with same-kernel validation window
+  - [x] add rocWMMA hit / miss / overwrite p_min report
+  - [ ] add producer/validator wave split or persistent-kernel pipeline to test real overlap
+  - [ ] add rocprof counters for global reads, LDS traffic, occupancy, and wave scheduling
   - [ ] add a WMMA-like multi-wave tile consumer after the prologue-only envelope is stable
   - keep MFMA wording out of the W7900 path; MFMA is a CDNA-oriented follow-up, not the current hardware target
 - [ ] Add HIP Graph metadata-patching microbench as secondary system-shell evidence:

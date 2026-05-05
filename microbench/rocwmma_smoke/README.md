@@ -71,6 +71,14 @@ python scripts/run_rocwmma_tile_stage.py \
   --consumer-rows 1 \
   --consumer-rows 4 \
   --consumer-rows 8 \
+  --validate-iters 0 \
+  --validate-iters 64 \
+  --validate-iters 256 \
   --offload-arch gfx1100 \
-  --output outputs/reports/rocwmma_smoke/rocwmma_tile_stage_reuse_2gpu.json
+  --output outputs/reports/rocwmma_smoke/rocwmma_tile_stage_validate_2gpu.json
 ```
+
+The validation sweep currently reports a conservative boundary: all rows are
+numerically correct, but the serial same-kernel validation phase does not hide
+LDS staging cost. The next performance gate should test real overlap or
+pipelining, not just longer serial validation work.

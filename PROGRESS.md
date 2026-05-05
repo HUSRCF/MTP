@@ -947,6 +947,78 @@ Interpretation:
   p_min reporting. A rocprof pass should also confirm global/LDS traffic and
   occupancy effects before any performance claim is made.
 
+rocWMMA same-kernel validation-window p_min sweep:
+
+The rocWMMA tile-stage smoke now supports `--validate-iters`. The kernel uses
+the same action order as the proposed staging contract:
+
+```text
+global_baseline:
+  validation work -> rocWMMA loads B from global memory
+
+lds_hit:
+  stage B into LDS -> validation work -> rocWMMA consumes staged B
+
+lds_miss_overwrite:
+  stage wrong B into LDS -> validation work -> overwrite with true B
+  -> rocWMMA consumes corrected B
+```
+
+The runner reports p_min per `(device, consumer_rows, validate_iters)`:
+
+```text
+T_spec = p * T_hit + (1 - p) * T_miss
+profitable when T_spec < T_global
+```
+
+Artifact:
+
+- Report: `outputs/reports/rocwmma_smoke/rocwmma_tile_stage_validate_2gpu.json`
+
+Grid:
+
+```text
+devices = [GPU0, GPU1]
+consumer_rows = [1, 4, 8]
+validate_iters = [0, 64, 256]
+modes = [global_baseline, lds_hit, lds_miss_overwrite]
+```
+
+Result:
+
+```text
+all rows ok = true
+all max_abs_err = 0.0
+all 18 p_min rows = not_profitable_even_at_full_hit
+```
+
+Representative rows:
+
+```text
+GPU0 rows=1 validate=0:
+  global=0.01005 ms, hit=0.01050 ms, miss=0.01126 ms
+
+GPU0 rows=4 validate=256:
+  global=0.02065 ms, hit=0.02238 ms, miss=0.02349 ms
+
+GPU1 rows=8 validate=256:
+  global=0.02358 ms, hit=0.02477 ms, miss=0.02627 ms
+```
+
+Interpretation:
+
+- rocWMMA correctness for global, staged-hit, and staged-miss-overwrite paths is
+  stable under the validation-window sweep.
+- A serial same-kernel validation phase does not hide the LDS staging cost.
+  Even full hit-rate is not profitable in this small tile benchmark.
+- This is a useful negative boundary: the next WMMA gate must model real
+  overlap or pipelining, for example separate producer/validator waves,
+  multiple workgroups, persistent grouped-GEMM scheduling, larger grouped tile
+  shapes, or rocprof-confirmed latency hiding.
+- The runtime policy implication remains conservative: `lds_stage` is disabled
+  unless measured p_min is finite and the expected hit rate clears it with a
+  safety margin.
+
 ## Current Scale-Up
 
 512-sample configs are committed in:

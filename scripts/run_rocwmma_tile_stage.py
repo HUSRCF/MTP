@@ -55,6 +55,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--warmup", type=int, default=20)
     parser.add_argument("--iters", type=int, default=200)
     parser.add_argument("--consumer-rows", type=int, action="append", default=None)
+    parser.add_argument("--validate-iters", type=int, action="append", default=None)
     parser.add_argument("--offload-arch", default="gfx1100")
     parser.add_argument("--force-build", action="store_true")
     parser.add_argument(
@@ -66,13 +67,14 @@ def parse_args() -> argparse.Namespace:
 
 
 def summarize(results: list[dict[str, Any]]) -> dict[str, Any]:
-    by_device_rows: dict[tuple[int, int], dict[str, dict[str, Any]]] = {}
+    by_config: dict[tuple[int, int, int], dict[str, dict[str, Any]]] = {}
     for row in results:
-        key = (int(row["device"]), int(row["consumer_rows"]))
-        by_device_rows.setdefault(key, {})[str(row["mode"])] = row
+        key = (int(row["device"]), int(row["consumer_rows"]), int(row["validate_iters"]))
+        by_config.setdefault(key, {})[str(row["mode"])] = row
 
     comparisons: list[dict[str, Any]] = []
-    for (device, consumer_rows), rows in sorted(by_device_rows.items()):
+    p_min_rows: list[dict[str, Any]] = []
+    for (device, consumer_rows, validate_iters), rows in sorted(by_config.items()):
         baseline = rows.get("global_baseline")
         if not baseline:
             continue
@@ -86,12 +88,43 @@ def summarize(results: list[dict[str, Any]]) -> dict[str, Any]:
                 {
                     "device": device,
                     "consumer_rows": consumer_rows,
+                    "validate_iters": validate_iters,
                     "mode": mode,
                     "delta_vs_global_ms": mode_ms - base_ms,
                     "speedup_vs_global": base_ms / mode_ms if mode_ms > 0 else None,
                 }
             )
-    return {"comparisons": comparisons}
+        hit = rows.get("lds_hit")
+        miss = rows.get("lds_miss_overwrite")
+        if hit and miss:
+            hit_ms = float(hit["wall_ms_mean"])
+            miss_ms = float(miss["wall_ms_mean"])
+            if hit_ms >= base_ms and miss_ms >= base_ms:
+                p_min = None
+                status = "not_profitable_even_at_full_hit"
+            elif miss_ms <= base_ms:
+                p_min = 0.0
+                status = "profitable_for_any_hit_rate"
+            elif miss_ms <= hit_ms:
+                p_min = None
+                status = "invalid_timing_order"
+            else:
+                p_min = (miss_ms - base_ms) / (miss_ms - hit_ms)
+                p_min = max(0.0, min(1.0, p_min))
+                status = "profitable_if_hit_rate_exceeds_p_min"
+            p_min_rows.append(
+                {
+                    "device": device,
+                    "consumer_rows": consumer_rows,
+                    "validate_iters": validate_iters,
+                    "global_ms": base_ms,
+                    "hit_ms": hit_ms,
+                    "miss_ms": miss_ms,
+                    "p_min_hit_rate": p_min,
+                    "status": status,
+                }
+            )
+    return {"comparisons": comparisons, "p_min": p_min_rows}
 
 
 def main() -> None:
@@ -99,36 +132,41 @@ def main() -> None:
     devices = sorted(set(args.device or [0]))
     modes = args.mode or DEFAULT_MODES
     consumer_rows_values = sorted(set(args.consumer_rows or [1]))
+    validate_iters_values = sorted(set(args.validate_iters or [0]))
     build(force=args.force_build, offload_arch=args.offload_arch)
     results: list[dict[str, Any]] = []
     for device in devices:
         for consumer_rows in consumer_rows_values:
-            for mode in modes:
-                result = run(
-                    [
-                        str(BIN),
-                        "--device",
-                        str(device),
-                        "--mode",
-                        mode,
-                        "--consumer-rows",
-                        str(consumer_rows),
-                        "--warmup",
-                        str(args.warmup),
-                        "--iters",
-                        str(args.iters),
-                    ]
-                )
-                payload = json.loads(result.stdout)
-                if result.stderr:
-                    payload["stderr"] = result.stderr
-                results.append(payload)
+            for validate_iters in validate_iters_values:
+                for mode in modes:
+                    result = run(
+                        [
+                            str(BIN),
+                            "--device",
+                            str(device),
+                            "--mode",
+                            mode,
+                            "--consumer-rows",
+                            str(consumer_rows),
+                            "--validate-iters",
+                            str(validate_iters),
+                            "--warmup",
+                            str(args.warmup),
+                            "--iters",
+                            str(args.iters),
+                        ]
+                    )
+                    payload = json.loads(result.stdout)
+                    if result.stderr:
+                        payload["stderr"] = result.stderr
+                    results.append(payload)
     report = {
         "ok": all(bool(row.get("ok")) for row in results),
         "config": {
             "devices": devices,
             "modes": modes,
             "consumer_rows": consumer_rows_values,
+            "validate_iters": validate_iters_values,
             "warmup": args.warmup,
             "iters": args.iters,
             "offload_arch": args.offload_arch,

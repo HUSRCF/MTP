@@ -42,6 +42,7 @@ struct Options {
   int warmup = 20;
   int iters = 200;
   int consumer_rows = 1;
+  int validate_iters = 0;
   Mode mode = Mode::kGlobalBaseline;
 };
 
@@ -73,6 +74,17 @@ const char* mode_name(Mode mode) {
   return "unknown";
 }
 
+__device__ __forceinline__ void validation_work(int validate_iters, unsigned int* validation_sink) {
+  unsigned int acc = static_cast<unsigned int>(threadIdx.x + 1 + blockIdx.x * 17);
+  for (int i = 0; i < validate_iters; ++i) {
+    acc = acc * 1664525u + 1013904223u + static_cast<unsigned int>(i);
+    acc ^= acc >> 16;
+  }
+  if (threadIdx.x == 0 && validate_iters > 0) {
+    atomicAdd(validation_sink, acc & 1u);
+  }
+}
+
 Options parse_args(int argc, char** argv) {
   Options opt;
   for (int i = 1; i < argc; ++i) {
@@ -91,6 +103,8 @@ Options parse_args(int argc, char** argv) {
       opt.iters = parse_int(need_value("--iters"), "--iters");
     } else if (arg == "--consumer-rows") {
       opt.consumer_rows = parse_int(need_value("--consumer-rows"), "--consumer-rows");
+    } else if (arg == "--validate-iters") {
+      opt.validate_iters = parse_int(need_value("--validate-iters"), "--validate-iters");
     } else if (arg == "--mode") {
       opt.mode = parse_mode(need_value("--mode"));
     } else if (arg == "--help" || arg == "-h") {
@@ -109,8 +123,10 @@ __global__ void rocwmma_tile_stage_kernel(
     const rocwmma::float16_t* __restrict__ b_true,
     const rocwmma::float16_t* __restrict__ b_wrong,
     float* __restrict__ c,
+    unsigned int* __restrict__ validation_sink,
     int mode,
-    int consumer_rows) {
+    int consumer_rows,
+    int validate_iters) {
   using namespace rocwmma;
   using FragA = fragment<matrix_a, kM, kN, kK, float16_t, row_major>;
   using FragB = fragment<matrix_b, kM, kN, kK, float16_t, row_major>;
@@ -123,11 +139,14 @@ __global__ void rocwmma_tile_stage_kernel(
   FragC frag_d;
 
   if (mode == static_cast<int>(Mode::kGlobalBaseline)) {
+    validation_work(validate_iters, validation_sink);
     load_matrix_sync(frag_b, b_true, kN);
   } else if (mode == static_cast<int>(Mode::kLdsHit)) {
     for (int idx = threadIdx.x; idx < kTileElems; idx += blockDim.x) {
       s_b[idx] = b_true[idx];
     }
+    __syncthreads();
+    validation_work(validate_iters, validation_sink);
     __syncthreads();
     load_matrix_sync(frag_b, s_b, kN);
   } else {
@@ -137,6 +156,8 @@ __global__ void rocwmma_tile_stage_kernel(
     __syncthreads();
     // Miss path: prediction staged the wrong tile, then validation forces a
     // bounded overwrite of the LDS tile before rocWMMA consumes it.
+    validation_work(validate_iters, validation_sink);
+    __syncthreads();
     for (int idx = threadIdx.x; idx < kTileElems; idx += blockDim.x) {
       s_b[idx] = b_true[idx];
     }
@@ -204,8 +225,9 @@ std::vector<float> reference(const std::vector<rocwmma::float16_t>& a,
 int main(int argc, char** argv) {
   try {
     const Options opt = parse_args(argc, argv);
-    if (opt.warmup < 0 || opt.iters <= 0 || opt.consumer_rows <= 0 || opt.consumer_rows > 16) {
-      throw std::runtime_error("invalid warmup/iters/consumer_rows");
+    if (opt.warmup < 0 || opt.iters <= 0 || opt.consumer_rows <= 0 || opt.consumer_rows > 16 ||
+        opt.validate_iters < 0) {
+      throw std::runtime_error("invalid warmup/iters/consumer_rows/validate_iters");
     }
     HIP_CHECK(hipSetDevice(opt.device));
     hipDeviceProp_t prop{};
@@ -222,10 +244,12 @@ int main(int argc, char** argv) {
     rocwmma::float16_t* d_b = nullptr;
     rocwmma::float16_t* d_b_wrong = nullptr;
     float* d_c = nullptr;
+    unsigned int* d_validation_sink = nullptr;
     HIP_CHECK(hipMalloc(&d_a, h_a.size() * sizeof(rocwmma::float16_t)));
     HIP_CHECK(hipMalloc(&d_b, h_b.size() * sizeof(rocwmma::float16_t)));
     HIP_CHECK(hipMalloc(&d_b_wrong, h_b_wrong.size() * sizeof(rocwmma::float16_t)));
     HIP_CHECK(hipMalloc(&d_c, h_c.size() * sizeof(float)));
+    HIP_CHECK(hipMalloc(&d_validation_sink, sizeof(unsigned int)));
     HIP_CHECK(hipMemcpy(d_a, h_a.data(), h_a.size() * sizeof(rocwmma::float16_t),
                         hipMemcpyHostToDevice));
     HIP_CHECK(hipMemcpy(d_b, h_b.data(), h_b.size() * sizeof(rocwmma::float16_t),
@@ -233,6 +257,7 @@ int main(int argc, char** argv) {
     HIP_CHECK(hipMemcpy(d_b_wrong, h_b_wrong.data(), h_b_wrong.size() * sizeof(rocwmma::float16_t),
                         hipMemcpyHostToDevice));
     HIP_CHECK(hipMemset(d_c, 0, h_c.size() * sizeof(float)));
+    HIP_CHECK(hipMemset(d_validation_sink, 0, sizeof(unsigned int)));
 
     const int mode_int = static_cast<int>(opt.mode);
     for (int i = 0; i < opt.warmup; ++i) {
@@ -246,8 +271,10 @@ int main(int argc, char** argv) {
           d_b,
           d_b_wrong,
           d_c,
+          d_validation_sink,
           mode_int,
-          opt.consumer_rows);
+          opt.consumer_rows,
+          opt.validate_iters);
       HIP_CHECK(hipGetLastError());
     }
     HIP_CHECK(hipDeviceSynchronize());
@@ -270,8 +297,10 @@ int main(int argc, char** argv) {
           d_b,
           d_b_wrong,
           d_c,
+          d_validation_sink,
           mode_int,
-          opt.consumer_rows);
+          opt.consumer_rows,
+          opt.validate_iters);
       HIP_CHECK(hipGetLastError());
       HIP_CHECK(hipEventRecord(stop));
       HIP_CHECK(hipEventSynchronize(stop));
@@ -303,6 +332,7 @@ int main(int argc, char** argv) {
     std::cout << "  \"matrix_n\": " << kN << ",\n";
     std::cout << "  \"matrix_k\": " << kK << ",\n";
     std::cout << "  \"consumer_rows\": " << opt.consumer_rows << ",\n";
+    std::cout << "  \"validate_iters\": " << opt.validate_iters << ",\n";
     std::cout << "  \"block_threads\": 64,\n";
     std::cout << "  \"lds_bytes_per_block\": " << (kTileElems * static_cast<int>(sizeof(rocwmma::float16_t))) << ",\n";
     std::cout << "  \"input_dtype\": \"rocwmma::float16_t\",\n";
@@ -319,6 +349,7 @@ int main(int argc, char** argv) {
     HIP_CHECK(hipFree(d_b));
     HIP_CHECK(hipFree(d_b_wrong));
     HIP_CHECK(hipFree(d_c));
+    HIP_CHECK(hipFree(d_validation_sink));
   } catch (const std::exception& ex) {
     std::cerr << "error: " << ex.what() << "\n";
     return 1;
