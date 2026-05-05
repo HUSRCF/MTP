@@ -79,8 +79,10 @@ Latest implementation status:
   - [x] add lightweight multi-row grouped-consumer mock via `--consumer-rows`
   - [x] add pre-rocWMMA LDS layout sweep via `--lds-layout`
   - [x] add independent rocWMMA hello-world smoke for W7900 / RDNA3 / gfx1100
-  - [ ] add global rocWMMA tile baseline
-  - [ ] add LDS-staged rocWMMA tile consumer with hit / miss / overwrite timing
+  - [x] add global rocWMMA tile baseline smoke
+  - [x] add LDS-staged rocWMMA tile consumer smoke with hit / miss overwrite correctness
+  - [ ] add rocWMMA tile-stage benchmark with same-kernel validation window and repeated tile reuse
+  - [ ] add rocWMMA hit / miss / overwrite p_min report
   - [ ] add a WMMA-like multi-wave tile consumer after the prologue-only envelope is stable
   - keep MFMA wording out of the W7900 path; MFMA is a CDNA-oriented follow-up, not the current hardware target
 - [ ] Add HIP Graph metadata-patching microbench as secondary system-shell evidence:
