@@ -76,6 +76,7 @@ def simulate_stall_proxy(
     premap_supplemental_saved_us: float = 5.0,
     action_cost_overlap_factor: float = 0.0,
     include_unique_payload_counters: bool = True,
+    include_score_bin_counters: bool = True,
 ) -> StallProxyReport:
     """Estimate true-router supplemental fetch/stall after prefetch readiness.
 
@@ -456,6 +457,7 @@ def simulate_stall_proxy(
                 premap_supplemental_saved_us=premap_supplemental_saved_us,
                 action_cost_overlap_factor=action_cost_overlap_factor,
                 bandwidth_gbps=bandwidth_gbps,
+                include_score_bin_counters=include_score_bin_counters,
             )
             metrics["saved_supplemental_fetch_count_vs_transition"] = float(
                 baseline_missing_fetches - metrics["supplemental_fetch_count"]
@@ -848,6 +850,7 @@ def _decision_action_outcome_metrics(
     premap_supplemental_saved_us: float,
     action_cost_overlap_factor: float,
     bandwidth_gbps: float,
+    include_score_bin_counters: bool,
 ) -> dict[str, Any]:
     action_masks = decisions.action_masks()
     demand = target_mass.float().gt(0.0)
@@ -887,7 +890,7 @@ def _decision_action_outcome_metrics(
         total_actual_bytes += actual_bytes
         total_payload_equivalent_bytes += payload_equivalent_bytes
         total_later_used_setup_saved_ms += later_used_setup_saved_ms
-        outcomes[str(action)] = {
+        action_outcome = {
             "count": count,
             "payload_equivalent_bytes": payload_equivalent_bytes,
             "actual_bytes": actual_bytes,
@@ -910,7 +913,9 @@ def _decision_action_outcome_metrics(
                 novel_rank=novel_rank,
                 max_extra=max_extra,
             ),
-            "by_score_bin": _action_by_score_bin_metrics(
+        }
+        if include_score_bin_counters:
+            action_outcome["by_score_bin"] = _action_by_score_bin_metrics(
                 selected,
                 later_used,
                 scores=score_tensor.float(),
@@ -918,8 +923,8 @@ def _decision_action_outcome_metrics(
                 setup_saved_us=float(setup_saved_us[str(action)]),
                 bytes_per_ms=bytes_per_ms,
                 overlap_factor=overlap_factor,
-            ),
-        }
+            )
+        outcomes[str(action)] = action_outcome
     skip_would_have_used = action_masks["skip"].bool() & demand
     skip_would_have_used_count = float(skip_would_have_used.float().sum().item())
     outcomes["skip"]["would_have_used_count"] = skip_would_have_used_count
@@ -1035,10 +1040,24 @@ def _action_by_score_bin_metrics(
             "net_setup_benefit_ms": [0.0 for _ in labels],
             "overlap_adjusted_net_setup_benefit_ms": [0.0 for _ in labels],
         }
+    # ROCm/PyTorch quantile has practical input-size limits on large action tensors.
+    # Use a deterministic score sample for bin boundaries while keeping full-tensor
+    # masks below for the actual counts/outcomes.
+    boundary_scores = selected_scores.detach().float().flatten()
+    max_boundary_scores = 1_000_000
+    if boundary_scores.numel() > max_boundary_scores:
+        sample_indices = torch.linspace(
+            0,
+            boundary_scores.numel() - 1,
+            steps=max_boundary_scores,
+            device=boundary_scores.device,
+            dtype=torch.long,
+        )
+        boundary_scores = boundary_scores.index_select(0, sample_indices)
     boundaries = torch.quantile(
-        selected_scores.float(),
-        torch.tensor(quantiles, dtype=torch.float32, device=selected_scores.device),
-    )
+        boundary_scores.cpu(),
+        torch.tensor(quantiles, dtype=torch.float32),
+    ).to(device=selected_scores.device)
     counts = []
     later_counts = []
     rates = []

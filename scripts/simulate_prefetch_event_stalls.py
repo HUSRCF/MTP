@@ -187,6 +187,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Skip expensive sample/layer/expert unique payload counters.",
     )
+    parser.add_argument(
+        "--disable-score-bin-counters",
+        action="store_true",
+        help="Skip expensive action score-bin counters for large cached sweeps.",
+    )
     parser.add_argument("--device", default="cpu", help="Evaluation device, e.g. cpu or cuda.")
     return parser.parse_args()
 
@@ -423,6 +428,7 @@ def main() -> None:
         premap_supplemental_saved_us=float(args.premap_supplemental_saved_us),
         action_cost_overlap_factor=float(args.action_cost_overlap_factor),
         include_unique_payload_counters=not bool(args.disable_unique_payload_counters),
+        include_score_bin_counters=not bool(args.disable_score_bin_counters),
     )
     written_path = write_stall_proxy_report(report, output)
     payload = report.as_dict()
@@ -496,6 +502,7 @@ def main() -> None:
                 "unique_payload_counters_enabled": not bool(
                     args.disable_unique_payload_counters
                 ),
+                "score_bin_counters_enabled": not bool(args.disable_score_bin_counters),
             },
         }
     )
