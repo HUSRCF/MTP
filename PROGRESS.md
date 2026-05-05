@@ -2,7 +2,7 @@
 
 ## Progress Version
 
-- Version: `v0.9-lds-anti-artifact-controls`
+- Version: `v0.10-rocwmma-smoke`
 - Updated: 2026-05-06
 - Current phase: online action shadow validated; pivoting system moat to speculative LDS tile staging
 
@@ -91,6 +91,7 @@ utility/action policy ablations
 - Heldout online `matrix_topk` replay matches offline transition@32 baseline.
 - Full MTP action replay matches the normal-envelope event simulator.
 - Reviewer-safe differentiation has been tightened around LDS-level tile staging rather than broad expert prefetch.
+- W7900 / RDNA3 rocWMMA hello-world smoke passes on both local gfx1100 cards.
 
 ## Micro-Architectural Direction
 
@@ -827,6 +828,54 @@ Interpretation:
   mixed-mode mean but costs extra LDS storage.
 - At `tile_elems=1024`, all layouts remain thread-limited at 8 blocks/CU rather
   than LDS-limited. Larger tiles are needed to stress the occupancy gate.
+
+rocWMMA gfx1100 smoke:
+
+The current local GPUs are RDNA3 / gfx1100 W7900-class devices, so the real
+matrix-core path for this machine is WMMA / rocWMMA. MFMA remains a CDNA
+follow-up and should not be used as the primary W7900 claim.
+
+Implemented minimal rocWMMA smoke:
+
+- Source: `microbench/rocwmma_smoke/rocwmma_hello.hip`
+- Runner: `scripts/run_rocwmma_hello.py`
+- Notes: `microbench/rocwmma_smoke/README.md`
+- Report: `outputs/reports/rocwmma_smoke/rocwmma_hello_2gpu.json`
+
+Smoke semantics:
+
+```text
+16x16x16 GEMM
+input dtype: rocwmma::float16_t
+accumulator dtype: float
+layout: row-major A/B/C
+target: --offload-arch=gfx1100
+```
+
+Two-GPU result:
+
+```text
+GPU0 AMD Radeon Pro W7900:
+  ok = true
+  max_abs_err = 0.0
+  mean_abs_err = 0.0
+  wall_ms_mean ~= 0.01019
+
+GPU1 AMD Radeon Pro W7900 Dual Slot:
+  ok = true
+  max_abs_err = 0.0
+  mean_abs_err = 0.0
+  wall_ms_mean ~= 0.01682
+```
+
+Interpretation:
+
+- rocWMMA headers, fragment load, `mma_sync`, and store compile and run on both
+  local gfx1100 devices.
+- This is only an API / numerical correctness gate. It does not yet validate
+  speculative LDS staging with rocWMMA.
+- Next gates are a global rocWMMA tile baseline, then an LDS-staged rocWMMA
+  consumer with hit / miss / overwrite timing.
 
 ## Current Scale-Up
 

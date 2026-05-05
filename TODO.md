@@ -78,8 +78,10 @@ Latest implementation status:
 - [ ] Add WMMA / real grouped-GEMM compute mock for RDNA3 W7900:
   - [x] add lightweight multi-row grouped-consumer mock via `--consumer-rows`
   - [x] add pre-rocWMMA LDS layout sweep via `--lds-layout`
-  - add a WMMA-like multi-wave tile consumer after the prologue-only envelope is stable
-  - add rocWMMA variant for W7900 / RDNA3 after the hand-written HIP benchmark remains positive
+  - [x] add independent rocWMMA hello-world smoke for W7900 / RDNA3 / gfx1100
+  - [ ] add global rocWMMA tile baseline
+  - [ ] add LDS-staged rocWMMA tile consumer with hit / miss / overwrite timing
+  - [ ] add a WMMA-like multi-wave tile consumer after the prologue-only envelope is stable
   - keep MFMA wording out of the W7900 path; MFMA is a CDNA-oriented follow-up, not the current hardware target
 - [ ] Add HIP Graph metadata-patching microbench as secondary system-shell evidence:
   - eager dummy grouped-MoE dispatch latency
