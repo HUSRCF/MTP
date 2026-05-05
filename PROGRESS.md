@@ -2,7 +2,7 @@
 
 ## Progress Version
 
-- Version: `v0.5-runtime-shadow-fallback`
+- Version: `v0.6-runtime-shadow-replay`
 - Updated: 2026-05-05
 - Current phase: 512-sample scale-up validation for action-level runtime policy
 
@@ -38,6 +38,7 @@ Safety boundaries:
 - Metadata and premap are tracked with separate setup-prep accounting.
 - Transfer-capacity fallback gate is implemented in runtime policy.
 - Runtime shadow schema records gate outcome and policy overhead fields.
+- Runtime shadow replay exporter writes action-level summary/outcome JSONL from tensor caches.
 
 ## Current Scale-Up
 
@@ -163,6 +164,53 @@ These fields are intended to support the next gate:
 
 ```text
 offline event sim ≈ online shadow replay
+```
+
+## Runtime Shadow Replay
+
+The runtime shadow contract can now be exported as JSONL from cached evaluation
+tensors:
+
+```text
+scripts/export_runtime_shadow_jsonl.py
+```
+
+The exporter uses the same runtime policy fallback gate and canonical admission
+helpers as the simulator, then writes per-token/layer:
+
+```text
+summary event:
+  policy mode / reason / allow flags
+  full_fetch / metadata / premap / skip counts and bytes
+  transfer envelope fields
+
+outcome event:
+  true routed top-k ids/weights
+  full_fetch used
+  metadata later-used
+  premap later-used
+  skip would-have-used
+  ready mass / miss mass / weighted top1 miss
+```
+
+Smoke checks:
+
+```text
+normal envelope:
+  policy_mode = default
+  full_fetch / metadata / premap all active
+
+severe stress envelope:
+  policy_mode = fallback
+  full_fetch = 0
+  metadata = 0
+  premap remains allowed
+```
+
+This is the bridge for the next validation gate:
+
+```text
+offline event sim ≈ runtime shadow JSONL replay
 ```
 
 ## Current Default Evaluation Settings
