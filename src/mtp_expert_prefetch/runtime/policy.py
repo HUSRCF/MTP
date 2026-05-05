@@ -36,9 +36,11 @@ class RuntimePrefetchPolicy:
     transition_topk: int
     mtp_topk: int
     max_extra: int
+    metadata_max_extra: int
     tail_swap_count: int
     allow_full_mtp_fetch: bool
     allow_mtp_metadata: bool
+    allow_mtp_premap: bool
     reason: str
 
     def as_dict(self) -> dict[str, bool | float | int | str]:
@@ -55,10 +57,13 @@ class PolicyThresholds:
     max_pressure_for_low_budget_extra2: float = 0.85
     max_cache_pressure_for_high_budget: float = 0.55
     max_queue_pressure_for_high_budget: float = 0.45
+    max_cache_pressure_for_metadata: float = 0.80
+    max_queue_pressure_for_metadata: float = 0.80
     min_capacity_for_default: int = 128
     min_capacity_for_high_budget: int = 192
     max_mtp_delay_default_ms: float = 4.0
     max_mtp_delay_high_budget_ms: float = 2.0
+    metadata_max_extra_default: int = 1
 
 
 def select_runtime_prefetch_policy(
@@ -78,15 +83,25 @@ def select_runtime_prefetch_policy(
     if optimization_goal not in ("stall_reduction", "bandwidth_efficiency"):
         msg = f"Unknown optimization_goal={optimization_goal!r}."
         raise ValueError(msg)
+    metadata_allowed = (
+        signals.cache_pressure <= thresholds.max_cache_pressure_for_metadata
+        and signals.queue_pressure <= thresholds.max_queue_pressure_for_metadata
+        and float(signals.mtp_delay_ms) <= float(thresholds.max_mtp_delay_default_ms)
+    )
+    metadata_max_extra = (
+        int(thresholds.metadata_max_extra_default) if metadata_allowed else 0
+    )
     if signals.transition_ready_rate < thresholds.min_transition_ready_for_full_mtp:
         return RuntimePrefetchPolicy(
             mode="fallback",
             transition_topk=transition_topk,
             mtp_topk=mtp_topk,
             max_extra=0,
+            metadata_max_extra=0,
             tail_swap_count=0,
             allow_full_mtp_fetch=False,
-            allow_mtp_metadata=True,
+            allow_mtp_metadata=False,
+            allow_mtp_premap=True,
             reason="transition_not_ready",
         )
     if (
@@ -97,9 +112,11 @@ def select_runtime_prefetch_policy(
             transition_topk=transition_topk,
             mtp_topk=mtp_topk,
             max_extra=0,
+            metadata_max_extra=0,
             tail_swap_count=0,
             allow_full_mtp_fetch=False,
-            allow_mtp_metadata=True,
+            allow_mtp_metadata=False,
+            allow_mtp_premap=True,
             reason="resource_pressure",
         )
     if float(signals.mtp_delay_ms) > float(thresholds.max_mtp_delay_default_ms):
@@ -108,9 +125,11 @@ def select_runtime_prefetch_policy(
             transition_topk=transition_topk,
             mtp_topk=mtp_topk,
             max_extra=0,
+            metadata_max_extra=0,
             tail_swap_count=0,
             allow_full_mtp_fetch=False,
-            allow_mtp_metadata=True,
+            allow_mtp_metadata=False,
+            allow_mtp_premap=True,
             reason="mtp_delay_high",
         )
     if (
@@ -126,9 +145,11 @@ def select_runtime_prefetch_policy(
             transition_topk=transition_topk,
             mtp_topk=mtp_topk,
             max_extra=8,
+            metadata_max_extra=metadata_max_extra,
             tail_swap_count=0,
             allow_full_mtp_fetch=True,
-            allow_mtp_metadata=True,
+            allow_mtp_metadata=metadata_allowed,
+            allow_mtp_premap=True,
             reason="capacity_and_queue_idle",
         )
     if optimization_goal == "bandwidth_efficiency":
@@ -141,9 +162,11 @@ def select_runtime_prefetch_policy(
                 transition_topk=transition_topk,
                 mtp_topk=mtp_topk,
                 max_extra=2,
+                metadata_max_extra=metadata_max_extra,
                 tail_swap_count=2,
                 allow_full_mtp_fetch=True,
-                allow_mtp_metadata=True,
+                allow_mtp_metadata=metadata_allowed,
+                allow_mtp_premap=True,
                 reason="bandwidth_efficiency_extra2_tail_swap2",
             )
         if (
@@ -155,9 +178,11 @@ def select_runtime_prefetch_policy(
                 transition_topk=transition_topk,
                 mtp_topk=mtp_topk,
                 max_extra=1,
+                metadata_max_extra=0,
                 tail_swap_count=1,
                 allow_full_mtp_fetch=True,
-                allow_mtp_metadata=True,
+                allow_mtp_metadata=False,
+                allow_mtp_premap=True,
                 reason="bandwidth_efficiency_extra1_tail_swap1",
             )
         return RuntimePrefetchPolicy(
@@ -165,9 +190,11 @@ def select_runtime_prefetch_policy(
             transition_topk=transition_topk,
             mtp_topk=mtp_topk,
             max_extra=0,
+            metadata_max_extra=0,
             tail_swap_count=0,
             allow_full_mtp_fetch=False,
-            allow_mtp_metadata=True,
+            allow_mtp_metadata=False,
+            allow_mtp_premap=True,
             reason="resource_pressure",
         )
     if (
@@ -179,9 +206,11 @@ def select_runtime_prefetch_policy(
             transition_topk=transition_topk,
             mtp_topk=mtp_topk,
             max_extra=4,
+            metadata_max_extra=metadata_max_extra,
             tail_swap_count=0,
             allow_full_mtp_fetch=True,
-            allow_mtp_metadata=True,
+            allow_mtp_metadata=metadata_allowed,
+            allow_mtp_premap=True,
             reason="normal_envelope",
         )
     if (
@@ -199,9 +228,11 @@ def select_runtime_prefetch_policy(
             transition_topk=transition_topk,
             mtp_topk=mtp_topk,
             max_extra=max_extra,
+            metadata_max_extra=0,
             tail_swap_count=max_extra,
             allow_full_mtp_fetch=True,
-            allow_mtp_metadata=True,
+            allow_mtp_metadata=False,
+            allow_mtp_premap=True,
             reason=f"pressure_degraded_extra{max_extra}_tail_swap{max_extra}",
         )
     return RuntimePrefetchPolicy(
@@ -209,9 +240,11 @@ def select_runtime_prefetch_policy(
         transition_topk=transition_topk,
         mtp_topk=mtp_topk,
         max_extra=0,
+        metadata_max_extra=0,
         tail_swap_count=0,
         allow_full_mtp_fetch=False,
-        allow_mtp_metadata=True,
+        allow_mtp_metadata=False,
+        allow_mtp_premap=True,
         reason="resource_pressure",
     )
 

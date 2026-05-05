@@ -22,8 +22,11 @@ def test_select_runtime_prefetch_policy_defaults_to_extra4():
 
     assert policy.mode == "default"
     assert policy.max_extra == 4
+    assert policy.metadata_max_extra == 1
     assert policy.tail_swap_count == 0
     assert policy.allow_full_mtp_fetch is True
+    assert policy.allow_mtp_metadata is True
+    assert policy.allow_mtp_premap is True
     assert policy.reason == "normal_envelope"
 
 
@@ -40,6 +43,7 @@ def test_select_runtime_prefetch_policy_uses_high_budget_when_idle():
 
     assert policy.mode == "high_budget"
     assert policy.max_extra == 8
+    assert policy.metadata_max_extra == 1
     assert policy.tail_swap_count == 0
     assert policy.reason == "capacity_and_queue_idle"
 
@@ -58,6 +62,7 @@ def test_select_runtime_prefetch_policy_uses_extra2_for_bandwidth_efficiency():
 
     assert policy.mode == "low_budget"
     assert policy.max_extra == 2
+    assert policy.metadata_max_extra == 1
     assert policy.tail_swap_count == 2
     assert policy.reason == "bandwidth_efficiency_extra2_tail_swap2"
 
@@ -76,7 +81,9 @@ def test_select_runtime_prefetch_policy_uses_extra1_for_bandwidth_efficiency_und
 
     assert policy.mode == "low_budget"
     assert policy.max_extra == 1
+    assert policy.metadata_max_extra == 0
     assert policy.tail_swap_count == 1
+    assert policy.allow_mtp_metadata is False
     assert policy.reason == "bandwidth_efficiency_extra1_tail_swap1"
 
 
@@ -93,6 +100,7 @@ def test_select_runtime_prefetch_policy_keeps_extra8_off_at_capacity_160():
 
     assert policy.mode == "default"
     assert policy.max_extra == 4
+    assert policy.metadata_max_extra == 1
     assert policy.reason == "normal_envelope"
 
 
@@ -109,8 +117,10 @@ def test_select_runtime_prefetch_policy_degrades_to_extra2_under_moderate_pressu
 
     assert policy.mode == "low_budget"
     assert policy.max_extra == 2
+    assert policy.metadata_max_extra == 0
     assert policy.tail_swap_count == 2
     assert policy.allow_full_mtp_fetch is True
+    assert policy.allow_mtp_metadata is False
     assert policy.reason == "pressure_degraded_extra2_tail_swap2"
 
 
@@ -127,8 +137,10 @@ def test_select_runtime_prefetch_policy_degrades_to_extra1_under_high_pressure()
 
     assert policy.mode == "low_budget"
     assert policy.max_extra == 1
+    assert policy.metadata_max_extra == 0
     assert policy.tail_swap_count == 1
     assert policy.allow_full_mtp_fetch is True
+    assert policy.allow_mtp_metadata is False
     assert policy.reason == "pressure_degraded_extra1_tail_swap1"
 
 
@@ -145,7 +157,10 @@ def test_select_runtime_prefetch_policy_falls_back_under_extreme_pressure():
 
     assert policy.mode == "fallback"
     assert policy.max_extra == 0
+    assert policy.metadata_max_extra == 0
     assert policy.allow_full_mtp_fetch is False
+    assert policy.allow_mtp_metadata is False
+    assert policy.allow_mtp_premap is True
     assert policy.reason == "resource_pressure"
 
 
@@ -162,8 +177,10 @@ def test_select_runtime_prefetch_policy_falls_back_when_transition_not_ready():
 
     assert policy.mode == "fallback"
     assert policy.max_extra == 0
+    assert policy.metadata_max_extra == 0
     assert policy.allow_full_mtp_fetch is False
-    assert policy.allow_mtp_metadata is True
+    assert policy.allow_mtp_metadata is False
+    assert policy.allow_mtp_premap is True
     assert policy.reason == "transition_not_ready"
 
 

@@ -1376,10 +1376,10 @@ future MoE expert demand on Qwen3.6-35B-A3B.
     - `P5`: MTP extra5-8
     - `P6`: fallback weak signals
   - policy modes:
-    - `fallback`: transition only; MTP full fetch disabled, metadata/pre-map allowed
+    - `fallback`: transition only; MTP full fetch and metadata disabled, pre-map still allowed as the lightweight descriptor fallback
     - `low_budget`: `transition_top32 + MTP_extra1/2` under moderate pressure, with `tail_swap_count=1/2` as the fixed-budget pressure alternative
-    - `default`: `transition_top32 + MTP_extra4`
-    - `high_budget`: `transition_top32 + MTP_extra8`
+    - `default`: `transition_top32 + full_fetch_extra4 + metadata_extra1`
+    - `high_budget`: `transition_top32 + full_fetch_extra8 + metadata_extra1`
   - optimization goals:
     - `stall_reduction`: current default; uses extra4 normally and extra8 only when capacity/queue/cache are comfortably idle
     - `bandwidth_efficiency`: chooses extra2 in normal envelopes and extra1 under moderate pressure, and exposes `tail_swap_count=2/1` because fixed-budget replacement is preferable when extra issued bytes are tightly constrained
@@ -1390,12 +1390,18 @@ future MoE expert demand on Qwen3.6-35B-A3B.
     - low-budget extra1 is allowed when cache/queue pressure <= `0.90`
     - high-budget extra8 requires capacity >= `192`, cache pressure <= `0.55`, queue pressure <= `0.45`, MTP delay <= `2ms`
     - capacity `160` now intentionally stays in default `extra4` mode even under low pressure, because LRU/cache sweeps showed `extra8` remains much heavier at cap160 than cap192
+    - metadata budget requires cache/queue pressure <= `0.80` and MTP delay <= `4ms`
   - safety rule: predictions still never change true router execution or logits; this module only controls pre-map/prefetch/cache admission
   - latest policy update:
     - `RuntimePrefetchPolicy` now includes `tail_swap_count`
+    - `RuntimePrefetchPolicy` now also includes `metadata_max_extra` and `allow_mtp_premap`
+    - `max_extra` is the full-fetch budget; metadata has a separate budget
+    - default/high-budget modes set `metadata_max_extra=1` when the metadata envelope is healthy
+    - fallback and pressure-degraded modes set `metadata_max_extra=0` while keeping `allow_mtp_premap=True`
     - default/high-budget modes keep `tail_swap_count=0`
     - pressure-degraded and bandwidth-efficiency modes set `tail_swap_count=max_extra` for `1/2`
     - reason strings now include the tail-swap hint, e.g. `pressure_degraded_extra2_tail_swap2`
+    - current policy test subset: `11 passed`
 - [x] Run 256-sample wider native-MTP-router predictor check:
   - config: `configs/train/mtp_predictor_merged_vllm_prefc_fixed_256sample_wide_gpu.yaml`
   - output: `outputs/checkpoints/mtp_predictor_merged_vllm_prefc_fixed_256sample_wide_gpu/metrics.json`
