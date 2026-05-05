@@ -2,7 +2,7 @@
 
 ## Progress Version
 
-- Version: `v0.10-rocwmma-smoke`
+- Version: `v0.11-rocprof-fallback`
 - Updated: 2026-05-06
 - Current phase: online action shadow validated; pivoting system moat to speculative LDS tile staging
 
@@ -1843,25 +1843,69 @@ current counter caveat:
   Therefore these counters are not yet trusted for B-reload classification.
   The harness explicitly records metric_completeness so zero-valued counter
   runs are not misread as real no-traffic evidence.
+
+counter discovery / positive-control follow-up:
+  rocprofv3-avail is now captured in reports:
+    rocprofv3-avail list --agent
+    rocprofv3-avail -d <device> list --pmc
+    rocprofv3-avail -d <device> pmc-check <metrics>
+
+  On GPU0, rocprofv3-avail lists the selected counters and pmc-check accepts
+  SQ_WAVES / SQ_INSTS_LDS / SQ_INSTS_TEX_LOAD / FETCH_SIZE together. However,
+  positive-control kernels still show only SQ_WAVES as non-zero:
+
+    global_load_heavy:
+      SQ_WAVES non-zero
+      SQ_INSTS_LDS / SQ_INSTS_TEX_LOAD / FETCH_SIZE = 0
+
+    lds_heavy:
+      SQ_WAVES non-zero
+      SQ_INSTS_LDS / SQ_INSTS_TEX_LOAD / FETCH_SIZE = 0
+
+  This means the current counter path is not informative even for obvious
+  global/LDS traffic. The issue is therefore not specific to rocWMMA. Until a
+  trustworthy counter path is found, B-reload classification must not use these
+  counter values.
+
+static ISA fallback:
+  scripts/inspect_hip_isa_static.py extracts .hip_fatbin, unbundles the
+  gfx1100 device object, disassembles it, and counts instruction buckets such
+  as global_load, lds_load, lds_store, barrier, waitcnt, and WMMA/matrix ops.
+
+  Positive-control static smoke confirms the fallback sees the expected ISA:
+    global_load_heavy: global_load present, no LDS load/store bucket
+    lds_heavy: global_load plus lds_load / lds_store / barrier buckets present
+
+  rocWMMA tile-stage static smoke also finds global_load, lds_load, lds_store,
+  barrier, waitcnt, and a WMMA/matrix bucket. This is static supporting
+  evidence only; it cannot replace hardware byte counters, but it is a safe
+  fallback when profiler counters are non-informative.
 ```
 
 Next LDS / rocWMMA steps:
 
 ```text
-1. Find a trustworthy counter path for gfx1100:
-   - try rocprofv3 alternative counters / agent-index settings
-   - if counters remain uninformative, use ISA/static-load inspection plus
-     timing-based baseline classification as an interim result
+1. Keep trying for a trustworthy counter path, but treat the current
+   rocprofv3 counter values as non-informative:
+   - rocprofv3-avail discovery is recorded
+   - positive-control kernels fail to produce non-zero LDS/global traffic
+     counters beyond SQ_WAVES
 
-2. Once counters are trustworthy, report:
+2. Use static ISA inspection plus timing-based baseline classification as the
+   interim path:
+   - static global/LDS instruction buckets
+   - frag_reuse vs reload_per_row timing similarity
+   - p_min status from the measured baseline split
+
+3. Once counters are trustworthy, additionally report:
    kernel, wall_time, global_read_bytes, LDS traffic, occupancy,
    WMMA utilization proxy, B_reload_ratio, p_min_status
 
-3. Only if the target path is reload-like:
+4. Only if the target path is reload-like:
    move to double-buffer / producer-consumer / persistent grouped-GEMM
    pipeline experiments.
 
-4. If the target path is fragment-reuse-like:
+5. If the target path is fragment-reuse-like:
    demote LDS staging from primary runtime action and focus on dispatch /
    metadata / premap scheduling instead.
 ```

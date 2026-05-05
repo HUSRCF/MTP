@@ -82,3 +82,44 @@ The validation sweep currently reports a conservative boundary: all rows are
 numerically correct, but the serial same-kernel validation phase does not hide
 LDS staging cost. The next performance gate should test real overlap or
 pipelining, not just longer serial validation work.
+
+## rocprof Counter Guard
+
+The profiling harness deliberately treats unsupported or zero-only counter
+results as non-informative. On the current W7900 / gfx1100 setup, rocprofv3 can
+report non-zero `SQ_WAVES`, but the selected LDS/global traffic counters have
+returned zero even for positive-control kernels with obvious global and LDS
+traffic.
+
+Run the positive controls before using counters for B-reload classification:
+
+```bash
+python scripts/run_rocprof_positive_controls.py \
+  --device 0 \
+  --metric SQ_WAVES \
+  --metric SQ_INSTS_LDS \
+  --metric SQ_INSTS_TEX_LOAD \
+  --metric FETCH_SIZE \
+  --blocks 256 \
+  --threads 256 \
+  --elems 4194304 \
+  --inner-iters 64 \
+  --warmup 0 \
+  --iters 1 \
+  --output-dir outputs/reports/rocwmma_smoke/rocprof_positive_controls_smoke
+```
+
+If the positive controls are also non-informative, do not compute a hardware
+`B_reload_ratio` from those counters. Use static ISA inspection plus timing
+classification as the interim fallback:
+
+```bash
+python scripts/inspect_hip_isa_static.py \
+  --binary microbench/rocwmma_smoke/build/rocwmma_tile_stage \
+  --kernel-regex rocwmma_tile_stage \
+  --output-dir outputs/reports/rocwmma_smoke/static_isa_rocwmma_tile_stage_smoke
+```
+
+Static inspection is supporting evidence only. It can show that the target
+kernel contains global loads, LDS loads/stores, barriers, and WMMA/matrix ops,
+but it cannot replace trustworthy hardware byte counters.

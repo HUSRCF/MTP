@@ -1645,13 +1645,27 @@ Interpretation:
   - supports legacy `rocprof` and `rocprofv3`
   - stores raw counter CSVs and compact JSON/Markdown reports
   - records `metric_completeness` so zero-valued counters are not misread as real no-traffic evidence
-- [ ] Find trustworthy gfx1100 rocWMMA counters:
-  - current `rocprof`/`rocprofv3` smoke reports non-zero `SQ_WAVES`, but `SQ_INSTS_LDS`, `SQ_INSTS_TEX_LOAD`, and `FETCH_SIZE` are zero on this kernel path
-  - try alternative rocprofv3 counters / agent-index settings
-  - if counters remain uninformative, use ISA/static-load inspection plus timing-based baseline classification as interim evidence
+- [x] Add rocprofv3 discovery capture:
+  - `rocprofv3-avail list --agent`
+  - `rocprofv3-avail -d <device> list --pmc`
+  - `rocprofv3-avail -d <device> pmc-check <metrics>`
+  - records visible-device environment variables next to reports
+- [x] Add positive-control kernels for counter validation:
+  - `microbench/rocwmma_smoke/rocprof_positive_controls.hip`
+  - `scripts/run_rocprof_positive_controls.py`
+  - GPU0 smoke: `global_load_heavy` and `lds_heavy` both produce non-zero `SQ_WAVES`, but `SQ_INSTS_LDS`, `SQ_INSTS_TEX_LOAD`, and `FETCH_SIZE` remain zero
+  - conclusion: current rocprofv3 counter path is non-informative even for obvious traffic; do not infer B-reload behavior from these counter values
+- [x] Add static ISA inspection fallback:
+  - `scripts/inspect_hip_isa_static.py`
+  - extracts `.hip_fatbin`, unbundles gfx1100 device object, runs `llvm-objdump -d`
+  - counts global-load, LDS-load/store, barrier, waitcnt, and WMMA/matrix instruction buckets
+- [ ] Find trustworthy gfx1100 counters or an accepted fallback:
+  - try alternative rocprofv3 counters / agent-index settings only if positive controls can become informative
+  - otherwise use static ISA inspection plus timing-based baseline classification as interim evidence
 - [ ] Classify target grouped-GEMM path:
   - decide whether it is closer to `global_frag_reuse` or `global_reload_per_row`
-  - report wall time, global-read proxy, LDS proxy, occupancy, B reload ratio, and p_min status
+  - report wall time, static global/LDS instruction buckets, timing similarity, and p_min status
+  - only report hardware B-reload ratio if counters pass positive controls
 - [ ] Only continue LDS staging pipeline if target path is reload-like:
   - double-buffer B tile
   - producer/consumer wave split

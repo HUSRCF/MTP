@@ -14,6 +14,7 @@ import argparse
 import csv
 import json
 import math
+import os
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -52,6 +53,49 @@ def run(cmd: list[str]) -> subprocess.CompletedProcess[str]:
     )
 
 
+def run_optional(cmd: list[str]) -> dict[str, Any]:
+    try:
+        completed = run(cmd)
+        return {
+            "cmd": cmd,
+            "returncode": completed.returncode,
+            "stdout": completed.stdout,
+            "stderr": completed.stderr,
+            "error": None,
+        }
+    except (FileNotFoundError, subprocess.CalledProcessError) as exc:
+        return {
+            "cmd": cmd,
+            "returncode": getattr(exc, "returncode", None),
+            "stdout": getattr(exc, "stdout", "") or "",
+            "stderr": getattr(exc, "stderr", "") or "",
+            "error": str(exc),
+        }
+
+
+def collect_discovery(*, devices: list[int], metrics: list[str], skip: bool) -> dict[str, Any]:
+    env_keys = [
+        "HIP_VISIBLE_DEVICES",
+        "ROCR_VISIBLE_DEVICES",
+        "CUDA_VISIBLE_DEVICES",
+        "HSA_VISIBLE_DEVICES",
+    ]
+    discovery: dict[str, Any] = {
+        "env": {key: os.environ.get(key) for key in env_keys if os.environ.get(key) is not None},
+        "skipped": skip,
+    }
+    if skip:
+        return discovery
+    discovery["agents"] = run_optional(["rocprofv3-avail", "list", "--agent"])
+    discovery["devices"] = {}
+    for device in devices:
+        discovery["devices"][str(device)] = {
+            "pmc_list": run_optional(["rocprofv3-avail", "-d", str(device), "list", "--pmc"]),
+            "pmc_check": run_optional(["rocprofv3-avail", "-d", str(device), "pmc-check", *metrics]),
+        }
+    return discovery
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--profiler", choices=["rocprof", "rocprofv3"], default="rocprofv3")
@@ -70,6 +114,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--force-build", action="store_true")
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--skip-discovery", action="store_true")
     return parser.parse_args()
 
 
@@ -503,7 +548,9 @@ def main() -> None:
             "source": str(tile_stage.SRC),
             "dry_run": args.dry_run,
             "profiler": args.profiler,
+            "discovery_enabled": not args.skip_discovery,
         },
+        "discovery": collect_discovery(devices=devices, metrics=metrics, skip=args.skip_discovery),
         "commands": commands,
         "results": results,
         "summary": classify_rows(results) if results else {},
