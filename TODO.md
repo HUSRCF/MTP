@@ -23,6 +23,7 @@ Latest implementation status:
 - [x] Extend metadata-action sweep script to report premap counts, bytes, later-used rate, and net setup proxy.
 - [x] Wire independent metadata/premap budgets into the main event-stall CLI so single reports expose the same action-level counters as sweeps.
 - [x] Add action-level shadow counters to the offline shadow report via canonical admission helpers.
+- [x] Add shadow reason counters and action-by-reason matrix for `full_fetch` / `metadata` / `premap` / `skip` decisions.
 - [x] Regression tests: `37 passed` for runtime event sim, shadow admission, runtime policy, and Pareto summary.
 
 Latest 256-sample GPU smoke, using `metadata_max_extra=1`, `metadata_ratio=0.95`, `overlap=0.90`:

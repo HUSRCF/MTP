@@ -383,6 +383,8 @@ def test_action_decision_helpers_support_independent_metadata_and_premap_budgets
         False,
         False,
     ]
+    assert with_premap.reason_masks()["admitted_metadata"].equal(actions["metadata"])
+    assert with_premap.reason_masks()["admitted_premap"].equal(actions["premap"])
 
 def test_mask_metrics_reports_added_mass_and_top1_risk():
     target_mass = torch.tensor([[[[0.7, 0.2, 0.1, 0.0]]]])

@@ -526,6 +526,9 @@ def _action_shadow_counter_metrics(
             "actual_bytes": float(count * action_bytes[str(action)]),
             "later_used_count": later_used_count,
             "later_used_rate": later_used_count / max(1.0, count),
+            "unused_count": float((selected & ~demand).float().sum().item()),
+            "unused_rate": float((selected & ~demand).float().sum().item())
+            / max(1.0, count),
         }
     counters["summary"] = {
         "full_fetch_count": counters["full_fetch"]["count"],
@@ -533,7 +536,31 @@ def _action_shadow_counter_metrics(
         "premap_count": counters["premap"]["count"],
         "skip_count": counters["skip"]["count"],
     }
+    counters["reasons"] = _shadow_reason_counter_metrics(decisions)
+    counters["action_reason_matrix"] = _shadow_action_reason_matrix_metrics(decisions)
     return counters
+
+
+def _shadow_reason_counter_metrics(decisions: Any) -> dict[str, dict[str, float]]:
+    counters = {}
+    for reason, mask in decisions.reason_masks().items():
+        counters[str(reason)] = {"count": float(mask.float().sum().item())}
+    return counters
+
+
+def _shadow_action_reason_matrix_metrics(
+    decisions: Any,
+) -> dict[str, dict[str, dict[str, float]]]:
+    matrix = {}
+    action_masks = decisions.action_masks()
+    for reason, reason_mask in decisions.reason_masks().items():
+        row = {}
+        for action, action_mask in action_masks.items():
+            row[str(action)] = {
+                "count": float((reason_mask & action_mask).float().sum().item())
+            }
+        matrix[str(reason)] = row
+    return matrix
 
 
 def topk_mask(scores: torch.Tensor, *, k: int) -> torch.Tensor:
