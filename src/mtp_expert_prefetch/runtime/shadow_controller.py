@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import OrderedDict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 import torch
@@ -27,6 +27,31 @@ class PendingShadowDecision:
     ready_mask: torch.Tensor
 
 
+@dataclass
+class RuntimeShadowControllerStats:
+    written_summary_count: int = 0
+    joined_outcome_count: int = 0
+    outcome_only_count: int = 0
+    summary_only_timeout_count: int = 0
+    duplicate_summary_count: int = 0
+    duplicate_outcome_count: int = 0
+    evicted_summary_count: int = 0
+    pending_summary_count: int = 0
+    seen_outcome_keys: set[str] = field(default_factory=set, repr=False)
+
+    def as_dict(self) -> dict[str, int]:
+        return {
+            "written_summary_count": int(self.written_summary_count),
+            "joined_outcome_count": int(self.joined_outcome_count),
+            "outcome_only_count": int(self.outcome_only_count),
+            "summary_only_timeout_count": int(self.summary_only_timeout_count),
+            "duplicate_summary_count": int(self.duplicate_summary_count),
+            "duplicate_outcome_count": int(self.duplicate_outcome_count),
+            "evicted_summary_count": int(self.evicted_summary_count),
+            "pending_summary_count": int(self.pending_summary_count),
+        }
+
+
 class RuntimeShadowController:
     """Join runtime action summaries and true-router outcomes by event id.
 
@@ -47,10 +72,15 @@ class RuntimeShadowController:
         self.logger = logger
         self.max_pending = max(0, int(max_pending))
         self._pending: OrderedDict[str, PendingShadowDecision] = OrderedDict()
+        self.stats = RuntimeShadowControllerStats()
 
     @property
     def pending_count(self) -> int:
         return len(self._pending)
+
+    def stats_dict(self) -> dict[str, int]:
+        self.stats.pending_summary_count = len(self._pending)
+        return self.stats.as_dict()
 
     def write_action_summary(
         self,
@@ -76,12 +106,16 @@ class RuntimeShadowController:
             decisions=decisions,
             **summary_kwargs,
         )
+        if event_id.key in self._pending:
+            self.stats.duplicate_summary_count += 1
         self._pending[event_id.key] = _pending_from_decisions(
             decisions=decisions,
             base_mask=base_mask,
             ready_mask=ready_mask,
         )
         self._pending.move_to_end(event_id.key)
+        self.stats.written_summary_count += 1
+        self.stats.pending_summary_count = len(self._pending)
         self._evict_if_needed()
         return event
 
@@ -94,10 +128,17 @@ class RuntimeShadowController:
         safe.
         """
 
+        if event.event_id.key in self.stats.seen_outcome_keys:
+            self.stats.duplicate_outcome_count += 1
+        self.stats.seen_outcome_keys.add(event.event_id.key)
         pending = self._pending.pop(event.event_id.key, None)
         if pending is None:
-            self.logger.write_outcome(event)
+            self.stats.outcome_only_count += 1
+            self.stats.pending_summary_count = len(self._pending)
+            self.logger.write_outcome(_with_join_status(event, "outcome_only"))
             return
+        self.stats.joined_outcome_count += 1
+        self.stats.pending_summary_count = len(self._pending)
         self.logger.write_outcome(_enrich_outcome(event, pending))
 
     def write_router_outcome(
@@ -134,7 +175,37 @@ class RuntimeShadowController:
         self.logger.close()
 
     def aggregate(self) -> dict[str, Any]:
-        return self.logger.aggregate()
+        aggregate = self.logger.aggregate()
+        aggregate["controller_stats"] = self.stats_dict()
+        return aggregate
+
+    def flush_pending_as_timeouts(self) -> int:
+        """Write timeout outcomes for summaries that never received router labels."""
+
+        timeout_count = 0
+        while self._pending:
+            key, _pending = self._pending.popitem(last=False)
+            event_id = _event_id_from_key(key)
+            self.logger.write_outcome(
+                ShadowOutcomeEvent(
+                    event_id=event_id,
+                    true_topk_experts=[],
+                    true_topk_weights=[],
+                    full_fetch_used_count=0,
+                    metadata_later_used_count=0,
+                    premap_later_used_count=0,
+                    skip_would_have_used_count=0,
+                    covered_mass=0.0,
+                    miss_mass=0.0,
+                    top1_ready=False,
+                    weighted_top1_miss=0.0,
+                    join_status="summary_only_timeout",
+                )
+            )
+            timeout_count += 1
+        self.stats.summary_only_timeout_count += timeout_count
+        self.stats.pending_summary_count = 0
+        return timeout_count
 
     def __enter__(self) -> RuntimeShadowController:
         return self
@@ -144,10 +215,14 @@ class RuntimeShadowController:
 
     def _evict_if_needed(self) -> None:
         if self.max_pending <= 0:
+            self.stats.evicted_summary_count += len(self._pending)
             self._pending.clear()
+            self.stats.pending_summary_count = 0
             return
         while len(self._pending) > self.max_pending:
             self._pending.popitem(last=False)
+            self.stats.evicted_summary_count += 1
+        self.stats.pending_summary_count = len(self._pending)
 
 
 def _pending_from_decisions(
@@ -220,6 +295,37 @@ def _enrich_outcome(
         miss_mass=max(0.0, total_mass - covered_mass),
         top1_ready=top1_ready,
         weighted_top1_miss=weighted_top1_miss,
+        join_status="joined",
+    )
+
+
+def _with_join_status(
+    event: ShadowOutcomeEvent,
+    join_status: str,
+) -> ShadowOutcomeEvent:
+    return ShadowOutcomeEvent(
+        event_id=event.event_id,
+        true_topk_experts=event.true_topk_experts,
+        true_topk_weights=event.true_topk_weights,
+        full_fetch_used_count=event.full_fetch_used_count,
+        metadata_later_used_count=event.metadata_later_used_count,
+        premap_later_used_count=event.premap_later_used_count,
+        skip_would_have_used_count=event.skip_would_have_used_count,
+        covered_mass=event.covered_mass,
+        miss_mass=event.miss_mass,
+        top1_ready=event.top1_ready,
+        weighted_top1_miss=event.weighted_top1_miss,
+        join_status=join_status,  # type: ignore[arg-type]
+    )
+
+
+def _event_id_from_key(key: str) -> ShadowEventId:
+    request_id, sequence_id, token_index, layer = key.rsplit(":", 3)
+    return ShadowEventId(
+        request_id=request_id,
+        sequence_id=int(sequence_id),
+        token_index=int(token_index),
+        layer=int(layer),
     )
 
 

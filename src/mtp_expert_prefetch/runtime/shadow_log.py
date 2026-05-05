@@ -7,6 +7,7 @@ from typing import Any, Iterable, Literal
 
 
 ShadowAction = Literal["full_fetch", "metadata", "premap", "skip"]
+ShadowJoinStatus = Literal["joined", "outcome_only", "summary_only_timeout"]
 
 
 @dataclass(frozen=True)
@@ -164,9 +165,10 @@ class ShadowOutcomeEvent:
     miss_mass: float
     top1_ready: bool
     weighted_top1_miss: float
+    join_status: ShadowJoinStatus | None = None
 
     def as_dict(self) -> dict[str, Any]:
-        return {
+        payload = {
             "event_type": "outcome",
             **self.event_id.as_dict(),
             "true_topk_experts": [int(value) for value in self.true_topk_experts],
@@ -186,6 +188,8 @@ class ShadowOutcomeEvent:
             "top1_ready": bool(self.top1_ready),
             "weighted_top1_miss": float(self.weighted_top1_miss),
         }
+        _put_optional(payload, "join_status", self.join_status)
+        return payload
 
 
 def write_shadow_jsonl(events: Iterable[Any], output: str | Path) -> Path:
@@ -228,6 +232,9 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
         "admission_decision_us_sum": 0.0,
         "counter_update_us_sum": 0.0,
         "logging_us_sum": 0.0,
+        "joined_outcome_count": 0,
+        "outcome_only_count": 0,
+        "summary_only_timeout_count": 0,
     }
     for event in events:
         event_type = event.get("event_type")
@@ -255,6 +262,13 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
             totals["candidate_count"] += 1
         elif event_type == "outcome":
             totals["outcome_count"] += 1
+            join_status = event.get("join_status")
+            if join_status == "joined":
+                totals["joined_outcome_count"] += 1
+            elif join_status == "outcome_only":
+                totals["outcome_only_count"] += 1
+            elif join_status == "summary_only_timeout":
+                totals["summary_only_timeout_count"] += 1
             for key in (
                 "full_fetch_used_count",
                 "metadata_later_used_count",

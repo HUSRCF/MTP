@@ -346,6 +346,29 @@ If no matching summary is pending, the controller writes the recorder's
 outcome-only skeleton unchanged. This keeps outcome-only vLLM logging safe while
 allowing full action/outcome joining when both sides are wired.
 
+Runtime hardening counters:
+
+```text
+join_status:
+  joined
+  outcome_only
+  summary_only_timeout
+
+controller_stats:
+  written_summary_count
+  joined_outcome_count
+  outcome_only_count
+  summary_only_timeout_count
+  duplicate_summary_count
+  duplicate_outcome_count
+  evicted_summary_count
+  pending_summary_count
+```
+
+The pending summary cache is bounded by `max_pending`. Evicted summaries and
+summary-only timeouts are explicitly counted, so online shadow replay can
+separate policy misses from logging/join failures.
+
 ## Current Default Evaluation Settings
 
 ```text

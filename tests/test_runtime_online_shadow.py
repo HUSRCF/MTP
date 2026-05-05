@@ -229,11 +229,15 @@ def test_runtime_shadow_controller_joins_action_summary_and_router_outcome(tmp_p
     assert outcome["miss_mass"] == 0.4
     assert outcome["top1_ready"] is True
     assert outcome["weighted_top1_miss"] == 0.0
+    assert outcome["join_status"] == "joined"
     assert aggregate["summary_count"] == 1
     assert aggregate["outcome_count"] == 1
     assert aggregate["full_fetch_used_count"] == 1
     assert aggregate["metadata_later_used_count"] == 1
     assert aggregate["top1_ready_rate"] == 1.0
+    assert aggregate["joined_outcome_count"] == 1
+    assert aggregate["controller_stats"]["joined_outcome_count"] == 1
+    assert aggregate["controller_stats"]["pending_summary_count"] == 0
 
 
 def test_runtime_shadow_controller_preserves_outcome_when_summary_missing(tmp_path):
@@ -261,3 +265,54 @@ def test_runtime_shadow_controller_preserves_outcome_when_summary_missing(tmp_pa
     assert rows[0]["event_type"] == "outcome"
     assert rows[0]["shadow_event_id"] == "req:0:8:5"
     assert rows[0]["miss_mass"] == 1.0
+    assert rows[0]["join_status"] == "outcome_only"
+
+
+def test_runtime_shadow_controller_reports_pending_timeouts_and_evictions(tmp_path):
+    shape = (1, 1, 1, 3)
+    full_fetch = torch.zeros(shape, dtype=torch.bool)
+    full_fetch[..., 1] = True
+    empty = torch.zeros(shape, dtype=torch.bool)
+    decisions = AdmissionDecisionMasks(
+        admitted_full_fetch=full_fetch,
+        admitted_metadata=empty,
+        admitted_premap=empty,
+        skipped_not_novel=empty,
+        skipped_rank_cap=empty,
+        skipped_below_threshold=empty,
+        skipped_invalid_score=empty,
+        skipped_policy=empty,
+    )
+    policy = ShadowPolicyConfig(
+        policy_mode="default",
+        optimization_goal="stall_reduction",
+        action_keep_fraction=0.5,
+        metadata_score_ratio=0.95,
+        full_fetch_max_extra=4,
+        metadata_max_extra=1,
+        premap_max_extra=1,
+    )
+    path = tmp_path / "timeout_shadow.jsonl"
+
+    with RuntimeShadowController(OnlineShadowLogger(path), max_pending=1) as controller:
+        controller.write_action_summary(
+            event_id=ShadowEventId("req", 0, 1, 0),
+            policy=policy,
+            decisions=decisions,
+        )
+        controller.write_action_summary(
+            event_id=ShadowEventId("req", 0, 2, 0),
+            policy=policy,
+            decisions=decisions,
+        )
+        assert controller.stats_dict()["evicted_summary_count"] == 1
+        timeout_count = controller.flush_pending_as_timeouts()
+        aggregate = controller.aggregate()
+
+    rows = read_shadow_jsonl(path)
+    assert timeout_count == 1
+    assert rows[-1]["event_type"] == "outcome"
+    assert rows[-1]["join_status"] == "summary_only_timeout"
+    assert aggregate["summary_only_timeout_count"] == 1
+    assert aggregate["controller_stats"]["evicted_summary_count"] == 1
+    assert aggregate["controller_stats"]["summary_only_timeout_count"] == 1
