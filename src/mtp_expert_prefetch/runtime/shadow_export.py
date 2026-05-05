@@ -5,6 +5,7 @@ from collections.abc import Iterable
 import torch
 
 from mtp_expert_prefetch.runtime.admission import AdmissionDecisionMasks
+from mtp_expert_prefetch.runtime.online_shadow import build_shadow_summary_from_decisions
 from mtp_expert_prefetch.runtime.shadow_log import (
     ShadowEventId,
     ShadowOutcomeEvent,
@@ -71,24 +72,16 @@ def iter_shadow_summary_outcome_events(
                     token_index=logical_token_idx,
                     layer=int(layer_idx),
                 )
-                action_slice = {
-                    name: mask[token_idx, future_idx, layer_idx].bool()
-                    for name, mask in action_masks.items()
-                }
-                summary = ShadowSummaryEvent(
+                sliced_decisions = _slice_decisions(decisions, token_idx, future_idx, layer_idx)
+                summary = build_shadow_summary_from_decisions(
                     event_id=event_id,
                     policy=policy,
                     transition_topk_count=int(transition_topk_count),
                     mtp_requested_count=int(mtp_requested_count),
-                    full_fetch_count=_mask_count(action_slice["full_fetch"]),
-                    metadata_count=_mask_count(action_slice["metadata"]),
-                    premap_count=_mask_count(action_slice["premap"]),
-                    skip_count=_mask_count(action_slice["skip"]),
-                    full_fetch_payload_bytes=_mask_count(action_slice["full_fetch"])
-                    * int(expert_bytes),
-                    metadata_actual_bytes=_mask_count(action_slice["metadata"])
-                    * int(metadata_bytes),
-                    premap_actual_bytes=_mask_count(action_slice["premap"]) * int(premap_bytes),
+                    decisions=sliced_decisions,
+                    expert_bytes=expert_bytes,
+                    metadata_bytes=metadata_bytes,
+                    premap_bytes=premap_bytes,
                     decision_us=decision_us,
                     candidate_construction_us=candidate_construction_us,
                     admission_decision_us=admission_decision_us,
@@ -105,6 +98,7 @@ def iter_shadow_summary_outcome_events(
                 )
                 yield summary
 
+                action_slice = sliced_decisions.action_masks()
                 target_slice = target_mass[token_idx, future_idx, layer_idx].float()
                 demand_slice = demand[token_idx, future_idx, layer_idx]
                 ready_slice = ready_mask[token_idx, future_idx, layer_idx]
@@ -247,6 +241,29 @@ def _sample_ids_for_tokens(
         )
         raise ValueError(msg)
     return sample_ids
+
+
+def _slice_decisions(
+    decisions: AdmissionDecisionMasks,
+    token_idx: int,
+    future_idx: int,
+    layer_idx: int,
+) -> AdmissionDecisionMasks:
+    def _slice(mask: torch.Tensor | None) -> torch.Tensor | None:
+        if mask is None:
+            return None
+        return mask[token_idx : token_idx + 1, future_idx : future_idx + 1, layer_idx : layer_idx + 1]
+
+    return AdmissionDecisionMasks(
+        admitted_full_fetch=_slice(decisions.admitted_full_fetch),
+        admitted_metadata=_slice(decisions.admitted_metadata),
+        admitted_premap=_slice(decisions.admitted_premap),
+        skipped_not_novel=_slice(decisions.skipped_not_novel),
+        skipped_rank_cap=_slice(decisions.skipped_rank_cap),
+        skipped_below_threshold=_slice(decisions.skipped_below_threshold),
+        skipped_invalid_score=_slice(decisions.skipped_invalid_score),
+        skipped_policy=_slice(decisions.skipped_policy),
+    )
 
 
 def _mask_count(mask: torch.Tensor) -> int:

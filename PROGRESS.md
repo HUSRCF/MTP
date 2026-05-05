@@ -284,6 +284,29 @@ This is the first shadow-only runtime hook point. A complete online integration
 still needs the action-decision side to write matching `ShadowSummaryEvent`
 records before true-router outcomes are joined.
 
+Action summary adapter:
+
+```text
+build_shadow_summary_from_decisions(...)
+OnlineShadowLogger.write_action_summary(...)
+```
+
+The adapter converts canonical `AdmissionDecisionMasks` into a
+`ShadowSummaryEvent` with:
+
+```text
+full_fetch / metadata / premap / skip counts
+action bytes
+reason_counts
+action_reason_counts
+policy envelope fields
+overhead fields
+```
+
+Offline shadow replay now uses the same adapter for small JSONL summary events,
+so future online summary hooks and offline replay share one summary-construction
+path.
+
 ## Current Default Evaluation Settings
 
 ```text

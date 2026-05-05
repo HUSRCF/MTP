@@ -74,6 +74,8 @@ class ShadowSummaryEvent:
     layer_ms: float | None = None
     cache_pressure: float | None = None
     queue_pressure: float | None = None
+    reason_counts: dict[str, int] | None = None
+    action_reason_counts: dict[str, dict[str, int]] | None = None
 
     def as_dict(self) -> dict[str, Any]:
         payload = {
@@ -103,6 +105,17 @@ class ShadowSummaryEvent:
         _put_optional(payload, "layer_ms", self.layer_ms)
         _put_optional(payload, "cache_pressure", self.cache_pressure)
         _put_optional(payload, "queue_pressure", self.queue_pressure)
+        if self.reason_counts is not None:
+            payload["reason_counts"] = {
+                str(key): int(value) for key, value in self.reason_counts.items()
+            }
+        if self.action_reason_counts is not None:
+            payload["action_reason_counts"] = {
+                str(reason): {
+                    str(action): int(count) for action, count in row.items()
+                }
+                for reason, row in self.action_reason_counts.items()
+            }
         return payload
 
 
