@@ -25,6 +25,17 @@ Latest implementation status:
 - [x] Add action-level shadow counters to the offline shadow report via canonical admission helpers.
 - [x] Add shadow reason counters and action-by-reason matrix for `full_fetch` / `metadata` / `premap` / `skip` decisions.
 - [x] Regression tests: `37 passed` for runtime event sim, shadow admission, runtime policy, and Pareto summary.
+- [x] Add reviewer-safe differentiation analysis:
+  - `docs/differentiation_analysis.md`
+  - positions native MTP as a low-trust hint source, not a router replacement
+  - separates verified RSEP/action-admission claims from HIP Graph metadata-patching hypotheses
+- [ ] Add HIP Graph metadata-patching microbench:
+  - eager dummy grouped-MoE dispatch latency
+  - HIP graph launch latency
+  - descriptor buffer overwrite + graph launch latency
+  - `hipGraphExecNodeSetParams` / `hipGraphNodeSetEnabled` / `hipGraphExecUpdate` cost
+  - speculative metadata patch vs full metadata overwrite penalty
+  - break-even report: `cost_patch < saved_us`
 
 Latest 256-sample GPU smoke, using `metadata_max_extra=1`, `metadata_ratio=0.95`, `overlap=0.90`:
 
