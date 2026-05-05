@@ -455,6 +455,25 @@ This validates online shadow_event_id alignment for previous-token same-layer
 summary production. The current summary is intentionally a minimal transition
 sanity hook, not the final trained transition_top32 + MTP action policy.
 
+Transition summary modes:
+
+```text
+previous_topk:
+  copies token t true top-k as token t+1 shadow base
+  purpose = event_id / token-offset / layer-offset sentinel
+
+matrix_topk:
+  loads transition_matrix [delta, layer, in_expert, out_expert]
+  applies previous-token same-layer top-k/weights
+  writes top transition candidates as token t+1 shadow base
+  purpose = real online transition_topK summary path
+```
+
+The smoke config currently keeps `previous_topk` so the offset sentinel remains
+simple. `matrix_topk` is implemented and covered by tests; the next validation
+step is to provide a calibrated transition matrix artifact and run the same
+online joined-rate check with `transition_topk_count = 32`.
+
 ## Current Default Evaluation Settings
 
 ```text

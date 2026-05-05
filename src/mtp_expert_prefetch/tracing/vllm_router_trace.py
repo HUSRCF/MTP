@@ -48,6 +48,8 @@ class VllmRouterRecorder:
     shadow_emit_transition_summary: bool = False
     shadow_num_experts: int = 256
     shadow_transition_topk_count: int | None = None
+    shadow_transition_summary_mode: str = "previous_topk"
+    shadow_transition_matrix: torch.Tensor | None = None
     request_id: str = "vllm"
     sequence_id: int = 0
     token_offset: int = 0
@@ -134,6 +136,7 @@ class VllmRouterRecorder:
                     layer_id=layer_id,
                     token_idx=token_idx,
                     previous_topk_ids=ids[token_idx - 1],
+                    previous_topk_weights=weights[token_idx - 1],
                 )
             token_ids = [int(value) for value in ids[token_idx].tolist()]
             token_weights = [float(value) for value in weights[token_idx].tolist()]
@@ -164,18 +167,19 @@ class VllmRouterRecorder:
         layer_id: int,
         token_idx: int,
         previous_topk_ids: torch.Tensor,
+        previous_topk_weights: torch.Tensor,
     ) -> None:
         sink = self.shadow_outcome_sink
         if sink is None or not hasattr(sink, "write_action_summary"):
             return
-        num_experts = max(int(self.shadow_num_experts), int(previous_topk_ids.max().item()) + 1)
-        shape = (1, 1, 1, num_experts)
-        empty = torch.zeros(shape, dtype=torch.bool)
-        base = torch.zeros(shape, dtype=torch.bool)
-        for expert_id in previous_topk_ids.tolist():
-            expert_idx = int(expert_id)
-            if 0 <= expert_idx < num_experts:
-                base[..., expert_idx] = True
+        mode = str(self.shadow_transition_summary_mode)
+        base, transition_count = self._transition_summary_base_mask(
+            layer_id=layer_id,
+            previous_topk_ids=previous_topk_ids,
+            previous_topk_weights=previous_topk_weights,
+            mode=mode,
+        )
+        empty = torch.zeros_like(base, dtype=torch.bool)
         decisions = AdmissionDecisionMasks(
             admitted_full_fetch=empty,
             admitted_metadata=empty,
@@ -189,7 +193,7 @@ class VllmRouterRecorder:
         transition_count = (
             int(self.shadow_transition_topk_count)
             if self.shadow_transition_topk_count is not None
-            else int(previous_topk_ids.numel())
+            else int(transition_count)
         )
         event_id = ShadowEventId(
             request_id=str(self.request_id),
@@ -205,7 +209,7 @@ class VllmRouterRecorder:
             full_fetch_max_extra=0,
             metadata_max_extra=0,
             premap_max_extra=0,
-            policy_reason="previous_token_same_layer_transition_summary",
+            policy_reason=f"{mode}_transition_summary",
             allow_full_mtp_fetch=False,
             allow_mtp_metadata=False,
             allow_mtp_premap=False,
@@ -219,6 +223,50 @@ class VllmRouterRecorder:
             transition_topk_count=transition_count,
             mtp_requested_count=0,
         )
+
+    def _transition_summary_base_mask(
+        self,
+        *,
+        layer_id: int,
+        previous_topk_ids: torch.Tensor,
+        previous_topk_weights: torch.Tensor,
+        mode: str,
+    ) -> tuple[torch.Tensor, int]:
+        num_experts = max(int(self.shadow_num_experts), int(previous_topk_ids.max().item()) + 1)
+        shape = (1, 1, 1, num_experts)
+        if mode == "matrix_topk":
+            if self.shadow_transition_matrix is None:
+                msg = "matrix_topk transition summary requires shadow_transition_matrix."
+                raise ValueError(msg)
+            transition_scores = _transition_scores_from_topk(
+                layer_id=layer_id,
+                previous_topk_ids=previous_topk_ids,
+                previous_topk_weights=previous_topk_weights,
+                transition_matrix=self.shadow_transition_matrix,
+                num_experts=num_experts,
+            )
+            transition_count = int(
+                self.shadow_transition_topk_count
+                if self.shadow_transition_topk_count is not None
+                else min(32, num_experts)
+            )
+            topk = torch.topk(
+                transition_scores,
+                k=max(1, min(transition_count, num_experts)),
+                dim=-1,
+            ).indices
+            base = torch.zeros(shape, dtype=torch.bool)
+            base[..., topk] = True
+            return base, transition_count
+        if mode != "previous_topk":
+            msg = f"Unsupported transition summary mode: {mode}"
+            raise ValueError(msg)
+        base = torch.zeros(shape, dtype=torch.bool)
+        for expert_id in previous_topk_ids.tolist():
+            expert_idx = int(expert_id)
+            if 0 <= expert_idx < num_experts:
+                base[..., expert_idx] = True
+        return base, int(previous_topk_ids.numel())
 
     def to_payload(
         self,
@@ -350,6 +398,43 @@ def write_active_runtime_shadow_action_summary(
         ready_mask=ready_mask,
         **summary_kwargs,
     )
+
+
+def _transition_scores_from_topk(
+    *,
+    layer_id: int,
+    previous_topk_ids: torch.Tensor,
+    previous_topk_weights: torch.Tensor,
+    transition_matrix: torch.Tensor,
+    num_experts: int,
+) -> torch.Tensor:
+    matrix = transition_matrix.detach().cpu().float()
+    if matrix.ndim != 4:
+        msg = (
+            "transition_matrix must have shape [delta, layers, in_experts, out_experts], "
+            f"got {tuple(matrix.shape)}"
+        )
+        raise ValueError(msg)
+    if int(layer_id) < 0 or int(layer_id) >= int(matrix.shape[1]):
+        msg = f"layer_id {layer_id} out of transition matrix range {matrix.shape[1]}"
+        raise ValueError(msg)
+    if int(num_experts) > int(matrix.shape[2]) or int(num_experts) > int(matrix.shape[3]):
+        msg = (
+            f"num_experts={num_experts} exceeds transition matrix expert dims "
+            f"{tuple(matrix.shape[2:])}"
+        )
+        raise ValueError(msg)
+    feature = torch.zeros(num_experts, dtype=torch.float32)
+    ids = previous_topk_ids.detach().cpu().to(torch.long)
+    weights = previous_topk_weights.detach().cpu().to(torch.float32)
+    if ids.shape != weights.shape:
+        msg = "previous_topk_ids and previous_topk_weights must share shape."
+        raise ValueError(msg)
+    for expert_id, weight in zip(ids.tolist(), weights.tolist()):
+        expert_idx = int(expert_id)
+        if 0 <= expert_idx < num_experts:
+            feature[expert_idx] += max(0.0, float(weight))
+    return feature @ matrix[0, int(layer_id), :num_experts, :num_experts]
 
 
 def patch_vllm_qwen35_moe_router_trace() -> None:
@@ -758,6 +843,25 @@ def _build_runtime_shadow_controller(
     )
 
 
+def _load_runtime_shadow_transition_matrix(
+    *,
+    options: dict[str, Any],
+    project_root: Path,
+) -> torch.Tensor | None:
+    raw_path = options.get("transition_matrix_path")
+    if raw_path is None:
+        return None
+    path = resolve_path(raw_path, base_dir=project_root)
+    payload = torch.load(path, map_location="cpu")
+    key = str(options.get("transition_matrix_key", "transition_matrix"))
+    if isinstance(payload, dict):
+        if key in payload:
+            payload = payload[key]
+        elif "transition" in payload:
+            payload = payload["transition"]
+    return torch.as_tensor(payload, dtype=torch.float32)
+
+
 def _shadow_request_id(
     *,
     sample_idx: int,
@@ -912,6 +1016,10 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
         output_dir=output_dir,
         project_root=project_root,
     )
+    runtime_shadow_transition_matrix = _load_runtime_shadow_transition_matrix(
+        options=runtime_shadow_options,
+        project_root=project_root,
+    )
     manifest_path = output_dir / "manifest.jsonl"
     try:
         with manifest_path.open("w", encoding="utf-8") as manifest:
@@ -938,6 +1046,13 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                                     model_config["architecture"].get("num_experts_per_tok", 8),
                                 )
                             ),
+                            shadow_transition_summary_mode=str(
+                                runtime_shadow_options.get(
+                                    "transition_summary_mode",
+                                    "previous_topk",
+                                )
+                            ),
+                            shadow_transition_matrix=runtime_shadow_transition_matrix,
                         )
                         for sample_idx, record, input_ids, prompt in chunk:
                             recorder.clear()
