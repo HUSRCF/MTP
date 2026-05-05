@@ -270,6 +270,20 @@ severe stress envelope:
   requested-but-late actions.
 ```
 
+vLLM recorder hook:
+
+```text
+VllmRouterRecorder.shadow_outcome_sink
+  optional, default None
+  writes true-router ShadowOutcomeEvent skeletons per token/layer
+  does not make action decisions
+  does not modify routing, logits, scheduling, cache, or prefetch behavior
+```
+
+This is the first shadow-only runtime hook point. A complete online integration
+still needs the action-decision side to write matching `ShadowSummaryEvent`
+records before true-router outcomes are joined.
+
 ## Current Default Evaluation Settings
 
 ```text

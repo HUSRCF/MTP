@@ -7,12 +7,17 @@ import os
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
 import torch
 
+from mtp_expert_prefetch.runtime.shadow_log import ShadowOutcomeEvent
 from mtp_expert_prefetch.tracing.router_mtp import _load_trace_texts
 from mtp_expert_prefetch.utils.config import find_project_root, load_yaml, resolve_path
+
+
+class RouterShadowOutcomeSink(Protocol):
+    def write_outcome(self, event: ShadowOutcomeEvent) -> None: ...
 
 
 @dataclass
@@ -31,6 +36,10 @@ class VllmRouterCall:
 class VllmRouterRecorder:
     top_k: int
     capture_router_input_hidden: bool = False
+    shadow_outcome_sink: RouterShadowOutcomeSink | None = None
+    request_id: str = "vllm"
+    sequence_id: int = 0
+    token_offset: int = 0
     calls: list[VllmRouterCall] = field(default_factory=list)
 
     def clear(self) -> None:
@@ -88,6 +97,49 @@ class VllmRouterRecorder:
                 router_input_hidden=captured_hidden,
             )
         )
+        if self.shadow_outcome_sink is not None and layer_id is not None:
+            self._write_shadow_outcomes(
+                layer_id=int(layer_id),
+                topk_ids=topk_ids,
+                topk_weights=topk_weights,
+            )
+
+    def _write_shadow_outcomes(
+        self,
+        *,
+        layer_id: int,
+        topk_ids: torch.Tensor,
+        topk_weights: torch.Tensor,
+    ) -> None:
+        from mtp_expert_prefetch.runtime.shadow_log import ShadowEventId
+
+        ids = topk_ids.detach().cpu().to(torch.long)
+        weights = topk_weights.detach().cpu().to(torch.float32)
+        if ids.ndim != 2 or weights.shape != ids.shape:
+            return
+        for token_idx in range(int(ids.shape[0])):
+            token_ids = [int(value) for value in ids[token_idx].tolist()]
+            token_weights = [float(value) for value in weights[token_idx].tolist()]
+            total = float(sum(max(0.0, value) for value in token_weights))
+            event = ShadowOutcomeEvent(
+                event_id=ShadowEventId(
+                    request_id=str(self.request_id),
+                    sequence_id=int(self.sequence_id),
+                    token_index=int(self.token_offset + token_idx),
+                    layer=int(layer_id),
+                ),
+                true_topk_experts=token_ids,
+                true_topk_weights=token_weights,
+                full_fetch_used_count=0,
+                metadata_later_used_count=0,
+                premap_later_used_count=0,
+                skip_would_have_used_count=0,
+                covered_mass=0.0,
+                miss_mass=total,
+                top1_ready=False,
+                weighted_top1_miss=float(token_weights[0]) if token_weights else 0.0,
+            )
+            self.shadow_outcome_sink.write_outcome(event)
 
     def to_payload(
         self,
