@@ -48,6 +48,16 @@ from mtp_expert_prefetch.runtime.policy import (
     priority_name,
     select_runtime_prefetch_policy,
 )
+from mtp_expert_prefetch.runtime.shadow_log import (
+    ShadowCandidateEvent,
+    ShadowEventId,
+    ShadowOutcomeEvent,
+    ShadowPolicyConfig,
+    ShadowSummaryEvent,
+    aggregate_shadow_events,
+    read_shadow_jsonl,
+    write_shadow_jsonl,
+)
 
 __all__ = [
     "DescriptorCacheReport",
@@ -65,6 +75,11 @@ __all__ = [
     "ScoreThresholdMetadata",
     "ThresholdType",
     "StallProxyReport",
+    "ShadowCandidateEvent",
+    "ShadowEventId",
+    "ShadowOutcomeEvent",
+    "ShadowPolicyConfig",
+    "ShadowSummaryEvent",
     "add_metadata_budget_decisions",
     "add_premap_budget_decisions",
     "analyze_descriptor_lead_time",
@@ -72,6 +87,7 @@ __all__ = [
     "build_priority_masks",
     "build_mtp_extra_utility_scores",
     "descriptor_summary",
+    "aggregate_shadow_events",
     "load_descriptor_jsonl",
     "novel_mtp_extra_mask",
     "novel_mtp_extra_rank_mask",
@@ -86,5 +102,7 @@ __all__ = [
     "simulate_stall_proxy",
     "write_descriptor_cache_report",
     "write_lead_time_report",
+    "read_shadow_jsonl",
+    "write_shadow_jsonl",
     "write_stall_proxy_report",
 ]
