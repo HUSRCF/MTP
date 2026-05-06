@@ -2237,3 +2237,59 @@ The stable result is that utility should rank B-tile groups, while execution
 keeps each B tile contiguous. This preserves cache locality and retains the
 MTP/transition utility signal.
 ```
+
+Runtime descriptor-order action:
+
+```text
+module:  src/mtp_expert_prefetch/runtime/descriptor_order.py
+script:  scripts/simulate_descriptor_order.py
+schema:  ShadowSummaryEvent descriptor_order_* fields
+```
+
+The descriptor-order action is explicitly safe:
+
+```text
+same descriptor multiset
+same true router output
+same candidate membership
+different descriptor / tile visitation order only
+```
+
+New shadow summary fields:
+
+```text
+descriptor_order_policy
+descriptor_order_build_us
+descriptor_tile_multiset_hash
+descriptor_order_hash
+descriptor_order_metrics
+```
+
+Smoke over existing premap descriptors:
+
+```text
+input:    outputs/reports/prefetch_shadow_256sample_mtp_extra/descriptors_extra4.jsonl
+artifact: outputs/reports/tile_order_cache/descriptor_order_extra4_smoke.md
+descriptors: 306,249
+```
+
+Result boundary:
+
+```text
+This smoke validates runtime action semantics and hash/counter reporting.
+It is not a locality claim because the current premap descriptor JSONL is
+sample/layer deduplicated. It is not a token/row-level grouped-GEMM tile stream.
+
+The locality/timing claim should remain tied to the tensor-cache tile stream
+and the direct/global-fragment timing bench until a row-level runtime descriptor
+stream is available.
+```
+
+Engineering implication:
+
+```text
+Python prototype order_build_us on 306k descriptors is hundreds of ms, so it is
+not the intended runtime implementation. The real runtime path needs bucketed
+grouping / partial sort / descriptor patching in C++ or device-side code.
+The Python action is for shadow validation and counter semantics.
+```

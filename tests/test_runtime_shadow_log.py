@@ -26,6 +26,7 @@ def test_shadow_log_schema_round_trip_and_aggregate(tmp_path):
         allow_full_mtp_fetch=True,
         allow_mtp_metadata=True,
         allow_mtp_premap=True,
+        descriptor_order_policy="utility_tile_grouped",
     )
     summary = ShadowSummaryEvent(
         event_id=event_id,
@@ -48,6 +49,10 @@ def test_shadow_log_schema_round_trip_and_aggregate(tmp_path):
         mtp_ready_fraction=0.50,
         bandwidth_gbps=6.589,
         layer_ms=1.0,
+        descriptor_order_build_us=4.0,
+        descriptor_tile_multiset_hash="same-tiles",
+        descriptor_order_hash="ordered-tiles",
+        descriptor_order_metrics={"lru_hit_rate": {"8": 0.8}, "tile_order_hit_rate": 0.5},
     )
     outcome = ShadowOutcomeEvent(
         event_id=event_id,
@@ -70,6 +75,10 @@ def test_shadow_log_schema_round_trip_and_aggregate(tmp_path):
     assert rows[0]["shadow_event_id"] == "req:0:7:3"
     assert rows[0]["policy_reason"] == "normal_envelope"
     assert rows[0]["allow_full_mtp_fetch"] is True
+    assert rows[0]["descriptor_order_policy"] == "utility_tile_grouped"
+    assert rows[0]["descriptor_tile_multiset_hash"] == "same-tiles"
+    assert rows[0]["descriptor_order_hash"] == "ordered-tiles"
+    assert rows[0]["descriptor_order_metrics"]["lru_hit_rate"]["8"] == 0.8
     assert rows[0]["full_fetch_count"] == 3
     assert rows[0]["transition_ready_rate"] == 0.95
     assert rows[0]["mtp_ready_fraction"] == 0.50
@@ -88,3 +97,4 @@ def test_shadow_log_schema_round_trip_and_aggregate(tmp_path):
     assert aggregate["admission_decision_us_mean"] == 5.0
     assert aggregate["counter_update_us_mean"] == 2.0
     assert aggregate["logging_us_mean"] == 1.0
+    assert aggregate["descriptor_order_build_us_mean"] == 4.0

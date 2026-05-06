@@ -44,6 +44,7 @@ class ShadowPolicyConfig:
     allow_full_mtp_fetch: bool | None = None
     allow_mtp_metadata: bool | None = None
     allow_mtp_premap: bool | None = None
+    descriptor_order_policy: str | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -77,6 +78,10 @@ class ShadowSummaryEvent:
     queue_pressure: float | None = None
     reason_counts: dict[str, int] | None = None
     action_reason_counts: dict[str, dict[str, int]] | None = None
+    descriptor_order_build_us: float | None = None
+    descriptor_tile_multiset_hash: str | None = None
+    descriptor_order_hash: str | None = None
+    descriptor_order_metrics: dict[str, Any] | None = None
 
     def as_dict(self) -> dict[str, Any]:
         payload = {
@@ -106,6 +111,11 @@ class ShadowSummaryEvent:
         _put_optional(payload, "layer_ms", self.layer_ms)
         _put_optional(payload, "cache_pressure", self.cache_pressure)
         _put_optional(payload, "queue_pressure", self.queue_pressure)
+        _put_optional(payload, "descriptor_order_build_us", self.descriptor_order_build_us)
+        _put_optional(payload, "descriptor_tile_multiset_hash", self.descriptor_tile_multiset_hash)
+        _put_optional(payload, "descriptor_order_hash", self.descriptor_order_hash)
+        if self.descriptor_order_metrics is not None:
+            payload["descriptor_order_metrics"] = self.descriptor_order_metrics
         if self.reason_counts is not None:
             payload["reason_counts"] = {
                 str(key): int(value) for key, value in self.reason_counts.items()
@@ -232,6 +242,8 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
         "admission_decision_us_sum": 0.0,
         "counter_update_us_sum": 0.0,
         "logging_us_sum": 0.0,
+        "descriptor_order_build_us_sum": 0.0,
+        "descriptor_order_summary_count": 0,
         "joined_outcome_count": 0,
         "outcome_only_count": 0,
         "summary_only_timeout_count": 0,
@@ -258,6 +270,11 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
                 "logging_us",
             ):
                 totals[f"{key}_sum"] += float(event.get(key, 0.0) or 0.0)
+            if "descriptor_order_build_us" in event:
+                totals["descriptor_order_build_us_sum"] += float(
+                    event.get("descriptor_order_build_us", 0.0) or 0.0
+                )
+                totals["descriptor_order_summary_count"] += 1
         elif event_type == "candidate":
             totals["candidate_count"] += 1
         elif event_type == "outcome":
@@ -296,6 +313,10 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
         "logging_us",
     ):
         totals[f"{key}_mean"] = totals[f"{key}_sum"] / summary_count
+    descriptor_count = max(1, int(totals["descriptor_order_summary_count"]))
+    totals["descriptor_order_build_us_mean"] = (
+        totals["descriptor_order_build_us_sum"] / descriptor_count
+    )
     return totals
 
 

@@ -1722,6 +1722,16 @@ Interpretation:
   - repeat 30+ times on the strongest configs only
   - include process-level repeats and optional order execution randomization
   - stop condition: if confidence intervals overlap too much, keep tile ordering as descriptor-level heuristic only
+- [x] Promote tile ordering into a runtime/shadow descriptor-order action:
+  - module: `src/mtp_expert_prefetch/runtime/descriptor_order.py`
+  - script: `scripts/simulate_descriptor_order.py`
+  - shadow fields: `descriptor_order_policy`, `descriptor_order_build_us`, `descriptor_tile_multiset_hash`, `descriptor_order_hash`, `descriptor_order_metrics`
+  - invariant: descriptor multiset is unchanged; only order changes
+  - smoke: `outputs/reports/tile_order_cache/descriptor_order_extra4_smoke.md`
+- [ ] Add tile-stream descriptor path for runtime order evaluation:
+  - current `ExpertPrefetchDescriptor` JSONL is sample/layer deduplicated and not a row-level GEMM tile stream
+  - build a token/row-level tile descriptor list from true router output or tensor cache
+  - report descriptor-order build cost on that tile stream, not on deduplicated premap descriptors
 - [ ] Add descriptor precompute / patch timing:
   - true-router rebuild baseline
   - transition/MTP candidate descriptor prebuild

@@ -23,6 +23,11 @@ from mtp_expert_prefetch.runtime.cache_sim import (
     simulate_descriptor_priority_cache,
     write_descriptor_cache_report,
 )
+from mtp_expert_prefetch.runtime.descriptor_order import (
+    DescriptorOrderReport,
+    descriptors_to_tile_requests,
+    order_prefetch_descriptors,
+)
 from mtp_expert_prefetch.runtime.event_sim import (
     StallProxyReport,
     simulate_stall_proxy,
@@ -84,6 +89,7 @@ from mtp_expert_prefetch.runtime.tile_order import (
 
 __all__ = [
     "DescriptorCacheReport",
+    "DescriptorOrderReport",
     "ExpertPrefetchDescriptor",
     "LeadTimeReport",
     "PolicyThresholds",
@@ -116,6 +122,7 @@ __all__ = [
     "build_priority_masks",
     "build_mtp_extra_utility_scores",
     "descriptor_summary",
+    "descriptors_to_tile_requests",
     "aggregate_shadow_events",
     "aggregate_shadow_tensors",
     "iter_shadow_summary_outcome_events",
@@ -134,6 +141,7 @@ __all__ = [
     "select_lds_stage_gate",
     "select_runtime_prefetch_policy",
     "order_tile_requests",
+    "order_prefetch_descriptors",
     "simulate_lru_hit_rate",
     "simulate_descriptor_lru_cache",
     "simulate_descriptor_priority_cache",
