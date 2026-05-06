@@ -187,6 +187,7 @@ def build_layer_prior_plan_report_from_router_topk(
     top_utility_override: int = 0,
     cache_sizes: Sequence[int] = (8, 16, 32),
     tile_order_top_k: int = 8,
+    metrics_mode: str = "full",
 ) -> tuple[DescriptorOrderReport | None, str | None]:
     """Build a descriptor-order report without materializing TileRequest objects.
 
@@ -207,6 +208,21 @@ def build_layer_prior_plan_report_from_router_topk(
     policy = f"layer_prior_{prior.score_name}"
     if top_utility_override:
         policy = f"{policy}_top{int(top_utility_override)}_utility_override"
+
+    if tiles_per_expert == 1 and int(top_utility_override) == 0:
+        return _build_layer_prior_plan_report_from_topk_tensor(
+            layer_id=layer_id,
+            ids=ids,
+            prior=prior,
+            prior_order=prior_order,
+            prior_id=prior_id,
+            prior_hash=prior_hash,
+            token_window_size=token_window_size,
+            cache_sizes=cache_sizes,
+            tile_order_top_k=int(tile_order_top_k),
+            metrics_mode=metrics_mode,
+            policy=policy,
+        )
 
     start_ns = time.perf_counter_ns()
     original_windows: list[list[int]] = []
@@ -258,6 +274,7 @@ def build_layer_prior_plan_report_from_router_topk(
         policy=policy,
         cache_sizes=cache_sizes,
         tile_order_top_k=int(tile_order_top_k),
+        metrics_mode=metrics_mode,
     )
     report = DescriptorOrderReport(
         policy=policy,
@@ -269,6 +286,88 @@ def build_layer_prior_plan_report_from_router_topk(
         prior_id=prior_id or str(prior.metadata.get("experiment_id") or prior.score_name),
         prior_hash=prior_hash,
         top_utility_override=int(top_utility_override),
+    )
+    return report, hash_ints(original_tile_ids)
+
+
+def _build_layer_prior_plan_report_from_topk_tensor(
+    *,
+    layer_id: int,
+    ids: torch.Tensor,
+    prior: LayerTilePrior,
+    prior_order: Sequence[int],
+    prior_id: str | None,
+    prior_hash: str | None,
+    token_window_size: int,
+    cache_sizes: Sequence[int],
+    tile_order_top_k: int,
+    metrics_mode: str,
+    policy: str,
+) -> tuple[DescriptorOrderReport | None, str | None]:
+    start_ns = time.perf_counter_ns()
+    token_count = int(ids.shape[0])
+    top_k = int(ids.shape[1])
+    if token_count <= 0 or top_k <= 0:
+        return None, None
+
+    valid_ids = ids
+    if bool((valid_ids < 0).any().item()):
+        return None, None
+
+    max_seen = int(valid_ids.max().item()) if valid_ids.numel() else -1
+    max_prior = max((int(tile) for tile in prior_order), default=-1)
+    rank_size = max(max_seen, max_prior) + 1
+    if rank_size <= 0:
+        return None, None
+    rank = torch.arange(rank_size, dtype=torch.long) + len(prior_order)
+    for order_idx, tile_raw in enumerate(prior_order):
+        tile = int(tile_raw)
+        if 0 <= tile < rank_size:
+            rank[tile] = int(order_idx)
+
+    window_size = token_count if token_window_size <= 0 else max(1, int(token_window_size))
+    original_windows: list[list[int]] = []
+    ordered_windows: list[list[int]] = []
+    for token_start in range(0, token_count, window_size):
+        token_end = min(token_start + window_size, token_count)
+        window = valid_ids[token_start:token_end].reshape(-1)
+        if window.numel() == 0:
+            original_windows.append([])
+            ordered_windows.append([])
+            continue
+        original = [int(tile) for tile in window.tolist()]
+        ranks = rank[window]
+        try:
+            order_indices = torch.argsort(ranks, stable=True)
+        except TypeError:
+            order_indices = torch.argsort(ranks)
+        ordered = [int(tile) for tile in window[order_indices].tolist()]
+        original_windows.append(original)
+        ordered_windows.append(ordered)
+
+    order_build_us = (time.perf_counter_ns() - start_ns) / 1000.0
+    original_tile_ids = [tile for window in original_windows for tile in window]
+    if not original_tile_ids:
+        return None, None
+    ordered_tile_ids = [tile for window in ordered_windows for tile in window]
+    metrics = _evaluate_ordered_tile_id_windows(
+        original_windows=original_windows,
+        ordered_windows=ordered_windows,
+        policy=policy,
+        cache_sizes=cache_sizes,
+        tile_order_top_k=int(tile_order_top_k),
+        metrics_mode=metrics_mode,
+    )
+    report = DescriptorOrderReport(
+        policy=policy,
+        descriptor_count=len(original_tile_ids),
+        tile_multiset_hash=hash_ints(sorted(original_tile_ids)),
+        order_hash=hash_ints(ordered_tile_ids),
+        order_build_us=order_build_us,
+        metrics=metrics,
+        prior_id=prior_id or str(prior.metadata.get("experiment_id") or prior.score_name),
+        prior_hash=prior_hash,
+        top_utility_override=0,
     )
     return report, hash_ints(original_tile_ids)
 
@@ -329,10 +428,12 @@ def _evaluate_ordered_tile_id_windows(
     policy: str,
     cache_sizes: Sequence[int],
     tile_order_top_k: int,
+    metrics_mode: str = "full",
 ) -> dict[str, Any]:
     tile_ids = [tile for window in ordered_windows for tile in window]
-    distances = _reuse_distances_fast(tile_ids)
-    return {
+    compact = str(metrics_mode).lower() in {"compact", "light", "summary"}
+    distances = [] if compact else _reuse_distances_fast(tile_ids)
+    payload = {
         "policy": policy,
         "request_count": len(tile_ids),
         "window_count": len(ordered_windows),
@@ -357,6 +458,17 @@ def _evaluate_ordered_tile_id_windows(
         ),
         "first_tiles": tile_ids[: min(16, len(tile_ids))],
     }
+    if compact:
+        payload["metrics_mode"] = "compact"
+        payload["reuse_distance"] = {
+            "count": None,
+            "mean": None,
+            "p50": None,
+            "p95": None,
+            "max": None,
+            "skipped_reason": "compact_metrics_mode",
+        }
+    return payload
 
 
 def _unique_tile_id_stats(windows: Sequence[Sequence[int]]) -> dict[str, float | int]:

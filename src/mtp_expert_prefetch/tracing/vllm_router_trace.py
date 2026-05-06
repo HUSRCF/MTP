@@ -72,6 +72,7 @@ class VllmRouterRecorder:
     shadow_descriptor_order_cache_sizes: tuple[int, ...] = (8, 16, 32)
     shadow_descriptor_order_top_k: int = 8
     shadow_descriptor_order_top_utility_override: int = 0
+    shadow_descriptor_order_metrics_mode: str = "full"
     shadow_descriptor_order_event_token_index: int = -1
     request_id: str = "vllm"
     sequence_id: int = 0
@@ -234,6 +235,7 @@ class VllmRouterRecorder:
             top_utility_override=int(self.shadow_descriptor_order_top_utility_override),
             cache_sizes=self.shadow_descriptor_order_cache_sizes,
             tile_order_top_k=int(self.shadow_descriptor_order_top_k),
+            metrics_mode=str(self.shadow_descriptor_order_metrics_mode),
         )
         if descriptor_report is None:
             return
@@ -1509,6 +1511,12 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                                 runtime_shadow_options.get(
                                     "descriptor_order_top_utility_override",
                                     0,
+                                )
+                            ),
+                            shadow_descriptor_order_metrics_mode=str(
+                                runtime_shadow_options.get(
+                                    "descriptor_order_metrics_mode",
+                                    "full",
                                 )
                             ),
                             shadow_descriptor_order_event_token_index=int(

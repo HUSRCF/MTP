@@ -3089,6 +3089,47 @@ Next implementation gate:
   descriptor_order summaries.
 ```
 
+Follow-up overhead reduction:
+
+```text
+runtime change:
+  common online path now uses tensor/rank-map layer_prior_plan when:
+    tiles_per_expert = 1
+    top_utility_override = 0
+
+  runtime_shadow option:
+    descriptor_order_metrics_mode: compact
+
+compact mode:
+  keeps LRU@K, order_hit, unique tile stats, run length, hashes, request count
+  skips full reuse-distance distribution
+
+TRY/AWQ 1-sample online smoke after compact mode:
+  summaries = 40
+  outcomes = 5,080
+
+  LRU@8 mean = 0.8593
+  LRU@16 mean = 0.8593
+  order_hit mean = 0.6203
+  reuse_distance = skipped in compact mode
+
+  candidate_construction_us mean = 4.16
+  descriptor_order_build_us mean = 495.38
+  decision_us mean = 1,452.38
+  counter_update_us mean = 952.84
+
+previous full-metric online smoke:
+  descriptor_order_build_us mean = 881.75
+  decision_us mean = 3,402.53
+  counter_update_us mean = 2,516.30
+
+interpretation:
+  tensor/rank-map planning reduces the plan-build cost, and compact metrics
+  remove a large part of online shadow overhead while preserving the primary
+  locality/order observability. Full reuse-distance accounting should remain
+  an offline replay diagnostic or sampled debug mode.
+```
+
 Runtime online descriptor-order fast producer:
 
 ```text

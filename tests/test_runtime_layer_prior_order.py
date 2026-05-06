@@ -184,3 +184,32 @@ def test_layer_prior_plan_report_matches_tile_request_stream_metrics():
     assert plan_report.order_hash == object_report.order_hash
     assert baseline_hash is not None
     assert plan_report.metrics == object_report.metrics
+
+
+def test_layer_prior_plan_report_compact_metrics_skip_reuse_distance():
+    prior = build_layer_tile_prior(
+        [
+            TileRequest(0, 0, 2, 2, layer_idx=0),
+            TileRequest(0, 1, 1, 1, layer_idx=0),
+        ],
+        score_name="frequency",
+    )
+    ids = torch.tensor([[1, 2], [2, 1]], dtype=torch.long)
+    weights = torch.tensor([[0.7, 0.3], [0.6, 0.4]], dtype=torch.float32)
+
+    report, _ = build_layer_prior_plan_report_from_router_topk(
+        layer_id=0,
+        topk_ids=ids,
+        topk_weights=weights,
+        prior=prior,
+        token_window_size=2,
+        cache_sizes=[1, 2],
+        metrics_mode="compact",
+    )
+
+    assert report is not None
+    assert report.metrics["metrics_mode"] == "compact"
+    assert report.metrics["lru_hit_rate"]["1"] >= 0.0
+    assert report.metrics["tile_order_hit_rate"] >= 0.0
+    assert report.metrics["reuse_distance"]["mean"] is None
+    assert report.metrics["reuse_distance"]["skipped_reason"] == "compact_metrics_mode"
