@@ -1777,6 +1777,17 @@ Interpretation:
   - current benchmark subtracts one full-stream builder from one full-stream kernel
   - test per batch/layer grouping and cached group-order reuse
   - decide whether ordering should be per window, per layer, or precomputed offline
+- [x] Add C++ two-level layer-prior descriptor-order builder:
+  - benchmark mode: `layer_prior_plan`
+  - representation: filtered `group_order` + per-group counts/offsets, no full descriptor materialization
+  - artifact: `outputs/reports/tile_order_cache/layer_prior_descriptor_order_builder_heldout.md`
+  - `layer_prior_frequency`: ~= 332.8us total / ~= 4.16us per heldout window
+  - materialized path artifact: `outputs/reports/tile_order_cache/layer_prior_descriptor_order_builder_materialized_heldout.md`
+  - materialized path is slightly slower than two-level plan, confirming the representation is useful
+- [x] Add layer-prior order-build overhead Pareto:
+  - artifact: `outputs/reports/tile_order_cache/layer_prior_tile_order_overhead_pareto_heldout.md`
+  - conservative result: still net-negative against the current direct/global-fragment timing envelope
+  - interpretation: layer-prior descriptor_order is not yet a per-window CPU critical-path action; keep it shadow/precomputed until a larger real grouped-kernel saved envelope or lower-overhead runtime builder is shown
 - [ ] Add online vLLM descriptor-order shadow hook:
   - generate current-router token/row tile stream after true router outcome
   - write descriptor-order summary only; do not change execution order yet

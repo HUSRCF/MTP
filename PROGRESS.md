@@ -2670,3 +2670,102 @@ Next gate:
   implement a C++/two-level layer-prior builder path and online shadow counters
   for descriptor_order_policy=layer_prior_frequency.
 ```
+
+C++ two-level layer-prior builder:
+
+```text
+code:
+  microbench/tile_order_cache/descriptor_order_builder_bench.cpp
+  scripts/run_descriptor_order_builder_bench.py
+
+mode:
+  layer_prior_plan
+
+representation:
+  present/counts/offsets
+  filtered group_order from prior_order[layer]
+  optional top-H current-utility override
+  no full materialized descriptor reorder in the plan mode
+```
+
+Heldout builder result:
+
+```text
+artifact:
+  outputs/reports/tile_order_cache/layer_prior_descriptor_order_builder_heldout.md
+
+utility_tile_grouped_bucket:
+  ~= 365.5us total
+  ~= 4.57us/window
+  LRU@8 = 0.8441
+  order_hit = 0.5375
+
+layer_prior_frequency:
+  ~= 332.8us total
+  ~= 4.16us/window
+  LRU@8 = 0.8442
+  order_hit = 0.5766
+
+layer_prior_utility:
+  ~= 317.9us total
+  ~= 3.97us/window
+  LRU@8 = 0.8442
+  order_hit = 0.5234
+```
+
+Materialization control:
+
+```text
+artifact:
+  outputs/reports/tile_order_cache/layer_prior_descriptor_order_builder_materialized_heldout.md
+
+layer_prior_frequency plan:
+  ~= 315.2us total
+  ~= 3.94us/window
+
+layer_prior_frequency materialized:
+  ~= 347.9us total
+  ~= 4.35us/window
+```
+
+Interpretation:
+
+```text
+The two-level representation is the right runtime shape: materializing a full
+reordered descriptor array is measurably slower.
+
+However, the current CPU-side builder is still too expensive for the tiny
+direct/global-fragment timing envelope.
+```
+
+Overhead Pareto:
+
+```text
+artifact:
+  outputs/reports/tile_order_cache/layer_prior_tile_order_overhead_pareto_heldout.md
+
+tile_elems=1024, no flush:
+  layer_prior_frequency kernel_saved_us ~= 8us per heldout stream
+  layer_prior_frequency build_us ~= 333us per heldout stream
+  net_saved_us remains negative
+
+tile_elems=1024, cache_flush=16M:
+  kernel_saved_us ~= 4-10us depending on device
+  build_us remains ~= 333us
+  net_saved_us remains negative
+```
+
+Current descriptor-order boundary:
+
+```text
+layer_prior_frequency is still the best semantic policy for descriptor_order:
+it preserves B-tile locality and improves order_hit on heldout.
+
+But it is not yet a per-window CPU critical-path action under the current
+direct/global-fragment microbench envelope.
+
+Use it next as:
+  online shadow metric/policy,
+  precomputed descriptor group order,
+  or a candidate for a lower-overhead integrated grouped-kernel path.
+```
