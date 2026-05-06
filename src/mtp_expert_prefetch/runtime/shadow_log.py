@@ -45,6 +45,9 @@ class ShadowPolicyConfig:
     allow_mtp_metadata: bool | None = None
     allow_mtp_premap: bool | None = None
     descriptor_order_policy: str | None = None
+    descriptor_order_prior_id: str | None = None
+    descriptor_order_prior_hash: str | None = None
+    descriptor_order_top_utility_override: int | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -86,6 +89,13 @@ class ShadowSummaryEvent:
     descriptor_unique_b_tiles: int | None = None
     descriptor_same_multiset: bool | None = None
     descriptor_order_changed: bool | None = None
+    descriptor_order_prior_id: str | None = None
+    descriptor_order_prior_hash: str | None = None
+    descriptor_order_lru_at_8: float | None = None
+    descriptor_order_lru_at_16: float | None = None
+    descriptor_order_hit_rate: float | None = None
+    descriptor_reuse_distance_mean: float | None = None
+    descriptor_unique_tiles_per_window_mean: float | None = None
 
     def as_dict(self) -> dict[str, Any]:
         payload = {
@@ -122,6 +132,17 @@ class ShadowSummaryEvent:
         _put_optional(payload, "descriptor_unique_b_tiles", self.descriptor_unique_b_tiles)
         _put_optional(payload, "descriptor_same_multiset", self.descriptor_same_multiset)
         _put_optional(payload, "descriptor_order_changed", self.descriptor_order_changed)
+        _put_optional(payload, "descriptor_order_prior_id", self.descriptor_order_prior_id)
+        _put_optional(payload, "descriptor_order_prior_hash", self.descriptor_order_prior_hash)
+        _put_optional(payload, "descriptor_order_lru_at_8", self.descriptor_order_lru_at_8)
+        _put_optional(payload, "descriptor_order_lru_at_16", self.descriptor_order_lru_at_16)
+        _put_optional(payload, "descriptor_order_hit_rate", self.descriptor_order_hit_rate)
+        _put_optional(payload, "descriptor_reuse_distance_mean", self.descriptor_reuse_distance_mean)
+        _put_optional(
+            payload,
+            "descriptor_unique_tiles_per_window_mean",
+            self.descriptor_unique_tiles_per_window_mean,
+        )
         if self.descriptor_order_metrics is not None:
             payload["descriptor_order_metrics"] = self.descriptor_order_metrics
         if self.reason_counts is not None:
@@ -254,6 +275,11 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
         "descriptor_order_summary_count": 0,
         "descriptor_tile_request_count": 0,
         "descriptor_unique_b_tiles_sum": 0,
+        "descriptor_order_lru_at_8_sum": 0.0,
+        "descriptor_order_lru_at_16_sum": 0.0,
+        "descriptor_order_hit_rate_sum": 0.0,
+        "descriptor_reuse_distance_mean_sum": 0.0,
+        "descriptor_unique_tiles_per_window_mean_sum": 0.0,
         "descriptor_same_multiset_count": 0,
         "descriptor_order_changed_count": 0,
         "joined_outcome_count": 0,
@@ -292,6 +318,21 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
                 )
                 totals["descriptor_unique_b_tiles_sum"] += int(
                     event.get("descriptor_unique_b_tiles", 0) or 0
+                )
+                totals["descriptor_order_lru_at_8_sum"] += float(
+                    event.get("descriptor_order_lru_at_8", 0.0) or 0.0
+                )
+                totals["descriptor_order_lru_at_16_sum"] += float(
+                    event.get("descriptor_order_lru_at_16", 0.0) or 0.0
+                )
+                totals["descriptor_order_hit_rate_sum"] += float(
+                    event.get("descriptor_order_hit_rate", 0.0) or 0.0
+                )
+                totals["descriptor_reuse_distance_mean_sum"] += float(
+                    event.get("descriptor_reuse_distance_mean", 0.0) or 0.0
+                )
+                totals["descriptor_unique_tiles_per_window_mean_sum"] += float(
+                    event.get("descriptor_unique_tiles_per_window_mean", 0.0) or 0.0
                 )
                 totals["descriptor_same_multiset_count"] += int(
                     bool(event.get("descriptor_same_multiset", False))
@@ -343,6 +384,21 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
     )
     totals["descriptor_unique_b_tiles_mean"] = (
         totals["descriptor_unique_b_tiles_sum"] / descriptor_count
+    )
+    totals["descriptor_order_lru_at_8_mean"] = (
+        totals["descriptor_order_lru_at_8_sum"] / descriptor_count
+    )
+    totals["descriptor_order_lru_at_16_mean"] = (
+        totals["descriptor_order_lru_at_16_sum"] / descriptor_count
+    )
+    totals["descriptor_order_hit_rate_mean"] = (
+        totals["descriptor_order_hit_rate_sum"] / descriptor_count
+    )
+    totals["descriptor_reuse_distance_mean"] = (
+        totals["descriptor_reuse_distance_mean_sum"] / descriptor_count
+    )
+    totals["descriptor_unique_tiles_per_window_mean"] = (
+        totals["descriptor_unique_tiles_per_window_mean_sum"] / descriptor_count
     )
     return totals
 

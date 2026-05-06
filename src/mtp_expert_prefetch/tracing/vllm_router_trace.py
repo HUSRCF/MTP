@@ -12,6 +12,7 @@ from typing import Any, Protocol
 import torch
 
 from mtp_expert_prefetch.runtime.admission import AdmissionDecisionMasks
+from mtp_expert_prefetch.runtime.descriptor_order import DescriptorOrderReport
 from mtp_expert_prefetch.runtime.online_shadow import OnlineShadowLogger
 from mtp_expert_prefetch.runtime.shadow_controller import RuntimeShadowController
 from mtp_expert_prefetch.runtime.shadow_log import (
@@ -395,6 +396,28 @@ def write_active_runtime_shadow_action_summary(
         decisions=decisions,
         base_mask=base_mask,
         ready_mask=ready_mask,
+        **summary_kwargs,
+    )
+
+
+def write_active_runtime_shadow_descriptor_order_summary(
+    *,
+    event_id: ShadowEventId,
+    policy: ShadowPolicyConfig,
+    descriptor_report: DescriptorOrderReport,
+    baseline_order_hash: str | None = None,
+    **summary_kwargs: Any,
+) -> ShadowSummaryEvent | None:
+    """Write descriptor-order shadow counters through the active controller."""
+
+    controller = get_active_runtime_shadow_controller()
+    if controller is None:
+        return None
+    return controller.write_descriptor_order_summary(
+        event_id=event_id,
+        policy=policy,
+        descriptor_report=descriptor_report,
+        baseline_order_hash=baseline_order_hash,
         **summary_kwargs,
     )
 

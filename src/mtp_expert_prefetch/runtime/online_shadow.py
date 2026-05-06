@@ -94,6 +94,8 @@ class OnlineShadowLogger:
         policy: ShadowPolicyConfig,
         descriptor_report: DescriptorOrderReport,
         baseline_order_hash: str | None = None,
+        prior_id: str | None = None,
+        prior_hash: str | None = None,
         transition_topk_count: int = 0,
         mtp_requested_count: int = 0,
         decision_us: float | None = None,
@@ -106,6 +108,8 @@ class OnlineShadowLogger:
             policy=policy,
             descriptor_report=descriptor_report,
             baseline_order_hash=baseline_order_hash,
+            prior_id=prior_id,
+            prior_hash=prior_hash,
             transition_topk_count=transition_topk_count,
             mtp_requested_count=mtp_requested_count,
             decision_us=decision_us,
@@ -226,6 +230,8 @@ def build_shadow_summary_from_descriptor_order(
     policy: ShadowPolicyConfig,
     descriptor_report: DescriptorOrderReport,
     baseline_order_hash: str | None = None,
+    prior_id: str | None = None,
+    prior_hash: str | None = None,
     transition_topk_count: int = 0,
     mtp_requested_count: int = 0,
     decision_us: float | None = None,
@@ -239,6 +245,11 @@ def build_shadow_summary_from_descriptor_order(
         if baseline_order_hash is not None
         else None
     )
+    lru = metrics.get("lru_hit_rate", {})
+    reuse = metrics.get("reuse_distance", {})
+    unique_per_window = metrics.get("unique_tiles_per_window", {})
+    resolved_prior_id = prior_id if prior_id is not None else descriptor_report.prior_id
+    resolved_prior_hash = prior_hash if prior_hash is not None else descriptor_report.prior_hash
     return ShadowSummaryEvent(
         event_id=event_id,
         policy=policy,
@@ -263,8 +274,21 @@ def build_shadow_summary_from_descriptor_order(
         descriptor_unique_b_tiles=int(metrics.get("unique_tiles_total", 0) or 0),
         descriptor_same_multiset=True,
         descriptor_order_changed=order_changed,
+        descriptor_order_prior_id=resolved_prior_id,
+        descriptor_order_prior_hash=resolved_prior_hash,
+        descriptor_order_lru_at_8=_optional_float(lru.get("8")),
+        descriptor_order_lru_at_16=_optional_float(lru.get("16")),
+        descriptor_order_hit_rate=_optional_float(metrics.get("tile_order_hit_rate")),
+        descriptor_reuse_distance_mean=_optional_float(reuse.get("mean")),
+        descriptor_unique_tiles_per_window_mean=_optional_float(unique_per_window.get("mean")),
     )
 
 
 def _mask_count(mask: Any) -> int:
     return int(mask.bool().sum().item())
+
+
+def _optional_float(value: Any) -> float | None:
+    if value is None:
+        return None
+    return float(value)

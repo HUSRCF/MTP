@@ -7,6 +7,7 @@ from typing import Any
 import torch
 
 from mtp_expert_prefetch.runtime.admission import AdmissionDecisionMasks
+from mtp_expert_prefetch.runtime.descriptor_order import DescriptorOrderReport
 from mtp_expert_prefetch.runtime.online_shadow import OnlineShadowLogger
 from mtp_expert_prefetch.runtime.shadow_log import (
     ShadowEventId,
@@ -117,6 +118,31 @@ class RuntimeShadowController:
         self.stats.written_summary_count += 1
         self.stats.pending_summary_count = len(self._pending)
         self._evict_if_needed()
+        return event
+
+    def write_descriptor_order_summary(
+        self,
+        *,
+        event_id: ShadowEventId,
+        policy: ShadowPolicyConfig,
+        descriptor_report: DescriptorOrderReport,
+        baseline_order_hash: str | None = None,
+        **summary_kwargs: Any,
+    ) -> ShadowSummaryEvent:
+        """Write descriptor-order shadow counters without affecting outcomes.
+
+        Descriptor ordering is an order-only action over the current descriptor
+        multiset, so it does not need router-outcome mask joining.
+        """
+
+        event = self.logger.write_descriptor_order_summary(
+            event_id=event_id,
+            policy=policy,
+            descriptor_report=descriptor_report,
+            baseline_order_hash=baseline_order_hash,
+            **summary_kwargs,
+        )
+        self.stats.written_summary_count += 1
         return event
 
     def write_outcome(self, event: ShadowOutcomeEvent) -> None:

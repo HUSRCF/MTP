@@ -4,7 +4,11 @@ from mtp_expert_prefetch.runtime import (
     AdmissionDecisionMasks,
     OnlineShadowLogger,
     RuntimeShadowController,
+    TileRequest,
+    build_layer_tile_prior,
     build_shadow_summary_from_decisions,
+    hash_layer_tile_prior,
+    order_tile_request_stream_with_layer_prior,
 )
 from mtp_expert_prefetch.runtime.shadow_log import (
     ShadowEventId,
@@ -266,6 +270,60 @@ def test_runtime_shadow_controller_preserves_outcome_when_summary_missing(tmp_pa
     assert rows[0]["shadow_event_id"] == "req:0:8:5"
     assert rows[0]["miss_mass"] == 1.0
     assert rows[0]["join_status"] == "outcome_only"
+
+
+def test_runtime_shadow_controller_writes_descriptor_order_summary(tmp_path):
+    prior = build_layer_tile_prior(
+        [
+            TileRequest(0, 0, 2, 2, layer_idx=0),
+            TileRequest(0, 1, 2, 2, layer_idx=0),
+            TileRequest(0, 2, 1, 1, layer_idx=0),
+        ],
+        score_name="frequency",
+        metadata={"experiment_id": "prior-v1"},
+    )
+    prior_hash = hash_layer_tile_prior(prior)
+    requests = [
+        TileRequest(1, 0, 1, 1, layer_idx=0),
+        TileRequest(1, 1, 2, 2, layer_idx=0),
+        TileRequest(1, 2, 1, 1, layer_idx=0),
+    ]
+    _, report = order_tile_request_stream_with_layer_prior(
+        requests,
+        prior=prior,
+        prior_id="prior-v1",
+        prior_hash=prior_hash,
+    )
+    path = tmp_path / "descriptor_order_shadow.jsonl"
+
+    with RuntimeShadowController(OnlineShadowLogger(path)) as controller:
+        summary = controller.write_descriptor_order_summary(
+            event_id=ShadowEventId("req", 0, 1, 0),
+            policy=ShadowPolicyConfig(
+                policy_mode="descriptor_order_shadow",
+                optimization_goal="cache_locality",
+                action_keep_fraction=0.0,
+                metadata_score_ratio=0.0,
+                full_fetch_max_extra=0,
+                metadata_max_extra=0,
+                premap_max_extra=0,
+                descriptor_order_policy="layer_prior_frequency",
+                descriptor_order_prior_id="prior-v1",
+                descriptor_order_prior_hash=prior_hash,
+            ),
+            descriptor_report=report,
+        )
+        aggregate = controller.aggregate()
+
+    rows = read_shadow_jsonl(path)
+    assert summary.descriptor_order_prior_hash == prior_hash
+    assert rows[0]["descriptor_order_policy"] == "layer_prior_frequency"
+    assert rows[0]["descriptor_order_prior_hash"] == prior_hash
+    assert rows[0]["descriptor_order_lru_at_8"] == report.metrics["lru_hit_rate"]["8"]
+    assert rows[0]["descriptor_order_hit_rate"] == report.metrics["tile_order_hit_rate"]
+    assert aggregate["descriptor_order_summary_count"] == 1
+    assert aggregate["descriptor_order_lru_at_8_mean"] == report.metrics["lru_hit_rate"]["8"]
+    assert aggregate["controller_stats"]["written_summary_count"] == 1
 
 
 def test_runtime_shadow_controller_reports_pending_timeouts_and_evictions(tmp_path):

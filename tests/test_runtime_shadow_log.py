@@ -32,6 +32,8 @@ def test_shadow_log_schema_round_trip_and_aggregate(tmp_path):
         allow_mtp_metadata=True,
         allow_mtp_premap=True,
         descriptor_order_policy="utility_tile_grouped",
+        descriptor_order_prior_id="prior-v1",
+        descriptor_order_prior_hash="hash-v1",
     )
     summary = ShadowSummaryEvent(
         event_id=event_id,
@@ -55,6 +57,8 @@ def test_shadow_log_schema_round_trip_and_aggregate(tmp_path):
         bandwidth_gbps=6.589,
         layer_ms=1.0,
         descriptor_order_build_us=4.0,
+        descriptor_order_prior_id="prior-v1",
+        descriptor_order_prior_hash="hash-v1",
         descriptor_tile_multiset_hash="same-tiles",
         descriptor_order_hash="ordered-tiles",
         descriptor_order_metrics={"lru_hit_rate": {"8": 0.8}, "tile_order_hit_rate": 0.5},
@@ -62,6 +66,10 @@ def test_shadow_log_schema_round_trip_and_aggregate(tmp_path):
         descriptor_unique_b_tiles=9,
         descriptor_same_multiset=True,
         descriptor_order_changed=True,
+        descriptor_order_lru_at_8=0.8,
+        descriptor_order_hit_rate=0.5,
+        descriptor_reuse_distance_mean=3.0,
+        descriptor_unique_tiles_per_window_mean=2.0,
     )
     outcome = ShadowOutcomeEvent(
         event_id=event_id,
@@ -85,6 +93,8 @@ def test_shadow_log_schema_round_trip_and_aggregate(tmp_path):
     assert rows[0]["policy_reason"] == "normal_envelope"
     assert rows[0]["allow_full_mtp_fetch"] is True
     assert rows[0]["descriptor_order_policy"] == "utility_tile_grouped"
+    assert rows[0]["descriptor_order_prior_id"] == "prior-v1"
+    assert rows[0]["descriptor_order_prior_hash"] == "hash-v1"
     assert rows[0]["descriptor_tile_multiset_hash"] == "same-tiles"
     assert rows[0]["descriptor_order_hash"] == "ordered-tiles"
     assert rows[0]["descriptor_order_metrics"]["lru_hit_rate"]["8"] == 0.8
@@ -92,6 +102,10 @@ def test_shadow_log_schema_round_trip_and_aggregate(tmp_path):
     assert rows[0]["descriptor_unique_b_tiles"] == 9
     assert rows[0]["descriptor_same_multiset"] is True
     assert rows[0]["descriptor_order_changed"] is True
+    assert rows[0]["descriptor_order_lru_at_8"] == 0.8
+    assert rows[0]["descriptor_order_hit_rate"] == 0.5
+    assert rows[0]["descriptor_reuse_distance_mean"] == 3.0
+    assert rows[0]["descriptor_unique_tiles_per_window_mean"] == 2.0
     assert rows[0]["full_fetch_count"] == 3
     assert rows[0]["transition_ready_rate"] == 0.95
     assert rows[0]["mtp_ready_fraction"] == 0.50
@@ -111,6 +125,10 @@ def test_shadow_log_schema_round_trip_and_aggregate(tmp_path):
     assert aggregate["counter_update_us_mean"] == 2.0
     assert aggregate["logging_us_mean"] == 1.0
     assert aggregate["descriptor_order_build_us_mean"] == 4.0
+    assert aggregate["descriptor_order_lru_at_8_mean"] == 0.8
+    assert aggregate["descriptor_order_hit_rate_mean"] == 0.5
+    assert aggregate["descriptor_reuse_distance_mean"] == 3.0
+    assert aggregate["descriptor_unique_tiles_per_window_mean"] == 2.0
     assert aggregate["descriptor_tile_request_count"] == 17
     assert aggregate["descriptor_unique_b_tiles_mean"] == 9.0
     assert aggregate["descriptor_same_multiset_count"] == 1
@@ -128,6 +146,8 @@ def test_descriptor_order_shadow_summary_builder():
         metadata_max_extra=0,
         premap_max_extra=0,
         descriptor_order_policy="utility_tile_grouped",
+        descriptor_order_prior_id="prior-v2",
+        descriptor_order_prior_hash="hash-v2",
     )
     requests = [
         TileRequest(0, 0, 1, 1, utility_score=0.1),
@@ -142,14 +162,20 @@ def test_descriptor_order_shadow_summary_builder():
         policy=policy,
         descriptor_report=ordered,
         baseline_order_hash=linear.order_hash,
+        prior_id="prior-v2",
+        prior_hash="hash-v2",
     )
     payload = summary.as_dict()
 
     assert payload["descriptor_order_policy"] == "utility_tile_grouped"
+    assert payload["descriptor_order_prior_id"] == "prior-v2"
+    assert payload["descriptor_order_prior_hash"] == "hash-v2"
     assert payload["descriptor_tile_request_count"] == 3
     assert payload["descriptor_unique_b_tiles"] == 2
     assert payload["descriptor_same_multiset"] is True
     assert payload["descriptor_order_changed"] is True
+    assert payload["descriptor_order_lru_at_8"] == ordered.metrics["lru_hit_rate"]["8"]
+    assert payload["descriptor_order_hit_rate"] == ordered.metrics["tile_order_hit_rate"]
     assert payload["full_fetch_count"] == 0
     assert payload["metadata_count"] == 0
     assert payload["premap_count"] == 0

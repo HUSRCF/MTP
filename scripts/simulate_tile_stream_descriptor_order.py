@@ -18,8 +18,11 @@ from mtp_expert_prefetch.runtime import (  # noqa: E402
     ShadowEventId,
     ShadowPolicyConfig,
     aggregate_shadow_events,
+    hash_layer_tile_prior,
+    load_layer_tile_prior,
     load_tile_requests_jsonl,
     order_tile_requests,
+    order_tile_request_stream_with_layer_prior,
     order_tile_request_stream,
     read_shadow_jsonl,
     tile_requests_from_tensor_cache,
@@ -48,6 +51,8 @@ def parse_args() -> argparse.Namespace:
     source.add_argument("--input-jsonl", type=Path, default=None)
     source.add_argument("--tensor-cache", type=Path, default=None)
     parser.add_argument("--policy", action="append", choices=DEFAULT_POLICIES, default=None)
+    parser.add_argument("--prior-json", type=Path, action="append", default=None)
+    parser.add_argument("--layer-prior-top-utility-override", type=int, action="append", default=None)
     parser.add_argument("--cache-sizes", type=parse_csv_ints, default=[8, 16, 32])
     parser.add_argument("--tile-order-top-k", type=int, default=8)
     parser.add_argument("--seed", type=int, default=0)
@@ -163,7 +168,7 @@ def main() -> None:
     if args.repeat <= 0:
         raise ValueError("--repeat must be positive")
     requests, source = load_requests(args)
-    policies = args.policy or DEFAULT_POLICIES
+    policies = list(args.policy or DEFAULT_POLICIES)
 
     rows: list[dict[str, Any]] = []
     reports_by_policy = {}
@@ -178,6 +183,27 @@ def main() -> None:
         )
         reports_by_policy[policy] = descriptor_report
         ordered_by_policy[policy] = ordered
+    for prior_path in args.prior_json or []:
+        prior = load_layer_tile_prior(prior_path)
+        prior_hash = hash_layer_tile_prior(prior)
+        overrides = args.layer_prior_top_utility_override
+        if overrides is None:
+            overrides = [0]
+        for top_h in sorted(set(int(value) for value in overrides)):
+            suffix = "" if top_h == 0 else f"_top{top_h}_utility_override"
+            policy_name = f"layer_prior_{prior.score_name}{suffix}"
+            ordered, descriptor_report = order_tile_request_stream_with_layer_prior(
+                requests,
+                prior=prior,
+                prior_id=str(prior.metadata.get("experiment_id") or prior.score_name),
+                prior_hash=prior_hash,
+                top_utility_override=top_h,
+                cache_sizes=args.cache_sizes,
+                tile_order_top_k=args.tile_order_top_k,
+            )
+            policies.append(policy_name)
+            reports_by_policy[policy_name] = descriptor_report
+            ordered_by_policy[policy_name] = ordered
 
     baseline = reports_by_policy.get("linear")
     baseline_multiset_hash = baseline.tile_multiset_hash if baseline is not None else None
@@ -186,10 +212,13 @@ def main() -> None:
     for policy in policies:
         report = reports_by_policy[policy]
         build_values = []
-        for _ in range(args.repeat):
-            start_ns = time.perf_counter_ns()
-            order_tile_requests(requests, policy=policy, seed=args.seed)
-            build_values.append((time.perf_counter_ns() - start_ns) / 1000.0)
+        if policy.startswith("layer_prior_"):
+            build_values = [float(report.order_build_us)]
+        else:
+            for _ in range(args.repeat):
+                start_ns = time.perf_counter_ns()
+                order_tile_requests(requests, policy=policy, seed=args.seed)
+                build_values.append((time.perf_counter_ns() - start_ns) / 1000.0)
         rows.append(
             {
                 **report.as_dict(),
@@ -216,6 +245,8 @@ def main() -> None:
         "policies": rows,
         "config": {
             "policies": policies,
+            "prior_json": [str(path) for path in args.prior_json or []],
+            "layer_prior_top_utility_override": args.layer_prior_top_utility_override,
             "cache_sizes": args.cache_sizes,
             "tile_order_top_k": args.tile_order_top_k,
             "repeat": args.repeat,
@@ -238,6 +269,9 @@ def main() -> None:
                     metadata_max_extra=0,
                     premap_max_extra=0,
                     descriptor_order_policy=policy_name,
+                    descriptor_order_prior_id=descriptor_report.prior_id,
+                    descriptor_order_prior_hash=descriptor_report.prior_hash,
+                    descriptor_order_top_utility_override=descriptor_report.top_utility_override,
                 )
                 logger.write_descriptor_order_summary(
                     event_id=ShadowEventId(
@@ -249,6 +283,8 @@ def main() -> None:
                     policy=policy,
                     descriptor_report=descriptor_report,
                     baseline_order_hash=baseline_order_hash,
+                    prior_id=descriptor_report.prior_id,
+                    prior_hash=descriptor_report.prior_hash,
                 )
         report_payload["shadow_jsonl"] = str(args.shadow_jsonl)
         report_payload["shadow_aggregate"] = aggregate_shadow_events(

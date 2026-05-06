@@ -4,6 +4,8 @@ from mtp_expert_prefetch.runtime import (
     TileRequest,
     build_layer_tile_prior,
     evaluate_ordered_tile_requests,
+    hash_layer_tile_prior,
+    order_tile_request_stream_with_layer_prior,
     order_tile_requests_with_layer_prior,
 )
 
@@ -88,3 +90,34 @@ def test_layer_utility_prior_uses_calibrated_scores_and_evaluates_order():
     assert [item.tile_id for item in ordered] == [2, 2, 3, 1]
     assert report["policy"] == "layer_prior_utility"
     assert report["request_count"] == len(heldout)
+
+
+def test_layer_prior_descriptor_report_carries_prior_metadata():
+    prior = build_layer_tile_prior(
+        [
+            TileRequest(0, 0, 2, 2, layer_idx=0),
+            TileRequest(0, 1, 2, 2, layer_idx=0),
+            TileRequest(0, 2, 1, 1, layer_idx=0),
+        ],
+        score_name="frequency",
+        metadata={"experiment_id": "prior-exp"},
+    )
+    prior_hash = hash_layer_tile_prior(prior)
+    requests = [
+        TileRequest(1, 0, 1, 1, layer_idx=0),
+        TileRequest(1, 1, 2, 2, layer_idx=0),
+        TileRequest(1, 2, 1, 1, layer_idx=0),
+    ]
+
+    ordered, report = order_tile_request_stream_with_layer_prior(
+        requests,
+        prior=prior,
+        prior_id="prior-exp",
+        prior_hash=prior_hash,
+    )
+
+    assert [item.tile_id for item in ordered] == [2, 1, 1]
+    assert report.policy == "layer_prior_frequency"
+    assert report.prior_id == "prior-exp"
+    assert report.prior_hash == prior_hash
+    assert report.metrics["lru_hit_rate"]["8"] == 1 / 3

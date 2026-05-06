@@ -1788,7 +1788,13 @@ Interpretation:
   - artifact: `outputs/reports/tile_order_cache/layer_prior_tile_order_overhead_pareto_heldout.md`
   - conservative result: still net-negative against the current direct/global-fragment timing envelope
   - interpretation: layer-prior descriptor_order is not yet a per-window CPU critical-path action; keep it shadow/precomputed until a larger real grouped-kernel saved envelope or lower-overhead runtime builder is shown
-- [ ] Add online vLLM descriptor-order shadow hook:
+- [x] Add online descriptor-order shadow counters:
+  - schema now records `descriptor_order_prior_id/hash`, LRU@8/16, order_hit, reuse_mean, unique tiles/window
+  - aggregate reports descriptor-order metric means directly without parsing nested metrics
+  - controller exposes `write_descriptor_order_summary(...)`
+  - active runtime hook exposes `write_active_runtime_shadow_descriptor_order_summary(...)`
+  - smoke artifact: `outputs/reports/tile_order_cache/layer_prior_descriptor_order_shadow_smoke.jsonl`
+- [ ] Add online vLLM descriptor-order shadow producer:
   - generate current-router token/row tile stream after true router outcome
   - write descriptor-order summary only; do not change execution order yet
   - compare online reuse/order-hit metrics to the 512 tensor-cache replay

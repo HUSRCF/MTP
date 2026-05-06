@@ -2769,3 +2769,68 @@ Use it next as:
   precomputed descriptor group order,
   or a candidate for a lower-overhead integrated grouped-kernel path.
 ```
+
+Descriptor-order online shadow counters:
+
+```text
+code:
+  src/mtp_expert_prefetch/runtime/shadow_log.py
+  src/mtp_expert_prefetch/runtime/online_shadow.py
+  src/mtp_expert_prefetch/runtime/shadow_controller.py
+  src/mtp_expert_prefetch/tracing/vllm_router_trace.py
+
+new flattened summary fields:
+  descriptor_order_prior_id
+  descriptor_order_prior_hash
+  descriptor_order_lru_at_8
+  descriptor_order_lru_at_16
+  descriptor_order_hit_rate
+  descriptor_reuse_distance_mean
+  descriptor_unique_tiles_per_window_mean
+
+aggregate fields:
+  descriptor_order_lru_at_8_mean
+  descriptor_order_lru_at_16_mean
+  descriptor_order_hit_rate_mean
+  descriptor_reuse_distance_mean
+  descriptor_unique_tiles_per_window_mean
+```
+
+Runtime hook boundary:
+
+```text
+write_active_runtime_shadow_descriptor_order_summary(...)
+
+This writes descriptor_order counters through the active RuntimeShadowController.
+It does not cache router masks for outcome join because descriptor_order is an
+order-only action over the current descriptor multiset.
+```
+
+Smoke:
+
+```text
+script:
+  scripts/simulate_tile_stream_descriptor_order.py
+
+artifact:
+  outputs/reports/tile_order_cache/layer_prior_descriptor_order_shadow_smoke.jsonl
+
+records:
+  linear
+  b_tile_grouped
+  layer_prior_frequency
+
+layer_prior_frequency shadow fields:
+  descriptor_order_prior_hash = 0371...
+  descriptor_order_lru_at_8 = 0.8442
+  descriptor_order_hit_rate = 0.5766
+  descriptor_reuse_distance_mean = 20.5402
+```
+
+Current next gate:
+
+```text
+Attach a real vLLM/runtime producer that builds current-router token-row tile
+requests, calls descriptor_order_policy=layer_prior_frequency, and writes only
+the shadow counters. Do not change grouped-GEMM execution order yet.
+```
