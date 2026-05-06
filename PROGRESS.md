@@ -2485,3 +2485,78 @@ is whether the real runtime granularity/kernel saved envelope is per large
 batch/layer, per window, or can reuse cached permutations. Descriptor_order
 should remain shadow/precomputed until a net-positive implementation is shown.
 ```
+
+Descriptor-order permutation cache replay:
+
+```text
+script:   scripts/analyze_descriptor_order_cache_replay.py
+artifact: outputs/reports/tile_order_cache/descriptor_order_cache_replay_512sample_top8.md
+```
+
+Strict cache keys:
+
+```text
+exact_multiset:
+  hit_rate = 0.0
+  unique_keys = 320 / 320 windows
+
+tile_set:
+  hit_rate = 0.0
+  unique_keys = 320 / 320 windows
+```
+
+Interpretation:
+
+```text
+Full permutation cache and same-active-set group-order cache do not repeat on
+this 512-sample row stream. They cannot amortize descriptor-order build cost.
+```
+
+Heuristic key:
+
+```text
+layer_only:
+  hit_rate = 0.875
+  unique_keys = 40
+  reuse_count = 8 per layer
+  amortized builder ~= 0.79-0.92us/window before lookup/apply
+```
+
+Boundary:
+
+```text
+layer_only is not a same-multiset permutation cache. It is only a heuristic
+layer-prior group-order cache. It preserves execution correctness because it
+can still order the current descriptor multiset, but it may lose the utility
+ranking value and must be evaluated as a separate policy.
+```
+
+Descriptor-order cache hit-path microbench:
+
+```text
+script:   scripts/run_descriptor_order_cache_hit_bench.py
+artifact: outputs/reports/tile_order_cache/descriptor_order_cache_hit_bench_512sample_top8.md
+```
+
+CPU lookup path:
+
+```text
+exact_multiset warm lookup:
+  ~= 8.85us over 320 keys, ~= 27.6ns/key
+
+tile_set warm lookup:
+  ~= 9.18us over 320 keys, ~= 28.7ns/key
+
+layer_only warm lookup:
+  ~= 2.13us over 320 keys, ~= 6.7ns/key
+```
+
+Current conclusion:
+
+```text
+Lookup cost is small. The blocker is reuse, not lookup. Strict safe cache keys
+do not repeat in this trace; only heuristic layer-level reuse repeats.
+Next gate is to evaluate layer-prior / cached group-order policies directly
+against reuse/order-hit/timing, instead of treating them as exact permutation
+caches.
+```

@@ -1752,11 +1752,21 @@ Interpretation:
   - first implementation can be CPU C++/NumPy-style offline, then device-side or runtime C++ if promising
   - C++ preallocated bucket builder now reduces 163,840-row ordering to ~2.0ms total / ~6.3us per window
   - still net-negative against current direct/global-fragment bench envelope, so it remains shadow/precompute only
-- [ ] Add descriptor-order permutation cache:
+- [x] Add descriptor-order permutation cache:
   - key: `(layer_id, tile_multiset_hash, policy_config_hash)`
   - measure hit path cost separately from rebuild path
   - report cache hit rate on online shadow / tensor-cache replay
   - only promote if cached hit path plus miss rebuild path is net-positive
+  - exact multiset and tile-set keys both have 0% hit on the 512 row stream
+  - cache lookup is cheap, but strict key reuse is absent
+- [ ] Evaluate heuristic layer-prior group-order cache:
+  - `layer_only` key has 87.5% replay hit because each layer has 8 windows
+  - this is not a same-multiset permutation cache; treat it as a separate static/layer-prior ordering policy
+  - compare layer-prior order vs utility_tile_grouped / B-tile grouped on LRU, order_hit, timing, and net overhead
+- [x] Add descriptor-order cache hit-path microbench:
+  - script: `scripts/run_descriptor_order_cache_hit_bench.py`
+  - exact/tile-set warm lookup ~= 9us over 320 keys, ~= 28ns/key
+  - layer-only warm lookup ~= 2.1us over 320 keys, ~= 6.7ns/key
 - [ ] Evaluate coarser-granularity descriptor ordering:
   - current benchmark subtracts one full-stream builder from one full-stream kernel
   - test per batch/layer grouping and cached group-order reuse
