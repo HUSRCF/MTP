@@ -2560,3 +2560,113 @@ Next gate is to evaluate layer-prior / cached group-order policies directly
 against reuse/order-hit/timing, instead of treating them as exact permutation
 caches.
 ```
+
+Layer-prior tile-group ordering:
+
+```text
+core functions:
+  src/mtp_expert_prefetch/runtime/tile_order.py
+
+scripts:
+  scripts/build_layer_prior_tile_order.py
+  scripts/evaluate_layer_prior_tile_order.py
+
+artifacts:
+  outputs/reports/tile_order_cache/tile_stream_512sample_top8_calibration.jsonl
+  outputs/reports/tile_order_cache/tile_stream_512sample_top8_heldout.jsonl
+  outputs/reports/tile_order_cache/layer_prior_frequency_384calib.json
+  outputs/reports/tile_order_cache/layer_prior_utility_384calib.json
+  outputs/reports/tile_order_cache/layer_prior_weighted_utility_384calib.json
+  outputs/reports/tile_order_cache/layer_prior_tile_order_heldout.md
+```
+
+Split:
+
+```text
+calibration:
+  384 examples
+  122,880 token-row TileRequest records
+  240 windows
+
+heldout:
+  128 examples
+  40,960 token-row TileRequest records
+  80 windows
+```
+
+Heldout trace-level result:
+
+```text
+linear:
+  LRU@8 = 0.4437
+  order_hit = 0.4641
+
+B-tile grouped:
+  LRU@8 = 0.8439
+  order_hit = 0.1234
+
+utility_tile_grouped_bucket:
+  LRU@8 = 0.8441
+  order_hit = 0.5375
+
+layer_prior_frequency:
+  LRU@8 = 0.8442
+  order_hit = 0.5766
+
+layer_prior_utility:
+  LRU@8 = 0.8442
+  order_hit = 0.5234
+```
+
+Interpretation:
+
+```text
+Exact descriptor permutation caching is not viable on this trace, but a
+calibrated per-layer group-order prior is a real policy.
+
+Frequency prior is currently the strongest heldout layer-prior variant:
+it preserves B-tile locality and improves hot group order beyond dynamic
+utility_tile_grouped on this split.
+
+The policy remains safe: it preserves the current descriptor multiset and only
+changes tile-group visitation order. It is not an expert predictor and does
+not alter true router membership.
+```
+
+Heldout direct/global-fragment timing sweep:
+
+```text
+artifact:
+  outputs/reports/tile_order_cache/layer_prior_tile_order_heldout_bench_sweep.json
+
+tiny/no-flush envelope:
+  tile_elems=256, cache_flush=0
+  linear remains fastest on this bench shape.
+  Do not claim timing benefit here.
+
+larger tile envelope:
+  tile_elems=1024, cache_flush=0
+  B-tile grouped speedup ~= 1.16x on both W7900 devices.
+  layer_prior_frequency speedup ~= 1.15x on both W7900 devices.
+  utility_tile_grouped_bucket speedup ~= 1.14x on both W7900 devices.
+
+cache-pressure envelope:
+  tile_elems=1024, cache_flush=16M
+  B-tile grouped speedup ~= 1.05-1.11x.
+  layer_prior_frequency speedup ~= 1.03-1.07x.
+```
+
+Current descriptor-order conclusion:
+
+```text
+layer_prior_frequency is the best runtime-feasible descriptor-order candidate
+so far: it has no exact multiset-cache dependency, uses a small per-layer prior,
+preserves locality, and improves hot group order.
+
+Dynamic utility_tile_grouped remains a diagnostic/upper policy because dynamic
+build cost is still too high for the current timing envelope.
+
+Next gate:
+  implement a C++/two-level layer-prior builder path and online shadow counters
+  for descriptor_order_policy=layer_prior_frequency.
+```

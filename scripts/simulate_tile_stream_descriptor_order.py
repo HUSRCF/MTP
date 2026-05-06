@@ -56,6 +56,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--tensor-topk", type=int, default=8)
     parser.add_argument("--tiles-per-expert", type=int, default=1)
     parser.add_argument("--tensor-max-examples", type=int, default=None)
+    parser.add_argument("--tensor-start-example", type=int, default=0)
+    parser.add_argument("--split-name", default=None)
     parser.add_argument(
         "--output-json",
         type=Path,
@@ -105,10 +107,14 @@ def load_requests(args: argparse.Namespace) -> tuple[list[Any], dict[str, Any]]:
         topk=args.tensor_topk,
         tiles_per_expert=args.tiles_per_expert,
         max_examples=args.tensor_max_examples,
+        start_example=args.tensor_start_example,
+        split_name=args.split_name,
     )
     source["type"] = "tensor_cache"
     source["path"] = str(args.tensor_cache)
     source["max_examples"] = args.tensor_max_examples
+    source["start_example"] = args.tensor_start_example
+    source["split_name"] = args.split_name
     return requests, source
 
 

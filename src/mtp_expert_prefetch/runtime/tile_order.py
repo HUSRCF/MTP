@@ -31,6 +31,7 @@ class TileRequest:
     row_id: int | None = None
     weight: float | None = None
     source_policy: str | None = None
+    split: str | None = None
 
     def as_dict(self) -> dict[str, Any]:
         payload: dict[str, Any] = {
@@ -54,7 +55,87 @@ class TileRequest:
             payload["weight"] = float(self.weight)
         if self.source_policy is not None:
             payload["source_policy"] = self.source_policy
+        if self.split is not None:
+            payload["split"] = self.split
         return payload
+
+
+@dataclass(frozen=True)
+class LayerTilePrior:
+    """A calibrated per-layer B-tile group order.
+
+    This is intentionally weaker than an exact permutation cache.  Runtime
+    still uses the current true-router descriptor multiset; the prior only
+    ranks the present B-tile groups for visitation.
+    """
+
+    layer_orders: dict[int, list[int]]
+    score_name: str
+    group_scores: dict[int, dict[int, float]]
+    metadata: dict[str, Any]
+
+    def order_for_layer(self, layer_idx: int | None) -> list[int]:
+        key = int(layer_idx) if layer_idx is not None else -1
+        return self.layer_orders.get(key, self.layer_orders.get(-1, []))
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "schema_version": 1,
+            "score_name": self.score_name,
+            "layer_orders": {
+                str(layer): [int(tile_id) for tile_id in order]
+                for layer, order in sorted(self.layer_orders.items())
+            },
+            "group_scores": {
+                str(layer): {
+                    str(tile_id): float(score)
+                    for tile_id, score in sorted(scores.items())
+                }
+                for layer, scores in sorted(self.group_scores.items())
+            },
+            "metadata": self.metadata,
+        }
+
+    @classmethod
+    def from_mapping(cls, payload: Mapping[str, Any]) -> "LayerTilePrior":
+        raw_orders = payload.get("layer_orders")
+        if not isinstance(raw_orders, Mapping):
+            raise ValueError("layer prior JSON must contain 'layer_orders'")
+        layer_orders = {
+            int(layer): [int(tile_id) for tile_id in order]
+            for layer, order in raw_orders.items()
+        }
+        raw_scores = payload.get("group_scores", {})
+        if not isinstance(raw_scores, Mapping):
+            raw_scores = {}
+        group_scores = {
+            int(layer): {
+                int(tile_id): float(score)
+                for tile_id, score in scores.items()
+            }
+            for layer, scores in raw_scores.items()
+            if isinstance(scores, Mapping)
+        }
+        metadata = payload.get("metadata", {})
+        return cls(
+            layer_orders=layer_orders,
+            score_name=str(payload.get("score_name", metadata.get("score_name", "unknown"))),
+            group_scores=group_scores,
+            metadata=dict(metadata) if isinstance(metadata, Mapping) else {},
+        )
+
+
+def load_layer_tile_prior(path: str | Path) -> LayerTilePrior:
+    payload = json.loads(Path(path).read_text(encoding="utf-8"))
+    if not isinstance(payload, Mapping):
+        raise TypeError("layer prior artifact must be a JSON object")
+    return LayerTilePrior.from_mapping(payload)
+
+
+def write_layer_tile_prior(prior: LayerTilePrior, path: str | Path) -> None:
+    output = Path(path)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(json.dumps(prior.as_dict(), indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
 def _score(record: Mapping[str, Any], key: str, default: float = 0.0) -> float:
@@ -94,6 +175,7 @@ def tile_request_from_mapping(record: Mapping[str, Any], *, fallback_request_id:
         source_policy=(
             str(record["source_policy"]) if record.get("source_policy") is not None else None
         ),
+        split=str(record["split"]) if record.get("split") is not None else None,
     )
 
 
@@ -195,6 +277,74 @@ def group_by_window(requests: Sequence[TileRequest]) -> list[list[TileRequest]]:
     return [groups[key] for key in sorted(groups)]
 
 
+def _request_layer_idx(item: TileRequest) -> int:
+    return int(item.layer_idx) if item.layer_idx is not None else -1
+
+
+def _layer_prior_score(item: TileRequest, score_name: str) -> float:
+    if score_name == "frequency":
+        return 1.0
+    if score_name == "utility":
+        return float(item.utility_score)
+    if score_name == "transition":
+        return float(item.transition_score)
+    if score_name == "mtp":
+        return float(item.mtp_score)
+    if score_name == "weighted_utility":
+        weight = 1.0 if item.weight is None else float(item.weight)
+        return float(item.utility_score) * weight
+    if score_name == "weighted_frequency":
+        return 1.0 if item.weight is None else float(item.weight)
+    raise ValueError(f"unknown layer prior score: {score_name}")
+
+
+def build_layer_tile_prior(
+    requests: Sequence[TileRequest],
+    *,
+    score_name: str,
+    metadata: Mapping[str, Any] | None = None,
+) -> LayerTilePrior:
+    """Calibrate a per-layer tile-group order from a request stream.
+
+    The artifact is a compact group-order prior.  It is not tied to a future
+    exact descriptor multiset and can therefore be applied to held-out windows.
+    """
+
+    layer_scores: dict[int, dict[int, float]] = {}
+    layer_counts: dict[int, dict[int, int]] = {}
+    for item in requests:
+        layer = _request_layer_idx(item)
+        tile = int(item.tile_id)
+        scores = layer_scores.setdefault(layer, {})
+        counts = layer_counts.setdefault(layer, {})
+        scores[tile] = scores.get(tile, 0.0) + _layer_prior_score(item, score_name)
+        counts[tile] = counts.get(tile, 0) + 1
+
+    layer_orders: dict[int, list[int]] = {}
+    for layer, scores in layer_scores.items():
+        counts = layer_counts[layer]
+        layer_orders[layer] = sorted(
+            scores,
+            key=lambda tile: (-scores[tile], -counts[tile], tile),
+        )
+
+    prior_metadata = dict(metadata or {})
+    prior_metadata.update(
+        {
+            "score_name": score_name,
+            "request_count": int(len(requests)),
+            "layer_count": int(len(layer_orders)),
+            "tile_count": int(len({item.tile_id for item in requests})),
+        }
+    )
+    return LayerTilePrior(
+        layer_orders=layer_orders,
+        score_name=score_name,
+        group_scores=layer_scores,
+        metadata=prior_metadata,
+    )
+
+
 def order_window(
     requests: Sequence[TileRequest],
     *,
@@ -264,6 +414,136 @@ def order_window(
             key=lambda item: (-counts[item.tile_id], item.tile_id, item.expert_id, item.request_id),
         )
     raise ValueError(f"unknown tile-order policy: {policy}")
+
+
+def order_window_with_layer_prior(
+    requests: Sequence[TileRequest],
+    *,
+    prior: LayerTilePrior | Mapping[int, Sequence[int]],
+    top_utility_override: int = 0,
+) -> list[TileRequest]:
+    """Order one window by calibrated layer-prior tile groups.
+
+    The current request multiset is preserved exactly.  If ``top_utility_override``
+    is positive, the current window's hottest tile groups are emitted first and
+    the remaining groups follow the layer prior.
+    """
+
+    if not requests:
+        return []
+    layer = next((_request_layer_idx(item) for item in requests if item.layer_idx is not None), -1)
+    if isinstance(prior, LayerTilePrior):
+        prior_order = prior.order_for_layer(layer)
+    else:
+        prior_order = [int(tile) for tile in prior.get(layer, prior.get(-1, []))]
+
+    max_tile_id = max(int(item.tile_id) for item in requests)
+    if prior_order:
+        max_tile_id = max(max_tile_id, max(int(tile) for tile in prior_order))
+    if 0 <= max_tile_id <= 1_000_000:
+        return _order_window_with_layer_prior_bucketed(
+            requests,
+            prior_order=prior_order,
+            top_utility_override=top_utility_override,
+            max_tile_id=max_tile_id,
+        )
+
+    groups: dict[int, list[TileRequest]] = {}
+    max_scores: dict[int, float] = {}
+    total_scores: dict[int, float] = {}
+    counts: dict[int, int] = {}
+    for item in requests:
+        tile = int(item.tile_id)
+        groups.setdefault(tile, []).append(item)
+        score = float(item.utility_score)
+        max_scores[tile] = max(max_scores.get(tile, float("-inf")), score)
+        total_scores[tile] = total_scores.get(tile, 0.0) + score
+        counts[tile] = counts.get(tile, 0) + 1
+
+    active_tiles = set(groups)
+    ordered_tiles: list[int] = []
+    selected: set[int] = set()
+
+    if top_utility_override > 0:
+        ranked = sorted(
+            active_tiles,
+            key=lambda tile: (-max_scores[tile], -total_scores[tile], -counts[tile], tile),
+        )
+        for tile in ranked[: int(top_utility_override)]:
+            ordered_tiles.append(tile)
+            selected.add(tile)
+
+    for tile in prior_order:
+        tile_id = int(tile)
+        if tile_id in active_tiles and tile_id not in selected:
+            ordered_tiles.append(tile_id)
+            selected.add(tile_id)
+
+    for tile_id in sorted(active_tiles - selected):
+        ordered_tiles.append(tile_id)
+
+    ordered: list[TileRequest] = []
+    for tile_id in ordered_tiles:
+        ordered.extend(groups[tile_id])
+    return ordered
+
+
+def _order_window_with_layer_prior_bucketed(
+    requests: Sequence[TileRequest],
+    *,
+    prior_order: Sequence[int],
+    top_utility_override: int,
+    max_tile_id: int,
+) -> list[TileRequest]:
+    groups: list[list[TileRequest] | None] = [None] * (max_tile_id + 1)
+    max_scores = [float("-inf")] * (max_tile_id + 1)
+    total_scores = [0.0] * (max_tile_id + 1)
+    counts = [0] * (max_tile_id + 1)
+    present = [False] * (max_tile_id + 1)
+    active_tile_ids: list[int] = []
+
+    for item in requests:
+        tile = int(item.tile_id)
+        group = groups[tile]
+        if group is None:
+            group = []
+            groups[tile] = group
+            present[tile] = True
+            active_tile_ids.append(tile)
+        group.append(item)
+        score = float(item.utility_score)
+        if score > max_scores[tile]:
+            max_scores[tile] = score
+        total_scores[tile] += score
+        counts[tile] += 1
+
+    ordered_tiles: list[int] = []
+    selected = [False] * (max_tile_id + 1)
+    if top_utility_override > 0:
+        ranked = sorted(
+            active_tile_ids,
+            key=lambda tile: (-max_scores[tile], -total_scores[tile], -counts[tile], tile),
+        )
+        for tile in ranked[: int(top_utility_override)]:
+            ordered_tiles.append(tile)
+            selected[tile] = True
+
+    for tile in prior_order:
+        tile_id = int(tile)
+        if 0 <= tile_id <= max_tile_id and present[tile_id] and not selected[tile_id]:
+            ordered_tiles.append(tile_id)
+            selected[tile_id] = True
+
+    for tile_id in sorted(active_tile_ids):
+        if not selected[tile_id]:
+            ordered_tiles.append(tile_id)
+
+    ordered: list[TileRequest] = []
+    for tile_id in ordered_tiles:
+        group = groups[tile_id]
+        if group is not None:
+            ordered.extend(group)
+    return ordered
 
 
 def _order_tile_groups_by_score(
@@ -361,6 +641,24 @@ def order_tile_requests(
     ordered: list[TileRequest] = []
     for window in group_by_window(requests):
         ordered.extend(order_window(window, policy=policy, rng=rng))
+    return ordered
+
+
+def order_tile_requests_with_layer_prior(
+    requests: Sequence[TileRequest],
+    *,
+    prior: LayerTilePrior | Mapping[int, Sequence[int]],
+    top_utility_override: int = 0,
+) -> list[TileRequest]:
+    ordered: list[TileRequest] = []
+    for window in group_by_window(requests):
+        ordered.extend(
+            order_window_with_layer_prior(
+                window,
+                prior=prior,
+                top_utility_override=top_utility_override,
+            )
+        )
     return ordered
 
 
@@ -467,8 +765,25 @@ def evaluate_tile_order_policy(
     tile_order_top_k: int,
     seed: int = 0,
 ) -> dict[str, Any]:
-    original_windows = group_by_window(requests)
     ordered = order_tile_requests(requests, policy=policy, seed=seed)
+    return evaluate_ordered_tile_requests(
+        requests,
+        ordered,
+        policy=policy,
+        cache_sizes=cache_sizes,
+        tile_order_top_k=tile_order_top_k,
+    )
+
+
+def evaluate_ordered_tile_requests(
+    requests: Sequence[TileRequest],
+    ordered: Sequence[TileRequest],
+    *,
+    policy: str,
+    cache_sizes: Sequence[int],
+    tile_order_top_k: int,
+) -> dict[str, Any]:
+    original_windows = group_by_window(requests)
     ordered_windows = group_by_window(ordered)
     tile_ids = [item.tile_id for item in ordered]
     distances = reuse_distances(tile_ids)

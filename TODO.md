@@ -1759,10 +1759,16 @@ Interpretation:
   - only promote if cached hit path plus miss rebuild path is net-positive
   - exact multiset and tile-set keys both have 0% hit on the 512 row stream
   - cache lookup is cheap, but strict key reuse is absent
-- [ ] Evaluate heuristic layer-prior group-order cache:
+- [x] Evaluate heuristic layer-prior group-order cache:
   - `layer_only` key has 87.5% replay hit because each layer has 8 windows
   - this is not a same-multiset permutation cache; treat it as a separate static/layer-prior ordering policy
   - compare layer-prior order vs utility_tile_grouped / B-tile grouped on LRU, order_hit, timing, and net overhead
+  - implemented calibrated artifacts via `scripts/build_layer_prior_tile_order.py`
+  - implemented heldout evaluation via `scripts/evaluate_layer_prior_tile_order.py`
+  - split path: 384 calibration / 128 heldout token-row streams
+  - heldout result: `layer_prior_frequency` preserves LRU@8 ~= 0.844 and raises order_hit to ~= 0.577, better than dynamic utility grouped order_hit ~= 0.538 under the same heldout stream
+  - timing result: layer-prior policies are beneficial only in the larger tile/cache-pressure timing envelope; tiny 256-tile/no-flush smoke remains dominated by benchmark overhead
+  - current runtime interpretation: layer-prior ordering is a calibrated low-risk group-order policy, not an exact permutation cache
 - [x] Add descriptor-order cache hit-path microbench:
   - script: `scripts/run_descriptor_order_cache_hit_bench.py`
   - exact/tile-set warm lookup ~= 9us over 320 keys, ~= 28ns/key

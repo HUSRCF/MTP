@@ -18,10 +18,13 @@ sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from mtp_expert_prefetch.runtime.tile_order import (  # noqa: E402
+    evaluate_ordered_tile_requests,
     evaluate_tile_order_policy,
     generate_synthetic_tile_requests,
+    load_layer_tile_prior,
     load_tile_requests_json,
     load_tile_requests_jsonl,
+    order_tile_requests_with_layer_prior,
     order_tile_requests,
 )
 from mtp_expert_prefetch.runtime.tile_stream import tile_requests_from_tensor_cache  # noqa: E402
@@ -91,6 +94,8 @@ def parse_args() -> argparse.Namespace:
     source.add_argument("--tensor-cache", type=Path, default=None)
     source.add_argument("--synthetic", action="store_true")
     parser.add_argument("--policy", action="append", choices=DEFAULT_POLICIES, default=None)
+    parser.add_argument("--prior-json", type=Path, action="append", default=None)
+    parser.add_argument("--layer-prior-top-utility-override", type=int, action="append", default=None)
     parser.add_argument("--device", type=int, action="append", default=None)
     parser.add_argument("--cache-sizes", type=parse_csv_ints, default=[8, 16, 32])
     parser.add_argument("--seed", type=int, default=0)
@@ -104,6 +109,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--tensor-window-size", type=int, default=64)
     parser.add_argument("--tensor-topk", type=int, default=8)
     parser.add_argument("--tensor-max-examples", type=int, default=512)
+    parser.add_argument("--tensor-start-example", type=int, default=0)
+    parser.add_argument("--split-name", default=None)
 
     parser.add_argument("--tile-elems", type=int, action="append", default=None)
     parser.add_argument("--tiles-per-cta", type=int, action="append", default=None)
@@ -140,10 +147,14 @@ def load_requests(args: argparse.Namespace):
             topk=args.tensor_topk,
             tiles_per_expert=args.tiles_per_expert,
             max_examples=args.tensor_max_examples,
+            start_example=args.tensor_start_example,
+            split_name=args.split_name,
         )
         source["type"] = "tensor_cache"
         source["path"] = str(args.tensor_cache)
         source["max_examples"] = args.tensor_max_examples
+        source["start_example"] = args.tensor_start_example
+        source["split_name"] = args.split_name
         return requests, source
     requests = generate_synthetic_tile_requests(
         num_windows=args.num_windows,
@@ -309,13 +320,9 @@ def main() -> None:
     args.output.parent.mkdir(parents=True, exist_ok=True)
     order_dir = args.output.parent / (args.output.stem + "_orders")
     results: list[dict[str, Any]] = []
+    order_entries: list[tuple[str, list[Any], dict[str, Any]]] = []
     for policy in policies:
         ordered = order_tile_requests(requests, policy=policy, seed=args.seed)
-        tile_ids = [item.tile_id for item in ordered]
-        order_hash = hash_ints(tile_ids)
-        tile_multiset_hash = hash_ints(sorted(tile_ids))
-        order_path = order_dir / f"{policy}.i32"
-        write_tile_ids(order_path, tile_ids)
         trace_metrics = evaluate_tile_order_policy(
             requests,
             policy=policy,
@@ -323,6 +330,37 @@ def main() -> None:
             tile_order_top_k=8,
             seed=args.seed,
         )
+        order_entries.append((policy, ordered, trace_metrics))
+    for prior_path in args.prior_json or []:
+        prior = load_layer_tile_prior(prior_path)
+        overrides = args.layer_prior_top_utility_override
+        if overrides is None:
+            overrides = [0]
+        for top_h in sorted(set(int(value) for value in overrides)):
+            suffix = "" if top_h == 0 else f"_top{top_h}_utility_override"
+            policy = f"layer_prior_{prior.score_name}{suffix}"
+            ordered = order_tile_requests_with_layer_prior(
+                requests,
+                prior=prior,
+                top_utility_override=top_h,
+            )
+            trace_metrics = evaluate_ordered_tile_requests(
+                requests,
+                ordered,
+                policy=policy,
+                cache_sizes=args.cache_sizes,
+                tile_order_top_k=8,
+            )
+            trace_metrics["prior_path"] = str(prior_path)
+            trace_metrics["top_utility_override"] = top_h
+            order_entries.append((policy, ordered, trace_metrics))
+
+    for policy, ordered, trace_metrics in order_entries:
+        tile_ids = [item.tile_id for item in ordered]
+        order_hash = hash_ints(tile_ids)
+        tile_multiset_hash = hash_ints(sorted(tile_ids))
+        order_path = order_dir / f"{policy}.i32"
+        write_tile_ids(order_path, tile_ids)
         for device in devices:
             for tile_elems in tile_elems_values:
                 for tiles_per_cta in tiles_per_cta_values:
@@ -368,6 +406,8 @@ def main() -> None:
         "source": source,
         "config": {
             "policies": policies,
+            "prior_json": [str(path) for path in args.prior_json or []],
+            "layer_prior_top_utility_override": args.layer_prior_top_utility_override,
             "devices": devices,
             "tile_elems": tile_elems_values,
             "tiles_per_cta": tiles_per_cta_values,
