@@ -40,6 +40,9 @@ DEFAULT_POLICIES = [
     "transition_tile_grouped",
     "mtp_transition_tile_grouped",
     "utility_tile_grouped",
+    "utility_tile_grouped_bucket",
+    "utility_tile_grouped_top16",
+    "utility_tile_grouped_top32",
     "oracle_cache_aware",
 ]
 

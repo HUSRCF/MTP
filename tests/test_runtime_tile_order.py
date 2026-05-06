@@ -55,6 +55,41 @@ def test_utility_tile_grouped_keeps_tile_runs_while_ordering_hot_groups():
     assert [item.tile_id for item in ordered] == [2, 2, 3, 1, 1]
 
 
+def test_bucketed_utility_tile_grouped_matches_full_group_order():
+    requests = [
+        TileRequest(0, 0, 1, 1, utility_score=0.1),
+        TileRequest(0, 1, 2, 2, utility_score=0.9),
+        TileRequest(0, 2, 1, 1, utility_score=0.2),
+        TileRequest(0, 3, 2, 2, utility_score=0.8),
+        TileRequest(0, 4, 3, 3, utility_score=0.7),
+    ]
+
+    full = order_tile_requests(requests, policy="utility_tile_grouped")
+    bucketed = order_tile_requests(requests, policy="utility_tile_grouped_bucket")
+
+    assert [item.tile_id for item in bucketed] == [item.tile_id for item in full]
+    assert sorted(tuple(item.as_dict().items()) for item in bucketed) == sorted(
+        tuple(item.as_dict().items()) for item in requests
+    )
+
+
+def test_top_group_utility_order_ranks_hot_head_and_groups_tail():
+    requests = [
+        TileRequest(0, 0, 4, 4, utility_score=0.1),
+        TileRequest(0, 1, 2, 2, utility_score=0.9),
+        TileRequest(0, 2, 4, 4, utility_score=0.2),
+        TileRequest(0, 3, 1, 1, utility_score=0.3),
+        TileRequest(0, 4, 3, 3, utility_score=0.7),
+    ]
+
+    ordered = order_tile_requests(requests, policy="utility_tile_grouped_top16")
+
+    assert [item.tile_id for item in ordered] == [2, 3, 1, 4, 4]
+    assert sorted(tuple(item.as_dict().items()) for item in ordered) == sorted(
+        tuple(item.as_dict().items()) for item in requests
+    )
+
+
 def test_tile_order_report_identifies_oracle_reuse_policy():
     requests = [
         TileRequest(0, 0, 1, 1, utility_score=0.2),

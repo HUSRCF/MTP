@@ -2415,3 +2415,73 @@ next implementation requirement: real runtime ordering must use bucketed
 group-by-tile / partial sort / precomputed group order in C++ or device-side
 code. The Python path is only for shadow semantics and offline analysis.
 ```
+
+Bucketed descriptor-order builder:
+
+```text
+policies:
+  utility_tile_grouped_bucket
+  utility_tile_grouped_top16
+  utility_tile_grouped_top32
+
+microbench:
+  microbench/tile_order_cache/descriptor_order_builder_bench.cpp
+script:
+  scripts/run_descriptor_order_builder_bench.py
+```
+
+Python bucket prototype on the 163,840-row stream:
+
+```text
+utility_tile_grouped:        ~= 90.6ms
+utility_tile_grouped_bucket: ~= 54.7ms
+utility_tile_grouped_top16:  ~= 56.6ms
+utility_tile_grouped_top32:  ~= 56.7ms
+```
+
+This preserves the useful ordering metrics:
+
+```text
+utility_tile_grouped_bucket:
+  LRU@8 = 0.833
+  order_hit = 0.491
+  same_multiset = true
+```
+
+C++ preallocated bucket builder:
+
+```text
+artifact: outputs/reports/tile_order_cache/descriptor_order_builder_cpp_512sample_top8.md
+
+utility_tile_grouped_bucket:
+  total build_us median ~= 2.02ms for 163,840 rows / 320 windows
+  normalized ~= 6.30us per window
+  Python prototype ~= 55ms
+
+utility_tile_grouped_top16/top32:
+  total build_us median ~= 2.32ms / 2.36ms
+```
+
+Net overhead against the current direct/global-fragment timing bench:
+
+```text
+artifact: outputs/reports/tile_order_cache/descriptor_order_builder_cpp_overhead_pareto_smoke.md
+
+utility_tile_grouped_bucket:
+  kernel_saved_us ~= 27.5us
+  cpp_build_us ~= 2015us
+  net_saved_us ~= -1988us
+```
+
+Current interpretation:
+
+```text
+C++ bucketed grouping proves the algorithmic direction is much better than
+Python object sorting, but still not profitable against the current tiny
+direct/global-fragment bench envelope.
+
+The per-window cost is now single-digit microseconds, so the remaining question
+is whether the real runtime granularity/kernel saved envelope is per large
+batch/layer, per window, or can reuse cached permutations. Descriptor_order
+should remain shadow/precomputed until a net-positive implementation is shown.
+```

@@ -20,6 +20,9 @@ DEFAULT_POLICIES = [
     "b_tile_grouped",
     "utility_hot_first",
     "utility_tile_grouped",
+    "utility_tile_grouped_bucket",
+    "utility_tile_grouped_top16",
+    "utility_tile_grouped_top32",
 ]
 
 

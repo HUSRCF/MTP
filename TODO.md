@@ -1745,11 +1745,22 @@ Interpretation:
   - compare Python prototype vs bucketed grouping / partial sort implementation
   - report `kernel_saved_us - order_build_us`
   - stop condition: if order construction dominates timing savings, restrict descriptor_order to precomputed/shadow use
-- [ ] Implement low-overhead descriptor-order builder:
+- [x] Implement low-overhead descriptor-order builder:
   - replace Python sort prototype with bucketed group-by-B-tile / counting sort over 256 experts or B tiles
   - avoid full per-row comparison sort on the runtime path
   - target order-build cost must be below the measured kernel savings envelope
   - first implementation can be CPU C++/NumPy-style offline, then device-side or runtime C++ if promising
+  - C++ preallocated bucket builder now reduces 163,840-row ordering to ~2.0ms total / ~6.3us per window
+  - still net-negative against current direct/global-fragment bench envelope, so it remains shadow/precompute only
+- [ ] Add descriptor-order permutation cache:
+  - key: `(layer_id, tile_multiset_hash, policy_config_hash)`
+  - measure hit path cost separately from rebuild path
+  - report cache hit rate on online shadow / tensor-cache replay
+  - only promote if cached hit path plus miss rebuild path is net-positive
+- [ ] Evaluate coarser-granularity descriptor ordering:
+  - current benchmark subtracts one full-stream builder from one full-stream kernel
+  - test per batch/layer grouping and cached group-order reuse
+  - decide whether ordering should be per window, per layer, or precomputed offline
 - [ ] Add online vLLM descriptor-order shadow hook:
   - generate current-router token/row tile stream after true router outcome
   - write descriptor-order summary only; do not change execution order yet

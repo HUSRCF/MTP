@@ -240,6 +240,23 @@ def order_window(
         )
     if policy == "utility_tile_grouped":
         return _order_tile_groups_by_score(requests, lambda item: item.utility_score)
+    if policy == "utility_tile_grouped_bucket":
+        return _order_tile_groups_by_score_bucketed(
+            requests,
+            lambda item: item.utility_score,
+        )
+    if policy == "utility_tile_grouped_top16":
+        return _order_tile_groups_by_score_bucketed(
+            requests,
+            lambda item: item.utility_score,
+            top_groups=16,
+        )
+    if policy == "utility_tile_grouped_top32":
+        return _order_tile_groups_by_score_bucketed(
+            requests,
+            lambda item: item.utility_score,
+            top_groups=32,
+        )
     if policy == "oracle_cache_aware":
         counts = Counter(item.tile_id for item in requests)
         return sorted(
@@ -268,6 +285,69 @@ def _order_tile_groups_by_score(
     ordered: list[TileRequest] = []
     for _, _, _, _, items in ordered_groups:
         ordered.extend(sorted(items, key=lambda item: (item.expert_id, item.request_id)))
+    return ordered
+
+
+def _order_tile_groups_by_score_bucketed(
+    requests: Sequence[TileRequest],
+    score_fn: Callable[[TileRequest], float],
+    *,
+    top_groups: int | None = None,
+) -> list[TileRequest]:
+    """Bucket by tile id, then rank only the small active group set.
+
+    This keeps the runtime shape closer to a descriptor builder: O(N) bucket
+    fill plus O(G log G) tile-group ranking, where G is the active B-tile count.
+    Group members retain original row order.
+    """
+
+    if not requests:
+        return []
+    max_tile_id = max(int(item.tile_id) for item in requests)
+    if max_tile_id < 0 or max_tile_id > 1_000_000:
+        return _order_tile_groups_by_score(requests, score_fn)
+
+    groups: list[list[TileRequest] | None] = [None] * (max_tile_id + 1)
+    max_scores = [float("-inf")] * (max_tile_id + 1)
+    total_scores = [0.0] * (max_tile_id + 1)
+    counts = [0] * (max_tile_id + 1)
+    active_tile_ids: list[int] = []
+
+    for item in requests:
+        tile_id = int(item.tile_id)
+        group = groups[tile_id]
+        if group is None:
+            group = []
+            groups[tile_id] = group
+            active_tile_ids.append(tile_id)
+        group.append(item)
+        score = float(score_fn(item))
+        if score > max_scores[tile_id]:
+            max_scores[tile_id] = score
+        total_scores[tile_id] += score
+        counts[tile_id] += 1
+
+    ranked = sorted(
+        active_tile_ids,
+        key=lambda tile_id: (
+            -max_scores[tile_id],
+            -total_scores[tile_id],
+            -counts[tile_id],
+            tile_id,
+        ),
+    )
+    if top_groups is not None:
+        top_n = max(0, int(top_groups))
+        selected = set(ranked[:top_n])
+        ranked = ranked[:top_n] + sorted(
+            (tile_id for tile_id in active_tile_ids if tile_id not in selected)
+        )
+
+    ordered: list[TileRequest] = []
+    for tile_id in ranked:
+        group = groups[tile_id]
+        if group is not None:
+            ordered.extend(group)
     return ordered
 
 
