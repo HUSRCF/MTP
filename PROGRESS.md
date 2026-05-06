@@ -2123,3 +2123,54 @@ Current claim boundary:
 This simulator does not claim kernel speedup. It filters tile-order policies
 before HIP/rocWMMA timing. LDS payload staging remains a gated/future branch.
 ```
+
+Direct/global-fragment timing smoke:
+
+```text
+bench:    microbench/tile_order_cache/tile_order_cache_bench.hip
+runner:   scripts/run_tile_order_cache_bench.py
+artifact: outputs/reports/tile_order_cache/tile_order_cache_bench_512sample_2gpu_tile1024_flush16m.json
+input:    same 512-cache tile multiset, top8 target experts, tiles/expert=1
+kernel:   direct global B-tile consume, no LDS payload staging
+stress:   tile_elems=1024, cache_flush_elems=16M, tiles_per_cta=32
+devices:  GPU0 W7900, GPU1 W7900 Dual Slot
+```
+
+Timing rows:
+
+```text
+GPU0:
+  linear               0.2895 ms  speedup 1.000x
+  utility_hot_first    0.2908 ms  speedup 0.996x
+  B-tile grouped       0.2716 ms  speedup 1.066x
+  utility_tile_grouped 0.2679 ms  speedup 1.081x
+  oracle_cache_aware   0.2779 ms  speedup 1.042x
+
+GPU1:
+  linear               0.3054 ms  speedup 1.000x
+  utility_hot_first    0.3073 ms  speedup 0.994x
+  B-tile grouped       0.2769 ms  speedup 1.103x
+  utility_tile_grouped 0.2779 ms  speedup 1.099x
+  oracle_cache_aware   0.2719 ms  speedup 1.123x
+```
+
+Interpretation:
+
+```text
+The direct/global consumer confirms the simulator's same-hotness ablation:
+utility_hot_first improves hot-order but hurts locality and does not improve
+timing. Grouped policies are faster under cache-flush stress.
+
+utility_tile_grouped keeps the same order_hit as utility_hot_first while
+recovering B-tile locality. It is fastest on GPU0 and effectively tied with
+B-tile grouping on GPU1, while preserving much higher hot-order signal.
+```
+
+Claim boundary:
+
+```text
+This is still a microbench, not a full grouped-GEMM kernel result. The next
+gate is a stability sweep over tile_elems / tiles_per_cta / cache flush /
+process repeats, then a persistent grouped scheduler prototype only if the
+timing advantage is stable.
+```

@@ -1700,11 +1700,19 @@ Interpretation:
   - reports B tile reuse distance, unique B tiles per window, simulated LRU hit-rate, run length, and tile-order hit rate
   - current best non-oracle class: score-ordered tile groups (`transition_tile_grouped`, `mtp_transition_tile_grouped`, `utility_tile_grouped`)
   - current scope is trace-level locality filtering; next step is direct/global-fragment HIP/rocWMMA timing for selected orders
-- [ ] Add direct/global-fragment tile-order timing bench:
+- [x] Add direct/global-fragment tile-order timing bench:
+  - module: `microbench/tile_order_cache/tile_order_cache_bench.hip`
+  - script: `scripts/run_tile_order_cache_bench.py`
+  - first 512-cache GPU0 smoke: `outputs/reports/tile_order_cache/tile_order_cache_bench_512sample_gpu0_smoke.json`
+  - two-GPU stress smoke: `outputs/reports/tile_order_cache/tile_order_cache_bench_512sample_2gpu_tile1024_flush16m.json`
   - consume the same tile multiset under selected orders
   - compare linear, B-tile grouped, transition hot-first, utility hot-first, `utility_tile_grouped`, and oracle
   - do not stage payload into LDS
   - report wall time per tile next to trace-level reuse metrics
+- [ ] Add tile-order timing stability sweep:
+  - repeat 30+ times or add process-level repeats for confidence intervals
+  - sweep `tile_elems`, `tiles_per_cta`, cache flush, and devices
+  - stop condition: if `utility_tile_grouped` is not consistently faster than `utility_hot_first` and near `B_tile_grouped`, keep tile ordering as descriptor-level heuristic only
 - [ ] Add descriptor precompute / patch timing:
   - true-router rebuild baseline
   - transition/MTP candidate descriptor prebuild
