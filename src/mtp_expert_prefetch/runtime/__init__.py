@@ -25,6 +25,7 @@ from mtp_expert_prefetch.runtime.cache_sim import (
 )
 from mtp_expert_prefetch.runtime.descriptor_order import (
     DescriptorOrderReport,
+    build_layer_prior_plan_report_from_router_topk,
     descriptors_to_tile_requests,
     hash_layer_tile_prior,
     order_tile_request_stream,
@@ -143,6 +144,7 @@ __all__ = [
     "aggregate_shadow_tensors",
     "iter_shadow_summary_outcome_events",
     "build_layer_tile_prior",
+    "build_layer_prior_plan_report_from_router_topk",
     "evaluate_ordered_tile_requests",
     "evaluate_tile_order_policies",
     "evaluate_tile_order_policy",

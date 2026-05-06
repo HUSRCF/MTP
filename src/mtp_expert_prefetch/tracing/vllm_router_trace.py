@@ -17,9 +17,8 @@ import torch
 from mtp_expert_prefetch.runtime.admission import AdmissionDecisionMasks
 from mtp_expert_prefetch.runtime.descriptor_order import (
     DescriptorOrderReport,
-    hash_ints,
+    build_layer_prior_plan_report_from_router_topk,
     hash_layer_tile_prior,
-    order_tile_request_stream_with_layer_prior,
 )
 from mtp_expert_prefetch.runtime.online_shadow import OnlineShadowLogger
 from mtp_expert_prefetch.runtime.shadow_controller import RuntimeShadowController
@@ -216,32 +215,28 @@ class VllmRouterRecorder:
 
         total_start_ns = time.perf_counter_ns()
         stream_start_ns = total_start_ns
-        requests = _tile_requests_from_router_topk(
-            layer_id=layer_id,
-            token_offset=int(self.token_offset),
-            topk_ids=topk_ids,
-            topk_weights=topk_weights,
-            tiles_per_expert=int(self.shadow_descriptor_order_tiles_per_expert),
-            token_window_size=int(self.shadow_descriptor_order_token_window_size),
-        )
+        ids = topk_ids.detach().cpu()
+        weights = topk_weights.detach().cpu()
         stream_build_us = (time.perf_counter_ns() - stream_start_ns) / 1000.0
-        if not requests:
-            return
-
-        baseline_order_hash = hash_ints([request.tile_id for request in requests])
         prior_hash = self.shadow_descriptor_order_prior_hash or hash_layer_tile_prior(prior)
         prior_id = self.shadow_descriptor_order_prior_id or str(
             prior.metadata.get("experiment_id") or prior.score_name
         )
-        _, descriptor_report = order_tile_request_stream_with_layer_prior(
-            requests,
+        descriptor_report, baseline_order_hash = build_layer_prior_plan_report_from_router_topk(
+            layer_id=layer_id,
+            topk_ids=ids,
+            topk_weights=weights,
             prior=prior,
             prior_id=prior_id,
             prior_hash=prior_hash,
+            tiles_per_expert=int(self.shadow_descriptor_order_tiles_per_expert),
+            token_window_size=int(self.shadow_descriptor_order_token_window_size),
             top_utility_override=int(self.shadow_descriptor_order_top_utility_override),
             cache_sizes=self.shadow_descriptor_order_cache_sizes,
             tile_order_top_k=int(self.shadow_descriptor_order_top_k),
         )
+        if descriptor_report is None:
+            return
         decision_us = (time.perf_counter_ns() - total_start_ns) / 1000.0
         counter_update_us = max(
             0.0,
@@ -825,7 +820,7 @@ def patch_vllm_qwen35_moe_router_trace() -> None:
     qwen3_next.Qwen3NextForCausalLM.load_weights = qwen3_next_load_weights_with_text_prefix_remap
     qwen3_next.Qwen3NextSparseMoeBlock.forward = moe_forward_with_trace
 
-    if fused_moe_layer is not None:
+    if fused_moe_layer is not None and hasattr(fused_moe_layer.FusedMoE, "forward_impl"):
         original_fused_moe_forward_impl = fused_moe_layer.FusedMoE.forward_impl
 
         def fused_moe_forward_impl_with_trace(

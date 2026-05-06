@@ -2,12 +2,14 @@ from __future__ import annotations
 
 from mtp_expert_prefetch.runtime import (
     TileRequest,
+    build_layer_prior_plan_report_from_router_topk,
     build_layer_tile_prior,
     evaluate_ordered_tile_requests,
     hash_layer_tile_prior,
     order_tile_request_stream_with_layer_prior,
     order_tile_requests_with_layer_prior,
 )
+import torch
 
 
 def _multiset(requests: list[TileRequest]) -> list[tuple[int, int, int]]:
@@ -121,3 +123,64 @@ def test_layer_prior_descriptor_report_carries_prior_metadata():
     assert report.prior_id == "prior-exp"
     assert report.prior_hash == prior_hash
     assert report.metrics["lru_hit_rate"]["8"] == 1 / 3
+
+
+def test_layer_prior_plan_report_matches_tile_request_stream_metrics():
+    prior = build_layer_tile_prior(
+        [
+            TileRequest(0, 0, 2, 2, layer_idx=0),
+            TileRequest(0, 1, 2, 2, layer_idx=0),
+            TileRequest(0, 2, 1, 1, layer_idx=0),
+        ],
+        score_name="frequency",
+        metadata={"experiment_id": "prior-exp"},
+    )
+    prior_hash = hash_layer_tile_prior(prior)
+    ids = torch.tensor([[1, 2], [1, 3], [2, 1]], dtype=torch.long)
+    weights = torch.tensor([[0.7, 0.3], [0.6, 0.4], [0.9, 0.1]], dtype=torch.float32)
+    requests: list[TileRequest] = []
+    request_id = 0
+    for token_idx in range(ids.shape[0]):
+        for row_id in range(ids.shape[1]):
+            expert = int(ids[token_idx, row_id])
+            weight = float(weights[token_idx, row_id])
+            requests.append(
+                TileRequest(
+                    window_id=token_idx // 2,
+                    request_id=request_id,
+                    tile_id=expert,
+                    expert_id=expert,
+                    transition_score=weight,
+                    utility_score=weight,
+                    layer_idx=0,
+                )
+            )
+            request_id += 1
+
+    _, object_report = order_tile_request_stream_with_layer_prior(
+        requests,
+        prior=prior,
+        prior_id="prior-exp",
+        prior_hash=prior_hash,
+        cache_sizes=[1, 2, 8],
+        tile_order_top_k=2,
+    )
+    plan_report, baseline_hash = build_layer_prior_plan_report_from_router_topk(
+        layer_id=0,
+        topk_ids=ids,
+        topk_weights=weights,
+        prior=prior,
+        prior_id="prior-exp",
+        prior_hash=prior_hash,
+        token_window_size=2,
+        cache_sizes=[1, 2, 8],
+        tile_order_top_k=2,
+    )
+
+    assert plan_report is not None
+    assert plan_report.policy == object_report.policy
+    assert plan_report.descriptor_count == object_report.descriptor_count
+    assert plan_report.tile_multiset_hash == object_report.tile_multiset_hash
+    assert plan_report.order_hash == object_report.order_hash
+    assert baseline_hash is not None
+    assert plan_report.metrics == object_report.metrics

@@ -3088,3 +3088,76 @@ Next implementation gate:
   a lower-overhead plan builder or expose a runtime C++ builder path for
   descriptor_order summaries.
 ```
+
+Runtime online descriptor-order fast producer:
+
+```text
+implementation:
+  src/mtp_expert_prefetch/runtime/descriptor_order.py
+    adds build_layer_prior_plan_report_from_router_topk(...)
+    compact/two-level layer_prior_plan-style report builder
+    avoids Python object-level TileRequest materialization in online shadow
+
+  src/mtp_expert_prefetch/tracing/vllm_router_trace.py
+    descriptor_order summary producer now calls the compact plan builder
+    candidate_construction_us measures only tensor detach/copy overhead
+
+  tests:
+    tests/test_runtime_layer_prior_order.py verifies compact plan report hashes
+    and metrics match the original TileRequest stream implementation.
+```
+
+AWQ/vLLM descriptor_order smoke environment:
+
+```text
+working env:
+  conda env: TRY
+  python: /home/husrcf/anaconda3/envs/TRY/bin/python
+  torch: 2.11.0+rocm7.2
+  transformers: 5.6.2
+  vllm: 0.19.2rc1.dev213+g9558f4390
+
+failed env notes:
+  base is contaminated by in-progress flash-attn/kernel development.
+  MCP imports vLLM after fixing libzstd search path, but current vLLM build
+  rejects the original qwen3_5_moe AWQ architecture.
+  AIAA has no vLLM installed.
+
+command:
+  HIP_VISIBLE_DEVICES=1 VLLM_ENABLE_V1_MULTIPROCESSING=0 \
+    conda run -n TRY python scripts/trace_router_mtp_vllm.py \
+    configs/trace/router_mtp_trace_aya_dataset_awq_vllm_descriptor_order_shadow_smoke.yaml
+
+outputs:
+  data/traces/aya_dataset_smoke_awq_vllm_descriptor_order_shadow_smoke/manifest.jsonl
+  data/traces/aya_dataset_smoke_awq_vllm_descriptor_order_shadow_smoke/runtime_shadow.jsonl
+```
+
+Online smoke result, 1 sample:
+
+```text
+manifest rows = 1
+runtime_shadow rows = 5,120
+  outcomes = 5,080
+  descriptor_order summaries = 40
+
+descriptor_order metrics across 40 layers:
+  LRU@8 mean = 0.8593
+  LRU@16 mean = 0.8593
+  order_hit mean = 0.6203
+  reuse_distance mean = 4.1123
+  windows/layer = 2
+  tile requests/layer = 1,016
+
+fast-producer overhead:
+  candidate_construction_us mean = 4.47
+  descriptor_order_build_us mean = 881.75
+  decision_us mean = 3,402.53
+
+interpretation:
+  object-level TileRequest construction is removed from the online producer.
+  candidate construction is now low microseconds, but descriptor_order metric
+  computation remains the dominant online shadow cost. This is acceptable for
+  shadow validation; a real runtime action should use compact counters or the
+  C++ two-level plan builder path rather than full Python metric evaluation.
+```
