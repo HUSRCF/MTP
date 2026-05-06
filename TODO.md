@@ -1709,10 +1709,19 @@ Interpretation:
   - compare linear, B-tile grouped, transition hot-first, utility hot-first, `utility_tile_grouped`, and oracle
   - do not stage payload into LDS
   - report wall time per tile next to trace-level reuse metrics
-- [ ] Add tile-order timing stability sweep:
+- [x] Add tile-order timing stability sweep:
+  - script: `scripts/run_tile_order_cache_bench.py --repeat`
+  - summary helper: `scripts/summarize_tile_order_cache_bench.py`
+  - artifact: `outputs/reports/tile_order_cache/tile_order_cache_bench_512sample_stability_2gpu.json`
+  - summary: `outputs/reports/tile_order_cache/tile_order_cache_bench_512sample_stability_2gpu_summary.md`
   - repeat 30+ times or add process-level repeats for confidence intervals
-  - sweep `tile_elems`, `tiles_per_cta`, cache flush, and devices
-  - stop condition: if `utility_tile_grouped` is not consistently faster than `utility_hot_first` and near `B_tile_grouped`, keep tile ordering as descriptor-level heuristic only
+  - first stability sweep uses repeat=5, `tile_elems=512/1024`, `cache_flush=0/16M`, GPU0/GPU1
+  - result: `utility_tile_grouped` beats linear in all 8 configs and is consistently much faster than `utility_hot_first`
+  - result: `utility_tile_grouped` stays near `B_tile_grouped` timing while preserving much higher order-hit
+- [ ] Add higher-repeat tile-order stability confirmation:
+  - repeat 30+ times on the strongest configs only
+  - include process-level repeats and optional order execution randomization
+  - stop condition: if confidence intervals overlap too much, keep tile ordering as descriptor-level heuristic only
 - [ ] Add descriptor precompute / patch timing:
   - true-router rebuild baseline
   - transition/MTP candidate descriptor prebuild

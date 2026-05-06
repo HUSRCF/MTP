@@ -2174,3 +2174,66 @@ gate is a stability sweep over tile_elems / tiles_per_cta / cache flush /
 process repeats, then a persistent grouped scheduler prototype only if the
 timing advantage is stable.
 ```
+
+Stability sweep:
+
+```text
+artifact: outputs/reports/tile_order_cache/tile_order_cache_bench_512sample_stability_2gpu.json
+summary:  outputs/reports/tile_order_cache/tile_order_cache_bench_512sample_stability_2gpu_summary.md
+devices:  GPU0 W7900, GPU1 W7900 Dual Slot
+repeat:   5 process-level runs per policy/config
+tiles:    tile_elems = 512 / 1024
+flush:    0 / 16M
+```
+
+Median speedup of `utility_tile_grouped` vs `linear`:
+
+```text
+GPU0 tile512  flush0:   1.058x
+GPU0 tile512  flush16M: 1.079x
+GPU0 tile1024 flush0:   1.106x
+GPU0 tile1024 flush16M: 1.102x
+
+GPU1 tile512  flush0:   1.188x
+GPU1 tile512  flush16M: 1.036x
+GPU1 tile1024 flush0:   1.129x
+GPU1 tile1024 flush16M: 1.118x
+```
+
+Same-hotness ablation:
+
+```text
+utility_hot_first and utility_tile_grouped have the same tile_order_hit_rate
+on this trace: 0.491.
+
+utility_hot_first:
+  LRU@8 = 0.557
+  timing is near linear or worse in most configs
+
+utility_tile_grouped:
+  LRU@8 = 0.833
+  median speedup vs utility_hot_first ranges from about 1.04x to 1.14x
+```
+
+Same-locality ablation:
+
+```text
+B-tile grouped and utility_tile_grouped both preserve LRU@8 ~= 0.833.
+
+B-tile grouped:
+  tile_order_hit_rate = 0.119
+
+utility_tile_grouped:
+  tile_order_hit_rate = 0.491
+
+Timing is near B-tile grouped while preserving much higher hot-order signal.
+```
+
+Interpretation:
+
+```text
+The stable result is not "hot-first is faster"; pure hot-first is not enough.
+The stable result is that utility should rank B-tile groups, while execution
+keeps each B tile contiguous. This preserves cache locality and retains the
+MTP/transition utility signal.
+```
