@@ -70,6 +70,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--repeat", type=int, default=3)
     parser.add_argument("--shadow-jsonl", type=Path, default=None)
     parser.add_argument("--heldout-json", type=Path, default=None)
+    parser.add_argument("--output-jsonl", type=Path, default=None)
     parser.add_argument(
         "--calibration-sample-count",
         type=int,
@@ -590,6 +591,11 @@ def main() -> None:
         topk=args.topk,
         tiles_per_expert=args.tiles_per_expert,
     )
+    if args.output_jsonl is not None:
+        args.output_jsonl.parent.mkdir(parents=True, exist_ok=True)
+        with args.output_jsonl.open("w", encoding="utf-8") as handle:
+            for request in requests:
+                handle.write(json.dumps(request.as_dict(), sort_keys=True) + "\n")
     prior = load_layer_tile_prior(args.prior_json)
     prior_hash = hash_layer_tile_prior(prior)
     prior_id = args.prior_id or str(prior.metadata.get("experiment_id") or prior.score_name)
@@ -659,6 +665,7 @@ def main() -> None:
             calibrated_prior_output_json=args.calibrated_prior_output_json,
         ),
         "config": {
+            "output_jsonl": str(args.output_jsonl) if args.output_jsonl is not None else None,
             "token_window_size": int(token_window_size),
             "topk": int(args.topk),
             "tiles_per_expert": int(args.tiles_per_expert),

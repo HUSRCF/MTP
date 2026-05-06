@@ -3023,3 +3023,68 @@ Next gate:
   or keep descriptor_order as a shadow/precomputed action until the order-build
   path is below the measured kernel saved envelope.
 ```
+
+C++ builder overhead on real vLLM streams:
+
+```text
+scripts:
+  scripts/replay_vllm_descriptor_order_shadow.py
+    now supports --output-jsonl for exporting the vLLM TileRequest stream.
+
+  scripts/run_descriptor_order_builder_bench.py
+    consumes the same vLLM JSONL stream and measures C++ builder cost.
+
+artifacts:
+  outputs/reports/tile_order_cache/vllm_smoke64_tile_stream_top8.jsonl
+  outputs/reports/tile_order_cache/vllm_smoke64_descriptor_order_builder_bench.md
+  outputs/reports/tile_order_cache/vllm_smoke32_heldout_tile_stream_top8.jsonl
+  outputs/reports/tile_order_cache/vllm_smoke32_heldout_descriptor_order_builder_bench.md
+```
+
+Results:
+
+```text
+smoke64 full stream:
+  requests = 1,844,160
+  layer_prior_frequency plan:
+    cpp_build_us_median = 8,821.9 total
+    cpp_us/window = 2.42
+    python_build_us ~= 468,474
+    LRU@8 / LRU@16 = 0.9404 / 0.9423
+    order_hit = 0.8854
+
+  layer_prior_frequency materialized:
+    cpp_build_us_median = 10,366.6 total
+    cpp_us/window = 2.85
+
+smoke32 heldout-only stream:
+  requests = 283,520
+  windows = 560
+  layer_prior_frequency plan:
+    cpp_build_us_median = 1,233.1 total
+    cpp_us/window = 2.20
+    python_build_us ~= 51,605
+    LRU@8 / LRU@16 = 0.9494 / 0.9526
+    order_hit = 0.9016
+
+  layer_prior_frequency materialized:
+    cpp_build_us_median = 1,470.8 total
+    cpp_us/window = 2.63
+```
+
+Updated overhead conclusion:
+
+```text
+The Python online descriptor_order producer is still too expensive for the
+decode critical path.
+
+However, the C++ two-level layer_prior_plan is now in the low-microsecond
+per-window range on real vLLM TileRequest streams. This revives descriptor_order
+as a runtime-feasible action if the grouped-kernel consumer can use a
+two-level group-order plan directly, avoiding full Python materialization.
+
+Next implementation gate:
+  replace the Python shadow producer's object-level TileRequest ordering with
+  a lower-overhead plan builder or expose a runtime C++ builder path for
+  descriptor_order summaries.
+```
