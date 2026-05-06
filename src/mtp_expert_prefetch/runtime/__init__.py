@@ -83,9 +83,11 @@ from mtp_expert_prefetch.runtime.tile_order import (
     evaluate_tile_order_policy,
     generate_synthetic_tile_requests,
     load_tile_requests_json,
+    load_tile_requests_jsonl,
     order_tile_requests,
     simulate_lru_hit_rate,
 )
+from mtp_expert_prefetch.runtime.tile_stream import tile_requests_from_tensor_cache
 
 __all__ = [
     "DescriptorCacheReport",
@@ -130,6 +132,7 @@ __all__ = [
     "evaluate_tile_order_policy",
     "generate_synthetic_tile_requests",
     "load_tile_requests_json",
+    "load_tile_requests_jsonl",
     "load_descriptor_jsonl",
     "novel_mtp_extra_mask",
     "novel_mtp_extra_rank_mask",
@@ -142,6 +145,7 @@ __all__ = [
     "select_runtime_prefetch_policy",
     "order_tile_requests",
     "order_prefetch_descriptors",
+    "tile_requests_from_tensor_cache",
     "simulate_lru_hit_rate",
     "simulate_descriptor_lru_cache",
     "simulate_descriptor_priority_cache",

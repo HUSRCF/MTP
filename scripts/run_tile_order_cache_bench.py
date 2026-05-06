@@ -21,9 +21,10 @@ from mtp_expert_prefetch.runtime.tile_order import (  # noqa: E402
     evaluate_tile_order_policy,
     generate_synthetic_tile_requests,
     load_tile_requests_json,
+    load_tile_requests_jsonl,
     order_tile_requests,
 )
-from scripts.simulate_tile_order_cache import load_tensor_cache_requests  # noqa: E402
+from mtp_expert_prefetch.runtime.tile_stream import tile_requests_from_tensor_cache  # noqa: E402
 
 SRC = REPO_ROOT / "microbench" / "tile_order_cache" / "tile_order_cache_bench.hip"
 BUILD_DIR = REPO_ROOT / "microbench" / "tile_order_cache" / "build"
@@ -83,6 +84,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     source = parser.add_mutually_exclusive_group()
     source.add_argument("--input-json", type=Path, default=None)
+    source.add_argument("--input-jsonl", type=Path, default=None)
     source.add_argument("--tensor-cache", type=Path, default=None)
     source.add_argument("--synthetic", action="store_true")
     parser.add_argument("--policy", action="append", choices=DEFAULT_POLICIES, default=None)
@@ -120,14 +122,26 @@ def load_requests(args: argparse.Namespace):
     if args.input_json is not None:
         payload = json.loads(args.input_json.read_text(encoding="utf-8"))
         return load_tile_requests_json(payload), {"type": "input_json", "path": str(args.input_json)}
+    if args.input_jsonl is not None:
+        return load_tile_requests_jsonl(args.input_jsonl), {
+            "type": "input_jsonl",
+            "path": str(args.input_jsonl),
+        }
     if args.tensor_cache is not None:
-        return load_tensor_cache_requests(
-            args.tensor_cache,
+        import torch
+
+        cache = torch.load(args.tensor_cache, map_location="cpu")
+        requests, source = tile_requests_from_tensor_cache(
+            cache,
             window_size=args.tensor_window_size,
             topk=args.tensor_topk,
             tiles_per_expert=args.tiles_per_expert,
             max_examples=args.tensor_max_examples,
         )
+        source["type"] = "tensor_cache"
+        source["path"] = str(args.tensor_cache)
+        source["max_examples"] = args.tensor_max_examples
+        return requests, source
     requests = generate_synthetic_tile_requests(
         num_windows=args.num_windows,
         requests_per_window=args.requests_per_window,

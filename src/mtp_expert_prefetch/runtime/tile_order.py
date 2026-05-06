@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from collections import Counter, OrderedDict
 from dataclasses import dataclass
+import json
+from pathlib import Path
 import random
 from statistics import mean
 from typing import Any, Callable, Iterable, Mapping, Sequence
@@ -23,9 +25,15 @@ class TileRequest:
     transition_score: float = 0.0
     mtp_score: float = 0.0
     utility_score: float = 0.0
+    sample_idx: int | None = None
+    token_index: int | None = None
+    layer_idx: int | None = None
+    row_id: int | None = None
+    weight: float | None = None
+    source_policy: str | None = None
 
     def as_dict(self) -> dict[str, Any]:
-        return {
+        payload: dict[str, Any] = {
             "window_id": self.window_id,
             "request_id": self.request_id,
             "tile_id": self.tile_id,
@@ -34,6 +42,19 @@ class TileRequest:
             "mtp_score": self.mtp_score,
             "utility_score": self.utility_score,
         }
+        if self.sample_idx is not None:
+            payload["sample_idx"] = int(self.sample_idx)
+        if self.token_index is not None:
+            payload["token_index"] = int(self.token_index)
+        if self.layer_idx is not None:
+            payload["layer_idx"] = int(self.layer_idx)
+        if self.row_id is not None:
+            payload["row_id"] = int(self.row_id)
+        if self.weight is not None:
+            payload["weight"] = float(self.weight)
+        if self.source_policy is not None:
+            payload["source_policy"] = self.source_policy
+        return payload
 
 
 def _score(record: Mapping[str, Any], key: str, default: float = 0.0) -> float:
@@ -61,6 +82,18 @@ def tile_request_from_mapping(record: Mapping[str, Any], *, fallback_request_id:
         transition_score=_score(record, "transition_score"),
         mtp_score=_score(record, "mtp_score"),
         utility_score=_score(record, "utility_score"),
+        sample_idx=(
+            int(record["sample_idx"]) if record.get("sample_idx") is not None else None
+        ),
+        token_index=(
+            int(record["token_index"]) if record.get("token_index") is not None else None
+        ),
+        layer_idx=int(record["layer_idx"]) if record.get("layer_idx") is not None else None,
+        row_id=int(record["row_id"]) if record.get("row_id") is not None else None,
+        weight=float(record["weight"]) if record.get("weight") is not None else None,
+        source_policy=(
+            str(record["source_policy"]) if record.get("source_policy") is not None else None
+        ),
     )
 
 
@@ -77,6 +110,22 @@ def load_tile_requests_json(payload: Any) -> list[TileRequest]:
         tile_request_from_mapping(record, fallback_request_id=index)
         for index, record in enumerate(raw_requests)
     ]
+
+
+def load_tile_requests_jsonl(path: str | Path) -> list[TileRequest]:
+    """Load one token/row-level tile request per JSONL line."""
+
+    requests: list[TileRequest] = []
+    with Path(path).open("r", encoding="utf-8") as handle:
+        for index, line in enumerate(handle):
+            stripped = line.strip()
+            if not stripped:
+                continue
+            record = json.loads(stripped)
+            if not isinstance(record, Mapping):
+                raise TypeError(f"JSONL line {index + 1} is not an object")
+            requests.append(tile_request_from_mapping(record, fallback_request_id=index))
+    return requests
 
 
 def generate_synthetic_tile_requests(

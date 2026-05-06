@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import json
+
 from mtp_expert_prefetch.runtime import (
     TileRequest,
     evaluate_tile_order_policies,
+    load_tile_requests_json,
+    load_tile_requests_jsonl,
     order_tile_requests,
     simulate_lru_hit_rate,
 )
@@ -75,3 +79,28 @@ def test_tile_order_report_identifies_oracle_reuse_policy():
     assert report["best_by_cache_size"]["1"]["lru_hit_rate"] == by_policy["oracle_cache_aware"][
         "lru_hit_rate"
     ]["1"]
+
+
+def test_tile_request_roundtrip_preserves_token_row_metadata(tmp_path):
+    request = TileRequest(
+        window_id=2,
+        request_id=7,
+        tile_id=11,
+        expert_id=5,
+        transition_score=0.3,
+        mtp_score=0.4,
+        utility_score=0.5,
+        sample_idx=13,
+        token_index=17,
+        layer_idx=3,
+        row_id=1,
+        weight=0.75,
+        source_policy="target_topk",
+    )
+
+    loaded = load_tile_requests_json({"requests": [request.as_dict()]})
+    assert loaded == [request]
+
+    jsonl = tmp_path / "tiles.jsonl"
+    jsonl.write_text(json.dumps(request.as_dict()) + "\n", encoding="utf-8")
+    assert load_tile_requests_jsonl(jsonl) == [request]

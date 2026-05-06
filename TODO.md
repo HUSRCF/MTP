@@ -1728,10 +1728,23 @@ Interpretation:
   - shadow fields: `descriptor_order_policy`, `descriptor_order_build_us`, `descriptor_tile_multiset_hash`, `descriptor_order_hash`, `descriptor_order_metrics`
   - invariant: descriptor multiset is unchanged; only order changes
   - smoke: `outputs/reports/tile_order_cache/descriptor_order_extra4_smoke.md`
-- [ ] Add tile-stream descriptor path for runtime order evaluation:
+- [x] Add tile-stream descriptor path for runtime order evaluation:
   - current `ExpertPrefetchDescriptor` JSONL is sample/layer deduplicated and not a row-level GEMM tile stream
   - build a token/row-level tile descriptor list from true router output or tensor cache
   - report descriptor-order build cost on that tile stream, not on deduplicated premap descriptors
+  - module: `src/mtp_expert_prefetch/runtime/tile_stream.py`
+  - script: `scripts/export_tile_stream_descriptors.py`
+  - JSONL replay supported by `scripts/simulate_tile_order_cache.py --input-jsonl`
+  - timing bench supported by `scripts/run_tile_order_cache_bench.py --input-jsonl`
+  - smoke artifact: `outputs/reports/tile_order_cache/tile_stream_512sample_top8_summary.md`
+- [ ] Add runtime/online descriptor-order shadow from token-row tile stream:
+  - record `descriptor_order_policy`, `descriptor_order_build_us`, `descriptor_tile_multiset_hash`, `descriptor_order_hash`
+  - record reuse/order-hit metrics from the same token-row tile stream
+  - keep action shadow-only first; do not alter real grouped-GEMM execution yet
+- [ ] Add order-build overhead Pareto for token-row streams:
+  - compare Python prototype vs bucketed grouping / partial sort implementation
+  - report `kernel_saved_us - order_build_us`
+  - stop condition: if order construction dominates timing savings, restrict descriptor_order to precomputed/shadow use
 - [ ] Add descriptor precompute / patch timing:
   - true-router rebuild baseline
   - transition/MTP candidate descriptor prebuild

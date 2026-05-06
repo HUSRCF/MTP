@@ -2293,3 +2293,71 @@ not the intended runtime implementation. The real runtime path needs bucketed
 grouping / partial sort / descriptor patching in C++ or device-side code.
 The Python action is for shadow validation and counter semantics.
 ```
+
+Token/row-level tile stream bridge:
+
+```text
+module:  src/mtp_expert_prefetch/runtime/tile_stream.py
+script:  scripts/export_tile_stream_descriptors.py
+inputs:  event-stall tensor cache
+outputs: token/row-level TileRequest JSONL
+```
+
+This closes the descriptor-order input gap:
+
+```text
+tensor cache -> token/row tile stream JSONL
+same JSONL -> trace-level tile-order simulator
+same JSONL -> direct/global-fragment timing bench
+```
+
+512-sample smoke:
+
+```text
+input:    outputs/reports/prefetch_shadow_512sample_mtp_extra/event_stall_tensor_cache_512sample.pt
+jsonl:    outputs/reports/tile_order_cache/tile_stream_512sample_top8.jsonl
+summary:  outputs/reports/tile_order_cache/tile_stream_512sample_top8_summary.md
+requests: 163,840
+windows:  320
+unique B tiles: 256
+```
+
+Replay from JSONL matches the tensor-cache export diagnostics:
+
+```text
+linear:
+  LRU@8 = 0.391
+  order_hit = 0.414
+
+B-tile grouped:
+  LRU@8 = 0.833
+  order_hit = 0.119
+
+utility_hot_first:
+  LRU@8 = 0.557
+  order_hit = 0.491
+
+utility_tile_grouped:
+  LRU@8 = 0.833
+  order_hit = 0.491
+```
+
+Small GPU bench smoke from the same JSONL:
+
+```text
+artifact: outputs/reports/tile_order_cache/tile_stream_512sample_top8_bench_smoke.json
+device:   GPU0
+policies: linear vs utility_tile_grouped
+tile_elems: 256
+iters: 5
+result: utility_tile_grouped speedup_median_vs_linear ~= 1.005x
+```
+
+Boundary:
+
+```text
+This is a row-level stream bridge and semantic replay check, not a new
+performance claim. The stronger timing evidence remains the prior stability
+sweep. The important engineering step is that runtime descriptor_order and
+the GPU timing bench can now consume the same row-level tile descriptor format.
+```
