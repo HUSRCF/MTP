@@ -1277,6 +1277,7 @@ def _shadow_sequence_id(record: dict[str, Any], options: dict[str, Any]) -> int:
 
 
 def trace_router_mtp_vllm(config_path: str | Path) -> Path:
+    trace_wall_start_ns = time.perf_counter_ns()
     config_path = Path(config_path)
     project_root = find_project_root(config_path)
     trace_config = load_yaml(config_path)
@@ -1433,11 +1434,39 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
         project_root=project_root,
     )
     manifest_path = output_dir / "manifest.jsonl"
+    performance = {
+        "sample_count": len(prepared_records),
+        "input_token_count": int(
+            sum(
+                len(input_ids)
+                for _idx, _record, input_ids, _prompt in prepared_records
+            )
+        ),
+        "requested_output_token_count": int(len(prepared_records) * max_tokens),
+        "llm_init_wall_seconds": 0.0,
+        "generate_wall_seconds": 0.0,
+        "trace_write_wall_seconds": 0.0,
+        "chunk_count": 0,
+        "runtime_shadow_enabled": bool(runtime_shadow_options.get("enabled", False)),
+        "runtime_shadow_emit_descriptor_order_summaries": bool(
+            runtime_shadow_options.get("emit_descriptor_order_summaries", False)
+        ),
+        "runtime_shadow_descriptor_order_metrics_mode": (
+            str(runtime_shadow_options.get("descriptor_order_metrics_mode"))
+            if runtime_shadow_options.get("descriptor_order_metrics_mode") is not None
+            else None
+        ),
+    }
     try:
         with manifest_path.open("w", encoding="utf-8") as manifest:
             for chunk_start in range(0, len(prepared_records), engine_chunk_size):
                 chunk = prepared_records[chunk_start : chunk_start + engine_chunk_size]
+                performance["chunk_count"] += 1
+                llm_init_start_ns = time.perf_counter_ns()
                 llm = LLM(**llm_kwargs)
+                performance["llm_init_wall_seconds"] += (
+                    time.perf_counter_ns() - llm_init_start_ns
+                ) / 1_000_000_000.0
                 try:
                     if use_router_logits_recorder:
                         recorder = VllmRouterRecorder(
@@ -1542,14 +1571,19 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                             )
                             set_active_vllm_router_recorder(recorder)
                             set_active_runtime_shadow_controller(runtime_shadow_controller)
+                            generate_start_ns = time.perf_counter_ns()
                             try:
                                 outputs = llm.generate([prompt], sampling, use_tqdm=False)
                             finally:
+                                performance["generate_wall_seconds"] += (
+                                    time.perf_counter_ns() - generate_start_ns
+                                ) / 1_000_000_000.0
                                 set_active_vllm_router_recorder(None)
                                 set_active_runtime_shadow_controller(None)
                             if len(outputs) != 1:
                                 msg = f"vLLM returned {len(outputs)} outputs for one prompt."
                                 raise RuntimeError(msg)
+                            write_start_ns = time.perf_counter_ns()
                             _write_vllm_sample_trace(
                                 manifest=manifest,
                                 output_dir=output_dir,
@@ -1560,12 +1594,19 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                                 module_prefix=module_prefix,
                                 recorder=recorder,
                             )
+                            performance["trace_write_wall_seconds"] += (
+                                time.perf_counter_ns() - write_start_ns
+                            ) / 1_000_000_000.0
                     else:
+                        generate_start_ns = time.perf_counter_ns()
                         outputs = llm.generate(
                             [prompt for *_prefix, prompt in chunk],
                             sampling,
                             use_tqdm=False,
                         )
+                        performance["generate_wall_seconds"] += (
+                            time.perf_counter_ns() - generate_start_ns
+                        ) / 1_000_000_000.0
                         if len(outputs) != len(chunk):
                             msg = f"vLLM returned {len(outputs)} outputs for {len(chunk)} prompts."
                             raise RuntimeError(msg)
@@ -1575,6 +1616,7 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                             outputs,
                             strict=True,
                         ):
+                            write_start_ns = time.perf_counter_ns()
                             _write_vllm_sample_trace(
                                 manifest=manifest,
                                 output_dir=output_dir,
@@ -1585,6 +1627,9 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                                 module_prefix=module_prefix,
                                 recorder=None,
                             )
+                            performance["trace_write_wall_seconds"] += (
+                                time.perf_counter_ns() - write_start_ns
+                            ) / 1_000_000_000.0
                 finally:
                     set_active_vllm_router_recorder(None)
                     set_active_runtime_shadow_controller(None)
@@ -1601,5 +1646,23 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
             if bool(runtime_shadow_options.get("flush_pending_as_timeouts", True)):
                 runtime_shadow_controller.flush_pending_as_timeouts()
             runtime_shadow_controller.close()
+
+    performance["total_trace_wall_seconds"] = (
+        time.perf_counter_ns() - trace_wall_start_ns
+    ) / 1_000_000_000.0
+    if performance["requested_output_token_count"]:
+        performance["generate_seconds_per_requested_output_token"] = (
+            performance["generate_wall_seconds"]
+            / float(performance["requested_output_token_count"])
+        )
+        performance["end_to_end_seconds_per_requested_output_token"] = (
+            performance["total_trace_wall_seconds"]
+            / float(performance["requested_output_token_count"])
+        )
+    performance_path = output_dir / "performance_summary.json"
+    performance_path.write_text(
+        json.dumps(performance, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
 
     return manifest_path

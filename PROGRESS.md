@@ -3223,6 +3223,125 @@ Next gate:
   and build_us are needed.
 ```
 
+AWQ no-shadow vs compact-shadow end-to-end comparison:
+
+```text
+environment:
+  conda env: TRY
+  gpu: HIP_VISIBLE_DEVICES=1
+  model: qwen3_6_35b_a3b_awq_4bit
+  recorder: enabled in both no-shadow and compact-shadow
+  max_tokens: 1
+
+configs added:
+  configs/trace/router_mtp_trace_aya_dataset_awq_vllm_no_shadow_smoke8.yaml
+  configs/trace/router_mtp_trace_aya_dataset_awq_vllm_no_shadow_smoke32.yaml
+
+instrumentation added:
+  output_dir/performance_summary.json now records:
+    llm_init_wall_seconds
+    generate_wall_seconds
+    trace_write_wall_seconds
+    total_trace_wall_seconds
+    generate_seconds_per_requested_output_token
+    end_to_end_seconds_per_requested_output_token
+```
+
+Raw external wall-time:
+
+```text
+8 samples:
+  no_shadow       74.08s
+  compact_shadow  91.06s
+
+32 samples repeat1:
+  no_shadow       66.04s
+  compact_shadow  72.97s
+
+32 samples repeat2, reverse order:
+  compact_shadow  69.89s
+  no_shadow       80.62s
+
+32 samples repeat3, with performance_summary:
+  no_shadow       63.99s
+  compact_shadow  69.88s
+```
+
+Interpretation:
+
+```text
+Raw external wall time is too noisy for small AWQ runs because vLLM engine
+construction and AWQ safetensors loading dominate the run (~43-56s). Repeat2
+even reverses the raw ordering, so raw wall-time alone is not a reliable
+shadow overhead estimate.
+```
+
+Instrumented 32-sample path-level timing:
+
+```text
+no_shadow:
+  total_trace_wall_seconds = 60.83
+  llm_init_wall_seconds    = 48.98
+  generate_wall_seconds    = 3.76
+  trace_write_wall_seconds = 0.93
+  generate_s/output_token  = 0.118
+
+compact_shadow:
+  total_trace_wall_seconds = 66.72
+  llm_init_wall_seconds    = 49.02
+  generate_wall_seconds    = 9.56
+  trace_write_wall_seconds = 0.90
+  generate_s/output_token  = 0.299
+
+delta:
+  total_trace_wall_seconds = +5.90s
+  generate_wall_seconds    = +5.80s
+  generate_s/output_token  = +0.181s
+  llm_init_wall_seconds    = +0.03s
+```
+
+Compact-shadow internal overhead, current 32-sample run:
+
+```text
+descriptor summaries = 1,280
+outcomes             = 125,360
+same_multiset        = 1,280 / 1,280
+order_changed        = 1,280 / 1,280
+
+candidate_construction_us:
+  mean = 3.88, p95 = 4.32, p99 = 4.70
+
+descriptor_order_build_us:
+  mean = 413.94, p95 = 505.27, p99 = 558.97
+
+decision_us:
+  mean = 1,113.30, p95 = 1,428.99, p99 = 1,536.26
+
+counter_update_us:
+  mean = 695.49, p95 = 943.77, p99 = 989.08
+
+LRU@8 mean      = 0.8143
+LRU@16 mean     = 0.8143
+order_hit mean  = 0.4137
+```
+
+Current conclusion:
+
+```text
+AWQ compact descriptor-order shadow has stable observability metrics and valid
+same-multiset/order-changed semantics at 32 samples.
+
+However, compact shadow still adds measurable generate-path overhead in Python:
+~5.8s over 32 samples, or ~181ms per generated token in this tracing setup.
+The cost is dominated by Python descriptor-order metric/counter work, not model
+loading and not candidate construction.
+
+Therefore compact mode remains suitable for diagnostic online shadow, but not
+for a synchronous production critical path. The next optimization target is a
+metrics_mode=none / minimal scalar mode, then a C++/two-level counter path if
+we need lower-overhead long online runs.
+```
+
 Runtime online descriptor-order fast producer:
 
 ```text
