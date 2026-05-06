@@ -7,12 +7,18 @@ import os
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
+import time
 from typing import Any, Protocol
 
 import torch
 
 from mtp_expert_prefetch.runtime.admission import AdmissionDecisionMasks
-from mtp_expert_prefetch.runtime.descriptor_order import DescriptorOrderReport
+from mtp_expert_prefetch.runtime.descriptor_order import (
+    DescriptorOrderReport,
+    hash_ints,
+    hash_layer_tile_prior,
+    order_tile_request_stream_with_layer_prior,
+)
 from mtp_expert_prefetch.runtime.online_shadow import OnlineShadowLogger
 from mtp_expert_prefetch.runtime.shadow_controller import RuntimeShadowController
 from mtp_expert_prefetch.runtime.shadow_log import (
@@ -20,6 +26,11 @@ from mtp_expert_prefetch.runtime.shadow_log import (
     ShadowOutcomeEvent,
     ShadowPolicyConfig,
     ShadowSummaryEvent,
+)
+from mtp_expert_prefetch.runtime.tile_order import (
+    LayerTilePrior,
+    TileRequest,
+    load_layer_tile_prior,
 )
 from mtp_expert_prefetch.tracing.router_mtp import _load_trace_texts
 from mtp_expert_prefetch.utils.config import find_project_root, load_yaml, resolve_path
@@ -51,6 +62,15 @@ class VllmRouterRecorder:
     shadow_transition_topk_count: int | None = None
     shadow_transition_summary_mode: str = "previous_topk"
     shadow_transition_matrix: torch.Tensor | None = None
+    shadow_emit_descriptor_order_summary: bool = False
+    shadow_descriptor_order_prior: LayerTilePrior | None = None
+    shadow_descriptor_order_prior_id: str | None = None
+    shadow_descriptor_order_prior_hash: str | None = None
+    shadow_descriptor_order_tiles_per_expert: int = 1
+    shadow_descriptor_order_cache_sizes: tuple[int, ...] = (8, 16, 32)
+    shadow_descriptor_order_top_k: int = 8
+    shadow_descriptor_order_top_utility_override: int = 0
+    shadow_descriptor_order_event_token_index: int = -1
     request_id: str = "vllm"
     sequence_id: int = 0
     token_offset: int = 0
@@ -161,6 +181,97 @@ class VllmRouterRecorder:
                 weighted_top1_miss=float(token_weights[0]) if token_weights else 0.0,
             )
             self.shadow_outcome_sink.write_outcome(event)
+        if self.shadow_emit_descriptor_order_summary:
+            self._write_current_router_descriptor_order_summary(
+                layer_id=layer_id,
+                topk_ids=ids,
+                topk_weights=weights,
+            )
+
+    def _write_current_router_descriptor_order_summary(
+        self,
+        *,
+        layer_id: int,
+        topk_ids: torch.Tensor,
+        topk_weights: torch.Tensor,
+    ) -> None:
+        """Emit a shadow-only descriptor-order summary for this router call.
+
+        This path observes the true-router tile stream after routing is known.
+        It does not alter execution order and does not participate in the
+        action-summary/outcome ready-mask join.
+        """
+
+        sink = self.shadow_outcome_sink
+        prior = self.shadow_descriptor_order_prior
+        if sink is None or prior is None or not hasattr(sink, "write_descriptor_order_summary"):
+            return
+        if not prior.order_for_layer(int(layer_id)):
+            return
+        if topk_ids.ndim != 2 or topk_weights.shape != topk_ids.shape:
+            return
+
+        total_start_ns = time.perf_counter_ns()
+        stream_start_ns = total_start_ns
+        requests = _tile_requests_from_router_topk(
+            layer_id=layer_id,
+            token_offset=int(self.token_offset),
+            topk_ids=topk_ids,
+            topk_weights=topk_weights,
+            tiles_per_expert=int(self.shadow_descriptor_order_tiles_per_expert),
+        )
+        stream_build_us = (time.perf_counter_ns() - stream_start_ns) / 1000.0
+        if not requests:
+            return
+
+        baseline_order_hash = hash_ints([request.tile_id for request in requests])
+        prior_hash = self.shadow_descriptor_order_prior_hash or hash_layer_tile_prior(prior)
+        prior_id = self.shadow_descriptor_order_prior_id or str(
+            prior.metadata.get("experiment_id") or prior.score_name
+        )
+        _, descriptor_report = order_tile_request_stream_with_layer_prior(
+            requests,
+            prior=prior,
+            prior_id=prior_id,
+            prior_hash=prior_hash,
+            top_utility_override=int(self.shadow_descriptor_order_top_utility_override),
+            cache_sizes=self.shadow_descriptor_order_cache_sizes,
+            tile_order_top_k=int(self.shadow_descriptor_order_top_k),
+        )
+        decision_us = (time.perf_counter_ns() - total_start_ns) / 1000.0
+        counter_update_us = max(
+            0.0,
+            decision_us - stream_build_us - float(descriptor_report.order_build_us),
+        )
+        policy = ShadowPolicyConfig(
+            policy_mode="descriptor_order_shadow",
+            optimization_goal="cache_locality",
+            action_keep_fraction=0.0,
+            metadata_score_ratio=0.0,
+            full_fetch_max_extra=0,
+            metadata_max_extra=0,
+            premap_max_extra=0,
+            policy_reason="current_router_layer_prior_descriptor_order",
+            descriptor_order_policy=descriptor_report.policy,
+            descriptor_order_prior_id=descriptor_report.prior_id,
+            descriptor_order_prior_hash=descriptor_report.prior_hash,
+            descriptor_order_top_utility_override=descriptor_report.top_utility_override,
+        )
+        event_id = ShadowEventId(
+            request_id=str(self.request_id),
+            sequence_id=int(self.sequence_id),
+            token_index=int(self.shadow_descriptor_order_event_token_index),
+            layer=int(layer_id),
+        )
+        sink.write_descriptor_order_summary(
+            event_id=event_id,
+            policy=policy,
+            descriptor_report=descriptor_report,
+            baseline_order_hash=baseline_order_hash,
+            candidate_construction_us=stream_build_us,
+            counter_update_us=counter_update_us,
+            decision_us=decision_us,
+        )
 
     def _write_previous_token_transition_summary(
         self,
@@ -472,6 +583,54 @@ def _stable_desc_topk_indices(scores: torch.Tensor, *, k: int) -> torch.Tensor:
     k = max(0, min(int(k), len(values)))
     selected = sorted(range(len(values)), key=lambda idx: (-float(values[idx]), int(idx)))[:k]
     return torch.tensor(selected, dtype=torch.long)
+
+
+def _tile_requests_from_router_topk(
+    *,
+    layer_id: int,
+    token_offset: int,
+    topk_ids: torch.Tensor,
+    topk_weights: torch.Tensor,
+    tiles_per_expert: int,
+) -> list[TileRequest]:
+    """Expand true-router top-k into a current-router token/row tile stream."""
+
+    ids = topk_ids.detach().cpu().to(torch.long)
+    weights = topk_weights.detach().cpu().to(torch.float32)
+    if ids.ndim != 2 or weights.shape != ids.shape:
+        return []
+    tiles_per_expert = max(1, int(tiles_per_expert))
+    requests: list[TileRequest] = []
+    request_id = 0
+    for token_idx in range(int(ids.shape[0])):
+        absolute_token = int(token_offset + token_idx)
+        for row_id, (expert_tensor, weight_tensor) in enumerate(
+            zip(ids[token_idx].tolist(), weights[token_idx].tolist(), strict=True)
+        ):
+            expert = int(expert_tensor)
+            weight = float(weight_tensor)
+            if expert < 0:
+                continue
+            for tile_local in range(tiles_per_expert):
+                tile_id = expert * tiles_per_expert + int(tile_local)
+                requests.append(
+                    TileRequest(
+                        window_id=0,
+                        request_id=request_id,
+                        tile_id=tile_id,
+                        expert_id=expert,
+                        transition_score=weight,
+                        mtp_score=0.0,
+                        utility_score=weight,
+                        token_index=absolute_token,
+                        layer_idx=int(layer_id),
+                        row_id=int(row_id),
+                        weight=weight,
+                        source_policy="current_router_topk",
+                    )
+                )
+                request_id += 1
+    return requests
 
 
 def patch_vllm_qwen35_moe_router_trace() -> None:
@@ -899,6 +1058,35 @@ def _load_runtime_shadow_transition_matrix(
     return torch.as_tensor(payload, dtype=torch.float32)
 
 
+def _load_runtime_shadow_descriptor_order_prior(
+    *,
+    options: dict[str, Any],
+    project_root: Path,
+) -> tuple[LayerTilePrior | None, str | None]:
+    raw_path = options.get("descriptor_order_prior_path")
+    if raw_path is None:
+        return None, None
+    path = resolve_path(raw_path, base_dir=project_root)
+    prior = load_layer_tile_prior(path)
+    return prior, hash_layer_tile_prior(prior)
+
+
+def _int_tuple_option(
+    options: dict[str, Any],
+    key: str,
+    default: tuple[int, ...],
+) -> tuple[int, ...]:
+    raw = options.get(key)
+    if raw is None:
+        return default
+    if isinstance(raw, int):
+        return (int(raw),)
+    if isinstance(raw, str):
+        values = [item.strip() for item in raw.split(",") if item.strip()]
+        return tuple(int(item) for item in values) or default
+    return tuple(int(item) for item in raw) or default
+
+
 def _shadow_request_id(
     *,
     sample_idx: int,
@@ -1057,6 +1245,13 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
         options=runtime_shadow_options,
         project_root=project_root,
     )
+    (
+        runtime_shadow_descriptor_order_prior,
+        runtime_shadow_descriptor_order_prior_hash,
+    ) = _load_runtime_shadow_descriptor_order_prior(
+        options=runtime_shadow_options,
+        project_root=project_root,
+    )
     manifest_path = output_dir / "manifest.jsonl"
     try:
         with manifest_path.open("w", encoding="utf-8") as manifest:
@@ -1090,6 +1285,54 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                                 )
                             ),
                             shadow_transition_matrix=runtime_shadow_transition_matrix,
+                            shadow_emit_descriptor_order_summary=bool(
+                                runtime_shadow_options.get(
+                                    "emit_descriptor_order_summaries",
+                                    False,
+                                )
+                            ),
+                            shadow_descriptor_order_prior=runtime_shadow_descriptor_order_prior,
+                            shadow_descriptor_order_prior_id=(
+                                str(runtime_shadow_options.get("descriptor_order_prior_id"))
+                                if runtime_shadow_options.get("descriptor_order_prior_id")
+                                is not None
+                                else None
+                            ),
+                            shadow_descriptor_order_prior_hash=(
+                                str(
+                                    runtime_shadow_options.get(
+                                        "descriptor_order_prior_hash",
+                                        runtime_shadow_descriptor_order_prior_hash,
+                                    )
+                                )
+                                if runtime_shadow_descriptor_order_prior_hash is not None
+                                or runtime_shadow_options.get("descriptor_order_prior_hash")
+                                is not None
+                                else None
+                            ),
+                            shadow_descriptor_order_tiles_per_expert=int(
+                                runtime_shadow_options.get("descriptor_order_tiles_per_expert", 1)
+                            ),
+                            shadow_descriptor_order_cache_sizes=_int_tuple_option(
+                                runtime_shadow_options,
+                                "descriptor_order_cache_sizes",
+                                (8, 16, 32),
+                            ),
+                            shadow_descriptor_order_top_k=int(
+                                runtime_shadow_options.get("descriptor_order_top_k", 8)
+                            ),
+                            shadow_descriptor_order_top_utility_override=int(
+                                runtime_shadow_options.get(
+                                    "descriptor_order_top_utility_override",
+                                    0,
+                                )
+                            ),
+                            shadow_descriptor_order_event_token_index=int(
+                                runtime_shadow_options.get(
+                                    "descriptor_order_event_token_index",
+                                    -1,
+                                )
+                            ),
                         )
                         for sample_idx, record, input_ids, prompt in chunk:
                             recorder.clear()

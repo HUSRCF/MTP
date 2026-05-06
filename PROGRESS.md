@@ -2834,3 +2834,44 @@ Attach a real vLLM/runtime producer that builds current-router token-row tile
 requests, calls descriptor_order_policy=layer_prior_frequency, and writes only
 the shadow counters. Do not change grouped-GEMM execution order yet.
 ```
+
+Online vLLM descriptor-order producer:
+
+```text
+code:
+  src/mtp_expert_prefetch/tracing/vllm_router_trace.py
+
+runtime_shadow options:
+  emit_descriptor_order_summaries
+  descriptor_order_prior_path
+  descriptor_order_prior_id
+  descriptor_order_tiles_per_expert
+  descriptor_order_cache_sizes
+  descriptor_order_top_k
+  descriptor_order_top_utility_override
+
+behavior:
+  after a true-router top-k call, expand the current layer's token/top-k rows
+  into a current-router TileRequest stream;
+  apply the calibrated layer_prior_frequency order;
+  write a descriptor_order_shadow summary with prior hash, multiset/order hash,
+  LRU/order-hit/reuse metrics, and overhead fields.
+
+boundary:
+  this is shadow-only;
+  it does not alter grouped-GEMM execution order;
+  it does not write ready masks;
+  it does not participate in action-summary/outcome joining.
+
+fallback:
+  missing prior or missing layer order is a no-op, not a runtime failure.
+```
+
+Current next gate:
+
+```text
+Run an online vLLM shadow-only smoke with the calibrated layer-prior artifact,
+then compare online descriptor_order LRU/order-hit/reuse metrics with the 512
+heldout tensor-cache replay before enabling any real descriptor visitation
+order changes.
+```

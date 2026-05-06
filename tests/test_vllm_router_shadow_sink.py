@@ -5,6 +5,9 @@ from mtp_expert_prefetch.runtime import (
     AdmissionDecisionMasks,
     OnlineShadowLogger,
     RuntimeShadowController,
+    TileRequest,
+    build_layer_tile_prior,
+    hash_layer_tile_prior,
 )
 from mtp_expert_prefetch.runtime.shadow_log import (
     ShadowEventId,
@@ -203,6 +206,78 @@ def test_vllm_router_recorder_emits_matrix_topk_transition_summaries(tmp_path):
     assert rows[2]["join_status"] == "joined"
     assert rows[2]["covered_mass"] == pytest.approx(1.0)
     assert rows[2]["top1_ready"] is True
+
+
+def test_vllm_router_recorder_emits_descriptor_order_summary(tmp_path):
+    path = tmp_path / "descriptor_order_shadow.jsonl"
+    prior = build_layer_tile_prior(
+        [
+            TileRequest(0, 0, 2, 2, layer_idx=0),
+            TileRequest(0, 1, 2, 2, layer_idx=0),
+            TileRequest(0, 2, 1, 1, layer_idx=0),
+        ],
+        score_name="frequency",
+        metadata={"experiment_id": "prior-v1"},
+    )
+    prior_hash = hash_layer_tile_prior(prior)
+
+    with RuntimeShadowController(OnlineShadowLogger(path)) as controller:
+        recorder = VllmRouterRecorder(
+            top_k=2,
+            shadow_outcome_sink=controller,
+            shadow_emit_descriptor_order_summary=True,
+            shadow_descriptor_order_prior=prior,
+            shadow_descriptor_order_prior_id="prior-v1",
+            shadow_descriptor_order_prior_hash=prior_hash,
+            shadow_descriptor_order_tiles_per_expert=1,
+            request_id="req",
+            sequence_id=0,
+            token_offset=10,
+        )
+        recorder.record_topk(
+            layer_id=0,
+            topk_ids=torch.tensor([[1, 2], [1, 3]]),
+            topk_weights=torch.tensor([[0.7, 0.3], [0.6, 0.4]]),
+        )
+        aggregate = controller.aggregate()
+
+    rows = read_shadow_jsonl(path)
+    assert [row["event_type"] for row in rows] == ["outcome", "outcome", "summary"]
+    summary = rows[-1]
+    assert summary["shadow_event_id"] == "req:0:-1:0"
+    assert summary["policy_mode"] == "descriptor_order_shadow"
+    assert summary["descriptor_order_policy"] == "layer_prior_frequency"
+    assert summary["descriptor_order_prior_id"] == "prior-v1"
+    assert summary["descriptor_order_prior_hash"] == prior_hash
+    assert summary["descriptor_tile_request_count"] == 4
+    assert summary["descriptor_same_multiset"] is True
+    assert summary["descriptor_order_changed"] is True
+    assert summary["candidate_construction_us"] >= 0.0
+    assert summary["descriptor_order_build_us"] >= 0.0
+    assert summary["decision_us"] >= summary["candidate_construction_us"]
+    assert aggregate["descriptor_order_summary_count"] == 1
+    assert aggregate["controller_stats"]["written_summary_count"] == 1
+
+
+def test_vllm_descriptor_order_summary_is_noop_without_prior(tmp_path):
+    path = tmp_path / "descriptor_order_missing_prior.jsonl"
+    with RuntimeShadowController(OnlineShadowLogger(path)) as controller:
+        recorder = VllmRouterRecorder(
+            top_k=2,
+            shadow_outcome_sink=controller,
+            shadow_emit_descriptor_order_summary=True,
+            request_id="req",
+            sequence_id=0,
+            token_offset=10,
+        )
+        recorder.record_topk(
+            layer_id=0,
+            topk_ids=torch.tensor([[1, 2]]),
+            topk_weights=torch.tensor([[0.7, 0.3]]),
+        )
+
+    rows = read_shadow_jsonl(path)
+    assert [row["event_type"] for row in rows] == ["outcome"]
 
 
 def test_vllm_matrix_topk_transition_is_weighted_and_stable(tmp_path):

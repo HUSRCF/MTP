@@ -1794,10 +1794,17 @@ Interpretation:
   - controller exposes `write_descriptor_order_summary(...)`
   - active runtime hook exposes `write_active_runtime_shadow_descriptor_order_summary(...)`
   - smoke artifact: `outputs/reports/tile_order_cache/layer_prior_descriptor_order_shadow_smoke.jsonl`
-- [ ] Add online vLLM descriptor-order shadow producer:
+- [x] Add online vLLM descriptor-order shadow producer:
   - generate current-router token/row tile stream after true router outcome
   - write descriptor-order summary only; do not change execution order yet
   - compare online reuse/order-hit metrics to the 512 tensor-cache replay
+  - recorder now supports `emit_descriptor_order_summaries` with a calibrated layer-prior artifact
+  - current-router top-k is expanded into a layer-call `TileRequest` stream and summarized with `layer_prior_frequency`
+  - missing prior or missing layer order is a no-op, not a runtime failure
+- [ ] Run online vLLM descriptor-order replay consistency:
+  - configure `descriptor_order_prior_path` to the calibrated layer-prior artifact
+  - record online `descriptor_order_lru_at_8/16`, `descriptor_order_hit_rate`, and overhead fields
+  - compare online metrics with the 512 heldout tensor-cache replay before changing real execution order
 - [ ] Add descriptor precompute / patch timing:
   - true-router rebuild baseline
   - transition/MTP candidate descriptor prebuild
