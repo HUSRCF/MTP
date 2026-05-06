@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from mtp_expert_prefetch.runtime.admission import AdmissionDecisionMasks
+from mtp_expert_prefetch.runtime.descriptor_order import DescriptorOrderReport
 from mtp_expert_prefetch.runtime.shadow_log import (
     ShadowEventId,
     ShadowOutcomeEvent,
@@ -82,6 +83,35 @@ class OnlineShadowLogger:
             layer_ms=layer_ms,
             cache_pressure=cache_pressure,
             queue_pressure=queue_pressure,
+        )
+        self.write_summary(event)
+        return event
+
+    def write_descriptor_order_summary(
+        self,
+        *,
+        event_id: ShadowEventId,
+        policy: ShadowPolicyConfig,
+        descriptor_report: DescriptorOrderReport,
+        baseline_order_hash: str | None = None,
+        transition_topk_count: int = 0,
+        mtp_requested_count: int = 0,
+        decision_us: float | None = None,
+        candidate_construction_us: float | None = None,
+        counter_update_us: float | None = None,
+        logging_us: float | None = None,
+    ) -> ShadowSummaryEvent:
+        event = build_shadow_summary_from_descriptor_order(
+            event_id=event_id,
+            policy=policy,
+            descriptor_report=descriptor_report,
+            baseline_order_hash=baseline_order_hash,
+            transition_topk_count=transition_topk_count,
+            mtp_requested_count=mtp_requested_count,
+            decision_us=decision_us,
+            candidate_construction_us=candidate_construction_us,
+            counter_update_us=counter_update_us,
+            logging_us=logging_us,
         )
         self.write_summary(event)
         return event
@@ -187,6 +217,52 @@ def build_shadow_summary_from_decisions(
         queue_pressure=queue_pressure,
         reason_counts=reason_counts,
         action_reason_counts=action_reason_counts,
+    )
+
+
+def build_shadow_summary_from_descriptor_order(
+    *,
+    event_id: ShadowEventId,
+    policy: ShadowPolicyConfig,
+    descriptor_report: DescriptorOrderReport,
+    baseline_order_hash: str | None = None,
+    transition_topk_count: int = 0,
+    mtp_requested_count: int = 0,
+    decision_us: float | None = None,
+    candidate_construction_us: float | None = None,
+    counter_update_us: float | None = None,
+    logging_us: float | None = None,
+) -> ShadowSummaryEvent:
+    metrics = descriptor_report.metrics
+    order_changed = (
+        descriptor_report.order_hash != baseline_order_hash
+        if baseline_order_hash is not None
+        else None
+    )
+    return ShadowSummaryEvent(
+        event_id=event_id,
+        policy=policy,
+        transition_topk_count=int(transition_topk_count),
+        mtp_requested_count=int(mtp_requested_count),
+        full_fetch_count=0,
+        metadata_count=0,
+        premap_count=0,
+        skip_count=0,
+        full_fetch_payload_bytes=0,
+        metadata_actual_bytes=0,
+        premap_actual_bytes=0,
+        decision_us=decision_us,
+        candidate_construction_us=candidate_construction_us,
+        counter_update_us=counter_update_us,
+        logging_us=logging_us,
+        descriptor_order_build_us=descriptor_report.order_build_us,
+        descriptor_tile_multiset_hash=descriptor_report.tile_multiset_hash,
+        descriptor_order_hash=descriptor_report.order_hash,
+        descriptor_order_metrics=metrics,
+        descriptor_tile_request_count=descriptor_report.descriptor_count,
+        descriptor_unique_b_tiles=int(metrics.get("unique_tiles_total", 0) or 0),
+        descriptor_same_multiset=True,
+        descriptor_order_changed=order_changed,
     )
 
 

@@ -26,6 +26,7 @@ from mtp_expert_prefetch.runtime.cache_sim import (
 from mtp_expert_prefetch.runtime.descriptor_order import (
     DescriptorOrderReport,
     descriptors_to_tile_requests,
+    order_tile_request_stream,
     order_prefetch_descriptors,
 )
 from mtp_expert_prefetch.runtime.event_sim import (
@@ -56,6 +57,7 @@ from mtp_expert_prefetch.runtime.policy import (
 )
 from mtp_expert_prefetch.runtime.online_shadow import (
     OnlineShadowLogger,
+    build_shadow_summary_from_descriptor_order,
     build_shadow_summary_from_decisions,
 )
 from mtp_expert_prefetch.runtime.shadow_controller import (
@@ -99,6 +101,7 @@ __all__ = [
     "PrefetchPriority",
     "OnlineShadowLogger",
     "PendingShadowDecision",
+    "build_shadow_summary_from_descriptor_order",
     "build_shadow_summary_from_decisions",
     "RuntimeShadowController",
     "RuntimeShadowControllerStats",
@@ -145,6 +148,7 @@ __all__ = [
     "select_runtime_prefetch_policy",
     "order_tile_requests",
     "order_prefetch_descriptors",
+    "order_tile_request_stream",
     "tile_requests_from_tensor_cache",
     "simulate_lru_hit_rate",
     "simulate_descriptor_lru_cache",

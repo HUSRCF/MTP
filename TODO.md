@@ -1737,14 +1737,23 @@ Interpretation:
   - JSONL replay supported by `scripts/simulate_tile_order_cache.py --input-jsonl`
   - timing bench supported by `scripts/run_tile_order_cache_bench.py --input-jsonl`
   - smoke artifact: `outputs/reports/tile_order_cache/tile_stream_512sample_top8_summary.md`
-- [ ] Add runtime/online descriptor-order shadow from token-row tile stream:
+- [x] Add runtime/online descriptor-order shadow from token-row tile stream:
   - record `descriptor_order_policy`, `descriptor_order_build_us`, `descriptor_tile_multiset_hash`, `descriptor_order_hash`
   - record reuse/order-hit metrics from the same token-row tile stream
   - keep action shadow-only first; do not alter real grouped-GEMM execution yet
-- [ ] Add order-build overhead Pareto for token-row streams:
+- [x] Add order-build overhead Pareto for token-row streams:
   - compare Python prototype vs bucketed grouping / partial sort implementation
   - report `kernel_saved_us - order_build_us`
   - stop condition: if order construction dominates timing savings, restrict descriptor_order to precomputed/shadow use
+- [ ] Implement low-overhead descriptor-order builder:
+  - replace Python sort prototype with bucketed group-by-B-tile / counting sort over 256 experts or B tiles
+  - avoid full per-row comparison sort on the runtime path
+  - target order-build cost must be below the measured kernel savings envelope
+  - first implementation can be CPU C++/NumPy-style offline, then device-side or runtime C++ if promising
+- [ ] Add online vLLM descriptor-order shadow hook:
+  - generate current-router token/row tile stream after true router outcome
+  - write descriptor-order summary only; do not change execution order yet
+  - compare online reuse/order-hit metrics to the 512 tensor-cache replay
 - [ ] Add descriptor precompute / patch timing:
   - true-router rebuild baseline
   - transition/MTP candidate descriptor prebuild

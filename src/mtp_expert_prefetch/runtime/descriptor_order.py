@@ -79,6 +79,39 @@ def order_prefetch_descriptors(
     return ordered_descriptors, report
 
 
+def order_tile_request_stream(
+    requests: Sequence[TileRequest],
+    *,
+    policy: str = "utility_tile_grouped",
+    cache_sizes: Sequence[int] = (8, 16, 32),
+    tile_order_top_k: int = 8,
+    seed: int = 0,
+) -> tuple[list[TileRequest], DescriptorOrderReport]:
+    """Reorder a token/row-level tile stream without changing its multiset."""
+
+    start_ns = time.perf_counter_ns()
+    ordered_requests = order_tile_requests(requests, policy=policy, seed=seed)
+    elapsed_us = (time.perf_counter_ns() - start_ns) / 1000.0
+    metrics = evaluate_tile_order_policy(
+        requests,
+        policy=policy,
+        cache_sizes=cache_sizes,
+        tile_order_top_k=tile_order_top_k,
+        seed=seed,
+    )
+    order_ids = [request.tile_id for request in ordered_requests]
+    multiset_ids = sorted(request.tile_id for request in requests)
+    report = DescriptorOrderReport(
+        policy=policy,
+        descriptor_count=len(requests),
+        tile_multiset_hash=hash_ints(multiset_ids),
+        order_hash=hash_ints(order_ids),
+        order_build_us=elapsed_us,
+        metrics=metrics,
+    )
+    return ordered_requests, report
+
+
 def descriptors_to_tile_requests(
     descriptors: Sequence[ExpertPrefetchDescriptor],
     *,
@@ -111,4 +144,3 @@ def descriptors_to_tile_requests(
 def hash_ints(values: Sequence[int]) -> str:
     payload = ",".join(str(int(value)) for value in values).encode("ascii")
     return hashlib.sha256(payload).hexdigest()
-

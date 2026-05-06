@@ -1,5 +1,10 @@
 from __future__ import annotations
 
+from mtp_expert_prefetch.runtime import (
+    TileRequest,
+    build_shadow_summary_from_descriptor_order,
+    order_tile_request_stream,
+)
 from mtp_expert_prefetch.runtime.shadow_log import (
     ShadowEventId,
     ShadowOutcomeEvent,
@@ -53,6 +58,10 @@ def test_shadow_log_schema_round_trip_and_aggregate(tmp_path):
         descriptor_tile_multiset_hash="same-tiles",
         descriptor_order_hash="ordered-tiles",
         descriptor_order_metrics={"lru_hit_rate": {"8": 0.8}, "tile_order_hit_rate": 0.5},
+        descriptor_tile_request_count=17,
+        descriptor_unique_b_tiles=9,
+        descriptor_same_multiset=True,
+        descriptor_order_changed=True,
     )
     outcome = ShadowOutcomeEvent(
         event_id=event_id,
@@ -79,6 +88,10 @@ def test_shadow_log_schema_round_trip_and_aggregate(tmp_path):
     assert rows[0]["descriptor_tile_multiset_hash"] == "same-tiles"
     assert rows[0]["descriptor_order_hash"] == "ordered-tiles"
     assert rows[0]["descriptor_order_metrics"]["lru_hit_rate"]["8"] == 0.8
+    assert rows[0]["descriptor_tile_request_count"] == 17
+    assert rows[0]["descriptor_unique_b_tiles"] == 9
+    assert rows[0]["descriptor_same_multiset"] is True
+    assert rows[0]["descriptor_order_changed"] is True
     assert rows[0]["full_fetch_count"] == 3
     assert rows[0]["transition_ready_rate"] == 0.95
     assert rows[0]["mtp_ready_fraction"] == 0.50
@@ -98,3 +111,45 @@ def test_shadow_log_schema_round_trip_and_aggregate(tmp_path):
     assert aggregate["counter_update_us_mean"] == 2.0
     assert aggregate["logging_us_mean"] == 1.0
     assert aggregate["descriptor_order_build_us_mean"] == 4.0
+    assert aggregate["descriptor_tile_request_count"] == 17
+    assert aggregate["descriptor_unique_b_tiles_mean"] == 9.0
+    assert aggregate["descriptor_same_multiset_count"] == 1
+    assert aggregate["descriptor_order_changed_count"] == 1
+
+
+def test_descriptor_order_shadow_summary_builder():
+    event_id = ShadowEventId("req", sequence_id=0, token_index=1, layer=2)
+    policy = ShadowPolicyConfig(
+        policy_mode="descriptor_order_shadow",
+        optimization_goal="cache_locality",
+        action_keep_fraction=0.0,
+        metadata_score_ratio=0.0,
+        full_fetch_max_extra=0,
+        metadata_max_extra=0,
+        premap_max_extra=0,
+        descriptor_order_policy="utility_tile_grouped",
+    )
+    requests = [
+        TileRequest(0, 0, 1, 1, utility_score=0.1),
+        TileRequest(0, 1, 2, 2, utility_score=0.9),
+        TileRequest(0, 2, 1, 1, utility_score=0.2),
+    ]
+    _, linear = order_tile_request_stream(requests, policy="linear")
+    _, ordered = order_tile_request_stream(requests, policy="utility_tile_grouped")
+
+    summary = build_shadow_summary_from_descriptor_order(
+        event_id=event_id,
+        policy=policy,
+        descriptor_report=ordered,
+        baseline_order_hash=linear.order_hash,
+    )
+    payload = summary.as_dict()
+
+    assert payload["descriptor_order_policy"] == "utility_tile_grouped"
+    assert payload["descriptor_tile_request_count"] == 3
+    assert payload["descriptor_unique_b_tiles"] == 2
+    assert payload["descriptor_same_multiset"] is True
+    assert payload["descriptor_order_changed"] is True
+    assert payload["full_fetch_count"] == 0
+    assert payload["metadata_count"] == 0
+    assert payload["premap_count"] == 0

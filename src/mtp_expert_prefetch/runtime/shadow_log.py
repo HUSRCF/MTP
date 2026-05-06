@@ -82,6 +82,10 @@ class ShadowSummaryEvent:
     descriptor_tile_multiset_hash: str | None = None
     descriptor_order_hash: str | None = None
     descriptor_order_metrics: dict[str, Any] | None = None
+    descriptor_tile_request_count: int | None = None
+    descriptor_unique_b_tiles: int | None = None
+    descriptor_same_multiset: bool | None = None
+    descriptor_order_changed: bool | None = None
 
     def as_dict(self) -> dict[str, Any]:
         payload = {
@@ -114,6 +118,10 @@ class ShadowSummaryEvent:
         _put_optional(payload, "descriptor_order_build_us", self.descriptor_order_build_us)
         _put_optional(payload, "descriptor_tile_multiset_hash", self.descriptor_tile_multiset_hash)
         _put_optional(payload, "descriptor_order_hash", self.descriptor_order_hash)
+        _put_optional(payload, "descriptor_tile_request_count", self.descriptor_tile_request_count)
+        _put_optional(payload, "descriptor_unique_b_tiles", self.descriptor_unique_b_tiles)
+        _put_optional(payload, "descriptor_same_multiset", self.descriptor_same_multiset)
+        _put_optional(payload, "descriptor_order_changed", self.descriptor_order_changed)
         if self.descriptor_order_metrics is not None:
             payload["descriptor_order_metrics"] = self.descriptor_order_metrics
         if self.reason_counts is not None:
@@ -244,6 +252,10 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
         "logging_us_sum": 0.0,
         "descriptor_order_build_us_sum": 0.0,
         "descriptor_order_summary_count": 0,
+        "descriptor_tile_request_count": 0,
+        "descriptor_unique_b_tiles_sum": 0,
+        "descriptor_same_multiset_count": 0,
+        "descriptor_order_changed_count": 0,
         "joined_outcome_count": 0,
         "outcome_only_count": 0,
         "summary_only_timeout_count": 0,
@@ -275,6 +287,18 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
                     event.get("descriptor_order_build_us", 0.0) or 0.0
                 )
                 totals["descriptor_order_summary_count"] += 1
+                totals["descriptor_tile_request_count"] += int(
+                    event.get("descriptor_tile_request_count", 0) or 0
+                )
+                totals["descriptor_unique_b_tiles_sum"] += int(
+                    event.get("descriptor_unique_b_tiles", 0) or 0
+                )
+                totals["descriptor_same_multiset_count"] += int(
+                    bool(event.get("descriptor_same_multiset", False))
+                )
+                totals["descriptor_order_changed_count"] += int(
+                    bool(event.get("descriptor_order_changed", False))
+                )
         elif event_type == "candidate":
             totals["candidate_count"] += 1
         elif event_type == "outcome":
@@ -316,6 +340,9 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
     descriptor_count = max(1, int(totals["descriptor_order_summary_count"]))
     totals["descriptor_order_build_us_mean"] = (
         totals["descriptor_order_build_us_sum"] / descriptor_count
+    )
+    totals["descriptor_unique_b_tiles_mean"] = (
+        totals["descriptor_unique_b_tiles_sum"] / descriptor_count
     )
     return totals
 

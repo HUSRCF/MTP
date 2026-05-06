@@ -2361,3 +2361,57 @@ performance claim. The stronger timing evidence remains the prior stability
 sweep. The important engineering step is that runtime descriptor_order and
 the GPU timing bench can now consume the same row-level tile descriptor format.
 ```
+
+Descriptor-order shadow summary over token/row streams:
+
+```text
+module:  order_tile_request_stream(...)
+schema:  ShadowSummaryEvent descriptor_tile_request_count / unique_b_tiles /
+         same_multiset / order_changed
+script:  scripts/simulate_tile_stream_descriptor_order.py
+```
+
+512-sample row-stream shadow smoke:
+
+```text
+artifact: outputs/reports/tile_order_cache/tile_stream_descriptor_order_512sample_top8.md
+shadow:   outputs/reports/tile_order_cache/tile_stream_descriptor_order_512sample_top8.shadow.jsonl
+```
+
+Key rows:
+
+```text
+linear:
+  build_us median ~= 7.8ms
+  LRU@8 = 0.391
+  order_hit = 0.414
+  same_multiset = true
+  order_changed = false
+
+utility_tile_grouped:
+  build_us median ~= 82.6ms in Python
+  LRU@8 = 0.833
+  order_hit = 0.491
+  same_multiset = true
+  order_changed = true
+```
+
+Order-build overhead Pareto:
+
+```text
+script:  scripts/summarize_tile_order_overhead_pareto.py
+artifact: outputs/reports/tile_order_cache/tile_stream_top8_overhead_pareto_stability.md
+```
+
+Current conclusion:
+
+```text
+The Python prototype is far too expensive for runtime descriptor ordering:
+order_build_us is tens of milliseconds on the 163k-row stream, while measured
+kernel savings in the direct/global-fragment bench are tens of microseconds.
+
+This does not invalidate descriptor_order as a runtime action. It fixes the
+next implementation requirement: real runtime ordering must use bucketed
+group-by-tile / partial sort / precomputed group order in C++ or device-side
+code. The Python path is only for shadow semantics and offline analysis.
+```
