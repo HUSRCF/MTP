@@ -3130,6 +3130,99 @@ interpretation:
   an offline replay diagnostic or sampled debug mode.
 ```
 
+AWQ compact descriptor_order scale-up:
+
+```text
+configs:
+  configs/trace/router_mtp_trace_aya_dataset_awq_vllm_descriptor_order_shadow_smoke8.yaml
+  configs/trace/router_mtp_trace_aya_dataset_awq_vllm_descriptor_order_shadow_smoke32.yaml
+
+environment:
+  TRY conda env
+  HIP_VISIBLE_DEVICES=0 for smoke8
+  HIP_VISIBLE_DEVICES=1 for smoke32
+
+outputs:
+  data/traces/aya_dataset_smoke_awq_vllm_descriptor_order_shadow_smoke8/runtime_shadow.jsonl
+  data/traces/aya_dataset_smoke_awq_vllm_descriptor_order_shadow_smoke32/runtime_shadow.jsonl
+```
+
+Correctness / scale:
+
+```text
+smoke8:
+  samples = 8
+  token count range = 35..127
+  outcomes = 29,760 = sum(num_tokens) * 40
+  descriptor_order summaries = 320 = 8 * 40
+  runtime_shadow size = 22MB
+
+smoke32:
+  samples = 32
+  token count range = 35..127
+  outcomes = 125,360 = sum(num_tokens) * 40
+  descriptor_order summaries = 1,280 = 32 * 40
+  runtime_shadow size = 90MB
+```
+
+Compact overhead distribution:
+
+```text
+smoke8:
+  candidate_construction_us:
+    mean 4.72 / p50 4.39 / p90 5.29 / p95 5.85 / p99 8.16 / max 21.03
+  descriptor_order_build_us:
+    mean 478.73 / p50 478.08 / p90 564.33 / p95 585.59 / p99 630.44 / max 744.96
+  decision_us:
+    mean 1248.67 / p50 1360.25 / p90 1575.90 / p95 1626.91 / p99 1710.56 / max 2190.96
+  counter_update_us:
+    mean 765.22 / p50 833.06 / p90 1011.52 / p95 1037.89 / p99 1100.92 / max 1441.13
+
+smoke32:
+  candidate_construction_us:
+    mean 4.13 / p50 4.12 / p90 4.46 / p95 4.60 / p99 5.18 / max 19.41
+  descriptor_order_build_us:
+    mean 452.57 / p50 448.48 / p90 527.73 / p95 558.32 / p99 616.71 / max 893.86
+  decision_us:
+    mean 1210.03 / p50 1253.86 / p90 1485.60 / p95 1535.35 / p99 1687.79 / max 2287.63
+  counter_update_us:
+    mean 753.33 / p50 825.15 / p90 970.96 / p95 992.39 / p99 1091.56 / max 1411.27
+```
+
+Compact locality/order distribution:
+
+```text
+smoke8:
+  LRU@8 mean 0.8153 / p50 0.8258 / p95 0.8937 / p99 0.9120
+  LRU@16 mean 0.8153 / p50 0.8258 / p95 0.8937 / p99 0.9120
+  order_hit mean 0.4670 / p50 0.5000 / p95 0.7500 / p99 0.8125
+  unique_tiles_total mean 97.03 / p50 93.5 / p95 156.0 / p99 185.0
+
+smoke32:
+  LRU@8 mean 0.8143 / p50 0.8235 / p95 0.8760 / p99 0.8978
+  LRU@16 mean 0.8143 / p50 0.8237 / p95 0.8760 / p99 0.8978
+  order_hit mean 0.4137 / p50 0.4375 / p95 0.7500 / p99 0.8125
+  unique_tiles_total mean 102.83 / p50 98.0 / p95 161.0 / p99 191.4
+```
+
+Scale-up conclusion:
+
+```text
+AWQ online compact descriptor_order shadow is stable at 8/32 sample scale.
+Summary/outcome counts match manifest token counts exactly, and same_multiset /
+order_changed are true for every descriptor_order summary.
+
+Overhead is stable but still too high for a synchronous critical-path runtime
+action: p95 decision_us is ~1.54ms and p99 is ~1.69ms on smoke32. This is
+acceptable for online shadow observability, not yet for production descriptor
+visitation changes.
+
+Next gate:
+  compare no-shadow vs compact-shadow end-to-end wall time/TPOT, then add an
+  even cheaper metrics_mode=none for long online runs where only hashes/counts
+  and build_us are needed.
+```
+
 Runtime online descriptor-order fast producer:
 
 ```text
