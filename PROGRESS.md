@@ -2902,6 +2902,10 @@ real vLLM shadow-only runs:
   heldout with vLLM-calibrated prior:
     configs/trace/router_mtp_trace_aya_dataset_gptq_vllm_descriptor_order_shadow_smoke32_heldout_vllm_prior.yaml
     data/traces/aya_dataset_smoke_gptq_vllm_descriptor_order_shadow_smoke32_heldout_vllm_prior/
+
+  smoke64:
+    configs/trace/router_mtp_trace_aya_dataset_gptq_vllm_descriptor_order_shadow_smoke64.yaml
+    data/traces/aya_dataset_smoke_gptq_vllm_descriptor_order_shadow_smoke64/
 ```
 
 Key reports:
@@ -2911,6 +2915,8 @@ outputs/reports/tile_order_cache/vllm_descriptor_order_shadow_smoke8_replay.md
 outputs/reports/tile_order_cache/vllm_descriptor_order_shadow_smoke32_replay.md
 outputs/reports/tile_order_cache/vllm_descriptor_order_shadow_smoke32_heldout_vllm_prior_replay.md
 outputs/reports/tile_order_cache/vllm_smoke32_layer_prior_frequency_24calib.json
+outputs/reports/tile_order_cache/vllm_descriptor_order_shadow_smoke64_replay.md
+outputs/reports/tile_order_cache/vllm_smoke64_layer_prior_frequency_48calib.json
 ```
 
 Online producer validation:
@@ -2971,6 +2977,31 @@ vLLM internal 24/8 calibration split:
     LRU@8 / LRU@16 = 0.9495 / 0.9531
     reuse_mean = 2.1984
     order_hit = 0.6350
+
+smoke64 scale check:
+  requests = 1,844,160
+  windows = 3,640
+
+  old tensor-cache layer_prior_frequency:
+    LRU@8 / LRU@16 = 0.9404 / 0.9413
+    reuse_mean = 2.5393
+    order_hit = 0.2977
+
+  utility_tile_grouped_bucket:
+    LRU@8 / LRU@16 = 0.9405 / 0.9426
+    reuse_mean = 2.4463
+    order_hit = 0.5608
+
+  vLLM internal 48/16 calibration split:
+    vLLM-calibrated layer_prior_frequency on heldout samples 48-63:
+      LRU@8 / LRU@16 = 0.9368 / 0.9378
+      reuse_mean = 3.2646
+      order_hit = 0.8689
+
+    utility_tile_grouped_bucket on the same heldout:
+      LRU@8 / LRU@16 = 0.9368 / 0.9381
+      reuse_mean = 3.1584
+      order_hit = 0.5207
 ```
 
 Conclusion:
