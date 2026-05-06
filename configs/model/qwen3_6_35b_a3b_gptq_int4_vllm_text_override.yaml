@@ -1,0 +1,35 @@
+model_id: /home/husrcf/.cache/huggingface/hub/models--palmfuture--Qwen3.6-35B-A3B-GPTQ-Int4/snapshots/88654f954a28931eff69c421e4ec3bd7d2d1e494
+base_model_id: Qwen/Qwen3.6-35B-A3B
+source_model_id: palmfuture/Qwen3.6-35B-A3B-GPTQ-Int4
+backend: vllm
+trust_remote_code: true
+torch_dtype: float16
+local_files_only: true
+quantization_method: gptq
+packing_format: gptq
+
+architecture:
+  hidden_size: 2048
+  num_hidden_layers: 40
+  num_experts: 256
+  num_experts_per_tok: 8
+  mtp_num_hidden_layers: 1
+  max_position_embeddings: 262144
+
+vllm:
+  hf_config_path: configs/model/qwen3_6_35b_a3b_gptq_vllm_text_config
+  max_model_len: 128
+  max_tokens: 1
+  tensor_parallel_size: 1
+  gpu_memory_utilization: 0.98
+  max_num_seqs: 8
+  engine_chunk_size: 8
+  enforce_eager: true
+  language_model_only: true
+  limit_mm_per_prompt:
+    image: 0
+    video: 0
+  disable_flash_attn_probe: true
+  enable_return_routed_experts: true
+  use_router_logits_recorder: true
+  disable_v1_multiprocessing_for_recorder: true

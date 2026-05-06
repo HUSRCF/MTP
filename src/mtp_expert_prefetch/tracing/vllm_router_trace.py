@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import gc
 import importlib.util
+import importlib
+import inspect
 import json
 import os
 import sys
@@ -67,6 +69,7 @@ class VllmRouterRecorder:
     shadow_descriptor_order_prior_id: str | None = None
     shadow_descriptor_order_prior_hash: str | None = None
     shadow_descriptor_order_tiles_per_expert: int = 1
+    shadow_descriptor_order_token_window_size: int = 0
     shadow_descriptor_order_cache_sizes: tuple[int, ...] = (8, 16, 32)
     shadow_descriptor_order_top_k: int = 8
     shadow_descriptor_order_top_utility_override: int = 0
@@ -219,6 +222,7 @@ class VllmRouterRecorder:
             topk_ids=topk_ids,
             topk_weights=topk_weights,
             tiles_per_expert=int(self.shadow_descriptor_order_tiles_per_expert),
+            token_window_size=int(self.shadow_descriptor_order_token_window_size),
         )
         stream_build_us = (time.perf_counter_ns() - stream_start_ns) / 1000.0
         if not requests:
@@ -592,6 +596,7 @@ def _tile_requests_from_router_topk(
     topk_ids: torch.Tensor,
     topk_weights: torch.Tensor,
     tiles_per_expert: int,
+    token_window_size: int = 0,
 ) -> list[TileRequest]:
     """Expand true-router top-k into a current-router token/row tile stream."""
 
@@ -602,8 +607,12 @@ def _tile_requests_from_router_topk(
     tiles_per_expert = max(1, int(tiles_per_expert))
     requests: list[TileRequest] = []
     request_id = 0
+    token_window_size = int(token_window_size)
     for token_idx in range(int(ids.shape[0])):
         absolute_token = int(token_offset + token_idx)
+        window_id = 0
+        if token_window_size > 0:
+            window_id = int(token_idx // token_window_size)
         for row_id, (expert_tensor, weight_tensor) in enumerate(
             zip(ids[token_idx].tolist(), weights[token_idx].tolist(), strict=True)
         ):
@@ -615,7 +624,7 @@ def _tile_requests_from_router_topk(
                 tile_id = expert * tiles_per_expert + int(tile_local)
                 requests.append(
                     TileRequest(
-                        window_id=0,
+                        window_id=window_id,
                         request_id=request_id,
                         tile_id=tile_id,
                         expert_id=expert,
@@ -644,23 +653,141 @@ def patch_vllm_qwen35_moe_router_trace() -> None:
     if _PATCHED:
         return
 
-    from vllm.model_executor.layers.fused_moe.router import base_router
-    from vllm.model_executor.models import qwen3_5, qwen3_next
+    from vllm.model_executor.models import qwen3_next
 
-    original_decoder_init = qwen3_5.Qwen3_5DecoderLayer.__init__
+    try:
+        qwen3_5 = importlib.import_module("vllm.model_executor.models.qwen3_5")
+    except ModuleNotFoundError:
+        qwen3_5 = None
+    try:
+        base_router = importlib.import_module(
+            "vllm.model_executor.layers.fused_moe.router.base_router"
+        )
+    except ModuleNotFoundError:
+        base_router = None
+    try:
+        fused_moe_layer = importlib.import_module(
+            "vllm.model_executor.layers.fused_moe.layer"
+        )
+    except ModuleNotFoundError:
+        fused_moe_layer = None
+
+    decoder_classes = []
+    qwen35_decoder = getattr(qwen3_5, "Qwen3_5DecoderLayer", None)
+    if qwen35_decoder is not None:
+        decoder_classes.append(qwen35_decoder)
+    qwen3_next_decoder = getattr(qwen3_next, "Qwen3NextDecoderLayer", None)
+    if qwen3_next_decoder is not None:
+        decoder_classes.append(qwen3_next_decoder)
+    if not decoder_classes:
+        msg = "Could not find a supported Qwen decoder layer class to patch."
+        raise RuntimeError(msg)
+
     original_moe_forward = qwen3_next.Qwen3NextSparseMoeBlock.forward
-    original_router_set_capture_fn = base_router.BaseRouter.set_capture_fn
-    original_router_select_experts = base_router.BaseRouter.select_experts
+    original_qwen3_next_load_weights = qwen3_next.Qwen3NextForCausalLM.load_weights
 
-    def decoder_init_with_trace_layer(self, *args: Any, **kwargs: Any) -> None:
-        original_decoder_init(self, *args, **kwargs)
-        if hasattr(self, "mlp"):
-            layer_id = getattr(self, "layer_idx", None)
-            self.mlp._mtp_trace_layer_id = layer_id
-            experts = getattr(self.mlp, "experts", None)
-            router = getattr(experts, "router", None)
-            if router is not None:
-                router._mtp_trace_layer_id = layer_id
+    def qwen3_next_load_weights_with_text_prefix_remap(
+        self,
+        weights: Any,
+    ) -> set[str]:
+        """Remap Qwen3-Next multimodal checkpoint names for text-only loading.
+
+        Quantized Qwen3.6-A3B checkpoints may store language weights under
+        ``model.language_model.*``. The text-only vLLM Qwen3NextForCausalLM
+        expects the same tensors under ``model.*``. Without this remap, the
+        smoke can initialize but router gates remain effectively unloaded.
+        """
+
+        def remapped_weights() -> Any:
+            prefix = "model.language_model."
+            pending_linear_attn: dict[tuple[str, str], dict[str, torch.Tensor]] = {}
+
+            def maybe_emit_fused_linear_attn(
+                fused_prefix: str,
+                fused_name: str,
+                parts: tuple[str, ...],
+            ) -> tuple[str, torch.Tensor] | None:
+                key = (fused_prefix, fused_name)
+                buffered = pending_linear_attn.get(key)
+                if buffered is None or not all(part in buffered for part in parts):
+                    return None
+                tensors = [buffered.pop(part) for part in parts]
+                if not buffered:
+                    pending_linear_attn.pop(key, None)
+                return f"{fused_prefix}.{fused_name}.weight", torch.cat(tensors, dim=0)
+
+            for name, tensor in weights:
+                if not isinstance(name, str):
+                    yield name, tensor
+                    continue
+                if name.startswith("model.visual.") or name.startswith("visual."):
+                    continue
+                if name.startswith(prefix):
+                    name = "model." + name[len(prefix) :]
+
+                linear_marker = ".linear_attn."
+                if linear_marker in name and name.endswith(".weight"):
+                    base, leaf = name.rsplit(linear_marker, 1)
+                    if leaf in {
+                        "in_proj_qkv.weight",
+                        "in_proj_z.weight",
+                        "in_proj_b.weight",
+                        "in_proj_a.weight",
+                    }:
+                        qkvz_key = (base + linear_marker[:-1], "in_proj_qkvz")
+                        ba_key = (base + linear_marker[:-1], "in_proj_ba")
+                        if leaf == "in_proj_qkv.weight":
+                            pending_linear_attn.setdefault(qkvz_key, {})["qkv"] = tensor
+                            fused = maybe_emit_fused_linear_attn(
+                                qkvz_key[0],
+                                qkvz_key[1],
+                                ("qkv", "z"),
+                            )
+                        elif leaf == "in_proj_z.weight":
+                            pending_linear_attn.setdefault(qkvz_key, {})["z"] = tensor
+                            fused = maybe_emit_fused_linear_attn(
+                                qkvz_key[0],
+                                qkvz_key[1],
+                                ("qkv", "z"),
+                            )
+                        elif leaf == "in_proj_b.weight":
+                            pending_linear_attn.setdefault(ba_key, {})["b"] = tensor
+                            fused = maybe_emit_fused_linear_attn(
+                                ba_key[0],
+                                ba_key[1],
+                                ("b", "a"),
+                            )
+                        else:
+                            pending_linear_attn.setdefault(ba_key, {})["a"] = tensor
+                            fused = maybe_emit_fused_linear_attn(
+                                ba_key[0],
+                                ba_key[1],
+                                ("b", "a"),
+                            )
+                        if fused is not None:
+                            yield fused
+                        continue
+                yield name, tensor
+            for (fused_prefix, _), buffered in pending_linear_attn.items():
+                for part_name, tensor in buffered.items():
+                    yield f"{fused_prefix}.{part_name}.weight", tensor
+
+        return original_qwen3_next_load_weights(self, remapped_weights())
+
+    def _make_decoder_init_with_trace_layer(original_init: Any) -> Any:
+        def decoder_init_with_trace_layer(self, *args: Any, **kwargs: Any) -> None:
+            original_init(self, *args, **kwargs)
+            if hasattr(self, "mlp"):
+                layer_id = getattr(self, "layer_idx", None)
+                self.mlp._mtp_trace_layer_id = layer_id
+                experts = getattr(self.mlp, "experts", None)
+                if experts is not None:
+                    experts._mtp_trace_layer_id = layer_id
+                router = getattr(experts, "router", None)
+                if router is not None:
+                    router._mtp_trace_layer_id = layer_id
+
+        return decoder_init_with_trace_layer
 
     def moe_forward_with_trace(self, hidden_states: torch.Tensor) -> torch.Tensor:
         recorder = get_active_vllm_router_recorder()
@@ -692,43 +819,76 @@ def patch_vllm_qwen35_moe_router_trace() -> None:
 
         return final_hidden_states.view(orig_shape)
 
-    def router_set_capture_fn_with_trace_layer(self, capture_fn: Any) -> None:
-        original_router_set_capture_fn(self, capture_fn)
-        layer_id = None
-        defaults = getattr(capture_fn, "__defaults__", None)
-        if defaults:
-            try:
-                layer_id = int(defaults[0])
-            except (TypeError, ValueError):
-                layer_id = None
-        self._mtp_trace_layer_id = layer_id
+    for decoder_class in decoder_classes:
+        decoder_class.__init__ = _make_decoder_init_with_trace_layer(decoder_class.__init__)
 
-    def router_select_experts_with_trace(
-        self,
-        hidden_states: torch.Tensor,
-        router_logits: torch.Tensor,
-    ) -> tuple[torch.Tensor, torch.Tensor]:
-        topk_weights, topk_ids = original_router_select_experts(
-            self,
-            hidden_states,
-            router_logits,
-        )
-        recorder = get_active_vllm_router_recorder()
-        layer_id = getattr(self, "_mtp_trace_layer_id", None)
-        if recorder is not None and layer_id is not None:
-            recorder.record_topk(
-                layer_id=layer_id,
-                topk_ids=topk_ids,
-                topk_weights=topk_weights,
-                oracle_router_logits=router_logits,
-                router_input_hidden=hidden_states,
-            )
-        return topk_weights, topk_ids
-
-    qwen3_5.Qwen3_5DecoderLayer.__init__ = decoder_init_with_trace_layer
+    qwen3_next.Qwen3NextForCausalLM.load_weights = qwen3_next_load_weights_with_text_prefix_remap
     qwen3_next.Qwen3NextSparseMoeBlock.forward = moe_forward_with_trace
-    base_router.BaseRouter.set_capture_fn = router_set_capture_fn_with_trace_layer
-    base_router.BaseRouter.select_experts = router_select_experts_with_trace
+
+    if fused_moe_layer is not None:
+        original_fused_moe_forward_impl = fused_moe_layer.FusedMoE.forward_impl
+
+        def fused_moe_forward_impl_with_trace(
+            self,
+            hidden_states: torch.Tensor,
+            router_logits: torch.Tensor,
+        ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
+            recorder = get_active_vllm_router_recorder()
+            gate = getattr(self, "gate", None)
+            layer_id = getattr(self, "_mtp_trace_layer_id", None)
+            if recorder is not None and gate is not None and layer_id is not None:
+                trace_router_logits, _ = gate(hidden_states)
+                recorder.record(
+                    layer_id=int(layer_id),
+                    router_logits=trace_router_logits,
+                )
+            return original_fused_moe_forward_impl(
+                self,
+                hidden_states,
+                router_logits,
+            )
+
+        fused_moe_layer.FusedMoE.forward_impl = fused_moe_forward_impl_with_trace
+
+    if base_router is not None:
+        original_router_set_capture_fn = base_router.BaseRouter.set_capture_fn
+        original_router_select_experts = base_router.BaseRouter.select_experts
+
+        def router_set_capture_fn_with_trace_layer(self, capture_fn: Any) -> None:
+            original_router_set_capture_fn(self, capture_fn)
+            layer_id = None
+            defaults = getattr(capture_fn, "__defaults__", None)
+            if defaults:
+                try:
+                    layer_id = int(defaults[0])
+                except (TypeError, ValueError):
+                    layer_id = None
+            self._mtp_trace_layer_id = layer_id
+
+        def router_select_experts_with_trace(
+            self,
+            hidden_states: torch.Tensor,
+            router_logits: torch.Tensor,
+        ) -> tuple[torch.Tensor, torch.Tensor]:
+            topk_weights, topk_ids = original_router_select_experts(
+                self,
+                hidden_states,
+                router_logits,
+            )
+            recorder = get_active_vllm_router_recorder()
+            layer_id = getattr(self, "_mtp_trace_layer_id", None)
+            if recorder is not None and layer_id is not None:
+                recorder.record_topk(
+                    layer_id=layer_id,
+                    topk_ids=topk_ids,
+                    topk_weights=topk_weights,
+                    oracle_router_logits=router_logits,
+                    router_input_hidden=hidden_states,
+                )
+            return topk_weights, topk_ids
+
+        base_router.BaseRouter.set_capture_fn = router_set_capture_fn_with_trace_layer
+        base_router.BaseRouter.select_experts = router_select_experts_with_trace
     _PATCHED = True
 
 
@@ -1087,6 +1247,18 @@ def _int_tuple_option(
     return tuple(int(item) for item in raw) or default
 
 
+def _filter_vllm_engine_kwargs(kwargs: dict[str, Any]) -> dict[str, Any]:
+    """Drop options unsupported by the installed vLLM EngineArgs version."""
+
+    try:
+        from vllm.engine.arg_utils import EngineArgs
+    except Exception:
+        return kwargs
+    signature = inspect.signature(EngineArgs)
+    accepted = set(signature.parameters)
+    return {key: value for key, value in kwargs.items() if key in accepted}
+
+
 def _shadow_request_id(
     *,
     sample_idx: int,
@@ -1120,6 +1292,9 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
     output_dir.mkdir(parents=True, exist_ok=True)
 
     texts = _load_trace_texts(trace_config, project_root)
+    start_sample = int(trace_options.get("start_sample", 0))
+    if start_sample:
+        texts = texts[start_sample:]
     max_samples = trace_options.get("max_samples")
     if max_samples is not None:
         texts = texts[: int(max_samples)]
@@ -1190,6 +1365,12 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
             else vllm_options.get("enable_return_routed_experts", True)
         ),
     }
+    if "hf_config_path" in vllm_options:
+        llm_kwargs["hf_config_path"] = str(
+            resolve_path(vllm_options["hf_config_path"], base_dir=project_root)
+        )
+    if "hf_overrides" in vllm_options:
+        llm_kwargs["hf_overrides"] = vllm_options["hf_overrides"]
     if use_router_logits_recorder:
         patch_vllm_qwen35_moe_router_trace()
     if "quantization" in vllm_options:
@@ -1203,6 +1384,7 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
             "limit_mm_per_prompt",
             {"image": 0, "video": 0},
         )
+    llm_kwargs = _filter_vllm_engine_kwargs(llm_kwargs)
 
     sampling = SamplingParams(max_tokens=max_tokens, temperature=0.0)
     module_prefix = str(
@@ -1213,7 +1395,8 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
         project_root=project_root,
     )
     prepared_records: list[tuple[int, dict[str, Any], list[int], Any]] = []
-    for sample_idx, record in enumerate(texts):
+    for local_idx, record in enumerate(texts):
+        sample_idx = start_sample + local_idx
         text = _extract_text(record)
         source_input_ids = token_source_input_ids.get(sample_idx)
         if source_input_ids is None:
@@ -1312,6 +1495,12 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                             ),
                             shadow_descriptor_order_tiles_per_expert=int(
                                 runtime_shadow_options.get("descriptor_order_tiles_per_expert", 1)
+                            ),
+                            shadow_descriptor_order_token_window_size=int(
+                                runtime_shadow_options.get(
+                                    "descriptor_order_token_window_size",
+                                    0,
+                                )
                             ),
                             shadow_descriptor_order_cache_sizes=_int_tuple_option(
                                 runtime_shadow_options,

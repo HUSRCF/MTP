@@ -2875,3 +2875,120 @@ then compare online descriptor_order LRU/order-hit/reuse metrics with the 512
 heldout tensor-cache replay before enabling any real descriptor visitation
 order changes.
 ```
+
+Online vLLM descriptor-order smoke results:
+
+```text
+code/config changes:
+  src/mtp_expert_prefetch/tracing/vllm_router_trace.py
+    - vLLM trace now supports trace.start_sample.
+    - descriptor-order TileRequest streams can use
+      descriptor_order_token_window_size=64, matching the tensor-cache
+      heldout convention of 64 token examples x top8 = 512 tile requests.
+  scripts/replay_vllm_descriptor_order_shadow.py
+    - rebuilds token/row TileRequest streams from sample_*.pt vLLM traces;
+    - applies the same layer-prior/order metrics as heldout replay;
+    - can run an internal vLLM calibration/heldout split.
+
+real vLLM shadow-only runs:
+  smoke8:
+    configs/trace/router_mtp_trace_aya_dataset_gptq_vllm_descriptor_order_shadow_smoke8.yaml
+    data/traces/aya_dataset_smoke_gptq_vllm_descriptor_order_shadow_smoke8/
+
+  smoke32:
+    configs/trace/router_mtp_trace_aya_dataset_gptq_vllm_descriptor_order_shadow_smoke32.yaml
+    data/traces/aya_dataset_smoke_gptq_vllm_descriptor_order_shadow_smoke32/
+
+  heldout with vLLM-calibrated prior:
+    configs/trace/router_mtp_trace_aya_dataset_gptq_vllm_descriptor_order_shadow_smoke32_heldout_vllm_prior.yaml
+    data/traces/aya_dataset_smoke_gptq_vllm_descriptor_order_shadow_smoke32_heldout_vllm_prior/
+```
+
+Key reports:
+
+```text
+outputs/reports/tile_order_cache/vllm_descriptor_order_shadow_smoke8_replay.md
+outputs/reports/tile_order_cache/vllm_descriptor_order_shadow_smoke32_replay.md
+outputs/reports/tile_order_cache/vllm_descriptor_order_shadow_smoke32_heldout_vllm_prior_replay.md
+outputs/reports/tile_order_cache/vllm_smoke32_layer_prior_frequency_24calib.json
+```
+
+Online producer validation:
+
+```text
+smoke32, old tensor-cache prior:
+  descriptor summaries = 1280
+  online mean LRU@8 / LRU@16 = 0.9358 / 0.9374
+  online mean order_hit = 0.3505
+  online mean reuse_mean = 0.4423
+  decision_us mean = 2724.9
+  candidate_construction_us mean = 1564.5
+  descriptor_order_build_us mean = 237.0
+
+heldout-only, vLLM-calibrated prior:
+  descriptor summaries = 320
+  online mean LRU@8 / LRU@16 = 0.9454 / 0.9455
+  online mean order_hit = 0.9012
+  online mean reuse_mean = 0.4569
+  decision_us mean = 3027.5
+  candidate_construction_us mean = 1767.4
+  descriptor_order_build_us mean = 242.4
+```
+
+512-window replay validation:
+
+```text
+smoke32 with old tensor-cache layer_prior_frequency:
+  requests = 1,002,880
+  windows = 1,960
+
+  linear:
+    LRU@8 / LRU@16 = 0.7143 / 0.9397
+    reuse_mean = 8.9340
+    order_hit = 0.7536
+
+  utility_tile_grouped_bucket:
+    LRU@8 / LRU@16 = 0.9434 / 0.9457
+    reuse_mean = 2.3124
+    order_hit = 0.5763
+
+  old layer_prior_frequency:
+    LRU@8 / LRU@16 = 0.9433 / 0.9441
+    reuse_mean = 2.3945
+    order_hit = 0.3037
+
+This means the tensor-cache calibrated prior does not transfer cleanly to the
+current vLLM/GPTQ router trace. The hook is valid, but the prior artifact is
+backend/trace dependent.
+
+vLLM internal 24/8 calibration split:
+  vLLM-calibrated layer_prior_frequency on heldout samples 24-31:
+    LRU@8 / LRU@16 = 0.9494 / 0.9526
+    reuse_mean = 2.2661
+    order_hit = 0.9016
+
+  dynamic utility_tile_grouped_bucket on the same heldout:
+    LRU@8 / LRU@16 = 0.9495 / 0.9531
+    reuse_mean = 2.1984
+    order_hit = 0.6350
+```
+
+Conclusion:
+
+```text
+The real vLLM shadow-only descriptor_order producer is wired and observable.
+
+The online counters now use token-window semantics compatible with heldout
+tile streams, and overhead fields are populated.
+
+A layer-prior descriptor_order policy must be calibrated on the same router
+trace/backend family. Reusing the tensor-cache prior on GPTQ/vLLM preserves
+locality but loses group-order hit. Recalibrating on vLLM traces restores strong
+heldout order_hit while keeping the same safety boundary:
+same current true-router multiset, order-only changes, no ready-mask effects.
+
+Next gate:
+  lower descriptor_order overhead via a two-level C++/runtime builder
+  or keep descriptor_order as a shadow/precomputed action until the order-build
+  path is below the measured kernel saved envelope.
+```

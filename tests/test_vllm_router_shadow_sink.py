@@ -230,6 +230,7 @@ def test_vllm_router_recorder_emits_descriptor_order_summary(tmp_path):
             shadow_descriptor_order_prior_id="prior-v1",
             shadow_descriptor_order_prior_hash=prior_hash,
             shadow_descriptor_order_tiles_per_expert=1,
+            shadow_descriptor_order_token_window_size=1,
             request_id="req",
             sequence_id=0,
             token_offset=10,
@@ -250,6 +251,7 @@ def test_vllm_router_recorder_emits_descriptor_order_summary(tmp_path):
     assert summary["descriptor_order_prior_id"] == "prior-v1"
     assert summary["descriptor_order_prior_hash"] == prior_hash
     assert summary["descriptor_tile_request_count"] == 4
+    assert summary["descriptor_order_metrics"]["window_count"] == 2
     assert summary["descriptor_same_multiset"] is True
     assert summary["descriptor_order_changed"] is True
     assert summary["candidate_construction_us"] >= 0.0
