@@ -3495,6 +3495,104 @@ Next optimization target:
   async/batched logger path or flat scalar buffer for none-mode summaries.
 ```
 
+Runtime shadow summary/outcome attribution:
+
+```text
+implementation:
+  RuntimeShadowController now supports:
+    emit_summaries: bool = true
+    emit_outcomes: bool = true
+
+  This keeps default behavior unchanged while allowing controlled attribution:
+    outcome_only  = emit_summaries=false, emit_outcomes=true
+    summary_only  = emit_summaries=true,  emit_outcomes=false
+    both          = emit_summaries=true,  emit_outcomes=true
+
+configs:
+  configs/trace/router_mtp_trace_aya_dataset_awq_vllm_shadow_outcome_only_smoke32.yaml
+  configs/trace/router_mtp_trace_aya_dataset_awq_vllm_descriptor_order_shadow_none_summary_only_smoke32.yaml
+
+tests:
+  RuntimeShadowController suppress-summary and suppress-outcome behavior is
+  covered in tests/test_runtime_online_shadow.py.
+```
+
+AWQ 32-sample attribution:
+
+```text
+report:
+  outputs/reports/awq_shadow_overhead/summary_outcome_attribution32.md
+
+path-level generate time:
+  no_shadow     = 3.76s
+  outcome_only  = 7.50s  (+3.74s)
+  summary_only  = 6.03s  (+2.27s)
+  none_both     = 8.48s  (+4.72s)
+  compact_both  = 9.56s  (+5.80s)
+
+rows written:
+  outcome_only:
+    outcomes = 125,360
+    summaries = 0
+
+  summary_only:
+    outcomes = 0
+    descriptor summaries = 1,280
+
+  none_both:
+    outcomes = 125,360
+    descriptor summaries = 1,280
+```
+
+Descriptor summary overhead, none mode:
+
+```text
+summary_only:
+  decision_us p50/p95/p99 = 702.5 / 833.9 / 872.5
+  counter_update_us p50/p95/p99 = 315.1 / 353.5 / 376.7
+  descriptor_build_us p50/p95/p99 = 401.0 / 485.0 / 522.7
+
+none_both:
+  decision_us p50/p95/p99 = 712.2 / 847.8 / 928.3
+  counter_update_us p50/p95/p99 = 315.5 / 355.8 / 394.4
+  descriptor_build_us p50/p95/p99 = 405.6 / 494.9 / 549.5
+```
+
+Interpretation:
+
+```text
+The remaining none-shadow overhead is split across two synchronous Python paths:
+
+1. outcome logging/controller path:
+   outcome_only writes 125k outcome rows and accounts for most of the
+   no-shadow gap (+3.74s generate).
+
+2. descriptor summary path:
+   summary_only writes only 1,280 descriptor summaries but still costs +2.27s,
+   driven by Python summary construction, hash/order build, JSONL write, and
+   controller/logger overhead.
+
+none_both remains expensive because it still emits both outcome rows and
+descriptor summaries synchronously.
+```
+
+Next gate:
+
+```text
+P0:
+  add outcome_logging_mode = full | aggregate | off
+  and make aggregate/off the default for long-run descriptor-order audit.
+
+P0:
+  add a batched/flat scalar writer for descriptor summaries:
+    fixed schema rows
+    no nested descriptor_order_metrics payload in none mode
+    batch flush instead of flush_every=1 for long runs
+
+P1:
+  async writer / ring buffer once flat schema proves beneficial.
+```
+
 Runtime online descriptor-order fast producer:
 
 ```text

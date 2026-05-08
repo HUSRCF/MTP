@@ -9,6 +9,10 @@ import torch
 from mtp_expert_prefetch.runtime.admission import AdmissionDecisionMasks
 from mtp_expert_prefetch.runtime.descriptor_order import DescriptorOrderReport
 from mtp_expert_prefetch.runtime.online_shadow import OnlineShadowLogger
+from mtp_expert_prefetch.runtime.online_shadow import (
+    build_shadow_summary_from_decisions,
+    build_shadow_summary_from_descriptor_order,
+)
 from mtp_expert_prefetch.runtime.shadow_log import (
     ShadowEventId,
     ShadowOutcomeEvent,
@@ -31,6 +35,9 @@ class PendingShadowDecision:
 @dataclass
 class RuntimeShadowControllerStats:
     written_summary_count: int = 0
+    suppressed_summary_count: int = 0
+    written_outcome_count: int = 0
+    suppressed_outcome_count: int = 0
     joined_outcome_count: int = 0
     outcome_only_count: int = 0
     summary_only_timeout_count: int = 0
@@ -43,6 +50,9 @@ class RuntimeShadowControllerStats:
     def as_dict(self) -> dict[str, int]:
         return {
             "written_summary_count": int(self.written_summary_count),
+            "suppressed_summary_count": int(self.suppressed_summary_count),
+            "written_outcome_count": int(self.written_outcome_count),
+            "suppressed_outcome_count": int(self.suppressed_outcome_count),
             "joined_outcome_count": int(self.joined_outcome_count),
             "outcome_only_count": int(self.outcome_only_count),
             "summary_only_timeout_count": int(self.summary_only_timeout_count),
@@ -69,9 +79,13 @@ class RuntimeShadowController:
         logger: OnlineShadowLogger,
         *,
         max_pending: int = 100_000,
+        emit_summaries: bool = True,
+        emit_outcomes: bool = True,
     ) -> None:
         self.logger = logger
         self.max_pending = max(0, int(max_pending))
+        self.emit_summaries = bool(emit_summaries)
+        self.emit_outcomes = bool(emit_outcomes)
         self._pending: OrderedDict[str, PendingShadowDecision] = OrderedDict()
         self.stats = RuntimeShadowControllerStats()
 
@@ -101,12 +115,22 @@ class RuntimeShadowController:
         preserves the semantic boundary between "issued/actioned" and "ready".
         """
 
-        event = self.logger.write_action_summary(
-            event_id=event_id,
-            policy=policy,
-            decisions=decisions,
-            **summary_kwargs,
-        )
+        if self.emit_summaries:
+            event = self.logger.write_action_summary(
+                event_id=event_id,
+                policy=policy,
+                decisions=decisions,
+                **summary_kwargs,
+            )
+            self.stats.written_summary_count += 1
+        else:
+            event = build_shadow_summary_from_decisions(
+                event_id=event_id,
+                policy=policy,
+                decisions=decisions,
+                **summary_kwargs,
+            )
+            self.stats.suppressed_summary_count += 1
         if event_id.key in self._pending:
             self.stats.duplicate_summary_count += 1
         self._pending[event_id.key] = _pending_from_decisions(
@@ -115,7 +139,6 @@ class RuntimeShadowController:
             ready_mask=ready_mask,
         )
         self._pending.move_to_end(event_id.key)
-        self.stats.written_summary_count += 1
         self.stats.pending_summary_count = len(self._pending)
         self._evict_if_needed()
         return event
@@ -135,14 +158,24 @@ class RuntimeShadowController:
         multiset, so it does not need router-outcome mask joining.
         """
 
-        event = self.logger.write_descriptor_order_summary(
-            event_id=event_id,
-            policy=policy,
-            descriptor_report=descriptor_report,
-            baseline_order_hash=baseline_order_hash,
-            **summary_kwargs,
-        )
-        self.stats.written_summary_count += 1
+        if self.emit_summaries:
+            event = self.logger.write_descriptor_order_summary(
+                event_id=event_id,
+                policy=policy,
+                descriptor_report=descriptor_report,
+                baseline_order_hash=baseline_order_hash,
+                **summary_kwargs,
+            )
+            self.stats.written_summary_count += 1
+        else:
+            event = build_shadow_summary_from_descriptor_order(
+                event_id=event_id,
+                policy=policy,
+                descriptor_report=descriptor_report,
+                baseline_order_hash=baseline_order_hash,
+                **summary_kwargs,
+            )
+            self.stats.suppressed_summary_count += 1
         return event
 
     def write_outcome(self, event: ShadowOutcomeEvent) -> None:
@@ -161,11 +194,11 @@ class RuntimeShadowController:
         if pending is None:
             self.stats.outcome_only_count += 1
             self.stats.pending_summary_count = len(self._pending)
-            self.logger.write_outcome(_with_join_status(event, "outcome_only"))
+            self._write_or_suppress_outcome(_with_join_status(event, "outcome_only"))
             return
         self.stats.joined_outcome_count += 1
         self.stats.pending_summary_count = len(self._pending)
-        self.logger.write_outcome(_enrich_outcome(event, pending))
+        self._write_or_suppress_outcome(_enrich_outcome(event, pending))
 
     def write_router_outcome(
         self,
@@ -212,7 +245,7 @@ class RuntimeShadowController:
         while self._pending:
             key, _pending = self._pending.popitem(last=False)
             event_id = _event_id_from_key(key)
-            self.logger.write_outcome(
+            self._write_or_suppress_outcome(
                 ShadowOutcomeEvent(
                     event_id=event_id,
                     true_topk_experts=[],
@@ -249,6 +282,13 @@ class RuntimeShadowController:
             self._pending.popitem(last=False)
             self.stats.evicted_summary_count += 1
         self.stats.pending_summary_count = len(self._pending)
+
+    def _write_or_suppress_outcome(self, event: ShadowOutcomeEvent) -> None:
+        if self.emit_outcomes:
+            self.logger.write_outcome(event)
+            self.stats.written_outcome_count += 1
+        else:
+            self.stats.suppressed_outcome_count += 1
 
 
 def _pending_from_decisions(

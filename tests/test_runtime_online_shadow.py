@@ -272,6 +272,37 @@ def test_runtime_shadow_controller_preserves_outcome_when_summary_missing(tmp_pa
     assert rows[0]["join_status"] == "outcome_only"
 
 
+def test_runtime_shadow_controller_can_suppress_outcome_writes(tmp_path):
+    event_id = ShadowEventId("req", 0, 8, 5)
+    path = tmp_path / "suppressed_outcome_shadow.jsonl"
+    event = ShadowOutcomeEvent(
+        event_id=event_id,
+        true_topk_experts=[3],
+        true_topk_weights=[1.0],
+        full_fetch_used_count=0,
+        metadata_later_used_count=0,
+        premap_later_used_count=0,
+        skip_would_have_used_count=0,
+        covered_mass=0.0,
+        miss_mass=1.0,
+        top1_ready=False,
+        weighted_top1_miss=1.0,
+    )
+
+    with RuntimeShadowController(
+        OnlineShadowLogger(path),
+        emit_outcomes=False,
+    ) as controller:
+        controller.write_outcome(event)
+        stats = controller.stats_dict()
+
+    rows = read_shadow_jsonl(path)
+    assert rows == []
+    assert stats["outcome_only_count"] == 1
+    assert stats["written_outcome_count"] == 0
+    assert stats["suppressed_outcome_count"] == 1
+
+
 def test_runtime_shadow_controller_writes_descriptor_order_summary(tmp_path):
     prior = build_layer_tile_prior(
         [
@@ -324,6 +355,47 @@ def test_runtime_shadow_controller_writes_descriptor_order_summary(tmp_path):
     assert aggregate["descriptor_order_summary_count"] == 1
     assert aggregate["descriptor_order_lru_at_8_mean"] == report.metrics["lru_hit_rate"]["8"]
     assert aggregate["controller_stats"]["written_summary_count"] == 1
+
+
+def test_runtime_shadow_controller_can_suppress_descriptor_summary_writes(tmp_path):
+    prior = build_layer_tile_prior(
+        [
+            TileRequest(0, 0, 2, 2, layer_idx=0),
+            TileRequest(0, 1, 1, 1, layer_idx=0),
+        ],
+        score_name="frequency",
+    )
+    requests = [
+        TileRequest(1, 0, 1, 1, layer_idx=0),
+        TileRequest(1, 1, 2, 2, layer_idx=0),
+    ]
+    _, report = order_tile_request_stream_with_layer_prior(requests, prior=prior)
+    path = tmp_path / "suppressed_descriptor_summary_shadow.jsonl"
+
+    with RuntimeShadowController(
+        OnlineShadowLogger(path),
+        emit_summaries=False,
+    ) as controller:
+        summary = controller.write_descriptor_order_summary(
+            event_id=ShadowEventId("req", 0, 1, 0),
+            policy=ShadowPolicyConfig(
+                policy_mode="descriptor_order_shadow",
+                optimization_goal="cache_locality",
+                action_keep_fraction=0.0,
+                metadata_score_ratio=0.0,
+                full_fetch_max_extra=0,
+                metadata_max_extra=0,
+                premap_max_extra=0,
+            ),
+            descriptor_report=report,
+        )
+        stats = controller.stats_dict()
+
+    rows = read_shadow_jsonl(path)
+    assert rows == []
+    assert summary.descriptor_order_build_us == report.order_build_us
+    assert stats["written_summary_count"] == 0
+    assert stats["suppressed_summary_count"] == 1
 
 
 def test_runtime_shadow_controller_reports_pending_timeouts_and_evictions(tmp_path):

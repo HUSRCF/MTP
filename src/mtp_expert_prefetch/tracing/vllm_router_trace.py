@@ -1193,6 +1193,8 @@ def _build_runtime_shadow_controller(
     return RuntimeShadowController(
         logger,
         max_pending=int(options.get("max_pending", 100_000)),
+        emit_summaries=bool(options.get("emit_summaries", True)),
+        emit_outcomes=bool(options.get("emit_outcomes", True)),
     )
 
 
@@ -1450,6 +1452,12 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
         "runtime_shadow_enabled": bool(runtime_shadow_options.get("enabled", False)),
         "runtime_shadow_emit_descriptor_order_summaries": bool(
             runtime_shadow_options.get("emit_descriptor_order_summaries", False)
+        ),
+        "runtime_shadow_emit_summaries": bool(
+            runtime_shadow_options.get("emit_summaries", True)
+        ),
+        "runtime_shadow_emit_outcomes": bool(
+            runtime_shadow_options.get("emit_outcomes", True)
         ),
         "runtime_shadow_descriptor_order_metrics_mode": (
             str(runtime_shadow_options.get("descriptor_order_metrics_mode"))
