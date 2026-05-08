@@ -11,7 +11,9 @@ both orders into the same HIP consumer:
 
 The benchmark does not patch vLLM kernels yet.  It verifies the execution-side
 question under a controlled consumer: does changing only descriptor/tile order
-alter timing while preserving the tile multiset?
+alter timing while preserving the tile multiset?  It can also run a two-level
+layer-prior consumer that reads group_tile_ids + group_counts + group_offsets
+directly instead of a materialized reordered tile-id stream.
 """
 
 from __future__ import annotations
@@ -89,6 +91,12 @@ def parse_args() -> argparse.Namespace:
         action=argparse.BooleanOptionalAction,
         default=True,
         help="Measure C++ layer-prior plan/materialized builder overhead on the same stream.",
+    )
+    parser.add_argument(
+        "--measure-two-level-consumer",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Also run the HIP consumer directly on a two-level layer-prior group plan.",
     )
     parser.add_argument("--builder-warmup", type=int, default=5)
     parser.add_argument("--builder-iters", type=int, default=50)
@@ -208,9 +216,99 @@ def _write_tile_ids(path: Path, ordered: Sequence[TileRequest]) -> dict[str, Any
     }
 
 
+def _write_group_plan(
+    output_dir: Path,
+    requests: Sequence[TileRequest],
+    *,
+    prior_path: Path,
+    top_utility_override: int,
+) -> dict[str, Any]:
+    start_ns = time.perf_counter_ns()
+    prior = load_layer_tile_prior(prior_path)
+    windows: dict[int, list[TileRequest]] = {}
+    for item in requests:
+        windows.setdefault(int(item.window_id), []).append(item)
+
+    group_tile_ids: list[int] = []
+    group_counts: list[int] = []
+    group_offsets: list[int] = [0]
+    expanded_order: list[int] = []
+    for window_id in sorted(windows):
+        window_items = windows[window_id]
+        counts: dict[int, int] = {}
+        max_scores: dict[int, float] = {}
+        total_scores: dict[int, float] = {}
+        layer = window_items[0].layer_idx
+        for item in window_items:
+            tile = int(item.tile_id)
+            counts[tile] = counts.get(tile, 0) + 1
+            score = float(item.utility_score)
+            max_scores[tile] = max(score, max_scores.get(tile, float("-inf")))
+            total_scores[tile] = total_scores.get(tile, 0.0) + score
+
+        selected: set[int] = set()
+        ordered_groups: list[int] = []
+        if int(top_utility_override) > 0:
+            ranked = sorted(
+                counts,
+                key=lambda tile: (
+                    -max_scores[tile],
+                    -total_scores[tile],
+                    -counts[tile],
+                    tile,
+                ),
+            )
+            for tile in ranked[: int(top_utility_override)]:
+                ordered_groups.append(tile)
+                selected.add(tile)
+
+        for tile in prior.order_for_layer(layer):
+            tile = int(tile)
+            if tile in counts and tile not in selected:
+                ordered_groups.append(tile)
+                selected.add(tile)
+        for tile in sorted(counts):
+            if tile not in selected:
+                ordered_groups.append(tile)
+                selected.add(tile)
+
+        for tile in ordered_groups:
+            count = int(counts[tile])
+            group_tile_ids.append(int(tile))
+            group_counts.append(count)
+            expanded_order.extend([int(tile)] * count)
+        group_offsets.append(len(group_tile_ids))
+
+    build_us = (time.perf_counter_ns() - start_ns) / 1000.0
+    output_dir.mkdir(parents=True, exist_ok=True)
+    paths = {
+        "group_tile_ids": output_dir / "group_tile_ids.i32",
+        "group_counts": output_dir / "group_counts.i32",
+        "group_offsets": output_dir / "group_offsets.i32",
+    }
+    export_start_ns = time.perf_counter_ns()
+    with paths["group_tile_ids"].open("wb") as handle:
+        array("i", group_tile_ids).tofile(handle)
+    with paths["group_counts"].open("wb") as handle:
+        array("i", group_counts).tofile(handle)
+    with paths["group_offsets"].open("wb") as handle:
+        array("i", group_offsets).tofile(handle)
+    export_us = (time.perf_counter_ns() - export_start_ns) / 1000.0
+    return {
+        "paths": {key: str(path) for key, path in paths.items()},
+        "order_hash": hash_ints(expanded_order),
+        "tile_multiset_hash": hash_ints(sorted(expanded_order)),
+        "tile_count": len(expanded_order),
+        "unique_tiles": len(set(expanded_order)),
+        "group_count": len(group_tile_ids),
+        "window_count": len(group_offsets) - 1,
+        "order_build_us": {"median": float(build_us), "mean": float(build_us)},
+        "order_export_us": float(export_us),
+    }
+
+
 def _run_consumer(
     *,
-    order_path: Path,
     tile_count: int,
     device: int,
     tile_elems: int,
@@ -218,28 +316,46 @@ def _run_consumer(
     cache_flush_elems: int,
     warmup: int,
     iters: int,
+    order_path: Path | None = None,
+    group_tile_ids_path: Path | None = None,
+    group_counts_path: Path | None = None,
+    group_offsets_path: Path | None = None,
 ) -> dict[str, Any]:
-    completed = run(
-        [
-            str(BIN),
-            "--device",
-            str(device),
-            "--tile-ids-bin",
-            str(order_path),
-            "--tile-count",
-            str(tile_count),
-            "--tile-elems",
-            str(tile_elems),
-            "--tiles-per-cta",
-            str(tiles_per_cta),
-            "--cache-flush-elems",
-            str(cache_flush_elems),
-            "--warmup",
-            str(warmup),
-            "--iters",
-            str(iters),
-        ]
-    )
+    cmd = [
+        str(BIN),
+        "--device",
+        str(device),
+        "--tile-elems",
+        str(tile_elems),
+        "--tiles-per-cta",
+        str(tiles_per_cta),
+        "--cache-flush-elems",
+        str(cache_flush_elems),
+        "--warmup",
+        str(warmup),
+        "--iters",
+        str(iters),
+    ]
+    if order_path is not None:
+        cmd.extend(["--tile-ids-bin", str(order_path), "--tile-count", str(tile_count)])
+    elif (
+        group_tile_ids_path is not None
+        and group_counts_path is not None
+        and group_offsets_path is not None
+    ):
+        cmd.extend(
+            [
+                "--group-tile-ids-bin",
+                str(group_tile_ids_path),
+                "--group-counts-bin",
+                str(group_counts_path),
+                "--group-offsets-bin",
+                str(group_offsets_path),
+            ]
+        )
+    else:
+        raise ValueError("consumer requires either materialized order or group-plan paths")
+    completed = run(cmd)
     row = json.loads(completed.stdout)
     row["stderr"] = completed.stderr
     return row
@@ -438,7 +554,7 @@ def _render_markdown(report: dict[str, Any]) -> str:
         "# Descriptor Consumer Micro-Runtime",
         "",
         "This benchmark consumes a real online vLLM descriptor/tile stream with the",
-        "same HIP consumer under two same-multiset visitation orders.",
+        "same HIP consumer under same-multiset visitation orders.",
         "",
         f"- Trace dir: `{report['source']['path']}`",
         f"- Selected windows: `{report['selection']['selected_window_count']}`",
@@ -526,10 +642,20 @@ def main() -> None:
                 "top_utility_override": int(args.top_utility_override),
                 "modes": {},
             }
+    group_plan_meta = None
+    if bool(args.measure_two_level_consumer):
+        group_plan_meta = _write_group_plan(
+            args.output_json.parent / f"{args.output_json.stem}_group_plan",
+            requests,
+            prior_path=args.prior_json,
+            top_utility_override=int(args.top_utility_override),
+        )
 
     policy_rows: list[dict[str, Any]] = []
     timing_rows: list[dict[str, Any]] = []
     baseline_multiset_hash: str | None = None
+    layer_prior_policy: str | None = None
+    layer_prior_trace_metrics: dict[str, Any] | None = None
     for policy, ordered, order_build_us in _policy_orders(
         requests,
         prior_path=args.prior_json,
@@ -546,6 +672,9 @@ def main() -> None:
             cache_sizes=[8, 16, 32],
             tile_order_top_k=8,
         )
+        if policy.startswith("layer_prior_"):
+            layer_prior_policy = policy
+            layer_prior_trace_metrics = trace_metrics
         policy_rows.append(
             {
                 "policy": policy,
@@ -564,7 +693,6 @@ def main() -> None:
                     for cache_flush_elems in cache_flush_values:
                         for repeat in range(int(args.repeat)):
                             timing = _run_consumer(
-                                order_path=Path(str(order_meta["order_path"])),
                                 tile_count=int(order_meta["tile_count"]),
                                 device=int(device),
                                 tile_elems=int(tile_elems),
@@ -572,6 +700,7 @@ def main() -> None:
                                 cache_flush_elems=int(cache_flush_elems),
                                 warmup=int(args.warmup),
                                 iters=int(args.iters),
+                                order_path=Path(str(order_meta["order_path"])),
                             )
                             timing.update(
                                 {
@@ -580,6 +709,58 @@ def main() -> None:
                                     "tile_count": int(order_meta["tile_count"]),
                                     "order_hash": order_meta["order_hash"],
                                     "tile_multiset_hash": order_meta["tile_multiset_hash"],
+                                }
+                            )
+                            timing_rows.append(timing)
+
+    if group_plan_meta is not None and layer_prior_policy is not None:
+        two_level_policy = f"{layer_prior_policy}_two_level"
+        same_multiset = str(group_plan_meta["tile_multiset_hash"]) == str(baseline_multiset_hash)
+        policy_rows.append(
+            {
+                "policy": two_level_policy,
+                "trace_metrics": layer_prior_trace_metrics or {},
+                "order": {
+                    "order_hash": group_plan_meta["order_hash"],
+                    "tile_multiset_hash": group_plan_meta["tile_multiset_hash"],
+                    "tile_count": group_plan_meta["tile_count"],
+                    "unique_tiles": group_plan_meta["unique_tiles"],
+                    "group_count": group_plan_meta["group_count"],
+                    "window_count": group_plan_meta["window_count"],
+                },
+                "group_plan": group_plan_meta,
+                "order_build_us": group_plan_meta["order_build_us"],
+                "order_export_us": float(group_plan_meta["order_export_us"]),
+                "same_multiset_as_no_order": same_multiset,
+            }
+        )
+        paths = group_plan_meta["paths"]
+        for device in devices:
+            for tile_elems in tile_elems_values:
+                for tiles_per_cta in tiles_per_cta_values:
+                    for cache_flush_elems in cache_flush_values:
+                        for repeat in range(int(args.repeat)):
+                            timing = _run_consumer(
+                                tile_count=int(group_plan_meta["tile_count"]),
+                                device=int(device),
+                                tile_elems=int(tile_elems),
+                                tiles_per_cta=int(tiles_per_cta),
+                                cache_flush_elems=int(cache_flush_elems),
+                                warmup=int(args.warmup),
+                                iters=int(args.iters),
+                                group_tile_ids_path=Path(paths["group_tile_ids"]),
+                                group_counts_path=Path(paths["group_counts"]),
+                                group_offsets_path=Path(paths["group_offsets"]),
+                            )
+                            timing.update(
+                                {
+                                    "policy": two_level_policy,
+                                    "repeat": repeat,
+                                    "tile_count": int(group_plan_meta["tile_count"]),
+                                    "order_hash": group_plan_meta["order_hash"],
+                                    "tile_multiset_hash": group_plan_meta["tile_multiset_hash"],
+                                    "group_count": int(group_plan_meta["group_count"]),
+                                    "window_count": int(group_plan_meta["window_count"]),
                                 }
                             )
                             timing_rows.append(timing)
@@ -609,6 +790,7 @@ def main() -> None:
             "repeat": int(args.repeat),
             "build_repeat": int(args.build_repeat),
             "measure_cpp_builder": bool(args.measure_cpp_builder),
+            "measure_two_level_consumer": bool(args.measure_two_level_consumer),
             "builder_warmup": int(args.builder_warmup),
             "builder_iters": int(args.builder_iters),
             "binary": str(BIN),
@@ -617,6 +799,7 @@ def main() -> None:
         "policies": policy_rows,
         "timing": timing_rows,
         "cpp_builder": cpp_builder,
+        "two_level_group_plan": group_plan_meta,
         "summary": _summarize(
             timing_rows,
             policy_meta={row["policy"]: row for row in policy_rows},

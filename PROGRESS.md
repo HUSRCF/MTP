@@ -4093,3 +4093,85 @@ fallback to original order.
 This remains more mature than speculative LDS payload staging, but it is still
 one step before a vLLM fused-MoE kernel patch.
 ```
+
+Two-level descriptor consumer MVP:
+
+```text
+implementation:
+  microbench/tile_order_cache/tile_order_cache_bench.hip
+  scripts/run_descriptor_consumer_micro_runtime.py
+
+new input mode:
+  materialized:
+    tile_ids[]
+
+  two-level group plan:
+    group_tile_ids[]
+    group_counts[]
+    group_offsets[]
+
+semantics:
+  same current-router descriptor multiset
+  no router/membership/logit change
+  consume group plan directly instead of materializing reordered tile_ids
+```
+
+First one-CTA-per-group result:
+
+```text
+The first group-plan consumer was semantically correct but often slower,
+because launching one CTA per active B-tile group created too much scheduling
+overhead.
+```
+
+Chunked group-plan fix:
+
+```text
+The group-plan kernel now consumes multiple groups per CTA, using tiles_per_cta
+as groups_per_cta in group-plan mode.
+```
+
+AWQ 128 trace, first 512 windows, tile_elems=1024, no flush, groups_per_cta sweep:
+
+```text
+GPU0 two-level layer_prior speedup vs no_order:
+  groups_per_cta=4:  1.236x
+  groups_per_cta=8:  1.159x
+  groups_per_cta=16: 1.113x
+  groups_per_cta=32: 1.072x
+  groups_per_cta=64: 0.983x
+
+GPU1 two-level layer_prior speedup vs no_order:
+  groups_per_cta=4:  1.246x
+  groups_per_cta=8:  1.171x
+  groups_per_cta=16: 1.107x
+  groups_per_cta=32: 1.077x
+  groups_per_cta=64: 0.993x
+```
+
+512-window mixed tile-size result with groups_per_cta=32:
+
+```text
+two-level group-plan consumer is positive for many 512/1024-tile cases, but
+turns negative for 2048-tile cases. Therefore group-plan execution needs its
+own runtime gate:
+
+  enable two-level consumer only when:
+    same_multiset = true
+    tile_elems in measured positive envelope
+    groups_per_cta in measured positive envelope, currently 4 or 8 for 1024
+    descriptor plan is precomputed/reused or built inside the consumer path
+
+  keep fallback:
+    materialized layer_prior order or original no_order
+```
+
+Net-overhead boundary remains:
+
+```text
+The two-level consumer removes materialized ordered tile-id input from the
+kernel path, but the current Python/C++ host plan build is still not
+net-positive as a per-invocation critical-path action. The next runtime patch
+should pass precomputed layer-prior group plans or build the group plan inside
+the existing descriptor producer/consumer without a full host-side rebuild.
+```
