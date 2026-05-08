@@ -3857,3 +3857,59 @@ Build/count/timing means use all descriptor summary events, but LRU/order_hit
 and reuse metrics are averaged only over events that actually carry those
 fields. This prevents mixed full+minimal logs from diluting diagnostic metrics.
 ```
+
+Runtime shadow long-run audit:
+
+```text
+configs:
+  router_mtp_trace_aya_dataset_awq_vllm_no_shadow_128sample.yaml
+  router_mtp_trace_aya_dataset_awq_vllm_no_shadow_512sample.yaml
+  router_mtp_trace_aya_dataset_awq_vllm_descriptor_order_shadow_count_only_minimal_aggregate_batched_128sample.yaml
+  router_mtp_trace_aya_dataset_awq_vllm_descriptor_order_shadow_count_only_minimal_aggregate_batched_512sample.yaml
+
+report:
+  outputs/reports/runtime_shadow_longrun_audit.md
+```
+
+AWQ long-run result:
+
+```text
+mode                 samples  generate_s  TPOT_s   overhead  rows
+no_shadow            32       3.762       0.1176   -         0
+minimal+aggregate    32       3.866       0.1208   +2.78%    2,560
+no_shadow            128      13.560      0.1059   -         0
+minimal+aggregate    128      14.597      0.1140   +7.65%    10,240
+no_shadow            512      54.507      0.1065   -         0
+minimal+aggregate    512      57.878      0.1130   +6.19%    40,960
+```
+
+Online scalar stability:
+
+```text
+samples  descriptor_build_us_mean  decision_us_mean  unique_tiles_mean
+32       50.637                    66.722            102.830
+128      51.060                    67.156             99.499
+512      50.279                    66.358             98.860
+```
+
+Offline replay consistency:
+
+```text
+128 layer_prior_frequency:
+  LRU@8 0.821650, LRU@16 0.821655, reuse_mean 21.5797, order_hit 0.413485
+
+512 layer_prior_frequency:
+  LRU@8 0.822214, LRU@16 0.822215, reuse_mean 21.4121, order_hit 0.440311
+```
+
+Interpretation:
+
+```text
+minimal+aggregate scales linearly in row count and stays single-digit overhead
+at 128/512 samples. The 512-sample run is lower overhead than 128, so there is
+no evidence of scale-driven overhead growth in this envelope.
+
+Offline replay confirms the layer-prior descriptor-order structure remains
+stable: it preserves B-tile locality at B-grouped levels while keeping order_hit
+far above plain B-tile grouping.
+```
