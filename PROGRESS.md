@@ -3913,3 +3913,67 @@ Offline replay confirms the layer-prior descriptor-order structure remains
 stable: it preserves B-tile locality at B-grouped levels while keeping order_hit
 far above plain B-tile grouping.
 ```
+
+Descriptor consumer micro-runtime MVP:
+
+```text
+implementation:
+  scripts/run_descriptor_consumer_micro_runtime.py
+
+input:
+  online AWQ vLLM trace directory
+  layer_prior_frequency prior
+
+semantics:
+  rebuild current-router token/row TileRequest stream
+  keep the same descriptor/tile multiset
+  compare no_order vs layer_prior_frequency
+  feed both orders into the same HIP tile consumer
+  report checksum deltas, LRU/order_hit, and wall-time
+
+reports:
+  outputs/reports/tile_order_cache/descriptor_consumer_micro_runtime_awq128_w512_sweep.json
+  outputs/reports/tile_order_cache/descriptor_consumer_micro_runtime_awq128_w512_sweep_gpu1.json
+  outputs/reports/tile_order_cache/descriptor_consumer_micro_runtime_summary.md
+```
+
+AWQ 128 trace, first 512 complete windows:
+
+```text
+selected requests: 261,808
+unique B tiles: 256
+no_order:
+  LRU@8 0.172321, order_hit 0.222656
+layer_prior_frequency:
+  LRU@8 0.710735, order_hit 0.382324
+checksum delta vs no_order: 0 for all measured rows
+```
+
+Execution-facing HIP consumer result:
+
+```text
+GPU0 speedup layer_prior vs no_order:
+  tile_elems 256:  0.992x / 1.000x with 16M flush
+  tile_elems 512:  1.092x / 1.037x with 16M flush
+  tile_elems 1024: 1.096x / 1.081x with 16M flush
+  tile_elems 2048: 1.065x / 1.056x with 16M flush
+
+GPU1 speedup layer_prior vs no_order:
+  tile_elems 256:  0.972x / 1.012x with 16M flush
+  tile_elems 512:  1.143x / 1.053x with 16M flush
+  tile_elems 1024: 1.090x / 1.093x with 16M flush
+  tile_elems 2048: 1.069x / 1.070x with 16M flush
+```
+
+Interpretation:
+
+```text
+The descriptor-order execution MVP passes the same-multiset consumer gate.
+Layer-prior ordering improves the same HIP consumer for tile_elems >= 512 on
+both GPUs, while 256-element tiles are too small/noisy and should remain gated
+or treated as no-op.
+
+This is not yet a vLLM kernel patch. It is the bridge result showing that the
+online trace descriptor-order signal can translate into execution-side timing
+under a controlled descriptor consumer.
+```
