@@ -3707,3 +3707,48 @@ Descriptor summary internal overhead is almost unchanged across outcome modes,
 so the next bottleneck is the descriptor summary path itself, not LRU/order-hit
 or per-token outcome logging.
 ```
+
+Descriptor-order count-only summary mode:
+
+```text
+implementation:
+  src/mtp_expert_prefetch/runtime/descriptor_order.py
+    adds descriptor_order_metrics_mode=count_only
+    skips layer-prior ordering, tile_multiset_hash, and order_hash
+    keeps request_count/window_count/unique_tiles_total/prior metadata only
+
+  configs:
+    router_mtp_trace_aya_dataset_awq_vllm_descriptor_order_shadow_count_only_outcome_aggregate_smoke32.yaml
+    router_mtp_trace_aya_dataset_awq_vllm_descriptor_order_shadow_count_only_outcome_off_smoke32.yaml
+
+  pyproject.toml:
+    pytest default collection is restricted to tests/
+    third_party/GPTQModel is no longer collected by plain pytest -q
+```
+
+AWQ 32-sample count-only result:
+
+```text
+mode                         generate_s  TPOT_s   rows   decision_p50  build_p50  counter_p50
+no_shadow                    3.762       0.1176   0      -             -          -
+none + aggregate outcomes    4.855       0.1517   2560   695.7us       390.9us    315.0us
+none + outcomes off          4.722       0.1476   1280   701.0us       398.0us    318.1us
+count_only + aggregate       4.065       0.1270   2560   74.4us        56.9us     14.2us
+count_only + off             3.875       0.1211   1280   82.3us        67.7us     12.9us
+```
+
+Interpretation:
+
+```text
+count_only confirms that hash/order construction dominated the remaining
+descriptor summary cost.
+
+aggregate audit overhead drops from ~29% over no-shadow to ~8%:
+  4.065 / 3.762 - 1 = 8.1%
+
+off + count_only is a near-lower-bound audit path:
+  3.875 / 3.762 - 1 = 3.0%
+
+Next bottleneck is now JSONL/controller overhead, so the next gate is
+jsonl_batched or flat/batched writer rather than further metric pruning.
+```

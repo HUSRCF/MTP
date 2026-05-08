@@ -252,3 +252,39 @@ def test_layer_prior_plan_report_none_metrics_keep_minimal_scalars():
     assert report.metrics["reuse_distance"]["skipped_reason"] == "none_metrics_mode"
     assert report.metrics["unique_tiles_per_window"]["mean"] is None
     assert report.metrics["consecutive_same_tile_run"]["mean"] is None
+
+
+def test_layer_prior_plan_report_count_only_skips_hashes_and_ordering():
+    prior = build_layer_tile_prior(
+        [
+            TileRequest(0, 0, 2, 2, layer_idx=0),
+            TileRequest(0, 1, 1, 1, layer_idx=0),
+        ],
+        score_name="frequency",
+        metadata={"experiment_id": "prior-count"},
+    )
+    ids = torch.tensor([[1, 2], [2, 1]], dtype=torch.long)
+    weights = torch.tensor([[0.7, 0.3], [0.6, 0.4]], dtype=torch.float32)
+
+    report, baseline_hash = build_layer_prior_plan_report_from_router_topk(
+        layer_id=0,
+        topk_ids=ids,
+        topk_weights=weights,
+        prior=prior,
+        token_window_size=2,
+        cache_sizes=[1, 2],
+        metrics_mode="count_only",
+    )
+
+    assert report is not None
+    assert baseline_hash is None
+    assert report.descriptor_count == 4
+    assert report.tile_multiset_hash is None
+    assert report.order_hash is None
+    assert report.metrics["metrics_mode"] == "count_only"
+    assert report.metrics["request_count"] == 4
+    assert report.metrics["window_count"] == 1
+    assert report.metrics["unique_tiles_total"] == 2
+    assert report.metrics["hashes_skipped_reason"] == "count_only_summary_mode"
+    assert report.metrics["lru_hit_rate"] == {}
+    assert report.metrics["tile_order_hit_rate"] is None

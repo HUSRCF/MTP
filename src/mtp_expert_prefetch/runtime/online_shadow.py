@@ -254,7 +254,7 @@ def build_shadow_summary_from_descriptor_order(
     metrics = descriptor_report.metrics
     order_changed = (
         descriptor_report.order_hash != baseline_order_hash
-        if baseline_order_hash is not None
+        if baseline_order_hash is not None and descriptor_report.order_hash is not None
         else None
     )
     lru = metrics.get("lru_hit_rate", {})

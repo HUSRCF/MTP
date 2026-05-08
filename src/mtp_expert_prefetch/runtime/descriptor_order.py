@@ -24,8 +24,8 @@ from mtp_expert_prefetch.runtime.tile_order import (
 class DescriptorOrderReport:
     policy: str
     descriptor_count: int
-    tile_multiset_hash: str
-    order_hash: str
+    tile_multiset_hash: str | None
+    order_hash: str | None
     order_build_us: float
     metrics: dict[str, Any]
     prior_id: str | None = None
@@ -209,6 +209,18 @@ def build_layer_prior_plan_report_from_router_topk(
     if top_utility_override:
         policy = f"{policy}_top{int(top_utility_override)}_utility_override"
 
+    if str(metrics_mode).strip().lower() in {"count_only", "counts", "audit_count"}:
+        return _build_layer_prior_count_only_report_from_topk_tensor(
+            ids=ids,
+            prior=prior,
+            prior_id=prior_id,
+            prior_hash=prior_hash,
+            tiles_per_expert=tiles_per_expert,
+            token_window_size=token_window_size,
+            policy=policy,
+            top_utility_override=int(top_utility_override),
+        )
+
     if tiles_per_expert == 1 and int(top_utility_override) == 0:
         return _build_layer_prior_plan_report_from_topk_tensor(
             layer_id=layer_id,
@@ -288,6 +300,79 @@ def build_layer_prior_plan_report_from_router_topk(
         top_utility_override=int(top_utility_override),
     )
     return report, hash_ints(original_tile_ids)
+
+
+def _build_layer_prior_count_only_report_from_topk_tensor(
+    *,
+    ids: torch.Tensor,
+    prior: LayerTilePrior,
+    prior_id: str | None,
+    prior_hash: str | None,
+    tiles_per_expert: int,
+    token_window_size: int,
+    policy: str,
+    top_utility_override: int,
+) -> tuple[DescriptorOrderReport | None, str | None]:
+    start_ns = time.perf_counter_ns()
+    token_count = int(ids.shape[0])
+    top_k = int(ids.shape[1])
+    if token_count <= 0 or top_k <= 0:
+        return None, None
+    valid = ids[ids >= 0]
+    if valid.numel() == 0:
+        return None, None
+    request_count = int(valid.numel()) * max(1, int(tiles_per_expert))
+    window_size = token_count if token_window_size <= 0 else max(1, int(token_window_size))
+    window_count = (token_count + window_size - 1) // window_size
+    if int(tiles_per_expert) == 1:
+        unique_tiles_total = int(torch.unique(valid).numel())
+    else:
+        unique_experts = int(torch.unique(valid).numel())
+        unique_tiles_total = unique_experts * max(1, int(tiles_per_expert))
+    order_build_us = (time.perf_counter_ns() - start_ns) / 1000.0
+    metrics = {
+        "policy": policy,
+        "metrics_mode": "count_only",
+        "request_count": request_count,
+        "window_count": int(window_count),
+        "unique_tiles_total": int(unique_tiles_total),
+        "unique_tiles_per_window": {
+            "mean": None,
+            "p50": None,
+            "p95": None,
+            "max": None,
+            "skipped_reason": "count_only_summary_mode",
+        },
+        "reuse_distance": {
+            "count": None,
+            "mean": None,
+            "p50": None,
+            "p95": None,
+            "max": None,
+            "skipped_reason": "count_only_summary_mode",
+        },
+        "lru_hit_rate": {},
+        "consecutive_same_tile_run": {
+            "mean": None,
+            "max": None,
+            "skipped_reason": "count_only_summary_mode",
+        },
+        "tile_order_hit_rate": None,
+        "first_tiles": [],
+        "hashes_skipped_reason": "count_only_summary_mode",
+    }
+    report = DescriptorOrderReport(
+        policy=policy,
+        descriptor_count=request_count,
+        tile_multiset_hash=None,
+        order_hash=None,
+        order_build_us=order_build_us,
+        metrics=metrics,
+        prior_id=prior_id or str(prior.metadata.get("experiment_id") or prior.score_name),
+        prior_hash=prior_hash,
+        top_utility_override=int(top_utility_override),
+    )
+    return report, None
 
 
 def _build_layer_prior_plan_report_from_topk_tensor(
