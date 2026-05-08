@@ -3419,6 +3419,82 @@ metrics are not needed on every sample. Compact remains the diagnostic mode for
 periodic LRU/order-hit validation.
 ```
 
+AWQ none-mode smoke32:
+
+```text
+output:
+  data/traces/aya_dataset_smoke_awq_vllm_descriptor_order_shadow_none_smoke32/runtime_shadow.jsonl
+  outputs/reports/awq_shadow_overhead/metrics_mode_none_smoke32.md
+
+runtime_shadow rows = 126,640
+outcomes            = 125,360
+descriptor summaries = 1,280
+same_multiset       = 1,280 / 1,280
+order_changed       = 1,280 / 1,280
+metrics_mode        = none
+```
+
+32-sample path-level timing:
+
+```text
+no_shadow:
+  total_trace_wall_seconds = 60.83
+  llm_init_wall_seconds    = 48.98
+  generate_wall_seconds    = 3.76
+  generate_s/output_token  = 0.118
+
+compact_shadow:
+  total_trace_wall_seconds = 66.72
+  llm_init_wall_seconds    = 49.02
+  generate_wall_seconds    = 9.56
+  generate_s/output_token  = 0.299
+
+none_shadow:
+  total_trace_wall_seconds = 65.05
+  llm_init_wall_seconds    = 48.54
+  generate_wall_seconds    = 8.48
+  generate_s/output_token  = 0.265
+
+deltas vs no_shadow:
+  compact generate +5.80s, total +5.90s
+  none    generate +4.72s, total +4.22s
+```
+
+32-sample descriptor-order overhead:
+
+```text
+compact:
+  decision_us p50/p95/p99        = 1203.3 / 1429.0 / 1536.3
+  counter_update_us p50/p95/p99  =  800.7 /  943.8 /  989.1
+  descriptor_build_us p50/p95/p99 = 412.1 / 505.3 / 559.0
+  LRU@8/order_hit rows           = 1280 / 1280
+
+none:
+  decision_us p50/p95/p99        =  712.2 /  847.8 /  928.3
+  counter_update_us p50/p95/p99  =  315.5 /  355.8 /  394.4
+  descriptor_build_us p50/p95/p99 = 405.6 / 494.9 / 549.5
+  LRU@8/order_hit rows           = 0 / 0
+```
+
+Interpretation:
+
+```text
+metrics_mode=none scales cleanly from 8 to 32 samples: summary/outcome counts
+remain aligned and p99 overhead does not worsen.
+
+None mode reduces descriptor-order shadow CPU overhead versus compact:
+  decision_us p50 drops from ~1203us to ~712us
+  counter_update_us p50 drops from ~801us to ~316us
+
+However, no-shadow vs none-shadow path-level timing still shows a measurable
+generate-path cost (+4.72s over 32 samples). That remaining cost is mostly the
+synchronous summary/controller/logging path, not LRU/order-hit metric
+computation and not model loading.
+
+Next optimization target:
+  async/batched logger path or flat scalar buffer for none-mode summaries.
+```
+
 Runtime online descriptor-order fast producer:
 
 ```text
