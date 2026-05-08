@@ -1,0 +1,39 @@
+schema_version: 1
+policy: layer_prior_frequency
+execution_mode: two_level_group_plan
+source_report: outputs/reports/tile_order_cache/descriptor_consumer_two_level_gate_table_tile_sweep_summary.json
+trace_source: data/traces/aya_dataset_128_awq_vllm_descriptor_order_shadow_count_only_minimal_aggregate_batched
+
+contract:
+  same_multiset_required: true
+  checksum_delta_required: 0.0
+  prior_id: layer_prior_frequency_384calib
+  prior_path: outputs/reports/tile_order_cache/layer_prior_frequency_384calib.json
+
+initial_runtime_gate:
+  # Conservative first vLLM/HIP patch envelope.  The full gate table includes
+  # other profitable cells, but these settings are consistently strong and keep
+  # load-balance risk low for the first same-multiset execution MVP.
+  tile_elems: [512, 1024, 2048]
+  groups_per_cta: [4, 8]
+  cache_flush_elems: [0, 16777216]
+  devices: [0, 1]
+
+diagnostic_only:
+  groups_per_cta: [16, 32]
+
+disable:
+  groups_per_cta_min: 64
+  unmeasured_tile_elems: true
+  unmeasured_devices: true
+  checksum_mismatch: true
+  same_multiset_false: true
+
+producer_telemetry_required_fields:
+  - descriptor_order_execution_mode
+  - descriptor_group_plan_groups_per_cta
+  - descriptor_group_plan_group_count
+  - descriptor_group_plan_avg_group_size
+  - descriptor_group_plan_p95_group_size
+  - descriptor_group_plan_max_group_size
+  - descriptor_group_plan_cta_count

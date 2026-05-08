@@ -4293,3 +4293,71 @@ sample descriptor fields:
 Regression coverage:
 `tests/test_trace_backend_dispatch.py` verifies that vLLM backend configs route
 through the vLLM trace function from the generic entry point.
+
+Expanded two-level runtime gate:
+
+```text
+implementation:
+  scripts/check_descriptor_order_group_plan_consistency.py
+  configs/runtime/descriptor_order_two_level_gate.yaml
+
+gate reports:
+  outputs/reports/tile_order_cache/descriptor_consumer_micro_runtime_awq128_two_level_gate_table_tile_sweep.json
+  outputs/reports/tile_order_cache/descriptor_consumer_two_level_gate_table_tile_sweep_summary.md
+
+sweep:
+  tile_elems: 512 / 1024 / 2048
+  groups_per_cta: 4 / 8 / 16 / 32 / 64
+  cache_flush_elems: 0 / 16M
+  devices: GPU0 / GPU1
+
+gate result:
+  rows: 60
+  allowed: 47
+  checksum_delta: 0 for all allowed rows
+
+conservative first runtime gate:
+  descriptor_order_execution_mode = two_level_group_plan
+  tile_elems in {512, 1024, 2048}
+  groups_per_cta in {4, 8}
+  devices in {0, 1}
+  same_multiset = true
+  checksum/parity gate passes
+
+diagnostic only:
+  groups_per_cta in {16, 32}
+
+disable:
+  groups_per_cta >= 64
+  unmeasured tile_elems/device/kernel variants
+```
+
+Online producer consistency check:
+
+```text
+report:
+  outputs/reports/tile_order_cache/descriptor_order_group_plan_online_consistency_smoke32.md
+
+input:
+  data/traces/aya_dataset_smoke_awq_vllm_descriptor_order_shadow_count_only_minimal_aggregate_batched_smoke32/runtime_shadow.jsonl
+
+descriptor events: 1,280
+missing required group-plan fields: 0
+execution modes: {two_level_group_plan: 1,280}
+groups_per_cta: {8: 1,280}
+
+producer stats:
+  descriptor_tile_request_count mean: 783.5
+  descriptor_unique_b_tiles mean: 102.83
+  descriptor_group_plan_group_count mean: 140.66
+  descriptor_group_plan_avg_group_size mean: 5.75
+  descriptor_group_plan_p95_group_size mean: 23.65
+  descriptor_group_plan_max_group_size max: 63
+  descriptor_group_plan_cta_count mean: 18.02
+  descriptor_order_build_us mean: 52.21
+
+gate projection for observed groups_per_cta=8:
+  tile_elems 512:  4/4 allowed
+  tile_elems 1024: 4/4 allowed
+  tile_elems 2048: 4/4 allowed
+```
