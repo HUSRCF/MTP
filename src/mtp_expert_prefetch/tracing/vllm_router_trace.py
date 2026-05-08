@@ -1275,6 +1275,7 @@ def _build_runtime_shadow_controller(
     logger = OnlineShadowLogger(
         output_path,
         flush_every=int(options.get("flush_every", 1)),
+        writer_mode=str(options.get("writer_mode", "sync_jsonl")),
     )
     return RuntimeShadowController(
         logger,
@@ -1547,6 +1548,9 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
         ),
         "runtime_shadow_outcome_logging_mode": str(
             runtime_shadow_options.get("outcome_logging_mode", "full")
+        ),
+        "runtime_shadow_writer_mode": str(
+            runtime_shadow_options.get("writer_mode", "sync_jsonl")
         ),
         "runtime_shadow_descriptor_order_metrics_mode": (
             str(runtime_shadow_options.get("descriptor_order_metrics_mode"))

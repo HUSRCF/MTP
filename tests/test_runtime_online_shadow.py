@@ -80,6 +80,57 @@ def test_online_shadow_logger_writes_and_aggregates_schema_events(tmp_path):
     assert aggregate["decision_us_mean"] == 1.5
 
 
+def test_online_shadow_logger_batched_writer_defers_jsonl_until_flush(tmp_path):
+    event_id = ShadowEventId("req", 0, 3, 2)
+    policy = ShadowPolicyConfig(
+        policy_mode="default",
+        optimization_goal="stall_reduction",
+        action_keep_fraction=0.5,
+        metadata_score_ratio=0.95,
+        full_fetch_max_extra=4,
+        metadata_max_extra=1,
+        premap_max_extra=1,
+    )
+    summary = ShadowSummaryEvent(
+        event_id=event_id,
+        policy=policy,
+        transition_topk_count=32,
+        mtp_requested_count=64,
+        full_fetch_count=2,
+        metadata_count=1,
+        premap_count=1,
+        skip_count=60,
+        full_fetch_payload_bytes=3_300_000,
+        metadata_actual_bytes=65_536,
+        premap_actual_bytes=4_096,
+    )
+    path = tmp_path / "batched_shadow.jsonl"
+
+    with OnlineShadowLogger(
+        path,
+        flush_every=10,
+        writer_mode="jsonl_batched",
+    ) as logger:
+        logger.write_summary(summary)
+        assert read_shadow_jsonl(path) == []
+        logger.flush()
+        rows = read_shadow_jsonl(path)
+
+    assert [row["event_type"] for row in rows] == ["summary"]
+    assert rows[0]["shadow_event_id"] == "req:0:3:2"
+
+
+def test_online_shadow_logger_rejects_unknown_writer_mode(tmp_path):
+    path = tmp_path / "bad_writer_shadow.jsonl"
+
+    try:
+        OnlineShadowLogger(path, writer_mode="bad_writer")
+    except ValueError as exc:
+        assert "writer_mode" in str(exc)
+    else:
+        raise AssertionError("OnlineShadowLogger accepted an unknown writer mode")
+
+
 def test_build_shadow_summary_from_decisions_counts_actions_and_reasons():
     shape = (1, 1, 1, 5)
     full_fetch = torch.zeros(shape, dtype=torch.bool)

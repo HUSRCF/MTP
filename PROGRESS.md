@@ -3752,3 +3752,43 @@ off + count_only is a near-lower-bound audit path:
 Next bottleneck is now JSONL/controller overhead, so the next gate is
 jsonl_batched or flat/batched writer rather than further metric pruning.
 ```
+
+Runtime shadow JSONL batched writer:
+
+```text
+implementation:
+  src/mtp_expert_prefetch/runtime/online_shadow.py
+    adds writer_mode = sync_jsonl / jsonl_batched
+    jsonl_batched stores event objects in memory and serializes/writes them
+    during flush/close instead of per row in the generate path
+
+  configs:
+    router_mtp_trace_aya_dataset_awq_vllm_descriptor_order_shadow_count_only_outcome_aggregate_batched_smoke32.yaml
+    router_mtp_trace_aya_dataset_awq_vllm_descriptor_order_shadow_count_only_outcome_off_batched_smoke32.yaml
+```
+
+AWQ 32-sample writer result:
+
+```text
+mode                         writer         generate_s  TPOT_s   rows
+no_shadow                    -              3.762       0.1176   0
+count_only + aggregate       sync_jsonl     4.065       0.1270   2560
+count_only + aggregate       jsonl_batched  4.021       0.1256   2560
+count_only + off             sync_jsonl     3.875       0.1211   1280
+count_only + off             jsonl_batched  3.939       0.1231   1280
+```
+
+Interpretation:
+
+```text
+jsonl_batched is replay-correct and slightly helps the aggregate audit path:
+  aggregate overhead drops from ~8.1% to ~6.9% over no-shadow.
+
+It does not improve the off path in this 32-sample run, so per-row file flush
+is no longer the main bottleneck after count_only. Remaining overhead is likely
+dominated by recorder/controller event construction and tensor CPU copy/detach.
+
+Default recommendation:
+  count_only + aggregate + jsonl_batched for long-run audit
+  count_only + off + sync_jsonl as the descriptor-only lower-bound check
+```

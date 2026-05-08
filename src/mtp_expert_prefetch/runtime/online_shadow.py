@@ -26,12 +26,25 @@ class OnlineShadowLogger:
     it only preserves the schema used by offline replay.
     """
 
-    def __init__(self, path: str | Path, *, flush_every: int = 1) -> None:
+    def __init__(
+        self,
+        path: str | Path,
+        *,
+        flush_every: int = 1,
+        writer_mode: str = "sync_jsonl",
+    ) -> None:
         self.path = Path(path).expanduser().resolve()
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.flush_every = max(1, int(flush_every))
+        self.writer_mode = _normalize_writer_mode(writer_mode)
         self._handle = self.path.open("a", encoding="utf-8")
         self._pending = 0
+        self._batch: list[
+            ShadowSummaryEvent
+            | ShadowOutcomeEvent
+            | ShadowOutcomeAggregateEvent
+            | dict[str, Any]
+        ] = []
         self._closed = False
 
     def write_summary(self, event: ShadowSummaryEvent) -> None:
@@ -139,8 +152,13 @@ class OnlineShadowLogger:
         if self._closed:
             msg = "Cannot write to a closed OnlineShadowLogger."
             raise RuntimeError(msg)
-        payload = event.as_dict() if hasattr(event, "as_dict") else dict(event)
-        self._handle.write(json.dumps(payload, ensure_ascii=False, sort_keys=True) + "\n")
+        if self.writer_mode == "jsonl_batched":
+            self._batch.append(event)
+        else:
+            payload = event.as_dict() if hasattr(event, "as_dict") else dict(event)
+            self._handle.write(
+                json.dumps(payload, ensure_ascii=False, sort_keys=True) + "\n"
+            )
         self._pending += 1
         if self._pending >= self.flush_every:
             self.flush()
@@ -148,6 +166,13 @@ class OnlineShadowLogger:
     def flush(self) -> None:
         if self._closed:
             return
+        if self.writer_mode == "jsonl_batched" and self._batch:
+            lines = []
+            for event in self._batch:
+                payload = event.as_dict() if hasattr(event, "as_dict") else dict(event)
+                lines.append(json.dumps(payload, ensure_ascii=False, sort_keys=True) + "\n")
+            self._handle.writelines(lines)
+            self._batch.clear()
         self._handle.flush()
         self._pending = 0
 
@@ -304,3 +329,20 @@ def _optional_float(value: Any) -> float | None:
     if value is None:
         return None
     return float(value)
+
+
+def _normalize_writer_mode(writer_mode: str) -> str:
+    mode = str(writer_mode or "sync_jsonl").strip().lower()
+    aliases = {
+        "sync": "sync_jsonl",
+        "jsonl": "sync_jsonl",
+        "jsonl_sync": "sync_jsonl",
+        "batched": "jsonl_batched",
+        "batch": "jsonl_batched",
+        "batched_jsonl": "jsonl_batched",
+    }
+    normalized = aliases.get(mode, mode)
+    if normalized not in {"sync_jsonl", "jsonl_batched"}:
+        msg = f"Unsupported OnlineShadowLogger writer_mode: {writer_mode}"
+        raise ValueError(msg)
+    return normalized
