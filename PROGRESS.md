@@ -3792,3 +3792,68 @@ Default recommendation:
   count_only + aggregate + jsonl_batched for long-run audit
   count_only + off + sync_jsonl as the descriptor-only lower-bound check
 ```
+
+Runtime shadow minimal descriptor-summary events:
+
+```text
+implementation:
+  src/mtp_expert_prefetch/runtime/shadow_log.py
+    adds ShadowDescriptorSummaryMinEvent with a fixed scalar schema
+    keeps descriptor policy/prior id/hash, request/window/unique-tile counts,
+    and timing scalars only
+
+  src/mtp_expert_prefetch/runtime/online_shadow.py
+  src/mtp_expert_prefetch/runtime/shadow_controller.py
+  src/mtp_expert_prefetch/tracing/vllm_router_trace.py
+    add descriptor_order_event_mode = summary / minimal
+    minimal writes descriptor_summary_min records instead of full summary rows
+
+  configs:
+    router_mtp_trace_aya_dataset_awq_vllm_descriptor_order_shadow_count_only_minimal_aggregate_batched_smoke32.yaml
+    router_mtp_trace_aya_dataset_awq_vllm_descriptor_order_shadow_count_only_minimal_off_batched_smoke32.yaml
+```
+
+AWQ 32-sample minimal-event result:
+
+```text
+mode                         generate_s  TPOT_s   rows   summary  min   aggregate
+no_shadow                    3.762       0.1176   0      0        0     0
+count_only + aggregate batch 4.021       0.1256   2560   1280     0     1280
+count_only + off batch       3.939       0.1231   1280   1280     0     0
+minimal + aggregate batch    3.866       0.1208   2560   0        1280  1280
+minimal + off batch          3.797       0.1187   1280   0        1280  0
+```
+
+Interpretation:
+
+```text
+minimal descriptor-summary events move the hot path from full policy summary
+objects to fixed scalar telemetry records.
+
+aggregate audit overhead drops to ~2.8% over no-shadow:
+  3.866 / 3.762 - 1 = 2.8%
+
+descriptor-only lower-bound overhead drops to ~0.9% over no-shadow:
+  3.797 / 3.762 - 1 = 0.9%
+
+This confirms the next efficient long-run audit path is:
+  descriptor_order_metrics_mode=count_only
+  descriptor_order_event_mode=minimal
+  outcome_logging_mode=aggregate
+  writer_mode=jsonl_batched
+
+Descriptor min events are intentionally audit-minimal:
+they do not carry same_multiset/order_hash/LRU/order_hit fields. Periodic
+none/compact runs remain necessary for semantic and locality diagnostics.
+```
+
+Review fix:
+
+```text
+aggregate_shadow_events now separates full descriptor summaries from
+descriptor_summary_min events.
+
+Build/count/timing means use all descriptor summary events, but LRU/order_hit
+and reuse metrics are averaged only over events that actually carry those
+fields. This prevents mixed full+minimal logs from diluting diagnostic metrics.
+```

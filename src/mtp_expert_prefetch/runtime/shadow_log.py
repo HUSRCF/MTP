@@ -160,6 +160,48 @@ class ShadowSummaryEvent:
 
 
 @dataclass(frozen=True)
+class ShadowDescriptorSummaryMinEvent:
+    event_id: ShadowEventId
+    descriptor_order_policy: str
+    descriptor_order_prior_id: str | None
+    descriptor_order_prior_hash: str | None
+    descriptor_order_metrics_mode: str
+    descriptor_tile_request_count: int
+    descriptor_unique_b_tiles: int
+    descriptor_window_count: int
+    descriptor_order_top_utility_override: int | None = None
+    candidate_construction_us: float | None = None
+    descriptor_order_build_us: float | None = None
+    counter_update_us: float | None = None
+    decision_us: float | None = None
+
+    def as_dict(self) -> dict[str, Any]:
+        payload = {
+            "event_type": "descriptor_summary_min",
+            **self.event_id.as_dict(),
+            "policy_mode": "descriptor_order_shadow",
+            "optimization_goal": "cache_locality",
+            "descriptor_order_policy": str(self.descriptor_order_policy),
+            "descriptor_order_metrics_mode": str(self.descriptor_order_metrics_mode),
+            "descriptor_tile_request_count": int(self.descriptor_tile_request_count),
+            "descriptor_unique_b_tiles": int(self.descriptor_unique_b_tiles),
+            "descriptor_window_count": int(self.descriptor_window_count),
+        }
+        _put_optional(payload, "descriptor_order_prior_id", self.descriptor_order_prior_id)
+        _put_optional(payload, "descriptor_order_prior_hash", self.descriptor_order_prior_hash)
+        _put_optional(
+            payload,
+            "descriptor_order_top_utility_override",
+            self.descriptor_order_top_utility_override,
+        )
+        _put_optional(payload, "candidate_construction_us", self.candidate_construction_us)
+        _put_optional(payload, "descriptor_order_build_us", self.descriptor_order_build_us)
+        _put_optional(payload, "counter_update_us", self.counter_update_us)
+        _put_optional(payload, "decision_us", self.decision_us)
+        return payload
+
+
+@dataclass(frozen=True)
 class ShadowCandidateEvent:
     event_id: ShadowEventId
     expert_id: int
@@ -280,6 +322,8 @@ def read_shadow_jsonl(path: str | Path) -> list[dict[str, Any]]:
 def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
     totals = {
         "summary_count": 0,
+        "descriptor_summary_min_count": 0,
+        "descriptor_summary_full_count": 0,
         "candidate_count": 0,
         "outcome_count": 0,
         "outcome_aggregate_count": 0,
@@ -312,11 +356,17 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
         "descriptor_order_summary_count": 0,
         "descriptor_tile_request_count": 0,
         "descriptor_unique_b_tiles_sum": 0,
+        "descriptor_window_count_sum": 0,
         "descriptor_order_lru_at_8_sum": 0.0,
+        "descriptor_order_lru_at_8_count": 0,
         "descriptor_order_lru_at_16_sum": 0.0,
+        "descriptor_order_lru_at_16_count": 0,
         "descriptor_order_hit_rate_sum": 0.0,
+        "descriptor_order_hit_rate_count": 0,
         "descriptor_reuse_distance_mean_sum": 0.0,
+        "descriptor_reuse_distance_mean_count": 0,
         "descriptor_unique_tiles_per_window_mean_sum": 0.0,
+        "descriptor_unique_tiles_per_window_mean_count": 0,
         "descriptor_same_multiset_count": 0,
         "descriptor_order_changed_count": 0,
         "joined_outcome_count": 0,
@@ -346,6 +396,7 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
             ):
                 totals[f"{key}_sum"] += float(event.get(key, 0.0) or 0.0)
             if "descriptor_order_build_us" in event:
+                totals["descriptor_summary_full_count"] += 1
                 totals["descriptor_order_build_us_sum"] += float(
                     event.get("descriptor_order_build_us", 0.0) or 0.0
                 )
@@ -356,27 +407,64 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
                 totals["descriptor_unique_b_tiles_sum"] += int(
                     event.get("descriptor_unique_b_tiles", 0) or 0
                 )
-                totals["descriptor_order_lru_at_8_sum"] += float(
-                    event.get("descriptor_order_lru_at_8", 0.0) or 0.0
-                )
-                totals["descriptor_order_lru_at_16_sum"] += float(
-                    event.get("descriptor_order_lru_at_16", 0.0) or 0.0
-                )
-                totals["descriptor_order_hit_rate_sum"] += float(
-                    event.get("descriptor_order_hit_rate", 0.0) or 0.0
-                )
-                totals["descriptor_reuse_distance_mean_sum"] += float(
-                    event.get("descriptor_reuse_distance_mean", 0.0) or 0.0
-                )
-                totals["descriptor_unique_tiles_per_window_mean_sum"] += float(
-                    event.get("descriptor_unique_tiles_per_window_mean", 0.0) or 0.0
-                )
+                for value_key, sum_key, count_key in (
+                    (
+                        "descriptor_order_lru_at_8",
+                        "descriptor_order_lru_at_8_sum",
+                        "descriptor_order_lru_at_8_count",
+                    ),
+                    (
+                        "descriptor_order_lru_at_16",
+                        "descriptor_order_lru_at_16_sum",
+                        "descriptor_order_lru_at_16_count",
+                    ),
+                    (
+                        "descriptor_order_hit_rate",
+                        "descriptor_order_hit_rate_sum",
+                        "descriptor_order_hit_rate_count",
+                    ),
+                    (
+                        "descriptor_reuse_distance_mean",
+                        "descriptor_reuse_distance_mean_sum",
+                        "descriptor_reuse_distance_mean_count",
+                    ),
+                    (
+                        "descriptor_unique_tiles_per_window_mean",
+                        "descriptor_unique_tiles_per_window_mean_sum",
+                        "descriptor_unique_tiles_per_window_mean_count",
+                    ),
+                ):
+                    if value_key in event:
+                        totals[sum_key] += float(event.get(value_key, 0.0) or 0.0)
+                        totals[count_key] += 1
                 totals["descriptor_same_multiset_count"] += int(
                     bool(event.get("descriptor_same_multiset", False))
                 )
                 totals["descriptor_order_changed_count"] += int(
                     bool(event.get("descriptor_order_changed", False))
                 )
+        elif event_type == "descriptor_summary_min":
+            totals["descriptor_summary_min_count"] += 1
+            totals["descriptor_order_summary_count"] += 1
+            totals["descriptor_order_build_us_sum"] += float(
+                event.get("descriptor_order_build_us", 0.0) or 0.0
+            )
+            totals["descriptor_tile_request_count"] += int(
+                event.get("descriptor_tile_request_count", 0) or 0
+            )
+            totals["descriptor_unique_b_tiles_sum"] += int(
+                event.get("descriptor_unique_b_tiles", 0) or 0
+            )
+            totals["descriptor_window_count_sum"] += int(
+                event.get("descriptor_window_count", 0) or 0
+            )
+            totals["decision_us_sum"] += float(event.get("decision_us", 0.0) or 0.0)
+            totals["candidate_construction_us_sum"] += float(
+                event.get("candidate_construction_us", 0.0) or 0.0
+            )
+            totals["counter_update_us_sum"] += float(
+                event.get("counter_update_us", 0.0) or 0.0
+            )
         elif event_type == "candidate":
             totals["candidate_count"] += 1
         elif event_type == "outcome":
@@ -416,12 +504,15 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
             )
 
     outcome_count = max(1, int(totals["outcome_count"]))
-    summary_count = max(1, int(totals["summary_count"]))
+    summary_event_count = int(totals["summary_count"]) + int(
+        totals["descriptor_summary_min_count"]
+    )
+    summary_count = max(1, summary_event_count)
     totals["top1_ready_rate"] = totals["top1_ready_count"] / outcome_count
     totals["weighted_top1_miss_mean"] = totals["weighted_top1_miss_sum"] / outcome_count
     totals["covered_mass_mean"] = totals["covered_mass_sum"] / outcome_count
     totals["miss_mass_mean"] = totals["miss_mass_sum"] / outcome_count
-    totals["decision_summary_count"] = summary_count
+    totals["decision_summary_count"] = summary_event_count
     for key in (
         "decision_us",
         "candidate_construction_us",
@@ -437,20 +528,30 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
     totals["descriptor_unique_b_tiles_mean"] = (
         totals["descriptor_unique_b_tiles_sum"] / descriptor_count
     )
+    totals["descriptor_window_count_mean"] = (
+        totals["descriptor_window_count_sum"] / descriptor_count
+    )
+    lru8_count = max(1, int(totals["descriptor_order_lru_at_8_count"]))
+    lru16_count = max(1, int(totals["descriptor_order_lru_at_16_count"]))
+    hit_count = max(1, int(totals["descriptor_order_hit_rate_count"]))
+    reuse_count = max(1, int(totals["descriptor_reuse_distance_mean_count"]))
+    unique_window_count = max(
+        1, int(totals["descriptor_unique_tiles_per_window_mean_count"])
+    )
     totals["descriptor_order_lru_at_8_mean"] = (
-        totals["descriptor_order_lru_at_8_sum"] / descriptor_count
+        totals["descriptor_order_lru_at_8_sum"] / lru8_count
     )
     totals["descriptor_order_lru_at_16_mean"] = (
-        totals["descriptor_order_lru_at_16_sum"] / descriptor_count
+        totals["descriptor_order_lru_at_16_sum"] / lru16_count
     )
     totals["descriptor_order_hit_rate_mean"] = (
-        totals["descriptor_order_hit_rate_sum"] / descriptor_count
+        totals["descriptor_order_hit_rate_sum"] / hit_count
     )
     totals["descriptor_reuse_distance_mean"] = (
-        totals["descriptor_reuse_distance_mean_sum"] / descriptor_count
+        totals["descriptor_reuse_distance_mean_sum"] / reuse_count
     )
     totals["descriptor_unique_tiles_per_window_mean"] = (
-        totals["descriptor_unique_tiles_per_window_mean_sum"] / descriptor_count
+        totals["descriptor_unique_tiles_per_window_mean_sum"] / unique_window_count
     )
     aggregate_count = max(1, int(totals["outcome_aggregate_count"]))
     aggregate_token_count = max(1, int(totals["outcome_aggregate_token_count"]))

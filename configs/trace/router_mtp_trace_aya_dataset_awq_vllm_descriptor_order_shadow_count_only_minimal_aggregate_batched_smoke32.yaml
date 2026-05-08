@@ -1,0 +1,42 @@
+model: configs/model/qwen3_6_35b_a3b_awq_4bit.yaml
+data: configs/data/aya_dataset_smoke.yaml
+output_dir: data/traces/aya_dataset_smoke_awq_vllm_descriptor_order_shadow_count_only_minimal_aggregate_batched_smoke32
+
+trace:
+  capture_router_topk: true
+  capture_router_scores: true
+  use_router_logits_recorder: true
+  capture_hidden_states: none
+  capture_native_mtp_router: false
+  future_window: 4
+  max_samples: 32
+  max_length: 128
+  max_tokens: 1
+  router_module_prefix: model.language_model
+  token_source_manifest: data/traces/aya_dataset_smoke_autoround/manifest.jsonl
+  runtime_shadow:
+    enabled: true
+    output_path: data/traces/aya_dataset_smoke_awq_vllm_descriptor_order_shadow_count_only_minimal_aggregate_batched_smoke32/runtime_shadow.jsonl
+    overwrite: true
+    flush_every: 100000
+    writer_mode: jsonl_batched
+    max_pending: 10000
+    emit_transition_summaries: false
+    emit_descriptor_order_summaries: true
+    emit_summaries: true
+    emit_outcomes: true
+    outcome_logging_mode: aggregate
+    descriptor_order_prior_path: outputs/reports/tile_order_cache/layer_prior_frequency_384calib.json
+    descriptor_order_prior_id: layer_prior_frequency_384calib
+    descriptor_order_tiles_per_expert: 1
+    descriptor_order_token_window_size: 64
+    descriptor_order_cache_sizes: [8, 16, 32]
+    descriptor_order_top_k: 8
+    descriptor_order_top_utility_override: 0
+    descriptor_order_metrics_mode: count_only
+    descriptor_order_event_mode: minimal
+    descriptor_order_event_token_index: -1
+    request_id_prefix: sample_
+    sequence_id: 0
+    token_offset: 0
+    flush_pending_as_timeouts: true

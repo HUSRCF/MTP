@@ -6,6 +6,7 @@ from mtp_expert_prefetch.runtime import (
     order_tile_request_stream,
 )
 from mtp_expert_prefetch.runtime.shadow_log import (
+    ShadowDescriptorSummaryMinEvent,
     ShadowEventId,
     ShadowOutcomeAggregateEvent,
     ShadowOutcomeEvent,
@@ -164,6 +165,118 @@ def test_shadow_log_aggregates_outcome_aggregate_events(tmp_path):
     assert aggregate["outcome_aggregate_topk_weight_mass_sum"] == 2.0
     assert aggregate["outcome_aggregate_top1_weight_sum"] == 1.4
     assert aggregate["outcome_aggregate_top1_weight_mean"] == 0.7
+
+
+def test_shadow_log_aggregates_descriptor_summary_min_events(tmp_path):
+    event = ShadowDescriptorSummaryMinEvent(
+        event_id=ShadowEventId("req", sequence_id=0, token_index=-1, layer=3),
+        descriptor_order_policy="layer_prior_frequency",
+        descriptor_order_prior_id="prior-v1",
+        descriptor_order_prior_hash="hash-v1",
+        descriptor_order_metrics_mode="count_only",
+        descriptor_tile_request_count=16,
+        descriptor_unique_b_tiles=4,
+        descriptor_window_count=2,
+        candidate_construction_us=1.0,
+        descriptor_order_build_us=2.0,
+        counter_update_us=3.0,
+        decision_us=6.0,
+    )
+
+    output = write_shadow_jsonl([event], tmp_path / "descriptor_min_shadow.jsonl")
+    rows = read_shadow_jsonl(output)
+    aggregate = aggregate_shadow_events(rows)
+
+    assert rows[0]["event_type"] == "descriptor_summary_min"
+    assert rows[0]["descriptor_order_metrics_mode"] == "count_only"
+    assert "full_fetch_count" not in rows[0]
+    assert aggregate["descriptor_summary_min_count"] == 1
+    assert aggregate["descriptor_summary_full_count"] == 0
+    assert aggregate["descriptor_order_summary_count"] == 1
+    assert aggregate["descriptor_tile_request_count"] == 16
+    assert aggregate["descriptor_unique_b_tiles_mean"] == 4.0
+    assert aggregate["descriptor_window_count_mean"] == 2.0
+    assert aggregate["decision_summary_count"] == 1
+    assert aggregate["decision_us_mean"] == 6.0
+    assert aggregate["candidate_construction_us_mean"] == 1.0
+    assert aggregate["counter_update_us_mean"] == 3.0
+
+
+def test_shadow_log_descriptor_summary_min_does_not_dilute_full_metrics(tmp_path):
+    event_id = ShadowEventId("req", sequence_id=0, token_index=-1, layer=3)
+    policy = ShadowPolicyConfig(
+        policy_mode="descriptor_order_shadow",
+        optimization_goal="cache_locality",
+        action_keep_fraction=0.0,
+        metadata_score_ratio=0.0,
+        full_fetch_max_extra=0,
+        metadata_max_extra=0,
+        premap_max_extra=0,
+        descriptor_order_policy="layer_prior_frequency",
+        descriptor_order_prior_id="prior-v1",
+        descriptor_order_prior_hash="hash-v1",
+    )
+    full = ShadowSummaryEvent(
+        event_id=event_id,
+        policy=policy,
+        transition_topk_count=0,
+        mtp_requested_count=0,
+        full_fetch_count=0,
+        metadata_count=0,
+        premap_count=0,
+        skip_count=0,
+        full_fetch_payload_bytes=0,
+        metadata_actual_bytes=0,
+        premap_actual_bytes=0,
+        decision_us=10.0,
+        candidate_construction_us=2.0,
+        counter_update_us=1.0,
+        descriptor_order_build_us=4.0,
+        descriptor_tile_request_count=8,
+        descriptor_unique_b_tiles=4,
+        descriptor_same_multiset=True,
+        descriptor_order_changed=True,
+        descriptor_order_lru_at_8=0.8,
+        descriptor_order_lru_at_16=0.9,
+        descriptor_order_hit_rate=0.5,
+        descriptor_reuse_distance_mean=3.0,
+        descriptor_unique_tiles_per_window_mean=2.0,
+    )
+    minimal = ShadowDescriptorSummaryMinEvent(
+        event_id=ShadowEventId("req", sequence_id=0, token_index=-1, layer=4),
+        descriptor_order_policy="layer_prior_frequency",
+        descriptor_order_prior_id="prior-v1",
+        descriptor_order_prior_hash="hash-v1",
+        descriptor_order_metrics_mode="count_only",
+        descriptor_tile_request_count=16,
+        descriptor_unique_b_tiles=8,
+        descriptor_window_count=4,
+        candidate_construction_us=4.0,
+        descriptor_order_build_us=6.0,
+        counter_update_us=3.0,
+        decision_us=20.0,
+    )
+
+    output = write_shadow_jsonl([full, minimal], tmp_path / "mixed_descriptor.jsonl")
+    aggregate = aggregate_shadow_events(read_shadow_jsonl(output))
+
+    assert aggregate["summary_count"] == 1
+    assert aggregate["descriptor_summary_full_count"] == 1
+    assert aggregate["descriptor_summary_min_count"] == 1
+    assert aggregate["descriptor_order_summary_count"] == 2
+    assert aggregate["decision_summary_count"] == 2
+    assert aggregate["decision_us_mean"] == 15.0
+    assert aggregate["candidate_construction_us_mean"] == 3.0
+    assert aggregate["counter_update_us_mean"] == 2.0
+    assert aggregate["descriptor_order_build_us_mean"] == 5.0
+    assert aggregate["descriptor_unique_b_tiles_mean"] == 6.0
+    assert aggregate["descriptor_window_count_mean"] == 2.0
+    assert aggregate["descriptor_order_lru_at_8_count"] == 1
+    assert aggregate["descriptor_order_lru_at_8_mean"] == 0.8
+    assert aggregate["descriptor_order_lru_at_16_mean"] == 0.9
+    assert aggregate["descriptor_order_hit_rate_mean"] == 0.5
+    assert aggregate["descriptor_reuse_distance_mean"] == 3.0
+    assert aggregate["descriptor_unique_tiles_per_window_mean"] == 2.0
 
 
 def test_descriptor_order_shadow_summary_builder():

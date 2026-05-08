@@ -14,6 +14,7 @@ from mtp_expert_prefetch.runtime.online_shadow import (
     build_shadow_summary_from_descriptor_order,
 )
 from mtp_expert_prefetch.runtime.shadow_log import (
+    ShadowDescriptorSummaryMinEvent,
     ShadowEventId,
     ShadowOutcomeAggregateEvent,
     ShadowOutcomeEvent,
@@ -186,6 +187,22 @@ class RuntimeShadowController:
             )
             self.stats.suppressed_summary_count += 1
         return event
+
+    def write_descriptor_order_min_summary(
+        self,
+        event: ShadowDescriptorSummaryMinEvent,
+    ) -> None:
+        """Write a fixed-scalar descriptor-order audit row.
+
+        This intentionally bypasses the full summary schema and outcome join:
+        it is for low-overhead long-run telemetry only.
+        """
+
+        if self.emit_summaries:
+            self.logger.write_descriptor_order_min_summary(event)
+            self.stats.written_summary_count += 1
+        else:
+            self.stats.suppressed_summary_count += 1
 
     def write_outcome(self, event: ShadowOutcomeEvent) -> None:
         """Enrich and write a true-router outcome.

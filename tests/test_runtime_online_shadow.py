@@ -11,6 +11,7 @@ from mtp_expert_prefetch.runtime import (
     order_tile_request_stream_with_layer_prior,
 )
 from mtp_expert_prefetch.runtime.shadow_log import (
+    ShadowDescriptorSummaryMinEvent,
     ShadowEventId,
     ShadowOutcomeAggregateEvent,
     ShadowOutcomeEvent,
@@ -118,6 +119,31 @@ def test_online_shadow_logger_batched_writer_defers_jsonl_until_flush(tmp_path):
 
     assert [row["event_type"] for row in rows] == ["summary"]
     assert rows[0]["shadow_event_id"] == "req:0:3:2"
+
+
+def test_runtime_shadow_controller_writes_descriptor_order_min_summary(tmp_path):
+    path = tmp_path / "descriptor_min_shadow.jsonl"
+    event = ShadowDescriptorSummaryMinEvent(
+        event_id=ShadowEventId("req", sequence_id=0, token_index=-1, layer=3),
+        descriptor_order_policy="layer_prior_frequency",
+        descriptor_order_prior_id="prior-v1",
+        descriptor_order_prior_hash="hash-v1",
+        descriptor_order_metrics_mode="count_only",
+        descriptor_tile_request_count=16,
+        descriptor_unique_b_tiles=4,
+        descriptor_window_count=2,
+        descriptor_order_build_us=2.0,
+        decision_us=6.0,
+    )
+
+    with RuntimeShadowController(OnlineShadowLogger(path)) as controller:
+        controller.write_descriptor_order_min_summary(event)
+        stats = controller.stats_dict()
+
+    rows = read_shadow_jsonl(path)
+    assert [row["event_type"] for row in rows] == ["descriptor_summary_min"]
+    assert rows[0]["descriptor_tile_request_count"] == 16
+    assert stats["written_summary_count"] == 1
 
 
 def test_online_shadow_logger_rejects_unknown_writer_mode(tmp_path):

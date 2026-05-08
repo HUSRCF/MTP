@@ -23,6 +23,7 @@ from mtp_expert_prefetch.runtime.descriptor_order import (
 from mtp_expert_prefetch.runtime.online_shadow import OnlineShadowLogger
 from mtp_expert_prefetch.runtime.shadow_controller import RuntimeShadowController
 from mtp_expert_prefetch.runtime.shadow_log import (
+    ShadowDescriptorSummaryMinEvent,
     ShadowEventId,
     ShadowOutcomeAggregateEvent,
     ShadowOutcomeEvent,
@@ -74,6 +75,7 @@ class VllmRouterRecorder:
     shadow_descriptor_order_top_k: int = 8
     shadow_descriptor_order_top_utility_override: int = 0
     shadow_descriptor_order_metrics_mode: str = "full"
+    shadow_descriptor_order_event_mode: str = "summary"
     shadow_descriptor_order_event_token_index: int = -1
     shadow_outcome_logging_mode: str = "full"
     request_id: str = "vllm"
@@ -293,8 +295,22 @@ class VllmRouterRecorder:
 
         sink = self.shadow_outcome_sink
         prior = self.shadow_descriptor_order_prior
-        if sink is None or prior is None or not hasattr(sink, "write_descriptor_order_summary"):
+        if sink is None or prior is None:
             return
+        event_mode = self._resolved_descriptor_order_event_mode()
+        if event_mode == "minimal":
+            if not hasattr(sink, "write_descriptor_order_min_summary"):
+                msg = (
+                    "descriptor_order_event_mode='minimal' requires a sink with "
+                    "write_descriptor_order_min_summary(event)."
+                )
+                raise TypeError(msg)
+        elif event_mode == "summary":
+            if not hasattr(sink, "write_descriptor_order_summary"):
+                return
+        else:
+            msg = f"Unsupported descriptor_order_event_mode: {event_mode}"
+            raise ValueError(msg)
         if not prior.order_for_layer(int(layer_id)):
             return
         if topk_ids.ndim != 2 or topk_weights.shape != topk_ids.shape:
@@ -330,6 +346,36 @@ class VllmRouterRecorder:
             0.0,
             decision_us - stream_build_us - float(descriptor_report.order_build_us),
         )
+        event_id = ShadowEventId(
+            request_id=str(self.request_id),
+            sequence_id=int(self.sequence_id),
+            token_index=int(self.shadow_descriptor_order_event_token_index),
+            layer=int(layer_id),
+        )
+        if event_mode == "minimal":
+            metrics = descriptor_report.metrics
+            sink.write_descriptor_order_min_summary(
+                ShadowDescriptorSummaryMinEvent(
+                    event_id=event_id,
+                    descriptor_order_policy=descriptor_report.policy,
+                    descriptor_order_prior_id=descriptor_report.prior_id,
+                    descriptor_order_prior_hash=descriptor_report.prior_hash,
+                    descriptor_order_metrics_mode=str(
+                        metrics.get("metrics_mode", self.shadow_descriptor_order_metrics_mode)
+                    ),
+                    descriptor_tile_request_count=int(descriptor_report.descriptor_count),
+                    descriptor_unique_b_tiles=int(metrics.get("unique_tiles_total", 0) or 0),
+                    descriptor_window_count=int(metrics.get("window_count", 0) or 0),
+                    descriptor_order_top_utility_override=(
+                        descriptor_report.top_utility_override
+                    ),
+                    candidate_construction_us=stream_build_us,
+                    descriptor_order_build_us=float(descriptor_report.order_build_us),
+                    counter_update_us=counter_update_us,
+                    decision_us=decision_us,
+                )
+            )
+            return
         policy = ShadowPolicyConfig(
             policy_mode="descriptor_order_shadow",
             optimization_goal="cache_locality",
@@ -344,12 +390,6 @@ class VllmRouterRecorder:
             descriptor_order_prior_hash=descriptor_report.prior_hash,
             descriptor_order_top_utility_override=descriptor_report.top_utility_override,
         )
-        event_id = ShadowEventId(
-            request_id=str(self.request_id),
-            sequence_id=int(self.sequence_id),
-            token_index=int(self.shadow_descriptor_order_event_token_index),
-            layer=int(layer_id),
-        )
         sink.write_descriptor_order_summary(
             event_id=event_id,
             policy=policy,
@@ -359,6 +399,18 @@ class VllmRouterRecorder:
             counter_update_us=counter_update_us,
             decision_us=decision_us,
         )
+
+    def _resolved_descriptor_order_event_mode(self) -> str:
+        mode = str(self.shadow_descriptor_order_event_mode or "summary").strip().lower()
+        aliases = {
+            "min": "minimal",
+            "flat": "minimal",
+            "scalar": "minimal",
+            "flat_scalar": "minimal",
+            "event_minimal": "minimal",
+            "full": "summary",
+        }
+        return aliases.get(mode, mode)
 
     def _write_previous_token_transition_summary(
         self,
@@ -1557,6 +1609,9 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
             if runtime_shadow_options.get("descriptor_order_metrics_mode") is not None
             else None
         ),
+        "runtime_shadow_descriptor_order_event_mode": str(
+            runtime_shadow_options.get("descriptor_order_event_mode", "summary")
+        ),
     }
     try:
         with manifest_path.open("w", encoding="utf-8") as manifest:
@@ -1647,6 +1702,12 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                                 runtime_shadow_options.get(
                                     "descriptor_order_metrics_mode",
                                     "full",
+                                )
+                            ),
+                            shadow_descriptor_order_event_mode=str(
+                                runtime_shadow_options.get(
+                                    "descriptor_order_event_mode",
+                                    "summary",
                                 )
                             ),
                             shadow_descriptor_order_event_token_index=int(

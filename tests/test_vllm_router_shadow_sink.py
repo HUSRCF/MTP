@@ -387,6 +387,60 @@ def test_vllm_router_recorder_emits_descriptor_order_summary(tmp_path):
     assert aggregate["controller_stats"]["written_summary_count"] == 1
 
 
+def test_vllm_router_recorder_emits_descriptor_order_min_summary(tmp_path):
+    path = tmp_path / "descriptor_order_min_shadow.jsonl"
+    prior = build_layer_tile_prior(
+        [
+            TileRequest(0, 0, 2, 2, layer_idx=0),
+            TileRequest(0, 1, 1, 1, layer_idx=0),
+        ],
+        score_name="frequency",
+        metadata={"experiment_id": "prior-v1"},
+    )
+    prior_hash = hash_layer_tile_prior(prior)
+
+    with RuntimeShadowController(OnlineShadowLogger(path)) as controller:
+        recorder = VllmRouterRecorder(
+            top_k=2,
+            shadow_outcome_sink=controller,
+            shadow_emit_descriptor_order_summary=True,
+            shadow_descriptor_order_prior=prior,
+            shadow_descriptor_order_prior_id="prior-v1",
+            shadow_descriptor_order_prior_hash=prior_hash,
+            shadow_descriptor_order_metrics_mode="count_only",
+            shadow_descriptor_order_event_mode="minimal",
+            shadow_descriptor_order_token_window_size=1,
+            request_id="req",
+            sequence_id=0,
+            token_offset=10,
+        )
+        recorder.record_topk(
+            layer_id=0,
+            topk_ids=torch.tensor([[1, 2], [1, 3]]),
+            topk_weights=torch.tensor([[0.7, 0.3], [0.6, 0.4]]),
+        )
+        aggregate = controller.aggregate()
+
+    rows = read_shadow_jsonl(path)
+    assert [row["event_type"] for row in rows] == [
+        "outcome",
+        "outcome",
+        "descriptor_summary_min",
+    ]
+    summary = rows[-1]
+    assert summary["shadow_event_id"] == "req:0:-1:0"
+    assert summary["descriptor_order_policy"] == "layer_prior_frequency"
+    assert summary["descriptor_order_metrics_mode"] == "count_only"
+    assert summary["descriptor_order_prior_hash"] == prior_hash
+    assert summary["descriptor_tile_request_count"] == 4
+    assert summary["descriptor_unique_b_tiles"] == 3
+    assert summary["descriptor_window_count"] == 2
+    assert "descriptor_order_metrics" not in summary
+    assert "full_fetch_count" not in summary
+    assert aggregate["descriptor_summary_min_count"] == 1
+    assert aggregate["descriptor_order_summary_count"] == 1
+
+
 def test_vllm_descriptor_order_summary_is_noop_without_prior(tmp_path):
     path = tmp_path / "descriptor_order_missing_prior.jsonl"
     with RuntimeShadowController(OnlineShadowLogger(path)) as controller:
