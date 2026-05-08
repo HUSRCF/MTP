@@ -20,7 +20,9 @@ import argparse
 from array import array
 import json
 from pathlib import Path
+import subprocess
 import sys
+import time
 from typing import Any, Sequence
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -35,6 +37,12 @@ from mtp_expert_prefetch.runtime import (  # noqa: E402
     order_tile_requests_with_layer_prior,
 )
 from replay_vllm_descriptor_order_shadow import load_vllm_tile_requests  # noqa: E402
+from run_descriptor_order_builder_bench import (  # noqa: E402
+    BIN as BUILDER_BIN,
+    build as build_descriptor_builder,
+    write_inputs as write_builder_inputs,
+    write_prior_order,
+)
 from run_tile_order_cache_bench import (  # noqa: E402
     BIN,
     build,
@@ -70,6 +78,21 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--warmup", type=int, default=5)
     parser.add_argument("--iters", type=int, default=20)
     parser.add_argument("--repeat", type=int, default=3)
+    parser.add_argument(
+        "--build-repeat",
+        type=int,
+        default=3,
+        help="Repeat host-side order construction timing this many times.",
+    )
+    parser.add_argument(
+        "--measure-cpp-builder",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Measure C++ layer-prior plan/materialized builder overhead on the same stream.",
+    )
+    parser.add_argument("--builder-warmup", type=int, default=5)
+    parser.add_argument("--builder-iters", type=int, default=50)
+    parser.add_argument("--cxx", default="g++")
     parser.add_argument("--offload-arch", default="gfx1100")
     parser.add_argument("--force-build", action="store_true")
     parser.add_argument(
@@ -132,40 +155,56 @@ def _filter_first_windows(
     }
 
 
+def _time_build(build_fn: Any, *, repeat: int) -> tuple[list[TileRequest], dict[str, Any]]:
+    ordered = build_fn()
+    timings: list[float] = []
+    for _ in range(max(1, int(repeat))):
+        start_ns = time.perf_counter_ns()
+        build_fn()
+        timings.append((time.perf_counter_ns() - start_ns) / 1000.0)
+    return ordered, stats(timings)
+
+
 def _policy_orders(
     requests: Sequence[TileRequest],
     *,
     prior_path: Path,
     top_utility_override: int,
-) -> list[tuple[str, list[TileRequest]]]:
+    build_repeat: int,
+) -> list[tuple[str, list[TileRequest], dict[str, Any]]]:
     prior = load_layer_tile_prior(prior_path)
     layer_prior_name = f"layer_prior_{prior.score_name}"
     if top_utility_override:
         layer_prior_name = (
             f"{layer_prior_name}_top{int(top_utility_override)}_utility_override"
         )
-    return [
-        ("no_order", list(requests)),
-        (
-            layer_prior_name,
-            order_tile_requests_with_layer_prior(
-                requests,
-                prior=prior,
-                top_utility_override=int(top_utility_override),
-            ),
+    no_order, no_order_build_us = _time_build(lambda: list(requests), repeat=build_repeat)
+    layer_prior, layer_prior_build_us = _time_build(
+        lambda: order_tile_requests_with_layer_prior(
+            requests,
+            prior=prior,
+            top_utility_override=int(top_utility_override),
         ),
+        repeat=build_repeat,
+    )
+    return [
+        ("no_order", no_order, no_order_build_us),
+        (layer_prior_name, layer_prior, layer_prior_build_us),
     ]
 
 
 def _write_tile_ids(path: Path, ordered: Sequence[TileRequest]) -> dict[str, Any]:
+    start_ns = time.perf_counter_ns()
     tile_ids = [int(item.tile_id) for item in ordered]
     write_tile_ids(path, tile_ids)
+    elapsed_us = (time.perf_counter_ns() - start_ns) / 1000.0
     return {
         "order_path": str(path),
         "order_hash": hash_ints(tile_ids),
         "tile_multiset_hash": hash_ints(sorted(tile_ids)),
         "tile_count": len(tile_ids),
         "unique_tiles": len(set(tile_ids)),
+        "order_export_us": float(elapsed_us),
     }
 
 
@@ -206,7 +245,108 @@ def _run_consumer(
     return row
 
 
-def _summarize(rows: Sequence[dict[str, Any]]) -> dict[str, Any]:
+def _run_cpp_builder(
+    *,
+    requests: Sequence[TileRequest],
+    prior_path: Path,
+    output_dir: Path,
+    num_tiles: int,
+    warmup: int,
+    iters: int,
+    top_utility_override: int,
+    cxx: str,
+) -> dict[str, Any]:
+    build_descriptor_builder(force=False, cxx=cxx)
+    input_dir = output_dir / "builder_inputs"
+    input_paths = write_builder_inputs(list(requests), input_dir)
+    prior = load_layer_tile_prior(prior_path)
+    num_layers = max(
+        1,
+        max(
+            int(request.layer_idx) if request.layer_idx is not None else 0
+            for request in requests
+        )
+        + 1,
+    )
+    prior_order_path = write_prior_order(
+        prior,
+        num_tiles=int(num_tiles),
+        num_layers=int(num_layers),
+        path=input_dir / f"{prior_path.stem}_prior_order.i32",
+    )
+    rows: dict[str, Any] = {}
+    for mode in ("layer_prior_plan", "layer_prior_materialized"):
+        cmd = [
+            str(BUILDER_BIN),
+            "--tile-ids-bin",
+            str(input_paths["tile_ids"]),
+            "--window-ids-bin",
+            str(input_paths["window_ids"]),
+            "--utility-scores-bin",
+            str(input_paths["utility_scores"]),
+            "--layer-ids-bin",
+            str(input_paths["layer_ids"]),
+            "--prior-order-bin",
+            str(prior_order_path),
+            "--count",
+            str(len(requests)),
+            "--num-tiles",
+            str(num_tiles),
+            "--num-layers",
+            str(num_layers),
+            "--top-utility-override",
+            str(top_utility_override),
+            "--mode",
+            mode,
+            "--warmup",
+            str(warmup),
+            "--iters",
+            str(iters),
+        ]
+        completed = subprocess.run(
+            cmd,
+            cwd=REPO_ROOT,
+            check=False,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        try:
+            row = json.loads(completed.stdout)
+        except json.JSONDecodeError:
+            row = {
+                "ok": False,
+                "error": "failed to parse descriptor_order_builder_bench stdout",
+                "stdout": completed.stdout,
+            }
+        row["returncode"] = int(completed.returncode)
+        row["stderr"] = completed.stderr
+        row["command"] = cmd
+        if completed.returncode != 0:
+            row["ok"] = False
+            row.setdefault("error", completed.stderr.strip() or completed.stdout.strip())
+        rows[mode] = row
+    return {
+        "ok": all(bool(row.get("ok")) for row in rows.values()),
+        "input_dir": str(input_dir),
+        "prior_order_bin": str(prior_order_path),
+        "num_layers": int(num_layers),
+        "num_tiles": int(num_tiles),
+        "top_utility_override": int(top_utility_override),
+        "modes": rows,
+    }
+
+
+def _infer_num_tiles(requests: Sequence[TileRequest]) -> int:
+    return max(1, max(int(item.tile_id) for item in requests) + 1)
+
+
+def _summarize(
+    rows: Sequence[dict[str, Any]],
+    *,
+    policy_meta: dict[str, dict[str, Any]],
+    cpp_builder: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     by_config: dict[tuple[int, int, int, int], dict[str, list[dict[str, Any]]]] = {}
     for row in rows:
         key = (
@@ -226,12 +366,41 @@ def _summarize(rows: Sequence[dict[str, Any]]) -> dict[str, Any]:
             float(baseline[0]["checksum"]) if baseline else None
         )
         for policy, policy_rows in sorted(by_policy.items()):
+            meta = policy_meta.get(policy, {})
+            same_multiset = bool(meta.get("same_multiset_as_no_order", True))
             us_stats = stats([float(item["us_per_tile"]) for item in policy_rows])
             wall_stats = stats([float(item["wall_ms_mean"]) for item in policy_rows])
             checksum = float(policy_rows[0]["checksum"]) if policy_rows else None
             speedup = None
             if baseline_median and us_stats["median"]:
                 speedup = float(baseline_median) / float(us_stats["median"])
+            consumer_saved_us = None
+            net_saved_us_python = None
+            if (
+                same_multiset
+                and baseline_median is not None
+                and us_stats["median"] is not None
+                and policy_rows
+            ):
+                tile_count = int(policy_rows[0].get("tile_count", 0) or 0)
+                consumer_saved_us = (
+                    float(baseline_median) - float(us_stats["median"])
+                ) * float(tile_count)
+                build_us = float((meta.get("order_build_us") or {}).get("median") or 0.0)
+                export_us = float(meta.get("order_export_us") or 0.0)
+                net_saved_us_python = consumer_saved_us - build_us - export_us
+            net_saved_us_cpp_plan = None
+            net_saved_us_cpp_materialized = None
+            if policy.startswith("layer_prior_") and consumer_saved_us is not None and cpp_builder:
+                modes = cpp_builder.get("modes", {})
+                plan = modes.get("layer_prior_plan", {})
+                materialized = modes.get("layer_prior_materialized", {})
+                if plan.get("ok") and plan.get("build_us_median") is not None:
+                    net_saved_us_cpp_plan = consumer_saved_us - float(plan["build_us_median"])
+                if materialized.get("ok") and materialized.get("build_us_median") is not None:
+                    net_saved_us_cpp_materialized = consumer_saved_us - float(
+                        materialized["build_us_median"]
+                    )
             checksum_delta = None
             if baseline_checksum is not None and checksum is not None:
                 checksum_delta = abs(float(checksum) - float(baseline_checksum))
@@ -245,6 +414,10 @@ def _summarize(rows: Sequence[dict[str, Any]]) -> dict[str, Any]:
                     "us_per_tile": us_stats,
                     "wall_ms": wall_stats,
                     "speedup_median_vs_no_order": speedup,
+                    "consumer_saved_us_median_vs_no_order": consumer_saved_us,
+                    "net_saved_us_after_python_order_build": net_saved_us_python,
+                    "net_saved_us_after_cpp_plan_build": net_saved_us_cpp_plan,
+                    "net_saved_us_after_cpp_materialized_build": net_saved_us_cpp_materialized,
                     "checksum": checksum,
                     "checksum_delta_abs_vs_no_order": checksum_delta,
                 }
@@ -272,8 +445,8 @@ def _render_markdown(report: dict[str, Any]) -> str:
         f"- Selected requests: `{report['selection']['selected_request_count']}`",
         f"- Unique tiles: `{report['unique_tiles']}`",
         "",
-        "| device | tile_elems | tiles/CTA | flush | policy | us/tile median | speedup vs no_order | checksum delta | LRU@8 | order_hit |",
-        "|---:|---:|---:|---:|---|---:|---:|---:|---:|---:|",
+        "| device | tile_elems | tiles/CTA | flush | policy | us/tile median | speedup vs no_order | consumer saved us | net saved us Python | net saved us C++ plan | net saved us C++ materialized | checksum delta | LRU@8 | order_hit |",
+        "|---:|---:|---:|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
     metrics_by_policy = {
         row["policy"]: row["trace_metrics"] for row in report["policies"]
@@ -292,6 +465,10 @@ def _render_markdown(report: dict[str, Any]) -> str:
                     row["policy"],
                     _fmt(row["us_per_tile"]["median"]),
                     _fmt(row["speedup_median_vs_no_order"]),
+                    _fmt(row.get("consumer_saved_us_median_vs_no_order")),
+                    _fmt(row.get("net_saved_us_after_python_order_build")),
+                    _fmt(row.get("net_saved_us_after_cpp_plan_build")),
+                    _fmt(row.get("net_saved_us_after_cpp_materialized_build")),
                     _fmt(row["checksum_delta_abs_vs_no_order"]),
                     _fmt(lru.get("8")),
                     _fmt(metrics.get("tile_order_hit_rate")),
@@ -327,14 +504,37 @@ def main() -> None:
     tile_elems_values = sorted(set(args.tile_elems or [1024]))
     tiles_per_cta_values = sorted(set(args.tiles_per_cta or [32]))
     cache_flush_values = sorted(set(args.cache_flush_elems or [0]))
+    cpp_builder = None
+    if bool(args.measure_cpp_builder):
+        inferred_num_tiles = _infer_num_tiles(requests)
+        try:
+            cpp_builder = _run_cpp_builder(
+                requests=requests,
+                prior_path=args.prior_json,
+                output_dir=args.output_json.parent / f"{args.output_json.stem}_builder",
+                num_tiles=inferred_num_tiles,
+                warmup=int(args.builder_warmup),
+                iters=int(args.builder_iters),
+                top_utility_override=int(args.top_utility_override),
+                cxx=str(args.cxx),
+            )
+        except Exception as exc:  # pragma: no cover - exercised by integration failures.
+            cpp_builder = {
+                "ok": False,
+                "error": str(exc),
+                "num_tiles": inferred_num_tiles,
+                "top_utility_override": int(args.top_utility_override),
+                "modes": {},
+            }
 
     policy_rows: list[dict[str, Any]] = []
     timing_rows: list[dict[str, Any]] = []
     baseline_multiset_hash: str | None = None
-    for policy, ordered in _policy_orders(
+    for policy, ordered, order_build_us in _policy_orders(
         requests,
         prior_path=args.prior_json,
         top_utility_override=int(args.top_utility_override),
+        build_repeat=int(args.build_repeat),
     ):
         order_meta = _write_tile_ids(order_dir / f"{policy}.i32", ordered)
         if baseline_multiset_hash is None:
@@ -351,6 +551,8 @@ def main() -> None:
                 "policy": policy,
                 "trace_metrics": trace_metrics,
                 "order": order_meta,
+                "order_build_us": order_build_us,
+                "order_export_us": float(order_meta["order_export_us"]),
                 "same_multiset_as_no_order": (
                     str(order_meta["tile_multiset_hash"]) == baseline_multiset_hash
                 ),
@@ -375,6 +577,7 @@ def main() -> None:
                                 {
                                     "policy": policy,
                                     "repeat": repeat,
+                                    "tile_count": int(order_meta["tile_count"]),
                                     "order_hash": order_meta["order_hash"],
                                     "tile_multiset_hash": order_meta["tile_multiset_hash"],
                                 }
@@ -404,11 +607,21 @@ def main() -> None:
             "warmup": int(args.warmup),
             "iters": int(args.iters),
             "repeat": int(args.repeat),
+            "build_repeat": int(args.build_repeat),
+            "measure_cpp_builder": bool(args.measure_cpp_builder),
+            "builder_warmup": int(args.builder_warmup),
+            "builder_iters": int(args.builder_iters),
             "binary": str(BIN),
+            "builder_binary": str(BUILDER_BIN),
         },
         "policies": policy_rows,
         "timing": timing_rows,
-        "summary": _summarize(timing_rows),
+        "cpp_builder": cpp_builder,
+        "summary": _summarize(
+            timing_rows,
+            policy_meta={row["policy"]: row for row in policy_rows},
+            cpp_builder=cpp_builder,
+        ),
     }
     args.output_json.parent.mkdir(parents=True, exist_ok=True)
     args.output_json.write_text(

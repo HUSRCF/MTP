@@ -3977,3 +3977,119 @@ This is not yet a vLLM kernel patch. It is the bridge result showing that the
 online trace descriptor-order signal can translate into execution-side timing
 under a controlled descriptor consumer.
 ```
+
+Descriptor consumer stability + net-overhead gate:
+
+```text
+implementation:
+  scripts/run_descriptor_consumer_micro_runtime.py
+
+new accounting:
+  host Python order_build_us
+  order_export_us
+  C++ layer_prior_plan build_us
+  C++ layer_prior_materialized build_us
+  consumer_saved_us
+  net_saved_us after Python/C++ build
+
+reports:
+  outputs/reports/tile_order_cache/descriptor_consumer_micro_runtime_awq128_w512_stability_r20.json
+  outputs/reports/tile_order_cache/descriptor_consumer_micro_runtime_awq128_w1024_stability_r10.json
+  outputs/reports/tile_order_cache/descriptor_consumer_micro_runtime_awq128_all_smoke_r3.json
+```
+
+AWQ 128 trace stability:
+
+```text
+512 windows / 261,808 requests / repeat=20:
+  layer_prior raw consumer speedup min/mean/max:
+    1.031x / 1.068x / 1.108x
+  consumer_saved_us min/mean/max:
+    8.36 / 27.19 / 40.86
+  checksum delta max:
+    0
+  locality:
+    no_order LRU@8 0.1723, order_hit 0.2227
+    layer_prior LRU@8 0.7107, order_hit 0.3823
+
+1024 windows / 523,448 requests / repeat=10:
+  layer_prior raw consumer speedup min/mean/max:
+    1.057x / 1.090x / 1.162x
+  consumer_saved_us min/mean/max:
+    29.96 / 65.19 / 94.00
+  checksum delta max:
+    0
+  locality:
+    no_order LRU@8 0.2324, order_hit 0.2611
+    layer_prior LRU@8 0.7433, order_hit 0.3663
+
+all windows / 7,360 windows / 3,761,600 requests / repeat=3 smoke:
+  layer_prior raw consumer speedup min/mean/max:
+    1.112x / 1.132x / 1.155x
+  consumer_saved_us min/mean/max:
+    690.99 / 853.70 / 1035.24
+  checksum delta max:
+    0
+  locality:
+    no_order LRU@8 0.3699, order_hit 0.3509
+    layer_prior LRU@8 0.8217, order_hit 0.4135
+```
+
+Net-overhead result:
+
+```text
+Raw descriptor visitation order is consistently positive in the controlled HIP
+consumer, but dynamic per-invocation order construction is not net-positive.
+
+Best observed C++ layer_prior_plan net_saved_us remains negative:
+  512-window sweep:  max net_saved_us_after_cpp_plan_build ~= -3.14 ms
+  1024-window sweep: max net_saved_us_after_cpp_plan_build ~= -6.22 ms
+  all-window smoke:  max net_saved_us_after_cpp_plan_build ~= -33.96 ms
+
+Therefore the execution gate is:
+  enable real descriptor-order execution only when the layer-prior plan is
+  precomputed, reused, or consumed through a two-level descriptor representation.
+
+Disable:
+  dynamic per-invocation full order rebuild/materialization on the decode
+  critical path.
+```
+
+C++ builder robustness:
+
+```text
+The micro-runtime now infers the C++ builder tile domain from the observed
+stream:
+  num_tiles = max(tile_id) + 1
+
+This avoids treating non-256 tile domains as builder failures. The C++ builder
+mode execution is also recorded with returncode/stdout/stderr and ok=false on
+failure, so optional builder accounting no longer destroys the raw consumer
+benchmark result.
+
+Smoke:
+  descriptor_consumer_micro_runtime_builder_smoke.json
+  selected windows: 4
+  C++ layer_prior_plan ok=true, returncode=0
+  C++ layer_prior_materialized ok=true, returncode=0
+
+Regression tests:
+  tests/test_descriptor_consumer_micro_runtime.py
+  covers observed num_tiles inference, net_saved_us formulas, and skipping net
+  accounting when the descriptor multiset does not match.
+```
+
+Interpretation:
+
+```text
+The descriptor-order execution bridge now passes the same-multiset correctness
+gate and the raw consumer timing gate across 512/1024/all-window AWQ traces.
+
+It does not yet pass the dynamic-builder net-benefit gate. The next real
+runtime MVP should patch a descriptor consumer to use precomputed/reused
+layer_prior group plans or a two-level group_order + group_offsets path, with
+fallback to original order.
+
+This remains more mature than speculative LDS payload staging, but it is still
+one step before a vLLM fused-MoE kernel patch.
+```
