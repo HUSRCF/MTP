@@ -353,16 +353,24 @@ def _capture_native_mtp_router(
 
 
 def trace_router_mtp(config_path: str | Path) -> Path:
+    config_path = Path(config_path)
+    project_root = find_project_root(config_path)
+    trace_config = load_yaml(config_path)
+    model_config = load_yaml(resolve_path(trace_config["model"], base_dir=project_root))
+    backend = str(model_config.get("backend", "")).strip().lower()
+    if backend == "vllm":
+        # Import lazily to avoid a router_mtp <-> vllm_router_trace import cycle:
+        # vLLM tracing reuses dataset loading helpers from this module.
+        from mtp_expert_prefetch.tracing.vllm_router_trace import trace_router_mtp_vllm
+
+        return trace_router_mtp_vllm(config_path)
+
     try:
         from transformers import AutoProcessor, AutoTokenizer
     except ImportError as exc:
         msg = "Tracing requires transformers."
         raise RuntimeError(msg) from exc
 
-    config_path = Path(config_path)
-    project_root = find_project_root(config_path)
-    trace_config = load_yaml(config_path)
-    model_config = load_yaml(resolve_path(trace_config["model"], base_dir=project_root))
     trace_options = trace_config.get("trace", {})
     if bool(model_config.get("disable_optional_cuda_kernels_on_rocm", True)):
         _disable_optional_cuda_kernels_on_rocm()

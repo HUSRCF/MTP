@@ -4260,15 +4260,36 @@ Disable:
 
 Producer-side status:
 
-```text
 The runtime descriptor-order producer now computes and emits two-level group
 plan stats in both full summary and minimal telemetry modes. This lets online
 shadow runs audit whether a request/layer falls into the measured profitable
 group-plan envelope without changing real execution order.
 
-The attempted fresh smoke config generated trace .pt files but did not produce
-runtime_shadow.jsonl in that path, so online field validation is currently
-covered by focused recorder/controller tests rather than a new end-to-end trace
-run. The next end-to-end AWQ shadow run should use the known writer path and
-verify these fields in runtime_shadow.jsonl before vLLM kernel patching.
+Bugfix: the generic `scripts/trace_router_mtp.py` entry point now dispatches
+`model.backend: vllm` configs to `trace_router_mtp_vllm()` before entering the
+Transformers tracing path. The previous behavior ignored the vLLM backend and
+could generate only `.pt` router traces without `runtime_shadow.jsonl`.
+
+End-to-end validation through the generic entry now writes runtime shadow output
+for the AWQ vLLM descriptor-order smoke:
+
+```text
+runtime_shadow.jsonl rows: 2,560
+descriptor_summary_min rows: 1,280
+outcome_aggregate rows: 1,280
+
+sample descriptor fields:
+  descriptor_order_execution_mode: two_level_group_plan
+  descriptor_order_policy: layer_prior_frequency
+  descriptor_order_prior_id: layer_prior_frequency_384calib
+  descriptor_group_plan_groups_per_cta: 8
+  descriptor_group_plan_group_count: 173
+  descriptor_group_plan_avg_group_size: 5.87
+  descriptor_group_plan_p95_group_size: 27.4
+  descriptor_group_plan_max_group_size: 56
+  descriptor_group_plan_cta_count: 22
 ```
+
+Regression coverage:
+`tests/test_trace_backend_dispatch.py` verifies that vLLM backend configs route
+through the vLLM trace function from the generic entry point.
