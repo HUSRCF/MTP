@@ -3342,6 +3342,83 @@ metrics_mode=none / minimal scalar mode, then a C++/two-level counter path if
 we need lower-overhead long online runs.
 ```
 
+Descriptor-order `metrics_mode=none`:
+
+```text
+implementation:
+  src/mtp_expert_prefetch/runtime/descriptor_order.py
+    supports metrics_mode=none in _evaluate_ordered_tile_id_windows(...)
+
+semantics:
+  keeps:
+    descriptor_count
+    tile_multiset_hash
+    order_hash
+    order_build_us
+    request_count
+    window_count
+    unique_tiles_total
+
+  skips heavy metrics:
+    LRU@K
+    tile_order_hit_rate
+    reuse_distance
+    consecutive run stats
+    first_tiles payload
+
+configs:
+  configs/trace/router_mtp_trace_aya_dataset_awq_vllm_descriptor_order_shadow_none_smoke8.yaml
+  configs/trace/router_mtp_trace_aya_dataset_awq_vllm_descriptor_order_shadow_none_smoke32.yaml
+```
+
+AWQ none-mode smoke8:
+
+```text
+command:
+  HIP_VISIBLE_DEVICES=1 VLLM_ENABLE_V1_MULTIPROCESSING=0 \
+    conda run -n TRY python scripts/trace_router_mtp_vllm.py \
+    configs/trace/router_mtp_trace_aya_dataset_awq_vllm_descriptor_order_shadow_none_smoke8.yaml
+
+output:
+  data/traces/aya_dataset_smoke_awq_vllm_descriptor_order_shadow_none_smoke8/runtime_shadow.jsonl
+  outputs/reports/awq_shadow_overhead/metrics_mode_none_smoke8.md
+
+runtime_shadow rows = 30,080
+outcomes            = 29,760
+descriptor summaries = 320
+same_multiset       = 320 / 320
+order_changed       = 320 / 320
+metrics_mode        = none
+
+none-mode metrics:
+  LRU@8 emitted       = 0 rows
+  order_hit emitted   = 0 rows
+  unique_b_tiles mean = 97.03
+
+overhead comparison against compact smoke8:
+  compact decision_us p50/p95/p99 = 1216.5 / 1516.9 / 1647.0
+  none    decision_us p50/p95/p99 =  743.0 /  917.9 /  993.5
+
+  compact counter_update_us p50/p95/p99 = 752.7 / 983.3 / 1060.8
+  none    counter_update_us p50/p95/p99 = 304.6 / 423.2 /  431.5
+```
+
+Conclusion:
+
+```text
+metrics_mode=none behaves as intended: it preserves descriptor-order audit
+semantics via hashes/counts/build_us while removing LRU/order-hit heavy
+observability.
+
+This reduces Python shadow overhead substantially:
+  decision p50 drops by ~39%
+  counter_update p50 drops by ~60%
+
+None-mode is now the preferred long-run online shadow setting when locality
+metrics are not needed on every sample. Compact remains the diagnostic mode for
+periodic LRU/order-hit validation.
+```
+
 Runtime online descriptor-order fast producer:
 
 ```text

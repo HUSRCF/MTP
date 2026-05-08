@@ -431,7 +431,41 @@ def _evaluate_ordered_tile_id_windows(
     metrics_mode: str = "full",
 ) -> dict[str, Any]:
     tile_ids = [tile for window in ordered_windows for tile in window]
-    compact = str(metrics_mode).lower() in {"compact", "light", "summary"}
+    normalized_mode = str(metrics_mode).lower()
+    minimal = normalized_mode in {"none", "minimal", "off"}
+    compact = normalized_mode in {"compact", "light", "summary"}
+    if minimal:
+        return {
+            "policy": policy,
+            "metrics_mode": "none",
+            "request_count": len(tile_ids),
+            "window_count": len(ordered_windows),
+            "unique_tiles_total": len(set(tile_ids)),
+            "unique_tiles_per_window": {
+                "mean": None,
+                "p50": None,
+                "p95": None,
+                "max": None,
+                "skipped_reason": "none_metrics_mode",
+            },
+            "reuse_distance": {
+                "count": None,
+                "mean": None,
+                "p50": None,
+                "p95": None,
+                "max": None,
+                "skipped_reason": "none_metrics_mode",
+            },
+            "lru_hit_rate": {},
+            "consecutive_same_tile_run": {
+                "mean": None,
+                "max": None,
+                "skipped_reason": "none_metrics_mode",
+            },
+            "tile_order_hit_rate": None,
+            "first_tiles": [],
+        }
+
     distances = [] if compact else _reuse_distances_fast(tile_ids)
     payload = {
         "policy": policy,
