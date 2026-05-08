@@ -8,6 +8,7 @@ from mtp_expert_prefetch.runtime.admission import AdmissionDecisionMasks
 from mtp_expert_prefetch.runtime.descriptor_order import DescriptorOrderReport
 from mtp_expert_prefetch.runtime.shadow_log import (
     ShadowEventId,
+    ShadowOutcomeAggregateEvent,
     ShadowOutcomeEvent,
     ShadowPolicyConfig,
     ShadowSummaryEvent,
@@ -123,7 +124,18 @@ class OnlineShadowLogger:
     def write_outcome(self, event: ShadowOutcomeEvent) -> None:
         self.write_event(event)
 
-    def write_event(self, event: ShadowSummaryEvent | ShadowOutcomeEvent | dict[str, Any]) -> None:
+    def write_outcome_aggregate(self, event: ShadowOutcomeAggregateEvent) -> None:
+        self.write_event(event)
+
+    def write_event(
+        self,
+        event: (
+            ShadowSummaryEvent
+            | ShadowOutcomeEvent
+            | ShadowOutcomeAggregateEvent
+            | dict[str, Any]
+        ),
+    ) -> None:
         if self._closed:
             msg = "Cannot write to a closed OnlineShadowLogger."
             raise RuntimeError(msg)

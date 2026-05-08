@@ -24,6 +24,7 @@ from mtp_expert_prefetch.runtime.online_shadow import OnlineShadowLogger
 from mtp_expert_prefetch.runtime.shadow_controller import RuntimeShadowController
 from mtp_expert_prefetch.runtime.shadow_log import (
     ShadowEventId,
+    ShadowOutcomeAggregateEvent,
     ShadowOutcomeEvent,
     ShadowPolicyConfig,
     ShadowSummaryEvent,
@@ -74,6 +75,7 @@ class VllmRouterRecorder:
     shadow_descriptor_order_top_utility_override: int = 0
     shadow_descriptor_order_metrics_mode: str = "full"
     shadow_descriptor_order_event_token_index: int = -1
+    shadow_outcome_logging_mode: str = "full"
     request_id: str = "vllm"
     sequence_id: int = 0
     token_offset: int = 0
@@ -154,6 +156,54 @@ class VllmRouterRecorder:
         weights = topk_weights.detach().cpu().to(torch.float32)
         if ids.ndim != 2 or weights.shape != ids.shape:
             return
+        outcome_mode = self._resolved_outcome_logging_mode()
+        if self.shadow_emit_transition_summary:
+            # Transition summaries require per-token outcomes for same-event
+            # ready-mask joins. Keep the debug/full path in that mode.
+            outcome_mode = "full"
+        if outcome_mode == "full":
+            self._write_full_shadow_outcomes(
+                layer_id=layer_id,
+                ids=ids,
+                weights=weights,
+            )
+        elif outcome_mode == "aggregate":
+            self._write_aggregate_shadow_outcome(
+                layer_id=layer_id,
+                ids=ids,
+                weights=weights,
+            )
+        elif outcome_mode == "off":
+            pass
+        else:
+            msg = f"Unsupported shadow_outcome_logging_mode: {outcome_mode}"
+            raise ValueError(msg)
+        if self.shadow_emit_descriptor_order_summary:
+            self._write_current_router_descriptor_order_summary(
+                layer_id=layer_id,
+                topk_ids=ids,
+                topk_weights=weights,
+            )
+
+    def _resolved_outcome_logging_mode(self) -> str:
+        mode = str(self.shadow_outcome_logging_mode or "full").strip().lower()
+        aliases = {
+            "none": "off",
+            "false": "off",
+            "0": "off",
+            "true": "full",
+            "1": "full",
+        }
+        return aliases.get(mode, mode)
+
+    def _write_full_shadow_outcomes(
+        self,
+        *,
+        layer_id: int,
+        ids: torch.Tensor,
+        weights: torch.Tensor,
+    ) -> None:
+        assert self.shadow_outcome_sink is not None
         for token_idx in range(int(ids.shape[0])):
             if self.shadow_emit_transition_summary and token_idx > 0:
                 self._write_previous_token_transition_summary(
@@ -184,12 +234,48 @@ class VllmRouterRecorder:
                 weighted_top1_miss=float(token_weights[0]) if token_weights else 0.0,
             )
             self.shadow_outcome_sink.write_outcome(event)
-        if self.shadow_emit_descriptor_order_summary:
-            self._write_current_router_descriptor_order_summary(
-                layer_id=layer_id,
-                topk_ids=ids,
-                topk_weights=weights,
+
+    def _write_aggregate_shadow_outcome(
+        self,
+        *,
+        layer_id: int,
+        ids: torch.Tensor,
+        weights: torch.Tensor,
+    ) -> None:
+        sink = self.shadow_outcome_sink
+        if sink is None:
+            return
+        if not hasattr(sink, "write_outcome_aggregate"):
+            msg = (
+                "shadow_outcome_logging_mode='aggregate' requires a sink with "
+                "write_outcome_aggregate(event)."
             )
+            raise TypeError(msg)
+        token_count = int(ids.shape[0])
+        top_k = int(ids.shape[1]) if ids.ndim == 2 else 0
+        token_start = int(self.token_offset)
+        token_end = int(self.token_offset + token_count)
+        top1_weight_sum = (
+            float(weights[:, 0].sum().item()) if token_count > 0 and top_k > 0 else 0.0
+        )
+        event = ShadowOutcomeAggregateEvent(
+            event_id=ShadowEventId(
+                request_id=str(self.request_id),
+                sequence_id=int(self.sequence_id),
+                token_index=token_start,
+                layer=int(layer_id),
+            ),
+            token_start=token_start,
+            token_end=token_end,
+            token_count=token_count,
+            top_k=top_k,
+            topk_entry_count=int(ids.numel()),
+            routed_expert_count=int(torch.unique(ids).numel()),
+            topk_weight_mass_sum=float(weights.clamp_min(0.0).sum().item()),
+            top1_weight_sum=top1_weight_sum,
+            top1_weight_mean=top1_weight_sum / max(1, token_count),
+        )
+        sink.write_outcome_aggregate(event)
 
     def _write_current_router_descriptor_order_summary(
         self,
@@ -1459,6 +1545,9 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
         "runtime_shadow_emit_outcomes": bool(
             runtime_shadow_options.get("emit_outcomes", True)
         ),
+        "runtime_shadow_outcome_logging_mode": str(
+            runtime_shadow_options.get("outcome_logging_mode", "full")
+        ),
         "runtime_shadow_descriptor_order_metrics_mode": (
             str(runtime_shadow_options.get("descriptor_order_metrics_mode"))
             if runtime_shadow_options.get("descriptor_order_metrics_mode") is not None
@@ -1560,6 +1649,12 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                                 runtime_shadow_options.get(
                                     "descriptor_order_event_token_index",
                                     -1,
+                                )
+                            ),
+                            shadow_outcome_logging_mode=str(
+                                runtime_shadow_options.get(
+                                    "outcome_logging_mode",
+                                    "full",
                                 )
                             ),
                         )

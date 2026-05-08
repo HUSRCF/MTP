@@ -231,6 +231,37 @@ class ShadowOutcomeEvent:
         return payload
 
 
+@dataclass(frozen=True)
+class ShadowOutcomeAggregateEvent:
+    event_id: ShadowEventId
+    token_start: int
+    token_end: int
+    token_count: int
+    top_k: int
+    topk_entry_count: int
+    routed_expert_count: int
+    topk_weight_mass_sum: float
+    top1_weight_sum: float
+    top1_weight_mean: float
+    outcome_logging_mode: str = "aggregate"
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "event_type": "outcome_aggregate",
+            **self.event_id.as_dict(),
+            "outcome_logging_mode": str(self.outcome_logging_mode),
+            "token_start": int(self.token_start),
+            "token_end": int(self.token_end),
+            "token_count": int(self.token_count),
+            "top_k": int(self.top_k),
+            "topk_entry_count": int(self.topk_entry_count),
+            "routed_expert_count": int(self.routed_expert_count),
+            "topk_weight_mass_sum": float(self.topk_weight_mass_sum),
+            "top1_weight_sum": float(self.top1_weight_sum),
+            "top1_weight_mean": float(self.top1_weight_mean),
+        }
+
+
 def write_shadow_jsonl(events: Iterable[Any], output: str | Path) -> Path:
     path = Path(output).expanduser().resolve()
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -251,6 +282,12 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
         "summary_count": 0,
         "candidate_count": 0,
         "outcome_count": 0,
+        "outcome_aggregate_count": 0,
+        "outcome_aggregate_token_count": 0,
+        "outcome_aggregate_topk_entry_count": 0,
+        "outcome_aggregate_routed_expert_count_sum": 0,
+        "outcome_aggregate_topk_weight_mass_sum": 0.0,
+        "outcome_aggregate_top1_weight_sum": 0.0,
         "full_fetch_count": 0,
         "metadata_count": 0,
         "premap_count": 0,
@@ -362,6 +399,21 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
             totals["weighted_top1_miss_sum"] += float(event.get("weighted_top1_miss", 0.0))
             totals["covered_mass_sum"] += float(event.get("covered_mass", 0.0))
             totals["miss_mass_sum"] += float(event.get("miss_mass", 0.0))
+        elif event_type == "outcome_aggregate":
+            totals["outcome_aggregate_count"] += 1
+            totals["outcome_aggregate_token_count"] += int(event.get("token_count", 0) or 0)
+            totals["outcome_aggregate_topk_entry_count"] += int(
+                event.get("topk_entry_count", 0) or 0
+            )
+            totals["outcome_aggregate_routed_expert_count_sum"] += int(
+                event.get("routed_expert_count", 0) or 0
+            )
+            totals["outcome_aggregate_topk_weight_mass_sum"] += float(
+                event.get("topk_weight_mass_sum", 0.0) or 0.0
+            )
+            totals["outcome_aggregate_top1_weight_sum"] += float(
+                event.get("top1_weight_sum", 0.0) or 0.0
+            )
 
     outcome_count = max(1, int(totals["outcome_count"]))
     summary_count = max(1, int(totals["summary_count"]))
@@ -399,6 +451,14 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
     )
     totals["descriptor_unique_tiles_per_window_mean"] = (
         totals["descriptor_unique_tiles_per_window_mean_sum"] / descriptor_count
+    )
+    aggregate_count = max(1, int(totals["outcome_aggregate_count"]))
+    aggregate_token_count = max(1, int(totals["outcome_aggregate_token_count"]))
+    totals["outcome_aggregate_routed_expert_count_mean"] = (
+        totals["outcome_aggregate_routed_expert_count_sum"] / aggregate_count
+    )
+    totals["outcome_aggregate_top1_weight_mean"] = (
+        totals["outcome_aggregate_top1_weight_sum"] / aggregate_token_count
     )
     return totals
 

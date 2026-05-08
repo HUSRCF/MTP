@@ -3665,3 +3665,45 @@ interpretation:
   shadow validation; a real runtime action should use compact counters or the
   C++ two-level plan builder path rather than full Python metric evaluation.
 ```
+
+Runtime shadow outcome logging modes:
+
+```text
+implementation:
+  src/mtp_expert_prefetch/tracing/vllm_router_trace.py
+    adds shadow_outcome_logging_mode = full / aggregate / off
+    aggregate writes one outcome_aggregate record per sample/layer router call
+    off skips per-token outcome event construction entirely
+
+  src/mtp_expert_prefetch/runtime/shadow_log.py
+    adds ShadowOutcomeAggregateEvent and aggregate_shadow_events counters
+
+  configs:
+    router_mtp_trace_aya_dataset_awq_vllm_descriptor_order_shadow_none_outcome_aggregate_smoke32.yaml
+    router_mtp_trace_aya_dataset_awq_vllm_descriptor_order_shadow_none_outcome_off_smoke32.yaml
+```
+
+AWQ 32-sample result:
+
+```text
+mode                         generate_s  TPOT_s   rows     summary  outcome  aggregate
+no_shadow                    3.762       0.1176   0        0        0        0
+none + full outcomes         8.478       0.2649   126640   1280     125360   0
+none + aggregate outcomes    4.855       0.1517   2560     1280     0        1280
+none + outcomes off          4.722       0.1476   1280     1280     0        0
+```
+
+Interpretation:
+
+```text
+per-token full outcome JSONL is the main remaining shadow overhead.
+aggregate reduces rows by ~49x vs full-outcome none mode and cuts generate
+overhead from +4.72s to +1.09s over no-shadow.
+
+off is the lower bound for descriptor-order audit-only shadow: it keeps only
+summary/hash/count/build_us rows and cuts generate overhead to +0.96s.
+
+Descriptor summary internal overhead is almost unchanged across outcome modes,
+so the next bottleneck is the descriptor summary path itself, not LRU/order-hit
+or per-token outcome logging.
+```

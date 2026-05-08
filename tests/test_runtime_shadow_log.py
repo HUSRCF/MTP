@@ -7,6 +7,7 @@ from mtp_expert_prefetch.runtime import (
 )
 from mtp_expert_prefetch.runtime.shadow_log import (
     ShadowEventId,
+    ShadowOutcomeAggregateEvent,
     ShadowOutcomeEvent,
     ShadowPolicyConfig,
     ShadowSummaryEvent,
@@ -133,6 +134,36 @@ def test_shadow_log_schema_round_trip_and_aggregate(tmp_path):
     assert aggregate["descriptor_unique_b_tiles_mean"] == 9.0
     assert aggregate["descriptor_same_multiset_count"] == 1
     assert aggregate["descriptor_order_changed_count"] == 1
+
+
+def test_shadow_log_aggregates_outcome_aggregate_events(tmp_path):
+    event = ShadowOutcomeAggregateEvent(
+        event_id=ShadowEventId("req", sequence_id=0, token_index=10, layer=3),
+        token_start=10,
+        token_end=12,
+        token_count=2,
+        top_k=2,
+        topk_entry_count=4,
+        routed_expert_count=3,
+        topk_weight_mass_sum=2.0,
+        top1_weight_sum=1.4,
+        top1_weight_mean=0.7,
+    )
+
+    output = write_shadow_jsonl([event], tmp_path / "aggregate_shadow.jsonl")
+    rows = read_shadow_jsonl(output)
+    aggregate = aggregate_shadow_events(rows)
+
+    assert rows[0]["event_type"] == "outcome_aggregate"
+    assert rows[0]["shadow_event_id"] == "req:0:10:3"
+    assert aggregate["outcome_aggregate_count"] == 1
+    assert aggregate["outcome_aggregate_token_count"] == 2
+    assert aggregate["outcome_aggregate_topk_entry_count"] == 4
+    assert aggregate["outcome_aggregate_routed_expert_count_sum"] == 3
+    assert aggregate["outcome_aggregate_routed_expert_count_mean"] == 3.0
+    assert aggregate["outcome_aggregate_topk_weight_mass_sum"] == 2.0
+    assert aggregate["outcome_aggregate_top1_weight_sum"] == 1.4
+    assert aggregate["outcome_aggregate_top1_weight_mean"] == 0.7
 
 
 def test_descriptor_order_shadow_summary_builder():

@@ -28,6 +28,17 @@ class _Sink:
     def write_outcome(self, event) -> None:
         self.events.append(event)
 
+    def write_outcome_aggregate(self, event) -> None:
+        self.events.append(event)
+
+
+class _OutcomeOnlySink:
+    def __init__(self) -> None:
+        self.events = []
+
+    def write_outcome(self, event) -> None:
+        self.events.append(event)
+
 
 def test_vllm_router_recorder_shadow_sink_is_optional():
     recorder = VllmRouterRecorder(top_k=2)
@@ -66,6 +77,121 @@ def test_vllm_router_recorder_writes_shadow_outcome_events():
     assert first["weighted_top1_miss"] == pytest.approx(0.8)
     assert second["shadow_event_id"] == "req:5:11:3"
     assert second["true_topk_experts"] == [3, 4]
+
+
+def test_vllm_router_recorder_writes_aggregate_shadow_outcome():
+    sink = _Sink()
+    recorder = VllmRouterRecorder(
+        top_k=2,
+        shadow_outcome_sink=sink,
+        shadow_outcome_logging_mode="aggregate",
+        request_id="req",
+        sequence_id=5,
+        token_offset=10,
+    )
+    recorder.record_topk(
+        layer_id=3,
+        topk_ids=torch.tensor([[1, 2], [3, 2]]),
+        topk_weights=torch.tensor([[0.8, 0.2], [0.6, 0.4]]),
+    )
+
+    assert len(sink.events) == 1
+    row = sink.events[0].as_dict()
+    assert row["event_type"] == "outcome_aggregate"
+    assert row["shadow_event_id"] == "req:5:10:3"
+    assert row["token_start"] == 10
+    assert row["token_end"] == 12
+    assert row["token_count"] == 2
+    assert row["top_k"] == 2
+    assert row["topk_entry_count"] == 4
+    assert row["routed_expert_count"] == 3
+    assert row["top1_weight_mean"] == pytest.approx(0.7)
+
+
+def test_vllm_router_recorder_aggregate_requires_aggregate_sink():
+    sink = _OutcomeOnlySink()
+    recorder = VllmRouterRecorder(
+        top_k=2,
+        shadow_outcome_sink=sink,
+        shadow_outcome_logging_mode="aggregate",
+        request_id="req",
+        sequence_id=5,
+        token_offset=10,
+    )
+
+    with pytest.raises(TypeError, match="write_outcome_aggregate"):
+        recorder.record_topk(
+            layer_id=3,
+            topk_ids=torch.tensor([[1, 2]]),
+            topk_weights=torch.tensor([[0.8, 0.2]]),
+        )
+
+
+def test_vllm_router_recorder_can_disable_shadow_outcomes():
+    sink = _Sink()
+    recorder = VllmRouterRecorder(
+        top_k=2,
+        shadow_outcome_sink=sink,
+        shadow_outcome_logging_mode="off",
+        request_id="req",
+        sequence_id=5,
+        token_offset=10,
+    )
+    recorder.record_topk(
+        layer_id=3,
+        topk_ids=torch.tensor([[1, 2], [3, 4]]),
+        topk_weights=torch.tensor([[0.8, 0.2], [0.6, 0.4]]),
+    )
+
+    assert sink.events == []
+
+
+def test_vllm_router_recorder_outcome_logging_mode_aliases_and_invalid():
+    recorder = VllmRouterRecorder(top_k=2)
+
+    recorder.shadow_outcome_logging_mode = " none "
+    assert recorder._resolved_outcome_logging_mode() == "off"
+    recorder.shadow_outcome_logging_mode = "FALSE"
+    assert recorder._resolved_outcome_logging_mode() == "off"
+    recorder.shadow_outcome_logging_mode = "1"
+    assert recorder._resolved_outcome_logging_mode() == "full"
+
+    sink = _Sink()
+    recorder = VllmRouterRecorder(
+        top_k=2,
+        shadow_outcome_sink=sink,
+        shadow_outcome_logging_mode="bad-mode",
+    )
+    with pytest.raises(ValueError, match="Unsupported shadow_outcome_logging_mode"):
+        recorder.record_topk(
+            layer_id=3,
+            topk_ids=torch.tensor([[1, 2]]),
+            topk_weights=torch.tensor([[0.8, 0.2]]),
+        )
+
+
+def test_transition_summary_forces_full_outcomes_when_outcome_mode_off(tmp_path):
+    path = tmp_path / "transition_shadow_force_full.jsonl"
+    with RuntimeShadowController(OnlineShadowLogger(path)) as controller:
+        recorder = VllmRouterRecorder(
+            top_k=2,
+            shadow_outcome_sink=controller,
+            shadow_emit_transition_summary=True,
+            shadow_outcome_logging_mode="off",
+            shadow_num_experts=6,
+            request_id="req",
+            sequence_id=0,
+            token_offset=0,
+        )
+        recorder.record_topk(
+            layer_id=1,
+            topk_ids=torch.tensor([[1, 2], [2, 3]]),
+            topk_weights=torch.tensor([[0.8, 0.2], [0.7, 0.3]]),
+        )
+
+    rows = read_shadow_jsonl(path)
+    assert [row["event_type"] for row in rows] == ["outcome", "summary", "outcome"]
+    assert rows[2]["join_status"] == "joined"
 
 
 def test_active_runtime_shadow_hook_joins_with_vllm_router_outcome(tmp_path):

@@ -12,6 +12,7 @@ from mtp_expert_prefetch.runtime import (
 )
 from mtp_expert_prefetch.runtime.shadow_log import (
     ShadowEventId,
+    ShadowOutcomeAggregateEvent,
     ShadowOutcomeEvent,
     ShadowPolicyConfig,
     ShadowSummaryEvent,
@@ -301,6 +302,43 @@ def test_runtime_shadow_controller_can_suppress_outcome_writes(tmp_path):
     assert stats["outcome_only_count"] == 1
     assert stats["written_outcome_count"] == 0
     assert stats["suppressed_outcome_count"] == 1
+
+
+def test_runtime_shadow_controller_writes_and_suppresses_outcome_aggregate(tmp_path):
+    event = ShadowOutcomeAggregateEvent(
+        event_id=ShadowEventId("req", 0, 8, 5),
+        token_start=8,
+        token_end=10,
+        token_count=2,
+        top_k=2,
+        topk_entry_count=4,
+        routed_expert_count=3,
+        topk_weight_mass_sum=2.0,
+        top1_weight_sum=1.4,
+        top1_weight_mean=0.7,
+    )
+    written_path = tmp_path / "written_aggregate_shadow.jsonl"
+    suppressed_path = tmp_path / "suppressed_aggregate_shadow.jsonl"
+
+    with RuntimeShadowController(OnlineShadowLogger(written_path)) as controller:
+        controller.write_outcome_aggregate(event)
+        written_stats = controller.stats_dict()
+
+    rows = read_shadow_jsonl(written_path)
+    assert [row["event_type"] for row in rows] == ["outcome_aggregate"]
+    assert written_stats["written_outcome_aggregate_count"] == 1
+    assert written_stats["suppressed_outcome_aggregate_count"] == 0
+
+    with RuntimeShadowController(
+        OnlineShadowLogger(suppressed_path),
+        emit_outcomes=False,
+    ) as controller:
+        controller.write_outcome_aggregate(event)
+        suppressed_stats = controller.stats_dict()
+
+    assert read_shadow_jsonl(suppressed_path) == []
+    assert suppressed_stats["written_outcome_aggregate_count"] == 0
+    assert suppressed_stats["suppressed_outcome_aggregate_count"] == 1
 
 
 def test_runtime_shadow_controller_writes_descriptor_order_summary(tmp_path):
