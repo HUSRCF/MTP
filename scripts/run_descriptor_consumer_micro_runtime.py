@@ -232,6 +232,7 @@ def _write_group_plan(
     group_tile_ids: list[int] = []
     group_counts: list[int] = []
     group_offsets: list[int] = [0]
+    groups_per_window: list[int] = []
     expanded_order: list[int] = []
     for window_id in sorted(windows):
         window_items = windows[window_id]
@@ -277,6 +278,7 @@ def _write_group_plan(
             group_tile_ids.append(int(tile))
             group_counts.append(count)
             expanded_order.extend([int(tile)] * count)
+        groups_per_window.append(len(ordered_groups))
         group_offsets.append(len(group_tile_ids))
 
     build_us = (time.perf_counter_ns() - start_ns) / 1000.0
@@ -302,9 +304,32 @@ def _write_group_plan(
         "unique_tiles": len(set(expanded_order)),
         "group_count": len(group_tile_ids),
         "window_count": len(group_offsets) - 1,
+        "avg_group_size": float(sum(group_counts) / len(group_counts))
+        if group_counts
+        else 0.0,
+        "p95_group_size": _percentile_int(group_counts, 0.95),
+        "max_group_size": max(group_counts) if group_counts else 0,
+        "avg_groups_per_window": float(sum(groups_per_window) / len(groups_per_window))
+        if groups_per_window
+        else 0.0,
+        "p95_groups_per_window": _percentile_int(groups_per_window, 0.95),
+        "max_groups_per_window": max(groups_per_window) if groups_per_window else 0,
         "order_build_us": {"median": float(build_us), "mean": float(build_us)},
         "order_export_us": float(export_us),
     }
+
+
+def _percentile_int(values: Sequence[int], q: float) -> float:
+    if not values:
+        return 0.0
+    ordered = sorted(int(value) for value in values)
+    if len(ordered) == 1:
+        return float(ordered[0])
+    position = (len(ordered) - 1) * float(q)
+    lower = int(position)
+    upper = min(lower + 1, len(ordered) - 1)
+    weight = position - lower
+    return float(ordered[lower] * (1.0 - weight) + ordered[upper] * weight)
 
 
 def _run_consumer(
@@ -592,6 +617,23 @@ def _render_markdown(report: dict[str, Any]) -> str:
             )
             + " |"
         )
+    group_plan = report.get("two_level_group_plan")
+    if group_plan is not None:
+        lines.extend(
+            [
+                "",
+                "## Two-Level Group Plan",
+                "",
+                f"- Groups: `{group_plan['group_count']}`",
+                f"- Windows: `{group_plan['window_count']}`",
+                f"- Avg group size: `{_fmt(group_plan['avg_group_size'])}`",
+                f"- P95 group size: `{_fmt(group_plan['p95_group_size'])}`",
+                f"- Max group size: `{group_plan['max_group_size']}`",
+                f"- Avg groups/window: `{_fmt(group_plan['avg_groups_per_window'])}`",
+                f"- P95 groups/window: `{_fmt(group_plan['p95_groups_per_window'])}`",
+                f"- Max groups/window: `{group_plan['max_groups_per_window']}`",
+            ]
+        )
     lines.append("")
     return "\n".join(lines)
 
@@ -727,6 +769,12 @@ def main() -> None:
                     "unique_tiles": group_plan_meta["unique_tiles"],
                     "group_count": group_plan_meta["group_count"],
                     "window_count": group_plan_meta["window_count"],
+                    "avg_group_size": group_plan_meta["avg_group_size"],
+                    "p95_group_size": group_plan_meta["p95_group_size"],
+                    "max_group_size": group_plan_meta["max_group_size"],
+                    "avg_groups_per_window": group_plan_meta["avg_groups_per_window"],
+                    "p95_groups_per_window": group_plan_meta["p95_groups_per_window"],
+                    "max_groups_per_window": group_plan_meta["max_groups_per_window"],
                 },
                 "group_plan": group_plan_meta,
                 "order_build_us": group_plan_meta["order_build_us"],
@@ -761,6 +809,10 @@ def main() -> None:
                                     "tile_multiset_hash": group_plan_meta["tile_multiset_hash"],
                                     "group_count": int(group_plan_meta["group_count"]),
                                     "window_count": int(group_plan_meta["window_count"]),
+                                    "avg_group_size": float(group_plan_meta["avg_group_size"]),
+                                    "p95_group_size": float(group_plan_meta["p95_group_size"]),
+                                    "max_group_size": int(group_plan_meta["max_group_size"]),
+                                    "cta_count": int(timing.get("num_cta", 0) or 0),
                                 }
                             )
                             timing_rows.append(timing)

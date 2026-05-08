@@ -4175,3 +4175,100 @@ net-positive as a per-invocation critical-path action. The next runtime patch
 should pass precomputed layer-prior group plans or build the group plan inside
 the existing descriptor producer/consumer without a full host-side rebuild.
 ```
+
+Two-level gate table + producer stats:
+
+```text
+implementation:
+  scripts/summarize_descriptor_consumer_gate_table.py
+  src/mtp_expert_prefetch/runtime/descriptor_order.py
+  src/mtp_expert_prefetch/runtime/shadow_log.py
+  src/mtp_expert_prefetch/tracing/vllm_router_trace.py
+
+gate report:
+  outputs/reports/tile_order_cache/descriptor_consumer_micro_runtime_awq128_w512_two_level_gate_table.json
+  outputs/reports/tile_order_cache/descriptor_consumer_two_level_gate_table_summary.md
+
+runtime shadow fields:
+  descriptor_order_execution_mode
+  descriptor_group_plan_groups_per_cta
+  descriptor_group_plan_group_count
+  descriptor_group_plan_avg_group_size
+  descriptor_group_plan_p95_group_size
+  descriptor_group_plan_max_group_size
+  descriptor_group_plan_cta_count
+```
+
+Gate table result on AWQ 128 trace, first 512 windows, tile_elems=1024:
+
+```text
+group-plan stats:
+  group_count: 75,733
+  window_count: 512
+  avg_group_size: 3.46
+  p95_group_size: 10
+  max_group_size: 63
+  avg_groups_per_window: 147.92
+  p95_groups_per_window: 173
+  max_groups_per_window: 189
+
+gate rows:
+  allowed: 16 / 20
+
+GPU0:
+  groups_per_cta=4:
+    no_flush 1.302x, 16M_flush 1.487x
+  groups_per_cta=8:
+    no_flush 1.154x, 16M_flush 1.212x
+  groups_per_cta=16:
+    no_flush 1.133x, 16M_flush 1.077x
+  groups_per_cta=32:
+    no_flush 1.061x, 16M_flush 1.032x
+  groups_per_cta=64:
+    no_flush 0.975x, 16M_flush 0.999x
+
+GPU1:
+  groups_per_cta=4:
+    no_flush 1.269x, 16M_flush 1.590x
+  groups_per_cta=8:
+    no_flush 1.144x, 16M_flush 1.338x
+  groups_per_cta=16:
+    no_flush 1.088x, 16M_flush 1.047x
+  groups_per_cta=32:
+    no_flush 1.041x, 16M_flush 1.026x
+  groups_per_cta=64:
+    no_flush 0.979x, 16M_flush 0.984x
+```
+
+Updated gate:
+
+```text
+Recommended initial runtime gate:
+  descriptor_order_execution_mode = two_level_group_plan
+  tile_elems = 1024
+  groups_per_cta in {4, 8}
+  same_multiset = true
+  checksum/parity gate passes
+
+Allowed but lower-priority diagnostic envelope:
+  groups_per_cta in {16, 32}
+
+Disable:
+  groups_per_cta >= 64
+  unmeasured tile_elems/device/kernel variants
+```
+
+Producer-side status:
+
+```text
+The runtime descriptor-order producer now computes and emits two-level group
+plan stats in both full summary and minimal telemetry modes. This lets online
+shadow runs audit whether a request/layer falls into the measured profitable
+group-plan envelope without changing real execution order.
+
+The attempted fresh smoke config generated trace .pt files but did not produce
+runtime_shadow.jsonl in that path, so online field validation is currently
+covered by focused recorder/controller tests rather than a new end-to-end trace
+run. The next end-to-end AWQ shadow run should use the known writer path and
+verify these fields in runtime_shadow.jsonl before vLLM kernel patching.
+```

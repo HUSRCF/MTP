@@ -94,6 +94,13 @@ class ShadowSummaryEvent:
     descriptor_order_lru_at_8: float | None = None
     descriptor_order_lru_at_16: float | None = None
     descriptor_order_hit_rate: float | None = None
+    descriptor_order_execution_mode: str | None = None
+    descriptor_group_plan_groups_per_cta: int | None = None
+    descriptor_group_plan_group_count: int | None = None
+    descriptor_group_plan_avg_group_size: float | None = None
+    descriptor_group_plan_p95_group_size: float | None = None
+    descriptor_group_plan_max_group_size: int | None = None
+    descriptor_group_plan_cta_count: int | None = None
     descriptor_reuse_distance_mean: float | None = None
     descriptor_unique_tiles_per_window_mean: float | None = None
 
@@ -137,6 +144,29 @@ class ShadowSummaryEvent:
         _put_optional(payload, "descriptor_order_lru_at_8", self.descriptor_order_lru_at_8)
         _put_optional(payload, "descriptor_order_lru_at_16", self.descriptor_order_lru_at_16)
         _put_optional(payload, "descriptor_order_hit_rate", self.descriptor_order_hit_rate)
+        _put_optional(payload, "descriptor_order_execution_mode", self.descriptor_order_execution_mode)
+        _put_optional(
+            payload,
+            "descriptor_group_plan_groups_per_cta",
+            self.descriptor_group_plan_groups_per_cta,
+        )
+        _put_optional(payload, "descriptor_group_plan_group_count", self.descriptor_group_plan_group_count)
+        _put_optional(
+            payload,
+            "descriptor_group_plan_avg_group_size",
+            self.descriptor_group_plan_avg_group_size,
+        )
+        _put_optional(
+            payload,
+            "descriptor_group_plan_p95_group_size",
+            self.descriptor_group_plan_p95_group_size,
+        )
+        _put_optional(
+            payload,
+            "descriptor_group_plan_max_group_size",
+            self.descriptor_group_plan_max_group_size,
+        )
+        _put_optional(payload, "descriptor_group_plan_cta_count", self.descriptor_group_plan_cta_count)
         _put_optional(payload, "descriptor_reuse_distance_mean", self.descriptor_reuse_distance_mean)
         _put_optional(
             payload,
@@ -170,6 +200,13 @@ class ShadowDescriptorSummaryMinEvent:
     descriptor_unique_b_tiles: int
     descriptor_window_count: int
     descriptor_order_top_utility_override: int | None = None
+    descriptor_order_execution_mode: str | None = None
+    descriptor_group_plan_groups_per_cta: int | None = None
+    descriptor_group_plan_group_count: int | None = None
+    descriptor_group_plan_avg_group_size: float | None = None
+    descriptor_group_plan_p95_group_size: float | None = None
+    descriptor_group_plan_max_group_size: int | None = None
+    descriptor_group_plan_cta_count: int | None = None
     candidate_construction_us: float | None = None
     descriptor_order_build_us: float | None = None
     counter_update_us: float | None = None
@@ -194,6 +231,29 @@ class ShadowDescriptorSummaryMinEvent:
             "descriptor_order_top_utility_override",
             self.descriptor_order_top_utility_override,
         )
+        _put_optional(payload, "descriptor_order_execution_mode", self.descriptor_order_execution_mode)
+        _put_optional(
+            payload,
+            "descriptor_group_plan_groups_per_cta",
+            self.descriptor_group_plan_groups_per_cta,
+        )
+        _put_optional(payload, "descriptor_group_plan_group_count", self.descriptor_group_plan_group_count)
+        _put_optional(
+            payload,
+            "descriptor_group_plan_avg_group_size",
+            self.descriptor_group_plan_avg_group_size,
+        )
+        _put_optional(
+            payload,
+            "descriptor_group_plan_p95_group_size",
+            self.descriptor_group_plan_p95_group_size,
+        )
+        _put_optional(
+            payload,
+            "descriptor_group_plan_max_group_size",
+            self.descriptor_group_plan_max_group_size,
+        )
+        _put_optional(payload, "descriptor_group_plan_cta_count", self.descriptor_group_plan_cta_count)
         _put_optional(payload, "candidate_construction_us", self.candidate_construction_us)
         _put_optional(payload, "descriptor_order_build_us", self.descriptor_order_build_us)
         _put_optional(payload, "counter_update_us", self.counter_update_us)
@@ -367,6 +427,14 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
         "descriptor_reuse_distance_mean_count": 0,
         "descriptor_unique_tiles_per_window_mean_sum": 0.0,
         "descriptor_unique_tiles_per_window_mean_count": 0,
+        "descriptor_group_plan_group_count_sum": 0,
+        "descriptor_group_plan_avg_group_size_sum": 0.0,
+        "descriptor_group_plan_avg_group_size_count": 0,
+        "descriptor_group_plan_p95_group_size_sum": 0.0,
+        "descriptor_group_plan_p95_group_size_count": 0,
+        "descriptor_group_plan_max_group_size_max": 0,
+        "descriptor_group_plan_cta_count_sum": 0,
+        "descriptor_group_plan_cta_count_count": 0,
         "descriptor_same_multiset_count": 0,
         "descriptor_order_changed_count": 0,
         "joined_outcome_count": 0,
@@ -437,6 +505,7 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
                     if value_key in event:
                         totals[sum_key] += float(event.get(value_key, 0.0) or 0.0)
                         totals[count_key] += 1
+                _accumulate_group_plan_totals(totals, event)
                 totals["descriptor_same_multiset_count"] += int(
                     bool(event.get("descriptor_same_multiset", False))
                 )
@@ -465,6 +534,7 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
             totals["counter_update_us_sum"] += float(
                 event.get("counter_update_us", 0.0) or 0.0
             )
+            _accumulate_group_plan_totals(totals, event)
         elif event_type == "candidate":
             totals["candidate_count"] += 1
         elif event_type == "outcome":
@@ -553,6 +623,21 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
     totals["descriptor_unique_tiles_per_window_mean"] = (
         totals["descriptor_unique_tiles_per_window_mean_sum"] / unique_window_count
     )
+    avg_group_count = max(1, int(totals["descriptor_group_plan_avg_group_size_count"]))
+    p95_group_count = max(1, int(totals["descriptor_group_plan_p95_group_size_count"]))
+    cta_count = max(1, int(totals["descriptor_group_plan_cta_count_count"]))
+    totals["descriptor_group_plan_group_count_mean"] = (
+        totals["descriptor_group_plan_group_count_sum"] / descriptor_count
+    )
+    totals["descriptor_group_plan_avg_group_size_mean"] = (
+        totals["descriptor_group_plan_avg_group_size_sum"] / avg_group_count
+    )
+    totals["descriptor_group_plan_p95_group_size_mean"] = (
+        totals["descriptor_group_plan_p95_group_size_sum"] / p95_group_count
+    )
+    totals["descriptor_group_plan_cta_count_mean"] = (
+        totals["descriptor_group_plan_cta_count_sum"] / cta_count
+    )
     aggregate_count = max(1, int(totals["outcome_aggregate_count"]))
     aggregate_token_count = max(1, int(totals["outcome_aggregate_token_count"]))
     totals["outcome_aggregate_routed_expert_count_mean"] = (
@@ -562,6 +647,33 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
         totals["outcome_aggregate_top1_weight_sum"] / aggregate_token_count
     )
     return totals
+
+
+def _accumulate_group_plan_totals(totals: dict[str, Any], event: dict[str, Any]) -> None:
+    if "descriptor_group_plan_group_count" in event:
+        totals["descriptor_group_plan_group_count_sum"] += int(
+            event.get("descriptor_group_plan_group_count", 0) or 0
+        )
+    if "descriptor_group_plan_avg_group_size" in event:
+        totals["descriptor_group_plan_avg_group_size_sum"] += float(
+            event.get("descriptor_group_plan_avg_group_size", 0.0) or 0.0
+        )
+        totals["descriptor_group_plan_avg_group_size_count"] += 1
+    if "descriptor_group_plan_p95_group_size" in event:
+        totals["descriptor_group_plan_p95_group_size_sum"] += float(
+            event.get("descriptor_group_plan_p95_group_size", 0.0) or 0.0
+        )
+        totals["descriptor_group_plan_p95_group_size_count"] += 1
+    if "descriptor_group_plan_max_group_size" in event:
+        totals["descriptor_group_plan_max_group_size_max"] = max(
+            int(totals["descriptor_group_plan_max_group_size_max"]),
+            int(event.get("descriptor_group_plan_max_group_size", 0) or 0),
+        )
+    if "descriptor_group_plan_cta_count" in event:
+        totals["descriptor_group_plan_cta_count_sum"] += int(
+            event.get("descriptor_group_plan_cta_count", 0) or 0
+        )
+        totals["descriptor_group_plan_cta_count_count"] += 1
 
 
 def _put_optional(payload: dict[str, Any], key: str, value: Any | None) -> None:

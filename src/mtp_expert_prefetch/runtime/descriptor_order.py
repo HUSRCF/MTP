@@ -336,6 +336,11 @@ def _build_layer_prior_count_only_report_from_topk_tensor(
         "request_count": request_count,
         "window_count": int(window_count),
         "unique_tiles_total": int(unique_tiles_total),
+        "group_plan": _group_plan_stats_from_tensor_ids(
+            ids=ids,
+            tiles_per_expert=tiles_per_expert,
+            token_window_size=token_window_size,
+        ),
         "unique_tiles_per_window": {
             "mean": None,
             "p50": None,
@@ -522,13 +527,14 @@ def _evaluate_ordered_tile_id_windows(
     if minimal:
         return {
             "policy": policy,
-            "metrics_mode": "none",
-            "request_count": len(tile_ids),
-            "window_count": len(ordered_windows),
-            "unique_tiles_total": len(set(tile_ids)),
-            "unique_tiles_per_window": {
-                "mean": None,
-                "p50": None,
+        "metrics_mode": "none",
+        "request_count": len(tile_ids),
+        "window_count": len(ordered_windows),
+        "unique_tiles_total": len(set(tile_ids)),
+        "group_plan": _group_plan_stats_from_windows(ordered_windows),
+        "unique_tiles_per_window": {
+            "mean": None,
+            "p50": None,
                 "p95": None,
                 "max": None,
                 "skipped_reason": "none_metrics_mode",
@@ -557,6 +563,7 @@ def _evaluate_ordered_tile_id_windows(
         "request_count": len(tile_ids),
         "window_count": len(ordered_windows),
         "unique_tiles_total": len(set(tile_ids)),
+        "group_plan": _group_plan_stats_from_windows(ordered_windows),
         "unique_tiles_per_window": _unique_tile_id_stats(ordered_windows),
         "reuse_distance": {
             "count": len(distances),
@@ -588,6 +595,64 @@ def _evaluate_ordered_tile_id_windows(
             "skipped_reason": "compact_metrics_mode",
         }
     return payload
+
+
+def _group_plan_stats_from_tensor_ids(
+    *,
+    ids: torch.Tensor,
+    tiles_per_expert: int,
+    token_window_size: int,
+) -> dict[str, Any]:
+    token_count = int(ids.shape[0])
+    if token_count <= 0:
+        return _group_size_stats([])
+    window_size = token_count if token_window_size <= 0 else max(1, int(token_window_size))
+    windows: list[list[int]] = []
+    for token_start in range(0, token_count, window_size):
+        token_end = min(token_start + window_size, token_count)
+        window = ids[token_start:token_end].reshape(-1)
+        tiles: list[int] = []
+        for expert_raw in window.tolist():
+            expert = int(expert_raw)
+            if expert < 0:
+                continue
+            for tile_local in range(max(1, int(tiles_per_expert))):
+                tiles.append(expert * max(1, int(tiles_per_expert)) + int(tile_local))
+        windows.append(tiles)
+    return _group_plan_stats_from_windows(windows)
+
+
+def _group_plan_stats_from_windows(windows: Sequence[Sequence[int]]) -> dict[str, Any]:
+    sizes: list[int] = []
+    group_count_per_window: list[int] = []
+    for window in windows:
+        counts = Counter(int(tile) for tile in window)
+        group_count_per_window.append(len(counts))
+        sizes.extend(int(count) for count in counts.values())
+    payload = _group_size_stats(sizes)
+    payload["group_count_per_window"] = _value_stats(group_count_per_window)
+    return payload
+
+
+def _group_size_stats(sizes: Sequence[int]) -> dict[str, Any]:
+    return {
+        "group_count": int(len(sizes)),
+        "avg_group_size": float(mean(sizes)) if sizes else 0.0,
+        "p50_group_size": float(_percentile(sizes, 0.50) or 0.0),
+        "p95_group_size": float(_percentile(sizes, 0.95) or 0.0),
+        "max_group_size": int(max(sizes)) if sizes else 0,
+    }
+
+
+def _value_stats(values: Sequence[int]) -> dict[str, float | int]:
+    if not values:
+        return {"mean": 0.0, "p50": 0.0, "p95": 0.0, "max": 0}
+    return {
+        "mean": float(mean(values)),
+        "p50": float(_percentile(values, 0.50) or 0.0),
+        "p95": float(_percentile(values, 0.95) or 0.0),
+        "max": int(max(values)),
+    }
 
 
 def _unique_tile_id_stats(windows: Sequence[Sequence[int]]) -> dict[str, float | int]:

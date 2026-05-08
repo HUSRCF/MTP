@@ -118,6 +118,8 @@ class OnlineShadowLogger:
         candidate_construction_us: float | None = None,
         counter_update_us: float | None = None,
         logging_us: float | None = None,
+        descriptor_order_execution_mode: str | None = None,
+        descriptor_group_plan_groups_per_cta: int | None = None,
     ) -> ShadowSummaryEvent:
         event = build_shadow_summary_from_descriptor_order(
             event_id=event_id,
@@ -132,6 +134,8 @@ class OnlineShadowLogger:
             candidate_construction_us=candidate_construction_us,
             counter_update_us=counter_update_us,
             logging_us=logging_us,
+            descriptor_order_execution_mode=descriptor_order_execution_mode,
+            descriptor_group_plan_groups_per_cta=descriptor_group_plan_groups_per_cta,
         )
         self.write_summary(event)
         return event
@@ -284,6 +288,8 @@ def build_shadow_summary_from_descriptor_order(
     candidate_construction_us: float | None = None,
     counter_update_us: float | None = None,
     logging_us: float | None = None,
+    descriptor_order_execution_mode: str | None = None,
+    descriptor_group_plan_groups_per_cta: int | None = None,
 ) -> ShadowSummaryEvent:
     metrics = descriptor_report.metrics
     order_changed = (
@@ -294,6 +300,19 @@ def build_shadow_summary_from_descriptor_order(
     lru = metrics.get("lru_hit_rate", {})
     reuse = metrics.get("reuse_distance", {})
     unique_per_window = metrics.get("unique_tiles_per_window", {})
+    group_plan = metrics.get("group_plan", {})
+    group_count = int(group_plan.get("group_count", 0) or 0)
+    groups_per_cta = (
+        int(descriptor_group_plan_groups_per_cta)
+        if descriptor_group_plan_groups_per_cta is not None
+        and int(descriptor_group_plan_groups_per_cta) > 0
+        else None
+    )
+    cta_count = (
+        int((group_count + int(groups_per_cta) - 1) // int(groups_per_cta))
+        if groups_per_cta is not None
+        else None
+    )
     resolved_prior_id = prior_id if prior_id is not None else descriptor_report.prior_id
     resolved_prior_hash = prior_hash if prior_hash is not None else descriptor_report.prior_hash
     return ShadowSummaryEvent(
@@ -325,6 +344,21 @@ def build_shadow_summary_from_descriptor_order(
         descriptor_order_lru_at_8=_optional_float(lru.get("8")),
         descriptor_order_lru_at_16=_optional_float(lru.get("16")),
         descriptor_order_hit_rate=_optional_float(metrics.get("tile_order_hit_rate")),
+        descriptor_order_execution_mode=descriptor_order_execution_mode,
+        descriptor_group_plan_groups_per_cta=groups_per_cta,
+        descriptor_group_plan_group_count=group_count,
+        descriptor_group_plan_avg_group_size=_optional_float(
+            group_plan.get("avg_group_size")
+        ),
+        descriptor_group_plan_p95_group_size=_optional_float(
+            group_plan.get("p95_group_size")
+        ),
+        descriptor_group_plan_max_group_size=(
+            int(group_plan.get("max_group_size"))
+            if group_plan.get("max_group_size") is not None
+            else None
+        ),
+        descriptor_group_plan_cta_count=cta_count,
         descriptor_reuse_distance_mean=_optional_float(reuse.get("mean")),
         descriptor_unique_tiles_per_window_mean=_optional_float(unique_per_window.get("mean")),
     )

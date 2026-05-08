@@ -132,6 +132,13 @@ def test_runtime_shadow_controller_writes_descriptor_order_min_summary(tmp_path)
         descriptor_tile_request_count=16,
         descriptor_unique_b_tiles=4,
         descriptor_window_count=2,
+        descriptor_order_execution_mode="two_level_group_plan",
+        descriptor_group_plan_groups_per_cta=4,
+        descriptor_group_plan_group_count=8,
+        descriptor_group_plan_avg_group_size=2.0,
+        descriptor_group_plan_p95_group_size=3.0,
+        descriptor_group_plan_max_group_size=4,
+        descriptor_group_plan_cta_count=2,
         descriptor_order_build_us=2.0,
         decision_us=6.0,
     )
@@ -143,6 +150,8 @@ def test_runtime_shadow_controller_writes_descriptor_order_min_summary(tmp_path)
     rows = read_shadow_jsonl(path)
     assert [row["event_type"] for row in rows] == ["descriptor_summary_min"]
     assert rows[0]["descriptor_tile_request_count"] == 16
+    assert rows[0]["descriptor_group_plan_group_count"] == 8
+    assert rows[0]["descriptor_group_plan_cta_count"] == 2
     assert stats["written_summary_count"] == 1
 
 

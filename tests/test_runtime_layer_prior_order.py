@@ -252,6 +252,10 @@ def test_layer_prior_plan_report_none_metrics_keep_minimal_scalars():
     assert report.metrics["reuse_distance"]["skipped_reason"] == "none_metrics_mode"
     assert report.metrics["unique_tiles_per_window"]["mean"] is None
     assert report.metrics["consecutive_same_tile_run"]["mean"] is None
+    assert report.metrics["group_plan"]["group_count"] == 2
+    assert report.metrics["group_plan"]["avg_group_size"] == 2.0
+    assert report.metrics["group_plan"]["p95_group_size"] == 2.0
+    assert report.metrics["group_plan"]["max_group_size"] == 2
 
 
 def test_layer_prior_plan_report_count_only_skips_hashes_and_ordering():
@@ -285,6 +289,10 @@ def test_layer_prior_plan_report_count_only_skips_hashes_and_ordering():
     assert report.metrics["request_count"] == 4
     assert report.metrics["window_count"] == 1
     assert report.metrics["unique_tiles_total"] == 2
+    assert report.metrics["group_plan"]["group_count"] == 2
+    assert report.metrics["group_plan"]["avg_group_size"] == 2.0
+    assert report.metrics["group_plan"]["p95_group_size"] == 2.0
+    assert report.metrics["group_plan"]["max_group_size"] == 2
     assert report.metrics["hashes_skipped_reason"] == "count_only_summary_mode"
     assert report.metrics["lru_hit_rate"] == {}
     assert report.metrics["tile_order_hit_rate"] is None

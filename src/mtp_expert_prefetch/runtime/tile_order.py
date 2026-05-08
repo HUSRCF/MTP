@@ -757,6 +757,34 @@ def unique_tiles_per_window(windows: Sequence[Sequence[TileRequest]]) -> dict[st
     }
 
 
+def group_plan_stats(windows: Sequence[Sequence[TileRequest]]) -> dict[str, Any]:
+    sizes: list[int] = []
+    group_count_per_window: list[int] = []
+    for window in windows:
+        counts = Counter(int(item.tile_id) for item in window)
+        group_count_per_window.append(len(counts))
+        sizes.extend(int(value) for value in counts.values())
+    return {
+        "group_count": int(len(sizes)),
+        "avg_group_size": float(mean(sizes)) if sizes else 0.0,
+        "p50_group_size": float(_percentile(sizes, 0.50) or 0.0),
+        "p95_group_size": float(_percentile(sizes, 0.95) or 0.0),
+        "max_group_size": int(max(sizes)) if sizes else 0,
+        "group_count_per_window": _value_stats(group_count_per_window),
+    }
+
+
+def _value_stats(values: Sequence[int]) -> dict[str, float | int]:
+    if not values:
+        return {"mean": 0.0, "p50": 0.0, "p95": 0.0, "max": 0}
+    return {
+        "mean": float(mean(values)),
+        "p50": float(_percentile(values, 0.50) or 0.0),
+        "p95": float(_percentile(values, 0.95) or 0.0),
+        "max": int(max(values)),
+    }
+
+
 def evaluate_tile_order_policy(
     requests: Sequence[TileRequest],
     *,
@@ -792,6 +820,7 @@ def evaluate_ordered_tile_requests(
         "request_count": len(ordered),
         "window_count": len(ordered_windows),
         "unique_tiles_total": len(set(tile_ids)),
+        "group_plan": group_plan_stats(ordered_windows),
         "unique_tiles_per_window": unique_tiles_per_window(ordered_windows),
         "reuse_distance": {
             "count": len(distances),

@@ -409,6 +409,8 @@ def test_vllm_router_recorder_emits_descriptor_order_min_summary(tmp_path):
             shadow_descriptor_order_prior_hash=prior_hash,
             shadow_descriptor_order_metrics_mode="count_only",
             shadow_descriptor_order_event_mode="minimal",
+            shadow_descriptor_order_execution_mode="two_level_group_plan",
+            shadow_descriptor_order_groups_per_cta=4,
             shadow_descriptor_order_token_window_size=1,
             request_id="req",
             sequence_id=0,
@@ -435,6 +437,13 @@ def test_vllm_router_recorder_emits_descriptor_order_min_summary(tmp_path):
     assert summary["descriptor_tile_request_count"] == 4
     assert summary["descriptor_unique_b_tiles"] == 3
     assert summary["descriptor_window_count"] == 2
+    assert summary["descriptor_order_execution_mode"] == "two_level_group_plan"
+    assert summary["descriptor_group_plan_groups_per_cta"] == 4
+    assert summary["descriptor_group_plan_group_count"] == 4
+    assert summary["descriptor_group_plan_avg_group_size"] == 1.0
+    assert summary["descriptor_group_plan_p95_group_size"] == 1.0
+    assert summary["descriptor_group_plan_max_group_size"] == 1
+    assert summary["descriptor_group_plan_cta_count"] == 1
     assert "descriptor_order_metrics" not in summary
     assert "full_fetch_count" not in summary
     assert aggregate["descriptor_summary_min_count"] == 1

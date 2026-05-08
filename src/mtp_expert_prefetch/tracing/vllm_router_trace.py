@@ -76,6 +76,8 @@ class VllmRouterRecorder:
     shadow_descriptor_order_top_utility_override: int = 0
     shadow_descriptor_order_metrics_mode: str = "full"
     shadow_descriptor_order_event_mode: str = "summary"
+    shadow_descriptor_order_execution_mode: str = "two_level_group_plan"
+    shadow_descriptor_order_groups_per_cta: int = 8
     shadow_descriptor_order_event_token_index: int = -1
     shadow_outcome_logging_mode: str = "full"
     request_id: str = "vllm"
@@ -354,6 +356,9 @@ class VllmRouterRecorder:
         )
         if event_mode == "minimal":
             metrics = descriptor_report.metrics
+            group_plan = metrics.get("group_plan", {})
+            group_count = int(group_plan.get("group_count", 0) or 0)
+            groups_per_cta = max(1, int(self.shadow_descriptor_order_groups_per_cta))
             sink.write_descriptor_order_min_summary(
                 ShadowDescriptorSummaryMinEvent(
                     event_id=event_id,
@@ -368,6 +373,29 @@ class VllmRouterRecorder:
                     descriptor_window_count=int(metrics.get("window_count", 0) or 0),
                     descriptor_order_top_utility_override=(
                         descriptor_report.top_utility_override
+                    ),
+                    descriptor_order_execution_mode=str(
+                        self.shadow_descriptor_order_execution_mode
+                    ),
+                    descriptor_group_plan_groups_per_cta=groups_per_cta,
+                    descriptor_group_plan_group_count=group_count,
+                    descriptor_group_plan_avg_group_size=(
+                        float(group_plan.get("avg_group_size"))
+                        if group_plan.get("avg_group_size") is not None
+                        else None
+                    ),
+                    descriptor_group_plan_p95_group_size=(
+                        float(group_plan.get("p95_group_size"))
+                        if group_plan.get("p95_group_size") is not None
+                        else None
+                    ),
+                    descriptor_group_plan_max_group_size=(
+                        int(group_plan.get("max_group_size"))
+                        if group_plan.get("max_group_size") is not None
+                        else None
+                    ),
+                    descriptor_group_plan_cta_count=(
+                        (group_count + groups_per_cta - 1) // groups_per_cta
                     ),
                     candidate_construction_us=stream_build_us,
                     descriptor_order_build_us=float(descriptor_report.order_build_us),
@@ -398,6 +426,11 @@ class VllmRouterRecorder:
             candidate_construction_us=stream_build_us,
             counter_update_us=counter_update_us,
             decision_us=decision_us,
+            descriptor_order_execution_mode=str(self.shadow_descriptor_order_execution_mode),
+            descriptor_group_plan_groups_per_cta=max(
+                1,
+                int(self.shadow_descriptor_order_groups_per_cta),
+            ),
         )
 
     def _resolved_descriptor_order_event_mode(self) -> str:
@@ -1612,6 +1645,15 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
         "runtime_shadow_descriptor_order_event_mode": str(
             runtime_shadow_options.get("descriptor_order_event_mode", "summary")
         ),
+        "runtime_shadow_descriptor_order_execution_mode": str(
+            runtime_shadow_options.get(
+                "descriptor_order_execution_mode",
+                "two_level_group_plan",
+            )
+        ),
+        "runtime_shadow_descriptor_order_groups_per_cta": int(
+            runtime_shadow_options.get("descriptor_order_groups_per_cta", 8)
+        ),
     }
     try:
         with manifest_path.open("w", encoding="utf-8") as manifest:
@@ -1708,6 +1750,18 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                                 runtime_shadow_options.get(
                                     "descriptor_order_event_mode",
                                     "summary",
+                                )
+                            ),
+                            shadow_descriptor_order_execution_mode=str(
+                                runtime_shadow_options.get(
+                                    "descriptor_order_execution_mode",
+                                    "two_level_group_plan",
+                                )
+                            ),
+                            shadow_descriptor_order_groups_per_cta=int(
+                                runtime_shadow_options.get(
+                                    "descriptor_order_groups_per_cta",
+                                    8,
                                 )
                             ),
                             shadow_descriptor_order_event_token_index=int(
