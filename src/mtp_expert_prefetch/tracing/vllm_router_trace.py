@@ -91,6 +91,9 @@ class VllmRouterRecorder:
     shadow_descriptor_order_prelaunch_mapping_source: str = (
         "moe_runner_quant_method_apply_topk"
     )
+    shadow_descriptor_order_reorder_mvp_enabled: bool = False
+    shadow_descriptor_order_reorder_mvp_apply_mode: str = "dry_run"
+    shadow_descriptor_order_reorder_mvp_require_profitable: bool = True
     shadow_descriptor_order_groups_per_cta: int = 8
     shadow_descriptor_order_tile_elems: int = 1024
     shadow_descriptor_order_device: int | None = None
@@ -610,6 +613,10 @@ class VllmRouterRecorder:
                 error = "router_mapping_missing"
             elif not same_multiset:
                 error = "prelaunch_router_multiset_mismatch"
+            reorder_mvp = self._descriptor_order_reorder_mvp_decision(
+                same_multiset=bool(same_multiset),
+                group_count=int(prelaunch["group_count"]),
+            )
             dump_us = (time.perf_counter_ns() - start_ns) / 1000.0
             event = ShadowDescriptorPrelaunchAssertEvent(
                 event_id=ShadowEventId(
@@ -641,8 +648,10 @@ class VllmRouterRecorder:
                 ),
                 error=error,
                 dump_us=dump_us,
+                **reorder_mvp,
             )
         except Exception as exc:  # pragma: no cover - defensive telemetry path
+            reorder_requested = bool(self.shadow_descriptor_order_reorder_mvp_enabled)
             event = ShadowDescriptorPrelaunchAssertEvent(
                 event_id=ShadowEventId(
                     request_id=str(self.request_id),
@@ -663,8 +672,84 @@ class VllmRouterRecorder:
                 router_derived_group_count=None,
                 error=f"{type(exc).__name__}: {exc}",
                 dump_us=(time.perf_counter_ns() - start_ns) / 1000.0,
+                reorder_mvp_requested=reorder_requested,
+                reorder_mvp_selected_policy="no_order",
+                reorder_mvp_applied=False,
+                reorder_mvp_fallback_reason=(
+                    "prelaunch_assertion_error" if reorder_requested else None
+                ),
             )
         sink.write_descriptor_prelaunch_assertion(event)
+
+    def _descriptor_order_reorder_mvp_decision(
+        self,
+        *,
+        same_multiset: bool,
+        group_count: int,
+    ) -> dict[str, Any]:
+        requested = bool(self.shadow_descriptor_order_reorder_mvp_enabled)
+        payload: dict[str, Any] = {
+            "reorder_mvp_requested": requested,
+            "reorder_mvp_selected_policy": "no_order",
+            "reorder_mvp_applied": False,
+        }
+        if not requested:
+            return payload
+        groups_per_cta = max(1, int(self.shadow_descriptor_order_groups_per_cta))
+        evidence = None
+        if (
+            self.shadow_descriptor_order_evidence is not None
+            and self.shadow_descriptor_order_device is not None
+        ):
+            evidence = self.shadow_descriptor_order_evidence.get(
+                (
+                    int(self.shadow_descriptor_order_device),
+                    int(self.shadow_descriptor_order_tile_elems),
+                    int(groups_per_cta),
+                    int(self.shadow_descriptor_order_evidence_cache_flush_elems),
+                )
+            )
+        checksum_delta = evidence.checksum_delta if evidence is not None else None
+        gate_decision = None
+        if self.shadow_descriptor_order_runtime_gate is not None:
+            gate_decision = self.shadow_descriptor_order_runtime_gate.decide(
+                tile_elems=int(self.shadow_descriptor_order_tile_elems),
+                groups_per_cta=groups_per_cta,
+                device=self.shadow_descriptor_order_device,
+                execution_mode=str(self.shadow_descriptor_order_execution_mode),
+                group_count=int(group_count),
+                same_multiset=bool(same_multiset),
+                checksum_delta=checksum_delta,
+            )
+        gate_allow = bool(gate_decision.allow) if gate_decision is not None else False
+        gate_reason = gate_decision.reason if gate_decision is not None else "gate_missing"
+        speedup = evidence.speedup_median_vs_no_order if evidence is not None else None
+        profitable = speedup is not None and float(speedup) > 1.0
+        candidate_policy = "layer_prior_frequency_two_level"
+        selected_policy = "no_order"
+        fallback_reason = None
+        if not gate_allow:
+            fallback_reason = gate_reason
+        elif evidence is None:
+            fallback_reason = "evidence_missing"
+        elif self.shadow_descriptor_order_reorder_mvp_require_profitable and not profitable:
+            fallback_reason = "not_profitable"
+        elif str(self.shadow_descriptor_order_reorder_mvp_apply_mode).lower() != "apply":
+            fallback_reason = "dry_run_no_vllm_descriptor_consumer_patch"
+        else:
+            fallback_reason = "apply_mode_not_implemented"
+        payload.update(
+            {
+                "reorder_mvp_gate_allow": gate_allow,
+                "reorder_mvp_gate_reason": gate_reason,
+                "reorder_mvp_candidate_policy": candidate_policy,
+                "reorder_mvp_candidate_speedup_median_vs_no_order": speedup,
+                "reorder_mvp_selected_policy": selected_policy,
+                "reorder_mvp_applied": False,
+                "reorder_mvp_fallback_reason": fallback_reason,
+            }
+        )
+        return payload
 
     def _resolved_descriptor_order_event_mode(self) -> str:
         mode = str(self.shadow_descriptor_order_event_mode or "summary").strip().lower()
@@ -2119,6 +2204,18 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                 "moe_runner_quant_method_apply_topk",
             )
         ),
+        "runtime_shadow_descriptor_order_reorder_mvp_enabled": bool(
+            runtime_shadow_options.get("descriptor_order_reorder_mvp_enabled", False)
+        ),
+        "runtime_shadow_descriptor_order_reorder_mvp_apply_mode": str(
+            runtime_shadow_options.get("descriptor_order_reorder_mvp_apply_mode", "dry_run")
+        ),
+        "runtime_shadow_descriptor_order_reorder_mvp_require_profitable": bool(
+            runtime_shadow_options.get(
+                "descriptor_order_reorder_mvp_require_profitable",
+                True,
+            )
+        ),
         "runtime_shadow_descriptor_order_groups_per_cta": int(
             runtime_shadow_options.get("descriptor_order_groups_per_cta", 8)
         ),
@@ -2262,6 +2359,24 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                                 runtime_shadow_options.get(
                                     "descriptor_order_prelaunch_mapping_source",
                                     "moe_runner_quant_method_apply_topk",
+                                )
+                            ),
+                            shadow_descriptor_order_reorder_mvp_enabled=bool(
+                                runtime_shadow_options.get(
+                                    "descriptor_order_reorder_mvp_enabled",
+                                    False,
+                                )
+                            ),
+                            shadow_descriptor_order_reorder_mvp_apply_mode=str(
+                                runtime_shadow_options.get(
+                                    "descriptor_order_reorder_mvp_apply_mode",
+                                    "dry_run",
+                                )
+                            ),
+                            shadow_descriptor_order_reorder_mvp_require_profitable=bool(
+                                runtime_shadow_options.get(
+                                    "descriptor_order_reorder_mvp_require_profitable",
+                                    True,
                                 )
                             ),
                             shadow_descriptor_order_groups_per_cta=int(

@@ -126,6 +126,7 @@ def test_vllm_recorder_emits_prelaunch_assertion_against_router_mapping() -> Non
         shadow_descriptor_order_event_mode="minimal",
         shadow_descriptor_order_mapping_assertion_mode="router_topk_tile_stream",
         shadow_descriptor_order_prelaunch_assertion_mode="moe_runner_prelaunch_topk",
+        shadow_descriptor_order_reorder_mvp_enabled=True,
         shadow_descriptor_order_token_window_size=1,
     )
     topk_ids = torch.tensor([[1, 2], [2, 3]], dtype=torch.long)
@@ -146,4 +147,7 @@ def test_vllm_recorder_emits_prelaunch_assertion_against_router_mapping() -> Non
         payload["descriptor_order_prelaunch_tile_multiset_hash"]
         == payload["descriptor_order_prelaunch_router_derived_tile_multiset_hash"]
     )
+    assert payload["descriptor_order_reorder_mvp_requested"] is True
+    assert payload["descriptor_order_reorder_mvp_selected_policy"] == "no_order"
+    assert payload["descriptor_order_reorder_mvp_fallback_reason"] == "gate_missing"
     assert "descriptor_order_prelaunch_error" not in payload

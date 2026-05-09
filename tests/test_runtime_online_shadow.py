@@ -188,6 +188,14 @@ def test_runtime_shadow_controller_writes_descriptor_prelaunch_assertion(tmp_pat
         prelaunch_group_count=8,
         router_derived_group_count=8,
         dump_us=3.0,
+        reorder_mvp_requested=True,
+        reorder_mvp_gate_allow=True,
+        reorder_mvp_gate_reason="allowed",
+        reorder_mvp_candidate_policy="layer_prior_frequency_two_level",
+        reorder_mvp_candidate_speedup_median_vs_no_order=1.2,
+        reorder_mvp_selected_policy="no_order",
+        reorder_mvp_applied=False,
+        reorder_mvp_fallback_reason="dry_run_no_vllm_descriptor_consumer_patch",
     )
 
     with RuntimeShadowController(OnlineShadowLogger(path)) as controller:
@@ -198,6 +206,11 @@ def test_runtime_shadow_controller_writes_descriptor_prelaunch_assertion(tmp_pat
     assert [row["event_type"] for row in rows] == ["descriptor_prelaunch_assertion"]
     assert rows[0]["descriptor_order_prelaunch_same_multiset"] is True
     assert rows[0]["descriptor_order_prelaunch_tile_multiset_hash"] == "hash-v1"
+    assert rows[0]["descriptor_order_reorder_mvp_requested"] is True
+    assert rows[0]["descriptor_order_reorder_mvp_applied"] is False
+    assert rows[0]["descriptor_order_reorder_mvp_fallback_reason"] == (
+        "dry_run_no_vllm_descriptor_consumer_patch"
+    )
     assert stats["written_descriptor_prelaunch_assertion_count"] == 1
 
 

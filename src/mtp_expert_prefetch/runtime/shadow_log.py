@@ -353,6 +353,14 @@ class ShadowDescriptorPrelaunchAssertEvent:
     router_derived_group_count: int | None
     error: str | None = None
     dump_us: float | None = None
+    reorder_mvp_requested: bool | None = None
+    reorder_mvp_gate_allow: bool | None = None
+    reorder_mvp_gate_reason: str | None = None
+    reorder_mvp_candidate_policy: str | None = None
+    reorder_mvp_candidate_speedup_median_vs_no_order: float | None = None
+    reorder_mvp_selected_policy: str | None = None
+    reorder_mvp_applied: bool | None = None
+    reorder_mvp_fallback_reason: str | None = None
 
     def as_dict(self) -> dict[str, Any]:
         payload = {
@@ -392,6 +400,22 @@ class ShadowDescriptorPrelaunchAssertEvent:
         )
         _put_optional(payload, "descriptor_order_prelaunch_error", self.error)
         _put_optional(payload, "descriptor_order_prelaunch_dump_us", self.dump_us)
+        _put_optional(payload, "descriptor_order_reorder_mvp_requested", self.reorder_mvp_requested)
+        _put_optional(payload, "descriptor_order_reorder_mvp_gate_allow", self.reorder_mvp_gate_allow)
+        _put_optional(payload, "descriptor_order_reorder_mvp_gate_reason", self.reorder_mvp_gate_reason)
+        _put_optional(
+            payload,
+            "descriptor_order_reorder_mvp_candidate_policy",
+            self.reorder_mvp_candidate_policy,
+        )
+        _put_optional(
+            payload,
+            "descriptor_order_reorder_mvp_candidate_speedup_median_vs_no_order",
+            self.reorder_mvp_candidate_speedup_median_vs_no_order,
+        )
+        _put_optional(payload, "descriptor_order_reorder_mvp_selected_policy", self.reorder_mvp_selected_policy)
+        _put_optional(payload, "descriptor_order_reorder_mvp_applied", self.reorder_mvp_applied)
+        _put_optional(payload, "descriptor_order_reorder_mvp_fallback_reason", self.reorder_mvp_fallback_reason)
         return payload
 
 
@@ -577,6 +601,9 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
         "descriptor_prelaunch_assertion_count": 0,
         "descriptor_prelaunch_same_multiset_count": 0,
         "descriptor_prelaunch_error_count": 0,
+        "descriptor_order_reorder_mvp_requested_count": 0,
+        "descriptor_order_reorder_mvp_applied_count": 0,
+        "descriptor_order_reorder_mvp_fallback_count": 0,
         "descriptor_same_multiset_count": 0,
         "descriptor_order_changed_count": 0,
         "joined_outcome_count": 0,
@@ -698,6 +725,15 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
             )
             totals["descriptor_prelaunch_error_count"] += int(
                 bool(event.get("descriptor_order_prelaunch_error"))
+            )
+            totals["descriptor_order_reorder_mvp_requested_count"] += int(
+                bool(event.get("descriptor_order_reorder_mvp_requested", False))
+            )
+            totals["descriptor_order_reorder_mvp_applied_count"] += int(
+                bool(event.get("descriptor_order_reorder_mvp_applied", False))
+            )
+            totals["descriptor_order_reorder_mvp_fallback_count"] += int(
+                bool(event.get("descriptor_order_reorder_mvp_fallback_reason"))
             )
         elif event_type == "candidate":
             totals["candidate_count"] += 1

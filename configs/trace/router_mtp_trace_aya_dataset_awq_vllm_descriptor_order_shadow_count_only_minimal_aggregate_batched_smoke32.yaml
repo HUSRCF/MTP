@@ -46,6 +46,9 @@ trace:
     descriptor_order_mapping_source: base_router_select_experts_topk
     descriptor_order_prelaunch_assertion_mode: moe_runner_prelaunch_topk
     descriptor_order_prelaunch_mapping_source: moe_runner_quant_method_apply_topk
+    descriptor_order_reorder_mvp_enabled: true
+    descriptor_order_reorder_mvp_apply_mode: dry_run
+    descriptor_order_reorder_mvp_require_profitable: true
     descriptor_order_groups_per_cta: 8
     descriptor_order_device: 0
     descriptor_order_event_token_index: -1
