@@ -18,6 +18,7 @@ from mtp_expert_prefetch.runtime.admission import AdmissionDecisionMasks
 from mtp_expert_prefetch.runtime.descriptor_order import (
     DescriptorOrderReport,
     build_layer_prior_plan_report_from_router_topk,
+    hash_ints,
     hash_layer_tile_prior,
 )
 from mtp_expert_prefetch.runtime.descriptor_order_gate import (
@@ -83,6 +84,8 @@ class VllmRouterRecorder:
     shadow_descriptor_order_metrics_mode: str = "full"
     shadow_descriptor_order_event_mode: str = "summary"
     shadow_descriptor_order_execution_mode: str = "two_level_group_plan"
+    shadow_descriptor_order_mapping_assertion_mode: str = "off"
+    shadow_descriptor_order_mapping_source: str = "base_router_select_experts_topk"
     shadow_descriptor_order_groups_per_cta: int = 8
     shadow_descriptor_order_tile_elems: int = 1024
     shadow_descriptor_order_device: int | None = None
@@ -372,6 +375,14 @@ class VllmRouterRecorder:
         if event_mode == "minimal":
             metrics = descriptor_report.metrics
             group_plan = metrics.get("group_plan", {})
+            mapping_assertion = _descriptor_order_mapping_assertion_from_router_topk(
+                mode=str(self.shadow_descriptor_order_mapping_assertion_mode),
+                source=str(self.shadow_descriptor_order_mapping_source),
+                topk_ids=ids,
+                descriptor_report=descriptor_report,
+                tiles_per_expert=int(self.shadow_descriptor_order_tiles_per_expert),
+                token_window_size=int(self.shadow_descriptor_order_token_window_size),
+            )
             group_count = int(group_plan.get("group_count", 0) or 0)
             groups_per_cta = max(1, int(self.shadow_descriptor_order_groups_per_cta))
             gate_decision = None
@@ -481,6 +492,33 @@ class VllmRouterRecorder:
                         if gate_evidence is not None
                         else None
                     ),
+                    descriptor_order_mapping_assertion_mode=mapping_assertion.get("mode"),
+                    descriptor_order_mapping_source=mapping_assertion.get("source"),
+                    descriptor_order_mapping_same_multiset=mapping_assertion.get(
+                        "same_multiset"
+                    ),
+                    descriptor_order_mapping_counts_match=mapping_assertion.get(
+                        "counts_match"
+                    ),
+                    descriptor_order_mapping_tile_multiset_hash=mapping_assertion.get(
+                        "tile_multiset_hash"
+                    ),
+                    descriptor_order_mapping_plan_tile_multiset_hash=mapping_assertion.get(
+                        "plan_tile_multiset_hash"
+                    ),
+                    descriptor_order_mapping_request_count=mapping_assertion.get(
+                        "request_count"
+                    ),
+                    descriptor_order_mapping_plan_request_count=mapping_assertion.get(
+                        "plan_request_count"
+                    ),
+                    descriptor_order_mapping_group_count=mapping_assertion.get(
+                        "group_count"
+                    ),
+                    descriptor_order_mapping_plan_group_count=mapping_assertion.get(
+                        "plan_group_count"
+                    ),
+                    descriptor_order_mapping_error=mapping_assertion.get("error"),
                     candidate_construction_us=stream_build_us,
                     descriptor_order_build_us=float(descriptor_report.order_build_us),
                     counter_update_us=counter_update_us,
@@ -892,6 +930,117 @@ def _tile_requests_from_router_topk(
                 )
                 request_id += 1
     return requests
+
+
+def _descriptor_order_mapping_assertion_from_router_topk(
+    *,
+    mode: str,
+    source: str,
+    topk_ids: torch.Tensor,
+    descriptor_report: DescriptorOrderReport,
+    tiles_per_expert: int,
+    token_window_size: int,
+) -> dict[str, Any]:
+    """Verify that internal router top-k maps to the two-level group plan.
+
+    This is a no-op assertion for the vLLM/AWQ integration boundary. It does
+    not change execution order and does not claim numeric checksum parity for a
+    future kernel patch. It only checks that the current internal router output
+    can be represented by the same descriptor/tile multiset consumed by the
+    two-level group-plan telemetry.
+    """
+
+    normalized_mode = str(mode or "off").strip().lower()
+    if normalized_mode in {"", "off", "none", "false", "0"}:
+        return {}
+    ids = topk_ids.detach().cpu().to(torch.long)
+    if ids.ndim != 2:
+        return {
+            "mode": normalized_mode,
+            "source": str(source),
+            "same_multiset": False,
+            "error": f"expected_2d_topk_ids_got_{tuple(ids.shape)}",
+        }
+    try:
+        internal = _internal_group_plan_counts_from_router_topk(
+            ids=ids,
+            tiles_per_expert=max(1, int(tiles_per_expert)),
+            token_window_size=int(token_window_size),
+        )
+        metrics = descriptor_report.metrics if descriptor_report is not None else {}
+        group_plan = metrics.get("group_plan", {}) if isinstance(metrics, dict) else {}
+        plan_request_count = int(descriptor_report.descriptor_count)
+        plan_group_count = int(group_plan.get("group_count", 0) or 0)
+        plan_tile_multiset_hash = descriptor_report.tile_multiset_hash
+        counts_match = (
+            int(internal["request_count"]) == plan_request_count
+            and int(internal["group_count"]) == plan_group_count
+        )
+        same_multiset = (
+            bool(counts_match)
+            and plan_tile_multiset_hash is not None
+            and str(internal["tile_multiset_hash"]) == str(plan_tile_multiset_hash)
+        )
+        error = None
+        if plan_tile_multiset_hash is None:
+            error = "plan_tile_multiset_hash_missing"
+        elif not same_multiset:
+            error = "internal_topk_group_plan_mismatch"
+        return {
+            "mode": normalized_mode,
+            "source": str(source),
+            "same_multiset": bool(same_multiset),
+            "counts_match": bool(counts_match),
+            "tile_multiset_hash": str(internal["tile_multiset_hash"]),
+            "plan_tile_multiset_hash": (
+                str(plan_tile_multiset_hash) if plan_tile_multiset_hash is not None else None
+            ),
+            "request_count": int(internal["request_count"]),
+            "plan_request_count": plan_request_count,
+            "group_count": int(internal["group_count"]),
+            "plan_group_count": plan_group_count,
+            "error": error,
+        }
+    except Exception as exc:  # pragma: no cover - defensive telemetry path
+        return {
+            "mode": normalized_mode,
+            "source": str(source),
+            "same_multiset": False,
+            "error": f"{type(exc).__name__}: {exc}",
+        }
+
+
+def _internal_group_plan_counts_from_router_topk(
+    *,
+    ids: torch.Tensor,
+    tiles_per_expert: int,
+    token_window_size: int,
+) -> dict[str, int]:
+    token_count = int(ids.shape[0])
+    tiles_per_expert = max(1, int(tiles_per_expert))
+    window_size = token_count if token_window_size <= 0 else max(1, int(token_window_size))
+    request_count = 0
+    group_count = 0
+    tile_ids: list[int] = []
+    for token_start in range(0, token_count, window_size):
+        token_end = min(token_start + window_size, token_count)
+        seen_tiles: set[int] = set()
+        window = ids[token_start:token_end].reshape(-1)
+        for expert_raw in window.tolist():
+            expert = int(expert_raw)
+            if expert < 0:
+                continue
+            for tile_local in range(tiles_per_expert):
+                tile = expert * tiles_per_expert + int(tile_local)
+                seen_tiles.add(tile)
+                tile_ids.append(tile)
+                request_count += 1
+        group_count += len(seen_tiles)
+    return {
+        "request_count": request_count,
+        "group_count": group_count,
+        "tile_multiset_hash": hash_ints(sorted(tile_ids)),
+    }
 
 
 def patch_vllm_qwen35_moe_router_trace() -> None:
@@ -1776,6 +1925,15 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                 "two_level_group_plan",
             )
         ),
+        "runtime_shadow_descriptor_order_mapping_assertion_mode": str(
+            runtime_shadow_options.get("descriptor_order_mapping_assertion_mode", "off")
+        ),
+        "runtime_shadow_descriptor_order_mapping_source": str(
+            runtime_shadow_options.get(
+                "descriptor_order_mapping_source",
+                "base_router_select_experts_topk",
+            )
+        ),
         "runtime_shadow_descriptor_order_groups_per_cta": int(
             runtime_shadow_options.get("descriptor_order_groups_per_cta", 8)
         ),
@@ -1895,6 +2053,18 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                                 runtime_shadow_options.get(
                                     "descriptor_order_execution_mode",
                                     "two_level_group_plan",
+                                )
+                            ),
+                            shadow_descriptor_order_mapping_assertion_mode=str(
+                                runtime_shadow_options.get(
+                                    "descriptor_order_mapping_assertion_mode",
+                                    "off",
+                                )
+                            ),
+                            shadow_descriptor_order_mapping_source=str(
+                                runtime_shadow_options.get(
+                                    "descriptor_order_mapping_source",
+                                    "base_router_select_experts_topk",
                                 )
                             ),
                             shadow_descriptor_order_groups_per_cta=int(

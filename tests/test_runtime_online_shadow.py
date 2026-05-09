@@ -139,6 +139,16 @@ def test_runtime_shadow_controller_writes_descriptor_order_min_summary(tmp_path)
         descriptor_group_plan_p95_group_size=3.0,
         descriptor_group_plan_max_group_size=4,
         descriptor_group_plan_cta_count=2,
+        descriptor_order_mapping_assertion_mode="router_topk_tile_stream",
+        descriptor_order_mapping_source="base_router_select_experts_topk",
+        descriptor_order_mapping_same_multiset=True,
+        descriptor_order_mapping_counts_match=True,
+        descriptor_order_mapping_tile_multiset_hash="tile-hash",
+        descriptor_order_mapping_plan_tile_multiset_hash="tile-hash",
+        descriptor_order_mapping_request_count=16,
+        descriptor_order_mapping_plan_request_count=16,
+        descriptor_order_mapping_group_count=8,
+        descriptor_order_mapping_plan_group_count=8,
         descriptor_order_build_us=2.0,
         decision_us=6.0,
     )
@@ -152,6 +162,12 @@ def test_runtime_shadow_controller_writes_descriptor_order_min_summary(tmp_path)
     assert rows[0]["descriptor_tile_request_count"] == 16
     assert rows[0]["descriptor_group_plan_group_count"] == 8
     assert rows[0]["descriptor_group_plan_cta_count"] == 2
+    assert rows[0]["descriptor_order_mapping_same_multiset"] is True
+    assert rows[0]["descriptor_order_mapping_counts_match"] is True
+    assert rows[0]["descriptor_order_mapping_tile_multiset_hash"] == "tile-hash"
+    assert rows[0]["descriptor_order_mapping_plan_tile_multiset_hash"] == "tile-hash"
+    assert rows[0]["descriptor_order_mapping_source"] == "base_router_select_experts_topk"
+    assert rows[0]["descriptor_order_mapping_request_count"] == 16
     assert stats["written_summary_count"] == 1
 
 

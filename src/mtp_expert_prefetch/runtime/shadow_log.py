@@ -214,6 +214,17 @@ class ShadowDescriptorSummaryMinEvent:
     descriptor_order_gate_evidence_found: bool | None = None
     descriptor_order_gate_checksum_delta: float | None = None
     descriptor_order_gate_speedup_median_vs_no_order: float | None = None
+    descriptor_order_mapping_assertion_mode: str | None = None
+    descriptor_order_mapping_source: str | None = None
+    descriptor_order_mapping_same_multiset: bool | None = None
+    descriptor_order_mapping_counts_match: bool | None = None
+    descriptor_order_mapping_tile_multiset_hash: str | None = None
+    descriptor_order_mapping_plan_tile_multiset_hash: str | None = None
+    descriptor_order_mapping_request_count: int | None = None
+    descriptor_order_mapping_plan_request_count: int | None = None
+    descriptor_order_mapping_group_count: int | None = None
+    descriptor_order_mapping_plan_group_count: int | None = None
+    descriptor_order_mapping_error: str | None = None
     candidate_construction_us: float | None = None
     descriptor_order_build_us: float | None = None
     counter_update_us: float | None = None
@@ -272,6 +283,53 @@ class ShadowDescriptorSummaryMinEvent:
             "descriptor_order_gate_speedup_median_vs_no_order",
             self.descriptor_order_gate_speedup_median_vs_no_order,
         )
+        _put_optional(
+            payload,
+            "descriptor_order_mapping_assertion_mode",
+            self.descriptor_order_mapping_assertion_mode,
+        )
+        _put_optional(payload, "descriptor_order_mapping_source", self.descriptor_order_mapping_source)
+        _put_optional(
+            payload,
+            "descriptor_order_mapping_same_multiset",
+            self.descriptor_order_mapping_same_multiset,
+        )
+        _put_optional(
+            payload,
+            "descriptor_order_mapping_counts_match",
+            self.descriptor_order_mapping_counts_match,
+        )
+        _put_optional(
+            payload,
+            "descriptor_order_mapping_tile_multiset_hash",
+            self.descriptor_order_mapping_tile_multiset_hash,
+        )
+        _put_optional(
+            payload,
+            "descriptor_order_mapping_plan_tile_multiset_hash",
+            self.descriptor_order_mapping_plan_tile_multiset_hash,
+        )
+        _put_optional(
+            payload,
+            "descriptor_order_mapping_request_count",
+            self.descriptor_order_mapping_request_count,
+        )
+        _put_optional(
+            payload,
+            "descriptor_order_mapping_plan_request_count",
+            self.descriptor_order_mapping_plan_request_count,
+        )
+        _put_optional(
+            payload,
+            "descriptor_order_mapping_group_count",
+            self.descriptor_order_mapping_group_count,
+        )
+        _put_optional(
+            payload,
+            "descriptor_order_mapping_plan_group_count",
+            self.descriptor_order_mapping_plan_group_count,
+        )
+        _put_optional(payload, "descriptor_order_mapping_error", self.descriptor_order_mapping_error)
         _put_optional(payload, "candidate_construction_us", self.candidate_construction_us)
         _put_optional(payload, "descriptor_order_build_us", self.descriptor_order_build_us)
         _put_optional(payload, "counter_update_us", self.counter_update_us)
@@ -455,6 +513,9 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
         "descriptor_group_plan_cta_count_count": 0,
         "descriptor_order_gate_allow_count": 0,
         "descriptor_order_gate_evidence_found_count": 0,
+        "descriptor_order_mapping_assertion_count": 0,
+        "descriptor_order_mapping_same_multiset_count": 0,
+        "descriptor_order_mapping_error_count": 0,
         "descriptor_same_multiset_count": 0,
         "descriptor_order_changed_count": 0,
         "joined_outcome_count": 0,
@@ -561,6 +622,14 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
             totals["descriptor_order_gate_evidence_found_count"] += int(
                 bool(event.get("descriptor_order_gate_evidence_found", False))
             )
+            if "descriptor_order_mapping_assertion_mode" in event:
+                totals["descriptor_order_mapping_assertion_count"] += 1
+                totals["descriptor_order_mapping_same_multiset_count"] += int(
+                    bool(event.get("descriptor_order_mapping_same_multiset", False))
+                )
+                totals["descriptor_order_mapping_error_count"] += int(
+                    bool(event.get("descriptor_order_mapping_error"))
+                )
         elif event_type == "candidate":
             totals["candidate_count"] += 1
         elif event_type == "outcome":
