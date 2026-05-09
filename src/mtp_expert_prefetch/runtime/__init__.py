@@ -33,9 +33,11 @@ from mtp_expert_prefetch.runtime.descriptor_order import (
     order_prefetch_descriptors,
 )
 from mtp_expert_prefetch.runtime.descriptor_order_gate import (
+    DescriptorOrderExecutionEvidence,
     DescriptorOrderGateDecision,
     DescriptorOrderRuntimeGate,
     build_noop_descriptor_order_assertion,
+    load_descriptor_order_consumer_evidence,
 )
 from mtp_expert_prefetch.runtime.event_sim import (
     StallProxyReport,
@@ -109,6 +111,7 @@ from mtp_expert_prefetch.runtime.tile_stream import tile_requests_from_tensor_ca
 __all__ = [
     "DescriptorCacheReport",
     "DescriptorOrderGateDecision",
+    "DescriptorOrderExecutionEvidence",
     "DescriptorOrderRuntimeGate",
     "DescriptorOrderReport",
     "ExpertPrefetchDescriptor",
@@ -153,6 +156,7 @@ __all__ = [
     "build_layer_tile_prior",
     "build_layer_prior_plan_report_from_router_topk",
     "build_noop_descriptor_order_assertion",
+    "load_descriptor_order_consumer_evidence",
     "evaluate_ordered_tile_requests",
     "evaluate_tile_order_policies",
     "evaluate_tile_order_policy",

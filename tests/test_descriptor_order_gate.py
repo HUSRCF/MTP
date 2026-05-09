@@ -8,6 +8,7 @@ from mtp_expert_prefetch.runtime import (
     TileRequest,
     build_layer_tile_prior,
     build_noop_descriptor_order_assertion,
+    load_descriptor_order_consumer_evidence,
 )
 
 
@@ -207,3 +208,52 @@ def test_noop_descriptor_order_assertion_requires_explicit_correctness_evidence(
     assert report.order_hash is None
     assert decision.allow is False
     assert decision.reason == "same_multiset_missing"
+
+
+def test_load_descriptor_order_consumer_evidence(tmp_path: Path) -> None:
+    report_path = tmp_path / "consumer.json"
+    report_path.write_text(
+        """
+{
+  "summary": {
+    "stability": [
+      {
+        "policy": "layer_prior_frequency_two_level",
+        "device": 0,
+        "tile_elems": 1024,
+        "tiles_per_cta": 8,
+        "cache_flush_elems": 0,
+        "checksum_delta_abs_vs_no_order": 0.0,
+        "speedup_median_vs_no_order": 1.2,
+        "consumer_saved_us_median_vs_no_order": 100.0,
+        "net_saved_us_after_cpp_plan_build": 90.0
+      },
+      {
+        "policy": "layer_prior_frequency_two_level",
+        "device": 0,
+        "tile_elems": 1024,
+        "tiles_per_cta": 8,
+        "cache_flush_elems": 16777216,
+        "checksum_delta_abs_vs_no_order": 1.0
+      }
+    ]
+  }
+}
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+    evidence = load_descriptor_order_consumer_evidence(
+        report_path,
+        evidence_policy="layer_prior_frequency_two_level",
+        cache_flush_elems=0,
+    )
+
+    assert sorted(evidence) == [(0, 1024, 8, 0)]
+    item = evidence[(0, 1024, 8, 0)]
+    assert item.same_multiset is True
+    assert item.checksum_delta == 0.0
+    assert item.speedup_median_vs_no_order == 1.2
+    assert item.consumer_saved_us_median_vs_no_order == 100.0
+    assert item.net_saved_us_after_cpp_plan_build == 90.0

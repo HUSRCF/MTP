@@ -20,7 +20,12 @@ from mtp_expert_prefetch.runtime.descriptor_order import (
     build_layer_prior_plan_report_from_router_topk,
     hash_layer_tile_prior,
 )
-from mtp_expert_prefetch.runtime.descriptor_order_gate import DescriptorOrderRuntimeGate
+from mtp_expert_prefetch.runtime.descriptor_order_gate import (
+    DescriptorOrderEvidenceKey,
+    DescriptorOrderExecutionEvidence,
+    DescriptorOrderRuntimeGate,
+    load_descriptor_order_consumer_evidence,
+)
 from mtp_expert_prefetch.runtime.online_shadow import OnlineShadowLogger
 from mtp_expert_prefetch.runtime.shadow_controller import RuntimeShadowController
 from mtp_expert_prefetch.runtime.shadow_log import (
@@ -82,6 +87,10 @@ class VllmRouterRecorder:
     shadow_descriptor_order_tile_elems: int = 1024
     shadow_descriptor_order_device: int | None = None
     shadow_descriptor_order_runtime_gate: DescriptorOrderRuntimeGate | None = None
+    shadow_descriptor_order_evidence: (
+        dict[DescriptorOrderEvidenceKey, DescriptorOrderExecutionEvidence] | None
+    ) = None
+    shadow_descriptor_order_evidence_cache_flush_elems: int = 0
     shadow_descriptor_order_same_multiset_evidence: bool | None = None
     shadow_descriptor_order_checksum_delta_evidence: float | None = None
     shadow_descriptor_order_event_token_index: int = -1
@@ -366,6 +375,24 @@ class VllmRouterRecorder:
             group_count = int(group_plan.get("group_count", 0) or 0)
             groups_per_cta = max(1, int(self.shadow_descriptor_order_groups_per_cta))
             gate_decision = None
+            gate_evidence = None
+            if (
+                self.shadow_descriptor_order_evidence is not None
+                and self.shadow_descriptor_order_device is not None
+            ):
+                gate_evidence = self.shadow_descriptor_order_evidence.get(
+                    (
+                        int(self.shadow_descriptor_order_device),
+                        int(self.shadow_descriptor_order_tile_elems),
+                        int(groups_per_cta),
+                        int(self.shadow_descriptor_order_evidence_cache_flush_elems),
+                    )
+                )
+            same_multiset_evidence = self.shadow_descriptor_order_same_multiset_evidence
+            checksum_delta_evidence = self.shadow_descriptor_order_checksum_delta_evidence
+            if gate_evidence is not None:
+                same_multiset_evidence = bool(gate_evidence.same_multiset)
+                checksum_delta_evidence = gate_evidence.checksum_delta
             if self.shadow_descriptor_order_runtime_gate is not None:
                 gate_decision = self.shadow_descriptor_order_runtime_gate.decide(
                     tile_elems=int(self.shadow_descriptor_order_tile_elems),
@@ -388,8 +415,8 @@ class VllmRouterRecorder:
                         if group_plan.get("max_group_size") is not None
                         else None
                     ),
-                    same_multiset=self.shadow_descriptor_order_same_multiset_evidence,
-                    checksum_delta=self.shadow_descriptor_order_checksum_delta_evidence,
+                    same_multiset=same_multiset_evidence,
+                    checksum_delta=checksum_delta_evidence,
                 )
             sink.write_descriptor_order_min_summary(
                 ShadowDescriptorSummaryMinEvent(
@@ -440,6 +467,19 @@ class VllmRouterRecorder:
                     ),
                     descriptor_order_gate_device=(
                         gate_decision.device if gate_decision is not None else None
+                    ),
+                    descriptor_order_gate_evidence_found=(
+                        gate_evidence is not None
+                        if self.shadow_descriptor_order_evidence is not None
+                        else None
+                    ),
+                    descriptor_order_gate_checksum_delta=(
+                        gate_evidence.checksum_delta if gate_evidence is not None else None
+                    ),
+                    descriptor_order_gate_speedup_median_vs_no_order=(
+                        gate_evidence.speedup_median_vs_no_order
+                        if gate_evidence is not None
+                        else None
                     ),
                     candidate_construction_us=stream_build_us,
                     descriptor_order_build_us=float(descriptor_report.order_build_us),
@@ -1458,6 +1498,25 @@ def _load_runtime_shadow_descriptor_order_gate(
     return DescriptorOrderRuntimeGate.from_config(path, base_dir=project_root)
 
 
+def _load_runtime_shadow_descriptor_order_evidence(
+    *,
+    options: dict[str, Any],
+    project_root: Path,
+) -> dict[DescriptorOrderEvidenceKey, DescriptorOrderExecutionEvidence] | None:
+    raw_path = options.get("descriptor_order_consumer_evidence_path")
+    if raw_path is None:
+        return None
+    path = resolve_path(raw_path, base_dir=project_root)
+    return load_descriptor_order_consumer_evidence(
+        path,
+        evidence_policy=str(
+            options.get("descriptor_order_evidence_policy", "layer_prior_frequency_two_level")
+        ),
+        cache_flush_elems=int(options.get("descriptor_order_evidence_cache_flush_elems", 0)),
+        checksum_tolerance=float(options.get("descriptor_order_checksum_tolerance", 0.0)),
+    )
+
+
 def _int_tuple_option(
     options: dict[str, Any],
     key: str,
@@ -1667,6 +1726,12 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
         options=runtime_shadow_options,
         project_root=project_root,
     )
+    runtime_shadow_descriptor_order_evidence = (
+        _load_runtime_shadow_descriptor_order_evidence(
+            options=runtime_shadow_options,
+            project_root=project_root,
+        )
+    )
     manifest_path = output_dir / "manifest.jsonl"
     performance = {
         "sample_count": len(prepared_records),
@@ -1719,6 +1784,14 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
         ),
         "runtime_shadow_descriptor_order_gate_enabled": (
             runtime_shadow_descriptor_order_gate is not None
+        ),
+        "runtime_shadow_descriptor_order_evidence_enabled": (
+            runtime_shadow_descriptor_order_evidence is not None
+        ),
+        "runtime_shadow_descriptor_order_evidence_cell_count": (
+            len(runtime_shadow_descriptor_order_evidence)
+            if runtime_shadow_descriptor_order_evidence is not None
+            else 0
         ),
     }
     try:
@@ -1844,6 +1917,15 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                             ),
                             shadow_descriptor_order_runtime_gate=(
                                 runtime_shadow_descriptor_order_gate
+                            ),
+                            shadow_descriptor_order_evidence=(
+                                runtime_shadow_descriptor_order_evidence
+                            ),
+                            shadow_descriptor_order_evidence_cache_flush_elems=int(
+                                runtime_shadow_options.get(
+                                    "descriptor_order_evidence_cache_flush_elems",
+                                    0,
+                                )
                             ),
                             shadow_descriptor_order_same_multiset_evidence=(
                                 bool(

@@ -28,6 +28,7 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from mtp_expert_prefetch.runtime.descriptor_order_gate import (  # noqa: E402
     DescriptorOrderRuntimeGate,
+    load_descriptor_order_consumer_evidence,
 )
 
 
@@ -92,43 +93,15 @@ def _load_evidence(
     cache_flush_elems: int,
     checksum_tolerance: float,
 ) -> dict[tuple[int, int, int, int], dict[str, Any]]:
-    payload = json.loads(path.read_text(encoding="utf-8"))
-    rows = payload.get("summary", {}).get("stability", [])
-    if not isinstance(rows, list):
-        raise TypeError("consumer report missing summary.stability rows")
-    evidence: dict[tuple[int, int, int, int], dict[str, Any]] = {}
-    for row in rows:
-        if not isinstance(row, dict):
-            continue
-        if str(row.get("policy")) != str(policy):
-            continue
-        if int(row.get("cache_flush_elems", -1)) != int(cache_flush_elems):
-            continue
-        checksum_delta = row.get("checksum_delta_abs_vs_no_order")
-        same_multiset = (
-            checksum_delta is not None
-            and float(checksum_delta) <= float(checksum_tolerance)
-        )
-        key = (
-            int(row["device"]),
-            int(row["tile_elems"]),
-            int(row["tiles_per_cta"]),
-            int(row["cache_flush_elems"]),
-        )
-        evidence[key] = {
-            "source_policy": str(policy),
-            "same_multiset": bool(same_multiset),
-            "checksum_delta": float(checksum_delta) if checksum_delta is not None else None,
-            "speedup_median_vs_no_order": row.get("speedup_median_vs_no_order"),
-            "consumer_saved_us_median_vs_no_order": row.get(
-                "consumer_saved_us_median_vs_no_order"
-            ),
-            "net_saved_us_after_cpp_plan_build": row.get(
-                "net_saved_us_after_cpp_plan_build"
-            ),
-            "row": row,
-        }
-    return evidence
+    return {
+        key: value.as_dict()
+        for key, value in load_descriptor_order_consumer_evidence(
+            path,
+            evidence_policy=policy,
+            cache_flush_elems=cache_flush_elems,
+            checksum_tolerance=checksum_tolerance,
+        ).items()
+    }
 
 
 def _event_key(

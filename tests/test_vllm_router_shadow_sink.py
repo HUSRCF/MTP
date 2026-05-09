@@ -3,6 +3,7 @@ import pytest
 
 from mtp_expert_prefetch.runtime import (
     AdmissionDecisionMasks,
+    DescriptorOrderExecutionEvidence,
     DescriptorOrderRuntimeGate,
     OnlineShadowLogger,
     RuntimeShadowController,
@@ -321,6 +322,67 @@ def test_vllm_router_recorder_descriptor_min_summary_records_gate_decision():
     assert row["descriptor_order_gate_reason"] == "same_multiset_missing"
     assert row["descriptor_order_gate_tile_elems"] == 1024
     assert row["descriptor_order_gate_device"] == 0
+
+
+def test_vllm_router_recorder_descriptor_min_summary_uses_consumer_evidence():
+    sink = _Sink()
+    prior = build_layer_tile_prior(
+        [
+            TileRequest(0, 0, 2, 2, layer_idx=3),
+            TileRequest(0, 1, 1, 1, layer_idx=3),
+        ],
+        score_name="frequency",
+        metadata={"experiment_id": "prior-test"},
+    )
+    gate = DescriptorOrderRuntimeGate(
+        policy="layer_prior_frequency",
+        execution_mode="two_level_group_plan",
+        tile_elems=(1024,),
+        groups_per_cta=(8,),
+        devices=(0,),
+        diagnostic_groups_per_cta=(16,),
+        disable_groups_per_cta_min=64,
+        prior_id="prior-test",
+    )
+    recorder = VllmRouterRecorder(
+        top_k=2,
+        shadow_outcome_sink=sink,
+        shadow_outcome_logging_mode="off",
+        shadow_emit_descriptor_order_summary=True,
+        shadow_descriptor_order_prior=prior,
+        shadow_descriptor_order_prior_id="prior-test",
+        shadow_descriptor_order_prior_hash="hash-test",
+        shadow_descriptor_order_metrics_mode="count_only",
+        shadow_descriptor_order_event_mode="minimal",
+        shadow_descriptor_order_runtime_gate=gate,
+        shadow_descriptor_order_evidence={
+            (0, 1024, 8, 0): DescriptorOrderExecutionEvidence(
+                source_policy="layer_prior_frequency_two_level",
+                same_multiset=True,
+                checksum_delta=0.0,
+                speedup_median_vs_no_order=1.2,
+            )
+        },
+        shadow_descriptor_order_evidence_cache_flush_elems=0,
+        shadow_descriptor_order_tile_elems=1024,
+        shadow_descriptor_order_groups_per_cta=8,
+        shadow_descriptor_order_device=0,
+        request_id="req",
+        sequence_id=0,
+    )
+
+    recorder.record_topk(
+        layer_id=3,
+        topk_ids=torch.tensor([[1, 2], [2, 3]]),
+        topk_weights=torch.tensor([[0.8, 0.2], [0.7, 0.3]]),
+    )
+
+    row = sink.events[0].as_dict()
+    assert row["descriptor_order_gate_allow"] is True
+    assert row["descriptor_order_gate_reason"] == "allowed"
+    assert row["descriptor_order_gate_evidence_found"] is True
+    assert row["descriptor_order_gate_checksum_delta"] == 0.0
+    assert row["descriptor_order_gate_speedup_median_vs_no_order"] == pytest.approx(1.2)
 
 
 def test_vllm_router_recorder_emits_previous_token_transition_summaries(tmp_path):

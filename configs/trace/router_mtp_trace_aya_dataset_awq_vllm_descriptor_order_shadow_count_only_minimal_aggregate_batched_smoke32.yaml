@@ -29,6 +29,10 @@ trace:
     descriptor_order_prior_path: outputs/reports/tile_order_cache/layer_prior_frequency_384calib.json
     descriptor_order_prior_id: layer_prior_frequency_384calib
     descriptor_order_gate_path: configs/runtime/descriptor_order_two_level_gate.yaml
+    descriptor_order_consumer_evidence_path: outputs/reports/tile_order_cache/descriptor_consumer_micro_runtime_awq128_two_level_gate_table_tile_sweep.json
+    descriptor_order_evidence_policy: layer_prior_frequency_two_level
+    descriptor_order_evidence_cache_flush_elems: 0
+    descriptor_order_checksum_tolerance: 0.0
     descriptor_order_tiles_per_expert: 1
     descriptor_order_tile_elems: 1024
     descriptor_order_token_window_size: 64

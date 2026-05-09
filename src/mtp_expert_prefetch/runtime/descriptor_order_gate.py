@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
@@ -43,6 +44,31 @@ class DescriptorOrderGateDecision:
             "p95_group_size": self.p95_group_size,
             "max_group_size": self.max_group_size,
             "cta_count": self.cta_count,
+        }
+
+
+DescriptorOrderEvidenceKey = tuple[int, int, int, int]
+
+
+@dataclass(frozen=True)
+class DescriptorOrderExecutionEvidence:
+    source_policy: str
+    same_multiset: bool
+    checksum_delta: float | None
+    speedup_median_vs_no_order: float | None = None
+    consumer_saved_us_median_vs_no_order: float | None = None
+    net_saved_us_after_cpp_plan_build: float | None = None
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "source_policy": self.source_policy,
+            "same_multiset": bool(self.same_multiset),
+            "checksum_delta": self.checksum_delta,
+            "speedup_median_vs_no_order": self.speedup_median_vs_no_order,
+            "consumer_saved_us_median_vs_no_order": (
+                self.consumer_saved_us_median_vs_no_order
+            ),
+            "net_saved_us_after_cpp_plan_build": self.net_saved_us_after_cpp_plan_build,
         }
 
 
@@ -193,6 +219,64 @@ class DescriptorOrderRuntimeGate:
             max_group_size=max_group_size,
             cta_count=cta_count,
         )
+
+
+def load_descriptor_order_consumer_evidence(
+    path: str | Path,
+    *,
+    evidence_policy: str = "layer_prior_frequency_two_level",
+    cache_flush_elems: int = 0,
+    checksum_tolerance: float = 0.0,
+) -> dict[DescriptorOrderEvidenceKey, DescriptorOrderExecutionEvidence]:
+    """Load independent HIP consumer parity evidence for gate replay.
+
+    The key is ``(device, tile_elems, groups_per_cta, cache_flush_elems)``.
+    In the consumer report this field is named ``tiles_per_cta``; it maps to
+    runtime ``groups_per_cta`` for the two-level group-plan consumer.
+    """
+
+    report_path = Path(path).expanduser().resolve()
+    payload = json.loads(report_path.read_text(encoding="utf-8"))
+    raw_rows = _mapping(payload.get("summary")).get("stability", [])
+    if not isinstance(raw_rows, list):
+        msg = f"consumer report missing summary.stability rows: {report_path}"
+        raise TypeError(msg)
+    evidence: dict[DescriptorOrderEvidenceKey, DescriptorOrderExecutionEvidence] = {}
+    for row in raw_rows:
+        if not isinstance(row, Mapping):
+            continue
+        if str(row.get("policy")) != str(evidence_policy):
+            continue
+        if int(row.get("cache_flush_elems", -1)) != int(cache_flush_elems):
+            continue
+        checksum_delta = row.get("checksum_delta_abs_vs_no_order")
+        same_multiset = (
+            checksum_delta is not None
+            and float(checksum_delta) <= float(checksum_tolerance)
+        )
+        key = (
+            int(row["device"]),
+            int(row["tile_elems"]),
+            int(row["tiles_per_cta"]),
+            int(row["cache_flush_elems"]),
+        )
+        evidence[key] = DescriptorOrderExecutionEvidence(
+            source_policy=str(evidence_policy),
+            same_multiset=bool(same_multiset),
+            checksum_delta=(
+                float(checksum_delta) if checksum_delta is not None else None
+            ),
+            speedup_median_vs_no_order=_optional_float(
+                row.get("speedup_median_vs_no_order")
+            ),
+            consumer_saved_us_median_vs_no_order=_optional_float(
+                row.get("consumer_saved_us_median_vs_no_order")
+            ),
+            net_saved_us_after_cpp_plan_build=_optional_float(
+                row.get("net_saved_us_after_cpp_plan_build")
+            ),
+        )
+    return evidence
 
 
 def build_noop_descriptor_order_assertion(

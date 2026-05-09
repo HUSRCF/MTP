@@ -211,6 +211,9 @@ class ShadowDescriptorSummaryMinEvent:
     descriptor_order_gate_reason: str | None = None
     descriptor_order_gate_tile_elems: int | None = None
     descriptor_order_gate_device: int | None = None
+    descriptor_order_gate_evidence_found: bool | None = None
+    descriptor_order_gate_checksum_delta: float | None = None
+    descriptor_order_gate_speedup_median_vs_no_order: float | None = None
     candidate_construction_us: float | None = None
     descriptor_order_build_us: float | None = None
     counter_update_us: float | None = None
@@ -262,6 +265,13 @@ class ShadowDescriptorSummaryMinEvent:
         _put_optional(payload, "descriptor_order_gate_reason", self.descriptor_order_gate_reason)
         _put_optional(payload, "descriptor_order_gate_tile_elems", self.descriptor_order_gate_tile_elems)
         _put_optional(payload, "descriptor_order_gate_device", self.descriptor_order_gate_device)
+        _put_optional(payload, "descriptor_order_gate_evidence_found", self.descriptor_order_gate_evidence_found)
+        _put_optional(payload, "descriptor_order_gate_checksum_delta", self.descriptor_order_gate_checksum_delta)
+        _put_optional(
+            payload,
+            "descriptor_order_gate_speedup_median_vs_no_order",
+            self.descriptor_order_gate_speedup_median_vs_no_order,
+        )
         _put_optional(payload, "candidate_construction_us", self.candidate_construction_us)
         _put_optional(payload, "descriptor_order_build_us", self.descriptor_order_build_us)
         _put_optional(payload, "counter_update_us", self.counter_update_us)
@@ -444,6 +454,7 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
         "descriptor_group_plan_cta_count_sum": 0,
         "descriptor_group_plan_cta_count_count": 0,
         "descriptor_order_gate_allow_count": 0,
+        "descriptor_order_gate_evidence_found_count": 0,
         "descriptor_same_multiset_count": 0,
         "descriptor_order_changed_count": 0,
         "joined_outcome_count": 0,
@@ -546,6 +557,9 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
             _accumulate_group_plan_totals(totals, event)
             totals["descriptor_order_gate_allow_count"] += int(
                 bool(event.get("descriptor_order_gate_allow", False))
+            )
+            totals["descriptor_order_gate_evidence_found_count"] += int(
+                bool(event.get("descriptor_order_gate_evidence_found", False))
             )
         elif event_type == "candidate":
             totals["candidate_count"] += 1
