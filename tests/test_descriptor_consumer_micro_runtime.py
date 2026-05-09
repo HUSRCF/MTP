@@ -130,3 +130,237 @@ def test_summarize_skips_net_when_multiset_mismatch():
     assert layer_row["consumer_saved_us_median_vs_no_order"] is None
     assert layer_row["net_saved_us_after_python_order_build"] is None
     assert layer_row["net_saved_us_after_cpp_plan_build"] is None
+
+
+def test_execution_mvp_selects_two_level_when_gate_allows():
+    module = _load_module()
+    gate = module.DescriptorOrderRuntimeGate(
+        policy="layer_prior_frequency",
+        execution_mode="two_level_group_plan",
+        tile_elems=(1024,),
+        groups_per_cta=(8,),
+        devices=(0,),
+        diagnostic_groups_per_cta=(),
+        disable_groups_per_cta_min=64,
+    )
+    summary = {
+        "stability": [
+            {
+                "device": 0,
+                "tile_elems": 1024,
+                "tiles_per_cta": 8,
+                "cache_flush_elems": 0,
+                "policy": "no_order",
+                "us_per_tile": {"median": 1.0},
+                "checksum_delta_abs_vs_no_order": 0.0,
+            },
+            {
+                "device": 0,
+                "tile_elems": 1024,
+                "tiles_per_cta": 8,
+                "cache_flush_elems": 0,
+                "policy": "layer_prior_frequency_two_level",
+                "us_per_tile": {"median": 0.8},
+                "checksum_delta_abs_vs_no_order": 0.0,
+            },
+        ]
+    }
+
+    report = module._execution_mvp_report(
+        summary,
+        gate=gate,
+        execution_policy="layer_prior_frequency_two_level",
+    )
+
+    assert report["allow_count"] == 1
+    assert report["fallback_count"] == 0
+    assert report["decisions"][0]["selected_policy"] == "layer_prior_frequency_two_level"
+    assert report["decisions"][0]["gate_reason"] == "allowed"
+    assert report["decisions"][0]["execution_reason"] == "allowed"
+    assert report["decisions"][0]["speedup_median_vs_no_order"] == pytest.approx(1.25)
+
+
+def test_execution_mvp_falls_back_on_checksum_mismatch():
+    module = _load_module()
+    gate = module.DescriptorOrderRuntimeGate(
+        policy="layer_prior_frequency",
+        execution_mode="two_level_group_plan",
+        tile_elems=(1024,),
+        groups_per_cta=(8,),
+        devices=(0,),
+        diagnostic_groups_per_cta=(),
+        disable_groups_per_cta_min=64,
+    )
+    summary = {
+        "stability": [
+            {
+                "device": 0,
+                "tile_elems": 1024,
+                "tiles_per_cta": 8,
+                "cache_flush_elems": 0,
+                "policy": "no_order",
+                "us_per_tile": {"median": 1.0},
+                "checksum_delta_abs_vs_no_order": 0.0,
+            },
+            {
+                "device": 0,
+                "tile_elems": 1024,
+                "tiles_per_cta": 8,
+                "cache_flush_elems": 0,
+                "policy": "layer_prior_frequency_two_level",
+                "us_per_tile": {"median": 0.8},
+                "checksum_delta_abs_vs_no_order": 1.0,
+            },
+        ]
+    }
+
+    report = module._execution_mvp_report(
+        summary,
+        gate=gate,
+        execution_policy="layer_prior_frequency_two_level",
+    )
+
+    assert report["allow_count"] == 0
+    assert report["fallback_count"] == 1
+    assert report["decisions"][0]["selected_policy"] == "no_order"
+    assert report["decisions"][0]["gate_reason"] == "same_multiset_false"
+    assert report["decisions"][0]["execution_reason"] == "same_multiset_false"
+
+
+def test_execution_mvp_falls_back_when_candidate_not_profitable():
+    module = _load_module()
+    gate = module.DescriptorOrderRuntimeGate(
+        policy="layer_prior_frequency",
+        execution_mode="two_level_group_plan",
+        tile_elems=(1024,),
+        groups_per_cta=(8,),
+        devices=(0,),
+        diagnostic_groups_per_cta=(),
+        disable_groups_per_cta_min=64,
+    )
+    summary = {
+        "stability": [
+            {
+                "device": 0,
+                "tile_elems": 1024,
+                "tiles_per_cta": 8,
+                "cache_flush_elems": 0,
+                "policy": "no_order",
+                "us_per_tile": {"median": 1.0},
+                "checksum_delta_abs_vs_no_order": 0.0,
+            },
+            {
+                "device": 0,
+                "tile_elems": 1024,
+                "tiles_per_cta": 8,
+                "cache_flush_elems": 0,
+                "policy": "layer_prior_frequency_two_level",
+                "us_per_tile": {"median": 1.2},
+                "checksum_delta_abs_vs_no_order": 0.0,
+            },
+        ]
+    }
+
+    report = module._execution_mvp_report(
+        summary,
+        gate=gate,
+        execution_policy="layer_prior_frequency_two_level",
+    )
+
+    assert report["allow_count"] == 0
+    assert report["fallback_count"] == 1
+    assert report["decisions"][0]["gate_reason"] == "allowed"
+    assert report["decisions"][0]["execution_reason"] == "not_profitable"
+    assert report["decisions"][0]["selected_policy"] == "no_order"
+
+
+def test_execution_mvp_falls_back_on_unsupported_envelope():
+    module = _load_module()
+    gate = module.DescriptorOrderRuntimeGate(
+        policy="layer_prior_frequency",
+        execution_mode="two_level_group_plan",
+        tile_elems=(1024,),
+        groups_per_cta=(8,),
+        devices=(0,),
+        diagnostic_groups_per_cta=(),
+        disable_groups_per_cta_min=64,
+    )
+    summary = {
+        "stability": [
+            {
+                "device": 1,
+                "tile_elems": 1024,
+                "tiles_per_cta": 12,
+                "cache_flush_elems": 0,
+                "policy": "no_order",
+                "us_per_tile": {"median": 1.0},
+                "checksum_delta_abs_vs_no_order": 0.0,
+            },
+            {
+                "device": 1,
+                "tile_elems": 1024,
+                "tiles_per_cta": 12,
+                "cache_flush_elems": 0,
+                "policy": "layer_prior_frequency_two_level",
+                "us_per_tile": {"median": 0.5},
+                "checksum_delta_abs_vs_no_order": 0.0,
+            },
+        ]
+    }
+
+    report = module._execution_mvp_report(
+        summary,
+        gate=gate,
+        execution_policy="layer_prior_frequency_two_level",
+    )
+
+    assert report["allow_count"] == 0
+    assert report["fallback_count"] == 1
+    assert report["decisions"][0]["selected_policy"] == "no_order"
+    assert report["decisions"][0]["gate_reason"] == "groups_per_cta_unmeasured"
+
+
+def test_execution_mvp_falls_back_on_unmeasured_device_when_group_supported():
+    module = _load_module()
+    gate = module.DescriptorOrderRuntimeGate(
+        policy="layer_prior_frequency",
+        execution_mode="two_level_group_plan",
+        tile_elems=(1024,),
+        groups_per_cta=(8,),
+        devices=(0,),
+        diagnostic_groups_per_cta=(),
+        disable_groups_per_cta_min=64,
+    )
+    summary = {
+        "stability": [
+            {
+                "device": 1,
+                "tile_elems": 1024,
+                "tiles_per_cta": 8,
+                "cache_flush_elems": 0,
+                "policy": "no_order",
+                "us_per_tile": {"median": 1.0},
+                "checksum_delta_abs_vs_no_order": 0.0,
+            },
+            {
+                "device": 1,
+                "tile_elems": 1024,
+                "tiles_per_cta": 8,
+                "cache_flush_elems": 0,
+                "policy": "layer_prior_frequency_two_level",
+                "us_per_tile": {"median": 0.5},
+                "checksum_delta_abs_vs_no_order": 0.0,
+            },
+        ]
+    }
+
+    report = module._execution_mvp_report(
+        summary,
+        gate=gate,
+        execution_policy="layer_prior_frequency_two_level",
+    )
+
+    assert report["allow_count"] == 0
+    assert report["fallback_count"] == 1
+    assert report["decisions"][0]["selected_policy"] == "no_order"
+    assert report["decisions"][0]["gate_reason"] == "device_unmeasured"

@@ -33,6 +33,7 @@ sys.path.insert(0, str(REPO_ROOT / "scripts"))
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from mtp_expert_prefetch.runtime import (  # noqa: E402
+    DescriptorOrderRuntimeGate,
     TileRequest,
     evaluate_ordered_tile_requests,
     load_layer_tile_prior,
@@ -103,6 +104,22 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--cxx", default="g++")
     parser.add_argument("--offload-arch", default="gfx1100")
     parser.add_argument("--force-build", action="store_true")
+    parser.add_argument(
+        "--execution-mvp",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help=(
+            "Emit a gated execution-MVP decision table that selects the "
+            "two-level consumer only when the measured gate passes, otherwise "
+            "falls back to no_order."
+        ),
+    )
+    parser.add_argument(
+        "--gate-config",
+        type=Path,
+        default=REPO_ROOT / "configs" / "runtime" / "descriptor_order_two_level_gate.yaml",
+        help="Descriptor-order runtime gate used by --execution-mvp.",
+    )
     parser.add_argument(
         "--output-json",
         type=Path,
@@ -566,6 +583,106 @@ def _summarize(
     return {"stability": stability}
 
 
+def _execution_mvp_report(
+    summary: dict[str, Any],
+    *,
+    gate: DescriptorOrderRuntimeGate,
+    execution_policy: str,
+    require_profitable: bool = True,
+) -> dict[str, Any]:
+    rows = summary.get("stability", [])
+    by_key: dict[tuple[int, int, int, int], dict[str, dict[str, Any]]] = {}
+    for row in rows:
+        key = (
+            int(row["device"]),
+            int(row["tile_elems"]),
+            int(row["tiles_per_cta"]),
+            int(row["cache_flush_elems"]),
+        )
+        by_key.setdefault(key, {})[str(row["policy"])] = row
+
+    decisions: list[dict[str, Any]] = []
+    allow_count = 0
+    fallback_count = 0
+    for key, by_policy in sorted(by_key.items()):
+        baseline = by_policy.get("no_order")
+        candidate = by_policy.get(execution_policy)
+        if baseline is None:
+            continue
+        same_multiset = False
+        checksum_delta = None
+        if candidate is not None:
+            checksum_delta = candidate.get("checksum_delta_abs_vs_no_order")
+            same_multiset = checksum_delta is not None and float(checksum_delta) == 0.0
+        baseline_us = (baseline.get("us_per_tile") or {}).get("median")
+        candidate_us = (
+            (candidate.get("us_per_tile") or {}).get("median")
+            if candidate is not None
+            else None
+        )
+        candidate_speedup = None
+        if baseline_us and candidate_us:
+            candidate_speedup = float(baseline_us) / float(candidate_us)
+        decision = gate.decide(
+            tile_elems=key[1],
+            groups_per_cta=key[2],
+            device=key[0],
+            execution_mode=gate.execution_mode,
+            same_multiset=same_multiset if candidate is not None else None,
+            checksum_delta=checksum_delta,
+        )
+        profitable = (
+            candidate_speedup is not None and float(candidate_speedup) > 1.0
+        )
+        execute_candidate = (
+            decision.allow
+            and candidate is not None
+            and (profitable or not bool(require_profitable))
+        )
+        selected = candidate if execute_candidate else baseline
+        selected_policy = execution_policy if execute_candidate else "no_order"
+        execution_reason = decision.reason
+        if decision.allow and candidate is not None and bool(require_profitable) and not profitable:
+            execution_reason = "not_profitable"
+        if execute_candidate:
+            allow_count += 1
+        else:
+            fallback_count += 1
+        selected_us = (selected.get("us_per_tile") or {}).get("median")
+        speedup = None
+        if selected_us and baseline_us:
+            speedup = float(baseline_us) / float(selected_us)
+        decisions.append(
+            {
+                "device": key[0],
+                "tile_elems": key[1],
+                "groups_per_cta": key[2],
+                "cache_flush_elems": key[3],
+                "candidate_policy": execution_policy,
+                "selected_policy": selected_policy,
+                "gate_allow": bool(decision.allow),
+                "gate_reason": decision.reason,
+                "execution_reason": execution_reason,
+                "fallback": not execute_candidate,
+                "same_multiset": same_multiset if candidate is not None else None,
+                "checksum_delta": checksum_delta,
+                "candidate_speedup_median_vs_no_order": candidate_speedup,
+                "selected_us_per_tile_median": selected_us,
+                "baseline_us_per_tile_median": baseline_us,
+                "speedup_median_vs_no_order": speedup,
+            }
+        )
+    return {
+        "enabled": True,
+        "execution_policy": execution_policy,
+        "require_profitable": bool(require_profitable),
+        "decision_count": len(decisions),
+        "allow_count": int(allow_count),
+        "fallback_count": int(fallback_count),
+        "decisions": decisions,
+    }
+
+
 def _fmt(value: Any) -> str:
     if value is None:
         return "n/a"
@@ -634,6 +751,48 @@ def _render_markdown(report: dict[str, Any]) -> str:
                 f"- Max groups/window: `{group_plan['max_groups_per_window']}`",
             ]
         )
+    execution = report.get("execution_mvp")
+    if execution is not None:
+        lines.extend(
+            [
+                "",
+                "## Gated Execution MVP",
+                "",
+                "This is still an independent HIP descriptor consumer MVP, not a",
+                "vLLM fused-MoE kernel patch.  The switch selects the two-level",
+                "consumer only when correctness gates pass and the measured",
+                "candidate is profitable for this micro-runtime cell.",
+                "",
+                f"- Candidate policy: `{execution['execution_policy']}`",
+                f"- Require profitable: `{execution['require_profitable']}`",
+                f"- Decisions: `{execution['decision_count']}`",
+                f"- Allowed: `{execution['allow_count']}`",
+                f"- Fallback: `{execution['fallback_count']}`",
+                "",
+                "| device | tile_elems | groups/CTA | flush | selected | gate | gate reason | execution reason | candidate speedup | selected speedup | checksum delta |",
+                "|---:|---:|---:|---:|---|---|---|---|---:|---:|---:|",
+            ]
+        )
+        for row in execution["decisions"]:
+            lines.append(
+                "| "
+                + " | ".join(
+                    [
+                        str(row["device"]),
+                        str(row["tile_elems"]),
+                        str(row["groups_per_cta"]),
+                        str(row["cache_flush_elems"]),
+                        str(row["selected_policy"]),
+                        str(row["gate_allow"]),
+                        str(row["gate_reason"]),
+                        str(row["execution_reason"]),
+                        _fmt(row["candidate_speedup_median_vs_no_order"]),
+                        _fmt(row["speedup_median_vs_no_order"]),
+                        _fmt(row["checksum_delta"]),
+                    ]
+                )
+                + " |"
+            )
     lines.append("")
     return "\n".join(lines)
 
@@ -858,6 +1017,17 @@ def main() -> None:
             cpp_builder=cpp_builder,
         ),
     }
+    if bool(args.execution_mvp):
+        if layer_prior_policy is None:
+            raise ValueError("--execution-mvp requires a layer-prior policy row")
+        execution_policy = f"{layer_prior_policy}_two_level"
+        gate = DescriptorOrderRuntimeGate.from_config(args.gate_config, base_dir=REPO_ROOT)
+        report["execution_mvp"] = _execution_mvp_report(
+            report["summary"],
+            gate=gate,
+            execution_policy=execution_policy,
+            require_profitable=True,
+        )
     args.output_json.parent.mkdir(parents=True, exist_ok=True)
     args.output_json.write_text(
         json.dumps(report, indent=2, sort_keys=True) + "\n",
