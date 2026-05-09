@@ -2,9 +2,9 @@
 
 ## Progress Version
 
-- Version: `v0.11-rocprof-fallback`
-- Updated: 2026-05-06
-- Current phase: online action shadow validated; pivoting system moat to speculative LDS tile staging
+- Version: `v0.12-descriptor-order-runtime-gate`
+- Updated: 2026-05-09
+- Current phase: descriptor-order online audit passed; preparing explicit vLLM/HIP no-op assertion patch boundary
 
 ## Runtime Policy Contract
 
@@ -92,6 +92,53 @@ utility/action policy ablations
 - Full MTP action replay matches the normal-envelope event simulator.
 - Reviewer-safe differentiation has been tightened around LDS-level tile staging rather than broad expert prefetch.
 - W7900 / RDNA3 rocWMMA hello-world smoke passes on both local gfx1100 cards.
+- Descriptor-order minimal telemetry runs as a long-run online audit path with
+  single-digit overhead on AWQ/vLLM.
+- Layer-prior two-level group-plan execution passes the independent HIP
+  consumer gate under measured tile/group configurations.
+
+## Descriptor-Order Runtime Gate
+
+The current closest-to-runtime branch is same-multiset descriptor/tile
+visitation ordering:
+
+```text
+true router outcome
+-> current-router descriptor/tile stream
+-> layer_prior_frequency two-level group plan
+-> same multiset, same checksum, changed visitation order
+```
+
+The measured first runtime envelope is intentionally gated:
+
+```text
+execution_mode = two_level_group_plan
+tile_elems in {512, 1024, 2048}
+groups_per_cta in {4, 8}
+groups_per_cta in {16, 32} remains diagnostic-only
+groups_per_cta >= 64 is disabled
+devices = {GPU0, GPU1}
+```
+
+The runtime adapter is now explicit and local:
+
+- `DescriptorOrderRuntimeGate` loads
+  `configs/runtime/descriptor_order_two_level_gate.yaml`.
+- `build_noop_descriptor_order_assertion()` maps current-router top-k tensors
+  to a group-plan report without mutating router tensors or changing vLLM
+  execution.
+- The gate closes if required correctness evidence is missing.  The low-cost
+  `count_only` report is telemetry only; callers must pass explicit
+  `same_multiset` and `checksum_delta` evidence from a no-op assertion or
+  consumer parity check before the runtime gate can allow execution.
+- Reason priority is envelope-first after execution-mode mismatch:
+  unsupported tile/group/device settings are rejected before correctness
+  details are interpreted.
+
+This is the intended boundary for the next vLLM/HIP patch.  The project should
+not silently edit conda `site-packages`; real integration should use an
+explicit local fork, overlay, or monkey-patch entrypoint that first runs this
+no-op assertion path and returns the original top-k tensors unchanged.
 
 ## Micro-Architectural Direction
 
