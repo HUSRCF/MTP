@@ -3,6 +3,7 @@ import pytest
 
 from mtp_expert_prefetch.runtime import (
     AdmissionDecisionMasks,
+    DescriptorOrderRuntimeGate,
     OnlineShadowLogger,
     RuntimeShadowController,
     TileRequest,
@@ -29,6 +30,9 @@ class _Sink:
         self.events.append(event)
 
     def write_outcome_aggregate(self, event) -> None:
+        self.events.append(event)
+
+    def write_descriptor_order_min_summary(self, event) -> None:
         self.events.append(event)
 
 
@@ -262,6 +266,61 @@ def test_active_runtime_shadow_hook_joins_with_vllm_router_outcome(tmp_path):
     assert outcome["metadata_later_used_count"] == 1
     assert outcome["covered_mass"] == pytest.approx(0.8)
     assert outcome["top1_ready"] is True
+
+
+def test_vllm_router_recorder_descriptor_min_summary_records_gate_decision():
+    sink = _Sink()
+    prior = build_layer_tile_prior(
+        [
+            TileRequest(0, 0, 2, 2, layer_idx=3),
+            TileRequest(0, 1, 1, 1, layer_idx=3),
+        ],
+        score_name="frequency",
+        metadata={"experiment_id": "prior-test"},
+    )
+    gate = DescriptorOrderRuntimeGate(
+        policy="layer_prior_frequency",
+        execution_mode="two_level_group_plan",
+        tile_elems=(1024,),
+        groups_per_cta=(8,),
+        devices=(0,),
+        diagnostic_groups_per_cta=(16,),
+        disable_groups_per_cta_min=64,
+        prior_id="prior-test",
+    )
+    recorder = VllmRouterRecorder(
+        top_k=2,
+        shadow_outcome_sink=sink,
+        shadow_outcome_logging_mode="off",
+        shadow_emit_descriptor_order_summary=True,
+        shadow_descriptor_order_prior=prior,
+        shadow_descriptor_order_prior_id="prior-test",
+        shadow_descriptor_order_prior_hash="hash-test",
+        shadow_descriptor_order_metrics_mode="count_only",
+        shadow_descriptor_order_event_mode="minimal",
+        shadow_descriptor_order_runtime_gate=gate,
+        shadow_descriptor_order_tile_elems=1024,
+        shadow_descriptor_order_groups_per_cta=8,
+        shadow_descriptor_order_device=0,
+        request_id="req",
+        sequence_id=0,
+    )
+
+    recorder.record_topk(
+        layer_id=3,
+        topk_ids=torch.tensor([[1, 2], [2, 3]]),
+        topk_weights=torch.tensor([[0.8, 0.2], [0.7, 0.3]]),
+    )
+
+    assert len(sink.events) == 1
+    row = sink.events[0].as_dict()
+    assert row["event_type"] == "descriptor_summary_min"
+    assert row["descriptor_order_execution_mode"] == "two_level_group_plan"
+    assert row["descriptor_group_plan_groups_per_cta"] == 8
+    assert row["descriptor_order_gate_allow"] is False
+    assert row["descriptor_order_gate_reason"] == "same_multiset_missing"
+    assert row["descriptor_order_gate_tile_elems"] == 1024
+    assert row["descriptor_order_gate_device"] == 0
 
 
 def test_vllm_router_recorder_emits_previous_token_transition_summaries(tmp_path):

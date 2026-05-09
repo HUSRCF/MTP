@@ -207,6 +207,10 @@ class ShadowDescriptorSummaryMinEvent:
     descriptor_group_plan_p95_group_size: float | None = None
     descriptor_group_plan_max_group_size: int | None = None
     descriptor_group_plan_cta_count: int | None = None
+    descriptor_order_gate_allow: bool | None = None
+    descriptor_order_gate_reason: str | None = None
+    descriptor_order_gate_tile_elems: int | None = None
+    descriptor_order_gate_device: int | None = None
     candidate_construction_us: float | None = None
     descriptor_order_build_us: float | None = None
     counter_update_us: float | None = None
@@ -254,6 +258,10 @@ class ShadowDescriptorSummaryMinEvent:
             self.descriptor_group_plan_max_group_size,
         )
         _put_optional(payload, "descriptor_group_plan_cta_count", self.descriptor_group_plan_cta_count)
+        _put_optional(payload, "descriptor_order_gate_allow", self.descriptor_order_gate_allow)
+        _put_optional(payload, "descriptor_order_gate_reason", self.descriptor_order_gate_reason)
+        _put_optional(payload, "descriptor_order_gate_tile_elems", self.descriptor_order_gate_tile_elems)
+        _put_optional(payload, "descriptor_order_gate_device", self.descriptor_order_gate_device)
         _put_optional(payload, "candidate_construction_us", self.candidate_construction_us)
         _put_optional(payload, "descriptor_order_build_us", self.descriptor_order_build_us)
         _put_optional(payload, "counter_update_us", self.counter_update_us)
@@ -435,6 +443,7 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
         "descriptor_group_plan_max_group_size_max": 0,
         "descriptor_group_plan_cta_count_sum": 0,
         "descriptor_group_plan_cta_count_count": 0,
+        "descriptor_order_gate_allow_count": 0,
         "descriptor_same_multiset_count": 0,
         "descriptor_order_changed_count": 0,
         "joined_outcome_count": 0,
@@ -535,6 +544,9 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
                 event.get("counter_update_us", 0.0) or 0.0
             )
             _accumulate_group_plan_totals(totals, event)
+            totals["descriptor_order_gate_allow_count"] += int(
+                bool(event.get("descriptor_order_gate_allow", False))
+            )
         elif event_type == "candidate":
             totals["candidate_count"] += 1
         elif event_type == "outcome":

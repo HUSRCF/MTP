@@ -184,6 +184,10 @@ def test_shadow_log_aggregates_descriptor_summary_min_events(tmp_path):
         descriptor_group_plan_p95_group_size=3.0,
         descriptor_group_plan_max_group_size=4,
         descriptor_group_plan_cta_count=2,
+        descriptor_order_gate_allow=False,
+        descriptor_order_gate_reason="same_multiset_missing",
+        descriptor_order_gate_tile_elems=1024,
+        descriptor_order_gate_device=1,
         candidate_construction_us=1.0,
         descriptor_order_build_us=2.0,
         counter_update_us=3.0,
@@ -199,6 +203,10 @@ def test_shadow_log_aggregates_descriptor_summary_min_events(tmp_path):
     assert rows[0]["descriptor_order_execution_mode"] == "two_level_group_plan"
     assert rows[0]["descriptor_group_plan_group_count"] == 8
     assert rows[0]["descriptor_group_plan_cta_count"] == 2
+    assert rows[0]["descriptor_order_gate_allow"] is False
+    assert rows[0]["descriptor_order_gate_reason"] == "same_multiset_missing"
+    assert rows[0]["descriptor_order_gate_tile_elems"] == 1024
+    assert rows[0]["descriptor_order_gate_device"] == 1
     assert "full_fetch_count" not in rows[0]
     assert aggregate["descriptor_summary_min_count"] == 1
     assert aggregate["descriptor_summary_full_count"] == 0
@@ -211,6 +219,7 @@ def test_shadow_log_aggregates_descriptor_summary_min_events(tmp_path):
     assert aggregate["descriptor_group_plan_p95_group_size_mean"] == 3.0
     assert aggregate["descriptor_group_plan_max_group_size_max"] == 4
     assert aggregate["descriptor_group_plan_cta_count_mean"] == 2.0
+    assert aggregate["descriptor_order_gate_allow_count"] == 0
     assert aggregate["decision_summary_count"] == 1
     assert aggregate["decision_us_mean"] == 6.0
     assert aggregate["candidate_construction_us_mean"] == 1.0
