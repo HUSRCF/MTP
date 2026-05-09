@@ -14,6 +14,7 @@ from mtp_expert_prefetch.runtime.online_shadow import (
     build_shadow_summary_from_descriptor_order,
 )
 from mtp_expert_prefetch.runtime.shadow_log import (
+    ShadowDescriptorPrelaunchAssertEvent,
     ShadowDescriptorSummaryMinEvent,
     ShadowEventId,
     ShadowOutcomeAggregateEvent,
@@ -42,6 +43,8 @@ class RuntimeShadowControllerStats:
     suppressed_outcome_count: int = 0
     written_outcome_aggregate_count: int = 0
     suppressed_outcome_aggregate_count: int = 0
+    written_descriptor_prelaunch_assertion_count: int = 0
+    suppressed_descriptor_prelaunch_assertion_count: int = 0
     joined_outcome_count: int = 0
     outcome_only_count: int = 0
     summary_only_timeout_count: int = 0
@@ -62,6 +65,12 @@ class RuntimeShadowControllerStats:
             ),
             "suppressed_outcome_aggregate_count": int(
                 self.suppressed_outcome_aggregate_count
+            ),
+            "written_descriptor_prelaunch_assertion_count": int(
+                self.written_descriptor_prelaunch_assertion_count
+            ),
+            "suppressed_descriptor_prelaunch_assertion_count": int(
+                self.suppressed_descriptor_prelaunch_assertion_count
             ),
             "joined_outcome_count": int(self.joined_outcome_count),
             "outcome_only_count": int(self.outcome_only_count),
@@ -203,6 +212,18 @@ class RuntimeShadowController:
             self.stats.written_summary_count += 1
         else:
             self.stats.suppressed_summary_count += 1
+
+    def write_descriptor_prelaunch_assertion(
+        self,
+        event: ShadowDescriptorPrelaunchAssertEvent,
+    ) -> None:
+        """Write a no-op prelaunch descriptor mapping assertion row."""
+
+        if self.emit_summaries:
+            self.logger.write_descriptor_prelaunch_assertion(event)
+            self.stats.written_descriptor_prelaunch_assertion_count += 1
+        else:
+            self.stats.suppressed_descriptor_prelaunch_assertion_count += 1
 
     def write_outcome(self, event: ShadowOutcomeEvent) -> None:
         """Enrich and write a true-router outcome.

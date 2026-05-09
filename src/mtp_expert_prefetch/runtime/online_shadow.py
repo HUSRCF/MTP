@@ -7,6 +7,7 @@ from typing import Any
 from mtp_expert_prefetch.runtime.admission import AdmissionDecisionMasks
 from mtp_expert_prefetch.runtime.descriptor_order import DescriptorOrderReport
 from mtp_expert_prefetch.runtime.shadow_log import (
+    ShadowDescriptorPrelaunchAssertEvent,
     ShadowDescriptorSummaryMinEvent,
     ShadowEventId,
     ShadowOutcomeAggregateEvent,
@@ -43,6 +44,7 @@ class OnlineShadowLogger:
         self._batch: list[
             ShadowSummaryEvent
             | ShadowDescriptorSummaryMinEvent
+            | ShadowDescriptorPrelaunchAssertEvent
             | ShadowOutcomeEvent
             | ShadowOutcomeAggregateEvent
             | dict[str, Any]
@@ -146,6 +148,12 @@ class OnlineShadowLogger:
     ) -> None:
         self.write_event(event)
 
+    def write_descriptor_prelaunch_assertion(
+        self,
+        event: ShadowDescriptorPrelaunchAssertEvent,
+    ) -> None:
+        self.write_event(event)
+
     def write_outcome(self, event: ShadowOutcomeEvent) -> None:
         self.write_event(event)
 
@@ -157,6 +165,7 @@ class OnlineShadowLogger:
         event: (
             ShadowSummaryEvent
             | ShadowDescriptorSummaryMinEvent
+            | ShadowDescriptorPrelaunchAssertEvent
             | ShadowOutcomeEvent
             | ShadowOutcomeAggregateEvent
             | dict[str, Any]

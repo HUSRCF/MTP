@@ -30,6 +30,7 @@ from mtp_expert_prefetch.runtime.descriptor_order_gate import (
 from mtp_expert_prefetch.runtime.online_shadow import OnlineShadowLogger
 from mtp_expert_prefetch.runtime.shadow_controller import RuntimeShadowController
 from mtp_expert_prefetch.runtime.shadow_log import (
+    ShadowDescriptorPrelaunchAssertEvent,
     ShadowDescriptorSummaryMinEvent,
     ShadowEventId,
     ShadowOutcomeAggregateEvent,
@@ -86,6 +87,10 @@ class VllmRouterRecorder:
     shadow_descriptor_order_execution_mode: str = "two_level_group_plan"
     shadow_descriptor_order_mapping_assertion_mode: str = "off"
     shadow_descriptor_order_mapping_source: str = "base_router_select_experts_topk"
+    shadow_descriptor_order_prelaunch_assertion_mode: str = "off"
+    shadow_descriptor_order_prelaunch_mapping_source: str = (
+        "moe_runner_quant_method_apply_topk"
+    )
     shadow_descriptor_order_groups_per_cta: int = 8
     shadow_descriptor_order_tile_elems: int = 1024
     shadow_descriptor_order_device: int | None = None
@@ -102,9 +107,14 @@ class VllmRouterRecorder:
     sequence_id: int = 0
     token_offset: int = 0
     calls: list[VllmRouterCall] = field(default_factory=list)
+    _last_descriptor_mapping_by_layer: dict[int, dict[str, Any]] = field(
+        default_factory=dict,
+        repr=False,
+    )
 
     def clear(self) -> None:
         self.calls.clear()
+        self._last_descriptor_mapping_by_layer.clear()
 
     def record(self, *, layer_id: int | None, router_logits: torch.Tensor) -> None:
         logits = router_logits.detach().float()
@@ -384,6 +394,10 @@ class VllmRouterRecorder:
                 token_window_size=int(self.shadow_descriptor_order_token_window_size),
             )
             group_count = int(group_plan.get("group_count", 0) or 0)
+            if mapping_assertion:
+                self._last_descriptor_mapping_by_layer[int(layer_id)] = dict(
+                    mapping_assertion
+                )
             groups_per_cta = max(1, int(self.shadow_descriptor_order_groups_per_cta))
             gate_decision = None
             gate_evidence = None
@@ -554,6 +568,103 @@ class VllmRouterRecorder:
                 int(self.shadow_descriptor_order_groups_per_cta),
             ),
         )
+
+    def write_prelaunch_descriptor_assertion(
+        self,
+        *,
+        layer_id: int,
+        topk_ids: torch.Tensor,
+    ) -> None:
+        sink = self.shadow_outcome_sink
+        if sink is None or not hasattr(sink, "write_descriptor_prelaunch_assertion"):
+            return
+        mode = str(self.shadow_descriptor_order_prelaunch_assertion_mode or "off")
+        normalized_mode = mode.strip().lower()
+        if normalized_mode in {"", "off", "none", "false", "0"}:
+            return
+        start_ns = time.perf_counter_ns()
+        ids = topk_ids.detach().cpu().to(torch.long)
+        try:
+            prelaunch = _internal_group_plan_counts_from_router_topk(
+                ids=ids,
+                tiles_per_expert=int(self.shadow_descriptor_order_tiles_per_expert),
+                token_window_size=int(self.shadow_descriptor_order_token_window_size),
+            )
+            router_mapping = self._last_descriptor_mapping_by_layer.get(int(layer_id), {})
+            router_hash = router_mapping.get("tile_multiset_hash")
+            router_request_count = router_mapping.get("request_count")
+            router_group_count = router_mapping.get("group_count")
+            counts_match = (
+                router_request_count is not None
+                and router_group_count is not None
+                and int(prelaunch["request_count"]) == int(router_request_count)
+                and int(prelaunch["group_count"]) == int(router_group_count)
+            )
+            same_multiset = (
+                bool(counts_match)
+                and router_hash is not None
+                and str(prelaunch["tile_multiset_hash"]) == str(router_hash)
+            )
+            error = None
+            if router_hash is None:
+                error = "router_mapping_missing"
+            elif not same_multiset:
+                error = "prelaunch_router_multiset_mismatch"
+            dump_us = (time.perf_counter_ns() - start_ns) / 1000.0
+            event = ShadowDescriptorPrelaunchAssertEvent(
+                event_id=ShadowEventId(
+                    request_id=str(self.request_id),
+                    sequence_id=int(self.sequence_id),
+                    token_index=int(self.shadow_descriptor_order_event_token_index),
+                    layer=int(layer_id),
+                ),
+                assertion_mode=normalized_mode,
+                mapping_source=str(self.shadow_descriptor_order_prelaunch_mapping_source),
+                router_mapping_source=(
+                    str(router_mapping.get("source")) if router_mapping.get("source") else None
+                ),
+                same_multiset=bool(same_multiset),
+                counts_match=bool(counts_match),
+                prelaunch_tile_multiset_hash=str(prelaunch["tile_multiset_hash"]),
+                router_derived_tile_multiset_hash=(
+                    str(router_hash) if router_hash is not None else None
+                ),
+                prelaunch_request_count=int(prelaunch["request_count"]),
+                router_derived_request_count=(
+                    int(router_request_count)
+                    if router_request_count is not None
+                    else None
+                ),
+                prelaunch_group_count=int(prelaunch["group_count"]),
+                router_derived_group_count=(
+                    int(router_group_count) if router_group_count is not None else None
+                ),
+                error=error,
+                dump_us=dump_us,
+            )
+        except Exception as exc:  # pragma: no cover - defensive telemetry path
+            event = ShadowDescriptorPrelaunchAssertEvent(
+                event_id=ShadowEventId(
+                    request_id=str(self.request_id),
+                    sequence_id=int(self.sequence_id),
+                    token_index=int(self.shadow_descriptor_order_event_token_index),
+                    layer=int(layer_id),
+                ),
+                assertion_mode=normalized_mode,
+                mapping_source=str(self.shadow_descriptor_order_prelaunch_mapping_source),
+                router_mapping_source=None,
+                same_multiset=False,
+                counts_match=False,
+                prelaunch_tile_multiset_hash="",
+                router_derived_tile_multiset_hash=None,
+                prelaunch_request_count=0,
+                router_derived_request_count=None,
+                prelaunch_group_count=0,
+                router_derived_group_count=None,
+                error=f"{type(exc).__name__}: {exc}",
+                dump_us=(time.perf_counter_ns() - start_ns) / 1000.0,
+            )
+        sink.write_descriptor_prelaunch_assertion(event)
 
     def _resolved_descriptor_order_event_mode(self) -> str:
         mode = str(self.shadow_descriptor_order_event_mode or "summary").strip().lower()
@@ -1251,6 +1362,71 @@ def patch_vllm_qwen35_moe_router_trace() -> None:
 
         fused_moe_layer.FusedMoE.forward_impl = fused_moe_forward_impl_with_trace
 
+    try:
+        moe_runner = importlib.import_module(
+            "vllm.model_executor.layers.fused_moe.runner.moe_runner"
+        )
+    except ModuleNotFoundError:
+        moe_runner = None
+
+    if moe_runner is not None and hasattr(moe_runner, "MoERunner"):
+        original_apply_quant_method = moe_runner.MoERunner._apply_quant_method
+
+        def apply_quant_method_with_prelaunch_assertion(
+            self,
+            layer: torch.nn.Module,
+            hidden_states: torch.Tensor,
+            router_logits: torch.Tensor,
+            shared_experts_input: torch.Tensor | None,
+        ) -> tuple[torch.Tensor | None, torch.Tensor]:
+            recorder = get_active_vllm_router_recorder()
+            if recorder is None:
+                return original_apply_quant_method(
+                    self,
+                    layer,
+                    hidden_states,
+                    router_logits,
+                    shared_experts_input,
+                )
+            self._maybe_apply_shared_experts(
+                shared_experts_input,
+                moe_runner.SharedExpertsOrder.NO_OVERLAP,
+            )
+            if self.quant_method.is_monolithic:
+                fused_out = self.quant_method.apply_monolithic(
+                    layer=layer,
+                    x=hidden_states,
+                    router_logits=router_logits,
+                )
+            else:
+                topk_weights, topk_ids = self.router.select_experts(
+                    hidden_states=hidden_states,
+                    router_logits=router_logits,
+                )
+                layer_id = getattr(layer, "_mtp_trace_layer_id", None)
+                if layer_id is not None:
+                    recorder.write_prelaunch_descriptor_assertion(
+                        layer_id=int(layer_id),
+                        topk_ids=topk_ids,
+                    )
+                fused_out = self.quant_method.apply(
+                    layer=layer,
+                    x=hidden_states,
+                    topk_weights=topk_weights,
+                    topk_ids=topk_ids,
+                    shared_experts_input=shared_experts_input,
+                )
+
+            self._maybe_apply_shared_experts(
+                shared_experts_input,
+                moe_runner.SharedExpertsOrder.MULTI_STREAM_OVERLAPPED,
+            )
+            return (
+                self._shared_experts.output if self._shared_experts is not None else None
+            ), fused_out
+
+        moe_runner.MoERunner._apply_quant_method = apply_quant_method_with_prelaunch_assertion
+
     if base_router is not None:
         original_router_set_capture_fn = base_router.BaseRouter.set_capture_fn
         original_router_select_experts = base_router.BaseRouter.select_experts
@@ -1934,6 +2110,15 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                 "base_router_select_experts_topk",
             )
         ),
+        "runtime_shadow_descriptor_order_prelaunch_assertion_mode": str(
+            runtime_shadow_options.get("descriptor_order_prelaunch_assertion_mode", "off")
+        ),
+        "runtime_shadow_descriptor_order_prelaunch_mapping_source": str(
+            runtime_shadow_options.get(
+                "descriptor_order_prelaunch_mapping_source",
+                "moe_runner_quant_method_apply_topk",
+            )
+        ),
         "runtime_shadow_descriptor_order_groups_per_cta": int(
             runtime_shadow_options.get("descriptor_order_groups_per_cta", 8)
         ),
@@ -2065,6 +2250,18 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                                 runtime_shadow_options.get(
                                     "descriptor_order_mapping_source",
                                     "base_router_select_experts_topk",
+                                )
+                            ),
+                            shadow_descriptor_order_prelaunch_assertion_mode=str(
+                                runtime_shadow_options.get(
+                                    "descriptor_order_prelaunch_assertion_mode",
+                                    "off",
+                                )
+                            ),
+                            shadow_descriptor_order_prelaunch_mapping_source=str(
+                                runtime_shadow_options.get(
+                                    "descriptor_order_prelaunch_mapping_source",
+                                    "moe_runner_quant_method_apply_topk",
                                 )
                             ),
                             shadow_descriptor_order_groups_per_cta=int(

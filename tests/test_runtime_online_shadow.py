@@ -11,6 +11,7 @@ from mtp_expert_prefetch.runtime import (
     order_tile_request_stream_with_layer_prior,
 )
 from mtp_expert_prefetch.runtime.shadow_log import (
+    ShadowDescriptorPrelaunchAssertEvent,
     ShadowDescriptorSummaryMinEvent,
     ShadowEventId,
     ShadowOutcomeAggregateEvent,
@@ -169,6 +170,35 @@ def test_runtime_shadow_controller_writes_descriptor_order_min_summary(tmp_path)
     assert rows[0]["descriptor_order_mapping_source"] == "base_router_select_experts_topk"
     assert rows[0]["descriptor_order_mapping_request_count"] == 16
     assert stats["written_summary_count"] == 1
+
+
+def test_runtime_shadow_controller_writes_descriptor_prelaunch_assertion(tmp_path):
+    path = tmp_path / "prelaunch_shadow.jsonl"
+    event = ShadowDescriptorPrelaunchAssertEvent(
+        event_id=ShadowEventId("req", sequence_id=0, token_index=-1, layer=3),
+        assertion_mode="moe_runner_prelaunch_topk",
+        mapping_source="moe_runner_quant_method_apply_topk",
+        router_mapping_source="base_router_select_experts_topk",
+        same_multiset=True,
+        counts_match=True,
+        prelaunch_tile_multiset_hash="hash-v1",
+        router_derived_tile_multiset_hash="hash-v1",
+        prelaunch_request_count=16,
+        router_derived_request_count=16,
+        prelaunch_group_count=8,
+        router_derived_group_count=8,
+        dump_us=3.0,
+    )
+
+    with RuntimeShadowController(OnlineShadowLogger(path)) as controller:
+        controller.write_descriptor_prelaunch_assertion(event)
+        stats = controller.stats_dict()
+
+    rows = read_shadow_jsonl(path)
+    assert [row["event_type"] for row in rows] == ["descriptor_prelaunch_assertion"]
+    assert rows[0]["descriptor_order_prelaunch_same_multiset"] is True
+    assert rows[0]["descriptor_order_prelaunch_tile_multiset_hash"] == "hash-v1"
+    assert stats["written_descriptor_prelaunch_assertion_count"] == 1
 
 
 def test_online_shadow_logger_rejects_unknown_writer_mode(tmp_path):

@@ -338,6 +338,64 @@ class ShadowDescriptorSummaryMinEvent:
 
 
 @dataclass(frozen=True)
+class ShadowDescriptorPrelaunchAssertEvent:
+    event_id: ShadowEventId
+    assertion_mode: str
+    mapping_source: str
+    router_mapping_source: str | None
+    same_multiset: bool
+    counts_match: bool
+    prelaunch_tile_multiset_hash: str
+    router_derived_tile_multiset_hash: str | None
+    prelaunch_request_count: int
+    router_derived_request_count: int | None
+    prelaunch_group_count: int
+    router_derived_group_count: int | None
+    error: str | None = None
+    dump_us: float | None = None
+
+    def as_dict(self) -> dict[str, Any]:
+        payload = {
+            "event_type": "descriptor_prelaunch_assertion",
+            **self.event_id.as_dict(),
+            "descriptor_order_prelaunch_assertion_mode": str(self.assertion_mode),
+            "descriptor_order_prelaunch_mapping_source": str(self.mapping_source),
+            "descriptor_order_prelaunch_same_multiset": bool(self.same_multiset),
+            "descriptor_order_prelaunch_counts_match": bool(self.counts_match),
+            "descriptor_order_prelaunch_tile_multiset_hash": str(
+                self.prelaunch_tile_multiset_hash
+            ),
+            "descriptor_order_prelaunch_request_count": int(
+                self.prelaunch_request_count
+            ),
+            "descriptor_order_prelaunch_group_count": int(self.prelaunch_group_count),
+        }
+        _put_optional(
+            payload,
+            "descriptor_order_prelaunch_router_mapping_source",
+            self.router_mapping_source,
+        )
+        _put_optional(
+            payload,
+            "descriptor_order_prelaunch_router_derived_tile_multiset_hash",
+            self.router_derived_tile_multiset_hash,
+        )
+        _put_optional(
+            payload,
+            "descriptor_order_prelaunch_router_derived_request_count",
+            self.router_derived_request_count,
+        )
+        _put_optional(
+            payload,
+            "descriptor_order_prelaunch_router_derived_group_count",
+            self.router_derived_group_count,
+        )
+        _put_optional(payload, "descriptor_order_prelaunch_error", self.error)
+        _put_optional(payload, "descriptor_order_prelaunch_dump_us", self.dump_us)
+        return payload
+
+
+@dataclass(frozen=True)
 class ShadowCandidateEvent:
     event_id: ShadowEventId
     expert_id: int
@@ -516,6 +574,9 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
         "descriptor_order_mapping_assertion_count": 0,
         "descriptor_order_mapping_same_multiset_count": 0,
         "descriptor_order_mapping_error_count": 0,
+        "descriptor_prelaunch_assertion_count": 0,
+        "descriptor_prelaunch_same_multiset_count": 0,
+        "descriptor_prelaunch_error_count": 0,
         "descriptor_same_multiset_count": 0,
         "descriptor_order_changed_count": 0,
         "joined_outcome_count": 0,
@@ -630,6 +691,14 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
                 totals["descriptor_order_mapping_error_count"] += int(
                     bool(event.get("descriptor_order_mapping_error"))
                 )
+        elif event_type == "descriptor_prelaunch_assertion":
+            totals["descriptor_prelaunch_assertion_count"] += 1
+            totals["descriptor_prelaunch_same_multiset_count"] += int(
+                bool(event.get("descriptor_order_prelaunch_same_multiset", False))
+            )
+            totals["descriptor_prelaunch_error_count"] += int(
+                bool(event.get("descriptor_order_prelaunch_error"))
+            )
         elif event_type == "candidate":
             totals["candidate_count"] += 1
         elif event_type == "outcome":

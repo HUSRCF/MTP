@@ -97,3 +97,53 @@ def test_vllm_recorder_does_not_claim_same_multiset_without_plan_hash() -> None:
     assert payload["descriptor_order_mapping_same_multiset"] is False
     assert payload["descriptor_order_mapping_error"] == "plan_tile_multiset_hash_missing"
     assert "descriptor_order_mapping_plan_tile_multiset_hash" not in payload
+
+
+def test_vllm_recorder_emits_prelaunch_assertion_against_router_mapping() -> None:
+    prior = build_layer_tile_prior(
+        [
+            TileRequest(0, 0, 2, 2, layer_idx=0),
+            TileRequest(0, 1, 1, 1, layer_idx=0),
+            TileRequest(0, 2, 3, 3, layer_idx=0),
+        ],
+        score_name="frequency",
+        metadata={"experiment_id": "prior-test"},
+    )
+    sink = _DescriptorMinSink()
+    sink.prelaunch_events = []
+
+    def write_descriptor_prelaunch_assertion(event) -> None:
+        sink.prelaunch_events.append(event)
+
+    sink.write_descriptor_prelaunch_assertion = write_descriptor_prelaunch_assertion
+    recorder = VllmRouterRecorder(
+        top_k=2,
+        shadow_outcome_sink=sink,
+        shadow_outcome_logging_mode="off",
+        shadow_emit_descriptor_order_summary=True,
+        shadow_descriptor_order_prior=prior,
+        shadow_descriptor_order_metrics_mode="none",
+        shadow_descriptor_order_event_mode="minimal",
+        shadow_descriptor_order_mapping_assertion_mode="router_topk_tile_stream",
+        shadow_descriptor_order_prelaunch_assertion_mode="moe_runner_prelaunch_topk",
+        shadow_descriptor_order_token_window_size=1,
+    )
+    topk_ids = torch.tensor([[1, 2], [2, 3]], dtype=torch.long)
+
+    recorder.record_topk(
+        layer_id=0,
+        topk_ids=topk_ids,
+        topk_weights=torch.tensor([[0.4, 0.6], [0.7, 0.3]], dtype=torch.float32),
+    )
+    recorder.write_prelaunch_descriptor_assertion(layer_id=0, topk_ids=topk_ids)
+
+    assert len(sink.prelaunch_events) == 1
+    payload = sink.prelaunch_events[0].as_dict()
+    assert payload["event_type"] == "descriptor_prelaunch_assertion"
+    assert payload["descriptor_order_prelaunch_same_multiset"] is True
+    assert payload["descriptor_order_prelaunch_counts_match"] is True
+    assert (
+        payload["descriptor_order_prelaunch_tile_multiset_hash"]
+        == payload["descriptor_order_prelaunch_router_derived_tile_multiset_hash"]
+    )
+    assert "descriptor_order_prelaunch_error" not in payload
