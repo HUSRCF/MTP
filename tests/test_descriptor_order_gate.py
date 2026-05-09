@@ -34,6 +34,7 @@ def test_descriptor_order_runtime_gate_loads_config_and_decides() -> None:
     disabled = gate.decide(tile_elems=1024, groups_per_cta=64, device=0)
     unknown_tile = gate.decide(tile_elems=4096, groups_per_cta=8, device=0)
     unknown_group = gate.decide(tile_elems=1024, groups_per_cta=12, device=0)
+    missing_device = gate.decide(tile_elems=1024, groups_per_cta=8)
     unknown_device = gate.decide(tile_elems=1024, groups_per_cta=8, device=7)
     missing_multiset = gate.decide(tile_elems=1024, groups_per_cta=8, device=0)
     multiset_mismatch = gate.decide(
@@ -85,6 +86,8 @@ def test_descriptor_order_runtime_gate_loads_config_and_decides() -> None:
     assert unknown_tile.reason == "tile_elems_unmeasured"
     assert unknown_group.allow is False
     assert unknown_group.reason == "groups_per_cta_unmeasured"
+    assert missing_device.allow is False
+    assert missing_device.reason == "device_missing"
     assert unknown_device.allow is False
     assert unknown_device.reason == "device_unmeasured"
     assert missing_multiset.allow is False

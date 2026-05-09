@@ -39,6 +39,7 @@ trace:
     descriptor_order_event_mode: minimal
     descriptor_order_execution_mode: two_level_group_plan
     descriptor_order_groups_per_cta: 8
+    descriptor_order_device: 0
     descriptor_order_event_token_index: -1
     request_id_prefix: sample_
     sequence_id: 0

@@ -159,6 +159,9 @@ class DescriptorOrderRuntimeGate:
                 if groups in self.diagnostic_groups_per_cta
                 else "groups_per_cta_unmeasured"
             )
+        elif self.disable_unmeasured_devices and self.devices and dev is None:
+            allow = False
+            reason = "device_missing"
         elif self.disable_unmeasured_devices and dev is not None and self.devices and dev not in self.devices:
             allow = False
             reason = "device_unmeasured"
