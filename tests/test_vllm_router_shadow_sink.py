@@ -1019,6 +1019,40 @@ def test_vllm_router_recorder_premap_summary_works_with_outcomes_off():
     assert row["premap_ready_credit"] is False
 
 
+def test_vllm_router_recorder_premap_summary_can_be_sampled_without_skipping_manager():
+    sink = _Sink()
+    recorder = VllmRouterRecorder(
+        top_k=2,
+        shadow_outcome_sink=sink,
+        shadow_outcome_logging_mode="off",
+        shadow_emit_premap_summary=True,
+        shadow_emit_premap_address_manager_counters=True,
+        shadow_premap_summary_sample_period=3,
+        shadow_premap_address_manager_capacity=8,
+        shadow_premap_descriptor_bytes=64,
+        shadow_num_experts=6,
+        request_id="req",
+        sequence_id=5,
+    )
+
+    for _ in range(4):
+        recorder.record_topk(
+            layer_id=3,
+            topk_ids=torch.tensor([[1, 2]]),
+            topk_weights=torch.tensor([[0.8, 0.2]]),
+        )
+
+    rows = [event.as_dict() for event in sink.events]
+    premap_rows = [row for row in rows if row["event_type"] == "premap_summary"]
+    assert len(premap_rows) == 2
+    assert premap_rows[0]["premap_address_new_count"] == 2
+    # Unsampled calls still update the address manager, so the second sampled
+    # event observes the fourth prepare call rather than call two.
+    assert premap_rows[1]["premap_address_reused_count"] == 6
+    assert recorder._last_premap_address_mapping_by_layer[3]["prepare_plan_count"] == 4
+    assert recorder._last_premap_address_mapping_by_layer[3]["prepare_record_count"] == 8
+
+
 def test_vllm_router_recorder_premap_summary_can_emit_address_manager_counters():
     sink = _Sink()
     recorder = VllmRouterRecorder(

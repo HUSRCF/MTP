@@ -34,6 +34,7 @@ trace:
     record_router_topk: true
     emit_premap_summaries: true
     emit_premap_address_manager_counters: true
+    premap_summary_sample_period: 64
     emit_premap_consumer_mapping: true
     premap_consumer_mapping_mode: noop_assertion
     premap_consumer_mapping_source: fused_moe_prepare_expert_assignment

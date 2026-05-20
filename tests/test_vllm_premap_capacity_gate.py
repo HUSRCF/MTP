@@ -169,6 +169,9 @@ def test_default_longrun_audit_config_uses_premap_capacity_gate(
     assert shadow["record_router_topk"] is True
     assert shadow["emit_premap_summaries"] is True
     assert shadow["emit_premap_address_manager_counters"] is True
+    assert shadow["premap_summary_sample_period"] == (
+        32 if sample_count == 128 else 64
+    )
     assert (
         shadow["premap_address_capacity_gate_path"]
         == "configs/runtime/premap_address_capacity_gate_dolly128_gen64_awq_w7900_gpu1.yaml"

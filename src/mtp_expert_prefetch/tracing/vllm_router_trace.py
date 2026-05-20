@@ -498,6 +498,7 @@ class VllmRouterRecorder:
     shadow_premap_descriptor_bytes: int = 4_096
     shadow_emit_premap_address_manager_counters: bool = False
     shadow_premap_address_manager_capacity: int | None = None
+    shadow_premap_summary_sample_period: int = 1
     shadow_emit_premap_consumer_mapping: bool = False
     shadow_premap_consumer_mapping_mode: str = "noop_assertion"
     shadow_premap_consumer_mapping_source: str = "fused_moe_prepare_expert_assignment"
@@ -595,6 +596,7 @@ class VllmRouterRecorder:
         repr=False,
     )
     _premap_consumer_mapping_call_count: int = field(default=0, repr=False)
+    _premap_summary_call_count: int = field(default=0, repr=False)
     _descriptor_order_prior_rank_tensor_cache: dict[tuple[Any, ...], torch.Tensor] = (
         field(default_factory=dict, repr=False)
     )
@@ -1253,6 +1255,8 @@ class VllmRouterRecorder:
                 else None
             ),
         }
+        if not self._premap_summary_sample_wanted():
+            return
         decision_us = (time.perf_counter_ns() - total_start_ns) / 1000.0
         event_id = ShadowEventId(
             request_id=str(self.request_id),
@@ -1278,6 +1282,11 @@ class VllmRouterRecorder:
                 else None
             ),
         )
+
+    def _premap_summary_sample_wanted(self) -> bool:
+        sample_period = max(1, int(self.shadow_premap_summary_sample_period))
+        self._premap_summary_call_count += 1
+        return (self._premap_summary_call_count - 1) % sample_period == 0
 
     def _write_previous_token_transition_premap_summaries(
         self,
@@ -9403,6 +9412,12 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
         "runtime_shadow_premap_address_capacity_gate_evidence_paths": (
             runtime_shadow_options.get("premap_address_capacity_gate_evidence_paths")
         ),
+        "runtime_shadow_premap_summary_sample_period": int(
+            runtime_shadow_options.get(
+                "premap_summary_sample_period",
+                1,
+            )
+        ),
         "runtime_shadow_emit_premap_consumer_mapping": bool(
             runtime_shadow_options.get("emit_premap_consumer_mapping", False)
         ),
@@ -9733,6 +9748,15 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                             shadow_premap_address_manager_capacity=_optional_capacity_option(
                                 runtime_shadow_options,
                                 "premap_address_manager_capacity",
+                            ),
+                            shadow_premap_summary_sample_period=max(
+                                1,
+                                int(
+                                    runtime_shadow_options.get(
+                                        "premap_summary_sample_period",
+                                        1,
+                                    )
+                                ),
                             ),
                             shadow_emit_premap_consumer_mapping=bool(
                                 runtime_shadow_options.get(
@@ -10288,7 +10312,21 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
     if runtime_shadow_path is not None and runtime_shadow_path.exists():
         aggregate = aggregate_shadow_events(read_shadow_jsonl(runtime_shadow_path))
         performance["runtime_shadow_aggregate"] = aggregate
+        performance["runtime_shadow_size_mb"] = (
+            float(runtime_shadow_path.stat().st_size) / (1024.0 * 1024.0)
+        )
         for key in (
+            "outcome_aggregate_count",
+            "descriptor_summary_min_count",
+            "premap_summary_count",
+            "premap_summary_descriptor_count",
+            "premap_summary_payload_bytes",
+            "premap_summary_actual_bytes",
+            "premap_address_manager_count",
+            "premap_address_resident_descriptor_bytes",
+            "premap_address_prepared_descriptor_actual_bytes",
+            "premap_address_reuse_rate",
+            "premap_address_eviction_pressure",
             "premap_consumer_mapping_count",
             "premap_consumer_address_hit_rate",
             "premap_consumer_descriptor_handle_hit_rate",

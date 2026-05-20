@@ -13516,3 +13516,74 @@ outcome_aggregate, descriptor_summary_min, and premap_summary.  The 32-sample
 config now disables decoder_layer_timing to keep it aligned with the long-run
 low-intrusion audit contract.
 ```
+
+## Premap summary sampled audit gate
+
+The next row-volume bottleneck was `premap_summary`: even after consumer mapping
+sampling, the manager summary still emitted one row per token/layer.  Added
+`premap_summary_sample_period` with an important contract:
+
+```text
+premap address manager prepare/update still runs on every layer
+premap_summary JSONL emission is sampled
+consumer mapping still checks the latest prepared handle state
+```
+
+Configured sampling:
+
+```text
+premap_summary_sample_period:
+  default = 1
+  32-sample gate smoke = 8
+  128-sample long-run audit = 32
+  512-sample long-run audit = 64
+```
+
+Validation:
+
+```text
+focused:
+  tests/test_vllm_router_shadow_sink.py
+  tests/test_vllm_premap_capacity_gate.py
+  61 passed
+
+full:
+  421 passed, 2 warnings
+```
+
+Sampled 32-sample GPU1 AWQ/vLLM run:
+
+```text
+artifact:
+  data/traces/
+    external_prompt_gate_dolly_32_awq_vllm_gpu1_decode_gen64_premap_manager_gate_smoke/
+
+premap_summary_sample_period = 8
+premap_consumer_mapping_sample_period = 8
+
+event counts:
+  outcome_aggregate = 81920
+  descriptor_summary_min = 81920
+  premap_summary = 10240
+  premap_consumer_mapping = 10240
+
+premap_consumer_mapping_count = 10240
+premap_consumer_address_hit_rate = 1.0
+premap_consumer_descriptor_handle_hit_rate = 1.0
+premap_consumer_lookup_after_prepare_rate = 1.0
+premap_consumer_real_descriptor_handle_hit_rate = 1.0
+premap_consumer_real_descriptor_handle_binding_mismatch_count = 0
+premap_consumer_error_count = 0
+runtime_shadow size ~= 179 MB
+```
+
+Interpretation:
+
+```text
+Premap summary sampling reduces premap_summary rows by another 8x without
+dropping manager lifecycle updates.  The remaining 32-sample log volume is now
+dominated by outcome_aggregate and descriptor_summary_min.  performance_summary
+now also exports runtime_shadow_size_mb and flattened aggregate counts for
+premap_summary / descriptor_summary_min / outcome_aggregate, so long-run audits
+do not need a manual JSONL scan to verify row-volume gates.
+```
