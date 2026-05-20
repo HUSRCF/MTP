@@ -13440,3 +13440,79 @@ no router mutation
 no descriptor_order execution
 no vLLM kernel argument mutation
 ```
+
+## Premap consumer mapping sampled long-run gate
+
+The first 32-sample real-handle consumer mapping run proved the read-only
+contract at medium scale, but also exposed that row-level consumer mapping is too
+heavy for default long-run audit:
+
+```text
+unsampled 32-sample run:
+  premap_consumer_mapping_count = 81920
+  address_hit_rate = 1.0
+  descriptor_handle_hit_rate = 1.0
+  lookup_after_prepare_rate = 1.0
+  real_descriptor_handle_hit_rate = 1.0
+  real_descriptor_handle_available_rate = 1.0
+  real_descriptor_handle_binding_mismatch_count = 0
+  real_descriptor_handle_for_address_miss_count = 0
+  runtime_shadow rows ~= 409600
+  runtime_shadow size ~= 460 MB
+```
+
+Added sampled consumer mapping:
+
+```text
+premap_consumer_mapping_sample_period:
+  default = 1
+  32-sample gate smoke = 8
+  128-sample long-run audit = 32
+  512-sample long-run audit = 64
+```
+
+Validation:
+
+```text
+focused:
+  tests/test_vllm_router_shadow_sink.py
+  tests/test_runtime_shadow_log.py
+  60 passed
+
+full:
+  420 passed, 2 warnings
+```
+
+Sampled 32-sample GPU1 AWQ/vLLM run:
+
+```text
+artifact:
+  data/traces/
+    external_prompt_gate_dolly_32_awq_vllm_gpu1_decode_gen64_premap_manager_gate_smoke/
+
+premap_consumer_mapping_sample_period = 8
+premap_consumer_mapping_count = 10240
+premap_consumer_address_hit_rate = 1.0
+premap_consumer_descriptor_handle_hit_rate = 1.0
+premap_consumer_lookup_after_prepare_rate = 1.0
+premap_consumer_real_descriptor_handle_hit_rate = 1.0
+premap_consumer_real_descriptor_handle_available_rate = 1.0
+premap_consumer_real_descriptor_handle_new_binding_count = 1244
+premap_consumer_real_descriptor_handle_reused_binding_count = 94938
+premap_consumer_real_descriptor_handle_binding_mismatch_count = 0
+premap_consumer_real_descriptor_handle_for_address_miss_count = 0
+premap_consumer_error_count = 0
+runtime_shadow rows ~= 337920
+runtime_shadow size ~= 299 MB
+```
+
+Interpretation:
+
+```text
+Sampling preserves the handle-lifecycle signal while reducing consumer mapping
+rows by 8x in the 32-sample gate.  The remaining log volume is no longer driven
+by consumer mapping; it comes from other per token/layer audit rows such as
+outcome_aggregate, descriptor_summary_min, and premap_summary.  The 32-sample
+config now disables decoder_layer_timing to keep it aligned with the long-run
+low-intrusion audit contract.
+```

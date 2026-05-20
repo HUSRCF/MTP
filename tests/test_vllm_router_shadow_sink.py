@@ -1219,6 +1219,31 @@ def test_vllm_router_recorder_premap_real_handle_binding_survives_clear():
     assert rows[1]["premap_consumer_real_descriptor_handle_binding_mismatch_count"] == 0
 
 
+def test_vllm_router_recorder_premap_consumer_mapping_can_be_sampled():
+    sink = _Sink()
+    recorder = VllmRouterRecorder(
+        top_k=2,
+        shadow_outcome_sink=sink,
+        shadow_outcome_logging_mode="off",
+        shadow_emit_premap_consumer_mapping=True,
+        shadow_premap_consumer_mapping_sample_period=3,
+        shadow_num_experts=6,
+        request_id="req",
+        sequence_id=5,
+    )
+
+    for _ in range(7):
+        recorder._write_premap_consumer_mapping_from_experts(
+            layer_id=3,
+            active_experts=[1, 2],
+            consumer_layer=None,
+        )
+
+    rows = [event.as_dict() for event in sink.events]
+    assert len(rows) == 3
+    assert all(row["event_type"] == "premap_consumer_mapping" for row in rows)
+
+
 def test_vllm_router_recorder_premap_summary_requires_supported_sink():
     recorder = VllmRouterRecorder(
         top_k=2,

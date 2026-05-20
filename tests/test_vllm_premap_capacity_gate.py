@@ -174,7 +174,16 @@ def test_default_longrun_audit_config_uses_premap_capacity_gate(
         == "configs/runtime/premap_address_capacity_gate_dolly128_gen64_awq_w7900_gpu1.yaml"
     )
     assert "premap_address_manager_capacity" not in shadow
-    assert shadow["premap_policy"] == "premap_only_with_address_manager_counters"
+    assert shadow["emit_premap_consumer_mapping"] is True
+    assert shadow["premap_consumer_mapping_mode"] == "noop_assertion"
+    assert shadow["premap_consumer_mapping_source"] == (
+        "fused_moe_prepare_expert_assignment"
+    )
+    assert shadow["premap_consumer_resolve_real_handles"] is True
+    assert shadow["premap_consumer_mapping_sample_period"] == (
+        32 if sample_count == 128 else 64
+    )
+    assert shadow["premap_policy"] == "premap_only_with_consumer_mapping_noop"
     assert shadow["premap_source"] == "current_router_topk_premap_shadow"
     assert shadow["premap_descriptor_bytes"] == 4096
     assert shadow["emit_descriptor_order_summaries"] is True

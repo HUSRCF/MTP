@@ -502,6 +502,7 @@ class VllmRouterRecorder:
     shadow_premap_consumer_mapping_mode: str = "noop_assertion"
     shadow_premap_consumer_mapping_source: str = "fused_moe_prepare_expert_assignment"
     shadow_premap_consumer_resolve_real_handles: bool = False
+    shadow_premap_consumer_mapping_sample_period: int = 1
     shadow_premap_address_namespace: str = "expert_weight_descriptor"
     shadow_premap_priority: int = 2
     shadow_transition_premap_priority: int = 3
@@ -593,6 +594,7 @@ class VllmRouterRecorder:
         default_factory=dict,
         repr=False,
     )
+    _premap_consumer_mapping_call_count: int = field(default=0, repr=False)
     _descriptor_order_prior_rank_tensor_cache: dict[tuple[Any, ...], torch.Tensor] = (
         field(default_factory=dict, repr=False)
     )
@@ -1727,6 +1729,11 @@ class VllmRouterRecorder:
         mode = str(self.shadow_premap_consumer_mapping_mode or "off").strip().lower()
         return mode not in {"", "off", "none", "false", "0"}
 
+    def _premap_consumer_mapping_sample_wanted(self) -> bool:
+        sample_period = max(1, int(self.shadow_premap_consumer_mapping_sample_period))
+        self._premap_consumer_mapping_call_count += 1
+        return (self._premap_consumer_mapping_call_count - 1) % sample_period == 0
+
     def _write_premap_consumer_mapping_from_experts(
         self,
         *,
@@ -1738,6 +1745,8 @@ class VllmRouterRecorder:
     ) -> None:
         sink = self.shadow_outcome_sink
         if sink is None or not self._premap_consumer_mapping_wanted():
+            return
+        if not self._premap_consumer_mapping_sample_wanted():
             return
         if not hasattr(sink, "write_premap_consumer_mapping"):
             msg = (
@@ -9409,6 +9418,12 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                 "fused_moe_prepare_expert_assignment",
             )
         ),
+        "runtime_shadow_premap_consumer_mapping_sample_period": int(
+            runtime_shadow_options.get(
+                "premap_consumer_mapping_sample_period",
+                1,
+            )
+        ),
         "runtime_shadow_transition_premap_source": str(
             runtime_shadow_options.get(
                 "transition_premap_source",
@@ -9742,6 +9757,15 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                                     "premap_consumer_resolve_real_handles",
                                     False,
                                 )
+                            ),
+                            shadow_premap_consumer_mapping_sample_period=max(
+                                1,
+                                int(
+                                    runtime_shadow_options.get(
+                                        "premap_consumer_mapping_sample_period",
+                                        1,
+                                    )
+                                ),
                             ),
                             shadow_premap_address_namespace=str(
                                 runtime_shadow_options.get(

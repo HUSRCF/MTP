@@ -34,11 +34,16 @@ trace:
     record_router_topk: true
     emit_premap_summaries: true
     emit_premap_address_manager_counters: true
+    emit_premap_consumer_mapping: true
+    premap_consumer_mapping_mode: noop_assertion
+    premap_consumer_mapping_source: fused_moe_prepare_expert_assignment
+    premap_consumer_resolve_real_handles: true
+    premap_consumer_mapping_sample_period: 64
     # Same-source scale validation only: this intentionally reuses the
     # Dolly128-derived gate artifact to test whether that budget remains stable
     # at 512 samples. It is not a 512-sample recalibrated gate.
     premap_address_capacity_gate_path: configs/runtime/premap_address_capacity_gate_dolly128_gen64_awq_w7900_gpu1.yaml
-    premap_policy: premap_only_with_address_manager_counters
+    premap_policy: premap_only_with_consumer_mapping_noop
     premap_source: current_router_topk_premap_shadow
     premap_descriptor_bytes: 4096
     premap_priority: 2
