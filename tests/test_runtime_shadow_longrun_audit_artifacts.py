@@ -12,8 +12,8 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 @pytest.mark.parametrize(
     ("sample_count", "expected_event_count"),
     [
-        (128, 326_240),
-        (512, 1_301_880),
+        (128, 10_195),
+        (512, 20_342),
     ],
 )
 def test_dolly_longrun_audit_summaries_are_premap_safe(
@@ -29,15 +29,25 @@ def test_dolly_longrun_audit_summaries_are_premap_safe(
         pytest.skip(f"long-run audit artifact is not present: {summary_path}")
 
     summary = json.loads(summary_path.read_text(encoding="utf-8"))
+    assert summary["row_count"] == 2 * expected_event_count
     assert summary["event_counts"] == {
-        "descriptor_summary_min": expected_event_count,
-        "outcome_aggregate": expected_event_count,
         "premap_summary": expected_event_count,
+        "premap_consumer_mapping": expected_event_count,
     }
     aggregate = summary["aggregate"]
+    assert aggregate["premap_summary_count"] == expected_event_count
+    assert aggregate["premap_consumer_mapping_count"] == expected_event_count
     assert aggregate["premap_summary_payload_bytes"] == 0
     assert aggregate["premap_address_evicted_count"] == 0
+    assert aggregate["premap_address_eviction_pressure_mean"] == 0.0
     assert aggregate["premap_address_resident_count_max"] < 12_288
     assert aggregate["premap_address_resident_descriptor_bytes_max"] > 0
     assert aggregate["premap_address_new_count"] > 0
     assert aggregate["premap_address_reused_count"] > 0
+    assert aggregate["premap_address_reuse_rate_mean"] > 0.98
+    assert aggregate["premap_consumer_address_hit_rate"] == 1.0
+    assert aggregate["premap_consumer_descriptor_handle_hit_rate"] == 1.0
+    assert aggregate["premap_consumer_real_descriptor_handle_hit_rate"] == 1.0
+    assert aggregate["premap_consumer_lookup_after_prepare_rate"] == 1.0
+    assert aggregate["premap_consumer_real_descriptor_handle_binding_mismatch_count"] == 0
+    assert aggregate["premap_consumer_error_count"] == 0
