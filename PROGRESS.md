@@ -13651,3 +13651,51 @@ handle lifecycle evidence.  This makes 128/512 premap handle audits practical:
 the expected row count now scales with the sampled premap manager/consumer rows,
 not with every outcome or descriptor_order summary.
 ```
+
+512-sample GPU1 AWQ/vLLM long-run audit:
+
+```text
+artifact:
+  data/traces/
+    external_prompt_gate_dolly_512_awq_vllm_gpu1_decode_gen64_longrun_audit/
+
+premap_summary_sample_period = 64
+premap_consumer_mapping_sample_period = 64
+
+event counts:
+  outcome_aggregate = 0
+  descriptor_summary_min = 0
+  premap_summary = 20342
+  premap_consumer_mapping = 20342
+
+runtime_shadow_size_mb = 72.99
+premap_address_manager_count = 20342
+premap_address_resident_count_max = 10202
+premap_address_resident_descriptor_bytes_max = 41787392
+premap_address_prepared_descriptor_actual_bytes_max = 50078007296
+premap_address_reused_count = 12215874
+premap_address_evicted_count = 0
+premap_address_reuse_rate_mean = 0.9945098118
+premap_address_eviction_pressure_mean = 0.0
+
+premap_consumer_address_hit_rate = 1.0
+premap_consumer_descriptor_handle_hit_rate = 1.0
+premap_consumer_real_descriptor_handle_hit_rate = 1.0
+premap_consumer_lookup_after_prepare_rate = 1.0
+premap_consumer_real_descriptor_handle_binding_mismatch_count = 0
+premap_consumer_error_count = 0
+```
+
+Interpretation:
+
+```text
+The premap-only audit contract scales to 512 samples with stable sampled row
+volume and no handle/parity failures.  The Dolly128-derived 12288-capacity gate
+is sufficient for this 512-sample same-source validation: no premap address
+evictions are observed, resident descriptor bytes stay at ~41.8 MB, and
+consumer lookup-after-prepare remains 1.0.
+
+This remains a read-only descriptor/address preparation audit:
+no payload transfer, no ready credit, no router mutation, and no descriptor
+visitation order execution.
+```
