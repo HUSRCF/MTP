@@ -273,6 +273,59 @@ ROCm/HSA hardware exception during GPU tensor execution.  This is treated as an
 environment/scale blocker, not as a negative AYA premap result.
 ```
 
+Premap read-only consumer mapping:
+
+```text
+runtime gate:
+  configs/runtime/premap_consumer_readonly_gate_dolly512_gen64_awq_w7900_gpu1.yaml
+
+smoke artifact:
+  data/traces/
+    external_prompt_gate_dolly_8_awq_vllm_gpu1_decode_gen64_premap_consumer_mapping_smoke/
+
+mode:
+  premap_policy = premap_only_with_consumer_mapping_noop
+  premap_consumer_mapping_mode = noop_assertion
+  premap_consumer_resolve_real_handles = true
+  premap_consumer_require_readonly_gate = true
+
+result:
+  premap_consumer_mapping events = 20480
+  readonly gate passed rows      = 20480 / 20480
+  missing source-class rows      = 0
+  performance_summary fields     = present under runtime_shadow_aggregate_*
+
+real prelaunch handle source classification:
+  packed_weight hits    = 190215
+  scale_metadata hits   = 190215
+  aux_metadata hits     = 190215
+  packed_weight misses  = 0
+  scale_metadata misses = 0
+  aux_metadata misses   = 0
+  miss_reason_counts    = {}
+
+no-op contract:
+  payload bytes          = 0
+  router changes         = 0
+  descriptor-order edits = 0
+  ready credit           = 0
+```
+
+Interpretation:
+
+```text
+The premap-only branch now reaches a read-only vLLM/AWQ consumer contract:
+  (layer_id, expert_id)
+    -> address_key
+    -> premap descriptor/address handle
+    -> actual packed-weight / scale / aux-metadata runtime handle hash
+
+This is still no-op assertion only.  It does not move payload, does not issue
+ready credit, does not change routing, and does not change descriptor order.
+The source-class and miss-reason counters make failures auditable before any
+future runtime consumer uses these handles.
+```
+
 ## Evidence Lock
 
 Current coarse bottleneck baseline:

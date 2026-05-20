@@ -323,6 +323,21 @@ def test_shadow_log_aggregates_premap_consumer_mapping_without_side_effects(tmp_
         real_descriptor_handle_miss_count=0,
         real_descriptor_handle_hash="real-handle-hash",
         real_descriptor_handle_available=True,
+        real_descriptor_handle_source_hashes={
+            "packed_weight": "packed-hash",
+            "scale_metadata": "scale-hash",
+        },
+        real_descriptor_handle_source_hit_counts={
+            "packed_weight": 2,
+            "scale_metadata": 2,
+            "aux_metadata": 0,
+        },
+        real_descriptor_handle_source_miss_counts={
+            "packed_weight": 0,
+            "scale_metadata": 0,
+            "aux_metadata": 2,
+        },
+        real_descriptor_handle_miss_reason_counts={"no_handle_parts": 0},
         real_descriptor_handle_new_binding_count=1,
         real_descriptor_handle_reused_binding_count=1,
         real_descriptor_handle_binding_mismatch_count=0,
@@ -364,6 +379,41 @@ def test_shadow_log_aggregates_premap_consumer_mapping_without_side_effects(tmp_
     assert aggregate["premap_consumer_real_descriptor_handle_miss_count"] == 0
     assert aggregate["premap_consumer_real_descriptor_handle_hit_rate"] == 1.0
     assert aggregate["premap_consumer_real_descriptor_handle_available_rate"] == 1.0
+    assert rows[0]["premap_consumer_real_descriptor_handle_source_hashes"] == {
+        "packed_weight": "packed-hash",
+        "scale_metadata": "scale-hash",
+    }
+    assert rows[0]["premap_consumer_real_descriptor_handle_source_hit_counts"] == {
+        "packed_weight": 2,
+        "scale_metadata": 2,
+        "aux_metadata": 0,
+    }
+    assert rows[0]["premap_consumer_real_descriptor_handle_source_miss_counts"] == {
+        "packed_weight": 0,
+        "scale_metadata": 0,
+        "aux_metadata": 2,
+    }
+    assert rows[0]["premap_consumer_real_descriptor_handle_miss_reason_counts"] == {
+        "no_handle_parts": 0,
+    }
+    assert (
+        aggregate[
+            "premap_consumer_real_descriptor_handle_packed_weight_hit_count"
+        ]
+        == 2
+    )
+    assert (
+        aggregate[
+            "premap_consumer_real_descriptor_handle_scale_metadata_hit_count"
+        ]
+        == 2
+    )
+    assert (
+        aggregate["premap_consumer_real_descriptor_handle_aux_metadata_miss_count"]
+        == 2
+    )
+    assert aggregate["premap_consumer_real_descriptor_handle_no_handle_parts_count"] == 0
+    assert aggregate["premap_consumer_real_descriptor_handle_expert_map_miss_count"] == 0
     assert aggregate["premap_consumer_real_descriptor_handle_new_binding_count"] == 1
     assert aggregate["premap_consumer_real_descriptor_handle_reused_binding_count"] == 1
     assert aggregate["premap_consumer_real_descriptor_handle_binding_mismatch_count"] == 0

@@ -20,6 +20,7 @@ from mtp_expert_prefetch.runtime.shadow_log import (
 from mtp_expert_prefetch.tracing.vllm_router_trace import VllmRouterRecorder
 from mtp_expert_prefetch.tracing.vllm_router_trace import (
     SharedExpertFusedGateUnsupportedError,
+    _add_runtime_shadow_aggregate_to_performance,
     _shared_expert_fused_gate_fallbackable,
     _run_shared_expert_output_gate_default_postprocess,
     _shared_expert_custom_gate_enabled,
@@ -61,6 +62,49 @@ class _OutcomeOnlySink:
 
     def write_outcome(self, event) -> None:
         self.events.append(event)
+
+
+def test_runtime_shadow_aggregate_fields_are_flattened_to_performance_summary():
+    aggregate = {
+        "premap_consumer_mapping_count": 3,
+        "premap_consumer_real_descriptor_handle_hit_count": 7,
+        "premap_consumer_real_descriptor_handle_miss_count": 1,
+        "premap_consumer_real_descriptor_handle_packed_weight_hit_count": 7,
+        "premap_consumer_real_descriptor_handle_packed_weight_miss_count": 1,
+        "premap_consumer_real_descriptor_handle_scale_metadata_hit_count": 6,
+        "premap_consumer_real_descriptor_handle_scale_metadata_miss_count": 2,
+        "premap_consumer_real_descriptor_handle_aux_metadata_hit_count": 5,
+        "premap_consumer_real_descriptor_handle_aux_metadata_miss_count": 3,
+        "premap_consumer_real_descriptor_handle_resolver_disabled_count": 11,
+        "premap_consumer_real_descriptor_handle_consumer_layer_missing_count": 12,
+        "premap_consumer_real_descriptor_handle_expert_map_miss_count": 13,
+        "premap_consumer_real_descriptor_handle_no_handle_parts_count": 14,
+        "unrelated_debug_key": 99,
+    }
+    performance: dict[str, object] = {}
+
+    _add_runtime_shadow_aggregate_to_performance(performance, aggregate)
+
+    assert performance["runtime_shadow_aggregate_premap_consumer_mapping_count"] == 3
+    assert (
+        performance[
+            "runtime_shadow_aggregate_premap_consumer_real_descriptor_handle_hit_count"
+        ]
+        == 7
+    )
+    assert (
+        performance[
+            "runtime_shadow_aggregate_premap_consumer_real_descriptor_handle_aux_metadata_miss_count"
+        ]
+        == 3
+    )
+    assert (
+        performance[
+            "runtime_shadow_aggregate_premap_consumer_real_descriptor_handle_no_handle_parts_count"
+        ]
+        == 14
+    )
+    assert "runtime_shadow_aggregate_unrelated_debug_key" not in performance
 
 
 class _ExpertGate(torch.nn.Module):
@@ -1210,6 +1254,22 @@ def test_vllm_router_recorder_premap_consumer_real_handle_lifecycle_and_eviction
     assert first["premap_consumer_real_descriptor_handle_hit_count"] == 2
     assert first["premap_consumer_real_descriptor_handle_miss_count"] == 0
     assert first["premap_consumer_real_descriptor_handle_available"] is True
+    assert first["premap_consumer_real_descriptor_handle_source_hashes"][
+        "packed_weight"
+    ]
+    assert first["premap_consumer_real_descriptor_handle_source_hashes"][
+        "scale_metadata"
+    ]
+    assert first["premap_consumer_real_descriptor_handle_source_hit_counts"] == {
+        "packed_weight": 2,
+        "scale_metadata": 2,
+        "aux_metadata": 0,
+    }
+    assert first["premap_consumer_real_descriptor_handle_source_miss_counts"] == {
+        "packed_weight": 0,
+        "scale_metadata": 0,
+        "aux_metadata": 2,
+    }
     assert first["premap_consumer_real_descriptor_handle_new_binding_count"] == 2
     assert first["premap_consumer_real_descriptor_handle_reused_binding_count"] == 0
     assert first["premap_consumer_real_descriptor_handle_binding_mismatch_count"] == 0

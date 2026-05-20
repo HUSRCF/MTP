@@ -81,6 +81,63 @@ _ATTENTION_HANDOFF_COMPONENTS = (
     "attention_linear_handoff_core_post_layout",
     "attention_linear_handoff_out_proj",
 )
+
+RUNTIME_SHADOW_AGGREGATE_PERFORMANCE_KEYS = (
+    "outcome_aggregate_count",
+    "descriptor_summary_min_count",
+    "premap_summary_count",
+    "premap_summary_descriptor_count",
+    "premap_summary_payload_bytes",
+    "premap_summary_actual_bytes",
+    "premap_address_manager_count",
+    "premap_address_resident_count_max",
+    "premap_address_resident_descriptor_bytes_max",
+    "premap_address_prepared_descriptor_actual_bytes_max",
+    "premap_address_reused_count",
+    "premap_address_evicted_count",
+    "premap_address_reuse_rate_mean",
+    "premap_address_eviction_pressure_mean",
+    "premap_consumer_mapping_count",
+    "premap_consumer_address_hit_rate",
+    "premap_consumer_descriptor_handle_hit_rate",
+    "premap_consumer_parity_ok_rate",
+    "premap_consumer_descriptor_handle_parity_ok_rate",
+    "premap_consumer_lookup_after_prepare_rate",
+    "premap_consumer_real_descriptor_handle_hit_count",
+    "premap_consumer_real_descriptor_handle_miss_count",
+    "premap_consumer_real_descriptor_handle_hit_rate",
+    "premap_consumer_real_descriptor_handle_available_rate",
+    "premap_consumer_real_descriptor_handle_packed_weight_hit_count",
+    "premap_consumer_real_descriptor_handle_packed_weight_miss_count",
+    "premap_consumer_real_descriptor_handle_scale_metadata_hit_count",
+    "premap_consumer_real_descriptor_handle_scale_metadata_miss_count",
+    "premap_consumer_real_descriptor_handle_aux_metadata_hit_count",
+    "premap_consumer_real_descriptor_handle_aux_metadata_miss_count",
+    "premap_consumer_real_descriptor_handle_resolver_disabled_count",
+    "premap_consumer_real_descriptor_handle_consumer_layer_missing_count",
+    "premap_consumer_real_descriptor_handle_expert_map_miss_count",
+    "premap_consumer_real_descriptor_handle_no_handle_parts_count",
+    "premap_consumer_real_descriptor_handle_new_binding_count",
+    "premap_consumer_real_descriptor_handle_reused_binding_count",
+    "premap_consumer_real_descriptor_handle_binding_mismatch_count",
+    "premap_consumer_real_descriptor_handle_for_address_miss_count",
+    "premap_consumer_error_count",
+    "premap_consumer_payload_violation_count",
+    "premap_consumer_router_change_violation_count",
+    "premap_consumer_descriptor_order_change_violation_count",
+    "premap_consumer_ready_credit_violation_count",
+)
+
+
+def _add_runtime_shadow_aggregate_to_performance(
+    performance: dict[str, Any],
+    aggregate: dict[str, Any],
+) -> None:
+    for key in RUNTIME_SHADOW_AGGREGATE_PERFORMANCE_KEYS:
+        if key in aggregate:
+            performance[f"runtime_shadow_aggregate_{key}"] = aggregate[key]
+
+
 _ATTENTION_HANDOFF_COMPONENT_INDEX = {
     name: idx for idx, name in enumerate(_ATTENTION_HANDOFF_COMPONENTS)
 }
@@ -1663,29 +1720,78 @@ class VllmRouterRecorder:
         *,
         consumer_layer: Any | None,
         expert_ids: list[int],
-    ) -> tuple[int, int, str | None, bool | None, dict[int, str]]:
+    ) -> tuple[
+        int,
+        int,
+        str | None,
+        bool | None,
+        dict[int, str],
+        dict[str, str],
+        dict[str, int],
+        dict[str, int],
+        dict[str, int],
+    ]:
+        source_attrs = {
+            "packed_weight": (
+                "w13_weight_packed",
+                "w2_weight_packed",
+                "w13_qweight",
+                "w2_qweight",
+            ),
+            "scale_metadata": (
+                "w13_weight_scale",
+                "w2_weight_scale",
+                "w13_scales",
+                "w2_scales",
+            ),
+            "aux_metadata": (
+                "w13_qzeros",
+                "w2_qzeros",
+                "w13_weight_g_idx",
+                "w2_weight_g_idx",
+            ),
+        }
+        source_names = tuple(source_attrs)
+        empty_source_hashes: dict[str, str] = {}
+        empty_source_hit_counts = {name: 0 for name in source_names}
+        empty_source_miss_counts = {name: 0 for name in source_names}
         if not bool(self.shadow_premap_consumer_resolve_real_handles):
-            return 0, 0, None, None, {}
+            return (
+                0,
+                0,
+                None,
+                None,
+                {},
+                empty_source_hashes,
+                empty_source_hit_counts,
+                empty_source_miss_counts,
+                {"resolver_disabled": len(expert_ids)},
+            )
         if consumer_layer is None:
-            return 0, len(expert_ids), None, False, {}
+            return (
+                0,
+                len(expert_ids),
+                None,
+                False,
+                {},
+                empty_source_hashes,
+                empty_source_hit_counts,
+                {name: len(expert_ids) for name in source_names},
+                {"consumer_layer_missing": len(expert_ids)},
+            )
 
-        attr_names = (
-            "w13_weight_packed",
-            "w2_weight_packed",
-            "w13_weight_scale",
-            "w2_weight_scale",
-            "w13_qweight",
-            "w2_qweight",
-            "w13_scales",
-            "w2_scales",
-            "w13_qzeros",
-            "w2_qzeros",
-            "w13_weight_g_idx",
-            "w2_weight_g_idx",
-        )
         expert_map = getattr(consumer_layer, "expert_map", None)
         handle_hashes: list[str] = []
         handle_by_expert: dict[int, str] = {}
+        source_hash_parts: dict[str, list[str]] = {name: [] for name in source_names}
+        source_hit_counts: dict[str, int] = {name: 0 for name in source_names}
+        source_miss_counts: dict[str, int] = {name: 0 for name in source_names}
+        miss_reason_counts: dict[str, int] = {
+            "resolver_disabled": 0,
+            "consumer_layer_missing": 0,
+            "expert_map_miss": 0,
+            "no_handle_parts": 0,
+        }
         miss_count = 0
         for expert_id in expert_ids:
             local_expert = int(expert_id)
@@ -1699,42 +1805,75 @@ class VllmRouterRecorder:
                     local_expert = -1
             if local_expert < 0:
                 miss_count += 1
+                for source_name in source_names:
+                    source_miss_counts[source_name] += 1
+                miss_reason_counts["expert_map_miss"] += 1
                 continue
             parts: list[str] = []
-            for attr_name in attr_names:
-                tensor = getattr(consumer_layer, attr_name, None)
-                if not isinstance(tensor, torch.Tensor) or int(tensor.numel()) <= 0:
-                    continue
-                if tensor.ndim > 0 and local_expert >= int(tensor.shape[0]):
-                    continue
-                try:
-                    view = tensor[int(local_expert)] if tensor.ndim > 0 else tensor
-                    # Runtime-address signature only.  This is not a portable
-                    # semantic handle id across model reloads or tensor
-                    # reallocation; it is meant to audit stability of the live
-                    # descriptor/address object during one recorder lifetime.
-                    parts.append(
-                        ":".join(
-                            (
-                                str(attr_name),
-                                str(tuple(tensor.shape)),
-                                str(tensor.dtype),
-                                str(tensor.device),
-                                str(int(view.data_ptr())),
+            for source_name, attr_names in source_attrs.items():
+                source_parts: list[str] = []
+                for attr_name in attr_names:
+                    tensor = getattr(consumer_layer, attr_name, None)
+                    if not isinstance(tensor, torch.Tensor) or int(tensor.numel()) <= 0:
+                        continue
+                    if tensor.ndim > 0 and local_expert >= int(tensor.shape[0]):
+                        continue
+                    try:
+                        view = tensor[int(local_expert)] if tensor.ndim > 0 else tensor
+                        # Runtime-address signature only.  This is not a portable
+                        # semantic handle id across model reloads or tensor
+                        # reallocation; it is meant to audit stability of the live
+                        # descriptor/address object during one recorder lifetime.
+                        source_parts.append(
+                            ":".join(
+                                (
+                                    str(source_name),
+                                    str(attr_name),
+                                    str(tuple(tensor.shape)),
+                                    str(tensor.dtype),
+                                    str(tensor.device),
+                                    str(int(view.data_ptr())),
+                                )
                             )
                         )
-                    )
-                except Exception:
-                    continue
+                    except Exception:
+                        continue
+                if source_parts:
+                    # Source hit is intentionally any-of within the source bucket:
+                    # a packed/scale/aux bucket is considered resolvable when at
+                    # least one of its known AWQ/vLLM handle fields is present.
+                    # This audits source-class availability, not per-field
+                    # completeness.
+                    source_hit_counts[source_name] += 1
+                    source_hash_parts[source_name].extend(source_parts)
+                    parts.extend(source_parts)
+                else:
+                    source_miss_counts[source_name] += 1
             if not parts:
                 miss_count += 1
+                miss_reason_counts["no_handle_parts"] += 1
                 continue
             payload = "|".join([str(expert_id), str(local_expert), *sorted(parts)])
             handle_hash = hashlib.sha256(payload.encode("utf-8")).hexdigest()
             handle_hashes.append(handle_hash)
             handle_by_expert[int(expert_id)] = handle_hash
         real_hash = self._hash_premap_address_handles(handle_hashes)
-        return len(handle_hashes), miss_count, real_hash, miss_count == 0, handle_by_expert
+        source_hashes = {
+            source_name: self._hash_premap_address_handles(parts)
+            for source_name, parts in source_hash_parts.items()
+            if parts
+        }
+        return (
+            len(handle_hashes),
+            miss_count,
+            real_hash,
+            miss_count == 0,
+            handle_by_expert,
+            source_hashes,
+            source_hit_counts,
+            source_miss_counts,
+            {k: v for k, v in miss_reason_counts.items() if int(v) > 0},
+        )
 
     def _premap_consumer_mapping_wanted(self) -> bool:
         if not bool(self.shadow_emit_premap_consumer_mapping):
@@ -1827,6 +1966,10 @@ class VllmRouterRecorder:
             real_handle_hash,
             real_handle_available,
             real_handle_by_expert,
+            real_handle_source_hashes,
+            real_handle_source_hit_counts,
+            real_handle_source_miss_counts,
+            real_handle_miss_reason_counts,
         ) = self._resolve_real_premap_descriptor_handles(
             consumer_layer=consumer_layer,
             expert_ids=valid_experts,
@@ -1933,6 +2076,10 @@ class VllmRouterRecorder:
                 real_descriptor_handle_miss_count=int(real_handle_miss_count),
                 real_descriptor_handle_hash=real_handle_hash,
                 real_descriptor_handle_available=real_handle_available,
+                real_descriptor_handle_source_hashes=real_handle_source_hashes,
+                real_descriptor_handle_source_hit_counts=real_handle_source_hit_counts,
+                real_descriptor_handle_source_miss_counts=real_handle_source_miss_counts,
+                real_descriptor_handle_miss_reason_counts=real_handle_miss_reason_counts,
                 real_descriptor_handle_new_binding_count=int(new_binding_count),
                 real_descriptor_handle_reused_binding_count=int(reused_binding_count),
                 real_descriptor_handle_binding_mismatch_count=int(binding_mismatch_count),
@@ -10529,41 +10676,7 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
         performance["runtime_shadow_size_mb"] = (
             float(runtime_shadow_path.stat().st_size) / (1024.0 * 1024.0)
         )
-        for key in (
-            "outcome_aggregate_count",
-            "descriptor_summary_min_count",
-            "premap_summary_count",
-            "premap_summary_descriptor_count",
-            "premap_summary_payload_bytes",
-            "premap_summary_actual_bytes",
-            "premap_address_manager_count",
-            "premap_address_resident_count_max",
-            "premap_address_resident_descriptor_bytes_max",
-            "premap_address_prepared_descriptor_actual_bytes_max",
-            "premap_address_reused_count",
-            "premap_address_evicted_count",
-            "premap_address_reuse_rate_mean",
-            "premap_address_eviction_pressure_mean",
-            "premap_consumer_mapping_count",
-            "premap_consumer_address_hit_rate",
-            "premap_consumer_descriptor_handle_hit_rate",
-            "premap_consumer_parity_ok_rate",
-            "premap_consumer_descriptor_handle_parity_ok_rate",
-            "premap_consumer_lookup_after_prepare_rate",
-            "premap_consumer_real_descriptor_handle_hit_rate",
-            "premap_consumer_real_descriptor_handle_available_rate",
-            "premap_consumer_real_descriptor_handle_new_binding_count",
-            "premap_consumer_real_descriptor_handle_reused_binding_count",
-            "premap_consumer_real_descriptor_handle_binding_mismatch_count",
-            "premap_consumer_real_descriptor_handle_for_address_miss_count",
-            "premap_consumer_error_count",
-            "premap_consumer_payload_violation_count",
-            "premap_consumer_router_change_violation_count",
-            "premap_consumer_descriptor_order_change_violation_count",
-            "premap_consumer_ready_credit_violation_count",
-        ):
-            if key in aggregate:
-                performance[f"runtime_shadow_aggregate_{key}"] = aggregate[key]
+        _add_runtime_shadow_aggregate_to_performance(performance, aggregate)
     performance_path = output_dir / "performance_summary.json"
     performance_path.write_text(
         json.dumps(performance, indent=2, sort_keys=True) + "\n",

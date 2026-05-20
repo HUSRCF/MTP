@@ -705,6 +705,10 @@ class ShadowPremapConsumerMappingEvent:
     real_descriptor_handle_miss_count: int = 0
     real_descriptor_handle_hash: str | None = None
     real_descriptor_handle_available: bool | None = None
+    real_descriptor_handle_source_hashes: dict[str, str] | None = None
+    real_descriptor_handle_source_hit_counts: dict[str, int] | None = None
+    real_descriptor_handle_source_miss_counts: dict[str, int] | None = None
+    real_descriptor_handle_miss_reason_counts: dict[str, int] | None = None
     real_descriptor_handle_new_binding_count: int = 0
     real_descriptor_handle_reused_binding_count: int = 0
     real_descriptor_handle_binding_mismatch_count: int = 0
@@ -827,6 +831,26 @@ class ShadowPremapConsumerMappingEvent:
             payload,
             "premap_consumer_real_descriptor_handle_available",
             self.real_descriptor_handle_available,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_real_descriptor_handle_source_hashes",
+            self.real_descriptor_handle_source_hashes,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_real_descriptor_handle_source_hit_counts",
+            self.real_descriptor_handle_source_hit_counts,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_real_descriptor_handle_source_miss_counts",
+            self.real_descriptor_handle_source_miss_counts,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_real_descriptor_handle_miss_reason_counts",
+            self.real_descriptor_handle_miss_reason_counts,
         )
         _put_optional(
             payload,
@@ -1020,6 +1044,16 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
         "premap_consumer_real_descriptor_handle_hit_count": 0,
         "premap_consumer_real_descriptor_handle_miss_count": 0,
         "premap_consumer_real_descriptor_handle_available_count": 0,
+        "premap_consumer_real_descriptor_handle_packed_weight_hit_count": 0,
+        "premap_consumer_real_descriptor_handle_packed_weight_miss_count": 0,
+        "premap_consumer_real_descriptor_handle_scale_metadata_hit_count": 0,
+        "premap_consumer_real_descriptor_handle_scale_metadata_miss_count": 0,
+        "premap_consumer_real_descriptor_handle_aux_metadata_hit_count": 0,
+        "premap_consumer_real_descriptor_handle_aux_metadata_miss_count": 0,
+        "premap_consumer_real_descriptor_handle_resolver_disabled_count": 0,
+        "premap_consumer_real_descriptor_handle_consumer_layer_missing_count": 0,
+        "premap_consumer_real_descriptor_handle_expert_map_miss_count": 0,
+        "premap_consumer_real_descriptor_handle_no_handle_parts_count": 0,
         "premap_consumer_real_descriptor_handle_new_binding_count": 0,
         "premap_consumer_real_descriptor_handle_reused_binding_count": 0,
         "premap_consumer_real_descriptor_handle_binding_mismatch_count": 0,
@@ -1350,6 +1384,38 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
             totals["premap_consumer_real_descriptor_handle_available_count"] += int(
                 bool(event.get("premap_consumer_real_descriptor_handle_available", False))
             )
+            source_hit_counts = event.get(
+                "premap_consumer_real_descriptor_handle_source_hit_counts",
+                {},
+            )
+            source_miss_counts = event.get(
+                "premap_consumer_real_descriptor_handle_source_miss_counts",
+                {},
+            )
+            if isinstance(source_hit_counts, dict):
+                for source in ("packed_weight", "scale_metadata", "aux_metadata"):
+                    totals[
+                        f"premap_consumer_real_descriptor_handle_{source}_hit_count"
+                    ] += int(source_hit_counts.get(source, 0) or 0)
+            if isinstance(source_miss_counts, dict):
+                for source in ("packed_weight", "scale_metadata", "aux_metadata"):
+                    totals[
+                        f"premap_consumer_real_descriptor_handle_{source}_miss_count"
+                    ] += int(source_miss_counts.get(source, 0) or 0)
+            miss_reason_counts = event.get(
+                "premap_consumer_real_descriptor_handle_miss_reason_counts",
+                {},
+            )
+            if isinstance(miss_reason_counts, dict):
+                for reason in (
+                    "resolver_disabled",
+                    "consumer_layer_missing",
+                    "expert_map_miss",
+                    "no_handle_parts",
+                ):
+                    totals[
+                        f"premap_consumer_real_descriptor_handle_{reason}_count"
+                    ] += int(miss_reason_counts.get(reason, 0) or 0)
             totals["premap_consumer_real_descriptor_handle_new_binding_count"] += int(
                 event.get("premap_consumer_real_descriptor_handle_new_binding_count", 0) or 0
             )
