@@ -687,6 +687,10 @@ class ShadowPremapConsumerMappingEvent:
     all_hit: bool
     parity_ok: bool
     consumer_key_hash: str
+    readonly_gate_required: bool = False
+    readonly_gate_id: str | None = None
+    readonly_gate_path: str | None = None
+    readonly_gate_passed: bool | None = None
     descriptor_handle_hit_count: int = 0
     descriptor_handle_miss_count: int = 0
     descriptor_handle_hash: str | None = None
@@ -723,6 +727,9 @@ class ShadowPremapConsumerMappingEvent:
             "premap_consumer_mapping_mode": str(self.mapping_mode),
             "premap_consumer_mapping_source": str(self.mapping_source),
             "premap_address_namespace": str(self.address_namespace),
+            "premap_consumer_readonly_gate_required": bool(
+                self.readonly_gate_required
+            ),
             "premap_consumer_expert_count": int(self.consumer_expert_count),
             "premap_consumer_unique_expert_count": int(
                 self.consumer_unique_expert_count
@@ -746,6 +753,21 @@ class ShadowPremapConsumerMappingEvent:
             "premap_consumer_payload_bytes": int(self.payload_bytes),
             "premap_consumer_ready_credit": bool(self.ready_credit),
         }
+        _put_optional(
+            payload,
+            "premap_consumer_readonly_gate_id",
+            self.readonly_gate_id,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_readonly_gate_path",
+            self.readonly_gate_path,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_readonly_gate_passed",
+            self.readonly_gate_passed,
+        )
         _put_optional(
             payload,
             "premap_consumer_descriptor_handle_hash",

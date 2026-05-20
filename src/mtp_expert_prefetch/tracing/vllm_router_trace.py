@@ -504,6 +504,10 @@ class VllmRouterRecorder:
     shadow_premap_consumer_mapping_source: str = "fused_moe_prepare_expert_assignment"
     shadow_premap_consumer_resolve_real_handles: bool = False
     shadow_premap_consumer_mapping_sample_period: int = 1
+    shadow_premap_consumer_readonly_gate_required: bool = False
+    shadow_premap_consumer_readonly_gate_id: str | None = None
+    shadow_premap_consumer_readonly_gate_path: str | None = None
+    shadow_premap_consumer_readonly_gate_passed: bool | None = None
     shadow_premap_address_namespace: str = "expert_weight_descriptor"
     shadow_premap_priority: int = 2
     shadow_transition_premap_priority: int = 3
@@ -1889,6 +1893,12 @@ class VllmRouterRecorder:
                 mapping_mode=str(self.shadow_premap_consumer_mapping_mode),
                 mapping_source=str(self.shadow_premap_consumer_mapping_source),
                 address_namespace=str(self.shadow_premap_address_namespace),
+                readonly_gate_required=bool(
+                    self.shadow_premap_consumer_readonly_gate_required
+                ),
+                readonly_gate_id=self.shadow_premap_consumer_readonly_gate_id,
+                readonly_gate_path=self.shadow_premap_consumer_readonly_gate_path,
+                readonly_gate_passed=self.shadow_premap_consumer_readonly_gate_passed,
                 consumer_expert_count=len(active_experts),
                 consumer_unique_expert_count=len(address_keys),
                 address_hit_count=int(hit_count),
@@ -9949,6 +9959,51 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                                         1,
                                     )
                                 ),
+                            ),
+                            shadow_premap_consumer_readonly_gate_required=bool(
+                                runtime_shadow_options.get(
+                                    "premap_consumer_readonly_gate_required",
+                                    runtime_shadow_options.get(
+                                        "premap_consumer_require_readonly_gate",
+                                        False,
+                                    ),
+                                )
+                            ),
+                            shadow_premap_consumer_readonly_gate_id=(
+                                str(
+                                    runtime_shadow_options.get(
+                                        "premap_consumer_readonly_gate_id"
+                                    )
+                                )
+                                if runtime_shadow_options.get(
+                                    "premap_consumer_readonly_gate_id"
+                                )
+                                is not None
+                                else None
+                            ),
+                            shadow_premap_consumer_readonly_gate_path=(
+                                str(
+                                    runtime_shadow_options.get(
+                                        "premap_consumer_readonly_gate_resolved_path"
+                                    )
+                                )
+                                if runtime_shadow_options.get(
+                                    "premap_consumer_readonly_gate_resolved_path"
+                                )
+                                is not None
+                                else None
+                            ),
+                            shadow_premap_consumer_readonly_gate_passed=(
+                                None
+                                if runtime_shadow_options.get(
+                                    "premap_consumer_readonly_gate_passed"
+                                )
+                                is None
+                                else bool(
+                                    runtime_shadow_options.get(
+                                        "premap_consumer_readonly_gate_passed"
+                                    )
+                                )
                             ),
                             shadow_premap_address_namespace=str(
                                 runtime_shadow_options.get(

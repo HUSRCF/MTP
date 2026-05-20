@@ -13761,3 +13761,36 @@ Review follow-up tightened the readonly gate boundary:
 - 8-sample premap consumer smoke config is now covered by tests for readonly gate binding.
 - pytest tests -q -> 433 passed, 2 warnings.
 ```
+
+## Premap Consumer Event-Level Gate Metadata (2026-05-20)
+
+The read-only consumer gate is now attached to each `premap_consumer_mapping` event, not only to `performance_summary.json`.  This makes the runtime shadow log self-contained for lab replay/audit: every consumer handle assertion carries the gate that allowed it.
+
+GPU1 8-sample AWQ/vLLM smoke with latest code:
+
+```text
+artifact:
+  data/traces/external_prompt_gate_dolly_8_awq_vllm_gpu1_decode_gen64_premap_consumer_mapping_smoke/
+
+premap_consumer_mapping_count = 20480
+missing_premap_consumer_readonly_gate_passed = 0
+premap_consumer_readonly_gate_required = true
+premap_consumer_readonly_gate_passed = true
+premap_consumer_readonly_gate_id = premap_consumer_readonly_dolly512_gen64_awq_w7900_gpu1
+
+first-row no-op contract:
+  premap_consumer_payload_bytes = 0
+  premap_consumer_changes_router = false
+  premap_consumer_changes_descriptor_order = false
+  premap_consumer_ready_credit = false
+  premap_consumer_address_hit_rate = 1.0
+  premap_consumer_real_descriptor_handle_hit_count = 174
+```
+
+Review follow-up also added explicit event serialization coverage for `readonly_gate_passed=false` and `None`:
+
+```text
+false -> serialized as false
+None  -> omitted
+pytest tests -q -> 435 passed, 2 warnings
+```

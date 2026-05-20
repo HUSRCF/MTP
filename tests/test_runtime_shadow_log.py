@@ -297,6 +297,10 @@ def test_shadow_log_aggregates_premap_consumer_mapping_without_side_effects(tmp_
         mapping_mode="noop_assertion",
         mapping_source="fused_moe_prepare_expert_assignment",
         address_namespace="expert_weight_descriptor",
+        readonly_gate_required=True,
+        readonly_gate_id="readonly-gate",
+        readonly_gate_path="configs/runtime/readonly.yaml",
+        readonly_gate_passed=True,
         consumer_expert_count=4,
         consumer_unique_expert_count=2,
         address_hit_count=2,
@@ -335,6 +339,12 @@ def test_shadow_log_aggregates_premap_consumer_mapping_without_side_effects(tmp_
     assert rows[0]["event_type"] == "premap_consumer_mapping"
     assert rows[0]["policy_mode"] == "premap_shadow"
     assert rows[0]["premap_consumer_mapping_mode"] == "noop_assertion"
+    assert rows[0]["premap_consumer_readonly_gate_required"] is True
+    assert rows[0]["premap_consumer_readonly_gate_id"] == "readonly-gate"
+    assert rows[0]["premap_consumer_readonly_gate_path"] == (
+        "configs/runtime/readonly.yaml"
+    )
+    assert rows[0]["premap_consumer_readonly_gate_passed"] is True
     assert rows[0]["premap_consumer_payload_bytes"] == 0
     assert rows[0]["premap_consumer_changes_router"] is False
     assert rows[0]["premap_consumer_changes_descriptor_order"] is False
@@ -363,6 +373,56 @@ def test_shadow_log_aggregates_premap_consumer_mapping_without_side_effects(tmp_
     assert aggregate["premap_consumer_router_change_violation_count"] == 0
     assert aggregate["premap_consumer_descriptor_order_change_violation_count"] == 0
     assert aggregate["premap_consumer_ready_credit_violation_count"] == 0
+
+
+def test_premap_consumer_readonly_gate_passed_false_is_serialized():
+    event = ShadowPremapConsumerMappingEvent(
+        event_id=ShadowEventId("req", sequence_id=0, token_index=-1, layer=2),
+        mapping_mode="noop_assertion",
+        mapping_source="fused_moe_prepare_expert_assignment",
+        address_namespace="expert_weight_descriptor",
+        readonly_gate_required=True,
+        readonly_gate_id="readonly-gate",
+        readonly_gate_path="configs/runtime/readonly.yaml",
+        readonly_gate_passed=False,
+        consumer_expert_count=1,
+        consumer_unique_expert_count=1,
+        address_hit_count=0,
+        address_miss_count=1,
+        address_hit_rate=0.0,
+        all_hit=False,
+        parity_ok=False,
+        consumer_key_hash="consumer-hash",
+    )
+
+    row = event.as_dict()
+
+    assert row["premap_consumer_readonly_gate_required"] is True
+    assert row["premap_consumer_readonly_gate_passed"] is False
+
+
+def test_premap_consumer_readonly_gate_passed_none_is_omitted():
+    event = ShadowPremapConsumerMappingEvent(
+        event_id=ShadowEventId("req", sequence_id=0, token_index=-1, layer=2),
+        mapping_mode="noop_assertion",
+        mapping_source="fused_moe_prepare_expert_assignment",
+        address_namespace="expert_weight_descriptor",
+        readonly_gate_required=False,
+        readonly_gate_passed=None,
+        consumer_expert_count=1,
+        consumer_unique_expert_count=1,
+        address_hit_count=0,
+        address_miss_count=1,
+        address_hit_rate=0.0,
+        all_hit=False,
+        parity_ok=False,
+        consumer_key_hash="consumer-hash",
+    )
+
+    row = event.as_dict()
+
+    assert row["premap_consumer_readonly_gate_required"] is False
+    assert "premap_consumer_readonly_gate_passed" not in row
 
 
 def test_shadow_log_aggregates_premap_address_manager_snapshot_deltas(tmp_path):

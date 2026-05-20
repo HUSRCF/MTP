@@ -1101,6 +1101,10 @@ def test_vllm_router_recorder_premap_consumer_mapping_hits_prepared_addresses():
         shadow_emit_premap_summary=True,
         shadow_emit_premap_address_manager_counters=True,
         shadow_emit_premap_consumer_mapping=True,
+        shadow_premap_consumer_readonly_gate_required=True,
+        shadow_premap_consumer_readonly_gate_id="readonly-gate",
+        shadow_premap_consumer_readonly_gate_path="configs/runtime/readonly.yaml",
+        shadow_premap_consumer_readonly_gate_passed=True,
         shadow_premap_address_manager_capacity=4,
         shadow_num_experts=6,
         request_id="req",
@@ -1129,6 +1133,12 @@ def test_vllm_router_recorder_premap_consumer_mapping_hits_prepared_addresses():
     assert consumer["premap_consumer_mapping_source"] == (
         "fused_moe_prepare_expert_assignment"
     )
+    assert consumer["premap_consumer_readonly_gate_required"] is True
+    assert consumer["premap_consumer_readonly_gate_id"] == "readonly-gate"
+    assert consumer["premap_consumer_readonly_gate_path"] == (
+        "configs/runtime/readonly.yaml"
+    )
+    assert consumer["premap_consumer_readonly_gate_passed"] is True
     assert consumer["premap_consumer_expert_count"] == 2
     assert consumer["premap_consumer_unique_expert_count"] == 2
     assert consumer["premap_consumer_address_hit_count"] == 2
