@@ -13752,3 +13752,12 @@ Verification:
 ```text
 pytest tests -q -> 431 passed, 2 warnings
 ```
+
+Review follow-up tightened the readonly gate boundary:
+
+```text
+- gate.passed must be a YAML boolean, not a truthy string/object.
+- descriptor_bytes is compared against the runtime default 4096 even when the option is omitted.
+- 8-sample premap consumer smoke config is now covered by tests for readonly gate binding.
+- pytest tests -q -> 433 passed, 2 warnings.
+```

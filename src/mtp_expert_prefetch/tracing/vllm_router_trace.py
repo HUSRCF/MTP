@@ -9016,10 +9016,9 @@ def _apply_premap_consumer_readonly_gate(
             )
             raise ValueError(msg)
     descriptor_bytes = contract.get("descriptor_bytes")
-    option_descriptor_bytes = options.get("premap_descriptor_bytes")
+    option_descriptor_bytes = options.get("premap_descriptor_bytes", 4096)
     if (
         descriptor_bytes is not None
-        and option_descriptor_bytes is not None
         and int(descriptor_bytes) != int(option_descriptor_bytes)
     ):
         msg = (

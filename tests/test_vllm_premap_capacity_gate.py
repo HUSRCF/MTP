@@ -206,6 +206,25 @@ def test_apply_premap_consumer_readonly_gate_rejects_descriptor_size_mismatch(tm
         )
 
 
+def test_apply_premap_consumer_readonly_gate_checks_default_descriptor_size(tmp_path):
+    gate = tmp_path / "readonly_gate.yaml"
+    _write_readonly_gate(gate)
+    text = gate.read_text(encoding="utf-8")
+    gate.write_text(
+        text.replace("  descriptor_bytes: 4096", "  descriptor_bytes: 2048"),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="descriptor size"):
+        _apply_premap_consumer_readonly_gate(
+            {
+                "enabled": True,
+                "premap_consumer_readonly_gate_path": str(gate),
+            },
+            project_root=tmp_path,
+        )
+
+
 def test_apply_premap_address_capacity_gate_accepts_matching_inline_capacity(tmp_path):
     gate = tmp_path / "gate.yaml"
     _write_gate(gate, capacity=8192)
@@ -391,3 +410,23 @@ def test_default_longrun_audit_config_uses_premap_capacity_gate(
     assert shadow["emit_wna16_kernel_timing"] is False
     assert shadow["decoder_source_timing_mode"] == "off"
     assert shadow["moe_source_timing_mode"] == "off"
+
+
+def test_premap_consumer_mapping_smoke_config_requires_readonly_gate():
+    config_path = PROJECT_ROOT / (
+        "configs/trace/"
+        "router_mtp_trace_external_prompt_gate_dolly_8_awq_vllm_gpu1_decode_gen64_premap_consumer_mapping_smoke.yaml"
+    )
+    config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    shadow = config["trace"]["runtime_shadow"]
+
+    assert shadow["emit_premap_consumer_mapping"] is True
+    assert shadow["premap_consumer_mapping_mode"] == "noop_assertion"
+    assert shadow["premap_consumer_resolve_real_handles"] is True
+    assert shadow["premap_consumer_require_readonly_gate"] is True
+    assert (
+        shadow["premap_consumer_readonly_gate_path"]
+        == "configs/runtime/premap_consumer_readonly_gate_dolly512_gen64_awq_w7900_gpu1.yaml"
+    )
+    assert shadow["premap_policy"] == "premap_only_with_consumer_mapping_noop"
+    assert shadow["premap_descriptor_bytes"] == 4096
