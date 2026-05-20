@@ -1,0 +1,8 @@
+# Replay-derived full-fetch MTP admission gate.
+# Boundary: bounded-cache lab replay contract only; not endpoint TPOT.
+min_payload_capacity: 10240
+min_overlap_factor: 0.5
+max_manager_us_per_issue: 50.0
+min_bandwidth_gbps: 3.0
+max_bandwidth_gbps: 12.0
+require_stress_fallback_clear: true

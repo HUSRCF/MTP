@@ -1,0 +1,61 @@
+model: configs/model/qwen3_6_35b_a3b_awq_4bit.yaml
+data: configs/data/aya_dataset_512.yaml
+output_dir: data/traces/aya_dataset_heldout128_gen8_awq_vllm_descriptor_order_attr_no_order_gpu1_decode_telemetry_off
+
+trace:
+  capture_router_topk: true
+  capture_router_scores: true
+  use_router_logits_recorder: true
+  capture_hidden_states: none
+  capture_native_mtp_router: false
+  future_window: 4
+  start_sample: 128
+  max_samples: 128
+  max_length: 128
+  max_tokens: 8
+  router_module_prefix: model.language_model
+  token_source_manifest: data/traces/aya_dataset_512_autoround/manifest.jsonl
+  runtime_shadow:
+    enabled: true
+    output_path: data/traces/aya_dataset_heldout128_gen8_awq_vllm_descriptor_order_attr_no_order_gpu1_decode_telemetry_off/runtime_shadow.jsonl
+    overwrite: true
+    flush_every: 100000
+    writer_mode: jsonl_batched
+    max_pending: 10000
+    emit_transition_summaries: false
+    emit_descriptor_order_summaries: false
+    emit_summaries: false
+    emit_outcomes: false
+    outcome_logging_mode: "off"
+    descriptor_order_prior_path: outputs/reports/tile_order_cache/layer_prior_frequency_384calib.json
+    descriptor_order_prior_id: layer_prior_frequency_384calib
+    descriptor_order_gate_path: configs/runtime/descriptor_order_two_level_gate.yaml
+    descriptor_order_consumer_evidence_path: outputs/reports/tile_order_cache/descriptor_consumer_micro_runtime_awq128_two_level_gate_table_tile_sweep.json
+    descriptor_order_evidence_policy: layer_prior_frequency_two_level
+    descriptor_order_evidence_cache_flush_elems: 0
+    descriptor_order_checksum_tolerance: 0.0
+    descriptor_order_tiles_per_expert: 1
+    descriptor_order_tile_elems: 1024
+    descriptor_order_token_window_size: 64
+    descriptor_order_cache_sizes: [8, 16, 32]
+    descriptor_order_top_k: 8
+    descriptor_order_top_utility_override: 0
+    descriptor_order_metrics_mode: none
+    descriptor_order_event_mode: minimal
+    descriptor_order_execution_mode: two_level_group_plan
+    descriptor_order_mapping_assertion_mode: router_topk_tile_stream
+    descriptor_order_mapping_source: base_router_select_experts_topk
+    descriptor_order_prelaunch_assertion_mode: moe_prepare_expert_assignment
+    descriptor_order_prelaunch_mapping_source: fused_moe_prepare_expert_assignment
+    descriptor_order_emit_consumer_handle_events: false
+    descriptor_order_reorder_mvp_enabled: false
+    descriptor_order_reorder_mvp_apply_mode: dry_run
+    descriptor_order_reorder_mvp_attribution_mode: full
+    descriptor_order_reorder_mvp_require_profitable: true
+    descriptor_order_groups_per_cta: 8
+    descriptor_order_device: 1
+    descriptor_order_event_token_index: -1
+    request_id_prefix: sample_
+    sequence_id: 0
+    token_offset: 0
+    flush_pending_as_timeouts: true

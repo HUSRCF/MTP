@@ -1,0 +1,8 @@
+name: external_prompt_gate_dolly_512
+source: huggingface
+dataset_name: databricks/databricks-dolly-15k
+split: train
+streaming: true
+max_samples: 512
+material_path: data/raw/external_prompt_gate_dolly_512.jsonl
+text_template: "User:\n{instruction}\n\nContext:\n{context}\n\nAssistant:\n{response}"

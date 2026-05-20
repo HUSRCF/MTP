@@ -5,7 +5,13 @@ from pathlib import Path
 from typing import Any
 
 from mtp_expert_prefetch.runtime.admission import AdmissionDecisionMasks
+from mtp_expert_prefetch.runtime.cache_manager import PremapAddressManagerSnapshot
 from mtp_expert_prefetch.runtime.descriptor_order import DescriptorOrderReport
+from mtp_expert_prefetch.runtime.premap import (
+    ExpertPrefetchDescriptor,
+    PremapPreparedPlan,
+    prepare_premap_address_plan,
+)
 from mtp_expert_prefetch.runtime.shadow_log import (
     ShadowDescriptorPrelaunchAssertEvent,
     ShadowDescriptorSummaryMinEvent,
@@ -13,6 +19,8 @@ from mtp_expert_prefetch.runtime.shadow_log import (
     ShadowOutcomeAggregateEvent,
     ShadowOutcomeEvent,
     ShadowPolicyConfig,
+    ShadowPremapConsumerMappingEvent,
+    ShadowPremapSummaryEvent,
     ShadowSummaryEvent,
     aggregate_shadow_events,
     read_shadow_jsonl,
@@ -45,6 +53,8 @@ class OnlineShadowLogger:
             ShadowSummaryEvent
             | ShadowDescriptorSummaryMinEvent
             | ShadowDescriptorPrelaunchAssertEvent
+            | ShadowPremapSummaryEvent
+            | ShadowPremapConsumerMappingEvent
             | ShadowOutcomeEvent
             | ShadowOutcomeAggregateEvent
             | dict[str, Any]
@@ -154,6 +164,52 @@ class OnlineShadowLogger:
     ) -> None:
         self.write_event(event)
 
+    def write_premap_summary(self, event: ShadowPremapSummaryEvent) -> None:
+        self.write_event(event)
+
+    def write_premap_consumer_mapping(
+        self,
+        event: ShadowPremapConsumerMappingEvent,
+    ) -> None:
+        self.write_event(event)
+
+    def write_premap_summary_from_descriptors(
+        self,
+        *,
+        event_id: ShadowEventId,
+        descriptors: list[ExpertPrefetchDescriptor],
+        premap_policy: str = "premap_only",
+        premap_mode: str = "shadow_only",
+        premap_source: str | None = None,
+        descriptor_bytes: int = 4_096,
+        premap_build_us: float | None = None,
+        premap_prepared_plan: PremapPreparedPlan | None = None,
+        premap_address_manager_snapshot: PremapAddressManagerSnapshot | None = None,
+        decision_us: float | None = None,
+        candidate_construction_us: float | None = None,
+        counter_update_us: float | None = None,
+        logging_us: float | None = None,
+        premap_error: str | None = None,
+    ) -> ShadowPremapSummaryEvent:
+        event = build_premap_shadow_summary(
+            event_id=event_id,
+            descriptors=descriptors,
+            premap_policy=premap_policy,
+            premap_mode=premap_mode,
+            premap_source=premap_source,
+            descriptor_bytes=descriptor_bytes,
+            premap_build_us=premap_build_us,
+            premap_prepared_plan=premap_prepared_plan,
+            premap_address_manager_snapshot=premap_address_manager_snapshot,
+            decision_us=decision_us,
+            candidate_construction_us=candidate_construction_us,
+            counter_update_us=counter_update_us,
+            logging_us=logging_us,
+            premap_error=premap_error,
+        )
+        self.write_premap_summary(event)
+        return event
+
     def write_outcome(self, event: ShadowOutcomeEvent) -> None:
         self.write_event(event)
 
@@ -166,6 +222,8 @@ class OnlineShadowLogger:
             ShadowSummaryEvent
             | ShadowDescriptorSummaryMinEvent
             | ShadowDescriptorPrelaunchAssertEvent
+            | ShadowPremapSummaryEvent
+            | ShadowPremapConsumerMappingEvent
             | ShadowOutcomeEvent
             | ShadowOutcomeAggregateEvent
             | dict[str, Any]
@@ -370,6 +428,106 @@ def build_shadow_summary_from_descriptor_order(
         descriptor_group_plan_cta_count=cta_count,
         descriptor_reuse_distance_mean=_optional_float(reuse.get("mean")),
         descriptor_unique_tiles_per_window_mean=_optional_float(unique_per_window.get("mean")),
+    )
+
+
+def build_premap_shadow_summary(
+    *,
+    event_id: ShadowEventId,
+    descriptors: list[ExpertPrefetchDescriptor],
+    premap_policy: str = "premap_only",
+    premap_mode: str = "shadow_only",
+    premap_source: str | None = None,
+    descriptor_bytes: int = 4_096,
+    premap_build_us: float | None = None,
+    premap_prepared_plan: PremapPreparedPlan | None = None,
+    premap_address_manager_snapshot: PremapAddressManagerSnapshot | None = None,
+    decision_us: float | None = None,
+    candidate_construction_us: float | None = None,
+    counter_update_us: float | None = None,
+    logging_us: float | None = None,
+    premap_error: str | None = None,
+) -> ShadowPremapSummaryEvent:
+    """Build an audit-only premap descriptor/address summary.
+
+    The summary records descriptor/address preparation only. It deliberately
+    gives zero ready credit and zero payload bytes so callers cannot confuse
+    premap with full expert transfer.
+    """
+
+    plan = (
+        premap_prepared_plan
+        if premap_prepared_plan is not None
+        else prepare_premap_address_plan(
+            descriptors,
+            descriptor_bytes=descriptor_bytes,
+        )
+    )
+    return ShadowPremapSummaryEvent(
+        event_id=event_id,
+        premap_policy=str(premap_policy),
+        premap_mode=str(premap_mode),
+        premap_source=premap_source,
+        premap_descriptor_count=plan.descriptor_count,
+        premap_unique_experts=plan.unique_experts,
+        premap_unique_layers=plan.unique_layers,
+        premap_unique_sample_layers=plan.unique_sample_layers,
+        premap_actual_bytes=plan.actual_bytes,
+        premap_descriptor_hash=plan.descriptor_hash,
+        premap_address_hash=plan.address_hash,
+        premap_build_us=premap_build_us,
+        premap_address_manager_capacity=(
+            premap_address_manager_snapshot.capacity
+            if premap_address_manager_snapshot is not None
+            else None
+        ),
+        premap_address_resident_count=(
+            premap_address_manager_snapshot.resident_address_count
+            if premap_address_manager_snapshot is not None
+            else None
+        ),
+        premap_address_new_count=(
+            premap_address_manager_snapshot.new_address_count
+            if premap_address_manager_snapshot is not None
+            else None
+        ),
+        premap_address_reused_count=(
+            premap_address_manager_snapshot.reused_address_count
+            if premap_address_manager_snapshot is not None
+            else None
+        ),
+        premap_address_evicted_count=(
+            premap_address_manager_snapshot.evicted_address_count
+            if premap_address_manager_snapshot is not None
+            else None
+        ),
+        premap_address_reuse_rate=(
+            float(premap_address_manager_snapshot.reused_address_count)
+            / float(max(1, premap_address_manager_snapshot.prepared_record_count))
+            if premap_address_manager_snapshot is not None
+            else None
+        ),
+        premap_address_eviction_pressure=(
+            float(premap_address_manager_snapshot.evicted_address_count)
+            / float(max(1, premap_address_manager_snapshot.new_address_count))
+            if premap_address_manager_snapshot is not None
+            else None
+        ),
+        premap_address_resident_descriptor_bytes=(
+            premap_address_manager_snapshot.resident_descriptor_bytes
+            if premap_address_manager_snapshot is not None
+            else None
+        ),
+        premap_address_prepared_descriptor_actual_bytes=(
+            premap_address_manager_snapshot.prepared_descriptor_actual_bytes
+            if premap_address_manager_snapshot is not None
+            else None
+        ),
+        decision_us=decision_us,
+        candidate_construction_us=candidate_construction_us,
+        counter_update_us=counter_update_us,
+        logging_us=logging_us,
+        premap_error=premap_error,
     )
 
 

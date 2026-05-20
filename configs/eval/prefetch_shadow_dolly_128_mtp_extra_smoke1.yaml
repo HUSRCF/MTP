@@ -1,0 +1,10 @@
+# Negative/expected-empty smoke config for sample_000000.  The corresponding
+# AWQ/vLLM trace may contain an empty router_topk payload because the prompt
+# consumes the max_model_len=128 budget.  Use
+# prefetch_shadow_dolly_128_mtp_extra_smoke_sample1.yaml for positive replay
+# input-chain evidence.
+merged_manifest: data/traces/external_prompt_gate_dolly_128_merged_mtp_vllm_prefc_fixed_smoke1/manifest.jsonl
+mtp_token_manifest: data/traces/mtp_token_topm_external_prompt_gate_dolly_128_prefc_fixed_smoke1/manifest.jsonl
+eval_split: val
+transition_topk: 32
+mtp_topk: 64

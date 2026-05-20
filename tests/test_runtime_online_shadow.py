@@ -2,13 +2,17 @@ import torch
 
 from mtp_expert_prefetch.runtime import (
     AdmissionDecisionMasks,
+    ControlledPremapAddressManager,
+    ExpertPrefetchDescriptor,
     OnlineShadowLogger,
     RuntimeShadowController,
     TileRequest,
     build_layer_tile_prior,
+    build_premap_shadow_summary,
     build_shadow_summary_from_decisions,
     hash_layer_tile_prior,
     order_tile_request_stream_with_layer_prior,
+    prepare_premap_address_plan,
 )
 from mtp_expert_prefetch.runtime.shadow_log import (
     ShadowDescriptorPrelaunchAssertEvent,
@@ -17,6 +21,7 @@ from mtp_expert_prefetch.runtime.shadow_log import (
     ShadowOutcomeAggregateEvent,
     ShadowOutcomeEvent,
     ShadowPolicyConfig,
+    ShadowPremapSummaryEvent,
     ShadowSummaryEvent,
     read_shadow_jsonl,
 )
@@ -212,6 +217,103 @@ def test_runtime_shadow_controller_writes_descriptor_prelaunch_assertion(tmp_pat
         "dry_run_no_vllm_descriptor_consumer_patch"
     )
     assert stats["written_descriptor_prelaunch_assertion_count"] == 1
+
+
+def test_build_premap_shadow_summary_records_address_prep_only():
+    descriptors = [
+        ExpertPrefetchDescriptor(0, 1, 7, 4, "mtp_token_extra_head", 0.75),
+        ExpertPrefetchDescriptor(0, 1, 3, 2, "transition_head", 0.95),
+        ExpertPrefetchDescriptor(0, 2, 7, 3, "transition_tail", 0.50),
+    ]
+    event = build_premap_shadow_summary(
+        event_id=ShadowEventId("req", 0, 5, -1),
+        descriptors=descriptors,
+        premap_policy="premap_only",
+        premap_source="runtime_shadow",
+        descriptor_bytes=128,
+        premap_build_us=4.5,
+    )
+    payload = event.as_dict()
+    plan = prepare_premap_address_plan(descriptors, descriptor_bytes=128)
+
+    assert payload["event_type"] == "premap_summary"
+    assert payload["premap_descriptor_count"] == plan.descriptor_count
+    assert payload["premap_unique_experts"] == plan.unique_experts
+    assert payload["premap_unique_layers"] == plan.unique_layers
+    assert payload["premap_unique_sample_layers"] == plan.unique_sample_layers
+    assert payload["premap_actual_bytes"] == plan.actual_bytes
+    assert payload["premap_payload_bytes"] == 0
+    assert payload["premap_full_fetch_count"] == 0
+    assert payload["premap_changes_router"] is False
+    assert payload["premap_changes_descriptor_order"] is False
+    assert payload["premap_ready_credit"] is False
+    assert payload["premap_descriptor_hash"] == plan.descriptor_hash
+    assert payload["premap_address_hash"] == plan.address_hash
+
+
+def test_runtime_shadow_controller_writes_premap_summary_without_join(tmp_path):
+    path = tmp_path / "premap_summary_shadow.jsonl"
+    descriptors = [
+        ExpertPrefetchDescriptor(0, 1, 7, 4, "mtp_token_extra_head", 0.75),
+        ExpertPrefetchDescriptor(0, 1, 3, 2, "transition_head", 0.95),
+    ]
+
+    with RuntimeShadowController(OnlineShadowLogger(path)) as controller:
+        event = controller.write_premap_summary_from_descriptors(
+            event_id=ShadowEventId("req", 0, 5, 1),
+            descriptors=descriptors,
+            descriptor_bytes=256,
+            premap_build_us=6.0,
+            decision_us=7.0,
+        )
+        stats = controller.stats_dict()
+        aggregate = controller.aggregate()
+
+    rows = read_shadow_jsonl(path)
+    assert isinstance(event, ShadowPremapSummaryEvent)
+    assert [row["event_type"] for row in rows] == ["premap_summary"]
+    assert rows[0]["premap_descriptor_count"] == 2
+    assert rows[0]["premap_actual_bytes"] == 512
+    assert rows[0]["premap_payload_bytes"] == 0
+    assert rows[0]["premap_changes_router"] is False
+    assert rows[0]["premap_changes_descriptor_order"] is False
+    assert stats["written_premap_summary_count"] == 1
+    assert stats["pending_summary_count"] == 0
+    assert aggregate["premap_summary_count"] == 1
+    assert aggregate["premap_summary_descriptor_count"] == 2
+    assert aggregate["premap_summary_build_us_mean"] == 6.0
+    assert aggregate["decision_us_mean"] == 7.0
+    assert aggregate["descriptor_order_summary_count"] == 0
+    assert aggregate["outcome_count"] == 0
+
+
+def test_premap_shadow_summary_can_include_address_manager_snapshot():
+    descriptors = [
+        ExpertPrefetchDescriptor(0, 1, 7, 4, "mtp_token_extra_head", 0.75),
+        ExpertPrefetchDescriptor(0, 1, 3, 2, "transition_head", 0.95),
+    ]
+    plan = prepare_premap_address_plan(descriptors, descriptor_bytes=64)
+    manager = ControlledPremapAddressManager(capacity=4)
+    snapshot = manager.prepare(plan)
+
+    event = build_premap_shadow_summary(
+        event_id=ShadowEventId("req", 0, 5, -1),
+        descriptors=descriptors,
+        descriptor_bytes=64,
+        premap_address_manager_snapshot=snapshot,
+    )
+    payload = event.as_dict()
+
+    assert payload["premap_address_manager_capacity"] == 4
+    assert payload["premap_address_resident_count"] == 2
+    assert payload["premap_address_new_count"] == 2
+    assert payload["premap_address_reused_count"] == 0
+    assert payload["premap_address_evicted_count"] == 0
+    assert payload["premap_address_reuse_rate"] == 0.0
+    assert payload["premap_address_eviction_pressure"] == 0.0
+    assert payload["premap_address_resident_descriptor_bytes"] == 128
+    assert payload["premap_address_prepared_descriptor_actual_bytes"] == 128
+    assert payload["premap_payload_bytes"] == 0
 
 
 def test_online_shadow_logger_rejects_unknown_writer_mode(tmp_path):

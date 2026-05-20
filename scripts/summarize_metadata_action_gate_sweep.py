@@ -59,6 +59,19 @@ def _summarize(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
             sorted_group,
             key=lambda row: float(row["metadata_overlap_adjusted_net_setup_benefit_ms"]),
         )
+        premap_positives = [
+            row
+            for row in sorted_group
+            if float(row.get("premap_overlap_adjusted_net_setup_benefit_ms", 0.0))
+            > 0.0
+        ]
+        first_positive_premap = premap_positives[0] if premap_positives else None
+        premap_best = max(
+            sorted_group,
+            key=lambda row: float(
+                row.get("premap_overlap_adjusted_net_setup_benefit_ms", 0.0)
+            ),
+        )
         serial = min(sorted_group, key=lambda row: float(row["overlap_factor"]))
         summary_rows.append(
             {
@@ -81,12 +94,29 @@ def _summarize(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "best_net_ms": float(best["metadata_overlap_adjusted_net_setup_benefit_ms"]),
                 "setup_saved_ms": float(best["metadata_setup_saved_ms"]),
                 "premap_budget_max_extra": int(
-                    float(best.get("premap_budget_max_extra", 0.0))
+                    float(premap_best.get("premap_budget_max_extra", 0.0))
                 ),
-                "premap_count": int(float(best.get("premap_count", 0.0))),
-                "premap_later_used_rate": float(best.get("premap_later_used_rate", 0.0)),
+                "premap_count": int(float(premap_best.get("premap_count", 0.0))),
+                "premap_later_used_rate": float(
+                    premap_best.get("premap_later_used_rate", 0.0)
+                ),
+                "premap_first_positive_overlap": (
+                    float(first_positive_premap["overlap_factor"])
+                    if first_positive_premap is not None
+                    else None
+                ),
+                "premap_first_positive_net_ms": (
+                    float(
+                        first_positive_premap[
+                            "premap_overlap_adjusted_net_setup_benefit_ms"
+                        ]
+                    )
+                    if first_positive_premap is not None
+                    else None
+                ),
+                "premap_best_overlap": float(premap_best["overlap_factor"]),
                 "premap_best_net_ms": float(
-                    best.get("premap_overlap_adjusted_net_setup_benefit_ms", 0.0)
+                    premap_best.get("premap_overlap_adjusted_net_setup_benefit_ms", 0.0)
                 ),
                 "stall_reduction_pct": 100.0
                 * float(best["stall_reduction_ratio_vs_transition"]),
@@ -126,6 +156,9 @@ def _write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
         "premap_budget_max_extra",
         "premap_count",
         "premap_later_used_rate",
+        "premap_first_positive_overlap",
+        "premap_first_positive_net_ms",
+        "premap_best_overlap",
         "premap_best_net_ms",
         "stall_reduction_pct",
     ]
@@ -137,22 +170,30 @@ def _write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
 
 def _format_markdown(rows: list[dict[str, Any]]) -> str:
     lines = [
-        "| policy | metadata ratio | metadata later-used % | serial net ms | first positive overlap | best overlap | metadata best net ms | premap max | premap later-used % | premap best net ms | stall reduction % |",
-        "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
+        "| policy | metadata ratio | metadata later-used % | serial net ms | first positive overlap | best overlap | metadata best net ms | premap max | premap later-used % | premap first positive overlap | premap best overlap | premap best net ms | stall reduction % |",
+        "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
     for row in rows:
         first_positive = row["first_positive_overlap"]
         first_positive_text = (
             f"{first_positive:.2f}" if first_positive is not None else "none"
         )
+        premap_first_positive = row["premap_first_positive_overlap"]
+        premap_first_positive_text = (
+            f"{premap_first_positive:.2f}"
+            if premap_first_positive is not None
+            else "none"
+        )
         lines.append(
             "| {policy} | {metadata_ratio:.2f} | {later_used_rate:.2%} | "
             "{serial_net_ms:.1f} | {first_positive} | {best_overlap:.2f} | "
             "{best_net_ms:.1f} | {premap_budget_max_extra:d} | "
-            "{premap_later_used_rate:.2%} | {premap_best_net_ms:.1f} | "
+            "{premap_later_used_rate:.2%} | {premap_first_positive} | "
+            "{premap_best_overlap:.2f} | {premap_best_net_ms:.1f} | "
             "{stall_reduction_pct:.2f} |".format(
                 **row,
                 first_positive=first_positive_text,
+                premap_first_positive=premap_first_positive_text,
             )
         )
     return "\n".join(lines) + "\n"

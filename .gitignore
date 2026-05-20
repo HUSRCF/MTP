@@ -24,6 +24,12 @@ data/repacked/*
 outputs/*
 models/*
 third_party/GPTQModel/
+tmp/
+*.pt
+*.pth
+*.safetensors
+*.onnx
+*.bin
 
 # Keep directory placeholders
 !data/raw/.gitkeep

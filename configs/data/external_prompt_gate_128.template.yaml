@@ -1,0 +1,16 @@
+# Copy this file to `configs/data/external_prompt_gate_128.yaml` and replace
+# the placeholder dataset fields before materializing.  The copied config and
+# generated JSONL must be hash-locked before use in lab claims.
+name: external_prompt_gate_128
+source: huggingface
+dataset_name: <dataset-owner>/<dataset-name>
+subset: null
+split: validation
+streaming: true
+max_samples: 128
+material_path: data/raw/external_prompt_gate_128.jsonl
+
+# Choose one renderer that matches the dataset schema.
+text_field: text
+# text_fields: [instruction, input, output]
+# text_template: "User:\n{instruction}\n\nAssistant:\n{response}"

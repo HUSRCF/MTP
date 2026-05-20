@@ -1,0 +1,5 @@
+merged_manifest: data/traces/external_prompt_gate_dolly_128_prefix127_merged_mtp_vllm_prefc_fixed/manifest.jsonl
+mtp_token_manifest: data/traces/mtp_token_topm_external_prompt_gate_dolly_128_prefix127_prefc_fixed/manifest.jsonl
+eval_split: val
+transition_topk: 32
+mtp_topk: 64

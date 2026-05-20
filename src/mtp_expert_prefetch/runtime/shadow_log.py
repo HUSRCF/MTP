@@ -361,6 +361,28 @@ class ShadowDescriptorPrelaunchAssertEvent:
     reorder_mvp_selected_policy: str | None = None
     reorder_mvp_applied: bool | None = None
     reorder_mvp_fallback_reason: str | None = None
+    consumer_handle_source: str | None = None
+    consumer_handle_available: bool | None = None
+    consumer_handle_block_count: int | None = None
+    consumer_handle_block_size: int | None = None
+    consumer_handle_expert_order_hash: str | None = None
+    consumer_handle_expert_multiset_hash: str | None = None
+    consumer_handle_would_reorder: bool | None = None
+    consumer_handle_same_multiset: bool | None = None
+    consumer_handle_applied: bool | None = None
+    consumer_handle_fallback_reason: str | None = None
+    consumer_handle_attribution_mode: str | None = None
+    consumer_handle_permutation_us: float | None = None
+    consumer_handle_plan_build_us: float | None = None
+    consumer_handle_plan_group_order_hash: str | None = None
+    consumer_handle_plan_group_offsets_hash: str | None = None
+    consumer_handle_plan_group_count: int | None = None
+    consumer_handle_plan_avg_group_size: float | None = None
+    consumer_handle_plan_p95_group_size: float | None = None
+    consumer_handle_plan_max_group_size: int | None = None
+    consumer_handle_plan_cta_count: int | None = None
+    consumer_handle_clone_us: float | None = None
+    consumer_handle_index_select_us: float | None = None
 
     def as_dict(self) -> dict[str, Any]:
         payload = {
@@ -416,6 +438,402 @@ class ShadowDescriptorPrelaunchAssertEvent:
         _put_optional(payload, "descriptor_order_reorder_mvp_selected_policy", self.reorder_mvp_selected_policy)
         _put_optional(payload, "descriptor_order_reorder_mvp_applied", self.reorder_mvp_applied)
         _put_optional(payload, "descriptor_order_reorder_mvp_fallback_reason", self.reorder_mvp_fallback_reason)
+        _put_optional(
+            payload,
+            "descriptor_order_consumer_handle_source",
+            self.consumer_handle_source,
+        )
+        _put_optional(
+            payload,
+            "descriptor_order_consumer_handle_available",
+            self.consumer_handle_available,
+        )
+        _put_optional(
+            payload,
+            "descriptor_order_consumer_handle_block_count",
+            self.consumer_handle_block_count,
+        )
+        _put_optional(
+            payload,
+            "descriptor_order_consumer_handle_block_size",
+            self.consumer_handle_block_size,
+        )
+        _put_optional(
+            payload,
+            "descriptor_order_consumer_handle_expert_order_hash",
+            self.consumer_handle_expert_order_hash,
+        )
+        _put_optional(
+            payload,
+            "descriptor_order_consumer_handle_expert_multiset_hash",
+            self.consumer_handle_expert_multiset_hash,
+        )
+        _put_optional(
+            payload,
+            "descriptor_order_consumer_handle_would_reorder",
+            self.consumer_handle_would_reorder,
+        )
+        _put_optional(
+            payload,
+            "descriptor_order_consumer_handle_same_multiset",
+            self.consumer_handle_same_multiset,
+        )
+        _put_optional(
+            payload,
+            "descriptor_order_consumer_handle_applied",
+            self.consumer_handle_applied,
+        )
+        _put_optional(
+            payload,
+            "descriptor_order_consumer_handle_fallback_reason",
+            self.consumer_handle_fallback_reason,
+        )
+        _put_optional(
+            payload,
+            "descriptor_order_consumer_handle_attribution_mode",
+            self.consumer_handle_attribution_mode,
+        )
+        _put_optional(
+            payload,
+            "descriptor_order_consumer_handle_permutation_us",
+            self.consumer_handle_permutation_us,
+        )
+        _put_optional(
+            payload,
+            "descriptor_order_consumer_handle_plan_build_us",
+            self.consumer_handle_plan_build_us,
+        )
+        _put_optional(
+            payload,
+            "descriptor_order_consumer_handle_plan_group_order_hash",
+            self.consumer_handle_plan_group_order_hash,
+        )
+        _put_optional(
+            payload,
+            "descriptor_order_consumer_handle_plan_group_offsets_hash",
+            self.consumer_handle_plan_group_offsets_hash,
+        )
+        _put_optional(
+            payload,
+            "descriptor_order_consumer_handle_plan_group_count",
+            self.consumer_handle_plan_group_count,
+        )
+        _put_optional(
+            payload,
+            "descriptor_order_consumer_handle_plan_avg_group_size",
+            self.consumer_handle_plan_avg_group_size,
+        )
+        _put_optional(
+            payload,
+            "descriptor_order_consumer_handle_plan_p95_group_size",
+            self.consumer_handle_plan_p95_group_size,
+        )
+        _put_optional(
+            payload,
+            "descriptor_order_consumer_handle_plan_max_group_size",
+            self.consumer_handle_plan_max_group_size,
+        )
+        _put_optional(
+            payload,
+            "descriptor_order_consumer_handle_plan_cta_count",
+            self.consumer_handle_plan_cta_count,
+        )
+        _put_optional(
+            payload,
+            "descriptor_order_consumer_handle_clone_us",
+            self.consumer_handle_clone_us,
+        )
+        _put_optional(
+            payload,
+            "descriptor_order_consumer_handle_index_select_us",
+            self.consumer_handle_index_select_us,
+        )
+        return payload
+
+
+@dataclass(frozen=True)
+class ShadowPremapSummaryEvent:
+    """Audit-only premap descriptor/address preparation summary.
+
+    Premap is intentionally lighter than full_fetch: it may prepare descriptor
+    or address metadata, but it must not move expert payloads, mutate router
+    results, or change descriptor visitation order.
+    """
+
+    event_id: ShadowEventId
+    premap_policy: str
+    premap_descriptor_count: int
+    premap_unique_experts: int
+    premap_unique_layers: int
+    premap_unique_sample_layers: int
+    premap_actual_bytes: int
+    premap_descriptor_hash: str
+    premap_address_hash: str
+    premap_mode: str = "shadow_only"
+    premap_source: str | None = None
+    premap_build_us: float | None = None
+    decision_us: float | None = None
+    candidate_construction_us: float | None = None
+    counter_update_us: float | None = None
+    logging_us: float | None = None
+    premap_payload_bytes: int = 0
+    premap_full_fetch_count: int = 0
+    premap_metadata_count: int = 0
+    premap_changes_router: bool = False
+    premap_changes_descriptor_order: bool = False
+    premap_ready_credit: bool = False
+    premap_error: str | None = None
+    premap_address_manager_capacity: int | None = None
+    premap_address_resident_count: int | None = None
+    premap_address_new_count: int | None = None
+    premap_address_reused_count: int | None = None
+    premap_address_evicted_count: int | None = None
+    premap_address_reuse_rate: float | None = None
+    premap_address_eviction_pressure: float | None = None
+    premap_address_resident_descriptor_bytes: int | None = None
+    premap_address_prepared_descriptor_actual_bytes: int | None = None
+
+    def as_dict(self) -> dict[str, Any]:
+        payload = {
+            "event_type": "premap_summary",
+            **self.event_id.as_dict(),
+            "policy_mode": "premap_shadow",
+            "optimization_goal": "descriptor_address_prep",
+            "premap_policy": str(self.premap_policy),
+            "premap_mode": str(self.premap_mode),
+            "premap_descriptor_count": int(self.premap_descriptor_count),
+            "premap_unique_experts": int(self.premap_unique_experts),
+            "premap_unique_layers": int(self.premap_unique_layers),
+            "premap_unique_sample_layers": int(self.premap_unique_sample_layers),
+            "premap_actual_bytes": int(self.premap_actual_bytes),
+            "premap_payload_bytes": int(self.premap_payload_bytes),
+            "premap_full_fetch_count": int(self.premap_full_fetch_count),
+            "premap_metadata_count": int(self.premap_metadata_count),
+            "premap_changes_router": bool(self.premap_changes_router),
+            "premap_changes_descriptor_order": bool(
+                self.premap_changes_descriptor_order
+            ),
+            "premap_ready_credit": bool(self.premap_ready_credit),
+            "premap_descriptor_hash": str(self.premap_descriptor_hash),
+            "premap_address_hash": str(self.premap_address_hash),
+        }
+        _put_optional(payload, "premap_source", self.premap_source)
+        _put_optional(payload, "premap_build_us", self.premap_build_us)
+        _put_optional(payload, "decision_us", self.decision_us)
+        _put_optional(payload, "candidate_construction_us", self.candidate_construction_us)
+        _put_optional(payload, "counter_update_us", self.counter_update_us)
+        _put_optional(payload, "logging_us", self.logging_us)
+        _put_optional(payload, "premap_error", self.premap_error)
+        _put_optional(
+            payload,
+            "premap_address_manager_capacity",
+            self.premap_address_manager_capacity,
+        )
+        _put_optional(
+            payload,
+            "premap_address_resident_count",
+            self.premap_address_resident_count,
+        )
+        _put_optional(payload, "premap_address_new_count", self.premap_address_new_count)
+        _put_optional(
+            payload,
+            "premap_address_reused_count",
+            self.premap_address_reused_count,
+        )
+        _put_optional(
+            payload,
+            "premap_address_evicted_count",
+            self.premap_address_evicted_count,
+        )
+        _put_optional(payload, "premap_address_reuse_rate", self.premap_address_reuse_rate)
+        _put_optional(
+            payload,
+            "premap_address_eviction_pressure",
+            self.premap_address_eviction_pressure,
+        )
+        _put_optional(
+            payload,
+            "premap_address_resident_descriptor_bytes",
+            self.premap_address_resident_descriptor_bytes,
+        )
+        _put_optional(
+            payload,
+            "premap_address_prepared_descriptor_actual_bytes",
+            self.premap_address_prepared_descriptor_actual_bytes,
+        )
+        return payload
+
+
+@dataclass(frozen=True)
+class ShadowPremapConsumerMappingEvent:
+    """No-op consumer-side address mapping assertion.
+
+    This event is emitted at the fused-MoE/AWQ consumer handle, after expert
+    assignment has been prepared and before launch-time tensors are consumed.
+    It validates that the true consumer's `(layer, expert)` handles resolve to
+    already prepared premap address keys, without moving payloads, mutating the
+    router, or changing descriptor visitation order.
+    """
+
+    event_id: ShadowEventId
+    mapping_mode: str
+    mapping_source: str
+    address_namespace: str
+    consumer_expert_count: int
+    consumer_unique_expert_count: int
+    address_hit_count: int
+    address_miss_count: int
+    address_hit_rate: float
+    all_hit: bool
+    parity_ok: bool
+    consumer_key_hash: str
+    descriptor_handle_hit_count: int = 0
+    descriptor_handle_miss_count: int = 0
+    descriptor_handle_hash: str | None = None
+    expected_descriptor_handle_hash: str | None = None
+    descriptor_handle_parity_ok: bool | None = None
+    expected_prepare_plan_count: int | None = None
+    observed_prepare_plan_count: int | None = None
+    expected_prepare_record_count: int | None = None
+    observed_prepare_record_count: int | None = None
+    lookup_after_prepare: bool | None = None
+    real_descriptor_handle_hit_count: int = 0
+    real_descriptor_handle_miss_count: int = 0
+    real_descriptor_handle_hash: str | None = None
+    real_descriptor_handle_available: bool | None = None
+    real_descriptor_handle_new_binding_count: int = 0
+    real_descriptor_handle_reused_binding_count: int = 0
+    real_descriptor_handle_binding_mismatch_count: int = 0
+    real_descriptor_handle_for_address_miss_count: int = 0
+    expected_key_hash: str | None = None
+    resident_address_count: int | None = None
+    lookup_us: float | None = None
+    error: str | None = None
+    changes_router: bool = False
+    changes_descriptor_order: bool = False
+    payload_bytes: int = 0
+    ready_credit: bool = False
+
+    def as_dict(self) -> dict[str, Any]:
+        payload = {
+            "event_type": "premap_consumer_mapping",
+            **self.event_id.as_dict(),
+            "policy_mode": "premap_shadow",
+            "optimization_goal": "descriptor_address_prep",
+            "premap_consumer_mapping_mode": str(self.mapping_mode),
+            "premap_consumer_mapping_source": str(self.mapping_source),
+            "premap_address_namespace": str(self.address_namespace),
+            "premap_consumer_expert_count": int(self.consumer_expert_count),
+            "premap_consumer_unique_expert_count": int(
+                self.consumer_unique_expert_count
+            ),
+            "premap_consumer_address_hit_count": int(self.address_hit_count),
+            "premap_consumer_address_miss_count": int(self.address_miss_count),
+            "premap_consumer_address_hit_rate": float(self.address_hit_rate),
+            "premap_consumer_all_hit": bool(self.all_hit),
+            "premap_consumer_parity_ok": bool(self.parity_ok),
+            "premap_consumer_key_hash": str(self.consumer_key_hash),
+            "premap_consumer_descriptor_handle_hit_count": int(
+                self.descriptor_handle_hit_count
+            ),
+            "premap_consumer_descriptor_handle_miss_count": int(
+                self.descriptor_handle_miss_count
+            ),
+            "premap_consumer_changes_router": bool(self.changes_router),
+            "premap_consumer_changes_descriptor_order": bool(
+                self.changes_descriptor_order
+            ),
+            "premap_consumer_payload_bytes": int(self.payload_bytes),
+            "premap_consumer_ready_credit": bool(self.ready_credit),
+        }
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_handle_hash",
+            self.descriptor_handle_hash,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_expected_descriptor_handle_hash",
+            self.expected_descriptor_handle_hash,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_handle_parity_ok",
+            self.descriptor_handle_parity_ok,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_expected_prepare_plan_count",
+            self.expected_prepare_plan_count,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_observed_prepare_plan_count",
+            self.observed_prepare_plan_count,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_expected_prepare_record_count",
+            self.expected_prepare_record_count,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_observed_prepare_record_count",
+            self.observed_prepare_record_count,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_lookup_after_prepare",
+            self.lookup_after_prepare,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_real_descriptor_handle_hit_count",
+            self.real_descriptor_handle_hit_count,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_real_descriptor_handle_miss_count",
+            self.real_descriptor_handle_miss_count,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_real_descriptor_handle_hash",
+            self.real_descriptor_handle_hash,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_real_descriptor_handle_available",
+            self.real_descriptor_handle_available,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_real_descriptor_handle_new_binding_count",
+            self.real_descriptor_handle_new_binding_count,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_real_descriptor_handle_reused_binding_count",
+            self.real_descriptor_handle_reused_binding_count,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_real_descriptor_handle_binding_mismatch_count",
+            self.real_descriptor_handle_binding_mismatch_count,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_real_descriptor_handle_for_address_miss_count",
+            self.real_descriptor_handle_for_address_miss_count,
+        )
+        _put_optional(payload, "premap_consumer_expected_key_hash", self.expected_key_hash)
+        _put_optional(
+            payload,
+            "premap_consumer_resident_address_count",
+            self.resident_address_count,
+        )
+        _put_optional(payload, "premap_consumer_lookup_us", self.lookup_us)
+        _put_optional(payload, "premap_consumer_error", self.error)
         return payload
 
 
@@ -542,6 +960,57 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
         "summary_count": 0,
         "descriptor_summary_min_count": 0,
         "descriptor_summary_full_count": 0,
+        "premap_summary_count": 0,
+        "premap_summary_descriptor_count": 0,
+        "premap_summary_unique_experts_sum": 0,
+        "premap_summary_unique_layers_sum": 0,
+        "premap_summary_unique_sample_layers_sum": 0,
+        "premap_summary_actual_bytes": 0,
+        "premap_summary_payload_bytes": 0,
+        "premap_summary_build_us_sum": 0.0,
+        "premap_summary_build_us_count": 0,
+        "premap_summary_payload_violation_count": 0,
+        "premap_summary_full_fetch_violation_count": 0,
+        "premap_summary_metadata_violation_count": 0,
+        "premap_summary_router_change_violation_count": 0,
+        "premap_summary_descriptor_order_change_violation_count": 0,
+        "premap_summary_ready_credit_violation_count": 0,
+        "premap_summary_error_count": 0,
+        "premap_address_manager_count": 0,
+        "premap_address_new_count": 0,
+        "premap_address_reused_count": 0,
+        "premap_address_evicted_count": 0,
+        "premap_address_resident_count_max": 0,
+        "premap_address_resident_descriptor_bytes_max": 0,
+        "premap_address_prepared_descriptor_actual_bytes_max": 0,
+        "premap_address_reuse_rate_sum": 0.0,
+        "premap_address_eviction_pressure_sum": 0.0,
+        "_premap_address_new_count_prev": None,
+        "_premap_address_reused_count_prev": None,
+        "_premap_address_evicted_count_prev": None,
+        "premap_consumer_mapping_count": 0,
+        "premap_consumer_address_hit_count": 0,
+        "premap_consumer_address_miss_count": 0,
+        "premap_consumer_descriptor_handle_hit_count": 0,
+        "premap_consumer_descriptor_handle_miss_count": 0,
+        "premap_consumer_descriptor_handle_parity_ok_count": 0,
+        "premap_consumer_lookup_after_prepare_count": 0,
+        "premap_consumer_real_descriptor_handle_hit_count": 0,
+        "premap_consumer_real_descriptor_handle_miss_count": 0,
+        "premap_consumer_real_descriptor_handle_available_count": 0,
+        "premap_consumer_real_descriptor_handle_new_binding_count": 0,
+        "premap_consumer_real_descriptor_handle_reused_binding_count": 0,
+        "premap_consumer_real_descriptor_handle_binding_mismatch_count": 0,
+        "premap_consumer_real_descriptor_handle_for_address_miss_count": 0,
+        "premap_consumer_all_hit_count": 0,
+        "premap_consumer_parity_ok_count": 0,
+        "premap_consumer_error_count": 0,
+        "premap_consumer_payload_violation_count": 0,
+        "premap_consumer_router_change_violation_count": 0,
+        "premap_consumer_descriptor_order_change_violation_count": 0,
+        "premap_consumer_ready_credit_violation_count": 0,
+        "premap_consumer_lookup_us_sum": 0.0,
+        "premap_consumer_lookup_us_count": 0,
         "candidate_count": 0,
         "outcome_count": 0,
         "outcome_aggregate_count": 0,
@@ -735,6 +1204,168 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
             totals["descriptor_order_reorder_mvp_fallback_count"] += int(
                 bool(event.get("descriptor_order_reorder_mvp_fallback_reason"))
             )
+        elif event_type == "premap_summary":
+            totals["premap_summary_count"] += 1
+            totals["premap_summary_descriptor_count"] += int(
+                event.get("premap_descriptor_count", 0) or 0
+            )
+            totals["premap_summary_unique_experts_sum"] += int(
+                event.get("premap_unique_experts", 0) or 0
+            )
+            totals["premap_summary_unique_layers_sum"] += int(
+                event.get("premap_unique_layers", 0) or 0
+            )
+            totals["premap_summary_unique_sample_layers_sum"] += int(
+                event.get("premap_unique_sample_layers", 0) or 0
+            )
+            totals["premap_summary_actual_bytes"] += int(
+                event.get("premap_actual_bytes", 0) or 0
+            )
+            totals["premap_summary_payload_bytes"] += int(
+                event.get("premap_payload_bytes", 0) or 0
+            )
+            if "premap_build_us" in event:
+                totals["premap_summary_build_us_sum"] += float(
+                    event.get("premap_build_us", 0.0) or 0.0
+                )
+                totals["premap_summary_build_us_count"] += 1
+            totals["decision_us_sum"] += float(event.get("decision_us", 0.0) or 0.0)
+            totals["candidate_construction_us_sum"] += float(
+                event.get("candidate_construction_us", 0.0) or 0.0
+            )
+            totals["counter_update_us_sum"] += float(
+                event.get("counter_update_us", 0.0) or 0.0
+            )
+            totals["logging_us_sum"] += float(event.get("logging_us", 0.0) or 0.0)
+            totals["premap_summary_payload_violation_count"] += int(
+                int(event.get("premap_payload_bytes", 0) or 0) != 0
+            )
+            totals["premap_summary_full_fetch_violation_count"] += int(
+                int(event.get("premap_full_fetch_count", 0) or 0) != 0
+            )
+            totals["premap_summary_metadata_violation_count"] += int(
+                int(event.get("premap_metadata_count", 0) or 0) != 0
+            )
+            totals["premap_summary_router_change_violation_count"] += int(
+                bool(event.get("premap_changes_router", False))
+            )
+            totals["premap_summary_descriptor_order_change_violation_count"] += int(
+                bool(event.get("premap_changes_descriptor_order", False))
+            )
+            totals["premap_summary_ready_credit_violation_count"] += int(
+                bool(event.get("premap_ready_credit", False))
+            )
+            totals["premap_summary_error_count"] += int(
+                bool(event.get("premap_error"))
+            )
+            if "premap_address_resident_count" in event:
+                totals["premap_address_manager_count"] += 1
+                _accumulate_monotonic_snapshot_delta(
+                    totals,
+                    "premap_address_new_count",
+                    int(event.get("premap_address_new_count", 0) or 0),
+                )
+                _accumulate_monotonic_snapshot_delta(
+                    totals,
+                    "premap_address_reused_count",
+                    int(event.get("premap_address_reused_count", 0) or 0),
+                )
+                _accumulate_monotonic_snapshot_delta(
+                    totals,
+                    "premap_address_evicted_count",
+                    int(event.get("premap_address_evicted_count", 0) or 0),
+                )
+                totals["premap_address_resident_count_max"] = max(
+                    int(totals["premap_address_resident_count_max"]),
+                    int(event.get("premap_address_resident_count", 0) or 0),
+                )
+                totals["premap_address_resident_descriptor_bytes_max"] = max(
+                    int(totals["premap_address_resident_descriptor_bytes_max"]),
+                    int(event.get("premap_address_resident_descriptor_bytes", 0) or 0),
+                )
+                totals["premap_address_prepared_descriptor_actual_bytes_max"] = max(
+                    int(totals["premap_address_prepared_descriptor_actual_bytes_max"]),
+                    int(
+                        event.get(
+                            "premap_address_prepared_descriptor_actual_bytes",
+                            0,
+                        )
+                        or 0
+                    ),
+                )
+                totals["premap_address_reuse_rate_sum"] += float(
+                    event.get("premap_address_reuse_rate", 0.0) or 0.0
+                )
+                totals["premap_address_eviction_pressure_sum"] += float(
+                    event.get("premap_address_eviction_pressure", 0.0) or 0.0
+                )
+        elif event_type == "premap_consumer_mapping":
+            totals["premap_consumer_mapping_count"] += 1
+            totals["premap_consumer_address_hit_count"] += int(
+                event.get("premap_consumer_address_hit_count", 0) or 0
+            )
+            totals["premap_consumer_address_miss_count"] += int(
+                event.get("premap_consumer_address_miss_count", 0) or 0
+            )
+            totals["premap_consumer_descriptor_handle_hit_count"] += int(
+                event.get("premap_consumer_descriptor_handle_hit_count", 0) or 0
+            )
+            totals["premap_consumer_descriptor_handle_miss_count"] += int(
+                event.get("premap_consumer_descriptor_handle_miss_count", 0) or 0
+            )
+            totals["premap_consumer_descriptor_handle_parity_ok_count"] += int(
+                bool(event.get("premap_consumer_descriptor_handle_parity_ok", False))
+            )
+            totals["premap_consumer_lookup_after_prepare_count"] += int(
+                bool(event.get("premap_consumer_lookup_after_prepare", False))
+            )
+            totals["premap_consumer_real_descriptor_handle_hit_count"] += int(
+                event.get("premap_consumer_real_descriptor_handle_hit_count", 0) or 0
+            )
+            totals["premap_consumer_real_descriptor_handle_miss_count"] += int(
+                event.get("premap_consumer_real_descriptor_handle_miss_count", 0) or 0
+            )
+            totals["premap_consumer_real_descriptor_handle_available_count"] += int(
+                bool(event.get("premap_consumer_real_descriptor_handle_available", False))
+            )
+            totals["premap_consumer_real_descriptor_handle_new_binding_count"] += int(
+                event.get("premap_consumer_real_descriptor_handle_new_binding_count", 0) or 0
+            )
+            totals["premap_consumer_real_descriptor_handle_reused_binding_count"] += int(
+                event.get("premap_consumer_real_descriptor_handle_reused_binding_count", 0) or 0
+            )
+            totals["premap_consumer_real_descriptor_handle_binding_mismatch_count"] += int(
+                event.get("premap_consumer_real_descriptor_handle_binding_mismatch_count", 0) or 0
+            )
+            totals["premap_consumer_real_descriptor_handle_for_address_miss_count"] += int(
+                event.get("premap_consumer_real_descriptor_handle_for_address_miss_count", 0) or 0
+            )
+            totals["premap_consumer_all_hit_count"] += int(
+                bool(event.get("premap_consumer_all_hit", False))
+            )
+            totals["premap_consumer_parity_ok_count"] += int(
+                bool(event.get("premap_consumer_parity_ok", False))
+            )
+            totals["premap_consumer_error_count"] += int(
+                bool(event.get("premap_consumer_error"))
+            )
+            totals["premap_consumer_payload_violation_count"] += int(
+                int(event.get("premap_consumer_payload_bytes", 0) or 0) != 0
+            )
+            totals["premap_consumer_router_change_violation_count"] += int(
+                bool(event.get("premap_consumer_changes_router", False))
+            )
+            totals["premap_consumer_descriptor_order_change_violation_count"] += int(
+                bool(event.get("premap_consumer_changes_descriptor_order", False))
+            )
+            totals["premap_consumer_ready_credit_violation_count"] += int(
+                bool(event.get("premap_consumer_ready_credit", False))
+            )
+            if "premap_consumer_lookup_us" in event:
+                totals["premap_consumer_lookup_us_sum"] += float(
+                    event.get("premap_consumer_lookup_us", 0.0) or 0.0
+                )
+                totals["premap_consumer_lookup_us_count"] += 1
         elif event_type == "candidate":
             totals["candidate_count"] += 1
         elif event_type == "outcome":
@@ -776,7 +1407,7 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
     outcome_count = max(1, int(totals["outcome_count"]))
     summary_event_count = int(totals["summary_count"]) + int(
         totals["descriptor_summary_min_count"]
-    )
+    ) + int(totals["premap_summary_count"])
     summary_count = max(1, summary_event_count)
     totals["top1_ready_rate"] = totals["top1_ready_count"] / outcome_count
     totals["weighted_top1_miss_mean"] = totals["weighted_top1_miss_sum"] / outcome_count
@@ -838,6 +1469,78 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
     totals["descriptor_group_plan_cta_count_mean"] = (
         totals["descriptor_group_plan_cta_count_sum"] / cta_count
     )
+    premap_summary_count = max(1, int(totals["premap_summary_count"]))
+    premap_build_count = max(1, int(totals["premap_summary_build_us_count"]))
+    totals["premap_summary_unique_experts_mean"] = (
+        totals["premap_summary_unique_experts_sum"] / premap_summary_count
+    )
+    totals["premap_summary_unique_layers_mean"] = (
+        totals["premap_summary_unique_layers_sum"] / premap_summary_count
+    )
+    totals["premap_summary_unique_sample_layers_mean"] = (
+        totals["premap_summary_unique_sample_layers_sum"] / premap_summary_count
+    )
+    totals["premap_summary_build_us_mean"] = (
+        totals["premap_summary_build_us_sum"] / premap_build_count
+    )
+    premap_address_manager_count = max(1, int(totals["premap_address_manager_count"]))
+    totals["premap_address_reuse_rate_mean"] = (
+        totals["premap_address_reuse_rate_sum"] / premap_address_manager_count
+    )
+    totals["premap_address_eviction_pressure_mean"] = (
+        totals["premap_address_eviction_pressure_sum"] / premap_address_manager_count
+    )
+    premap_consumer_mapping_count = max(
+        1, int(totals["premap_consumer_mapping_count"])
+    )
+    premap_consumer_lookup_count = max(
+        1, int(totals["premap_consumer_lookup_us_count"])
+    )
+    totals["premap_consumer_address_hit_rate"] = (
+        totals["premap_consumer_address_hit_count"]
+        / max(
+            1,
+            int(totals["premap_consumer_address_hit_count"])
+            + int(totals["premap_consumer_address_miss_count"]),
+        )
+    )
+    totals["premap_consumer_descriptor_handle_hit_rate"] = (
+        totals["premap_consumer_descriptor_handle_hit_count"]
+        / max(
+            1,
+            int(totals["premap_consumer_descriptor_handle_hit_count"])
+            + int(totals["premap_consumer_descriptor_handle_miss_count"]),
+        )
+    )
+    totals["premap_consumer_all_hit_rate"] = (
+        totals["premap_consumer_all_hit_count"] / premap_consumer_mapping_count
+    )
+    totals["premap_consumer_parity_ok_rate"] = (
+        totals["premap_consumer_parity_ok_count"] / premap_consumer_mapping_count
+    )
+    totals["premap_consumer_descriptor_handle_parity_ok_rate"] = (
+        totals["premap_consumer_descriptor_handle_parity_ok_count"]
+        / premap_consumer_mapping_count
+    )
+    totals["premap_consumer_lookup_after_prepare_rate"] = (
+        totals["premap_consumer_lookup_after_prepare_count"]
+        / premap_consumer_mapping_count
+    )
+    totals["premap_consumer_real_descriptor_handle_hit_rate"] = (
+        totals["premap_consumer_real_descriptor_handle_hit_count"]
+        / max(
+            1,
+            int(totals["premap_consumer_real_descriptor_handle_hit_count"])
+            + int(totals["premap_consumer_real_descriptor_handle_miss_count"]),
+        )
+    )
+    totals["premap_consumer_real_descriptor_handle_available_rate"] = (
+        totals["premap_consumer_real_descriptor_handle_available_count"]
+        / premap_consumer_mapping_count
+    )
+    totals["premap_consumer_lookup_us_mean"] = (
+        totals["premap_consumer_lookup_us_sum"] / premap_consumer_lookup_count
+    )
     aggregate_count = max(1, int(totals["outcome_aggregate_count"]))
     aggregate_token_count = max(1, int(totals["outcome_aggregate_token_count"]))
     totals["outcome_aggregate_routed_expert_count_mean"] = (
@@ -846,7 +1549,31 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
     totals["outcome_aggregate_top1_weight_mean"] = (
         totals["outcome_aggregate_top1_weight_sum"] / aggregate_token_count
     )
+    for key in (
+        "_premap_address_new_count_prev",
+        "_premap_address_reused_count_prev",
+        "_premap_address_evicted_count_prev",
+    ):
+        totals.pop(key, None)
     return totals
+
+
+def _accumulate_monotonic_snapshot_delta(
+    totals: dict[str, Any],
+    key: str,
+    current: int,
+) -> None:
+    prev_key = f"_{key}_prev"
+    previous = totals.get(prev_key)
+    if previous is None:
+        delta = int(current)
+    elif int(current) >= int(previous):
+        delta = int(current) - int(previous)
+    else:
+        # A lower snapshot means a new manager/request stream started.
+        delta = int(current)
+    totals[key] += delta
+    totals[prev_key] = int(current)
 
 
 def _accumulate_group_plan_totals(totals: dict[str, Any], event: dict[str, Any]) -> None:

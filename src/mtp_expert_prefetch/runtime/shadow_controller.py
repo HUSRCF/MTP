@@ -10,9 +10,11 @@ from mtp_expert_prefetch.runtime.admission import AdmissionDecisionMasks
 from mtp_expert_prefetch.runtime.descriptor_order import DescriptorOrderReport
 from mtp_expert_prefetch.runtime.online_shadow import OnlineShadowLogger
 from mtp_expert_prefetch.runtime.online_shadow import (
+    build_premap_shadow_summary,
     build_shadow_summary_from_decisions,
     build_shadow_summary_from_descriptor_order,
 )
+from mtp_expert_prefetch.runtime.premap import ExpertPrefetchDescriptor
 from mtp_expert_prefetch.runtime.shadow_log import (
     ShadowDescriptorPrelaunchAssertEvent,
     ShadowDescriptorSummaryMinEvent,
@@ -20,6 +22,8 @@ from mtp_expert_prefetch.runtime.shadow_log import (
     ShadowOutcomeAggregateEvent,
     ShadowOutcomeEvent,
     ShadowPolicyConfig,
+    ShadowPremapConsumerMappingEvent,
+    ShadowPremapSummaryEvent,
     ShadowSummaryEvent,
 )
 
@@ -43,8 +47,14 @@ class RuntimeShadowControllerStats:
     suppressed_outcome_count: int = 0
     written_outcome_aggregate_count: int = 0
     suppressed_outcome_aggregate_count: int = 0
+    written_premap_summary_count: int = 0
+    suppressed_premap_summary_count: int = 0
+    written_premap_consumer_mapping_count: int = 0
+    suppressed_premap_consumer_mapping_count: int = 0
     written_descriptor_prelaunch_assertion_count: int = 0
     suppressed_descriptor_prelaunch_assertion_count: int = 0
+    written_descriptor_layer_timing_count: int = 0
+    suppressed_descriptor_layer_timing_count: int = 0
     joined_outcome_count: int = 0
     outcome_only_count: int = 0
     summary_only_timeout_count: int = 0
@@ -66,11 +76,27 @@ class RuntimeShadowControllerStats:
             "suppressed_outcome_aggregate_count": int(
                 self.suppressed_outcome_aggregate_count
             ),
+            "written_premap_summary_count": int(self.written_premap_summary_count),
+            "suppressed_premap_summary_count": int(
+                self.suppressed_premap_summary_count
+            ),
+            "written_premap_consumer_mapping_count": int(
+                self.written_premap_consumer_mapping_count
+            ),
+            "suppressed_premap_consumer_mapping_count": int(
+                self.suppressed_premap_consumer_mapping_count
+            ),
             "written_descriptor_prelaunch_assertion_count": int(
                 self.written_descriptor_prelaunch_assertion_count
             ),
             "suppressed_descriptor_prelaunch_assertion_count": int(
                 self.suppressed_descriptor_prelaunch_assertion_count
+            ),
+            "written_descriptor_layer_timing_count": int(
+                self.written_descriptor_layer_timing_count
+            ),
+            "suppressed_descriptor_layer_timing_count": int(
+                self.suppressed_descriptor_layer_timing_count
             ),
             "joined_outcome_count": int(self.joined_outcome_count),
             "outcome_only_count": int(self.outcome_only_count),
@@ -213,6 +239,66 @@ class RuntimeShadowController:
         else:
             self.stats.suppressed_summary_count += 1
 
+    def write_premap_summary(
+        self,
+        event: ShadowPremapSummaryEvent,
+    ) -> None:
+        """Write a premap-only descriptor/address preparation audit row.
+
+        Premap summaries intentionally do not enter the router-outcome join:
+        they record descriptor/address preparation only, with no ready credit
+        and no payload movement.
+        """
+
+        if self.emit_summaries:
+            self.logger.write_premap_summary(event)
+            self.stats.written_premap_summary_count += 1
+            self.stats.written_summary_count += 1
+        else:
+            self.stats.suppressed_premap_summary_count += 1
+            self.stats.suppressed_summary_count += 1
+
+    def write_premap_summary_from_descriptors(
+        self,
+        *,
+        event_id: ShadowEventId,
+        descriptors: list[ExpertPrefetchDescriptor],
+        **summary_kwargs: Any,
+    ) -> ShadowPremapSummaryEvent:
+        """Build and write a premap-only descriptor/address audit row."""
+
+        if self.emit_summaries:
+            event = self.logger.write_premap_summary_from_descriptors(
+                event_id=event_id,
+                descriptors=descriptors,
+                **summary_kwargs,
+            )
+            self.stats.written_premap_summary_count += 1
+            self.stats.written_summary_count += 1
+        else:
+            event = build_premap_shadow_summary(
+                event_id=event_id,
+                descriptors=descriptors,
+                **summary_kwargs,
+            )
+            self.stats.suppressed_premap_summary_count += 1
+            self.stats.suppressed_summary_count += 1
+        return event
+
+    def write_premap_consumer_mapping(
+        self,
+        event: ShadowPremapConsumerMappingEvent,
+    ) -> None:
+        """Write a no-op premap consumer address mapping assertion row."""
+
+        if self.emit_summaries:
+            self.logger.write_premap_consumer_mapping(event)
+            self.stats.written_premap_consumer_mapping_count += 1
+            self.stats.written_summary_count += 1
+        else:
+            self.stats.suppressed_premap_consumer_mapping_count += 1
+            self.stats.suppressed_summary_count += 1
+
     def write_descriptor_prelaunch_assertion(
         self,
         event: ShadowDescriptorPrelaunchAssertEvent,
@@ -224,6 +310,15 @@ class RuntimeShadowController:
             self.stats.written_descriptor_prelaunch_assertion_count += 1
         else:
             self.stats.suppressed_descriptor_prelaunch_assertion_count += 1
+
+    def write_descriptor_layer_timing(self, event: dict[str, Any]) -> None:
+        """Write per-layer fused-MoE timing telemetry."""
+
+        if self.emit_summaries:
+            self.logger.write_event(event)
+            self.stats.written_descriptor_layer_timing_count += 1
+        else:
+            self.stats.suppressed_descriptor_layer_timing_count += 1
 
     def write_outcome(self, event: ShadowOutcomeEvent) -> None:
         """Enrich and write a true-router outcome.

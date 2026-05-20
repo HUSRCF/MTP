@@ -17,6 +17,9 @@ from mtp_expert_prefetch.evaluation.prefetch_shadow import (  # noqa: E402
     _split_positions,
 )
 from mtp_expert_prefetch.runtime import (  # noqa: E402
+    ExpertPrefetchDescriptor,
+    OnlineShadowLogger,
+    ShadowEventId,
     build_premap_descriptors,
     descriptor_summary,
 )
@@ -51,6 +54,30 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--score-reduce", choices=["max", "mean", "sum"], default="max")
     parser.add_argument("--limit", type=int, default=None)
     parser.add_argument(
+        "--shadow-jsonl",
+        type=Path,
+        default=None,
+        help=(
+            "Optional output path for premap_summary shadow rows. Rows are "
+            "grouped by sample/layer and audit descriptor/address prep only."
+        ),
+    )
+    parser.add_argument(
+        "--shadow-summary-output",
+        type=Path,
+        default=None,
+        help="Optional JSON aggregate for --shadow-jsonl.",
+    )
+    parser.add_argument(
+        "--premap-descriptor-bytes",
+        type=int,
+        default=4_096,
+        help=(
+            "Bytes charged to one premap descriptor/address record in shadow "
+            "audit. This is not full expert payload bytes."
+        ),
+    )
+    parser.add_argument(
         "--expert-bytes",
         type=int,
         default=1_650_000,
@@ -70,6 +97,16 @@ def main() -> None:
     mtp_token_manifest = resolve_path(config["mtp_token_manifest"], base_dir=project_root)
     output_jsonl = resolve_path(args.output_jsonl, base_dir=project_root)
     summary_output = resolve_path(args.summary_output, base_dir=project_root)
+    shadow_jsonl = (
+        resolve_path(args.shadow_jsonl, base_dir=project_root)
+        if args.shadow_jsonl is not None
+        else None
+    )
+    shadow_summary_output = (
+        resolve_path(args.shadow_summary_output, base_dir=project_root)
+        if args.shadow_summary_output is not None
+        else None
+    )
 
     future_window = int(config.get("future_window", 1))
     max_samples = int(config["max_samples"]) if config.get("max_samples") is not None else None
@@ -162,12 +199,60 @@ def main() -> None:
             "num_eval_token_examples": int(eval_data.target_mass.shape[0]),
         }
     )
+    shadow_aggregate = None
+    if shadow_jsonl is not None:
+        shadow_aggregate = _write_premap_shadow_jsonl(
+            descriptors=descriptors_to_write,
+            output=shadow_jsonl,
+            descriptor_bytes=int(args.premap_descriptor_bytes),
+            premap_policy="premap_only",
+            premap_source="export_prefetch_premap_descriptors",
+        )
+        summary["premap_shadow_jsonl"] = str(shadow_jsonl)
+        summary["premap_shadow_summary"] = shadow_aggregate
+        if shadow_summary_output is not None:
+            shadow_summary_output.parent.mkdir(parents=True, exist_ok=True)
+            shadow_summary_output.write_text(
+                json.dumps(shadow_aggregate, indent=2, ensure_ascii=False) + "\n",
+                encoding="utf-8",
+            )
+            summary["premap_shadow_summary_output"] = str(shadow_summary_output)
     summary_output.parent.mkdir(parents=True, exist_ok=True)
     summary_output.write_text(
         json.dumps(summary, indent=2, ensure_ascii=False),
         encoding="utf-8",
     )
     print(json.dumps(summary, indent=2, ensure_ascii=False, sort_keys=True))
+
+
+def _write_premap_shadow_jsonl(
+    *,
+    descriptors: list[ExpertPrefetchDescriptor],
+    output: Path,
+    descriptor_bytes: int,
+    premap_policy: str,
+    premap_source: str,
+) -> dict[str, object]:
+    grouped: dict[tuple[int, int], list[ExpertPrefetchDescriptor]] = {}
+    for descriptor in descriptors:
+        sample_idx = int(getattr(descriptor, "sample_idx"))
+        layer_idx = int(getattr(descriptor, "layer_idx"))
+        grouped.setdefault((sample_idx, layer_idx), []).append(descriptor)
+    with OnlineShadowLogger(output, flush_every=256, writer_mode="jsonl_batched") as logger:
+        for (sample_idx, layer_idx), group in sorted(grouped.items()):
+            logger.write_premap_summary_from_descriptors(
+                event_id=ShadowEventId(
+                    "premap_export",
+                    sequence_id=int(sample_idx),
+                    token_index=-1,
+                    layer=int(layer_idx),
+                ),
+                descriptors=group,
+                premap_policy=premap_policy,
+                premap_source=premap_source,
+                descriptor_bytes=descriptor_bytes,
+            )
+        return logger.aggregate()
 
 
 if __name__ == "__main__":

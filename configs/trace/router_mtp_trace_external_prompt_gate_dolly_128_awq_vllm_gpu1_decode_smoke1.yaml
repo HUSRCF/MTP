@@ -1,0 +1,50 @@
+model: configs/model/qwen3_6_35b_a3b_awq_4bit.yaml
+data: configs/data/external_prompt_gate_dolly_128.yaml
+output_dir: data/traces/external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_smoke1
+
+# Negative/expected-empty smoke: sample_000000 consumes the max_model_len=128
+# budget and may produce no decode router payload.  Keep this only as a
+# boundary check; use *_smoke_sample1.yaml for positive replay input evidence.
+trace:
+  capture_router_topk: true
+  capture_router_scores: true
+  use_router_logits_recorder: true
+  capture_hidden_states: none
+  capture_native_mtp_router: false
+  future_window: 4
+  split_id: external_prompt_gate_dolly_128_awq_vllm_smoke1
+  expected_sample_start: 0
+  expected_sample_end: 0
+  start_sample: 0
+  max_samples: 1
+  max_length: 128
+  max_tokens: 1
+  router_module_prefix: model.language_model
+  runtime_shadow:
+    enabled: true
+    output_path: data/traces/external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_smoke1/runtime_shadow.jsonl
+    overwrite: true
+    flush_every: 100000
+    writer_mode: jsonl_batched
+    max_pending: 10000
+    # This config builds an offline true-router trace for action replay, so it
+    # must retain router top-k records. Performance benchmark configs keep this
+    # disabled to avoid record_topk CPU-copy overhead.
+    record_router_topk: true
+    emit_transition_summaries: false
+    emit_descriptor_order_summaries: false
+    emit_summaries: false
+    emit_outcomes: false
+    outcome_logging_mode: "off"
+    emit_decoder_layer_timing: false
+    emit_decoder_component_timing: false
+    emit_moe_substage_timing: false
+    emit_engine_timing: false
+    emit_wna16_kernel_timing: false
+    decoder_source_timing_mode: "off"
+    moe_source_timing_mode: "off"
+    descriptor_order_reorder_mvp_enabled: false
+    request_id_prefix: sample_
+    sequence_id: 0
+    token_offset: 0
+    flush_pending_as_timeouts: true

@@ -1,0 +1,69 @@
+schema_version: 1
+artifact_id: premap_address_capacity_dolly128_gen64_awq_w7900_gpu1
+action: premap
+manager: ControlledPremapAddressManager
+policy: current_router_topk_premap_shadow
+
+contract:
+  payload_bytes_required: 0
+  ready_credit_required: false
+  changes_router_required: false
+  changes_descriptor_order_required: false
+  address_key_scope: layer_expert
+  descriptor_bytes: 4096
+
+model:
+  config: configs/model/qwen3_6_35b_a3b_awq_4bit.yaml
+  quantization: awq_wna16
+
+device:
+  name: AMD_Radeon_PRO_W7900_Dual_Slot
+  gpu_index: 1
+
+source_split:
+  data: configs/data/external_prompt_gate_dolly_128.yaml
+  trace_config: configs/trace/router_mtp_trace_external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_premap_manager_diag.yaml
+  max_samples: 128
+  max_length: 128
+  max_tokens: 64
+
+capacity_gate:
+  recommended_capacity_entries: 12288
+  recommended_resident_descriptor_mb: 39.559
+  active_address_count: 10127
+  no_eviction_capacity_entries: 12288
+  low_footprint_capacity_entries: 8192
+  low_footprint_risk: evicting
+  disable_below_capacity_entries: 4096
+
+evidence_paths:
+  mixed_shadow_summary_json: data/traces/external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_premap_manager_diag/mixed_shadow_summary.json
+  capacity_sensitivity_json: outputs/reports/prefetch_action_replay/premap_address_capacity_vllm_trace_dolly128_gen64_gpu1/sensitivity.json
+  capacity_sensitivity_md: outputs/reports/prefetch_action_replay/premap_address_capacity_vllm_trace_dolly128_gen64_gpu1/sensitivity.md
+
+capacity_sweep:
+  - capacity_entries: 4096
+    reuse_rate: 0.826910
+    resident_descriptor_mb: 16.000
+    evicted_address_count: 524727
+    eviction_pressure: 0.992254
+  - capacity_entries: 8192
+    reuse_rate: 0.981336
+    resident_descriptor_mb: 32.000
+    evicted_address_count: 48831
+    eviction_pressure: 0.856339
+  - capacity_entries: 12288
+    reuse_rate: 0.996685
+    resident_descriptor_mb: 39.559
+    evicted_address_count: 0
+    eviction_pressure: 0.0
+  - capacity_entries: 16384
+    reuse_rate: 0.996685
+    resident_descriptor_mb: 39.559
+    evicted_address_count: 0
+    eviction_pressure: 0.0
+  - capacity_entries: unbounded
+    reuse_rate: 0.996685
+    resident_descriptor_mb: 39.559
+    evicted_address_count: 0
+    eviction_pressure: 0.0

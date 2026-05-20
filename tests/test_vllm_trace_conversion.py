@@ -1,9 +1,16 @@
 from __future__ import annotations
 
+import json
+from types import SimpleNamespace
+
 import torch
 
 from mtp_expert_prefetch.tracing.vllm_router_trace import (
     VllmRouterRecorder,
+    _moe_substage_allowed,
+    _moe_source_timing_level,
+    _shared_expert_source_timing_enabled,
+    _write_vllm_sample_trace,
     vllm_routed_experts_to_router_topk,
 )
 from mtp_expert_prefetch.training.mtp_alignment import stack_backbone_router_topk
@@ -94,3 +101,85 @@ def test_vllm_router_recorder_payload_keeps_same_token_oracle_topk():
     assert payload["router_oracle_summary"]["mean_exact_match_rate"] == 1.0
     assert payload["router_call_meta"][0]["has_router_input_hidden"]
     assert torch.as_tensor(payload["router_input_hidden"][module_name][0]).shape == (2, 4)
+
+
+def test_no_topk_recorder_trace_writer_allows_empty_router_payload(tmp_path):
+    recorder = VllmRouterRecorder(top_k=2, shadow_record_router_topk=False)
+    recorder.record(
+        layer_id=3,
+        router_logits=torch.tensor(
+            [
+                [4.0, 1.0, 0.0, -1.0],
+                [0.0, 3.0, 2.0, -2.0],
+            ]
+        ),
+    )
+    assert recorder.calls == []
+
+    manifest_path = tmp_path / "manifest.jsonl"
+    request_output = SimpleNamespace(
+        outputs=[SimpleNamespace(text="decoded")],
+    )
+
+    with manifest_path.open("w", encoding="utf-8") as manifest:
+        _write_vllm_sample_trace(
+            manifest=manifest,
+            output_dir=tmp_path,
+            sample_idx=7,
+            record={"id": "sample-7"},
+            input_ids=[1, 2, 3],
+            request_output=request_output,
+            module_prefix="model.language_model",
+            recorder=recorder,
+        )
+
+    row = json.loads(manifest_path.read_text(encoding="utf-8"))
+    payload = torch.load(tmp_path / "sample_000007.pt", weights_only=False)
+    assert row["trace_source"] == "vllm_router_logits_recorder_no_topk"
+    assert row["num_router_calls"] == 0
+    assert row["has_vllm_router_logits"] is False
+    assert payload["trace_source"] == "vllm_router_logits_recorder_no_topk"
+    assert payload["router_topk"] == {}
+    assert payload["router_call_meta"] == []
+
+
+def test_shared_expert_source_timing_is_separate_from_fused_source_level():
+    recorder = VllmRouterRecorder(
+        top_k=2,
+        shadow_emit_decoder_layer_timing=True,
+        shadow_emit_moe_substage_timing=True,
+        shadow_moe_source_timing_mode="shared",
+    )
+
+    assert _moe_source_timing_level(recorder) == 0
+    assert _shared_expert_source_timing_enabled(recorder) is True
+
+    recorder.shadow_moe_source_timing_mode = "outer"
+    assert _moe_source_timing_level(recorder) == 1
+    assert _shared_expert_source_timing_enabled(recorder) is True
+
+    recorder.shadow_moe_source_timing_mode = "off"
+    assert _moe_source_timing_level(recorder) == 0
+    assert _shared_expert_source_timing_enabled(recorder) is False
+
+    recorder.shadow_moe_source_timing_mode = "shared"
+    recorder.shadow_emit_moe_substage_timing = False
+    assert _moe_source_timing_level(recorder) == 0
+    assert _shared_expert_source_timing_enabled(recorder) is False
+
+
+def test_shared_moe_source_mode_filters_non_shared_substages():
+    recorder = VllmRouterRecorder(
+        top_k=2,
+        shadow_emit_decoder_layer_timing=True,
+        shadow_emit_moe_substage_timing=True,
+        shadow_moe_source_timing_mode="shared",
+    )
+
+    assert _moe_substage_allowed(recorder, "experts_shared_w1") is True
+    assert _moe_substage_allowed(recorder, "experts_shared_output_gate") is True
+    assert _moe_substage_allowed(recorder, "quant_method_apply") is False
+    assert _moe_substage_allowed(recorder, "apply_dispatch_w1_host") is False
+
+    recorder.shadow_moe_source_timing_mode = "outer"
+    assert _moe_substage_allowed(recorder, "quant_method_apply") is True

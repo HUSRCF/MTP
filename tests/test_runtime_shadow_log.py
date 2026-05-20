@@ -11,6 +11,8 @@ from mtp_expert_prefetch.runtime.shadow_log import (
     ShadowOutcomeAggregateEvent,
     ShadowOutcomeEvent,
     ShadowPolicyConfig,
+    ShadowPremapConsumerMappingEvent,
+    ShadowPremapSummaryEvent,
     ShadowSummaryEvent,
     aggregate_shadow_events,
     read_shadow_jsonl,
@@ -228,6 +230,215 @@ def test_shadow_log_aggregates_descriptor_summary_min_events(tmp_path):
     assert aggregate["decision_us_mean"] == 6.0
     assert aggregate["candidate_construction_us_mean"] == 1.0
     assert aggregate["counter_update_us_mean"] == 3.0
+
+
+def test_shadow_log_aggregates_premap_summary_without_payload_or_order_effects(tmp_path):
+    event = ShadowPremapSummaryEvent(
+        event_id=ShadowEventId("req", sequence_id=0, token_index=4, layer=2),
+        premap_policy="premap_only",
+        premap_mode="shadow_only",
+        premap_source="mtp_extra_premap_gate",
+        premap_descriptor_count=5,
+        premap_unique_experts=3,
+        premap_unique_layers=2,
+        premap_unique_sample_layers=2,
+        premap_actual_bytes=20_480,
+        premap_descriptor_hash="desc-hash",
+        premap_address_hash="addr-hash",
+        premap_build_us=7.0,
+        decision_us=8.0,
+        candidate_construction_us=2.0,
+        counter_update_us=1.0,
+        logging_us=0.5,
+    )
+
+    output = write_shadow_jsonl([event], tmp_path / "premap_shadow.jsonl")
+    rows = read_shadow_jsonl(output)
+    aggregate = aggregate_shadow_events(rows)
+
+    assert rows[0]["event_type"] == "premap_summary"
+    assert rows[0]["policy_mode"] == "premap_shadow"
+    assert rows[0]["optimization_goal"] == "descriptor_address_prep"
+    assert rows[0]["premap_payload_bytes"] == 0
+    assert rows[0]["premap_full_fetch_count"] == 0
+    assert rows[0]["premap_metadata_count"] == 0
+    assert rows[0]["premap_changes_router"] is False
+    assert rows[0]["premap_changes_descriptor_order"] is False
+    assert rows[0]["premap_ready_credit"] is False
+    assert rows[0]["premap_descriptor_hash"] == "desc-hash"
+    assert rows[0]["premap_address_hash"] == "addr-hash"
+    assert "descriptor_order_policy" not in rows[0]
+    assert "full_fetch_payload_bytes" not in rows[0]
+    assert aggregate["premap_summary_count"] == 1
+    assert aggregate["premap_summary_descriptor_count"] == 5
+    assert aggregate["premap_summary_actual_bytes"] == 20_480
+    assert aggregate["premap_summary_payload_bytes"] == 0
+    assert aggregate["premap_summary_unique_experts_mean"] == 3.0
+    assert aggregate["premap_summary_unique_layers_mean"] == 2.0
+    assert aggregate["premap_summary_unique_sample_layers_mean"] == 2.0
+    assert aggregate["premap_summary_build_us_mean"] == 7.0
+    assert aggregate["premap_summary_payload_violation_count"] == 0
+    assert aggregate["premap_summary_full_fetch_violation_count"] == 0
+    assert aggregate["premap_summary_metadata_violation_count"] == 0
+    assert aggregate["premap_summary_router_change_violation_count"] == 0
+    assert aggregate["premap_summary_descriptor_order_change_violation_count"] == 0
+    assert aggregate["premap_summary_ready_credit_violation_count"] == 0
+    assert aggregate["descriptor_order_summary_count"] == 0
+    assert aggregate["decision_summary_count"] == 1
+    assert aggregate["decision_us_mean"] == 8.0
+    assert aggregate["candidate_construction_us_mean"] == 2.0
+    assert aggregate["counter_update_us_mean"] == 1.0
+    assert aggregate["logging_us_mean"] == 0.5
+
+
+def test_shadow_log_aggregates_premap_consumer_mapping_without_side_effects(tmp_path):
+    event = ShadowPremapConsumerMappingEvent(
+        event_id=ShadowEventId("req", sequence_id=0, token_index=-1, layer=2),
+        mapping_mode="noop_assertion",
+        mapping_source="fused_moe_prepare_expert_assignment",
+        address_namespace="expert_weight_descriptor",
+        consumer_expert_count=4,
+        consumer_unique_expert_count=2,
+        address_hit_count=2,
+        address_miss_count=0,
+        address_hit_rate=1.0,
+        all_hit=True,
+        parity_ok=True,
+        consumer_key_hash="consumer-hash",
+        descriptor_handle_hit_count=2,
+        descriptor_handle_miss_count=0,
+        descriptor_handle_hash="handle-hash",
+        expected_descriptor_handle_hash="handle-hash",
+        descriptor_handle_parity_ok=True,
+        expected_prepare_plan_count=7,
+        observed_prepare_plan_count=7,
+        expected_prepare_record_count=11,
+        observed_prepare_record_count=13,
+        lookup_after_prepare=True,
+        real_descriptor_handle_hit_count=2,
+        real_descriptor_handle_miss_count=0,
+        real_descriptor_handle_hash="real-handle-hash",
+        real_descriptor_handle_available=True,
+        real_descriptor_handle_new_binding_count=1,
+        real_descriptor_handle_reused_binding_count=1,
+        real_descriptor_handle_binding_mismatch_count=0,
+        real_descriptor_handle_for_address_miss_count=0,
+        expected_key_hash="consumer-hash",
+        resident_address_count=4,
+        lookup_us=3.5,
+    )
+
+    output = write_shadow_jsonl([event], tmp_path / "premap_consumer.jsonl")
+    rows = read_shadow_jsonl(output)
+    aggregate = aggregate_shadow_events(rows)
+
+    assert rows[0]["event_type"] == "premap_consumer_mapping"
+    assert rows[0]["policy_mode"] == "premap_shadow"
+    assert rows[0]["premap_consumer_mapping_mode"] == "noop_assertion"
+    assert rows[0]["premap_consumer_payload_bytes"] == 0
+    assert rows[0]["premap_consumer_changes_router"] is False
+    assert rows[0]["premap_consumer_changes_descriptor_order"] is False
+    assert rows[0]["premap_consumer_ready_credit"] is False
+    assert aggregate["premap_consumer_mapping_count"] == 1
+    assert aggregate["premap_consumer_address_hit_count"] == 2
+    assert aggregate["premap_consumer_address_miss_count"] == 0
+    assert aggregate["premap_consumer_address_hit_rate"] == 1.0
+    assert aggregate["premap_consumer_descriptor_handle_hit_count"] == 2
+    assert aggregate["premap_consumer_descriptor_handle_miss_count"] == 0
+    assert aggregate["premap_consumer_descriptor_handle_hit_rate"] == 1.0
+    assert aggregate["premap_consumer_all_hit_rate"] == 1.0
+    assert aggregate["premap_consumer_parity_ok_rate"] == 1.0
+    assert aggregate["premap_consumer_descriptor_handle_parity_ok_rate"] == 1.0
+    assert aggregate["premap_consumer_lookup_after_prepare_rate"] == 1.0
+    assert aggregate["premap_consumer_real_descriptor_handle_hit_count"] == 2
+    assert aggregate["premap_consumer_real_descriptor_handle_miss_count"] == 0
+    assert aggregate["premap_consumer_real_descriptor_handle_hit_rate"] == 1.0
+    assert aggregate["premap_consumer_real_descriptor_handle_available_rate"] == 1.0
+    assert aggregate["premap_consumer_real_descriptor_handle_new_binding_count"] == 1
+    assert aggregate["premap_consumer_real_descriptor_handle_reused_binding_count"] == 1
+    assert aggregate["premap_consumer_real_descriptor_handle_binding_mismatch_count"] == 0
+    assert aggregate["premap_consumer_real_descriptor_handle_for_address_miss_count"] == 0
+    assert aggregate["premap_consumer_lookup_us_mean"] == 3.5
+    assert aggregate["premap_consumer_payload_violation_count"] == 0
+    assert aggregate["premap_consumer_router_change_violation_count"] == 0
+    assert aggregate["premap_consumer_descriptor_order_change_violation_count"] == 0
+    assert aggregate["premap_consumer_ready_credit_violation_count"] == 0
+
+
+def test_shadow_log_aggregates_premap_address_manager_snapshot_deltas(tmp_path):
+    first = ShadowPremapSummaryEvent(
+        event_id=ShadowEventId("req", sequence_id=0, token_index=-1, layer=0),
+        premap_policy="premap_only",
+        premap_descriptor_count=2,
+        premap_unique_experts=2,
+        premap_unique_layers=1,
+        premap_unique_sample_layers=1,
+        premap_actual_bytes=128,
+        premap_descriptor_hash="desc-1",
+        premap_address_hash="addr-1",
+        premap_address_manager_capacity=4,
+        premap_address_resident_count=2,
+        premap_address_new_count=2,
+        premap_address_reused_count=0,
+        premap_address_evicted_count=0,
+        premap_address_reuse_rate=0.0,
+        premap_address_eviction_pressure=0.0,
+        premap_address_resident_descriptor_bytes=128,
+        premap_address_prepared_descriptor_actual_bytes=128,
+    )
+    second = ShadowPremapSummaryEvent(
+        event_id=ShadowEventId("req", sequence_id=0, token_index=-1, layer=1),
+        premap_policy="premap_only",
+        premap_descriptor_count=2,
+        premap_unique_experts=2,
+        premap_unique_layers=1,
+        premap_unique_sample_layers=1,
+        premap_actual_bytes=128,
+        premap_descriptor_hash="desc-2",
+        premap_address_hash="addr-2",
+        premap_address_manager_capacity=4,
+        premap_address_resident_count=3,
+        premap_address_new_count=3,
+        premap_address_reused_count=1,
+        premap_address_evicted_count=0,
+        premap_address_reuse_rate=0.25,
+        premap_address_eviction_pressure=0.0,
+        premap_address_resident_descriptor_bytes=192,
+        premap_address_prepared_descriptor_actual_bytes=256,
+    )
+    reset = ShadowPremapSummaryEvent(
+        event_id=ShadowEventId("req2", sequence_id=1, token_index=-1, layer=0),
+        premap_policy="premap_only",
+        premap_descriptor_count=1,
+        premap_unique_experts=1,
+        premap_unique_layers=1,
+        premap_unique_sample_layers=1,
+        premap_actual_bytes=64,
+        premap_descriptor_hash="desc-3",
+        premap_address_hash="addr-3",
+        premap_address_manager_capacity=4,
+        premap_address_resident_count=1,
+        premap_address_new_count=1,
+        premap_address_reused_count=0,
+        premap_address_evicted_count=0,
+        premap_address_reuse_rate=0.0,
+        premap_address_eviction_pressure=0.0,
+        premap_address_resident_descriptor_bytes=64,
+        premap_address_prepared_descriptor_actual_bytes=64,
+    )
+
+    output = write_shadow_jsonl([first, second, reset], tmp_path / "premap_mgr.jsonl")
+    aggregate = aggregate_shadow_events(read_shadow_jsonl(output))
+
+    assert aggregate["premap_address_manager_count"] == 3
+    assert aggregate["premap_address_new_count"] == 4
+    assert aggregate["premap_address_reused_count"] == 1
+    assert aggregate["premap_address_evicted_count"] == 0
+    assert aggregate["premap_address_resident_count_max"] == 3
+    assert aggregate["premap_address_resident_descriptor_bytes_max"] == 192
+    assert aggregate["premap_address_prepared_descriptor_actual_bytes_max"] == 256
+    assert aggregate["premap_address_reuse_rate_mean"] == (0.25 / 3)
+    assert aggregate["premap_summary_payload_bytes"] == 0
 
 
 def test_shadow_log_descriptor_summary_min_does_not_dilute_full_metrics(tmp_path):

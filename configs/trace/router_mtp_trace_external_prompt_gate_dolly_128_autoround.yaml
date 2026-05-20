@@ -1,0 +1,19 @@
+model: configs/model/qwen3_6_35b_a3b_autoround_int4.yaml
+data: configs/data/external_prompt_gate_dolly_128.yaml
+output_dir: data/traces/external_prompt_gate_dolly_128_autoround
+
+trace:
+  capture_router_topk: true
+  capture_router_scores: false
+  capture_hidden_states: last
+  capture_mtp_shapes: true
+  capture_native_mtp_router: true
+  native_mtp_device: cpu
+  future_window: 4
+  split_id: external_prompt_gate_dolly_128
+  expected_sample_start: 0
+  expected_sample_end: 127
+  start_sample: 0
+  max_samples: 128
+  max_length: 128
+  skip_existing: true

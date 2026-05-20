@@ -23,6 +23,19 @@ from mtp_expert_prefetch.runtime.cache_sim import (
     simulate_descriptor_priority_cache,
     write_descriptor_cache_report,
 )
+from mtp_expert_prefetch.runtime.cache_lab_gate import (
+    CacheLabGateConfig,
+    CacheLabGateDecision,
+    CacheLabRuntimeSignals,
+    select_cache_lab_prefetch_gate,
+)
+from mtp_expert_prefetch.runtime.cache_manager import (
+    CacheManagerSnapshot,
+    ControlledExpertCacheManager,
+    ControlledPremapAddressManager,
+    PremapAddressHandle,
+    PremapAddressManagerSnapshot,
+)
 from mtp_expert_prefetch.runtime.descriptor_order import (
     DescriptorOrderReport,
     build_layer_prior_plan_report_from_router_topk,
@@ -51,9 +64,19 @@ from mtp_expert_prefetch.runtime.lead_time import (
 )
 from mtp_expert_prefetch.runtime.premap import (
     ExpertPrefetchDescriptor,
+    PremapAddressRecord,
+    PremapPreparedPlan,
     build_premap_descriptors,
     build_priority_masks,
     descriptor_summary,
+    hash_premap_address_records,
+    prepare_premap_address_plan,
+)
+from mtp_expert_prefetch.runtime.premap_replay import (
+    PremapAddressReplayReport,
+    group_premap_descriptors_by_sample_layer,
+    load_premap_descriptor_jsonl,
+    replay_premap_address_manager,
 )
 from mtp_expert_prefetch.runtime.policy import (
     PolicyThresholds,
@@ -67,6 +90,7 @@ from mtp_expert_prefetch.runtime.policy import (
 )
 from mtp_expert_prefetch.runtime.online_shadow import (
     OnlineShadowLogger,
+    build_premap_shadow_summary,
     build_shadow_summary_from_descriptor_order,
     build_shadow_summary_from_decisions,
 )
@@ -80,6 +104,8 @@ from mtp_expert_prefetch.runtime.shadow_log import (
     ShadowEventId,
     ShadowOutcomeEvent,
     ShadowPolicyConfig,
+    ShadowPremapConsumerMappingEvent,
+    ShadowPremapSummaryEvent,
     ShadowSummaryEvent,
     aggregate_shadow_events,
     read_shadow_jsonl,
@@ -110,6 +136,12 @@ from mtp_expert_prefetch.runtime.tile_stream import tile_requests_from_tensor_ca
 
 __all__ = [
     "DescriptorCacheReport",
+    "CacheLabGateConfig",
+    "CacheLabGateDecision",
+    "CacheLabRuntimeSignals",
+    "CacheManagerSnapshot",
+    "ControlledExpertCacheManager",
+    "ControlledPremapAddressManager",
     "DescriptorOrderGateDecision",
     "DescriptorOrderExecutionEvidence",
     "DescriptorOrderRuntimeGate",
@@ -121,6 +153,11 @@ __all__ = [
     "PrefetchPriority",
     "OnlineShadowLogger",
     "PendingShadowDecision",
+    "PremapAddressRecord",
+    "PremapAddressManagerSnapshot",
+    "PremapPreparedPlan",
+    "PremapAddressReplayReport",
+    "build_premap_shadow_summary",
     "build_shadow_summary_from_descriptor_order",
     "build_shadow_summary_from_decisions",
     "RuntimeShadowController",
@@ -140,12 +177,18 @@ __all__ = [
     "ShadowEventId",
     "ShadowOutcomeEvent",
     "ShadowPolicyConfig",
+    "ShadowPremapSummaryEvent",
     "ShadowSummaryEvent",
     "add_metadata_budget_decisions",
     "add_premap_budget_decisions",
     "analyze_descriptor_lead_time",
     "build_premap_descriptors",
     "build_priority_masks",
+    "prepare_premap_address_plan",
+    "hash_premap_address_records",
+    "group_premap_descriptors_by_sample_layer",
+    "load_premap_descriptor_jsonl",
+    "replay_premap_address_manager",
     "build_mtp_extra_utility_scores",
     "descriptor_summary",
     "descriptors_to_tile_requests",
@@ -175,6 +218,7 @@ __all__ = [
     "tail_swap_mtp_extra_mask",
     "select_lds_stage_gate",
     "select_runtime_prefetch_policy",
+    "select_cache_lab_prefetch_gate",
     "order_tile_requests_with_layer_prior",
     "order_tile_requests",
     "order_prefetch_descriptors",

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from dataclasses import asdict, dataclass
 from typing import Literal
 
@@ -24,6 +25,54 @@ class ExpertPrefetchDescriptor:
 
     def as_dict(self) -> dict[str, int | float | str]:
         return asdict(self)
+
+
+@dataclass(frozen=True)
+class PremapAddressRecord:
+    """Prepared descriptor/address handle without payload transfer.
+
+    The address key is an audit/cache-manager key, not a device pointer. Keeping
+    it explicit lets the runtime validate descriptor/address preparation without
+    giving ready credit or moving expert payload bytes.
+    """
+
+    sample_idx: int
+    layer_idx: int
+    expert_id: int
+    priority: int
+    source: str
+    score: float
+    descriptor_slot: int
+    address_key: str
+    descriptor_bytes: int
+    payload_bytes: int = 0
+
+    def as_dict(self) -> dict[str, int | float | str]:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
+class PremapPreparedPlan:
+    """Compact plan produced by premap descriptor/address preparation."""
+
+    records: tuple[PremapAddressRecord, ...]
+    descriptor_count: int
+    unique_experts: int
+    unique_layers: int
+    unique_sample_layers: int
+    descriptor_bytes: int
+    actual_bytes: int
+    payload_bytes: int
+    descriptor_hash: str
+    address_hash: str
+    address_namespace: str
+    by_priority: dict[str, int]
+    by_source: dict[str, int]
+
+    def as_dict(self) -> dict[str, object]:
+        result = asdict(self)
+        result["records"] = [record.as_dict() for record in self.records]
+        return result
 
 
 def build_priority_masks(
@@ -169,6 +218,112 @@ def descriptor_summary(
         result["total_descriptor_bytes"] = int(len(descriptors) * expert_bytes)
         result["per_sample_layer_bytes"] = _summary(counts * float(expert_bytes))
     return result
+
+
+def prepare_premap_address_plan(
+    descriptors: list[ExpertPrefetchDescriptor],
+    *,
+    descriptor_bytes: int = 4_096,
+    address_namespace: str = "expert_weight_descriptor",
+) -> PremapPreparedPlan:
+    """Prepare descriptor/address handles for a premap-only runtime action.
+
+    This intentionally does not move payload bytes. It creates deterministic
+    descriptor slots and address keys that a cache-manager shim can audit or use
+    for low-cost descriptor/address setup.
+    """
+
+    descriptor_bytes = int(descriptor_bytes)
+    if descriptor_bytes < 0:
+        msg = f"descriptor_bytes must be non-negative, got {descriptor_bytes}"
+        raise ValueError(msg)
+    namespace = str(address_namespace or "expert_weight_descriptor")
+    ordered = sorted(
+        descriptors,
+        key=lambda item: (
+            int(item.sample_idx),
+            int(item.layer_idx),
+            int(item.priority),
+            -float(item.score),
+            int(item.expert_id),
+            str(item.source),
+        ),
+    )
+    records: list[PremapAddressRecord] = []
+    by_priority: dict[str, int] = {}
+    by_source: dict[str, int] = {}
+    for slot, descriptor in enumerate(ordered):
+        priority_key = str(int(descriptor.priority))
+        source_key = str(descriptor.source)
+        by_priority[priority_key] = by_priority.get(priority_key, 0) + 1
+        by_source[source_key] = by_source.get(source_key, 0) + 1
+        address_key = (
+            f"{namespace}:"
+            f"l{int(descriptor.layer_idx)}:"
+            f"e{int(descriptor.expert_id)}"
+        )
+        records.append(
+            PremapAddressRecord(
+                sample_idx=int(descriptor.sample_idx),
+                layer_idx=int(descriptor.layer_idx),
+                expert_id=int(descriptor.expert_id),
+                priority=int(descriptor.priority),
+                source=source_key,
+                score=float(descriptor.score),
+                descriptor_slot=int(slot),
+                address_key=address_key,
+                descriptor_bytes=descriptor_bytes,
+                payload_bytes=0,
+            )
+        )
+    descriptor_hash, address_hash = hash_premap_address_records(records)
+    return PremapPreparedPlan(
+        records=tuple(records),
+        descriptor_count=len(records),
+        unique_experts=len({record.expert_id for record in records}),
+        unique_layers=len({record.layer_idx for record in records}),
+        unique_sample_layers=len({(record.sample_idx, record.layer_idx) for record in records}),
+        descriptor_bytes=descriptor_bytes,
+        actual_bytes=len(records) * descriptor_bytes,
+        payload_bytes=0,
+        descriptor_hash=descriptor_hash,
+        address_hash=address_hash,
+        address_namespace=namespace,
+        by_priority=by_priority,
+        by_source=by_source,
+    )
+
+
+def hash_premap_address_records(
+    records: tuple[PremapAddressRecord, ...] | list[PremapAddressRecord],
+) -> tuple[str, str]:
+    descriptor_hasher = hashlib.sha256()
+    address_hasher = hashlib.sha256()
+    for record in records:
+        descriptor_row = (
+            int(record.sample_idx),
+            int(record.layer_idx),
+            int(record.expert_id),
+            int(record.priority),
+            str(record.source),
+            f"{float(record.score):.9g}",
+            int(record.descriptor_slot),
+            str(record.address_key),
+        )
+        address_row = (
+            int(record.descriptor_slot),
+            str(record.address_key),
+            int(record.sample_idx),
+            int(record.layer_idx),
+            int(record.expert_id),
+            int(record.priority),
+            str(record.source),
+        )
+        descriptor_hasher.update("|".join(map(str, descriptor_row)).encode("utf-8"))
+        descriptor_hasher.update(b"\n")
+        address_hasher.update("|".join(map(str, address_row)).encode("utf-8"))
+        address_hasher.update(b"\n")
+    return descriptor_hasher.hexdigest(), address_hasher.hexdigest()
 
 
 def _reduce_scores(

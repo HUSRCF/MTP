@@ -1,0 +1,105 @@
+id: direct_topk_awq_w7900_gpu1_samples0_127_gen2_v1
+description: >
+  Layer allowlist for descriptor-order direct_topk replay on Qwen3.6-35B-A3B
+  AWQ, calibrated on samples 0-127 with max_tokens=2 and replayed on heldout
+  samples 128-255 with max_tokens=2/4/8. The default layers are the robust
+  subset that remains positive across the heldout max_tokens=2/4/8 length
+  sweep.
+
+model:
+  model_id: data/modelscope_downloads/cyankiwi/Qwen3.6-35B-A3B-AWQ-4bit
+  source_model_id: cyankiwi/Qwen3.6-35B-A3B-AWQ-4bit
+  config_path: configs/model/qwen3_6_35b_a3b_awq_4bit.yaml
+  config_sha256: 3c9c01409e8ea58e9c812915131355b71a6ae4006614381739ac1a62a7918a92
+  quantization_method: awq
+
+device:
+  platform: rocm
+  gpu: AMD Radeon PRO W7900
+  gpu_index: 1
+  note: GPU1-only calibration/replay; GPU0 or other devices require a separate artifact.
+
+source_split:
+  dataset_config: configs/data/aya_dataset_512.yaml
+  sample_start: 0
+  sample_count: 128
+  max_tokens: 2
+  prompt_max_length: 128
+  token_source_manifest: data/traces/aya_dataset_512_autoround/manifest.jsonl
+
+threshold:
+  criterion: measured decode-layer benefit under direct_topk replay
+  selected_from: samples0_127_max_tokens2
+  heldout_requirement: positive TPOT on samples128_255 at max_tokens 2/4/8
+  robust_layer_requirement: positive per-layer p50 speedup on heldout max_tokens 2/4/8
+
+policy:
+  attribution_mode: direct_topk_kernel
+  execution_mode: two_level_group_plan
+  groups_per_cta: 8
+  tile_elems: 1024
+  require_profitable: true
+
+layers:
+  - 5
+  - 8
+  - 9
+  - 11
+  - 12
+  - 13
+  - 14
+  - 15
+  - 18
+  - 19
+  - 20
+  - 25
+  - 27
+  - 28
+  - 29
+  - 31
+  - 32
+  - 33
+  - 38
+
+excluded_layers:
+  - layer: 4
+    reason: heldout max_tokens=2 per-layer p50 speedup below 1.0
+  - layer: 17
+    reason: heldout max_tokens=2 per-layer p50 speedup below 1.0
+
+candidate_layers_before_robust_gate:
+  - 4
+  - 5
+  - 8
+  - 9
+  - 11
+  - 12
+  - 13
+  - 14
+  - 15
+  - 17
+  - 18
+  - 19
+  - 20
+  - 25
+  - 27
+  - 28
+  - 29
+  - 31
+  - 32
+  - 33
+  - 38
+
+evidence_paths:
+  calibration:
+    no_order: data/traces/aya_dataset_128_awq_vllm_descriptor_order_attr_no_order_gpu1_decode
+    direct_topk_all: data/traces/aya_dataset_128_awq_vllm_descriptor_order_attr_direct_topk_gpu1_decode
+  heldout_max_tokens2:
+    no_order: data/traces/aya_dataset_heldout128_awq_vllm_descriptor_order_attr_no_order_gpu1_decode
+    selective: data/traces/aya_dataset_heldout128_awq_vllm_descriptor_order_attr_direct_topk_selective_gpu1_decode
+  heldout_max_tokens4:
+    no_order: data/traces/aya_dataset_heldout128_gen4_awq_vllm_descriptor_order_attr_no_order_gpu1_decode
+    selective: data/traces/aya_dataset_heldout128_gen4_awq_vllm_descriptor_order_attr_direct_topk_selective_gpu1_decode
+  heldout_max_tokens8:
+    no_order: data/traces/aya_dataset_heldout128_gen8_awq_vllm_descriptor_order_attr_no_order_gpu1_decode
+    selective: data/traces/aya_dataset_heldout128_gen8_awq_vllm_descriptor_order_attr_direct_topk_selective_gpu1_decode

@@ -1,0 +1,50 @@
+model: configs/model/qwen3_6_35b_a3b_awq_4bit.yaml
+data: configs/data/external_prompt_gate_dolly_128.yaml
+output_dir: data/traces/external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_premap_shadow_smoke_sample1
+
+trace:
+  capture_router_topk: true
+  capture_router_scores: true
+  use_router_logits_recorder: true
+  capture_hidden_states: none
+  capture_native_mtp_router: false
+  future_window: 4
+  split_id: external_prompt_gate_dolly_128_awq_vllm_premap_shadow_smoke_sample1
+  expected_sample_start: 1
+  expected_sample_end: 1
+  start_sample: 1
+  max_samples: 1
+  max_length: 128
+  max_tokens: 1
+  router_module_prefix: model.language_model
+  runtime_shadow:
+    enabled: true
+    output_path: data/traces/external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_premap_shadow_smoke_sample1/runtime_shadow.jsonl
+    overwrite: true
+    flush_every: 100000
+    writer_mode: jsonl_batched
+    max_pending: 10000
+    record_router_topk: true
+    emit_transition_summaries: false
+    emit_descriptor_order_summaries: false
+    emit_premap_summaries: true
+    premap_policy: premap_only
+    premap_source: current_router_topk_premap_shadow
+    premap_descriptor_bytes: 4096
+    premap_priority: 2
+    emit_summaries: true
+    emit_outcomes: false
+    outcome_logging_mode: "off"
+    emit_decoder_layer_timing: false
+    emit_descriptor_layer_timing: false
+    emit_decoder_component_timing: false
+    emit_moe_substage_timing: false
+    emit_engine_timing: false
+    emit_wna16_kernel_timing: false
+    decoder_source_timing_mode: "off"
+    moe_source_timing_mode: "off"
+    descriptor_order_reorder_mvp_enabled: false
+    request_id_prefix: sample_
+    sequence_id: 0
+    token_offset: 0
+    flush_pending_as_timeouts: true

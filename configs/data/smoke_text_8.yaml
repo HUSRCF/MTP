@@ -1,0 +1,13 @@
+name: smoke_text_8
+source: inline
+max_samples: 8
+max_length: 512
+texts:
+  - "Explain why MoE routing can show locality across adjacent generated tokens."
+  - "Write a short Python function that computes recall at k for expert prediction."
+  - "Summarize the tradeoffs between cache locality and load balancing in a sparse MoE inference server."
+  - "Translate this sentence into French and explain one grammar choice: The model routes each token to a small set of experts."
+  - "Give a concise checklist for debugging a GPU kernel performance regression."
+  - "Write a short paragraph comparing static scheduling and dynamic scheduling for batched inference."
+  - "Explain how quantization can change the bottleneck profile of a neural network serving system."
+  - "Create a small table with three reasons why tail latency matters in interactive text generation."

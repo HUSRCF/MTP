@@ -1,8 +1,7 @@
 name: smoke_text
 source: inline
-max_samples: 8
+max_samples: 2
 max_length: 512
 texts:
   - "Explain why MoE routing can show locality across adjacent generated tokens."
   - "Write a short Python function that computes recall at k for expert prediction."
-
