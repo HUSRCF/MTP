@@ -98,6 +98,44 @@ def test_mixed_diag_summary_strict_passes(tmp_path):
     assert summary["descriptor_order_stats"]["descriptor_order_build_us"]["p50"] == 2.0
 
 
+def test_mixed_diag_summary_includes_premap_consumer_source_aggregate(tmp_path):
+    rows = [
+        {
+            "event_type": "premap_consumer_mapping",
+            "premap_consumer_real_descriptor_handle_hit_count": 4,
+            "premap_consumer_real_descriptor_handle_miss_count": 0,
+            "premap_consumer_real_descriptor_handle_available": True,
+            "premap_consumer_real_descriptor_handle_source_hit_counts": {
+                "packed_weight": 4,
+                "scale_metadata": 4,
+                "aux_metadata": 4,
+            },
+            "premap_consumer_real_descriptor_handle_source_miss_counts": {
+                "packed_weight": 0,
+                "scale_metadata": 0,
+                "aux_metadata": 0,
+            },
+            "premap_consumer_real_descriptor_handle_miss_reason_counts": {
+                "resolver_disabled": 0,
+                "consumer_layer_missing": 0,
+                "expert_map_miss": 0,
+                "no_handle_parts": 0,
+            },
+        }
+    ]
+    path = tmp_path / "runtime_shadow.jsonl"
+    _write_jsonl(path, rows)
+
+    summary = summarize(path)
+
+    aggregate = summary["aggregate"]
+    assert aggregate["premap_consumer_real_descriptor_handle_hit_count"] == 4
+    assert aggregate["premap_consumer_real_descriptor_handle_packed_weight_hit_count"] == 4
+    assert aggregate["premap_consumer_real_descriptor_handle_scale_metadata_hit_count"] == 4
+    assert aggregate["premap_consumer_real_descriptor_handle_aux_metadata_hit_count"] == 4
+    assert aggregate["premap_consumer_real_descriptor_handle_no_handle_parts_count"] == 0
+
+
 def test_mixed_diag_strict_rejects_missing_core_event(tmp_path):
     rows = [row for row in _mixed_rows() if row["event_type"] != "outcome_aggregate"]
     path = tmp_path / "runtime_shadow.jsonl"

@@ -82,6 +82,40 @@ def check_summary(
         aggregate.get("premap_consumer_real_descriptor_handle_binding_mismatch_count")
     ) != 0:
         failures.append("real_descriptor_handle_binding_mismatch_nonzero")
+    real_handle_hits = _as_int(
+        aggregate.get("premap_consumer_real_descriptor_handle_hit_count")
+    )
+    if real_handle_hits <= 0:
+        failures.append("real_descriptor_handle_hit_count_missing_or_zero")
+    for source in ("packed_weight", "scale_metadata", "aux_metadata"):
+        hit_count = _as_int(
+            aggregate.get(f"premap_consumer_real_descriptor_handle_{source}_hit_count")
+        )
+        miss_count = _as_int(
+            aggregate.get(f"premap_consumer_real_descriptor_handle_{source}_miss_count")
+        )
+        if hit_count != real_handle_hits:
+            failures.append(
+                f"real_descriptor_handle_{source}_hit_count_mismatch="
+                f"{hit_count}!={real_handle_hits}"
+            )
+        if miss_count != 0:
+            failures.append(
+                f"real_descriptor_handle_{source}_miss_count_nonzero={miss_count}"
+            )
+    for reason in (
+        "resolver_disabled",
+        "consumer_layer_missing",
+        "expert_map_miss",
+        "no_handle_parts",
+    ):
+        count = _as_int(
+            aggregate.get(f"premap_consumer_real_descriptor_handle_{reason}_count")
+        )
+        if count != 0:
+            failures.append(
+                f"real_descriptor_handle_{reason}_count_nonzero={count}"
+            )
     if _as_int(aggregate.get("premap_consumer_error_count")) != 0:
         failures.append("premap_consumer_error_count_nonzero")
 
@@ -101,6 +135,16 @@ def check_summary(
         ),
         "premap_consumer_real_descriptor_handle_hit_rate": _as_float(
             aggregate.get("premap_consumer_real_descriptor_handle_hit_rate")
+        ),
+        "premap_consumer_real_descriptor_handle_hit_count": real_handle_hits,
+        "premap_consumer_real_descriptor_handle_packed_weight_hit_count": _as_int(
+            aggregate.get("premap_consumer_real_descriptor_handle_packed_weight_hit_count")
+        ),
+        "premap_consumer_real_descriptor_handle_scale_metadata_hit_count": _as_int(
+            aggregate.get("premap_consumer_real_descriptor_handle_scale_metadata_hit_count")
+        ),
+        "premap_consumer_real_descriptor_handle_aux_metadata_hit_count": _as_int(
+            aggregate.get("premap_consumer_real_descriptor_handle_aux_metadata_hit_count")
         ),
     }
     return {

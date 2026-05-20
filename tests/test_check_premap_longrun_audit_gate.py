@@ -19,6 +19,17 @@ def _passing_summary() -> dict:
             "premap_consumer_address_hit_rate": 1.0,
             "premap_consumer_descriptor_handle_hit_rate": 1.0,
             "premap_consumer_real_descriptor_handle_hit_rate": 1.0,
+            "premap_consumer_real_descriptor_handle_hit_count": 20,
+            "premap_consumer_real_descriptor_handle_packed_weight_hit_count": 20,
+            "premap_consumer_real_descriptor_handle_packed_weight_miss_count": 0,
+            "premap_consumer_real_descriptor_handle_scale_metadata_hit_count": 20,
+            "premap_consumer_real_descriptor_handle_scale_metadata_miss_count": 0,
+            "premap_consumer_real_descriptor_handle_aux_metadata_hit_count": 20,
+            "premap_consumer_real_descriptor_handle_aux_metadata_miss_count": 0,
+            "premap_consumer_real_descriptor_handle_resolver_disabled_count": 0,
+            "premap_consumer_real_descriptor_handle_consumer_layer_missing_count": 0,
+            "premap_consumer_real_descriptor_handle_expert_map_miss_count": 0,
+            "premap_consumer_real_descriptor_handle_no_handle_parts_count": 0,
             "premap_consumer_lookup_after_prepare_rate": 1.0,
             "premap_consumer_real_descriptor_handle_binding_mismatch_count": 0,
             "premap_consumer_error_count": 0,
@@ -60,3 +71,26 @@ def test_premap_longrun_audit_gate_rejects_capacity_and_reuse_regression():
     assert result["passed"] is False
     assert "resident_count_exceeds_capacity=13>12" in result["failures"]
     assert "premap_address_reuse_rate_below_threshold" in result["failures"]
+
+
+def test_premap_longrun_audit_gate_rejects_real_handle_source_misses():
+    summary = _passing_summary()
+    summary["aggregate"][
+        "premap_consumer_real_descriptor_handle_scale_metadata_hit_count"
+    ] = 19
+    summary["aggregate"][
+        "premap_consumer_real_descriptor_handle_aux_metadata_miss_count"
+    ] = 1
+    summary["aggregate"][
+        "premap_consumer_real_descriptor_handle_no_handle_parts_count"
+    ] = 1
+
+    result = check_summary(summary, max_capacity=12, min_reuse_rate=0.98)
+
+    assert result["passed"] is False
+    assert (
+        "real_descriptor_handle_scale_metadata_hit_count_mismatch=19!=20"
+        in result["failures"]
+    )
+    assert "real_descriptor_handle_aux_metadata_miss_count_nonzero=1" in result["failures"]
+    assert "real_descriptor_handle_no_handle_parts_count_nonzero=1" in result["failures"]

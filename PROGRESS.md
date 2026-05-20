@@ -326,6 +326,46 @@ The source-class and miss-reason counters make failures auditable before any
 future runtime consumer uses these handles.
 ```
 
+128-sample long-run audit:
+
+```text
+artifact:
+  data/traces/
+    external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_longrun_audit/
+
+gate:
+  scripts/check_premap_longrun_audit_gate.py
+  max_capacity = 12288
+  min_reuse_rate = 0.98
+
+result:
+  passed = true
+  row_count = 20390
+  premap_summary = 10195
+  premap_consumer_mapping = 10195
+  resident_count_max = 10127
+  reuse_rate_mean = 0.982739
+  evicted_count = 0
+
+real prelaunch handle source classification:
+  real_handle hits = 110898
+  real_handle misses = 0
+  packed_weight hits = 110898
+  scale_metadata hits = 110898
+  aux_metadata hits = 110898
+  packed_weight / scale_metadata / aux_metadata misses = 0 / 0 / 0
+  resolver_disabled / consumer_layer_missing / expert_map_miss / no_handle_parts = 0 / 0 / 0 / 0
+```
+
+Interpretation:
+
+```text
+The premap read-only consumer contract scales from the 8-sample smoke to the
+128-sample long-run audit under sampled consumer mapping.  The runtime can
+resolve every sampled prelaunch packed-weight, scale-metadata, and aux-metadata
+handle class without payload transfer or router/order side effects.
+```
+
 ## Evidence Lock
 
 Current coarse bottleneck baseline:

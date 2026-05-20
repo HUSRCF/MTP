@@ -49,5 +49,28 @@ def test_dolly_longrun_audit_summaries_are_premap_safe(
     assert aggregate["premap_consumer_descriptor_handle_hit_rate"] == 1.0
     assert aggregate["premap_consumer_real_descriptor_handle_hit_rate"] == 1.0
     assert aggregate["premap_consumer_lookup_after_prepare_rate"] == 1.0
+    if "premap_consumer_real_descriptor_handle_hit_count" not in aggregate:
+        pytest.skip("legacy long-run summary predates source-class handle counters")
+    real_handle_hits = aggregate["premap_consumer_real_descriptor_handle_hit_count"]
+    assert real_handle_hits > 0
+    assert (
+        aggregate["premap_consumer_real_descriptor_handle_packed_weight_hit_count"]
+        == real_handle_hits
+    )
+    assert (
+        aggregate["premap_consumer_real_descriptor_handle_scale_metadata_hit_count"]
+        == real_handle_hits
+    )
+    assert (
+        aggregate["premap_consumer_real_descriptor_handle_aux_metadata_hit_count"]
+        == real_handle_hits
+    )
+    assert aggregate["premap_consumer_real_descriptor_handle_packed_weight_miss_count"] == 0
+    assert aggregate["premap_consumer_real_descriptor_handle_scale_metadata_miss_count"] == 0
+    assert aggregate["premap_consumer_real_descriptor_handle_aux_metadata_miss_count"] == 0
+    assert aggregate["premap_consumer_real_descriptor_handle_resolver_disabled_count"] == 0
+    assert aggregate["premap_consumer_real_descriptor_handle_consumer_layer_missing_count"] == 0
+    assert aggregate["premap_consumer_real_descriptor_handle_expert_map_miss_count"] == 0
+    assert aggregate["premap_consumer_real_descriptor_handle_no_handle_parts_count"] == 0
     assert aggregate["premap_consumer_real_descriptor_handle_binding_mismatch_count"] == 0
     assert aggregate["premap_consumer_error_count"] == 0
