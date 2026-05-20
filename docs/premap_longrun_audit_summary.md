@@ -59,3 +59,44 @@ consumer lookup-after-prepare stays at 1.0.
 This is not a payload-prefetch or endpoint-latency claim.  It validates only the
 read-only descriptor/address preparation and consumer-handle mapping contract
 needed before wiring a real cache-manager consumer.
+
+## Machine Gate
+
+Use the gate checker before treating a long-run premap audit as valid evidence:
+
+```bash
+python scripts/check_premap_longrun_audit_gate.py \
+  data/traces/external_prompt_gate_dolly_512_awq_vllm_gpu1_decode_gen64_longrun_audit/longrun_audit_summary.json
+```
+
+The gate requires:
+
+```text
+only premap_summary + premap_consumer_mapping rows
+matching sampled row counts
+premap payload bytes = 0
+address evictions = 0
+eviction pressure mean = 0
+resident count <= capacity
+reuse rate >= threshold
+consumer address / descriptor / real-handle hit rates = 1.0
+lookup-after-prepare rate = 1.0
+binding mismatch count = 0
+consumer error count = 0
+```
+
+Current local 512 gate output:
+
+```text
+passed = true
+max_capacity = 12288
+min_reuse_rate = 0.98
+row_count = 40684
+premap_summary_count = 20342
+premap_consumer_mapping_count = 20342
+premap_address_resident_count_max = 10202
+premap_address_reuse_rate_mean = 0.9945098118
+premap_address_eviction_pressure_mean = 0.0
+premap_consumer_address_hit_rate = 1.0
+premap_consumer_real_descriptor_handle_hit_rate = 1.0
+```
