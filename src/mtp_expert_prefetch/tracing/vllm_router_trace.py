@@ -584,6 +584,11 @@ class VllmRouterRecorder:
         default_factory=dict,
         repr=False,
     )
+    # Intentionally recorder/model-lifetime rather than clear()-lifetime:
+    # clear() resets per-sample trace buffers, but live vLLM/AWQ tensor handles
+    # are runtime address signatures for the loaded model instance.  Keeping
+    # this binding across samples lets the no-op consumer contract detect
+    # unexpected handle churn or reallocation during the same recorder lifetime.
     _premap_real_handle_binding_by_address_key: dict[str, str] = field(
         default_factory=dict,
         repr=False,
@@ -1689,6 +1694,10 @@ class VllmRouterRecorder:
                     continue
                 try:
                     view = tensor[int(local_expert)] if tensor.ndim > 0 else tensor
+                    # Runtime-address signature only.  This is not a portable
+                    # semantic handle id across model reloads or tensor
+                    # reallocation; it is meant to audit stability of the live
+                    # descriptor/address object during one recorder lifetime.
                     parts.append(
                         ":".join(
                             (
@@ -1748,17 +1757,29 @@ class VllmRouterRecorder:
             layer_id=int(layer_id),
             expert_ids=valid_experts,
         )
+        alignment_error: str | None = None
+        try:
+            address_expert_pairs = list(zip(address_keys, valid_experts, strict=True))
+        except ValueError:
+            alignment_error = (
+                "premap_consumer_address_expert_length_mismatch:"
+                f"address_keys={len(address_keys)}:"
+                f"experts={len(valid_experts)}"
+            )
+            address_expert_pairs = list(zip(address_keys, valid_experts))
         manager = self._shadow_premap_address_manager
         hit_count = 0
         address_hit_keys: list[str] = []
         descriptor_handle_hashes: list[str] = []
         if manager is None:
-            mapping_error = error or "premap_address_manager_missing"
+            mapping_error = (
+                error or alignment_error or "premap_address_manager_missing"
+            )
             resident_count = None
             observed_prepare_plan_count = None
             observed_prepare_record_count = None
         else:
-            mapping_error = error
+            mapping_error = error or alignment_error
             observed_snapshot = manager.snapshot()
             resident_count = observed_snapshot.resident_address_count
             observed_prepare_plan_count = int(observed_snapshot.prepared_plan_count)
@@ -1793,7 +1814,7 @@ class VllmRouterRecorder:
         reused_binding_count = 0
         binding_mismatch_count = 0
         real_handle_for_address_miss_count = 0
-        for key, expert_id in zip(address_keys, valid_experts, strict=False):
+        for key, expert_id in address_expert_pairs:
             real_expert_hash = real_handle_by_expert.get(int(expert_id))
             if real_expert_hash is None:
                 continue

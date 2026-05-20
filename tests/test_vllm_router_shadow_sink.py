@@ -1184,6 +1184,41 @@ def test_vllm_router_recorder_premap_consumer_real_handle_lifecycle_and_eviction
     assert second["premap_consumer_real_descriptor_handle_for_address_miss_count"] == 1
 
 
+def test_vllm_router_recorder_premap_real_handle_binding_survives_clear():
+    sink = _Sink()
+    consumer_layer = _FakeAwqConsumerLayer(num_experts=6)
+    recorder = VllmRouterRecorder(
+        top_k=2,
+        shadow_outcome_sink=sink,
+        shadow_outcome_logging_mode="off",
+        shadow_emit_premap_consumer_mapping=True,
+        shadow_premap_consumer_resolve_real_handles=True,
+        shadow_num_experts=6,
+        request_id="req",
+        sequence_id=5,
+    )
+
+    recorder._write_premap_consumer_mapping_from_experts(
+        layer_id=3,
+        active_experts=[1, 2],
+        consumer_layer=consumer_layer,
+    )
+    recorder.clear()
+    recorder._write_premap_consumer_mapping_from_experts(
+        layer_id=3,
+        active_experts=[1, 2],
+        consumer_layer=consumer_layer,
+    )
+
+    rows = [event.as_dict() for event in sink.events]
+    assert len(rows) == 2
+    assert rows[0]["premap_consumer_real_descriptor_handle_new_binding_count"] == 2
+    assert rows[0]["premap_consumer_real_descriptor_handle_reused_binding_count"] == 0
+    assert rows[1]["premap_consumer_real_descriptor_handle_new_binding_count"] == 0
+    assert rows[1]["premap_consumer_real_descriptor_handle_reused_binding_count"] == 2
+    assert rows[1]["premap_consumer_real_descriptor_handle_binding_mismatch_count"] == 0
+
+
 def test_vllm_router_recorder_premap_summary_requires_supported_sink():
     recorder = VllmRouterRecorder(
         top_k=2,

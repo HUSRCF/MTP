@@ -5,6 +5,8 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
+**/.ipynb_checkpoints/
+**/.cache/
 .venv/
 venv/
 
@@ -27,9 +29,14 @@ third_party/GPTQModel/
 tmp/
 *.pt
 *.pth
+*.ckpt
 *.safetensors
 *.onnx
 *.bin
+*.ncu-rep
+*.nvvp
+**/.DS_Store
+Thumbs.db
 
 # Keep directory placeholders
 !data/raw/.gitkeep
