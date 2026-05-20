@@ -46,13 +46,14 @@ trace:
     premap_descriptor_bytes: 4096
     premap_priority: 2
 
-    # Long-run audit keeps aggregate outcomes and minimal descriptor-order
-    # telemetry, but leaves heavy diagnostic timing disabled by default.
+    # Premap handle long-run audit keeps only sampled premap manager/consumer
+    # rows. Outcome and descriptor-order rows are disabled because they are not
+    # needed for the read-only descriptor/address handle contract.
     emit_transition_summaries: false
-    emit_descriptor_order_summaries: true
+    emit_descriptor_order_summaries: false
     emit_summaries: true
-    emit_outcomes: true
-    outcome_logging_mode: aggregate
+    emit_outcomes: false
+    outcome_logging_mode: "off"
     emit_decoder_layer_timing: false
     emit_descriptor_layer_timing: false
     emit_decoder_component_timing: false

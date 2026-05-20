@@ -13587,3 +13587,67 @@ now also exports runtime_shadow_size_mb and flattened aggregate counts for
 premap_summary / descriptor_summary_min / outcome_aggregate, so long-run audits
 do not need a manual JSONL scan to verify row-volume gates.
 ```
+
+## Premap-only long-run audit row-volume gate
+
+The premap handle audit does not require outcome rows or descriptor_order rows.
+Those are useful for broader runtime diagnostics, but they dominate row volume
+and are orthogonal to the read-only descriptor/address handle contract.  The
+32/128/512 premap-manager audit configs now use:
+
+```text
+emit_outcomes = false
+outcome_logging_mode = "off"
+emit_descriptor_order_summaries = false
+emit_premap_summaries = true
+emit_premap_consumer_mapping = true
+sampled premap_summary + sampled premap_consumer_mapping
+```
+
+Validation:
+
+```text
+focused:
+  tests/test_vllm_premap_capacity_gate.py
+  tests/test_vllm_router_shadow_sink.py
+  61 passed
+
+full:
+  421 passed, 2 warnings
+```
+
+Low-volume 32-sample GPU1 AWQ/vLLM run:
+
+```text
+artifact:
+  data/traces/
+    external_prompt_gate_dolly_32_awq_vllm_gpu1_decode_gen64_premap_manager_gate_smoke/
+
+premap_summary_sample_period = 8
+premap_consumer_mapping_sample_period = 8
+
+event counts:
+  outcome_aggregate = 0
+  descriptor_summary_min = 0
+  premap_summary = 10240
+  premap_consumer_mapping = 10240
+
+runtime_shadow_size_mb = 36.60
+premap_consumer_address_hit_rate = 1.0
+premap_consumer_descriptor_handle_hit_rate = 1.0
+premap_consumer_real_descriptor_handle_hit_rate = 1.0
+premap_consumer_lookup_after_prepare_rate = 1.0
+premap_consumer_real_descriptor_handle_binding_mismatch_count = 0
+premap_consumer_error_count = 0
+```
+
+Interpretation:
+
+```text
+Premap-only long-run audit is now a low-volume handle-stability path rather
+than a mixed runtime diagnostic.  At 32 samples the shadow log drops from the
+previous sampled ~179 MB to ~36.6 MB while preserving the address/descriptor
+handle lifecycle evidence.  This makes 128/512 premap handle audits practical:
+the expected row count now scales with the sampled premap manager/consumer rows,
+not with every outcome or descriptor_order summary.
+```

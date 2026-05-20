@@ -165,7 +165,7 @@ def test_default_longrun_audit_config_uses_premap_capacity_gate(
     shadow = config["trace"]["runtime_shadow"]
 
     assert shadow["writer_mode"] == "jsonl_batched"
-    assert shadow["outcome_logging_mode"] == "aggregate"
+    assert shadow["outcome_logging_mode"] == "off"
     assert shadow["record_router_topk"] is True
     assert shadow["emit_premap_summaries"] is True
     assert shadow["emit_premap_address_manager_counters"] is True
@@ -189,7 +189,8 @@ def test_default_longrun_audit_config_uses_premap_capacity_gate(
     assert shadow["premap_policy"] == "premap_only_with_consumer_mapping_noop"
     assert shadow["premap_source"] == "current_router_topk_premap_shadow"
     assert shadow["premap_descriptor_bytes"] == 4096
-    assert shadow["emit_descriptor_order_summaries"] is True
+    assert shadow["emit_outcomes"] is False
+    assert shadow["emit_descriptor_order_summaries"] is False
     assert shadow["descriptor_order_metrics_mode"] == "count_only"
     assert shadow["descriptor_order_event_mode"] == "minimal"
     assert shadow["emit_decoder_layer_timing"] is False
