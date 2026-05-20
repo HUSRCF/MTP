@@ -8947,6 +8947,133 @@ def _apply_premap_address_capacity_gate(
     return updated
 
 
+def _apply_premap_consumer_readonly_gate(
+    options: dict[str, Any],
+    *,
+    project_root: Path,
+) -> dict[str, Any]:
+    require_gate = bool(options.get("premap_consumer_require_readonly_gate", False))
+    raw_path = options.get("premap_consumer_readonly_gate_path")
+    if raw_path is None:
+        if require_gate:
+            msg = (
+                "premap_consumer_require_readonly_gate=True requires "
+                "premap_consumer_readonly_gate_path."
+            )
+            raise ValueError(msg)
+        return options
+    path = resolve_path(raw_path, base_dir=project_root)
+    payload = load_yaml(path)
+    if not isinstance(payload, dict):
+        msg = f"Premap consumer readonly gate must be a mapping: {path}"
+        raise TypeError(msg)
+    gate = payload.get("gate")
+    if not isinstance(gate, dict):
+        msg = f"Premap consumer readonly gate missing `gate`: {path}"
+        raise ValueError(msg)
+    status = str(payload.get("status", "")).strip().lower()
+    raw_passed = gate.get("passed")
+    if raw_passed is None:
+        gate_passed = status == "passed"
+    elif isinstance(raw_passed, bool):
+        gate_passed = raw_passed
+    else:
+        msg = f"Premap consumer readonly gate `gate.passed` must be boolean: {path}"
+        raise TypeError(msg)
+    if status and status != "passed":
+        gate_passed = False
+    failures = gate.get("failures", payload.get("failures", []))
+    if failures is None:
+        failures = []
+    if not isinstance(failures, list):
+        msg = f"Premap consumer readonly gate failures must be a list: {path}"
+        raise TypeError(msg)
+    if not gate_passed:
+        msg = (
+            "Premap consumer readonly gate did not pass "
+            f"for {path}: failures={failures}"
+        )
+        raise ValueError(msg)
+
+    contract = payload.get("contract", {})
+    if not isinstance(contract, dict):
+        msg = f"Premap consumer readonly gate contract must be a mapping: {path}"
+        raise TypeError(msg)
+    expected_contract = {
+        "payload_bytes_required": 0,
+        "ready_credit_required": False,
+        "changes_router_required": False,
+        "changes_descriptor_order_required": False,
+        "address_key_scope": "layer_expert",
+        "handle_resolution": "read_only",
+    }
+    for key, expected in expected_contract.items():
+        observed = contract.get(key)
+        if observed != expected:
+            msg = (
+                "Premap consumer readonly gate violates the no-op contract "
+                f"for {path}: {key}={observed!r} != {expected!r}"
+            )
+            raise ValueError(msg)
+    descriptor_bytes = contract.get("descriptor_bytes")
+    option_descriptor_bytes = options.get("premap_descriptor_bytes")
+    if (
+        descriptor_bytes is not None
+        and option_descriptor_bytes is not None
+        and int(descriptor_bytes) != int(option_descriptor_bytes)
+    ):
+        msg = (
+            "Premap consumer readonly gate descriptor size does not match runtime "
+            f"options for {path}: {descriptor_bytes} != {option_descriptor_bytes}"
+        )
+        raise ValueError(msg)
+    if require_gate:
+        if not bool(options.get("emit_premap_consumer_mapping", False)):
+            msg = (
+                "premap_consumer_require_readonly_gate=True requires "
+                "emit_premap_consumer_mapping=True."
+            )
+            raise ValueError(msg)
+        if (
+            str(options.get("premap_consumer_mapping_mode", "noop_assertion"))
+            != "noop_assertion"
+        ):
+            msg = (
+                "premap_consumer_require_readonly_gate=True requires "
+                "premap_consumer_mapping_mode=noop_assertion."
+            )
+            raise ValueError(msg)
+        if not bool(options.get("premap_consumer_resolve_real_handles", False)):
+            msg = (
+                "premap_consumer_require_readonly_gate=True requires "
+                "premap_consumer_resolve_real_handles=True."
+            )
+            raise ValueError(msg)
+        policy = str(options.get("premap_policy", "premap_only_with_consumer_mapping_noop"))
+        if policy != "premap_only_with_consumer_mapping_noop":
+            msg = (
+                "premap_consumer_require_readonly_gate=True requires "
+                "premap_policy=premap_only_with_consumer_mapping_noop."
+            )
+            raise ValueError(msg)
+
+    updated = dict(options)
+    updated["premap_consumer_readonly_gate_required"] = require_gate
+    updated["premap_consumer_readonly_gate_id"] = payload.get(
+        "artifact_id",
+        payload.get("id"),
+    )
+    updated["premap_consumer_readonly_gate_resolved_path"] = str(path)
+    updated["premap_consumer_readonly_gate_passed"] = True
+    updated["premap_consumer_readonly_gate_failures"] = failures
+    updated["premap_consumer_readonly_gate_metrics"] = gate.get("metrics", {})
+    updated["premap_consumer_readonly_gate_evidence_paths"] = payload.get(
+        "evidence_paths",
+        {},
+    )
+    return updated
+
+
 def _build_runtime_shadow_controller(
     *,
     options: dict[str, Any],
@@ -9200,6 +9327,10 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
         runtime_shadow_options,
         project_root=project_root,
     )
+    runtime_shadow_options = _apply_premap_consumer_readonly_gate(
+        runtime_shadow_options,
+        project_root=project_root,
+    )
     if bool(runtime_shadow_options.get("enabled", False)) and not use_router_logits_recorder:
         msg = "runtime_shadow.enabled requires use_router_logits_recorder."
         raise ValueError(msg)
@@ -9437,6 +9568,35 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
             runtime_shadow_options.get(
                 "premap_consumer_mapping_sample_period",
                 1,
+            )
+        ),
+        "runtime_shadow_premap_consumer_readonly_gate_required": bool(
+            runtime_shadow_options.get(
+                "premap_consumer_readonly_gate_required",
+                runtime_shadow_options.get(
+                    "premap_consumer_require_readonly_gate",
+                    False,
+                ),
+            )
+        ),
+        "runtime_shadow_premap_consumer_readonly_gate_id": (
+            runtime_shadow_options.get("premap_consumer_readonly_gate_id")
+        ),
+        "runtime_shadow_premap_consumer_readonly_gate_path": (
+            runtime_shadow_options.get("premap_consumer_readonly_gate_resolved_path")
+        ),
+        "runtime_shadow_premap_consumer_readonly_gate_passed": (
+            runtime_shadow_options.get("premap_consumer_readonly_gate_passed")
+        ),
+        "runtime_shadow_premap_consumer_readonly_gate_failures": (
+            runtime_shadow_options.get("premap_consumer_readonly_gate_failures")
+        ),
+        "runtime_shadow_premap_consumer_readonly_gate_metrics": (
+            runtime_shadow_options.get("premap_consumer_readonly_gate_metrics")
+        ),
+        "runtime_shadow_premap_consumer_readonly_gate_evidence_paths": (
+            runtime_shadow_options.get(
+                "premap_consumer_readonly_gate_evidence_paths"
             )
         ),
         "runtime_shadow_transition_premap_source": str(

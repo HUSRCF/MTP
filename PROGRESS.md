@@ -13699,3 +13699,56 @@ This remains a read-only descriptor/address preparation audit:
 no payload transfer, no ready credit, no router mutation, and no descriptor
 visitation order execution.
 ```
+
+## Premap Read-Only Consumer Gate (2026-05-20)
+
+The premap address capacity gate is now enforced as a real-vLLM integration precondition for the read-only cache-manager consumer shim.  A tracked gate artifact records the 512-sample Dolly/AWQ evidence and the no-op contract:
+
+```text
+artifact: configs/runtime/premap_consumer_readonly_gate_dolly512_gen64_awq_w7900_gpu1.yaml
+status: passed
+contract:
+  payload_bytes_required = 0
+  ready_credit_required = false
+  changes_router_required = false
+  changes_descriptor_order_required = false
+  address_key_scope = layer_expert
+  handle_resolution = read_only
+```
+
+The vLLM runtime-shadow config can now require this gate before enabling real descriptor/address handle consumer mapping:
+
+```text
+premap_consumer_require_readonly_gate = true
+premap_consumer_readonly_gate_path = configs/runtime/premap_consumer_readonly_gate_dolly512_gen64_awq_w7900_gpu1.yaml
+```
+
+GPU1 8-sample AWQ/vLLM smoke confirms the gate metadata is emitted into `performance_summary.json` and the runtime consumer remains read-only:
+
+```text
+artifact:
+  data/traces/external_prompt_gate_dolly_8_awq_vllm_gpu1_decode_gen64_premap_consumer_mapping_smoke/
+
+runtime_shadow_premap_consumer_readonly_gate_required = true
+runtime_shadow_premap_consumer_readonly_gate_passed = true
+runtime_shadow_premap_consumer_readonly_gate_id = premap_consumer_readonly_dolly512_gen64_awq_w7900_gpu1
+
+premap_consumer_mapping_count = 20480
+premap_consumer_address_hit_rate = 1.0
+premap_consumer_real_descriptor_handle_hit_rate = 1.0
+premap_consumer_lookup_after_prepare_rate = 1.0
+premap_consumer_real_descriptor_handle_binding_mismatch_count = 0
+premap_consumer_error_count = 0
+premap_consumer_payload_violation_count = 0
+premap_consumer_router_change_violation_count = 0
+premap_consumer_descriptor_order_change_violation_count = 0
+premap_consumer_ready_credit_violation_count = 0
+```
+
+The gate loader is strict: `gate.passed` must be a boolean, failed gates are rejected, and required runtime mode must remain `premap_only_with_consumer_mapping_noop` with `premap_consumer_mapping_mode=noop_assertion` and real-handle resolution enabled.
+
+Verification:
+
+```text
+pytest tests -q -> 431 passed, 2 warnings
+```

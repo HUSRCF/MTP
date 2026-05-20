@@ -1,0 +1,64 @@
+schema_version: 1
+artifact_id: premap_consumer_readonly_dolly512_gen64_awq_w7900_gpu1
+status: passed
+action: premap
+consumer: read_only_descriptor_address_handle
+manager: ControlledPremapAddressManager
+policy: current_router_topk_premap_shadow
+
+contract:
+  payload_bytes_required: 0
+  ready_credit_required: false
+  changes_router_required: false
+  changes_descriptor_order_required: false
+  address_key_scope: layer_expert
+  descriptor_bytes: 4096
+  handle_resolution: read_only
+  handle_signature_scope: runtime_address_level
+
+model:
+  config: configs/model/qwen3_6_35b_a3b_awq_4bit.yaml
+  quantization: awq_wna16
+
+device:
+  name: AMD_Radeon_PRO_W7900_Dual_Slot
+  gpu_index: 1
+
+source_split:
+  data: configs/data/external_prompt_gate_dolly_512.yaml
+  trace_config: configs/trace/router_mtp_trace_external_prompt_gate_dolly_512_awq_vllm_gpu1_decode_gen64_longrun_audit.yaml
+  max_samples: 512
+  max_length: 128
+  max_tokens: 64
+
+gate:
+  passed: true
+  failures: []
+  metrics:
+    premap_summary_count: 20342
+    premap_consumer_mapping_count: 20342
+    premap_payload_bytes: 0
+    premap_address_capacity_entries: 12288
+    premap_address_resident_count_max: 10202
+    premap_address_resident_descriptor_bytes_max: 41787392
+    premap_address_reuse_rate_mean: 0.9945098117726032
+    premap_address_eviction_pressure_mean: 0.0
+    premap_address_evicted_count: 0
+    premap_consumer_address_hit_rate: 1.0
+    premap_consumer_descriptor_handle_hit_rate: 1.0
+    premap_consumer_real_descriptor_handle_hit_rate: 1.0
+    premap_consumer_real_descriptor_handle_available_rate: 1.0
+    premap_consumer_lookup_after_prepare_rate: 1.0
+    premap_consumer_real_descriptor_handle_binding_mismatch_count: 0
+    premap_consumer_error_count: 0
+    premap_consumer_payload_violation_count: 0
+    premap_consumer_router_change_violation_count: 0
+    premap_consumer_descriptor_order_change_violation_count: 0
+    premap_consumer_ready_credit_violation_count: 0
+
+evidence_paths:
+  premap_only_longrun_summary_md: docs/premap_longrun_audit_summary.md
+  premap_only_longrun_128_json: data/traces/external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_longrun_audit/longrun_audit_summary.json
+  premap_only_longrun_128_gate_json: data/traces/external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_longrun_audit/longrun_audit_gate.json
+  premap_only_longrun_512_json: data/traces/external_prompt_gate_dolly_512_awq_vllm_gpu1_decode_gen64_longrun_audit/longrun_audit_summary.json
+  premap_only_longrun_512_gate_json: data/traces/external_prompt_gate_dolly_512_awq_vllm_gpu1_decode_gen64_longrun_audit/longrun_audit_gate.json
