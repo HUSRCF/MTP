@@ -176,6 +176,18 @@ def test_default_longrun_audit_config_uses_premap_capacity_gate(
         shadow["premap_address_capacity_gate_path"]
         == "configs/runtime/premap_address_capacity_gate_dolly128_gen64_awq_w7900_gpu1.yaml"
     )
+    gate = yaml.safe_load(
+        (
+            PROJECT_ROOT / shadow["premap_address_capacity_gate_path"]
+        ).read_text(encoding="utf-8")
+    )
+    evidence_paths = gate["evidence_paths"]
+    assert (
+        evidence_paths["premap_only_longrun_summary_md"]
+        == "docs/premap_longrun_audit_summary.md"
+    )
+    assert "premap_only_longrun_512_json" in evidence_paths
+    assert "premap_only_longrun_512_gate_json" in evidence_paths
     assert "premap_address_manager_capacity" not in shadow
     assert shadow["emit_premap_consumer_mapping"] is True
     assert shadow["premap_consumer_mapping_mode"] == "noop_assertion"
