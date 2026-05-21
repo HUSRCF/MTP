@@ -32,13 +32,23 @@ def _passing_summary() -> dict:
             "premap_consumer_real_descriptor_handle_no_handle_parts_count": 0,
             "premap_consumer_lookup_after_prepare_rate": 1.0,
             "premap_consumer_real_descriptor_handle_binding_mismatch_count": 0,
+            "premap_consumer_readonly_lookup_count": 20,
+            "premap_consumer_readonly_handle_hit_rate": 1.0,
+            "premap_consumer_readonly_evicted_before_consume_count": 0,
+            "premap_consumer_readonly_stale_handle_count": 0,
+            "premap_consumer_readonly_handle_parity_ok_rate": 1.0,
             "premap_consumer_error_count": 0,
         },
     }
 
 
 def test_premap_longrun_audit_gate_accepts_read_only_handle_contract():
-    result = check_summary(_passing_summary(), max_capacity=12, min_reuse_rate=0.98)
+    result = check_summary(
+        _passing_summary(),
+        max_capacity=12,
+        min_reuse_rate=0.98,
+        require_readonly_consumer=True,
+    )
 
     assert result["passed"] is True
     assert result["failures"] == []
@@ -53,7 +63,12 @@ def test_premap_longrun_audit_gate_rejects_payload_and_mismatch():
         "premap_consumer_real_descriptor_handle_binding_mismatch_count"
     ] = 1
 
-    result = check_summary(summary, max_capacity=12, min_reuse_rate=0.98)
+    result = check_summary(
+        summary,
+        max_capacity=12,
+        min_reuse_rate=0.98,
+        require_readonly_consumer=True,
+    )
 
     assert result["passed"] is False
     assert "unexpected_event_types=['outcome_aggregate']" in result["failures"]
@@ -66,7 +81,12 @@ def test_premap_longrun_audit_gate_rejects_capacity_and_reuse_regression():
     summary["aggregate"]["premap_address_resident_count_max"] = 13
     summary["aggregate"]["premap_address_reuse_rate_mean"] = 0.5
 
-    result = check_summary(summary, max_capacity=12, min_reuse_rate=0.98)
+    result = check_summary(
+        summary,
+        max_capacity=12,
+        min_reuse_rate=0.98,
+        require_readonly_consumer=True,
+    )
 
     assert result["passed"] is False
     assert "resident_count_exceeds_capacity=13>12" in result["failures"]
@@ -85,7 +105,12 @@ def test_premap_longrun_audit_gate_rejects_real_handle_source_misses():
         "premap_consumer_real_descriptor_handle_no_handle_parts_count"
     ] = 1
 
-    result = check_summary(summary, max_capacity=12, min_reuse_rate=0.98)
+    result = check_summary(
+        summary,
+        max_capacity=12,
+        min_reuse_rate=0.98,
+        require_readonly_consumer=True,
+    )
 
     assert result["passed"] is False
     assert (
@@ -94,3 +119,51 @@ def test_premap_longrun_audit_gate_rejects_real_handle_source_misses():
     )
     assert "real_descriptor_handle_aux_metadata_miss_count_nonzero=1" in result["failures"]
     assert "real_descriptor_handle_no_handle_parts_count_nonzero=1" in result["failures"]
+
+
+def test_premap_longrun_audit_gate_rejects_readonly_consumer_instability():
+    summary = _passing_summary()
+    summary["aggregate"]["premap_consumer_readonly_handle_hit_rate"] = 0.95
+    summary["aggregate"]["premap_consumer_readonly_evicted_before_consume_count"] = 1
+    summary["aggregate"]["premap_consumer_readonly_stale_handle_count"] = 1
+
+    result = check_summary(
+        summary,
+        max_capacity=12,
+        min_reuse_rate=0.98,
+        require_readonly_consumer=True,
+    )
+
+    assert result["passed"] is False
+    assert "premap_consumer_readonly_handle_hit_rate_not_one" in result["failures"]
+    assert "readonly_evicted_before_consume_nonzero" in result["failures"]
+    assert "readonly_stale_handle_nonzero" in result["failures"]
+
+
+def test_premap_longrun_audit_gate_allows_legacy_summary_without_readonly_requirement():
+    summary = _passing_summary()
+    for key in list(summary["aggregate"]):
+        if key.startswith("premap_consumer_readonly_"):
+            summary["aggregate"].pop(key)
+
+    result = check_summary(summary, max_capacity=12, min_reuse_rate=0.98)
+
+    assert result["passed"] is True
+    assert result["require_readonly_consumer"] is False
+
+
+def test_premap_longrun_audit_gate_rejects_missing_readonly_when_required():
+    summary = _passing_summary()
+    for key in list(summary["aggregate"]):
+        if key.startswith("premap_consumer_readonly_"):
+            summary["aggregate"].pop(key)
+
+    result = check_summary(
+        summary,
+        max_capacity=12,
+        min_reuse_rate=0.98,
+        require_readonly_consumer=True,
+    )
+
+    assert result["passed"] is False
+    assert "readonly_consumer_fields_missing" in result["failures"]

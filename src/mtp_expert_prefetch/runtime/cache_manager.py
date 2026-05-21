@@ -173,6 +173,26 @@ class PremapAddressManagerSnapshot:
         return asdict(self)
 
 
+@dataclass(frozen=True)
+class PremapReadonlyConsumerResult:
+    """Read-only consumer lookup result for prepared descriptor handles.
+
+    The consumer path intentionally does not mutate cache residency or mark
+    experts ready.  It only checks whether an already prepared address key can
+    still resolve to the expected descriptor/address handle.
+    """
+
+    lookup_count: int
+    handle_hit_count: int
+    handle_miss_count: int
+    evicted_before_consume_count: int
+    stale_handle_count: int
+    handle_parity_ok: bool | None
+
+    def as_dict(self) -> dict[str, int | bool | None]:
+        return asdict(self)
+
+
 class ControlledPremapAddressManager:
     """Bounded descriptor/address shim for premap-only runtime prototypes.
 
@@ -185,6 +205,12 @@ class ControlledPremapAddressManager:
     def __init__(self, *, capacity: int | None = None) -> None:
         self.capacity = None if capacity is None else int(capacity)
         self._addresses: OrderedDict[str, PremapAddressCacheEntry] = OrderedDict()
+        # Manager-lifetime eviction history.  The vLLM shadow recorder keeps
+        # this manager across `clear()` calls to model a long-lived descriptor
+        # cache, so an evicted-before-consume count means the current consumer
+        # asks for a key that was prepared earlier in this manager lifetime and
+        # later evicted before being prepared again.
+        self._evicted_address_keys: set[str] = set()
         self.prepared_plan_count = 0
         self.prepared_record_count = 0
         self.new_address_count = 0
@@ -206,6 +232,7 @@ class ControlledPremapAddressManager:
             if entry is None:
                 self.new_address_count += 1
                 handle = PremapAddressHandle.from_record(record)
+                self._evicted_address_keys.discard(key)
                 self._addresses[key] = PremapAddressCacheEntry(
                     descriptor_bytes=int(record.descriptor_bytes),
                     handle=handle,
@@ -216,6 +243,7 @@ class ControlledPremapAddressManager:
             else:
                 self.reused_address_count += 1
                 handle = PremapAddressHandle.from_record(record)
+                self._evicted_address_keys.discard(key)
                 entry.descriptor_bytes = int(record.descriptor_bytes)
                 entry.handle = handle
                 entry.prepared_count += 1
@@ -258,6 +286,57 @@ class ControlledPremapAddressManager:
             )
         )
 
+    def consume_readonly(
+        self,
+        address_keys: Iterable[str],
+        *,
+        expected_handle_hash_by_address_key: dict[str, str] | None = None,
+    ) -> PremapReadonlyConsumerResult:
+        """Validate that consumer address keys resolve to resident handles.
+
+        This models the runtime consumer's descriptor/address lookup without
+        moving payloads, mutating LRU state, or granting ready credit.
+        """
+
+        expected = expected_handle_hash_by_address_key or {}
+        lookup_count = 0
+        handle_hit_count = 0
+        handle_miss_count = 0
+        evicted_before_consume_count = 0
+        stale_handle_count = 0
+        checked_parity_count = 0
+        for raw_key in address_keys:
+            lookup_count += 1
+            key = str(raw_key)
+            entry = self._addresses.get(key)
+            if entry is None:
+                handle_miss_count += 1
+                if key in self._evicted_address_keys:
+                    evicted_before_consume_count += 1
+                continue
+            handle_hit_count += 1
+            expected_hash = expected.get(key)
+            if expected_hash is None:
+                continue
+            checked_parity_count += 1
+            if str(expected_hash) != str(entry.handle.handle_hash):
+                stale_handle_count += 1
+        parity_ok = None
+        if expected:
+            parity_ok = (
+                checked_parity_count == len(expected)
+                and stale_handle_count == 0
+                and handle_miss_count == 0
+            )
+        return PremapReadonlyConsumerResult(
+            lookup_count=lookup_count,
+            handle_hit_count=handle_hit_count,
+            handle_miss_count=handle_miss_count,
+            evicted_before_consume_count=evicted_before_consume_count,
+            stale_handle_count=stale_handle_count,
+            handle_parity_ok=parity_ok,
+        )
+
     def contains_layer_expert(
         self,
         *,
@@ -293,9 +372,11 @@ class ControlledPremapAddressManager:
         if self.capacity is None:
             return
         if self.capacity <= 0:
+            self._evicted_address_keys.update(self._addresses)
             self.evicted_address_count += len(self._addresses)
             self._addresses.clear()
             return
         while len(self._addresses) > self.capacity:
-            self._addresses.popitem(last=False)
+            old_key, _old_entry = self._addresses.popitem(last=False)
+            self._evicted_address_keys.add(str(old_key))
             self.evicted_address_count += 1

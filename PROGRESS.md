@@ -13927,3 +13927,173 @@ false -> serialized as false
 None  -> omitted
 pytest tests -q -> 435 passed, 2 warnings
 ```
+
+## Premap Read-Only Consumer Shim (2026-05-21)
+
+Implemented a read-only runtime consumer shim for the premap descriptor/address
+path.  This moves the gate from "mapping can be reconstructed" to "a consumer
+can repeatedly resolve the prepared descriptor/address handle without payload
+movement or runtime side effects."
+
+Contract:
+
+```text
+ControlledPremapAddressManager.prepare(plan)
+  -> resident PremapAddressHandle objects
+
+fused-MoE/AWQ consumer lookup
+  -> consume_readonly(address_keys, expected_handle_hash_by_address_key)
+  -> count lookup / hit / miss / evicted-before-consume / stale-handle / parity
+  -> do not mutate LRU residency
+  -> do not move payload
+  -> do not change router
+  -> do not change descriptor_order execution
+  -> do not grant ready credit
+```
+
+New audit fields on `premap_consumer_mapping`:
+
+```text
+premap_consumer_readonly_lookup_count
+premap_consumer_readonly_handle_hit_count
+premap_consumer_readonly_handle_miss_count
+premap_consumer_readonly_evicted_before_consume_count
+premap_consumer_readonly_stale_handle_count
+premap_consumer_readonly_handle_parity_ok
+```
+
+The aggregate/gate contract now requires:
+
+```text
+premap_consumer_readonly_handle_hit_rate = 1.0
+premap_consumer_readonly_handle_parity_ok_rate = 1.0
+premap_consumer_readonly_evicted_before_consume_count = 0
+premap_consumer_readonly_stale_handle_count = 0
+```
+
+GPU1 8-sample AWQ/vLLM smoke:
+
+```text
+config:
+  configs/trace/router_mtp_trace_external_prompt_gate_dolly_8_awq_vllm_gpu1_decode_gen64_premap_consumer_mapping_smoke.yaml
+
+artifact:
+  data/traces/external_prompt_gate_dolly_8_awq_vllm_gpu1_decode_gen64_premap_consumer_mapping_smoke/
+
+row_count = 102400
+event_counts = {
+  decoder_layer_timing: 20480,
+  descriptor_summary_min: 20480,
+  outcome_aggregate: 20480,
+  premap_summary: 20480,
+  premap_consumer_mapping: 20480,
+}
+
+premap_consumer_real_descriptor_handle_hit_count = 190215
+premap_consumer_real_descriptor_handle_miss_count = 0
+premap_consumer_real_descriptor_handle_hit_rate = 1.0
+
+premap_consumer_readonly_lookup_count = 190215
+premap_consumer_readonly_handle_hit_count = 190215
+premap_consumer_readonly_handle_miss_count = 0
+premap_consumer_readonly_handle_hit_rate = 1.0
+premap_consumer_readonly_evicted_before_consume_count = 0
+premap_consumer_readonly_evicted_before_consume_rate = 0.0
+premap_consumer_readonly_stale_handle_count = 0
+premap_consumer_readonly_stale_handle_rate = 0.0
+premap_consumer_readonly_handle_parity_ok_rate = 1.0
+premap_consumer_error_count = 0
+```
+
+Verification:
+
+```text
+focused tests -> 84 passed, 2 skipped
+pytest tests -q -> 438 passed, 2 skipped, 2 warnings
+```
+
+Boundary:
+
+```text
+This is still a read-only premap consumer contract.  It validates descriptor/address
+handle lifetime and stability before real runtime payload/cache integration.  It
+is not a full_fetch payload-transfer result, not a ready-credit result, and not
+an endpoint TPOT performance claim.
+```
+
+Review follow-up for the read-only consumer shim:
+
+```text
+- Long-run gate now has an explicit --require-readonly-consumer switch.
+  Without it, legacy summaries that predate readonly consumer counters remain
+  checkable.  With it, real runtime-admission gates require readonly hit/parity
+  stability.
+- ControlledPremapAddressManager documents eviction history as manager-lifetime
+  state, matching the long-lived descriptor-cache model used by the vLLM shadow
+  recorder.
+- Added regression coverage that re-preparing an evicted address key clears the
+  evicted-before-consume signal and does not create a stale false positive.
+```
+
+The mixed 8-sample diagnostic is not passed to the premap-only long-run gate as
+an admission artifact because it intentionally contains decoder, descriptor, and
+outcome diagnostic rows.  Its selected aggregate still confirms the runtime
+consumer stability counters:
+
+```text
+premap_consumer_readonly_lookup_count = 190215
+premap_consumer_readonly_handle_hit_rate = 1.0
+premap_consumer_readonly_evicted_before_consume_count = 0
+premap_consumer_readonly_stale_handle_count = 0
+premap_consumer_readonly_handle_parity_ok_rate = 1.0
+```
+
+Verification after review follow-up:
+
+```text
+focused tests -> 86 passed, 2 skipped
+pytest tests -q -> 440 passed, 2 skipped, 2 warnings
+```
+
+128-sample premap-only long-run audit with the strict read-only consumer gate:
+
+```text
+config:
+  configs/trace/router_mtp_trace_external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_longrun_audit.yaml
+
+summary:
+  data/traces/external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_longrun_audit/longrun_audit_summary.json
+
+gate:
+  data/traces/external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_longrun_audit/longrun_audit_gate.json
+```
+
+Result:
+
+```text
+gate_passed = true
+failures = []
+row_count = 20390
+event_counts = {premap_summary: 10195, premap_consumer_mapping: 10195}
+
+premap_address_resident_count_max = 10127
+premap_address_reuse_rate_mean = 0.9827389896686539
+premap_address_evicted_count = 0
+
+premap_consumer_real_descriptor_handle_hit_count = 110898
+premap_consumer_real_descriptor_handle_miss_count = 0
+premap_consumer_real_descriptor_handle_hit_rate = 1.0
+
+premap_consumer_readonly_lookup_count = 110898
+premap_consumer_readonly_handle_hit_count = 110898
+premap_consumer_readonly_handle_miss_count = 0
+premap_consumer_readonly_handle_hit_rate = 1.0
+premap_consumer_readonly_evicted_before_consume_count = 0
+premap_consumer_readonly_stale_handle_count = 0
+premap_consumer_readonly_handle_parity_ok_rate = 1.0
+```
+
+This confirms that the premap descriptor/address handles are not only mapped to
+real vLLM/AWQ launch-time handle classes, but can also be consumed by a read-only
+runtime shim over a sampled 128-sample long-run without stale, eviction, or
+parity failures.

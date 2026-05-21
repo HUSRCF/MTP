@@ -121,6 +121,12 @@ def test_mixed_diag_summary_includes_premap_consumer_source_aggregate(tmp_path):
                 "expert_map_miss": 0,
                 "no_handle_parts": 0,
             },
+            "premap_consumer_readonly_lookup_count": 4,
+            "premap_consumer_readonly_handle_hit_count": 4,
+            "premap_consumer_readonly_handle_miss_count": 0,
+            "premap_consumer_readonly_evicted_before_consume_count": 0,
+            "premap_consumer_readonly_stale_handle_count": 0,
+            "premap_consumer_readonly_handle_parity_ok": True,
         }
     ]
     path = tmp_path / "runtime_shadow.jsonl"
@@ -134,6 +140,12 @@ def test_mixed_diag_summary_includes_premap_consumer_source_aggregate(tmp_path):
     assert aggregate["premap_consumer_real_descriptor_handle_scale_metadata_hit_count"] == 4
     assert aggregate["premap_consumer_real_descriptor_handle_aux_metadata_hit_count"] == 4
     assert aggregate["premap_consumer_real_descriptor_handle_no_handle_parts_count"] == 0
+    assert aggregate["premap_consumer_readonly_lookup_count"] == 4
+    assert aggregate["premap_consumer_readonly_handle_hit_count"] == 4
+    assert aggregate["premap_consumer_readonly_handle_hit_rate"] == 1.0
+    assert aggregate["premap_consumer_readonly_evicted_before_consume_count"] == 0
+    assert aggregate["premap_consumer_readonly_stale_handle_count"] == 0
+    assert aggregate["premap_consumer_readonly_handle_parity_ok_rate"] == 1.0
 
 
 def test_mixed_diag_strict_rejects_missing_core_event(tmp_path):

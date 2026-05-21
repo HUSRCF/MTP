@@ -188,6 +188,83 @@ def test_controlled_premap_address_manager_tracks_address_reuse_without_payload(
     assert handle.handle_hash
 
 
+def test_controlled_premap_address_manager_readonly_consumer_lifecycle():
+    first = prepare_premap_address_plan(
+        [
+            ExpertPrefetchDescriptor(0, 1, 3, 2, "transition_head", 0.95),
+            ExpertPrefetchDescriptor(0, 1, 7, 4, "mtp_token_extra_head", 0.75),
+        ],
+        descriptor_bytes=64,
+    )
+    second = prepare_premap_address_plan(
+        [ExpertPrefetchDescriptor(0, 2, 9, 3, "transition_tail", 0.50)],
+        descriptor_bytes=64,
+    )
+    manager = ControlledPremapAddressManager(capacity=2)
+
+    manager.prepare(first)
+    key3 = ControlledPremapAddressManager.address_key(layer_idx=1, expert_id=3)
+    key7 = ControlledPremapAddressManager.address_key(layer_idx=1, expert_id=7)
+    handle3 = manager.resolve_address_key(key3)
+    handle7 = manager.resolve_address_key(key7)
+    assert handle3 is not None
+    assert handle7 is not None
+
+    hit = manager.consume_readonly(
+        [key3, key7],
+        expected_handle_hash_by_address_key={
+            key3: handle3.handle_hash,
+            key7: handle7.handle_hash,
+        },
+    )
+    assert hit.lookup_count == 2
+    assert hit.handle_hit_count == 2
+    assert hit.handle_miss_count == 0
+    assert hit.evicted_before_consume_count == 0
+    assert hit.stale_handle_count == 0
+    assert hit.handle_parity_ok is True
+
+    stale = manager.consume_readonly(
+        [key3],
+        expected_handle_hash_by_address_key={key3: "not-the-current-hash"},
+    )
+    assert stale.handle_hit_count == 1
+    assert stale.stale_handle_count == 1
+    assert stale.handle_parity_ok is False
+
+    manager.prepare(second)
+    evicted = manager.consume_readonly(
+        [key3, key7],
+        expected_handle_hash_by_address_key={
+            key3: handle3.handle_hash,
+            key7: handle7.handle_hash,
+        },
+    )
+    assert evicted.lookup_count == 2
+    assert evicted.handle_hit_count == 1
+    assert evicted.handle_miss_count == 1
+    assert evicted.evicted_before_consume_count == 1
+    assert evicted.stale_handle_count == 0
+    assert evicted.handle_parity_ok is False
+
+    refreshed = prepare_premap_address_plan(
+        [ExpertPrefetchDescriptor(0, 1, 3, 2, "transition_head", 0.95)],
+        descriptor_bytes=64,
+    )
+    manager.prepare(refreshed)
+    refreshed_handle3 = manager.resolve_address_key(key3)
+    assert refreshed_handle3 is not None
+    rehit = manager.consume_readonly(
+        [key3],
+        expected_handle_hash_by_address_key={key3: refreshed_handle3.handle_hash},
+    )
+    assert rehit.handle_hit_count == 1
+    assert rehit.handle_miss_count == 0
+    assert rehit.evicted_before_consume_count == 0
+    assert rehit.stale_handle_count == 0
+    assert rehit.handle_parity_ok is True
+
+
 def test_controlled_premap_address_manager_zero_capacity_counts_requests_only():
     plan = prepare_premap_address_plan(
         [ExpertPrefetchDescriptor(0, 1, 3, 2, "transition_head", 0.95)],

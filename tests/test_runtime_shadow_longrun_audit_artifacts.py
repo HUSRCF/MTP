@@ -73,4 +73,11 @@ def test_dolly_longrun_audit_summaries_are_premap_safe(
     assert aggregate["premap_consumer_real_descriptor_handle_expert_map_miss_count"] == 0
     assert aggregate["premap_consumer_real_descriptor_handle_no_handle_parts_count"] == 0
     assert aggregate["premap_consumer_real_descriptor_handle_binding_mismatch_count"] == 0
+    if "premap_consumer_readonly_lookup_count" not in aggregate:
+        pytest.skip("legacy long-run summary predates readonly consumer counters")
+    assert aggregate["premap_consumer_readonly_lookup_count"] == real_handle_hits
+    assert aggregate["premap_consumer_readonly_handle_hit_rate"] == 1.0
+    assert aggregate["premap_consumer_readonly_evicted_before_consume_count"] == 0
+    assert aggregate["premap_consumer_readonly_stale_handle_count"] == 0
+    assert aggregate["premap_consumer_readonly_handle_parity_ok_rate"] == 1.0
     assert aggregate["premap_consumer_error_count"] == 0

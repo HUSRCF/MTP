@@ -33,6 +33,7 @@ def check_summary(
     *,
     max_capacity: int = 12_288,
     min_reuse_rate: float = 0.98,
+    require_readonly_consumer: bool = False,
 ) -> dict[str, Any]:
     event_counts = {
         str(key): int(value) for key, value in summary.get("event_counts", {}).items()
@@ -69,12 +70,30 @@ def check_summary(
     if _as_float(aggregate.get("premap_address_reuse_rate_mean")) < float(min_reuse_rate):
         failures.append("premap_address_reuse_rate_below_threshold")
 
-    for field in (
+    required_rate_fields = [
         "premap_consumer_address_hit_rate",
         "premap_consumer_descriptor_handle_hit_rate",
         "premap_consumer_real_descriptor_handle_hit_rate",
         "premap_consumer_lookup_after_prepare_rate",
-    ):
+    ]
+    readonly_fields_present = any(
+        key in aggregate
+        for key in (
+            "premap_consumer_readonly_lookup_count",
+            "premap_consumer_readonly_handle_hit_rate",
+            "premap_consumer_readonly_handle_parity_ok_rate",
+            "premap_consumer_readonly_evicted_before_consume_count",
+            "premap_consumer_readonly_stale_handle_count",
+        )
+    )
+    if require_readonly_consumer or readonly_fields_present:
+        required_rate_fields.extend(
+            [
+                "premap_consumer_readonly_handle_hit_rate",
+                "premap_consumer_readonly_handle_parity_ok_rate",
+            ]
+        )
+    for field in required_rate_fields:
         if _as_float(aggregate.get(field)) != 1.0:
             failures.append(f"{field}_not_one")
 
@@ -82,6 +101,15 @@ def check_summary(
         aggregate.get("premap_consumer_real_descriptor_handle_binding_mismatch_count")
     ) != 0:
         failures.append("real_descriptor_handle_binding_mismatch_nonzero")
+    if require_readonly_consumer and not readonly_fields_present:
+        failures.append("readonly_consumer_fields_missing")
+    if require_readonly_consumer or readonly_fields_present:
+        if _as_int(aggregate.get("premap_consumer_readonly_lookup_count")) <= 0:
+            failures.append("readonly_lookup_count_missing_or_zero")
+        if _as_int(aggregate.get("premap_consumer_readonly_evicted_before_consume_count")) != 0:
+            failures.append("readonly_evicted_before_consume_nonzero")
+        if _as_int(aggregate.get("premap_consumer_readonly_stale_handle_count")) != 0:
+            failures.append("readonly_stale_handle_nonzero")
     real_handle_hits = _as_int(
         aggregate.get("premap_consumer_real_descriptor_handle_hit_count")
     )
@@ -146,6 +174,21 @@ def check_summary(
         "premap_consumer_real_descriptor_handle_aux_metadata_hit_count": _as_int(
             aggregate.get("premap_consumer_real_descriptor_handle_aux_metadata_hit_count")
         ),
+        "premap_consumer_readonly_lookup_count": _as_int(
+            aggregate.get("premap_consumer_readonly_lookup_count")
+        ),
+        "premap_consumer_readonly_handle_hit_rate": _as_float(
+            aggregate.get("premap_consumer_readonly_handle_hit_rate")
+        ),
+        "premap_consumer_readonly_evicted_before_consume_count": _as_int(
+            aggregate.get("premap_consumer_readonly_evicted_before_consume_count")
+        ),
+        "premap_consumer_readonly_stale_handle_count": _as_int(
+            aggregate.get("premap_consumer_readonly_stale_handle_count")
+        ),
+        "premap_consumer_readonly_handle_parity_ok_rate": _as_float(
+            aggregate.get("premap_consumer_readonly_handle_parity_ok_rate")
+        ),
     }
     return {
         "passed": not failures,
@@ -153,6 +196,7 @@ def check_summary(
         "metrics": metrics,
         "max_capacity": int(max_capacity),
         "min_reuse_rate": float(min_reuse_rate),
+        "require_readonly_consumer": bool(require_readonly_consumer),
     }
 
 
@@ -161,6 +205,14 @@ def main() -> None:
     parser.add_argument("summary_json", type=Path)
     parser.add_argument("--max-capacity", type=int, default=12_288)
     parser.add_argument("--min-reuse-rate", type=float, default=0.98)
+    parser.add_argument(
+        "--require-readonly-consumer",
+        action="store_true",
+        help=(
+            "Require readonly-consumer lifecycle counters.  Leave disabled "
+            "when checking legacy summaries that predate these fields."
+        ),
+    )
     parser.add_argument("--output-json", type=Path)
     args = parser.parse_args()
 
@@ -169,6 +221,7 @@ def main() -> None:
         summary,
         max_capacity=args.max_capacity,
         min_reuse_rate=args.min_reuse_rate,
+        require_readonly_consumer=args.require_readonly_consumer,
     )
     payload = json.dumps(result, indent=2, sort_keys=True) + "\n"
     if args.output_json is not None:

@@ -713,6 +713,12 @@ class ShadowPremapConsumerMappingEvent:
     real_descriptor_handle_reused_binding_count: int = 0
     real_descriptor_handle_binding_mismatch_count: int = 0
     real_descriptor_handle_for_address_miss_count: int = 0
+    readonly_consumer_lookup_count: int | None = None
+    readonly_consumer_handle_hit_count: int | None = None
+    readonly_consumer_handle_miss_count: int | None = None
+    readonly_consumer_evicted_before_consume_count: int | None = None
+    readonly_consumer_stale_handle_count: int | None = None
+    readonly_consumer_handle_parity_ok: bool | None = None
     expected_key_hash: str | None = None
     resident_address_count: int | None = None
     lookup_us: float | None = None
@@ -871,6 +877,36 @@ class ShadowPremapConsumerMappingEvent:
             payload,
             "premap_consumer_real_descriptor_handle_for_address_miss_count",
             self.real_descriptor_handle_for_address_miss_count,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_readonly_lookup_count",
+            self.readonly_consumer_lookup_count,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_readonly_handle_hit_count",
+            self.readonly_consumer_handle_hit_count,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_readonly_handle_miss_count",
+            self.readonly_consumer_handle_miss_count,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_readonly_evicted_before_consume_count",
+            self.readonly_consumer_evicted_before_consume_count,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_readonly_stale_handle_count",
+            self.readonly_consumer_stale_handle_count,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_readonly_handle_parity_ok",
+            self.readonly_consumer_handle_parity_ok,
         )
         _put_optional(payload, "premap_consumer_expected_key_hash", self.expected_key_hash)
         _put_optional(
@@ -1058,6 +1094,13 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
         "premap_consumer_real_descriptor_handle_reused_binding_count": 0,
         "premap_consumer_real_descriptor_handle_binding_mismatch_count": 0,
         "premap_consumer_real_descriptor_handle_for_address_miss_count": 0,
+        "premap_consumer_readonly_lookup_count": 0,
+        "premap_consumer_readonly_handle_hit_count": 0,
+        "premap_consumer_readonly_handle_miss_count": 0,
+        "premap_consumer_readonly_evicted_before_consume_count": 0,
+        "premap_consumer_readonly_stale_handle_count": 0,
+        "premap_consumer_readonly_handle_parity_ok_count": 0,
+        "premap_consumer_readonly_handle_parity_checked_count": 0,
         "premap_consumer_all_hit_count": 0,
         "premap_consumer_parity_ok_count": 0,
         "premap_consumer_error_count": 0,
@@ -1428,6 +1471,26 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
             totals["premap_consumer_real_descriptor_handle_for_address_miss_count"] += int(
                 event.get("premap_consumer_real_descriptor_handle_for_address_miss_count", 0) or 0
             )
+            totals["premap_consumer_readonly_lookup_count"] += int(
+                event.get("premap_consumer_readonly_lookup_count", 0) or 0
+            )
+            totals["premap_consumer_readonly_handle_hit_count"] += int(
+                event.get("premap_consumer_readonly_handle_hit_count", 0) or 0
+            )
+            totals["premap_consumer_readonly_handle_miss_count"] += int(
+                event.get("premap_consumer_readonly_handle_miss_count", 0) or 0
+            )
+            totals["premap_consumer_readonly_evicted_before_consume_count"] += int(
+                event.get("premap_consumer_readonly_evicted_before_consume_count", 0) or 0
+            )
+            totals["premap_consumer_readonly_stale_handle_count"] += int(
+                event.get("premap_consumer_readonly_stale_handle_count", 0) or 0
+            )
+            if "premap_consumer_readonly_handle_parity_ok" in event:
+                totals["premap_consumer_readonly_handle_parity_checked_count"] += 1
+                totals["premap_consumer_readonly_handle_parity_ok_count"] += int(
+                    bool(event.get("premap_consumer_readonly_handle_parity_ok", False))
+                )
             totals["premap_consumer_all_hit_count"] += int(
                 bool(event.get("premap_consumer_all_hit", False))
             )
@@ -1625,6 +1688,26 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
     totals["premap_consumer_real_descriptor_handle_available_rate"] = (
         totals["premap_consumer_real_descriptor_handle_available_count"]
         / premap_consumer_mapping_count
+    )
+    totals["premap_consumer_readonly_handle_hit_rate"] = (
+        totals["premap_consumer_readonly_handle_hit_count"]
+        / max(
+            1,
+            int(totals["premap_consumer_readonly_handle_hit_count"])
+            + int(totals["premap_consumer_readonly_handle_miss_count"]),
+        )
+    )
+    totals["premap_consumer_readonly_evicted_before_consume_rate"] = (
+        totals["premap_consumer_readonly_evicted_before_consume_count"]
+        / max(1, int(totals["premap_consumer_readonly_lookup_count"]))
+    )
+    totals["premap_consumer_readonly_stale_handle_rate"] = (
+        totals["premap_consumer_readonly_stale_handle_count"]
+        / max(1, int(totals["premap_consumer_readonly_lookup_count"]))
+    )
+    totals["premap_consumer_readonly_handle_parity_ok_rate"] = (
+        totals["premap_consumer_readonly_handle_parity_ok_count"]
+        / max(1, int(totals["premap_consumer_readonly_handle_parity_checked_count"]))
     )
     totals["premap_consumer_lookup_us_mean"] = (
         totals["premap_consumer_lookup_us_sum"] / premap_consumer_lookup_count

@@ -121,6 +121,15 @@ RUNTIME_SHADOW_AGGREGATE_PERFORMANCE_KEYS = (
     "premap_consumer_real_descriptor_handle_reused_binding_count",
     "premap_consumer_real_descriptor_handle_binding_mismatch_count",
     "premap_consumer_real_descriptor_handle_for_address_miss_count",
+    "premap_consumer_readonly_lookup_count",
+    "premap_consumer_readonly_handle_hit_count",
+    "premap_consumer_readonly_handle_miss_count",
+    "premap_consumer_readonly_handle_hit_rate",
+    "premap_consumer_readonly_evicted_before_consume_count",
+    "premap_consumer_readonly_evicted_before_consume_rate",
+    "premap_consumer_readonly_stale_handle_count",
+    "premap_consumer_readonly_stale_handle_rate",
+    "premap_consumer_readonly_handle_parity_ok_rate",
     "premap_consumer_error_count",
     "premap_consumer_payload_violation_count",
     "premap_consumer_router_change_violation_count",
@@ -1291,11 +1300,17 @@ class VllmRouterRecorder:
             expert_ids=sorted(scores_by_expert),
         )
         handle_hash = None
+        handle_hash_by_address_key: dict[str, str] = {}
         if self._shadow_premap_address_manager is not None:
             handles = [
                 self._shadow_premap_address_manager.resolve_address_key(key)
                 for key in address_keys
             ]
+            handle_hash_by_address_key = {
+                key: handle.handle_hash
+                for key, handle in zip(address_keys, handles, strict=False)
+                if handle is not None
+            }
             handle_hash = self._hash_premap_address_handles(
                 handle.handle_hash for handle in handles if handle is not None
             )
@@ -1304,6 +1319,7 @@ class VllmRouterRecorder:
             "address_namespace": str(self.shadow_premap_address_namespace),
             "address_key_hash": self._hash_premap_address_keys(address_keys),
             "descriptor_handle_hash": handle_hash,
+            "descriptor_handle_hash_by_address_key": handle_hash_by_address_key,
             "address_key_count": len(address_keys),
             "prepare_plan_count": (
                 int(manager_snapshot.prepared_plan_count)
@@ -1996,6 +2012,12 @@ class VllmRouterRecorder:
         expected = self._last_premap_address_mapping_by_layer.get(int(layer_id), {})
         expected_hash = expected.get("address_key_hash")
         expected_handle_hash = expected.get("descriptor_handle_hash")
+        expected_handle_hash_by_key = expected.get(
+            "descriptor_handle_hash_by_address_key",
+            {},
+        )
+        if not isinstance(expected_handle_hash_by_key, dict):
+            expected_handle_hash_by_key = {}
         expected_count = expected.get("address_key_count")
         expected_prepare_plan_count = expected.get("prepare_plan_count")
         expected_prepare_record_count = expected.get("prepare_record_count")
@@ -2024,6 +2046,15 @@ class VllmRouterRecorder:
         )
         if mapping_error is None and expected_hash is None:
             mapping_error = "premap_router_mapping_missing"
+        readonly_consumer_result = None
+        if manager is not None:
+            readonly_consumer_result = manager.consume_readonly(
+                address_keys,
+                expected_handle_hash_by_address_key={
+                    str(key): str(value)
+                    for key, value in expected_handle_hash_by_key.items()
+                },
+            )
         lookup_us = (time.perf_counter_ns() - start_ns) / 1000.0
         sink.write_premap_consumer_mapping(
             ShadowPremapConsumerMappingEvent(
@@ -2085,6 +2116,36 @@ class VllmRouterRecorder:
                 real_descriptor_handle_binding_mismatch_count=int(binding_mismatch_count),
                 real_descriptor_handle_for_address_miss_count=int(
                     real_handle_for_address_miss_count
+                ),
+                readonly_consumer_lookup_count=(
+                    int(readonly_consumer_result.lookup_count)
+                    if readonly_consumer_result is not None
+                    else None
+                ),
+                readonly_consumer_handle_hit_count=(
+                    int(readonly_consumer_result.handle_hit_count)
+                    if readonly_consumer_result is not None
+                    else None
+                ),
+                readonly_consumer_handle_miss_count=(
+                    int(readonly_consumer_result.handle_miss_count)
+                    if readonly_consumer_result is not None
+                    else None
+                ),
+                readonly_consumer_evicted_before_consume_count=(
+                    int(readonly_consumer_result.evicted_before_consume_count)
+                    if readonly_consumer_result is not None
+                    else None
+                ),
+                readonly_consumer_stale_handle_count=(
+                    int(readonly_consumer_result.stale_handle_count)
+                    if readonly_consumer_result is not None
+                    else None
+                ),
+                readonly_consumer_handle_parity_ok=(
+                    readonly_consumer_result.handle_parity_ok
+                    if readonly_consumer_result is not None
+                    else None
                 ),
                 expected_key_hash=str(expected_hash) if expected_hash is not None else None,
                 resident_address_count=resident_count,

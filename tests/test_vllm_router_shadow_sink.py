@@ -79,6 +79,11 @@ def test_runtime_shadow_aggregate_fields_are_flattened_to_performance_summary():
         "premap_consumer_real_descriptor_handle_consumer_layer_missing_count": 12,
         "premap_consumer_real_descriptor_handle_expert_map_miss_count": 13,
         "premap_consumer_real_descriptor_handle_no_handle_parts_count": 14,
+        "premap_consumer_readonly_lookup_count": 15,
+        "premap_consumer_readonly_handle_hit_rate": 0.875,
+        "premap_consumer_readonly_evicted_before_consume_count": 2,
+        "premap_consumer_readonly_stale_handle_count": 1,
+        "premap_consumer_readonly_handle_parity_ok_rate": 0.75,
         "unrelated_debug_key": 99,
     }
     performance: dict[str, object] = {}
@@ -103,6 +108,23 @@ def test_runtime_shadow_aggregate_fields_are_flattened_to_performance_summary():
             "runtime_shadow_aggregate_premap_consumer_real_descriptor_handle_no_handle_parts_count"
         ]
         == 14
+    )
+    assert performance["runtime_shadow_aggregate_premap_consumer_readonly_lookup_count"] == 15
+    assert (
+        performance["runtime_shadow_aggregate_premap_consumer_readonly_handle_hit_rate"]
+        == 0.875
+    )
+    assert (
+        performance[
+            "runtime_shadow_aggregate_premap_consumer_readonly_evicted_before_consume_count"
+        ]
+        == 2
+    )
+    assert (
+        performance[
+            "runtime_shadow_aggregate_premap_consumer_readonly_handle_parity_ok_rate"
+        ]
+        == 0.75
     )
     assert "runtime_shadow_aggregate_unrelated_debug_key" not in performance
 
@@ -1194,6 +1216,12 @@ def test_vllm_router_recorder_premap_consumer_mapping_hits_prepared_addresses():
         consumer["premap_consumer_descriptor_handle_hash"]
     )
     assert consumer["premap_consumer_descriptor_handle_parity_ok"] is True
+    assert consumer["premap_consumer_readonly_lookup_count"] == 2
+    assert consumer["premap_consumer_readonly_handle_hit_count"] == 2
+    assert consumer["premap_consumer_readonly_handle_miss_count"] == 0
+    assert consumer["premap_consumer_readonly_evicted_before_consume_count"] == 0
+    assert consumer["premap_consumer_readonly_stale_handle_count"] == 0
+    assert consumer["premap_consumer_readonly_handle_parity_ok"] is True
     assert consumer["premap_consumer_expected_prepare_plan_count"] == 1
     assert consumer["premap_consumer_observed_prepare_plan_count"] == 1
     assert consumer["premap_consumer_expected_prepare_record_count"] == 2
@@ -1251,6 +1279,12 @@ def test_vllm_router_recorder_premap_consumer_real_handle_lifecycle_and_eviction
     assert first["premap_consumer_address_miss_count"] == 1
     assert first["premap_consumer_descriptor_handle_hit_count"] == 1
     assert first["premap_consumer_descriptor_handle_miss_count"] == 1
+    assert first["premap_consumer_readonly_lookup_count"] == 2
+    assert first["premap_consumer_readonly_handle_hit_count"] == 1
+    assert first["premap_consumer_readonly_handle_miss_count"] == 1
+    assert first["premap_consumer_readonly_evicted_before_consume_count"] == 1
+    assert first["premap_consumer_readonly_stale_handle_count"] == 0
+    assert first["premap_consumer_readonly_handle_parity_ok"] is False
     assert first["premap_consumer_real_descriptor_handle_hit_count"] == 2
     assert first["premap_consumer_real_descriptor_handle_miss_count"] == 0
     assert first["premap_consumer_real_descriptor_handle_available"] is True
@@ -1286,6 +1320,10 @@ def test_vllm_router_recorder_premap_consumer_real_handle_lifecycle_and_eviction
     assert second["premap_consumer_real_descriptor_handle_reused_binding_count"] == 2
     assert second["premap_consumer_real_descriptor_handle_binding_mismatch_count"] == 0
     assert second["premap_consumer_real_descriptor_handle_for_address_miss_count"] == 1
+    assert second["premap_consumer_readonly_handle_hit_count"] == 1
+    assert second["premap_consumer_readonly_handle_miss_count"] == 1
+    assert second["premap_consumer_readonly_evicted_before_consume_count"] == 1
+    assert second["premap_consumer_readonly_handle_parity_ok"] is False
 
 
 def test_vllm_router_recorder_premap_real_handle_binding_survives_clear():

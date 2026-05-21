@@ -35,6 +35,7 @@ from mtp_expert_prefetch.runtime.cache_manager import (
     ControlledPremapAddressManager,
     PremapAddressHandle,
     PremapAddressManagerSnapshot,
+    PremapReadonlyConsumerResult,
 )
 from mtp_expert_prefetch.runtime.descriptor_order import (
     DescriptorOrderReport,
@@ -156,6 +157,7 @@ __all__ = [
     "PremapAddressRecord",
     "PremapAddressManagerSnapshot",
     "PremapPreparedPlan",
+    "PremapReadonlyConsumerResult",
     "PremapAddressReplayReport",
     "build_premap_shadow_summary",
     "build_shadow_summary_from_descriptor_order",
