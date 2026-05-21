@@ -50,6 +50,13 @@ gate:
     premap_consumer_real_descriptor_handle_available_rate: 1.0
     premap_consumer_lookup_after_prepare_rate: 1.0
     premap_consumer_real_descriptor_handle_binding_mismatch_count: 0
+    premap_consumer_readonly_lookup_count: 210849
+    premap_consumer_readonly_handle_hit_count: 210849
+    premap_consumer_readonly_handle_miss_count: 0
+    premap_consumer_readonly_handle_hit_rate: 1.0
+    premap_consumer_readonly_evicted_before_consume_count: 0
+    premap_consumer_readonly_stale_handle_count: 0
+    premap_consumer_readonly_handle_parity_ok_rate: 1.0
     premap_consumer_error_count: 0
     premap_consumer_payload_violation_count: 0
     premap_consumer_router_change_violation_count: 0

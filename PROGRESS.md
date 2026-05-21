@@ -14097,3 +14097,46 @@ This confirms that the premap descriptor/address handles are not only mapped to
 real vLLM/AWQ launch-time handle classes, but can also be consumed by a read-only
 runtime shim over a sampled 128-sample long-run without stale, eviction, or
 parity failures.
+
+512-sample premap-only long-run audit with `--require-readonly-consumer`:
+
+```text
+config:
+  configs/trace/router_mtp_trace_external_prompt_gate_dolly_512_awq_vllm_gpu1_decode_gen64_longrun_audit.yaml
+
+summary:
+  data/traces/external_prompt_gate_dolly_512_awq_vllm_gpu1_decode_gen64_longrun_audit/longrun_audit_summary.json
+
+gate:
+  data/traces/external_prompt_gate_dolly_512_awq_vllm_gpu1_decode_gen64_longrun_audit/longrun_audit_gate.json
+```
+
+Result:
+
+```text
+gate_passed = true
+failures = []
+row_count = 40684
+event_counts = {premap_summary: 20342, premap_consumer_mapping: 20342}
+
+premap_address_resident_count_max = 10202
+premap_address_reuse_rate_mean = 0.9945098117726032
+premap_address_evicted_count = 0
+
+premap_consumer_real_descriptor_handle_hit_count = 210849
+premap_consumer_real_descriptor_handle_miss_count = 0
+premap_consumer_real_descriptor_handle_hit_rate = 1.0
+
+premap_consumer_readonly_lookup_count = 210849
+premap_consumer_readonly_handle_hit_count = 210849
+premap_consumer_readonly_handle_miss_count = 0
+premap_consumer_readonly_handle_hit_rate = 1.0
+premap_consumer_readonly_evicted_before_consume_count = 0
+premap_consumer_readonly_stale_handle_count = 0
+premap_consumer_readonly_handle_parity_ok_rate = 1.0
+```
+
+Updated `configs/runtime/premap_consumer_readonly_gate_dolly512_gen64_awq_w7900_gpu1.yaml`
+with these strict read-only consumer metrics.  This artifact is now the required
+precondition for real lab integration of the read-only premap descriptor/address
+consumer path.
