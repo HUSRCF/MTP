@@ -14140,3 +14140,76 @@ Updated `configs/runtime/premap_consumer_readonly_gate_dolly512_gen64_awq_w7900_
 with these strict read-only consumer metrics.  This artifact is now the required
 precondition for real lab integration of the read-only premap descriptor/address
 consumer path.
+
+Lab default readonly-gated descriptor/address prep execution:
+
+```text
+configs:
+  configs/trace/router_mtp_trace_external_prompt_gate_dolly_8_awq_vllm_gpu1_decode_gen64_premap_consumer_mapping_smoke.yaml
+  configs/trace/router_mtp_trace_external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_longrun_audit.yaml
+  configs/trace/router_mtp_trace_external_prompt_gate_dolly_512_awq_vllm_gpu1_decode_gen64_longrun_audit.yaml
+
+execution_mode:
+  premap_descriptor_prep_execution_mode = readonly_descriptor_address_object
+```
+
+The readonly gate is now a precondition for the minimal descriptor/address prep
+execution path.  The runtime refuses unknown prep execution modes and refuses to
+enable descriptor/address prep execution without
+`premap_consumer_require_readonly_gate=True`.  `attempted_count` means the config
+activated descriptor prep for the consumer event; `executed_count` is the stricter
+count of events that actually resolved descriptor/address objects after the
+readonly gate and lookup checks passed.
+
+The minimal execution path resolves already-resident `PremapAddressHandle`
+objects into descriptor pointers, packed-weight descriptors, and scale-metadata
+handles.  It does not move payload bytes, mutate LRU state, grant ready credit,
+change router outputs, or change descriptor visitation order.
+
+GPU1 8-sample vLLM/AWQ smoke:
+
+```text
+config:
+  configs/trace/router_mtp_trace_external_prompt_gate_dolly_8_awq_vllm_gpu1_decode_gen64_premap_consumer_mapping_smoke.yaml
+
+summary:
+  data/traces/external_prompt_gate_dolly_8_awq_vllm_gpu1_decode_gen64_premap_consumer_mapping_smoke/premap_descriptor_prep_smoke_summary.json
+```
+
+Result:
+
+```text
+premap_consumer_mapping_count = 20480
+
+premap_consumer_readonly_lookup_count = 190215
+premap_consumer_readonly_handle_hit_rate = 1.0
+premap_consumer_readonly_evicted_before_consume_count = 0
+premap_consumer_readonly_stale_handle_count = 0
+premap_consumer_readonly_handle_parity_ok_rate = 1.0
+
+premap_consumer_descriptor_prep_attempted_count = 20480
+premap_consumer_descriptor_prep_executed_count = 20480
+premap_consumer_descriptor_prep_lookup_count = 190215
+premap_consumer_descriptor_prep_handle_count = 190215
+premap_consumer_descriptor_prep_missing_handle_count = 0
+premap_consumer_descriptor_prep_handle_hit_rate = 1.0
+premap_consumer_descriptor_prep_descriptor_ptr_count = 190215
+premap_consumer_descriptor_prep_packed_weight_descriptor_count = 190215
+premap_consumer_descriptor_prep_scale_metadata_handle_count = 190215
+premap_consumer_descriptor_prep_execution_ok_rate = 1.0
+premap_consumer_descriptor_prep_execution_ok_attempted_rate = 1.0
+premap_consumer_descriptor_prep_blocked_count = 0
+premap_consumer_descriptor_prep_blocked_attempted_rate = 0.0
+
+premap_consumer_payload_violation_count = 0
+premap_consumer_ready_credit_violation_count = 0
+premap_consumer_router_change_violation_count = 0
+premap_consumer_descriptor_order_change_violation_count = 0
+```
+
+Verification:
+
+```text
+conda run -p /home/husrcf/anaconda3/envs/TRY pytest tests -q
+447 passed, 2 warnings
+```

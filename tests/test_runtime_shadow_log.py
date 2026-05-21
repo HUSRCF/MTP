@@ -348,6 +348,15 @@ def test_shadow_log_aggregates_premap_consumer_mapping_without_side_effects(tmp_
         readonly_consumer_evicted_before_consume_count=0,
         readonly_consumer_stale_handle_count=0,
         readonly_consumer_handle_parity_ok=True,
+        descriptor_prep_execution_mode="readonly_descriptor_address_object",
+        descriptor_prep_lookup_count=2,
+        descriptor_prep_handle_count=2,
+        descriptor_prep_missing_handle_count=0,
+        descriptor_prep_descriptor_ptr_count=2,
+        descriptor_prep_packed_weight_descriptor_count=2,
+        descriptor_prep_scale_metadata_handle_count=2,
+        descriptor_prep_handle_hash="prep-hash",
+        descriptor_prep_execution_ok=True,
         expected_key_hash="consumer-hash",
         resident_address_count=4,
         lookup_us=3.5,
@@ -433,6 +442,31 @@ def test_shadow_log_aggregates_premap_consumer_mapping_without_side_effects(tmp_
     assert aggregate["premap_consumer_readonly_stale_handle_count"] == 0
     assert aggregate["premap_consumer_readonly_stale_handle_rate"] == 0.0
     assert aggregate["premap_consumer_readonly_handle_parity_ok_rate"] == 1.0
+    assert rows[0]["premap_consumer_descriptor_prep_execution_mode"] == (
+        "readonly_descriptor_address_object"
+    )
+    assert rows[0]["premap_consumer_descriptor_prep_handle_hash"] == "prep-hash"
+    assert aggregate["premap_consumer_descriptor_prep_lookup_count"] == 2
+    assert aggregate["premap_consumer_descriptor_prep_attempted_count"] == 1
+    assert aggregate["premap_consumer_descriptor_prep_executed_count"] == 1
+    assert aggregate["premap_consumer_descriptor_prep_handle_count"] == 2
+    assert aggregate["premap_consumer_descriptor_prep_missing_handle_count"] == 0
+    assert aggregate["premap_consumer_descriptor_prep_handle_hit_rate"] == 1.0
+    assert aggregate["premap_consumer_descriptor_prep_descriptor_ptr_count"] == 2
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_packed_weight_descriptor_count"
+        ]
+        == 2
+    )
+    assert aggregate["premap_consumer_descriptor_prep_scale_metadata_handle_count"] == 2
+    assert aggregate["premap_consumer_descriptor_prep_execution_ok_rate"] == 1.0
+    assert (
+        aggregate["premap_consumer_descriptor_prep_execution_ok_attempted_rate"]
+        == 1.0
+    )
+    assert aggregate["premap_consumer_descriptor_prep_blocked_count"] == 0
+    assert aggregate["premap_consumer_descriptor_prep_blocked_attempted_rate"] == 0.0
     assert aggregate["premap_consumer_lookup_us_mean"] == 3.5
     assert aggregate["premap_consumer_payload_violation_count"] == 0
     assert aggregate["premap_consumer_router_change_violation_count"] == 0

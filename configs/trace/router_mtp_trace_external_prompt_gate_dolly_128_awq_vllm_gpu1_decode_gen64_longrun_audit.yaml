@@ -43,6 +43,7 @@ trace:
     premap_address_capacity_gate_path: configs/runtime/premap_address_capacity_gate_dolly128_gen64_awq_w7900_gpu1.yaml
     premap_consumer_require_readonly_gate: true
     premap_consumer_readonly_gate_path: configs/runtime/premap_consumer_readonly_gate_dolly512_gen64_awq_w7900_gpu1.yaml
+    premap_descriptor_prep_execution_mode: readonly_descriptor_address_object
     premap_policy: premap_only_with_consumer_mapping_noop
     premap_source: current_router_topk_premap_shadow
     premap_descriptor_bytes: 4096

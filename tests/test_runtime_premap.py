@@ -265,6 +265,69 @@ def test_controlled_premap_address_manager_readonly_consumer_lifecycle():
     assert rehit.handle_parity_ok is True
 
 
+def test_controlled_premap_address_manager_executes_descriptor_prep_readonly():
+    plan = prepare_premap_address_plan(
+        [
+            ExpertPrefetchDescriptor(0, 1, 3, 2, "transition_head", 0.95),
+            ExpertPrefetchDescriptor(0, 1, 7, 4, "mtp_token_extra_head", 0.75),
+        ],
+        descriptor_bytes=64,
+    )
+    manager = ControlledPremapAddressManager(capacity=4)
+    manager.prepare(plan)
+    keys = [record.address_key for record in plan.records]
+    before_snapshot = manager.snapshot()
+    before_lru_order = list(manager._addresses.keys())
+
+    result = manager.execute_descriptor_prep_readonly(keys)
+    after_snapshot = manager.snapshot()
+
+    assert result.execution_mode == "readonly_descriptor_address_object"
+    assert result.lookup_count == 2
+    assert result.prepared_handle_count == 2
+    assert result.missing_handle_count == 0
+    assert result.descriptor_ptr_count == 2
+    assert result.packed_weight_descriptor_count == 2
+    assert result.scale_metadata_handle_count == 2
+    assert result.payload_bytes == 0
+    assert result.ready_credit is False
+    assert result.changes_router is False
+    assert result.changes_descriptor_order is False
+    assert result.handle_hash
+    assert result.execution_ok is True
+    assert after_snapshot == before_snapshot
+    assert list(manager._addresses.keys()) == before_lru_order
+
+
+def test_controlled_premap_address_manager_descriptor_prep_hash_includes_address_key():
+    first = prepare_premap_address_plan(
+        [ExpertPrefetchDescriptor(0, 1, 3, 2, "transition_head", 0.95)],
+        descriptor_bytes=64,
+        address_namespace="first_namespace",
+    )
+    second = prepare_premap_address_plan(
+        [ExpertPrefetchDescriptor(0, 1, 3, 2, "transition_head", 0.95)],
+        descriptor_bytes=64,
+        address_namespace="second_namespace",
+    )
+    first_manager = ControlledPremapAddressManager(capacity=4)
+    second_manager = ControlledPremapAddressManager(capacity=4)
+    first_manager.prepare(first)
+    second_manager.prepare(second)
+
+    first_result = first_manager.execute_descriptor_prep_readonly(
+        [record.address_key for record in first.records]
+    )
+    second_result = second_manager.execute_descriptor_prep_readonly(
+        [record.address_key for record in second.records]
+    )
+
+    assert first.records[0].address_key != second.records[0].address_key
+    assert first_result.handle_hash
+    assert second_result.handle_hash
+    assert first_result.handle_hash != second_result.handle_hash
+
+
 def test_controlled_premap_address_manager_zero_capacity_counts_requests_only():
     plan = prepare_premap_address_plan(
         [ExpertPrefetchDescriptor(0, 1, 3, 2, "transition_head", 0.95)],

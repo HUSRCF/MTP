@@ -126,6 +126,31 @@ def test_apply_premap_consumer_readonly_gate_rejects_missing_required_path(tmp_p
         )
 
 
+def test_apply_premap_consumer_readonly_gate_rejects_prep_execution_without_gate(tmp_path):
+    with pytest.raises(ValueError, match="requires premap_consumer_require_readonly_gate"):
+        _apply_premap_consumer_readonly_gate(
+            {
+                "enabled": True,
+                "premap_descriptor_prep_execution_mode": (
+                    "readonly_descriptor_address_object"
+                ),
+            },
+            project_root=tmp_path,
+        )
+
+
+def test_apply_premap_consumer_readonly_gate_rejects_unknown_prep_execution_mode(tmp_path):
+    with pytest.raises(ValueError, match="Unsupported premap_descriptor_prep_execution_mode"):
+        _apply_premap_consumer_readonly_gate(
+            {
+                "enabled": True,
+                "premap_consumer_require_readonly_gate": True,
+                "premap_descriptor_prep_execution_mode": "readonly_descriptor_address",
+            },
+            project_root=tmp_path,
+        )
+
+
 def test_apply_premap_consumer_readonly_gate_rejects_failed_gate(tmp_path):
     gate = tmp_path / "readonly_gate.yaml"
     _write_readonly_gate(gate, passed=False)
@@ -379,6 +404,10 @@ def test_default_longrun_audit_config_uses_premap_capacity_gate(
         shadow["premap_consumer_readonly_gate_path"]
         == "configs/runtime/premap_consumer_readonly_gate_dolly512_gen64_awq_w7900_gpu1.yaml"
     )
+    assert (
+        shadow["premap_descriptor_prep_execution_mode"]
+        == "readonly_descriptor_address_object"
+    )
     readonly_gate = yaml.safe_load(
         (
             PROJECT_ROOT / shadow["premap_consumer_readonly_gate_path"]
@@ -427,6 +456,10 @@ def test_premap_consumer_mapping_smoke_config_requires_readonly_gate():
     assert (
         shadow["premap_consumer_readonly_gate_path"]
         == "configs/runtime/premap_consumer_readonly_gate_dolly512_gen64_awq_w7900_gpu1.yaml"
+    )
+    assert (
+        shadow["premap_descriptor_prep_execution_mode"]
+        == "readonly_descriptor_address_object"
     )
     assert shadow["premap_policy"] == "premap_only_with_consumer_mapping_noop"
     assert shadow["premap_descriptor_bytes"] == 4096

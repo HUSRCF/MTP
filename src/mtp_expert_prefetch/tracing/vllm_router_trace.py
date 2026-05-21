@@ -82,6 +82,24 @@ _ATTENTION_HANDOFF_COMPONENTS = (
     "attention_linear_handoff_out_proj",
 )
 
+_PREMAP_DESCRIPTOR_PREP_EXECUTION_MODES = frozenset(
+    {"readonly_descriptor_address_object"}
+)
+
+
+def _normalize_premap_descriptor_prep_execution_mode(raw: Any) -> str | None:
+    mode = str(raw or "off").strip().lower()
+    if mode in {"", "off", "none", "false", "0"}:
+        return None
+    if mode not in _PREMAP_DESCRIPTOR_PREP_EXECUTION_MODES:
+        msg = (
+            "Unsupported premap_descriptor_prep_execution_mode="
+            f"{raw!r}; supported modes are "
+            f"{sorted(_PREMAP_DESCRIPTOR_PREP_EXECUTION_MODES)}."
+        )
+        raise ValueError(msg)
+    return mode
+
 RUNTIME_SHADOW_AGGREGATE_PERFORMANCE_KEYS = (
     "outcome_aggregate_count",
     "descriptor_summary_min_count",
@@ -130,6 +148,20 @@ RUNTIME_SHADOW_AGGREGATE_PERFORMANCE_KEYS = (
     "premap_consumer_readonly_stale_handle_count",
     "premap_consumer_readonly_stale_handle_rate",
     "premap_consumer_readonly_handle_parity_ok_rate",
+    "premap_consumer_descriptor_prep_lookup_count",
+    "premap_consumer_descriptor_prep_attempted_count",
+    "premap_consumer_descriptor_prep_executed_count",
+    "premap_consumer_descriptor_prep_handle_count",
+    "premap_consumer_descriptor_prep_missing_handle_count",
+    "premap_consumer_descriptor_prep_handle_hit_rate",
+    "premap_consumer_descriptor_prep_descriptor_ptr_count",
+    "premap_consumer_descriptor_prep_packed_weight_descriptor_count",
+    "premap_consumer_descriptor_prep_scale_metadata_handle_count",
+    "premap_consumer_descriptor_prep_execution_ok_rate",
+    "premap_consumer_descriptor_prep_execution_ok_attempted_rate",
+    "premap_consumer_descriptor_prep_blocked_count",
+    "premap_consumer_descriptor_prep_blocked_rate",
+    "premap_consumer_descriptor_prep_blocked_attempted_rate",
     "premap_consumer_error_count",
     "premap_consumer_payload_violation_count",
     "premap_consumer_router_change_violation_count",
@@ -574,6 +606,7 @@ class VllmRouterRecorder:
     shadow_premap_consumer_readonly_gate_id: str | None = None
     shadow_premap_consumer_readonly_gate_path: str | None = None
     shadow_premap_consumer_readonly_gate_passed: bool | None = None
+    shadow_premap_descriptor_prep_execution_mode: str = "off"
     shadow_premap_address_namespace: str = "expert_weight_descriptor"
     shadow_premap_priority: int = 2
     shadow_transition_premap_priority: int = 3
@@ -2055,6 +2088,38 @@ class VllmRouterRecorder:
                     for key, value in expected_handle_hash_by_key.items()
                 },
             )
+        descriptor_prep_result = None
+        descriptor_prep_blocked_reason: str | None = None
+        descriptor_prep_mode = _normalize_premap_descriptor_prep_execution_mode(
+            self.shadow_premap_descriptor_prep_execution_mode
+        )
+        descriptor_prep_enabled = descriptor_prep_mode is not None
+        if descriptor_prep_enabled:
+            readonly_gate_ok = (
+                bool(self.shadow_premap_consumer_readonly_gate_required)
+                and self.shadow_premap_consumer_readonly_gate_passed is True
+            )
+            readonly_lookup_ok = (
+                readonly_consumer_result is not None
+                and int(readonly_consumer_result.lookup_count) > 0
+                and int(readonly_consumer_result.handle_miss_count) == 0
+                and int(readonly_consumer_result.evicted_before_consume_count) == 0
+                and int(readonly_consumer_result.stale_handle_count) == 0
+                and readonly_consumer_result.handle_parity_ok is not False
+            )
+            if manager is None:
+                descriptor_prep_blocked_reason = "premap_address_manager_missing"
+            elif not readonly_gate_ok:
+                descriptor_prep_blocked_reason = "readonly_gate_not_passed"
+            elif not readonly_lookup_ok:
+                descriptor_prep_blocked_reason = "readonly_consumer_failed"
+            elif not all_hit:
+                descriptor_prep_blocked_reason = "address_miss"
+            else:
+                descriptor_prep_result = manager.execute_descriptor_prep_readonly(
+                    address_keys,
+                    execution_mode=descriptor_prep_mode,
+                )
         lookup_us = (time.perf_counter_ns() - start_ns) / 1000.0
         sink.write_premap_consumer_mapping(
             ShadowPremapConsumerMappingEvent(
@@ -2147,6 +2212,50 @@ class VllmRouterRecorder:
                     if readonly_consumer_result is not None
                     else None
                 ),
+                descriptor_prep_execution_mode=(
+                    descriptor_prep_mode if descriptor_prep_enabled else None
+                ),
+                descriptor_prep_lookup_count=(
+                    int(descriptor_prep_result.lookup_count)
+                    if descriptor_prep_result is not None
+                    else None
+                ),
+                descriptor_prep_handle_count=(
+                    int(descriptor_prep_result.prepared_handle_count)
+                    if descriptor_prep_result is not None
+                    else None
+                ),
+                descriptor_prep_missing_handle_count=(
+                    int(descriptor_prep_result.missing_handle_count)
+                    if descriptor_prep_result is not None
+                    else None
+                ),
+                descriptor_prep_descriptor_ptr_count=(
+                    int(descriptor_prep_result.descriptor_ptr_count)
+                    if descriptor_prep_result is not None
+                    else None
+                ),
+                descriptor_prep_packed_weight_descriptor_count=(
+                    int(descriptor_prep_result.packed_weight_descriptor_count)
+                    if descriptor_prep_result is not None
+                    else None
+                ),
+                descriptor_prep_scale_metadata_handle_count=(
+                    int(descriptor_prep_result.scale_metadata_handle_count)
+                    if descriptor_prep_result is not None
+                    else None
+                ),
+                descriptor_prep_handle_hash=(
+                    descriptor_prep_result.handle_hash
+                    if descriptor_prep_result is not None
+                    else None
+                ),
+                descriptor_prep_execution_ok=(
+                    bool(descriptor_prep_result.execution_ok)
+                    if descriptor_prep_result is not None
+                    else None
+                ),
+                descriptor_prep_blocked_reason=descriptor_prep_blocked_reason,
                 expected_key_hash=str(expected_hash) if expected_hash is not None else None,
                 resident_address_count=resident_count,
                 lookup_us=lookup_us,
@@ -9171,6 +9280,15 @@ def _apply_premap_consumer_readonly_gate(
     project_root: Path,
 ) -> dict[str, Any]:
     require_gate = bool(options.get("premap_consumer_require_readonly_gate", False))
+    descriptor_prep_mode = _normalize_premap_descriptor_prep_execution_mode(
+        options.get("premap_descriptor_prep_execution_mode", "off")
+    )
+    if descriptor_prep_mode is not None and not require_gate:
+        msg = (
+            "premap_descriptor_prep_execution_mode requires "
+            "premap_consumer_require_readonly_gate=True."
+        )
+        raise ValueError(msg)
     raw_path = options.get("premap_consumer_readonly_gate_path")
     if raw_path is None:
         if require_gate:
@@ -9816,6 +9934,9 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                 "premap_consumer_readonly_gate_evidence_paths"
             )
         ),
+        "runtime_shadow_premap_descriptor_prep_execution_mode": str(
+            runtime_shadow_options.get("premap_descriptor_prep_execution_mode", "off")
+        ),
         "runtime_shadow_transition_premap_source": str(
             runtime_shadow_options.get(
                 "transition_premap_source",
@@ -10211,6 +10332,12 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                                     runtime_shadow_options.get(
                                         "premap_consumer_readonly_gate_passed"
                                     )
+                                )
+                            ),
+                            shadow_premap_descriptor_prep_execution_mode=str(
+                                runtime_shadow_options.get(
+                                    "premap_descriptor_prep_execution_mode",
+                                    "off",
                                 )
                             ),
                             shadow_premap_address_namespace=str(

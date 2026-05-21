@@ -193,6 +193,35 @@ class PremapReadonlyConsumerResult:
         return asdict(self)
 
 
+@dataclass(frozen=True)
+class PremapDescriptorPrepExecutionResult:
+    """Read-only descriptor/address prep execution result.
+
+    This is the smallest runtime-consumer contract above a pure lookup: the
+    consumer resolves already prepared descriptor/address objects into concrete
+    descriptor pointer, packed-weight descriptor, and scale metadata handles.
+    It still does not transfer payloads, mutate cache residency, or grant ready
+    credit.
+    """
+
+    execution_mode: str
+    lookup_count: int
+    prepared_handle_count: int
+    missing_handle_count: int
+    descriptor_ptr_count: int
+    packed_weight_descriptor_count: int
+    scale_metadata_handle_count: int
+    payload_bytes: int
+    ready_credit: bool
+    changes_router: bool
+    changes_descriptor_order: bool
+    handle_hash: str | None
+    execution_ok: bool
+
+    def as_dict(self) -> dict[str, int | bool | str | None]:
+        return asdict(self)
+
+
 class ControlledPremapAddressManager:
     """Bounded descriptor/address shim for premap-only runtime prototypes.
 
@@ -335,6 +364,79 @@ class ControlledPremapAddressManager:
             evicted_before_consume_count=evicted_before_consume_count,
             stale_handle_count=stale_handle_count,
             handle_parity_ok=parity_ok,
+        )
+
+    def execute_descriptor_prep_readonly(
+        self,
+        address_keys: Iterable[str],
+        *,
+        execution_mode: str = "readonly_descriptor_address_object",
+    ) -> PremapDescriptorPrepExecutionResult:
+        """Resolve prepared descriptor/address objects for a runtime consumer.
+
+        The method deliberately reads the existing entries directly instead of
+        using `resolve_address_key()`, to make the no-mutation contract explicit:
+        no LRU move, no payload movement, and no ready-credit side effect.
+        """
+
+        lookup_count = 0
+        prepared_handle_count = 0
+        missing_handle_count = 0
+        descriptor_ptr_count = 0
+        packed_weight_descriptor_count = 0
+        scale_metadata_handle_count = 0
+        payload_bytes = 0
+        hash_parts: list[str] = []
+        for raw_key in address_keys:
+            lookup_count += 1
+            key = str(raw_key)
+            entry = self._addresses.get(key)
+            if entry is None:
+                missing_handle_count += 1
+                continue
+            handle = entry.handle
+            prepared_handle_count += 1
+            payload_bytes += int(handle.payload_bytes)
+            hash_parts.append(f"address_key:{key}")
+            if handle.descriptor_ptr:
+                descriptor_ptr_count += 1
+                hash_parts.append(f"descriptor_ptr:{handle.descriptor_ptr}")
+            if handle.packed_weight_descriptor:
+                packed_weight_descriptor_count += 1
+                hash_parts.append(
+                    f"packed_weight_descriptor:{handle.packed_weight_descriptor}"
+                )
+            if handle.scale_metadata_handle:
+                scale_metadata_handle_count += 1
+                hash_parts.append(
+                    f"scale_metadata_handle:{handle.scale_metadata_handle}"
+                )
+            hash_parts.append(f"handle_hash:{handle.handle_hash}")
+        handle_hash = None
+        if hash_parts:
+            payload = "|".join(sorted(hash_parts)).encode("utf-8")
+            handle_hash = hashlib.sha256(payload).hexdigest()
+        return PremapDescriptorPrepExecutionResult(
+            execution_mode=str(execution_mode),
+            lookup_count=lookup_count,
+            prepared_handle_count=prepared_handle_count,
+            missing_handle_count=missing_handle_count,
+            descriptor_ptr_count=descriptor_ptr_count,
+            packed_weight_descriptor_count=packed_weight_descriptor_count,
+            scale_metadata_handle_count=scale_metadata_handle_count,
+            payload_bytes=payload_bytes,
+            ready_credit=False,
+            changes_router=False,
+            changes_descriptor_order=False,
+            handle_hash=handle_hash,
+            execution_ok=(
+                lookup_count > 0
+                and missing_handle_count == 0
+                and payload_bytes == 0
+                and descriptor_ptr_count == prepared_handle_count
+                and packed_weight_descriptor_count == prepared_handle_count
+                and scale_metadata_handle_count == prepared_handle_count
+            ),
         )
 
     def contains_layer_expert(

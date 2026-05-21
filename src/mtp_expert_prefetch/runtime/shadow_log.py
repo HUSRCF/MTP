@@ -719,6 +719,16 @@ class ShadowPremapConsumerMappingEvent:
     readonly_consumer_evicted_before_consume_count: int | None = None
     readonly_consumer_stale_handle_count: int | None = None
     readonly_consumer_handle_parity_ok: bool | None = None
+    descriptor_prep_execution_mode: str | None = None
+    descriptor_prep_lookup_count: int | None = None
+    descriptor_prep_handle_count: int | None = None
+    descriptor_prep_missing_handle_count: int | None = None
+    descriptor_prep_descriptor_ptr_count: int | None = None
+    descriptor_prep_packed_weight_descriptor_count: int | None = None
+    descriptor_prep_scale_metadata_handle_count: int | None = None
+    descriptor_prep_handle_hash: str | None = None
+    descriptor_prep_execution_ok: bool | None = None
+    descriptor_prep_blocked_reason: str | None = None
     expected_key_hash: str | None = None
     resident_address_count: int | None = None
     lookup_us: float | None = None
@@ -907,6 +917,56 @@ class ShadowPremapConsumerMappingEvent:
             payload,
             "premap_consumer_readonly_handle_parity_ok",
             self.readonly_consumer_handle_parity_ok,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_execution_mode",
+            self.descriptor_prep_execution_mode,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_lookup_count",
+            self.descriptor_prep_lookup_count,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_handle_count",
+            self.descriptor_prep_handle_count,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_missing_handle_count",
+            self.descriptor_prep_missing_handle_count,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_descriptor_ptr_count",
+            self.descriptor_prep_descriptor_ptr_count,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_packed_weight_descriptor_count",
+            self.descriptor_prep_packed_weight_descriptor_count,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_scale_metadata_handle_count",
+            self.descriptor_prep_scale_metadata_handle_count,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_handle_hash",
+            self.descriptor_prep_handle_hash,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_execution_ok",
+            self.descriptor_prep_execution_ok,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_blocked_reason",
+            self.descriptor_prep_blocked_reason,
         )
         _put_optional(payload, "premap_consumer_expected_key_hash", self.expected_key_hash)
         _put_optional(
@@ -1101,6 +1161,17 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
         "premap_consumer_readonly_stale_handle_count": 0,
         "premap_consumer_readonly_handle_parity_ok_count": 0,
         "premap_consumer_readonly_handle_parity_checked_count": 0,
+        "premap_consumer_descriptor_prep_lookup_count": 0,
+        "premap_consumer_descriptor_prep_attempted_count": 0,
+        "premap_consumer_descriptor_prep_executed_count": 0,
+        "premap_consumer_descriptor_prep_handle_count": 0,
+        "premap_consumer_descriptor_prep_missing_handle_count": 0,
+        "premap_consumer_descriptor_prep_descriptor_ptr_count": 0,
+        "premap_consumer_descriptor_prep_packed_weight_descriptor_count": 0,
+        "premap_consumer_descriptor_prep_scale_metadata_handle_count": 0,
+        "premap_consumer_descriptor_prep_execution_ok_count": 0,
+        "premap_consumer_descriptor_prep_checked_count": 0,
+        "premap_consumer_descriptor_prep_blocked_count": 0,
         "premap_consumer_all_hit_count": 0,
         "premap_consumer_parity_ok_count": 0,
         "premap_consumer_error_count": 0,
@@ -1491,6 +1562,47 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
                 totals["premap_consumer_readonly_handle_parity_ok_count"] += int(
                     bool(event.get("premap_consumer_readonly_handle_parity_ok", False))
                 )
+            totals["premap_consumer_descriptor_prep_lookup_count"] += int(
+                event.get("premap_consumer_descriptor_prep_lookup_count", 0) or 0
+            )
+            totals["premap_consumer_descriptor_prep_handle_count"] += int(
+                event.get("premap_consumer_descriptor_prep_handle_count", 0) or 0
+            )
+            totals["premap_consumer_descriptor_prep_missing_handle_count"] += int(
+                event.get("premap_consumer_descriptor_prep_missing_handle_count", 0) or 0
+            )
+            totals["premap_consumer_descriptor_prep_descriptor_ptr_count"] += int(
+                event.get("premap_consumer_descriptor_prep_descriptor_ptr_count", 0) or 0
+            )
+            totals["premap_consumer_descriptor_prep_packed_weight_descriptor_count"] += int(
+                event.get(
+                    "premap_consumer_descriptor_prep_packed_weight_descriptor_count",
+                    0,
+                )
+                or 0
+            )
+            totals["premap_consumer_descriptor_prep_scale_metadata_handle_count"] += int(
+                event.get(
+                    "premap_consumer_descriptor_prep_scale_metadata_handle_count",
+                    0,
+                )
+                or 0
+            )
+            if "premap_consumer_descriptor_prep_execution_ok" in event:
+                totals["premap_consumer_descriptor_prep_executed_count"] += 1
+                totals["premap_consumer_descriptor_prep_checked_count"] += 1
+                totals["premap_consumer_descriptor_prep_execution_ok_count"] += int(
+                    bool(event.get("premap_consumer_descriptor_prep_execution_ok", False))
+                )
+            # Attempted means the lab/runtime config activated descriptor prep
+            # execution for this consumer event.  It intentionally includes
+            # gated/blocked events; executed_count is the stricter count of
+            # events that actually resolved descriptor/address objects.
+            if "premap_consumer_descriptor_prep_execution_mode" in event:
+                totals["premap_consumer_descriptor_prep_attempted_count"] += 1
+            totals["premap_consumer_descriptor_prep_blocked_count"] += int(
+                bool(event.get("premap_consumer_descriptor_prep_blocked_reason"))
+            )
             totals["premap_consumer_all_hit_count"] += int(
                 bool(event.get("premap_consumer_all_hit", False))
             )
@@ -1708,6 +1820,30 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
     totals["premap_consumer_readonly_handle_parity_ok_rate"] = (
         totals["premap_consumer_readonly_handle_parity_ok_count"]
         / max(1, int(totals["premap_consumer_readonly_handle_parity_checked_count"]))
+    )
+    totals["premap_consumer_descriptor_prep_handle_hit_rate"] = (
+        totals["premap_consumer_descriptor_prep_handle_count"]
+        / max(
+            1,
+            int(totals["premap_consumer_descriptor_prep_handle_count"])
+            + int(totals["premap_consumer_descriptor_prep_missing_handle_count"]),
+        )
+    )
+    totals["premap_consumer_descriptor_prep_execution_ok_rate"] = (
+        totals["premap_consumer_descriptor_prep_execution_ok_count"]
+        / max(1, int(totals["premap_consumer_descriptor_prep_checked_count"]))
+    )
+    totals["premap_consumer_descriptor_prep_execution_ok_attempted_rate"] = (
+        totals["premap_consumer_descriptor_prep_execution_ok_count"]
+        / max(1, int(totals["premap_consumer_descriptor_prep_attempted_count"]))
+    )
+    totals["premap_consumer_descriptor_prep_blocked_rate"] = (
+        totals["premap_consumer_descriptor_prep_blocked_count"]
+        / premap_consumer_mapping_count
+    )
+    totals["premap_consumer_descriptor_prep_blocked_attempted_rate"] = (
+        totals["premap_consumer_descriptor_prep_blocked_count"]
+        / max(1, int(totals["premap_consumer_descriptor_prep_attempted_count"]))
     )
     totals["premap_consumer_lookup_us_mean"] = (
         totals["premap_consumer_lookup_us_sum"] / premap_consumer_lookup_count

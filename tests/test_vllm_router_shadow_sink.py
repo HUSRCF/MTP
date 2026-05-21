@@ -1171,6 +1171,9 @@ def test_vllm_router_recorder_premap_consumer_mapping_hits_prepared_addresses():
         shadow_premap_consumer_readonly_gate_id="readonly-gate",
         shadow_premap_consumer_readonly_gate_path="configs/runtime/readonly.yaml",
         shadow_premap_consumer_readonly_gate_passed=True,
+        shadow_premap_descriptor_prep_execution_mode=(
+            "readonly_descriptor_address_object"
+        ),
         shadow_premap_address_manager_capacity=4,
         shadow_num_experts=6,
         request_id="req",
@@ -1222,6 +1225,20 @@ def test_vllm_router_recorder_premap_consumer_mapping_hits_prepared_addresses():
     assert consumer["premap_consumer_readonly_evicted_before_consume_count"] == 0
     assert consumer["premap_consumer_readonly_stale_handle_count"] == 0
     assert consumer["premap_consumer_readonly_handle_parity_ok"] is True
+    assert consumer["premap_consumer_descriptor_prep_execution_mode"] == (
+        "readonly_descriptor_address_object"
+    )
+    assert consumer["premap_consumer_descriptor_prep_lookup_count"] == 2
+    assert consumer["premap_consumer_descriptor_prep_handle_count"] == 2
+    assert consumer["premap_consumer_descriptor_prep_missing_handle_count"] == 0
+    assert consumer["premap_consumer_descriptor_prep_descriptor_ptr_count"] == 2
+    assert (
+        consumer["premap_consumer_descriptor_prep_packed_weight_descriptor_count"]
+        == 2
+    )
+    assert consumer["premap_consumer_descriptor_prep_scale_metadata_handle_count"] == 2
+    assert consumer["premap_consumer_descriptor_prep_handle_hash"]
+    assert consumer["premap_consumer_descriptor_prep_execution_ok"] is True
     assert consumer["premap_consumer_expected_prepare_plan_count"] == 1
     assert consumer["premap_consumer_observed_prepare_plan_count"] == 1
     assert consumer["premap_consumer_expected_prepare_record_count"] == 2
@@ -1232,6 +1249,56 @@ def test_vllm_router_recorder_premap_consumer_mapping_hits_prepared_addresses():
     assert consumer["premap_consumer_payload_bytes"] == 0
     assert consumer["premap_consumer_changes_router"] is False
     assert consumer["premap_consumer_changes_descriptor_order"] is False
+    assert consumer["premap_consumer_ready_credit"] is False
+
+
+def test_vllm_router_recorder_premap_descriptor_prep_requires_passed_gate():
+    sink = _Sink()
+    recorder = VllmRouterRecorder(
+        top_k=2,
+        shadow_outcome_sink=sink,
+        shadow_outcome_logging_mode="off",
+        shadow_emit_premap_summary=True,
+        shadow_emit_premap_address_manager_counters=True,
+        shadow_emit_premap_consumer_mapping=True,
+        shadow_premap_consumer_readonly_gate_required=True,
+        shadow_premap_consumer_readonly_gate_id="readonly-gate",
+        shadow_premap_consumer_readonly_gate_path="configs/runtime/readonly.yaml",
+        shadow_premap_consumer_readonly_gate_passed=False,
+        shadow_premap_descriptor_prep_execution_mode=(
+            "readonly_descriptor_address_object"
+        ),
+        shadow_premap_address_manager_capacity=4,
+        shadow_num_experts=6,
+        request_id="req",
+        sequence_id=5,
+    )
+
+    recorder.record_topk(
+        layer_id=3,
+        topk_ids=torch.tensor([[1, 2]]),
+        topk_weights=torch.tensor([[0.8, 0.2]]),
+    )
+    recorder.maybe_reorder_prepared_expert_assignment(
+        layer_id=3,
+        sorted_token_ids=torch.arange(4, dtype=torch.int32),
+        expert_ids=torch.tensor([1, 2], dtype=torch.int32),
+        num_tokens_post_padded=torch.tensor([4], dtype=torch.int32),
+        block_size=2,
+    )
+
+    consumer = [event.as_dict() for event in sink.events][-1]
+    assert consumer["event_type"] == "premap_consumer_mapping"
+    assert consumer["premap_consumer_descriptor_prep_execution_mode"] == (
+        "readonly_descriptor_address_object"
+    )
+    assert (
+        consumer["premap_consumer_descriptor_prep_blocked_reason"]
+        == "readonly_gate_not_passed"
+    )
+    assert "premap_consumer_descriptor_prep_execution_ok" not in consumer
+    assert "premap_consumer_descriptor_prep_handle_count" not in consumer
+    assert consumer["premap_consumer_payload_bytes"] == 0
     assert consumer["premap_consumer_ready_credit"] is False
 
 
@@ -1247,6 +1314,13 @@ def test_vllm_router_recorder_premap_consumer_real_handle_lifecycle_and_eviction
         shadow_emit_premap_consumer_mapping=True,
         shadow_premap_address_manager_capacity=1,
         shadow_premap_consumer_resolve_real_handles=True,
+        shadow_premap_consumer_readonly_gate_required=True,
+        shadow_premap_consumer_readonly_gate_id="readonly-gate",
+        shadow_premap_consumer_readonly_gate_path="configs/runtime/readonly.yaml",
+        shadow_premap_consumer_readonly_gate_passed=True,
+        shadow_premap_descriptor_prep_execution_mode=(
+            "readonly_descriptor_address_object"
+        ),
         shadow_num_experts=6,
         request_id="req",
         sequence_id=5,
@@ -1285,6 +1359,14 @@ def test_vllm_router_recorder_premap_consumer_real_handle_lifecycle_and_eviction
     assert first["premap_consumer_readonly_evicted_before_consume_count"] == 1
     assert first["premap_consumer_readonly_stale_handle_count"] == 0
     assert first["premap_consumer_readonly_handle_parity_ok"] is False
+    assert first["premap_consumer_descriptor_prep_execution_mode"] == (
+        "readonly_descriptor_address_object"
+    )
+    assert (
+        first["premap_consumer_descriptor_prep_blocked_reason"]
+        == "readonly_consumer_failed"
+    )
+    assert "premap_consumer_descriptor_prep_execution_ok" not in first
     assert first["premap_consumer_real_descriptor_handle_hit_count"] == 2
     assert first["premap_consumer_real_descriptor_handle_miss_count"] == 0
     assert first["premap_consumer_real_descriptor_handle_available"] is True
@@ -1324,6 +1406,10 @@ def test_vllm_router_recorder_premap_consumer_real_handle_lifecycle_and_eviction
     assert second["premap_consumer_readonly_handle_miss_count"] == 1
     assert second["premap_consumer_readonly_evicted_before_consume_count"] == 1
     assert second["premap_consumer_readonly_handle_parity_ok"] is False
+    assert (
+        second["premap_consumer_descriptor_prep_blocked_reason"]
+        == "readonly_consumer_failed"
+    )
 
 
 def test_vllm_router_recorder_premap_real_handle_binding_survives_clear():
