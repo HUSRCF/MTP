@@ -366,6 +366,46 @@ resolve every sampled prelaunch packed-weight, scale-metadata, and aux-metadata
 handle class without payload transfer or router/order side effects.
 ```
 
+512-sample long-run audit:
+
+```text
+artifact:
+  data/traces/
+    external_prompt_gate_dolly_512_awq_vllm_gpu1_decode_gen64_longrun_audit/
+
+gate:
+  scripts/check_premap_longrun_audit_gate.py
+  max_capacity = 12288
+  min_reuse_rate = 0.98
+
+result:
+  passed = true
+  row_count = 40684
+  premap_summary = 20342
+  premap_consumer_mapping = 20342
+  resident_count_max = 10202
+  reuse_rate_mean = 0.994510
+  evicted_count = 0
+
+real prelaunch handle source classification:
+  real_handle hits = 210849
+  real_handle misses = 0
+  packed_weight hits = 210849
+  scale_metadata hits = 210849
+  aux_metadata hits = 210849
+  packed_weight / scale_metadata / aux_metadata misses = 0 / 0 / 0
+  resolver_disabled / consumer_layer_missing / expert_map_miss / no_handle_parts = 0 / 0 / 0 / 0
+```
+
+Interpretation:
+
+```text
+The same read-only consumer contract passes at the 512-sample scale.  The
+Dolly128-derived 12288-address capacity gate remains sufficient on the 512
+split, with no eviction pressure and complete prelaunch source-class handle
+resolution for every sampled consumer mapping.
+```
+
 ## Evidence Lock
 
 Current coarse bottleneck baseline:
