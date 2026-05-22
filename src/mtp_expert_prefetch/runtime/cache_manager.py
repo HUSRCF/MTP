@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 from collections import OrderedDict
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 
 from mtp_expert_prefetch.runtime.premap import PremapAddressRecord, PremapPreparedPlan
 
@@ -285,6 +285,32 @@ class PremapDescriptorPrepExecutionResult:
     real_descriptor_handle_hash: str | None = None
     consumer_object_count: int = 0
     consumer_object_hash: str | None = None
+    consumer_object_hash_by_address_key: dict[str, str] = field(default_factory=dict)
+
+    def as_dict(self) -> dict[str, int | bool | str | None | dict[str, str]]:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
+class PremapDescriptorConsumerReadResult:
+    """No-op runtime consumer read of descriptor prep objects.
+
+    This models the prelaunch consumer dereferencing already-prepared
+    descriptor/address objects.  It deliberately validates object availability
+    and lifecycle parity only; it does not move payloads or mutate residency.
+    """
+
+    lookup_count: int
+    object_hit_count: int
+    object_miss_count: int
+    stale_object_count: int
+    checked_object_count: int
+    object_hash: str | None
+    read_ok: bool
+    payload_bytes: int = 0
+    ready_credit: bool = False
+    changes_router: bool = False
+    changes_descriptor_order: bool = False
 
     def as_dict(self) -> dict[str, int | bool | str | None]:
         return asdict(self)
@@ -462,6 +488,7 @@ class ControlledPremapAddressManager:
         hash_parts: list[str] = []
         real_hash_parts: list[str] = []
         consumer_object_hashes: list[str] = []
+        consumer_object_hash_by_address_key: dict[str, str] = {}
         real_handles = real_descriptor_handles_by_address_key
         for raw_key in address_keys:
             lookup_count += 1
@@ -525,35 +552,14 @@ class ControlledPremapAddressManager:
             hash_parts.append(f"handle_hash:{handle.handle_hash}")
             if real_handle is not None:
                 hash_parts.append(f"real_handle_hash:{real_handle.handle_hash}")
-            if (
-                descriptor_ptr
-                and packed_descriptor
-                and scale_descriptor
-                and int(handle.payload_bytes) == 0
-                and (real_handle is None or int(real_handle.payload_bytes) == 0)
-            ):
-                consumer_object = PremapDescriptorConsumerObject(
-                    address_key=key,
-                    descriptor_ptr=str(descriptor_ptr),
-                    packed_weight_descriptor=str(packed_descriptor),
-                    scale_metadata_handle=str(scale_descriptor),
-                    aux_metadata_handle=(
-                        real_handle.aux_metadata_handle
-                        if real_handle is not None
-                        else None
-                    ),
-                    handle_hash=str(handle.handle_hash),
-                    real_handle_hash=(
-                        str(real_handle.handle_hash)
-                        if real_handle is not None
-                        else None
-                    ),
-                    payload_bytes=0,
-                    ready_credit=False,
-                    changes_router=False,
-                    changes_descriptor_order=False,
-                )
+            consumer_object = self._build_descriptor_consumer_object(
+                key=key,
+                handle=handle,
+                real_handle=real_handle,
+            )
+            if consumer_object is not None:
                 consumer_object_hashes.append(consumer_object.object_hash)
+                consumer_object_hash_by_address_key[key] = consumer_object.object_hash
         handle_hash = None
         if hash_parts:
             payload = "|".join(sorted(hash_parts)).encode("utf-8")
@@ -589,6 +595,7 @@ class ControlledPremapAddressManager:
             real_descriptor_handle_hash=real_descriptor_handle_hash,
             consumer_object_count=consumer_object_count,
             consumer_object_hash=consumer_object_hash,
+            consumer_object_hash_by_address_key=consumer_object_hash_by_address_key,
             payload_bytes=payload_bytes,
             ready_credit=False,
             changes_router=False,
@@ -604,6 +611,141 @@ class ControlledPremapAddressManager:
                 and consumer_object_count == prepared_handle_count
                 and real_ok
             ),
+        )
+
+    def read_descriptor_consumer_objects_readonly(
+        self,
+        address_keys: Iterable[str],
+        *,
+        expected_object_hash_by_address_key: dict[str, str] | None = None,
+        real_descriptor_handles_by_address_key: (
+            dict[str, PremapRealDescriptorHandle] | None
+        ) = None,
+    ) -> PremapDescriptorConsumerReadResult:
+        """Read prepared descriptor objects from the prelaunch consumer handle.
+
+        The result verifies that the same object-shaped descriptor/address
+        handles remain readable after prep.  It is still a strict no-op:
+        no LRU update, no payload movement, no ready credit, and no router/order
+        mutation.
+        """
+
+        expected = expected_object_hash_by_address_key or {}
+        real_handles = real_descriptor_handles_by_address_key
+        lookup_count = 0
+        object_hit_count = 0
+        object_miss_count = 0
+        stale_object_count = 0
+        checked_object_count = 0
+        payload_bytes = 0
+        object_hashes: list[str] = []
+        for raw_key in address_keys:
+            lookup_count += 1
+            key = str(raw_key)
+            entry = self._addresses.get(key)
+            if entry is None:
+                object_miss_count += 1
+                continue
+            handle = entry.handle
+            real_handle = real_handles.get(key) if real_handles is not None else None
+            if real_handles is not None and (
+                real_handle is None
+                or (
+                    real_handle.address_key is not None
+                    and str(real_handle.address_key) != key
+                )
+            ):
+                object_miss_count += 1
+                continue
+            payload_bytes += int(handle.payload_bytes)
+            if real_handle is not None:
+                payload_bytes += int(real_handle.payload_bytes)
+            consumer_object = self._build_descriptor_consumer_object(
+                key=key,
+                handle=handle,
+                real_handle=real_handle,
+            )
+            if consumer_object is None:
+                object_miss_count += 1
+                continue
+            object_hit_count += 1
+            object_hashes.append(consumer_object.object_hash)
+            if expected and key in expected:
+                checked_object_count += 1
+                if str(expected[key]) != str(consumer_object.object_hash):
+                    stale_object_count += 1
+        object_hash = None
+        if object_hashes:
+            payload = "|".join(sorted(object_hashes)).encode("utf-8")
+            object_hash = hashlib.sha256(payload).hexdigest()
+        expected_ok = not expected or checked_object_count == len(expected)
+        read_ok = (
+            lookup_count > 0
+            and object_hit_count == lookup_count
+            and object_miss_count == 0
+            and stale_object_count == 0
+            and payload_bytes == 0
+            and expected_ok
+        )
+        return PremapDescriptorConsumerReadResult(
+            lookup_count=lookup_count,
+            object_hit_count=object_hit_count,
+            object_miss_count=object_miss_count,
+            stale_object_count=stale_object_count,
+            checked_object_count=checked_object_count,
+            object_hash=object_hash,
+            read_ok=bool(read_ok),
+            payload_bytes=payload_bytes,
+            ready_credit=False,
+            changes_router=False,
+            changes_descriptor_order=False,
+        )
+
+    @staticmethod
+    def _build_descriptor_consumer_object(
+        *,
+        key: str,
+        handle: PremapAddressHandle,
+        real_handle: PremapRealDescriptorHandle | None,
+    ) -> PremapDescriptorConsumerObject | None:
+        descriptor_ptr = (
+            real_handle.descriptor_ptr
+            if real_handle is not None
+            else handle.descriptor_ptr
+        )
+        packed_descriptor = (
+            real_handle.packed_weight_descriptor
+            if real_handle is not None
+            else handle.packed_weight_descriptor
+        )
+        scale_descriptor = (
+            real_handle.scale_metadata_handle
+            if real_handle is not None
+            else handle.scale_metadata_handle
+        )
+        payload_bytes = int(handle.payload_bytes)
+        if real_handle is not None:
+            payload_bytes += int(real_handle.payload_bytes)
+        if not (descriptor_ptr and packed_descriptor and scale_descriptor):
+            return None
+        if payload_bytes != 0:
+            return None
+        return PremapDescriptorConsumerObject(
+            address_key=str(key),
+            descriptor_ptr=str(descriptor_ptr),
+            packed_weight_descriptor=str(packed_descriptor),
+            scale_metadata_handle=str(scale_descriptor),
+            aux_metadata_handle=(
+                real_handle.aux_metadata_handle if real_handle is not None else None
+            ),
+            handle_hash=str(handle.handle_hash),
+            real_handle_hash=(
+                str(real_handle.handle_hash) if real_handle is not None else None
+            ),
+            payload_bytes=0,
+            ready_credit=False,
+            changes_router=False,
+            changes_descriptor_order=False,
         )
 
     def contains_layer_expert(

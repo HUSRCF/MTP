@@ -296,10 +296,47 @@ def test_controlled_premap_address_manager_executes_descriptor_prep_readonly():
     assert result.changes_descriptor_order is False
     assert result.consumer_object_count == 2
     assert result.consumer_object_hash
+    assert len(result.consumer_object_hash_by_address_key) == 2
     assert result.handle_hash
     assert result.execution_ok is True
     assert after_snapshot == before_snapshot
     assert list(manager._addresses.keys()) == before_lru_order
+
+    read_result = manager.read_descriptor_consumer_objects_readonly(
+        keys,
+        expected_object_hash_by_address_key=result.consumer_object_hash_by_address_key,
+    )
+    assert read_result.lookup_count == 2
+    assert read_result.object_hit_count == 2
+    assert read_result.object_miss_count == 0
+    assert read_result.stale_object_count == 0
+    assert read_result.object_hash == result.consumer_object_hash
+    assert read_result.payload_bytes == 0
+    assert read_result.ready_credit is False
+    assert read_result.changes_router is False
+    assert read_result.changes_descriptor_order is False
+    assert read_result.read_ok is True
+
+    partial_read_result = manager.read_descriptor_consumer_objects_readonly(
+        keys,
+        expected_object_hash_by_address_key={
+            keys[0]: result.consumer_object_hash_by_address_key[keys[0]]
+        },
+    )
+    assert partial_read_result.object_hit_count == 2
+    assert partial_read_result.checked_object_count == 1
+    assert partial_read_result.stale_object_count == 0
+    assert partial_read_result.read_ok is True
+
+    stale_read_result = manager.read_descriptor_consumer_objects_readonly(
+        keys,
+        expected_object_hash_by_address_key={keys[0]: "stale-object-hash"},
+    )
+    assert stale_read_result.object_hit_count == 2
+    assert stale_read_result.object_miss_count == 0
+    assert stale_read_result.checked_object_count == 1
+    assert stale_read_result.stale_object_count == 1
+    assert stale_read_result.read_ok is False
 
 
 def test_controlled_premap_address_manager_descriptor_prep_uses_real_handles():
@@ -342,11 +379,24 @@ def test_controlled_premap_address_manager_descriptor_prep_uses_real_handles():
     assert result.real_descriptor_handle_hash
     assert result.consumer_object_count == 2
     assert result.consumer_object_hash
+    assert len(result.consumer_object_hash_by_address_key) == 2
     assert result.payload_bytes == 0
     assert result.ready_credit is False
     assert result.changes_router is False
     assert result.changes_descriptor_order is False
     assert result.execution_ok is True
+
+    read_result = manager.read_descriptor_consumer_objects_readonly(
+        keys,
+        expected_object_hash_by_address_key=result.consumer_object_hash_by_address_key,
+        real_descriptor_handles_by_address_key=real_handles,
+    )
+    assert read_result.lookup_count == 2
+    assert read_result.object_hit_count == 2
+    assert read_result.object_miss_count == 0
+    assert read_result.stale_object_count == 0
+    assert read_result.object_hash == result.consumer_object_hash
+    assert read_result.read_ok is True
 
 
 def test_controlled_premap_address_manager_descriptor_prep_fails_on_missing_real_handle():
@@ -384,11 +434,21 @@ def test_controlled_premap_address_manager_descriptor_prep_fails_on_missing_real
     assert result.real_descriptor_handle_backed is True
     assert result.consumer_object_count == 1
     assert result.consumer_object_hash
+    assert len(result.consumer_object_hash_by_address_key) == 1
     assert result.payload_bytes == 0
     assert result.ready_credit is False
     assert result.changes_router is False
     assert result.changes_descriptor_order is False
     assert result.execution_ok is False
+
+    read_result = manager.read_descriptor_consumer_objects_readonly(
+        keys,
+        expected_object_hash_by_address_key=result.consumer_object_hash_by_address_key,
+        real_descriptor_handles_by_address_key=real_handles,
+    )
+    assert read_result.object_hit_count == 1
+    assert read_result.object_miss_count == 1
+    assert read_result.read_ok is False
 
 
 def test_controlled_premap_address_manager_descriptor_prep_rejects_mismatched_real_address_key():

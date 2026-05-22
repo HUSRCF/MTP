@@ -167,6 +167,13 @@ RUNTIME_SHADOW_AGGREGATE_PERFORMANCE_KEYS = (
     "premap_consumer_descriptor_prep_real_handle_backed_rate",
     "premap_consumer_descriptor_prep_consumer_object_count",
     "premap_consumer_descriptor_prep_consumer_object_rate",
+    "premap_consumer_descriptor_prep_consumer_object_read_lookup_count",
+    "premap_consumer_descriptor_prep_consumer_object_read_hit_count",
+    "premap_consumer_descriptor_prep_consumer_object_read_miss_count",
+    "premap_consumer_descriptor_prep_consumer_object_stale_count",
+    "premap_consumer_descriptor_prep_consumer_object_read_hit_rate",
+    "premap_consumer_descriptor_prep_consumer_object_stale_rate",
+    "premap_consumer_descriptor_prep_consumer_object_read_ok_rate",
     "premap_consumer_descriptor_prep_execution_ok_rate",
     "premap_consumer_descriptor_prep_execution_ok_attempted_rate",
     "premap_consumer_descriptor_prep_blocked_count",
@@ -2138,6 +2145,7 @@ class VllmRouterRecorder:
                 },
             )
         descriptor_prep_result = None
+        descriptor_consumer_read_result = None
         descriptor_prep_blocked_reason: str | None = None
         descriptor_prep_mode = _normalize_premap_descriptor_prep_execution_mode(
             self.shadow_premap_descriptor_prep_execution_mode
@@ -2174,6 +2182,20 @@ class VllmRouterRecorder:
                         else None
                     ),
                 )
+                if descriptor_prep_result.execution_ok:
+                    descriptor_consumer_read_result = (
+                        manager.read_descriptor_consumer_objects_readonly(
+                            address_keys,
+                            expected_object_hash_by_address_key=(
+                                descriptor_prep_result.consumer_object_hash_by_address_key
+                            ),
+                            real_descriptor_handles_by_address_key=(
+                                real_descriptor_handles_by_address_key
+                                if bool(self.shadow_premap_consumer_resolve_real_handles)
+                                else None
+                            ),
+                        )
+                    )
         lookup_us = (time.perf_counter_ns() - start_ns) / 1000.0
         sink.write_premap_consumer_mapping(
             ShadowPremapConsumerMappingEvent(
@@ -2332,6 +2354,36 @@ class VllmRouterRecorder:
                 descriptor_prep_consumer_object_hash=(
                     descriptor_prep_result.consumer_object_hash
                     if descriptor_prep_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_object_read_lookup_count=(
+                    int(descriptor_consumer_read_result.lookup_count)
+                    if descriptor_consumer_read_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_object_read_hit_count=(
+                    int(descriptor_consumer_read_result.object_hit_count)
+                    if descriptor_consumer_read_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_object_read_miss_count=(
+                    int(descriptor_consumer_read_result.object_miss_count)
+                    if descriptor_consumer_read_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_object_stale_count=(
+                    int(descriptor_consumer_read_result.stale_object_count)
+                    if descriptor_consumer_read_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_object_read_hash=(
+                    descriptor_consumer_read_result.object_hash
+                    if descriptor_consumer_read_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_object_read_ok=(
+                    bool(descriptor_consumer_read_result.read_ok)
+                    if descriptor_consumer_read_result is not None
                     else None
                 ),
                 descriptor_prep_execution_ok=(

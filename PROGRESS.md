@@ -14617,6 +14617,13 @@ The runtime shadow event and aggregate summary now expose:
 premap_consumer_descriptor_prep_consumer_object_count
 premap_consumer_descriptor_prep_consumer_object_hash
 premap_consumer_descriptor_prep_consumer_object_rate
+premap_consumer_descriptor_prep_consumer_object_read_lookup_count
+premap_consumer_descriptor_prep_consumer_object_read_hit_count
+premap_consumer_descriptor_prep_consumer_object_read_miss_count
+premap_consumer_descriptor_prep_consumer_object_stale_count
+premap_consumer_descriptor_prep_consumer_object_read_hit_rate
+premap_consumer_descriptor_prep_consumer_object_stale_rate
+premap_consumer_descriptor_prep_consumer_object_read_ok_rate
 ```
 
 `consumer_object_rate` is intentionally measured as:
@@ -14627,6 +14634,16 @@ consumer_object_count / descriptor_prep_lookup_count
 
 This is stricter than the real-handle hit rate: a handle may be present but
 still fail to become a consumer object if it is incomplete or payload-backed.
+
+The prelaunch consumer now also performs a second readonly object read against
+the prepared object hashes:
+
+```text
+read lookup -> object hash parity -> stale/miss accounting
+```
+
+This validates that the object-shaped handle remains readable at the consumer
+side without passing it to a kernel or mutating launch arguments.
 
 Validation:
 
@@ -14654,6 +14671,20 @@ runtime_shadow_aggregate_premap_consumer_descriptor_prep_real_handle_miss_count 
 runtime_shadow_aggregate_premap_consumer_descriptor_prep_consumer_object_count =
   190215
 runtime_shadow_aggregate_premap_consumer_descriptor_prep_consumer_object_rate =
+  1.0
+runtime_shadow_aggregate_premap_consumer_descriptor_prep_consumer_object_read_lookup_count =
+  190215
+runtime_shadow_aggregate_premap_consumer_descriptor_prep_consumer_object_read_hit_count =
+  190215
+runtime_shadow_aggregate_premap_consumer_descriptor_prep_consumer_object_read_miss_count =
+  0
+runtime_shadow_aggregate_premap_consumer_descriptor_prep_consumer_object_stale_count =
+  0
+runtime_shadow_aggregate_premap_consumer_descriptor_prep_consumer_object_read_hit_rate =
+  1.0
+runtime_shadow_aggregate_premap_consumer_descriptor_prep_consumer_object_stale_rate =
+  0.0
+runtime_shadow_aggregate_premap_consumer_descriptor_prep_consumer_object_read_ok_rate =
   1.0
 ```
 
