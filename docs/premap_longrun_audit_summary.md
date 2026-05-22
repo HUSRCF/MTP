@@ -60,6 +60,17 @@ premap-only audit:
 | `premap_consumer_descriptor_prep_real_handle_miss_count` | 0 | 0 |
 | `premap_consumer_descriptor_prep_real_handle_hit_rate` | 1.0 | 1.0 |
 | `premap_consumer_descriptor_prep_real_handle_backed_rate` | 1.0 | 1.0 |
+| `premap_consumer_descriptor_prep_kernel_arg_shadow_table_executed_count` | 10,195 | n/a |
+| `premap_consumer_descriptor_prep_kernel_arg_shadow_table_row_count` | 110,898 | n/a |
+| `premap_consumer_descriptor_prep_kernel_arg_shadow_table_column_count_max` | 4 | n/a |
+| `premap_consumer_descriptor_prep_kernel_arg_shadow_table_column_count_min` | 4 | n/a |
+| `premap_consumer_descriptor_prep_kernel_arg_shadow_table_schema_hash_checked_count` | 10,195 | n/a |
+| `premap_consumer_descriptor_prep_kernel_arg_shadow_table_schema_hash_missing_count` | 0 | n/a |
+| `premap_consumer_descriptor_prep_kernel_arg_shadow_table_schema_hash_mismatch_count` | 0 | n/a |
+| `premap_consumer_descriptor_prep_kernel_arg_shadow_table_per_row_parity_ok_count` | 110,898 | n/a |
+| `premap_consumer_descriptor_prep_kernel_arg_shadow_table_ok_rate` | 1.0 | n/a |
+| `premap_consumer_descriptor_prep_kernel_arg_shadow_table_lifecycle_ok_rate` | 1.0 | n/a |
+| `premap_consumer_descriptor_prep_kernel_arg_shadow_table_passed_to_kernel_count` | 0 | n/a |
 | `premap_consumer_descriptor_prep_execution_ok_attempted_rate` | 1.0 | 1.0 |
 | `premap_consumer_descriptor_prep_blocked_count` | 0 | 0 |
 | `premap_consumer_error_count` | 0 | 0 |
@@ -76,7 +87,9 @@ This is not a payload-prefetch or endpoint-latency claim.  It validates only the
 read-only descriptor/address preparation and consumer-handle mapping contract
 needed before wiring a real cache-manager consumer.  Descriptor prep execution
 here means resolving resident metadata handles into a read-only prep object; it
-does not mutate vLLM tensors or kernel arguments.
+does not mutate vLLM tensors or kernel arguments.  The refreshed 128-sample gate
+also validates a readonly kernel-argument shadow table: this is a table-shape
+and row-parity dry run only, not a vLLM kernel patch.
 
 ## Machine Gate
 
@@ -84,12 +97,13 @@ Use the gate checker before treating a long-run premap audit as valid evidence:
 
 ```bash
 python scripts/check_premap_longrun_audit_gate.py \
-  data/traces/external_prompt_gate_dolly_512_awq_vllm_gpu1_decode_gen64_longrun_audit/longrun_audit_summary.json \
+  data/traces/external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_longrun_audit/longrun_audit_summary.json \
   --max-capacity 12288 \
   --min-reuse-rate 0.98 \
   --require-readonly-consumer \
   --require-descriptor-prep \
-  --require-real-descriptor-prep
+  --require-real-descriptor-prep \
+  --require-kernel-arg-shadow-table
 ```
 
 The gate requires:
@@ -115,36 +129,53 @@ descriptor prep descriptor_ptr / packed_weight / scale_metadata counts = lookup 
 descriptor prep real-handle count = lookup count
 descriptor prep real-handle miss count = 0
 descriptor prep real-handle hit/backed rates = 1.0
+kernel arg shadow table executed count = descriptor prep executed count
+kernel arg shadow table row count = descriptor prep lookup count
+kernel arg shadow table per-row parity count = row count
+kernel arg shadow table ok/lifecycle rates = 1.0
+kernel arg shadow table payload/ready/router/order/kernel/passed violations = 0
 payload / router / descriptor_order / ready-credit violation counts = 0
 consumer error count = 0
 ```
 
-Current local 512 gate output:
+Current local 128 kernel-arg-shadow-table gate output:
 
 ```text
 passed = true
 max_capacity = 12288
 min_reuse_rate = 0.98
-row_count = 40684
-premap_summary_count = 20342
-premap_consumer_mapping_count = 20342
-premap_address_resident_count_max = 10202
-premap_address_reuse_rate_mean = 0.9945098118
+row_count = 20390
+premap_summary_count = 10195
+premap_consumer_mapping_count = 10195
+premap_address_resident_count_max = 10127
+premap_address_reuse_rate_mean = 0.9827389897
 premap_address_eviction_pressure_mean = 0.0
 premap_consumer_address_hit_rate = 1.0
 premap_consumer_real_descriptor_handle_hit_rate = 1.0
-premap_consumer_readonly_lookup_count = 210849
+premap_consumer_readonly_lookup_count = 110898
 premap_consumer_readonly_handle_hit_rate = 1.0
 premap_consumer_readonly_handle_parity_ok_rate = 1.0
-premap_consumer_descriptor_prep_attempted_count = 20342
-premap_consumer_descriptor_prep_executed_count = 20342
-premap_consumer_descriptor_prep_lookup_count = 210849
-premap_consumer_descriptor_prep_handle_count = 210849
+premap_consumer_descriptor_prep_attempted_count = 10195
+premap_consumer_descriptor_prep_executed_count = 10195
+premap_consumer_descriptor_prep_lookup_count = 110898
+premap_consumer_descriptor_prep_handle_count = 110898
 premap_consumer_descriptor_prep_handle_hit_rate = 1.0
-premap_consumer_descriptor_prep_real_handle_count = 210849
+premap_consumer_descriptor_prep_real_handle_count = 110898
 premap_consumer_descriptor_prep_real_handle_miss_count = 0
 premap_consumer_descriptor_prep_real_handle_hit_rate = 1.0
 premap_consumer_descriptor_prep_real_handle_backed_rate = 1.0
+premap_consumer_descriptor_prep_kernel_arg_shadow_table_executed_count = 10195
+premap_consumer_descriptor_prep_kernel_arg_shadow_table_row_count = 110898
+premap_consumer_descriptor_prep_kernel_arg_shadow_table_column_count_max = 4
+premap_consumer_descriptor_prep_kernel_arg_shadow_table_column_count_min = 4
+premap_consumer_descriptor_prep_kernel_arg_shadow_table_schema_hash = a02928d41970cdf1630dc2a743589ab18068454ac47341a34c4583fd40a5f294
+premap_consumer_descriptor_prep_kernel_arg_shadow_table_schema_hash_checked_count = 10195
+premap_consumer_descriptor_prep_kernel_arg_shadow_table_schema_hash_missing_count = 0
+premap_consumer_descriptor_prep_kernel_arg_shadow_table_schema_hash_mismatch_count = 0
+premap_consumer_descriptor_prep_kernel_arg_shadow_table_per_row_parity_ok_count = 110898
+premap_consumer_descriptor_prep_kernel_arg_shadow_table_ok_rate = 1.0
+premap_consumer_descriptor_prep_kernel_arg_shadow_table_lifecycle_ok_rate = 1.0
+premap_consumer_descriptor_prep_kernel_arg_shadow_table_passed_to_kernel_count = 0
 premap_consumer_descriptor_prep_execution_ok_attempted_rate = 1.0
 premap_consumer_descriptor_prep_blocked_count = 0
 ```

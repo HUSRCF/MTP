@@ -277,7 +277,7 @@ Premap read-only consumer mapping:
 
 ```text
 runtime gate:
-  configs/runtime/premap_consumer_readonly_gate_dolly512_gen64_awq_w7900_gpu1.yaml
+  configs/runtime/premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_kernel_arg_shadow.yaml
 
 smoke artifact:
   data/traces/
@@ -13838,7 +13838,7 @@ visitation order execution.
 The premap address capacity gate is now enforced as a real-vLLM integration precondition for the read-only cache-manager consumer shim.  A tracked gate artifact records the 512-sample Dolly/AWQ evidence and the no-op contract:
 
 ```text
-artifact: configs/runtime/premap_consumer_readonly_gate_dolly512_gen64_awq_w7900_gpu1.yaml
+artifact: configs/runtime/premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_kernel_arg_shadow.yaml
 status: passed
 contract:
   payload_bytes_required = 0
@@ -13853,7 +13853,7 @@ The vLLM runtime-shadow config can now require this gate before enabling real de
 
 ```text
 premap_consumer_require_readonly_gate = true
-premap_consumer_readonly_gate_path = configs/runtime/premap_consumer_readonly_gate_dolly512_gen64_awq_w7900_gpu1.yaml
+premap_consumer_readonly_gate_path = configs/runtime/premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_kernel_arg_shadow.yaml
 ```
 
 GPU1 8-sample AWQ/vLLM smoke confirms the gate metadata is emitted into `performance_summary.json` and the runtime consumer remains read-only:
@@ -13864,7 +13864,7 @@ artifact:
 
 runtime_shadow_premap_consumer_readonly_gate_required = true
 runtime_shadow_premap_consumer_readonly_gate_passed = true
-runtime_shadow_premap_consumer_readonly_gate_id = premap_consumer_readonly_dolly512_gen64_awq_w7900_gpu1
+runtime_shadow_premap_consumer_readonly_gate_id = premap_consumer_readonly_dolly128_gen64_awq_w7900_gpu1_kernel_arg_shadow
 
 premap_consumer_mapping_count = 20480
 premap_consumer_address_hit_rate = 1.0
@@ -13910,6 +13910,8 @@ missing_premap_consumer_readonly_gate_passed = 0
 premap_consumer_readonly_gate_required = true
 premap_consumer_readonly_gate_passed = true
 premap_consumer_readonly_gate_id = premap_consumer_readonly_dolly512_gen64_awq_w7900_gpu1
+(historical pre-kernel-arg-shadow gate id; current lab gate uses the Dolly128
+kernel-arg-shadow artifact below)
 
 first-row no-op contract:
   premap_consumer_payload_bytes = 0
@@ -14136,7 +14138,7 @@ premap_consumer_readonly_stale_handle_count = 0
 premap_consumer_readonly_handle_parity_ok_rate = 1.0
 ```
 
-Updated `configs/runtime/premap_consumer_readonly_gate_dolly512_gen64_awq_w7900_gpu1.yaml`
+Updated `configs/runtime/premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_kernel_arg_shadow.yaml`
 with these strict read-only consumer metrics.  This artifact is now the required
 precondition for real lab integration of the read-only premap descriptor/address
 consumer path.
@@ -14266,7 +14268,7 @@ premap_consumer_error_count = 0
 Updated lab precondition artifact:
 
 ```text
-configs/runtime/premap_consumer_readonly_gate_dolly512_gen64_awq_w7900_gpu1.yaml
+configs/runtime/premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_kernel_arg_shadow.yaml
 ```
 
 The artifact now requires the stricter descriptor prep execution contract:
@@ -14441,7 +14443,7 @@ premap_consumer_error_count = 0
 Updated lab precondition artifact:
 
 ```text
-configs/runtime/premap_consumer_readonly_gate_dolly512_gen64_awq_w7900_gpu1.yaml
+configs/runtime/premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_kernel_arg_shadow.yaml
 ```
 
 The artifact now requires:
@@ -14568,6 +14570,7 @@ runtime_shadow_premap_consumer_readonly_gate_passed = true
 runtime_shadow_premap_consumer_readonly_gate_required = true
 runtime_shadow_premap_consumer_readonly_gate_id =
   premap_consumer_readonly_dolly512_gen64_awq_w7900_gpu1
+(historical pre-kernel-arg-shadow gate id)
 runtime_shadow_premap_descriptor_prep_execution_mode =
   readonly_descriptor_address_object
 runtime_shadow_aggregate_premap_address_reuse_rate_mean =
@@ -14843,3 +14846,72 @@ per-row handle parity, and lifecycle before any real descriptor/address object
 is wired into kernel launch args.  It does not claim to validate the final
 fused-MoE block/tile launch row order.
 ```
+
+### 2026-05-23: Kernel-arg shadow table promoted to lab gate
+
+The premap readonly lab gate now requires the kernel-argument shadow table
+contract in addition to real-handle-backed descriptor prep:
+
+```text
+contract.kernel_arg_shadow_table_required = true
+gate.check.require_kernel_arg_shadow_table = true
+```
+
+`scripts/check_premap_longrun_audit_gate.py` now fails closed unless:
+
+```text
+kernel_arg_shadow_table_executed_count = descriptor_prep_executed_count
+kernel_arg_shadow_table_row_count = descriptor_prep_lookup_count
+kernel_arg_shadow_table_column_count_min = column_count_max = 4
+kernel_arg_shadow_table_schema_hash = expected descriptor-consumer table schema
+kernel_arg_shadow_table_schema_hash_checked_count = table_executed_count
+kernel_arg_shadow_table_schema_hash_missing_count = 0
+kernel_arg_shadow_table_schema_hash_mismatch_count = 0
+kernel_arg_shadow_table_per_row_parity_ok_count = row_count
+kernel_arg_shadow_table_ok_rate = 1.0
+kernel_arg_shadow_table_lifecycle_ok_rate = 1.0
+row_miss_count = 0
+stale_row_count = 0
+payload_bytes = 0
+payload / ready / router / descriptor-order / kernel-arg violations = 0
+passed_to_kernel_count = 0
+```
+
+GPU1 Dolly128 long-run audit was rerun with the stricter gate:
+
+```text
+config:
+  configs/trace/router_mtp_trace_external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_longrun_audit.yaml
+
+summary:
+  data/traces/external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_longrun_audit/longrun_audit_summary.json
+
+gate:
+  data/traces/external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_longrun_audit/longrun_audit_gate.json
+
+passed = true
+failures = []
+premap_consumer_mapping_count = 10195
+premap_consumer_descriptor_prep_lookup_count = 110898
+premap_consumer_descriptor_prep_real_handle_count = 110898
+premap_consumer_descriptor_prep_real_handle_hit_rate = 1.0
+premap_consumer_descriptor_prep_real_handle_backed_rate = 1.0
+premap_consumer_descriptor_prep_kernel_arg_shadow_table_executed_count = 10195
+premap_consumer_descriptor_prep_kernel_arg_shadow_table_row_count = 110898
+premap_consumer_descriptor_prep_kernel_arg_shadow_table_column_count_max = 4
+premap_consumer_descriptor_prep_kernel_arg_shadow_table_column_count_min = 4
+premap_consumer_descriptor_prep_kernel_arg_shadow_table_schema_hash = a02928d41970cdf1630dc2a743589ab18068454ac47341a34c4583fd40a5f294
+premap_consumer_descriptor_prep_kernel_arg_shadow_table_schema_hash_checked_count = 10195
+premap_consumer_descriptor_prep_kernel_arg_shadow_table_schema_hash_missing_count = 0
+premap_consumer_descriptor_prep_kernel_arg_shadow_table_schema_hash_mismatch_count = 0
+premap_consumer_descriptor_prep_kernel_arg_shadow_table_per_row_parity_ok_count = 110898
+premap_consumer_descriptor_prep_kernel_arg_shadow_table_ok_rate = 1.0
+premap_consumer_descriptor_prep_kernel_arg_shadow_table_lifecycle_ok_rate = 1.0
+premap_consumer_descriptor_prep_kernel_arg_shadow_table_passed_to_kernel_count = 0
+```
+
+The runtime-loader gate is also fail-closed: descriptor prep execution now
+requires a gate artifact checked with
+`require_kernel_arg_shadow_table=true`.  This makes the readonly kernel-arg
+shadow table a lab precondition before any real descriptor/address prep object
+is allowed to approach a kernel launch path.

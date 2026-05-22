@@ -1426,6 +1426,11 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
         "premap_consumer_descriptor_prep_kernel_arg_shadow_table_lifecycle_ok_count": 0,
         "premap_consumer_descriptor_prep_kernel_arg_shadow_table_row_count": 0,
         "premap_consumer_descriptor_prep_kernel_arg_shadow_table_column_count_max": 0,
+        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_column_count_min": 0,
+        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_schema_hash": "",
+        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_schema_hash_checked_count": 0,
+        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_schema_hash_missing_count": 0,
+        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_schema_hash_mismatch_count": 0,
         "premap_consumer_descriptor_prep_kernel_arg_shadow_table_per_row_parity_ok_count": 0,
         "premap_consumer_descriptor_prep_kernel_arg_shadow_table_row_miss_count": 0,
         "premap_consumer_descriptor_prep_kernel_arg_shadow_table_stale_row_count": 0,
@@ -2053,6 +2058,51 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
                         or 0
                     ),
                 )
+                table_column_count = int(
+                    event.get(
+                        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_column_count",
+                        0,
+                    )
+                    or 0
+                )
+                table_column_min_key = (
+                    "premap_consumer_descriptor_prep_kernel_arg_shadow_table_column_count_min"
+                )
+                current_column_min = int(totals[table_column_min_key] or 0)
+                totals[table_column_min_key] = (
+                    table_column_count
+                    if current_column_min <= 0
+                    else min(current_column_min, table_column_count)
+                )
+                table_schema_hash = str(
+                    event.get(
+                        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_schema_hash",
+                        "",
+                    )
+                    or ""
+                )
+                if table_schema_hash:
+                    totals[
+                        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_schema_hash_checked_count"
+                    ] += 1
+                    aggregate_schema_hash = str(
+                        totals[
+                            "premap_consumer_descriptor_prep_kernel_arg_shadow_table_schema_hash"
+                        ]
+                        or ""
+                    )
+                    if not aggregate_schema_hash:
+                        totals[
+                            "premap_consumer_descriptor_prep_kernel_arg_shadow_table_schema_hash"
+                        ] = table_schema_hash
+                    elif aggregate_schema_hash != table_schema_hash:
+                        totals[
+                            "premap_consumer_descriptor_prep_kernel_arg_shadow_table_schema_hash_mismatch_count"
+                        ] += 1
+                else:
+                    totals[
+                        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_schema_hash_missing_count"
+                    ] += 1
                 totals[
                     "premap_consumer_descriptor_prep_kernel_arg_shadow_table_per_row_parity_ok_count"
                 ] += int(

@@ -12,8 +12,16 @@ import json
 from pathlib import Path
 from typing import Any
 
+from mtp_expert_prefetch.runtime import (
+    PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_COLUMNS,
+    PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH,
+)
+
 
 REQUIRED_EVENT_TYPES = {"premap_summary", "premap_consumer_mapping"}
+EXPECTED_KERNEL_ARG_SHADOW_TABLE_COLUMN_COUNT = len(
+    PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_COLUMNS
+)
 
 
 def _as_int(value: Any, default: int = 0) -> int:
@@ -36,6 +44,7 @@ def check_summary(
     require_readonly_consumer: bool = False,
     require_descriptor_prep: bool = False,
     require_real_descriptor_prep: bool = False,
+    require_kernel_arg_shadow_table: bool = False,
 ) -> dict[str, Any]:
     event_counts = {
         str(key): int(value) for key, value in summary.get("event_counts", {}).items()
@@ -134,6 +143,19 @@ def check_summary(
     )
     if require_descriptor_prep and not descriptor_prep_active:
         failures.append("descriptor_prep_fields_missing")
+    kernel_arg_shadow_table_active = any(
+        key in aggregate
+        for key in (
+            "premap_consumer_descriptor_prep_kernel_arg_shadow_table_executed_count",
+            "premap_consumer_descriptor_prep_kernel_arg_shadow_table_ok_rate",
+            "premap_consumer_descriptor_prep_kernel_arg_shadow_table_lifecycle_ok_rate",
+            "premap_consumer_descriptor_prep_kernel_arg_shadow_table_row_count",
+        )
+    )
+    if require_kernel_arg_shadow_table and not kernel_arg_shadow_table_active:
+        failures.append("kernel_arg_shadow_table_fields_missing")
+    if require_kernel_arg_shadow_table and not descriptor_prep_active:
+        failures.append("kernel_arg_shadow_table_requires_descriptor_prep_fields")
     descriptor_prep_real_active = any(
         key in aggregate
         for key in (
@@ -143,7 +165,12 @@ def check_summary(
             "premap_consumer_descriptor_prep_real_handle_backed_rate",
         )
     )
-    if require_descriptor_prep or require_real_descriptor_prep or descriptor_prep_active:
+    if (
+        require_descriptor_prep
+        or require_real_descriptor_prep
+        or require_kernel_arg_shadow_table
+        or descriptor_prep_active
+    ):
         attempted = _as_int(
             aggregate.get("premap_consumer_descriptor_prep_attempted_count")
         )
@@ -216,6 +243,117 @@ def check_summary(
             ):
                 if _as_float(aggregate.get(field)) != 1.0:
                     failures.append(f"{field}_not_one")
+        if require_kernel_arg_shadow_table or kernel_arg_shadow_table_active:
+            table_executed = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_kernel_arg_shadow_table_executed_count"
+                )
+            )
+            table_row_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_kernel_arg_shadow_table_row_count"
+                )
+            )
+            table_parity_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_kernel_arg_shadow_table_per_row_parity_ok_count"
+                )
+            )
+            table_column_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_kernel_arg_shadow_table_column_count_max"
+                )
+            )
+            table_column_count_min = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_kernel_arg_shadow_table_column_count_min"
+                )
+            )
+            table_schema_hash = str(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_kernel_arg_shadow_table_schema_hash"
+                )
+                or ""
+            )
+            table_schema_hash_checked_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_kernel_arg_shadow_table_schema_hash_checked_count"
+                )
+            )
+            table_schema_hash_missing_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_kernel_arg_shadow_table_schema_hash_missing_count"
+                )
+            )
+            table_schema_hash_mismatch_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_kernel_arg_shadow_table_schema_hash_mismatch_count"
+                )
+            )
+            if table_executed != executed:
+                failures.append(
+                    "kernel_arg_shadow_table_executed_count_mismatch="
+                    f"{table_executed}!={executed}"
+                )
+            if table_row_count != lookup_count:
+                failures.append(
+                    "kernel_arg_shadow_table_row_count_mismatch="
+                    f"{table_row_count}!={lookup_count}"
+                )
+            if table_parity_count != table_row_count:
+                failures.append(
+                    "kernel_arg_shadow_table_parity_count_mismatch="
+                    f"{table_parity_count}!={table_row_count}"
+                )
+            if table_column_count != EXPECTED_KERNEL_ARG_SHADOW_TABLE_COLUMN_COUNT:
+                failures.append(
+                    "kernel_arg_shadow_table_column_count_max_mismatch="
+                    f"{table_column_count}!={EXPECTED_KERNEL_ARG_SHADOW_TABLE_COLUMN_COUNT}"
+                )
+            if table_column_count_min != EXPECTED_KERNEL_ARG_SHADOW_TABLE_COLUMN_COUNT:
+                failures.append(
+                    "kernel_arg_shadow_table_column_count_min_mismatch="
+                    f"{table_column_count_min}!={EXPECTED_KERNEL_ARG_SHADOW_TABLE_COLUMN_COUNT}"
+                )
+            if table_schema_hash != PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH:
+                failures.append("kernel_arg_shadow_table_schema_hash_mismatch")
+            if table_schema_hash_checked_count != table_executed:
+                failures.append(
+                    "kernel_arg_shadow_table_schema_hash_checked_count_mismatch="
+                    f"{table_schema_hash_checked_count}!={table_executed}"
+                )
+            if table_schema_hash_missing_count != 0:
+                failures.append(
+                    "premap_consumer_descriptor_prep_kernel_arg_shadow_table_"
+                    "schema_hash_missing_count_nonzero="
+                    f"{table_schema_hash_missing_count}"
+                )
+            if table_schema_hash_mismatch_count != 0:
+                failures.append(
+                    "premap_consumer_descriptor_prep_kernel_arg_shadow_table_"
+                    "schema_hash_mismatch_count_nonzero="
+                    f"{table_schema_hash_mismatch_count}"
+                )
+            for field in (
+                "premap_consumer_descriptor_prep_kernel_arg_shadow_table_ok_rate",
+                "premap_consumer_descriptor_prep_kernel_arg_shadow_table_lifecycle_ok_rate",
+            ):
+                if _as_float(aggregate.get(field)) != 1.0:
+                    failures.append(f"{field}_not_one")
+            for field in (
+                "premap_consumer_descriptor_prep_kernel_arg_shadow_table_row_miss_count",
+                "premap_consumer_descriptor_prep_kernel_arg_shadow_table_stale_row_count",
+                "premap_consumer_descriptor_prep_kernel_arg_shadow_table_payload_bytes",
+                "premap_consumer_descriptor_prep_kernel_arg_shadow_table_payload_violation_count",
+                "premap_consumer_descriptor_prep_kernel_arg_shadow_table_ready_credit_violation_count",
+                "premap_consumer_descriptor_prep_kernel_arg_shadow_table_router_change_violation_count",
+                "premap_consumer_descriptor_prep_kernel_arg_shadow_table_descriptor_order_change_violation_count",
+                "premap_consumer_descriptor_prep_kernel_arg_shadow_table_kernel_arg_violation_count",
+                "premap_consumer_descriptor_prep_kernel_arg_shadow_table_passed_to_kernel_count",
+            ):
+                count = _as_int(aggregate.get(field))
+                if count != 0:
+                    failures.append(f"{field}_nonzero={count}")
     real_handle_hits = _as_int(
         aggregate.get("premap_consumer_real_descriptor_handle_hit_count")
     )
@@ -328,6 +466,71 @@ def check_summary(
         "premap_consumer_descriptor_prep_real_handle_backed_rate": _as_float(
             aggregate.get("premap_consumer_descriptor_prep_real_handle_backed_rate")
         ),
+        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_executed_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_kernel_arg_shadow_table_executed_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_ok_rate": _as_float(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_kernel_arg_shadow_table_ok_rate"
+            )
+        ),
+        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_lifecycle_ok_rate": _as_float(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_kernel_arg_shadow_table_lifecycle_ok_rate"
+            )
+        ),
+        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_row_count": _as_int(
+            aggregate.get("premap_consumer_descriptor_prep_kernel_arg_shadow_table_row_count")
+        ),
+        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_column_count_max": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_kernel_arg_shadow_table_column_count_max"
+            )
+        ),
+        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_column_count_min": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_kernel_arg_shadow_table_column_count_min"
+            )
+        ),
+        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_schema_hash": str(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_kernel_arg_shadow_table_schema_hash"
+            )
+            or ""
+        ),
+        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_schema_hash_checked_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_kernel_arg_shadow_table_schema_hash_checked_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_schema_hash_missing_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_kernel_arg_shadow_table_schema_hash_missing_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_schema_hash_mismatch_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_kernel_arg_shadow_table_schema_hash_mismatch_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_per_row_parity_ok_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_kernel_arg_shadow_table_per_row_parity_ok_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_row_miss_count": _as_int(
+            aggregate.get("premap_consumer_descriptor_prep_kernel_arg_shadow_table_row_miss_count")
+        ),
+        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_stale_row_count": _as_int(
+            aggregate.get("premap_consumer_descriptor_prep_kernel_arg_shadow_table_stale_row_count")
+        ),
+        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_passed_to_kernel_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_kernel_arg_shadow_table_passed_to_kernel_count"
+            )
+        ),
     }
     return {
         "passed": not failures,
@@ -338,6 +541,7 @@ def check_summary(
         "require_readonly_consumer": bool(require_readonly_consumer),
         "require_descriptor_prep": bool(require_descriptor_prep),
         "require_real_descriptor_prep": bool(require_real_descriptor_prep),
+        "require_kernel_arg_shadow_table": bool(require_kernel_arg_shadow_table),
     }
 
 
@@ -372,6 +576,15 @@ def main() -> None:
             "real descriptor/address prep integration."
         ),
     )
+    parser.add_argument(
+        "--require-kernel-arg-shadow-table",
+        action="store_true",
+        help=(
+            "Require the readonly descriptor-prep kernel-argument shadow table "
+            "contract: all rows parity-ok, no misses/stale rows, no payload, "
+            "and no ready/router/order/kernel-arg side effects."
+        ),
+    )
     parser.add_argument("--output-json", type=Path)
     args = parser.parse_args()
 
@@ -383,6 +596,7 @@ def main() -> None:
         require_readonly_consumer=args.require_readonly_consumer,
         require_descriptor_prep=args.require_descriptor_prep,
         require_real_descriptor_prep=args.require_real_descriptor_prep,
+        require_kernel_arg_shadow_table=args.require_kernel_arg_shadow_table,
     )
     payload = json.dumps(result, indent=2, sort_keys=True) + "\n"
     if args.output_json is not None:

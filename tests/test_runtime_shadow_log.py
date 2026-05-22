@@ -624,6 +624,36 @@ def test_shadow_log_aggregates_premap_consumer_mapping_without_side_effects(tmp_
     )
     assert (
         aggregate[
+            "premap_consumer_descriptor_prep_kernel_arg_shadow_table_column_count_min"
+        ]
+        == 4
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_kernel_arg_shadow_table_schema_hash"
+        ]
+        == "kernel-schema-hash"
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_kernel_arg_shadow_table_schema_hash_checked_count"
+        ]
+        == 1
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_kernel_arg_shadow_table_schema_hash_missing_count"
+        ]
+        == 0
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_kernel_arg_shadow_table_schema_hash_mismatch_count"
+        ]
+        == 0
+    )
+    assert (
+        aggregate[
             "premap_consumer_descriptor_prep_kernel_arg_shadow_table_per_row_parity_ok_count"
         ]
         == 2
@@ -1078,6 +1108,75 @@ def test_shadow_log_descriptor_summary_min_does_not_dilute_full_metrics(tmp_path
     assert aggregate["descriptor_order_hit_rate_mean"] == 0.5
     assert aggregate["descriptor_reuse_distance_mean"] == 3.0
     assert aggregate["descriptor_unique_tiles_per_window_mean"] == 2.0
+
+
+def test_kernel_arg_shadow_table_aggregate_detects_mixed_column_and_schema_rows():
+    aggregate = aggregate_shadow_events(
+        [
+            {
+                "event_type": "premap_consumer_mapping",
+                "premap_consumer_descriptor_prep_kernel_arg_shadow_table_mode": (
+                    "readonly_kernel_arg_shadow_table"
+                ),
+                "premap_consumer_descriptor_prep_kernel_arg_shadow_table_ok": True,
+                "premap_consumer_descriptor_prep_kernel_arg_shadow_table_lifecycle_ok": True,
+                "premap_consumer_descriptor_prep_kernel_arg_shadow_table_row_count": 2,
+                "premap_consumer_descriptor_prep_kernel_arg_shadow_table_column_count": 4,
+                "premap_consumer_descriptor_prep_kernel_arg_shadow_table_schema_hash": (
+                    "kernel-schema-hash"
+                ),
+                "premap_consumer_descriptor_prep_kernel_arg_shadow_table_per_row_parity_ok_count": 2,
+            },
+            {
+                "event_type": "premap_consumer_mapping",
+                "premap_consumer_descriptor_prep_kernel_arg_shadow_table_mode": (
+                    "readonly_kernel_arg_shadow_table"
+                ),
+                "premap_consumer_descriptor_prep_kernel_arg_shadow_table_ok": True,
+                "premap_consumer_descriptor_prep_kernel_arg_shadow_table_lifecycle_ok": True,
+                "premap_consumer_descriptor_prep_kernel_arg_shadow_table_row_count": 1,
+                "premap_consumer_descriptor_prep_kernel_arg_shadow_table_column_count": 3,
+                "premap_consumer_descriptor_prep_kernel_arg_shadow_table_per_row_parity_ok_count": 1,
+            },
+        ]
+    )
+
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_kernel_arg_shadow_table_column_count_max"
+        ]
+        == 4
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_kernel_arg_shadow_table_column_count_min"
+        ]
+        == 3
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_kernel_arg_shadow_table_schema_hash"
+        ]
+        == "kernel-schema-hash"
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_kernel_arg_shadow_table_schema_hash_checked_count"
+        ]
+        == 1
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_kernel_arg_shadow_table_schema_hash_missing_count"
+        ]
+        == 1
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_kernel_arg_shadow_table_schema_hash_mismatch_count"
+        ]
+        == 0
+    )
 
 
 def test_descriptor_order_shadow_summary_builder():

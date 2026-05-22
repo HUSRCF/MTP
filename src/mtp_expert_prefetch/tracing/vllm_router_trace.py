@@ -190,6 +190,11 @@ RUNTIME_SHADOW_AGGREGATE_PERFORMANCE_KEYS = (
     "premap_consumer_descriptor_prep_kernel_arg_shadow_table_lifecycle_ok_rate",
     "premap_consumer_descriptor_prep_kernel_arg_shadow_table_row_count",
     "premap_consumer_descriptor_prep_kernel_arg_shadow_table_column_count_max",
+    "premap_consumer_descriptor_prep_kernel_arg_shadow_table_column_count_min",
+    "premap_consumer_descriptor_prep_kernel_arg_shadow_table_schema_hash",
+    "premap_consumer_descriptor_prep_kernel_arg_shadow_table_schema_hash_checked_count",
+    "premap_consumer_descriptor_prep_kernel_arg_shadow_table_schema_hash_missing_count",
+    "premap_consumer_descriptor_prep_kernel_arg_shadow_table_schema_hash_mismatch_count",
     "premap_consumer_descriptor_prep_kernel_arg_shadow_table_per_row_parity_ok_count",
     "premap_consumer_descriptor_prep_kernel_arg_shadow_table_row_miss_count",
     "premap_consumer_descriptor_prep_kernel_arg_shadow_table_stale_row_count",
@@ -9684,6 +9689,7 @@ def _apply_premap_consumer_readonly_gate(
             "descriptor_prep_execution_mode": descriptor_prep_mode,
             "descriptor_prep_payload_bytes_required": 0,
             "descriptor_prep_kernel_arg_mutation_required": False,
+            "kernel_arg_shadow_table_required": True,
         }
         for key, expected in descriptor_prep_contract.items():
             observed = contract.get(key)
@@ -9707,6 +9713,12 @@ def _apply_premap_consumer_readonly_gate(
             msg = (
                 "premap_descriptor_prep_execution_mode requires a readonly gate "
                 f"checked with require_real_descriptor_prep=true: {path}"
+            )
+            raise ValueError(msg)
+        if check.get("require_kernel_arg_shadow_table") is not True:
+            msg = (
+                "premap_descriptor_prep_execution_mode requires a readonly gate "
+                f"checked with require_kernel_arg_shadow_table=true: {path}"
             )
             raise ValueError(msg)
     descriptor_bytes = contract.get("descriptor_bytes")

@@ -40,12 +40,18 @@ def _write_readonly_gate(
     descriptor_prep_kernel_arg_mutation: bool | None = None,
     real_descriptor_prep_required: bool | None = None,
     require_real_descriptor_prep: bool | None = None,
+    kernel_arg_shadow_table_required: bool | None = None,
+    require_kernel_arg_shadow_table: bool | None = None,
 ):
     if descriptor_prep_execution_mode is not None:
         if real_descriptor_prep_required is None:
             real_descriptor_prep_required = True
         if require_real_descriptor_prep is None:
             require_real_descriptor_prep = True
+        if kernel_arg_shadow_table_required is None:
+            kernel_arg_shadow_table_required = True
+        if require_kernel_arg_shadow_table is None:
+            require_kernel_arg_shadow_table = True
     status = "passed" if passed else "failed"
     gate_passed = "true" if passed else "false"
     lines = [
@@ -84,6 +90,11 @@ def _write_readonly_gate(
             "  descriptor_prep_kernel_arg_mutation_required: "
             f"{str(descriptor_prep_kernel_arg_mutation).lower()}"
         )
+    if kernel_arg_shadow_table_required is not None:
+        lines.append(
+            "  kernel_arg_shadow_table_required: "
+            f"{str(bool(kernel_arg_shadow_table_required)).lower()}"
+        )
     lines.extend(
         [
             "gate:",
@@ -91,14 +102,20 @@ def _write_readonly_gate(
             "  failures: []",
         ]
     )
+    check_lines = []
     if require_real_descriptor_prep is not None:
-        lines.extend(
-            [
-                "  check:",
-                "    require_real_descriptor_prep: "
-                f"{str(bool(require_real_descriptor_prep)).lower()}",
-            ]
+        check_lines.append(
+            "    require_real_descriptor_prep: "
+            f"{str(bool(require_real_descriptor_prep)).lower()}"
         )
+    if require_kernel_arg_shadow_table is not None:
+        check_lines.append(
+            "    require_kernel_arg_shadow_table: "
+            f"{str(bool(require_kernel_arg_shadow_table)).lower()}"
+        )
+    if check_lines:
+        lines.append("  check:")
+        lines.extend(check_lines)
     lines.extend(
         [
             "  metrics:",
@@ -296,6 +313,71 @@ def test_apply_premap_consumer_readonly_gate_requires_real_descriptor_prep_check
     )
 
     with pytest.raises(ValueError, match="require_real_descriptor_prep=true"):
+        _apply_premap_consumer_readonly_gate(
+            {
+                "enabled": True,
+                "emit_premap_consumer_mapping": True,
+                "premap_consumer_require_readonly_gate": True,
+                "premap_consumer_readonly_gate_path": str(gate),
+                "premap_consumer_mapping_mode": "noop_assertion",
+                "premap_consumer_resolve_real_handles": True,
+                "premap_policy": "premap_only_with_consumer_mapping_noop",
+                "premap_descriptor_bytes": 4096,
+                "premap_descriptor_prep_execution_mode": (
+                    "readonly_descriptor_address_object"
+                ),
+            },
+            project_root=tmp_path,
+        )
+
+
+def test_apply_premap_consumer_readonly_gate_requires_kernel_arg_shadow_contract(tmp_path):
+    gate = tmp_path / "readonly_gate.yaml"
+    _write_readonly_gate(
+        gate,
+        lab_precondition=True,
+        descriptor_prep_execution_mode="readonly_descriptor_address_object",
+        descriptor_prep_payload_bytes=0,
+        descriptor_prep_kernel_arg_mutation=False,
+        real_descriptor_prep_required=True,
+        require_real_descriptor_prep=True,
+        kernel_arg_shadow_table_required=False,
+    )
+
+    with pytest.raises(ValueError, match="kernel_arg_shadow_table_required"):
+        _apply_premap_consumer_readonly_gate(
+            {
+                "enabled": True,
+                "emit_premap_consumer_mapping": True,
+                "premap_consumer_require_readonly_gate": True,
+                "premap_consumer_readonly_gate_path": str(gate),
+                "premap_consumer_mapping_mode": "noop_assertion",
+                "premap_consumer_resolve_real_handles": True,
+                "premap_policy": "premap_only_with_consumer_mapping_noop",
+                "premap_descriptor_bytes": 4096,
+                "premap_descriptor_prep_execution_mode": (
+                    "readonly_descriptor_address_object"
+                ),
+            },
+            project_root=tmp_path,
+        )
+
+
+def test_apply_premap_consumer_readonly_gate_requires_kernel_arg_shadow_check(tmp_path):
+    gate = tmp_path / "readonly_gate.yaml"
+    _write_readonly_gate(
+        gate,
+        lab_precondition=True,
+        descriptor_prep_execution_mode="readonly_descriptor_address_object",
+        descriptor_prep_payload_bytes=0,
+        descriptor_prep_kernel_arg_mutation=False,
+        real_descriptor_prep_required=True,
+        require_real_descriptor_prep=True,
+        kernel_arg_shadow_table_required=True,
+        require_kernel_arg_shadow_table=False,
+    )
+
+    with pytest.raises(ValueError, match="require_kernel_arg_shadow_table=true"):
         _apply_premap_consumer_readonly_gate(
             {
                 "enabled": True,
@@ -589,7 +671,7 @@ def test_default_longrun_audit_config_uses_premap_capacity_gate(
     assert shadow["premap_consumer_require_readonly_gate"] is True
     assert (
         shadow["premap_consumer_readonly_gate_path"]
-        == "configs/runtime/premap_consumer_readonly_gate_dolly512_gen64_awq_w7900_gpu1.yaml"
+        == "configs/runtime/premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_kernel_arg_shadow.yaml"
     )
     assert (
         shadow["premap_descriptor_prep_execution_mode"]
@@ -611,6 +693,20 @@ def test_default_longrun_audit_config_uses_premap_capacity_gate(
             "premap_consumer_real_descriptor_handle_hit_rate"
         ]
         == 1.0
+    )
+    assert readonly_gate["contract"]["kernel_arg_shadow_table_required"] is True
+    assert readonly_gate["gate"]["check"]["require_kernel_arg_shadow_table"] is True
+    assert (
+        readonly_gate["gate"]["metrics"][
+            "premap_consumer_descriptor_prep_kernel_arg_shadow_table_ok_rate"
+        ]
+        == 1.0
+    )
+    assert (
+        readonly_gate["gate"]["metrics"][
+            "premap_consumer_descriptor_prep_kernel_arg_shadow_table_passed_to_kernel_count"
+        ]
+        == 0
     )
     assert shadow["premap_policy"] == "premap_only_with_consumer_mapping_noop"
     assert shadow["premap_source"] == "current_router_topk_premap_shadow"
@@ -642,7 +738,7 @@ def test_premap_consumer_mapping_smoke_config_requires_readonly_gate():
     assert shadow["premap_consumer_require_readonly_gate"] is True
     assert (
         shadow["premap_consumer_readonly_gate_path"]
-        == "configs/runtime/premap_consumer_readonly_gate_dolly512_gen64_awq_w7900_gpu1.yaml"
+        == "configs/runtime/premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_kernel_arg_shadow.yaml"
     )
     assert (
         shadow["premap_descriptor_prep_execution_mode"]
