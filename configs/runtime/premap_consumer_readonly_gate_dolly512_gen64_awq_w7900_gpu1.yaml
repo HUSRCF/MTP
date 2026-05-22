@@ -16,6 +16,7 @@ contract:
   descriptor_bytes: 4096
   handle_resolution: read_only
   handle_signature_scope: runtime_address_level
+  real_descriptor_prep_required: true
   descriptor_prep_execution_mode: readonly_descriptor_address_object
   descriptor_prep_payload_bytes_required: 0
   descriptor_prep_kernel_arg_mutation_required: false
@@ -44,6 +45,7 @@ gate:
     min_reuse_rate: 0.98
     require_readonly_consumer: true
     require_descriptor_prep: true
+    require_real_descriptor_prep: true
   metrics:
     row_count: 40684
     premap_summary_count: 20342
@@ -80,6 +82,10 @@ gate:
     premap_consumer_descriptor_prep_descriptor_ptr_count: 210849
     premap_consumer_descriptor_prep_packed_weight_descriptor_count: 210849
     premap_consumer_descriptor_prep_scale_metadata_handle_count: 210849
+    premap_consumer_descriptor_prep_real_handle_count: 210849
+    premap_consumer_descriptor_prep_real_handle_miss_count: 0
+    premap_consumer_descriptor_prep_real_handle_hit_rate: 1.0
+    premap_consumer_descriptor_prep_real_handle_backed_rate: 1.0
     premap_consumer_error_count: 0
     premap_consumer_payload_violation_count: 0
     premap_consumer_router_change_violation_count: 0

@@ -56,6 +56,10 @@ premap-only audit:
 | `premap_consumer_descriptor_prep_lookup_count` | 110,898 | 210,849 |
 | `premap_consumer_descriptor_prep_handle_count` | 110,898 | 210,849 |
 | `premap_consumer_descriptor_prep_handle_hit_rate` | 1.0 | 1.0 |
+| `premap_consumer_descriptor_prep_real_handle_count` | 110,898 | 210,849 |
+| `premap_consumer_descriptor_prep_real_handle_miss_count` | 0 | 0 |
+| `premap_consumer_descriptor_prep_real_handle_hit_rate` | 1.0 | 1.0 |
+| `premap_consumer_descriptor_prep_real_handle_backed_rate` | 1.0 | 1.0 |
 | `premap_consumer_descriptor_prep_execution_ok_attempted_rate` | 1.0 | 1.0 |
 | `premap_consumer_descriptor_prep_blocked_count` | 0 | 0 |
 | `premap_consumer_error_count` | 0 | 0 |
@@ -84,7 +88,8 @@ python scripts/check_premap_longrun_audit_gate.py \
   --max-capacity 12288 \
   --min-reuse-rate 0.98 \
   --require-readonly-consumer \
-  --require-descriptor-prep
+  --require-descriptor-prep \
+  --require-real-descriptor-prep
 ```
 
 The gate requires:
@@ -107,6 +112,9 @@ descriptor prep handle count = lookup count
 descriptor prep handle hit / execution-ok rates = 1.0
 descriptor prep missing/block counts = 0
 descriptor prep descriptor_ptr / packed_weight / scale_metadata counts = lookup count
+descriptor prep real-handle count = lookup count
+descriptor prep real-handle miss count = 0
+descriptor prep real-handle hit/backed rates = 1.0
 payload / router / descriptor_order / ready-credit violation counts = 0
 consumer error count = 0
 ```
@@ -133,6 +141,10 @@ premap_consumer_descriptor_prep_executed_count = 20342
 premap_consumer_descriptor_prep_lookup_count = 210849
 premap_consumer_descriptor_prep_handle_count = 210849
 premap_consumer_descriptor_prep_handle_hit_rate = 1.0
+premap_consumer_descriptor_prep_real_handle_count = 210849
+premap_consumer_descriptor_prep_real_handle_miss_count = 0
+premap_consumer_descriptor_prep_real_handle_hit_rate = 1.0
+premap_consumer_descriptor_prep_real_handle_backed_rate = 1.0
 premap_consumer_descriptor_prep_execution_ok_attempted_rate = 1.0
 premap_consumer_descriptor_prep_blocked_count = 0
 ```

@@ -14397,3 +14397,72 @@ conda run -p /home/husrcf/anaconda3/envs/TRY pytest \
 conda run -p /home/husrcf/anaconda3/envs/TRY pytest tests -q
 464 passed, 2 warnings
 ```
+
+### 2026-05-22: Real-handle descriptor prep promoted to lab gate
+
+The 128/512 Dolly long-run audit was rerun with the real-handle-backed
+descriptor prep code path and checked with the stricter gate:
+
+```text
+scripts/check_premap_longrun_audit_gate.py
+  --max-capacity 12288
+  --min-reuse-rate 0.98
+  --require-readonly-consumer
+  --require-descriptor-prep
+  --require-real-descriptor-prep
+```
+
+Results:
+
+| samples | rows | premap_summary | consumer_mapping | reuse mean | resident addresses | readonly lookups | prep lookups | real prep handles | real prep misses | real prep hit | real prep backed |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 128 | 20,390 | 10,195 | 10,195 | 0.9827389897 | 10,127 | 110,898 | 110,898 | 110,898 | 0 | 1.0 | 1.0 |
+| 512 | 40,684 | 20,342 | 20,342 | 0.9945098118 | 10,202 | 210,849 | 210,849 | 210,849 | 0 | 1.0 | 1.0 |
+
+Both gates pass with:
+
+```text
+premap_consumer_readonly_handle_hit_rate = 1.0
+premap_consumer_readonly_handle_parity_ok_rate = 1.0
+premap_consumer_descriptor_prep_attempted_count = premap_consumer_mapping_count
+premap_consumer_descriptor_prep_lookup_count = premap_consumer_descriptor_prep_handle_count
+premap_consumer_descriptor_prep_execution_ok_attempted_rate = 1.0
+premap_consumer_descriptor_prep_real_handle_count = premap_consumer_descriptor_prep_lookup_count
+premap_consumer_descriptor_prep_real_handle_miss_count = 0
+premap_consumer_descriptor_prep_real_handle_hit_rate = 1.0
+premap_consumer_descriptor_prep_real_handle_backed_rate = 1.0
+premap_consumer_payload_violation_count = 0
+premap_consumer_router_change_violation_count = 0
+premap_consumer_descriptor_order_change_violation_count = 0
+premap_consumer_ready_credit_violation_count = 0
+premap_consumer_error_count = 0
+```
+
+Updated lab precondition artifact:
+
+```text
+configs/runtime/premap_consumer_readonly_gate_dolly512_gen64_awq_w7900_gpu1.yaml
+```
+
+The artifact now requires:
+
+```text
+lab_precondition = true
+require_readonly_consumer = true
+require_descriptor_prep = true
+require_real_descriptor_prep = true
+real_descriptor_prep_required = true
+descriptor_prep_execution_mode = readonly_descriptor_address_object
+```
+
+Interpretation:
+
+```text
+The real-lab precondition now requires that the read-only premap consumer can
+resolve resident descriptor/address objects into actual vLLM/AWQ packed-weight
+and scale metadata handle signatures at long-run scale.
+
+This remains a safety gate.  It does not move expert payloads, mark experts
+ready, change routing, change descriptor visitation order, patch kernel launch
+arguments, or claim endpoint TPOT improvement.
+```
