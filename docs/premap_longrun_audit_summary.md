@@ -15,6 +15,8 @@ premap-only audit:
   no descriptor-order execution
   sampled premap_summary rows
   sampled premap_consumer_mapping rows
+  read-only descriptor/address prep execution
+  no kernel argument mutation
 ```
 
 ## Artifacts
@@ -46,6 +48,16 @@ premap-only audit:
 | `premap_consumer_real_descriptor_handle_hit_rate` | 1.0 | 1.0 |
 | `premap_consumer_lookup_after_prepare_rate` | 1.0 | 1.0 |
 | `premap_consumer_real_descriptor_handle_binding_mismatch_count` | 0 | 0 |
+| `premap_consumer_readonly_lookup_count` | 110,898 | 210,849 |
+| `premap_consumer_readonly_handle_hit_rate` | 1.0 | 1.0 |
+| `premap_consumer_readonly_handle_parity_ok_rate` | 1.0 | 1.0 |
+| `premap_consumer_descriptor_prep_attempted_count` | 10,195 | 20,342 |
+| `premap_consumer_descriptor_prep_executed_count` | 10,195 | 20,342 |
+| `premap_consumer_descriptor_prep_lookup_count` | 110,898 | 210,849 |
+| `premap_consumer_descriptor_prep_handle_count` | 110,898 | 210,849 |
+| `premap_consumer_descriptor_prep_handle_hit_rate` | 1.0 | 1.0 |
+| `premap_consumer_descriptor_prep_execution_ok_attempted_rate` | 1.0 | 1.0 |
+| `premap_consumer_descriptor_prep_blocked_count` | 0 | 0 |
 | `premap_consumer_error_count` | 0 | 0 |
 
 ## Interpretation
@@ -58,7 +70,9 @@ consumer lookup-after-prepare stays at 1.0.
 
 This is not a payload-prefetch or endpoint-latency claim.  It validates only the
 read-only descriptor/address preparation and consumer-handle mapping contract
-needed before wiring a real cache-manager consumer.
+needed before wiring a real cache-manager consumer.  Descriptor prep execution
+here means resolving resident metadata handles into a read-only prep object; it
+does not mutate vLLM tensors or kernel arguments.
 
 ## Machine Gate
 
@@ -66,7 +80,11 @@ Use the gate checker before treating a long-run premap audit as valid evidence:
 
 ```bash
 python scripts/check_premap_longrun_audit_gate.py \
-  data/traces/external_prompt_gate_dolly_512_awq_vllm_gpu1_decode_gen64_longrun_audit/longrun_audit_summary.json
+  data/traces/external_prompt_gate_dolly_512_awq_vllm_gpu1_decode_gen64_longrun_audit/longrun_audit_summary.json \
+  --max-capacity 12288 \
+  --min-reuse-rate 0.98 \
+  --require-readonly-consumer \
+  --require-descriptor-prep
 ```
 
 The gate requires:
@@ -82,6 +100,14 @@ reuse rate >= threshold
 consumer address / descriptor / real-handle hit rates = 1.0
 lookup-after-prepare rate = 1.0
 binding mismatch count = 0
+readonly consumer hit/parity rates = 1.0
+descriptor prep attempted = premap_consumer_mapping_count
+descriptor prep executed = attempted
+descriptor prep handle count = lookup count
+descriptor prep handle hit / execution-ok rates = 1.0
+descriptor prep missing/block counts = 0
+descriptor prep descriptor_ptr / packed_weight / scale_metadata counts = lookup count
+payload / router / descriptor_order / ready-credit violation counts = 0
 consumer error count = 0
 ```
 
@@ -99,4 +125,14 @@ premap_address_reuse_rate_mean = 0.9945098118
 premap_address_eviction_pressure_mean = 0.0
 premap_consumer_address_hit_rate = 1.0
 premap_consumer_real_descriptor_handle_hit_rate = 1.0
+premap_consumer_readonly_lookup_count = 210849
+premap_consumer_readonly_handle_hit_rate = 1.0
+premap_consumer_readonly_handle_parity_ok_rate = 1.0
+premap_consumer_descriptor_prep_attempted_count = 20342
+premap_consumer_descriptor_prep_executed_count = 20342
+premap_consumer_descriptor_prep_lookup_count = 210849
+premap_consumer_descriptor_prep_handle_count = 210849
+premap_consumer_descriptor_prep_handle_hit_rate = 1.0
+premap_consumer_descriptor_prep_execution_ok_attempted_rate = 1.0
+premap_consumer_descriptor_prep_blocked_count = 0
 ```

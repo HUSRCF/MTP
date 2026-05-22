@@ -34,6 +34,7 @@ def check_summary(
     max_capacity: int = 12_288,
     min_reuse_rate: float = 0.98,
     require_readonly_consumer: bool = False,
+    require_descriptor_prep: bool = False,
 ) -> dict[str, Any]:
     event_counts = {
         str(key): int(value) for key, value in summary.get("event_counts", {}).items()
@@ -101,6 +102,15 @@ def check_summary(
         aggregate.get("premap_consumer_real_descriptor_handle_binding_mismatch_count")
     ) != 0:
         failures.append("real_descriptor_handle_binding_mismatch_nonzero")
+    for field in (
+        "premap_consumer_payload_violation_count",
+        "premap_consumer_router_change_violation_count",
+        "premap_consumer_descriptor_order_change_violation_count",
+        "premap_consumer_ready_credit_violation_count",
+    ):
+        count = _as_int(aggregate.get(field))
+        if count != 0:
+            failures.append(f"{field}_nonzero={count}")
     if require_readonly_consumer and not readonly_fields_present:
         failures.append("readonly_consumer_fields_missing")
     if require_readonly_consumer or readonly_fields_present:
@@ -110,6 +120,69 @@ def check_summary(
             failures.append("readonly_evicted_before_consume_nonzero")
         if _as_int(aggregate.get("premap_consumer_readonly_stale_handle_count")) != 0:
             failures.append("readonly_stale_handle_nonzero")
+
+    descriptor_prep_active = any(
+        _as_int(aggregate.get(key)) > 0
+        for key in (
+            "premap_consumer_descriptor_prep_attempted_count",
+            "premap_consumer_descriptor_prep_executed_count",
+            "premap_consumer_descriptor_prep_lookup_count",
+            "premap_consumer_descriptor_prep_handle_count",
+            "premap_consumer_descriptor_prep_blocked_count",
+        )
+    )
+    if require_descriptor_prep and not descriptor_prep_active:
+        failures.append("descriptor_prep_fields_missing")
+    if require_descriptor_prep or descriptor_prep_active:
+        attempted = _as_int(
+            aggregate.get("premap_consumer_descriptor_prep_attempted_count")
+        )
+        executed = _as_int(
+            aggregate.get("premap_consumer_descriptor_prep_executed_count")
+        )
+        lookup_count = _as_int(
+            aggregate.get("premap_consumer_descriptor_prep_lookup_count")
+        )
+        handle_count = _as_int(
+            aggregate.get("premap_consumer_descriptor_prep_handle_count")
+        )
+        missing_count = _as_int(
+            aggregate.get("premap_consumer_descriptor_prep_missing_handle_count")
+        )
+        if attempted <= 0:
+            failures.append("descriptor_prep_attempted_count_missing_or_zero")
+        if attempted != consumer_count:
+            failures.append(
+                f"descriptor_prep_attempted_count_mismatch={attempted}!={consumer_count}"
+            )
+        if executed != attempted:
+            failures.append(f"descriptor_prep_executed_count_mismatch={executed}!={attempted}")
+        if lookup_count <= 0:
+            failures.append("descriptor_prep_lookup_count_missing_or_zero")
+        if missing_count != 0:
+            failures.append(f"descriptor_prep_missing_handle_count_nonzero={missing_count}")
+        if handle_count != lookup_count:
+            failures.append(f"descriptor_prep_handle_count_mismatch={handle_count}!={lookup_count}")
+        for field in (
+            "premap_consumer_descriptor_prep_handle_hit_rate",
+            "premap_consumer_descriptor_prep_execution_ok_rate",
+            "premap_consumer_descriptor_prep_execution_ok_attempted_rate",
+        ):
+            if _as_float(aggregate.get(field)) != 1.0:
+                failures.append(f"{field}_not_one")
+        if _as_int(aggregate.get("premap_consumer_descriptor_prep_blocked_count")) != 0:
+            failures.append("descriptor_prep_blocked_count_nonzero")
+        if _as_float(
+            aggregate.get("premap_consumer_descriptor_prep_blocked_attempted_rate")
+        ) != 0.0:
+            failures.append("descriptor_prep_blocked_attempted_rate_nonzero")
+        for field in (
+            "premap_consumer_descriptor_prep_descriptor_ptr_count",
+            "premap_consumer_descriptor_prep_packed_weight_descriptor_count",
+            "premap_consumer_descriptor_prep_scale_metadata_handle_count",
+        ):
+            if _as_int(aggregate.get(field)) != lookup_count:
+                failures.append(f"{field}_mismatch={_as_int(aggregate.get(field))}!={lookup_count}")
     real_handle_hits = _as_int(
         aggregate.get("premap_consumer_real_descriptor_handle_hit_count")
     )
@@ -189,6 +262,27 @@ def check_summary(
         "premap_consumer_readonly_handle_parity_ok_rate": _as_float(
             aggregate.get("premap_consumer_readonly_handle_parity_ok_rate")
         ),
+        "premap_consumer_descriptor_prep_attempted_count": _as_int(
+            aggregate.get("premap_consumer_descriptor_prep_attempted_count")
+        ),
+        "premap_consumer_descriptor_prep_executed_count": _as_int(
+            aggregate.get("premap_consumer_descriptor_prep_executed_count")
+        ),
+        "premap_consumer_descriptor_prep_lookup_count": _as_int(
+            aggregate.get("premap_consumer_descriptor_prep_lookup_count")
+        ),
+        "premap_consumer_descriptor_prep_handle_hit_rate": _as_float(
+            aggregate.get("premap_consumer_descriptor_prep_handle_hit_rate")
+        ),
+        "premap_consumer_descriptor_prep_execution_ok_attempted_rate": _as_float(
+            aggregate.get("premap_consumer_descriptor_prep_execution_ok_attempted_rate")
+        ),
+        "premap_consumer_descriptor_prep_blocked_count": _as_int(
+            aggregate.get("premap_consumer_descriptor_prep_blocked_count")
+        ),
+        "premap_consumer_descriptor_prep_blocked_attempted_rate": _as_float(
+            aggregate.get("premap_consumer_descriptor_prep_blocked_attempted_rate")
+        ),
     }
     return {
         "passed": not failures,
@@ -197,6 +291,7 @@ def check_summary(
         "max_capacity": int(max_capacity),
         "min_reuse_rate": float(min_reuse_rate),
         "require_readonly_consumer": bool(require_readonly_consumer),
+        "require_descriptor_prep": bool(require_descriptor_prep),
     }
 
 
@@ -213,6 +308,15 @@ def main() -> None:
             "when checking legacy summaries that predate these fields."
         ),
     )
+    parser.add_argument(
+        "--require-descriptor-prep",
+        action="store_true",
+        help=(
+            "Require readonly-gated descriptor/address prep execution counters. "
+            "This is the stricter lab gate used before real descriptor/address "
+            "prep integration."
+        ),
+    )
     parser.add_argument("--output-json", type=Path)
     args = parser.parse_args()
 
@@ -222,6 +326,7 @@ def main() -> None:
         max_capacity=args.max_capacity,
         min_reuse_rate=args.min_reuse_rate,
         require_readonly_consumer=args.require_readonly_consumer,
+        require_descriptor_prep=args.require_descriptor_prep,
     )
     payload = json.dumps(result, indent=2, sort_keys=True) + "\n"
     if args.output_json is not None:

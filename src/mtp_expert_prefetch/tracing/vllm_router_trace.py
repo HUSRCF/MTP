@@ -9351,6 +9351,33 @@ def _apply_premap_consumer_readonly_gate(
                 f"for {path}: {key}={observed!r} != {expected!r}"
             )
             raise ValueError(msg)
+    lab_precondition = payload.get("lab_precondition")
+    if lab_precondition is not None and not isinstance(lab_precondition, bool):
+        msg = (
+            "Premap consumer readonly gate `lab_precondition` must be boolean "
+            f"when present: {path}"
+        )
+        raise TypeError(msg)
+    if descriptor_prep_mode is not None:
+        if lab_precondition is not True:
+            msg = (
+                "premap_descriptor_prep_execution_mode requires a readonly gate "
+                f"with lab_precondition=true: {path}"
+            )
+            raise ValueError(msg)
+        descriptor_prep_contract = {
+            "descriptor_prep_execution_mode": descriptor_prep_mode,
+            "descriptor_prep_payload_bytes_required": 0,
+            "descriptor_prep_kernel_arg_mutation_required": False,
+        }
+        for key, expected in descriptor_prep_contract.items():
+            observed = contract.get(key)
+            if observed != expected:
+                msg = (
+                    "Premap consumer readonly gate violates the descriptor prep "
+                    f"contract for {path}: {key}={observed!r} != {expected!r}"
+                )
+                raise ValueError(msg)
     descriptor_bytes = contract.get("descriptor_bytes")
     option_descriptor_bytes = options.get("premap_descriptor_bytes", 4096)
     if (

@@ -29,33 +29,64 @@ def _write_gate(path, *, capacity=12288):
     )
 
 
-def _write_readonly_gate(path, *, passed=True, payload_bytes=0):
+def _write_readonly_gate(
+    path,
+    *,
+    passed=True,
+    payload_bytes=0,
+    lab_precondition: bool | None = None,
+    descriptor_prep_execution_mode: str | None = None,
+    descriptor_prep_payload_bytes: int | None = None,
+    descriptor_prep_kernel_arg_mutation: bool | None = None,
+):
     status = "passed" if passed else "failed"
     gate_passed = "true" if passed else "false"
+    lines = [
+        "schema_version: 1",
+        "artifact_id: test_premap_consumer_readonly_gate",
+        f"status: {status}",
+    ]
+    if lab_precondition is not None:
+        lines.append(f"lab_precondition: {str(lab_precondition).lower()}")
+    lines.extend(
+        [
+            "contract:",
+            f"  payload_bytes_required: {payload_bytes}",
+            "  ready_credit_required: false",
+            "  changes_router_required: false",
+            "  changes_descriptor_order_required: false",
+            "  address_key_scope: layer_expert",
+            "  descriptor_bytes: 4096",
+            "  handle_resolution: read_only",
+        ]
+    )
+    if descriptor_prep_execution_mode is not None:
+        lines.append(
+            f"  descriptor_prep_execution_mode: {descriptor_prep_execution_mode}"
+        )
+    if descriptor_prep_payload_bytes is not None:
+        lines.append(
+            f"  descriptor_prep_payload_bytes_required: {descriptor_prep_payload_bytes}"
+        )
+    if descriptor_prep_kernel_arg_mutation is not None:
+        lines.append(
+            "  descriptor_prep_kernel_arg_mutation_required: "
+            f"{str(descriptor_prep_kernel_arg_mutation).lower()}"
+        )
+    lines.extend(
+        [
+            "gate:",
+            f"  passed: {gate_passed}",
+            "  failures: []",
+            "  metrics:",
+            "    premap_consumer_mapping_count: 2",
+            "evidence_paths:",
+            "  longrun_summary: outputs/longrun.json",
+            "",
+        ]
+    )
     path.write_text(
-        "\n".join(
-            [
-                "schema_version: 1",
-                "artifact_id: test_premap_consumer_readonly_gate",
-                f"status: {status}",
-                "contract:",
-                f"  payload_bytes_required: {payload_bytes}",
-                "  ready_credit_required: false",
-                "  changes_router_required: false",
-                "  changes_descriptor_order_required: false",
-                "  address_key_scope: layer_expert",
-                "  descriptor_bytes: 4096",
-                "  handle_resolution: read_only",
-                "gate:",
-                f"  passed: {gate_passed}",
-                "  failures: []",
-                "  metrics:",
-                "    premap_consumer_mapping_count: 2",
-                "evidence_paths:",
-                "  longrun_summary: outputs/longrun.json",
-                "",
-            ]
-        ),
+        "\n".join(lines),
         encoding="utf-8",
     )
 
@@ -146,6 +177,78 @@ def test_apply_premap_consumer_readonly_gate_rejects_unknown_prep_execution_mode
                 "enabled": True,
                 "premap_consumer_require_readonly_gate": True,
                 "premap_descriptor_prep_execution_mode": "readonly_descriptor_address",
+            },
+            project_root=tmp_path,
+        )
+
+
+def test_apply_premap_consumer_readonly_gate_requires_descriptor_prep_contract(tmp_path):
+    gate = tmp_path / "readonly_gate.yaml"
+    _write_readonly_gate(gate)
+
+    with pytest.raises(ValueError, match="lab_precondition=true"):
+        _apply_premap_consumer_readonly_gate(
+            {
+                "enabled": True,
+                "premap_consumer_require_readonly_gate": True,
+                "premap_consumer_readonly_gate_path": str(gate),
+                "premap_descriptor_prep_execution_mode": (
+                    "readonly_descriptor_address_object"
+                ),
+            },
+            project_root=tmp_path,
+        )
+
+
+def test_apply_premap_consumer_readonly_gate_accepts_descriptor_prep_contract(tmp_path):
+    gate = tmp_path / "readonly_gate.yaml"
+    _write_readonly_gate(
+        gate,
+        lab_precondition=True,
+        descriptor_prep_execution_mode="readonly_descriptor_address_object",
+        descriptor_prep_payload_bytes=0,
+        descriptor_prep_kernel_arg_mutation=False,
+    )
+
+    options = _apply_premap_consumer_readonly_gate(
+        {
+            "enabled": True,
+            "emit_premap_consumer_mapping": True,
+            "premap_consumer_require_readonly_gate": True,
+            "premap_consumer_readonly_gate_path": str(gate),
+            "premap_consumer_mapping_mode": "noop_assertion",
+            "premap_consumer_resolve_real_handles": True,
+            "premap_policy": "premap_only_with_consumer_mapping_noop",
+            "premap_descriptor_bytes": 4096,
+            "premap_descriptor_prep_execution_mode": (
+                "readonly_descriptor_address_object"
+            ),
+        },
+        project_root=tmp_path,
+    )
+
+    assert options["premap_consumer_readonly_gate_passed"] is True
+
+
+def test_apply_premap_consumer_readonly_gate_rejects_descriptor_prep_contract_mutation(tmp_path):
+    gate = tmp_path / "readonly_gate.yaml"
+    _write_readonly_gate(
+        gate,
+        lab_precondition=True,
+        descriptor_prep_execution_mode="readonly_descriptor_address_object",
+        descriptor_prep_payload_bytes=128,
+        descriptor_prep_kernel_arg_mutation=True,
+    )
+
+    with pytest.raises(ValueError, match="descriptor prep contract"):
+        _apply_premap_consumer_readonly_gate(
+            {
+                "enabled": True,
+                "premap_consumer_require_readonly_gate": True,
+                "premap_consumer_readonly_gate_path": str(gate),
+                "premap_descriptor_prep_execution_mode": (
+                    "readonly_descriptor_address_object"
+                ),
             },
             project_root=tmp_path,
         )

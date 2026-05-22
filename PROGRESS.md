@@ -14213,3 +14213,92 @@ Verification:
 conda run -p /home/husrcf/anaconda3/envs/TRY pytest tests -q
 447 passed, 2 warnings
 ```
+
+128/512 readonly-gated descriptor prep long-run gate:
+
+```text
+configs:
+  configs/trace/router_mtp_trace_external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_longrun_audit.yaml
+  configs/trace/router_mtp_trace_external_prompt_gate_dolly_512_awq_vllm_gpu1_decode_gen64_longrun_audit.yaml
+
+gate command:
+  scripts/check_premap_longrun_audit_gate.py
+    --max-capacity 12288
+    --min-reuse-rate 0.98
+    --require-readonly-consumer
+    --require-descriptor-prep
+```
+
+Results:
+
+| samples | rows | premap_summary | consumer_mapping | reuse mean | evicted | resident addresses | resident bytes | readonly lookups | descriptor_prep attempted/executed | prep lookups/handles | prep handle hit | prep ok attempted | prep blocked |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 128 | 20,390 | 10,195 | 10,195 | 0.982739 | 0 | 10,127 | 41,480,192 | 110,898 | 10,195 / 10,195 | 110,898 / 110,898 | 1.0 | 1.0 | 0 |
+| 512 | 40,684 | 20,342 | 20,342 | 0.994510 | 0 | 10,202 | 41,787,392 | 210,849 | 20,342 / 20,342 | 210,849 / 210,849 | 1.0 | 1.0 | 0 |
+
+Strict gate artifacts:
+
+```text
+data/traces/external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_longrun_audit/longrun_audit_gate.json
+data/traces/external_prompt_gate_dolly_512_awq_vllm_gpu1_decode_gen64_longrun_audit/longrun_audit_gate.json
+```
+
+Both gates pass with:
+
+```text
+premap_consumer_readonly_handle_hit_rate = 1.0
+premap_consumer_readonly_handle_parity_ok_rate = 1.0
+premap_consumer_descriptor_prep_attempted_count = premap_consumer_mapping_count
+premap_consumer_descriptor_prep_handle_hit_rate = 1.0
+premap_consumer_descriptor_prep_execution_ok_attempted_rate = 1.0
+premap_consumer_descriptor_prep_missing_handle_count = 0
+premap_consumer_descriptor_prep_blocked_count = 0
+premap_consumer_payload_violation_count = 0
+premap_consumer_router_change_violation_count = 0
+premap_consumer_descriptor_order_change_violation_count = 0
+premap_consumer_ready_credit_violation_count = 0
+premap_consumer_real_descriptor_handle_hit_rate = 1.0
+premap_consumer_real_descriptor_handle_available_rate = 1.0
+premap_consumer_real_descriptor_handle_binding_mismatch_count = 0
+premap_consumer_error_count = 0
+```
+
+Updated lab precondition artifact:
+
+```text
+configs/runtime/premap_consumer_readonly_gate_dolly512_gen64_awq_w7900_gpu1.yaml
+```
+
+The artifact now requires the stricter descriptor prep execution contract:
+
+```text
+lab_precondition = true
+descriptor_prep_execution_mode = readonly_descriptor_address_object
+require_readonly_consumer = true
+require_descriptor_prep = true
+```
+
+Interpretation:
+
+```text
+The premap path has now passed the real-lab precondition for a read-only
+descriptor/address prep consumer: current-router premap address objects are
+resident, real vLLM/AWQ packed-weight/scale handles are resolvable and stable,
+and the descriptor prep object can be built from those handles without payload
+transfer, readiness credit, router mutation, descriptor_order execution, or
+kernel argument mutation.
+
+This is still a safety/precondition gate for descriptor/address preparation.  It
+does not grant readiness credit, and it is not a payload prefetch result or an
+endpoint TPOT claim.
+```
+
+Verification:
+
+```text
+conda run -p /home/husrcf/anaconda3/envs/TRY pytest tests/test_check_premap_longrun_audit_gate.py -q
+12 passed
+
+conda run -p /home/husrcf/anaconda3/envs/TRY pytest tests -q
+455 passed, 2 warnings
+```
