@@ -371,6 +371,10 @@ def test_shadow_log_aggregates_premap_consumer_mapping_without_side_effects(tmp_
         descriptor_prep_consumer_shim_mode="readonly_prelaunch_consumer_shim",
         descriptor_prep_consumer_shim_object_count=2,
         descriptor_prep_consumer_shim_object_hash="prep-consumer-object-hash",
+        descriptor_prep_consumer_shim_handle_table_row_count=2,
+        descriptor_prep_consumer_shim_handle_table_column_count=4,
+        descriptor_prep_consumer_shim_handle_table_schema_hash="schema-hash",
+        descriptor_prep_consumer_shim_handle_table_payload_bytes=0,
         descriptor_prep_consumer_shim_ok=True,
         descriptor_prep_consumer_shim_changes_kernel_launch_args=False,
         descriptor_prep_execution_ok=True,
@@ -532,6 +536,30 @@ def test_shadow_log_aggregates_premap_consumer_mapping_without_side_effects(tmp_
     )
     assert (
         aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_row_count"
+        ]
+        == 2
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_column_count_max"
+        ]
+        == 4
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_payload_bytes"
+        ]
+        == 0
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_payload_violation_count"
+        ]
+        == 0
+    )
+    assert (
+        aggregate[
             "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_violation_count"
         ]
         == 0
@@ -552,6 +580,24 @@ def test_shadow_log_aggregates_premap_consumer_mapping_without_side_effects(tmp_
         "readonly_prelaunch_consumer_shim"
     )
     assert rows[0]["premap_consumer_descriptor_prep_consumer_shim_ok"] is True
+    assert (
+        rows[0][
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_row_count"
+        ]
+        == 2
+    )
+    assert (
+        rows[0][
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_column_count"
+        ]
+        == 4
+    )
+    assert (
+        rows[0][
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_payload_bytes"
+        ]
+        == 0
+    )
     assert (
         rows[0][
             "premap_consumer_descriptor_prep_consumer_shim_changes_kernel_launch_args"

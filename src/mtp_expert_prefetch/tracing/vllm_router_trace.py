@@ -178,6 +178,10 @@ RUNTIME_SHADOW_AGGREGATE_PERFORMANCE_KEYS = (
     "premap_consumer_descriptor_prep_consumer_shim_ok_count",
     "premap_consumer_descriptor_prep_consumer_shim_ok_rate",
     "premap_consumer_descriptor_prep_consumer_shim_object_count",
+    "premap_consumer_descriptor_prep_consumer_shim_handle_table_row_count",
+    "premap_consumer_descriptor_prep_consumer_shim_handle_table_column_count_max",
+    "premap_consumer_descriptor_prep_consumer_shim_handle_table_payload_bytes",
+    "premap_consumer_descriptor_prep_consumer_shim_handle_table_payload_violation_count",
     "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_violation_count",
     "premap_consumer_descriptor_prep_execution_ok_rate",
     "premap_consumer_descriptor_prep_execution_ok_attempted_rate",
@@ -2410,6 +2414,26 @@ class VllmRouterRecorder:
                 ),
                 descriptor_prep_consumer_shim_object_hash=(
                     descriptor_consumer_shim_result.object_hash
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_handle_table_row_count=(
+                    int(descriptor_consumer_shim_result.handle_table_row_count)
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_handle_table_column_count=(
+                    int(descriptor_consumer_shim_result.handle_table_column_count)
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_handle_table_schema_hash=(
+                    descriptor_consumer_shim_result.handle_table_schema_hash
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_handle_table_payload_bytes=(
+                    int(descriptor_consumer_shim_result.handle_table_payload_bytes)
                     if descriptor_consumer_shim_result is not None
                     else None
                 ),

@@ -6,6 +6,8 @@ import torch
 from mtp_expert_prefetch.runtime import (
     ControlledPremapAddressManager,
     ExpertPrefetchDescriptor,
+    PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_COLUMNS,
+    PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH,
     PremapRealDescriptorHandle,
     build_premap_descriptors,
     build_priority_masks,
@@ -323,6 +325,15 @@ def test_controlled_premap_address_manager_executes_descriptor_prep_readonly():
     assert shim_result.object_hash == read_result.object_hash
     assert shim_result.read_ok is True
     assert shim_result.shim_ok is True
+    assert shim_result.handle_table_row_count == 2
+    assert shim_result.handle_table_column_count == len(
+        PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_COLUMNS
+    )
+    assert (
+        shim_result.handle_table_schema_hash
+        == PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH
+    )
+    assert shim_result.handle_table_payload_bytes == 0
     assert shim_result.payload_bytes == 0
     assert shim_result.ready_credit is False
     assert shim_result.changes_router is False

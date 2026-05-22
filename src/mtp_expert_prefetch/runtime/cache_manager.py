@@ -7,6 +7,16 @@ from dataclasses import asdict, dataclass, field
 
 from mtp_expert_prefetch.runtime.premap import PremapAddressRecord, PremapPreparedPlan
 
+PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_COLUMNS = (
+    "descriptor_ptr",
+    "packed_weight_descriptor",
+    "scale_metadata_handle",
+    "aux_metadata_handle",
+)
+PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH = hashlib.sha256(
+    "|".join(PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_COLUMNS).encode("utf-8")
+).hexdigest()
+
 
 @dataclass
 class CacheManagerEntry:
@@ -331,6 +341,10 @@ class PremapDescriptorConsumerShimResult:
     object_hash: str | None
     read_ok: bool
     shim_ok: bool
+    handle_table_row_count: int
+    handle_table_column_count: int
+    handle_table_schema_hash: str
+    handle_table_payload_bytes: int = 0
     payload_bytes: int = 0
     ready_credit: bool = False
     changes_router: bool = False
@@ -747,6 +761,14 @@ class ControlledPremapAddressManager:
             object_hash=read_result.object_hash,
             read_ok=bool(read_result.read_ok),
             shim_ok=bool(shim_ok),
+            handle_table_row_count=int(read_result.object_hit_count),
+            handle_table_column_count=len(
+                PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_COLUMNS
+            ),
+            handle_table_schema_hash=(
+                PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH
+            ),
+            handle_table_payload_bytes=0,
             payload_bytes=0,
             ready_credit=False,
             changes_router=False,

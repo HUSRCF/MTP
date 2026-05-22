@@ -14628,6 +14628,10 @@ premap_consumer_descriptor_prep_consumer_shim_executed_count
 premap_consumer_descriptor_prep_consumer_shim_ok_count
 premap_consumer_descriptor_prep_consumer_shim_ok_rate
 premap_consumer_descriptor_prep_consumer_shim_object_count
+premap_consumer_descriptor_prep_consumer_shim_handle_table_row_count
+premap_consumer_descriptor_prep_consumer_shim_handle_table_column_count_max
+premap_consumer_descriptor_prep_consumer_shim_handle_table_payload_bytes
+premap_consumer_descriptor_prep_consumer_shim_handle_table_payload_violation_count
 premap_consumer_descriptor_prep_consumer_shim_kernel_arg_violation_count
 ```
 
@@ -14665,6 +14669,10 @@ execution_mode = readonly_prelaunch_consumer_shim
 shim_ok
 object_count
 object_hash
+handle_table_row_count
+handle_table_column_count
+handle_table_schema_hash
+handle_table_payload_bytes = 0
 changes_kernel_launch_args = false
 ```
 
@@ -14672,6 +14680,18 @@ This is still not a real kernel integration.  It is a no-op prelaunch consumer
 shim that proves the prepared descriptor/address object can be handed across a
 runtime boundary without changing payload, ready credit, router output,
 descriptor order, or kernel launch arguments.
+
+The handle-table fields are a dry-run shape contract only.  They describe the
+future consumer table as:
+
+```text
+rows = readable descriptor prep objects
+columns = descriptor_ptr / packed_weight_descriptor / scale_metadata_handle /
+          aux_metadata_handle
+payload bytes = 0
+```
+
+No table is passed into vLLM kernels yet.
 
 Validation:
 
@@ -14718,6 +14738,14 @@ runtime_shadow_aggregate_premap_consumer_descriptor_prep_consumer_shim_executed_
   20480
 runtime_shadow_aggregate_premap_consumer_descriptor_prep_consumer_shim_object_count =
   190215
+runtime_shadow_aggregate_premap_consumer_descriptor_prep_consumer_shim_handle_table_row_count =
+  190215
+runtime_shadow_aggregate_premap_consumer_descriptor_prep_consumer_shim_handle_table_column_count_max =
+  4
+runtime_shadow_aggregate_premap_consumer_descriptor_prep_consumer_shim_handle_table_payload_bytes =
+  0
+runtime_shadow_aggregate_premap_consumer_descriptor_prep_consumer_shim_handle_table_payload_violation_count =
+  0
 runtime_shadow_aggregate_premap_consumer_descriptor_prep_consumer_shim_ok_count =
   20480
 runtime_shadow_aggregate_premap_consumer_descriptor_prep_consumer_shim_ok_rate =

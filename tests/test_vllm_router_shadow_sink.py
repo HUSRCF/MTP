@@ -102,6 +102,10 @@ def test_runtime_shadow_aggregate_fields_are_flattened_to_performance_summary():
         "premap_consumer_descriptor_prep_consumer_shim_ok_count": 4,
         "premap_consumer_descriptor_prep_consumer_shim_ok_rate": 1.0,
         "premap_consumer_descriptor_prep_consumer_shim_object_count": 16,
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_row_count": 16,
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_column_count_max": 4,
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_payload_bytes": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_payload_violation_count": 0,
         "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_violation_count": 0,
         "unrelated_debug_key": 99,
     }
@@ -208,6 +212,30 @@ def test_runtime_shadow_aggregate_fields_are_flattened_to_performance_summary():
     assert (
         performance[
             "runtime_shadow_aggregate_premap_consumer_descriptor_prep_consumer_shim_kernel_arg_violation_count"
+        ]
+        == 0
+    )
+    assert (
+        performance[
+            "runtime_shadow_aggregate_premap_consumer_descriptor_prep_consumer_shim_handle_table_row_count"
+        ]
+        == 16
+    )
+    assert (
+        performance[
+            "runtime_shadow_aggregate_premap_consumer_descriptor_prep_consumer_shim_handle_table_column_count_max"
+        ]
+        == 4
+    )
+    assert (
+        performance[
+            "runtime_shadow_aggregate_premap_consumer_descriptor_prep_consumer_shim_handle_table_payload_bytes"
+        ]
+        == 0
+    )
+    assert (
+        performance[
+            "runtime_shadow_aggregate_premap_consumer_descriptor_prep_consumer_shim_handle_table_payload_violation_count"
         ]
         == 0
     )
@@ -1345,6 +1373,27 @@ def test_vllm_router_recorder_premap_consumer_mapping_hits_prepared_addresses():
     assert consumer["premap_consumer_descriptor_prep_consumer_shim_object_hash"] == (
         consumer["premap_consumer_descriptor_prep_consumer_object_hash"]
     )
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_row_count"
+        ]
+        == 2
+    )
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_column_count"
+        ]
+        == 4
+    )
+    assert consumer[
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_schema_hash"
+    ]
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_payload_bytes"
+        ]
+        == 0
+    )
     assert consumer["premap_consumer_descriptor_prep_consumer_shim_ok"] is True
     assert (
         consumer[
@@ -1446,6 +1495,27 @@ def test_vllm_router_recorder_premap_descriptor_prep_uses_real_handles():
     assert consumer["premap_consumer_descriptor_prep_consumer_shim_object_count"] == 2
     assert consumer["premap_consumer_descriptor_prep_consumer_shim_object_hash"] == (
         consumer["premap_consumer_descriptor_prep_consumer_object_hash"]
+    )
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_row_count"
+        ]
+        == 2
+    )
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_column_count"
+        ]
+        == 4
+    )
+    assert consumer[
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_schema_hash"
+    ]
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_payload_bytes"
+        ]
+        == 0
     )
     assert consumer["premap_consumer_descriptor_prep_consumer_shim_ok"] is True
     assert (

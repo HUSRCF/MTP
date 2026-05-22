@@ -742,6 +742,10 @@ class ShadowPremapConsumerMappingEvent:
     descriptor_prep_consumer_shim_mode: str | None = None
     descriptor_prep_consumer_shim_object_count: int | None = None
     descriptor_prep_consumer_shim_object_hash: str | None = None
+    descriptor_prep_consumer_shim_handle_table_row_count: int | None = None
+    descriptor_prep_consumer_shim_handle_table_column_count: int | None = None
+    descriptor_prep_consumer_shim_handle_table_schema_hash: str | None = None
+    descriptor_prep_consumer_shim_handle_table_payload_bytes: int | None = None
     descriptor_prep_consumer_shim_ok: bool | None = None
     descriptor_prep_consumer_shim_changes_kernel_launch_args: bool | None = None
     descriptor_prep_execution_ok: bool | None = None
@@ -1052,6 +1056,26 @@ class ShadowPremapConsumerMappingEvent:
         )
         _put_optional(
             payload,
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_row_count",
+            self.descriptor_prep_consumer_shim_handle_table_row_count,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_column_count",
+            self.descriptor_prep_consumer_shim_handle_table_column_count,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_schema_hash",
+            self.descriptor_prep_consumer_shim_handle_table_schema_hash,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_payload_bytes",
+            self.descriptor_prep_consumer_shim_handle_table_payload_bytes,
+        )
+        _put_optional(
+            payload,
             "premap_consumer_descriptor_prep_consumer_shim_ok",
             self.descriptor_prep_consumer_shim_ok,
         )
@@ -1284,6 +1308,10 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
         "premap_consumer_descriptor_prep_consumer_shim_executed_count": 0,
         "premap_consumer_descriptor_prep_consumer_shim_ok_count": 0,
         "premap_consumer_descriptor_prep_consumer_shim_object_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_row_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_column_count_max": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_payload_bytes": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_payload_violation_count": 0,
         "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_violation_count": 0,
         "premap_consumer_descriptor_prep_execution_ok_count": 0,
         "premap_consumer_descriptor_prep_checked_count": 0,
@@ -1788,6 +1816,52 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
                         0,
                     )
                     or 0
+                )
+                totals[
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_row_count"
+                ] += int(
+                    event.get(
+                        "premap_consumer_descriptor_prep_consumer_shim_handle_table_row_count",
+                        0,
+                    )
+                    or 0
+                )
+                totals[
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_column_count_max"
+                ] = max(
+                    int(
+                        totals[
+                            "premap_consumer_descriptor_prep_consumer_shim_handle_table_column_count_max"
+                        ]
+                    ),
+                    int(
+                        event.get(
+                            "premap_consumer_descriptor_prep_consumer_shim_handle_table_column_count",
+                            0,
+                        )
+                        or 0
+                    ),
+                )
+                totals[
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_payload_bytes"
+                ] += int(
+                    event.get(
+                        "premap_consumer_descriptor_prep_consumer_shim_handle_table_payload_bytes",
+                        0,
+                    )
+                    or 0
+                )
+                totals[
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_payload_violation_count"
+                ] += int(
+                    int(
+                        event.get(
+                            "premap_consumer_descriptor_prep_consumer_shim_handle_table_payload_bytes",
+                            0,
+                        )
+                        or 0
+                    )
+                    != 0
                 )
                 totals["premap_consumer_descriptor_prep_consumer_shim_ok_count"] += int(
                     bool(
