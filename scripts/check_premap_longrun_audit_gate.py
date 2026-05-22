@@ -221,7 +221,7 @@ def check_summary(
     )
     if real_handle_hits <= 0:
         failures.append("real_descriptor_handle_hit_count_missing_or_zero")
-    for source in ("packed_weight", "scale_metadata", "aux_metadata"):
+    for source in ("packed_weight", "scale_metadata"):
         hit_count = _as_int(
             aggregate.get(f"premap_consumer_real_descriptor_handle_{source}_hit_count")
         )

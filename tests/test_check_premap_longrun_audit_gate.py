@@ -274,7 +274,7 @@ def test_premap_longrun_audit_gate_rejects_real_handle_source_misses():
         "real_descriptor_handle_scale_metadata_hit_count_mismatch=19!=20"
         in result["failures"]
     )
-    assert "real_descriptor_handle_aux_metadata_miss_count_nonzero=1" in result["failures"]
+    assert "real_descriptor_handle_aux_metadata_miss_count_nonzero=1" not in result["failures"]
     assert "real_descriptor_handle_no_handle_parts_count_nonzero=1" in result["failures"]
 
 

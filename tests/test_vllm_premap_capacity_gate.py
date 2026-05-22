@@ -38,7 +38,14 @@ def _write_readonly_gate(
     descriptor_prep_execution_mode: str | None = None,
     descriptor_prep_payload_bytes: int | None = None,
     descriptor_prep_kernel_arg_mutation: bool | None = None,
+    real_descriptor_prep_required: bool | None = None,
+    require_real_descriptor_prep: bool | None = None,
 ):
+    if descriptor_prep_execution_mode is not None:
+        if real_descriptor_prep_required is None:
+            real_descriptor_prep_required = True
+        if require_real_descriptor_prep is None:
+            require_real_descriptor_prep = True
     status = "passed" if passed else "failed"
     gate_passed = "true" if passed else "false"
     lines = [
@@ -62,6 +69,10 @@ def _write_readonly_gate(
     )
     if descriptor_prep_execution_mode is not None:
         lines.append(
+            "  real_descriptor_prep_required: "
+            f"{str(bool(real_descriptor_prep_required)).lower()}"
+        )
+        lines.append(
             f"  descriptor_prep_execution_mode: {descriptor_prep_execution_mode}"
         )
     if descriptor_prep_payload_bytes is not None:
@@ -78,6 +89,18 @@ def _write_readonly_gate(
             "gate:",
             f"  passed: {gate_passed}",
             "  failures: []",
+        ]
+    )
+    if require_real_descriptor_prep is not None:
+        lines.extend(
+            [
+                "  check:",
+                "    require_real_descriptor_prep: "
+                f"{str(bool(require_real_descriptor_prep)).lower()}",
+            ]
+        )
+    lines.extend(
+        [
             "  metrics:",
             "    premap_consumer_mapping_count: 2",
             "evidence_paths:",
@@ -228,6 +251,67 @@ def test_apply_premap_consumer_readonly_gate_accepts_descriptor_prep_contract(tm
     )
 
     assert options["premap_consumer_readonly_gate_passed"] is True
+
+
+def test_apply_premap_consumer_readonly_gate_requires_real_descriptor_prep_contract(tmp_path):
+    gate = tmp_path / "readonly_gate.yaml"
+    _write_readonly_gate(
+        gate,
+        lab_precondition=True,
+        descriptor_prep_execution_mode="readonly_descriptor_address_object",
+        descriptor_prep_payload_bytes=0,
+        descriptor_prep_kernel_arg_mutation=False,
+        real_descriptor_prep_required=False,
+    )
+
+    with pytest.raises(ValueError, match="real_descriptor_prep_required=true"):
+        _apply_premap_consumer_readonly_gate(
+            {
+                "enabled": True,
+                "emit_premap_consumer_mapping": True,
+                "premap_consumer_require_readonly_gate": True,
+                "premap_consumer_readonly_gate_path": str(gate),
+                "premap_consumer_mapping_mode": "noop_assertion",
+                "premap_consumer_resolve_real_handles": True,
+                "premap_policy": "premap_only_with_consumer_mapping_noop",
+                "premap_descriptor_bytes": 4096,
+                "premap_descriptor_prep_execution_mode": (
+                    "readonly_descriptor_address_object"
+                ),
+            },
+            project_root=tmp_path,
+        )
+
+
+def test_apply_premap_consumer_readonly_gate_requires_real_descriptor_prep_check(tmp_path):
+    gate = tmp_path / "readonly_gate.yaml"
+    _write_readonly_gate(
+        gate,
+        lab_precondition=True,
+        descriptor_prep_execution_mode="readonly_descriptor_address_object",
+        descriptor_prep_payload_bytes=0,
+        descriptor_prep_kernel_arg_mutation=False,
+        real_descriptor_prep_required=True,
+        require_real_descriptor_prep=False,
+    )
+
+    with pytest.raises(ValueError, match="require_real_descriptor_prep=true"):
+        _apply_premap_consumer_readonly_gate(
+            {
+                "enabled": True,
+                "emit_premap_consumer_mapping": True,
+                "premap_consumer_require_readonly_gate": True,
+                "premap_consumer_readonly_gate_path": str(gate),
+                "premap_consumer_mapping_mode": "noop_assertion",
+                "premap_consumer_resolve_real_handles": True,
+                "premap_policy": "premap_only_with_consumer_mapping_noop",
+                "premap_descriptor_bytes": 4096,
+                "premap_descriptor_prep_execution_mode": (
+                    "readonly_descriptor_address_object"
+                ),
+            },
+            project_root=tmp_path,
+        )
 
 
 def test_apply_premap_consumer_readonly_gate_rejects_descriptor_prep_contract_mutation(tmp_path):

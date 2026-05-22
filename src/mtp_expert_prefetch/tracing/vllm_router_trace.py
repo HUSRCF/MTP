@@ -9450,6 +9450,22 @@ def _apply_premap_consumer_readonly_gate(
                     f"contract for {path}: {key}={observed!r} != {expected!r}"
                 )
                 raise ValueError(msg)
+        check = gate.get("check", {})
+        if not isinstance(check, dict):
+            msg = f"Premap consumer readonly gate `gate.check` must be a mapping: {path}"
+            raise TypeError(msg)
+        if contract.get("real_descriptor_prep_required") is not True:
+            msg = (
+                "premap_descriptor_prep_execution_mode requires a readonly gate "
+                f"with contract.real_descriptor_prep_required=true: {path}"
+            )
+            raise ValueError(msg)
+        if check.get("require_real_descriptor_prep") is not True:
+            msg = (
+                "premap_descriptor_prep_execution_mode requires a readonly gate "
+                f"checked with require_real_descriptor_prep=true: {path}"
+            )
+            raise ValueError(msg)
     descriptor_bytes = contract.get("descriptor_bytes")
     option_descriptor_bytes = options.get("premap_descriptor_bytes", 4096)
     if (

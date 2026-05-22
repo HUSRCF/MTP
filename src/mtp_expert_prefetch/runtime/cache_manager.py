@@ -462,9 +462,12 @@ class ControlledPremapAddressManager:
             if real_handle is not None:
                 payload_bytes += int(real_handle.payload_bytes)
             hash_parts.append(f"address_key:{key}")
-            if handle.descriptor_ptr:
+            descriptor_ptr = (
+                real_handle.descriptor_ptr if real_handle is not None else handle.descriptor_ptr
+            )
+            if descriptor_ptr:
                 descriptor_ptr_count += 1
-                hash_parts.append(f"descriptor_ptr:{handle.descriptor_ptr}")
+                hash_parts.append(f"descriptor_ptr:{descriptor_ptr}")
             packed_descriptor = (
                 real_handle.packed_weight_descriptor
                 if real_handle is not None
