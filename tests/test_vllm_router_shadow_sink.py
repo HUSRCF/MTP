@@ -84,6 +84,11 @@ def test_runtime_shadow_aggregate_fields_are_flattened_to_performance_summary():
         "premap_consumer_readonly_evicted_before_consume_count": 2,
         "premap_consumer_readonly_stale_handle_count": 1,
         "premap_consumer_readonly_handle_parity_ok_rate": 0.75,
+        "premap_consumer_descriptor_prep_real_handle_count": 16,
+        "premap_consumer_descriptor_prep_real_handle_miss_count": 0,
+        "premap_consumer_descriptor_prep_real_handle_hit_rate": 1.0,
+        "premap_consumer_descriptor_prep_real_handle_backed_count": 4,
+        "premap_consumer_descriptor_prep_real_handle_backed_rate": 1.0,
         "unrelated_debug_key": 99,
     }
     performance: dict[str, object] = {}
@@ -125,6 +130,18 @@ def test_runtime_shadow_aggregate_fields_are_flattened_to_performance_summary():
             "runtime_shadow_aggregate_premap_consumer_readonly_handle_parity_ok_rate"
         ]
         == 0.75
+    )
+    assert (
+        performance[
+            "runtime_shadow_aggregate_premap_consumer_descriptor_prep_real_handle_count"
+        ]
+        == 16
+    )
+    assert (
+        performance[
+            "runtime_shadow_aggregate_premap_consumer_descriptor_prep_real_handle_backed_rate"
+        ]
+        == 1.0
     )
     assert "runtime_shadow_aggregate_unrelated_debug_key" not in performance
 
@@ -1237,6 +1254,9 @@ def test_vllm_router_recorder_premap_consumer_mapping_hits_prepared_addresses():
         == 2
     )
     assert consumer["premap_consumer_descriptor_prep_scale_metadata_handle_count"] == 2
+    assert consumer["premap_consumer_descriptor_prep_real_handle_count"] == 0
+    assert consumer["premap_consumer_descriptor_prep_real_handle_miss_count"] == 0
+    assert consumer["premap_consumer_descriptor_prep_real_handle_backed"] is False
     assert consumer["premap_consumer_descriptor_prep_handle_hash"]
     assert consumer["premap_consumer_descriptor_prep_execution_ok"] is True
     assert consumer["premap_consumer_expected_prepare_plan_count"] == 1
@@ -1250,6 +1270,73 @@ def test_vllm_router_recorder_premap_consumer_mapping_hits_prepared_addresses():
     assert consumer["premap_consumer_changes_router"] is False
     assert consumer["premap_consumer_changes_descriptor_order"] is False
     assert consumer["premap_consumer_ready_credit"] is False
+
+
+def test_vllm_router_recorder_premap_descriptor_prep_uses_real_handles():
+    sink = _Sink()
+    consumer_layer = _FakeAwqConsumerLayer(num_experts=6)
+    recorder = VllmRouterRecorder(
+        top_k=2,
+        shadow_outcome_sink=sink,
+        shadow_outcome_logging_mode="off",
+        shadow_emit_premap_summary=True,
+        shadow_emit_premap_address_manager_counters=True,
+        shadow_emit_premap_consumer_mapping=True,
+        shadow_premap_address_manager_capacity=4,
+        shadow_premap_consumer_resolve_real_handles=True,
+        shadow_premap_consumer_readonly_gate_required=True,
+        shadow_premap_consumer_readonly_gate_id="readonly-gate",
+        shadow_premap_consumer_readonly_gate_path="configs/runtime/readonly.yaml",
+        shadow_premap_consumer_readonly_gate_passed=True,
+        shadow_premap_descriptor_prep_execution_mode=(
+            "readonly_descriptor_address_object"
+        ),
+        shadow_num_experts=6,
+        request_id="req",
+        sequence_id=5,
+    )
+
+    recorder.record_topk(
+        layer_id=3,
+        topk_ids=torch.tensor([[1, 2]]),
+        topk_weights=torch.tensor([[0.8, 0.2]]),
+    )
+    recorder._write_premap_consumer_mapping_from_experts(
+        layer_id=3,
+        active_experts=[1, 2],
+        consumer_layer=consumer_layer,
+    )
+
+    consumer = [
+        event.as_dict()
+        for event in sink.events
+        if event.as_dict()["event_type"] == "premap_consumer_mapping"
+    ][0]
+    assert consumer["premap_consumer_address_hit_count"] == 2
+    assert consumer["premap_consumer_address_miss_count"] == 0
+    assert consumer["premap_consumer_readonly_handle_parity_ok"] is True
+    assert consumer["premap_consumer_real_descriptor_handle_hit_count"] == 2
+    assert consumer["premap_consumer_real_descriptor_handle_miss_count"] == 0
+    assert consumer["premap_consumer_real_descriptor_handle_available"] is True
+    assert consumer["premap_consumer_real_descriptor_handle_source_hit_counts"] == {
+        "packed_weight": 2,
+        "scale_metadata": 2,
+        "aux_metadata": 0,
+    }
+    assert consumer["premap_consumer_descriptor_prep_execution_mode"] == (
+        "readonly_descriptor_address_object"
+    )
+    assert consumer["premap_consumer_descriptor_prep_handle_count"] == 2
+    assert consumer["premap_consumer_descriptor_prep_missing_handle_count"] == 0
+    assert consumer["premap_consumer_descriptor_prep_real_handle_count"] == 2
+    assert consumer["premap_consumer_descriptor_prep_real_handle_miss_count"] == 0
+    assert consumer["premap_consumer_descriptor_prep_real_handle_backed"] is True
+    assert consumer["premap_consumer_descriptor_prep_real_handle_hash"]
+    assert consumer["premap_consumer_descriptor_prep_execution_ok"] is True
+    assert consumer["premap_consumer_payload_bytes"] == 0
+    assert consumer["premap_consumer_ready_credit"] is False
+    assert consumer["premap_consumer_changes_router"] is False
+    assert consumer["premap_consumer_changes_descriptor_order"] is False
 
 
 def test_vllm_router_recorder_premap_descriptor_prep_requires_passed_gate():

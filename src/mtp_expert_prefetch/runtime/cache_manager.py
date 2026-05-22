@@ -149,6 +149,32 @@ class PremapAddressHandle:
         return asdict(self)
 
 
+@dataclass(frozen=True)
+class PremapRealDescriptorHandle:
+    """Read-only signature of a live vLLM/AWQ descriptor/address handle.
+
+    The object is intentionally a runtime-address signature, not a payload
+    wrapper: it records which live packed-weight / scale / auxiliary metadata
+    source classes were resolvable for an expert without copying or mutating the
+    tensors behind those handles.
+    """
+
+    expert_id: int
+    local_expert_id: int
+    handle_hash: str
+    packed_weight_descriptor: str | None = None
+    scale_metadata_handle: str | None = None
+    aux_metadata_handle: str | None = None
+    payload_bytes: int = 0
+
+    @property
+    def descriptor_ptr(self) -> str:
+        return f"real_descriptor://{self.handle_hash}"
+
+    def as_dict(self) -> dict[str, int | str | None]:
+        return asdict(self)
+
+
 @dataclass
 class PremapAddressCacheEntry:
     descriptor_bytes: int
@@ -217,6 +243,10 @@ class PremapDescriptorPrepExecutionResult:
     changes_descriptor_order: bool
     handle_hash: str | None
     execution_ok: bool
+    real_descriptor_handle_count: int = 0
+    real_descriptor_handle_miss_count: int = 0
+    real_descriptor_handle_backed: bool = False
+    real_descriptor_handle_hash: str | None = None
 
     def as_dict(self) -> dict[str, int | bool | str | None]:
         return asdict(self)
@@ -371,6 +401,9 @@ class ControlledPremapAddressManager:
         address_keys: Iterable[str],
         *,
         execution_mode: str = "readonly_descriptor_address_object",
+        real_descriptor_handles_by_address_key: (
+            dict[str, PremapRealDescriptorHandle] | None
+        ) = None,
     ) -> PremapDescriptorPrepExecutionResult:
         """Resolve prepared descriptor/address objects for a runtime consumer.
 
@@ -385,8 +418,12 @@ class ControlledPremapAddressManager:
         descriptor_ptr_count = 0
         packed_weight_descriptor_count = 0
         scale_metadata_handle_count = 0
+        real_descriptor_handle_count = 0
+        real_descriptor_handle_miss_count = 0
         payload_bytes = 0
         hash_parts: list[str] = []
+        real_hash_parts: list[str] = []
+        real_handles = real_descriptor_handles_by_address_key
         for raw_key in address_keys:
             lookup_count += 1
             key = str(raw_key)
@@ -395,27 +432,69 @@ class ControlledPremapAddressManager:
                 missing_handle_count += 1
                 continue
             handle = entry.handle
+            real_handle = real_handles.get(key) if real_handles is not None else None
+            if real_handles is not None:
+                if real_handle is None:
+                    real_descriptor_handle_miss_count += 1
+                    continue
+                real_descriptor_handle_count += 1
+                real_hash_parts.append(
+                    "|".join(
+                        str(part)
+                        for part in (
+                            key,
+                            real_handle.expert_id,
+                            real_handle.local_expert_id,
+                            real_handle.handle_hash,
+                            real_handle.packed_weight_descriptor,
+                            real_handle.scale_metadata_handle,
+                            real_handle.aux_metadata_handle,
+                        )
+                    )
+                )
             prepared_handle_count += 1
             payload_bytes += int(handle.payload_bytes)
+            if real_handle is not None:
+                payload_bytes += int(real_handle.payload_bytes)
             hash_parts.append(f"address_key:{key}")
             if handle.descriptor_ptr:
                 descriptor_ptr_count += 1
                 hash_parts.append(f"descriptor_ptr:{handle.descriptor_ptr}")
-            if handle.packed_weight_descriptor:
+            packed_descriptor = (
+                real_handle.packed_weight_descriptor
+                if real_handle is not None
+                else handle.packed_weight_descriptor
+            )
+            if packed_descriptor:
                 packed_weight_descriptor_count += 1
-                hash_parts.append(
-                    f"packed_weight_descriptor:{handle.packed_weight_descriptor}"
-                )
-            if handle.scale_metadata_handle:
+                hash_parts.append(f"packed_weight_descriptor:{packed_descriptor}")
+            scale_descriptor = (
+                real_handle.scale_metadata_handle
+                if real_handle is not None
+                else handle.scale_metadata_handle
+            )
+            if scale_descriptor:
                 scale_metadata_handle_count += 1
-                hash_parts.append(
-                    f"scale_metadata_handle:{handle.scale_metadata_handle}"
-                )
+                hash_parts.append(f"scale_metadata_handle:{scale_descriptor}")
             hash_parts.append(f"handle_hash:{handle.handle_hash}")
+            if real_handle is not None:
+                hash_parts.append(f"real_handle_hash:{real_handle.handle_hash}")
         handle_hash = None
         if hash_parts:
             payload = "|".join(sorted(hash_parts)).encode("utf-8")
             handle_hash = hashlib.sha256(payload).hexdigest()
+        real_descriptor_handle_hash = None
+        if real_hash_parts:
+            real_payload = "|".join(sorted(real_hash_parts)).encode("utf-8")
+            real_descriptor_handle_hash = hashlib.sha256(real_payload).hexdigest()
+        real_backed = real_handles is not None
+        real_ok = (
+            not real_backed
+            or (
+                real_descriptor_handle_count == prepared_handle_count
+                and real_descriptor_handle_miss_count == 0
+            )
+        )
         return PremapDescriptorPrepExecutionResult(
             execution_mode=str(execution_mode),
             lookup_count=lookup_count,
@@ -424,6 +503,10 @@ class ControlledPremapAddressManager:
             descriptor_ptr_count=descriptor_ptr_count,
             packed_weight_descriptor_count=packed_weight_descriptor_count,
             scale_metadata_handle_count=scale_metadata_handle_count,
+            real_descriptor_handle_count=real_descriptor_handle_count,
+            real_descriptor_handle_miss_count=real_descriptor_handle_miss_count,
+            real_descriptor_handle_backed=real_backed,
+            real_descriptor_handle_hash=real_descriptor_handle_hash,
             payload_bytes=payload_bytes,
             ready_credit=False,
             changes_router=False,
@@ -436,6 +519,7 @@ class ControlledPremapAddressManager:
                 and descriptor_ptr_count == prepared_handle_count
                 and packed_weight_descriptor_count == prepared_handle_count
                 and scale_metadata_handle_count == prepared_handle_count
+                and real_ok
             ),
         )
 

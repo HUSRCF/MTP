@@ -14302,3 +14302,90 @@ conda run -p /home/husrcf/anaconda3/envs/TRY pytest tests/test_check_premap_long
 conda run -p /home/husrcf/anaconda3/envs/TRY pytest tests -q
 455 passed, 2 warnings
 ```
+
+### 2026-05-22: Real-handle-backed descriptor prep object smoke
+
+The minimal descriptor/address prep path now has a real-handle-backed execution
+contract.  `ControlledPremapAddressManager.execute_descriptor_prep_readonly()`
+can optionally receive live vLLM/AWQ runtime-address signatures:
+
+```text
+address_key
+  -> PremapRealDescriptorHandle
+  -> packed-weight descriptor signature
+  -> scale metadata handle signature
+  -> optional auxiliary metadata signature
+```
+
+This remains a read-only prep object:
+
+```text
+payload_bytes = 0
+ready_credit = false
+changes_router = false
+changes_descriptor_order = false
+kernel args unchanged
+```
+
+The execution result and runtime shadow aggregate now expose:
+
+```text
+premap_consumer_descriptor_prep_real_handle_count
+premap_consumer_descriptor_prep_real_handle_miss_count
+premap_consumer_descriptor_prep_real_handle_hit_rate
+premap_consumer_descriptor_prep_real_handle_backed_count
+premap_consumer_descriptor_prep_real_handle_backed_rate
+premap_consumer_descriptor_prep_real_handle_hash
+```
+
+Safety refinements:
+
+```text
+real handle payload_bytes > 0 fails execution_ok
+missing real handle fails execution_ok
+incomplete packed-weight / scale metadata fails execution_ok
+real-handle hit rate includes descriptor-prep missing handles in the denominator
+```
+
+GPU1 AWQ 8-sample smoke:
+
+```text
+config:
+  configs/trace/router_mtp_trace_external_prompt_gate_dolly_8_awq_vllm_gpu1_decode_gen64_premap_consumer_mapping_smoke.yaml
+
+runtime_shadow rows: 102,400
+premap_consumer_mapping rows: 20,480
+descriptor_prep_real_handle_backed rows: 20,480 / 20,480
+descriptor_prep_real_handle_count sum: 190,215
+descriptor_prep_real_handle_miss_count sum: 0
+descriptor_prep_execution_ok rows: 20,480 / 20,480
+descriptor_prep_blocked rows: 0
+
+performance_summary:
+  runtime_shadow_aggregate_premap_consumer_descriptor_prep_real_handle_backed_rate = 1.0
+  runtime_shadow_aggregate_premap_consumer_descriptor_prep_real_handle_hit_rate = 1.0
+  runtime_shadow_aggregate_premap_consumer_descriptor_prep_real_handle_miss_count = 0
+```
+
+Boundary:
+
+```text
+This validates that the read-only consumer can build a descriptor/address prep
+object from actual vLLM/AWQ packed-weight and scale metadata handles.  It still
+does not move payload, mark experts ready, change routing, change descriptor
+visitation order, or patch a fused-MoE kernel launch argument.
+```
+
+Verification:
+
+```text
+conda run -p /home/husrcf/anaconda3/envs/TRY pytest \
+  tests/test_runtime_premap.py \
+  tests/test_runtime_shadow_log.py \
+  tests/test_vllm_router_shadow_sink.py \
+  tests/test_check_premap_longrun_audit_gate.py -q
+94 passed
+
+conda run -p /home/husrcf/anaconda3/envs/TRY pytest tests -q
+461 passed, 2 warnings
+```

@@ -355,6 +355,10 @@ def test_shadow_log_aggregates_premap_consumer_mapping_without_side_effects(tmp_
         descriptor_prep_descriptor_ptr_count=2,
         descriptor_prep_packed_weight_descriptor_count=2,
         descriptor_prep_scale_metadata_handle_count=2,
+        descriptor_prep_real_handle_count=2,
+        descriptor_prep_real_handle_miss_count=0,
+        descriptor_prep_real_handle_backed=True,
+        descriptor_prep_real_handle_hash="prep-real-hash",
         descriptor_prep_handle_hash="prep-hash",
         descriptor_prep_execution_ok=True,
         expected_key_hash="consumer-hash",
@@ -446,6 +450,10 @@ def test_shadow_log_aggregates_premap_consumer_mapping_without_side_effects(tmp_
         "readonly_descriptor_address_object"
     )
     assert rows[0]["premap_consumer_descriptor_prep_handle_hash"] == "prep-hash"
+    assert (
+        rows[0]["premap_consumer_descriptor_prep_real_handle_hash"]
+        == "prep-real-hash"
+    )
     assert aggregate["premap_consumer_descriptor_prep_lookup_count"] == 2
     assert aggregate["premap_consumer_descriptor_prep_attempted_count"] == 1
     assert aggregate["premap_consumer_descriptor_prep_executed_count"] == 1
@@ -460,6 +468,11 @@ def test_shadow_log_aggregates_premap_consumer_mapping_without_side_effects(tmp_
         == 2
     )
     assert aggregate["premap_consumer_descriptor_prep_scale_metadata_handle_count"] == 2
+    assert aggregate["premap_consumer_descriptor_prep_real_handle_count"] == 2
+    assert aggregate["premap_consumer_descriptor_prep_real_handle_miss_count"] == 0
+    assert aggregate["premap_consumer_descriptor_prep_real_handle_hit_rate"] == 1.0
+    assert aggregate["premap_consumer_descriptor_prep_real_handle_backed_count"] == 1
+    assert aggregate["premap_consumer_descriptor_prep_real_handle_backed_rate"] == 1.0
     assert aggregate["premap_consumer_descriptor_prep_execution_ok_rate"] == 1.0
     assert (
         aggregate["premap_consumer_descriptor_prep_execution_ok_attempted_rate"]
@@ -472,6 +485,44 @@ def test_shadow_log_aggregates_premap_consumer_mapping_without_side_effects(tmp_
     assert aggregate["premap_consumer_router_change_violation_count"] == 0
     assert aggregate["premap_consumer_descriptor_order_change_violation_count"] == 0
     assert aggregate["premap_consumer_ready_credit_violation_count"] == 0
+
+
+def test_shadow_log_premap_descriptor_prep_real_hit_rate_counts_missing_handles():
+    event = ShadowPremapConsumerMappingEvent(
+        event_id=ShadowEventId("req", sequence_id=0, token_index=-1, layer=2),
+        mapping_mode="noop_assertion",
+        mapping_source="fused_moe_prepare_expert_assignment",
+        address_namespace="expert_weight_descriptor",
+        consumer_expert_count=2,
+        consumer_unique_expert_count=2,
+        address_hit_count=1,
+        address_miss_count=1,
+        address_hit_rate=0.5,
+        all_hit=False,
+        parity_ok=False,
+        consumer_key_hash="consumer-hash",
+        descriptor_handle_hit_count=1,
+        descriptor_handle_miss_count=1,
+        descriptor_handle_parity_ok=False,
+        descriptor_prep_execution_mode="readonly_descriptor_address_object",
+        descriptor_prep_lookup_count=2,
+        descriptor_prep_handle_count=1,
+        descriptor_prep_missing_handle_count=1,
+        descriptor_prep_descriptor_ptr_count=1,
+        descriptor_prep_packed_weight_descriptor_count=1,
+        descriptor_prep_scale_metadata_handle_count=1,
+        descriptor_prep_real_handle_count=1,
+        descriptor_prep_real_handle_miss_count=0,
+        descriptor_prep_real_handle_backed=True,
+        descriptor_prep_execution_ok=False,
+    )
+
+    aggregate = aggregate_shadow_events([event.as_dict()])
+
+    assert aggregate["premap_consumer_descriptor_prep_real_handle_count"] == 1
+    assert aggregate["premap_consumer_descriptor_prep_real_handle_miss_count"] == 0
+    assert aggregate["premap_consumer_descriptor_prep_missing_handle_count"] == 1
+    assert aggregate["premap_consumer_descriptor_prep_real_handle_hit_rate"] == 0.5
 
 
 def test_premap_consumer_readonly_gate_passed_false_is_serialized():

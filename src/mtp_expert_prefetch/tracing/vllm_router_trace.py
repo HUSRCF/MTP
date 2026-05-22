@@ -30,7 +30,10 @@ from mtp_expert_prefetch.runtime.descriptor_order_gate import (
     DescriptorOrderRuntimeGate,
     load_descriptor_order_consumer_evidence,
 )
-from mtp_expert_prefetch.runtime.cache_manager import ControlledPremapAddressManager
+from mtp_expert_prefetch.runtime.cache_manager import (
+    ControlledPremapAddressManager,
+    PremapRealDescriptorHandle,
+)
 from mtp_expert_prefetch.runtime.online_shadow import OnlineShadowLogger
 from mtp_expert_prefetch.runtime.premap import (
     ExpertPrefetchDescriptor,
@@ -157,6 +160,11 @@ RUNTIME_SHADOW_AGGREGATE_PERFORMANCE_KEYS = (
     "premap_consumer_descriptor_prep_descriptor_ptr_count",
     "premap_consumer_descriptor_prep_packed_weight_descriptor_count",
     "premap_consumer_descriptor_prep_scale_metadata_handle_count",
+    "premap_consumer_descriptor_prep_real_handle_count",
+    "premap_consumer_descriptor_prep_real_handle_miss_count",
+    "premap_consumer_descriptor_prep_real_handle_hit_rate",
+    "premap_consumer_descriptor_prep_real_handle_backed_count",
+    "premap_consumer_descriptor_prep_real_handle_backed_rate",
     "premap_consumer_descriptor_prep_execution_ok_rate",
     "premap_consumer_descriptor_prep_execution_ok_attempted_rate",
     "premap_consumer_descriptor_prep_blocked_count",
@@ -1775,6 +1783,7 @@ class VllmRouterRecorder:
         str | None,
         bool | None,
         dict[int, str],
+        dict[int, PremapRealDescriptorHandle],
         dict[str, str],
         dict[str, int],
         dict[str, int],
@@ -1811,6 +1820,7 @@ class VllmRouterRecorder:
                 None,
                 None,
                 {},
+                {},
                 empty_source_hashes,
                 empty_source_hit_counts,
                 empty_source_miss_counts,
@@ -1823,6 +1833,7 @@ class VllmRouterRecorder:
                 None,
                 False,
                 {},
+                {},
                 empty_source_hashes,
                 empty_source_hit_counts,
                 {name: len(expert_ids) for name in source_names},
@@ -1832,6 +1843,7 @@ class VllmRouterRecorder:
         expert_map = getattr(consumer_layer, "expert_map", None)
         handle_hashes: list[str] = []
         handle_by_expert: dict[int, str] = {}
+        real_handle_by_expert: dict[int, PremapRealDescriptorHandle] = {}
         source_hash_parts: dict[str, list[str]] = {name: [] for name in source_names}
         source_hit_counts: dict[str, int] = {name: 0 for name in source_names}
         source_miss_counts: dict[str, int] = {name: 0 for name in source_names}
@@ -1859,6 +1871,7 @@ class VllmRouterRecorder:
                 miss_reason_counts["expert_map_miss"] += 1
                 continue
             parts: list[str] = []
+            source_parts_by_name: dict[str, list[str]] = {}
             for source_name, attr_names in source_attrs.items():
                 source_parts: list[str] = []
                 for attr_name in attr_names:
@@ -1895,6 +1908,7 @@ class VllmRouterRecorder:
                     # completeness.
                     source_hit_counts[source_name] += 1
                     source_hash_parts[source_name].extend(source_parts)
+                    source_parts_by_name[source_name] = list(source_parts)
                     parts.extend(source_parts)
                 else:
                     source_miss_counts[source_name] += 1
@@ -1906,6 +1920,27 @@ class VllmRouterRecorder:
             handle_hash = hashlib.sha256(payload.encode("utf-8")).hexdigest()
             handle_hashes.append(handle_hash)
             handle_by_expert[int(expert_id)] = handle_hash
+            packed_parts = source_parts_by_name.get("packed_weight", [])
+            scale_parts = source_parts_by_name.get("scale_metadata", [])
+            packed_hash = self._hash_premap_address_handles(packed_parts)
+            scale_hash = self._hash_premap_address_handles(scale_parts)
+            aux_parts = source_parts_by_name.get("aux_metadata", [])
+            aux_hash = self._hash_premap_address_handles(aux_parts) if aux_parts else None
+            real_handle_by_expert[int(expert_id)] = PremapRealDescriptorHandle(
+                expert_id=int(expert_id),
+                local_expert_id=int(local_expert),
+                handle_hash=handle_hash,
+                packed_weight_descriptor=(
+                    f"real_packed_weight://{packed_hash}" if packed_parts else None
+                ),
+                scale_metadata_handle=(
+                    f"real_scale_metadata://{scale_hash}" if scale_parts else None
+                ),
+                aux_metadata_handle=(
+                    f"real_aux_metadata://{aux_hash}" if aux_hash is not None else None
+                ),
+                payload_bytes=0,
+            )
         real_hash = self._hash_premap_address_handles(handle_hashes)
         source_hashes = {
             source_name: self._hash_premap_address_handles(parts)
@@ -1918,6 +1953,7 @@ class VllmRouterRecorder:
             real_hash,
             miss_count == 0,
             handle_by_expert,
+            real_handle_by_expert,
             source_hashes,
             source_hit_counts,
             source_miss_counts,
@@ -2015,6 +2051,7 @@ class VllmRouterRecorder:
             real_handle_hash,
             real_handle_available,
             real_handle_by_expert,
+            real_descriptor_handle_by_expert,
             real_handle_source_hashes,
             real_handle_source_hit_counts,
             real_handle_source_miss_counts,
@@ -2028,12 +2065,19 @@ class VllmRouterRecorder:
         reused_binding_count = 0
         binding_mismatch_count = 0
         real_handle_for_address_miss_count = 0
+        real_descriptor_handles_by_address_key: dict[str, PremapRealDescriptorHandle] = {}
         for key, expert_id in address_expert_pairs:
             real_expert_hash = real_handle_by_expert.get(int(expert_id))
             if real_expert_hash is None:
                 continue
             if key not in address_hit_set:
                 real_handle_for_address_miss_count += 1
+            else:
+                real_descriptor_handle = real_descriptor_handle_by_expert.get(
+                    int(expert_id)
+                )
+                if real_descriptor_handle is not None:
+                    real_descriptor_handles_by_address_key[key] = real_descriptor_handle
             previous_hash = self._premap_real_handle_binding_by_address_key.get(key)
             if previous_hash is None:
                 self._premap_real_handle_binding_by_address_key[key] = real_expert_hash
@@ -2119,6 +2163,11 @@ class VllmRouterRecorder:
                 descriptor_prep_result = manager.execute_descriptor_prep_readonly(
                     address_keys,
                     execution_mode=descriptor_prep_mode,
+                    real_descriptor_handles_by_address_key=(
+                        real_descriptor_handles_by_address_key
+                        if bool(self.shadow_premap_consumer_resolve_real_handles)
+                        else None
+                    ),
                 )
         lookup_us = (time.perf_counter_ns() - start_ns) / 1000.0
         sink.write_premap_consumer_mapping(
@@ -2242,6 +2291,26 @@ class VllmRouterRecorder:
                 ),
                 descriptor_prep_scale_metadata_handle_count=(
                     int(descriptor_prep_result.scale_metadata_handle_count)
+                    if descriptor_prep_result is not None
+                    else None
+                ),
+                descriptor_prep_real_handle_count=(
+                    int(descriptor_prep_result.real_descriptor_handle_count)
+                    if descriptor_prep_result is not None
+                    else None
+                ),
+                descriptor_prep_real_handle_miss_count=(
+                    int(descriptor_prep_result.real_descriptor_handle_miss_count)
+                    if descriptor_prep_result is not None
+                    else None
+                ),
+                descriptor_prep_real_handle_backed=(
+                    bool(descriptor_prep_result.real_descriptor_handle_backed)
+                    if descriptor_prep_result is not None
+                    else None
+                ),
+                descriptor_prep_real_handle_hash=(
+                    descriptor_prep_result.real_descriptor_handle_hash
                     if descriptor_prep_result is not None
                     else None
                 ),

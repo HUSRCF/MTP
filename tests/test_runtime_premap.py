@@ -6,6 +6,7 @@ import torch
 from mtp_expert_prefetch.runtime import (
     ControlledPremapAddressManager,
     ExpertPrefetchDescriptor,
+    PremapRealDescriptorHandle,
     build_premap_descriptors,
     build_priority_masks,
     descriptor_summary,
@@ -297,6 +298,173 @@ def test_controlled_premap_address_manager_executes_descriptor_prep_readonly():
     assert result.execution_ok is True
     assert after_snapshot == before_snapshot
     assert list(manager._addresses.keys()) == before_lru_order
+
+
+def test_controlled_premap_address_manager_descriptor_prep_uses_real_handles():
+    plan = prepare_premap_address_plan(
+        [
+            ExpertPrefetchDescriptor(0, 1, 3, 2, "transition_head", 0.95),
+            ExpertPrefetchDescriptor(0, 1, 7, 4, "mtp_token_extra_head", 0.75),
+        ],
+        descriptor_bytes=64,
+    )
+    manager = ControlledPremapAddressManager(capacity=4)
+    manager.prepare(plan)
+    keys = [record.address_key for record in plan.records]
+    real_handles = {
+        key: PremapRealDescriptorHandle(
+            expert_id=record.expert_id,
+            local_expert_id=record.expert_id,
+            handle_hash=f"real-hash-{record.expert_id}",
+            packed_weight_descriptor=f"real-packed-{record.expert_id}",
+            scale_metadata_handle=f"real-scale-{record.expert_id}",
+            payload_bytes=0,
+        )
+        for key, record in zip(keys, plan.records, strict=True)
+    }
+
+    result = manager.execute_descriptor_prep_readonly(
+        keys,
+        real_descriptor_handles_by_address_key=real_handles,
+    )
+
+    assert result.lookup_count == 2
+    assert result.prepared_handle_count == 2
+    assert result.missing_handle_count == 0
+    assert result.descriptor_ptr_count == 2
+    assert result.packed_weight_descriptor_count == 2
+    assert result.scale_metadata_handle_count == 2
+    assert result.real_descriptor_handle_count == 2
+    assert result.real_descriptor_handle_miss_count == 0
+    assert result.real_descriptor_handle_backed is True
+    assert result.real_descriptor_handle_hash
+    assert result.payload_bytes == 0
+    assert result.ready_credit is False
+    assert result.changes_router is False
+    assert result.changes_descriptor_order is False
+    assert result.execution_ok is True
+
+
+def test_controlled_premap_address_manager_descriptor_prep_fails_on_missing_real_handle():
+    plan = prepare_premap_address_plan(
+        [
+            ExpertPrefetchDescriptor(0, 1, 3, 2, "transition_head", 0.95),
+            ExpertPrefetchDescriptor(0, 1, 7, 4, "mtp_token_extra_head", 0.75),
+        ],
+        descriptor_bytes=64,
+    )
+    manager = ControlledPremapAddressManager(capacity=4)
+    manager.prepare(plan)
+    keys = [record.address_key for record in plan.records]
+    real_handles = {
+        keys[0]: PremapRealDescriptorHandle(
+            expert_id=plan.records[0].expert_id,
+            local_expert_id=plan.records[0].expert_id,
+            handle_hash="real-hash-only",
+            packed_weight_descriptor="real-packed-only",
+            scale_metadata_handle="real-scale-only",
+            payload_bytes=0,
+        )
+    }
+
+    result = manager.execute_descriptor_prep_readonly(
+        keys,
+        real_descriptor_handles_by_address_key=real_handles,
+    )
+
+    assert result.lookup_count == 2
+    assert result.prepared_handle_count == 1
+    assert result.missing_handle_count == 0
+    assert result.real_descriptor_handle_count == 1
+    assert result.real_descriptor_handle_miss_count == 1
+    assert result.real_descriptor_handle_backed is True
+    assert result.payload_bytes == 0
+    assert result.ready_credit is False
+    assert result.changes_router is False
+    assert result.changes_descriptor_order is False
+    assert result.execution_ok is False
+
+
+def test_controlled_premap_address_manager_descriptor_prep_rejects_real_payload():
+    plan = prepare_premap_address_plan(
+        [ExpertPrefetchDescriptor(0, 1, 3, 2, "transition_head", 0.95)],
+        descriptor_bytes=64,
+    )
+    manager = ControlledPremapAddressManager(capacity=4)
+    manager.prepare(plan)
+    key = plan.records[0].address_key
+    real_handles = {
+        key: PremapRealDescriptorHandle(
+            expert_id=3,
+            local_expert_id=3,
+            handle_hash="real-hash-with-payload",
+            packed_weight_descriptor="real-packed",
+            scale_metadata_handle="real-scale",
+            payload_bytes=16,
+        )
+    }
+
+    result = manager.execute_descriptor_prep_readonly(
+        [key],
+        real_descriptor_handles_by_address_key=real_handles,
+    )
+
+    assert result.real_descriptor_handle_backed is True
+    assert result.real_descriptor_handle_count == 1
+    assert result.real_descriptor_handle_miss_count == 0
+    assert result.payload_bytes == 16
+    assert result.ready_credit is False
+    assert result.changes_router is False
+    assert result.changes_descriptor_order is False
+    assert result.execution_ok is False
+
+
+def test_controlled_premap_address_manager_descriptor_prep_rejects_incomplete_real_handle():
+    plan = prepare_premap_address_plan(
+        [
+            ExpertPrefetchDescriptor(0, 1, 3, 2, "transition_head", 0.95),
+            ExpertPrefetchDescriptor(0, 1, 7, 4, "mtp_token_extra_head", 0.75),
+        ],
+        descriptor_bytes=64,
+    )
+    manager = ControlledPremapAddressManager(capacity=4)
+    manager.prepare(plan)
+    keys = [record.address_key for record in plan.records]
+    real_handles = {
+        keys[0]: PremapRealDescriptorHandle(
+            expert_id=3,
+            local_expert_id=3,
+            handle_hash="real-hash-complete",
+            packed_weight_descriptor="real-packed-complete",
+            scale_metadata_handle="real-scale-complete",
+            payload_bytes=0,
+        ),
+        keys[1]: PremapRealDescriptorHandle(
+            expert_id=7,
+            local_expert_id=7,
+            handle_hash="real-hash-missing-scale",
+            packed_weight_descriptor="real-packed-missing-scale",
+            scale_metadata_handle=None,
+            payload_bytes=0,
+        ),
+    }
+
+    result = manager.execute_descriptor_prep_readonly(
+        keys,
+        real_descriptor_handles_by_address_key=real_handles,
+    )
+
+    assert result.lookup_count == 2
+    assert result.prepared_handle_count == 2
+    assert result.real_descriptor_handle_count == 2
+    assert result.real_descriptor_handle_miss_count == 0
+    assert result.packed_weight_descriptor_count == 2
+    assert result.scale_metadata_handle_count == 1
+    assert result.payload_bytes == 0
+    assert result.ready_credit is False
+    assert result.changes_router is False
+    assert result.changes_descriptor_order is False
+    assert result.execution_ok is False
 
 
 def test_controlled_premap_address_manager_descriptor_prep_hash_includes_address_key():
