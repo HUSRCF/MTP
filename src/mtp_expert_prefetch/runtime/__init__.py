@@ -41,6 +41,7 @@ from mtp_expert_prefetch.runtime.cache_manager import (
     PremapDescriptorConsumerReadResult,
     PremapDescriptorConsumerShimResult,
     PremapDescriptorPrepExecutionResult,
+    PremapKernelArgShadowTableResult,
     PremapRealDescriptorHandle,
     PremapReadonlyConsumerResult,
 )
@@ -169,6 +170,7 @@ __all__ = [
     "PremapDescriptorConsumerReadResult",
     "PremapDescriptorConsumerShimResult",
     "PremapDescriptorPrepExecutionResult",
+    "PremapKernelArgShadowTableResult",
     "PremapPreparedPlan",
     "PremapRealDescriptorHandle",
     "PremapReadonlyConsumerResult",

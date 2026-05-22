@@ -317,12 +317,13 @@ class PremapDescriptorConsumerReadResult:
     checked_object_count: int
     object_hash: str | None
     read_ok: bool
+    object_hash_by_address_key: dict[str, str] = field(default_factory=dict)
     payload_bytes: int = 0
     ready_credit: bool = False
     changes_router: bool = False
     changes_descriptor_order: bool = False
 
-    def as_dict(self) -> dict[str, int | bool | str | None]:
+    def as_dict(self) -> dict[str, int | bool | str | None | dict[str, str]]:
         return asdict(self)
 
 
@@ -350,6 +351,38 @@ class PremapDescriptorConsumerShimResult:
     changes_router: bool = False
     changes_descriptor_order: bool = False
     changes_kernel_launch_args: bool = False
+
+    def as_dict(self) -> dict[str, int | bool | str | None]:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
+class PremapKernelArgShadowTableResult:
+    """No-op shadow table for future kernel argument handoff.
+
+    This object records the shape and row-order/parity hashes of the table that
+    a real kernel integration could consume later.  The table is not passed to
+    any kernel in this path.
+    """
+
+    execution_mode: str
+    row_order_source: str
+    row_count: int
+    column_count: int
+    schema_hash: str
+    row_order_hash: str
+    ordered_row_hash: str
+    per_row_parity_ok_count: int
+    row_miss_count: int
+    stale_row_count: int
+    lifecycle_ok: bool
+    table_ok: bool
+    payload_bytes: int = 0
+    ready_credit: bool = False
+    changes_router: bool = False
+    changes_descriptor_order: bool = False
+    changes_kernel_launch_args: bool = False
+    passed_to_kernel: bool = False
 
     def as_dict(self) -> dict[str, int | bool | str | None]:
         return asdict(self)
@@ -678,6 +711,7 @@ class ControlledPremapAddressManager:
         checked_object_count = 0
         payload_bytes = 0
         object_hashes: list[str] = []
+        object_hash_by_address_key: dict[str, str] = {}
         for raw_key in address_keys:
             lookup_count += 1
             key = str(raw_key)
@@ -709,6 +743,7 @@ class ControlledPremapAddressManager:
                 continue
             object_hit_count += 1
             object_hashes.append(consumer_object.object_hash)
+            object_hash_by_address_key[key] = consumer_object.object_hash
             if expected and key in expected:
                 checked_object_count += 1
                 if str(expected[key]) != str(consumer_object.object_hash):
@@ -734,6 +769,7 @@ class ControlledPremapAddressManager:
             checked_object_count=checked_object_count,
             object_hash=object_hash,
             read_ok=bool(read_ok),
+            object_hash_by_address_key=object_hash_by_address_key,
             payload_bytes=payload_bytes,
             ready_credit=False,
             changes_router=False,
@@ -774,6 +810,74 @@ class ControlledPremapAddressManager:
             changes_router=False,
             changes_descriptor_order=False,
             changes_kernel_launch_args=False,
+        )
+
+    def build_kernel_arg_shadow_table_readonly(
+        self,
+        address_keys: Iterable[str],
+        *,
+        read_result: PremapDescriptorConsumerReadResult,
+        expected_object_hash_by_address_key: dict[str, str] | None = None,
+        execution_mode: str = "readonly_kernel_arg_shadow_table",
+        row_order_source: str = "canonical_address_key_order",
+    ) -> PremapKernelArgShadowTableResult:
+        """Build a no-op shadow table for future kernel argument handoff."""
+
+        ordered_keys = [str(key) for key in address_keys]
+        expected = expected_object_hash_by_address_key or {}
+        row_order_hash = hashlib.sha256(
+            "|".join(ordered_keys).encode("utf-8")
+        ).hexdigest()
+        row_parts: list[str] = []
+        row_miss_count = 0
+        stale_row_count = 0
+        per_row_parity_ok_count = 0
+        for key in ordered_keys:
+            object_hash = read_result.object_hash_by_address_key.get(key)
+            if object_hash is None:
+                row_miss_count += 1
+                row_parts.append(f"{key}:<missing>")
+                continue
+            row_parts.append(f"{key}:{object_hash}")
+            if key in expected:
+                if str(expected[key]) == str(object_hash):
+                    per_row_parity_ok_count += 1
+                else:
+                    stale_row_count += 1
+        ordered_row_hash = hashlib.sha256(
+            "|".join(row_parts).encode("utf-8")
+        ).hexdigest()
+        lifecycle_ok = (
+            bool(read_result.read_ok)
+            and row_miss_count == 0
+            and stale_row_count == 0
+            and int(read_result.payload_bytes) == 0
+        )
+        expected_ok = not expected or per_row_parity_ok_count == len(expected)
+        table_ok = (
+            bool(lifecycle_ok)
+            and expected_ok
+            and len(ordered_keys) == int(read_result.object_hit_count)
+        )
+        return PremapKernelArgShadowTableResult(
+            execution_mode=str(execution_mode),
+            row_order_source=str(row_order_source),
+            row_count=len(ordered_keys),
+            column_count=len(PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_COLUMNS),
+            schema_hash=PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH,
+            row_order_hash=row_order_hash,
+            ordered_row_hash=ordered_row_hash,
+            per_row_parity_ok_count=per_row_parity_ok_count,
+            row_miss_count=row_miss_count,
+            stale_row_count=stale_row_count,
+            lifecycle_ok=bool(lifecycle_ok),
+            table_ok=bool(table_ok),
+            payload_bytes=0,
+            ready_credit=False,
+            changes_router=False,
+            changes_descriptor_order=False,
+            changes_kernel_launch_args=False,
+            passed_to_kernel=False,
         )
 
     @staticmethod

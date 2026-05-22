@@ -107,6 +107,23 @@ def test_runtime_shadow_aggregate_fields_are_flattened_to_performance_summary():
         "premap_consumer_descriptor_prep_consumer_shim_handle_table_payload_bytes": 0,
         "premap_consumer_descriptor_prep_consumer_shim_handle_table_payload_violation_count": 0,
         "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_violation_count": 0,
+        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_executed_count": 4,
+        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_ok_count": 4,
+        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_ok_rate": 1.0,
+        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_lifecycle_ok_count": 4,
+        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_lifecycle_ok_rate": 1.0,
+        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_row_count": 16,
+        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_column_count_max": 4,
+        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_per_row_parity_ok_count": 16,
+        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_row_miss_count": 0,
+        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_stale_row_count": 0,
+        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_payload_bytes": 0,
+        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_payload_violation_count": 0,
+        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_ready_credit_violation_count": 0,
+        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_router_change_violation_count": 0,
+        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_descriptor_order_change_violation_count": 0,
+        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_kernel_arg_violation_count": 0,
+        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_passed_to_kernel_count": 0,
         "unrelated_debug_key": 99,
     }
     performance: dict[str, object] = {}
@@ -239,6 +256,66 @@ def test_runtime_shadow_aggregate_fields_are_flattened_to_performance_summary():
         ]
         == 0
     )
+    assert (
+        performance[
+            "runtime_shadow_aggregate_premap_consumer_descriptor_prep_kernel_arg_shadow_table_executed_count"
+        ]
+        == 4
+    )
+    assert (
+        performance[
+            "runtime_shadow_aggregate_premap_consumer_descriptor_prep_kernel_arg_shadow_table_ok_rate"
+        ]
+        == 1.0
+    )
+    assert (
+        performance[
+            "runtime_shadow_aggregate_premap_consumer_descriptor_prep_kernel_arg_shadow_table_row_count"
+        ]
+        == 16
+    )
+    assert (
+        performance[
+            "runtime_shadow_aggregate_premap_consumer_descriptor_prep_kernel_arg_shadow_table_column_count_max"
+        ]
+        == 4
+    )
+    assert (
+        performance[
+            "runtime_shadow_aggregate_premap_consumer_descriptor_prep_kernel_arg_shadow_table_payload_violation_count"
+        ]
+        == 0
+    )
+    assert (
+        performance[
+            "runtime_shadow_aggregate_premap_consumer_descriptor_prep_kernel_arg_shadow_table_ready_credit_violation_count"
+        ]
+        == 0
+    )
+    assert (
+        performance[
+            "runtime_shadow_aggregate_premap_consumer_descriptor_prep_kernel_arg_shadow_table_router_change_violation_count"
+        ]
+        == 0
+    )
+    assert (
+        performance[
+            "runtime_shadow_aggregate_premap_consumer_descriptor_prep_kernel_arg_shadow_table_descriptor_order_change_violation_count"
+        ]
+        == 0
+    )
+    assert (
+        performance[
+            "runtime_shadow_aggregate_premap_consumer_descriptor_prep_kernel_arg_shadow_table_kernel_arg_violation_count"
+        ]
+        == 0
+    )
+    assert (
+        performance[
+            "runtime_shadow_aggregate_premap_consumer_descriptor_prep_kernel_arg_shadow_table_passed_to_kernel_count"
+        ]
+        == 0
+    )
     assert "runtime_shadow_aggregate_unrelated_debug_key" not in performance
 
 
@@ -271,6 +348,61 @@ class _FakeAwqConsumerLayer(torch.nn.Module):
             "w2_weight_scale",
             torch.arange(num_experts * 2, dtype=torch.float32).reshape(num_experts, 2),
         )
+
+
+def _assert_kernel_arg_shadow_table_event(consumer: dict[str, object]) -> None:
+    assert consumer["premap_consumer_descriptor_prep_kernel_arg_shadow_table_mode"] == (
+        "readonly_kernel_arg_shadow_table"
+    )
+    assert consumer[
+        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_row_order_source"
+    ] == "canonical_address_key_order"
+    assert consumer[
+        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_row_count"
+    ] == 2
+    assert consumer[
+        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_column_count"
+    ] == 4
+    assert consumer[
+        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_schema_hash"
+    ]
+    assert consumer[
+        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_row_order_hash"
+    ]
+    assert consumer[
+        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_ordered_row_hash"
+    ]
+    assert consumer[
+        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_per_row_parity_ok_count"
+    ] == 2
+    assert consumer[
+        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_row_miss_count"
+    ] == 0
+    assert consumer[
+        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_stale_row_count"
+    ] == 0
+    assert consumer[
+        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_lifecycle_ok"
+    ] is True
+    assert consumer["premap_consumer_descriptor_prep_kernel_arg_shadow_table_ok"] is True
+    assert consumer[
+        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_payload_bytes"
+    ] == 0
+    assert consumer[
+        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_ready_credit"
+    ] is False
+    assert consumer[
+        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_changes_router"
+    ] is False
+    assert consumer[
+        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_changes_descriptor_order"
+    ] is False
+    assert consumer[
+        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_changes_kernel_launch_args"
+    ] is False
+    assert consumer[
+        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_passed_to_kernel"
+    ] is False
 
 
 def test_vllm_router_recorder_shadow_sink_is_optional():
@@ -1401,6 +1533,7 @@ def test_vllm_router_recorder_premap_consumer_mapping_hits_prepared_addresses():
         ]
         is False
     )
+    _assert_kernel_arg_shadow_table_event(consumer)
     assert consumer["premap_consumer_descriptor_prep_handle_hash"]
     assert consumer["premap_consumer_descriptor_prep_execution_ok"] is True
     assert consumer["premap_consumer_expected_prepare_plan_count"] == 1
@@ -1524,6 +1657,7 @@ def test_vllm_router_recorder_premap_descriptor_prep_uses_real_handles():
         ]
         is False
     )
+    _assert_kernel_arg_shadow_table_event(consumer)
     assert consumer["premap_consumer_descriptor_prep_execution_ok"] is True
     assert consumer["premap_consumer_payload_bytes"] == 0
     assert consumer["premap_consumer_ready_credit"] is False

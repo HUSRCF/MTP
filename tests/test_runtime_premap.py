@@ -339,6 +339,38 @@ def test_controlled_premap_address_manager_executes_descriptor_prep_readonly():
     assert shim_result.changes_router is False
     assert shim_result.changes_descriptor_order is False
     assert shim_result.changes_kernel_launch_args is False
+    table_result = manager.build_kernel_arg_shadow_table_readonly(
+        keys,
+        read_result=read_result,
+        expected_object_hash_by_address_key=result.consumer_object_hash_by_address_key,
+    )
+    assert table_result.execution_mode == "readonly_kernel_arg_shadow_table"
+    assert table_result.row_order_source == "canonical_address_key_order"
+    assert table_result.row_count == 2
+    assert table_result.column_count == len(
+        PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_COLUMNS
+    )
+    assert table_result.schema_hash == PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH
+    assert table_result.row_order_hash
+    assert table_result.ordered_row_hash
+    assert table_result.per_row_parity_ok_count == 2
+    assert table_result.row_miss_count == 0
+    assert table_result.stale_row_count == 0
+    assert table_result.lifecycle_ok is True
+    assert table_result.table_ok is True
+    assert table_result.payload_bytes == 0
+    assert table_result.ready_credit is False
+    assert table_result.changes_router is False
+    assert table_result.changes_descriptor_order is False
+    assert table_result.changes_kernel_launch_args is False
+    assert table_result.passed_to_kernel is False
+    reversed_table_result = manager.build_kernel_arg_shadow_table_readonly(
+        list(reversed(keys)),
+        read_result=read_result,
+        expected_object_hash_by_address_key=result.consumer_object_hash_by_address_key,
+    )
+    assert reversed_table_result.row_order_hash != table_result.row_order_hash
+    assert reversed_table_result.ordered_row_hash != table_result.ordered_row_hash
 
     partial_read_result = manager.read_descriptor_consumer_objects_readonly(
         keys,
@@ -366,6 +398,19 @@ def test_controlled_premap_address_manager_executes_descriptor_prep_readonly():
     )
     assert stale_shim_result.read_ok is False
     assert stale_shim_result.shim_ok is False
+    stale_table_result = manager.build_kernel_arg_shadow_table_readonly(
+        keys,
+        read_result=stale_read_result,
+        expected_object_hash_by_address_key={keys[0]: "stale-object-hash"},
+    )
+    assert stale_table_result.row_count == 2
+    assert stale_table_result.row_miss_count == 0
+    assert stale_table_result.stale_row_count == 1
+    assert stale_table_result.lifecycle_ok is False
+    assert stale_table_result.table_ok is False
+    assert stale_table_result.payload_bytes == 0
+    assert stale_table_result.changes_kernel_launch_args is False
+    assert stale_table_result.passed_to_kernel is False
 
 
 def test_controlled_premap_address_manager_descriptor_prep_uses_real_handles():

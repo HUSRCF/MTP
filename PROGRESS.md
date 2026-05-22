@@ -14763,3 +14763,83 @@ payloads, grant ready credit, mutate routing, mutate descriptor order, or prove
 endpoint latency benefit.  It is the next safety gate before any real lab
 descriptor/address preparation execution.
 ```
+
+### 2026-05-22: Kernel-arg shadow table dry run
+
+The readonly prelaunch consumer shim now builds a second no-op object:
+
+```text
+PremapKernelArgShadowTableResult
+```
+
+This object models the future kernel/consumer argument table without passing it
+to any kernel.  It records only table shape, row order, and per-row object-hash
+parity:
+
+```text
+execution_mode = readonly_kernel_arg_shadow_table
+row_order_source = canonical_address_key_order
+row_count
+column_count
+schema_hash
+row_order_hash
+ordered_row_hash
+per_row_parity_ok_count
+row_miss_count
+stale_row_count
+lifecycle_ok
+table_ok
+```
+
+The no-op contract remains strict:
+
+```text
+payload_bytes = 0
+ready_credit = false
+changes_router = false
+changes_descriptor_order = false
+changes_kernel_launch_args = false
+passed_to_kernel = false
+```
+
+The table schema is the same readonly handle-table schema used by the
+prelaunch shim:
+
+```text
+descriptor_ptr
+packed_weight_descriptor
+scale_metadata_handle
+aux_metadata_handle
+```
+
+Runtime shadow aggregation now exposes:
+
+```text
+premap_consumer_descriptor_prep_kernel_arg_shadow_table_executed_count
+premap_consumer_descriptor_prep_kernel_arg_shadow_table_ok_count
+premap_consumer_descriptor_prep_kernel_arg_shadow_table_ok_rate
+premap_consumer_descriptor_prep_kernel_arg_shadow_table_lifecycle_ok_count
+premap_consumer_descriptor_prep_kernel_arg_shadow_table_lifecycle_ok_rate
+premap_consumer_descriptor_prep_kernel_arg_shadow_table_row_count
+premap_consumer_descriptor_prep_kernel_arg_shadow_table_column_count_max
+premap_consumer_descriptor_prep_kernel_arg_shadow_table_per_row_parity_ok_count
+premap_consumer_descriptor_prep_kernel_arg_shadow_table_row_miss_count
+premap_consumer_descriptor_prep_kernel_arg_shadow_table_stale_row_count
+premap_consumer_descriptor_prep_kernel_arg_shadow_table_payload_bytes
+premap_consumer_descriptor_prep_kernel_arg_shadow_table_payload_violation_count
+premap_consumer_descriptor_prep_kernel_arg_shadow_table_ready_credit_violation_count
+premap_consumer_descriptor_prep_kernel_arg_shadow_table_router_change_violation_count
+premap_consumer_descriptor_prep_kernel_arg_shadow_table_descriptor_order_change_violation_count
+premap_consumer_descriptor_prep_kernel_arg_shadow_table_kernel_arg_violation_count
+premap_consumer_descriptor_prep_kernel_arg_shadow_table_passed_to_kernel_count
+```
+
+Interpretation:
+
+```text
+This is still not a vLLM kernel patch.  It is a dry-run kernel-argument contract
+that verifies canonical descriptor/address table row ordering, schema hash,
+per-row handle parity, and lifecycle before any real descriptor/address object
+is wired into kernel launch args.  It does not claim to validate the final
+fused-MoE block/tile launch row order.
+```

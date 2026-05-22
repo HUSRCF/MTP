@@ -183,6 +183,23 @@ RUNTIME_SHADOW_AGGREGATE_PERFORMANCE_KEYS = (
     "premap_consumer_descriptor_prep_consumer_shim_handle_table_payload_bytes",
     "premap_consumer_descriptor_prep_consumer_shim_handle_table_payload_violation_count",
     "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_violation_count",
+    "premap_consumer_descriptor_prep_kernel_arg_shadow_table_executed_count",
+    "premap_consumer_descriptor_prep_kernel_arg_shadow_table_ok_count",
+    "premap_consumer_descriptor_prep_kernel_arg_shadow_table_ok_rate",
+    "premap_consumer_descriptor_prep_kernel_arg_shadow_table_lifecycle_ok_count",
+    "premap_consumer_descriptor_prep_kernel_arg_shadow_table_lifecycle_ok_rate",
+    "premap_consumer_descriptor_prep_kernel_arg_shadow_table_row_count",
+    "premap_consumer_descriptor_prep_kernel_arg_shadow_table_column_count_max",
+    "premap_consumer_descriptor_prep_kernel_arg_shadow_table_per_row_parity_ok_count",
+    "premap_consumer_descriptor_prep_kernel_arg_shadow_table_row_miss_count",
+    "premap_consumer_descriptor_prep_kernel_arg_shadow_table_stale_row_count",
+    "premap_consumer_descriptor_prep_kernel_arg_shadow_table_payload_bytes",
+    "premap_consumer_descriptor_prep_kernel_arg_shadow_table_payload_violation_count",
+    "premap_consumer_descriptor_prep_kernel_arg_shadow_table_ready_credit_violation_count",
+    "premap_consumer_descriptor_prep_kernel_arg_shadow_table_router_change_violation_count",
+    "premap_consumer_descriptor_prep_kernel_arg_shadow_table_descriptor_order_change_violation_count",
+    "premap_consumer_descriptor_prep_kernel_arg_shadow_table_kernel_arg_violation_count",
+    "premap_consumer_descriptor_prep_kernel_arg_shadow_table_passed_to_kernel_count",
     "premap_consumer_descriptor_prep_execution_ok_rate",
     "premap_consumer_descriptor_prep_execution_ok_attempted_rate",
     "premap_consumer_descriptor_prep_blocked_count",
@@ -2156,6 +2173,7 @@ class VllmRouterRecorder:
         descriptor_prep_result = None
         descriptor_consumer_read_result = None
         descriptor_consumer_shim_result = None
+        kernel_arg_shadow_table_result = None
         descriptor_prep_blocked_reason: str | None = None
         descriptor_prep_mode = _normalize_premap_descriptor_prep_execution_mode(
             self.shadow_premap_descriptor_prep_execution_mode
@@ -2212,6 +2230,16 @@ class VllmRouterRecorder:
                                 descriptor_consumer_read_result
                             )
                         )
+                        if descriptor_consumer_shim_result.shim_ok:
+                            kernel_arg_shadow_table_result = (
+                                manager.build_kernel_arg_shadow_table_readonly(
+                                    address_keys,
+                                    read_result=descriptor_consumer_read_result,
+                                    expected_object_hash_by_address_key=(
+                                        descriptor_prep_result.consumer_object_hash_by_address_key
+                                    ),
+                                )
+                            )
         lookup_us = (time.perf_counter_ns() - start_ns) / 1000.0
         sink.write_premap_consumer_mapping(
             ShadowPremapConsumerMappingEvent(
@@ -2445,6 +2473,96 @@ class VllmRouterRecorder:
                 descriptor_prep_consumer_shim_changes_kernel_launch_args=(
                     bool(descriptor_consumer_shim_result.changes_kernel_launch_args)
                     if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_kernel_arg_shadow_table_mode=(
+                    kernel_arg_shadow_table_result.execution_mode
+                    if kernel_arg_shadow_table_result is not None
+                    else None
+                ),
+                descriptor_prep_kernel_arg_shadow_table_row_order_source=(
+                    kernel_arg_shadow_table_result.row_order_source
+                    if kernel_arg_shadow_table_result is not None
+                    else None
+                ),
+                descriptor_prep_kernel_arg_shadow_table_row_count=(
+                    int(kernel_arg_shadow_table_result.row_count)
+                    if kernel_arg_shadow_table_result is not None
+                    else None
+                ),
+                descriptor_prep_kernel_arg_shadow_table_column_count=(
+                    int(kernel_arg_shadow_table_result.column_count)
+                    if kernel_arg_shadow_table_result is not None
+                    else None
+                ),
+                descriptor_prep_kernel_arg_shadow_table_schema_hash=(
+                    kernel_arg_shadow_table_result.schema_hash
+                    if kernel_arg_shadow_table_result is not None
+                    else None
+                ),
+                descriptor_prep_kernel_arg_shadow_table_row_order_hash=(
+                    kernel_arg_shadow_table_result.row_order_hash
+                    if kernel_arg_shadow_table_result is not None
+                    else None
+                ),
+                descriptor_prep_kernel_arg_shadow_table_ordered_row_hash=(
+                    kernel_arg_shadow_table_result.ordered_row_hash
+                    if kernel_arg_shadow_table_result is not None
+                    else None
+                ),
+                descriptor_prep_kernel_arg_shadow_table_per_row_parity_ok_count=(
+                    int(kernel_arg_shadow_table_result.per_row_parity_ok_count)
+                    if kernel_arg_shadow_table_result is not None
+                    else None
+                ),
+                descriptor_prep_kernel_arg_shadow_table_row_miss_count=(
+                    int(kernel_arg_shadow_table_result.row_miss_count)
+                    if kernel_arg_shadow_table_result is not None
+                    else None
+                ),
+                descriptor_prep_kernel_arg_shadow_table_stale_row_count=(
+                    int(kernel_arg_shadow_table_result.stale_row_count)
+                    if kernel_arg_shadow_table_result is not None
+                    else None
+                ),
+                descriptor_prep_kernel_arg_shadow_table_lifecycle_ok=(
+                    bool(kernel_arg_shadow_table_result.lifecycle_ok)
+                    if kernel_arg_shadow_table_result is not None
+                    else None
+                ),
+                descriptor_prep_kernel_arg_shadow_table_ok=(
+                    bool(kernel_arg_shadow_table_result.table_ok)
+                    if kernel_arg_shadow_table_result is not None
+                    else None
+                ),
+                descriptor_prep_kernel_arg_shadow_table_payload_bytes=(
+                    int(kernel_arg_shadow_table_result.payload_bytes)
+                    if kernel_arg_shadow_table_result is not None
+                    else None
+                ),
+                descriptor_prep_kernel_arg_shadow_table_ready_credit=(
+                    bool(kernel_arg_shadow_table_result.ready_credit)
+                    if kernel_arg_shadow_table_result is not None
+                    else None
+                ),
+                descriptor_prep_kernel_arg_shadow_table_changes_router=(
+                    bool(kernel_arg_shadow_table_result.changes_router)
+                    if kernel_arg_shadow_table_result is not None
+                    else None
+                ),
+                descriptor_prep_kernel_arg_shadow_table_changes_descriptor_order=(
+                    bool(kernel_arg_shadow_table_result.changes_descriptor_order)
+                    if kernel_arg_shadow_table_result is not None
+                    else None
+                ),
+                descriptor_prep_kernel_arg_shadow_table_changes_kernel_launch_args=(
+                    bool(kernel_arg_shadow_table_result.changes_kernel_launch_args)
+                    if kernel_arg_shadow_table_result is not None
+                    else None
+                ),
+                descriptor_prep_kernel_arg_shadow_table_passed_to_kernel=(
+                    bool(kernel_arg_shadow_table_result.passed_to_kernel)
+                    if kernel_arg_shadow_table_result is not None
                     else None
                 ),
                 descriptor_prep_execution_ok=(

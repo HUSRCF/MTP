@@ -748,6 +748,24 @@ class ShadowPremapConsumerMappingEvent:
     descriptor_prep_consumer_shim_handle_table_payload_bytes: int | None = None
     descriptor_prep_consumer_shim_ok: bool | None = None
     descriptor_prep_consumer_shim_changes_kernel_launch_args: bool | None = None
+    descriptor_prep_kernel_arg_shadow_table_mode: str | None = None
+    descriptor_prep_kernel_arg_shadow_table_row_order_source: str | None = None
+    descriptor_prep_kernel_arg_shadow_table_row_count: int | None = None
+    descriptor_prep_kernel_arg_shadow_table_column_count: int | None = None
+    descriptor_prep_kernel_arg_shadow_table_schema_hash: str | None = None
+    descriptor_prep_kernel_arg_shadow_table_row_order_hash: str | None = None
+    descriptor_prep_kernel_arg_shadow_table_ordered_row_hash: str | None = None
+    descriptor_prep_kernel_arg_shadow_table_per_row_parity_ok_count: int | None = None
+    descriptor_prep_kernel_arg_shadow_table_row_miss_count: int | None = None
+    descriptor_prep_kernel_arg_shadow_table_stale_row_count: int | None = None
+    descriptor_prep_kernel_arg_shadow_table_lifecycle_ok: bool | None = None
+    descriptor_prep_kernel_arg_shadow_table_ok: bool | None = None
+    descriptor_prep_kernel_arg_shadow_table_payload_bytes: int | None = None
+    descriptor_prep_kernel_arg_shadow_table_ready_credit: bool | None = None
+    descriptor_prep_kernel_arg_shadow_table_changes_router: bool | None = None
+    descriptor_prep_kernel_arg_shadow_table_changes_descriptor_order: bool | None = None
+    descriptor_prep_kernel_arg_shadow_table_changes_kernel_launch_args: bool | None = None
+    descriptor_prep_kernel_arg_shadow_table_passed_to_kernel: bool | None = None
     descriptor_prep_execution_ok: bool | None = None
     descriptor_prep_blocked_reason: str | None = None
     expected_key_hash: str | None = None
@@ -1086,6 +1104,96 @@ class ShadowPremapConsumerMappingEvent:
         )
         _put_optional(
             payload,
+            "premap_consumer_descriptor_prep_kernel_arg_shadow_table_mode",
+            self.descriptor_prep_kernel_arg_shadow_table_mode,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_kernel_arg_shadow_table_row_order_source",
+            self.descriptor_prep_kernel_arg_shadow_table_row_order_source,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_kernel_arg_shadow_table_row_count",
+            self.descriptor_prep_kernel_arg_shadow_table_row_count,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_kernel_arg_shadow_table_column_count",
+            self.descriptor_prep_kernel_arg_shadow_table_column_count,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_kernel_arg_shadow_table_schema_hash",
+            self.descriptor_prep_kernel_arg_shadow_table_schema_hash,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_kernel_arg_shadow_table_row_order_hash",
+            self.descriptor_prep_kernel_arg_shadow_table_row_order_hash,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_kernel_arg_shadow_table_ordered_row_hash",
+            self.descriptor_prep_kernel_arg_shadow_table_ordered_row_hash,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_kernel_arg_shadow_table_per_row_parity_ok_count",
+            self.descriptor_prep_kernel_arg_shadow_table_per_row_parity_ok_count,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_kernel_arg_shadow_table_row_miss_count",
+            self.descriptor_prep_kernel_arg_shadow_table_row_miss_count,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_kernel_arg_shadow_table_stale_row_count",
+            self.descriptor_prep_kernel_arg_shadow_table_stale_row_count,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_kernel_arg_shadow_table_lifecycle_ok",
+            self.descriptor_prep_kernel_arg_shadow_table_lifecycle_ok,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_kernel_arg_shadow_table_ok",
+            self.descriptor_prep_kernel_arg_shadow_table_ok,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_kernel_arg_shadow_table_payload_bytes",
+            self.descriptor_prep_kernel_arg_shadow_table_payload_bytes,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_kernel_arg_shadow_table_ready_credit",
+            self.descriptor_prep_kernel_arg_shadow_table_ready_credit,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_kernel_arg_shadow_table_changes_router",
+            self.descriptor_prep_kernel_arg_shadow_table_changes_router,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_kernel_arg_shadow_table_changes_descriptor_order",
+            self.descriptor_prep_kernel_arg_shadow_table_changes_descriptor_order,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_kernel_arg_shadow_table_changes_kernel_launch_args",
+            self.descriptor_prep_kernel_arg_shadow_table_changes_kernel_launch_args,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_kernel_arg_shadow_table_passed_to_kernel",
+            self.descriptor_prep_kernel_arg_shadow_table_passed_to_kernel,
+        )
+        _put_optional(
+            payload,
             "premap_consumer_descriptor_prep_execution_ok",
             self.descriptor_prep_execution_ok,
         )
@@ -1313,6 +1421,21 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
         "premap_consumer_descriptor_prep_consumer_shim_handle_table_payload_bytes": 0,
         "premap_consumer_descriptor_prep_consumer_shim_handle_table_payload_violation_count": 0,
         "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_violation_count": 0,
+        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_executed_count": 0,
+        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_ok_count": 0,
+        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_lifecycle_ok_count": 0,
+        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_row_count": 0,
+        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_column_count_max": 0,
+        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_per_row_parity_ok_count": 0,
+        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_row_miss_count": 0,
+        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_stale_row_count": 0,
+        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_payload_bytes": 0,
+        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_payload_violation_count": 0,
+        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_ready_credit_violation_count": 0,
+        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_router_change_violation_count": 0,
+        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_descriptor_order_change_violation_count": 0,
+        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_kernel_arg_violation_count": 0,
+        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_passed_to_kernel_count": 0,
         "premap_consumer_descriptor_prep_execution_ok_count": 0,
         "premap_consumer_descriptor_prep_checked_count": 0,
         "premap_consumer_descriptor_prep_blocked_count": 0,
@@ -1881,6 +2004,145 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
                         )
                     )
                 )
+            if "premap_consumer_descriptor_prep_kernel_arg_shadow_table_mode" in event:
+                totals[
+                    "premap_consumer_descriptor_prep_kernel_arg_shadow_table_executed_count"
+                ] += 1
+                totals[
+                    "premap_consumer_descriptor_prep_kernel_arg_shadow_table_ok_count"
+                ] += int(
+                    bool(
+                        event.get(
+                            "premap_consumer_descriptor_prep_kernel_arg_shadow_table_ok",
+                            False,
+                        )
+                    )
+                )
+                totals[
+                    "premap_consumer_descriptor_prep_kernel_arg_shadow_table_lifecycle_ok_count"
+                ] += int(
+                    bool(
+                        event.get(
+                            "premap_consumer_descriptor_prep_kernel_arg_shadow_table_lifecycle_ok",
+                            False,
+                        )
+                    )
+                )
+                totals[
+                    "premap_consumer_descriptor_prep_kernel_arg_shadow_table_row_count"
+                ] += int(
+                    event.get(
+                        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_row_count",
+                        0,
+                    )
+                    or 0
+                )
+                totals[
+                    "premap_consumer_descriptor_prep_kernel_arg_shadow_table_column_count_max"
+                ] = max(
+                    int(
+                        totals[
+                            "premap_consumer_descriptor_prep_kernel_arg_shadow_table_column_count_max"
+                        ]
+                    ),
+                    int(
+                        event.get(
+                            "premap_consumer_descriptor_prep_kernel_arg_shadow_table_column_count",
+                            0,
+                        )
+                        or 0
+                    ),
+                )
+                totals[
+                    "premap_consumer_descriptor_prep_kernel_arg_shadow_table_per_row_parity_ok_count"
+                ] += int(
+                    event.get(
+                        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_per_row_parity_ok_count",
+                        0,
+                    )
+                    or 0
+                )
+                totals[
+                    "premap_consumer_descriptor_prep_kernel_arg_shadow_table_row_miss_count"
+                ] += int(
+                    event.get(
+                        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_row_miss_count",
+                        0,
+                    )
+                    or 0
+                )
+                totals[
+                    "premap_consumer_descriptor_prep_kernel_arg_shadow_table_stale_row_count"
+                ] += int(
+                    event.get(
+                        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_stale_row_count",
+                        0,
+                    )
+                    or 0
+                )
+                table_payload_bytes = int(
+                    event.get(
+                        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_payload_bytes",
+                        0,
+                    )
+                    or 0
+                )
+                totals[
+                    "premap_consumer_descriptor_prep_kernel_arg_shadow_table_payload_bytes"
+                ] += table_payload_bytes
+                totals[
+                    "premap_consumer_descriptor_prep_kernel_arg_shadow_table_payload_violation_count"
+                ] += int(table_payload_bytes != 0)
+                totals[
+                    "premap_consumer_descriptor_prep_kernel_arg_shadow_table_ready_credit_violation_count"
+                ] += int(
+                    bool(
+                        event.get(
+                            "premap_consumer_descriptor_prep_kernel_arg_shadow_table_ready_credit",
+                            False,
+                        )
+                    )
+                )
+                totals[
+                    "premap_consumer_descriptor_prep_kernel_arg_shadow_table_router_change_violation_count"
+                ] += int(
+                    bool(
+                        event.get(
+                            "premap_consumer_descriptor_prep_kernel_arg_shadow_table_changes_router",
+                            False,
+                        )
+                    )
+                )
+                totals[
+                    "premap_consumer_descriptor_prep_kernel_arg_shadow_table_descriptor_order_change_violation_count"
+                ] += int(
+                    bool(
+                        event.get(
+                            "premap_consumer_descriptor_prep_kernel_arg_shadow_table_changes_descriptor_order",
+                            False,
+                        )
+                    )
+                )
+                totals[
+                    "premap_consumer_descriptor_prep_kernel_arg_shadow_table_kernel_arg_violation_count"
+                ] += int(
+                    bool(
+                        event.get(
+                            "premap_consumer_descriptor_prep_kernel_arg_shadow_table_changes_kernel_launch_args",
+                            False,
+                        )
+                    )
+                )
+                totals[
+                    "premap_consumer_descriptor_prep_kernel_arg_shadow_table_passed_to_kernel_count"
+                ] += int(
+                    bool(
+                        event.get(
+                            "premap_consumer_descriptor_prep_kernel_arg_shadow_table_passed_to_kernel",
+                            False,
+                        )
+                    )
+                )
             if "premap_consumer_descriptor_prep_execution_ok" in event:
                 totals["premap_consumer_descriptor_prep_executed_count"] += 1
                 totals["premap_consumer_descriptor_prep_checked_count"] += 1
@@ -2188,6 +2450,32 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
         / max(
             1,
             int(totals["premap_consumer_descriptor_prep_consumer_shim_executed_count"]),
+        )
+    )
+    totals["premap_consumer_descriptor_prep_kernel_arg_shadow_table_ok_rate"] = (
+        totals["premap_consumer_descriptor_prep_kernel_arg_shadow_table_ok_count"]
+        / max(
+            1,
+            int(
+                totals[
+                    "premap_consumer_descriptor_prep_kernel_arg_shadow_table_executed_count"
+                ]
+            ),
+        )
+    )
+    totals[
+        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_lifecycle_ok_rate"
+    ] = (
+        totals[
+            "premap_consumer_descriptor_prep_kernel_arg_shadow_table_lifecycle_ok_count"
+        ]
+        / max(
+            1,
+            int(
+                totals[
+                    "premap_consumer_descriptor_prep_kernel_arg_shadow_table_executed_count"
+                ]
+            ),
         )
     )
     totals["premap_consumer_descriptor_prep_blocked_rate"] = (
