@@ -14466,3 +14466,46 @@ This remains a safety gate.  It does not move expert payloads, mark experts
 ready, change routing, change descriptor visitation order, patch kernel launch
 arguments, or claim endpoint TPOT improvement.
 ```
+
+### 2026-05-22: Runtime loader gate smoke for real descriptor prep
+
+The real descriptor prep lab gate was exercised through the vLLM/AWQ trace
+loader rather than only through offline gate checking.
+
+Positive loader smoke:
+
+| smoke | config | gate | execution mode | mappings | prep lookups | real handles | misses | real hit | backed | errors |
+|---|---|---|---|---:|---:|---:|---:|---:|---:|---:|
+| 8-sample gen64 | `configs/trace/router_mtp_trace_external_prompt_gate_dolly_8_awq_vllm_gpu1_decode_gen64_premap_consumer_mapping_smoke.yaml` | passed | `readonly_descriptor_address_object` | 20,480 | 190,215 | 190,215 | 0 | 1.0 | 1.0 | 0 |
+| 32-sample gen8 smoke | `/tmp/router_mtp_trace_dolly_32_real_prep_loader_smoke.yaml` | passed | `readonly_descriptor_address_object` | 10,240 | 205,088 | 205,088 | 0 | 1.0 | 1.0 | 0 |
+
+The 32-sample smoke intentionally uses short generation (`max_tokens=8`) to
+validate loader/gate plumbing without paying the full diagnostic cost.  The
+consumer mapping path still requires router-topk recording for this smoke; a
+trial with `record_router_topk=false` correctly failed to produce descriptor
+prep handles and was not used as positive evidence.
+
+Negative loader smoke:
+
+```text
+config: /tmp/router_mtp_trace_dolly_1_bad_real_prep_gate_smoke.yaml
+bad gate: /tmp/premap_consumer_readonly_gate_bad_no_real.yaml
+mutation: contract.real_descriptor_prep_required=false
+result: rejected before model load
+error:
+  premap_descriptor_prep_execution_mode requires a readonly gate with
+  contract.real_descriptor_prep_required=true
+```
+
+Interpretation:
+
+```text
+The runtime loader is now fail-closed for real descriptor prep execution mode:
+valid lab gate artifacts are accepted and summarized in performance_summary.json.
+The tested bad gate with `contract.real_descriptor_prep_required=false` is
+rejected before vLLM model loading in this execution mode, validating the
+fail-closed path for this required-gate check.
+
+This remains no-op/read-only evidence.  It validates handle availability and
+gate enforcement, not payload movement or endpoint latency improvement.
+```
