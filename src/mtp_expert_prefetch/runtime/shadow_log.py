@@ -739,6 +739,11 @@ class ShadowPremapConsumerMappingEvent:
     descriptor_prep_consumer_object_stale_count: int | None = None
     descriptor_prep_consumer_object_read_hash: str | None = None
     descriptor_prep_consumer_object_read_ok: bool | None = None
+    descriptor_prep_consumer_shim_mode: str | None = None
+    descriptor_prep_consumer_shim_object_count: int | None = None
+    descriptor_prep_consumer_shim_object_hash: str | None = None
+    descriptor_prep_consumer_shim_ok: bool | None = None
+    descriptor_prep_consumer_shim_changes_kernel_launch_args: bool | None = None
     descriptor_prep_execution_ok: bool | None = None
     descriptor_prep_blocked_reason: str | None = None
     expected_key_hash: str | None = None
@@ -1032,6 +1037,31 @@ class ShadowPremapConsumerMappingEvent:
         )
         _put_optional(
             payload,
+            "premap_consumer_descriptor_prep_consumer_shim_mode",
+            self.descriptor_prep_consumer_shim_mode,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_object_count",
+            self.descriptor_prep_consumer_shim_object_count,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_object_hash",
+            self.descriptor_prep_consumer_shim_object_hash,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_ok",
+            self.descriptor_prep_consumer_shim_ok,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_changes_kernel_launch_args",
+            self.descriptor_prep_consumer_shim_changes_kernel_launch_args,
+        )
+        _put_optional(
+            payload,
             "premap_consumer_descriptor_prep_execution_ok",
             self.descriptor_prep_execution_ok,
         )
@@ -1251,6 +1281,10 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
         "premap_consumer_descriptor_prep_consumer_object_stale_count": 0,
         "premap_consumer_descriptor_prep_consumer_object_read_ok_count": 0,
         "premap_consumer_descriptor_prep_consumer_object_read_checked_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_executed_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_ok_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_object_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_violation_count": 0,
         "premap_consumer_descriptor_prep_execution_ok_count": 0,
         "premap_consumer_descriptor_prep_checked_count": 0,
         "premap_consumer_descriptor_prep_blocked_count": 0,
@@ -1742,6 +1776,37 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
                         )
                     )
                 )
+            if "premap_consumer_descriptor_prep_consumer_shim_mode" in event:
+                totals[
+                    "premap_consumer_descriptor_prep_consumer_shim_executed_count"
+                ] += 1
+                totals[
+                    "premap_consumer_descriptor_prep_consumer_shim_object_count"
+                ] += int(
+                    event.get(
+                        "premap_consumer_descriptor_prep_consumer_shim_object_count",
+                        0,
+                    )
+                    or 0
+                )
+                totals["premap_consumer_descriptor_prep_consumer_shim_ok_count"] += int(
+                    bool(
+                        event.get(
+                            "premap_consumer_descriptor_prep_consumer_shim_ok",
+                            False,
+                        )
+                    )
+                )
+                totals[
+                    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_violation_count"
+                ] += int(
+                    bool(
+                        event.get(
+                            "premap_consumer_descriptor_prep_consumer_shim_changes_kernel_launch_args",
+                            False,
+                        )
+                    )
+                )
             if "premap_consumer_descriptor_prep_execution_ok" in event:
                 totals["premap_consumer_descriptor_prep_executed_count"] += 1
                 totals["premap_consumer_descriptor_prep_checked_count"] += 1
@@ -2042,6 +2107,13 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
                     "premap_consumer_descriptor_prep_consumer_object_read_checked_count"
                 ]
             ),
+        )
+    )
+    totals["premap_consumer_descriptor_prep_consumer_shim_ok_rate"] = (
+        totals["premap_consumer_descriptor_prep_consumer_shim_ok_count"]
+        / max(
+            1,
+            int(totals["premap_consumer_descriptor_prep_consumer_shim_executed_count"]),
         )
     )
     totals["premap_consumer_descriptor_prep_blocked_rate"] = (

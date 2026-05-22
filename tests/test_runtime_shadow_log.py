@@ -368,6 +368,11 @@ def test_shadow_log_aggregates_premap_consumer_mapping_without_side_effects(tmp_
         descriptor_prep_consumer_object_stale_count=0,
         descriptor_prep_consumer_object_read_hash="prep-consumer-object-hash",
         descriptor_prep_consumer_object_read_ok=True,
+        descriptor_prep_consumer_shim_mode="readonly_prelaunch_consumer_shim",
+        descriptor_prep_consumer_shim_object_count=2,
+        descriptor_prep_consumer_shim_object_hash="prep-consumer-object-hash",
+        descriptor_prep_consumer_shim_ok=True,
+        descriptor_prep_consumer_shim_changes_kernel_launch_args=False,
         descriptor_prep_execution_ok=True,
         expected_key_hash="consumer-hash",
         resident_address_count=4,
@@ -514,6 +519,24 @@ def test_shadow_log_aggregates_premap_consumer_mapping_without_side_effects(tmp_
         == 1.0
     )
     assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_executed_count"
+        ]
+        == 1
+    )
+    assert aggregate["premap_consumer_descriptor_prep_consumer_shim_ok_count"] == 1
+    assert aggregate["premap_consumer_descriptor_prep_consumer_shim_ok_rate"] == 1.0
+    assert (
+        aggregate["premap_consumer_descriptor_prep_consumer_shim_object_count"]
+        == 2
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_violation_count"
+        ]
+        == 0
+    )
+    assert (
         rows[0]["premap_consumer_descriptor_prep_consumer_object_hash"]
         == "prep-consumer-object-hash"
     )
@@ -524,6 +547,16 @@ def test_shadow_log_aggregates_premap_consumer_mapping_without_side_effects(tmp_
     assert (
         rows[0]["premap_consumer_descriptor_prep_consumer_object_read_ok"]
         is True
+    )
+    assert rows[0]["premap_consumer_descriptor_prep_consumer_shim_mode"] == (
+        "readonly_prelaunch_consumer_shim"
+    )
+    assert rows[0]["premap_consumer_descriptor_prep_consumer_shim_ok"] is True
+    assert (
+        rows[0][
+            "premap_consumer_descriptor_prep_consumer_shim_changes_kernel_launch_args"
+        ]
+        is False
     )
     assert aggregate["premap_consumer_descriptor_prep_execution_ok_rate"] == 1.0
     assert (

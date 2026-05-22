@@ -14624,6 +14624,11 @@ premap_consumer_descriptor_prep_consumer_object_stale_count
 premap_consumer_descriptor_prep_consumer_object_read_hit_rate
 premap_consumer_descriptor_prep_consumer_object_stale_rate
 premap_consumer_descriptor_prep_consumer_object_read_ok_rate
+premap_consumer_descriptor_prep_consumer_shim_executed_count
+premap_consumer_descriptor_prep_consumer_shim_ok_count
+premap_consumer_descriptor_prep_consumer_shim_ok_rate
+premap_consumer_descriptor_prep_consumer_shim_object_count
+premap_consumer_descriptor_prep_consumer_shim_kernel_arg_violation_count
 ```
 
 `consumer_object_rate` is intentionally measured as:
@@ -14644,6 +14649,29 @@ read lookup -> object hash parity -> stale/miss accounting
 
 This validates that the object-shaped handle remains readable at the consumer
 side without passing it to a kernel or mutating launch arguments.
+
+The prelaunch path also runs an explicit readonly consumer shim:
+
+```text
+PremapDescriptorConsumerReadResult
+  -> PremapDescriptorConsumerShimResult
+```
+
+The shim is the first named runtime consumer boundary for the prepared object.
+It accepts only a successful readonly object read and records:
+
+```text
+execution_mode = readonly_prelaunch_consumer_shim
+shim_ok
+object_count
+object_hash
+changes_kernel_launch_args = false
+```
+
+This is still not a real kernel integration.  It is a no-op prelaunch consumer
+shim that proves the prepared descriptor/address object can be handed across a
+runtime boundary without changing payload, ready credit, router output,
+descriptor order, or kernel launch arguments.
 
 Validation:
 
@@ -14686,6 +14714,16 @@ runtime_shadow_aggregate_premap_consumer_descriptor_prep_consumer_object_stale_r
   0.0
 runtime_shadow_aggregate_premap_consumer_descriptor_prep_consumer_object_read_ok_rate =
   1.0
+runtime_shadow_aggregate_premap_consumer_descriptor_prep_consumer_shim_executed_count =
+  20480
+runtime_shadow_aggregate_premap_consumer_descriptor_prep_consumer_shim_object_count =
+  190215
+runtime_shadow_aggregate_premap_consumer_descriptor_prep_consumer_shim_ok_count =
+  20480
+runtime_shadow_aggregate_premap_consumer_descriptor_prep_consumer_shim_ok_rate =
+  1.0
+runtime_shadow_aggregate_premap_consumer_descriptor_prep_consumer_shim_kernel_arg_violation_count =
+  0
 ```
 
 Interpretation:

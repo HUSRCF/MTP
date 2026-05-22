@@ -174,6 +174,11 @@ RUNTIME_SHADOW_AGGREGATE_PERFORMANCE_KEYS = (
     "premap_consumer_descriptor_prep_consumer_object_read_hit_rate",
     "premap_consumer_descriptor_prep_consumer_object_stale_rate",
     "premap_consumer_descriptor_prep_consumer_object_read_ok_rate",
+    "premap_consumer_descriptor_prep_consumer_shim_executed_count",
+    "premap_consumer_descriptor_prep_consumer_shim_ok_count",
+    "premap_consumer_descriptor_prep_consumer_shim_ok_rate",
+    "premap_consumer_descriptor_prep_consumer_shim_object_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_violation_count",
     "premap_consumer_descriptor_prep_execution_ok_rate",
     "premap_consumer_descriptor_prep_execution_ok_attempted_rate",
     "premap_consumer_descriptor_prep_blocked_count",
@@ -2146,6 +2151,7 @@ class VllmRouterRecorder:
             )
         descriptor_prep_result = None
         descriptor_consumer_read_result = None
+        descriptor_consumer_shim_result = None
         descriptor_prep_blocked_reason: str | None = None
         descriptor_prep_mode = _normalize_premap_descriptor_prep_execution_mode(
             self.shadow_premap_descriptor_prep_execution_mode
@@ -2196,6 +2202,12 @@ class VllmRouterRecorder:
                             ),
                         )
                     )
+                    if descriptor_consumer_read_result.read_ok:
+                        descriptor_consumer_shim_result = (
+                            manager.execute_descriptor_consumer_shim_readonly(
+                                descriptor_consumer_read_result
+                            )
+                        )
         lookup_us = (time.perf_counter_ns() - start_ns) / 1000.0
         sink.write_premap_consumer_mapping(
             ShadowPremapConsumerMappingEvent(
@@ -2384,6 +2396,31 @@ class VllmRouterRecorder:
                 descriptor_prep_consumer_object_read_ok=(
                     bool(descriptor_consumer_read_result.read_ok)
                     if descriptor_consumer_read_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_mode=(
+                    descriptor_consumer_shim_result.execution_mode
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_object_count=(
+                    int(descriptor_consumer_shim_result.object_count)
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_object_hash=(
+                    descriptor_consumer_shim_result.object_hash
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_ok=(
+                    bool(descriptor_consumer_shim_result.shim_ok)
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_changes_kernel_launch_args=(
+                    bool(descriptor_consumer_shim_result.changes_kernel_launch_args)
+                    if descriptor_consumer_shim_result is not None
                     else None
                 ),
                 descriptor_prep_execution_ok=(

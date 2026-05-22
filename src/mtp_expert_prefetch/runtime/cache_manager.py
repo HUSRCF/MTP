@@ -316,6 +316,31 @@ class PremapDescriptorConsumerReadResult:
         return asdict(self)
 
 
+@dataclass(frozen=True)
+class PremapDescriptorConsumerShimResult:
+    """Explicit no-op consumer shim for prepared descriptor objects.
+
+    This is the handoff point immediately before a future real consumer would
+    receive descriptor/address objects.  The current shim only validates that a
+    readable object set exists and records that no runtime side effects were
+    introduced.
+    """
+
+    execution_mode: str
+    object_count: int
+    object_hash: str | None
+    read_ok: bool
+    shim_ok: bool
+    payload_bytes: int = 0
+    ready_credit: bool = False
+    changes_router: bool = False
+    changes_descriptor_order: bool = False
+    changes_kernel_launch_args: bool = False
+
+    def as_dict(self) -> dict[str, int | bool | str | None]:
+        return asdict(self)
+
+
 class ControlledPremapAddressManager:
     """Bounded descriptor/address shim for premap-only runtime prototypes.
 
@@ -699,6 +724,34 @@ class ControlledPremapAddressManager:
             ready_credit=False,
             changes_router=False,
             changes_descriptor_order=False,
+        )
+
+    def execute_descriptor_consumer_shim_readonly(
+        self,
+        read_result: PremapDescriptorConsumerReadResult,
+        *,
+        execution_mode: str = "readonly_prelaunch_consumer_shim",
+    ) -> PremapDescriptorConsumerShimResult:
+        """Run the minimal prelaunch consumer shim without side effects."""
+
+        shim_ok = (
+            bool(read_result.read_ok)
+            and int(read_result.object_hit_count) > 0
+            and int(read_result.object_miss_count) == 0
+            and int(read_result.stale_object_count) == 0
+            and int(read_result.payload_bytes) == 0
+        )
+        return PremapDescriptorConsumerShimResult(
+            execution_mode=str(execution_mode),
+            object_count=int(read_result.object_hit_count),
+            object_hash=read_result.object_hash,
+            read_ok=bool(read_result.read_ok),
+            shim_ok=bool(shim_ok),
+            payload_bytes=0,
+            ready_credit=False,
+            changes_router=False,
+            changes_descriptor_order=False,
+            changes_kernel_launch_args=False,
         )
 
     @staticmethod

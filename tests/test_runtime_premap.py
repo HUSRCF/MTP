@@ -317,6 +317,18 @@ def test_controlled_premap_address_manager_executes_descriptor_prep_readonly():
     assert read_result.changes_descriptor_order is False
     assert read_result.read_ok is True
 
+    shim_result = manager.execute_descriptor_consumer_shim_readonly(read_result)
+    assert shim_result.execution_mode == "readonly_prelaunch_consumer_shim"
+    assert shim_result.object_count == 2
+    assert shim_result.object_hash == read_result.object_hash
+    assert shim_result.read_ok is True
+    assert shim_result.shim_ok is True
+    assert shim_result.payload_bytes == 0
+    assert shim_result.ready_credit is False
+    assert shim_result.changes_router is False
+    assert shim_result.changes_descriptor_order is False
+    assert shim_result.changes_kernel_launch_args is False
+
     partial_read_result = manager.read_descriptor_consumer_objects_readonly(
         keys,
         expected_object_hash_by_address_key={
@@ -337,6 +349,12 @@ def test_controlled_premap_address_manager_executes_descriptor_prep_readonly():
     assert stale_read_result.checked_object_count == 1
     assert stale_read_result.stale_object_count == 1
     assert stale_read_result.read_ok is False
+
+    stale_shim_result = manager.execute_descriptor_consumer_shim_readonly(
+        stale_read_result
+    )
+    assert stale_shim_result.read_ok is False
+    assert stale_shim_result.shim_ok is False
 
 
 def test_controlled_premap_address_manager_descriptor_prep_uses_real_handles():
