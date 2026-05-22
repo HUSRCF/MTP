@@ -10,7 +10,7 @@ import json
 import os
 import sys
 import contextvars
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 import time
 from typing import Any, Iterable, Protocol
@@ -2077,7 +2077,10 @@ class VllmRouterRecorder:
                     int(expert_id)
                 )
                 if real_descriptor_handle is not None:
-                    real_descriptor_handles_by_address_key[key] = real_descriptor_handle
+                    real_descriptor_handles_by_address_key[key] = replace(
+                        real_descriptor_handle,
+                        address_key=key,
+                    )
             previous_hash = self._premap_real_handle_binding_by_address_key.get(key)
             if previous_hash is None:
                 self._premap_real_handle_binding_by_address_key[key] = real_expert_hash

@@ -385,6 +385,44 @@ def test_controlled_premap_address_manager_descriptor_prep_fails_on_missing_real
     assert result.execution_ok is False
 
 
+def test_controlled_premap_address_manager_descriptor_prep_rejects_mismatched_real_address_key():
+    plan = prepare_premap_address_plan(
+        [ExpertPrefetchDescriptor(0, 1, 3, 2, "transition_head", 0.95)],
+        descriptor_bytes=64,
+    )
+    manager = ControlledPremapAddressManager(capacity=4)
+    manager.prepare(plan)
+    key = plan.records[0].address_key
+    real_handles = {
+        key: PremapRealDescriptorHandle(
+            expert_id=3,
+            local_expert_id=3,
+            handle_hash="real-hash-wrong-address",
+            address_key="different-address-key",
+            packed_weight_descriptor="real-packed",
+            scale_metadata_handle="real-scale",
+            payload_bytes=0,
+        )
+    }
+
+    result = manager.execute_descriptor_prep_readonly(
+        [key],
+        real_descriptor_handles_by_address_key=real_handles,
+    )
+
+    assert result.lookup_count == 1
+    assert result.prepared_handle_count == 0
+    assert result.missing_handle_count == 0
+    assert result.real_descriptor_handle_count == 0
+    assert result.real_descriptor_handle_miss_count == 1
+    assert result.real_descriptor_handle_backed is True
+    assert result.payload_bytes == 0
+    assert result.ready_credit is False
+    assert result.changes_router is False
+    assert result.changes_descriptor_order is False
+    assert result.execution_ok is False
+
+
 def test_controlled_premap_address_manager_descriptor_prep_rejects_real_payload():
     plan = prepare_premap_address_plan(
         [ExpertPrefetchDescriptor(0, 1, 3, 2, "transition_head", 0.95)],

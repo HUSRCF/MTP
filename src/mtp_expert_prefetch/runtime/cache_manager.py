@@ -162,6 +162,7 @@ class PremapRealDescriptorHandle:
     expert_id: int
     local_expert_id: int
     handle_hash: str
+    address_key: str | None = None
     packed_weight_descriptor: str | None = None
     scale_metadata_handle: str | None = None
     aux_metadata_handle: str | None = None
@@ -434,7 +435,10 @@ class ControlledPremapAddressManager:
             handle = entry.handle
             real_handle = real_handles.get(key) if real_handles is not None else None
             if real_handles is not None:
-                if real_handle is None:
+                if real_handle is None or (
+                    real_handle.address_key is not None
+                    and str(real_handle.address_key) != key
+                ):
                     real_descriptor_handle_miss_count += 1
                     continue
                 real_descriptor_handle_count += 1
@@ -445,6 +449,7 @@ class ControlledPremapAddressManager:
                             key,
                             real_handle.expert_id,
                             real_handle.local_expert_id,
+                            real_handle.address_key,
                             real_handle.handle_hash,
                             real_handle.packed_weight_descriptor,
                             real_handle.scale_metadata_handle,

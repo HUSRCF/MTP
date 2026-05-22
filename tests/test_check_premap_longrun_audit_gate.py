@@ -46,6 +46,10 @@ def _passing_summary() -> dict:
             "premap_consumer_descriptor_prep_descriptor_ptr_count": 20,
             "premap_consumer_descriptor_prep_packed_weight_descriptor_count": 20,
             "premap_consumer_descriptor_prep_scale_metadata_handle_count": 20,
+            "premap_consumer_descriptor_prep_real_handle_count": 20,
+            "premap_consumer_descriptor_prep_real_handle_miss_count": 0,
+            "premap_consumer_descriptor_prep_real_handle_hit_rate": 1.0,
+            "premap_consumer_descriptor_prep_real_handle_backed_rate": 1.0,
             "premap_consumer_descriptor_prep_execution_ok_rate": 1.0,
             "premap_consumer_descriptor_prep_execution_ok_attempted_rate": 1.0,
             "premap_consumer_descriptor_prep_blocked_count": 0,
@@ -87,6 +91,26 @@ def test_premap_longrun_audit_gate_accepts_descriptor_prep_contract():
     assert result["metrics"]["premap_consumer_descriptor_prep_attempted_count"] == 2
 
 
+def test_premap_longrun_audit_gate_accepts_real_descriptor_prep_contract():
+    result = check_summary(
+        _passing_summary(),
+        max_capacity=12,
+        min_reuse_rate=0.98,
+        require_readonly_consumer=True,
+        require_descriptor_prep=True,
+        require_real_descriptor_prep=True,
+    )
+
+    assert result["passed"] is True
+    assert result["failures"] == []
+    assert result["require_real_descriptor_prep"] is True
+    assert result["metrics"]["premap_consumer_descriptor_prep_real_handle_count"] == 20
+    assert (
+        result["metrics"]["premap_consumer_descriptor_prep_real_handle_hit_rate"]
+        == 1.0
+    )
+
+
 def test_premap_longrun_audit_gate_rejects_descriptor_prep_instability():
     summary = _passing_summary()
     summary["aggregate"]["premap_consumer_descriptor_prep_executed_count"] = 1
@@ -116,6 +140,35 @@ def test_premap_longrun_audit_gate_rejects_descriptor_prep_instability():
     )
     assert "descriptor_prep_blocked_count_nonzero" in result["failures"]
     assert "descriptor_prep_blocked_attempted_rate_nonzero" in result["failures"]
+
+
+def test_premap_longrun_audit_gate_rejects_real_descriptor_prep_instability():
+    summary = _passing_summary()
+    summary["aggregate"]["premap_consumer_descriptor_prep_real_handle_count"] = 19
+    summary["aggregate"]["premap_consumer_descriptor_prep_real_handle_miss_count"] = 1
+    summary["aggregate"]["premap_consumer_descriptor_prep_real_handle_hit_rate"] = 0.95
+    summary["aggregate"]["premap_consumer_descriptor_prep_real_handle_backed_rate"] = 0.5
+
+    result = check_summary(
+        summary,
+        max_capacity=12,
+        min_reuse_rate=0.98,
+        require_readonly_consumer=True,
+        require_descriptor_prep=True,
+        require_real_descriptor_prep=True,
+    )
+
+    assert result["passed"] is False
+    assert "descriptor_prep_real_handle_count_mismatch=19!=20" in result["failures"]
+    assert "descriptor_prep_real_handle_miss_count_nonzero=1" in result["failures"]
+    assert (
+        "premap_consumer_descriptor_prep_real_handle_hit_rate_not_one"
+        in result["failures"]
+    )
+    assert (
+        "premap_consumer_descriptor_prep_real_handle_backed_rate_not_one"
+        in result["failures"]
+    )
 
 
 def test_premap_longrun_audit_gate_rejects_partial_descriptor_prep_coverage():

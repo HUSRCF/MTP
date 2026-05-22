@@ -14343,6 +14343,7 @@ Safety refinements:
 ```text
 real handle payload_bytes > 0 fails execution_ok
 missing real handle fails execution_ok
+real handle address_key mismatch fails execution_ok
 incomplete packed-weight / scale metadata fails execution_ok
 real-handle hit rate includes descriptor-prep missing handles in the denominator
 ```
@@ -14365,6 +14366,13 @@ performance_summary:
   runtime_shadow_aggregate_premap_consumer_descriptor_prep_real_handle_backed_rate = 1.0
   runtime_shadow_aggregate_premap_consumer_descriptor_prep_real_handle_hit_rate = 1.0
   runtime_shadow_aggregate_premap_consumer_descriptor_prep_real_handle_miss_count = 0
+
+real descriptor prep gate:
+  scripts/check_premap_longrun_audit_gate.py
+    --require-readonly-consumer
+    --require-descriptor-prep
+    --require-real-descriptor-prep
+  passed on filtered premap-only summary
 ```
 
 Boundary:
@@ -14384,8 +14392,8 @@ conda run -p /home/husrcf/anaconda3/envs/TRY pytest \
   tests/test_runtime_shadow_log.py \
   tests/test_vllm_router_shadow_sink.py \
   tests/test_check_premap_longrun_audit_gate.py -q
-94 passed
+97 passed
 
 conda run -p /home/husrcf/anaconda3/envs/TRY pytest tests -q
-461 passed, 2 warnings
+464 passed, 2 warnings
 ```

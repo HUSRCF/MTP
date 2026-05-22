@@ -35,6 +35,7 @@ def check_summary(
     min_reuse_rate: float = 0.98,
     require_readonly_consumer: bool = False,
     require_descriptor_prep: bool = False,
+    require_real_descriptor_prep: bool = False,
 ) -> dict[str, Any]:
     event_counts = {
         str(key): int(value) for key, value in summary.get("event_counts", {}).items()
@@ -133,7 +134,16 @@ def check_summary(
     )
     if require_descriptor_prep and not descriptor_prep_active:
         failures.append("descriptor_prep_fields_missing")
-    if require_descriptor_prep or descriptor_prep_active:
+    descriptor_prep_real_active = any(
+        key in aggregate
+        for key in (
+            "premap_consumer_descriptor_prep_real_handle_count",
+            "premap_consumer_descriptor_prep_real_handle_miss_count",
+            "premap_consumer_descriptor_prep_real_handle_hit_rate",
+            "premap_consumer_descriptor_prep_real_handle_backed_rate",
+        )
+    )
+    if require_descriptor_prep or require_real_descriptor_prep or descriptor_prep_active:
         attempted = _as_int(
             aggregate.get("premap_consumer_descriptor_prep_attempted_count")
         )
@@ -183,6 +193,29 @@ def check_summary(
         ):
             if _as_int(aggregate.get(field)) != lookup_count:
                 failures.append(f"{field}_mismatch={_as_int(aggregate.get(field))}!={lookup_count}")
+        if require_real_descriptor_prep or descriptor_prep_real_active:
+            real_prep_count = _as_int(
+                aggregate.get("premap_consumer_descriptor_prep_real_handle_count")
+            )
+            real_prep_miss = _as_int(
+                aggregate.get("premap_consumer_descriptor_prep_real_handle_miss_count")
+            )
+            if require_real_descriptor_prep and not descriptor_prep_real_active:
+                failures.append("descriptor_prep_real_handle_fields_missing")
+            if real_prep_count != lookup_count:
+                failures.append(
+                    f"descriptor_prep_real_handle_count_mismatch={real_prep_count}!={lookup_count}"
+                )
+            if real_prep_miss != 0:
+                failures.append(
+                    f"descriptor_prep_real_handle_miss_count_nonzero={real_prep_miss}"
+                )
+            for field in (
+                "premap_consumer_descriptor_prep_real_handle_hit_rate",
+                "premap_consumer_descriptor_prep_real_handle_backed_rate",
+            ):
+                if _as_float(aggregate.get(field)) != 1.0:
+                    failures.append(f"{field}_not_one")
     real_handle_hits = _as_int(
         aggregate.get("premap_consumer_real_descriptor_handle_hit_count")
     )
@@ -283,6 +316,18 @@ def check_summary(
         "premap_consumer_descriptor_prep_blocked_attempted_rate": _as_float(
             aggregate.get("premap_consumer_descriptor_prep_blocked_attempted_rate")
         ),
+        "premap_consumer_descriptor_prep_real_handle_count": _as_int(
+            aggregate.get("premap_consumer_descriptor_prep_real_handle_count")
+        ),
+        "premap_consumer_descriptor_prep_real_handle_miss_count": _as_int(
+            aggregate.get("premap_consumer_descriptor_prep_real_handle_miss_count")
+        ),
+        "premap_consumer_descriptor_prep_real_handle_hit_rate": _as_float(
+            aggregate.get("premap_consumer_descriptor_prep_real_handle_hit_rate")
+        ),
+        "premap_consumer_descriptor_prep_real_handle_backed_rate": _as_float(
+            aggregate.get("premap_consumer_descriptor_prep_real_handle_backed_rate")
+        ),
     }
     return {
         "passed": not failures,
@@ -292,6 +337,7 @@ def check_summary(
         "min_reuse_rate": float(min_reuse_rate),
         "require_readonly_consumer": bool(require_readonly_consumer),
         "require_descriptor_prep": bool(require_descriptor_prep),
+        "require_real_descriptor_prep": bool(require_real_descriptor_prep),
     }
 
 
@@ -317,6 +363,15 @@ def main() -> None:
             "prep integration."
         ),
     )
+    parser.add_argument(
+        "--require-real-descriptor-prep",
+        action="store_true",
+        help=(
+            "Require descriptor prep to be backed by live packed-weight/scale "
+            "runtime handle signatures.  This is the final safety gate before "
+            "real descriptor/address prep integration."
+        ),
+    )
     parser.add_argument("--output-json", type=Path)
     args = parser.parse_args()
 
@@ -327,6 +382,7 @@ def main() -> None:
         min_reuse_rate=args.min_reuse_rate,
         require_readonly_consumer=args.require_readonly_consumer,
         require_descriptor_prep=args.require_descriptor_prep,
+        require_real_descriptor_prep=args.require_real_descriptor_prep,
     )
     payload = json.dumps(result, indent=2, sort_keys=True) + "\n"
     if args.output_json is not None:
