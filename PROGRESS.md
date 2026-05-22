@@ -14509,3 +14509,79 @@ fail-closed path for this required-gate check.
 This remains no-op/read-only evidence.  It validates handle availability and
 gate enforcement, not payload movement or endpoint latency improvement.
 ```
+
+### 2026-05-22: Lab-default 128-sample real descriptor prep audit
+
+The lab-default real descriptor prep long-run audit was rerun at 128 samples
+only.  The 512-sample rerun was intentionally skipped because the 128-sample
+run is sufficient for this gate refresh and the 512-sample run is much slower.
+
+Config:
+
+```text
+configs/trace/router_mtp_trace_external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_longrun_audit.yaml
+```
+
+Strict gate checker:
+
+```text
+scripts/check_premap_longrun_audit_gate.py
+  data/traces/external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_longrun_audit/longrun_audit_summary.json
+  --max-capacity 12288
+  --min-reuse-rate 0.98
+  --require-readonly-consumer
+  --require-descriptor-prep
+  --require-real-descriptor-prep
+```
+
+Result:
+
+```text
+passed = true
+failures = []
+
+premap_address_reuse_rate_mean = 0.9827389896686539
+premap_address_eviction_pressure_mean = 0.0
+premap_address_resident_count_max = 10127
+premap_address_resident_descriptor_bytes_max = 41480192
+
+premap_consumer_mapping_count = 10195
+premap_consumer_descriptor_prep_attempted_count = 10195
+premap_consumer_descriptor_prep_executed_count = 10195
+premap_consumer_descriptor_prep_lookup_count = 110898
+premap_consumer_descriptor_prep_real_handle_count = 110898
+premap_consumer_descriptor_prep_real_handle_hit_rate = 1.0
+premap_consumer_descriptor_prep_real_handle_miss_count = 0
+premap_consumer_descriptor_prep_real_handle_backed_rate = 1.0
+
+premap_consumer_readonly_handle_hit_rate = 1.0
+premap_consumer_readonly_handle_parity_ok_rate = 1.0
+premap_consumer_readonly_stale_handle_count = 0
+premap_consumer_error_count = 0
+```
+
+The corresponding `performance_summary.json` also contains the flattened
+manager/gate fields:
+
+```text
+runtime_shadow_premap_consumer_readonly_gate_passed = true
+runtime_shadow_premap_consumer_readonly_gate_required = true
+runtime_shadow_premap_consumer_readonly_gate_id =
+  premap_consumer_readonly_dolly512_gen64_awq_w7900_gpu1
+runtime_shadow_premap_descriptor_prep_execution_mode =
+  readonly_descriptor_address_object
+runtime_shadow_aggregate_premap_address_reuse_rate_mean =
+  0.9827389896686539
+runtime_shadow_aggregate_premap_address_eviction_pressure_mean = 0.0
+runtime_shadow_aggregate_premap_address_resident_descriptor_bytes_max =
+  41480192
+```
+
+Interpretation:
+
+```text
+The lab-default gate remains valid at 128-sample scale after the runtime loader
+smoke and gate-artifact updates.  The audit validates read-only descriptor/
+address-handle availability and manager stability, not payload movement,
+ready-before-demand, descriptor-order execution, or endpoint latency gain.
+```
