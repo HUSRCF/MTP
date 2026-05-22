@@ -14585,3 +14585,84 @@ smoke and gate-artifact updates.  The audit validates read-only descriptor/
 address-handle availability and manager stability, not payload movement,
 ready-before-demand, descriptor-order execution, or endpoint latency gain.
 ```
+
+### 2026-05-22: Minimal real descriptor prep consumer object integration
+
+The readonly descriptor/address prep path now constructs a minimal
+`PremapDescriptorConsumerObject` when every requested `(layer, expert)` address
+key resolves to a complete descriptor/address handle:
+
+```text
+address_key
+descriptor_ptr
+packed_weight_descriptor
+scale_metadata_handle
+aux_metadata_handle
+handle_hash
+real_handle_hash
+```
+
+This object is a consumer contract only.  It remains no-op/read-only:
+
+```text
+payload_bytes = 0
+ready_credit = false
+changes_router = false
+changes_descriptor_order = false
+```
+
+The runtime shadow event and aggregate summary now expose:
+
+```text
+premap_consumer_descriptor_prep_consumer_object_count
+premap_consumer_descriptor_prep_consumer_object_hash
+premap_consumer_descriptor_prep_consumer_object_rate
+```
+
+`consumer_object_rate` is intentionally measured as:
+
+```text
+consumer_object_count / descriptor_prep_lookup_count
+```
+
+This is stricter than the real-handle hit rate: a handle may be present but
+still fail to become a consumer object if it is incomplete or payload-backed.
+
+Validation:
+
+```text
+env PYTHONPATH=$PWD:$PWD/src conda run -p ~/anaconda3/envs/TRY pytest tests -q
+466 passed, 2 warnings
+```
+
+GPU1 AWQ smoke:
+
+```text
+configs/trace/router_mtp_trace_external_prompt_gate_dolly_8_awq_vllm_gpu1_decode_gen64_premap_consumer_mapping_smoke.yaml
+
+runtime_shadow_premap_consumer_readonly_gate_passed = true
+runtime_shadow_premap_descriptor_prep_execution_mode =
+  readonly_descriptor_address_object
+runtime_shadow_aggregate_premap_consumer_descriptor_prep_lookup_count =
+  190215
+runtime_shadow_aggregate_premap_consumer_descriptor_prep_real_handle_count =
+  190215
+runtime_shadow_aggregate_premap_consumer_descriptor_prep_real_handle_hit_rate =
+  1.0
+runtime_shadow_aggregate_premap_consumer_descriptor_prep_real_handle_miss_count =
+  0
+runtime_shadow_aggregate_premap_consumer_descriptor_prep_consumer_object_count =
+  190215
+runtime_shadow_aggregate_premap_consumer_descriptor_prep_consumer_object_rate =
+  1.0
+```
+
+Interpretation:
+
+```text
+The premap path has advanced from address-key parity to a readonly
+real-handle-backed descriptor prep object contract.  This still does not move
+payloads, grant ready credit, mutate routing, mutate descriptor order, or prove
+endpoint latency benefit.  It is the next safety gate before any real lab
+descriptor/address preparation execution.
+```

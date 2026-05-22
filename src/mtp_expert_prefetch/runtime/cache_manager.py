@@ -176,6 +176,41 @@ class PremapRealDescriptorHandle:
         return asdict(self)
 
 
+@dataclass(frozen=True)
+class PremapDescriptorConsumerObject:
+    """Read-only descriptor/address object handed to a runtime consumer.
+
+    This is the first executable object-shaped contract above hash-only
+    telemetry.  It contains the descriptor/address handles that a consumer can
+    dereference, but it still carries no expert payload, grants no ready credit,
+    and does not change routing or descriptor visitation order.
+    """
+
+    address_key: str
+    descriptor_ptr: str
+    packed_weight_descriptor: str
+    scale_metadata_handle: str
+    aux_metadata_handle: str | None
+    handle_hash: str
+    real_handle_hash: str | None = None
+    payload_bytes: int = 0
+    ready_credit: bool = False
+    changes_router: bool = False
+    changes_descriptor_order: bool = False
+
+    @property
+    def object_hash(self) -> str:
+        payload = json.dumps(
+            self.as_dict(),
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+        return hashlib.sha256(payload).hexdigest()
+
+    def as_dict(self) -> dict[str, int | bool | str | None]:
+        return asdict(self)
+
+
 @dataclass
 class PremapAddressCacheEntry:
     descriptor_bytes: int
@@ -248,6 +283,8 @@ class PremapDescriptorPrepExecutionResult:
     real_descriptor_handle_miss_count: int = 0
     real_descriptor_handle_backed: bool = False
     real_descriptor_handle_hash: str | None = None
+    consumer_object_count: int = 0
+    consumer_object_hash: str | None = None
 
     def as_dict(self) -> dict[str, int | bool | str | None]:
         return asdict(self)
@@ -424,6 +461,7 @@ class ControlledPremapAddressManager:
         payload_bytes = 0
         hash_parts: list[str] = []
         real_hash_parts: list[str] = []
+        consumer_object_hashes: list[str] = []
         real_handles = real_descriptor_handles_by_address_key
         for raw_key in address_keys:
             lookup_count += 1
@@ -487,6 +525,35 @@ class ControlledPremapAddressManager:
             hash_parts.append(f"handle_hash:{handle.handle_hash}")
             if real_handle is not None:
                 hash_parts.append(f"real_handle_hash:{real_handle.handle_hash}")
+            if (
+                descriptor_ptr
+                and packed_descriptor
+                and scale_descriptor
+                and int(handle.payload_bytes) == 0
+                and (real_handle is None or int(real_handle.payload_bytes) == 0)
+            ):
+                consumer_object = PremapDescriptorConsumerObject(
+                    address_key=key,
+                    descriptor_ptr=str(descriptor_ptr),
+                    packed_weight_descriptor=str(packed_descriptor),
+                    scale_metadata_handle=str(scale_descriptor),
+                    aux_metadata_handle=(
+                        real_handle.aux_metadata_handle
+                        if real_handle is not None
+                        else None
+                    ),
+                    handle_hash=str(handle.handle_hash),
+                    real_handle_hash=(
+                        str(real_handle.handle_hash)
+                        if real_handle is not None
+                        else None
+                    ),
+                    payload_bytes=0,
+                    ready_credit=False,
+                    changes_router=False,
+                    changes_descriptor_order=False,
+                )
+                consumer_object_hashes.append(consumer_object.object_hash)
         handle_hash = None
         if hash_parts:
             payload = "|".join(sorted(hash_parts)).encode("utf-8")
@@ -495,6 +562,10 @@ class ControlledPremapAddressManager:
         if real_hash_parts:
             real_payload = "|".join(sorted(real_hash_parts)).encode("utf-8")
             real_descriptor_handle_hash = hashlib.sha256(real_payload).hexdigest()
+        consumer_object_hash = None
+        if consumer_object_hashes:
+            object_payload = "|".join(sorted(consumer_object_hashes)).encode("utf-8")
+            consumer_object_hash = hashlib.sha256(object_payload).hexdigest()
         real_backed = real_handles is not None
         real_ok = (
             not real_backed
@@ -503,6 +574,7 @@ class ControlledPremapAddressManager:
                 and real_descriptor_handle_miss_count == 0
             )
         )
+        consumer_object_count = len(consumer_object_hashes)
         return PremapDescriptorPrepExecutionResult(
             execution_mode=str(execution_mode),
             lookup_count=lookup_count,
@@ -515,6 +587,8 @@ class ControlledPremapAddressManager:
             real_descriptor_handle_miss_count=real_descriptor_handle_miss_count,
             real_descriptor_handle_backed=real_backed,
             real_descriptor_handle_hash=real_descriptor_handle_hash,
+            consumer_object_count=consumer_object_count,
+            consumer_object_hash=consumer_object_hash,
             payload_bytes=payload_bytes,
             ready_credit=False,
             changes_router=False,
@@ -527,6 +601,7 @@ class ControlledPremapAddressManager:
                 and descriptor_ptr_count == prepared_handle_count
                 and packed_weight_descriptor_count == prepared_handle_count
                 and scale_metadata_handle_count == prepared_handle_count
+                and consumer_object_count == prepared_handle_count
                 and real_ok
             ),
         )

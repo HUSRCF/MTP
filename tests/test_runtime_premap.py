@@ -294,6 +294,8 @@ def test_controlled_premap_address_manager_executes_descriptor_prep_readonly():
     assert result.ready_credit is False
     assert result.changes_router is False
     assert result.changes_descriptor_order is False
+    assert result.consumer_object_count == 2
+    assert result.consumer_object_hash
     assert result.handle_hash
     assert result.execution_ok is True
     assert after_snapshot == before_snapshot
@@ -338,6 +340,8 @@ def test_controlled_premap_address_manager_descriptor_prep_uses_real_handles():
     assert result.real_descriptor_handle_miss_count == 0
     assert result.real_descriptor_handle_backed is True
     assert result.real_descriptor_handle_hash
+    assert result.consumer_object_count == 2
+    assert result.consumer_object_hash
     assert result.payload_bytes == 0
     assert result.ready_credit is False
     assert result.changes_router is False
@@ -378,6 +382,8 @@ def test_controlled_premap_address_manager_descriptor_prep_fails_on_missing_real
     assert result.real_descriptor_handle_count == 1
     assert result.real_descriptor_handle_miss_count == 1
     assert result.real_descriptor_handle_backed is True
+    assert result.consumer_object_count == 1
+    assert result.consumer_object_hash
     assert result.payload_bytes == 0
     assert result.ready_credit is False
     assert result.changes_router is False
@@ -416,6 +422,8 @@ def test_controlled_premap_address_manager_descriptor_prep_rejects_mismatched_re
     assert result.real_descriptor_handle_count == 0
     assert result.real_descriptor_handle_miss_count == 1
     assert result.real_descriptor_handle_backed is True
+    assert result.consumer_object_count == 0
+    assert result.consumer_object_hash is None
     assert result.payload_bytes == 0
     assert result.ready_credit is False
     assert result.changes_router is False
@@ -451,6 +459,8 @@ def test_controlled_premap_address_manager_descriptor_prep_rejects_real_payload(
     assert result.real_descriptor_handle_count == 1
     assert result.real_descriptor_handle_miss_count == 0
     assert result.payload_bytes == 16
+    assert result.consumer_object_count == 0
+    assert result.consumer_object_hash is None
     assert result.ready_credit is False
     assert result.changes_router is False
     assert result.changes_descriptor_order is False
@@ -499,6 +509,8 @@ def test_controlled_premap_address_manager_descriptor_prep_rejects_incomplete_re
     assert result.packed_weight_descriptor_count == 2
     assert result.scale_metadata_handle_count == 1
     assert result.payload_bytes == 0
+    assert result.consumer_object_count == 1
+    assert result.consumer_object_hash
     assert result.ready_credit is False
     assert result.changes_router is False
     assert result.changes_descriptor_order is False

@@ -360,6 +360,8 @@ def test_shadow_log_aggregates_premap_consumer_mapping_without_side_effects(tmp_
         descriptor_prep_real_handle_backed=True,
         descriptor_prep_real_handle_hash="prep-real-hash",
         descriptor_prep_handle_hash="prep-hash",
+        descriptor_prep_consumer_object_count=2,
+        descriptor_prep_consumer_object_hash="prep-consumer-object-hash",
         descriptor_prep_execution_ok=True,
         expected_key_hash="consumer-hash",
         resident_address_count=4,
@@ -473,6 +475,12 @@ def test_shadow_log_aggregates_premap_consumer_mapping_without_side_effects(tmp_
     assert aggregate["premap_consumer_descriptor_prep_real_handle_hit_rate"] == 1.0
     assert aggregate["premap_consumer_descriptor_prep_real_handle_backed_count"] == 1
     assert aggregate["premap_consumer_descriptor_prep_real_handle_backed_rate"] == 1.0
+    assert aggregate["premap_consumer_descriptor_prep_consumer_object_count"] == 2
+    assert aggregate["premap_consumer_descriptor_prep_consumer_object_rate"] == 1.0
+    assert (
+        rows[0]["premap_consumer_descriptor_prep_consumer_object_hash"]
+        == "prep-consumer-object-hash"
+    )
     assert aggregate["premap_consumer_descriptor_prep_execution_ok_rate"] == 1.0
     assert (
         aggregate["premap_consumer_descriptor_prep_execution_ok_attempted_rate"]

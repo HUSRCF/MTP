@@ -165,6 +165,8 @@ RUNTIME_SHADOW_AGGREGATE_PERFORMANCE_KEYS = (
     "premap_consumer_descriptor_prep_real_handle_hit_rate",
     "premap_consumer_descriptor_prep_real_handle_backed_count",
     "premap_consumer_descriptor_prep_real_handle_backed_rate",
+    "premap_consumer_descriptor_prep_consumer_object_count",
+    "premap_consumer_descriptor_prep_consumer_object_rate",
     "premap_consumer_descriptor_prep_execution_ok_rate",
     "premap_consumer_descriptor_prep_execution_ok_attempted_rate",
     "premap_consumer_descriptor_prep_blocked_count",
@@ -2319,6 +2321,16 @@ class VllmRouterRecorder:
                 ),
                 descriptor_prep_handle_hash=(
                     descriptor_prep_result.handle_hash
+                    if descriptor_prep_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_object_count=(
+                    int(descriptor_prep_result.consumer_object_count)
+                    if descriptor_prep_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_object_hash=(
+                    descriptor_prep_result.consumer_object_hash
                     if descriptor_prep_result is not None
                     else None
                 ),

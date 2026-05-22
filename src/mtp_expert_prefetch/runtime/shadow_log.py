@@ -731,6 +731,8 @@ class ShadowPremapConsumerMappingEvent:
     descriptor_prep_real_handle_backed: bool | None = None
     descriptor_prep_real_handle_hash: str | None = None
     descriptor_prep_handle_hash: str | None = None
+    descriptor_prep_consumer_object_count: int | None = None
+    descriptor_prep_consumer_object_hash: str | None = None
     descriptor_prep_execution_ok: bool | None = None
     descriptor_prep_blocked_reason: str | None = None
     expected_key_hash: str | None = None
@@ -984,6 +986,16 @@ class ShadowPremapConsumerMappingEvent:
         )
         _put_optional(
             payload,
+            "premap_consumer_descriptor_prep_consumer_object_count",
+            self.descriptor_prep_consumer_object_count,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_object_hash",
+            self.descriptor_prep_consumer_object_hash,
+        )
+        _put_optional(
+            payload,
             "premap_consumer_descriptor_prep_execution_ok",
             self.descriptor_prep_execution_ok,
         )
@@ -1196,6 +1208,7 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
         "premap_consumer_descriptor_prep_real_handle_count": 0,
         "premap_consumer_descriptor_prep_real_handle_miss_count": 0,
         "premap_consumer_descriptor_prep_real_handle_backed_count": 0,
+        "premap_consumer_descriptor_prep_consumer_object_count": 0,
         "premap_consumer_descriptor_prep_execution_ok_count": 0,
         "premap_consumer_descriptor_prep_checked_count": 0,
         "premap_consumer_descriptor_prep_blocked_count": 0,
@@ -1630,6 +1643,13 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
                     )
                 )
             )
+            totals["premap_consumer_descriptor_prep_consumer_object_count"] += int(
+                event.get(
+                    "premap_consumer_descriptor_prep_consumer_object_count",
+                    0,
+                )
+                or 0
+            )
             if "premap_consumer_descriptor_prep_execution_ok" in event:
                 totals["premap_consumer_descriptor_prep_executed_count"] += 1
                 totals["premap_consumer_descriptor_prep_checked_count"] += 1
@@ -1891,6 +1911,13 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
     totals["premap_consumer_descriptor_prep_real_handle_backed_rate"] = (
         totals["premap_consumer_descriptor_prep_real_handle_backed_count"]
         / max(1, int(totals["premap_consumer_descriptor_prep_attempted_count"]))
+    )
+    # Consumer objects are a stricter executable-view projection of lookups,
+    # so this rate intentionally uses all descriptor-prep lookup requests as
+    # the denominator rather than the real-handle hit-rate denominator above.
+    totals["premap_consumer_descriptor_prep_consumer_object_rate"] = (
+        totals["premap_consumer_descriptor_prep_consumer_object_count"]
+        / max(1, int(totals["premap_consumer_descriptor_prep_lookup_count"]))
     )
     totals["premap_consumer_descriptor_prep_blocked_rate"] = (
         totals["premap_consumer_descriptor_prep_blocked_count"]

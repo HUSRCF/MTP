@@ -89,6 +89,8 @@ def test_runtime_shadow_aggregate_fields_are_flattened_to_performance_summary():
         "premap_consumer_descriptor_prep_real_handle_hit_rate": 1.0,
         "premap_consumer_descriptor_prep_real_handle_backed_count": 4,
         "premap_consumer_descriptor_prep_real_handle_backed_rate": 1.0,
+        "premap_consumer_descriptor_prep_consumer_object_count": 16,
+        "premap_consumer_descriptor_prep_consumer_object_rate": 1.0,
         "unrelated_debug_key": 99,
     }
     performance: dict[str, object] = {}
@@ -140,6 +142,18 @@ def test_runtime_shadow_aggregate_fields_are_flattened_to_performance_summary():
     assert (
         performance[
             "runtime_shadow_aggregate_premap_consumer_descriptor_prep_real_handle_backed_rate"
+        ]
+        == 1.0
+    )
+    assert (
+        performance[
+            "runtime_shadow_aggregate_premap_consumer_descriptor_prep_consumer_object_count"
+        ]
+        == 16
+    )
+    assert (
+        performance[
+            "runtime_shadow_aggregate_premap_consumer_descriptor_prep_consumer_object_rate"
         ]
         == 1.0
     )
@@ -1257,6 +1271,8 @@ def test_vllm_router_recorder_premap_consumer_mapping_hits_prepared_addresses():
     assert consumer["premap_consumer_descriptor_prep_real_handle_count"] == 0
     assert consumer["premap_consumer_descriptor_prep_real_handle_miss_count"] == 0
     assert consumer["premap_consumer_descriptor_prep_real_handle_backed"] is False
+    assert consumer["premap_consumer_descriptor_prep_consumer_object_count"] == 2
+    assert consumer["premap_consumer_descriptor_prep_consumer_object_hash"]
     assert consumer["premap_consumer_descriptor_prep_handle_hash"]
     assert consumer["premap_consumer_descriptor_prep_execution_ok"] is True
     assert consumer["premap_consumer_expected_prepare_plan_count"] == 1
@@ -1332,6 +1348,8 @@ def test_vllm_router_recorder_premap_descriptor_prep_uses_real_handles():
     assert consumer["premap_consumer_descriptor_prep_real_handle_miss_count"] == 0
     assert consumer["premap_consumer_descriptor_prep_real_handle_backed"] is True
     assert consumer["premap_consumer_descriptor_prep_real_handle_hash"]
+    assert consumer["premap_consumer_descriptor_prep_consumer_object_count"] == 2
+    assert consumer["premap_consumer_descriptor_prep_consumer_object_hash"]
     assert consumer["premap_consumer_descriptor_prep_execution_ok"] is True
     assert consumer["premap_consumer_payload_bytes"] == 0
     assert consumer["premap_consumer_ready_credit"] is False
