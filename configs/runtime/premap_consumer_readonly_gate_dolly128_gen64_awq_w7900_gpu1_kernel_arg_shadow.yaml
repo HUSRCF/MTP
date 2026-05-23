@@ -21,6 +21,7 @@ contract:
   descriptor_prep_payload_bytes_required: 0
   descriptor_prep_kernel_arg_mutation_required: false
   kernel_arg_shadow_table_required: true
+  consumer_shim_table_read_required: true
 
 model:
   config: configs/model/qwen3_6_35b_a3b_awq_4bit.yaml
@@ -48,6 +49,7 @@ gate:
     require_descriptor_prep: true
     require_real_descriptor_prep: true
     require_kernel_arg_shadow_table: true
+    require_consumer_shim_table_read: true
   metrics:
     row_count: 20390
     premap_summary_count: 10195
@@ -110,6 +112,24 @@ gate:
     premap_consumer_descriptor_prep_kernel_arg_shadow_table_descriptor_order_change_violation_count: 0
     premap_consumer_descriptor_prep_kernel_arg_shadow_table_kernel_arg_violation_count: 0
     premap_consumer_descriptor_prep_kernel_arg_shadow_table_passed_to_kernel_count: 0
+    premap_consumer_descriptor_prep_consumer_shim_executed_count: 10195
+    premap_consumer_descriptor_prep_consumer_shim_ok_rate: 1.0
+    premap_consumer_descriptor_prep_consumer_shim_handle_table_read_checked_count: 10195
+    premap_consumer_descriptor_prep_consumer_shim_handle_table_read_not_checked_count: 0
+    premap_consumer_descriptor_prep_consumer_shim_handle_table_read_not_checked_rate: 0.0
+    premap_consumer_descriptor_prep_consumer_shim_handle_table_read_ok_count: 10195
+    premap_consumer_descriptor_prep_consumer_shim_handle_table_read_ok_rate: 1.0
+    premap_consumer_descriptor_prep_consumer_shim_handle_table_lifecycle_ok_count: 10195
+    premap_consumer_descriptor_prep_consumer_shim_handle_table_lifecycle_ok_rate: 1.0
+    premap_consumer_descriptor_prep_consumer_shim_handle_table_row_count: 110898
+    premap_consumer_descriptor_prep_consumer_shim_handle_table_column_count_max: 4
+    premap_consumer_descriptor_prep_consumer_shim_handle_table_per_row_parity_ok_count: 110898
+    premap_consumer_descriptor_prep_consumer_shim_handle_table_row_miss_count: 0
+    premap_consumer_descriptor_prep_consumer_shim_handle_table_stale_row_count: 0
+    premap_consumer_descriptor_prep_consumer_shim_handle_table_payload_bytes: 0
+    premap_consumer_descriptor_prep_consumer_shim_handle_table_payload_violation_count: 0
+    premap_consumer_descriptor_prep_consumer_shim_kernel_arg_violation_count: 0
+    premap_consumer_descriptor_prep_consumer_shim_handle_table_passed_to_kernel_count: 0
     premap_consumer_error_count: 0
     premap_consumer_payload_violation_count: 0
     premap_consumer_router_change_violation_count: 0

@@ -42,6 +42,8 @@ def _write_readonly_gate(
     require_real_descriptor_prep: bool | None = None,
     kernel_arg_shadow_table_required: bool | None = None,
     require_kernel_arg_shadow_table: bool | None = None,
+    consumer_shim_table_read_required: bool | None = None,
+    require_consumer_shim_table_read: bool | None = None,
 ):
     if descriptor_prep_execution_mode is not None:
         if real_descriptor_prep_required is None:
@@ -52,6 +54,10 @@ def _write_readonly_gate(
             kernel_arg_shadow_table_required = True
         if require_kernel_arg_shadow_table is None:
             require_kernel_arg_shadow_table = True
+        if consumer_shim_table_read_required is None:
+            consumer_shim_table_read_required = True
+        if require_consumer_shim_table_read is None:
+            require_consumer_shim_table_read = True
     status = "passed" if passed else "failed"
     gate_passed = "true" if passed else "false"
     lines = [
@@ -95,6 +101,11 @@ def _write_readonly_gate(
             "  kernel_arg_shadow_table_required: "
             f"{str(bool(kernel_arg_shadow_table_required)).lower()}"
         )
+    if consumer_shim_table_read_required is not None:
+        lines.append(
+            "  consumer_shim_table_read_required: "
+            f"{str(bool(consumer_shim_table_read_required)).lower()}"
+        )
     lines.extend(
         [
             "gate:",
@@ -112,6 +123,11 @@ def _write_readonly_gate(
         check_lines.append(
             "    require_kernel_arg_shadow_table: "
             f"{str(bool(require_kernel_arg_shadow_table)).lower()}"
+        )
+    if require_consumer_shim_table_read is not None:
+        check_lines.append(
+            "    require_consumer_shim_table_read: "
+            f"{str(bool(require_consumer_shim_table_read)).lower()}"
         )
     if check_lines:
         lines.append("  check:")
@@ -378,6 +394,75 @@ def test_apply_premap_consumer_readonly_gate_requires_kernel_arg_shadow_check(tm
     )
 
     with pytest.raises(ValueError, match="require_kernel_arg_shadow_table=true"):
+        _apply_premap_consumer_readonly_gate(
+            {
+                "enabled": True,
+                "emit_premap_consumer_mapping": True,
+                "premap_consumer_require_readonly_gate": True,
+                "premap_consumer_readonly_gate_path": str(gate),
+                "premap_consumer_mapping_mode": "noop_assertion",
+                "premap_consumer_resolve_real_handles": True,
+                "premap_policy": "premap_only_with_consumer_mapping_noop",
+                "premap_descriptor_bytes": 4096,
+                "premap_descriptor_prep_execution_mode": (
+                    "readonly_descriptor_address_object"
+                ),
+            },
+            project_root=tmp_path,
+        )
+
+
+def test_apply_premap_consumer_readonly_gate_requires_consumer_shim_table_read_contract(tmp_path):
+    gate = tmp_path / "readonly_gate.yaml"
+    _write_readonly_gate(
+        gate,
+        lab_precondition=True,
+        descriptor_prep_execution_mode="readonly_descriptor_address_object",
+        descriptor_prep_payload_bytes=0,
+        descriptor_prep_kernel_arg_mutation=False,
+        real_descriptor_prep_required=True,
+        require_real_descriptor_prep=True,
+        kernel_arg_shadow_table_required=True,
+        require_kernel_arg_shadow_table=True,
+        consumer_shim_table_read_required=False,
+    )
+
+    with pytest.raises(ValueError, match="consumer_shim_table_read_required"):
+        _apply_premap_consumer_readonly_gate(
+            {
+                "enabled": True,
+                "emit_premap_consumer_mapping": True,
+                "premap_consumer_require_readonly_gate": True,
+                "premap_consumer_readonly_gate_path": str(gate),
+                "premap_consumer_mapping_mode": "noop_assertion",
+                "premap_consumer_resolve_real_handles": True,
+                "premap_policy": "premap_only_with_consumer_mapping_noop",
+                "premap_descriptor_bytes": 4096,
+                "premap_descriptor_prep_execution_mode": (
+                    "readonly_descriptor_address_object"
+                ),
+            },
+            project_root=tmp_path,
+        )
+
+
+def test_apply_premap_consumer_readonly_gate_requires_consumer_shim_table_read_check(tmp_path):
+    gate = tmp_path / "readonly_gate.yaml"
+    _write_readonly_gate(
+        gate,
+        lab_precondition=True,
+        descriptor_prep_execution_mode="readonly_descriptor_address_object",
+        descriptor_prep_payload_bytes=0,
+        descriptor_prep_kernel_arg_mutation=False,
+        real_descriptor_prep_required=True,
+        require_real_descriptor_prep=True,
+        kernel_arg_shadow_table_required=True,
+        require_kernel_arg_shadow_table=True,
+        consumer_shim_table_read_required=True,
+        require_consumer_shim_table_read=False,
+    )
+
+    with pytest.raises(ValueError, match="require_consumer_shim_table_read=true"):
         _apply_premap_consumer_readonly_gate(
             {
                 "enabled": True,
@@ -696,6 +781,8 @@ def test_default_longrun_audit_config_uses_premap_capacity_gate(
     )
     assert readonly_gate["contract"]["kernel_arg_shadow_table_required"] is True
     assert readonly_gate["gate"]["check"]["require_kernel_arg_shadow_table"] is True
+    assert readonly_gate["contract"]["consumer_shim_table_read_required"] is True
+    assert readonly_gate["gate"]["check"]["require_consumer_shim_table_read"] is True
     assert (
         readonly_gate["gate"]["metrics"][
             "premap_consumer_descriptor_prep_kernel_arg_shadow_table_ok_rate"
@@ -705,6 +792,24 @@ def test_default_longrun_audit_config_uses_premap_capacity_gate(
     assert (
         readonly_gate["gate"]["metrics"][
             "premap_consumer_descriptor_prep_kernel_arg_shadow_table_passed_to_kernel_count"
+        ]
+        == 0
+    )
+    assert (
+        readonly_gate["gate"]["metrics"][
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_read_ok_rate"
+        ]
+        == 1.0
+    )
+    assert (
+        readonly_gate["gate"]["metrics"][
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_read_not_checked_count"
+        ]
+        == 0
+    )
+    assert (
+        readonly_gate["gate"]["metrics"][
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_passed_to_kernel_count"
         ]
         == 0
     )

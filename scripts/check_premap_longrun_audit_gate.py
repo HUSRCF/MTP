@@ -45,6 +45,7 @@ def check_summary(
     require_descriptor_prep: bool = False,
     require_real_descriptor_prep: bool = False,
     require_kernel_arg_shadow_table: bool = False,
+    require_consumer_shim_table_read: bool = False,
 ) -> dict[str, Any]:
     event_counts = {
         str(key): int(value) for key, value in summary.get("event_counts", {}).items()
@@ -156,6 +157,21 @@ def check_summary(
         failures.append("kernel_arg_shadow_table_fields_missing")
     if require_kernel_arg_shadow_table and not descriptor_prep_active:
         failures.append("kernel_arg_shadow_table_requires_descriptor_prep_fields")
+    consumer_shim_table_read_active = any(
+        key in aggregate
+        for key in (
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_read_checked_count",
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_read_ok_rate",
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_lifecycle_ok_rate",
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_row_miss_count",
+        )
+    )
+    if require_consumer_shim_table_read and not consumer_shim_table_read_active:
+        failures.append("consumer_shim_table_read_fields_missing")
+    if require_consumer_shim_table_read and not descriptor_prep_active:
+        failures.append("consumer_shim_table_read_requires_descriptor_prep_fields")
+    if require_consumer_shim_table_read and not kernel_arg_shadow_table_active:
+        failures.append("consumer_shim_table_read_requires_kernel_arg_shadow_table_fields")
     descriptor_prep_real_active = any(
         key in aggregate
         for key in (
@@ -354,6 +370,123 @@ def check_summary(
                 count = _as_int(aggregate.get(field))
                 if count != 0:
                     failures.append(f"{field}_nonzero={count}")
+        if require_consumer_shim_table_read or consumer_shim_table_read_active:
+            shim_executed = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_executed_count"
+                )
+            )
+            shim_ok_rate = _as_float(
+                aggregate.get("premap_consumer_descriptor_prep_consumer_shim_ok_rate")
+            )
+            read_checked_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_read_checked_count"
+                )
+            )
+            read_not_checked_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_read_not_checked_count"
+                )
+            )
+            read_ok_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_read_ok_count"
+                )
+            )
+            read_lifecycle_ok_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_lifecycle_ok_count"
+                )
+            )
+            read_parity_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_per_row_parity_ok_count"
+                )
+            )
+            shim_table_row_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_row_count"
+                )
+            )
+            shim_table_column_count_max = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_column_count_max"
+                )
+            )
+            table_row_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_kernel_arg_shadow_table_row_count"
+                )
+            )
+            if shim_executed != executed:
+                failures.append(
+                    "consumer_shim_executed_count_mismatch="
+                    f"{shim_executed}!={executed}"
+                )
+            if read_checked_count != shim_executed:
+                failures.append(
+                    "consumer_shim_table_read_checked_count_mismatch="
+                    f"{read_checked_count}!={shim_executed}"
+                )
+            if read_not_checked_count != 0:
+                failures.append(
+                    "consumer_shim_table_read_not_checked_count_nonzero="
+                    f"{read_not_checked_count}"
+                )
+            if read_ok_count != shim_executed:
+                failures.append(
+                    "consumer_shim_table_read_ok_count_mismatch="
+                    f"{read_ok_count}!={shim_executed}"
+                )
+            if read_lifecycle_ok_count != shim_executed:
+                failures.append(
+                    "consumer_shim_table_read_lifecycle_ok_count_mismatch="
+                    f"{read_lifecycle_ok_count}!={shim_executed}"
+                )
+            if shim_table_row_count != table_row_count:
+                failures.append(
+                    "consumer_shim_table_row_count_mismatch="
+                    f"{shim_table_row_count}!={table_row_count}"
+                )
+            if (
+                shim_table_column_count_max
+                != EXPECTED_KERNEL_ARG_SHADOW_TABLE_COLUMN_COUNT
+            ):
+                failures.append(
+                    "consumer_shim_table_column_count_max_mismatch="
+                    f"{shim_table_column_count_max}!="
+                    f"{EXPECTED_KERNEL_ARG_SHADOW_TABLE_COLUMN_COUNT}"
+                )
+            if read_parity_count != shim_table_row_count:
+                failures.append(
+                    "consumer_shim_table_read_parity_count_mismatch="
+                    f"{read_parity_count}!={shim_table_row_count}"
+                )
+            for field in (
+                "premap_consumer_descriptor_prep_consumer_shim_ok_rate",
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_read_ok_rate",
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_lifecycle_ok_rate",
+            ):
+                if _as_float(aggregate.get(field)) != 1.0:
+                    failures.append(f"{field}_not_one")
+            if _as_float(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_read_not_checked_rate"
+                )
+            ) != 0.0:
+                failures.append("consumer_shim_table_read_not_checked_rate_nonzero")
+            for field in (
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_row_miss_count",
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_stale_row_count",
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_payload_bytes",
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_payload_violation_count",
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_violation_count",
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_passed_to_kernel_count",
+            ):
+                count = _as_int(aggregate.get(field))
+                if count != 0:
+                    failures.append(f"{field}_nonzero={count}")
     real_handle_hits = _as_int(
         aggregate.get("premap_consumer_real_descriptor_handle_hit_count")
     )
@@ -531,6 +664,77 @@ def check_summary(
                 "premap_consumer_descriptor_prep_kernel_arg_shadow_table_passed_to_kernel_count"
             )
         ),
+        "premap_consumer_descriptor_prep_consumer_shim_executed_count": _as_int(
+            aggregate.get("premap_consumer_descriptor_prep_consumer_shim_executed_count")
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_ok_rate": _as_float(
+            aggregate.get("premap_consumer_descriptor_prep_consumer_shim_ok_rate")
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_read_checked_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_read_checked_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_read_not_checked_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_read_not_checked_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_read_not_checked_rate": _as_float(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_read_not_checked_rate"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_read_ok_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_read_ok_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_read_ok_rate": _as_float(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_read_ok_rate"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_lifecycle_ok_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_lifecycle_ok_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_lifecycle_ok_rate": _as_float(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_lifecycle_ok_rate"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_per_row_parity_ok_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_per_row_parity_ok_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_row_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_row_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_column_count_max": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_column_count_max"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_row_miss_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_row_miss_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_stale_row_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_stale_row_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_passed_to_kernel_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_passed_to_kernel_count"
+            )
+        ),
     }
     return {
         "passed": not failures,
@@ -542,6 +746,7 @@ def check_summary(
         "require_descriptor_prep": bool(require_descriptor_prep),
         "require_real_descriptor_prep": bool(require_real_descriptor_prep),
         "require_kernel_arg_shadow_table": bool(require_kernel_arg_shadow_table),
+        "require_consumer_shim_table_read": bool(require_consumer_shim_table_read),
     }
 
 
@@ -585,6 +790,15 @@ def main() -> None:
             "and no ready/router/order/kernel-arg side effects."
         ),
     )
+    parser.add_argument(
+        "--require-consumer-shim-table-read",
+        action="store_true",
+        help=(
+            "Require the descriptor-prep consumer shim to read the kernel-arg "
+            "shadow table object: all reads checked/ok/lifecycle-ok, all rows "
+            "parity-ok, no missing/stale rows, no payload, and no kernel handoff."
+        ),
+    )
     parser.add_argument("--output-json", type=Path)
     args = parser.parse_args()
 
@@ -597,6 +811,7 @@ def main() -> None:
         require_descriptor_prep=args.require_descriptor_prep,
         require_real_descriptor_prep=args.require_real_descriptor_prep,
         require_kernel_arg_shadow_table=args.require_kernel_arg_shadow_table,
+        require_consumer_shim_table_read=args.require_consumer_shim_table_read,
     )
     payload = json.dumps(result, indent=2, sort_keys=True) + "\n"
     if args.output_json is not None:

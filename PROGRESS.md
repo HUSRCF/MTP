@@ -14986,3 +14986,68 @@ that a real prelaunch consumer shim can read the prepared descriptor/address
 table object with stable lifecycle and handle parity, while keeping payload,
 ready credit, router mutation, descriptor-order mutation, and kernel args off.
 ```
+
+### 2026-05-23: Consumer shim table-read promoted to lab gate
+
+The readonly descriptor/address prep gate now treats consumer-shim table reads
+as a lab precondition.  Descriptor prep execution requires the gate artifact to
+declare and pass:
+
+```text
+contract.consumer_shim_table_read_required = true
+gate.check.require_consumer_shim_table_read = true
+```
+
+The checker is fail-closed for this mode: missing shim read fields fail the
+gate, unchecked reads fail the gate, row misses/stale rows fail the gate, and
+any payload/kernel handoff remains a violation.  The checker also closes the
+row-count loop:
+
+```text
+consumer_shim_handle_table_row_count
+  == kernel_arg_shadow_table_row_count
+consumer_shim_handle_table_per_row_parity_ok_count
+  == consumer_shim_handle_table_row_count
+consumer_shim_handle_table_column_count_max
+  == expected kernel-arg shadow table column count
+```
+
+GPU1 Dolly128 AWQ/vLLM long-run gate:
+
+```text
+config:
+  configs/trace/router_mtp_trace_external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_longrun_audit.yaml
+
+summary:
+  data/traces/external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_longrun_audit/longrun_audit_summary.json
+
+gate:
+  data/traces/external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_longrun_audit/longrun_audit_gate.json
+
+premap_consumer_mapping_count = 10195
+premap_consumer_descriptor_prep_lookup_count = 110898
+premap_consumer_descriptor_prep_kernel_arg_shadow_table_row_count = 110898
+premap_consumer_descriptor_prep_consumer_shim_executed_count = 10195
+premap_consumer_descriptor_prep_consumer_shim_ok_rate = 1.0
+premap_consumer_descriptor_prep_consumer_shim_handle_table_read_checked_count = 10195
+premap_consumer_descriptor_prep_consumer_shim_handle_table_read_not_checked_count = 0
+premap_consumer_descriptor_prep_consumer_shim_handle_table_read_ok_rate = 1.0
+premap_consumer_descriptor_prep_consumer_shim_handle_table_lifecycle_ok_rate = 1.0
+premap_consumer_descriptor_prep_consumer_shim_handle_table_row_count = 110898
+premap_consumer_descriptor_prep_consumer_shim_handle_table_column_count_max = 4
+premap_consumer_descriptor_prep_consumer_shim_handle_table_per_row_parity_ok_count = 110898
+premap_consumer_descriptor_prep_consumer_shim_handle_table_row_miss_count = 0
+premap_consumer_descriptor_prep_consumer_shim_handle_table_stale_row_count = 0
+premap_consumer_descriptor_prep_consumer_shim_handle_table_passed_to_kernel_count = 0
+```
+
+The lab gate artifact was updated:
+
+```text
+configs/runtime/premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_kernel_arg_shadow.yaml
+```
+
+This remains a readonly dry-run contract.  It proves that the runtime consumer
+shim can read the prepared descriptor/address shadow table with stable
+lifecycle and row parity; it still does not move payload, grant ready credit,
+mutate router output, mutate descriptor order, or pass new kernel arguments.
