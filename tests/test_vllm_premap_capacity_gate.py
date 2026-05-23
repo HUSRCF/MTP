@@ -799,6 +799,8 @@ def test_default_longrun_audit_config_uses_premap_capacity_gate(
     assert readonly_gate["gate"]["check"]["require_kernel_arg_shadow_table"] is True
     assert readonly_gate["contract"]["consumer_shim_table_read_required"] is True
     assert readonly_gate["gate"]["check"]["require_consumer_shim_table_read"] is True
+    assert readonly_gate["contract"]["consumer_shim_table_consume_required"] is True
+    assert readonly_gate["gate"]["check"]["require_consumer_shim_table_consume"] is True
     assert (
         readonly_gate["gate"]["metrics"][
             "premap_consumer_descriptor_prep_kernel_arg_shadow_table_ok_rate"
@@ -826,6 +828,30 @@ def test_default_longrun_audit_config_uses_premap_capacity_gate(
     assert (
         readonly_gate["gate"]["metrics"][
             "premap_consumer_descriptor_prep_consumer_shim_handle_table_passed_to_kernel_count"
+        ]
+        == 0
+    )
+    assert (
+        readonly_gate["gate"]["metrics"][
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_ok_rate"
+        ]
+        == 1.0
+    )
+    assert (
+        readonly_gate["gate"]["metrics"][
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_row_miss_count"
+        ]
+        == 0
+    )
+    assert (
+        readonly_gate["gate"]["metrics"][
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_stale_row_count"
+        ]
+        == 0
+    )
+    assert (
+        readonly_gate["gate"]["metrics"][
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_passed_to_kernel_count"
         ]
         == 0
     )
