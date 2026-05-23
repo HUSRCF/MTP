@@ -210,6 +210,15 @@ RUNTIME_SHADOW_AGGREGATE_PERFORMANCE_KEYS = (
     "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_passed_to_kernel_count",
     "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_payload_bytes",
     "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_payload_violation_count",
+    "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_consumed_checked_count",
+    "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_consumed_count",
+    "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_consumed_rate",
+    "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_lifecycle_ok_count",
+    "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_lifecycle_ok_rate",
+    "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_row_count",
+    "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_passed_to_kernel_count",
+    "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_payload_bytes",
+    "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_payload_violation_count",
     "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_violation_count",
     "premap_consumer_descriptor_prep_kernel_arg_shadow_table_executed_count",
     "premap_consumer_descriptor_prep_kernel_arg_shadow_table_ok_count",
@@ -2207,6 +2216,7 @@ class VllmRouterRecorder:
         descriptor_consumer_read_result = None
         descriptor_consumer_shim_result = None
         kernel_arg_shadow_table_result = None
+        kernel_arg_shadow_table_object = None
         descriptor_prep_blocked_reason: str | None = None
         descriptor_prep_mode = _normalize_premap_descriptor_prep_execution_mode(
             self.shadow_premap_descriptor_prep_execution_mode
@@ -2258,20 +2268,29 @@ class VllmRouterRecorder:
                         )
                     )
                     if descriptor_consumer_read_result.read_ok:
-                        kernel_arg_shadow_table_result = (
-                            manager.build_kernel_arg_shadow_table_readonly(
-                                address_keys,
-                                read_result=descriptor_consumer_read_result,
-                                expected_object_hash_by_address_key=(
-                                    descriptor_prep_result.consumer_object_hash_by_address_key
-                                ),
-                            )
+                        (
+                            kernel_arg_shadow_table_result,
+                            kernel_arg_shadow_table_object,
+                        ) = manager.build_kernel_arg_shadow_table_object_readonly(
+                            address_keys,
+                            read_result=descriptor_consumer_read_result,
+                            expected_object_hash_by_address_key=(
+                                descriptor_prep_result.consumer_object_hash_by_address_key
+                            ),
+                            real_descriptor_handles_by_address_key=(
+                                real_descriptor_handles_by_address_key
+                                if bool(self.shadow_premap_consumer_resolve_real_handles)
+                                else None
+                            ),
                         )
                         descriptor_consumer_shim_result = (
                             manager.execute_descriptor_consumer_shim_readonly(
                                 descriptor_consumer_read_result,
                                 kernel_arg_shadow_table_result=(
                                     kernel_arg_shadow_table_result
+                                ),
+                                kernel_arg_shadow_table_object=(
+                                    kernel_arg_shadow_table_object
                                 ),
                             )
                         )
@@ -2642,6 +2661,44 @@ class VllmRouterRecorder:
                 descriptor_prep_consumer_shim_handle_table_consume_payload_bytes=(
                     int(
                         descriptor_consumer_shim_result.handle_table_consume_payload_bytes
+                    )
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_handle_table_object_consumed=(
+                    descriptor_consumer_shim_result.handle_table_object_consumed
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_handle_table_object_hash=(
+                    descriptor_consumer_shim_result.handle_table_object_hash
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_handle_table_object_row_count=(
+                    int(descriptor_consumer_shim_result.handle_table_object_row_count)
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.handle_table_object_row_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_handle_table_object_lifecycle_ok=(
+                    descriptor_consumer_shim_result.handle_table_object_lifecycle_ok
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_handle_table_object_passed_to_kernel=(
+                    bool(
+                        descriptor_consumer_shim_result.handle_table_object_passed_to_kernel
+                    )
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_handle_table_object_payload_bytes=(
+                    int(
+                        descriptor_consumer_shim_result.handle_table_object_payload_bytes
                     )
                     if descriptor_consumer_shim_result is not None
                     else None

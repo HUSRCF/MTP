@@ -319,7 +319,7 @@ def test_controlled_premap_address_manager_executes_descriptor_prep_readonly():
     assert read_result.changes_descriptor_order is False
     assert read_result.read_ok is True
 
-    table_result = manager.build_kernel_arg_shadow_table_readonly(
+    table_result, table_object = manager.build_kernel_arg_shadow_table_object_readonly(
         keys,
         read_result=read_result,
         expected_object_hash_by_address_key=result.consumer_object_hash_by_address_key,
@@ -327,6 +327,7 @@ def test_controlled_premap_address_manager_executes_descriptor_prep_readonly():
     shim_result = manager.execute_descriptor_consumer_shim_readonly(
         read_result,
         kernel_arg_shadow_table_result=table_result,
+        kernel_arg_shadow_table_object=table_object,
     )
     assert shim_result.execution_mode == "readonly_prelaunch_consumer_shim"
     assert shim_result.object_count == 2
@@ -374,6 +375,12 @@ def test_controlled_premap_address_manager_executes_descriptor_prep_readonly():
     assert shim_result.handle_table_consume_stale_row_count == 0
     assert shim_result.handle_table_consume_passed_to_kernel is False
     assert shim_result.handle_table_consume_payload_bytes == 0
+    assert shim_result.handle_table_object_consumed is True
+    assert shim_result.handle_table_object_hash == table_object.object_hash
+    assert shim_result.handle_table_object_row_count == 2
+    assert shim_result.handle_table_object_lifecycle_ok is True
+    assert shim_result.handle_table_object_passed_to_kernel is False
+    assert shim_result.handle_table_object_payload_bytes == 0
     assert shim_result.payload_bytes == 0
     assert shim_result.ready_credit is False
     assert shim_result.changes_router is False
@@ -399,6 +406,14 @@ def test_controlled_premap_address_manager_executes_descriptor_prep_readonly():
     assert table_result.changes_descriptor_order is False
     assert table_result.changes_kernel_launch_args is False
     assert table_result.passed_to_kernel is False
+    assert table_object.row_count == 2
+    assert table_object.column_count == len(PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_COLUMNS)
+    assert table_object.schema_hash == PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH
+    assert table_object.row_order_hash == table_result.row_order_hash
+    assert table_object.ordered_row_hash == table_result.ordered_row_hash
+    assert table_object.lifecycle_ok is True
+    assert table_object.payload_bytes == 0
+    assert table_object.passed_to_kernel is False
     no_table_shim_result = manager.execute_descriptor_consumer_shim_readonly(
         read_result
     )
@@ -413,7 +428,20 @@ def test_controlled_premap_address_manager_executes_descriptor_prep_readonly():
     assert no_table_shim_result.handle_table_consume_mode is None
     assert no_table_shim_result.handle_table_consume_source is None
     assert no_table_shim_result.handle_table_consume_passed_to_kernel is False
+    assert no_table_shim_result.handle_table_object_consumed is None
     assert no_table_shim_result.shim_ok is False
+    object_only_shim_result = manager.execute_descriptor_consumer_shim_readonly(
+        read_result,
+        kernel_arg_shadow_table_object=table_object,
+    )
+    assert object_only_shim_result.read_ok is True
+    assert object_only_shim_result.handle_table_read_ok is None
+    assert object_only_shim_result.handle_table_consume_ok is None
+    assert object_only_shim_result.handle_table_object_consumed is None
+    assert object_only_shim_result.handle_table_object_hash is None
+    assert object_only_shim_result.handle_table_object_row_count is None
+    assert object_only_shim_result.handle_table_object_lifecycle_ok is None
+    assert object_only_shim_result.shim_ok is False
     reversed_table_result = manager.build_kernel_arg_shadow_table_readonly(
         list(reversed(keys)),
         read_result=read_result,
@@ -443,7 +471,10 @@ def test_controlled_premap_address_manager_executes_descriptor_prep_readonly():
     assert stale_read_result.stale_object_count == 1
     assert stale_read_result.read_ok is False
 
-    stale_table_result = manager.build_kernel_arg_shadow_table_readonly(
+    (
+        stale_table_result,
+        stale_table_object,
+    ) = manager.build_kernel_arg_shadow_table_object_readonly(
         keys,
         read_result=stale_read_result,
         expected_object_hash_by_address_key={keys[0]: "stale-object-hash"},
@@ -451,6 +482,7 @@ def test_controlled_premap_address_manager_executes_descriptor_prep_readonly():
     stale_shim_result = manager.execute_descriptor_consumer_shim_readonly(
         stale_read_result,
         kernel_arg_shadow_table_result=stale_table_result,
+        kernel_arg_shadow_table_object=stale_table_object,
     )
     assert stale_shim_result.read_ok is False
     assert stale_shim_result.handle_table_read_ok is False
@@ -460,6 +492,8 @@ def test_controlled_premap_address_manager_executes_descriptor_prep_readonly():
     assert stale_shim_result.handle_table_consume_ok is False
     assert stale_shim_result.handle_table_consume_stale_row_count == 1
     assert stale_shim_result.handle_table_consume_passed_to_kernel is False
+    assert stale_shim_result.handle_table_object_consumed is True
+    assert stale_shim_result.handle_table_object_lifecycle_ok is True
     assert stale_shim_result.shim_ok is False
     assert stale_table_result.row_count == 2
     assert stale_table_result.row_miss_count == 0

@@ -221,6 +221,118 @@ class PremapDescriptorConsumerObject:
         return asdict(self)
 
 
+@dataclass(frozen=True)
+class PremapKernelArgShadowTableRow:
+    """One prepared descriptor/address row for a future kernel handoff.
+
+    The row is an in-memory consumer object only.  It mirrors the handle table
+    schema a kernel integration could consume later, but it is never passed to
+    a kernel in this dry-run path.
+    """
+
+    address_key: str
+    descriptor_ptr: str
+    packed_weight_descriptor: str
+    scale_metadata_handle: str
+    aux_metadata_handle: str | None
+    object_hash: str
+    payload_bytes: int = 0
+    passed_to_kernel: bool = False
+
+    @property
+    def row_hash(self) -> str:
+        payload = json.dumps(
+            self.as_dict(),
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+        return hashlib.sha256(payload).hexdigest()
+
+    def as_dict(self) -> dict[str, int | bool | str | None]:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
+class PremapKernelArgShadowTableObject:
+    """Immutable handle table object consumed by the no-op prelaunch shim."""
+
+    execution_mode: str
+    row_order_source: str
+    rows: tuple[PremapKernelArgShadowTableRow, ...]
+    schema_hash: str = PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH
+    payload_bytes: int = 0
+    ready_credit: bool = False
+    changes_router: bool = False
+    changes_descriptor_order: bool = False
+    changes_kernel_launch_args: bool = False
+    passed_to_kernel: bool = False
+
+    @property
+    def row_count(self) -> int:
+        return len(self.rows)
+
+    @property
+    def column_count(self) -> int:
+        return len(PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_COLUMNS)
+
+    @property
+    def row_order_hash(self) -> str:
+        payload = "|".join(row.address_key for row in self.rows).encode("utf-8")
+        return hashlib.sha256(payload).hexdigest()
+
+    @property
+    def ordered_row_hash(self) -> str:
+        payload = "|".join(
+            f"{row.address_key}:{row.object_hash}" for row in self.rows
+        ).encode("utf-8")
+        return hashlib.sha256(payload).hexdigest()
+
+    @property
+    def object_hash(self) -> str:
+        payload = json.dumps(
+            {
+                "execution_mode": self.execution_mode,
+                "row_order_source": self.row_order_source,
+                "schema_hash": self.schema_hash,
+                "rows": [row.row_hash for row in self.rows],
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+        return hashlib.sha256(payload).hexdigest()
+
+    @property
+    def lifecycle_ok(self) -> bool:
+        return (
+            int(self.payload_bytes) == 0
+            and all(int(row.payload_bytes) == 0 for row in self.rows)
+            and not bool(self.ready_credit)
+            and not bool(self.changes_router)
+            and not bool(self.changes_descriptor_order)
+            and not bool(self.changes_kernel_launch_args)
+            and not bool(self.passed_to_kernel)
+            and not any(bool(row.passed_to_kernel) for row in self.rows)
+        )
+
+    def as_dict(self) -> dict[str, int | bool | str]:
+        return {
+            "execution_mode": str(self.execution_mode),
+            "row_order_source": str(self.row_order_source),
+            "row_count": int(self.row_count),
+            "column_count": int(self.column_count),
+            "schema_hash": str(self.schema_hash),
+            "row_order_hash": self.row_order_hash,
+            "ordered_row_hash": self.ordered_row_hash,
+            "object_hash": self.object_hash,
+            "payload_bytes": int(self.payload_bytes),
+            "ready_credit": bool(self.ready_credit),
+            "changes_router": bool(self.changes_router),
+            "changes_descriptor_order": bool(self.changes_descriptor_order),
+            "changes_kernel_launch_args": bool(self.changes_kernel_launch_args),
+            "passed_to_kernel": bool(self.passed_to_kernel),
+        }
+
+
 @dataclass
 class PremapAddressCacheEntry:
     descriptor_bytes: int
@@ -366,6 +478,12 @@ class PremapDescriptorConsumerShimResult:
     handle_table_consume_stale_row_count: int | None = None
     handle_table_consume_passed_to_kernel: bool = False
     handle_table_consume_payload_bytes: int = 0
+    handle_table_object_consumed: bool | None = None
+    handle_table_object_hash: str | None = None
+    handle_table_object_row_count: int | None = None
+    handle_table_object_lifecycle_ok: bool | None = None
+    handle_table_object_passed_to_kernel: bool = False
+    handle_table_object_payload_bytes: int = 0
     payload_bytes: int = 0
     ready_credit: bool = False
     changes_router: bool = False
@@ -801,11 +919,13 @@ class ControlledPremapAddressManager:
         read_result: PremapDescriptorConsumerReadResult,
         *,
         kernel_arg_shadow_table_result: PremapKernelArgShadowTableResult | None = None,
+        kernel_arg_shadow_table_object: PremapKernelArgShadowTableObject | None = None,
         execution_mode: str = "readonly_prelaunch_consumer_shim",
     ) -> PremapDescriptorConsumerShimResult:
         """Run the minimal prelaunch consumer shim without side effects."""
 
         table_result = kernel_arg_shadow_table_result
+        table_object = kernel_arg_shadow_table_object
         table_read_ok = None
         table_lifecycle_ok = None
         table_parity_count = None
@@ -831,6 +951,12 @@ class ControlledPremapAddressManager:
         table_consume_stale_row_count = None
         table_consume_passed_to_kernel = False
         table_consume_payload_bytes = 0
+        table_object_consumed = None
+        table_object_hash = None
+        table_object_row_count = None
+        table_object_lifecycle_ok = None
+        table_object_passed_to_kernel = False
+        table_object_payload_bytes = 0
         if table_result is not None:
             table_lifecycle_ok = bool(table_result.lifecycle_ok)
             table_parity_count = int(table_result.per_row_parity_ok_count)
@@ -880,6 +1006,36 @@ class ControlledPremapAddressManager:
                 and bool(table_result.row_order_hash)
                 and bool(table_result.ordered_row_hash)
             )
+        if table_result is not None and table_object is not None:
+            table_object_consumed = True
+            table_object_hash = str(table_object.object_hash)
+            table_object_row_count = int(table_object.row_count)
+            table_object_lifecycle_ok = bool(table_object.lifecycle_ok)
+            table_object_passed_to_kernel = bool(table_object.passed_to_kernel)
+            table_object_payload_bytes = int(table_object.payload_bytes)
+            object_consume_ok = (
+                table_object_lifecycle_ok
+                and int(table_object.row_count) == int(read_result.object_hit_count)
+                and int(table_object.column_count)
+                == len(PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_COLUMNS)
+                and str(table_object.schema_hash)
+                == PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH
+                and bool(table_object.row_order_hash)
+                and bool(table_object.ordered_row_hash)
+                and int(table_object.payload_bytes) == 0
+                and not bool(table_object.passed_to_kernel)
+            )
+            object_consume_ok = (
+                object_consume_ok
+                and int(table_object.row_count) == int(table_result.row_count)
+                and str(table_object.schema_hash) == str(table_result.schema_hash)
+                and str(table_object.row_order_hash) == str(table_result.row_order_hash)
+                and str(table_object.ordered_row_hash)
+                == str(table_result.ordered_row_hash)
+            )
+            table_consume_ok = bool(table_consume_ok) and bool(object_consume_ok)
+        elif table_result is not None:
+            table_object_consumed = False
         shim_ok = (
             bool(read_result.read_ok)
             and int(read_result.object_hit_count) > 0
@@ -888,6 +1044,7 @@ class ControlledPremapAddressManager:
             and int(read_result.payload_bytes) == 0
             and table_read_ok is True
             and table_consume_ok is True
+            and table_object_consumed is True
         )
         return PremapDescriptorConsumerShimResult(
             execution_mode=str(execution_mode),
@@ -919,6 +1076,12 @@ class ControlledPremapAddressManager:
             handle_table_consume_stale_row_count=table_consume_stale_row_count,
             handle_table_consume_passed_to_kernel=table_consume_passed_to_kernel,
             handle_table_consume_payload_bytes=table_consume_payload_bytes,
+            handle_table_object_consumed=table_object_consumed,
+            handle_table_object_hash=table_object_hash,
+            handle_table_object_row_count=table_object_row_count,
+            handle_table_object_lifecycle_ok=table_object_lifecycle_ok,
+            handle_table_object_passed_to_kernel=table_object_passed_to_kernel,
+            handle_table_object_payload_bytes=table_object_payload_bytes,
             payload_bytes=0,
             ready_credit=False,
             changes_router=False,
@@ -937,12 +1100,37 @@ class ControlledPremapAddressManager:
     ) -> PremapKernelArgShadowTableResult:
         """Build a no-op shadow table for future kernel argument handoff."""
 
+        result, _ = self.build_kernel_arg_shadow_table_object_readonly(
+            address_keys,
+            read_result=read_result,
+            expected_object_hash_by_address_key=expected_object_hash_by_address_key,
+            execution_mode=execution_mode,
+            row_order_source=row_order_source,
+        )
+        return result
+
+    def build_kernel_arg_shadow_table_object_readonly(
+        self,
+        address_keys: Iterable[str],
+        *,
+        read_result: PremapDescriptorConsumerReadResult,
+        expected_object_hash_by_address_key: dict[str, str] | None = None,
+        real_descriptor_handles_by_address_key: (
+            dict[str, PremapRealDescriptorHandle] | None
+        ) = None,
+        execution_mode: str = "readonly_kernel_arg_shadow_table",
+        row_order_source: str = "canonical_address_key_order",
+    ) -> tuple[PremapKernelArgShadowTableResult, PremapKernelArgShadowTableObject]:
+        """Build and retain a read-only shadow table object for a consumer shim."""
+
         ordered_keys = [str(key) for key in address_keys]
         expected = expected_object_hash_by_address_key or {}
+        real_handles = real_descriptor_handles_by_address_key
         row_order_hash = hashlib.sha256(
             "|".join(ordered_keys).encode("utf-8")
         ).hexdigest()
         row_parts: list[str] = []
+        rows: list[PremapKernelArgShadowTableRow] = []
         row_miss_count = 0
         stale_row_count = 0
         per_row_parity_ok_count = 0
@@ -952,7 +1140,49 @@ class ControlledPremapAddressManager:
                 row_miss_count += 1
                 row_parts.append(f"{key}:<missing>")
                 continue
+            entry = self._addresses.get(key)
+            real_handle = real_handles.get(key) if real_handles is not None else None
+            consumer_object = (
+                self._build_descriptor_consumer_object(
+                    key=key,
+                    handle=entry.handle,
+                    real_handle=real_handle,
+                )
+                if entry is not None
+                and (
+                    real_handles is None
+                    or (
+                        real_handle is not None
+                        and (
+                            real_handle.address_key is None
+                            or str(real_handle.address_key) == key
+                        )
+                    )
+                )
+                else None
+            )
+            if (
+                consumer_object is None
+                or str(consumer_object.object_hash) != str(object_hash)
+            ):
+                row_miss_count += 1
+                row_parts.append(f"{key}:<missing>")
+                continue
             row_parts.append(f"{key}:{object_hash}")
+            rows.append(
+                PremapKernelArgShadowTableRow(
+                    address_key=key,
+                    descriptor_ptr=str(consumer_object.descriptor_ptr),
+                    packed_weight_descriptor=str(
+                        consumer_object.packed_weight_descriptor
+                    ),
+                    scale_metadata_handle=str(consumer_object.scale_metadata_handle),
+                    aux_metadata_handle=consumer_object.aux_metadata_handle,
+                    object_hash=str(consumer_object.object_hash),
+                    payload_bytes=0,
+                    passed_to_kernel=False,
+                )
+            )
             if key in expected:
                 if str(expected[key]) == str(object_hash):
                     per_row_parity_ok_count += 1
@@ -972,8 +1202,9 @@ class ControlledPremapAddressManager:
             bool(lifecycle_ok)
             and expected_ok
             and len(ordered_keys) == int(read_result.object_hit_count)
+            and len(rows) == len(ordered_keys)
         )
-        return PremapKernelArgShadowTableResult(
+        result = PremapKernelArgShadowTableResult(
             execution_mode=str(execution_mode),
             row_order_source=str(row_order_source),
             row_count=len(ordered_keys),
@@ -993,6 +1224,19 @@ class ControlledPremapAddressManager:
             changes_kernel_launch_args=False,
             passed_to_kernel=False,
         )
+        table_object = PremapKernelArgShadowTableObject(
+            execution_mode=str(execution_mode),
+            row_order_source=str(row_order_source),
+            rows=tuple(rows),
+            schema_hash=PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH,
+            payload_bytes=0,
+            ready_credit=False,
+            changes_router=False,
+            changes_descriptor_order=False,
+            changes_kernel_launch_args=False,
+            passed_to_kernel=False,
+        )
+        return result, table_object
 
     @staticmethod
     def _build_descriptor_consumer_object(

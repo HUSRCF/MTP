@@ -23,6 +23,7 @@ contract:
   kernel_arg_shadow_table_required: true
   consumer_shim_table_read_required: true
   consumer_shim_table_consume_required: true
+  consumer_shim_table_object_required: true
 
 model:
   config: configs/model/qwen3_6_35b_a3b_awq_4bit.yaml
@@ -52,6 +53,7 @@ gate:
     require_kernel_arg_shadow_table: true
     require_consumer_shim_table_read: true
     require_consumer_shim_table_consume: true
+    require_consumer_shim_table_object: true
   metrics:
     row_count: 20390
     premap_summary_count: 10195
@@ -149,6 +151,15 @@ gate:
     premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_payload_bytes: 0
     premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_payload_violation_count: 0
     premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_passed_to_kernel_count: 0
+    premap_consumer_descriptor_prep_consumer_shim_handle_table_object_consumed_checked_count: 10195
+    premap_consumer_descriptor_prep_consumer_shim_handle_table_object_consumed_count: 10195
+    premap_consumer_descriptor_prep_consumer_shim_handle_table_object_consumed_rate: 1.0
+    premap_consumer_descriptor_prep_consumer_shim_handle_table_object_lifecycle_ok_count: 10195
+    premap_consumer_descriptor_prep_consumer_shim_handle_table_object_lifecycle_ok_rate: 1.0
+    premap_consumer_descriptor_prep_consumer_shim_handle_table_object_row_count: 110898
+    premap_consumer_descriptor_prep_consumer_shim_handle_table_object_payload_bytes: 0
+    premap_consumer_descriptor_prep_consumer_shim_handle_table_object_payload_violation_count: 0
+    premap_consumer_descriptor_prep_consumer_shim_handle_table_object_passed_to_kernel_count: 0
     premap_consumer_error_count: 0
     premap_consumer_payload_violation_count: 0
     premap_consumer_router_change_violation_count: 0
@@ -157,7 +168,7 @@ gate:
 
 evidence_paths:
   premap_only_longrun_summary_md: docs/premap_longrun_audit_summary.md
-  strict_kernel_arg_shadow_128_json: data/traces/external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_longrun_audit/longrun_audit_summary.json
+  strict_kernel_arg_shadow_128_performance_json: data/traces/external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_longrun_audit/performance_summary.json
   strict_kernel_arg_shadow_128_gate_json: data/traces/external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_longrun_audit/longrun_audit_gate.json
   legacy_scale_512_summary_json_not_kernel_arg_shadow_gated: data/traces/external_prompt_gate_dolly_512_awq_vllm_gpu1_decode_gen64_longrun_audit/longrun_audit_summary.json
   legacy_scale_512_gate_json_not_kernel_arg_shadow_gated: data/traces/external_prompt_gate_dolly_512_awq_vllm_gpu1_decode_gen64_longrun_audit/longrun_audit_gate.json

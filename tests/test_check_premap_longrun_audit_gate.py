@@ -126,6 +126,15 @@ def _passing_summary() -> dict:
             "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_payload_bytes": 0,
             "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_payload_violation_count": 0,
             "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_passed_to_kernel_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_consumed_checked_count": 2,
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_consumed_count": 2,
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_consumed_rate": 1.0,
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_lifecycle_ok_count": 2,
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_lifecycle_ok_rate": 1.0,
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_row_count": 20,
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_payload_bytes": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_payload_violation_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_passed_to_kernel_count": 0,
             "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_violation_count": 0,
             "premap_consumer_descriptor_prep_execution_ok_rate": 1.0,
             "premap_consumer_descriptor_prep_execution_ok_attempted_rate": 1.0,
@@ -151,6 +160,43 @@ def test_premap_longrun_audit_gate_accepts_read_only_handle_contract():
     assert result["passed"] is True
     assert result["failures"] == []
     assert result["metrics"]["premap_summary_count"] == 2
+
+
+def test_premap_longrun_audit_gate_accepts_performance_summary_shape():
+    summary = _passing_summary()
+    performance_summary = {
+        "generate_wall_seconds": 1.0,
+        "runtime_shadow_aggregate": {
+            **summary["aggregate"],
+            "premap_summary_count": 2,
+            "premap_consumer_mapping_count": 2,
+        },
+    }
+
+    result = check_summary(
+        performance_summary,
+        max_capacity=12,
+        min_reuse_rate=0.98,
+        require_readonly_consumer=True,
+        require_descriptor_prep=True,
+        require_real_descriptor_prep=True,
+        require_kernel_arg_shadow_table=True,
+        require_consumer_shim_table_read=True,
+        require_consumer_shim_table_consume=True,
+        require_consumer_shim_table_object=True,
+    )
+
+    assert result["passed"] is True
+    assert result["failures"] == []
+    assert result["metrics"]["row_count"] == 4
+    assert result["metrics"]["premap_summary_count"] == 2
+    assert result["metrics"]["premap_consumer_mapping_count"] == 2
+    assert (
+        result["metrics"][
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_consumed_rate"
+        ]
+        == 1.0
+    )
 
 
 def test_premap_longrun_audit_gate_accepts_descriptor_prep_contract():
@@ -311,6 +357,37 @@ def test_premap_longrun_audit_gate_accepts_consumer_shim_table_consume_contract(
     ] == "canonical_address_key_order"
 
 
+def test_premap_longrun_audit_gate_accepts_consumer_shim_table_object_contract():
+    result = check_summary(
+        _passing_summary(),
+        max_capacity=12,
+        min_reuse_rate=0.98,
+        require_readonly_consumer=True,
+        require_descriptor_prep=True,
+        require_real_descriptor_prep=True,
+        require_kernel_arg_shadow_table=True,
+        require_consumer_shim_table_read=True,
+        require_consumer_shim_table_consume=True,
+        require_consumer_shim_table_object=True,
+    )
+
+    assert result["passed"] is True
+    assert result["failures"] == []
+    assert result["require_consumer_shim_table_object"] is True
+    assert (
+        result["metrics"][
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_consumed_checked_count"
+        ]
+        == 2
+    )
+    assert (
+        result["metrics"][
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_row_count"
+        ]
+        == 20
+    )
+
+
 def test_premap_longrun_audit_gate_requires_consumer_shim_table_read_independently():
     summary = _passing_summary()
     aggregate = summary["aggregate"]
@@ -354,6 +431,30 @@ def test_premap_longrun_audit_gate_requires_consumer_shim_table_consume_independ
 
     assert result["passed"] is False
     assert "consumer_shim_table_consume_fields_missing" in result["failures"]
+
+
+def test_premap_longrun_audit_gate_requires_consumer_shim_table_object_independently():
+    summary = _passing_summary()
+    aggregate = summary["aggregate"]
+    for key in list(aggregate):
+        if "consumer_shim_handle_table_object" in key:
+            del aggregate[key]
+
+    result = check_summary(
+        summary,
+        max_capacity=12,
+        min_reuse_rate=0.98,
+        require_readonly_consumer=True,
+        require_descriptor_prep=True,
+        require_real_descriptor_prep=True,
+        require_kernel_arg_shadow_table=True,
+        require_consumer_shim_table_read=True,
+        require_consumer_shim_table_consume=True,
+        require_consumer_shim_table_object=True,
+    )
+
+    assert result["passed"] is False
+    assert "consumer_shim_table_object_fields_missing" in result["failures"]
 
 
 def test_premap_longrun_audit_gate_does_not_auto_require_zero_consume_counters():

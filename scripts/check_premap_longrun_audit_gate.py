@@ -24,6 +24,26 @@ EXPECTED_KERNEL_ARG_SHADOW_TABLE_COLUMN_COUNT = len(
 )
 
 
+def _normalize_summary(summary: dict[str, Any]) -> dict[str, Any]:
+    """Accept both longrun audit summaries and trace performance summaries."""
+    if "aggregate" in summary and "event_counts" in summary:
+        return summary
+    aggregate = summary.get("runtime_shadow_aggregate")
+    if not isinstance(aggregate, dict):
+        return summary
+    event_counts = {
+        "premap_summary": _as_int(aggregate.get("premap_summary_count")),
+        "premap_consumer_mapping": _as_int(
+            aggregate.get("premap_consumer_mapping_count")
+        ),
+    }
+    return {
+        "row_count": sum(event_counts.values()),
+        "event_counts": event_counts,
+        "aggregate": aggregate,
+    }
+
+
 def _as_int(value: Any, default: int = 0) -> int:
     if value is None:
         return default
@@ -47,7 +67,9 @@ def check_summary(
     require_kernel_arg_shadow_table: bool = False,
     require_consumer_shim_table_read: bool = False,
     require_consumer_shim_table_consume: bool = False,
+    require_consumer_shim_table_object: bool = False,
 ) -> dict[str, Any]:
+    summary = _normalize_summary(summary)
     event_counts = {
         str(key): int(value) for key, value in summary.get("event_counts", {}).items()
     }
@@ -187,6 +209,16 @@ def check_summary(
         failures.append("consumer_shim_table_consume_fields_missing")
     if require_consumer_shim_table_consume and not consumer_shim_table_read_active:
         failures.append("consumer_shim_table_consume_requires_table_read_fields")
+    consumer_shim_table_object_checked_count = _as_int(
+        aggregate.get(
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_consumed_checked_count"
+        )
+    )
+    consumer_shim_table_object_active = consumer_shim_table_object_checked_count > 0
+    if require_consumer_shim_table_object and not consumer_shim_table_object_active:
+        failures.append("consumer_shim_table_object_fields_missing")
+    if require_consumer_shim_table_object and not consumer_shim_table_consume_active:
+        failures.append("consumer_shim_table_object_requires_table_consume_fields")
     descriptor_prep_real_active = any(
         key in aggregate
         for key in (
@@ -707,6 +739,71 @@ def check_summary(
                 count = _as_int(aggregate.get(field))
                 if count != 0:
                     failures.append(f"{field}_nonzero={count}")
+        if require_consumer_shim_table_object or consumer_shim_table_object_active:
+            shim_executed = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_executed_count"
+                )
+            )
+            table_row_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_row_count"
+                )
+            )
+            object_checked_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_consumed_checked_count"
+                )
+            )
+            object_consumed_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_consumed_count"
+                )
+            )
+            object_lifecycle_ok_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_lifecycle_ok_count"
+                )
+            )
+            object_row_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_row_count"
+                )
+            )
+            if object_checked_count != shim_executed:
+                failures.append(
+                    "consumer_shim_table_object_checked_count_mismatch="
+                    f"{object_checked_count}!={shim_executed}"
+                )
+            if object_consumed_count != shim_executed:
+                failures.append(
+                    "consumer_shim_table_object_consumed_count_mismatch="
+                    f"{object_consumed_count}!={shim_executed}"
+                )
+            if object_lifecycle_ok_count != shim_executed:
+                failures.append(
+                    "consumer_shim_table_object_lifecycle_ok_count_mismatch="
+                    f"{object_lifecycle_ok_count}!={shim_executed}"
+                )
+            if object_row_count != table_row_count:
+                failures.append(
+                    "consumer_shim_table_object_row_count_mismatch="
+                    f"{object_row_count}!={table_row_count}"
+                )
+            for field in (
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_consumed_rate",
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_lifecycle_ok_rate",
+            ):
+                if _as_float(aggregate.get(field)) != 1.0:
+                    failures.append(f"{field}_not_one")
+            for field in (
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_payload_bytes",
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_payload_violation_count",
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_passed_to_kernel_count",
+            ):
+                count = _as_int(aggregate.get(field))
+                if count != 0:
+                    failures.append(f"{field}_nonzero={count}")
     real_handle_hits = _as_int(
         aggregate.get("premap_consumer_real_descriptor_handle_hit_count")
     )
@@ -1063,6 +1160,31 @@ def check_summary(
                 "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_passed_to_kernel_count"
             )
         ),
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_consumed_checked_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_consumed_checked_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_consumed_rate": _as_float(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_consumed_rate"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_lifecycle_ok_rate": _as_float(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_lifecycle_ok_rate"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_row_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_row_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_passed_to_kernel_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_passed_to_kernel_count"
+            )
+        ),
     }
     return {
         "passed": not failures,
@@ -1076,6 +1198,7 @@ def check_summary(
         "require_kernel_arg_shadow_table": bool(require_kernel_arg_shadow_table),
         "require_consumer_shim_table_read": bool(require_consumer_shim_table_read),
         "require_consumer_shim_table_consume": bool(require_consumer_shim_table_consume),
+        "require_consumer_shim_table_object": bool(require_consumer_shim_table_object),
     }
 
 
@@ -1137,6 +1260,16 @@ def main() -> None:
             "stable shape/schema/row parity and must not be passed to a kernel."
         ),
     )
+    parser.add_argument(
+        "--require-consumer-shim-table-object",
+        action="store_true",
+        help=(
+            "Require the descriptor-prep consumer shim to read the actual "
+            "in-memory shadow table object, not just the table result hashes. "
+            "The object must remain lifecycle-ok, zero-payload, and not passed "
+            "to a kernel."
+        ),
+    )
     parser.add_argument("--output-json", type=Path)
     args = parser.parse_args()
 
@@ -1151,6 +1284,7 @@ def main() -> None:
         require_kernel_arg_shadow_table=args.require_kernel_arg_shadow_table,
         require_consumer_shim_table_read=args.require_consumer_shim_table_read,
         require_consumer_shim_table_consume=args.require_consumer_shim_table_consume,
+        require_consumer_shim_table_object=args.require_consumer_shim_table_object,
     )
     payload = json.dumps(result, indent=2, sort_keys=True) + "\n"
     if args.output_json is not None:
