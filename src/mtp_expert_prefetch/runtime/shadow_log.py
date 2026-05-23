@@ -752,6 +752,18 @@ class ShadowPremapConsumerMappingEvent:
     descriptor_prep_consumer_shim_handle_table_stale_row_count: int | None = None
     descriptor_prep_consumer_shim_handle_table_passed_to_kernel: bool | None = None
     descriptor_prep_consumer_shim_handle_table_payload_bytes: int | None = None
+    descriptor_prep_consumer_shim_handle_table_consume_ok: bool | None = None
+    descriptor_prep_consumer_shim_handle_table_consume_lifecycle_ok: bool | None = None
+    descriptor_prep_consumer_shim_handle_table_consume_row_count: int | None = None
+    descriptor_prep_consumer_shim_handle_table_consume_column_count: int | None = None
+    descriptor_prep_consumer_shim_handle_table_consume_schema_hash: str | None = None
+    descriptor_prep_consumer_shim_handle_table_consume_row_order_hash: str | None = None
+    descriptor_prep_consumer_shim_handle_table_consume_ordered_row_hash: str | None = None
+    descriptor_prep_consumer_shim_handle_table_consume_per_row_parity_ok_count: int | None = None
+    descriptor_prep_consumer_shim_handle_table_consume_row_miss_count: int | None = None
+    descriptor_prep_consumer_shim_handle_table_consume_stale_row_count: int | None = None
+    descriptor_prep_consumer_shim_handle_table_consume_passed_to_kernel: bool | None = None
+    descriptor_prep_consumer_shim_handle_table_consume_payload_bytes: int | None = None
     descriptor_prep_consumer_shim_ok: bool | None = None
     descriptor_prep_consumer_shim_changes_kernel_launch_args: bool | None = None
     descriptor_prep_kernel_arg_shadow_table_mode: str | None = None
@@ -1130,6 +1142,66 @@ class ShadowPremapConsumerMappingEvent:
         )
         _put_optional(
             payload,
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_ok",
+            self.descriptor_prep_consumer_shim_handle_table_consume_ok,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_lifecycle_ok",
+            self.descriptor_prep_consumer_shim_handle_table_consume_lifecycle_ok,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_row_count",
+            self.descriptor_prep_consumer_shim_handle_table_consume_row_count,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_column_count",
+            self.descriptor_prep_consumer_shim_handle_table_consume_column_count,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_schema_hash",
+            self.descriptor_prep_consumer_shim_handle_table_consume_schema_hash,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_row_order_hash",
+            self.descriptor_prep_consumer_shim_handle_table_consume_row_order_hash,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_ordered_row_hash",
+            self.descriptor_prep_consumer_shim_handle_table_consume_ordered_row_hash,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_per_row_parity_ok_count",
+            self.descriptor_prep_consumer_shim_handle_table_consume_per_row_parity_ok_count,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_row_miss_count",
+            self.descriptor_prep_consumer_shim_handle_table_consume_row_miss_count,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_stale_row_count",
+            self.descriptor_prep_consumer_shim_handle_table_consume_stale_row_count,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_passed_to_kernel",
+            self.descriptor_prep_consumer_shim_handle_table_consume_passed_to_kernel,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_payload_bytes",
+            self.descriptor_prep_consumer_shim_handle_table_consume_payload_bytes,
+        )
+        _put_optional(
+            payload,
             "premap_consumer_descriptor_prep_consumer_shim_ok",
             self.descriptor_prep_consumer_shim_ok,
         )
@@ -1464,6 +1536,21 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
         "premap_consumer_descriptor_prep_consumer_shim_handle_table_passed_to_kernel_count": 0,
         "premap_consumer_descriptor_prep_consumer_shim_handle_table_payload_bytes": 0,
         "premap_consumer_descriptor_prep_consumer_shim_handle_table_payload_violation_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_checked_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_ok_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_lifecycle_ok_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_row_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_column_count_max": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_schema_hash": "",
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_schema_hash_checked_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_schema_hash_missing_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_schema_hash_mismatch_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_per_row_parity_ok_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_row_miss_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_stale_row_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_passed_to_kernel_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_payload_bytes": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_payload_violation_count": 0,
         "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_violation_count": 0,
         "premap_consumer_descriptor_prep_kernel_arg_shadow_table_executed_count": 0,
         "premap_consumer_descriptor_prep_kernel_arg_shadow_table_ok_count": 0,
@@ -2099,6 +2186,145 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
                     )
                     != 0
                 )
+                if (
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_ok"
+                    in event
+                ):
+                    totals[
+                        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_checked_count"
+                    ] += 1
+                    totals[
+                        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_ok_count"
+                    ] += int(
+                        bool(
+                            event.get(
+                                "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_ok",
+                                False,
+                            )
+                        )
+                    )
+                totals[
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_lifecycle_ok_count"
+                ] += int(
+                    bool(
+                        event.get(
+                            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_lifecycle_ok",
+                            False,
+                        )
+                    )
+                )
+                totals[
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_row_count"
+                ] += int(
+                    event.get(
+                        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_row_count",
+                        0,
+                    )
+                    or 0
+                )
+                totals[
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_column_count_max"
+                ] = max(
+                    int(
+                        totals[
+                            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_column_count_max"
+                        ]
+                    ),
+                    int(
+                        event.get(
+                            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_column_count",
+                            0,
+                        )
+                        or 0
+                    ),
+                )
+                consume_schema_hash = event.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_schema_hash"
+                )
+                if consume_schema_hash:
+                    totals[
+                        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_schema_hash_checked_count"
+                    ] += 1
+                    if not totals[
+                        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_schema_hash"
+                    ]:
+                        totals[
+                            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_schema_hash"
+                        ] = str(consume_schema_hash)
+                    elif (
+                        str(consume_schema_hash)
+                        != totals[
+                            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_schema_hash"
+                        ]
+                    ):
+                        totals[
+                            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_schema_hash_mismatch_count"
+                        ] += 1
+                elif (
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_ok"
+                    in event
+                ):
+                    totals[
+                        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_schema_hash_missing_count"
+                    ] += 1
+                totals[
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_per_row_parity_ok_count"
+                ] += int(
+                    event.get(
+                        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_per_row_parity_ok_count",
+                        0,
+                    )
+                    or 0
+                )
+                totals[
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_row_miss_count"
+                ] += int(
+                    event.get(
+                        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_row_miss_count",
+                        0,
+                    )
+                    or 0
+                )
+                totals[
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_stale_row_count"
+                ] += int(
+                    event.get(
+                        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_stale_row_count",
+                        0,
+                    )
+                    or 0
+                )
+                totals[
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_passed_to_kernel_count"
+                ] += int(
+                    bool(
+                        event.get(
+                            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_passed_to_kernel",
+                            False,
+                        )
+                    )
+                )
+                totals[
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_payload_bytes"
+                ] += int(
+                    event.get(
+                        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_payload_bytes",
+                        0,
+                    )
+                    or 0
+                )
+                totals[
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_payload_violation_count"
+                ] += int(
+                    int(
+                        event.get(
+                            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_payload_bytes",
+                            0,
+                        )
+                        or 0
+                    )
+                    != 0
+                )
                 totals["premap_consumer_descriptor_prep_consumer_shim_ok_count"] += int(
                     bool(
                         event.get(
@@ -2658,6 +2884,36 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
             int(
                 totals[
                     "premap_consumer_descriptor_prep_consumer_shim_handle_table_read_checked_count"
+                ]
+            ),
+        )
+    )
+    totals[
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_ok_rate"
+    ] = (
+        totals[
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_ok_count"
+        ]
+        / max(
+            1,
+            int(
+                totals[
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_checked_count"
+                ]
+            ),
+        )
+    )
+    totals[
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_lifecycle_ok_rate"
+    ] = (
+        totals[
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_lifecycle_ok_count"
+        ]
+        / max(
+            1,
+            int(
+                totals[
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_checked_count"
                 ]
             ),
         )

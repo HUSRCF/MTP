@@ -348,6 +348,27 @@ def test_controlled_premap_address_manager_executes_descriptor_prep_readonly():
     assert shim_result.handle_table_stale_row_count == 0
     assert shim_result.handle_table_passed_to_kernel is False
     assert shim_result.handle_table_payload_bytes == 0
+    assert shim_result.handle_table_consume_ok is True
+    assert shim_result.handle_table_consume_lifecycle_ok is True
+    assert shim_result.handle_table_consume_row_count == table_result.row_count
+    assert shim_result.handle_table_consume_column_count == table_result.column_count
+    assert shim_result.handle_table_consume_schema_hash == table_result.schema_hash
+    assert (
+        shim_result.handle_table_consume_row_order_hash
+        == table_result.row_order_hash
+    )
+    assert (
+        shim_result.handle_table_consume_ordered_row_hash
+        == table_result.ordered_row_hash
+    )
+    assert (
+        shim_result.handle_table_consume_per_row_parity_ok_count
+        == table_result.per_row_parity_ok_count
+    )
+    assert shim_result.handle_table_consume_row_miss_count == 0
+    assert shim_result.handle_table_consume_stale_row_count == 0
+    assert shim_result.handle_table_consume_passed_to_kernel is False
+    assert shim_result.handle_table_consume_payload_bytes == 0
     assert shim_result.payload_bytes == 0
     assert shim_result.ready_credit is False
     assert shim_result.changes_router is False
@@ -382,6 +403,9 @@ def test_controlled_premap_address_manager_executes_descriptor_prep_readonly():
     assert no_table_shim_result.handle_table_row_miss_count is None
     assert no_table_shim_result.handle_table_per_row_parity_ok_count is None
     assert no_table_shim_result.handle_table_passed_to_kernel is False
+    assert no_table_shim_result.handle_table_consume_ok is None
+    assert no_table_shim_result.handle_table_consume_row_count is None
+    assert no_table_shim_result.handle_table_consume_passed_to_kernel is False
     assert no_table_shim_result.shim_ok is False
     reversed_table_result = manager.build_kernel_arg_shadow_table_readonly(
         list(reversed(keys)),
@@ -426,6 +450,9 @@ def test_controlled_premap_address_manager_executes_descriptor_prep_readonly():
     assert stale_shim_result.handle_table_lifecycle_ok is False
     assert stale_shim_result.handle_table_stale_row_count == 1
     assert stale_shim_result.handle_table_passed_to_kernel is False
+    assert stale_shim_result.handle_table_consume_ok is False
+    assert stale_shim_result.handle_table_consume_stale_row_count == 1
+    assert stale_shim_result.handle_table_consume_passed_to_kernel is False
     assert stale_shim_result.shim_ok is False
     assert stale_table_result.row_count == 2
     assert stale_table_result.row_miss_count == 0

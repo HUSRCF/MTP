@@ -406,6 +406,62 @@ split, with no eviction pressure and complete prelaunch source-class handle
 resolution for every sampled consumer mapping.
 ```
 
+Consumer shim prepared-table dry-run:
+
+```text
+implemented:
+  consumer shim now explicitly consumes the prepared kernel-arg shadow table
+  object in read-only mode
+
+contract:
+  handle table is read by the shim
+  row count / column count / schema hash / row-order hash are audited
+  per-row handle parity is checked
+  lifecycle / miss / stale counters are recorded
+  payload bytes remain 0
+  ready credit remains false
+  router / descriptor-order / kernel-launch args remain unchanged
+  passed_to_kernel remains false
+
+smoke evidence:
+  data/traces/
+    external_prompt_gate_dolly_8_awq_vllm_gpu1_decode_gen64_premap_consumer_mapping_smoke/
+      consumer_shim_table_consume_summary.json
+
+result:
+  consume_checked_count = 20480
+  consume_ok_rate = 1.0
+  consume_lifecycle_ok_rate = 1.0
+  consume_row_count = 190215
+  consume_per_row_parity_ok_count = 190215
+  consume_row_miss_count = 0
+  consume_stale_row_count = 0
+  consume_payload_bytes = 0
+  consume_passed_to_kernel_count = 0
+```
+
+Current gate boundary:
+
+```text
+The consume-table path is implemented and smoke-validated, but it is not yet
+promoted into the lab-default readonly gate artifact.
+
+A 128-sample rerun completed trace generation but produced an empty
+runtime_shadow.jsonl, so it cannot be used as strict consume-table gate
+evidence.  The strict checker correctly fails that attempt with missing
+premap_summary / premap_consumer_mapping event types.
+
+The lab-default artifact therefore remains at:
+  real descriptor prep
+  kernel-arg shadow table
+  consumer shim table-read
+
+Next gate:
+  restore non-empty premap-only runtime shadow emission for the 128-sample
+  long-run config, then re-run with --require-consumer-shim-table-consume and
+  only then promote consumer_shim_table_consume_required into the lab artifact.
+```
+
 ## Evidence Lock
 
 Current coarse bottleneck baseline:

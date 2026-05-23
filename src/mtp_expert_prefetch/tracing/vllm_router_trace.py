@@ -193,6 +193,23 @@ RUNTIME_SHADOW_AGGREGATE_PERFORMANCE_KEYS = (
     "premap_consumer_descriptor_prep_consumer_shim_handle_table_passed_to_kernel_count",
     "premap_consumer_descriptor_prep_consumer_shim_handle_table_payload_bytes",
     "premap_consumer_descriptor_prep_consumer_shim_handle_table_payload_violation_count",
+    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_checked_count",
+    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_ok_count",
+    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_ok_rate",
+    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_lifecycle_ok_count",
+    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_lifecycle_ok_rate",
+    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_row_count",
+    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_column_count_max",
+    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_schema_hash",
+    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_schema_hash_checked_count",
+    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_schema_hash_missing_count",
+    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_schema_hash_mismatch_count",
+    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_per_row_parity_ok_count",
+    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_row_miss_count",
+    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_stale_row_count",
+    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_passed_to_kernel_count",
+    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_payload_bytes",
+    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_payload_violation_count",
     "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_violation_count",
     "premap_consumer_descriptor_prep_kernel_arg_shadow_table_executed_count",
     "premap_consumer_descriptor_prep_kernel_arg_shadow_table_ok_count",
@@ -2524,6 +2541,98 @@ class VllmRouterRecorder:
                 ),
                 descriptor_prep_consumer_shim_handle_table_payload_bytes=(
                     int(descriptor_consumer_shim_result.handle_table_payload_bytes)
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_handle_table_consume_ok=(
+                    descriptor_consumer_shim_result.handle_table_consume_ok
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_handle_table_consume_lifecycle_ok=(
+                    descriptor_consumer_shim_result.handle_table_consume_lifecycle_ok
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_handle_table_consume_row_count=(
+                    int(descriptor_consumer_shim_result.handle_table_consume_row_count)
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.handle_table_consume_row_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_handle_table_consume_column_count=(
+                    int(
+                        descriptor_consumer_shim_result.handle_table_consume_column_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.handle_table_consume_column_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_handle_table_consume_schema_hash=(
+                    descriptor_consumer_shim_result.handle_table_consume_schema_hash
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_handle_table_consume_row_order_hash=(
+                    descriptor_consumer_shim_result.handle_table_consume_row_order_hash
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_handle_table_consume_ordered_row_hash=(
+                    descriptor_consumer_shim_result.handle_table_consume_ordered_row_hash
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_handle_table_consume_per_row_parity_ok_count=(
+                    int(
+                        descriptor_consumer_shim_result.handle_table_consume_per_row_parity_ok_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.handle_table_consume_per_row_parity_ok_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_handle_table_consume_row_miss_count=(
+                    int(
+                        descriptor_consumer_shim_result.handle_table_consume_row_miss_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.handle_table_consume_row_miss_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_handle_table_consume_stale_row_count=(
+                    int(
+                        descriptor_consumer_shim_result.handle_table_consume_stale_row_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.handle_table_consume_stale_row_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_handle_table_consume_passed_to_kernel=(
+                    bool(
+                        descriptor_consumer_shim_result.handle_table_consume_passed_to_kernel
+                    )
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_handle_table_consume_payload_bytes=(
+                    int(
+                        descriptor_consumer_shim_result.handle_table_consume_payload_bytes
+                    )
                     if descriptor_consumer_shim_result is not None
                     else None
                 ),
@@ -11299,6 +11408,10 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
             float(runtime_shadow_path.stat().st_size) / (1024.0 * 1024.0)
         )
         _add_runtime_shadow_aggregate_to_performance(performance, aggregate)
+    if runtime_shadow_controller is not None:
+        performance["runtime_shadow_controller_stats"] = (
+            runtime_shadow_controller.stats_dict()
+        )
     performance_path = output_dir / "performance_summary.json"
     performance_path.write_text(
         json.dumps(performance, indent=2, sort_keys=True) + "\n",

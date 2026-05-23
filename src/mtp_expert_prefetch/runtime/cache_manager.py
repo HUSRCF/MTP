@@ -352,6 +352,18 @@ class PremapDescriptorConsumerShimResult:
     handle_table_stale_row_count: int | None = None
     handle_table_passed_to_kernel: bool = False
     handle_table_payload_bytes: int = 0
+    handle_table_consume_ok: bool | None = None
+    handle_table_consume_lifecycle_ok: bool | None = None
+    handle_table_consume_row_count: int | None = None
+    handle_table_consume_column_count: int | None = None
+    handle_table_consume_schema_hash: str | None = None
+    handle_table_consume_row_order_hash: str | None = None
+    handle_table_consume_ordered_row_hash: str | None = None
+    handle_table_consume_per_row_parity_ok_count: int | None = None
+    handle_table_consume_row_miss_count: int | None = None
+    handle_table_consume_stale_row_count: int | None = None
+    handle_table_consume_passed_to_kernel: bool = False
+    handle_table_consume_payload_bytes: int = 0
     payload_bytes: int = 0
     ready_credit: bool = False
     changes_router: bool = False
@@ -803,6 +815,18 @@ class ControlledPremapAddressManager:
         handle_table_schema_hash = PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH
         handle_table_payload_bytes = 0
         handle_table_kernel_mutation = False
+        table_consume_ok = None
+        table_consume_lifecycle_ok = None
+        table_consume_row_count = None
+        table_consume_column_count = None
+        table_consume_schema_hash = None
+        table_consume_row_order_hash = None
+        table_consume_ordered_row_hash = None
+        table_consume_parity_count = None
+        table_consume_row_miss_count = None
+        table_consume_stale_row_count = None
+        table_consume_passed_to_kernel = False
+        table_consume_payload_bytes = 0
         if table_result is not None:
             table_lifecycle_ok = bool(table_result.lifecycle_ok)
             table_parity_count = int(table_result.per_row_parity_ok_count)
@@ -830,6 +854,26 @@ class ControlledPremapAddressManager:
                 and not bool(table_result.changes_kernel_launch_args)
                 and not bool(table_result.passed_to_kernel)
             )
+            table_consume_lifecycle_ok = table_lifecycle_ok
+            table_consume_row_count = int(table_result.row_count)
+            table_consume_column_count = int(table_result.column_count)
+            table_consume_schema_hash = str(table_result.schema_hash)
+            table_consume_row_order_hash = str(table_result.row_order_hash)
+            table_consume_ordered_row_hash = str(table_result.ordered_row_hash)
+            table_consume_parity_count = table_parity_count
+            table_consume_row_miss_count = table_row_miss_count
+            table_consume_stale_row_count = table_stale_row_count
+            table_consume_passed_to_kernel = table_passed_to_kernel
+            table_consume_payload_bytes = handle_table_payload_bytes
+            table_consume_ok = (
+                table_read_ok is True
+                and int(table_result.column_count)
+                == len(PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_COLUMNS)
+                and str(table_result.schema_hash)
+                == PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH
+                and bool(table_result.row_order_hash)
+                and bool(table_result.ordered_row_hash)
+            )
         shim_ok = (
             bool(read_result.read_ok)
             and int(read_result.object_hit_count) > 0
@@ -837,6 +881,7 @@ class ControlledPremapAddressManager:
             and int(read_result.stale_object_count) == 0
             and int(read_result.payload_bytes) == 0
             and table_read_ok is True
+            and table_consume_ok is True
         )
         return PremapDescriptorConsumerShimResult(
             execution_mode=str(execution_mode),
@@ -854,6 +899,18 @@ class ControlledPremapAddressManager:
             handle_table_stale_row_count=table_stale_row_count,
             handle_table_passed_to_kernel=table_passed_to_kernel,
             handle_table_payload_bytes=handle_table_payload_bytes,
+            handle_table_consume_ok=table_consume_ok,
+            handle_table_consume_lifecycle_ok=table_consume_lifecycle_ok,
+            handle_table_consume_row_count=table_consume_row_count,
+            handle_table_consume_column_count=table_consume_column_count,
+            handle_table_consume_schema_hash=table_consume_schema_hash,
+            handle_table_consume_row_order_hash=table_consume_row_order_hash,
+            handle_table_consume_ordered_row_hash=table_consume_ordered_row_hash,
+            handle_table_consume_per_row_parity_ok_count=table_consume_parity_count,
+            handle_table_consume_row_miss_count=table_consume_row_miss_count,
+            handle_table_consume_stale_row_count=table_consume_stale_row_count,
+            handle_table_consume_passed_to_kernel=table_consume_passed_to_kernel,
+            handle_table_consume_payload_bytes=table_consume_payload_bytes,
             payload_bytes=0,
             ready_credit=False,
             changes_router=False,

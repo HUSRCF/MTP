@@ -46,6 +46,7 @@ def check_summary(
     require_real_descriptor_prep: bool = False,
     require_kernel_arg_shadow_table: bool = False,
     require_consumer_shim_table_read: bool = False,
+    require_consumer_shim_table_consume: bool = False,
 ) -> dict[str, Any]:
     event_counts = {
         str(key): int(value) for key, value in summary.get("event_counts", {}).items()
@@ -172,6 +173,20 @@ def check_summary(
         failures.append("consumer_shim_table_read_requires_descriptor_prep_fields")
     if require_consumer_shim_table_read and not kernel_arg_shadow_table_active:
         failures.append("consumer_shim_table_read_requires_kernel_arg_shadow_table_fields")
+    consumer_shim_table_consume_checked_count = _as_int(
+        aggregate.get(
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_checked_count"
+        )
+    )
+    # Aggregate schemas may include zero-valued consume counters even for legacy
+    # or mixed diagnostic summaries. Treat consume as active only after at least
+    # one shim table was actually consumed, unless the caller explicitly requires
+    # the consume contract.
+    consumer_shim_table_consume_active = consumer_shim_table_consume_checked_count > 0
+    if require_consumer_shim_table_consume and not consumer_shim_table_consume_active:
+        failures.append("consumer_shim_table_consume_fields_missing")
+    if require_consumer_shim_table_consume and not consumer_shim_table_read_active:
+        failures.append("consumer_shim_table_consume_requires_table_read_fields")
     descriptor_prep_real_active = any(
         key in aggregate
         for key in (
@@ -487,6 +502,135 @@ def check_summary(
                 count = _as_int(aggregate.get(field))
                 if count != 0:
                     failures.append(f"{field}_nonzero={count}")
+        if require_consumer_shim_table_consume or consumer_shim_table_consume_active:
+            shim_executed = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_executed_count"
+                )
+            )
+            consume_checked_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_checked_count"
+                )
+            )
+            consume_ok_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_ok_count"
+                )
+            )
+            consume_lifecycle_ok_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_lifecycle_ok_count"
+                )
+            )
+            consume_row_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_row_count"
+                )
+            )
+            consume_column_count_max = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_column_count_max"
+                )
+            )
+            consume_schema_hash = str(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_schema_hash"
+                )
+                or ""
+            )
+            consume_schema_hash_checked_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_schema_hash_checked_count"
+                )
+            )
+            consume_schema_hash_missing_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_schema_hash_missing_count"
+                )
+            )
+            consume_schema_hash_mismatch_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_schema_hash_mismatch_count"
+                )
+            )
+            consume_parity_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_per_row_parity_ok_count"
+                )
+            )
+            shim_table_row_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_row_count"
+                )
+            )
+            if consume_checked_count != shim_executed:
+                failures.append(
+                    "consumer_shim_table_consume_checked_count_mismatch="
+                    f"{consume_checked_count}!={shim_executed}"
+                )
+            if consume_ok_count != shim_executed:
+                failures.append(
+                    "consumer_shim_table_consume_ok_count_mismatch="
+                    f"{consume_ok_count}!={shim_executed}"
+                )
+            if consume_lifecycle_ok_count != shim_executed:
+                failures.append(
+                    "consumer_shim_table_consume_lifecycle_ok_count_mismatch="
+                    f"{consume_lifecycle_ok_count}!={shim_executed}"
+                )
+            if consume_row_count != shim_table_row_count:
+                failures.append(
+                    "consumer_shim_table_consume_row_count_mismatch="
+                    f"{consume_row_count}!={shim_table_row_count}"
+                )
+            if (
+                consume_column_count_max
+                != EXPECTED_KERNEL_ARG_SHADOW_TABLE_COLUMN_COUNT
+            ):
+                failures.append(
+                    "consumer_shim_table_consume_column_count_max_mismatch="
+                    f"{consume_column_count_max}!="
+                    f"{EXPECTED_KERNEL_ARG_SHADOW_TABLE_COLUMN_COUNT}"
+                )
+            if consume_schema_hash != PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH:
+                failures.append("consumer_shim_table_consume_schema_hash_mismatch")
+            if consume_schema_hash_checked_count != shim_executed:
+                failures.append(
+                    "consumer_shim_table_consume_schema_hash_checked_count_mismatch="
+                    f"{consume_schema_hash_checked_count}!={shim_executed}"
+                )
+            if consume_schema_hash_missing_count != 0:
+                failures.append(
+                    "consumer_shim_table_consume_schema_hash_missing_count_nonzero="
+                    f"{consume_schema_hash_missing_count}"
+                )
+            if consume_schema_hash_mismatch_count != 0:
+                failures.append(
+                    "consumer_shim_table_consume_schema_hash_mismatch_count_nonzero="
+                    f"{consume_schema_hash_mismatch_count}"
+                )
+            if consume_parity_count != consume_row_count:
+                failures.append(
+                    "consumer_shim_table_consume_parity_count_mismatch="
+                    f"{consume_parity_count}!={consume_row_count}"
+                )
+            for field in (
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_ok_rate",
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_lifecycle_ok_rate",
+            ):
+                if _as_float(aggregate.get(field)) != 1.0:
+                    failures.append(f"{field}_not_one")
+            for field in (
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_row_miss_count",
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_stale_row_count",
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_payload_bytes",
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_payload_violation_count",
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_passed_to_kernel_count",
+            ):
+                count = _as_int(aggregate.get(field))
+                if count != 0:
+                    failures.append(f"{field}_nonzero={count}")
     real_handle_hits = _as_int(
         aggregate.get("premap_consumer_real_descriptor_handle_hit_count")
     )
@@ -735,6 +879,72 @@ def check_summary(
                 "premap_consumer_descriptor_prep_consumer_shim_handle_table_passed_to_kernel_count"
             )
         ),
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_checked_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_checked_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_ok_rate": _as_float(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_ok_rate"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_lifecycle_ok_rate": _as_float(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_lifecycle_ok_rate"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_row_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_row_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_column_count_max": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_column_count_max"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_schema_hash": str(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_schema_hash"
+            )
+            or ""
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_schema_hash_checked_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_schema_hash_checked_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_schema_hash_missing_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_schema_hash_missing_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_schema_hash_mismatch_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_schema_hash_mismatch_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_per_row_parity_ok_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_per_row_parity_ok_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_row_miss_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_row_miss_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_stale_row_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_stale_row_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_passed_to_kernel_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_passed_to_kernel_count"
+            )
+        ),
     }
     return {
         "passed": not failures,
@@ -747,6 +957,7 @@ def check_summary(
         "require_real_descriptor_prep": bool(require_real_descriptor_prep),
         "require_kernel_arg_shadow_table": bool(require_kernel_arg_shadow_table),
         "require_consumer_shim_table_read": bool(require_consumer_shim_table_read),
+        "require_consumer_shim_table_consume": bool(require_consumer_shim_table_consume),
     }
 
 
@@ -799,6 +1010,15 @@ def main() -> None:
             "parity-ok, no missing/stale rows, no payload, and no kernel handoff."
         ),
     )
+    parser.add_argument(
+        "--require-consumer-shim-table-consume",
+        action="store_true",
+        help=(
+            "Require the descriptor-prep consumer shim to consume the prepared "
+            "handle table object in readonly dry-run mode. The table must have "
+            "stable shape/schema/row parity and must not be passed to a kernel."
+        ),
+    )
     parser.add_argument("--output-json", type=Path)
     args = parser.parse_args()
 
@@ -812,6 +1032,7 @@ def main() -> None:
         require_real_descriptor_prep=args.require_real_descriptor_prep,
         require_kernel_arg_shadow_table=args.require_kernel_arg_shadow_table,
         require_consumer_shim_table_read=args.require_consumer_shim_table_read,
+        require_consumer_shim_table_consume=args.require_consumer_shim_table_consume,
     )
     payload = json.dumps(result, indent=2, sort_keys=True) + "\n"
     if args.output_json is not None:

@@ -44,6 +44,8 @@ def _write_readonly_gate(
     require_kernel_arg_shadow_table: bool | None = None,
     consumer_shim_table_read_required: bool | None = None,
     require_consumer_shim_table_read: bool | None = None,
+    consumer_shim_table_consume_required: bool | None = None,
+    require_consumer_shim_table_consume: bool | None = None,
 ):
     if descriptor_prep_execution_mode is not None:
         if real_descriptor_prep_required is None:
@@ -58,6 +60,10 @@ def _write_readonly_gate(
             consumer_shim_table_read_required = True
         if require_consumer_shim_table_read is None:
             require_consumer_shim_table_read = True
+        if consumer_shim_table_consume_required is None:
+            consumer_shim_table_consume_required = True
+        if require_consumer_shim_table_consume is None:
+            require_consumer_shim_table_consume = True
     status = "passed" if passed else "failed"
     gate_passed = "true" if passed else "false"
     lines = [
@@ -106,6 +112,11 @@ def _write_readonly_gate(
             "  consumer_shim_table_read_required: "
             f"{str(bool(consumer_shim_table_read_required)).lower()}"
         )
+    if consumer_shim_table_consume_required is not None:
+        lines.append(
+            "  consumer_shim_table_consume_required: "
+            f"{str(bool(consumer_shim_table_consume_required)).lower()}"
+        )
     lines.extend(
         [
             "gate:",
@@ -128,6 +139,11 @@ def _write_readonly_gate(
         check_lines.append(
             "    require_consumer_shim_table_read: "
             f"{str(bool(require_consumer_shim_table_read)).lower()}"
+        )
+    if require_consumer_shim_table_consume is not None:
+        check_lines.append(
+            "    require_consumer_shim_table_consume: "
+            f"{str(bool(require_consumer_shim_table_consume)).lower()}"
         )
     if check_lines:
         lines.append("  check:")
