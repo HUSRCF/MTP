@@ -2579,6 +2579,16 @@ class VllmRouterRecorder:
                     if descriptor_consumer_shim_result is not None
                     else None
                 ),
+                descriptor_prep_consumer_shim_handle_table_consume_mode=(
+                    descriptor_consumer_shim_result.handle_table_consume_mode
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_handle_table_consume_source=(
+                    descriptor_consumer_shim_result.handle_table_consume_source
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
                 descriptor_prep_consumer_shim_handle_table_consume_row_order_hash=(
                     descriptor_consumer_shim_result.handle_table_consume_row_order_hash
                     if descriptor_consumer_shim_result is not None

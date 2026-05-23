@@ -434,6 +434,33 @@ def _assert_kernel_arg_shadow_table_event(consumer: dict[str, object]) -> None:
     ] is False
 
 
+def _assert_consumer_shim_table_consume_event(consumer: dict[str, object]) -> None:
+    assert consumer[
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_mode"
+    ] == "readonly_consume_kernel_arg_shadow_table"
+    assert consumer[
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_source"
+    ] == "canonical_address_key_order"
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_ok"
+        ]
+        is True
+    )
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_passed_to_kernel"
+        ]
+        is False
+    )
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_payload_bytes"
+        ]
+        == 0
+    )
+
+
 def test_vllm_router_recorder_shadow_sink_is_optional():
     recorder = VllmRouterRecorder(top_k=2)
     recorder.record_topk(
@@ -1562,6 +1589,7 @@ def test_vllm_router_recorder_premap_consumer_mapping_hits_prepared_addresses():
         ]
         is False
     )
+    _assert_consumer_shim_table_consume_event(consumer)
     _assert_kernel_arg_shadow_table_event(consumer)
     assert consumer["premap_consumer_descriptor_prep_handle_hash"]
     assert consumer["premap_consumer_descriptor_prep_execution_ok"] is True
@@ -1686,6 +1714,7 @@ def test_vllm_router_recorder_premap_descriptor_prep_uses_real_handles():
         ]
         is False
     )
+    _assert_consumer_shim_table_consume_event(consumer)
     _assert_kernel_arg_shadow_table_event(consumer)
     assert consumer["premap_consumer_descriptor_prep_execution_ok"] is True
     assert consumer["premap_consumer_payload_bytes"] == 0
@@ -1740,6 +1769,14 @@ def test_vllm_router_recorder_premap_descriptor_prep_requires_passed_gate():
     )
     assert "premap_consumer_descriptor_prep_execution_ok" not in consumer
     assert "premap_consumer_descriptor_prep_handle_count" not in consumer
+    assert (
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_mode"
+        not in consumer
+    )
+    assert (
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_source"
+        not in consumer
+    )
     assert consumer["premap_consumer_payload_bytes"] == 0
     assert consumer["premap_consumer_ready_credit"] is False
 

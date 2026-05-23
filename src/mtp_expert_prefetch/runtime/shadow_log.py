@@ -757,6 +757,8 @@ class ShadowPremapConsumerMappingEvent:
     descriptor_prep_consumer_shim_handle_table_consume_row_count: int | None = None
     descriptor_prep_consumer_shim_handle_table_consume_column_count: int | None = None
     descriptor_prep_consumer_shim_handle_table_consume_schema_hash: str | None = None
+    descriptor_prep_consumer_shim_handle_table_consume_mode: str | None = None
+    descriptor_prep_consumer_shim_handle_table_consume_source: str | None = None
     descriptor_prep_consumer_shim_handle_table_consume_row_order_hash: str | None = None
     descriptor_prep_consumer_shim_handle_table_consume_ordered_row_hash: str | None = None
     descriptor_prep_consumer_shim_handle_table_consume_per_row_parity_ok_count: int | None = None
@@ -1167,6 +1169,16 @@ class ShadowPremapConsumerMappingEvent:
         )
         _put_optional(
             payload,
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_mode",
+            self.descriptor_prep_consumer_shim_handle_table_consume_mode,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_source",
+            self.descriptor_prep_consumer_shim_handle_table_consume_source,
+        )
+        _put_optional(
+            payload,
             "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_row_order_hash",
             self.descriptor_prep_consumer_shim_handle_table_consume_row_order_hash,
         )
@@ -1545,6 +1557,14 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
         "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_schema_hash_checked_count": 0,
         "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_schema_hash_missing_count": 0,
         "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_schema_hash_mismatch_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_mode": "",
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_mode_checked_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_mode_missing_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_mode_mismatch_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_source": "",
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_source_checked_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_source_missing_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_source_mismatch_count": 0,
         "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_per_row_parity_ok_count": 0,
         "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_row_miss_count": 0,
         "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_stale_row_count": 0,
@@ -2267,6 +2287,60 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
                     totals[
                         "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_schema_hash_missing_count"
                     ] += 1
+                if (
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_ok"
+                    in event
+                ):
+                    consume_mode = event.get(
+                        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_mode"
+                    )
+                    if consume_mode:
+                        totals[
+                            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_mode_checked_count"
+                        ] += 1
+                        if not totals[
+                            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_mode"
+                        ]:
+                            totals[
+                                "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_mode"
+                            ] = str(consume_mode)
+                        if (
+                            str(consume_mode)
+                            != "readonly_consume_kernel_arg_shadow_table"
+                        ):
+                            totals[
+                                "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_mode_mismatch_count"
+                            ] += 1
+                    else:
+                        totals[
+                            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_mode_missing_count"
+                        ] += 1
+                    consume_source = event.get(
+                        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_source"
+                    )
+                    expected_source = event.get(
+                        "premap_consumer_descriptor_prep_kernel_arg_shadow_table_row_order_source"
+                    )
+                    if consume_source:
+                        totals[
+                            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_source_checked_count"
+                        ] += 1
+                        if not totals[
+                            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_source"
+                        ]:
+                            totals[
+                                "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_source"
+                            ] = str(consume_source)
+                        if not expected_source or str(consume_source) != str(
+                            expected_source
+                        ):
+                            totals[
+                                "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_source_mismatch_count"
+                            ] += 1
+                    else:
+                        totals[
+                            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_source_missing_count"
+                        ] += 1
                 totals[
                     "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_per_row_parity_ok_count"
                 ] += int(

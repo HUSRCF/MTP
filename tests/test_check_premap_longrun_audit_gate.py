@@ -108,6 +108,18 @@ def _passing_summary() -> dict:
             "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_schema_hash_checked_count": 2,
             "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_schema_hash_missing_count": 0,
             "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_schema_hash_mismatch_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_mode": (
+                "readonly_consume_kernel_arg_shadow_table"
+            ),
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_mode_checked_count": 2,
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_mode_missing_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_mode_mismatch_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_source": (
+                "canonical_address_key_order"
+            ),
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_source_checked_count": 2,
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_source_missing_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_source_mismatch_count": 0,
             "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_per_row_parity_ok_count": 20,
             "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_row_miss_count": 0,
             "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_stale_row_count": 0,
@@ -291,6 +303,12 @@ def test_premap_longrun_audit_gate_accepts_consumer_shim_table_consume_contract(
         ]
         == 20
     )
+    assert result["metrics"][
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_mode"
+    ] == "readonly_consume_kernel_arg_shadow_table"
+    assert result["metrics"][
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_source"
+    ] == "canonical_address_key_order"
 
 
 def test_premap_longrun_audit_gate_requires_consumer_shim_table_read_independently():
@@ -729,6 +747,30 @@ def test_premap_longrun_audit_gate_rejects_consumer_shim_table_consume_instabili
         "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_schema_hash_mismatch_count"
     ] = 1
     aggregate[
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_mode"
+    ] = "bad-mode"
+    aggregate[
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_mode_checked_count"
+    ] = 1
+    aggregate[
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_mode_missing_count"
+    ] = 1
+    aggregate[
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_mode_mismatch_count"
+    ] = 1
+    aggregate[
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_source"
+    ] = "bad-source"
+    aggregate[
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_source_checked_count"
+    ] = 1
+    aggregate[
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_source_missing_count"
+    ] = 1
+    aggregate[
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_source_mismatch_count"
+    ] = 1
+    aggregate[
         "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_per_row_parity_ok_count"
     ] = 18
     aggregate[
@@ -782,6 +824,31 @@ def test_premap_longrun_audit_gate_rejects_consumer_shim_table_consume_instabili
     )
     assert (
         "consumer_shim_table_consume_schema_hash_mismatch_count_nonzero=1"
+        in result["failures"]
+    )
+    assert "consumer_shim_table_consume_mode_mismatch" in result["failures"]
+    assert (
+        "consumer_shim_table_consume_mode_checked_count_mismatch=1!=2"
+        in result["failures"]
+    )
+    assert (
+        "consumer_shim_table_consume_mode_missing_count_nonzero=1"
+        in result["failures"]
+    )
+    assert (
+        "consumer_shim_table_consume_mode_mismatch_count_nonzero=1"
+        in result["failures"]
+    )
+    assert (
+        "consumer_shim_table_consume_source_checked_count_mismatch=1!=2"
+        in result["failures"]
+    )
+    assert (
+        "consumer_shim_table_consume_source_missing_count_nonzero=1"
+        in result["failures"]
+    )
+    assert (
+        "consumer_shim_table_consume_source_mismatch_count_nonzero=1"
         in result["failures"]
     )
     assert "consumer_shim_table_consume_parity_count_mismatch=18!=19" in result["failures"]

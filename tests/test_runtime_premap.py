@@ -354,6 +354,11 @@ def test_controlled_premap_address_manager_executes_descriptor_prep_readonly():
     assert shim_result.handle_table_consume_column_count == table_result.column_count
     assert shim_result.handle_table_consume_schema_hash == table_result.schema_hash
     assert (
+        shim_result.handle_table_consume_mode
+        == "readonly_consume_kernel_arg_shadow_table"
+    )
+    assert shim_result.handle_table_consume_source == table_result.row_order_source
+    assert (
         shim_result.handle_table_consume_row_order_hash
         == table_result.row_order_hash
     )
@@ -405,6 +410,8 @@ def test_controlled_premap_address_manager_executes_descriptor_prep_readonly():
     assert no_table_shim_result.handle_table_passed_to_kernel is False
     assert no_table_shim_result.handle_table_consume_ok is None
     assert no_table_shim_result.handle_table_consume_row_count is None
+    assert no_table_shim_result.handle_table_consume_mode is None
+    assert no_table_shim_result.handle_table_consume_source is None
     assert no_table_shim_result.handle_table_consume_passed_to_kernel is False
     assert no_table_shim_result.shim_ok is False
     reversed_table_result = manager.build_kernel_arg_shadow_table_readonly(

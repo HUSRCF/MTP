@@ -386,6 +386,12 @@ def test_shadow_log_aggregates_premap_consumer_mapping_without_side_effects(tmp_
         descriptor_prep_consumer_shim_handle_table_consume_row_count=2,
         descriptor_prep_consumer_shim_handle_table_consume_column_count=4,
         descriptor_prep_consumer_shim_handle_table_consume_schema_hash="schema-hash",
+        descriptor_prep_consumer_shim_handle_table_consume_mode=(
+            "readonly_consume_kernel_arg_shadow_table"
+        ),
+        descriptor_prep_consumer_shim_handle_table_consume_source=(
+            "canonical_address_key_order"
+        ),
         descriptor_prep_consumer_shim_handle_table_consume_row_order_hash=(
             "row-order-hash"
         ),
@@ -730,6 +736,54 @@ def test_shadow_log_aggregates_premap_consumer_mapping_without_side_effects(tmp_
     )
     assert (
         aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_mode"
+        ]
+        == "readonly_consume_kernel_arg_shadow_table"
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_mode_checked_count"
+        ]
+        == 1
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_mode_missing_count"
+        ]
+        == 0
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_mode_mismatch_count"
+        ]
+        == 0
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_source"
+        ]
+        == "canonical_address_key_order"
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_source_checked_count"
+        ]
+        == 1
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_source_missing_count"
+        ]
+        == 0
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_source_mismatch_count"
+        ]
+        == 0
+    )
+    assert (
+        aggregate[
             "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_per_row_parity_ok_count"
         ]
         == 2
@@ -978,6 +1032,12 @@ def test_shadow_log_aggregates_premap_consumer_mapping_without_side_effects(tmp_
         ]
         == "schema-hash"
     )
+    assert rows[0][
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_mode"
+    ] == "readonly_consume_kernel_arg_shadow_table"
+    assert rows[0][
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_source"
+    ] == "canonical_address_key_order"
     assert (
         rows[0][
             "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_ordered_row_hash"
@@ -1510,3 +1570,37 @@ def test_descriptor_order_shadow_summary_builder():
     assert payload["full_fetch_count"] == 0
     assert payload["metadata_count"] == 0
     assert payload["premap_count"] == 0
+
+
+def test_consumer_shim_consume_source_requires_kernel_row_order_source():
+    aggregate = aggregate_shadow_events(
+        [
+            {
+                "event_type": "premap_consumer_mapping",
+                "premap_consumer_descriptor_prep_consumer_shim_mode": (
+                    "readonly_prelaunch_consumer_shim"
+                ),
+                "premap_consumer_descriptor_prep_consumer_shim_ok": True,
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_ok": True,
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_mode": (
+                    "readonly_consume_kernel_arg_shadow_table"
+                ),
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_source": (
+                    "canonical_address_key_order"
+                ),
+            }
+        ]
+    )
+
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_source_checked_count"
+        ]
+        == 1
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_source_mismatch_count"
+        ]
+        == 1
+    )

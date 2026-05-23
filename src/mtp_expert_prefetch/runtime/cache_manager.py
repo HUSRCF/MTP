@@ -357,6 +357,8 @@ class PremapDescriptorConsumerShimResult:
     handle_table_consume_row_count: int | None = None
     handle_table_consume_column_count: int | None = None
     handle_table_consume_schema_hash: str | None = None
+    handle_table_consume_mode: str | None = None
+    handle_table_consume_source: str | None = None
     handle_table_consume_row_order_hash: str | None = None
     handle_table_consume_ordered_row_hash: str | None = None
     handle_table_consume_per_row_parity_ok_count: int | None = None
@@ -820,6 +822,8 @@ class ControlledPremapAddressManager:
         table_consume_row_count = None
         table_consume_column_count = None
         table_consume_schema_hash = None
+        table_consume_mode = None
+        table_consume_source = None
         table_consume_row_order_hash = None
         table_consume_ordered_row_hash = None
         table_consume_parity_count = None
@@ -858,6 +862,8 @@ class ControlledPremapAddressManager:
             table_consume_row_count = int(table_result.row_count)
             table_consume_column_count = int(table_result.column_count)
             table_consume_schema_hash = str(table_result.schema_hash)
+            table_consume_mode = "readonly_consume_kernel_arg_shadow_table"
+            table_consume_source = str(table_result.row_order_source)
             table_consume_row_order_hash = str(table_result.row_order_hash)
             table_consume_ordered_row_hash = str(table_result.ordered_row_hash)
             table_consume_parity_count = table_parity_count
@@ -904,6 +910,8 @@ class ControlledPremapAddressManager:
             handle_table_consume_row_count=table_consume_row_count,
             handle_table_consume_column_count=table_consume_column_count,
             handle_table_consume_schema_hash=table_consume_schema_hash,
+            handle_table_consume_mode=table_consume_mode,
+            handle_table_consume_source=table_consume_source,
             handle_table_consume_row_order_hash=table_consume_row_order_hash,
             handle_table_consume_ordered_row_hash=table_consume_ordered_row_hash,
             handle_table_consume_per_row_parity_ok_count=table_consume_parity_count,

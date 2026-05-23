@@ -15198,3 +15198,72 @@ step must keep payload movement, ready credit, router mutation, descriptor-order
 mutation, and kernel-arg mutation disabled until the consumer-side table object
 is explicitly wired and checked under the lab gate.
 ```
+
+## Premap consume provenance gate
+
+The read-only consumer shim table consume path now records explicit provenance:
+
+```text
+premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_mode
+premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_source
+```
+
+Semantics:
+
+```text
+consume_mode   = readonly_consume_kernel_arg_shadow_table
+consume_source = kernel_arg_shadow_table.row_order_source
+```
+
+This makes the lab gate state directly auditable from the runtime shadow row:
+the consumer shim is consuming the prepared kernel-arg shadow table object in
+canonical address-key order, not inferring that fact from the Python call path.
+
+The long-run checker now requires this provenance when
+`--require-consumer-shim-table-consume` is enabled:
+
+```text
+consume_mode_checked_count == consumer_shim_executed_count
+consume_source_checked_count == consumer_shim_executed_count
+consume_mode_missing_count == 0
+consume_source_missing_count == 0
+consume_mode_mismatch_count == 0
+consume_source_mismatch_count == 0
+```
+
+GPU1 AWQ/vLLM 128-sample strict rerun:
+
+```text
+artifact:
+  data/traces/
+    external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_longrun_audit/
+    longrun_audit_gate.json
+
+passed = true
+failures = []
+runtime_shadow rows = 20,390
+premap_summary = 10,195
+premap_consumer_mapping = 10,195
+premap_address_reuse_rate_mean = 0.9827389896686539
+premap_address_resident_count_max = 10,127
+
+consumer_shim_table_consume_checked = 10,195
+consumer_shim_table_consume_mode =
+  readonly_consume_kernel_arg_shadow_table
+consumer_shim_table_consume_mode_checked = 10,195
+consumer_shim_table_consume_source =
+  canonical_address_key_order
+consumer_shim_table_consume_source_checked = 10,195
+consumer_shim_table_consume_row_count = 110,898
+consumer_shim_table_consume_passed_to_kernel_count = 0
+```
+
+Boundary remains unchanged:
+
+```text
+no payload transfer
+no ready credit
+no router mutation
+no descriptor_order execution
+no kernel argument mutation
+```

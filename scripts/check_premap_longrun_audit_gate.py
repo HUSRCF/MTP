@@ -554,6 +554,48 @@ def check_summary(
                     "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_schema_hash_mismatch_count"
                 )
             )
+            consume_mode = str(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_mode"
+                )
+                or ""
+            )
+            consume_mode_checked_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_mode_checked_count"
+                )
+            )
+            consume_mode_missing_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_mode_missing_count"
+                )
+            )
+            consume_mode_mismatch_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_mode_mismatch_count"
+                )
+            )
+            consume_source = str(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_source"
+                )
+                or ""
+            )
+            consume_source_checked_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_source_checked_count"
+                )
+            )
+            consume_source_missing_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_source_missing_count"
+                )
+            )
+            consume_source_mismatch_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_source_mismatch_count"
+                )
+            )
             consume_parity_count = _as_int(
                 aggregate.get(
                     "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_per_row_parity_ok_count"
@@ -609,6 +651,40 @@ def check_summary(
                 failures.append(
                     "consumer_shim_table_consume_schema_hash_mismatch_count_nonzero="
                     f"{consume_schema_hash_mismatch_count}"
+                )
+            if consume_mode != "readonly_consume_kernel_arg_shadow_table":
+                failures.append("consumer_shim_table_consume_mode_mismatch")
+            if consume_mode_checked_count != shim_executed:
+                failures.append(
+                    "consumer_shim_table_consume_mode_checked_count_mismatch="
+                    f"{consume_mode_checked_count}!={shim_executed}"
+                )
+            if consume_mode_missing_count != 0:
+                failures.append(
+                    "consumer_shim_table_consume_mode_missing_count_nonzero="
+                    f"{consume_mode_missing_count}"
+                )
+            if consume_mode_mismatch_count != 0:
+                failures.append(
+                    "consumer_shim_table_consume_mode_mismatch_count_nonzero="
+                    f"{consume_mode_mismatch_count}"
+                )
+            if not consume_source:
+                failures.append("consumer_shim_table_consume_source_missing")
+            if consume_source_checked_count != shim_executed:
+                failures.append(
+                    "consumer_shim_table_consume_source_checked_count_mismatch="
+                    f"{consume_source_checked_count}!={shim_executed}"
+                )
+            if consume_source_missing_count != 0:
+                failures.append(
+                    "consumer_shim_table_consume_source_missing_count_nonzero="
+                    f"{consume_source_missing_count}"
+                )
+            if consume_source_mismatch_count != 0:
+                failures.append(
+                    "consumer_shim_table_consume_source_mismatch_count_nonzero="
+                    f"{consume_source_mismatch_count}"
                 )
             if consume_parity_count != consume_row_count:
                 failures.append(
@@ -923,6 +999,48 @@ def check_summary(
         "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_schema_hash_mismatch_count": _as_int(
             aggregate.get(
                 "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_schema_hash_mismatch_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_mode": str(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_mode"
+            )
+            or ""
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_mode_checked_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_mode_checked_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_mode_missing_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_mode_missing_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_mode_mismatch_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_mode_mismatch_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_source": str(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_source"
+            )
+            or ""
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_source_checked_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_source_checked_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_source_missing_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_source_missing_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_source_mismatch_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_source_mismatch_count"
             )
         ),
         "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_per_row_parity_ok_count": _as_int(
