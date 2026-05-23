@@ -14915,3 +14915,74 @@ requires a gate artifact checked with
 `require_kernel_arg_shadow_table=true`.  This makes the readonly kernel-arg
 shadow table a lab precondition before any real descriptor/address prep object
 is allowed to approach a kernel launch path.
+
+### 2026-05-23: Consumer shim reads the kernel-arg shadow table object
+
+The minimal descriptor/address prep execution dry-run now advances one step
+beyond constructing the kernel-arg shadow table:
+
+```text
+descriptor/address prep object
+-> readonly descriptor consumer object read
+-> readonly kernel-arg shadow table construction
+-> readonly consumer shim reads that table object
+```
+
+The consumer shim still does not pass any object to a kernel, move payload, grant
+ready credit, change the router, or change descriptor visitation order.  It now
+records whether the table object was readable and lifecycle/parity-clean:
+
+```text
+premap_consumer_descriptor_prep_consumer_shim_handle_table_read_checked_count
+premap_consumer_descriptor_prep_consumer_shim_handle_table_read_not_checked_count
+premap_consumer_descriptor_prep_consumer_shim_handle_table_read_not_checked_rate
+premap_consumer_descriptor_prep_consumer_shim_handle_table_read_ok_count
+premap_consumer_descriptor_prep_consumer_shim_handle_table_read_ok_rate
+premap_consumer_descriptor_prep_consumer_shim_handle_table_lifecycle_ok_count
+premap_consumer_descriptor_prep_consumer_shim_handle_table_lifecycle_ok_rate
+premap_consumer_descriptor_prep_consumer_shim_handle_table_per_row_parity_ok_count
+premap_consumer_descriptor_prep_consumer_shim_handle_table_row_miss_count
+premap_consumer_descriptor_prep_consumer_shim_handle_table_stale_row_count
+premap_consumer_descriptor_prep_consumer_shim_handle_table_passed_to_kernel_count
+```
+
+GPU1 Dolly8 AWQ/vLLM smoke:
+
+```text
+config:
+  configs/trace/router_mtp_trace_external_prompt_gate_dolly_8_awq_vllm_gpu1_decode_gen64_premap_consumer_mapping_smoke.yaml
+
+summary:
+  data/traces/external_prompt_gate_dolly_8_awq_vllm_gpu1_decode_gen64_premap_consumer_mapping_smoke/consumer_shim_table_read_summary.json
+
+row_count = 102400
+premap_consumer_mapping_count = 20480
+premap_consumer_descriptor_prep_consumer_shim_executed_count = 20480
+premap_consumer_descriptor_prep_consumer_shim_ok_rate = 1.0
+premap_consumer_descriptor_prep_consumer_shim_handle_table_read_checked_count = 20480
+premap_consumer_descriptor_prep_consumer_shim_handle_table_read_not_checked_count = 0
+premap_consumer_descriptor_prep_consumer_shim_handle_table_read_not_checked_rate = 0.0
+premap_consumer_descriptor_prep_consumer_shim_handle_table_read_ok_count = 20480
+premap_consumer_descriptor_prep_consumer_shim_handle_table_read_ok_rate = 1.0
+premap_consumer_descriptor_prep_consumer_shim_handle_table_lifecycle_ok_rate = 1.0
+premap_consumer_descriptor_prep_consumer_shim_handle_table_per_row_parity_ok_count = 190215
+premap_consumer_descriptor_prep_consumer_shim_handle_table_row_miss_count = 0
+premap_consumer_descriptor_prep_consumer_shim_handle_table_stale_row_count = 0
+premap_consumer_descriptor_prep_consumer_shim_handle_table_passed_to_kernel_count = 0
+premap_consumer_descriptor_prep_consumer_shim_handle_table_payload_violation_count = 0
+premap_consumer_descriptor_prep_consumer_shim_kernel_arg_violation_count = 0
+premap_consumer_descriptor_prep_kernel_arg_shadow_table_executed_count = 20480
+premap_consumer_descriptor_prep_kernel_arg_shadow_table_ok_rate = 1.0
+premap_consumer_descriptor_prep_kernel_arg_shadow_table_lifecycle_ok_rate = 1.0
+premap_consumer_descriptor_prep_kernel_arg_shadow_table_schema_hash_missing_count = 0
+premap_consumer_descriptor_prep_kernel_arg_shadow_table_schema_hash_mismatch_count = 0
+```
+
+Boundary:
+
+```text
+This is still a dry-run consumer contract, not a vLLM kernel patch.  It validates
+that a real prelaunch consumer shim can read the prepared descriptor/address
+table object with stable lifecycle and handle parity, while keeping payload,
+ready credit, router mutation, descriptor-order mutation, and kernel args off.
+```

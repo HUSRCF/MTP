@@ -319,7 +319,15 @@ def test_controlled_premap_address_manager_executes_descriptor_prep_readonly():
     assert read_result.changes_descriptor_order is False
     assert read_result.read_ok is True
 
-    shim_result = manager.execute_descriptor_consumer_shim_readonly(read_result)
+    table_result = manager.build_kernel_arg_shadow_table_readonly(
+        keys,
+        read_result=read_result,
+        expected_object_hash_by_address_key=result.consumer_object_hash_by_address_key,
+    )
+    shim_result = manager.execute_descriptor_consumer_shim_readonly(
+        read_result,
+        kernel_arg_shadow_table_result=table_result,
+    )
     assert shim_result.execution_mode == "readonly_prelaunch_consumer_shim"
     assert shim_result.object_count == 2
     assert shim_result.object_hash == read_result.object_hash
@@ -333,17 +341,18 @@ def test_controlled_premap_address_manager_executes_descriptor_prep_readonly():
         shim_result.handle_table_schema_hash
         == PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH
     )
+    assert shim_result.handle_table_read_ok is True
+    assert shim_result.handle_table_lifecycle_ok is True
+    assert shim_result.handle_table_per_row_parity_ok_count == 2
+    assert shim_result.handle_table_row_miss_count == 0
+    assert shim_result.handle_table_stale_row_count == 0
+    assert shim_result.handle_table_passed_to_kernel is False
     assert shim_result.handle_table_payload_bytes == 0
     assert shim_result.payload_bytes == 0
     assert shim_result.ready_credit is False
     assert shim_result.changes_router is False
     assert shim_result.changes_descriptor_order is False
     assert shim_result.changes_kernel_launch_args is False
-    table_result = manager.build_kernel_arg_shadow_table_readonly(
-        keys,
-        read_result=read_result,
-        expected_object_hash_by_address_key=result.consumer_object_hash_by_address_key,
-    )
     assert table_result.execution_mode == "readonly_kernel_arg_shadow_table"
     assert table_result.row_order_source == "canonical_address_key_order"
     assert table_result.row_count == 2
@@ -364,6 +373,16 @@ def test_controlled_premap_address_manager_executes_descriptor_prep_readonly():
     assert table_result.changes_descriptor_order is False
     assert table_result.changes_kernel_launch_args is False
     assert table_result.passed_to_kernel is False
+    no_table_shim_result = manager.execute_descriptor_consumer_shim_readonly(
+        read_result
+    )
+    assert no_table_shim_result.read_ok is True
+    assert no_table_shim_result.handle_table_read_ok is None
+    assert no_table_shim_result.handle_table_lifecycle_ok is None
+    assert no_table_shim_result.handle_table_row_miss_count is None
+    assert no_table_shim_result.handle_table_per_row_parity_ok_count is None
+    assert no_table_shim_result.handle_table_passed_to_kernel is False
+    assert no_table_shim_result.shim_ok is False
     reversed_table_result = manager.build_kernel_arg_shadow_table_readonly(
         list(reversed(keys)),
         read_result=read_result,
@@ -393,16 +412,21 @@ def test_controlled_premap_address_manager_executes_descriptor_prep_readonly():
     assert stale_read_result.stale_object_count == 1
     assert stale_read_result.read_ok is False
 
-    stale_shim_result = manager.execute_descriptor_consumer_shim_readonly(
-        stale_read_result
-    )
-    assert stale_shim_result.read_ok is False
-    assert stale_shim_result.shim_ok is False
     stale_table_result = manager.build_kernel_arg_shadow_table_readonly(
         keys,
         read_result=stale_read_result,
         expected_object_hash_by_address_key={keys[0]: "stale-object-hash"},
     )
+    stale_shim_result = manager.execute_descriptor_consumer_shim_readonly(
+        stale_read_result,
+        kernel_arg_shadow_table_result=stale_table_result,
+    )
+    assert stale_shim_result.read_ok is False
+    assert stale_shim_result.handle_table_read_ok is False
+    assert stale_shim_result.handle_table_lifecycle_ok is False
+    assert stale_shim_result.handle_table_stale_row_count == 1
+    assert stale_shim_result.handle_table_passed_to_kernel is False
+    assert stale_shim_result.shim_ok is False
     assert stale_table_result.row_count == 2
     assert stale_table_result.row_miss_count == 0
     assert stale_table_result.stale_row_count == 1

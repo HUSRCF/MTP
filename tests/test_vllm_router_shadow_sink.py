@@ -104,6 +104,17 @@ def test_runtime_shadow_aggregate_fields_are_flattened_to_performance_summary():
         "premap_consumer_descriptor_prep_consumer_shim_object_count": 16,
         "premap_consumer_descriptor_prep_consumer_shim_handle_table_row_count": 16,
         "premap_consumer_descriptor_prep_consumer_shim_handle_table_column_count_max": 4,
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_read_checked_count": 4,
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_read_not_checked_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_read_not_checked_rate": 0.0,
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_read_ok_count": 4,
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_read_ok_rate": 1.0,
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_lifecycle_ok_count": 4,
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_lifecycle_ok_rate": 1.0,
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_per_row_parity_ok_count": 16,
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_row_miss_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_stale_row_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_passed_to_kernel_count": 0,
         "premap_consumer_descriptor_prep_consumer_shim_handle_table_payload_bytes": 0,
         "premap_consumer_descriptor_prep_consumer_shim_handle_table_payload_violation_count": 0,
         "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_violation_count": 0,
@@ -279,6 +290,24 @@ def test_runtime_shadow_aggregate_fields_are_flattened_to_performance_summary():
             "runtime_shadow_aggregate_premap_consumer_descriptor_prep_kernel_arg_shadow_table_column_count_max"
         ]
         == 4
+    )
+    assert (
+        performance[
+            "runtime_shadow_aggregate_premap_consumer_descriptor_prep_consumer_shim_handle_table_read_ok_rate"
+        ]
+        == 1.0
+    )
+    assert (
+        performance[
+            "runtime_shadow_aggregate_premap_consumer_descriptor_prep_consumer_shim_handle_table_per_row_parity_ok_count"
+        ]
+        == 16
+    )
+    assert (
+        performance[
+            "runtime_shadow_aggregate_premap_consumer_descriptor_prep_consumer_shim_handle_table_passed_to_kernel_count"
+        ]
+        == 0
     )
     assert (
         performance[

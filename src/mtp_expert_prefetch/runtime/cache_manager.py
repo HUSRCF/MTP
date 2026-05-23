@@ -345,6 +345,12 @@ class PremapDescriptorConsumerShimResult:
     handle_table_row_count: int
     handle_table_column_count: int
     handle_table_schema_hash: str
+    handle_table_read_ok: bool | None = None
+    handle_table_lifecycle_ok: bool | None = None
+    handle_table_per_row_parity_ok_count: int | None = None
+    handle_table_row_miss_count: int | None = None
+    handle_table_stale_row_count: int | None = None
+    handle_table_passed_to_kernel: bool = False
     handle_table_payload_bytes: int = 0
     payload_bytes: int = 0
     ready_credit: bool = False
@@ -780,16 +786,57 @@ class ControlledPremapAddressManager:
         self,
         read_result: PremapDescriptorConsumerReadResult,
         *,
+        kernel_arg_shadow_table_result: PremapKernelArgShadowTableResult | None = None,
         execution_mode: str = "readonly_prelaunch_consumer_shim",
     ) -> PremapDescriptorConsumerShimResult:
         """Run the minimal prelaunch consumer shim without side effects."""
 
+        table_result = kernel_arg_shadow_table_result
+        table_read_ok = None
+        table_lifecycle_ok = None
+        table_parity_count = None
+        table_row_miss_count = None
+        table_stale_row_count = None
+        table_passed_to_kernel = False
+        handle_table_row_count = int(read_result.object_hit_count)
+        handle_table_column_count = len(PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_COLUMNS)
+        handle_table_schema_hash = PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH
+        handle_table_payload_bytes = 0
+        handle_table_kernel_mutation = False
+        if table_result is not None:
+            table_lifecycle_ok = bool(table_result.lifecycle_ok)
+            table_parity_count = int(table_result.per_row_parity_ok_count)
+            table_row_miss_count = int(table_result.row_miss_count)
+            table_stale_row_count = int(table_result.stale_row_count)
+            table_passed_to_kernel = bool(table_result.passed_to_kernel)
+            handle_table_row_count = int(table_result.row_count)
+            handle_table_column_count = int(table_result.column_count)
+            handle_table_schema_hash = str(table_result.schema_hash)
+            handle_table_payload_bytes = int(table_result.payload_bytes)
+            handle_table_kernel_mutation = bool(
+                table_result.changes_kernel_launch_args
+            )
+            table_read_ok = (
+                bool(table_result.table_ok)
+                and bool(table_result.lifecycle_ok)
+                and int(table_result.row_count) == int(read_result.object_hit_count)
+                and int(table_result.per_row_parity_ok_count) == int(table_result.row_count)
+                and int(table_result.row_miss_count) == 0
+                and int(table_result.stale_row_count) == 0
+                and int(table_result.payload_bytes) == 0
+                and not bool(table_result.ready_credit)
+                and not bool(table_result.changes_router)
+                and not bool(table_result.changes_descriptor_order)
+                and not bool(table_result.changes_kernel_launch_args)
+                and not bool(table_result.passed_to_kernel)
+            )
         shim_ok = (
             bool(read_result.read_ok)
             and int(read_result.object_hit_count) > 0
             and int(read_result.object_miss_count) == 0
             and int(read_result.stale_object_count) == 0
             and int(read_result.payload_bytes) == 0
+            and table_read_ok is True
         )
         return PremapDescriptorConsumerShimResult(
             execution_mode=str(execution_mode),
@@ -797,19 +844,21 @@ class ControlledPremapAddressManager:
             object_hash=read_result.object_hash,
             read_ok=bool(read_result.read_ok),
             shim_ok=bool(shim_ok),
-            handle_table_row_count=int(read_result.object_hit_count),
-            handle_table_column_count=len(
-                PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_COLUMNS
-            ),
-            handle_table_schema_hash=(
-                PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH
-            ),
-            handle_table_payload_bytes=0,
+            handle_table_row_count=handle_table_row_count,
+            handle_table_column_count=handle_table_column_count,
+            handle_table_schema_hash=handle_table_schema_hash,
+            handle_table_read_ok=table_read_ok,
+            handle_table_lifecycle_ok=table_lifecycle_ok,
+            handle_table_per_row_parity_ok_count=table_parity_count,
+            handle_table_row_miss_count=table_row_miss_count,
+            handle_table_stale_row_count=table_stale_row_count,
+            handle_table_passed_to_kernel=table_passed_to_kernel,
+            handle_table_payload_bytes=handle_table_payload_bytes,
             payload_bytes=0,
             ready_credit=False,
             changes_router=False,
             changes_descriptor_order=False,
-            changes_kernel_launch_args=False,
+            changes_kernel_launch_args=handle_table_kernel_mutation,
         )
 
     def build_kernel_arg_shadow_table_readonly(

@@ -374,6 +374,12 @@ def test_shadow_log_aggregates_premap_consumer_mapping_without_side_effects(tmp_
         descriptor_prep_consumer_shim_handle_table_row_count=2,
         descriptor_prep_consumer_shim_handle_table_column_count=4,
         descriptor_prep_consumer_shim_handle_table_schema_hash="schema-hash",
+        descriptor_prep_consumer_shim_handle_table_read_ok=True,
+        descriptor_prep_consumer_shim_handle_table_lifecycle_ok=True,
+        descriptor_prep_consumer_shim_handle_table_per_row_parity_ok_count=2,
+        descriptor_prep_consumer_shim_handle_table_row_miss_count=0,
+        descriptor_prep_consumer_shim_handle_table_stale_row_count=0,
+        descriptor_prep_consumer_shim_handle_table_passed_to_kernel=False,
         descriptor_prep_consumer_shim_handle_table_payload_bytes=0,
         descriptor_prep_consumer_shim_ok=True,
         descriptor_prep_consumer_shim_changes_kernel_launch_args=False,
@@ -570,6 +576,72 @@ def test_shadow_log_aggregates_premap_consumer_mapping_without_side_effects(tmp_
     )
     assert (
         aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_read_checked_count"
+        ]
+        == 1
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_read_not_checked_count"
+        ]
+        == 0
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_read_not_checked_rate"
+        ]
+        == 0.0
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_read_ok_count"
+        ]
+        == 1
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_read_ok_rate"
+        ]
+        == 1.0
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_lifecycle_ok_count"
+        ]
+        == 1
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_lifecycle_ok_rate"
+        ]
+        == 1.0
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_per_row_parity_ok_count"
+        ]
+        == 2
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_row_miss_count"
+        ]
+        == 0
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_stale_row_count"
+        ]
+        == 0
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_passed_to_kernel_count"
+        ]
+        == 0
+    )
+    assert (
+        aggregate[
             "premap_consumer_descriptor_prep_consumer_shim_handle_table_payload_bytes"
         ]
         == 0
@@ -745,6 +817,30 @@ def test_shadow_log_aggregates_premap_consumer_mapping_without_side_effects(tmp_
             "premap_consumer_descriptor_prep_consumer_shim_handle_table_payload_bytes"
         ]
         == 0
+    )
+    assert (
+        rows[0][
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_read_ok"
+        ]
+        is True
+    )
+    assert (
+        rows[0][
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_lifecycle_ok"
+        ]
+        is True
+    )
+    assert (
+        rows[0][
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_per_row_parity_ok_count"
+        ]
+        == 2
+    )
+    assert (
+        rows[0][
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_passed_to_kernel"
+        ]
+        is False
     )
     assert (
         rows[0][
@@ -1176,6 +1272,49 @@ def test_kernel_arg_shadow_table_aggregate_detects_mixed_column_and_schema_rows(
             "premap_consumer_descriptor_prep_kernel_arg_shadow_table_schema_hash_mismatch_count"
         ]
         == 0
+    )
+
+
+def test_consumer_shim_table_read_aggregate_reports_not_checked_rows():
+    aggregate = aggregate_shadow_events(
+        [
+            {
+                "event_type": "premap_consumer_mapping",
+                "premap_consumer_descriptor_prep_consumer_shim_mode": (
+                    "readonly_prelaunch_consumer_shim"
+                ),
+                "premap_consumer_descriptor_prep_consumer_shim_ok": False,
+                "premap_consumer_descriptor_prep_consumer_shim_object_count": 2,
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_row_count": 2,
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_column_count": 4,
+            }
+        ]
+    )
+
+    assert aggregate["premap_consumer_descriptor_prep_consumer_shim_executed_count"] == 1
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_read_checked_count"
+        ]
+        == 0
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_read_not_checked_count"
+        ]
+        == 1
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_read_not_checked_rate"
+        ]
+        == 1.0
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_read_ok_rate"
+        ]
+        == 0.0
     )
 
 

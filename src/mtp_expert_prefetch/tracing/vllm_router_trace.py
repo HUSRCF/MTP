@@ -180,6 +180,17 @@ RUNTIME_SHADOW_AGGREGATE_PERFORMANCE_KEYS = (
     "premap_consumer_descriptor_prep_consumer_shim_object_count",
     "premap_consumer_descriptor_prep_consumer_shim_handle_table_row_count",
     "premap_consumer_descriptor_prep_consumer_shim_handle_table_column_count_max",
+    "premap_consumer_descriptor_prep_consumer_shim_handle_table_read_checked_count",
+    "premap_consumer_descriptor_prep_consumer_shim_handle_table_read_not_checked_count",
+    "premap_consumer_descriptor_prep_consumer_shim_handle_table_read_not_checked_rate",
+    "premap_consumer_descriptor_prep_consumer_shim_handle_table_read_ok_count",
+    "premap_consumer_descriptor_prep_consumer_shim_handle_table_read_ok_rate",
+    "premap_consumer_descriptor_prep_consumer_shim_handle_table_lifecycle_ok_count",
+    "premap_consumer_descriptor_prep_consumer_shim_handle_table_lifecycle_ok_rate",
+    "premap_consumer_descriptor_prep_consumer_shim_handle_table_per_row_parity_ok_count",
+    "premap_consumer_descriptor_prep_consumer_shim_handle_table_row_miss_count",
+    "premap_consumer_descriptor_prep_consumer_shim_handle_table_stale_row_count",
+    "premap_consumer_descriptor_prep_consumer_shim_handle_table_passed_to_kernel_count",
     "premap_consumer_descriptor_prep_consumer_shim_handle_table_payload_bytes",
     "premap_consumer_descriptor_prep_consumer_shim_handle_table_payload_violation_count",
     "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_violation_count",
@@ -2230,21 +2241,23 @@ class VllmRouterRecorder:
                         )
                     )
                     if descriptor_consumer_read_result.read_ok:
-                        descriptor_consumer_shim_result = (
-                            manager.execute_descriptor_consumer_shim_readonly(
-                                descriptor_consumer_read_result
+                        kernel_arg_shadow_table_result = (
+                            manager.build_kernel_arg_shadow_table_readonly(
+                                address_keys,
+                                read_result=descriptor_consumer_read_result,
+                                expected_object_hash_by_address_key=(
+                                    descriptor_prep_result.consumer_object_hash_by_address_key
+                                ),
                             )
                         )
-                        if descriptor_consumer_shim_result.shim_ok:
-                            kernel_arg_shadow_table_result = (
-                                manager.build_kernel_arg_shadow_table_readonly(
-                                    address_keys,
-                                    read_result=descriptor_consumer_read_result,
-                                    expected_object_hash_by_address_key=(
-                                        descriptor_prep_result.consumer_object_hash_by_address_key
-                                    ),
-                                )
+                        descriptor_consumer_shim_result = (
+                            manager.execute_descriptor_consumer_shim_readonly(
+                                descriptor_consumer_read_result,
+                                kernel_arg_shadow_table_result=(
+                                    kernel_arg_shadow_table_result
+                                ),
                             )
+                        )
         lookup_us = (time.perf_counter_ns() - start_ns) / 1000.0
         sink.write_premap_consumer_mapping(
             ShadowPremapConsumerMappingEvent(
@@ -2462,6 +2475,50 @@ class VllmRouterRecorder:
                 ),
                 descriptor_prep_consumer_shim_handle_table_schema_hash=(
                     descriptor_consumer_shim_result.handle_table_schema_hash
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_handle_table_read_ok=(
+                    descriptor_consumer_shim_result.handle_table_read_ok
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_handle_table_lifecycle_ok=(
+                    descriptor_consumer_shim_result.handle_table_lifecycle_ok
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_handle_table_per_row_parity_ok_count=(
+                    int(
+                        descriptor_consumer_shim_result.handle_table_per_row_parity_ok_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.handle_table_per_row_parity_ok_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_handle_table_row_miss_count=(
+                    int(descriptor_consumer_shim_result.handle_table_row_miss_count)
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.handle_table_row_miss_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_handle_table_stale_row_count=(
+                    int(descriptor_consumer_shim_result.handle_table_stale_row_count)
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.handle_table_stale_row_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_handle_table_passed_to_kernel=(
+                    bool(descriptor_consumer_shim_result.handle_table_passed_to_kernel)
                     if descriptor_consumer_shim_result is not None
                     else None
                 ),
