@@ -874,6 +874,36 @@ def check_summary(
                     "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_schema_hash_mismatch_count"
                 )
             )
+            dry_row_handle_parity_ok_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_row_handle_parity_ok_count"
+                )
+            )
+            dry_descriptor_ptr_parity_ok_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_descriptor_ptr_parity_ok_count"
+                )
+            )
+            dry_packed_weight_descriptor_parity_ok_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_packed_weight_descriptor_parity_ok_count"
+                )
+            )
+            dry_scale_metadata_handle_parity_ok_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_scale_metadata_handle_parity_ok_count"
+                )
+            )
+            dry_aux_metadata_handle_parity_ok_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_aux_metadata_handle_parity_ok_count"
+                )
+            )
+            dry_row_handle_miss_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_row_handle_miss_count"
+                )
+            )
             if dry_checked_count != shim_executed:
                 failures.append(
                     "consumer_shim_prep_execution_checked_count_mismatch="
@@ -916,6 +946,38 @@ def check_summary(
                 failures.append(
                     "consumer_shim_prep_execution_schema_hash_mismatch_count_nonzero="
                     f"{dry_schema_hash_mismatch_count}"
+                )
+            for name, count in (
+                (
+                    "row_handle_parity_ok_count",
+                    dry_row_handle_parity_ok_count,
+                ),
+                (
+                    "descriptor_ptr_parity_ok_count",
+                    dry_descriptor_ptr_parity_ok_count,
+                ),
+                (
+                    "packed_weight_descriptor_parity_ok_count",
+                    dry_packed_weight_descriptor_parity_ok_count,
+                ),
+                (
+                    "scale_metadata_handle_parity_ok_count",
+                    dry_scale_metadata_handle_parity_ok_count,
+                ),
+                (
+                    "aux_metadata_handle_parity_ok_count",
+                    dry_aux_metadata_handle_parity_ok_count,
+                ),
+            ):
+                if count != dry_row_count:
+                    failures.append(
+                        f"consumer_shim_prep_execution_{name}_mismatch="
+                        f"{count}!={dry_row_count}"
+                    )
+            if dry_row_handle_miss_count != 0:
+                failures.append(
+                    "consumer_shim_prep_execution_row_handle_miss_count_nonzero="
+                    f"{dry_row_handle_miss_count}"
                 )
             for field in (
                 "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_ok_rate",
@@ -1342,6 +1404,36 @@ def check_summary(
                 "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_schema_hash"
             )
             or ""
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_row_handle_parity_ok_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_row_handle_parity_ok_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_descriptor_ptr_parity_ok_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_descriptor_ptr_parity_ok_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_packed_weight_descriptor_parity_ok_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_packed_weight_descriptor_parity_ok_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_scale_metadata_handle_parity_ok_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_scale_metadata_handle_parity_ok_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_aux_metadata_handle_parity_ok_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_aux_metadata_handle_parity_ok_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_row_handle_miss_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_row_handle_miss_count"
+            )
         ),
         "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_passed_to_kernel_count": _as_int(
             aggregate.get(

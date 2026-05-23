@@ -492,6 +492,12 @@ class PremapDescriptorConsumerShimResult:
     prep_execution_dry_run_schema_hash: str | None = None
     prep_execution_dry_run_object_hash: str | None = None
     prep_execution_dry_run_lifecycle_ok: bool | None = None
+    prep_execution_dry_run_row_handle_parity_ok_count: int | None = None
+    prep_execution_dry_run_descriptor_ptr_parity_ok_count: int | None = None
+    prep_execution_dry_run_packed_weight_descriptor_parity_ok_count: int | None = None
+    prep_execution_dry_run_scale_metadata_handle_parity_ok_count: int | None = None
+    prep_execution_dry_run_aux_metadata_handle_parity_ok_count: int | None = None
+    prep_execution_dry_run_row_handle_miss_count: int | None = None
     prep_execution_dry_run_passed_to_kernel: bool = False
     prep_execution_dry_run_payload_bytes: int = 0
     payload_bytes: int = 0
@@ -523,6 +529,12 @@ class PremapDescriptorAddressPrepDryRunResult:
     ordered_row_hash: str
     lifecycle_ok: bool
     execution_ok: bool
+    row_handle_parity_ok_count: int
+    descriptor_ptr_parity_ok_count: int
+    packed_weight_descriptor_parity_ok_count: int
+    scale_metadata_handle_parity_ok_count: int
+    aux_metadata_handle_parity_ok_count: int
+    row_handle_miss_count: int
     payload_bytes: int = 0
     ready_credit: bool = False
     changes_router: bool = False
@@ -1009,6 +1021,12 @@ class ControlledPremapAddressManager:
         prep_dry_run_schema_hash = None
         prep_dry_run_object_hash = None
         prep_dry_run_lifecycle_ok = None
+        prep_dry_run_row_handle_parity_ok_count = None
+        prep_dry_run_descriptor_ptr_parity_ok_count = None
+        prep_dry_run_packed_weight_descriptor_parity_ok_count = None
+        prep_dry_run_scale_metadata_handle_parity_ok_count = None
+        prep_dry_run_aux_metadata_handle_parity_ok_count = None
+        prep_dry_run_row_handle_miss_count = None
         prep_dry_run_passed_to_kernel = False
         prep_dry_run_payload_bytes = 0
         if table_result is not None:
@@ -1099,6 +1117,24 @@ class ControlledPremapAddressManager:
             prep_dry_run_schema_hash = str(prep_dry_run.schema_hash)
             prep_dry_run_object_hash = str(prep_dry_run.table_object_hash)
             prep_dry_run_lifecycle_ok = bool(prep_dry_run.lifecycle_ok)
+            prep_dry_run_row_handle_parity_ok_count = int(
+                prep_dry_run.row_handle_parity_ok_count
+            )
+            prep_dry_run_descriptor_ptr_parity_ok_count = int(
+                prep_dry_run.descriptor_ptr_parity_ok_count
+            )
+            prep_dry_run_packed_weight_descriptor_parity_ok_count = int(
+                prep_dry_run.packed_weight_descriptor_parity_ok_count
+            )
+            prep_dry_run_scale_metadata_handle_parity_ok_count = int(
+                prep_dry_run.scale_metadata_handle_parity_ok_count
+            )
+            prep_dry_run_aux_metadata_handle_parity_ok_count = int(
+                prep_dry_run.aux_metadata_handle_parity_ok_count
+            )
+            prep_dry_run_row_handle_miss_count = int(
+                prep_dry_run.row_handle_miss_count
+            )
             prep_dry_run_passed_to_kernel = bool(prep_dry_run.passed_to_kernel)
             prep_dry_run_payload_bytes = int(prep_dry_run.payload_bytes)
             prep_bound_to_table_object = (
@@ -1113,6 +1149,17 @@ class ControlledPremapAddressManager:
                 and bool(prep_dry_run.execution_ok)
                 and prep_bound_to_table_object
                 and int(prep_dry_run.row_count) == int(read_result.object_hit_count)
+                and int(prep_dry_run.row_handle_miss_count) == 0
+                and int(prep_dry_run.row_handle_parity_ok_count)
+                == int(prep_dry_run.row_count)
+                and int(prep_dry_run.descriptor_ptr_parity_ok_count)
+                == int(prep_dry_run.row_count)
+                and int(prep_dry_run.packed_weight_descriptor_parity_ok_count)
+                == int(prep_dry_run.row_count)
+                and int(prep_dry_run.scale_metadata_handle_parity_ok_count)
+                == int(prep_dry_run.row_count)
+                and int(prep_dry_run.aux_metadata_handle_parity_ok_count)
+                == int(prep_dry_run.row_count)
                 and int(prep_dry_run.payload_bytes) == 0
                 and not bool(prep_dry_run.ready_credit)
                 and not bool(prep_dry_run.changes_router)
@@ -1174,6 +1221,24 @@ class ControlledPremapAddressManager:
             prep_execution_dry_run_schema_hash=prep_dry_run_schema_hash,
             prep_execution_dry_run_object_hash=prep_dry_run_object_hash,
             prep_execution_dry_run_lifecycle_ok=prep_dry_run_lifecycle_ok,
+            prep_execution_dry_run_row_handle_parity_ok_count=(
+                prep_dry_run_row_handle_parity_ok_count
+            ),
+            prep_execution_dry_run_descriptor_ptr_parity_ok_count=(
+                prep_dry_run_descriptor_ptr_parity_ok_count
+            ),
+            prep_execution_dry_run_packed_weight_descriptor_parity_ok_count=(
+                prep_dry_run_packed_weight_descriptor_parity_ok_count
+            ),
+            prep_execution_dry_run_scale_metadata_handle_parity_ok_count=(
+                prep_dry_run_scale_metadata_handle_parity_ok_count
+            ),
+            prep_execution_dry_run_aux_metadata_handle_parity_ok_count=(
+                prep_dry_run_aux_metadata_handle_parity_ok_count
+            ),
+            prep_execution_dry_run_row_handle_miss_count=(
+                prep_dry_run_row_handle_miss_count
+            ),
             prep_execution_dry_run_passed_to_kernel=prep_dry_run_passed_to_kernel,
             prep_execution_dry_run_payload_bytes=prep_dry_run_payload_bytes,
             payload_bytes=0,
@@ -1188,6 +1253,9 @@ class ControlledPremapAddressManager:
         table_object: PremapKernelArgShadowTableObject,
         *,
         read_result: PremapDescriptorConsumerReadResult | None = None,
+        real_descriptor_handles_by_address_key: (
+            dict[str, PremapRealDescriptorHandle] | None
+        ) = None,
         execution_mode: str = "readonly_descriptor_address_prep_execution_dry_run",
         source: str = "kernel_arg_shadow_table_object",
     ) -> PremapDescriptorAddressPrepDryRunResult:
@@ -1203,11 +1271,72 @@ class ControlledPremapAddressManager:
             expected_rows_ok = int(table_object.row_count) == int(
                 read_result.object_hit_count
             )
+        real_handles = real_descriptor_handles_by_address_key
+        row_handle_parity_ok_count = 0
+        descriptor_ptr_parity_ok_count = 0
+        packed_weight_descriptor_parity_ok_count = 0
+        scale_metadata_handle_parity_ok_count = 0
+        aux_metadata_handle_parity_ok_count = 0
+        row_handle_miss_count = 0
+        for row in table_object.rows:
+            entry = self._addresses.get(row.address_key)
+            real_handle = (
+                real_handles.get(row.address_key) if real_handles is not None else None
+            )
+            consumer_object = (
+                self._build_descriptor_consumer_object(
+                    key=row.address_key,
+                    handle=entry.handle,
+                    real_handle=real_handle,
+                )
+                if entry is not None
+                and (
+                    real_handles is None
+                    or (
+                        real_handle is not None
+                        and (
+                            real_handle.address_key is None
+                            or str(real_handle.address_key) == str(row.address_key)
+                        )
+                    )
+                )
+                else None
+            )
+            if consumer_object is None:
+                row_handle_miss_count += 1
+                continue
+            descriptor_ptr_match = str(row.descriptor_ptr) == str(
+                consumer_object.descriptor_ptr
+            )
+            packed_descriptor_match = str(row.packed_weight_descriptor) == str(
+                consumer_object.packed_weight_descriptor
+            )
+            scale_metadata_match = str(row.scale_metadata_handle) == str(
+                consumer_object.scale_metadata_handle
+            )
+            aux_metadata_match = row.aux_metadata_handle == consumer_object.aux_metadata_handle
+            descriptor_ptr_parity_ok_count += int(descriptor_ptr_match)
+            packed_weight_descriptor_parity_ok_count += int(packed_descriptor_match)
+            scale_metadata_handle_parity_ok_count += int(scale_metadata_match)
+            aux_metadata_handle_parity_ok_count += int(aux_metadata_match)
+            row_handle_parity_ok_count += int(
+                str(row.object_hash) == str(consumer_object.object_hash)
+                and descriptor_ptr_match
+                and packed_descriptor_match
+                and scale_metadata_match
+                and aux_metadata_match
+            )
         lifecycle_ok = bool(table_object.lifecycle_ok)
         execution_ok = (
             int(table_object.row_count) > 0
             and expected_rows_ok
             and lifecycle_ok
+            and row_handle_miss_count == 0
+            and row_handle_parity_ok_count == int(table_object.row_count)
+            and descriptor_ptr_parity_ok_count == int(table_object.row_count)
+            and packed_weight_descriptor_parity_ok_count == int(table_object.row_count)
+            and scale_metadata_handle_parity_ok_count == int(table_object.row_count)
+            and aux_metadata_handle_parity_ok_count == int(table_object.row_count)
             and int(table_object.column_count)
             == len(PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_COLUMNS)
             and str(table_object.schema_hash)
@@ -1230,6 +1359,18 @@ class ControlledPremapAddressManager:
             ordered_row_hash=str(table_object.ordered_row_hash),
             lifecycle_ok=bool(lifecycle_ok),
             execution_ok=bool(execution_ok),
+            row_handle_parity_ok_count=int(row_handle_parity_ok_count),
+            descriptor_ptr_parity_ok_count=int(descriptor_ptr_parity_ok_count),
+            packed_weight_descriptor_parity_ok_count=int(
+                packed_weight_descriptor_parity_ok_count
+            ),
+            scale_metadata_handle_parity_ok_count=int(
+                scale_metadata_handle_parity_ok_count
+            ),
+            aux_metadata_handle_parity_ok_count=int(
+                aux_metadata_handle_parity_ok_count
+            ),
+            row_handle_miss_count=int(row_handle_miss_count),
             payload_bytes=int(table_object.payload_bytes),
             ready_credit=bool(table_object.ready_credit),
             changes_router=bool(table_object.changes_router),

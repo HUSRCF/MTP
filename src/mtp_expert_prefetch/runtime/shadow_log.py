@@ -784,6 +784,24 @@ class ShadowPremapConsumerMappingEvent:
     descriptor_prep_consumer_shim_prep_execution_dry_run_lifecycle_ok: (
         bool | None
     ) = None
+    descriptor_prep_consumer_shim_prep_execution_dry_run_row_handle_parity_ok_count: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_prep_execution_dry_run_descriptor_ptr_parity_ok_count: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_prep_execution_dry_run_packed_weight_descriptor_parity_ok_count: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_prep_execution_dry_run_scale_metadata_handle_parity_ok_count: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_prep_execution_dry_run_aux_metadata_handle_parity_ok_count: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_prep_execution_dry_run_row_handle_miss_count: (
+        int | None
+    ) = None
     descriptor_prep_consumer_shim_prep_execution_dry_run_passed_to_kernel: (
         bool | None
     ) = None
@@ -1306,6 +1324,36 @@ class ShadowPremapConsumerMappingEvent:
         )
         _put_optional(
             payload,
+            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_row_handle_parity_ok_count",
+            self.descriptor_prep_consumer_shim_prep_execution_dry_run_row_handle_parity_ok_count,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_descriptor_ptr_parity_ok_count",
+            self.descriptor_prep_consumer_shim_prep_execution_dry_run_descriptor_ptr_parity_ok_count,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_packed_weight_descriptor_parity_ok_count",
+            self.descriptor_prep_consumer_shim_prep_execution_dry_run_packed_weight_descriptor_parity_ok_count,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_scale_metadata_handle_parity_ok_count",
+            self.descriptor_prep_consumer_shim_prep_execution_dry_run_scale_metadata_handle_parity_ok_count,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_aux_metadata_handle_parity_ok_count",
+            self.descriptor_prep_consumer_shim_prep_execution_dry_run_aux_metadata_handle_parity_ok_count,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_row_handle_miss_count",
+            self.descriptor_prep_consumer_shim_prep_execution_dry_run_row_handle_miss_count,
+        )
+        _put_optional(
+            payload,
             "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_passed_to_kernel",
             self.descriptor_prep_consumer_shim_prep_execution_dry_run_passed_to_kernel,
         )
@@ -1689,6 +1737,12 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
         "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_schema_hash_checked_count": 0,
         "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_schema_hash_missing_count": 0,
         "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_schema_hash_mismatch_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_row_handle_parity_ok_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_descriptor_ptr_parity_ok_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_packed_weight_descriptor_parity_ok_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_scale_metadata_handle_parity_ok_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_aux_metadata_handle_parity_ok_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_row_handle_miss_count": 0,
         "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_payload_bytes": 0,
         "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_payload_violation_count": 0,
         "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_passed_to_kernel_count": 0,
@@ -2657,6 +2711,15 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
                         or 0
                     ),
                 )
+                for field in (
+                    "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_row_handle_parity_ok_count",
+                    "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_descriptor_ptr_parity_ok_count",
+                    "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_packed_weight_descriptor_parity_ok_count",
+                    "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_scale_metadata_handle_parity_ok_count",
+                    "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_aux_metadata_handle_parity_ok_count",
+                    "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_row_handle_miss_count",
+                ):
+                    totals[field] += int(event.get(field, 0) or 0)
                 dry_payload_bytes = int(
                     event.get(
                         "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_payload_bytes",

@@ -343,6 +343,12 @@ def test_controlled_premap_address_manager_executes_descriptor_prep_readonly():
     assert prep_dry_run_result.table_object_hash == table_object.object_hash
     assert prep_dry_run_result.lifecycle_ok is True
     assert prep_dry_run_result.execution_ok is True
+    assert prep_dry_run_result.row_handle_parity_ok_count == 2
+    assert prep_dry_run_result.descriptor_ptr_parity_ok_count == 2
+    assert prep_dry_run_result.packed_weight_descriptor_parity_ok_count == 2
+    assert prep_dry_run_result.scale_metadata_handle_parity_ok_count == 2
+    assert prep_dry_run_result.aux_metadata_handle_parity_ok_count == 2
+    assert prep_dry_run_result.row_handle_miss_count == 0
     assert prep_dry_run_result.payload_bytes == 0
     assert prep_dry_run_result.passed_to_kernel is False
     shim_result = manager.execute_descriptor_consumer_shim_readonly(
@@ -419,6 +425,15 @@ def test_controlled_premap_address_manager_executes_descriptor_prep_readonly():
     )
     assert shim_result.prep_execution_dry_run_object_hash == table_object.object_hash
     assert shim_result.prep_execution_dry_run_lifecycle_ok is True
+    assert shim_result.prep_execution_dry_run_row_handle_parity_ok_count == 2
+    assert shim_result.prep_execution_dry_run_descriptor_ptr_parity_ok_count == 2
+    assert (
+        shim_result.prep_execution_dry_run_packed_weight_descriptor_parity_ok_count
+        == 2
+    )
+    assert shim_result.prep_execution_dry_run_scale_metadata_handle_parity_ok_count == 2
+    assert shim_result.prep_execution_dry_run_aux_metadata_handle_parity_ok_count == 2
+    assert shim_result.prep_execution_dry_run_row_handle_miss_count == 0
     assert shim_result.prep_execution_dry_run_passed_to_kernel is False
     assert shim_result.prep_execution_dry_run_payload_bytes == 0
     assert shim_result.payload_bytes == 0
@@ -478,6 +493,8 @@ def test_controlled_premap_address_manager_executes_descriptor_prep_readonly():
     )
     assert payload_dry_run_result.execution_ok is False
     assert payload_dry_run_result.lifecycle_ok is False
+    assert payload_dry_run_result.row_handle_parity_ok_count == 2
+    assert payload_dry_run_result.descriptor_ptr_parity_ok_count == 2
     assert payload_dry_run_result.payload_bytes == 16
     assert payload_dry_run_result.passed_to_kernel is False
     no_table_shim_result = manager.execute_descriptor_consumer_shim_readonly(

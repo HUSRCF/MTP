@@ -417,6 +417,12 @@ def test_shadow_log_aggregates_premap_consumer_mapping_without_side_effects(tmp_
             "table-object-hash"
         ),
         descriptor_prep_consumer_shim_prep_execution_dry_run_lifecycle_ok=True,
+        descriptor_prep_consumer_shim_prep_execution_dry_run_row_handle_parity_ok_count=2,
+        descriptor_prep_consumer_shim_prep_execution_dry_run_descriptor_ptr_parity_ok_count=2,
+        descriptor_prep_consumer_shim_prep_execution_dry_run_packed_weight_descriptor_parity_ok_count=2,
+        descriptor_prep_consumer_shim_prep_execution_dry_run_scale_metadata_handle_parity_ok_count=2,
+        descriptor_prep_consumer_shim_prep_execution_dry_run_aux_metadata_handle_parity_ok_count=2,
+        descriptor_prep_consumer_shim_prep_execution_dry_run_row_handle_miss_count=0,
         descriptor_prep_consumer_shim_prep_execution_dry_run_passed_to_kernel=False,
         descriptor_prep_consumer_shim_prep_execution_dry_run_payload_bytes=0,
         descriptor_prep_consumer_shim_ok=True,
@@ -881,6 +887,20 @@ def test_shadow_log_aggregates_premap_consumer_mapping_without_side_effects(tmp_
             "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_schema_hash_checked_count"
         ]
         == 1
+    )
+    for field in (
+        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_row_handle_parity_ok_count",
+        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_descriptor_ptr_parity_ok_count",
+        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_packed_weight_descriptor_parity_ok_count",
+        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_scale_metadata_handle_parity_ok_count",
+        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_aux_metadata_handle_parity_ok_count",
+    ):
+        assert aggregate[field] == 2
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_row_handle_miss_count"
+        ]
+        == 0
     )
     assert (
         aggregate[

@@ -230,6 +230,12 @@ RUNTIME_SHADOW_AGGREGATE_PERFORMANCE_KEYS = (
     "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_schema_hash_checked_count",
     "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_schema_hash_missing_count",
     "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_schema_hash_mismatch_count",
+    "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_row_handle_parity_ok_count",
+    "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_descriptor_ptr_parity_ok_count",
+    "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_packed_weight_descriptor_parity_ok_count",
+    "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_scale_metadata_handle_parity_ok_count",
+    "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_aux_metadata_handle_parity_ok_count",
+    "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_row_handle_miss_count",
     "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_passed_to_kernel_count",
     "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_payload_bytes",
     "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_payload_violation_count",
@@ -2302,6 +2308,13 @@ class VllmRouterRecorder:
                             manager.execute_descriptor_address_prep_dry_run_readonly(
                                 kernel_arg_shadow_table_object,
                                 read_result=descriptor_consumer_read_result,
+                                real_descriptor_handles_by_address_key=(
+                                    real_descriptor_handles_by_address_key
+                                    if bool(
+                                        self.shadow_premap_consumer_resolve_real_handles
+                                    )
+                                    else None
+                                ),
                             )
                         )
                         descriptor_consumer_shim_result = (
@@ -2775,6 +2788,72 @@ class VllmRouterRecorder:
                 descriptor_prep_consumer_shim_prep_execution_dry_run_lifecycle_ok=(
                     descriptor_consumer_shim_result.prep_execution_dry_run_lifecycle_ok
                     if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_prep_execution_dry_run_row_handle_parity_ok_count=(
+                    int(
+                        descriptor_consumer_shim_result.prep_execution_dry_run_row_handle_parity_ok_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.prep_execution_dry_run_row_handle_parity_ok_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_prep_execution_dry_run_descriptor_ptr_parity_ok_count=(
+                    int(
+                        descriptor_consumer_shim_result.prep_execution_dry_run_descriptor_ptr_parity_ok_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.prep_execution_dry_run_descriptor_ptr_parity_ok_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_prep_execution_dry_run_packed_weight_descriptor_parity_ok_count=(
+                    int(
+                        descriptor_consumer_shim_result.prep_execution_dry_run_packed_weight_descriptor_parity_ok_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.prep_execution_dry_run_packed_weight_descriptor_parity_ok_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_prep_execution_dry_run_scale_metadata_handle_parity_ok_count=(
+                    int(
+                        descriptor_consumer_shim_result.prep_execution_dry_run_scale_metadata_handle_parity_ok_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.prep_execution_dry_run_scale_metadata_handle_parity_ok_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_prep_execution_dry_run_aux_metadata_handle_parity_ok_count=(
+                    int(
+                        descriptor_consumer_shim_result.prep_execution_dry_run_aux_metadata_handle_parity_ok_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.prep_execution_dry_run_aux_metadata_handle_parity_ok_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_prep_execution_dry_run_row_handle_miss_count=(
+                    int(
+                        descriptor_consumer_shim_result.prep_execution_dry_run_row_handle_miss_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.prep_execution_dry_run_row_handle_miss_count
+                        is not None
+                    )
                     else None
                 ),
                 descriptor_prep_consumer_shim_prep_execution_dry_run_passed_to_kernel=(
