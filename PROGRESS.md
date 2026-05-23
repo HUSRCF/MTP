@@ -15107,3 +15107,94 @@ This remains a readonly dry-run contract.  It proves that the runtime consumer
 shim can read the prepared descriptor/address shadow table with stable
 lifecycle and row parity; it still does not move payload, grant ready credit,
 mutate router output, mutate descriptor order, or pass new kernel arguments.
+
+### 2026-05-23: Consumer shim table-consume promoted to lab gate
+
+The previous 128-sample long-run artifact with an empty `runtime_shadow.jsonl`
+was re-run with the current code after isolating the write path.  The issue did
+not reproduce:
+
+```text
+longrun-style Dolly8 smoke:
+  runtime_shadow rows = 1,280
+  premap_summary = 640
+  premap_consumer_mapping = 640
+  consumer_shim_table_consume_checked = 640
+  consumer_shim_table_consume_ok_rate = 1.0
+
+Dolly128 strict long-run:
+  runtime_shadow rows = 20,390
+  premap_summary = 10,195
+  premap_consumer_mapping = 10,195
+  consumer_shim_table_consume_checked = 10,195
+  consumer_shim_table_consume_ok_rate = 1.0
+```
+
+Strict gate command:
+
+```text
+scripts/check_premap_longrun_audit_gate.py
+  --require-readonly-consumer
+  --require-descriptor-prep
+  --require-real-descriptor-prep
+  --require-kernel-arg-shadow-table
+  --require-consumer-shim-table-read
+  --require-consumer-shim-table-consume
+```
+
+Gate result:
+
+```text
+data/traces/external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_longrun_audit/longrun_audit_gate.json
+
+passed = true
+failures = []
+premap_address_reuse_rate_mean = 0.9827389896686539
+premap_address_eviction_pressure_mean = 0.0
+premap_address_resident_count_max = 10127
+premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_row_count = 110898
+premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_column_count_max = 4
+premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_schema_hash =
+  a02928d41970cdf1630dc2a743589ab18068454ac47341a34c4583fd40a5f294
+premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_row_miss_count = 0
+premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_stale_row_count = 0
+premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_payload_bytes = 0
+premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_payload_violation_count = 0
+premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_passed_to_kernel_count = 0
+```
+
+The lab gate artifact now requires both table read and table consume:
+
+```text
+contract.consumer_shim_table_read_required = true
+contract.consumer_shim_table_consume_required = true
+gate.check.require_consumer_shim_table_read = true
+gate.check.require_consumer_shim_table_consume = true
+```
+
+The runtime loader is fail-closed for this precondition: descriptor prep
+execution now rejects readonly gate artifacts that do not declare and pass the
+consumer-shim table consume contract.  A dedicated 8-sample long-run audit
+smoke config was added to catch future empty-shadow regressions quickly:
+
+```text
+configs/trace/router_mtp_trace_external_prompt_gate_dolly_8_awq_vllm_gpu1_decode_gen64_longrun_audit_smoke.yaml
+```
+
+Boundary:
+
+```text
+This is still not a kernel-argument patch.  The consumer shim consumes the
+prepared shadow table object in runtime, verifies lifecycle/schema/row parity,
+and records that nothing was passed to a kernel and no payload moved.
+```
+
+Next gate:
+
+```text
+Use this lab precondition before any minimal descriptor/address prep execution
+that approaches a real fused-MoE/AWQ prelaunch consumer.  The next integration
+step must keep payload movement, ready credit, router mutation, descriptor-order
+mutation, and kernel-arg mutation disabled until the consumer-side table object
+is explicitly wired and checked under the lab gate.
+```
