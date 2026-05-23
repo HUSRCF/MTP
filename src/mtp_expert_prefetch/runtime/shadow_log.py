@@ -774,6 +774,20 @@ class ShadowPremapConsumerMappingEvent:
         bool | None
     ) = None
     descriptor_prep_consumer_shim_handle_table_object_payload_bytes: int | None = None
+    descriptor_prep_consumer_shim_prep_execution_dry_run_mode: str | None = None
+    descriptor_prep_consumer_shim_prep_execution_dry_run_source: str | None = None
+    descriptor_prep_consumer_shim_prep_execution_dry_run_ok: bool | None = None
+    descriptor_prep_consumer_shim_prep_execution_dry_run_row_count: int | None = None
+    descriptor_prep_consumer_shim_prep_execution_dry_run_column_count: int | None = None
+    descriptor_prep_consumer_shim_prep_execution_dry_run_schema_hash: str | None = None
+    descriptor_prep_consumer_shim_prep_execution_dry_run_object_hash: str | None = None
+    descriptor_prep_consumer_shim_prep_execution_dry_run_lifecycle_ok: (
+        bool | None
+    ) = None
+    descriptor_prep_consumer_shim_prep_execution_dry_run_passed_to_kernel: (
+        bool | None
+    ) = None
+    descriptor_prep_consumer_shim_prep_execution_dry_run_payload_bytes: int | None = None
     descriptor_prep_consumer_shim_ok: bool | None = None
     descriptor_prep_consumer_shim_changes_kernel_launch_args: bool | None = None
     descriptor_prep_kernel_arg_shadow_table_mode: str | None = None
@@ -1252,6 +1266,56 @@ class ShadowPremapConsumerMappingEvent:
         )
         _put_optional(
             payload,
+            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_mode",
+            self.descriptor_prep_consumer_shim_prep_execution_dry_run_mode,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_source",
+            self.descriptor_prep_consumer_shim_prep_execution_dry_run_source,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_ok",
+            self.descriptor_prep_consumer_shim_prep_execution_dry_run_ok,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_row_count",
+            self.descriptor_prep_consumer_shim_prep_execution_dry_run_row_count,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_column_count",
+            self.descriptor_prep_consumer_shim_prep_execution_dry_run_column_count,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_schema_hash",
+            self.descriptor_prep_consumer_shim_prep_execution_dry_run_schema_hash,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_object_hash",
+            self.descriptor_prep_consumer_shim_prep_execution_dry_run_object_hash,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_lifecycle_ok",
+            self.descriptor_prep_consumer_shim_prep_execution_dry_run_lifecycle_ok,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_passed_to_kernel",
+            self.descriptor_prep_consumer_shim_prep_execution_dry_run_passed_to_kernel,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_payload_bytes",
+            self.descriptor_prep_consumer_shim_prep_execution_dry_run_payload_bytes,
+        )
+        _put_optional(
+            payload,
             "premap_consumer_descriptor_prep_consumer_shim_ok",
             self.descriptor_prep_consumer_shim_ok,
         )
@@ -1616,6 +1680,18 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
         "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_passed_to_kernel_count": 0,
         "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_payload_bytes": 0,
         "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_payload_violation_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_checked_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_ok_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_lifecycle_ok_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_row_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_column_count_max": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_schema_hash": "",
+        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_schema_hash_checked_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_schema_hash_missing_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_schema_hash_mismatch_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_payload_bytes": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_payload_violation_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_passed_to_kernel_count": 0,
         "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_violation_count": 0,
         "premap_consumer_descriptor_prep_kernel_arg_shadow_table_executed_count": 0,
         "premap_consumer_descriptor_prep_kernel_arg_shadow_table_ok_count": 0,
@@ -2503,6 +2579,107 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
                         )
                     )
                 )
+                if (
+                    "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_ok"
+                    in event
+                ):
+                    totals[
+                        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_checked_count"
+                    ] += 1
+                    totals[
+                        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_ok_count"
+                    ] += int(
+                        bool(
+                            event.get(
+                                "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_ok",
+                                False,
+                            )
+                        )
+                    )
+                    dry_schema_hash = event.get(
+                        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_schema_hash"
+                    )
+                    if dry_schema_hash:
+                        totals[
+                            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_schema_hash_checked_count"
+                        ] += 1
+                        if not totals[
+                            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_schema_hash"
+                        ]:
+                            totals[
+                                "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_schema_hash"
+                            ] = str(dry_schema_hash)
+                        elif (
+                            str(dry_schema_hash)
+                            != totals[
+                                "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_schema_hash"
+                            ]
+                        ):
+                            totals[
+                                "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_schema_hash_mismatch_count"
+                            ] += 1
+                    else:
+                        totals[
+                            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_schema_hash_missing_count"
+                        ] += 1
+                totals[
+                    "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_lifecycle_ok_count"
+                ] += int(
+                    bool(
+                        event.get(
+                            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_lifecycle_ok",
+                            False,
+                        )
+                    )
+                )
+                totals[
+                    "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_row_count"
+                ] += int(
+                    event.get(
+                        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_row_count",
+                        0,
+                    )
+                    or 0
+                )
+                totals[
+                    "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_column_count_max"
+                ] = max(
+                    int(
+                        totals[
+                            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_column_count_max"
+                        ]
+                    ),
+                    int(
+                        event.get(
+                            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_column_count",
+                            0,
+                        )
+                        or 0
+                    ),
+                )
+                dry_payload_bytes = int(
+                    event.get(
+                        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_payload_bytes",
+                        0,
+                    )
+                    or 0
+                )
+                totals[
+                    "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_payload_bytes"
+                ] += dry_payload_bytes
+                totals[
+                    "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_payload_violation_count"
+                ] += int(dry_payload_bytes != 0)
+                totals[
+                    "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_passed_to_kernel_count"
+                ] += int(
+                    bool(
+                        event.get(
+                            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_passed_to_kernel",
+                            False,
+                        )
+                    )
+                )
                 totals["premap_consumer_descriptor_prep_consumer_shim_ok_count"] += int(
                     bool(
                         event.get(
@@ -3122,6 +3299,36 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
             int(
                 totals[
                     "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_consumed_checked_count"
+                ]
+            ),
+        )
+    )
+    totals[
+        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_ok_rate"
+    ] = (
+        totals[
+            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_ok_count"
+        ]
+        / max(
+            1,
+            int(
+                totals[
+                    "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_checked_count"
+                ]
+            ),
+        )
+    )
+    totals[
+        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_lifecycle_ok_rate"
+    ] = (
+        totals[
+            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_lifecycle_ok_count"
+        ]
+        / max(
+            1,
+            int(
+                totals[
+                    "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_checked_count"
                 ]
             ),
         )

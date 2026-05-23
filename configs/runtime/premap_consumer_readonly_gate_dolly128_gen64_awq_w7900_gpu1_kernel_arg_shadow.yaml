@@ -24,6 +24,7 @@ contract:
   consumer_shim_table_read_required: true
   consumer_shim_table_consume_required: true
   consumer_shim_table_object_required: true
+  consumer_shim_prep_execution_required: true
 
 model:
   config: configs/model/qwen3_6_35b_a3b_awq_4bit.yaml
@@ -54,6 +55,7 @@ gate:
     require_consumer_shim_table_read: true
     require_consumer_shim_table_consume: true
     require_consumer_shim_table_object: true
+    require_consumer_shim_prep_execution: true
   metrics:
     row_count: 20390
     premap_summary_count: 10195
@@ -160,6 +162,20 @@ gate:
     premap_consumer_descriptor_prep_consumer_shim_handle_table_object_payload_bytes: 0
     premap_consumer_descriptor_prep_consumer_shim_handle_table_object_payload_violation_count: 0
     premap_consumer_descriptor_prep_consumer_shim_handle_table_object_passed_to_kernel_count: 0
+    premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_checked_count: 10195
+    premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_ok_count: 10195
+    premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_ok_rate: 1.0
+    premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_lifecycle_ok_count: 10195
+    premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_lifecycle_ok_rate: 1.0
+    premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_row_count: 110898
+    premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_column_count_max: 4
+    premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_schema_hash: a02928d41970cdf1630dc2a743589ab18068454ac47341a34c4583fd40a5f294
+    premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_schema_hash_checked_count: 10195
+    premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_schema_hash_missing_count: 0
+    premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_schema_hash_mismatch_count: 0
+    premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_payload_bytes: 0
+    premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_payload_violation_count: 0
+    premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_passed_to_kernel_count: 0
     premap_consumer_error_count: 0
     premap_consumer_payload_violation_count: 0
     premap_consumer_router_change_violation_count: 0

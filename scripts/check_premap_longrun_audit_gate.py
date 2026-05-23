@@ -68,6 +68,7 @@ def check_summary(
     require_consumer_shim_table_read: bool = False,
     require_consumer_shim_table_consume: bool = False,
     require_consumer_shim_table_object: bool = False,
+    require_consumer_shim_prep_execution: bool = False,
 ) -> dict[str, Any]:
     summary = _normalize_summary(summary)
     event_counts = {
@@ -219,6 +220,18 @@ def check_summary(
         failures.append("consumer_shim_table_object_fields_missing")
     if require_consumer_shim_table_object and not consumer_shim_table_consume_active:
         failures.append("consumer_shim_table_object_requires_table_consume_fields")
+    consumer_shim_prep_execution_checked_count = _as_int(
+        aggregate.get(
+            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_checked_count"
+        )
+    )
+    consumer_shim_prep_execution_active = (
+        consumer_shim_prep_execution_checked_count > 0
+    )
+    if require_consumer_shim_prep_execution and not consumer_shim_prep_execution_active:
+        failures.append("consumer_shim_prep_execution_fields_missing")
+    if require_consumer_shim_prep_execution and not consumer_shim_table_object_active:
+        failures.append("consumer_shim_prep_execution_requires_table_object_fields")
     descriptor_prep_real_active = any(
         key in aggregate
         for key in (
@@ -804,6 +817,120 @@ def check_summary(
                 count = _as_int(aggregate.get(field))
                 if count != 0:
                     failures.append(f"{field}_nonzero={count}")
+        if require_consumer_shim_prep_execution or consumer_shim_prep_execution_active:
+            shim_executed = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_executed_count"
+                )
+            )
+            table_row_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_row_count"
+                )
+            )
+            dry_checked_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_checked_count"
+                )
+            )
+            dry_ok_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_ok_count"
+                )
+            )
+            dry_lifecycle_ok_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_lifecycle_ok_count"
+                )
+            )
+            dry_row_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_row_count"
+                )
+            )
+            dry_column_count_max = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_column_count_max"
+                )
+            )
+            dry_schema_hash = str(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_schema_hash"
+                )
+                or ""
+            )
+            dry_schema_hash_checked_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_schema_hash_checked_count"
+                )
+            )
+            dry_schema_hash_missing_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_schema_hash_missing_count"
+                )
+            )
+            dry_schema_hash_mismatch_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_schema_hash_mismatch_count"
+                )
+            )
+            if dry_checked_count != shim_executed:
+                failures.append(
+                    "consumer_shim_prep_execution_checked_count_mismatch="
+                    f"{dry_checked_count}!={shim_executed}"
+                )
+            if dry_ok_count != shim_executed:
+                failures.append(
+                    "consumer_shim_prep_execution_ok_count_mismatch="
+                    f"{dry_ok_count}!={shim_executed}"
+                )
+            if dry_lifecycle_ok_count != shim_executed:
+                failures.append(
+                    "consumer_shim_prep_execution_lifecycle_ok_count_mismatch="
+                    f"{dry_lifecycle_ok_count}!={shim_executed}"
+                )
+            if dry_row_count != table_row_count:
+                failures.append(
+                    "consumer_shim_prep_execution_row_count_mismatch="
+                    f"{dry_row_count}!={table_row_count}"
+                )
+            if dry_column_count_max != EXPECTED_KERNEL_ARG_SHADOW_TABLE_COLUMN_COUNT:
+                failures.append(
+                    "consumer_shim_prep_execution_column_count_max_mismatch="
+                    f"{dry_column_count_max}!="
+                    f"{EXPECTED_KERNEL_ARG_SHADOW_TABLE_COLUMN_COUNT}"
+                )
+            if dry_schema_hash != PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH:
+                failures.append("consumer_shim_prep_execution_schema_hash_mismatch")
+            if dry_schema_hash_checked_count != shim_executed:
+                failures.append(
+                    "consumer_shim_prep_execution_schema_hash_checked_count_mismatch="
+                    f"{dry_schema_hash_checked_count}!={shim_executed}"
+                )
+            if dry_schema_hash_missing_count != 0:
+                failures.append(
+                    "consumer_shim_prep_execution_schema_hash_missing_count_nonzero="
+                    f"{dry_schema_hash_missing_count}"
+                )
+            if dry_schema_hash_mismatch_count != 0:
+                failures.append(
+                    "consumer_shim_prep_execution_schema_hash_mismatch_count_nonzero="
+                    f"{dry_schema_hash_mismatch_count}"
+                )
+            for field in (
+                "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_ok_rate",
+                "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_lifecycle_ok_rate",
+            ):
+                if _as_float(aggregate.get(field)) != 1.0:
+                    failures.append(f"{field}_not_one")
+            for field in (
+                "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_payload_bytes",
+                "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_payload_violation_count",
+                "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_passed_to_kernel_count",
+            ):
+                count = _as_int(aggregate.get(field))
+                if count != 0:
+                    failures.append(f"{field}_nonzero={count}")
     real_handle_hits = _as_int(
         aggregate.get("premap_consumer_real_descriptor_handle_hit_count")
     )
@@ -1185,6 +1312,47 @@ def check_summary(
                 "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_passed_to_kernel_count"
             )
         ),
+        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_checked_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_checked_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_ok_rate": _as_float(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_ok_rate"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_lifecycle_ok_rate": _as_float(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_lifecycle_ok_rate"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_row_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_row_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_column_count_max": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_column_count_max"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_schema_hash": str(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_schema_hash"
+            )
+            or ""
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_passed_to_kernel_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_passed_to_kernel_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_payload_bytes": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_payload_bytes"
+            )
+        ),
     }
     return {
         "passed": not failures,
@@ -1199,6 +1367,9 @@ def check_summary(
         "require_consumer_shim_table_read": bool(require_consumer_shim_table_read),
         "require_consumer_shim_table_consume": bool(require_consumer_shim_table_consume),
         "require_consumer_shim_table_object": bool(require_consumer_shim_table_object),
+        "require_consumer_shim_prep_execution": bool(
+            require_consumer_shim_prep_execution
+        ),
     }
 
 
@@ -1270,6 +1441,15 @@ def main() -> None:
             "to a kernel."
         ),
     )
+    parser.add_argument(
+        "--require-consumer-shim-prep-execution",
+        action="store_true",
+        help=(
+            "Require the descriptor-prep consumer shim to validate the prepared "
+            "descriptor/address table as an execution dry-run object. This "
+            "still forbids payload movement and kernel argument handoff."
+        ),
+    )
     parser.add_argument("--output-json", type=Path)
     args = parser.parse_args()
 
@@ -1285,6 +1465,9 @@ def main() -> None:
         require_consumer_shim_table_read=args.require_consumer_shim_table_read,
         require_consumer_shim_table_consume=args.require_consumer_shim_table_consume,
         require_consumer_shim_table_object=args.require_consumer_shim_table_object,
+        require_consumer_shim_prep_execution=(
+            args.require_consumer_shim_prep_execution
+        ),
     )
     payload = json.dumps(result, indent=2, sort_keys=True) + "\n"
     if args.output_json is not None:

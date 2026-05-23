@@ -117,6 +117,20 @@ def test_runtime_shadow_aggregate_fields_are_flattened_to_performance_summary():
         "premap_consumer_descriptor_prep_consumer_shim_handle_table_passed_to_kernel_count": 0,
         "premap_consumer_descriptor_prep_consumer_shim_handle_table_payload_bytes": 0,
         "premap_consumer_descriptor_prep_consumer_shim_handle_table_payload_violation_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_checked_count": 4,
+        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_ok_count": 4,
+        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_ok_rate": 1.0,
+        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_lifecycle_ok_count": 4,
+        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_lifecycle_ok_rate": 1.0,
+        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_row_count": 16,
+        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_column_count_max": 4,
+        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_schema_hash": "schema-hash",
+        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_schema_hash_checked_count": 4,
+        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_schema_hash_missing_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_schema_hash_mismatch_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_passed_to_kernel_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_payload_bytes": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_payload_violation_count": 0,
         "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_violation_count": 0,
         "premap_consumer_descriptor_prep_kernel_arg_shadow_table_executed_count": 4,
         "premap_consumer_descriptor_prep_kernel_arg_shadow_table_ok_count": 4,
@@ -311,6 +325,30 @@ def test_runtime_shadow_aggregate_fields_are_flattened_to_performance_summary():
     )
     assert (
         performance[
+            "runtime_shadow_aggregate_premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_checked_count"
+        ]
+        == 4
+    )
+    assert (
+        performance[
+            "runtime_shadow_aggregate_premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_ok_rate"
+        ]
+        == 1.0
+    )
+    assert (
+        performance[
+            "runtime_shadow_aggregate_premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_row_count"
+        ]
+        == 16
+    )
+    assert (
+        performance[
+            "runtime_shadow_aggregate_premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_passed_to_kernel_count"
+        ]
+        == 0
+    )
+    assert (
+        performance[
             "runtime_shadow_aggregate_premap_consumer_descriptor_prep_kernel_arg_shadow_table_payload_violation_count"
         ]
         == 0
@@ -456,6 +494,59 @@ def _assert_consumer_shim_table_consume_event(consumer: dict[str, object]) -> No
     assert (
         consumer[
             "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_payload_bytes"
+        ]
+        == 0
+    )
+
+
+def _assert_consumer_shim_prep_execution_dry_run_event(
+    consumer: dict[str, object],
+) -> None:
+    assert consumer[
+        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_mode"
+    ] == "readonly_descriptor_address_prep_execution_dry_run"
+    assert consumer[
+        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_source"
+    ] == "kernel_arg_shadow_table_object"
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_ok"
+        ]
+        is True
+    )
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_row_count"
+        ]
+        == 2
+    )
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_column_count"
+        ]
+        == 4
+    )
+    assert consumer[
+        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_schema_hash"
+    ]
+    assert consumer[
+        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_object_hash"
+    ]
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_lifecycle_ok"
+        ]
+        is True
+    )
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_passed_to_kernel"
+        ]
+        is False
+    )
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_payload_bytes"
         ]
         == 0
     )
@@ -1590,6 +1681,7 @@ def test_vllm_router_recorder_premap_consumer_mapping_hits_prepared_addresses():
         is False
     )
     _assert_consumer_shim_table_consume_event(consumer)
+    _assert_consumer_shim_prep_execution_dry_run_event(consumer)
     _assert_kernel_arg_shadow_table_event(consumer)
     assert consumer["premap_consumer_descriptor_prep_handle_hash"]
     assert consumer["premap_consumer_descriptor_prep_execution_ok"] is True
@@ -1715,6 +1807,7 @@ def test_vllm_router_recorder_premap_descriptor_prep_uses_real_handles():
         is False
     )
     _assert_consumer_shim_table_consume_event(consumer)
+    _assert_consumer_shim_prep_execution_dry_run_event(consumer)
     _assert_kernel_arg_shadow_table_event(consumer)
     assert consumer["premap_consumer_descriptor_prep_execution_ok"] is True
     assert consumer["premap_consumer_payload_bytes"] == 0

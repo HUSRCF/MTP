@@ -484,6 +484,16 @@ class PremapDescriptorConsumerShimResult:
     handle_table_object_lifecycle_ok: bool | None = None
     handle_table_object_passed_to_kernel: bool = False
     handle_table_object_payload_bytes: int = 0
+    prep_execution_dry_run_mode: str | None = None
+    prep_execution_dry_run_source: str | None = None
+    prep_execution_dry_run_ok: bool | None = None
+    prep_execution_dry_run_row_count: int | None = None
+    prep_execution_dry_run_column_count: int | None = None
+    prep_execution_dry_run_schema_hash: str | None = None
+    prep_execution_dry_run_object_hash: str | None = None
+    prep_execution_dry_run_lifecycle_ok: bool | None = None
+    prep_execution_dry_run_passed_to_kernel: bool = False
+    prep_execution_dry_run_payload_bytes: int = 0
     payload_bytes: int = 0
     ready_credit: bool = False
     changes_router: bool = False
@@ -491,6 +501,36 @@ class PremapDescriptorConsumerShimResult:
     changes_kernel_launch_args: bool = False
 
     def as_dict(self) -> dict[str, int | bool | str | None]:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
+class PremapDescriptorAddressPrepDryRunResult:
+    """Readonly execution-shaped descriptor/address prep contract.
+
+    This is the smallest consumer-side execution object before a real kernel
+    handoff.  It validates the already-prepared handle table shape and identity
+    but deliberately does not pass the table to a kernel or move payload bytes.
+    """
+
+    execution_mode: str
+    source: str
+    row_count: int
+    column_count: int
+    schema_hash: str
+    table_object_hash: str
+    row_order_hash: str
+    ordered_row_hash: str
+    lifecycle_ok: bool
+    execution_ok: bool
+    payload_bytes: int = 0
+    ready_credit: bool = False
+    changes_router: bool = False
+    changes_descriptor_order: bool = False
+    changes_kernel_launch_args: bool = False
+    passed_to_kernel: bool = False
+
+    def as_dict(self) -> dict[str, int | bool | str]:
         return asdict(self)
 
 
@@ -920,12 +960,16 @@ class ControlledPremapAddressManager:
         *,
         kernel_arg_shadow_table_result: PremapKernelArgShadowTableResult | None = None,
         kernel_arg_shadow_table_object: PremapKernelArgShadowTableObject | None = None,
+        descriptor_address_prep_dry_run_result: (
+            PremapDescriptorAddressPrepDryRunResult | None
+        ) = None,
         execution_mode: str = "readonly_prelaunch_consumer_shim",
     ) -> PremapDescriptorConsumerShimResult:
         """Run the minimal prelaunch consumer shim without side effects."""
 
         table_result = kernel_arg_shadow_table_result
         table_object = kernel_arg_shadow_table_object
+        prep_dry_run = descriptor_address_prep_dry_run_result
         table_read_ok = None
         table_lifecycle_ok = None
         table_parity_count = None
@@ -957,6 +1001,16 @@ class ControlledPremapAddressManager:
         table_object_lifecycle_ok = None
         table_object_passed_to_kernel = False
         table_object_payload_bytes = 0
+        prep_dry_run_mode = None
+        prep_dry_run_source = None
+        prep_dry_run_ok = None
+        prep_dry_run_row_count = None
+        prep_dry_run_column_count = None
+        prep_dry_run_schema_hash = None
+        prep_dry_run_object_hash = None
+        prep_dry_run_lifecycle_ok = None
+        prep_dry_run_passed_to_kernel = False
+        prep_dry_run_payload_bytes = 0
         if table_result is not None:
             table_lifecycle_ok = bool(table_result.lifecycle_ok)
             table_parity_count = int(table_result.per_row_parity_ok_count)
@@ -1036,6 +1090,36 @@ class ControlledPremapAddressManager:
             table_consume_ok = bool(table_consume_ok) and bool(object_consume_ok)
         elif table_result is not None:
             table_object_consumed = False
+        if prep_dry_run is not None:
+            prep_dry_run_mode = str(prep_dry_run.execution_mode)
+            prep_dry_run_source = str(prep_dry_run.source)
+            prep_dry_run_ok = bool(prep_dry_run.execution_ok)
+            prep_dry_run_row_count = int(prep_dry_run.row_count)
+            prep_dry_run_column_count = int(prep_dry_run.column_count)
+            prep_dry_run_schema_hash = str(prep_dry_run.schema_hash)
+            prep_dry_run_object_hash = str(prep_dry_run.table_object_hash)
+            prep_dry_run_lifecycle_ok = bool(prep_dry_run.lifecycle_ok)
+            prep_dry_run_passed_to_kernel = bool(prep_dry_run.passed_to_kernel)
+            prep_dry_run_payload_bytes = int(prep_dry_run.payload_bytes)
+            prep_bound_to_table_object = (
+                table_object is not None
+                and str(prep_dry_run.table_object_hash) == str(table_object.object_hash)
+                and str(prep_dry_run.row_order_hash) == str(table_object.row_order_hash)
+                and str(prep_dry_run.ordered_row_hash)
+                == str(table_object.ordered_row_hash)
+            )
+            table_consume_ok = (
+                bool(table_consume_ok)
+                and bool(prep_dry_run.execution_ok)
+                and prep_bound_to_table_object
+                and int(prep_dry_run.row_count) == int(read_result.object_hit_count)
+                and int(prep_dry_run.payload_bytes) == 0
+                and not bool(prep_dry_run.ready_credit)
+                and not bool(prep_dry_run.changes_router)
+                and not bool(prep_dry_run.changes_descriptor_order)
+                and not bool(prep_dry_run.changes_kernel_launch_args)
+                and not bool(prep_dry_run.passed_to_kernel)
+            )
         shim_ok = (
             bool(read_result.read_ok)
             and int(read_result.object_hit_count) > 0
@@ -1082,11 +1166,76 @@ class ControlledPremapAddressManager:
             handle_table_object_lifecycle_ok=table_object_lifecycle_ok,
             handle_table_object_passed_to_kernel=table_object_passed_to_kernel,
             handle_table_object_payload_bytes=table_object_payload_bytes,
+            prep_execution_dry_run_mode=prep_dry_run_mode,
+            prep_execution_dry_run_source=prep_dry_run_source,
+            prep_execution_dry_run_ok=prep_dry_run_ok,
+            prep_execution_dry_run_row_count=prep_dry_run_row_count,
+            prep_execution_dry_run_column_count=prep_dry_run_column_count,
+            prep_execution_dry_run_schema_hash=prep_dry_run_schema_hash,
+            prep_execution_dry_run_object_hash=prep_dry_run_object_hash,
+            prep_execution_dry_run_lifecycle_ok=prep_dry_run_lifecycle_ok,
+            prep_execution_dry_run_passed_to_kernel=prep_dry_run_passed_to_kernel,
+            prep_execution_dry_run_payload_bytes=prep_dry_run_payload_bytes,
             payload_bytes=0,
             ready_credit=False,
             changes_router=False,
             changes_descriptor_order=False,
             changes_kernel_launch_args=handle_table_kernel_mutation,
+        )
+
+    def execute_descriptor_address_prep_dry_run_readonly(
+        self,
+        table_object: PremapKernelArgShadowTableObject,
+        *,
+        read_result: PremapDescriptorConsumerReadResult | None = None,
+        execution_mode: str = "readonly_descriptor_address_prep_execution_dry_run",
+        source: str = "kernel_arg_shadow_table_object",
+    ) -> PremapDescriptorAddressPrepDryRunResult:
+        """Validate a prepared descriptor/address table object for future execution.
+
+        The returned object is the explicit no-op execution contract: it records
+        table shape, schema, and identity that a future consumer could use, but
+        it does not mutate launch arguments or move any payload.
+        """
+
+        expected_rows_ok = True
+        if read_result is not None:
+            expected_rows_ok = int(table_object.row_count) == int(
+                read_result.object_hit_count
+            )
+        lifecycle_ok = bool(table_object.lifecycle_ok)
+        execution_ok = (
+            int(table_object.row_count) > 0
+            and expected_rows_ok
+            and lifecycle_ok
+            and int(table_object.column_count)
+            == len(PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_COLUMNS)
+            and str(table_object.schema_hash)
+            == PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH
+            and int(table_object.payload_bytes) == 0
+            and not bool(table_object.ready_credit)
+            and not bool(table_object.changes_router)
+            and not bool(table_object.changes_descriptor_order)
+            and not bool(table_object.changes_kernel_launch_args)
+            and not bool(table_object.passed_to_kernel)
+        )
+        return PremapDescriptorAddressPrepDryRunResult(
+            execution_mode=str(execution_mode),
+            source=str(source),
+            row_count=int(table_object.row_count),
+            column_count=int(table_object.column_count),
+            schema_hash=str(table_object.schema_hash),
+            table_object_hash=str(table_object.object_hash),
+            row_order_hash=str(table_object.row_order_hash),
+            ordered_row_hash=str(table_object.ordered_row_hash),
+            lifecycle_ok=bool(lifecycle_ok),
+            execution_ok=bool(execution_ok),
+            payload_bytes=int(table_object.payload_bytes),
+            ready_credit=bool(table_object.ready_credit),
+            changes_router=bool(table_object.changes_router),
+            changes_descriptor_order=bool(table_object.changes_descriptor_order),
+            changes_kernel_launch_args=bool(table_object.changes_kernel_launch_args),
+            passed_to_kernel=bool(table_object.passed_to_kernel),
         )
 
     def build_kernel_arg_shadow_table_readonly(

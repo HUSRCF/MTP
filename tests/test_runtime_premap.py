@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from dataclasses import replace
+
 import pytest
 import torch
 
@@ -324,10 +326,30 @@ def test_controlled_premap_address_manager_executes_descriptor_prep_readonly():
         read_result=read_result,
         expected_object_hash_by_address_key=result.consumer_object_hash_by_address_key,
     )
+    prep_dry_run_result = manager.execute_descriptor_address_prep_dry_run_readonly(
+        table_object,
+        read_result=read_result,
+    )
+    assert (
+        prep_dry_run_result.execution_mode
+        == "readonly_descriptor_address_prep_execution_dry_run"
+    )
+    assert prep_dry_run_result.source == "kernel_arg_shadow_table_object"
+    assert prep_dry_run_result.row_count == 2
+    assert prep_dry_run_result.column_count == len(
+        PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_COLUMNS
+    )
+    assert prep_dry_run_result.schema_hash == PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH
+    assert prep_dry_run_result.table_object_hash == table_object.object_hash
+    assert prep_dry_run_result.lifecycle_ok is True
+    assert prep_dry_run_result.execution_ok is True
+    assert prep_dry_run_result.payload_bytes == 0
+    assert prep_dry_run_result.passed_to_kernel is False
     shim_result = manager.execute_descriptor_consumer_shim_readonly(
         read_result,
         kernel_arg_shadow_table_result=table_result,
         kernel_arg_shadow_table_object=table_object,
+        descriptor_address_prep_dry_run_result=prep_dry_run_result,
     )
     assert shim_result.execution_mode == "readonly_prelaunch_consumer_shim"
     assert shim_result.object_count == 2
@@ -381,6 +403,24 @@ def test_controlled_premap_address_manager_executes_descriptor_prep_readonly():
     assert shim_result.handle_table_object_lifecycle_ok is True
     assert shim_result.handle_table_object_passed_to_kernel is False
     assert shim_result.handle_table_object_payload_bytes == 0
+    assert (
+        shim_result.prep_execution_dry_run_mode
+        == "readonly_descriptor_address_prep_execution_dry_run"
+    )
+    assert shim_result.prep_execution_dry_run_source == "kernel_arg_shadow_table_object"
+    assert shim_result.prep_execution_dry_run_ok is True
+    assert shim_result.prep_execution_dry_run_row_count == 2
+    assert shim_result.prep_execution_dry_run_column_count == len(
+        PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_COLUMNS
+    )
+    assert (
+        shim_result.prep_execution_dry_run_schema_hash
+        == PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH
+    )
+    assert shim_result.prep_execution_dry_run_object_hash == table_object.object_hash
+    assert shim_result.prep_execution_dry_run_lifecycle_ok is True
+    assert shim_result.prep_execution_dry_run_passed_to_kernel is False
+    assert shim_result.prep_execution_dry_run_payload_bytes == 0
     assert shim_result.payload_bytes == 0
     assert shim_result.ready_credit is False
     assert shim_result.changes_router is False
@@ -414,6 +454,32 @@ def test_controlled_premap_address_manager_executes_descriptor_prep_readonly():
     assert table_object.lifecycle_ok is True
     assert table_object.payload_bytes == 0
     assert table_object.passed_to_kernel is False
+    mismatched_dry_run_result = replace(
+        prep_dry_run_result,
+        table_object_hash="different-table-object-hash",
+    )
+    mismatched_dry_run_shim_result = manager.execute_descriptor_consumer_shim_readonly(
+        read_result,
+        kernel_arg_shadow_table_result=table_result,
+        kernel_arg_shadow_table_object=table_object,
+        descriptor_address_prep_dry_run_result=mismatched_dry_run_result,
+    )
+    assert mismatched_dry_run_shim_result.prep_execution_dry_run_ok is True
+    assert (
+        mismatched_dry_run_shim_result.prep_execution_dry_run_object_hash
+        == "different-table-object-hash"
+    )
+    assert mismatched_dry_run_shim_result.handle_table_consume_ok is False
+    assert mismatched_dry_run_shim_result.shim_ok is False
+    payload_table_object = replace(table_object, payload_bytes=16)
+    payload_dry_run_result = manager.execute_descriptor_address_prep_dry_run_readonly(
+        payload_table_object,
+        read_result=read_result,
+    )
+    assert payload_dry_run_result.execution_ok is False
+    assert payload_dry_run_result.lifecycle_ok is False
+    assert payload_dry_run_result.payload_bytes == 16
+    assert payload_dry_run_result.passed_to_kernel is False
     no_table_shim_result = manager.execute_descriptor_consumer_shim_readonly(
         read_result
     )

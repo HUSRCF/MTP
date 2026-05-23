@@ -403,6 +403,22 @@ def test_shadow_log_aggregates_premap_consumer_mapping_without_side_effects(tmp_
         descriptor_prep_consumer_shim_handle_table_consume_stale_row_count=0,
         descriptor_prep_consumer_shim_handle_table_consume_passed_to_kernel=False,
         descriptor_prep_consumer_shim_handle_table_consume_payload_bytes=0,
+        descriptor_prep_consumer_shim_prep_execution_dry_run_mode=(
+            "readonly_descriptor_address_prep_execution_dry_run"
+        ),
+        descriptor_prep_consumer_shim_prep_execution_dry_run_source=(
+            "kernel_arg_shadow_table_object"
+        ),
+        descriptor_prep_consumer_shim_prep_execution_dry_run_ok=True,
+        descriptor_prep_consumer_shim_prep_execution_dry_run_row_count=2,
+        descriptor_prep_consumer_shim_prep_execution_dry_run_column_count=4,
+        descriptor_prep_consumer_shim_prep_execution_dry_run_schema_hash="schema-hash",
+        descriptor_prep_consumer_shim_prep_execution_dry_run_object_hash=(
+            "table-object-hash"
+        ),
+        descriptor_prep_consumer_shim_prep_execution_dry_run_lifecycle_ok=True,
+        descriptor_prep_consumer_shim_prep_execution_dry_run_passed_to_kernel=False,
+        descriptor_prep_consumer_shim_prep_execution_dry_run_payload_bytes=0,
         descriptor_prep_consumer_shim_ok=True,
         descriptor_prep_consumer_shim_changes_kernel_launch_args=False,
         descriptor_prep_kernel_arg_shadow_table_mode=(
@@ -815,6 +831,72 @@ def test_shadow_log_aggregates_premap_consumer_mapping_without_side_effects(tmp_
     assert (
         aggregate[
             "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_payload_violation_count"
+        ]
+        == 0
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_checked_count"
+        ]
+        == 1
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_ok_count"
+        ]
+        == 1
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_ok_rate"
+        ]
+        == 1.0
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_lifecycle_ok_rate"
+        ]
+        == 1.0
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_row_count"
+        ]
+        == 2
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_column_count_max"
+        ]
+        == 4
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_schema_hash"
+        ]
+        == "schema-hash"
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_schema_hash_checked_count"
+        ]
+        == 1
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_passed_to_kernel_count"
+        ]
+        == 0
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_payload_bytes"
+        ]
+        == 0
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_payload_violation_count"
         ]
         == 0
     )

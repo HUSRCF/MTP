@@ -219,6 +219,20 @@ RUNTIME_SHADOW_AGGREGATE_PERFORMANCE_KEYS = (
     "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_passed_to_kernel_count",
     "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_payload_bytes",
     "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_payload_violation_count",
+    "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_checked_count",
+    "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_ok_count",
+    "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_ok_rate",
+    "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_lifecycle_ok_count",
+    "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_lifecycle_ok_rate",
+    "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_row_count",
+    "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_column_count_max",
+    "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_schema_hash",
+    "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_schema_hash_checked_count",
+    "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_schema_hash_missing_count",
+    "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_schema_hash_mismatch_count",
+    "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_passed_to_kernel_count",
+    "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_payload_bytes",
+    "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_payload_violation_count",
     "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_violation_count",
     "premap_consumer_descriptor_prep_kernel_arg_shadow_table_executed_count",
     "premap_consumer_descriptor_prep_kernel_arg_shadow_table_ok_count",
@@ -2217,6 +2231,7 @@ class VllmRouterRecorder:
         descriptor_consumer_shim_result = None
         kernel_arg_shadow_table_result = None
         kernel_arg_shadow_table_object = None
+        descriptor_prep_dry_run_result = None
         descriptor_prep_blocked_reason: str | None = None
         descriptor_prep_mode = _normalize_premap_descriptor_prep_execution_mode(
             self.shadow_premap_descriptor_prep_execution_mode
@@ -2283,6 +2298,12 @@ class VllmRouterRecorder:
                                 else None
                             ),
                         )
+                        descriptor_prep_dry_run_result = (
+                            manager.execute_descriptor_address_prep_dry_run_readonly(
+                                kernel_arg_shadow_table_object,
+                                read_result=descriptor_consumer_read_result,
+                            )
+                        )
                         descriptor_consumer_shim_result = (
                             manager.execute_descriptor_consumer_shim_readonly(
                                 descriptor_consumer_read_result,
@@ -2291,6 +2312,9 @@ class VllmRouterRecorder:
                                 ),
                                 kernel_arg_shadow_table_object=(
                                     kernel_arg_shadow_table_object
+                                ),
+                                descriptor_address_prep_dry_run_result=(
+                                    descriptor_prep_dry_run_result
                                 ),
                             )
                         )
@@ -2699,6 +2723,70 @@ class VllmRouterRecorder:
                 descriptor_prep_consumer_shim_handle_table_object_payload_bytes=(
                     int(
                         descriptor_consumer_shim_result.handle_table_object_payload_bytes
+                    )
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_prep_execution_dry_run_mode=(
+                    descriptor_consumer_shim_result.prep_execution_dry_run_mode
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_prep_execution_dry_run_source=(
+                    descriptor_consumer_shim_result.prep_execution_dry_run_source
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_prep_execution_dry_run_ok=(
+                    descriptor_consumer_shim_result.prep_execution_dry_run_ok
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_prep_execution_dry_run_row_count=(
+                    int(descriptor_consumer_shim_result.prep_execution_dry_run_row_count)
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.prep_execution_dry_run_row_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_prep_execution_dry_run_column_count=(
+                    int(
+                        descriptor_consumer_shim_result.prep_execution_dry_run_column_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.prep_execution_dry_run_column_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_prep_execution_dry_run_schema_hash=(
+                    descriptor_consumer_shim_result.prep_execution_dry_run_schema_hash
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_prep_execution_dry_run_object_hash=(
+                    descriptor_consumer_shim_result.prep_execution_dry_run_object_hash
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_prep_execution_dry_run_lifecycle_ok=(
+                    descriptor_consumer_shim_result.prep_execution_dry_run_lifecycle_ok
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_prep_execution_dry_run_passed_to_kernel=(
+                    bool(
+                        descriptor_consumer_shim_result.prep_execution_dry_run_passed_to_kernel
+                    )
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_prep_execution_dry_run_payload_bytes=(
+                    int(
+                        descriptor_consumer_shim_result.prep_execution_dry_run_payload_bytes
                     )
                     if descriptor_consumer_shim_result is not None
                     else None

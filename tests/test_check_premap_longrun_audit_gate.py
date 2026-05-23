@@ -135,6 +135,22 @@ def _passing_summary() -> dict:
             "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_payload_bytes": 0,
             "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_payload_violation_count": 0,
             "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_passed_to_kernel_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_checked_count": 2,
+            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_ok_count": 2,
+            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_ok_rate": 1.0,
+            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_lifecycle_ok_count": 2,
+            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_lifecycle_ok_rate": 1.0,
+            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_row_count": 20,
+            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_column_count_max": 4,
+            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_schema_hash": (
+                PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH
+            ),
+            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_schema_hash_checked_count": 2,
+            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_schema_hash_missing_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_schema_hash_mismatch_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_payload_bytes": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_payload_violation_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_passed_to_kernel_count": 0,
             "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_violation_count": 0,
             "premap_consumer_descriptor_prep_execution_ok_rate": 1.0,
             "premap_consumer_descriptor_prep_execution_ok_attempted_rate": 1.0,
@@ -184,6 +200,7 @@ def test_premap_longrun_audit_gate_accepts_performance_summary_shape():
         require_consumer_shim_table_read=True,
         require_consumer_shim_table_consume=True,
         require_consumer_shim_table_object=True,
+        require_consumer_shim_prep_execution=True,
     )
 
     assert result["passed"] is True
@@ -194,6 +211,12 @@ def test_premap_longrun_audit_gate_accepts_performance_summary_shape():
     assert (
         result["metrics"][
             "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_consumed_rate"
+        ]
+        == 1.0
+    )
+    assert (
+        result["metrics"][
+            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_ok_rate"
         ]
         == 1.0
     )
