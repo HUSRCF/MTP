@@ -158,6 +158,14 @@ def _passing_summary() -> dict:
             "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_payload_violation_count": 0,
             "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_passed_to_kernel_count": 0,
             "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_violation_count": 0,
+            "premap_consumer_prelaunch_boundary_checked_count": 2,
+            "premap_consumer_prelaunch_boundary_aligned_count": 2,
+            "premap_consumer_prelaunch_boundary_aligned_rate": 1.0,
+            "premap_consumer_prelaunch_handle_available_count": 2,
+            "premap_consumer_prelaunch_handle_available_rate": 1.0,
+            "premap_consumer_prelaunch_block_count": 20,
+            "premap_consumer_prelaunch_block_size_max": 16,
+            "premap_consumer_prelaunch_unique_expert_count": 20,
             "premap_consumer_descriptor_prep_execution_ok_rate": 1.0,
             "premap_consumer_descriptor_prep_execution_ok_attempted_rate": 1.0,
             "premap_consumer_descriptor_prep_blocked_count": 0,
@@ -226,6 +234,83 @@ def test_premap_longrun_audit_gate_accepts_performance_summary_shape():
         ]
         == 1.0
     )
+    assert result["metrics"]["premap_consumer_prelaunch_boundary_checked_count"] == 2
+    assert (
+        result["metrics"]["premap_consumer_prelaunch_boundary_aligned_rate"]
+        == 1.0
+    )
+
+
+def test_premap_longrun_audit_gate_allows_legacy_prep_without_prelaunch_requirement():
+    summary = _passing_summary()
+    for key in list(summary["aggregate"]):
+        if key.startswith("premap_consumer_prelaunch_"):
+            summary["aggregate"].pop(key)
+
+    result = check_summary(
+        summary,
+        max_capacity=12,
+        min_reuse_rate=0.98,
+        require_readonly_consumer=True,
+        require_descriptor_prep=True,
+        require_real_descriptor_prep=True,
+        require_kernel_arg_shadow_table=True,
+        require_consumer_shim_table_read=True,
+        require_consumer_shim_table_consume=True,
+        require_consumer_shim_table_object=True,
+        require_consumer_shim_prep_execution=False,
+    )
+
+    assert result["passed"] is True
+    assert result["failures"] == []
+
+
+def test_premap_longrun_audit_gate_rejects_missing_prelaunch_when_required():
+    summary = _passing_summary()
+    for key in list(summary["aggregate"]):
+        if key.startswith("premap_consumer_prelaunch_"):
+            summary["aggregate"].pop(key)
+
+    result = check_summary(
+        summary,
+        max_capacity=12,
+        min_reuse_rate=0.98,
+        require_readonly_consumer=True,
+        require_descriptor_prep=True,
+        require_real_descriptor_prep=True,
+        require_kernel_arg_shadow_table=True,
+        require_consumer_shim_table_read=True,
+        require_consumer_shim_table_consume=True,
+        require_consumer_shim_table_object=True,
+        require_consumer_shim_prep_execution=True,
+    )
+
+    assert result["passed"] is False
+    assert "prelaunch_boundary_fields_missing" in result["failures"]
+
+
+def test_premap_longrun_audit_gate_rejects_prelaunch_unavailable():
+    summary = _passing_summary()
+    aggregate = summary["aggregate"]
+    aggregate["premap_consumer_prelaunch_handle_available_count"] = 1
+    aggregate["premap_consumer_prelaunch_handle_available_rate"] = 0.5
+
+    result = check_summary(
+        summary,
+        max_capacity=12,
+        min_reuse_rate=0.98,
+        require_readonly_consumer=True,
+        require_descriptor_prep=True,
+        require_real_descriptor_prep=True,
+        require_kernel_arg_shadow_table=True,
+        require_consumer_shim_table_read=True,
+        require_consumer_shim_table_consume=True,
+        require_consumer_shim_table_object=True,
+        require_consumer_shim_prep_execution=True,
+    )
+
+    assert result["passed"] is False
+    assert "prelaunch_handle_available_count_mismatch=1!=2" in result["failures"]
 
 
 def test_premap_longrun_audit_gate_accepts_descriptor_prep_contract():

@@ -228,10 +228,16 @@ def check_summary(
     consumer_shim_prep_execution_active = (
         consumer_shim_prep_execution_checked_count > 0
     )
+    prelaunch_boundary_checked_count = _as_int(
+        aggregate.get("premap_consumer_prelaunch_boundary_checked_count")
+    )
+    prelaunch_boundary_active = prelaunch_boundary_checked_count > 0
     if require_consumer_shim_prep_execution and not consumer_shim_prep_execution_active:
         failures.append("consumer_shim_prep_execution_fields_missing")
     if require_consumer_shim_prep_execution and not consumer_shim_table_object_active:
         failures.append("consumer_shim_prep_execution_requires_table_object_fields")
+    if require_consumer_shim_prep_execution and not prelaunch_boundary_active:
+        failures.append("prelaunch_boundary_fields_missing")
     descriptor_prep_real_active = any(
         key in aggregate
         for key in (
@@ -823,11 +829,48 @@ def check_summary(
                     "premap_consumer_descriptor_prep_consumer_shim_executed_count"
                 )
             )
+            mapping_count = _as_int(
+                aggregate.get("premap_consumer_mapping_count"),
+                default=consumer_count,
+            )
+            prelaunch_aligned_count = _as_int(
+                aggregate.get("premap_consumer_prelaunch_boundary_aligned_count")
+            )
+            prelaunch_available_count = _as_int(
+                aggregate.get("premap_consumer_prelaunch_handle_available_count")
+            )
+            prelaunch_block_count = _as_int(
+                aggregate.get("premap_consumer_prelaunch_block_count")
+            )
+            prelaunch_unique_expert_count = _as_int(
+                aggregate.get("premap_consumer_prelaunch_unique_expert_count")
+            )
             table_row_count = _as_int(
                 aggregate.get(
                     "premap_consumer_descriptor_prep_consumer_shim_handle_table_row_count"
                 )
             )
+            if require_consumer_shim_prep_execution or prelaunch_boundary_active:
+                if prelaunch_boundary_checked_count != mapping_count:
+                    failures.append(
+                        "prelaunch_boundary_checked_count_mismatch="
+                        f"{prelaunch_boundary_checked_count}!={mapping_count}"
+                    )
+                if prelaunch_aligned_count != mapping_count:
+                    failures.append(
+                        "prelaunch_boundary_aligned_count_mismatch="
+                        f"{prelaunch_aligned_count}!={mapping_count}"
+                    )
+                if prelaunch_available_count != mapping_count:
+                    failures.append(
+                        "prelaunch_handle_available_count_mismatch="
+                        f"{prelaunch_available_count}!={mapping_count}"
+                    )
+                if prelaunch_block_count < prelaunch_unique_expert_count:
+                    failures.append(
+                        "prelaunch_block_count_lt_unique_expert_count="
+                        f"{prelaunch_block_count}<{prelaunch_unique_expert_count}"
+                    )
             dry_checked_count = _as_int(
                 aggregate.get(
                     "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_checked_count"
@@ -1373,6 +1416,21 @@ def check_summary(
             aggregate.get(
                 "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_passed_to_kernel_count"
             )
+        ),
+        "premap_consumer_prelaunch_boundary_checked_count": _as_int(
+            aggregate.get("premap_consumer_prelaunch_boundary_checked_count")
+        ),
+        "premap_consumer_prelaunch_boundary_aligned_rate": _as_float(
+            aggregate.get("premap_consumer_prelaunch_boundary_aligned_rate")
+        ),
+        "premap_consumer_prelaunch_handle_available_rate": _as_float(
+            aggregate.get("premap_consumer_prelaunch_handle_available_rate")
+        ),
+        "premap_consumer_prelaunch_block_count": _as_int(
+            aggregate.get("premap_consumer_prelaunch_block_count")
+        ),
+        "premap_consumer_prelaunch_unique_expert_count": _as_int(
+            aggregate.get("premap_consumer_prelaunch_unique_expert_count")
         ),
         "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_checked_count": _as_int(
             aggregate.get(

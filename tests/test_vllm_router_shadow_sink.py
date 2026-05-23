@@ -138,6 +138,14 @@ def test_runtime_shadow_aggregate_fields_are_flattened_to_performance_summary():
         "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_payload_bytes": 0,
         "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_payload_violation_count": 0,
         "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_violation_count": 0,
+        "premap_consumer_prelaunch_boundary_checked_count": 4,
+        "premap_consumer_prelaunch_boundary_aligned_count": 4,
+        "premap_consumer_prelaunch_boundary_aligned_rate": 1.0,
+        "premap_consumer_prelaunch_handle_available_count": 4,
+        "premap_consumer_prelaunch_handle_available_rate": 1.0,
+        "premap_consumer_prelaunch_block_count": 16,
+        "premap_consumer_prelaunch_block_size_max": 16,
+        "premap_consumer_prelaunch_unique_expert_count": 16,
         "premap_consumer_descriptor_prep_kernel_arg_shadow_table_executed_count": 4,
         "premap_consumer_descriptor_prep_kernel_arg_shadow_table_ok_count": 4,
         "premap_consumer_descriptor_prep_kernel_arg_shadow_table_ok_rate": 1.0,
@@ -364,6 +372,30 @@ def test_runtime_shadow_aggregate_fields_are_flattened_to_performance_summary():
             "runtime_shadow_aggregate_premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_passed_to_kernel_count"
         ]
         == 0
+    )
+    assert (
+        performance[
+            "runtime_shadow_aggregate_premap_consumer_prelaunch_boundary_checked_count"
+        ]
+        == 4
+    )
+    assert (
+        performance[
+            "runtime_shadow_aggregate_premap_consumer_prelaunch_boundary_aligned_rate"
+        ]
+        == 1.0
+    )
+    assert (
+        performance[
+            "runtime_shadow_aggregate_premap_consumer_prelaunch_handle_available_rate"
+        ]
+        == 1.0
+    )
+    assert (
+        performance[
+            "runtime_shadow_aggregate_premap_consumer_prelaunch_block_count"
+        ]
+        == 16
     )
     assert (
         performance[

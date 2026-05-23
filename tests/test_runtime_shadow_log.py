@@ -449,6 +449,14 @@ def test_shadow_log_aggregates_premap_consumer_mapping_without_side_effects(tmp_
         descriptor_prep_kernel_arg_shadow_table_changes_descriptor_order=False,
         descriptor_prep_kernel_arg_shadow_table_changes_kernel_launch_args=False,
         descriptor_prep_kernel_arg_shadow_table_passed_to_kernel=False,
+        prelaunch_boundary_source="fused_moe_prepare_expert_assignment",
+        prelaunch_handle_available=True,
+        prelaunch_block_count=2,
+        prelaunch_block_size=16,
+        prelaunch_expert_order_hash="prelaunch-order-hash",
+        prelaunch_expert_multiset_hash="prelaunch-multiset-hash",
+        prelaunch_unique_expert_count=2,
+        prelaunch_boundary_aligned=True,
         descriptor_prep_execution_ok=True,
         expected_key_hash="consumer-hash",
         resident_address_count=4,
@@ -472,6 +480,13 @@ def test_shadow_log_aggregates_premap_consumer_mapping_without_side_effects(tmp_
     assert rows[0]["premap_consumer_changes_router"] is False
     assert rows[0]["premap_consumer_changes_descriptor_order"] is False
     assert rows[0]["premap_consumer_ready_credit"] is False
+    assert rows[0]["premap_consumer_prelaunch_boundary_source"] == (
+        "fused_moe_prepare_expert_assignment"
+    )
+    assert rows[0]["premap_consumer_prelaunch_handle_available"] is True
+    assert rows[0]["premap_consumer_prelaunch_block_count"] == 2
+    assert rows[0]["premap_consumer_prelaunch_block_size"] == 16
+    assert rows[0]["premap_consumer_prelaunch_boundary_aligned"] is True
     assert aggregate["premap_consumer_mapping_count"] == 1
     assert aggregate["premap_consumer_address_hit_count"] == 2
     assert aggregate["premap_consumer_address_miss_count"] == 0
@@ -526,6 +541,14 @@ def test_shadow_log_aggregates_premap_consumer_mapping_without_side_effects(tmp_
     assert aggregate["premap_consumer_real_descriptor_handle_reused_binding_count"] == 1
     assert aggregate["premap_consumer_real_descriptor_handle_binding_mismatch_count"] == 0
     assert aggregate["premap_consumer_real_descriptor_handle_for_address_miss_count"] == 0
+    assert aggregate["premap_consumer_prelaunch_boundary_checked_count"] == 1
+    assert aggregate["premap_consumer_prelaunch_boundary_aligned_count"] == 1
+    assert aggregate["premap_consumer_prelaunch_boundary_aligned_rate"] == 1.0
+    assert aggregate["premap_consumer_prelaunch_handle_available_count"] == 1
+    assert aggregate["premap_consumer_prelaunch_handle_available_rate"] == 1.0
+    assert aggregate["premap_consumer_prelaunch_block_count"] == 2
+    assert aggregate["premap_consumer_prelaunch_block_size_max"] == 16
+    assert aggregate["premap_consumer_prelaunch_unique_expert_count"] == 2
     assert aggregate["premap_consumer_readonly_lookup_count"] == 2
     assert aggregate["premap_consumer_readonly_handle_hit_count"] == 2
     assert aggregate["premap_consumer_readonly_handle_miss_count"] == 0

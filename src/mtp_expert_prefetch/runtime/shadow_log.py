@@ -696,6 +696,14 @@ class ShadowPremapConsumerMappingEvent:
     descriptor_handle_hash: str | None = None
     expected_descriptor_handle_hash: str | None = None
     descriptor_handle_parity_ok: bool | None = None
+    prelaunch_boundary_source: str | None = None
+    prelaunch_handle_available: bool | None = None
+    prelaunch_block_count: int | None = None
+    prelaunch_block_size: int | None = None
+    prelaunch_expert_order_hash: str | None = None
+    prelaunch_expert_multiset_hash: str | None = None
+    prelaunch_unique_expert_count: int | None = None
+    prelaunch_boundary_aligned: bool | None = None
     expected_prepare_plan_count: int | None = None
     observed_prepare_plan_count: int | None = None
     expected_prepare_record_count: int | None = None
@@ -901,6 +909,46 @@ class ShadowPremapConsumerMappingEvent:
             payload,
             "premap_consumer_descriptor_handle_parity_ok",
             self.descriptor_handle_parity_ok,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_prelaunch_boundary_source",
+            self.prelaunch_boundary_source,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_prelaunch_handle_available",
+            self.prelaunch_handle_available,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_prelaunch_block_count",
+            self.prelaunch_block_count,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_prelaunch_block_size",
+            self.prelaunch_block_size,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_prelaunch_expert_order_hash",
+            self.prelaunch_expert_order_hash,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_prelaunch_expert_multiset_hash",
+            self.prelaunch_expert_multiset_hash,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_prelaunch_unique_expert_count",
+            self.prelaunch_unique_expert_count,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_prelaunch_boundary_aligned",
+            self.prelaunch_boundary_aligned,
         )
         _put_optional(
             payload,
@@ -1640,6 +1688,12 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
         "premap_consumer_descriptor_handle_hit_count": 0,
         "premap_consumer_descriptor_handle_miss_count": 0,
         "premap_consumer_descriptor_handle_parity_ok_count": 0,
+        "premap_consumer_prelaunch_boundary_checked_count": 0,
+        "premap_consumer_prelaunch_boundary_aligned_count": 0,
+        "premap_consumer_prelaunch_handle_available_count": 0,
+        "premap_consumer_prelaunch_block_count": 0,
+        "premap_consumer_prelaunch_block_size_max": 0,
+        "premap_consumer_prelaunch_unique_expert_count": 0,
         "premap_consumer_lookup_after_prepare_count": 0,
         "premap_consumer_real_descriptor_handle_hit_count": 0,
         "premap_consumer_real_descriptor_handle_miss_count": 0,
@@ -2084,6 +2138,24 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
             totals["premap_consumer_descriptor_handle_parity_ok_count"] += int(
                 bool(event.get("premap_consumer_descriptor_handle_parity_ok", False))
             )
+            if "premap_consumer_prelaunch_boundary_source" in event:
+                totals["premap_consumer_prelaunch_boundary_checked_count"] += 1
+                totals["premap_consumer_prelaunch_boundary_aligned_count"] += int(
+                    bool(event.get("premap_consumer_prelaunch_boundary_aligned", False))
+                )
+                totals["premap_consumer_prelaunch_handle_available_count"] += int(
+                    bool(event.get("premap_consumer_prelaunch_handle_available", False))
+                )
+                totals["premap_consumer_prelaunch_block_count"] += int(
+                    event.get("premap_consumer_prelaunch_block_count", 0) or 0
+                )
+                totals["premap_consumer_prelaunch_block_size_max"] = max(
+                    int(totals["premap_consumer_prelaunch_block_size_max"]),
+                    int(event.get("premap_consumer_prelaunch_block_size", 0) or 0),
+                )
+                totals["premap_consumer_prelaunch_unique_expert_count"] += int(
+                    event.get("premap_consumer_prelaunch_unique_expert_count", 0) or 0
+                )
             totals["premap_consumer_lookup_after_prepare_count"] += int(
                 bool(event.get("premap_consumer_lookup_after_prepare", False))
             )
@@ -3141,6 +3213,14 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
     totals["premap_consumer_descriptor_handle_parity_ok_rate"] = (
         totals["premap_consumer_descriptor_handle_parity_ok_count"]
         / premap_consumer_mapping_count
+    )
+    totals["premap_consumer_prelaunch_boundary_aligned_rate"] = (
+        totals["premap_consumer_prelaunch_boundary_aligned_count"]
+        / max(1, int(totals["premap_consumer_prelaunch_boundary_checked_count"]))
+    )
+    totals["premap_consumer_prelaunch_handle_available_rate"] = (
+        totals["premap_consumer_prelaunch_handle_available_count"]
+        / max(1, int(totals["premap_consumer_prelaunch_boundary_checked_count"]))
     )
     totals["premap_consumer_lookup_after_prepare_rate"] = (
         totals["premap_consumer_lookup_after_prepare_count"]

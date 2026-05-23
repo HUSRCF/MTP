@@ -123,6 +123,14 @@ RUNTIME_SHADOW_AGGREGATE_PERFORMANCE_KEYS = (
     "premap_consumer_descriptor_handle_hit_rate",
     "premap_consumer_parity_ok_rate",
     "premap_consumer_descriptor_handle_parity_ok_rate",
+    "premap_consumer_prelaunch_boundary_checked_count",
+    "premap_consumer_prelaunch_boundary_aligned_count",
+    "premap_consumer_prelaunch_boundary_aligned_rate",
+    "premap_consumer_prelaunch_handle_available_count",
+    "premap_consumer_prelaunch_handle_available_rate",
+    "premap_consumer_prelaunch_block_count",
+    "premap_consumer_prelaunch_block_size_max",
+    "premap_consumer_prelaunch_unique_expert_count",
     "premap_consumer_lookup_after_prepare_rate",
     "premap_consumer_real_descriptor_handle_hit_count",
     "premap_consumer_real_descriptor_handle_miss_count",
@@ -2074,6 +2082,12 @@ class VllmRouterRecorder:
         layer_id: int,
         active_experts: list[int],
         consumer_layer: Any | None = None,
+        prelaunch_boundary_source: str | None = None,
+        prelaunch_handle_available: bool | None = None,
+        prelaunch_block_count: int | None = None,
+        prelaunch_block_size: int | None = None,
+        prelaunch_expert_order_hash: str | None = None,
+        prelaunch_expert_multiset_hash: str | None = None,
         lookup_start_ns: int | None = None,
         error: str | None = None,
     ) -> None:
@@ -2096,6 +2110,19 @@ class VllmRouterRecorder:
                 if 0 <= int(expert_id) < int(self.shadow_num_experts)
             }
         )
+        prelaunch_boundary_aligned = None
+        if prelaunch_boundary_source is not None:
+            prelaunch_boundary_aligned = (
+                prelaunch_handle_available is True
+                and prelaunch_block_count is not None
+                and len(valid_experts) > 0
+                and len(valid_experts) <= int(prelaunch_block_count)
+                and prelaunch_expert_order_hash is not None
+                and str(prelaunch_expert_order_hash) == hash_ints(valid_experts)
+                and prelaunch_expert_multiset_hash is not None
+                and str(prelaunch_expert_multiset_hash)
+                == hash_ints(sorted(int(value) for value in valid_experts))
+            )
         address_keys = self._premap_address_keys_for_experts(
             layer_id=int(layer_id),
             expert_ids=valid_experts,
@@ -2366,6 +2393,14 @@ class VllmRouterRecorder:
                     else None
                 ),
                 descriptor_handle_parity_ok=bool(handle_parity_ok),
+                prelaunch_boundary_source=prelaunch_boundary_source,
+                prelaunch_handle_available=prelaunch_handle_available,
+                prelaunch_block_count=prelaunch_block_count,
+                prelaunch_block_size=prelaunch_block_size,
+                prelaunch_expert_order_hash=prelaunch_expert_order_hash,
+                prelaunch_expert_multiset_hash=prelaunch_expert_multiset_hash,
+                prelaunch_unique_expert_count=len(valid_experts),
+                prelaunch_boundary_aligned=prelaunch_boundary_aligned,
                 expected_prepare_plan_count=(
                     int(expected_prepare_plan_count)
                     if expected_prepare_plan_count is not None
@@ -3094,10 +3129,25 @@ class VllmRouterRecorder:
             except Exception as exc:  # pragma: no cover - defensive telemetry path
                 mapping_error = f"{type(exc).__name__}: {exc}"
                 active_for_mapping = []
+            resolved_for_mapping = sorted(
+                {
+                    int(value)
+                    for value in active_for_mapping
+                    if 0 <= int(value) < int(self.shadow_num_experts)
+                }
+            )
             self._write_premap_consumer_mapping_from_experts(
                 layer_id=int(layer_id),
                 active_experts=[int(value) for value in active_for_mapping],
                 consumer_layer=consumer_layer,
+                prelaunch_boundary_source=handle_source,
+                prelaunch_handle_available=bool(available),
+                prelaunch_block_count=len(active_for_mapping),
+                prelaunch_block_size=int(block_size),
+                prelaunch_expert_order_hash=hash_ints(resolved_for_mapping),
+                prelaunch_expert_multiset_hash=hash_ints(
+                    sorted(int(value) for value in resolved_for_mapping)
+                ),
                 lookup_start_ns=mapping_start_ns,
                 error=mapping_error,
             )
@@ -3119,10 +3169,25 @@ class VllmRouterRecorder:
             active_experts_cpu = (
                 expert_ids[:block_count].detach().cpu().to(torch.long).tolist()
             )
+            resolved_experts_cpu = sorted(
+                {
+                    int(value)
+                    for value in active_experts_cpu
+                    if 0 <= int(value) < int(self.shadow_num_experts)
+                }
+            )
             self._write_premap_consumer_mapping_from_experts(
                 layer_id=int(layer_id),
                 active_experts=[int(value) for value in active_experts_cpu],
                 consumer_layer=consumer_layer,
+                prelaunch_boundary_source=handle_source,
+                prelaunch_handle_available=bool(available),
+                prelaunch_block_count=int(block_count),
+                prelaunch_block_size=int(block_size),
+                prelaunch_expert_order_hash=hash_ints(resolved_experts_cpu),
+                prelaunch_expert_multiset_hash=hash_ints(
+                    sorted(int(value) for value in resolved_experts_cpu)
+                ),
             )
             if not wants_descriptor_handle:
                 return sorted_token_ids, expert_ids, num_tokens_post_padded

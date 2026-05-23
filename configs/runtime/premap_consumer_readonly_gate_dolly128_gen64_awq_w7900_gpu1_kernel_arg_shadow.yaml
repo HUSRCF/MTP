@@ -73,6 +73,14 @@ gate:
     premap_consumer_real_descriptor_handle_available_rate: 1.0
     premap_consumer_lookup_after_prepare_rate: 1.0
     premap_consumer_real_descriptor_handle_binding_mismatch_count: 0
+    premap_consumer_prelaunch_boundary_checked_count: 10195
+    premap_consumer_prelaunch_boundary_aligned_count: 10195
+    premap_consumer_prelaunch_boundary_aligned_rate: 1.0
+    premap_consumer_prelaunch_handle_available_count: 10195
+    premap_consumer_prelaunch_handle_available_rate: 1.0
+    premap_consumer_prelaunch_block_count: 110898
+    premap_consumer_prelaunch_block_size_max: 16
+    premap_consumer_prelaunch_unique_expert_count: 110898
     premap_consumer_readonly_lookup_count: 110898
     premap_consumer_readonly_handle_hit_count: 110898
     premap_consumer_readonly_handle_miss_count: 0

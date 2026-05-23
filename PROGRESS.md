@@ -15267,3 +15267,67 @@ no router mutation
 no descriptor_order execution
 no kernel argument mutation
 ```
+
+## Premap prelaunch no-op consumer boundary gate
+
+The premap descriptor/address prep object is now checked against the real
+fused-MoE/AWQ prelaunch expert-assignment boundary in no-op mode.  The runtime
+records a prelaunch source and verifies that the prepared address/handle rows
+align with the actual descriptor/address resolution domain before the kernel
+launch, while still not passing any new kernel arguments.
+
+Prelaunch boundary fields:
+
+```text
+premap_consumer_prelaunch_boundary_source
+premap_consumer_prelaunch_handle_available
+premap_consumer_prelaunch_block_count
+premap_consumer_prelaunch_block_size
+premap_consumer_prelaunch_expert_order_hash
+premap_consumer_prelaunch_expert_multiset_hash
+premap_consumer_prelaunch_unique_expert_count
+premap_consumer_prelaunch_boundary_aligned
+```
+
+Important semantic fix:
+
+```text
+boundary alignment is checked against the resolved valid-expert/address-key
+domain, not the raw active expert block list.  Invalid/OOB experts and duplicate
+blocks cannot make the no-op boundary appear aligned.
+```
+
+GPU1 AWQ/vLLM 128-sample strict rerun:
+
+```text
+artifact:
+  data/traces/
+    external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_longrun_audit/
+    longrun_audit_gate.json
+
+passed = true
+failures = []
+premap_summary = 10,195
+premap_consumer_mapping = 10,195
+premap_prelaunch_boundary_checked = 10,195
+premap_prelaunch_boundary_aligned_rate = 1.0
+premap_prelaunch_handle_available_rate = 1.0
+premap_prelaunch_block_count = 110,898
+premap_prelaunch_unique_expert_count = 110,898
+
+prep_execution_dry_run_checked = 10,195
+prep_execution_dry_run_row_count = 110,898
+prep_execution_dry_run_row_handle_miss_count = 0
+prep_execution_dry_run_payload_bytes = 0
+prep_execution_dry_run_passed_to_kernel_count = 0
+```
+
+Boundary remains unchanged:
+
+```text
+no payload transfer
+no ready credit
+no router mutation
+no descriptor_order execution
+no kernel argument mutation
+```
