@@ -598,6 +598,24 @@ def _assert_consumer_shim_prep_execution_dry_run_event(
         assert consumer[field] == 2
     assert (
         consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_handle_field_read_count"
+        ]
+        == 8
+    )
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_required_handle_field_available_count"
+        ]
+        == 6
+    )
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_optional_handle_field_available_count"
+        ]
+        == 0
+    )
+    assert (
+        consumer[
             "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_row_handle_miss_count"
         ]
         == 0

@@ -810,6 +810,15 @@ class ShadowPremapConsumerMappingEvent:
     descriptor_prep_consumer_shim_prep_execution_dry_run_row_handle_miss_count: (
         int | None
     ) = None
+    descriptor_prep_consumer_shim_prep_execution_dry_run_handle_field_read_count: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_prep_execution_dry_run_required_handle_field_available_count: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_prep_execution_dry_run_optional_handle_field_available_count: (
+        int | None
+    ) = None
     descriptor_prep_consumer_shim_prep_execution_dry_run_passed_to_kernel: (
         bool | None
     ) = None
@@ -1402,6 +1411,21 @@ class ShadowPremapConsumerMappingEvent:
         )
         _put_optional(
             payload,
+            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_handle_field_read_count",
+            self.descriptor_prep_consumer_shim_prep_execution_dry_run_handle_field_read_count,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_required_handle_field_available_count",
+            self.descriptor_prep_consumer_shim_prep_execution_dry_run_required_handle_field_available_count,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_optional_handle_field_available_count",
+            self.descriptor_prep_consumer_shim_prep_execution_dry_run_optional_handle_field_available_count,
+        )
+        _put_optional(
+            payload,
             "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_passed_to_kernel",
             self.descriptor_prep_consumer_shim_prep_execution_dry_run_passed_to_kernel,
         )
@@ -1797,6 +1821,9 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
         "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_scale_metadata_handle_parity_ok_count": 0,
         "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_aux_metadata_handle_parity_ok_count": 0,
         "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_row_handle_miss_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_handle_field_read_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_required_handle_field_available_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_optional_handle_field_available_count": 0,
         "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_payload_bytes": 0,
         "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_payload_violation_count": 0,
         "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_passed_to_kernel_count": 0,
@@ -2790,6 +2817,9 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
                     "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_scale_metadata_handle_parity_ok_count",
                     "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_aux_metadata_handle_parity_ok_count",
                     "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_row_handle_miss_count",
+                    "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_handle_field_read_count",
+                    "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_required_handle_field_available_count",
+                    "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_optional_handle_field_available_count",
                 ):
                     totals[field] += int(event.get(field, 0) or 0)
                 dry_payload_bytes = int(
