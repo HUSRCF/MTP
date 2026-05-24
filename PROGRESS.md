@@ -478,6 +478,7 @@ strict smoke evidence:
       --require-consumer-shim-table-consume
       --require-consumer-shim-table-object
       --require-consumer-shim-prep-execution
+      --require-kernel-arg-handoff-attempt
 
   result:
     passed = true

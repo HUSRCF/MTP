@@ -69,6 +69,7 @@ def check_summary(
     require_consumer_shim_table_consume: bool = False,
     require_consumer_shim_table_object: bool = False,
     require_consumer_shim_prep_execution: bool = False,
+    require_kernel_arg_handoff_attempt: bool = False,
 ) -> dict[str, Any]:
     summary = _normalize_summary(summary)
     event_counts = {
@@ -206,10 +207,23 @@ def check_summary(
     # one shim table was actually consumed, unless the caller explicitly requires
     # the consume contract.
     consumer_shim_table_consume_active = consumer_shim_table_consume_checked_count > 0
+    kernel_arg_handoff_attempt_active = any(
+        key in aggregate
+        for key in (
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_checked_count",
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_record_ready_count",
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_mode",
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_block_reason",
+        )
+    )
     if require_consumer_shim_table_consume and not consumer_shim_table_consume_active:
         failures.append("consumer_shim_table_consume_fields_missing")
     if require_consumer_shim_table_consume and not consumer_shim_table_read_active:
         failures.append("consumer_shim_table_consume_requires_table_read_fields")
+    if require_kernel_arg_handoff_attempt and not kernel_arg_handoff_attempt_active:
+        failures.append("consumer_shim_kernel_arg_handoff_attempt_fields_missing")
+    if require_kernel_arg_handoff_attempt and not consumer_shim_table_consume_active:
+        failures.append("consumer_shim_kernel_arg_handoff_attempt_requires_table_consume_fields")
     consumer_shim_table_object_checked_count = _as_int(
         aggregate.get(
             "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_consumed_checked_count"
@@ -251,6 +265,7 @@ def check_summary(
         require_descriptor_prep
         or require_real_descriptor_prep
         or require_kernel_arg_shadow_table
+        or require_kernel_arg_handoff_attempt
         or descriptor_prep_active
     ):
         attempted = _as_int(
@@ -553,7 +568,11 @@ def check_summary(
                 count = _as_int(aggregate.get(field))
                 if count != 0:
                     failures.append(f"{field}_nonzero={count}")
-        if require_consumer_shim_table_consume or consumer_shim_table_consume_active:
+        if (
+            require_consumer_shim_table_consume
+            or require_kernel_arg_handoff_attempt
+            or consumer_shim_table_consume_active
+        ):
             shim_executed = _as_int(
                 aggregate.get(
                     "premap_consumer_descriptor_prep_consumer_shim_executed_count"
@@ -1278,6 +1297,8 @@ def check_summary(
                 or attempt_schema_hash_checked_count
             )
             if not attempt_active:
+                if require_kernel_arg_handoff_attempt:
+                    failures.append("consumer_shim_kernel_arg_handoff_attempt_fields_missing")
                 # Older summaries predate the no-op handoff-attempt record. Keep
                 # the table-consume gate backward-compatible unless those fields
                 # are present, while new long-run artifacts remain strictly gated.
@@ -3547,6 +3568,9 @@ def check_summary(
         "require_consumer_shim_prep_execution": bool(
             require_consumer_shim_prep_execution
         ),
+        "require_kernel_arg_handoff_attempt": bool(
+            require_kernel_arg_handoff_attempt
+        ),
     }
 
 
@@ -3627,6 +3651,15 @@ def main() -> None:
             "still forbids payload movement and kernel argument handoff."
         ),
     )
+    parser.add_argument(
+        "--require-kernel-arg-handoff-attempt",
+        action="store_true",
+        help=(
+            "Require the readonly kernel-argument handoff attempt record. The "
+            "attempt must be ready but blocked by the no-op gate, with zero "
+            "payload and no kernel argument handoff."
+        ),
+    )
     parser.add_argument("--output-json", type=Path)
     args = parser.parse_args()
 
@@ -3644,6 +3677,9 @@ def main() -> None:
         require_consumer_shim_table_object=args.require_consumer_shim_table_object,
         require_consumer_shim_prep_execution=(
             args.require_consumer_shim_prep_execution
+        ),
+        require_kernel_arg_handoff_attempt=(
+            args.require_kernel_arg_handoff_attempt
         ),
     )
     payload = json.dumps(result, indent=2, sort_keys=True) + "\n"
