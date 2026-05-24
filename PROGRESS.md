@@ -15268,6 +15268,98 @@ no descriptor_order execution
 no kernel argument mutation
 ```
 
+## Kernel-arg handoff mirror no-op gate
+
+The prelaunch consumer now constructs a no-op mirror of the future fused-MoE/AWQ
+kernel argument package under the existing kernel-arg shadow-slot gate.  This is
+the first integration step toward a kernel-arg handoff object, but it still does
+not pass any argument package to the live kernel launch.
+
+Mirror object contract:
+
+```text
+mode = readonly_kernel_arg_handoff_mirror
+slot_hash = kernel_arg_handoff_shadow_slot.hash
+table_object_hash = prepared handle-table object hash
+row_count / column_count / schema_hash
+row_order_hash / ordered_row_hash
+descriptor_ptr_arg_hash
+packed_weight_descriptor_arg_hash
+scale_metadata_handle_arg_hash
+aux_metadata_handle_arg_hash
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+```
+
+GPU1 AWQ/vLLM 8-sample smoke:
+
+```text
+mirror_checked = 640
+mirror_ready = 640
+mirror_row_count = 6,965
+mirror_required_source_hit_count = 20,895
+mirror_required_source_miss_count = 0
+mirror_optional_source_hit_count = 6,965
+mirror_optional_source_miss_count = 0
+mirror_payload_bytes = 0
+mirror_passed_to_kernel_count = 0
+mirror_kernel_arg_violation_count = 0
+```
+
+GPU1 AWQ/vLLM 128-sample strict rerun:
+
+```text
+artifact:
+  data/traces/
+    external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_longrun_audit/
+    longrun_audit_gate.json
+
+passed = true
+failures = []
+
+mirror_checked = 10,195
+mirror_ready = 10,195
+mirror_hash_checked = 10,195
+mirror_hash_missing = 0
+mirror_slot_hash_checked = 10,195
+mirror_slot_hash_missing = 0
+
+mirror_row_count = 110,898
+mirror_column_count_min = 4
+mirror_column_count_max = 4
+mirror_schema_hash =
+  a02928d41970cdf1630dc2a743589ab18068454ac47341a34c4583fd40a5f294
+mirror_schema_hash_checked = 10,195
+mirror_schema_hash_missing = 0
+mirror_schema_hash_mismatch = 0
+
+mirror_required_source_hit_count = 332,694
+mirror_required_source_miss_count = 0
+mirror_optional_source_hit_count = 110,898
+mirror_optional_source_miss_count = 0
+
+mirror_payload_bytes = 0
+mirror_payload_violation_count = 0
+mirror_passed_to_kernel_count = 0
+mirror_kernel_arg_violation_count = 0
+```
+
+Static review found no blocker/high-risk issue.  The medium review item was
+diagnostic: mirror hash coverage was not directly regression-tested against
+slot/table/row/order/arg-hash changes.  This is now covered by
+`test_kernel_arg_handoff_mirror_hash_covers_slot_table_rows_and_args`.
+
+Boundary remains unchanged:
+
+```text
+no payload transfer
+no ready credit
+no router mutation
+no descriptor_order execution
+no live kernel argument mutation
+```
+
 ### Kernel-arg handoff shadow slot gate
 
 The descriptor/address prep path now constructs a final readonly shadow slot

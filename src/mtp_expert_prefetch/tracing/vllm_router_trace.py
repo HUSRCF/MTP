@@ -272,6 +272,27 @@ RUNTIME_SHADOW_AGGREGATE_PERFORMANCE_KEYS = (
     "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_payload_violation_count",
     "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_passed_to_kernel_count",
     "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_kernel_arg_violation_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_mirror_checked_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_mirror_ready_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_mirror_hash_checked_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_mirror_hash_missing_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_mirror_slot_hash_checked_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_mirror_slot_hash_missing_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_mirror_row_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_mirror_column_count_max",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_mirror_column_count_min",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_mirror_schema_hash",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_mirror_schema_hash_checked_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_mirror_schema_hash_missing_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_mirror_schema_hash_mismatch_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_mirror_required_source_hit_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_mirror_required_source_miss_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_mirror_optional_source_hit_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_mirror_optional_source_miss_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_mirror_payload_bytes",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_mirror_payload_violation_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_mirror_passed_to_kernel_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_mirror_kernel_arg_violation_count",
     "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_consumed_checked_count",
     "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_consumed_count",
     "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_consumed_rate",
@@ -3148,6 +3169,123 @@ class VllmRouterRecorder:
                 descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_changes_kernel_launch_args=(
                     bool(
                         descriptor_consumer_shim_result.kernel_arg_handoff_shadow_slot_changes_kernel_launch_args
+                    )
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_arg_handoff_mirror_mode=(
+                    descriptor_consumer_shim_result.kernel_arg_handoff_mirror_mode
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_arg_handoff_mirror_ready=(
+                    descriptor_consumer_shim_result.kernel_arg_handoff_mirror_ready
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_arg_handoff_mirror_hash=(
+                    descriptor_consumer_shim_result.kernel_arg_handoff_mirror_hash
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_arg_handoff_mirror_slot_hash=(
+                    descriptor_consumer_shim_result.kernel_arg_handoff_mirror_slot_hash
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_arg_handoff_mirror_table_object_hash=(
+                    descriptor_consumer_shim_result.kernel_arg_handoff_mirror_table_object_hash
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_arg_handoff_mirror_row_count=(
+                    int(
+                        descriptor_consumer_shim_result.kernel_arg_handoff_mirror_row_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.kernel_arg_handoff_mirror_row_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_arg_handoff_mirror_column_count=(
+                    int(
+                        descriptor_consumer_shim_result.kernel_arg_handoff_mirror_column_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.kernel_arg_handoff_mirror_column_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_arg_handoff_mirror_schema_hash=(
+                    descriptor_consumer_shim_result.kernel_arg_handoff_mirror_schema_hash
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_arg_handoff_mirror_required_source_hit_count=(
+                    int(
+                        descriptor_consumer_shim_result.kernel_arg_handoff_mirror_required_source_hit_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.kernel_arg_handoff_mirror_required_source_hit_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_arg_handoff_mirror_required_source_miss_count=(
+                    int(
+                        descriptor_consumer_shim_result.kernel_arg_handoff_mirror_required_source_miss_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.kernel_arg_handoff_mirror_required_source_miss_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_arg_handoff_mirror_optional_source_hit_count=(
+                    int(
+                        descriptor_consumer_shim_result.kernel_arg_handoff_mirror_optional_source_hit_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.kernel_arg_handoff_mirror_optional_source_hit_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_arg_handoff_mirror_optional_source_miss_count=(
+                    int(
+                        descriptor_consumer_shim_result.kernel_arg_handoff_mirror_optional_source_miss_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.kernel_arg_handoff_mirror_optional_source_miss_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_arg_handoff_mirror_payload_bytes=(
+                    int(
+                        descriptor_consumer_shim_result.kernel_arg_handoff_mirror_payload_bytes
+                    )
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_arg_handoff_mirror_passed_to_kernel=(
+                    bool(
+                        descriptor_consumer_shim_result.kernel_arg_handoff_mirror_passed_to_kernel
+                    )
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_arg_handoff_mirror_changes_kernel_launch_args=(
+                    bool(
+                        descriptor_consumer_shim_result.kernel_arg_handoff_mirror_changes_kernel_launch_args
                     )
                     if descriptor_consumer_shim_result is not None
                     else None

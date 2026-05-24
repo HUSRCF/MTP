@@ -11,6 +11,7 @@ from mtp_expert_prefetch.runtime import (
     PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_COLUMNS,
     PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH,
     PremapRealDescriptorHandle,
+    PremapKernelArgHandoffMirrorObject,
     build_premap_descriptors,
     build_priority_masks,
     descriptor_summary,
@@ -497,6 +498,31 @@ def test_controlled_premap_address_manager_executes_descriptor_prep_readonly():
         shim_result.kernel_arg_handoff_shadow_slot_changes_kernel_launch_args
         is False
     )
+    assert (
+        shim_result.kernel_arg_handoff_mirror_mode
+        == "readonly_kernel_arg_handoff_mirror"
+    )
+    assert shim_result.kernel_arg_handoff_mirror_ready is True
+    assert shim_result.kernel_arg_handoff_mirror_hash
+    assert shim_result.kernel_arg_handoff_mirror_slot_hash == (
+        shim_result.kernel_arg_handoff_shadow_slot_hash
+    )
+    assert shim_result.kernel_arg_handoff_mirror_table_object_hash == (
+        table_object.object_hash
+    )
+    assert shim_result.kernel_arg_handoff_mirror_row_count == 2
+    assert shim_result.kernel_arg_handoff_mirror_column_count == 4
+    assert (
+        shim_result.kernel_arg_handoff_mirror_schema_hash
+        == PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH
+    )
+    assert shim_result.kernel_arg_handoff_mirror_required_source_hit_count == 6
+    assert shim_result.kernel_arg_handoff_mirror_required_source_miss_count == 0
+    assert shim_result.kernel_arg_handoff_mirror_optional_source_hit_count == 0
+    assert shim_result.kernel_arg_handoff_mirror_optional_source_miss_count == 2
+    assert shim_result.kernel_arg_handoff_mirror_payload_bytes == 0
+    assert shim_result.kernel_arg_handoff_mirror_passed_to_kernel is False
+    assert shim_result.kernel_arg_handoff_mirror_changes_kernel_launch_args is False
     assert shim_result.handle_table_object_consumed is True
     assert shim_result.handle_table_object_hash == table_object.object_hash
     assert shim_result.handle_table_object_row_count == 2
@@ -513,6 +539,7 @@ def test_controlled_premap_address_manager_executes_descriptor_prep_readonly():
     assert shim_result.prep_execution_dry_run_column_count == len(
         PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_COLUMNS
     )
+
     assert (
         shim_result.prep_execution_dry_run_schema_hash
         == PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH
@@ -706,6 +733,46 @@ def test_controlled_premap_address_manager_executes_descriptor_prep_readonly():
     assert stale_table_result.payload_bytes == 0
     assert stale_table_result.changes_kernel_launch_args is False
     assert stale_table_result.passed_to_kernel is False
+
+
+def test_kernel_arg_handoff_mirror_hash_covers_slot_table_rows_and_args():
+    mirror = PremapKernelArgHandoffMirrorObject(
+        mode="readonly_kernel_arg_handoff_mirror",
+        slot_hash="slot-a",
+        table_object_hash="table-a",
+        row_count=2,
+        column_count=len(PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_COLUMNS),
+        schema_hash=PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH,
+        row_order_hash="row-order-a",
+        ordered_row_hash="ordered-row-a",
+        descriptor_ptr_arg_hash="descriptor-arg-a",
+        packed_weight_descriptor_arg_hash="packed-arg-a",
+        scale_metadata_handle_arg_hash="scale-arg-a",
+        aux_metadata_handle_arg_hash="aux-arg-a",
+        required_source_hit_count=6,
+        required_source_miss_count=0,
+        optional_source_hit_count=1,
+        optional_source_miss_count=1,
+    )
+
+    assert mirror.ready is True
+    base_hash = mirror.mirror_hash
+
+    for field_name, value in [
+        ("slot_hash", "slot-b"),
+        ("table_object_hash", "table-b"),
+        ("row_order_hash", "row-order-b"),
+        ("ordered_row_hash", "ordered-row-b"),
+        ("descriptor_ptr_arg_hash", "descriptor-arg-b"),
+        ("packed_weight_descriptor_arg_hash", "packed-arg-b"),
+        ("scale_metadata_handle_arg_hash", "scale-arg-b"),
+        ("aux_metadata_handle_arg_hash", "aux-arg-b"),
+    ]:
+        assert replace(mirror, **{field_name: value}).mirror_hash != base_hash
+
+    assert replace(mirror, passed_to_kernel=True).ready is False
+    assert replace(mirror, changes_kernel_launch_args=True).ready is False
+    assert replace(mirror, payload_bytes=1).ready is False
 
 
 def test_controlled_premap_address_manager_descriptor_prep_uses_real_handles():

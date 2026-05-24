@@ -802,6 +802,85 @@ def _assert_consumer_shim_table_consume_event(consumer: dict[str, object]) -> No
         ]
         is False
     )
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_mirror_mode"
+        ]
+        == "readonly_kernel_arg_handoff_mirror"
+    )
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_mirror_ready"
+        ]
+        is True
+    )
+    assert consumer[
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_mirror_hash"
+    ]
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_mirror_slot_hash"
+        ]
+        == consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_hash"
+        ]
+    )
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_mirror_table_object_hash"
+        ]
+        == consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_hash"
+        ]
+    )
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_mirror_row_count"
+        ]
+        == 2
+    )
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_mirror_column_count"
+        ]
+        == 4
+    )
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_mirror_schema_hash"
+        ]
+        == PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH
+    )
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_mirror_required_source_hit_count"
+        ]
+        == 6
+    )
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_mirror_required_source_miss_count"
+        ]
+        == 0
+    )
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_mirror_payload_bytes"
+        ]
+        == 0
+    )
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_mirror_passed_to_kernel"
+        ]
+        is False
+    )
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_mirror_changes_kernel_launch_args"
+        ]
+        is False
+    )
 
 
 def _assert_consumer_shim_prep_execution_dry_run_event(
