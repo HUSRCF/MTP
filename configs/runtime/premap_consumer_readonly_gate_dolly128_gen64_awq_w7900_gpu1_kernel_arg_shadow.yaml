@@ -25,6 +25,7 @@ contract:
   consumer_shim_table_consume_required: true
   consumer_shim_table_object_required: true
   consumer_shim_prep_execution_required: true
+  consumer_shim_prep_execution_handle_field_reads_required: true
 
 model:
   config: configs/model/qwen3_6_35b_a3b_awq_4bit.yaml
@@ -186,6 +187,9 @@ gate:
     premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_packed_weight_descriptor_parity_ok_count: 110898
     premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_scale_metadata_handle_parity_ok_count: 110898
     premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_aux_metadata_handle_parity_ok_count: 110898
+    premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_handle_field_read_count: 443592
+    premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_required_handle_field_available_count: 332694
+    premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_optional_handle_field_available_count: 110898
     premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_row_handle_miss_count: 0
     premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_payload_bytes: 0
     premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_payload_violation_count: 0

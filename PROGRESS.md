@@ -15317,9 +15317,21 @@ premap_prelaunch_unique_expert_count = 110,898
 
 prep_execution_dry_run_checked = 10,195
 prep_execution_dry_run_row_count = 110,898
+prep_execution_dry_run_handle_field_read_count = 443,592
+prep_execution_dry_run_required_handle_field_available_count = 332,694
+prep_execution_dry_run_optional_handle_field_available_count = 110,898
 prep_execution_dry_run_row_handle_miss_count = 0
 prep_execution_dry_run_payload_bytes = 0
 prep_execution_dry_run_passed_to_kernel_count = 0
+```
+
+The strict gate now requires the consumer shim to explicitly read every
+prepared handle-table field before it can pass:
+
+```text
+field reads = 4 x row_count
+required descriptor/packed-weight/scale fields = 3 x row_count
+optional aux fields may be present but are not required for the no-payload gate
 ```
 
 Boundary remains unchanged:
