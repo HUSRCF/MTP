@@ -156,6 +156,14 @@ def _passing_summary() -> dict:
             "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_handle_field_read_count": 80,
             "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_required_handle_field_available_count": 60,
             "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_optional_handle_field_available_count": 20,
+            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_descriptor_ptr_field_read_count": 20,
+            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_packed_weight_descriptor_field_read_count": 20,
+            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_scale_metadata_handle_field_read_count": 20,
+            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_aux_metadata_handle_field_read_count": 20,
+            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_descriptor_ptr_field_available_count": 20,
+            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_packed_weight_descriptor_field_available_count": 20,
+            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_scale_metadata_handle_field_available_count": 20,
+            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_aux_metadata_handle_field_available_count": 20,
             "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_row_handle_miss_count": 0,
             "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_payload_bytes": 0,
             "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_payload_violation_count": 0,
@@ -337,6 +345,12 @@ def test_premap_longrun_audit_gate_rejects_missing_prep_field_reads():
     aggregate[
         "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_required_handle_field_available_count"
     ] = 59
+    aggregate[
+        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_descriptor_ptr_field_read_count"
+    ] = 19
+    aggregate[
+        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_scale_metadata_handle_field_available_count"
+    ] = 19
 
     result = check_summary(
         summary,
@@ -359,6 +373,14 @@ def test_premap_longrun_audit_gate_rejects_missing_prep_field_reads():
     )
     assert (
         "consumer_shim_prep_execution_required_handle_field_available_count_mismatch=59!=60"
+        in result["failures"]
+    )
+    assert (
+        "consumer_shim_prep_execution_descriptor_ptr_field_read_count_mismatch=19!=20"
+        in result["failures"]
+    )
+    assert (
+        "consumer_shim_prep_execution_scale_metadata_handle_field_available_count_mismatch=19!=20"
         in result["failures"]
     )
 

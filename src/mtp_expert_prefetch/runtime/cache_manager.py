@@ -501,6 +501,14 @@ class PremapDescriptorConsumerShimResult:
     prep_execution_dry_run_handle_field_read_count: int | None = None
     prep_execution_dry_run_required_handle_field_available_count: int | None = None
     prep_execution_dry_run_optional_handle_field_available_count: int | None = None
+    prep_execution_dry_run_descriptor_ptr_field_read_count: int | None = None
+    prep_execution_dry_run_packed_weight_descriptor_field_read_count: int | None = None
+    prep_execution_dry_run_scale_metadata_handle_field_read_count: int | None = None
+    prep_execution_dry_run_aux_metadata_handle_field_read_count: int | None = None
+    prep_execution_dry_run_descriptor_ptr_field_available_count: int | None = None
+    prep_execution_dry_run_packed_weight_descriptor_field_available_count: int | None = None
+    prep_execution_dry_run_scale_metadata_handle_field_available_count: int | None = None
+    prep_execution_dry_run_aux_metadata_handle_field_available_count: int | None = None
     prep_execution_dry_run_passed_to_kernel: bool = False
     prep_execution_dry_run_payload_bytes: int = 0
     payload_bytes: int = 0
@@ -541,6 +549,14 @@ class PremapDescriptorAddressPrepDryRunResult:
     handle_field_read_count: int
     required_handle_field_available_count: int
     optional_handle_field_available_count: int
+    descriptor_ptr_field_read_count: int
+    packed_weight_descriptor_field_read_count: int
+    scale_metadata_handle_field_read_count: int
+    aux_metadata_handle_field_read_count: int
+    descriptor_ptr_field_available_count: int
+    packed_weight_descriptor_field_available_count: int
+    scale_metadata_handle_field_available_count: int
+    aux_metadata_handle_field_available_count: int
     payload_bytes: int = 0
     ready_credit: bool = False
     changes_router: bool = False
@@ -1036,6 +1052,14 @@ class ControlledPremapAddressManager:
         prep_dry_run_handle_field_read_count = None
         prep_dry_run_required_handle_field_available_count = None
         prep_dry_run_optional_handle_field_available_count = None
+        prep_dry_run_descriptor_ptr_field_read_count = None
+        prep_dry_run_packed_weight_descriptor_field_read_count = None
+        prep_dry_run_scale_metadata_handle_field_read_count = None
+        prep_dry_run_aux_metadata_handle_field_read_count = None
+        prep_dry_run_descriptor_ptr_field_available_count = None
+        prep_dry_run_packed_weight_descriptor_field_available_count = None
+        prep_dry_run_scale_metadata_handle_field_available_count = None
+        prep_dry_run_aux_metadata_handle_field_available_count = None
         prep_dry_run_passed_to_kernel = False
         prep_dry_run_payload_bytes = 0
         if table_result is not None:
@@ -1153,6 +1177,30 @@ class ControlledPremapAddressManager:
             prep_dry_run_optional_handle_field_available_count = int(
                 prep_dry_run.optional_handle_field_available_count
             )
+            prep_dry_run_descriptor_ptr_field_read_count = int(
+                prep_dry_run.descriptor_ptr_field_read_count
+            )
+            prep_dry_run_packed_weight_descriptor_field_read_count = int(
+                prep_dry_run.packed_weight_descriptor_field_read_count
+            )
+            prep_dry_run_scale_metadata_handle_field_read_count = int(
+                prep_dry_run.scale_metadata_handle_field_read_count
+            )
+            prep_dry_run_aux_metadata_handle_field_read_count = int(
+                prep_dry_run.aux_metadata_handle_field_read_count
+            )
+            prep_dry_run_descriptor_ptr_field_available_count = int(
+                prep_dry_run.descriptor_ptr_field_available_count
+            )
+            prep_dry_run_packed_weight_descriptor_field_available_count = int(
+                prep_dry_run.packed_weight_descriptor_field_available_count
+            )
+            prep_dry_run_scale_metadata_handle_field_available_count = int(
+                prep_dry_run.scale_metadata_handle_field_available_count
+            )
+            prep_dry_run_aux_metadata_handle_field_available_count = int(
+                prep_dry_run.aux_metadata_handle_field_available_count
+            )
             prep_dry_run_passed_to_kernel = bool(prep_dry_run.passed_to_kernel)
             prep_dry_run_payload_bytes = int(prep_dry_run.payload_bytes)
             prep_bound_to_table_object = (
@@ -1183,6 +1231,22 @@ class ControlledPremapAddressManager:
                 * len(PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_COLUMNS)
                 and int(prep_dry_run.required_handle_field_available_count)
                 == int(prep_dry_run.row_count) * 3
+                and int(prep_dry_run.descriptor_ptr_field_read_count)
+                == int(prep_dry_run.row_count)
+                and int(prep_dry_run.packed_weight_descriptor_field_read_count)
+                == int(prep_dry_run.row_count)
+                and int(prep_dry_run.scale_metadata_handle_field_read_count)
+                == int(prep_dry_run.row_count)
+                and int(prep_dry_run.aux_metadata_handle_field_read_count)
+                == int(prep_dry_run.row_count)
+                and int(prep_dry_run.descriptor_ptr_field_available_count)
+                == int(prep_dry_run.row_count)
+                and int(prep_dry_run.packed_weight_descriptor_field_available_count)
+                == int(prep_dry_run.row_count)
+                and int(prep_dry_run.scale_metadata_handle_field_available_count)
+                == int(prep_dry_run.row_count)
+                and 0 <= int(prep_dry_run.aux_metadata_handle_field_available_count)
+                <= int(prep_dry_run.row_count)
                 and int(prep_dry_run.payload_bytes) == 0
                 and not bool(prep_dry_run.ready_credit)
                 and not bool(prep_dry_run.changes_router)
@@ -1271,6 +1335,30 @@ class ControlledPremapAddressManager:
             prep_execution_dry_run_optional_handle_field_available_count=(
                 prep_dry_run_optional_handle_field_available_count
             ),
+            prep_execution_dry_run_descriptor_ptr_field_read_count=(
+                prep_dry_run_descriptor_ptr_field_read_count
+            ),
+            prep_execution_dry_run_packed_weight_descriptor_field_read_count=(
+                prep_dry_run_packed_weight_descriptor_field_read_count
+            ),
+            prep_execution_dry_run_scale_metadata_handle_field_read_count=(
+                prep_dry_run_scale_metadata_handle_field_read_count
+            ),
+            prep_execution_dry_run_aux_metadata_handle_field_read_count=(
+                prep_dry_run_aux_metadata_handle_field_read_count
+            ),
+            prep_execution_dry_run_descriptor_ptr_field_available_count=(
+                prep_dry_run_descriptor_ptr_field_available_count
+            ),
+            prep_execution_dry_run_packed_weight_descriptor_field_available_count=(
+                prep_dry_run_packed_weight_descriptor_field_available_count
+            ),
+            prep_execution_dry_run_scale_metadata_handle_field_available_count=(
+                prep_dry_run_scale_metadata_handle_field_available_count
+            ),
+            prep_execution_dry_run_aux_metadata_handle_field_available_count=(
+                prep_dry_run_aux_metadata_handle_field_available_count
+            ),
             prep_execution_dry_run_passed_to_kernel=prep_dry_run_passed_to_kernel,
             prep_execution_dry_run_payload_bytes=prep_dry_run_payload_bytes,
             payload_bytes=0,
@@ -1313,16 +1401,38 @@ class ControlledPremapAddressManager:
         handle_field_read_count = 0
         required_handle_field_available_count = 0
         optional_handle_field_available_count = 0
+        descriptor_ptr_field_read_count = 0
+        packed_weight_descriptor_field_read_count = 0
+        scale_metadata_handle_field_read_count = 0
+        aux_metadata_handle_field_read_count = 0
+        descriptor_ptr_field_available_count = 0
+        packed_weight_descriptor_field_available_count = 0
+        scale_metadata_handle_field_available_count = 0
+        aux_metadata_handle_field_available_count = 0
         for row in table_object.rows:
             descriptor_ptr = row.descriptor_ptr
             packed_weight_descriptor = row.packed_weight_descriptor
             scale_metadata_handle = row.scale_metadata_handle
             aux_metadata_handle = row.aux_metadata_handle
             handle_field_read_count += len(PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_COLUMNS)
+            descriptor_ptr_field_read_count += 1
+            packed_weight_descriptor_field_read_count += 1
+            scale_metadata_handle_field_read_count += 1
+            aux_metadata_handle_field_read_count += 1
             required_handle_field_available_count += int(bool(descriptor_ptr))
             required_handle_field_available_count += int(bool(packed_weight_descriptor))
             required_handle_field_available_count += int(bool(scale_metadata_handle))
             optional_handle_field_available_count += int(aux_metadata_handle is not None)
+            descriptor_ptr_field_available_count += int(bool(descriptor_ptr))
+            packed_weight_descriptor_field_available_count += int(
+                bool(packed_weight_descriptor)
+            )
+            scale_metadata_handle_field_available_count += int(
+                bool(scale_metadata_handle)
+            )
+            aux_metadata_handle_field_available_count += int(
+                aux_metadata_handle is not None
+            )
             entry = self._addresses.get(row.address_key)
             real_handle = (
                 real_handles.get(row.address_key) if real_handles is not None else None
@@ -1421,6 +1531,28 @@ class ControlledPremapAddressManager:
             ),
             optional_handle_field_available_count=int(
                 optional_handle_field_available_count
+            ),
+            descriptor_ptr_field_read_count=int(descriptor_ptr_field_read_count),
+            packed_weight_descriptor_field_read_count=int(
+                packed_weight_descriptor_field_read_count
+            ),
+            scale_metadata_handle_field_read_count=int(
+                scale_metadata_handle_field_read_count
+            ),
+            aux_metadata_handle_field_read_count=int(
+                aux_metadata_handle_field_read_count
+            ),
+            descriptor_ptr_field_available_count=int(
+                descriptor_ptr_field_available_count
+            ),
+            packed_weight_descriptor_field_available_count=int(
+                packed_weight_descriptor_field_available_count
+            ),
+            scale_metadata_handle_field_available_count=int(
+                scale_metadata_handle_field_available_count
+            ),
+            aux_metadata_handle_field_available_count=int(
+                aux_metadata_handle_field_available_count
             ),
             payload_bytes=int(table_object.payload_bytes),
             ready_credit=bool(table_object.ready_credit),

@@ -247,6 +247,14 @@ RUNTIME_SHADOW_AGGREGATE_PERFORMANCE_KEYS = (
     "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_handle_field_read_count",
     "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_required_handle_field_available_count",
     "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_optional_handle_field_available_count",
+    "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_descriptor_ptr_field_read_count",
+    "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_packed_weight_descriptor_field_read_count",
+    "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_scale_metadata_handle_field_read_count",
+    "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_aux_metadata_handle_field_read_count",
+    "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_descriptor_ptr_field_available_count",
+    "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_packed_weight_descriptor_field_available_count",
+    "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_scale_metadata_handle_field_available_count",
+    "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_aux_metadata_handle_field_available_count",
     "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_passed_to_kernel_count",
     "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_payload_bytes",
     "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_payload_violation_count",
@@ -2923,6 +2931,94 @@ class VllmRouterRecorder:
                     if (
                         descriptor_consumer_shim_result is not None
                         and descriptor_consumer_shim_result.prep_execution_dry_run_optional_handle_field_available_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_prep_execution_dry_run_descriptor_ptr_field_read_count=(
+                    int(
+                        descriptor_consumer_shim_result.prep_execution_dry_run_descriptor_ptr_field_read_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.prep_execution_dry_run_descriptor_ptr_field_read_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_prep_execution_dry_run_packed_weight_descriptor_field_read_count=(
+                    int(
+                        descriptor_consumer_shim_result.prep_execution_dry_run_packed_weight_descriptor_field_read_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.prep_execution_dry_run_packed_weight_descriptor_field_read_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_prep_execution_dry_run_scale_metadata_handle_field_read_count=(
+                    int(
+                        descriptor_consumer_shim_result.prep_execution_dry_run_scale_metadata_handle_field_read_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.prep_execution_dry_run_scale_metadata_handle_field_read_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_prep_execution_dry_run_aux_metadata_handle_field_read_count=(
+                    int(
+                        descriptor_consumer_shim_result.prep_execution_dry_run_aux_metadata_handle_field_read_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.prep_execution_dry_run_aux_metadata_handle_field_read_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_prep_execution_dry_run_descriptor_ptr_field_available_count=(
+                    int(
+                        descriptor_consumer_shim_result.prep_execution_dry_run_descriptor_ptr_field_available_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.prep_execution_dry_run_descriptor_ptr_field_available_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_prep_execution_dry_run_packed_weight_descriptor_field_available_count=(
+                    int(
+                        descriptor_consumer_shim_result.prep_execution_dry_run_packed_weight_descriptor_field_available_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.prep_execution_dry_run_packed_weight_descriptor_field_available_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_prep_execution_dry_run_scale_metadata_handle_field_available_count=(
+                    int(
+                        descriptor_consumer_shim_result.prep_execution_dry_run_scale_metadata_handle_field_available_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.prep_execution_dry_run_scale_metadata_handle_field_available_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_prep_execution_dry_run_aux_metadata_handle_field_available_count=(
+                    int(
+                        descriptor_consumer_shim_result.prep_execution_dry_run_aux_metadata_handle_field_available_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.prep_execution_dry_run_aux_metadata_handle_field_available_count
                         is not None
                     )
                     else None

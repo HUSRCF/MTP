@@ -349,6 +349,17 @@ def test_controlled_premap_address_manager_executes_descriptor_prep_readonly():
     assert prep_dry_run_result.scale_metadata_handle_parity_ok_count == 2
     assert prep_dry_run_result.aux_metadata_handle_parity_ok_count == 2
     assert prep_dry_run_result.row_handle_miss_count == 0
+    assert prep_dry_run_result.handle_field_read_count == 8
+    assert prep_dry_run_result.required_handle_field_available_count == 6
+    assert prep_dry_run_result.optional_handle_field_available_count == 0
+    assert prep_dry_run_result.descriptor_ptr_field_read_count == 2
+    assert prep_dry_run_result.packed_weight_descriptor_field_read_count == 2
+    assert prep_dry_run_result.scale_metadata_handle_field_read_count == 2
+    assert prep_dry_run_result.aux_metadata_handle_field_read_count == 2
+    assert prep_dry_run_result.descriptor_ptr_field_available_count == 2
+    assert prep_dry_run_result.packed_weight_descriptor_field_available_count == 2
+    assert prep_dry_run_result.scale_metadata_handle_field_available_count == 2
+    assert prep_dry_run_result.aux_metadata_handle_field_available_count == 0
     assert prep_dry_run_result.payload_bytes == 0
     assert prep_dry_run_result.passed_to_kernel is False
     shim_result = manager.execute_descriptor_consumer_shim_readonly(
@@ -443,6 +454,23 @@ def test_controlled_premap_address_manager_executes_descriptor_prep_readonly():
         shim_result.prep_execution_dry_run_optional_handle_field_available_count
         == 0
     )
+    assert shim_result.prep_execution_dry_run_descriptor_ptr_field_read_count == 2
+    assert (
+        shim_result.prep_execution_dry_run_packed_weight_descriptor_field_read_count
+        == 2
+    )
+    assert shim_result.prep_execution_dry_run_scale_metadata_handle_field_read_count == 2
+    assert shim_result.prep_execution_dry_run_aux_metadata_handle_field_read_count == 2
+    assert shim_result.prep_execution_dry_run_descriptor_ptr_field_available_count == 2
+    assert (
+        shim_result.prep_execution_dry_run_packed_weight_descriptor_field_available_count
+        == 2
+    )
+    assert (
+        shim_result.prep_execution_dry_run_scale_metadata_handle_field_available_count
+        == 2
+    )
+    assert shim_result.prep_execution_dry_run_aux_metadata_handle_field_available_count == 0
     assert shim_result.prep_execution_dry_run_passed_to_kernel is False
     assert shim_result.prep_execution_dry_run_payload_bytes == 0
     assert shim_result.payload_bytes == 0
