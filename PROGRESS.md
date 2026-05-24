@@ -15310,6 +15310,37 @@ The strict checker validates the handoff dry-run fields under
 long-run reuse threshold, as expected for the small split, but all readonly
 descriptor-prep / table-consume / handoff-dry-run safety fields pass.
 
+The same gate was then rerun on the full Dolly-128 GPU1 AWQ long-run artifact:
+
+```text
+artifact:
+  data/traces/
+    external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_longrun_audit/
+    longrun_audit_gate.json
+
+passed = true
+failures = []
+premap_summary = 10,195
+premap_consumer_mapping = 10,195
+premap_address_reuse_rate_mean = 0.9827389896686539
+premap_address_resident_count_max = 10,127
+
+handoff_dry_run_checked = 10,195
+handoff_dry_run_ready = 10,195
+handoff_dry_run_row_count = 110,898
+handoff_dry_run_required_source_hit_count = 332,694
+handoff_dry_run_required_source_miss_count = 0
+handoff_dry_run_optional_source_hit_count = 110,898
+handoff_dry_run_optional_source_miss_count = 0
+handoff_dry_run_payload_bytes = 0
+handoff_dry_run_passed_to_kernel_count = 0
+```
+
+This upgrades the lab precondition from “prepared table object can be consumed”
+to “prepared table object is ready for a future readonly kernel-argument
+handoff contract”, while still explicitly forbidding payload movement and
+kernel argument mutation.
+
 ### 2026-05-24 - Lab gate now requires explicit prelaunch consumer table use
 
 The readonly premap lab precondition was tightened again. The prelaunch
