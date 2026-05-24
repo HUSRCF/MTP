@@ -15334,6 +15334,44 @@ required descriptor/packed-weight/scale fields = 3 x row_count
 optional aux fields may be present but are not required for the no-payload gate
 ```
 
+The stricter per-column field-read contract was also validated with a
+lower-memory concurrent-use configuration:
+
+```text
+config:
+  configs/trace/
+    router_mtp_trace_external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_longrun_audit_mem70.yaml
+
+model config:
+  configs/model/qwen3_6_35b_a3b_awq_4bit_mem70.yaml
+
+vLLM gpu_memory_utilization = 0.70
+
+artifact:
+  data/traces/
+    external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_longrun_audit_mem70/
+    longrun_audit_gate.json
+
+passed = true
+failures = []
+premap_address_resident_count_max = 10,127
+premap_address_reuse_rate_mean = 0.9827389896686539
+premap_address_eviction_pressure_mean = 0.0
+
+prep_execution_dry_run_row_count = 110,898
+prep_execution_dry_run_handle_field_read_count = 443,592
+prep_execution_dry_run_descriptor_ptr_field_read_count = 110,898
+prep_execution_dry_run_packed_weight_descriptor_field_read_count = 110,898
+prep_execution_dry_run_scale_metadata_handle_field_read_count = 110,898
+prep_execution_dry_run_aux_metadata_handle_field_read_count = 110,898
+prep_execution_dry_run_descriptor_ptr_field_available_count = 110,898
+prep_execution_dry_run_packed_weight_descriptor_field_available_count = 110,898
+prep_execution_dry_run_scale_metadata_handle_field_available_count = 110,898
+prep_execution_dry_run_aux_metadata_handle_field_available_count = 110,898
+prep_execution_dry_run_payload_bytes = 0
+prep_execution_dry_run_passed_to_kernel_count = 0
+```
+
 Boundary remains unchanged:
 
 ```text
