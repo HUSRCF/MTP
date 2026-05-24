@@ -1093,11 +1093,224 @@ def check_summary(
                     "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_mirror_kernel_arg_violation_count"
                 )
             )
+            attempt_checked_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_checked_count"
+                )
+            )
+            attempt_record_ready_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_record_ready_count"
+                )
+            )
+            attempt_hash_checked_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_hash_checked_count"
+                )
+            )
+            attempt_hash_missing_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_hash_missing_count"
+                )
+            )
+            attempt_mirror_hash_checked_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_mirror_hash_checked_count"
+                )
+            )
+            attempt_mirror_hash_missing_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_mirror_hash_missing_count"
+                )
+            )
+            attempt_slot_hash_checked_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_slot_hash_checked_count"
+                )
+            )
+            attempt_slot_hash_missing_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_slot_hash_missing_count"
+                )
+            )
+            attempt_mode = str(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_mode"
+                )
+                or ""
+            )
+            attempt_mode_checked_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_mode_checked_count"
+                )
+            )
+            attempt_mode_missing_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_mode_missing_count"
+                )
+            )
+            attempt_mode_mismatch_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_mode_mismatch_count"
+                )
+            )
+            attempt_block_reason = str(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_block_reason"
+                )
+                or ""
+            )
+            attempt_block_reason_checked_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_block_reason_checked_count"
+                )
+            )
+            attempt_block_reason_missing_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_block_reason_missing_count"
+                )
+            )
+            attempt_block_reason_mismatch_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_block_reason_mismatch_count"
+                )
+            )
+            attempt_mirror_ready_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_mirror_ready_count"
+                )
+            )
+            attempt_gate_allowed_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_gate_allowed_count"
+                )
+            )
+            attempt_blocked_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_blocked_count"
+                )
+            )
+            attempt_row_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_row_count"
+                )
+            )
+            attempt_column_count_max = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_column_count_max"
+                )
+            )
+            attempt_column_count_min = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_column_count_min"
+                )
+            )
+            attempt_schema_hash = str(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_schema_hash"
+                )
+                or ""
+            )
+            attempt_schema_hash_checked_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_schema_hash_checked_count"
+                )
+            )
+            attempt_schema_hash_missing_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_schema_hash_missing_count"
+                )
+            )
+            attempt_schema_hash_mismatch_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_schema_hash_mismatch_count"
+                )
+            )
+            attempt_payload_bytes = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_payload_bytes"
+                )
+            )
+            attempt_payload_violation_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_payload_violation_count"
+                )
+            )
+            attempt_passed_to_kernel_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_passed_to_kernel_count"
+                )
+            )
+            attempt_kernel_arg_violation_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_kernel_arg_violation_count"
+                )
+            )
             shim_table_row_count = _as_int(
                 aggregate.get(
                     "premap_consumer_descriptor_prep_consumer_shim_handle_table_row_count"
                 )
             )
+            attempt_key_present = any(
+                key in aggregate
+                for key in (
+                    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_checked_count",
+                    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_record_ready_count",
+                    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_hash_checked_count",
+                    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_mode",
+                    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_block_reason",
+                    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_blocked_count",
+                )
+            )
+            attempt_active = bool(
+                attempt_key_present
+                or
+                attempt_checked_count
+                or attempt_record_ready_count
+                or attempt_hash_checked_count
+                or attempt_mirror_hash_checked_count
+                or attempt_slot_hash_checked_count
+                or attempt_mode
+                or attempt_mode_checked_count
+                or attempt_block_reason
+                or attempt_block_reason_checked_count
+                or attempt_blocked_count
+                or attempt_schema_hash_checked_count
+            )
+            if not attempt_active:
+                # Older summaries predate the no-op handoff-attempt record. Keep
+                # the table-consume gate backward-compatible unless those fields
+                # are present, while new long-run artifacts remain strictly gated.
+                attempt_checked_count = shim_executed
+                attempt_record_ready_count = shim_executed
+                attempt_hash_checked_count = shim_executed
+                attempt_hash_missing_count = 0
+                attempt_mirror_hash_checked_count = shim_executed
+                attempt_mirror_hash_missing_count = 0
+                attempt_slot_hash_checked_count = shim_executed
+                attempt_slot_hash_missing_count = 0
+                attempt_mode = "readonly_kernel_arg_handoff_attempt"
+                attempt_mode_checked_count = shim_executed
+                attempt_mode_missing_count = 0
+                attempt_mode_mismatch_count = 0
+                attempt_block_reason = "kernel_arg_handoff_disabled_noop_gate"
+                attempt_block_reason_checked_count = shim_executed
+                attempt_block_reason_missing_count = 0
+                attempt_block_reason_mismatch_count = 0
+                attempt_mirror_ready_count = shim_executed
+                attempt_gate_allowed_count = 0
+                attempt_blocked_count = shim_executed
+                attempt_row_count = consume_row_count
+                attempt_column_count_max = EXPECTED_KERNEL_ARG_SHADOW_TABLE_COLUMN_COUNT
+                attempt_column_count_min = EXPECTED_KERNEL_ARG_SHADOW_TABLE_COLUMN_COUNT
+                attempt_schema_hash = PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH
+                attempt_schema_hash_checked_count = shim_executed
+                attempt_schema_hash_missing_count = 0
+                attempt_schema_hash_mismatch_count = 0
+                attempt_payload_bytes = 0
+                attempt_payload_violation_count = 0
+                attempt_passed_to_kernel_count = 0
+                attempt_kernel_arg_violation_count = 0
             if consume_checked_count != shim_executed:
                 failures.append(
                     "consumer_shim_table_consume_checked_count_mismatch="
@@ -1649,6 +1862,153 @@ def check_summary(
                 failures.append(
                     "consumer_shim_kernel_arg_handoff_mirror_kernel_arg_violation_count_nonzero="
                     f"{mirror_kernel_arg_violation_count}"
+                )
+            if attempt_checked_count != shim_executed:
+                failures.append(
+                    "consumer_shim_kernel_arg_handoff_attempt_checked_count_mismatch="
+                    f"{attempt_checked_count}!={shim_executed}"
+                )
+            if attempt_record_ready_count != shim_executed:
+                failures.append(
+                    "consumer_shim_kernel_arg_handoff_attempt_record_ready_count_mismatch="
+                    f"{attempt_record_ready_count}!={shim_executed}"
+                )
+            if attempt_hash_checked_count != shim_executed:
+                failures.append(
+                    "consumer_shim_kernel_arg_handoff_attempt_hash_checked_count_mismatch="
+                    f"{attempt_hash_checked_count}!={shim_executed}"
+                )
+            if attempt_hash_missing_count != 0:
+                failures.append(
+                    "consumer_shim_kernel_arg_handoff_attempt_hash_missing_count_nonzero="
+                    f"{attempt_hash_missing_count}"
+                )
+            if attempt_mirror_hash_checked_count != shim_executed:
+                failures.append(
+                    "consumer_shim_kernel_arg_handoff_attempt_mirror_hash_checked_count_mismatch="
+                    f"{attempt_mirror_hash_checked_count}!={shim_executed}"
+                )
+            if attempt_mirror_hash_missing_count != 0:
+                failures.append(
+                    "consumer_shim_kernel_arg_handoff_attempt_mirror_hash_missing_count_nonzero="
+                    f"{attempt_mirror_hash_missing_count}"
+                )
+            if attempt_slot_hash_checked_count != shim_executed:
+                failures.append(
+                    "consumer_shim_kernel_arg_handoff_attempt_slot_hash_checked_count_mismatch="
+                    f"{attempt_slot_hash_checked_count}!={shim_executed}"
+                )
+            if attempt_slot_hash_missing_count != 0:
+                failures.append(
+                    "consumer_shim_kernel_arg_handoff_attempt_slot_hash_missing_count_nonzero="
+                    f"{attempt_slot_hash_missing_count}"
+                )
+            if attempt_mode != "readonly_kernel_arg_handoff_attempt":
+                failures.append("consumer_shim_kernel_arg_handoff_attempt_mode_mismatch")
+            if attempt_mode_checked_count != shim_executed:
+                failures.append(
+                    "consumer_shim_kernel_arg_handoff_attempt_mode_checked_count_mismatch="
+                    f"{attempt_mode_checked_count}!={shim_executed}"
+                )
+            if attempt_mode_missing_count != 0:
+                failures.append(
+                    "consumer_shim_kernel_arg_handoff_attempt_mode_missing_count_nonzero="
+                    f"{attempt_mode_missing_count}"
+                )
+            if attempt_mode_mismatch_count != 0:
+                failures.append(
+                    "consumer_shim_kernel_arg_handoff_attempt_mode_mismatch_count_nonzero="
+                    f"{attempt_mode_mismatch_count}"
+                )
+            if attempt_block_reason != "kernel_arg_handoff_disabled_noop_gate":
+                failures.append(
+                    "consumer_shim_kernel_arg_handoff_attempt_block_reason_mismatch"
+                )
+            if attempt_block_reason_checked_count != shim_executed:
+                failures.append(
+                    "consumer_shim_kernel_arg_handoff_attempt_block_reason_checked_count_mismatch="
+                    f"{attempt_block_reason_checked_count}!={shim_executed}"
+                )
+            if attempt_block_reason_missing_count != 0:
+                failures.append(
+                    "consumer_shim_kernel_arg_handoff_attempt_block_reason_missing_count_nonzero="
+                    f"{attempt_block_reason_missing_count}"
+                )
+            if attempt_block_reason_mismatch_count != 0:
+                failures.append(
+                    "consumer_shim_kernel_arg_handoff_attempt_block_reason_mismatch_count_nonzero="
+                    f"{attempt_block_reason_mismatch_count}"
+                )
+            if attempt_mirror_ready_count != shim_executed:
+                failures.append(
+                    "consumer_shim_kernel_arg_handoff_attempt_mirror_ready_count_mismatch="
+                    f"{attempt_mirror_ready_count}!={shim_executed}"
+                )
+            if attempt_gate_allowed_count != 0:
+                failures.append(
+                    "consumer_shim_kernel_arg_handoff_attempt_gate_allowed_count_nonzero="
+                    f"{attempt_gate_allowed_count}"
+                )
+            if attempt_blocked_count != shim_executed:
+                failures.append(
+                    "consumer_shim_kernel_arg_handoff_attempt_blocked_count_mismatch="
+                    f"{attempt_blocked_count}!={shim_executed}"
+                )
+            if attempt_row_count != consume_row_count:
+                failures.append(
+                    "consumer_shim_kernel_arg_handoff_attempt_row_count_mismatch="
+                    f"{attempt_row_count}!={consume_row_count}"
+                )
+            if attempt_column_count_max != EXPECTED_KERNEL_ARG_SHADOW_TABLE_COLUMN_COUNT:
+                failures.append(
+                    "consumer_shim_kernel_arg_handoff_attempt_column_count_max_mismatch="
+                    f"{attempt_column_count_max}!="
+                    f"{EXPECTED_KERNEL_ARG_SHADOW_TABLE_COLUMN_COUNT}"
+                )
+            if attempt_column_count_min != EXPECTED_KERNEL_ARG_SHADOW_TABLE_COLUMN_COUNT:
+                failures.append(
+                    "consumer_shim_kernel_arg_handoff_attempt_column_count_min_mismatch="
+                    f"{attempt_column_count_min}!="
+                    f"{EXPECTED_KERNEL_ARG_SHADOW_TABLE_COLUMN_COUNT}"
+                )
+            if attempt_schema_hash != PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH:
+                failures.append(
+                    "consumer_shim_kernel_arg_handoff_attempt_schema_hash_mismatch"
+                )
+            if attempt_schema_hash_checked_count != shim_executed:
+                failures.append(
+                    "consumer_shim_kernel_arg_handoff_attempt_schema_hash_checked_count_mismatch="
+                    f"{attempt_schema_hash_checked_count}!={shim_executed}"
+                )
+            if attempt_schema_hash_missing_count != 0:
+                failures.append(
+                    "consumer_shim_kernel_arg_handoff_attempt_schema_hash_missing_count_nonzero="
+                    f"{attempt_schema_hash_missing_count}"
+                )
+            if attempt_schema_hash_mismatch_count != 0:
+                failures.append(
+                    "consumer_shim_kernel_arg_handoff_attempt_schema_hash_mismatch_count_nonzero="
+                    f"{attempt_schema_hash_mismatch_count}"
+                )
+            if attempt_payload_bytes != 0:
+                failures.append(
+                    "consumer_shim_kernel_arg_handoff_attempt_payload_bytes_nonzero="
+                    f"{attempt_payload_bytes}"
+                )
+            if attempt_payload_violation_count != 0:
+                failures.append(
+                    "consumer_shim_kernel_arg_handoff_attempt_payload_violation_count_nonzero="
+                    f"{attempt_payload_violation_count}"
+                )
+            if attempt_passed_to_kernel_count != 0:
+                failures.append(
+                    "consumer_shim_kernel_arg_handoff_attempt_passed_to_kernel_count_nonzero="
+                    f"{attempt_passed_to_kernel_count}"
+                )
+            if attempt_kernel_arg_violation_count != 0:
+                failures.append(
+                    "consumer_shim_kernel_arg_handoff_attempt_kernel_arg_violation_count_nonzero="
+                    f"{attempt_kernel_arg_violation_count}"
                 )
         if require_consumer_shim_table_object or consumer_shim_table_object_active:
             shim_executed = _as_int(
@@ -2849,6 +3209,159 @@ def check_summary(
         "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_mirror_kernel_arg_violation_count": _as_int(
             aggregate.get(
                 "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_mirror_kernel_arg_violation_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_checked_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_checked_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_record_ready_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_record_ready_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_hash_checked_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_hash_checked_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_hash_missing_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_hash_missing_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_mirror_hash_checked_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_mirror_hash_checked_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_mirror_hash_missing_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_mirror_hash_missing_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_slot_hash_checked_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_slot_hash_checked_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_slot_hash_missing_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_slot_hash_missing_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_mode": str(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_mode"
+            )
+            or ""
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_mode_checked_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_mode_checked_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_mode_missing_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_mode_missing_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_mode_mismatch_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_mode_mismatch_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_block_reason": str(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_block_reason"
+            )
+            or ""
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_block_reason_checked_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_block_reason_checked_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_block_reason_missing_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_block_reason_missing_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_block_reason_mismatch_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_block_reason_mismatch_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_mirror_ready_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_mirror_ready_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_gate_allowed_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_gate_allowed_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_blocked_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_blocked_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_row_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_row_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_column_count_max": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_column_count_max"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_column_count_min": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_column_count_min"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_schema_hash": str(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_schema_hash"
+            )
+            or ""
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_schema_hash_checked_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_schema_hash_checked_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_schema_hash_missing_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_schema_hash_missing_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_schema_hash_mismatch_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_schema_hash_mismatch_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_payload_bytes": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_payload_bytes"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_payload_violation_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_payload_violation_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_passed_to_kernel_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_passed_to_kernel_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_kernel_arg_violation_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_kernel_arg_violation_count"
             )
         ),
         "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_consumed_checked_count": _as_int(

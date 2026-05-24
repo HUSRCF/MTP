@@ -523,6 +523,42 @@ def test_controlled_premap_address_manager_executes_descriptor_prep_readonly():
     assert shim_result.kernel_arg_handoff_mirror_payload_bytes == 0
     assert shim_result.kernel_arg_handoff_mirror_passed_to_kernel is False
     assert shim_result.kernel_arg_handoff_mirror_changes_kernel_launch_args is False
+    assert (
+        shim_result.kernel_arg_handoff_attempt_mode
+        == "readonly_kernel_arg_handoff_attempt"
+    )
+    assert shim_result.kernel_arg_handoff_attempt_record_ready is True
+    assert shim_result.kernel_arg_handoff_attempt_hash
+    assert (
+        shim_result.kernel_arg_handoff_attempt_mirror_hash
+        == shim_result.kernel_arg_handoff_mirror_hash
+    )
+    assert (
+        shim_result.kernel_arg_handoff_attempt_slot_hash
+        == shim_result.kernel_arg_handoff_shadow_slot_hash
+    )
+    assert (
+        shim_result.kernel_arg_handoff_attempt_table_object_hash
+        == table_object.object_hash
+    )
+    assert shim_result.kernel_arg_handoff_attempt_row_count == 2
+    assert shim_result.kernel_arg_handoff_attempt_column_count == 4
+    assert (
+        shim_result.kernel_arg_handoff_attempt_schema_hash
+        == PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH
+    )
+    assert shim_result.kernel_arg_handoff_attempt_mirror_ready is True
+    assert shim_result.kernel_arg_handoff_attempt_gate_allowed is False
+    assert shim_result.kernel_arg_handoff_attempt_blocked is True
+    assert (
+        shim_result.kernel_arg_handoff_attempt_block_reason
+        == "kernel_arg_handoff_disabled_noop_gate"
+    )
+    assert shim_result.kernel_arg_handoff_attempt_payload_bytes == 0
+    assert shim_result.kernel_arg_handoff_attempt_passed_to_kernel is False
+    assert (
+        shim_result.kernel_arg_handoff_attempt_changes_kernel_launch_args is False
+    )
     assert shim_result.handle_table_object_consumed is True
     assert shim_result.handle_table_object_hash == table_object.object_hash
     assert shim_result.handle_table_object_row_count == 2

@@ -504,6 +504,81 @@ class PremapKernelArgHandoffMirrorObject:
         }
 
 
+@dataclass(frozen=True)
+class PremapKernelArgHandoffAttemptRecord:
+    """No-op record for a future kernel-argument handoff attempt.
+
+    This is intentionally one step past the mirror object: the runtime has a
+    complete argument-package mirror, but the lab gate still blocks passing it
+    to the live fused-MoE/AWQ kernel.  The record exists only for audit and
+    fallback accounting.
+    """
+
+    mode: str
+    mirror_hash: str
+    slot_hash: str
+    table_object_hash: str
+    row_count: int
+    column_count: int
+    schema_hash: str
+    mirror_ready: bool
+    gate_allowed: bool
+    blocked: bool
+    block_reason: str
+    payload_bytes: int = 0
+    passed_to_kernel: bool = False
+    changes_kernel_launch_args: bool = False
+
+    @property
+    def record_ready(self) -> bool:
+        return (
+            self.mode == "readonly_kernel_arg_handoff_attempt"
+            and bool(self.mirror_hash)
+            and bool(self.slot_hash)
+            and bool(self.table_object_hash)
+            and int(self.row_count) > 0
+            and int(self.column_count)
+            == len(PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_COLUMNS)
+            and str(self.schema_hash)
+            == PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH
+            and bool(self.mirror_ready)
+            and not bool(self.gate_allowed)
+            and bool(self.blocked)
+            and str(self.block_reason) == "kernel_arg_handoff_disabled_noop_gate"
+            and int(self.payload_bytes) == 0
+            and not bool(self.passed_to_kernel)
+            and not bool(self.changes_kernel_launch_args)
+        )
+
+    @property
+    def attempt_hash(self) -> str:
+        payload = json.dumps(
+            self.as_dict(),
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+        return hashlib.sha256(payload).hexdigest()
+
+    def as_dict(self) -> dict[str, int | bool | str]:
+        return {
+            "mode": str(self.mode),
+            "record_ready": bool(self.record_ready),
+            "mirror_hash": str(self.mirror_hash),
+            "slot_hash": str(self.slot_hash),
+            "table_object_hash": str(self.table_object_hash),
+            "row_count": int(self.row_count),
+            "column_count": int(self.column_count),
+            "schema_hash": str(self.schema_hash),
+            "mirror_ready": bool(self.mirror_ready),
+            "gate_allowed": bool(self.gate_allowed),
+            "blocked": bool(self.blocked),
+            "block_reason": str(self.block_reason),
+            "payload_bytes": int(self.payload_bytes),
+            "passed_to_kernel": bool(self.passed_to_kernel),
+            "changes_kernel_launch_args": bool(self.changes_kernel_launch_args),
+        }
+
+
 @dataclass
 class PremapAddressCacheEntry:
     descriptor_bytes: int
@@ -702,6 +777,22 @@ class PremapDescriptorConsumerShimResult:
     kernel_arg_handoff_mirror_payload_bytes: int = 0
     kernel_arg_handoff_mirror_passed_to_kernel: bool = False
     kernel_arg_handoff_mirror_changes_kernel_launch_args: bool = False
+    kernel_arg_handoff_attempt_mode: str | None = None
+    kernel_arg_handoff_attempt_record_ready: bool | None = None
+    kernel_arg_handoff_attempt_hash: str | None = None
+    kernel_arg_handoff_attempt_mirror_hash: str | None = None
+    kernel_arg_handoff_attempt_slot_hash: str | None = None
+    kernel_arg_handoff_attempt_table_object_hash: str | None = None
+    kernel_arg_handoff_attempt_row_count: int | None = None
+    kernel_arg_handoff_attempt_column_count: int | None = None
+    kernel_arg_handoff_attempt_schema_hash: str | None = None
+    kernel_arg_handoff_attempt_mirror_ready: bool | None = None
+    kernel_arg_handoff_attempt_gate_allowed: bool | None = None
+    kernel_arg_handoff_attempt_blocked: bool | None = None
+    kernel_arg_handoff_attempt_block_reason: str | None = None
+    kernel_arg_handoff_attempt_payload_bytes: int = 0
+    kernel_arg_handoff_attempt_passed_to_kernel: bool = False
+    kernel_arg_handoff_attempt_changes_kernel_launch_args: bool = False
     handle_table_object_consumed: bool | None = None
     handle_table_object_hash: str | None = None
     handle_table_object_row_count: int | None = None
@@ -1616,6 +1707,7 @@ class ControlledPremapAddressManager:
         handoff_optional_miss_count = None
         handoff_shadow_slot: PremapKernelArgHandoffShadowSlot | None = None
         handoff_mirror: PremapKernelArgHandoffMirrorObject | None = None
+        handoff_attempt: PremapKernelArgHandoffAttemptRecord | None = None
         if (
             table_consume_source_hit_counts is not None
             and table_consume_source_miss_counts is not None
@@ -1713,6 +1805,22 @@ class ControlledPremapAddressManager:
                     required_source_miss_count=handoff_required_miss_count,
                     optional_source_hit_count=handoff_optional_hit_count,
                     optional_source_miss_count=handoff_optional_miss_count,
+                    payload_bytes=0,
+                    passed_to_kernel=False,
+                    changes_kernel_launch_args=False,
+                )
+                handoff_attempt = PremapKernelArgHandoffAttemptRecord(
+                    mode="readonly_kernel_arg_handoff_attempt",
+                    mirror_hash=handoff_mirror.mirror_hash,
+                    slot_hash=handoff_shadow_slot.slot_hash,
+                    table_object_hash=table_object.object_hash,
+                    row_count=handoff_row_count,
+                    column_count=handoff_column_count,
+                    schema_hash=handoff_schema_hash,
+                    mirror_ready=handoff_mirror.ready,
+                    gate_allowed=False,
+                    blocked=True,
+                    block_reason="kernel_arg_handoff_disabled_noop_gate",
                     payload_bytes=0,
                     passed_to_kernel=False,
                     changes_kernel_launch_args=False,
@@ -1901,9 +2009,71 @@ class ControlledPremapAddressManager:
                 if handoff_mirror is not None
                 else None
             ),
-            kernel_arg_handoff_mirror_payload_bytes=0,
-            kernel_arg_handoff_mirror_passed_to_kernel=False,
-            kernel_arg_handoff_mirror_changes_kernel_launch_args=False,
+            kernel_arg_handoff_mirror_payload_bytes=(
+                handoff_mirror.payload_bytes if handoff_mirror is not None else 0
+            ),
+            kernel_arg_handoff_mirror_passed_to_kernel=(
+                handoff_mirror.passed_to_kernel if handoff_mirror is not None else False
+            ),
+            kernel_arg_handoff_mirror_changes_kernel_launch_args=(
+                handoff_mirror.changes_kernel_launch_args
+                if handoff_mirror is not None
+                else False
+            ),
+            kernel_arg_handoff_attempt_mode=(
+                handoff_attempt.mode if handoff_attempt is not None else None
+            ),
+            kernel_arg_handoff_attempt_record_ready=(
+                handoff_attempt.record_ready if handoff_attempt is not None else None
+            ),
+            kernel_arg_handoff_attempt_hash=(
+                handoff_attempt.attempt_hash if handoff_attempt is not None else None
+            ),
+            kernel_arg_handoff_attempt_mirror_hash=(
+                handoff_attempt.mirror_hash if handoff_attempt is not None else None
+            ),
+            kernel_arg_handoff_attempt_slot_hash=(
+                handoff_attempt.slot_hash if handoff_attempt is not None else None
+            ),
+            kernel_arg_handoff_attempt_table_object_hash=(
+                handoff_attempt.table_object_hash
+                if handoff_attempt is not None
+                else None
+            ),
+            kernel_arg_handoff_attempt_row_count=(
+                handoff_attempt.row_count if handoff_attempt is not None else None
+            ),
+            kernel_arg_handoff_attempt_column_count=(
+                handoff_attempt.column_count if handoff_attempt is not None else None
+            ),
+            kernel_arg_handoff_attempt_schema_hash=(
+                handoff_attempt.schema_hash if handoff_attempt is not None else None
+            ),
+            kernel_arg_handoff_attempt_mirror_ready=(
+                handoff_attempt.mirror_ready if handoff_attempt is not None else None
+            ),
+            kernel_arg_handoff_attempt_gate_allowed=(
+                handoff_attempt.gate_allowed if handoff_attempt is not None else None
+            ),
+            kernel_arg_handoff_attempt_blocked=(
+                handoff_attempt.blocked if handoff_attempt is not None else None
+            ),
+            kernel_arg_handoff_attempt_block_reason=(
+                handoff_attempt.block_reason if handoff_attempt is not None else None
+            ),
+            kernel_arg_handoff_attempt_payload_bytes=(
+                handoff_attempt.payload_bytes if handoff_attempt is not None else 0
+            ),
+            kernel_arg_handoff_attempt_passed_to_kernel=(
+                handoff_attempt.passed_to_kernel
+                if handoff_attempt is not None
+                else False
+            ),
+            kernel_arg_handoff_attempt_changes_kernel_launch_args=(
+                handoff_attempt.changes_kernel_launch_args
+                if handoff_attempt is not None
+                else False
+            ),
             handle_table_object_consumed=table_object_consumed,
             handle_table_object_hash=table_object_hash,
             handle_table_object_row_count=table_object_row_count,

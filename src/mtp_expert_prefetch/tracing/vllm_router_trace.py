@@ -293,6 +293,36 @@ RUNTIME_SHADOW_AGGREGATE_PERFORMANCE_KEYS = (
     "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_mirror_payload_violation_count",
     "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_mirror_passed_to_kernel_count",
     "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_mirror_kernel_arg_violation_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_checked_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_record_ready_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_hash_checked_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_hash_missing_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_mirror_hash_checked_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_mirror_hash_missing_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_slot_hash_checked_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_slot_hash_missing_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_mode",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_mode_checked_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_mode_missing_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_mode_mismatch_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_block_reason",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_block_reason_checked_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_block_reason_missing_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_block_reason_mismatch_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_mirror_ready_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_gate_allowed_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_blocked_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_row_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_column_count_max",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_column_count_min",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_schema_hash",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_schema_hash_checked_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_schema_hash_missing_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_schema_hash_mismatch_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_payload_bytes",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_payload_violation_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_passed_to_kernel_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_kernel_arg_violation_count",
     "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_consumed_checked_count",
     "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_consumed_count",
     "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_consumed_rate",
@@ -3286,6 +3316,100 @@ class VllmRouterRecorder:
                 descriptor_prep_consumer_shim_kernel_arg_handoff_mirror_changes_kernel_launch_args=(
                     bool(
                         descriptor_consumer_shim_result.kernel_arg_handoff_mirror_changes_kernel_launch_args
+                    )
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_mode=(
+                    descriptor_consumer_shim_result.kernel_arg_handoff_attempt_mode
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_record_ready=(
+                    descriptor_consumer_shim_result.kernel_arg_handoff_attempt_record_ready
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_hash=(
+                    descriptor_consumer_shim_result.kernel_arg_handoff_attempt_hash
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_mirror_hash=(
+                    descriptor_consumer_shim_result.kernel_arg_handoff_attempt_mirror_hash
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_slot_hash=(
+                    descriptor_consumer_shim_result.kernel_arg_handoff_attempt_slot_hash
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_table_object_hash=(
+                    descriptor_consumer_shim_result.kernel_arg_handoff_attempt_table_object_hash
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_row_count=(
+                    int(descriptor_consumer_shim_result.kernel_arg_handoff_attempt_row_count)
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.kernel_arg_handoff_attempt_row_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_column_count=(
+                    int(descriptor_consumer_shim_result.kernel_arg_handoff_attempt_column_count)
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.kernel_arg_handoff_attempt_column_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_schema_hash=(
+                    descriptor_consumer_shim_result.kernel_arg_handoff_attempt_schema_hash
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_mirror_ready=(
+                    descriptor_consumer_shim_result.kernel_arg_handoff_attempt_mirror_ready
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_gate_allowed=(
+                    descriptor_consumer_shim_result.kernel_arg_handoff_attempt_gate_allowed
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_blocked=(
+                    descriptor_consumer_shim_result.kernel_arg_handoff_attempt_blocked
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_block_reason=(
+                    descriptor_consumer_shim_result.kernel_arg_handoff_attempt_block_reason
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_payload_bytes=(
+                    int(
+                        descriptor_consumer_shim_result.kernel_arg_handoff_attempt_payload_bytes
+                    )
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_passed_to_kernel=(
+                    bool(
+                        descriptor_consumer_shim_result.kernel_arg_handoff_attempt_passed_to_kernel
+                    )
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_changes_kernel_launch_args=(
+                    bool(
+                        descriptor_consumer_shim_result.kernel_arg_handoff_attempt_changes_kernel_launch_args
                     )
                     if descriptor_consumer_shim_result is not None
                     else None

@@ -881,6 +881,105 @@ def _assert_consumer_shim_table_consume_event(consumer: dict[str, object]) -> No
         ]
         is False
     )
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_mode"
+        ]
+        == "readonly_kernel_arg_handoff_attempt"
+    )
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_record_ready"
+        ]
+        is True
+    )
+    assert consumer[
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_hash"
+    ]
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_mirror_hash"
+        ]
+        == consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_mirror_hash"
+        ]
+    )
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_slot_hash"
+        ]
+        == consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_hash"
+        ]
+    )
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_table_object_hash"
+        ]
+        == consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_hash"
+        ]
+    )
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_row_count"
+        ]
+        == 2
+    )
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_column_count"
+        ]
+        == 4
+    )
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_schema_hash"
+        ]
+        == PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH
+    )
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_mirror_ready"
+        ]
+        is True
+    )
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_gate_allowed"
+        ]
+        is False
+    )
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_blocked"
+        ]
+        is True
+    )
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_block_reason"
+        ]
+        == "kernel_arg_handoff_disabled_noop_gate"
+    )
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_payload_bytes"
+        ]
+        == 0
+    )
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_passed_to_kernel"
+        ]
+        is False
+    )
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_changes_kernel_launch_args"
+        ]
+        is False
+    )
 
 
 def _assert_consumer_shim_prep_execution_dry_run_event(

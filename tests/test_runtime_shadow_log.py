@@ -483,6 +483,32 @@ def test_shadow_log_aggregates_premap_consumer_mapping_without_side_effects(tmp_
         descriptor_prep_consumer_shim_kernel_arg_handoff_mirror_payload_bytes=0,
         descriptor_prep_consumer_shim_kernel_arg_handoff_mirror_passed_to_kernel=False,
         descriptor_prep_consumer_shim_kernel_arg_handoff_mirror_changes_kernel_launch_args=False,
+        descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_mode=(
+            "readonly_kernel_arg_handoff_attempt"
+        ),
+        descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_record_ready=True,
+        descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_hash="attempt-hash",
+        descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_mirror_hash=(
+            "mirror-hash"
+        ),
+        descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_slot_hash="slot-hash",
+        descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_table_object_hash=(
+            "table-object-hash"
+        ),
+        descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_row_count=2,
+        descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_column_count=4,
+        descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_schema_hash=(
+            PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH
+        ),
+        descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_mirror_ready=True,
+        descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_gate_allowed=False,
+        descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_blocked=True,
+        descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_block_reason=(
+            "kernel_arg_handoff_disabled_noop_gate"
+        ),
+        descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_payload_bytes=0,
+        descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_passed_to_kernel=False,
+        descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_changes_kernel_launch_args=False,
         descriptor_prep_consumer_shim_prep_execution_dry_run_mode=(
             "readonly_descriptor_address_prep_execution_dry_run"
         ),
@@ -1317,6 +1343,102 @@ def test_shadow_log_aggregates_premap_consumer_mapping_without_side_effects(tmp_
     assert (
         aggregate[
             "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_mirror_kernel_arg_violation_count"
+        ]
+        == 0
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_checked_count"
+        ]
+        == 1
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_record_ready_count"
+        ]
+        == 1
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_hash_checked_count"
+        ]
+        == 1
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_mirror_hash_checked_count"
+        ]
+        == 1
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_slot_hash_checked_count"
+        ]
+        == 1
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_mode"
+        ]
+        == "readonly_kernel_arg_handoff_attempt"
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_block_reason"
+        ]
+        == "kernel_arg_handoff_disabled_noop_gate"
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_mirror_ready_count"
+        ]
+        == 1
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_gate_allowed_count"
+        ]
+        == 0
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_blocked_count"
+        ]
+        == 1
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_row_count"
+        ]
+        == 2
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_column_count_max"
+        ]
+        == 4
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_schema_hash"
+        ]
+        == PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_payload_bytes"
+        ]
+        == 0
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_passed_to_kernel_count"
+        ]
+        == 0
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_kernel_arg_violation_count"
         ]
         == 0
     )

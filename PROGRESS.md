@@ -2,9 +2,10 @@
 
 ## Progress Version
 
-- Version: `v0.12-descriptor-order-runtime-gate`
-- Updated: 2026-05-09
-- Current phase: descriptor-order online audit passed; preparing explicit vLLM/HIP no-op assertion patch boundary
+- Version: `v0.13-premap-kernel-arg-handoff-noop-gate`
+- Updated: 2026-05-25
+- Current phase: premap descriptor/address prep reaches kernel-arg handoff
+  attempt mirror under a strict no-op gate
 
 ## Runtime Policy Contract
 
@@ -440,26 +441,74 @@ result:
   consume_passed_to_kernel_count = 0
 ```
 
-Current gate boundary:
+Kernel-arg handoff shadow / mirror / attempt gate:
 
 ```text
-The consume-table path is implemented and smoke-validated, but it is not yet
-promoted into the lab-default readonly gate artifact.
+implemented:
+  consumer shim builds a future kernel-argument shadow table
+  shim consumes the prepared table object in read-only mode
+  shim builds a kernel-arg handoff mirror
+  shim builds a readonly kernel-arg handoff attempt record
 
-A 128-sample rerun completed trace generation but produced an empty
-runtime_shadow.jsonl, so it cannot be used as strict consume-table gate
-evidence.  The strict checker correctly fails that attempt with missing
-premap_summary / premap_consumer_mapping event types.
+contract:
+  mode = readonly_kernel_arg_handoff_attempt
+  block_reason = kernel_arg_handoff_disabled_noop_gate
+  gate_allowed = false
+  blocked = true
+  mirror_ready = true
+  record_ready = true
+  payload bytes remain 0
+  passed_to_kernel remains false
+  kernel launch args remain unchanged
+  ready credit remains false
+  router / descriptor-order remain unchanged
 
-The lab-default artifact therefore remains at:
-  real descriptor prep
-  kernel-arg shadow table
-  consumer shim table-read
+strict smoke evidence:
+  artifact:
+    data/traces/
+      external_prompt_gate_dolly_8_awq_vllm_gpu1_decode_gen64_longrun_audit_smoke/
 
-Next gate:
-  restore non-empty premap-only runtime shadow emission for the 128-sample
-  long-run config, then re-run with --require-consumer-shim-table-consume and
-  only then promote consumer_shim_table_consume_required into the lab artifact.
+  checker:
+    scripts/check_premap_longrun_audit_gate.py
+      --require-readonly-consumer
+      --require-descriptor-prep
+      --require-real-descriptor-prep
+      --require-kernel-arg-shadow-table
+      --require-consumer-shim-table-read
+      --require-consumer-shim-table-consume
+      --require-consumer-shim-table-object
+      --require-consumer-shim-prep-execution
+
+  result:
+    passed = true
+    premap_summary = 640
+    consumer_shim_executed = 640
+    handle_table_consume_ok_rate = 1.0
+    handle_table_object_consumed_rate = 1.0
+    prep_execution_dry_run_ok_rate = 1.0
+    kernel_arg_handoff_shadow_slot_ready_count = 640
+    kernel_arg_handoff_mirror_ready_count = 640
+    kernel_arg_handoff_attempt_record_ready_count = 640
+    kernel_arg_handoff_attempt_blocked_count = 640
+    kernel_arg_handoff_attempt_gate_allowed_count = 0
+    kernel_arg_handoff_attempt_payload_bytes = 0
+    kernel_arg_handoff_attempt_passed_to_kernel_count = 0
+    kernel_arg_handoff_attempt_kernel_arg_violation_count = 0
+    row_count = 1280
+    prepared handle rows = 6965
+```
+
+Interpretation:
+
+```text
+Premap is now represented as a real descriptor/address preparation object that
+can be read by the prelaunch consumer shim and packaged into the same shape a
+future fused-MoE/AWQ kernel-argument handoff would consume.
+
+The current gate deliberately stops at an audited handoff attempt record.  It
+does not pass the package to the kernel, does not move payload, and does not
+grant ready-before-demand credit.  This is a kernel-arg handoff no-op safety
+gate, not a performance or endpoint-runtime claim.
 ```
 
 ## Evidence Lock
