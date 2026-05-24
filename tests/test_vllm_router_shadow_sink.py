@@ -6,6 +6,7 @@ from mtp_expert_prefetch.runtime import (
     DescriptorOrderExecutionEvidence,
     DescriptorOrderRuntimeGate,
     OnlineShadowLogger,
+    PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH,
     RuntimeShadowController,
     TileRequest,
     build_layer_tile_prior,
@@ -681,6 +682,18 @@ def _assert_consumer_shim_table_consume_event(consumer: dict[str, object]) -> No
             "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_row_count"
         ]
         == 2
+    )
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_column_count"
+        ]
+        == 4
+    )
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_schema_hash"
+        ]
+        == PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH
     )
     assert (
         consumer[

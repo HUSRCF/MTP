@@ -461,6 +461,11 @@ def test_controlled_premap_address_manager_executes_descriptor_prep_readonly():
     )
     assert shim_result.kernel_arg_handoff_dry_run_ready is True
     assert shim_result.kernel_arg_handoff_dry_run_row_count == 2
+    assert shim_result.kernel_arg_handoff_dry_run_column_count == 4
+    assert (
+        shim_result.kernel_arg_handoff_dry_run_schema_hash
+        == PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH
+    )
     assert shim_result.kernel_arg_handoff_dry_run_required_source_hit_count == 6
     assert shim_result.kernel_arg_handoff_dry_run_required_source_miss_count == 0
     assert shim_result.kernel_arg_handoff_dry_run_optional_source_hit_count == 0

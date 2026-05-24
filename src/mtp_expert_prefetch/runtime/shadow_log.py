@@ -822,6 +822,12 @@ class ShadowPremapConsumerMappingEvent:
     descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_row_count: (
         int | None
     ) = None
+    descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_column_count: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_schema_hash: (
+        str | None
+    ) = None
     descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_required_source_hit_count: (
         int | None
     ) = None
@@ -1481,6 +1487,16 @@ class ShadowPremapConsumerMappingEvent:
         )
         _put_optional(
             payload,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_column_count",
+            self.descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_column_count,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_schema_hash",
+            self.descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_schema_hash,
+        )
+        _put_optional(
+            payload,
             "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_required_source_hit_count",
             self.descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_required_source_hit_count,
         )
@@ -2061,6 +2077,12 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
         "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_checked_count": 0,
         "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_ready_count": 0,
         "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_row_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_column_count_max": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_column_count_min": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_schema_hash": "",
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_schema_hash_checked_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_schema_hash_missing_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_schema_hash_mismatch_count": 0,
         "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_required_source_hit_count": 0,
         "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_required_source_miss_count": 0,
         "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_optional_source_hit_count": 0,
@@ -3033,6 +3055,58 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
                             )
                         )
                     )
+                    handoff_column_count = int(
+                        event.get(
+                            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_column_count",
+                            0,
+                        )
+                        or 0
+                    )
+                    if handoff_column_count > totals[
+                        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_column_count_max"
+                    ]:
+                        totals[
+                            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_column_count_max"
+                        ] = handoff_column_count
+                    if (
+                        totals[
+                            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_column_count_min"
+                        ]
+                        == 0
+                        or handoff_column_count
+                        < totals[
+                            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_column_count_min"
+                        ]
+                    ):
+                        totals[
+                            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_column_count_min"
+                        ] = handoff_column_count
+                    handoff_schema_hash = event.get(
+                        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_schema_hash"
+                    )
+                    if handoff_schema_hash:
+                        totals[
+                            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_schema_hash_checked_count"
+                        ] += 1
+                        if not totals[
+                            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_schema_hash"
+                        ]:
+                            totals[
+                                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_schema_hash"
+                            ] = str(handoff_schema_hash)
+                        elif (
+                            totals[
+                                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_schema_hash"
+                            ]
+                            != str(handoff_schema_hash)
+                        ):
+                            totals[
+                                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_schema_hash_mismatch_count"
+                            ] += 1
+                    else:
+                        totals[
+                            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_schema_hash_missing_count"
+                        ] += 1
                     for field in (
                         "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_row_count",
                         "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_required_source_hit_count",

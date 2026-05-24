@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from mtp_expert_prefetch.runtime import (
+    PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH,
     TileRequest,
     build_shadow_summary_from_descriptor_order,
     order_tile_request_stream,
@@ -431,6 +432,10 @@ def test_shadow_log_aggregates_premap_consumer_mapping_without_side_effects(tmp_
         ),
         descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_ready=True,
         descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_row_count=2,
+        descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_column_count=4,
+        descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_schema_hash=(
+            PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH
+        ),
         descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_required_source_hit_count=6,
         descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_required_source_miss_count=0,
         descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_optional_source_hit_count=0,
@@ -1033,6 +1038,36 @@ def test_shadow_log_aggregates_premap_consumer_mapping_without_side_effects(tmp_
             "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_row_count"
         ]
         == 2
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_column_count_max"
+        ]
+        == 4
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_column_count_min"
+        ]
+        == 4
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_schema_hash"
+        ]
+        == PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_schema_hash_checked_count"
+        ]
+        == 1
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_schema_hash_missing_count"
+        ]
+        == 0
     )
     assert (
         aggregate[

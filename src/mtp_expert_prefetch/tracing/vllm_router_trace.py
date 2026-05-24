@@ -240,6 +240,12 @@ RUNTIME_SHADOW_AGGREGATE_PERFORMANCE_KEYS = (
     "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_checked_count",
     "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_ready_count",
     "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_row_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_column_count_max",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_column_count_min",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_schema_hash",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_schema_hash_checked_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_schema_hash_missing_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_schema_hash_mismatch_count",
     "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_required_source_hit_count",
     "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_required_source_miss_count",
     "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_optional_source_hit_count",
@@ -2939,6 +2945,22 @@ class VllmRouterRecorder:
                         and descriptor_consumer_shim_result.kernel_arg_handoff_dry_run_row_count
                         is not None
                     )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_column_count=(
+                    int(
+                        descriptor_consumer_shim_result.kernel_arg_handoff_dry_run_column_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.kernel_arg_handoff_dry_run_column_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_schema_hash=(
+                    descriptor_consumer_shim_result.kernel_arg_handoff_dry_run_schema_hash
+                    if descriptor_consumer_shim_result is not None
                     else None
                 ),
                 descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_required_source_hit_count=(

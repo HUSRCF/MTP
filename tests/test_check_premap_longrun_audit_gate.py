@@ -154,6 +154,14 @@ def _passing_summary() -> dict:
             "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_mode_missing_count": 0,
             "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_mode_mismatch_count": 0,
             "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_row_count": 20,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_column_count_max": 4,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_column_count_min": 4,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_schema_hash": (
+                PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH
+            ),
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_schema_hash_checked_count": 2,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_schema_hash_missing_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_schema_hash_mismatch_count": 0,
             "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_required_source_hit_count": 60,
             "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_required_source_miss_count": 0,
             "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_optional_source_hit_count": 20,
@@ -623,6 +631,24 @@ def test_premap_longrun_audit_gate_accepts_consumer_shim_table_consume_contract(
     )
     assert (
         result["metrics"][
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_column_count_max"
+        ]
+        == 4
+    )
+    assert (
+        result["metrics"][
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_column_count_min"
+        ]
+        == 4
+    )
+    assert (
+        result["metrics"][
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_schema_hash"
+        ]
+        == PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH
+    )
+    assert (
+        result["metrics"][
             "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_required_source_miss_count"
         ]
         == 0
@@ -736,6 +762,18 @@ def test_premap_longrun_audit_gate_rejects_kernel_arg_handoff_dry_run_instabilit
         "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_required_source_hit_count"
     ] = 59
     aggregate[
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_column_count_max"
+    ] = 3
+    aggregate[
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_schema_hash"
+    ] = "bad-schema"
+    aggregate[
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_schema_hash_checked_count"
+    ] = 1
+    aggregate[
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_schema_hash_missing_count"
+    ] = 1
+    aggregate[
         "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_required_source_miss_count"
     ] = 1
     aggregate[
@@ -767,6 +805,22 @@ def test_premap_longrun_audit_gate_rejects_kernel_arg_handoff_dry_run_instabilit
     )
     assert (
         "consumer_shim_kernel_arg_handoff_dry_run_required_source_hit_count_mismatch=59!=60"
+        in result["failures"]
+    )
+    assert (
+        "consumer_shim_kernel_arg_handoff_dry_run_column_count_max_mismatch=3!=4"
+        in result["failures"]
+    )
+    assert (
+        "consumer_shim_kernel_arg_handoff_dry_run_schema_hash_mismatch"
+        in result["failures"]
+    )
+    assert (
+        "consumer_shim_kernel_arg_handoff_dry_run_schema_hash_checked_count_mismatch=1!=2"
+        in result["failures"]
+    )
+    assert (
+        "consumer_shim_kernel_arg_handoff_dry_run_schema_hash_missing_count_nonzero=1"
         in result["failures"]
     )
     assert (

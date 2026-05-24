@@ -494,6 +494,8 @@ class PremapDescriptorConsumerShimResult:
     kernel_arg_handoff_dry_run_mode: str | None = None
     kernel_arg_handoff_dry_run_ready: bool | None = None
     kernel_arg_handoff_dry_run_row_count: int | None = None
+    kernel_arg_handoff_dry_run_column_count: int | None = None
+    kernel_arg_handoff_dry_run_schema_hash: str | None = None
     kernel_arg_handoff_dry_run_required_source_hit_count: int | None = None
     kernel_arg_handoff_dry_run_required_source_miss_count: int | None = None
     kernel_arg_handoff_dry_run_optional_source_hit_count: int | None = None
@@ -1406,6 +1408,8 @@ class ControlledPremapAddressManager:
         handoff_mode = None
         handoff_ready = None
         handoff_row_count = None
+        handoff_column_count = None
+        handoff_schema_hash = None
         handoff_required_hit_count = None
         handoff_required_miss_count = None
         handoff_optional_hit_count = None
@@ -1417,6 +1421,8 @@ class ControlledPremapAddressManager:
         ):
             handoff_mode = "readonly_kernel_arg_handoff_dry_run"
             handoff_row_count = int(table_consume_row_count)
+            handoff_column_count = int(table_consume_column_count or 0)
+            handoff_schema_hash = str(table_consume_schema_hash or "")
             handoff_required_hit_count = sum(
                 int(table_consume_source_hit_counts.get(source, 0) or 0)
                 for source in (
@@ -1441,6 +1447,10 @@ class ControlledPremapAddressManager:
             )
             handoff_ready = (
                 table_consume_ok is True
+                and handoff_column_count
+                == len(PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_COLUMNS)
+                and handoff_schema_hash
+                == PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH
                 and handoff_required_hit_count == handoff_row_count * 3
                 and handoff_required_miss_count == 0
                 and handoff_optional_hit_count + handoff_optional_miss_count
@@ -1516,6 +1526,8 @@ class ControlledPremapAddressManager:
             kernel_arg_handoff_dry_run_mode=handoff_mode,
             kernel_arg_handoff_dry_run_ready=handoff_ready,
             kernel_arg_handoff_dry_run_row_count=handoff_row_count,
+            kernel_arg_handoff_dry_run_column_count=handoff_column_count,
+            kernel_arg_handoff_dry_run_schema_hash=handoff_schema_hash,
             kernel_arg_handoff_dry_run_required_source_hit_count=(
                 handoff_required_hit_count
             ),

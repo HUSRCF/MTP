@@ -15328,6 +15328,9 @@ premap_address_resident_count_max = 10,127
 handoff_dry_run_checked = 10,195
 handoff_dry_run_ready = 10,195
 handoff_dry_run_row_count = 110,898
+handoff_dry_run_column_count_min/max = 4 / 4
+handoff_dry_run_schema_hash_checked = 10,195
+handoff_dry_run_schema_hash_missing = 0
 handoff_dry_run_required_source_hit_count = 332,694
 handoff_dry_run_required_source_miss_count = 0
 handoff_dry_run_optional_source_hit_count = 110,898
@@ -15340,6 +15343,10 @@ This upgrades the lab precondition from “prepared table object can be consumed
 to “prepared table object is ready for a future readonly kernel-argument
 handoff contract”, while still explicitly forbidding payload movement and
 kernel argument mutation.
+
+The handoff dry-run readiness is now schema-bound: the checker requires the
+same four-column handle-table schema used by the kernel-arg shadow table and
+rejects missing or mismatched schema hashes.
 
 ### 2026-05-24 - Lab gate now requires explicit prelaunch consumer table use
 
