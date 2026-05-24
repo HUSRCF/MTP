@@ -857,6 +857,35 @@ def test_premap_longrun_audit_gate_rejects_kernel_arg_handoff_attempt_unblocked(
     )
 
 
+def test_premap_longrun_audit_gate_rejects_partial_kernel_arg_handoff_attempt_fields():
+    summary = _passing_summary()
+    summary["aggregate"][
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_row_count"
+    ] = 20
+
+    result = check_summary(
+        summary,
+        max_capacity=12,
+        min_reuse_rate=0.98,
+        require_readonly_consumer=True,
+        require_descriptor_prep=True,
+        require_real_descriptor_prep=True,
+        require_kernel_arg_shadow_table=True,
+        require_consumer_shim_table_read=True,
+        require_consumer_shim_table_consume=True,
+    )
+
+    assert result["passed"] is False
+    assert (
+        "consumer_shim_kernel_arg_handoff_attempt_checked_count_mismatch=0!=2"
+        in result["failures"]
+    )
+    assert (
+        "consumer_shim_kernel_arg_handoff_attempt_mode_mismatch"
+        in result["failures"]
+    )
+
+
 def test_premap_longrun_audit_gate_rejects_missing_consume_field_reads():
     summary = _passing_summary()
     aggregate = summary["aggregate"]

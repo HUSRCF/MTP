@@ -22,6 +22,9 @@ REQUIRED_EVENT_TYPES = {"premap_summary", "premap_consumer_mapping"}
 EXPECTED_KERNEL_ARG_SHADOW_TABLE_COLUMN_COUNT = len(
     PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_COLUMNS
 )
+KERNEL_ARG_HANDOFF_ATTEMPT_PREFIX = (
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_"
+)
 
 
 def _normalize_summary(summary: dict[str, Any]) -> dict[str, Any]:
@@ -208,13 +211,7 @@ def check_summary(
     # the consume contract.
     consumer_shim_table_consume_active = consumer_shim_table_consume_checked_count > 0
     kernel_arg_handoff_attempt_active = any(
-        key in aggregate
-        for key in (
-            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_checked_count",
-            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_record_ready_count",
-            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_mode",
-            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_block_reason",
-        )
+        str(key).startswith(KERNEL_ARG_HANDOFF_ATTEMPT_PREFIX) for key in aggregate
     )
     if require_consumer_shim_table_consume and not consumer_shim_table_consume_active:
         failures.append("consumer_shim_table_consume_fields_missing")
@@ -1270,19 +1267,8 @@ def check_summary(
                     "premap_consumer_descriptor_prep_consumer_shim_handle_table_row_count"
                 )
             )
-            attempt_key_present = any(
-                key in aggregate
-                for key in (
-                    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_checked_count",
-                    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_record_ready_count",
-                    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_hash_checked_count",
-                    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_mode",
-                    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_block_reason",
-                    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_blocked_count",
-                )
-            )
             attempt_active = bool(
-                attempt_key_present
+                kernel_arg_handoff_attempt_active
                 or
                 attempt_checked_count
                 or attempt_record_ready_count
