@@ -582,6 +582,72 @@ def _assert_consumer_shim_table_consume_event(consumer: dict[str, object]) -> No
         ]
         == 0
     )
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_handle_field_read_count"
+        ]
+        == 8
+    )
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_required_handle_field_available_count"
+        ]
+        == 6
+    )
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_optional_handle_field_available_count"
+        ]
+        == 0
+    )
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_descriptor_ptr_field_read_count"
+        ]
+        == 2
+    )
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_packed_weight_descriptor_field_read_count"
+        ]
+        == 2
+    )
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_scale_metadata_handle_field_read_count"
+        ]
+        == 2
+    )
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_aux_metadata_handle_field_read_count"
+        ]
+        == 2
+    )
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_descriptor_ptr_field_available_count"
+        ]
+        == 2
+    )
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_packed_weight_descriptor_field_available_count"
+        ]
+        == 2
+    )
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_scale_metadata_handle_field_available_count"
+        ]
+        == 2
+    )
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_aux_metadata_handle_field_available_count"
+        ]
+        == 0
+    )
 
 
 def _assert_consumer_shim_prep_execution_dry_run_event(

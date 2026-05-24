@@ -410,6 +410,35 @@ def test_controlled_premap_address_manager_executes_descriptor_prep_readonly():
         shim_result.handle_table_consume_per_row_parity_ok_count
         == table_result.per_row_parity_ok_count
     )
+    assert shim_result.handle_table_consume_handle_field_read_count == 8
+    assert (
+        shim_result.handle_table_consume_required_handle_field_available_count
+        == 6
+    )
+    assert (
+        shim_result.handle_table_consume_optional_handle_field_available_count
+        == 0
+    )
+    assert shim_result.handle_table_consume_descriptor_ptr_field_read_count == 2
+    assert (
+        shim_result.handle_table_consume_packed_weight_descriptor_field_read_count
+        == 2
+    )
+    assert (
+        shim_result.handle_table_consume_scale_metadata_handle_field_read_count
+        == 2
+    )
+    assert shim_result.handle_table_consume_aux_metadata_handle_field_read_count == 2
+    assert shim_result.handle_table_consume_descriptor_ptr_field_available_count == 2
+    assert (
+        shim_result.handle_table_consume_packed_weight_descriptor_field_available_count
+        == 2
+    )
+    assert (
+        shim_result.handle_table_consume_scale_metadata_handle_field_available_count
+        == 2
+    )
+    assert shim_result.handle_table_consume_aux_metadata_handle_field_available_count == 0
     assert shim_result.handle_table_consume_row_miss_count == 0
     assert shim_result.handle_table_consume_stale_row_count == 0
     assert shim_result.handle_table_consume_passed_to_kernel is False

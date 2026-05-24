@@ -121,6 +121,17 @@ def _passing_summary() -> dict:
             "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_source_missing_count": 0,
             "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_source_mismatch_count": 0,
             "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_per_row_parity_ok_count": 20,
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_handle_field_read_count": 80,
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_required_handle_field_available_count": 60,
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_optional_handle_field_available_count": 20,
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_descriptor_ptr_field_read_count": 20,
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_packed_weight_descriptor_field_read_count": 20,
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_scale_metadata_handle_field_read_count": 20,
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_aux_metadata_handle_field_read_count": 20,
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_descriptor_ptr_field_available_count": 20,
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_packed_weight_descriptor_field_available_count": 20,
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_scale_metadata_handle_field_available_count": 20,
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_aux_metadata_handle_field_available_count": 20,
             "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_row_miss_count": 0,
             "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_stale_row_count": 0,
             "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_payload_bytes": 0,
@@ -541,6 +552,71 @@ def test_premap_longrun_audit_gate_accepts_consumer_shim_table_consume_contract(
     assert result["metrics"][
         "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_source"
     ] == "canonical_address_key_order"
+    assert (
+        result["metrics"][
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_handle_field_read_count"
+        ]
+        == 80
+    )
+    assert (
+        result["metrics"][
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_required_handle_field_available_count"
+        ]
+        == 60
+    )
+    assert (
+        result["metrics"][
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_aux_metadata_handle_field_available_count"
+        ]
+        == 20
+    )
+
+
+def test_premap_longrun_audit_gate_rejects_missing_consume_field_reads():
+    summary = _passing_summary()
+    aggregate = summary["aggregate"]
+    aggregate[
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_handle_field_read_count"
+    ] = 79
+    aggregate[
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_required_handle_field_available_count"
+    ] = 59
+    aggregate[
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_descriptor_ptr_field_read_count"
+    ] = 19
+    aggregate[
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_scale_metadata_handle_field_available_count"
+    ] = 19
+
+    result = check_summary(
+        summary,
+        max_capacity=12,
+        min_reuse_rate=0.98,
+        require_readonly_consumer=True,
+        require_descriptor_prep=True,
+        require_real_descriptor_prep=True,
+        require_kernel_arg_shadow_table=True,
+        require_consumer_shim_table_read=True,
+        require_consumer_shim_table_consume=True,
+    )
+
+    assert result["passed"] is False
+    assert (
+        "consumer_shim_table_consume_handle_field_read_count_mismatch=79!=80"
+        in result["failures"]
+    )
+    assert (
+        "consumer_shim_table_consume_required_handle_field_available_count_mismatch=59!=60"
+        in result["failures"]
+    )
+    assert (
+        "consumer_shim_table_consume_descriptor_ptr_field_read_count_mismatch=19!=20"
+        in result["failures"]
+    )
+    assert (
+        "consumer_shim_table_consume_scale_metadata_handle_field_available_count_mismatch=19!=20"
+        in result["failures"]
+    )
 
 
 def test_premap_longrun_audit_gate_accepts_consumer_shim_table_object_contract():

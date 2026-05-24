@@ -46,6 +46,7 @@ def _write_readonly_gate(
     require_consumer_shim_table_read: bool | None = None,
     consumer_shim_table_consume_required: bool | None = None,
     require_consumer_shim_table_consume: bool | None = None,
+    consumer_shim_table_consume_handle_field_reads_required: bool | None = None,
     consumer_shim_table_object_required: bool | None = None,
     require_consumer_shim_table_object: bool | None = None,
     consumer_shim_prep_execution_required: bool | None = None,
@@ -69,6 +70,8 @@ def _write_readonly_gate(
             consumer_shim_table_consume_required = True
         if require_consumer_shim_table_consume is None:
             require_consumer_shim_table_consume = True
+        if consumer_shim_table_consume_handle_field_reads_required is None:
+            consumer_shim_table_consume_handle_field_reads_required = True
         if consumer_shim_table_object_required is None:
             consumer_shim_table_object_required = True
         if require_consumer_shim_table_object is None:
@@ -131,6 +134,11 @@ def _write_readonly_gate(
         lines.append(
             "  consumer_shim_table_consume_required: "
             f"{str(bool(consumer_shim_table_consume_required)).lower()}"
+        )
+    if consumer_shim_table_consume_handle_field_reads_required is not None:
+        lines.append(
+            "  consumer_shim_table_consume_handle_field_reads_required: "
+            f"{str(bool(consumer_shim_table_consume_handle_field_reads_required)).lower()}"
         )
     if consumer_shim_table_object_required is not None:
         lines.append(
@@ -610,6 +618,41 @@ def test_apply_premap_consumer_readonly_gate_requires_consumer_shim_table_consum
         )
 
 
+def test_apply_premap_consumer_readonly_gate_requires_consumer_shim_table_consume_field_read_contract(
+    tmp_path,
+):
+    gate = tmp_path / "readonly_gate.yaml"
+    _write_readonly_gate(
+        gate,
+        lab_precondition=True,
+        descriptor_prep_execution_mode="readonly_descriptor_address_object",
+        descriptor_prep_payload_bytes=0,
+        descriptor_prep_kernel_arg_mutation=False,
+        consumer_shim_table_consume_handle_field_reads_required=False,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="consumer_shim_table_consume_handle_field_reads_required",
+    ):
+        _apply_premap_consumer_readonly_gate(
+            {
+                "enabled": True,
+                "emit_premap_consumer_mapping": True,
+                "premap_consumer_require_readonly_gate": True,
+                "premap_consumer_readonly_gate_path": str(gate),
+                "premap_consumer_mapping_mode": "noop_assertion",
+                "premap_consumer_resolve_real_handles": True,
+                "premap_policy": "premap_only_with_consumer_mapping_noop",
+                "premap_descriptor_bytes": 4096,
+                "premap_descriptor_prep_execution_mode": (
+                    "readonly_descriptor_address_object"
+                ),
+            },
+            project_root=tmp_path,
+        )
+
+
 def test_apply_premap_consumer_readonly_gate_requires_consumer_shim_table_object_contract(tmp_path):
     gate = tmp_path / "readonly_gate.yaml"
     _write_readonly_gate(
@@ -1068,6 +1111,12 @@ def test_default_longrun_audit_config_uses_premap_capacity_gate(
     assert readonly_gate["contract"]["consumer_shim_table_consume_required"] is True
     assert readonly_gate["gate"]["check"]["require_consumer_shim_table_consume"] is True
     assert (
+        readonly_gate["contract"][
+            "consumer_shim_table_consume_handle_field_reads_required"
+        ]
+        is True
+    )
+    assert (
         readonly_gate["gate"]["metrics"][
             "premap_consumer_descriptor_prep_kernel_arg_shadow_table_ok_rate"
         ]
@@ -1120,6 +1169,18 @@ def test_default_longrun_audit_config_uses_premap_capacity_gate(
             "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_passed_to_kernel_count"
         ]
         == 0
+    )
+    assert (
+        readonly_gate["gate"]["metrics"][
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_handle_field_read_count"
+        ]
+        == 443592
+    )
+    assert (
+        readonly_gate["gate"]["metrics"][
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_required_handle_field_available_count"
+        ]
+        == 332694
     )
     assert shadow["premap_policy"] == "premap_only_with_consumer_mapping_noop"
     assert shadow["premap_source"] == "current_router_topk_premap_shadow"

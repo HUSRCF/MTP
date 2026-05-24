@@ -652,6 +652,61 @@ def check_summary(
                     "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_per_row_parity_ok_count"
                 )
             )
+            consume_handle_field_read_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_handle_field_read_count"
+                )
+            )
+            consume_required_handle_field_available_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_required_handle_field_available_count"
+                )
+            )
+            consume_optional_handle_field_available_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_optional_handle_field_available_count"
+                )
+            )
+            consume_descriptor_ptr_field_read_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_descriptor_ptr_field_read_count"
+                )
+            )
+            consume_packed_weight_descriptor_field_read_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_packed_weight_descriptor_field_read_count"
+                )
+            )
+            consume_scale_metadata_handle_field_read_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_scale_metadata_handle_field_read_count"
+                )
+            )
+            consume_aux_metadata_handle_field_read_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_aux_metadata_handle_field_read_count"
+                )
+            )
+            consume_descriptor_ptr_field_available_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_descriptor_ptr_field_available_count"
+                )
+            )
+            consume_packed_weight_descriptor_field_available_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_packed_weight_descriptor_field_available_count"
+                )
+            )
+            consume_scale_metadata_handle_field_available_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_scale_metadata_handle_field_available_count"
+                )
+            )
+            consume_aux_metadata_handle_field_available_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_aux_metadata_handle_field_available_count"
+                )
+            )
             shim_table_row_count = _as_int(
                 aggregate.get(
                     "premap_consumer_descriptor_prep_consumer_shim_handle_table_row_count"
@@ -741,6 +796,77 @@ def check_summary(
                 failures.append(
                     "consumer_shim_table_consume_parity_count_mismatch="
                     f"{consume_parity_count}!={consume_row_count}"
+                )
+            expected_consume_field_reads = (
+                consume_row_count * EXPECTED_KERNEL_ARG_SHADOW_TABLE_COLUMN_COUNT
+            )
+            expected_consume_required_fields = consume_row_count * 3
+            if consume_handle_field_read_count != expected_consume_field_reads:
+                failures.append(
+                    "consumer_shim_table_consume_handle_field_read_count_mismatch="
+                    f"{consume_handle_field_read_count}!={expected_consume_field_reads}"
+                )
+            if (
+                consume_required_handle_field_available_count
+                != expected_consume_required_fields
+            ):
+                failures.append(
+                    "consumer_shim_table_consume_required_handle_field_available_count_mismatch="
+                    f"{consume_required_handle_field_available_count}!="
+                    f"{expected_consume_required_fields}"
+                )
+            for name, count in (
+                (
+                    "descriptor_ptr_field_read_count",
+                    consume_descriptor_ptr_field_read_count,
+                ),
+                (
+                    "packed_weight_descriptor_field_read_count",
+                    consume_packed_weight_descriptor_field_read_count,
+                ),
+                (
+                    "scale_metadata_handle_field_read_count",
+                    consume_scale_metadata_handle_field_read_count,
+                ),
+                (
+                    "aux_metadata_handle_field_read_count",
+                    consume_aux_metadata_handle_field_read_count,
+                ),
+                (
+                    "descriptor_ptr_field_available_count",
+                    consume_descriptor_ptr_field_available_count,
+                ),
+                (
+                    "packed_weight_descriptor_field_available_count",
+                    consume_packed_weight_descriptor_field_available_count,
+                ),
+                (
+                    "scale_metadata_handle_field_available_count",
+                    consume_scale_metadata_handle_field_available_count,
+                ),
+            ):
+                if count != consume_row_count:
+                    failures.append(
+                        f"consumer_shim_table_consume_{name}_mismatch="
+                        f"{count}!={consume_row_count}"
+                    )
+            if consume_optional_handle_field_available_count < 0:
+                failures.append(
+                    "consumer_shim_table_consume_optional_handle_field_available_count_negative"
+                )
+            if consume_optional_handle_field_available_count > consume_row_count:
+                failures.append(
+                    "consumer_shim_table_consume_optional_handle_field_available_count_exceeds_rows="
+                    f"{consume_optional_handle_field_available_count}>{consume_row_count}"
+                )
+            if consume_aux_metadata_handle_field_available_count < 0:
+                failures.append(
+                    "consumer_shim_table_consume_aux_metadata_handle_field_available_count_negative"
+                )
+            if consume_aux_metadata_handle_field_available_count > consume_row_count:
+                failures.append(
+                    "consumer_shim_table_consume_aux_metadata_handle_field_available_count_exceeds_rows="
+                    f"{consume_aux_metadata_handle_field_available_count}>{consume_row_count}"
                 )
             for field in (
                 "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_ok_rate",
@@ -1501,6 +1627,61 @@ def check_summary(
         "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_per_row_parity_ok_count": _as_int(
             aggregate.get(
                 "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_per_row_parity_ok_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_handle_field_read_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_handle_field_read_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_required_handle_field_available_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_required_handle_field_available_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_optional_handle_field_available_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_optional_handle_field_available_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_descriptor_ptr_field_read_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_descriptor_ptr_field_read_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_packed_weight_descriptor_field_read_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_packed_weight_descriptor_field_read_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_scale_metadata_handle_field_read_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_scale_metadata_handle_field_read_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_aux_metadata_handle_field_read_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_aux_metadata_handle_field_read_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_descriptor_ptr_field_available_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_descriptor_ptr_field_available_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_packed_weight_descriptor_field_available_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_packed_weight_descriptor_field_available_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_scale_metadata_handle_field_available_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_scale_metadata_handle_field_available_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_aux_metadata_handle_field_available_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_aux_metadata_handle_field_available_count"
             )
         ),
         "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_row_miss_count": _as_int(

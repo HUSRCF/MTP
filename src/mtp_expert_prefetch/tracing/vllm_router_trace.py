@@ -215,6 +215,17 @@ RUNTIME_SHADOW_AGGREGATE_PERFORMANCE_KEYS = (
     "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_per_row_parity_ok_count",
     "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_row_miss_count",
     "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_stale_row_count",
+    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_handle_field_read_count",
+    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_required_handle_field_available_count",
+    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_optional_handle_field_available_count",
+    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_descriptor_ptr_field_read_count",
+    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_packed_weight_descriptor_field_read_count",
+    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_scale_metadata_handle_field_read_count",
+    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_aux_metadata_handle_field_read_count",
+    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_descriptor_ptr_field_available_count",
+    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_packed_weight_descriptor_field_available_count",
+    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_scale_metadata_handle_field_available_count",
+    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_aux_metadata_handle_field_available_count",
     "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_passed_to_kernel_count",
     "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_payload_bytes",
     "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_payload_violation_count",
@@ -2730,6 +2741,127 @@ class VllmRouterRecorder:
                     if (
                         descriptor_consumer_shim_result is not None
                         and descriptor_consumer_shim_result.handle_table_consume_stale_row_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_handle_table_consume_handle_field_read_count=(
+                    int(
+                        descriptor_consumer_shim_result.handle_table_consume_handle_field_read_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.handle_table_consume_handle_field_read_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_handle_table_consume_required_handle_field_available_count=(
+                    int(
+                        descriptor_consumer_shim_result.handle_table_consume_required_handle_field_available_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.handle_table_consume_required_handle_field_available_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_handle_table_consume_optional_handle_field_available_count=(
+                    int(
+                        descriptor_consumer_shim_result.handle_table_consume_optional_handle_field_available_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.handle_table_consume_optional_handle_field_available_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_handle_table_consume_descriptor_ptr_field_read_count=(
+                    int(
+                        descriptor_consumer_shim_result.handle_table_consume_descriptor_ptr_field_read_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.handle_table_consume_descriptor_ptr_field_read_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_handle_table_consume_packed_weight_descriptor_field_read_count=(
+                    int(
+                        descriptor_consumer_shim_result.handle_table_consume_packed_weight_descriptor_field_read_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.handle_table_consume_packed_weight_descriptor_field_read_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_handle_table_consume_scale_metadata_handle_field_read_count=(
+                    int(
+                        descriptor_consumer_shim_result.handle_table_consume_scale_metadata_handle_field_read_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.handle_table_consume_scale_metadata_handle_field_read_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_handle_table_consume_aux_metadata_handle_field_read_count=(
+                    int(
+                        descriptor_consumer_shim_result.handle_table_consume_aux_metadata_handle_field_read_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.handle_table_consume_aux_metadata_handle_field_read_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_handle_table_consume_descriptor_ptr_field_available_count=(
+                    int(
+                        descriptor_consumer_shim_result.handle_table_consume_descriptor_ptr_field_available_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.handle_table_consume_descriptor_ptr_field_available_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_handle_table_consume_packed_weight_descriptor_field_available_count=(
+                    int(
+                        descriptor_consumer_shim_result.handle_table_consume_packed_weight_descriptor_field_available_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.handle_table_consume_packed_weight_descriptor_field_available_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_handle_table_consume_scale_metadata_handle_field_available_count=(
+                    int(
+                        descriptor_consumer_shim_result.handle_table_consume_scale_metadata_handle_field_available_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.handle_table_consume_scale_metadata_handle_field_available_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_handle_table_consume_aux_metadata_handle_field_available_count=(
+                    int(
+                        descriptor_consumer_shim_result.handle_table_consume_aux_metadata_handle_field_available_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.handle_table_consume_aux_metadata_handle_field_available_count
                         is not None
                     )
                     else None
@@ -10289,6 +10421,7 @@ def _apply_premap_consumer_readonly_gate(
             "kernel_arg_shadow_table_required": True,
             "consumer_shim_table_read_required": True,
             "consumer_shim_table_consume_required": True,
+            "consumer_shim_table_consume_handle_field_reads_required": True,
             "consumer_shim_table_object_required": True,
             "consumer_shim_prep_execution_required": True,
             "consumer_shim_prep_execution_handle_field_reads_required": True,

@@ -15268,6 +15268,70 @@ no descriptor_order execution
 no kernel argument mutation
 ```
 
+### 2026-05-24 - Lab gate now requires explicit prelaunch consumer table use
+
+The readonly premap lab precondition was tightened again. The prelaunch
+consumer shim must now explicitly consume the prepared handle table fields, not
+only observe the table object or dry-run preparation result.
+
+Default lab gate artifact:
+
+```text
+configs/runtime/
+  premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_kernel_arg_shadow.yaml
+
+contract.consumer_shim_table_consume_handle_field_reads_required = true
+```
+
+The runtime event and aggregate now report consumer-side table-consume field
+reads separately from prep-execution dry-run field reads:
+
+```text
+premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_handle_field_read_count
+premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_required_handle_field_available_count
+premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_optional_handle_field_available_count
+premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_descriptor_ptr_field_read_count
+premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_packed_weight_descriptor_field_read_count
+premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_scale_metadata_handle_field_read_count
+premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_aux_metadata_handle_field_read_count
+```
+
+The committed 128-sample lab gate artifact records:
+
+```text
+row_count = 110,898
+consumer_shim_table_consume_handle_field_read_count = 443,592
+consumer_shim_table_consume_required_handle_field_available_count = 332,694
+consumer_shim_table_consume_optional_handle_field_available_count = 110,898
+consumer_shim_table_consume_payload_bytes = 0
+consumer_shim_table_consume_passed_to_kernel_count = 0
+```
+
+A fresh GPU1 8-sample smoke with full VRAM (`gpu_memory_utilization=0.98`)
+validated that the new fields are emitted by the online path:
+
+```text
+config:
+  configs/trace/
+    router_mtp_trace_external_prompt_gate_dolly_8_awq_vllm_gpu1_decode_gen64_longrun_audit_smoke.yaml
+
+output:
+  data/traces/
+    external_prompt_gate_dolly_8_awq_vllm_gpu1_decode_gen64_longrun_audit_smoke/
+
+consumer_shim_table_consume_checked_count = 640
+consumer_shim_table_consume_row_count = 6,965
+consumer_shim_table_consume_handle_field_read_count = 27,860
+consumer_shim_table_consume_required_handle_field_available_count = 20,895
+consumer_shim_table_consume_optional_handle_field_available_count = 6,965
+consumer_shim_table_consume_payload_bytes = 0
+consumer_shim_table_consume_passed_to_kernel_count = 0
+```
+
+The strict reuse threshold is still a long-run criterion: this 8-sample smoke
+emits the prelaunch consumer fields correctly, but its address reuse rate is
+0.8665 and therefore does not satisfy the 0.98 long-run reuse gate.
+
 ## Premap prelaunch no-op consumer boundary gate
 
 The premap descriptor/address prep object is now checked against the real

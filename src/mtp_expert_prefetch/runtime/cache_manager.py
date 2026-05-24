@@ -476,6 +476,17 @@ class PremapDescriptorConsumerShimResult:
     handle_table_consume_per_row_parity_ok_count: int | None = None
     handle_table_consume_row_miss_count: int | None = None
     handle_table_consume_stale_row_count: int | None = None
+    handle_table_consume_handle_field_read_count: int | None = None
+    handle_table_consume_required_handle_field_available_count: int | None = None
+    handle_table_consume_optional_handle_field_available_count: int | None = None
+    handle_table_consume_descriptor_ptr_field_read_count: int | None = None
+    handle_table_consume_packed_weight_descriptor_field_read_count: int | None = None
+    handle_table_consume_scale_metadata_handle_field_read_count: int | None = None
+    handle_table_consume_aux_metadata_handle_field_read_count: int | None = None
+    handle_table_consume_descriptor_ptr_field_available_count: int | None = None
+    handle_table_consume_packed_weight_descriptor_field_available_count: int | None = None
+    handle_table_consume_scale_metadata_handle_field_available_count: int | None = None
+    handle_table_consume_aux_metadata_handle_field_available_count: int | None = None
     handle_table_consume_passed_to_kernel: bool = False
     handle_table_consume_payload_bytes: int = 0
     handle_table_object_consumed: bool | None = None
@@ -1027,6 +1038,17 @@ class ControlledPremapAddressManager:
         table_consume_parity_count = None
         table_consume_row_miss_count = None
         table_consume_stale_row_count = None
+        table_consume_handle_field_read_count = None
+        table_consume_required_handle_field_available_count = None
+        table_consume_optional_handle_field_available_count = None
+        table_consume_descriptor_ptr_field_read_count = None
+        table_consume_packed_weight_descriptor_field_read_count = None
+        table_consume_scale_metadata_handle_field_read_count = None
+        table_consume_aux_metadata_handle_field_read_count = None
+        table_consume_descriptor_ptr_field_available_count = None
+        table_consume_packed_weight_descriptor_field_available_count = None
+        table_consume_scale_metadata_handle_field_available_count = None
+        table_consume_aux_metadata_handle_field_available_count = None
         table_consume_passed_to_kernel = False
         table_consume_payload_bytes = 0
         table_object_consumed = None
@@ -1118,6 +1140,53 @@ class ControlledPremapAddressManager:
             table_object_lifecycle_ok = bool(table_object.lifecycle_ok)
             table_object_passed_to_kernel = bool(table_object.passed_to_kernel)
             table_object_payload_bytes = int(table_object.payload_bytes)
+            table_consume_handle_field_read_count = 0
+            table_consume_required_handle_field_available_count = 0
+            table_consume_optional_handle_field_available_count = 0
+            table_consume_descriptor_ptr_field_read_count = 0
+            table_consume_packed_weight_descriptor_field_read_count = 0
+            table_consume_scale_metadata_handle_field_read_count = 0
+            table_consume_aux_metadata_handle_field_read_count = 0
+            table_consume_descriptor_ptr_field_available_count = 0
+            table_consume_packed_weight_descriptor_field_available_count = 0
+            table_consume_scale_metadata_handle_field_available_count = 0
+            table_consume_aux_metadata_handle_field_available_count = 0
+            for row in table_object.rows:
+                descriptor_ptr = row.descriptor_ptr
+                packed_weight_descriptor = row.packed_weight_descriptor
+                scale_metadata_handle = row.scale_metadata_handle
+                aux_metadata_handle = row.aux_metadata_handle
+                table_consume_handle_field_read_count += len(
+                    PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_COLUMNS
+                )
+                table_consume_descriptor_ptr_field_read_count += 1
+                table_consume_packed_weight_descriptor_field_read_count += 1
+                table_consume_scale_metadata_handle_field_read_count += 1
+                table_consume_aux_metadata_handle_field_read_count += 1
+                table_consume_required_handle_field_available_count += int(
+                    bool(descriptor_ptr)
+                )
+                table_consume_required_handle_field_available_count += int(
+                    bool(packed_weight_descriptor)
+                )
+                table_consume_required_handle_field_available_count += int(
+                    bool(scale_metadata_handle)
+                )
+                table_consume_optional_handle_field_available_count += int(
+                    aux_metadata_handle is not None
+                )
+                table_consume_descriptor_ptr_field_available_count += int(
+                    bool(descriptor_ptr)
+                )
+                table_consume_packed_weight_descriptor_field_available_count += int(
+                    bool(packed_weight_descriptor)
+                )
+                table_consume_scale_metadata_handle_field_available_count += int(
+                    bool(scale_metadata_handle)
+                )
+                table_consume_aux_metadata_handle_field_available_count += int(
+                    aux_metadata_handle is not None
+                )
             object_consume_ok = (
                 table_object_lifecycle_ok
                 and int(table_object.row_count) == int(read_result.object_hit_count)
@@ -1137,6 +1206,27 @@ class ControlledPremapAddressManager:
                 and str(table_object.row_order_hash) == str(table_result.row_order_hash)
                 and str(table_object.ordered_row_hash)
                 == str(table_result.ordered_row_hash)
+                and int(table_consume_handle_field_read_count)
+                == int(table_object.row_count)
+                * len(PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_COLUMNS)
+                and int(table_consume_required_handle_field_available_count)
+                == int(table_object.row_count) * 3
+                and int(table_consume_descriptor_ptr_field_read_count)
+                == int(table_object.row_count)
+                and int(table_consume_packed_weight_descriptor_field_read_count)
+                == int(table_object.row_count)
+                and int(table_consume_scale_metadata_handle_field_read_count)
+                == int(table_object.row_count)
+                and int(table_consume_aux_metadata_handle_field_read_count)
+                == int(table_object.row_count)
+                and int(table_consume_descriptor_ptr_field_available_count)
+                == int(table_object.row_count)
+                and int(table_consume_packed_weight_descriptor_field_available_count)
+                == int(table_object.row_count)
+                and int(table_consume_scale_metadata_handle_field_available_count)
+                == int(table_object.row_count)
+                and 0 <= int(table_consume_aux_metadata_handle_field_available_count)
+                <= int(table_object.row_count)
             )
             table_consume_ok = bool(table_consume_ok) and bool(object_consume_ok)
         elif table_result is not None:
@@ -1292,6 +1382,39 @@ class ControlledPremapAddressManager:
             handle_table_consume_per_row_parity_ok_count=table_consume_parity_count,
             handle_table_consume_row_miss_count=table_consume_row_miss_count,
             handle_table_consume_stale_row_count=table_consume_stale_row_count,
+            handle_table_consume_handle_field_read_count=(
+                table_consume_handle_field_read_count
+            ),
+            handle_table_consume_required_handle_field_available_count=(
+                table_consume_required_handle_field_available_count
+            ),
+            handle_table_consume_optional_handle_field_available_count=(
+                table_consume_optional_handle_field_available_count
+            ),
+            handle_table_consume_descriptor_ptr_field_read_count=(
+                table_consume_descriptor_ptr_field_read_count
+            ),
+            handle_table_consume_packed_weight_descriptor_field_read_count=(
+                table_consume_packed_weight_descriptor_field_read_count
+            ),
+            handle_table_consume_scale_metadata_handle_field_read_count=(
+                table_consume_scale_metadata_handle_field_read_count
+            ),
+            handle_table_consume_aux_metadata_handle_field_read_count=(
+                table_consume_aux_metadata_handle_field_read_count
+            ),
+            handle_table_consume_descriptor_ptr_field_available_count=(
+                table_consume_descriptor_ptr_field_available_count
+            ),
+            handle_table_consume_packed_weight_descriptor_field_available_count=(
+                table_consume_packed_weight_descriptor_field_available_count
+            ),
+            handle_table_consume_scale_metadata_handle_field_available_count=(
+                table_consume_scale_metadata_handle_field_available_count
+            ),
+            handle_table_consume_aux_metadata_handle_field_available_count=(
+                table_consume_aux_metadata_handle_field_available_count
+            ),
             handle_table_consume_passed_to_kernel=table_consume_passed_to_kernel,
             handle_table_consume_payload_bytes=table_consume_payload_bytes,
             handle_table_object_consumed=table_object_consumed,

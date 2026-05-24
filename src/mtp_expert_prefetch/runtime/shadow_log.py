@@ -772,6 +772,39 @@ class ShadowPremapConsumerMappingEvent:
     descriptor_prep_consumer_shim_handle_table_consume_per_row_parity_ok_count: int | None = None
     descriptor_prep_consumer_shim_handle_table_consume_row_miss_count: int | None = None
     descriptor_prep_consumer_shim_handle_table_consume_stale_row_count: int | None = None
+    descriptor_prep_consumer_shim_handle_table_consume_handle_field_read_count: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_handle_table_consume_required_handle_field_available_count: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_handle_table_consume_optional_handle_field_available_count: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_handle_table_consume_descriptor_ptr_field_read_count: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_handle_table_consume_packed_weight_descriptor_field_read_count: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_handle_table_consume_scale_metadata_handle_field_read_count: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_handle_table_consume_aux_metadata_handle_field_read_count: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_handle_table_consume_descriptor_ptr_field_available_count: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_handle_table_consume_packed_weight_descriptor_field_available_count: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_handle_table_consume_scale_metadata_handle_field_available_count: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_handle_table_consume_aux_metadata_handle_field_available_count: (
+        int | None
+    ) = None
     descriptor_prep_consumer_shim_handle_table_consume_passed_to_kernel: bool | None = None
     descriptor_prep_consumer_shim_handle_table_consume_payload_bytes: int | None = None
     descriptor_prep_consumer_shim_handle_table_object_consumed: bool | None = None
@@ -1325,6 +1358,61 @@ class ShadowPremapConsumerMappingEvent:
         )
         _put_optional(
             payload,
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_handle_field_read_count",
+            self.descriptor_prep_consumer_shim_handle_table_consume_handle_field_read_count,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_required_handle_field_available_count",
+            self.descriptor_prep_consumer_shim_handle_table_consume_required_handle_field_available_count,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_optional_handle_field_available_count",
+            self.descriptor_prep_consumer_shim_handle_table_consume_optional_handle_field_available_count,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_descriptor_ptr_field_read_count",
+            self.descriptor_prep_consumer_shim_handle_table_consume_descriptor_ptr_field_read_count,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_packed_weight_descriptor_field_read_count",
+            self.descriptor_prep_consumer_shim_handle_table_consume_packed_weight_descriptor_field_read_count,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_scale_metadata_handle_field_read_count",
+            self.descriptor_prep_consumer_shim_handle_table_consume_scale_metadata_handle_field_read_count,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_aux_metadata_handle_field_read_count",
+            self.descriptor_prep_consumer_shim_handle_table_consume_aux_metadata_handle_field_read_count,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_descriptor_ptr_field_available_count",
+            self.descriptor_prep_consumer_shim_handle_table_consume_descriptor_ptr_field_available_count,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_packed_weight_descriptor_field_available_count",
+            self.descriptor_prep_consumer_shim_handle_table_consume_packed_weight_descriptor_field_available_count,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_scale_metadata_handle_field_available_count",
+            self.descriptor_prep_consumer_shim_handle_table_consume_scale_metadata_handle_field_available_count,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_aux_metadata_handle_field_available_count",
+            self.descriptor_prep_consumer_shim_handle_table_consume_aux_metadata_handle_field_available_count,
+        )
+        _put_optional(
+            payload,
             "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_passed_to_kernel",
             self.descriptor_prep_consumer_shim_handle_table_consume_passed_to_kernel,
         )
@@ -1860,6 +1948,17 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
         "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_per_row_parity_ok_count": 0,
         "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_row_miss_count": 0,
         "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_stale_row_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_handle_field_read_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_required_handle_field_available_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_optional_handle_field_available_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_descriptor_ptr_field_read_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_packed_weight_descriptor_field_read_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_scale_metadata_handle_field_read_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_aux_metadata_handle_field_read_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_descriptor_ptr_field_available_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_packed_weight_descriptor_field_available_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_scale_metadata_handle_field_available_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_aux_metadata_handle_field_available_count": 0,
         "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_passed_to_kernel_count": 0,
         "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_payload_bytes": 0,
         "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_payload_violation_count": 0,
@@ -2714,6 +2813,20 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
                     )
                     or 0
                 )
+                for field in (
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_handle_field_read_count",
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_required_handle_field_available_count",
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_optional_handle_field_available_count",
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_descriptor_ptr_field_read_count",
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_packed_weight_descriptor_field_read_count",
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_scale_metadata_handle_field_read_count",
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_aux_metadata_handle_field_read_count",
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_descriptor_ptr_field_available_count",
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_packed_weight_descriptor_field_available_count",
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_scale_metadata_handle_field_available_count",
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_aux_metadata_handle_field_available_count",
+                ):
+                    totals[field] += int(event.get(field, 0) or 0)
                 totals[
                     "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_passed_to_kernel_count"
                 ] += int(
