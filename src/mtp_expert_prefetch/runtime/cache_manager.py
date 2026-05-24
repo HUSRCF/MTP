@@ -487,6 +487,8 @@ class PremapDescriptorConsumerShimResult:
     handle_table_consume_packed_weight_descriptor_field_available_count: int | None = None
     handle_table_consume_scale_metadata_handle_field_available_count: int | None = None
     handle_table_consume_aux_metadata_handle_field_available_count: int | None = None
+    handle_table_consume_source_hit_counts: dict[str, int] | None = None
+    handle_table_consume_source_miss_counts: dict[str, int] | None = None
     handle_table_consume_passed_to_kernel: bool = False
     handle_table_consume_payload_bytes: int = 0
     handle_table_object_consumed: bool | None = None
@@ -1049,6 +1051,8 @@ class ControlledPremapAddressManager:
         table_consume_packed_weight_descriptor_field_available_count = None
         table_consume_scale_metadata_handle_field_available_count = None
         table_consume_aux_metadata_handle_field_available_count = None
+        table_consume_source_hit_counts = None
+        table_consume_source_miss_counts = None
         table_consume_passed_to_kernel = False
         table_consume_payload_bytes = 0
         table_object_consumed = None
@@ -1151,6 +1155,18 @@ class ControlledPremapAddressManager:
             table_consume_packed_weight_descriptor_field_available_count = 0
             table_consume_scale_metadata_handle_field_available_count = 0
             table_consume_aux_metadata_handle_field_available_count = 0
+            table_consume_source_hit_counts = {
+                "descriptor_ptr": 0,
+                "packed_weight_descriptor": 0,
+                "scale_metadata_handle": 0,
+                "aux_metadata_handle": 0,
+            }
+            table_consume_source_miss_counts = {
+                "descriptor_ptr": 0,
+                "packed_weight_descriptor": 0,
+                "scale_metadata_handle": 0,
+                "aux_metadata_handle": 0,
+            }
             for row in table_object.rows:
                 descriptor_ptr = row.descriptor_ptr
                 packed_weight_descriptor = row.packed_weight_descriptor
@@ -1186,6 +1202,30 @@ class ControlledPremapAddressManager:
                 )
                 table_consume_aux_metadata_handle_field_available_count += int(
                     aux_metadata_handle is not None
+                )
+                table_consume_source_hit_counts["descriptor_ptr"] += int(
+                    bool(descriptor_ptr)
+                )
+                table_consume_source_miss_counts["descriptor_ptr"] += int(
+                    not bool(descriptor_ptr)
+                )
+                table_consume_source_hit_counts["packed_weight_descriptor"] += int(
+                    bool(packed_weight_descriptor)
+                )
+                table_consume_source_miss_counts["packed_weight_descriptor"] += int(
+                    not bool(packed_weight_descriptor)
+                )
+                table_consume_source_hit_counts["scale_metadata_handle"] += int(
+                    bool(scale_metadata_handle)
+                )
+                table_consume_source_miss_counts["scale_metadata_handle"] += int(
+                    not bool(scale_metadata_handle)
+                )
+                table_consume_source_hit_counts["aux_metadata_handle"] += int(
+                    aux_metadata_handle is not None
+                )
+                table_consume_source_miss_counts["aux_metadata_handle"] += int(
+                    aux_metadata_handle is None
                 )
             object_consume_ok = (
                 table_object_lifecycle_ok
@@ -1415,6 +1455,8 @@ class ControlledPremapAddressManager:
             handle_table_consume_aux_metadata_handle_field_available_count=(
                 table_consume_aux_metadata_handle_field_available_count
             ),
+            handle_table_consume_source_hit_counts=table_consume_source_hit_counts,
+            handle_table_consume_source_miss_counts=table_consume_source_miss_counts,
             handle_table_consume_passed_to_kernel=table_consume_passed_to_kernel,
             handle_table_consume_payload_bytes=table_consume_payload_bytes,
             handle_table_object_consumed=table_object_consumed,

@@ -15332,6 +15332,46 @@ The strict reuse threshold is still a long-run criterion: this 8-sample smoke
 emits the prelaunch consumer fields correctly, but its address reuse rate is
 0.8665 and therefore does not satisfy the 0.98 long-run reuse gate.
 
+### 2026-05-24 - Prelaunch consumer table source-class attribution
+
+The prelaunch consumer shim now reports source-class hit/miss counts for the
+prepared handle table fields it explicitly consumes:
+
+```text
+descriptor_ptr
+packed_weight_descriptor
+scale_metadata_handle
+aux_metadata_handle
+```
+
+This is still a no-op consumer boundary:
+
+```text
+payload_bytes = 0
+passed_to_kernel = 0
+ready_credit = false
+kernel args unchanged
+```
+
+The same GPU1 8-sample smoke path now emits the source-class availability in
+`performance_summary.json`:
+
+```text
+consumer_shim_table_consume_row_count = 6,965
+descriptor_ptr_hit_count = 6,965
+descriptor_ptr_miss_count = 0
+packed_weight_descriptor_hit_count = 6,965
+packed_weight_descriptor_miss_count = 0
+scale_metadata_handle_hit_count = 6,965
+scale_metadata_handle_miss_count = 0
+aux_metadata_handle_hit_count = 6,965
+aux_metadata_handle_miss_count = 0
+```
+
+This makes the lab precondition more actionable for the next integration gate:
+the shim can distinguish field-level availability by source class before any
+future kernel-argument handoff is attempted.
+
 ## Premap prelaunch no-op consumer boundary gate
 
 The premap descriptor/address prep object is now checked against the real

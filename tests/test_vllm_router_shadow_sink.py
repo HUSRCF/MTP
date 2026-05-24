@@ -648,6 +648,22 @@ def _assert_consumer_shim_table_consume_event(consumer: dict[str, object]) -> No
         ]
         == 0
     )
+    assert consumer[
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_source_hit_counts"
+    ] == {
+        "descriptor_ptr": 2,
+        "packed_weight_descriptor": 2,
+        "scale_metadata_handle": 2,
+        "aux_metadata_handle": 0,
+    }
+    assert consumer[
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_source_miss_counts"
+    ] == {
+        "descriptor_ptr": 0,
+        "packed_weight_descriptor": 0,
+        "scale_metadata_handle": 0,
+        "aux_metadata_handle": 2,
+    }
 
 
 def _assert_consumer_shim_prep_execution_dry_run_event(

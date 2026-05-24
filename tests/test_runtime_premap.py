@@ -439,6 +439,18 @@ def test_controlled_premap_address_manager_executes_descriptor_prep_readonly():
         == 2
     )
     assert shim_result.handle_table_consume_aux_metadata_handle_field_available_count == 0
+    assert shim_result.handle_table_consume_source_hit_counts == {
+        "descriptor_ptr": 2,
+        "packed_weight_descriptor": 2,
+        "scale_metadata_handle": 2,
+        "aux_metadata_handle": 0,
+    }
+    assert shim_result.handle_table_consume_source_miss_counts == {
+        "descriptor_ptr": 0,
+        "packed_weight_descriptor": 0,
+        "scale_metadata_handle": 0,
+        "aux_metadata_handle": 2,
+    }
     assert shim_result.handle_table_consume_row_miss_count == 0
     assert shim_result.handle_table_consume_stale_row_count == 0
     assert shim_result.handle_table_consume_passed_to_kernel is False

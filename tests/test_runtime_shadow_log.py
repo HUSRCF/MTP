@@ -412,6 +412,18 @@ def test_shadow_log_aggregates_premap_consumer_mapping_without_side_effects(tmp_
         descriptor_prep_consumer_shim_handle_table_consume_packed_weight_descriptor_field_available_count=2,
         descriptor_prep_consumer_shim_handle_table_consume_scale_metadata_handle_field_available_count=2,
         descriptor_prep_consumer_shim_handle_table_consume_aux_metadata_handle_field_available_count=0,
+        descriptor_prep_consumer_shim_handle_table_consume_source_hit_counts={
+            "descriptor_ptr": 2,
+            "packed_weight_descriptor": 2,
+            "scale_metadata_handle": 2,
+            "aux_metadata_handle": 0,
+        },
+        descriptor_prep_consumer_shim_handle_table_consume_source_miss_counts={
+            "descriptor_ptr": 0,
+            "packed_weight_descriptor": 0,
+            "scale_metadata_handle": 0,
+            "aux_metadata_handle": 2,
+        },
         descriptor_prep_consumer_shim_handle_table_consume_passed_to_kernel=False,
         descriptor_prep_consumer_shim_handle_table_consume_payload_bytes=0,
         descriptor_prep_consumer_shim_prep_execution_dry_run_mode=(
@@ -920,6 +932,42 @@ def test_shadow_log_aggregates_premap_consumer_mapping_without_side_effects(tmp_
             "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_aux_metadata_handle_field_available_count"
         ]
         == 0
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_descriptor_ptr_hit_count"
+        ]
+        == 2
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_descriptor_ptr_miss_count"
+        ]
+        == 0
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_packed_weight_descriptor_hit_count"
+        ]
+        == 2
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_scale_metadata_handle_hit_count"
+        ]
+        == 2
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_aux_metadata_handle_hit_count"
+        ]
+        == 0
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_aux_metadata_handle_miss_count"
+        ]
+        == 2
     )
     assert (
         aggregate[

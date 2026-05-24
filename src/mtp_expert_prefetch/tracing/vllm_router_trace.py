@@ -226,6 +226,14 @@ RUNTIME_SHADOW_AGGREGATE_PERFORMANCE_KEYS = (
     "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_packed_weight_descriptor_field_available_count",
     "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_scale_metadata_handle_field_available_count",
     "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_aux_metadata_handle_field_available_count",
+    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_descriptor_ptr_hit_count",
+    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_descriptor_ptr_miss_count",
+    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_packed_weight_descriptor_hit_count",
+    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_packed_weight_descriptor_miss_count",
+    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_scale_metadata_handle_hit_count",
+    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_scale_metadata_handle_miss_count",
+    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_aux_metadata_handle_hit_count",
+    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_aux_metadata_handle_miss_count",
     "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_passed_to_kernel_count",
     "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_payload_bytes",
     "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_payload_violation_count",
@@ -2862,6 +2870,28 @@ class VllmRouterRecorder:
                     if (
                         descriptor_consumer_shim_result is not None
                         and descriptor_consumer_shim_result.handle_table_consume_aux_metadata_handle_field_available_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_handle_table_consume_source_hit_counts=(
+                    dict(
+                        descriptor_consumer_shim_result.handle_table_consume_source_hit_counts
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.handle_table_consume_source_hit_counts
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_handle_table_consume_source_miss_counts=(
+                    dict(
+                        descriptor_consumer_shim_result.handle_table_consume_source_miss_counts
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.handle_table_consume_source_miss_counts
                         is not None
                     )
                     else None

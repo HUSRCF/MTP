@@ -1684,6 +1684,46 @@ def check_summary(
                 "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_aux_metadata_handle_field_available_count"
             )
         ),
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_descriptor_ptr_hit_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_descriptor_ptr_hit_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_descriptor_ptr_miss_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_descriptor_ptr_miss_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_packed_weight_descriptor_hit_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_packed_weight_descriptor_hit_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_packed_weight_descriptor_miss_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_packed_weight_descriptor_miss_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_scale_metadata_handle_hit_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_scale_metadata_handle_hit_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_scale_metadata_handle_miss_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_scale_metadata_handle_miss_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_aux_metadata_handle_hit_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_aux_metadata_handle_hit_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_aux_metadata_handle_miss_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_aux_metadata_handle_miss_count"
+            )
+        ),
         "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_row_miss_count": _as_int(
             aggregate.get(
                 "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_row_miss_count"

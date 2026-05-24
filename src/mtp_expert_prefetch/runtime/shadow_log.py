@@ -805,6 +805,12 @@ class ShadowPremapConsumerMappingEvent:
     descriptor_prep_consumer_shim_handle_table_consume_aux_metadata_handle_field_available_count: (
         int | None
     ) = None
+    descriptor_prep_consumer_shim_handle_table_consume_source_hit_counts: (
+        dict[str, int] | None
+    ) = None
+    descriptor_prep_consumer_shim_handle_table_consume_source_miss_counts: (
+        dict[str, int] | None
+    ) = None
     descriptor_prep_consumer_shim_handle_table_consume_passed_to_kernel: bool | None = None
     descriptor_prep_consumer_shim_handle_table_consume_payload_bytes: int | None = None
     descriptor_prep_consumer_shim_handle_table_object_consumed: bool | None = None
@@ -1413,6 +1419,16 @@ class ShadowPremapConsumerMappingEvent:
         )
         _put_optional(
             payload,
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_source_hit_counts",
+            self.descriptor_prep_consumer_shim_handle_table_consume_source_hit_counts,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_source_miss_counts",
+            self.descriptor_prep_consumer_shim_handle_table_consume_source_miss_counts,
+        )
+        _put_optional(
+            payload,
             "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_passed_to_kernel",
             self.descriptor_prep_consumer_shim_handle_table_consume_passed_to_kernel,
         )
@@ -1959,6 +1975,14 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
         "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_packed_weight_descriptor_field_available_count": 0,
         "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_scale_metadata_handle_field_available_count": 0,
         "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_aux_metadata_handle_field_available_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_descriptor_ptr_hit_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_descriptor_ptr_miss_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_packed_weight_descriptor_hit_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_packed_weight_descriptor_miss_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_scale_metadata_handle_hit_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_scale_metadata_handle_miss_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_aux_metadata_handle_hit_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_aux_metadata_handle_miss_count": 0,
         "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_passed_to_kernel_count": 0,
         "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_payload_bytes": 0,
         "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_payload_violation_count": 0,
@@ -2827,6 +2851,36 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
                     "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_aux_metadata_handle_field_available_count",
                 ):
                     totals[field] += int(event.get(field, 0) or 0)
+                table_consume_source_hits = event.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_source_hit_counts",
+                    {},
+                )
+                table_consume_source_misses = event.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_source_miss_counts",
+                    {},
+                )
+                if isinstance(table_consume_source_hits, dict):
+                    for source in (
+                        "descriptor_ptr",
+                        "packed_weight_descriptor",
+                        "scale_metadata_handle",
+                        "aux_metadata_handle",
+                    ):
+                        totals[
+                            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_"
+                            f"{source}_hit_count"
+                        ] += int(table_consume_source_hits.get(source, 0) or 0)
+                if isinstance(table_consume_source_misses, dict):
+                    for source in (
+                        "descriptor_ptr",
+                        "packed_weight_descriptor",
+                        "scale_metadata_handle",
+                        "aux_metadata_handle",
+                    ):
+                        totals[
+                            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_"
+                            f"{source}_miss_count"
+                        ] += int(table_consume_source_misses.get(source, 0) or 0)
                 totals[
                     "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_passed_to_kernel_count"
                 ] += int(
