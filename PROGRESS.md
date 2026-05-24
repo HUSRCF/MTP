@@ -15268,6 +15268,48 @@ no descriptor_order execution
 no kernel argument mutation
 ```
 
+### Kernel-arg handoff dry-run gate
+
+The prelaunch consumer shim now emits an explicit kernel-argument handoff
+dry-run readiness record.  This is still a read-only gate: the shim validates
+that the prepared handle table has all fields required by a future kernel
+handoff, but it does not pass any table to the kernel and does not move payload.
+
+Implementation contract:
+
+```text
+mode = readonly_kernel_arg_handoff_dry_run
+ready iff:
+  table consume passed
+  row_count matches consumed handle-table rows
+  descriptor_ptr / packed_weight_descriptor / scale_metadata_handle all hit
+  required source misses = 0
+  optional aux hit + miss = row_count
+  payload_bytes = 0
+  passed_to_kernel = false
+```
+
+GPU1 AWQ 8-sample smoke:
+
+```text
+premap_summary = 640
+premap_consumer_mapping = 640
+handoff_dry_run_checked = 640
+handoff_dry_run_ready = 640
+handoff_dry_run_row_count = 6,965
+handoff_dry_run_required_source_hit_count = 20,895
+handoff_dry_run_required_source_miss_count = 0
+handoff_dry_run_optional_source_hit_count = 6,965
+handoff_dry_run_optional_source_miss_count = 0
+handoff_dry_run_payload_bytes = 0
+handoff_dry_run_passed_to_kernel_count = 0
+```
+
+The strict checker validates the handoff dry-run fields under
+`--require-consumer-shim-table-consume`.  The 8-sample smoke still fails the
+long-run reuse threshold, as expected for the small split, but all readonly
+descriptor-prep / table-consume / handoff-dry-run safety fields pass.
+
 ### 2026-05-24 - Lab gate now requires explicit prelaunch consumer table use
 
 The readonly premap lab precondition was tightened again. The prelaunch

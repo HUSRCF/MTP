@@ -237,6 +237,16 @@ RUNTIME_SHADOW_AGGREGATE_PERFORMANCE_KEYS = (
     "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_passed_to_kernel_count",
     "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_payload_bytes",
     "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_payload_violation_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_checked_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_ready_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_row_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_required_source_hit_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_required_source_miss_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_optional_source_hit_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_optional_source_miss_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_payload_bytes",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_payload_violation_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_passed_to_kernel_count",
     "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_consumed_checked_count",
     "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_consumed_count",
     "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_consumed_rate",
@@ -2906,6 +2916,85 @@ class VllmRouterRecorder:
                 descriptor_prep_consumer_shim_handle_table_consume_payload_bytes=(
                     int(
                         descriptor_consumer_shim_result.handle_table_consume_payload_bytes
+                    )
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_mode=(
+                    descriptor_consumer_shim_result.kernel_arg_handoff_dry_run_mode
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_ready=(
+                    descriptor_consumer_shim_result.kernel_arg_handoff_dry_run_ready
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_row_count=(
+                    int(
+                        descriptor_consumer_shim_result.kernel_arg_handoff_dry_run_row_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.kernel_arg_handoff_dry_run_row_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_required_source_hit_count=(
+                    int(
+                        descriptor_consumer_shim_result.kernel_arg_handoff_dry_run_required_source_hit_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.kernel_arg_handoff_dry_run_required_source_hit_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_required_source_miss_count=(
+                    int(
+                        descriptor_consumer_shim_result.kernel_arg_handoff_dry_run_required_source_miss_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.kernel_arg_handoff_dry_run_required_source_miss_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_optional_source_hit_count=(
+                    int(
+                        descriptor_consumer_shim_result.kernel_arg_handoff_dry_run_optional_source_hit_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.kernel_arg_handoff_dry_run_optional_source_hit_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_optional_source_miss_count=(
+                    int(
+                        descriptor_consumer_shim_result.kernel_arg_handoff_dry_run_optional_source_miss_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.kernel_arg_handoff_dry_run_optional_source_miss_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_payload_bytes=(
+                    int(
+                        descriptor_consumer_shim_result.kernel_arg_handoff_dry_run_payload_bytes
+                    )
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_passed_to_kernel=(
+                    bool(
+                        descriptor_consumer_shim_result.kernel_arg_handoff_dry_run_passed_to_kernel
                     )
                     if descriptor_consumer_shim_result is not None
                     else None

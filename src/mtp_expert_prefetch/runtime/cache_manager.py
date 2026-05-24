@@ -491,6 +491,15 @@ class PremapDescriptorConsumerShimResult:
     handle_table_consume_source_miss_counts: dict[str, int] | None = None
     handle_table_consume_passed_to_kernel: bool = False
     handle_table_consume_payload_bytes: int = 0
+    kernel_arg_handoff_dry_run_mode: str | None = None
+    kernel_arg_handoff_dry_run_ready: bool | None = None
+    kernel_arg_handoff_dry_run_row_count: int | None = None
+    kernel_arg_handoff_dry_run_required_source_hit_count: int | None = None
+    kernel_arg_handoff_dry_run_required_source_miss_count: int | None = None
+    kernel_arg_handoff_dry_run_optional_source_hit_count: int | None = None
+    kernel_arg_handoff_dry_run_optional_source_miss_count: int | None = None
+    kernel_arg_handoff_dry_run_payload_bytes: int = 0
+    kernel_arg_handoff_dry_run_passed_to_kernel: bool = False
     handle_table_object_consumed: bool | None = None
     handle_table_object_hash: str | None = None
     handle_table_object_row_count: int | None = None
@@ -1394,6 +1403,51 @@ class ControlledPremapAddressManager:
             and table_consume_ok is True
             and table_object_consumed is True
         )
+        handoff_mode = None
+        handoff_ready = None
+        handoff_row_count = None
+        handoff_required_hit_count = None
+        handoff_required_miss_count = None
+        handoff_optional_hit_count = None
+        handoff_optional_miss_count = None
+        if (
+            table_consume_source_hit_counts is not None
+            and table_consume_source_miss_counts is not None
+            and table_consume_row_count is not None
+        ):
+            handoff_mode = "readonly_kernel_arg_handoff_dry_run"
+            handoff_row_count = int(table_consume_row_count)
+            handoff_required_hit_count = sum(
+                int(table_consume_source_hit_counts.get(source, 0) or 0)
+                for source in (
+                    "descriptor_ptr",
+                    "packed_weight_descriptor",
+                    "scale_metadata_handle",
+                )
+            )
+            handoff_required_miss_count = sum(
+                int(table_consume_source_miss_counts.get(source, 0) or 0)
+                for source in (
+                    "descriptor_ptr",
+                    "packed_weight_descriptor",
+                    "scale_metadata_handle",
+                )
+            )
+            handoff_optional_hit_count = int(
+                table_consume_source_hit_counts.get("aux_metadata_handle", 0) or 0
+            )
+            handoff_optional_miss_count = int(
+                table_consume_source_miss_counts.get("aux_metadata_handle", 0) or 0
+            )
+            handoff_ready = (
+                table_consume_ok is True
+                and handoff_required_hit_count == handoff_row_count * 3
+                and handoff_required_miss_count == 0
+                and handoff_optional_hit_count + handoff_optional_miss_count
+                == handoff_row_count
+                and int(table_consume_payload_bytes) == 0
+                and not bool(table_consume_passed_to_kernel)
+            )
         return PremapDescriptorConsumerShimResult(
             execution_mode=str(execution_mode),
             object_count=int(read_result.object_hit_count),
@@ -1459,6 +1513,23 @@ class ControlledPremapAddressManager:
             handle_table_consume_source_miss_counts=table_consume_source_miss_counts,
             handle_table_consume_passed_to_kernel=table_consume_passed_to_kernel,
             handle_table_consume_payload_bytes=table_consume_payload_bytes,
+            kernel_arg_handoff_dry_run_mode=handoff_mode,
+            kernel_arg_handoff_dry_run_ready=handoff_ready,
+            kernel_arg_handoff_dry_run_row_count=handoff_row_count,
+            kernel_arg_handoff_dry_run_required_source_hit_count=(
+                handoff_required_hit_count
+            ),
+            kernel_arg_handoff_dry_run_required_source_miss_count=(
+                handoff_required_miss_count
+            ),
+            kernel_arg_handoff_dry_run_optional_source_hit_count=(
+                handoff_optional_hit_count
+            ),
+            kernel_arg_handoff_dry_run_optional_source_miss_count=(
+                handoff_optional_miss_count
+            ),
+            kernel_arg_handoff_dry_run_payload_bytes=0,
+            kernel_arg_handoff_dry_run_passed_to_kernel=False,
             handle_table_object_consumed=table_object_consumed,
             handle_table_object_hash=table_object_hash,
             handle_table_object_row_count=table_object_row_count,

@@ -455,6 +455,18 @@ def test_controlled_premap_address_manager_executes_descriptor_prep_readonly():
     assert shim_result.handle_table_consume_stale_row_count == 0
     assert shim_result.handle_table_consume_passed_to_kernel is False
     assert shim_result.handle_table_consume_payload_bytes == 0
+    assert (
+        shim_result.kernel_arg_handoff_dry_run_mode
+        == "readonly_kernel_arg_handoff_dry_run"
+    )
+    assert shim_result.kernel_arg_handoff_dry_run_ready is True
+    assert shim_result.kernel_arg_handoff_dry_run_row_count == 2
+    assert shim_result.kernel_arg_handoff_dry_run_required_source_hit_count == 6
+    assert shim_result.kernel_arg_handoff_dry_run_required_source_miss_count == 0
+    assert shim_result.kernel_arg_handoff_dry_run_optional_source_hit_count == 0
+    assert shim_result.kernel_arg_handoff_dry_run_optional_source_miss_count == 2
+    assert shim_result.kernel_arg_handoff_dry_run_payload_bytes == 0
+    assert shim_result.kernel_arg_handoff_dry_run_passed_to_kernel is False
     assert shim_result.handle_table_object_consumed is True
     assert shim_result.handle_table_object_hash == table_object.object_hash
     assert shim_result.handle_table_object_row_count == 2

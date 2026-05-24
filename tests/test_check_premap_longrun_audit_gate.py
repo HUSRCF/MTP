@@ -145,6 +145,22 @@ def _passing_summary() -> dict:
             "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_payload_bytes": 0,
             "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_payload_violation_count": 0,
             "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_passed_to_kernel_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_checked_count": 2,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_ready_count": 2,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_mode": (
+                "readonly_kernel_arg_handoff_dry_run"
+            ),
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_mode_checked_count": 2,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_mode_missing_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_mode_mismatch_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_row_count": 20,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_required_source_hit_count": 60,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_required_source_miss_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_optional_source_hit_count": 20,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_optional_source_miss_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_payload_bytes": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_payload_violation_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_passed_to_kernel_count": 0,
             "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_consumed_checked_count": 2,
             "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_consumed_count": 2,
             "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_consumed_rate": 1.0,
@@ -590,6 +606,33 @@ def test_premap_longrun_audit_gate_accepts_consumer_shim_table_consume_contract(
         ]
         == 0
     )
+    assert (
+        result["metrics"][
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_ready_count"
+        ]
+        == 2
+    )
+    assert result["metrics"][
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_mode"
+    ] == "readonly_kernel_arg_handoff_dry_run"
+    assert (
+        result["metrics"][
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_required_source_hit_count"
+        ]
+        == 60
+    )
+    assert (
+        result["metrics"][
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_required_source_miss_count"
+        ]
+        == 0
+    )
+    assert (
+        result["metrics"][
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_passed_to_kernel_count"
+        ]
+        == 0
+    )
 
 
 def test_premap_longrun_audit_gate_rejects_missing_consume_field_reads():
@@ -679,6 +722,67 @@ def test_premap_longrun_audit_gate_rejects_missing_consume_source_class_hits():
     )
     assert (
         "consumer_shim_table_consume_aux_metadata_handle_hit_miss_total_mismatch=19+0!=20"
+        in result["failures"]
+    )
+
+
+def test_premap_longrun_audit_gate_rejects_kernel_arg_handoff_dry_run_instability():
+    summary = _passing_summary()
+    aggregate = summary["aggregate"]
+    aggregate[
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_ready_count"
+    ] = 1
+    aggregate[
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_required_source_hit_count"
+    ] = 59
+    aggregate[
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_required_source_miss_count"
+    ] = 1
+    aggregate[
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_optional_source_hit_count"
+    ] = 19
+    aggregate[
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_payload_bytes"
+    ] = 4
+    aggregate[
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_passed_to_kernel_count"
+    ] = 1
+
+    result = check_summary(
+        summary,
+        max_capacity=12,
+        min_reuse_rate=0.98,
+        require_readonly_consumer=True,
+        require_descriptor_prep=True,
+        require_real_descriptor_prep=True,
+        require_kernel_arg_shadow_table=True,
+        require_consumer_shim_table_read=True,
+        require_consumer_shim_table_consume=True,
+    )
+
+    assert result["passed"] is False
+    assert (
+        "consumer_shim_kernel_arg_handoff_dry_run_ready_count_mismatch=1!=2"
+        in result["failures"]
+    )
+    assert (
+        "consumer_shim_kernel_arg_handoff_dry_run_required_source_hit_count_mismatch=59!=60"
+        in result["failures"]
+    )
+    assert (
+        "consumer_shim_kernel_arg_handoff_dry_run_required_source_miss_count_nonzero=1"
+        in result["failures"]
+    )
+    assert (
+        "consumer_shim_kernel_arg_handoff_dry_run_optional_source_total_mismatch=19+0!=20"
+        in result["failures"]
+    )
+    assert (
+        "consumer_shim_kernel_arg_handoff_dry_run_payload_bytes_nonzero=4"
+        in result["failures"]
+    )
+    assert (
+        "consumer_shim_kernel_arg_handoff_dry_run_passed_to_kernel_count_nonzero=1"
         in result["failures"]
     )
 

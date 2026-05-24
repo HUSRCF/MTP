@@ -813,6 +813,33 @@ class ShadowPremapConsumerMappingEvent:
     ) = None
     descriptor_prep_consumer_shim_handle_table_consume_passed_to_kernel: bool | None = None
     descriptor_prep_consumer_shim_handle_table_consume_payload_bytes: int | None = None
+    descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_mode: (
+        str | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_ready: (
+        bool | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_row_count: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_required_source_hit_count: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_required_source_miss_count: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_optional_source_hit_count: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_optional_source_miss_count: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_payload_bytes: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_passed_to_kernel: (
+        bool | None
+    ) = None
     descriptor_prep_consumer_shim_handle_table_object_consumed: bool | None = None
     descriptor_prep_consumer_shim_handle_table_object_hash: str | None = None
     descriptor_prep_consumer_shim_handle_table_object_row_count: int | None = None
@@ -1439,6 +1466,51 @@ class ShadowPremapConsumerMappingEvent:
         )
         _put_optional(
             payload,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_mode",
+            self.descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_mode,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_ready",
+            self.descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_ready,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_row_count",
+            self.descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_row_count,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_required_source_hit_count",
+            self.descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_required_source_hit_count,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_required_source_miss_count",
+            self.descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_required_source_miss_count,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_optional_source_hit_count",
+            self.descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_optional_source_hit_count,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_optional_source_miss_count",
+            self.descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_optional_source_miss_count,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_payload_bytes",
+            self.descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_payload_bytes,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_passed_to_kernel",
+            self.descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_passed_to_kernel,
+        )
+        _put_optional(
+            payload,
             "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_consumed",
             self.descriptor_prep_consumer_shim_handle_table_object_consumed,
         )
@@ -1986,6 +2058,20 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
         "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_passed_to_kernel_count": 0,
         "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_payload_bytes": 0,
         "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_payload_violation_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_checked_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_ready_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_row_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_required_source_hit_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_required_source_miss_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_optional_source_hit_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_optional_source_miss_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_payload_bytes": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_payload_violation_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_passed_to_kernel_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_mode": "",
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_mode_checked_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_mode_missing_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_mode_mismatch_count": 0,
         "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_consumed_checked_count": 0,
         "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_consumed_count": 0,
         "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_lifecycle_ok_count": 0,
@@ -2912,6 +2998,78 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
                     )
                     != 0
                 )
+                handoff_mode = event.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_mode"
+                )
+                if handoff_mode is not None:
+                    totals[
+                        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_checked_count"
+                    ] += 1
+                    totals[
+                        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_mode_checked_count"
+                    ] += 1
+                    if not totals[
+                        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_mode"
+                    ]:
+                        totals[
+                            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_mode"
+                        ] = str(handoff_mode)
+                    elif (
+                        totals[
+                            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_mode"
+                        ]
+                        != str(handoff_mode)
+                    ):
+                        totals[
+                            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_mode_mismatch_count"
+                        ] += 1
+                    totals[
+                        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_ready_count"
+                    ] += int(
+                        bool(
+                            event.get(
+                                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_ready",
+                                False,
+                            )
+                        )
+                    )
+                    for field in (
+                        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_row_count",
+                        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_required_source_hit_count",
+                        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_required_source_miss_count",
+                        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_optional_source_hit_count",
+                        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_optional_source_miss_count",
+                        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_payload_bytes",
+                    ):
+                        totals[field] += int(event.get(field, 0) or 0)
+                    totals[
+                        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_payload_violation_count"
+                    ] += int(
+                        int(
+                            event.get(
+                                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_payload_bytes",
+                                0,
+                            )
+                            or 0
+                        )
+                        != 0
+                    )
+                    totals[
+                        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_passed_to_kernel_count"
+                    ] += int(
+                        bool(
+                            event.get(
+                                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_passed_to_kernel",
+                                False,
+                            )
+                        )
+                    )
+                elif event.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_ok"
+                ):
+                    totals[
+                        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_mode_missing_count"
+                    ] += 1
                 if (
                     "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_consumed"
                     in event

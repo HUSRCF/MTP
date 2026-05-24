@@ -664,6 +664,60 @@ def _assert_consumer_shim_table_consume_event(consumer: dict[str, object]) -> No
         "scale_metadata_handle": 0,
         "aux_metadata_handle": 2,
     }
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_mode"
+        ]
+        == "readonly_kernel_arg_handoff_dry_run"
+    )
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_ready"
+        ]
+        is True
+    )
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_row_count"
+        ]
+        == 2
+    )
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_required_source_hit_count"
+        ]
+        == 6
+    )
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_required_source_miss_count"
+        ]
+        == 0
+    )
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_optional_source_hit_count"
+        ]
+        == 0
+    )
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_optional_source_miss_count"
+        ]
+        == 2
+    )
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_payload_bytes"
+        ]
+        == 0
+    )
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_passed_to_kernel"
+        ]
+        is False
+    )
 
 
 def _assert_consumer_shim_prep_execution_dry_run_event(

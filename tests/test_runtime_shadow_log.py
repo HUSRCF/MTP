@@ -426,6 +426,17 @@ def test_shadow_log_aggregates_premap_consumer_mapping_without_side_effects(tmp_
         },
         descriptor_prep_consumer_shim_handle_table_consume_passed_to_kernel=False,
         descriptor_prep_consumer_shim_handle_table_consume_payload_bytes=0,
+        descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_mode=(
+            "readonly_kernel_arg_handoff_dry_run"
+        ),
+        descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_ready=True,
+        descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_row_count=2,
+        descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_required_source_hit_count=6,
+        descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_required_source_miss_count=0,
+        descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_optional_source_hit_count=0,
+        descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_optional_source_miss_count=2,
+        descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_payload_bytes=0,
+        descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_passed_to_kernel=False,
         descriptor_prep_consumer_shim_prep_execution_dry_run_mode=(
             "readonly_descriptor_address_prep_execution_dry_run"
         ),
@@ -996,6 +1007,66 @@ def test_shadow_log_aggregates_premap_consumer_mapping_without_side_effects(tmp_
     assert (
         aggregate[
             "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_payload_violation_count"
+        ]
+        == 0
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_checked_count"
+        ]
+        == 1
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_ready_count"
+        ]
+        == 1
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_mode"
+        ]
+        == "readonly_kernel_arg_handoff_dry_run"
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_row_count"
+        ]
+        == 2
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_required_source_hit_count"
+        ]
+        == 6
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_required_source_miss_count"
+        ]
+        == 0
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_optional_source_hit_count"
+        ]
+        == 0
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_optional_source_miss_count"
+        ]
+        == 2
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_payload_bytes"
+        ]
+        == 0
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_passed_to_kernel_count"
         ]
         == 0
     )
