@@ -942,6 +942,21 @@ def check_summary(
                     "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_aux_metadata_handle_parity_ok_count"
                 )
             )
+            dry_handle_field_read_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_handle_field_read_count"
+                )
+            )
+            dry_required_handle_field_available_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_required_handle_field_available_count"
+                )
+            )
+            dry_optional_handle_field_available_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_optional_handle_field_available_count"
+                )
+            )
             dry_row_handle_miss_count = _as_int(
                 aggregate.get(
                     "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_row_handle_miss_count"
@@ -1017,6 +1032,33 @@ def check_summary(
                         f"consumer_shim_prep_execution_{name}_mismatch="
                         f"{count}!={dry_row_count}"
                     )
+            expected_field_reads = (
+                dry_row_count * EXPECTED_KERNEL_ARG_SHADOW_TABLE_COLUMN_COUNT
+            )
+            expected_required_fields = dry_row_count * 3
+            if dry_handle_field_read_count != expected_field_reads:
+                failures.append(
+                    "consumer_shim_prep_execution_handle_field_read_count_mismatch="
+                    f"{dry_handle_field_read_count}!={expected_field_reads}"
+                )
+            if (
+                dry_required_handle_field_available_count
+                != expected_required_fields
+            ):
+                failures.append(
+                    "consumer_shim_prep_execution_required_handle_field_available_count_mismatch="
+                    f"{dry_required_handle_field_available_count}!="
+                    f"{expected_required_fields}"
+                )
+            if dry_optional_handle_field_available_count < 0:
+                failures.append(
+                    "consumer_shim_prep_execution_optional_handle_field_available_count_negative"
+                )
+            if dry_optional_handle_field_available_count > dry_row_count:
+                failures.append(
+                    "consumer_shim_prep_execution_optional_handle_field_available_count_exceeds_rows="
+                    f"{dry_optional_handle_field_available_count}>{dry_row_count}"
+                )
             if dry_row_handle_miss_count != 0:
                 failures.append(
                     "consumer_shim_prep_execution_row_handle_miss_count_nonzero="
@@ -1486,6 +1528,21 @@ def check_summary(
         "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_aux_metadata_handle_parity_ok_count": _as_int(
             aggregate.get(
                 "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_aux_metadata_handle_parity_ok_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_handle_field_read_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_handle_field_read_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_required_handle_field_available_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_required_handle_field_available_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_optional_handle_field_available_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_optional_handle_field_available_count"
             )
         ),
         "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_row_handle_miss_count": _as_int(

@@ -153,6 +153,9 @@ def _passing_summary() -> dict:
             "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_packed_weight_descriptor_parity_ok_count": 20,
             "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_scale_metadata_handle_parity_ok_count": 20,
             "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_aux_metadata_handle_parity_ok_count": 20,
+            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_handle_field_read_count": 80,
+            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_required_handle_field_available_count": 60,
+            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_optional_handle_field_available_count": 20,
             "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_row_handle_miss_count": 0,
             "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_payload_bytes": 0,
             "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_payload_violation_count": 0,
@@ -234,6 +237,18 @@ def test_premap_longrun_audit_gate_accepts_performance_summary_shape():
         ]
         == 1.0
     )
+    assert (
+        result["metrics"][
+            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_handle_field_read_count"
+        ]
+        == 80
+    )
+    assert (
+        result["metrics"][
+            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_required_handle_field_available_count"
+        ]
+        == 60
+    )
     assert result["metrics"]["premap_consumer_prelaunch_boundary_checked_count"] == 2
     assert (
         result["metrics"]["premap_consumer_prelaunch_boundary_aligned_rate"]
@@ -311,6 +326,41 @@ def test_premap_longrun_audit_gate_rejects_prelaunch_unavailable():
 
     assert result["passed"] is False
     assert "prelaunch_handle_available_count_mismatch=1!=2" in result["failures"]
+
+
+def test_premap_longrun_audit_gate_rejects_missing_prep_field_reads():
+    summary = _passing_summary()
+    aggregate = summary["aggregate"]
+    aggregate[
+        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_handle_field_read_count"
+    ] = 79
+    aggregate[
+        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_required_handle_field_available_count"
+    ] = 59
+
+    result = check_summary(
+        summary,
+        max_capacity=12,
+        min_reuse_rate=0.98,
+        require_readonly_consumer=True,
+        require_descriptor_prep=True,
+        require_real_descriptor_prep=True,
+        require_kernel_arg_shadow_table=True,
+        require_consumer_shim_table_read=True,
+        require_consumer_shim_table_consume=True,
+        require_consumer_shim_table_object=True,
+        require_consumer_shim_prep_execution=True,
+    )
+
+    assert result["passed"] is False
+    assert (
+        "consumer_shim_prep_execution_handle_field_read_count_mismatch=79!=80"
+        in result["failures"]
+    )
+    assert (
+        "consumer_shim_prep_execution_required_handle_field_available_count_mismatch=59!=60"
+        in result["failures"]
+    )
 
 
 def test_premap_longrun_audit_gate_accepts_descriptor_prep_contract():
