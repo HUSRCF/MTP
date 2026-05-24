@@ -15390,6 +15390,41 @@ the new source-class checks; its only strict-gate failure is:
 premap_address_reuse_rate_below_threshold
 ```
 
+The full 128-sample GPU1 long-run was rerun after adding the source-class gate,
+and the strict lab gate now passes from freshly generated runtime summaries:
+
+```text
+config:
+  configs/trace/
+    router_mtp_trace_external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_longrun_audit.yaml
+
+artifact:
+  data/traces/
+    external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_longrun_audit/
+    longrun_audit_gate.json
+
+passed = true
+failures = []
+premap_address_reuse_rate_mean = 0.9827389896686539
+premap_address_resident_count_max = 10,127
+
+consumer_shim_table_consume_row_count = 110,898
+consumer_shim_table_consume_handle_field_read_count = 443,592
+consumer_shim_table_consume_required_handle_field_available_count = 332,694
+
+descriptor_ptr_hit_count = 110,898
+descriptor_ptr_miss_count = 0
+packed_weight_descriptor_hit_count = 110,898
+packed_weight_descriptor_miss_count = 0
+scale_metadata_handle_hit_count = 110,898
+scale_metadata_handle_miss_count = 0
+aux_metadata_handle_hit_count = 110,898
+aux_metadata_handle_miss_count = 0
+
+consumer_shim_table_consume_payload_bytes = 0
+consumer_shim_table_consume_passed_to_kernel_count = 0
+```
+
 ## Premap prelaunch no-op consumer boundary gate
 
 The premap descriptor/address prep object is now checked against the real
