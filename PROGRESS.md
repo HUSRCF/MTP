@@ -496,6 +496,50 @@ strict smoke evidence:
     kernel_arg_handoff_attempt_kernel_arg_violation_count = 0
     row_count = 1280
     prepared handle rows = 6965
+
+128-sample long-run evidence:
+  artifact:
+    data/traces/
+      external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_longrun_audit/
+
+  gate output:
+    longrun_audit_gate_handoff_attempt.json
+
+  checker:
+    max_capacity = 12288
+    min_reuse_rate = 0.98
+    --require-readonly-consumer
+    --require-descriptor-prep
+    --require-real-descriptor-prep
+    --require-kernel-arg-shadow-table
+    --require-consumer-shim-table-read
+    --require-consumer-shim-table-consume
+    --require-consumer-shim-table-object
+    --require-consumer-shim-prep-execution
+
+  result:
+    passed = true
+    premap_summary = 10195
+    consumer_shim_executed = 10195
+    resident_count_max = 10127
+    reuse_rate_mean = 0.982739
+    eviction_pressure_mean = 0.0
+    real_handle_miss_count = 0
+    handle_table_consume_ok_rate = 1.0
+    handle_table_consume_row_count = 110898
+    handle_table_consume_per_row_parity_ok_count = 110898
+    handle_table_consume_row_miss_count = 0
+    handle_table_consume_stale_row_count = 0
+    handle_table_object_consumed_rate = 1.0
+    prep_execution_dry_run_ok_rate = 1.0
+    kernel_arg_handoff_shadow_slot_ready_count = 10195
+    kernel_arg_handoff_mirror_ready_count = 10195
+    kernel_arg_handoff_attempt_record_ready_count = 10195
+    kernel_arg_handoff_attempt_blocked_count = 10195
+    kernel_arg_handoff_attempt_gate_allowed_count = 0
+    kernel_arg_handoff_attempt_payload_bytes = 0
+    kernel_arg_handoff_attempt_passed_to_kernel_count = 0
+    kernel_arg_handoff_attempt_kernel_arg_violation_count = 0
 ```
 
 Interpretation:
