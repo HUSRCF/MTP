@@ -46,6 +46,11 @@ def _write_readonly_gate(
     require_consumer_shim_table_read: bool | None = None,
     consumer_shim_table_consume_required: bool | None = None,
     require_consumer_shim_table_consume: bool | None = None,
+    consumer_shim_table_object_required: bool | None = None,
+    require_consumer_shim_table_object: bool | None = None,
+    consumer_shim_prep_execution_required: bool | None = None,
+    require_consumer_shim_prep_execution: bool | None = None,
+    consumer_shim_prep_execution_handle_field_reads_required: bool | None = None,
 ):
     if descriptor_prep_execution_mode is not None:
         if real_descriptor_prep_required is None:
@@ -64,6 +69,16 @@ def _write_readonly_gate(
             consumer_shim_table_consume_required = True
         if require_consumer_shim_table_consume is None:
             require_consumer_shim_table_consume = True
+        if consumer_shim_table_object_required is None:
+            consumer_shim_table_object_required = True
+        if require_consumer_shim_table_object is None:
+            require_consumer_shim_table_object = True
+        if consumer_shim_prep_execution_required is None:
+            consumer_shim_prep_execution_required = True
+        if require_consumer_shim_prep_execution is None:
+            require_consumer_shim_prep_execution = True
+        if consumer_shim_prep_execution_handle_field_reads_required is None:
+            consumer_shim_prep_execution_handle_field_reads_required = True
     status = "passed" if passed else "failed"
     gate_passed = "true" if passed else "false"
     lines = [
@@ -117,6 +132,21 @@ def _write_readonly_gate(
             "  consumer_shim_table_consume_required: "
             f"{str(bool(consumer_shim_table_consume_required)).lower()}"
         )
+    if consumer_shim_table_object_required is not None:
+        lines.append(
+            "  consumer_shim_table_object_required: "
+            f"{str(bool(consumer_shim_table_object_required)).lower()}"
+        )
+    if consumer_shim_prep_execution_required is not None:
+        lines.append(
+            "  consumer_shim_prep_execution_required: "
+            f"{str(bool(consumer_shim_prep_execution_required)).lower()}"
+        )
+    if consumer_shim_prep_execution_handle_field_reads_required is not None:
+        lines.append(
+            "  consumer_shim_prep_execution_handle_field_reads_required: "
+            f"{str(bool(consumer_shim_prep_execution_handle_field_reads_required)).lower()}"
+        )
     lines.extend(
         [
             "gate:",
@@ -144,6 +174,16 @@ def _write_readonly_gate(
         check_lines.append(
             "    require_consumer_shim_table_consume: "
             f"{str(bool(require_consumer_shim_table_consume)).lower()}"
+        )
+    if require_consumer_shim_table_object is not None:
+        check_lines.append(
+            "    require_consumer_shim_table_object: "
+            f"{str(bool(require_consumer_shim_table_object)).lower()}"
+        )
+    if require_consumer_shim_prep_execution is not None:
+        check_lines.append(
+            "    require_consumer_shim_prep_execution: "
+            f"{str(bool(require_consumer_shim_prep_execution)).lower()}"
         )
     if check_lines:
         lines.append("  check:")
@@ -552,6 +592,159 @@ def test_apply_premap_consumer_readonly_gate_requires_consumer_shim_table_consum
     )
 
     with pytest.raises(ValueError, match="require_consumer_shim_table_consume=true"):
+        _apply_premap_consumer_readonly_gate(
+            {
+                "enabled": True,
+                "emit_premap_consumer_mapping": True,
+                "premap_consumer_require_readonly_gate": True,
+                "premap_consumer_readonly_gate_path": str(gate),
+                "premap_consumer_mapping_mode": "noop_assertion",
+                "premap_consumer_resolve_real_handles": True,
+                "premap_policy": "premap_only_with_consumer_mapping_noop",
+                "premap_descriptor_bytes": 4096,
+                "premap_descriptor_prep_execution_mode": (
+                    "readonly_descriptor_address_object"
+                ),
+            },
+            project_root=tmp_path,
+        )
+
+
+def test_apply_premap_consumer_readonly_gate_requires_consumer_shim_table_object_contract(tmp_path):
+    gate = tmp_path / "readonly_gate.yaml"
+    _write_readonly_gate(
+        gate,
+        lab_precondition=True,
+        descriptor_prep_execution_mode="readonly_descriptor_address_object",
+        descriptor_prep_payload_bytes=0,
+        descriptor_prep_kernel_arg_mutation=False,
+        consumer_shim_table_object_required=False,
+    )
+
+    with pytest.raises(ValueError, match="consumer_shim_table_object_required"):
+        _apply_premap_consumer_readonly_gate(
+            {
+                "enabled": True,
+                "emit_premap_consumer_mapping": True,
+                "premap_consumer_require_readonly_gate": True,
+                "premap_consumer_readonly_gate_path": str(gate),
+                "premap_consumer_mapping_mode": "noop_assertion",
+                "premap_consumer_resolve_real_handles": True,
+                "premap_policy": "premap_only_with_consumer_mapping_noop",
+                "premap_descriptor_bytes": 4096,
+                "premap_descriptor_prep_execution_mode": (
+                    "readonly_descriptor_address_object"
+                ),
+            },
+            project_root=tmp_path,
+        )
+
+
+def test_apply_premap_consumer_readonly_gate_requires_consumer_shim_table_object_check(tmp_path):
+    gate = tmp_path / "readonly_gate.yaml"
+    _write_readonly_gate(
+        gate,
+        lab_precondition=True,
+        descriptor_prep_execution_mode="readonly_descriptor_address_object",
+        descriptor_prep_payload_bytes=0,
+        descriptor_prep_kernel_arg_mutation=False,
+        require_consumer_shim_table_object=False,
+    )
+
+    with pytest.raises(ValueError, match="require_consumer_shim_table_object=true"):
+        _apply_premap_consumer_readonly_gate(
+            {
+                "enabled": True,
+                "emit_premap_consumer_mapping": True,
+                "premap_consumer_require_readonly_gate": True,
+                "premap_consumer_readonly_gate_path": str(gate),
+                "premap_consumer_mapping_mode": "noop_assertion",
+                "premap_consumer_resolve_real_handles": True,
+                "premap_policy": "premap_only_with_consumer_mapping_noop",
+                "premap_descriptor_bytes": 4096,
+                "premap_descriptor_prep_execution_mode": (
+                    "readonly_descriptor_address_object"
+                ),
+            },
+            project_root=tmp_path,
+        )
+
+
+def test_apply_premap_consumer_readonly_gate_requires_consumer_shim_prep_execution_contract(tmp_path):
+    gate = tmp_path / "readonly_gate.yaml"
+    _write_readonly_gate(
+        gate,
+        lab_precondition=True,
+        descriptor_prep_execution_mode="readonly_descriptor_address_object",
+        descriptor_prep_payload_bytes=0,
+        descriptor_prep_kernel_arg_mutation=False,
+        consumer_shim_prep_execution_required=False,
+    )
+
+    with pytest.raises(ValueError, match="consumer_shim_prep_execution_required"):
+        _apply_premap_consumer_readonly_gate(
+            {
+                "enabled": True,
+                "emit_premap_consumer_mapping": True,
+                "premap_consumer_require_readonly_gate": True,
+                "premap_consumer_readonly_gate_path": str(gate),
+                "premap_consumer_mapping_mode": "noop_assertion",
+                "premap_consumer_resolve_real_handles": True,
+                "premap_policy": "premap_only_with_consumer_mapping_noop",
+                "premap_descriptor_bytes": 4096,
+                "premap_descriptor_prep_execution_mode": (
+                    "readonly_descriptor_address_object"
+                ),
+            },
+            project_root=tmp_path,
+        )
+
+
+def test_apply_premap_consumer_readonly_gate_requires_consumer_shim_prep_execution_check(tmp_path):
+    gate = tmp_path / "readonly_gate.yaml"
+    _write_readonly_gate(
+        gate,
+        lab_precondition=True,
+        descriptor_prep_execution_mode="readonly_descriptor_address_object",
+        descriptor_prep_payload_bytes=0,
+        descriptor_prep_kernel_arg_mutation=False,
+        require_consumer_shim_prep_execution=False,
+    )
+
+    with pytest.raises(ValueError, match="require_consumer_shim_prep_execution=true"):
+        _apply_premap_consumer_readonly_gate(
+            {
+                "enabled": True,
+                "emit_premap_consumer_mapping": True,
+                "premap_consumer_require_readonly_gate": True,
+                "premap_consumer_readonly_gate_path": str(gate),
+                "premap_consumer_mapping_mode": "noop_assertion",
+                "premap_consumer_resolve_real_handles": True,
+                "premap_policy": "premap_only_with_consumer_mapping_noop",
+                "premap_descriptor_bytes": 4096,
+                "premap_descriptor_prep_execution_mode": (
+                    "readonly_descriptor_address_object"
+                ),
+            },
+            project_root=tmp_path,
+        )
+
+
+def test_apply_premap_consumer_readonly_gate_requires_prep_execution_field_read_contract(tmp_path):
+    gate = tmp_path / "readonly_gate.yaml"
+    _write_readonly_gate(
+        gate,
+        lab_precondition=True,
+        descriptor_prep_execution_mode="readonly_descriptor_address_object",
+        descriptor_prep_payload_bytes=0,
+        descriptor_prep_kernel_arg_mutation=False,
+        consumer_shim_prep_execution_handle_field_reads_required=False,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="consumer_shim_prep_execution_handle_field_reads_required",
+    ):
         _apply_premap_consumer_readonly_gate(
             {
                 "enabled": True,

@@ -10193,6 +10193,9 @@ def _apply_premap_consumer_readonly_gate(
             "kernel_arg_shadow_table_required": True,
             "consumer_shim_table_read_required": True,
             "consumer_shim_table_consume_required": True,
+            "consumer_shim_table_object_required": True,
+            "consumer_shim_prep_execution_required": True,
+            "consumer_shim_prep_execution_handle_field_reads_required": True,
         }
         for key, expected in descriptor_prep_contract.items():
             observed = contract.get(key)
@@ -10234,6 +10237,18 @@ def _apply_premap_consumer_readonly_gate(
             msg = (
                 "premap_descriptor_prep_execution_mode requires a readonly gate "
                 f"checked with require_consumer_shim_table_consume=true: {path}"
+            )
+            raise ValueError(msg)
+        if check.get("require_consumer_shim_table_object") is not True:
+            msg = (
+                "premap_descriptor_prep_execution_mode requires a readonly gate "
+                f"checked with require_consumer_shim_table_object=true: {path}"
+            )
+            raise ValueError(msg)
+        if check.get("require_consumer_shim_prep_execution") is not True:
+            msg = (
+                "premap_descriptor_prep_execution_mode requires a readonly gate "
+                f"checked with require_consumer_shim_prep_execution=true: {path}"
             )
             raise ValueError(msg)
     descriptor_bytes = contract.get("descriptor_bytes")
