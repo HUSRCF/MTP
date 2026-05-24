@@ -15372,6 +15372,24 @@ This makes the lab precondition more actionable for the next integration gate:
 the shim can distinguish field-level availability by source class before any
 future kernel-argument handoff is attempted.
 
+The strict gate checker now enforces this source-class contract whenever
+consumer table consumption is required:
+
+```text
+descriptor_ptr hit_count == row_count and miss_count == 0
+packed_weight_descriptor hit_count == row_count and miss_count == 0
+scale_metadata_handle hit_count == row_count and miss_count == 0
+aux_metadata_handle hit_count == aux_available_count
+aux_metadata_handle hit_count + miss_count == row_count
+```
+
+The current 8-sample smoke still fails the long-run reuse threshold, but passes
+the new source-class checks; its only strict-gate failure is:
+
+```text
+premap_address_reuse_rate_below_threshold
+```
+
 ## Premap prelaunch no-op consumer boundary gate
 
 The premap descriptor/address prep object is now checked against the real

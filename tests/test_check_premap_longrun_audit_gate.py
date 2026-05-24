@@ -578,6 +578,18 @@ def test_premap_longrun_audit_gate_accepts_consumer_shim_table_consume_contract(
         ]
         == 20
     )
+    assert (
+        result["metrics"][
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_descriptor_ptr_hit_count"
+        ]
+        == 20
+    )
+    assert (
+        result["metrics"][
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_packed_weight_descriptor_miss_count"
+        ]
+        == 0
+    )
 
 
 def test_premap_longrun_audit_gate_rejects_missing_consume_field_reads():
@@ -623,6 +635,50 @@ def test_premap_longrun_audit_gate_rejects_missing_consume_field_reads():
     )
     assert (
         "consumer_shim_table_consume_scale_metadata_handle_field_available_count_mismatch=19!=20"
+        in result["failures"]
+    )
+
+
+def test_premap_longrun_audit_gate_rejects_missing_consume_source_class_hits():
+    summary = _passing_summary()
+    aggregate = summary["aggregate"]
+    aggregate[
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_descriptor_ptr_hit_count"
+    ] = 19
+    aggregate[
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_packed_weight_descriptor_miss_count"
+    ] = 1
+    aggregate[
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_aux_metadata_handle_hit_count"
+    ] = 19
+
+    result = check_summary(
+        summary,
+        max_capacity=12,
+        min_reuse_rate=0.98,
+        require_readonly_consumer=True,
+        require_descriptor_prep=True,
+        require_real_descriptor_prep=True,
+        require_kernel_arg_shadow_table=True,
+        require_consumer_shim_table_read=True,
+        require_consumer_shim_table_consume=True,
+    )
+
+    assert result["passed"] is False
+    assert (
+        "consumer_shim_table_consume_descriptor_ptr_hit_count_mismatch=19!=20"
+        in result["failures"]
+    )
+    assert (
+        "consumer_shim_table_consume_packed_weight_descriptor_miss_count_nonzero=1"
+        in result["failures"]
+    )
+    assert (
+        "consumer_shim_table_consume_aux_metadata_handle_hit_count_mismatch=19!=20"
+        in result["failures"]
+    )
+    assert (
+        "consumer_shim_table_consume_aux_metadata_handle_hit_miss_total_mismatch=19+0!=20"
         in result["failures"]
     )
 
