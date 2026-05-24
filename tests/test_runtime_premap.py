@@ -472,6 +472,31 @@ def test_controlled_premap_address_manager_executes_descriptor_prep_readonly():
     assert shim_result.kernel_arg_handoff_dry_run_optional_source_miss_count == 2
     assert shim_result.kernel_arg_handoff_dry_run_payload_bytes == 0
     assert shim_result.kernel_arg_handoff_dry_run_passed_to_kernel is False
+    assert (
+        shim_result.kernel_arg_handoff_shadow_slot_mode
+        == "readonly_kernel_arg_handoff_shadow_slot"
+    )
+    assert shim_result.kernel_arg_handoff_shadow_slot_ready is True
+    assert shim_result.kernel_arg_handoff_shadow_slot_hash
+    assert shim_result.kernel_arg_handoff_shadow_slot_table_object_hash == (
+        table_object.object_hash
+    )
+    assert shim_result.kernel_arg_handoff_shadow_slot_row_count == 2
+    assert shim_result.kernel_arg_handoff_shadow_slot_column_count == 4
+    assert (
+        shim_result.kernel_arg_handoff_shadow_slot_schema_hash
+        == PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH
+    )
+    assert shim_result.kernel_arg_handoff_shadow_slot_required_source_hit_count == 6
+    assert shim_result.kernel_arg_handoff_shadow_slot_required_source_miss_count == 0
+    assert shim_result.kernel_arg_handoff_shadow_slot_optional_source_hit_count == 0
+    assert shim_result.kernel_arg_handoff_shadow_slot_optional_source_miss_count == 2
+    assert shim_result.kernel_arg_handoff_shadow_slot_payload_bytes == 0
+    assert shim_result.kernel_arg_handoff_shadow_slot_passed_to_kernel is False
+    assert (
+        shim_result.kernel_arg_handoff_shadow_slot_changes_kernel_launch_args
+        is False
+    )
     assert shim_result.handle_table_object_consumed is True
     assert shim_result.handle_table_object_hash == table_object.object_hash
     assert shim_result.handle_table_object_row_count == 2

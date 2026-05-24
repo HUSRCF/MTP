@@ -846,6 +846,48 @@ class ShadowPremapConsumerMappingEvent:
     descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_passed_to_kernel: (
         bool | None
     ) = None
+    descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_mode: (
+        str | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_ready: (
+        bool | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_hash: (
+        str | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_table_object_hash: (
+        str | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_row_count: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_column_count: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_schema_hash: (
+        str | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_required_source_hit_count: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_required_source_miss_count: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_optional_source_hit_count: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_optional_source_miss_count: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_payload_bytes: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_passed_to_kernel: (
+        bool | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_changes_kernel_launch_args: (
+        bool | None
+    ) = None
     descriptor_prep_consumer_shim_handle_table_object_consumed: bool | None = None
     descriptor_prep_consumer_shim_handle_table_object_hash: str | None = None
     descriptor_prep_consumer_shim_handle_table_object_row_count: int | None = None
@@ -1527,6 +1569,76 @@ class ShadowPremapConsumerMappingEvent:
         )
         _put_optional(
             payload,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_mode",
+            self.descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_mode,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_ready",
+            self.descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_ready,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_hash",
+            self.descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_hash,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_table_object_hash",
+            self.descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_table_object_hash,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_row_count",
+            self.descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_row_count,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_column_count",
+            self.descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_column_count,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_schema_hash",
+            self.descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_schema_hash,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_required_source_hit_count",
+            self.descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_required_source_hit_count,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_required_source_miss_count",
+            self.descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_required_source_miss_count,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_optional_source_hit_count",
+            self.descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_optional_source_hit_count,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_optional_source_miss_count",
+            self.descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_optional_source_miss_count,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_payload_bytes",
+            self.descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_payload_bytes,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_passed_to_kernel",
+            self.descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_passed_to_kernel,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_changes_kernel_launch_args",
+            self.descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_changes_kernel_launch_args,
+        )
+        _put_optional(
+            payload,
             "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_consumed",
             self.descriptor_prep_consumer_shim_handle_table_object_consumed,
         )
@@ -2094,6 +2206,29 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
         "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_mode_checked_count": 0,
         "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_mode_missing_count": 0,
         "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_mode_mismatch_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_checked_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_ready_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_hash_checked_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_hash_missing_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_row_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_column_count_max": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_column_count_min": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_schema_hash": "",
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_schema_hash_checked_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_schema_hash_missing_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_schema_hash_mismatch_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_required_source_hit_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_required_source_miss_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_optional_source_hit_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_optional_source_miss_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_payload_bytes": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_payload_violation_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_passed_to_kernel_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_kernel_arg_violation_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_mode": "",
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_mode_checked_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_mode_missing_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_mode_mismatch_count": 0,
         "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_consumed_checked_count": 0,
         "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_consumed_count": 0,
         "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_lifecycle_ok_count": 0,
@@ -3143,6 +3278,151 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
                 ):
                     totals[
                         "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_mode_missing_count"
+                    ] += 1
+                slot_mode = event.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_mode"
+                )
+                if slot_mode is not None:
+                    totals[
+                        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_checked_count"
+                    ] += 1
+                    totals[
+                        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_mode_checked_count"
+                    ] += 1
+                    if not totals[
+                        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_mode"
+                    ]:
+                        totals[
+                            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_mode"
+                        ] = str(slot_mode)
+                    elif (
+                        totals[
+                            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_mode"
+                        ]
+                        != str(slot_mode)
+                    ):
+                        totals[
+                            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_mode_mismatch_count"
+                        ] += 1
+                    totals[
+                        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_ready_count"
+                    ] += int(
+                        bool(
+                            event.get(
+                                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_ready",
+                                False,
+                            )
+                        )
+                    )
+                    slot_hash = event.get(
+                        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_hash"
+                    )
+                    if slot_hash:
+                        totals[
+                            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_hash_checked_count"
+                        ] += 1
+                    else:
+                        totals[
+                            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_hash_missing_count"
+                        ] += 1
+                    slot_column_count = int(
+                        event.get(
+                            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_column_count",
+                            0,
+                        )
+                        or 0
+                    )
+                    if slot_column_count > totals[
+                        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_column_count_max"
+                    ]:
+                        totals[
+                            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_column_count_max"
+                        ] = slot_column_count
+                    if (
+                        totals[
+                            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_column_count_min"
+                        ]
+                        == 0
+                        or slot_column_count
+                        < totals[
+                            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_column_count_min"
+                        ]
+                    ):
+                        totals[
+                            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_column_count_min"
+                        ] = slot_column_count
+                    slot_schema_hash = event.get(
+                        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_schema_hash"
+                    )
+                    if slot_schema_hash:
+                        totals[
+                            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_schema_hash_checked_count"
+                        ] += 1
+                        if not totals[
+                            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_schema_hash"
+                        ]:
+                            totals[
+                                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_schema_hash"
+                            ] = str(slot_schema_hash)
+                        elif (
+                            totals[
+                                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_schema_hash"
+                            ]
+                            != str(slot_schema_hash)
+                        ):
+                            totals[
+                                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_schema_hash_mismatch_count"
+                            ] += 1
+                    else:
+                        totals[
+                            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_schema_hash_missing_count"
+                        ] += 1
+                    for field in (
+                        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_row_count",
+                        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_required_source_hit_count",
+                        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_required_source_miss_count",
+                        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_optional_source_hit_count",
+                        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_optional_source_miss_count",
+                        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_payload_bytes",
+                    ):
+                        totals[field] += int(event.get(field, 0) or 0)
+                    totals[
+                        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_payload_violation_count"
+                    ] += int(
+                        int(
+                            event.get(
+                                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_payload_bytes",
+                                0,
+                            )
+                            or 0
+                        )
+                        != 0
+                    )
+                    totals[
+                        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_passed_to_kernel_count"
+                    ] += int(
+                        bool(
+                            event.get(
+                                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_passed_to_kernel",
+                                False,
+                            )
+                        )
+                    )
+                    totals[
+                        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_kernel_arg_violation_count"
+                    ] += int(
+                        bool(
+                            event.get(
+                                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_changes_kernel_launch_args",
+                                False,
+                            )
+                        )
+                    )
+                elif event.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_ok"
+                ):
+                    totals[
+                        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_mode_missing_count"
                     ] += 1
                 if (
                     "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_consumed"

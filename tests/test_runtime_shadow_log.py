@@ -442,6 +442,26 @@ def test_shadow_log_aggregates_premap_consumer_mapping_without_side_effects(tmp_
         descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_optional_source_miss_count=2,
         descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_payload_bytes=0,
         descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_passed_to_kernel=False,
+        descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_mode=(
+            "readonly_kernel_arg_handoff_shadow_slot"
+        ),
+        descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_ready=True,
+        descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_hash="slot-hash",
+        descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_table_object_hash=(
+            "table-object-hash"
+        ),
+        descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_row_count=2,
+        descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_column_count=4,
+        descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_schema_hash=(
+            PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH
+        ),
+        descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_required_source_hit_count=6,
+        descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_required_source_miss_count=0,
+        descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_optional_source_hit_count=0,
+        descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_optional_source_miss_count=2,
+        descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_payload_bytes=0,
+        descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_passed_to_kernel=False,
+        descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_changes_kernel_launch_args=False,
         descriptor_prep_consumer_shim_prep_execution_dry_run_mode=(
             "readonly_descriptor_address_prep_execution_dry_run"
         ),
@@ -1102,6 +1122,90 @@ def test_shadow_log_aggregates_premap_consumer_mapping_without_side_effects(tmp_
     assert (
         aggregate[
             "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_passed_to_kernel_count"
+        ]
+        == 0
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_checked_count"
+        ]
+        == 1
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_ready_count"
+        ]
+        == 1
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_hash_checked_count"
+        ]
+        == 1
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_mode"
+        ]
+        == "readonly_kernel_arg_handoff_shadow_slot"
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_row_count"
+        ]
+        == 2
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_column_count_max"
+        ]
+        == 4
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_schema_hash"
+        ]
+        == PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_required_source_hit_count"
+        ]
+        == 6
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_required_source_miss_count"
+        ]
+        == 0
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_optional_source_hit_count"
+        ]
+        == 0
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_optional_source_miss_count"
+        ]
+        == 2
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_payload_bytes"
+        ]
+        == 0
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_passed_to_kernel_count"
+        ]
+        == 0
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_shadow_slot_kernel_arg_violation_count"
         ]
         == 0
     )

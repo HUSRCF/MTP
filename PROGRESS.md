@@ -15268,6 +15268,93 @@ no descriptor_order execution
 no kernel argument mutation
 ```
 
+### Kernel-arg handoff shadow slot gate
+
+The descriptor/address prep path now constructs a final readonly shadow slot
+that mirrors the argument package a future fused-MoE/AWQ kernel consumer would
+receive.  The slot binds to the prepared table object hash and records the table
+schema, row count, row/order hashes, required/optional source availability, and
+explicit no-op side-effect flags.  It is still only recorded; it is not passed
+to any kernel.
+
+Validation:
+
+```text
+tests:
+  pytest tests -q
+  502 passed
+
+compile:
+  python -m compileall -q src scripts tests
+```
+
+Online smoke:
+
+```text
+config:
+  configs/trace/
+    router_mtp_trace_external_prompt_gate_dolly_8_awq_vllm_gpu1_decode_gen64_longrun_audit_smoke.yaml
+
+slot_checked = 640
+slot_ready = 640
+slot_row_count = 6,965
+slot_column_count_min/max = 4 / 4
+slot_schema_hash_checked = 640
+slot_schema_hash_missing = 0
+slot_required_source_hit = 20,895
+slot_required_source_miss = 0
+slot_optional_source_hit = 6,965
+slot_payload_bytes = 0
+slot_passed_to_kernel_count = 0
+slot_kernel_arg_violation_count = 0
+```
+
+Strict 128-sample lab gate:
+
+```text
+config:
+  configs/trace/
+    router_mtp_trace_external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_longrun_audit.yaml
+
+artifact:
+  data/traces/
+    external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_longrun_audit/
+    longrun_audit_gate.json
+
+passed = true
+failures = []
+
+slot_checked = 10,195
+slot_ready = 10,195
+slot_hash_checked = 10,195
+slot_hash_missing = 0
+slot_row_count = 110,898
+slot_column_count_min/max = 4 / 4
+slot_schema_hash_checked = 10,195
+slot_schema_hash_missing = 0
+slot_schema_hash_mismatch = 0
+slot_required_source_hit = 332,694
+slot_required_source_miss = 0
+slot_optional_source_hit = 110,898
+slot_optional_source_miss = 0
+slot_payload_bytes = 0
+slot_payload_violation_count = 0
+slot_passed_to_kernel_count = 0
+slot_kernel_arg_violation_count = 0
+```
+
+This upgrades the lab precondition from a consumed handle table to a concrete
+kernel-argument handoff shadow package, while preserving the same safety
+boundary:
+
+```text
+no payload transfer
+no ready credit
+no router mutation
+no descriptor_order execution
+no kernel argument handoff
+```
+
 ### Kernel-arg handoff dry-run gate
 
 The prelaunch consumer shim now emits an explicit kernel-argument handoff

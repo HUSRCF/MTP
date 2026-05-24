@@ -333,6 +333,82 @@ class PremapKernelArgShadowTableObject:
         }
 
 
+@dataclass(frozen=True)
+class PremapKernelArgHandoffShadowSlot:
+    """Readonly package that mirrors a future kernel-argument handoff.
+
+    The slot is the last no-op object before a real kernel integration.  It
+    points at the prepared handle table identity and records the exact schema
+    and source availability that a future kernel consumer would require, but it
+    is intentionally not passed to a kernel.
+    """
+
+    mode: str
+    table_object_hash: str
+    row_count: int
+    column_count: int
+    schema_hash: str
+    row_order_hash: str
+    ordered_row_hash: str
+    required_source_hit_count: int
+    required_source_miss_count: int
+    optional_source_hit_count: int
+    optional_source_miss_count: int
+    payload_bytes: int = 0
+    passed_to_kernel: bool = False
+    changes_kernel_launch_args: bool = False
+
+    @property
+    def ready(self) -> bool:
+        return (
+            self.mode == "readonly_kernel_arg_handoff_shadow_slot"
+            and int(self.row_count) > 0
+            and int(self.column_count)
+            == len(PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_COLUMNS)
+            and str(self.schema_hash)
+            == PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH
+            and bool(self.table_object_hash)
+            and bool(self.row_order_hash)
+            and bool(self.ordered_row_hash)
+            and int(self.required_source_hit_count) == int(self.row_count) * 3
+            and int(self.required_source_miss_count) == 0
+            and int(self.optional_source_hit_count)
+            + int(self.optional_source_miss_count)
+            == int(self.row_count)
+            and int(self.payload_bytes) == 0
+            and not bool(self.passed_to_kernel)
+            and not bool(self.changes_kernel_launch_args)
+        )
+
+    @property
+    def slot_hash(self) -> str:
+        payload = json.dumps(
+            self.as_dict(),
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+        return hashlib.sha256(payload).hexdigest()
+
+    def as_dict(self) -> dict[str, int | bool | str]:
+        return {
+            "mode": str(self.mode),
+            "ready": bool(self.ready),
+            "table_object_hash": str(self.table_object_hash),
+            "row_count": int(self.row_count),
+            "column_count": int(self.column_count),
+            "schema_hash": str(self.schema_hash),
+            "row_order_hash": str(self.row_order_hash),
+            "ordered_row_hash": str(self.ordered_row_hash),
+            "required_source_hit_count": int(self.required_source_hit_count),
+            "required_source_miss_count": int(self.required_source_miss_count),
+            "optional_source_hit_count": int(self.optional_source_hit_count),
+            "optional_source_miss_count": int(self.optional_source_miss_count),
+            "payload_bytes": int(self.payload_bytes),
+            "passed_to_kernel": bool(self.passed_to_kernel),
+            "changes_kernel_launch_args": bool(self.changes_kernel_launch_args),
+        }
+
+
 @dataclass
 class PremapAddressCacheEntry:
     descriptor_bytes: int
@@ -502,6 +578,20 @@ class PremapDescriptorConsumerShimResult:
     kernel_arg_handoff_dry_run_optional_source_miss_count: int | None = None
     kernel_arg_handoff_dry_run_payload_bytes: int = 0
     kernel_arg_handoff_dry_run_passed_to_kernel: bool = False
+    kernel_arg_handoff_shadow_slot_mode: str | None = None
+    kernel_arg_handoff_shadow_slot_ready: bool | None = None
+    kernel_arg_handoff_shadow_slot_hash: str | None = None
+    kernel_arg_handoff_shadow_slot_table_object_hash: str | None = None
+    kernel_arg_handoff_shadow_slot_row_count: int | None = None
+    kernel_arg_handoff_shadow_slot_column_count: int | None = None
+    kernel_arg_handoff_shadow_slot_schema_hash: str | None = None
+    kernel_arg_handoff_shadow_slot_required_source_hit_count: int | None = None
+    kernel_arg_handoff_shadow_slot_required_source_miss_count: int | None = None
+    kernel_arg_handoff_shadow_slot_optional_source_hit_count: int | None = None
+    kernel_arg_handoff_shadow_slot_optional_source_miss_count: int | None = None
+    kernel_arg_handoff_shadow_slot_payload_bytes: int = 0
+    kernel_arg_handoff_shadow_slot_passed_to_kernel: bool = False
+    kernel_arg_handoff_shadow_slot_changes_kernel_launch_args: bool = False
     handle_table_object_consumed: bool | None = None
     handle_table_object_hash: str | None = None
     handle_table_object_row_count: int | None = None
@@ -1414,6 +1504,7 @@ class ControlledPremapAddressManager:
         handoff_required_miss_count = None
         handoff_optional_hit_count = None
         handoff_optional_miss_count = None
+        handoff_shadow_slot: PremapKernelArgHandoffShadowSlot | None = None
         if (
             table_consume_source_hit_counts is not None
             and table_consume_source_miss_counts is not None
@@ -1458,6 +1549,23 @@ class ControlledPremapAddressManager:
                 and int(table_consume_payload_bytes) == 0
                 and not bool(table_consume_passed_to_kernel)
             )
+            if table_object is not None:
+                handoff_shadow_slot = PremapKernelArgHandoffShadowSlot(
+                    mode="readonly_kernel_arg_handoff_shadow_slot",
+                    table_object_hash=table_object.object_hash,
+                    row_count=handoff_row_count,
+                    column_count=handoff_column_count,
+                    schema_hash=handoff_schema_hash,
+                    row_order_hash=table_object.row_order_hash,
+                    ordered_row_hash=table_object.ordered_row_hash,
+                    required_source_hit_count=handoff_required_hit_count,
+                    required_source_miss_count=handoff_required_miss_count,
+                    optional_source_hit_count=handoff_optional_hit_count,
+                    optional_source_miss_count=handoff_optional_miss_count,
+                    payload_bytes=0,
+                    passed_to_kernel=False,
+                    changes_kernel_launch_args=False,
+                )
         return PremapDescriptorConsumerShimResult(
             execution_mode=str(execution_mode),
             object_count=int(read_result.object_hit_count),
@@ -1542,6 +1650,60 @@ class ControlledPremapAddressManager:
             ),
             kernel_arg_handoff_dry_run_payload_bytes=0,
             kernel_arg_handoff_dry_run_passed_to_kernel=False,
+            kernel_arg_handoff_shadow_slot_mode=(
+                handoff_shadow_slot.mode if handoff_shadow_slot is not None else None
+            ),
+            kernel_arg_handoff_shadow_slot_ready=(
+                handoff_shadow_slot.ready if handoff_shadow_slot is not None else None
+            ),
+            kernel_arg_handoff_shadow_slot_hash=(
+                handoff_shadow_slot.slot_hash
+                if handoff_shadow_slot is not None
+                else None
+            ),
+            kernel_arg_handoff_shadow_slot_table_object_hash=(
+                handoff_shadow_slot.table_object_hash
+                if handoff_shadow_slot is not None
+                else None
+            ),
+            kernel_arg_handoff_shadow_slot_row_count=(
+                handoff_shadow_slot.row_count
+                if handoff_shadow_slot is not None
+                else None
+            ),
+            kernel_arg_handoff_shadow_slot_column_count=(
+                handoff_shadow_slot.column_count
+                if handoff_shadow_slot is not None
+                else None
+            ),
+            kernel_arg_handoff_shadow_slot_schema_hash=(
+                handoff_shadow_slot.schema_hash
+                if handoff_shadow_slot is not None
+                else None
+            ),
+            kernel_arg_handoff_shadow_slot_required_source_hit_count=(
+                handoff_shadow_slot.required_source_hit_count
+                if handoff_shadow_slot is not None
+                else None
+            ),
+            kernel_arg_handoff_shadow_slot_required_source_miss_count=(
+                handoff_shadow_slot.required_source_miss_count
+                if handoff_shadow_slot is not None
+                else None
+            ),
+            kernel_arg_handoff_shadow_slot_optional_source_hit_count=(
+                handoff_shadow_slot.optional_source_hit_count
+                if handoff_shadow_slot is not None
+                else None
+            ),
+            kernel_arg_handoff_shadow_slot_optional_source_miss_count=(
+                handoff_shadow_slot.optional_source_miss_count
+                if handoff_shadow_slot is not None
+                else None
+            ),
+            kernel_arg_handoff_shadow_slot_payload_bytes=0,
+            kernel_arg_handoff_shadow_slot_passed_to_kernel=False,
+            kernel_arg_handoff_shadow_slot_changes_kernel_launch_args=False,
             handle_table_object_consumed=table_object_consumed,
             handle_table_object_hash=table_object_hash,
             handle_table_object_row_count=table_object_row_count,
