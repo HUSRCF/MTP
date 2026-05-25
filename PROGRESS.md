@@ -2,11 +2,12 @@
 
 ## Progress Version
 
-- Version: `v0.16-premap-kernel-arg-connected-adapter-canary`
-- Updated: 2026-05-25
+- Version: `v0.17-premap-kernel-arg-canary-evidence-checker`
+- Updated: 2026-05-26
 - Current phase: premap descriptor/address prep reaches a default-disabled
   live kernel-arg consumer-adapter envelope, with an explicit connected-but-
-  blocked canary that still remains under a strict no-op gate
+  blocked canary that still remains under a strict no-op gate; gate evidence
+  paths now have a local strict checker
 
 ## Runtime Policy Contract
 
@@ -15833,6 +15834,33 @@ This 8-sample run scales the connected-but-blocked canary smoke while preserving
 the same safety boundary: no payload bytes, audit-only ready records with no
 ready-credit violation, and no kernel-argument mutation.  It remains a canary
 path and does not replace the default 128-sample lab gate.
+
+Gate evidence-path checker:
+
+```text
+script:
+  scripts/check_gate_evidence_paths.py
+
+local strict validation:
+  gate:
+    configs/runtime/
+      premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_live_connected_blocked_canary.yaml
+  command mode:
+    --strict --require-json
+  output:
+    data/traces/
+      external_prompt_gate_dolly_8_awq_vllm_gpu1_decode_gen64_live_connected_adapter_canary/
+        evidence_paths_check.json
+  passed = true
+  evidence_path_count = 12
+  missing_count = 0
+  invalid_json_count = 0
+```
+
+The checker defaults to allowing missing evidence paths at the CLI level because
+`data/traces/*` is intentionally not tracked by git.  Use `--strict` for local
+lab validation when the artifacts are present.  The `evidence_paths_check.json`
+file is a local generated check result, not a persistent source artifact.
 
 ## 2026-05-25 - Kernel-Arg Launch-Schema Mirror Gate
 
