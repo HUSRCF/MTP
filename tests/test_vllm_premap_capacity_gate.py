@@ -1929,6 +1929,12 @@ def test_live_connected_adapter_canary_config_uses_connected_blocked_gate():
         == "kernel_arg_handoff_kernel_arg_pass_disabled"
     )
     assert (
+        contract[
+            "kernel_arg_handoff_live_noop_integration_changes_kernel_launch_args_required"
+        ]
+        is False
+    )
+    assert (
         contract["kernel_arg_handoff_live_consumer_adapter_consumer_connected_required"]
         is True
     )
@@ -1963,6 +1969,13 @@ def test_live_connected_adapter_canary_config_uses_connected_blocked_gate():
         metrics[
             "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_passed_to_kernel_count"
         ]
+        == 0
+    )
+    assert (
+        metrics.get(
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_changes_kernel_launch_args_count",
+            0,
+        )
         == 0
     )
     assert (
