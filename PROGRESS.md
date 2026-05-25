@@ -15857,6 +15857,26 @@ local strict validation:
   invalid_json_count = 0
 ```
 
+Default lab-gate strict evidence-path validation:
+
+```text
+script:
+  scripts/check_gate_evidence_paths.py
+command mode:
+  --strict --require-json
+gate:
+  configs/runtime/
+    premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_kernel_arg_shadow.yaml
+output:
+  data/traces/
+    external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_longrun_audit/
+      evidence_paths_check.json
+passed = true
+evidence_path_count = 8
+missing_count = 0
+invalid_json_count = 0
+```
+
 The checker defaults to allowing missing evidence paths at the CLI level because
 `data/traces/*` is intentionally not tracked by git.  Use `--strict` for local
 lab validation when the artifacts are present.  The `evidence_paths_check.json`
