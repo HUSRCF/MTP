@@ -73,7 +73,22 @@ Validation:
 
 ```text
 pytest tests -q
-532 passed, 2 warnings
+535 passed, 2 warnings
+```
+
+Follow-up hardening:
+
+```text
+runtime gate loader now has explicit canary tests for:
+  default-disabled live consumer adapter
+  live-enabled but consumer-disconnected adapter
+  rejection if a gate claims consumer_connected=true
+
+live adapter changes_kernel_launch_args is now a first-class aggregate
+metric, not only a checker alias:
+  changes_kernel_launch_args_count
+  kernel_arg_violation_count
+both are checked to stay zero under the lab gate.
 ```
 
 ## Novelty / Prior-Art Guard
