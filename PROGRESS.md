@@ -15362,6 +15362,71 @@ no descriptor_order execution
 no kernel argument mutation
 ```
 
+## 2026-05-25 - Kernel-Arg Launch-Schema Mirror Gate
+
+Implemented a stricter prelaunch consumer mirror that is closer to the future
+fused-MoE/AWQ launch schema while still remaining a no-op:
+
+```text
+mode = readonly_kernel_arg_handoff_launch_schema_mirror
+launch_schema = fused_moe_awq_wna16_prelaunch_descriptor_address_v1
+fields =
+  sorted_token_ids_ref
+  expert_ids_ref
+  num_tokens_post_padded_ref
+  descriptor_ptr_table_ref
+  packed_weight_descriptor_table_ref
+  scale_metadata_handle_table_ref
+  aux_metadata_handle_table_ref
+  row_order_hash
+  ordered_row_hash
+```
+
+Contract:
+
+```text
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+required descriptor/packed-weight/scale handle hits = 3 x row_count
+handle field reads = 4 x row_count
+launch_arg_field_count = checked_count x 9
+```
+
+Added runtime fields, shadow aggregation, performance-summary flattening, and
+`check_premap_longrun_audit_gate.py --require-kernel-arg-handoff-launch-schema-mirror`.
+The checker now treats launch-schema mirror fields as active only when
+`checked_count > 0`, so zero-valued default aggregate keys do not falsely fail
+legacy/non-enabled summaries.
+
+Validation:
+
+```text
+pytest tests -q
+  524 passed, 2 warnings
+
+GPU1 AWQ 8-sample smoke:
+  configs/trace/
+    router_mtp_trace_external_prompt_gate_dolly_8_awq_vllm_gpu1_decode_gen64_premap_consumer_mapping_smoke.yaml
+
+performance_summary:
+  launch_schema_mirror_checked_count = 20,480
+  launch_schema_mirror_ready_count = 20,480
+  launch_schema_mirror_row_count = 190,215
+  launch_schema_mirror_handle_field_read_count = 760,860
+  launch_schema_mirror_launch_arg_field_count = 184,320
+  launch_schema_name = fused_moe_awq_wna16_prelaunch_descriptor_address_v1
+  launch_schema_hash = 576c83df9f825786d494ae3fe1f2286fcbae1afc876b243e748bae8e5b804984
+  payload_bytes = 0
+  passed_to_kernel_count = 0
+  kernel_arg_violation_count = 0
+```
+
+The smoke passes the full descriptor/address/consumer/kernel-arg mirror
+contract when using a smoke-appropriate reuse threshold (`min_reuse_rate=0.80`).
+It does not replace the 128-sample lab default gate because the 8-sample address
+reuse rate is lower (`0.867`) than the long-run lab threshold (`0.98`).
+
 ## Kernel-arg handoff mirror no-op gate
 
 The prelaunch consumer now constructs a no-op mirror of the future fused-MoE/AWQ

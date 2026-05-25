@@ -10,6 +10,9 @@ from mtp_expert_prefetch.runtime import (
     ExpertPrefetchDescriptor,
     PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_COLUMNS,
     PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH,
+    PREMAP_KERNEL_ARG_PRELAUNCH_LAUNCH_SCHEMA_FIELDS,
+    PREMAP_KERNEL_ARG_PRELAUNCH_LAUNCH_SCHEMA_HASH,
+    PREMAP_KERNEL_ARG_PRELAUNCH_LAUNCH_SCHEMA_NAME,
     PremapRealDescriptorHandle,
     PremapKernelArgHandoffMirrorObject,
     build_premap_descriptors,
@@ -524,6 +527,71 @@ def test_controlled_premap_address_manager_executes_descriptor_prep_readonly():
     assert shim_result.kernel_arg_handoff_mirror_payload_bytes == 0
     assert shim_result.kernel_arg_handoff_mirror_passed_to_kernel is False
     assert shim_result.kernel_arg_handoff_mirror_changes_kernel_launch_args is False
+    assert (
+        shim_result.kernel_arg_handoff_launch_schema_mirror_mode
+        == "readonly_kernel_arg_handoff_launch_schema_mirror"
+    )
+    assert shim_result.kernel_arg_handoff_launch_schema_mirror_ready is True
+    assert shim_result.kernel_arg_handoff_launch_schema_mirror_hash
+    assert (
+        shim_result.kernel_arg_handoff_launch_schema_mirror_handoff_mirror_hash
+        == shim_result.kernel_arg_handoff_mirror_hash
+    )
+    assert (
+        shim_result.kernel_arg_handoff_launch_schema_mirror_slot_hash
+        == shim_result.kernel_arg_handoff_shadow_slot_hash
+    )
+    assert (
+        shim_result.kernel_arg_handoff_launch_schema_mirror_table_object_hash
+        == table_object.object_hash
+    )
+    assert shim_result.kernel_arg_handoff_launch_schema_mirror_row_count == 2
+    assert shim_result.kernel_arg_handoff_launch_schema_mirror_column_count == 4
+    assert (
+        shim_result.kernel_arg_handoff_launch_schema_mirror_table_schema_hash
+        == PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH
+    )
+    assert (
+        shim_result.kernel_arg_handoff_launch_schema_mirror_launch_schema_name
+        == PREMAP_KERNEL_ARG_PRELAUNCH_LAUNCH_SCHEMA_NAME
+    )
+    assert (
+        shim_result.kernel_arg_handoff_launch_schema_mirror_launch_schema_hash
+        == PREMAP_KERNEL_ARG_PRELAUNCH_LAUNCH_SCHEMA_HASH
+    )
+    assert (
+        shim_result.kernel_arg_handoff_launch_schema_mirror_launch_arg_field_count
+        == len(PREMAP_KERNEL_ARG_PRELAUNCH_LAUNCH_SCHEMA_FIELDS)
+    )
+    assert (
+        shim_result.kernel_arg_handoff_launch_schema_mirror_required_source_hit_count
+        == 6
+    )
+    assert (
+        shim_result.kernel_arg_handoff_launch_schema_mirror_required_source_miss_count
+        == 0
+    )
+    assert (
+        shim_result.kernel_arg_handoff_launch_schema_mirror_optional_source_hit_count
+        == 0
+    )
+    assert (
+        shim_result.kernel_arg_handoff_launch_schema_mirror_optional_source_miss_count
+        == 2
+    )
+    assert (
+        shim_result.kernel_arg_handoff_launch_schema_mirror_handle_field_read_count
+        == 8
+    )
+    assert shim_result.kernel_arg_handoff_launch_schema_mirror_payload_bytes == 0
+    assert (
+        shim_result.kernel_arg_handoff_launch_schema_mirror_passed_to_kernel
+        is False
+    )
+    assert (
+        shim_result.kernel_arg_handoff_launch_schema_mirror_changes_kernel_launch_args
+        is False
+    )
     assert (
         shim_result.kernel_arg_handoff_attempt_mode
         == "readonly_kernel_arg_handoff_attempt"

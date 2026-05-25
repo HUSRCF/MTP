@@ -15,6 +15,9 @@ from typing import Any
 from mtp_expert_prefetch.runtime import (
     PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_COLUMNS,
     PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH,
+    PREMAP_KERNEL_ARG_PRELAUNCH_LAUNCH_SCHEMA_FIELDS,
+    PREMAP_KERNEL_ARG_PRELAUNCH_LAUNCH_SCHEMA_HASH,
+    PREMAP_KERNEL_ARG_PRELAUNCH_LAUNCH_SCHEMA_NAME,
 )
 
 
@@ -22,11 +25,17 @@ REQUIRED_EVENT_TYPES = {"premap_summary", "premap_consumer_mapping"}
 EXPECTED_KERNEL_ARG_SHADOW_TABLE_COLUMN_COUNT = len(
     PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_COLUMNS
 )
+EXPECTED_KERNEL_ARG_PRELAUNCH_LAUNCH_SCHEMA_FIELD_COUNT = len(
+    PREMAP_KERNEL_ARG_PRELAUNCH_LAUNCH_SCHEMA_FIELDS
+)
 KERNEL_ARG_HANDOFF_ATTEMPT_PREFIX = (
     "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_"
 )
 KERNEL_ARG_HANDOFF_LIVE_TOGGLE_PREFIX = (
     "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_"
+)
+KERNEL_ARG_HANDOFF_LAUNCH_SCHEMA_MIRROR_PREFIX = (
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_launch_schema_mirror_"
 )
 
 
@@ -77,6 +86,7 @@ def check_summary(
     require_consumer_shim_prep_execution: bool = False,
     require_kernel_arg_handoff_attempt: bool = False,
     require_kernel_arg_handoff_live_toggle: bool = False,
+    require_kernel_arg_handoff_launch_schema_mirror: bool = False,
     allow_enabled_blocked_live_toggle: bool = False,
 ) -> dict[str, Any]:
     summary = _normalize_summary(summary)
@@ -222,6 +232,17 @@ def check_summary(
         str(key).startswith(KERNEL_ARG_HANDOFF_LIVE_TOGGLE_PREFIX)
         for key in aggregate
     )
+    launch_schema_mirror_checked_count = _as_int(
+        aggregate.get(
+            f"{KERNEL_ARG_HANDOFF_LAUNCH_SCHEMA_MIRROR_PREFIX}checked_count"
+        )
+    )
+    # Newer aggregate schemas may include zero-valued launch-schema mirror
+    # counters even when the mirror record was not emitted.  Treat this contract
+    # as active only once at least one mirror was actually checked.
+    kernel_arg_handoff_launch_schema_mirror_active = (
+        launch_schema_mirror_checked_count > 0
+    )
     if require_consumer_shim_table_consume and not consumer_shim_table_consume_active:
         failures.append("consumer_shim_table_consume_fields_missing")
     if require_consumer_shim_table_consume and not consumer_shim_table_read_active:
@@ -234,6 +255,20 @@ def check_summary(
         failures.append("consumer_shim_kernel_arg_handoff_live_toggle_fields_missing")
     if require_kernel_arg_handoff_live_toggle and not kernel_arg_handoff_attempt_active:
         failures.append("consumer_shim_kernel_arg_handoff_live_toggle_requires_handoff_attempt_fields")
+    if (
+        require_kernel_arg_handoff_launch_schema_mirror
+        and not kernel_arg_handoff_launch_schema_mirror_active
+    ):
+        failures.append(
+            "consumer_shim_kernel_arg_handoff_launch_schema_mirror_fields_missing"
+        )
+    if (
+        require_kernel_arg_handoff_launch_schema_mirror
+        and not kernel_arg_handoff_attempt_active
+    ):
+        failures.append(
+            "consumer_shim_kernel_arg_handoff_launch_schema_mirror_requires_handoff_attempt_fields"
+        )
     consumer_shim_table_object_checked_count = _as_int(
         aggregate.get(
             "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_consumed_checked_count"
@@ -277,6 +312,7 @@ def check_summary(
         or require_kernel_arg_shadow_table
         or require_kernel_arg_handoff_attempt
         or require_kernel_arg_handoff_live_toggle
+        or require_kernel_arg_handoff_launch_schema_mirror
         or descriptor_prep_active
     ):
         attempted = _as_int(
@@ -582,6 +618,7 @@ def check_summary(
         if (
             require_consumer_shim_table_consume
             or require_kernel_arg_handoff_attempt
+            or require_kernel_arg_handoff_launch_schema_mirror
             or consumer_shim_table_consume_active
         ):
             shim_executed = _as_int(
@@ -2011,6 +2048,316 @@ def check_summary(
                     "consumer_shim_kernel_arg_handoff_mirror_kernel_arg_violation_count_nonzero="
                     f"{mirror_kernel_arg_violation_count}"
                 )
+            if (
+                require_kernel_arg_handoff_launch_schema_mirror
+                or kernel_arg_handoff_launch_schema_mirror_active
+            ):
+                launch_prefix = (
+                    "premap_consumer_descriptor_prep_consumer_shim_"
+                    "kernel_arg_handoff_launch_schema_mirror_"
+                )
+                launch_checked_count = _as_int(
+                    aggregate.get(f"{launch_prefix}checked_count")
+                )
+                launch_ready_count = _as_int(
+                    aggregate.get(f"{launch_prefix}ready_count")
+                )
+                launch_hash_checked_count = _as_int(
+                    aggregate.get(f"{launch_prefix}hash_checked_count")
+                )
+                launch_hash_missing_count = _as_int(
+                    aggregate.get(f"{launch_prefix}hash_missing_count")
+                )
+                launch_handoff_mirror_hash_checked_count = _as_int(
+                    aggregate.get(f"{launch_prefix}handoff_mirror_hash_checked_count")
+                )
+                launch_handoff_mirror_hash_missing_count = _as_int(
+                    aggregate.get(f"{launch_prefix}handoff_mirror_hash_missing_count")
+                )
+                launch_slot_hash_checked_count = _as_int(
+                    aggregate.get(f"{launch_prefix}slot_hash_checked_count")
+                )
+                launch_slot_hash_missing_count = _as_int(
+                    aggregate.get(f"{launch_prefix}slot_hash_missing_count")
+                )
+                launch_mode = str(aggregate.get(f"{launch_prefix}mode") or "")
+                launch_mode_checked_count = _as_int(
+                    aggregate.get(f"{launch_prefix}mode_checked_count")
+                )
+                launch_mode_missing_count = _as_int(
+                    aggregate.get(f"{launch_prefix}mode_missing_count")
+                )
+                launch_mode_mismatch_count = _as_int(
+                    aggregate.get(f"{launch_prefix}mode_mismatch_count")
+                )
+                launch_row_count = _as_int(
+                    aggregate.get(f"{launch_prefix}row_count")
+                )
+                launch_column_count_max = _as_int(
+                    aggregate.get(f"{launch_prefix}column_count_max")
+                )
+                launch_column_count_min = _as_int(
+                    aggregate.get(f"{launch_prefix}column_count_min")
+                )
+                launch_table_schema_hash = str(
+                    aggregate.get(f"{launch_prefix}table_schema_hash") or ""
+                )
+                launch_table_schema_hash_checked_count = _as_int(
+                    aggregate.get(f"{launch_prefix}table_schema_hash_checked_count")
+                )
+                launch_table_schema_hash_missing_count = _as_int(
+                    aggregate.get(f"{launch_prefix}table_schema_hash_missing_count")
+                )
+                launch_table_schema_hash_mismatch_count = _as_int(
+                    aggregate.get(f"{launch_prefix}table_schema_hash_mismatch_count")
+                )
+                launch_schema_name = str(
+                    aggregate.get(f"{launch_prefix}launch_schema_name") or ""
+                )
+                launch_schema_name_checked_count = _as_int(
+                    aggregate.get(f"{launch_prefix}launch_schema_name_checked_count")
+                )
+                launch_schema_name_missing_count = _as_int(
+                    aggregate.get(f"{launch_prefix}launch_schema_name_missing_count")
+                )
+                launch_schema_name_mismatch_count = _as_int(
+                    aggregate.get(f"{launch_prefix}launch_schema_name_mismatch_count")
+                )
+                launch_schema_hash = str(
+                    aggregate.get(f"{launch_prefix}launch_schema_hash") or ""
+                )
+                launch_schema_hash_checked_count = _as_int(
+                    aggregate.get(f"{launch_prefix}launch_schema_hash_checked_count")
+                )
+                launch_schema_hash_missing_count = _as_int(
+                    aggregate.get(f"{launch_prefix}launch_schema_hash_missing_count")
+                )
+                launch_schema_hash_mismatch_count = _as_int(
+                    aggregate.get(f"{launch_prefix}launch_schema_hash_mismatch_count")
+                )
+                launch_arg_field_count = _as_int(
+                    aggregate.get(f"{launch_prefix}launch_arg_field_count")
+                )
+                launch_required_source_hit_count = _as_int(
+                    aggregate.get(f"{launch_prefix}required_source_hit_count")
+                )
+                launch_required_source_miss_count = _as_int(
+                    aggregate.get(f"{launch_prefix}required_source_miss_count")
+                )
+                launch_optional_source_hit_count = _as_int(
+                    aggregate.get(f"{launch_prefix}optional_source_hit_count")
+                )
+                launch_optional_source_miss_count = _as_int(
+                    aggregate.get(f"{launch_prefix}optional_source_miss_count")
+                )
+                launch_handle_field_read_count = _as_int(
+                    aggregate.get(f"{launch_prefix}handle_field_read_count")
+                )
+                launch_payload_bytes = _as_int(
+                    aggregate.get(f"{launch_prefix}payload_bytes")
+                )
+                launch_payload_violation_count = _as_int(
+                    aggregate.get(f"{launch_prefix}payload_violation_count")
+                )
+                launch_passed_to_kernel_count = _as_int(
+                    aggregate.get(f"{launch_prefix}passed_to_kernel_count")
+                )
+                launch_kernel_arg_violation_count = _as_int(
+                    aggregate.get(f"{launch_prefix}kernel_arg_violation_count")
+                )
+                if launch_checked_count != shim_executed:
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_launch_schema_mirror_checked_count_mismatch="
+                        f"{launch_checked_count}!={shim_executed}"
+                    )
+                if launch_ready_count != shim_executed:
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_launch_schema_mirror_ready_count_mismatch="
+                        f"{launch_ready_count}!={shim_executed}"
+                    )
+                for name, value in (
+                    ("hash_checked_count", launch_hash_checked_count),
+                    (
+                        "handoff_mirror_hash_checked_count",
+                        launch_handoff_mirror_hash_checked_count,
+                    ),
+                    ("slot_hash_checked_count", launch_slot_hash_checked_count),
+                ):
+                    if value != shim_executed:
+                        failures.append(
+                            "consumer_shim_kernel_arg_handoff_launch_schema_mirror_"
+                            f"{name}_mismatch={value}!={shim_executed}"
+                        )
+                for name, value in (
+                    ("hash_missing_count", launch_hash_missing_count),
+                    (
+                        "handoff_mirror_hash_missing_count",
+                        launch_handoff_mirror_hash_missing_count,
+                    ),
+                    ("slot_hash_missing_count", launch_slot_hash_missing_count),
+                ):
+                    if value != 0:
+                        failures.append(
+                            "consumer_shim_kernel_arg_handoff_launch_schema_mirror_"
+                            f"{name}_nonzero={value}"
+                        )
+                if (
+                    launch_mode
+                    != "readonly_kernel_arg_handoff_launch_schema_mirror"
+                ):
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_launch_schema_mirror_mode_mismatch"
+                    )
+                if launch_mode_checked_count != shim_executed:
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_launch_schema_mirror_mode_checked_count_mismatch="
+                        f"{launch_mode_checked_count}!={shim_executed}"
+                    )
+                if launch_mode_missing_count != 0:
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_launch_schema_mirror_mode_missing_count_nonzero="
+                        f"{launch_mode_missing_count}"
+                    )
+                if launch_mode_mismatch_count != 0:
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_launch_schema_mirror_mode_mismatch_count_nonzero="
+                        f"{launch_mode_mismatch_count}"
+                    )
+                if launch_row_count != consume_row_count:
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_launch_schema_mirror_row_count_mismatch="
+                        f"{launch_row_count}!={consume_row_count}"
+                    )
+                if launch_column_count_max != EXPECTED_KERNEL_ARG_SHADOW_TABLE_COLUMN_COUNT:
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_launch_schema_mirror_column_count_max_mismatch="
+                        f"{launch_column_count_max}!="
+                        f"{EXPECTED_KERNEL_ARG_SHADOW_TABLE_COLUMN_COUNT}"
+                    )
+                if launch_column_count_min != EXPECTED_KERNEL_ARG_SHADOW_TABLE_COLUMN_COUNT:
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_launch_schema_mirror_column_count_min_mismatch="
+                        f"{launch_column_count_min}!="
+                        f"{EXPECTED_KERNEL_ARG_SHADOW_TABLE_COLUMN_COUNT}"
+                    )
+                if (
+                    launch_table_schema_hash
+                    != PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH
+                ):
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_launch_schema_mirror_table_schema_hash_mismatch"
+                    )
+                if launch_table_schema_hash_checked_count != shim_executed:
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_launch_schema_mirror_table_schema_hash_checked_count_mismatch="
+                        f"{launch_table_schema_hash_checked_count}!={shim_executed}"
+                    )
+                if launch_table_schema_hash_missing_count != 0:
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_launch_schema_mirror_table_schema_hash_missing_count_nonzero="
+                        f"{launch_table_schema_hash_missing_count}"
+                    )
+                if launch_table_schema_hash_mismatch_count != 0:
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_launch_schema_mirror_table_schema_hash_mismatch_count_nonzero="
+                        f"{launch_table_schema_hash_mismatch_count}"
+                    )
+                if launch_schema_name != PREMAP_KERNEL_ARG_PRELAUNCH_LAUNCH_SCHEMA_NAME:
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_launch_schema_mirror_launch_schema_name_mismatch"
+                    )
+                if launch_schema_name_checked_count != shim_executed:
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_launch_schema_mirror_launch_schema_name_checked_count_mismatch="
+                        f"{launch_schema_name_checked_count}!={shim_executed}"
+                    )
+                if launch_schema_name_missing_count != 0:
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_launch_schema_mirror_launch_schema_name_missing_count_nonzero="
+                        f"{launch_schema_name_missing_count}"
+                    )
+                if launch_schema_name_mismatch_count != 0:
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_launch_schema_mirror_launch_schema_name_mismatch_count_nonzero="
+                        f"{launch_schema_name_mismatch_count}"
+                    )
+                if launch_schema_hash != PREMAP_KERNEL_ARG_PRELAUNCH_LAUNCH_SCHEMA_HASH:
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_launch_schema_mirror_launch_schema_hash_mismatch"
+                    )
+                if launch_schema_hash_checked_count != shim_executed:
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_launch_schema_mirror_launch_schema_hash_checked_count_mismatch="
+                        f"{launch_schema_hash_checked_count}!={shim_executed}"
+                    )
+                if launch_schema_hash_missing_count != 0:
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_launch_schema_mirror_launch_schema_hash_missing_count_nonzero="
+                        f"{launch_schema_hash_missing_count}"
+                    )
+                if launch_schema_hash_mismatch_count != 0:
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_launch_schema_mirror_launch_schema_hash_mismatch_count_nonzero="
+                        f"{launch_schema_hash_mismatch_count}"
+                    )
+                expected_launch_arg_field_count = (
+                    shim_executed
+                    * EXPECTED_KERNEL_ARG_PRELAUNCH_LAUNCH_SCHEMA_FIELD_COUNT
+                )
+                if launch_arg_field_count != expected_launch_arg_field_count:
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_launch_schema_mirror_launch_arg_field_count_mismatch="
+                        f"{launch_arg_field_count}!={expected_launch_arg_field_count}"
+                    )
+                if launch_required_source_hit_count != expected_consume_required_fields:
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_launch_schema_mirror_required_source_hit_count_mismatch="
+                        f"{launch_required_source_hit_count}!={expected_consume_required_fields}"
+                    )
+                if launch_required_source_miss_count != 0:
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_launch_schema_mirror_required_source_miss_count_nonzero="
+                        f"{launch_required_source_miss_count}"
+                    )
+                if (
+                    launch_optional_source_hit_count
+                    + launch_optional_source_miss_count
+                    != consume_row_count
+                ):
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_launch_schema_mirror_optional_source_total_mismatch="
+                        f"{launch_optional_source_hit_count}+"
+                        f"{launch_optional_source_miss_count}!={consume_row_count}"
+                    )
+                if (
+                    launch_handle_field_read_count
+                    != consume_row_count * EXPECTED_KERNEL_ARG_SHADOW_TABLE_COLUMN_COUNT
+                ):
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_launch_schema_mirror_handle_field_read_count_mismatch="
+                        f"{launch_handle_field_read_count}!="
+                        f"{consume_row_count * EXPECTED_KERNEL_ARG_SHADOW_TABLE_COLUMN_COUNT}"
+                    )
+                if launch_payload_bytes != 0:
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_launch_schema_mirror_payload_bytes_nonzero="
+                        f"{launch_payload_bytes}"
+                    )
+                if launch_payload_violation_count != 0:
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_launch_schema_mirror_payload_violation_count_nonzero="
+                        f"{launch_payload_violation_count}"
+                    )
+                if launch_passed_to_kernel_count != 0:
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_launch_schema_mirror_passed_to_kernel_count_nonzero="
+                        f"{launch_passed_to_kernel_count}"
+                    )
+                if launch_kernel_arg_violation_count != 0:
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_launch_schema_mirror_kernel_arg_violation_count_nonzero="
+                        f"{launch_kernel_arg_violation_count}"
+                    )
             if attempt_checked_count != shim_executed:
                 failures.append(
                     "consumer_shim_kernel_arg_handoff_attempt_checked_count_mismatch="
@@ -3494,6 +3841,110 @@ def check_summary(
                 "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_mirror_kernel_arg_violation_count"
             )
         ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_launch_schema_mirror_checked_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_launch_schema_mirror_checked_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_launch_schema_mirror_ready_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_launch_schema_mirror_ready_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_launch_schema_mirror_hash_checked_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_launch_schema_mirror_hash_checked_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_launch_schema_mirror_handoff_mirror_hash_checked_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_launch_schema_mirror_handoff_mirror_hash_checked_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_launch_schema_mirror_slot_hash_checked_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_launch_schema_mirror_slot_hash_checked_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_launch_schema_mirror_mode": str(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_launch_schema_mirror_mode"
+            )
+            or ""
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_launch_schema_mirror_row_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_launch_schema_mirror_row_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_launch_schema_mirror_column_count_max": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_launch_schema_mirror_column_count_max"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_launch_schema_mirror_table_schema_hash": str(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_launch_schema_mirror_table_schema_hash"
+            )
+            or ""
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_launch_schema_mirror_launch_schema_name": str(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_launch_schema_mirror_launch_schema_name"
+            )
+            or ""
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_launch_schema_mirror_launch_schema_hash": str(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_launch_schema_mirror_launch_schema_hash"
+            )
+            or ""
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_launch_schema_mirror_launch_arg_field_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_launch_schema_mirror_launch_arg_field_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_launch_schema_mirror_required_source_hit_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_launch_schema_mirror_required_source_hit_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_launch_schema_mirror_required_source_miss_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_launch_schema_mirror_required_source_miss_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_launch_schema_mirror_optional_source_hit_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_launch_schema_mirror_optional_source_hit_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_launch_schema_mirror_optional_source_miss_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_launch_schema_mirror_optional_source_miss_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_launch_schema_mirror_handle_field_read_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_launch_schema_mirror_handle_field_read_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_launch_schema_mirror_payload_bytes": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_launch_schema_mirror_payload_bytes"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_launch_schema_mirror_passed_to_kernel_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_launch_schema_mirror_passed_to_kernel_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_launch_schema_mirror_kernel_arg_violation_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_launch_schema_mirror_kernel_arg_violation_count"
+            )
+        ),
         "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_checked_count": _as_int(
             aggregate.get(
                 "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_checked_count"
@@ -3923,6 +4374,9 @@ def check_summary(
         "require_kernel_arg_handoff_live_toggle": bool(
             require_kernel_arg_handoff_live_toggle
         ),
+        "require_kernel_arg_handoff_launch_schema_mirror": bool(
+            require_kernel_arg_handoff_launch_schema_mirror
+        ),
         "allow_enabled_blocked_live_toggle": bool(
             allow_enabled_blocked_live_toggle
         ),
@@ -4025,6 +4479,15 @@ def main() -> None:
         ),
     )
     parser.add_argument(
+        "--require-kernel-arg-handoff-launch-schema-mirror",
+        action="store_true",
+        help=(
+            "Require the prelaunch launch-schema mirror of the future fused "
+            "MoE/AWQ kernel argument package. The mirror must be ready, "
+            "schema-stable, zero-payload, and not passed to a kernel."
+        ),
+    )
+    parser.add_argument(
         "--allow-enabled-blocked-live-toggle",
         action="store_true",
         help=(
@@ -4056,6 +4519,9 @@ def main() -> None:
         ),
         require_kernel_arg_handoff_live_toggle=(
             args.require_kernel_arg_handoff_live_toggle
+        ),
+        require_kernel_arg_handoff_launch_schema_mirror=(
+            args.require_kernel_arg_handoff_launch_schema_mirror
         ),
         allow_enabled_blocked_live_toggle=(
             args.allow_enabled_blocked_live_toggle
