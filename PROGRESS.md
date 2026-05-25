@@ -166,18 +166,48 @@ gate remains the refreshed Dolly128 artifact; the Dolly512 artifact remains
 legacy read-only handle/source-class scale evidence until rerun with the current
 kernel-arg/live-adapter envelope.
 
-A 32-sample strict-smoke config is now available as an intermediate
-current-envelope check:
+A 32-sample strict-smoke config and gate artifact are now available as an
+intermediate current-envelope check:
 
 ```text
 configs/trace/
   router_mtp_trace_external_prompt_gate_dolly_32_awq_vllm_gpu1_decode_gen64_longrun_audit_smoke.yaml
+
+data/traces/
+  external_prompt_gate_dolly_32_awq_vllm_gpu1_decode_gen64_longrun_audit_smoke/
+    performance_summary.json
+    longrun_audit_gate_live_consumer_adapter.json
 ```
 
-It inherits the 8-sample strict-smoke contract, keeps
+Here `current-envelope` means the current code path plus the current
+runtime-shadow contract.  It inherits the 8-sample strict-smoke contract, keeps
 `premap_kernel_arg_handoff_kernel_arg_pass_enabled = false`, and is intended to
 bridge quick smoke and the 128-sample lab gate.  It is not a replacement for the
 lab-default Dolly128 gate.
+
+32-sample checker result:
+
+```text
+passed = true
+failures = []
+runtime_shadow_premap_kernel_arg_handoff_kernel_arg_pass_enabled = false
+runtime_shadow_premap_kernel_arg_handoff_live_enabled = false
+runtime_shadow_premap_kernel_arg_handoff_live_consumer_connected = false
+
+decision_summary_count = 2560
+premap_summary_count = 2560
+
+live_noop_integration_checked = 2560
+live_noop_integration_consumer_connected = 0
+live_noop_integration_blocked = 2560
+live_noop_integration_changes_kernel_launch_args = 0
+
+live_consumer_adapter_checked = 2560
+live_consumer_adapter_consumer_connected = 0
+live_consumer_adapter_blocked = 2560
+live_consumer_adapter_changes_kernel_launch_args = 0
+live_consumer_adapter_kernel_arg_violation = 0
+```
 
 ## Novelty / Prior-Art Guard
 
