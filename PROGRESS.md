@@ -13426,6 +13426,68 @@ no descriptor_order execution
 no kernel argument mutation
 ```
 
+## 2026-05-25 - 128-Sample Launch-Schema Mirror Gate Promoted
+
+The kernel-arg handoff mirror is now checked against an explicit future launch
+schema mirror under the 128-sample Dolly AWQ GPU1 lab-default audit.
+
+```text
+config:
+  configs/trace/
+    router_mtp_trace_external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_longrun_audit.yaml
+
+gate artifact:
+  data/traces/
+    external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_longrun_audit/
+    longrun_audit_gate.json
+
+gate config:
+  configs/runtime/
+    premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_kernel_arg_shadow.yaml
+```
+
+Result:
+
+```text
+passed = true
+failures = []
+premap_address_reuse_rate_mean = 0.9827389896686539
+premap_address_resident_count_max = 10,127
+premap_address_eviction_pressure_mean = 0.0
+
+kernel_arg_handoff_launch_schema_mirror_checked = 10,195
+kernel_arg_handoff_launch_schema_mirror_ready = 10,195
+kernel_arg_handoff_launch_schema_mirror_row_count = 110,898
+kernel_arg_handoff_launch_schema_mirror_launch_arg_field_count = 91,755
+
+launch_schema_name =
+  fused_moe_awq_wna16_prelaunch_descriptor_address_v1
+launch_schema_hash =
+  576c83df9f825786d494ae3fe1f2286fcbae1afc876b243e748bae8e5b804984
+
+payload_bytes = 0
+passed_to_kernel_count = 0
+kernel_arg_violation_count = 0
+```
+
+The lab precondition now requires:
+
+```text
+readonly consumer
+real descriptor prep
+kernel-arg shadow table
+consumer shim table read/consume/object
+prep execution dry-run
+kernel-arg handoff attempt
+kernel-arg live toggle
+kernel-arg launch-schema mirror
+```
+
+This still does not pass kernel args, move payload, grant ready credit, mutate the
+router, or change descriptor order.  It only validates that the prepared handle
+table can be mirrored into the schema shape a future fused-MoE/AWQ prelaunch
+consumer would receive.
+
 The fused-MoE/AWQ consumer mapping now resolves the resident
 `PremapAddressHandle` object for each `(layer_id, expert_id)` key and records a
 handle hash parity check against the latest current-router premap summary.
