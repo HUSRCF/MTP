@@ -95,6 +95,20 @@ def _as_float(value: Any, default: float = 0.0) -> float:
     return float(value)
 
 
+def _as_bool(value: Any, default: bool = False) -> bool:
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        lowered = value.strip().lower()
+        if lowered in {"1", "true", "yes", "on"}:
+            return True
+        if lowered in {"0", "false", "no", "off", ""}:
+            return False
+    return bool(value)
+
+
 def _backfill_gate_report_metrics(aggregate: dict[str, Any]) -> None:
     """Make checker output self-checkable when used as a gate artifact.
 
@@ -286,6 +300,9 @@ def check_summary(
     allow_enabled_blocked_live_toggle: bool = False,
     allow_connected_blocked_consumer_adapter: bool = False,
 ) -> dict[str, Any]:
+    raw_kernel_arg_pass_enabled = summary.get(
+        "runtime_shadow_premap_kernel_arg_handoff_kernel_arg_pass_enabled"
+    )
     summary = _normalize_summary(summary)
     event_counts = {
         str(key): int(value) for key, value in summary.get("event_counts", {}).items()
@@ -296,6 +313,12 @@ def check_summary(
         failures.append(
             "allow_connected_blocked_consumer_adapter_requires_allow_enabled_blocked_live_toggle"
         )
+    kernel_arg_pass_enabled = aggregate.get(
+        "runtime_shadow_premap_kernel_arg_handoff_kernel_arg_pass_enabled",
+        raw_kernel_arg_pass_enabled,
+    )
+    if _as_bool(kernel_arg_pass_enabled):
+        failures.append("kernel_arg_handoff_kernel_arg_pass_enabled_true")
 
     unknown_events = sorted(set(event_counts) - REQUIRED_EVENT_TYPES)
     missing_events = sorted(event for event in REQUIRED_EVENT_TYPES if event_counts.get(event, 0) <= 0)

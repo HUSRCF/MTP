@@ -657,6 +657,46 @@ def test_premap_longrun_audit_gate_accepts_performance_summary_shape():
     )
 
 
+def test_premap_longrun_audit_gate_rejects_kernel_arg_pass_enabled_summary():
+    summary = _passing_summary()
+    performance_summary = {
+        "generate_wall_seconds": 1.0,
+        "runtime_shadow_premap_kernel_arg_handoff_kernel_arg_pass_enabled": True,
+        "runtime_shadow_aggregate": {
+            **summary["aggregate"],
+            "premap_summary_count": 2,
+            "premap_consumer_mapping_count": 2,
+        },
+    }
+
+    result = check_summary(
+        performance_summary,
+        max_capacity=12,
+        min_reuse_rate=0.98,
+        require_readonly_consumer=True,
+    )
+
+    assert result["passed"] is False
+    assert "kernel_arg_handoff_kernel_arg_pass_enabled_true" in result["failures"]
+
+
+def test_premap_longrun_audit_gate_rejects_kernel_arg_pass_enabled_aggregate():
+    summary = _passing_summary()
+    summary["aggregate"][
+        "runtime_shadow_premap_kernel_arg_handoff_kernel_arg_pass_enabled"
+    ] = True
+
+    result = check_summary(
+        summary,
+        max_capacity=12,
+        min_reuse_rate=0.98,
+        require_readonly_consumer=True,
+    )
+
+    assert result["passed"] is False
+    assert "kernel_arg_handoff_kernel_arg_pass_enabled_true" in result["failures"]
+
+
 def test_premap_longrun_audit_gate_accepts_gate_report_shape():
     summary = _add_kernel_arg_handoff_launch_schema_mirror(
         _add_kernel_arg_handoff_live_toggle(
