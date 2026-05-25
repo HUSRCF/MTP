@@ -137,6 +137,18 @@ def _backfill_gate_report_metrics(aggregate: dict[str, Any]) -> None:
         )
     )
     set_if_missing(
+        f"{KERNEL_ARG_HANDOFF_LIVE_NOOP_INTEGRATION_PREFIX}changes_kernel_launch_args_count",
+        aggregate.get(
+            f"{KERNEL_ARG_HANDOFF_LIVE_NOOP_INTEGRATION_PREFIX}kernel_arg_violation_count"
+        ),
+    )
+    set_if_missing(
+        f"{KERNEL_ARG_HANDOFF_LIVE_CONSUMER_ADAPTER_PREFIX}changes_kernel_launch_args_count",
+        aggregate.get(
+            f"{KERNEL_ARG_HANDOFF_LIVE_CONSUMER_ADAPTER_PREFIX}kernel_arg_violation_count"
+        ),
+    )
+    set_if_missing(
         "premap_consumer_descriptor_handle_hit_rate",
         aggregate.get("premap_consumer_real_descriptor_handle_hit_rate"),
     )
@@ -1834,6 +1846,14 @@ def check_summary(
                     f"{KERNEL_ARG_HANDOFF_LIVE_NOOP_INTEGRATION_PREFIX}kernel_arg_violation_count"
                 )
             )
+            live_noop_changes_kernel_launch_args_count = _as_int(
+                aggregate.get(
+                    f"{KERNEL_ARG_HANDOFF_LIVE_NOOP_INTEGRATION_PREFIX}changes_kernel_launch_args_count",
+                    aggregate.get(
+                        f"{KERNEL_ARG_HANDOFF_LIVE_NOOP_INTEGRATION_PREFIX}kernel_arg_violation_count"
+                    ),
+                )
+            )
             adapter_checked_count = _as_int(
                 aggregate.get(
                     f"{KERNEL_ARG_HANDOFF_LIVE_CONSUMER_ADAPTER_PREFIX}checked_count"
@@ -3379,6 +3399,11 @@ def check_summary(
                     failures.append(
                         "consumer_shim_kernel_arg_handoff_live_noop_integration_kernel_arg_violation_count_nonzero="
                         f"{live_noop_kernel_arg_violation_count}"
+                    )
+                if live_noop_changes_kernel_launch_args_count != 0:
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_live_noop_integration_changes_kernel_launch_args_count_nonzero="
+                        f"{live_noop_changes_kernel_launch_args_count}"
                     )
             if (
                 require_kernel_arg_handoff_live_consumer_adapter
@@ -5264,6 +5289,14 @@ def check_summary(
         "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_kernel_arg_violation_count": _as_int(
             aggregate.get(
                 f"{KERNEL_ARG_HANDOFF_LIVE_NOOP_INTEGRATION_PREFIX}kernel_arg_violation_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_changes_kernel_launch_args_count": _as_int(
+            aggregate.get(
+                f"{KERNEL_ARG_HANDOFF_LIVE_NOOP_INTEGRATION_PREFIX}changes_kernel_launch_args_count",
+                aggregate.get(
+                    f"{KERNEL_ARG_HANDOFF_LIVE_NOOP_INTEGRATION_PREFIX}kernel_arg_violation_count"
+                ),
             )
         ),
         "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_consumer_adapter_checked_count": _as_int(

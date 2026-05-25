@@ -507,6 +507,7 @@ def _add_kernel_arg_handoff_live_noop_integration(
             "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_payload_violation_count": 0,
             "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_passed_to_kernel_count": 0,
             "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_kernel_arg_violation_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_changes_kernel_launch_args_count": 0,
         }
     )
     return summary
@@ -1596,6 +1597,94 @@ def test_premap_longrun_audit_gate_accepts_default_disabled_live_noop_integratio
     )
 
 
+def test_premap_longrun_audit_gate_backfills_live_noop_changes_for_old_artifact():
+    summary = _add_kernel_arg_handoff_live_noop_integration(
+        _add_kernel_arg_handoff_live_toggle(
+            _add_kernel_arg_handoff_launch_schema_mirror(
+                _add_kernel_arg_handoff_attempt(_passing_summary())
+            )
+        )
+    )
+    summary["aggregate"].pop(
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_changes_kernel_launch_args_count"
+    )
+
+    result = check_summary(
+        summary,
+        max_capacity=12,
+        min_reuse_rate=0.98,
+        require_readonly_consumer=True,
+        require_descriptor_prep=True,
+        require_real_descriptor_prep=True,
+        require_kernel_arg_shadow_table=True,
+        require_consumer_shim_table_read=True,
+        require_consumer_shim_table_consume=True,
+        require_kernel_arg_handoff_attempt=True,
+        require_kernel_arg_handoff_live_toggle=True,
+        require_kernel_arg_handoff_launch_schema_mirror=True,
+        require_kernel_arg_handoff_live_noop_integration=True,
+    )
+
+    assert result["passed"] is True
+    assert (
+        result["metrics"][
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_changes_kernel_launch_args_count"
+        ]
+        == 0
+    )
+
+
+def test_premap_longrun_audit_gate_backfills_live_noop_changes_for_old_gate_report():
+    result = check_summary(
+        _add_kernel_arg_handoff_live_noop_integration(
+            _add_kernel_arg_handoff_live_toggle(
+                _add_kernel_arg_handoff_launch_schema_mirror(
+                    _add_kernel_arg_handoff_attempt(_passing_summary())
+                )
+            )
+        ),
+        max_capacity=12,
+        min_reuse_rate=0.98,
+        require_readonly_consumer=True,
+        require_descriptor_prep=True,
+        require_real_descriptor_prep=True,
+        require_kernel_arg_shadow_table=True,
+        require_consumer_shim_table_read=True,
+        require_consumer_shim_table_consume=True,
+        require_kernel_arg_handoff_attempt=True,
+        require_kernel_arg_handoff_live_toggle=True,
+        require_kernel_arg_handoff_launch_schema_mirror=True,
+        require_kernel_arg_handoff_live_noop_integration=True,
+    )
+    result["metrics"].pop(
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_changes_kernel_launch_args_count"
+    )
+
+    rechecked = check_summary(
+        result,
+        max_capacity=12,
+        min_reuse_rate=0.98,
+        require_readonly_consumer=True,
+        require_descriptor_prep=True,
+        require_real_descriptor_prep=True,
+        require_kernel_arg_shadow_table=True,
+        require_consumer_shim_table_read=True,
+        require_consumer_shim_table_consume=True,
+        require_kernel_arg_handoff_attempt=True,
+        require_kernel_arg_handoff_live_toggle=True,
+        require_kernel_arg_handoff_launch_schema_mirror=True,
+        require_kernel_arg_handoff_live_noop_integration=True,
+    )
+
+    assert rechecked["passed"] is True
+    assert (
+        rechecked["metrics"][
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_changes_kernel_launch_args_count"
+        ]
+        == 0
+    )
+
+
 def test_premap_longrun_audit_gate_accepts_default_disabled_live_consumer_adapter():
     result = check_summary(
         _add_kernel_arg_handoff_live_consumer_adapter(
@@ -1667,6 +1756,61 @@ def test_premap_longrun_audit_gate_accepts_default_disabled_live_consumer_adapte
             require_kernel_arg_handoff_live_consumer_adapter=True,
         )["passed"]
         is True
+    )
+
+
+def test_premap_longrun_audit_gate_backfills_live_consumer_adapter_changes_for_old_gate_report():
+    result = check_summary(
+        _add_kernel_arg_handoff_live_consumer_adapter(
+            _add_kernel_arg_handoff_live_noop_integration(
+                _add_kernel_arg_handoff_live_toggle(
+                    _add_kernel_arg_handoff_launch_schema_mirror(
+                        _add_kernel_arg_handoff_attempt(_passing_summary())
+                    )
+                )
+            )
+        ),
+        max_capacity=12,
+        min_reuse_rate=0.98,
+        require_readonly_consumer=True,
+        require_descriptor_prep=True,
+        require_real_descriptor_prep=True,
+        require_kernel_arg_shadow_table=True,
+        require_consumer_shim_table_read=True,
+        require_consumer_shim_table_consume=True,
+        require_kernel_arg_handoff_attempt=True,
+        require_kernel_arg_handoff_live_toggle=True,
+        require_kernel_arg_handoff_launch_schema_mirror=True,
+        require_kernel_arg_handoff_live_noop_integration=True,
+        require_kernel_arg_handoff_live_consumer_adapter=True,
+    )
+    result["metrics"].pop(
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_consumer_adapter_changes_kernel_launch_args_count"
+    )
+
+    rechecked = check_summary(
+        result,
+        max_capacity=12,
+        min_reuse_rate=0.98,
+        require_readonly_consumer=True,
+        require_descriptor_prep=True,
+        require_real_descriptor_prep=True,
+        require_kernel_arg_shadow_table=True,
+        require_consumer_shim_table_read=True,
+        require_consumer_shim_table_consume=True,
+        require_kernel_arg_handoff_attempt=True,
+        require_kernel_arg_handoff_live_toggle=True,
+        require_kernel_arg_handoff_launch_schema_mirror=True,
+        require_kernel_arg_handoff_live_noop_integration=True,
+        require_kernel_arg_handoff_live_consumer_adapter=True,
+    )
+
+    assert rechecked["passed"] is True
+    assert (
+        rechecked["metrics"][
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_consumer_adapter_changes_kernel_launch_args_count"
+        ]
+        == 0
     )
 
 
@@ -1824,6 +1968,12 @@ def test_premap_longrun_audit_gate_accepts_connected_blocked_live_consumer_adapt
     )
     assert (
         result["metrics"][
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_changes_kernel_launch_args_count"
+        ]
+        == 0
+    )
+    assert (
+        result["metrics"][
             "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_consumer_adapter_block_reason"
         ]
         == "kernel_arg_handoff_kernel_arg_pass_disabled"
@@ -1890,6 +2040,9 @@ def test_premap_longrun_audit_gate_rejects_live_noop_kernel_handoff():
     aggregate[
         "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_consumer_connected_count"
     ] = 1
+    aggregate[
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_changes_kernel_launch_args_count"
+    ] = 1
 
     result = check_summary(
         summary,
@@ -1914,6 +2067,10 @@ def test_premap_longrun_audit_gate_rejects_live_noop_kernel_handoff():
     )
     assert (
         "consumer_shim_kernel_arg_handoff_live_noop_integration_passed_to_kernel_count_nonzero=1"
+        in result["failures"]
+    )
+    assert (
+        "consumer_shim_kernel_arg_handoff_live_noop_integration_changes_kernel_launch_args_count_nonzero=1"
         in result["failures"]
     )
 

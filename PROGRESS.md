@@ -15615,6 +15615,12 @@ artifact:
     performance_summary.json
     connected_blocked_gate_check.json
 
+committed-config artifact:
+  data/traces/
+    external_prompt_gate_dolly_1_awq_vllm_gpu1_decode_gen16_live_connected_adapter_canary/
+      performance_summary.json
+      connected_blocked_gate_check.json
+
 checker:
   --require-kernel-arg-handoff-live-toggle
   --require-kernel-arg-handoff-launch-schema-mirror
@@ -15635,6 +15641,7 @@ live_noop_integration_block_reason =
   kernel_arg_handoff_kernel_arg_pass_disabled
 live_noop_integration_payload_bytes = 0
 live_noop_integration_passed_to_kernel = 0
+live_noop_integration_changes_kernel_launch_args = 0
 live_noop_integration_ready_credit = false
 live_noop_integration_kernel_arg_violation = 0
 
