@@ -77,6 +77,7 @@ def check_summary(
     require_consumer_shim_prep_execution: bool = False,
     require_kernel_arg_handoff_attempt: bool = False,
     require_kernel_arg_handoff_live_toggle: bool = False,
+    allow_enabled_blocked_live_toggle: bool = False,
 ) -> dict[str, Any]:
     summary = _normalize_summary(summary)
     event_counts = {
@@ -2158,6 +2159,17 @@ def check_summary(
                     f"{attempt_kernel_arg_violation_count}"
                 )
             if require_kernel_arg_handoff_live_toggle or kernel_arg_handoff_live_toggle_active:
+                expected_live_toggle_block_reason = (
+                    "kernel_arg_handoff_kernel_consumer_not_connected"
+                    if allow_enabled_blocked_live_toggle
+                    else "kernel_arg_handoff_live_disabled"
+                )
+                expected_live_toggle_enabled_count = (
+                    shim_executed if allow_enabled_blocked_live_toggle else 0
+                )
+                expected_live_toggle_live_eligible_count = (
+                    shim_executed if allow_enabled_blocked_live_toggle else 0
+                )
                 if live_toggle_checked_count != shim_executed:
                     failures.append(
                         "consumer_shim_kernel_arg_handoff_live_toggle_checked_count_mismatch="
@@ -2217,7 +2229,7 @@ def check_summary(
                         "consumer_shim_kernel_arg_handoff_live_toggle_mode_mismatch_count_nonzero="
                         f"{live_toggle_mode_mismatch_count}"
                     )
-                if live_toggle_block_reason != "kernel_arg_handoff_live_disabled":
+                if live_toggle_block_reason != expected_live_toggle_block_reason:
                     failures.append(
                         "consumer_shim_kernel_arg_handoff_live_toggle_block_reason_mismatch"
                     )
@@ -2236,10 +2248,10 @@ def check_summary(
                         "consumer_shim_kernel_arg_handoff_live_toggle_block_reason_mismatch_count_nonzero="
                         f"{live_toggle_block_reason_mismatch_count}"
                     )
-                if live_toggle_enabled_count != 0:
+                if live_toggle_enabled_count != expected_live_toggle_enabled_count:
                     failures.append(
-                        "consumer_shim_kernel_arg_handoff_live_toggle_enabled_count_nonzero="
-                        f"{live_toggle_enabled_count}"
+                        "consumer_shim_kernel_arg_handoff_live_toggle_enabled_count_mismatch="
+                        f"{live_toggle_enabled_count}!={expected_live_toggle_enabled_count}"
                     )
                 if live_toggle_lab_gate_passed_count != shim_executed:
                     failures.append(
@@ -2251,10 +2263,10 @@ def check_summary(
                         "consumer_shim_kernel_arg_handoff_live_toggle_attempt_record_ready_count_mismatch="
                         f"{live_toggle_attempt_record_ready_count}!={shim_executed}"
                     )
-                if live_toggle_live_eligible_count != 0:
+                if live_toggle_live_eligible_count != expected_live_toggle_live_eligible_count:
                     failures.append(
-                        "consumer_shim_kernel_arg_handoff_live_toggle_live_eligible_count_nonzero="
-                        f"{live_toggle_live_eligible_count}"
+                        "consumer_shim_kernel_arg_handoff_live_toggle_live_eligible_count_mismatch="
+                        f"{live_toggle_live_eligible_count}!={expected_live_toggle_live_eligible_count}"
                     )
                 if live_toggle_blocked_count != shim_executed:
                     failures.append(
@@ -3911,6 +3923,9 @@ def check_summary(
         "require_kernel_arg_handoff_live_toggle": bool(
             require_kernel_arg_handoff_live_toggle
         ),
+        "allow_enabled_blocked_live_toggle": bool(
+            allow_enabled_blocked_live_toggle
+        ),
     }
 
 
@@ -4009,6 +4024,15 @@ def main() -> None:
             "must not pass arguments to a kernel."
         ),
     )
+    parser.add_argument(
+        "--allow-enabled-blocked-live-toggle",
+        action="store_true",
+        help=(
+            "Canary-only mode: allow the live handoff toggle to be enabled and "
+            "live-eligible, but still require it to remain blocked with zero "
+            "payload and no kernel argument handoff."
+        ),
+    )
     parser.add_argument("--output-json", type=Path)
     args = parser.parse_args()
 
@@ -4032,6 +4056,9 @@ def main() -> None:
         ),
         require_kernel_arg_handoff_live_toggle=(
             args.require_kernel_arg_handoff_live_toggle
+        ),
+        allow_enabled_blocked_live_toggle=(
+            args.allow_enabled_blocked_live_toggle
         ),
     )
     payload = json.dumps(result, indent=2, sort_keys=True) + "\n"
