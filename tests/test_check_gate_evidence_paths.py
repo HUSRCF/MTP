@@ -15,6 +15,10 @@ def _write_gate(path: Path, evidence_paths: dict[str, str]) -> None:
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
+def _write_raw_gate(path: Path, body: str) -> None:
+    path.write_text("schema_version: 1\nevidence_paths:\n" + body, encoding="utf-8")
+
+
 def test_check_gate_evidence_paths_accepts_existing_json_and_text(tmp_path: Path):
     (tmp_path / "reports").mkdir()
     (tmp_path / "reports" / "gate.json").write_text('{"passed": true}\n')
@@ -34,6 +38,28 @@ def test_check_gate_evidence_paths_accepts_existing_json_and_text(tmp_path: Path
     assert result["missing_count"] == 0
     assert result["invalid_json_count"] == 0
     assert result["evidence_path_count"] == 2
+
+
+def test_check_gate_evidence_paths_accepts_nested_directory_evidence(
+    tmp_path: Path,
+):
+    trace_dir = tmp_path / "traces" / "run"
+    trace_dir.mkdir(parents=True)
+    (trace_dir / "manifest.jsonl").write_text("{}\n", encoding="utf-8")
+    gate = tmp_path / "gate.yaml"
+    _write_raw_gate(
+        gate,
+        "  heldout:\n"
+        "    no_order: traces/run\n"
+        "    report: traces/run/manifest.jsonl\n",
+    )
+
+    result = check_gate_evidence_paths(gate, root=tmp_path, require_json=True)
+
+    rows = {row["label"]: row for row in result["rows"]}
+    assert result["passed"] is True
+    assert rows["heldout.no_order"]["type"] == "directory"
+    assert rows["heldout.report"]["type"] == "file"
 
 
 def test_check_gate_evidence_paths_rejects_missing_by_default(tmp_path: Path):
@@ -80,6 +106,21 @@ def test_check_gate_evidence_paths_requires_mapping(tmp_path: Path):
         check_gate_evidence_paths(gate, root=tmp_path)
 
 
+def test_check_gate_evidence_paths_can_allow_missing_section(tmp_path: Path):
+    gate = tmp_path / "gate.yaml"
+    gate.write_text("schema_version: 1\n", encoding="utf-8")
+
+    result = check_gate_evidence_paths(
+        gate,
+        root=tmp_path,
+        allow_missing_section=True,
+    )
+
+    assert result["passed"] is True
+    assert result["evidence_paths_section_missing"] is True
+    assert result["evidence_path_count"] == 0
+
+
 def test_check_gate_evidence_paths_cli_allows_missing_by_default(
     tmp_path: Path,
 ):
@@ -93,6 +134,31 @@ def test_check_gate_evidence_paths_cli_allows_missing_by_default(
     assert exit_code == 0
     assert result["passed"] is True
     assert result["missing_count"] == 1
+
+
+def test_check_gate_evidence_paths_cli_allows_missing_section_by_default(
+    tmp_path: Path,
+):
+    gate = tmp_path / "gate.yaml"
+    output = tmp_path / "evidence_check.json"
+    gate.write_text("schema_version: 1\n", encoding="utf-8")
+
+    exit_code = main([str(gate), "--root", str(tmp_path), "--output-json", str(output)])
+
+    result = json.loads(output.read_text(encoding="utf-8"))
+    assert exit_code == 0
+    assert result["passed"] is True
+    assert result["evidence_paths_section_missing"] is True
+
+
+def test_check_gate_evidence_paths_cli_can_require_evidence_section(
+    tmp_path: Path,
+):
+    gate = tmp_path / "gate.yaml"
+    gate.write_text("schema_version: 1\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="has no evidence_paths mapping"):
+        main([str(gate), "--root", str(tmp_path), "--require-evidence-section"])
 
 
 def test_check_gate_evidence_paths_cli_strict_rejects_missing(

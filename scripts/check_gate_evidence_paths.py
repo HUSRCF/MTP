@@ -16,30 +16,72 @@ def _resolve_path(root: Path, raw_path: str) -> Path:
     return candidate if candidate.is_absolute() else root / candidate
 
 
+def _iter_evidence_entries(
+    value: Any,
+    *,
+    prefix: str = "",
+) -> list[tuple[str, str | None]]:
+    if isinstance(value, str):
+        return [(prefix, value)]
+    if isinstance(value, dict):
+        rows: list[tuple[str, str | None]] = []
+        for key, child in sorted(value.items()):
+            if not isinstance(key, str):
+                rows.append((f"{prefix}.{key}" if prefix else str(key), None))
+                continue
+            label = f"{prefix}.{key}" if prefix else key
+            rows.extend(_iter_evidence_entries(child, prefix=label))
+        return rows
+    if isinstance(value, list):
+        rows = []
+        for index, child in enumerate(value):
+            label = f"{prefix}.{index}" if prefix else str(index)
+            rows.extend(_iter_evidence_entries(child, prefix=label))
+        return rows
+    return [(prefix, None)]
+
+
 def check_gate_evidence_paths(
     gate_path: Path,
     *,
     root: Path,
     allow_missing: bool = False,
+    allow_missing_section: bool = False,
     require_json: bool = False,
 ) -> dict[str, Any]:
     root = root.resolve()
     gate_path = gate_path if gate_path.is_absolute() else root / gate_path
+    gate_path_label = (
+        gate_path.relative_to(root).as_posix()
+        if gate_path.is_relative_to(root)
+        else str(gate_path)
+    )
     gate = yaml.safe_load(gate_path.read_text(encoding="utf-8"))
     if not isinstance(gate, dict):
         raise ValueError(f"Gate artifact must be a mapping: {gate_path}")
     evidence_paths = gate.get("evidence_paths")
     if not isinstance(evidence_paths, dict):
+        if evidence_paths is None and allow_missing_section:
+            return {
+                "gate_path": gate_path_label,
+                "evidence_paths_section_missing": True,
+                "evidence_path_count": 0,
+                "missing_count": 0,
+                "invalid_json_count": 0,
+                "passed": True,
+                "failures": [],
+                "rows": [],
+            }
         raise ValueError(f"Gate artifact has no evidence_paths mapping: {gate_path}")
 
     rows: list[dict[str, Any]] = []
     failures: list[str] = []
-    for label, raw_path in sorted(evidence_paths.items()):
-        if not isinstance(label, str) or not isinstance(raw_path, str):
+    for label, raw_path in _iter_evidence_entries(evidence_paths):
+        if not label or not isinstance(raw_path, str):
             failures.append(f"{label}:invalid_entry")
             rows.append(
                 {
-                    "label": str(label),
+                    "label": label,
                     "path": str(raw_path),
                     "exists": False,
                     "valid_json": None,
@@ -61,12 +103,18 @@ def check_gate_evidence_paths(
                 row["failure"] = "missing"
             rows.append(row)
             continue
+        if path.is_dir():
+            row["type"] = "directory"
+            row["valid_json"] = None
+            rows.append(row)
+            continue
         if not path.is_file():
-            failures.append(f"{label}:not_file")
-            row["failure"] = "not_file"
+            failures.append(f"{label}:not_supported")
+            row["failure"] = "not_supported"
             rows.append(row)
             continue
 
+        row["type"] = "file"
         row["size_bytes"] = path.stat().st_size
         should_parse_json = require_json and raw_path.endswith(".json")
         if should_parse_json:
@@ -81,9 +129,8 @@ def check_gate_evidence_paths(
         rows.append(row)
 
     return {
-        "gate_path": gate_path.relative_to(root).as_posix()
-        if gate_path.is_relative_to(root)
-        else str(gate_path),
+        "gate_path": gate_path_label,
+        "evidence_paths_section_missing": False,
         "evidence_path_count": len(rows),
         "missing_count": sum(1 for row in rows if not row["exists"]),
         "invalid_json_count": sum(row["valid_json"] is False for row in rows),
@@ -113,6 +160,14 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Parse evidence paths ending in .json and fail if they are invalid.",
     )
+    parser.add_argument(
+        "--require-evidence-section",
+        action="store_true",
+        help=(
+            "Fail if evidence_paths is missing. CLI default allows missing sections "
+            "so broad scans can skip non-evidence runtime configs."
+        ),
+    )
     parser.add_argument("--output-json", type=Path)
     return parser
 
@@ -123,6 +178,7 @@ def main(argv: list[str] | None = None) -> int:
         args.gate_path,
         root=args.root,
         allow_missing=not args.strict,
+        allow_missing_section=not args.require_evidence_section,
         require_json=args.require_json,
     )
     payload = json.dumps(result, indent=2, sort_keys=True)
