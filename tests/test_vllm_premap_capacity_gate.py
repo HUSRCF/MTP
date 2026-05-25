@@ -1932,9 +1932,26 @@ def test_live_connected_adapter_canary_config_uses_connected_blocked_gate():
     )
     contract = gate["contract"]
     metrics = gate["gate"]["metrics"]
+    evidence_paths = gate["evidence_paths"]
     assert (
         gate["artifact_id"]
         == "premap_consumer_readonly_dolly128_gen64_awq_w7900_gpu1_live_connected_blocked_canary"
+    )
+    assert (
+        evidence_paths["live_connected_blocked_canary_1_performance_json"]
+        == "data/traces/external_prompt_gate_dolly_1_awq_vllm_gpu1_decode_gen16_live_connected_adapter_canary/performance_summary.json"
+    )
+    assert (
+        evidence_paths["live_connected_blocked_canary_1_gate_json"]
+        == "data/traces/external_prompt_gate_dolly_1_awq_vllm_gpu1_decode_gen16_live_connected_adapter_canary/connected_blocked_gate_check.json"
+    )
+    assert (
+        evidence_paths["live_connected_blocked_canary_8_performance_json"]
+        == "data/traces/external_prompt_gate_dolly_8_awq_vllm_gpu1_decode_gen64_live_connected_adapter_canary/performance_summary.json"
+    )
+    assert (
+        evidence_paths["live_connected_blocked_canary_8_gate_json"]
+        == "data/traces/external_prompt_gate_dolly_8_awq_vllm_gpu1_decode_gen64_live_connected_adapter_canary/connected_blocked_gate_check.json"
     )
     assert contract["payload_bytes_required"] == 0
     assert contract["ready_credit_required"] is False
