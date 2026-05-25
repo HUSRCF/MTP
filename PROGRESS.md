@@ -91,6 +91,30 @@ metric, not only a checker alias:
 both are checked to stay zero under the lab gate.
 ```
 
+Live-enabled blocked canary:
+
+```text
+temporary GPU1 smoke:
+  config/gate: tmp/live_adapter_canary_smoke/
+  output: /tmp/mtp_live_adapter_canary_smoke/
+  samples / max_tokens = 1 / 16
+  checker flag: --allow-enabled-blocked-live-toggle
+
+result:
+  passed = true
+  adapter checked = 640
+  adapter enabled / live_eligible = 640 / 640
+  consumer_connected / blocked = 0 / 640
+  payload_bytes / passed_to_kernel / changes_kernel_launch_args = 0 / 0 / 0
+
+Interpretation:
+  This is a canary for the live-enabled but consumer-disconnected branch.
+  It is not the lab-default gate and still does not connect a kernel consumer
+  or mutate launch arguments.
+  Only the runtime trace is 1-sample; the temporary gate metadata is copied from
+  the 128-sample lab-gate template and is not a recalibrated canary artifact.
+```
+
 ## Novelty / Prior-Art Guard
 
 Independent novelty check result, 2026-05-05:
