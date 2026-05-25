@@ -1989,6 +1989,12 @@ def test_shadow_log_aggregates_premap_consumer_mapping_without_side_effects(tmp_
     )
     assert (
         aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_consumer_adapter_changes_kernel_launch_args_count"
+        ]
+        == 0
+    )
+    assert (
+        aggregate[
             "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_checked_count"
         ]
         == 1
@@ -2551,6 +2557,7 @@ def test_shadow_log_aggregates_live_consumer_adapter_gate_branches() -> None:
         lab_gate_passed: bool,
         live_eligible: bool,
         block_reason: str,
+        changes_kernel_launch_args: bool = False,
     ) -> dict[str, object]:
         event = ShadowPremapConsumerMappingEvent(
             event_id=ShadowEventId("req", sequence_id=0, token_index=-1, layer=0),
@@ -2598,7 +2605,7 @@ def test_shadow_log_aggregates_live_consumer_adapter_gate_branches() -> None:
             descriptor_prep_consumer_shim_kernel_arg_handoff_live_consumer_adapter_block_reason=block_reason,
             descriptor_prep_consumer_shim_kernel_arg_handoff_live_consumer_adapter_payload_bytes=0,
             descriptor_prep_consumer_shim_kernel_arg_handoff_live_consumer_adapter_passed_to_kernel=False,
-            descriptor_prep_consumer_shim_kernel_arg_handoff_live_consumer_adapter_changes_kernel_launch_args=False,
+            descriptor_prep_consumer_shim_kernel_arg_handoff_live_consumer_adapter_changes_kernel_launch_args=changes_kernel_launch_args,
         )
         return aggregate_shadow_events([event.as_dict()])
 
@@ -2689,9 +2696,35 @@ def test_shadow_log_aggregates_live_consumer_adapter_gate_branches() -> None:
     )
     assert (
         with_gate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_consumer_adapter_changes_kernel_launch_args_count"
+        ]
+        == 0
+    )
+    assert (
+        with_gate[
             "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_consumer_adapter_block_reason"
         ]
         == "kernel_arg_handoff_kernel_consumer_not_connected"
+    )
+
+    changed_kernel_args = _aggregate_adapter(
+        enabled=True,
+        lab_gate_passed=True,
+        live_eligible=True,
+        block_reason="kernel_arg_handoff_kernel_consumer_not_connected",
+        changes_kernel_launch_args=True,
+    )
+    assert (
+        changed_kernel_args[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_consumer_adapter_kernel_arg_violation_count"
+        ]
+        == 1
+    )
+    assert (
+        changed_kernel_args[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_consumer_adapter_changes_kernel_launch_args_count"
+        ]
+        == 1
     )
 
 

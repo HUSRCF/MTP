@@ -3217,6 +3217,7 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
         "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_consumer_adapter_payload_violation_count": 0,
         "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_consumer_adapter_passed_to_kernel_count": 0,
         "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_consumer_adapter_kernel_arg_violation_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_consumer_adapter_changes_kernel_launch_args_count": 0,
         "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_consumed_checked_count": 0,
         "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_consumed_count": 0,
         "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_lifecycle_ok_count": 0,
@@ -5408,9 +5409,7 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
                             )
                         )
                     )
-                    totals[
-                        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_consumer_adapter_kernel_arg_violation_count"
-                    ] += int(
+                    adapter_changes_kernel_args = int(
                         bool(
                             event.get(
                                 "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_consumer_adapter_changes_kernel_launch_args",
@@ -5418,6 +5417,12 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
                             )
                         )
                     )
+                    totals[
+                        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_consumer_adapter_kernel_arg_violation_count"
+                    ] += adapter_changes_kernel_args
+                    totals[
+                        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_consumer_adapter_changes_kernel_launch_args_count"
+                    ] += adapter_changes_kernel_args
                 elif event.get(
                     "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_mode"
                 ):

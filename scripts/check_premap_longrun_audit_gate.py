@@ -2000,6 +2000,14 @@ def check_summary(
                     f"{KERNEL_ARG_HANDOFF_LIVE_CONSUMER_ADAPTER_PREFIX}kernel_arg_violation_count"
                 )
             )
+            adapter_changes_kernel_launch_args_count = _as_int(
+                aggregate.get(
+                    f"{KERNEL_ARG_HANDOFF_LIVE_CONSUMER_ADAPTER_PREFIX}changes_kernel_launch_args_count",
+                    aggregate.get(
+                        f"{KERNEL_ARG_HANDOFF_LIVE_CONSUMER_ADAPTER_PREFIX}kernel_arg_violation_count"
+                    ),
+                )
+            )
             shim_table_row_count = _as_int(
                 aggregate.get(
                     "premap_consumer_descriptor_prep_consumer_shim_handle_table_row_count"
@@ -3539,6 +3547,11 @@ def check_summary(
                     failures.append(
                         "consumer_shim_kernel_arg_handoff_live_consumer_adapter_kernel_arg_violation_count_nonzero="
                         f"{adapter_kernel_arg_violation_count}"
+                    )
+                if adapter_changes_kernel_launch_args_count != 0:
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_live_consumer_adapter_changes_kernel_launch_args_count_nonzero="
+                        f"{adapter_changes_kernel_launch_args_count}"
                     )
         if require_consumer_shim_table_object or consumer_shim_table_object_active:
             shim_executed = _as_int(
@@ -5403,7 +5416,10 @@ def check_summary(
         ),
         "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_consumer_adapter_changes_kernel_launch_args_count": _as_int(
             aggregate.get(
-                f"{KERNEL_ARG_HANDOFF_LIVE_CONSUMER_ADAPTER_PREFIX}kernel_arg_violation_count"
+                f"{KERNEL_ARG_HANDOFF_LIVE_CONSUMER_ADAPTER_PREFIX}changes_kernel_launch_args_count",
+                aggregate.get(
+                    f"{KERNEL_ARG_HANDOFF_LIVE_CONSUMER_ADAPTER_PREFIX}kernel_arg_violation_count"
+                ),
             )
         ),
         "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_consumed_checked_count": _as_int(

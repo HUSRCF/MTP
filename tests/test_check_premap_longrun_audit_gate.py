@@ -563,6 +563,7 @@ def _add_kernel_arg_handoff_live_consumer_adapter(
             "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_consumer_adapter_payload_violation_count": 0,
             "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_consumer_adapter_passed_to_kernel_count": 0,
             "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_consumer_adapter_kernel_arg_violation_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_consumer_adapter_changes_kernel_launch_args_count": 0,
         }
     )
     return summary
@@ -1673,6 +1674,9 @@ def test_premap_longrun_audit_gate_rejects_live_consumer_adapter_kernel_handoff(
     aggregate[
         "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_consumer_adapter_consumer_connected_count"
     ] = 1
+    aggregate[
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_consumer_adapter_changes_kernel_launch_args_count"
+    ] = 1
 
     result = check_summary(
         summary,
@@ -1698,6 +1702,10 @@ def test_premap_longrun_audit_gate_rejects_live_consumer_adapter_kernel_handoff(
     )
     assert (
         "consumer_shim_kernel_arg_handoff_live_consumer_adapter_passed_to_kernel_count_nonzero=1"
+        in result["failures"]
+    )
+    assert (
+        "consumer_shim_kernel_arg_handoff_live_consumer_adapter_changes_kernel_launch_args_count_nonzero=1"
         in result["failures"]
     )
 
