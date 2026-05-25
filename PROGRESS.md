@@ -15789,6 +15789,51 @@ This confirms that the checker hardening still accepts the explicitly allowed
 connected-but-blocked canary, while the default strict checker invocation
 without the canary `allow_*` flags keeps the consumer disconnected and blocked.
 
+8-sample connected-but-blocked canary:
+
+```text
+config:
+  configs/trace/
+    router_mtp_trace_external_prompt_gate_dolly_8_awq_vllm_gpu1_decode_gen64_live_connected_adapter_canary.yaml
+
+artifact:
+  data/traces/
+    external_prompt_gate_dolly_8_awq_vllm_gpu1_decode_gen64_live_connected_adapter_canary/
+      performance_summary.json
+      connected_blocked_gate_check.json
+
+runtime flags:
+  runtime_shadow_premap_kernel_arg_handoff_kernel_arg_pass_enabled = false
+  runtime_shadow_premap_kernel_arg_handoff_live_enabled = true
+  runtime_shadow_premap_kernel_arg_handoff_live_consumer_connected = true
+
+summary counts:
+  premap_summary_count = 640
+  premap_consumer_mapping_count = 640
+
+checker with canary allow flags:
+  passed = true
+  failures = []
+  live_consumer_adapter_checked = 640
+  live_consumer_adapter_consumer_connected = 640
+  live_consumer_adapter_blocked = 640
+  live_consumer_adapter_payload_bytes = 0
+  live_consumer_adapter_payload_violation_count = 0
+  live_consumer_adapter_record_ready_count = 640
+  premap_consumer_ready_credit_violation_count = 0
+  live_consumer_adapter_changes_kernel_launch_args = 0
+  live_consumer_adapter_kernel_arg_violation = 0
+
+default strict checker without canary allow flags:
+  passed = false
+  expected failures include at least enabled/live-eligible/consumer-connected mismatch
+```
+
+This 8-sample run scales the connected-but-blocked canary smoke while preserving
+the same safety boundary: no payload bytes, audit-only ready records with no
+ready-credit violation, and no kernel-argument mutation.  It remains a canary
+path and does not replace the default 128-sample lab gate.
+
 ## 2026-05-25 - Kernel-Arg Launch-Schema Mirror Gate
 
 Implemented a stricter prelaunch consumer mirror that is closer to the future
