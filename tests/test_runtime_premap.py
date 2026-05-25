@@ -941,6 +941,59 @@ def test_controlled_premap_address_manager_executes_descriptor_prep_readonly():
         enabled_with_gate.kernel_arg_handoff_live_consumer_adapter_passed_to_kernel
         is False
     )
+    connected_adapter = manager.execute_descriptor_consumer_shim_readonly(
+        read_result,
+        kernel_arg_shadow_table_result=table_result,
+        kernel_arg_shadow_table_object=table_object,
+        descriptor_address_prep_dry_run_result=prep_dry_run_result,
+        kernel_arg_handoff_live_enabled=True,
+        kernel_arg_handoff_consumer_connected=True,
+        kernel_arg_handoff_lab_gate_passed=True,
+    )
+    assert (
+        connected_adapter.kernel_arg_handoff_live_noop_integration_record_ready
+        is True
+    )
+    assert (
+        connected_adapter.kernel_arg_handoff_live_noop_integration_consumer_connected
+        is True
+    )
+    assert (
+        connected_adapter.kernel_arg_handoff_live_noop_integration_block_reason
+        == "kernel_arg_handoff_kernel_arg_pass_disabled"
+    )
+    assert (
+        connected_adapter.kernel_arg_handoff_live_noop_integration_passed_to_kernel
+        is False
+    )
+    assert (
+        connected_adapter.kernel_arg_handoff_live_noop_integration_changes_kernel_launch_args
+        is False
+    )
+    assert (
+        connected_adapter.kernel_arg_handoff_live_consumer_adapter_record_ready
+        is True
+    )
+    assert (
+        connected_adapter.kernel_arg_handoff_live_consumer_adapter_consumer_connected
+        is True
+    )
+    assert (
+        connected_adapter.kernel_arg_handoff_live_consumer_adapter_block_reason
+        == "kernel_arg_handoff_kernel_arg_pass_disabled"
+    )
+    assert (
+        connected_adapter.kernel_arg_handoff_live_consumer_adapter_payload_bytes
+        == 0
+    )
+    assert (
+        connected_adapter.kernel_arg_handoff_live_consumer_adapter_passed_to_kernel
+        is False
+    )
+    assert (
+        connected_adapter.kernel_arg_handoff_live_consumer_adapter_changes_kernel_launch_args
+        is False
+    )
     assert shim_result.handle_table_object_consumed is True
     assert shim_result.handle_table_object_hash == table_object.object_hash
     assert shim_result.handle_table_object_row_count == 2

@@ -265,6 +265,9 @@ def _kernel_arg_handoff_adapter_contract_lines(
     *, live_enabled: bool, consumer_connected_required: bool = False
 ) -> list[str]:
     block_reason = (
+        "kernel_arg_handoff_kernel_arg_pass_disabled"
+        if live_enabled and consumer_connected_required
+        else
         "kernel_arg_handoff_kernel_consumer_not_connected"
         if live_enabled
         else "kernel_arg_handoff_live_disabled"
@@ -287,7 +290,8 @@ def _kernel_arg_handoff_adapter_contract_lines(
         "  kernel_arg_handoff_live_noop_integration_launch_schema_ready_required: true",
         "  kernel_arg_handoff_live_noop_integration_live_eligible_required: "
         f"{_yaml_bool(live_enabled)}",
-        "  kernel_arg_handoff_live_noop_integration_consumer_connected_required: false",
+        "  kernel_arg_handoff_live_noop_integration_consumer_connected_required: "
+        f"{_yaml_bool(consumer_connected_required)}",
         "  kernel_arg_handoff_live_noop_integration_blocked_required: true",
         "  kernel_arg_handoff_live_noop_integration_payload_bytes_required: 0",
         "  kernel_arg_handoff_live_noop_integration_passed_to_kernel_required: false",
@@ -469,6 +473,22 @@ def test_apply_premap_consumer_readonly_gate_rejects_live_toggle_without_gate(tm
             {
                 "enabled": True,
                 "premap_kernel_arg_handoff_live_enabled": True,
+            },
+            project_root=tmp_path,
+        )
+
+
+def test_apply_premap_consumer_readonly_gate_rejects_connected_adapter_without_live_toggle(
+    tmp_path,
+):
+    with pytest.raises(
+        ValueError,
+        match="premap_kernel_arg_handoff_live_enabled=True",
+    ):
+        _apply_premap_consumer_readonly_gate(
+            {
+                "enabled": True,
+                "premap_kernel_arg_handoff_live_consumer_connected": True,
             },
             project_root=tmp_path,
         )
@@ -740,7 +760,7 @@ def test_apply_premap_consumer_readonly_gate_accepts_enabled_blocked_live_adapte
     assert options["premap_consumer_readonly_gate_passed"] is True
 
 
-def test_apply_premap_consumer_readonly_gate_rejects_connected_live_adapter_contract(
+def test_apply_premap_consumer_readonly_gate_accepts_connected_blocked_live_adapter_contract(
     tmp_path,
 ):
     gate = tmp_path / "readonly_gate.yaml"
@@ -764,7 +784,53 @@ def test_apply_premap_consumer_readonly_gate_rejects_connected_live_adapter_cont
         extra_check_lines=_kernel_arg_handoff_adapter_check_lines(),
     )
 
-    with pytest.raises(ValueError, match="live consumer adapter contract"):
+    options = _apply_premap_consumer_readonly_gate(
+        {
+            "enabled": True,
+            "emit_premap_consumer_mapping": True,
+            "premap_consumer_require_readonly_gate": True,
+            "premap_consumer_readonly_gate_path": str(gate),
+            "premap_consumer_mapping_mode": "noop_assertion",
+            "premap_consumer_resolve_real_handles": True,
+            "premap_policy": "premap_only_with_consumer_mapping_noop",
+            "premap_descriptor_bytes": 4096,
+            "premap_descriptor_prep_execution_mode": (
+                "readonly_descriptor_address_object"
+            ),
+            "premap_kernel_arg_handoff_live_enabled": True,
+            "premap_kernel_arg_handoff_live_consumer_connected": True,
+        },
+        project_root=tmp_path,
+    )
+
+    assert options["premap_consumer_readonly_gate_passed"] is True
+
+
+def test_apply_premap_consumer_readonly_gate_rejects_connected_live_adapter_without_runtime_option(
+    tmp_path,
+):
+    gate = tmp_path / "readonly_gate.yaml"
+    _write_readonly_gate(
+        gate,
+        lab_precondition=True,
+        descriptor_prep_execution_mode="readonly_descriptor_address_object",
+        descriptor_prep_payload_bytes=0,
+        descriptor_prep_kernel_arg_mutation=False,
+        kernel_arg_handoff_live_toggle_required=True,
+        kernel_arg_handoff_live_toggle_enabled_required=True,
+        kernel_arg_handoff_live_toggle_block_reason=(
+            "kernel_arg_handoff_kernel_consumer_not_connected"
+        ),
+        kernel_arg_handoff_live_toggle_live_eligible_required=True,
+        require_kernel_arg_handoff_live_toggle=True,
+        extra_contract_lines=_kernel_arg_handoff_adapter_contract_lines(
+            live_enabled=True,
+            consumer_connected_required=True,
+        ),
+        extra_check_lines=_kernel_arg_handoff_adapter_check_lines(),
+    )
+
+    with pytest.raises(ValueError, match="live no-op integration contract"):
         _apply_premap_consumer_readonly_gate(
             {
                 "enabled": True,

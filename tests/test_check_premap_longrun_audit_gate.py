@@ -452,6 +452,7 @@ def _add_kernel_arg_handoff_live_noop_integration(
     summary: dict,
     *,
     enabled_blocked: bool = False,
+    consumer_connected: bool = False,
 ) -> dict:
     aggregate = summary["aggregate"]
     checked_count = int(
@@ -478,9 +479,13 @@ def _add_kernel_arg_handoff_live_noop_integration(
             "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_mode_missing_count": 0,
             "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_mode_mismatch_count": 0,
             "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_block_reason": (
-                "kernel_arg_handoff_kernel_consumer_not_connected"
-                if enabled_blocked
-                else "kernel_arg_handoff_live_disabled"
+                "kernel_arg_handoff_kernel_arg_pass_disabled"
+                if enabled_blocked and consumer_connected
+                else (
+                    "kernel_arg_handoff_kernel_consumer_not_connected"
+                    if enabled_blocked
+                    else "kernel_arg_handoff_live_disabled"
+                )
             ),
             "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_block_reason_checked_count": checked_count,
             "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_block_reason_missing_count": 0,
@@ -494,7 +499,9 @@ def _add_kernel_arg_handoff_live_noop_integration(
             "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_live_eligible_count": (
                 checked_count if enabled_blocked else 0
             ),
-            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_consumer_connected_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_consumer_connected_count": (
+                checked_count if consumer_connected else 0
+            ),
             "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_blocked_count": checked_count,
             "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_payload_bytes": 0,
             "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_payload_violation_count": 0,
@@ -509,6 +516,7 @@ def _add_kernel_arg_handoff_live_consumer_adapter(
     summary: dict,
     *,
     enabled_blocked: bool = False,
+    consumer_connected: bool = False,
 ) -> dict:
     aggregate = summary["aggregate"]
     checked_count = int(
@@ -517,6 +525,9 @@ def _add_kernel_arg_handoff_live_consumer_adapter(
         ]
     )
     block_reason = (
+        "kernel_arg_handoff_kernel_arg_pass_disabled"
+        if enabled_blocked and consumer_connected
+        else
         "kernel_arg_handoff_kernel_consumer_not_connected"
         if enabled_blocked
         else "kernel_arg_handoff_live_disabled"
@@ -554,7 +565,9 @@ def _add_kernel_arg_handoff_live_consumer_adapter(
             "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_consumer_adapter_live_noop_integration_record_ready_count": checked_count,
             "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_consumer_adapter_live_noop_integration_blocked_count": checked_count,
             "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_consumer_adapter_consumer_adapter_present_count": checked_count,
-            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_consumer_adapter_consumer_connected_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_consumer_adapter_consumer_connected_count": (
+                checked_count if consumer_connected else 0
+            ),
             "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_consumer_adapter_live_eligible_count": (
                 checked_count if enabled_blocked else 0
             ),
@@ -1697,7 +1710,7 @@ def test_premap_longrun_audit_gate_rejects_live_consumer_adapter_kernel_handoff(
 
     assert result["passed"] is False
     assert (
-        "consumer_shim_kernel_arg_handoff_live_consumer_adapter_consumer_connected_count_nonzero=1"
+        "consumer_shim_kernel_arg_handoff_live_consumer_adapter_consumer_connected_count_mismatch=1!=0"
         in result["failures"]
     )
     assert (
@@ -1762,6 +1775,106 @@ def test_premap_longrun_audit_gate_accepts_enabled_blocked_live_consumer_adapter
     )
 
 
+def test_premap_longrun_audit_gate_accepts_connected_blocked_live_consumer_adapter_canary():
+    result = check_summary(
+        _add_kernel_arg_handoff_live_consumer_adapter(
+            _add_kernel_arg_handoff_live_noop_integration(
+                _add_kernel_arg_handoff_live_toggle(
+                    _add_kernel_arg_handoff_launch_schema_mirror(
+                        _add_kernel_arg_handoff_attempt(_passing_summary())
+                    ),
+                    enabled_blocked=True,
+                ),
+                enabled_blocked=True,
+                consumer_connected=True,
+            ),
+            enabled_blocked=True,
+            consumer_connected=True,
+        ),
+        max_capacity=12,
+        min_reuse_rate=0.98,
+        require_readonly_consumer=True,
+        require_descriptor_prep=True,
+        require_real_descriptor_prep=True,
+        require_kernel_arg_shadow_table=True,
+        require_consumer_shim_table_read=True,
+        require_consumer_shim_table_consume=True,
+        require_kernel_arg_handoff_attempt=True,
+        require_kernel_arg_handoff_live_toggle=True,
+        require_kernel_arg_handoff_launch_schema_mirror=True,
+        require_kernel_arg_handoff_live_noop_integration=True,
+        require_kernel_arg_handoff_live_consumer_adapter=True,
+        allow_enabled_blocked_live_toggle=True,
+        allow_connected_blocked_consumer_adapter=True,
+    )
+
+    assert result["passed"] is True
+    assert result["allow_connected_blocked_consumer_adapter"] is True
+    assert (
+        result["metrics"][
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_consumer_connected_count"
+        ]
+        == 2
+    )
+    assert (
+        result["metrics"][
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_consumer_adapter_consumer_connected_count"
+        ]
+        == 2
+    )
+    assert (
+        result["metrics"][
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_consumer_adapter_block_reason"
+        ]
+        == "kernel_arg_handoff_kernel_arg_pass_disabled"
+    )
+    assert (
+        result["metrics"][
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_consumer_adapter_changes_kernel_launch_args_count"
+        ]
+        == 0
+    )
+
+
+def test_premap_longrun_audit_gate_rejects_connected_adapter_allow_without_live_allow():
+    result = check_summary(
+        _add_kernel_arg_handoff_live_consumer_adapter(
+            _add_kernel_arg_handoff_live_noop_integration(
+                _add_kernel_arg_handoff_live_toggle(
+                    _add_kernel_arg_handoff_launch_schema_mirror(
+                        _add_kernel_arg_handoff_attempt(_passing_summary())
+                    ),
+                    enabled_blocked=True,
+                ),
+                enabled_blocked=True,
+                consumer_connected=True,
+            ),
+            enabled_blocked=True,
+            consumer_connected=True,
+        ),
+        max_capacity=12,
+        min_reuse_rate=0.98,
+        require_readonly_consumer=True,
+        require_descriptor_prep=True,
+        require_real_descriptor_prep=True,
+        require_kernel_arg_shadow_table=True,
+        require_consumer_shim_table_read=True,
+        require_consumer_shim_table_consume=True,
+        require_kernel_arg_handoff_attempt=True,
+        require_kernel_arg_handoff_live_toggle=True,
+        require_kernel_arg_handoff_launch_schema_mirror=True,
+        require_kernel_arg_handoff_live_noop_integration=True,
+        require_kernel_arg_handoff_live_consumer_adapter=True,
+        allow_connected_blocked_consumer_adapter=True,
+    )
+
+    assert result["passed"] is False
+    assert (
+        "allow_connected_blocked_consumer_adapter_requires_allow_enabled_blocked_live_toggle"
+        in result["failures"]
+    )
+
+
 def test_premap_longrun_audit_gate_rejects_live_noop_kernel_handoff():
     summary = _add_kernel_arg_handoff_live_noop_integration(
         _add_kernel_arg_handoff_live_toggle(
@@ -1796,7 +1909,7 @@ def test_premap_longrun_audit_gate_rejects_live_noop_kernel_handoff():
 
     assert result["passed"] is False
     assert (
-        "consumer_shim_kernel_arg_handoff_live_noop_integration_consumer_connected_count_nonzero=1"
+        "consumer_shim_kernel_arg_handoff_live_noop_integration_consumer_connected_count_mismatch=1!=0"
         in result["failures"]
     )
     assert (

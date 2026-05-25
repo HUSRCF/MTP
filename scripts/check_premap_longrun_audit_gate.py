@@ -272,6 +272,7 @@ def check_summary(
     require_kernel_arg_handoff_launch_schema_mirror: bool = False,
     require_kernel_arg_handoff_live_consumer_adapter: bool = False,
     allow_enabled_blocked_live_toggle: bool = False,
+    allow_connected_blocked_consumer_adapter: bool = False,
 ) -> dict[str, Any]:
     summary = _normalize_summary(summary)
     event_counts = {
@@ -279,6 +280,10 @@ def check_summary(
     }
     aggregate = summary.get("aggregate", {})
     failures: list[str] = []
+    if allow_connected_blocked_consumer_adapter and not allow_enabled_blocked_live_toggle:
+        failures.append(
+            "allow_connected_blocked_consumer_adapter_requires_allow_enabled_blocked_live_toggle"
+        )
 
     unknown_events = sorted(set(event_counts) - REQUIRED_EVENT_TYPES)
     missing_events = sorted(event for event in REQUIRED_EVENT_TYPES if event_counts.get(event, 0) <= 0)
@@ -3213,6 +3218,9 @@ def check_summary(
                 or kernel_arg_handoff_live_noop_integration_active
             ):
                 expected_live_noop_block_reason = (
+                    "kernel_arg_handoff_kernel_arg_pass_disabled"
+                    if allow_connected_blocked_consumer_adapter
+                    else
                     "kernel_arg_handoff_kernel_consumer_not_connected"
                     if allow_enabled_blocked_live_toggle
                     else "kernel_arg_handoff_live_disabled"
@@ -3222,6 +3230,9 @@ def check_summary(
                 )
                 expected_live_noop_live_eligible_count = (
                     shim_executed if allow_enabled_blocked_live_toggle else 0
+                )
+                expected_live_noop_consumer_connected_count = (
+                    shim_executed if allow_connected_blocked_consumer_adapter else 0
                 )
                 if live_noop_checked_count != shim_executed:
                     failures.append(
@@ -3336,10 +3347,13 @@ def check_summary(
                         "consumer_shim_kernel_arg_handoff_live_noop_integration_live_eligible_count_mismatch="
                         f"{live_noop_live_eligible_count}!={expected_live_noop_live_eligible_count}"
                     )
-                if live_noop_consumer_connected_count != 0:
+                if (
+                    live_noop_consumer_connected_count
+                    != expected_live_noop_consumer_connected_count
+                ):
                     failures.append(
-                        "consumer_shim_kernel_arg_handoff_live_noop_integration_consumer_connected_count_nonzero="
-                        f"{live_noop_consumer_connected_count}"
+                        "consumer_shim_kernel_arg_handoff_live_noop_integration_consumer_connected_count_mismatch="
+                        f"{live_noop_consumer_connected_count}!={expected_live_noop_consumer_connected_count}"
                     )
                 if live_noop_blocked_count != shim_executed:
                     failures.append(
@@ -3371,6 +3385,9 @@ def check_summary(
                 or kernel_arg_handoff_live_consumer_adapter_active
             ):
                 expected_adapter_block_reason = (
+                    "kernel_arg_handoff_kernel_arg_pass_disabled"
+                    if allow_connected_blocked_consumer_adapter
+                    else
                     "kernel_arg_handoff_kernel_consumer_not_connected"
                     if allow_enabled_blocked_live_toggle
                     else "kernel_arg_handoff_live_disabled"
@@ -3380,6 +3397,9 @@ def check_summary(
                 )
                 expected_adapter_live_eligible_count = (
                     shim_executed if allow_enabled_blocked_live_toggle else 0
+                )
+                expected_adapter_consumer_connected_count = (
+                    shim_executed if allow_connected_blocked_consumer_adapter else 0
                 )
                 if adapter_checked_count != shim_executed:
                     failures.append(
@@ -3513,10 +3533,13 @@ def check_summary(
                         "consumer_shim_kernel_arg_handoff_live_consumer_adapter_consumer_adapter_present_count_mismatch="
                         f"{adapter_consumer_adapter_present_count}!={shim_executed}"
                     )
-                if adapter_consumer_connected_count != 0:
+                if (
+                    adapter_consumer_connected_count
+                    != expected_adapter_consumer_connected_count
+                ):
                     failures.append(
-                        "consumer_shim_kernel_arg_handoff_live_consumer_adapter_consumer_connected_count_nonzero="
-                        f"{adapter_consumer_connected_count}"
+                        "consumer_shim_kernel_arg_handoff_live_consumer_adapter_consumer_connected_count_mismatch="
+                        f"{adapter_consumer_connected_count}!={expected_adapter_consumer_connected_count}"
                     )
                 if adapter_live_eligible_count != expected_adapter_live_eligible_count:
                     failures.append(
@@ -5623,6 +5646,9 @@ def check_summary(
         "allow_enabled_blocked_live_toggle": bool(
             allow_enabled_blocked_live_toggle
         ),
+        "allow_connected_blocked_consumer_adapter": bool(
+            allow_connected_blocked_consumer_adapter
+        ),
     }
 
 
@@ -5758,6 +5784,15 @@ def main() -> None:
             "payload and no kernel argument handoff."
         ),
     )
+    parser.add_argument(
+        "--allow-connected-blocked-consumer-adapter",
+        action="store_true",
+        help=(
+            "Canary-only mode: allow the prelaunch consumer adapter to report "
+            "consumer_connected=true, while still requiring it to remain "
+            "blocked with zero payload and no kernel argument mutation."
+        ),
+    )
     parser.add_argument("--output-json", type=Path)
     args = parser.parse_args()
 
@@ -5793,6 +5828,9 @@ def main() -> None:
         ),
         allow_enabled_blocked_live_toggle=(
             args.allow_enabled_blocked_live_toggle
+        ),
+        allow_connected_blocked_consumer_adapter=(
+            args.allow_connected_blocked_consumer_adapter
         ),
     )
     payload = json.dumps(result, indent=2, sort_keys=True) + "\n"

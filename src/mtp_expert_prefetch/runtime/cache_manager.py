@@ -838,7 +838,6 @@ class PremapKernelArgHandoffLiveNoopIntegrationRecord:
             and int(self.payload_bytes) == 0
             and not bool(self.passed_to_kernel)
             and not bool(self.changes_kernel_launch_args)
-            and not bool(self.consumer_connected)
             and bool(self.blocked)
         )
         if not base_ok:
@@ -871,8 +870,18 @@ class PremapKernelArgHandoffLiveNoopIntegrationRecord:
             )
         return (
             bool(self.live_eligible)
-            and str(self.block_reason)
-            == "kernel_arg_handoff_kernel_consumer_not_connected"
+            and (
+                (
+                    not bool(self.consumer_connected)
+                    and str(self.block_reason)
+                    == "kernel_arg_handoff_kernel_consumer_not_connected"
+                )
+                or (
+                    bool(self.consumer_connected)
+                    and str(self.block_reason)
+                    == "kernel_arg_handoff_kernel_arg_pass_disabled"
+                )
+            )
         )
 
     @property
@@ -942,7 +951,6 @@ class PremapKernelArgHandoffLiveConsumerAdapterRecord:
             and bool(self.launch_schema_mirror_hash)
             and bool(self.table_object_hash)
             and bool(self.consumer_adapter_present)
-            and not bool(self.consumer_connected)
             and bool(self.blocked)
             and int(self.payload_bytes) == 0
             and not bool(self.passed_to_kernel)
@@ -973,8 +981,18 @@ class PremapKernelArgHandoffLiveConsumerAdapterRecord:
             )
         return (
             bool(self.live_eligible)
-            and str(self.block_reason)
-            == "kernel_arg_handoff_kernel_consumer_not_connected"
+            and (
+                (
+                    not bool(self.consumer_connected)
+                    and str(self.block_reason)
+                    == "kernel_arg_handoff_kernel_consumer_not_connected"
+                )
+                or (
+                    bool(self.consumer_connected)
+                    and str(self.block_reason)
+                    == "kernel_arg_handoff_kernel_arg_pass_disabled"
+                )
+            )
         )
 
     @property
@@ -1837,6 +1855,7 @@ class ControlledPremapAddressManager:
             PremapDescriptorAddressPrepDryRunResult | None
         ) = None,
         kernel_arg_handoff_live_enabled: bool = False,
+        kernel_arg_handoff_consumer_connected: bool = False,
         kernel_arg_handoff_lab_gate_passed: bool = False,
         execution_mode: str = "readonly_prelaunch_consumer_shim",
     ) -> PremapDescriptorConsumerShimResult:
@@ -2443,6 +2462,10 @@ class ControlledPremapAddressManager:
                     and live_toggle_ready
                     and launch_schema_ready
                 )
+                integration_consumer_connected = bool(
+                    integration_live_eligible
+                    and kernel_arg_handoff_consumer_connected
+                )
                 if not live_enabled:
                     integration_block_reason = "kernel_arg_handoff_live_disabled"
                 elif not lab_gate_passed:
@@ -2456,6 +2479,10 @@ class ControlledPremapAddressManager:
                 elif not launch_schema_ready:
                     integration_block_reason = (
                         "kernel_arg_handoff_launch_schema_not_ready"
+                    )
+                elif integration_consumer_connected:
+                    integration_block_reason = (
+                        "kernel_arg_handoff_kernel_arg_pass_disabled"
                     )
                 else:
                     integration_block_reason = (
@@ -2474,7 +2501,7 @@ class ControlledPremapAddressManager:
                         live_toggle_record_ready=live_toggle_ready,
                         launch_schema_ready=launch_schema_ready,
                         live_eligible=integration_live_eligible,
-                        consumer_connected=False,
+                        consumer_connected=integration_consumer_connected,
                         blocked=True,
                         block_reason=integration_block_reason,
                         payload_bytes=0,
@@ -2486,6 +2513,10 @@ class ControlledPremapAddressManager:
                 adapter_live_eligible = bool(
                     live_enabled and lab_gate_passed and integration_ready
                 )
+                adapter_consumer_connected = bool(
+                    adapter_live_eligible
+                    and kernel_arg_handoff_consumer_connected
+                )
                 if not integration_ready:
                     adapter_block_reason = (
                         "kernel_arg_handoff_live_noop_integration_not_ready"
@@ -2494,6 +2525,8 @@ class ControlledPremapAddressManager:
                     adapter_block_reason = "kernel_arg_handoff_live_disabled"
                 elif not lab_gate_passed:
                     adapter_block_reason = "kernel_arg_handoff_lab_gate_not_passed"
+                elif adapter_consumer_connected:
+                    adapter_block_reason = "kernel_arg_handoff_kernel_arg_pass_disabled"
                 else:
                     adapter_block_reason = (
                         "kernel_arg_handoff_kernel_consumer_not_connected"
@@ -2518,7 +2551,7 @@ class ControlledPremapAddressManager:
                             handoff_live_noop_integration.block_reason
                         ),
                         consumer_adapter_present=True,
-                        consumer_connected=False,
+                        consumer_connected=adapter_consumer_connected,
                         live_eligible=adapter_live_eligible,
                         blocked=True,
                         block_reason=adapter_block_reason,

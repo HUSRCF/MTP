@@ -963,6 +963,7 @@ class VllmRouterRecorder:
     shadow_premap_consumer_readonly_gate_passed: bool | None = None
     shadow_premap_descriptor_prep_execution_mode: str = "off"
     shadow_premap_kernel_arg_handoff_live_enabled: bool = False
+    shadow_premap_kernel_arg_handoff_live_consumer_connected: bool = False
     shadow_premap_address_namespace: str = "expert_weight_descriptor"
     shadow_premap_priority: int = 2
     shadow_transition_premap_priority: int = 3
@@ -2601,6 +2602,9 @@ class VllmRouterRecorder:
                                 ),
                                 kernel_arg_handoff_live_enabled=bool(
                                     self.shadow_premap_kernel_arg_handoff_live_enabled
+                                ),
+                                kernel_arg_handoff_consumer_connected=bool(
+                                    self.shadow_premap_kernel_arg_handoff_live_consumer_connected
                                 ),
                                 kernel_arg_handoff_lab_gate_passed=(
                                     self.shadow_premap_consumer_readonly_gate_passed
@@ -11422,6 +11426,15 @@ def _apply_premap_consumer_readonly_gate(
     live_handoff_enabled = bool(
         options.get("premap_kernel_arg_handoff_live_enabled", False)
     )
+    live_consumer_connected = bool(
+        options.get("premap_kernel_arg_handoff_live_consumer_connected", False)
+    )
+    if live_consumer_connected and not live_handoff_enabled:
+        msg = (
+            "premap_kernel_arg_handoff_live_consumer_connected=True requires "
+            "premap_kernel_arg_handoff_live_enabled=True."
+        )
+        raise ValueError(msg)
     if live_handoff_enabled and not require_gate:
         msg = (
             "premap_kernel_arg_handoff_live_enabled=True requires "
@@ -11711,16 +11724,21 @@ def _apply_premap_consumer_readonly_gate(
                 f"gate with lab_precondition=true: {path}"
             )
             raise ValueError(msg)
+        live_noop_block_reason = (
+            "kernel_arg_handoff_kernel_arg_pass_disabled"
+            if live_handoff_enabled and live_consumer_connected
+            else (
+                "kernel_arg_handoff_kernel_consumer_not_connected"
+                if live_handoff_enabled
+                else "kernel_arg_handoff_live_disabled"
+            )
+        )
         live_noop_contract = {
             "kernel_arg_handoff_live_noop_integration_required": True,
             "kernel_arg_handoff_live_noop_integration_mode": (
                 "readonly_kernel_arg_handoff_live_noop_integration"
             ),
-            "kernel_arg_handoff_live_noop_integration_block_reason": (
-                "kernel_arg_handoff_kernel_consumer_not_connected"
-                if live_handoff_enabled
-                else "kernel_arg_handoff_live_disabled"
-            ),
+            "kernel_arg_handoff_live_noop_integration_block_reason": live_noop_block_reason,
             "kernel_arg_handoff_live_noop_integration_enabled_required": (
                 live_handoff_enabled
             ),
@@ -11730,7 +11748,9 @@ def _apply_premap_consumer_readonly_gate(
             "kernel_arg_handoff_live_noop_integration_live_eligible_required": (
                 live_handoff_enabled
             ),
-            "kernel_arg_handoff_live_noop_integration_consumer_connected_required": False,
+            "kernel_arg_handoff_live_noop_integration_consumer_connected_required": (
+                live_consumer_connected
+            ),
             "kernel_arg_handoff_live_noop_integration_blocked_required": True,
             "kernel_arg_handoff_live_noop_integration_payload_bytes_required": 0,
             "kernel_arg_handoff_live_noop_integration_passed_to_kernel_required": False,
@@ -11774,16 +11794,30 @@ def _apply_premap_consumer_readonly_gate(
                 f"gate with lab_precondition=true: {path}"
             )
             raise ValueError(msg)
+        live_adapter_block_reason = (
+            "kernel_arg_handoff_kernel_arg_pass_disabled"
+            if live_handoff_enabled and live_consumer_connected
+            else (
+                "kernel_arg_handoff_kernel_consumer_not_connected"
+                if live_handoff_enabled
+                else "kernel_arg_handoff_live_disabled"
+            )
+        )
+        live_adapter_integration_block_reason = (
+            "kernel_arg_handoff_kernel_arg_pass_disabled"
+            if live_handoff_enabled and live_consumer_connected
+            else (
+                "kernel_arg_handoff_kernel_consumer_not_connected"
+                if live_handoff_enabled
+                else "kernel_arg_handoff_live_disabled"
+            )
+        )
         live_adapter_contract = {
             "kernel_arg_handoff_live_consumer_adapter_required": True,
             "kernel_arg_handoff_live_consumer_adapter_mode": (
                 "readonly_kernel_arg_handoff_live_consumer_adapter"
             ),
-            "kernel_arg_handoff_live_consumer_adapter_block_reason": (
-                "kernel_arg_handoff_kernel_consumer_not_connected"
-                if live_handoff_enabled
-                else "kernel_arg_handoff_live_disabled"
-            ),
+            "kernel_arg_handoff_live_consumer_adapter_block_reason": live_adapter_block_reason,
             "kernel_arg_handoff_live_consumer_adapter_enabled_required": (
                 live_handoff_enabled
             ),
@@ -11792,12 +11826,12 @@ def _apply_premap_consumer_readonly_gate(
             "kernel_arg_handoff_live_consumer_adapter_live_noop_integration_record_ready_required": True,
             "kernel_arg_handoff_live_consumer_adapter_live_noop_integration_blocked_required": True,
             "kernel_arg_handoff_live_consumer_adapter_live_noop_integration_block_reason": (
-                "kernel_arg_handoff_kernel_consumer_not_connected"
-                if live_handoff_enabled
-                else "kernel_arg_handoff_live_disabled"
+                live_adapter_integration_block_reason
             ),
             "kernel_arg_handoff_live_consumer_adapter_consumer_adapter_present_required": True,
-            "kernel_arg_handoff_live_consumer_adapter_consumer_connected_required": False,
+            "kernel_arg_handoff_live_consumer_adapter_consumer_connected_required": (
+                live_consumer_connected
+            ),
             "kernel_arg_handoff_live_consumer_adapter_live_eligible_required": (
                 live_handoff_enabled
             ),
@@ -12418,6 +12452,12 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                 False,
             )
         ),
+        "runtime_shadow_premap_kernel_arg_handoff_live_consumer_connected": bool(
+            runtime_shadow_options.get(
+                "premap_kernel_arg_handoff_live_consumer_connected",
+                False,
+            )
+        ),
         "runtime_shadow_transition_premap_source": str(
             runtime_shadow_options.get(
                 "transition_premap_source",
@@ -12824,6 +12864,12 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                             shadow_premap_kernel_arg_handoff_live_enabled=bool(
                                 runtime_shadow_options.get(
                                     "premap_kernel_arg_handoff_live_enabled",
+                                    False,
+                                )
+                            ),
+                            shadow_premap_kernel_arg_handoff_live_consumer_connected=bool(
+                                runtime_shadow_options.get(
+                                    "premap_kernel_arg_handoff_live_consumer_connected",
                                     False,
                                 )
                             ),

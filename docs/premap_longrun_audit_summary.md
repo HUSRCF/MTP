@@ -138,6 +138,57 @@ payload / router / descriptor_order / ready-credit violation counts = 0
 consumer error count = 0
 ```
 
+## Live Handoff Canary Modes
+
+The lab default keeps all live kernel-argument handoff paths disabled.  Two
+explicit canary modes exist only to validate the next no-op boundary before a
+real kernel handoff:
+
+```text
+premap_kernel_arg_handoff_live_enabled = true
+premap_kernel_arg_handoff_live_consumer_connected = false
+```
+
+This validates a live-enabled but disconnected adapter.  The checker must be
+called with:
+
+```bash
+python scripts/check_premap_longrun_audit_gate.py ... \
+  --require-kernel-arg-handoff-live-toggle \
+  --require-kernel-arg-handoff-live-noop-integration \
+  --require-kernel-arg-handoff-launch-schema-mirror \
+  --require-kernel-arg-handoff-live-consumer-adapter \
+  --allow-enabled-blocked-live-toggle
+```
+
+The next canary connects the prelaunch consumer adapter to the shadow mirror,
+but still blocks the actual kernel argument pass:
+
+```text
+premap_kernel_arg_handoff_live_enabled = true
+premap_kernel_arg_handoff_live_consumer_connected = true
+block_reason = kernel_arg_handoff_kernel_arg_pass_disabled
+```
+
+Its checker invocation must additionally include:
+
+```bash
+  --allow-connected-blocked-consumer-adapter
+```
+
+Even in this connected canary, the contract remains no-op:
+
+```text
+payload_bytes = 0
+ready_credit = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+```
+
+Do not use either canary mode as a runtime-performance or payload-prefetch
+claim.  They validate only that the future prelaunch consumer can observe the
+prepared handle table and remain safely blocked.
+
 Current local 128 kernel-arg-shadow-table gate output:
 
 ```text

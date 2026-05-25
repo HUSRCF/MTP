@@ -2,10 +2,11 @@
 
 ## Progress Version
 
-- Version: `v0.15-premap-kernel-arg-live-consumer-adapter-noop`
+- Version: `v0.16-premap-kernel-arg-connected-adapter-canary`
 - Updated: 2026-05-25
 - Current phase: premap descriptor/address prep reaches a default-disabled
-  live kernel-arg consumer-adapter envelope, still under a strict no-op gate
+  live kernel-arg consumer-adapter envelope, with an explicit connected-but-
+  blocked canary that still remains under a strict no-op gate
 
 ## Runtime Policy Contract
 
@@ -27,7 +28,7 @@ Safety boundaries:
 - `metadata` and `premap` are setup-preparation actions only.
 - MTP extras must be novel additions and cannot replace `transition_top32`.
 
-## Latest Update: Kernel-Arg Live Consumer Adapter Lab Gate
+## Latest Update: Kernel-Arg Connected-Adapter Canary
 
 The premap descriptor/address prep path now has one more strict long-run
 lab gate after the 128-sample live-noop gate:
@@ -57,6 +58,21 @@ payload_bytes / passed_to_kernel / kernel_arg_violation = 0 / 0 / 0
 This is a readiness / safety contract only.  It does not move payload, does not
 grant ready credit, does not change router outputs, and does not mutate kernel
 launch arguments.
+
+On top of this lab-default disconnected adapter gate, there is now a canary-only
+connected adapter state.  It requires both:
+
+```text
+premap_kernel_arg_handoff_live_enabled = true
+premap_kernel_arg_handoff_live_consumer_connected = true
+```
+
+and must remain blocked with:
+
+```text
+block_reason = kernel_arg_handoff_kernel_arg_pass_disabled
+payload_bytes / passed_to_kernel / changes_kernel_launch_args = 0 / 0 / 0
+```
 
 Evidence:
 
@@ -15532,6 +15548,51 @@ no ready credit
 no router mutation
 no descriptor_order execution
 no kernel argument mutation
+```
+
+## 2026-05-25: connected-but-blocked live consumer adapter canary
+
+The kernel-arg handoff no-op envelope now has one additional canary stage:
+
+```text
+premap_kernel_arg_handoff_live_enabled = true
+premap_kernel_arg_handoff_live_consumer_connected = true
+```
+
+When this canary is enabled, the prelaunch consumer adapter may report:
+
+```text
+consumer_connected = true
+block_reason = kernel_arg_handoff_kernel_arg_pass_disabled
+```
+
+but the safety boundary is still unchanged:
+
+```text
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+ready_credit = false
+```
+
+The default lab/audit configs still keep the connected canary disabled.  The
+runtime gate loader now rejects `premap_kernel_arg_handoff_live_consumer_connected`
+unless `premap_kernel_arg_handoff_live_enabled` is also true and the readonly lab
+gate contract explicitly requires the connected-but-blocked state.
+
+Validation:
+
+```text
+targeted:
+  pytest tests/test_runtime_premap.py \
+         tests/test_vllm_premap_capacity_gate.py \
+         tests/test_check_premap_longrun_audit_gate.py \
+         tests/test_runtime_shadow_log.py -q
+  138 passed
+
+full:
+  pytest tests -q
+  539 passed, 2 warnings
 ```
 
 ## 2026-05-25 - Kernel-Arg Launch-Schema Mirror Gate
