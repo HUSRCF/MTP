@@ -522,6 +522,109 @@ def test_premap_longrun_audit_gate_accepts_performance_summary_shape():
     )
 
 
+def test_premap_longrun_audit_gate_accepts_gate_report_shape():
+    summary = _add_kernel_arg_handoff_launch_schema_mirror(
+        _add_kernel_arg_handoff_live_toggle(
+            _add_kernel_arg_handoff_attempt(_passing_summary())
+        )
+    )
+    gate_report = check_summary(
+        summary,
+        max_capacity=12,
+        min_reuse_rate=0.98,
+        require_readonly_consumer=True,
+        require_descriptor_prep=True,
+        require_real_descriptor_prep=True,
+        require_kernel_arg_shadow_table=True,
+        require_consumer_shim_table_read=True,
+        require_consumer_shim_table_consume=True,
+        require_consumer_shim_table_object=True,
+        require_consumer_shim_prep_execution=True,
+        require_kernel_arg_handoff_attempt=True,
+        require_kernel_arg_handoff_live_toggle=True,
+        require_kernel_arg_handoff_launch_schema_mirror=True,
+    )
+
+    result = check_summary(
+        gate_report,
+        max_capacity=12,
+        min_reuse_rate=0.98,
+        require_readonly_consumer=True,
+        require_descriptor_prep=True,
+        require_real_descriptor_prep=True,
+        require_kernel_arg_shadow_table=True,
+        require_consumer_shim_table_read=True,
+        require_consumer_shim_table_consume=True,
+        require_consumer_shim_table_object=True,
+        require_consumer_shim_prep_execution=True,
+        require_kernel_arg_handoff_attempt=True,
+        require_kernel_arg_handoff_live_toggle=True,
+        require_kernel_arg_handoff_launch_schema_mirror=True,
+    )
+
+    assert gate_report["passed"] is True
+    assert result["passed"] is True
+    assert result["failures"] == []
+    assert result["metrics"]["row_count"] == 4
+    assert result["metrics"]["premap_summary_count"] == 2
+    assert result["metrics"]["premap_consumer_mapping_count"] == 2
+    assert (
+        result["metrics"][
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_launch_schema_mirror_launch_arg_field_count"
+        ]
+        == 2 * len(PREMAP_KERNEL_ARG_PRELAUNCH_LAUNCH_SCHEMA_FIELDS)
+    )
+
+
+def test_premap_longrun_audit_gate_does_not_backfill_failed_gate_report():
+    summary = _add_kernel_arg_handoff_launch_schema_mirror(
+        _add_kernel_arg_handoff_live_toggle(
+            _add_kernel_arg_handoff_attempt(_passing_summary())
+        )
+    )
+    gate_report = check_summary(
+        summary,
+        max_capacity=12,
+        min_reuse_rate=0.98,
+        require_readonly_consumer=True,
+        require_descriptor_prep=True,
+        require_real_descriptor_prep=True,
+        require_kernel_arg_shadow_table=True,
+        require_consumer_shim_table_read=True,
+        require_consumer_shim_table_consume=True,
+        require_consumer_shim_table_object=True,
+        require_consumer_shim_prep_execution=True,
+        require_kernel_arg_handoff_attempt=True,
+        require_kernel_arg_handoff_live_toggle=True,
+        require_kernel_arg_handoff_launch_schema_mirror=True,
+    )
+    gate_report["passed"] = False
+    gate_report["failures"] = []
+
+    result = check_summary(
+        gate_report,
+        max_capacity=12,
+        min_reuse_rate=0.98,
+        require_readonly_consumer=True,
+        require_descriptor_prep=True,
+        require_real_descriptor_prep=True,
+        require_kernel_arg_shadow_table=True,
+        require_consumer_shim_table_read=True,
+        require_consumer_shim_table_consume=True,
+        require_consumer_shim_table_object=True,
+        require_consumer_shim_prep_execution=True,
+        require_kernel_arg_handoff_attempt=True,
+        require_kernel_arg_handoff_live_toggle=True,
+        require_kernel_arg_handoff_launch_schema_mirror=True,
+    )
+
+    assert result["passed"] is False
+    assert (
+        "descriptor_prep_handle_count_mismatch=0!=20"
+        in result["failures"]
+    )
+
+
 def test_premap_longrun_audit_gate_allows_legacy_prep_without_prelaunch_requirement():
     summary = _passing_summary()
     for key in list(summary["aggregate"]):

@@ -40,9 +40,27 @@ KERNEL_ARG_HANDOFF_LAUNCH_SCHEMA_MIRROR_PREFIX = (
 
 
 def _normalize_summary(summary: dict[str, Any]) -> dict[str, Any]:
-    """Accept both longrun audit summaries and trace performance summaries."""
+    """Accept audit summaries, trace performance summaries, and gate reports."""
     if "aggregate" in summary and "event_counts" in summary:
         return summary
+    metrics = summary.get("metrics")
+    if isinstance(metrics, dict):
+        aggregate = dict(metrics)
+        if summary.get("passed") is True and summary.get("failures") in (None, []):
+            _backfill_gate_report_metrics(aggregate)
+        event_counts = {
+            "premap_summary": _as_int(aggregate.get("premap_summary_count")),
+            "premap_consumer_mapping": _as_int(
+                aggregate.get("premap_consumer_mapping_count")
+            ),
+        }
+        return {
+            "row_count": _as_int(
+                aggregate.get("row_count"), sum(event_counts.values())
+            ),
+            "event_counts": event_counts,
+            "aggregate": aggregate,
+        }
     aggregate = summary.get("runtime_shadow_aggregate")
     if not isinstance(aggregate, dict):
         return summary
@@ -69,6 +87,150 @@ def _as_float(value: Any, default: float = 0.0) -> float:
     if value is None:
         return default
     return float(value)
+
+
+def _backfill_gate_report_metrics(aggregate: dict[str, Any]) -> None:
+    """Make checker output self-checkable when used as a gate artifact.
+
+    The gate report stores the checker-facing metric summary, not the original
+    runtime aggregate.  Some strict checks need auxiliary counters that are
+    losslessly implied by the already-passed report.  Backfill those only for a
+    report that previously passed so the artifact can be revalidated directly.
+    """
+
+    def set_if_missing(key: str, value: Any) -> None:
+        if key not in aggregate and value is not None:
+            aggregate[key] = value
+
+    def set_count_from_rate(key: str, rate_key: str, count_key: str) -> None:
+        if key not in aggregate and _as_float(aggregate.get(rate_key)) == 1.0:
+            aggregate[key] = _as_int(aggregate.get(count_key))
+
+    lookup_count = _as_int(aggregate.get("premap_consumer_descriptor_prep_lookup_count"))
+    prelaunch_checked = _as_int(
+        aggregate.get("premap_consumer_prelaunch_boundary_checked_count")
+    )
+    prep_execution_checked = _as_int(
+        aggregate.get(
+            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_checked_count"
+        )
+    )
+    launch_checked = _as_int(
+        aggregate.get(
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_launch_schema_mirror_checked_count"
+        )
+    )
+    live_checked = _as_int(
+        aggregate.get(
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_checked_count"
+        )
+    )
+    set_if_missing(
+        "premap_consumer_descriptor_handle_hit_rate",
+        aggregate.get("premap_consumer_real_descriptor_handle_hit_rate"),
+    )
+    set_if_missing(
+        "premap_consumer_lookup_after_prepare_rate",
+        aggregate.get("premap_consumer_descriptor_prep_execution_ok_attempted_rate"),
+    )
+    set_if_missing(
+        "premap_consumer_descriptor_prep_handle_count",
+        aggregate.get("premap_consumer_descriptor_prep_real_handle_count")
+        or lookup_count,
+    )
+    set_if_missing(
+        "premap_consumer_descriptor_prep_execution_ok_rate",
+        aggregate.get("premap_consumer_descriptor_prep_execution_ok_attempted_rate"),
+    )
+    set_if_missing(
+        "premap_consumer_descriptor_prep_descriptor_ptr_count",
+        aggregate.get(
+            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_descriptor_ptr_field_available_count"
+        )
+        or aggregate.get("premap_consumer_real_descriptor_handle_hit_count"),
+    )
+    set_if_missing(
+        "premap_consumer_descriptor_prep_packed_weight_descriptor_count",
+        aggregate.get(
+            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_packed_weight_descriptor_field_available_count"
+        )
+        or aggregate.get("premap_consumer_real_descriptor_handle_packed_weight_hit_count"),
+    )
+    set_if_missing(
+        "premap_consumer_descriptor_prep_scale_metadata_handle_count",
+        aggregate.get(
+            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_scale_metadata_handle_field_available_count"
+        )
+        or aggregate.get("premap_consumer_real_descriptor_handle_scale_metadata_hit_count"),
+    )
+
+    set_count_from_rate(
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_ok_count",
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_ok_rate",
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_checked_count",
+    )
+    set_count_from_rate(
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_lifecycle_ok_count",
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_lifecycle_ok_rate",
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_checked_count",
+    )
+    set_count_from_rate(
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_consumed_count",
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_consumed_rate",
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_consumed_checked_count",
+    )
+    set_count_from_rate(
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_lifecycle_ok_count",
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_lifecycle_ok_rate",
+        "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_consumed_checked_count",
+    )
+    set_count_from_rate(
+        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_ok_count",
+        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_ok_rate",
+        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_checked_count",
+    )
+    set_count_from_rate(
+        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_lifecycle_ok_count",
+        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_lifecycle_ok_rate",
+        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_checked_count",
+    )
+
+    if _as_float(aggregate.get("premap_consumer_prelaunch_boundary_aligned_rate")) == 1.0:
+        set_if_missing("premap_consumer_prelaunch_boundary_aligned_count", prelaunch_checked)
+    if _as_float(aggregate.get("premap_consumer_prelaunch_handle_available_rate")) == 1.0:
+        set_if_missing("premap_consumer_prelaunch_handle_available_count", prelaunch_checked)
+
+    set_if_missing(
+        "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_schema_hash_checked_count",
+        prep_execution_checked if aggregate.get(
+            "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_schema_hash"
+        ) else None,
+    )
+    for prefix, checked in (
+        (
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_launch_schema_mirror",
+            launch_checked,
+        ),
+        (
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle",
+            live_checked,
+        ),
+    ):
+        for suffix in (
+            "mode_checked_count",
+            "table_schema_hash_checked_count",
+            "launch_schema_name_checked_count",
+            "launch_schema_hash_checked_count",
+            "attempt_hash_checked_count",
+            "table_object_hash_checked_count",
+        ):
+            set_if_missing(f"{prefix}_{suffix}", checked)
+    set_if_missing(
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_launch_schema_mirror_column_count_min",
+        aggregate.get(
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_launch_schema_mirror_column_count_max"
+        ),
+    )
 
 
 def check_summary(

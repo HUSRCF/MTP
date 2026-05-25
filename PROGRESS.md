@@ -13488,6 +13488,20 @@ router, or change descriptor order.  It only validates that the prepared handle
 table can be mirrored into the schema shape a future fused-MoE/AWQ prelaunch
 consumer would receive.
 
+Follow-up reproducibility fix:
+
+```text
+scripts/check_premap_longrun_audit_gate.py now accepts the generated
+longrun_audit_gate.json as an input artifact, not only raw performance_summary.json.
+
+The backfill path is restricted to gate reports that already say:
+  passed = true
+  failures = []
+
+Failed gate reports are not backfilled, so the strict checker cannot turn a
+failed artifact into a passing artifact by adding derived counters.
+```
+
 The fused-MoE/AWQ consumer mapping now resolves the resident
 `PremapAddressHandle` object for each `(layer_id, expert_id)` key and records a
 handle hash parity check against the latest current-router premap summary.
