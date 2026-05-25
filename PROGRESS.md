@@ -15880,6 +15880,8 @@ invalid_json_count = 0
 Runtime gate broad scan:
 
 ```text
+script:
+  scripts/check_runtime_gate_evidence_paths.py
 scope:
   configs/runtime/*.yaml
 mode:
@@ -15887,9 +15889,11 @@ mode:
 result:
   total_runtime_yaml = 7
   passed = 7
-  evidence_section_present = 4
-  evidence_section_missing = 3
-  missing_count = 0 for all evidence-bearing gates
+  pattern_failure_count = 0
+  evidence_section_present_count = 4
+  evidence_section_missing_count = 3
+  evidence_path_count = 36
+  missing_count = 0 for all 4 evidence-bearing gates
 
 Interpretation:
   passed = 7 because the CLI default allows missing evidence sections for
