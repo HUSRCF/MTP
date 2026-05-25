@@ -27,10 +27,10 @@ Safety boundaries:
 - `metadata` and `premap` are setup-preparation actions only.
 - MTP extras must be novel additions and cannot replace `transition_top32`.
 
-## Latest Update: Kernel-Arg Live Consumer Adapter No-Op
+## Latest Update: Kernel-Arg Live Consumer Adapter Lab Gate
 
-The premap descriptor/address prep path now has one more explicit no-op
-handoff layer after the 128-sample live-noop lab gate:
+The premap descriptor/address prep path now has one more strict long-run
+lab gate after the 128-sample live-noop gate:
 
 ```text
 prepared descriptor/address table
@@ -42,23 +42,39 @@ prepared descriptor/address table
 -> live consumer adapter envelope
 ```
 
-The new `readonly_kernel_arg_handoff_live_consumer_adapter` record proves that
-a prelaunch-side adapter object can be formed from the prepared handle table and
-launch-schema mirror, while still keeping the real fused-MoE/AWQ kernel path
-disconnected:
+The `readonly_kernel_arg_handoff_live_consumer_adapter` record is now required
+by the lab-default readonly gate artifact.  A fresh GPU1 128-sample strict audit
+passed with:
 
 ```text
-consumer_adapter_present = true
-consumer_connected = false
-payload_bytes = 0
-passed_to_kernel = false
-changes_kernel_launch_args = false
+premap summaries / consumer mappings = 10,195 / 10,195
+adapter checked / ready / lab_gate_passed = 10,195 / 10,195 / 10,195
+adapter present / blocked = 10,195 / 10,195
+consumer_connected / live_eligible = 0 / 0
+payload_bytes / passed_to_kernel / kernel_arg_violation = 0 / 0 / 0
 ```
 
 This is a readiness / safety contract only.  It does not move payload, does not
 grant ready credit, does not change router outputs, and does not mutate kernel
-launch arguments.  The next gate is a strict long-run audit that requires this
-adapter envelope before it can become a lab-default precondition.
+launch arguments.
+
+Evidence:
+
+```text
+data/traces/external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_longrun_audit/
+  performance_summary.json
+  longrun_audit_gate_live_consumer_adapter.json
+
+configs/runtime/
+  premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_kernel_arg_shadow.yaml
+```
+
+Validation:
+
+```text
+pytest tests -q
+532 passed, 2 warnings
+```
 
 ## Novelty / Prior-Art Guard
 

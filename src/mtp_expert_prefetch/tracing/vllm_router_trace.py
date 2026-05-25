@@ -11755,6 +11755,76 @@ def _apply_premap_consumer_readonly_gate(
                 f"require_kernel_arg_handoff_live_noop_integration=true: {path}"
             )
             raise ValueError(msg)
+    live_adapter_required_raw = contract.get(
+        "kernel_arg_handoff_live_consumer_adapter_required",
+        False,
+    )
+    if not isinstance(live_adapter_required_raw, bool):
+        msg = (
+            "Premap consumer readonly gate "
+            "contract.kernel_arg_handoff_live_consumer_adapter_required must "
+            f"be boolean when present: {path}"
+        )
+        raise TypeError(msg)
+    if bool(live_adapter_required_raw):
+        if lab_precondition is not True:
+            msg = (
+                "kernel-arg handoff live consumer adapter requires a readonly "
+                f"gate with lab_precondition=true: {path}"
+            )
+            raise ValueError(msg)
+        live_adapter_contract = {
+            "kernel_arg_handoff_live_consumer_adapter_required": True,
+            "kernel_arg_handoff_live_consumer_adapter_mode": (
+                "readonly_kernel_arg_handoff_live_consumer_adapter"
+            ),
+            "kernel_arg_handoff_live_consumer_adapter_block_reason": (
+                "kernel_arg_handoff_kernel_consumer_not_connected"
+                if live_handoff_enabled
+                else "kernel_arg_handoff_live_disabled"
+            ),
+            "kernel_arg_handoff_live_consumer_adapter_enabled_required": (
+                live_handoff_enabled
+            ),
+            "kernel_arg_handoff_live_consumer_adapter_lab_gate_passed_required": True,
+            "kernel_arg_handoff_live_consumer_adapter_record_ready_required": True,
+            "kernel_arg_handoff_live_consumer_adapter_live_noop_integration_record_ready_required": True,
+            "kernel_arg_handoff_live_consumer_adapter_live_noop_integration_blocked_required": True,
+            "kernel_arg_handoff_live_consumer_adapter_live_noop_integration_block_reason": (
+                "kernel_arg_handoff_kernel_consumer_not_connected"
+                if live_handoff_enabled
+                else "kernel_arg_handoff_live_disabled"
+            ),
+            "kernel_arg_handoff_live_consumer_adapter_consumer_adapter_present_required": True,
+            "kernel_arg_handoff_live_consumer_adapter_consumer_connected_required": False,
+            "kernel_arg_handoff_live_consumer_adapter_live_eligible_required": (
+                live_handoff_enabled
+            ),
+            "kernel_arg_handoff_live_consumer_adapter_blocked_required": True,
+            "kernel_arg_handoff_live_consumer_adapter_payload_bytes_required": 0,
+            "kernel_arg_handoff_live_consumer_adapter_passed_to_kernel_required": False,
+            "kernel_arg_handoff_live_consumer_adapter_changes_kernel_launch_args_required": False,
+        }
+        for key, expected in live_adapter_contract.items():
+            observed = contract.get(key)
+            if observed != expected:
+                msg = (
+                    "Premap consumer readonly gate violates the kernel-arg "
+                    f"handoff live consumer adapter contract for {path}: "
+                    f"{key}={observed!r} != {expected!r}"
+                )
+                raise ValueError(msg)
+        check = gate.get("check", {})
+        if not isinstance(check, dict):
+            msg = f"Premap consumer readonly gate `gate.check` must be a mapping: {path}"
+            raise TypeError(msg)
+        if check.get("require_kernel_arg_handoff_live_consumer_adapter") is not True:
+            msg = (
+                "kernel-arg handoff live consumer adapter requires a readonly "
+                "gate checked with "
+                f"require_kernel_arg_handoff_live_consumer_adapter=true: {path}"
+            )
+            raise ValueError(msg)
     descriptor_bytes = contract.get("descriptor_bytes")
     option_descriptor_bytes = options.get("premap_descriptor_bytes", 4096)
     if (
