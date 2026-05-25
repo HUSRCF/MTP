@@ -1871,6 +1871,132 @@ def test_premap_consumer_mapping_smoke_config_requires_readonly_gate():
     assert shadow["premap_descriptor_bytes"] == 4096
 
 
+def test_live_connected_adapter_canary_config_uses_connected_blocked_gate():
+    config_path = PROJECT_ROOT / (
+        "configs/trace/"
+        "router_mtp_trace_external_prompt_gate_dolly_1_awq_vllm_gpu1_decode_gen16_live_connected_adapter_canary.yaml"
+    )
+    config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    assert (
+        config["output_dir"]
+        == "data/traces/external_prompt_gate_dolly_1_awq_vllm_gpu1_decode_gen16_live_connected_adapter_canary"
+    )
+    assert (
+        config["trace"]["split_id"]
+        == "external_prompt_gate_dolly_1_gen16_live_connected_adapter_canary"
+    )
+    assert config["trace"]["max_samples"] == 1
+    assert config["trace"]["max_tokens"] == 16
+
+    shadow = config["trace"]["runtime_shadow"]
+    assert shadow["premap_consumer_require_readonly_gate"] is True
+    assert (
+        shadow["premap_consumer_readonly_gate_path"]
+        == "configs/runtime/premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_live_connected_blocked_canary.yaml"
+    )
+    assert shadow["premap_kernel_arg_handoff_live_enabled"] is True
+    assert shadow["premap_kernel_arg_handoff_live_consumer_connected"] is True
+    assert shadow["emit_outcomes"] is False
+    assert shadow["emit_descriptor_order_summaries"] is False
+    assert shadow["emit_decoder_layer_timing"] is False
+
+    updated = _apply_premap_consumer_readonly_gate(
+        dict(shadow),
+        project_root=PROJECT_ROOT,
+    )
+    assert updated["premap_consumer_readonly_gate_passed"] is True
+
+    gate = yaml.safe_load(
+        (PROJECT_ROOT / shadow["premap_consumer_readonly_gate_path"]).read_text(
+            encoding="utf-8"
+        )
+    )
+    contract = gate["contract"]
+    metrics = gate["gate"]["metrics"]
+    assert (
+        gate["artifact_id"]
+        == "premap_consumer_readonly_dolly128_gen64_awq_w7900_gpu1_live_connected_blocked_canary"
+    )
+    assert contract["payload_bytes_required"] == 0
+    assert contract["ready_credit_required"] is False
+    assert contract["kernel_arg_handoff_live_toggle_enabled_required"] is True
+    assert (
+        contract["kernel_arg_handoff_live_noop_integration_consumer_connected_required"]
+        is True
+    )
+    assert (
+        contract["kernel_arg_handoff_live_noop_integration_block_reason"]
+        == "kernel_arg_handoff_kernel_arg_pass_disabled"
+    )
+    assert (
+        contract["kernel_arg_handoff_live_consumer_adapter_consumer_connected_required"]
+        is True
+    )
+    assert (
+        contract["kernel_arg_handoff_live_consumer_adapter_block_reason"]
+        == "kernel_arg_handoff_kernel_arg_pass_disabled"
+    )
+    check = gate["gate"]["check"]
+    assert check["allow_enabled_blocked_live_toggle"] is True
+    assert check["allow_connected_blocked_consumer_adapter"] is True
+    live_noop_checked_count = metrics[
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_checked_count"
+    ]
+    live_adapter_checked_count = metrics[
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_consumer_adapter_checked_count"
+    ]
+    assert live_noop_checked_count > 0
+    assert live_adapter_checked_count > 0
+    assert (
+        metrics[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_consumer_connected_count"
+        ]
+        == live_noop_checked_count
+    )
+    assert (
+        metrics[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_blocked_count"
+        ]
+        == live_noop_checked_count
+    )
+    assert (
+        metrics[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_passed_to_kernel_count"
+        ]
+        == 0
+    )
+    assert (
+        metrics[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_payload_bytes"
+        ]
+        == 0
+    )
+    assert (
+        metrics[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_consumer_adapter_consumer_connected_count"
+        ]
+        == live_adapter_checked_count
+    )
+    assert (
+        metrics[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_consumer_adapter_blocked_count"
+        ]
+        == live_adapter_checked_count
+    )
+    assert (
+        metrics[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_consumer_adapter_changes_kernel_launch_args_count"
+        ]
+        == 0
+    )
+    assert (
+        metrics[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_consumer_adapter_kernel_arg_violation_count"
+        ]
+        == 0
+    )
+
+
 def test_premap_longrun_audit_smoke_config_matches_8_sample_contract():
     config_path = PROJECT_ROOT / (
         "configs/trace/"

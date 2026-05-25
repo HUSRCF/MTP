@@ -15599,6 +15599,14 @@ Runtime canary smoke:
 
 ```text
 config:
+  configs/trace/
+    router_mtp_trace_external_prompt_gate_dolly_1_awq_vllm_gpu1_decode_gen16_live_connected_adapter_canary.yaml
+
+gate:
+  configs/runtime/
+    premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_live_connected_blocked_canary.yaml
+
+run-local copy used for this smoke:
   tmp/live_adapter_connected_canary_smoke/
     trace_live_connected_blocked_consumer_adapter_canary.yaml
 
@@ -15614,6 +15622,9 @@ checker:
   --require-kernel-arg-handoff-live-consumer-adapter
   --allow-enabled-blocked-live-toggle
   --allow-connected-blocked-consumer-adapter
+
+The committed canary gate records these two `allow_*` checker flags under
+`gate.check` so the non-default validation mode is self-describing.
 
 passed = true
 failures = []

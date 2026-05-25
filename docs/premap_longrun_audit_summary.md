@@ -176,6 +176,10 @@ Its checker invocation must additionally include:
   --allow-connected-blocked-consumer-adapter
 ```
 
+The committed connected-canary gate also records both required `allow_*`
+checker flags under `gate.check`; this state is intentionally not the lab
+default.
+
 Even in this connected canary, the contract remains no-op:
 
 ```text
@@ -189,6 +193,14 @@ GPU1 AWQ/vLLM connected-canary smoke:
 
 ```text
 config:
+  configs/trace/
+    router_mtp_trace_external_prompt_gate_dolly_1_awq_vllm_gpu1_decode_gen16_live_connected_adapter_canary.yaml
+
+gate:
+  configs/runtime/
+    premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_live_connected_blocked_canary.yaml
+
+run-local copy used for this smoke:
   tmp/live_adapter_connected_canary_smoke/
     trace_live_connected_blocked_consumer_adapter_canary.yaml
 
