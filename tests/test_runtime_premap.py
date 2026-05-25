@@ -710,6 +710,67 @@ def test_controlled_premap_address_manager_executes_descriptor_prep_readonly():
         shim_result.kernel_arg_handoff_live_noop_integration_changes_kernel_launch_args
         is False
     )
+    assert (
+        shim_result.kernel_arg_handoff_live_consumer_adapter_mode
+        == "readonly_kernel_arg_handoff_live_consumer_adapter"
+    )
+    assert shim_result.kernel_arg_handoff_live_consumer_adapter_record_ready is True
+    assert shim_result.kernel_arg_handoff_live_consumer_adapter_hash
+    assert (
+        shim_result.kernel_arg_handoff_live_consumer_adapter_live_noop_integration_hash
+        == shim_result.kernel_arg_handoff_live_noop_integration_hash
+    )
+    assert (
+        shim_result.kernel_arg_handoff_live_consumer_adapter_launch_schema_mirror_hash
+        == shim_result.kernel_arg_handoff_launch_schema_mirror_hash
+    )
+    assert (
+        shim_result.kernel_arg_handoff_live_consumer_adapter_table_object_hash
+        == table_object.object_hash
+    )
+    assert shim_result.kernel_arg_handoff_live_consumer_adapter_enabled is False
+    assert (
+        shim_result.kernel_arg_handoff_live_consumer_adapter_lab_gate_passed
+        is True
+    )
+    assert (
+        shim_result.kernel_arg_handoff_live_consumer_adapter_live_noop_integration_record_ready
+        is True
+    )
+    assert (
+        shim_result.kernel_arg_handoff_live_consumer_adapter_live_noop_integration_blocked
+        is True
+    )
+    assert (
+        shim_result.kernel_arg_handoff_live_consumer_adapter_live_noop_integration_block_reason
+        == "kernel_arg_handoff_live_disabled"
+    )
+    assert (
+        shim_result.kernel_arg_handoff_live_consumer_adapter_consumer_adapter_present
+        is True
+    )
+    assert (
+        shim_result.kernel_arg_handoff_live_consumer_adapter_consumer_connected
+        is False
+    )
+    assert (
+        shim_result.kernel_arg_handoff_live_consumer_adapter_live_eligible
+        is False
+    )
+    assert shim_result.kernel_arg_handoff_live_consumer_adapter_blocked is True
+    assert (
+        shim_result.kernel_arg_handoff_live_consumer_adapter_block_reason
+        == "kernel_arg_handoff_live_disabled"
+    )
+    assert shim_result.kernel_arg_handoff_live_consumer_adapter_payload_bytes == 0
+    assert (
+        shim_result.kernel_arg_handoff_live_consumer_adapter_passed_to_kernel
+        is False
+    )
+    assert (
+        shim_result.kernel_arg_handoff_live_consumer_adapter_changes_kernel_launch_args
+        is False
+    )
     enabled_without_gate = manager.execute_descriptor_consumer_shim_readonly(
         read_result,
         kernel_arg_shadow_table_result=table_result,
@@ -756,6 +817,35 @@ def test_controlled_premap_address_manager_executes_descriptor_prep_readonly():
     )
     assert (
         enabled_without_gate.kernel_arg_handoff_live_noop_integration_passed_to_kernel
+        is False
+    )
+    assert (
+        enabled_without_gate.kernel_arg_handoff_live_consumer_adapter_record_ready
+        is True
+    )
+    assert enabled_without_gate.kernel_arg_handoff_live_consumer_adapter_enabled is True
+    assert (
+        enabled_without_gate.kernel_arg_handoff_live_consumer_adapter_lab_gate_passed
+        is False
+    )
+    assert (
+        enabled_without_gate.kernel_arg_handoff_live_consumer_adapter_live_noop_integration_record_ready
+        is True
+    )
+    assert (
+        enabled_without_gate.kernel_arg_handoff_live_consumer_adapter_live_eligible
+        is False
+    )
+    assert (
+        enabled_without_gate.kernel_arg_handoff_live_consumer_adapter_blocked
+        is True
+    )
+    assert (
+        enabled_without_gate.kernel_arg_handoff_live_consumer_adapter_block_reason
+        == "kernel_arg_handoff_lab_gate_not_passed"
+    )
+    assert (
+        enabled_without_gate.kernel_arg_handoff_live_consumer_adapter_passed_to_kernel
         is False
     )
 
@@ -810,6 +900,45 @@ def test_controlled_premap_address_manager_executes_descriptor_prep_readonly():
     assert enabled_with_gate.kernel_arg_handoff_live_noop_integration_payload_bytes == 0
     assert (
         enabled_with_gate.kernel_arg_handoff_live_noop_integration_passed_to_kernel
+        is False
+    )
+    assert (
+        enabled_with_gate.kernel_arg_handoff_live_consumer_adapter_record_ready
+        is True
+    )
+    assert enabled_with_gate.kernel_arg_handoff_live_consumer_adapter_enabled is True
+    assert (
+        enabled_with_gate.kernel_arg_handoff_live_consumer_adapter_lab_gate_passed
+        is True
+    )
+    assert (
+        enabled_with_gate.kernel_arg_handoff_live_consumer_adapter_live_noop_integration_record_ready
+        is True
+    )
+    assert (
+        enabled_with_gate.kernel_arg_handoff_live_consumer_adapter_live_noop_integration_blocked
+        is True
+    )
+    assert (
+        enabled_with_gate.kernel_arg_handoff_live_consumer_adapter_consumer_adapter_present
+        is True
+    )
+    assert (
+        enabled_with_gate.kernel_arg_handoff_live_consumer_adapter_consumer_connected
+        is False
+    )
+    assert (
+        enabled_with_gate.kernel_arg_handoff_live_consumer_adapter_live_eligible
+        is True
+    )
+    assert enabled_with_gate.kernel_arg_handoff_live_consumer_adapter_blocked is True
+    assert (
+        enabled_with_gate.kernel_arg_handoff_live_consumer_adapter_block_reason
+        == "kernel_arg_handoff_kernel_consumer_not_connected"
+    )
+    assert enabled_with_gate.kernel_arg_handoff_live_consumer_adapter_payload_bytes == 0
+    assert (
+        enabled_with_gate.kernel_arg_handoff_live_consumer_adapter_passed_to_kernel
         is False
     )
     assert shim_result.handle_table_object_consumed is True

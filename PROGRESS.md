@@ -2,10 +2,10 @@
 
 ## Progress Version
 
-- Version: `v0.15-premap-kernel-arg-live-noop-lab-gate`
+- Version: `v0.15-premap-kernel-arg-live-consumer-adapter-noop`
 - Updated: 2026-05-25
-- Current phase: premap descriptor/address prep reaches the default-disabled
-  live kernel-arg handoff integration point, still under a strict no-op gate
+- Current phase: premap descriptor/address prep reaches a default-disabled
+  live kernel-arg consumer-adapter envelope, still under a strict no-op gate
 
 ## Runtime Policy Contract
 
@@ -26,6 +26,39 @@ Safety boundaries:
 - Only `full_fetch` enters ready-before-demand and stall proxy.
 - `metadata` and `premap` are setup-preparation actions only.
 - MTP extras must be novel additions and cannot replace `transition_top32`.
+
+## Latest Update: Kernel-Arg Live Consumer Adapter No-Op
+
+The premap descriptor/address prep path now has one more explicit no-op
+handoff layer after the 128-sample live-noop lab gate:
+
+```text
+prepared descriptor/address table
+-> kernel-arg shadow table
+-> kernel-arg mirror
+-> prelaunch launch-schema mirror
+-> live toggle
+-> live no-op integration
+-> live consumer adapter envelope
+```
+
+The new `readonly_kernel_arg_handoff_live_consumer_adapter` record proves that
+a prelaunch-side adapter object can be formed from the prepared handle table and
+launch-schema mirror, while still keeping the real fused-MoE/AWQ kernel path
+disconnected:
+
+```text
+consumer_adapter_present = true
+consumer_connected = false
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+```
+
+This is a readiness / safety contract only.  It does not move payload, does not
+grant ready credit, does not change router outputs, and does not mutate kernel
+launch arguments.  The next gate is a strict long-run audit that requires this
+adapter envelope before it can become a lab-default precondition.
 
 ## Novelty / Prior-Art Guard
 

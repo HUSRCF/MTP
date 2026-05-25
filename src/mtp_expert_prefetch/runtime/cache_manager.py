@@ -905,6 +905,116 @@ class PremapKernelArgHandoffLiveNoopIntegrationRecord:
         }
 
 
+@dataclass(frozen=True)
+class PremapKernelArgHandoffLiveConsumerAdapterRecord:
+    """No-op adapter envelope for a future live kernel-arg consumer.
+
+    This is one step past the live no-op integration record: a prelaunch-side
+    consumer adapter object exists and can observe the prepared handoff table,
+    but it is deliberately disconnected from the real fused-MoE/AWQ kernel
+    launch.  The contract keeps payload movement and kernel argument mutation
+    disabled.
+    """
+
+    mode: str
+    live_noop_integration_hash: str
+    launch_schema_mirror_hash: str
+    table_object_hash: str
+    enabled: bool
+    lab_gate_passed: bool
+    live_noop_integration_record_ready: bool
+    live_noop_integration_blocked: bool
+    live_noop_integration_block_reason: str
+    consumer_adapter_present: bool
+    consumer_connected: bool
+    live_eligible: bool
+    blocked: bool
+    block_reason: str
+    payload_bytes: int = 0
+    passed_to_kernel: bool = False
+    changes_kernel_launch_args: bool = False
+
+    @property
+    def record_ready(self) -> bool:
+        base_ok = (
+            self.mode == "readonly_kernel_arg_handoff_live_consumer_adapter"
+            and bool(self.live_noop_integration_hash)
+            and bool(self.launch_schema_mirror_hash)
+            and bool(self.table_object_hash)
+            and bool(self.consumer_adapter_present)
+            and not bool(self.consumer_connected)
+            and bool(self.blocked)
+            and int(self.payload_bytes) == 0
+            and not bool(self.passed_to_kernel)
+            and not bool(self.changes_kernel_launch_args)
+        )
+        if not base_ok:
+            return False
+        if not bool(self.live_noop_integration_record_ready):
+            return (
+                not bool(self.live_eligible)
+                and str(self.block_reason)
+                == "kernel_arg_handoff_live_noop_integration_not_ready"
+            )
+        if not bool(self.enabled):
+            return (
+                bool(self.lab_gate_passed)
+                and bool(self.live_noop_integration_blocked)
+                and str(self.live_noop_integration_block_reason)
+                == "kernel_arg_handoff_live_disabled"
+                and not bool(self.live_eligible)
+                and str(self.block_reason) == "kernel_arg_handoff_live_disabled"
+            )
+        if not bool(self.lab_gate_passed):
+            return (
+                not bool(self.live_eligible)
+                and str(self.block_reason)
+                == "kernel_arg_handoff_lab_gate_not_passed"
+            )
+        return (
+            bool(self.live_eligible)
+            and str(self.block_reason)
+            == "kernel_arg_handoff_kernel_consumer_not_connected"
+        )
+
+    @property
+    def adapter_hash(self) -> str:
+        payload = json.dumps(
+            self.as_dict(),
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+        return hashlib.sha256(payload).hexdigest()
+
+    def as_dict(self) -> dict[str, int | bool | str]:
+        return {
+            "mode": str(self.mode),
+            "record_ready": bool(self.record_ready),
+            "live_noop_integration_hash": str(self.live_noop_integration_hash),
+            "launch_schema_mirror_hash": str(self.launch_schema_mirror_hash),
+            "table_object_hash": str(self.table_object_hash),
+            "enabled": bool(self.enabled),
+            "lab_gate_passed": bool(self.lab_gate_passed),
+            "live_noop_integration_record_ready": bool(
+                self.live_noop_integration_record_ready
+            ),
+            "live_noop_integration_blocked": bool(
+                self.live_noop_integration_blocked
+            ),
+            "live_noop_integration_block_reason": str(
+                self.live_noop_integration_block_reason
+            ),
+            "consumer_adapter_present": bool(self.consumer_adapter_present),
+            "consumer_connected": bool(self.consumer_connected),
+            "live_eligible": bool(self.live_eligible),
+            "blocked": bool(self.blocked),
+            "block_reason": str(self.block_reason),
+            "payload_bytes": int(self.payload_bytes),
+            "passed_to_kernel": bool(self.passed_to_kernel),
+            "changes_kernel_launch_args": bool(self.changes_kernel_launch_args),
+        }
+
+
 @dataclass
 class PremapAddressCacheEntry:
     descriptor_bytes: int
@@ -1176,6 +1286,37 @@ class PremapDescriptorConsumerShimResult:
     kernel_arg_handoff_live_noop_integration_payload_bytes: int = 0
     kernel_arg_handoff_live_noop_integration_passed_to_kernel: bool = False
     kernel_arg_handoff_live_noop_integration_changes_kernel_launch_args: bool = False
+    kernel_arg_handoff_live_consumer_adapter_mode: str | None = None
+    kernel_arg_handoff_live_consumer_adapter_record_ready: bool | None = None
+    kernel_arg_handoff_live_consumer_adapter_hash: str | None = None
+    kernel_arg_handoff_live_consumer_adapter_live_noop_integration_hash: (
+        str | None
+    ) = None
+    kernel_arg_handoff_live_consumer_adapter_launch_schema_mirror_hash: (
+        str | None
+    ) = None
+    kernel_arg_handoff_live_consumer_adapter_table_object_hash: str | None = None
+    kernel_arg_handoff_live_consumer_adapter_enabled: bool | None = None
+    kernel_arg_handoff_live_consumer_adapter_lab_gate_passed: bool | None = None
+    kernel_arg_handoff_live_consumer_adapter_live_noop_integration_record_ready: (
+        bool | None
+    ) = None
+    kernel_arg_handoff_live_consumer_adapter_live_noop_integration_blocked: (
+        bool | None
+    ) = None
+    kernel_arg_handoff_live_consumer_adapter_live_noop_integration_block_reason: (
+        str | None
+    ) = None
+    kernel_arg_handoff_live_consumer_adapter_consumer_adapter_present: (
+        bool | None
+    ) = None
+    kernel_arg_handoff_live_consumer_adapter_consumer_connected: bool | None = None
+    kernel_arg_handoff_live_consumer_adapter_live_eligible: bool | None = None
+    kernel_arg_handoff_live_consumer_adapter_blocked: bool | None = None
+    kernel_arg_handoff_live_consumer_adapter_block_reason: str | None = None
+    kernel_arg_handoff_live_consumer_adapter_payload_bytes: int = 0
+    kernel_arg_handoff_live_consumer_adapter_passed_to_kernel: bool = False
+    kernel_arg_handoff_live_consumer_adapter_changes_kernel_launch_args: bool = False
     handle_table_object_consumed: bool | None = None
     handle_table_object_hash: str | None = None
     handle_table_object_row_count: int | None = None
@@ -2100,6 +2241,9 @@ class ControlledPremapAddressManager:
         handoff_live_noop_integration: (
             PremapKernelArgHandoffLiveNoopIntegrationRecord | None
         ) = None
+        handoff_live_consumer_adapter: (
+            PremapKernelArgHandoffLiveConsumerAdapterRecord | None
+        ) = None
         if (
             table_consume_source_hit_counts is not None
             and table_consume_source_miss_counts is not None
@@ -2333,6 +2477,51 @@ class ControlledPremapAddressManager:
                         consumer_connected=False,
                         blocked=True,
                         block_reason=integration_block_reason,
+                        payload_bytes=0,
+                        passed_to_kernel=False,
+                        changes_kernel_launch_args=False,
+                    )
+                )
+                integration_ready = bool(handoff_live_noop_integration.record_ready)
+                adapter_live_eligible = bool(
+                    live_enabled and lab_gate_passed and integration_ready
+                )
+                if not integration_ready:
+                    adapter_block_reason = (
+                        "kernel_arg_handoff_live_noop_integration_not_ready"
+                    )
+                elif not live_enabled:
+                    adapter_block_reason = "kernel_arg_handoff_live_disabled"
+                elif not lab_gate_passed:
+                    adapter_block_reason = "kernel_arg_handoff_lab_gate_not_passed"
+                else:
+                    adapter_block_reason = (
+                        "kernel_arg_handoff_kernel_consumer_not_connected"
+                    )
+                handoff_live_consumer_adapter = (
+                    PremapKernelArgHandoffLiveConsumerAdapterRecord(
+                        mode="readonly_kernel_arg_handoff_live_consumer_adapter",
+                        live_noop_integration_hash=(
+                            handoff_live_noop_integration.integration_hash
+                        ),
+                        launch_schema_mirror_hash=(
+                            handoff_launch_schema_mirror.launch_schema_mirror_hash
+                        ),
+                        table_object_hash=table_object.object_hash,
+                        enabled=live_enabled,
+                        lab_gate_passed=lab_gate_passed,
+                        live_noop_integration_record_ready=integration_ready,
+                        live_noop_integration_blocked=(
+                            handoff_live_noop_integration.blocked
+                        ),
+                        live_noop_integration_block_reason=(
+                            handoff_live_noop_integration.block_reason
+                        ),
+                        consumer_adapter_present=True,
+                        consumer_connected=False,
+                        live_eligible=adapter_live_eligible,
+                        blocked=True,
+                        block_reason=adapter_block_reason,
                         payload_bytes=0,
                         passed_to_kernel=False,
                         changes_kernel_launch_args=False,
@@ -2838,6 +3027,101 @@ class ControlledPremapAddressManager:
             kernel_arg_handoff_live_noop_integration_changes_kernel_launch_args=(
                 handoff_live_noop_integration.changes_kernel_launch_args
                 if handoff_live_noop_integration is not None
+                else False
+            ),
+            kernel_arg_handoff_live_consumer_adapter_mode=(
+                handoff_live_consumer_adapter.mode
+                if handoff_live_consumer_adapter is not None
+                else None
+            ),
+            kernel_arg_handoff_live_consumer_adapter_record_ready=(
+                handoff_live_consumer_adapter.record_ready
+                if handoff_live_consumer_adapter is not None
+                else None
+            ),
+            kernel_arg_handoff_live_consumer_adapter_hash=(
+                handoff_live_consumer_adapter.adapter_hash
+                if handoff_live_consumer_adapter is not None
+                else None
+            ),
+            kernel_arg_handoff_live_consumer_adapter_live_noop_integration_hash=(
+                handoff_live_consumer_adapter.live_noop_integration_hash
+                if handoff_live_consumer_adapter is not None
+                else None
+            ),
+            kernel_arg_handoff_live_consumer_adapter_launch_schema_mirror_hash=(
+                handoff_live_consumer_adapter.launch_schema_mirror_hash
+                if handoff_live_consumer_adapter is not None
+                else None
+            ),
+            kernel_arg_handoff_live_consumer_adapter_table_object_hash=(
+                handoff_live_consumer_adapter.table_object_hash
+                if handoff_live_consumer_adapter is not None
+                else None
+            ),
+            kernel_arg_handoff_live_consumer_adapter_enabled=(
+                handoff_live_consumer_adapter.enabled
+                if handoff_live_consumer_adapter is not None
+                else None
+            ),
+            kernel_arg_handoff_live_consumer_adapter_lab_gate_passed=(
+                handoff_live_consumer_adapter.lab_gate_passed
+                if handoff_live_consumer_adapter is not None
+                else None
+            ),
+            kernel_arg_handoff_live_consumer_adapter_live_noop_integration_record_ready=(
+                handoff_live_consumer_adapter.live_noop_integration_record_ready
+                if handoff_live_consumer_adapter is not None
+                else None
+            ),
+            kernel_arg_handoff_live_consumer_adapter_live_noop_integration_blocked=(
+                handoff_live_consumer_adapter.live_noop_integration_blocked
+                if handoff_live_consumer_adapter is not None
+                else None
+            ),
+            kernel_arg_handoff_live_consumer_adapter_live_noop_integration_block_reason=(
+                handoff_live_consumer_adapter.live_noop_integration_block_reason
+                if handoff_live_consumer_adapter is not None
+                else None
+            ),
+            kernel_arg_handoff_live_consumer_adapter_consumer_adapter_present=(
+                handoff_live_consumer_adapter.consumer_adapter_present
+                if handoff_live_consumer_adapter is not None
+                else None
+            ),
+            kernel_arg_handoff_live_consumer_adapter_consumer_connected=(
+                handoff_live_consumer_adapter.consumer_connected
+                if handoff_live_consumer_adapter is not None
+                else None
+            ),
+            kernel_arg_handoff_live_consumer_adapter_live_eligible=(
+                handoff_live_consumer_adapter.live_eligible
+                if handoff_live_consumer_adapter is not None
+                else None
+            ),
+            kernel_arg_handoff_live_consumer_adapter_blocked=(
+                handoff_live_consumer_adapter.blocked
+                if handoff_live_consumer_adapter is not None
+                else None
+            ),
+            kernel_arg_handoff_live_consumer_adapter_block_reason=(
+                handoff_live_consumer_adapter.block_reason
+                if handoff_live_consumer_adapter is not None
+                else None
+            ),
+            kernel_arg_handoff_live_consumer_adapter_payload_bytes=(
+                handoff_live_consumer_adapter.payload_bytes
+                if handoff_live_consumer_adapter is not None
+                else 0
+            ),
+            kernel_arg_handoff_live_consumer_adapter_passed_to_kernel=(
+                handoff_live_consumer_adapter.passed_to_kernel
+                if handoff_live_consumer_adapter is not None
+                else False
+            ),
+            kernel_arg_handoff_live_consumer_adapter_changes_kernel_launch_args=(
+                handoff_live_consumer_adapter.changes_kernel_launch_args
+                if handoff_live_consumer_adapter is not None
                 else False
             ),
             handle_table_object_consumed=table_object_consumed,
