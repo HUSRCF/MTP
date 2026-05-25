@@ -15764,6 +15764,31 @@ live_consumer_adapter_kernel_arg_violation = 0
 This is still a canary-only no-op boundary check.  It does not pass any new
 kernel arguments, move payload, or grant ready credit.
 
+Hardened-checker recheck:
+
+```text
+artifact:
+  data/traces/
+    external_prompt_gate_dolly_1_awq_vllm_gpu1_decode_gen16_live_connected_adapter_canary/
+      performance_summary.json
+
+checker flags:
+  --allow-enabled-blocked-live-toggle
+  --allow-connected-blocked-consumer-adapter
+
+passed = true
+failures = []
+live_consumer_adapter_checked = 640
+live_consumer_adapter_consumer_connected = 640
+live_consumer_adapter_blocked = 640
+live_consumer_adapter_changes_kernel_launch_args = 0
+live_consumer_adapter_kernel_arg_violation = 0
+```
+
+This confirms that the checker hardening still accepts the explicitly allowed
+connected-but-blocked canary, while the default strict checker invocation
+without the canary `allow_*` flags keeps the consumer disconnected and blocked.
+
 ## 2026-05-25 - Kernel-Arg Launch-Schema Mirror Gate
 
 Implemented a stricter prelaunch consumer mirror that is closer to the future
