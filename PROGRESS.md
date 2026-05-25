@@ -2,12 +2,12 @@
 
 ## Progress Version
 
-- Version: `v0.17-premap-kernel-arg-canary-evidence-checker`
+- Version: `v0.18-premap-kernel-arg-pass-live-skeleton`
 - Updated: 2026-05-26
-- Current phase: premap descriptor/address prep reaches a default-disabled
-  live kernel-arg consumer-adapter envelope, with an explicit connected-but-
-  blocked canary that still remains under a strict no-op gate; gate evidence
-  paths now have a local strict checker
+- Current phase: premap descriptor/address prep now has a default-disabled
+  experimental kernel-arg pass live path at the prelaunch consumer-adapter
+  layer.  The default lab gate remains no-op/blocked; live pass requires an
+  explicit gate check and still moves zero payload bytes.
 
 ## Runtime Policy Contract
 
@@ -29,7 +29,70 @@ Safety boundaries:
 - `metadata` and `premap` are setup-preparation actions only.
 - MTP extras must be novel additions and cannot replace `transition_top32`.
 
-## Latest Update: Kernel-Arg Connected-Adapter Canary
+## Latest Update: Experimental Kernel-Arg Pass Live Path
+
+The premap kernel-arg handoff path now has a minimal live-pass envelope at the
+prelaunch consumer-adapter layer:
+
+```text
+prepared descriptor/address table
+-> kernel-arg shadow table
+-> kernel-arg mirror
+-> prelaunch launch-schema mirror
+-> live toggle
+-> live no-op integration
+-> live consumer adapter
+-> experimental kernel_arg_pass live state
+```
+
+The live pass remains default-disabled.  It is accepted only when all of the
+following are true:
+
+```text
+premap_kernel_arg_handoff_live_enabled = true
+premap_kernel_arg_handoff_live_consumer_connected = true
+premap_kernel_arg_handoff_kernel_arg_pass_enabled = true
+gate.check.allow_kernel_arg_handoff_live_kernel_arg_pass = true
+```
+
+Under that explicit gate, the adapter can report:
+
+```text
+block_reason = kernel_arg_handoff_kernel_arg_pass_live
+blocked = false
+passed_to_kernel = true
+changes_kernel_launch_args = true
+payload_bytes = 0
+```
+
+The default lab gate and connected-blocked canary still require:
+
+```text
+premap_kernel_arg_handoff_kernel_arg_pass_enabled = false
+payload_bytes / passed_to_kernel / changes_kernel_launch_args = 0 / 0 / 0
+```
+
+This is a code/schema/checker gate only at this point.  It does not claim a
+validated endpoint performance win or payload prefetch.  Any real lab run that
+uses the live pass must use the explicit checker allow flag:
+
+```bash
+--allow-kernel-arg-handoff-live-kernel-arg-pass
+```
+
+Validation:
+
+```text
+pytest tests/test_runtime_premap.py \
+       tests/test_vllm_premap_capacity_gate.py \
+       tests/test_check_premap_longrun_audit_gate.py -q
+136 passed
+
+pytest tests -q
+574 passed, 2 warnings
+```
+
+## Previous Update: Kernel-Arg Connected-Adapter Canary
 
 The premap descriptor/address prep path now has one more strict long-run
 lab gate after the 128-sample live-noop gate:

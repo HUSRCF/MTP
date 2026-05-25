@@ -299,6 +299,7 @@ def check_summary(
     require_kernel_arg_handoff_live_consumer_adapter: bool = False,
     allow_enabled_blocked_live_toggle: bool = False,
     allow_connected_blocked_consumer_adapter: bool = False,
+    allow_kernel_arg_handoff_live_kernel_arg_pass: bool = False,
 ) -> dict[str, Any]:
     raw_kernel_arg_pass_enabled = summary.get(
         "runtime_shadow_premap_kernel_arg_handoff_kernel_arg_pass_enabled"
@@ -313,11 +314,17 @@ def check_summary(
         failures.append(
             "allow_connected_blocked_consumer_adapter_requires_allow_enabled_blocked_live_toggle"
         )
+    if allow_kernel_arg_handoff_live_kernel_arg_pass and not (
+        allow_enabled_blocked_live_toggle and allow_connected_blocked_consumer_adapter
+    ):
+        failures.append(
+            "allow_kernel_arg_handoff_live_kernel_arg_pass_requires_connected_adapter"
+        )
     kernel_arg_pass_enabled = aggregate.get(
         "runtime_shadow_premap_kernel_arg_handoff_kernel_arg_pass_enabled",
         raw_kernel_arg_pass_enabled,
     )
-    if _as_bool(kernel_arg_pass_enabled):
+    if _as_bool(kernel_arg_pass_enabled) and not allow_kernel_arg_handoff_live_kernel_arg_pass:
         failures.append("kernel_arg_handoff_kernel_arg_pass_enabled_true")
 
     unknown_events = sorted(set(event_counts) - REQUIRED_EVENT_TYPES)
@@ -3433,6 +3440,16 @@ def check_summary(
                 or kernel_arg_handoff_live_consumer_adapter_active
             ):
                 expected_adapter_block_reason = (
+                    "kernel_arg_handoff_kernel_arg_pass_live"
+                    if allow_kernel_arg_handoff_live_kernel_arg_pass
+                    else "kernel_arg_handoff_kernel_arg_pass_disabled"
+                    if allow_connected_blocked_consumer_adapter
+                    else
+                    "kernel_arg_handoff_kernel_consumer_not_connected"
+                    if allow_enabled_blocked_live_toggle
+                    else "kernel_arg_handoff_live_disabled"
+                )
+                expected_adapter_live_noop_block_reason = (
                     "kernel_arg_handoff_kernel_arg_pass_disabled"
                     if allow_connected_blocked_consumer_adapter
                     else
@@ -3448,6 +3465,21 @@ def check_summary(
                 )
                 expected_adapter_consumer_connected_count = (
                     shim_executed if allow_connected_blocked_consumer_adapter else 0
+                )
+                expected_adapter_blocked_count = (
+                    0
+                    if allow_kernel_arg_handoff_live_kernel_arg_pass
+                    else shim_executed
+                )
+                expected_adapter_passed_to_kernel_count = (
+                    shim_executed
+                    if allow_kernel_arg_handoff_live_kernel_arg_pass
+                    else 0
+                )
+                expected_adapter_changes_kernel_args_count = (
+                    shim_executed
+                    if allow_kernel_arg_handoff_live_kernel_arg_pass
+                    else 0
                 )
                 if adapter_checked_count != shim_executed:
                     failures.append(
@@ -3537,7 +3569,10 @@ def check_summary(
                         "consumer_shim_kernel_arg_handoff_live_consumer_adapter_block_reason_mismatch_count_nonzero="
                         f"{adapter_block_reason_mismatch_count}"
                     )
-                if adapter_live_noop_block_reason != expected_adapter_block_reason:
+                if (
+                    adapter_live_noop_block_reason
+                    != expected_adapter_live_noop_block_reason
+                ):
                     failures.append(
                         "consumer_shim_kernel_arg_handoff_live_consumer_adapter_live_noop_integration_block_reason_mismatch"
                     )
@@ -3594,10 +3629,10 @@ def check_summary(
                         "consumer_shim_kernel_arg_handoff_live_consumer_adapter_live_eligible_count_mismatch="
                         f"{adapter_live_eligible_count}!={expected_adapter_live_eligible_count}"
                     )
-                if adapter_blocked_count != shim_executed:
+                if adapter_blocked_count != expected_adapter_blocked_count:
                     failures.append(
                         "consumer_shim_kernel_arg_handoff_live_consumer_adapter_blocked_count_mismatch="
-                        f"{adapter_blocked_count}!={shim_executed}"
+                        f"{adapter_blocked_count}!={expected_adapter_blocked_count}"
                     )
                 if adapter_payload_bytes != 0:
                     failures.append(
@@ -3609,20 +3644,29 @@ def check_summary(
                         "consumer_shim_kernel_arg_handoff_live_consumer_adapter_payload_violation_count_nonzero="
                         f"{adapter_payload_violation_count}"
                     )
-                if adapter_passed_to_kernel_count != 0:
+                if (
+                    adapter_passed_to_kernel_count
+                    != expected_adapter_passed_to_kernel_count
+                ):
                     failures.append(
-                        "consumer_shim_kernel_arg_handoff_live_consumer_adapter_passed_to_kernel_count_nonzero="
-                        f"{adapter_passed_to_kernel_count}"
+                        "consumer_shim_kernel_arg_handoff_live_consumer_adapter_passed_to_kernel_count_mismatch="
+                        f"{adapter_passed_to_kernel_count}!={expected_adapter_passed_to_kernel_count}"
                     )
-                if adapter_kernel_arg_violation_count != 0:
+                if (
+                    adapter_kernel_arg_violation_count
+                    != expected_adapter_changes_kernel_args_count
+                ):
                     failures.append(
-                        "consumer_shim_kernel_arg_handoff_live_consumer_adapter_kernel_arg_violation_count_nonzero="
-                        f"{adapter_kernel_arg_violation_count}"
+                        "consumer_shim_kernel_arg_handoff_live_consumer_adapter_kernel_arg_violation_count_mismatch="
+                        f"{adapter_kernel_arg_violation_count}!={expected_adapter_changes_kernel_args_count}"
                     )
-                if adapter_changes_kernel_launch_args_count != 0:
+                if (
+                    adapter_changes_kernel_launch_args_count
+                    != expected_adapter_changes_kernel_args_count
+                ):
                     failures.append(
-                        "consumer_shim_kernel_arg_handoff_live_consumer_adapter_changes_kernel_launch_args_count_nonzero="
-                        f"{adapter_changes_kernel_launch_args_count}"
+                        "consumer_shim_kernel_arg_handoff_live_consumer_adapter_changes_kernel_launch_args_count_mismatch="
+                        f"{adapter_changes_kernel_launch_args_count}!={expected_adapter_changes_kernel_args_count}"
                     )
         if require_consumer_shim_table_object or consumer_shim_table_object_active:
             shim_executed = _as_int(
@@ -5705,6 +5749,9 @@ def check_summary(
         "allow_connected_blocked_consumer_adapter": bool(
             allow_connected_blocked_consumer_adapter
         ),
+        "allow_kernel_arg_handoff_live_kernel_arg_pass": bool(
+            allow_kernel_arg_handoff_live_kernel_arg_pass
+        ),
     }
 
 
@@ -5849,6 +5896,16 @@ def main() -> None:
             "blocked with zero payload and no kernel argument mutation."
         ),
     )
+    parser.add_argument(
+        "--allow-kernel-arg-handoff-live-kernel-arg-pass",
+        action="store_true",
+        help=(
+            "Experimental live mode: allow the prelaunch consumer adapter to "
+            "accept the mirrored kernel-argument package. This still requires "
+            "zero payload bytes and must be used only with the explicit lab "
+            "gate that enables live kernel-arg pass."
+        ),
+    )
     parser.add_argument("--output-json", type=Path)
     args = parser.parse_args()
 
@@ -5887,6 +5944,9 @@ def main() -> None:
         ),
         allow_connected_blocked_consumer_adapter=(
             args.allow_connected_blocked_consumer_adapter
+        ),
+        allow_kernel_arg_handoff_live_kernel_arg_pass=(
+            args.allow_kernel_arg_handoff_live_kernel_arg_pass
         ),
     )
     payload = json.dumps(result, indent=2, sort_keys=True) + "\n"

@@ -2607,6 +2607,9 @@ class VllmRouterRecorder:
                                 kernel_arg_handoff_consumer_connected=bool(
                                     self.shadow_premap_kernel_arg_handoff_live_consumer_connected
                                 ),
+                                kernel_arg_handoff_kernel_arg_pass_enabled=bool(
+                                    self.shadow_premap_kernel_arg_handoff_kernel_arg_pass_enabled
+                                ),
                                 kernel_arg_handoff_lab_gate_passed=(
                                     self.shadow_premap_consumer_readonly_gate_passed
                                     is True
@@ -11433,10 +11436,13 @@ def _apply_premap_consumer_readonly_gate(
     kernel_arg_pass_enabled = bool(
         options.get("premap_kernel_arg_handoff_kernel_arg_pass_enabled", False)
     )
-    if kernel_arg_pass_enabled:
+    if kernel_arg_pass_enabled and (
+        not live_handoff_enabled or not live_consumer_connected
+    ):
         msg = (
-            "premap_kernel_arg_handoff_kernel_arg_pass_enabled=True is not "
-            "supported yet. Kernel argument handoff remains a no-op contract."
+            "premap_kernel_arg_handoff_kernel_arg_pass_enabled=True requires "
+            "premap_kernel_arg_handoff_live_enabled=True and "
+            "premap_kernel_arg_handoff_live_consumer_connected=True."
         )
         raise ValueError(msg)
     if live_consumer_connected and not live_handoff_enabled:
@@ -11797,6 +11803,13 @@ def _apply_premap_consumer_readonly_gate(
             f"be boolean when present: {path}"
         )
         raise TypeError(msg)
+    if kernel_arg_pass_enabled and not bool(live_adapter_required_raw):
+        msg = (
+            "premap_kernel_arg_handoff_kernel_arg_pass_enabled=True requires "
+            "contract.kernel_arg_handoff_live_consumer_adapter_required=true "
+            f"in the readonly gate: {path}"
+        )
+        raise ValueError(msg)
     if bool(live_adapter_required_raw):
         if lab_precondition is not True:
             msg = (
@@ -11805,7 +11818,11 @@ def _apply_premap_consumer_readonly_gate(
             )
             raise ValueError(msg)
         live_adapter_block_reason = (
-            "kernel_arg_handoff_kernel_arg_pass_disabled"
+            (
+                "kernel_arg_handoff_kernel_arg_pass_live"
+                if kernel_arg_pass_enabled
+                else "kernel_arg_handoff_kernel_arg_pass_disabled"
+            )
             if live_handoff_enabled and live_consumer_connected
             else (
                 "kernel_arg_handoff_kernel_consumer_not_connected"
@@ -11845,10 +11862,16 @@ def _apply_premap_consumer_readonly_gate(
             "kernel_arg_handoff_live_consumer_adapter_live_eligible_required": (
                 live_handoff_enabled
             ),
-            "kernel_arg_handoff_live_consumer_adapter_blocked_required": True,
+            "kernel_arg_handoff_live_consumer_adapter_blocked_required": (
+                not kernel_arg_pass_enabled
+            ),
             "kernel_arg_handoff_live_consumer_adapter_payload_bytes_required": 0,
-            "kernel_arg_handoff_live_consumer_adapter_passed_to_kernel_required": False,
-            "kernel_arg_handoff_live_consumer_adapter_changes_kernel_launch_args_required": False,
+            "kernel_arg_handoff_live_consumer_adapter_passed_to_kernel_required": (
+                kernel_arg_pass_enabled
+            ),
+            "kernel_arg_handoff_live_consumer_adapter_changes_kernel_launch_args_required": (
+                kernel_arg_pass_enabled
+            ),
         }
         for key, expected in live_adapter_contract.items():
             observed = contract.get(key)
@@ -11868,6 +11891,16 @@ def _apply_premap_consumer_readonly_gate(
                 "kernel-arg handoff live consumer adapter requires a readonly "
                 "gate checked with "
                 f"require_kernel_arg_handoff_live_consumer_adapter=true: {path}"
+            )
+            raise ValueError(msg)
+        if (
+            kernel_arg_pass_enabled
+            and check.get("allow_kernel_arg_handoff_live_kernel_arg_pass") is not True
+        ):
+            msg = (
+                "premap_kernel_arg_handoff_kernel_arg_pass_enabled=True "
+                "requires a readonly gate checked with "
+                f"allow_kernel_arg_handoff_live_kernel_arg_pass=true: {path}"
             )
             raise ValueError(msg)
     descriptor_bytes = contract.get("descriptor_bytes")

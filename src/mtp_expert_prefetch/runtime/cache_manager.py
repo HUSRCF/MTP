@@ -919,10 +919,10 @@ class PremapKernelArgHandoffLiveConsumerAdapterRecord:
     """No-op adapter envelope for a future live kernel-arg consumer.
 
     This is one step past the live no-op integration record: a prelaunch-side
-    consumer adapter object exists and can observe the prepared handoff table,
-    but it is deliberately disconnected from the real fused-MoE/AWQ kernel
-    launch.  The contract keeps payload movement and kernel argument mutation
-    disabled.
+    consumer adapter object exists and can observe the prepared handoff table.
+    By default it remains blocked and read-only.  In the explicit live-pass
+    gate, the adapter may accept the kernel-argument package while payload
+    movement remains disabled.
     """
 
     mode: str
@@ -951,10 +951,7 @@ class PremapKernelArgHandoffLiveConsumerAdapterRecord:
             and bool(self.launch_schema_mirror_hash)
             and bool(self.table_object_hash)
             and bool(self.consumer_adapter_present)
-            and bool(self.blocked)
             and int(self.payload_bytes) == 0
-            and not bool(self.passed_to_kernel)
-            and not bool(self.changes_kernel_launch_args)
         )
         if not base_ok:
             return False
@@ -979,20 +976,28 @@ class PremapKernelArgHandoffLiveConsumerAdapterRecord:
                 and str(self.block_reason)
                 == "kernel_arg_handoff_lab_gate_not_passed"
             )
-        return (
-            bool(self.live_eligible)
-            and (
-                (
-                    not bool(self.consumer_connected)
-                    and str(self.block_reason)
-                    == "kernel_arg_handoff_kernel_consumer_not_connected"
-                )
-                or (
-                    bool(self.consumer_connected)
-                    and str(self.block_reason)
-                    == "kernel_arg_handoff_kernel_arg_pass_disabled"
-                )
+        if not bool(self.live_eligible):
+            return False
+        if not bool(self.consumer_connected):
+            return (
+                bool(self.blocked)
+                and not bool(self.passed_to_kernel)
+                and not bool(self.changes_kernel_launch_args)
+                and str(self.block_reason)
+                == "kernel_arg_handoff_kernel_consumer_not_connected"
             )
+        if bool(self.passed_to_kernel) or bool(self.changes_kernel_launch_args):
+            return (
+                not bool(self.blocked)
+                and bool(self.passed_to_kernel)
+                and bool(self.changes_kernel_launch_args)
+                and str(self.block_reason)
+                == "kernel_arg_handoff_kernel_arg_pass_live"
+            )
+        return (
+            bool(self.blocked)
+            and str(self.block_reason)
+            == "kernel_arg_handoff_kernel_arg_pass_disabled"
         )
 
     @property
@@ -1856,6 +1861,7 @@ class ControlledPremapAddressManager:
         ) = None,
         kernel_arg_handoff_live_enabled: bool = False,
         kernel_arg_handoff_consumer_connected: bool = False,
+        kernel_arg_handoff_kernel_arg_pass_enabled: bool = False,
         kernel_arg_handoff_lab_gate_passed: bool = False,
         execution_mode: str = "readonly_prelaunch_consumer_shim",
     ) -> PremapDescriptorConsumerShimResult:
@@ -2517,6 +2523,10 @@ class ControlledPremapAddressManager:
                     adapter_live_eligible
                     and kernel_arg_handoff_consumer_connected
                 )
+                adapter_kernel_arg_pass_live = bool(
+                    adapter_consumer_connected
+                    and kernel_arg_handoff_kernel_arg_pass_enabled
+                )
                 if not integration_ready:
                     adapter_block_reason = (
                         "kernel_arg_handoff_live_noop_integration_not_ready"
@@ -2525,12 +2535,15 @@ class ControlledPremapAddressManager:
                     adapter_block_reason = "kernel_arg_handoff_live_disabled"
                 elif not lab_gate_passed:
                     adapter_block_reason = "kernel_arg_handoff_lab_gate_not_passed"
+                elif adapter_kernel_arg_pass_live:
+                    adapter_block_reason = "kernel_arg_handoff_kernel_arg_pass_live"
                 elif adapter_consumer_connected:
                     adapter_block_reason = "kernel_arg_handoff_kernel_arg_pass_disabled"
                 else:
                     adapter_block_reason = (
                         "kernel_arg_handoff_kernel_consumer_not_connected"
                     )
+                adapter_blocked = not adapter_kernel_arg_pass_live
                 handoff_live_consumer_adapter = (
                     PremapKernelArgHandoffLiveConsumerAdapterRecord(
                         mode="readonly_kernel_arg_handoff_live_consumer_adapter",
@@ -2553,11 +2566,11 @@ class ControlledPremapAddressManager:
                         consumer_adapter_present=True,
                         consumer_connected=adapter_consumer_connected,
                         live_eligible=adapter_live_eligible,
-                        blocked=True,
+                        blocked=adapter_blocked,
                         block_reason=adapter_block_reason,
                         payload_bytes=0,
-                        passed_to_kernel=False,
-                        changes_kernel_launch_args=False,
+                        passed_to_kernel=adapter_kernel_arg_pass_live,
+                        changes_kernel_launch_args=adapter_kernel_arg_pass_live,
                     )
                 )
         return PremapDescriptorConsumerShimResult(
