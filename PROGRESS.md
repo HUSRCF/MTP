@@ -168,13 +168,14 @@ utility/action policy ablations
   `quant_method.apply - fused_experts_outer` is small, while the large
   remaining MoE apply residual is inside `fused_experts` wrapper/launch/glue,
   not in the AWQ apply shell.
-- Premap descriptor/address prep now emits and validates a kernel-arg handoff
-  live-noop-integration record after the live toggle and launch-schema mirror.
-  The record is default-disabled, consumer-disconnected, zero-payload, and
-  never passed to the kernel.  GPU1 Dolly 128-sample strict long-run validates
-  10195/10195 checked+ready records with no payload or kernel-arg violations,
-  and this gate is promoted into the lab default precondition:
-  `data/traces/external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_longrun_audit/longrun_audit_gate_live_noop_integration.json`.
+- Premap descriptor/address prep now emits and validates stage coverage of the
+  no-op kernel-arg envelope through launch-schema mirror, live toggle,
+  live-noop-integration, and live consumer adapter.  The adapter record is
+  default-disabled, consumer-disconnected, zero-payload, and never passed to
+  the kernel.  GPU1 Dolly 128-sample strict long-run validates 10195/10195
+  checked+ready adapter records with no payload or kernel-arg violations, and
+  this gate is promoted into the lab default precondition:
+  `data/traces/external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_longrun_audit/longrun_audit_gate_live_consumer_adapter.json`.
 
 ## Prefetch Cache-Manager Replay
 
