@@ -16,6 +16,12 @@ def _resolve_path(root: Path, raw_path: str) -> Path:
     return candidate if candidate.is_absolute() else root / candidate
 
 
+def _path_label(path: Path, *, root: Path) -> str:
+    path = path.resolve()
+    root = root.resolve()
+    return path.relative_to(root).as_posix() if path.is_relative_to(root) else str(path)
+
+
 def _iter_evidence_entries(
     value: Any,
     *,
@@ -51,11 +57,7 @@ def check_gate_evidence_paths(
 ) -> dict[str, Any]:
     root = root.resolve()
     gate_path = gate_path if gate_path.is_absolute() else root / gate_path
-    gate_path_label = (
-        gate_path.relative_to(root).as_posix()
-        if gate_path.is_relative_to(root)
-        else str(gate_path)
-    )
+    gate_path_label = _path_label(gate_path, root=root)
     gate = yaml.safe_load(gate_path.read_text(encoding="utf-8"))
     if not isinstance(gate, dict):
         raise ValueError(f"Gate artifact must be a mapping: {gate_path}")
@@ -174,13 +176,27 @@ def _build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
-    result = check_gate_evidence_paths(
-        args.gate_path,
-        root=args.root,
-        allow_missing=not args.strict,
-        allow_missing_section=not args.require_evidence_section,
-        require_json=args.require_json,
-    )
+    try:
+        result = check_gate_evidence_paths(
+            args.gate_path,
+            root=args.root,
+            allow_missing=not args.strict,
+            allow_missing_section=not args.require_evidence_section,
+            require_json=args.require_json,
+        )
+    except (FileNotFoundError, ValueError, yaml.YAMLError) as exc:
+        root = args.root.resolve()
+        gate_path = args.gate_path if args.gate_path.is_absolute() else root / args.gate_path
+        result = {
+            "gate_path": _path_label(gate_path, root=root),
+            "evidence_paths_section_missing": None,
+            "evidence_path_count": 0,
+            "missing_count": 0,
+            "invalid_json_count": 0,
+            "passed": False,
+            "failures": [f"{type(exc).__name__}:{exc}"],
+            "rows": [],
+        }
     payload = json.dumps(result, indent=2, sort_keys=True)
     if args.output_json is not None:
         args.output_json.parent.mkdir(parents=True, exist_ok=True)

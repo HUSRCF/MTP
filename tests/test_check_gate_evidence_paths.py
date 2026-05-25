@@ -155,10 +155,43 @@ def test_check_gate_evidence_paths_cli_can_require_evidence_section(
     tmp_path: Path,
 ):
     gate = tmp_path / "gate.yaml"
+    output = tmp_path / "evidence_check.json"
     gate.write_text("schema_version: 1\n", encoding="utf-8")
 
-    with pytest.raises(ValueError, match="has no evidence_paths mapping"):
-        main([str(gate), "--root", str(tmp_path), "--require-evidence-section"])
+    exit_code = main(
+        [
+            str(gate),
+            "--root",
+            str(tmp_path),
+            "--require-evidence-section",
+            "--output-json",
+            str(output),
+        ]
+    )
+
+    result = json.loads(output.read_text(encoding="utf-8"))
+    assert exit_code == 1
+    assert result["gate_path"] == "gate.yaml"
+    assert result["passed"] is False
+    assert result["evidence_paths_section_missing"] is None
+    assert result["failures"][0].startswith("ValueError:")
+
+
+def test_check_gate_evidence_paths_cli_reports_yaml_errors_as_json(
+    tmp_path: Path,
+):
+    gate = tmp_path / "gate.yaml"
+    output = tmp_path / "evidence_check.json"
+    gate.write_text("evidence_paths: [broken\n", encoding="utf-8")
+
+    exit_code = main([str(gate), "--root", str(tmp_path), "--output-json", str(output)])
+
+    result = json.loads(output.read_text(encoding="utf-8"))
+    assert exit_code == 1
+    assert result["gate_path"] == "gate.yaml"
+    assert result["passed"] is False
+    assert result["evidence_paths_section_missing"] is None
+    assert result["failures"][0].startswith("ParserError:")
 
 
 def test_check_gate_evidence_paths_cli_strict_rejects_missing(
