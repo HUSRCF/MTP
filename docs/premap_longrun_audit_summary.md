@@ -185,6 +185,43 @@ passed_to_kernel = false
 changes_kernel_launch_args = false
 ```
 
+GPU1 AWQ/vLLM connected-canary smoke:
+
+```text
+config:
+  tmp/live_adapter_connected_canary_smoke/
+    trace_live_connected_blocked_consumer_adapter_canary.yaml
+
+artifact:
+  /tmp/mtp_connected_adapter_canary_smoke/
+    performance_summary.json
+    connected_blocked_gate_check.json
+
+passed = true
+failures = []
+
+live_noop_integration_checked = 640
+live_noop_integration_consumer_connected = 640
+live_noop_integration_blocked = 640
+live_noop_integration_block_reason =
+  kernel_arg_handoff_kernel_arg_pass_disabled
+live_noop_integration_payload_bytes = 0
+live_noop_integration_passed_to_kernel = 0
+live_noop_integration_ready_credit = false
+live_noop_integration_kernel_arg_violation = 0
+
+live_consumer_adapter_checked = 640
+live_consumer_adapter_consumer_connected = 640
+live_consumer_adapter_blocked = 640
+live_consumer_adapter_block_reason =
+  kernel_arg_handoff_kernel_arg_pass_disabled
+live_consumer_adapter_payload_bytes = 0
+live_consumer_adapter_passed_to_kernel = 0
+live_consumer_adapter_changes_kernel_launch_args = 0
+live_consumer_adapter_ready_credit = false
+live_consumer_adapter_kernel_arg_violation = 0
+```
+
 Do not use either canary mode as a runtime-performance or payload-prefetch
 claim.  They validate only that the future prelaunch consumer can observe the
 prepared handle table and remain safely blocked.
