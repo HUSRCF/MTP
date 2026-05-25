@@ -209,6 +209,18 @@ live_consumer_adapter_changes_kernel_launch_args = 0
 live_consumer_adapter_kernel_arg_violation = 0
 ```
 
+The strict checker now also rejects any performance summary or gate metric set
+that explicitly reports:
+
+```text
+runtime_shadow_premap_kernel_arg_handoff_kernel_arg_pass_enabled = true
+```
+
+This prevents kernel-argument pass-through opt-in from being treated as a valid
+readonly lab gate by accident.  The current checked 8/32 artifacts explicitly
+keep the flag false; the refreshed 128 artifact does not carry the flag and is
+accepted by the checker default as false.  All three pass the hardened checker.
+
 ## Novelty / Prior-Art Guard
 
 Independent novelty check result, 2026-05-05:
