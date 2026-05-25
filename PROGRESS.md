@@ -15877,6 +15877,36 @@ missing_count = 0
 invalid_json_count = 0
 ```
 
+Runtime gate broad scan:
+
+```text
+scope:
+  configs/runtime/*.yaml
+mode:
+  --require-json
+result:
+  total_runtime_yaml = 7
+  passed = 7
+  evidence_section_present = 4
+  evidence_section_missing = 3
+  missing_count = 0 for all evidence-bearing gates
+
+Interpretation:
+  passed = 7 because the CLI default allows missing evidence sections for
+  non-evidence runtime configs; strict lab validation should use --strict and,
+  when appropriate, --require-evidence-section.
+
+evidence-bearing gates:
+  descriptor_order_direct_topk_layer_allowlist_awq_w7900_gpu1.yaml:
+    evidence_path_count = 8
+  premap_address_capacity_gate_dolly128_gen64_awq_w7900_gpu1.yaml:
+    evidence_path_count = 8
+  premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_kernel_arg_shadow.yaml:
+    evidence_path_count = 8
+  premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_live_connected_blocked_canary.yaml:
+    evidence_path_count = 12
+```
+
 The checker defaults to allowing missing evidence paths at the CLI level because
 `data/traces/*` is intentionally not tracked by git.  Use `--strict` for local
 lab validation when the artifacts are present.  The `evidence_paths_check.json`
