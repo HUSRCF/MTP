@@ -1972,10 +1972,9 @@ def test_live_connected_adapter_canary_config_uses_connected_blocked_gate():
         == 0
     )
     assert (
-        metrics.get(
-            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_changes_kernel_launch_args_count",
-            0,
-        )
+        metrics[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_changes_kernel_launch_args_count"
+        ]
         == 0
     )
     assert (
