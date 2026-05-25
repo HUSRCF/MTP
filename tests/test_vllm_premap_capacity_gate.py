@@ -494,6 +494,22 @@ def test_apply_premap_consumer_readonly_gate_rejects_connected_adapter_without_l
         )
 
 
+def test_apply_premap_consumer_readonly_gate_rejects_kernel_arg_pass_enabled(
+    tmp_path,
+):
+    with pytest.raises(
+        ValueError,
+        match="premap_kernel_arg_handoff_kernel_arg_pass_enabled=True",
+    ):
+        _apply_premap_consumer_readonly_gate(
+            {
+                "enabled": True,
+                "premap_kernel_arg_handoff_kernel_arg_pass_enabled": True,
+            },
+            project_root=tmp_path,
+        )
+
+
 def test_apply_premap_consumer_readonly_gate_requires_live_toggle_contract(tmp_path):
     gate = tmp_path / "readonly_gate.yaml"
     _write_readonly_gate(
@@ -1663,6 +1679,7 @@ def test_default_longrun_audit_config_uses_premap_capacity_gate(
         == "readonly_descriptor_address_object"
     )
     assert shadow["premap_kernel_arg_handoff_live_enabled"] is False
+    assert shadow["premap_kernel_arg_handoff_kernel_arg_pass_enabled"] is False
     readonly_gate = yaml.safe_load(
         (
             PROJECT_ROOT / shadow["premap_consumer_readonly_gate_path"]
@@ -1867,6 +1884,7 @@ def test_premap_consumer_mapping_smoke_config_requires_readonly_gate():
         == "readonly_descriptor_address_object"
     )
     assert shadow["premap_kernel_arg_handoff_live_enabled"] is False
+    assert shadow["premap_kernel_arg_handoff_kernel_arg_pass_enabled"] is False
     assert shadow["premap_policy"] == "premap_only_with_consumer_mapping_noop"
     assert shadow["premap_descriptor_bytes"] == 4096
 
@@ -1896,6 +1914,7 @@ def test_live_connected_adapter_canary_config_uses_connected_blocked_gate():
     )
     assert shadow["premap_kernel_arg_handoff_live_enabled"] is True
     assert shadow["premap_kernel_arg_handoff_live_consumer_connected"] is True
+    assert shadow["premap_kernel_arg_handoff_kernel_arg_pass_enabled"] is False
     assert shadow["emit_outcomes"] is False
     assert shadow["emit_descriptor_order_summaries"] is False
     assert shadow["emit_decoder_layer_timing"] is False

@@ -38,6 +38,7 @@ trace:
     premap_descriptor_prep_execution_mode: readonly_descriptor_address_object
     premap_kernel_arg_handoff_live_enabled: true
     premap_kernel_arg_handoff_live_consumer_connected: true
+    premap_kernel_arg_handoff_kernel_arg_pass_enabled: false
     premap_policy: premap_only_with_consumer_mapping_noop
     premap_source: current_router_topk_premap_shadow
     premap_descriptor_bytes: 4096

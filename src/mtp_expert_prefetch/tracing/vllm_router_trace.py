@@ -964,6 +964,7 @@ class VllmRouterRecorder:
     shadow_premap_descriptor_prep_execution_mode: str = "off"
     shadow_premap_kernel_arg_handoff_live_enabled: bool = False
     shadow_premap_kernel_arg_handoff_live_consumer_connected: bool = False
+    shadow_premap_kernel_arg_handoff_kernel_arg_pass_enabled: bool = False
     shadow_premap_address_namespace: str = "expert_weight_descriptor"
     shadow_premap_priority: int = 2
     shadow_transition_premap_priority: int = 3
@@ -11429,6 +11430,15 @@ def _apply_premap_consumer_readonly_gate(
     live_consumer_connected = bool(
         options.get("premap_kernel_arg_handoff_live_consumer_connected", False)
     )
+    kernel_arg_pass_enabled = bool(
+        options.get("premap_kernel_arg_handoff_kernel_arg_pass_enabled", False)
+    )
+    if kernel_arg_pass_enabled:
+        msg = (
+            "premap_kernel_arg_handoff_kernel_arg_pass_enabled=True is not "
+            "supported yet. Kernel argument handoff remains a no-op contract."
+        )
+        raise ValueError(msg)
     if live_consumer_connected and not live_handoff_enabled:
         msg = (
             "premap_kernel_arg_handoff_live_consumer_connected=True requires "
@@ -12458,6 +12468,12 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                 False,
             )
         ),
+        "runtime_shadow_premap_kernel_arg_handoff_kernel_arg_pass_enabled": bool(
+            runtime_shadow_options.get(
+                "premap_kernel_arg_handoff_kernel_arg_pass_enabled",
+                False,
+            )
+        ),
         "runtime_shadow_transition_premap_source": str(
             runtime_shadow_options.get(
                 "transition_premap_source",
@@ -12870,6 +12886,12 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                             shadow_premap_kernel_arg_handoff_live_consumer_connected=bool(
                                 runtime_shadow_options.get(
                                     "premap_kernel_arg_handoff_live_consumer_connected",
+                                    False,
+                                )
+                            ),
+                            shadow_premap_kernel_arg_handoff_kernel_arg_pass_enabled=bool(
+                                runtime_shadow_options.get(
+                                    "premap_kernel_arg_handoff_kernel_arg_pass_enabled",
                                     False,
                                 )
                             ),
