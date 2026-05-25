@@ -166,6 +166,19 @@ gate remains the refreshed Dolly128 artifact; the Dolly512 artifact remains
 legacy read-only handle/source-class scale evidence until rerun with the current
 kernel-arg/live-adapter envelope.
 
+A 32-sample strict-smoke config is now available as an intermediate
+current-envelope check:
+
+```text
+configs/trace/
+  router_mtp_trace_external_prompt_gate_dolly_32_awq_vllm_gpu1_decode_gen64_longrun_audit_smoke.yaml
+```
+
+It inherits the 8-sample strict-smoke contract, keeps
+`premap_kernel_arg_handoff_kernel_arg_pass_enabled = false`, and is intended to
+bridge quick smoke and the 128-sample lab gate.  It is not a replacement for the
+lab-default Dolly128 gate.
+
 ## Novelty / Prior-Art Guard
 
 Independent novelty check result, 2026-05-05:

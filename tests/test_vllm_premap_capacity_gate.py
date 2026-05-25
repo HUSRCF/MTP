@@ -2071,6 +2071,62 @@ def test_premap_longrun_audit_smoke_config_matches_8_sample_contract():
         shadow["premap_descriptor_prep_execution_mode"]
         == "readonly_descriptor_address_object"
     )
+    assert shadow["premap_kernel_arg_handoff_live_enabled"] is False
+    assert shadow["premap_kernel_arg_handoff_kernel_arg_pass_enabled"] is False
+    assert shadow["emit_outcomes"] is False
+    assert shadow["outcome_logging_mode"] == "off"
+    assert shadow["emit_descriptor_order_summaries"] is False
+    assert shadow["emit_decoder_layer_timing"] is False
+    assert shadow["emit_decoder_component_timing"] is False
+    assert shadow["emit_moe_substage_timing"] is False
+    assert shadow["emit_engine_timing"] is False
+
+
+def test_premap_longrun_audit_smoke_config_matches_32_sample_contract():
+    config_path = PROJECT_ROOT / (
+        "configs/trace/"
+        "router_mtp_trace_external_prompt_gate_dolly_32_awq_vllm_gpu1_decode_gen64_longrun_audit_smoke.yaml"
+    )
+    config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+
+    assert (
+        config["output_dir"]
+        == "data/traces/external_prompt_gate_dolly_32_awq_vllm_gpu1_decode_gen64_longrun_audit_smoke"
+    )
+    assert config["data"] == "configs/data/external_prompt_gate_dolly_128.yaml"
+    assert config["trace"]["split_id"] == "external_prompt_gate_dolly_32_gen64_longrun_audit_smoke"
+    assert config["trace"]["expected_sample_start"] == 0
+    assert config["trace"]["expected_sample_end"] == 31
+    assert config["trace"]["max_samples"] == 32
+
+    shadow = config["trace"]["runtime_shadow"]
+    assert (
+        shadow["output_path"]
+        == "data/traces/external_prompt_gate_dolly_32_awq_vllm_gpu1_decode_gen64_longrun_audit_smoke/runtime_shadow.jsonl"
+    )
+    assert shadow["writer_mode"] == "jsonl_batched"
+    assert shadow["record_router_topk"] is True
+    assert shadow["emit_premap_summaries"] is True
+    assert shadow["emit_premap_address_manager_counters"] is True
+    assert shadow["premap_summary_sample_period"] == 32
+    assert shadow["emit_premap_consumer_mapping"] is True
+    assert shadow["premap_consumer_mapping_mode"] == "noop_assertion"
+    assert shadow["premap_consumer_mapping_source"] == (
+        "fused_moe_prepare_expert_assignment"
+    )
+    assert shadow["premap_consumer_resolve_real_handles"] is True
+    assert shadow["premap_consumer_mapping_sample_period"] == 32
+    assert shadow["premap_consumer_require_readonly_gate"] is True
+    assert (
+        shadow["premap_consumer_readonly_gate_path"]
+        == "configs/runtime/premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_kernel_arg_shadow.yaml"
+    )
+    assert (
+        shadow["premap_descriptor_prep_execution_mode"]
+        == "readonly_descriptor_address_object"
+    )
+    assert shadow["premap_kernel_arg_handoff_live_enabled"] is False
+    assert shadow["premap_kernel_arg_handoff_kernel_arg_pass_enabled"] is False
     assert shadow["emit_outcomes"] is False
     assert shadow["outcome_logging_mode"] == "off"
     assert shadow["emit_descriptor_order_summaries"] is False
