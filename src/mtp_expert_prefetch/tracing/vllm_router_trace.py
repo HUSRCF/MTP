@@ -323,6 +323,31 @@ RUNTIME_SHADOW_AGGREGATE_PERFORMANCE_KEYS = (
     "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_payload_violation_count",
     "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_passed_to_kernel_count",
     "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_kernel_arg_violation_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_checked_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_record_ready_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_hash_checked_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_hash_missing_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_attempt_hash_checked_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_attempt_hash_missing_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_table_object_hash_checked_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_table_object_hash_missing_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_mode",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_mode_checked_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_mode_missing_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_mode_mismatch_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_block_reason",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_block_reason_checked_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_block_reason_missing_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_block_reason_mismatch_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_enabled_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_lab_gate_passed_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_attempt_record_ready_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_live_eligible_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_blocked_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_payload_bytes",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_payload_violation_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_passed_to_kernel_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_kernel_arg_violation_count",
     "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_consumed_checked_count",
     "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_consumed_count",
     "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_consumed_rate",
@@ -836,6 +861,7 @@ class VllmRouterRecorder:
     shadow_premap_consumer_readonly_gate_path: str | None = None
     shadow_premap_consumer_readonly_gate_passed: bool | None = None
     shadow_premap_descriptor_prep_execution_mode: str = "off"
+    shadow_premap_kernel_arg_handoff_live_enabled: bool = False
     shadow_premap_address_namespace: str = "expert_weight_descriptor"
     shadow_premap_priority: int = 2
     shadow_transition_premap_priority: int = 3
@@ -2472,6 +2498,13 @@ class VllmRouterRecorder:
                                 descriptor_address_prep_dry_run_result=(
                                     descriptor_prep_dry_run_result
                                 ),
+                                kernel_arg_handoff_live_enabled=bool(
+                                    self.shadow_premap_kernel_arg_handoff_live_enabled
+                                ),
+                                kernel_arg_handoff_lab_gate_passed=(
+                                    self.shadow_premap_consumer_readonly_gate_passed
+                                    is True
+                                ),
                             )
                         )
         lookup_us = (time.perf_counter_ns() - start_ns) / 1000.0
@@ -3410,6 +3443,82 @@ class VllmRouterRecorder:
                 descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_changes_kernel_launch_args=(
                     bool(
                         descriptor_consumer_shim_result.kernel_arg_handoff_attempt_changes_kernel_launch_args
+                    )
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_mode=(
+                    descriptor_consumer_shim_result.kernel_arg_handoff_live_toggle_mode
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_record_ready=(
+                    descriptor_consumer_shim_result.kernel_arg_handoff_live_toggle_record_ready
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_hash=(
+                    descriptor_consumer_shim_result.kernel_arg_handoff_live_toggle_hash
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_attempt_hash=(
+                    descriptor_consumer_shim_result.kernel_arg_handoff_live_toggle_attempt_hash
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_table_object_hash=(
+                    descriptor_consumer_shim_result.kernel_arg_handoff_live_toggle_table_object_hash
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_enabled=(
+                    descriptor_consumer_shim_result.kernel_arg_handoff_live_toggle_enabled
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_lab_gate_passed=(
+                    descriptor_consumer_shim_result.kernel_arg_handoff_live_toggle_lab_gate_passed
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_attempt_record_ready=(
+                    descriptor_consumer_shim_result.kernel_arg_handoff_live_toggle_attempt_record_ready
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_live_eligible=(
+                    descriptor_consumer_shim_result.kernel_arg_handoff_live_toggle_live_eligible
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_blocked=(
+                    descriptor_consumer_shim_result.kernel_arg_handoff_live_toggle_blocked
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_block_reason=(
+                    descriptor_consumer_shim_result.kernel_arg_handoff_live_toggle_block_reason
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_payload_bytes=(
+                    int(
+                        descriptor_consumer_shim_result.kernel_arg_handoff_live_toggle_payload_bytes
+                    )
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_passed_to_kernel=(
+                    bool(
+                        descriptor_consumer_shim_result.kernel_arg_handoff_live_toggle_passed_to_kernel
+                    )
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_changes_kernel_launch_args=(
+                    bool(
+                        descriptor_consumer_shim_result.kernel_arg_handoff_live_toggle_changes_kernel_launch_args
                     )
                     if descriptor_consumer_shim_result is not None
                     else None
@@ -10863,6 +10972,15 @@ def _apply_premap_consumer_readonly_gate(
     project_root: Path,
 ) -> dict[str, Any]:
     require_gate = bool(options.get("premap_consumer_require_readonly_gate", False))
+    live_handoff_enabled = bool(
+        options.get("premap_kernel_arg_handoff_live_enabled", False)
+    )
+    if live_handoff_enabled and not require_gate:
+        msg = (
+            "premap_kernel_arg_handoff_live_enabled=True requires "
+            "premap_consumer_require_readonly_gate=True."
+        )
+        raise ValueError(msg)
     descriptor_prep_mode = _normalize_premap_descriptor_prep_execution_mode(
         options.get("premap_descriptor_prep_execution_mode", "off")
     )
@@ -11012,6 +11130,72 @@ def _apply_premap_consumer_readonly_gate(
             msg = (
                 "premap_descriptor_prep_execution_mode requires a readonly gate "
                 f"checked with require_consumer_shim_prep_execution=true: {path}"
+            )
+            raise ValueError(msg)
+    live_toggle_required = bool(
+        contract.get("kernel_arg_handoff_live_toggle_required", False)
+    )
+    if live_handoff_enabled or live_toggle_required:
+        if descriptor_prep_mode is None:
+            msg = (
+                "premap_kernel_arg_handoff_live_enabled or "
+                "contract.kernel_arg_handoff_live_toggle_required requires "
+                "premap_descriptor_prep_execution_mode."
+            )
+            raise ValueError(msg)
+        if lab_precondition is not True:
+            msg = (
+                "kernel-arg handoff live toggle requires a readonly gate "
+                f"with lab_precondition=true: {path}"
+            )
+            raise ValueError(msg)
+        enabled_required = contract.get(
+            "kernel_arg_handoff_live_toggle_enabled_required"
+        )
+        if enabled_required is not None and bool(enabled_required) != live_handoff_enabled:
+            msg = (
+                "Premap consumer readonly gate live-toggle enabled requirement "
+                f"does not match runtime options for {path}: "
+                f"{enabled_required!r} != {live_handoff_enabled!r}"
+            )
+            raise ValueError(msg)
+        live_toggle_contract = {
+            "kernel_arg_handoff_live_toggle_required": True,
+            "kernel_arg_handoff_live_toggle_mode": (
+                "readonly_kernel_arg_handoff_live_toggle"
+            ),
+            "kernel_arg_handoff_live_toggle_block_reason": (
+                "kernel_arg_handoff_kernel_consumer_not_connected"
+                if live_handoff_enabled
+                else "kernel_arg_handoff_live_disabled"
+            ),
+            "kernel_arg_handoff_live_toggle_lab_gate_passed_required": True,
+            "kernel_arg_handoff_live_toggle_attempt_record_ready_required": True,
+            "kernel_arg_handoff_live_toggle_live_eligible_required": (
+                live_handoff_enabled
+            ),
+            "kernel_arg_handoff_live_toggle_blocked_required": True,
+            "kernel_arg_handoff_live_toggle_payload_bytes_required": 0,
+            "kernel_arg_handoff_live_toggle_passed_to_kernel_required": False,
+            "kernel_arg_handoff_live_toggle_changes_kernel_launch_args_required": False,
+        }
+        for key, expected in live_toggle_contract.items():
+            observed = contract.get(key)
+            if observed != expected:
+                msg = (
+                    "Premap consumer readonly gate violates the kernel-arg "
+                    f"handoff live-toggle contract for {path}: "
+                    f"{key}={observed!r} != {expected!r}"
+                )
+                raise ValueError(msg)
+        check = gate.get("check", {})
+        if not isinstance(check, dict):
+            msg = f"Premap consumer readonly gate `gate.check` must be a mapping: {path}"
+            raise TypeError(msg)
+        if check.get("require_kernel_arg_handoff_live_toggle") is not True:
+            msg = (
+                "kernel-arg handoff live toggle requires a readonly gate checked "
+                f"with require_kernel_arg_handoff_live_toggle=true: {path}"
             )
             raise ValueError(msg)
     descriptor_bytes = contract.get("descriptor_bytes")
@@ -11600,6 +11784,12 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
         "runtime_shadow_premap_descriptor_prep_execution_mode": str(
             runtime_shadow_options.get("premap_descriptor_prep_execution_mode", "off")
         ),
+        "runtime_shadow_premap_kernel_arg_handoff_live_enabled": bool(
+            runtime_shadow_options.get(
+                "premap_kernel_arg_handoff_live_enabled",
+                False,
+            )
+        ),
         "runtime_shadow_transition_premap_source": str(
             runtime_shadow_options.get(
                 "transition_premap_source",
@@ -12001,6 +12191,12 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                                 runtime_shadow_options.get(
                                     "premap_descriptor_prep_execution_mode",
                                     "off",
+                                )
+                            ),
+                            shadow_premap_kernel_arg_handoff_live_enabled=bool(
+                                runtime_shadow_options.get(
+                                    "premap_kernel_arg_handoff_live_enabled",
+                                    False,
                                 )
                             ),
                             shadow_premap_address_namespace=str(

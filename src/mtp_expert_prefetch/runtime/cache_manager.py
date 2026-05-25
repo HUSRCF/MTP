@@ -579,6 +579,97 @@ class PremapKernelArgHandoffAttemptRecord:
         }
 
 
+@dataclass(frozen=True)
+class PremapKernelArgHandoffLiveToggleRecord:
+    """Audit record for the default-disabled live kernel-arg handoff switch.
+
+    The toggle is deliberately separate from the no-op handoff attempt.  It
+    lets lab configs prove that a future live handoff switch exists and is
+    gate-protected, while the current runtime still refuses to pass the mirror
+    package to the fused-MoE/AWQ kernel.
+    """
+
+    mode: str
+    attempt_hash: str
+    table_object_hash: str
+    enabled: bool
+    lab_gate_passed: bool
+    attempt_record_ready: bool
+    live_eligible: bool
+    blocked: bool
+    block_reason: str
+    payload_bytes: int = 0
+    passed_to_kernel: bool = False
+    changes_kernel_launch_args: bool = False
+
+    @property
+    def record_ready(self) -> bool:
+        base_ok = (
+            self.mode == "readonly_kernel_arg_handoff_live_toggle"
+            and bool(self.attempt_hash)
+            and bool(self.table_object_hash)
+            and int(self.payload_bytes) == 0
+            and not bool(self.passed_to_kernel)
+            and not bool(self.changes_kernel_launch_args)
+        )
+        if not base_ok:
+            return False
+        if not bool(self.enabled):
+            return (
+                bool(self.lab_gate_passed)
+                and bool(self.attempt_record_ready)
+                and not bool(self.live_eligible)
+                and bool(self.blocked)
+                and str(self.block_reason) == "kernel_arg_handoff_live_disabled"
+            )
+        if not bool(self.lab_gate_passed):
+            return (
+                not bool(self.live_eligible)
+                and bool(self.blocked)
+                and str(self.block_reason)
+                == "kernel_arg_handoff_lab_gate_not_passed"
+            )
+        if not bool(self.attempt_record_ready):
+            return (
+                not bool(self.live_eligible)
+                and bool(self.blocked)
+                and str(self.block_reason)
+                == "kernel_arg_handoff_attempt_not_ready"
+            )
+        return (
+            bool(self.live_eligible)
+            and bool(self.blocked)
+            and str(self.block_reason)
+            == "kernel_arg_handoff_kernel_consumer_not_connected"
+        )
+
+    @property
+    def toggle_hash(self) -> str:
+        payload = json.dumps(
+            self.as_dict(),
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+        return hashlib.sha256(payload).hexdigest()
+
+    def as_dict(self) -> dict[str, int | bool | str]:
+        return {
+            "mode": str(self.mode),
+            "record_ready": bool(self.record_ready),
+            "attempt_hash": str(self.attempt_hash),
+            "table_object_hash": str(self.table_object_hash),
+            "enabled": bool(self.enabled),
+            "lab_gate_passed": bool(self.lab_gate_passed),
+            "attempt_record_ready": bool(self.attempt_record_ready),
+            "live_eligible": bool(self.live_eligible),
+            "blocked": bool(self.blocked),
+            "block_reason": str(self.block_reason),
+            "payload_bytes": int(self.payload_bytes),
+            "passed_to_kernel": bool(self.passed_to_kernel),
+            "changes_kernel_launch_args": bool(self.changes_kernel_launch_args),
+        }
+
+
 @dataclass
 class PremapAddressCacheEntry:
     descriptor_bytes: int
@@ -793,6 +884,20 @@ class PremapDescriptorConsumerShimResult:
     kernel_arg_handoff_attempt_payload_bytes: int = 0
     kernel_arg_handoff_attempt_passed_to_kernel: bool = False
     kernel_arg_handoff_attempt_changes_kernel_launch_args: bool = False
+    kernel_arg_handoff_live_toggle_mode: str | None = None
+    kernel_arg_handoff_live_toggle_record_ready: bool | None = None
+    kernel_arg_handoff_live_toggle_hash: str | None = None
+    kernel_arg_handoff_live_toggle_attempt_hash: str | None = None
+    kernel_arg_handoff_live_toggle_table_object_hash: str | None = None
+    kernel_arg_handoff_live_toggle_enabled: bool | None = None
+    kernel_arg_handoff_live_toggle_lab_gate_passed: bool | None = None
+    kernel_arg_handoff_live_toggle_attempt_record_ready: bool | None = None
+    kernel_arg_handoff_live_toggle_live_eligible: bool | None = None
+    kernel_arg_handoff_live_toggle_blocked: bool | None = None
+    kernel_arg_handoff_live_toggle_block_reason: str | None = None
+    kernel_arg_handoff_live_toggle_payload_bytes: int = 0
+    kernel_arg_handoff_live_toggle_passed_to_kernel: bool = False
+    kernel_arg_handoff_live_toggle_changes_kernel_launch_args: bool = False
     handle_table_object_consumed: bool | None = None
     handle_table_object_hash: str | None = None
     handle_table_object_row_count: int | None = None
@@ -1312,6 +1417,8 @@ class ControlledPremapAddressManager:
         descriptor_address_prep_dry_run_result: (
             PremapDescriptorAddressPrepDryRunResult | None
         ) = None,
+        kernel_arg_handoff_live_enabled: bool = False,
+        kernel_arg_handoff_lab_gate_passed: bool = False,
         execution_mode: str = "readonly_prelaunch_consumer_shim",
     ) -> PremapDescriptorConsumerShimResult:
         """Run the minimal prelaunch consumer shim without side effects."""
@@ -1708,6 +1815,7 @@ class ControlledPremapAddressManager:
         handoff_shadow_slot: PremapKernelArgHandoffShadowSlot | None = None
         handoff_mirror: PremapKernelArgHandoffMirrorObject | None = None
         handoff_attempt: PremapKernelArgHandoffAttemptRecord | None = None
+        handoff_live_toggle: PremapKernelArgHandoffLiveToggleRecord | None = None
         if (
             table_consume_source_hit_counts is not None
             and table_consume_source_miss_counts is not None
@@ -1821,6 +1929,36 @@ class ControlledPremapAddressManager:
                     gate_allowed=False,
                     blocked=True,
                     block_reason="kernel_arg_handoff_disabled_noop_gate",
+                    payload_bytes=0,
+                    passed_to_kernel=False,
+                    changes_kernel_launch_args=False,
+                )
+                live_enabled = bool(kernel_arg_handoff_live_enabled)
+                lab_gate_passed = bool(kernel_arg_handoff_lab_gate_passed)
+                attempt_ready = bool(handoff_attempt.record_ready)
+                live_eligible = bool(
+                    live_enabled and lab_gate_passed and attempt_ready
+                )
+                if not live_enabled:
+                    live_block_reason = "kernel_arg_handoff_live_disabled"
+                elif not lab_gate_passed:
+                    live_block_reason = "kernel_arg_handoff_lab_gate_not_passed"
+                elif not attempt_ready:
+                    live_block_reason = "kernel_arg_handoff_attempt_not_ready"
+                else:
+                    live_block_reason = (
+                        "kernel_arg_handoff_kernel_consumer_not_connected"
+                    )
+                handoff_live_toggle = PremapKernelArgHandoffLiveToggleRecord(
+                    mode="readonly_kernel_arg_handoff_live_toggle",
+                    attempt_hash=handoff_attempt.attempt_hash,
+                    table_object_hash=table_object.object_hash,
+                    enabled=live_enabled,
+                    lab_gate_passed=lab_gate_passed,
+                    attempt_record_ready=attempt_ready,
+                    live_eligible=live_eligible,
+                    blocked=True,
+                    block_reason=live_block_reason,
                     payload_bytes=0,
                     passed_to_kernel=False,
                     changes_kernel_launch_args=False,
@@ -2072,6 +2210,74 @@ class ControlledPremapAddressManager:
             kernel_arg_handoff_attempt_changes_kernel_launch_args=(
                 handoff_attempt.changes_kernel_launch_args
                 if handoff_attempt is not None
+                else False
+            ),
+            kernel_arg_handoff_live_toggle_mode=(
+                handoff_live_toggle.mode if handoff_live_toggle is not None else None
+            ),
+            kernel_arg_handoff_live_toggle_record_ready=(
+                handoff_live_toggle.record_ready
+                if handoff_live_toggle is not None
+                else None
+            ),
+            kernel_arg_handoff_live_toggle_hash=(
+                handoff_live_toggle.toggle_hash
+                if handoff_live_toggle is not None
+                else None
+            ),
+            kernel_arg_handoff_live_toggle_attempt_hash=(
+                handoff_live_toggle.attempt_hash
+                if handoff_live_toggle is not None
+                else None
+            ),
+            kernel_arg_handoff_live_toggle_table_object_hash=(
+                handoff_live_toggle.table_object_hash
+                if handoff_live_toggle is not None
+                else None
+            ),
+            kernel_arg_handoff_live_toggle_enabled=(
+                handoff_live_toggle.enabled
+                if handoff_live_toggle is not None
+                else None
+            ),
+            kernel_arg_handoff_live_toggle_lab_gate_passed=(
+                handoff_live_toggle.lab_gate_passed
+                if handoff_live_toggle is not None
+                else None
+            ),
+            kernel_arg_handoff_live_toggle_attempt_record_ready=(
+                handoff_live_toggle.attempt_record_ready
+                if handoff_live_toggle is not None
+                else None
+            ),
+            kernel_arg_handoff_live_toggle_live_eligible=(
+                handoff_live_toggle.live_eligible
+                if handoff_live_toggle is not None
+                else None
+            ),
+            kernel_arg_handoff_live_toggle_blocked=(
+                handoff_live_toggle.blocked
+                if handoff_live_toggle is not None
+                else None
+            ),
+            kernel_arg_handoff_live_toggle_block_reason=(
+                handoff_live_toggle.block_reason
+                if handoff_live_toggle is not None
+                else None
+            ),
+            kernel_arg_handoff_live_toggle_payload_bytes=(
+                handoff_live_toggle.payload_bytes
+                if handoff_live_toggle is not None
+                else 0
+            ),
+            kernel_arg_handoff_live_toggle_passed_to_kernel=(
+                handoff_live_toggle.passed_to_kernel
+                if handoff_live_toggle is not None
+                else False
+            ),
+            kernel_arg_handoff_live_toggle_changes_kernel_launch_args=(
+                handoff_live_toggle.changes_kernel_launch_args
+                if handoff_live_toggle is not None
                 else False
             ),
             handle_table_object_consumed=table_object_consumed,

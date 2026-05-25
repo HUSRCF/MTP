@@ -368,6 +368,7 @@ def test_controlled_premap_address_manager_executes_descriptor_prep_readonly():
         kernel_arg_shadow_table_result=table_result,
         kernel_arg_shadow_table_object=table_object,
         descriptor_address_prep_dry_run_result=prep_dry_run_result,
+        kernel_arg_handoff_lab_gate_passed=True,
     )
     assert shim_result.execution_mode == "readonly_prelaunch_consumer_shim"
     assert shim_result.object_count == 2
@@ -558,6 +559,83 @@ def test_controlled_premap_address_manager_executes_descriptor_prep_readonly():
     assert shim_result.kernel_arg_handoff_attempt_passed_to_kernel is False
     assert (
         shim_result.kernel_arg_handoff_attempt_changes_kernel_launch_args is False
+    )
+    assert (
+        shim_result.kernel_arg_handoff_live_toggle_mode
+        == "readonly_kernel_arg_handoff_live_toggle"
+    )
+    assert shim_result.kernel_arg_handoff_live_toggle_record_ready is True
+    assert shim_result.kernel_arg_handoff_live_toggle_hash
+    assert (
+        shim_result.kernel_arg_handoff_live_toggle_attempt_hash
+        == shim_result.kernel_arg_handoff_attempt_hash
+    )
+    assert (
+        shim_result.kernel_arg_handoff_live_toggle_table_object_hash
+        == table_object.object_hash
+    )
+    assert shim_result.kernel_arg_handoff_live_toggle_enabled is False
+    assert shim_result.kernel_arg_handoff_live_toggle_lab_gate_passed is True
+    assert shim_result.kernel_arg_handoff_live_toggle_attempt_record_ready is True
+    assert shim_result.kernel_arg_handoff_live_toggle_live_eligible is False
+    assert shim_result.kernel_arg_handoff_live_toggle_blocked is True
+    assert (
+        shim_result.kernel_arg_handoff_live_toggle_block_reason
+        == "kernel_arg_handoff_live_disabled"
+    )
+    assert shim_result.kernel_arg_handoff_live_toggle_payload_bytes == 0
+    assert shim_result.kernel_arg_handoff_live_toggle_passed_to_kernel is False
+    assert (
+        shim_result.kernel_arg_handoff_live_toggle_changes_kernel_launch_args
+        is False
+    )
+    enabled_without_gate = manager.execute_descriptor_consumer_shim_readonly(
+        read_result,
+        kernel_arg_shadow_table_result=table_result,
+        kernel_arg_shadow_table_object=table_object,
+        descriptor_address_prep_dry_run_result=prep_dry_run_result,
+        kernel_arg_handoff_live_enabled=True,
+        kernel_arg_handoff_lab_gate_passed=False,
+    )
+    assert enabled_without_gate.kernel_arg_handoff_live_toggle_record_ready is True
+    assert enabled_without_gate.kernel_arg_handoff_live_toggle_enabled is True
+    assert enabled_without_gate.kernel_arg_handoff_live_toggle_lab_gate_passed is False
+    assert enabled_without_gate.kernel_arg_handoff_live_toggle_live_eligible is False
+    assert enabled_without_gate.kernel_arg_handoff_live_toggle_blocked is True
+    assert (
+        enabled_without_gate.kernel_arg_handoff_live_toggle_block_reason
+        == "kernel_arg_handoff_lab_gate_not_passed"
+    )
+    assert enabled_without_gate.kernel_arg_handoff_live_toggle_payload_bytes == 0
+    assert enabled_without_gate.kernel_arg_handoff_live_toggle_passed_to_kernel is False
+    assert (
+        enabled_without_gate.kernel_arg_handoff_live_toggle_changes_kernel_launch_args
+        is False
+    )
+
+    enabled_with_gate = manager.execute_descriptor_consumer_shim_readonly(
+        read_result,
+        kernel_arg_shadow_table_result=table_result,
+        kernel_arg_shadow_table_object=table_object,
+        descriptor_address_prep_dry_run_result=prep_dry_run_result,
+        kernel_arg_handoff_live_enabled=True,
+        kernel_arg_handoff_lab_gate_passed=True,
+    )
+    assert enabled_with_gate.kernel_arg_handoff_live_toggle_record_ready is True
+    assert enabled_with_gate.kernel_arg_handoff_live_toggle_enabled is True
+    assert enabled_with_gate.kernel_arg_handoff_live_toggle_lab_gate_passed is True
+    assert enabled_with_gate.kernel_arg_handoff_live_toggle_attempt_record_ready is True
+    assert enabled_with_gate.kernel_arg_handoff_live_toggle_live_eligible is True
+    assert enabled_with_gate.kernel_arg_handoff_live_toggle_blocked is True
+    assert (
+        enabled_with_gate.kernel_arg_handoff_live_toggle_block_reason
+        == "kernel_arg_handoff_kernel_consumer_not_connected"
+    )
+    assert enabled_with_gate.kernel_arg_handoff_live_toggle_payload_bytes == 0
+    assert enabled_with_gate.kernel_arg_handoff_live_toggle_passed_to_kernel is False
+    assert (
+        enabled_with_gate.kernel_arg_handoff_live_toggle_changes_kernel_launch_args
+        is False
     )
     assert shim_result.handle_table_object_consumed is True
     assert shim_result.handle_table_object_hash == table_object.object_hash

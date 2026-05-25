@@ -980,6 +980,91 @@ def _assert_consumer_shim_table_consume_event(consumer: dict[str, object]) -> No
         ]
         is False
     )
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_mode"
+        ]
+        == "readonly_kernel_arg_handoff_live_toggle"
+    )
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_record_ready"
+        ]
+        is True
+    )
+    assert consumer[
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_hash"
+    ]
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_attempt_hash"
+        ]
+        == consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_hash"
+        ]
+    )
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_table_object_hash"
+        ]
+        == consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_hash"
+        ]
+    )
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_enabled"
+        ]
+        is False
+    )
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_lab_gate_passed"
+        ]
+        is True
+    )
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_attempt_record_ready"
+        ]
+        is True
+    )
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_live_eligible"
+        ]
+        is False
+    )
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_blocked"
+        ]
+        is True
+    )
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_block_reason"
+        ]
+        == "kernel_arg_handoff_live_disabled"
+    )
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_payload_bytes"
+        ]
+        == 0
+    )
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_passed_to_kernel"
+        ]
+        is False
+    )
+    assert (
+        consumer[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_changes_kernel_launch_args"
+        ]
+        is False
+    )
 
 
 def _assert_consumer_shim_prep_execution_dry_run_event(

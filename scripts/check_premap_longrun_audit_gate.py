@@ -25,6 +25,9 @@ EXPECTED_KERNEL_ARG_SHADOW_TABLE_COLUMN_COUNT = len(
 KERNEL_ARG_HANDOFF_ATTEMPT_PREFIX = (
     "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_"
 )
+KERNEL_ARG_HANDOFF_LIVE_TOGGLE_PREFIX = (
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_"
+)
 
 
 def _normalize_summary(summary: dict[str, Any]) -> dict[str, Any]:
@@ -73,6 +76,7 @@ def check_summary(
     require_consumer_shim_table_object: bool = False,
     require_consumer_shim_prep_execution: bool = False,
     require_kernel_arg_handoff_attempt: bool = False,
+    require_kernel_arg_handoff_live_toggle: bool = False,
 ) -> dict[str, Any]:
     summary = _normalize_summary(summary)
     event_counts = {
@@ -213,6 +217,10 @@ def check_summary(
     kernel_arg_handoff_attempt_active = any(
         str(key).startswith(KERNEL_ARG_HANDOFF_ATTEMPT_PREFIX) for key in aggregate
     )
+    kernel_arg_handoff_live_toggle_active = any(
+        str(key).startswith(KERNEL_ARG_HANDOFF_LIVE_TOGGLE_PREFIX)
+        for key in aggregate
+    )
     if require_consumer_shim_table_consume and not consumer_shim_table_consume_active:
         failures.append("consumer_shim_table_consume_fields_missing")
     if require_consumer_shim_table_consume and not consumer_shim_table_read_active:
@@ -221,6 +229,10 @@ def check_summary(
         failures.append("consumer_shim_kernel_arg_handoff_attempt_fields_missing")
     if require_kernel_arg_handoff_attempt and not consumer_shim_table_consume_active:
         failures.append("consumer_shim_kernel_arg_handoff_attempt_requires_table_consume_fields")
+    if require_kernel_arg_handoff_live_toggle and not kernel_arg_handoff_live_toggle_active:
+        failures.append("consumer_shim_kernel_arg_handoff_live_toggle_fields_missing")
+    if require_kernel_arg_handoff_live_toggle and not kernel_arg_handoff_attempt_active:
+        failures.append("consumer_shim_kernel_arg_handoff_live_toggle_requires_handoff_attempt_fields")
     consumer_shim_table_object_checked_count = _as_int(
         aggregate.get(
             "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_consumed_checked_count"
@@ -263,6 +275,7 @@ def check_summary(
         or require_real_descriptor_prep
         or require_kernel_arg_shadow_table
         or require_kernel_arg_handoff_attempt
+        or require_kernel_arg_handoff_live_toggle
         or descriptor_prep_active
     ):
         attempted = _as_int(
@@ -1262,6 +1275,133 @@ def check_summary(
                     "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_kernel_arg_violation_count"
                 )
             )
+            live_toggle_checked_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_checked_count"
+                )
+            )
+            live_toggle_record_ready_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_record_ready_count"
+                )
+            )
+            live_toggle_hash_checked_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_hash_checked_count"
+                )
+            )
+            live_toggle_hash_missing_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_hash_missing_count"
+                )
+            )
+            live_toggle_attempt_hash_checked_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_attempt_hash_checked_count"
+                )
+            )
+            live_toggle_attempt_hash_missing_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_attempt_hash_missing_count"
+                )
+            )
+            live_toggle_table_object_hash_checked_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_table_object_hash_checked_count"
+                )
+            )
+            live_toggle_table_object_hash_missing_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_table_object_hash_missing_count"
+                )
+            )
+            live_toggle_mode = str(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_mode"
+                )
+                or ""
+            )
+            live_toggle_mode_checked_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_mode_checked_count"
+                )
+            )
+            live_toggle_mode_missing_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_mode_missing_count"
+                )
+            )
+            live_toggle_mode_mismatch_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_mode_mismatch_count"
+                )
+            )
+            live_toggle_block_reason = str(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_block_reason"
+                )
+                or ""
+            )
+            live_toggle_block_reason_checked_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_block_reason_checked_count"
+                )
+            )
+            live_toggle_block_reason_missing_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_block_reason_missing_count"
+                )
+            )
+            live_toggle_block_reason_mismatch_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_block_reason_mismatch_count"
+                )
+            )
+            live_toggle_enabled_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_enabled_count"
+                )
+            )
+            live_toggle_lab_gate_passed_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_lab_gate_passed_count"
+                )
+            )
+            live_toggle_attempt_record_ready_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_attempt_record_ready_count"
+                )
+            )
+            live_toggle_live_eligible_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_live_eligible_count"
+                )
+            )
+            live_toggle_blocked_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_blocked_count"
+                )
+            )
+            live_toggle_payload_bytes = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_payload_bytes"
+                )
+            )
+            live_toggle_payload_violation_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_payload_violation_count"
+                )
+            )
+            live_toggle_passed_to_kernel_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_passed_to_kernel_count"
+                )
+            )
+            live_toggle_kernel_arg_violation_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_kernel_arg_violation_count"
+                )
+            )
             shim_table_row_count = _as_int(
                 aggregate.get(
                     "premap_consumer_descriptor_prep_consumer_shim_handle_table_row_count"
@@ -2017,6 +2157,130 @@ def check_summary(
                     "consumer_shim_kernel_arg_handoff_attempt_kernel_arg_violation_count_nonzero="
                     f"{attempt_kernel_arg_violation_count}"
                 )
+            if require_kernel_arg_handoff_live_toggle or kernel_arg_handoff_live_toggle_active:
+                if live_toggle_checked_count != shim_executed:
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_live_toggle_checked_count_mismatch="
+                        f"{live_toggle_checked_count}!={shim_executed}"
+                    )
+                if live_toggle_record_ready_count != shim_executed:
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_live_toggle_record_ready_count_mismatch="
+                        f"{live_toggle_record_ready_count}!={shim_executed}"
+                    )
+                if live_toggle_hash_checked_count != shim_executed:
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_live_toggle_hash_checked_count_mismatch="
+                        f"{live_toggle_hash_checked_count}!={shim_executed}"
+                    )
+                if live_toggle_hash_missing_count != 0:
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_live_toggle_hash_missing_count_nonzero="
+                        f"{live_toggle_hash_missing_count}"
+                    )
+                if live_toggle_attempt_hash_checked_count != shim_executed:
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_live_toggle_attempt_hash_checked_count_mismatch="
+                        f"{live_toggle_attempt_hash_checked_count}!={shim_executed}"
+                    )
+                if live_toggle_attempt_hash_missing_count != 0:
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_live_toggle_attempt_hash_missing_count_nonzero="
+                        f"{live_toggle_attempt_hash_missing_count}"
+                    )
+                if live_toggle_table_object_hash_checked_count != shim_executed:
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_live_toggle_table_object_hash_checked_count_mismatch="
+                        f"{live_toggle_table_object_hash_checked_count}!={shim_executed}"
+                    )
+                if live_toggle_table_object_hash_missing_count != 0:
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_live_toggle_table_object_hash_missing_count_nonzero="
+                        f"{live_toggle_table_object_hash_missing_count}"
+                    )
+                if live_toggle_mode != "readonly_kernel_arg_handoff_live_toggle":
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_live_toggle_mode_mismatch"
+                    )
+                if live_toggle_mode_checked_count != shim_executed:
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_live_toggle_mode_checked_count_mismatch="
+                        f"{live_toggle_mode_checked_count}!={shim_executed}"
+                    )
+                if live_toggle_mode_missing_count != 0:
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_live_toggle_mode_missing_count_nonzero="
+                        f"{live_toggle_mode_missing_count}"
+                    )
+                if live_toggle_mode_mismatch_count != 0:
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_live_toggle_mode_mismatch_count_nonzero="
+                        f"{live_toggle_mode_mismatch_count}"
+                    )
+                if live_toggle_block_reason != "kernel_arg_handoff_live_disabled":
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_live_toggle_block_reason_mismatch"
+                    )
+                if live_toggle_block_reason_checked_count != shim_executed:
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_live_toggle_block_reason_checked_count_mismatch="
+                        f"{live_toggle_block_reason_checked_count}!={shim_executed}"
+                    )
+                if live_toggle_block_reason_missing_count != 0:
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_live_toggle_block_reason_missing_count_nonzero="
+                        f"{live_toggle_block_reason_missing_count}"
+                    )
+                if live_toggle_block_reason_mismatch_count != 0:
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_live_toggle_block_reason_mismatch_count_nonzero="
+                        f"{live_toggle_block_reason_mismatch_count}"
+                    )
+                if live_toggle_enabled_count != 0:
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_live_toggle_enabled_count_nonzero="
+                        f"{live_toggle_enabled_count}"
+                    )
+                if live_toggle_lab_gate_passed_count != shim_executed:
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_live_toggle_lab_gate_passed_count_mismatch="
+                        f"{live_toggle_lab_gate_passed_count}!={shim_executed}"
+                    )
+                if live_toggle_attempt_record_ready_count != shim_executed:
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_live_toggle_attempt_record_ready_count_mismatch="
+                        f"{live_toggle_attempt_record_ready_count}!={shim_executed}"
+                    )
+                if live_toggle_live_eligible_count != 0:
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_live_toggle_live_eligible_count_nonzero="
+                        f"{live_toggle_live_eligible_count}"
+                    )
+                if live_toggle_blocked_count != shim_executed:
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_live_toggle_blocked_count_mismatch="
+                        f"{live_toggle_blocked_count}!={shim_executed}"
+                    )
+                if live_toggle_payload_bytes != 0:
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_live_toggle_payload_bytes_nonzero="
+                        f"{live_toggle_payload_bytes}"
+                    )
+                if live_toggle_payload_violation_count != 0:
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_live_toggle_payload_violation_count_nonzero="
+                        f"{live_toggle_payload_violation_count}"
+                    )
+                if live_toggle_passed_to_kernel_count != 0:
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_live_toggle_passed_to_kernel_count_nonzero="
+                        f"{live_toggle_passed_to_kernel_count}"
+                    )
+                if live_toggle_kernel_arg_violation_count != 0:
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_live_toggle_kernel_arg_violation_count_nonzero="
+                        f"{live_toggle_kernel_arg_violation_count}"
+                    )
         if require_consumer_shim_table_object or consumer_shim_table_object_active:
             shim_executed = _as_int(
                 aggregate.get(
@@ -3371,6 +3635,93 @@ def check_summary(
                 "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_kernel_arg_violation_count"
             )
         ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_checked_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_checked_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_record_ready_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_record_ready_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_hash_checked_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_hash_checked_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_hash_missing_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_hash_missing_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_mode": str(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_mode"
+            )
+            or ""
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_mode_checked_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_mode_checked_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_block_reason": str(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_block_reason"
+            )
+            or ""
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_block_reason_checked_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_block_reason_checked_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_enabled_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_enabled_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_lab_gate_passed_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_lab_gate_passed_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_attempt_record_ready_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_attempt_record_ready_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_live_eligible_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_live_eligible_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_blocked_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_blocked_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_payload_bytes": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_payload_bytes"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_payload_violation_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_payload_violation_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_passed_to_kernel_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_passed_to_kernel_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_kernel_arg_violation_count": _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_kernel_arg_violation_count"
+            )
+        ),
         "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_consumed_checked_count": _as_int(
             aggregate.get(
                 "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_consumed_checked_count"
@@ -3557,6 +3908,9 @@ def check_summary(
         "require_kernel_arg_handoff_attempt": bool(
             require_kernel_arg_handoff_attempt
         ),
+        "require_kernel_arg_handoff_live_toggle": bool(
+            require_kernel_arg_handoff_live_toggle
+        ),
     }
 
 
@@ -3646,6 +4000,15 @@ def main() -> None:
             "payload and no kernel argument handoff."
         ),
     )
+    parser.add_argument(
+        "--require-kernel-arg-handoff-live-toggle",
+        action="store_true",
+        help=(
+            "Require the default-disabled live kernel-argument handoff toggle "
+            "record. The toggle must be lab-gated, blocked, zero-payload, and "
+            "must not pass arguments to a kernel."
+        ),
+    )
     parser.add_argument("--output-json", type=Path)
     args = parser.parse_args()
 
@@ -3666,6 +4029,9 @@ def main() -> None:
         ),
         require_kernel_arg_handoff_attempt=(
             args.require_kernel_arg_handoff_attempt
+        ),
+        require_kernel_arg_handoff_live_toggle=(
+            args.require_kernel_arg_handoff_live_toggle
         ),
     )
     payload = json.dumps(result, indent=2, sort_keys=True) + "\n"
