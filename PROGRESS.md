@@ -15911,6 +15911,41 @@ evidence-bearing gates:
     evidence_path_count = 12
 ```
 
+Premap lab preflight:
+
+```text
+script:
+  scripts/run_premap_lab_preflight.py
+output:
+  /tmp/premap_lab_preflight.json
+passed = true
+failures = []
+
+covered checks:
+  runtime gate evidence scan:
+    gate_count = 7
+    passed_gate_count = 7
+    evidence_path_count = 36
+    missing_count = 0
+    invalid_json_count = 0
+  strict gate evidence checks:
+    default_readonly_gate: passed
+    connected_blocked_canary_gate: passed
+  trace config wiring:
+    128-sample longrun: passed
+      premap_kernel_arg_handoff_live_enabled = false
+      premap_kernel_arg_handoff_kernel_arg_pass_enabled = false
+    512-sample longrun: passed
+      premap_kernel_arg_handoff_live_enabled = false
+      premap_kernel_arg_handoff_kernel_arg_pass_enabled = false
+
+extra safety:
+  default_readonly_gate_equals_canary_gate is rejected
+```
+
+This preflight is a local read-only check.  The `/tmp/premap_lab_preflight.json`
+file is generated output, not a persistent source artifact.
+
 The checker defaults to allowing missing evidence paths at the CLI level because
 `data/traces/*` is intentionally not tracked by git.  Use `--strict` for local
 lab validation when the artifacts are present.  The `evidence_paths_check.json`
