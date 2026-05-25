@@ -2028,6 +2028,43 @@ def test_live_connected_adapter_canary_config_uses_connected_blocked_gate():
     )
 
 
+def test_live_connected_adapter_canary_8_sample_config_uses_connected_blocked_gate():
+    config_path = PROJECT_ROOT / (
+        "configs/trace/"
+        "router_mtp_trace_external_prompt_gate_dolly_8_awq_vllm_gpu1_decode_gen64_live_connected_adapter_canary.yaml"
+    )
+    config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    assert (
+        config["output_dir"]
+        == "data/traces/external_prompt_gate_dolly_8_awq_vllm_gpu1_decode_gen64_live_connected_adapter_canary"
+    )
+    assert (
+        config["trace"]["split_id"]
+        == "external_prompt_gate_dolly_8_gen64_live_connected_adapter_canary"
+    )
+    assert config["trace"]["max_samples"] == 8
+    assert config["trace"]["max_tokens"] == 64
+
+    shadow = config["trace"]["runtime_shadow"]
+    assert shadow["premap_consumer_require_readonly_gate"] is True
+    assert (
+        shadow["premap_consumer_readonly_gate_path"]
+        == "configs/runtime/premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_live_connected_blocked_canary.yaml"
+    )
+    assert shadow["premap_kernel_arg_handoff_live_enabled"] is True
+    assert shadow["premap_kernel_arg_handoff_live_consumer_connected"] is True
+    assert shadow["premap_kernel_arg_handoff_kernel_arg_pass_enabled"] is False
+    assert shadow["emit_outcomes"] is False
+    assert shadow["emit_descriptor_order_summaries"] is False
+    assert shadow["emit_decoder_layer_timing"] is False
+
+    updated = _apply_premap_consumer_readonly_gate(
+        dict(shadow),
+        project_root=PROJECT_ROOT,
+    )
+    assert updated["premap_consumer_readonly_gate_passed"] is True
+
+
 def test_premap_longrun_audit_smoke_config_matches_8_sample_contract():
     config_path = PROJECT_ROOT / (
         "configs/trace/"
