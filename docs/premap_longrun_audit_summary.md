@@ -303,3 +303,30 @@ premap_consumer_descriptor_prep_kernel_arg_shadow_table_passed_to_kernel_count =
 premap_consumer_descriptor_prep_execution_ok_attempted_rate = 1.0
 premap_consumer_descriptor_prep_blocked_count = 0
 ```
+
+Current-code strict smoke:
+
+```text
+artifact:
+  data/traces/
+    external_prompt_gate_dolly_8_awq_vllm_gpu1_decode_gen64_longrun_audit_smoke/
+      performance_summary.json
+      longrun_audit_gate_live_consumer_adapter.json
+
+checker result:
+  passed = true
+  failures = []
+  live_noop_integration_checked = 640
+  live_noop_integration_consumer_connected = 0
+  live_noop_integration_blocked = 640
+  live_noop_integration_changes_kernel_launch_args = 0
+  live_consumer_adapter_checked = 640
+  live_consumer_adapter_consumer_connected = 0
+  live_consumer_adapter_blocked = 640
+  live_consumer_adapter_changes_kernel_launch_args = 0
+  live_consumer_adapter_kernel_arg_violation = 0
+```
+
+This 8-sample run is only a current-code sanity check for the default-disabled
+live-adapter envelope.  The lab-default scale gate remains the refreshed
+Dolly128 artifact.

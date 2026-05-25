@@ -131,6 +131,38 @@ Interpretation:
   the 128-sample lab-gate template and is not a recalibrated canary artifact.
 ```
 
+Refreshed default-disabled strict smoke:
+
+```text
+config:
+  configs/trace/
+    router_mtp_trace_external_prompt_gate_dolly_8_awq_vllm_gpu1_decode_gen64_longrun_audit_smoke.yaml
+
+artifact:
+  data/traces/
+    external_prompt_gate_dolly_8_awq_vllm_gpu1_decode_gen64_longrun_audit_smoke/
+      performance_summary.json
+      longrun_audit_gate_live_consumer_adapter.json
+
+checker result:
+  passed = true
+  failures = []
+  live_noop_integration_checked = 640
+  live_noop_integration_consumer_connected = 0
+  live_noop_integration_blocked = 640
+  live_noop_integration_changes_kernel_launch_args = 0
+  live_consumer_adapter_checked = 640
+  live_consumer_adapter_consumer_connected = 0
+  live_consumer_adapter_blocked = 640
+  live_consumer_adapter_changes_kernel_launch_args = 0
+  live_consumer_adapter_kernel_arg_violation = 0
+```
+
+This 8-sample run is a quick current-code sanity gate.  The lab-default scale
+gate remains the refreshed Dolly128 artifact; the Dolly512 artifact remains
+legacy read-only handle/source-class scale evidence until rerun with the current
+kernel-arg/live-adapter envelope.
+
 ## Novelty / Prior-Art Guard
 
 Independent novelty check result, 2026-05-05:
