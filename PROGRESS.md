@@ -513,10 +513,24 @@ real prelaunch handle source classification:
 Interpretation:
 
 ```text
-The same read-only consumer contract passes at the 512-sample scale.  The
-Dolly128-derived 12288-address capacity gate remains sufficient on the 512
-split, with no eviction pressure and complete prelaunch source-class handle
-resolution for every sampled consumer mapping.
+The same read-only prelaunch handle/source-class contract passes at the
+512-sample scale.  The Dolly128-derived 12288-address capacity gate remains
+sufficient on the 512 split, with no eviction pressure and complete prelaunch
+source-class handle resolution for every sampled consumer mapping.
+
+This 512 artifact predates the kernel-arg shadow table / live-noop /
+live-consumer-adapter envelope.  It is valid scale evidence for premap address
+reuse and readonly real-handle parity, but it is not a strict live-adapter lab
+gate artifact.  The strict kernel-arg-shadow/live-adapter lab precondition is
+currently the refreshed Dolly128 gate:
+
+  data/traces/
+    external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_longrun_audit/
+      longrun_audit_gate_live_consumer_adapter.json
+
+The Dolly128 and Dolly512 artifacts are therefore different audit stages:
+premap address/handle counters are comparable, but kernel-arg/live-adapter gate
+fields are not directly comparable across those two artifacts.
 ```
 
 Consumer shim prepared-table dry-run:

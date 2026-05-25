@@ -77,11 +77,28 @@ premap-only audit:
 
 ## Interpretation
 
-The premap-only long-run audit scales from 128 to 512 samples with stable sampled
-row volume and no handle/parity failures.  The Dolly128-derived 12,288 capacity
+The premap-only long-run audit scales from 128 to 512 samples for the
+read-only prelaunch handle/source-class contract, with stable sampled row
+volume and no handle/parity failures.  The Dolly128-derived 12,288 capacity
 gate remains sufficient for same-source 512 validation: no premap address
 evictions are observed, resident descriptor bytes remain modest, and
 consumer lookup-after-prepare stays at 1.0.
+
+The 512 artifact predates the kernel-arg shadow table, live-noop integration,
+and live-consumer-adapter envelope.  It is valid scale evidence for premap
+address reuse and read-only real-handle parity, but it must not be used as a
+strict live-adapter lab gate.  The current strict kernel-arg-shadow /
+live-adapter lab precondition is the refreshed Dolly128 gate:
+
+```text
+data/traces/
+  external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_longrun_audit/
+    longrun_audit_gate_live_consumer_adapter.json
+```
+
+The Dolly128 and Dolly512 rows therefore come from different audit stages; their
+premap address/handle counters are comparable, but their kernel-arg/live-adapter
+gate fields are not directly comparable.
 
 This is not a payload-prefetch or endpoint-latency claim.  It validates only the
 read-only descriptor/address preparation and consumer-handle mapping contract
