@@ -1596,6 +1596,7 @@ def test_default_longrun_audit_config_uses_premap_capacity_gate(
         shadow["premap_descriptor_prep_execution_mode"]
         == "readonly_descriptor_address_object"
     )
+    assert shadow["premap_kernel_arg_handoff_live_enabled"] is False
     readonly_gate = yaml.safe_load(
         (
             PROJECT_ROOT / shadow["premap_consumer_readonly_gate_path"]
@@ -1607,89 +1608,161 @@ def test_default_longrun_audit_config_uses_premap_capacity_gate(
     assert readonly_gate["contract"]["ready_credit_required"] is False
     assert readonly_gate["contract"]["changes_router_required"] is False
     assert readonly_gate["contract"]["changes_descriptor_order_required"] is False
+    readonly_contract = readonly_gate["contract"]
+    readonly_check = readonly_gate["gate"]["check"]
+    readonly_metrics = readonly_gate["gate"]["metrics"]
     assert (
-        readonly_gate["gate"]["metrics"][
-            "premap_consumer_real_descriptor_handle_hit_rate"
-        ]
+        readonly_metrics["premap_consumer_real_descriptor_handle_hit_rate"]
         == 1.0
     )
-    assert readonly_gate["contract"]["kernel_arg_shadow_table_required"] is True
-    assert readonly_gate["gate"]["check"]["require_kernel_arg_shadow_table"] is True
-    assert readonly_gate["contract"]["consumer_shim_table_read_required"] is True
-    assert readonly_gate["gate"]["check"]["require_consumer_shim_table_read"] is True
-    assert readonly_gate["contract"]["consumer_shim_table_consume_required"] is True
-    assert readonly_gate["gate"]["check"]["require_consumer_shim_table_consume"] is True
+    assert readonly_contract["kernel_arg_shadow_table_required"] is True
+    assert readonly_check["require_kernel_arg_shadow_table"] is True
+    assert readonly_contract["consumer_shim_table_read_required"] is True
+    assert readonly_check["require_consumer_shim_table_read"] is True
+    assert readonly_contract["consumer_shim_table_consume_required"] is True
+    assert readonly_check["require_consumer_shim_table_consume"] is True
     assert (
-        readonly_gate["contract"][
-            "consumer_shim_table_consume_handle_field_reads_required"
-        ]
+        readonly_contract["consumer_shim_table_consume_handle_field_reads_required"]
         is True
     )
     assert (
-        readonly_gate["gate"]["metrics"][
-            "premap_consumer_descriptor_prep_kernel_arg_shadow_table_ok_rate"
-        ]
+        readonly_metrics["premap_consumer_descriptor_prep_kernel_arg_shadow_table_ok_rate"]
         == 1.0
     )
     assert (
-        readonly_gate["gate"]["metrics"][
+        readonly_metrics[
             "premap_consumer_descriptor_prep_kernel_arg_shadow_table_passed_to_kernel_count"
         ]
         == 0
     )
     assert (
-        readonly_gate["gate"]["metrics"][
+        readonly_metrics[
             "premap_consumer_descriptor_prep_consumer_shim_handle_table_read_ok_rate"
         ]
         == 1.0
     )
     assert (
-        readonly_gate["gate"]["metrics"][
+        readonly_metrics[
             "premap_consumer_descriptor_prep_consumer_shim_handle_table_read_not_checked_count"
         ]
         == 0
     )
     assert (
-        readonly_gate["gate"]["metrics"][
+        readonly_metrics[
             "premap_consumer_descriptor_prep_consumer_shim_handle_table_passed_to_kernel_count"
         ]
         == 0
     )
     assert (
-        readonly_gate["gate"]["metrics"][
+        readonly_metrics[
             "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_ok_rate"
         ]
         == 1.0
     )
     assert (
-        readonly_gate["gate"]["metrics"][
+        readonly_metrics[
             "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_row_miss_count"
         ]
         == 0
     )
     assert (
-        readonly_gate["gate"]["metrics"][
+        readonly_metrics[
             "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_stale_row_count"
         ]
         == 0
     )
     assert (
-        readonly_gate["gate"]["metrics"][
+        readonly_metrics[
             "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_passed_to_kernel_count"
         ]
         == 0
     )
     assert (
-        readonly_gate["gate"]["metrics"][
+        readonly_metrics[
             "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_handle_field_read_count"
         ]
         == 443592
     )
     assert (
-        readonly_gate["gate"]["metrics"][
+        readonly_metrics[
             "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_required_handle_field_available_count"
         ]
         == 332694
+    )
+    assert readonly_contract["kernel_arg_handoff_launch_schema_mirror_required"] is True
+    assert readonly_check["require_kernel_arg_handoff_launch_schema_mirror"] is True
+    assert readonly_contract["kernel_arg_handoff_live_toggle_required"] is True
+    assert readonly_contract["kernel_arg_handoff_live_toggle_enabled_required"] is False
+    assert (
+        readonly_contract["kernel_arg_handoff_live_toggle_block_reason"]
+        == "kernel_arg_handoff_live_disabled"
+    )
+    assert readonly_check["require_kernel_arg_handoff_live_toggle"] is True
+    assert readonly_contract["kernel_arg_handoff_live_noop_integration_required"] is True
+    assert (
+        readonly_contract[
+            "kernel_arg_handoff_live_noop_integration_consumer_connected_required"
+        ]
+        is False
+    )
+    assert readonly_check["require_kernel_arg_handoff_live_noop_integration"] is True
+    assert readonly_contract["kernel_arg_handoff_live_consumer_adapter_required"] is True
+    assert (
+        readonly_contract["kernel_arg_handoff_live_consumer_adapter_mode"]
+        == "readonly_kernel_arg_handoff_live_consumer_adapter"
+    )
+    assert (
+        readonly_contract["kernel_arg_handoff_live_consumer_adapter_enabled_required"]
+        is False
+    )
+    assert (
+        readonly_contract[
+            "kernel_arg_handoff_live_consumer_adapter_consumer_connected_required"
+        ]
+        is False
+    )
+    assert (
+        readonly_contract[
+            "kernel_arg_handoff_live_consumer_adapter_changes_kernel_launch_args_required"
+        ]
+        is False
+    )
+    assert readonly_check["require_kernel_arg_handoff_live_consumer_adapter"] is True
+    assert (
+        readonly_metrics[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_consumer_adapter_checked_count"
+        ]
+        == 10195
+    )
+    assert (
+        readonly_metrics[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_consumer_adapter_record_ready_count"
+        ]
+        == 10195
+    )
+    assert (
+        readonly_metrics[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_consumer_adapter_consumer_connected_count"
+        ]
+        == 0
+    )
+    assert (
+        readonly_metrics[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_consumer_adapter_payload_bytes"
+        ]
+        == 0
+    )
+    assert (
+        readonly_metrics[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_consumer_adapter_passed_to_kernel_count"
+        ]
+        == 0
+    )
+    assert (
+        readonly_metrics[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_consumer_adapter_changes_kernel_launch_args_count"
+        ]
+        == 0
     )
     assert shadow["premap_policy"] == "premap_only_with_consumer_mapping_noop"
     assert shadow["premap_source"] == "current_router_topk_premap_shadow"
@@ -1727,6 +1800,7 @@ def test_premap_consumer_mapping_smoke_config_requires_readonly_gate():
         shadow["premap_descriptor_prep_execution_mode"]
         == "readonly_descriptor_address_object"
     )
+    assert shadow["premap_kernel_arg_handoff_live_enabled"] is False
     assert shadow["premap_policy"] == "premap_only_with_consumer_mapping_noop"
     assert shadow["premap_descriptor_bytes"] == 4096
 
