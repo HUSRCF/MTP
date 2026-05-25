@@ -572,6 +572,35 @@ def test_shadow_log_aggregates_premap_consumer_mapping_without_side_effects(tmp_
         descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_payload_bytes=0,
         descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_passed_to_kernel=False,
         descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_changes_kernel_launch_args=False,
+        descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_mode=(
+            "readonly_kernel_arg_handoff_live_noop_integration"
+        ),
+        descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_record_ready=True,
+        descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_hash=(
+            "live-noop-hash"
+        ),
+        descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_live_toggle_hash=(
+            "live-hash"
+        ),
+        descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_launch_schema_mirror_hash=(
+            "launch-mirror-hash"
+        ),
+        descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_table_object_hash=(
+            "table-object-hash"
+        ),
+        descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_enabled=False,
+        descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_lab_gate_passed=True,
+        descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_live_toggle_record_ready=True,
+        descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_launch_schema_ready=True,
+        descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_live_eligible=False,
+        descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_consumer_connected=False,
+        descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_blocked=True,
+        descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_block_reason=(
+            "kernel_arg_handoff_live_disabled"
+        ),
+        descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_payload_bytes=0,
+        descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_passed_to_kernel=False,
+        descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_changes_kernel_launch_args=False,
         descriptor_prep_consumer_shim_prep_execution_dry_run_mode=(
             "readonly_descriptor_address_prep_execution_dry_run"
         ),
@@ -1706,6 +1735,114 @@ def test_shadow_log_aggregates_premap_consumer_mapping_without_side_effects(tmp_
     assert (
         aggregate[
             "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_kernel_arg_violation_count"
+        ]
+        == 0
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_checked_count"
+        ]
+        == 1
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_record_ready_count"
+        ]
+        == 1
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_hash_checked_count"
+        ]
+        == 1
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_live_toggle_hash_checked_count"
+        ]
+        == 1
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_launch_schema_mirror_hash_checked_count"
+        ]
+        == 1
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_table_object_hash_checked_count"
+        ]
+        == 1
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_mode"
+        ]
+        == "readonly_kernel_arg_handoff_live_noop_integration"
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_block_reason"
+        ]
+        == "kernel_arg_handoff_live_disabled"
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_enabled_count"
+        ]
+        == 0
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_lab_gate_passed_count"
+        ]
+        == 1
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_live_toggle_record_ready_count"
+        ]
+        == 1
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_launch_schema_ready_count"
+        ]
+        == 1
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_live_eligible_count"
+        ]
+        == 0
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_consumer_connected_count"
+        ]
+        == 0
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_blocked_count"
+        ]
+        == 1
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_payload_bytes"
+        ]
+        == 0
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_passed_to_kernel_count"
+        ]
+        == 0
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_kernel_arg_violation_count"
         ]
         == 0
     )

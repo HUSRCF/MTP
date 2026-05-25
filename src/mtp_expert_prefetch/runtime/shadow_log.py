@@ -1083,6 +1083,57 @@ class ShadowPremapConsumerMappingEvent:
     descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_changes_kernel_launch_args: (
         bool | None
     ) = None
+    descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_mode: (
+        str | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_record_ready: (
+        bool | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_hash: (
+        str | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_live_toggle_hash: (
+        str | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_launch_schema_mirror_hash: (
+        str | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_table_object_hash: (
+        str | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_enabled: (
+        bool | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_lab_gate_passed: (
+        bool | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_live_toggle_record_ready: (
+        bool | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_launch_schema_ready: (
+        bool | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_live_eligible: (
+        bool | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_consumer_connected: (
+        bool | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_blocked: (
+        bool | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_block_reason: (
+        str | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_payload_bytes: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_passed_to_kernel: (
+        bool | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_changes_kernel_launch_args: (
+        bool | None
+    ) = None
     descriptor_prep_consumer_shim_handle_table_object_consumed: bool | None = None
     descriptor_prep_consumer_shim_handle_table_object_hash: str | None = None
     descriptor_prep_consumer_shim_handle_table_object_row_count: int | None = None
@@ -2159,6 +2210,91 @@ class ShadowPremapConsumerMappingEvent:
         )
         _put_optional(
             payload,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_mode",
+            self.descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_mode,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_record_ready",
+            self.descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_record_ready,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_hash",
+            self.descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_hash,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_live_toggle_hash",
+            self.descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_live_toggle_hash,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_launch_schema_mirror_hash",
+            self.descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_launch_schema_mirror_hash,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_table_object_hash",
+            self.descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_table_object_hash,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_enabled",
+            self.descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_enabled,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_lab_gate_passed",
+            self.descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_lab_gate_passed,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_live_toggle_record_ready",
+            self.descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_live_toggle_record_ready,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_launch_schema_ready",
+            self.descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_launch_schema_ready,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_live_eligible",
+            self.descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_live_eligible,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_consumer_connected",
+            self.descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_consumer_connected,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_blocked",
+            self.descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_blocked,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_block_reason",
+            self.descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_block_reason,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_payload_bytes",
+            self.descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_payload_bytes,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_passed_to_kernel",
+            self.descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_passed_to_kernel,
+        )
+        _put_optional(
+            payload,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_changes_kernel_launch_args",
+            self.descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_changes_kernel_launch_args,
+        )
+        _put_optional(
+            payload,
             "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_consumed",
             self.descriptor_prep_consumer_shim_handle_table_object_consumed,
         )
@@ -2866,6 +3002,35 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
         "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_payload_violation_count": 0,
         "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_passed_to_kernel_count": 0,
         "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_kernel_arg_violation_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_checked_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_record_ready_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_hash_checked_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_hash_missing_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_live_toggle_hash_checked_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_live_toggle_hash_missing_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_launch_schema_mirror_hash_checked_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_launch_schema_mirror_hash_missing_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_table_object_hash_checked_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_table_object_hash_missing_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_mode": "",
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_mode_checked_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_mode_missing_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_mode_mismatch_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_block_reason": "",
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_block_reason_checked_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_block_reason_missing_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_block_reason_mismatch_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_enabled_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_lab_gate_passed_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_live_toggle_record_ready_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_launch_schema_ready_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_live_eligible_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_consumer_connected_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_blocked_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_payload_bytes": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_payload_violation_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_passed_to_kernel_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_kernel_arg_violation_count": 0,
         "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_consumed_checked_count": 0,
         "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_consumed_count": 0,
         "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_lifecycle_ok_count": 0,
@@ -4740,6 +4905,157 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
                 ):
                     totals[
                         "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_mode_missing_count"
+                    ] += 1
+                live_noop_mode = event.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_mode"
+                )
+                if live_noop_mode is not None:
+                    totals[
+                        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_checked_count"
+                    ] += 1
+                    totals[
+                        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_mode_checked_count"
+                    ] += 1
+                    if not totals[
+                        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_mode"
+                    ]:
+                        totals[
+                            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_mode"
+                        ] = str(live_noop_mode)
+                    elif (
+                        totals[
+                            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_mode"
+                        ]
+                        != str(live_noop_mode)
+                    ):
+                        totals[
+                            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_mode_mismatch_count"
+                        ] += 1
+                    for field, count_key in (
+                        (
+                            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_record_ready",
+                            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_record_ready_count",
+                        ),
+                        (
+                            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_enabled",
+                            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_enabled_count",
+                        ),
+                        (
+                            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_lab_gate_passed",
+                            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_lab_gate_passed_count",
+                        ),
+                        (
+                            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_live_toggle_record_ready",
+                            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_live_toggle_record_ready_count",
+                        ),
+                        (
+                            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_launch_schema_ready",
+                            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_launch_schema_ready_count",
+                        ),
+                        (
+                            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_live_eligible",
+                            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_live_eligible_count",
+                        ),
+                        (
+                            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_consumer_connected",
+                            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_consumer_connected_count",
+                        ),
+                        (
+                            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_blocked",
+                            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_blocked_count",
+                        ),
+                    ):
+                        totals[count_key] += int(bool(event.get(field, False)))
+                    for hash_field, checked_key, missing_key in (
+                        (
+                            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_hash",
+                            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_hash_checked_count",
+                            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_hash_missing_count",
+                        ),
+                        (
+                            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_live_toggle_hash",
+                            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_live_toggle_hash_checked_count",
+                            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_live_toggle_hash_missing_count",
+                        ),
+                        (
+                            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_launch_schema_mirror_hash",
+                            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_launch_schema_mirror_hash_checked_count",
+                            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_launch_schema_mirror_hash_missing_count",
+                        ),
+                        (
+                            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_table_object_hash",
+                            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_table_object_hash_checked_count",
+                            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_table_object_hash_missing_count",
+                        ),
+                    ):
+                        if event.get(hash_field):
+                            totals[checked_key] += 1
+                        else:
+                            totals[missing_key] += 1
+                    live_noop_reason = event.get(
+                        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_block_reason"
+                    )
+                    if live_noop_reason:
+                        totals[
+                            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_block_reason_checked_count"
+                        ] += 1
+                        if not totals[
+                            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_block_reason"
+                        ]:
+                            totals[
+                                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_block_reason"
+                            ] = str(live_noop_reason)
+                        elif (
+                            totals[
+                                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_block_reason"
+                            ]
+                            != str(live_noop_reason)
+                        ):
+                            totals[
+                                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_block_reason_mismatch_count"
+                            ] += 1
+                    else:
+                        totals[
+                            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_block_reason_missing_count"
+                        ] += 1
+                    live_noop_payload_bytes = int(
+                        event.get(
+                            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_payload_bytes",
+                            0,
+                        )
+                        or 0
+                    )
+                    totals[
+                        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_payload_bytes"
+                    ] += live_noop_payload_bytes
+                    totals[
+                        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_payload_violation_count"
+                    ] += int(live_noop_payload_bytes != 0)
+                    totals[
+                        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_passed_to_kernel_count"
+                    ] += int(
+                        bool(
+                            event.get(
+                                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_passed_to_kernel",
+                                False,
+                            )
+                        )
+                    )
+                    totals[
+                        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_kernel_arg_violation_count"
+                    ] += int(
+                        bool(
+                            event.get(
+                                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_changes_kernel_launch_args",
+                                False,
+                            )
+                        )
+                    )
+                elif event.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_ok"
+                ):
+                    totals[
+                        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_mode_missing_count"
                     ] += 1
                 if (
                     "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_consumed"

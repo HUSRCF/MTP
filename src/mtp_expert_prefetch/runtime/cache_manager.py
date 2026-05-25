@@ -803,6 +803,108 @@ class PremapKernelArgHandoffLiveToggleRecord:
         }
 
 
+@dataclass(frozen=True)
+class PremapKernelArgHandoffLiveNoopIntegrationRecord:
+    """Final no-op integration point before a real kernel-arg handoff.
+
+    This record joins the live toggle with the launch-schema mirror.  It proves
+    that the runtime can form the final handoff decision from the prepared
+    table object without mutating the actual fused-MoE/AWQ kernel launch.
+    """
+
+    mode: str
+    live_toggle_hash: str
+    launch_schema_mirror_hash: str
+    table_object_hash: str
+    enabled: bool
+    lab_gate_passed: bool
+    live_toggle_record_ready: bool
+    launch_schema_ready: bool
+    live_eligible: bool
+    consumer_connected: bool
+    blocked: bool
+    block_reason: str
+    payload_bytes: int = 0
+    passed_to_kernel: bool = False
+    changes_kernel_launch_args: bool = False
+
+    @property
+    def record_ready(self) -> bool:
+        base_ok = (
+            self.mode == "readonly_kernel_arg_handoff_live_noop_integration"
+            and bool(self.live_toggle_hash)
+            and bool(self.launch_schema_mirror_hash)
+            and bool(self.table_object_hash)
+            and int(self.payload_bytes) == 0
+            and not bool(self.passed_to_kernel)
+            and not bool(self.changes_kernel_launch_args)
+            and not bool(self.consumer_connected)
+            and bool(self.blocked)
+        )
+        if not base_ok:
+            return False
+        if not bool(self.enabled):
+            return (
+                bool(self.lab_gate_passed)
+                and bool(self.live_toggle_record_ready)
+                and bool(self.launch_schema_ready)
+                and not bool(self.live_eligible)
+                and str(self.block_reason) == "kernel_arg_handoff_live_disabled"
+            )
+        if not bool(self.lab_gate_passed):
+            return (
+                not bool(self.live_eligible)
+                and str(self.block_reason)
+                == "kernel_arg_handoff_lab_gate_not_passed"
+            )
+        if not bool(self.live_toggle_record_ready):
+            return (
+                not bool(self.live_eligible)
+                and str(self.block_reason)
+                == "kernel_arg_handoff_live_toggle_not_ready"
+            )
+        if not bool(self.launch_schema_ready):
+            return (
+                not bool(self.live_eligible)
+                and str(self.block_reason)
+                == "kernel_arg_handoff_launch_schema_not_ready"
+            )
+        return (
+            bool(self.live_eligible)
+            and str(self.block_reason)
+            == "kernel_arg_handoff_kernel_consumer_not_connected"
+        )
+
+    @property
+    def integration_hash(self) -> str:
+        payload = json.dumps(
+            self.as_dict(),
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+        return hashlib.sha256(payload).hexdigest()
+
+    def as_dict(self) -> dict[str, int | bool | str]:
+        return {
+            "mode": str(self.mode),
+            "record_ready": bool(self.record_ready),
+            "live_toggle_hash": str(self.live_toggle_hash),
+            "launch_schema_mirror_hash": str(self.launch_schema_mirror_hash),
+            "table_object_hash": str(self.table_object_hash),
+            "enabled": bool(self.enabled),
+            "lab_gate_passed": bool(self.lab_gate_passed),
+            "live_toggle_record_ready": bool(self.live_toggle_record_ready),
+            "launch_schema_ready": bool(self.launch_schema_ready),
+            "live_eligible": bool(self.live_eligible),
+            "consumer_connected": bool(self.consumer_connected),
+            "blocked": bool(self.blocked),
+            "block_reason": str(self.block_reason),
+            "payload_bytes": int(self.payload_bytes),
+            "passed_to_kernel": bool(self.passed_to_kernel),
+            "changes_kernel_launch_args": bool(self.changes_kernel_launch_args),
+        }
+
+
 @dataclass
 class PremapAddressCacheEntry:
     descriptor_bytes: int
@@ -1051,6 +1153,29 @@ class PremapDescriptorConsumerShimResult:
     kernel_arg_handoff_live_toggle_payload_bytes: int = 0
     kernel_arg_handoff_live_toggle_passed_to_kernel: bool = False
     kernel_arg_handoff_live_toggle_changes_kernel_launch_args: bool = False
+    kernel_arg_handoff_live_noop_integration_mode: str | None = None
+    kernel_arg_handoff_live_noop_integration_record_ready: bool | None = None
+    kernel_arg_handoff_live_noop_integration_hash: str | None = None
+    kernel_arg_handoff_live_noop_integration_live_toggle_hash: str | None = None
+    kernel_arg_handoff_live_noop_integration_launch_schema_mirror_hash: (
+        str | None
+    ) = None
+    kernel_arg_handoff_live_noop_integration_table_object_hash: str | None = None
+    kernel_arg_handoff_live_noop_integration_enabled: bool | None = None
+    kernel_arg_handoff_live_noop_integration_lab_gate_passed: bool | None = None
+    kernel_arg_handoff_live_noop_integration_live_toggle_record_ready: (
+        bool | None
+    ) = None
+    kernel_arg_handoff_live_noop_integration_launch_schema_ready: (
+        bool | None
+    ) = None
+    kernel_arg_handoff_live_noop_integration_live_eligible: bool | None = None
+    kernel_arg_handoff_live_noop_integration_consumer_connected: bool | None = None
+    kernel_arg_handoff_live_noop_integration_blocked: bool | None = None
+    kernel_arg_handoff_live_noop_integration_block_reason: str | None = None
+    kernel_arg_handoff_live_noop_integration_payload_bytes: int = 0
+    kernel_arg_handoff_live_noop_integration_passed_to_kernel: bool = False
+    kernel_arg_handoff_live_noop_integration_changes_kernel_launch_args: bool = False
     handle_table_object_consumed: bool | None = None
     handle_table_object_hash: str | None = None
     handle_table_object_row_count: int | None = None
@@ -1972,6 +2097,9 @@ class ControlledPremapAddressManager:
         ) = None
         handoff_attempt: PremapKernelArgHandoffAttemptRecord | None = None
         handoff_live_toggle: PremapKernelArgHandoffLiveToggleRecord | None = None
+        handoff_live_noop_integration: (
+            PremapKernelArgHandoffLiveNoopIntegrationRecord | None
+        ) = None
         if (
             table_consume_source_hit_counts is not None
             and table_consume_source_miss_counts is not None
@@ -2162,6 +2290,53 @@ class ControlledPremapAddressManager:
                     payload_bytes=0,
                     passed_to_kernel=False,
                     changes_kernel_launch_args=False,
+                )
+                live_toggle_ready = bool(handoff_live_toggle.record_ready)
+                launch_schema_ready = bool(handoff_launch_schema_mirror.ready)
+                integration_live_eligible = bool(
+                    live_enabled
+                    and lab_gate_passed
+                    and live_toggle_ready
+                    and launch_schema_ready
+                )
+                if not live_enabled:
+                    integration_block_reason = "kernel_arg_handoff_live_disabled"
+                elif not lab_gate_passed:
+                    integration_block_reason = (
+                        "kernel_arg_handoff_lab_gate_not_passed"
+                    )
+                elif not live_toggle_ready:
+                    integration_block_reason = (
+                        "kernel_arg_handoff_live_toggle_not_ready"
+                    )
+                elif not launch_schema_ready:
+                    integration_block_reason = (
+                        "kernel_arg_handoff_launch_schema_not_ready"
+                    )
+                else:
+                    integration_block_reason = (
+                        "kernel_arg_handoff_kernel_consumer_not_connected"
+                    )
+                handoff_live_noop_integration = (
+                    PremapKernelArgHandoffLiveNoopIntegrationRecord(
+                        mode="readonly_kernel_arg_handoff_live_noop_integration",
+                        live_toggle_hash=handoff_live_toggle.toggle_hash,
+                        launch_schema_mirror_hash=(
+                            handoff_launch_schema_mirror.launch_schema_mirror_hash
+                        ),
+                        table_object_hash=table_object.object_hash,
+                        enabled=live_enabled,
+                        lab_gate_passed=lab_gate_passed,
+                        live_toggle_record_ready=live_toggle_ready,
+                        launch_schema_ready=launch_schema_ready,
+                        live_eligible=integration_live_eligible,
+                        consumer_connected=False,
+                        blocked=True,
+                        block_reason=integration_block_reason,
+                        payload_bytes=0,
+                        passed_to_kernel=False,
+                        changes_kernel_launch_args=False,
+                    )
                 )
         return PremapDescriptorConsumerShimResult(
             execution_mode=str(execution_mode),
@@ -2578,6 +2753,91 @@ class ControlledPremapAddressManager:
             kernel_arg_handoff_live_toggle_changes_kernel_launch_args=(
                 handoff_live_toggle.changes_kernel_launch_args
                 if handoff_live_toggle is not None
+                else False
+            ),
+            kernel_arg_handoff_live_noop_integration_mode=(
+                handoff_live_noop_integration.mode
+                if handoff_live_noop_integration is not None
+                else None
+            ),
+            kernel_arg_handoff_live_noop_integration_record_ready=(
+                handoff_live_noop_integration.record_ready
+                if handoff_live_noop_integration is not None
+                else None
+            ),
+            kernel_arg_handoff_live_noop_integration_hash=(
+                handoff_live_noop_integration.integration_hash
+                if handoff_live_noop_integration is not None
+                else None
+            ),
+            kernel_arg_handoff_live_noop_integration_live_toggle_hash=(
+                handoff_live_noop_integration.live_toggle_hash
+                if handoff_live_noop_integration is not None
+                else None
+            ),
+            kernel_arg_handoff_live_noop_integration_launch_schema_mirror_hash=(
+                handoff_live_noop_integration.launch_schema_mirror_hash
+                if handoff_live_noop_integration is not None
+                else None
+            ),
+            kernel_arg_handoff_live_noop_integration_table_object_hash=(
+                handoff_live_noop_integration.table_object_hash
+                if handoff_live_noop_integration is not None
+                else None
+            ),
+            kernel_arg_handoff_live_noop_integration_enabled=(
+                handoff_live_noop_integration.enabled
+                if handoff_live_noop_integration is not None
+                else None
+            ),
+            kernel_arg_handoff_live_noop_integration_lab_gate_passed=(
+                handoff_live_noop_integration.lab_gate_passed
+                if handoff_live_noop_integration is not None
+                else None
+            ),
+            kernel_arg_handoff_live_noop_integration_live_toggle_record_ready=(
+                handoff_live_noop_integration.live_toggle_record_ready
+                if handoff_live_noop_integration is not None
+                else None
+            ),
+            kernel_arg_handoff_live_noop_integration_launch_schema_ready=(
+                handoff_live_noop_integration.launch_schema_ready
+                if handoff_live_noop_integration is not None
+                else None
+            ),
+            kernel_arg_handoff_live_noop_integration_live_eligible=(
+                handoff_live_noop_integration.live_eligible
+                if handoff_live_noop_integration is not None
+                else None
+            ),
+            kernel_arg_handoff_live_noop_integration_consumer_connected=(
+                handoff_live_noop_integration.consumer_connected
+                if handoff_live_noop_integration is not None
+                else None
+            ),
+            kernel_arg_handoff_live_noop_integration_blocked=(
+                handoff_live_noop_integration.blocked
+                if handoff_live_noop_integration is not None
+                else None
+            ),
+            kernel_arg_handoff_live_noop_integration_block_reason=(
+                handoff_live_noop_integration.block_reason
+                if handoff_live_noop_integration is not None
+                else None
+            ),
+            kernel_arg_handoff_live_noop_integration_payload_bytes=(
+                handoff_live_noop_integration.payload_bytes
+                if handoff_live_noop_integration is not None
+                else 0
+            ),
+            kernel_arg_handoff_live_noop_integration_passed_to_kernel=(
+                handoff_live_noop_integration.passed_to_kernel
+                if handoff_live_noop_integration is not None
+                else False
+            ),
+            kernel_arg_handoff_live_noop_integration_changes_kernel_launch_args=(
+                handoff_live_noop_integration.changes_kernel_launch_args
+                if handoff_live_noop_integration is not None
                 else False
             ),
             handle_table_object_consumed=table_object_consumed,

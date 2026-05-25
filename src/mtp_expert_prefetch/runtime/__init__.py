@@ -46,6 +46,7 @@ from mtp_expert_prefetch.runtime.cache_manager import (
     PremapDescriptorConsumerShimResult,
     PremapDescriptorPrepExecutionResult,
     PremapKernelArgHandoffMirrorObject,
+    PremapKernelArgHandoffLiveNoopIntegrationRecord,
     PremapKernelArgPrelaunchLaunchSchemaMirror,
     PremapKernelArgHandoffAttemptRecord,
     PremapKernelArgHandoffShadowSlot,

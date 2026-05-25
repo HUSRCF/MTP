@@ -34,6 +34,9 @@ KERNEL_ARG_HANDOFF_ATTEMPT_PREFIX = (
 KERNEL_ARG_HANDOFF_LIVE_TOGGLE_PREFIX = (
     "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_"
 )
+KERNEL_ARG_HANDOFF_LIVE_NOOP_INTEGRATION_PREFIX = (
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_"
+)
 KERNEL_ARG_HANDOFF_LAUNCH_SCHEMA_MIRROR_PREFIX = (
     "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_launch_schema_mirror_"
 )
@@ -248,6 +251,7 @@ def check_summary(
     require_consumer_shim_prep_execution: bool = False,
     require_kernel_arg_handoff_attempt: bool = False,
     require_kernel_arg_handoff_live_toggle: bool = False,
+    require_kernel_arg_handoff_live_noop_integration: bool = False,
     require_kernel_arg_handoff_launch_schema_mirror: bool = False,
     allow_enabled_blocked_live_toggle: bool = False,
 ) -> dict[str, Any]:
@@ -394,6 +398,14 @@ def check_summary(
         str(key).startswith(KERNEL_ARG_HANDOFF_LIVE_TOGGLE_PREFIX)
         for key in aggregate
     )
+    live_noop_integration_checked_count = _as_int(
+        aggregate.get(
+            f"{KERNEL_ARG_HANDOFF_LIVE_NOOP_INTEGRATION_PREFIX}checked_count"
+        )
+    )
+    kernel_arg_handoff_live_noop_integration_active = (
+        live_noop_integration_checked_count > 0
+    )
     launch_schema_mirror_checked_count = _as_int(
         aggregate.get(
             f"{KERNEL_ARG_HANDOFF_LAUNCH_SCHEMA_MIRROR_PREFIX}checked_count"
@@ -417,6 +429,27 @@ def check_summary(
         failures.append("consumer_shim_kernel_arg_handoff_live_toggle_fields_missing")
     if require_kernel_arg_handoff_live_toggle and not kernel_arg_handoff_attempt_active:
         failures.append("consumer_shim_kernel_arg_handoff_live_toggle_requires_handoff_attempt_fields")
+    if (
+        require_kernel_arg_handoff_live_noop_integration
+        and not kernel_arg_handoff_live_noop_integration_active
+    ):
+        failures.append(
+            "consumer_shim_kernel_arg_handoff_live_noop_integration_fields_missing"
+        )
+    if (
+        require_kernel_arg_handoff_live_noop_integration
+        and not kernel_arg_handoff_live_toggle_active
+    ):
+        failures.append(
+            "consumer_shim_kernel_arg_handoff_live_noop_integration_requires_live_toggle_fields"
+        )
+    if (
+        require_kernel_arg_handoff_live_noop_integration
+        and not kernel_arg_handoff_launch_schema_mirror_active
+    ):
+        failures.append(
+            "consumer_shim_kernel_arg_handoff_live_noop_integration_requires_launch_schema_mirror_fields"
+        )
     if (
         require_kernel_arg_handoff_launch_schema_mirror
         and not kernel_arg_handoff_launch_schema_mirror_active
@@ -474,6 +507,7 @@ def check_summary(
         or require_kernel_arg_shadow_table
         or require_kernel_arg_handoff_attempt
         or require_kernel_arg_handoff_live_toggle
+        or require_kernel_arg_handoff_live_noop_integration
         or require_kernel_arg_handoff_launch_schema_mirror
         or descriptor_prep_active
     ):
@@ -1600,6 +1634,151 @@ def check_summary(
             live_toggle_kernel_arg_violation_count = _as_int(
                 aggregate.get(
                     "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_kernel_arg_violation_count"
+                )
+            )
+            live_noop_checked_count = _as_int(
+                aggregate.get(
+                    f"{KERNEL_ARG_HANDOFF_LIVE_NOOP_INTEGRATION_PREFIX}checked_count"
+                )
+            )
+            live_noop_record_ready_count = _as_int(
+                aggregate.get(
+                    f"{KERNEL_ARG_HANDOFF_LIVE_NOOP_INTEGRATION_PREFIX}record_ready_count"
+                )
+            )
+            live_noop_hash_checked_count = _as_int(
+                aggregate.get(
+                    f"{KERNEL_ARG_HANDOFF_LIVE_NOOP_INTEGRATION_PREFIX}hash_checked_count"
+                )
+            )
+            live_noop_hash_missing_count = _as_int(
+                aggregate.get(
+                    f"{KERNEL_ARG_HANDOFF_LIVE_NOOP_INTEGRATION_PREFIX}hash_missing_count"
+                )
+            )
+            live_noop_live_toggle_hash_checked_count = _as_int(
+                aggregate.get(
+                    f"{KERNEL_ARG_HANDOFF_LIVE_NOOP_INTEGRATION_PREFIX}live_toggle_hash_checked_count"
+                )
+            )
+            live_noop_live_toggle_hash_missing_count = _as_int(
+                aggregate.get(
+                    f"{KERNEL_ARG_HANDOFF_LIVE_NOOP_INTEGRATION_PREFIX}live_toggle_hash_missing_count"
+                )
+            )
+            live_noop_launch_schema_mirror_hash_checked_count = _as_int(
+                aggregate.get(
+                    f"{KERNEL_ARG_HANDOFF_LIVE_NOOP_INTEGRATION_PREFIX}launch_schema_mirror_hash_checked_count"
+                )
+            )
+            live_noop_launch_schema_mirror_hash_missing_count = _as_int(
+                aggregate.get(
+                    f"{KERNEL_ARG_HANDOFF_LIVE_NOOP_INTEGRATION_PREFIX}launch_schema_mirror_hash_missing_count"
+                )
+            )
+            live_noop_table_object_hash_checked_count = _as_int(
+                aggregate.get(
+                    f"{KERNEL_ARG_HANDOFF_LIVE_NOOP_INTEGRATION_PREFIX}table_object_hash_checked_count"
+                )
+            )
+            live_noop_table_object_hash_missing_count = _as_int(
+                aggregate.get(
+                    f"{KERNEL_ARG_HANDOFF_LIVE_NOOP_INTEGRATION_PREFIX}table_object_hash_missing_count"
+                )
+            )
+            live_noop_mode = str(
+                aggregate.get(f"{KERNEL_ARG_HANDOFF_LIVE_NOOP_INTEGRATION_PREFIX}mode")
+                or ""
+            )
+            live_noop_mode_checked_count = _as_int(
+                aggregate.get(
+                    f"{KERNEL_ARG_HANDOFF_LIVE_NOOP_INTEGRATION_PREFIX}mode_checked_count"
+                )
+            )
+            live_noop_mode_missing_count = _as_int(
+                aggregate.get(
+                    f"{KERNEL_ARG_HANDOFF_LIVE_NOOP_INTEGRATION_PREFIX}mode_missing_count"
+                )
+            )
+            live_noop_mode_mismatch_count = _as_int(
+                aggregate.get(
+                    f"{KERNEL_ARG_HANDOFF_LIVE_NOOP_INTEGRATION_PREFIX}mode_mismatch_count"
+                )
+            )
+            live_noop_block_reason = str(
+                aggregate.get(
+                    f"{KERNEL_ARG_HANDOFF_LIVE_NOOP_INTEGRATION_PREFIX}block_reason"
+                )
+                or ""
+            )
+            live_noop_block_reason_checked_count = _as_int(
+                aggregate.get(
+                    f"{KERNEL_ARG_HANDOFF_LIVE_NOOP_INTEGRATION_PREFIX}block_reason_checked_count"
+                )
+            )
+            live_noop_block_reason_missing_count = _as_int(
+                aggregate.get(
+                    f"{KERNEL_ARG_HANDOFF_LIVE_NOOP_INTEGRATION_PREFIX}block_reason_missing_count"
+                )
+            )
+            live_noop_block_reason_mismatch_count = _as_int(
+                aggregate.get(
+                    f"{KERNEL_ARG_HANDOFF_LIVE_NOOP_INTEGRATION_PREFIX}block_reason_mismatch_count"
+                )
+            )
+            live_noop_enabled_count = _as_int(
+                aggregate.get(
+                    f"{KERNEL_ARG_HANDOFF_LIVE_NOOP_INTEGRATION_PREFIX}enabled_count"
+                )
+            )
+            live_noop_lab_gate_passed_count = _as_int(
+                aggregate.get(
+                    f"{KERNEL_ARG_HANDOFF_LIVE_NOOP_INTEGRATION_PREFIX}lab_gate_passed_count"
+                )
+            )
+            live_noop_live_toggle_record_ready_count = _as_int(
+                aggregate.get(
+                    f"{KERNEL_ARG_HANDOFF_LIVE_NOOP_INTEGRATION_PREFIX}live_toggle_record_ready_count"
+                )
+            )
+            live_noop_launch_schema_ready_count = _as_int(
+                aggregate.get(
+                    f"{KERNEL_ARG_HANDOFF_LIVE_NOOP_INTEGRATION_PREFIX}launch_schema_ready_count"
+                )
+            )
+            live_noop_live_eligible_count = _as_int(
+                aggregate.get(
+                    f"{KERNEL_ARG_HANDOFF_LIVE_NOOP_INTEGRATION_PREFIX}live_eligible_count"
+                )
+            )
+            live_noop_consumer_connected_count = _as_int(
+                aggregate.get(
+                    f"{KERNEL_ARG_HANDOFF_LIVE_NOOP_INTEGRATION_PREFIX}consumer_connected_count"
+                )
+            )
+            live_noop_blocked_count = _as_int(
+                aggregate.get(
+                    f"{KERNEL_ARG_HANDOFF_LIVE_NOOP_INTEGRATION_PREFIX}blocked_count"
+                )
+            )
+            live_noop_payload_bytes = _as_int(
+                aggregate.get(
+                    f"{KERNEL_ARG_HANDOFF_LIVE_NOOP_INTEGRATION_PREFIX}payload_bytes"
+                )
+            )
+            live_noop_payload_violation_count = _as_int(
+                aggregate.get(
+                    f"{KERNEL_ARG_HANDOFF_LIVE_NOOP_INTEGRATION_PREFIX}payload_violation_count"
+                )
+            )
+            live_noop_passed_to_kernel_count = _as_int(
+                aggregate.get(
+                    f"{KERNEL_ARG_HANDOFF_LIVE_NOOP_INTEGRATION_PREFIX}passed_to_kernel_count"
+                )
+            )
+            live_noop_kernel_arg_violation_count = _as_int(
+                aggregate.get(
+                    f"{KERNEL_ARG_HANDOFF_LIVE_NOOP_INTEGRATION_PREFIX}kernel_arg_violation_count"
                 )
             )
             shim_table_row_count = _as_int(
@@ -2801,6 +2980,164 @@ def check_summary(
                     failures.append(
                         "consumer_shim_kernel_arg_handoff_live_toggle_kernel_arg_violation_count_nonzero="
                         f"{live_toggle_kernel_arg_violation_count}"
+                    )
+            if (
+                require_kernel_arg_handoff_live_noop_integration
+                or kernel_arg_handoff_live_noop_integration_active
+            ):
+                expected_live_noop_block_reason = (
+                    "kernel_arg_handoff_kernel_consumer_not_connected"
+                    if allow_enabled_blocked_live_toggle
+                    else "kernel_arg_handoff_live_disabled"
+                )
+                expected_live_noop_enabled_count = (
+                    shim_executed if allow_enabled_blocked_live_toggle else 0
+                )
+                expected_live_noop_live_eligible_count = (
+                    shim_executed if allow_enabled_blocked_live_toggle else 0
+                )
+                if live_noop_checked_count != shim_executed:
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_live_noop_integration_checked_count_mismatch="
+                        f"{live_noop_checked_count}!={shim_executed}"
+                    )
+                if live_noop_record_ready_count != shim_executed:
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_live_noop_integration_record_ready_count_mismatch="
+                        f"{live_noop_record_ready_count}!={shim_executed}"
+                    )
+                for name, value in (
+                    ("hash_checked_count", live_noop_hash_checked_count),
+                    (
+                        "live_toggle_hash_checked_count",
+                        live_noop_live_toggle_hash_checked_count,
+                    ),
+                    (
+                        "launch_schema_mirror_hash_checked_count",
+                        live_noop_launch_schema_mirror_hash_checked_count,
+                    ),
+                    (
+                        "table_object_hash_checked_count",
+                        live_noop_table_object_hash_checked_count,
+                    ),
+                ):
+                    if value != shim_executed:
+                        failures.append(
+                            "consumer_shim_kernel_arg_handoff_live_noop_integration_"
+                            f"{name}_mismatch={value}!={shim_executed}"
+                        )
+                for name, value in (
+                    ("hash_missing_count", live_noop_hash_missing_count),
+                    (
+                        "live_toggle_hash_missing_count",
+                        live_noop_live_toggle_hash_missing_count,
+                    ),
+                    (
+                        "launch_schema_mirror_hash_missing_count",
+                        live_noop_launch_schema_mirror_hash_missing_count,
+                    ),
+                    (
+                        "table_object_hash_missing_count",
+                        live_noop_table_object_hash_missing_count,
+                    ),
+                ):
+                    if value != 0:
+                        failures.append(
+                            "consumer_shim_kernel_arg_handoff_live_noop_integration_"
+                            f"{name}_nonzero={value}"
+                        )
+                if live_noop_mode != "readonly_kernel_arg_handoff_live_noop_integration":
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_live_noop_integration_mode_mismatch"
+                    )
+                if live_noop_mode_checked_count != shim_executed:
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_live_noop_integration_mode_checked_count_mismatch="
+                        f"{live_noop_mode_checked_count}!={shim_executed}"
+                    )
+                if live_noop_mode_missing_count != 0:
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_live_noop_integration_mode_missing_count_nonzero="
+                        f"{live_noop_mode_missing_count}"
+                    )
+                if live_noop_mode_mismatch_count != 0:
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_live_noop_integration_mode_mismatch_count_nonzero="
+                        f"{live_noop_mode_mismatch_count}"
+                    )
+                if live_noop_block_reason != expected_live_noop_block_reason:
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_live_noop_integration_block_reason_mismatch"
+                    )
+                if live_noop_block_reason_checked_count != shim_executed:
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_live_noop_integration_block_reason_checked_count_mismatch="
+                        f"{live_noop_block_reason_checked_count}!={shim_executed}"
+                    )
+                if live_noop_block_reason_missing_count != 0:
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_live_noop_integration_block_reason_missing_count_nonzero="
+                        f"{live_noop_block_reason_missing_count}"
+                    )
+                if live_noop_block_reason_mismatch_count != 0:
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_live_noop_integration_block_reason_mismatch_count_nonzero="
+                        f"{live_noop_block_reason_mismatch_count}"
+                    )
+                if live_noop_enabled_count != expected_live_noop_enabled_count:
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_live_noop_integration_enabled_count_mismatch="
+                        f"{live_noop_enabled_count}!={expected_live_noop_enabled_count}"
+                    )
+                if live_noop_lab_gate_passed_count != shim_executed:
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_live_noop_integration_lab_gate_passed_count_mismatch="
+                        f"{live_noop_lab_gate_passed_count}!={shim_executed}"
+                    )
+                if live_noop_live_toggle_record_ready_count != shim_executed:
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_live_noop_integration_live_toggle_record_ready_count_mismatch="
+                        f"{live_noop_live_toggle_record_ready_count}!={shim_executed}"
+                    )
+                if live_noop_launch_schema_ready_count != shim_executed:
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_live_noop_integration_launch_schema_ready_count_mismatch="
+                        f"{live_noop_launch_schema_ready_count}!={shim_executed}"
+                    )
+                if live_noop_live_eligible_count != expected_live_noop_live_eligible_count:
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_live_noop_integration_live_eligible_count_mismatch="
+                        f"{live_noop_live_eligible_count}!={expected_live_noop_live_eligible_count}"
+                    )
+                if live_noop_consumer_connected_count != 0:
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_live_noop_integration_consumer_connected_count_nonzero="
+                        f"{live_noop_consumer_connected_count}"
+                    )
+                if live_noop_blocked_count != shim_executed:
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_live_noop_integration_blocked_count_mismatch="
+                        f"{live_noop_blocked_count}!={shim_executed}"
+                    )
+                if live_noop_payload_bytes != 0:
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_live_noop_integration_payload_bytes_nonzero="
+                        f"{live_noop_payload_bytes}"
+                    )
+                if live_noop_payload_violation_count != 0:
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_live_noop_integration_payload_violation_count_nonzero="
+                        f"{live_noop_payload_violation_count}"
+                    )
+                if live_noop_passed_to_kernel_count != 0:
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_live_noop_integration_passed_to_kernel_count_nonzero="
+                        f"{live_noop_passed_to_kernel_count}"
+                    )
+                if live_noop_kernel_arg_violation_count != 0:
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_live_noop_integration_kernel_arg_violation_count_nonzero="
+                        f"{live_noop_kernel_arg_violation_count}"
                     )
         if require_consumer_shim_table_object or consumer_shim_table_object_active:
             shim_executed = _as_int(
@@ -4347,6 +4684,151 @@ def check_summary(
                 "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_toggle_kernel_arg_violation_count"
             )
         ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_checked_count": _as_int(
+            aggregate.get(
+                f"{KERNEL_ARG_HANDOFF_LIVE_NOOP_INTEGRATION_PREFIX}checked_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_record_ready_count": _as_int(
+            aggregate.get(
+                f"{KERNEL_ARG_HANDOFF_LIVE_NOOP_INTEGRATION_PREFIX}record_ready_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_hash_checked_count": _as_int(
+            aggregate.get(
+                f"{KERNEL_ARG_HANDOFF_LIVE_NOOP_INTEGRATION_PREFIX}hash_checked_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_hash_missing_count": _as_int(
+            aggregate.get(
+                f"{KERNEL_ARG_HANDOFF_LIVE_NOOP_INTEGRATION_PREFIX}hash_missing_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_live_toggle_hash_checked_count": _as_int(
+            aggregate.get(
+                f"{KERNEL_ARG_HANDOFF_LIVE_NOOP_INTEGRATION_PREFIX}live_toggle_hash_checked_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_live_toggle_hash_missing_count": _as_int(
+            aggregate.get(
+                f"{KERNEL_ARG_HANDOFF_LIVE_NOOP_INTEGRATION_PREFIX}live_toggle_hash_missing_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_launch_schema_mirror_hash_checked_count": _as_int(
+            aggregate.get(
+                f"{KERNEL_ARG_HANDOFF_LIVE_NOOP_INTEGRATION_PREFIX}launch_schema_mirror_hash_checked_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_launch_schema_mirror_hash_missing_count": _as_int(
+            aggregate.get(
+                f"{KERNEL_ARG_HANDOFF_LIVE_NOOP_INTEGRATION_PREFIX}launch_schema_mirror_hash_missing_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_table_object_hash_checked_count": _as_int(
+            aggregate.get(
+                f"{KERNEL_ARG_HANDOFF_LIVE_NOOP_INTEGRATION_PREFIX}table_object_hash_checked_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_table_object_hash_missing_count": _as_int(
+            aggregate.get(
+                f"{KERNEL_ARG_HANDOFF_LIVE_NOOP_INTEGRATION_PREFIX}table_object_hash_missing_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_mode": str(
+            aggregate.get(f"{KERNEL_ARG_HANDOFF_LIVE_NOOP_INTEGRATION_PREFIX}mode")
+            or ""
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_mode_checked_count": _as_int(
+            aggregate.get(
+                f"{KERNEL_ARG_HANDOFF_LIVE_NOOP_INTEGRATION_PREFIX}mode_checked_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_mode_missing_count": _as_int(
+            aggregate.get(
+                f"{KERNEL_ARG_HANDOFF_LIVE_NOOP_INTEGRATION_PREFIX}mode_missing_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_mode_mismatch_count": _as_int(
+            aggregate.get(
+                f"{KERNEL_ARG_HANDOFF_LIVE_NOOP_INTEGRATION_PREFIX}mode_mismatch_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_block_reason": str(
+            aggregate.get(
+                f"{KERNEL_ARG_HANDOFF_LIVE_NOOP_INTEGRATION_PREFIX}block_reason"
+            )
+            or ""
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_block_reason_checked_count": _as_int(
+            aggregate.get(
+                f"{KERNEL_ARG_HANDOFF_LIVE_NOOP_INTEGRATION_PREFIX}block_reason_checked_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_block_reason_missing_count": _as_int(
+            aggregate.get(
+                f"{KERNEL_ARG_HANDOFF_LIVE_NOOP_INTEGRATION_PREFIX}block_reason_missing_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_block_reason_mismatch_count": _as_int(
+            aggregate.get(
+                f"{KERNEL_ARG_HANDOFF_LIVE_NOOP_INTEGRATION_PREFIX}block_reason_mismatch_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_enabled_count": _as_int(
+            aggregate.get(
+                f"{KERNEL_ARG_HANDOFF_LIVE_NOOP_INTEGRATION_PREFIX}enabled_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_lab_gate_passed_count": _as_int(
+            aggregate.get(
+                f"{KERNEL_ARG_HANDOFF_LIVE_NOOP_INTEGRATION_PREFIX}lab_gate_passed_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_live_toggle_record_ready_count": _as_int(
+            aggregate.get(
+                f"{KERNEL_ARG_HANDOFF_LIVE_NOOP_INTEGRATION_PREFIX}live_toggle_record_ready_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_launch_schema_ready_count": _as_int(
+            aggregate.get(
+                f"{KERNEL_ARG_HANDOFF_LIVE_NOOP_INTEGRATION_PREFIX}launch_schema_ready_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_live_eligible_count": _as_int(
+            aggregate.get(
+                f"{KERNEL_ARG_HANDOFF_LIVE_NOOP_INTEGRATION_PREFIX}live_eligible_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_consumer_connected_count": _as_int(
+            aggregate.get(
+                f"{KERNEL_ARG_HANDOFF_LIVE_NOOP_INTEGRATION_PREFIX}consumer_connected_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_blocked_count": _as_int(
+            aggregate.get(
+                f"{KERNEL_ARG_HANDOFF_LIVE_NOOP_INTEGRATION_PREFIX}blocked_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_payload_bytes": _as_int(
+            aggregate.get(
+                f"{KERNEL_ARG_HANDOFF_LIVE_NOOP_INTEGRATION_PREFIX}payload_bytes"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_payload_violation_count": _as_int(
+            aggregate.get(
+                f"{KERNEL_ARG_HANDOFF_LIVE_NOOP_INTEGRATION_PREFIX}payload_violation_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_passed_to_kernel_count": _as_int(
+            aggregate.get(
+                f"{KERNEL_ARG_HANDOFF_LIVE_NOOP_INTEGRATION_PREFIX}passed_to_kernel_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_kernel_arg_violation_count": _as_int(
+            aggregate.get(
+                f"{KERNEL_ARG_HANDOFF_LIVE_NOOP_INTEGRATION_PREFIX}kernel_arg_violation_count"
+            )
+        ),
         "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_consumed_checked_count": _as_int(
             aggregate.get(
                 "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_consumed_checked_count"
@@ -4536,6 +5018,9 @@ def check_summary(
         "require_kernel_arg_handoff_live_toggle": bool(
             require_kernel_arg_handoff_live_toggle
         ),
+        "require_kernel_arg_handoff_live_noop_integration": bool(
+            require_kernel_arg_handoff_live_noop_integration
+        ),
         "require_kernel_arg_handoff_launch_schema_mirror": bool(
             require_kernel_arg_handoff_launch_schema_mirror
         ),
@@ -4641,6 +5126,16 @@ def main() -> None:
         ),
     )
     parser.add_argument(
+        "--require-kernel-arg-handoff-live-noop-integration",
+        action="store_true",
+        help=(
+            "Require the final no-op integration record after the live toggle. "
+            "The record must join the live toggle with the launch-schema "
+            "mirror, remain blocked, zero-payload, and not pass arguments to a "
+            "kernel."
+        ),
+    )
+    parser.add_argument(
         "--require-kernel-arg-handoff-launch-schema-mirror",
         action="store_true",
         help=(
@@ -4681,6 +5176,9 @@ def main() -> None:
         ),
         require_kernel_arg_handoff_live_toggle=(
             args.require_kernel_arg_handoff_live_toggle
+        ),
+        require_kernel_arg_handoff_live_noop_integration=(
+            args.require_kernel_arg_handoff_live_noop_integration
         ),
         require_kernel_arg_handoff_launch_schema_mirror=(
             args.require_kernel_arg_handoff_launch_schema_mirror

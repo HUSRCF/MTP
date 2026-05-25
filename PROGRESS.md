@@ -2,10 +2,10 @@
 
 ## Progress Version
 
-- Version: `v0.13-premap-kernel-arg-handoff-noop-gate`
+- Version: `v0.14-premap-kernel-arg-live-noop-integration`
 - Updated: 2026-05-25
-- Current phase: premap descriptor/address prep reaches kernel-arg handoff
-  attempt mirror under a strict no-op gate
+- Current phase: premap descriptor/address prep reaches the default-disabled
+  live kernel-arg handoff integration point, still under a strict no-op gate
 
 ## Runtime Policy Contract
 
@@ -104,6 +104,12 @@ utility/action policy ablations
   `quant_method.apply - fused_experts_outer` is small, while the large
   remaining MoE apply residual is inside `fused_experts` wrapper/launch/glue,
   not in the AWQ apply shell.
+- Premap descriptor/address prep now emits a kernel-arg handoff
+  live-noop-integration record after the live toggle and launch-schema mirror.
+  The record is default-disabled, consumer-disconnected, zero-payload, and
+  never passed to the kernel.  GPU1 Dolly 8-sample smoke validates 640/640
+  checked+ready records with no payload or kernel-arg violations:
+  `data/traces/external_prompt_gate_dolly_8_awq_vllm_gpu1_decode_gen64_longrun_audit_smoke/longrun_audit_gate_live_noop_integration_smoke.json`.
 
 ## Prefetch Cache-Manager Replay
 
