@@ -144,6 +144,9 @@ artifact:
       performance_summary.json
       longrun_audit_gate_live_consumer_adapter.json
 
+performance summary flag:
+  runtime_shadow_premap_kernel_arg_handoff_kernel_arg_pass_enabled = false
+
 checker result:
   passed = true
   failures = []
