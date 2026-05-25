@@ -431,6 +431,47 @@ def test_apply_premap_consumer_readonly_gate_requires_live_toggle_contract(tmp_p
         )
 
 
+def test_apply_premap_consumer_readonly_gate_rejects_non_bool_live_toggle_required(
+    tmp_path,
+):
+    gate = tmp_path / "readonly_gate.yaml"
+    _write_readonly_gate(
+        gate,
+        lab_precondition=True,
+        descriptor_prep_execution_mode="readonly_descriptor_address_object",
+        descriptor_prep_payload_bytes=0,
+        descriptor_prep_kernel_arg_mutation=False,
+        kernel_arg_handoff_live_toggle_required=True,
+        kernel_arg_handoff_live_toggle_enabled_required=False,
+        require_kernel_arg_handoff_live_toggle=True,
+    )
+    gate.write_text(
+        gate.read_text(encoding="utf-8").replace(
+            "kernel_arg_handoff_live_toggle_required: true",
+            'kernel_arg_handoff_live_toggle_required: "false"',
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(TypeError, match="live_toggle_required must be boolean"):
+        _apply_premap_consumer_readonly_gate(
+            {
+                "enabled": True,
+                "emit_premap_consumer_mapping": True,
+                "premap_consumer_require_readonly_gate": True,
+                "premap_consumer_readonly_gate_path": str(gate),
+                "premap_consumer_mapping_mode": "noop_assertion",
+                "premap_consumer_resolve_real_handles": True,
+                "premap_policy": "premap_only_with_consumer_mapping_noop",
+                "premap_descriptor_bytes": 4096,
+                "premap_descriptor_prep_execution_mode": (
+                    "readonly_descriptor_address_object"
+                ),
+            },
+            project_root=tmp_path,
+        )
+
+
 def test_apply_premap_consumer_readonly_gate_accepts_default_disabled_live_toggle_contract(
     tmp_path,
 ):
@@ -537,6 +578,48 @@ def test_apply_premap_consumer_readonly_gate_rejects_live_toggle_enabled_mismatc
                     "readonly_descriptor_address_object"
                 ),
                 "premap_kernel_arg_handoff_live_enabled": True,
+            },
+            project_root=tmp_path,
+        )
+
+
+def test_apply_premap_consumer_readonly_gate_rejects_non_bool_live_toggle_enabled_required(
+    tmp_path,
+):
+    gate = tmp_path / "readonly_gate.yaml"
+    _write_readonly_gate(
+        gate,
+        lab_precondition=True,
+        descriptor_prep_execution_mode="readonly_descriptor_address_object",
+        descriptor_prep_payload_bytes=0,
+        descriptor_prep_kernel_arg_mutation=False,
+        kernel_arg_handoff_live_toggle_required=True,
+        kernel_arg_handoff_live_toggle_enabled_required=False,
+        require_kernel_arg_handoff_live_toggle=True,
+    )
+    gate.write_text(
+        gate.read_text(encoding="utf-8").replace(
+            "kernel_arg_handoff_live_toggle_enabled_required: false",
+            'kernel_arg_handoff_live_toggle_enabled_required: "false"',
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(TypeError, match="live_toggle_enabled_required must"):
+        _apply_premap_consumer_readonly_gate(
+            {
+                "enabled": True,
+                "emit_premap_consumer_mapping": True,
+                "premap_consumer_require_readonly_gate": True,
+                "premap_consumer_readonly_gate_path": str(gate),
+                "premap_consumer_mapping_mode": "noop_assertion",
+                "premap_consumer_resolve_real_handles": True,
+                "premap_policy": "premap_only_with_consumer_mapping_noop",
+                "premap_descriptor_bytes": 4096,
+                "premap_descriptor_prep_execution_mode": (
+                    "readonly_descriptor_address_object"
+                ),
+                "premap_kernel_arg_handoff_live_enabled": False,
             },
             project_root=tmp_path,
         )

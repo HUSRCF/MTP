@@ -11132,9 +11132,18 @@ def _apply_premap_consumer_readonly_gate(
                 f"checked with require_consumer_shim_prep_execution=true: {path}"
             )
             raise ValueError(msg)
-    live_toggle_required = bool(
-        contract.get("kernel_arg_handoff_live_toggle_required", False)
+    live_toggle_required_raw = contract.get(
+        "kernel_arg_handoff_live_toggle_required",
+        False,
     )
+    if not isinstance(live_toggle_required_raw, bool):
+        msg = (
+            "Premap consumer readonly gate "
+            "contract.kernel_arg_handoff_live_toggle_required must be boolean "
+            f"when present: {path}"
+        )
+        raise TypeError(msg)
+    live_toggle_required = bool(live_toggle_required_raw)
     if live_handoff_enabled or live_toggle_required:
         if descriptor_prep_mode is None:
             msg = (
@@ -11152,7 +11161,14 @@ def _apply_premap_consumer_readonly_gate(
         enabled_required = contract.get(
             "kernel_arg_handoff_live_toggle_enabled_required"
         )
-        if enabled_required is not None and bool(enabled_required) != live_handoff_enabled:
+        if enabled_required is not None and not isinstance(enabled_required, bool):
+            msg = (
+                "Premap consumer readonly gate "
+                "contract.kernel_arg_handoff_live_toggle_enabled_required must "
+                f"be boolean when present: {path}"
+            )
+            raise TypeError(msg)
+        if enabled_required is not None and enabled_required != live_handoff_enabled:
             msg = (
                 "Premap consumer readonly gate live-toggle enabled requirement "
                 f"does not match runtime options for {path}: "
