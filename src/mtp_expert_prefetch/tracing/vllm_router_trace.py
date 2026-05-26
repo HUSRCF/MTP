@@ -968,6 +968,10 @@ class VllmRouterRecorder:
     shadow_premap_kernel_arg_handoff_live_consumer_connected: bool = False
     shadow_premap_kernel_arg_handoff_kernel_arg_pass_enabled: bool = False
     shadow_premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled: bool = False
+    shadow_premap_kernel_arg_handoff_single_field_replacement_dry_run_enabled: (
+        bool
+    ) = False
+    shadow_premap_kernel_arg_handoff_single_field_replacement_field: str = "B_scale"
     shadow_premap_address_namespace: str = "expert_weight_descriptor"
     shadow_premap_priority: int = 2
     shadow_transition_premap_priority: int = 3
@@ -6479,6 +6483,13 @@ _PREMAP_KERNEL_ARG_LIVE_MUTATION_COUNTERS: dict[str, int] = {
     "package_missing_count": 0,
     "package_layer_mismatch_count": 0,
     "package_block_reason_mismatch_count": 0,
+    "single_field_replacement_dry_run_candidate_count": 0,
+    "single_field_replacement_dry_run_parity_ok_count": 0,
+    "single_field_replacement_dry_run_parity_mismatch_count": 0,
+    "single_field_replacement_dry_run_source_missing_count": 0,
+    "single_field_replacement_dry_run_unsupported_field_count": 0,
+    "single_field_replacement_dry_run_passed_to_kernel_count": 0,
+    "single_field_replacement_dry_run_payload_bytes": 0,
 }
 _ACTIVE_DECODER_COMPONENT_CONTEXT_VAR: contextvars.ContextVar[
     dict[str, Any] | None
@@ -6656,6 +6667,28 @@ def _increment_premap_kernel_arg_live_mutation_counter(key: str) -> None:
     if key not in _PREMAP_KERNEL_ARG_LIVE_MUTATION_COUNTERS:
         _PREMAP_KERNEL_ARG_LIVE_MUTATION_COUNTERS[key] = 0
     _PREMAP_KERNEL_ARG_LIVE_MUTATION_COUNTERS[key] += 1
+
+
+def _kernel_arg_value_signature(value: Any) -> str:
+    """Runtime identity signature for dry-run kernel-arg parity checks."""
+
+    if torch.is_tensor(value):
+        payload = {
+            "kind": "tensor",
+            "data_ptr": int(value.data_ptr()),
+            "device": str(value.device),
+            "dtype": str(value.dtype),
+            "shape": tuple(int(dim) for dim in value.shape),
+            "stride": tuple(int(dim) for dim in value.stride()),
+        }
+    else:
+        payload = {
+            "kind": type(value).__name__,
+            "value": repr(value),
+        }
+    return hashlib.sha256(
+        json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
 
 
 def _premap_kernel_arg_live_mutation_counters() -> dict[str, int]:
@@ -10894,6 +10927,43 @@ def patch_vllm_qwen35_moe_router_trace() -> None:
                         "block_shape": block_shape,
                     }
                     kernel_arg_package = live_mutation_package_meta["launch_args"]
+                    single_field_dry_run_enabled = False
+                    single_field_replacement_field = "B_scale"
+                    if recorder_for_config is not None:
+                        single_field_dry_run_enabled = bool(
+                            recorder_for_config.shadow_premap_kernel_arg_handoff_single_field_replacement_dry_run_enabled
+                        )
+                        single_field_replacement_field = str(
+                            recorder_for_config.shadow_premap_kernel_arg_handoff_single_field_replacement_field
+                        )
+                    if single_field_dry_run_enabled:
+                        field_name = single_field_replacement_field
+                        if not live_mutation_package_meta.get("table_object_hash"):
+                            _increment_premap_kernel_arg_live_mutation_counter(
+                                "single_field_replacement_dry_run_source_missing_count"
+                            )
+                        elif field_name not in kernel_arg_package:
+                            _increment_premap_kernel_arg_live_mutation_counter(
+                                "single_field_replacement_dry_run_unsupported_field_count"
+                            )
+                        else:
+                            _increment_premap_kernel_arg_live_mutation_counter(
+                                "single_field_replacement_dry_run_candidate_count"
+                            )
+                            original_value = kernel_arg_package[field_name]
+                            replacement_candidate = original_value
+                            shadow_package = dict(kernel_arg_package)
+                            shadow_package[field_name] = replacement_candidate
+                            if _kernel_arg_value_signature(
+                                shadow_package[field_name]
+                            ) == _kernel_arg_value_signature(original_value):
+                                _increment_premap_kernel_arg_live_mutation_counter(
+                                    "single_field_replacement_dry_run_parity_ok_count"
+                                )
+                            else:
+                                _increment_premap_kernel_arg_live_mutation_counter(
+                                    "single_field_replacement_dry_run_parity_mismatch_count"
+                                )
                     live_mutation_package_meta["used"] = True
                     live_mutation_package_meta["status"] = (
                         "pass_through_original_wna16"
@@ -11625,10 +11695,52 @@ def _apply_premap_consumer_readonly_gate(
             False,
         )
     )
+    single_field_replacement_dry_run_enabled = bool(
+        options.get(
+            "premap_kernel_arg_handoff_single_field_replacement_dry_run_enabled",
+            False,
+        )
+    )
+    single_field_replacement_field = str(
+        options.get(
+            "premap_kernel_arg_handoff_single_field_replacement_field",
+            "B_scale",
+        )
+    )
     if real_kernel_arg_mutation_enabled and not kernel_arg_pass_enabled:
         msg = (
             "premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled=True "
             "requires premap_kernel_arg_handoff_kernel_arg_pass_enabled=True."
+        )
+        raise ValueError(msg)
+    if (
+        single_field_replacement_dry_run_enabled
+        and not real_kernel_arg_mutation_enabled
+    ):
+        msg = (
+            "premap_kernel_arg_handoff_single_field_replacement_dry_run_enabled=True "
+            "requires premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled=True."
+        )
+        raise ValueError(msg)
+    allowed_single_field_replacement_fields = {
+        "A",
+        "B",
+        "C",
+        "B_scale",
+        "B_zp",
+        "topk_weights",
+        "sorted_token_ids",
+        "expert_ids",
+        "num_tokens_post_padded",
+    }
+    if (
+        single_field_replacement_dry_run_enabled
+        and single_field_replacement_field not in allowed_single_field_replacement_fields
+    ):
+        msg = (
+            "premap_kernel_arg_handoff_single_field_replacement_field must be one "
+            f"of {sorted(allowed_single_field_replacement_fields)}; got "
+            f"{single_field_replacement_field!r}."
         )
         raise ValueError(msg)
     if kernel_arg_pass_enabled and (
@@ -12742,6 +12854,18 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                 False,
             )
         ),
+        "runtime_shadow_premap_kernel_arg_handoff_single_field_replacement_dry_run_enabled": bool(
+            runtime_shadow_options.get(
+                "premap_kernel_arg_handoff_single_field_replacement_dry_run_enabled",
+                False,
+            )
+        ),
+        "runtime_shadow_premap_kernel_arg_handoff_single_field_replacement_field": str(
+            runtime_shadow_options.get(
+                "premap_kernel_arg_handoff_single_field_replacement_field",
+                "B_scale",
+            )
+        ),
         "runtime_shadow_transition_premap_source": str(
             runtime_shadow_options.get(
                 "transition_premap_source",
@@ -13167,6 +13291,18 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                                 runtime_shadow_options.get(
                                     "premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled",
                                     False,
+                                )
+                            ),
+                            shadow_premap_kernel_arg_handoff_single_field_replacement_dry_run_enabled=bool(
+                                runtime_shadow_options.get(
+                                    "premap_kernel_arg_handoff_single_field_replacement_dry_run_enabled",
+                                    False,
+                                )
+                            ),
+                            shadow_premap_kernel_arg_handoff_single_field_replacement_field=str(
+                                runtime_shadow_options.get(
+                                    "premap_kernel_arg_handoff_single_field_replacement_field",
+                                    "B_scale",
                                 )
                             ),
                             shadow_premap_address_namespace=str(

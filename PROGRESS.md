@@ -15850,6 +15850,97 @@ no descriptor_order execution
 no kernel argument mutation
 ```
 
+### 2026-05-26: 128-sample strict real kernel-arg mutation canary passed
+
+The live kernel-arg mutation canary has been promoted from 1/8-sample smoke to
+a 128-sample strict lab gate candidate.
+
+```text
+config:
+  configs/trace/
+    router_mtp_trace_external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_real_kernel_arg_mutation_strict.yaml
+
+gate:
+  configs/runtime/
+    premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_real_kernel_arg_mutation_canary.yaml
+
+artifact:
+  data/traces/
+    external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_real_kernel_arg_mutation_strict/
+    real_kernel_arg_mutation_gate_check.json
+
+passed = true
+failures = []
+
+package_seen_count = 20,390
+package_pass_through_count = 20,390
+package_missing_count = 632,090  # expected with sampled consumer mappings
+package_layer_mismatch_count = 0
+package_block_reason_mismatch_count = 0
+
+adapter_real_kernel_arg_handoff_count = 10,195
+adapter_passed_to_kernel_count = 10,195
+adapter_changes_kernel_launch_args_count = 10,195
+adapter_payload_bytes = 0
+
+premap_address_resident_count_max = 10,127
+premap_address_reuse_rate_mean = 0.9827389896686539
+premap_address_eviction_pressure_mean = 0.0
+```
+
+Interpretation:
+
+```text
+The prelaunch consumer can hand the WNA16 wrapper a live kernel-argument package
+at 128-sample scale, and the wrapper actually consumes that package to call the
+original WNA16 kernel with pass-through values.
+
+This is a launch-argument source mutation only:
+the values remain unchanged, payload bytes remain zero, and descriptor/address
+handles are not yet substituted into the live kernel arguments.
+```
+
+Next gate:
+
+```text
+single-field replacement dry-run:
+construct a shadow replacement candidate for one kernel-arg field,
+validate runtime identity parity,
+but keep the live kernel call on the original pass-through package values.
+```
+
+The first single-field replacement dry-run canary uses `B_scale` as the
+candidate field and keeps the actual WNA16 launch on the pass-through package.
+
+```text
+config:
+  configs/trace/
+    router_mtp_trace_external_prompt_gate_dolly_1_awq_vllm_gpu1_decode_gen16_single_field_replacement_dry_run_canary.yaml
+
+artifact:
+  data/traces/
+    external_prompt_gate_dolly_1_awq_vllm_gpu1_decode_gen16_single_field_replacement_dry_run_canary/
+    single_field_replacement_dry_run_gate_check.json
+
+passed = true
+failures = []
+
+single_field_replacement_dry_run_enabled = true
+single_field_replacement_field = B_scale
+candidate_count = 1,280
+parity_ok_count = 1,280
+parity_mismatch_count = 0
+source_missing_count = 0
+unsupported_field_count = 0
+single_field_passed_to_kernel_count = 0
+single_field_payload_bytes = 0
+```
+
+This proves the next handoff boundary can construct a one-field replacement
+candidate and validate runtime identity parity without passing that replacement
+to the kernel.  It is still a dry-run; no descriptor/address handle is
+substituted into live launch arguments yet.
+
 ## Premap live kernel-arg mutation canary
 
 The premap kernel-arg handoff path now has an explicit real-mutation canary
