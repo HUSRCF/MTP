@@ -42,9 +42,9 @@ trace:
     premap_consumer_mapping_sample_period: 32
     premap_address_capacity_gate_path: configs/runtime/premap_address_capacity_gate_dolly128_gen64_awq_w7900_gpu1.yaml
     premap_consumer_require_readonly_gate: true
-    # Canary-only permission contract: this references the connected-blocked
-    # gate that explicitly allows consumer_connected=true while kernel-arg pass
-    # remains disabled. This is not the lab-default readonly gate.
+    # Canary-only permission contract: this references the real-mutation gate
+    # that explicitly allows kernel-arg pass and the pass-through WNA16
+    # launch-argument package. This is not the lab-default readonly gate.
     premap_consumer_readonly_gate_path: configs/runtime/premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_real_kernel_arg_mutation_canary.yaml
     premap_descriptor_prep_execution_mode: readonly_descriptor_address_object
     premap_kernel_arg_handoff_live_enabled: true
