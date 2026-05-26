@@ -33,6 +33,21 @@ PREMAP_KERNEL_ARG_PRELAUNCH_LAUNCH_SCHEMA_FIELDS = (
 PREMAP_KERNEL_ARG_PRELAUNCH_LAUNCH_SCHEMA_HASH = hashlib.sha256(
     "|".join(PREMAP_KERNEL_ARG_PRELAUNCH_LAUNCH_SCHEMA_FIELDS).encode("utf-8")
 ).hexdigest()
+PREMAP_KERNEL_ARG_SEMANTIC_HANDLE_SCHEMA_NAME = (
+    "fused_moe_awq_wna16_semantic_handle_table_v1"
+)
+PREMAP_KERNEL_ARG_SEMANTIC_HANDLE_SCHEMA_FIELDS = (
+    "address_key",
+    "descriptor_ptr",
+    "packed_weight_descriptor",
+    "scale_metadata_handle",
+    "aux_metadata_handle",
+    "row_order_hash",
+    "ordered_row_hash",
+)
+PREMAP_KERNEL_ARG_SEMANTIC_HANDLE_SCHEMA_HASH = hashlib.sha256(
+    "|".join(PREMAP_KERNEL_ARG_SEMANTIC_HANDLE_SCHEMA_FIELDS).encode("utf-8")
+).hexdigest()
 
 
 @dataclass
@@ -634,6 +649,121 @@ class PremapKernelArgPrelaunchLaunchSchemaMirror:
             "payload_bytes": int(self.payload_bytes),
             "passed_to_kernel": bool(self.passed_to_kernel),
             "changes_kernel_launch_args": bool(self.changes_kernel_launch_args),
+        }
+
+
+@dataclass(frozen=True)
+class PremapKernelArgSemanticHandleAdapterObject:
+    """Typed no-op schema for future kernel-side handle consumption.
+
+    This object is intentionally not a tensor-argument replacement.  It defines
+    the semantic descriptor/address table a future kernel can consume once a
+    real kernel schema exists.  The current path only verifies schema, handle
+    availability, and lifecycle; it must never be passed to a kernel.
+    """
+
+    mode: str
+    table_object_hash: str
+    launch_schema_mirror_hash: str
+    row_count: int
+    column_count: int
+    table_schema_hash: str
+    semantic_schema_name: str
+    semantic_schema_hash: str
+    semantic_field_count: int
+    row_order_hash: str
+    ordered_row_hash: str
+    descriptor_ptr_handle_hash: str
+    packed_weight_descriptor_handle_hash: str
+    scale_metadata_handle_hash: str
+    aux_metadata_handle_hash: str
+    required_source_hit_count: int
+    required_source_miss_count: int
+    optional_source_hit_count: int
+    optional_source_miss_count: int
+    handle_field_read_count: int
+    payload_bytes: int = 0
+    passed_to_kernel: bool = False
+    changes_kernel_launch_args: bool = False
+    live_compatible_with_current_wna16_args: bool = False
+
+    @property
+    def ready(self) -> bool:
+        return (
+            self.mode == "readonly_kernel_arg_semantic_handle_adapter"
+            and bool(self.table_object_hash)
+            and bool(self.launch_schema_mirror_hash)
+            and int(self.row_count) > 0
+            and int(self.column_count)
+            == len(PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_COLUMNS)
+            and str(self.table_schema_hash)
+            == PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH
+            and str(self.semantic_schema_name)
+            == PREMAP_KERNEL_ARG_SEMANTIC_HANDLE_SCHEMA_NAME
+            and str(self.semantic_schema_hash)
+            == PREMAP_KERNEL_ARG_SEMANTIC_HANDLE_SCHEMA_HASH
+            and int(self.semantic_field_count)
+            == len(PREMAP_KERNEL_ARG_SEMANTIC_HANDLE_SCHEMA_FIELDS)
+            and bool(self.row_order_hash)
+            and bool(self.ordered_row_hash)
+            and bool(self.descriptor_ptr_handle_hash)
+            and bool(self.packed_weight_descriptor_handle_hash)
+            and bool(self.scale_metadata_handle_hash)
+            and bool(self.aux_metadata_handle_hash)
+            and int(self.handle_field_read_count)
+            == int(self.row_count)
+            * len(PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_COLUMNS)
+            and int(self.required_source_hit_count) == int(self.row_count) * 3
+            and int(self.required_source_miss_count) == 0
+            and int(self.optional_source_hit_count)
+            + int(self.optional_source_miss_count)
+            == int(self.row_count)
+            and int(self.payload_bytes) == 0
+            and not bool(self.passed_to_kernel)
+            and not bool(self.changes_kernel_launch_args)
+            and not bool(self.live_compatible_with_current_wna16_args)
+        )
+
+    @property
+    def adapter_hash(self) -> str:
+        payload = json.dumps(
+            self.as_dict(),
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+        return hashlib.sha256(payload).hexdigest()
+
+    def as_dict(self) -> dict[str, int | bool | str]:
+        return {
+            "mode": str(self.mode),
+            "ready": bool(self.ready),
+            "table_object_hash": str(self.table_object_hash),
+            "launch_schema_mirror_hash": str(self.launch_schema_mirror_hash),
+            "row_count": int(self.row_count),
+            "column_count": int(self.column_count),
+            "table_schema_hash": str(self.table_schema_hash),
+            "semantic_schema_name": str(self.semantic_schema_name),
+            "semantic_schema_hash": str(self.semantic_schema_hash),
+            "semantic_field_count": int(self.semantic_field_count),
+            "row_order_hash": str(self.row_order_hash),
+            "ordered_row_hash": str(self.ordered_row_hash),
+            "descriptor_ptr_handle_hash": str(self.descriptor_ptr_handle_hash),
+            "packed_weight_descriptor_handle_hash": str(
+                self.packed_weight_descriptor_handle_hash
+            ),
+            "scale_metadata_handle_hash": str(self.scale_metadata_handle_hash),
+            "aux_metadata_handle_hash": str(self.aux_metadata_handle_hash),
+            "required_source_hit_count": int(self.required_source_hit_count),
+            "required_source_miss_count": int(self.required_source_miss_count),
+            "optional_source_hit_count": int(self.optional_source_hit_count),
+            "optional_source_miss_count": int(self.optional_source_miss_count),
+            "handle_field_read_count": int(self.handle_field_read_count),
+            "payload_bytes": int(self.payload_bytes),
+            "passed_to_kernel": bool(self.passed_to_kernel),
+            "changes_kernel_launch_args": bool(self.changes_kernel_launch_args),
+            "live_compatible_with_current_wna16_args": bool(
+                self.live_compatible_with_current_wna16_args
+            ),
         }
 
 
@@ -1357,6 +1487,28 @@ class PremapDescriptorConsumerShimResult:
     kernel_arg_handoff_live_consumer_adapter_changes_kernel_launch_args: bool = False
     kernel_arg_handoff_live_consumer_adapter_contract_live_pass: bool = False
     kernel_arg_handoff_live_consumer_adapter_real_kernel_arg_handoff: bool = False
+    kernel_arg_semantic_handle_adapter_mode: str | None = None
+    kernel_arg_semantic_handle_adapter_ready: bool | None = None
+    kernel_arg_semantic_handle_adapter_hash: str | None = None
+    kernel_arg_semantic_handle_adapter_table_object_hash: str | None = None
+    kernel_arg_semantic_handle_adapter_launch_schema_mirror_hash: str | None = None
+    kernel_arg_semantic_handle_adapter_row_count: int | None = None
+    kernel_arg_semantic_handle_adapter_column_count: int | None = None
+    kernel_arg_semantic_handle_adapter_table_schema_hash: str | None = None
+    kernel_arg_semantic_handle_adapter_semantic_schema_name: str | None = None
+    kernel_arg_semantic_handle_adapter_semantic_schema_hash: str | None = None
+    kernel_arg_semantic_handle_adapter_semantic_field_count: int | None = None
+    kernel_arg_semantic_handle_adapter_required_source_hit_count: int | None = None
+    kernel_arg_semantic_handle_adapter_required_source_miss_count: int | None = None
+    kernel_arg_semantic_handle_adapter_optional_source_hit_count: int | None = None
+    kernel_arg_semantic_handle_adapter_optional_source_miss_count: int | None = None
+    kernel_arg_semantic_handle_adapter_handle_field_read_count: int | None = None
+    kernel_arg_semantic_handle_adapter_payload_bytes: int = 0
+    kernel_arg_semantic_handle_adapter_passed_to_kernel: bool = False
+    kernel_arg_semantic_handle_adapter_changes_kernel_launch_args: bool = False
+    kernel_arg_semantic_handle_adapter_live_compatible_with_current_wna16_args: (
+        bool
+    ) = False
     handle_table_object_consumed: bool | None = None
     handle_table_object_hash: str | None = None
     handle_table_object_row_count: int | None = None
@@ -2279,6 +2431,9 @@ class ControlledPremapAddressManager:
         handoff_launch_schema_mirror: (
             PremapKernelArgPrelaunchLaunchSchemaMirror | None
         ) = None
+        semantic_handle_adapter: (
+            PremapKernelArgSemanticHandleAdapterObject | None
+        ) = None
         handoff_attempt: PremapKernelArgHandoffAttemptRecord | None = None
         handoff_live_toggle: PremapKernelArgHandoffLiveToggleRecord | None = None
         handoff_live_noop_integration: (
@@ -2431,6 +2586,50 @@ class ControlledPremapAddressManager:
                         passed_to_kernel=False,
                         changes_kernel_launch_args=False,
                     )
+                )
+                semantic_handle_adapter = PremapKernelArgSemanticHandleAdapterObject(
+                    mode="readonly_kernel_arg_semantic_handle_adapter",
+                    table_object_hash=table_object.object_hash,
+                    launch_schema_mirror_hash=(
+                        handoff_launch_schema_mirror.launch_schema_mirror_hash
+                    ),
+                    row_count=handoff_row_count,
+                    column_count=handoff_column_count,
+                    table_schema_hash=handoff_schema_hash,
+                    semantic_schema_name=(
+                        PREMAP_KERNEL_ARG_SEMANTIC_HANDLE_SCHEMA_NAME
+                    ),
+                    semantic_schema_hash=(
+                        PREMAP_KERNEL_ARG_SEMANTIC_HANDLE_SCHEMA_HASH
+                    ),
+                    semantic_field_count=len(
+                        PREMAP_KERNEL_ARG_SEMANTIC_HANDLE_SCHEMA_FIELDS
+                    ),
+                    row_order_hash=table_object.row_order_hash,
+                    ordered_row_hash=table_object.ordered_row_hash,
+                    descriptor_ptr_handle_hash=(
+                        handoff_mirror.descriptor_ptr_arg_hash
+                    ),
+                    packed_weight_descriptor_handle_hash=(
+                        handoff_mirror.packed_weight_descriptor_arg_hash
+                    ),
+                    scale_metadata_handle_hash=(
+                        handoff_mirror.scale_metadata_handle_arg_hash
+                    ),
+                    aux_metadata_handle_hash=(
+                        handoff_mirror.aux_metadata_handle_arg_hash
+                    ),
+                    required_source_hit_count=handoff_required_hit_count,
+                    required_source_miss_count=handoff_required_miss_count,
+                    optional_source_hit_count=handoff_optional_hit_count,
+                    optional_source_miss_count=handoff_optional_miss_count,
+                    handle_field_read_count=int(
+                        table_consume_handle_field_read_count or 0
+                    ),
+                    payload_bytes=0,
+                    passed_to_kernel=False,
+                    changes_kernel_launch_args=False,
+                    live_compatible_with_current_wna16_args=False,
                 )
                 handoff_attempt = PremapKernelArgHandoffAttemptRecord(
                     mode="readonly_kernel_arg_handoff_attempt",
@@ -3206,6 +3405,106 @@ class ControlledPremapAddressManager:
             kernel_arg_handoff_live_consumer_adapter_real_kernel_arg_handoff=(
                 handoff_live_consumer_adapter.real_kernel_arg_handoff
                 if handoff_live_consumer_adapter is not None
+                else False
+            ),
+            kernel_arg_semantic_handle_adapter_mode=(
+                semantic_handle_adapter.mode
+                if semantic_handle_adapter is not None
+                else None
+            ),
+            kernel_arg_semantic_handle_adapter_ready=(
+                semantic_handle_adapter.ready
+                if semantic_handle_adapter is not None
+                else None
+            ),
+            kernel_arg_semantic_handle_adapter_hash=(
+                semantic_handle_adapter.adapter_hash
+                if semantic_handle_adapter is not None
+                else None
+            ),
+            kernel_arg_semantic_handle_adapter_table_object_hash=(
+                semantic_handle_adapter.table_object_hash
+                if semantic_handle_adapter is not None
+                else None
+            ),
+            kernel_arg_semantic_handle_adapter_launch_schema_mirror_hash=(
+                semantic_handle_adapter.launch_schema_mirror_hash
+                if semantic_handle_adapter is not None
+                else None
+            ),
+            kernel_arg_semantic_handle_adapter_row_count=(
+                semantic_handle_adapter.row_count
+                if semantic_handle_adapter is not None
+                else None
+            ),
+            kernel_arg_semantic_handle_adapter_column_count=(
+                semantic_handle_adapter.column_count
+                if semantic_handle_adapter is not None
+                else None
+            ),
+            kernel_arg_semantic_handle_adapter_table_schema_hash=(
+                semantic_handle_adapter.table_schema_hash
+                if semantic_handle_adapter is not None
+                else None
+            ),
+            kernel_arg_semantic_handle_adapter_semantic_schema_name=(
+                semantic_handle_adapter.semantic_schema_name
+                if semantic_handle_adapter is not None
+                else None
+            ),
+            kernel_arg_semantic_handle_adapter_semantic_schema_hash=(
+                semantic_handle_adapter.semantic_schema_hash
+                if semantic_handle_adapter is not None
+                else None
+            ),
+            kernel_arg_semantic_handle_adapter_semantic_field_count=(
+                semantic_handle_adapter.semantic_field_count
+                if semantic_handle_adapter is not None
+                else None
+            ),
+            kernel_arg_semantic_handle_adapter_required_source_hit_count=(
+                semantic_handle_adapter.required_source_hit_count
+                if semantic_handle_adapter is not None
+                else None
+            ),
+            kernel_arg_semantic_handle_adapter_required_source_miss_count=(
+                semantic_handle_adapter.required_source_miss_count
+                if semantic_handle_adapter is not None
+                else None
+            ),
+            kernel_arg_semantic_handle_adapter_optional_source_hit_count=(
+                semantic_handle_adapter.optional_source_hit_count
+                if semantic_handle_adapter is not None
+                else None
+            ),
+            kernel_arg_semantic_handle_adapter_optional_source_miss_count=(
+                semantic_handle_adapter.optional_source_miss_count
+                if semantic_handle_adapter is not None
+                else None
+            ),
+            kernel_arg_semantic_handle_adapter_handle_field_read_count=(
+                semantic_handle_adapter.handle_field_read_count
+                if semantic_handle_adapter is not None
+                else None
+            ),
+            kernel_arg_semantic_handle_adapter_payload_bytes=(
+                semantic_handle_adapter.payload_bytes
+                if semantic_handle_adapter is not None
+                else 0
+            ),
+            kernel_arg_semantic_handle_adapter_passed_to_kernel=(
+                semantic_handle_adapter.passed_to_kernel
+                if semantic_handle_adapter is not None
+                else False
+            ),
+            kernel_arg_semantic_handle_adapter_changes_kernel_launch_args=(
+                semantic_handle_adapter.changes_kernel_launch_args
+                if semantic_handle_adapter is not None
+                else False
+            ),
+            kernel_arg_semantic_handle_adapter_live_compatible_with_current_wna16_args=(
+                semantic_handle_adapter.live_compatible_with_current_wna16_args
+                if semantic_handle_adapter is not None
                 else False
             ),
             handle_table_object_consumed=table_object_consumed,

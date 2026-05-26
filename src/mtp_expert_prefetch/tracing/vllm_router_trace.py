@@ -330,6 +330,44 @@ RUNTIME_SHADOW_AGGREGATE_PERFORMANCE_KEYS = (
     "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_launch_schema_mirror_mode_checked_count",
     "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_launch_schema_mirror_mode_missing_count",
     "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_launch_schema_mirror_mode_mismatch_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_checked_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_ready_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_hash_checked_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_hash_missing_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_table_object_hash_checked_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_table_object_hash_missing_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_launch_schema_mirror_hash_checked_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_launch_schema_mirror_hash_missing_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_row_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_column_count_max",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_column_count_min",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_table_schema_hash",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_table_schema_hash_checked_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_table_schema_hash_missing_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_table_schema_hash_mismatch_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_semantic_schema_name",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_semantic_schema_name_checked_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_semantic_schema_name_missing_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_semantic_schema_name_mismatch_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_semantic_schema_hash",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_semantic_schema_hash_checked_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_semantic_schema_hash_missing_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_semantic_schema_hash_mismatch_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_semantic_field_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_required_source_hit_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_required_source_miss_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_optional_source_hit_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_optional_source_miss_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_handle_field_read_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_payload_bytes",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_payload_violation_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_passed_to_kernel_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_kernel_arg_violation_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_live_compatible_with_current_wna16_args_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_mode",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_mode_checked_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_mode_missing_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_mode_mismatch_count",
     "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_checked_count",
     "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_record_ready_count",
     "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_hash_checked_count",
@@ -4042,6 +4080,162 @@ class VllmRouterRecorder:
                 descriptor_prep_consumer_shim_kernel_arg_handoff_live_consumer_adapter_real_kernel_arg_handoff=(
                     bool(
                         descriptor_consumer_shim_result.kernel_arg_handoff_live_consumer_adapter_real_kernel_arg_handoff
+                    )
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_mode=(
+                    descriptor_consumer_shim_result.kernel_arg_semantic_handle_adapter_mode
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_ready=(
+                    descriptor_consumer_shim_result.kernel_arg_semantic_handle_adapter_ready
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_hash=(
+                    descriptor_consumer_shim_result.kernel_arg_semantic_handle_adapter_hash
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_table_object_hash=(
+                    descriptor_consumer_shim_result.kernel_arg_semantic_handle_adapter_table_object_hash
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_launch_schema_mirror_hash=(
+                    descriptor_consumer_shim_result.kernel_arg_semantic_handle_adapter_launch_schema_mirror_hash
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_row_count=(
+                    int(
+                        descriptor_consumer_shim_result.kernel_arg_semantic_handle_adapter_row_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.kernel_arg_semantic_handle_adapter_row_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_column_count=(
+                    int(
+                        descriptor_consumer_shim_result.kernel_arg_semantic_handle_adapter_column_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.kernel_arg_semantic_handle_adapter_column_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_table_schema_hash=(
+                    descriptor_consumer_shim_result.kernel_arg_semantic_handle_adapter_table_schema_hash
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_semantic_schema_name=(
+                    descriptor_consumer_shim_result.kernel_arg_semantic_handle_adapter_semantic_schema_name
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_semantic_schema_hash=(
+                    descriptor_consumer_shim_result.kernel_arg_semantic_handle_adapter_semantic_schema_hash
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_semantic_field_count=(
+                    int(
+                        descriptor_consumer_shim_result.kernel_arg_semantic_handle_adapter_semantic_field_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.kernel_arg_semantic_handle_adapter_semantic_field_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_required_source_hit_count=(
+                    int(
+                        descriptor_consumer_shim_result.kernel_arg_semantic_handle_adapter_required_source_hit_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.kernel_arg_semantic_handle_adapter_required_source_hit_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_required_source_miss_count=(
+                    int(
+                        descriptor_consumer_shim_result.kernel_arg_semantic_handle_adapter_required_source_miss_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.kernel_arg_semantic_handle_adapter_required_source_miss_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_optional_source_hit_count=(
+                    int(
+                        descriptor_consumer_shim_result.kernel_arg_semantic_handle_adapter_optional_source_hit_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.kernel_arg_semantic_handle_adapter_optional_source_hit_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_optional_source_miss_count=(
+                    int(
+                        descriptor_consumer_shim_result.kernel_arg_semantic_handle_adapter_optional_source_miss_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.kernel_arg_semantic_handle_adapter_optional_source_miss_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_handle_field_read_count=(
+                    int(
+                        descriptor_consumer_shim_result.kernel_arg_semantic_handle_adapter_handle_field_read_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.kernel_arg_semantic_handle_adapter_handle_field_read_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_payload_bytes=(
+                    int(
+                        descriptor_consumer_shim_result.kernel_arg_semantic_handle_adapter_payload_bytes
+                    )
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_passed_to_kernel=(
+                    bool(
+                        descriptor_consumer_shim_result.kernel_arg_semantic_handle_adapter_passed_to_kernel
+                    )
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_changes_kernel_launch_args=(
+                    bool(
+                        descriptor_consumer_shim_result.kernel_arg_semantic_handle_adapter_changes_kernel_launch_args
+                    )
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_live_compatible_with_current_wna16_args=(
+                    bool(
+                        descriptor_consumer_shim_result.kernel_arg_semantic_handle_adapter_live_compatible_with_current_wna16_args
                     )
                     if descriptor_consumer_shim_result is not None
                     else None

@@ -18,6 +18,9 @@ from mtp_expert_prefetch.runtime import (
     PREMAP_KERNEL_ARG_PRELAUNCH_LAUNCH_SCHEMA_FIELDS,
     PREMAP_KERNEL_ARG_PRELAUNCH_LAUNCH_SCHEMA_HASH,
     PREMAP_KERNEL_ARG_PRELAUNCH_LAUNCH_SCHEMA_NAME,
+    PREMAP_KERNEL_ARG_SEMANTIC_HANDLE_SCHEMA_FIELDS,
+    PREMAP_KERNEL_ARG_SEMANTIC_HANDLE_SCHEMA_HASH,
+    PREMAP_KERNEL_ARG_SEMANTIC_HANDLE_SCHEMA_NAME,
 )
 
 
@@ -42,6 +45,9 @@ KERNEL_ARG_HANDOFF_LAUNCH_SCHEMA_MIRROR_PREFIX = (
 )
 KERNEL_ARG_HANDOFF_LIVE_CONSUMER_ADAPTER_PREFIX = (
     "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_consumer_adapter_"
+)
+KERNEL_ARG_SEMANTIC_HANDLE_ADAPTER_PREFIX = (
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_"
 )
 
 
@@ -301,6 +307,7 @@ def check_summary(
     require_kernel_arg_handoff_live_noop_integration: bool = False,
     require_kernel_arg_handoff_launch_schema_mirror: bool = False,
     require_kernel_arg_handoff_live_consumer_adapter: bool = False,
+    require_kernel_arg_semantic_handle_adapter: bool = False,
     allow_enabled_blocked_live_toggle: bool = False,
     allow_connected_blocked_consumer_adapter: bool = False,
     allow_kernel_arg_handoff_live_kernel_arg_pass: bool = False,
@@ -638,6 +645,12 @@ def check_summary(
     kernel_arg_handoff_live_consumer_adapter_active = (
         live_consumer_adapter_checked_count > 0
     )
+    semantic_handle_adapter_checked_count = _as_int(
+        aggregate.get(f"{KERNEL_ARG_SEMANTIC_HANDLE_ADAPTER_PREFIX}checked_count")
+    )
+    kernel_arg_semantic_handle_adapter_active = (
+        semantic_handle_adapter_checked_count > 0
+    )
     if require_consumer_shim_table_consume and not consumer_shim_table_consume_active:
         failures.append("consumer_shim_table_consume_fields_missing")
     if require_consumer_shim_table_consume and not consumer_shim_table_read_active:
@@ -706,6 +719,20 @@ def check_summary(
         failures.append(
             "consumer_shim_kernel_arg_handoff_live_consumer_adapter_requires_launch_schema_mirror_fields"
         )
+    if (
+        require_kernel_arg_semantic_handle_adapter
+        and not kernel_arg_semantic_handle_adapter_active
+    ):
+        failures.append(
+            "consumer_shim_kernel_arg_semantic_handle_adapter_fields_missing"
+        )
+    if (
+        (require_kernel_arg_semantic_handle_adapter or kernel_arg_semantic_handle_adapter_active)
+        and not kernel_arg_handoff_launch_schema_mirror_active
+    ):
+        failures.append(
+            "consumer_shim_kernel_arg_semantic_handle_adapter_requires_launch_schema_mirror_fields"
+        )
     consumer_shim_table_object_checked_count = _as_int(
         aggregate.get(
             "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_consumed_checked_count"
@@ -752,6 +779,7 @@ def check_summary(
         or require_kernel_arg_handoff_live_noop_integration
         or require_kernel_arg_handoff_launch_schema_mirror
         or require_kernel_arg_handoff_live_consumer_adapter
+        or require_kernel_arg_semantic_handle_adapter
         or descriptor_prep_active
     ):
         attempted = _as_int(
@@ -1058,6 +1086,8 @@ def check_summary(
             require_consumer_shim_table_consume
             or require_kernel_arg_handoff_attempt
             or require_kernel_arg_handoff_launch_schema_mirror
+            or require_kernel_arg_semantic_handle_adapter
+            or kernel_arg_semantic_handle_adapter_active
             or consumer_shim_table_consume_active
         ):
             shim_executed = _as_int(
@@ -3138,6 +3168,346 @@ def check_summary(
                     failures.append(
                         "consumer_shim_kernel_arg_handoff_launch_schema_mirror_kernel_arg_violation_count_nonzero="
                         f"{launch_kernel_arg_violation_count}"
+                    )
+            if (
+                require_kernel_arg_semantic_handle_adapter
+                or kernel_arg_semantic_handle_adapter_active
+            ):
+                semantic_prefix = KERNEL_ARG_SEMANTIC_HANDLE_ADAPTER_PREFIX
+                semantic_checked_count = _as_int(
+                    aggregate.get(f"{semantic_prefix}checked_count")
+                )
+                semantic_ready_count = _as_int(
+                    aggregate.get(f"{semantic_prefix}ready_count")
+                )
+                semantic_hash_checked_count = _as_int(
+                    aggregate.get(f"{semantic_prefix}hash_checked_count")
+                )
+                semantic_hash_missing_count = _as_int(
+                    aggregate.get(f"{semantic_prefix}hash_missing_count")
+                )
+                semantic_table_hash_checked_count = _as_int(
+                    aggregate.get(f"{semantic_prefix}table_object_hash_checked_count")
+                )
+                semantic_table_hash_missing_count = _as_int(
+                    aggregate.get(f"{semantic_prefix}table_object_hash_missing_count")
+                )
+                semantic_launch_hash_checked_count = _as_int(
+                    aggregate.get(
+                        f"{semantic_prefix}launch_schema_mirror_hash_checked_count"
+                    )
+                )
+                semantic_launch_hash_missing_count = _as_int(
+                    aggregate.get(
+                        f"{semantic_prefix}launch_schema_mirror_hash_missing_count"
+                    )
+                )
+                semantic_mode = str(aggregate.get(f"{semantic_prefix}mode") or "")
+                semantic_mode_checked_count = _as_int(
+                    aggregate.get(f"{semantic_prefix}mode_checked_count")
+                )
+                semantic_mode_missing_count = _as_int(
+                    aggregate.get(f"{semantic_prefix}mode_missing_count")
+                )
+                semantic_mode_mismatch_count = _as_int(
+                    aggregate.get(f"{semantic_prefix}mode_mismatch_count")
+                )
+                semantic_row_count = _as_int(
+                    aggregate.get(f"{semantic_prefix}row_count")
+                )
+                semantic_column_count_max = _as_int(
+                    aggregate.get(f"{semantic_prefix}column_count_max")
+                )
+                semantic_column_count_min = _as_int(
+                    aggregate.get(f"{semantic_prefix}column_count_min")
+                )
+                semantic_table_schema_hash = str(
+                    aggregate.get(f"{semantic_prefix}table_schema_hash") or ""
+                )
+                semantic_table_schema_hash_checked_count = _as_int(
+                    aggregate.get(f"{semantic_prefix}table_schema_hash_checked_count")
+                )
+                semantic_table_schema_hash_missing_count = _as_int(
+                    aggregate.get(f"{semantic_prefix}table_schema_hash_missing_count")
+                )
+                semantic_table_schema_hash_mismatch_count = _as_int(
+                    aggregate.get(f"{semantic_prefix}table_schema_hash_mismatch_count")
+                )
+                semantic_schema_name = str(
+                    aggregate.get(f"{semantic_prefix}semantic_schema_name") or ""
+                )
+                semantic_schema_name_checked_count = _as_int(
+                    aggregate.get(
+                        f"{semantic_prefix}semantic_schema_name_checked_count"
+                    )
+                )
+                semantic_schema_name_missing_count = _as_int(
+                    aggregate.get(
+                        f"{semantic_prefix}semantic_schema_name_missing_count"
+                    )
+                )
+                semantic_schema_name_mismatch_count = _as_int(
+                    aggregate.get(
+                        f"{semantic_prefix}semantic_schema_name_mismatch_count"
+                    )
+                )
+                semantic_schema_hash = str(
+                    aggregate.get(f"{semantic_prefix}semantic_schema_hash") or ""
+                )
+                semantic_schema_hash_checked_count = _as_int(
+                    aggregate.get(
+                        f"{semantic_prefix}semantic_schema_hash_checked_count"
+                    )
+                )
+                semantic_schema_hash_missing_count = _as_int(
+                    aggregate.get(
+                        f"{semantic_prefix}semantic_schema_hash_missing_count"
+                    )
+                )
+                semantic_schema_hash_mismatch_count = _as_int(
+                    aggregate.get(
+                        f"{semantic_prefix}semantic_schema_hash_mismatch_count"
+                    )
+                )
+                semantic_field_count = _as_int(
+                    aggregate.get(f"{semantic_prefix}semantic_field_count")
+                )
+                semantic_required_source_hit_count = _as_int(
+                    aggregate.get(f"{semantic_prefix}required_source_hit_count")
+                )
+                semantic_required_source_miss_count = _as_int(
+                    aggregate.get(f"{semantic_prefix}required_source_miss_count")
+                )
+                semantic_optional_source_hit_count = _as_int(
+                    aggregate.get(f"{semantic_prefix}optional_source_hit_count")
+                )
+                semantic_optional_source_miss_count = _as_int(
+                    aggregate.get(f"{semantic_prefix}optional_source_miss_count")
+                )
+                semantic_handle_field_read_count = _as_int(
+                    aggregate.get(f"{semantic_prefix}handle_field_read_count")
+                )
+                semantic_payload_bytes = _as_int(
+                    aggregate.get(f"{semantic_prefix}payload_bytes")
+                )
+                semantic_payload_violation_count = _as_int(
+                    aggregate.get(f"{semantic_prefix}payload_violation_count")
+                )
+                semantic_passed_to_kernel_count = _as_int(
+                    aggregate.get(f"{semantic_prefix}passed_to_kernel_count")
+                )
+                semantic_kernel_arg_violation_count = _as_int(
+                    aggregate.get(f"{semantic_prefix}kernel_arg_violation_count")
+                )
+                semantic_current_wna16_compatible_count = _as_int(
+                    aggregate.get(
+                        f"{semantic_prefix}live_compatible_with_current_wna16_args_count"
+                    )
+                )
+                if semantic_checked_count != shim_executed:
+                    failures.append(
+                        "consumer_shim_kernel_arg_semantic_handle_adapter_checked_count_mismatch="
+                        f"{semantic_checked_count}!={shim_executed}"
+                    )
+                if semantic_ready_count != shim_executed:
+                    failures.append(
+                        "consumer_shim_kernel_arg_semantic_handle_adapter_ready_count_mismatch="
+                        f"{semantic_ready_count}!={shim_executed}"
+                    )
+                for name, value in (
+                    ("hash_checked_count", semantic_hash_checked_count),
+                    (
+                        "table_object_hash_checked_count",
+                        semantic_table_hash_checked_count,
+                    ),
+                    (
+                        "launch_schema_mirror_hash_checked_count",
+                        semantic_launch_hash_checked_count,
+                    ),
+                ):
+                    if value != shim_executed:
+                        failures.append(
+                            "consumer_shim_kernel_arg_semantic_handle_adapter_"
+                            f"{name}_mismatch={value}!={shim_executed}"
+                        )
+                for name, value in (
+                    ("hash_missing_count", semantic_hash_missing_count),
+                    (
+                        "table_object_hash_missing_count",
+                        semantic_table_hash_missing_count,
+                    ),
+                    (
+                        "launch_schema_mirror_hash_missing_count",
+                        semantic_launch_hash_missing_count,
+                    ),
+                ):
+                    if value != 0:
+                        failures.append(
+                            "consumer_shim_kernel_arg_semantic_handle_adapter_"
+                            f"{name}_nonzero={value}"
+                        )
+                if semantic_mode != "readonly_kernel_arg_semantic_handle_adapter":
+                    failures.append(
+                        "consumer_shim_kernel_arg_semantic_handle_adapter_mode_mismatch"
+                    )
+                if semantic_mode_checked_count != shim_executed:
+                    failures.append(
+                        "consumer_shim_kernel_arg_semantic_handle_adapter_mode_checked_count_mismatch="
+                        f"{semantic_mode_checked_count}!={shim_executed}"
+                    )
+                if semantic_mode_missing_count != 0:
+                    failures.append(
+                        "consumer_shim_kernel_arg_semantic_handle_adapter_mode_missing_count_nonzero="
+                        f"{semantic_mode_missing_count}"
+                    )
+                if semantic_mode_mismatch_count != 0:
+                    failures.append(
+                        "consumer_shim_kernel_arg_semantic_handle_adapter_mode_mismatch_count_nonzero="
+                        f"{semantic_mode_mismatch_count}"
+                    )
+                if semantic_row_count != consume_row_count:
+                    failures.append(
+                        "consumer_shim_kernel_arg_semantic_handle_adapter_row_count_mismatch="
+                        f"{semantic_row_count}!={consume_row_count}"
+                    )
+                if semantic_column_count_max != EXPECTED_KERNEL_ARG_SHADOW_TABLE_COLUMN_COUNT:
+                    failures.append(
+                        "consumer_shim_kernel_arg_semantic_handle_adapter_column_count_max_mismatch="
+                        f"{semantic_column_count_max}!={EXPECTED_KERNEL_ARG_SHADOW_TABLE_COLUMN_COUNT}"
+                    )
+                if semantic_column_count_min != EXPECTED_KERNEL_ARG_SHADOW_TABLE_COLUMN_COUNT:
+                    failures.append(
+                        "consumer_shim_kernel_arg_semantic_handle_adapter_column_count_min_mismatch="
+                        f"{semantic_column_count_min}!={EXPECTED_KERNEL_ARG_SHADOW_TABLE_COLUMN_COUNT}"
+                    )
+                if (
+                    semantic_table_schema_hash
+                    != PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH
+                ):
+                    failures.append(
+                        "consumer_shim_kernel_arg_semantic_handle_adapter_table_schema_hash_mismatch"
+                    )
+                if semantic_table_schema_hash_checked_count != shim_executed:
+                    failures.append(
+                        "consumer_shim_kernel_arg_semantic_handle_adapter_table_schema_hash_checked_count_mismatch="
+                        f"{semantic_table_schema_hash_checked_count}!={shim_executed}"
+                    )
+                if semantic_table_schema_hash_missing_count != 0:
+                    failures.append(
+                        "consumer_shim_kernel_arg_semantic_handle_adapter_table_schema_hash_missing_count_nonzero="
+                        f"{semantic_table_schema_hash_missing_count}"
+                    )
+                if semantic_table_schema_hash_mismatch_count != 0:
+                    failures.append(
+                        "consumer_shim_kernel_arg_semantic_handle_adapter_table_schema_hash_mismatch_count_nonzero="
+                        f"{semantic_table_schema_hash_mismatch_count}"
+                    )
+                if (
+                    semantic_schema_name
+                    != PREMAP_KERNEL_ARG_SEMANTIC_HANDLE_SCHEMA_NAME
+                ):
+                    failures.append(
+                        "consumer_shim_kernel_arg_semantic_handle_adapter_semantic_schema_name_mismatch"
+                    )
+                if semantic_schema_name_checked_count != shim_executed:
+                    failures.append(
+                        "consumer_shim_kernel_arg_semantic_handle_adapter_semantic_schema_name_checked_count_mismatch="
+                        f"{semantic_schema_name_checked_count}!={shim_executed}"
+                    )
+                if semantic_schema_name_missing_count != 0:
+                    failures.append(
+                        "consumer_shim_kernel_arg_semantic_handle_adapter_semantic_schema_name_missing_count_nonzero="
+                        f"{semantic_schema_name_missing_count}"
+                    )
+                if semantic_schema_name_mismatch_count != 0:
+                    failures.append(
+                        "consumer_shim_kernel_arg_semantic_handle_adapter_semantic_schema_name_mismatch_count_nonzero="
+                        f"{semantic_schema_name_mismatch_count}"
+                    )
+                if (
+                    semantic_schema_hash
+                    != PREMAP_KERNEL_ARG_SEMANTIC_HANDLE_SCHEMA_HASH
+                ):
+                    failures.append(
+                        "consumer_shim_kernel_arg_semantic_handle_adapter_semantic_schema_hash_mismatch"
+                    )
+                if semantic_schema_hash_checked_count != shim_executed:
+                    failures.append(
+                        "consumer_shim_kernel_arg_semantic_handle_adapter_semantic_schema_hash_checked_count_mismatch="
+                        f"{semantic_schema_hash_checked_count}!={shim_executed}"
+                    )
+                if semantic_schema_hash_missing_count != 0:
+                    failures.append(
+                        "consumer_shim_kernel_arg_semantic_handle_adapter_semantic_schema_hash_missing_count_nonzero="
+                        f"{semantic_schema_hash_missing_count}"
+                    )
+                if semantic_schema_hash_mismatch_count != 0:
+                    failures.append(
+                        "consumer_shim_kernel_arg_semantic_handle_adapter_semantic_schema_hash_mismatch_count_nonzero="
+                        f"{semantic_schema_hash_mismatch_count}"
+                    )
+                expected_semantic_field_count = (
+                    shim_executed
+                    * len(PREMAP_KERNEL_ARG_SEMANTIC_HANDLE_SCHEMA_FIELDS)
+                )
+                if semantic_field_count != expected_semantic_field_count:
+                    failures.append(
+                        "consumer_shim_kernel_arg_semantic_handle_adapter_semantic_field_count_mismatch="
+                        f"{semantic_field_count}!={expected_semantic_field_count}"
+                    )
+                if semantic_required_source_hit_count != expected_consume_required_fields:
+                    failures.append(
+                        "consumer_shim_kernel_arg_semantic_handle_adapter_required_source_hit_count_mismatch="
+                        f"{semantic_required_source_hit_count}!={expected_consume_required_fields}"
+                    )
+                if semantic_required_source_miss_count != 0:
+                    failures.append(
+                        "consumer_shim_kernel_arg_semantic_handle_adapter_required_source_miss_count_nonzero="
+                        f"{semantic_required_source_miss_count}"
+                    )
+                if (
+                    semantic_optional_source_hit_count
+                    + semantic_optional_source_miss_count
+                    != consume_row_count
+                ):
+                    failures.append(
+                        "consumer_shim_kernel_arg_semantic_handle_adapter_optional_source_total_mismatch="
+                        f"{semantic_optional_source_hit_count}+"
+                        f"{semantic_optional_source_miss_count}!={consume_row_count}"
+                    )
+                if (
+                    semantic_handle_field_read_count
+                    != consume_row_count * EXPECTED_KERNEL_ARG_SHADOW_TABLE_COLUMN_COUNT
+                ):
+                    failures.append(
+                        "consumer_shim_kernel_arg_semantic_handle_adapter_handle_field_read_count_mismatch="
+                        f"{semantic_handle_field_read_count}!="
+                        f"{consume_row_count * EXPECTED_KERNEL_ARG_SHADOW_TABLE_COLUMN_COUNT}"
+                    )
+                if semantic_payload_bytes != 0:
+                    failures.append(
+                        "consumer_shim_kernel_arg_semantic_handle_adapter_payload_bytes_nonzero="
+                        f"{semantic_payload_bytes}"
+                    )
+                if semantic_payload_violation_count != 0:
+                    failures.append(
+                        "consumer_shim_kernel_arg_semantic_handle_adapter_payload_violation_count_nonzero="
+                        f"{semantic_payload_violation_count}"
+                    )
+                if semantic_passed_to_kernel_count != 0:
+                    failures.append(
+                        "consumer_shim_kernel_arg_semantic_handle_adapter_passed_to_kernel_count_nonzero="
+                        f"{semantic_passed_to_kernel_count}"
+                    )
+                if semantic_kernel_arg_violation_count != 0:
+                    failures.append(
+                        "consumer_shim_kernel_arg_semantic_handle_adapter_kernel_arg_violation_count_nonzero="
+                        f"{semantic_kernel_arg_violation_count}"
+                    )
+                if semantic_current_wna16_compatible_count != 0:
+                    failures.append(
+                        "consumer_shim_kernel_arg_semantic_handle_adapter_current_wna16_compatible_count_nonzero="
+                        f"{semantic_current_wna16_compatible_count}"
                     )
             if attempt_checked_count != shim_executed:
                 failures.append(
@@ -6339,6 +6709,103 @@ def check_summary(
                 "premap_consumer_descriptor_prep_consumer_shim_prep_execution_dry_run_payload_bytes"
             )
         ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_checked_count": _as_int(
+            aggregate.get(f"{KERNEL_ARG_SEMANTIC_HANDLE_ADAPTER_PREFIX}checked_count")
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_ready_count": _as_int(
+            aggregate.get(f"{KERNEL_ARG_SEMANTIC_HANDLE_ADAPTER_PREFIX}ready_count")
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_hash_checked_count": _as_int(
+            aggregate.get(f"{KERNEL_ARG_SEMANTIC_HANDLE_ADAPTER_PREFIX}hash_checked_count")
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_table_object_hash_checked_count": _as_int(
+            aggregate.get(
+                f"{KERNEL_ARG_SEMANTIC_HANDLE_ADAPTER_PREFIX}table_object_hash_checked_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_launch_schema_mirror_hash_checked_count": _as_int(
+            aggregate.get(
+                f"{KERNEL_ARG_SEMANTIC_HANDLE_ADAPTER_PREFIX}launch_schema_mirror_hash_checked_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_mode": str(
+            aggregate.get(f"{KERNEL_ARG_SEMANTIC_HANDLE_ADAPTER_PREFIX}mode")
+            or ""
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_row_count": _as_int(
+            aggregate.get(f"{KERNEL_ARG_SEMANTIC_HANDLE_ADAPTER_PREFIX}row_count")
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_column_count_max": _as_int(
+            aggregate.get(
+                f"{KERNEL_ARG_SEMANTIC_HANDLE_ADAPTER_PREFIX}column_count_max"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_table_schema_hash": str(
+            aggregate.get(
+                f"{KERNEL_ARG_SEMANTIC_HANDLE_ADAPTER_PREFIX}table_schema_hash"
+            )
+            or ""
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_semantic_schema_name": str(
+            aggregate.get(
+                f"{KERNEL_ARG_SEMANTIC_HANDLE_ADAPTER_PREFIX}semantic_schema_name"
+            )
+            or ""
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_semantic_schema_hash": str(
+            aggregate.get(
+                f"{KERNEL_ARG_SEMANTIC_HANDLE_ADAPTER_PREFIX}semantic_schema_hash"
+            )
+            or ""
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_semantic_field_count": _as_int(
+            aggregate.get(
+                f"{KERNEL_ARG_SEMANTIC_HANDLE_ADAPTER_PREFIX}semantic_field_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_required_source_hit_count": _as_int(
+            aggregate.get(
+                f"{KERNEL_ARG_SEMANTIC_HANDLE_ADAPTER_PREFIX}required_source_hit_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_required_source_miss_count": _as_int(
+            aggregate.get(
+                f"{KERNEL_ARG_SEMANTIC_HANDLE_ADAPTER_PREFIX}required_source_miss_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_optional_source_hit_count": _as_int(
+            aggregate.get(
+                f"{KERNEL_ARG_SEMANTIC_HANDLE_ADAPTER_PREFIX}optional_source_hit_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_optional_source_miss_count": _as_int(
+            aggregate.get(
+                f"{KERNEL_ARG_SEMANTIC_HANDLE_ADAPTER_PREFIX}optional_source_miss_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_handle_field_read_count": _as_int(
+            aggregate.get(
+                f"{KERNEL_ARG_SEMANTIC_HANDLE_ADAPTER_PREFIX}handle_field_read_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_payload_bytes": _as_int(
+            aggregate.get(f"{KERNEL_ARG_SEMANTIC_HANDLE_ADAPTER_PREFIX}payload_bytes")
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_passed_to_kernel_count": _as_int(
+            aggregate.get(
+                f"{KERNEL_ARG_SEMANTIC_HANDLE_ADAPTER_PREFIX}passed_to_kernel_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_kernel_arg_violation_count": _as_int(
+            aggregate.get(
+                f"{KERNEL_ARG_SEMANTIC_HANDLE_ADAPTER_PREFIX}kernel_arg_violation_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_live_compatible_with_current_wna16_args_count": _as_int(
+            aggregate.get(
+                f"{KERNEL_ARG_SEMANTIC_HANDLE_ADAPTER_PREFIX}live_compatible_with_current_wna16_args_count"
+            )
+        ),
     }
     return {
         "passed": not failures,
@@ -6370,6 +6837,9 @@ def check_summary(
         ),
         "require_kernel_arg_handoff_live_consumer_adapter": bool(
             require_kernel_arg_handoff_live_consumer_adapter
+        ),
+        "require_kernel_arg_semantic_handle_adapter": bool(
+            require_kernel_arg_semantic_handle_adapter
         ),
         "allow_enabled_blocked_live_toggle": bool(
             allow_enabled_blocked_live_toggle
@@ -6510,6 +6980,16 @@ def main() -> None:
         ),
     )
     parser.add_argument(
+        "--require-kernel-arg-semantic-handle-adapter",
+        action="store_true",
+        help=(
+            "Require the typed semantic handle adapter dry-run. This validates "
+            "the future kernel-side handle schema as a dedicated semantic "
+            "object instead of treating handle tuples as current tensor kernel "
+            "arguments. It must remain zero-payload and not be passed to a kernel."
+        ),
+    )
+    parser.add_argument(
         "--allow-enabled-blocked-live-toggle",
         action="store_true",
         help=(
@@ -6597,6 +7077,9 @@ def main() -> None:
         ),
         require_kernel_arg_handoff_live_consumer_adapter=(
             args.require_kernel_arg_handoff_live_consumer_adapter
+        ),
+        require_kernel_arg_semantic_handle_adapter=(
+            args.require_kernel_arg_semantic_handle_adapter
         ),
         allow_enabled_blocked_live_toggle=(
             args.allow_enabled_blocked_live_toggle

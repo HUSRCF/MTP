@@ -2,12 +2,12 @@
 
 ## Progress Version
 
-- Version: `v0.18-premap-kernel-arg-pass-live-skeleton`
+- Version: `v0.19-premap-semantic-handle-adapter-dry-run`
 - Updated: 2026-05-26
-- Current phase: premap descriptor/address prep now has a default-disabled
-  experimental kernel-arg pass live path at the prelaunch consumer-adapter
-  layer.  The default lab gate remains no-op/blocked; live pass requires an
-  explicit gate check and still moves zero payload bytes.
+- Current phase: premap descriptor/address prep now has a typed semantic
+  handle adapter dry-run gate.  The adapter defines the future kernel-side
+  handle schema without pretending that the prepared handle tuple is a current
+  WNA16 tensor kernel argument.
 
 ## Runtime Policy Contract
 
@@ -29,7 +29,53 @@ Safety boundaries:
 - `metadata` and `premap` are setup-preparation actions only.
 - MTP extras must be novel additions and cannot replace `transition_top32`.
 
-## Latest Update: Experimental Kernel-Arg Pass Live Path
+## Latest Update: Typed Semantic Handle Adapter Dry-Run Gate
+
+The premap kernel-arg handoff path now includes a typed semantic handle adapter:
+
+```text
+prepared descriptor/address table
+-> kernel-arg shadow table
+-> kernel-arg mirror
+-> prelaunch launch-schema mirror
+-> typed semantic handle adapter
+```
+
+This adapter is explicitly a future kernel-side schema contract, not a live
+WNA16 tensor-argument replacement.  The checker requires:
+
+```text
+mode = readonly_kernel_arg_semantic_handle_adapter
+semantic schema name/hash/field count match
+table object hash and launch-schema mirror hash present
+required source hits = row_count * 3
+optional source hits + misses = row_count
+handle field reads = row_count * 4
+payload_bytes = 0
+passed_to_kernel = 0
+changes_kernel_launch_args = 0
+live_compatible_with_current_wna16_args = 0
+```
+
+The gate is also dependency-strict: if semantic adapter fields appear, the
+prelaunch launch-schema mirror must also be present.  This prevents a semantic
+handle table from being interpreted outside the launch-boundary schema it is
+meant to describe.
+
+Validation:
+
+```text
+python -m py_compile ...  # cache_manager, shadow_log, vllm_router_trace,
+                          # checker, and focused tests
+pytest tests/test_check_premap_longrun_audit_gate.py \
+       tests/test_runtime_shadow_log.py -q
+95 passed
+
+pytest tests -q
+592 passed, 2 warnings
+```
+
+## Previous Update: Experimental Kernel-Arg Pass Live Path
 
 The premap kernel-arg handoff path now has a minimal live-pass envelope at the
 prelaunch consumer-adapter layer:
