@@ -9,6 +9,9 @@ from mtp_expert_prefetch.runtime.cache_manager import (
     PREMAP_KERNEL_ARG_SEMANTIC_HANDLE_SCHEMA_FIELDS,
     PREMAP_KERNEL_ARG_SEMANTIC_HANDLE_SCHEMA_HASH,
     PREMAP_KERNEL_ARG_SEMANTIC_HANDLE_SCHEMA_NAME,
+    PREMAP_KERNEL_SIDE_CONSUMER_SCHEMA_FIELDS,
+    PREMAP_KERNEL_SIDE_CONSUMER_SCHEMA_HASH,
+    PREMAP_KERNEL_SIDE_CONSUMER_SCHEMA_NAME,
 )
 from mtp_expert_prefetch.tracing.vllm_router_trace import (
     _apply_premap_address_capacity_gate,
@@ -392,6 +395,38 @@ def _kernel_arg_semantic_handle_adapter_contract_lines() -> list[str]:
 
 def _kernel_arg_semantic_handle_adapter_check_lines() -> list[str]:
     return ["    require_kernel_arg_semantic_handle_adapter: true"]
+
+
+def _kernel_side_consumer_schema_adapter_contract_lines() -> list[str]:
+    return [
+        "  kernel_side_consumer_schema_adapter_required: true",
+        "  kernel_side_consumer_schema_adapter_mode: "
+        "readonly_kernel_side_consumer_schema_adapter",
+        "  kernel_side_consumer_schema_adapter_table_schema_hash: "
+        f"{PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH}",
+        "  kernel_side_consumer_schema_adapter_semantic_schema_hash: "
+        f"{PREMAP_KERNEL_ARG_SEMANTIC_HANDLE_SCHEMA_HASH}",
+        "  kernel_side_consumer_schema_adapter_kernel_side_schema_name: "
+        f"{PREMAP_KERNEL_SIDE_CONSUMER_SCHEMA_NAME}",
+        "  kernel_side_consumer_schema_adapter_kernel_side_schema_hash: "
+        f"{PREMAP_KERNEL_SIDE_CONSUMER_SCHEMA_HASH}",
+        "  kernel_side_consumer_schema_adapter_kernel_side_field_count_required: "
+        f"{len(PREMAP_KERNEL_SIDE_CONSUMER_SCHEMA_FIELDS)}",
+        "  kernel_side_consumer_schema_adapter_column_count_required: "
+        f"{len(PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_COLUMNS)}",
+        "  kernel_side_consumer_schema_adapter_payload_bytes_required: 0",
+        "  kernel_side_consumer_schema_adapter_passed_to_kernel_required: false",
+        "  kernel_side_consumer_schema_adapter_changes_kernel_launch_args_required: false",
+        "  kernel_side_consumer_schema_adapter_live_compatible_with_current_wna16_args_required: false",
+        "  kernel_side_consumer_schema_adapter_consumer_connected_required: false",
+        "  kernel_side_consumer_schema_adapter_live_enabled_required: false",
+        "  kernel_side_consumer_schema_adapter_block_reason: "
+        "kernel_side_consumer_live_disabled",
+    ]
+
+
+def _kernel_side_consumer_schema_adapter_check_lines() -> list[str]:
+    return ["    require_kernel_side_consumer_schema_adapter: true"]
 
 
 def test_apply_premap_address_capacity_gate_sets_capacity(tmp_path):
@@ -1013,6 +1048,153 @@ def test_apply_premap_consumer_readonly_gate_requires_semantic_adapter_check(
         ValueError,
         match="require_kernel_arg_semantic_handle_adapter=true",
     ):
+        _apply_premap_consumer_readonly_gate(
+            {
+                "enabled": True,
+                "emit_premap_consumer_mapping": True,
+                "premap_consumer_require_readonly_gate": True,
+                "premap_consumer_readonly_gate_path": str(gate),
+                "premap_consumer_mapping_mode": "noop_assertion",
+                "premap_consumer_resolve_real_handles": True,
+                "premap_policy": "premap_only_with_consumer_mapping_noop",
+                "premap_descriptor_bytes": 4096,
+                "premap_descriptor_prep_execution_mode": (
+                    "readonly_descriptor_address_object"
+                ),
+                "premap_kernel_arg_handoff_live_enabled": False,
+            },
+            project_root=tmp_path,
+        )
+
+
+def test_apply_premap_consumer_readonly_gate_accepts_kernel_side_consumer_schema_adapter_contract(
+    tmp_path,
+):
+    gate = tmp_path / "readonly_gate.yaml"
+    _write_readonly_gate(
+        gate,
+        lab_precondition=True,
+        descriptor_prep_execution_mode="readonly_descriptor_address_object",
+        descriptor_prep_payload_bytes=0,
+        descriptor_prep_kernel_arg_mutation=False,
+        kernel_arg_handoff_live_toggle_required=True,
+        kernel_arg_handoff_live_toggle_enabled_required=False,
+        require_kernel_arg_handoff_live_toggle=True,
+        extra_contract_lines=(
+            _kernel_arg_handoff_adapter_contract_lines(live_enabled=False)
+            + _kernel_arg_semantic_handle_adapter_contract_lines()
+            + _kernel_side_consumer_schema_adapter_contract_lines()
+        ),
+        extra_check_lines=(
+            _kernel_arg_handoff_adapter_check_lines()
+            + _kernel_arg_semantic_handle_adapter_check_lines()
+            + _kernel_side_consumer_schema_adapter_check_lines()
+        ),
+    )
+
+    options = _apply_premap_consumer_readonly_gate(
+        {
+            "enabled": True,
+            "emit_premap_consumer_mapping": True,
+            "premap_consumer_require_readonly_gate": True,
+            "premap_consumer_readonly_gate_path": str(gate),
+            "premap_consumer_mapping_mode": "noop_assertion",
+            "premap_consumer_resolve_real_handles": True,
+            "premap_policy": "premap_only_with_consumer_mapping_noop",
+            "premap_descriptor_bytes": 4096,
+            "premap_descriptor_prep_execution_mode": (
+                "readonly_descriptor_address_object"
+            ),
+            "premap_kernel_arg_handoff_live_enabled": False,
+        },
+        project_root=tmp_path,
+    )
+
+    assert options["premap_consumer_readonly_gate_passed"] is True
+
+
+def test_apply_premap_consumer_readonly_gate_requires_semantic_for_kernel_side_schema(
+    tmp_path,
+):
+    gate = tmp_path / "readonly_gate.yaml"
+    _write_readonly_gate(
+        gate,
+        lab_precondition=True,
+        descriptor_prep_execution_mode="readonly_descriptor_address_object",
+        descriptor_prep_payload_bytes=0,
+        descriptor_prep_kernel_arg_mutation=False,
+        kernel_arg_handoff_live_toggle_required=True,
+        kernel_arg_handoff_live_toggle_enabled_required=False,
+        require_kernel_arg_handoff_live_toggle=True,
+        extra_contract_lines=(
+            _kernel_arg_handoff_adapter_contract_lines(live_enabled=False)
+            + _kernel_side_consumer_schema_adapter_contract_lines()
+        ),
+        extra_check_lines=(
+            _kernel_arg_handoff_adapter_check_lines()
+            + _kernel_side_consumer_schema_adapter_check_lines()
+        ),
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="kernel_arg_semantic_handle_adapter_required=true",
+    ):
+        _apply_premap_consumer_readonly_gate(
+            {
+                "enabled": True,
+                "emit_premap_consumer_mapping": True,
+                "premap_consumer_require_readonly_gate": True,
+                "premap_consumer_readonly_gate_path": str(gate),
+                "premap_consumer_mapping_mode": "noop_assertion",
+                "premap_consumer_resolve_real_handles": True,
+                "premap_policy": "premap_only_with_consumer_mapping_noop",
+                "premap_descriptor_bytes": 4096,
+                "premap_descriptor_prep_execution_mode": (
+                    "readonly_descriptor_address_object"
+                ),
+                "premap_kernel_arg_handoff_live_enabled": False,
+            },
+            project_root=tmp_path,
+        )
+
+
+def test_apply_premap_consumer_readonly_gate_rejects_kernel_side_schema_live_enabled(
+    tmp_path,
+):
+    gate = tmp_path / "readonly_gate.yaml"
+    bad_kernel_side_lines = [
+        (
+            "  kernel_side_consumer_schema_adapter_live_enabled_required: true"
+            if line.startswith(
+                "  kernel_side_consumer_schema_adapter_live_enabled_required:"
+            )
+            else line
+        )
+        for line in _kernel_side_consumer_schema_adapter_contract_lines()
+    ]
+    _write_readonly_gate(
+        gate,
+        lab_precondition=True,
+        descriptor_prep_execution_mode="readonly_descriptor_address_object",
+        descriptor_prep_payload_bytes=0,
+        descriptor_prep_kernel_arg_mutation=False,
+        kernel_arg_handoff_live_toggle_required=True,
+        kernel_arg_handoff_live_toggle_enabled_required=False,
+        require_kernel_arg_handoff_live_toggle=True,
+        extra_contract_lines=(
+            _kernel_arg_handoff_adapter_contract_lines(live_enabled=False)
+            + _kernel_arg_semantic_handle_adapter_contract_lines()
+            + bad_kernel_side_lines
+        ),
+        extra_check_lines=(
+            _kernel_arg_handoff_adapter_check_lines()
+            + _kernel_arg_semantic_handle_adapter_check_lines()
+            + _kernel_side_consumer_schema_adapter_check_lines()
+        ),
+    )
+
+    with pytest.raises(ValueError, match="live_enabled_required"):
         _apply_premap_consumer_readonly_gate(
             {
                 "enabled": True,

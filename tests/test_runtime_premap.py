@@ -13,6 +13,10 @@ from mtp_expert_prefetch.runtime import (
     PREMAP_KERNEL_ARG_PRELAUNCH_LAUNCH_SCHEMA_FIELDS,
     PREMAP_KERNEL_ARG_PRELAUNCH_LAUNCH_SCHEMA_HASH,
     PREMAP_KERNEL_ARG_PRELAUNCH_LAUNCH_SCHEMA_NAME,
+    PREMAP_KERNEL_ARG_SEMANTIC_HANDLE_SCHEMA_HASH,
+    PREMAP_KERNEL_SIDE_CONSUMER_SCHEMA_FIELDS,
+    PREMAP_KERNEL_SIDE_CONSUMER_SCHEMA_HASH,
+    PREMAP_KERNEL_SIDE_CONSUMER_SCHEMA_NAME,
     PremapRealDescriptorHandle,
     PremapKernelArgHandoffMirrorObject,
     build_premap_descriptors,
@@ -590,6 +594,85 @@ def test_controlled_premap_address_manager_executes_descriptor_prep_readonly():
     )
     assert (
         shim_result.kernel_arg_handoff_launch_schema_mirror_changes_kernel_launch_args
+        is False
+    )
+    assert (
+        shim_result.kernel_arg_semantic_handle_adapter_mode
+        == "readonly_kernel_arg_semantic_handle_adapter"
+    )
+    assert shim_result.kernel_arg_semantic_handle_adapter_ready is True
+    assert shim_result.kernel_arg_semantic_handle_adapter_hash
+    assert (
+        shim_result.kernel_arg_semantic_handle_adapter_launch_schema_mirror_hash
+        == shim_result.kernel_arg_handoff_launch_schema_mirror_hash
+    )
+    assert shim_result.kernel_arg_semantic_handle_adapter_row_count == 2
+    assert shim_result.kernel_arg_semantic_handle_adapter_column_count == 4
+    assert (
+        shim_result.kernel_arg_semantic_handle_adapter_semantic_schema_hash
+        == PREMAP_KERNEL_ARG_SEMANTIC_HANDLE_SCHEMA_HASH
+    )
+    assert shim_result.kernel_arg_semantic_handle_adapter_required_source_hit_count == 6
+    assert shim_result.kernel_arg_semantic_handle_adapter_required_source_miss_count == 0
+    assert shim_result.kernel_arg_semantic_handle_adapter_handle_field_read_count == 8
+    assert shim_result.kernel_arg_semantic_handle_adapter_payload_bytes == 0
+    assert shim_result.kernel_arg_semantic_handle_adapter_passed_to_kernel is False
+    assert (
+        shim_result.kernel_arg_semantic_handle_adapter_changes_kernel_launch_args
+        is False
+    )
+    assert (
+        shim_result.kernel_arg_semantic_handle_adapter_live_compatible_with_current_wna16_args
+        is False
+    )
+    assert (
+        shim_result.kernel_side_consumer_schema_adapter_mode
+        == "readonly_kernel_side_consumer_schema_adapter"
+    )
+    assert shim_result.kernel_side_consumer_schema_adapter_ready is True
+    assert shim_result.kernel_side_consumer_schema_adapter_hash
+    assert (
+        shim_result.kernel_side_consumer_schema_adapter_semantic_adapter_hash
+        == shim_result.kernel_arg_semantic_handle_adapter_hash
+    )
+    assert (
+        shim_result.kernel_side_consumer_schema_adapter_launch_schema_mirror_hash
+        == shim_result.kernel_arg_handoff_launch_schema_mirror_hash
+    )
+    assert shim_result.kernel_side_consumer_schema_adapter_row_count == 2
+    assert shim_result.kernel_side_consumer_schema_adapter_column_count == 4
+    assert (
+        shim_result.kernel_side_consumer_schema_adapter_kernel_side_schema_name
+        == PREMAP_KERNEL_SIDE_CONSUMER_SCHEMA_NAME
+    )
+    assert (
+        shim_result.kernel_side_consumer_schema_adapter_kernel_side_schema_hash
+        == PREMAP_KERNEL_SIDE_CONSUMER_SCHEMA_HASH
+    )
+    assert (
+        shim_result.kernel_side_consumer_schema_adapter_kernel_side_field_count
+        == len(PREMAP_KERNEL_SIDE_CONSUMER_SCHEMA_FIELDS)
+    )
+    assert shim_result.kernel_side_consumer_schema_adapter_required_source_hit_count == 6
+    assert shim_result.kernel_side_consumer_schema_adapter_required_source_miss_count == 0
+    assert shim_result.kernel_side_consumer_schema_adapter_handle_field_read_count == 8
+    assert shim_result.kernel_side_consumer_schema_adapter_consumer_schema_present is True
+    assert shim_result.kernel_side_consumer_schema_adapter_consumer_connected is False
+    assert shim_result.kernel_side_consumer_schema_adapter_live_enabled is False
+    assert shim_result.kernel_side_consumer_schema_adapter_live_eligible is False
+    assert shim_result.kernel_side_consumer_schema_adapter_blocked is True
+    assert (
+        shim_result.kernel_side_consumer_schema_adapter_block_reason
+        == "kernel_side_consumer_live_disabled"
+    )
+    assert shim_result.kernel_side_consumer_schema_adapter_payload_bytes == 0
+    assert shim_result.kernel_side_consumer_schema_adapter_passed_to_kernel is False
+    assert (
+        shim_result.kernel_side_consumer_schema_adapter_changes_kernel_launch_args
+        is False
+    )
+    assert (
+        shim_result.kernel_side_consumer_schema_adapter_live_compatible_with_current_wna16_args
         is False
     )
     assert (

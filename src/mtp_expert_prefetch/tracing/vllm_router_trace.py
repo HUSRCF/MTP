@@ -37,6 +37,9 @@ from mtp_expert_prefetch.runtime.cache_manager import (
     PREMAP_KERNEL_ARG_SEMANTIC_HANDLE_SCHEMA_FIELDS,
     PREMAP_KERNEL_ARG_SEMANTIC_HANDLE_SCHEMA_HASH,
     PREMAP_KERNEL_ARG_SEMANTIC_HANDLE_SCHEMA_NAME,
+    PREMAP_KERNEL_SIDE_CONSUMER_SCHEMA_FIELDS,
+    PREMAP_KERNEL_SIDE_CONSUMER_SCHEMA_HASH,
+    PREMAP_KERNEL_SIDE_CONSUMER_SCHEMA_NAME,
     PremapRealDescriptorHandle,
 )
 from mtp_expert_prefetch.runtime.online_shadow import OnlineShadowLogger
@@ -373,6 +376,59 @@ RUNTIME_SHADOW_AGGREGATE_PERFORMANCE_KEYS = (
     "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_mode_checked_count",
     "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_mode_missing_count",
     "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_mode_mismatch_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_checked_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_ready_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_hash_checked_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_hash_missing_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_semantic_adapter_hash_checked_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_semantic_adapter_hash_missing_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_table_object_hash_checked_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_table_object_hash_missing_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_launch_schema_mirror_hash_checked_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_launch_schema_mirror_hash_missing_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_row_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_column_count_max",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_column_count_min",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_table_schema_hash",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_table_schema_hash_checked_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_table_schema_hash_missing_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_table_schema_hash_mismatch_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_semantic_schema_hash",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_semantic_schema_hash_checked_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_semantic_schema_hash_missing_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_semantic_schema_hash_mismatch_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_kernel_side_schema_name",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_kernel_side_schema_name_checked_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_kernel_side_schema_name_missing_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_kernel_side_schema_name_mismatch_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_kernel_side_schema_hash",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_kernel_side_schema_hash_checked_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_kernel_side_schema_hash_missing_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_kernel_side_schema_hash_mismatch_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_kernel_side_field_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_required_source_hit_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_required_source_miss_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_optional_source_hit_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_optional_source_miss_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_handle_field_read_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_consumer_schema_present_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_consumer_connected_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_live_enabled_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_live_eligible_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_blocked_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_block_reason",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_block_reason_checked_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_block_reason_missing_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_block_reason_mismatch_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_payload_bytes",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_payload_violation_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_passed_to_kernel_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_kernel_arg_violation_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_live_compatible_with_current_wna16_args_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_mode",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_mode_checked_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_mode_missing_count",
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_mode_mismatch_count",
     "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_checked_count",
     "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_record_ready_count",
     "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_hash_checked_count",
@@ -4241,6 +4297,212 @@ class VllmRouterRecorder:
                 descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_live_compatible_with_current_wna16_args=(
                     bool(
                         descriptor_consumer_shim_result.kernel_arg_semantic_handle_adapter_live_compatible_with_current_wna16_args
+                    )
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_mode=(
+                    descriptor_consumer_shim_result.kernel_side_consumer_schema_adapter_mode
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_ready=(
+                    descriptor_consumer_shim_result.kernel_side_consumer_schema_adapter_ready
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_hash=(
+                    descriptor_consumer_shim_result.kernel_side_consumer_schema_adapter_hash
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_semantic_adapter_hash=(
+                    descriptor_consumer_shim_result.kernel_side_consumer_schema_adapter_semantic_adapter_hash
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_table_object_hash=(
+                    descriptor_consumer_shim_result.kernel_side_consumer_schema_adapter_table_object_hash
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_launch_schema_mirror_hash=(
+                    descriptor_consumer_shim_result.kernel_side_consumer_schema_adapter_launch_schema_mirror_hash
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_row_count=(
+                    int(
+                        descriptor_consumer_shim_result.kernel_side_consumer_schema_adapter_row_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.kernel_side_consumer_schema_adapter_row_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_column_count=(
+                    int(
+                        descriptor_consumer_shim_result.kernel_side_consumer_schema_adapter_column_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.kernel_side_consumer_schema_adapter_column_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_table_schema_hash=(
+                    descriptor_consumer_shim_result.kernel_side_consumer_schema_adapter_table_schema_hash
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_semantic_schema_hash=(
+                    descriptor_consumer_shim_result.kernel_side_consumer_schema_adapter_semantic_schema_hash
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_kernel_side_schema_name=(
+                    descriptor_consumer_shim_result.kernel_side_consumer_schema_adapter_kernel_side_schema_name
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_kernel_side_schema_hash=(
+                    descriptor_consumer_shim_result.kernel_side_consumer_schema_adapter_kernel_side_schema_hash
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_kernel_side_field_count=(
+                    int(
+                        descriptor_consumer_shim_result.kernel_side_consumer_schema_adapter_kernel_side_field_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.kernel_side_consumer_schema_adapter_kernel_side_field_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_required_source_hit_count=(
+                    int(
+                        descriptor_consumer_shim_result.kernel_side_consumer_schema_adapter_required_source_hit_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.kernel_side_consumer_schema_adapter_required_source_hit_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_required_source_miss_count=(
+                    int(
+                        descriptor_consumer_shim_result.kernel_side_consumer_schema_adapter_required_source_miss_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.kernel_side_consumer_schema_adapter_required_source_miss_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_optional_source_hit_count=(
+                    int(
+                        descriptor_consumer_shim_result.kernel_side_consumer_schema_adapter_optional_source_hit_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.kernel_side_consumer_schema_adapter_optional_source_hit_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_optional_source_miss_count=(
+                    int(
+                        descriptor_consumer_shim_result.kernel_side_consumer_schema_adapter_optional_source_miss_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.kernel_side_consumer_schema_adapter_optional_source_miss_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_handle_field_read_count=(
+                    int(
+                        descriptor_consumer_shim_result.kernel_side_consumer_schema_adapter_handle_field_read_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.kernel_side_consumer_schema_adapter_handle_field_read_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_consumer_schema_present=(
+                    bool(
+                        descriptor_consumer_shim_result.kernel_side_consumer_schema_adapter_consumer_schema_present
+                    )
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_consumer_connected=(
+                    bool(
+                        descriptor_consumer_shim_result.kernel_side_consumer_schema_adapter_consumer_connected
+                    )
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_live_enabled=(
+                    bool(
+                        descriptor_consumer_shim_result.kernel_side_consumer_schema_adapter_live_enabled
+                    )
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_live_eligible=(
+                    bool(
+                        descriptor_consumer_shim_result.kernel_side_consumer_schema_adapter_live_eligible
+                    )
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_blocked=(
+                    bool(
+                        descriptor_consumer_shim_result.kernel_side_consumer_schema_adapter_blocked
+                    )
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_block_reason=(
+                    descriptor_consumer_shim_result.kernel_side_consumer_schema_adapter_block_reason
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_payload_bytes=(
+                    int(
+                        descriptor_consumer_shim_result.kernel_side_consumer_schema_adapter_payload_bytes
+                    )
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_passed_to_kernel=(
+                    bool(
+                        descriptor_consumer_shim_result.kernel_side_consumer_schema_adapter_passed_to_kernel
+                    )
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_changes_kernel_launch_args=(
+                    bool(
+                        descriptor_consumer_shim_result.kernel_side_consumer_schema_adapter_changes_kernel_launch_args
+                    )
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_live_compatible_with_current_wna16_args=(
+                    bool(
+                        descriptor_consumer_shim_result.kernel_side_consumer_schema_adapter_live_compatible_with_current_wna16_args
                     )
                     if descriptor_consumer_shim_result is not None
                     else None
@@ -12727,6 +12989,87 @@ def _apply_premap_consumer_readonly_gate(
             msg = (
                 "kernel-arg semantic handle adapter requires a readonly gate "
                 "checked with require_kernel_arg_semantic_handle_adapter=true: "
+                f"{path}"
+            )
+            raise ValueError(msg)
+    kernel_side_schema_adapter_required_raw = contract.get(
+        "kernel_side_consumer_schema_adapter_required",
+        False,
+    )
+    if not isinstance(kernel_side_schema_adapter_required_raw, bool):
+        msg = (
+            "Premap consumer readonly gate "
+            "contract.kernel_side_consumer_schema_adapter_required must be "
+            f"boolean when present: {path}"
+        )
+        raise TypeError(msg)
+    if bool(kernel_side_schema_adapter_required_raw):
+        if lab_precondition is not True:
+            msg = (
+                "kernel-side consumer schema adapter requires a readonly gate "
+                f"with lab_precondition=true: {path}"
+            )
+            raise ValueError(msg)
+        if not bool(contract.get("kernel_arg_semantic_handle_adapter_required")):
+            msg = (
+                "kernel-side consumer schema adapter requires "
+                "contract.kernel_arg_semantic_handle_adapter_required=true: "
+                f"{path}"
+            )
+            raise ValueError(msg)
+        kernel_side_contract = {
+            "kernel_side_consumer_schema_adapter_mode": (
+                "readonly_kernel_side_consumer_schema_adapter"
+            ),
+            "kernel_side_consumer_schema_adapter_table_schema_hash": (
+                PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH
+            ),
+            "kernel_side_consumer_schema_adapter_semantic_schema_hash": (
+                PREMAP_KERNEL_ARG_SEMANTIC_HANDLE_SCHEMA_HASH
+            ),
+            "kernel_side_consumer_schema_adapter_kernel_side_schema_name": (
+                PREMAP_KERNEL_SIDE_CONSUMER_SCHEMA_NAME
+            ),
+            "kernel_side_consumer_schema_adapter_kernel_side_schema_hash": (
+                PREMAP_KERNEL_SIDE_CONSUMER_SCHEMA_HASH
+            ),
+            "kernel_side_consumer_schema_adapter_kernel_side_field_count_required": len(
+                PREMAP_KERNEL_SIDE_CONSUMER_SCHEMA_FIELDS
+            ),
+            "kernel_side_consumer_schema_adapter_column_count_required": len(
+                PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_COLUMNS
+            ),
+            "kernel_side_consumer_schema_adapter_payload_bytes_required": 0,
+            "kernel_side_consumer_schema_adapter_passed_to_kernel_required": False,
+            "kernel_side_consumer_schema_adapter_changes_kernel_launch_args_required": (
+                False
+            ),
+            "kernel_side_consumer_schema_adapter_live_compatible_with_current_wna16_args_required": (
+                False
+            ),
+            "kernel_side_consumer_schema_adapter_consumer_connected_required": False,
+            "kernel_side_consumer_schema_adapter_live_enabled_required": False,
+            "kernel_side_consumer_schema_adapter_block_reason": (
+                "kernel_side_consumer_live_disabled"
+            ),
+        }
+        for key, expected in kernel_side_contract.items():
+            observed = contract.get(key)
+            if observed != expected:
+                msg = (
+                    "Premap consumer readonly gate violates the kernel-side "
+                    f"consumer schema adapter contract for {path}: "
+                    f"{key}={observed!r} != {expected!r}"
+                )
+                raise ValueError(msg)
+        check = gate.get("check", {})
+        if not isinstance(check, dict):
+            msg = f"Premap consumer readonly gate `gate.check` must be a mapping: {path}"
+            raise TypeError(msg)
+        if check.get("require_kernel_side_consumer_schema_adapter") is not True:
+            msg = (
+                "kernel-side consumer schema adapter requires a readonly gate "
+                "checked with require_kernel_side_consumer_schema_adapter=true: "
                 f"{path}"
             )
             raise ValueError(msg)

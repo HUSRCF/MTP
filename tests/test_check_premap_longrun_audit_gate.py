@@ -8,6 +8,9 @@ from mtp_expert_prefetch.runtime import (
     PREMAP_KERNEL_ARG_SEMANTIC_HANDLE_SCHEMA_FIELDS,
     PREMAP_KERNEL_ARG_SEMANTIC_HANDLE_SCHEMA_HASH,
     PREMAP_KERNEL_ARG_SEMANTIC_HANDLE_SCHEMA_NAME,
+    PREMAP_KERNEL_SIDE_CONSUMER_SCHEMA_FIELDS,
+    PREMAP_KERNEL_SIDE_CONSUMER_SCHEMA_HASH,
+    PREMAP_KERNEL_SIDE_CONSUMER_SCHEMA_NAME,
 )
 
 from scripts.check_premap_longrun_audit_gate import check_summary
@@ -460,6 +463,88 @@ def _add_kernel_arg_semantic_handle_adapter(summary: dict) -> dict:
             "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_passed_to_kernel_count": 0,
             "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_kernel_arg_violation_count": 0,
             "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_live_compatible_with_current_wna16_args_count": 0,
+        }
+    )
+    return summary
+
+
+def _add_kernel_side_consumer_schema_adapter(summary: dict) -> dict:
+    aggregate = summary["aggregate"]
+    checked_count = int(
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_executed_count"
+        ]
+    )
+    row_count = int(
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_row_count"
+        ]
+    )
+    aggregate.update(
+        {
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_checked_count": checked_count,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_ready_count": checked_count,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_hash_checked_count": checked_count,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_hash_missing_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_semantic_adapter_hash_checked_count": checked_count,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_semantic_adapter_hash_missing_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_table_object_hash_checked_count": checked_count,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_table_object_hash_missing_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_launch_schema_mirror_hash_checked_count": checked_count,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_launch_schema_mirror_hash_missing_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_mode": "readonly_kernel_side_consumer_schema_adapter",
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_mode_checked_count": checked_count,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_mode_missing_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_mode_mismatch_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_row_count": row_count,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_column_count_max": 4,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_column_count_min": 4,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_table_schema_hash": (
+                PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH
+            ),
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_table_schema_hash_checked_count": checked_count,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_table_schema_hash_missing_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_table_schema_hash_mismatch_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_semantic_schema_hash": (
+                PREMAP_KERNEL_ARG_SEMANTIC_HANDLE_SCHEMA_HASH
+            ),
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_semantic_schema_hash_checked_count": checked_count,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_semantic_schema_hash_missing_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_semantic_schema_hash_mismatch_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_kernel_side_schema_name": (
+                PREMAP_KERNEL_SIDE_CONSUMER_SCHEMA_NAME
+            ),
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_kernel_side_schema_name_checked_count": checked_count,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_kernel_side_schema_name_missing_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_kernel_side_schema_name_mismatch_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_kernel_side_schema_hash": (
+                PREMAP_KERNEL_SIDE_CONSUMER_SCHEMA_HASH
+            ),
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_kernel_side_schema_hash_checked_count": checked_count,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_kernel_side_schema_hash_missing_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_kernel_side_schema_hash_mismatch_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_kernel_side_field_count": (
+                checked_count * len(PREMAP_KERNEL_SIDE_CONSUMER_SCHEMA_FIELDS)
+            ),
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_required_source_hit_count": row_count * 3,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_required_source_miss_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_optional_source_hit_count": row_count,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_optional_source_miss_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_handle_field_read_count": row_count * 4,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_consumer_schema_present_count": checked_count,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_consumer_connected_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_live_enabled_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_live_eligible_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_blocked_count": checked_count,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_block_reason": "kernel_side_consumer_live_disabled",
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_block_reason_checked_count": checked_count,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_block_reason_missing_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_block_reason_mismatch_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_payload_bytes": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_payload_violation_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_passed_to_kernel_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_kernel_arg_violation_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_live_compatible_with_current_wna16_args_count": 0,
         }
     )
     return summary
@@ -1543,6 +1628,147 @@ def test_premap_longrun_audit_gate_rejects_kernel_arg_semantic_adapter_live_comp
     )
     assert (
         "consumer_shim_kernel_arg_semantic_handle_adapter_passed_to_kernel_count_nonzero=1"
+        in result["failures"]
+    )
+
+
+def test_premap_longrun_audit_gate_accepts_kernel_side_consumer_schema_adapter_contract():
+    result = check_summary(
+        _add_kernel_side_consumer_schema_adapter(
+            _add_kernel_arg_semantic_handle_adapter(
+                _add_kernel_arg_handoff_launch_schema_mirror(
+                    _add_kernel_arg_handoff_attempt(_passing_summary())
+                )
+            )
+        ),
+        max_capacity=12,
+        min_reuse_rate=0.98,
+        require_readonly_consumer=True,
+        require_descriptor_prep=True,
+        require_real_descriptor_prep=True,
+        require_kernel_arg_shadow_table=True,
+        require_consumer_shim_table_read=True,
+        require_consumer_shim_table_consume=True,
+        require_kernel_arg_handoff_attempt=True,
+        require_kernel_arg_handoff_launch_schema_mirror=True,
+        require_kernel_arg_semantic_handle_adapter=True,
+        require_kernel_side_consumer_schema_adapter=True,
+    )
+
+    assert result["passed"] is True
+    assert result["failures"] == []
+    assert result["require_kernel_side_consumer_schema_adapter"] is True
+    assert (
+        result["metrics"][
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_ready_count"
+        ]
+        == 2
+    )
+    assert (
+        result["metrics"][
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_kernel_side_schema_name"
+        ]
+        == PREMAP_KERNEL_SIDE_CONSUMER_SCHEMA_NAME
+    )
+    assert (
+        result["metrics"][
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_kernel_side_schema_hash"
+        ]
+        == PREMAP_KERNEL_SIDE_CONSUMER_SCHEMA_HASH
+    )
+    assert (
+        result["metrics"][
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_kernel_side_field_count"
+        ]
+        == 2 * len(PREMAP_KERNEL_SIDE_CONSUMER_SCHEMA_FIELDS)
+    )
+    assert (
+        result["metrics"][
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_consumer_connected_count"
+        ]
+        == 0
+    )
+    assert (
+        result["metrics"][
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_live_enabled_count"
+        ]
+        == 0
+    )
+
+
+def test_premap_longrun_audit_gate_rejects_kernel_side_consumer_schema_live_flags():
+    summary = _add_kernel_side_consumer_schema_adapter(
+        _add_kernel_arg_semantic_handle_adapter(
+            _add_kernel_arg_handoff_launch_schema_mirror(
+                _add_kernel_arg_handoff_attempt(_passing_summary())
+            )
+        )
+    )
+    aggregate = summary["aggregate"]
+    aggregate[
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_consumer_connected_count"
+    ] = 1
+    aggregate[
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_live_enabled_count"
+    ] = 1
+    aggregate[
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_passed_to_kernel_count"
+    ] = 1
+
+    result = check_summary(
+        summary,
+        max_capacity=12,
+        min_reuse_rate=0.98,
+        require_readonly_consumer=True,
+        require_descriptor_prep=True,
+        require_real_descriptor_prep=True,
+        require_kernel_arg_shadow_table=True,
+        require_consumer_shim_table_read=True,
+        require_consumer_shim_table_consume=True,
+        require_kernel_arg_handoff_attempt=True,
+        require_kernel_arg_handoff_launch_schema_mirror=True,
+        require_kernel_arg_semantic_handle_adapter=True,
+        require_kernel_side_consumer_schema_adapter=True,
+    )
+
+    assert result["passed"] is False
+    assert (
+        "consumer_shim_kernel_side_consumer_schema_adapter_consumer_connected_count_nonzero=1"
+        in result["failures"]
+    )
+    assert (
+        "consumer_shim_kernel_side_consumer_schema_adapter_live_enabled_count_nonzero=1"
+        in result["failures"]
+    )
+    assert (
+        "consumer_shim_kernel_side_consumer_schema_adapter_passed_to_kernel_count_nonzero=1"
+        in result["failures"]
+    )
+
+
+def test_premap_longrun_audit_gate_requires_kernel_side_consumer_schema_dependency():
+    result = check_summary(
+        _add_kernel_side_consumer_schema_adapter(
+            _add_kernel_arg_handoff_launch_schema_mirror(
+                _add_kernel_arg_handoff_attempt(_passing_summary())
+            )
+        ),
+        max_capacity=12,
+        min_reuse_rate=0.98,
+        require_readonly_consumer=True,
+        require_descriptor_prep=True,
+        require_real_descriptor_prep=True,
+        require_kernel_arg_shadow_table=True,
+        require_consumer_shim_table_read=True,
+        require_consumer_shim_table_consume=True,
+        require_kernel_arg_handoff_attempt=True,
+        require_kernel_arg_handoff_launch_schema_mirror=True,
+        require_kernel_side_consumer_schema_adapter=True,
+    )
+
+    assert result["passed"] is False
+    assert (
+        "consumer_shim_kernel_side_consumer_schema_adapter_requires_semantic_handle_adapter_fields"
         in result["failures"]
     )
 

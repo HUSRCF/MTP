@@ -1257,6 +1257,90 @@ class ShadowPremapConsumerMappingEvent:
     descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_live_compatible_with_current_wna16_args: (
         bool | None
     ) = None
+    descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_mode: (
+        str | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_ready: (
+        bool | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_hash: (
+        str | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_semantic_adapter_hash: (
+        str | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_table_object_hash: (
+        str | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_launch_schema_mirror_hash: (
+        str | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_row_count: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_column_count: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_table_schema_hash: (
+        str | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_semantic_schema_hash: (
+        str | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_kernel_side_schema_name: (
+        str | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_kernel_side_schema_hash: (
+        str | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_kernel_side_field_count: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_required_source_hit_count: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_required_source_miss_count: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_optional_source_hit_count: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_optional_source_miss_count: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_handle_field_read_count: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_consumer_schema_present: (
+        bool | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_consumer_connected: (
+        bool | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_live_enabled: (
+        bool | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_live_eligible: (
+        bool | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_blocked: (
+        bool | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_block_reason: (
+        str | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_payload_bytes: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_passed_to_kernel: (
+        bool | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_changes_kernel_launch_args: (
+        bool | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_live_compatible_with_current_wna16_args: (
+        bool | None
+    ) = None
     descriptor_prep_consumer_shim_handle_table_object_consumed: bool | None = None
     descriptor_prep_consumer_shim_handle_table_object_hash: str | None = None
     descriptor_prep_consumer_shim_handle_table_object_row_count: int | None = None
@@ -2604,6 +2688,121 @@ class ShadowPremapConsumerMappingEvent:
             ),
         ):
             _put_optional(payload, key, value)
+        for key, value in (
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_mode",
+                self.descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_mode,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_ready",
+                self.descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_ready,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_hash",
+                self.descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_hash,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_semantic_adapter_hash",
+                self.descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_semantic_adapter_hash,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_table_object_hash",
+                self.descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_table_object_hash,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_launch_schema_mirror_hash",
+                self.descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_launch_schema_mirror_hash,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_row_count",
+                self.descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_row_count,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_column_count",
+                self.descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_column_count,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_table_schema_hash",
+                self.descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_table_schema_hash,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_semantic_schema_hash",
+                self.descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_semantic_schema_hash,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_kernel_side_schema_name",
+                self.descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_kernel_side_schema_name,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_kernel_side_schema_hash",
+                self.descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_kernel_side_schema_hash,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_kernel_side_field_count",
+                self.descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_kernel_side_field_count,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_required_source_hit_count",
+                self.descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_required_source_hit_count,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_required_source_miss_count",
+                self.descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_required_source_miss_count,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_optional_source_hit_count",
+                self.descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_optional_source_hit_count,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_optional_source_miss_count",
+                self.descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_optional_source_miss_count,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_handle_field_read_count",
+                self.descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_handle_field_read_count,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_consumer_schema_present",
+                self.descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_consumer_schema_present,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_consumer_connected",
+                self.descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_consumer_connected,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_live_enabled",
+                self.descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_live_enabled,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_live_eligible",
+                self.descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_live_eligible,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_blocked",
+                self.descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_blocked,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_block_reason",
+                self.descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_block_reason,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_payload_bytes",
+                self.descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_payload_bytes,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_passed_to_kernel",
+                self.descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_passed_to_kernel,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_changes_kernel_launch_args",
+                self.descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_changes_kernel_launch_args,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_live_compatible_with_current_wna16_args",
+                self.descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_live_compatible_with_current_wna16_args,
+            ),
+        ):
+            _put_optional(payload, key, value)
         _put_optional(
             payload,
             "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_consumed",
@@ -3296,6 +3495,59 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
         "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_mode_checked_count": 0,
         "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_mode_missing_count": 0,
         "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_mode_mismatch_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_checked_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_ready_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_hash_checked_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_hash_missing_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_semantic_adapter_hash_checked_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_semantic_adapter_hash_missing_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_table_object_hash_checked_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_table_object_hash_missing_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_launch_schema_mirror_hash_checked_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_launch_schema_mirror_hash_missing_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_row_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_column_count_max": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_column_count_min": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_table_schema_hash": "",
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_table_schema_hash_checked_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_table_schema_hash_missing_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_table_schema_hash_mismatch_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_semantic_schema_hash": "",
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_semantic_schema_hash_checked_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_semantic_schema_hash_missing_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_semantic_schema_hash_mismatch_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_kernel_side_schema_name": "",
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_kernel_side_schema_name_checked_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_kernel_side_schema_name_missing_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_kernel_side_schema_name_mismatch_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_kernel_side_schema_hash": "",
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_kernel_side_schema_hash_checked_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_kernel_side_schema_hash_missing_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_kernel_side_schema_hash_mismatch_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_kernel_side_field_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_required_source_hit_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_required_source_miss_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_optional_source_hit_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_optional_source_miss_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_handle_field_read_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_consumer_schema_present_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_consumer_connected_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_live_enabled_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_live_eligible_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_blocked_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_block_reason": "",
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_block_reason_checked_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_block_reason_missing_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_block_reason_mismatch_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_payload_bytes": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_payload_violation_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_passed_to_kernel_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_kernel_arg_violation_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_live_compatible_with_current_wna16_args_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_mode": "",
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_mode_checked_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_mode_missing_count": 0,
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_mode_mismatch_count": 0,
         "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_checked_count": 0,
         "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_record_ready_count": 0,
         "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_hash_checked_count": 0,
@@ -5042,6 +5294,163 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
                 elif launch_schema_mode is not None:
                     totals[
                         "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_mode_missing_count"
+                    ] += 1
+                kernel_side_mode = event.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_mode"
+                )
+                if kernel_side_mode is not None:
+                    kernel_side_prefix = (
+                        "premap_consumer_descriptor_prep_consumer_shim_"
+                        "kernel_side_consumer_schema_adapter"
+                    )
+                    totals[f"{kernel_side_prefix}_checked_count"] += 1
+                    totals[f"{kernel_side_prefix}_mode_checked_count"] += 1
+                    if not totals[f"{kernel_side_prefix}_mode"]:
+                        totals[f"{kernel_side_prefix}_mode"] = str(kernel_side_mode)
+                    elif totals[f"{kernel_side_prefix}_mode"] != str(kernel_side_mode):
+                        totals[f"{kernel_side_prefix}_mode_mismatch_count"] += 1
+                    totals[f"{kernel_side_prefix}_ready_count"] += int(
+                        bool(event.get(f"{kernel_side_prefix}_ready", False))
+                    )
+                    for hash_field, checked_key, missing_key in (
+                        (
+                            f"{kernel_side_prefix}_hash",
+                            f"{kernel_side_prefix}_hash_checked_count",
+                            f"{kernel_side_prefix}_hash_missing_count",
+                        ),
+                        (
+                            f"{kernel_side_prefix}_semantic_adapter_hash",
+                            f"{kernel_side_prefix}_semantic_adapter_hash_checked_count",
+                            f"{kernel_side_prefix}_semantic_adapter_hash_missing_count",
+                        ),
+                        (
+                            f"{kernel_side_prefix}_table_object_hash",
+                            f"{kernel_side_prefix}_table_object_hash_checked_count",
+                            f"{kernel_side_prefix}_table_object_hash_missing_count",
+                        ),
+                        (
+                            f"{kernel_side_prefix}_launch_schema_mirror_hash",
+                            f"{kernel_side_prefix}_launch_schema_mirror_hash_checked_count",
+                            f"{kernel_side_prefix}_launch_schema_mirror_hash_missing_count",
+                        ),
+                    ):
+                        if event.get(hash_field):
+                            totals[checked_key] += 1
+                        else:
+                            totals[missing_key] += 1
+                    kernel_side_column_count = int(
+                        event.get(f"{kernel_side_prefix}_column_count", 0) or 0
+                    )
+                    if (
+                        kernel_side_column_count
+                        > totals[f"{kernel_side_prefix}_column_count_max"]
+                    ):
+                        totals[
+                            f"{kernel_side_prefix}_column_count_max"
+                        ] = kernel_side_column_count
+                    if (
+                        totals[f"{kernel_side_prefix}_column_count_min"] == 0
+                        or kernel_side_column_count
+                        < totals[f"{kernel_side_prefix}_column_count_min"]
+                    ):
+                        totals[
+                            f"{kernel_side_prefix}_column_count_min"
+                        ] = kernel_side_column_count
+                    for value_field, base_key in (
+                        (
+                            f"{kernel_side_prefix}_table_schema_hash",
+                            f"{kernel_side_prefix}_table_schema_hash",
+                        ),
+                        (
+                            f"{kernel_side_prefix}_semantic_schema_hash",
+                            f"{kernel_side_prefix}_semantic_schema_hash",
+                        ),
+                        (
+                            f"{kernel_side_prefix}_kernel_side_schema_name",
+                            f"{kernel_side_prefix}_kernel_side_schema_name",
+                        ),
+                        (
+                            f"{kernel_side_prefix}_kernel_side_schema_hash",
+                            f"{kernel_side_prefix}_kernel_side_schema_hash",
+                        ),
+                        (
+                            f"{kernel_side_prefix}_block_reason",
+                            f"{kernel_side_prefix}_block_reason",
+                        ),
+                    ):
+                        value = event.get(value_field)
+                        if value:
+                            totals[f"{base_key}_checked_count"] += 1
+                            if not totals[base_key]:
+                                totals[base_key] = str(value)
+                            elif totals[base_key] != str(value):
+                                totals[f"{base_key}_mismatch_count"] += 1
+                        else:
+                            totals[f"{base_key}_missing_count"] += 1
+                    for field in (
+                        f"{kernel_side_prefix}_row_count",
+                        f"{kernel_side_prefix}_kernel_side_field_count",
+                        f"{kernel_side_prefix}_required_source_hit_count",
+                        f"{kernel_side_prefix}_required_source_miss_count",
+                        f"{kernel_side_prefix}_optional_source_hit_count",
+                        f"{kernel_side_prefix}_optional_source_miss_count",
+                        f"{kernel_side_prefix}_handle_field_read_count",
+                        f"{kernel_side_prefix}_payload_bytes",
+                    ):
+                        totals[field] += int(event.get(field, 0) or 0)
+                    for flag_field, count_key in (
+                        (
+                            f"{kernel_side_prefix}_consumer_schema_present",
+                            f"{kernel_side_prefix}_consumer_schema_present_count",
+                        ),
+                        (
+                            f"{kernel_side_prefix}_consumer_connected",
+                            f"{kernel_side_prefix}_consumer_connected_count",
+                        ),
+                        (
+                            f"{kernel_side_prefix}_live_enabled",
+                            f"{kernel_side_prefix}_live_enabled_count",
+                        ),
+                        (
+                            f"{kernel_side_prefix}_live_eligible",
+                            f"{kernel_side_prefix}_live_eligible_count",
+                        ),
+                        (
+                            f"{kernel_side_prefix}_blocked",
+                            f"{kernel_side_prefix}_blocked_count",
+                        ),
+                    ):
+                        totals[count_key] += int(bool(event.get(flag_field, False)))
+                    kernel_side_payload_bytes = int(
+                        event.get(f"{kernel_side_prefix}_payload_bytes", 0) or 0
+                    )
+                    totals[f"{kernel_side_prefix}_payload_violation_count"] += int(
+                        kernel_side_payload_bytes != 0
+                    )
+                    totals[f"{kernel_side_prefix}_passed_to_kernel_count"] += int(
+                        bool(event.get(f"{kernel_side_prefix}_passed_to_kernel", False))
+                    )
+                    totals[f"{kernel_side_prefix}_kernel_arg_violation_count"] += int(
+                        bool(
+                            event.get(
+                                f"{kernel_side_prefix}_changes_kernel_launch_args",
+                                False,
+                            )
+                        )
+                    )
+                    totals[
+                        f"{kernel_side_prefix}_live_compatible_with_current_wna16_args_count"
+                    ] += int(
+                        bool(
+                            event.get(
+                                f"{kernel_side_prefix}_live_compatible_with_current_wna16_args",
+                                False,
+                            )
+                        )
+                    )
+                elif semantic_mode is not None:
+                    totals[
+                        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_mode_missing_count"
                     ] += 1
                 attempt_mode = event.get(
                     "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_attempt_mode"

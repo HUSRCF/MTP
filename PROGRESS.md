@@ -2,12 +2,13 @@
 
 ## Progress Version
 
-- Version: `v0.20-premap-semantic-handle-adapter-lab-gate`
+- Version: `v0.21-premap-kernel-side-consumer-schema-live-disabled`
 - Updated: 2026-05-26
-- Current phase: premap descriptor/address prep now has a typed semantic
-  handle adapter dry-run gate promoted to the lab-default readonly gate.  The
-  adapter defines the future kernel-side handle schema without pretending that
-  the prepared handle tuple is a current WNA16 tensor kernel argument.
+- Current phase: premap descriptor/address prep now has a live-disabled
+  kernel-side consumer schema adapter on top of the typed semantic handle
+  adapter.  The new adapter mirrors the schema a future fused-MoE/AWQ
+  kernel-side consumer would read, while remaining disconnected, zero-payload,
+  and not passed to the current WNA16 kernel.
 
 ## Runtime Policy Contract
 
@@ -29,9 +30,75 @@ Safety boundaries:
 - `metadata` and `premap` are setup-preparation actions only.
 - MTP extras must be novel additions and cannot replace `transition_top32`.
 
-## Latest Update: Typed Semantic Handle Adapter Dry-Run Gate
+## Latest Update: Kernel-Side Consumer Schema Adapter
 
-The premap kernel-arg handoff path now includes a typed semantic handle adapter:
+The premap kernel-arg handoff path now includes a live-disabled kernel-side
+consumer schema adapter:
+
+```text
+prepared descriptor/address table
+-> kernel-arg shadow table
+-> kernel-arg mirror
+-> prelaunch launch-schema mirror
+-> typed semantic handle adapter
+-> kernel-side consumer schema adapter
+```
+
+The semantic handle adapter proves the prepared handle table has typed
+descriptor/address fields.  The kernel-side adapter is one boundary closer to
+the future consumer: it gives that consumer a stable schema name/hash/field
+count and explicit liveness flags, but keeps the runtime no-op:
+
+```text
+mode = readonly_kernel_side_consumer_schema_adapter
+kernel-side schema name/hash/field count match
+semantic adapter hash present
+table object hash and launch-schema mirror hash present
+required source hits = row_count * 3
+optional source hits + misses = row_count
+handle field reads = row_count * 4
+consumer_schema_present = true
+consumer_connected = false
+live_enabled = false
+live_eligible = false
+blocked = true
+block_reason = kernel_side_consumer_live_disabled
+payload_bytes = 0
+passed_to_kernel = 0
+changes_kernel_launch_args = 0
+live_compatible_with_current_wna16_args = 0
+```
+
+The checker now supports:
+
+```bash
+--require-kernel-side-consumer-schema-adapter
+```
+
+and the config loader can require:
+
+```yaml
+kernel_side_consumer_schema_adapter_required: true
+```
+
+This is still a live-disabled schema gate.  It does not pass any new argument
+to the current fused-MoE/AWQ kernel.
+
+Validation:
+
+```text
+pytest tests/test_runtime_shadow_log.py \
+       tests/test_check_premap_longrun_audit_gate.py \
+       tests/test_vllm_premap_capacity_gate.py -q
+163 passed
+
+pytest tests -q
+603 passed, 2 warnings
+```
+
+## Previous Update: Typed Semantic Handle Adapter Dry-Run Gate
+
+The premap kernel-arg handoff path includes a typed semantic handle adapter:
 
 ```text
 prepared descriptor/address table

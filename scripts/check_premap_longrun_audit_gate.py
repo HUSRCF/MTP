@@ -21,6 +21,9 @@ from mtp_expert_prefetch.runtime import (
     PREMAP_KERNEL_ARG_SEMANTIC_HANDLE_SCHEMA_FIELDS,
     PREMAP_KERNEL_ARG_SEMANTIC_HANDLE_SCHEMA_HASH,
     PREMAP_KERNEL_ARG_SEMANTIC_HANDLE_SCHEMA_NAME,
+    PREMAP_KERNEL_SIDE_CONSUMER_SCHEMA_FIELDS,
+    PREMAP_KERNEL_SIDE_CONSUMER_SCHEMA_HASH,
+    PREMAP_KERNEL_SIDE_CONSUMER_SCHEMA_NAME,
 )
 
 
@@ -48,6 +51,9 @@ KERNEL_ARG_HANDOFF_LIVE_CONSUMER_ADAPTER_PREFIX = (
 )
 KERNEL_ARG_SEMANTIC_HANDLE_ADAPTER_PREFIX = (
     "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_"
+)
+KERNEL_SIDE_CONSUMER_SCHEMA_ADAPTER_PREFIX = (
+    "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_"
 )
 
 
@@ -308,6 +314,7 @@ def check_summary(
     require_kernel_arg_handoff_launch_schema_mirror: bool = False,
     require_kernel_arg_handoff_live_consumer_adapter: bool = False,
     require_kernel_arg_semantic_handle_adapter: bool = False,
+    require_kernel_side_consumer_schema_adapter: bool = False,
     allow_enabled_blocked_live_toggle: bool = False,
     allow_connected_blocked_consumer_adapter: bool = False,
     allow_kernel_arg_handoff_live_kernel_arg_pass: bool = False,
@@ -655,6 +662,14 @@ def check_summary(
     kernel_arg_semantic_handle_adapter_active = (
         semantic_handle_adapter_checked_count > 0
     )
+    kernel_side_consumer_schema_adapter_checked_count = _as_int(
+        aggregate.get(f"{KERNEL_SIDE_CONSUMER_SCHEMA_ADAPTER_PREFIX}checked_count")
+    )
+    # Same strictness as the semantic adapter: once emitted, this future
+    # kernel-side schema envelope must be complete and live-disabled.
+    kernel_side_consumer_schema_adapter_active = (
+        kernel_side_consumer_schema_adapter_checked_count > 0
+    )
     if require_consumer_shim_table_consume and not consumer_shim_table_consume_active:
         failures.append("consumer_shim_table_consume_fields_missing")
     if require_consumer_shim_table_consume and not consumer_shim_table_read_active:
@@ -736,6 +751,23 @@ def check_summary(
     ):
         failures.append(
             "consumer_shim_kernel_arg_semantic_handle_adapter_requires_launch_schema_mirror_fields"
+        )
+    if (
+        require_kernel_side_consumer_schema_adapter
+        and not kernel_side_consumer_schema_adapter_active
+    ):
+        failures.append(
+            "consumer_shim_kernel_side_consumer_schema_adapter_fields_missing"
+        )
+    if (
+        (
+            require_kernel_side_consumer_schema_adapter
+            or kernel_side_consumer_schema_adapter_active
+        )
+        and not kernel_arg_semantic_handle_adapter_active
+    ):
+        failures.append(
+            "consumer_shim_kernel_side_consumer_schema_adapter_requires_semantic_handle_adapter_fields"
         )
     consumer_shim_table_object_checked_count = _as_int(
         aggregate.get(
@@ -3512,6 +3544,296 @@ def check_summary(
                     failures.append(
                         "consumer_shim_kernel_arg_semantic_handle_adapter_current_wna16_compatible_count_nonzero="
                         f"{semantic_current_wna16_compatible_count}"
+                    )
+            if (
+                require_kernel_side_consumer_schema_adapter
+                or kernel_side_consumer_schema_adapter_active
+            ):
+                kernel_side_prefix = KERNEL_SIDE_CONSUMER_SCHEMA_ADAPTER_PREFIX
+                kernel_side_checked_count = _as_int(
+                    aggregate.get(f"{kernel_side_prefix}checked_count")
+                )
+                kernel_side_ready_count = _as_int(
+                    aggregate.get(f"{kernel_side_prefix}ready_count")
+                )
+                kernel_side_mode = str(aggregate.get(f"{kernel_side_prefix}mode") or "")
+                kernel_side_mode_checked_count = _as_int(
+                    aggregate.get(f"{kernel_side_prefix}mode_checked_count")
+                )
+                kernel_side_mode_missing_count = _as_int(
+                    aggregate.get(f"{kernel_side_prefix}mode_missing_count")
+                )
+                kernel_side_mode_mismatch_count = _as_int(
+                    aggregate.get(f"{kernel_side_prefix}mode_mismatch_count")
+                )
+                kernel_side_row_count = _as_int(
+                    aggregate.get(f"{kernel_side_prefix}row_count")
+                )
+                kernel_side_column_count_max = _as_int(
+                    aggregate.get(f"{kernel_side_prefix}column_count_max")
+                )
+                kernel_side_column_count_min = _as_int(
+                    aggregate.get(f"{kernel_side_prefix}column_count_min")
+                )
+                kernel_side_table_schema_hash = str(
+                    aggregate.get(f"{kernel_side_prefix}table_schema_hash") or ""
+                )
+                kernel_side_semantic_schema_hash = str(
+                    aggregate.get(f"{kernel_side_prefix}semantic_schema_hash") or ""
+                )
+                kernel_side_schema_name = str(
+                    aggregate.get(f"{kernel_side_prefix}kernel_side_schema_name") or ""
+                )
+                kernel_side_schema_hash = str(
+                    aggregate.get(f"{kernel_side_prefix}kernel_side_schema_hash") or ""
+                )
+                kernel_side_field_count = _as_int(
+                    aggregate.get(f"{kernel_side_prefix}kernel_side_field_count")
+                )
+                kernel_side_required_source_hit_count = _as_int(
+                    aggregate.get(f"{kernel_side_prefix}required_source_hit_count")
+                )
+                kernel_side_required_source_miss_count = _as_int(
+                    aggregate.get(f"{kernel_side_prefix}required_source_miss_count")
+                )
+                kernel_side_optional_source_hit_count = _as_int(
+                    aggregate.get(f"{kernel_side_prefix}optional_source_hit_count")
+                )
+                kernel_side_optional_source_miss_count = _as_int(
+                    aggregate.get(f"{kernel_side_prefix}optional_source_miss_count")
+                )
+                kernel_side_handle_field_read_count = _as_int(
+                    aggregate.get(f"{kernel_side_prefix}handle_field_read_count")
+                )
+                kernel_side_consumer_schema_present_count = _as_int(
+                    aggregate.get(f"{kernel_side_prefix}consumer_schema_present_count")
+                )
+                kernel_side_consumer_connected_count = _as_int(
+                    aggregate.get(f"{kernel_side_prefix}consumer_connected_count")
+                )
+                kernel_side_live_enabled_count = _as_int(
+                    aggregate.get(f"{kernel_side_prefix}live_enabled_count")
+                )
+                kernel_side_live_eligible_count = _as_int(
+                    aggregate.get(f"{kernel_side_prefix}live_eligible_count")
+                )
+                kernel_side_blocked_count = _as_int(
+                    aggregate.get(f"{kernel_side_prefix}blocked_count")
+                )
+                kernel_side_block_reason = str(
+                    aggregate.get(f"{kernel_side_prefix}block_reason") or ""
+                )
+                kernel_side_payload_bytes = _as_int(
+                    aggregate.get(f"{kernel_side_prefix}payload_bytes")
+                )
+                kernel_side_payload_violation_count = _as_int(
+                    aggregate.get(f"{kernel_side_prefix}payload_violation_count")
+                )
+                kernel_side_passed_to_kernel_count = _as_int(
+                    aggregate.get(f"{kernel_side_prefix}passed_to_kernel_count")
+                )
+                kernel_side_kernel_arg_violation_count = _as_int(
+                    aggregate.get(f"{kernel_side_prefix}kernel_arg_violation_count")
+                )
+                kernel_side_current_wna16_compatible_count = _as_int(
+                    aggregate.get(
+                        f"{kernel_side_prefix}live_compatible_with_current_wna16_args_count"
+                    )
+                )
+                for name in (
+                    "hash",
+                    "semantic_adapter_hash",
+                    "table_object_hash",
+                    "launch_schema_mirror_hash",
+                ):
+                    checked = _as_int(
+                        aggregate.get(f"{kernel_side_prefix}{name}_checked_count")
+                    )
+                    missing = _as_int(
+                        aggregate.get(f"{kernel_side_prefix}{name}_missing_count")
+                    )
+                    if checked != shim_executed:
+                        failures.append(
+                            "consumer_shim_kernel_side_consumer_schema_adapter_"
+                            f"{name}_checked_count_mismatch={checked}!={shim_executed}"
+                        )
+                    if missing != 0:
+                        failures.append(
+                            "consumer_shim_kernel_side_consumer_schema_adapter_"
+                            f"{name}_missing_count_nonzero={missing}"
+                        )
+                for name in (
+                    "table_schema_hash",
+                    "semantic_schema_hash",
+                    "kernel_side_schema_name",
+                    "kernel_side_schema_hash",
+                    "block_reason",
+                ):
+                    missing = _as_int(
+                        aggregate.get(f"{kernel_side_prefix}{name}_missing_count")
+                    )
+                    mismatch = _as_int(
+                        aggregate.get(f"{kernel_side_prefix}{name}_mismatch_count")
+                    )
+                    if missing != 0:
+                        failures.append(
+                            "consumer_shim_kernel_side_consumer_schema_adapter_"
+                            f"{name}_missing_count_nonzero={missing}"
+                        )
+                    if mismatch != 0:
+                        failures.append(
+                            "consumer_shim_kernel_side_consumer_schema_adapter_"
+                            f"{name}_mismatch_count_nonzero={mismatch}"
+                        )
+                if kernel_side_checked_count != shim_executed:
+                    failures.append(
+                        "consumer_shim_kernel_side_consumer_schema_adapter_checked_count_mismatch="
+                        f"{kernel_side_checked_count}!={shim_executed}"
+                    )
+                if kernel_side_ready_count != shim_executed:
+                    failures.append(
+                        "consumer_shim_kernel_side_consumer_schema_adapter_ready_count_mismatch="
+                        f"{kernel_side_ready_count}!={shim_executed}"
+                    )
+                if (
+                    kernel_side_mode
+                    != "readonly_kernel_side_consumer_schema_adapter"
+                ):
+                    failures.append(
+                        "consumer_shim_kernel_side_consumer_schema_adapter_mode_mismatch"
+                    )
+                if kernel_side_mode_checked_count != shim_executed:
+                    failures.append(
+                        "consumer_shim_kernel_side_consumer_schema_adapter_mode_checked_count_mismatch="
+                        f"{kernel_side_mode_checked_count}!={shim_executed}"
+                    )
+                if kernel_side_mode_missing_count != 0:
+                    failures.append(
+                        "consumer_shim_kernel_side_consumer_schema_adapter_mode_missing_count_nonzero="
+                        f"{kernel_side_mode_missing_count}"
+                    )
+                if kernel_side_mode_mismatch_count != 0:
+                    failures.append(
+                        "consumer_shim_kernel_side_consumer_schema_adapter_mode_mismatch_count_nonzero="
+                        f"{kernel_side_mode_mismatch_count}"
+                    )
+                if kernel_side_row_count != consume_row_count:
+                    failures.append(
+                        "consumer_shim_kernel_side_consumer_schema_adapter_row_count_mismatch="
+                        f"{kernel_side_row_count}!={consume_row_count}"
+                    )
+                if (
+                    kernel_side_column_count_max
+                    != EXPECTED_KERNEL_ARG_SHADOW_TABLE_COLUMN_COUNT
+                ):
+                    failures.append(
+                        "consumer_shim_kernel_side_consumer_schema_adapter_column_count_max_mismatch="
+                        f"{kernel_side_column_count_max}!={EXPECTED_KERNEL_ARG_SHADOW_TABLE_COLUMN_COUNT}"
+                    )
+                if (
+                    kernel_side_column_count_min
+                    != EXPECTED_KERNEL_ARG_SHADOW_TABLE_COLUMN_COUNT
+                ):
+                    failures.append(
+                        "consumer_shim_kernel_side_consumer_schema_adapter_column_count_min_mismatch="
+                        f"{kernel_side_column_count_min}!={EXPECTED_KERNEL_ARG_SHADOW_TABLE_COLUMN_COUNT}"
+                    )
+                if (
+                    kernel_side_table_schema_hash
+                    != PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH
+                ):
+                    failures.append(
+                        "consumer_shim_kernel_side_consumer_schema_adapter_table_schema_hash_mismatch"
+                    )
+                if (
+                    kernel_side_semantic_schema_hash
+                    != PREMAP_KERNEL_ARG_SEMANTIC_HANDLE_SCHEMA_HASH
+                ):
+                    failures.append(
+                        "consumer_shim_kernel_side_consumer_schema_adapter_semantic_schema_hash_mismatch"
+                    )
+                if kernel_side_schema_name != PREMAP_KERNEL_SIDE_CONSUMER_SCHEMA_NAME:
+                    failures.append(
+                        "consumer_shim_kernel_side_consumer_schema_adapter_schema_name_mismatch"
+                    )
+                if kernel_side_schema_hash != PREMAP_KERNEL_SIDE_CONSUMER_SCHEMA_HASH:
+                    failures.append(
+                        "consumer_shim_kernel_side_consumer_schema_adapter_schema_hash_mismatch"
+                    )
+                expected_kernel_side_field_count = (
+                    shim_executed * len(PREMAP_KERNEL_SIDE_CONSUMER_SCHEMA_FIELDS)
+                )
+                if kernel_side_field_count != expected_kernel_side_field_count:
+                    failures.append(
+                        "consumer_shim_kernel_side_consumer_schema_adapter_field_count_mismatch="
+                        f"{kernel_side_field_count}!={expected_kernel_side_field_count}"
+                    )
+                if (
+                    kernel_side_required_source_hit_count
+                    != expected_consume_required_fields
+                ):
+                    failures.append(
+                        "consumer_shim_kernel_side_consumer_schema_adapter_required_source_hit_count_mismatch="
+                        f"{kernel_side_required_source_hit_count}!={expected_consume_required_fields}"
+                    )
+                if kernel_side_required_source_miss_count != 0:
+                    failures.append(
+                        "consumer_shim_kernel_side_consumer_schema_adapter_required_source_miss_count_nonzero="
+                        f"{kernel_side_required_source_miss_count}"
+                    )
+                if (
+                    kernel_side_optional_source_hit_count
+                    + kernel_side_optional_source_miss_count
+                    != consume_row_count
+                ):
+                    failures.append(
+                        "consumer_shim_kernel_side_consumer_schema_adapter_optional_source_total_mismatch="
+                        f"{kernel_side_optional_source_hit_count}+"
+                        f"{kernel_side_optional_source_miss_count}!={consume_row_count}"
+                    )
+                if (
+                    kernel_side_handle_field_read_count
+                    != consume_row_count * EXPECTED_KERNEL_ARG_SHADOW_TABLE_COLUMN_COUNT
+                ):
+                    failures.append(
+                        "consumer_shim_kernel_side_consumer_schema_adapter_handle_field_read_count_mismatch="
+                        f"{kernel_side_handle_field_read_count}!="
+                        f"{consume_row_count * EXPECTED_KERNEL_ARG_SHADOW_TABLE_COLUMN_COUNT}"
+                    )
+                if kernel_side_consumer_schema_present_count != shim_executed:
+                    failures.append(
+                        "consumer_shim_kernel_side_consumer_schema_adapter_present_count_mismatch="
+                        f"{kernel_side_consumer_schema_present_count}!={shim_executed}"
+                    )
+                for name, value in (
+                    ("consumer_connected_count", kernel_side_consumer_connected_count),
+                    ("live_enabled_count", kernel_side_live_enabled_count),
+                    ("live_eligible_count", kernel_side_live_eligible_count),
+                    ("payload_bytes", kernel_side_payload_bytes),
+                    ("payload_violation_count", kernel_side_payload_violation_count),
+                    ("passed_to_kernel_count", kernel_side_passed_to_kernel_count),
+                    ("kernel_arg_violation_count", kernel_side_kernel_arg_violation_count),
+                    (
+                        "current_wna16_compatible_count",
+                        kernel_side_current_wna16_compatible_count,
+                    ),
+                ):
+                    if value != 0:
+                        failures.append(
+                            "consumer_shim_kernel_side_consumer_schema_adapter_"
+                            f"{name}_nonzero={value}"
+                        )
+                if kernel_side_blocked_count != shim_executed:
+                    failures.append(
+                        "consumer_shim_kernel_side_consumer_schema_adapter_blocked_count_mismatch="
+                        f"{kernel_side_blocked_count}!={shim_executed}"
+                    )
+                if (
+                    kernel_side_block_reason
+                    != "kernel_side_consumer_live_disabled"
+                ):
+                    failures.append(
+                        "consumer_shim_kernel_side_consumer_schema_adapter_block_reason_mismatch"
                     )
             if attempt_checked_count != shim_executed:
                 failures.append(
@@ -6810,6 +7132,91 @@ def check_summary(
                 f"{KERNEL_ARG_SEMANTIC_HANDLE_ADAPTER_PREFIX}live_compatible_with_current_wna16_args_count"
             )
         ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_checked_count": _as_int(
+            aggregate.get(f"{KERNEL_SIDE_CONSUMER_SCHEMA_ADAPTER_PREFIX}checked_count")
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_ready_count": _as_int(
+            aggregate.get(f"{KERNEL_SIDE_CONSUMER_SCHEMA_ADAPTER_PREFIX}ready_count")
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_hash_checked_count": _as_int(
+            aggregate.get(
+                f"{KERNEL_SIDE_CONSUMER_SCHEMA_ADAPTER_PREFIX}hash_checked_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_semantic_adapter_hash_checked_count": _as_int(
+            aggregate.get(
+                f"{KERNEL_SIDE_CONSUMER_SCHEMA_ADAPTER_PREFIX}semantic_adapter_hash_checked_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_mode": str(
+            aggregate.get(f"{KERNEL_SIDE_CONSUMER_SCHEMA_ADAPTER_PREFIX}mode")
+            or ""
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_row_count": _as_int(
+            aggregate.get(f"{KERNEL_SIDE_CONSUMER_SCHEMA_ADAPTER_PREFIX}row_count")
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_column_count_max": _as_int(
+            aggregate.get(
+                f"{KERNEL_SIDE_CONSUMER_SCHEMA_ADAPTER_PREFIX}column_count_max"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_kernel_side_schema_name": str(
+            aggregate.get(
+                f"{KERNEL_SIDE_CONSUMER_SCHEMA_ADAPTER_PREFIX}kernel_side_schema_name"
+            )
+            or ""
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_kernel_side_schema_hash": str(
+            aggregate.get(
+                f"{KERNEL_SIDE_CONSUMER_SCHEMA_ADAPTER_PREFIX}kernel_side_schema_hash"
+            )
+            or ""
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_kernel_side_field_count": _as_int(
+            aggregate.get(
+                f"{KERNEL_SIDE_CONSUMER_SCHEMA_ADAPTER_PREFIX}kernel_side_field_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_consumer_schema_present_count": _as_int(
+            aggregate.get(
+                f"{KERNEL_SIDE_CONSUMER_SCHEMA_ADAPTER_PREFIX}consumer_schema_present_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_consumer_connected_count": _as_int(
+            aggregate.get(
+                f"{KERNEL_SIDE_CONSUMER_SCHEMA_ADAPTER_PREFIX}consumer_connected_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_live_enabled_count": _as_int(
+            aggregate.get(
+                f"{KERNEL_SIDE_CONSUMER_SCHEMA_ADAPTER_PREFIX}live_enabled_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_blocked_count": _as_int(
+            aggregate.get(f"{KERNEL_SIDE_CONSUMER_SCHEMA_ADAPTER_PREFIX}blocked_count")
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_block_reason": str(
+            aggregate.get(f"{KERNEL_SIDE_CONSUMER_SCHEMA_ADAPTER_PREFIX}block_reason")
+            or ""
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_payload_bytes": _as_int(
+            aggregate.get(f"{KERNEL_SIDE_CONSUMER_SCHEMA_ADAPTER_PREFIX}payload_bytes")
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_passed_to_kernel_count": _as_int(
+            aggregate.get(
+                f"{KERNEL_SIDE_CONSUMER_SCHEMA_ADAPTER_PREFIX}passed_to_kernel_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_kernel_arg_violation_count": _as_int(
+            aggregate.get(
+                f"{KERNEL_SIDE_CONSUMER_SCHEMA_ADAPTER_PREFIX}kernel_arg_violation_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_live_compatible_with_current_wna16_args_count": _as_int(
+            aggregate.get(
+                f"{KERNEL_SIDE_CONSUMER_SCHEMA_ADAPTER_PREFIX}live_compatible_with_current_wna16_args_count"
+            )
+        ),
     }
     return {
         "passed": not failures,
@@ -6844,6 +7251,9 @@ def check_summary(
         ),
         "require_kernel_arg_semantic_handle_adapter": bool(
             require_kernel_arg_semantic_handle_adapter
+        ),
+        "require_kernel_side_consumer_schema_adapter": bool(
+            require_kernel_side_consumer_schema_adapter
         ),
         "allow_enabled_blocked_live_toggle": bool(
             allow_enabled_blocked_live_toggle
@@ -6994,6 +7404,17 @@ def main() -> None:
         ),
     )
     parser.add_argument(
+        "--require-kernel-side-consumer-schema-adapter",
+        action="store_true",
+        help=(
+            "Require the live-disabled future kernel-side consumer schema "
+            "adapter. This is stricter than the semantic handle adapter: the "
+            "schema must be present and ready, while live handoff, payload, "
+            "current WNA16 compatibility, and kernel argument mutation remain "
+            "disabled."
+        ),
+    )
+    parser.add_argument(
         "--allow-enabled-blocked-live-toggle",
         action="store_true",
         help=(
@@ -7084,6 +7505,9 @@ def main() -> None:
         ),
         require_kernel_arg_semantic_handle_adapter=(
             args.require_kernel_arg_semantic_handle_adapter
+        ),
+        require_kernel_side_consumer_schema_adapter=(
+            args.require_kernel_side_consumer_schema_adapter
         ),
         allow_enabled_blocked_live_toggle=(
             args.allow_enabled_blocked_live_toggle
