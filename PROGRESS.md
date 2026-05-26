@@ -16145,6 +16145,64 @@ no descriptor_order execution
 no kernel argument mutation
 ```
 
+## 2026-05-27 - Kernel-Side Consumer Schema Adapter Gate
+
+The premap kernel-side consumer schema adapter is now live-aware while
+remaining blocked and side-effect free.  The default lab gate stays
+live-disabled, and explicit live-connected canaries are allowed only as
+blocked schema checks:
+
+```text
+default lab gate:
+  live_enabled = 0
+  consumer_connected = 0
+  live_eligible = 0
+  block_reason = kernel_side_consumer_live_disabled
+
+live-connected canary gate:
+  live_enabled = checked_count
+  consumer_connected = checked_count
+  live_eligible = checked_count
+  block_reason = kernel_side_consumer_kernel_arg_pass_disabled
+
+always required:
+  payload_bytes = 0
+  passed_to_kernel_count = 0
+  kernel_arg_violation_count = 0
+  live_compatible_with_current_wna16_args_count = 0
+```
+
+Evidence:
+
+```text
+default strict 128 gate:
+  data/traces/
+    external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_longrun_audit/
+    longrun_audit_gate_kernel_side_consumer_schema_adapter.json
+
+live-connected 1-sample gate:
+  data/traces/
+    external_prompt_gate_dolly_1_awq_vllm_gpu1_decode_gen16_live_connected_adapter_canary/
+    connected_blocked_kernel_side_schema_gate_check.json
+
+live-connected 8-sample gate:
+  data/traces/
+    external_prompt_gate_dolly_8_awq_vllm_gpu1_decode_gen64_live_connected_adapter_canary/
+    connected_blocked_kernel_side_schema_gate_check.json
+```
+
+Validation:
+
+```text
+pytest tests -q: 606 passed
+scripts/run_premap_lab_preflight.py: passed
+```
+
+This is still a schema/consumer readiness gate, not a real kernel argument
+handoff.  The next safe boundary is a typed kernel-side consumer schema object
+that a future kernel can consume, still without payload movement or live kernel
+argument mutation.
+
 ## Prepared handle-table candidate dry-run gate
 
 The single-field kernel-arg replacement gate now supports an explicit
