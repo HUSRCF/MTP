@@ -2,12 +2,12 @@
 
 ## Progress Version
 
-- Version: `v0.19-premap-semantic-handle-adapter-dry-run`
+- Version: `v0.20-premap-semantic-handle-adapter-lab-gate`
 - Updated: 2026-05-26
 - Current phase: premap descriptor/address prep now has a typed semantic
-  handle adapter dry-run gate.  The adapter defines the future kernel-side
-  handle schema without pretending that the prepared handle tuple is a current
-  WNA16 tensor kernel argument.
+  handle adapter dry-run gate promoted to the lab-default readonly gate.  The
+  adapter defines the future kernel-side handle schema without pretending that
+  the prepared handle tuple is a current WNA16 tensor kernel argument.
 
 ## Runtime Policy Contract
 
@@ -65,15 +65,26 @@ meant to describe.
 Validation:
 
 ```text
-python -m py_compile ...  # cache_manager, shadow_log, vllm_router_trace,
-                          # checker, and focused tests
-pytest tests/test_check_premap_longrun_audit_gate.py \
-       tests/test_runtime_shadow_log.py -q
-95 passed
+GPU1 128-sample strict audit:
+  longrun_audit_gate_semantic_handle_adapter.json
+  passed = true
+  failures = []
+
+semantic adapter checked / ready = 10,195 / 10,195
+row_count = 110,898
+required_source_miss_count = 0
+payload_bytes / passed_to_kernel / kernel_arg_violation = 0 / 0 / 0
+live_compatible_with_current_wna16_args_count = 0
 
 pytest tests -q
-592 passed, 2 warnings
+597 passed, 2 warnings
 ```
+
+The lab-default readonly gate artifact now requires
+`require_kernel_arg_semantic_handle_adapter=true`, and its evidence paths point
+to the strict 128-sample semantic-adapter gate JSON.  Runtime shadow aggregation
+also has explicit zero-default coverage so older non-semantic events cannot be
+misread as ready semantic adapter records.
 
 ## Previous Update: Experimental Kernel-Arg Pass Live Path
 
