@@ -13706,6 +13706,103 @@ no descriptor_order execution
 no kernel argument mutation
 ```
 
+## Kernel-arg live-pass canary smoke
+
+The kernel-argument handoff path now has an explicit experimental live-pass
+canary.  This is not the default lab gate and not a payload/ready/runtime
+performance claim.  It only verifies that the prelaunch consumer adapter can
+accept the mirrored kernel-argument package under an explicit gate contract.
+
+New canary artifacts:
+
+```text
+trace config:
+  configs/trace/
+    router_mtp_trace_external_prompt_gate_dolly_1_awq_vllm_gpu1_decode_gen16_live_kernel_arg_pass_canary.yaml
+
+readonly gate:
+  configs/runtime/
+    premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_live_kernel_arg_pass_canary.yaml
+
+runtime output:
+  data/traces/
+    external_prompt_gate_dolly_1_awq_vllm_gpu1_decode_gen16_live_kernel_arg_pass_canary/
+      performance_summary.json
+      kernel_arg_pass_gate_check.json
+      kernel_arg_pass_default_reject_check.json
+```
+
+Explicit live-pass checker:
+
+```text
+checker flags:
+  --require-kernel-arg-handoff-live-toggle
+  --require-kernel-arg-handoff-launch-schema-mirror
+  --require-kernel-arg-handoff-live-noop-integration
+  --require-kernel-arg-handoff-live-consumer-adapter
+  --allow-enabled-blocked-live-toggle
+  --allow-connected-blocked-consumer-adapter
+  --allow-kernel-arg-handoff-live-kernel-arg-pass
+
+passed = true
+failures = []
+premap_summary_count = 640
+premap_consumer_mapping_count = 640
+
+live_consumer_adapter_checked = 640
+live_consumer_adapter_blocked = 0
+live_consumer_adapter_block_reason =
+  kernel_arg_handoff_kernel_arg_pass_live
+live_consumer_adapter_passed_to_kernel_count = 640
+live_consumer_adapter_changes_kernel_launch_args_count = 640
+live_consumer_adapter_contract_live_pass_count = 640
+live_consumer_adapter_real_kernel_arg_handoff_count = 0
+live_consumer_adapter_payload_bytes = 0
+
+live_noop_integration_block_reason =
+  kernel_arg_handoff_kernel_arg_pass_disabled
+live_noop_integration_passed_to_kernel_count = 0
+consumer_shim_table_consume_passed_to_kernel_count = 0
+premap_summary_payload_bytes = 0
+premap_consumer_ready_credit_violation_count = 0
+```
+
+Default strict checker still fails closed without the live-pass allow flag:
+
+```text
+passed = false
+failures include:
+  kernel_arg_handoff_kernel_arg_pass_enabled_true
+  consumer_shim_kernel_arg_handoff_live_consumer_adapter_block_reason_mismatch
+  consumer_shim_kernel_arg_handoff_live_consumer_adapter_blocked_count_mismatch
+  consumer_shim_kernel_arg_handoff_live_consumer_adapter_passed_to_kernel_count_mismatch
+  consumer_shim_kernel_arg_handoff_live_consumer_adapter_changes_kernel_launch_args_count_mismatch
+  consumer_shim_kernel_arg_handoff_live_consumer_adapter_contract_live_pass_count_mismatch
+```
+
+Validation:
+
+```text
+pytest tests/test_runtime_premap.py \
+       tests/test_vllm_premap_capacity_gate.py \
+       tests/test_check_premap_longrun_audit_gate.py -q
+
+137 passed
+```
+
+Boundary:
+
+```text
+This is an adapter/mirror live-pass envelope.  The explicit
+`contract_live_pass_count` records that the prelaunch adapter accepted the
+mirrored package, while `real_kernel_arg_handoff_count = 0` records that this
+is still not a real fused-MoE/AWQ launch-argument mutation.
+
+It still does not move payload, grant ready credit, mutate router outputs, run
+descriptor_order execution, or pass a new argument package into the real fused
+MoE/AWQ kernel launch.
+```
+
 ## 2026-05-25 - 128-Sample Launch-Schema Mirror Gate Promoted
 
 The kernel-arg handoff mirror is now checked against an explicit future launch

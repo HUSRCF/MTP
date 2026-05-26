@@ -942,6 +942,8 @@ class PremapKernelArgHandoffLiveConsumerAdapterRecord:
     payload_bytes: int = 0
     passed_to_kernel: bool = False
     changes_kernel_launch_args: bool = False
+    adapter_contract_live_pass: bool = False
+    real_kernel_arg_handoff: bool = False
 
     @property
     def record_ready(self) -> bool:
@@ -991,6 +993,8 @@ class PremapKernelArgHandoffLiveConsumerAdapterRecord:
                 not bool(self.blocked)
                 and bool(self.passed_to_kernel)
                 and bool(self.changes_kernel_launch_args)
+                and bool(self.adapter_contract_live_pass)
+                and not bool(self.real_kernel_arg_handoff)
                 and str(self.block_reason)
                 == "kernel_arg_handoff_kernel_arg_pass_live"
             )
@@ -1035,6 +1039,8 @@ class PremapKernelArgHandoffLiveConsumerAdapterRecord:
             "payload_bytes": int(self.payload_bytes),
             "passed_to_kernel": bool(self.passed_to_kernel),
             "changes_kernel_launch_args": bool(self.changes_kernel_launch_args),
+            "adapter_contract_live_pass": bool(self.adapter_contract_live_pass),
+            "real_kernel_arg_handoff": bool(self.real_kernel_arg_handoff),
         }
 
 
@@ -1340,6 +1346,8 @@ class PremapDescriptorConsumerShimResult:
     kernel_arg_handoff_live_consumer_adapter_payload_bytes: int = 0
     kernel_arg_handoff_live_consumer_adapter_passed_to_kernel: bool = False
     kernel_arg_handoff_live_consumer_adapter_changes_kernel_launch_args: bool = False
+    kernel_arg_handoff_live_consumer_adapter_contract_live_pass: bool = False
+    kernel_arg_handoff_live_consumer_adapter_real_kernel_arg_handoff: bool = False
     handle_table_object_consumed: bool | None = None
     handle_table_object_hash: str | None = None
     handle_table_object_row_count: int | None = None
@@ -2571,6 +2579,8 @@ class ControlledPremapAddressManager:
                         payload_bytes=0,
                         passed_to_kernel=adapter_kernel_arg_pass_live,
                         changes_kernel_launch_args=adapter_kernel_arg_pass_live,
+                        adapter_contract_live_pass=adapter_kernel_arg_pass_live,
+                        real_kernel_arg_handoff=False,
                     )
                 )
         return PremapDescriptorConsumerShimResult(
@@ -3167,6 +3177,16 @@ class ControlledPremapAddressManager:
             ),
             kernel_arg_handoff_live_consumer_adapter_changes_kernel_launch_args=(
                 handoff_live_consumer_adapter.changes_kernel_launch_args
+                if handoff_live_consumer_adapter is not None
+                else False
+            ),
+            kernel_arg_handoff_live_consumer_adapter_contract_live_pass=(
+                handoff_live_consumer_adapter.adapter_contract_live_pass
+                if handoff_live_consumer_adapter is not None
+                else False
+            ),
+            kernel_arg_handoff_live_consumer_adapter_real_kernel_arg_handoff=(
+                handoff_live_consumer_adapter.real_kernel_arg_handoff
                 if handoff_live_consumer_adapter is not None
                 else False
             ),

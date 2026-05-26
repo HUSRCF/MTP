@@ -326,6 +326,12 @@ def check_summary(
     )
     if _as_bool(kernel_arg_pass_enabled) and not allow_kernel_arg_handoff_live_kernel_arg_pass:
         failures.append("kernel_arg_handoff_kernel_arg_pass_enabled_true")
+    if allow_kernel_arg_handoff_live_kernel_arg_pass and not _as_bool(
+        kernel_arg_pass_enabled
+    ):
+        failures.append(
+            "allow_kernel_arg_handoff_live_kernel_arg_pass_requires_runtime_flag_true"
+        )
 
     unknown_events = sorted(set(event_counts) - REQUIRED_EVENT_TYPES)
     missing_events = sorted(event for event in REQUIRED_EVENT_TYPES if event_counts.get(event, 0) <= 0)
@@ -2063,6 +2069,16 @@ def check_summary(
                     ),
                 )
             )
+            adapter_contract_live_pass_count = _as_int(
+                aggregate.get(
+                    f"{KERNEL_ARG_HANDOFF_LIVE_CONSUMER_ADAPTER_PREFIX}contract_live_pass_count"
+                )
+            )
+            adapter_real_kernel_arg_handoff_count = _as_int(
+                aggregate.get(
+                    f"{KERNEL_ARG_HANDOFF_LIVE_CONSUMER_ADAPTER_PREFIX}real_kernel_arg_handoff_count"
+                )
+            )
             shim_table_row_count = _as_int(
                 aggregate.get(
                     "premap_consumer_descriptor_prep_consumer_shim_handle_table_row_count"
@@ -3481,6 +3497,11 @@ def check_summary(
                     if allow_kernel_arg_handoff_live_kernel_arg_pass
                     else 0
                 )
+                expected_adapter_contract_live_pass_count = (
+                    shim_executed
+                    if allow_kernel_arg_handoff_live_kernel_arg_pass
+                    else 0
+                )
                 if adapter_checked_count != shim_executed:
                     failures.append(
                         "consumer_shim_kernel_arg_handoff_live_consumer_adapter_checked_count_mismatch="
@@ -3667,6 +3688,19 @@ def check_summary(
                     failures.append(
                         "consumer_shim_kernel_arg_handoff_live_consumer_adapter_changes_kernel_launch_args_count_mismatch="
                         f"{adapter_changes_kernel_launch_args_count}!={expected_adapter_changes_kernel_args_count}"
+                    )
+                if (
+                    adapter_contract_live_pass_count
+                    != expected_adapter_contract_live_pass_count
+                ):
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_live_consumer_adapter_contract_live_pass_count_mismatch="
+                        f"{adapter_contract_live_pass_count}!={expected_adapter_contract_live_pass_count}"
+                    )
+                if adapter_real_kernel_arg_handoff_count != 0:
+                    failures.append(
+                        "consumer_shim_kernel_arg_handoff_live_consumer_adapter_real_kernel_arg_handoff_count_nonzero="
+                        f"{adapter_real_kernel_arg_handoff_count}"
                     )
         if require_consumer_shim_table_object or consumer_shim_table_object_active:
             shim_executed = _as_int(
@@ -4113,6 +4147,9 @@ def check_summary(
         "row_count": _as_int(summary.get("row_count")),
         "premap_summary_count": premap_count,
         "premap_consumer_mapping_count": consumer_count,
+        "runtime_shadow_premap_kernel_arg_handoff_kernel_arg_pass_enabled": _as_bool(
+            kernel_arg_pass_enabled
+        ),
         "premap_address_resident_count_max": resident_count,
         "premap_address_reuse_rate_mean": _as_float(
             aggregate.get("premap_address_reuse_rate_mean")
@@ -5543,6 +5580,16 @@ def check_summary(
                 aggregate.get(
                     f"{KERNEL_ARG_HANDOFF_LIVE_CONSUMER_ADAPTER_PREFIX}kernel_arg_violation_count"
                 ),
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_consumer_adapter_contract_live_pass_count": _as_int(
+            aggregate.get(
+                f"{KERNEL_ARG_HANDOFF_LIVE_CONSUMER_ADAPTER_PREFIX}contract_live_pass_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_consumer_adapter_real_kernel_arg_handoff_count": _as_int(
+            aggregate.get(
+                f"{KERNEL_ARG_HANDOFF_LIVE_CONSUMER_ADAPTER_PREFIX}real_kernel_arg_handoff_count"
             )
         ),
         "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_consumed_checked_count": _as_int(

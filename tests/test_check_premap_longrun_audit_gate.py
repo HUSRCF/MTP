@@ -599,6 +599,10 @@ def _add_kernel_arg_handoff_live_consumer_adapter(
             "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_consumer_adapter_changes_kernel_launch_args_count": (
                 checked_count if kernel_arg_pass_live else 0
             ),
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_consumer_adapter_contract_live_pass_count": (
+                checked_count if kernel_arg_pass_live else 0
+            ),
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_consumer_adapter_real_kernel_arg_handoff_count": 0,
         }
     )
     if kernel_arg_pass_live:
@@ -2111,6 +2115,65 @@ def test_premap_longrun_audit_gate_accepts_live_kernel_arg_pass_with_explicit_al
             "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_consumer_adapter_changes_kernel_launch_args_count"
         ]
         == 2
+    )
+    assert (
+        result["metrics"][
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_consumer_adapter_contract_live_pass_count"
+        ]
+        == 2
+    )
+    assert (
+        result["metrics"][
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_consumer_adapter_real_kernel_arg_handoff_count"
+        ]
+        == 0
+    )
+
+
+def test_premap_longrun_audit_gate_rejects_allow_kernel_arg_pass_without_runtime_flag():
+    summary = _add_kernel_arg_handoff_live_consumer_adapter(
+        _add_kernel_arg_handoff_live_noop_integration(
+            _add_kernel_arg_handoff_live_toggle(
+                _add_kernel_arg_handoff_launch_schema_mirror(
+                    _add_kernel_arg_handoff_attempt(_passing_summary())
+                ),
+                enabled_blocked=True,
+            ),
+            enabled_blocked=True,
+            consumer_connected=True,
+        ),
+        enabled_blocked=True,
+        consumer_connected=True,
+        kernel_arg_pass_live=True,
+    )
+    summary["aggregate"].pop(
+        "runtime_shadow_premap_kernel_arg_handoff_kernel_arg_pass_enabled"
+    )
+
+    result = check_summary(
+        summary,
+        max_capacity=12,
+        min_reuse_rate=0.98,
+        require_readonly_consumer=True,
+        require_descriptor_prep=True,
+        require_real_descriptor_prep=True,
+        require_kernel_arg_shadow_table=True,
+        require_consumer_shim_table_read=True,
+        require_consumer_shim_table_consume=True,
+        require_kernel_arg_handoff_attempt=True,
+        require_kernel_arg_handoff_live_toggle=True,
+        require_kernel_arg_handoff_launch_schema_mirror=True,
+        require_kernel_arg_handoff_live_noop_integration=True,
+        require_kernel_arg_handoff_live_consumer_adapter=True,
+        allow_enabled_blocked_live_toggle=True,
+        allow_connected_blocked_consumer_adapter=True,
+        allow_kernel_arg_handoff_live_kernel_arg_pass=True,
+    )
+
+    assert result["passed"] is False
+    assert (
+        "allow_kernel_arg_handoff_live_kernel_arg_pass_requires_runtime_flag_true"
+        in result["failures"]
     )
 
 

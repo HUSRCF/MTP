@@ -1046,6 +1046,14 @@ def test_controlled_premap_address_manager_executes_descriptor_prep_readonly():
         live_pass_adapter.kernel_arg_handoff_live_consumer_adapter_changes_kernel_launch_args
         is True
     )
+    assert (
+        live_pass_adapter.kernel_arg_handoff_live_consumer_adapter_contract_live_pass
+        is True
+    )
+    assert (
+        live_pass_adapter.kernel_arg_handoff_live_consumer_adapter_real_kernel_arg_handoff
+        is False
+    )
     assert shim_result.handle_table_object_consumed is True
     assert shim_result.handle_table_object_hash == table_object.object_hash
     assert shim_result.handle_table_object_row_count == 2
