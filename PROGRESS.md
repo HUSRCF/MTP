@@ -2,13 +2,14 @@
 
 ## Progress Version
 
-- Version: `v0.21-premap-kernel-side-consumer-schema-live-disabled`
-- Updated: 2026-05-26
-- Current phase: premap descriptor/address prep now has a live-disabled
-  kernel-side consumer schema adapter on top of the typed semantic handle
-  adapter.  The new adapter mirrors the schema a future fused-MoE/AWQ
-  kernel-side consumer would read, while remaining disconnected, zero-payload,
-  and not passed to the current WNA16 kernel.
+- Version: `v0.23-premap-kernel-side-typed-consumer-gated`
+- Updated: 2026-05-27
+- Current phase: premap descriptor/address prep now has a typed
+  kernel-side consumer object on top of the semantic handle adapter and
+  kernel-side schema adapter.  The default lab gate remains live-disabled,
+  zero-payload, and not passed to the current WNA16 kernel.  Explicit canaries
+  cover connected-but-blocked and live-kernel-pass-negative branches without
+  promoting them to default runtime behavior.
 
 ## Runtime Policy Contract
 
@@ -30,7 +31,37 @@ Safety boundaries:
 - `metadata` and `premap` are setup-preparation actions only.
 - MTP extras must be novel additions and cannot replace `transition_top32`.
 
-## Latest Update: Kernel-Side Consumer Schema Adapter
+## Latest Update: Typed Kernel-Side Premap Consumer Gates
+
+The default lab gate now requires a readonly typed kernel-side consumer object:
+
+```text
+mode = readonly_kernel_side_typed_consumer_object
+consumer_connected = false
+live_enabled = false
+live_eligible = false
+payload_bytes = 0
+passed_to_kernel = 0
+changes_kernel_launch_args = 0
+```
+
+Two explicit canary branches are documented separately:
+
+```text
+connected-but-blocked canary:
+  consumer_connected = true
+  live_enabled = true
+  block_reason = kernel_side_typed_consumer_kernel_arg_pass_disabled
+
+live-kernel-pass negative canary:
+  runtime_shadow_premap_kernel_arg_handoff_kernel_arg_pass_enabled = true
+  live adapter records current WNA16 tensor-arg incompatibility
+  typed object remains readonly and not passed to kernel
+```
+
+These canaries use `min_reuse_rate = 0.0` because they are 1-sample contract
+checks, not capacity/reuse/performance gates.  The default 128-sample lab gate
+retains the stricter long-run reuse/capacity checks.
 
 The premap kernel-arg handoff path now includes a live-disabled kernel-side
 consumer schema adapter:
@@ -16262,6 +16293,55 @@ consumer is connected and live-eligible, but the current WNA16 launch remains
 incompatible and kernel-arg pass stays disabled.  It is not the default lab
 gate and it still performs no payload movement, ready-credit grant, or kernel
 argument mutation.
+
+Live-kernel-pass typed-object canary:
+
+```text
+artifact:
+  data/traces/
+    external_prompt_gate_dolly_1_awq_vllm_gpu1_decode_gen16_live_kernel_arg_pass_canary/
+    kernel_arg_pass_typed_consumer_object_gate_check.json
+
+self-check:
+  data/traces/
+    external_prompt_gate_dolly_1_awq_vllm_gpu1_decode_gen16_live_kernel_arg_pass_canary/
+    kernel_arg_pass_typed_consumer_object_gate_check_selfcheck.json
+
+passed = true
+failures = []
+runtime_shadow_premap_kernel_arg_handoff_kernel_arg_pass_enabled = true
+
+live_consumer_adapter:
+  block_reason = kernel_arg_handoff_kernel_arg_pass_live
+  passed_to_kernel_count = 640
+  changes_kernel_launch_args_count = 640
+  kernel_arg_violation_count = 640
+  real_kernel_arg_handoff_count = 0
+
+kernel_side_typed_consumer_object:
+  mode = readonly_kernel_side_typed_consumer_object
+  block_reason = kernel_side_typed_consumer_shadow_only_kernel_arg_pass_enabled
+  checked = 640
+  ready = 640
+  row_count = 9,794
+  typed_consumer_field_count_total = 7,040
+  required_source_hit_count = 29,382
+  required_source_miss_count = 0
+  optional_source_hit_count = 9,794
+  optional_source_miss_count = 0
+  handle_field_read_count = 39,176
+  payload_bytes = 0
+  passed_to_kernel = 0
+  kernel_arg_violation = 0
+  live_compatible_with_current_wna16_args = 0
+```
+
+This is a negative/live-pass canary, not a default lab gate.  The live consumer
+adapter intentionally records that the current WNA16 tensor-arg interface would
+be violated, while the typed kernel-side consumer object remains a read-only
+shadow object and never passes payload or kernel arguments.  This confirms that
+the typed consumer contract survives the live-pass flag without pretending that
+the current kernel can consume the handle schema.
 
 ## 2026-05-27 - Kernel-Side Consumer Schema Adapter Gate
 
