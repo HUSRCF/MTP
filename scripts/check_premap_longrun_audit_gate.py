@@ -305,6 +305,7 @@ def check_summary(
     allow_connected_blocked_consumer_adapter: bool = False,
     allow_kernel_arg_handoff_live_kernel_arg_pass: bool = False,
     allow_kernel_arg_handoff_live_real_kernel_arg_mutation: bool = False,
+    allow_single_field_replacement_live: bool = False,
 ) -> dict[str, Any]:
     raw_kernel_arg_pass_enabled = summary.get(
         "runtime_shadow_premap_kernel_arg_handoff_kernel_arg_pass_enabled"
@@ -314,6 +315,9 @@ def check_summary(
     )
     raw_single_field_replacement_dry_run_enabled = summary.get(
         "runtime_shadow_premap_kernel_arg_handoff_single_field_replacement_dry_run_enabled"
+    )
+    raw_single_field_replacement_live_enabled = summary.get(
+        "runtime_shadow_premap_kernel_arg_handoff_single_field_replacement_live_enabled"
     )
     raw_single_field_replacement_field = summary.get(
         "runtime_shadow_premap_kernel_arg_handoff_single_field_replacement_field"
@@ -327,6 +331,10 @@ def check_summary(
         raw_single_field_replacement_field = raw_metrics.get(
             "runtime_shadow_premap_kernel_arg_handoff_single_field_replacement_field",
             raw_single_field_replacement_field,
+        )
+        raw_single_field_replacement_live_enabled = raw_metrics.get(
+            "runtime_shadow_premap_kernel_arg_handoff_single_field_replacement_live_enabled",
+            raw_single_field_replacement_live_enabled,
         )
     summary = _normalize_summary(summary)
     event_counts = {
@@ -382,10 +390,30 @@ def check_summary(
         "runtime_shadow_premap_kernel_arg_handoff_single_field_replacement_dry_run_enabled",
         raw_single_field_replacement_dry_run_enabled,
     )
+    single_field_replacement_live_enabled = aggregate.get(
+        "runtime_shadow_premap_kernel_arg_handoff_single_field_replacement_live_enabled",
+        raw_single_field_replacement_live_enabled,
+    )
     single_field_replacement_field = aggregate.get(
         "runtime_shadow_premap_kernel_arg_handoff_single_field_replacement_field",
         raw_single_field_replacement_field,
     )
+    if (
+        _as_bool(single_field_replacement_live_enabled)
+        and not allow_single_field_replacement_live
+    ):
+        failures.append("single_field_replacement_live_enabled_true")
+    if (
+        allow_single_field_replacement_live
+        and not _as_bool(single_field_replacement_live_enabled)
+    ):
+        failures.append(
+            "allow_single_field_replacement_live_requires_runtime_flag_true"
+        )
+    if _as_bool(single_field_replacement_live_enabled) and not _as_bool(
+        single_field_replacement_dry_run_enabled
+    ):
+        failures.append("single_field_replacement_live_requires_dry_run_enabled")
 
     unknown_events = sorted(set(event_counts) - REQUIRED_EVENT_TYPES)
     missing_events = sorted(event for event in REQUIRED_EVENT_TYPES if event_counts.get(event, 0) <= 0)
@@ -4266,6 +4294,68 @@ def check_summary(
             "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_dry_run_payload_bytes"
         )
     )
+    single_field_replacement_live_disabled_count = _as_int(
+        aggregate.get(
+            "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_live_disabled_count"
+        )
+    )
+    single_field_replacement_live_candidate_count = _as_int(
+        aggregate.get(
+            "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_live_candidate_count"
+        )
+    )
+    single_field_replacement_live_replaced_count = _as_int(
+        aggregate.get(
+            "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_live_replaced_count"
+        )
+    )
+    single_field_replacement_live_parity_ok_count = _as_int(
+        aggregate.get(
+            "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_live_parity_ok_count"
+        )
+    )
+    single_field_replacement_live_parity_mismatch_count = _as_int(
+        aggregate.get(
+            "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_live_parity_mismatch_count"
+        )
+    )
+    single_field_replacement_live_passed_to_kernel_count = _as_int(
+        aggregate.get(
+            "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_live_passed_to_kernel_count"
+        )
+    )
+    single_field_replacement_live_payload_bytes = _as_int(
+        aggregate.get(
+            "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_live_payload_bytes"
+        )
+    )
+    if not _as_bool(single_field_replacement_live_enabled):
+        if (
+            not _as_bool(single_field_replacement_dry_run_enabled)
+            and single_field_replacement_live_disabled_count != 0
+        ):
+            failures.append(
+                "single_field_replacement_live_disabled_count_nonzero_without_dry_run="
+                f"{single_field_replacement_live_disabled_count}"
+            )
+        for name, count in (
+            ("candidate_count", single_field_replacement_live_candidate_count),
+            ("replaced_count", single_field_replacement_live_replaced_count),
+            ("parity_ok_count", single_field_replacement_live_parity_ok_count),
+            (
+                "parity_mismatch_count",
+                single_field_replacement_live_parity_mismatch_count,
+            ),
+            (
+                "passed_to_kernel_count",
+                single_field_replacement_live_passed_to_kernel_count,
+            ),
+            ("payload_bytes", single_field_replacement_live_payload_bytes),
+        ):
+            if count != 0:
+                failures.append(
+                    f"single_field_replacement_live_{name}_nonzero={count}"
+                )
     if allow_kernel_arg_handoff_live_real_kernel_arg_mutation:
         adapter_real_count = _as_int(
             aggregate.get(
@@ -4323,6 +4413,62 @@ def check_summary(
                 failures.append(
                     f"single_field_replacement_dry_run_{name}_nonzero={count}"
                 )
+        if _as_bool(single_field_replacement_live_enabled):
+            if not allow_single_field_replacement_live:
+                failures.append(
+                    "single_field_replacement_live_requires_explicit_allow"
+                )
+            if single_field_replacement_live_candidate_count <= 0:
+                failures.append(
+                    "single_field_replacement_live_candidate_count_missing_or_zero"
+                )
+            if (
+                single_field_replacement_live_replaced_count
+                != single_field_replacement_live_candidate_count
+            ):
+                failures.append(
+                    "single_field_replacement_live_replaced_count_mismatch="
+                    f"{single_field_replacement_live_replaced_count}!="
+                    f"{single_field_replacement_live_candidate_count}"
+                )
+            if (
+                single_field_replacement_live_parity_ok_count
+                != single_field_replacement_live_candidate_count
+            ):
+                failures.append(
+                    "single_field_replacement_live_parity_ok_count_mismatch="
+                    f"{single_field_replacement_live_parity_ok_count}!="
+                    f"{single_field_replacement_live_candidate_count}"
+                )
+            if (
+                single_field_replacement_live_passed_to_kernel_count
+                != single_field_replacement_live_candidate_count
+            ):
+                failures.append(
+                    "single_field_replacement_live_passed_to_kernel_count_mismatch="
+                    f"{single_field_replacement_live_passed_to_kernel_count}!="
+                    f"{single_field_replacement_live_candidate_count}"
+                )
+            if single_field_replacement_live_parity_mismatch_count != 0:
+                failures.append(
+                    "single_field_replacement_live_parity_mismatch_nonzero="
+                    f"{single_field_replacement_live_parity_mismatch_count}"
+                )
+            if single_field_replacement_live_payload_bytes != 0:
+                failures.append(
+                    "single_field_replacement_live_payload_bytes_nonzero="
+                    f"{single_field_replacement_live_payload_bytes}"
+                )
+        else:
+            if (
+                single_field_replacement_live_disabled_count
+                != single_field_replacement_candidate_count
+            ):
+                failures.append(
+                    "single_field_replacement_live_disabled_count_mismatch="
+                    f"{single_field_replacement_live_disabled_count}!="
+                    f"{single_field_replacement_candidate_count}"
+                )
 
     metrics = {
         "row_count": _as_int(summary.get("row_count")),
@@ -4336,6 +4482,9 @@ def check_summary(
         ),
         "runtime_shadow_premap_kernel_arg_handoff_single_field_replacement_dry_run_enabled": _as_bool(
             single_field_replacement_dry_run_enabled
+        ),
+        "runtime_shadow_premap_kernel_arg_handoff_single_field_replacement_live_enabled": _as_bool(
+            single_field_replacement_live_enabled
         ),
         "runtime_shadow_premap_kernel_arg_handoff_single_field_replacement_field": (
             None
@@ -4377,6 +4526,27 @@ def check_summary(
         ),
         "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_dry_run_payload_bytes": (
             single_field_replacement_payload_bytes
+        ),
+        "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_live_disabled_count": (
+            single_field_replacement_live_disabled_count
+        ),
+        "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_live_candidate_count": (
+            single_field_replacement_live_candidate_count
+        ),
+        "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_live_replaced_count": (
+            single_field_replacement_live_replaced_count
+        ),
+        "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_live_parity_ok_count": (
+            single_field_replacement_live_parity_ok_count
+        ),
+        "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_live_parity_mismatch_count": (
+            single_field_replacement_live_parity_mismatch_count
+        ),
+        "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_live_passed_to_kernel_count": (
+            single_field_replacement_live_passed_to_kernel_count
+        ),
+        "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_live_payload_bytes": (
+            single_field_replacement_live_payload_bytes
         ),
         "premap_address_resident_count_max": resident_count,
         "premap_address_reuse_rate_mean": _as_float(
@@ -6193,6 +6363,15 @@ def main() -> None:
             "This still requires zero payload bytes and an explicit lab gate."
         ),
     )
+    parser.add_argument(
+        "--allow-single-field-replacement-live",
+        action="store_true",
+        help=(
+            "Experimental live mode: allow one kernel-argument field to be "
+            "replaced from the prepared shadow package. This is disabled by "
+            "default and must be paired with an explicit runtime flag."
+        ),
+    )
     parser.add_argument("--output-json", type=Path)
     args = parser.parse_args()
 
@@ -6237,6 +6416,9 @@ def main() -> None:
         ),
         allow_kernel_arg_handoff_live_real_kernel_arg_mutation=(
             args.allow_kernel_arg_handoff_live_real_kernel_arg_mutation
+        ),
+        allow_single_field_replacement_live=(
+            args.allow_single_field_replacement_live
         ),
     )
     payload = json.dumps(result, indent=2, sort_keys=True) + "\n"

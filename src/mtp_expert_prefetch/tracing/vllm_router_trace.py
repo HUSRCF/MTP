@@ -971,6 +971,9 @@ class VllmRouterRecorder:
     shadow_premap_kernel_arg_handoff_single_field_replacement_dry_run_enabled: (
         bool
     ) = False
+    shadow_premap_kernel_arg_handoff_single_field_replacement_live_enabled: (
+        bool
+    ) = False
     shadow_premap_kernel_arg_handoff_single_field_replacement_field: str = "B_scale"
     shadow_premap_address_namespace: str = "expert_weight_descriptor"
     shadow_premap_priority: int = 2
@@ -6490,6 +6493,13 @@ _PREMAP_KERNEL_ARG_LIVE_MUTATION_COUNTERS: dict[str, int] = {
     "single_field_replacement_dry_run_unsupported_field_count": 0,
     "single_field_replacement_dry_run_passed_to_kernel_count": 0,
     "single_field_replacement_dry_run_payload_bytes": 0,
+    "single_field_replacement_live_disabled_count": 0,
+    "single_field_replacement_live_candidate_count": 0,
+    "single_field_replacement_live_replaced_count": 0,
+    "single_field_replacement_live_parity_ok_count": 0,
+    "single_field_replacement_live_parity_mismatch_count": 0,
+    "single_field_replacement_live_passed_to_kernel_count": 0,
+    "single_field_replacement_live_payload_bytes": 0,
 }
 _ACTIVE_DECODER_COMPONENT_CONTEXT_VAR: contextvars.ContextVar[
     dict[str, Any] | None
@@ -10928,10 +10938,14 @@ def patch_vllm_qwen35_moe_router_trace() -> None:
                     }
                     kernel_arg_package = live_mutation_package_meta["launch_args"]
                     single_field_dry_run_enabled = False
+                    single_field_live_enabled = False
                     single_field_replacement_field = "B_scale"
                     if recorder_for_config is not None:
                         single_field_dry_run_enabled = bool(
                             recorder_for_config.shadow_premap_kernel_arg_handoff_single_field_replacement_dry_run_enabled
+                        )
+                        single_field_live_enabled = bool(
+                            recorder_for_config.shadow_premap_kernel_arg_handoff_single_field_replacement_live_enabled
                         )
                         single_field_replacement_field = str(
                             recorder_for_config.shadow_premap_kernel_arg_handoff_single_field_replacement_field
@@ -10954,15 +10968,47 @@ def patch_vllm_qwen35_moe_router_trace() -> None:
                             replacement_candidate = original_value
                             shadow_package = dict(kernel_arg_package)
                             shadow_package[field_name] = replacement_candidate
-                            if _kernel_arg_value_signature(
+                            parity_ok = _kernel_arg_value_signature(
                                 shadow_package[field_name]
-                            ) == _kernel_arg_value_signature(original_value):
+                            ) == _kernel_arg_value_signature(original_value)
+                            if parity_ok:
                                 _increment_premap_kernel_arg_live_mutation_counter(
                                     "single_field_replacement_dry_run_parity_ok_count"
                                 )
                             else:
                                 _increment_premap_kernel_arg_live_mutation_counter(
                                     "single_field_replacement_dry_run_parity_mismatch_count"
+                                )
+                            if single_field_live_enabled:
+                                _increment_premap_kernel_arg_live_mutation_counter(
+                                    "single_field_replacement_live_candidate_count"
+                                )
+                                if parity_ok:
+                                    kernel_arg_package[field_name] = (
+                                        replacement_candidate
+                                    )
+                                    live_mutation_package_meta[
+                                        "single_field_live_replacement_field"
+                                    ] = field_name
+                                    live_mutation_package_meta[
+                                        "single_field_live_replacement_status"
+                                    ] = "pass_through_identity_replacement"
+                                    _increment_premap_kernel_arg_live_mutation_counter(
+                                        "single_field_replacement_live_replaced_count"
+                                    )
+                                    _increment_premap_kernel_arg_live_mutation_counter(
+                                        "single_field_replacement_live_parity_ok_count"
+                                    )
+                                    _increment_premap_kernel_arg_live_mutation_counter(
+                                        "single_field_replacement_live_passed_to_kernel_count"
+                                    )
+                                else:
+                                    _increment_premap_kernel_arg_live_mutation_counter(
+                                        "single_field_replacement_live_parity_mismatch_count"
+                                    )
+                            else:
+                                _increment_premap_kernel_arg_live_mutation_counter(
+                                    "single_field_replacement_live_disabled_count"
                                 )
                     live_mutation_package_meta["used"] = True
                     live_mutation_package_meta["status"] = (
@@ -11701,6 +11747,12 @@ def _apply_premap_consumer_readonly_gate(
             False,
         )
     )
+    single_field_replacement_live_enabled = bool(
+        options.get(
+            "premap_kernel_arg_handoff_single_field_replacement_live_enabled",
+            False,
+        )
+    )
     single_field_replacement_field = str(
         options.get(
             "premap_kernel_arg_handoff_single_field_replacement_field",
@@ -11720,6 +11772,15 @@ def _apply_premap_consumer_readonly_gate(
         msg = (
             "premap_kernel_arg_handoff_single_field_replacement_dry_run_enabled=True "
             "requires premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled=True."
+        )
+        raise ValueError(msg)
+    if (
+        single_field_replacement_live_enabled
+        and not single_field_replacement_dry_run_enabled
+    ):
+        msg = (
+            "premap_kernel_arg_handoff_single_field_replacement_live_enabled=True "
+            "requires premap_kernel_arg_handoff_single_field_replacement_dry_run_enabled=True."
         )
         raise ValueError(msg)
     allowed_single_field_replacement_fields = {
@@ -12860,6 +12921,12 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                 False,
             )
         ),
+        "runtime_shadow_premap_kernel_arg_handoff_single_field_replacement_live_enabled": bool(
+            runtime_shadow_options.get(
+                "premap_kernel_arg_handoff_single_field_replacement_live_enabled",
+                False,
+            )
+        ),
         "runtime_shadow_premap_kernel_arg_handoff_single_field_replacement_field": str(
             runtime_shadow_options.get(
                 "premap_kernel_arg_handoff_single_field_replacement_field",
@@ -13296,6 +13363,12 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                             shadow_premap_kernel_arg_handoff_single_field_replacement_dry_run_enabled=bool(
                                 runtime_shadow_options.get(
                                     "premap_kernel_arg_handoff_single_field_replacement_dry_run_enabled",
+                                    False,
+                                )
+                            ),
+                            shadow_premap_kernel_arg_handoff_single_field_replacement_live_enabled=bool(
+                                runtime_shadow_options.get(
+                                    "premap_kernel_arg_handoff_single_field_replacement_live_enabled",
                                     False,
                                 )
                             ),

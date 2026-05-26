@@ -13706,6 +13706,73 @@ no descriptor_order execution
 no kernel argument mutation
 ```
 
+### 2026-05-26: Single-field kernel-arg replacement live gate remains default-disabled
+
+The next kernel-argument handoff layer is now wired as an explicit gate:
+
+```text
+single-field dry-run:
+  construct a candidate replacement for one future kernel argument field
+  compare runtime identity signature
+  do not pass it to the kernel
+
+single-field live replacement:
+  exists as a runtime/config/checker flag
+  defaults to disabled
+  requires an explicit checker allow flag before any live canary can pass
+```
+
+The default-disabled gate is now enforced by checker counters, not only by
+configuration:
+
+```text
+if dry_run_enabled and live_enabled == false:
+  live_disabled_count == dry_run_candidate_count
+  live_candidate_count == 0
+  live_replaced_count == 0
+  live_parity_ok_count == 0
+  live_parity_mismatch_count == 0
+  live_passed_to_kernel_count == 0
+  live_payload_bytes == 0
+```
+
+1-sample AWQ canary:
+
+```text
+config:
+  configs/trace/
+    router_mtp_trace_external_prompt_gate_dolly_1_awq_vllm_gpu1_decode_gen16_single_field_replacement_dry_run_canary.yaml
+
+artifact:
+  data/traces/
+    external_prompt_gate_dolly_1_awq_vllm_gpu1_decode_gen16_single_field_replacement_dry_run_canary/
+    single_field_replacement_dry_run_gate_check.json
+
+passed = true
+failures = []
+dry_run_enabled = true
+live_enabled = false
+field = B_scale
+dry_run_candidate_count = 1,280
+dry_run_parity_ok_count = 1,280
+dry_run_passed_to_kernel_count = 0
+live_disabled_count = 1,280
+live_candidate_count = 0
+live_replaced_count = 0
+live_passed_to_kernel_count = 0
+live_payload_bytes = 0
+```
+
+This advances the handoff stack to the next boundary while preserving the lab
+precondition:
+
+```text
+future live replacement is representable and explicitly gated
+default lab/audit runs cannot accidentally replace a kernel argument field
+payload transfer remains 0
+kernel argument mutation remains disabled unless explicitly allowed
+```
+
 ## Kernel-arg live-pass canary smoke
 
 The kernel-argument handoff path now has an explicit experimental live-pass

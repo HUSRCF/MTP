@@ -41,6 +41,7 @@ trace:
     premap_kernel_arg_handoff_kernel_arg_pass_enabled: true
     premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled: true
     premap_kernel_arg_handoff_single_field_replacement_dry_run_enabled: true
+    premap_kernel_arg_handoff_single_field_replacement_live_enabled: false
     premap_kernel_arg_handoff_single_field_replacement_field: B_scale
     premap_policy: premap_only_with_consumer_mapping_noop
     premap_source: current_router_topk_premap_shadow

@@ -521,6 +521,7 @@ def _add_kernel_arg_handoff_live_consumer_adapter(
     kernel_arg_pass_live: bool = False,
     real_kernel_arg_mutation_live: bool = False,
     single_field_replacement_dry_run: bool = False,
+    single_field_replacement_live: bool = False,
 ) -> dict:
     aggregate = summary["aggregate"]
     checked_count = int(
@@ -643,6 +644,9 @@ def _add_kernel_arg_handoff_live_consumer_adapter(
             "runtime_shadow_premap_kernel_arg_handoff_single_field_replacement_dry_run_enabled"
         ] = True
         aggregate[
+            "runtime_shadow_premap_kernel_arg_handoff_single_field_replacement_live_enabled"
+        ] = bool(single_field_replacement_live)
+        aggregate[
             "runtime_shadow_premap_kernel_arg_handoff_single_field_replacement_field"
         ] = "B_scale"
         aggregate[
@@ -665,6 +669,27 @@ def _add_kernel_arg_handoff_live_consumer_adapter(
         ] = 0
         aggregate[
             "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_dry_run_payload_bytes"
+        ] = 0
+        aggregate[
+            "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_live_disabled_count"
+        ] = 0 if single_field_replacement_live else checked_count
+        aggregate[
+            "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_live_candidate_count"
+        ] = checked_count if single_field_replacement_live else 0
+        aggregate[
+            "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_live_replaced_count"
+        ] = checked_count if single_field_replacement_live else 0
+        aggregate[
+            "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_live_parity_ok_count"
+        ] = checked_count if single_field_replacement_live else 0
+        aggregate[
+            "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_live_parity_mismatch_count"
+        ] = 0
+        aggregate[
+            "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_live_passed_to_kernel_count"
+        ] = checked_count if single_field_replacement_live else 0
+        aggregate[
+            "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_live_payload_bytes"
         ] = 0
     return summary
 
@@ -2313,6 +2338,190 @@ def test_premap_longrun_audit_gate_accepts_single_field_replacement_dry_run():
             "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_dry_run_passed_to_kernel_count"
         ]
         == 0
+    )
+    assert (
+        result["metrics"][
+            "runtime_shadow_premap_kernel_arg_handoff_single_field_replacement_live_enabled"
+        ]
+        is False
+    )
+    assert (
+        result["metrics"][
+            "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_live_disabled_count"
+        ]
+        == 2
+    )
+    assert (
+        result["metrics"][
+            "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_live_passed_to_kernel_count"
+        ]
+        == 0
+    )
+
+
+def test_premap_longrun_audit_gate_rejects_single_field_live_without_allow():
+    result = check_summary(
+        _add_kernel_arg_handoff_live_consumer_adapter(
+            _add_kernel_arg_handoff_live_noop_integration(
+                _add_kernel_arg_handoff_live_toggle(
+                    _add_kernel_arg_handoff_launch_schema_mirror(
+                        _add_kernel_arg_handoff_attempt(_passing_summary())
+                    ),
+                    enabled_blocked=True,
+                ),
+                enabled_blocked=True,
+                consumer_connected=True,
+            ),
+            enabled_blocked=True,
+            consumer_connected=True,
+            kernel_arg_pass_live=True,
+            real_kernel_arg_mutation_live=True,
+            single_field_replacement_dry_run=True,
+            single_field_replacement_live=True,
+        ),
+        max_capacity=12,
+        min_reuse_rate=0.98,
+        require_readonly_consumer=True,
+        require_descriptor_prep=True,
+        require_real_descriptor_prep=True,
+        require_kernel_arg_shadow_table=True,
+        require_consumer_shim_table_read=True,
+        require_consumer_shim_table_consume=True,
+        require_kernel_arg_handoff_attempt=True,
+        require_kernel_arg_handoff_live_toggle=True,
+        require_kernel_arg_handoff_launch_schema_mirror=True,
+        require_kernel_arg_handoff_live_noop_integration=True,
+        require_kernel_arg_handoff_live_consumer_adapter=True,
+        allow_enabled_blocked_live_toggle=True,
+        allow_connected_blocked_consumer_adapter=True,
+        allow_kernel_arg_handoff_live_kernel_arg_pass=True,
+        allow_kernel_arg_handoff_live_real_kernel_arg_mutation=True,
+    )
+
+    assert result["passed"] is False
+    assert "single_field_replacement_live_enabled_true" in result["failures"]
+
+
+def test_premap_longrun_audit_gate_accepts_single_field_live_with_allow():
+    result = check_summary(
+        _add_kernel_arg_handoff_live_consumer_adapter(
+            _add_kernel_arg_handoff_live_noop_integration(
+                _add_kernel_arg_handoff_live_toggle(
+                    _add_kernel_arg_handoff_launch_schema_mirror(
+                        _add_kernel_arg_handoff_attempt(_passing_summary())
+                    ),
+                    enabled_blocked=True,
+                ),
+                enabled_blocked=True,
+                consumer_connected=True,
+            ),
+            enabled_blocked=True,
+            consumer_connected=True,
+            kernel_arg_pass_live=True,
+            real_kernel_arg_mutation_live=True,
+            single_field_replacement_dry_run=True,
+            single_field_replacement_live=True,
+        ),
+        max_capacity=12,
+        min_reuse_rate=0.98,
+        require_readonly_consumer=True,
+        require_descriptor_prep=True,
+        require_real_descriptor_prep=True,
+        require_kernel_arg_shadow_table=True,
+        require_consumer_shim_table_read=True,
+        require_consumer_shim_table_consume=True,
+        require_kernel_arg_handoff_attempt=True,
+        require_kernel_arg_handoff_live_toggle=True,
+        require_kernel_arg_handoff_launch_schema_mirror=True,
+        require_kernel_arg_handoff_live_noop_integration=True,
+        require_kernel_arg_handoff_live_consumer_adapter=True,
+        allow_enabled_blocked_live_toggle=True,
+        allow_connected_blocked_consumer_adapter=True,
+        allow_kernel_arg_handoff_live_kernel_arg_pass=True,
+        allow_kernel_arg_handoff_live_real_kernel_arg_mutation=True,
+        allow_single_field_replacement_live=True,
+    )
+
+    assert result["passed"] is True
+    assert (
+        result["metrics"][
+            "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_live_candidate_count"
+        ]
+        == 2
+    )
+    assert (
+        result["metrics"][
+            "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_live_passed_to_kernel_count"
+        ]
+        == 2
+    )
+
+
+def test_premap_longrun_audit_gate_rejects_single_field_live_without_dry_run():
+    summary = _add_kernel_arg_handoff_live_consumer_adapter(
+        _add_kernel_arg_handoff_live_noop_integration(
+            _add_kernel_arg_handoff_live_toggle(
+                _add_kernel_arg_handoff_launch_schema_mirror(
+                    _add_kernel_arg_handoff_attempt(_passing_summary())
+                ),
+                enabled_blocked=True,
+            ),
+            enabled_blocked=True,
+            consumer_connected=True,
+        ),
+        enabled_blocked=True,
+        consumer_connected=True,
+        kernel_arg_pass_live=True,
+        real_kernel_arg_mutation_live=True,
+    )
+    summary["aggregate"][
+        "runtime_shadow_premap_kernel_arg_handoff_single_field_replacement_live_enabled"
+    ] = True
+
+    result = check_summary(
+        summary,
+        max_capacity=12,
+        min_reuse_rate=0.98,
+        require_readonly_consumer=True,
+        require_descriptor_prep=True,
+        require_real_descriptor_prep=True,
+        require_kernel_arg_shadow_table=True,
+        require_consumer_shim_table_read=True,
+        require_consumer_shim_table_consume=True,
+        require_kernel_arg_handoff_attempt=True,
+        require_kernel_arg_handoff_live_toggle=True,
+        require_kernel_arg_handoff_launch_schema_mirror=True,
+        require_kernel_arg_handoff_live_noop_integration=True,
+        require_kernel_arg_handoff_live_consumer_adapter=True,
+        allow_enabled_blocked_live_toggle=True,
+        allow_connected_blocked_consumer_adapter=True,
+        allow_kernel_arg_handoff_live_kernel_arg_pass=True,
+        allow_kernel_arg_handoff_live_real_kernel_arg_mutation=True,
+        allow_single_field_replacement_live=True,
+    )
+
+    assert result["passed"] is False
+    assert (
+        "single_field_replacement_live_requires_dry_run_enabled"
+        in result["failures"]
+    )
+
+
+def test_premap_longrun_audit_gate_rejects_live_counters_when_live_disabled():
+    summary = _passing_summary()
+    summary["aggregate"][
+        "runtime_shadow_premap_kernel_arg_handoff_single_field_replacement_live_enabled"
+    ] = False
+    summary["aggregate"][
+        "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_live_replaced_count"
+    ] = 1
+
+    result = check_summary(summary, max_capacity=12, min_reuse_rate=0.98)
+
+    assert result["passed"] is False
+    assert (
+        "single_field_replacement_live_replaced_count_nonzero=1"
+        in result["failures"]
     )
 
 
