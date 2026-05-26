@@ -16054,6 +16054,10 @@ artifact:
     external_prompt_gate_dolly_1_awq_vllm_gpu1_decode_gen16_single_field_replacement_prepared_table_candidate_dry_run_canary/
     prepared_table_candidate_dry_run_gate_check.json
 
+lab gate artifact:
+  configs/runtime/
+    premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_prepared_table_candidate_dry_run.yaml
+
 passed = true
 failures = []
 
