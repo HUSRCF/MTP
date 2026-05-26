@@ -614,6 +614,21 @@ def _add_kernel_arg_handoff_live_consumer_adapter(
         aggregate[
             "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_consumer_adapter_real_kernel_arg_handoff_count"
         ] = checked_count
+        aggregate[
+            "runtime_shadow_premap_kernel_arg_live_mutation_package_seen_count"
+        ] = checked_count
+        aggregate[
+            "runtime_shadow_premap_kernel_arg_live_mutation_package_pass_through_count"
+        ] = checked_count
+        aggregate[
+            "runtime_shadow_premap_kernel_arg_live_mutation_package_missing_count"
+        ] = 0
+        aggregate[
+            "runtime_shadow_premap_kernel_arg_live_mutation_package_layer_mismatch_count"
+        ] = 0
+        aggregate[
+            "runtime_shadow_premap_kernel_arg_live_mutation_package_block_reason_mismatch_count"
+        ] = 0
     if kernel_arg_pass_live:
         aggregate[
             "runtime_shadow_premap_kernel_arg_handoff_kernel_arg_pass_enabled"
@@ -2190,6 +2205,12 @@ def test_premap_longrun_audit_gate_accepts_real_kernel_arg_mutation_with_explici
     assert (
         result["metrics"][
             "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_consumer_adapter_real_kernel_arg_handoff_count"
+        ]
+        == 2
+    )
+    assert (
+        result["metrics"][
+            "runtime_shadow_premap_kernel_arg_live_mutation_package_pass_through_count"
         ]
         == 2
     )

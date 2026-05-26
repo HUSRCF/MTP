@@ -6473,6 +6473,13 @@ _ACTIVE_RUNTIME_SHADOW_CONTROLLER: RuntimeShadowController | None = None
 _ACTIVE_MOE_ASSIGNMENT_CONTEXT_VAR: contextvars.ContextVar[dict[str, Any] | None] = (
     contextvars.ContextVar("mtp_active_moe_assignment_context", default=None)
 )
+_PREMAP_KERNEL_ARG_LIVE_MUTATION_COUNTERS: dict[str, int] = {
+    "package_seen_count": 0,
+    "package_pass_through_count": 0,
+    "package_missing_count": 0,
+    "package_layer_mismatch_count": 0,
+    "package_block_reason_mismatch_count": 0,
+}
 _ACTIVE_DECODER_COMPONENT_CONTEXT_VAR: contextvars.ContextVar[
     dict[str, Any] | None
 ] = contextvars.ContextVar("mtp_active_decoder_component_context", default=None)
@@ -6638,6 +6645,21 @@ def get_active_vllm_router_recorder() -> VllmRouterRecorder | None:
 def set_active_vllm_router_recorder(recorder: VllmRouterRecorder | None) -> None:
     global _ACTIVE_RECORDER
     _ACTIVE_RECORDER = recorder
+
+
+def _reset_premap_kernel_arg_live_mutation_counters() -> None:
+    for key in _PREMAP_KERNEL_ARG_LIVE_MUTATION_COUNTERS:
+        _PREMAP_KERNEL_ARG_LIVE_MUTATION_COUNTERS[key] = 0
+
+
+def _increment_premap_kernel_arg_live_mutation_counter(key: str) -> None:
+    if key not in _PREMAP_KERNEL_ARG_LIVE_MUTATION_COUNTERS:
+        _PREMAP_KERNEL_ARG_LIVE_MUTATION_COUNTERS[key] = 0
+    _PREMAP_KERNEL_ARG_LIVE_MUTATION_COUNTERS[key] += 1
+
+
+def _premap_kernel_arg_live_mutation_counters() -> dict[str, int]:
+    return dict(_PREMAP_KERNEL_ARG_LIVE_MUTATION_COUNTERS)
 
 
 def get_active_runtime_shadow_controller() -> RuntimeShadowController | None:
@@ -10805,12 +10827,40 @@ def patch_vllm_qwen35_moe_router_trace() -> None:
                     if context is not None
                     else None
                 )
-                use_live_mutation_package = (
+                real_mutation_runtime_enabled = (
                     recorder_for_config is not None
                     and bool(
                         recorder_for_config.shadow_premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled
                     )
                     and layer_id_for_timing is not None
+                )
+                if real_mutation_runtime_enabled:
+                    if not isinstance(live_mutation_package_meta, dict):
+                        _increment_premap_kernel_arg_live_mutation_counter(
+                            "package_missing_count"
+                        )
+                    else:
+                        _increment_premap_kernel_arg_live_mutation_counter(
+                            "package_seen_count"
+                        )
+                        if int(live_mutation_package_meta.get("layer_id", -1)) != int(
+                            layer_id_for_timing
+                        ):
+                            _increment_premap_kernel_arg_live_mutation_counter(
+                                "package_layer_mismatch_count"
+                            )
+                        elif (
+                            str(
+                                live_mutation_package_meta.get("block_reason")
+                                or ""
+                            )
+                            != "kernel_arg_handoff_real_kernel_arg_mutation_live"
+                        ):
+                            _increment_premap_kernel_arg_live_mutation_counter(
+                                "package_block_reason_mismatch_count"
+                            )
+                use_live_mutation_package = (
+                    real_mutation_runtime_enabled
                     and isinstance(live_mutation_package_meta, dict)
                     and int(live_mutation_package_meta.get("layer_id", -1))
                     == int(layer_id_for_timing)
@@ -10847,6 +10897,9 @@ def patch_vllm_qwen35_moe_router_trace() -> None:
                     live_mutation_package_meta["used"] = True
                     live_mutation_package_meta["status"] = (
                         "pass_through_original_wna16"
+                    )
+                    _increment_premap_kernel_arg_live_mutation_counter(
+                        "package_pass_through_count"
                     )
                     emit_wna16_launch_part(
                         part="kernel_arg_live_package_pass_through",
@@ -12393,6 +12446,7 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
         runtime_shadow_options,
         project_root=project_root,
     )
+    _reset_premap_kernel_arg_live_mutation_counters()
     if bool(runtime_shadow_options.get("enabled", False)) and not use_router_logits_recorder:
         msg = "runtime_shadow.enabled requires use_router_logits_recorder."
         raise ValueError(msg)
@@ -13643,6 +13697,10 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
     if runtime_shadow_controller is not None:
         performance["runtime_shadow_controller_stats"] = (
             runtime_shadow_controller.stats_dict()
+        )
+    for key, value in _premap_kernel_arg_live_mutation_counters().items():
+        performance[f"runtime_shadow_premap_kernel_arg_live_mutation_{key}"] = (
+            int(value)
         )
     performance_path = output_dir / "performance_summary.json"
     performance_path.write_text(

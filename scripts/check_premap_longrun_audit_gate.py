@@ -70,6 +70,10 @@ def _normalize_summary(summary: dict[str, Any]) -> dict[str, Any]:
     aggregate = summary.get("runtime_shadow_aggregate")
     if not isinstance(aggregate, dict):
         return summary
+    aggregate = dict(aggregate)
+    for key, value in summary.items():
+        if str(key).startswith("runtime_shadow_premap_kernel_arg_live_mutation_"):
+            aggregate[str(key)] = value
     event_counts = {
         "premap_summary": _as_int(aggregate.get("premap_summary_count")),
         "premap_consumer_mapping": _as_int(
@@ -4178,6 +4182,63 @@ def check_summary(
             )
     if _as_int(aggregate.get("premap_consumer_error_count")) != 0:
         failures.append("premap_consumer_error_count_nonzero")
+    live_mutation_package_seen_count = _as_int(
+        aggregate.get(
+            "runtime_shadow_premap_kernel_arg_live_mutation_package_seen_count"
+        )
+    )
+    live_mutation_package_pass_through_count = _as_int(
+        aggregate.get(
+            "runtime_shadow_premap_kernel_arg_live_mutation_package_pass_through_count"
+        )
+    )
+    live_mutation_package_missing_count = _as_int(
+        aggregate.get(
+            "runtime_shadow_premap_kernel_arg_live_mutation_package_missing_count"
+        )
+    )
+    live_mutation_package_layer_mismatch_count = _as_int(
+        aggregate.get(
+            "runtime_shadow_premap_kernel_arg_live_mutation_package_layer_mismatch_count"
+        )
+    )
+    live_mutation_package_block_reason_mismatch_count = _as_int(
+        aggregate.get(
+            "runtime_shadow_premap_kernel_arg_live_mutation_package_block_reason_mismatch_count"
+        )
+    )
+    if allow_kernel_arg_handoff_live_real_kernel_arg_mutation:
+        adapter_real_count = _as_int(
+            aggregate.get(
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_consumer_adapter_real_kernel_arg_handoff_count"
+            )
+        )
+        if live_mutation_package_pass_through_count <= 0:
+            failures.append(
+                "kernel_arg_live_mutation_package_pass_through_count_missing_or_zero"
+            )
+        if live_mutation_package_pass_through_count < adapter_real_count:
+            failures.append(
+                "kernel_arg_live_mutation_package_pass_through_count_below_adapter_real_count="
+                f"{live_mutation_package_pass_through_count}<{adapter_real_count}"
+            )
+        if live_mutation_package_seen_count < live_mutation_package_pass_through_count:
+            failures.append(
+                "kernel_arg_live_mutation_package_seen_count_below_pass_through_count="
+                f"{live_mutation_package_seen_count}<"
+                f"{live_mutation_package_pass_through_count}"
+            )
+        for name, count in (
+            ("layer_mismatch", live_mutation_package_layer_mismatch_count),
+            (
+                "block_reason_mismatch",
+                live_mutation_package_block_reason_mismatch_count,
+            ),
+        ):
+            if count != 0:
+                failures.append(
+                    f"kernel_arg_live_mutation_package_{name}_count_nonzero={count}"
+                )
 
     metrics = {
         "row_count": _as_int(summary.get("row_count")),
@@ -4188,6 +4249,21 @@ def check_summary(
         ),
         "runtime_shadow_premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled": _as_bool(
             real_kernel_arg_mutation_enabled
+        ),
+        "runtime_shadow_premap_kernel_arg_live_mutation_package_seen_count": (
+            live_mutation_package_seen_count
+        ),
+        "runtime_shadow_premap_kernel_arg_live_mutation_package_pass_through_count": (
+            live_mutation_package_pass_through_count
+        ),
+        "runtime_shadow_premap_kernel_arg_live_mutation_package_missing_count": (
+            live_mutation_package_missing_count
+        ),
+        "runtime_shadow_premap_kernel_arg_live_mutation_package_layer_mismatch_count": (
+            live_mutation_package_layer_mismatch_count
+        ),
+        "runtime_shadow_premap_kernel_arg_live_mutation_package_block_reason_mismatch_count": (
+            live_mutation_package_block_reason_mismatch_count
         ),
         "premap_address_resident_count_max": resident_count,
         "premap_address_reuse_rate_mean": _as_float(

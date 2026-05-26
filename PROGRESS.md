@@ -15898,6 +15898,13 @@ kernel_arg_handoff_live_consumer_adapter_payload_bytes = 0
 handle_table_object_passed_to_kernel_count = 0
 handle_table_consume_passed_to_kernel_count = 0
 prep_execution_dry_run_passed_to_kernel_count = 0
+
+actual WNA16 package-consumed counters:
+  package_seen_count = 1,280
+  package_pass_through_count = 1,280
+  package_missing_count = 0
+  package_layer_mismatch_count = 0
+  package_block_reason_mismatch_count = 0
 ```
 
 Fail-closed check:
@@ -15947,6 +15954,13 @@ handle_table_object_passed_to_kernel_count = 0
 handle_table_consume_passed_to_kernel_count = 0
 prep_execution_dry_run_passed_to_kernel_count = 0
 
+actual WNA16 package-consumed counters:
+  package_seen_count = 1,280
+  package_pass_through_count = 1,280
+  package_missing_count = 39,680
+  package_layer_mismatch_count = 0
+  package_block_reason_mismatch_count = 0
+
 premap_address_resident_count_max = 8,931
 premap_address_reuse_rate_mean = 0.8665469360581731
 ```
@@ -15954,7 +15968,10 @@ premap_address_reuse_rate_mean = 0.8665469360581731
 The 8-sample canary uses sampled premap manager/consumer rows and is still a
 mutation-boundary smoke, not the long-run address-reuse gate.  The canary gate
 therefore sets `min_reuse_rate = 0.0`; long-run lab gates continue to own the
-reuse/capacity threshold.
+reuse/capacity threshold.  The nonzero `package_missing_count` is expected in
+this sampled mode because unsampled WNA16 launches have no prelaunch package;
+the gate requires pass-through coverage for the sampled real-handoff adapter
+rows and requires layer/block-reason mismatches to remain zero.
 
 Boundary remains:
 
