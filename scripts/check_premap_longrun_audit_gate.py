@@ -7669,6 +7669,18 @@ def check_summary(
             )
         ),
     }
+    # Keep promoted gate reports self-checkable.  The human-readable report
+    # surfaces a curated metric set above, but strict revalidation of a passed
+    # report also needs per-field schema/source counters from these late-stage
+    # consumer adapters.
+    for prefix in (
+        KERNEL_ARG_SEMANTIC_HANDLE_ADAPTER_PREFIX,
+        KERNEL_SIDE_CONSUMER_SCHEMA_ADAPTER_PREFIX,
+        KERNEL_SIDE_TYPED_CONSUMER_OBJECT_PREFIX,
+    ):
+        for key, value in aggregate.items():
+            if str(key).startswith(prefix) and key not in metrics:
+                metrics[str(key)] = value
     return {
         "passed": not failures,
         "failures": failures,

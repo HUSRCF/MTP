@@ -16171,7 +16171,13 @@ kernel_side_typed_consumer_object_checked = 10,195
 kernel_side_typed_consumer_object_ready = 10,195
 kernel_side_typed_consumer_object_row_count = 110,898
 kernel_side_typed_consumer_object_column_count_max = 4
-kernel_side_typed_consumer_object_field_count = 112,145
+kernel_side_typed_consumer_object_field_count_total = 112,145
+  # 10,195 checked objects x 11 typed schema fields
+required_source_hit_count = 332,694
+required_source_miss_count = 0
+optional_source_hit_count = 110,898
+optional_source_miss_count = 0
+handle_field_read_count = 443,592
 
 typed_consumer_schema_name =
   fused_moe_awq_wna16_kernel_side_typed_consumer_object_v1
@@ -16189,6 +16195,11 @@ payload_bytes = 0
 passed_to_kernel = 0
 kernel_arg_violation = 0
 ```
+
+The promoted gate report is now self-checkable: running
+`scripts/check_premap_longrun_audit_gate.py` on
+`longrun_audit_gate_typed_consumer_object_128.json` with the same strict flags
+passes and emits `longrun_audit_gate_typed_consumer_object_128_selfcheck.json`.
 
 The lab precondition artifact now requires:
 

@@ -1980,6 +1980,70 @@ def test_premap_longrun_audit_gate_accepts_kernel_side_typed_consumer_object_con
     )
 
 
+def test_premap_longrun_audit_gate_report_self_checks_with_typed_consumer():
+    result = check_summary(
+        _add_kernel_side_typed_consumer_object(
+            _add_kernel_side_consumer_schema_adapter(
+                _add_kernel_arg_semantic_handle_adapter(
+                    _add_kernel_arg_handoff_live_consumer_adapter(
+                        _add_kernel_arg_handoff_live_noop_integration(
+                            _add_kernel_arg_handoff_live_toggle(
+                                _add_kernel_arg_handoff_launch_schema_mirror(
+                                    _add_kernel_arg_handoff_attempt(_passing_summary())
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+        ),
+        max_capacity=12,
+        min_reuse_rate=0.98,
+        require_readonly_consumer=True,
+        require_descriptor_prep=True,
+        require_real_descriptor_prep=True,
+        require_kernel_arg_shadow_table=True,
+        require_consumer_shim_table_read=True,
+        require_consumer_shim_table_consume=True,
+        require_consumer_shim_table_object=True,
+        require_consumer_shim_prep_execution=True,
+        require_kernel_arg_handoff_attempt=True,
+        require_kernel_arg_handoff_live_toggle=True,
+        require_kernel_arg_handoff_launch_schema_mirror=True,
+        require_kernel_arg_handoff_live_noop_integration=True,
+        require_kernel_arg_handoff_live_consumer_adapter=True,
+        require_kernel_arg_semantic_handle_adapter=True,
+        require_kernel_side_consumer_schema_adapter=True,
+        require_kernel_side_typed_consumer_object=True,
+    )
+    assert result["passed"] is True
+
+    self_check = check_summary(
+        result,
+        max_capacity=12,
+        min_reuse_rate=0.98,
+        require_readonly_consumer=True,
+        require_descriptor_prep=True,
+        require_real_descriptor_prep=True,
+        require_kernel_arg_shadow_table=True,
+        require_consumer_shim_table_read=True,
+        require_consumer_shim_table_consume=True,
+        require_consumer_shim_table_object=True,
+        require_consumer_shim_prep_execution=True,
+        require_kernel_arg_handoff_attempt=True,
+        require_kernel_arg_handoff_live_toggle=True,
+        require_kernel_arg_handoff_launch_schema_mirror=True,
+        require_kernel_arg_handoff_live_noop_integration=True,
+        require_kernel_arg_handoff_live_consumer_adapter=True,
+        require_kernel_arg_semantic_handle_adapter=True,
+        require_kernel_side_consumer_schema_adapter=True,
+        require_kernel_side_typed_consumer_object=True,
+    )
+
+    assert self_check["passed"] is True
+    assert self_check["failures"] == []
+
+
 def test_premap_longrun_audit_gate_rejects_typed_consumer_payload_or_kernel_pass():
     summary = _add_kernel_side_typed_consumer_object(
         _add_kernel_side_consumer_schema_adapter(
