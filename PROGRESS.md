@@ -16145,6 +16145,68 @@ no descriptor_order execution
 no kernel argument mutation
 ```
 
+## Premap kernel-side typed consumer object gate
+
+The premap consumer path now constructs a typed kernel-side consumer object that
+matches the shape of the future fused-MoE/AWQ WNA16 descriptor/address consumer,
+without passing it to the kernel.  This is stricter than the schema-adapter gate:
+the object carries a typed consumer schema, row count, handle-table column count,
+source hit/miss accounting, and the explicit live-disabled boundary.
+
+GPU1 AWQ/vLLM 128-sample strict rerun:
+
+```text
+artifact:
+  data/traces/
+    external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_longrun_audit/
+    longrun_audit_gate_typed_consumer_object_128.json
+
+passed = true
+failures = []
+premap_address_reuse_rate_mean = 0.9827389896686539
+premap_address_eviction_pressure_mean = 0.0
+premap_address_resident_count_max = 10,127
+
+kernel_side_typed_consumer_object_checked = 10,195
+kernel_side_typed_consumer_object_ready = 10,195
+kernel_side_typed_consumer_object_row_count = 110,898
+kernel_side_typed_consumer_object_column_count_max = 4
+kernel_side_typed_consumer_object_field_count = 112,145
+
+typed_consumer_schema_name =
+  fused_moe_awq_wna16_kernel_side_typed_consumer_object_v1
+typed_consumer_schema_hash =
+  c1384d55958c9aa78b07b4ee3e9094f835ec1ca4c61bd7e9613c01ceb8275e98
+
+mode = readonly_kernel_side_typed_consumer_object
+block_reason = kernel_side_typed_consumer_live_disabled
+consumer_object_present = 10,195
+consumer_connected = 0
+live_enabled = 0
+live_eligible = 0
+live_compatible_with_current_wna16_args = 0
+payload_bytes = 0
+passed_to_kernel = 0
+kernel_arg_violation = 0
+```
+
+The lab precondition artifact now requires:
+
+```text
+require_kernel_side_typed_consumer_object = true
+```
+
+Boundary remains unchanged:
+
+```text
+no payload transfer
+no ready credit
+no router mutation
+no descriptor_order execution
+no kernel argument mutation
+no live kernel-side consumer connection
+```
+
 ## 2026-05-27 - Kernel-Side Consumer Schema Adapter Gate
 
 The premap kernel-side consumer schema adapter is now live-aware while
