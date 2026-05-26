@@ -19,6 +19,7 @@ from mtp_expert_prefetch.runtime import (
     PREMAP_KERNEL_SIDE_CONSUMER_SCHEMA_NAME,
     PremapRealDescriptorHandle,
     PremapKernelArgHandoffMirrorObject,
+    PremapKernelSideConsumerSchemaAdapterObject,
     build_premap_descriptors,
     build_priority_masks,
     descriptor_summary,
@@ -145,6 +146,95 @@ def test_premap_address_hash_changes_with_plan_semantics_but_key_reuses_address(
     assert transition.records[0].address_key == mtp.records[0].address_key
     assert transition.descriptor_hash != mtp.descriptor_hash
     assert transition.address_hash != mtp.address_hash
+
+
+def _kernel_side_schema_adapter(
+    **overrides: object,
+) -> PremapKernelSideConsumerSchemaAdapterObject:
+    base = PremapKernelSideConsumerSchemaAdapterObject(
+        mode="readonly_kernel_side_consumer_schema_adapter",
+        semantic_adapter_hash="semantic-adapter",
+        semantic_adapter_ready=True,
+        table_object_hash="table-object",
+        launch_schema_mirror_hash="launch-schema",
+        row_count=2,
+        column_count=len(PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_COLUMNS),
+        table_schema_hash=PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH,
+        semantic_schema_hash=PREMAP_KERNEL_ARG_SEMANTIC_HANDLE_SCHEMA_HASH,
+        kernel_side_schema_name=PREMAP_KERNEL_SIDE_CONSUMER_SCHEMA_NAME,
+        kernel_side_schema_hash=PREMAP_KERNEL_SIDE_CONSUMER_SCHEMA_HASH,
+        kernel_side_field_count=len(PREMAP_KERNEL_SIDE_CONSUMER_SCHEMA_FIELDS),
+        row_order_hash="row-order",
+        ordered_row_hash="ordered-row",
+        required_source_hit_count=6,
+        required_source_miss_count=0,
+        optional_source_hit_count=0,
+        optional_source_miss_count=2,
+        handle_field_read_count=8,
+        consumer_schema_present=True,
+        consumer_connected=False,
+        live_enabled=False,
+        live_eligible=False,
+        blocked=True,
+        block_reason="kernel_side_consumer_live_disabled",
+    )
+    return replace(base, **overrides)
+
+
+def test_kernel_side_consumer_schema_adapter_accepts_blocked_live_branches():
+    disabled = _kernel_side_schema_adapter()
+    assert disabled.ready is True
+
+    enabled_not_connected = _kernel_side_schema_adapter(
+        live_enabled=True,
+        live_eligible=True,
+        block_reason="kernel_side_consumer_not_connected",
+    )
+    assert enabled_not_connected.ready is True
+
+    connected_no_pass = _kernel_side_schema_adapter(
+        consumer_connected=True,
+        live_enabled=True,
+        live_eligible=True,
+        block_reason="kernel_side_consumer_kernel_arg_pass_disabled",
+    )
+    assert connected_no_pass.ready is True
+
+    connected_shadow_pass = _kernel_side_schema_adapter(
+        consumer_connected=True,
+        live_enabled=True,
+        live_eligible=True,
+        block_reason="kernel_side_consumer_shadow_only_kernel_arg_pass_enabled",
+    )
+    assert connected_shadow_pass.ready is True
+
+    enabled_not_eligible = _kernel_side_schema_adapter(
+        live_enabled=True,
+        live_eligible=False,
+        block_reason="kernel_side_consumer_not_eligible",
+    )
+    assert enabled_not_eligible.ready is True
+
+    not_eligible_but_connected = replace(
+        enabled_not_eligible,
+        consumer_connected=True,
+    )
+    assert not_eligible_but_connected.ready is False
+
+    wrong_reason = replace(
+        connected_no_pass,
+        block_reason="kernel_side_consumer_live_disabled",
+    )
+    assert wrong_reason.ready is False
+
+
+def test_kernel_side_consumer_schema_adapter_rejects_side_effects():
+    valid = _kernel_side_schema_adapter()
+
+    assert replace(valid, payload_bytes=1).ready is False
+    assert replace(valid, passed_to_kernel=True).ready is False
+    assert replace(valid, changes_kernel_launch_args=True).ready is False
+    assert replace(valid, live_compatible_with_current_wna16_args=True).ready is False
 
 
 def test_controlled_premap_address_manager_tracks_address_reuse_without_payload():

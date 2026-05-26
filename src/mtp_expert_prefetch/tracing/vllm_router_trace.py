@@ -13017,6 +13017,15 @@ def _apply_premap_consumer_readonly_gate(
                 f"{path}"
             )
             raise ValueError(msg)
+        kernel_side_block_reason = (
+            "kernel_side_consumer_shadow_only_kernel_arg_pass_enabled"
+            if live_handoff_enabled and live_consumer_connected and kernel_arg_pass_enabled
+            else "kernel_side_consumer_kernel_arg_pass_disabled"
+            if live_handoff_enabled and live_consumer_connected
+            else "kernel_side_consumer_not_connected"
+            if live_handoff_enabled
+            else "kernel_side_consumer_live_disabled"
+        )
         kernel_side_contract = {
             "kernel_side_consumer_schema_adapter_mode": (
                 "readonly_kernel_side_consumer_schema_adapter"
@@ -13047,11 +13056,16 @@ def _apply_premap_consumer_readonly_gate(
             "kernel_side_consumer_schema_adapter_live_compatible_with_current_wna16_args_required": (
                 False
             ),
-            "kernel_side_consumer_schema_adapter_consumer_connected_required": False,
-            "kernel_side_consumer_schema_adapter_live_enabled_required": False,
-            "kernel_side_consumer_schema_adapter_block_reason": (
-                "kernel_side_consumer_live_disabled"
+            "kernel_side_consumer_schema_adapter_consumer_connected_required": (
+                live_handoff_enabled and live_consumer_connected
             ),
+            "kernel_side_consumer_schema_adapter_live_enabled_required": (
+                live_handoff_enabled
+            ),
+            "kernel_side_consumer_schema_adapter_live_eligible_required": (
+                live_handoff_enabled
+            ),
+            "kernel_side_consumer_schema_adapter_block_reason": kernel_side_block_reason,
         }
         for key, expected in kernel_side_contract.items():
             observed = contract.get(key)

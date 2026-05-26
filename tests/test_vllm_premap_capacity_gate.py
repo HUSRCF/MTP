@@ -397,7 +397,21 @@ def _kernel_arg_semantic_handle_adapter_check_lines() -> list[str]:
     return ["    require_kernel_arg_semantic_handle_adapter: true"]
 
 
-def _kernel_side_consumer_schema_adapter_contract_lines() -> list[str]:
+def _kernel_side_consumer_schema_adapter_contract_lines(
+    *,
+    live_enabled: bool = False,
+    consumer_connected: bool = False,
+    kernel_arg_pass_enabled: bool = False,
+) -> list[str]:
+    block_reason = (
+        "kernel_side_consumer_shadow_only_kernel_arg_pass_enabled"
+        if live_enabled and consumer_connected and kernel_arg_pass_enabled
+        else "kernel_side_consumer_kernel_arg_pass_disabled"
+        if live_enabled and consumer_connected
+        else "kernel_side_consumer_not_connected"
+        if live_enabled
+        else "kernel_side_consumer_live_disabled"
+    )
     return [
         "  kernel_side_consumer_schema_adapter_required: true",
         "  kernel_side_consumer_schema_adapter_mode: "
@@ -418,10 +432,14 @@ def _kernel_side_consumer_schema_adapter_contract_lines() -> list[str]:
         "  kernel_side_consumer_schema_adapter_passed_to_kernel_required: false",
         "  kernel_side_consumer_schema_adapter_changes_kernel_launch_args_required: false",
         "  kernel_side_consumer_schema_adapter_live_compatible_with_current_wna16_args_required: false",
-        "  kernel_side_consumer_schema_adapter_consumer_connected_required: false",
-        "  kernel_side_consumer_schema_adapter_live_enabled_required: false",
+        "  kernel_side_consumer_schema_adapter_consumer_connected_required: "
+        f"{str(live_enabled and consumer_connected).lower()}",
+        "  kernel_side_consumer_schema_adapter_live_enabled_required: "
+        f"{str(live_enabled).lower()}",
+        "  kernel_side_consumer_schema_adapter_live_eligible_required: "
+        f"{str(live_enabled).lower()}",
         "  kernel_side_consumer_schema_adapter_block_reason: "
-        "kernel_side_consumer_live_disabled",
+        f"{block_reason}",
     ]
 
 
@@ -2610,6 +2628,10 @@ def test_live_connected_adapter_canary_config_uses_connected_blocked_gate():
         == "data/traces/external_prompt_gate_dolly_1_awq_vllm_gpu1_decode_gen16_live_connected_adapter_canary/connected_blocked_gate_check.json"
     )
     assert (
+        evidence_paths["live_connected_blocked_kernel_side_schema_canary_1_gate_json"]
+        == "data/traces/external_prompt_gate_dolly_1_awq_vllm_gpu1_decode_gen16_live_connected_adapter_canary/connected_blocked_kernel_side_schema_gate_check.json"
+    )
+    assert (
         evidence_paths["live_connected_blocked_canary_8_performance_json"]
         == "data/traces/external_prompt_gate_dolly_8_awq_vllm_gpu1_decode_gen64_live_connected_adapter_canary/performance_summary.json"
     )
@@ -2642,9 +2664,23 @@ def test_live_connected_adapter_canary_config_uses_connected_blocked_gate():
         contract["kernel_arg_handoff_live_consumer_adapter_block_reason"]
         == "kernel_arg_handoff_kernel_arg_pass_disabled"
     )
+    assert contract["kernel_arg_semantic_handle_adapter_required"] is True
+    assert contract["kernel_side_consumer_schema_adapter_required"] is True
+    assert (
+        contract["kernel_side_consumer_schema_adapter_consumer_connected_required"]
+        is True
+    )
+    assert contract["kernel_side_consumer_schema_adapter_live_enabled_required"] is True
+    assert contract["kernel_side_consumer_schema_adapter_live_eligible_required"] is True
+    assert (
+        contract["kernel_side_consumer_schema_adapter_block_reason"]
+        == "kernel_side_consumer_kernel_arg_pass_disabled"
+    )
     check = gate["gate"]["check"]
     assert check["allow_enabled_blocked_live_toggle"] is True
     assert check["allow_connected_blocked_consumer_adapter"] is True
+    assert check["require_kernel_arg_semantic_handle_adapter"] is True
+    assert check["require_kernel_side_consumer_schema_adapter"] is True
     live_noop_checked_count = metrics[
         "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_noop_integration_checked_count"
     ]
@@ -2704,6 +2740,40 @@ def test_live_connected_adapter_canary_config_uses_connected_blocked_gate():
     assert (
         metrics[
             "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_consumer_adapter_kernel_arg_violation_count"
+        ]
+        == 0
+    )
+    kernel_side_checked_count = metrics[
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_checked_count"
+    ]
+    assert kernel_side_checked_count == live_adapter_checked_count
+    assert (
+        metrics[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_consumer_connected_count"
+        ]
+        == kernel_side_checked_count
+    )
+    assert (
+        metrics[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_live_enabled_count"
+        ]
+        == kernel_side_checked_count
+    )
+    assert (
+        metrics[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_live_eligible_count"
+        ]
+        == kernel_side_checked_count
+    )
+    assert (
+        metrics[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_block_reason"
+        ]
+        == "kernel_side_consumer_kernel_arg_pass_disabled"
+    )
+    assert (
+        metrics[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_passed_to_kernel_count"
         ]
         == 0
     )

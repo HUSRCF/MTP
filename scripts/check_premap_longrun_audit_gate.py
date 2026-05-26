@@ -666,7 +666,8 @@ def check_summary(
         aggregate.get(f"{KERNEL_SIDE_CONSUMER_SCHEMA_ADAPTER_PREFIX}checked_count")
     )
     # Same strictness as the semantic adapter: once emitted, this future
-    # kernel-side schema envelope must be complete and live-disabled.
+    # kernel-side schema envelope must be complete.  Default lab runs remain
+    # live-disabled; explicit canaries may be live-aware but still blocked.
     kernel_side_consumer_schema_adapter_active = (
         kernel_side_consumer_schema_adapter_checked_count > 0
     )
@@ -3805,10 +3806,47 @@ def check_summary(
                         "consumer_shim_kernel_side_consumer_schema_adapter_present_count_mismatch="
                         f"{kernel_side_consumer_schema_present_count}!={shim_executed}"
                     )
+                expected_kernel_side_consumer_connected_count = (
+                    shim_executed if allow_connected_blocked_consumer_adapter else 0
+                )
+                expected_kernel_side_live_enabled_count = (
+                    shim_executed if allow_enabled_blocked_live_toggle else 0
+                )
+                expected_kernel_side_live_eligible_count = (
+                    shim_executed if allow_enabled_blocked_live_toggle else 0
+                )
+                expected_kernel_side_block_reason = (
+                    "kernel_side_consumer_shadow_only_kernel_arg_pass_enabled"
+                    if allow_kernel_arg_handoff_live_kernel_arg_pass
+                    else "kernel_side_consumer_kernel_arg_pass_disabled"
+                    if allow_connected_blocked_consumer_adapter
+                    else "kernel_side_consumer_not_connected"
+                    if allow_enabled_blocked_live_toggle
+                    else "kernel_side_consumer_live_disabled"
+                )
+                for name, value, expected in (
+                    (
+                        "consumer_connected_count",
+                        kernel_side_consumer_connected_count,
+                        expected_kernel_side_consumer_connected_count,
+                    ),
+                    (
+                        "live_enabled_count",
+                        kernel_side_live_enabled_count,
+                        expected_kernel_side_live_enabled_count,
+                    ),
+                    (
+                        "live_eligible_count",
+                        kernel_side_live_eligible_count,
+                        expected_kernel_side_live_eligible_count,
+                    ),
+                ):
+                    if value != expected:
+                        failures.append(
+                            "consumer_shim_kernel_side_consumer_schema_adapter_"
+                            f"{name}_mismatch={value}!={expected}"
+                        )
                 for name, value in (
-                    ("consumer_connected_count", kernel_side_consumer_connected_count),
-                    ("live_enabled_count", kernel_side_live_enabled_count),
-                    ("live_eligible_count", kernel_side_live_eligible_count),
                     ("payload_bytes", kernel_side_payload_bytes),
                     ("payload_violation_count", kernel_side_payload_violation_count),
                     ("passed_to_kernel_count", kernel_side_passed_to_kernel_count),
@@ -3828,10 +3866,7 @@ def check_summary(
                         "consumer_shim_kernel_side_consumer_schema_adapter_blocked_count_mismatch="
                         f"{kernel_side_blocked_count}!={shim_executed}"
                     )
-                if (
-                    kernel_side_block_reason
-                    != "kernel_side_consumer_live_disabled"
-                ):
+                if kernel_side_block_reason != expected_kernel_side_block_reason:
                     failures.append(
                         "consumer_shim_kernel_side_consumer_schema_adapter_block_reason_mismatch"
                     )
@@ -7190,6 +7225,11 @@ def check_summary(
         "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_live_enabled_count": _as_int(
             aggregate.get(
                 f"{KERNEL_SIDE_CONSUMER_SCHEMA_ADAPTER_PREFIX}live_enabled_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_live_eligible_count": _as_int(
+            aggregate.get(
+                f"{KERNEL_SIDE_CONSUMER_SCHEMA_ADAPTER_PREFIX}live_eligible_count"
             )
         ),
         "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_blocked_count": _as_int(

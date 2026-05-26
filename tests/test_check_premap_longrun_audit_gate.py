@@ -468,7 +468,14 @@ def _add_kernel_arg_semantic_handle_adapter(summary: dict) -> dict:
     return summary
 
 
-def _add_kernel_side_consumer_schema_adapter(summary: dict) -> dict:
+def _add_kernel_side_consumer_schema_adapter(
+    summary: dict,
+    *,
+    consumer_connected: bool = False,
+    live_enabled: bool = False,
+    live_eligible: bool = False,
+    block_reason: str = "kernel_side_consumer_live_disabled",
+) -> dict:
     aggregate = summary["aggregate"]
     checked_count = int(
         aggregate[
@@ -532,11 +539,17 @@ def _add_kernel_side_consumer_schema_adapter(summary: dict) -> dict:
             "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_optional_source_miss_count": 0,
             "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_handle_field_read_count": row_count * 4,
             "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_consumer_schema_present_count": checked_count,
-            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_consumer_connected_count": 0,
-            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_live_enabled_count": 0,
-            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_live_eligible_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_consumer_connected_count": (
+                checked_count if consumer_connected else 0
+            ),
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_live_enabled_count": (
+                checked_count if live_enabled else 0
+            ),
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_live_eligible_count": (
+                checked_count if live_eligible else 0
+            ),
             "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_blocked_count": checked_count,
-            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_block_reason": "kernel_side_consumer_live_disabled",
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_block_reason": block_reason,
             "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_block_reason_checked_count": checked_count,
             "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_block_reason_missing_count": 0,
             "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_block_reason_mismatch_count": 0,
@@ -1694,6 +1707,12 @@ def test_premap_longrun_audit_gate_accepts_kernel_side_consumer_schema_adapter_c
         ]
         == 0
     )
+    assert (
+        result["metrics"][
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_live_eligible_count"
+        ]
+        == 0
+    )
 
 
 def test_premap_longrun_audit_gate_rejects_kernel_side_consumer_schema_live_flags():
@@ -1733,16 +1752,75 @@ def test_premap_longrun_audit_gate_rejects_kernel_side_consumer_schema_live_flag
 
     assert result["passed"] is False
     assert (
-        "consumer_shim_kernel_side_consumer_schema_adapter_consumer_connected_count_nonzero=1"
+        "consumer_shim_kernel_side_consumer_schema_adapter_consumer_connected_count_mismatch=1!=0"
         in result["failures"]
     )
     assert (
-        "consumer_shim_kernel_side_consumer_schema_adapter_live_enabled_count_nonzero=1"
+        "consumer_shim_kernel_side_consumer_schema_adapter_live_enabled_count_mismatch=1!=0"
         in result["failures"]
     )
     assert (
         "consumer_shim_kernel_side_consumer_schema_adapter_passed_to_kernel_count_nonzero=1"
         in result["failures"]
+    )
+
+
+def test_premap_longrun_audit_gate_accepts_connected_blocked_kernel_side_consumer_schema():
+    summary = _add_kernel_side_consumer_schema_adapter(
+        _add_kernel_arg_semantic_handle_adapter(
+            _add_kernel_arg_handoff_launch_schema_mirror(
+                _add_kernel_arg_handoff_attempt(_passing_summary())
+            )
+        ),
+        consumer_connected=True,
+        live_enabled=True,
+        live_eligible=True,
+        block_reason="kernel_side_consumer_kernel_arg_pass_disabled",
+    )
+
+    result = check_summary(
+        summary,
+        max_capacity=12,
+        min_reuse_rate=0.98,
+        require_readonly_consumer=True,
+        require_descriptor_prep=True,
+        require_real_descriptor_prep=True,
+        require_kernel_arg_shadow_table=True,
+        require_consumer_shim_table_read=True,
+        require_consumer_shim_table_consume=True,
+        require_kernel_arg_handoff_attempt=True,
+        require_kernel_arg_handoff_launch_schema_mirror=True,
+        require_kernel_arg_semantic_handle_adapter=True,
+        require_kernel_side_consumer_schema_adapter=True,
+        allow_enabled_blocked_live_toggle=True,
+        allow_connected_blocked_consumer_adapter=True,
+    )
+
+    assert result["passed"] is True
+    assert result["failures"] == []
+    assert (
+        result["metrics"][
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_consumer_connected_count"
+        ]
+        == 2
+    )
+    assert (
+        result["metrics"][
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_live_enabled_count"
+        ]
+        == 2
+    )
+    assert (
+        result["metrics"][
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_live_eligible_count"
+        ]
+        == 2
+    )
+    assert (
+        result["metrics"][
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_block_reason"
+        ]
+        == "kernel_side_consumer_kernel_arg_pass_disabled"
     )
 
 

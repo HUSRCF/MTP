@@ -785,12 +785,14 @@ class PremapKernelArgSemanticHandleAdapterObject:
 
 @dataclass(frozen=True)
 class PremapKernelSideConsumerSchemaAdapterObject:
-    """Live-disabled schema envelope for a future kernel-side consumer.
+    """Readonly schema envelope for a future kernel-side consumer.
 
     The semantic adapter proves the prepared handle table has the right typed
     fields.  This object is the next boundary: it mirrors the schema a future
     fused-MoE/AWQ kernel-side consumer would receive, while explicitly keeping
-    the consumer disconnected and live handoff disabled.
+    payload movement and kernel argument mutation disabled.  Live canaries may
+    report enabled/connected states, but the adapter remains a blocked shadow
+    object until a later kernel-side consumer is implemented.
     """
 
     mode: str
@@ -825,7 +827,7 @@ class PremapKernelSideConsumerSchemaAdapterObject:
 
     @property
     def ready(self) -> bool:
-        return (
+        base_ok = (
             self.mode == "readonly_kernel_side_consumer_schema_adapter"
             and bool(self.semantic_adapter_hash)
             and bool(self.semantic_adapter_ready)
@@ -855,16 +857,31 @@ class PremapKernelSideConsumerSchemaAdapterObject:
             + int(self.optional_source_miss_count)
             == int(self.row_count)
             and bool(self.consumer_schema_present)
-            and not bool(self.consumer_connected)
-            and not bool(self.live_enabled)
-            and not bool(self.live_eligible)
             and bool(self.blocked)
-            and str(self.block_reason) == "kernel_side_consumer_live_disabled"
             and int(self.payload_bytes) == 0
             and not bool(self.passed_to_kernel)
             and not bool(self.changes_kernel_launch_args)
             and not bool(self.live_compatible_with_current_wna16_args)
         )
+        if not base_ok:
+            return False
+        if not bool(self.live_enabled):
+            return (
+                not bool(self.consumer_connected)
+                and not bool(self.live_eligible)
+                and str(self.block_reason) == "kernel_side_consumer_live_disabled"
+            )
+        if not bool(self.live_eligible):
+            return (
+                not bool(self.consumer_connected)
+                and str(self.block_reason) == "kernel_side_consumer_not_eligible"
+            )
+        if not bool(self.consumer_connected):
+            return str(self.block_reason) == "kernel_side_consumer_not_connected"
+        return str(self.block_reason) in {
+            "kernel_side_consumer_kernel_arg_pass_disabled",
+            "kernel_side_consumer_shadow_only_kernel_arg_pass_enabled",
+        }
 
     @property
     def adapter_hash(self) -> str:
@@ -2809,51 +2826,6 @@ class ControlledPremapAddressManager:
                     changes_kernel_launch_args=False,
                     live_compatible_with_current_wna16_args=False,
                 )
-                kernel_side_consumer_schema_adapter = (
-                    PremapKernelSideConsumerSchemaAdapterObject(
-                        mode="readonly_kernel_side_consumer_schema_adapter",
-                        semantic_adapter_hash=semantic_handle_adapter.adapter_hash,
-                        semantic_adapter_ready=semantic_handle_adapter.ready,
-                        table_object_hash=table_object.object_hash,
-                        launch_schema_mirror_hash=(
-                            handoff_launch_schema_mirror.launch_schema_mirror_hash
-                        ),
-                        row_count=handoff_row_count,
-                        column_count=handoff_column_count,
-                        table_schema_hash=handoff_schema_hash,
-                        semantic_schema_hash=(
-                            PREMAP_KERNEL_ARG_SEMANTIC_HANDLE_SCHEMA_HASH
-                        ),
-                        kernel_side_schema_name=(
-                            PREMAP_KERNEL_SIDE_CONSUMER_SCHEMA_NAME
-                        ),
-                        kernel_side_schema_hash=(
-                            PREMAP_KERNEL_SIDE_CONSUMER_SCHEMA_HASH
-                        ),
-                        kernel_side_field_count=len(
-                            PREMAP_KERNEL_SIDE_CONSUMER_SCHEMA_FIELDS
-                        ),
-                        row_order_hash=table_object.row_order_hash,
-                        ordered_row_hash=table_object.ordered_row_hash,
-                        required_source_hit_count=handoff_required_hit_count,
-                        required_source_miss_count=handoff_required_miss_count,
-                        optional_source_hit_count=handoff_optional_hit_count,
-                        optional_source_miss_count=handoff_optional_miss_count,
-                        handle_field_read_count=int(
-                            table_consume_handle_field_read_count or 0
-                        ),
-                        consumer_schema_present=True,
-                        consumer_connected=False,
-                        live_enabled=False,
-                        live_eligible=False,
-                        blocked=True,
-                        block_reason="kernel_side_consumer_live_disabled",
-                        payload_bytes=0,
-                        passed_to_kernel=False,
-                        changes_kernel_launch_args=False,
-                        live_compatible_with_current_wna16_args=False,
-                    )
-                )
                 handoff_attempt = PremapKernelArgHandoffAttemptRecord(
                     mode="readonly_kernel_arg_handoff_attempt",
                     mirror_hash=handoff_mirror.mirror_hash,
@@ -3021,6 +2993,65 @@ class ControlledPremapAddressManager:
                         changes_kernel_launch_args=adapter_kernel_arg_pass_live,
                         adapter_contract_live_pass=adapter_kernel_arg_pass_live,
                         real_kernel_arg_handoff=adapter_real_kernel_arg_handoff,
+                    )
+                )
+                if not live_enabled:
+                    kernel_side_block_reason = "kernel_side_consumer_live_disabled"
+                elif not adapter_live_eligible:
+                    kernel_side_block_reason = "kernel_side_consumer_not_eligible"
+                elif not adapter_consumer_connected:
+                    kernel_side_block_reason = "kernel_side_consumer_not_connected"
+                elif adapter_kernel_arg_pass_live:
+                    kernel_side_block_reason = (
+                        "kernel_side_consumer_shadow_only_kernel_arg_pass_enabled"
+                    )
+                else:
+                    kernel_side_block_reason = (
+                        "kernel_side_consumer_kernel_arg_pass_disabled"
+                    )
+                kernel_side_consumer_schema_adapter = (
+                    PremapKernelSideConsumerSchemaAdapterObject(
+                        mode="readonly_kernel_side_consumer_schema_adapter",
+                        semantic_adapter_hash=semantic_handle_adapter.adapter_hash,
+                        semantic_adapter_ready=semantic_handle_adapter.ready,
+                        table_object_hash=table_object.object_hash,
+                        launch_schema_mirror_hash=(
+                            handoff_launch_schema_mirror.launch_schema_mirror_hash
+                        ),
+                        row_count=handoff_row_count,
+                        column_count=handoff_column_count,
+                        table_schema_hash=handoff_schema_hash,
+                        semantic_schema_hash=(
+                            PREMAP_KERNEL_ARG_SEMANTIC_HANDLE_SCHEMA_HASH
+                        ),
+                        kernel_side_schema_name=(
+                            PREMAP_KERNEL_SIDE_CONSUMER_SCHEMA_NAME
+                        ),
+                        kernel_side_schema_hash=(
+                            PREMAP_KERNEL_SIDE_CONSUMER_SCHEMA_HASH
+                        ),
+                        kernel_side_field_count=len(
+                            PREMAP_KERNEL_SIDE_CONSUMER_SCHEMA_FIELDS
+                        ),
+                        row_order_hash=table_object.row_order_hash,
+                        ordered_row_hash=table_object.ordered_row_hash,
+                        required_source_hit_count=handoff_required_hit_count,
+                        required_source_miss_count=handoff_required_miss_count,
+                        optional_source_hit_count=handoff_optional_hit_count,
+                        optional_source_miss_count=handoff_optional_miss_count,
+                        handle_field_read_count=int(
+                            table_consume_handle_field_read_count or 0
+                        ),
+                        consumer_schema_present=True,
+                        consumer_connected=adapter_consumer_connected,
+                        live_enabled=live_enabled,
+                        live_eligible=adapter_live_eligible,
+                        blocked=True,
+                        block_reason=kernel_side_block_reason,
+                        payload_bytes=0,
+                        passed_to_kernel=False,
+                        changes_kernel_launch_args=False,
+                        live_compatible_with_current_wna16_args=False,
                     )
                 )
         return PremapDescriptorConsumerShimResult(
