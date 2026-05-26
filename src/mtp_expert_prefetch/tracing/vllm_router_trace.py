@@ -32,6 +32,11 @@ from mtp_expert_prefetch.runtime.descriptor_order_gate import (
 )
 from mtp_expert_prefetch.runtime.cache_manager import (
     ControlledPremapAddressManager,
+    PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_COLUMNS,
+    PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH,
+    PREMAP_KERNEL_ARG_SEMANTIC_HANDLE_SCHEMA_FIELDS,
+    PREMAP_KERNEL_ARG_SEMANTIC_HANDLE_SCHEMA_HASH,
+    PREMAP_KERNEL_ARG_SEMANTIC_HANDLE_SCHEMA_NAME,
     PremapRealDescriptorHandle,
 )
 from mtp_expert_prefetch.runtime.online_shadow import OnlineShadowLogger
@@ -12649,6 +12654,79 @@ def _apply_premap_consumer_readonly_gate(
                 "premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled=True "
                 "requires a readonly gate checked with "
                 "allow_kernel_arg_handoff_live_real_kernel_arg_mutation=true: "
+                f"{path}"
+            )
+            raise ValueError(msg)
+    semantic_adapter_required_raw = contract.get(
+        "kernel_arg_semantic_handle_adapter_required",
+        False,
+    )
+    if not isinstance(semantic_adapter_required_raw, bool):
+        msg = (
+            "Premap consumer readonly gate "
+            "contract.kernel_arg_semantic_handle_adapter_required must be "
+            f"boolean when present: {path}"
+        )
+        raise TypeError(msg)
+    if bool(semantic_adapter_required_raw):
+        if lab_precondition is not True:
+            msg = (
+                "kernel-arg semantic handle adapter requires a readonly gate "
+                f"with lab_precondition=true: {path}"
+            )
+            raise ValueError(msg)
+        if not bool(contract.get("kernel_arg_handoff_launch_schema_mirror_required")):
+            msg = (
+                "kernel-arg semantic handle adapter requires "
+                "contract.kernel_arg_handoff_launch_schema_mirror_required=true: "
+                f"{path}"
+            )
+            raise ValueError(msg)
+        semantic_contract = {
+            "kernel_arg_semantic_handle_adapter_mode": (
+                "readonly_kernel_arg_semantic_handle_adapter"
+            ),
+            "kernel_arg_semantic_handle_adapter_table_schema_hash": (
+                PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH
+            ),
+            "kernel_arg_semantic_handle_adapter_semantic_schema_name": (
+                PREMAP_KERNEL_ARG_SEMANTIC_HANDLE_SCHEMA_NAME
+            ),
+            "kernel_arg_semantic_handle_adapter_semantic_schema_hash": (
+                PREMAP_KERNEL_ARG_SEMANTIC_HANDLE_SCHEMA_HASH
+            ),
+            "kernel_arg_semantic_handle_adapter_semantic_field_count_required": len(
+                PREMAP_KERNEL_ARG_SEMANTIC_HANDLE_SCHEMA_FIELDS
+            ),
+            "kernel_arg_semantic_handle_adapter_column_count_required": len(
+                PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_COLUMNS
+            ),
+            "kernel_arg_semantic_handle_adapter_payload_bytes_required": 0,
+            "kernel_arg_semantic_handle_adapter_passed_to_kernel_required": False,
+            "kernel_arg_semantic_handle_adapter_changes_kernel_launch_args_required": (
+                False
+            ),
+            "kernel_arg_semantic_handle_adapter_live_compatible_with_current_wna16_args_required": (
+                False
+            ),
+        }
+        for key, expected in semantic_contract.items():
+            observed = contract.get(key)
+            if observed != expected:
+                msg = (
+                    "Premap consumer readonly gate violates the kernel-arg "
+                    f"semantic handle adapter contract for {path}: "
+                    f"{key}={observed!r} != {expected!r}"
+                )
+                raise ValueError(msg)
+        check = gate.get("check", {})
+        if not isinstance(check, dict):
+            msg = f"Premap consumer readonly gate `gate.check` must be a mapping: {path}"
+            raise TypeError(msg)
+        if check.get("require_kernel_arg_semantic_handle_adapter") is not True:
+            msg = (
+                "kernel-arg semantic handle adapter requires a readonly gate "
+                "checked with require_kernel_arg_semantic_handle_adapter=true: "
                 f"{path}"
             )
             raise ValueError(msg)
