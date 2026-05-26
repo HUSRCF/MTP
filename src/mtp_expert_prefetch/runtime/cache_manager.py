@@ -989,6 +989,15 @@ class PremapKernelArgHandoffLiveConsumerAdapterRecord:
                 == "kernel_arg_handoff_kernel_consumer_not_connected"
             )
         if bool(self.passed_to_kernel) or bool(self.changes_kernel_launch_args):
+            if bool(self.real_kernel_arg_handoff):
+                return (
+                    not bool(self.blocked)
+                    and bool(self.passed_to_kernel)
+                    and bool(self.changes_kernel_launch_args)
+                    and bool(self.adapter_contract_live_pass)
+                    and str(self.block_reason)
+                    == "kernel_arg_handoff_real_kernel_arg_mutation_live"
+                )
             return (
                 not bool(self.blocked)
                 and bool(self.passed_to_kernel)
@@ -1870,6 +1879,7 @@ class ControlledPremapAddressManager:
         kernel_arg_handoff_live_enabled: bool = False,
         kernel_arg_handoff_consumer_connected: bool = False,
         kernel_arg_handoff_kernel_arg_pass_enabled: bool = False,
+        kernel_arg_handoff_real_kernel_arg_mutation_enabled: bool = False,
         kernel_arg_handoff_lab_gate_passed: bool = False,
         execution_mode: str = "readonly_prelaunch_consumer_shim",
     ) -> PremapDescriptorConsumerShimResult:
@@ -2535,6 +2545,10 @@ class ControlledPremapAddressManager:
                     adapter_consumer_connected
                     and kernel_arg_handoff_kernel_arg_pass_enabled
                 )
+                adapter_real_kernel_arg_handoff = bool(
+                    adapter_kernel_arg_pass_live
+                    and kernel_arg_handoff_real_kernel_arg_mutation_enabled
+                )
                 if not integration_ready:
                     adapter_block_reason = (
                         "kernel_arg_handoff_live_noop_integration_not_ready"
@@ -2543,6 +2557,10 @@ class ControlledPremapAddressManager:
                     adapter_block_reason = "kernel_arg_handoff_live_disabled"
                 elif not lab_gate_passed:
                     adapter_block_reason = "kernel_arg_handoff_lab_gate_not_passed"
+                elif adapter_real_kernel_arg_handoff:
+                    adapter_block_reason = (
+                        "kernel_arg_handoff_real_kernel_arg_mutation_live"
+                    )
                 elif adapter_kernel_arg_pass_live:
                     adapter_block_reason = "kernel_arg_handoff_kernel_arg_pass_live"
                 elif adapter_consumer_connected:
@@ -2580,7 +2598,7 @@ class ControlledPremapAddressManager:
                         passed_to_kernel=adapter_kernel_arg_pass_live,
                         changes_kernel_launch_args=adapter_kernel_arg_pass_live,
                         adapter_contract_live_pass=adapter_kernel_arg_pass_live,
-                        real_kernel_arg_handoff=False,
+                        real_kernel_arg_handoff=adapter_real_kernel_arg_handoff,
                     )
                 )
         return PremapDescriptorConsumerShimResult(

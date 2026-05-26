@@ -519,6 +519,7 @@ def _add_kernel_arg_handoff_live_consumer_adapter(
     enabled_blocked: bool = False,
     consumer_connected: bool = False,
     kernel_arg_pass_live: bool = False,
+    real_kernel_arg_mutation_live: bool = False,
 ) -> dict:
     aggregate = summary["aggregate"]
     checked_count = int(
@@ -528,7 +529,11 @@ def _add_kernel_arg_handoff_live_consumer_adapter(
     )
     block_reason = (
         (
-            "kernel_arg_handoff_kernel_arg_pass_live"
+            (
+                "kernel_arg_handoff_real_kernel_arg_mutation_live"
+                if real_kernel_arg_mutation_live
+                else "kernel_arg_handoff_kernel_arg_pass_live"
+            )
             if kernel_arg_pass_live
             else "kernel_arg_handoff_kernel_arg_pass_disabled"
         )
@@ -605,9 +610,17 @@ def _add_kernel_arg_handoff_live_consumer_adapter(
             "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_consumer_adapter_real_kernel_arg_handoff_count": 0,
         }
     )
+    if real_kernel_arg_mutation_live:
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_consumer_adapter_real_kernel_arg_handoff_count"
+        ] = checked_count
     if kernel_arg_pass_live:
         aggregate[
             "runtime_shadow_premap_kernel_arg_handoff_kernel_arg_pass_enabled"
+        ] = True
+    if real_kernel_arg_mutation_live:
+        aggregate[
+            "runtime_shadow_premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled"
         ] = True
     return summary
 
@@ -2127,6 +2140,101 @@ def test_premap_longrun_audit_gate_accepts_live_kernel_arg_pass_with_explicit_al
             "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_consumer_adapter_real_kernel_arg_handoff_count"
         ]
         == 0
+    )
+
+
+def test_premap_longrun_audit_gate_accepts_real_kernel_arg_mutation_with_explicit_allow():
+    result = check_summary(
+        _add_kernel_arg_handoff_live_consumer_adapter(
+            _add_kernel_arg_handoff_live_noop_integration(
+                _add_kernel_arg_handoff_live_toggle(
+                    _add_kernel_arg_handoff_launch_schema_mirror(
+                        _add_kernel_arg_handoff_attempt(_passing_summary())
+                    ),
+                    enabled_blocked=True,
+                ),
+                enabled_blocked=True,
+                consumer_connected=True,
+            ),
+            enabled_blocked=True,
+            consumer_connected=True,
+            kernel_arg_pass_live=True,
+            real_kernel_arg_mutation_live=True,
+        ),
+        max_capacity=12,
+        min_reuse_rate=0.98,
+        require_readonly_consumer=True,
+        require_descriptor_prep=True,
+        require_real_descriptor_prep=True,
+        require_kernel_arg_shadow_table=True,
+        require_consumer_shim_table_read=True,
+        require_consumer_shim_table_consume=True,
+        require_kernel_arg_handoff_attempt=True,
+        require_kernel_arg_handoff_live_toggle=True,
+        require_kernel_arg_handoff_launch_schema_mirror=True,
+        require_kernel_arg_handoff_live_noop_integration=True,
+        require_kernel_arg_handoff_live_consumer_adapter=True,
+        allow_enabled_blocked_live_toggle=True,
+        allow_connected_blocked_consumer_adapter=True,
+        allow_kernel_arg_handoff_live_kernel_arg_pass=True,
+        allow_kernel_arg_handoff_live_real_kernel_arg_mutation=True,
+    )
+
+    assert result["passed"] is True
+    assert (
+        result["metrics"][
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_consumer_adapter_block_reason"
+        ]
+        == "kernel_arg_handoff_real_kernel_arg_mutation_live"
+    )
+    assert (
+        result["metrics"][
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_consumer_adapter_real_kernel_arg_handoff_count"
+        ]
+        == 2
+    )
+
+
+def test_premap_longrun_audit_gate_rejects_real_kernel_arg_mutation_without_explicit_allow():
+    result = check_summary(
+        _add_kernel_arg_handoff_live_consumer_adapter(
+            _add_kernel_arg_handoff_live_noop_integration(
+                _add_kernel_arg_handoff_live_toggle(
+                    _add_kernel_arg_handoff_launch_schema_mirror(
+                        _add_kernel_arg_handoff_attempt(_passing_summary())
+                    ),
+                    enabled_blocked=True,
+                ),
+                enabled_blocked=True,
+                consumer_connected=True,
+            ),
+            enabled_blocked=True,
+            consumer_connected=True,
+            kernel_arg_pass_live=True,
+            real_kernel_arg_mutation_live=True,
+        ),
+        max_capacity=12,
+        min_reuse_rate=0.98,
+        require_readonly_consumer=True,
+        require_descriptor_prep=True,
+        require_real_descriptor_prep=True,
+        require_kernel_arg_shadow_table=True,
+        require_consumer_shim_table_read=True,
+        require_consumer_shim_table_consume=True,
+        require_kernel_arg_handoff_attempt=True,
+        require_kernel_arg_handoff_live_toggle=True,
+        require_kernel_arg_handoff_launch_schema_mirror=True,
+        require_kernel_arg_handoff_live_noop_integration=True,
+        require_kernel_arg_handoff_live_consumer_adapter=True,
+        allow_enabled_blocked_live_toggle=True,
+        allow_connected_blocked_consumer_adapter=True,
+        allow_kernel_arg_handoff_live_kernel_arg_pass=True,
+    )
+
+    assert result["passed"] is False
+    assert (
+        "kernel_arg_handoff_real_kernel_arg_mutation_enabled_true"
+        in result["failures"]
     )
 
 

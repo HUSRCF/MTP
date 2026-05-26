@@ -967,6 +967,7 @@ class VllmRouterRecorder:
     shadow_premap_kernel_arg_handoff_live_enabled: bool = False
     shadow_premap_kernel_arg_handoff_live_consumer_connected: bool = False
     shadow_premap_kernel_arg_handoff_kernel_arg_pass_enabled: bool = False
+    shadow_premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled: bool = False
     shadow_premap_address_namespace: str = "expert_weight_descriptor"
     shadow_premap_priority: int = 2
     shadow_transition_premap_priority: int = 3
@@ -2612,12 +2613,52 @@ class VllmRouterRecorder:
                                 kernel_arg_handoff_kernel_arg_pass_enabled=bool(
                                     self.shadow_premap_kernel_arg_handoff_kernel_arg_pass_enabled
                                 ),
+                                kernel_arg_handoff_real_kernel_arg_mutation_enabled=bool(
+                                    self.shadow_premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled
+                                ),
                                 kernel_arg_handoff_lab_gate_passed=(
                                     self.shadow_premap_consumer_readonly_gate_passed
                                     is True
                                 ),
                             )
                         )
+                        context = get_active_moe_assignment_context()
+                        if (
+                            context is not None
+                            and bool(
+                                self.shadow_premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled
+                            )
+                            and bool(
+                                descriptor_consumer_shim_result.kernel_arg_handoff_live_consumer_adapter_real_kernel_arg_handoff
+                            )
+                            and bool(
+                                descriptor_consumer_shim_result.kernel_arg_handoff_live_consumer_adapter_record_ready
+                            )
+                        ):
+                            context["premap_kernel_arg_live_mutation_package"] = {
+                                "layer_id": int(layer_id),
+                                "source": (
+                                    "prelaunch_consumer_shim_live_kernel_arg_package"
+                                ),
+                                "table_object_hash": str(
+                                    descriptor_consumer_shim_result.kernel_arg_handoff_live_consumer_adapter_table_object_hash
+                                    or ""
+                                ),
+                                "launch_schema_mirror_hash": str(
+                                    descriptor_consumer_shim_result.kernel_arg_handoff_live_consumer_adapter_launch_schema_mirror_hash
+                                    or ""
+                                ),
+                                "adapter_hash": str(
+                                    descriptor_consumer_shim_result.kernel_arg_handoff_live_consumer_adapter_hash
+                                    or ""
+                                ),
+                                "block_reason": str(
+                                    descriptor_consumer_shim_result.kernel_arg_handoff_live_consumer_adapter_block_reason
+                                    or ""
+                                ),
+                                "launch_args": None,
+                                "used": False,
+                            }
         lookup_us = (time.perf_counter_ns() - start_ns) / 1000.0
         sink.write_premap_consumer_mapping(
             ShadowPremapConsumerMappingEvent(
@@ -10759,6 +10800,79 @@ def patch_vllm_qwen35_moe_router_trace() -> None:
             enqueue_elapsed_us = None
             try:
                 enqueue_start_ns = time.perf_counter_ns()
+                live_mutation_package_meta = (
+                    context.get("premap_kernel_arg_live_mutation_package")
+                    if context is not None
+                    else None
+                )
+                use_live_mutation_package = (
+                    recorder_for_config is not None
+                    and bool(
+                        recorder_for_config.shadow_premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled
+                    )
+                    and layer_id_for_timing is not None
+                    and isinstance(live_mutation_package_meta, dict)
+                    and int(live_mutation_package_meta.get("layer_id", -1))
+                    == int(layer_id_for_timing)
+                    and str(live_mutation_package_meta.get("block_reason") or "")
+                    == "kernel_arg_handoff_real_kernel_arg_mutation_live"
+                )
+                if use_live_mutation_package:
+                    # This is the first live handoff mutation boundary: the
+                    # original WNA16 kernel receives its launch arguments from a
+                    # prelaunch package object.  Values remain pass-through and
+                    # payload movement stays disabled; only the launch argument
+                    # source changes.  The package object is intentionally
+                    # stored in the active context so the consumer shim owns the
+                    # launch-argument envelope instead of acting as a marker.
+                    live_mutation_package_meta["launch_args"] = {
+                        "A": A,
+                        "B": B,
+                        "C": C,
+                        "B_scale": B_scale,
+                        "B_zp": B_zp,
+                        "topk_weights": topk_weights,
+                        "sorted_token_ids": sorted_token_ids,
+                        "expert_ids": expert_ids,
+                        "num_tokens_post_padded": num_tokens_post_padded,
+                        "mul_routed_weight": mul_routed_weight,
+                        "top_k": top_k,
+                        "config": config,
+                        "compute_type": compute_type,
+                        "use_int8_w8a16": use_int8_w8a16,
+                        "use_int4_w4a16": use_int4_w4a16,
+                        "block_shape": block_shape,
+                    }
+                    kernel_arg_package = live_mutation_package_meta["launch_args"]
+                    live_mutation_package_meta["used"] = True
+                    live_mutation_package_meta["status"] = (
+                        "pass_through_original_wna16"
+                    )
+                    emit_wna16_launch_part(
+                        part="kernel_arg_live_package_pass_through",
+                        elapsed_us=(
+                            time.perf_counter_ns() - enqueue_start_ns
+                        )
+                        / 1000.0,
+                    )
+                    return original_invoke_wna16_triton_kernel(
+                        kernel_arg_package["A"],
+                        kernel_arg_package["B"],
+                        kernel_arg_package["C"],
+                        kernel_arg_package["B_scale"],
+                        kernel_arg_package["B_zp"],
+                        kernel_arg_package["topk_weights"],
+                        kernel_arg_package["sorted_token_ids"],
+                        kernel_arg_package["expert_ids"],
+                        kernel_arg_package["num_tokens_post_padded"],
+                        kernel_arg_package["mul_routed_weight"],
+                        kernel_arg_package["top_k"],
+                        kernel_arg_package["config"],
+                        kernel_arg_package["compute_type"],
+                        kernel_arg_package["use_int8_w8a16"],
+                        kernel_arg_package["use_int4_w4a16"],
+                        kernel_arg_package["block_shape"],
+                    )
                 return original_invoke_wna16_triton_kernel(
                     A,
                     B,
@@ -11452,6 +11566,18 @@ def _apply_premap_consumer_readonly_gate(
     kernel_arg_pass_enabled = bool(
         options.get("premap_kernel_arg_handoff_kernel_arg_pass_enabled", False)
     )
+    real_kernel_arg_mutation_enabled = bool(
+        options.get(
+            "premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled",
+            False,
+        )
+    )
+    if real_kernel_arg_mutation_enabled and not kernel_arg_pass_enabled:
+        msg = (
+            "premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled=True "
+            "requires premap_kernel_arg_handoff_kernel_arg_pass_enabled=True."
+        )
+        raise ValueError(msg)
     if kernel_arg_pass_enabled and (
         not live_handoff_enabled or not live_consumer_connected
     ):
@@ -11835,7 +11961,11 @@ def _apply_premap_consumer_readonly_gate(
             raise ValueError(msg)
         live_adapter_block_reason = (
             (
-                "kernel_arg_handoff_kernel_arg_pass_live"
+                (
+                    "kernel_arg_handoff_real_kernel_arg_mutation_live"
+                    if real_kernel_arg_mutation_enabled
+                    else "kernel_arg_handoff_kernel_arg_pass_live"
+                )
                 if kernel_arg_pass_enabled
                 else "kernel_arg_handoff_kernel_arg_pass_disabled"
             )
@@ -11898,6 +12028,25 @@ def _apply_premap_consumer_readonly_gate(
                     f"{key}={observed!r} != {expected!r}"
                 )
                 raise ValueError(msg)
+        real_kernel_arg_handoff_required = contract.get(
+            "kernel_arg_handoff_live_consumer_adapter_real_kernel_arg_handoff_required",
+            False,
+        )
+        if not isinstance(real_kernel_arg_handoff_required, bool):
+            msg = (
+                "Premap consumer readonly gate "
+                "contract.kernel_arg_handoff_live_consumer_adapter_real_kernel_arg_handoff_required "
+                f"must be boolean when present: {path}"
+            )
+            raise TypeError(msg)
+        if bool(real_kernel_arg_handoff_required) != real_kernel_arg_mutation_enabled:
+            msg = (
+                "Premap consumer readonly gate live consumer adapter real-kernel "
+                "handoff requirement does not match runtime options for "
+                f"{path}: {real_kernel_arg_handoff_required!r} != "
+                f"{real_kernel_arg_mutation_enabled!r}"
+            )
+            raise ValueError(msg)
         check = gate.get("check", {})
         if not isinstance(check, dict):
             msg = f"Premap consumer readonly gate `gate.check` must be a mapping: {path}"
@@ -11917,6 +12066,16 @@ def _apply_premap_consumer_readonly_gate(
                 "premap_kernel_arg_handoff_kernel_arg_pass_enabled=True "
                 "requires a readonly gate checked with "
                 f"allow_kernel_arg_handoff_live_kernel_arg_pass=true: {path}"
+            )
+            raise ValueError(msg)
+        if real_kernel_arg_mutation_enabled and check.get(
+            "allow_kernel_arg_handoff_live_real_kernel_arg_mutation"
+        ) is not True:
+            msg = (
+                "premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled=True "
+                "requires a readonly gate checked with "
+                "allow_kernel_arg_handoff_live_real_kernel_arg_mutation=true: "
+                f"{path}"
             )
             raise ValueError(msg)
     descriptor_bytes = contract.get("descriptor_bytes")
@@ -12523,6 +12682,12 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                 False,
             )
         ),
+        "runtime_shadow_premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled": bool(
+            runtime_shadow_options.get(
+                "premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled",
+                False,
+            )
+        ),
         "runtime_shadow_transition_premap_source": str(
             runtime_shadow_options.get(
                 "transition_premap_source",
@@ -12941,6 +13106,12 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                             shadow_premap_kernel_arg_handoff_kernel_arg_pass_enabled=bool(
                                 runtime_shadow_options.get(
                                     "premap_kernel_arg_handoff_kernel_arg_pass_enabled",
+                                    False,
+                                )
+                            ),
+                            shadow_premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled=bool(
+                                runtime_shadow_options.get(
+                                    "premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled",
                                     False,
                                 )
                             ),

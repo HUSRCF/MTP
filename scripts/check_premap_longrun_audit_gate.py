@@ -300,9 +300,13 @@ def check_summary(
     allow_enabled_blocked_live_toggle: bool = False,
     allow_connected_blocked_consumer_adapter: bool = False,
     allow_kernel_arg_handoff_live_kernel_arg_pass: bool = False,
+    allow_kernel_arg_handoff_live_real_kernel_arg_mutation: bool = False,
 ) -> dict[str, Any]:
     raw_kernel_arg_pass_enabled = summary.get(
         "runtime_shadow_premap_kernel_arg_handoff_kernel_arg_pass_enabled"
+    )
+    raw_real_kernel_arg_mutation_enabled = summary.get(
+        "runtime_shadow_premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled"
     )
     summary = _normalize_summary(summary)
     event_counts = {
@@ -320,6 +324,12 @@ def check_summary(
         failures.append(
             "allow_kernel_arg_handoff_live_kernel_arg_pass_requires_connected_adapter"
         )
+    if allow_kernel_arg_handoff_live_real_kernel_arg_mutation and not (
+        allow_kernel_arg_handoff_live_kernel_arg_pass
+    ):
+        failures.append(
+            "allow_kernel_arg_handoff_live_real_kernel_arg_mutation_requires_kernel_arg_pass"
+        )
     kernel_arg_pass_enabled = aggregate.get(
         "runtime_shadow_premap_kernel_arg_handoff_kernel_arg_pass_enabled",
         raw_kernel_arg_pass_enabled,
@@ -331,6 +341,22 @@ def check_summary(
     ):
         failures.append(
             "allow_kernel_arg_handoff_live_kernel_arg_pass_requires_runtime_flag_true"
+        )
+    real_kernel_arg_mutation_enabled = aggregate.get(
+        "runtime_shadow_premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled",
+        raw_real_kernel_arg_mutation_enabled,
+    )
+    if _as_bool(real_kernel_arg_mutation_enabled) and not (
+        allow_kernel_arg_handoff_live_real_kernel_arg_mutation
+    ):
+        failures.append(
+            "kernel_arg_handoff_real_kernel_arg_mutation_enabled_true"
+        )
+    if allow_kernel_arg_handoff_live_real_kernel_arg_mutation and not _as_bool(
+        real_kernel_arg_mutation_enabled
+    ):
+        failures.append(
+            "allow_kernel_arg_handoff_live_real_kernel_arg_mutation_requires_runtime_flag_true"
         )
 
     unknown_events = sorted(set(event_counts) - REQUIRED_EVENT_TYPES)
@@ -3456,7 +3482,9 @@ def check_summary(
                 or kernel_arg_handoff_live_consumer_adapter_active
             ):
                 expected_adapter_block_reason = (
-                    "kernel_arg_handoff_kernel_arg_pass_live"
+                    "kernel_arg_handoff_real_kernel_arg_mutation_live"
+                    if allow_kernel_arg_handoff_live_real_kernel_arg_mutation
+                    else "kernel_arg_handoff_kernel_arg_pass_live"
                     if allow_kernel_arg_handoff_live_kernel_arg_pass
                     else "kernel_arg_handoff_kernel_arg_pass_disabled"
                     if allow_connected_blocked_consumer_adapter
@@ -3500,6 +3528,11 @@ def check_summary(
                 expected_adapter_contract_live_pass_count = (
                     shim_executed
                     if allow_kernel_arg_handoff_live_kernel_arg_pass
+                    else 0
+                )
+                expected_adapter_real_kernel_arg_handoff_count = (
+                    shim_executed
+                    if allow_kernel_arg_handoff_live_real_kernel_arg_mutation
                     else 0
                 )
                 if adapter_checked_count != shim_executed:
@@ -3697,10 +3730,13 @@ def check_summary(
                         "consumer_shim_kernel_arg_handoff_live_consumer_adapter_contract_live_pass_count_mismatch="
                         f"{adapter_contract_live_pass_count}!={expected_adapter_contract_live_pass_count}"
                     )
-                if adapter_real_kernel_arg_handoff_count != 0:
+                if (
+                    adapter_real_kernel_arg_handoff_count
+                    != expected_adapter_real_kernel_arg_handoff_count
+                ):
                     failures.append(
-                        "consumer_shim_kernel_arg_handoff_live_consumer_adapter_real_kernel_arg_handoff_count_nonzero="
-                        f"{adapter_real_kernel_arg_handoff_count}"
+                        "consumer_shim_kernel_arg_handoff_live_consumer_adapter_real_kernel_arg_handoff_count_mismatch="
+                        f"{adapter_real_kernel_arg_handoff_count}!={expected_adapter_real_kernel_arg_handoff_count}"
                     )
         if require_consumer_shim_table_object or consumer_shim_table_object_active:
             shim_executed = _as_int(
@@ -4149,6 +4185,9 @@ def check_summary(
         "premap_consumer_mapping_count": consumer_count,
         "runtime_shadow_premap_kernel_arg_handoff_kernel_arg_pass_enabled": _as_bool(
             kernel_arg_pass_enabled
+        ),
+        "runtime_shadow_premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled": _as_bool(
+            real_kernel_arg_mutation_enabled
         ),
         "premap_address_resident_count_max": resident_count,
         "premap_address_reuse_rate_mean": _as_float(
@@ -5799,6 +5838,9 @@ def check_summary(
         "allow_kernel_arg_handoff_live_kernel_arg_pass": bool(
             allow_kernel_arg_handoff_live_kernel_arg_pass
         ),
+        "allow_kernel_arg_handoff_live_real_kernel_arg_mutation": bool(
+            allow_kernel_arg_handoff_live_real_kernel_arg_mutation
+        ),
     }
 
 
@@ -5953,6 +5995,15 @@ def main() -> None:
             "gate that enables live kernel-arg pass."
         ),
     )
+    parser.add_argument(
+        "--allow-kernel-arg-handoff-live-real-kernel-arg-mutation",
+        action="store_true",
+        help=(
+            "Experimental live mode: allow the original WNA16 kernel launch to "
+            "take its pass-through arguments from the prelaunch handoff package. "
+            "This still requires zero payload bytes and an explicit lab gate."
+        ),
+    )
     parser.add_argument("--output-json", type=Path)
     args = parser.parse_args()
 
@@ -5994,6 +6045,9 @@ def main() -> None:
         ),
         allow_kernel_arg_handoff_live_kernel_arg_pass=(
             args.allow_kernel_arg_handoff_live_kernel_arg_pass
+        ),
+        allow_kernel_arg_handoff_live_real_kernel_arg_mutation=(
+            args.allow_kernel_arg_handoff_live_real_kernel_arg_mutation
         ),
     )
     payload = json.dumps(result, indent=2, sort_keys=True) + "\n"

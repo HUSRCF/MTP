@@ -15850,6 +15850,83 @@ no descriptor_order execution
 no kernel argument mutation
 ```
 
+## Premap live kernel-arg mutation canary
+
+The premap kernel-arg handoff path now has an explicit real-mutation canary
+above the previous no-op/lab-gated adapter envelope.  This is the first live
+boundary where the original WNA16 launch reads its arguments from a prelaunch
+consumer package object.
+
+Scope:
+
+```text
+enabled only by an explicit lab gate
+WNA16 launch arguments are pass-through values
+the argument source changes, but the values do not
+payload movement remains disabled
+prepared descriptor/address table is not passed as a kernel argument
+```
+
+GPU1 AWQ/vLLM 1-sample gen16 canary:
+
+```text
+config:
+  configs/trace/
+    router_mtp_trace_external_prompt_gate_dolly_1_awq_vllm_gpu1_decode_gen16_real_kernel_arg_mutation_canary.yaml
+
+gate:
+  configs/runtime/
+    premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_real_kernel_arg_mutation_canary.yaml
+
+artifact:
+  data/traces/
+    external_prompt_gate_dolly_1_awq_vllm_gpu1_decode_gen16_real_kernel_arg_mutation_canary/
+    real_kernel_arg_mutation_gate_check.json
+
+failures = []
+runtime_shadow_premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled = true
+
+kernel_arg_handoff_live_consumer_adapter_checked_count = 640
+kernel_arg_handoff_live_consumer_adapter_block_reason =
+  kernel_arg_handoff_real_kernel_arg_mutation_live
+kernel_arg_handoff_live_consumer_adapter_passed_to_kernel_count = 640
+kernel_arg_handoff_live_consumer_adapter_changes_kernel_launch_args_count = 640
+kernel_arg_handoff_live_consumer_adapter_contract_live_pass_count = 640
+kernel_arg_handoff_live_consumer_adapter_real_kernel_arg_handoff_count = 640
+kernel_arg_handoff_live_consumer_adapter_payload_bytes = 0
+
+handle_table_object_passed_to_kernel_count = 0
+handle_table_consume_passed_to_kernel_count = 0
+prep_execution_dry_run_passed_to_kernel_count = 0
+```
+
+Fail-closed check:
+
+```text
+same canary without --allow-kernel-arg-handoff-live-real-kernel-arg-mutation
+fails with:
+  kernel_arg_handoff_real_kernel_arg_mutation_enabled_true
+  consumer_shim_kernel_arg_handoff_live_consumer_adapter_block_reason_mismatch
+  consumer_shim_kernel_arg_handoff_live_consumer_adapter_real_kernel_arg_handoff_count_mismatch=640!=0
+```
+
+Validation:
+
+```text
+py_compile passed
+targeted pytest: 140 passed
+full tests: 578 passed
+```
+
+Boundary remains:
+
+```text
+not a full_fetch path
+not a payload residency claim
+not a performance claim
+not a descriptor/address replacement path yet
+```
+
 ## 2026-05-25: connected-but-blocked live consumer adapter canary
 
 The kernel-arg handoff no-op envelope now has one additional canary stage:
