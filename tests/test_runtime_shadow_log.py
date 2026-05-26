@@ -310,13 +310,61 @@ def test_shadow_log_aggregates_premap_summary_without_payload_or_order_effects(t
     )
     assert (
         aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_mode_missing_count"
+        ]
+        == 0
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_mode_mismatch_count"
+        ]
+        == 0
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_column_count_max"
+        ]
+        == 0
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_column_count_min"
+        ]
+        == 0
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_table_schema_hash"
+        ]
+        == ""
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_semantic_schema_hash"
+        ]
+        == ""
+    )
+    assert (
+        aggregate[
             "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_payload_bytes"
         ]
         == 0
     )
     assert (
         aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_payload_violation_count"
+        ]
+        == 0
+    )
+    assert (
+        aggregate[
             "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_passed_to_kernel_count"
+        ]
+        == 0
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_kernel_arg_violation_count"
         ]
         == 0
     )

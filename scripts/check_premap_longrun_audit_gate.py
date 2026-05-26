@@ -648,6 +648,10 @@ def check_summary(
     semantic_handle_adapter_checked_count = _as_int(
         aggregate.get(f"{KERNEL_ARG_SEMANTIC_HANDLE_ADAPTER_PREFIX}checked_count")
     )
+    # Deliberately strict: if a log emits semantic-adapter records at all, check
+    # the full launch-schema dependency even when the caller did not request
+    # the semantic gate.  Partial semantic records are more dangerous than
+    # absent records because they can be mistaken for a live kernel-side schema.
     kernel_arg_semantic_handle_adapter_active = (
         semantic_handle_adapter_checked_count > 0
     )
