@@ -13773,6 +13773,51 @@ payload transfer remains 0
 kernel argument mutation remains disabled unless explicitly allowed
 ```
 
+### 2026-05-26: Explicit single-field live replacement canary passed
+
+After the default-disabled gate, a 1-sample explicit live canary was run with
+the checker allow flag enabled.  This is still an identity replacement of the
+same runtime `B_scale` object, so it validates the handoff source transition and
+counters without introducing payload movement or semantic handle replacement.
+
+```text
+config:
+  configs/trace/
+    router_mtp_trace_external_prompt_gate_dolly_1_awq_vllm_gpu1_decode_gen16_single_field_replacement_live_canary.yaml
+
+artifact:
+  data/traces/
+    external_prompt_gate_dolly_1_awq_vllm_gpu1_decode_gen16_single_field_replacement_live_canary/
+    single_field_replacement_live_gate_check.json
+
+checker:
+  --allow-single-field-replacement-live
+
+passed = true
+failures = []
+dry_run_enabled = true
+live_enabled = true
+field = B_scale
+dry_run_candidate_count = 1,280
+dry_run_parity_ok_count = 1,280
+dry_run_passed_to_kernel_count = 0
+live_disabled_count = 0
+live_candidate_count = 1,280
+live_replaced_count = 1,280
+live_parity_ok_count = 1,280
+live_passed_to_kernel_count = 1,280
+live_payload_bytes = 0
+```
+
+Boundary:
+
+```text
+the live canary requires explicit checker allow
+the replacement candidate is runtime-identity equal to the original field
+payload transfer remains 0
+this is not yet semantic descriptor/address handle replacement
+```
+
 ## Kernel-arg live-pass canary smoke
 
 The kernel-argument handoff path now has an explicit experimental live-pass
