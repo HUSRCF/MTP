@@ -64,6 +64,25 @@ PREMAP_KERNEL_SIDE_CONSUMER_SCHEMA_FIELDS = (
 PREMAP_KERNEL_SIDE_CONSUMER_SCHEMA_HASH = hashlib.sha256(
     "|".join(PREMAP_KERNEL_SIDE_CONSUMER_SCHEMA_FIELDS).encode("utf-8")
 ).hexdigest()
+PREMAP_KERNEL_SIDE_TYPED_CONSUMER_SCHEMA_NAME = (
+    "fused_moe_awq_wna16_kernel_side_typed_consumer_object_v1"
+)
+PREMAP_KERNEL_SIDE_TYPED_CONSUMER_SCHEMA_FIELDS = (
+    "kernel_side_consumer_schema_adapter_ref",
+    "semantic_handle_table_ref",
+    "descriptor_ptr_handle_ref",
+    "packed_weight_descriptor_handle_ref",
+    "scale_metadata_handle_ref",
+    "aux_metadata_handle_ref",
+    "row_order_hash",
+    "ordered_row_hash",
+    "consumer_row_count",
+    "consumer_column_count",
+    "consumer_block_reason",
+)
+PREMAP_KERNEL_SIDE_TYPED_CONSUMER_SCHEMA_HASH = hashlib.sha256(
+    "|".join(PREMAP_KERNEL_SIDE_TYPED_CONSUMER_SCHEMA_FIELDS).encode("utf-8")
+).hexdigest()
 
 
 @dataclass
@@ -930,6 +949,176 @@ class PremapKernelSideConsumerSchemaAdapterObject:
 
 
 @dataclass(frozen=True)
+class PremapKernelSideTypedConsumerObject:
+    """Readonly typed object matching the future kernel-side consumer shape.
+
+    This is one boundary closer to the eventual kernel consumer than the schema
+    adapter: it binds the semantic handle hashes to a concrete typed object
+    shape.  It is still a shadow-only object and must not move payload, mark
+    ready residency, or mutate kernel launch arguments.
+    """
+
+    mode: str
+    kernel_side_adapter_hash: str
+    kernel_side_adapter_ready: bool
+    semantic_adapter_hash: str
+    table_object_hash: str
+    launch_schema_mirror_hash: str
+    row_count: int
+    column_count: int
+    table_schema_hash: str
+    semantic_schema_hash: str
+    kernel_side_schema_hash: str
+    typed_consumer_schema_name: str
+    typed_consumer_schema_hash: str
+    typed_consumer_field_count: int
+    row_order_hash: str
+    ordered_row_hash: str
+    descriptor_ptr_handle_hash: str
+    packed_weight_descriptor_handle_hash: str
+    scale_metadata_handle_hash: str
+    aux_metadata_handle_hash: str
+    required_source_hit_count: int
+    required_source_miss_count: int
+    optional_source_hit_count: int
+    optional_source_miss_count: int
+    handle_field_read_count: int
+    consumer_object_present: bool
+    consumer_connected: bool
+    live_enabled: bool
+    live_eligible: bool
+    blocked: bool
+    block_reason: str
+    payload_bytes: int = 0
+    passed_to_kernel: bool = False
+    changes_kernel_launch_args: bool = False
+    live_compatible_with_current_wna16_args: bool = False
+
+    @property
+    def ready(self) -> bool:
+        base_ok = (
+            self.mode == "readonly_kernel_side_typed_consumer_object"
+            and bool(self.kernel_side_adapter_hash)
+            and bool(self.kernel_side_adapter_ready)
+            and bool(self.semantic_adapter_hash)
+            and bool(self.table_object_hash)
+            and bool(self.launch_schema_mirror_hash)
+            and int(self.row_count) > 0
+            and int(self.column_count)
+            == len(PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_COLUMNS)
+            and str(self.table_schema_hash)
+            == PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH
+            and str(self.semantic_schema_hash)
+            == PREMAP_KERNEL_ARG_SEMANTIC_HANDLE_SCHEMA_HASH
+            and str(self.kernel_side_schema_hash)
+            == PREMAP_KERNEL_SIDE_CONSUMER_SCHEMA_HASH
+            and str(self.typed_consumer_schema_name)
+            == PREMAP_KERNEL_SIDE_TYPED_CONSUMER_SCHEMA_NAME
+            and str(self.typed_consumer_schema_hash)
+            == PREMAP_KERNEL_SIDE_TYPED_CONSUMER_SCHEMA_HASH
+            and int(self.typed_consumer_field_count)
+            == len(PREMAP_KERNEL_SIDE_TYPED_CONSUMER_SCHEMA_FIELDS)
+            and bool(self.row_order_hash)
+            and bool(self.ordered_row_hash)
+            and bool(self.descriptor_ptr_handle_hash)
+            and bool(self.packed_weight_descriptor_handle_hash)
+            and bool(self.scale_metadata_handle_hash)
+            and bool(self.aux_metadata_handle_hash)
+            and int(self.handle_field_read_count)
+            == int(self.row_count)
+            * len(PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_COLUMNS)
+            and int(self.required_source_hit_count) == int(self.row_count) * 3
+            and int(self.required_source_miss_count) == 0
+            and int(self.optional_source_hit_count)
+            + int(self.optional_source_miss_count)
+            == int(self.row_count)
+            and bool(self.consumer_object_present)
+            and bool(self.blocked)
+            and int(self.payload_bytes) == 0
+            and not bool(self.passed_to_kernel)
+            and not bool(self.changes_kernel_launch_args)
+            and not bool(self.live_compatible_with_current_wna16_args)
+        )
+        if not base_ok:
+            return False
+        if not bool(self.live_enabled):
+            return (
+                not bool(self.consumer_connected)
+                and not bool(self.live_eligible)
+                and str(self.block_reason)
+                == "kernel_side_typed_consumer_live_disabled"
+            )
+        if not bool(self.live_eligible):
+            return (
+                not bool(self.consumer_connected)
+                and str(self.block_reason)
+                == "kernel_side_typed_consumer_not_eligible"
+            )
+        if not bool(self.consumer_connected):
+            return (
+                str(self.block_reason)
+                == "kernel_side_typed_consumer_not_connected"
+            )
+        return str(self.block_reason) in {
+            "kernel_side_typed_consumer_kernel_arg_pass_disabled",
+            "kernel_side_typed_consumer_shadow_only_kernel_arg_pass_enabled",
+        }
+
+    @property
+    def object_hash(self) -> str:
+        payload = json.dumps(
+            self.as_dict(),
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+        return hashlib.sha256(payload).hexdigest()
+
+    def as_dict(self) -> dict[str, int | bool | str]:
+        return {
+            "mode": str(self.mode),
+            "ready": bool(self.ready),
+            "kernel_side_adapter_hash": str(self.kernel_side_adapter_hash),
+            "kernel_side_adapter_ready": bool(self.kernel_side_adapter_ready),
+            "semantic_adapter_hash": str(self.semantic_adapter_hash),
+            "table_object_hash": str(self.table_object_hash),
+            "launch_schema_mirror_hash": str(self.launch_schema_mirror_hash),
+            "row_count": int(self.row_count),
+            "column_count": int(self.column_count),
+            "table_schema_hash": str(self.table_schema_hash),
+            "semantic_schema_hash": str(self.semantic_schema_hash),
+            "kernel_side_schema_hash": str(self.kernel_side_schema_hash),
+            "typed_consumer_schema_name": str(self.typed_consumer_schema_name),
+            "typed_consumer_schema_hash": str(self.typed_consumer_schema_hash),
+            "typed_consumer_field_count": int(self.typed_consumer_field_count),
+            "row_order_hash": str(self.row_order_hash),
+            "ordered_row_hash": str(self.ordered_row_hash),
+            "descriptor_ptr_handle_hash": str(self.descriptor_ptr_handle_hash),
+            "packed_weight_descriptor_handle_hash": str(
+                self.packed_weight_descriptor_handle_hash
+            ),
+            "scale_metadata_handle_hash": str(self.scale_metadata_handle_hash),
+            "aux_metadata_handle_hash": str(self.aux_metadata_handle_hash),
+            "required_source_hit_count": int(self.required_source_hit_count),
+            "required_source_miss_count": int(self.required_source_miss_count),
+            "optional_source_hit_count": int(self.optional_source_hit_count),
+            "optional_source_miss_count": int(self.optional_source_miss_count),
+            "handle_field_read_count": int(self.handle_field_read_count),
+            "consumer_object_present": bool(self.consumer_object_present),
+            "consumer_connected": bool(self.consumer_connected),
+            "live_enabled": bool(self.live_enabled),
+            "live_eligible": bool(self.live_eligible),
+            "blocked": bool(self.blocked),
+            "block_reason": str(self.block_reason),
+            "payload_bytes": int(self.payload_bytes),
+            "passed_to_kernel": bool(self.passed_to_kernel),
+            "changes_kernel_launch_args": bool(self.changes_kernel_launch_args),
+            "live_compatible_with_current_wna16_args": bool(
+                self.live_compatible_with_current_wna16_args
+            ),
+        }
+
+
+@dataclass(frozen=True)
 class PremapKernelArgHandoffAttemptRecord:
     """No-op record for a future kernel-argument handoff attempt.
 
@@ -1699,6 +1888,38 @@ class PremapDescriptorConsumerShimResult:
     kernel_side_consumer_schema_adapter_passed_to_kernel: bool = False
     kernel_side_consumer_schema_adapter_changes_kernel_launch_args: bool = False
     kernel_side_consumer_schema_adapter_live_compatible_with_current_wna16_args: (
+        bool
+    ) = False
+    kernel_side_typed_consumer_object_mode: str | None = None
+    kernel_side_typed_consumer_object_ready: bool | None = None
+    kernel_side_typed_consumer_object_hash: str | None = None
+    kernel_side_typed_consumer_object_kernel_side_adapter_hash: str | None = None
+    kernel_side_typed_consumer_object_semantic_adapter_hash: str | None = None
+    kernel_side_typed_consumer_object_table_object_hash: str | None = None
+    kernel_side_typed_consumer_object_launch_schema_mirror_hash: str | None = None
+    kernel_side_typed_consumer_object_row_count: int | None = None
+    kernel_side_typed_consumer_object_column_count: int | None = None
+    kernel_side_typed_consumer_object_table_schema_hash: str | None = None
+    kernel_side_typed_consumer_object_semantic_schema_hash: str | None = None
+    kernel_side_typed_consumer_object_kernel_side_schema_hash: str | None = None
+    kernel_side_typed_consumer_object_typed_consumer_schema_name: str | None = None
+    kernel_side_typed_consumer_object_typed_consumer_schema_hash: str | None = None
+    kernel_side_typed_consumer_object_typed_consumer_field_count: int | None = None
+    kernel_side_typed_consumer_object_required_source_hit_count: int | None = None
+    kernel_side_typed_consumer_object_required_source_miss_count: int | None = None
+    kernel_side_typed_consumer_object_optional_source_hit_count: int | None = None
+    kernel_side_typed_consumer_object_optional_source_miss_count: int | None = None
+    kernel_side_typed_consumer_object_handle_field_read_count: int | None = None
+    kernel_side_typed_consumer_object_consumer_object_present: bool | None = None
+    kernel_side_typed_consumer_object_consumer_connected: bool | None = None
+    kernel_side_typed_consumer_object_live_enabled: bool | None = None
+    kernel_side_typed_consumer_object_live_eligible: bool | None = None
+    kernel_side_typed_consumer_object_blocked: bool | None = None
+    kernel_side_typed_consumer_object_block_reason: str | None = None
+    kernel_side_typed_consumer_object_payload_bytes: int = 0
+    kernel_side_typed_consumer_object_passed_to_kernel: bool = False
+    kernel_side_typed_consumer_object_changes_kernel_launch_args: bool = False
+    kernel_side_typed_consumer_object_live_compatible_with_current_wna16_args: (
         bool
     ) = False
     handle_table_object_consumed: bool | None = None
@@ -2629,6 +2850,9 @@ class ControlledPremapAddressManager:
         kernel_side_consumer_schema_adapter: (
             PremapKernelSideConsumerSchemaAdapterObject | None
         ) = None
+        kernel_side_typed_consumer_object: (
+            PremapKernelSideTypedConsumerObject | None
+        ) = None
         handoff_attempt: PremapKernelArgHandoffAttemptRecord | None = None
         handoff_live_toggle: PremapKernelArgHandoffLiveToggleRecord | None = None
         handoff_live_noop_integration: (
@@ -3053,6 +3277,89 @@ class ControlledPremapAddressManager:
                         changes_kernel_launch_args=False,
                         live_compatible_with_current_wna16_args=False,
                     )
+                )
+                if not live_enabled:
+                    typed_consumer_block_reason = (
+                        "kernel_side_typed_consumer_live_disabled"
+                    )
+                elif not adapter_live_eligible:
+                    typed_consumer_block_reason = (
+                        "kernel_side_typed_consumer_not_eligible"
+                    )
+                elif not adapter_consumer_connected:
+                    typed_consumer_block_reason = (
+                        "kernel_side_typed_consumer_not_connected"
+                    )
+                elif adapter_kernel_arg_pass_live:
+                    typed_consumer_block_reason = (
+                        "kernel_side_typed_consumer_shadow_only_kernel_arg_pass_enabled"
+                    )
+                else:
+                    typed_consumer_block_reason = (
+                        "kernel_side_typed_consumer_kernel_arg_pass_disabled"
+                    )
+                kernel_side_typed_consumer_object = PremapKernelSideTypedConsumerObject(
+                    mode="readonly_kernel_side_typed_consumer_object",
+                    kernel_side_adapter_hash=(
+                        kernel_side_consumer_schema_adapter.adapter_hash
+                    ),
+                    kernel_side_adapter_ready=(
+                        kernel_side_consumer_schema_adapter.ready
+                    ),
+                    semantic_adapter_hash=semantic_handle_adapter.adapter_hash,
+                    table_object_hash=table_object.object_hash,
+                    launch_schema_mirror_hash=(
+                        handoff_launch_schema_mirror.launch_schema_mirror_hash
+                    ),
+                    row_count=handoff_row_count,
+                    column_count=handoff_column_count,
+                    table_schema_hash=handoff_schema_hash,
+                    semantic_schema_hash=(
+                        PREMAP_KERNEL_ARG_SEMANTIC_HANDLE_SCHEMA_HASH
+                    ),
+                    kernel_side_schema_hash=(
+                        PREMAP_KERNEL_SIDE_CONSUMER_SCHEMA_HASH
+                    ),
+                    typed_consumer_schema_name=(
+                        PREMAP_KERNEL_SIDE_TYPED_CONSUMER_SCHEMA_NAME
+                    ),
+                    typed_consumer_schema_hash=(
+                        PREMAP_KERNEL_SIDE_TYPED_CONSUMER_SCHEMA_HASH
+                    ),
+                    typed_consumer_field_count=len(
+                        PREMAP_KERNEL_SIDE_TYPED_CONSUMER_SCHEMA_FIELDS
+                    ),
+                    row_order_hash=table_object.row_order_hash,
+                    ordered_row_hash=table_object.ordered_row_hash,
+                    descriptor_ptr_handle_hash=(
+                        semantic_handle_adapter.descriptor_ptr_handle_hash
+                    ),
+                    packed_weight_descriptor_handle_hash=(
+                        semantic_handle_adapter.packed_weight_descriptor_handle_hash
+                    ),
+                    scale_metadata_handle_hash=(
+                        semantic_handle_adapter.scale_metadata_handle_hash
+                    ),
+                    aux_metadata_handle_hash=(
+                        semantic_handle_adapter.aux_metadata_handle_hash
+                    ),
+                    required_source_hit_count=handoff_required_hit_count,
+                    required_source_miss_count=handoff_required_miss_count,
+                    optional_source_hit_count=handoff_optional_hit_count,
+                    optional_source_miss_count=handoff_optional_miss_count,
+                    handle_field_read_count=int(
+                        table_consume_handle_field_read_count or 0
+                    ),
+                    consumer_object_present=True,
+                    consumer_connected=adapter_consumer_connected,
+                    live_enabled=live_enabled,
+                    live_eligible=adapter_live_eligible,
+                    blocked=True,
+                    block_reason=typed_consumer_block_reason,
+                    payload_bytes=0,
+                    passed_to_kernel=False,
+                    changes_kernel_launch_args=False,
+                    live_compatible_with_current_wna16_args=False,
                 )
         return PremapDescriptorConsumerShimResult(
             execution_mode=str(execution_mode),
@@ -3899,6 +4206,156 @@ class ControlledPremapAddressManager:
             kernel_side_consumer_schema_adapter_live_compatible_with_current_wna16_args=(
                 kernel_side_consumer_schema_adapter.live_compatible_with_current_wna16_args
                 if kernel_side_consumer_schema_adapter is not None
+                else False
+            ),
+            kernel_side_typed_consumer_object_mode=(
+                kernel_side_typed_consumer_object.mode
+                if kernel_side_typed_consumer_object is not None
+                else None
+            ),
+            kernel_side_typed_consumer_object_ready=(
+                kernel_side_typed_consumer_object.ready
+                if kernel_side_typed_consumer_object is not None
+                else None
+            ),
+            kernel_side_typed_consumer_object_hash=(
+                kernel_side_typed_consumer_object.object_hash
+                if kernel_side_typed_consumer_object is not None
+                else None
+            ),
+            kernel_side_typed_consumer_object_kernel_side_adapter_hash=(
+                kernel_side_typed_consumer_object.kernel_side_adapter_hash
+                if kernel_side_typed_consumer_object is not None
+                else None
+            ),
+            kernel_side_typed_consumer_object_semantic_adapter_hash=(
+                kernel_side_typed_consumer_object.semantic_adapter_hash
+                if kernel_side_typed_consumer_object is not None
+                else None
+            ),
+            kernel_side_typed_consumer_object_table_object_hash=(
+                kernel_side_typed_consumer_object.table_object_hash
+                if kernel_side_typed_consumer_object is not None
+                else None
+            ),
+            kernel_side_typed_consumer_object_launch_schema_mirror_hash=(
+                kernel_side_typed_consumer_object.launch_schema_mirror_hash
+                if kernel_side_typed_consumer_object is not None
+                else None
+            ),
+            kernel_side_typed_consumer_object_row_count=(
+                kernel_side_typed_consumer_object.row_count
+                if kernel_side_typed_consumer_object is not None
+                else None
+            ),
+            kernel_side_typed_consumer_object_column_count=(
+                kernel_side_typed_consumer_object.column_count
+                if kernel_side_typed_consumer_object is not None
+                else None
+            ),
+            kernel_side_typed_consumer_object_table_schema_hash=(
+                kernel_side_typed_consumer_object.table_schema_hash
+                if kernel_side_typed_consumer_object is not None
+                else None
+            ),
+            kernel_side_typed_consumer_object_semantic_schema_hash=(
+                kernel_side_typed_consumer_object.semantic_schema_hash
+                if kernel_side_typed_consumer_object is not None
+                else None
+            ),
+            kernel_side_typed_consumer_object_kernel_side_schema_hash=(
+                kernel_side_typed_consumer_object.kernel_side_schema_hash
+                if kernel_side_typed_consumer_object is not None
+                else None
+            ),
+            kernel_side_typed_consumer_object_typed_consumer_schema_name=(
+                kernel_side_typed_consumer_object.typed_consumer_schema_name
+                if kernel_side_typed_consumer_object is not None
+                else None
+            ),
+            kernel_side_typed_consumer_object_typed_consumer_schema_hash=(
+                kernel_side_typed_consumer_object.typed_consumer_schema_hash
+                if kernel_side_typed_consumer_object is not None
+                else None
+            ),
+            kernel_side_typed_consumer_object_typed_consumer_field_count=(
+                kernel_side_typed_consumer_object.typed_consumer_field_count
+                if kernel_side_typed_consumer_object is not None
+                else None
+            ),
+            kernel_side_typed_consumer_object_required_source_hit_count=(
+                kernel_side_typed_consumer_object.required_source_hit_count
+                if kernel_side_typed_consumer_object is not None
+                else None
+            ),
+            kernel_side_typed_consumer_object_required_source_miss_count=(
+                kernel_side_typed_consumer_object.required_source_miss_count
+                if kernel_side_typed_consumer_object is not None
+                else None
+            ),
+            kernel_side_typed_consumer_object_optional_source_hit_count=(
+                kernel_side_typed_consumer_object.optional_source_hit_count
+                if kernel_side_typed_consumer_object is not None
+                else None
+            ),
+            kernel_side_typed_consumer_object_optional_source_miss_count=(
+                kernel_side_typed_consumer_object.optional_source_miss_count
+                if kernel_side_typed_consumer_object is not None
+                else None
+            ),
+            kernel_side_typed_consumer_object_handle_field_read_count=(
+                kernel_side_typed_consumer_object.handle_field_read_count
+                if kernel_side_typed_consumer_object is not None
+                else None
+            ),
+            kernel_side_typed_consumer_object_consumer_object_present=(
+                kernel_side_typed_consumer_object.consumer_object_present
+                if kernel_side_typed_consumer_object is not None
+                else None
+            ),
+            kernel_side_typed_consumer_object_consumer_connected=(
+                kernel_side_typed_consumer_object.consumer_connected
+                if kernel_side_typed_consumer_object is not None
+                else None
+            ),
+            kernel_side_typed_consumer_object_live_enabled=(
+                kernel_side_typed_consumer_object.live_enabled
+                if kernel_side_typed_consumer_object is not None
+                else None
+            ),
+            kernel_side_typed_consumer_object_live_eligible=(
+                kernel_side_typed_consumer_object.live_eligible
+                if kernel_side_typed_consumer_object is not None
+                else None
+            ),
+            kernel_side_typed_consumer_object_blocked=(
+                kernel_side_typed_consumer_object.blocked
+                if kernel_side_typed_consumer_object is not None
+                else None
+            ),
+            kernel_side_typed_consumer_object_block_reason=(
+                kernel_side_typed_consumer_object.block_reason
+                if kernel_side_typed_consumer_object is not None
+                else None
+            ),
+            kernel_side_typed_consumer_object_payload_bytes=(
+                kernel_side_typed_consumer_object.payload_bytes
+                if kernel_side_typed_consumer_object is not None
+                else 0
+            ),
+            kernel_side_typed_consumer_object_passed_to_kernel=(
+                kernel_side_typed_consumer_object.passed_to_kernel
+                if kernel_side_typed_consumer_object is not None
+                else False
+            ),
+            kernel_side_typed_consumer_object_changes_kernel_launch_args=(
+                kernel_side_typed_consumer_object.changes_kernel_launch_args
+                if kernel_side_typed_consumer_object is not None
+                else False
+            ),
+            kernel_side_typed_consumer_object_live_compatible_with_current_wna16_args=(
+                kernel_side_typed_consumer_object.live_compatible_with_current_wna16_args
+                if kernel_side_typed_consumer_object is not None
                 else False
             ),
             handle_table_object_consumed=table_object_consumed,

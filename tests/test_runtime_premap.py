@@ -17,9 +17,13 @@ from mtp_expert_prefetch.runtime import (
     PREMAP_KERNEL_SIDE_CONSUMER_SCHEMA_FIELDS,
     PREMAP_KERNEL_SIDE_CONSUMER_SCHEMA_HASH,
     PREMAP_KERNEL_SIDE_CONSUMER_SCHEMA_NAME,
+    PREMAP_KERNEL_SIDE_TYPED_CONSUMER_SCHEMA_FIELDS,
+    PREMAP_KERNEL_SIDE_TYPED_CONSUMER_SCHEMA_HASH,
+    PREMAP_KERNEL_SIDE_TYPED_CONSUMER_SCHEMA_NAME,
     PremapRealDescriptorHandle,
     PremapKernelArgHandoffMirrorObject,
     PremapKernelSideConsumerSchemaAdapterObject,
+    PremapKernelSideTypedConsumerObject,
     build_premap_descriptors,
     build_priority_masks,
     descriptor_summary,
@@ -181,6 +185,45 @@ def _kernel_side_schema_adapter(
     return replace(base, **overrides)
 
 
+def _kernel_side_typed_consumer(
+    **overrides: object,
+) -> PremapKernelSideTypedConsumerObject:
+    base = PremapKernelSideTypedConsumerObject(
+        mode="readonly_kernel_side_typed_consumer_object",
+        kernel_side_adapter_hash="kernel-side-adapter",
+        kernel_side_adapter_ready=True,
+        semantic_adapter_hash="semantic-adapter",
+        table_object_hash="table-object",
+        launch_schema_mirror_hash="launch-schema",
+        row_count=2,
+        column_count=len(PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_COLUMNS),
+        table_schema_hash=PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH,
+        semantic_schema_hash=PREMAP_KERNEL_ARG_SEMANTIC_HANDLE_SCHEMA_HASH,
+        kernel_side_schema_hash=PREMAP_KERNEL_SIDE_CONSUMER_SCHEMA_HASH,
+        typed_consumer_schema_name=PREMAP_KERNEL_SIDE_TYPED_CONSUMER_SCHEMA_NAME,
+        typed_consumer_schema_hash=PREMAP_KERNEL_SIDE_TYPED_CONSUMER_SCHEMA_HASH,
+        typed_consumer_field_count=len(PREMAP_KERNEL_SIDE_TYPED_CONSUMER_SCHEMA_FIELDS),
+        row_order_hash="row-order",
+        ordered_row_hash="ordered-row",
+        descriptor_ptr_handle_hash="descriptor-ptr",
+        packed_weight_descriptor_handle_hash="packed-weight",
+        scale_metadata_handle_hash="scale-metadata",
+        aux_metadata_handle_hash="aux-metadata",
+        required_source_hit_count=6,
+        required_source_miss_count=0,
+        optional_source_hit_count=0,
+        optional_source_miss_count=2,
+        handle_field_read_count=8,
+        consumer_object_present=True,
+        consumer_connected=False,
+        live_enabled=False,
+        live_eligible=False,
+        blocked=True,
+        block_reason="kernel_side_typed_consumer_live_disabled",
+    )
+    return replace(base, **overrides)
+
+
 def test_kernel_side_consumer_schema_adapter_accepts_blocked_live_branches():
     disabled = _kernel_side_schema_adapter()
     assert disabled.ready is True
@@ -230,6 +273,56 @@ def test_kernel_side_consumer_schema_adapter_accepts_blocked_live_branches():
 
 def test_kernel_side_consumer_schema_adapter_rejects_side_effects():
     valid = _kernel_side_schema_adapter()
+
+    assert replace(valid, payload_bytes=1).ready is False
+    assert replace(valid, passed_to_kernel=True).ready is False
+    assert replace(valid, changes_kernel_launch_args=True).ready is False
+    assert replace(valid, live_compatible_with_current_wna16_args=True).ready is False
+
+
+def test_kernel_side_typed_consumer_object_accepts_blocked_live_branches():
+    disabled = _kernel_side_typed_consumer()
+    assert disabled.ready is True
+
+    enabled_not_connected = _kernel_side_typed_consumer(
+        live_enabled=True,
+        live_eligible=True,
+        block_reason="kernel_side_typed_consumer_not_connected",
+    )
+    assert enabled_not_connected.ready is True
+
+    connected_no_pass = _kernel_side_typed_consumer(
+        consumer_connected=True,
+        live_enabled=True,
+        live_eligible=True,
+        block_reason="kernel_side_typed_consumer_kernel_arg_pass_disabled",
+    )
+    assert connected_no_pass.ready is True
+
+    connected_shadow_pass = _kernel_side_typed_consumer(
+        consumer_connected=True,
+        live_enabled=True,
+        live_eligible=True,
+        block_reason="kernel_side_typed_consumer_shadow_only_kernel_arg_pass_enabled",
+    )
+    assert connected_shadow_pass.ready is True
+
+    enabled_not_eligible = _kernel_side_typed_consumer(
+        live_enabled=True,
+        live_eligible=False,
+        block_reason="kernel_side_typed_consumer_not_eligible",
+    )
+    assert enabled_not_eligible.ready is True
+
+    not_eligible_but_connected = replace(
+        enabled_not_eligible,
+        consumer_connected=True,
+    )
+    assert not_eligible_but_connected.ready is False
+
+
+def test_kernel_side_typed_consumer_object_rejects_side_effects():
+    valid = _kernel_side_typed_consumer()
 
     assert replace(valid, payload_bytes=1).ready is False
     assert replace(valid, passed_to_kernel=True).ready is False
@@ -763,6 +856,60 @@ def test_controlled_premap_address_manager_executes_descriptor_prep_readonly():
     )
     assert (
         shim_result.kernel_side_consumer_schema_adapter_live_compatible_with_current_wna16_args
+        is False
+    )
+    assert (
+        shim_result.kernel_side_typed_consumer_object_mode
+        == "readonly_kernel_side_typed_consumer_object"
+    )
+    assert shim_result.kernel_side_typed_consumer_object_ready is True
+    assert shim_result.kernel_side_typed_consumer_object_hash
+    assert (
+        shim_result.kernel_side_typed_consumer_object_kernel_side_adapter_hash
+        == shim_result.kernel_side_consumer_schema_adapter_hash
+    )
+    assert (
+        shim_result.kernel_side_typed_consumer_object_semantic_adapter_hash
+        == shim_result.kernel_arg_semantic_handle_adapter_hash
+    )
+    assert (
+        shim_result.kernel_side_typed_consumer_object_launch_schema_mirror_hash
+        == shim_result.kernel_arg_handoff_launch_schema_mirror_hash
+    )
+    assert shim_result.kernel_side_typed_consumer_object_row_count == 2
+    assert shim_result.kernel_side_typed_consumer_object_column_count == 4
+    assert (
+        shim_result.kernel_side_typed_consumer_object_typed_consumer_schema_name
+        == PREMAP_KERNEL_SIDE_TYPED_CONSUMER_SCHEMA_NAME
+    )
+    assert (
+        shim_result.kernel_side_typed_consumer_object_typed_consumer_schema_hash
+        == PREMAP_KERNEL_SIDE_TYPED_CONSUMER_SCHEMA_HASH
+    )
+    assert (
+        shim_result.kernel_side_typed_consumer_object_typed_consumer_field_count
+        == len(PREMAP_KERNEL_SIDE_TYPED_CONSUMER_SCHEMA_FIELDS)
+    )
+    assert shim_result.kernel_side_typed_consumer_object_required_source_hit_count == 6
+    assert shim_result.kernel_side_typed_consumer_object_required_source_miss_count == 0
+    assert shim_result.kernel_side_typed_consumer_object_handle_field_read_count == 8
+    assert shim_result.kernel_side_typed_consumer_object_consumer_object_present is True
+    assert shim_result.kernel_side_typed_consumer_object_consumer_connected is False
+    assert shim_result.kernel_side_typed_consumer_object_live_enabled is False
+    assert shim_result.kernel_side_typed_consumer_object_live_eligible is False
+    assert shim_result.kernel_side_typed_consumer_object_blocked is True
+    assert (
+        shim_result.kernel_side_typed_consumer_object_block_reason
+        == "kernel_side_typed_consumer_live_disabled"
+    )
+    assert shim_result.kernel_side_typed_consumer_object_payload_bytes == 0
+    assert shim_result.kernel_side_typed_consumer_object_passed_to_kernel is False
+    assert (
+        shim_result.kernel_side_typed_consumer_object_changes_kernel_launch_args
+        is False
+    )
+    assert (
+        shim_result.kernel_side_typed_consumer_object_live_compatible_with_current_wna16_args
         is False
     )
     assert (
