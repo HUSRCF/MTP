@@ -109,4 +109,5 @@ boundary:
   - ready credit
   - router mutation
   - descriptor_order execution
-  next_gate: typed semantic handle adapter or kernel-side schema that can consume prepared handles
+  next_gate: superseded by lab-default typed semantic handle adapter gate
+  superseding_artifact: configs/runtime/premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_kernel_arg_shadow.yaml
