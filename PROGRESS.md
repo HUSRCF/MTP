@@ -16021,6 +16021,84 @@ no descriptor_order execution
 no kernel argument mutation
 ```
 
+## Prepared handle-table candidate dry-run gate
+
+The single-field kernel-arg replacement gate now supports an explicit
+`prepared_handle_table` candidate source in dry-run mode.  This source resolves
+the candidate value from the prepared descriptor/address table instead of using
+the original kernel argument identity value.
+
+Safety boundary:
+
+```text
+candidate_source = prepared_handle_table
+live replacement = disabled
+payload_bytes = 0
+passed_to_kernel = 0
+```
+
+The candidate is intentionally expected to be type/signature incompatible with
+the current WNA16 tensor kernel argument.  This validates that the prepared
+handle table can be resolved as a candidate source, while preventing it from
+being treated as a live tensor-compatible kernel arg.
+
+GPU1 AWQ/vLLM 1-sample canary:
+
+```text
+config:
+  configs/trace/
+    router_mtp_trace_external_prompt_gate_dolly_1_awq_vllm_gpu1_decode_gen16_single_field_replacement_prepared_table_candidate_dry_run_canary.yaml
+
+artifact:
+  data/traces/
+    external_prompt_gate_dolly_1_awq_vllm_gpu1_decode_gen16_single_field_replacement_prepared_table_candidate_dry_run_canary/
+    prepared_table_candidate_dry_run_gate_check.json
+
+passed = true
+failures = []
+
+candidate_source = prepared_handle_table
+dry_run_candidate_count = 1,280
+dry_run_parity_ok_count = 0
+dry_run_parity_mismatch_count = 1,280
+
+prepared_table_candidate_count = 1,280
+prepared_table_hit_count = 1,280
+prepared_table_miss_count = 0
+prepared_table_type_compatible_count = 0
+prepared_table_type_mismatch_count = 1,280
+
+live_disabled_count = 1,280
+live_passed_to_kernel_count = 0
+```
+
+The checker rejects this source unless the report uses the explicit
+`--allow-single-field-replacement-prepared-table-candidate-source` gate, and it
+also rejects any prepared-table source with live replacement enabled.
+
+Validation:
+
+```text
+conda run -p /home/husrcf/anaconda3/envs/TRY pytest tests -q
+588 passed, 2 warnings
+```
+
+Review hardening:
+
+```text
+candidate_source = prepared_handle_table now also requires:
+  single_field_replacement_dry_run_enabled = true
+  live replacement = false
+  field in {B, B_scale, B_zp}
+
+The runtime live branch also re-checks:
+  candidate_source == original_kernel_arg_identity
+  type_compatible = true
+
+This prevents a future config from enabling the prepared-table source without
+actually producing candidate hit/type/parity evidence.
+```
+
 ### 2026-05-26: 128-sample strict real kernel-arg mutation canary passed
 
 The live kernel-arg mutation canary has been promoted from 1/8-sample smoke to

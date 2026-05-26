@@ -974,6 +974,9 @@ class VllmRouterRecorder:
     shadow_premap_kernel_arg_handoff_single_field_replacement_live_enabled: (
         bool
     ) = False
+    shadow_premap_kernel_arg_handoff_single_field_replacement_candidate_source: (
+        str
+    ) = "original_kernel_arg_identity"
     shadow_premap_kernel_arg_handoff_single_field_replacement_field: str = "B_scale"
     shadow_premap_address_namespace: str = "expert_weight_descriptor"
     shadow_premap_priority: int = 2
@@ -2663,6 +2666,7 @@ class VllmRouterRecorder:
                                     descriptor_consumer_shim_result.kernel_arg_handoff_live_consumer_adapter_block_reason
                                     or ""
                                 ),
+                                "table_object": kernel_arg_shadow_table_object,
                                 "launch_args": None,
                                 "used": False,
                             }
@@ -6500,6 +6504,12 @@ _PREMAP_KERNEL_ARG_LIVE_MUTATION_COUNTERS: dict[str, int] = {
     "single_field_replacement_live_parity_mismatch_count": 0,
     "single_field_replacement_live_passed_to_kernel_count": 0,
     "single_field_replacement_live_payload_bytes": 0,
+    "single_field_replacement_candidate_source_original_count": 0,
+    "single_field_replacement_candidate_source_prepared_table_count": 0,
+    "single_field_replacement_candidate_source_prepared_table_hit_count": 0,
+    "single_field_replacement_candidate_source_prepared_table_miss_count": 0,
+    "single_field_replacement_candidate_source_prepared_table_type_compatible_count": 0,
+    "single_field_replacement_candidate_source_prepared_table_type_mismatch_count": 0,
 }
 _ACTIVE_DECODER_COMPONENT_CONTEXT_VAR: contextvars.ContextVar[
     dict[str, Any] | None
@@ -6699,6 +6709,20 @@ def _kernel_arg_value_signature(value: Any) -> str:
     return hashlib.sha256(
         json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
     ).hexdigest()
+
+
+def _kernel_arg_replacement_type_compatible(original: Any, candidate: Any) -> bool:
+    """Return whether a candidate is safe to pass as the same kernel arg type."""
+
+    if torch.is_tensor(original):
+        return (
+            torch.is_tensor(candidate)
+            and str(candidate.device) == str(original.device)
+            and str(candidate.dtype) == str(original.dtype)
+            and tuple(int(dim) for dim in candidate.shape)
+            == tuple(int(dim) for dim in original.shape)
+        )
+    return type(candidate) is type(original)
 
 
 def _premap_kernel_arg_live_mutation_counters() -> dict[str, int]:
@@ -10939,6 +10963,7 @@ def patch_vllm_qwen35_moe_router_trace() -> None:
                     kernel_arg_package = live_mutation_package_meta["launch_args"]
                     single_field_dry_run_enabled = False
                     single_field_live_enabled = False
+                    single_field_candidate_source = "original_kernel_arg_identity"
                     single_field_replacement_field = "B_scale"
                     if recorder_for_config is not None:
                         single_field_dry_run_enabled = bool(
@@ -10946,6 +10971,9 @@ def patch_vllm_qwen35_moe_router_trace() -> None:
                         )
                         single_field_live_enabled = bool(
                             recorder_for_config.shadow_premap_kernel_arg_handoff_single_field_replacement_live_enabled
+                        )
+                        single_field_candidate_source = str(
+                            recorder_for_config.shadow_premap_kernel_arg_handoff_single_field_replacement_candidate_source
                         )
                         single_field_replacement_field = str(
                             recorder_for_config.shadow_premap_kernel_arg_handoff_single_field_replacement_field
@@ -10966,8 +10994,75 @@ def patch_vllm_qwen35_moe_router_trace() -> None:
                             )
                             original_value = kernel_arg_package[field_name]
                             replacement_candidate = original_value
+                            source_candidate_ready = True
+                            if (
+                                single_field_candidate_source
+                                == "original_kernel_arg_identity"
+                            ):
+                                _increment_premap_kernel_arg_live_mutation_counter(
+                                    "single_field_replacement_candidate_source_original_count"
+                                )
+                            elif (
+                                single_field_candidate_source
+                                == "prepared_handle_table"
+                            ):
+                                _increment_premap_kernel_arg_live_mutation_counter(
+                                    "single_field_replacement_candidate_source_prepared_table_count"
+                                )
+                                column_by_field = {
+                                    "B": "packed_weight_descriptor",
+                                    "B_scale": "scale_metadata_handle",
+                                    "B_zp": "aux_metadata_handle",
+                                }
+                                table_column = column_by_field.get(field_name)
+                                table_object = live_mutation_package_meta.get(
+                                    "table_object"
+                                )
+                                table_rows = getattr(table_object, "rows", ())
+                                if table_column is None or not table_rows:
+                                    source_candidate_ready = False
+                                else:
+                                    values = tuple(
+                                        getattr(row, table_column, None)
+                                        for row in table_rows
+                                    )
+                                    if values and all(
+                                        value is not None for value in values
+                                    ):
+                                        replacement_candidate = values
+                                    else:
+                                        source_candidate_ready = False
+                                if source_candidate_ready:
+                                    _increment_premap_kernel_arg_live_mutation_counter(
+                                        "single_field_replacement_candidate_source_prepared_table_hit_count"
+                                    )
+                                else:
+                                    _increment_premap_kernel_arg_live_mutation_counter(
+                                        "single_field_replacement_candidate_source_prepared_table_miss_count"
+                                    )
+                            if not source_candidate_ready:
+                                _increment_premap_kernel_arg_live_mutation_counter(
+                                    "single_field_replacement_dry_run_source_missing_count"
+                                )
+                                replacement_candidate = original_value
                             shadow_package = dict(kernel_arg_package)
                             shadow_package[field_name] = replacement_candidate
+                            type_compatible = _kernel_arg_replacement_type_compatible(
+                                original_value,
+                                replacement_candidate,
+                            )
+                            if (
+                                single_field_candidate_source
+                                == "prepared_handle_table"
+                            ):
+                                if type_compatible:
+                                    _increment_premap_kernel_arg_live_mutation_counter(
+                                        "single_field_replacement_candidate_source_prepared_table_type_compatible_count"
+                                    )
+                                else:
+                                    _increment_premap_kernel_arg_live_mutation_counter(
+                                        "single_field_replacement_candidate_source_prepared_table_type_mismatch_count"
+                                    )
                             parity_ok = _kernel_arg_value_signature(
                                 shadow_package[field_name]
                             ) == _kernel_arg_value_signature(original_value)
@@ -10983,7 +11078,13 @@ def patch_vllm_qwen35_moe_router_trace() -> None:
                                 _increment_premap_kernel_arg_live_mutation_counter(
                                     "single_field_replacement_live_candidate_count"
                                 )
-                                if parity_ok:
+                                live_replacement_allowed = (
+                                    parity_ok
+                                    and type_compatible
+                                    and single_field_candidate_source
+                                    == "original_kernel_arg_identity"
+                                )
+                                if live_replacement_allowed:
                                     kernel_arg_package[field_name] = (
                                         replacement_candidate
                                     )
@@ -11753,6 +11854,12 @@ def _apply_premap_consumer_readonly_gate(
             False,
         )
     )
+    single_field_replacement_candidate_source = str(
+        options.get(
+            "premap_kernel_arg_handoff_single_field_replacement_candidate_source",
+            "original_kernel_arg_identity",
+        )
+    )
     single_field_replacement_field = str(
         options.get(
             "premap_kernel_arg_handoff_single_field_replacement_field",
@@ -11783,6 +11890,41 @@ def _apply_premap_consumer_readonly_gate(
             "requires premap_kernel_arg_handoff_single_field_replacement_dry_run_enabled=True."
         )
         raise ValueError(msg)
+    allowed_single_field_candidate_sources = {
+        "original_kernel_arg_identity",
+        "prepared_handle_table",
+    }
+    if (
+        single_field_replacement_candidate_source
+        not in allowed_single_field_candidate_sources
+    ):
+        msg = (
+            "premap_kernel_arg_handoff_single_field_replacement_candidate_source "
+            f"must be one of {sorted(allowed_single_field_candidate_sources)}; "
+            f"got {single_field_replacement_candidate_source!r}."
+        )
+        raise ValueError(msg)
+    if (
+        single_field_replacement_candidate_source == "prepared_handle_table"
+        and not single_field_replacement_dry_run_enabled
+    ):
+        msg = (
+            "premap_kernel_arg_handoff_single_field_replacement_candidate_source="
+            "'prepared_handle_table' requires "
+            "premap_kernel_arg_handoff_single_field_replacement_dry_run_enabled=True."
+        )
+        raise ValueError(msg)
+    if (
+        single_field_replacement_live_enabled
+        and single_field_replacement_candidate_source != "original_kernel_arg_identity"
+    ):
+        msg = (
+            "single-field live replacement currently only supports "
+            "candidate_source='original_kernel_arg_identity'. Prepared handle-table "
+            "candidates are dry-run only until semantic kernel-arg compatibility is "
+            "implemented."
+        )
+        raise ValueError(msg)
     allowed_single_field_replacement_fields = {
         "A",
         "B",
@@ -11794,6 +11936,7 @@ def _apply_premap_consumer_readonly_gate(
         "expert_ids",
         "num_tokens_post_padded",
     }
+    prepared_handle_table_replacement_fields = {"B", "B_scale", "B_zp"}
     if (
         single_field_replacement_dry_run_enabled
         and single_field_replacement_field not in allowed_single_field_replacement_fields
@@ -11801,6 +11944,17 @@ def _apply_premap_consumer_readonly_gate(
         msg = (
             "premap_kernel_arg_handoff_single_field_replacement_field must be one "
             f"of {sorted(allowed_single_field_replacement_fields)}; got "
+            f"{single_field_replacement_field!r}."
+        )
+        raise ValueError(msg)
+    if (
+        single_field_replacement_candidate_source == "prepared_handle_table"
+        and single_field_replacement_field not in prepared_handle_table_replacement_fields
+    ):
+        msg = (
+            "candidate_source='prepared_handle_table' only supports "
+            "premap_kernel_arg_handoff_single_field_replacement_field in "
+            f"{sorted(prepared_handle_table_replacement_fields)}; got "
             f"{single_field_replacement_field!r}."
         )
         raise ValueError(msg)
@@ -12927,6 +13081,12 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                 False,
             )
         ),
+        "runtime_shadow_premap_kernel_arg_handoff_single_field_replacement_candidate_source": str(
+            runtime_shadow_options.get(
+                "premap_kernel_arg_handoff_single_field_replacement_candidate_source",
+                "original_kernel_arg_identity",
+            )
+        ),
         "runtime_shadow_premap_kernel_arg_handoff_single_field_replacement_field": str(
             runtime_shadow_options.get(
                 "premap_kernel_arg_handoff_single_field_replacement_field",
@@ -13370,6 +13530,12 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                                 runtime_shadow_options.get(
                                     "premap_kernel_arg_handoff_single_field_replacement_live_enabled",
                                     False,
+                                )
+                            ),
+                            shadow_premap_kernel_arg_handoff_single_field_replacement_candidate_source=str(
+                                runtime_shadow_options.get(
+                                    "premap_kernel_arg_handoff_single_field_replacement_candidate_source",
+                                    "original_kernel_arg_identity",
                                 )
                             ),
                             shadow_premap_kernel_arg_handoff_single_field_replacement_field=str(
