@@ -13818,6 +13818,65 @@ payload transfer remains 0
 this is not yet semantic descriptor/address handle replacement
 ```
 
+### 2026-05-26: 128-sample strict single-field live replacement gate passed
+
+The explicit single-field live canary was scaled from the 1-sample smoke to the
+128-sample strict lab gate.  This keeps the same conservative boundary as the
+smoke: the live field replacement is an identity replacement of the original
+runtime `B_scale` object, not a semantic descriptor/address handle swap.
+
+```text
+config:
+  configs/trace/
+    router_mtp_trace_external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_single_field_replacement_live_strict.yaml
+
+artifact:
+  data/traces/
+    external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_single_field_replacement_live_strict/
+    single_field_replacement_live_gate_check.json
+
+checker:
+  --allow-single-field-replacement-live
+
+passed = true
+failures = []
+row_count = 20,390
+premap_summary_count = 10,195
+premap_consumer_mapping_count = 10,195
+
+package_seen_count = 20,390
+package_pass_through_count = 20,390
+package_layer_mismatch_count = 0
+package_block_reason_mismatch_count = 0
+
+dry_run_enabled = true
+live_enabled = true
+dry_run_candidate_count = 20,390
+dry_run_parity_ok_count = 20,390
+dry_run_passed_to_kernel_count = 0
+
+live_disabled_count = 0
+live_candidate_count = 20,390
+live_replaced_count = 20,390
+live_parity_ok_count = 20,390
+live_passed_to_kernel_count = 20,390
+live_payload_bytes = 0
+
+premap_address_resident_count_max = 10,127
+premap_address_reuse_rate_mean = 0.9827389896686539
+premap_address_eviction_pressure_mean = 0.0
+```
+
+Interpretation:
+
+```text
+the single-field live handoff layer is stable under the 128-sample strict gate
+the replacement remains runtime-identity equivalent to the original field
+the path still moves no payload and makes no endpoint-performance claim
+next gate is semantic descriptor/address handle candidate sourcing before any
+non-identity field replacement
+```
+
 ## Kernel-arg live-pass canary smoke
 
 The kernel-argument handoff path now has an explicit experimental live-pass
