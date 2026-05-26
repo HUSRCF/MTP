@@ -13787,7 +13787,42 @@ pytest tests/test_runtime_premap.py \
        tests/test_vllm_premap_capacity_gate.py \
        tests/test_check_premap_longrun_audit_gate.py -q
 
-137 passed
+138 passed
+```
+
+8-sample live-pass canary:
+
+```text
+trace config:
+  configs/trace/
+    router_mtp_trace_external_prompt_gate_dolly_8_awq_vllm_gpu1_decode_gen64_live_kernel_arg_pass_canary.yaml
+
+runtime output:
+  data/traces/
+    external_prompt_gate_dolly_8_awq_vllm_gpu1_decode_gen64_live_kernel_arg_pass_canary/
+      performance_summary.json
+      kernel_arg_pass_gate_check.json
+
+checker with explicit live-pass allow:
+  passed = true
+  failures = []
+
+runtime_shadow_premap_kernel_arg_handoff_kernel_arg_pass_enabled = true
+premap_summary_count = 640
+premap_consumer_mapping_count = 640
+
+live_consumer_adapter_checked = 640
+live_consumer_adapter_blocked = 0
+live_consumer_adapter_passed_to_kernel_count = 640
+live_consumer_adapter_changes_kernel_launch_args_count = 640
+live_consumer_adapter_contract_live_pass_count = 640
+live_consumer_adapter_real_kernel_arg_handoff_count = 0
+live_consumer_adapter_payload_bytes = 0
+
+live_noop_integration_passed_to_kernel_count = 0
+consumer_shim_table_consume_passed_to_kernel_count = 0
+premap_summary_payload_bytes = 0
+premap_consumer_ready_credit_violation_count = 0
 ```
 
 Boundary:
