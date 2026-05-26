@@ -16218,6 +16218,51 @@ no kernel argument mutation
 no live kernel-side consumer connection
 ```
 
+Live-connected blocked canary:
+
+```text
+artifact:
+  data/traces/
+    external_prompt_gate_dolly_1_awq_vllm_gpu1_decode_gen16_live_connected_adapter_canary/
+    longrun_audit_gate_typed_consumer_object_connected_canary.json
+
+self-check:
+  data/traces/
+    external_prompt_gate_dolly_1_awq_vllm_gpu1_decode_gen16_live_connected_adapter_canary/
+    longrun_audit_gate_typed_consumer_object_connected_canary_selfcheck.json
+
+passed = true
+failures = []
+kernel_side_typed_consumer_object_checked = 640
+kernel_side_typed_consumer_object_ready = 640
+kernel_side_typed_consumer_object_row_count = 9,794
+kernel_side_typed_consumer_object_column_count_max = 4
+kernel_side_typed_consumer_object_field_count_total = 7,040
+required_source_hit_count = 29,382
+required_source_miss_count = 0
+optional_source_hit_count = 9,794
+optional_source_miss_count = 0
+handle_field_read_count = 39,176
+
+mode = readonly_kernel_side_typed_consumer_object
+block_reason = kernel_side_typed_consumer_kernel_arg_pass_disabled
+consumer_object_present = 640
+consumer_connected = 640
+live_enabled = 640
+live_eligible = 640
+live_compatible_with_current_wna16_args = 0
+payload_bytes = 0
+passed_to_kernel = 0
+kernel_arg_violation = 0
+```
+
+This canary exercises the connected-but-blocked branch only.  It proves that a
+typed kernel-side consumer object can be constructed while the prelaunch
+consumer is connected and live-eligible, but the current WNA16 launch remains
+incompatible and kernel-arg pass stays disabled.  It is not the default lab
+gate and it still performs no payload movement, ready-credit grant, or kernel
+argument mutation.
+
 ## 2026-05-27 - Kernel-Side Consumer Schema Adapter Gate
 
 The premap kernel-side consumer schema adapter is now live-aware while
