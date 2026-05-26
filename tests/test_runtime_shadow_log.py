@@ -290,6 +290,42 @@ def test_shadow_log_aggregates_premap_summary_without_payload_or_order_effects(t
     assert aggregate["premap_summary_router_change_violation_count"] == 0
     assert aggregate["premap_summary_descriptor_order_change_violation_count"] == 0
     assert aggregate["premap_summary_ready_credit_violation_count"] == 0
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_checked_count"
+        ]
+        == 0
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_ready_count"
+        ]
+        == 0
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_mode"
+        ]
+        == ""
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_payload_bytes"
+        ]
+        == 0
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_passed_to_kernel_count"
+        ]
+        == 0
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_live_compatible_with_current_wna16_args_count"
+        ]
+        == 0
+    )
     assert aggregate["descriptor_order_summary_count"] == 0
     assert aggregate["decision_summary_count"] == 1
     assert aggregate["decision_us_mean"] == 8.0
