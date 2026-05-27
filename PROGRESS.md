@@ -77,7 +77,8 @@ gpu1 smoke:
   changes_kernel_launch_args = false
 gpu1 missing-aux input bridge:
   rows = 4
-  aux_metadata_handle omitted from JSON input and filled as optional zero handles
+  aux_metadata_handle omitted from JSON input
+  native table run with aux pointer omitted / nullptr
   row_ok_count = 4
   error_count = 0
 ```
@@ -88,10 +89,13 @@ so a future vLLM prelaunch shim can dump the prepared table into the same native
 consumer ABI without changing the WNA16 launch.  It is still disconnected from
 vLLM prelaunch and does not replace the WNA16 kernel.
 
+The HIP stub schema hash is injected by `scripts/run_premap_typed_consumer_stub.py`
+from the project runtime schema constant instead of being hardcoded in the stub.
 The lab preflight now requires the default readonly gate to explicitly reference
 the typed schema artifact instead of silently falling back to a default path.
-The schema checker enforces exact row-field order, metadata shape/source/dtype,
-optional `aux_metadata_handle` nullability, and forbidden macro defaults.
+The schema checker enforces artifact identity, compile guard, exact row-field
+order, metadata shape/source/dtype, optional `aux_metadata_handle` nullability,
+and forbidden macro defaults.
 
 The default lab gate now requires a readonly typed kernel-side consumer object:
 

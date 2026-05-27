@@ -32,6 +32,14 @@ def test_typed_consumer_stub_build_command_enables_schema_guard(tmp_path: Path):
     )
 
     assert "-DMTP_PREMAP_TYPED_CONSUMER_SCHEMA_V1=1" in cmd
+    assert any(
+        item.startswith("-DMTP_PREMAP_TYPED_CONSUMER_SCHEMA_HASH_HI=0x")
+        for item in cmd
+    )
+    assert any(
+        item.startswith("-DMTP_PREMAP_TYPED_CONSUMER_SCHEMA_HASH_LO=0x")
+        for item in cmd
+    )
     assert "-DMTP_PREMAP_TYPED_CONSUMER_CHECK_SCHEMA=1" in cmd
     assert str(output) in cmd
 
@@ -60,6 +68,7 @@ def test_typed_consumer_stub_dry_run_writes_command(tmp_path: Path):
     assert exit_code == 0
     payload = output.read_text(encoding="utf-8")
     assert "MTP_PREMAP_TYPED_CONSUMER_CHECK_ROW_ITERATION" in payload
+    assert "expected_schema_hash" in payload
 
 
 def test_typed_consumer_stub_writes_binary_input_prefix(tmp_path: Path):
@@ -109,3 +118,23 @@ def test_typed_consumer_stub_allows_missing_optional_aux_input(tmp_path: Path):
 
     assert row_count == 2
     assert prefix.with_suffix(".aux_metadata_handle.u64").exists()
+
+
+def test_typed_consumer_stub_dry_run_accepts_omit_aux_pointer(tmp_path: Path):
+    module = _load_module()
+    output = tmp_path / "dry_run.json"
+
+    exit_code = module.main(
+        [
+            "--dry-run",
+            "--omit-aux-pointer",
+            "--macro",
+            "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCHEMA",
+            "--output-json",
+            str(output),
+        ]
+    )
+
+    assert exit_code == 0
+    payload = output.read_text(encoding="utf-8")
+    assert "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCHEMA" in payload

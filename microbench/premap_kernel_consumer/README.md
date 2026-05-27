@@ -16,8 +16,12 @@ Debug behavior is compiled one macro at a time through
 kernel-arg passing macros are forbidden for this readonly stub.
 
 The schema-check macro validates the typed consumer schema hash carried in the
-table header:
+table header. The runner injects this hash from the Python runtime schema
+constant when compiling the stub:
 
 ```text
 c1384d55958c9aa78b07b4ee3e9094f835ec1ca4c61bd7e9613c01ceb8275e98
 ```
+
+Use `--omit-aux-pointer` to exercise the native null-pointer ABI for the
+optional `aux_metadata_handle` column.

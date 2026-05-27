@@ -104,6 +104,8 @@ def check_kernel_consumer_schema_artifact(path: Path) -> dict[str, Any]:
     macro_ladder = payload.get("debug_macro_ladder") or {}
 
     expected_scalars = {
+        "schema_version": 1,
+        "artifact_id": "premap_kernel_side_typed_consumer_schema_v1",
         "artifact_kind": "premap_kernel_consumer_schema",
         "status": "readonly_shadow_only",
     }
@@ -243,6 +245,8 @@ def check_kernel_consumer_schema_artifact(path: Path) -> dict[str, Any]:
 
     flags = macro_ladder.get("flags")
     flags = flags if isinstance(flags, list) else []
+    if macro_ladder.get("compile_guard_macro") != "MTP_PREMAP_TYPED_CONSUMER_SCHEMA_V1":
+        failures.append("debug_macro_compile_guard_mismatch")
     flags_by_name = {
         item.get("name"): item for item in flags if isinstance(item, dict)
     }

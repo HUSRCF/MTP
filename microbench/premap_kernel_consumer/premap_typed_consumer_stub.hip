@@ -13,6 +13,14 @@
 #error "MTP_PREMAP_TYPED_CONSUMER_SCHEMA_V1 must be defined for this stub"
 #endif
 
+#ifndef MTP_PREMAP_TYPED_CONSUMER_SCHEMA_HASH_HI
+#error "MTP_PREMAP_TYPED_CONSUMER_SCHEMA_HASH_HI must be injected by the runner"
+#endif
+
+#ifndef MTP_PREMAP_TYPED_CONSUMER_SCHEMA_HASH_LO
+#error "MTP_PREMAP_TYPED_CONSUMER_SCHEMA_HASH_LO must be injected by the runner"
+#endif
+
 #if defined(MTP_PREMAP_TYPED_CONSUMER_ENABLE_PAYLOAD_DEREF)
 #error "payload dereference is forbidden in the readonly native stub"
 #endif
@@ -37,8 +45,8 @@ struct TypedConsumerTable {
   uint32_t column_count;
 };
 
-constexpr uint64_t kTypedSchemaHashHi = 0xc1384d55958c9aa7ULL;
-constexpr uint64_t kTypedSchemaHashLo = 0x613c01ceb8275e98ULL;
+constexpr uint64_t kTypedSchemaHashHi = MTP_PREMAP_TYPED_CONSUMER_SCHEMA_HASH_HI;
+constexpr uint64_t kTypedSchemaHashLo = MTP_PREMAP_TYPED_CONSUMER_SCHEMA_HASH_LO;
 
 static inline void hip_check(hipError_t err, const char* what) {
   if (err != hipSuccess) {
@@ -124,6 +132,7 @@ struct Args {
   int rows = 1024;
   int block_threads = 256;
   std::string input_prefix;
+  bool omit_aux_pointer = false;
 };
 
 static Args parse_args(int argc, char** argv) {
@@ -145,6 +154,8 @@ static Args parse_args(int argc, char** argv) {
       args.block_threads = std::atoi(require_value("--block-threads"));
     } else if (key == "--input-prefix") {
       args.input_prefix = require_value("--input-prefix");
+    } else if (key == "--omit-aux-pointer") {
+      args.omit_aux_pointer = true;
     } else {
       std::cerr << "unknown argument: " << key << "\n";
       std::exit(2);
@@ -250,7 +261,9 @@ int main(int argc, char** argv) {
   hip_check(hipMalloc(&d_descriptor, u64_bytes), "hipMalloc descriptor");
   hip_check(hipMalloc(&d_packed, u64_bytes), "hipMalloc packed");
   hip_check(hipMalloc(&d_scale, u64_bytes), "hipMalloc scale");
-  hip_check(hipMalloc(&d_aux, u64_bytes), "hipMalloc aux");
+  if (!args.omit_aux_pointer) {
+    hip_check(hipMalloc(&d_aux, u64_bytes), "hipMalloc aux");
+  }
   hip_check(hipMalloc(&d_address_key, u64_bytes), "hipMalloc address_key");
   hip_check(hipMalloc(&d_expert, i32_bytes), "hipMalloc expert");
   hip_check(hipMalloc(&d_ok, u32_bytes), "hipMalloc ok");
@@ -258,7 +271,9 @@ int main(int argc, char** argv) {
   hip_check(hipMemcpy(d_descriptor, descriptor.data(), u64_bytes, hipMemcpyHostToDevice), "copy descriptor");
   hip_check(hipMemcpy(d_packed, packed.data(), u64_bytes, hipMemcpyHostToDevice), "copy packed");
   hip_check(hipMemcpy(d_scale, scale.data(), u64_bytes, hipMemcpyHostToDevice), "copy scale");
-  hip_check(hipMemcpy(d_aux, aux.data(), u64_bytes, hipMemcpyHostToDevice), "copy aux");
+  if (!args.omit_aux_pointer) {
+    hip_check(hipMemcpy(d_aux, aux.data(), u64_bytes, hipMemcpyHostToDevice), "copy aux");
+  }
   hip_check(hipMemcpy(d_address_key, address_key.data(), u64_bytes, hipMemcpyHostToDevice), "copy address_key");
   hip_check(hipMemcpy(d_expert, expert.data(), i32_bytes, hipMemcpyHostToDevice), "copy expert");
 
@@ -307,7 +322,9 @@ int main(int argc, char** argv) {
   hip_check(hipFree(d_descriptor), "hipFree descriptor");
   hip_check(hipFree(d_packed), "hipFree packed");
   hip_check(hipFree(d_scale), "hipFree scale");
-  hip_check(hipFree(d_aux), "hipFree aux");
+  if (d_aux != nullptr) {
+    hip_check(hipFree(d_aux), "hipFree aux");
+  }
   hip_check(hipFree(d_address_key), "hipFree address_key");
   hip_check(hipFree(d_expert), "hipFree expert");
   hip_check(hipFree(d_ok), "hipFree ok");
@@ -318,8 +335,9 @@ int main(int argc, char** argv) {
   std::cout << ",\"device\":" << args.device;
   std::cout << ",\"row_count\":" << rows;
   std::cout << ",\"column_count\":4";
-  std::cout << ",\"typed_schema_hash_hi\":\"c1384d55958c9aa7\"";
-  std::cout << ",\"typed_schema_hash_lo\":\"613c01ceb8275e98\"";
+  std::cout << ",\"typed_schema_hash_hi\":\"" << std::hex << kTypedSchemaHashHi << std::dec << "\"";
+  std::cout << ",\"typed_schema_hash_lo\":\"" << std::hex << kTypedSchemaHashLo << std::dec << "\"";
+  std::cout << ",\"aux_pointer_present\":" << (args.omit_aux_pointer ? "false" : "true");
   std::cout << ",\"row_ok_count\":" << ok_count;
   std::cout << ",\"error_count\":" << error_count;
   std::cout << ",\"input_source\":\"" << (args.input_prefix.empty() ? "synthetic" : "binary_prefix") << "\"";

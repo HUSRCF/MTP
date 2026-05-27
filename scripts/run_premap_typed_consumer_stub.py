@@ -12,6 +12,10 @@ from pathlib import Path
 import subprocess
 from typing import Any
 
+from mtp_expert_prefetch.runtime.cache_manager import (
+    PREMAP_KERNEL_SIDE_TYPED_CONSUMER_SCHEMA_HASH,
+)
+
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SRC = REPO_ROOT / "microbench" / "premap_kernel_consumer" / "premap_typed_consumer_stub.hip"
@@ -29,8 +33,15 @@ FORBIDDEN_MACROS = {
 }
 
 
-def _macro_key(macros: list[str], offload_arch: str) -> str:
-    payload = "|".join([offload_arch, *sorted(macros)])
+def _schema_hash_words(schema_hash: str = PREMAP_KERNEL_SIDE_TYPED_CONSUMER_SCHEMA_HASH) -> tuple[str, str]:
+    if len(schema_hash) != 64:
+        raise ValueError(f"typed consumer schema hash must be 64 hex chars: {schema_hash}")
+    int(schema_hash, 16)
+    return schema_hash[:16], schema_hash[-16:]
+
+
+def _macro_key(macros: list[str], offload_arch: str, schema_hash: str) -> str:
+    payload = "|".join([offload_arch, schema_hash, *sorted(macros)])
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:12]
 
 
@@ -45,9 +56,18 @@ def validate_macros(macros: list[str]) -> list[str]:
     return normalized
 
 
-def build_command(*, macros: list[str], offload_arch: str, output: Path) -> list[str]:
+def build_command(
+    *,
+    macros: list[str],
+    offload_arch: str,
+    output: Path,
+    schema_hash: str = PREMAP_KERNEL_SIDE_TYPED_CONSUMER_SCHEMA_HASH,
+) -> list[str]:
+    hash_hi, hash_lo = _schema_hash_words(schema_hash)
     compile_macros = [
         "-DMTP_PREMAP_TYPED_CONSUMER_SCHEMA_V1=1",
+        f"-DMTP_PREMAP_TYPED_CONSUMER_SCHEMA_HASH_HI=0x{hash_hi}ULL",
+        f"-DMTP_PREMAP_TYPED_CONSUMER_SCHEMA_HASH_LO=0x{hash_lo}ULL",
         *[f"-D{macro}=1" for macro in validate_macros(macros)],
     ]
     return [
@@ -87,13 +107,26 @@ def run_cmd(
     return result
 
 
-def build(*, macros: list[str], offload_arch: str, force: bool) -> Path:
+def build(
+    *,
+    macros: list[str],
+    offload_arch: str,
+    force: bool,
+    schema_hash: str = PREMAP_KERNEL_SIDE_TYPED_CONSUMER_SCHEMA_HASH,
+) -> Path:
     BUILD_DIR.mkdir(parents=True, exist_ok=True)
     checked = validate_macros(macros)
-    bin_path = BUILD_DIR / f"premap_typed_consumer_stub_{_macro_key(checked, offload_arch)}"
+    bin_path = BUILD_DIR / f"premap_typed_consumer_stub_{_macro_key(checked, offload_arch, schema_hash)}"
     if bin_path.exists() and not force and bin_path.stat().st_mtime >= SRC.stat().st_mtime:
         return bin_path
-    result = run_cmd(build_command(macros=checked, offload_arch=offload_arch, output=bin_path))
+    result = run_cmd(
+        build_command(
+            macros=checked,
+            offload_arch=offload_arch,
+            output=bin_path,
+            schema_hash=schema_hash,
+        )
+    )
     if result.stdout:
         print(result.stdout, end="")
     if result.stderr:
@@ -157,7 +190,13 @@ def _input_prefix_from_json(path: Path) -> tuple[Path, int]:
 
 def run_stub(args: argparse.Namespace) -> dict[str, Any]:
     macros = validate_macros(args.macro or [])
-    bin_path = build(macros=macros, offload_arch=args.offload_arch, force=args.force_build)
+    schema_hash = PREMAP_KERNEL_SIDE_TYPED_CONSUMER_SCHEMA_HASH
+    bin_path = build(
+        macros=macros,
+        offload_arch=args.offload_arch,
+        force=args.force_build,
+        schema_hash=schema_hash,
+    )
     input_prefix = None
     rows = int(args.rows)
     if args.input_json is not None:
@@ -173,6 +212,8 @@ def run_stub(args: argparse.Namespace) -> dict[str, Any]:
     ]
     if input_prefix is not None:
         cmd.extend(["--input-prefix", str(input_prefix)])
+    if args.omit_aux_pointer:
+        cmd.append("--omit-aux-pointer")
     env = os.environ.copy()
     if args.hip_visible_devices is not None:
         env["HIP_VISIBLE_DEVICES"] = str(args.hip_visible_devices)
@@ -181,6 +222,7 @@ def run_stub(args: argparse.Namespace) -> dict[str, Any]:
     payload["binary"] = str(bin_path)
     payload["source"] = str(SRC)
     payload["requested_macros"] = macros
+    payload["expected_schema_hash"] = schema_hash
     if input_prefix is not None:
         payload["input_json"] = str(args.input_json)
         payload["input_prefix"] = str(input_prefix)
@@ -196,6 +238,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--block-threads", type=int, default=256)
     parser.add_argument("--input-json", type=Path)
     parser.add_argument("--macro", action="append", default=[])
+    parser.add_argument("--omit-aux-pointer", action="store_true")
     parser.add_argument("--offload-arch", default="gfx1100")
     parser.add_argument("--hip-visible-devices")
     parser.add_argument("--force-build", action="store_true")
@@ -216,7 +259,8 @@ def main(argv: list[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
     macros = validate_macros(args.macro or [])
     if args.dry_run:
-        key = _macro_key(macros, args.offload_arch)
+        schema_hash = PREMAP_KERNEL_SIDE_TYPED_CONSUMER_SCHEMA_HASH
+        key = _macro_key(macros, args.offload_arch, schema_hash)
         bin_path = BUILD_DIR / f"premap_typed_consumer_stub_{key}"
         payload: dict[str, Any] = {
             "ok": True,
@@ -228,7 +272,9 @@ def main(argv: list[str] | None = None) -> int:
                 macros=macros,
                 offload_arch=args.offload_arch,
                 output=bin_path,
+                schema_hash=schema_hash,
             ),
+            "expected_schema_hash": schema_hash,
         }
     else:
         payload = run_stub(args)

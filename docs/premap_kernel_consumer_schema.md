@@ -64,7 +64,9 @@ lab default gate:
 - `MTP_PREMAP_TYPED_CONSUMER_ENABLE_KERNEL_ARG_PASS`
 
 `MTP_PREMAP_TYPED_CONSUMER_CHECK_SCHEMA` checks the typed schema hash carried by
-the native table.  For schema v1, the split hash words are:
+the native table. The runner injects these words from the project runtime schema
+constant at compile time rather than relying on a hardcoded stub-local value.
+For schema v1, the split hash words are:
 
 ```text
 hi = c1384d55958c9aa7
@@ -72,8 +74,9 @@ lo = 613c01ceb8275e98
 ```
 
 The optional `aux_metadata_handle` column may be absent at the JSON bridge
-boundary; the runner materializes it as zero handles for the native stub.  The
-stub must not reject zero optional aux handles and must not dereference them.
+boundary. The runner can either materialize it as zero handles or run the native
+stub with a null aux pointer. The stub must not reject zero/null optional aux
+handles and must not dereference them.
 
 ## Next Gates
 
