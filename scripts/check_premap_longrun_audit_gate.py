@@ -326,6 +326,7 @@ def check_summary(
     allow_connected_blocked_consumer_adapter: bool = False,
     allow_kernel_arg_handoff_live_kernel_arg_pass: bool = False,
     allow_kernel_arg_handoff_live_real_kernel_arg_mutation: bool = False,
+    allow_incompatible_real_kernel_arg_mutation_canary: bool = False,
     allow_single_field_replacement_live: bool = False,
     allow_single_field_replacement_prepared_table_candidate_source: bool = False,
 ) -> dict[str, Any]:
@@ -386,6 +387,13 @@ def check_summary(
     ):
         failures.append(
             "allow_kernel_arg_handoff_live_real_kernel_arg_mutation_requires_kernel_arg_pass"
+        )
+    if (
+        allow_kernel_arg_handoff_live_real_kernel_arg_mutation
+        and not allow_incompatible_real_kernel_arg_mutation_canary
+    ):
+        failures.append(
+            "allow_kernel_arg_handoff_live_real_kernel_arg_mutation_requires_incompatible_canary_allow"
         )
     kernel_arg_pass_enabled = aggregate.get(
         "runtime_shadow_premap_kernel_arg_handoff_kernel_arg_pass_enabled",
@@ -7733,6 +7741,9 @@ def check_summary(
         "allow_kernel_arg_handoff_live_real_kernel_arg_mutation": bool(
             allow_kernel_arg_handoff_live_real_kernel_arg_mutation
         ),
+        "allow_incompatible_real_kernel_arg_mutation_canary": bool(
+            allow_incompatible_real_kernel_arg_mutation_canary
+        ),
     }
 
 
@@ -7928,6 +7939,15 @@ def main() -> None:
         ),
     )
     parser.add_argument(
+        "--allow-incompatible-real-kernel-arg-mutation-canary",
+        action="store_true",
+        help=(
+            "Canary-only acknowledgement for the current WNA16 real-mutation "
+            "negative path. Use this only when the report is explicitly marked "
+            "as an incompatible canary; lab-default gates must not rely on it."
+        ),
+    )
+    parser.add_argument(
         "--allow-single-field-replacement-live",
         action="store_true",
         help=(
@@ -7999,6 +8019,9 @@ def main() -> None:
         ),
         allow_kernel_arg_handoff_live_real_kernel_arg_mutation=(
             args.allow_kernel_arg_handoff_live_real_kernel_arg_mutation
+        ),
+        allow_incompatible_real_kernel_arg_mutation_canary=(
+            args.allow_incompatible_real_kernel_arg_mutation_canary
         ),
         allow_single_field_replacement_live=(
             args.allow_single_field_replacement_live
