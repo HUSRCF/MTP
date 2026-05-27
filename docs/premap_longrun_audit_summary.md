@@ -85,16 +85,27 @@ evictions are observed, resident descriptor bytes remain modest, and
 consumer lookup-after-prepare stays at 1.0.
 
 The 512 artifact predates the kernel-arg shadow table, live-noop integration,
-and live-consumer-adapter envelope.  It is valid scale evidence for premap
+live-consumer-adapter envelope, semantic handle adapter, kernel-side schema
+adapter, and typed consumer object.  It is valid scale evidence for premap
 address reuse and read-only real-handle parity, but it must not be used as a
-strict live-adapter lab gate.  The current strict kernel-arg-shadow /
-live-adapter lab precondition is the refreshed Dolly128 gate:
+strict lab gate for kernel-side consumer integration.  The current lab-default
+precondition is the refreshed Dolly128 typed-consumer-object gate:
 
 ```text
 data/traces/
   external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_longrun_audit/
-    longrun_audit_gate_live_consumer_adapter.json
+    longrun_audit_gate_typed_consumer_object_128.json
 ```
+
+The committed runtime gate YAML keeps its legacy filename:
+
+```text
+configs/runtime/
+  premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_kernel_arg_shadow.yaml
+```
+
+Its contract and evidence now require the stricter typed-consumer-object
+precondition above.
 
 The Dolly128 and Dolly512 rows therefore come from different audit stages; their
 premap address/handle counters are comparable, but their kernel-arg/live-adapter
@@ -105,22 +116,36 @@ read-only descriptor/address preparation and consumer-handle mapping contract
 needed before wiring a real cache-manager consumer.  Descriptor prep execution
 here means resolving resident metadata handles into a read-only prep object; it
 does not mutate vLLM tensors or kernel arguments.  The refreshed 128-sample gate
-also validates a readonly kernel-argument shadow table: this is a table-shape
-and row-parity dry run only, not a vLLM kernel patch.
+also validates a readonly kernel-argument shadow table, launch-schema mirror,
+semantic handle adapter, kernel-side consumer schema adapter, and typed consumer
+object.  These are table-shape, schema-hash, field-read, and row-parity dry runs
+only; they are not a vLLM kernel patch.
 
 ## Machine Gate
 
 Use the gate checker before treating a long-run premap audit as valid evidence:
 
 ```bash
-python scripts/check_premap_longrun_audit_gate.py \
-  data/traces/external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_longrun_audit/longrun_audit_summary.json \
+PYTHONPATH=src:. python scripts/check_premap_longrun_audit_gate.py \
+  data/traces/external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_longrun_audit/longrun_audit_gate_typed_consumer_object_128.json \
   --max-capacity 12288 \
   --min-reuse-rate 0.98 \
   --require-readonly-consumer \
   --require-descriptor-prep \
   --require-real-descriptor-prep \
-  --require-kernel-arg-shadow-table
+  --require-kernel-arg-shadow-table \
+  --require-consumer-shim-table-read \
+  --require-consumer-shim-table-consume \
+  --require-consumer-shim-table-object \
+  --require-consumer-shim-prep-execution \
+  --require-kernel-arg-handoff-attempt \
+  --require-kernel-arg-handoff-live-toggle \
+  --require-kernel-arg-handoff-launch-schema-mirror \
+  --require-kernel-arg-handoff-live-noop-integration \
+  --require-kernel-arg-handoff-live-consumer-adapter \
+  --require-kernel-arg-semantic-handle-adapter \
+  --require-kernel-side-consumer-schema-adapter \
+  --require-kernel-side-typed-consumer-object
 ```
 
 The gate requires:
@@ -151,8 +176,37 @@ kernel arg shadow table row count = descriptor prep lookup count
 kernel arg shadow table per-row parity count = row count
 kernel arg shadow table ok/lifecycle rates = 1.0
 kernel arg shadow table payload/ready/router/order/kernel/passed violations = 0
+consumer shim table read/consume checked count = premap_consumer_mapping_count
+consumer shim table consume row count = descriptor prep lookup count
+consumer shim required source hit count = 3 x row count
+consumer shim optional source hit + miss count = row count
+kernel arg handoff dry-run / shadow-slot / mirror records are ready
+kernel arg handoff attempt is blocked by disabled no-op gate
+live toggle / live-noop / live-consumer-adapter records are blocked
+launch schema mirror hash and field-count match the gate contract
+semantic handle adapter hash and field-count match the gate contract
+kernel-side consumer schema adapter is present but disconnected
+kernel-side typed consumer object is present but disconnected
+kernel-side typed consumer object payload/passed/kernel-arg violations = 0
 payload / router / descriptor_order / ready-credit violation counts = 0
 consumer error count = 0
+```
+
+Before treating any runtime YAML as a lab entrypoint, also run the preflight:
+
+```bash
+PYTHONPATH=src:. python scripts/run_premap_lab_preflight.py \
+  --output-json /tmp/premap_lab_preflight.json
+```
+
+The preflight checks that default long-run trace configs still reference the
+readonly lab gate and that any trace with live/pass/mutation/single-field
+handoff flags is explicitly marked as a canary:
+
+```text
+premap_risky_trace_canary = true
+premap_risky_trace_canary_scope = non-empty string
+referenced runtime gate has canary = true and lab_default = false
 ```
 
 ## Live Handoff Canary Modes
@@ -170,7 +224,7 @@ This validates a live-enabled but disconnected adapter.  The checker must be
 called with:
 
 ```bash
-python scripts/check_premap_longrun_audit_gate.py ... \
+PYTHONPATH=src:. python scripts/check_premap_longrun_audit_gate.py ... \
   --require-kernel-arg-handoff-live-toggle \
   --require-kernel-arg-handoff-live-noop-integration \
   --require-kernel-arg-handoff-launch-schema-mirror \
@@ -262,7 +316,10 @@ Do not use either canary mode as a runtime-performance or payload-prefetch
 claim.  They validate only that the future prelaunch consumer can observe the
 prepared handle table and remain safely blocked.
 
-Current local 128 kernel-arg-shadow-table gate output:
+Current local 128 typed-consumer-object lab gate output.  For readability, the
+kernel-arg and kernel-side names below omit the common
+`premap_consumer_descriptor_prep_consumer_shim_` prefix used in
+`performance_summary.json`:
 
 ```text
 passed = true
@@ -302,6 +359,26 @@ premap_consumer_descriptor_prep_kernel_arg_shadow_table_lifecycle_ok_rate = 1.0
 premap_consumer_descriptor_prep_kernel_arg_shadow_table_passed_to_kernel_count = 0
 premap_consumer_descriptor_prep_execution_ok_attempted_rate = 1.0
 premap_consumer_descriptor_prep_blocked_count = 0
+kernel_arg_handoff_dry_run_checked_count = 10195
+kernel_arg_handoff_shadow_slot_checked_count = 10195
+kernel_arg_handoff_mirror_checked_count = 10195
+kernel_arg_handoff_attempt_checked_count = 10195
+kernel_arg_handoff_attempt_blocked_count = 10195
+kernel_arg_handoff_live_toggle_checked_count = 10195
+kernel_arg_handoff_live_toggle_enabled_count = 0
+kernel_arg_handoff_live_noop_integration_checked_count = 10195
+kernel_arg_handoff_live_noop_integration_consumer_connected_count = 0
+kernel_arg_handoff_live_consumer_adapter_checked_count = 10195
+kernel_arg_handoff_live_consumer_adapter_consumer_connected_count = 0
+kernel_arg_semantic_handle_adapter_checked_count = 10195
+kernel_side_consumer_schema_adapter_checked_count = 10195
+kernel_side_consumer_schema_adapter_consumer_connected_count = 0
+kernel_side_typed_consumer_object_checked_count = 10195
+kernel_side_typed_consumer_object_ready_count = 10195
+kernel_side_typed_consumer_object_consumer_connected_count = 0
+kernel_side_typed_consumer_object_live_compatible_with_current_wna16_args_count = 0
+kernel_side_typed_consumer_object_passed_to_kernel_count = 0
+kernel_side_typed_consumer_object_kernel_arg_violation_count = 0
 ```
 
 Current-code strict smoke:
