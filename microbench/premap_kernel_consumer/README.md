@@ -25,3 +25,14 @@ c1384d55958c9aa78b07b4ee3e9094f835ec1ca4c61bd7e9613c01ceb8275e98
 
 Use `--omit-aux-pointer` to exercise the native null-pointer ABI for the
 optional `aux_metadata_handle` column.
+
+Runtime manager bridge:
+
+```text
+PremapKernelArgShadowTableObject.to_native_typed_consumer_input_dict()
+```
+
+exports the readonly prepared table into the `--input-json` shape consumed by
+this stub. The bridge converts semantic handle tokens into deterministic u64
+identities for native validation; it still performs no payload dereference and
+does not mutate any vLLM/WNA16 kernel launch arguments.

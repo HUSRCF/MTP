@@ -319,6 +319,40 @@ class PremapKernelArgShadowTableRow:
         return asdict(self)
 
 
+def _handle_to_native_u64(value: str | int | None) -> int:
+    """Convert a readonly handle token into a deterministic native u64 value.
+
+    This is a handle identity bridge for the native consumer stub. It never
+    dereferences payload and does not claim that semantic string handles are
+    current WNA16 kernel pointers.
+    """
+
+    if value is None:
+        return 0
+    if isinstance(value, int):
+        return int(value) & 0xFFFFFFFFFFFFFFFF
+    text = str(value)
+    if not text:
+        return 0
+    try:
+        parsed = int(text, 0)
+    except ValueError:
+        parsed = int(hashlib.sha256(text.encode("utf-8")).hexdigest()[:16], 16)
+    parsed &= 0xFFFFFFFFFFFFFFFF
+    return parsed if parsed != 0 else 1
+
+
+def _expert_id_from_address_key(address_key: str) -> int:
+    text = str(address_key)
+    marker = ":e"
+    if marker not in text:
+        return -1
+    try:
+        return int(text.rsplit(marker, 1)[1])
+    except ValueError:
+        return -1
+
+
 @dataclass(frozen=True)
 class PremapKernelArgShadowTableObject:
     """Immutable handle table object consumed by the no-op prelaunch shim."""
@@ -397,6 +431,48 @@ class PremapKernelArgShadowTableObject:
             "changes_descriptor_order": bool(self.changes_descriptor_order),
             "changes_kernel_launch_args": bool(self.changes_kernel_launch_args),
             "passed_to_kernel": bool(self.passed_to_kernel),
+        }
+
+    def to_native_typed_consumer_input_dict(self) -> dict[str, object]:
+        """Export the table in the JSON shape accepted by the native stub.
+
+        The output is only a no-op bridge artifact for
+        `scripts/run_premap_typed_consumer_stub.py --input-json`. It contains
+        deterministic u64 handle identities, not payload contents, and is not a
+        WNA16 launch-argument object.
+        """
+
+        return {
+            "descriptor_ptr": [
+                _handle_to_native_u64(row.descriptor_ptr) for row in self.rows
+            ],
+            "packed_weight_descriptor": [
+                _handle_to_native_u64(row.packed_weight_descriptor)
+                for row in self.rows
+            ],
+            "scale_metadata_handle": [
+                _handle_to_native_u64(row.scale_metadata_handle) for row in self.rows
+            ],
+            "aux_metadata_handle": [
+                _handle_to_native_u64(row.aux_metadata_handle) for row in self.rows
+            ],
+            "expert_id": [
+                _expert_id_from_address_key(row.address_key) for row in self.rows
+            ],
+            "address_key_hash": [
+                _handle_to_native_u64(row.address_key) for row in self.rows
+            ],
+            "_meta": {
+                "schema_hash": self.schema_hash,
+                "row_count": self.row_count,
+                "column_count": self.column_count,
+                "row_order_hash": self.row_order_hash,
+                "ordered_row_hash": self.ordered_row_hash,
+                "table_object_hash": self.object_hash,
+                "payload_bytes": self.payload_bytes,
+                "passed_to_kernel": self.passed_to_kernel,
+                "changes_kernel_launch_args": self.changes_kernel_launch_args,
+            },
         }
 
 

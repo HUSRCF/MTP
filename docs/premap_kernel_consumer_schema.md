@@ -78,6 +78,12 @@ boundary. The runner can either materialize it as zero handles or run the native
 stub with a null aux pointer. The stub must not reject zero/null optional aux
 handles and must not dereference them.
 
+`PremapKernelArgShadowTableObject.to_native_typed_consumer_input_dict()` exports
+the runtime prepared table into the JSON shape accepted by the native stub. This
+bridge hashes semantic string handles into deterministic non-zero u64 handle
+identities for native row-iteration checks. It remains a no-payload identity
+bridge, not a live WNA16 kernel argument handoff.
+
 ## Next Gates
 
 1. Build a small HIP/C++ native stub that consumes this table and validates

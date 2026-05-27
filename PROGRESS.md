@@ -81,13 +81,23 @@ gpu1 missing-aux input bridge:
   native table run with aux pointer omitted / nullptr
   row_ok_count = 4
   error_count = 0
+gpu1 manager-table bridge:
+  source = ControlledPremapAddressManager.build_kernel_arg_shadow_table_object_readonly
+  exported via PremapKernelArgShadowTableObject.to_native_typed_consumer_input_dict()
+  rows = 2
+  native table run with aux pointer omitted / nullptr
+  row_ok_count = 2
+  error_count = 0
+  payload_bytes = 0
+  passed_to_kernel = false
 ```
 
 This only proves that a native HIP consumer can read the future typed ABI shape.
 The stub also supports a binary-prefix input bridge generated from JSON fields,
-so a future vLLM prelaunch shim can dump the prepared table into the same native
-consumer ABI without changing the WNA16 launch.  It is still disconnected from
-vLLM prelaunch and does not replace the WNA16 kernel.
+and the runtime manager can now export a prepared shadow table object into that
+same native input shape.  This is the first bridge from the Python runtime
+prepared table to a native consumer stub, but it is still disconnected from the
+live vLLM prelaunch hook and does not replace the WNA16 kernel.
 
 The HIP stub schema hash is injected by `scripts/run_premap_typed_consumer_stub.py`
 from the project runtime schema constant instead of being hardcoded in the stub.

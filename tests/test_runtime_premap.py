@@ -517,6 +517,21 @@ def test_controlled_premap_address_manager_executes_descriptor_prep_readonly():
         read_result=read_result,
         expected_object_hash_by_address_key=result.consumer_object_hash_by_address_key,
     )
+    native_input = table_object.to_native_typed_consumer_input_dict()
+    assert native_input["_meta"]["schema_hash"] == (
+        PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH
+    )
+    assert native_input["_meta"]["payload_bytes"] == 0
+    assert native_input["_meta"]["passed_to_kernel"] is False
+    assert native_input["_meta"]["changes_kernel_launch_args"] is False
+    assert len(native_input["descriptor_ptr"]) == 2
+    assert len(native_input["packed_weight_descriptor"]) == 2
+    assert len(native_input["scale_metadata_handle"]) == 2
+    assert len(native_input["aux_metadata_handle"]) == 2
+    assert native_input["expert_id"] == [3, 7]
+    assert all(isinstance(value, int) for value in native_input["descriptor_ptr"])
+    assert all(value != 0 for value in native_input["descriptor_ptr"])
+    assert native_input["aux_metadata_handle"] == [0, 0]
     prep_dry_run_result = manager.execute_descriptor_address_prep_dry_run_readonly(
         table_object,
         read_result=read_result,
