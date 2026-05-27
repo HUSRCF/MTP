@@ -27,6 +27,7 @@ DEFAULT_CANARY_GATE = (
     "premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_live_connected_blocked_canary.yaml"
 )
 RISKY_CANARY_GATES = [
+    DEFAULT_CANARY_GATE,
     "configs/runtime/"
     "premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_live_kernel_arg_pass_canary.yaml",
     "configs/runtime/"
@@ -47,6 +48,13 @@ REQUIRED_DEFAULT_GATE_CONTRACT = {
 REQUIRED_RISKY_CANARY_METADATA = {
     "canary": True,
     "lab_default": False,
+}
+RISKY_TRACE_FLAGS = {
+    "premap_kernel_arg_handoff_live_enabled",
+    "premap_kernel_arg_handoff_kernel_arg_pass_enabled",
+    "premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled",
+    "premap_kernel_arg_handoff_single_field_replacement_dry_run_enabled",
+    "premap_kernel_arg_handoff_single_field_replacement_live_enabled",
 }
 
 
@@ -188,10 +196,106 @@ def _check_risky_canary_gate_metadata(
     }
 
 
+def _has_explicit_risky_trace_canary_marker(shadow: dict[str, Any]) -> bool:
+    explicit_marker = shadow.get("premap_risky_trace_canary") is True
+    explicit_scope = shadow.get("premap_risky_trace_canary_scope")
+    return explicit_marker and isinstance(explicit_scope, str) and bool(explicit_scope)
+
+
+def _check_risky_trace_config(
+    config_path: Path,
+    *,
+    root: Path,
+) -> dict[str, Any]:
+    config_path = config_path if config_path.is_absolute() else root / config_path
+    label = _path_label(config_path, root=root)
+    failures: list[str] = []
+    try:
+        config = _load_yaml(config_path)
+    except (FileNotFoundError, ValueError, yaml.YAMLError) as exc:
+        return {
+            "config_path": label,
+            "passed": False,
+            "skipped": False,
+            "failures": [f"{type(exc).__name__}:{exc}"],
+        }
+    config = config or {}
+    trace = (config.get("trace") or {}) if isinstance(config, dict) else {}
+    shadow = trace.get("runtime_shadow") or {}
+    risky_flags = {
+        flag: bool(shadow.get(flag, False)) for flag in sorted(RISKY_TRACE_FLAGS)
+    }
+    enabled_flags = [flag for flag, enabled in risky_flags.items() if enabled]
+    if not enabled_flags:
+        return {
+            "config_path": label,
+            "passed": True,
+            "skipped": True,
+            "failures": [],
+            "risky_flags": risky_flags,
+            "enabled_risky_flags": enabled_flags,
+        }
+
+    readonly_gate = shadow.get("premap_consumer_readonly_gate_path")
+    readonly_gate_label = None
+    gate_metadata: dict[str, Any] | None = None
+    if not isinstance(readonly_gate, str) or not readonly_gate:
+        failures.append("risky_trace_missing_readonly_gate_path")
+    else:
+        gate_path = _path_for_label(readonly_gate, root)
+        readonly_gate_label = _path_label(gate_path, root=root)
+        try:
+            gate_payload = _load_yaml(gate_path) or {}
+        except (FileNotFoundError, ValueError, yaml.YAMLError) as exc:
+            failures.append(f"risky_gate_load_failed:{type(exc).__name__}:{exc}")
+            gate_payload = {}
+        gate_metadata = {
+            key: gate_payload.get(key) for key in REQUIRED_RISKY_CANARY_METADATA
+        }
+        for key, expected in REQUIRED_RISKY_CANARY_METADATA.items():
+            if gate_payload.get(key) != expected:
+                failures.append(f"risky_gate_{key}_mismatch")
+
+    explicit_marker = shadow.get("premap_risky_trace_canary") is True
+    explicit_scope = shadow.get("premap_risky_trace_canary_scope")
+    if explicit_marker and not (isinstance(explicit_scope, str) and explicit_scope):
+        failures.append("risky_trace_canary_scope_missing")
+    if not _has_explicit_risky_trace_canary_marker(shadow):
+        failures.append("risky_trace_canary_marker_missing")
+
+    return {
+        "config_path": label,
+        "passed": not failures,
+        "skipped": False,
+        "failures": failures,
+        "risky_flags": risky_flags,
+        "enabled_risky_flags": enabled_flags,
+        "readonly_gate_path": readonly_gate,
+        "readonly_gate_path_label": readonly_gate_label,
+        "required_gate_metadata": dict(REQUIRED_RISKY_CANARY_METADATA),
+        "gate_metadata": gate_metadata,
+        "premap_risky_trace_canary": explicit_marker,
+        "premap_risky_trace_canary_scope": explicit_scope,
+    }
+
+
+def _check_risky_trace_configs(
+    trace_pattern: str,
+    *,
+    root: Path,
+) -> list[dict[str, Any]]:
+    return [
+        _check_risky_trace_config(path, root=root)
+        for path in sorted(root.glob(trace_pattern))
+        if path.is_file()
+    ]
+
+
 def run_premap_lab_preflight(
     *,
     root: Path,
     runtime_pattern: str = "configs/runtime/*.yaml",
+    trace_pattern: str = "configs/trace/*.yaml",
     trace_configs: list[str] | None = None,
     default_readonly_gate: str = DEFAULT_READONLY_GATE,
     canary_gate: str = DEFAULT_CANARY_GATE,
@@ -258,6 +362,10 @@ def run_premap_lab_preflight(
         )
         for config_path in trace_configs
     ]
+    risky_trace_config_checks = _check_risky_trace_configs(
+        trace_pattern,
+        root=root,
+    )
     failures: list[str] = []
     failures.extend(gate_pair_failures)
     if not runtime_scan.get("passed", False):
@@ -273,6 +381,9 @@ def run_premap_lab_preflight(
     for result in trace_results:
         if not result.get("passed", False):
             failures.append(f"{result['config_path']}:trace_config_check_failed")
+    for result in risky_trace_config_checks:
+        if not result.get("passed", False):
+            failures.append(f"{result['config_path']}:risky_trace_config_check_failed")
 
     return {
         "passed": not failures,
@@ -283,6 +394,7 @@ def run_premap_lab_preflight(
         "runtime_gate_evidence_scan": runtime_scan,
         "strict_gate_evidence_checks": strict_gate_checks,
         "trace_config_checks": trace_results,
+        "risky_trace_config_checks": risky_trace_config_checks,
     }
 
 
@@ -290,6 +402,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=Path("."))
     parser.add_argument("--runtime-pattern", default="configs/runtime/*.yaml")
+    parser.add_argument("--trace-pattern", default="configs/trace/*.yaml")
     parser.add_argument("--trace-config", action="append", dest="trace_configs")
     parser.add_argument("--default-readonly-gate", default=DEFAULT_READONLY_GATE)
     parser.add_argument("--canary-gate", default=DEFAULT_CANARY_GATE)
@@ -307,6 +420,7 @@ def main(argv: list[str] | None = None) -> int:
     result = run_premap_lab_preflight(
         root=args.root,
         runtime_pattern=args.runtime_pattern,
+        trace_pattern=args.trace_pattern,
         trace_configs=args.trace_configs,
         default_readonly_gate=args.default_readonly_gate,
         canary_gate=args.canary_gate,

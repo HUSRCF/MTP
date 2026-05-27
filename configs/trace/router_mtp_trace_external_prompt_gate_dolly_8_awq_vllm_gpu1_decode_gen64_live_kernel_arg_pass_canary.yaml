@@ -47,6 +47,8 @@ trace:
     # remains disabled. This is not the lab-default readonly gate.
     premap_consumer_readonly_gate_path: configs/runtime/premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_live_kernel_arg_pass_canary.yaml
     premap_descriptor_prep_execution_mode: readonly_descriptor_address_object
+    premap_risky_trace_canary: true
+    premap_risky_trace_canary_scope: explicit_dolly_8_awq_vllm_gpu1_decode_gen64_live_kernel_arg_pass_canary
     premap_kernel_arg_handoff_live_enabled: true
     premap_kernel_arg_handoff_live_consumer_connected: true
     premap_kernel_arg_handoff_kernel_arg_pass_enabled: true

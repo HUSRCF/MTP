@@ -1,6 +1,8 @@
 schema_version: 1
 artifact_id: premap_consumer_readonly_dolly128_gen64_awq_w7900_gpu1_live_connected_blocked_canary
 status: passed
+canary: true
+lab_default: false
 action: premap
 consumer: read_only_descriptor_address_handle
 manager: ControlledPremapAddressManager
