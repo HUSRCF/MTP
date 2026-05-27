@@ -284,6 +284,33 @@ def test_premap_lab_preflight_rejects_missing_typed_evidence_file(
     ]
 
 
+def test_premap_lab_preflight_allows_missing_typed_evidence_file_when_requested(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    (tmp_path / "reports/default_gate_typed_consumer_gate.json").unlink()
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+        allow_missing_evidence=True,
+    )
+
+    assert result["passed"] is True
+    row = result["default_readonly_gate_required_evidence_check"]["rows"][0]
+    assert row["failure"] == "missing_file"
+    assert row["allowed_missing"] is True
+
+
 def test_premap_lab_preflight_rejects_directory_typed_evidence_path(
     tmp_path: Path,
 ):

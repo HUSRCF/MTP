@@ -164,6 +164,7 @@ def _check_required_default_gate_evidence_json(
     gate_path: str,
     *,
     root: Path,
+    allow_missing: bool = False,
 ) -> dict[str, Any]:
     path = _path_for_label(gate_path, root)
     label = _path_label(path, root=root)
@@ -201,8 +202,10 @@ def _check_required_default_gate_evidence_json(
         row["path_label"] = _path_label(evidence_path, root=root)
         row["exists"] = evidence_path.exists()
         if not evidence_path.exists():
-            failures.append(f"{evidence_label}:missing_file")
             row["failure"] = "missing_file"
+            row["allowed_missing"] = bool(allow_missing)
+            if not allow_missing:
+                failures.append(f"{evidence_label}:missing_file")
             rows.append(row)
             continue
         if not evidence_path.is_file():
@@ -418,6 +421,7 @@ def run_premap_lab_preflight(
     default_gate_required_evidence_check = _check_required_default_gate_evidence_json(
         default_readonly_gate,
         root=root,
+        allow_missing=allow_missing_evidence,
     )
     risky_canary_metadata_checks = {
         _path_label(_path_for_label(raw_path, root), root=root): (
