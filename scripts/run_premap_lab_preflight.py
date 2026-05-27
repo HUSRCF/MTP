@@ -49,6 +49,10 @@ REQUIRED_RISKY_CANARY_METADATA = {
     "canary": True,
     "lab_default": False,
 }
+REQUIRED_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
+    "strict_kernel_side_typed_consumer_object_128_gate_json",
+    "strict_kernel_side_typed_consumer_object_128_selfcheck_json",
+}
 RISKY_TRACE_FLAGS = {
     "premap_kernel_arg_handoff_live_enabled",
     "premap_kernel_arg_handoff_kernel_arg_pass_enabled",
@@ -153,6 +157,96 @@ def _check_default_gate_contract(
         "passed": not failures,
         "failures": failures,
         "required_contract": dict(REQUIRED_DEFAULT_GATE_CONTRACT),
+    }
+
+
+def _check_required_default_gate_evidence_json(
+    gate_path: str,
+    *,
+    root: Path,
+) -> dict[str, Any]:
+    path = _path_for_label(gate_path, root)
+    label = _path_label(path, root=root)
+    failures: list[str] = []
+    rows: list[dict[str, Any]] = []
+    try:
+        payload = _load_yaml(path)
+    except (FileNotFoundError, ValueError, yaml.YAMLError) as exc:
+        return {
+            "gate_path": label,
+            "passed": False,
+            "failures": [f"{type(exc).__name__}:{exc}"],
+            "required_labels": sorted(REQUIRED_DEFAULT_GATE_EVIDENCE_JSON_LABELS),
+            "rows": rows,
+        }
+    evidence_paths = ((payload or {}).get("evidence_paths") or {})
+    if not isinstance(evidence_paths, dict):
+        evidence_paths = {}
+    for evidence_label in sorted(REQUIRED_DEFAULT_GATE_EVIDENCE_JSON_LABELS):
+        raw_path = evidence_paths.get(evidence_label)
+        row: dict[str, Any] = {
+            "label": evidence_label,
+            "path": raw_path,
+            "exists": False,
+            "valid_json": None,
+            "passed_value": None,
+            "failures_value": None,
+        }
+        if not isinstance(raw_path, str) or not raw_path:
+            failures.append(f"{evidence_label}:missing_evidence_path")
+            row["failure"] = "missing_evidence_path"
+            rows.append(row)
+            continue
+        evidence_path = _path_for_label(raw_path, root)
+        row["path_label"] = _path_label(evidence_path, root=root)
+        row["exists"] = evidence_path.exists()
+        if not evidence_path.exists():
+            failures.append(f"{evidence_label}:missing_file")
+            row["failure"] = "missing_file"
+            rows.append(row)
+            continue
+        if not evidence_path.is_file():
+            failures.append(f"{evidence_label}:not_file")
+            row["failure"] = "not_file"
+            rows.append(row)
+            continue
+        try:
+            evidence = json.loads(evidence_path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeDecodeError) as exc:
+            failures.append(f"{evidence_label}:read_failed")
+            row["valid_json"] = False
+            row["failure"] = f"read_failed:{type(exc).__name__}:{exc}"
+            rows.append(row)
+            continue
+        except json.JSONDecodeError as exc:
+            failures.append(f"{evidence_label}:invalid_json")
+            row["valid_json"] = False
+            row["failure"] = f"invalid_json:{exc.msg}"
+            rows.append(row)
+            continue
+        row["valid_json"] = True
+        row["passed_value"] = (
+            evidence.get("passed") if isinstance(evidence, dict) else None
+        )
+        row["failures_value"] = (
+            evidence.get("failures") if isinstance(evidence, dict) else None
+        )
+        if not isinstance(evidence, dict):
+            failures.append(f"{evidence_label}:json_not_object")
+            row["failure"] = "json_not_object"
+        elif evidence.get("passed") is not True:
+            failures.append(f"{evidence_label}:not_passed")
+            row["failure"] = "not_passed"
+        elif evidence.get("failures") != []:
+            failures.append(f"{evidence_label}:failures_not_empty")
+            row["failure"] = "failures_not_empty"
+        rows.append(row)
+    return {
+        "gate_path": label,
+        "passed": not failures,
+        "failures": failures,
+        "required_labels": sorted(REQUIRED_DEFAULT_GATE_EVIDENCE_JSON_LABELS),
+        "rows": rows,
     }
 
 
@@ -321,6 +415,10 @@ def run_premap_lab_preflight(
         default_readonly_gate,
         root=root,
     )
+    default_gate_required_evidence_check = _check_required_default_gate_evidence_json(
+        default_readonly_gate,
+        root=root,
+    )
     risky_canary_metadata_checks = {
         _path_label(_path_for_label(raw_path, root), root=root): (
             _check_risky_canary_gate_metadata(raw_path, root=root)
@@ -372,6 +470,8 @@ def run_premap_lab_preflight(
         failures.append("runtime_gate_evidence_scan_failed")
     if not default_gate_contract_check.get("passed", False):
         failures.append("default_readonly_gate_contract_check_failed")
+    if not default_gate_required_evidence_check.get("passed", False):
+        failures.append("default_readonly_gate_required_evidence_check_failed")
     for label, result in risky_canary_metadata_checks.items():
         if not result.get("passed", False):
             failures.append(f"{label}:risky_canary_metadata_check_failed")
@@ -390,6 +490,9 @@ def run_premap_lab_preflight(
         "failures": failures,
         "gate_pair_failures": gate_pair_failures,
         "default_readonly_gate_contract_check": default_gate_contract_check,
+        "default_readonly_gate_required_evidence_check": (
+            default_gate_required_evidence_check
+        ),
         "risky_canary_metadata_checks": risky_canary_metadata_checks,
         "runtime_gate_evidence_scan": runtime_scan,
         "strict_gate_evidence_checks": strict_gate_checks,

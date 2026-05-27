@@ -200,8 +200,9 @@ PYTHONPATH=src:. python scripts/run_premap_lab_preflight.py \
 ```
 
 The preflight checks that default long-run trace configs still reference the
-readonly lab gate and that any trace with live/pass/mutation/single-field
-handoff flags is explicitly marked as a canary:
+readonly lab gate, that the typed-consumer-object gate and selfcheck evidence
+are `passed=true` with empty `failures`, and that any trace with
+live/pass/mutation/single-field handoff flags is explicitly marked as a canary:
 
 ```text
 premap_risky_trace_canary = true
