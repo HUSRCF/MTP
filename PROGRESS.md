@@ -72,6 +72,37 @@ These canaries use `min_reuse_rate = 0.0` because they are 1-sample contract
 checks, not capacity/reuse/performance gates.  The default 128-sample lab gate
 retains the stricter long-run reuse/capacity checks.
 
+Default lab-gate refresh:
+
+```text
+config:
+  configs/trace/router_mtp_trace_external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_longrun_audit.yaml
+output:
+  data/traces/external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_longrun_audit/
+manifest rows = 128
+runtime_shadow rows = 20,390
+gate:
+  longrun_audit_gate_typed_consumer_object_128.json
+  passed = true
+  failures = []
+typed consumer:
+  checked = 10,195
+  typed_object_ready = 10,195
+  passed_to_kernel = 0
+  kernel_arg_violation = 0
+  live_compatible_with_current_wna16_args = 0
+runtime flags:
+  kernel_arg_pass_enabled = false
+  real_kernel_arg_mutation_enabled = false
+manager:
+  premap_address_reuse_rate_mean = 0.982739
+  premap_address_eviction_pressure_mean = 0.0
+  resident_count_max = 10,127
+```
+
+This refresh confirms the non-canary default path remains stable after the
+live/pass/mutation canaries were tightened.
+
 The premap kernel-arg handoff path now includes a live-disabled kernel-side
 consumer schema adapter:
 
