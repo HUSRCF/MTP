@@ -26,6 +26,12 @@ DEFAULT_CANARY_GATE = (
     "configs/runtime/"
     "premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_live_connected_blocked_canary.yaml"
 )
+RISKY_CANARY_GATES = [
+    "configs/runtime/"
+    "premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_live_kernel_arg_pass_canary.yaml",
+    "configs/runtime/"
+    "premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_real_kernel_arg_mutation_canary.yaml",
+]
 REQUIRED_DEFAULT_GATE_CONTRACT = {
     "kernel_side_typed_consumer_object_required": True,
     "kernel_side_typed_consumer_object_payload_bytes_required": 0,
@@ -35,6 +41,10 @@ REQUIRED_DEFAULT_GATE_CONTRACT = {
     "kernel_side_typed_consumer_object_live_enabled_required": False,
     "kernel_side_typed_consumer_object_live_eligible_required": False,
     "kernel_side_typed_consumer_object_live_compatible_with_current_wna16_args_required": False,
+}
+REQUIRED_RISKY_CANARY_METADATA = {
+    "canary": True,
+    "lab_default": False,
 }
 
 
@@ -136,6 +146,46 @@ def _check_default_gate_contract(
     }
 
 
+def _check_risky_canary_gate_metadata(
+    gate_path: str,
+    *,
+    root: Path,
+) -> dict[str, Any]:
+    path = _path_for_label(gate_path, root)
+    label = _path_label(path, root=root)
+    if not path.exists():
+        return {
+            "gate_path": label,
+            "passed": True,
+            "skipped": True,
+            "failures": [],
+            "required_metadata": dict(REQUIRED_RISKY_CANARY_METADATA),
+        }
+    failures: list[str] = []
+    try:
+        payload = _load_yaml(path)
+    except (FileNotFoundError, ValueError, yaml.YAMLError) as exc:
+        return {
+            "gate_path": label,
+            "passed": False,
+            "skipped": False,
+            "failures": [f"{type(exc).__name__}:{exc}"],
+            "required_metadata": dict(REQUIRED_RISKY_CANARY_METADATA),
+        }
+    payload = payload or {}
+    for key, expected in REQUIRED_RISKY_CANARY_METADATA.items():
+        actual = payload.get(key)
+        if actual != expected:
+            failures.append(f"{key}_mismatch")
+    return {
+        "gate_path": label,
+        "passed": not failures,
+        "skipped": False,
+        "failures": failures,
+        "required_metadata": dict(REQUIRED_RISKY_CANARY_METADATA),
+    }
+
+
 def run_premap_lab_preflight(
     *,
     root: Path,
@@ -143,10 +193,16 @@ def run_premap_lab_preflight(
     trace_configs: list[str] | None = None,
     default_readonly_gate: str = DEFAULT_READONLY_GATE,
     canary_gate: str = DEFAULT_CANARY_GATE,
+    risky_canary_gates: list[str] | None = None,
     allow_missing_evidence: bool = False,
 ) -> dict[str, Any]:
     root = root.resolve()
     trace_configs = trace_configs or list(DEFAULT_TRACE_CONFIGS)
+    risky_canary_gates = (
+        list(RISKY_CANARY_GATES)
+        if risky_canary_gates is None
+        else list(risky_canary_gates)
+    )
     gate_pair_failures: list[str] = []
     default_gate_path = _path_label(
         _path_for_label(default_readonly_gate, root),
@@ -159,6 +215,12 @@ def run_premap_lab_preflight(
         default_readonly_gate,
         root=root,
     )
+    risky_canary_metadata_checks = {
+        _path_label(_path_for_label(raw_path, root), root=root): (
+            _check_risky_canary_gate_metadata(raw_path, root=root)
+        )
+        for raw_path in risky_canary_gates
+    }
     runtime_scan = scan_runtime_gate_evidence_paths(
         runtime_pattern,
         root=root,
@@ -200,6 +262,9 @@ def run_premap_lab_preflight(
         failures.append("runtime_gate_evidence_scan_failed")
     if not default_gate_contract_check.get("passed", False):
         failures.append("default_readonly_gate_contract_check_failed")
+    for label, result in risky_canary_metadata_checks.items():
+        if not result.get("passed", False):
+            failures.append(f"{label}:risky_canary_metadata_check_failed")
     for label, result in strict_gate_checks.items():
         if not result.get("passed", False):
             failures.append(f"{label}_evidence_check_failed")
@@ -212,6 +277,7 @@ def run_premap_lab_preflight(
         "failures": failures,
         "gate_pair_failures": gate_pair_failures,
         "default_readonly_gate_contract_check": default_gate_contract_check,
+        "risky_canary_metadata_checks": risky_canary_metadata_checks,
         "runtime_gate_evidence_scan": runtime_scan,
         "strict_gate_evidence_checks": strict_gate_checks,
         "trace_config_checks": trace_results,

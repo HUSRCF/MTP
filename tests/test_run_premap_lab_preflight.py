@@ -17,13 +17,21 @@ def _write_gate(
     evidence_json: str,
     *,
     typed_consumer_required: bool = True,
+    canary: bool | None = None,
+    lab_default: bool | None = None,
 ) -> str:
     evidence_path = f"reports/{evidence_json}"
     _write(root / evidence_path, '{"passed": true}\n')
     gate_path = f"configs/runtime/{name}.yaml"
+    metadata_lines = ""
+    if canary is not None:
+        metadata_lines += f"canary: {str(canary).lower()}\n"
+    if lab_default is not None:
+        metadata_lines += f"lab_default: {str(lab_default).lower()}\n"
     _write(
         root / gate_path,
         "schema_version: 1\n"
+        f"{metadata_lines}"
         "contract:\n"
         f"  kernel_side_typed_consumer_object_required: {str(typed_consumer_required).lower()}\n"
         "  kernel_side_typed_consumer_object_payload_bytes_required: 0\n"
@@ -188,6 +196,64 @@ def test_premap_lab_preflight_rejects_canary_gate_equal_to_default_gate(
         "default_readonly_gate_equals_canary_gate"
     ]
     assert "default_readonly_gate_equals_canary_gate" in result["failures"]
+
+
+def test_premap_lab_preflight_accepts_risky_canary_metadata(tmp_path: Path):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    risky_gate = _write_gate(
+        tmp_path,
+        "risky_gate",
+        "risky_gate.json",
+        canary=True,
+        lab_default=False,
+    )
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+        risky_canary_gates=[risky_gate],
+    )
+
+    assert result["passed"] is True
+    assert result["risky_canary_metadata_checks"][risky_gate]["passed"] is True
+
+
+def test_premap_lab_preflight_rejects_risky_canary_without_metadata(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    risky_gate = _write_gate(tmp_path, "risky_gate", "risky_gate.json")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+        risky_canary_gates=[risky_gate],
+    )
+
+    assert result["passed"] is False
+    assert result["risky_canary_metadata_checks"][risky_gate]["failures"] == [
+        "canary_mismatch",
+        "lab_default_mismatch",
+    ]
+    assert f"{risky_gate}:risky_canary_metadata_check_failed" in result["failures"]
 
 
 def test_premap_lab_preflight_reports_missing_trace_config(tmp_path: Path):

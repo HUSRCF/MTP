@@ -6,6 +6,9 @@ consumer: read_only_descriptor_address_handle
 manager: ControlledPremapAddressManager
 policy: current_router_topk_premap_shadow
 lab_precondition: true
+lab_default: false
+canary: true
+canary_scope: explicit_real_kernel_arg_mutation_negative_canary
 contract:
   payload_bytes_required: 0
   ready_credit_required: false

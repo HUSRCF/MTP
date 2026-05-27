@@ -16343,6 +16343,22 @@ shadow object and never passes payload or kernel arguments.  This confirms that
 the typed consumer contract survives the live-pass flag without pretending that
 the current kernel can consume the handle schema.
 
+Preflight hardening:
+
+```text
+risky canary gates:
+  live_kernel_arg_pass_canary
+  real_kernel_arg_mutation_canary
+
+required metadata:
+  canary = true
+  lab_default = false
+```
+
+`scripts/run_premap_lab_preflight.py` now rejects risky kernel-arg pass /
+mutation artifacts that are not explicitly marked canary-only, while keeping the
+default readonly lab gate disconnected and live-disabled.
+
 ## 2026-05-27 - Kernel-Side Consumer Schema Adapter Gate
 
 The premap kernel-side consumer schema adapter is now live-aware while
