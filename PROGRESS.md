@@ -103,6 +103,27 @@ manager:
 This refresh confirms the non-canary default path remains stable after the
 live/pass/mutation canaries were tightened.
 
+The lab preflight is now also a typed-evidence gate, not just a path/schema
+check.  `scripts/run_premap_lab_preflight.py` requires the default readonly
+runtime gate to reference both:
+
+```text
+strict_kernel_side_typed_consumer_object_128_gate_json
+strict_kernel_side_typed_consumer_object_128_selfcheck_json
+```
+
+and verifies that both JSON artifacts are parseable objects with:
+
+```text
+passed = true
+failures = []
+```
+
+Malformed evidence paths fail closed (`missing_evidence_path`, `missing_file`,
+`not_file`, `read_failed`, `invalid_json`, `json_not_object`, `not_passed`, or
+`failures_not_empty`).  This makes the typed-consumer-object lab gate a single
+machine precondition rather than a pair of manually ordered commands.
+
 The premap kernel-arg handoff path now includes a live-disabled kernel-side
 consumer schema adapter:
 
