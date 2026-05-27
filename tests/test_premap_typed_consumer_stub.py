@@ -1,0 +1,111 @@
+from __future__ import annotations
+
+import importlib.util
+import json
+from pathlib import Path
+
+import pytest
+
+
+def _load_module():
+    path = (
+        Path(__file__).resolve().parents[1]
+        / "scripts"
+        / "run_premap_typed_consumer_stub.py"
+    )
+    spec = importlib.util.spec_from_file_location("run_premap_typed_consumer_stub", path)
+    assert spec is not None
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_typed_consumer_stub_build_command_enables_schema_guard(tmp_path: Path):
+    module = _load_module()
+    output = tmp_path / "stub"
+
+    cmd = module.build_command(
+        macros=["MTP_PREMAP_TYPED_CONSUMER_CHECK_SCHEMA"],
+        offload_arch="gfx1100",
+        output=output,
+    )
+
+    assert "-DMTP_PREMAP_TYPED_CONSUMER_SCHEMA_V1=1" in cmd
+    assert "-DMTP_PREMAP_TYPED_CONSUMER_CHECK_SCHEMA=1" in cmd
+    assert str(output) in cmd
+
+
+def test_typed_consumer_stub_rejects_forbidden_macro():
+    module = _load_module()
+
+    with pytest.raises(ValueError, match="forbidden typed consumer macros"):
+        module.validate_macros(["MTP_PREMAP_TYPED_CONSUMER_ENABLE_KERNEL_ARG_PASS"])
+
+
+def test_typed_consumer_stub_dry_run_writes_command(tmp_path: Path):
+    module = _load_module()
+    output = tmp_path / "dry_run.json"
+
+    exit_code = module.main(
+        [
+            "--dry-run",
+            "--macro",
+            "MTP_PREMAP_TYPED_CONSUMER_CHECK_ROW_ITERATION",
+            "--output-json",
+            str(output),
+        ]
+    )
+
+    assert exit_code == 0
+    payload = output.read_text(encoding="utf-8")
+    assert "MTP_PREMAP_TYPED_CONSUMER_CHECK_ROW_ITERATION" in payload
+
+
+def test_typed_consumer_stub_writes_binary_input_prefix(tmp_path: Path):
+    module = _load_module()
+    input_json = tmp_path / "input.json"
+    input_json.write_text(
+        json.dumps(
+            {
+                "descriptor_ptr": [1, 2],
+                "packed_weight_descriptor": [3, 4],
+                "scale_metadata_handle": [5, 6],
+                "aux_metadata_handle": [7, 8],
+                "expert_id": [9, 10],
+                "address_key_hash": [11, 12],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    prefix, row_count = module._input_prefix_from_json(input_json)
+
+    assert row_count == 2
+    assert prefix.with_suffix(".descriptor_ptr.u64").exists()
+    assert prefix.with_suffix(".aux_metadata_handle.u64").exists()
+    assert prefix.with_suffix(".expert_id.i32").exists()
+
+
+def test_typed_consumer_stub_allows_missing_optional_aux_input(tmp_path: Path):
+    module = _load_module()
+    input_json = tmp_path / "input.json"
+    input_json.write_text(
+        json.dumps(
+            {
+                "descriptor_ptr": [1, 2],
+                "packed_weight_descriptor": [3, 4],
+                "scale_metadata_handle": [5, 6],
+                "expert_id": [9, 10],
+                "address_key_hash": [11, 12],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    prefix, row_count = module._input_prefix_from_json(input_json)
+
+    assert row_count == 2
+    assert prefix.with_suffix(".aux_metadata_handle.u64").exists()

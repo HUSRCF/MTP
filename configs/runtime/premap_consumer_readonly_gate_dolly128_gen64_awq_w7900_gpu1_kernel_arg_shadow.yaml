@@ -7,6 +7,10 @@ manager: ControlledPremapAddressManager
 policy: current_router_topk_premap_shadow
 lab_precondition: true
 
+schema_artifacts:
+  kernel_side_typed_consumer_schema_yaml: configs/runtime/premap_kernel_side_typed_consumer_schema_v1.yaml
+  kernel_side_typed_consumer_schema_doc: docs/premap_kernel_consumer_schema.md
+
 contract:
   payload_bytes_required: 0
   ready_credit_required: false

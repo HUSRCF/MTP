@@ -10,6 +10,9 @@ from typing import Any
 
 import yaml
 
+from scripts.check_premap_kernel_consumer_schema import (
+    check_kernel_consumer_schema_artifact,
+)
 from scripts.check_gate_evidence_paths import check_gate_evidence_paths
 from scripts.check_runtime_gate_evidence_paths import scan_runtime_gate_evidence_paths
 
@@ -21,6 +24,9 @@ DEFAULT_TRACE_CONFIGS = [
 DEFAULT_READONLY_GATE = (
     "configs/runtime/"
     "premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_kernel_arg_shadow.yaml"
+)
+DEFAULT_KERNEL_CONSUMER_SCHEMA_ARTIFACT = (
+    "configs/runtime/premap_kernel_side_typed_consumer_schema_v1.yaml"
 )
 DEFAULT_CANARY_GATE = (
     "configs/runtime/"
@@ -157,6 +163,67 @@ def _check_default_gate_contract(
         "passed": not failures,
         "failures": failures,
         "required_contract": dict(REQUIRED_DEFAULT_GATE_CONTRACT),
+    }
+
+
+def _check_default_kernel_consumer_schema(
+    gate_path: str,
+    *,
+    root: Path,
+    default_schema_path: str = DEFAULT_KERNEL_CONSUMER_SCHEMA_ARTIFACT,
+) -> dict[str, Any]:
+    path = _path_for_label(gate_path, root)
+    label = _path_label(path, root=root)
+    try:
+        payload = _load_yaml(path)
+    except (FileNotFoundError, ValueError, yaml.YAMLError) as exc:
+        return {
+            "gate_path": label,
+            "passed": False,
+            "failures": [f"{type(exc).__name__}:{exc}"],
+            "schema_path": None,
+        }
+    schema_artifacts = ((payload or {}).get("schema_artifacts") or None)
+    if not isinstance(schema_artifacts, dict):
+        return {
+            "gate_path": label,
+            "passed": False,
+            "failures": ["schema_artifacts_missing_or_not_mapping"],
+            "schema_path": None,
+        }
+    raw_schema_path = schema_artifacts.get("kernel_side_typed_consumer_schema_yaml")
+    if not isinstance(raw_schema_path, str) or not raw_schema_path:
+        return {
+            "gate_path": label,
+            "passed": False,
+            "failures": ["kernel_side_typed_consumer_schema_path_missing"],
+            "schema_path": raw_schema_path,
+        }
+    expected_label = _path_label(_path_for_label(default_schema_path, root), root=root)
+    observed_label = _path_label(_path_for_label(raw_schema_path, root), root=root)
+    if observed_label != expected_label:
+        return {
+            "gate_path": label,
+            "passed": False,
+            "failures": [
+                f"kernel_side_typed_consumer_schema_path_mismatch:{observed_label}!={expected_label}"
+            ],
+            "schema_path": raw_schema_path,
+            "schema_path_label": observed_label,
+        }
+    schema_path = _path_for_label(raw_schema_path, root)
+    check = check_kernel_consumer_schema_artifact(schema_path)
+    failures = [
+        f"schema_check:{failure}"
+        for failure in check.get("failures", [])
+    ]
+    return {
+        "gate_path": label,
+        "passed": bool(check.get("passed", False)) and not failures,
+        "failures": failures,
+        "schema_path": raw_schema_path,
+        "schema_path_label": _path_label(schema_path, root=root),
+        "schema_check": check,
     }
 
 
@@ -418,6 +485,10 @@ def run_premap_lab_preflight(
         default_readonly_gate,
         root=root,
     )
+    default_kernel_consumer_schema_check = _check_default_kernel_consumer_schema(
+        default_readonly_gate,
+        root=root,
+    )
     default_gate_required_evidence_check = _check_required_default_gate_evidence_json(
         default_readonly_gate,
         root=root,
@@ -474,6 +545,8 @@ def run_premap_lab_preflight(
         failures.append("runtime_gate_evidence_scan_failed")
     if not default_gate_contract_check.get("passed", False):
         failures.append("default_readonly_gate_contract_check_failed")
+    if not default_kernel_consumer_schema_check.get("passed", False):
+        failures.append("default_kernel_consumer_schema_check_failed")
     if not default_gate_required_evidence_check.get("passed", False):
         failures.append("default_readonly_gate_required_evidence_check_failed")
     for label, result in risky_canary_metadata_checks.items():
@@ -494,6 +567,9 @@ def run_premap_lab_preflight(
         "failures": failures,
         "gate_pair_failures": gate_pair_failures,
         "default_readonly_gate_contract_check": default_gate_contract_check,
+        "default_kernel_consumer_schema_check": (
+            default_kernel_consumer_schema_check
+        ),
         "default_readonly_gate_required_evidence_check": (
             default_gate_required_evidence_check
         ),

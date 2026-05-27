@@ -1,0 +1,86 @@
+# Premap Kernel Consumer Schema
+
+This artifact defines the typed descriptor/address object that a future native
+consumer may read before the AWQ WNA16 fused-MoE launch. It is intentionally not
+the current WNA16 kernel argument list, and it must not be represented by
+pretending a Python tuple or tensor is a valid WNA16 kernel arg.
+
+Machine-readable schema:
+
+`configs/runtime/premap_kernel_side_typed_consumer_schema_v1.yaml`
+
+## Boundary
+
+Current status is `readonly_shadow_only`.
+
+Allowed:
+
+- build a typed descriptor/address table object;
+- read row fields from a consumer shim or native stub;
+- verify row count, schema hash, row ordering hash, field parity, and lifetime;
+- compile native debug consumers behind explicit macros.
+
+Forbidden in the lab default gate:
+
+- payload dereference or H2D payload movement;
+- ready-credit accounting;
+- router mutation;
+- descriptor-order execution;
+- passing the typed object to the real WNA16 fused-MoE kernel;
+- mutating existing kernel launch arguments.
+
+## Row ABI
+
+The future native consumer reads a struct-of-arrays table in vLLM prelaunch
+`sorted_token_ids` order. Required fields are address-level handles, not payload
+contents:
+
+| field | ABI dtype | shape | required | lifetime | ownership |
+| --- | --- | --- | --- | --- | --- |
+| `descriptor_ptr` | `uint64` | `[row_count]` | yes | model load epoch | model weight device |
+| `packed_weight_descriptor` | `uint64` | `[row_count]` | yes | model load epoch | model weight device |
+| `scale_metadata_handle` | `uint64` | `[row_count]` | yes | model load epoch | model weight device |
+| `aux_metadata_handle` | `uint64` | `[row_count]` | no, null/zero allowed | model load epoch | model weight device |
+
+Row metadata includes `layer_id`, `expert_id`, `address_key_hash`,
+`row_order_hash`, and `ordered_row_hash`. The metadata lets the consumer verify
+that the table matches the prelaunch descriptor/address resolution boundary
+without passing any new kernel args.
+
+## Macro Ladder
+
+Native debug support must be injected one flag at a time:
+
+1. `MTP_PREMAP_TYPED_CONSUMER_CHECK_SCHEMA`
+2. `MTP_PREMAP_TYPED_CONSUMER_CHECK_ROW_ITERATION`
+3. `MTP_PREMAP_TYPED_CONSUMER_CHECK_POINTER_VISIBILITY`
+4. `MTP_PREMAP_TYPED_CONSUMER_CHECK_LIFETIME`
+5. `MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR`
+
+The following flags are reserved for future canaries and are forbidden in the
+lab default gate:
+
+- `MTP_PREMAP_TYPED_CONSUMER_ENABLE_PAYLOAD_DEREF`
+- `MTP_PREMAP_TYPED_CONSUMER_ENABLE_KERNEL_ARG_PASS`
+
+`MTP_PREMAP_TYPED_CONSUMER_CHECK_SCHEMA` checks the typed schema hash carried by
+the native table.  For schema v1, the split hash words are:
+
+```text
+hi = c1384d55958c9aa7
+lo = 613c01ceb8275e98
+```
+
+The optional `aux_metadata_handle` column may be absent at the JSON bridge
+boundary; the runner materializes it as zero handles for the native stub.  The
+stub must not reject zero optional aux handles and must not dereference them.
+
+## Next Gates
+
+1. Build a small HIP/C++ native stub that consumes this table and validates
+   schema/layout/row iteration without touching the real WNA16 kernel.
+2. Feed the prelaunch shim typed object into that stub under the existing lab
+   gate.
+3. Only after native-stub parity passes should a single-field replacement canary
+   be considered, default disabled, starting with metadata/scale handles rather
+   than payload pointers.

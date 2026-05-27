@@ -3,12 +3,170 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from mtp_expert_prefetch.runtime.cache_manager import (
+    PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_COLUMNS,
+    PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH,
+    PREMAP_KERNEL_ARG_SEMANTIC_HANDLE_SCHEMA_HASH,
+    PREMAP_KERNEL_ARG_SEMANTIC_HANDLE_SCHEMA_NAME,
+    PREMAP_KERNEL_SIDE_CONSUMER_SCHEMA_HASH,
+    PREMAP_KERNEL_SIDE_CONSUMER_SCHEMA_NAME,
+    PREMAP_KERNEL_SIDE_TYPED_CONSUMER_SCHEMA_HASH,
+    PREMAP_KERNEL_SIDE_TYPED_CONSUMER_SCHEMA_NAME,
+)
 from scripts.run_premap_lab_preflight import main, run_premap_lab_preflight
 
 
 def _write(path: Path, text: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8")
+
+
+def _valid_schema_payload() -> dict:
+    row_fields = []
+    required_by_name = {
+        "descriptor_ptr": True,
+        "packed_weight_descriptor": True,
+        "scale_metadata_handle": True,
+        "aux_metadata_handle": False,
+    }
+    for name in PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_COLUMNS:
+        row = {
+            "name": name,
+            "source_column": name,
+            "abi_dtype": "uint64",
+            "semantic": f"{name}_semantic",
+            "shape": ["row_count"],
+            "required": required_by_name[name],
+            "payload_deref_allowed": False,
+            "device_ownership": "model_weight_device",
+            "lifetime": "model_load_epoch",
+        }
+        if name == "aux_metadata_handle":
+            row["null_allowed"] = True
+        row_fields.append(row)
+    return {
+        "schema_version": 1,
+        "artifact_id": "premap_kernel_side_typed_consumer_schema_v1",
+        "artifact_kind": "premap_kernel_consumer_schema",
+        "status": "readonly_shadow_only",
+        "schema": {
+            "name": PREMAP_KERNEL_SIDE_TYPED_CONSUMER_SCHEMA_NAME,
+            "hash": PREMAP_KERNEL_SIDE_TYPED_CONSUMER_SCHEMA_HASH,
+            "target_runtime": "vllm_awq_wna16_fused_moe",
+            "native_consumer_mode": "typed_shadow_object",
+        },
+        "source_contract": {
+            "handle_table_columns": list(PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_COLUMNS),
+            "handle_table_schema_hash": (
+                PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH
+            ),
+            "semantic_schema_name": PREMAP_KERNEL_ARG_SEMANTIC_HANDLE_SCHEMA_NAME,
+            "semantic_schema_hash": PREMAP_KERNEL_ARG_SEMANTIC_HANDLE_SCHEMA_HASH,
+            "kernel_side_adapter_schema_name": PREMAP_KERNEL_SIDE_CONSUMER_SCHEMA_NAME,
+            "kernel_side_adapter_schema_hash": PREMAP_KERNEL_SIDE_CONSUMER_SCHEMA_HASH,
+        },
+        "native_consumer_abi": {
+            "layout": "struct_of_arrays",
+            "row_order": "vllm_prelaunch_sorted_token_ids_order",
+            "row_count_source": "consumer_row_count",
+            "row_fields": row_fields,
+            "row_metadata": [
+                {
+                    "name": "layer_id",
+                    "abi_dtype": "int32",
+                    "shape": "scalar",
+                    "source": "prelaunch_layer_context",
+                    "required": True,
+                },
+                {
+                    "name": "expert_id",
+                    "abi_dtype": "int32",
+                    "shape": ["row_count"],
+                    "source": "address_key.layer_expert",
+                    "required": True,
+                },
+                {
+                    "name": "address_key_hash",
+                    "abi_dtype": "uint64",
+                    "shape": ["row_count"],
+                    "source": "address_key",
+                    "required": True,
+                },
+                {
+                    "name": "row_order_hash",
+                    "abi_dtype": "uint64",
+                    "shape": "scalar",
+                    "source": "prepared_handle_table",
+                    "required": True,
+                },
+                {
+                    "name": "ordered_row_hash",
+                    "abi_dtype": "uint64",
+                    "shape": "scalar",
+                    "source": "prepared_handle_table",
+                    "required": True,
+                },
+            ],
+        },
+        "safety_contract": {
+            "payload_bytes_required": 0,
+            "ready_credit_required": False,
+            "changes_router_required": False,
+            "changes_descriptor_order_required": False,
+            "changes_kernel_launch_args_required": False,
+            "passed_to_kernel_required": False,
+            "live_compatible_with_current_wna16_args_required": False,
+            "current_status": "native_stub_pending",
+        },
+        "debug_macro_ladder": {
+            "compile_guard_macro": "MTP_PREMAP_TYPED_CONSUMER_SCHEMA_V1",
+            "flags": [
+                {
+                    "name": "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCHEMA",
+                    "default": "disabled",
+                    "individually_enableable": True,
+                },
+                {
+                    "name": "MTP_PREMAP_TYPED_CONSUMER_CHECK_ROW_ITERATION",
+                    "default": "disabled",
+                    "individually_enableable": True,
+                },
+                {
+                    "name": "MTP_PREMAP_TYPED_CONSUMER_CHECK_POINTER_VISIBILITY",
+                    "default": "disabled",
+                    "individually_enableable": True,
+                },
+                {
+                    "name": "MTP_PREMAP_TYPED_CONSUMER_CHECK_LIFETIME",
+                    "default": "disabled",
+                    "individually_enableable": True,
+                },
+                {
+                    "name": "MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR",
+                    "default": "disabled",
+                    "individually_enableable": True,
+                },
+                {
+                    "name": "MTP_PREMAP_TYPED_CONSUMER_ENABLE_PAYLOAD_DEREF",
+                    "default": "disabled",
+                    "individually_enableable": False,
+                    "forbidden_in_lab_default": True,
+                },
+                {
+                    "name": "MTP_PREMAP_TYPED_CONSUMER_ENABLE_KERNEL_ARG_PASS",
+                    "default": "disabled",
+                    "individually_enableable": False,
+                    "forbidden_in_lab_default": True,
+                },
+            ],
+        },
+    }
+
+
+def _write_valid_schema(root: Path) -> str:
+    schema_path = "configs/runtime/premap_kernel_side_typed_consumer_schema_v1.yaml"
+    _write(root / schema_path, json.dumps(_valid_schema_payload()) + "\n")
+    return schema_path
 
 
 def _write_gate(
@@ -22,7 +180,9 @@ def _write_gate(
     include_lab_evidence: bool = True,
     lab_evidence_passed: bool = True,
     lab_evidence_failures: list[str] | None = None,
+    include_schema_artifact: bool = True,
 ) -> str:
+    schema_path = _write_valid_schema(root)
     evidence_path = f"reports/{evidence_json}"
     _write(root / evidence_path, '{"passed": true}\n')
     lab_gate_path = f"reports/{name}_typed_consumer_gate.json"
@@ -44,6 +204,13 @@ def _write_gate(
         root / gate_path,
         "schema_version: 1\n"
         f"{metadata_lines}"
+        + (
+            "schema_artifacts:\n"
+            f"  kernel_side_typed_consumer_schema_yaml: {schema_path}\n"
+            if include_schema_artifact
+            else ""
+        )
+        +
         "contract:\n"
         f"  kernel_side_typed_consumer_object_required: {str(typed_consumer_required).lower()}\n"
         "  kernel_side_typed_consumer_object_payload_bytes_required: 0\n"
@@ -123,7 +290,7 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
 
     assert result["passed"] is True
     assert result["failures"] == []
-    assert result["runtime_gate_evidence_scan"]["gate_count"] == 2
+    assert result["runtime_gate_evidence_scan"]["gate_count"] == 3
     assert result["runtime_gate_evidence_scan"]["evidence_path_count"] == 6
     assert result["default_readonly_gate_required_evidence_check"]["passed"] is True
     assert result["trace_config_checks"][0]["passed"] is True
@@ -158,6 +325,68 @@ def test_premap_lab_preflight_rejects_default_gate_without_typed_consumer_contra
     assert "default_readonly_gate_contract_check_failed" in result["failures"]
     assert result["default_readonly_gate_contract_check"]["failures"] == [
         "kernel_side_typed_consumer_object_required_mismatch"
+    ]
+
+
+def test_premap_lab_preflight_rejects_default_gate_with_bad_schema_artifact(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    schema_path = tmp_path / "configs/runtime/premap_kernel_side_typed_consumer_schema_v1.yaml"
+    payload = _valid_schema_payload()
+    payload["debug_macro_ladder"]["flags"][0]["default"] = "enabled"
+    _write(schema_path, json.dumps(payload) + "\n")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is False
+    assert "default_kernel_consumer_schema_check_failed" in result["failures"]
+    assert (
+        "schema_check:debug_macro_default_not_disabled:"
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCHEMA"
+    ) in result["default_kernel_consumer_schema_check"]["failures"]
+
+
+def test_premap_lab_preflight_rejects_default_gate_without_schema_artifact(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(
+        tmp_path,
+        "default_gate",
+        "default_gate.json",
+        include_schema_artifact=False,
+    )
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is False
+    assert "default_kernel_consumer_schema_check_failed" in result["failures"]
+    assert result["default_kernel_consumer_schema_check"]["failures"] == [
+        "schema_artifacts_missing_or_not_mapping"
     ]
 
 

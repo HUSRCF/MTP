@@ -2,14 +2,14 @@
 
 ## Progress Version
 
-- Version: `v0.23-premap-kernel-side-typed-consumer-gated`
+- Version: `v0.24-premap-native-consumer-schema-plan`
 - Updated: 2026-05-27
 - Current phase: premap descriptor/address prep now has a typed
-  kernel-side consumer object on top of the semantic handle adapter and
-  kernel-side schema adapter.  The default lab gate remains live-disabled,
-  zero-payload, and not passed to the current WNA16 kernel.  Explicit canaries
-  cover connected-but-blocked and live-kernel-pass-negative branches without
-  promoting them to default runtime behavior.
+  kernel-side consumer object and an explicit future native-consumer ABI
+  artifact.  The default lab gate remains live-disabled, zero-payload, and not
+  passed to the current WNA16 kernel.  The next execution boundary is a small
+  HIP/C++ native stub that reads the typed table under stepwise debug macros,
+  not the live WNA16 fused-MoE kernel.
 
 ## Runtime Policy Contract
 
@@ -32,6 +32,66 @@ Safety boundaries:
 - MTP extras must be novel additions and cannot replace `transition_top32`.
 
 ## Latest Update: Typed Kernel-Side Premap Consumer Gates
+
+The future native consumer ABI is now documented and machine-checked:
+
+```text
+schema:
+  configs/runtime/premap_kernel_side_typed_consumer_schema_v1.yaml
+doc:
+  docs/premap_kernel_consumer_schema.md
+checker:
+  scripts/check_premap_kernel_consumer_schema.py
+```
+
+The schema explicitly models `descriptor_ptr`,
+`packed_weight_descriptor`, `scale_metadata_handle`, `aux_metadata_handle`,
+and row metadata as a readonly struct-of-arrays table.  It is not treated as
+the existing WNA16 kernel arg list.  Debug support is macro-gated one feature
+at a time; payload dereference and kernel-arg passing macros are forbidden in
+the lab-default gate.
+
+Native stub evidence:
+
+```text
+stub:
+  microbench/premap_kernel_consumer/premap_typed_consumer_stub.hip
+runner:
+  scripts/run_premap_typed_consumer_stub.py
+schema hash:
+  c1384d55958c9aa78b07b4ee3e9094f835ec1ca4c61bd7e9613c01ceb8275e98
+gpu1 smoke:
+  rows = 4096
+  macros =
+    MTP_PREMAP_TYPED_CONSUMER_CHECK_SCHEMA
+    MTP_PREMAP_TYPED_CONSUMER_CHECK_ROW_ITERATION
+    MTP_PREMAP_TYPED_CONSUMER_CHECK_POINTER_VISIBILITY
+    MTP_PREMAP_TYPED_CONSUMER_CHECK_LIFETIME
+    MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR
+  row_ok_count = 4096
+  error_count = 0
+  typed_schema_hash_hi = c1384d55958c9aa7
+  typed_schema_hash_lo = 613c01ceb8275e98
+  payload_bytes = 0
+  passed_to_kernel = false
+  changes_kernel_launch_args = false
+gpu1 missing-aux input bridge:
+  rows = 4
+  aux_metadata_handle omitted from JSON input and filled as optional zero handles
+  row_ok_count = 4
+  error_count = 0
+```
+
+This only proves that a native HIP consumer can read the future typed ABI shape.
+The stub also supports a binary-prefix input bridge generated from JSON fields,
+so a future vLLM prelaunch shim can dump the prepared table into the same native
+consumer ABI without changing the WNA16 launch.  It is still disconnected from
+vLLM prelaunch and does not replace the WNA16 kernel.
+
+The lab preflight now requires the default readonly gate to explicitly reference
+the typed schema artifact instead of silently falling back to a default path.
+The schema checker enforces exact row-field order, metadata shape/source/dtype,
+optional `aux_metadata_handle` nullability, and forbidden macro defaults.
 
 The default lab gate now requires a readonly typed kernel-side consumer object:
 

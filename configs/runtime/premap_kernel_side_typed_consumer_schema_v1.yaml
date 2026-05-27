@@ -1,0 +1,135 @@
+schema_version: 1
+artifact_id: premap_kernel_side_typed_consumer_schema_v1
+artifact_kind: premap_kernel_consumer_schema
+status: readonly_shadow_only
+
+schema:
+  name: fused_moe_awq_wna16_kernel_side_typed_consumer_object_v1
+  hash: c1384d55958c9aa78b07b4ee3e9094f835ec1ca4c61bd7e9613c01ceb8275e98
+  target_runtime: vllm_awq_wna16_fused_moe
+  native_consumer_mode: typed_shadow_object
+
+source_contract:
+  handle_table_columns:
+    - descriptor_ptr
+    - packed_weight_descriptor
+    - scale_metadata_handle
+    - aux_metadata_handle
+  handle_table_schema_hash: a02928d41970cdf1630dc2a743589ab18068454ac47341a34c4583fd40a5f294
+  semantic_schema_name: fused_moe_awq_wna16_semantic_handle_table_v1
+  semantic_schema_hash: 25254054da77d361b2bd55c5d64ccfc56c9716954c4a010d5902d21ebe675f69
+  kernel_side_adapter_schema_name: fused_moe_awq_wna16_kernel_side_consumer_schema_v1
+  kernel_side_adapter_schema_hash: e4462332b4f7ac47910d83c4e7da0b8c7e84e0bc90d9d1d6872f60c276350b56
+
+native_consumer_abi:
+  layout: struct_of_arrays
+  row_order: vllm_prelaunch_sorted_token_ids_order
+  row_count_source: consumer_row_count
+  row_fields:
+    - name: descriptor_ptr
+      source_column: descriptor_ptr
+      abi_dtype: uint64
+      semantic: runtime_address_level_descriptor_handle
+      shape: [row_count]
+      required: true
+      payload_deref_allowed: false
+      device_ownership: model_weight_device
+      lifetime: model_load_epoch
+    - name: packed_weight_descriptor
+      source_column: packed_weight_descriptor
+      abi_dtype: uint64
+      semantic: packed_wna16_weight_descriptor_handle
+      shape: [row_count]
+      required: true
+      payload_deref_allowed: false
+      device_ownership: model_weight_device
+      lifetime: model_load_epoch
+    - name: scale_metadata_handle
+      source_column: scale_metadata_handle
+      abi_dtype: uint64
+      semantic: awq_scale_metadata_handle
+      shape: [row_count]
+      required: true
+      payload_deref_allowed: false
+      device_ownership: model_weight_device
+      lifetime: model_load_epoch
+    - name: aux_metadata_handle
+      source_column: aux_metadata_handle
+      abi_dtype: uint64
+      semantic: optional_aux_metadata_handle
+      shape: [row_count]
+      required: false
+      null_allowed: true
+      payload_deref_allowed: false
+      device_ownership: model_weight_device
+      lifetime: model_load_epoch
+  row_metadata:
+    - name: layer_id
+      abi_dtype: int32
+      shape: scalar
+      source: prelaunch_layer_context
+      required: true
+    - name: expert_id
+      abi_dtype: int32
+      shape: [row_count]
+      source: address_key.layer_expert
+      required: true
+    - name: address_key_hash
+      abi_dtype: uint64
+      shape: [row_count]
+      source: address_key
+      required: true
+    - name: row_order_hash
+      abi_dtype: uint64
+      shape: scalar
+      source: prepared_handle_table
+      required: true
+    - name: ordered_row_hash
+      abi_dtype: uint64
+      shape: scalar
+      source: prepared_handle_table
+      required: true
+
+safety_contract:
+  payload_bytes_required: 0
+  ready_credit_required: false
+  changes_router_required: false
+  changes_descriptor_order_required: false
+  changes_kernel_launch_args_required: false
+  passed_to_kernel_required: false
+  live_compatible_with_current_wna16_args_required: false
+  current_status: native_stub_pending
+
+debug_macro_ladder:
+  compile_guard_macro: MTP_PREMAP_TYPED_CONSUMER_SCHEMA_V1
+  flags:
+    - name: MTP_PREMAP_TYPED_CONSUMER_CHECK_SCHEMA
+      default: disabled
+      individually_enableable: true
+      phase: schema_hash_only
+    - name: MTP_PREMAP_TYPED_CONSUMER_CHECK_ROW_ITERATION
+      default: disabled
+      individually_enableable: true
+      phase: row_iteration
+    - name: MTP_PREMAP_TYPED_CONSUMER_CHECK_POINTER_VISIBILITY
+      default: disabled
+      individually_enableable: true
+      phase: pointer_visibility_no_deref
+    - name: MTP_PREMAP_TYPED_CONSUMER_CHECK_LIFETIME
+      default: disabled
+      individually_enableable: true
+      phase: lifetime_epoch
+    - name: MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR
+      default: disabled
+      individually_enableable: true
+      phase: row_hash_accumulator
+    - name: MTP_PREMAP_TYPED_CONSUMER_ENABLE_PAYLOAD_DEREF
+      default: disabled
+      individually_enableable: false
+      forbidden_in_lab_default: true
+      phase: future_payload_canary_only
+    - name: MTP_PREMAP_TYPED_CONSUMER_ENABLE_KERNEL_ARG_PASS
+      default: disabled
+      individually_enableable: false
+      forbidden_in_lab_default: true
+      phase: future_kernel_arg_canary_only
