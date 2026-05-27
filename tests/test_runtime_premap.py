@@ -1829,7 +1829,58 @@ def test_controlled_premap_address_manager_descriptor_prep_rejects_mismatched_re
     assert result.ready_credit is False
     assert result.changes_router is False
     assert result.changes_descriptor_order is False
-    assert result.execution_ok is False
+
+
+def test_kernel_arg_shadow_table_native_input_exports_optional_aux_when_present():
+    plan = prepare_premap_address_plan(
+        [
+            ExpertPrefetchDescriptor(0, 1, 3, 2, "transition_head", 0.95),
+            ExpertPrefetchDescriptor(0, 1, 7, 4, "mtp_token_extra_head", 0.75),
+        ],
+        descriptor_bytes=64,
+    )
+    manager = ControlledPremapAddressManager(capacity=4)
+    manager.prepare(plan)
+    keys = [record.address_key for record in plan.records]
+    real_handles = {
+        key: PremapRealDescriptorHandle(
+            expert_id=record.expert_id,
+            local_expert_id=record.expert_id,
+            handle_hash=f"real-hash-{record.expert_id}",
+            address_key=key,
+            packed_weight_descriptor=f"real-packed-{record.expert_id}",
+            scale_metadata_handle=f"real-scale-{record.expert_id}",
+            aux_metadata_handle=f"aux-handle-{record.expert_id}",
+            payload_bytes=0,
+        )
+        for key, record in zip(keys, plan.records, strict=True)
+    }
+
+    result = manager.execute_descriptor_prep_readonly(
+        keys,
+        real_descriptor_handles_by_address_key=real_handles,
+    )
+    read_result = manager.read_descriptor_consumer_objects_readonly(
+        keys,
+        expected_object_hash_by_address_key=result.consumer_object_hash_by_address_key,
+        real_descriptor_handles_by_address_key=real_handles,
+    )
+    _table_result, table_object = manager.build_kernel_arg_shadow_table_object_readonly(
+        keys,
+        read_result=read_result,
+        expected_object_hash_by_address_key=result.consumer_object_hash_by_address_key,
+        real_descriptor_handles_by_address_key=real_handles,
+    )
+
+    native_input = table_object.to_native_typed_consumer_input_dict()
+
+    assert native_input["expert_id"] == [3, 7]
+    assert len(native_input["aux_metadata_handle"]) == 2
+    assert all(value != 0 for value in native_input["aux_metadata_handle"])
+    assert native_input["aux_metadata_handle"][0] != native_input["aux_metadata_handle"][1]
+    assert native_input["_meta"]["payload_bytes"] == 0
+    assert native_input["_meta"]["passed_to_kernel"] is False
+    assert result.execution_ok is True
 
 
 def test_controlled_premap_address_manager_descriptor_prep_rejects_real_payload():

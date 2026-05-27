@@ -187,6 +187,7 @@ def _write_gate(
     _write(root / evidence_path, '{"passed": true}\n')
     lab_gate_path = f"reports/{name}_typed_consumer_gate.json"
     lab_selfcheck_path = f"reports/{name}_typed_consumer_selfcheck.json"
+    native_bridge_path = f"reports/{name}_native_bridge_smoke.json"
     lab_payload = {
         "passed": lab_evidence_passed,
         "failures": [] if lab_evidence_failures is None else lab_evidence_failures,
@@ -194,6 +195,7 @@ def _write_gate(
     if include_lab_evidence:
         _write(root / lab_gate_path, json.dumps(lab_payload) + "\n")
         _write(root / lab_selfcheck_path, json.dumps(lab_payload) + "\n")
+        _write(root / native_bridge_path, json.dumps(lab_payload) + "\n")
     gate_path = f"configs/runtime/{name}.yaml"
     metadata_lines = ""
     if canary is not None:
@@ -220,6 +222,10 @@ def _write_gate(
         "  kernel_side_typed_consumer_object_live_enabled_required: false\n"
         "  kernel_side_typed_consumer_object_live_eligible_required: false\n"
         "  kernel_side_typed_consumer_object_live_compatible_with_current_wna16_args_required: false\n"
+        "  native_typed_consumer_bridge_required: true\n"
+        "  native_typed_consumer_bridge_payload_bytes_required: 0\n"
+        "  native_typed_consumer_bridge_passed_to_kernel_required: false\n"
+        "  native_typed_consumer_bridge_changes_kernel_launch_args_required: false\n"
         "evidence_paths:\n"
         f"  gate_json: {evidence_path}\n"
         + (
@@ -227,6 +233,8 @@ def _write_gate(
             f"{lab_gate_path}\n"
             "  strict_kernel_side_typed_consumer_object_128_selfcheck_json: "
             f"{lab_selfcheck_path}\n"
+            "  native_typed_consumer_bridge_smoke_json: "
+            f"{native_bridge_path}\n"
             if include_lab_evidence
             else ""
         ),
@@ -291,7 +299,7 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert result["passed"] is True
     assert result["failures"] == []
     assert result["runtime_gate_evidence_scan"]["gate_count"] == 3
-    assert result["runtime_gate_evidence_scan"]["evidence_path_count"] == 6
+    assert result["runtime_gate_evidence_scan"]["evidence_path_count"] == 8
     assert result["default_readonly_gate_required_evidence_check"]["passed"] is True
     assert result["trace_config_checks"][0]["passed"] is True
     assert result["trace_config_checks"][0]["readonly_gate_path_label"] == default_gate
@@ -416,10 +424,11 @@ def test_premap_lab_preflight_rejects_default_gate_without_typed_evidence(
 
     assert result["passed"] is False
     assert "default_readonly_gate_required_evidence_check_failed" in result["failures"]
-    assert result["default_readonly_gate_required_evidence_check"]["failures"] == [
+    assert set(result["default_readonly_gate_required_evidence_check"]["failures"]) == {
+        "native_typed_consumer_bridge_smoke_json:missing_evidence_path",
         "strict_kernel_side_typed_consumer_object_128_gate_json:missing_evidence_path",
         "strict_kernel_side_typed_consumer_object_128_selfcheck_json:missing_evidence_path",
-    ]
+    }
 
 
 def test_premap_lab_preflight_rejects_failed_typed_evidence(
@@ -449,10 +458,11 @@ def test_premap_lab_preflight_rejects_failed_typed_evidence(
 
     assert result["passed"] is False
     assert "default_readonly_gate_required_evidence_check_failed" in result["failures"]
-    assert result["default_readonly_gate_required_evidence_check"]["failures"] == [
+    assert set(result["default_readonly_gate_required_evidence_check"]["failures"]) == {
+        "native_typed_consumer_bridge_smoke_json:not_passed",
         "strict_kernel_side_typed_consumer_object_128_gate_json:not_passed",
         "strict_kernel_side_typed_consumer_object_128_selfcheck_json:not_passed",
-    ]
+    }
 
 
 def test_premap_lab_preflight_rejects_typed_evidence_with_failures(
@@ -481,10 +491,11 @@ def test_premap_lab_preflight_rejects_typed_evidence_with_failures(
     )
 
     assert result["passed"] is False
-    assert result["default_readonly_gate_required_evidence_check"]["failures"] == [
+    assert set(result["default_readonly_gate_required_evidence_check"]["failures"]) == {
+        "native_typed_consumer_bridge_smoke_json:failures_not_empty",
         "strict_kernel_side_typed_consumer_object_128_gate_json:failures_not_empty",
         "strict_kernel_side_typed_consumer_object_128_selfcheck_json:failures_not_empty",
-    ]
+    }
 
 
 def test_premap_lab_preflight_rejects_missing_typed_evidence_file(
@@ -535,7 +546,11 @@ def test_premap_lab_preflight_allows_missing_typed_evidence_file_when_requested(
     )
 
     assert result["passed"] is True
-    row = result["default_readonly_gate_required_evidence_check"]["rows"][0]
+    row = next(
+        item
+        for item in result["default_readonly_gate_required_evidence_check"]["rows"]
+        if item["label"] == "strict_kernel_side_typed_consumer_object_128_gate_json"
+    )
     assert row["failure"] == "missing_file"
     assert row["allowed_missing"] is True
 

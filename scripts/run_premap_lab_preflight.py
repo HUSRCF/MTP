@@ -50,6 +50,10 @@ REQUIRED_DEFAULT_GATE_CONTRACT = {
     "kernel_side_typed_consumer_object_live_enabled_required": False,
     "kernel_side_typed_consumer_object_live_eligible_required": False,
     "kernel_side_typed_consumer_object_live_compatible_with_current_wna16_args_required": False,
+    "native_typed_consumer_bridge_required": True,
+    "native_typed_consumer_bridge_payload_bytes_required": 0,
+    "native_typed_consumer_bridge_passed_to_kernel_required": False,
+    "native_typed_consumer_bridge_changes_kernel_launch_args_required": False,
 }
 REQUIRED_RISKY_CANARY_METADATA = {
     "canary": True,
@@ -58,6 +62,7 @@ REQUIRED_RISKY_CANARY_METADATA = {
 REQUIRED_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
     "strict_kernel_side_typed_consumer_object_128_gate_json",
     "strict_kernel_side_typed_consumer_object_128_selfcheck_json",
+    "native_typed_consumer_bridge_smoke_json",
 }
 RISKY_TRACE_FLAGS = {
     "premap_kernel_arg_handoff_live_enabled",
