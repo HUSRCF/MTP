@@ -111,6 +111,7 @@ contract:
   kernel_arg_handoff_live_consumer_adapter_passed_to_kernel_required: true
   kernel_arg_handoff_live_consumer_adapter_changes_kernel_launch_args_required: true
   kernel_arg_handoff_live_consumer_adapter_real_kernel_arg_handoff_required: true
+  kernel_arg_handoff_real_kernel_arg_mutation_incompatible_canary: true
 model:
   config: configs/model/qwen3_6_35b_a3b_awq_4bit.yaml
   quantization: awq_wna16
@@ -147,6 +148,7 @@ gate:
     allow_connected_blocked_consumer_adapter: true
     allow_kernel_arg_handoff_live_kernel_arg_pass: true
     allow_kernel_arg_handoff_live_real_kernel_arg_mutation: true
+    allow_incompatible_real_kernel_arg_mutation_canary: true
   metrics:
     premap_address_eviction_pressure_mean: 0.0
     premap_address_resident_count_max: 5307

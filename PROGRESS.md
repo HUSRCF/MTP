@@ -62,6 +62,10 @@ real-kernel-arg-mutation negative canary:
   runtime_shadow_premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled = true
   requires --allow-incompatible-real-kernel-arg-mutation-canary
   remains excluded from lab-default gates until a compatible typed kernel schema exists
+
+prepared-table candidate dry-run canary:
+  may resolve candidate fields from prepared handles for parity/type diagnostics
+  remains dry-run only and is guarded as a canary, not a lab-default gate
 ```
 
 These canaries use `min_reuse_rate = 0.0` because they are 1-sample contract

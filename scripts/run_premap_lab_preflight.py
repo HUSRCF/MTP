@@ -31,6 +31,8 @@ RISKY_CANARY_GATES = [
     "premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_live_kernel_arg_pass_canary.yaml",
     "configs/runtime/"
     "premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_real_kernel_arg_mutation_canary.yaml",
+    "configs/runtime/"
+    "premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_prepared_table_candidate_dry_run.yaml",
 ]
 REQUIRED_DEFAULT_GATE_CONTRACT = {
     "kernel_side_typed_consumer_object_required": True,

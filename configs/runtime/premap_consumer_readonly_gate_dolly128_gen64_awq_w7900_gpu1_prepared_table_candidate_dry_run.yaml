@@ -6,6 +6,9 @@ consumer: read_only_descriptor_address_handle
 manager: ControlledPremapAddressManager
 policy: current_router_topk_premap_shadow
 lab_precondition: true
+lab_default: false
+canary: true
+canary_scope: explicit_prepared_table_candidate_dry_run_negative_canary
 
 contract:
   payload_bytes_required: 0
@@ -29,6 +32,7 @@ contract:
   kernel_arg_handoff_live_consumer_adapter_required: true
   kernel_arg_handoff_kernel_arg_pass_allowed: true
   kernel_arg_handoff_real_kernel_arg_mutation_allowed: true
+  kernel_arg_handoff_real_kernel_arg_mutation_incompatible_canary: true
   single_field_replacement_candidate_source: prepared_handle_table
   single_field_replacement_candidate_source_allowed: true
   single_field_replacement_dry_run_required: true
@@ -81,6 +85,7 @@ gate:
     allow_connected_blocked_consumer_adapter: true
     allow_kernel_arg_handoff_live_kernel_arg_pass: true
     allow_kernel_arg_handoff_live_real_kernel_arg_mutation: true
+    allow_incompatible_real_kernel_arg_mutation_canary: true
     allow_single_field_replacement_prepared_table_candidate_source: true
   positive_artifact:
     path: data/traces/external_prompt_gate_dolly_1_awq_vllm_gpu1_decode_gen16_single_field_replacement_prepared_table_candidate_dry_run_canary/prepared_table_candidate_dry_run_gate_check.json
