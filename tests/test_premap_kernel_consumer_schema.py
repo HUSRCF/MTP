@@ -123,6 +123,23 @@ def test_kernel_consumer_schema_rejects_adapter_header_mismatch(
     ) in result["failures"]
 
 
+def test_kernel_consumer_schema_rejects_enabled_launch_envelope_default(
+    tmp_path: Path,
+) -> None:
+    payload = _valid_schema_payload()
+    payload["native_consumer_abi"]["launch_envelope_default_enabled"] = True
+    schema_path = tmp_path / "schema.yaml"
+    _write_schema(schema_path, payload)
+
+    result = check_kernel_consumer_schema_artifact(schema_path)
+
+    assert result["passed"] is False
+    assert (
+        "native_consumer_abi.launch_envelope_default_enabled_mismatch:"
+        "True!=False"
+    ) in result["failures"]
+
+
 def test_kernel_consumer_schema_rejects_enabled_forbidden_macro(
     tmp_path: Path,
 ) -> None:

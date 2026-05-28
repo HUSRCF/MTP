@@ -59,7 +59,9 @@ def test_typed_consumer_stub_uses_kernel_side_abi_header():
     assert "PremapKernelSideTypedConsumerAbiV1 table" in source
     assert "struct PremapKernelSideTypedConsumerAbiV1" in header
     assert "struct PremapKernelSideTypedConsumerRowV1" in adapter
+    assert "struct PremapKernelSideTypedConsumerLaunchEnvelopeV1" in adapter
     assert "premap_typed_consumer_load_row_v1" in adapter
+    assert "typed_consumer_envelope_kernel" in source
     for field in (
         "descriptor_ptr",
         "packed_weight_descriptor",
@@ -126,6 +128,29 @@ def test_typed_consumer_stub_dry_run_accepts_per_field_macros(tmp_path: Path):
         "MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR",
         "MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_DESCRIPTOR",
         "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_HANDLE",
+    ]
+
+
+def test_typed_consumer_stub_dry_run_accepts_kernel_consumer_envelope_macro(
+    tmp_path: Path,
+) -> None:
+    module = _load_module()
+    output = tmp_path / "dry_run_envelope.json"
+
+    exit_code = module.main(
+        [
+            "--dry-run",
+            "--macro",
+            "MTP_PREMAP_TYPED_CONSUMER_CHECK_KERNEL_CONSUMER_ENVELOPE",
+            "--output-json",
+            str(output),
+        ]
+    )
+
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    assert exit_code == 0
+    assert payload["requested_macros"] == [
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_KERNEL_CONSUMER_ENVELOPE"
     ]
 
 

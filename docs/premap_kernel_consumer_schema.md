@@ -76,6 +76,11 @@ native_consumer_abi:
   adapter_row_struct: PremapKernelSideTypedConsumerRowV1
   adapter_payload_deref_allowed: false
   adapter_kernel_arg_pass_allowed: false
+  launch_envelope_name: premap_kernel_side_typed_consumer_launch_envelope_v1
+  launch_envelope_struct: PremapKernelSideTypedConsumerLaunchEnvelopeV1
+  launch_envelope_default_enabled: false
+  launch_envelope_payload_bytes_required: 0
+  launch_envelope_passed_to_kernel_required: false
 ```
 
 This ABI is intentionally separate from the WNA16 launch argument schema.  A

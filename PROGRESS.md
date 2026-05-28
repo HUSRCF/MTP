@@ -19495,3 +19495,57 @@ premap_lab_preflight_default_typed_consumer_adapter.json:
   passed_to_kernel_required = false
   changes_kernel_launch_args_required = false
 ```
+
+## Kernel-side consumer launch-envelope canary
+
+The typed consumer adapter now includes a disabled-by-default launch envelope
+for a future kernel-side consumer:
+
+```text
+PremapKernelSideTypedConsumerLaunchEnvelopeV1:
+  table
+  expected_schema_hash_hi / expected_schema_hash_lo
+  expected_row_order_hash / expected_ordered_row_hash
+  expected_row_count / expected_column_count
+  payload_bytes
+  flags
+
+launch_envelope_name = premap_kernel_side_typed_consumer_launch_envelope_v1
+launch_envelope_default_enabled = false
+launch_envelope_payload_bytes_required = 0
+launch_envelope_passed_to_kernel_required = false
+```
+
+The envelope is only exercised when the native canary is compiled with:
+
+```text
+MTP_PREMAP_TYPED_CONSUMER_CHECK_KERNEL_CONSUMER_ENVELOPE
+```
+
+This still does not pass anything to the current WNA16 fused-MoE kernel.  It
+only validates the shape of the future kernel-side consumer handoff envelope.
+
+GPU1 online-prelaunch validation:
+
+```text
+typed_consumer_stub_gpu1_online_prelaunch_input_kernel_envelope_canary.json:
+  passed = true
+  row_count = 204
+  row_ok_count = 204
+  error_count = 0
+  kernel_consumer_envelope_checked = true
+  kernel_consumer_envelope_payload_bytes = 0
+  kernel_consumer_envelope_passed_to_kernel = false
+  payload_bytes = 0
+  passed_to_kernel = false
+  changes_kernel_launch_args = false
+
+premap_lab_preflight_default_kernel_envelope_schema.json:
+  passed = true
+  default_kernel_consumer_schema_passed = true
+  required_evidence = 10 / 10
+  optional_evidence = 1 / 1
+  payload_bytes_required = 0
+  passed_to_kernel_required = false
+  changes_kernel_launch_args_required = false
+```

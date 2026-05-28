@@ -24,6 +24,26 @@ constexpr const char* kPremapKernelSideTypedConsumerAdapterV1Name =
 constexpr bool kPremapKernelSideTypedConsumerAdapterV1PayloadDerefAllowed = false;
 constexpr bool kPremapKernelSideTypedConsumerAdapterV1KernelArgPassAllowed = false;
 
+struct PremapKernelSideTypedConsumerLaunchEnvelopeV1 {
+  PremapKernelSideTypedConsumerAbiV1 table;
+  uint64_t expected_schema_hash_hi;
+  uint64_t expected_schema_hash_lo;
+  uint64_t expected_row_order_hash;
+  uint64_t expected_ordered_row_hash;
+  uint32_t expected_row_count;
+  uint32_t expected_column_count;
+  uint32_t payload_bytes;
+  uint32_t flags;
+};
+
+constexpr const char* kPremapKernelSideTypedConsumerLaunchEnvelopeV1Name =
+    "premap_kernel_side_typed_consumer_launch_envelope_v1";
+constexpr uint32_t kPremapKernelSideTypedConsumerLaunchEnvelopeV1ReadonlyFlag =
+    1u << 0;
+constexpr uint32_t
+    kPremapKernelSideTypedConsumerLaunchEnvelopeV1KernelArgPassDisabledFlag =
+        1u << 1;
+
 __host__ __device__ static inline bool
 premap_typed_consumer_schema_matches_v1(
     const PremapKernelSideTypedConsumerAbiV1& table,
@@ -36,6 +56,25 @@ premap_typed_consumer_schema_matches_v1(
          table.packed_weight_descriptor != nullptr &&
          table.scale_metadata_handle != nullptr && table.expert_id != nullptr &&
          table.address_key_hash != nullptr;
+}
+
+__host__ __device__ static inline bool
+premap_typed_consumer_launch_envelope_matches_v1(
+    const PremapKernelSideTypedConsumerLaunchEnvelopeV1& envelope) {
+  return premap_typed_consumer_schema_matches_v1(
+             envelope.table,
+             envelope.expected_schema_hash_hi,
+             envelope.expected_schema_hash_lo) &&
+         envelope.table.row_count == envelope.expected_row_count &&
+         envelope.table.column_count == envelope.expected_column_count &&
+         envelope.table.row_order_hash == envelope.expected_row_order_hash &&
+         envelope.table.ordered_row_hash == envelope.expected_ordered_row_hash &&
+         envelope.payload_bytes == 0 &&
+         (envelope.flags &
+          kPremapKernelSideTypedConsumerLaunchEnvelopeV1ReadonlyFlag) != 0 &&
+         (envelope.flags &
+          kPremapKernelSideTypedConsumerLaunchEnvelopeV1KernelArgPassDisabledFlag) !=
+             0;
 }
 
 __device__ static inline PremapKernelSideTypedConsumerRowV1

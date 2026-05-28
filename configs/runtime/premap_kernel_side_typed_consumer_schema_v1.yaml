@@ -33,6 +33,11 @@ native_consumer_abi:
   adapter_row_struct: PremapKernelSideTypedConsumerRowV1
   adapter_payload_deref_allowed: false
   adapter_kernel_arg_pass_allowed: false
+  launch_envelope_name: premap_kernel_side_typed_consumer_launch_envelope_v1
+  launch_envelope_struct: PremapKernelSideTypedConsumerLaunchEnvelopeV1
+  launch_envelope_default_enabled: false
+  launch_envelope_payload_bytes_required: 0
+  launch_envelope_passed_to_kernel_required: false
   layout: struct_of_arrays
   row_order: vllm_prelaunch_sorted_token_ids_order
   row_count_source: consumer_row_count
@@ -150,6 +155,10 @@ debug_macro_ladder:
       default: disabled
       individually_enableable: true
       phase: row_hash_accumulator
+    - name: MTP_PREMAP_TYPED_CONSUMER_CHECK_KERNEL_CONSUMER_ENVELOPE
+      default: disabled
+      individually_enableable: true
+      phase: future_kernel_consumer_envelope_canary
     - name: MTP_PREMAP_TYPED_CONSUMER_ENABLE_PAYLOAD_DEREF
       default: disabled
       individually_enableable: false

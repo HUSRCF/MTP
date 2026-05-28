@@ -74,6 +74,7 @@ REQUIRED_STEPWISE_DEBUG_MACROS = {
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_HANDLE",
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_LIFETIME",
     "MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_KERNEL_CONSUMER_ENVELOPE",
 }
 ALLOWED_CURRENT_STATUS = {
     "native_stub_pending",
@@ -160,6 +161,11 @@ def check_kernel_consumer_schema_artifact(path: Path) -> dict[str, Any]:
         "adapter_row_struct": "PremapKernelSideTypedConsumerRowV1",
         "adapter_payload_deref_allowed": False,
         "adapter_kernel_arg_pass_allowed": False,
+        "launch_envelope_name": "premap_kernel_side_typed_consumer_launch_envelope_v1",
+        "launch_envelope_struct": "PremapKernelSideTypedConsumerLaunchEnvelopeV1",
+        "launch_envelope_default_enabled": False,
+        "launch_envelope_payload_bytes_required": 0,
+        "launch_envelope_passed_to_kernel_required": False,
     }
     for key, expected in expected_native_abi.items():
         observed = native_abi.get(key)

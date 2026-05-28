@@ -80,6 +80,11 @@ def _valid_schema_payload() -> dict:
             "adapter_row_struct": "PremapKernelSideTypedConsumerRowV1",
             "adapter_payload_deref_allowed": False,
             "adapter_kernel_arg_pass_allowed": False,
+            "launch_envelope_name": "premap_kernel_side_typed_consumer_launch_envelope_v1",
+            "launch_envelope_struct": "PremapKernelSideTypedConsumerLaunchEnvelopeV1",
+            "launch_envelope_default_enabled": False,
+            "launch_envelope_payload_bytes_required": 0,
+            "launch_envelope_passed_to_kernel_required": False,
             "layout": "struct_of_arrays",
             "row_order": "vllm_prelaunch_sorted_token_ids_order",
             "row_count_source": "consumer_row_count",
@@ -177,6 +182,11 @@ def _valid_schema_payload() -> dict:
                 },
                 {
                     "name": "MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR",
+                    "default": "disabled",
+                    "individually_enableable": True,
+                },
+                {
+                    "name": "MTP_PREMAP_TYPED_CONSUMER_CHECK_KERNEL_CONSUMER_ENVELOPE",
                     "default": "disabled",
                     "individually_enableable": True,
                 },

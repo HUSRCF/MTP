@@ -11,6 +11,10 @@ The native path is split into two explicit pieces:
   future kernel-side consumer would call to load `descriptor_ptr`,
   `packed_weight_descriptor`, `scale_metadata_handle`, and
   `aux_metadata_handle`.
+- `PremapKernelSideTypedConsumerLaunchEnvelopeV1` is the explicit canary
+  envelope for a future kernel consumer.  It carries the table, expected schema
+  hashes, row/order hashes, and readonly flags.  It is only used when the
+  `MTP_PREMAP_TYPED_CONSUMER_CHECK_KERNEL_CONSUMER_ENVELOPE` macro is enabled.
 
 This separation is deliberate: the adapter is the compatibility point for a
 future kernel-side consumer, not an attempt to reinterpret the current WNA16

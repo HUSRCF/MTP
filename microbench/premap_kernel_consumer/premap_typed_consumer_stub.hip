@@ -129,6 +129,35 @@ __global__ void typed_consumer_kernel(
   row_hash[idx] = h;
 }
 
+#if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_KERNEL_CONSUMER_ENVELOPE)
+__global__ void typed_consumer_envelope_kernel(
+    PremapKernelSideTypedConsumerLaunchEnvelopeV1 envelope,
+    uint32_t* row_ok,
+    uint64_t* row_hash) {
+  const uint32_t idx = blockIdx.x * blockDim.x + threadIdx.x;
+  if (idx >= envelope.table.row_count) {
+    return;
+  }
+  uint32_t ok = static_cast<uint32_t>(
+      premap_typed_consumer_launch_envelope_matches_v1(envelope));
+  const PremapKernelSideTypedConsumerRowV1 row =
+      premap_typed_consumer_load_row_v1(envelope.table, idx);
+  ok &= premap_typed_consumer_required_handles_visible_v1(row);
+  ok &= premap_typed_consumer_lifetime_valid_v1(envelope.table, row);
+
+  uint64_t h = 0x517cc1b727220a95ULL ^ static_cast<uint64_t>(idx);
+  h ^= mix64(row.descriptor_ptr);
+  h ^= mix64(row.packed_weight_descriptor + 0x1000ULL);
+  h ^= mix64(row.scale_metadata_handle + 0x2000ULL);
+  h ^= mix64(row.aux_metadata_handle + 0x3000ULL);
+  h ^= mix64(row.address_key_hash + static_cast<uint64_t>(row.expert_id));
+  h ^= mix64(envelope.expected_row_order_hash);
+  h ^= mix64(envelope.expected_ordered_row_hash);
+  row_ok[idx] = ok;
+  row_hash[idx] = h;
+}
+#endif
+
 struct Args {
   int device = 0;
   int rows = 1024;
@@ -243,6 +272,12 @@ static std::string macro_json() {
 #else
      << "false";
 #endif
+  os << ",\"MTP_PREMAP_TYPED_CONSUMER_CHECK_KERNEL_CONSUMER_ENVELOPE\":"
+#if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_KERNEL_CONSUMER_ENVELOPE)
+     << "true";
+#else
+     << "false";
+#endif
   os << "}";
   return os.str();
 }
@@ -320,6 +355,29 @@ int main(int argc, char** argv) {
 
   const int threads = args.block_threads;
   const int blocks = (rows + threads - 1) / threads;
+#if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_KERNEL_CONSUMER_ENVELOPE)
+  PremapKernelSideTypedConsumerLaunchEnvelopeV1 envelope;
+  envelope.table = table;
+  envelope.expected_schema_hash_hi = kTypedSchemaHashHi;
+  envelope.expected_schema_hash_lo = kTypedSchemaHashLo;
+  envelope.expected_row_order_hash = table.row_order_hash;
+  envelope.expected_ordered_row_hash = table.ordered_row_hash;
+  envelope.expected_row_count = table.row_count;
+  envelope.expected_column_count = table.column_count;
+  envelope.payload_bytes = 0;
+  envelope.flags =
+      kPremapKernelSideTypedConsumerLaunchEnvelopeV1ReadonlyFlag |
+      kPremapKernelSideTypedConsumerLaunchEnvelopeV1KernelArgPassDisabledFlag;
+  hipLaunchKernelGGL(
+      typed_consumer_envelope_kernel,
+      dim3(blocks),
+      dim3(threads),
+      0,
+      0,
+      envelope,
+      d_ok,
+      d_hash);
+#else
   hipLaunchKernelGGL(
       typed_consumer_kernel,
       dim3(blocks),
@@ -329,6 +387,7 @@ int main(int argc, char** argv) {
       table,
       d_ok,
       d_hash);
+#endif
   hip_check(hipGetLastError(), "kernel launch");
   hip_check(hipDeviceSynchronize(), "kernel sync");
 
@@ -370,6 +429,16 @@ int main(int argc, char** argv) {
             << "\"";
   std::cout << ",\"adapter_payload_deref_allowed\":false";
   std::cout << ",\"adapter_kernel_arg_pass_allowed\":false";
+  std::cout << ",\"kernel_consumer_envelope_name\":\""
+            << kPremapKernelSideTypedConsumerLaunchEnvelopeV1Name << "\"";
+  std::cout << ",\"kernel_consumer_envelope_checked\":"
+#if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_KERNEL_CONSUMER_ENVELOPE)
+            << "true";
+#else
+            << "false";
+#endif
+  std::cout << ",\"kernel_consumer_envelope_payload_bytes\":0";
+  std::cout << ",\"kernel_consumer_envelope_passed_to_kernel\":false";
   std::cout << ",\"typed_schema_hash_hi\":\"" << std::hex << kTypedSchemaHashHi << std::dec << "\"";
   std::cout << ",\"typed_schema_hash_lo\":\"" << std::hex << kTypedSchemaHashLo << std::dec << "\"";
   std::cout << ",\"aux_pointer_present\":" << (args.omit_aux_pointer ? "false" : "true");
