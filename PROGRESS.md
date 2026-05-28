@@ -18985,3 +18985,63 @@ online prelaunch typed input:
 This keeps the next handoff step honest: the current WNA16 kernel still does not
 consume the typed table, but a separate native consumer can read the future
 kernel-side handle schema without payload movement or kernel-argument mutation.
+
+Online vLLM smoke:
+
+```bash
+env PYTHONPATH=/home/husrcf/Code/ProtBind/MTP:/home/husrcf/Code/ProtBind/MTP/src \
+  HIP_VISIBLE_DEVICES=1 CUDA_VISIBLE_DEVICES=1 \
+  conda run -p /home/husrcf/anaconda3/envs/TRY \
+  python scripts/trace_router_mtp_vllm.py \
+    configs/trace/router_mtp_trace_external_prompt_gate_dolly_1_awq_vllm_gpu1_decode_gen16_native_input_export_canary.yaml
+
+env PYTHONPATH=/home/husrcf/Code/ProtBind/MTP:/home/husrcf/Code/ProtBind/MTP/src \
+  conda run -p /home/husrcf/anaconda3/envs/TRY \
+  python scripts/check_premap_longrun_audit_gate.py \
+    data/traces/external_prompt_gate_dolly_1_awq_vllm_gpu1_decode_gen16_native_input_export_canary/performance_summary.json \
+    --max-capacity 12288 \
+    --min-reuse-rate 0.0 \
+    --require-readonly-consumer \
+    --require-descriptor-prep \
+    --require-real-descriptor-prep \
+    --require-kernel-arg-shadow-table \
+    --require-consumer-shim-table-read \
+    --require-consumer-shim-table-consume \
+    --require-consumer-shim-table-object \
+    --require-consumer-shim-prep-execution \
+    --require-kernel-arg-handoff-attempt \
+    --require-kernel-arg-handoff-live-toggle \
+    --require-kernel-arg-handoff-launch-schema-mirror \
+    --require-kernel-arg-handoff-live-noop-integration \
+    --require-kernel-arg-handoff-live-consumer-adapter \
+    --require-kernel-arg-semantic-handle-adapter \
+    --require-single-field-handle-handoff-canary \
+    --require-kernel-side-consumer-schema-adapter \
+    --require-kernel-side-typed-consumer-object \
+    --require-native-typed-consumer-bridge \
+    --require-native-stub-online-invocation-canary \
+    --allow-enabled-blocked-live-toggle \
+    --allow-connected-blocked-consumer-adapter \
+    --output-json \
+    data/traces/external_prompt_gate_dolly_1_awq_vllm_gpu1_decode_gen16_native_input_export_canary/single_field_canary_gate_check.json
+```
+
+Result:
+
+```text
+single_field_canary_gate_check.passed = true
+failures = []
+checked_count = 640
+ready_count = 640
+row_count = 9,794
+field_handle_nonzero_count = 9,794
+parity_ok_count = 9,794
+live_enabled_count = 0
+blocked_count = 640
+passed_to_kernel_count = 0
+kernel_arg_violation_count = 0
+live_compatible_with_current_wna16_args_count = 0
+```
+
+The smoke uses `--min-reuse-rate 0.0` intentionally because it is a 1-sample
+canary; the strict long-run reuse threshold remains a separate 128/512 gate.
