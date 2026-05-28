@@ -4607,6 +4607,28 @@ class VllmRouterRecorder:
                     if descriptor_consumer_shim_result is not None
                     else None
                 ),
+                descriptor_prep_consumer_shim_single_field_handle_handoff_canary_mirror_mode=(
+                    descriptor_consumer_shim_result.single_field_handle_handoff_canary_mirror_mode
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_single_field_handle_handoff_canary_mirror_ready=(
+                    bool(
+                        descriptor_consumer_shim_result.single_field_handle_handoff_canary_mirror_ready
+                    )
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_single_field_handle_handoff_canary_mirror_field_name=(
+                    descriptor_consumer_shim_result.single_field_handle_handoff_canary_mirror_field_name
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_single_field_handle_handoff_canary_mirror_source=(
+                    descriptor_consumer_shim_result.single_field_handle_handoff_canary_mirror_source
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
                 descriptor_prep_consumer_shim_single_field_handle_handoff_canary_table_object_hash=(
                     descriptor_consumer_shim_result.single_field_handle_handoff_canary_table_object_hash
                     if descriptor_consumer_shim_result is not None
@@ -4671,6 +4693,16 @@ class VllmRouterRecorder:
                     if descriptor_consumer_shim_result is not None
                     else None
                 ),
+                descriptor_prep_consumer_shim_single_field_handle_handoff_canary_mirror_handle_hash=(
+                    descriptor_consumer_shim_result.single_field_handle_handoff_canary_mirror_handle_hash
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_single_field_handle_handoff_canary_mirror_schema_hash=(
+                    descriptor_consumer_shim_result.single_field_handle_handoff_canary_mirror_schema_hash
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
                 descriptor_prep_consumer_shim_single_field_handle_handoff_canary_parity_ok_count=(
                     int(
                         descriptor_consumer_shim_result.single_field_handle_handoff_canary_parity_ok_count
@@ -4691,6 +4723,20 @@ class VllmRouterRecorder:
                         and descriptor_consumer_shim_result.single_field_handle_handoff_canary_parity_mismatch_count
                         is not None
                     )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_single_field_handle_handoff_canary_kernel_side_typed_consumer_compatible=(
+                    bool(
+                        descriptor_consumer_shim_result.single_field_handle_handoff_canary_kernel_side_typed_consumer_compatible
+                    )
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_single_field_handle_handoff_canary_current_wna16_arg_compatible=(
+                    bool(
+                        descriptor_consumer_shim_result.single_field_handle_handoff_canary_current_wna16_arg_compatible
+                    )
+                    if descriptor_consumer_shim_result is not None
                     else None
                 ),
                 descriptor_prep_consumer_shim_single_field_handle_handoff_canary_live_enabled=(

@@ -11,6 +11,7 @@ from mtp_expert_prefetch.runtime import (
     PREMAP_KERNEL_SIDE_CONSUMER_SCHEMA_FIELDS,
     PREMAP_KERNEL_SIDE_CONSUMER_SCHEMA_HASH,
     PREMAP_KERNEL_SIDE_CONSUMER_SCHEMA_NAME,
+    PREMAP_KERNEL_SIDE_TYPED_CONSUMER_SCHEMA_HASH,
     TileRequest,
     build_shadow_summary_from_descriptor_order,
     order_tile_request_stream,
@@ -663,6 +664,16 @@ def test_shadow_log_aggregates_premap_consumer_mapping_without_side_effects(tmp_
         descriptor_prep_consumer_shim_single_field_handle_handoff_canary_source=(
             "semantic_handle_table"
         ),
+        descriptor_prep_consumer_shim_single_field_handle_handoff_canary_mirror_mode=(
+            "readonly_scale_metadata_handle_mirror"
+        ),
+        descriptor_prep_consumer_shim_single_field_handle_handoff_canary_mirror_ready=True,
+        descriptor_prep_consumer_shim_single_field_handle_handoff_canary_mirror_field_name=(
+            "scale_metadata_handle"
+        ),
+        descriptor_prep_consumer_shim_single_field_handle_handoff_canary_mirror_source=(
+            "semantic_handle_table"
+        ),
         descriptor_prep_consumer_shim_single_field_handle_handoff_canary_table_object_hash=(
             "table-hash"
         ),
@@ -679,8 +690,16 @@ def test_shadow_log_aggregates_premap_consumer_mapping_without_side_effects(tmp_
         descriptor_prep_consumer_shim_single_field_handle_handoff_canary_semantic_field_hash=(
             "scale-field-hash"
         ),
+        descriptor_prep_consumer_shim_single_field_handle_handoff_canary_mirror_handle_hash=(
+            "scale-field-hash"
+        ),
+        descriptor_prep_consumer_shim_single_field_handle_handoff_canary_mirror_schema_hash=(
+            PREMAP_KERNEL_SIDE_TYPED_CONSUMER_SCHEMA_HASH
+        ),
         descriptor_prep_consumer_shim_single_field_handle_handoff_canary_parity_ok_count=2,
         descriptor_prep_consumer_shim_single_field_handle_handoff_canary_parity_mismatch_count=0,
+        descriptor_prep_consumer_shim_single_field_handle_handoff_canary_kernel_side_typed_consumer_compatible=True,
+        descriptor_prep_consumer_shim_single_field_handle_handoff_canary_current_wna16_arg_compatible=False,
         descriptor_prep_consumer_shim_single_field_handle_handoff_canary_live_enabled=False,
         descriptor_prep_consumer_shim_single_field_handle_handoff_canary_blocked=True,
         descriptor_prep_consumer_shim_single_field_handle_handoff_canary_block_reason=(
@@ -2113,6 +2132,42 @@ def test_shadow_log_aggregates_premap_consumer_mapping_without_side_effects(tmp_
     )
     assert (
         aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_mirror_mode"
+        ]
+        == "readonly_scale_metadata_handle_mirror"
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_mirror_ready_count"
+        ]
+        == 1
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_mirror_field_name"
+        ]
+        == "scale_metadata_handle"
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_mirror_source"
+        ]
+        == "semantic_handle_table"
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_mirror_handle_hash_checked_count"
+        ]
+        == 1
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_mirror_schema_hash_checked_count"
+        ]
+        == 1
+    )
+    assert (
+        aggregate[
             "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_row_count"
         ]
         == 2
@@ -2144,6 +2199,18 @@ def test_shadow_log_aggregates_premap_consumer_mapping_without_side_effects(tmp_
     assert (
         aggregate[
             "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_parity_mismatch_count"
+        ]
+        == 0
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_kernel_side_typed_consumer_compatible_count"
+        ]
+        == 1
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_current_wna16_arg_compatible_count"
         ]
         == 0
     )

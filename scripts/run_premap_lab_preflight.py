@@ -69,6 +69,13 @@ REQUIRED_DEFAULT_GATE_CONTRACT = {
     ),
     "single_field_handle_handoff_canary_field": "scale_metadata_handle",
     "single_field_handle_handoff_canary_source": "semantic_handle_table",
+    "single_field_handle_handoff_canary_mirror_mode": (
+        "readonly_scale_metadata_handle_mirror"
+    ),
+    "single_field_handle_handoff_canary_mirror_field": "scale_metadata_handle",
+    "single_field_handle_handoff_canary_mirror_source": "semantic_handle_table",
+    "single_field_handle_handoff_canary_kernel_side_typed_consumer_compatible_required": True,
+    "single_field_handle_handoff_canary_current_wna16_arg_compatible_required": False,
     "single_field_handle_handoff_canary_block_reason": (
         "single_field_handoff_live_disabled"
     ),

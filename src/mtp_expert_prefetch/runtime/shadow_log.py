@@ -1272,6 +1272,18 @@ class ShadowPremapConsumerMappingEvent:
     descriptor_prep_consumer_shim_single_field_handle_handoff_canary_source: (
         str | None
     ) = None
+    descriptor_prep_consumer_shim_single_field_handle_handoff_canary_mirror_mode: (
+        str | None
+    ) = None
+    descriptor_prep_consumer_shim_single_field_handle_handoff_canary_mirror_ready: (
+        bool | None
+    ) = None
+    descriptor_prep_consumer_shim_single_field_handle_handoff_canary_mirror_field_name: (
+        str | None
+    ) = None
+    descriptor_prep_consumer_shim_single_field_handle_handoff_canary_mirror_source: (
+        str | None
+    ) = None
     descriptor_prep_consumer_shim_single_field_handle_handoff_canary_table_object_hash: (
         str | None
     ) = None
@@ -1296,11 +1308,23 @@ class ShadowPremapConsumerMappingEvent:
     descriptor_prep_consumer_shim_single_field_handle_handoff_canary_semantic_field_hash: (
         str | None
     ) = None
+    descriptor_prep_consumer_shim_single_field_handle_handoff_canary_mirror_handle_hash: (
+        str | None
+    ) = None
+    descriptor_prep_consumer_shim_single_field_handle_handoff_canary_mirror_schema_hash: (
+        str | None
+    ) = None
     descriptor_prep_consumer_shim_single_field_handle_handoff_canary_parity_ok_count: (
         int | None
     ) = None
     descriptor_prep_consumer_shim_single_field_handle_handoff_canary_parity_mismatch_count: (
         int | None
+    ) = None
+    descriptor_prep_consumer_shim_single_field_handle_handoff_canary_kernel_side_typed_consumer_compatible: (
+        bool | None
+    ) = None
+    descriptor_prep_consumer_shim_single_field_handle_handoff_canary_current_wna16_arg_compatible: (
+        bool | None
     ) = None
     descriptor_prep_consumer_shim_single_field_handle_handoff_canary_live_enabled: (
         bool | None
@@ -3033,6 +3057,22 @@ class ShadowPremapConsumerMappingEvent:
                 self.descriptor_prep_consumer_shim_single_field_handle_handoff_canary_source,
             ),
             (
+                "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_mirror_mode",
+                self.descriptor_prep_consumer_shim_single_field_handle_handoff_canary_mirror_mode,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_mirror_ready",
+                self.descriptor_prep_consumer_shim_single_field_handle_handoff_canary_mirror_ready,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_mirror_field_name",
+                self.descriptor_prep_consumer_shim_single_field_handle_handoff_canary_mirror_field_name,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_mirror_source",
+                self.descriptor_prep_consumer_shim_single_field_handle_handoff_canary_mirror_source,
+            ),
+            (
                 "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_table_object_hash",
                 self.descriptor_prep_consumer_shim_single_field_handle_handoff_canary_table_object_hash,
             ),
@@ -3065,12 +3105,28 @@ class ShadowPremapConsumerMappingEvent:
                 self.descriptor_prep_consumer_shim_single_field_handle_handoff_canary_semantic_field_hash,
             ),
             (
+                "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_mirror_handle_hash",
+                self.descriptor_prep_consumer_shim_single_field_handle_handoff_canary_mirror_handle_hash,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_mirror_schema_hash",
+                self.descriptor_prep_consumer_shim_single_field_handle_handoff_canary_mirror_schema_hash,
+            ),
+            (
                 "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_parity_ok_count",
                 self.descriptor_prep_consumer_shim_single_field_handle_handoff_canary_parity_ok_count,
             ),
             (
                 "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_parity_mismatch_count",
                 self.descriptor_prep_consumer_shim_single_field_handle_handoff_canary_parity_mismatch_count,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_kernel_side_typed_consumer_compatible",
+                self.descriptor_prep_consumer_shim_single_field_handle_handoff_canary_kernel_side_typed_consumer_compatible,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_current_wna16_arg_compatible",
+                self.descriptor_prep_consumer_shim_single_field_handle_handoff_canary_current_wna16_arg_compatible,
             ),
             (
                 "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_live_enabled",
@@ -6088,6 +6144,28 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
                         (f"{single_field_prefix}_source_checked_count", 0),
                         (f"{single_field_prefix}_source_missing_count", 0),
                         (f"{single_field_prefix}_source_mismatch_count", 0),
+                        (f"{single_field_prefix}_mirror_mode", ""),
+                        (f"{single_field_prefix}_mirror_mode_checked_count", 0),
+                        (f"{single_field_prefix}_mirror_mode_missing_count", 0),
+                        (f"{single_field_prefix}_mirror_mode_mismatch_count", 0),
+                        (f"{single_field_prefix}_mirror_ready_count", 0),
+                        (f"{single_field_prefix}_mirror_field_name", ""),
+                        (
+                            f"{single_field_prefix}_mirror_field_name_checked_count",
+                            0,
+                        ),
+                        (
+                            f"{single_field_prefix}_mirror_field_name_missing_count",
+                            0,
+                        ),
+                        (
+                            f"{single_field_prefix}_mirror_field_name_mismatch_count",
+                            0,
+                        ),
+                        (f"{single_field_prefix}_mirror_source", ""),
+                        (f"{single_field_prefix}_mirror_source_checked_count", 0),
+                        (f"{single_field_prefix}_mirror_source_missing_count", 0),
+                        (f"{single_field_prefix}_mirror_source_mismatch_count", 0),
                         (f"{single_field_prefix}_table_object_hash_checked_count", 0),
                         (f"{single_field_prefix}_table_object_hash_missing_count", 0),
                         (
@@ -6108,6 +6186,10 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
                             f"{single_field_prefix}_semantic_field_hash_missing_count",
                             0,
                         ),
+                        (f"{single_field_prefix}_mirror_handle_hash_checked_count", 0),
+                        (f"{single_field_prefix}_mirror_handle_hash_missing_count", 0),
+                        (f"{single_field_prefix}_mirror_schema_hash_checked_count", 0),
+                        (f"{single_field_prefix}_mirror_schema_hash_missing_count", 0),
                         (f"{single_field_prefix}_block_reason", ""),
                         (f"{single_field_prefix}_block_reason_checked_count", 0),
                         (f"{single_field_prefix}_block_reason_missing_count", 0),
@@ -6120,6 +6202,14 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
                         (f"{single_field_prefix}_parity_mismatch_count", 0),
                         (f"{single_field_prefix}_live_enabled_count", 0),
                         (f"{single_field_prefix}_blocked_count", 0),
+                        (
+                            f"{single_field_prefix}_kernel_side_typed_consumer_compatible_count",
+                            0,
+                        ),
+                        (
+                            f"{single_field_prefix}_current_wna16_arg_compatible_count",
+                            0,
+                        ),
                         (f"{single_field_prefix}_payload_bytes", 0),
                         (f"{single_field_prefix}_payload_violation_count", 0),
                         (f"{single_field_prefix}_ready_credit_count", 0),
@@ -6168,6 +6258,16 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
                             f"{single_field_prefix}_semantic_field_hash_checked_count",
                             f"{single_field_prefix}_semantic_field_hash_missing_count",
                         ),
+                        (
+                            f"{single_field_prefix}_mirror_handle_hash",
+                            f"{single_field_prefix}_mirror_handle_hash_checked_count",
+                            f"{single_field_prefix}_mirror_handle_hash_missing_count",
+                        ),
+                        (
+                            f"{single_field_prefix}_mirror_schema_hash",
+                            f"{single_field_prefix}_mirror_schema_hash_checked_count",
+                            f"{single_field_prefix}_mirror_schema_hash_missing_count",
+                        ),
                     ):
                         if event.get(hash_field):
                             totals[checked_key] += 1
@@ -6176,6 +6276,18 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
                     for value_field, base_key in (
                         (f"{single_field_prefix}_field_name", f"{single_field_prefix}_field_name"),
                         (f"{single_field_prefix}_source", f"{single_field_prefix}_source"),
+                        (
+                            f"{single_field_prefix}_mirror_mode",
+                            f"{single_field_prefix}_mirror_mode",
+                        ),
+                        (
+                            f"{single_field_prefix}_mirror_field_name",
+                            f"{single_field_prefix}_mirror_field_name",
+                        ),
+                        (
+                            f"{single_field_prefix}_mirror_source",
+                            f"{single_field_prefix}_mirror_source",
+                        ),
                         (f"{single_field_prefix}_block_reason", f"{single_field_prefix}_block_reason"),
                     ):
                         value = event.get(value_field)
@@ -6205,6 +6317,18 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
                         (
                             f"{single_field_prefix}_blocked",
                             f"{single_field_prefix}_blocked_count",
+                        ),
+                        (
+                            f"{single_field_prefix}_mirror_ready",
+                            f"{single_field_prefix}_mirror_ready_count",
+                        ),
+                        (
+                            f"{single_field_prefix}_kernel_side_typed_consumer_compatible",
+                            f"{single_field_prefix}_kernel_side_typed_consumer_compatible_count",
+                        ),
+                        (
+                            f"{single_field_prefix}_current_wna16_arg_compatible",
+                            f"{single_field_prefix}_current_wna16_arg_compatible_count",
                         ),
                         (
                             f"{single_field_prefix}_ready_credit",

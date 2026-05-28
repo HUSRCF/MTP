@@ -902,6 +902,9 @@ class PremapSingleFieldHandleHandoffCanary:
     mode: str
     field_name: str
     source: str
+    mirror_mode: str
+    mirror_field_name: str
+    mirror_source: str
     table_object_hash: str
     semantic_adapter_hash: str
     row_count: int
@@ -910,8 +913,13 @@ class PremapSingleFieldHandleHandoffCanary:
     field_handle_zero_count: int
     field_handle_hash: str
     semantic_field_hash: str
+    mirror_handle_hash: str
+    mirror_schema_hash: str
+    mirror_ready: bool
     parity_ok_count: int
     parity_mismatch_count: int
+    kernel_side_typed_consumer_compatible: bool
+    current_wna16_arg_compatible: bool
     live_enabled: bool
     blocked: bool
     block_reason: str
@@ -927,6 +935,9 @@ class PremapSingleFieldHandleHandoffCanary:
             self.mode == "readonly_single_field_handle_handoff_canary"
             and self.field_name == "scale_metadata_handle"
             and self.source == "semantic_handle_table"
+            and self.mirror_mode == "readonly_scale_metadata_handle_mirror"
+            and self.mirror_field_name == self.field_name
+            and self.mirror_source == self.source
             and bool(self.table_object_hash)
             and bool(self.semantic_adapter_hash)
             and int(self.row_count) > 0
@@ -935,8 +946,14 @@ class PremapSingleFieldHandleHandoffCanary:
             and int(self.field_handle_zero_count) == 0
             and bool(self.field_handle_hash)
             and str(self.field_handle_hash) == str(self.semantic_field_hash)
+            and str(self.mirror_handle_hash) == str(self.field_handle_hash)
+            and str(self.mirror_schema_hash)
+            == PREMAP_KERNEL_SIDE_TYPED_CONSUMER_SCHEMA_HASH
+            and bool(self.mirror_ready)
             and int(self.parity_ok_count) == int(self.row_count)
             and int(self.parity_mismatch_count) == 0
+            and bool(self.kernel_side_typed_consumer_compatible)
+            and not bool(self.current_wna16_arg_compatible)
             and not bool(self.live_enabled)
             and bool(self.blocked)
             and self.block_reason == "single_field_handoff_live_disabled"
@@ -962,6 +979,9 @@ class PremapSingleFieldHandleHandoffCanary:
             "ready": bool(self.ready),
             "field_name": str(self.field_name),
             "source": str(self.source),
+            "mirror_mode": str(self.mirror_mode),
+            "mirror_field_name": str(self.mirror_field_name),
+            "mirror_source": str(self.mirror_source),
             "table_object_hash": str(self.table_object_hash),
             "semantic_adapter_hash": str(self.semantic_adapter_hash),
             "row_count": int(self.row_count),
@@ -970,8 +990,17 @@ class PremapSingleFieldHandleHandoffCanary:
             "field_handle_zero_count": int(self.field_handle_zero_count),
             "field_handle_hash": str(self.field_handle_hash),
             "semantic_field_hash": str(self.semantic_field_hash),
+            "mirror_handle_hash": str(self.mirror_handle_hash),
+            "mirror_schema_hash": str(self.mirror_schema_hash),
+            "mirror_ready": bool(self.mirror_ready),
             "parity_ok_count": int(self.parity_ok_count),
             "parity_mismatch_count": int(self.parity_mismatch_count),
+            "kernel_side_typed_consumer_compatible": bool(
+                self.kernel_side_typed_consumer_compatible
+            ),
+            "current_wna16_arg_compatible": bool(
+                self.current_wna16_arg_compatible
+            ),
             "live_enabled": bool(self.live_enabled),
             "blocked": bool(self.blocked),
             "block_reason": str(self.block_reason),
@@ -2048,6 +2077,10 @@ class PremapDescriptorConsumerShimResult:
     single_field_handle_handoff_canary_hash: str | None = None
     single_field_handle_handoff_canary_field_name: str | None = None
     single_field_handle_handoff_canary_source: str | None = None
+    single_field_handle_handoff_canary_mirror_mode: str | None = None
+    single_field_handle_handoff_canary_mirror_ready: bool | None = None
+    single_field_handle_handoff_canary_mirror_field_name: str | None = None
+    single_field_handle_handoff_canary_mirror_source: str | None = None
     single_field_handle_handoff_canary_table_object_hash: str | None = None
     single_field_handle_handoff_canary_semantic_adapter_hash: str | None = None
     single_field_handle_handoff_canary_row_count: int | None = None
@@ -2056,8 +2089,16 @@ class PremapDescriptorConsumerShimResult:
     single_field_handle_handoff_canary_field_handle_zero_count: int | None = None
     single_field_handle_handoff_canary_field_handle_hash: str | None = None
     single_field_handle_handoff_canary_semantic_field_hash: str | None = None
+    single_field_handle_handoff_canary_mirror_handle_hash: str | None = None
+    single_field_handle_handoff_canary_mirror_schema_hash: str | None = None
     single_field_handle_handoff_canary_parity_ok_count: int | None = None
     single_field_handle_handoff_canary_parity_mismatch_count: int | None = None
+    single_field_handle_handoff_canary_kernel_side_typed_consumer_compatible: (
+        bool | None
+    ) = None
+    single_field_handle_handoff_canary_current_wna16_arg_compatible: (
+        bool | None
+    ) = None
     single_field_handle_handoff_canary_live_enabled: bool | None = None
     single_field_handle_handoff_canary_blocked: bool | None = None
     single_field_handle_handoff_canary_block_reason: str | None = None
@@ -3746,6 +3787,9 @@ class ControlledPremapAddressManager:
                         mode="readonly_single_field_handle_handoff_canary",
                         field_name="scale_metadata_handle",
                         source="semantic_handle_table",
+                        mirror_mode="readonly_scale_metadata_handle_mirror",
+                        mirror_field_name="scale_metadata_handle",
+                        mirror_source="semantic_handle_table",
                         table_object_hash=table_object.object_hash,
                         semantic_adapter_hash=semantic_handle_adapter.adapter_hash,
                         row_count=handoff_row_count,
@@ -3758,12 +3802,23 @@ class ControlledPremapAddressManager:
                         semantic_field_hash=(
                             semantic_handle_adapter.scale_metadata_handle_hash
                         ),
+                        mirror_handle_hash=single_field_hash,
+                        mirror_schema_hash=(
+                            PREMAP_KERNEL_SIDE_TYPED_CONSUMER_SCHEMA_HASH
+                        ),
+                        mirror_ready=bool(single_field_parity_ok)
+                        and single_field_nonzero_count == len(single_field_values)
+                        and len(single_field_values) == handoff_row_count,
                         parity_ok_count=(
                             handoff_row_count if single_field_parity_ok else 0
                         ),
                         parity_mismatch_count=(
                             0 if single_field_parity_ok else handoff_row_count
                         ),
+                        kernel_side_typed_consumer_compatible=bool(
+                            single_field_parity_ok
+                        ),
+                        current_wna16_arg_compatible=False,
                         live_enabled=False,
                         blocked=True,
                         block_reason="single_field_handoff_live_disabled",
@@ -4820,6 +4875,26 @@ class ControlledPremapAddressManager:
                 if single_field_handle_handoff_canary is not None
                 else None
             ),
+            single_field_handle_handoff_canary_mirror_mode=(
+                single_field_handle_handoff_canary.mirror_mode
+                if single_field_handle_handoff_canary is not None
+                else None
+            ),
+            single_field_handle_handoff_canary_mirror_ready=(
+                single_field_handle_handoff_canary.mirror_ready
+                if single_field_handle_handoff_canary is not None
+                else None
+            ),
+            single_field_handle_handoff_canary_mirror_field_name=(
+                single_field_handle_handoff_canary.mirror_field_name
+                if single_field_handle_handoff_canary is not None
+                else None
+            ),
+            single_field_handle_handoff_canary_mirror_source=(
+                single_field_handle_handoff_canary.mirror_source
+                if single_field_handle_handoff_canary is not None
+                else None
+            ),
             single_field_handle_handoff_canary_table_object_hash=(
                 single_field_handle_handoff_canary.table_object_hash
                 if single_field_handle_handoff_canary is not None
@@ -4860,6 +4935,16 @@ class ControlledPremapAddressManager:
                 if single_field_handle_handoff_canary is not None
                 else None
             ),
+            single_field_handle_handoff_canary_mirror_handle_hash=(
+                single_field_handle_handoff_canary.mirror_handle_hash
+                if single_field_handle_handoff_canary is not None
+                else None
+            ),
+            single_field_handle_handoff_canary_mirror_schema_hash=(
+                single_field_handle_handoff_canary.mirror_schema_hash
+                if single_field_handle_handoff_canary is not None
+                else None
+            ),
             single_field_handle_handoff_canary_parity_ok_count=(
                 single_field_handle_handoff_canary.parity_ok_count
                 if single_field_handle_handoff_canary is not None
@@ -4867,6 +4952,16 @@ class ControlledPremapAddressManager:
             ),
             single_field_handle_handoff_canary_parity_mismatch_count=(
                 single_field_handle_handoff_canary.parity_mismatch_count
+                if single_field_handle_handoff_canary is not None
+                else None
+            ),
+            single_field_handle_handoff_canary_kernel_side_typed_consumer_compatible=(
+                single_field_handle_handoff_canary.kernel_side_typed_consumer_compatible
+                if single_field_handle_handoff_canary is not None
+                else None
+            ),
+            single_field_handle_handoff_canary_current_wna16_arg_compatible=(
+                single_field_handle_handoff_canary.current_wna16_arg_compatible
                 if single_field_handle_handoff_canary is not None
                 else None
             ),

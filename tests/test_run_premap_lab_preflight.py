@@ -274,6 +274,10 @@ def _lab_evidence_metrics() -> dict[str, object]:
         f"{single}field_handle_hash_missing_count": 0,
         f"{single}semantic_field_hash_checked_count": 3,
         f"{single}semantic_field_hash_missing_count": 0,
+        f"{single}mirror_handle_hash_checked_count": 3,
+        f"{single}mirror_handle_hash_missing_count": 0,
+        f"{single}mirror_schema_hash_checked_count": 3,
+        f"{single}mirror_schema_hash_missing_count": 0,
         f"{single}mode": "readonly_single_field_handle_handoff_canary",
         f"{single}mode_checked_count": 3,
         f"{single}mode_missing_count": 0,
@@ -286,6 +290,19 @@ def _lab_evidence_metrics() -> dict[str, object]:
         f"{single}source_checked_count": 3,
         f"{single}source_missing_count": 0,
         f"{single}source_mismatch_count": 0,
+        f"{single}mirror_mode": "readonly_scale_metadata_handle_mirror",
+        f"{single}mirror_mode_checked_count": 3,
+        f"{single}mirror_mode_missing_count": 0,
+        f"{single}mirror_mode_mismatch_count": 0,
+        f"{single}mirror_ready_count": 3,
+        f"{single}mirror_field_name": "scale_metadata_handle",
+        f"{single}mirror_field_name_checked_count": 3,
+        f"{single}mirror_field_name_missing_count": 0,
+        f"{single}mirror_field_name_mismatch_count": 0,
+        f"{single}mirror_source": "semantic_handle_table",
+        f"{single}mirror_source_checked_count": 3,
+        f"{single}mirror_source_missing_count": 0,
+        f"{single}mirror_source_mismatch_count": 0,
         f"{single}block_reason": "single_field_handoff_live_disabled",
         f"{single}block_reason_checked_count": 3,
         f"{single}block_reason_missing_count": 0,
@@ -304,6 +321,8 @@ def _lab_evidence_metrics() -> dict[str, object]:
         f"{single}passed_to_kernel_count": 0,
         f"{single}kernel_arg_violation_count": 0,
         f"{single}live_compatible_with_current_wna16_args_count": 0,
+        f"{single}kernel_side_typed_consumer_compatible_count": 3,
+        f"{single}current_wna16_arg_compatible_count": 0,
     }
     return metrics
 
@@ -577,6 +596,11 @@ def _write_gate(
         "  single_field_handle_handoff_canary_mode: readonly_single_field_handle_handoff_canary\n"
         "  single_field_handle_handoff_canary_field: scale_metadata_handle\n"
         "  single_field_handle_handoff_canary_source: semantic_handle_table\n"
+        "  single_field_handle_handoff_canary_mirror_mode: readonly_scale_metadata_handle_mirror\n"
+        "  single_field_handle_handoff_canary_mirror_field: scale_metadata_handle\n"
+        "  single_field_handle_handoff_canary_mirror_source: semantic_handle_table\n"
+        "  single_field_handle_handoff_canary_kernel_side_typed_consumer_compatible_required: true\n"
+        "  single_field_handle_handoff_canary_current_wna16_arg_compatible_required: false\n"
         "  single_field_handle_handoff_canary_block_reason: single_field_handoff_live_disabled\n"
         "  single_field_handle_handoff_canary_payload_bytes_required: 0\n"
         "  single_field_handle_handoff_canary_ready_credit_required: false\n"

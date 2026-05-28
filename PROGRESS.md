@@ -43,6 +43,12 @@ single_field_handle_handoff_canary:
   mode = readonly_single_field_handle_handoff_canary
   field = scale_metadata_handle
   source = semantic_handle_table
+  mirror_mode = readonly_scale_metadata_handle_mirror
+  mirror_field = scale_metadata_handle
+  mirror_source = semantic_handle_table
+  mirror_schema = fused_moe_awq_wna16_kernel_side_typed_consumer_object_v1
+  kernel_side_typed_consumer_compatible = true
+  current_wna16_arg_compatible = false
   live_enabled = false
   block_reason = single_field_handoff_live_disabled
   payload_bytes = 0
@@ -52,9 +58,10 @@ single_field_handle_handoff_canary:
   live_compatible_with_current_wna16_args = false
 ```
 
-This is the first one-field handoff canary, but it is still a readonly mirror.
-It does not replace a live kernel argument and does not treat prepared handle
-tuples as current WNA16-compatible tensor args.
+This is the first one-field-at-a-time handoff canary.  It is explicitly a
+readonly `scale_metadata_handle` mirror for the future typed kernel-side
+consumer schema.  It does not replace a live kernel argument and does not treat
+prepared handle tuples as current WNA16-compatible tensor args.
 
 New 128-sample GPU1 strict audit evidence:
 
@@ -78,6 +85,12 @@ single-field canary:
   field_handle_zero_count = 0
   parity_ok_count = 110,898
   parity_mismatch_count = 0
+  mirror_mode = readonly_scale_metadata_handle_mirror
+  mirror_ready_count = checked_count
+  mirror_field = scale_metadata_handle
+  mirror_source = semantic_handle_table
+  kernel_side_typed_consumer_compatible_count = checked_count
+  current_wna16_arg_compatible_count = 0
   live_enabled_count = 0
   blocked_count = 10,195
   payload_bytes = 0
@@ -95,6 +108,11 @@ configs/runtime/premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_live
 contract:
   single_field_handle_handoff_canary_required = true
   single_field_handle_handoff_canary_field = scale_metadata_handle
+  single_field_handle_handoff_canary_mirror_mode =
+    readonly_scale_metadata_handle_mirror
+  single_field_handle_handoff_canary_kernel_side_typed_consumer_compatible =
+    true
+  single_field_handle_handoff_canary_current_wna16_arg_compatible = false
 
 evidence:
   strict_single_field_handle_handoff_canary_128_gate_json =
@@ -102,10 +120,11 @@ evidence:
 ```
 
 `scripts/run_premap_lab_preflight.py` now requires and validates that evidence
-as part of the default lab gate.  The actual lab preflight passes:
+as part of the default lab gate.  The actual lab preflight passes with the
+updated mirror contract:
 
 ```text
-outputs/reports/premap_lab_preflight_default_single_field_canary.json
+/tmp/premap_lab_preflight_one_field_canary.json
   passed = true
   required_evidence = 10 / 10 present and passed
 ```
@@ -113,11 +132,14 @@ outputs/reports/premap_lab_preflight_default_single_field_canary.json
 Validation:
 
 ```text
-pytest tests/test_run_premap_lab_preflight.py tests/test_check_premap_longrun_audit_gate.py -q
-  123 passed
+pytest tests/test_runtime_premap.py tests/test_runtime_shadow_log.py \
+  tests/test_vllm_router_shadow_sink.py \
+  tests/test_check_premap_longrun_audit_gate.py \
+  tests/test_run_premap_lab_preflight.py -q
+  219 passed
 
 pytest tests -q
-  670 passed, 2 warnings
+  679 passed, 2 warnings
 ```
 
 Next gate:

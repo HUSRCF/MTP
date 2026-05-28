@@ -3696,6 +3696,18 @@ def check_summary(
                 canary_semantic_field_hash_missing_count = _as_int(
                     aggregate.get(f"{canary_prefix}semantic_field_hash_missing_count")
                 )
+                canary_mirror_handle_hash_checked_count = _as_int(
+                    aggregate.get(f"{canary_prefix}mirror_handle_hash_checked_count")
+                )
+                canary_mirror_handle_hash_missing_count = _as_int(
+                    aggregate.get(f"{canary_prefix}mirror_handle_hash_missing_count")
+                )
+                canary_mirror_schema_hash_checked_count = _as_int(
+                    aggregate.get(f"{canary_prefix}mirror_schema_hash_checked_count")
+                )
+                canary_mirror_schema_hash_missing_count = _as_int(
+                    aggregate.get(f"{canary_prefix}mirror_schema_hash_missing_count")
+                )
                 canary_mode = str(aggregate.get(f"{canary_prefix}mode") or "")
                 canary_mode_checked_count = _as_int(
                     aggregate.get(f"{canary_prefix}mode_checked_count")
@@ -3727,6 +3739,45 @@ def check_summary(
                 )
                 canary_source_mismatch_count = _as_int(
                     aggregate.get(f"{canary_prefix}source_mismatch_count")
+                )
+                canary_mirror_mode = str(
+                    aggregate.get(f"{canary_prefix}mirror_mode") or ""
+                )
+                canary_mirror_mode_checked_count = _as_int(
+                    aggregate.get(f"{canary_prefix}mirror_mode_checked_count")
+                )
+                canary_mirror_mode_missing_count = _as_int(
+                    aggregate.get(f"{canary_prefix}mirror_mode_missing_count")
+                )
+                canary_mirror_mode_mismatch_count = _as_int(
+                    aggregate.get(f"{canary_prefix}mirror_mode_mismatch_count")
+                )
+                canary_mirror_ready_count = _as_int(
+                    aggregate.get(f"{canary_prefix}mirror_ready_count")
+                )
+                canary_mirror_field_name = str(
+                    aggregate.get(f"{canary_prefix}mirror_field_name") or ""
+                )
+                canary_mirror_field_name_checked_count = _as_int(
+                    aggregate.get(f"{canary_prefix}mirror_field_name_checked_count")
+                )
+                canary_mirror_field_name_missing_count = _as_int(
+                    aggregate.get(f"{canary_prefix}mirror_field_name_missing_count")
+                )
+                canary_mirror_field_name_mismatch_count = _as_int(
+                    aggregate.get(f"{canary_prefix}mirror_field_name_mismatch_count")
+                )
+                canary_mirror_source = str(
+                    aggregate.get(f"{canary_prefix}mirror_source") or ""
+                )
+                canary_mirror_source_checked_count = _as_int(
+                    aggregate.get(f"{canary_prefix}mirror_source_checked_count")
+                )
+                canary_mirror_source_missing_count = _as_int(
+                    aggregate.get(f"{canary_prefix}mirror_source_missing_count")
+                )
+                canary_mirror_source_mismatch_count = _as_int(
+                    aggregate.get(f"{canary_prefix}mirror_source_mismatch_count")
                 )
                 canary_block_reason = str(
                     aggregate.get(f"{canary_prefix}block_reason") or ""
@@ -3782,6 +3833,14 @@ def check_summary(
                         f"{canary_prefix}live_compatible_with_current_wna16_args_count"
                     )
                 )
+                canary_kernel_typed_compatible_count = _as_int(
+                    aggregate.get(
+                        f"{canary_prefix}kernel_side_typed_consumer_compatible_count"
+                    )
+                )
+                canary_current_wna16_arg_compatible_count = _as_int(
+                    aggregate.get(f"{canary_prefix}current_wna16_arg_compatible_count")
+                )
                 if canary_checked_count != shim_executed:
                     failures.append(
                         "consumer_shim_single_field_handle_handoff_canary_checked_count_mismatch="
@@ -3804,6 +3863,14 @@ def check_summary(
                         "semantic_field_hash_checked_count",
                         canary_semantic_field_hash_checked_count,
                     ),
+                    (
+                        "mirror_handle_hash_checked_count",
+                        canary_mirror_handle_hash_checked_count,
+                    ),
+                    (
+                        "mirror_schema_hash_checked_count",
+                        canary_mirror_schema_hash_checked_count,
+                    ),
                 ):
                     if value != shim_executed:
                         failures.append(
@@ -3821,6 +3888,14 @@ def check_summary(
                     (
                         "semantic_field_hash_missing_count",
                         canary_semantic_field_hash_missing_count,
+                    ),
+                    (
+                        "mirror_handle_hash_missing_count",
+                        canary_mirror_handle_hash_missing_count,
+                    ),
+                    (
+                        "mirror_schema_hash_missing_count",
+                        canary_mirror_schema_hash_missing_count,
                     ),
                 ):
                     if value != 0:
@@ -3855,6 +3930,23 @@ def check_summary(
                     failures.append(
                         "consumer_shim_single_field_handle_handoff_canary_source_mismatch"
                     )
+                if canary_mirror_mode != "readonly_scale_metadata_handle_mirror":
+                    failures.append(
+                        "consumer_shim_single_field_handle_handoff_canary_mirror_mode_mismatch"
+                    )
+                if canary_mirror_ready_count != shim_executed:
+                    failures.append(
+                        "consumer_shim_single_field_handle_handoff_canary_mirror_ready_count_mismatch="
+                        f"{canary_mirror_ready_count}!={shim_executed}"
+                    )
+                if canary_mirror_field_name != "scale_metadata_handle":
+                    failures.append(
+                        "consumer_shim_single_field_handle_handoff_canary_mirror_field_name_mismatch"
+                    )
+                if canary_mirror_source != "semantic_handle_table":
+                    failures.append(
+                        "consumer_shim_single_field_handle_handoff_canary_mirror_source_mismatch"
+                    )
                 for name, checked, missing, mismatch in (
                     (
                         "field_name",
@@ -3867,6 +3959,24 @@ def check_summary(
                         canary_source_checked_count,
                         canary_source_missing_count,
                         canary_source_mismatch_count,
+                    ),
+                    (
+                        "mirror_mode",
+                        canary_mirror_mode_checked_count,
+                        canary_mirror_mode_missing_count,
+                        canary_mirror_mode_mismatch_count,
+                    ),
+                    (
+                        "mirror_field_name",
+                        canary_mirror_field_name_checked_count,
+                        canary_mirror_field_name_missing_count,
+                        canary_mirror_field_name_mismatch_count,
+                    ),
+                    (
+                        "mirror_source",
+                        canary_mirror_source_checked_count,
+                        canary_mirror_source_missing_count,
+                        canary_mirror_source_mismatch_count,
                     ),
                     (
                         "block_reason",
@@ -3963,6 +4073,16 @@ def check_summary(
                     failures.append(
                         "consumer_shim_single_field_handle_handoff_canary_current_wna16_compatible_count_nonzero="
                         f"{canary_current_wna16_compatible_count}"
+                    )
+                if canary_kernel_typed_compatible_count != shim_executed:
+                    failures.append(
+                        "consumer_shim_single_field_handle_handoff_canary_kernel_side_typed_consumer_compatible_count_mismatch="
+                        f"{canary_kernel_typed_compatible_count}!={shim_executed}"
+                    )
+                if canary_current_wna16_arg_compatible_count != 0:
+                    failures.append(
+                        "consumer_shim_single_field_handle_handoff_canary_current_wna16_arg_compatible_count_nonzero="
+                        f"{canary_current_wna16_arg_compatible_count}"
                     )
             if (
                 require_kernel_side_consumer_schema_adapter

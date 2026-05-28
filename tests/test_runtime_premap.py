@@ -835,6 +835,19 @@ def test_controlled_premap_address_manager_executes_descriptor_prep_readonly():
     assert shim_result.single_field_handle_handoff_canary_field_name == "scale_metadata_handle"
     assert shim_result.single_field_handle_handoff_canary_source == "semantic_handle_table"
     assert (
+        shim_result.single_field_handle_handoff_canary_mirror_mode
+        == "readonly_scale_metadata_handle_mirror"
+    )
+    assert shim_result.single_field_handle_handoff_canary_mirror_ready is True
+    assert (
+        shim_result.single_field_handle_handoff_canary_mirror_field_name
+        == "scale_metadata_handle"
+    )
+    assert (
+        shim_result.single_field_handle_handoff_canary_mirror_source
+        == "semantic_handle_table"
+    )
+    assert (
         shim_result.single_field_handle_handoff_canary_table_object_hash
         == table_object.object_hash
     )
@@ -851,8 +864,24 @@ def test_controlled_premap_address_manager_executes_descriptor_prep_readonly():
         shim_result.single_field_handle_handoff_canary_field_handle_hash
         == shim_result.single_field_handle_handoff_canary_semantic_field_hash
     )
+    assert (
+        shim_result.single_field_handle_handoff_canary_mirror_handle_hash
+        == shim_result.single_field_handle_handoff_canary_field_handle_hash
+    )
+    assert (
+        shim_result.single_field_handle_handoff_canary_mirror_schema_hash
+        == PREMAP_KERNEL_SIDE_TYPED_CONSUMER_SCHEMA_HASH
+    )
     assert shim_result.single_field_handle_handoff_canary_parity_ok_count == 2
     assert shim_result.single_field_handle_handoff_canary_parity_mismatch_count == 0
+    assert (
+        shim_result.single_field_handle_handoff_canary_kernel_side_typed_consumer_compatible
+        is True
+    )
+    assert (
+        shim_result.single_field_handle_handoff_canary_current_wna16_arg_compatible
+        is False
+    )
     assert shim_result.single_field_handle_handoff_canary_live_enabled is False
     assert shim_result.single_field_handle_handoff_canary_blocked is True
     assert (
