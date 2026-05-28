@@ -23,6 +23,10 @@ def _payloads(root: Path) -> tuple[Path, Path, Path]:
         "required_evidence_present_count": 9,
         "required_evidence_passed_count": 9,
         "required_evidence_required_count": 10,
+        "optional_evidence_present_count": 1,
+        "optional_evidence_passed_count": 1,
+        "optional_evidence_required_count": 1,
+        "optional_evidence_passed": True,
         "runtime_gate_evidence_deferred_count": 1,
         "strict_default_gate_evidence_deferred_count": 1,
         "payload_bytes_required": 0,
@@ -34,6 +38,10 @@ def _payloads(root: Path) -> tuple[Path, Path, Path]:
         "required_evidence_present_count": 10,
         "required_evidence_passed_count": 10,
         "required_evidence_required_count": 10,
+        "optional_evidence_present_count": 1,
+        "optional_evidence_passed_count": 1,
+        "optional_evidence_required_count": 1,
+        "optional_evidence_passed": True,
         "runtime_gate_evidence_deferred_count": 0,
         "strict_default_gate_evidence_deferred_count": 0,
         "payload_bytes_required": 0,
@@ -48,6 +56,16 @@ def _payloads(root: Path) -> tuple[Path, Path, Path]:
         "preflight_status_summary": stage1,
         "final_preflight_status_summary": final,
         "stub_summary": {
+            "passed": True,
+            "ok": True,
+            "row_count": 4,
+            "row_ok_count": 4,
+            "error_count": 0,
+            "payload_bytes": 0,
+            "passed_to_kernel": False,
+            "changes_kernel_launch_args": False,
+        },
+        "per_field_stub_summary": {
             "passed": True,
             "ok": True,
             "row_count": 4,
@@ -74,6 +92,12 @@ def _payloads(root: Path) -> tuple[Path, Path, Path]:
                 "present_count": 10,
                 "passed_count": 10,
                 "required_count": 10,
+            },
+            "optional_evidence": {
+                "passed": True,
+                "present_count": 1,
+                "passed_count": 1,
+                "required_count": 1,
             },
         },
     )
@@ -160,3 +184,23 @@ def test_check_online_native_stub_canary_artifacts_cli_writes_json(tmp_path: Pat
     assert exit_code == 0
     assert result["passed"] is True
     assert result["runner_stub_row_count"] == 4
+    assert result["runner_per_field_stub_row_count"] == 4
+
+
+def test_check_online_native_stub_canary_artifacts_rejects_per_field_stub_mismatch(
+    tmp_path: Path,
+):
+    runner_path, preflight_path, status_path = _payloads(tmp_path)
+    runner = json.loads(runner_path.read_text(encoding="utf-8"))
+    runner["per_field_stub_summary"]["row_ok_count"] = 3
+    _write_json(runner_path, runner)
+
+    result = check_online_native_stub_canary_artifacts(
+        root=tmp_path,
+        runner_json=runner_path,
+        preflight_json=preflight_path,
+        status_json=status_path,
+    )
+
+    assert result["passed"] is False
+    assert "runner_per_field_stub_row_ok_count_mismatch" in result["failures"]

@@ -19338,3 +19338,16 @@ final_preflight_status.required_evidence = 10 / 10
 final_preflight_status.optional_evidence = 1 / 1
 artifact_check.passed = true
 ```
+
+The online canary artifact checker now also validates `per_field_stub_summary`
+when the runner emits it.  The refreshed checker confirms both native consumer
+variants against the same online prelaunch input:
+
+```text
+online_prelaunch_native_stub_canary_artifact_check_single_field_gate.json:
+  passed = true
+  runner_stub_row_count = 204
+  runner_stub_row_ok_count = 204
+  runner_per_field_stub_row_count = 204
+  runner_per_field_stub_row_ok_count = 204
+```
