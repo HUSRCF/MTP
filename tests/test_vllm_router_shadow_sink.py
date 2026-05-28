@@ -1,3 +1,5 @@
+import json
+
 import torch
 import pytest
 
@@ -470,6 +472,70 @@ def test_runtime_shadow_aggregate_fields_are_flattened_to_performance_summary():
         == 0
     )
     assert "runtime_shadow_aggregate_unrelated_debug_key" not in performance
+
+
+def test_recorder_exports_native_typed_consumer_input_sample(tmp_path):
+    class _Table:
+        row_count = 2
+        column_count = 4
+        object_hash = "table-hash"
+        schema_hash = PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH
+        payload_bytes = 0
+        ready_credit = False
+        changes_router = False
+        changes_descriptor_order = False
+        passed_to_kernel = False
+        changes_kernel_launch_args = False
+
+        def to_native_typed_consumer_input_dict(self):
+            return {
+                "descriptor_ptr": [11, 22],
+                "packed_weight_descriptor": [33, 44],
+                "scale_metadata_handle": [55, 66],
+                "aux_metadata_handle": [0, 0],
+                "expert_id": [3, 7],
+                "address_key_hash": [77, 88],
+                "_meta": {
+                    "schema_hash": PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH,
+                    "row_count": 2,
+                    "column_count": 4,
+                    "table_object_hash": "table-hash",
+                    "payload_bytes": 0,
+                    "ready_credit": False,
+                    "changes_router": False,
+                    "changes_descriptor_order": False,
+                    "passed_to_kernel": False,
+                    "changes_kernel_launch_args": False,
+                },
+            }
+
+    recorder = VllmRouterRecorder(
+        top_k=8,
+        shadow_premap_native_typed_consumer_input_export_enabled=True,
+        shadow_premap_native_typed_consumer_input_export_dir=str(tmp_path),
+        shadow_premap_native_typed_consumer_input_export_max_tables=1,
+        shadow_premap_native_typed_consumer_input_export_max_rows=8,
+    )
+    recorder.request_id = "sample/with spaces"
+    recorder.sequence_id = 5
+    recorder.shadow_premap_event_token_index = 9
+
+    path = recorder._maybe_export_native_typed_consumer_input(_Table(), layer_id=12)
+    assert path is not None
+    assert path.exists()
+    assert "sample_with_spaces" in path.name
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    assert payload["descriptor_ptr"] == [11, 22]
+    assert payload["_meta"]["payload_bytes"] == 0
+    assert payload["_meta"]["passed_to_kernel"] is False
+    assert payload["_export_context"]["layer_id"] == 12
+    assert payload["_export_context"]["ready_credit"] is False
+    assert payload["_export_context"]["changes_router"] is False
+    assert payload["_export_context"]["changes_descriptor_order"] is False
+
+    second = recorder._maybe_export_native_typed_consumer_input(_Table(), layer_id=13)
+    assert second is None
+    assert len(list(tmp_path.glob("premap_native_typed_consumer_input_*.json"))) == 1
 
 
 class _ExpertGate(torch.nn.Module):

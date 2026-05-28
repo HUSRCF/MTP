@@ -1022,6 +1022,197 @@ def _patch_missing_vllm_activation_ops_for_trace() -> bool:
     return patched
 
 
+def _patch_rocm_upstream_flash_attn_decoder_adapter_for_trace() -> bool:
+    """Adapt vLLM's FLASH_ATTN decoder path to upstream ROCm flash-attn.
+
+    vLLM's native ``FlashAttentionImpl`` calls the vLLM FA ABI, which accepts
+    extended kwargs such as ``out``, ``seqused_k``, ``scheduler_metadata`` and
+    ``fa_version``.  The upstream ROCm flash-attn 2.x package exposes the
+    standard ``flash_attn_with_kvcache`` API instead.  This patch is an explicit
+    experiment hook for trace runs that force ``attention_config.backend:
+    FLASH_ATTN``; it keeps the patch local to this process and does not edit
+    site-packages.
+    """
+
+    try:
+        from flash_attn import flash_attn_varlen_func
+        from vllm.platforms import current_platform
+        from vllm.utils.torch_utils import is_quantized_kv_cache
+        from vllm.v1.attention.backend import AttentionType
+
+        vllm_flash_attn = importlib.import_module(
+            "vllm.v1.attention.backends.flash_attn"
+        )
+    except Exception:
+        return False
+
+    if not current_platform.is_rocm():
+        return False
+
+    impl_cls = vllm_flash_attn.FlashAttentionImpl
+    if getattr(impl_cls, "_mtp_rocm_upstream_fa2_adapter_patched", False):
+        return True
+
+    original_forward = impl_cls.forward
+
+    def rocm_upstream_fa2_forward(
+        self: Any,
+        layer: torch.nn.Module,
+        query: torch.Tensor,
+        key: torch.Tensor,
+        value: torch.Tensor,
+        kv_cache: torch.Tensor,
+        attn_metadata: Any,
+        output: torch.Tensor,
+        output_scale: torch.Tensor | None = None,
+        output_block_scale: torch.Tensor | None = None,
+    ) -> torch.Tensor:
+        if self.vllm_flash_attn_version is not None:
+            return original_forward(
+                self,
+                layer,
+                query,
+                key,
+                value,
+                kv_cache,
+                attn_metadata,
+                output,
+                output_scale=output_scale,
+                output_block_scale=output_block_scale,
+            )
+        if output_scale is not None or output_block_scale is not None:
+            raise NotImplementedError(
+                "fused output quantization is not supported by the ROCm upstream "
+                "flash-attn decoder adapter"
+            )
+        if attn_metadata is None:
+            return output.fill_(0)
+        if self.attn_type in (AttentionType.ENCODER_ONLY, AttentionType.ENCODER):
+            raise NotImplementedError(
+                "ROCm upstream flash-attn adapter only supports decoder attention"
+            )
+        if bool(getattr(attn_metadata, "use_cascade", False)):
+            raise NotImplementedError(
+                "ROCm upstream flash-attn adapter does not support cascade attention"
+            )
+        if int(getattr(self, "dcp_world_size", 1)) > 1:
+            raise NotImplementedError(
+                "ROCm upstream flash-attn adapter does not support DCP attention"
+            )
+        if is_quantized_kv_cache(self.kv_cache_dtype):
+            raise NotImplementedError(
+                "ROCm upstream flash-attn adapter does not support quantized KV cache"
+            )
+        if getattr(self, "sinks", None) is not None:
+            raise NotImplementedError(
+                "ROCm upstream flash-attn adapter does not support attention sinks"
+            )
+
+        num_actual_tokens = int(attn_metadata.num_actual_tokens)
+        if num_actual_tokens == 0:
+            return output
+
+        key_cache, value_cache = kv_cache.unbind(0)
+        key_cache = key_cache.contiguous() if key_cache.stride(-1) != 1 else key_cache
+        value_cache = (
+            value_cache.contiguous() if value_cache.stride(-1) != 1 else value_cache
+        )
+
+        q = query[:num_actual_tokens]
+        out = output[:num_actual_tokens]
+        query_start_loc = attn_metadata.query_start_loc
+        seq_lens = attn_metadata.seq_lens
+        block_table = attn_metadata.block_table
+        if query_start_loc is None or seq_lens is None or block_table is None:
+            raise RuntimeError(
+                "ROCm upstream flash-attn adapter requires query_start_loc, "
+                "seq_lens, and block_table metadata"
+            )
+
+        query_lens = query_start_loc[1:] - query_start_loc[:-1]
+        if int(query_lens.numel()) <= 0:
+            return output
+        query_token_count = int(query_lens.to(torch.int64).sum().item())
+        if query_token_count != num_actual_tokens:
+            raise RuntimeError(
+                "ROCm upstream flash-attn adapter query length sum does not match "
+                f"num_actual_tokens: {query_token_count}!={num_actual_tokens}"
+            )
+
+        seq_lens = seq_lens[: int(query_lens.numel())].to(dtype=torch.int32).contiguous()
+        block_table = block_table[: int(query_lens.numel())].to(
+            dtype=torch.int32
+        ).contiguous()
+        sliding_window = tuple(self.sliding_window or (-1, -1))
+        causal = bool(attn_metadata.causal)
+        # Upstream ROCm FA2's varlen paged path does not support block_table.
+        # The correctness adapter therefore resolves vLLM paged-KV metadata
+        # into a dense varlen K/V stream, then calls the standard FA varlen API.
+        # This materializes K/V and is intentionally not a performance path.
+        block_size = int(key_cache.shape[1])
+        k_segments: list[torch.Tensor] = []
+        v_segments: list[torch.Tensor] = []
+        cu_k_values = [0]
+        for request_idx, seq_len_tensor in enumerate(seq_lens):
+            seq_len = int(seq_len_tensor.item())
+            cu_k_values.append(cu_k_values[-1] + seq_len)
+            if seq_len <= 0:
+                continue
+            num_blocks = (seq_len + block_size - 1) // block_size
+            block_ids = block_table[request_idx, :num_blocks].to(
+                device=key_cache.device, dtype=torch.long
+            )
+            if int(block_ids.numel()) != num_blocks:
+                raise RuntimeError(
+                    "ROCm upstream flash-attn adapter block_table is too short "
+                    f"for request {request_idx}: {int(block_ids.numel())}<{num_blocks}"
+                )
+            if bool((block_ids < 0).any().item()):
+                raise RuntimeError(
+                    "ROCm upstream flash-attn adapter received negative block ids"
+                )
+            k_i = key_cache.index_select(0, block_ids).reshape(
+                -1, self.num_kv_heads, self.head_size
+            )[:seq_len]
+            v_i = value_cache.index_select(0, block_ids).reshape(
+                -1, self.num_kv_heads, self.head_size
+            )[:seq_len]
+            k_segments.append(k_i)
+            v_segments.append(v_i)
+        if not k_segments:
+            return output
+        k_flat = torch.cat(k_segments, dim=0).contiguous()
+        v_flat = torch.cat(v_segments, dim=0).contiguous()
+        cu_seqlens_k = torch.tensor(
+            cu_k_values,
+            device=query_start_loc.device,
+            dtype=torch.int32,
+        )
+        result = flash_attn_varlen_func(
+            q=q,
+            k=k_flat,
+            v=v_flat,
+            cu_seqlens_q=query_start_loc.contiguous(),
+            cu_seqlens_k=cu_seqlens_k,
+            max_seqlen_q=int(attn_metadata.max_query_len),
+            max_seqlen_k=int(attn_metadata.max_seq_len),
+            dropout_p=0.0,
+            softmax_scale=self.scale,
+            causal=causal,
+            window_size=sliding_window,
+            softcap=float(self.logits_soft_cap),
+            alibi_slopes=self.alibi_slopes,
+            deterministic=False,
+            return_attn_probs=False,
+        )
+        out.copy_(result.reshape_as(out))
+        return output
+
+    impl_cls.forward = rocm_upstream_fa2_forward
+    impl_cls._mtp_rocm_upstream_fa2_adapter_patched = True
+    return True
+
+
 @dataclass
 class VllmRouterCall:
     layer_id: int | None
@@ -1077,6 +1268,14 @@ class VllmRouterRecorder:
         str
     ) = "original_kernel_arg_identity"
     shadow_premap_kernel_arg_handoff_single_field_replacement_field: str = "B_scale"
+    shadow_premap_native_typed_consumer_input_export_enabled: bool = False
+    shadow_premap_native_typed_consumer_input_export_dir: str | None = None
+    shadow_premap_native_typed_consumer_input_export_prefix: str = (
+        "premap_native_typed_consumer_input"
+    )
+    shadow_premap_native_typed_consumer_input_export_max_tables: int = 0
+    shadow_premap_native_typed_consumer_input_export_max_rows: int = 4096
+    shadow_premap_native_typed_consumer_input_export_paths: list[str] | None = None
     shadow_premap_address_namespace: str = "expert_weight_descriptor"
     shadow_premap_priority: int = 2
     shadow_transition_premap_priority: int = 3
@@ -1168,6 +1367,11 @@ class VllmRouterRecorder:
         default_factory=dict,
         repr=False,
     )
+    _premap_native_typed_consumer_input_export_count: int = field(
+        default=0,
+        init=False,
+        repr=False,
+    )
     _premap_consumer_mapping_call_count: int = field(default=0, repr=False)
     _premap_summary_call_count: int = field(default=0, repr=False)
     _descriptor_order_prior_rank_tensor_cache: dict[tuple[Any, ...], torch.Tensor] = (
@@ -1204,6 +1408,79 @@ class VllmRouterRecorder:
         self._decoder_component_counter_aggregate.clear()
         self._moe_substage_aggregate.clear()
         self._moe_substage_sample_counters.clear()
+
+    def _maybe_export_native_typed_consumer_input(
+        self,
+        table_object: Any | None,
+        *,
+        layer_id: int,
+    ) -> Path | None:
+        if not bool(self.shadow_premap_native_typed_consumer_input_export_enabled):
+            return None
+        if table_object is None:
+            return None
+        max_tables = int(
+            self.shadow_premap_native_typed_consumer_input_export_max_tables
+        )
+        if max_tables <= 0:
+            return None
+        if self._premap_native_typed_consumer_input_export_count >= max_tables:
+            return None
+        row_count = int(getattr(table_object, "row_count", 0))
+        max_rows = int(self.shadow_premap_native_typed_consumer_input_export_max_rows)
+        if max_rows > 0 and row_count > max_rows:
+            return None
+        export_dir_raw = self.shadow_premap_native_typed_consumer_input_export_dir
+        if not export_dir_raw:
+            return None
+        export_dir = Path(export_dir_raw)
+        export_dir.mkdir(parents=True, exist_ok=True)
+        prefix = str(
+            self.shadow_premap_native_typed_consumer_input_export_prefix
+            or "premap_native_typed_consumer_input"
+        )
+        safe_request = "".join(
+            ch if ch.isalnum() or ch in {"-", "_"} else "_"
+            for ch in str(self.request_id)
+        )[:80]
+        export_idx = int(self._premap_native_typed_consumer_input_export_count)
+        path = export_dir / (
+            f"{prefix}_{export_idx:04d}_{safe_request}"
+            f"_seq{int(self.sequence_id)}"
+            f"_tok{int(self.shadow_premap_event_token_index)}"
+            f"_layer{int(layer_id)}.json"
+        )
+        payload = table_object.to_native_typed_consumer_input_dict()
+        payload["_export_context"] = {
+            "source": "vllm_prelaunch_premap_kernel_arg_shadow_table_object",
+            "request_id": str(self.request_id),
+            "sequence_id": int(self.sequence_id),
+            "token_index": int(self.shadow_premap_event_token_index),
+            "layer_id": int(layer_id),
+            "export_index": export_idx,
+            "row_count": row_count,
+            "column_count": int(getattr(table_object, "column_count", 0)),
+            "table_object_hash": str(getattr(table_object, "object_hash", "")),
+            "schema_hash": str(getattr(table_object, "schema_hash", "")),
+            "payload_bytes": int(getattr(table_object, "payload_bytes", 0)),
+            "ready_credit": bool(getattr(table_object, "ready_credit", False)),
+            "changes_router": bool(getattr(table_object, "changes_router", False)),
+            "changes_descriptor_order": bool(
+                getattr(table_object, "changes_descriptor_order", False)
+            ),
+            "passed_to_kernel": bool(getattr(table_object, "passed_to_kernel", False)),
+            "changes_kernel_launch_args": bool(
+                getattr(table_object, "changes_kernel_launch_args", False)
+            ),
+        }
+        path.write_text(
+            json.dumps(payload, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        self._premap_native_typed_consumer_input_export_count += 1
+        if self.shadow_premap_native_typed_consumer_input_export_paths is not None:
+            self.shadow_premap_native_typed_consumer_input_export_paths.append(str(path))
+        return path
 
     def apply_wna16_runtime_config_override(
         self,
@@ -2730,6 +3007,10 @@ class VllmRouterRecorder:
                                     is True
                                 ),
                             )
+                        )
+                        self._maybe_export_native_typed_consumer_input(
+                            kernel_arg_shadow_table_object,
+                            layer_id=int(layer_id),
                         )
                         context = get_active_moe_assignment_context()
                         if (
@@ -4719,6 +5000,442 @@ class VllmRouterRecorder:
                 descriptor_prep_consumer_shim_kernel_side_typed_consumer_object_live_compatible_with_current_wna16_args=(
                     bool(
                         descriptor_consumer_shim_result.kernel_side_typed_consumer_object_live_compatible_with_current_wna16_args
+                    )
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_native_typed_consumer_bridge_mode=(
+                    descriptor_consumer_shim_result.native_typed_consumer_bridge_mode
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_native_typed_consumer_bridge_checked=(
+                    descriptor_consumer_shim_result.native_typed_consumer_bridge_checked
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_native_typed_consumer_bridge_ok=(
+                    descriptor_consumer_shim_result.native_typed_consumer_bridge_ok
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_native_typed_consumer_bridge_input_hash=(
+                    descriptor_consumer_shim_result.native_typed_consumer_bridge_input_hash
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_native_typed_consumer_bridge_table_object_hash=(
+                    descriptor_consumer_shim_result.native_typed_consumer_bridge_table_object_hash
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_native_typed_consumer_bridge_schema_hash=(
+                    descriptor_consumer_shim_result.native_typed_consumer_bridge_schema_hash
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_native_typed_consumer_bridge_row_count=(
+                    int(
+                        descriptor_consumer_shim_result.native_typed_consumer_bridge_row_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.native_typed_consumer_bridge_row_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_native_typed_consumer_bridge_column_count=(
+                    int(
+                        descriptor_consumer_shim_result.native_typed_consumer_bridge_column_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.native_typed_consumer_bridge_column_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_native_typed_consumer_bridge_required_handle_nonzero_count=(
+                    int(
+                        descriptor_consumer_shim_result.native_typed_consumer_bridge_required_handle_nonzero_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.native_typed_consumer_bridge_required_handle_nonzero_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_native_typed_consumer_bridge_required_handle_zero_count=(
+                    int(
+                        descriptor_consumer_shim_result.native_typed_consumer_bridge_required_handle_zero_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.native_typed_consumer_bridge_required_handle_zero_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_native_typed_consumer_bridge_optional_handle_nonzero_count=(
+                    int(
+                        descriptor_consumer_shim_result.native_typed_consumer_bridge_optional_handle_nonzero_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.native_typed_consumer_bridge_optional_handle_nonzero_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_native_typed_consumer_bridge_optional_handle_zero_count=(
+                    int(
+                        descriptor_consumer_shim_result.native_typed_consumer_bridge_optional_handle_zero_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.native_typed_consumer_bridge_optional_handle_zero_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_native_typed_consumer_bridge_expert_id_valid_count=(
+                    int(
+                        descriptor_consumer_shim_result.native_typed_consumer_bridge_expert_id_valid_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.native_typed_consumer_bridge_expert_id_valid_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_native_typed_consumer_bridge_expert_id_invalid_count=(
+                    int(
+                        descriptor_consumer_shim_result.native_typed_consumer_bridge_expert_id_invalid_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.native_typed_consumer_bridge_expert_id_invalid_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_native_typed_consumer_bridge_address_key_hash_nonzero_count=(
+                    int(
+                        descriptor_consumer_shim_result.native_typed_consumer_bridge_address_key_hash_nonzero_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.native_typed_consumer_bridge_address_key_hash_nonzero_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_native_typed_consumer_bridge_address_key_hash_zero_count=(
+                    int(
+                        descriptor_consumer_shim_result.native_typed_consumer_bridge_address_key_hash_zero_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.native_typed_consumer_bridge_address_key_hash_zero_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_native_typed_consumer_bridge_failure_count=(
+                    int(
+                        descriptor_consumer_shim_result.native_typed_consumer_bridge_failure_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.native_typed_consumer_bridge_failure_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_native_typed_consumer_bridge_failures=(
+                    descriptor_consumer_shim_result.native_typed_consumer_bridge_failures
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_native_typed_consumer_bridge_payload_bytes=(
+                    int(
+                        descriptor_consumer_shim_result.native_typed_consumer_bridge_payload_bytes
+                    )
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_native_typed_consumer_bridge_ready_credit=(
+                    bool(
+                        descriptor_consumer_shim_result.native_typed_consumer_bridge_ready_credit
+                    )
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_native_typed_consumer_bridge_changes_router=(
+                    bool(
+                        descriptor_consumer_shim_result.native_typed_consumer_bridge_changes_router
+                    )
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_native_typed_consumer_bridge_changes_descriptor_order=(
+                    bool(
+                        descriptor_consumer_shim_result.native_typed_consumer_bridge_changes_descriptor_order
+                    )
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_native_typed_consumer_bridge_passed_to_kernel=(
+                    bool(
+                        descriptor_consumer_shim_result.native_typed_consumer_bridge_passed_to_kernel
+                    )
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_native_typed_consumer_bridge_changes_kernel_launch_args=(
+                    bool(
+                        descriptor_consumer_shim_result.native_typed_consumer_bridge_changes_kernel_launch_args
+                    )
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_native_stub_online_invocation_mode=(
+                    descriptor_consumer_shim_result.native_stub_online_invocation_mode
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_native_stub_online_invocation_checked=(
+                    descriptor_consumer_shim_result.native_stub_online_invocation_checked
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_native_stub_online_invocation_ready=(
+                    descriptor_consumer_shim_result.native_stub_online_invocation_ready
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_native_stub_online_invocation_ok=(
+                    descriptor_consumer_shim_result.native_stub_online_invocation_ok
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_native_stub_online_invocation_native_checker_invoked=(
+                    descriptor_consumer_shim_result.native_stub_online_invocation_native_checker_invoked
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_native_stub_online_invocation_native_bridge_ok=(
+                    descriptor_consumer_shim_result.native_stub_online_invocation_native_bridge_ok
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_native_stub_online_invocation_package_hash=(
+                    descriptor_consumer_shim_result.native_stub_online_invocation_package_hash
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_native_stub_online_invocation_input_hash=(
+                    descriptor_consumer_shim_result.native_stub_online_invocation_input_hash
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_native_stub_online_invocation_table_object_hash=(
+                    descriptor_consumer_shim_result.native_stub_online_invocation_table_object_hash
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_native_stub_online_invocation_schema_hash=(
+                    descriptor_consumer_shim_result.native_stub_online_invocation_schema_hash
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_native_stub_online_invocation_row_count=(
+                    int(
+                        descriptor_consumer_shim_result.native_stub_online_invocation_row_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.native_stub_online_invocation_row_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_native_stub_online_invocation_column_count=(
+                    int(
+                        descriptor_consumer_shim_result.native_stub_online_invocation_column_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.native_stub_online_invocation_column_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_native_stub_online_invocation_required_handle_nonzero_count=(
+                    int(
+                        descriptor_consumer_shim_result.native_stub_online_invocation_required_handle_nonzero_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.native_stub_online_invocation_required_handle_nonzero_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_native_stub_online_invocation_required_handle_zero_count=(
+                    int(
+                        descriptor_consumer_shim_result.native_stub_online_invocation_required_handle_zero_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.native_stub_online_invocation_required_handle_zero_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_native_stub_online_invocation_optional_handle_nonzero_count=(
+                    int(
+                        descriptor_consumer_shim_result.native_stub_online_invocation_optional_handle_nonzero_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.native_stub_online_invocation_optional_handle_nonzero_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_native_stub_online_invocation_optional_handle_zero_count=(
+                    int(
+                        descriptor_consumer_shim_result.native_stub_online_invocation_optional_handle_zero_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.native_stub_online_invocation_optional_handle_zero_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_native_stub_online_invocation_expert_id_valid_count=(
+                    int(
+                        descriptor_consumer_shim_result.native_stub_online_invocation_expert_id_valid_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.native_stub_online_invocation_expert_id_valid_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_native_stub_online_invocation_expert_id_invalid_count=(
+                    int(
+                        descriptor_consumer_shim_result.native_stub_online_invocation_expert_id_invalid_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.native_stub_online_invocation_expert_id_invalid_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_native_stub_online_invocation_address_key_hash_nonzero_count=(
+                    int(
+                        descriptor_consumer_shim_result.native_stub_online_invocation_address_key_hash_nonzero_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.native_stub_online_invocation_address_key_hash_nonzero_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_native_stub_online_invocation_address_key_hash_zero_count=(
+                    int(
+                        descriptor_consumer_shim_result.native_stub_online_invocation_address_key_hash_zero_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.native_stub_online_invocation_address_key_hash_zero_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_native_stub_online_invocation_requested=(
+                    descriptor_consumer_shim_result.native_stub_online_invocation_requested
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_native_stub_online_invocation_native_stub_invoked=(
+                    descriptor_consumer_shim_result.native_stub_online_invocation_native_stub_invoked
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_native_stub_online_invocation_blocked=(
+                    descriptor_consumer_shim_result.native_stub_online_invocation_blocked
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_native_stub_online_invocation_block_reason=(
+                    descriptor_consumer_shim_result.native_stub_online_invocation_block_reason
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_native_stub_online_invocation_failure_count=(
+                    int(
+                        descriptor_consumer_shim_result.native_stub_online_invocation_failure_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.native_stub_online_invocation_failure_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_native_stub_online_invocation_failures=(
+                    descriptor_consumer_shim_result.native_stub_online_invocation_failures
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_native_stub_online_invocation_payload_bytes=(
+                    int(
+                        descriptor_consumer_shim_result.native_stub_online_invocation_payload_bytes
+                    )
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_native_stub_online_invocation_ready_credit=(
+                    bool(
+                        descriptor_consumer_shim_result.native_stub_online_invocation_ready_credit
+                    )
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_native_stub_online_invocation_changes_router=(
+                    bool(
+                        descriptor_consumer_shim_result.native_stub_online_invocation_changes_router
+                    )
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_native_stub_online_invocation_changes_descriptor_order=(
+                    bool(
+                        descriptor_consumer_shim_result.native_stub_online_invocation_changes_descriptor_order
+                    )
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_native_stub_online_invocation_passed_to_kernel=(
+                    bool(
+                        descriptor_consumer_shim_result.native_stub_online_invocation_passed_to_kernel
+                    )
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_native_stub_online_invocation_changes_kernel_launch_args=(
+                    bool(
+                        descriptor_consumer_shim_result.native_stub_online_invocation_changes_kernel_launch_args
                     )
                     if descriptor_consumer_shim_result is not None
                     else None
@@ -13645,6 +14362,21 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
         if patch_missing_activation_ops
         else False
     )
+    patch_rocm_upstream_fa_adapter = bool(
+        vllm_options.get("enable_rocm_flash_attn_decoder_adapter", False)
+    ) or str(
+        os.environ.get("MTP_ENABLE_ROCM_UPSTREAM_FLASH_ATTN_DECODER_ADAPTER", "")
+    ).lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+    patched_rocm_upstream_fa_adapter = (
+        _patch_rocm_upstream_flash_attn_decoder_adapter_for_trace()
+        if patch_rocm_upstream_fa_adapter
+        else False
+    )
 
     try:
         from vllm.inputs import TokensPrompt
@@ -13696,6 +14428,12 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
         patch_vllm_qwen35_moe_router_trace()
     if "quantization" in vllm_options:
         llm_kwargs["quantization"] = vllm_options["quantization"]
+    if "attention_config" in vllm_options:
+        attention_config = vllm_options["attention_config"]
+        if not isinstance(attention_config, dict):
+            msg = "vllm.attention_config must be a mapping when provided."
+            raise TypeError(msg)
+        llm_kwargs["attention_config"] = dict(attention_config)
     for optional_key in ("max_num_seqs", "max_num_batched_tokens"):
         if optional_key in vllm_options:
             llm_kwargs[optional_key] = int(vllm_options[optional_key])
@@ -13778,6 +14516,27 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
         options=runtime_shadow_options,
         project_root=project_root,
     )
+    runtime_shadow_premap_native_typed_consumer_input_export_enabled = bool(
+        runtime_shadow_options.get(
+            "premap_native_typed_consumer_input_export_enabled",
+            False,
+        )
+    )
+    raw_native_export_dir = runtime_shadow_options.get(
+        "premap_native_typed_consumer_input_export_dir"
+    )
+    runtime_shadow_premap_native_typed_consumer_input_export_dir = (
+        resolve_path(raw_native_export_dir, base_dir=project_root)
+        if raw_native_export_dir is not None
+        else output_dir / "premap_native_typed_consumer_inputs"
+    )
+    runtime_shadow_premap_native_typed_consumer_input_export_prefix = str(
+        runtime_shadow_options.get(
+            "premap_native_typed_consumer_input_export_prefix",
+            "premap_native_typed_consumer_input",
+        )
+    )
+    runtime_shadow_premap_native_typed_consumer_input_export_paths: list[str] = []
     manifest_path = output_dir / "manifest.jsonl"
     sample_timing_path = output_dir / "sample_timing.jsonl"
     performance = {
@@ -13936,6 +14695,27 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
             runtime_shadow_options.get(
                 "premap_kernel_arg_handoff_single_field_replacement_field",
                 "B_scale",
+            )
+        ),
+        "runtime_shadow_premap_native_typed_consumer_input_export_enabled": (
+            runtime_shadow_premap_native_typed_consumer_input_export_enabled
+        ),
+        "runtime_shadow_premap_native_typed_consumer_input_export_dir": str(
+            runtime_shadow_premap_native_typed_consumer_input_export_dir
+        ),
+        "runtime_shadow_premap_native_typed_consumer_input_export_prefix": (
+            runtime_shadow_premap_native_typed_consumer_input_export_prefix
+        ),
+        "runtime_shadow_premap_native_typed_consumer_input_export_max_tables": int(
+            runtime_shadow_options.get(
+                "premap_native_typed_consumer_input_export_max_tables",
+                0,
+            )
+        ),
+        "runtime_shadow_premap_native_typed_consumer_input_export_max_rows": int(
+            runtime_shadow_options.get(
+                "premap_native_typed_consumer_input_export_max_rows",
+                4096,
             )
         ),
         "runtime_shadow_transition_premap_source": str(
@@ -14155,6 +14935,12 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
         ),
         "runtime_shadow_patched_missing_vllm_activation_ops": (
             patched_missing_activation_ops
+        ),
+        "runtime_patch_rocm_upstream_flash_attn_decoder_adapter": (
+            patch_rocm_upstream_fa_adapter
+        ),
+        "runtime_patched_rocm_upstream_flash_attn_decoder_adapter": (
+            patched_rocm_upstream_fa_adapter
         ),
         "trace_fallback_mode": (
             "vllm_activation_and_topk_ops"
@@ -14388,6 +15174,32 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                                     "premap_kernel_arg_handoff_single_field_replacement_field",
                                     "B_scale",
                                 )
+                            ),
+                            shadow_premap_native_typed_consumer_input_export_enabled=(
+                                runtime_shadow_premap_native_typed_consumer_input_export_enabled
+                            ),
+                            shadow_premap_native_typed_consumer_input_export_dir=(
+                                str(
+                                    runtime_shadow_premap_native_typed_consumer_input_export_dir
+                                )
+                            ),
+                            shadow_premap_native_typed_consumer_input_export_prefix=(
+                                runtime_shadow_premap_native_typed_consumer_input_export_prefix
+                            ),
+                            shadow_premap_native_typed_consumer_input_export_max_tables=int(
+                                runtime_shadow_options.get(
+                                    "premap_native_typed_consumer_input_export_max_tables",
+                                    0,
+                                )
+                            ),
+                            shadow_premap_native_typed_consumer_input_export_max_rows=int(
+                                runtime_shadow_options.get(
+                                    "premap_native_typed_consumer_input_export_max_rows",
+                                    4096,
+                                )
+                            ),
+                            shadow_premap_native_typed_consumer_input_export_paths=(
+                                runtime_shadow_premap_native_typed_consumer_input_export_paths
                             ),
                             shadow_premap_address_namespace=str(
                                 runtime_shadow_options.get(
@@ -14922,6 +15734,20 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
         performance[f"runtime_shadow_premap_kernel_arg_live_mutation_{key}"] = (
             int(value)
         )
+    if runtime_shadow_premap_native_typed_consumer_input_export_enabled:
+        export_paths = [
+            Path(path)
+            for path in runtime_shadow_premap_native_typed_consumer_input_export_paths
+        ]
+        performance["runtime_shadow_premap_native_typed_consumer_input_export_count"] = (
+            len(export_paths)
+        )
+        performance["runtime_shadow_premap_native_typed_consumer_input_export_paths"] = [
+            str(path) for path in export_paths
+        ]
+        performance[
+            "runtime_shadow_premap_native_typed_consumer_input_export_first_path"
+        ] = (str(export_paths[0]) if export_paths else None)
     performance_path = output_dir / "performance_summary.json"
     performance_path.write_text(
         json.dumps(performance, indent=2, sort_keys=True) + "\n",

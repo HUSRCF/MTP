@@ -658,6 +658,120 @@ def _add_kernel_side_typed_consumer_object(
     return summary
 
 
+def _add_native_typed_consumer_bridge(summary: dict) -> dict:
+    aggregate = summary["aggregate"]
+    checked_count = int(
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_executed_count"
+        ]
+    )
+    row_count = int(
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_row_count"
+        ]
+    )
+    aggregate.update(
+        {
+            "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_checked_count": checked_count,
+            "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_ok_count": checked_count,
+            "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_mode": "readonly_native_typed_consumer_bridge_check",
+            "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_mode_checked_count": checked_count,
+            "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_mode_mismatch_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_input_hash_checked_count": checked_count,
+            "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_input_hash_missing_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_table_object_hash_checked_count": checked_count,
+            "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_table_object_hash_missing_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_schema_hash": PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH,
+            "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_schema_hash_checked_count": checked_count,
+            "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_schema_hash_missing_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_schema_hash_mismatch_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_row_count": row_count,
+            "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_column_count_max": 4,
+            "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_column_count_min": 4,
+            "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_required_handle_nonzero_count": row_count * 3,
+            "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_required_handle_zero_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_optional_handle_nonzero_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_optional_handle_zero_count": row_count,
+            "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_expert_id_valid_count": row_count,
+            "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_expert_id_invalid_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_address_key_hash_nonzero_count": row_count,
+            "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_address_key_hash_zero_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_failure_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_payload_bytes": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_payload_violation_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_ready_credit_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_changes_router_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_changes_descriptor_order_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_passed_to_kernel_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_kernel_arg_violation_count": 0,
+        }
+    )
+    return summary
+
+
+def _add_native_stub_online_invocation_canary(summary: dict) -> dict:
+    aggregate = summary["aggregate"]
+    checked_count = int(
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_executed_count"
+        ]
+    )
+    row_count = int(
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_row_count"
+        ]
+    )
+    aggregate.update(
+        {
+            "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_checked_count": checked_count,
+            "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_ready_count": checked_count,
+            "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_ok_count": checked_count,
+            "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_mode": "readonly_native_stub_online_invocation_canary",
+            "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_mode_checked_count": checked_count,
+            "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_mode_mismatch_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_package_hash_checked_count": checked_count,
+            "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_package_hash_missing_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_input_hash_checked_count": checked_count,
+            "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_input_hash_missing_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_table_object_hash_checked_count": checked_count,
+            "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_table_object_hash_missing_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_schema_hash": PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH,
+            "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_schema_hash_checked_count": checked_count,
+            "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_schema_hash_missing_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_schema_hash_mismatch_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_block_reason": "native_stub_live_disabled",
+            "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_block_reason_checked_count": checked_count,
+            "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_block_reason_missing_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_block_reason_mismatch_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_row_count": row_count,
+            "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_column_count_max": 4,
+            "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_column_count_min": 4,
+            "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_required_handle_nonzero_count": row_count * 3,
+            "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_required_handle_zero_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_optional_handle_nonzero_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_optional_handle_zero_count": row_count,
+            "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_expert_id_valid_count": row_count,
+            "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_expert_id_invalid_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_address_key_hash_nonzero_count": row_count,
+            "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_address_key_hash_zero_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_native_checker_invoked_count": checked_count,
+            "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_native_bridge_ok_count": checked_count,
+            "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_requested_count": checked_count,
+            "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_native_stub_invoked_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_blocked_count": checked_count,
+            "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_failure_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_payload_bytes": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_payload_violation_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_ready_credit_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_changes_router_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_changes_descriptor_order_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_passed_to_kernel_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_kernel_arg_violation_count": 0,
+        }
+    )
+    return summary
+
+
 def _add_kernel_arg_handoff_live_toggle(
     summary: dict,
     *,
@@ -1980,16 +2094,145 @@ def test_premap_longrun_audit_gate_accepts_kernel_side_typed_consumer_object_con
     )
 
 
+def test_premap_longrun_audit_gate_accepts_online_native_typed_consumer_bridge():
+    result = check_summary(
+        _add_native_typed_consumer_bridge(
+            _add_kernel_side_typed_consumer_object(
+                _add_kernel_side_consumer_schema_adapter(
+                    _add_kernel_arg_semantic_handle_adapter(
+                        _add_kernel_arg_handoff_launch_schema_mirror(
+                            _add_kernel_arg_handoff_attempt(_passing_summary())
+                        )
+                    )
+                )
+            )
+        ),
+        max_capacity=12,
+        min_reuse_rate=0.98,
+        require_readonly_consumer=True,
+        require_descriptor_prep=True,
+        require_real_descriptor_prep=True,
+        require_kernel_arg_shadow_table=True,
+        require_consumer_shim_table_read=True,
+        require_consumer_shim_table_consume=True,
+        require_kernel_arg_handoff_attempt=True,
+        require_kernel_arg_handoff_launch_schema_mirror=True,
+        require_kernel_arg_semantic_handle_adapter=True,
+        require_kernel_side_consumer_schema_adapter=True,
+        require_kernel_side_typed_consumer_object=True,
+        require_native_typed_consumer_bridge=True,
+    )
+
+    assert result["passed"] is True
+    assert result["failures"] == []
+    assert result["require_native_typed_consumer_bridge"] is True
+    assert (
+        result["metrics"][
+            "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_checked_count"
+        ]
+        == 2
+    )
+    assert (
+        result["metrics"][
+            "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_ok_count"
+        ]
+        == 2
+    )
+    assert (
+        result["metrics"][
+            "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_row_count"
+        ]
+        == 20
+    )
+    assert (
+        result["metrics"][
+            "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_required_handle_nonzero_count"
+        ]
+        == 60
+    )
+    assert (
+        result["metrics"][
+            "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_passed_to_kernel_count"
+        ]
+        == 0
+    )
+
+
+def test_premap_longrun_audit_gate_accepts_native_stub_online_canary():
+    result = check_summary(
+        _add_native_stub_online_invocation_canary(
+            _add_native_typed_consumer_bridge(
+                _add_kernel_side_typed_consumer_object(
+                    _add_kernel_side_consumer_schema_adapter(
+                        _add_kernel_arg_semantic_handle_adapter(
+                            _add_kernel_arg_handoff_launch_schema_mirror(
+                                _add_kernel_arg_handoff_attempt(_passing_summary())
+                            )
+                        )
+                    )
+                )
+            )
+        ),
+        max_capacity=12,
+        min_reuse_rate=0.98,
+        require_readonly_consumer=True,
+        require_descriptor_prep=True,
+        require_real_descriptor_prep=True,
+        require_kernel_arg_shadow_table=True,
+        require_consumer_shim_table_read=True,
+        require_consumer_shim_table_consume=True,
+        require_kernel_arg_handoff_attempt=True,
+        require_kernel_arg_handoff_launch_schema_mirror=True,
+        require_kernel_arg_semantic_handle_adapter=True,
+        require_kernel_side_consumer_schema_adapter=True,
+        require_kernel_side_typed_consumer_object=True,
+        require_native_typed_consumer_bridge=True,
+        require_native_stub_online_invocation_canary=True,
+    )
+
+    assert result["passed"] is True
+    assert result["failures"] == []
+    assert result["require_native_stub_online_invocation_canary"] is True
+    prefix = (
+        "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation"
+    )
+    assert result["metrics"][f"{prefix}_checked_count"] == 2
+    assert result["metrics"][f"{prefix}_ready_count"] == 2
+    assert result["metrics"][f"{prefix}_ok_count"] == 2
+    assert result["metrics"][f"{prefix}_mode"] == (
+        "readonly_native_stub_online_invocation_canary"
+    )
+    assert result["metrics"][f"{prefix}_block_reason"] == (
+        "native_stub_live_disabled"
+    )
+    assert result["metrics"][f"{prefix}_row_count"] == 20
+    assert result["metrics"][f"{prefix}_required_handle_nonzero_count"] == 60
+    assert result["metrics"][f"{prefix}_native_checker_invoked_count"] == 2
+    assert result["metrics"][f"{prefix}_native_bridge_ok_count"] == 2
+    assert result["metrics"][f"{prefix}_requested_count"] == 2
+    assert result["metrics"][f"{prefix}_native_stub_invoked_count"] == 0
+    assert result["metrics"][f"{prefix}_blocked_count"] == 2
+    assert result["metrics"][f"{prefix}_ready_credit_count"] == 0
+    assert result["metrics"][f"{prefix}_changes_router_count"] == 0
+    assert result["metrics"][f"{prefix}_changes_descriptor_order_count"] == 0
+    assert result["metrics"][f"{prefix}_passed_to_kernel_count"] == 0
+    assert result["metrics"][f"{prefix}_kernel_arg_violation_count"] == 0
+
+
 def test_premap_longrun_audit_gate_report_self_checks_with_typed_consumer():
     result = check_summary(
-        _add_kernel_side_typed_consumer_object(
-            _add_kernel_side_consumer_schema_adapter(
-                _add_kernel_arg_semantic_handle_adapter(
-                    _add_kernel_arg_handoff_live_consumer_adapter(
-                        _add_kernel_arg_handoff_live_noop_integration(
-                            _add_kernel_arg_handoff_live_toggle(
-                                _add_kernel_arg_handoff_launch_schema_mirror(
-                                    _add_kernel_arg_handoff_attempt(_passing_summary())
+        _add_native_typed_consumer_bridge(
+            _add_kernel_side_typed_consumer_object(
+                _add_kernel_side_consumer_schema_adapter(
+                    _add_kernel_arg_semantic_handle_adapter(
+                        _add_kernel_arg_handoff_live_consumer_adapter(
+                            _add_kernel_arg_handoff_live_noop_integration(
+                                _add_kernel_arg_handoff_live_toggle(
+                                    _add_kernel_arg_handoff_launch_schema_mirror(
+                                        _add_kernel_arg_handoff_attempt(
+                                            _passing_summary()
+                                        )
+                                    )
                                 )
                             )
                         )
@@ -2015,6 +2258,7 @@ def test_premap_longrun_audit_gate_report_self_checks_with_typed_consumer():
         require_kernel_arg_semantic_handle_adapter=True,
         require_kernel_side_consumer_schema_adapter=True,
         require_kernel_side_typed_consumer_object=True,
+        require_native_typed_consumer_bridge=True,
     )
     assert result["passed"] is True
 
@@ -2038,6 +2282,7 @@ def test_premap_longrun_audit_gate_report_self_checks_with_typed_consumer():
         require_kernel_arg_semantic_handle_adapter=True,
         require_kernel_side_consumer_schema_adapter=True,
         require_kernel_side_typed_consumer_object=True,
+        require_native_typed_consumer_bridge=True,
     )
 
     assert self_check["passed"] is True

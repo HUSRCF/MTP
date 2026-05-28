@@ -169,6 +169,127 @@ def _write_valid_schema(root: Path) -> str:
     return schema_path
 
 
+def _lab_evidence_metrics() -> dict[str, object]:
+    bridge = (
+        "premap_consumer_descriptor_prep_consumer_shim_"
+        "native_typed_consumer_bridge_"
+    )
+    stub = (
+        "premap_consumer_descriptor_prep_consumer_shim_"
+        "native_stub_online_invocation_"
+    )
+    metrics: dict[str, object] = {
+        f"{bridge}checked_count": 3,
+        f"{bridge}ok_count": 3,
+        f"{bridge}mode": "readonly_native_typed_consumer_bridge_check",
+        f"{bridge}failure_count": 0,
+        f"{bridge}payload_bytes": 0,
+        f"{bridge}payload_violation_count": 0,
+        f"{bridge}ready_credit_count": 0,
+        f"{bridge}changes_router_count": 0,
+        f"{bridge}changes_descriptor_order_count": 0,
+        f"{bridge}passed_to_kernel_count": 0,
+        f"{bridge}kernel_arg_violation_count": 0,
+        f"{bridge}required_handle_zero_count": 0,
+        f"{bridge}expert_id_invalid_count": 0,
+        f"{bridge}address_key_hash_zero_count": 0,
+        f"{stub}checked_count": 3,
+        f"{stub}ready_count": 3,
+        f"{stub}ok_count": 3,
+        f"{stub}requested_count": 3,
+        f"{stub}blocked_count": 3,
+        f"{stub}native_checker_invoked_count": 3,
+        f"{stub}native_bridge_ok_count": 3,
+        f"{stub}mode": "readonly_native_stub_online_invocation_canary",
+        f"{stub}block_reason": "native_stub_live_disabled",
+        f"{stub}failure_count": 0,
+        f"{stub}payload_bytes": 0,
+        f"{stub}payload_violation_count": 0,
+        f"{stub}ready_credit_count": 0,
+        f"{stub}changes_router_count": 0,
+        f"{stub}changes_descriptor_order_count": 0,
+        f"{stub}passed_to_kernel_count": 0,
+        f"{stub}kernel_arg_violation_count": 0,
+        f"{stub}native_stub_invoked_count": 0,
+        f"{stub}required_handle_zero_count": 0,
+        f"{stub}expert_id_invalid_count": 0,
+        f"{stub}address_key_hash_zero_count": 0,
+    }
+    return metrics
+
+
+def _native_bridge_input_payload() -> dict[str, object]:
+    return {
+        "_meta": {
+            "schema_hash": PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH,
+            "table_object_hash": "table-object-hash",
+            "row_count": 2,
+            "column_count": 4,
+            "payload_bytes": 0,
+            "passed_to_kernel": False,
+            "changes_kernel_launch_args": False,
+        },
+        "descriptor_ptr": [101, 102],
+        "packed_weight_descriptor": [201, 202],
+        "scale_metadata_handle": [301, 302],
+        "aux_metadata_handle": [0, 0],
+        "expert_id": [3, 7],
+        "address_key_hash": [401, 402],
+    }
+
+
+def _native_online_prelaunch_input_payload() -> dict[str, object]:
+    payload = _native_bridge_input_payload()
+    meta = dict(payload["_meta"])
+    meta.update(
+        {
+            "ready_credit": False,
+            "changes_router": False,
+            "changes_descriptor_order": False,
+        }
+    )
+    payload["_meta"] = meta
+    payload["_export_context"] = {
+        "source": "vllm_prelaunch_premap_kernel_arg_shadow_table_object",
+        "row_count": 2,
+        "column_count": 4,
+        "schema_hash": PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH,
+        "table_object_hash": "table-object-hash",
+        "payload_bytes": 0,
+        "ready_credit": False,
+        "changes_router": False,
+        "changes_descriptor_order": False,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+    }
+    return payload
+
+
+def _native_stub_evidence_payload(input_json: str) -> dict[str, object]:
+    return {
+        "passed": True,
+        "failures": [],
+        "ok": True,
+        "row_count": 2,
+        "row_ok_count": 2,
+        "error_count": 0,
+        "column_count": 4,
+        "payload_bytes": 0,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "input_source": "binary_prefix",
+        "input_json": input_json,
+        "expected_schema_hash": PREMAP_KERNEL_SIDE_TYPED_CONSUMER_SCHEMA_HASH,
+        "compiled_macros": {
+            "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCHEMA": True,
+            "MTP_PREMAP_TYPED_CONSUMER_CHECK_ROW_ITERATION": True,
+            "MTP_PREMAP_TYPED_CONSUMER_CHECK_POINTER_VISIBILITY": True,
+            "MTP_PREMAP_TYPED_CONSUMER_CHECK_LIFETIME": True,
+            "MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR": True,
+        },
+    }
+
+
 def _write_gate(
     root: Path,
     name: str,
@@ -181,27 +302,109 @@ def _write_gate(
     lab_evidence_passed: bool = True,
     lab_evidence_failures: list[str] | None = None,
     include_schema_artifact: bool = True,
+    live_connected_readonly: bool = True,
 ) -> str:
     schema_path = _write_valid_schema(root)
     evidence_path = f"reports/{evidence_json}"
     _write(root / evidence_path, '{"passed": true}\n')
     lab_gate_path = f"reports/{name}_typed_consumer_gate.json"
     lab_selfcheck_path = f"reports/{name}_typed_consumer_selfcheck.json"
+    lab_live_connected_path = f"reports/{name}_live_connected_readonly_gate.json"
+    lab_native_bridge_path = f"reports/{name}_native_bridge_online_gate.json"
     native_bridge_path = f"reports/{name}_native_bridge_smoke.json"
+    lab_native_stub_path = f"reports/{name}_native_stub_online_invocation_canary_gate.json"
+    native_typed_stub_path = f"reports/{name}_native_typed_consumer_stub_gpu1_canary.json"
+    native_bridge_input_path = f"reports/{name}_native_bridge_input.json"
+    native_online_input_path = f"reports/{name}_native_online_prelaunch_input.json"
+    native_online_stub_path = (
+        f"reports/{name}_native_typed_consumer_stub_online_prelaunch_input_canary.json"
+    )
+    native_online_perf_path = (
+        f"reports/{name}_native_online_prelaunch_export_performance.json"
+    )
+    native_online_runner_path = (
+        f"reports/{name}_native_online_prelaunch_canary_runner.json"
+    )
     lab_payload = {
         "passed": lab_evidence_passed,
         "failures": [] if lab_evidence_failures is None else lab_evidence_failures,
+        "metrics": _lab_evidence_metrics(),
     }
     if include_lab_evidence:
         _write(root / lab_gate_path, json.dumps(lab_payload) + "\n")
         _write(root / lab_selfcheck_path, json.dumps(lab_payload) + "\n")
+        _write(root / lab_live_connected_path, json.dumps(lab_payload) + "\n")
+        _write(root / lab_native_bridge_path, json.dumps(lab_payload) + "\n")
         _write(root / native_bridge_path, json.dumps(lab_payload) + "\n")
+        _write(root / lab_native_stub_path, json.dumps(lab_payload) + "\n")
+        _write(
+            root / native_bridge_input_path,
+            json.dumps(_native_bridge_input_payload()) + "\n",
+        )
+        _write(
+            root / native_online_input_path,
+            json.dumps(_native_online_prelaunch_input_payload()) + "\n",
+        )
+        _write(
+            root / native_typed_stub_path,
+            json.dumps(_native_stub_evidence_payload(native_bridge_input_path)) + "\n",
+        )
+        _write(
+            root / native_online_stub_path,
+            json.dumps(_native_stub_evidence_payload(native_online_input_path)) + "\n",
+        )
+        _write(
+            root / native_online_perf_path,
+            json.dumps(
+                {
+                    "runtime_shadow_premap_native_typed_consumer_input_export_enabled": True,
+                    "runtime_shadow_premap_native_typed_consumer_input_export_count": 1,
+                    "runtime_shadow_premap_native_typed_consumer_input_export_first_path": native_online_input_path,
+                    "runtime_shadow_premap_native_typed_consumer_input_export_paths": [
+                        native_online_input_path
+                    ],
+                }
+            )
+            + "\n",
+        )
+        _write(
+            root / native_online_runner_path,
+            json.dumps(
+                {
+                    "passed": True,
+                    "failures": [],
+                    "online_prelaunch_input_json": native_online_input_path,
+                    "native_stub_output_json": native_online_stub_path,
+                    "preflight_output_json": f"reports/{name}_preflight.json",
+                    "stub_summary": {
+                        "passed": True,
+                        "ok": True,
+                        "row_count": 2,
+                        "row_ok_count": 2,
+                        "error_count": 0,
+                        "payload_bytes": 0,
+                        "passed_to_kernel": False,
+                        "changes_kernel_launch_args": False,
+                    },
+                    "preflight_summary": {
+                        "passed": True,
+                        "failures": [],
+                    },
+                }
+            )
+            + "\n",
+        )
     gate_path = f"configs/runtime/{name}.yaml"
     metadata_lines = ""
     if canary is not None:
         metadata_lines += f"canary: {str(canary).lower()}\n"
     if lab_default is not None:
         metadata_lines += f"lab_default: {str(lab_default).lower()}\n"
+    live_block_reason = (
+        "kernel_side_typed_consumer_kernel_arg_pass_disabled"
+        if live_connected_readonly
+        else "kernel_side_typed_consumer_live_disabled"
+    )
     _write(
         root / gate_path,
         "schema_version: 1\n"
@@ -215,17 +418,44 @@ def _write_gate(
         +
         "contract:\n"
         f"  kernel_side_typed_consumer_object_required: {str(typed_consumer_required).lower()}\n"
+        f"  kernel_arg_handoff_live_toggle_enabled_required: {str(live_connected_readonly).lower()}\n"
+        f"  kernel_arg_handoff_live_noop_integration_enabled_required: {str(live_connected_readonly).lower()}\n"
+        f"  kernel_arg_handoff_live_noop_integration_consumer_connected_required: {str(live_connected_readonly).lower()}\n"
+        f"  kernel_arg_handoff_live_consumer_adapter_enabled_required: {str(live_connected_readonly).lower()}\n"
+        f"  kernel_arg_handoff_live_consumer_adapter_consumer_connected_required: {str(live_connected_readonly).lower()}\n"
+        f"  kernel_side_consumer_schema_adapter_consumer_connected_required: {str(live_connected_readonly).lower()}\n"
+        f"  kernel_side_consumer_schema_adapter_live_enabled_required: {str(live_connected_readonly).lower()}\n"
+        f"  kernel_side_consumer_schema_adapter_live_eligible_required: {str(live_connected_readonly).lower()}\n"
         "  kernel_side_typed_consumer_object_payload_bytes_required: 0\n"
         "  kernel_side_typed_consumer_object_passed_to_kernel_required: false\n"
         "  kernel_side_typed_consumer_object_changes_kernel_launch_args_required: false\n"
-        "  kernel_side_typed_consumer_object_consumer_connected_required: false\n"
-        "  kernel_side_typed_consumer_object_live_enabled_required: false\n"
-        "  kernel_side_typed_consumer_object_live_eligible_required: false\n"
+        f"  kernel_side_typed_consumer_object_consumer_connected_required: {str(live_connected_readonly).lower()}\n"
+        f"  kernel_side_typed_consumer_object_live_enabled_required: {str(live_connected_readonly).lower()}\n"
+        f"  kernel_side_typed_consumer_object_live_eligible_required: {str(live_connected_readonly).lower()}\n"
         "  kernel_side_typed_consumer_object_live_compatible_with_current_wna16_args_required: false\n"
+        f"  kernel_side_typed_consumer_object_block_reason: {live_block_reason}\n"
         "  native_typed_consumer_bridge_required: true\n"
         "  native_typed_consumer_bridge_payload_bytes_required: 0\n"
+        "  native_typed_consumer_bridge_ready_credit_required: false\n"
+        "  native_typed_consumer_bridge_changes_router_required: false\n"
+        "  native_typed_consumer_bridge_changes_descriptor_order_required: false\n"
         "  native_typed_consumer_bridge_passed_to_kernel_required: false\n"
         "  native_typed_consumer_bridge_changes_kernel_launch_args_required: false\n"
+        "  native_stub_online_invocation_canary_required: true\n"
+        "  native_stub_online_invocation_canary_mode: readonly_native_stub_online_invocation_canary\n"
+        "  native_stub_online_invocation_canary_block_reason: native_stub_live_disabled\n"
+        "  native_stub_online_invocation_canary_payload_bytes_required: 0\n"
+        "  native_stub_online_invocation_canary_ready_credit_required: false\n"
+        "  native_stub_online_invocation_canary_changes_router_required: false\n"
+        "  native_stub_online_invocation_canary_changes_descriptor_order_required: false\n"
+        "  native_stub_online_invocation_canary_passed_to_kernel_required: false\n"
+        "  native_stub_online_invocation_canary_changes_kernel_launch_args_required: false\n"
+        "  native_stub_online_invocation_canary_native_stub_invoked_required: false\n"
+        "  native_stub_online_invocation_canary_blocked_required: true\n"
+        "  native_typed_consumer_stub_canary_required: true\n"
+        "  native_typed_consumer_stub_payload_bytes_required: 0\n"
+        "  native_typed_consumer_stub_passed_to_kernel_required: false\n"
+        "  native_typed_consumer_stub_changes_kernel_launch_args_required: false\n"
         "evidence_paths:\n"
         f"  gate_json: {evidence_path}\n"
         + (
@@ -233,8 +463,26 @@ def _write_gate(
             f"{lab_gate_path}\n"
             "  strict_kernel_side_typed_consumer_object_128_selfcheck_json: "
             f"{lab_selfcheck_path}\n"
+            "  strict_live_connected_readonly_128_gate_json: "
+            f"{lab_live_connected_path}\n"
+            "  strict_native_typed_consumer_bridge_128_gate_json: "
+            f"{lab_native_bridge_path}\n"
             "  native_typed_consumer_bridge_smoke_json: "
             f"{native_bridge_path}\n"
+            "  strict_native_stub_online_invocation_canary_128_gate_json: "
+            f"{lab_native_stub_path}\n"
+            "  native_typed_consumer_stub_gpu1_canary_json: "
+            f"{native_typed_stub_path}\n"
+            "  native_typed_consumer_bridge_input_json: "
+            f"{native_bridge_input_path}\n"
+            "  native_typed_consumer_stub_online_prelaunch_input_canary_json: "
+            f"{native_online_stub_path}\n"
+            "  native_typed_consumer_online_prelaunch_input_json: "
+            f"{native_online_input_path}\n"
+            "  native_typed_consumer_online_prelaunch_export_performance_json: "
+            f"{native_online_perf_path}\n"
+            "  native_typed_consumer_online_prelaunch_canary_runner_json: "
+            f"{native_online_runner_path}\n"
             if include_lab_evidence
             else ""
         ),
@@ -247,7 +495,8 @@ def _write_trace_config(
     name: str,
     *,
     readonly_gate_path: str,
-    live_enabled: bool = False,
+    live_enabled: bool = True,
+    live_consumer_connected: bool = True,
     kernel_arg_pass_enabled: bool = False,
     real_kernel_arg_mutation_enabled: bool = False,
     single_field_dry_run_enabled: bool = False,
@@ -270,6 +519,7 @@ def _write_trace_config(
         "    premap_consumer_require_readonly_gate: true\n"
         f"    premap_consumer_readonly_gate_path: {readonly_gate_path}\n"
         f"    premap_kernel_arg_handoff_live_enabled: {str(live_enabled).lower()}\n"
+        f"    premap_kernel_arg_handoff_live_consumer_connected: {str(live_consumer_connected).lower()}\n"
         f"    premap_kernel_arg_handoff_kernel_arg_pass_enabled: {str(kernel_arg_pass_enabled).lower()}\n"
         f"    premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled: {str(real_kernel_arg_mutation_enabled).lower()}\n"
         f"    premap_kernel_arg_handoff_single_field_replacement_dry_run_enabled: {str(single_field_dry_run_enabled).lower()}\n"
@@ -299,8 +549,29 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert result["passed"] is True
     assert result["failures"] == []
     assert result["runtime_gate_evidence_scan"]["gate_count"] == 3
-    assert result["runtime_gate_evidence_scan"]["evidence_path_count"] == 8
+    assert result["runtime_gate_evidence_scan"]["evidence_path_count"] == 26
     assert result["default_readonly_gate_required_evidence_check"]["passed"] is True
+    summary = result["lab_gate_status_summary"]
+    assert summary["passed"] is True
+    assert summary["default_readonly_gate_path"] == default_gate
+    assert summary["default_contract_passed"] is True
+    assert summary["default_required_evidence_passed"] is True
+    assert summary["runtime_gate_evidence_deferred_count"] == 0
+    assert summary["strict_default_gate_evidence_deferred_count"] == 0
+    assert summary["native_typed_consumer_bridge_required"] is True
+    assert summary["native_stub_online_invocation_canary_required"] is True
+    assert summary["payload_bytes_required"] == 0
+    assert summary["passed_to_kernel_required"] is False
+    assert summary["changes_kernel_launch_args_required"] is False
+    assert summary["required_evidence"]["required_count"] == 9
+    assert summary["required_evidence"]["present_count"] == 9
+    assert summary["required_evidence"]["passed_count"] == 9
+    assert (
+        summary["required_evidence"]["evidence"][
+            "strict_native_typed_consumer_bridge_128_gate_json"
+        ]["passed"]
+        is True
+    )
     assert result["trace_config_checks"][0]["passed"] is True
     assert result["trace_config_checks"][0]["readonly_gate_path_label"] == default_gate
 
@@ -426,6 +697,12 @@ def test_premap_lab_preflight_rejects_default_gate_without_typed_evidence(
     assert "default_readonly_gate_required_evidence_check_failed" in result["failures"]
     assert set(result["default_readonly_gate_required_evidence_check"]["failures"]) == {
         "native_typed_consumer_bridge_smoke_json:missing_evidence_path",
+        "strict_native_stub_online_invocation_canary_128_gate_json:missing_evidence_path",
+        "native_typed_consumer_stub_gpu1_canary_json:missing_evidence_path",
+        "native_typed_consumer_stub_online_prelaunch_input_canary_json:missing_evidence_path",
+        "native_typed_consumer_online_prelaunch_canary_runner_json:missing_evidence_path",
+        "strict_live_connected_readonly_128_gate_json:missing_evidence_path",
+        "strict_native_typed_consumer_bridge_128_gate_json:missing_evidence_path",
         "strict_kernel_side_typed_consumer_object_128_gate_json:missing_evidence_path",
         "strict_kernel_side_typed_consumer_object_128_selfcheck_json:missing_evidence_path",
     }
@@ -460,6 +737,9 @@ def test_premap_lab_preflight_rejects_failed_typed_evidence(
     assert "default_readonly_gate_required_evidence_check_failed" in result["failures"]
     assert set(result["default_readonly_gate_required_evidence_check"]["failures"]) == {
         "native_typed_consumer_bridge_smoke_json:not_passed",
+        "strict_native_stub_online_invocation_canary_128_gate_json:not_passed",
+        "strict_live_connected_readonly_128_gate_json:not_passed",
+        "strict_native_typed_consumer_bridge_128_gate_json:not_passed",
         "strict_kernel_side_typed_consumer_object_128_gate_json:not_passed",
         "strict_kernel_side_typed_consumer_object_128_selfcheck_json:not_passed",
     }
@@ -493,9 +773,203 @@ def test_premap_lab_preflight_rejects_typed_evidence_with_failures(
     assert result["passed"] is False
     assert set(result["default_readonly_gate_required_evidence_check"]["failures"]) == {
         "native_typed_consumer_bridge_smoke_json:failures_not_empty",
+        "strict_native_stub_online_invocation_canary_128_gate_json:failures_not_empty",
+        "strict_live_connected_readonly_128_gate_json:failures_not_empty",
+        "strict_native_typed_consumer_bridge_128_gate_json:failures_not_empty",
         "strict_kernel_side_typed_consumer_object_128_gate_json:failures_not_empty",
         "strict_kernel_side_typed_consumer_object_128_selfcheck_json:failures_not_empty",
     }
+
+
+def test_premap_lab_preflight_rejects_wrong_native_stub_evidence_content(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    native_stub_path = (
+        tmp_path
+        / "reports/default_gate_native_stub_online_invocation_canary_gate.json"
+    )
+    payload = {
+        "passed": True,
+        "failures": [],
+        "metrics": _lab_evidence_metrics(),
+    }
+    prefix = (
+        "premap_consumer_descriptor_prep_consumer_shim_"
+        "native_stub_online_invocation_"
+    )
+    payload["metrics"][f"{prefix}native_stub_invoked_count"] = 1
+    _write(native_stub_path, json.dumps(payload) + "\n")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is False
+    assert "default_readonly_gate_required_evidence_check_failed" in result["failures"]
+    assert (
+        "strict_native_stub_online_invocation_canary_128_gate_json:"
+        f"{prefix}native_stub_invoked_count_mismatch"
+    ) in result["default_readonly_gate_required_evidence_check"]["failures"]
+
+
+def test_premap_lab_preflight_rejects_unbound_native_typed_stub_input(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    typed_stub_path = (
+        tmp_path
+        / "reports/default_gate_native_typed_consumer_stub_gpu1_canary.json"
+    )
+    payload = _native_stub_evidence_payload("reports/wrong_native_bridge_input.json")
+    _write(typed_stub_path, json.dumps(payload) + "\n")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is False
+    assert "default_readonly_gate_required_evidence_check_failed" in result["failures"]
+    assert (
+        "native_typed_consumer_stub_gpu1_canary_json:"
+        "native_typed_consumer_stub_input_json_mismatch"
+    ) in result["default_readonly_gate_required_evidence_check"]["failures"]
+
+
+def test_premap_lab_preflight_rejects_unbound_online_prelaunch_stub_input(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    typed_stub_path = (
+        tmp_path
+        / "reports/default_gate_native_typed_consumer_stub_online_prelaunch_input_canary.json"
+    )
+    payload = _native_stub_evidence_payload("reports/wrong_online_prelaunch_input.json")
+    _write(typed_stub_path, json.dumps(payload) + "\n")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is False
+    assert "default_readonly_gate_required_evidence_check_failed" in result["failures"]
+    failures = result["default_readonly_gate_required_evidence_check"]["failures"]
+    assert (
+        "native_typed_consumer_stub_online_prelaunch_input_canary_json:"
+        "native_typed_consumer_stub_input_json_mismatch"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_online_prelaunch_noop_meta_mutation(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    online_input_path = (
+        tmp_path / "reports/default_gate_native_online_prelaunch_input.json"
+    )
+    payload = _native_online_prelaunch_input_payload()
+    payload["_meta"]["ready_credit"] = True
+    _write(online_input_path, json.dumps(payload) + "\n")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is False
+    failures = result["default_readonly_gate_required_evidence_check"]["failures"]
+    assert (
+        "native_typed_consumer_stub_online_prelaunch_input_canary_json:"
+        "native_typed_consumer_stub_input_ready_credit_mismatch"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_online_prelaunch_export_summary_mismatch(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    perf_path = (
+        tmp_path
+        / "reports/default_gate_native_online_prelaunch_export_performance.json"
+    )
+    _write(
+        perf_path,
+        json.dumps(
+            {
+                "runtime_shadow_premap_native_typed_consumer_input_export_enabled": True,
+                "runtime_shadow_premap_native_typed_consumer_input_export_count": 1,
+                "runtime_shadow_premap_native_typed_consumer_input_export_first_path": "reports/wrong_online_prelaunch_input.json",
+                "runtime_shadow_premap_native_typed_consumer_input_export_paths": [
+                    "reports/wrong_online_prelaunch_input.json"
+                ],
+            }
+        )
+        + "\n",
+    )
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is False
+    failures = result["default_readonly_gate_required_evidence_check"]["failures"]
+    assert (
+        "native_typed_consumer_stub_online_prelaunch_input_canary_json:"
+        "native_typed_consumer_stub_export_performance_first_path_mismatch"
+    ) in failures
+    assert (
+        "native_typed_consumer_stub_online_prelaunch_input_canary_json:"
+        "native_typed_consumer_stub_export_performance_path_not_listed"
+    ) in failures
 
 
 def test_premap_lab_preflight_rejects_missing_typed_evidence_file(
@@ -522,6 +996,46 @@ def test_premap_lab_preflight_rejects_missing_typed_evidence_file(
     assert result["default_readonly_gate_required_evidence_check"]["failures"] == [
         "strict_kernel_side_typed_consumer_object_128_gate_json:missing_file"
     ]
+
+
+def test_premap_lab_preflight_can_defer_self_referential_runner_evidence(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    runner_path = (
+        tmp_path
+        / "reports/default_gate_native_online_prelaunch_canary_runner.json"
+    )
+    runner_path.unlink()
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+        defer_online_prelaunch_runner_evidence=True,
+    )
+
+    evidence_check = result["default_readonly_gate_required_evidence_check"]
+    summary = result["lab_gate_status_summary"]
+    assert result["passed"] is True
+    assert evidence_check["passed"] is True
+    assert evidence_check["deferred_labels"] == [
+        "native_typed_consumer_online_prelaunch_canary_runner_json"
+    ]
+    assert summary["deferred_online_prelaunch_runner_evidence"] is True
+    assert summary["runtime_gate_evidence_deferred_count"] == 2
+    assert summary["strict_default_gate_evidence_deferred_count"] == 1
+    assert summary["required_evidence"]["required_count"] == 9
+    assert summary["required_evidence"]["present_count"] == 8
+    assert summary["required_evidence"]["passed_count"] == 8
 
 
 def test_premap_lab_preflight_allows_missing_typed_evidence_file_when_requested(
@@ -751,7 +1265,6 @@ def test_premap_lab_preflight_accepts_risky_trace_with_canary_gate_and_marker(
     assert result["trace_config_checks"][0]["failures"] == [
         "readonly_gate_path_mismatch",
         "kernel_arg_pass_enabled",
-        "live_enabled_in_default_lab_config",
     ]
 
 
@@ -766,6 +1279,7 @@ def test_premap_lab_preflight_rejects_risky_trace_without_canary_gate_metadata(
         "danger_canary",
         readonly_gate_path=risky_gate,
         live_enabled=True,
+        kernel_arg_pass_enabled=True,
         risky_trace_canary=True,
         risky_trace_canary_scope="explicit_test_canary",
     )
@@ -806,6 +1320,7 @@ def test_premap_lab_preflight_rejects_risky_trace_without_canary_label_or_marker
         "strict_name_without_marker",
         readonly_gate_path=risky_gate,
         live_enabled=True,
+        kernel_arg_pass_enabled=True,
     )
 
     result = run_premap_lab_preflight(
@@ -839,6 +1354,7 @@ def test_premap_lab_preflight_rejects_named_canary_trace_without_explicit_marker
         "danger_canary",
         readonly_gate_path=risky_gate,
         live_enabled=True,
+        kernel_arg_pass_enabled=True,
     )
 
     result = run_premap_lab_preflight(
@@ -868,7 +1384,6 @@ def test_premap_lab_preflight_all_risky_flags_require_explicit_marker(
         lab_default=False,
     )
     flag_kwargs = [
-        {"live_enabled": True},
         {"kernel_arg_pass_enabled": True},
         {"real_kernel_arg_mutation_enabled": True},
         {"single_field_dry_run_enabled": True},
@@ -897,7 +1412,7 @@ def test_premap_lab_preflight_all_risky_flags_require_explicit_marker(
     }
     assert failures == {
         f"configs/trace/risky_{index}.yaml": ["risky_trace_canary_marker_missing"]
-        for index in range(5)
+        for index in range(4)
     }
 
 
@@ -921,6 +1436,7 @@ def test_premap_lab_preflight_rejects_truthy_string_canary_marker(
         "    premap_consumer_require_readonly_gate: true\n"
         f"    premap_consumer_readonly_gate_path: {risky_gate}\n"
         "    premap_kernel_arg_handoff_live_enabled: true\n"
+        "    premap_kernel_arg_handoff_kernel_arg_pass_enabled: true\n"
         "    premap_risky_trace_canary: 'true'\n"
         "    premap_risky_trace_canary_scope: malformed_truthy_string\n",
     )
@@ -989,3 +1505,44 @@ def test_premap_lab_preflight_cli_writes_summary(tmp_path: Path):
     assert exit_code == 0
     assert result["passed"] is True
     assert result["runtime_gate_evidence_scan"]["passed"] is True
+    assert result["lab_gate_status_summary"]["passed"] is True
+    assert (
+        result["lab_gate_status_summary"]["required_evidence"]["passed_count"]
+        == 9
+    )
+
+
+def test_premap_lab_preflight_cli_summary_only_writes_status_block(tmp_path: Path):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+    output = tmp_path / "preflight_status.json"
+
+    exit_code = main(
+        [
+            "--root",
+            str(tmp_path),
+            "--runtime-pattern",
+            "configs/runtime/*.yaml",
+            "--trace-config",
+            trace_config,
+            "--default-readonly-gate",
+            default_gate,
+            "--canary-gate",
+            canary_gate,
+            "--summary-only",
+            "--output-json",
+            str(output),
+        ]
+    )
+
+    result = json.loads(output.read_text(encoding="utf-8"))
+    assert exit_code == 0
+    assert result["passed"] is True
+    assert result["default_readonly_gate_path"] == default_gate
+    assert result["required_evidence"]["passed_count"] == 9
+    assert "lab_gate_status_summary" not in result

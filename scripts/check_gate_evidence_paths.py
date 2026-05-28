@@ -54,6 +54,7 @@ def check_gate_evidence_paths(
     allow_missing: bool = False,
     allow_missing_section: bool = False,
     require_json: bool = False,
+    deferred_labels: set[str] | None = None,
 ) -> dict[str, Any]:
     root = root.resolve()
     gate_path = gate_path if gate_path.is_absolute() else root / gate_path
@@ -78,6 +79,7 @@ def check_gate_evidence_paths(
 
     rows: list[dict[str, Any]] = []
     failures: list[str] = []
+    deferred_labels = set() if deferred_labels is None else set(deferred_labels)
     for label, raw_path in _iter_evidence_entries(evidence_paths):
         if not label or not isinstance(raw_path, str):
             failures.append(f"{label}:invalid_entry")
@@ -99,6 +101,10 @@ def check_gate_evidence_paths(
             "exists": path.exists(),
             "valid_json": None,
         }
+        if label in deferred_labels:
+            row["deferred"] = True
+            rows.append(row)
+            continue
         if not path.exists():
             if not allow_missing:
                 failures.append(f"{label}:missing")
@@ -135,6 +141,7 @@ def check_gate_evidence_paths(
         "evidence_paths_section_missing": False,
         "evidence_path_count": len(rows),
         "missing_count": sum(1 for row in rows if not row["exists"]),
+        "deferred_count": sum(row.get("deferred") is True for row in rows),
         "invalid_json_count": sum(row["valid_json"] is False for row in rows),
         "passed": not failures,
         "failures": failures,

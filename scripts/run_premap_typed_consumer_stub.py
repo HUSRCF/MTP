@@ -278,6 +278,8 @@ def main(argv: list[str] | None = None) -> int:
         }
     else:
         payload = run_stub(args)
+    payload.setdefault("passed", bool(payload.get("ok", False)))
+    payload.setdefault("failures", [] if payload.get("ok", False) else ["stub_not_ok"])
     args.output_json.parent.mkdir(parents=True, exist_ok=True)
     args.output_json.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(json.dumps(payload, indent=2, sort_keys=True))

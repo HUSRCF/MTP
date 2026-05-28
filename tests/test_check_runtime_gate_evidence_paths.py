@@ -46,6 +46,30 @@ def test_scan_runtime_gate_evidence_paths_summarizes_mixed_runtime_configs(
     assert result["invalid_json_count"] == 0
 
 
+def test_scan_runtime_gate_evidence_paths_reports_deferred_labels(
+    tmp_path: Path,
+):
+    (tmp_path / "configs" / "runtime").mkdir(parents=True)
+    _write_gate(
+        tmp_path / "configs" / "runtime" / "with_deferred.yaml",
+        "schema_version: 1\n"
+        "evidence_paths:\n"
+        "  current_runner: reports/current_runner.json\n",
+    )
+
+    result = scan_runtime_gate_evidence_paths(
+        "configs/runtime/*.yaml",
+        root=tmp_path,
+        allow_missing=False,
+        deferred_labels={"current_runner"},
+    )
+
+    assert result["passed"] is True
+    assert result["missing_count"] == 1
+    assert result["deferred_count"] == 1
+    assert result["results"][0]["rows"][0]["deferred"] is True
+
+
 def test_scan_runtime_gate_evidence_paths_require_section_fails_non_evidence_config(
     tmp_path: Path,
 ):

@@ -83,6 +83,31 @@ def test_check_gate_evidence_paths_can_allow_missing(tmp_path: Path):
     assert result["missing_count"] == 1
 
 
+def test_check_gate_evidence_paths_can_defer_one_missing_label(tmp_path: Path):
+    gate = tmp_path / "gate.yaml"
+    _write_gate(
+        gate,
+        {
+            "current_runner": "reports/current_runner.json",
+            "other_missing": "reports/other_missing.json",
+        },
+    )
+
+    result = check_gate_evidence_paths(
+        gate,
+        root=tmp_path,
+        deferred_labels={"current_runner"},
+    )
+
+    rows = {row["label"]: row for row in result["rows"]}
+    assert result["passed"] is False
+    assert result["failures"] == ["other_missing:missing"]
+    assert result["missing_count"] == 2
+    assert result["deferred_count"] == 1
+    assert rows["current_runner"]["deferred"] is True
+    assert rows["other_missing"]["failure"] == "missing"
+
+
 def test_check_gate_evidence_paths_rejects_invalid_json_when_required(
     tmp_path: Path,
 ):

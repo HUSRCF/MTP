@@ -1,6 +1,6 @@
 model: configs/model/qwen3_6_35b_a3b_awq_4bit.yaml
 data: configs/data/external_prompt_gate_dolly_128.yaml
-output_dir: data/traces/external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_longrun_audit
+output_dir: data/traces/external_prompt_gate_dolly_1_awq_vllm_gpu1_decode_gen16_native_input_export_canary
 
 trace:
   capture_router_topk: true
@@ -9,37 +9,31 @@ trace:
   capture_hidden_states: none
   capture_native_mtp_router: false
   future_window: 4
-  split_id: external_prompt_gate_dolly_128_gen64_longrun_audit
+  split_id: external_prompt_gate_dolly_1_gen16_native_input_export_canary
   expected_sample_start: 0
-  expected_sample_end: 127
+  expected_sample_end: 0
   start_sample: 0
-  max_samples: 128
+  max_samples: 1
   max_length: 128
-  max_tokens: 64
+  max_tokens: 16
   router_module_prefix: model.language_model
   runtime_shadow:
     enabled: true
-    output_path: data/traces/external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_longrun_audit/runtime_shadow.jsonl
+    output_path: data/traces/external_prompt_gate_dolly_1_awq_vllm_gpu1_decode_gen16_native_input_export_canary/runtime_shadow.jsonl
     overwrite: true
     flush_every: 100000
     writer_mode: jsonl_batched
     max_pending: 10000
 
-    # Premap address-manager audit: current-router descriptor/address prep only.
-    # This does not transfer expert payload, does not mark ready-before-demand,
-    # and does not alter router membership or descriptor visitation order.
-    # Required for current-router premap summaries: disabling this removes the
-    # top-k stream that the premap address manager audits. This config is an
-    # online audit path, not a production-like TPOT baseline.
     record_router_topk: true
     emit_premap_summaries: true
     emit_premap_address_manager_counters: true
-    premap_summary_sample_period: 32
+    premap_summary_sample_period: 1
     emit_premap_consumer_mapping: true
     premap_consumer_mapping_mode: noop_assertion
     premap_consumer_mapping_source: fused_moe_prepare_expert_assignment
     premap_consumer_resolve_real_handles: true
-    premap_consumer_mapping_sample_period: 32
+    premap_consumer_mapping_sample_period: 1
     premap_address_capacity_gate_path: configs/runtime/premap_address_capacity_gate_dolly128_gen64_awq_w7900_gpu1.yaml
     premap_consumer_require_readonly_gate: true
     premap_consumer_readonly_gate_path: configs/runtime/premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_live_connected_readonly.yaml
@@ -52,9 +46,10 @@ trace:
     premap_descriptor_bytes: 4096
     premap_priority: 2
 
-    # Premap handle long-run audit keeps only sampled premap manager/consumer
-    # rows. Outcome and descriptor-order rows are disabled because they are not
-    # needed for the read-only descriptor/address handle contract.
+    premap_native_typed_consumer_input_export_enabled: true
+    premap_native_typed_consumer_input_export_max_tables: 1
+    premap_native_typed_consumer_input_export_max_rows: 4096
+
     emit_transition_summaries: false
     emit_descriptor_order_summaries: false
     emit_summaries: true

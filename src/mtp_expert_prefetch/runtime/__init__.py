@@ -65,6 +65,7 @@ from mtp_expert_prefetch.runtime.cache_manager import (
     PremapKernelArgShadowTableObject,
     PremapKernelArgShadowTableResult,
     PremapKernelArgShadowTableRow,
+    PremapNativeStubOnlineInvocationCanary,
     PremapRealDescriptorHandle,
     PremapReadonlyConsumerResult,
 )
@@ -216,6 +217,7 @@ __all__ = [
     "PremapKernelArgShadowTableObject",
     "PremapKernelArgShadowTableResult",
     "PremapKernelArgShadowTableRow",
+    "PremapNativeStubOnlineInvocationCanary",
     "PremapPreparedPlan",
     "PremapRealDescriptorHandle",
     "PremapReadonlyConsumerResult",

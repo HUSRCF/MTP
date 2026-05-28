@@ -2,14 +2,16 @@
 
 ## Progress Version
 
-- Version: `v0.24-premap-native-consumer-schema-plan`
-- Updated: 2026-05-27
+- Version: `v0.25-rocm-upstream-fa-decoder-adapter`
+- Updated: 2026-05-28
 - Current phase: premap descriptor/address prep now has a typed
   kernel-side consumer object and an explicit future native-consumer ABI
   artifact.  The default lab gate remains live-disabled, zero-payload, and not
   passed to the current WNA16 kernel.  The next execution boundary is a small
   HIP/C++ native stub that reads the typed table under stepwise debug macros,
-  not the live WNA16 fused-MoE kernel.
+  not the live WNA16 fused-MoE kernel.  Separately, the ROCm upstream
+  FlashAttention 2.x package is now wired into the vLLM decoder path through an
+  explicit repo-local adapter for correctness testing.
 
 ## Runtime Policy Contract
 
@@ -31,7 +33,115 @@ Safety boundaries:
 - `metadata` and `premap` are setup-preparation actions only.
 - MTP extras must be novel additions and cannot replace `transition_top32`.
 
-## Latest Update: Typed Kernel-Side Premap Consumer Gates
+## Latest Update: ROCm Upstream FlashAttention Decoder Adapter
+
+The custom ROCm FlashAttention 2.x package is installed in the TRY env and can
+be imported by vLLM.  Environment variables alone do not make vLLM choose this
+package for decoder attention; vLLM must receive an explicit
+`attention_config.backend: FLASH_ATTN`, and its decoder ABI must be adapted.
+
+New configs:
+
+```text
+configs/model/qwen3_6_35b_a3b_awq_4bit_fa_probe.yaml
+configs/model/qwen3_6_35b_a3b_awq_4bit_fa_force.yaml
+configs/trace/router_mtp_trace_smoke_text_awq_vllm_gpu1_decode_independent_prompt_smoke1_gen16_fa_force.yaml
+configs/trace/router_mtp_trace_smoke_text_awq_vllm_gpu1_decode_independent_prompt_smoke8_gen64_fa_force.yaml
+```
+
+`vllm.attention_config` is now passed through to `LLM(...)`.  With
+`attention_config.backend: FLASH_ATTN`, vLLM logs:
+
+```text
+Using FLASH_ATTN backend (selected via --attention-backend).
+Using FlashAttention version None
+```
+
+The upstream ROCm FA2 package does not implement the same decoder ABI as vLLM's
+native FlashAttention backend:
+
+```text
+varlen + block_table:
+  fails because AMD Triton FA2 varlen_fwd does not support block_table.
+
+flash_attn_with_kvcache:
+  executes, but does not match the current vLLM paged-KV semantics for this
+  Qwen3.6 AWQ path and produced bad text in smoke.
+```
+
+The current repo-local adapter therefore resolves vLLM paged-KV metadata into a
+dense varlen K/V stream and calls standard `flash_attn_varlen_func`.  This is a
+correctness adapter only; it materializes K/V and is not a performance path.
+
+Evidence:
+
+```text
+1-sample gen16 forced decoder FA:
+  output matches the base ROCM_ATTN smoke text exactly.
+
+8-sample gen64 forced decoder FA:
+  backend = FLASH_ATTN
+  generated text is coherent across all 8 prompts.
+  exact text match vs base = 4 / 8
+  matching first-80-character prefix = 5 / 8
+  generate wall time:
+    base ROCM_ATTN: 37.97s
+    forced FA correctness adapter: 112.28s
+```
+
+This proves that vLLM decoder paged-KV metadata can be mapped into an upstream
+ROCm FA2 decoder call in a semantically valid way.  It does not prove a runtime
+speedup.  A performance-capable backend would need a native paged varlen ABI or
+a direct FA decoder path that consumes vLLM's block table without materializing
+K/V.
+
+Decision:
+
+```text
+ROCm upstream FA2 decoder adapter:
+  status = diagnostic / correctness-only
+  reason = semantic bridge works, but the current adapter materializes paged KV
+           and is much slower than vLLM's ROCM_ATTN path.
+
+Do not use this branch for the main runtime performance claim.
+Do not continue tuning it unless a native paged-KV/block_table FA ABI becomes
+available.
+```
+
+Next mainline experiment focus:
+
+```text
+Return to the MTP prefetch / premap path.
+
+P0:
+  keep the typed premap descriptor/address preparation gate as the lab
+  precondition.
+
+P0:
+  connect the prepared descriptor/address object to the vLLM prelaunch consumer
+  in readonly mode:
+    payload_bytes = 0
+    ready_credit = 0
+    changes_kernel_launch_args = false
+    kernel_arg_pass = false
+
+P1:
+  run production-like action replay / controlled manager evidence under the
+  existing bounded-cache and capacity gates, not attention-backend experiments.
+
+P1:
+  only after native typed consumer compatibility is proven, consider one
+  field-at-a-time descriptor/address handoff canaries.
+```
+
+Validation:
+
+```text
+pytest tests -q
+  647 passed, 2 warnings
+```
+
+## Typed Kernel-Side Premap Consumer Gates
 
 The future native consumer ABI is now documented and machine-checked:
 
@@ -177,6 +287,40 @@ manager:
 This refresh confirms the non-canary default path remains stable after the
 live/pass/mutation canaries were tightened.
 
+Online native typed-consumer bridge gate:
+
+```text
+gate:
+  longrun_audit_gate_live_connected_readonly.json
+  passed = true
+  failures = []
+checker:
+  --require-native-typed-consumer-bridge
+native bridge:
+  mode = readonly_native_typed_consumer_bridge_check
+  checked / ok = 10,195 / 10,195
+  row_count = 110,898
+  column_count_min/max = 4 / 4
+  required_handle_nonzero = 332,694
+  required_handle_zero = 0
+  optional_handle_nonzero = 110,898
+  optional_handle_zero = 0
+  expert_id_valid = 110,898
+  expert_id_invalid = 0
+  address_key_hash_nonzero = 110,898
+  failure_count = 0
+  payload_bytes = 0
+  passed_to_kernel = 0
+  kernel_arg_violation = 0
+```
+
+This promotes the native bridge from offline stub evidence to an online
+prelaunch-consumer contract.  The runtime shim now converts the prepared
+readonly handle table into the future native-consumer input shape and validates
+row/field parity at the online boundary.  The current WNA16 fused-MoE launch is
+still unchanged: no payload is moved, no ready credit is granted, and no kernel
+argument is passed or mutated.
+
 The lab preflight is now also a typed-evidence gate, not just a path/schema
 check.  `scripts/run_premap_lab_preflight.py` requires the default readonly
 runtime gate to reference both:
@@ -184,6 +328,8 @@ runtime gate to reference both:
 ```text
 strict_kernel_side_typed_consumer_object_128_gate_json
 strict_kernel_side_typed_consumer_object_128_selfcheck_json
+strict_native_typed_consumer_bridge_128_gate_json
+native_typed_consumer_bridge_smoke_json
 ```
 
 and verifies that both JSON artifacts are parseable objects with:
@@ -13996,6 +14142,156 @@ no descriptor_order execution
 no kernel argument mutation
 ```
 
+## Native stub online invocation canary gate
+
+The premap consumer path now has a live-disabled native-stub invocation canary.
+The prelaunch shim builds the typed handle-table package that a future native
+consumer would receive and runs the in-process native typed bridge checker on
+that exact table, but still blocks the actual native stub launch.
+
+Strict GPU1 AWQ/vLLM 128-sample gate:
+
+```text
+artifact:
+  data/traces/
+    external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_longrun_audit/
+    longrun_audit_gate_native_stub_online_invocation_canary.json
+
+passed = true
+failures = []
+native_stub_online_invocation_checked = 10,195
+native_stub_online_invocation_ready = 10,195
+native_stub_online_invocation_ok = 10,195
+native_checker_invoked = 10,195
+native_bridge_ok = 10,195
+native_stub_invoked = 0
+blocked = 10,195
+block_reason = native_stub_live_disabled
+
+row_count = 110,898
+column_count_min/max = 4 / 4
+required_handle_nonzero_count = 332,694
+required_handle_zero_count = 0
+optional_handle_nonzero_count = 110,898
+expert_id_invalid_count = 0
+address_key_hash_zero_count = 0
+failure_count = 0
+
+payload_bytes = 0
+ready_credit_count = 0
+changes_router_count = 0
+changes_descriptor_order_count = 0
+passed_to_kernel_count = 0
+kernel_arg_violation_count = 0
+```
+
+Review fixes included in this gate:
+
+```text
+1. The table object hash and native bridge metadata now include ready_credit,
+   changes_router, and changes_descriptor_order, so the canary independently
+   preserves the no-op boundary.
+
+2. The canary recomputes the current table input hash and rejects stale native
+   bridge checks that do not match the current table object/schema/row layout.
+
+3. The default lab preflight now performs content-level checks for the native
+   bridge and native-stub evidence JSONs instead of accepting any passed JSON.
+   It verifies mode, counts, payload=0, ready/router/order no-op counts,
+   native_stub_invoked=0, blocked count, and block reason.
+```
+
+The default lab readonly gate now requires:
+
+```text
+require_native_stub_online_invocation_canary = true
+mode = readonly_native_stub_online_invocation_canary
+block_reason = native_stub_live_disabled
+native_stub_invoked = 0
+payload_bytes = 0
+ready_credit = false
+changes_router = false
+changes_descriptor_order = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+```
+
+This is still a live-disabled canary, not a real kernel handoff.  It validates
+that the online prelaunch path can construct and check the future native
+consumer package without mutating the real WNA16 launch.
+
+## Native typed consumer stub canary
+
+The default lab preflight now also requires a real HIP/C++ typed consumer stub
+canary.  This is separate from the online prelaunch shim: it feeds a prepared
+native bridge input into the standalone native consumer stub under explicit
+debug macros, while still forbidding payload dereference and kernel-arg pass.
+
+Evidence:
+
+```text
+stub:
+  microbench/premap_kernel_consumer/premap_typed_consumer_stub.hip
+
+runner:
+  scripts/run_premap_typed_consumer_stub.py
+
+input:
+  outputs/reports/premap_kernel_consumer/native_bridge_input_latest.json
+
+artifact:
+  outputs/reports/premap_kernel_consumer/
+    typed_consumer_stub_gpu1_from_native_bridge_input_canary.json
+
+ok = true
+row_count = 2
+row_ok_count = 2
+error_count = 0
+column_count = 4
+input_source = binary_prefix
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+expected_schema_hash =
+  c1384d55958c9aa78b07b4ee3e9094f835ec1ca4c61bd7e9613c01ceb8275e98
+```
+
+Compiled macro ladder:
+
+```text
+MTP_PREMAP_TYPED_CONSUMER_CHECK_SCHEMA = true
+MTP_PREMAP_TYPED_CONSUMER_CHECK_ROW_ITERATION = true
+MTP_PREMAP_TYPED_CONSUMER_CHECK_POINTER_VISIBILITY = true
+MTP_PREMAP_TYPED_CONSUMER_CHECK_LIFETIME = true
+MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR = true
+
+MTP_PREMAP_TYPED_CONSUMER_ENABLE_PAYLOAD_DEREF = forbidden
+MTP_PREMAP_TYPED_CONSUMER_ENABLE_KERNEL_ARG_PASS = forbidden
+```
+
+The lab preflight now performs content-level checks on this stub artifact:
+
+```text
+native_typed_consumer_stub_canary_required = true
+stub input_json == native_typed_consumer_bridge_input_json
+stub row_count == native bridge input _meta.row_count
+stub column_count == native bridge input _meta.column_count
+native bridge input _meta.schema_hash == handle-table schema hash
+native bridge input row-field lengths == stub row_count
+ok = true
+row_ok_count == row_count
+error_count = 0
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+all required debug macros enabled
+forbidden payload/kernel-arg macros absent
+```
+
+This establishes a lower-level native typed-consumer canary, but it remains
+disconnected from the live WNA16 fused-MoE kernel and from the online prelaunch
+kernel argument path.
+
 ### 2026-05-26: Single-field kernel-arg replacement live gate remains default-disabled
 
 The next kernel-argument handoff layer is now wired as an explicit gate:
@@ -16311,6 +16607,809 @@ no descriptor_order execution
 no kernel argument mutation
 ```
 
+### Lab preflight machine-readable status summary
+
+Added a top-level `lab_gate_status_summary` to the premap lab preflight
+output so the default lab gate can be checked without manually walking the
+nested evidence objects:
+
+```text
+script:
+  scripts/run_premap_lab_preflight.py
+
+refreshed artifact:
+  outputs/reports/
+    premap_lab_preflight_native_bridge_and_stub_required_128.json
+
+compact status artifact:
+  outputs/reports/
+    premap_lab_preflight_status_native_bridge_and_stub_required_128.json
+
+lab_gate_status_summary.passed = true
+default_contract_passed = true
+default_kernel_consumer_schema_passed = true
+default_required_evidence_passed = true
+runtime_gate_evidence_scan_passed = true
+strict_default_gate_evidence_passed = true
+trace_config_passed_count = 2 / 2
+required_evidence.present_count = 9 / 9
+required_evidence.passed_count = 9 / 9
+native_typed_consumer_bridge_required = true
+native_stub_online_invocation_canary_required = true
+payload_bytes_required = 0
+passed_to_kernel_required = false
+changes_kernel_launch_args_required = false
+```
+
+This does not relax or change the gate. It only materializes the existing
+contract/evidence checks into a machine-readable status block for lab-default
+preflight and handoff review.
+
+The preflight CLI also supports a compact handoff mode:
+
+```text
+scripts/run_premap_lab_preflight.py --summary-only
+```
+
+`--summary-only` writes only `lab_gate_status_summary` while preserving the
+full preflight result internally for the process exit code.
+
+Validation:
+
+```text
+env PYTHONPATH=/home/husrcf/Code/ProtBind/MTP:/home/husrcf/Code/ProtBind/MTP/src \
+  conda run -p /home/husrcf/anaconda3/envs/TRY \
+  pytest tests/test_run_premap_lab_preflight.py -q
+
+29 passed in 3.49s
+
+env PYTHONPATH=/home/husrcf/Code/ProtBind/MTP:/home/husrcf/Code/ProtBind/MTP/src \
+  conda run -p /home/husrcf/anaconda3/envs/TRY \
+  pytest tests -q
+
+658 passed, 2 warnings in 8.65s
+```
+
+### Status-backed online native-stub canary
+
+The online prelaunch native-stub canary runner now treats the compact lab
+preflight status as part of the canary contract.  It still runs the full
+preflight, but it also runs:
+
+```text
+scripts/run_premap_lab_preflight.py --summary-only
+```
+
+and requires the resulting status block to pass before the runner can pass.
+
+Refreshed runner:
+
+```text
+script:
+  scripts/run_premap_online_native_stub_canary.py
+
+artifact:
+  outputs/reports/premap_kernel_consumer/
+    online_prelaunch_native_stub_canary_runner.json
+
+compact preflight status:
+  outputs/reports/
+    premap_lab_preflight_status_online_prelaunch_native_stub_canary.json
+
+runner passed = true
+runner failures = []
+native stub row_ok_count = 204 / 204
+preflight_summary.passed = true
+preflight_status_summary.passed = true
+preflight_status_summary.required_evidence_present_count = 9
+preflight_status_summary.required_evidence_passed_count = 9
+native_typed_consumer_bridge_required = true
+native_stub_online_invocation_canary_required = true
+payload_bytes_required = 0
+passed_to_kernel_required = false
+changes_kernel_launch_args_required = false
+```
+
+This makes the compact status artifact the practical lab-default preflight
+entry for the native/online bridge canary while preserving the full nested
+preflight artifact for audit.
+
+Validation:
+
+```text
+env PYTHONPATH=/home/husrcf/Code/ProtBind/MTP:/home/husrcf/Code/ProtBind/MTP/src \
+  conda run -p /home/husrcf/anaconda3/envs/TRY \
+  pytest tests/test_run_premap_online_native_stub_canary.py \
+         tests/test_run_premap_lab_preflight.py -q
+
+33 passed in 3.33s
+
+env PYTHONPATH=/home/husrcf/Code/ProtBind/MTP:/home/husrcf/Code/ProtBind/MTP/src \
+  conda run -p /home/husrcf/anaconda3/envs/TRY \
+  pytest tests -q
+
+659 passed, 2 warnings in 8.47s
+```
+
+Follow-up gate hardening:
+
+The online prelaunch native-stub canary runner no longer lets the preflight
+step validate a stale copy of the runner artifact.  The runner now uses a
+two-stage preflight:
+
+```text
+stage 1:
+  run full preflight and compact status with
+  --defer-online-prelaunch-runner-evidence
+
+  purpose:
+    validate every non-self-referential lab gate dependency before the runner
+    report exists.
+
+stage 2:
+  write the runner report
+  run normal full preflight and compact status without defer
+
+  purpose:
+    validate the current runner artifact through the default lab gate.
+```
+
+Refreshed runner evidence:
+
+```text
+artifact:
+  outputs/reports/premap_kernel_consumer/
+    online_prelaunch_native_stub_canary_runner.json
+
+stage 1 preflight:
+  preflight_summary.passed = true
+  deferred_online_prelaunch_runner_evidence = true
+  preflight_status_summary.required_evidence_present_count = 8
+  preflight_status_summary.required_evidence_passed_count = 8
+  preflight_status_summary.required_evidence_required_count = 9
+  preflight_status_summary.runtime_gate_evidence_deferred_count = 1
+  preflight_status_summary.strict_default_gate_evidence_deferred_count = 1
+
+stage 2 final preflight:
+  final_preflight_summary.passed = true
+  final_preflight_status_summary.required_evidence_present_count = 9
+  final_preflight_status_summary.required_evidence_passed_count = 9
+  final_preflight_status_summary.required_evidence_required_count = 9
+  final_preflight_status_summary.runtime_gate_evidence_deferred_count = 0
+  final_preflight_status_summary.strict_default_gate_evidence_deferred_count = 0
+
+runner passed = true
+runner failures = []
+native stub row_ok_count = 204 / 204
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+```
+
+This preserves the default lab gate semantics while removing the
+self-referential stale-runner loophole.
+
+Validation:
+
+```text
+env PYTHONPATH=/home/husrcf/Code/ProtBind/MTP:/home/husrcf/Code/ProtBind/MTP/src \
+  conda run -p /home/husrcf/anaconda3/envs/TRY \
+  pytest tests/test_run_premap_online_native_stub_canary.py \
+         tests/test_run_premap_lab_preflight.py -q
+
+52 passed in 3.41s
+
+env PYTHONPATH=/home/husrcf/Code/ProtBind/MTP:/home/husrcf/Code/ProtBind/MTP/src \
+  conda run -p /home/husrcf/anaconda3/envs/TRY \
+  pytest tests -q
+
+662 passed, 2 warnings in 7.80s
+```
+
+Additional regression coverage:
+
+```text
+scripts/check_gate_evidence_paths.py:
+  deferred_labels now has direct tests proving that only the named
+  self-referential runner label is deferred. Other missing evidence labels
+  still fail in strict mode.
+
+scripts/check_runtime_gate_evidence_paths.py:
+  runtime scans now propagate deferred_labels and expose deferred_count.
+
+scripts/run_premap_online_native_stub_canary.py:
+  runner summaries now surface deferred_count for both the prewrite defer
+  preflight and the final strict preflight. The expected pattern is 1 deferred
+  self-reference before the runner exists and 0 deferred labels after the
+  current runner artifact has been written.
+```
+
+Full GPU1 online canary rerun:
+
+```text
+command:
+  env HIP_VISIBLE_DEVICES=1 CUDA_VISIBLE_DEVICES=1 \
+    PYTHONPATH=/home/husrcf/Code/ProtBind/MTP:/home/husrcf/Code/ProtBind/MTP/src \
+    conda run -p /home/husrcf/anaconda3/envs/TRY \
+    python scripts/run_premap_online_native_stub_canary.py \
+      --gpu-index 1 \
+      --stub-device 0 \
+      --output-json \
+        outputs/reports/premap_kernel_consumer/
+        online_prelaunch_native_stub_canary_runner.json
+
+result:
+  runner passed = true
+  failures = []
+  trace step = passed
+  native stub step = passed
+  stage1 defer preflight = passed
+  stage2 final preflight = passed
+
+exported online input:
+  data/traces/
+    external_prompt_gate_dolly_1_awq_vllm_gpu1_decode_gen16_native_input_export_canary/
+    premap_native_typed_consumer_inputs/
+    premap_native_typed_consumer_input_0000_sample_0_seq0_tok-1_layer0.json
+
+native stub:
+  row_count = 204
+  row_ok_count = 204
+  error_count = 0
+  hash_accumulator = bf04cc3a2ce41fdf
+  compiled macros:
+    MTP_PREMAP_TYPED_CONSUMER_CHECK_SCHEMA = true
+    MTP_PREMAP_TYPED_CONSUMER_CHECK_ROW_ITERATION = true
+    MTP_PREMAP_TYPED_CONSUMER_CHECK_POINTER_VISIBILITY = true
+    MTP_PREMAP_TYPED_CONSUMER_CHECK_LIFETIME = true
+    MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR = true
+
+stage1 prewrite:
+  required evidence = 8 / 9
+  runtime deferred_count = 1
+  strict default deferred_count = 1
+
+stage2 final:
+  required evidence = 9 / 9
+  runtime deferred_count = 0
+  strict default deferred_count = 0
+
+boundary:
+  payload_bytes = 0
+  passed_to_kernel = false
+  changes_kernel_launch_args = false
+```
+
+This confirms the two-stage gate with a fresh online export and native stub
+execution, not only with cached evidence artifacts.
+
+Artifact consistency checker:
+
+```text
+script:
+  scripts/check_premap_online_native_stub_canary_artifacts.py
+
+artifact:
+  outputs/reports/premap_kernel_consumer/
+    online_prelaunch_native_stub_canary_artifact_check.json
+
+passed = true
+failures = []
+runner_stub_row_count = 204
+runner_stub_row_ok_count = 204
+stage1_deferred_count = 1
+final_deferred_count = 0
+status_deferred_count = 0
+runner_preflight_output_json matches full preflight artifact
+runner_preflight_status_output_json matches compact status artifact
+```
+
+The checker verifies the three-file evidence set:
+
+```text
+runner:
+  outputs/reports/premap_kernel_consumer/
+    online_prelaunch_native_stub_canary_runner.json
+
+full preflight:
+  outputs/reports/premap_lab_preflight_online_prelaunch_native_stub_canary.json
+
+compact status:
+  outputs/reports/premap_lab_preflight_status_online_prelaunch_native_stub_canary.json
+```
+
+It rejects stale status paths, nonzero final defer counts, stub row-count
+mismatches, and payload/kernel-arg boundary violations.
+
+Validation:
+
+```text
+env PYTHONPATH=/home/husrcf/Code/ProtBind/MTP:/home/husrcf/Code/ProtBind/MTP/src \
+  conda run -p /home/husrcf/anaconda3/envs/TRY \
+  pytest tests/test_check_premap_online_native_stub_canary_artifacts.py \
+         tests/test_run_premap_online_native_stub_canary.py \
+         tests/test_run_premap_lab_preflight.py -q
+
+38 passed in 3.37s
+
+env PYTHONPATH=/home/husrcf/Code/ProtBind/MTP:/home/husrcf/Code/ProtBind/MTP/src \
+  conda run -p /home/husrcf/anaconda3/envs/TRY \
+  pytest tests -q
+
+666 passed, 2 warnings in 9.22s
+```
+
+### In-process native typed-consumer bridge
+
+The prelaunch descriptor/address path now has an in-process typed-consumer
+bridge check:
+
+```text
+PremapKernelArgShadowTableObject
+-> to_native_typed_consumer_input_dict()
+-> PremapNativeTypedConsumerBridgeCheck
+-> PremapNativeStubOnlineInvocationCanary (live-disabled package only)
+```
+
+This validates the same typed input shape used by the standalone native/HIP
+consumer stub while staying inside the vLLM prelaunch no-op path. It checks:
+
+```text
+schema hash
+row / column count
+table object hash
+row order / ordered row hash
+required descriptor / packed-weight / scale handles are nonzero
+optional aux handle accounting
+expert id and address-key hash validity
+payload_bytes = 0
+ready_credit = false
+changes_router = false
+changes_descriptor_order = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+```
+
+The bridge is emitted through the premap consumer shim and aggregated into the
+long-run audit gate as `native_typed_consumer_bridge`. The native stub online
+invocation remains a blocked canary package:
+
+```text
+native_checker_invoked = true
+native_bridge_ok = true
+native_stub_invoked = false
+block_reason = native_stub_live_disabled
+```
+
+Verification:
+
+```text
+conda run -p /home/husrcf/anaconda3/envs/TRY pytest tests -q
+657 passed, 2 warnings
+```
+
+Online canary:
+
+```text
+script:
+  scripts/run_premap_online_native_stub_canary.py --gpu-index 1 --stub-device 0
+
+trace:
+  configs/trace/
+    router_mtp_trace_external_prompt_gate_dolly_1_awq_vllm_gpu1_decode_gen16_native_input_export_canary.yaml
+
+exported input:
+  data/traces/
+    external_prompt_gate_dolly_1_awq_vllm_gpu1_decode_gen16_native_input_export_canary/
+    premap_native_typed_consumer_inputs/
+    premap_native_typed_consumer_input_0000_sample_0_seq0_tok-1_layer0.json
+
+result:
+  passed = true
+  failures = []
+  row_count = 204
+  native_stub row_ok_count = 204
+  native_stub error_count = 0
+  preflight passed = true
+  payload_bytes = 0
+  passed_to_kernel = false
+  changes_kernel_launch_args = false
+```
+
+Boundary remains unchanged:
+
+```text
+no payload transfer
+no ready credit
+no router mutation
+no descriptor_order execution
+no live native stub invocation
+no kernel argument mutation
+```
+
+### Strict 128 native bridge + native-stub gate refresh
+
+The in-process/native typed-consumer bridge is now validated as part of the
+default strict 128 lab gate, not just the 1-sample canary.
+
+Rerun:
+
+```text
+trace:
+  configs/trace/
+    router_mtp_trace_external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_longrun_audit.yaml
+
+output:
+  data/traces/
+    external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_longrun_audit/
+
+manifest rows = 128
+```
+
+Refreshed strict gate artifacts:
+
+```text
+native bridge:
+  data/traces/
+    external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_longrun_audit/
+    longrun_audit_gate_native_typed_consumer_bridge.json
+
+  passed = true
+  failures = []
+  require_native_typed_consumer_bridge = true
+
+native bridge + native-stub online canary:
+  data/traces/
+    external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_longrun_audit/
+    longrun_audit_gate_native_stub_online_invocation_canary.json
+
+  passed = true
+  failures = []
+  require_native_typed_consumer_bridge = true
+  require_native_stub_online_invocation_canary = true
+
+combined audit copy:
+  data/traces/
+    external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_longrun_audit/
+    longrun_audit_gate_native_bridge_and_stub_required.json
+
+  passed = true
+  failures = []
+```
+
+Long-run counters:
+
+```text
+premap_consumer_mapping_count = 10,195
+
+native_typed_consumer_bridge:
+  checked / ok = 10,195 / 10,195
+  row_count = 110,898
+  required_handle_nonzero = 332,694
+  required_handle_zero = 0
+  optional_handle_nonzero = 110,898
+  optional_handle_zero = 0
+  failure_count = 0
+  payload_bytes = 0
+  passed_to_kernel = 0
+  kernel_arg_violation = 0
+
+native_stub_online_invocation:
+  checked / ready / ok = 10,195 / 10,195 / 10,195
+  native_checker_invoked = 10,195
+  native_bridge_ok = 10,195
+  native_stub_invoked = 0
+  block_reason = native_stub_live_disabled
+  payload_bytes = 0
+  passed_to_kernel = 0
+  kernel_arg_violation = 0
+```
+
+Lab preflight:
+
+```text
+script:
+  scripts/run_premap_lab_preflight.py
+
+output:
+  outputs/reports/premap_lab_preflight_native_bridge_and_stub_required_128.json
+
+passed = true
+failures = []
+```
+
+This promotes the typed bridge + native-stub online canary combination into the
+strict 128 lab precondition while preserving the no-op boundary:
+
+```text
+no payload transfer
+no ready credit
+no router mutation
+no descriptor_order execution
+native stub package constructed but native_stub_invoked = 0
+no kernel argument mutation
+```
+
+## Online prelaunch native typed-consumer stub canary
+
+The typed native-consumer canary is now bound to an object exported from the
+real vLLM/AWQ prelaunch shim, rather than only to a standalone/latest bridge
+input.  The export is sample-limited and disabled by default; when enabled, it
+writes the prepared kernel-arg shadow table in the JSON shape consumed by the
+native HIP stub.
+
+GPU1 1-sample/gen16 online export canary:
+
+```text
+config:
+  configs/trace/
+    router_mtp_trace_external_prompt_gate_dolly_1_awq_vllm_gpu1_decode_gen16_native_input_export_canary.yaml
+
+exported online table:
+  data/traces/
+    external_prompt_gate_dolly_1_awq_vllm_gpu1_decode_gen16_native_input_export_canary/
+    premap_native_typed_consumer_inputs/
+    premap_native_typed_consumer_input_0000_sample_0_seq0_tok-1_layer0.json
+
+source = vllm_prelaunch_premap_kernel_arg_shadow_table_object
+row_count = 204
+column_count = 4
+schema_hash = a02928d41970cdf1630dc2a743589ab18068454ac47341a34c4583fd40a5f294
+payload_bytes = 0
+ready_credit = false
+changes_router = false
+changes_descriptor_order = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+```
+
+The native typed consumer stub consumed this online-exported table directly:
+
+```text
+artifact:
+  outputs/reports/premap_kernel_consumer/
+    typed_consumer_stub_gpu1_online_prelaunch_input_canary.json
+
+passed = true
+failures = []
+ok = true
+row_count = 204
+row_ok_count = 204
+error_count = 0
+column_count = 4
+input_source = binary_prefix
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+```
+
+The default lab preflight now requires both native-stub evidences:
+
+```text
+native_typed_consumer_stub_gpu1_canary_json
+native_typed_consumer_stub_online_prelaunch_input_canary_json
+```
+
+and verifies that each stub's `input_json` is bound to the corresponding gate
+input path.  The online-prelaunch variant is bound to:
+
+```text
+native_typed_consumer_online_prelaunch_input_json
+```
+
+The online-prelaunch stub input check is stricter than the standalone bridge
+input check.  It requires the exported input to carry:
+
+```text
+_meta.schema_hash / row_count / column_count
+_meta.payload_bytes = 0
+_meta.ready_credit = false
+_meta.changes_router = false
+_meta.changes_descriptor_order = false
+_meta.passed_to_kernel = false
+_meta.changes_kernel_launch_args = false
+
+_export_context.source = vllm_prelaunch_premap_kernel_arg_shadow_table_object
+_export_context.row_count / column_count / schema_hash / table_object_hash match _meta
+_export_context payload/ready/router/order/kernel-arg fields remain no-op
+```
+
+Validation:
+
+```text
+env PYTHONPATH=$PWD:$PWD/src conda run -p /home/husrcf/anaconda3/envs/TRY \
+  python scripts/run_premap_lab_preflight.py \
+  --output-json outputs/reports/premap_lab_preflight_online_prelaunch_native_stub_canary.json
+
+passed = true
+failures = []
+
+env PYTHONPATH=$PWD:$PWD/src conda run -p /home/husrcf/anaconda3/envs/TRY \
+  pytest tests -q
+
+654 passed, 2 warnings
+```
+
+Review follow-up:
+
+```text
+Spark review could not run because GPT-5.3-Codex-Spark quota was exhausted.
+A default review found two important gate-hardening issues:
+  1. online stub evidence needed binding to the canary performance summary;
+  2. exported input summaries could be polluted by stale files if performance
+     used directory globbing.
+```
+
+Fixes:
+
+```text
+performance_summary now records the exact paths exported by the current
+recorder run instead of globbing the export directory.
+
+lab preflight checks:
+  native_typed_consumer_stub_online_prelaunch_input_canary_json.input_json
+    == native_typed_consumer_online_prelaunch_input_json
+
+  performance_summary.runtime_shadow_premap_native_typed_consumer_input_export_first_path
+    == native_typed_consumer_online_prelaunch_input_json
+
+  performance_summary.runtime_shadow_premap_native_typed_consumer_input_export_paths
+    contains native_typed_consumer_online_prelaunch_input_json
+
+  performance_summary.runtime_shadow_premap_native_typed_consumer_input_export_count > 0
+```
+
+Added negative tests for:
+
+```text
+unbound online-prelaunch stub input
+online-prelaunch no-op metadata mutation
+online-prelaunch export-summary path mismatch
+```
+
+An end-to-end runner now makes the online native-stub canary reproducible:
+
+```text
+script:
+  scripts/run_premap_online_native_stub_canary.py
+
+default chain:
+  run 1-sample/gen16 vLLM/AWQ online export canary
+  -> read performance_summary.runtime_shadow_premap_native_typed_consumer_input_export_first_path
+  -> run HIP native typed consumer stub on that exported input
+  -> run lab preflight
+  -> write runner report
+
+runner artifact:
+  outputs/reports/premap_kernel_consumer/
+    online_prelaunch_native_stub_canary_runner.json
+
+runner passed = true
+runner failures = []
+trace step = passed
+native stub step = passed
+preflight step = passed
+native stub row_ok_count = 204 / 204
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+```
+
+The default lab gate now requires the runner artifact as well:
+
+```text
+native_typed_consumer_online_prelaunch_canary_runner_json
+```
+
+Validation after review fixes:
+
+```text
+env HIP_VISIBLE_DEVICES=1 CUDA_VISIBLE_DEVICES=1 \
+  PYTHONPATH=$PWD:$PWD/src \
+  conda run -p /home/husrcf/anaconda3/envs/TRY \
+  python scripts/run_premap_online_native_stub_canary.py \
+  --output-json outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_runner.json
+
+passed = true
+failures = []
+
+env PYTHONPATH=$PWD:$PWD/src conda run -p /home/husrcf/anaconda3/envs/TRY \
+  python scripts/run_premap_lab_preflight.py \
+  --output-json outputs/reports/premap_lab_preflight_online_prelaunch_native_stub_canary.json
+
+passed = true
+failures = []
+
+env PYTHONPATH=$PWD:$PWD/src conda run -p /home/husrcf/anaconda3/envs/TRY \
+  pytest tests -q
+
+657 passed, 2 warnings
+```
+
+## Premap live-connected readonly lab gate
+
+The default lab precondition has advanced from a disconnected kernel-side
+typed-consumer shadow object to a live-connected readonly consumer envelope.
+This still does not pass arguments to the fused-MoE/AWQ kernel; it only proves
+that the prelaunch consumer shim can see the prepared handle table through the
+future live handoff path while all mutation/payload paths remain blocked.
+
+Default gate artifact:
+
+```text
+configs/runtime/
+  premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_live_connected_readonly.yaml
+
+strict evidence:
+data/traces/
+  external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_longrun_audit/
+  longrun_audit_gate_live_connected_readonly.json
+
+preflight:
+outputs/reports/premap_lab_preflight_live_connected_readonly.json
+```
+
+GPU1 AWQ/vLLM 128-sample strict rerun:
+
+```text
+passed = true
+failures = []
+premap_summary = 10,195
+premap_consumer_mapping = 10,195
+
+live_toggle_enabled_count = 10,195
+live_toggle_live_eligible_count = 10,195
+live_toggle_block_reason = kernel_arg_handoff_kernel_consumer_not_connected
+
+live_noop_integration_enabled_count = 10,195
+live_noop_integration_consumer_connected_count = 10,195
+live_noop_integration_block_reason = kernel_arg_handoff_kernel_arg_pass_disabled
+
+live_consumer_adapter_enabled_count = 10,195
+live_consumer_adapter_consumer_connected_count = 10,195
+live_consumer_adapter_live_eligible_count = 10,195
+live_consumer_adapter_block_reason = kernel_arg_handoff_kernel_arg_pass_disabled
+
+kernel_side_consumer_schema_adapter_consumer_connected_count = 10,195
+kernel_side_consumer_schema_adapter_live_enabled_count = 10,195
+kernel_side_consumer_schema_adapter_live_eligible_count = 10,195
+kernel_side_consumer_schema_adapter_block_reason = kernel_side_consumer_kernel_arg_pass_disabled
+
+kernel_side_typed_consumer_object_consumer_connected_count = 10,195
+kernel_side_typed_consumer_object_live_enabled_count = 10,195
+kernel_side_typed_consumer_object_live_eligible_count = 10,195
+kernel_side_typed_consumer_object_block_reason = kernel_side_typed_consumer_kernel_arg_pass_disabled
+
+typed-consumer row_count = 110,898
+typed-consumer handle_field_read_count = 443,592
+required_source_miss_count = 0
+optional_source_miss_count = 0
+payload_bytes = 0
+passed_to_kernel_count = 0
+kernel_arg_violation_count = 0
+changes_kernel_launch_args_count = 0
+```
+
+The lab preflight now requires this live-connected readonly evidence in
+addition to the typed consumer object and native typed consumer bridge smoke.
+Validation:
+
+```text
+pytest tests -q
+646 passed, 2 warnings
+```
+
+Current boundary:
+
+```text
+live-connected readonly consumer path is a lab precondition
+kernel_arg_pass remains disabled
+real kernel arg mutation remains disabled
+single-field replacement remains disabled
+payload movement remains disabled
+ready credit remains disabled
+```
+
 ## Premap kernel-side typed consumer object gate
 
 The premap consumer path now constructs a typed kernel-side consumer object that
@@ -17747,3 +18846,68 @@ no router mutation
 no descriptor_order execution
 no kernel argument mutation
 ```
+
+## Online native typed-consumer canary artifact check
+
+The online prelaunch native-stub canary runner now performs its own final
+artifact consistency check after writing the runner, full preflight, and compact
+status artifacts.  This makes the canary self-contained: every successful run
+must prove that the three artifacts agree on the final lab gate evidence.
+
+Current refreshed runner:
+
+```text
+artifact:
+  outputs/reports/premap_kernel_consumer/
+    online_prelaunch_native_stub_canary_runner.json
+
+artifact_check:
+  outputs/reports/premap_kernel_consumer/
+    online_prelaunch_native_stub_canary_artifact_check.json
+
+passed = true
+failures = []
+stage1_deferred_count = 1
+final_deferred_count = 0
+status_deferred_count = 0
+runner_stub_row_count = 204
+runner_stub_row_ok_count = 204
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+```
+
+The runner still uses the two-stage preflight contract:
+
+```text
+stage 1 before runner evidence exists:
+  required evidence = 8 / 9
+  deferred online-prelaunch-runner evidence = 1
+
+final stage after runner evidence exists:
+  required evidence = 9 / 9
+  deferred evidence = 0
+```
+
+This keeps the online native typed-consumer bridge as a lab-gate artifact, not a
+loose side report.  The path remains a no-op bridge only: the native checker reads
+the typed table and validates row/schema/lifetime visibility, but no payload is
+moved and no WNA16 kernel argument is passed or mutated.
+
+Validation:
+
+```bash
+env PYTHONPATH=/home/husrcf/Code/ProtBind/MTP:/home/husrcf/Code/ProtBind/MTP/src \
+  conda run -p /home/husrcf/anaconda3/envs/TRY \
+  pytest tests/test_run_premap_online_native_stub_canary.py \
+         tests/test_check_premap_online_native_stub_canary_artifacts.py -q
+# 9 passed
+
+env PYTHONPATH=/home/husrcf/Code/ProtBind/MTP:/home/husrcf/Code/ProtBind/MTP/src \
+  conda run -p /home/husrcf/anaconda3/envs/TRY pytest tests -q
+# 668 passed, 2 warnings
+```
+
+Failure handling was also hardened: if the artifact consistency checker returns
+nonzero, the runner now records `artifact_consistency_check_failed` and writes
+the checker summary instead of aborting before the final report can be saved.

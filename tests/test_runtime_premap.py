@@ -522,6 +522,9 @@ def test_controlled_premap_address_manager_executes_descriptor_prep_readonly():
         PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH
     )
     assert native_input["_meta"]["payload_bytes"] == 0
+    assert native_input["_meta"]["ready_credit"] is False
+    assert native_input["_meta"]["changes_router"] is False
+    assert native_input["_meta"]["changes_descriptor_order"] is False
     assert native_input["_meta"]["passed_to_kernel"] is False
     assert native_input["_meta"]["changes_kernel_launch_args"] is False
     assert len(native_input["descriptor_ptr"]) == 2
@@ -927,6 +930,169 @@ def test_controlled_premap_address_manager_executes_descriptor_prep_readonly():
         shim_result.kernel_side_typed_consumer_object_live_compatible_with_current_wna16_args
         is False
     )
+    assert (
+        shim_result.native_typed_consumer_bridge_mode
+        == "readonly_native_typed_consumer_bridge_check"
+    )
+    assert shim_result.native_typed_consumer_bridge_checked is True
+    assert shim_result.native_typed_consumer_bridge_ok is True
+    assert shim_result.native_typed_consumer_bridge_input_hash
+    assert (
+        shim_result.native_typed_consumer_bridge_table_object_hash
+        == table_object.object_hash
+    )
+    assert (
+        shim_result.native_typed_consumer_bridge_schema_hash
+        == PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH
+    )
+    assert shim_result.native_typed_consumer_bridge_row_count == 2
+    assert shim_result.native_typed_consumer_bridge_column_count == 4
+    assert shim_result.native_typed_consumer_bridge_required_handle_nonzero_count == 6
+    assert shim_result.native_typed_consumer_bridge_required_handle_zero_count == 0
+    assert shim_result.native_typed_consumer_bridge_optional_handle_nonzero_count == 0
+    assert shim_result.native_typed_consumer_bridge_optional_handle_zero_count == 2
+    assert shim_result.native_typed_consumer_bridge_expert_id_valid_count == 2
+    assert shim_result.native_typed_consumer_bridge_expert_id_invalid_count == 0
+    assert shim_result.native_typed_consumer_bridge_address_key_hash_nonzero_count == 2
+    assert shim_result.native_typed_consumer_bridge_address_key_hash_zero_count == 0
+    assert shim_result.native_typed_consumer_bridge_failure_count == 0
+    assert shim_result.native_typed_consumer_bridge_failures == ()
+    assert shim_result.native_typed_consumer_bridge_payload_bytes == 0
+    assert shim_result.native_typed_consumer_bridge_ready_credit is False
+    assert shim_result.native_typed_consumer_bridge_changes_router is False
+    assert (
+        shim_result.native_typed_consumer_bridge_changes_descriptor_order is False
+    )
+    assert shim_result.native_typed_consumer_bridge_passed_to_kernel is False
+    assert (
+        shim_result.native_typed_consumer_bridge_changes_kernel_launch_args is False
+    )
+    assert (
+        shim_result.native_stub_online_invocation_mode
+        == "readonly_native_stub_online_invocation_canary"
+    )
+    assert shim_result.native_stub_online_invocation_checked is True
+    assert shim_result.native_stub_online_invocation_ready is True
+    assert shim_result.native_stub_online_invocation_ok is True
+    assert shim_result.native_stub_online_invocation_native_checker_invoked is True
+    assert shim_result.native_stub_online_invocation_native_bridge_ok is True
+    assert shim_result.native_stub_online_invocation_package_hash
+    assert (
+        shim_result.native_stub_online_invocation_input_hash
+        == shim_result.native_typed_consumer_bridge_input_hash
+    )
+    assert (
+        shim_result.native_stub_online_invocation_table_object_hash
+        == table_object.object_hash
+    )
+    assert (
+        shim_result.native_stub_online_invocation_schema_hash
+        == PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH
+    )
+    assert shim_result.native_stub_online_invocation_row_count == 2
+    assert shim_result.native_stub_online_invocation_column_count == 4
+    assert shim_result.native_stub_online_invocation_required_handle_nonzero_count == 6
+    assert shim_result.native_stub_online_invocation_required_handle_zero_count == 0
+    assert shim_result.native_stub_online_invocation_optional_handle_nonzero_count == 0
+    assert shim_result.native_stub_online_invocation_optional_handle_zero_count == 2
+    assert shim_result.native_stub_online_invocation_expert_id_valid_count == 2
+    assert shim_result.native_stub_online_invocation_expert_id_invalid_count == 0
+    assert (
+        shim_result.native_stub_online_invocation_address_key_hash_nonzero_count == 2
+    )
+    assert shim_result.native_stub_online_invocation_address_key_hash_zero_count == 0
+    assert shim_result.native_stub_online_invocation_requested is True
+    assert shim_result.native_stub_online_invocation_native_stub_invoked is False
+    assert shim_result.native_stub_online_invocation_blocked is True
+    assert (
+        shim_result.native_stub_online_invocation_block_reason
+        == "native_stub_live_disabled"
+    )
+    assert shim_result.native_stub_online_invocation_failure_count == 0
+    assert shim_result.native_stub_online_invocation_failures == ()
+    assert shim_result.native_stub_online_invocation_payload_bytes == 0
+    assert shim_result.native_stub_online_invocation_ready_credit is False
+    assert shim_result.native_stub_online_invocation_changes_router is False
+    assert (
+        shim_result.native_stub_online_invocation_changes_descriptor_order is False
+    )
+    assert shim_result.native_stub_online_invocation_passed_to_kernel is False
+    assert (
+        shim_result.native_stub_online_invocation_changes_kernel_launch_args is False
+    )
+    ready_credit_table_object = replace(table_object, ready_credit=True)
+    ready_credit_bridge = manager.validate_native_typed_consumer_bridge_readonly(
+        ready_credit_table_object
+    )
+    assert ready_credit_bridge.ok is False
+    assert ready_credit_bridge.ready_credit is True
+    assert "ready_credit_true" in ready_credit_bridge.failures
+    ready_credit_canary = manager.build_native_stub_online_invocation_canary_readonly(
+        ready_credit_table_object,
+        ready_credit_bridge,
+    )
+    assert ready_credit_canary.ready is False
+    assert ready_credit_canary.ready_credit is True
+    assert "native_bridge_check_failed" in ready_credit_canary.failures
+
+    router_mutation_table_object = replace(table_object, changes_router=True)
+    router_mutation_bridge = manager.validate_native_typed_consumer_bridge_readonly(
+        router_mutation_table_object
+    )
+    assert router_mutation_bridge.ok is False
+    assert router_mutation_bridge.changes_router is True
+    assert "changes_router_true" in router_mutation_bridge.failures
+
+    order_mutation_table_object = replace(table_object, changes_descriptor_order=True)
+    order_mutation_bridge = manager.validate_native_typed_consumer_bridge_readonly(
+        order_mutation_table_object
+    )
+    assert order_mutation_bridge.ok is False
+    assert order_mutation_bridge.changes_descriptor_order is True
+    assert "changes_descriptor_order_true" in order_mutation_bridge.failures
+
+    stale_table_object = replace(table_object, row_order_source="stale_source")
+    stale_canary = manager.build_native_stub_online_invocation_canary_readonly(
+        stale_table_object,
+        manager.validate_native_typed_consumer_bridge_readonly(table_object),
+    )
+    assert stale_canary.ready is False
+    assert "native_bridge_input_hash_mismatch" in stale_canary.failures
+    assert "native_bridge_table_object_hash_mismatch" in stale_canary.failures
+
+    stale_schema_table_object = replace(table_object, schema_hash="stale_schema")
+    stale_schema_canary = manager.build_native_stub_online_invocation_canary_readonly(
+        stale_schema_table_object,
+        manager.validate_native_typed_consumer_bridge_readonly(table_object),
+    )
+    assert stale_schema_canary.ready is False
+    assert "native_bridge_schema_hash_mismatch" in stale_schema_canary.failures
+
+    stale_row_count_bridge = replace(
+        manager.validate_native_typed_consumer_bridge_readonly(table_object),
+        row_count=3,
+    )
+    stale_row_count_canary = (
+        manager.build_native_stub_online_invocation_canary_readonly(
+            table_object,
+            stale_row_count_bridge,
+        )
+    )
+    assert stale_row_count_canary.ready is False
+    assert "native_bridge_row_count_mismatch" in stale_row_count_canary.failures
+
+    stale_column_count_bridge = replace(
+        manager.validate_native_typed_consumer_bridge_readonly(table_object),
+        column_count=5,
+    )
+    stale_column_count_canary = (
+        manager.build_native_stub_online_invocation_canary_readonly(
+            table_object,
+            stale_column_count_bridge,
+        )
+    )
+    assert stale_column_count_canary.ready is False
+    assert "native_bridge_column_count_mismatch" in stale_column_count_canary.failures
     assert (
         shim_result.kernel_arg_handoff_attempt_mode
         == "readonly_kernel_arg_handoff_attempt"

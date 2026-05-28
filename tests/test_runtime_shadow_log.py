@@ -810,6 +810,82 @@ def test_shadow_log_aggregates_premap_consumer_mapping_without_side_effects(tmp_
         descriptor_prep_consumer_shim_kernel_arg_handoff_live_consumer_adapter_payload_bytes=0,
         descriptor_prep_consumer_shim_kernel_arg_handoff_live_consumer_adapter_passed_to_kernel=False,
         descriptor_prep_consumer_shim_kernel_arg_handoff_live_consumer_adapter_changes_kernel_launch_args=False,
+        descriptor_prep_consumer_shim_native_typed_consumer_bridge_mode=(
+            "readonly_native_typed_consumer_bridge_check"
+        ),
+        descriptor_prep_consumer_shim_native_typed_consumer_bridge_checked=True,
+        descriptor_prep_consumer_shim_native_typed_consumer_bridge_ok=True,
+        descriptor_prep_consumer_shim_native_typed_consumer_bridge_input_hash=(
+            "native-input-hash"
+        ),
+        descriptor_prep_consumer_shim_native_typed_consumer_bridge_table_object_hash=(
+            "table-object-hash"
+        ),
+        descriptor_prep_consumer_shim_native_typed_consumer_bridge_schema_hash=(
+            PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH
+        ),
+        descriptor_prep_consumer_shim_native_typed_consumer_bridge_row_count=2,
+        descriptor_prep_consumer_shim_native_typed_consumer_bridge_column_count=4,
+        descriptor_prep_consumer_shim_native_typed_consumer_bridge_required_handle_nonzero_count=6,
+        descriptor_prep_consumer_shim_native_typed_consumer_bridge_required_handle_zero_count=0,
+        descriptor_prep_consumer_shim_native_typed_consumer_bridge_optional_handle_nonzero_count=0,
+        descriptor_prep_consumer_shim_native_typed_consumer_bridge_optional_handle_zero_count=2,
+        descriptor_prep_consumer_shim_native_typed_consumer_bridge_expert_id_valid_count=2,
+        descriptor_prep_consumer_shim_native_typed_consumer_bridge_expert_id_invalid_count=0,
+        descriptor_prep_consumer_shim_native_typed_consumer_bridge_address_key_hash_nonzero_count=2,
+        descriptor_prep_consumer_shim_native_typed_consumer_bridge_address_key_hash_zero_count=0,
+        descriptor_prep_consumer_shim_native_typed_consumer_bridge_failure_count=0,
+        descriptor_prep_consumer_shim_native_typed_consumer_bridge_failures=(),
+        descriptor_prep_consumer_shim_native_typed_consumer_bridge_payload_bytes=0,
+        descriptor_prep_consumer_shim_native_typed_consumer_bridge_ready_credit=False,
+        descriptor_prep_consumer_shim_native_typed_consumer_bridge_changes_router=False,
+        descriptor_prep_consumer_shim_native_typed_consumer_bridge_changes_descriptor_order=False,
+        descriptor_prep_consumer_shim_native_typed_consumer_bridge_passed_to_kernel=False,
+        descriptor_prep_consumer_shim_native_typed_consumer_bridge_changes_kernel_launch_args=False,
+        descriptor_prep_consumer_shim_native_stub_online_invocation_mode=(
+            "readonly_native_stub_online_invocation_canary"
+        ),
+        descriptor_prep_consumer_shim_native_stub_online_invocation_checked=True,
+        descriptor_prep_consumer_shim_native_stub_online_invocation_ready=True,
+        descriptor_prep_consumer_shim_native_stub_online_invocation_ok=True,
+        descriptor_prep_consumer_shim_native_stub_online_invocation_native_checker_invoked=True,
+        descriptor_prep_consumer_shim_native_stub_online_invocation_native_bridge_ok=True,
+        descriptor_prep_consumer_shim_native_stub_online_invocation_package_hash=(
+            "native-stub-package-hash"
+        ),
+        descriptor_prep_consumer_shim_native_stub_online_invocation_input_hash=(
+            "native-input-hash"
+        ),
+        descriptor_prep_consumer_shim_native_stub_online_invocation_table_object_hash=(
+            "table-object-hash"
+        ),
+        descriptor_prep_consumer_shim_native_stub_online_invocation_schema_hash=(
+            PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH
+        ),
+        descriptor_prep_consumer_shim_native_stub_online_invocation_row_count=2,
+        descriptor_prep_consumer_shim_native_stub_online_invocation_column_count=4,
+        descriptor_prep_consumer_shim_native_stub_online_invocation_required_handle_nonzero_count=6,
+        descriptor_prep_consumer_shim_native_stub_online_invocation_required_handle_zero_count=0,
+        descriptor_prep_consumer_shim_native_stub_online_invocation_optional_handle_nonzero_count=0,
+        descriptor_prep_consumer_shim_native_stub_online_invocation_optional_handle_zero_count=2,
+        descriptor_prep_consumer_shim_native_stub_online_invocation_expert_id_valid_count=2,
+        descriptor_prep_consumer_shim_native_stub_online_invocation_expert_id_invalid_count=0,
+        descriptor_prep_consumer_shim_native_stub_online_invocation_address_key_hash_nonzero_count=2,
+        descriptor_prep_consumer_shim_native_stub_online_invocation_address_key_hash_zero_count=0,
+        descriptor_prep_consumer_shim_native_stub_online_invocation_requested=True,
+        descriptor_prep_consumer_shim_native_stub_online_invocation_native_stub_invoked=False,
+        descriptor_prep_consumer_shim_native_stub_online_invocation_blocked=True,
+        descriptor_prep_consumer_shim_native_stub_online_invocation_block_reason=(
+            "native_stub_live_disabled"
+        ),
+        descriptor_prep_consumer_shim_native_stub_online_invocation_failure_count=0,
+        descriptor_prep_consumer_shim_native_stub_online_invocation_failures=(),
+        descriptor_prep_consumer_shim_native_stub_online_invocation_payload_bytes=0,
+        descriptor_prep_consumer_shim_native_stub_online_invocation_ready_credit=False,
+        descriptor_prep_consumer_shim_native_stub_online_invocation_changes_router=False,
+        descriptor_prep_consumer_shim_native_stub_online_invocation_changes_descriptor_order=False,
+        descriptor_prep_consumer_shim_native_stub_online_invocation_passed_to_kernel=False,
+        descriptor_prep_consumer_shim_native_stub_online_invocation_changes_kernel_launch_args=False,
         descriptor_prep_consumer_shim_prep_execution_dry_run_mode=(
             "readonly_descriptor_address_prep_execution_dry_run"
         ),
@@ -1383,6 +1459,89 @@ def test_shadow_log_aggregates_premap_consumer_mapping_without_side_effects(tmp_
         ]
         == 0
     )
+    native_bridge_prefix = (
+        "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge"
+    )
+    assert rows[0][f"{native_bridge_prefix}_mode"] == (
+        "readonly_native_typed_consumer_bridge_check"
+    )
+    assert aggregate[f"{native_bridge_prefix}_checked_count"] == 1
+    assert aggregate[f"{native_bridge_prefix}_ok_count"] == 1
+    assert aggregate[f"{native_bridge_prefix}_mode"] == (
+        "readonly_native_typed_consumer_bridge_check"
+    )
+    assert aggregate[f"{native_bridge_prefix}_input_hash_checked_count"] == 1
+    assert aggregate[f"{native_bridge_prefix}_table_object_hash_checked_count"] == 1
+    assert (
+        aggregate[f"{native_bridge_prefix}_schema_hash"]
+        == PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH
+    )
+    assert aggregate[f"{native_bridge_prefix}_schema_hash_mismatch_count"] == 0
+    assert aggregate[f"{native_bridge_prefix}_row_count"] == 2
+    assert aggregate[f"{native_bridge_prefix}_column_count_max"] == 4
+    assert aggregate[f"{native_bridge_prefix}_required_handle_nonzero_count"] == 6
+    assert aggregate[f"{native_bridge_prefix}_required_handle_zero_count"] == 0
+    assert aggregate[f"{native_bridge_prefix}_optional_handle_nonzero_count"] == 0
+    assert aggregate[f"{native_bridge_prefix}_optional_handle_zero_count"] == 2
+    assert aggregate[f"{native_bridge_prefix}_expert_id_valid_count"] == 2
+    assert aggregate[f"{native_bridge_prefix}_expert_id_invalid_count"] == 0
+    assert aggregate[f"{native_bridge_prefix}_address_key_hash_nonzero_count"] == 2
+    assert aggregate[f"{native_bridge_prefix}_address_key_hash_zero_count"] == 0
+    assert aggregate[f"{native_bridge_prefix}_failure_count"] == 0
+    assert aggregate[f"{native_bridge_prefix}_payload_bytes"] == 0
+    assert aggregate[f"{native_bridge_prefix}_payload_violation_count"] == 0
+    assert aggregate[f"{native_bridge_prefix}_ready_credit_count"] == 0
+    assert aggregate[f"{native_bridge_prefix}_changes_router_count"] == 0
+    assert aggregate[f"{native_bridge_prefix}_changes_descriptor_order_count"] == 0
+    assert aggregate[f"{native_bridge_prefix}_passed_to_kernel_count"] == 0
+    assert aggregate[f"{native_bridge_prefix}_kernel_arg_violation_count"] == 0
+    native_stub_prefix = (
+        "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation"
+    )
+    assert rows[0][f"{native_stub_prefix}_mode"] == (
+        "readonly_native_stub_online_invocation_canary"
+    )
+    assert aggregate[f"{native_stub_prefix}_checked_count"] == 1
+    assert aggregate[f"{native_stub_prefix}_ready_count"] == 1
+    assert aggregate[f"{native_stub_prefix}_ok_count"] == 1
+    assert aggregate[f"{native_stub_prefix}_mode"] == (
+        "readonly_native_stub_online_invocation_canary"
+    )
+    assert aggregate[f"{native_stub_prefix}_package_hash_checked_count"] == 1
+    assert aggregate[f"{native_stub_prefix}_input_hash_checked_count"] == 1
+    assert aggregate[f"{native_stub_prefix}_table_object_hash_checked_count"] == 1
+    assert (
+        aggregate[f"{native_stub_prefix}_schema_hash"]
+        == PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH
+    )
+    assert aggregate[f"{native_stub_prefix}_schema_hash_mismatch_count"] == 0
+    assert aggregate[f"{native_stub_prefix}_block_reason"] == (
+        "native_stub_live_disabled"
+    )
+    assert aggregate[f"{native_stub_prefix}_block_reason_mismatch_count"] == 0
+    assert aggregate[f"{native_stub_prefix}_row_count"] == 2
+    assert aggregate[f"{native_stub_prefix}_column_count_max"] == 4
+    assert aggregate[f"{native_stub_prefix}_required_handle_nonzero_count"] == 6
+    assert aggregate[f"{native_stub_prefix}_required_handle_zero_count"] == 0
+    assert aggregate[f"{native_stub_prefix}_optional_handle_nonzero_count"] == 0
+    assert aggregate[f"{native_stub_prefix}_optional_handle_zero_count"] == 2
+    assert aggregate[f"{native_stub_prefix}_expert_id_valid_count"] == 2
+    assert aggregate[f"{native_stub_prefix}_expert_id_invalid_count"] == 0
+    assert aggregate[f"{native_stub_prefix}_address_key_hash_nonzero_count"] == 2
+    assert aggregate[f"{native_stub_prefix}_address_key_hash_zero_count"] == 0
+    assert aggregate[f"{native_stub_prefix}_native_checker_invoked_count"] == 1
+    assert aggregate[f"{native_stub_prefix}_native_bridge_ok_count"] == 1
+    assert aggregate[f"{native_stub_prefix}_requested_count"] == 1
+    assert aggregate[f"{native_stub_prefix}_native_stub_invoked_count"] == 0
+    assert aggregate[f"{native_stub_prefix}_blocked_count"] == 1
+    assert aggregate[f"{native_stub_prefix}_failure_count"] == 0
+    assert aggregate[f"{native_stub_prefix}_payload_bytes"] == 0
+    assert aggregate[f"{native_stub_prefix}_payload_violation_count"] == 0
+    assert aggregate[f"{native_stub_prefix}_ready_credit_count"] == 0
+    assert aggregate[f"{native_stub_prefix}_changes_router_count"] == 0
+    assert aggregate[f"{native_stub_prefix}_changes_descriptor_order_count"] == 0
+    assert aggregate[f"{native_stub_prefix}_passed_to_kernel_count"] == 0
+    assert aggregate[f"{native_stub_prefix}_kernel_arg_violation_count"] == 0
     assert (
         aggregate[
             "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_dry_run_checked_count"

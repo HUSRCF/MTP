@@ -1431,6 +1431,170 @@ class ShadowPremapConsumerMappingEvent:
     descriptor_prep_consumer_shim_kernel_side_typed_consumer_object_live_compatible_with_current_wna16_args: (
         bool | None
     ) = None
+    descriptor_prep_consumer_shim_native_typed_consumer_bridge_mode: (
+        str | None
+    ) = None
+    descriptor_prep_consumer_shim_native_typed_consumer_bridge_checked: (
+        bool | None
+    ) = None
+    descriptor_prep_consumer_shim_native_typed_consumer_bridge_ok: bool | None = None
+    descriptor_prep_consumer_shim_native_typed_consumer_bridge_input_hash: (
+        str | None
+    ) = None
+    descriptor_prep_consumer_shim_native_typed_consumer_bridge_table_object_hash: (
+        str | None
+    ) = None
+    descriptor_prep_consumer_shim_native_typed_consumer_bridge_schema_hash: (
+        str | None
+    ) = None
+    descriptor_prep_consumer_shim_native_typed_consumer_bridge_row_count: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_native_typed_consumer_bridge_column_count: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_native_typed_consumer_bridge_required_handle_nonzero_count: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_native_typed_consumer_bridge_required_handle_zero_count: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_native_typed_consumer_bridge_optional_handle_nonzero_count: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_native_typed_consumer_bridge_optional_handle_zero_count: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_native_typed_consumer_bridge_expert_id_valid_count: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_native_typed_consumer_bridge_expert_id_invalid_count: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_native_typed_consumer_bridge_address_key_hash_nonzero_count: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_native_typed_consumer_bridge_address_key_hash_zero_count: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_native_typed_consumer_bridge_failure_count: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_native_typed_consumer_bridge_failures: (
+        tuple[str, ...] | None
+    ) = None
+    descriptor_prep_consumer_shim_native_typed_consumer_bridge_payload_bytes: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_native_typed_consumer_bridge_ready_credit: (
+        bool | None
+    ) = None
+    descriptor_prep_consumer_shim_native_typed_consumer_bridge_changes_router: (
+        bool | None
+    ) = None
+    descriptor_prep_consumer_shim_native_typed_consumer_bridge_changes_descriptor_order: (
+        bool | None
+    ) = None
+    descriptor_prep_consumer_shim_native_typed_consumer_bridge_passed_to_kernel: (
+        bool | None
+    ) = None
+    descriptor_prep_consumer_shim_native_typed_consumer_bridge_changes_kernel_launch_args: (
+        bool | None
+    ) = None
+    descriptor_prep_consumer_shim_native_stub_online_invocation_mode: (
+        str | None
+    ) = None
+    descriptor_prep_consumer_shim_native_stub_online_invocation_checked: (
+        bool | None
+    ) = None
+    descriptor_prep_consumer_shim_native_stub_online_invocation_ready: (
+        bool | None
+    ) = None
+    descriptor_prep_consumer_shim_native_stub_online_invocation_ok: bool | None = None
+    descriptor_prep_consumer_shim_native_stub_online_invocation_native_checker_invoked: (
+        bool | None
+    ) = None
+    descriptor_prep_consumer_shim_native_stub_online_invocation_native_bridge_ok: (
+        bool | None
+    ) = None
+    descriptor_prep_consumer_shim_native_stub_online_invocation_package_hash: (
+        str | None
+    ) = None
+    descriptor_prep_consumer_shim_native_stub_online_invocation_input_hash: (
+        str | None
+    ) = None
+    descriptor_prep_consumer_shim_native_stub_online_invocation_table_object_hash: (
+        str | None
+    ) = None
+    descriptor_prep_consumer_shim_native_stub_online_invocation_schema_hash: (
+        str | None
+    ) = None
+    descriptor_prep_consumer_shim_native_stub_online_invocation_row_count: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_native_stub_online_invocation_column_count: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_native_stub_online_invocation_required_handle_nonzero_count: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_native_stub_online_invocation_required_handle_zero_count: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_native_stub_online_invocation_optional_handle_nonzero_count: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_native_stub_online_invocation_optional_handle_zero_count: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_native_stub_online_invocation_expert_id_valid_count: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_native_stub_online_invocation_expert_id_invalid_count: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_native_stub_online_invocation_address_key_hash_nonzero_count: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_native_stub_online_invocation_address_key_hash_zero_count: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_native_stub_online_invocation_requested: (
+        bool | None
+    ) = None
+    descriptor_prep_consumer_shim_native_stub_online_invocation_native_stub_invoked: (
+        bool | None
+    ) = None
+    descriptor_prep_consumer_shim_native_stub_online_invocation_blocked: (
+        bool | None
+    ) = None
+    descriptor_prep_consumer_shim_native_stub_online_invocation_block_reason: (
+        str | None
+    ) = None
+    descriptor_prep_consumer_shim_native_stub_online_invocation_failure_count: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_native_stub_online_invocation_failures: (
+        tuple[str, ...] | None
+    ) = None
+    descriptor_prep_consumer_shim_native_stub_online_invocation_payload_bytes: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_native_stub_online_invocation_ready_credit: (
+        bool | None
+    ) = None
+    descriptor_prep_consumer_shim_native_stub_online_invocation_changes_router: (
+        bool | None
+    ) = None
+    descriptor_prep_consumer_shim_native_stub_online_invocation_changes_descriptor_order: (
+        bool | None
+    ) = None
+    descriptor_prep_consumer_shim_native_stub_online_invocation_passed_to_kernel: (
+        bool | None
+    ) = None
+    descriptor_prep_consumer_shim_native_stub_online_invocation_changes_kernel_launch_args: (
+        bool | None
+    ) = None
     descriptor_prep_consumer_shim_handle_table_object_consumed: bool | None = None
     descriptor_prep_consumer_shim_handle_table_object_hash: str | None = None
     descriptor_prep_consumer_shim_handle_table_object_row_count: int | None = None
@@ -3013,6 +3177,236 @@ class ShadowPremapConsumerMappingEvent:
             (
                 "premap_consumer_descriptor_prep_consumer_shim_kernel_side_typed_consumer_object_live_compatible_with_current_wna16_args",
                 self.descriptor_prep_consumer_shim_kernel_side_typed_consumer_object_live_compatible_with_current_wna16_args,
+            ),
+        ):
+            _put_optional(payload, key, value)
+        for key, value in (
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_mode",
+                self.descriptor_prep_consumer_shim_native_typed_consumer_bridge_mode,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_checked",
+                self.descriptor_prep_consumer_shim_native_typed_consumer_bridge_checked,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_ok",
+                self.descriptor_prep_consumer_shim_native_typed_consumer_bridge_ok,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_input_hash",
+                self.descriptor_prep_consumer_shim_native_typed_consumer_bridge_input_hash,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_table_object_hash",
+                self.descriptor_prep_consumer_shim_native_typed_consumer_bridge_table_object_hash,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_schema_hash",
+                self.descriptor_prep_consumer_shim_native_typed_consumer_bridge_schema_hash,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_row_count",
+                self.descriptor_prep_consumer_shim_native_typed_consumer_bridge_row_count,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_column_count",
+                self.descriptor_prep_consumer_shim_native_typed_consumer_bridge_column_count,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_required_handle_nonzero_count",
+                self.descriptor_prep_consumer_shim_native_typed_consumer_bridge_required_handle_nonzero_count,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_required_handle_zero_count",
+                self.descriptor_prep_consumer_shim_native_typed_consumer_bridge_required_handle_zero_count,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_optional_handle_nonzero_count",
+                self.descriptor_prep_consumer_shim_native_typed_consumer_bridge_optional_handle_nonzero_count,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_optional_handle_zero_count",
+                self.descriptor_prep_consumer_shim_native_typed_consumer_bridge_optional_handle_zero_count,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_expert_id_valid_count",
+                self.descriptor_prep_consumer_shim_native_typed_consumer_bridge_expert_id_valid_count,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_expert_id_invalid_count",
+                self.descriptor_prep_consumer_shim_native_typed_consumer_bridge_expert_id_invalid_count,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_address_key_hash_nonzero_count",
+                self.descriptor_prep_consumer_shim_native_typed_consumer_bridge_address_key_hash_nonzero_count,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_address_key_hash_zero_count",
+                self.descriptor_prep_consumer_shim_native_typed_consumer_bridge_address_key_hash_zero_count,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_failure_count",
+                self.descriptor_prep_consumer_shim_native_typed_consumer_bridge_failure_count,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_failures",
+                self.descriptor_prep_consumer_shim_native_typed_consumer_bridge_failures,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_payload_bytes",
+                self.descriptor_prep_consumer_shim_native_typed_consumer_bridge_payload_bytes,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_ready_credit",
+                self.descriptor_prep_consumer_shim_native_typed_consumer_bridge_ready_credit,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_changes_router",
+                self.descriptor_prep_consumer_shim_native_typed_consumer_bridge_changes_router,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_changes_descriptor_order",
+                self.descriptor_prep_consumer_shim_native_typed_consumer_bridge_changes_descriptor_order,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_passed_to_kernel",
+                self.descriptor_prep_consumer_shim_native_typed_consumer_bridge_passed_to_kernel,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_changes_kernel_launch_args",
+                self.descriptor_prep_consumer_shim_native_typed_consumer_bridge_changes_kernel_launch_args,
+            ),
+        ):
+            _put_optional(payload, key, value)
+        for key, value in (
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_mode",
+                self.descriptor_prep_consumer_shim_native_stub_online_invocation_mode,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_checked",
+                self.descriptor_prep_consumer_shim_native_stub_online_invocation_checked,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_ready",
+                self.descriptor_prep_consumer_shim_native_stub_online_invocation_ready,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_ok",
+                self.descriptor_prep_consumer_shim_native_stub_online_invocation_ok,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_native_checker_invoked",
+                self.descriptor_prep_consumer_shim_native_stub_online_invocation_native_checker_invoked,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_native_bridge_ok",
+                self.descriptor_prep_consumer_shim_native_stub_online_invocation_native_bridge_ok,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_package_hash",
+                self.descriptor_prep_consumer_shim_native_stub_online_invocation_package_hash,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_input_hash",
+                self.descriptor_prep_consumer_shim_native_stub_online_invocation_input_hash,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_table_object_hash",
+                self.descriptor_prep_consumer_shim_native_stub_online_invocation_table_object_hash,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_schema_hash",
+                self.descriptor_prep_consumer_shim_native_stub_online_invocation_schema_hash,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_row_count",
+                self.descriptor_prep_consumer_shim_native_stub_online_invocation_row_count,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_column_count",
+                self.descriptor_prep_consumer_shim_native_stub_online_invocation_column_count,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_required_handle_nonzero_count",
+                self.descriptor_prep_consumer_shim_native_stub_online_invocation_required_handle_nonzero_count,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_required_handle_zero_count",
+                self.descriptor_prep_consumer_shim_native_stub_online_invocation_required_handle_zero_count,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_optional_handle_nonzero_count",
+                self.descriptor_prep_consumer_shim_native_stub_online_invocation_optional_handle_nonzero_count,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_optional_handle_zero_count",
+                self.descriptor_prep_consumer_shim_native_stub_online_invocation_optional_handle_zero_count,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_expert_id_valid_count",
+                self.descriptor_prep_consumer_shim_native_stub_online_invocation_expert_id_valid_count,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_expert_id_invalid_count",
+                self.descriptor_prep_consumer_shim_native_stub_online_invocation_expert_id_invalid_count,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_address_key_hash_nonzero_count",
+                self.descriptor_prep_consumer_shim_native_stub_online_invocation_address_key_hash_nonzero_count,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_address_key_hash_zero_count",
+                self.descriptor_prep_consumer_shim_native_stub_online_invocation_address_key_hash_zero_count,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_requested",
+                self.descriptor_prep_consumer_shim_native_stub_online_invocation_requested,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_native_stub_invoked",
+                self.descriptor_prep_consumer_shim_native_stub_online_invocation_native_stub_invoked,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_blocked",
+                self.descriptor_prep_consumer_shim_native_stub_online_invocation_blocked,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_block_reason",
+                self.descriptor_prep_consumer_shim_native_stub_online_invocation_block_reason,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_failure_count",
+                self.descriptor_prep_consumer_shim_native_stub_online_invocation_failure_count,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_failures",
+                self.descriptor_prep_consumer_shim_native_stub_online_invocation_failures,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_payload_bytes",
+                self.descriptor_prep_consumer_shim_native_stub_online_invocation_payload_bytes,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_ready_credit",
+                self.descriptor_prep_consumer_shim_native_stub_online_invocation_ready_credit,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_changes_router",
+                self.descriptor_prep_consumer_shim_native_stub_online_invocation_changes_router,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_changes_descriptor_order",
+                self.descriptor_prep_consumer_shim_native_stub_online_invocation_changes_descriptor_order,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_passed_to_kernel",
+                self.descriptor_prep_consumer_shim_native_stub_online_invocation_passed_to_kernel,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_changes_kernel_launch_args",
+                self.descriptor_prep_consumer_shim_native_stub_online_invocation_changes_kernel_launch_args,
             ),
         ):
             _put_optional(payload, key, value)
@@ -5880,6 +6274,370 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
                         bool(
                             event.get(
                                 f"{typed_prefix}_live_compatible_with_current_wna16_args",
+                                False,
+                            )
+                        )
+                    )
+                native_bridge_prefix = (
+                    "premap_consumer_descriptor_prep_consumer_shim_"
+                    "native_typed_consumer_bridge"
+                )
+                native_bridge_mode = event.get(f"{native_bridge_prefix}_mode")
+                if native_bridge_mode is not None:
+                    for key, default in (
+                        (f"{native_bridge_prefix}_checked_count", 0),
+                        (f"{native_bridge_prefix}_ok_count", 0),
+                        (f"{native_bridge_prefix}_mode", ""),
+                        (f"{native_bridge_prefix}_mode_checked_count", 0),
+                        (f"{native_bridge_prefix}_mode_mismatch_count", 0),
+                        (f"{native_bridge_prefix}_input_hash_checked_count", 0),
+                        (f"{native_bridge_prefix}_input_hash_missing_count", 0),
+                        (f"{native_bridge_prefix}_table_object_hash_checked_count", 0),
+                        (f"{native_bridge_prefix}_table_object_hash_missing_count", 0),
+                        (f"{native_bridge_prefix}_schema_hash", ""),
+                        (f"{native_bridge_prefix}_schema_hash_checked_count", 0),
+                        (f"{native_bridge_prefix}_schema_hash_missing_count", 0),
+                        (f"{native_bridge_prefix}_schema_hash_mismatch_count", 0),
+                        (f"{native_bridge_prefix}_row_count", 0),
+                        (f"{native_bridge_prefix}_column_count_max", 0),
+                        (f"{native_bridge_prefix}_column_count_min", 0),
+                        (f"{native_bridge_prefix}_required_handle_nonzero_count", 0),
+                        (f"{native_bridge_prefix}_required_handle_zero_count", 0),
+                        (f"{native_bridge_prefix}_optional_handle_nonzero_count", 0),
+                        (f"{native_bridge_prefix}_optional_handle_zero_count", 0),
+                        (f"{native_bridge_prefix}_expert_id_valid_count", 0),
+                        (f"{native_bridge_prefix}_expert_id_invalid_count", 0),
+                        (f"{native_bridge_prefix}_address_key_hash_nonzero_count", 0),
+                        (f"{native_bridge_prefix}_address_key_hash_zero_count", 0),
+                        (f"{native_bridge_prefix}_failure_count", 0),
+                        (f"{native_bridge_prefix}_payload_bytes", 0),
+                        (f"{native_bridge_prefix}_payload_violation_count", 0),
+                        (f"{native_bridge_prefix}_ready_credit_count", 0),
+                        (f"{native_bridge_prefix}_changes_router_count", 0),
+                        (
+                            f"{native_bridge_prefix}_changes_descriptor_order_count",
+                            0,
+                        ),
+                        (f"{native_bridge_prefix}_passed_to_kernel_count", 0),
+                        (f"{native_bridge_prefix}_kernel_arg_violation_count", 0),
+                    ):
+                        totals.setdefault(key, default)
+                    totals[f"{native_bridge_prefix}_checked_count"] += 1
+                    totals[f"{native_bridge_prefix}_mode_checked_count"] += 1
+                    if not totals[f"{native_bridge_prefix}_mode"]:
+                        totals[f"{native_bridge_prefix}_mode"] = str(
+                            native_bridge_mode
+                        )
+                    elif totals[f"{native_bridge_prefix}_mode"] != str(
+                        native_bridge_mode
+                    ):
+                        totals[f"{native_bridge_prefix}_mode_mismatch_count"] += 1
+                    totals[f"{native_bridge_prefix}_ok_count"] += int(
+                        bool(event.get(f"{native_bridge_prefix}_ok", False))
+                    )
+                    for hash_field, checked_key, missing_key in (
+                        (
+                            f"{native_bridge_prefix}_input_hash",
+                            f"{native_bridge_prefix}_input_hash_checked_count",
+                            f"{native_bridge_prefix}_input_hash_missing_count",
+                        ),
+                        (
+                            f"{native_bridge_prefix}_table_object_hash",
+                            f"{native_bridge_prefix}_table_object_hash_checked_count",
+                            f"{native_bridge_prefix}_table_object_hash_missing_count",
+                        ),
+                    ):
+                        if event.get(hash_field):
+                            totals[checked_key] += 1
+                        else:
+                            totals[missing_key] += 1
+                    native_schema_hash = event.get(f"{native_bridge_prefix}_schema_hash")
+                    if native_schema_hash:
+                        totals[f"{native_bridge_prefix}_schema_hash_checked_count"] += 1
+                        if not totals[f"{native_bridge_prefix}_schema_hash"]:
+                            totals[f"{native_bridge_prefix}_schema_hash"] = str(
+                                native_schema_hash
+                            )
+                        elif totals[f"{native_bridge_prefix}_schema_hash"] != str(
+                            native_schema_hash
+                        ):
+                            totals[f"{native_bridge_prefix}_schema_hash_mismatch_count"] += 1
+                    else:
+                        totals[f"{native_bridge_prefix}_schema_hash_missing_count"] += 1
+                    native_column_count = int(
+                        event.get(f"{native_bridge_prefix}_column_count", 0) or 0
+                    )
+                    if (
+                        native_column_count
+                        > totals[f"{native_bridge_prefix}_column_count_max"]
+                    ):
+                        totals[f"{native_bridge_prefix}_column_count_max"] = (
+                            native_column_count
+                        )
+                    if (
+                        totals[f"{native_bridge_prefix}_column_count_min"] == 0
+                        or native_column_count
+                        < totals[f"{native_bridge_prefix}_column_count_min"]
+                    ):
+                        totals[f"{native_bridge_prefix}_column_count_min"] = (
+                            native_column_count
+                        )
+                    for field in (
+                        f"{native_bridge_prefix}_row_count",
+                        f"{native_bridge_prefix}_required_handle_nonzero_count",
+                        f"{native_bridge_prefix}_required_handle_zero_count",
+                        f"{native_bridge_prefix}_optional_handle_nonzero_count",
+                        f"{native_bridge_prefix}_optional_handle_zero_count",
+                        f"{native_bridge_prefix}_expert_id_valid_count",
+                        f"{native_bridge_prefix}_expert_id_invalid_count",
+                        f"{native_bridge_prefix}_address_key_hash_nonzero_count",
+                        f"{native_bridge_prefix}_address_key_hash_zero_count",
+                        f"{native_bridge_prefix}_failure_count",
+                        f"{native_bridge_prefix}_payload_bytes",
+                    ):
+                        totals[field] += int(event.get(field, 0) or 0)
+                    native_payload_bytes = int(
+                        event.get(f"{native_bridge_prefix}_payload_bytes", 0) or 0
+                    )
+                    totals[f"{native_bridge_prefix}_payload_violation_count"] += int(
+                        native_payload_bytes != 0
+                    )
+                    totals[f"{native_bridge_prefix}_ready_credit_count"] += int(
+                        bool(event.get(f"{native_bridge_prefix}_ready_credit", False))
+                    )
+                    totals[f"{native_bridge_prefix}_changes_router_count"] += int(
+                        bool(event.get(f"{native_bridge_prefix}_changes_router", False))
+                    )
+                    totals[
+                        f"{native_bridge_prefix}_changes_descriptor_order_count"
+                    ] += int(
+                        bool(
+                            event.get(
+                                f"{native_bridge_prefix}_changes_descriptor_order",
+                                False,
+                            )
+                        )
+                    )
+                    totals[f"{native_bridge_prefix}_passed_to_kernel_count"] += int(
+                        bool(event.get(f"{native_bridge_prefix}_passed_to_kernel", False))
+                    )
+                    totals[f"{native_bridge_prefix}_kernel_arg_violation_count"] += int(
+                        bool(
+                            event.get(
+                                f"{native_bridge_prefix}_changes_kernel_launch_args",
+                                False,
+                            )
+                        )
+                    )
+                native_stub_mode = event.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_mode"
+                )
+                if native_stub_mode is not None:
+                    native_stub_prefix = (
+                        "premap_consumer_descriptor_prep_consumer_shim_"
+                        "native_stub_online_invocation"
+                    )
+                    for key, default in (
+                        (f"{native_stub_prefix}_checked_count", 0),
+                        (f"{native_stub_prefix}_ready_count", 0),
+                        (f"{native_stub_prefix}_ok_count", 0),
+                        (f"{native_stub_prefix}_mode", ""),
+                        (f"{native_stub_prefix}_mode_checked_count", 0),
+                        (f"{native_stub_prefix}_mode_mismatch_count", 0),
+                        (f"{native_stub_prefix}_package_hash_checked_count", 0),
+                        (f"{native_stub_prefix}_package_hash_missing_count", 0),
+                        (f"{native_stub_prefix}_input_hash_checked_count", 0),
+                        (f"{native_stub_prefix}_input_hash_missing_count", 0),
+                        (f"{native_stub_prefix}_table_object_hash_checked_count", 0),
+                        (f"{native_stub_prefix}_table_object_hash_missing_count", 0),
+                        (f"{native_stub_prefix}_schema_hash", ""),
+                        (f"{native_stub_prefix}_schema_hash_checked_count", 0),
+                        (f"{native_stub_prefix}_schema_hash_missing_count", 0),
+                        (f"{native_stub_prefix}_schema_hash_mismatch_count", 0),
+                        (f"{native_stub_prefix}_column_count_max", 0),
+                        (f"{native_stub_prefix}_column_count_min", 0),
+                        (f"{native_stub_prefix}_block_reason", ""),
+                        (f"{native_stub_prefix}_block_reason_checked_count", 0),
+                        (f"{native_stub_prefix}_block_reason_missing_count", 0),
+                        (f"{native_stub_prefix}_block_reason_mismatch_count", 0),
+                        (f"{native_stub_prefix}_row_count", 0),
+                        (f"{native_stub_prefix}_required_handle_nonzero_count", 0),
+                        (f"{native_stub_prefix}_required_handle_zero_count", 0),
+                        (f"{native_stub_prefix}_optional_handle_nonzero_count", 0),
+                        (f"{native_stub_prefix}_optional_handle_zero_count", 0),
+                        (f"{native_stub_prefix}_expert_id_valid_count", 0),
+                        (f"{native_stub_prefix}_expert_id_invalid_count", 0),
+                        (f"{native_stub_prefix}_address_key_hash_nonzero_count", 0),
+                        (f"{native_stub_prefix}_address_key_hash_zero_count", 0),
+                        (f"{native_stub_prefix}_failure_count", 0),
+                        (f"{native_stub_prefix}_payload_bytes", 0),
+                        (f"{native_stub_prefix}_payload_violation_count", 0),
+                        (f"{native_stub_prefix}_ready_credit_count", 0),
+                        (f"{native_stub_prefix}_changes_router_count", 0),
+                        (
+                            f"{native_stub_prefix}_changes_descriptor_order_count",
+                            0,
+                        ),
+                        (f"{native_stub_prefix}_passed_to_kernel_count", 0),
+                        (f"{native_stub_prefix}_kernel_arg_violation_count", 0),
+                        (f"{native_stub_prefix}_native_checker_invoked_count", 0),
+                        (f"{native_stub_prefix}_native_bridge_ok_count", 0),
+                        (f"{native_stub_prefix}_requested_count", 0),
+                        (f"{native_stub_prefix}_native_stub_invoked_count", 0),
+                        (f"{native_stub_prefix}_blocked_count", 0),
+                    ):
+                        totals.setdefault(key, default)
+                    totals[f"{native_stub_prefix}_checked_count"] += 1
+                    totals[f"{native_stub_prefix}_mode_checked_count"] += 1
+                    if not totals[f"{native_stub_prefix}_mode"]:
+                        totals[f"{native_stub_prefix}_mode"] = str(native_stub_mode)
+                    elif totals[f"{native_stub_prefix}_mode"] != str(native_stub_mode):
+                        totals[f"{native_stub_prefix}_mode_mismatch_count"] += 1
+                    totals[f"{native_stub_prefix}_ready_count"] += int(
+                        bool(event.get(f"{native_stub_prefix}_ready", False))
+                    )
+                    totals[f"{native_stub_prefix}_ok_count"] += int(
+                        bool(event.get(f"{native_stub_prefix}_ok", False))
+                    )
+                    for hash_field, checked_key, missing_key in (
+                        (
+                            f"{native_stub_prefix}_package_hash",
+                            f"{native_stub_prefix}_package_hash_checked_count",
+                            f"{native_stub_prefix}_package_hash_missing_count",
+                        ),
+                        (
+                            f"{native_stub_prefix}_input_hash",
+                            f"{native_stub_prefix}_input_hash_checked_count",
+                            f"{native_stub_prefix}_input_hash_missing_count",
+                        ),
+                        (
+                            f"{native_stub_prefix}_table_object_hash",
+                            f"{native_stub_prefix}_table_object_hash_checked_count",
+                            f"{native_stub_prefix}_table_object_hash_missing_count",
+                        ),
+                    ):
+                        if event.get(hash_field):
+                            totals[checked_key] += 1
+                        else:
+                            totals[missing_key] += 1
+                    native_stub_schema_hash = event.get(
+                        f"{native_stub_prefix}_schema_hash"
+                    )
+                    if native_stub_schema_hash:
+                        totals[
+                            f"{native_stub_prefix}_schema_hash_checked_count"
+                        ] += 1
+                        if not totals[f"{native_stub_prefix}_schema_hash"]:
+                            totals[f"{native_stub_prefix}_schema_hash"] = str(
+                                native_stub_schema_hash
+                            )
+                        elif totals[f"{native_stub_prefix}_schema_hash"] != str(
+                            native_stub_schema_hash
+                        ):
+                            totals[
+                                f"{native_stub_prefix}_schema_hash_mismatch_count"
+                            ] += 1
+                    else:
+                        totals[f"{native_stub_prefix}_schema_hash_missing_count"] += 1
+                    block_reason = event.get(f"{native_stub_prefix}_block_reason")
+                    if block_reason:
+                        totals[f"{native_stub_prefix}_block_reason_checked_count"] += 1
+                        if not totals[f"{native_stub_prefix}_block_reason"]:
+                            totals[f"{native_stub_prefix}_block_reason"] = str(
+                                block_reason
+                            )
+                        elif totals[f"{native_stub_prefix}_block_reason"] != str(
+                            block_reason
+                        ):
+                            totals[
+                                f"{native_stub_prefix}_block_reason_mismatch_count"
+                            ] += 1
+                    else:
+                        totals[f"{native_stub_prefix}_block_reason_missing_count"] += 1
+                    native_stub_column_count = int(
+                        event.get(f"{native_stub_prefix}_column_count", 0) or 0
+                    )
+                    if (
+                        native_stub_column_count
+                        > totals[f"{native_stub_prefix}_column_count_max"]
+                    ):
+                        totals[f"{native_stub_prefix}_column_count_max"] = (
+                            native_stub_column_count
+                        )
+                    if (
+                        totals[f"{native_stub_prefix}_column_count_min"] == 0
+                        or native_stub_column_count
+                        < totals[f"{native_stub_prefix}_column_count_min"]
+                    ):
+                        totals[f"{native_stub_prefix}_column_count_min"] = (
+                            native_stub_column_count
+                        )
+                    for field in (
+                        f"{native_stub_prefix}_row_count",
+                        f"{native_stub_prefix}_required_handle_nonzero_count",
+                        f"{native_stub_prefix}_required_handle_zero_count",
+                        f"{native_stub_prefix}_optional_handle_nonzero_count",
+                        f"{native_stub_prefix}_optional_handle_zero_count",
+                        f"{native_stub_prefix}_expert_id_valid_count",
+                        f"{native_stub_prefix}_expert_id_invalid_count",
+                        f"{native_stub_prefix}_address_key_hash_nonzero_count",
+                        f"{native_stub_prefix}_address_key_hash_zero_count",
+                        f"{native_stub_prefix}_failure_count",
+                        f"{native_stub_prefix}_payload_bytes",
+                    ):
+                        totals[field] += int(event.get(field, 0) or 0)
+                    for flag_field, count_key in (
+                        (
+                            f"{native_stub_prefix}_native_checker_invoked",
+                            f"{native_stub_prefix}_native_checker_invoked_count",
+                        ),
+                        (
+                            f"{native_stub_prefix}_native_bridge_ok",
+                            f"{native_stub_prefix}_native_bridge_ok_count",
+                        ),
+                        (
+                            f"{native_stub_prefix}_requested",
+                            f"{native_stub_prefix}_requested_count",
+                        ),
+                        (
+                            f"{native_stub_prefix}_native_stub_invoked",
+                            f"{native_stub_prefix}_native_stub_invoked_count",
+                        ),
+                        (
+                            f"{native_stub_prefix}_blocked",
+                            f"{native_stub_prefix}_blocked_count",
+                        ),
+                    ):
+                        totals[count_key] += int(bool(event.get(flag_field, False)))
+                    native_stub_payload_bytes = int(
+                        event.get(f"{native_stub_prefix}_payload_bytes", 0) or 0
+                    )
+                    totals[f"{native_stub_prefix}_payload_violation_count"] += int(
+                        native_stub_payload_bytes != 0
+                    )
+                    totals[f"{native_stub_prefix}_ready_credit_count"] += int(
+                        bool(event.get(f"{native_stub_prefix}_ready_credit", False))
+                    )
+                    totals[f"{native_stub_prefix}_changes_router_count"] += int(
+                        bool(event.get(f"{native_stub_prefix}_changes_router", False))
+                    )
+                    totals[
+                        f"{native_stub_prefix}_changes_descriptor_order_count"
+                    ] += int(
+                        bool(
+                            event.get(
+                                f"{native_stub_prefix}_changes_descriptor_order",
+                                False,
+                            )
+                        )
+                    )
+                    totals[f"{native_stub_prefix}_passed_to_kernel_count"] += int(
+                        bool(event.get(f"{native_stub_prefix}_passed_to_kernel", False))
+                    )
+                    totals[f"{native_stub_prefix}_kernel_arg_violation_count"] += int(
+                        bool(
+                            event.get(
+                                f"{native_stub_prefix}_changes_kernel_launch_args",
                                 False,
                             )
                         )

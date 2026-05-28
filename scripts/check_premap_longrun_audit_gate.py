@@ -61,6 +61,12 @@ KERNEL_SIDE_CONSUMER_SCHEMA_ADAPTER_PREFIX = (
 KERNEL_SIDE_TYPED_CONSUMER_OBJECT_PREFIX = (
     "premap_consumer_descriptor_prep_consumer_shim_kernel_side_typed_consumer_object_"
 )
+NATIVE_TYPED_CONSUMER_BRIDGE_PREFIX = (
+    "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_"
+)
+NATIVE_STUB_ONLINE_INVOCATION_PREFIX = (
+    "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_"
+)
 
 
 def _normalize_summary(summary: dict[str, Any]) -> dict[str, Any]:
@@ -322,6 +328,8 @@ def check_summary(
     require_kernel_arg_semantic_handle_adapter: bool = False,
     require_kernel_side_consumer_schema_adapter: bool = False,
     require_kernel_side_typed_consumer_object: bool = False,
+    require_native_typed_consumer_bridge: bool = False,
+    require_native_stub_online_invocation_canary: bool = False,
     allow_enabled_blocked_live_toggle: bool = False,
     allow_connected_blocked_consumer_adapter: bool = False,
     allow_kernel_arg_handoff_live_kernel_arg_pass: bool = False,
@@ -692,6 +700,18 @@ def check_summary(
     kernel_side_typed_consumer_object_active = (
         kernel_side_typed_consumer_object_checked_count > 0
     )
+    native_typed_consumer_bridge_checked_count = _as_int(
+        aggregate.get(f"{NATIVE_TYPED_CONSUMER_BRIDGE_PREFIX}checked_count")
+    )
+    native_typed_consumer_bridge_active = (
+        native_typed_consumer_bridge_checked_count > 0
+    )
+    native_stub_online_invocation_checked_count = _as_int(
+        aggregate.get(f"{NATIVE_STUB_ONLINE_INVOCATION_PREFIX}checked_count")
+    )
+    native_stub_online_invocation_active = (
+        native_stub_online_invocation_checked_count > 0
+    )
     if require_consumer_shim_table_consume and not consumer_shim_table_consume_active:
         failures.append("consumer_shim_table_consume_fields_missing")
     if require_consumer_shim_table_consume and not consumer_shim_table_read_active:
@@ -805,6 +825,33 @@ def check_summary(
     ):
         failures.append(
             "consumer_shim_kernel_side_typed_consumer_object_requires_schema_adapter_fields"
+        )
+    if (
+        require_native_typed_consumer_bridge
+        and not native_typed_consumer_bridge_active
+    ):
+        failures.append("consumer_shim_native_typed_consumer_bridge_fields_missing")
+    if (
+        (require_native_typed_consumer_bridge or native_typed_consumer_bridge_active)
+        and not kernel_side_typed_consumer_object_active
+    ):
+        failures.append(
+            "consumer_shim_native_typed_consumer_bridge_requires_typed_consumer_object_fields"
+        )
+    if (
+        require_native_stub_online_invocation_canary
+        and not native_stub_online_invocation_active
+    ):
+        failures.append("consumer_shim_native_stub_online_invocation_fields_missing")
+    if (
+        (
+            require_native_stub_online_invocation_canary
+            or native_stub_online_invocation_active
+        )
+        and not native_typed_consumer_bridge_active
+    ):
+        failures.append(
+            "consumer_shim_native_stub_online_invocation_requires_native_bridge_fields"
         )
     consumer_shim_table_object_checked_count = _as_int(
         aggregate.get(
@@ -4213,6 +4260,535 @@ def check_summary(
                     failures.append(
                         "consumer_shim_kernel_side_typed_consumer_object_block_reason_mismatch"
                     )
+            if (
+                require_native_typed_consumer_bridge
+                or native_typed_consumer_bridge_active
+            ):
+                native_prefix = NATIVE_TYPED_CONSUMER_BRIDGE_PREFIX
+                native_checked_count = _as_int(
+                    aggregate.get(f"{native_prefix}checked_count")
+                )
+                native_ok_count = _as_int(
+                    aggregate.get(f"{native_prefix}ok_count")
+                )
+                native_mode = str(aggregate.get(f"{native_prefix}mode") or "")
+                native_mode_checked_count = _as_int(
+                    aggregate.get(f"{native_prefix}mode_checked_count")
+                )
+                native_mode_mismatch_count = _as_int(
+                    aggregate.get(f"{native_prefix}mode_mismatch_count")
+                )
+                native_input_hash_checked_count = _as_int(
+                    aggregate.get(f"{native_prefix}input_hash_checked_count")
+                )
+                native_input_hash_missing_count = _as_int(
+                    aggregate.get(f"{native_prefix}input_hash_missing_count")
+                )
+                native_table_object_hash_checked_count = _as_int(
+                    aggregate.get(f"{native_prefix}table_object_hash_checked_count")
+                )
+                native_table_object_hash_missing_count = _as_int(
+                    aggregate.get(f"{native_prefix}table_object_hash_missing_count")
+                )
+                native_schema_hash = str(
+                    aggregate.get(f"{native_prefix}schema_hash") or ""
+                )
+                native_schema_hash_checked_count = _as_int(
+                    aggregate.get(f"{native_prefix}schema_hash_checked_count")
+                )
+                native_schema_hash_missing_count = _as_int(
+                    aggregate.get(f"{native_prefix}schema_hash_missing_count")
+                )
+                native_schema_hash_mismatch_count = _as_int(
+                    aggregate.get(f"{native_prefix}schema_hash_mismatch_count")
+                )
+                native_row_count = _as_int(
+                    aggregate.get(f"{native_prefix}row_count")
+                )
+                native_column_count_max = _as_int(
+                    aggregate.get(f"{native_prefix}column_count_max")
+                )
+                native_column_count_min = _as_int(
+                    aggregate.get(f"{native_prefix}column_count_min")
+                )
+                native_required_nonzero = _as_int(
+                    aggregate.get(f"{native_prefix}required_handle_nonzero_count")
+                )
+                native_required_zero = _as_int(
+                    aggregate.get(f"{native_prefix}required_handle_zero_count")
+                )
+                native_optional_nonzero = _as_int(
+                    aggregate.get(f"{native_prefix}optional_handle_nonzero_count")
+                )
+                native_optional_zero = _as_int(
+                    aggregate.get(f"{native_prefix}optional_handle_zero_count")
+                )
+                native_expert_valid = _as_int(
+                    aggregate.get(f"{native_prefix}expert_id_valid_count")
+                )
+                native_expert_invalid = _as_int(
+                    aggregate.get(f"{native_prefix}expert_id_invalid_count")
+                )
+                native_address_nonzero = _as_int(
+                    aggregate.get(f"{native_prefix}address_key_hash_nonzero_count")
+                )
+                native_address_zero = _as_int(
+                    aggregate.get(f"{native_prefix}address_key_hash_zero_count")
+                )
+                native_failure_count = _as_int(
+                    aggregate.get(f"{native_prefix}failure_count")
+                )
+                native_payload_bytes = _as_int(
+                    aggregate.get(f"{native_prefix}payload_bytes")
+                )
+                native_payload_violation_count = _as_int(
+                    aggregate.get(f"{native_prefix}payload_violation_count")
+                )
+                native_ready_credit_count = _as_int(
+                    aggregate.get(f"{native_prefix}ready_credit_count")
+                )
+                native_changes_router_count = _as_int(
+                    aggregate.get(f"{native_prefix}changes_router_count")
+                )
+                native_changes_descriptor_order_count = _as_int(
+                    aggregate.get(f"{native_prefix}changes_descriptor_order_count")
+                )
+                native_passed_to_kernel_count = _as_int(
+                    aggregate.get(f"{native_prefix}passed_to_kernel_count")
+                )
+                native_kernel_arg_violation_count = _as_int(
+                    aggregate.get(f"{native_prefix}kernel_arg_violation_count")
+                )
+                if native_checked_count != shim_executed:
+                    failures.append(
+                        "consumer_shim_native_typed_consumer_bridge_checked_count_mismatch="
+                        f"{native_checked_count}!={shim_executed}"
+                    )
+                if native_ok_count != shim_executed:
+                    failures.append(
+                        "consumer_shim_native_typed_consumer_bridge_ok_count_mismatch="
+                        f"{native_ok_count}!={shim_executed}"
+                    )
+                if native_mode != "readonly_native_typed_consumer_bridge_check":
+                    failures.append("consumer_shim_native_typed_consumer_bridge_mode_mismatch")
+                if native_mode_checked_count != shim_executed:
+                    failures.append(
+                        "consumer_shim_native_typed_consumer_bridge_mode_checked_count_mismatch="
+                        f"{native_mode_checked_count}!={shim_executed}"
+                    )
+                if native_mode_mismatch_count != 0:
+                    failures.append(
+                        "consumer_shim_native_typed_consumer_bridge_mode_mismatch_count_nonzero="
+                        f"{native_mode_mismatch_count}"
+                    )
+                for name, checked, missing in (
+                    (
+                        "input_hash",
+                        native_input_hash_checked_count,
+                        native_input_hash_missing_count,
+                    ),
+                    (
+                        "table_object_hash",
+                        native_table_object_hash_checked_count,
+                        native_table_object_hash_missing_count,
+                    ),
+                ):
+                    if checked != shim_executed:
+                        failures.append(
+                            "consumer_shim_native_typed_consumer_bridge_"
+                            f"{name}_checked_count_mismatch={checked}!={shim_executed}"
+                        )
+                    if missing != 0:
+                        failures.append(
+                            "consumer_shim_native_typed_consumer_bridge_"
+                            f"{name}_missing_count_nonzero={missing}"
+                        )
+                if native_schema_hash != PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH:
+                    failures.append(
+                        "consumer_shim_native_typed_consumer_bridge_schema_hash_mismatch"
+                    )
+                if native_schema_hash_checked_count != shim_executed:
+                    failures.append(
+                        "consumer_shim_native_typed_consumer_bridge_schema_hash_checked_count_mismatch="
+                        f"{native_schema_hash_checked_count}!={shim_executed}"
+                    )
+                if native_schema_hash_missing_count != 0:
+                    failures.append(
+                        "consumer_shim_native_typed_consumer_bridge_schema_hash_missing_count_nonzero="
+                        f"{native_schema_hash_missing_count}"
+                    )
+                if native_schema_hash_mismatch_count != 0:
+                    failures.append(
+                        "consumer_shim_native_typed_consumer_bridge_schema_hash_mismatch_count_nonzero="
+                        f"{native_schema_hash_mismatch_count}"
+                    )
+                if native_row_count != consume_row_count:
+                    failures.append(
+                        "consumer_shim_native_typed_consumer_bridge_row_count_mismatch="
+                        f"{native_row_count}!={consume_row_count}"
+                    )
+                if native_column_count_max != EXPECTED_KERNEL_ARG_SHADOW_TABLE_COLUMN_COUNT:
+                    failures.append(
+                        "consumer_shim_native_typed_consumer_bridge_column_count_max_mismatch="
+                        f"{native_column_count_max}!={EXPECTED_KERNEL_ARG_SHADOW_TABLE_COLUMN_COUNT}"
+                    )
+                if native_column_count_min != EXPECTED_KERNEL_ARG_SHADOW_TABLE_COLUMN_COUNT:
+                    failures.append(
+                        "consumer_shim_native_typed_consumer_bridge_column_count_min_mismatch="
+                        f"{native_column_count_min}!={EXPECTED_KERNEL_ARG_SHADOW_TABLE_COLUMN_COUNT}"
+                    )
+                if native_required_nonzero != expected_consume_required_fields:
+                    failures.append(
+                        "consumer_shim_native_typed_consumer_bridge_required_handle_nonzero_count_mismatch="
+                        f"{native_required_nonzero}!={expected_consume_required_fields}"
+                    )
+                if native_required_zero != 0:
+                    failures.append(
+                        "consumer_shim_native_typed_consumer_bridge_required_handle_zero_count_nonzero="
+                        f"{native_required_zero}"
+                    )
+                if native_optional_nonzero + native_optional_zero != consume_row_count:
+                    failures.append(
+                        "consumer_shim_native_typed_consumer_bridge_optional_handle_total_mismatch="
+                        f"{native_optional_nonzero}+{native_optional_zero}!={consume_row_count}"
+                    )
+                if native_expert_valid != consume_row_count:
+                    failures.append(
+                        "consumer_shim_native_typed_consumer_bridge_expert_id_valid_count_mismatch="
+                        f"{native_expert_valid}!={consume_row_count}"
+                    )
+                if native_expert_invalid != 0:
+                    failures.append(
+                        "consumer_shim_native_typed_consumer_bridge_expert_id_invalid_count_nonzero="
+                        f"{native_expert_invalid}"
+                    )
+                if native_address_nonzero != consume_row_count:
+                    failures.append(
+                        "consumer_shim_native_typed_consumer_bridge_address_key_hash_nonzero_count_mismatch="
+                        f"{native_address_nonzero}!={consume_row_count}"
+                    )
+                if native_address_zero != 0:
+                    failures.append(
+                        "consumer_shim_native_typed_consumer_bridge_address_key_hash_zero_count_nonzero="
+                        f"{native_address_zero}"
+                    )
+                for name, value in (
+                    ("failure_count", native_failure_count),
+                    ("payload_bytes", native_payload_bytes),
+                    ("payload_violation_count", native_payload_violation_count),
+                    ("ready_credit_count", native_ready_credit_count),
+                    ("changes_router_count", native_changes_router_count),
+                    (
+                        "changes_descriptor_order_count",
+                        native_changes_descriptor_order_count,
+                    ),
+                    ("passed_to_kernel_count", native_passed_to_kernel_count),
+                    ("kernel_arg_violation_count", native_kernel_arg_violation_count),
+                ):
+                    if value != 0:
+                        failures.append(
+                            "consumer_shim_native_typed_consumer_bridge_"
+                            f"{name}_nonzero={value}"
+                        )
+            if (
+                require_native_stub_online_invocation_canary
+                or native_stub_online_invocation_active
+            ):
+                stub_prefix = NATIVE_STUB_ONLINE_INVOCATION_PREFIX
+                stub_checked_count = _as_int(
+                    aggregate.get(f"{stub_prefix}checked_count")
+                )
+                stub_ready_count = _as_int(
+                    aggregate.get(f"{stub_prefix}ready_count")
+                )
+                stub_ok_count = _as_int(aggregate.get(f"{stub_prefix}ok_count"))
+                stub_mode = str(aggregate.get(f"{stub_prefix}mode") or "")
+                stub_mode_checked_count = _as_int(
+                    aggregate.get(f"{stub_prefix}mode_checked_count")
+                )
+                stub_mode_mismatch_count = _as_int(
+                    aggregate.get(f"{stub_prefix}mode_mismatch_count")
+                )
+                stub_package_hash_checked_count = _as_int(
+                    aggregate.get(f"{stub_prefix}package_hash_checked_count")
+                )
+                stub_package_hash_missing_count = _as_int(
+                    aggregate.get(f"{stub_prefix}package_hash_missing_count")
+                )
+                stub_input_hash_checked_count = _as_int(
+                    aggregate.get(f"{stub_prefix}input_hash_checked_count")
+                )
+                stub_input_hash_missing_count = _as_int(
+                    aggregate.get(f"{stub_prefix}input_hash_missing_count")
+                )
+                stub_table_hash_checked_count = _as_int(
+                    aggregate.get(f"{stub_prefix}table_object_hash_checked_count")
+                )
+                stub_table_hash_missing_count = _as_int(
+                    aggregate.get(f"{stub_prefix}table_object_hash_missing_count")
+                )
+                stub_schema_hash = str(aggregate.get(f"{stub_prefix}schema_hash") or "")
+                stub_schema_hash_checked_count = _as_int(
+                    aggregate.get(f"{stub_prefix}schema_hash_checked_count")
+                )
+                stub_schema_hash_missing_count = _as_int(
+                    aggregate.get(f"{stub_prefix}schema_hash_missing_count")
+                )
+                stub_schema_hash_mismatch_count = _as_int(
+                    aggregate.get(f"{stub_prefix}schema_hash_mismatch_count")
+                )
+                stub_block_reason = str(
+                    aggregate.get(f"{stub_prefix}block_reason") or ""
+                )
+                stub_block_reason_checked_count = _as_int(
+                    aggregate.get(f"{stub_prefix}block_reason_checked_count")
+                )
+                stub_block_reason_missing_count = _as_int(
+                    aggregate.get(f"{stub_prefix}block_reason_missing_count")
+                )
+                stub_block_reason_mismatch_count = _as_int(
+                    aggregate.get(f"{stub_prefix}block_reason_mismatch_count")
+                )
+                stub_row_count = _as_int(aggregate.get(f"{stub_prefix}row_count"))
+                stub_column_count_max = _as_int(
+                    aggregate.get(f"{stub_prefix}column_count_max")
+                )
+                stub_column_count_min = _as_int(
+                    aggregate.get(f"{stub_prefix}column_count_min")
+                )
+                stub_required_nonzero = _as_int(
+                    aggregate.get(f"{stub_prefix}required_handle_nonzero_count")
+                )
+                stub_required_zero = _as_int(
+                    aggregate.get(f"{stub_prefix}required_handle_zero_count")
+                )
+                stub_optional_nonzero = _as_int(
+                    aggregate.get(f"{stub_prefix}optional_handle_nonzero_count")
+                )
+                stub_optional_zero = _as_int(
+                    aggregate.get(f"{stub_prefix}optional_handle_zero_count")
+                )
+                stub_expert_valid = _as_int(
+                    aggregate.get(f"{stub_prefix}expert_id_valid_count")
+                )
+                stub_expert_invalid = _as_int(
+                    aggregate.get(f"{stub_prefix}expert_id_invalid_count")
+                )
+                stub_address_nonzero = _as_int(
+                    aggregate.get(f"{stub_prefix}address_key_hash_nonzero_count")
+                )
+                stub_address_zero = _as_int(
+                    aggregate.get(f"{stub_prefix}address_key_hash_zero_count")
+                )
+                stub_failure_count = _as_int(
+                    aggregate.get(f"{stub_prefix}failure_count")
+                )
+                stub_payload_bytes = _as_int(
+                    aggregate.get(f"{stub_prefix}payload_bytes")
+                )
+                stub_payload_violation_count = _as_int(
+                    aggregate.get(f"{stub_prefix}payload_violation_count")
+                )
+                stub_ready_credit_count = _as_int(
+                    aggregate.get(f"{stub_prefix}ready_credit_count")
+                )
+                stub_changes_router_count = _as_int(
+                    aggregate.get(f"{stub_prefix}changes_router_count")
+                )
+                stub_changes_descriptor_order_count = _as_int(
+                    aggregate.get(f"{stub_prefix}changes_descriptor_order_count")
+                )
+                stub_passed_to_kernel_count = _as_int(
+                    aggregate.get(f"{stub_prefix}passed_to_kernel_count")
+                )
+                stub_kernel_arg_violation_count = _as_int(
+                    aggregate.get(f"{stub_prefix}kernel_arg_violation_count")
+                )
+                stub_native_checker_invoked_count = _as_int(
+                    aggregate.get(f"{stub_prefix}native_checker_invoked_count")
+                )
+                stub_native_bridge_ok_count = _as_int(
+                    aggregate.get(f"{stub_prefix}native_bridge_ok_count")
+                )
+                stub_requested_count = _as_int(
+                    aggregate.get(f"{stub_prefix}requested_count")
+                )
+                stub_native_stub_invoked_count = _as_int(
+                    aggregate.get(f"{stub_prefix}native_stub_invoked_count")
+                )
+                stub_blocked_count = _as_int(
+                    aggregate.get(f"{stub_prefix}blocked_count")
+                )
+                if stub_checked_count != shim_executed:
+                    failures.append(
+                        "consumer_shim_native_stub_online_invocation_checked_count_mismatch="
+                        f"{stub_checked_count}!={shim_executed}"
+                    )
+                for name, value in (
+                    ("ready_count", stub_ready_count),
+                    ("ok_count", stub_ok_count),
+                    ("native_checker_invoked_count", stub_native_checker_invoked_count),
+                    ("native_bridge_ok_count", stub_native_bridge_ok_count),
+                    ("requested_count", stub_requested_count),
+                    ("blocked_count", stub_blocked_count),
+                ):
+                    if value != shim_executed:
+                        failures.append(
+                            "consumer_shim_native_stub_online_invocation_"
+                            f"{name}_mismatch={value}!={shim_executed}"
+                        )
+                if stub_native_stub_invoked_count != 0:
+                    failures.append(
+                        "consumer_shim_native_stub_online_invocation_native_stub_invoked_count_nonzero="
+                        f"{stub_native_stub_invoked_count}"
+                    )
+                if stub_mode != "readonly_native_stub_online_invocation_canary":
+                    failures.append(
+                        "consumer_shim_native_stub_online_invocation_mode_mismatch"
+                    )
+                if stub_mode_checked_count != shim_executed:
+                    failures.append(
+                        "consumer_shim_native_stub_online_invocation_mode_checked_count_mismatch="
+                        f"{stub_mode_checked_count}!={shim_executed}"
+                    )
+                if stub_mode_mismatch_count != 0:
+                    failures.append(
+                        "consumer_shim_native_stub_online_invocation_mode_mismatch_count_nonzero="
+                        f"{stub_mode_mismatch_count}"
+                    )
+                for name, checked, missing in (
+                    (
+                        "package_hash",
+                        stub_package_hash_checked_count,
+                        stub_package_hash_missing_count,
+                    ),
+                    (
+                        "input_hash",
+                        stub_input_hash_checked_count,
+                        stub_input_hash_missing_count,
+                    ),
+                    (
+                        "table_object_hash",
+                        stub_table_hash_checked_count,
+                        stub_table_hash_missing_count,
+                    ),
+                ):
+                    if checked != shim_executed:
+                        failures.append(
+                            "consumer_shim_native_stub_online_invocation_"
+                            f"{name}_checked_count_mismatch={checked}!={shim_executed}"
+                        )
+                    if missing != 0:
+                        failures.append(
+                            "consumer_shim_native_stub_online_invocation_"
+                            f"{name}_missing_count_nonzero={missing}"
+                        )
+                if stub_schema_hash != PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH:
+                    failures.append(
+                        "consumer_shim_native_stub_online_invocation_schema_hash_mismatch"
+                    )
+                if stub_schema_hash_checked_count != shim_executed:
+                    failures.append(
+                        "consumer_shim_native_stub_online_invocation_schema_hash_checked_count_mismatch="
+                        f"{stub_schema_hash_checked_count}!={shim_executed}"
+                    )
+                if stub_schema_hash_missing_count != 0:
+                    failures.append(
+                        "consumer_shim_native_stub_online_invocation_schema_hash_missing_count_nonzero="
+                        f"{stub_schema_hash_missing_count}"
+                    )
+                if stub_schema_hash_mismatch_count != 0:
+                    failures.append(
+                        "consumer_shim_native_stub_online_invocation_schema_hash_mismatch_count_nonzero="
+                        f"{stub_schema_hash_mismatch_count}"
+                    )
+                if stub_block_reason != "native_stub_live_disabled":
+                    failures.append(
+                        "consumer_shim_native_stub_online_invocation_block_reason_mismatch"
+                    )
+                if stub_block_reason_checked_count != shim_executed:
+                    failures.append(
+                        "consumer_shim_native_stub_online_invocation_block_reason_checked_count_mismatch="
+                        f"{stub_block_reason_checked_count}!={shim_executed}"
+                    )
+                if stub_block_reason_missing_count != 0:
+                    failures.append(
+                        "consumer_shim_native_stub_online_invocation_block_reason_missing_count_nonzero="
+                        f"{stub_block_reason_missing_count}"
+                    )
+                if stub_block_reason_mismatch_count != 0:
+                    failures.append(
+                        "consumer_shim_native_stub_online_invocation_block_reason_mismatch_count_nonzero="
+                        f"{stub_block_reason_mismatch_count}"
+                    )
+                if stub_row_count != consume_row_count:
+                    failures.append(
+                        "consumer_shim_native_stub_online_invocation_row_count_mismatch="
+                        f"{stub_row_count}!={consume_row_count}"
+                    )
+                if stub_column_count_max != EXPECTED_KERNEL_ARG_SHADOW_TABLE_COLUMN_COUNT:
+                    failures.append(
+                        "consumer_shim_native_stub_online_invocation_column_count_max_mismatch="
+                        f"{stub_column_count_max}!={EXPECTED_KERNEL_ARG_SHADOW_TABLE_COLUMN_COUNT}"
+                    )
+                if stub_column_count_min != EXPECTED_KERNEL_ARG_SHADOW_TABLE_COLUMN_COUNT:
+                    failures.append(
+                        "consumer_shim_native_stub_online_invocation_column_count_min_mismatch="
+                        f"{stub_column_count_min}!={EXPECTED_KERNEL_ARG_SHADOW_TABLE_COLUMN_COUNT}"
+                    )
+                if stub_required_nonzero != expected_consume_required_fields:
+                    failures.append(
+                        "consumer_shim_native_stub_online_invocation_required_handle_nonzero_count_mismatch="
+                        f"{stub_required_nonzero}!={expected_consume_required_fields}"
+                    )
+                if stub_required_zero != 0:
+                    failures.append(
+                        "consumer_shim_native_stub_online_invocation_required_handle_zero_count_nonzero="
+                        f"{stub_required_zero}"
+                    )
+                if stub_optional_nonzero + stub_optional_zero != consume_row_count:
+                    failures.append(
+                        "consumer_shim_native_stub_online_invocation_optional_handle_total_mismatch="
+                        f"{stub_optional_nonzero}+{stub_optional_zero}!={consume_row_count}"
+                    )
+                if stub_expert_valid != consume_row_count:
+                    failures.append(
+                        "consumer_shim_native_stub_online_invocation_expert_id_valid_count_mismatch="
+                        f"{stub_expert_valid}!={consume_row_count}"
+                    )
+                if stub_expert_invalid != 0:
+                    failures.append(
+                        "consumer_shim_native_stub_online_invocation_expert_id_invalid_count_nonzero="
+                        f"{stub_expert_invalid}"
+                    )
+                if stub_address_nonzero != consume_row_count:
+                    failures.append(
+                        "consumer_shim_native_stub_online_invocation_address_key_hash_nonzero_count_mismatch="
+                        f"{stub_address_nonzero}!={consume_row_count}"
+                    )
+                if stub_address_zero != 0:
+                    failures.append(
+                        "consumer_shim_native_stub_online_invocation_address_key_hash_zero_count_nonzero="
+                        f"{stub_address_zero}"
+                    )
+                for name, value in (
+                    ("failure_count", stub_failure_count),
+                    ("payload_bytes", stub_payload_bytes),
+                    ("payload_violation_count", stub_payload_violation_count),
+                    ("ready_credit_count", stub_ready_credit_count),
+                    ("changes_router_count", stub_changes_router_count),
+                    (
+                        "changes_descriptor_order_count",
+                        stub_changes_descriptor_order_count,
+                    ),
+                    ("passed_to_kernel_count", stub_passed_to_kernel_count),
+                    ("kernel_arg_violation_count", stub_kernel_arg_violation_count),
+                ):
+                    if value != 0:
+                        failures.append(
+                            "consumer_shim_native_stub_online_invocation_"
+                            f"{name}_nonzero={value}"
+                        )
             if attempt_checked_count != shim_executed:
                 failures.append(
                     "consumer_shim_kernel_arg_handoff_attempt_checked_count_mismatch="
@@ -7676,6 +8252,141 @@ def check_summary(
                 f"{KERNEL_SIDE_TYPED_CONSUMER_OBJECT_PREFIX}live_compatible_with_current_wna16_args_count"
             )
         ),
+        "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_checked_count": _as_int(
+            aggregate.get(f"{NATIVE_TYPED_CONSUMER_BRIDGE_PREFIX}checked_count")
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_ok_count": _as_int(
+            aggregate.get(f"{NATIVE_TYPED_CONSUMER_BRIDGE_PREFIX}ok_count")
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_mode": str(
+            aggregate.get(f"{NATIVE_TYPED_CONSUMER_BRIDGE_PREFIX}mode") or ""
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_schema_hash": str(
+            aggregate.get(f"{NATIVE_TYPED_CONSUMER_BRIDGE_PREFIX}schema_hash") or ""
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_row_count": _as_int(
+            aggregate.get(f"{NATIVE_TYPED_CONSUMER_BRIDGE_PREFIX}row_count")
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_column_count_max": _as_int(
+            aggregate.get(f"{NATIVE_TYPED_CONSUMER_BRIDGE_PREFIX}column_count_max")
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_column_count_min": _as_int(
+            aggregate.get(f"{NATIVE_TYPED_CONSUMER_BRIDGE_PREFIX}column_count_min")
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_required_handle_nonzero_count": _as_int(
+            aggregate.get(f"{NATIVE_TYPED_CONSUMER_BRIDGE_PREFIX}required_handle_nonzero_count")
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_required_handle_zero_count": _as_int(
+            aggregate.get(f"{NATIVE_TYPED_CONSUMER_BRIDGE_PREFIX}required_handle_zero_count")
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_optional_handle_nonzero_count": _as_int(
+            aggregate.get(f"{NATIVE_TYPED_CONSUMER_BRIDGE_PREFIX}optional_handle_nonzero_count")
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_optional_handle_zero_count": _as_int(
+            aggregate.get(f"{NATIVE_TYPED_CONSUMER_BRIDGE_PREFIX}optional_handle_zero_count")
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_expert_id_valid_count": _as_int(
+            aggregate.get(f"{NATIVE_TYPED_CONSUMER_BRIDGE_PREFIX}expert_id_valid_count")
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_expert_id_invalid_count": _as_int(
+            aggregate.get(f"{NATIVE_TYPED_CONSUMER_BRIDGE_PREFIX}expert_id_invalid_count")
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_address_key_hash_nonzero_count": _as_int(
+            aggregate.get(f"{NATIVE_TYPED_CONSUMER_BRIDGE_PREFIX}address_key_hash_nonzero_count")
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_address_key_hash_zero_count": _as_int(
+            aggregate.get(f"{NATIVE_TYPED_CONSUMER_BRIDGE_PREFIX}address_key_hash_zero_count")
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_failure_count": _as_int(
+            aggregate.get(f"{NATIVE_TYPED_CONSUMER_BRIDGE_PREFIX}failure_count")
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_payload_bytes": _as_int(
+            aggregate.get(f"{NATIVE_TYPED_CONSUMER_BRIDGE_PREFIX}payload_bytes")
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_passed_to_kernel_count": _as_int(
+            aggregate.get(f"{NATIVE_TYPED_CONSUMER_BRIDGE_PREFIX}passed_to_kernel_count")
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_native_typed_consumer_bridge_kernel_arg_violation_count": _as_int(
+            aggregate.get(f"{NATIVE_TYPED_CONSUMER_BRIDGE_PREFIX}kernel_arg_violation_count")
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_checked_count": _as_int(
+            aggregate.get(f"{NATIVE_STUB_ONLINE_INVOCATION_PREFIX}checked_count")
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_ready_count": _as_int(
+            aggregate.get(f"{NATIVE_STUB_ONLINE_INVOCATION_PREFIX}ready_count")
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_ok_count": _as_int(
+            aggregate.get(f"{NATIVE_STUB_ONLINE_INVOCATION_PREFIX}ok_count")
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_mode": str(
+            aggregate.get(f"{NATIVE_STUB_ONLINE_INVOCATION_PREFIX}mode") or ""
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_schema_hash": str(
+            aggregate.get(f"{NATIVE_STUB_ONLINE_INVOCATION_PREFIX}schema_hash") or ""
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_block_reason": str(
+            aggregate.get(f"{NATIVE_STUB_ONLINE_INVOCATION_PREFIX}block_reason") or ""
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_row_count": _as_int(
+            aggregate.get(f"{NATIVE_STUB_ONLINE_INVOCATION_PREFIX}row_count")
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_column_count_max": _as_int(
+            aggregate.get(f"{NATIVE_STUB_ONLINE_INVOCATION_PREFIX}column_count_max")
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_column_count_min": _as_int(
+            aggregate.get(f"{NATIVE_STUB_ONLINE_INVOCATION_PREFIX}column_count_min")
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_required_handle_nonzero_count": _as_int(
+            aggregate.get(f"{NATIVE_STUB_ONLINE_INVOCATION_PREFIX}required_handle_nonzero_count")
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_required_handle_zero_count": _as_int(
+            aggregate.get(f"{NATIVE_STUB_ONLINE_INVOCATION_PREFIX}required_handle_zero_count")
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_optional_handle_nonzero_count": _as_int(
+            aggregate.get(f"{NATIVE_STUB_ONLINE_INVOCATION_PREFIX}optional_handle_nonzero_count")
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_optional_handle_zero_count": _as_int(
+            aggregate.get(f"{NATIVE_STUB_ONLINE_INVOCATION_PREFIX}optional_handle_zero_count")
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_expert_id_valid_count": _as_int(
+            aggregate.get(f"{NATIVE_STUB_ONLINE_INVOCATION_PREFIX}expert_id_valid_count")
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_expert_id_invalid_count": _as_int(
+            aggregate.get(f"{NATIVE_STUB_ONLINE_INVOCATION_PREFIX}expert_id_invalid_count")
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_address_key_hash_nonzero_count": _as_int(
+            aggregate.get(f"{NATIVE_STUB_ONLINE_INVOCATION_PREFIX}address_key_hash_nonzero_count")
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_address_key_hash_zero_count": _as_int(
+            aggregate.get(f"{NATIVE_STUB_ONLINE_INVOCATION_PREFIX}address_key_hash_zero_count")
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_native_checker_invoked_count": _as_int(
+            aggregate.get(f"{NATIVE_STUB_ONLINE_INVOCATION_PREFIX}native_checker_invoked_count")
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_native_bridge_ok_count": _as_int(
+            aggregate.get(f"{NATIVE_STUB_ONLINE_INVOCATION_PREFIX}native_bridge_ok_count")
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_requested_count": _as_int(
+            aggregate.get(f"{NATIVE_STUB_ONLINE_INVOCATION_PREFIX}requested_count")
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_native_stub_invoked_count": _as_int(
+            aggregate.get(f"{NATIVE_STUB_ONLINE_INVOCATION_PREFIX}native_stub_invoked_count")
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_blocked_count": _as_int(
+            aggregate.get(f"{NATIVE_STUB_ONLINE_INVOCATION_PREFIX}blocked_count")
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_failure_count": _as_int(
+            aggregate.get(f"{NATIVE_STUB_ONLINE_INVOCATION_PREFIX}failure_count")
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_payload_bytes": _as_int(
+            aggregate.get(f"{NATIVE_STUB_ONLINE_INVOCATION_PREFIX}payload_bytes")
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_passed_to_kernel_count": _as_int(
+            aggregate.get(f"{NATIVE_STUB_ONLINE_INVOCATION_PREFIX}passed_to_kernel_count")
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_kernel_arg_violation_count": _as_int(
+            aggregate.get(f"{NATIVE_STUB_ONLINE_INVOCATION_PREFIX}kernel_arg_violation_count")
+        ),
     }
     # Keep promoted gate reports self-checkable.  The human-readable report
     # surfaces a curated metric set above, but strict revalidation of a passed
@@ -7685,6 +8396,8 @@ def check_summary(
         KERNEL_ARG_SEMANTIC_HANDLE_ADAPTER_PREFIX,
         KERNEL_SIDE_CONSUMER_SCHEMA_ADAPTER_PREFIX,
         KERNEL_SIDE_TYPED_CONSUMER_OBJECT_PREFIX,
+        NATIVE_TYPED_CONSUMER_BRIDGE_PREFIX,
+        NATIVE_STUB_ONLINE_INVOCATION_PREFIX,
     ):
         for key, value in aggregate.items():
             if str(key).startswith(prefix) and key not in metrics:
@@ -7728,6 +8441,12 @@ def check_summary(
         ),
         "require_kernel_side_typed_consumer_object": bool(
             require_kernel_side_typed_consumer_object
+        ),
+        "require_native_typed_consumer_bridge": bool(
+            require_native_typed_consumer_bridge
+        ),
+        "require_native_stub_online_invocation_canary": bool(
+            require_native_stub_online_invocation_canary
         ),
         "allow_enabled_blocked_live_toggle": bool(
             allow_enabled_blocked_live_toggle
@@ -7902,6 +8621,27 @@ def main() -> None:
         ),
     )
     parser.add_argument(
+        "--require-native-typed-consumer-bridge",
+        action="store_true",
+        help=(
+            "Require the online readonly native typed-consumer bridge check. "
+            "The prelaunch shim must convert the prepared handle table into "
+            "the future native-consumer input shape, validate row/field "
+            "parity, and still keep payload and kernel-arg pass disabled."
+        ),
+    )
+    parser.add_argument(
+        "--require-native-stub-online-invocation-canary",
+        action="store_true",
+        help=(
+            "Require the live-disabled native stub online invocation canary. "
+            "The prelaunch shim must package the future native-stub input and "
+            "invoke the in-process checker, but the actual native stub/kernel "
+            "launch must remain blocked, zero-payload, and disconnected from "
+            "the current WNA16 kernel arguments."
+        ),
+    )
+    parser.add_argument(
         "--allow-enabled-blocked-live-toggle",
         action="store_true",
         help=(
@@ -8007,6 +8747,12 @@ def main() -> None:
         ),
         require_kernel_side_typed_consumer_object=(
             args.require_kernel_side_typed_consumer_object
+        ),
+        require_native_typed_consumer_bridge=(
+            args.require_native_typed_consumer_bridge
+        ),
+        require_native_stub_online_invocation_canary=(
+            args.require_native_stub_online_invocation_canary
         ),
         allow_enabled_blocked_live_toggle=(
             args.allow_enabled_blocked_live_toggle

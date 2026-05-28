@@ -46,6 +46,7 @@ def scan_runtime_gate_evidence_paths(
     allow_missing: bool = True,
     allow_missing_section: bool = True,
     require_json: bool = False,
+    deferred_labels: set[str] | None = None,
 ) -> dict[str, Any]:
     root = root.resolve()
     paths = _matching_gate_paths(pattern, root=root)
@@ -58,6 +59,7 @@ def scan_runtime_gate_evidence_paths(
                 allow_missing=allow_missing,
                 allow_missing_section=allow_missing_section,
                 require_json=require_json,
+                deferred_labels=deferred_labels,
             )
         except (FileNotFoundError, ValueError, yaml.YAMLError) as exc:
             result = _error_result(path, root=root, exc=exc)
@@ -93,6 +95,9 @@ def scan_runtime_gate_evidence_paths(
             int(result.get("evidence_path_count", 0)) for result in results
         ),
         "missing_count": sum(int(result.get("missing_count", 0)) for result in results),
+        "deferred_count": sum(
+            int(result.get("deferred_count", 0)) for result in results
+        ),
         "invalid_json_count": sum(
             int(result.get("invalid_json_count", 0)) for result in results
         ),

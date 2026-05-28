@@ -395,6 +395,14 @@ class PremapKernelArgShadowTableObject:
                 "execution_mode": self.execution_mode,
                 "row_order_source": self.row_order_source,
                 "schema_hash": self.schema_hash,
+                "payload_bytes": int(self.payload_bytes),
+                "ready_credit": bool(self.ready_credit),
+                "changes_router": bool(self.changes_router),
+                "changes_descriptor_order": bool(self.changes_descriptor_order),
+                "changes_kernel_launch_args": bool(
+                    self.changes_kernel_launch_args
+                ),
+                "passed_to_kernel": bool(self.passed_to_kernel),
                 "rows": [row.row_hash for row in self.rows],
             },
             sort_keys=True,
@@ -470,6 +478,9 @@ class PremapKernelArgShadowTableObject:
                 "ordered_row_hash": self.ordered_row_hash,
                 "table_object_hash": self.object_hash,
                 "payload_bytes": self.payload_bytes,
+                "ready_credit": self.ready_credit,
+                "changes_router": self.changes_router,
+                "changes_descriptor_order": self.changes_descriptor_order,
                 "passed_to_kernel": self.passed_to_kernel,
                 "changes_kernel_launch_args": self.changes_kernel_launch_args,
             },
@@ -1998,6 +2009,62 @@ class PremapDescriptorConsumerShimResult:
     kernel_side_typed_consumer_object_live_compatible_with_current_wna16_args: (
         bool
     ) = False
+    native_typed_consumer_bridge_mode: str | None = None
+    native_typed_consumer_bridge_checked: bool | None = None
+    native_typed_consumer_bridge_ok: bool | None = None
+    native_typed_consumer_bridge_input_hash: str | None = None
+    native_typed_consumer_bridge_table_object_hash: str | None = None
+    native_typed_consumer_bridge_schema_hash: str | None = None
+    native_typed_consumer_bridge_row_count: int | None = None
+    native_typed_consumer_bridge_column_count: int | None = None
+    native_typed_consumer_bridge_required_handle_nonzero_count: int | None = None
+    native_typed_consumer_bridge_required_handle_zero_count: int | None = None
+    native_typed_consumer_bridge_optional_handle_nonzero_count: int | None = None
+    native_typed_consumer_bridge_optional_handle_zero_count: int | None = None
+    native_typed_consumer_bridge_expert_id_valid_count: int | None = None
+    native_typed_consumer_bridge_expert_id_invalid_count: int | None = None
+    native_typed_consumer_bridge_address_key_hash_nonzero_count: int | None = None
+    native_typed_consumer_bridge_address_key_hash_zero_count: int | None = None
+    native_typed_consumer_bridge_failure_count: int | None = None
+    native_typed_consumer_bridge_failures: tuple[str, ...] | None = None
+    native_typed_consumer_bridge_payload_bytes: int = 0
+    native_typed_consumer_bridge_ready_credit: bool = False
+    native_typed_consumer_bridge_changes_router: bool = False
+    native_typed_consumer_bridge_changes_descriptor_order: bool = False
+    native_typed_consumer_bridge_passed_to_kernel: bool = False
+    native_typed_consumer_bridge_changes_kernel_launch_args: bool = False
+    native_stub_online_invocation_mode: str | None = None
+    native_stub_online_invocation_checked: bool | None = None
+    native_stub_online_invocation_ready: bool | None = None
+    native_stub_online_invocation_ok: bool | None = None
+    native_stub_online_invocation_native_checker_invoked: bool | None = None
+    native_stub_online_invocation_native_bridge_ok: bool | None = None
+    native_stub_online_invocation_package_hash: str | None = None
+    native_stub_online_invocation_input_hash: str | None = None
+    native_stub_online_invocation_table_object_hash: str | None = None
+    native_stub_online_invocation_schema_hash: str | None = None
+    native_stub_online_invocation_row_count: int | None = None
+    native_stub_online_invocation_column_count: int | None = None
+    native_stub_online_invocation_required_handle_nonzero_count: int | None = None
+    native_stub_online_invocation_required_handle_zero_count: int | None = None
+    native_stub_online_invocation_optional_handle_nonzero_count: int | None = None
+    native_stub_online_invocation_optional_handle_zero_count: int | None = None
+    native_stub_online_invocation_expert_id_valid_count: int | None = None
+    native_stub_online_invocation_expert_id_invalid_count: int | None = None
+    native_stub_online_invocation_address_key_hash_nonzero_count: int | None = None
+    native_stub_online_invocation_address_key_hash_zero_count: int | None = None
+    native_stub_online_invocation_requested: bool | None = None
+    native_stub_online_invocation_native_stub_invoked: bool | None = None
+    native_stub_online_invocation_blocked: bool | None = None
+    native_stub_online_invocation_block_reason: str | None = None
+    native_stub_online_invocation_failure_count: int | None = None
+    native_stub_online_invocation_failures: tuple[str, ...] | None = None
+    native_stub_online_invocation_payload_bytes: int = 0
+    native_stub_online_invocation_ready_credit: bool = False
+    native_stub_online_invocation_changes_router: bool = False
+    native_stub_online_invocation_changes_descriptor_order: bool = False
+    native_stub_online_invocation_passed_to_kernel: bool = False
+    native_stub_online_invocation_changes_kernel_launch_args: bool = False
     handle_table_object_consumed: bool | None = None
     handle_table_object_hash: str | None = None
     handle_table_object_row_count: int | None = None
@@ -2118,6 +2185,160 @@ class PremapKernelArgShadowTableResult:
 
     def as_dict(self) -> dict[str, int | bool | str | None]:
         return asdict(self)
+
+
+@dataclass(frozen=True)
+class PremapNativeTypedConsumerBridgeCheck:
+    """Readonly checker for the native typed-consumer input bridge.
+
+    This mirrors the cheap contract checks performed by the standalone HIP
+    typed-consumer stub, but stays in-process for the vLLM prelaunch no-op
+    path.  It validates the table-to-native-input shape only; it does not call
+    a kernel, dereference payloads, or mutate launch arguments.
+    """
+
+    mode: str
+    input_hash: str
+    table_object_hash: str
+    schema_hash: str
+    row_count: int
+    column_count: int
+    required_handle_nonzero_count: int
+    required_handle_zero_count: int
+    optional_handle_nonzero_count: int
+    optional_handle_zero_count: int
+    expert_id_valid_count: int
+    expert_id_invalid_count: int
+    address_key_hash_nonzero_count: int
+    address_key_hash_zero_count: int
+    failures: tuple[str, ...] = ()
+    payload_bytes: int = 0
+    ready_credit: bool = False
+    changes_router: bool = False
+    changes_descriptor_order: bool = False
+    passed_to_kernel: bool = False
+    changes_kernel_launch_args: bool = False
+
+    @property
+    def ok(self) -> bool:
+        return (
+            self.mode == "readonly_native_typed_consumer_bridge_check"
+            and int(self.row_count) > 0
+            and int(self.column_count)
+            == len(PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_COLUMNS)
+            and str(self.schema_hash)
+            == PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH
+            and bool(self.input_hash)
+            and bool(self.table_object_hash)
+            and int(self.required_handle_nonzero_count) == int(self.row_count) * 3
+            and int(self.required_handle_zero_count) == 0
+            and int(self.optional_handle_nonzero_count)
+            + int(self.optional_handle_zero_count)
+            == int(self.row_count)
+            and int(self.expert_id_valid_count) == int(self.row_count)
+            and int(self.expert_id_invalid_count) == 0
+            and int(self.address_key_hash_nonzero_count) == int(self.row_count)
+            and int(self.address_key_hash_zero_count) == 0
+            and int(self.payload_bytes) == 0
+            and not bool(self.ready_credit)
+            and not bool(self.changes_router)
+            and not bool(self.changes_descriptor_order)
+            and not bool(self.passed_to_kernel)
+            and not bool(self.changes_kernel_launch_args)
+            and not self.failures
+        )
+
+    def as_dict(self) -> dict[str, int | bool | str | tuple[str, ...]]:
+        payload = asdict(self)
+        payload["ok"] = bool(self.ok)
+        return payload
+
+
+@dataclass(frozen=True)
+class PremapNativeStubOnlineInvocationCanary:
+    """Live-disabled native-stub invocation package for online prelaunch checks.
+
+    The vLLM prelaunch shim already has a Python-side native bridge checker.
+    This object records the next boundary: the exact typed-consumer input that
+    a native checker/stub would consume.  The package is constructed and hashed,
+    but live invocation is intentionally blocked here: no HIP stub is launched,
+    no payload is dereferenced, and no real WNA16 kernel arguments are touched.
+    """
+
+    mode: str
+    native_checker_invoked: bool
+    native_bridge_ok: bool
+    package_hash: str
+    input_hash: str
+    table_object_hash: str
+    schema_hash: str
+    row_count: int
+    column_count: int
+    required_handle_nonzero_count: int
+    required_handle_zero_count: int
+    optional_handle_nonzero_count: int
+    optional_handle_zero_count: int
+    expert_id_valid_count: int
+    expert_id_invalid_count: int
+    address_key_hash_nonzero_count: int
+    address_key_hash_zero_count: int
+    invocation_requested: bool
+    native_stub_invoked: bool
+    invocation_blocked: bool
+    invocation_block_reason: str
+    failures: tuple[str, ...] = ()
+    payload_bytes: int = 0
+    ready_credit: bool = False
+    changes_router: bool = False
+    changes_descriptor_order: bool = False
+    passed_to_kernel: bool = False
+    changes_kernel_launch_args: bool = False
+
+    @property
+    def ready(self) -> bool:
+        return (
+            self.mode == "readonly_native_stub_online_invocation_canary"
+            and bool(self.native_checker_invoked)
+            and bool(self.native_bridge_ok)
+            and bool(self.package_hash)
+            and bool(self.input_hash)
+            and bool(self.table_object_hash)
+            and int(self.row_count) > 0
+            and int(self.column_count)
+            == len(PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_COLUMNS)
+            and str(self.schema_hash)
+            == PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH
+            and int(self.required_handle_nonzero_count) == int(self.row_count) * 3
+            and int(self.required_handle_zero_count) == 0
+            and int(self.optional_handle_nonzero_count)
+            + int(self.optional_handle_zero_count)
+            == int(self.row_count)
+            and int(self.expert_id_valid_count) == int(self.row_count)
+            and int(self.expert_id_invalid_count) == 0
+            and int(self.address_key_hash_nonzero_count) == int(self.row_count)
+            and int(self.address_key_hash_zero_count) == 0
+            and bool(self.invocation_requested)
+            and not bool(self.native_stub_invoked)
+            and bool(self.invocation_blocked)
+            and self.invocation_block_reason == "native_stub_live_disabled"
+            and int(self.payload_bytes) == 0
+            and not bool(self.ready_credit)
+            and not bool(self.changes_router)
+            and not bool(self.changes_descriptor_order)
+            and not bool(self.passed_to_kernel)
+            and not bool(self.changes_kernel_launch_args)
+            and not self.failures
+        )
+
+    @property
+    def ok(self) -> bool:
+        return bool(self.ready)
+
+    def as_dict(self) -> dict[str, int | bool | str | tuple[str, ...]]:
+        payload = asdict(self)
+        payload["ready"] = bool(self.ready)
+        payload["ok"] = bool(self.ok)
+        return payload
 
 
 class ControlledPremapAddressManager:
@@ -2508,6 +2729,249 @@ class ControlledPremapAddressManager:
             changes_descriptor_order=False,
         )
 
+    def validate_native_typed_consumer_bridge_readonly(
+        self,
+        table_object: PremapKernelArgShadowTableObject,
+    ) -> PremapNativeTypedConsumerBridgeCheck:
+        """Validate the native typed-consumer bridge shape without a kernel call."""
+
+        native_input = table_object.to_native_typed_consumer_input_dict()
+        failures: list[str] = []
+        meta = native_input.get("_meta")
+        if not isinstance(meta, dict):
+            meta = {}
+            failures.append("missing_meta")
+        row_count = int(meta.get("row_count", table_object.row_count) or 0)
+        column_count = int(meta.get("column_count", table_object.column_count) or 0)
+        schema_hash = str(meta.get("schema_hash", table_object.schema_hash) or "")
+        payload_bytes = int(meta.get("payload_bytes", 0) or 0)
+        ready_credit = bool(meta.get("ready_credit", False))
+        changes_router = bool(meta.get("changes_router", False))
+        changes_descriptor_order = bool(meta.get("changes_descriptor_order", False))
+        passed_to_kernel = bool(meta.get("passed_to_kernel", False))
+        changes_kernel_launch_args = bool(
+            meta.get("changes_kernel_launch_args", False)
+        )
+        if row_count != int(table_object.row_count):
+            failures.append("row_count_mismatch")
+        if column_count != int(table_object.column_count):
+            failures.append("column_count_mismatch")
+        if schema_hash != PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH:
+            failures.append("schema_hash_mismatch")
+        if str(meta.get("table_object_hash", "")) != str(table_object.object_hash):
+            failures.append("table_object_hash_mismatch")
+        if str(meta.get("row_order_hash", "")) != str(table_object.row_order_hash):
+            failures.append("row_order_hash_mismatch")
+        if str(meta.get("ordered_row_hash", "")) != str(table_object.ordered_row_hash):
+            failures.append("ordered_row_hash_mismatch")
+        if payload_bytes != 0:
+            failures.append("payload_bytes_nonzero")
+        if ready_credit:
+            failures.append("ready_credit_true")
+        if changes_router:
+            failures.append("changes_router_true")
+        if changes_descriptor_order:
+            failures.append("changes_descriptor_order_true")
+        if passed_to_kernel:
+            failures.append("passed_to_kernel_true")
+        if changes_kernel_launch_args:
+            failures.append("changes_kernel_launch_args_true")
+
+        def as_int_list(field: str, *, required: bool = True) -> list[int]:
+            value = native_input.get(field)
+            if value is None:
+                if required:
+                    failures.append(f"{field}_missing")
+                return []
+            if not isinstance(value, list):
+                failures.append(f"{field}_not_list")
+                return []
+            if len(value) != row_count:
+                failures.append(f"{field}_length_mismatch")
+            out: list[int] = []
+            for item in value:
+                try:
+                    out.append(int(item) & 0xFFFFFFFFFFFFFFFF)
+                except (TypeError, ValueError):
+                    failures.append(f"{field}_non_int")
+                    out.append(0)
+            return out
+
+        descriptor_ptr = as_int_list("descriptor_ptr")
+        packed_weight_descriptor = as_int_list("packed_weight_descriptor")
+        scale_metadata_handle = as_int_list("scale_metadata_handle")
+        aux_metadata_handle = as_int_list("aux_metadata_handle", required=False)
+        if "aux_metadata_handle" not in native_input:
+            aux_metadata_handle = [0 for _ in range(row_count)]
+        expert_id = as_int_list("expert_id")
+        address_key_hash = as_int_list("address_key_hash")
+
+        required_values = (
+            descriptor_ptr + packed_weight_descriptor + scale_metadata_handle
+        )
+        required_nonzero = sum(1 for value in required_values if int(value) != 0)
+        required_zero = len(required_values) - required_nonzero
+        optional_nonzero = sum(1 for value in aux_metadata_handle if int(value) != 0)
+        optional_zero = max(0, row_count - optional_nonzero)
+        expert_valid = sum(1 for value in expert_id if int(value) >= 0)
+        expert_invalid = max(0, row_count - expert_valid)
+        address_nonzero = sum(1 for value in address_key_hash if int(value) != 0)
+        address_zero = max(0, row_count - address_nonzero)
+        input_hash = hashlib.sha256(
+            json.dumps(native_input, sort_keys=True, separators=(",", ":")).encode(
+                "utf-8"
+            )
+        ).hexdigest()
+        return PremapNativeTypedConsumerBridgeCheck(
+            mode="readonly_native_typed_consumer_bridge_check",
+            input_hash=input_hash,
+            table_object_hash=table_object.object_hash,
+            schema_hash=schema_hash,
+            row_count=row_count,
+            column_count=column_count,
+            required_handle_nonzero_count=required_nonzero,
+            required_handle_zero_count=required_zero,
+            optional_handle_nonzero_count=optional_nonzero,
+            optional_handle_zero_count=optional_zero,
+            expert_id_valid_count=expert_valid,
+            expert_id_invalid_count=expert_invalid,
+            address_key_hash_nonzero_count=address_nonzero,
+            address_key_hash_zero_count=address_zero,
+            failures=tuple(failures),
+            payload_bytes=payload_bytes,
+            ready_credit=ready_credit,
+            changes_router=changes_router,
+            changes_descriptor_order=changes_descriptor_order,
+            passed_to_kernel=passed_to_kernel,
+            changes_kernel_launch_args=changes_kernel_launch_args,
+        )
+
+    def build_native_stub_online_invocation_canary_readonly(
+        self,
+        table_object: PremapKernelArgShadowTableObject,
+        native_bridge_check: PremapNativeTypedConsumerBridgeCheck | None,
+    ) -> PremapNativeStubOnlineInvocationCanary:
+        """Build a live-disabled native-stub invocation package.
+
+        This is the online canary version of the standalone native stub path:
+        the prelaunch shim constructs the typed input and records the exact
+        package a native consumer would receive, while deliberately blocking
+        the real stub/kernel invocation.
+        """
+
+        native_input = table_object.to_native_typed_consumer_input_dict()
+        current_input_hash = hashlib.sha256(
+            json.dumps(native_input, sort_keys=True, separators=(",", ":")).encode(
+                "utf-8"
+            )
+        ).hexdigest()
+        bridge_ok = bool(native_bridge_check.ok) if native_bridge_check else False
+        failures: list[str] = []
+        if native_bridge_check is None:
+            failures.append("native_bridge_check_missing")
+        elif not native_bridge_check.ok:
+            failures.append("native_bridge_check_failed")
+        if native_bridge_check is not None:
+            if str(native_bridge_check.input_hash) != current_input_hash:
+                failures.append("native_bridge_input_hash_mismatch")
+            if str(native_bridge_check.table_object_hash) != str(
+                table_object.object_hash
+            ):
+                failures.append("native_bridge_table_object_hash_mismatch")
+            if str(native_bridge_check.schema_hash) != str(table_object.schema_hash):
+                failures.append("native_bridge_schema_hash_mismatch")
+            if int(native_bridge_check.row_count) != int(table_object.row_count):
+                failures.append("native_bridge_row_count_mismatch")
+            if int(native_bridge_check.column_count) != int(table_object.column_count):
+                failures.append("native_bridge_column_count_mismatch")
+        mode = "readonly_native_stub_online_invocation_canary"
+        package = {
+            "mode": mode,
+            "live_disabled": True,
+            "native_stub_invoked": False,
+            "native_bridge_input_hash": (
+                native_bridge_check.input_hash if native_bridge_check else None
+            ),
+            "table_object_hash": table_object.object_hash,
+            "schema_hash": table_object.schema_hash,
+            "row_count": int(table_object.row_count),
+            "column_count": int(table_object.column_count),
+            "native_input": native_input,
+        }
+        package_hash = hashlib.sha256(
+            json.dumps(package, sort_keys=True, separators=(",", ":")).encode(
+                "utf-8"
+            )
+        ).hexdigest()
+        return PremapNativeStubOnlineInvocationCanary(
+            mode=mode,
+            native_checker_invoked=native_bridge_check is not None,
+            native_bridge_ok=bridge_ok,
+            package_hash=package_hash,
+            input_hash=native_bridge_check.input_hash if native_bridge_check else "",
+            table_object_hash=table_object.object_hash,
+            schema_hash=table_object.schema_hash,
+            row_count=int(table_object.row_count),
+            column_count=int(table_object.column_count),
+            required_handle_nonzero_count=(
+                native_bridge_check.required_handle_nonzero_count
+                if native_bridge_check
+                else 0
+            ),
+            required_handle_zero_count=(
+                native_bridge_check.required_handle_zero_count
+                if native_bridge_check
+                else 0
+            ),
+            optional_handle_nonzero_count=(
+                native_bridge_check.optional_handle_nonzero_count
+                if native_bridge_check
+                else 0
+            ),
+            optional_handle_zero_count=(
+                native_bridge_check.optional_handle_zero_count
+                if native_bridge_check
+                else 0
+            ),
+            expert_id_valid_count=(
+                native_bridge_check.expert_id_valid_count if native_bridge_check else 0
+            ),
+            expert_id_invalid_count=(
+                native_bridge_check.expert_id_invalid_count
+                if native_bridge_check
+                else 0
+            ),
+            address_key_hash_nonzero_count=(
+                native_bridge_check.address_key_hash_nonzero_count
+                if native_bridge_check
+                else 0
+            ),
+            address_key_hash_zero_count=(
+                native_bridge_check.address_key_hash_zero_count
+                if native_bridge_check
+                else 0
+            ),
+            invocation_requested=True,
+            native_stub_invoked=False,
+            invocation_blocked=True,
+            invocation_block_reason="native_stub_live_disabled",
+            failures=tuple(failures),
+            payload_bytes=0,
+            ready_credit=(
+                native_bridge_check.ready_credit if native_bridge_check else False
+            ),
+            changes_router=(
+                native_bridge_check.changes_router if native_bridge_check else False
+            ),
+            changes_descriptor_order=(
+                native_bridge_check.changes_descriptor_order
+                if native_bridge_check
+                else False
+            ),
+            passed_to_kernel=False,
+            changes_kernel_launch_args=False,
+        )
+
     def execute_descriptor_consumer_shim_readonly(
         self,
         read_result: PremapDescriptorConsumerReadResult,
@@ -2573,6 +3037,8 @@ class ControlledPremapAddressManager:
         table_object_lifecycle_ok = None
         table_object_passed_to_kernel = False
         table_object_payload_bytes = 0
+        native_bridge_check: PremapNativeTypedConsumerBridgeCheck | None = None
+        native_stub_canary: PremapNativeStubOnlineInvocationCanary | None = None
         prep_dry_run_mode = None
         prep_dry_run_source = None
         prep_dry_run_ok = None
@@ -2781,6 +3247,17 @@ class ControlledPremapAddressManager:
                 <= int(table_object.row_count)
             )
             table_consume_ok = bool(table_consume_ok) and bool(object_consume_ok)
+            native_bridge_check = self.validate_native_typed_consumer_bridge_readonly(
+                table_object
+            )
+            native_stub_canary = (
+                self.build_native_stub_online_invocation_canary_readonly(
+                    table_object,
+                    native_bridge_check,
+                )
+            )
+            table_consume_ok = bool(table_consume_ok) and bool(native_bridge_check.ok)
+            table_consume_ok = bool(table_consume_ok) and bool(native_stub_canary.ok)
         elif table_result is not None:
             table_object_consumed = False
         if prep_dry_run is not None:
@@ -4432,6 +4909,262 @@ class ControlledPremapAddressManager:
             kernel_side_typed_consumer_object_live_compatible_with_current_wna16_args=(
                 kernel_side_typed_consumer_object.live_compatible_with_current_wna16_args
                 if kernel_side_typed_consumer_object is not None
+                else False
+            ),
+            native_typed_consumer_bridge_mode=(
+                native_bridge_check.mode if native_bridge_check is not None else None
+            ),
+            native_typed_consumer_bridge_checked=(
+                True if native_bridge_check is not None else None
+            ),
+            native_typed_consumer_bridge_ok=(
+                native_bridge_check.ok if native_bridge_check is not None else None
+            ),
+            native_typed_consumer_bridge_input_hash=(
+                native_bridge_check.input_hash
+                if native_bridge_check is not None
+                else None
+            ),
+            native_typed_consumer_bridge_table_object_hash=(
+                native_bridge_check.table_object_hash
+                if native_bridge_check is not None
+                else None
+            ),
+            native_typed_consumer_bridge_schema_hash=(
+                native_bridge_check.schema_hash
+                if native_bridge_check is not None
+                else None
+            ),
+            native_typed_consumer_bridge_row_count=(
+                native_bridge_check.row_count if native_bridge_check is not None else None
+            ),
+            native_typed_consumer_bridge_column_count=(
+                native_bridge_check.column_count
+                if native_bridge_check is not None
+                else None
+            ),
+            native_typed_consumer_bridge_required_handle_nonzero_count=(
+                native_bridge_check.required_handle_nonzero_count
+                if native_bridge_check is not None
+                else None
+            ),
+            native_typed_consumer_bridge_required_handle_zero_count=(
+                native_bridge_check.required_handle_zero_count
+                if native_bridge_check is not None
+                else None
+            ),
+            native_typed_consumer_bridge_optional_handle_nonzero_count=(
+                native_bridge_check.optional_handle_nonzero_count
+                if native_bridge_check is not None
+                else None
+            ),
+            native_typed_consumer_bridge_optional_handle_zero_count=(
+                native_bridge_check.optional_handle_zero_count
+                if native_bridge_check is not None
+                else None
+            ),
+            native_typed_consumer_bridge_expert_id_valid_count=(
+                native_bridge_check.expert_id_valid_count
+                if native_bridge_check is not None
+                else None
+            ),
+            native_typed_consumer_bridge_expert_id_invalid_count=(
+                native_bridge_check.expert_id_invalid_count
+                if native_bridge_check is not None
+                else None
+            ),
+            native_typed_consumer_bridge_address_key_hash_nonzero_count=(
+                native_bridge_check.address_key_hash_nonzero_count
+                if native_bridge_check is not None
+                else None
+            ),
+            native_typed_consumer_bridge_address_key_hash_zero_count=(
+                native_bridge_check.address_key_hash_zero_count
+                if native_bridge_check is not None
+                else None
+            ),
+            native_typed_consumer_bridge_failure_count=(
+                len(native_bridge_check.failures)
+                if native_bridge_check is not None
+                else None
+            ),
+            native_typed_consumer_bridge_failures=(
+                native_bridge_check.failures
+                if native_bridge_check is not None
+                else None
+            ),
+            native_typed_consumer_bridge_payload_bytes=(
+                native_bridge_check.payload_bytes
+                if native_bridge_check is not None
+                else 0
+            ),
+            native_typed_consumer_bridge_ready_credit=(
+                native_bridge_check.ready_credit
+                if native_bridge_check is not None
+                else False
+            ),
+            native_typed_consumer_bridge_changes_router=(
+                native_bridge_check.changes_router
+                if native_bridge_check is not None
+                else False
+            ),
+            native_typed_consumer_bridge_changes_descriptor_order=(
+                native_bridge_check.changes_descriptor_order
+                if native_bridge_check is not None
+                else False
+            ),
+            native_typed_consumer_bridge_passed_to_kernel=(
+                native_bridge_check.passed_to_kernel
+                if native_bridge_check is not None
+                else False
+            ),
+            native_typed_consumer_bridge_changes_kernel_launch_args=(
+                native_bridge_check.changes_kernel_launch_args
+                if native_bridge_check is not None
+                else False
+            ),
+            native_stub_online_invocation_mode=(
+                native_stub_canary.mode if native_stub_canary is not None else None
+            ),
+            native_stub_online_invocation_checked=(
+                True if native_stub_canary is not None else None
+            ),
+            native_stub_online_invocation_ready=(
+                native_stub_canary.ready if native_stub_canary is not None else None
+            ),
+            native_stub_online_invocation_ok=(
+                native_stub_canary.ok if native_stub_canary is not None else None
+            ),
+            native_stub_online_invocation_native_checker_invoked=(
+                native_stub_canary.native_checker_invoked
+                if native_stub_canary is not None
+                else None
+            ),
+            native_stub_online_invocation_native_bridge_ok=(
+                native_stub_canary.native_bridge_ok
+                if native_stub_canary is not None
+                else None
+            ),
+            native_stub_online_invocation_package_hash=(
+                native_stub_canary.package_hash
+                if native_stub_canary is not None
+                else None
+            ),
+            native_stub_online_invocation_input_hash=(
+                native_stub_canary.input_hash if native_stub_canary is not None else None
+            ),
+            native_stub_online_invocation_table_object_hash=(
+                native_stub_canary.table_object_hash
+                if native_stub_canary is not None
+                else None
+            ),
+            native_stub_online_invocation_schema_hash=(
+                native_stub_canary.schema_hash
+                if native_stub_canary is not None
+                else None
+            ),
+            native_stub_online_invocation_row_count=(
+                native_stub_canary.row_count if native_stub_canary is not None else None
+            ),
+            native_stub_online_invocation_column_count=(
+                native_stub_canary.column_count
+                if native_stub_canary is not None
+                else None
+            ),
+            native_stub_online_invocation_required_handle_nonzero_count=(
+                native_stub_canary.required_handle_nonzero_count
+                if native_stub_canary is not None
+                else None
+            ),
+            native_stub_online_invocation_required_handle_zero_count=(
+                native_stub_canary.required_handle_zero_count
+                if native_stub_canary is not None
+                else None
+            ),
+            native_stub_online_invocation_optional_handle_nonzero_count=(
+                native_stub_canary.optional_handle_nonzero_count
+                if native_stub_canary is not None
+                else None
+            ),
+            native_stub_online_invocation_optional_handle_zero_count=(
+                native_stub_canary.optional_handle_zero_count
+                if native_stub_canary is not None
+                else None
+            ),
+            native_stub_online_invocation_expert_id_valid_count=(
+                native_stub_canary.expert_id_valid_count
+                if native_stub_canary is not None
+                else None
+            ),
+            native_stub_online_invocation_expert_id_invalid_count=(
+                native_stub_canary.expert_id_invalid_count
+                if native_stub_canary is not None
+                else None
+            ),
+            native_stub_online_invocation_address_key_hash_nonzero_count=(
+                native_stub_canary.address_key_hash_nonzero_count
+                if native_stub_canary is not None
+                else None
+            ),
+            native_stub_online_invocation_address_key_hash_zero_count=(
+                native_stub_canary.address_key_hash_zero_count
+                if native_stub_canary is not None
+                else None
+            ),
+            native_stub_online_invocation_requested=(
+                native_stub_canary.invocation_requested
+                if native_stub_canary is not None
+                else None
+            ),
+            native_stub_online_invocation_native_stub_invoked=(
+                native_stub_canary.native_stub_invoked
+                if native_stub_canary is not None
+                else None
+            ),
+            native_stub_online_invocation_blocked=(
+                native_stub_canary.invocation_blocked
+                if native_stub_canary is not None
+                else None
+            ),
+            native_stub_online_invocation_block_reason=(
+                native_stub_canary.invocation_block_reason
+                if native_stub_canary is not None
+                else None
+            ),
+            native_stub_online_invocation_failure_count=(
+                len(native_stub_canary.failures)
+                if native_stub_canary is not None
+                else None
+            ),
+            native_stub_online_invocation_failures=(
+                native_stub_canary.failures if native_stub_canary is not None else None
+            ),
+            native_stub_online_invocation_payload_bytes=(
+                native_stub_canary.payload_bytes if native_stub_canary is not None else 0
+            ),
+            native_stub_online_invocation_ready_credit=(
+                native_stub_canary.ready_credit
+                if native_stub_canary is not None
+                else False
+            ),
+            native_stub_online_invocation_changes_router=(
+                native_stub_canary.changes_router
+                if native_stub_canary is not None
+                else False
+            ),
+            native_stub_online_invocation_changes_descriptor_order=(
+                native_stub_canary.changes_descriptor_order
+                if native_stub_canary is not None
+                else False
+            ),
+            native_stub_online_invocation_passed_to_kernel=(
+                native_stub_canary.passed_to_kernel
+                if native_stub_canary is not None
+                else False
+            ),
+            native_stub_online_invocation_changes_kernel_launch_args=(
+                native_stub_canary.changes_kernel_launch_args
+                if native_stub_canary is not None
                 else False
             ),
             handle_table_object_consumed=table_object_consumed,
