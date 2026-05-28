@@ -89,6 +89,8 @@ def test_run_canary_dry_run_includes_compact_preflight_status(
             str(config),
             "--stub-output-json",
             str(tmp_path / "stub.json"),
+            "--per-field-stub-output-json",
+            str(tmp_path / "stub_per_field.json"),
             "--preflight-output-json",
             str(tmp_path / "preflight.json"),
             "--preflight-status-output-json",
@@ -103,7 +105,12 @@ def test_run_canary_dry_run_includes_compact_preflight_status(
 
     assert result["passed"] is True
     assert "preflight_status" in result["steps"]
+    assert "native_stub_per_field" in result["steps"]
     assert result["preflight_status_output_json"] == str(status_output)
+    per_field_cmd = result["steps"]["native_stub_per_field"]["cmd"]
+    assert str(tmp_path / "stub_per_field.json") in per_field_cmd
+    assert "MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR" in per_field_cmd
+    assert "MTP_PREMAP_TYPED_CONSUMER_CHECK_POINTER_VISIBILITY" not in per_field_cmd
     assert "--defer-online-prelaunch-runner-evidence" in result["steps"]["preflight"]["cmd"]
     assert "--summary-only" in result["steps"]["preflight_status"]["cmd"]
     assert (

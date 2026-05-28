@@ -39,6 +39,13 @@ DEFAULT_STUB_OUTPUT = (
     / "premap_kernel_consumer"
     / "typed_consumer_stub_gpu1_online_prelaunch_input_canary.json"
 )
+DEFAULT_PER_FIELD_STUB_OUTPUT = (
+    REPO_ROOT
+    / "outputs"
+    / "reports"
+    / "premap_kernel_consumer"
+    / "typed_consumer_stub_gpu1_online_prelaunch_input_per_field_canary.json"
+)
 DEFAULT_PREFLIGHT_OUTPUT = (
     REPO_ROOT
     / "outputs"
@@ -69,6 +76,16 @@ STUB_MACROS = [
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCHEMA",
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_ROW_ITERATION",
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_POINTER_VISIBILITY",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_LIFETIME",
+    "MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR",
+]
+PER_FIELD_STUB_MACROS = [
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCHEMA",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_ROW_ITERATION",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_DESCRIPTOR",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_HANDLE",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_HANDLE",
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_LIFETIME",
     "MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR",
 ]
@@ -168,6 +185,7 @@ def _stub_command(
     output_json: Path,
     device: int,
     offload_arch: str,
+    macros: list[str] | tuple[str, ...] = STUB_MACROS,
 ) -> list[str]:
     cmd = [
         sys.executable,
@@ -181,7 +199,7 @@ def _stub_command(
         "--output-json",
         str(output_json),
     ]
-    for macro in STUB_MACROS:
+    for macro in macros:
         cmd.extend(["--macro", macro])
     return cmd
 
@@ -262,6 +280,19 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
             env=env,
             dry_run=bool(args.dry_run),
         )
+    per_field_stub_output = _resolve_repo_path(args.per_field_stub_output_json)
+    if not args.skip_stub and not args.skip_per_field_stub:
+        steps["native_stub_per_field"] = _run(
+            _stub_command(
+                input_json=input_path,
+                output_json=per_field_stub_output,
+                device=int(args.stub_device),
+                offload_arch=str(args.offload_arch),
+                macros=PER_FIELD_STUB_MACROS,
+            ),
+            env=env,
+            dry_run=bool(args.dry_run),
+        )
     preflight_output = _resolve_repo_path(args.preflight_output_json)
     preflight_status_output = _resolve_repo_path(args.preflight_status_output_json)
     if not args.skip_preflight:
@@ -285,6 +316,9 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
         )
 
     stub_payload = {} if args.dry_run else _load_json_if_exists(stub_output)
+    per_field_stub_payload = (
+        {} if args.dry_run else _load_json_if_exists(per_field_stub_output)
+    )
     preflight_payload = (
         {} if args.dry_run else _load_json_if_exists(preflight_output)
     )
@@ -292,12 +326,24 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
         {} if args.dry_run else _load_json_if_exists(preflight_status_output)
     )
 
+    per_field_required = not bool(args.skip_stub or args.skip_per_field_stub)
+    per_field_passed = bool(
+        args.dry_run
+        or not per_field_required
+        or (
+            per_field_stub_payload.get("passed") is True
+            and per_field_stub_payload.get("input_json") is not None
+            and _resolve_repo_path(str(per_field_stub_payload.get("input_json")))
+            == input_path
+        )
+    )
     passed = bool(
         args.dry_run
         or (
             stub_payload.get("passed") is True
             and stub_payload.get("input_json") is not None
             and _resolve_repo_path(str(stub_payload.get("input_json"))) == input_path
+            and per_field_passed
             and preflight_payload.get("passed") is True
             and preflight_status_payload.get("passed") is True
         )
@@ -314,6 +360,17 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
             failures.append("preflight_not_passed")
         if preflight_status_payload.get("passed") is not True:
             failures.append("preflight_status_not_passed")
+    if not per_field_passed:
+        if per_field_stub_payload.get("passed") is not True:
+            failures.append("native_stub_per_field_not_passed")
+        if per_field_stub_payload.get("input_json") is None:
+            failures.append("native_stub_per_field_input_json_missing")
+        elif (
+            not args.dry_run
+            and _resolve_repo_path(str(per_field_stub_payload.get("input_json")))
+            != input_path
+        ):
+            failures.append("native_stub_per_field_input_json_mismatch")
 
     required_evidence = preflight_status_payload.get("required_evidence")
     if not isinstance(required_evidence, dict):
@@ -327,6 +384,7 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
         "performance_summary": str(performance_path),
         "online_prelaunch_input_json": str(input_path),
         "native_stub_output_json": str(stub_output),
+        "per_field_native_stub_output_json": str(per_field_stub_output),
         "preflight_output_json": str(preflight_output),
         "preflight_status_output_json": str(preflight_status_output),
         "gpu_index": args.gpu_index,
@@ -334,6 +392,20 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
         "steps": steps,
         "stub_summary": {
             key: stub_payload.get(key)
+            for key in (
+                "passed",
+                "ok",
+                "row_count",
+                "row_ok_count",
+                "error_count",
+                "payload_bytes",
+                "passed_to_kernel",
+                "changes_kernel_launch_args",
+                "input_json",
+            )
+        },
+        "per_field_stub_summary": {
+            key: per_field_stub_payload.get(key)
             for key in (
                 "passed",
                 "ok",
@@ -533,6 +605,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--offload-arch", default="gfx1100")
     parser.add_argument("--stub-output-json", type=Path, default=DEFAULT_STUB_OUTPUT)
     parser.add_argument(
+        "--per-field-stub-output-json",
+        type=Path,
+        default=DEFAULT_PER_FIELD_STUB_OUTPUT,
+    )
+    parser.add_argument(
         "--preflight-output-json",
         type=Path,
         default=DEFAULT_PREFLIGHT_OUTPUT,
@@ -550,6 +627,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--output-json", type=Path, default=DEFAULT_REPORT)
     parser.add_argument("--skip-trace", action="store_true")
     parser.add_argument("--skip-stub", action="store_true")
+    parser.add_argument("--skip-per-field-stub", action="store_true")
     parser.add_argument("--skip-preflight", action="store_true")
     parser.add_argument("--skip-artifact-check", action="store_true")
     parser.add_argument("--dry-run", action="store_true")

@@ -19291,3 +19291,49 @@ outputs/reports/premap_lab_preflight_default_optional_per_field_canary.json:
 This keeps the lab default honest: per-field native checking is observable and
 schema-checked, but it does not imply payload dereference, kernel argument pass,
 or current WNA16 typed-table compatibility.
+
+The online native-stub runner now refreshes both native checker variants:
+
+```text
+native_stub:
+  CHECK_POINTER_VISIBILITY = true
+
+native_stub_per_field:
+  CHECK_DESCRIPTOR_PTR = true
+  CHECK_PACKED_WEIGHT_DESCRIPTOR = true
+  CHECK_SCALE_METADATA_HANDLE = true
+  CHECK_AUX_METADATA_HANDLE = true
+  CHECK_POINTER_VISIBILITY = false
+```
+
+Refresh command:
+
+```bash
+env PYTHONPATH=/home/husrcf/Code/ProtBind/MTP:/home/husrcf/Code/ProtBind/MTP/src \
+  HIP_VISIBLE_DEVICES=1 CUDA_VISIBLE_DEVICES=1 \
+  conda run -p /home/husrcf/anaconda3/envs/TRY \
+  python scripts/run_premap_online_native_stub_canary.py \
+    --gpu-index 1 \
+    --stub-device 0 \
+    --skip-trace \
+    --output-json outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_runner_single_field_gate.json \
+    --stub-output-json outputs/reports/premap_kernel_consumer/typed_consumer_stub_gpu1_online_prelaunch_input_canary_single_field_gate.json \
+    --per-field-stub-output-json outputs/reports/premap_kernel_consumer/typed_consumer_stub_gpu1_online_prelaunch_input_per_field_canary.json \
+    --preflight-output-json outputs/reports/premap_lab_preflight_online_prelaunch_native_stub_canary_single_field_gate.json \
+    --preflight-status-output-json outputs/reports/premap_lab_preflight_status_online_prelaunch_native_stub_canary_single_field_gate.json \
+    --artifact-check-output-json outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_artifact_check_single_field_gate.json
+```
+
+Result:
+
+```text
+passed = true
+stub_summary.row_count = 204
+stub_summary.row_ok_count = 204
+per_field_stub_summary.row_count = 204
+per_field_stub_summary.row_ok_count = 204
+per_field_stub_summary.payload_bytes = 0
+per_field_stub_summary.passed_to_kernel = false
+final_preflight_status.required_evidence = 10 / 10
+artifact_check.passed = true
+```
