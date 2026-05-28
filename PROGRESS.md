@@ -19182,3 +19182,46 @@ The artifact checker now derives required-evidence counts from the final gate
 status instead of hard-coding the previous 9-evidence contract.  Stage1
 preflight may intentionally defer the online runner evidence; final preflight
 and status must still be fully closed.
+
+## Prepared-table single-field replacement dry-run canary refreshed
+
+The next handoff layer was rerun as a protected negative canary.  The trace uses
+the prepared handle table as a candidate source for a single `B_scale`
+replacement dry-run, but live replacement remains disabled.  This validates that
+the prepared table can be resolved as a semantic source while confirming that it
+is not type-compatible with the current WNA16 kernel argument slot.
+
+Evidence:
+
+```text
+data/traces/external_prompt_gate_dolly_1_awq_vllm_gpu1_decode_gen16_single_field_replacement_prepared_table_candidate_dry_run_canary/
+  prepared_table_candidate_dry_run_gate_check.json
+  prepared_table_candidate_dry_run_gate_check_without_allow.json
+```
+
+Result:
+
+```text
+with explicit allow:
+  passed = true
+  dry_run_candidate_count = 1280
+  prepared_table_candidate_count = 1280
+  prepared_table_hit_count = 1280
+  prepared_table_miss_count = 0
+  prepared_table_type_compatible_count = 0
+  prepared_table_type_mismatch_count = 1280
+  dry_run_parity_ok_count = 0
+  dry_run_parity_mismatch_count = 1280
+  live_disabled_count = 1280
+  live_passed_to_kernel_count = 0
+  dry_run_payload_bytes = 0
+
+without explicit allow:
+  passed = false
+  failure = single_field_replacement_prepared_table_candidate_source_requires_explicit_allow
+```
+
+This keeps the boundary explicit: prepared handle tables are valid typed
+semantic objects, but they cannot be used as current WNA16 tensor kernel
+arguments.  Real field replacement still requires a kernel-side typed consumer
+ABI rather than tuple/tensor impersonation.
