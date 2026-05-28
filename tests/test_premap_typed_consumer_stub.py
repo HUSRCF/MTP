@@ -48,6 +48,23 @@ def test_typed_consumer_stub_build_command_enables_schema_guard(tmp_path: Path):
     assert str(output) in cmd
 
 
+def test_typed_consumer_stub_uses_kernel_side_abi_header():
+    module = _load_module()
+    source = Path(module.SRC).read_text(encoding="utf-8")
+    header = Path(module.ABI_HEADER).read_text(encoding="utf-8")
+
+    assert '#include "premap_typed_consumer_abi_v1.h"' in source
+    assert "PremapKernelSideTypedConsumerAbiV1 table" in source
+    assert "struct PremapKernelSideTypedConsumerAbiV1" in header
+    for field in (
+        "descriptor_ptr",
+        "packed_weight_descriptor",
+        "scale_metadata_handle",
+        "aux_metadata_handle",
+    ):
+        assert field in header
+
+
 def test_typed_consumer_stub_rejects_forbidden_macro():
     module = _load_module()
 
@@ -73,6 +90,8 @@ def test_typed_consumer_stub_dry_run_writes_command(tmp_path: Path):
     payload = output.read_text(encoding="utf-8")
     assert "MTP_PREMAP_TYPED_CONSUMER_CHECK_ROW_ITERATION" in payload
     assert "expected_schema_hash" in payload
+    parsed = json.loads(payload)
+    assert parsed["abi_header"].endswith("premap_typed_consumer_abi_v1.h")
 
 
 def test_typed_consumer_stub_dry_run_accepts_per_field_macros(tmp_path: Path):

@@ -19351,3 +19351,74 @@ online_prelaunch_native_stub_canary_artifact_check_single_field_gate.json:
   runner_per_field_stub_row_count = 204
   runner_per_field_stub_row_ok_count = 204
 ```
+
+## Kernel-side typed consumer ABI header
+
+The native typed-consumer canary now uses an explicit kernel-side ABI header
+instead of a stub-local table struct:
+
+```text
+microbench/premap_kernel_consumer/premap_typed_consumer_abi_v1.h
+
+struct PremapKernelSideTypedConsumerAbiV1:
+  descriptor_ptr
+  packed_weight_descriptor
+  scale_metadata_handle
+  aux_metadata_handle
+  expert_id
+  address_key_hash
+  row_order_hash / ordered_row_hash
+  lifetime_epoch
+```
+
+The HIP canary consumes `PremapKernelSideTypedConsumerAbiV1` directly and emits
+ABI metadata in its JSON result:
+
+```text
+abi_name = premap_kernel_side_typed_consumer_abi_v1
+abi_handle_column_count = 4
+abi_payload_bytes_allowed = false
+abi_kernel_arg_pass_allowed = false
+```
+
+Validation on the online prelaunch input:
+
+```text
+typed_consumer_stub_gpu1_online_prelaunch_input_abi_header_per_field_canary.json:
+  row_count = 204
+  row_ok_count = 204
+  error_count = 0
+  CHECK_DESCRIPTOR_PTR = true
+  CHECK_PACKED_WEIGHT_DESCRIPTOR = true
+  CHECK_SCALE_METADATA_HANDLE = true
+  CHECK_AUX_METADATA_HANDLE = true
+  payload_bytes = 0
+  passed_to_kernel = false
+```
+
+The per-field optional preflight evidence now requires this ABI metadata when
+present, so a stale stub-local artifact cannot silently satisfy the per-field
+canary.  This still does not authorize current WNA16 kernel-arg mutation; it
+only proves that a native consumer can read the future typed ABI.
+
+Refreshed default lab gate after regenerating the optional per-field artifact:
+
+```text
+online_prelaunch_native_stub_canary_runner_single_field_gate.json:
+  passed = true
+  stub_summary.row_count = 204
+  stub_summary.row_ok_count = 204
+  per_field_stub_summary.row_count = 204
+  per_field_stub_summary.row_ok_count = 204
+  per_field_stub_summary.payload_bytes = 0
+  per_field_stub_summary.passed_to_kernel = false
+
+premap_lab_preflight_default_typed_consumer_abi_header.json:
+  passed = true
+  required_evidence = 10 / 10
+  optional_evidence = 1 / 1
+  default_kernel_consumer_schema_passed = true
+  payload_bytes_required = 0
+  passed_to_kernel_required = false
+  changes_kernel_launch_args_required = false
+```

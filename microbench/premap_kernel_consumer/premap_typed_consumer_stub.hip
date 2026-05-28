@@ -9,6 +9,8 @@
 #include <string>
 #include <vector>
 
+#include "premap_typed_consumer_abi_v1.h"
+
 #ifndef MTP_PREMAP_TYPED_CONSUMER_SCHEMA_V1
 #error "MTP_PREMAP_TYPED_CONSUMER_SCHEMA_V1 must be defined for this stub"
 #endif
@@ -29,21 +31,12 @@
 #error "kernel-arg passing is forbidden in the readonly native stub"
 #endif
 
-struct TypedConsumerTable {
-  uint64_t typed_schema_hash_hi;
-  uint64_t typed_schema_hash_lo;
-  const uint64_t* descriptor_ptr;
-  const uint64_t* packed_weight_descriptor;
-  const uint64_t* scale_metadata_handle;
-  const uint64_t* aux_metadata_handle;
-  const int32_t* expert_id;
-  const uint64_t* address_key_hash;
-  uint64_t row_order_hash;
-  uint64_t ordered_row_hash;
-  uint64_t lifetime_epoch;
-  uint32_t row_count;
-  uint32_t column_count;
-};
+static_assert(!kPremapKernelSideTypedConsumerAbiV1PayloadBytesAllowed,
+              "readonly typed consumer ABI must not allow payload bytes");
+static_assert(!kPremapKernelSideTypedConsumerAbiV1KernelArgPassAllowed,
+              "readonly typed consumer ABI must not allow kernel-arg pass");
+static_assert(kPremapKernelSideTypedConsumerAbiV1HandleColumnCount == 4,
+              "typed consumer ABI v1 must expose four handle columns");
 
 constexpr uint64_t kTypedSchemaHashHi = MTP_PREMAP_TYPED_CONSUMER_SCHEMA_HASH_HI;
 constexpr uint64_t kTypedSchemaHashLo = MTP_PREMAP_TYPED_CONSUMER_SCHEMA_HASH_LO;
@@ -65,7 +58,7 @@ __host__ __device__ static inline uint64_t mix64(uint64_t x) {
 }
 
 __global__ void typed_consumer_kernel(
-    TypedConsumerTable table,
+    PremapKernelSideTypedConsumerAbiV1 table,
     uint32_t* row_ok,
     uint64_t* row_hash) {
   const uint32_t idx = blockIdx.x * blockDim.x + threadIdx.x;
@@ -318,7 +311,7 @@ int main(int argc, char** argv) {
   hip_check(hipMemcpy(d_address_key, address_key.data(), u64_bytes, hipMemcpyHostToDevice), "copy address_key");
   hip_check(hipMemcpy(d_expert, expert.data(), i32_bytes, hipMemcpyHostToDevice), "copy expert");
 
-  TypedConsumerTable table;
+  PremapKernelSideTypedConsumerAbiV1 table;
   table.typed_schema_hash_hi = kTypedSchemaHashHi;
   table.typed_schema_hash_lo = kTypedSchemaHashLo;
   table.descriptor_ptr = d_descriptor;
@@ -376,6 +369,11 @@ int main(int argc, char** argv) {
   std::cout << ",\"device\":" << args.device;
   std::cout << ",\"row_count\":" << rows;
   std::cout << ",\"column_count\":4";
+  std::cout << ",\"abi_name\":\"" << kPremapKernelSideTypedConsumerAbiV1Name << "\"";
+  std::cout << ",\"abi_handle_column_count\":"
+            << kPremapKernelSideTypedConsumerAbiV1HandleColumnCount;
+  std::cout << ",\"abi_payload_bytes_allowed\":false";
+  std::cout << ",\"abi_kernel_arg_pass_allowed\":false";
   std::cout << ",\"typed_schema_hash_hi\":\"" << std::hex << kTypedSchemaHashHi << std::dec << "\"";
   std::cout << ",\"typed_schema_hash_lo\":\"" << std::hex << kTypedSchemaHashLo << std::dec << "\"";
   std::cout << ",\"aux_pointer_present\":" << (args.omit_aux_pointer ? "false" : "true");

@@ -358,6 +358,18 @@ def _native_stub_evidence_payload(input_json: str) -> dict[str, object]:
 
 def _native_stub_per_field_evidence_payload(input_json: str) -> dict[str, object]:
     payload = _native_stub_evidence_payload(input_json)
+    payload.update(
+        {
+            "abi_name": "premap_kernel_side_typed_consumer_abi_v1",
+            "abi_handle_column_count": 4,
+            "abi_payload_bytes_allowed": False,
+            "abi_kernel_arg_pass_allowed": False,
+            "abi_header": (
+                "/tmp/repo/microbench/premap_kernel_consumer/"
+                "premap_typed_consumer_abi_v1.h"
+            ),
+        }
+    )
     payload["compiled_macros"] = {
         "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCHEMA": True,
         "MTP_PREMAP_TYPED_CONSUMER_CHECK_ROW_ITERATION": True,

@@ -9,6 +9,10 @@ Machine-readable schema:
 
 `configs/runtime/premap_kernel_side_typed_consumer_schema_v1.yaml`
 
+Native ABI header:
+
+`microbench/premap_kernel_consumer/premap_typed_consumer_abi_v1.h`
+
 ## Boundary
 
 Current status is `readonly_shadow_only`.
@@ -46,6 +50,17 @@ Row metadata includes `layer_id`, `expert_id`, `address_key_hash`,
 `row_order_hash`, and `ordered_row_hash`. The metadata lets the consumer verify
 that the table matches the prelaunch descriptor/address resolution boundary
 without passing any new kernel args.
+
+The native canary consumes the table through:
+
+```cpp
+PremapKernelSideTypedConsumerAbiV1
+```
+
+This ABI is intentionally separate from the WNA16 launch argument schema.  A
+successful native canary only proves typed-table readability by a future
+consumer ABI; it does not authorize passing the table to the current WNA16
+kernel.
 
 ## Macro Ladder
 

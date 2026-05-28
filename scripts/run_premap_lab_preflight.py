@@ -454,6 +454,7 @@ def _validate_required_evidence_payload(
                     if is_per_field_stub
                     else ()
                 ),
+                require_kernel_side_abi_meta=is_per_field_stub,
             )
         ]
     if not isinstance(metrics, dict):
@@ -484,6 +485,7 @@ def _validate_native_typed_consumer_stub_evidence(
     require_online_export_context: bool = False,
     required_enabled_macros: tuple[str, ...] | None = None,
     required_disabled_macros: tuple[str, ...] = (),
+    require_kernel_side_abi_meta: bool = False,
 ) -> list[str]:
     failures: list[str] = []
     row_count = _int_metric(evidence, "row_count")
@@ -506,6 +508,21 @@ def _validate_native_typed_consumer_stub_evidence(
         actual = evidence.get(key)
         if actual != expected_value:
             failures.append(f"native_typed_consumer_stub_{key}_mismatch")
+    if require_kernel_side_abi_meta:
+        expected_abi = {
+            "abi_name": "premap_kernel_side_typed_consumer_abi_v1",
+            "abi_handle_column_count": 4,
+            "abi_payload_bytes_allowed": False,
+            "abi_kernel_arg_pass_allowed": False,
+        }
+        for key, expected_value in expected_abi.items():
+            if evidence.get(key) != expected_value:
+                failures.append(f"native_typed_consumer_stub_{key}_mismatch")
+        abi_header = evidence.get("abi_header")
+        if not isinstance(abi_header, str) or not abi_header.endswith(
+            "premap_typed_consumer_abi_v1.h"
+        ):
+            failures.append("native_typed_consumer_stub_abi_header_mismatch")
     if expected_input_path is None:
         failures.append("native_typed_consumer_stub_expected_input_json_missing")
     else:
