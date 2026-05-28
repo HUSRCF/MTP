@@ -113,11 +113,27 @@ def check_online_native_stub_canary_artifacts(
         failures.append("runner_final_status_missing")
         final = {}
 
+    status_required = status.get("required_evidence")
+    if not isinstance(status_required, dict):
+        failures.append("status_required_evidence_missing")
+        status_required = {}
+    status_required_count = _int(status_required.get("required_count"))
+    if status_required_count is None or status_required_count <= 0:
+        failures.append("status_required_evidence_required_count_invalid")
+        status_required_count = 0
+    stage1_deferred_count = _int(stage1.get("runtime_gate_evidence_deferred_count"))
+    if stage1_deferred_count is None or stage1_deferred_count < 0:
+        failures.append("runner_stage1_runtime_gate_evidence_deferred_count_invalid")
+        stage1_deferred_count = 0
     expected_stage1 = {
         "passed": True,
-        "required_evidence_present_count": 8,
-        "required_evidence_passed_count": 8,
-        "required_evidence_required_count": 9,
+        "required_evidence_present_count": max(
+            status_required_count - stage1_deferred_count, 0
+        ),
+        "required_evidence_passed_count": max(
+            status_required_count - stage1_deferred_count, 0
+        ),
+        "required_evidence_required_count": status_required_count,
         "runtime_gate_evidence_deferred_count": 1,
         "strict_default_gate_evidence_deferred_count": 1,
         "payload_bytes_required": 0,
@@ -126,9 +142,9 @@ def check_online_native_stub_canary_artifacts(
     }
     expected_final = {
         "passed": True,
-        "required_evidence_present_count": 9,
-        "required_evidence_passed_count": 9,
-        "required_evidence_required_count": 9,
+        "required_evidence_present_count": status_required_count,
+        "required_evidence_passed_count": status_required_count,
+        "required_evidence_required_count": status_required_count,
         "runtime_gate_evidence_deferred_count": 0,
         "strict_default_gate_evidence_deferred_count": 0,
         "payload_bytes_required": 0,
@@ -141,10 +157,6 @@ def check_online_native_stub_canary_artifacts(
     for key, expected in expected_final.items():
         if final.get(key) != expected:
             failures.append(f"runner_final_{key}_mismatch")
-    status_required = status.get("required_evidence")
-    if not isinstance(status_required, dict):
-        failures.append("status_required_evidence_missing")
-        status_required = {}
     expected_status = {
         "passed": True,
         "runtime_gate_evidence_deferred_count": 0,
@@ -157,9 +169,9 @@ def check_online_native_stub_canary_artifacts(
         if status.get(key) != expected:
             failures.append(f"status_{key}_mismatch")
     expected_required = {
-        "present_count": 9,
-        "passed_count": 9,
-        "required_count": 9,
+        "present_count": status_required_count,
+        "passed_count": status_required_count,
+        "required_count": status_required_count,
         "passed": True,
     }
     for key, expected in expected_required.items():

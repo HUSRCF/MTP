@@ -19141,3 +19141,44 @@ live_compatible_with_current_wna16_args_count = 0
 
 The smoke uses `--min-reuse-rate 0.0` intentionally because it is a 1-sample
 canary; the strict long-run reuse threshold remains a separate 128/512 gate.
+
+## Online native typed-consumer canary under the single-field gate
+
+The online native typed-consumer bridge was refreshed after the single-field
+canary became a default lab requirement.  The vLLM/AWQ prelaunch trace exports a
+prepared typed table, the native HIP stub reads it, and final lab preflight
+closes with all required evidence present.  This remains a no-op bridge only:
+no payload is moved, no ready credit is granted, and no WNA16 kernel argument is
+passed or mutated.
+
+Evidence:
+
+```text
+outputs/reports/premap_kernel_consumer/
+  online_prelaunch_native_stub_canary_runner_single_field_gate.json
+  typed_consumer_stub_gpu1_online_prelaunch_input_canary_single_field_gate.json
+  online_prelaunch_native_stub_canary_artifact_check_single_field_gate.json
+
+outputs/reports/
+  premap_lab_preflight_online_prelaunch_native_stub_canary_single_field_gate.json
+  premap_lab_preflight_status_online_prelaunch_native_stub_canary_single_field_gate.json
+```
+
+Key checks:
+
+```text
+native stub row_count = 204
+native stub row_ok_count = 204
+native stub error_count = 0
+native stub payload_bytes = 0
+native stub passed_to_kernel = false
+final preflight required evidence = 10 / 10
+artifact check passed = true
+stage1 deferred runner evidence = 1
+final deferred evidence = 0
+```
+
+The artifact checker now derives required-evidence counts from the final gate
+status instead of hard-coding the previous 9-evidence contract.  Stage1
+preflight may intentionally defer the online runner evidence; final preflight
+and status must still be fully closed.

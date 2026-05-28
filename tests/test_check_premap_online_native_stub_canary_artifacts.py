@@ -20,9 +20,9 @@ def _payloads(root: Path) -> tuple[Path, Path, Path]:
     status_path = root / "status.json"
     stage1 = {
         "passed": True,
-        "required_evidence_present_count": 8,
-        "required_evidence_passed_count": 8,
-        "required_evidence_required_count": 9,
+        "required_evidence_present_count": 9,
+        "required_evidence_passed_count": 9,
+        "required_evidence_required_count": 10,
         "runtime_gate_evidence_deferred_count": 1,
         "strict_default_gate_evidence_deferred_count": 1,
         "payload_bytes_required": 0,
@@ -31,9 +31,9 @@ def _payloads(root: Path) -> tuple[Path, Path, Path]:
     }
     final = {
         "passed": True,
-        "required_evidence_present_count": 9,
-        "required_evidence_passed_count": 9,
-        "required_evidence_required_count": 9,
+        "required_evidence_present_count": 10,
+        "required_evidence_passed_count": 10,
+        "required_evidence_required_count": 10,
         "runtime_gate_evidence_deferred_count": 0,
         "strict_default_gate_evidence_deferred_count": 0,
         "payload_bytes_required": 0,
@@ -71,9 +71,9 @@ def _payloads(root: Path) -> tuple[Path, Path, Path]:
             "changes_kernel_launch_args_required": False,
             "required_evidence": {
                 "passed": True,
-                "present_count": 9,
-                "passed_count": 9,
-                "required_count": 9,
+                "present_count": 10,
+                "passed_count": 10,
+                "required_count": 10,
             },
         },
     )
