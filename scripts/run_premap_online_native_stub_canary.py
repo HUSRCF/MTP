@@ -375,6 +375,9 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
     required_evidence = preflight_status_payload.get("required_evidence")
     if not isinstance(required_evidence, dict):
         required_evidence = {}
+    optional_evidence = preflight_status_payload.get("optional_evidence")
+    if not isinstance(optional_evidence, dict):
+        optional_evidence = {}
 
     return {
         "passed": passed,
@@ -449,6 +452,14 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
             "required_evidence_required_count": required_evidence.get(
                 "required_count"
             ),
+            "optional_evidence_passed": optional_evidence.get("passed"),
+            "optional_evidence_present_count": optional_evidence.get(
+                "present_count"
+            ),
+            "optional_evidence_passed_count": optional_evidence.get("passed_count"),
+            "optional_evidence_required_count": optional_evidence.get(
+                "required_count"
+            ),
             "native_typed_consumer_bridge_required": preflight_status_payload.get(
                 "native_typed_consumer_bridge_required"
             ),
@@ -511,6 +522,9 @@ def finalize_report_with_strict_preflight(
     required_evidence = final_status_payload.get("required_evidence")
     if not isinstance(required_evidence, dict):
         required_evidence = {}
+    optional_evidence = final_status_payload.get("optional_evidence")
+    if not isinstance(optional_evidence, dict):
+        optional_evidence = {}
     final_status_summary = {
         "passed": final_status_payload.get("passed"),
         "runtime_gate_evidence_deferred_count": final_status_payload.get(
@@ -523,6 +537,10 @@ def finalize_report_with_strict_preflight(
         "required_evidence_present_count": required_evidence.get("present_count"),
         "required_evidence_passed_count": required_evidence.get("passed_count"),
         "required_evidence_required_count": required_evidence.get("required_count"),
+        "optional_evidence_passed": optional_evidence.get("passed"),
+        "optional_evidence_present_count": optional_evidence.get("present_count"),
+        "optional_evidence_passed_count": optional_evidence.get("passed_count"),
+        "optional_evidence_required_count": optional_evidence.get("required_count"),
         "native_typed_consumer_bridge_required": final_status_payload.get(
             "native_typed_consumer_bridge_required"
         ),

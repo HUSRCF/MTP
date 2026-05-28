@@ -19335,5 +19335,6 @@ per_field_stub_summary.row_ok_count = 204
 per_field_stub_summary.payload_bytes = 0
 per_field_stub_summary.passed_to_kernel = false
 final_preflight_status.required_evidence = 10 / 10
+final_preflight_status.optional_evidence = 1 / 1
 artifact_check.passed = true
 ```

@@ -122,6 +122,7 @@ def test_run_canary_dry_run_includes_compact_preflight_status(
         "strict_default_gate_evidence_deferred_count"
         in result["preflight_status_summary"]
     )
+    assert "optional_evidence_present_count" in result["preflight_status_summary"]
 
 
 def test_finalize_report_with_artifact_check_records_summary(
