@@ -155,6 +155,11 @@ def check_kernel_consumer_schema_artifact(path: Path) -> dict[str, Any]:
         "handle_column_count": 4,
         "payload_bytes_allowed": False,
         "kernel_arg_pass_allowed": False,
+        "adapter_name": "premap_kernel_side_typed_consumer_adapter_v1",
+        "adapter_header": "microbench/premap_kernel_consumer/premap_typed_consumer_adapter_v1.h",
+        "adapter_row_struct": "PremapKernelSideTypedConsumerRowV1",
+        "adapter_payload_deref_allowed": False,
+        "adapter_kernel_arg_pass_allowed": False,
     }
     for key, expected in expected_native_abi.items():
         observed = native_abi.get(key)

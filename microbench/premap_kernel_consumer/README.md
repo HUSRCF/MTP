@@ -4,6 +4,18 @@ This directory contains a standalone HIP/C++ stub for the future premap native
 consumer ABI.  It is not linked into vLLM and does not replace the AWQ WNA16
 fused-MoE kernel.
 
+The native path is split into two explicit pieces:
+
+- `premap_typed_consumer_abi_v1.h` defines the struct-of-arrays table ABI.
+- `premap_typed_consumer_adapter_v1.h` defines the row-view adapter that a
+  future kernel-side consumer would call to load `descriptor_ptr`,
+  `packed_weight_descriptor`, `scale_metadata_handle`, and
+  `aux_metadata_handle`.
+
+This separation is deliberate: the adapter is the compatibility point for a
+future kernel-side consumer, not an attempt to reinterpret the current WNA16
+kernel argument list.
+
 The stub reads a typed descriptor/address table with these row fields:
 
 - `descriptor_ptr`

@@ -9,6 +9,7 @@
 #include <string>
 #include <vector>
 
+#include "premap_typed_consumer_adapter_v1.h"
 #include "premap_typed_consumer_abi_v1.h"
 
 #ifndef MTP_PREMAP_TYPED_CONSUMER_SCHEMA_V1
@@ -37,6 +38,10 @@ static_assert(!kPremapKernelSideTypedConsumerAbiV1KernelArgPassAllowed,
               "readonly typed consumer ABI must not allow kernel-arg pass");
 static_assert(kPremapKernelSideTypedConsumerAbiV1HandleColumnCount == 4,
               "typed consumer ABI v1 must expose four handle columns");
+static_assert(!kPremapKernelSideTypedConsumerAdapterV1PayloadDerefAllowed,
+              "readonly typed consumer adapter must not allow payload dereference");
+static_assert(!kPremapKernelSideTypedConsumerAdapterV1KernelArgPassAllowed,
+              "readonly typed consumer adapter must not allow kernel-arg pass");
 
 constexpr uint64_t kTypedSchemaHashHi = MTP_PREMAP_TYPED_CONSUMER_SCHEMA_HASH_HI;
 constexpr uint64_t kTypedSchemaHashLo = MTP_PREMAP_TYPED_CONSUMER_SCHEMA_HASH_LO;
@@ -69,68 +74,55 @@ __global__ void typed_consumer_kernel(
   uint64_t h = 0x9e3779b97f4a7c15ULL ^ static_cast<uint64_t>(idx);
 
 #if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_SCHEMA)
-  ok &= static_cast<uint32_t>(table.typed_schema_hash_hi == kTypedSchemaHashHi);
-  ok &= static_cast<uint32_t>(table.typed_schema_hash_lo == kTypedSchemaHashLo);
-  ok &= static_cast<uint32_t>(table.column_count == 4);
-  ok &= static_cast<uint32_t>(table.row_count > 0);
-  ok &= static_cast<uint32_t>(table.descriptor_ptr != nullptr);
-  ok &= static_cast<uint32_t>(table.packed_weight_descriptor != nullptr);
-  ok &= static_cast<uint32_t>(table.scale_metadata_handle != nullptr);
-  ok &= static_cast<uint32_t>(table.expert_id != nullptr);
-  ok &= static_cast<uint32_t>(table.address_key_hash != nullptr);
+  ok &= static_cast<uint32_t>(
+      premap_typed_consumer_schema_matches_v1(
+          table, kTypedSchemaHashHi, kTypedSchemaHashLo));
 #endif
 
 #if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_ROW_ITERATION)
   ok &= static_cast<uint32_t>(idx < table.row_count);
 #endif
 
-  const uint64_t descriptor = table.descriptor_ptr[idx];
-  const uint64_t packed = table.packed_weight_descriptor[idx];
-  const uint64_t scale = table.scale_metadata_handle[idx];
-  const uint64_t aux =
-      table.aux_metadata_handle == nullptr ? 0ULL : table.aux_metadata_handle[idx];
-  const int32_t expert = table.expert_id[idx];
-  const uint64_t address_key = table.address_key_hash[idx];
+  const PremapKernelSideTypedConsumerRowV1 row =
+      premap_typed_consumer_load_row_v1(table, idx);
 
 #if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_POINTER_VISIBILITY)
-  ok &= static_cast<uint32_t>(descriptor != 0);
-  ok &= static_cast<uint32_t>(packed != 0);
-  ok &= static_cast<uint32_t>(scale != 0);
+  ok &= premap_typed_consumer_required_handles_visible_v1(row);
 #endif
 
 #if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR)
-  ok &= static_cast<uint32_t>(descriptor != 0);
+  ok &= static_cast<uint32_t>(row.descriptor_ptr != 0);
 #endif
 
 #if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_DESCRIPTOR)
-  ok &= static_cast<uint32_t>(packed != 0);
+  ok &= static_cast<uint32_t>(row.packed_weight_descriptor != 0);
 #endif
 
 #if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_HANDLE)
-  ok &= static_cast<uint32_t>(scale != 0);
+  ok &= static_cast<uint32_t>(row.scale_metadata_handle != 0);
 #endif
 
 #if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_HANDLE)
   ok &= static_cast<uint32_t>(table.aux_metadata_handle != nullptr);
-  ok &= static_cast<uint32_t>(aux != 0);
+  ok &= static_cast<uint32_t>(row.aux_metadata_handle != 0);
 #endif
 
 #if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_LIFETIME)
-  ok &= static_cast<uint32_t>(table.lifetime_epoch == 1);
-  ok &= static_cast<uint32_t>(address_key != 0);
-  ok &= static_cast<uint32_t>(expert >= 0);
+  ok &= premap_typed_consumer_lifetime_valid_v1(table, row);
 #endif
 
 #if defined(MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR)
-  h ^= mix64(descriptor);
-  h ^= mix64(packed + 0x1000ULL);
-  h ^= mix64(scale + 0x2000ULL);
-  h ^= mix64(aux + 0x3000ULL);
-  h ^= mix64(address_key + static_cast<uint64_t>(expert));
+  h ^= mix64(row.descriptor_ptr);
+  h ^= mix64(row.packed_weight_descriptor + 0x1000ULL);
+  h ^= mix64(row.scale_metadata_handle + 0x2000ULL);
+  h ^= mix64(row.aux_metadata_handle + 0x3000ULL);
+  h ^= mix64(row.address_key_hash + static_cast<uint64_t>(row.expert_id));
   h ^= mix64(table.row_order_hash);
   h ^= mix64(table.ordered_row_hash);
 #else
-  h ^= descriptor ^ packed ^ scale ^ aux ^ address_key ^ static_cast<uint64_t>(expert);
+  h ^= row.descriptor_ptr ^ row.packed_weight_descriptor ^
+       row.scale_metadata_handle ^ row.aux_metadata_handle ^
+       row.address_key_hash ^ static_cast<uint64_t>(row.expert_id);
 #endif
 
   row_ok[idx] = ok;
@@ -374,6 +366,10 @@ int main(int argc, char** argv) {
             << kPremapKernelSideTypedConsumerAbiV1HandleColumnCount;
   std::cout << ",\"abi_payload_bytes_allowed\":false";
   std::cout << ",\"abi_kernel_arg_pass_allowed\":false";
+  std::cout << ",\"adapter_name\":\"" << kPremapKernelSideTypedConsumerAdapterV1Name
+            << "\"";
+  std::cout << ",\"adapter_payload_deref_allowed\":false";
+  std::cout << ",\"adapter_kernel_arg_pass_allowed\":false";
   std::cout << ",\"typed_schema_hash_hi\":\"" << std::hex << kTypedSchemaHashHi << std::dec << "\"";
   std::cout << ",\"typed_schema_hash_lo\":\"" << std::hex << kTypedSchemaHashLo << std::dec << "\"";
   std::cout << ",\"aux_pointer_present\":" << (args.omit_aux_pointer ? "false" : "true");

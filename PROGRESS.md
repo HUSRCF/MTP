@@ -19446,3 +19446,52 @@ premap_lab_preflight_default_typed_consumer_abi_schema.yaml.json:
   passed_to_kernel_required = false
   changes_kernel_launch_args_required = false
 ```
+
+## Kernel-side typed consumer adapter
+
+The ABI path now has an explicit native row-view adapter:
+
+```text
+microbench/premap_kernel_consumer/premap_typed_consumer_adapter_v1.h
+
+PremapKernelSideTypedConsumerRowV1:
+  descriptor_ptr
+  packed_weight_descriptor
+  scale_metadata_handle
+  aux_metadata_handle
+  expert_id
+  address_key_hash
+  row_index
+
+adapter_name = premap_kernel_side_typed_consumer_adapter_v1
+adapter_payload_deref_allowed = false
+adapter_kernel_arg_pass_allowed = false
+```
+
+`premap_typed_consumer_stub.hip` now consumes the table through this adapter
+instead of directly spreading table field reads through the kernel body.  This
+is the intended compatibility point for a future kernel-side consumer: the
+current WNA16 kernel argument list remains unchanged and unsupported for typed
+table handoff.
+
+GPU1 online prelaunch validation after switching the stub to the adapter:
+
+```text
+online_prelaunch_native_stub_canary_runner_single_field_gate.json:
+  passed = true
+  stub_summary.row_count = 204
+  stub_summary.row_ok_count = 204
+  per_field_stub_summary.row_count = 204
+  per_field_stub_summary.row_ok_count = 204
+  per_field_stub_summary.payload_bytes = 0
+  per_field_stub_summary.passed_to_kernel = false
+
+premap_lab_preflight_default_typed_consumer_adapter.json:
+  passed = true
+  default_kernel_consumer_schema_passed = true
+  required_evidence = 10 / 10
+  optional_evidence = 1 / 1
+  payload_bytes_required = 0
+  passed_to_kernel_required = false
+  changes_kernel_launch_args_required = false
+```

@@ -514,6 +514,9 @@ def _validate_native_typed_consumer_stub_evidence(
             "abi_handle_column_count": 4,
             "abi_payload_bytes_allowed": False,
             "abi_kernel_arg_pass_allowed": False,
+            "adapter_name": "premap_kernel_side_typed_consumer_adapter_v1",
+            "adapter_payload_deref_allowed": False,
+            "adapter_kernel_arg_pass_allowed": False,
         }
         for key, expected_value in expected_abi.items():
             if evidence.get(key) != expected_value:
@@ -523,6 +526,11 @@ def _validate_native_typed_consumer_stub_evidence(
             "premap_typed_consumer_abi_v1.h"
         ):
             failures.append("native_typed_consumer_stub_abi_header_mismatch")
+        adapter_header = evidence.get("adapter_header")
+        if not isinstance(adapter_header, str) or not adapter_header.endswith(
+            "premap_typed_consumer_adapter_v1.h"
+        ):
+            failures.append("native_typed_consumer_stub_adapter_header_mismatch")
     if expected_input_path is None:
         failures.append("native_typed_consumer_stub_expected_input_json_missing")
     else:

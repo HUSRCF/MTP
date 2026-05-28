@@ -25,6 +25,12 @@ ABI_HEADER = (
     / "premap_kernel_consumer"
     / "premap_typed_consumer_abi_v1.h"
 )
+ADAPTER_HEADER = (
+    REPO_ROOT
+    / "microbench"
+    / "premap_kernel_consumer"
+    / "premap_typed_consumer_adapter_v1.h"
+)
 BUILD_DIR = REPO_ROOT / "microbench" / "premap_kernel_consumer" / "build"
 ALLOWED_MACROS = {
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCHEMA",
@@ -127,7 +133,11 @@ def build(
     BUILD_DIR.mkdir(parents=True, exist_ok=True)
     checked = validate_macros(macros)
     bin_path = BUILD_DIR / f"premap_typed_consumer_stub_{_macro_key(checked, offload_arch, schema_hash)}"
-    latest_source_mtime = max(SRC.stat().st_mtime, ABI_HEADER.stat().st_mtime)
+    latest_source_mtime = max(
+        SRC.stat().st_mtime,
+        ABI_HEADER.stat().st_mtime,
+        ADAPTER_HEADER.stat().st_mtime,
+    )
     if bin_path.exists() and not force and bin_path.stat().st_mtime >= latest_source_mtime:
         return bin_path
     result = run_cmd(
@@ -233,6 +243,7 @@ def run_stub(args: argparse.Namespace) -> dict[str, Any]:
     payload["binary"] = str(bin_path)
     payload["source"] = str(SRC)
     payload["abi_header"] = str(ABI_HEADER)
+    payload["adapter_header"] = str(ADAPTER_HEADER)
     payload["requested_macros"] = macros
     payload["expected_schema_hash"] = schema_hash
     if input_prefix is not None:
@@ -279,6 +290,7 @@ def main(argv: list[str] | None = None) -> int:
             "dry_run": True,
             "source": str(SRC),
             "abi_header": str(ABI_HEADER),
+            "adapter_header": str(ADAPTER_HEADER),
             "binary": str(bin_path),
             "requested_macros": macros,
             "build_command": build_command(

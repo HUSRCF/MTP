@@ -72,6 +72,14 @@ def _valid_schema_payload() -> dict:
             "handle_column_count": 4,
             "payload_bytes_allowed": False,
             "kernel_arg_pass_allowed": False,
+            "adapter_name": "premap_kernel_side_typed_consumer_adapter_v1",
+            "adapter_header": (
+                "microbench/premap_kernel_consumer/"
+                "premap_typed_consumer_adapter_v1.h"
+            ),
+            "adapter_row_struct": "PremapKernelSideTypedConsumerRowV1",
+            "adapter_payload_deref_allowed": False,
+            "adapter_kernel_arg_pass_allowed": False,
             "layout": "struct_of_arrays",
             "row_order": "vllm_prelaunch_sorted_token_ids_order",
             "row_count_source": "consumer_row_count",
@@ -373,6 +381,13 @@ def _native_stub_per_field_evidence_payload(input_json: str) -> dict[str, object
             "abi_header": (
                 "/tmp/repo/microbench/premap_kernel_consumer/"
                 "premap_typed_consumer_abi_v1.h"
+            ),
+            "adapter_name": "premap_kernel_side_typed_consumer_adapter_v1",
+            "adapter_payload_deref_allowed": False,
+            "adapter_kernel_arg_pass_allowed": False,
+            "adapter_header": (
+                "/tmp/repo/microbench/premap_kernel_consumer/"
+                "premap_typed_consumer_adapter_v1.h"
             ),
         }
     )

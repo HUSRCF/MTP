@@ -13,6 +13,10 @@ Native ABI header:
 
 `microbench/premap_kernel_consumer/premap_typed_consumer_abi_v1.h`
 
+Native consumer adapter header:
+
+`microbench/premap_kernel_consumer/premap_typed_consumer_adapter_v1.h`
+
 ## Boundary
 
 Current status is `readonly_shadow_only`.
@@ -67,6 +71,11 @@ native_consumer_abi:
   handle_column_count: 4
   payload_bytes_allowed: false
   kernel_arg_pass_allowed: false
+  adapter_name: premap_kernel_side_typed_consumer_adapter_v1
+  adapter_header: microbench/premap_kernel_consumer/premap_typed_consumer_adapter_v1.h
+  adapter_row_struct: PremapKernelSideTypedConsumerRowV1
+  adapter_payload_deref_allowed: false
+  adapter_kernel_arg_pass_allowed: false
 ```
 
 This ABI is intentionally separate from the WNA16 launch argument schema.  A
