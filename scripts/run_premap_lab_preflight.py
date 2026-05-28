@@ -63,6 +63,21 @@ REQUIRED_DEFAULT_GATE_CONTRACT = {
     "kernel_side_typed_consumer_object_live_enabled_required": True,
     "kernel_side_typed_consumer_object_live_eligible_required": True,
     "kernel_side_typed_consumer_object_live_compatible_with_current_wna16_args_required": False,
+    "single_field_handle_handoff_canary_required": True,
+    "single_field_handle_handoff_canary_mode": (
+        "readonly_single_field_handle_handoff_canary"
+    ),
+    "single_field_handle_handoff_canary_field": "scale_metadata_handle",
+    "single_field_handle_handoff_canary_source": "semantic_handle_table",
+    "single_field_handle_handoff_canary_block_reason": (
+        "single_field_handoff_live_disabled"
+    ),
+    "single_field_handle_handoff_canary_payload_bytes_required": 0,
+    "single_field_handle_handoff_canary_ready_credit_required": False,
+    "single_field_handle_handoff_canary_passed_to_kernel_required": False,
+    "single_field_handle_handoff_canary_changes_kernel_launch_args_required": False,
+    "single_field_handle_handoff_canary_live_enabled_required": False,
+    "single_field_handle_handoff_canary_live_compatible_with_current_wna16_args_required": False,
     "native_typed_consumer_bridge_required": True,
     "native_typed_consumer_bridge_payload_bytes_required": 0,
     "native_typed_consumer_bridge_ready_credit_required": False,
@@ -98,6 +113,7 @@ REQUIRED_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
     "strict_live_connected_readonly_128_gate_json",
     "strict_kernel_side_typed_consumer_object_128_gate_json",
     "strict_kernel_side_typed_consumer_object_128_selfcheck_json",
+    "strict_single_field_handle_handoff_canary_128_gate_json",
     "strict_native_typed_consumer_bridge_128_gate_json",
     "native_typed_consumer_bridge_smoke_json",
     "strict_native_stub_online_invocation_canary_128_gate_json",
@@ -117,6 +133,10 @@ _NATIVE_STUB_METRIC_PREFIX = (
     "premap_consumer_descriptor_prep_consumer_shim_"
     "native_stub_online_invocation_"
 )
+_SINGLE_FIELD_CANARY_METRIC_PREFIX = (
+    "premap_consumer_descriptor_prep_consumer_shim_"
+    "single_field_handle_handoff_canary_"
+)
 
 
 def _int_metric(metrics: dict[str, Any], key: str) -> int | None:
@@ -131,6 +151,14 @@ def _check_metric_equals(
 ) -> list[str]:
     actual = metrics.get(key)
     return [] if actual == expected else [f"{key}_mismatch"]
+
+
+def _check_metric_equals_if_present(
+    metrics: dict[str, Any],
+    key: str,
+    expected: Any,
+) -> list[str]:
+    return [] if key not in metrics else _check_metric_equals(metrics, key, expected)
 
 
 def _validate_native_bridge_evidence(metrics: dict[str, Any]) -> list[str]:
@@ -215,6 +243,86 @@ def _validate_native_stub_evidence(metrics: dict[str, Any]) -> list[str]:
     return failures
 
 
+def _validate_single_field_canary_evidence(metrics: dict[str, Any]) -> list[str]:
+    prefix = _SINGLE_FIELD_CANARY_METRIC_PREFIX
+    failures: list[str] = []
+    checked = _int_metric(metrics, f"{prefix}checked_count")
+    if checked is None or checked <= 0:
+        failures.append(f"{prefix}checked_count_invalid")
+        checked = None
+    row_count = _int_metric(metrics, f"{prefix}row_count")
+    if row_count is None or row_count <= 0:
+        failures.append(f"{prefix}row_count_invalid")
+        row_count = None
+    for suffix in (
+        "ready_count",
+        "hash_checked_count",
+        "table_object_hash_checked_count",
+        "semantic_adapter_hash_checked_count",
+        "field_handle_hash_checked_count",
+        "semantic_field_hash_checked_count",
+        "blocked_count",
+    ):
+        value = _int_metric(metrics, f"{prefix}{suffix}")
+        if checked is not None and value != checked:
+            failures.append(f"{prefix}{suffix}_mismatch")
+    for suffix in (
+        "mode_checked_count",
+        "field_name_checked_count",
+        "source_checked_count",
+        "block_reason_checked_count",
+    ):
+        key = f"{prefix}{suffix}"
+        if key in metrics:
+            value = _int_metric(metrics, key)
+            if checked is not None and value != checked:
+                failures.append(f"{key}_mismatch")
+    for suffix in (
+        "field_handle_count",
+        "field_handle_nonzero_count",
+        "parity_ok_count",
+    ):
+        value = _int_metric(metrics, f"{prefix}{suffix}")
+        if row_count is not None and value != row_count:
+            failures.append(f"{prefix}{suffix}_mismatch")
+    for suffix in (
+        "hash_missing_count",
+        "table_object_hash_missing_count",
+        "semantic_adapter_hash_missing_count",
+        "field_handle_hash_missing_count",
+        "semantic_field_hash_missing_count",
+        "mode_missing_count",
+        "mode_mismatch_count",
+        "field_name_missing_count",
+        "field_name_mismatch_count",
+        "source_missing_count",
+        "source_mismatch_count",
+        "block_reason_missing_count",
+        "block_reason_mismatch_count",
+        "field_handle_zero_count",
+        "parity_mismatch_count",
+        "live_enabled_count",
+        "payload_bytes",
+        "payload_violation_count",
+        "ready_credit_count",
+        "passed_to_kernel_count",
+        "kernel_arg_violation_count",
+        "live_compatible_with_current_wna16_args_count",
+    ):
+        failures.extend(
+            _check_metric_equals_if_present(metrics, f"{prefix}{suffix}", 0)
+        )
+    expected_values = {
+        "mode": "readonly_single_field_handle_handoff_canary",
+        "field_name": "scale_metadata_handle",
+        "source": "semantic_handle_table",
+        "block_reason": "single_field_handoff_live_disabled",
+    }
+    for suffix, expected in expected_values.items():
+        failures.extend(_check_metric_equals(metrics, f"{prefix}{suffix}", expected))
+    return failures
+
+
 def _validate_required_evidence_payload(
     evidence_label: str,
     evidence: dict[str, Any],
@@ -225,6 +333,7 @@ def _validate_required_evidence_payload(
     metrics = evidence.get("metrics")
     if evidence_label not in {
         "strict_native_typed_consumer_bridge_128_gate_json",
+        "strict_single_field_handle_handoff_canary_128_gate_json",
         "strict_native_stub_online_invocation_canary_128_gate_json",
         "native_typed_consumer_stub_gpu1_canary_json",
         "native_typed_consumer_stub_online_prelaunch_input_canary_json",
@@ -322,6 +431,11 @@ def _validate_required_evidence_payload(
         return [
             f"{evidence_label}:{failure}"
             for failure in _validate_native_bridge_evidence(metrics)
+        ]
+    if evidence_label == "strict_single_field_handle_handoff_canary_128_gate_json":
+        return [
+            f"{evidence_label}:{failure}"
+            for failure in _validate_single_field_canary_evidence(metrics)
         ]
     return [
         f"{evidence_label}:{failure}"
@@ -1199,6 +1313,11 @@ def run_premap_lab_preflight(
         "native_stub_online_invocation_canary_required": (
             REQUIRED_DEFAULT_GATE_CONTRACT[
                 "native_stub_online_invocation_canary_required"
+            ]
+        ),
+        "single_field_handle_handoff_canary_required": (
+            REQUIRED_DEFAULT_GATE_CONTRACT[
+                "single_field_handle_handoff_canary_required"
             ]
         ),
         "payload_bytes_required": REQUIRED_DEFAULT_GATE_CONTRACT[

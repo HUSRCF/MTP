@@ -2,16 +2,17 @@
 
 ## Progress Version
 
-- Version: `v0.25-rocm-upstream-fa-decoder-adapter`
-- Updated: 2026-05-28
+- Version: `v0.26-single-field-handoff-canary-lab-gate`
+- Updated: 2026-05-29
 - Current phase: premap descriptor/address prep now has a typed
   kernel-side consumer object and an explicit future native-consumer ABI
   artifact.  The default lab gate remains live-disabled, zero-payload, and not
-  passed to the current WNA16 kernel.  The next execution boundary is a small
-  HIP/C++ native stub that reads the typed table under stepwise debug macros,
-  not the live WNA16 fused-MoE kernel.  Separately, the ROCm upstream
-  FlashAttention 2.x package is now wired into the vLLM decoder path through an
-  explicit repo-local adapter for correctness testing.
+  passed to the current WNA16 kernel.  The newest lab precondition is a
+  readonly single-field handoff canary for the safest `scale_metadata_handle`
+  mirror: it validates the typed semantic handle table and explicitly remains
+  live-disabled and incompatible with current WNA16 args.  The next execution
+  boundary is still a true kernel-side compatible consumer path, not mutating
+  the live WNA16 fused-MoE launch.
 
 ## Runtime Policy Contract
 
@@ -33,7 +34,102 @@ Safety boundaries:
 - `metadata` and `premap` are setup-preparation actions only.
 - MTP extras must be novel additions and cannot replace `transition_top32`.
 
-## Latest Update: ROCm Upstream FlashAttention Decoder Adapter
+## Latest Update: Single-Field Handle Handoff Canary Lab Gate
+
+The typed premap/prelaunch path now has a stricter lab-default precondition:
+
+```text
+single_field_handle_handoff_canary:
+  mode = readonly_single_field_handle_handoff_canary
+  field = scale_metadata_handle
+  source = semantic_handle_table
+  live_enabled = false
+  block_reason = single_field_handoff_live_disabled
+  payload_bytes = 0
+  ready_credit = false
+  passed_to_kernel = false
+  changes_kernel_launch_args = false
+  live_compatible_with_current_wna16_args = false
+```
+
+This is the first one-field handoff canary, but it is still a readonly mirror.
+It does not replace a live kernel argument and does not treat prepared handle
+tuples as current WNA16-compatible tensor args.
+
+New 128-sample GPU1 strict audit evidence:
+
+```text
+trace:
+  data/traces/external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_longrun_audit/
+
+runtime_shadow rows:
+  premap_summary = 10,195
+  premap_consumer_mapping = 10,195
+
+strict checker:
+  data/traces/external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_longrun_audit/longrun_audit_gate_single_field_canary.json
+
+single-field canary:
+  checked_count = 10,195
+  ready_count = 10,195
+  row_count = 110,898
+  field_handle_count = 110,898
+  field_handle_nonzero_count = 110,898
+  field_handle_zero_count = 0
+  parity_ok_count = 110,898
+  parity_mismatch_count = 0
+  live_enabled_count = 0
+  blocked_count = 10,195
+  payload_bytes = 0
+  ready_credit_count = 0
+  passed_to_kernel_count = 0
+  kernel_arg_violation_count = 0
+  live_compatible_with_current_wna16_args_count = 0
+```
+
+The default lab gate artifact now includes:
+
+```text
+configs/runtime/premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_live_connected_readonly.yaml
+
+contract:
+  single_field_handle_handoff_canary_required = true
+  single_field_handle_handoff_canary_field = scale_metadata_handle
+
+evidence:
+  strict_single_field_handle_handoff_canary_128_gate_json =
+    data/traces/external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_longrun_audit/longrun_audit_gate_single_field_canary.json
+```
+
+`scripts/run_premap_lab_preflight.py` now requires and validates that evidence
+as part of the default lab gate.  The actual lab preflight passes:
+
+```text
+outputs/reports/premap_lab_preflight_default_single_field_canary.json
+  passed = true
+  required_evidence = 10 / 10 present and passed
+```
+
+Validation:
+
+```text
+pytest tests/test_run_premap_lab_preflight.py tests/test_check_premap_longrun_audit_gate.py -q
+  123 passed
+
+pytest tests -q
+  670 passed, 2 warnings
+```
+
+Next gate:
+
+```text
+Implement a real kernel-side compatible consumer schema/path before any live
+field replacement.  The current WNA16 launch must remain untouched until the
+native consumer path can read the typed table through an ABI that is not a
+tuple/tensor disguise.
+```
+
+## Previous Update: ROCm Upstream FlashAttention Decoder Adapter
 
 The custom ROCm FlashAttention 2.x package is installed in the TRY env and can
 be imported by vLLM.  Environment variables alone do not make vLLM choose this
@@ -138,7 +234,7 @@ Validation:
 
 ```text
 pytest tests -q
-  647 passed, 2 warnings
+  670 passed, 2 warnings
 ```
 
 ## Typed Kernel-Side Premap Consumer Gates
