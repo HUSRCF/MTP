@@ -1257,6 +1257,75 @@ class ShadowPremapConsumerMappingEvent:
     descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_live_compatible_with_current_wna16_args: (
         bool | None
     ) = None
+    descriptor_prep_consumer_shim_single_field_handle_handoff_canary_mode: (
+        str | None
+    ) = None
+    descriptor_prep_consumer_shim_single_field_handle_handoff_canary_ready: (
+        bool | None
+    ) = None
+    descriptor_prep_consumer_shim_single_field_handle_handoff_canary_hash: (
+        str | None
+    ) = None
+    descriptor_prep_consumer_shim_single_field_handle_handoff_canary_field_name: (
+        str | None
+    ) = None
+    descriptor_prep_consumer_shim_single_field_handle_handoff_canary_source: (
+        str | None
+    ) = None
+    descriptor_prep_consumer_shim_single_field_handle_handoff_canary_table_object_hash: (
+        str | None
+    ) = None
+    descriptor_prep_consumer_shim_single_field_handle_handoff_canary_semantic_adapter_hash: (
+        str | None
+    ) = None
+    descriptor_prep_consumer_shim_single_field_handle_handoff_canary_row_count: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_single_field_handle_handoff_canary_field_handle_count: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_single_field_handle_handoff_canary_field_handle_nonzero_count: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_single_field_handle_handoff_canary_field_handle_zero_count: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_single_field_handle_handoff_canary_field_handle_hash: (
+        str | None
+    ) = None
+    descriptor_prep_consumer_shim_single_field_handle_handoff_canary_semantic_field_hash: (
+        str | None
+    ) = None
+    descriptor_prep_consumer_shim_single_field_handle_handoff_canary_parity_ok_count: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_single_field_handle_handoff_canary_parity_mismatch_count: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_single_field_handle_handoff_canary_live_enabled: (
+        bool | None
+    ) = None
+    descriptor_prep_consumer_shim_single_field_handle_handoff_canary_blocked: (
+        bool | None
+    ) = None
+    descriptor_prep_consumer_shim_single_field_handle_handoff_canary_block_reason: (
+        str | None
+    ) = None
+    descriptor_prep_consumer_shim_single_field_handle_handoff_canary_payload_bytes: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_single_field_handle_handoff_canary_ready_credit: (
+        bool | None
+    ) = None
+    descriptor_prep_consumer_shim_single_field_handle_handoff_canary_passed_to_kernel: (
+        bool | None
+    ) = None
+    descriptor_prep_consumer_shim_single_field_handle_handoff_canary_changes_kernel_launch_args: (
+        bool | None
+    ) = None
+    descriptor_prep_consumer_shim_single_field_handle_handoff_canary_live_compatible_with_current_wna16_args: (
+        bool | None
+    ) = None
     descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_mode: (
         str | None
     ) = None
@@ -2939,6 +3008,101 @@ class ShadowPremapConsumerMappingEvent:
             (
                 "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_live_compatible_with_current_wna16_args",
                 self.descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_live_compatible_with_current_wna16_args,
+            ),
+        ):
+            _put_optional(payload, key, value)
+        for key, value in (
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_mode",
+                self.descriptor_prep_consumer_shim_single_field_handle_handoff_canary_mode,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_ready",
+                self.descriptor_prep_consumer_shim_single_field_handle_handoff_canary_ready,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_hash",
+                self.descriptor_prep_consumer_shim_single_field_handle_handoff_canary_hash,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_field_name",
+                self.descriptor_prep_consumer_shim_single_field_handle_handoff_canary_field_name,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_source",
+                self.descriptor_prep_consumer_shim_single_field_handle_handoff_canary_source,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_table_object_hash",
+                self.descriptor_prep_consumer_shim_single_field_handle_handoff_canary_table_object_hash,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_semantic_adapter_hash",
+                self.descriptor_prep_consumer_shim_single_field_handle_handoff_canary_semantic_adapter_hash,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_row_count",
+                self.descriptor_prep_consumer_shim_single_field_handle_handoff_canary_row_count,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_field_handle_count",
+                self.descriptor_prep_consumer_shim_single_field_handle_handoff_canary_field_handle_count,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_field_handle_nonzero_count",
+                self.descriptor_prep_consumer_shim_single_field_handle_handoff_canary_field_handle_nonzero_count,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_field_handle_zero_count",
+                self.descriptor_prep_consumer_shim_single_field_handle_handoff_canary_field_handle_zero_count,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_field_handle_hash",
+                self.descriptor_prep_consumer_shim_single_field_handle_handoff_canary_field_handle_hash,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_semantic_field_hash",
+                self.descriptor_prep_consumer_shim_single_field_handle_handoff_canary_semantic_field_hash,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_parity_ok_count",
+                self.descriptor_prep_consumer_shim_single_field_handle_handoff_canary_parity_ok_count,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_parity_mismatch_count",
+                self.descriptor_prep_consumer_shim_single_field_handle_handoff_canary_parity_mismatch_count,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_live_enabled",
+                self.descriptor_prep_consumer_shim_single_field_handle_handoff_canary_live_enabled,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_blocked",
+                self.descriptor_prep_consumer_shim_single_field_handle_handoff_canary_blocked,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_block_reason",
+                self.descriptor_prep_consumer_shim_single_field_handle_handoff_canary_block_reason,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_payload_bytes",
+                self.descriptor_prep_consumer_shim_single_field_handle_handoff_canary_payload_bytes,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_ready_credit",
+                self.descriptor_prep_consumer_shim_single_field_handle_handoff_canary_ready_credit,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_passed_to_kernel",
+                self.descriptor_prep_consumer_shim_single_field_handle_handoff_canary_passed_to_kernel,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_changes_kernel_launch_args",
+                self.descriptor_prep_consumer_shim_single_field_handle_handoff_canary_changes_kernel_launch_args,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_live_compatible_with_current_wna16_args",
+                self.descriptor_prep_consumer_shim_single_field_handle_handoff_canary_live_compatible_with_current_wna16_args,
             ),
         ):
             _put_optional(payload, key, value)
@@ -5902,6 +6066,174 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
                     totals[
                         "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_mode_missing_count"
                     ] += 1
+                single_field_prefix = (
+                    "premap_consumer_descriptor_prep_consumer_shim_"
+                    "single_field_handle_handoff_canary"
+                )
+                single_field_mode = event.get(f"{single_field_prefix}_mode")
+                if single_field_mode is not None:
+                    for key, default in (
+                        (f"{single_field_prefix}_checked_count", 0),
+                        (f"{single_field_prefix}_ready_count", 0),
+                        (f"{single_field_prefix}_mode", ""),
+                        (f"{single_field_prefix}_mode_checked_count", 0),
+                        (f"{single_field_prefix}_mode_mismatch_count", 0),
+                        (f"{single_field_prefix}_hash_checked_count", 0),
+                        (f"{single_field_prefix}_hash_missing_count", 0),
+                        (f"{single_field_prefix}_field_name", ""),
+                        (f"{single_field_prefix}_field_name_checked_count", 0),
+                        (f"{single_field_prefix}_field_name_missing_count", 0),
+                        (f"{single_field_prefix}_field_name_mismatch_count", 0),
+                        (f"{single_field_prefix}_source", ""),
+                        (f"{single_field_prefix}_source_checked_count", 0),
+                        (f"{single_field_prefix}_source_missing_count", 0),
+                        (f"{single_field_prefix}_source_mismatch_count", 0),
+                        (f"{single_field_prefix}_table_object_hash_checked_count", 0),
+                        (f"{single_field_prefix}_table_object_hash_missing_count", 0),
+                        (
+                            f"{single_field_prefix}_semantic_adapter_hash_checked_count",
+                            0,
+                        ),
+                        (
+                            f"{single_field_prefix}_semantic_adapter_hash_missing_count",
+                            0,
+                        ),
+                        (f"{single_field_prefix}_field_handle_hash_checked_count", 0),
+                        (f"{single_field_prefix}_field_handle_hash_missing_count", 0),
+                        (
+                            f"{single_field_prefix}_semantic_field_hash_checked_count",
+                            0,
+                        ),
+                        (
+                            f"{single_field_prefix}_semantic_field_hash_missing_count",
+                            0,
+                        ),
+                        (f"{single_field_prefix}_block_reason", ""),
+                        (f"{single_field_prefix}_block_reason_checked_count", 0),
+                        (f"{single_field_prefix}_block_reason_missing_count", 0),
+                        (f"{single_field_prefix}_block_reason_mismatch_count", 0),
+                        (f"{single_field_prefix}_row_count", 0),
+                        (f"{single_field_prefix}_field_handle_count", 0),
+                        (f"{single_field_prefix}_field_handle_nonzero_count", 0),
+                        (f"{single_field_prefix}_field_handle_zero_count", 0),
+                        (f"{single_field_prefix}_parity_ok_count", 0),
+                        (f"{single_field_prefix}_parity_mismatch_count", 0),
+                        (f"{single_field_prefix}_live_enabled_count", 0),
+                        (f"{single_field_prefix}_blocked_count", 0),
+                        (f"{single_field_prefix}_payload_bytes", 0),
+                        (f"{single_field_prefix}_payload_violation_count", 0),
+                        (f"{single_field_prefix}_ready_credit_count", 0),
+                        (f"{single_field_prefix}_passed_to_kernel_count", 0),
+                        (f"{single_field_prefix}_kernel_arg_violation_count", 0),
+                        (
+                            f"{single_field_prefix}_live_compatible_with_current_wna16_args_count",
+                            0,
+                        ),
+                    ):
+                        totals.setdefault(key, default)
+                    totals[f"{single_field_prefix}_checked_count"] += 1
+                    totals[f"{single_field_prefix}_mode_checked_count"] += 1
+                    if not totals[f"{single_field_prefix}_mode"]:
+                        totals[f"{single_field_prefix}_mode"] = str(single_field_mode)
+                    elif totals[f"{single_field_prefix}_mode"] != str(
+                        single_field_mode
+                    ):
+                        totals[f"{single_field_prefix}_mode_mismatch_count"] += 1
+                    totals[f"{single_field_prefix}_ready_count"] += int(
+                        bool(event.get(f"{single_field_prefix}_ready", False))
+                    )
+                    for hash_field, checked_key, missing_key in (
+                        (
+                            f"{single_field_prefix}_hash",
+                            f"{single_field_prefix}_hash_checked_count",
+                            f"{single_field_prefix}_hash_missing_count",
+                        ),
+                        (
+                            f"{single_field_prefix}_table_object_hash",
+                            f"{single_field_prefix}_table_object_hash_checked_count",
+                            f"{single_field_prefix}_table_object_hash_missing_count",
+                        ),
+                        (
+                            f"{single_field_prefix}_semantic_adapter_hash",
+                            f"{single_field_prefix}_semantic_adapter_hash_checked_count",
+                            f"{single_field_prefix}_semantic_adapter_hash_missing_count",
+                        ),
+                        (
+                            f"{single_field_prefix}_field_handle_hash",
+                            f"{single_field_prefix}_field_handle_hash_checked_count",
+                            f"{single_field_prefix}_field_handle_hash_missing_count",
+                        ),
+                        (
+                            f"{single_field_prefix}_semantic_field_hash",
+                            f"{single_field_prefix}_semantic_field_hash_checked_count",
+                            f"{single_field_prefix}_semantic_field_hash_missing_count",
+                        ),
+                    ):
+                        if event.get(hash_field):
+                            totals[checked_key] += 1
+                        else:
+                            totals[missing_key] += 1
+                    for value_field, base_key in (
+                        (f"{single_field_prefix}_field_name", f"{single_field_prefix}_field_name"),
+                        (f"{single_field_prefix}_source", f"{single_field_prefix}_source"),
+                        (f"{single_field_prefix}_block_reason", f"{single_field_prefix}_block_reason"),
+                    ):
+                        value = event.get(value_field)
+                        if value:
+                            totals[f"{base_key}_checked_count"] += 1
+                            if not totals[base_key]:
+                                totals[base_key] = str(value)
+                            elif totals[base_key] != str(value):
+                                totals[f"{base_key}_mismatch_count"] += 1
+                        else:
+                            totals[f"{base_key}_missing_count"] += 1
+                    for field in (
+                        f"{single_field_prefix}_row_count",
+                        f"{single_field_prefix}_field_handle_count",
+                        f"{single_field_prefix}_field_handle_nonzero_count",
+                        f"{single_field_prefix}_field_handle_zero_count",
+                        f"{single_field_prefix}_parity_ok_count",
+                        f"{single_field_prefix}_parity_mismatch_count",
+                        f"{single_field_prefix}_payload_bytes",
+                    ):
+                        totals[field] += int(event.get(field, 0) or 0)
+                    for flag_field, count_key in (
+                        (
+                            f"{single_field_prefix}_live_enabled",
+                            f"{single_field_prefix}_live_enabled_count",
+                        ),
+                        (
+                            f"{single_field_prefix}_blocked",
+                            f"{single_field_prefix}_blocked_count",
+                        ),
+                        (
+                            f"{single_field_prefix}_ready_credit",
+                            f"{single_field_prefix}_ready_credit_count",
+                        ),
+                        (
+                            f"{single_field_prefix}_passed_to_kernel",
+                            f"{single_field_prefix}_passed_to_kernel_count",
+                        ),
+                        (
+                            f"{single_field_prefix}_live_compatible_with_current_wna16_args",
+                            f"{single_field_prefix}_live_compatible_with_current_wna16_args_count",
+                        ),
+                    ):
+                        totals[count_key] += int(bool(event.get(flag_field, False)))
+                    single_field_payload_bytes = int(
+                        event.get(f"{single_field_prefix}_payload_bytes", 0) or 0
+                    )
+                    totals[f"{single_field_prefix}_payload_violation_count"] += int(
+                        single_field_payload_bytes != 0
+                    )
+                    totals[f"{single_field_prefix}_kernel_arg_violation_count"] += int(
+                        bool(
+                            event.get(
+                                f"{single_field_prefix}_changes_kernel_launch_args",
+                                False,
+                            )
+                        )
+                    )
                 kernel_side_mode = event.get(
                     "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_mode"
                 )

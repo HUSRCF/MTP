@@ -4582,6 +4582,171 @@ class VllmRouterRecorder:
                     if descriptor_consumer_shim_result is not None
                     else None
                 ),
+                descriptor_prep_consumer_shim_single_field_handle_handoff_canary_mode=(
+                    descriptor_consumer_shim_result.single_field_handle_handoff_canary_mode
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_single_field_handle_handoff_canary_ready=(
+                    descriptor_consumer_shim_result.single_field_handle_handoff_canary_ready
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_single_field_handle_handoff_canary_hash=(
+                    descriptor_consumer_shim_result.single_field_handle_handoff_canary_hash
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_single_field_handle_handoff_canary_field_name=(
+                    descriptor_consumer_shim_result.single_field_handle_handoff_canary_field_name
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_single_field_handle_handoff_canary_source=(
+                    descriptor_consumer_shim_result.single_field_handle_handoff_canary_source
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_single_field_handle_handoff_canary_table_object_hash=(
+                    descriptor_consumer_shim_result.single_field_handle_handoff_canary_table_object_hash
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_single_field_handle_handoff_canary_semantic_adapter_hash=(
+                    descriptor_consumer_shim_result.single_field_handle_handoff_canary_semantic_adapter_hash
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_single_field_handle_handoff_canary_row_count=(
+                    int(
+                        descriptor_consumer_shim_result.single_field_handle_handoff_canary_row_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.single_field_handle_handoff_canary_row_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_single_field_handle_handoff_canary_field_handle_count=(
+                    int(
+                        descriptor_consumer_shim_result.single_field_handle_handoff_canary_field_handle_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.single_field_handle_handoff_canary_field_handle_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_single_field_handle_handoff_canary_field_handle_nonzero_count=(
+                    int(
+                        descriptor_consumer_shim_result.single_field_handle_handoff_canary_field_handle_nonzero_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.single_field_handle_handoff_canary_field_handle_nonzero_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_single_field_handle_handoff_canary_field_handle_zero_count=(
+                    int(
+                        descriptor_consumer_shim_result.single_field_handle_handoff_canary_field_handle_zero_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.single_field_handle_handoff_canary_field_handle_zero_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_single_field_handle_handoff_canary_field_handle_hash=(
+                    descriptor_consumer_shim_result.single_field_handle_handoff_canary_field_handle_hash
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_single_field_handle_handoff_canary_semantic_field_hash=(
+                    descriptor_consumer_shim_result.single_field_handle_handoff_canary_semantic_field_hash
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_single_field_handle_handoff_canary_parity_ok_count=(
+                    int(
+                        descriptor_consumer_shim_result.single_field_handle_handoff_canary_parity_ok_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.single_field_handle_handoff_canary_parity_ok_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_single_field_handle_handoff_canary_parity_mismatch_count=(
+                    int(
+                        descriptor_consumer_shim_result.single_field_handle_handoff_canary_parity_mismatch_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.single_field_handle_handoff_canary_parity_mismatch_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_single_field_handle_handoff_canary_live_enabled=(
+                    bool(
+                        descriptor_consumer_shim_result.single_field_handle_handoff_canary_live_enabled
+                    )
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_single_field_handle_handoff_canary_blocked=(
+                    bool(
+                        descriptor_consumer_shim_result.single_field_handle_handoff_canary_blocked
+                    )
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_single_field_handle_handoff_canary_block_reason=(
+                    descriptor_consumer_shim_result.single_field_handle_handoff_canary_block_reason
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_single_field_handle_handoff_canary_payload_bytes=(
+                    int(
+                        descriptor_consumer_shim_result.single_field_handle_handoff_canary_payload_bytes
+                    )
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_single_field_handle_handoff_canary_ready_credit=(
+                    bool(
+                        descriptor_consumer_shim_result.single_field_handle_handoff_canary_ready_credit
+                    )
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_single_field_handle_handoff_canary_passed_to_kernel=(
+                    bool(
+                        descriptor_consumer_shim_result.single_field_handle_handoff_canary_passed_to_kernel
+                    )
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_single_field_handle_handoff_canary_changes_kernel_launch_args=(
+                    bool(
+                        descriptor_consumer_shim_result.single_field_handle_handoff_canary_changes_kernel_launch_args
+                    )
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_single_field_handle_handoff_canary_live_compatible_with_current_wna16_args=(
+                    bool(
+                        descriptor_consumer_shim_result.single_field_handle_handoff_canary_live_compatible_with_current_wna16_args
+                    )
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
                 descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_mode=(
                     descriptor_consumer_shim_result.kernel_side_consumer_schema_adapter_mode
                     if descriptor_consumer_shim_result is not None

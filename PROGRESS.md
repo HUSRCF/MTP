@@ -18911,3 +18911,77 @@ env PYTHONPATH=/home/husrcf/Code/ProtBind/MTP:/home/husrcf/Code/ProtBind/MTP/src
 Failure handling was also hardened: if the artifact consistency checker returns
 nonzero, the runner now records `artifact_consistency_check_failed` and writes
 the checker summary instead of aborting before the final report can be saved.
+
+## Single-field typed handle handoff canary
+
+Added a readonly single-field handoff canary for the safest future handoff
+field:
+
+```text
+field = scale_metadata_handle
+source = semantic_handle_table
+mode = readonly_single_field_handle_handoff_canary
+```
+
+This is not a live WNA16 argument replacement.  It validates that the prepared
+typed table and semantic handle adapter agree on the scale metadata handle
+column, then records a blocked/live-disabled canary:
+
+```text
+live_enabled = false
+blocked = true
+block_reason = single_field_handoff_live_disabled
+payload_bytes = 0
+ready_credit = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+live_compatible_with_current_wna16_args = false
+```
+
+The long-run checker now has an explicit requirement:
+
+```bash
+--require-single-field-handle-handoff-canary
+```
+
+and verifies row count, nonzero handle count, field-hash parity against the
+semantic adapter, zero payload/ready/kernel-arg side effects, and current-WNA16
+incompatibility.
+
+Validation:
+
+```bash
+env PYTHONPATH=/home/husrcf/Code/ProtBind/MTP:/home/husrcf/Code/ProtBind/MTP/src \
+  conda run -p /home/husrcf/anaconda3/envs/TRY \
+  pytest tests/test_runtime_premap.py \
+         tests/test_runtime_shadow_log.py \
+         tests/test_check_premap_longrun_audit_gate.py \
+         tests/test_premap_typed_consumer_stub.py \
+         tests/test_premap_kernel_consumer_schema.py -q
+# 142 passed
+```
+
+Native typed consumer check on GPU1:
+
+```text
+synthetic typed table:
+  row_count = 4096
+  row_ok_count = 4096
+  error_count = 0
+  payload_bytes = 0
+  passed_to_kernel = false
+  changes_kernel_launch_args = false
+
+online prelaunch typed input:
+  input_json = data/traces/external_prompt_gate_dolly_1_awq_vllm_gpu1_decode_gen16_native_input_export_canary/premap_native_typed_consumer_inputs/premap_native_typed_consumer_input_0000_sample_0_seq0_tok-1_layer0.json
+  row_count = 204
+  row_ok_count = 204
+  error_count = 0
+  payload_bytes = 0
+  passed_to_kernel = false
+  changes_kernel_launch_args = false
+```
+
+This keeps the next handoff step honest: the current WNA16 kernel still does not
+consume the typed table, but a separate native consumer can read the future
+kernel-side handle schema without payload movement or kernel-argument mutation.

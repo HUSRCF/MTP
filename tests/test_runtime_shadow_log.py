@@ -650,6 +650,47 @@ def test_shadow_log_aggregates_premap_consumer_mapping_without_side_effects(tmp_
         descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_passed_to_kernel=False,
         descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_changes_kernel_launch_args=False,
         descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_live_compatible_with_current_wna16_args=False,
+        descriptor_prep_consumer_shim_single_field_handle_handoff_canary_mode=(
+            "readonly_single_field_handle_handoff_canary"
+        ),
+        descriptor_prep_consumer_shim_single_field_handle_handoff_canary_ready=True,
+        descriptor_prep_consumer_shim_single_field_handle_handoff_canary_hash=(
+            "single-field-canary-hash"
+        ),
+        descriptor_prep_consumer_shim_single_field_handle_handoff_canary_field_name=(
+            "scale_metadata_handle"
+        ),
+        descriptor_prep_consumer_shim_single_field_handle_handoff_canary_source=(
+            "semantic_handle_table"
+        ),
+        descriptor_prep_consumer_shim_single_field_handle_handoff_canary_table_object_hash=(
+            "table-hash"
+        ),
+        descriptor_prep_consumer_shim_single_field_handle_handoff_canary_semantic_adapter_hash=(
+            "semantic-hash"
+        ),
+        descriptor_prep_consumer_shim_single_field_handle_handoff_canary_row_count=2,
+        descriptor_prep_consumer_shim_single_field_handle_handoff_canary_field_handle_count=2,
+        descriptor_prep_consumer_shim_single_field_handle_handoff_canary_field_handle_nonzero_count=2,
+        descriptor_prep_consumer_shim_single_field_handle_handoff_canary_field_handle_zero_count=0,
+        descriptor_prep_consumer_shim_single_field_handle_handoff_canary_field_handle_hash=(
+            "scale-field-hash"
+        ),
+        descriptor_prep_consumer_shim_single_field_handle_handoff_canary_semantic_field_hash=(
+            "scale-field-hash"
+        ),
+        descriptor_prep_consumer_shim_single_field_handle_handoff_canary_parity_ok_count=2,
+        descriptor_prep_consumer_shim_single_field_handle_handoff_canary_parity_mismatch_count=0,
+        descriptor_prep_consumer_shim_single_field_handle_handoff_canary_live_enabled=False,
+        descriptor_prep_consumer_shim_single_field_handle_handoff_canary_blocked=True,
+        descriptor_prep_consumer_shim_single_field_handle_handoff_canary_block_reason=(
+            "single_field_handoff_live_disabled"
+        ),
+        descriptor_prep_consumer_shim_single_field_handle_handoff_canary_payload_bytes=0,
+        descriptor_prep_consumer_shim_single_field_handle_handoff_canary_ready_credit=False,
+        descriptor_prep_consumer_shim_single_field_handle_handoff_canary_passed_to_kernel=False,
+        descriptor_prep_consumer_shim_single_field_handle_handoff_canary_changes_kernel_launch_args=False,
+        descriptor_prep_consumer_shim_single_field_handle_handoff_canary_live_compatible_with_current_wna16_args=False,
         descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_mode=(
             "readonly_kernel_side_consumer_schema_adapter"
         ),
@@ -2037,6 +2078,114 @@ def test_shadow_log_aggregates_premap_consumer_mapping_without_side_effects(tmp_
     assert (
         aggregate[
             "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_live_compatible_with_current_wna16_args_count"
+        ]
+        == 0
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_checked_count"
+        ]
+        == 1
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_ready_count"
+        ]
+        == 1
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_mode"
+        ]
+        == "readonly_single_field_handle_handoff_canary"
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_field_name"
+        ]
+        == "scale_metadata_handle"
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_source"
+        ]
+        == "semantic_handle_table"
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_row_count"
+        ]
+        == 2
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_field_handle_count"
+        ]
+        == 2
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_field_handle_nonzero_count"
+        ]
+        == 2
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_field_handle_zero_count"
+        ]
+        == 0
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_parity_ok_count"
+        ]
+        == 2
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_parity_mismatch_count"
+        ]
+        == 0
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_live_enabled_count"
+        ]
+        == 0
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_blocked_count"
+        ]
+        == 1
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_block_reason"
+        ]
+        == "single_field_handoff_live_disabled"
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_payload_bytes"
+        ]
+        == 0
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_ready_credit_count"
+        ]
+        == 0
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_passed_to_kernel_count"
+        ]
+        == 0
+    )
+    assert (
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_kernel_arg_violation_count"
         ]
         == 0
     )

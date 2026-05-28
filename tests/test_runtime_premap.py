@@ -827,6 +827,50 @@ def test_controlled_premap_address_manager_executes_descriptor_prep_readonly():
         is False
     )
     assert (
+        shim_result.single_field_handle_handoff_canary_mode
+        == "readonly_single_field_handle_handoff_canary"
+    )
+    assert shim_result.single_field_handle_handoff_canary_ready is True
+    assert shim_result.single_field_handle_handoff_canary_hash
+    assert shim_result.single_field_handle_handoff_canary_field_name == "scale_metadata_handle"
+    assert shim_result.single_field_handle_handoff_canary_source == "semantic_handle_table"
+    assert (
+        shim_result.single_field_handle_handoff_canary_table_object_hash
+        == table_object.object_hash
+    )
+    assert (
+        shim_result.single_field_handle_handoff_canary_semantic_adapter_hash
+        == shim_result.kernel_arg_semantic_handle_adapter_hash
+    )
+    assert shim_result.single_field_handle_handoff_canary_row_count == 2
+    assert shim_result.single_field_handle_handoff_canary_field_handle_count == 2
+    assert shim_result.single_field_handle_handoff_canary_field_handle_nonzero_count == 2
+    assert shim_result.single_field_handle_handoff_canary_field_handle_zero_count == 0
+    assert shim_result.single_field_handle_handoff_canary_field_handle_hash
+    assert (
+        shim_result.single_field_handle_handoff_canary_field_handle_hash
+        == shim_result.single_field_handle_handoff_canary_semantic_field_hash
+    )
+    assert shim_result.single_field_handle_handoff_canary_parity_ok_count == 2
+    assert shim_result.single_field_handle_handoff_canary_parity_mismatch_count == 0
+    assert shim_result.single_field_handle_handoff_canary_live_enabled is False
+    assert shim_result.single_field_handle_handoff_canary_blocked is True
+    assert (
+        shim_result.single_field_handle_handoff_canary_block_reason
+        == "single_field_handoff_live_disabled"
+    )
+    assert shim_result.single_field_handle_handoff_canary_payload_bytes == 0
+    assert shim_result.single_field_handle_handoff_canary_ready_credit is False
+    assert shim_result.single_field_handle_handoff_canary_passed_to_kernel is False
+    assert (
+        shim_result.single_field_handle_handoff_canary_changes_kernel_launch_args
+        is False
+    )
+    assert (
+        shim_result.single_field_handle_handoff_canary_live_compatible_with_current_wna16_args
+        is False
+    )
+    assert (
         shim_result.kernel_side_consumer_schema_adapter_mode
         == "readonly_kernel_side_consumer_schema_adapter"
     )

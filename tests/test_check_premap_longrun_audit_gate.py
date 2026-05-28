@@ -471,6 +471,67 @@ def _add_kernel_arg_semantic_handle_adapter(summary: dict) -> dict:
     return summary
 
 
+def _add_single_field_handle_handoff_canary(summary: dict) -> dict:
+    aggregate = summary["aggregate"]
+    checked_count = int(
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_executed_count"
+        ]
+    )
+    row_count = int(
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_row_count"
+        ]
+    )
+    aggregate.update(
+        {
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_checked_count": checked_count,
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_ready_count": checked_count,
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_hash_checked_count": checked_count,
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_hash_missing_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_table_object_hash_checked_count": checked_count,
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_table_object_hash_missing_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_semantic_adapter_hash_checked_count": checked_count,
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_semantic_adapter_hash_missing_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_field_handle_hash_checked_count": checked_count,
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_field_handle_hash_missing_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_semantic_field_hash_checked_count": checked_count,
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_semantic_field_hash_missing_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_mode": "readonly_single_field_handle_handoff_canary",
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_mode_checked_count": checked_count,
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_mode_missing_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_mode_mismatch_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_field_name": "scale_metadata_handle",
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_field_name_checked_count": checked_count,
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_field_name_missing_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_field_name_mismatch_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_source": "semantic_handle_table",
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_source_checked_count": checked_count,
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_source_missing_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_source_mismatch_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_block_reason": "single_field_handoff_live_disabled",
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_block_reason_checked_count": checked_count,
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_block_reason_missing_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_block_reason_mismatch_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_row_count": row_count,
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_field_handle_count": row_count,
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_field_handle_nonzero_count": row_count,
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_field_handle_zero_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_parity_ok_count": row_count,
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_parity_mismatch_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_live_enabled_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_blocked_count": checked_count,
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_payload_bytes": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_payload_violation_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_ready_credit_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_passed_to_kernel_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_kernel_arg_violation_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_live_compatible_with_current_wna16_args_count": 0,
+        }
+    )
+    return summary
+
+
 def _add_kernel_side_consumer_schema_adapter(
     summary: dict,
     *,
@@ -1850,6 +1911,110 @@ def test_premap_longrun_audit_gate_rejects_kernel_arg_semantic_adapter_live_comp
     )
     assert (
         "consumer_shim_kernel_arg_semantic_handle_adapter_passed_to_kernel_count_nonzero=1"
+        in result["failures"]
+    )
+
+
+def test_premap_longrun_audit_gate_accepts_single_field_handle_handoff_canary():
+    result = check_summary(
+        _add_single_field_handle_handoff_canary(
+            _add_kernel_arg_semantic_handle_adapter(
+                _add_kernel_arg_handoff_launch_schema_mirror(
+                    _add_kernel_arg_handoff_attempt(_passing_summary())
+                )
+            )
+        ),
+        max_capacity=12,
+        min_reuse_rate=0.98,
+        require_readonly_consumer=True,
+        require_descriptor_prep=True,
+        require_real_descriptor_prep=True,
+        require_kernel_arg_shadow_table=True,
+        require_consumer_shim_table_read=True,
+        require_consumer_shim_table_consume=True,
+        require_kernel_arg_handoff_attempt=True,
+        require_kernel_arg_handoff_launch_schema_mirror=True,
+        require_kernel_arg_semantic_handle_adapter=True,
+        require_single_field_handle_handoff_canary=True,
+    )
+
+    assert result["passed"] is True
+    assert result["failures"] == []
+    assert result["require_single_field_handle_handoff_canary"] is True
+    assert (
+        result["metrics"][
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_ready_count"
+        ]
+        == 2
+    )
+    assert (
+        result["metrics"][
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_field_name"
+        ]
+        == "scale_metadata_handle"
+    )
+    assert (
+        result["metrics"][
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_source"
+        ]
+        == "semantic_handle_table"
+    )
+    assert (
+        result["metrics"][
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_field_handle_nonzero_count"
+        ]
+        == 20
+    )
+    assert (
+        result["metrics"][
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_live_enabled_count"
+        ]
+        == 0
+    )
+    assert (
+        result["metrics"][
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_blocked_count"
+        ]
+        == 2
+    )
+    assert (
+        result["metrics"][
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_passed_to_kernel_count"
+        ]
+        == 0
+    )
+    assert (
+        result["metrics"][
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_live_compatible_with_current_wna16_args_count"
+        ]
+        == 0
+    )
+
+
+def test_premap_longrun_audit_gate_requires_single_field_handle_handoff_canary():
+    result = check_summary(
+        _add_kernel_arg_semantic_handle_adapter(
+            _add_kernel_arg_handoff_launch_schema_mirror(
+                _add_kernel_arg_handoff_attempt(_passing_summary())
+            )
+        ),
+        max_capacity=12,
+        min_reuse_rate=0.98,
+        require_readonly_consumer=True,
+        require_descriptor_prep=True,
+        require_real_descriptor_prep=True,
+        require_kernel_arg_shadow_table=True,
+        require_consumer_shim_table_read=True,
+        require_consumer_shim_table_consume=True,
+        require_kernel_arg_handoff_attempt=True,
+        require_kernel_arg_handoff_launch_schema_mirror=True,
+        require_kernel_arg_semantic_handle_adapter=True,
+        require_single_field_handle_handoff_canary=True,
+    )
+
+    assert result["passed"] is False
+    assert (
+        "consumer_shim_single_field_handle_handoff_canary_fields_missing"
         in result["failures"]
     )
 

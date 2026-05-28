@@ -55,6 +55,9 @@ KERNEL_ARG_HANDOFF_LIVE_CONSUMER_ADAPTER_PREFIX = (
 KERNEL_ARG_SEMANTIC_HANDLE_ADAPTER_PREFIX = (
     "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_semantic_handle_adapter_"
 )
+SINGLE_FIELD_HANDLE_HANDOFF_CANARY_PREFIX = (
+    "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_"
+)
 KERNEL_SIDE_CONSUMER_SCHEMA_ADAPTER_PREFIX = (
     "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_"
 )
@@ -326,6 +329,7 @@ def check_summary(
     require_kernel_arg_handoff_launch_schema_mirror: bool = False,
     require_kernel_arg_handoff_live_consumer_adapter: bool = False,
     require_kernel_arg_semantic_handle_adapter: bool = False,
+    require_single_field_handle_handoff_canary: bool = False,
     require_kernel_side_consumer_schema_adapter: bool = False,
     require_kernel_side_typed_consumer_object: bool = False,
     require_native_typed_consumer_bridge: bool = False,
@@ -685,6 +689,12 @@ def check_summary(
     kernel_arg_semantic_handle_adapter_active = (
         semantic_handle_adapter_checked_count > 0
     )
+    single_field_handle_handoff_canary_checked_count = _as_int(
+        aggregate.get(f"{SINGLE_FIELD_HANDLE_HANDOFF_CANARY_PREFIX}checked_count")
+    )
+    single_field_handle_handoff_canary_active = (
+        single_field_handle_handoff_canary_checked_count > 0
+    )
     kernel_side_consumer_schema_adapter_checked_count = _as_int(
         aggregate.get(f"{KERNEL_SIDE_CONSUMER_SCHEMA_ADAPTER_PREFIX}checked_count")
     )
@@ -786,6 +796,21 @@ def check_summary(
     ):
         failures.append(
             "consumer_shim_kernel_arg_semantic_handle_adapter_fields_missing"
+        )
+    if (
+        require_single_field_handle_handoff_canary
+        and not single_field_handle_handoff_canary_active
+    ):
+        failures.append("consumer_shim_single_field_handle_handoff_canary_fields_missing")
+    if (
+        (
+            require_single_field_handle_handoff_canary
+            or single_field_handle_handoff_canary_active
+        )
+        and not kernel_arg_semantic_handle_adapter_active
+    ):
+        failures.append(
+            "consumer_shim_single_field_handle_handoff_canary_requires_semantic_handle_adapter_fields"
         )
     if (
         (require_kernel_arg_semantic_handle_adapter or kernel_arg_semantic_handle_adapter_active)
@@ -900,6 +925,7 @@ def check_summary(
         or require_kernel_arg_handoff_launch_schema_mirror
         or require_kernel_arg_handoff_live_consumer_adapter
         or require_kernel_arg_semantic_handle_adapter
+        or require_single_field_handle_handoff_canary
         or descriptor_prep_active
     ):
         attempted = _as_int(
@@ -3628,6 +3654,315 @@ def check_summary(
                     failures.append(
                         "consumer_shim_kernel_arg_semantic_handle_adapter_current_wna16_compatible_count_nonzero="
                         f"{semantic_current_wna16_compatible_count}"
+                    )
+            if (
+                require_single_field_handle_handoff_canary
+                or single_field_handle_handoff_canary_active
+            ):
+                canary_prefix = SINGLE_FIELD_HANDLE_HANDOFF_CANARY_PREFIX
+                canary_checked_count = _as_int(
+                    aggregate.get(f"{canary_prefix}checked_count")
+                )
+                canary_ready_count = _as_int(
+                    aggregate.get(f"{canary_prefix}ready_count")
+                )
+                canary_hash_checked_count = _as_int(
+                    aggregate.get(f"{canary_prefix}hash_checked_count")
+                )
+                canary_hash_missing_count = _as_int(
+                    aggregate.get(f"{canary_prefix}hash_missing_count")
+                )
+                canary_table_hash_checked_count = _as_int(
+                    aggregate.get(f"{canary_prefix}table_object_hash_checked_count")
+                )
+                canary_table_hash_missing_count = _as_int(
+                    aggregate.get(f"{canary_prefix}table_object_hash_missing_count")
+                )
+                canary_semantic_hash_checked_count = _as_int(
+                    aggregate.get(f"{canary_prefix}semantic_adapter_hash_checked_count")
+                )
+                canary_semantic_hash_missing_count = _as_int(
+                    aggregate.get(f"{canary_prefix}semantic_adapter_hash_missing_count")
+                )
+                canary_field_hash_checked_count = _as_int(
+                    aggregate.get(f"{canary_prefix}field_handle_hash_checked_count")
+                )
+                canary_field_hash_missing_count = _as_int(
+                    aggregate.get(f"{canary_prefix}field_handle_hash_missing_count")
+                )
+                canary_semantic_field_hash_checked_count = _as_int(
+                    aggregate.get(f"{canary_prefix}semantic_field_hash_checked_count")
+                )
+                canary_semantic_field_hash_missing_count = _as_int(
+                    aggregate.get(f"{canary_prefix}semantic_field_hash_missing_count")
+                )
+                canary_mode = str(aggregate.get(f"{canary_prefix}mode") or "")
+                canary_mode_checked_count = _as_int(
+                    aggregate.get(f"{canary_prefix}mode_checked_count")
+                )
+                canary_mode_missing_count = _as_int(
+                    aggregate.get(f"{canary_prefix}mode_missing_count")
+                )
+                canary_mode_mismatch_count = _as_int(
+                    aggregate.get(f"{canary_prefix}mode_mismatch_count")
+                )
+                canary_field_name = str(
+                    aggregate.get(f"{canary_prefix}field_name") or ""
+                )
+                canary_field_name_checked_count = _as_int(
+                    aggregate.get(f"{canary_prefix}field_name_checked_count")
+                )
+                canary_field_name_missing_count = _as_int(
+                    aggregate.get(f"{canary_prefix}field_name_missing_count")
+                )
+                canary_field_name_mismatch_count = _as_int(
+                    aggregate.get(f"{canary_prefix}field_name_mismatch_count")
+                )
+                canary_source = str(aggregate.get(f"{canary_prefix}source") or "")
+                canary_source_checked_count = _as_int(
+                    aggregate.get(f"{canary_prefix}source_checked_count")
+                )
+                canary_source_missing_count = _as_int(
+                    aggregate.get(f"{canary_prefix}source_missing_count")
+                )
+                canary_source_mismatch_count = _as_int(
+                    aggregate.get(f"{canary_prefix}source_mismatch_count")
+                )
+                canary_block_reason = str(
+                    aggregate.get(f"{canary_prefix}block_reason") or ""
+                )
+                canary_block_reason_checked_count = _as_int(
+                    aggregate.get(f"{canary_prefix}block_reason_checked_count")
+                )
+                canary_block_reason_missing_count = _as_int(
+                    aggregate.get(f"{canary_prefix}block_reason_missing_count")
+                )
+                canary_block_reason_mismatch_count = _as_int(
+                    aggregate.get(f"{canary_prefix}block_reason_mismatch_count")
+                )
+                canary_row_count = _as_int(aggregate.get(f"{canary_prefix}row_count"))
+                canary_field_handle_count = _as_int(
+                    aggregate.get(f"{canary_prefix}field_handle_count")
+                )
+                canary_field_nonzero_count = _as_int(
+                    aggregate.get(f"{canary_prefix}field_handle_nonzero_count")
+                )
+                canary_field_zero_count = _as_int(
+                    aggregate.get(f"{canary_prefix}field_handle_zero_count")
+                )
+                canary_parity_ok_count = _as_int(
+                    aggregate.get(f"{canary_prefix}parity_ok_count")
+                )
+                canary_parity_mismatch_count = _as_int(
+                    aggregate.get(f"{canary_prefix}parity_mismatch_count")
+                )
+                canary_live_enabled_count = _as_int(
+                    aggregate.get(f"{canary_prefix}live_enabled_count")
+                )
+                canary_blocked_count = _as_int(
+                    aggregate.get(f"{canary_prefix}blocked_count")
+                )
+                canary_payload_bytes = _as_int(
+                    aggregate.get(f"{canary_prefix}payload_bytes")
+                )
+                canary_payload_violation_count = _as_int(
+                    aggregate.get(f"{canary_prefix}payload_violation_count")
+                )
+                canary_ready_credit_count = _as_int(
+                    aggregate.get(f"{canary_prefix}ready_credit_count")
+                )
+                canary_passed_to_kernel_count = _as_int(
+                    aggregate.get(f"{canary_prefix}passed_to_kernel_count")
+                )
+                canary_kernel_arg_violation_count = _as_int(
+                    aggregate.get(f"{canary_prefix}kernel_arg_violation_count")
+                )
+                canary_current_wna16_compatible_count = _as_int(
+                    aggregate.get(
+                        f"{canary_prefix}live_compatible_with_current_wna16_args_count"
+                    )
+                )
+                if canary_checked_count != shim_executed:
+                    failures.append(
+                        "consumer_shim_single_field_handle_handoff_canary_checked_count_mismatch="
+                        f"{canary_checked_count}!={shim_executed}"
+                    )
+                if canary_ready_count != shim_executed:
+                    failures.append(
+                        "consumer_shim_single_field_handle_handoff_canary_ready_count_mismatch="
+                        f"{canary_ready_count}!={shim_executed}"
+                    )
+                for name, value in (
+                    ("hash_checked_count", canary_hash_checked_count),
+                    ("table_object_hash_checked_count", canary_table_hash_checked_count),
+                    (
+                        "semantic_adapter_hash_checked_count",
+                        canary_semantic_hash_checked_count,
+                    ),
+                    ("field_handle_hash_checked_count", canary_field_hash_checked_count),
+                    (
+                        "semantic_field_hash_checked_count",
+                        canary_semantic_field_hash_checked_count,
+                    ),
+                ):
+                    if value != shim_executed:
+                        failures.append(
+                            "consumer_shim_single_field_handle_handoff_canary_"
+                            f"{name}_mismatch={value}!={shim_executed}"
+                        )
+                for name, value in (
+                    ("hash_missing_count", canary_hash_missing_count),
+                    ("table_object_hash_missing_count", canary_table_hash_missing_count),
+                    (
+                        "semantic_adapter_hash_missing_count",
+                        canary_semantic_hash_missing_count,
+                    ),
+                    ("field_handle_hash_missing_count", canary_field_hash_missing_count),
+                    (
+                        "semantic_field_hash_missing_count",
+                        canary_semantic_field_hash_missing_count,
+                    ),
+                ):
+                    if value != 0:
+                        failures.append(
+                            "consumer_shim_single_field_handle_handoff_canary_"
+                            f"{name}_nonzero={value}"
+                        )
+                if canary_mode != "readonly_single_field_handle_handoff_canary":
+                    failures.append(
+                        "consumer_shim_single_field_handle_handoff_canary_mode_mismatch"
+                    )
+                if canary_mode_checked_count != shim_executed:
+                    failures.append(
+                        "consumer_shim_single_field_handle_handoff_canary_mode_checked_count_mismatch="
+                        f"{canary_mode_checked_count}!={shim_executed}"
+                    )
+                if canary_mode_missing_count != 0:
+                    failures.append(
+                        "consumer_shim_single_field_handle_handoff_canary_mode_missing_count_nonzero="
+                        f"{canary_mode_missing_count}"
+                    )
+                if canary_mode_mismatch_count != 0:
+                    failures.append(
+                        "consumer_shim_single_field_handle_handoff_canary_mode_mismatch_count_nonzero="
+                        f"{canary_mode_mismatch_count}"
+                    )
+                if canary_field_name != "scale_metadata_handle":
+                    failures.append(
+                        "consumer_shim_single_field_handle_handoff_canary_field_name_mismatch"
+                    )
+                if canary_source != "semantic_handle_table":
+                    failures.append(
+                        "consumer_shim_single_field_handle_handoff_canary_source_mismatch"
+                    )
+                for name, checked, missing, mismatch in (
+                    (
+                        "field_name",
+                        canary_field_name_checked_count,
+                        canary_field_name_missing_count,
+                        canary_field_name_mismatch_count,
+                    ),
+                    (
+                        "source",
+                        canary_source_checked_count,
+                        canary_source_missing_count,
+                        canary_source_mismatch_count,
+                    ),
+                    (
+                        "block_reason",
+                        canary_block_reason_checked_count,
+                        canary_block_reason_missing_count,
+                        canary_block_reason_mismatch_count,
+                    ),
+                ):
+                    if checked != shim_executed:
+                        failures.append(
+                            "consumer_shim_single_field_handle_handoff_canary_"
+                            f"{name}_checked_count_mismatch={checked}!={shim_executed}"
+                        )
+                    if missing != 0:
+                        failures.append(
+                            "consumer_shim_single_field_handle_handoff_canary_"
+                            f"{name}_missing_count_nonzero={missing}"
+                        )
+                    if mismatch != 0:
+                        failures.append(
+                            "consumer_shim_single_field_handle_handoff_canary_"
+                            f"{name}_mismatch_count_nonzero={mismatch}"
+                        )
+                if canary_block_reason != "single_field_handoff_live_disabled":
+                    failures.append(
+                        "consumer_shim_single_field_handle_handoff_canary_block_reason_mismatch"
+                    )
+                if canary_row_count != consume_row_count:
+                    failures.append(
+                        "consumer_shim_single_field_handle_handoff_canary_row_count_mismatch="
+                        f"{canary_row_count}!={consume_row_count}"
+                    )
+                if canary_field_handle_count != consume_row_count:
+                    failures.append(
+                        "consumer_shim_single_field_handle_handoff_canary_field_handle_count_mismatch="
+                        f"{canary_field_handle_count}!={consume_row_count}"
+                    )
+                if canary_field_nonzero_count != consume_row_count:
+                    failures.append(
+                        "consumer_shim_single_field_handle_handoff_canary_field_handle_nonzero_count_mismatch="
+                        f"{canary_field_nonzero_count}!={consume_row_count}"
+                    )
+                if canary_field_zero_count != 0:
+                    failures.append(
+                        "consumer_shim_single_field_handle_handoff_canary_field_handle_zero_count_nonzero="
+                        f"{canary_field_zero_count}"
+                    )
+                if canary_parity_ok_count != consume_row_count:
+                    failures.append(
+                        "consumer_shim_single_field_handle_handoff_canary_parity_ok_count_mismatch="
+                        f"{canary_parity_ok_count}!={consume_row_count}"
+                    )
+                if canary_parity_mismatch_count != 0:
+                    failures.append(
+                        "consumer_shim_single_field_handle_handoff_canary_parity_mismatch_count_nonzero="
+                        f"{canary_parity_mismatch_count}"
+                    )
+                if canary_live_enabled_count != 0:
+                    failures.append(
+                        "consumer_shim_single_field_handle_handoff_canary_live_enabled_count_nonzero="
+                        f"{canary_live_enabled_count}"
+                    )
+                if canary_blocked_count != shim_executed:
+                    failures.append(
+                        "consumer_shim_single_field_handle_handoff_canary_blocked_count_mismatch="
+                        f"{canary_blocked_count}!={shim_executed}"
+                    )
+                if canary_payload_bytes != 0:
+                    failures.append(
+                        "consumer_shim_single_field_handle_handoff_canary_payload_bytes_nonzero="
+                        f"{canary_payload_bytes}"
+                    )
+                if canary_payload_violation_count != 0:
+                    failures.append(
+                        "consumer_shim_single_field_handle_handoff_canary_payload_violation_count_nonzero="
+                        f"{canary_payload_violation_count}"
+                    )
+                if canary_ready_credit_count != 0:
+                    failures.append(
+                        "consumer_shim_single_field_handle_handoff_canary_ready_credit_count_nonzero="
+                        f"{canary_ready_credit_count}"
+                    )
+                if canary_passed_to_kernel_count != 0:
+                    failures.append(
+                        "consumer_shim_single_field_handle_handoff_canary_passed_to_kernel_count_nonzero="
+                        f"{canary_passed_to_kernel_count}"
+                    )
+                if canary_kernel_arg_violation_count != 0:
+                    failures.append(
+                        "consumer_shim_single_field_handle_handoff_canary_kernel_arg_violation_count_nonzero="
+                        f"{canary_kernel_arg_violation_count}"
+                    )
+                if canary_current_wna16_compatible_count != 0:
+                    failures.append(
+                        "consumer_shim_single_field_handle_handoff_canary_current_wna16_compatible_count_nonzero="
+                        f"{canary_current_wna16_compatible_count}"
                     )
             if (
                 require_kernel_side_consumer_schema_adapter
@@ -8086,6 +8421,108 @@ def check_summary(
                 f"{KERNEL_ARG_SEMANTIC_HANDLE_ADAPTER_PREFIX}live_compatible_with_current_wna16_args_count"
             )
         ),
+        "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_checked_count": _as_int(
+            aggregate.get(f"{SINGLE_FIELD_HANDLE_HANDOFF_CANARY_PREFIX}checked_count")
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_ready_count": _as_int(
+            aggregate.get(f"{SINGLE_FIELD_HANDLE_HANDOFF_CANARY_PREFIX}ready_count")
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_hash_checked_count": _as_int(
+            aggregate.get(f"{SINGLE_FIELD_HANDLE_HANDOFF_CANARY_PREFIX}hash_checked_count")
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_table_object_hash_checked_count": _as_int(
+            aggregate.get(
+                f"{SINGLE_FIELD_HANDLE_HANDOFF_CANARY_PREFIX}table_object_hash_checked_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_semantic_adapter_hash_checked_count": _as_int(
+            aggregate.get(
+                f"{SINGLE_FIELD_HANDLE_HANDOFF_CANARY_PREFIX}semantic_adapter_hash_checked_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_field_handle_hash_checked_count": _as_int(
+            aggregate.get(
+                f"{SINGLE_FIELD_HANDLE_HANDOFF_CANARY_PREFIX}field_handle_hash_checked_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_semantic_field_hash_checked_count": _as_int(
+            aggregate.get(
+                f"{SINGLE_FIELD_HANDLE_HANDOFF_CANARY_PREFIX}semantic_field_hash_checked_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_mode": str(
+            aggregate.get(f"{SINGLE_FIELD_HANDLE_HANDOFF_CANARY_PREFIX}mode")
+            or ""
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_field_name": str(
+            aggregate.get(f"{SINGLE_FIELD_HANDLE_HANDOFF_CANARY_PREFIX}field_name")
+            or ""
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_source": str(
+            aggregate.get(f"{SINGLE_FIELD_HANDLE_HANDOFF_CANARY_PREFIX}source")
+            or ""
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_block_reason": str(
+            aggregate.get(f"{SINGLE_FIELD_HANDLE_HANDOFF_CANARY_PREFIX}block_reason")
+            or ""
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_row_count": _as_int(
+            aggregate.get(f"{SINGLE_FIELD_HANDLE_HANDOFF_CANARY_PREFIX}row_count")
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_field_handle_count": _as_int(
+            aggregate.get(
+                f"{SINGLE_FIELD_HANDLE_HANDOFF_CANARY_PREFIX}field_handle_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_field_handle_nonzero_count": _as_int(
+            aggregate.get(
+                f"{SINGLE_FIELD_HANDLE_HANDOFF_CANARY_PREFIX}field_handle_nonzero_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_field_handle_zero_count": _as_int(
+            aggregate.get(
+                f"{SINGLE_FIELD_HANDLE_HANDOFF_CANARY_PREFIX}field_handle_zero_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_parity_ok_count": _as_int(
+            aggregate.get(f"{SINGLE_FIELD_HANDLE_HANDOFF_CANARY_PREFIX}parity_ok_count")
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_parity_mismatch_count": _as_int(
+            aggregate.get(
+                f"{SINGLE_FIELD_HANDLE_HANDOFF_CANARY_PREFIX}parity_mismatch_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_live_enabled_count": _as_int(
+            aggregate.get(
+                f"{SINGLE_FIELD_HANDLE_HANDOFF_CANARY_PREFIX}live_enabled_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_blocked_count": _as_int(
+            aggregate.get(f"{SINGLE_FIELD_HANDLE_HANDOFF_CANARY_PREFIX}blocked_count")
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_payload_bytes": _as_int(
+            aggregate.get(f"{SINGLE_FIELD_HANDLE_HANDOFF_CANARY_PREFIX}payload_bytes")
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_ready_credit_count": _as_int(
+            aggregate.get(
+                f"{SINGLE_FIELD_HANDLE_HANDOFF_CANARY_PREFIX}ready_credit_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_passed_to_kernel_count": _as_int(
+            aggregate.get(
+                f"{SINGLE_FIELD_HANDLE_HANDOFF_CANARY_PREFIX}passed_to_kernel_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_kernel_arg_violation_count": _as_int(
+            aggregate.get(
+                f"{SINGLE_FIELD_HANDLE_HANDOFF_CANARY_PREFIX}kernel_arg_violation_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_live_compatible_with_current_wna16_args_count": _as_int(
+            aggregate.get(
+                f"{SINGLE_FIELD_HANDLE_HANDOFF_CANARY_PREFIX}live_compatible_with_current_wna16_args_count"
+            )
+        ),
         "premap_consumer_descriptor_prep_consumer_shim_kernel_side_consumer_schema_adapter_checked_count": _as_int(
             aggregate.get(f"{KERNEL_SIDE_CONSUMER_SCHEMA_ADAPTER_PREFIX}checked_count")
         ),
@@ -8436,6 +8873,9 @@ def check_summary(
         "require_kernel_arg_semantic_handle_adapter": bool(
             require_kernel_arg_semantic_handle_adapter
         ),
+        "require_single_field_handle_handoff_canary": bool(
+            require_single_field_handle_handoff_canary
+        ),
         "require_kernel_side_consumer_schema_adapter": bool(
             require_kernel_side_consumer_schema_adapter
         ),
@@ -8600,6 +9040,16 @@ def main() -> None:
         ),
     )
     parser.add_argument(
+        "--require-single-field-handle-handoff-canary",
+        action="store_true",
+        help=(
+            "Require the readonly single-field handle handoff canary. The canary "
+            "validates the safest scale-metadata handle mirror against the typed "
+            "semantic handle table while keeping live handoff disabled, zero-payload, "
+            "and disconnected from current WNA16 kernel arguments."
+        ),
+    )
+    parser.add_argument(
         "--require-kernel-side-consumer-schema-adapter",
         action="store_true",
         help=(
@@ -8741,6 +9191,9 @@ def main() -> None:
         ),
         require_kernel_arg_semantic_handle_adapter=(
             args.require_kernel_arg_semantic_handle_adapter
+        ),
+        require_single_field_handle_handoff_canary=(
+            args.require_single_field_handle_handoff_canary
         ),
         require_kernel_side_consumer_schema_adapter=(
             args.require_kernel_side_consumer_schema_adapter

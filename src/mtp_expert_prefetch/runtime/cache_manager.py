@@ -890,6 +890,102 @@ class PremapKernelArgSemanticHandleAdapterObject:
 
 
 @dataclass(frozen=True)
+class PremapSingleFieldHandleHandoffCanary:
+    """Readonly canary for one future kernel-side handle field.
+
+    This is not a current WNA16 argument replacement.  It proves that the
+    prepared typed table can expose one field a future kernel consumer would
+    accept.  Live handoff is deliberately disabled here, so the object remains
+    a parity/no-crash/fallback gate.
+    """
+
+    mode: str
+    field_name: str
+    source: str
+    table_object_hash: str
+    semantic_adapter_hash: str
+    row_count: int
+    field_handle_count: int
+    field_handle_nonzero_count: int
+    field_handle_zero_count: int
+    field_handle_hash: str
+    semantic_field_hash: str
+    parity_ok_count: int
+    parity_mismatch_count: int
+    live_enabled: bool
+    blocked: bool
+    block_reason: str
+    payload_bytes: int = 0
+    ready_credit: bool = False
+    passed_to_kernel: bool = False
+    changes_kernel_launch_args: bool = False
+    live_compatible_with_current_wna16_args: bool = False
+
+    @property
+    def ready(self) -> bool:
+        return (
+            self.mode == "readonly_single_field_handle_handoff_canary"
+            and self.field_name == "scale_metadata_handle"
+            and self.source == "semantic_handle_table"
+            and bool(self.table_object_hash)
+            and bool(self.semantic_adapter_hash)
+            and int(self.row_count) > 0
+            and int(self.field_handle_count) == int(self.row_count)
+            and int(self.field_handle_nonzero_count) == int(self.row_count)
+            and int(self.field_handle_zero_count) == 0
+            and bool(self.field_handle_hash)
+            and str(self.field_handle_hash) == str(self.semantic_field_hash)
+            and int(self.parity_ok_count) == int(self.row_count)
+            and int(self.parity_mismatch_count) == 0
+            and not bool(self.live_enabled)
+            and bool(self.blocked)
+            and self.block_reason == "single_field_handoff_live_disabled"
+            and int(self.payload_bytes) == 0
+            and not bool(self.ready_credit)
+            and not bool(self.passed_to_kernel)
+            and not bool(self.changes_kernel_launch_args)
+            and not bool(self.live_compatible_with_current_wna16_args)
+        )
+
+    @property
+    def canary_hash(self) -> str:
+        payload = json.dumps(
+            self.as_dict(),
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+        return hashlib.sha256(payload).hexdigest()
+
+    def as_dict(self) -> dict[str, int | bool | str]:
+        return {
+            "mode": str(self.mode),
+            "ready": bool(self.ready),
+            "field_name": str(self.field_name),
+            "source": str(self.source),
+            "table_object_hash": str(self.table_object_hash),
+            "semantic_adapter_hash": str(self.semantic_adapter_hash),
+            "row_count": int(self.row_count),
+            "field_handle_count": int(self.field_handle_count),
+            "field_handle_nonzero_count": int(self.field_handle_nonzero_count),
+            "field_handle_zero_count": int(self.field_handle_zero_count),
+            "field_handle_hash": str(self.field_handle_hash),
+            "semantic_field_hash": str(self.semantic_field_hash),
+            "parity_ok_count": int(self.parity_ok_count),
+            "parity_mismatch_count": int(self.parity_mismatch_count),
+            "live_enabled": bool(self.live_enabled),
+            "blocked": bool(self.blocked),
+            "block_reason": str(self.block_reason),
+            "payload_bytes": int(self.payload_bytes),
+            "ready_credit": bool(self.ready_credit),
+            "passed_to_kernel": bool(self.passed_to_kernel),
+            "changes_kernel_launch_args": bool(self.changes_kernel_launch_args),
+            "live_compatible_with_current_wna16_args": bool(
+                self.live_compatible_with_current_wna16_args
+            ),
+        }
+
+
+@dataclass(frozen=True)
 class PremapKernelSideConsumerSchemaAdapterObject:
     """Readonly schema envelope for a future kernel-side consumer.
 
@@ -1945,6 +2041,31 @@ class PremapDescriptorConsumerShimResult:
     kernel_arg_semantic_handle_adapter_passed_to_kernel: bool = False
     kernel_arg_semantic_handle_adapter_changes_kernel_launch_args: bool = False
     kernel_arg_semantic_handle_adapter_live_compatible_with_current_wna16_args: (
+        bool
+    ) = False
+    single_field_handle_handoff_canary_mode: str | None = None
+    single_field_handle_handoff_canary_ready: bool | None = None
+    single_field_handle_handoff_canary_hash: str | None = None
+    single_field_handle_handoff_canary_field_name: str | None = None
+    single_field_handle_handoff_canary_source: str | None = None
+    single_field_handle_handoff_canary_table_object_hash: str | None = None
+    single_field_handle_handoff_canary_semantic_adapter_hash: str | None = None
+    single_field_handle_handoff_canary_row_count: int | None = None
+    single_field_handle_handoff_canary_field_handle_count: int | None = None
+    single_field_handle_handoff_canary_field_handle_nonzero_count: int | None = None
+    single_field_handle_handoff_canary_field_handle_zero_count: int | None = None
+    single_field_handle_handoff_canary_field_handle_hash: str | None = None
+    single_field_handle_handoff_canary_semantic_field_hash: str | None = None
+    single_field_handle_handoff_canary_parity_ok_count: int | None = None
+    single_field_handle_handoff_canary_parity_mismatch_count: int | None = None
+    single_field_handle_handoff_canary_live_enabled: bool | None = None
+    single_field_handle_handoff_canary_blocked: bool | None = None
+    single_field_handle_handoff_canary_block_reason: str | None = None
+    single_field_handle_handoff_canary_payload_bytes: int = 0
+    single_field_handle_handoff_canary_ready_credit: bool = False
+    single_field_handle_handoff_canary_passed_to_kernel: bool = False
+    single_field_handle_handoff_canary_changes_kernel_launch_args: bool = False
+    single_field_handle_handoff_canary_live_compatible_with_current_wna16_args: (
         bool
     ) = False
     kernel_side_consumer_schema_adapter_mode: str | None = None
@@ -3400,6 +3521,9 @@ class ControlledPremapAddressManager:
         semantic_handle_adapter: (
             PremapKernelArgSemanticHandleAdapterObject | None
         ) = None
+        single_field_handle_handoff_canary: (
+            PremapSingleFieldHandleHandoffCanary | None
+        ) = None
         kernel_side_consumer_schema_adapter: (
             PremapKernelSideConsumerSchemaAdapterObject | None
         ) = None
@@ -3602,6 +3726,56 @@ class ControlledPremapAddressManager:
                     passed_to_kernel=False,
                     changes_kernel_launch_args=False,
                     live_compatible_with_current_wna16_args=False,
+                )
+                single_field_values = [
+                    str(row.scale_metadata_handle) for row in table_object.rows
+                ]
+                single_field_hash = hashlib.sha256(
+                    "|".join(single_field_values).encode("utf-8")
+                ).hexdigest()
+                single_field_nonzero_count = sum(
+                    int(_handle_to_native_u64(value) != 0)
+                    for value in single_field_values
+                )
+                single_field_parity_ok = (
+                    single_field_hash
+                    == semantic_handle_adapter.scale_metadata_handle_hash
+                )
+                single_field_handle_handoff_canary = (
+                    PremapSingleFieldHandleHandoffCanary(
+                        mode="readonly_single_field_handle_handoff_canary",
+                        field_name="scale_metadata_handle",
+                        source="semantic_handle_table",
+                        table_object_hash=table_object.object_hash,
+                        semantic_adapter_hash=semantic_handle_adapter.adapter_hash,
+                        row_count=handoff_row_count,
+                        field_handle_count=len(single_field_values),
+                        field_handle_nonzero_count=single_field_nonzero_count,
+                        field_handle_zero_count=(
+                            len(single_field_values) - single_field_nonzero_count
+                        ),
+                        field_handle_hash=single_field_hash,
+                        semantic_field_hash=(
+                            semantic_handle_adapter.scale_metadata_handle_hash
+                        ),
+                        parity_ok_count=(
+                            handoff_row_count if single_field_parity_ok else 0
+                        ),
+                        parity_mismatch_count=(
+                            0 if single_field_parity_ok else handoff_row_count
+                        ),
+                        live_enabled=False,
+                        blocked=True,
+                        block_reason="single_field_handoff_live_disabled",
+                        payload_bytes=0,
+                        ready_credit=False,
+                        passed_to_kernel=False,
+                        changes_kernel_launch_args=False,
+                        live_compatible_with_current_wna16_args=False,
+                    )
+                )
+                table_consume_ok = bool(table_consume_ok) and bool(
+                    single_field_handle_handoff_canary.ready
                 )
                 handoff_attempt = PremapKernelArgHandoffAttemptRecord(
                     mode="readonly_kernel_arg_handoff_attempt",
@@ -4619,6 +4793,121 @@ class ControlledPremapAddressManager:
             kernel_arg_semantic_handle_adapter_live_compatible_with_current_wna16_args=(
                 semantic_handle_adapter.live_compatible_with_current_wna16_args
                 if semantic_handle_adapter is not None
+                else False
+            ),
+            single_field_handle_handoff_canary_mode=(
+                single_field_handle_handoff_canary.mode
+                if single_field_handle_handoff_canary is not None
+                else None
+            ),
+            single_field_handle_handoff_canary_ready=(
+                single_field_handle_handoff_canary.ready
+                if single_field_handle_handoff_canary is not None
+                else None
+            ),
+            single_field_handle_handoff_canary_hash=(
+                single_field_handle_handoff_canary.canary_hash
+                if single_field_handle_handoff_canary is not None
+                else None
+            ),
+            single_field_handle_handoff_canary_field_name=(
+                single_field_handle_handoff_canary.field_name
+                if single_field_handle_handoff_canary is not None
+                else None
+            ),
+            single_field_handle_handoff_canary_source=(
+                single_field_handle_handoff_canary.source
+                if single_field_handle_handoff_canary is not None
+                else None
+            ),
+            single_field_handle_handoff_canary_table_object_hash=(
+                single_field_handle_handoff_canary.table_object_hash
+                if single_field_handle_handoff_canary is not None
+                else None
+            ),
+            single_field_handle_handoff_canary_semantic_adapter_hash=(
+                single_field_handle_handoff_canary.semantic_adapter_hash
+                if single_field_handle_handoff_canary is not None
+                else None
+            ),
+            single_field_handle_handoff_canary_row_count=(
+                single_field_handle_handoff_canary.row_count
+                if single_field_handle_handoff_canary is not None
+                else None
+            ),
+            single_field_handle_handoff_canary_field_handle_count=(
+                single_field_handle_handoff_canary.field_handle_count
+                if single_field_handle_handoff_canary is not None
+                else None
+            ),
+            single_field_handle_handoff_canary_field_handle_nonzero_count=(
+                single_field_handle_handoff_canary.field_handle_nonzero_count
+                if single_field_handle_handoff_canary is not None
+                else None
+            ),
+            single_field_handle_handoff_canary_field_handle_zero_count=(
+                single_field_handle_handoff_canary.field_handle_zero_count
+                if single_field_handle_handoff_canary is not None
+                else None
+            ),
+            single_field_handle_handoff_canary_field_handle_hash=(
+                single_field_handle_handoff_canary.field_handle_hash
+                if single_field_handle_handoff_canary is not None
+                else None
+            ),
+            single_field_handle_handoff_canary_semantic_field_hash=(
+                single_field_handle_handoff_canary.semantic_field_hash
+                if single_field_handle_handoff_canary is not None
+                else None
+            ),
+            single_field_handle_handoff_canary_parity_ok_count=(
+                single_field_handle_handoff_canary.parity_ok_count
+                if single_field_handle_handoff_canary is not None
+                else None
+            ),
+            single_field_handle_handoff_canary_parity_mismatch_count=(
+                single_field_handle_handoff_canary.parity_mismatch_count
+                if single_field_handle_handoff_canary is not None
+                else None
+            ),
+            single_field_handle_handoff_canary_live_enabled=(
+                single_field_handle_handoff_canary.live_enabled
+                if single_field_handle_handoff_canary is not None
+                else None
+            ),
+            single_field_handle_handoff_canary_blocked=(
+                single_field_handle_handoff_canary.blocked
+                if single_field_handle_handoff_canary is not None
+                else None
+            ),
+            single_field_handle_handoff_canary_block_reason=(
+                single_field_handle_handoff_canary.block_reason
+                if single_field_handle_handoff_canary is not None
+                else None
+            ),
+            single_field_handle_handoff_canary_payload_bytes=(
+                single_field_handle_handoff_canary.payload_bytes
+                if single_field_handle_handoff_canary is not None
+                else 0
+            ),
+            single_field_handle_handoff_canary_ready_credit=(
+                single_field_handle_handoff_canary.ready_credit
+                if single_field_handle_handoff_canary is not None
+                else False
+            ),
+            single_field_handle_handoff_canary_passed_to_kernel=(
+                single_field_handle_handoff_canary.passed_to_kernel
+                if single_field_handle_handoff_canary is not None
+                else False
+            ),
+            single_field_handle_handoff_canary_changes_kernel_launch_args=(
+                single_field_handle_handoff_canary.changes_kernel_launch_args
+                if single_field_handle_handoff_canary is not None
+                else False
+            ),
+            single_field_handle_handoff_canary_live_compatible_with_current_wna16_args=(
+                single_field_handle_handoff_canary.live_compatible_with_current_wna16_args
+                if single_field_handle_handoff_canary is not None
                 else False
             ),
             kernel_side_consumer_schema_adapter_mode=(
