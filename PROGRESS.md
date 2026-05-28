@@ -19381,6 +19381,17 @@ abi_payload_bytes_allowed = false
 abi_kernel_arg_pass_allowed = false
 ```
 
+The machine-readable schema now also records and checks the ABI binding:
+
+```text
+native_consumer_abi.abi_name = premap_kernel_side_typed_consumer_abi_v1
+native_consumer_abi.cpp_header = microbench/premap_kernel_consumer/premap_typed_consumer_abi_v1.h
+native_consumer_abi.cpp_struct = PremapKernelSideTypedConsumerAbiV1
+native_consumer_abi.handle_column_count = 4
+native_consumer_abi.payload_bytes_allowed = false
+native_consumer_abi.kernel_arg_pass_allowed = false
+```
+
 Validation on the online prelaunch input:
 
 ```text
@@ -19418,6 +19429,19 @@ premap_lab_preflight_default_typed_consumer_abi_header.json:
   required_evidence = 10 / 10
   optional_evidence = 1 / 1
   default_kernel_consumer_schema_passed = true
+  payload_bytes_required = 0
+  passed_to_kernel_required = false
+  changes_kernel_launch_args_required = false
+```
+
+After adding the schema-level ABI binding check:
+
+```text
+premap_lab_preflight_default_typed_consumer_abi_schema.yaml.json:
+  passed = true
+  default_kernel_consumer_schema_passed = true
+  required_evidence = 10 / 10
+  optional_evidence = 1 / 1
   payload_bytes_required = 0
   passed_to_kernel_required = false
   changes_kernel_launch_args_required = false

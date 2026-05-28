@@ -87,6 +87,24 @@ def test_kernel_consumer_schema_rejects_metadata_dtype_mismatch(
     assert "row_metadata_abi_dtype_mismatch:layer_id" in result["failures"]
 
 
+def test_kernel_consumer_schema_rejects_abi_header_mismatch(
+    tmp_path: Path,
+) -> None:
+    payload = _valid_schema_payload()
+    payload["native_consumer_abi"]["cpp_header"] = "wrong/header.h"
+    schema_path = tmp_path / "schema.yaml"
+    _write_schema(schema_path, payload)
+
+    result = check_kernel_consumer_schema_artifact(schema_path)
+
+    assert result["passed"] is False
+    assert (
+        "native_consumer_abi.cpp_header_mismatch:"
+        "'wrong/header.h'!='microbench/premap_kernel_consumer/"
+        "premap_typed_consumer_abi_v1.h'"
+    ) in result["failures"]
+
+
 def test_kernel_consumer_schema_rejects_enabled_forbidden_macro(
     tmp_path: Path,
 ) -> None:

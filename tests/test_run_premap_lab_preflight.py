@@ -66,6 +66,12 @@ def _valid_schema_payload() -> dict:
             "kernel_side_adapter_schema_hash": PREMAP_KERNEL_SIDE_CONSUMER_SCHEMA_HASH,
         },
         "native_consumer_abi": {
+            "abi_name": "premap_kernel_side_typed_consumer_abi_v1",
+            "cpp_header": "microbench/premap_kernel_consumer/premap_typed_consumer_abi_v1.h",
+            "cpp_struct": "PremapKernelSideTypedConsumerAbiV1",
+            "handle_column_count": 4,
+            "payload_bytes_allowed": False,
+            "kernel_arg_pass_allowed": False,
             "layout": "struct_of_arrays",
             "row_order": "vllm_prelaunch_sorted_token_ids_order",
             "row_count_source": "consumer_row_count",

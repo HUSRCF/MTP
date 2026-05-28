@@ -148,6 +148,20 @@ def check_kernel_consumer_schema_artifact(path: Path) -> dict[str, Any]:
 
     if native_abi.get("layout") != "struct_of_arrays":
         failures.append("native_consumer_abi.layout_mismatch")
+    expected_native_abi = {
+        "abi_name": "premap_kernel_side_typed_consumer_abi_v1",
+        "cpp_header": "microbench/premap_kernel_consumer/premap_typed_consumer_abi_v1.h",
+        "cpp_struct": "PremapKernelSideTypedConsumerAbiV1",
+        "handle_column_count": 4,
+        "payload_bytes_allowed": False,
+        "kernel_arg_pass_allowed": False,
+    }
+    for key, expected in expected_native_abi.items():
+        observed = native_abi.get(key)
+        if observed != expected:
+            failures.append(
+                f"native_consumer_abi.{key}_mismatch:{observed!r}!={expected!r}"
+            )
     if native_abi.get("row_order") != "vllm_prelaunch_sorted_token_ids_order":
         failures.append("native_consumer_abi.row_order_mismatch")
     if native_abi.get("row_count_source") != "consumer_row_count":

@@ -22,6 +22,12 @@ source_contract:
   kernel_side_adapter_schema_hash: e4462332b4f7ac47910d83c4e7da0b8c7e84e0bc90d9d1d6872f60c276350b56
 
 native_consumer_abi:
+  abi_name: premap_kernel_side_typed_consumer_abi_v1
+  cpp_header: microbench/premap_kernel_consumer/premap_typed_consumer_abi_v1.h
+  cpp_struct: PremapKernelSideTypedConsumerAbiV1
+  handle_column_count: 4
+  payload_bytes_allowed: false
+  kernel_arg_pass_allowed: false
   layout: struct_of_arrays
   row_order: vllm_prelaunch_sorted_token_ids_order
   row_count_source: consumer_row_count

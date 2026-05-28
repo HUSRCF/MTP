@@ -57,6 +57,18 @@ The native canary consumes the table through:
 PremapKernelSideTypedConsumerAbiV1
 ```
 
+The machine-readable schema records the ABI binding explicitly:
+
+```yaml
+native_consumer_abi:
+  abi_name: premap_kernel_side_typed_consumer_abi_v1
+  cpp_header: microbench/premap_kernel_consumer/premap_typed_consumer_abi_v1.h
+  cpp_struct: PremapKernelSideTypedConsumerAbiV1
+  handle_column_count: 4
+  payload_bytes_allowed: false
+  kernel_arg_pass_allowed: false
+```
+
 This ABI is intentionally separate from the WNA16 launch argument schema.  A
 successful native canary only proves typed-table readability by a future
 consumer ABI; it does not authorize passing the table to the current WNA16
