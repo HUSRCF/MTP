@@ -19267,3 +19267,27 @@ typed_consumer_stub_gpu1_online_prelaunch_input_per_field_canary.json:
 
 This lets future canaries open descriptor, packed-weight, scale, or aux handle
 checks independently instead of enabling all source-level checks at once.
+
+The per-field online prelaunch canary is now wired as optional lab preflight
+evidence rather than as a new hard gate.  The default gate still requires
+10 / 10 core evidence artifacts, while the per-field artifact is validated when
+present under `optional_evidence_paths`:
+
+```text
+optional_evidence_paths:
+  native_typed_consumer_stub_online_prelaunch_input_per_field_canary_json
+```
+
+Validation:
+
+```text
+outputs/reports/premap_lab_preflight_default_optional_per_field_canary.json:
+  passed = true
+  required_evidence = 10 / 10
+  optional_evidence = 1 / 1
+  native_typed_consumer_stub_online_prelaunch_input_per_field_canary_json.passed = true
+```
+
+This keeps the lab default honest: per-field native checking is observable and
+schema-checked, but it does not imply payload dereference, kernel argument pass,
+or current WNA16 typed-table compatibility.

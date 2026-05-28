@@ -356,6 +356,24 @@ def _native_stub_evidence_payload(input_json: str) -> dict[str, object]:
     }
 
 
+def _native_stub_per_field_evidence_payload(input_json: str) -> dict[str, object]:
+    payload = _native_stub_evidence_payload(input_json)
+    payload["compiled_macros"] = {
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCHEMA": True,
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_ROW_ITERATION": True,
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_POINTER_VISIBILITY": False,
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR": True,
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_DESCRIPTOR": True,
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_HANDLE": True,
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_HANDLE": True,
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_LIFETIME": True,
+        "MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR": True,
+        "MTP_PREMAP_TYPED_CONSUMER_ENABLE_PAYLOAD_DEREF": False,
+        "MTP_PREMAP_TYPED_CONSUMER_ENABLE_KERNEL_ARG_PASS": False,
+    }
+    return payload
+
+
 def _write_gate(
     root: Path,
     name: str,
@@ -392,6 +410,9 @@ def _write_gate(
     native_online_runner_path = (
         f"reports/{name}_native_online_prelaunch_canary_runner.json"
     )
+    native_online_per_field_stub_path = (
+        f"reports/{name}_native_typed_consumer_stub_online_prelaunch_input_per_field_canary.json"
+    )
     lab_payload = {
         "passed": lab_evidence_passed,
         "failures": [] if lab_evidence_failures is None else lab_evidence_failures,
@@ -420,6 +441,13 @@ def _write_gate(
         _write(
             root / native_online_stub_path,
             json.dumps(_native_stub_evidence_payload(native_online_input_path)) + "\n",
+        )
+        _write(
+            root / native_online_per_field_stub_path,
+            json.dumps(
+                _native_stub_per_field_evidence_payload(native_online_input_path)
+            )
+            + "\n",
         )
         _write(
             root / native_online_perf_path,
@@ -564,6 +592,9 @@ def _write_gate(
             f"{native_online_perf_path}\n"
             "  native_typed_consumer_online_prelaunch_canary_runner_json: "
             f"{native_online_runner_path}\n"
+            "optional_evidence_paths:\n"
+            "  native_typed_consumer_stub_online_prelaunch_input_per_field_canary_json: "
+            f"{native_online_per_field_stub_path}\n"
             if include_lab_evidence
             else ""
         ),
@@ -637,6 +668,7 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert summary["default_readonly_gate_path"] == default_gate
     assert summary["default_contract_passed"] is True
     assert summary["default_required_evidence_passed"] is True
+    assert summary["default_optional_evidence_passed"] is True
     assert summary["runtime_gate_evidence_deferred_count"] == 0
     assert summary["strict_default_gate_evidence_deferred_count"] == 0
     assert summary["native_typed_consumer_bridge_required"] is True
@@ -647,6 +679,15 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert summary["required_evidence"]["required_count"] == 10
     assert summary["required_evidence"]["present_count"] == 10
     assert summary["required_evidence"]["passed_count"] == 10
+    assert summary["optional_evidence"]["required_count"] == 1
+    assert summary["optional_evidence"]["present_count"] == 1
+    assert summary["optional_evidence"]["passed_count"] == 1
+    assert (
+        summary["optional_evidence"]["evidence"][
+            "native_typed_consumer_stub_online_prelaunch_input_per_field_canary_json"
+        ]["passed"]
+        is True
+    )
     assert (
         summary["required_evidence"]["evidence"][
             "strict_native_typed_consumer_bridge_128_gate_json"
@@ -655,6 +696,74 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     )
     assert result["trace_config_checks"][0]["passed"] is True
     assert result["trace_config_checks"][0]["readonly_gate_path_label"] == default_gate
+
+
+def test_premap_lab_preflight_allows_missing_optional_per_field_canary(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    gate_path = tmp_path / default_gate
+    gate_text = gate_path.read_text(encoding="utf-8")
+    gate_text = gate_text.split("optional_evidence_paths:\n", maxsplit=1)[0]
+    gate_path.write_text(gate_text, encoding="utf-8")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    summary = result["lab_gate_status_summary"]
+    assert result["passed"] is True
+    assert summary["required_evidence"]["passed_count"] == 10
+    assert summary["default_optional_evidence_passed"] is True
+    assert summary["optional_evidence"]["present_count"] == 0
+    assert summary["optional_evidence"]["passed_count"] == 0
+
+
+def test_premap_lab_preflight_rejects_present_optional_per_field_canary_mismatch(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    optional_path = (
+        tmp_path
+        / "reports/default_gate_native_typed_consumer_stub_online_prelaunch_input_per_field_canary.json"
+    )
+    payload = json.loads(optional_path.read_text(encoding="utf-8"))
+    payload["compiled_macros"][
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR"
+    ] = False
+    optional_path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is False
+    assert "default_readonly_gate_optional_evidence_check_failed" in result["failures"]
+    failures = result["default_readonly_gate_optional_evidence_check"]["failures"]
+    assert (
+        "native_typed_consumer_stub_online_prelaunch_input_per_field_canary_json:"
+        "native_typed_consumer_stub_MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR_not_enabled"
+    ) in failures
 
 
 def test_premap_lab_preflight_rejects_default_gate_without_typed_consumer_contract(
@@ -1120,6 +1229,7 @@ def test_premap_lab_preflight_can_defer_self_referential_runner_evidence(
     assert summary["required_evidence"]["required_count"] == 10
     assert summary["required_evidence"]["present_count"] == 9
     assert summary["required_evidence"]["passed_count"] == 9
+    assert summary["optional_evidence"]["passed_count"] == 1
 
 
 def test_premap_lab_preflight_allows_missing_typed_evidence_file_when_requested(
@@ -1629,4 +1739,5 @@ def test_premap_lab_preflight_cli_summary_only_writes_status_block(tmp_path: Pat
     assert result["passed"] is True
     assert result["default_readonly_gate_path"] == default_gate
     assert result["required_evidence"]["passed_count"] == 10
+    assert result["optional_evidence"]["passed_count"] == 1
     assert "lab_gate_status_summary" not in result

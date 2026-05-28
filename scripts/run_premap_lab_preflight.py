@@ -121,6 +121,9 @@ REQUIRED_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
     "native_typed_consumer_stub_online_prelaunch_input_canary_json",
     "native_typed_consumer_online_prelaunch_canary_runner_json",
 }
+OPTIONAL_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
+    "native_typed_consumer_stub_online_prelaunch_input_per_field_canary_json",
+}
 ONLINE_PRELAUNCH_RUNNER_EVIDENCE_LABEL = (
     "native_typed_consumer_online_prelaunch_canary_runner_json"
 )
@@ -331,13 +334,17 @@ def _validate_required_evidence_payload(
     root: Path | None = None,
 ) -> list[str]:
     metrics = evidence.get("metrics")
+    known_stub_labels = {
+        "native_typed_consumer_stub_gpu1_canary_json",
+        "native_typed_consumer_stub_online_prelaunch_input_canary_json",
+        "native_typed_consumer_stub_online_prelaunch_input_per_field_canary_json",
+    }
     if evidence_label not in {
         "strict_native_typed_consumer_bridge_128_gate_json",
         "strict_single_field_handle_handoff_canary_128_gate_json",
         "strict_native_stub_online_invocation_canary_128_gate_json",
-        "native_typed_consumer_stub_gpu1_canary_json",
-        "native_typed_consumer_stub_online_prelaunch_input_canary_json",
         "native_typed_consumer_online_prelaunch_canary_runner_json",
+        *known_stub_labels,
     }:
         return []
     if evidence_label == "native_typed_consumer_online_prelaunch_canary_runner_json":
@@ -382,16 +389,16 @@ def _validate_required_evidence_payload(
             if preflight_summary.get("failures") != []:
                 failures.append("runner_preflight_summary_failures_not_empty")
         return [f"{evidence_label}:{failure}" for failure in failures]
-    if evidence_label in {
-        "native_typed_consumer_stub_gpu1_canary_json",
-        "native_typed_consumer_stub_online_prelaunch_input_canary_json",
-    }:
+    if evidence_label in known_stub_labels:
         expected_input_path = None
         if isinstance(evidence_paths, dict):
             input_label = (
                 "native_typed_consumer_online_prelaunch_input_json"
                 if evidence_label
-                == "native_typed_consumer_stub_online_prelaunch_input_canary_json"
+                in {
+                    "native_typed_consumer_stub_online_prelaunch_input_canary_json",
+                    "native_typed_consumer_stub_online_prelaunch_input_per_field_canary_json",
+                }
                 else "native_typed_consumer_bridge_input_json"
             )
             raw_input = evidence_paths.get(input_label)
@@ -405,9 +412,20 @@ def _validate_required_evidence_payload(
                 if isinstance(raw_export_performance, str)
                 and raw_export_performance
                 and evidence_label
-                == "native_typed_consumer_stub_online_prelaunch_input_canary_json"
+                in {
+                    "native_typed_consumer_stub_online_prelaunch_input_canary_json",
+                    "native_typed_consumer_stub_online_prelaunch_input_per_field_canary_json",
+                }
                 else None
             )
+        is_online_prelaunch_stub = evidence_label in {
+            "native_typed_consumer_stub_online_prelaunch_input_canary_json",
+            "native_typed_consumer_stub_online_prelaunch_input_per_field_canary_json",
+        }
+        is_per_field_stub = (
+            evidence_label
+            == "native_typed_consumer_stub_online_prelaunch_input_per_field_canary_json"
+        )
         return [
             f"{evidence_label}:{failure}"
             for failure in _validate_native_typed_consumer_stub_evidence(
@@ -415,13 +433,26 @@ def _validate_required_evidence_payload(
                 expected_input_path=expected_input_path,
                 export_performance_path=export_performance_path,
                 root=root,
-                require_extended_noop_meta=(
-                    evidence_label
-                    == "native_typed_consumer_stub_online_prelaunch_input_canary_json"
+                require_extended_noop_meta=is_online_prelaunch_stub,
+                require_online_export_context=is_online_prelaunch_stub,
+                required_enabled_macros=(
+                    (
+                        "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCHEMA",
+                        "MTP_PREMAP_TYPED_CONSUMER_CHECK_ROW_ITERATION",
+                        "MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR",
+                        "MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_DESCRIPTOR",
+                        "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_HANDLE",
+                        "MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_HANDLE",
+                        "MTP_PREMAP_TYPED_CONSUMER_CHECK_LIFETIME",
+                        "MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR",
+                    )
+                    if is_per_field_stub
+                    else None
                 ),
-                require_online_export_context=(
-                    evidence_label
-                    == "native_typed_consumer_stub_online_prelaunch_input_canary_json"
+                required_disabled_macros=(
+                    ("MTP_PREMAP_TYPED_CONSUMER_CHECK_POINTER_VISIBILITY",)
+                    if is_per_field_stub
+                    else ()
                 ),
             )
         ]
@@ -451,6 +482,8 @@ def _validate_native_typed_consumer_stub_evidence(
     root: Path | None = None,
     require_extended_noop_meta: bool = False,
     require_online_export_context: bool = False,
+    required_enabled_macros: tuple[str, ...] | None = None,
+    required_disabled_macros: tuple[str, ...] = (),
 ) -> list[str]:
     failures: list[str] = []
     row_count = _int_metric(evidence, "row_count")
@@ -656,15 +689,20 @@ def _validate_native_typed_consumer_stub_evidence(
     if not isinstance(macros, dict):
         failures.append("native_typed_consumer_stub_compiled_macros_missing")
         macros = {}
-    for macro in (
-        "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCHEMA",
-        "MTP_PREMAP_TYPED_CONSUMER_CHECK_ROW_ITERATION",
-        "MTP_PREMAP_TYPED_CONSUMER_CHECK_POINTER_VISIBILITY",
-        "MTP_PREMAP_TYPED_CONSUMER_CHECK_LIFETIME",
-        "MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR",
-    ):
+    if required_enabled_macros is None:
+        required_enabled_macros = (
+            "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCHEMA",
+            "MTP_PREMAP_TYPED_CONSUMER_CHECK_ROW_ITERATION",
+            "MTP_PREMAP_TYPED_CONSUMER_CHECK_POINTER_VISIBILITY",
+            "MTP_PREMAP_TYPED_CONSUMER_CHECK_LIFETIME",
+            "MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR",
+        )
+    for macro in required_enabled_macros:
         if macros.get(macro) is not True:
             failures.append(f"native_typed_consumer_stub_{macro}_not_enabled")
+    for macro in required_disabled_macros:
+        if macros.get(macro) is not False:
+            failures.append(f"native_typed_consumer_stub_{macro}_not_disabled")
     for forbidden in (
         "MTP_PREMAP_TYPED_CONSUMER_ENABLE_PAYLOAD_DEREF",
         "MTP_PREMAP_TYPED_CONSUMER_ENABLE_KERNEL_ARG_PASS",
@@ -672,6 +710,113 @@ def _validate_native_typed_consumer_stub_evidence(
         if macros.get(forbidden):
             failures.append(f"native_typed_consumer_stub_{forbidden}_enabled")
     return failures
+
+
+def _check_optional_default_gate_evidence_json(
+    gate_path: str,
+    *,
+    root: Path,
+) -> dict[str, Any]:
+    path = _path_for_label(gate_path, root)
+    label = _path_label(path, root=root)
+    failures: list[str] = []
+    rows: list[dict[str, Any]] = []
+    try:
+        payload = _load_yaml(path)
+    except (FileNotFoundError, ValueError, yaml.YAMLError) as exc:
+        return {
+            "gate_path": label,
+            "passed": False,
+            "failures": [f"{type(exc).__name__}:{exc}"],
+            "optional_labels": sorted(OPTIONAL_DEFAULT_GATE_EVIDENCE_JSON_LABELS),
+            "rows": rows,
+        }
+    evidence_paths = ((payload or {}).get("evidence_paths") or {})
+    optional_paths = ((payload or {}).get("optional_evidence_paths") or {})
+    combined_paths: dict[str, Any] = {}
+    if isinstance(evidence_paths, dict):
+        combined_paths.update(evidence_paths)
+    if isinstance(optional_paths, dict):
+        combined_paths.update(optional_paths)
+    else:
+        optional_paths = {}
+
+    for evidence_label in sorted(OPTIONAL_DEFAULT_GATE_EVIDENCE_JSON_LABELS):
+        raw_path = optional_paths.get(evidence_label)
+        row: dict[str, Any] = {
+            "label": evidence_label,
+            "path": raw_path,
+            "exists": False,
+            "valid_json": None,
+            "passed_value": None,
+            "failures_value": None,
+            "optional": True,
+        }
+        if not isinstance(raw_path, str) or not raw_path:
+            row["failure"] = "missing_optional_evidence_path"
+            rows.append(row)
+            continue
+        evidence_path = _path_for_label(raw_path, root)
+        row["path_label"] = _path_label(evidence_path, root=root)
+        row["exists"] = evidence_path.exists()
+        if not evidence_path.exists():
+            row["failure"] = "missing_optional_file"
+            rows.append(row)
+            continue
+        if not evidence_path.is_file():
+            failures.append(f"{evidence_label}:not_file")
+            row["failure"] = "not_file"
+            rows.append(row)
+            continue
+        try:
+            evidence = json.loads(evidence_path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeDecodeError) as exc:
+            failures.append(f"{evidence_label}:read_failed")
+            row["valid_json"] = False
+            row["failure"] = f"read_failed:{type(exc).__name__}:{exc}"
+            rows.append(row)
+            continue
+        except json.JSONDecodeError as exc:
+            failures.append(f"{evidence_label}:invalid_json")
+            row["valid_json"] = False
+            row["failure"] = f"invalid_json:{exc.msg}"
+            rows.append(row)
+            continue
+        row["valid_json"] = True
+        row["passed_value"] = (
+            evidence.get("passed") if isinstance(evidence, dict) else None
+        )
+        row["failures_value"] = (
+            evidence.get("failures") if isinstance(evidence, dict) else None
+        )
+        if not isinstance(evidence, dict):
+            failures.append(f"{evidence_label}:json_not_object")
+            row["failure"] = "json_not_object"
+        elif evidence.get("passed") is not True:
+            failures.append(f"{evidence_label}:not_passed")
+            row["failure"] = "not_passed"
+        elif evidence.get("failures") != []:
+            failures.append(f"{evidence_label}:failures_not_empty")
+            row["failure"] = "failures_not_empty"
+        else:
+            content_failures = _validate_required_evidence_payload(
+                evidence_label,
+                evidence,
+                evidence_paths=combined_paths,
+                root=root,
+            )
+            if content_failures:
+                failures.extend(content_failures)
+                row["failure"] = "content_check_failed"
+                row["content_failures"] = content_failures
+        rows.append(row)
+    return {
+        "gate_path": label,
+        "passed": not failures,
+        "failures": failures,
+        "optional_labels": sorted(OPTIONAL_DEFAULT_GATE_EVIDENCE_JSON_LABELS),
+        "rows": rows,
+    }
 RISKY_TRACE_FLAGS = {
     "premap_kernel_arg_handoff_kernel_arg_pass_enabled",
     "premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled",
@@ -1186,6 +1331,10 @@ def run_premap_lab_preflight(
             defer_online_prelaunch_runner_evidence
         ),
     )
+    default_gate_optional_evidence_check = _check_optional_default_gate_evidence_json(
+        default_readonly_gate,
+        root=root,
+    )
     deferred_evidence_labels = (
         {ONLINE_PRELAUNCH_RUNNER_EVIDENCE_LABEL}
         if defer_online_prelaunch_runner_evidence
@@ -1248,6 +1397,8 @@ def run_premap_lab_preflight(
         failures.append("default_kernel_consumer_schema_check_failed")
     if not default_gate_required_evidence_check.get("passed", False):
         failures.append("default_readonly_gate_required_evidence_check_failed")
+    if not default_gate_optional_evidence_check.get("passed", False):
+        failures.append("default_readonly_gate_optional_evidence_check_failed")
     for label, result in risky_canary_metadata_checks.items():
         if not result.get("passed", False):
             failures.append(f"{label}:risky_canary_metadata_check_failed")
@@ -1277,6 +1428,9 @@ def run_premap_lab_preflight(
         "default_required_evidence_passed": bool(
             default_gate_required_evidence_check.get("passed", False)
         ),
+        "default_optional_evidence_passed": bool(
+            default_gate_optional_evidence_check.get("passed", False)
+        ),
         "runtime_gate_evidence_scan_passed": bool(
             runtime_scan.get("passed", False)
         ),
@@ -1304,6 +1458,9 @@ def run_premap_lab_preflight(
             if not result.get("passed", False)
         ),
         "required_evidence": evidence_summary,
+        "optional_evidence": _summarize_required_evidence_check(
+            default_gate_optional_evidence_check
+        ),
         "deferred_online_prelaunch_runner_evidence": bool(
             defer_online_prelaunch_runner_evidence
         ),
@@ -1344,6 +1501,9 @@ def run_premap_lab_preflight(
         ),
         "default_readonly_gate_required_evidence_check": (
             default_gate_required_evidence_check
+        ),
+        "default_readonly_gate_optional_evidence_check": (
+            default_gate_optional_evidence_check
         ),
         "risky_canary_metadata_checks": risky_canary_metadata_checks,
         "runtime_gate_evidence_scan": runtime_scan,
