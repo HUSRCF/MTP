@@ -54,8 +54,20 @@ Native debug support must be injected one flag at a time:
 1. `MTP_PREMAP_TYPED_CONSUMER_CHECK_SCHEMA`
 2. `MTP_PREMAP_TYPED_CONSUMER_CHECK_ROW_ITERATION`
 3. `MTP_PREMAP_TYPED_CONSUMER_CHECK_POINTER_VISIBILITY`
-4. `MTP_PREMAP_TYPED_CONSUMER_CHECK_LIFETIME`
-5. `MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR`
+4. `MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR`
+5. `MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_DESCRIPTOR`
+6. `MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_HANDLE`
+7. `MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_HANDLE`
+8. `MTP_PREMAP_TYPED_CONSUMER_CHECK_LIFETIME`
+9. `MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR`
+
+`CHECK_POINTER_VISIBILITY` is the coarse legacy visibility check for required
+handle columns. The per-field macros are the preferred ladder for future
+canaries because they let the native checker enable descriptor, packed-weight,
+scale-metadata, and optional aux-metadata validation independently.
+`CHECK_AUX_METADATA_HANDLE` is intentionally stricter than the base ABI: it
+requires the optional aux pointer to be present and non-zero, so it should only
+be used in canaries where the exported table is expected to carry aux metadata.
 
 The following flags are reserved for future canaries and are forbidden in the
 lab default gate:

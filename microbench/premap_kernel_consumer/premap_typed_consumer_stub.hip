@@ -105,6 +105,23 @@ __global__ void typed_consumer_kernel(
   ok &= static_cast<uint32_t>(scale != 0);
 #endif
 
+#if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR)
+  ok &= static_cast<uint32_t>(descriptor != 0);
+#endif
+
+#if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_DESCRIPTOR)
+  ok &= static_cast<uint32_t>(packed != 0);
+#endif
+
+#if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_HANDLE)
+  ok &= static_cast<uint32_t>(scale != 0);
+#endif
+
+#if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_HANDLE)
+  ok &= static_cast<uint32_t>(table.aux_metadata_handle != nullptr);
+  ok &= static_cast<uint32_t>(aux != 0);
+#endif
+
 #if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_LIFETIME)
   ok &= static_cast<uint32_t>(table.lifetime_epoch == 1);
   ok &= static_cast<uint32_t>(address_key != 0);
@@ -201,6 +218,30 @@ static std::string macro_json() {
 #endif
   os << ",\"MTP_PREMAP_TYPED_CONSUMER_CHECK_POINTER_VISIBILITY\":"
 #if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_POINTER_VISIBILITY)
+     << "true";
+#else
+     << "false";
+#endif
+  os << ",\"MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR\":"
+#if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR)
+     << "true";
+#else
+     << "false";
+#endif
+  os << ",\"MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_DESCRIPTOR\":"
+#if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_DESCRIPTOR)
+     << "true";
+#else
+     << "false";
+#endif
+  os << ",\"MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_HANDLE\":"
+#if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_HANDLE)
+     << "true";
+#else
+     << "false";
+#endif
+  os << ",\"MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_HANDLE\":"
+#if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_HANDLE)
      << "true";
 #else
      << "false";

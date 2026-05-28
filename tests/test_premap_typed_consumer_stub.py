@@ -26,7 +26,10 @@ def test_typed_consumer_stub_build_command_enables_schema_guard(tmp_path: Path):
     output = tmp_path / "stub"
 
     cmd = module.build_command(
-        macros=["MTP_PREMAP_TYPED_CONSUMER_CHECK_SCHEMA"],
+        macros=[
+            "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCHEMA",
+            "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_HANDLE",
+        ],
         offload_arch="gfx1100",
         output=output,
     )
@@ -41,6 +44,7 @@ def test_typed_consumer_stub_build_command_enables_schema_guard(tmp_path: Path):
         for item in cmd
     )
     assert "-DMTP_PREMAP_TYPED_CONSUMER_CHECK_SCHEMA=1" in cmd
+    assert "-DMTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_HANDLE=1" in cmd
     assert str(output) in cmd
 
 
@@ -69,6 +73,36 @@ def test_typed_consumer_stub_dry_run_writes_command(tmp_path: Path):
     payload = output.read_text(encoding="utf-8")
     assert "MTP_PREMAP_TYPED_CONSUMER_CHECK_ROW_ITERATION" in payload
     assert "expected_schema_hash" in payload
+
+
+def test_typed_consumer_stub_dry_run_accepts_per_field_macros(tmp_path: Path):
+    module = _load_module()
+    output = tmp_path / "dry_run_fields.json"
+
+    exit_code = module.main(
+        [
+            "--dry-run",
+            "--macro",
+            "MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR",
+            "--macro",
+            "MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_DESCRIPTOR",
+            "--macro",
+            "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_HANDLE",
+            "--macro",
+            "MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_HANDLE",
+            "--output-json",
+            str(output),
+        ]
+    )
+
+    assert exit_code == 0
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    assert payload["requested_macros"] == [
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_HANDLE",
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR",
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_DESCRIPTOR",
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_HANDLE",
+    ]
 
 
 def test_typed_consumer_stub_writes_binary_input_prefix(tmp_path: Path):

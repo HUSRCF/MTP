@@ -68,8 +68,16 @@ REQUIRED_STEPWISE_DEBUG_MACROS = {
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCHEMA",
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_ROW_ITERATION",
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_POINTER_VISIBILITY",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_DESCRIPTOR",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_HANDLE",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_HANDLE",
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_LIFETIME",
     "MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR",
+}
+ALLOWED_CURRENT_STATUS = {
+    "native_stub_pending",
+    "native_stub_online_canary_passed",
 }
 
 
@@ -236,12 +244,14 @@ def check_kernel_consumer_schema_artifact(path: Path) -> dict[str, Any]:
         "changes_kernel_launch_args_required": False,
         "passed_to_kernel_required": False,
         "live_compatible_with_current_wna16_args_required": False,
-        "current_status": "native_stub_pending",
     }
     for key, expected in expected_safety.items():
         observed = safety.get(key)
         if observed != expected:
             failures.append(f"safety_contract.{key}_mismatch:{observed!r}")
+    current_status = safety.get("current_status")
+    if current_status not in ALLOWED_CURRENT_STATUS:
+        failures.append(f"safety_contract.current_status_mismatch:{current_status!r}")
 
     flags = macro_ladder.get("flags")
     flags = flags if isinstance(flags, list) else []

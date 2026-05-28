@@ -98,7 +98,7 @@ safety_contract:
   changes_kernel_launch_args_required: false
   passed_to_kernel_required: false
   live_compatible_with_current_wna16_args_required: false
-  current_status: native_stub_pending
+  current_status: native_stub_online_canary_passed
 
 debug_macro_ladder:
   compile_guard_macro: MTP_PREMAP_TYPED_CONSUMER_SCHEMA_V1
@@ -115,6 +115,22 @@ debug_macro_ladder:
       default: disabled
       individually_enableable: true
       phase: pointer_visibility_no_deref
+    - name: MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR
+      default: disabled
+      individually_enableable: true
+      phase: descriptor_ptr_visibility_no_deref
+    - name: MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_DESCRIPTOR
+      default: disabled
+      individually_enableable: true
+      phase: packed_weight_descriptor_visibility_no_deref
+    - name: MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_HANDLE
+      default: disabled
+      individually_enableable: true
+      phase: scale_metadata_handle_visibility_no_deref
+    - name: MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_HANDLE
+      default: disabled
+      individually_enableable: true
+      phase: aux_metadata_handle_visibility_no_deref
     - name: MTP_PREMAP_TYPED_CONSUMER_CHECK_LIFETIME
       default: disabled
       individually_enableable: true

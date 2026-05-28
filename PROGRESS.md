@@ -19225,3 +19225,45 @@ This keeps the boundary explicit: prepared handle tables are valid typed
 semantic objects, but they cannot be used as current WNA16 tensor kernel
 arguments.  Real field replacement still requires a kernel-side typed consumer
 ABI rather than tuple/tensor impersonation.
+
+## Native typed-consumer per-field macro ladder
+
+The native HIP typed-consumer stub now supports one-field-at-a-time handle
+visibility checks in addition to the existing coarse pointer-visibility check:
+
+```text
+MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR
+MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_DESCRIPTOR
+MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_HANDLE
+MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_HANDLE
+```
+
+The existing forbidden macros remain forbidden in the lab default gate:
+
+```text
+MTP_PREMAP_TYPED_CONSUMER_ENABLE_PAYLOAD_DEREF
+MTP_PREMAP_TYPED_CONSUMER_ENABLE_KERNEL_ARG_PASS
+```
+
+Validation:
+
+```text
+typed_consumer_stub_per_field_macro_dry_run.json:
+  requested_macros =
+    CHECK_DESCRIPTOR_PTR
+    CHECK_SCALE_METADATA_HANDLE
+
+typed_consumer_stub_gpu1_online_prelaunch_input_per_field_canary.json:
+  row_count = 204
+  row_ok_count = 204
+  error_count = 0
+  CHECK_DESCRIPTOR_PTR = true
+  CHECK_PACKED_WEIGHT_DESCRIPTOR = true
+  CHECK_SCALE_METADATA_HANDLE = true
+  CHECK_AUX_METADATA_HANDLE = true
+  payload_bytes = 0
+  passed_to_kernel = false
+```
+
+This lets future canaries open descriptor, packed-weight, scale, or aux handle
+checks independently instead of enabling all source-level checks at once.

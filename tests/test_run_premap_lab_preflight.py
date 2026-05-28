@@ -137,6 +137,26 @@ def _valid_schema_payload() -> dict:
                     "individually_enableable": True,
                 },
                 {
+                    "name": "MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR",
+                    "default": "disabled",
+                    "individually_enableable": True,
+                },
+                {
+                    "name": "MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_DESCRIPTOR",
+                    "default": "disabled",
+                    "individually_enableable": True,
+                },
+                {
+                    "name": "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_HANDLE",
+                    "default": "disabled",
+                    "individually_enableable": True,
+                },
+                {
+                    "name": "MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_HANDLE",
+                    "default": "disabled",
+                    "individually_enableable": True,
+                },
+                {
                     "name": "MTP_PREMAP_TYPED_CONSUMER_CHECK_LIFETIME",
                     "default": "disabled",
                     "individually_enableable": True,
