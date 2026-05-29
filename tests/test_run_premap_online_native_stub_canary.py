@@ -8,6 +8,7 @@ import pytest
 from scripts.run_premap_online_native_stub_canary import (
     build_parser,
     exported_input_from_performance,
+    exported_inputs_from_performance,
     finalize_report_with_artifact_check,
     run_canary,
     trace_output_dir,
@@ -70,6 +71,34 @@ def test_exported_input_from_performance_rejects_unlisted_first_path(tmp_path: P
 
     with pytest.raises(ValueError, match="first_path is not listed"):
         exported_input_from_performance(perf)
+
+
+def test_exported_inputs_from_performance_selects_multiple_paths(tmp_path: Path):
+    inputs = []
+    for index in range(3):
+        online_input = tmp_path / f"online_input_{index}.json"
+        online_input.write_text("{}\n", encoding="utf-8")
+        inputs.append(online_input)
+    perf = tmp_path / "performance_summary.json"
+    perf.write_text(
+        json.dumps(
+            {
+                "runtime_shadow_premap_native_typed_consumer_input_export_enabled": True,
+                "runtime_shadow_premap_native_typed_consumer_input_export_count": 3,
+                "runtime_shadow_premap_native_typed_consumer_input_export_first_path": str(
+                    inputs[0]
+                ),
+                "runtime_shadow_premap_native_typed_consumer_input_export_paths": [
+                    str(path) for path in inputs
+                ],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    assert exported_inputs_from_performance(perf, max_inputs=2) == inputs[:2]
+    assert exported_inputs_from_performance(perf, max_inputs=0) == inputs
 
 
 def test_run_canary_dry_run_includes_compact_preflight_status(
@@ -168,6 +197,9 @@ def test_finalize_report_with_artifact_check_records_summary(
         assert env["PYTHONPATH"].startswith(str(tmp_path))
         output_index = cmd.index("--output-json") + 1
         assert Path(cmd[output_index]) == artifact_output
+        assert "--require-all-field-mirror-stubs" in cmd
+        min_index = cmd.index("--min-online-inputs") + 1
+        assert cmd[min_index] == "1"
         artifact_output.write_text(
             json.dumps(
                 {
@@ -175,6 +207,19 @@ def test_finalize_report_with_artifact_check_records_summary(
                     "failures": [],
                     "runner_stub_row_count": 4,
                     "runner_stub_row_ok_count": 4,
+                    "require_all_field_mirror_stubs": True,
+                    "min_online_inputs": 1,
+                    "runner_online_prelaunch_input_check_count": 1,
+                    "runner_online_prelaunch_input_extra_check_count": 0,
+                    "runner_online_prelaunch_input_extra_check_passed_count": 0,
+                    "runner_descriptor_ptr_mirror_stub_row_count": 4,
+                    "runner_descriptor_ptr_mirror_stub_row_ok_count": 4,
+                    "runner_packed_weight_mirror_stub_row_count": 4,
+                    "runner_packed_weight_mirror_stub_row_ok_count": 4,
+                    "runner_kernel_envelope_mirror_stub_row_count": 4,
+                    "runner_kernel_envelope_mirror_stub_row_ok_count": 4,
+                    "runner_aux_metadata_mirror_stub_row_count": 4,
+                    "runner_aux_metadata_mirror_stub_row_ok_count": 4,
                     "stage1_deferred_count": 1,
                     "final_deferred_count": 0,
                     "status_deferred_count": 0,
@@ -215,6 +260,19 @@ def test_finalize_report_with_artifact_check_records_summary(
         "failures": [],
         "runner_stub_row_count": 4,
         "runner_stub_row_ok_count": 4,
+        "require_all_field_mirror_stubs": True,
+        "min_online_inputs": 1,
+        "runner_online_prelaunch_input_check_count": 1,
+        "runner_online_prelaunch_input_extra_check_count": 0,
+        "runner_online_prelaunch_input_extra_check_passed_count": 0,
+        "runner_descriptor_ptr_mirror_stub_row_count": 4,
+        "runner_descriptor_ptr_mirror_stub_row_ok_count": 4,
+        "runner_packed_weight_mirror_stub_row_count": 4,
+        "runner_packed_weight_mirror_stub_row_ok_count": 4,
+        "runner_kernel_envelope_mirror_stub_row_count": 4,
+        "runner_kernel_envelope_mirror_stub_row_ok_count": 4,
+        "runner_aux_metadata_mirror_stub_row_count": 4,
+        "runner_aux_metadata_mirror_stub_row_ok_count": 4,
         "stage1_deferred_count": 1,
         "final_deferred_count": 0,
         "status_deferred_count": 0,

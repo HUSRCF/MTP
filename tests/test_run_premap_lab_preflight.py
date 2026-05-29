@@ -472,6 +472,66 @@ def _native_stub_per_field_evidence_payload(input_json: str) -> dict[str, object
     return payload
 
 
+def _runner_stub_summary() -> dict[str, object]:
+    return {
+        "passed": True,
+        "ok": True,
+        "row_count": 2,
+        "row_ok_count": 2,
+        "error_count": 0,
+        "payload_bytes": 0,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+    }
+
+
+def _runner_mirror_summary(field_name: str) -> dict[str, object]:
+    payload = _runner_stub_summary()
+    payload.update(
+        {
+            "single_field_mirror_checked": True,
+            "single_field_mirror_field_name": field_name,
+            "single_field_mirror_row_count": 2,
+            "single_field_mirror_row_ok_count": 2,
+            "single_field_mirror_error_count": 0,
+        }
+    )
+    if field_name == "scale_metadata_handle":
+        payload.update(
+            {
+                "kernel_consumer_envelope_checked": True,
+                "kernel_consumer_envelope_payload_bytes": 0,
+                "kernel_consumer_envelope_passed_to_kernel": False,
+            }
+        )
+    return payload
+
+
+def _runner_extra_input_summary(index: int = 1) -> dict[str, object]:
+    return {
+        "input_index": index,
+        "input_json": f"reports/native_online_prelaunch_input_{index:04d}.json",
+        "passed": True,
+        "failures": [],
+        "outputs": {
+            "native_stub": {"summary": _runner_stub_summary()},
+            "native_stub_per_field": {"summary": _runner_stub_summary()},
+            "native_stub_kernel_envelope_mirror": {
+                "summary": _runner_mirror_summary("scale_metadata_handle")
+            },
+            "native_stub_packed_weight_mirror": {
+                "summary": _runner_mirror_summary("packed_weight_descriptor")
+            },
+            "native_stub_aux_metadata_mirror": {
+                "summary": _runner_mirror_summary("aux_metadata_handle")
+            },
+            "native_stub_descriptor_ptr_mirror": {
+                "summary": _runner_mirror_summary("descriptor_ptr")
+            },
+        },
+    }
+
+
 def _write_gate(
     root: Path,
     name: str,
@@ -552,10 +612,14 @@ def _write_gate(
             json.dumps(
                 {
                     "runtime_shadow_premap_native_typed_consumer_input_export_enabled": True,
-                    "runtime_shadow_premap_native_typed_consumer_input_export_count": 1,
+                    "runtime_shadow_premap_native_typed_consumer_input_export_count": 16,
                     "runtime_shadow_premap_native_typed_consumer_input_export_first_path": native_online_input_path,
                     "runtime_shadow_premap_native_typed_consumer_input_export_paths": [
-                        native_online_input_path
+                        native_online_input_path,
+                        *[
+                            f"reports/{name}_native_online_prelaunch_input_{idx:04d}.json"
+                            for idx in range(1, 16)
+                        ],
                     ],
                 }
             )
@@ -568,21 +632,47 @@ def _write_gate(
                     "passed": True,
                     "failures": [],
                     "online_prelaunch_input_json": native_online_input_path,
+                    "online_prelaunch_input_check_count": 16,
+                    "online_prelaunch_input_extra_check_count": 15,
+                    "online_prelaunch_input_extra_check_passed_count": 15,
+                    "extra_online_input_check_summaries": [
+                        _runner_extra_input_summary(idx) for idx in range(1, 16)
+                    ],
                     "native_stub_output_json": native_online_stub_path,
                     "preflight_output_json": f"reports/{name}_preflight.json",
-                    "stub_summary": {
-                        "passed": True,
-                        "ok": True,
-                        "row_count": 2,
-                        "row_ok_count": 2,
-                        "error_count": 0,
-                        "payload_bytes": 0,
-                        "passed_to_kernel": False,
-                        "changes_kernel_launch_args": False,
-                    },
+                    "stub_summary": _runner_stub_summary(),
+                    "descriptor_ptr_mirror_stub_summary": (
+                        _runner_mirror_summary("descriptor_ptr")
+                    ),
+                    "packed_weight_mirror_stub_summary": (
+                        _runner_mirror_summary("packed_weight_descriptor")
+                    ),
+                    "kernel_envelope_mirror_stub_summary": (
+                        _runner_mirror_summary("scale_metadata_handle")
+                    ),
+                    "aux_metadata_mirror_stub_summary": (
+                        _runner_mirror_summary("aux_metadata_handle")
+                    ),
                     "preflight_summary": {
                         "passed": True,
                         "failures": [],
+                    },
+                    "artifact_check_summary": {
+                        "passed": True,
+                        "failures": [],
+                        "require_all_field_mirror_stubs": True,
+                        "min_online_inputs": 16,
+                        "runner_online_prelaunch_input_check_count": 16,
+                        "runner_online_prelaunch_input_extra_check_count": 15,
+                        "runner_online_prelaunch_input_extra_check_passed_count": 15,
+                        "runner_descriptor_ptr_mirror_stub_row_count": 2,
+                        "runner_descriptor_ptr_mirror_stub_row_ok_count": 2,
+                        "runner_packed_weight_mirror_stub_row_count": 2,
+                        "runner_packed_weight_mirror_stub_row_ok_count": 2,
+                        "runner_kernel_envelope_mirror_stub_row_count": 2,
+                        "runner_kernel_envelope_mirror_stub_row_ok_count": 2,
+                        "runner_aux_metadata_mirror_stub_row_count": 2,
+                        "runner_aux_metadata_mirror_stub_row_ok_count": 2,
                     },
                 }
             )

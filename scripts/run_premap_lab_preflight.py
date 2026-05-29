@@ -395,6 +395,130 @@ def _validate_required_evidence_payload(
                 failures.append("runner_preflight_summary_not_passed")
             if preflight_summary.get("failures") != []:
                 failures.append("runner_preflight_summary_failures_not_empty")
+        input_check_count = _int_metric(evidence, "online_prelaunch_input_check_count")
+        extra_check_count = _int_metric(
+            evidence,
+            "online_prelaunch_input_extra_check_count",
+        )
+        extra_passed_count = _int_metric(
+            evidence,
+            "online_prelaunch_input_extra_check_passed_count",
+        )
+        if input_check_count is None or input_check_count < 16:
+            failures.append("runner_online_input_check_count_invalid")
+            input_check_count = 0
+        expected_extra = max(input_check_count - 1, 0)
+        if extra_check_count != expected_extra:
+            failures.append("runner_online_input_extra_check_count_mismatch")
+        if extra_passed_count != expected_extra:
+            failures.append("runner_online_input_extra_check_passed_count_mismatch")
+
+        def _check_runner_stub_summary(summary: Any, prefix: str) -> None:
+            if not isinstance(summary, dict):
+                failures.append(f"{prefix}_missing")
+                return
+            for key, expected_value in {
+                "passed": True,
+                "ok": True,
+                "error_count": 0,
+                "payload_bytes": 0,
+                "passed_to_kernel": False,
+                "changes_kernel_launch_args": False,
+            }.items():
+                if summary.get(key) != expected_value:
+                    failures.append(f"{prefix}_{key}_mismatch")
+            row_count_value = _int_metric(summary, "row_count")
+            row_ok_count_value = _int_metric(summary, "row_ok_count")
+            if row_count_value is None or row_count_value <= 0:
+                failures.append(f"{prefix}_row_count_invalid")
+            if row_count_value is not None and row_ok_count_value != row_count_value:
+                failures.append(f"{prefix}_row_ok_count_mismatch")
+
+        def _check_runner_mirror_summary(
+            summary: Any,
+            prefix: str,
+            *,
+            expected_field_name: str,
+        ) -> None:
+            _check_runner_stub_summary(summary, prefix)
+            if not isinstance(summary, dict):
+                return
+            if summary.get("single_field_mirror_checked") is not True:
+                failures.append(f"{prefix}_single_field_mirror_checked_mismatch")
+            if summary.get("single_field_mirror_field_name") != expected_field_name:
+                failures.append(f"{prefix}_single_field_mirror_field_name_mismatch")
+            row_count_value = _int_metric(summary, "row_count")
+            mirror_row_count = _int_metric(summary, "single_field_mirror_row_count")
+            mirror_row_ok_count = _int_metric(
+                summary,
+                "single_field_mirror_row_ok_count",
+            )
+            if row_count_value is not None and mirror_row_count != row_count_value:
+                failures.append(f"{prefix}_single_field_mirror_row_count_mismatch")
+            if row_count_value is not None and mirror_row_ok_count != row_count_value:
+                failures.append(f"{prefix}_single_field_mirror_row_ok_count_mismatch")
+            if summary.get("single_field_mirror_error_count") != 0:
+                failures.append(f"{prefix}_single_field_mirror_error_count_mismatch")
+
+        for summary_key, expected_field_name in (
+            ("descriptor_ptr_mirror_stub_summary", "descriptor_ptr"),
+            ("packed_weight_mirror_stub_summary", "packed_weight_descriptor"),
+            ("kernel_envelope_mirror_stub_summary", "scale_metadata_handle"),
+            ("aux_metadata_mirror_stub_summary", "aux_metadata_handle"),
+        ):
+            _check_runner_mirror_summary(
+                evidence.get(summary_key),
+                f"runner_{summary_key}",
+                expected_field_name=expected_field_name,
+            )
+        extra_summaries = evidence.get("extra_online_input_check_summaries")
+        if not isinstance(extra_summaries, list):
+            failures.append("runner_extra_online_input_check_summaries_missing")
+            extra_summaries = []
+        elif len(extra_summaries) != expected_extra:
+            failures.append("runner_extra_online_input_check_summaries_count_mismatch")
+        expected_extra_labels = {
+            "native_stub": None,
+            "native_stub_per_field": None,
+            "native_stub_kernel_envelope_mirror": "scale_metadata_handle",
+            "native_stub_packed_weight_mirror": "packed_weight_descriptor",
+            "native_stub_aux_metadata_mirror": "aux_metadata_handle",
+            "native_stub_descriptor_ptr_mirror": "descriptor_ptr",
+        }
+        for index, suite in enumerate(extra_summaries[:expected_extra], start=1):
+            suite_prefix = f"runner_extra_input_{index:04d}"
+            if not isinstance(suite, dict):
+                failures.append(f"{suite_prefix}_invalid")
+                continue
+            if suite.get("passed") is not True:
+                failures.append(f"{suite_prefix}_not_passed")
+            if suite.get("failures") != []:
+                failures.append(f"{suite_prefix}_failures_not_empty")
+            outputs = suite.get("outputs")
+            if not isinstance(outputs, dict):
+                failures.append(f"{suite_prefix}_outputs_missing")
+                outputs = {}
+            for label, expected_field_name in expected_extra_labels.items():
+                entry = outputs.get(label)
+                label_prefix = f"{suite_prefix}_{label}"
+                if not isinstance(entry, dict):
+                    failures.append(f"{label_prefix}_missing")
+                    continue
+                summary = entry.get("summary")
+                if expected_field_name is None:
+                    _check_runner_stub_summary(summary, label_prefix)
+                else:
+                    _check_runner_mirror_summary(
+                        summary,
+                        label_prefix,
+                        expected_field_name=expected_field_name,
+                    )
+        artifact_check_summary = evidence.get("artifact_check_summary")
+        if isinstance(artifact_check_summary, dict):
+            if artifact_check_summary.get("passed") is not True:
+                failures.append("runner_artifact_check_summary_not_passed")
+            if artifact_check_summary.get("failures") != []:
+                failures.append("runner_artifact_check_summary_failures_not_empty")
         return [f"{evidence_label}:{failure}" for failure in failures]
     if evidence_label in known_stub_labels:
         expected_input_path = None

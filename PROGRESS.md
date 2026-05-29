@@ -19798,3 +19798,101 @@ aux_metadata_handle
 
 This completes ABI row-adapter field coverage for the no-op native bridge.  It
 is still not a live WNA16 kernel-argument handoff.
+
+## Strict 128-sample field-mirror lab gate
+
+The field-level canaries are now part of the default lab preflight path rather
+than only single-input online smokes.
+
+Implementation updates:
+
+```text
+run_premap_online_native_stub_canary.py:
+  - supports --max-online-inputs
+  - runs the native stub suite over multiple exported online prelaunch tables
+  - records per-input pass/failure summaries
+
+check_premap_online_native_stub_canary_artifacts.py:
+  - requires all field mirror stubs when requested
+  - supports --min-online-inputs
+  - validates descriptor_ptr / packed_weight / scale_metadata / aux_metadata
+    mirror row counts and no-op safety fields
+
+run_premap_lab_preflight.py:
+  - directly validates the runner multi-input and field-mirror evidence
+  - does not require artifact_check_summary, avoiding a runner/preflight
+    artifact-check cycle
+  - requires all field mirror stubs
+  - requires min_online_inputs >= 16 for the online prelaunch runner evidence
+```
+
+The 128-sample AWQ/vLLM audit now exports online typed-consumer inputs with
+stride sampling:
+
+```text
+config:
+  configs/trace/router_mtp_trace_external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_native_input_export_audit_mem70.yaml
+
+output:
+  data/traces/external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_native_input_export_audit_mem70_stride320
+
+export_count = 16
+export_stride = 320
+unique_samples = [0, 4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60]
+unique_layers = [0]
+```
+
+Strict native field-mirror runner:
+
+```text
+outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_runner_dolly128_stride320_field_gate.json:
+  passed = true
+  online_prelaunch_input_check_count = 16
+  online_prelaunch_input_extra_check_passed_count = 15
+
+artifact_check_summary:
+  passed = true
+  require_all_field_mirror_stubs = true
+  min_online_inputs = 16
+  runner_descriptor_ptr_mirror_stub_row_count = 174
+  runner_descriptor_ptr_mirror_stub_row_ok_count = 174
+  runner_packed_weight_mirror_stub_row_count = 174
+  runner_packed_weight_mirror_stub_row_ok_count = 174
+  runner_kernel_envelope_mirror_stub_row_count = 174
+  runner_kernel_envelope_mirror_stub_row_ok_count = 174
+  runner_aux_metadata_mirror_stub_row_count = 174
+  runner_aux_metadata_mirror_stub_row_ok_count = 174
+```
+
+The default readonly lab gate now points to this 128-sample stride artifact.
+Preflight status:
+
+```text
+outputs/reports/premap_lab_preflight_status_strict_field_mirror_128_stride320.json:
+  passed = true
+  required_evidence = 10 / 10
+  optional_evidence = 1 / 1
+  runtime_gate_evidence_deferred_count = 0
+  strict_default_gate_evidence_deferred_count = 0
+```
+
+Safety boundary remains unchanged:
+
+```text
+payload_bytes = 0
+ready_credit = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+```
+
+This promotes the typed handle field coverage from single online input evidence
+to a stricter long-run lab preflight gate.  The next step is a kernel-side
+compatible consumer path that reads this typed schema directly, still without
+pretending the typed table is a current WNA16 kernel argument.
+
+Validation:
+
+```text
+conda run -p /home/husrcf/anaconda3/envs/TRY pytest tests -q
+  690 passed, 2 warnings
+```

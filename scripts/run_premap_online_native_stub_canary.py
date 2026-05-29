@@ -167,7 +167,11 @@ def trace_output_dir(config_path: Path) -> Path:
     return _resolve_repo_path(raw_output)
 
 
-def exported_input_from_performance(performance_path: Path) -> Path:
+def exported_inputs_from_performance(
+    performance_path: Path,
+    *,
+    max_inputs: int | None = 1,
+) -> list[Path]:
     payload = json.loads(performance_path.read_text(encoding="utf-8"))
     if not isinstance(payload, dict):
         raise ValueError(f"performance summary must be an object: {performance_path}")
@@ -184,10 +188,27 @@ def exported_input_from_performance(performance_path: Path) -> Path:
     paths = payload.get("runtime_shadow_premap_native_typed_consumer_input_export_paths")
     if not isinstance(paths, list) or first not in paths:
         raise ValueError("online typed-consumer export first_path is not listed")
-    input_path = _resolve_repo_path(first)
-    if not input_path.exists():
-        raise FileNotFoundError(input_path)
-    return input_path
+    if max_inputs is not None and max_inputs < 0:
+        raise ValueError(f"max_inputs must be non-negative or None: {max_inputs}")
+    selected_raw = paths if max_inputs in (None, 0) else paths[:max_inputs]
+    input_paths: list[Path] = []
+    for raw_path in selected_raw:
+        if not isinstance(raw_path, str) or not raw_path:
+            continue
+        input_path = _resolve_repo_path(raw_path)
+        if not input_path.exists():
+            raise FileNotFoundError(input_path)
+        input_paths.append(input_path)
+    if not input_paths:
+        raise ValueError("no exported online typed-consumer inputs selected")
+    first_path = _resolve_repo_path(first)
+    if input_paths[0] != first_path:
+        raise ValueError("selected online typed-consumer inputs must start with first_path")
+    return input_paths
+
+
+def exported_input_from_performance(performance_path: Path) -> Path:
+    return exported_inputs_from_performance(performance_path, max_inputs=1)[0]
 
 
 def _base_env(*, gpu_index: int | None) -> dict[str, str]:
@@ -260,6 +281,16 @@ def _stub_command(
     return cmd
 
 
+def _indexed_output_path(path: Path, input_index: int) -> Path:
+    if input_index == 0:
+        return path
+    return path.with_name(f"{path.stem}_input{input_index:04d}{path.suffix}")
+
+
+def _stub_summary(payload: dict[str, Any], keys: tuple[str, ...]) -> dict[str, Any]:
+    return {key: payload.get(key) for key in keys}
+
+
 def _preflight_command(*, output_json: Path, summary_only: bool, defer_runner: bool) -> list[str]:
     cmd = [sys.executable, "scripts/run_premap_lab_preflight.py"]
     if summary_only:
@@ -276,6 +307,7 @@ def _artifact_check_command(
     preflight_json: Path,
     status_json: Path,
     output_json: Path,
+    min_online_inputs: int = 1,
 ) -> list[str]:
     return [
         sys.executable,
@@ -288,6 +320,9 @@ def _artifact_check_command(
         str(status_json),
         "--output-json",
         str(output_json),
+        "--require-all-field-mirror-stubs",
+        "--min-online-inputs",
+        str(int(min_online_inputs)),
     ]
 
 
@@ -319,10 +354,15 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
             env=env,
             dry_run=bool(args.dry_run),
         )
+    max_online_inputs = int(args.max_online_inputs)
     if args.dry_run:
-        input_path = Path("<dry-run-online-input>")
+        input_paths = [Path("<dry-run-online-input>")]
     else:
-        input_path = exported_input_from_performance(performance_path)
+        input_paths = exported_inputs_from_performance(
+            performance_path,
+            max_inputs=None if max_online_inputs == 0 else max_online_inputs,
+        )
+    input_path = input_paths[0]
 
     stub_output = _resolve_repo_path(args.stub_output_json)
     if not args.skip_stub:
@@ -409,6 +449,105 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
             env=env,
             dry_run=bool(args.dry_run),
         )
+
+    extra_input_check_summaries: list[dict[str, Any]] = []
+    for input_index, extra_input_path in enumerate(input_paths[1:], start=1):
+        suite: dict[str, Any] = {
+            "input_index": input_index,
+            "input_json": str(extra_input_path),
+            "passed": True,
+            "failures": [],
+            "outputs": {},
+        }
+        for label, skip_label, macros, base_output in (
+            ("native_stub", "skip_stub", STUB_MACROS, stub_output),
+            (
+                "native_stub_per_field",
+                "skip_per_field_stub",
+                PER_FIELD_STUB_MACROS,
+                per_field_stub_output,
+            ),
+            (
+                "native_stub_kernel_envelope_mirror",
+                "skip_envelope_mirror_stub",
+                ENVELOPE_MIRROR_STUB_MACROS,
+                envelope_mirror_stub_output,
+            ),
+            (
+                "native_stub_packed_weight_mirror",
+                "skip_packed_weight_mirror_stub",
+                PACKED_WEIGHT_MIRROR_STUB_MACROS,
+                packed_weight_mirror_stub_output,
+            ),
+            (
+                "native_stub_aux_metadata_mirror",
+                "skip_aux_metadata_mirror_stub",
+                AUX_METADATA_MIRROR_STUB_MACROS,
+                aux_metadata_mirror_stub_output,
+            ),
+            (
+                "native_stub_descriptor_ptr_mirror",
+                "skip_descriptor_ptr_mirror_stub",
+                DESCRIPTOR_PTR_MIRROR_STUB_MACROS,
+                descriptor_ptr_mirror_stub_output,
+            ),
+        ):
+            if bool(args.skip_stub) or bool(getattr(args, skip_label, False)):
+                continue
+            output_path = _indexed_output_path(base_output, input_index)
+            step_key = f"{label}_input{input_index:04d}"
+            steps[step_key] = _run(
+                _stub_command(
+                    input_json=extra_input_path,
+                    output_json=output_path,
+                    device=int(args.stub_device),
+                    offload_arch=str(args.offload_arch),
+                    macros=macros,
+                ),
+                env=env,
+                dry_run=bool(args.dry_run),
+            )
+            stub_result = {} if args.dry_run else _load_json_if_exists(output_path)
+            output_summary = _stub_summary(
+                stub_result,
+                (
+                    "passed",
+                    "ok",
+                    "row_count",
+                    "row_ok_count",
+                    "error_count",
+                    "payload_bytes",
+                    "passed_to_kernel",
+                    "changes_kernel_launch_args",
+                    "kernel_consumer_envelope_checked",
+                    "kernel_consumer_envelope_payload_bytes",
+                    "kernel_consumer_envelope_passed_to_kernel",
+                    "single_field_mirror_checked",
+                    "single_field_mirror_field_name",
+                    "single_field_mirror_row_count",
+                    "single_field_mirror_row_ok_count",
+                    "single_field_mirror_error_count",
+                    "input_json",
+                ),
+            )
+            output_entry = {
+                "output_json": str(output_path),
+                "summary": output_summary,
+            }
+            suite_outputs = suite["outputs"]
+            if isinstance(suite_outputs, dict):
+                suite_outputs[label] = output_entry
+            if not args.dry_run:
+                if stub_result.get("passed") is not True:
+                    suite["passed"] = False
+                    suite["failures"].append(f"{label}_not_passed")
+                if stub_result.get("input_json") is None:
+                    suite["passed"] = False
+                    suite["failures"].append(f"{label}_input_json_missing")
+                elif _resolve_repo_path(str(stub_result.get("input_json"))) != extra_input_path:
+                    suite["passed"] = False
+                    suite["failures"].append(f"{label}_input_json_mismatch")
+        extra_input_check_summaries.append(suite)
     preflight_output = _resolve_repo_path(args.preflight_output_json)
     preflight_status_output = _resolve_repo_path(args.preflight_status_output_json)
     if not args.skip_preflight:
@@ -535,6 +674,10 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
             == "descriptor_ptr"
         )
     )
+    extra_input_checks_passed = bool(
+        args.dry_run
+        or all(item.get("passed") is True for item in extra_input_check_summaries)
+    )
     passed = bool(
         args.dry_run
         or (
@@ -546,6 +689,7 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
             and packed_weight_mirror_passed
             and aux_metadata_mirror_passed
             and descriptor_ptr_mirror_passed
+            and extra_input_checks_passed
             and preflight_payload.get("passed") is True
             and preflight_status_payload.get("passed") is True
         )
@@ -649,6 +793,8 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
             != "descriptor_ptr"
         ):
             failures.append("native_stub_descriptor_ptr_mirror_field_name_mismatch")
+    if not extra_input_checks_passed:
+        failures.append("extra_online_input_stub_check_not_passed")
 
     required_evidence = preflight_status_payload.get("required_evidence")
     if not isinstance(required_evidence, dict):
@@ -664,6 +810,13 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
         "trace_output_dir": str(output_dir),
         "performance_summary": str(performance_path),
         "online_prelaunch_input_json": str(input_path),
+        "online_prelaunch_input_jsons": [str(path) for path in input_paths],
+        "online_prelaunch_input_check_count": len(input_paths),
+        "online_prelaunch_input_extra_check_count": len(extra_input_check_summaries),
+        "online_prelaunch_input_extra_check_passed_count": sum(
+            1 for item in extra_input_check_summaries if item.get("passed") is True
+        ),
+        "extra_online_input_check_summaries": extra_input_check_summaries,
         "native_stub_output_json": str(stub_output),
         "per_field_native_stub_output_json": str(per_field_stub_output),
         "kernel_envelope_mirror_native_stub_output_json": str(
@@ -958,6 +1111,7 @@ def finalize_report_with_artifact_check(
             preflight_json=_resolve_repo_path(args.preflight_output_json),
             status_json=_resolve_repo_path(args.preflight_status_output_json),
             output_json=artifact_output,
+            min_online_inputs=int(args.min_artifact_online_inputs),
         ),
         env=env,
         dry_run=False,
@@ -970,6 +1124,43 @@ def finalize_report_with_artifact_check(
         "failures": artifact_payload.get("failures"),
         "runner_stub_row_count": artifact_payload.get("runner_stub_row_count"),
         "runner_stub_row_ok_count": artifact_payload.get("runner_stub_row_ok_count"),
+        "require_all_field_mirror_stubs": artifact_payload.get(
+            "require_all_field_mirror_stubs"
+        ),
+        "min_online_inputs": artifact_payload.get("min_online_inputs"),
+        "runner_online_prelaunch_input_check_count": artifact_payload.get(
+            "runner_online_prelaunch_input_check_count"
+        ),
+        "runner_online_prelaunch_input_extra_check_count": artifact_payload.get(
+            "runner_online_prelaunch_input_extra_check_count"
+        ),
+        "runner_online_prelaunch_input_extra_check_passed_count": artifact_payload.get(
+            "runner_online_prelaunch_input_extra_check_passed_count"
+        ),
+        "runner_descriptor_ptr_mirror_stub_row_count": artifact_payload.get(
+            "runner_descriptor_ptr_mirror_stub_row_count"
+        ),
+        "runner_descriptor_ptr_mirror_stub_row_ok_count": artifact_payload.get(
+            "runner_descriptor_ptr_mirror_stub_row_ok_count"
+        ),
+        "runner_packed_weight_mirror_stub_row_count": artifact_payload.get(
+            "runner_packed_weight_mirror_stub_row_count"
+        ),
+        "runner_packed_weight_mirror_stub_row_ok_count": artifact_payload.get(
+            "runner_packed_weight_mirror_stub_row_ok_count"
+        ),
+        "runner_kernel_envelope_mirror_stub_row_count": artifact_payload.get(
+            "runner_kernel_envelope_mirror_stub_row_count"
+        ),
+        "runner_kernel_envelope_mirror_stub_row_ok_count": artifact_payload.get(
+            "runner_kernel_envelope_mirror_stub_row_ok_count"
+        ),
+        "runner_aux_metadata_mirror_stub_row_count": artifact_payload.get(
+            "runner_aux_metadata_mirror_stub_row_count"
+        ),
+        "runner_aux_metadata_mirror_stub_row_ok_count": artifact_payload.get(
+            "runner_aux_metadata_mirror_stub_row_ok_count"
+        ),
         "stage1_deferred_count": artifact_payload.get("stage1_deferred_count"),
         "final_deferred_count": artifact_payload.get("final_deferred_count"),
         "status_deferred_count": artifact_payload.get("status_deferred_count"),
@@ -990,6 +1181,21 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--gpu-index", type=int, default=1)
     parser.add_argument("--stub-device", type=int, default=0)
     parser.add_argument("--offload-arch", default="gfx1100")
+    parser.add_argument(
+        "--max-online-inputs",
+        type=int,
+        default=1,
+        help=(
+            "Maximum exported online prelaunch inputs to feed through the "
+            "native stub suite. Use 0 to check every exported input."
+        ),
+    )
+    parser.add_argument(
+        "--min-artifact-online-inputs",
+        type=int,
+        default=1,
+        help="Minimum online prelaunch inputs required by the artifact checker.",
+    )
     parser.add_argument("--stub-output-json", type=Path, default=DEFAULT_STUB_OUTPUT)
     parser.add_argument(
         "--per-field-stub-output-json",

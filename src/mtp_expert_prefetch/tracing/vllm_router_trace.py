@@ -1275,6 +1275,7 @@ class VllmRouterRecorder:
     )
     shadow_premap_native_typed_consumer_input_export_max_tables: int = 0
     shadow_premap_native_typed_consumer_input_export_max_rows: int = 4096
+    shadow_premap_native_typed_consumer_input_export_stride: int = 1
     shadow_premap_native_typed_consumer_input_export_paths: list[str] | None = None
     shadow_premap_address_namespace: str = "expert_weight_descriptor"
     shadow_premap_priority: int = 2
@@ -1372,6 +1373,11 @@ class VllmRouterRecorder:
         init=False,
         repr=False,
     )
+    _premap_native_typed_consumer_input_export_seen_count: int = field(
+        default=0,
+        init=False,
+        repr=False,
+    )
     _premap_consumer_mapping_call_count: int = field(default=0, repr=False)
     _premap_summary_call_count: int = field(default=0, repr=False)
     _descriptor_order_prior_rank_tensor_cache: dict[tuple[Any, ...], torch.Tensor] = (
@@ -1429,6 +1435,13 @@ class VllmRouterRecorder:
         row_count = int(getattr(table_object, "row_count", 0))
         max_rows = int(self.shadow_premap_native_typed_consumer_input_export_max_rows)
         if max_rows > 0 and row_count > max_rows:
+            return None
+        stride = int(self.shadow_premap_native_typed_consumer_input_export_stride)
+        if stride <= 0:
+            stride = 1
+        candidate_index = int(self._premap_native_typed_consumer_input_export_seen_count)
+        self._premap_native_typed_consumer_input_export_seen_count += 1
+        if candidate_index % stride != 0:
             return None
         export_dir_raw = self.shadow_premap_native_typed_consumer_input_export_dir
         if not export_dir_raw:
@@ -14747,6 +14760,12 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
             "premap_native_typed_consumer_input",
         )
     )
+    runtime_shadow_premap_native_typed_consumer_input_export_stride = int(
+        runtime_shadow_options.get(
+            "premap_native_typed_consumer_input_export_stride",
+            1,
+        )
+    )
     runtime_shadow_premap_native_typed_consumer_input_export_paths: list[str] = []
     manifest_path = output_dir / "manifest.jsonl"
     sample_timing_path = output_dir / "sample_timing.jsonl"
@@ -14916,6 +14935,9 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
         ),
         "runtime_shadow_premap_native_typed_consumer_input_export_prefix": (
             runtime_shadow_premap_native_typed_consumer_input_export_prefix
+        ),
+        "runtime_shadow_premap_native_typed_consumer_input_export_stride": int(
+            runtime_shadow_premap_native_typed_consumer_input_export_stride
         ),
         "runtime_shadow_premap_native_typed_consumer_input_export_max_tables": int(
             runtime_shadow_options.get(
@@ -15396,6 +15418,9 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                             ),
                             shadow_premap_native_typed_consumer_input_export_prefix=(
                                 runtime_shadow_premap_native_typed_consumer_input_export_prefix
+                            ),
+                            shadow_premap_native_typed_consumer_input_export_stride=int(
+                                runtime_shadow_premap_native_typed_consumer_input_export_stride
                             ),
                             shadow_premap_native_typed_consumer_input_export_max_tables=int(
                                 runtime_shadow_options.get(

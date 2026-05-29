@@ -113,6 +113,8 @@ def check_online_native_stub_canary_artifacts(
     runner_json: Path = DEFAULT_RUNNER_JSON,
     preflight_json: Path = DEFAULT_PREFLIGHT_JSON,
     status_json: Path = DEFAULT_STATUS_JSON,
+    require_all_field_mirror_stubs: bool = False,
+    min_online_inputs: int = 1,
 ) -> dict[str, Any]:
     root = root.resolve()
     runner_path = _resolve(root, runner_json)
@@ -292,6 +294,8 @@ def check_online_native_stub_canary_artifacts(
     envelope_mirror_row_count: int | None = None
     envelope_mirror_row_ok_count: int | None = None
     envelope_mirror_stub = runner.get("kernel_envelope_mirror_stub_summary")
+    if require_all_field_mirror_stubs and envelope_mirror_stub is None:
+        failures.append("runner_kernel_envelope_mirror_stub_summary_required")
     if envelope_mirror_stub is not None:
         envelope_mirror_row_count, envelope_mirror_row_ok_count = (
             _check_single_field_mirror_summary(
@@ -305,6 +309,8 @@ def check_online_native_stub_canary_artifacts(
     packed_weight_mirror_row_count: int | None = None
     packed_weight_mirror_row_ok_count: int | None = None
     packed_weight_mirror_stub = runner.get("packed_weight_mirror_stub_summary")
+    if require_all_field_mirror_stubs and packed_weight_mirror_stub is None:
+        failures.append("runner_packed_weight_mirror_stub_summary_required")
     if packed_weight_mirror_stub is not None:
         packed_weight_mirror_row_count, packed_weight_mirror_row_ok_count = (
             _check_single_field_mirror_summary(
@@ -317,6 +323,8 @@ def check_online_native_stub_canary_artifacts(
     aux_metadata_mirror_row_count: int | None = None
     aux_metadata_mirror_row_ok_count: int | None = None
     aux_metadata_mirror_stub = runner.get("aux_metadata_mirror_stub_summary")
+    if require_all_field_mirror_stubs and aux_metadata_mirror_stub is None:
+        failures.append("runner_aux_metadata_mirror_stub_summary_required")
     if aux_metadata_mirror_stub is not None:
         aux_metadata_mirror_row_count, aux_metadata_mirror_row_ok_count = (
             _check_single_field_mirror_summary(
@@ -329,6 +337,8 @@ def check_online_native_stub_canary_artifacts(
     descriptor_ptr_mirror_row_count: int | None = None
     descriptor_ptr_mirror_row_ok_count: int | None = None
     descriptor_ptr_mirror_stub = runner.get("descriptor_ptr_mirror_stub_summary")
+    if require_all_field_mirror_stubs and descriptor_ptr_mirror_stub is None:
+        failures.append("runner_descriptor_ptr_mirror_stub_summary_required")
     if descriptor_ptr_mirror_stub is not None:
         descriptor_ptr_mirror_row_count, descriptor_ptr_mirror_row_ok_count = (
             _check_single_field_mirror_summary(
@@ -338,6 +348,87 @@ def check_online_native_stub_canary_artifacts(
                 failures=failures,
             )
         )
+
+    online_input_check_count = _int(runner.get("online_prelaunch_input_check_count"))
+    if online_input_check_count is None:
+        if int(min_online_inputs) > 1:
+            failures.append("runner_online_prelaunch_input_check_count_missing")
+        online_input_check_count = 1
+    if online_input_check_count < int(min_online_inputs):
+        failures.append("runner_online_prelaunch_input_check_count_below_min")
+    extra_input_check_count = _int(
+        runner.get("online_prelaunch_input_extra_check_count")
+    )
+    extra_input_check_passed_count = _int(
+        runner.get("online_prelaunch_input_extra_check_passed_count")
+    )
+    if online_input_check_count > 1:
+        expected_extra = online_input_check_count - 1
+        if extra_input_check_count != expected_extra:
+            failures.append("runner_online_prelaunch_input_extra_check_count_mismatch")
+        if extra_input_check_passed_count != expected_extra:
+            failures.append(
+                "runner_online_prelaunch_input_extra_check_passed_count_mismatch"
+            )
+        extra_summaries = runner.get("extra_online_input_check_summaries")
+        if not isinstance(extra_summaries, list):
+            failures.append("runner_extra_online_input_check_summaries_missing")
+            extra_summaries = []
+        elif len(extra_summaries) != expected_extra:
+            failures.append("runner_extra_online_input_check_summaries_count_mismatch")
+        expected_labels: dict[str, tuple[str | None, bool]] = {
+            "native_stub": (None, False),
+            "native_stub_per_field": (None, False),
+        }
+        if require_all_field_mirror_stubs:
+            expected_labels.update(
+                {
+                    "native_stub_kernel_envelope_mirror": (
+                        "scale_metadata_handle",
+                        True,
+                    ),
+                    "native_stub_packed_weight_mirror": (
+                        "packed_weight_descriptor",
+                        False,
+                    ),
+                    "native_stub_aux_metadata_mirror": ("aux_metadata_handle", False),
+                    "native_stub_descriptor_ptr_mirror": ("descriptor_ptr", False),
+                }
+            )
+        for index, suite in enumerate(extra_summaries[:expected_extra], start=1):
+            prefix = f"runner_extra_input_{index:04d}"
+            if not isinstance(suite, dict):
+                failures.append(f"{prefix}_summary_invalid")
+                continue
+            if suite.get("passed") is not True:
+                failures.append(f"{prefix}_not_passed")
+            if suite.get("failures") != []:
+                failures.append(f"{prefix}_failures_not_empty")
+            outputs = suite.get("outputs")
+            if not isinstance(outputs, dict):
+                failures.append(f"{prefix}_outputs_missing")
+                outputs = {}
+            for label, (expected_field, require_envelope) in expected_labels.items():
+                entry = outputs.get(label)
+                label_prefix = f"{prefix}_{label}"
+                if not isinstance(entry, dict):
+                    failures.append(f"{label_prefix}_missing")
+                    continue
+                summary = entry.get("summary")
+                if expected_field is None:
+                    _check_stub_summary(
+                        summary,
+                        prefix=label_prefix,
+                        failures=failures,
+                    )
+                else:
+                    _check_single_field_mirror_summary(
+                        summary,
+                        prefix=label_prefix,
+                        expected_field_name=expected_field,
+                        failures=failures,
+                        require_envelope=require_envelope,
+                    )
 
     return {
         "passed": not failures,
@@ -367,6 +458,13 @@ def check_online_native_stub_canary_artifacts(
         "runner_descriptor_ptr_mirror_stub_row_ok_count": (
             descriptor_ptr_mirror_row_ok_count
         ),
+        "require_all_field_mirror_stubs": bool(require_all_field_mirror_stubs),
+        "min_online_inputs": int(min_online_inputs),
+        "runner_online_prelaunch_input_check_count": online_input_check_count,
+        "runner_online_prelaunch_input_extra_check_count": extra_input_check_count,
+        "runner_online_prelaunch_input_extra_check_passed_count": (
+            extra_input_check_passed_count
+        ),
         "stage1_deferred_count": stage1.get("runtime_gate_evidence_deferred_count"),
         "final_deferred_count": final.get("runtime_gate_evidence_deferred_count"),
         "status_deferred_count": status.get("runtime_gate_evidence_deferred_count"),
@@ -380,6 +478,8 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--preflight-json", type=Path, default=DEFAULT_PREFLIGHT_JSON)
     parser.add_argument("--status-json", type=Path, default=DEFAULT_STATUS_JSON)
     parser.add_argument("--output-json", type=Path)
+    parser.add_argument("--require-all-field-mirror-stubs", action="store_true")
+    parser.add_argument("--min-online-inputs", type=int, default=1)
     return parser
 
 
@@ -390,6 +490,8 @@ def main(argv: list[str] | None = None) -> int:
         runner_json=args.runner_json,
         preflight_json=args.preflight_json,
         status_json=args.status_json,
+        require_all_field_mirror_stubs=args.require_all_field_mirror_stubs,
+        min_online_inputs=int(args.min_online_inputs),
     )
     payload = json.dumps(result, indent=2, sort_keys=True)
     if args.output_json is not None:
