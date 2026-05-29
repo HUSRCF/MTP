@@ -83,6 +83,13 @@ PREMAP_KERNEL_SIDE_TYPED_CONSUMER_SCHEMA_FIELDS = (
 PREMAP_KERNEL_SIDE_TYPED_CONSUMER_SCHEMA_HASH = hashlib.sha256(
     "|".join(PREMAP_KERNEL_SIDE_TYPED_CONSUMER_SCHEMA_FIELDS).encode("utf-8")
 ).hexdigest()
+PREMAP_KERNEL_SIDE_TYPED_CONSUMER_PATH_NAME = (
+    "premap_kernel_side_typed_consumer_path_v1"
+)
+PREMAP_KERNEL_SIDE_TYPED_CONSUMER_PATH_MODE = "readonly_typed_row_consumer_path"
+PREMAP_KERNEL_SIDE_TYPED_CONSUMER_PATH_SOURCE = (
+    "vllm_prelaunch_prepared_handle_table"
+)
 
 
 @dataclass
@@ -340,6 +347,24 @@ def _handle_to_native_u64(value: str | int | None) -> int:
         parsed = int(hashlib.sha256(text.encode("utf-8")).hexdigest()[:16], 16)
     parsed &= 0xFFFFFFFFFFFFFFFF
     return parsed if parsed != 0 else 1
+
+
+def _mix64(value: int) -> int:
+    value = int(value) & 0xFFFFFFFFFFFFFFFF
+    value ^= value >> 33
+    value = (value * 0xFF51AFD7ED558CCD) & 0xFFFFFFFFFFFFFFFF
+    value ^= value >> 33
+    value = (value * 0xC4CEB9FE1A85EC53) & 0xFFFFFFFFFFFFFFFF
+    value ^= value >> 33
+    return value & 0xFFFFFFFFFFFFFFFF
+
+
+def _digest_to_u64(value: str | None) -> int:
+    text = str(value or "")
+    if not text:
+        return 0
+    digest = text if len(text) >= 16 else hashlib.sha256(text.encode("utf-8")).hexdigest()
+    return int(digest[:16], 16) & 0xFFFFFFFFFFFFFFFF
 
 
 def _expert_id_from_address_key(address_key: str) -> int:
@@ -1853,6 +1878,85 @@ class PremapDescriptorConsumerReadResult:
 
 
 @dataclass(frozen=True)
+class PremapKernelSideTypedRowConsumerPathCheck:
+    """Readonly online check for the future kernel-side typed row consumer path.
+
+    This mirrors the native stub's row-consumer contract at the vLLM prelaunch
+    boundary without invoking a kernel, moving payloads, or mutating launch
+    arguments.  It is intentionally a future-ABI check rather than a current
+    WNA16 argument compatibility claim.
+    """
+
+    mode: str
+    path_name: str
+    source: str
+    input_hash: str
+    table_object_hash: str
+    schema_hash: str
+    row_count: int
+    column_count: int
+    row_ok_count: int
+    error_count: int
+    hash_accumulator: str
+    failures: tuple[str, ...] = ()
+    payload_bytes: int = 0
+    passed_to_kernel: bool = False
+    changes_kernel_launch_args: bool = False
+    current_wna16_arg_compatible: bool = False
+
+    @property
+    def checked(self) -> bool:
+        return self.mode == PREMAP_KERNEL_SIDE_TYPED_CONSUMER_PATH_MODE
+
+    @property
+    def ready(self) -> bool:
+        return (
+            self.checked
+            and self.path_name == PREMAP_KERNEL_SIDE_TYPED_CONSUMER_PATH_NAME
+            and self.source == PREMAP_KERNEL_SIDE_TYPED_CONSUMER_PATH_SOURCE
+            and bool(self.input_hash)
+            and bool(self.table_object_hash)
+            and self.schema_hash == PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH
+            and int(self.row_count) > 0
+            and int(self.column_count)
+            == len(PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_COLUMNS)
+            and int(self.row_ok_count) == int(self.row_count)
+            and int(self.error_count) == 0
+            and bool(self.hash_accumulator)
+            and not self.failures
+            and int(self.payload_bytes) == 0
+            and not bool(self.passed_to_kernel)
+            and not bool(self.changes_kernel_launch_args)
+            and not bool(self.current_wna16_arg_compatible)
+        )
+
+    def as_dict(self) -> dict[str, int | bool | str | tuple[str, ...]]:
+        return {
+            "mode": self.mode,
+            "path_name": self.path_name,
+            "source": self.source,
+            "checked": self.checked,
+            "ready": self.ready,
+            "input_hash": self.input_hash,
+            "table_object_hash": self.table_object_hash,
+            "schema_hash": self.schema_hash,
+            "row_count": int(self.row_count),
+            "column_count": int(self.column_count),
+            "row_ok_count": int(self.row_ok_count),
+            "error_count": int(self.error_count),
+            "hash_accumulator": self.hash_accumulator,
+            "failure_count": len(self.failures),
+            "failures": self.failures,
+            "payload_bytes": int(self.payload_bytes),
+            "passed_to_kernel": bool(self.passed_to_kernel),
+            "changes_kernel_launch_args": bool(self.changes_kernel_launch_args),
+            "current_wna16_arg_compatible": bool(
+                self.current_wna16_arg_compatible
+            ),
+        }
+
+
+@dataclass(frozen=True)
 class PremapDescriptorConsumerShimResult:
     """Explicit no-op consumer shim for prepared descriptor objects.
 
@@ -2227,6 +2331,25 @@ class PremapDescriptorConsumerShimResult:
     native_stub_online_invocation_changes_descriptor_order: bool = False
     native_stub_online_invocation_passed_to_kernel: bool = False
     native_stub_online_invocation_changes_kernel_launch_args: bool = False
+    kernel_side_typed_row_consumer_path_mode: str | None = None
+    kernel_side_typed_row_consumer_path_name: str | None = None
+    kernel_side_typed_row_consumer_path_source: str | None = None
+    kernel_side_typed_row_consumer_path_checked: bool | None = None
+    kernel_side_typed_row_consumer_path_ready: bool | None = None
+    kernel_side_typed_row_consumer_path_input_hash: str | None = None
+    kernel_side_typed_row_consumer_path_table_object_hash: str | None = None
+    kernel_side_typed_row_consumer_path_schema_hash: str | None = None
+    kernel_side_typed_row_consumer_path_row_count: int | None = None
+    kernel_side_typed_row_consumer_path_column_count: int | None = None
+    kernel_side_typed_row_consumer_path_row_ok_count: int | None = None
+    kernel_side_typed_row_consumer_path_error_count: int | None = None
+    kernel_side_typed_row_consumer_path_hash_accumulator: str | None = None
+    kernel_side_typed_row_consumer_path_failure_count: int | None = None
+    kernel_side_typed_row_consumer_path_failures: tuple[str, ...] | None = None
+    kernel_side_typed_row_consumer_path_payload_bytes: int = 0
+    kernel_side_typed_row_consumer_path_passed_to_kernel: bool = False
+    kernel_side_typed_row_consumer_path_changes_kernel_launch_args: bool = False
+    kernel_side_typed_row_consumer_path_current_wna16_arg_compatible: bool = False
     handle_table_object_consumed: bool | None = None
     handle_table_object_hash: str | None = None
     handle_table_object_row_count: int | None = None
@@ -3008,6 +3131,146 @@ class ControlledPremapAddressManager:
             changes_kernel_launch_args=changes_kernel_launch_args,
         )
 
+    def validate_kernel_side_typed_row_consumer_path_readonly(
+        self,
+        table_object: PremapKernelArgShadowTableObject,
+    ) -> PremapKernelSideTypedRowConsumerPathCheck:
+        """Validate the future kernel-side typed row consumer path online.
+
+        This is the in-process/vLLM-prelaunch counterpart of the native stub's
+        `premap_typed_consumer_kernel_side_consume_row_v1` path.  It iterates
+        the prepared typed table row by row and checks only handle visibility,
+        lifetime metadata, and schema shape.  It does not invoke the native
+        stub and never mutates a live kernel launch.
+        """
+
+        native_input = table_object.to_native_typed_consumer_input_dict()
+        failures: list[str] = []
+        meta = native_input.get("_meta")
+        if not isinstance(meta, dict):
+            meta = {}
+            failures.append("missing_meta")
+        row_count = int(meta.get("row_count", table_object.row_count) or 0)
+        column_count = int(meta.get("column_count", table_object.column_count) or 0)
+        schema_hash = str(meta.get("schema_hash", table_object.schema_hash) or "")
+        payload_bytes = int(meta.get("payload_bytes", 0) or 0)
+        passed_to_kernel = bool(meta.get("passed_to_kernel", False))
+        changes_kernel_launch_args = bool(
+            meta.get("changes_kernel_launch_args", False)
+        )
+        if row_count != int(table_object.row_count):
+            failures.append("row_count_mismatch")
+        if column_count != int(table_object.column_count):
+            failures.append("column_count_mismatch")
+        if schema_hash != PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH:
+            failures.append("schema_hash_mismatch")
+        if payload_bytes != 0:
+            failures.append("payload_bytes_nonzero")
+        if passed_to_kernel:
+            failures.append("passed_to_kernel_true")
+        if changes_kernel_launch_args:
+            failures.append("changes_kernel_launch_args_true")
+
+        def as_int_list(field: str, *, required: bool = True) -> list[int]:
+            value = native_input.get(field)
+            if value is None:
+                if required:
+                    failures.append(f"{field}_missing")
+                return []
+            if not isinstance(value, list):
+                failures.append(f"{field}_not_list")
+                return []
+            if len(value) != row_count:
+                failures.append(f"{field}_length_mismatch")
+            out: list[int] = []
+            for item in value:
+                try:
+                    out.append(int(item) & 0xFFFFFFFFFFFFFFFF)
+                except (TypeError, ValueError):
+                    failures.append(f"{field}_non_int")
+                    out.append(0)
+            return out
+
+        descriptor_ptr = as_int_list("descriptor_ptr")
+        packed_weight_descriptor = as_int_list("packed_weight_descriptor")
+        scale_metadata_handle = as_int_list("scale_metadata_handle")
+        aux_metadata_handle = as_int_list("aux_metadata_handle", required=False)
+        if "aux_metadata_handle" not in native_input:
+            aux_metadata_handle = [0 for _ in range(row_count)]
+        expert_id = as_int_list("expert_id")
+        address_key_hash = as_int_list("address_key_hash")
+
+        row_order_hash = _digest_to_u64(str(meta.get("row_order_hash", "")))
+        ordered_row_hash = _digest_to_u64(str(meta.get("ordered_row_hash", "")))
+        row_ok_count = 0
+        hash_acc = 0
+        for row_index in range(row_count):
+            descriptor = descriptor_ptr[row_index] if row_index < len(descriptor_ptr) else 0
+            packed = (
+                packed_weight_descriptor[row_index]
+                if row_index < len(packed_weight_descriptor)
+                else 0
+            )
+            scale = (
+                scale_metadata_handle[row_index]
+                if row_index < len(scale_metadata_handle)
+                else 0
+            )
+            aux = (
+                aux_metadata_handle[row_index]
+                if row_index < len(aux_metadata_handle)
+                else 0
+            )
+            expert = expert_id[row_index] if row_index < len(expert_id) else -1
+            address = (
+                address_key_hash[row_index]
+                if row_index < len(address_key_hash)
+                else 0
+            )
+            required_visible = descriptor != 0 and packed != 0 and scale != 0
+            lifetime_valid = address != 0 and int(expert) >= 0
+            row_ok = (
+                required_visible
+                and lifetime_valid
+                and row_index < row_count
+                and column_count == len(PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_COLUMNS)
+            )
+            row_ok_count += int(row_ok)
+            row_hash = (
+                _mix64(descriptor)
+                ^ _mix64(packed + 0x1000)
+                ^ _mix64(scale + 0x2000)
+                ^ _mix64(aux + 0x3000)
+                ^ _mix64(address + int(expert))
+                ^ _mix64(row_index)
+                ^ _mix64(row_order_hash)
+                ^ _mix64(ordered_row_hash)
+            )
+            hash_acc ^= _mix64(row_hash + row_index)
+        input_hash = hashlib.sha256(
+            json.dumps(native_input, sort_keys=True, separators=(",", ":")).encode(
+                "utf-8"
+            )
+        ).hexdigest()
+        return PremapKernelSideTypedRowConsumerPathCheck(
+            mode=PREMAP_KERNEL_SIDE_TYPED_CONSUMER_PATH_MODE,
+            path_name=PREMAP_KERNEL_SIDE_TYPED_CONSUMER_PATH_NAME,
+            source=PREMAP_KERNEL_SIDE_TYPED_CONSUMER_PATH_SOURCE,
+            input_hash=input_hash,
+            table_object_hash=table_object.object_hash,
+            schema_hash=schema_hash,
+            row_count=row_count,
+            column_count=column_count,
+            row_ok_count=row_ok_count,
+            error_count=max(0, row_count - row_ok_count),
+            hash_accumulator=f"{hash_acc:016x}",
+            failures=tuple(failures),
+            payload_bytes=payload_bytes,
+            passed_to_kernel=passed_to_kernel,
+            changes_kernel_launch_args=changes_kernel_launch_args,
+            current_wna16_arg_compatible=False,
+        )
+
     def build_native_stub_online_invocation_canary_readonly(
         self,
         table_object: PremapKernelArgShadowTableObject,
@@ -3201,6 +3464,9 @@ class ControlledPremapAddressManager:
         table_object_payload_bytes = 0
         native_bridge_check: PremapNativeTypedConsumerBridgeCheck | None = None
         native_stub_canary: PremapNativeStubOnlineInvocationCanary | None = None
+        kernel_side_typed_row_consumer_path: (
+            PremapKernelSideTypedRowConsumerPathCheck | None
+        ) = None
         prep_dry_run_mode = None
         prep_dry_run_source = None
         prep_dry_run_ok = None
@@ -3418,8 +3684,17 @@ class ControlledPremapAddressManager:
                     native_bridge_check,
                 )
             )
+            kernel_side_typed_row_consumer_path = (
+                self.validate_kernel_side_typed_row_consumer_path_readonly(
+                    table_object
+                )
+            )
             table_consume_ok = bool(table_consume_ok) and bool(native_bridge_check.ok)
             table_consume_ok = bool(table_consume_ok) and bool(native_stub_canary.ok)
+            table_consume_ok = (
+                bool(table_consume_ok)
+                and bool(kernel_side_typed_row_consumer_path.ready)
+            )
         elif table_result is not None:
             table_object_consumed = False
         if prep_dry_run is not None:
@@ -5549,6 +5824,101 @@ class ControlledPremapAddressManager:
             native_stub_online_invocation_changes_kernel_launch_args=(
                 native_stub_canary.changes_kernel_launch_args
                 if native_stub_canary is not None
+                else False
+            ),
+            kernel_side_typed_row_consumer_path_mode=(
+                kernel_side_typed_row_consumer_path.mode
+                if kernel_side_typed_row_consumer_path is not None
+                else None
+            ),
+            kernel_side_typed_row_consumer_path_name=(
+                kernel_side_typed_row_consumer_path.path_name
+                if kernel_side_typed_row_consumer_path is not None
+                else None
+            ),
+            kernel_side_typed_row_consumer_path_source=(
+                kernel_side_typed_row_consumer_path.source
+                if kernel_side_typed_row_consumer_path is not None
+                else None
+            ),
+            kernel_side_typed_row_consumer_path_checked=(
+                kernel_side_typed_row_consumer_path.checked
+                if kernel_side_typed_row_consumer_path is not None
+                else None
+            ),
+            kernel_side_typed_row_consumer_path_ready=(
+                kernel_side_typed_row_consumer_path.ready
+                if kernel_side_typed_row_consumer_path is not None
+                else None
+            ),
+            kernel_side_typed_row_consumer_path_input_hash=(
+                kernel_side_typed_row_consumer_path.input_hash
+                if kernel_side_typed_row_consumer_path is not None
+                else None
+            ),
+            kernel_side_typed_row_consumer_path_table_object_hash=(
+                kernel_side_typed_row_consumer_path.table_object_hash
+                if kernel_side_typed_row_consumer_path is not None
+                else None
+            ),
+            kernel_side_typed_row_consumer_path_schema_hash=(
+                kernel_side_typed_row_consumer_path.schema_hash
+                if kernel_side_typed_row_consumer_path is not None
+                else None
+            ),
+            kernel_side_typed_row_consumer_path_row_count=(
+                kernel_side_typed_row_consumer_path.row_count
+                if kernel_side_typed_row_consumer_path is not None
+                else None
+            ),
+            kernel_side_typed_row_consumer_path_column_count=(
+                kernel_side_typed_row_consumer_path.column_count
+                if kernel_side_typed_row_consumer_path is not None
+                else None
+            ),
+            kernel_side_typed_row_consumer_path_row_ok_count=(
+                kernel_side_typed_row_consumer_path.row_ok_count
+                if kernel_side_typed_row_consumer_path is not None
+                else None
+            ),
+            kernel_side_typed_row_consumer_path_error_count=(
+                kernel_side_typed_row_consumer_path.error_count
+                if kernel_side_typed_row_consumer_path is not None
+                else None
+            ),
+            kernel_side_typed_row_consumer_path_hash_accumulator=(
+                kernel_side_typed_row_consumer_path.hash_accumulator
+                if kernel_side_typed_row_consumer_path is not None
+                else None
+            ),
+            kernel_side_typed_row_consumer_path_failure_count=(
+                len(kernel_side_typed_row_consumer_path.failures)
+                if kernel_side_typed_row_consumer_path is not None
+                else None
+            ),
+            kernel_side_typed_row_consumer_path_failures=(
+                kernel_side_typed_row_consumer_path.failures
+                if kernel_side_typed_row_consumer_path is not None
+                else None
+            ),
+            kernel_side_typed_row_consumer_path_payload_bytes=(
+                kernel_side_typed_row_consumer_path.payload_bytes
+                if kernel_side_typed_row_consumer_path is not None
+                else 0
+            ),
+            kernel_side_typed_row_consumer_path_passed_to_kernel=(
+                kernel_side_typed_row_consumer_path.passed_to_kernel
+                if kernel_side_typed_row_consumer_path is not None
+                else False
+            ),
+            kernel_side_typed_row_consumer_path_changes_kernel_launch_args=(
+                kernel_side_typed_row_consumer_path.changes_kernel_launch_args
+                if kernel_side_typed_row_consumer_path is not None
+                else False
+            ),
+            kernel_side_typed_row_consumer_path_current_wna16_arg_compatible=(
+                kernel_side_typed_row_consumer_path.current_wna16_arg_compatible
+                if kernel_side_typed_row_consumer_path is not None
                 else False
             ),
             handle_table_object_consumed=table_object_consumed,

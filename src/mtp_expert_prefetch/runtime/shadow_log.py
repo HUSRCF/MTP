@@ -1688,6 +1688,63 @@ class ShadowPremapConsumerMappingEvent:
     descriptor_prep_consumer_shim_native_stub_online_invocation_changes_kernel_launch_args: (
         bool | None
     ) = None
+    descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_mode: (
+        str | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_name: (
+        str | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_source: (
+        str | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_checked: (
+        bool | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_ready: (
+        bool | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_input_hash: (
+        str | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_table_object_hash: (
+        str | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_schema_hash: (
+        str | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_row_count: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_column_count: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_row_ok_count: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_error_count: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_hash_accumulator: (
+        str | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_failure_count: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_failures: (
+        tuple[str, ...] | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_payload_bytes: (
+        int | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_passed_to_kernel: (
+        bool | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_changes_kernel_launch_args: (
+        bool | None
+    ) = None
+    descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_current_wna16_arg_compatible: (
+        bool | None
+    ) = None
     descriptor_prep_consumer_shim_handle_table_object_consumed: bool | None = None
     descriptor_prep_consumer_shim_handle_table_object_hash: str | None = None
     descriptor_prep_consumer_shim_handle_table_object_row_count: int | None = None
@@ -3627,6 +3684,85 @@ class ShadowPremapConsumerMappingEvent:
             (
                 "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_changes_kernel_launch_args",
                 self.descriptor_prep_consumer_shim_native_stub_online_invocation_changes_kernel_launch_args,
+            ),
+        ):
+            _put_optional(payload, key, value)
+        for key, value in (
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_mode",
+                self.descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_mode,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_name",
+                self.descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_name,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_source",
+                self.descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_source,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_checked",
+                self.descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_checked,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_ready",
+                self.descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_ready,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_input_hash",
+                self.descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_input_hash,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_table_object_hash",
+                self.descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_table_object_hash,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_schema_hash",
+                self.descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_schema_hash,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_row_count",
+                self.descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_row_count,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_column_count",
+                self.descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_column_count,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_row_ok_count",
+                self.descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_row_ok_count,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_error_count",
+                self.descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_error_count,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_hash_accumulator",
+                self.descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_hash_accumulator,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_failure_count",
+                self.descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_failure_count,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_failures",
+                self.descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_failures,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_payload_bytes",
+                self.descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_payload_bytes,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_passed_to_kernel",
+                self.descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_passed_to_kernel,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_changes_kernel_launch_args",
+                self.descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_changes_kernel_launch_args,
+            ),
+            (
+                "premap_consumer_descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_current_wna16_arg_compatible",
+                self.descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_current_wna16_arg_compatible,
             ),
         ):
             _put_optional(payload, key, value)
@@ -7094,6 +7230,167 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
                         bool(
                             event.get(
                                 f"{native_stub_prefix}_changes_kernel_launch_args",
+                                False,
+                            )
+                        )
+                    )
+                typed_row_prefix = (
+                    "premap_consumer_descriptor_prep_consumer_shim_"
+                    "kernel_side_typed_row_consumer_path"
+                )
+                typed_row_mode = event.get(f"{typed_row_prefix}_mode")
+                if typed_row_mode is not None:
+                    for key, default in (
+                        (f"{typed_row_prefix}_checked_count", 0),
+                        (f"{typed_row_prefix}_ready_count", 0),
+                        (f"{typed_row_prefix}_mode", ""),
+                        (f"{typed_row_prefix}_mode_checked_count", 0),
+                        (f"{typed_row_prefix}_mode_mismatch_count", 0),
+                        (f"{typed_row_prefix}_name", ""),
+                        (f"{typed_row_prefix}_name_checked_count", 0),
+                        (f"{typed_row_prefix}_name_missing_count", 0),
+                        (f"{typed_row_prefix}_name_mismatch_count", 0),
+                        (f"{typed_row_prefix}_source", ""),
+                        (f"{typed_row_prefix}_source_checked_count", 0),
+                        (f"{typed_row_prefix}_source_missing_count", 0),
+                        (f"{typed_row_prefix}_source_mismatch_count", 0),
+                        (f"{typed_row_prefix}_input_hash_checked_count", 0),
+                        (f"{typed_row_prefix}_input_hash_missing_count", 0),
+                        (f"{typed_row_prefix}_table_object_hash_checked_count", 0),
+                        (f"{typed_row_prefix}_table_object_hash_missing_count", 0),
+                        (f"{typed_row_prefix}_schema_hash", ""),
+                        (f"{typed_row_prefix}_schema_hash_checked_count", 0),
+                        (f"{typed_row_prefix}_schema_hash_missing_count", 0),
+                        (f"{typed_row_prefix}_schema_hash_mismatch_count", 0),
+                        (f"{typed_row_prefix}_column_count_max", 0),
+                        (f"{typed_row_prefix}_column_count_min", 0),
+                        (f"{typed_row_prefix}_row_count", 0),
+                        (f"{typed_row_prefix}_row_ok_count", 0),
+                        (f"{typed_row_prefix}_error_count", 0),
+                        (f"{typed_row_prefix}_hash_accumulator_checked_count", 0),
+                        (f"{typed_row_prefix}_hash_accumulator_missing_count", 0),
+                        (f"{typed_row_prefix}_failure_count", 0),
+                        (f"{typed_row_prefix}_payload_bytes", 0),
+                        (f"{typed_row_prefix}_payload_violation_count", 0),
+                        (f"{typed_row_prefix}_passed_to_kernel_count", 0),
+                        (f"{typed_row_prefix}_kernel_arg_violation_count", 0),
+                        (
+                            f"{typed_row_prefix}_current_wna16_arg_compatible_count",
+                            0,
+                        ),
+                    ):
+                        totals.setdefault(key, default)
+                    totals[f"{typed_row_prefix}_checked_count"] += 1
+                    totals[f"{typed_row_prefix}_mode_checked_count"] += 1
+                    if not totals[f"{typed_row_prefix}_mode"]:
+                        totals[f"{typed_row_prefix}_mode"] = str(typed_row_mode)
+                    elif totals[f"{typed_row_prefix}_mode"] != str(typed_row_mode):
+                        totals[f"{typed_row_prefix}_mode_mismatch_count"] += 1
+                    totals[f"{typed_row_prefix}_ready_count"] += int(
+                        bool(event.get(f"{typed_row_prefix}_ready", False))
+                    )
+                    for field_name, expected_key in (
+                        ("name", "name"),
+                        ("source", "source"),
+                    ):
+                        value = event.get(f"{typed_row_prefix}_{field_name}")
+                        if value:
+                            totals[f"{typed_row_prefix}_{expected_key}_checked_count"] += 1
+                            if not totals[f"{typed_row_prefix}_{expected_key}"]:
+                                totals[f"{typed_row_prefix}_{expected_key}"] = str(value)
+                            elif totals[f"{typed_row_prefix}_{expected_key}"] != str(
+                                value
+                            ):
+                                totals[
+                                    f"{typed_row_prefix}_{expected_key}_mismatch_count"
+                                ] += 1
+                        else:
+                            totals[f"{typed_row_prefix}_{expected_key}_missing_count"] += 1
+                    for hash_field, checked_key, missing_key in (
+                        (
+                            f"{typed_row_prefix}_input_hash",
+                            f"{typed_row_prefix}_input_hash_checked_count",
+                            f"{typed_row_prefix}_input_hash_missing_count",
+                        ),
+                        (
+                            f"{typed_row_prefix}_table_object_hash",
+                            f"{typed_row_prefix}_table_object_hash_checked_count",
+                            f"{typed_row_prefix}_table_object_hash_missing_count",
+                        ),
+                        (
+                            f"{typed_row_prefix}_hash_accumulator",
+                            f"{typed_row_prefix}_hash_accumulator_checked_count",
+                            f"{typed_row_prefix}_hash_accumulator_missing_count",
+                        ),
+                    ):
+                        if event.get(hash_field):
+                            totals[checked_key] += 1
+                        else:
+                            totals[missing_key] += 1
+                    typed_row_schema_hash = event.get(f"{typed_row_prefix}_schema_hash")
+                    if typed_row_schema_hash:
+                        totals[f"{typed_row_prefix}_schema_hash_checked_count"] += 1
+                        if not totals[f"{typed_row_prefix}_schema_hash"]:
+                            totals[f"{typed_row_prefix}_schema_hash"] = str(
+                                typed_row_schema_hash
+                            )
+                        elif totals[f"{typed_row_prefix}_schema_hash"] != str(
+                            typed_row_schema_hash
+                        ):
+                            totals[
+                                f"{typed_row_prefix}_schema_hash_mismatch_count"
+                            ] += 1
+                    else:
+                        totals[f"{typed_row_prefix}_schema_hash_missing_count"] += 1
+                    typed_row_column_count = int(
+                        event.get(f"{typed_row_prefix}_column_count", 0) or 0
+                    )
+                    if (
+                        typed_row_column_count
+                        > totals[f"{typed_row_prefix}_column_count_max"]
+                    ):
+                        totals[f"{typed_row_prefix}_column_count_max"] = (
+                            typed_row_column_count
+                        )
+                    if (
+                        totals[f"{typed_row_prefix}_column_count_min"] == 0
+                        or typed_row_column_count
+                        < totals[f"{typed_row_prefix}_column_count_min"]
+                    ):
+                        totals[f"{typed_row_prefix}_column_count_min"] = (
+                            typed_row_column_count
+                        )
+                    for field in (
+                        f"{typed_row_prefix}_row_count",
+                        f"{typed_row_prefix}_row_ok_count",
+                        f"{typed_row_prefix}_error_count",
+                        f"{typed_row_prefix}_failure_count",
+                        f"{typed_row_prefix}_payload_bytes",
+                    ):
+                        totals[field] += int(event.get(field, 0) or 0)
+                    typed_row_payload_bytes = int(
+                        event.get(f"{typed_row_prefix}_payload_bytes", 0) or 0
+                    )
+                    totals[f"{typed_row_prefix}_payload_violation_count"] += int(
+                        typed_row_payload_bytes != 0
+                    )
+                    totals[f"{typed_row_prefix}_passed_to_kernel_count"] += int(
+                        bool(event.get(f"{typed_row_prefix}_passed_to_kernel", False))
+                    )
+                    totals[f"{typed_row_prefix}_kernel_arg_violation_count"] += int(
+                        bool(
+                            event.get(
+                                f"{typed_row_prefix}_changes_kernel_launch_args",
+                                False,
+                            )
+                        )
+                    )
+                    totals[
+                        f"{typed_row_prefix}_current_wna16_arg_compatible_count"
+                    ] += int(
+                        bool(
+                            event.get(
+                                f"{typed_row_prefix}_current_wna16_arg_compatible",
                                 False,
                             )
                         )

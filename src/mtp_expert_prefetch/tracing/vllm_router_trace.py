@@ -5664,6 +5664,139 @@ class VllmRouterRecorder:
                     if descriptor_consumer_shim_result is not None
                     else None
                 ),
+                descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_mode=(
+                    descriptor_consumer_shim_result.kernel_side_typed_row_consumer_path_mode
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_name=(
+                    descriptor_consumer_shim_result.kernel_side_typed_row_consumer_path_name
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_source=(
+                    descriptor_consumer_shim_result.kernel_side_typed_row_consumer_path_source
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_checked=(
+                    descriptor_consumer_shim_result.kernel_side_typed_row_consumer_path_checked
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_ready=(
+                    descriptor_consumer_shim_result.kernel_side_typed_row_consumer_path_ready
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_input_hash=(
+                    descriptor_consumer_shim_result.kernel_side_typed_row_consumer_path_input_hash
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_table_object_hash=(
+                    descriptor_consumer_shim_result.kernel_side_typed_row_consumer_path_table_object_hash
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_schema_hash=(
+                    descriptor_consumer_shim_result.kernel_side_typed_row_consumer_path_schema_hash
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_row_count=(
+                    int(
+                        descriptor_consumer_shim_result.kernel_side_typed_row_consumer_path_row_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.kernel_side_typed_row_consumer_path_row_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_column_count=(
+                    int(
+                        descriptor_consumer_shim_result.kernel_side_typed_row_consumer_path_column_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.kernel_side_typed_row_consumer_path_column_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_row_ok_count=(
+                    int(
+                        descriptor_consumer_shim_result.kernel_side_typed_row_consumer_path_row_ok_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.kernel_side_typed_row_consumer_path_row_ok_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_error_count=(
+                    int(
+                        descriptor_consumer_shim_result.kernel_side_typed_row_consumer_path_error_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.kernel_side_typed_row_consumer_path_error_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_hash_accumulator=(
+                    descriptor_consumer_shim_result.kernel_side_typed_row_consumer_path_hash_accumulator
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_failure_count=(
+                    int(
+                        descriptor_consumer_shim_result.kernel_side_typed_row_consumer_path_failure_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.kernel_side_typed_row_consumer_path_failure_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_failures=(
+                    descriptor_consumer_shim_result.kernel_side_typed_row_consumer_path_failures
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_payload_bytes=(
+                    int(
+                        descriptor_consumer_shim_result.kernel_side_typed_row_consumer_path_payload_bytes
+                    )
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_passed_to_kernel=(
+                    bool(
+                        descriptor_consumer_shim_result.kernel_side_typed_row_consumer_path_passed_to_kernel
+                    )
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_changes_kernel_launch_args=(
+                    bool(
+                        descriptor_consumer_shim_result.kernel_side_typed_row_consumer_path_changes_kernel_launch_args
+                    )
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_current_wna16_arg_compatible=(
+                    bool(
+                        descriptor_consumer_shim_result.kernel_side_typed_row_consumer_path_current_wna16_arg_compatible
+                    )
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
                 descriptor_prep_consumer_shim_handle_table_object_consumed=(
                     descriptor_consumer_shim_result.handle_table_object_consumed
                     if descriptor_consumer_shim_result is not None

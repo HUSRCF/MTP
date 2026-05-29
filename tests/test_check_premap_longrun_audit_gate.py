@@ -14,6 +14,9 @@ from mtp_expert_prefetch.runtime import (
     PREMAP_KERNEL_SIDE_TYPED_CONSUMER_SCHEMA_FIELDS,
     PREMAP_KERNEL_SIDE_TYPED_CONSUMER_SCHEMA_HASH,
     PREMAP_KERNEL_SIDE_TYPED_CONSUMER_SCHEMA_NAME,
+    PREMAP_KERNEL_SIDE_TYPED_CONSUMER_PATH_MODE,
+    PREMAP_KERNEL_SIDE_TYPED_CONSUMER_PATH_NAME,
+    PREMAP_KERNEL_SIDE_TYPED_CONSUMER_PATH_SOURCE,
 )
 
 from scripts.check_premap_longrun_audit_gate import check_summary
@@ -847,6 +850,59 @@ def _add_native_stub_online_invocation_canary(summary: dict) -> dict:
             "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_changes_descriptor_order_count": 0,
             "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_passed_to_kernel_count": 0,
             "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_kernel_arg_violation_count": 0,
+        }
+    )
+    return summary
+
+
+def _add_kernel_side_typed_row_consumer_path(summary: dict) -> dict:
+    aggregate = summary["aggregate"]
+    checked_count = int(
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_executed_count"
+        ]
+    )
+    row_count = int(
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_handle_table_consume_row_count"
+        ]
+    )
+    aggregate.update(
+        {
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_checked_count": checked_count,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_ready_count": checked_count,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_mode": PREMAP_KERNEL_SIDE_TYPED_CONSUMER_PATH_MODE,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_mode_checked_count": checked_count,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_mode_mismatch_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_name": PREMAP_KERNEL_SIDE_TYPED_CONSUMER_PATH_NAME,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_name_checked_count": checked_count,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_name_missing_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_name_mismatch_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_source": PREMAP_KERNEL_SIDE_TYPED_CONSUMER_PATH_SOURCE,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_source_checked_count": checked_count,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_source_missing_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_source_mismatch_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_input_hash_checked_count": checked_count,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_input_hash_missing_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_table_object_hash_checked_count": checked_count,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_table_object_hash_missing_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_schema_hash": PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_schema_hash_checked_count": checked_count,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_schema_hash_missing_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_schema_hash_mismatch_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_row_count": row_count,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_column_count_max": 4,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_column_count_min": 4,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_row_ok_count": row_count,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_error_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_hash_accumulator_checked_count": checked_count,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_hash_accumulator_missing_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_failure_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_payload_bytes": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_payload_violation_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_passed_to_kernel_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_kernel_arg_violation_count": 0,
+            "premap_consumer_descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_current_wna16_arg_compatible_count": 0,
         }
     )
     return summary
@@ -2401,6 +2457,108 @@ def test_premap_longrun_audit_gate_accepts_native_stub_online_canary():
     assert result["metrics"][f"{prefix}_changes_descriptor_order_count"] == 0
     assert result["metrics"][f"{prefix}_passed_to_kernel_count"] == 0
     assert result["metrics"][f"{prefix}_kernel_arg_violation_count"] == 0
+
+
+def test_premap_longrun_audit_gate_accepts_typed_row_consumer_path():
+    result = check_summary(
+        _add_kernel_side_typed_row_consumer_path(
+            _add_native_stub_online_invocation_canary(
+                _add_native_typed_consumer_bridge(
+                    _add_kernel_side_typed_consumer_object(
+                        _add_kernel_side_consumer_schema_adapter(
+                            _add_kernel_arg_semantic_handle_adapter(
+                                _add_kernel_arg_handoff_launch_schema_mirror(
+                                    _add_kernel_arg_handoff_attempt(_passing_summary())
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+        ),
+        max_capacity=12,
+        min_reuse_rate=0.98,
+        require_readonly_consumer=True,
+        require_descriptor_prep=True,
+        require_real_descriptor_prep=True,
+        require_kernel_arg_shadow_table=True,
+        require_consumer_shim_table_read=True,
+        require_consumer_shim_table_consume=True,
+        require_kernel_arg_handoff_attempt=True,
+        require_kernel_arg_handoff_launch_schema_mirror=True,
+        require_kernel_arg_semantic_handle_adapter=True,
+        require_kernel_side_consumer_schema_adapter=True,
+        require_kernel_side_typed_consumer_object=True,
+        require_native_typed_consumer_bridge=True,
+        require_native_stub_online_invocation_canary=True,
+        require_kernel_side_typed_row_consumer_path=True,
+    )
+
+    assert result["passed"] is True
+    assert result["failures"] == []
+    assert result["require_kernel_side_typed_row_consumer_path"] is True
+    prefix = (
+        "premap_consumer_descriptor_prep_consumer_shim_"
+        "kernel_side_typed_row_consumer_path"
+    )
+    assert result["metrics"][f"{prefix}_checked_count"] == 2
+    assert result["metrics"][f"{prefix}_ready_count"] == 2
+    assert result["metrics"][f"{prefix}_mode"] == (
+        PREMAP_KERNEL_SIDE_TYPED_CONSUMER_PATH_MODE
+    )
+    assert result["metrics"][f"{prefix}_name"] == (
+        PREMAP_KERNEL_SIDE_TYPED_CONSUMER_PATH_NAME
+    )
+    assert result["metrics"][f"{prefix}_source"] == (
+        PREMAP_KERNEL_SIDE_TYPED_CONSUMER_PATH_SOURCE
+    )
+    assert result["metrics"][f"{prefix}_row_count"] == 20
+    assert result["metrics"][f"{prefix}_row_ok_count"] == 20
+    assert result["metrics"][f"{prefix}_error_count"] == 0
+    assert result["metrics"][f"{prefix}_payload_bytes"] == 0
+    assert result["metrics"][f"{prefix}_passed_to_kernel_count"] == 0
+    assert result["metrics"][f"{prefix}_kernel_arg_violation_count"] == 0
+    assert result["metrics"][f"{prefix}_current_wna16_arg_compatible_count"] == 0
+
+
+def test_premap_longrun_audit_gate_rejects_missing_typed_row_consumer_path():
+    result = check_summary(
+        _add_native_stub_online_invocation_canary(
+            _add_native_typed_consumer_bridge(
+                _add_kernel_side_typed_consumer_object(
+                    _add_kernel_side_consumer_schema_adapter(
+                        _add_kernel_arg_semantic_handle_adapter(
+                            _add_kernel_arg_handoff_launch_schema_mirror(
+                                _add_kernel_arg_handoff_attempt(_passing_summary())
+                            )
+                        )
+                    )
+                )
+            )
+        ),
+        max_capacity=12,
+        min_reuse_rate=0.98,
+        require_readonly_consumer=True,
+        require_descriptor_prep=True,
+        require_real_descriptor_prep=True,
+        require_kernel_arg_shadow_table=True,
+        require_consumer_shim_table_read=True,
+        require_consumer_shim_table_consume=True,
+        require_kernel_arg_handoff_attempt=True,
+        require_kernel_arg_handoff_launch_schema_mirror=True,
+        require_kernel_arg_semantic_handle_adapter=True,
+        require_kernel_side_consumer_schema_adapter=True,
+        require_kernel_side_typed_consumer_object=True,
+        require_native_typed_consumer_bridge=True,
+        require_native_stub_online_invocation_canary=True,
+        require_kernel_side_typed_row_consumer_path=True,
+    )
+
+    assert result["passed"] is False
+    assert (
+        "consumer_shim_kernel_side_typed_row_consumer_path_fields_missing"
+        in result["failures"]
+    )
 
 
 def test_premap_longrun_audit_gate_report_self_checks_with_typed_consumer():

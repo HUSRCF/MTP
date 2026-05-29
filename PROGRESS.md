@@ -2,17 +2,77 @@
 
 ## Progress Version
 
-- Version: `v0.26-single-field-handoff-canary-lab-gate`
+- Version: `v0.27-online-typed-row-consumer-prelaunch-gate`
 - Updated: 2026-05-29
 - Current phase: premap descriptor/address prep now has a typed
   kernel-side consumer object and an explicit future native-consumer ABI
   artifact.  The default lab gate remains live-disabled, zero-payload, and not
-  passed to the current WNA16 kernel.  The newest lab precondition is a
-  readonly single-field handoff canary for the safest `scale_metadata_handle`
-  mirror: it validates the typed semantic handle table and explicitly remains
-  live-disabled and incompatible with current WNA16 args.  The next execution
-  boundary is still a true kernel-side compatible consumer path, not mutating
-  the live WNA16 fused-MoE launch.
+  passed to the current WNA16 kernel.  The newest online prelaunch gate wires
+  the typed row consumer path into the vLLM no-op consumer shim: the prepared
+  handle table is walked with the future kernel-side row schema and checked for
+  row/schema/hash parity, while payload and kernel-arg handoff remain disabled.
+  The next execution boundary is still a true kernel-side compatible consumer
+  path, not mutating the live WNA16 fused-MoE launch.
+
+## Latest Update: Online Typed Row Consumer Prelaunch Gate
+
+The vLLM prelaunch readonly consumer shim now emits and aggregates a stricter
+typed row consumer path:
+
+```text
+kernel_side_typed_row_consumer_path:
+  mode = readonly_typed_row_consumer_path
+  path_name = premap_kernel_side_typed_consumer_path_v1
+  source = vllm_prelaunch_prepared_handle_table
+  schema_hash = premap_descriptor_consumer_handle_table_v1
+  column_count = 4
+  row_ok_count = row_count
+  error_count = 0
+  failure_count = 0
+  payload_bytes = 0
+  passed_to_kernel = false
+  changes_kernel_launch_args = false
+  current_wna16_arg_compatible = false
+```
+
+This is one boundary closer to the future kernel consumer than the native-stub
+package canary: it validates row-by-row typed-table traversal in the online
+prelaunch path, but still does not invoke the live WNA16 kernel with any new
+argument and does not move payload.
+
+Validation:
+
+```text
+pytest tests/test_check_premap_longrun_audit_gate.py \
+  tests/test_runtime_shadow_log.py tests/test_vllm_router_shadow_sink.py -q
+  168 passed
+
+pytest tests -q
+  693 passed, 2 warnings
+```
+
+Online smoke evidence:
+
+```text
+trace:
+  data/traces/external_prompt_gate_dolly_1_awq_vllm_gpu1_decode_gen16_native_input_export_canary/
+
+gate:
+  longrun_audit_gate_typed_row_consumer_path_smoke.json
+  passed = true
+
+typed row consumer path:
+  checked_count = 640
+  ready_count = 640
+  row_count = 9794
+  row_ok_count = 9794
+  error_count = 0
+  failure_count = 0
+  payload_bytes = 0
+  passed_to_kernel_count = 0
+  kernel_arg_violation_count = 0
+  current_wna16_arg_compatible_count = 0
+```
 
 ## Runtime Policy Contract
 

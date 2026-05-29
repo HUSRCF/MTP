@@ -27,6 +27,9 @@ from mtp_expert_prefetch.runtime import (
     PREMAP_KERNEL_SIDE_TYPED_CONSUMER_SCHEMA_FIELDS,
     PREMAP_KERNEL_SIDE_TYPED_CONSUMER_SCHEMA_HASH,
     PREMAP_KERNEL_SIDE_TYPED_CONSUMER_SCHEMA_NAME,
+    PREMAP_KERNEL_SIDE_TYPED_CONSUMER_PATH_MODE,
+    PREMAP_KERNEL_SIDE_TYPED_CONSUMER_PATH_NAME,
+    PREMAP_KERNEL_SIDE_TYPED_CONSUMER_PATH_SOURCE,
 )
 
 
@@ -69,6 +72,10 @@ NATIVE_TYPED_CONSUMER_BRIDGE_PREFIX = (
 )
 NATIVE_STUB_ONLINE_INVOCATION_PREFIX = (
     "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_"
+)
+KERNEL_SIDE_TYPED_ROW_CONSUMER_PATH_PREFIX = (
+    "premap_consumer_descriptor_prep_consumer_shim_"
+    "kernel_side_typed_row_consumer_path_"
 )
 
 
@@ -334,6 +341,7 @@ def check_summary(
     require_kernel_side_typed_consumer_object: bool = False,
     require_native_typed_consumer_bridge: bool = False,
     require_native_stub_online_invocation_canary: bool = False,
+    require_kernel_side_typed_row_consumer_path: bool = False,
     allow_enabled_blocked_live_toggle: bool = False,
     allow_connected_blocked_consumer_adapter: bool = False,
     allow_kernel_arg_handoff_live_kernel_arg_pass: bool = False,
@@ -722,6 +730,12 @@ def check_summary(
     native_stub_online_invocation_active = (
         native_stub_online_invocation_checked_count > 0
     )
+    kernel_side_typed_row_consumer_path_checked_count = _as_int(
+        aggregate.get(f"{KERNEL_SIDE_TYPED_ROW_CONSUMER_PATH_PREFIX}checked_count")
+    )
+    kernel_side_typed_row_consumer_path_active = (
+        kernel_side_typed_row_consumer_path_checked_count > 0
+    )
     if require_consumer_shim_table_consume and not consumer_shim_table_consume_active:
         failures.append("consumer_shim_table_consume_fields_missing")
     if require_consumer_shim_table_consume and not consumer_shim_table_read_active:
@@ -878,6 +892,23 @@ def check_summary(
         failures.append(
             "consumer_shim_native_stub_online_invocation_requires_native_bridge_fields"
         )
+    if (
+        require_kernel_side_typed_row_consumer_path
+        and not kernel_side_typed_row_consumer_path_active
+    ):
+        failures.append(
+            "consumer_shim_kernel_side_typed_row_consumer_path_fields_missing"
+        )
+    if (
+        (
+            require_kernel_side_typed_row_consumer_path
+            or kernel_side_typed_row_consumer_path_active
+        )
+        and not native_stub_online_invocation_active
+    ):
+        failures.append(
+            "consumer_shim_kernel_side_typed_row_consumer_path_requires_native_stub_online_invocation_fields"
+        )
     consumer_shim_table_object_checked_count = _as_int(
         aggregate.get(
             "premap_consumer_descriptor_prep_consumer_shim_handle_table_object_consumed_checked_count"
@@ -926,6 +957,11 @@ def check_summary(
         or require_kernel_arg_handoff_live_consumer_adapter
         or require_kernel_arg_semantic_handle_adapter
         or require_single_field_handle_handoff_canary
+        or require_kernel_side_consumer_schema_adapter
+        or require_kernel_side_typed_consumer_object
+        or require_native_typed_consumer_bridge
+        or require_native_stub_online_invocation_canary
+        or require_kernel_side_typed_row_consumer_path
         or descriptor_prep_active
     ):
         attempted = _as_int(
@@ -5244,6 +5280,268 @@ def check_summary(
                             "consumer_shim_native_stub_online_invocation_"
                             f"{name}_nonzero={value}"
                         )
+            if (
+                require_kernel_side_typed_row_consumer_path
+                or kernel_side_typed_row_consumer_path_active
+            ):
+                typed_row_prefix = KERNEL_SIDE_TYPED_ROW_CONSUMER_PATH_PREFIX
+                typed_row_checked_count = _as_int(
+                    aggregate.get(f"{typed_row_prefix}checked_count")
+                )
+                typed_row_ready_count = _as_int(
+                    aggregate.get(f"{typed_row_prefix}ready_count")
+                )
+                typed_row_mode = str(aggregate.get(f"{typed_row_prefix}mode") or "")
+                typed_row_mode_checked_count = _as_int(
+                    aggregate.get(f"{typed_row_prefix}mode_checked_count")
+                )
+                typed_row_mode_mismatch_count = _as_int(
+                    aggregate.get(f"{typed_row_prefix}mode_mismatch_count")
+                )
+                typed_row_name = str(aggregate.get(f"{typed_row_prefix}name") or "")
+                typed_row_name_checked_count = _as_int(
+                    aggregate.get(f"{typed_row_prefix}name_checked_count")
+                )
+                typed_row_name_missing_count = _as_int(
+                    aggregate.get(f"{typed_row_prefix}name_missing_count")
+                )
+                typed_row_name_mismatch_count = _as_int(
+                    aggregate.get(f"{typed_row_prefix}name_mismatch_count")
+                )
+                typed_row_source = str(
+                    aggregate.get(f"{typed_row_prefix}source") or ""
+                )
+                typed_row_source_checked_count = _as_int(
+                    aggregate.get(f"{typed_row_prefix}source_checked_count")
+                )
+                typed_row_source_missing_count = _as_int(
+                    aggregate.get(f"{typed_row_prefix}source_missing_count")
+                )
+                typed_row_source_mismatch_count = _as_int(
+                    aggregate.get(f"{typed_row_prefix}source_mismatch_count")
+                )
+                typed_row_input_hash_checked_count = _as_int(
+                    aggregate.get(f"{typed_row_prefix}input_hash_checked_count")
+                )
+                typed_row_input_hash_missing_count = _as_int(
+                    aggregate.get(f"{typed_row_prefix}input_hash_missing_count")
+                )
+                typed_row_table_hash_checked_count = _as_int(
+                    aggregate.get(f"{typed_row_prefix}table_object_hash_checked_count")
+                )
+                typed_row_table_hash_missing_count = _as_int(
+                    aggregate.get(f"{typed_row_prefix}table_object_hash_missing_count")
+                )
+                typed_row_schema_hash = str(
+                    aggregate.get(f"{typed_row_prefix}schema_hash") or ""
+                )
+                typed_row_schema_hash_checked_count = _as_int(
+                    aggregate.get(f"{typed_row_prefix}schema_hash_checked_count")
+                )
+                typed_row_schema_hash_missing_count = _as_int(
+                    aggregate.get(f"{typed_row_prefix}schema_hash_missing_count")
+                )
+                typed_row_schema_hash_mismatch_count = _as_int(
+                    aggregate.get(f"{typed_row_prefix}schema_hash_mismatch_count")
+                )
+                typed_row_row_count = _as_int(
+                    aggregate.get(f"{typed_row_prefix}row_count")
+                )
+                typed_row_column_count_max = _as_int(
+                    aggregate.get(f"{typed_row_prefix}column_count_max")
+                )
+                typed_row_column_count_min = _as_int(
+                    aggregate.get(f"{typed_row_prefix}column_count_min")
+                )
+                typed_row_row_ok_count = _as_int(
+                    aggregate.get(f"{typed_row_prefix}row_ok_count")
+                )
+                typed_row_error_count = _as_int(
+                    aggregate.get(f"{typed_row_prefix}error_count")
+                )
+                typed_row_hash_acc_checked_count = _as_int(
+                    aggregate.get(
+                        f"{typed_row_prefix}hash_accumulator_checked_count"
+                    )
+                )
+                typed_row_hash_acc_missing_count = _as_int(
+                    aggregate.get(
+                        f"{typed_row_prefix}hash_accumulator_missing_count"
+                    )
+                )
+                typed_row_failure_count = _as_int(
+                    aggregate.get(f"{typed_row_prefix}failure_count")
+                )
+                typed_row_payload_bytes = _as_int(
+                    aggregate.get(f"{typed_row_prefix}payload_bytes")
+                )
+                typed_row_payload_violation_count = _as_int(
+                    aggregate.get(f"{typed_row_prefix}payload_violation_count")
+                )
+                typed_row_passed_to_kernel_count = _as_int(
+                    aggregate.get(f"{typed_row_prefix}passed_to_kernel_count")
+                )
+                typed_row_kernel_arg_violation_count = _as_int(
+                    aggregate.get(f"{typed_row_prefix}kernel_arg_violation_count")
+                )
+                typed_row_current_wna16_compatible_count = _as_int(
+                    aggregate.get(
+                        f"{typed_row_prefix}current_wna16_arg_compatible_count"
+                    )
+                )
+                if typed_row_checked_count != shim_executed:
+                    failures.append(
+                        "consumer_shim_kernel_side_typed_row_consumer_path_checked_count_mismatch="
+                        f"{typed_row_checked_count}!={shim_executed}"
+                    )
+                if typed_row_ready_count != shim_executed:
+                    failures.append(
+                        "consumer_shim_kernel_side_typed_row_consumer_path_ready_count_mismatch="
+                        f"{typed_row_ready_count}!={shim_executed}"
+                    )
+                if typed_row_mode != PREMAP_KERNEL_SIDE_TYPED_CONSUMER_PATH_MODE:
+                    failures.append(
+                        "consumer_shim_kernel_side_typed_row_consumer_path_mode_mismatch"
+                    )
+                if typed_row_mode_checked_count != shim_executed:
+                    failures.append(
+                        "consumer_shim_kernel_side_typed_row_consumer_path_mode_checked_count_mismatch="
+                        f"{typed_row_mode_checked_count}!={shim_executed}"
+                    )
+                if typed_row_mode_mismatch_count != 0:
+                    failures.append(
+                        "consumer_shim_kernel_side_typed_row_consumer_path_mode_mismatch_count_nonzero="
+                        f"{typed_row_mode_mismatch_count}"
+                    )
+                if typed_row_name != PREMAP_KERNEL_SIDE_TYPED_CONSUMER_PATH_NAME:
+                    failures.append(
+                        "consumer_shim_kernel_side_typed_row_consumer_path_name_mismatch"
+                    )
+                if typed_row_source != PREMAP_KERNEL_SIDE_TYPED_CONSUMER_PATH_SOURCE:
+                    failures.append(
+                        "consumer_shim_kernel_side_typed_row_consumer_path_source_mismatch"
+                    )
+                for name, checked, missing, mismatch in (
+                    (
+                        "name",
+                        typed_row_name_checked_count,
+                        typed_row_name_missing_count,
+                        typed_row_name_mismatch_count,
+                    ),
+                    (
+                        "source",
+                        typed_row_source_checked_count,
+                        typed_row_source_missing_count,
+                        typed_row_source_mismatch_count,
+                    ),
+                ):
+                    if checked != shim_executed:
+                        failures.append(
+                            "consumer_shim_kernel_side_typed_row_consumer_path_"
+                            f"{name}_checked_count_mismatch={checked}!={shim_executed}"
+                        )
+                    if missing != 0:
+                        failures.append(
+                            "consumer_shim_kernel_side_typed_row_consumer_path_"
+                            f"{name}_missing_count_nonzero={missing}"
+                        )
+                    if mismatch != 0:
+                        failures.append(
+                            "consumer_shim_kernel_side_typed_row_consumer_path_"
+                            f"{name}_mismatch_count_nonzero={mismatch}"
+                        )
+                for name, checked, missing in (
+                    (
+                        "input_hash",
+                        typed_row_input_hash_checked_count,
+                        typed_row_input_hash_missing_count,
+                    ),
+                    (
+                        "table_object_hash",
+                        typed_row_table_hash_checked_count,
+                        typed_row_table_hash_missing_count,
+                    ),
+                    (
+                        "hash_accumulator",
+                        typed_row_hash_acc_checked_count,
+                        typed_row_hash_acc_missing_count,
+                    ),
+                ):
+                    if checked != shim_executed:
+                        failures.append(
+                            "consumer_shim_kernel_side_typed_row_consumer_path_"
+                            f"{name}_checked_count_mismatch={checked}!={shim_executed}"
+                        )
+                    if missing != 0:
+                        failures.append(
+                            "consumer_shim_kernel_side_typed_row_consumer_path_"
+                            f"{name}_missing_count_nonzero={missing}"
+                        )
+                if (
+                    typed_row_schema_hash
+                    != PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH
+                ):
+                    failures.append(
+                        "consumer_shim_kernel_side_typed_row_consumer_path_schema_hash_mismatch"
+                    )
+                if typed_row_schema_hash_checked_count != shim_executed:
+                    failures.append(
+                        "consumer_shim_kernel_side_typed_row_consumer_path_schema_hash_checked_count_mismatch="
+                        f"{typed_row_schema_hash_checked_count}!={shim_executed}"
+                    )
+                if typed_row_schema_hash_missing_count != 0:
+                    failures.append(
+                        "consumer_shim_kernel_side_typed_row_consumer_path_schema_hash_missing_count_nonzero="
+                        f"{typed_row_schema_hash_missing_count}"
+                    )
+                if typed_row_schema_hash_mismatch_count != 0:
+                    failures.append(
+                        "consumer_shim_kernel_side_typed_row_consumer_path_schema_hash_mismatch_count_nonzero="
+                        f"{typed_row_schema_hash_mismatch_count}"
+                    )
+                if typed_row_row_count != consume_row_count:
+                    failures.append(
+                        "consumer_shim_kernel_side_typed_row_consumer_path_row_count_mismatch="
+                        f"{typed_row_row_count}!={consume_row_count}"
+                    )
+                if typed_row_row_ok_count != consume_row_count:
+                    failures.append(
+                        "consumer_shim_kernel_side_typed_row_consumer_path_row_ok_count_mismatch="
+                        f"{typed_row_row_ok_count}!={consume_row_count}"
+                    )
+                if (
+                    typed_row_column_count_max
+                    != EXPECTED_KERNEL_ARG_SHADOW_TABLE_COLUMN_COUNT
+                ):
+                    failures.append(
+                        "consumer_shim_kernel_side_typed_row_consumer_path_column_count_max_mismatch="
+                        f"{typed_row_column_count_max}!={EXPECTED_KERNEL_ARG_SHADOW_TABLE_COLUMN_COUNT}"
+                    )
+                if (
+                    typed_row_column_count_min
+                    != EXPECTED_KERNEL_ARG_SHADOW_TABLE_COLUMN_COUNT
+                ):
+                    failures.append(
+                        "consumer_shim_kernel_side_typed_row_consumer_path_column_count_min_mismatch="
+                        f"{typed_row_column_count_min}!={EXPECTED_KERNEL_ARG_SHADOW_TABLE_COLUMN_COUNT}"
+                    )
+                for name, value in (
+                    ("error_count", typed_row_error_count),
+                    ("failure_count", typed_row_failure_count),
+                    ("payload_bytes", typed_row_payload_bytes),
+                    ("payload_violation_count", typed_row_payload_violation_count),
+                    ("passed_to_kernel_count", typed_row_passed_to_kernel_count),
+                    ("kernel_arg_violation_count", typed_row_kernel_arg_violation_count),
+                    (
+                        "current_wna16_arg_compatible_count",
+                        typed_row_current_wna16_compatible_count,
+                    ),
+                ):
+                    if value != 0:
+                        failures.append(
+                            "consumer_shim_kernel_side_typed_row_consumer_path_"
+                            f"{name}_nonzero={value}"
+                        )
             if attempt_checked_count != shim_executed:
                 failures.append(
                     "consumer_shim_kernel_arg_handoff_attempt_checked_count_mismatch="
@@ -8944,6 +9242,68 @@ def check_summary(
         "premap_consumer_descriptor_prep_consumer_shim_native_stub_online_invocation_kernel_arg_violation_count": _as_int(
             aggregate.get(f"{NATIVE_STUB_ONLINE_INVOCATION_PREFIX}kernel_arg_violation_count")
         ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_checked_count": _as_int(
+            aggregate.get(f"{KERNEL_SIDE_TYPED_ROW_CONSUMER_PATH_PREFIX}checked_count")
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_ready_count": _as_int(
+            aggregate.get(f"{KERNEL_SIDE_TYPED_ROW_CONSUMER_PATH_PREFIX}ready_count")
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_mode": str(
+            aggregate.get(f"{KERNEL_SIDE_TYPED_ROW_CONSUMER_PATH_PREFIX}mode")
+            or ""
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_name": str(
+            aggregate.get(f"{KERNEL_SIDE_TYPED_ROW_CONSUMER_PATH_PREFIX}name")
+            or ""
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_source": str(
+            aggregate.get(f"{KERNEL_SIDE_TYPED_ROW_CONSUMER_PATH_PREFIX}source")
+            or ""
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_schema_hash": str(
+            aggregate.get(f"{KERNEL_SIDE_TYPED_ROW_CONSUMER_PATH_PREFIX}schema_hash")
+            or ""
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_row_count": _as_int(
+            aggregate.get(f"{KERNEL_SIDE_TYPED_ROW_CONSUMER_PATH_PREFIX}row_count")
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_column_count_max": _as_int(
+            aggregate.get(
+                f"{KERNEL_SIDE_TYPED_ROW_CONSUMER_PATH_PREFIX}column_count_max"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_column_count_min": _as_int(
+            aggregate.get(
+                f"{KERNEL_SIDE_TYPED_ROW_CONSUMER_PATH_PREFIX}column_count_min"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_row_ok_count": _as_int(
+            aggregate.get(f"{KERNEL_SIDE_TYPED_ROW_CONSUMER_PATH_PREFIX}row_ok_count")
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_error_count": _as_int(
+            aggregate.get(f"{KERNEL_SIDE_TYPED_ROW_CONSUMER_PATH_PREFIX}error_count")
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_failure_count": _as_int(
+            aggregate.get(f"{KERNEL_SIDE_TYPED_ROW_CONSUMER_PATH_PREFIX}failure_count")
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_payload_bytes": _as_int(
+            aggregate.get(f"{KERNEL_SIDE_TYPED_ROW_CONSUMER_PATH_PREFIX}payload_bytes")
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_passed_to_kernel_count": _as_int(
+            aggregate.get(
+                f"{KERNEL_SIDE_TYPED_ROW_CONSUMER_PATH_PREFIX}passed_to_kernel_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_kernel_arg_violation_count": _as_int(
+            aggregate.get(
+                f"{KERNEL_SIDE_TYPED_ROW_CONSUMER_PATH_PREFIX}kernel_arg_violation_count"
+            )
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_current_wna16_arg_compatible_count": _as_int(
+            aggregate.get(
+                f"{KERNEL_SIDE_TYPED_ROW_CONSUMER_PATH_PREFIX}current_wna16_arg_compatible_count"
+            )
+        ),
     }
     # Keep promoted gate reports self-checkable.  The human-readable report
     # surfaces a curated metric set above, but strict revalidation of a passed
@@ -8955,6 +9315,7 @@ def check_summary(
         KERNEL_SIDE_TYPED_CONSUMER_OBJECT_PREFIX,
         NATIVE_TYPED_CONSUMER_BRIDGE_PREFIX,
         NATIVE_STUB_ONLINE_INVOCATION_PREFIX,
+        KERNEL_SIDE_TYPED_ROW_CONSUMER_PATH_PREFIX,
     ):
         for key, value in aggregate.items():
             if str(key).startswith(prefix) and key not in metrics:
@@ -9007,6 +9368,9 @@ def check_summary(
         ),
         "require_native_stub_online_invocation_canary": bool(
             require_native_stub_online_invocation_canary
+        ),
+        "require_kernel_side_typed_row_consumer_path": bool(
+            require_kernel_side_typed_row_consumer_path
         ),
         "allow_enabled_blocked_live_toggle": bool(
             allow_enabled_blocked_live_toggle
@@ -9212,6 +9576,16 @@ def main() -> None:
         ),
     )
     parser.add_argument(
+        "--require-kernel-side-typed-row-consumer-path",
+        action="store_true",
+        help=(
+            "Require the online no-op typed row consumer path. The prelaunch "
+            "shim must walk the prepared handle table with the same row-level "
+            "ABI semantics as the future kernel-side typed consumer while "
+            "keeping payload and kernel argument handoff disabled."
+        ),
+    )
+    parser.add_argument(
         "--allow-enabled-blocked-live-toggle",
         action="store_true",
         help=(
@@ -9326,6 +9700,9 @@ def main() -> None:
         ),
         require_native_stub_online_invocation_canary=(
             args.require_native_stub_online_invocation_canary
+        ),
+        require_kernel_side_typed_row_consumer_path=(
+            args.require_kernel_side_typed_row_consumer_path
         ),
         allow_enabled_blocked_live_toggle=(
             args.allow_enabled_blocked_live_toggle
