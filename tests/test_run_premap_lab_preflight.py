@@ -171,6 +171,11 @@ def _valid_schema_payload() -> dict:
                     "individually_enableable": True,
                 },
                 {
+                    "name": "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD",
+                    "default": "disabled",
+                    "individually_enableable": True,
+                },
+                {
                     "name": "MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_HANDLE",
                     "default": "disabled",
                     "individually_enableable": True,
@@ -418,6 +423,19 @@ def _native_stub_per_field_evidence_payload(input_json: str) -> dict[str, object
                 "/tmp/repo/microbench/premap_kernel_consumer/"
                 "premap_typed_consumer_adapter_v1.h"
             ),
+            "single_field_mirror_checked": True,
+            "single_field_mirror_mode": "readonly_scale_metadata_handle_abi_row_mirror",
+            "single_field_mirror_field_name": "scale_metadata_handle",
+            "single_field_mirror_source": "typed_consumer_abi_row_adapter_v1",
+            "single_field_mirror_row_count": 2,
+            "single_field_mirror_row_ok_count": 2,
+            "single_field_mirror_error_count": 0,
+            "single_field_mirror_hash_accumulator": "mirror-hash",
+            "single_field_mirror_payload_bytes": 0,
+            "single_field_mirror_passed_to_kernel": False,
+            "single_field_mirror_changes_kernel_launch_args": False,
+            "single_field_mirror_kernel_side_typed_consumer_compatible": True,
+            "single_field_mirror_current_wna16_arg_compatible": False,
         }
     )
     payload["compiled_macros"] = {
@@ -427,6 +445,7 @@ def _native_stub_per_field_evidence_payload(input_json: str) -> dict[str, object
         "MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR": True,
         "MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_DESCRIPTOR": True,
         "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_HANDLE": True,
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD": True,
         "MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_HANDLE": True,
         "MTP_PREMAP_TYPED_CONSUMER_CHECK_LIFETIME": True,
         "MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR": True,

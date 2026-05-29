@@ -102,6 +102,15 @@ premap_typed_consumer_required_handles_visible_v1(
 }
 
 __device__ static inline uint32_t
+premap_typed_consumer_scale_metadata_mirror_matches_v1(
+    const PremapKernelSideTypedConsumerAbiV1& table,
+    const PremapKernelSideTypedConsumerRowV1& row) {
+  return static_cast<uint32_t>(
+      table.scale_metadata_handle != nullptr && row.scale_metadata_handle != 0 &&
+      row.scale_metadata_handle == table.scale_metadata_handle[row.row_index]);
+}
+
+__device__ static inline uint32_t
 premap_typed_consumer_lifetime_valid_v1(
     const PremapKernelSideTypedConsumerAbiV1& table,
     const PremapKernelSideTypedConsumerRowV1& row) {

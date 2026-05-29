@@ -115,6 +115,8 @@ def test_typed_consumer_stub_dry_run_accepts_per_field_macros(tmp_path: Path):
             "--macro",
             "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_HANDLE",
             "--macro",
+            "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD",
+            "--macro",
             "MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_HANDLE",
             "--output-json",
             str(output),
@@ -128,6 +130,7 @@ def test_typed_consumer_stub_dry_run_accepts_per_field_macros(tmp_path: Path):
         "MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR",
         "MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_DESCRIPTOR",
         "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_HANDLE",
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD",
     ]
 
 

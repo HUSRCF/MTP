@@ -42,6 +42,14 @@ c1384d55958c9aa78b07b4ee3e9094f835ec1ca4c61bd7e9613c01ceb8275e98
 Use `--omit-aux-pointer` to exercise the native null-pointer ABI for the
 optional `aux_metadata_handle` column.
 
+`MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD` is the
+one-field handoff canary. It loads `scale_metadata_handle` through
+`PremapKernelSideTypedConsumerRowV1` and compares that row-view value against
+the ABI table column for the same row. The check proves the native consumer can
+read the scale-metadata mirror through the future typed row ABI, while still
+reporting `payload_bytes=0`, `passed_to_kernel=false`, and
+`changes_kernel_launch_args=false`.
+
 Runtime manager bridge:
 
 ```text

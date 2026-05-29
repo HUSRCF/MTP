@@ -65,7 +65,9 @@ __host__ __device__ static inline uint64_t mix64(uint64_t x) {
 __global__ void typed_consumer_kernel(
     PremapKernelSideTypedConsumerAbiV1 table,
     uint32_t* row_ok,
-    uint64_t* row_hash) {
+    uint64_t* row_hash,
+    uint32_t* single_field_mirror_ok,
+    uint64_t* single_field_mirror_hash) {
   const uint32_t idx = blockIdx.x * blockDim.x + threadIdx.x;
   if (idx >= table.row_count) {
     return;
@@ -85,6 +87,8 @@ __global__ void typed_consumer_kernel(
 
   const PremapKernelSideTypedConsumerRowV1 row =
       premap_typed_consumer_load_row_v1(table, idx);
+  uint32_t mirror_ok = 0;
+  uint64_t mirror_hash = 0;
 
 #if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_POINTER_VISIBILITY)
   ok &= premap_typed_consumer_required_handles_visible_v1(row);
@@ -100,6 +104,13 @@ __global__ void typed_consumer_kernel(
 
 #if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_HANDLE)
   ok &= static_cast<uint32_t>(row.scale_metadata_handle != 0);
+#endif
+
+#if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD)
+  mirror_ok = premap_typed_consumer_scale_metadata_mirror_matches_v1(table, row);
+  mirror_hash = mix64(row.scale_metadata_handle + 0x5ca1e00000000000ULL) ^
+                mix64(static_cast<uint64_t>(idx));
+  ok &= mirror_ok;
 #endif
 
 #if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_HANDLE)
@@ -127,13 +138,17 @@ __global__ void typed_consumer_kernel(
 
   row_ok[idx] = ok;
   row_hash[idx] = h;
+  single_field_mirror_ok[idx] = mirror_ok;
+  single_field_mirror_hash[idx] = mirror_hash;
 }
 
 #if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_KERNEL_CONSUMER_ENVELOPE)
 __global__ void typed_consumer_envelope_kernel(
     PremapKernelSideTypedConsumerLaunchEnvelopeV1 envelope,
     uint32_t* row_ok,
-    uint64_t* row_hash) {
+    uint64_t* row_hash,
+    uint32_t* single_field_mirror_ok,
+    uint64_t* single_field_mirror_hash) {
   const uint32_t idx = blockIdx.x * blockDim.x + threadIdx.x;
   if (idx >= envelope.table.row_count) {
     return;
@@ -144,6 +159,16 @@ __global__ void typed_consumer_envelope_kernel(
       premap_typed_consumer_load_row_v1(envelope.table, idx);
   ok &= premap_typed_consumer_required_handles_visible_v1(row);
   ok &= premap_typed_consumer_lifetime_valid_v1(envelope.table, row);
+  uint32_t mirror_ok = 0;
+  uint64_t mirror_hash = 0;
+
+#if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD)
+  mirror_ok = premap_typed_consumer_scale_metadata_mirror_matches_v1(
+      envelope.table, row);
+  mirror_hash = mix64(row.scale_metadata_handle + 0x5ca1e00000000000ULL) ^
+                mix64(static_cast<uint64_t>(idx));
+  ok &= mirror_ok;
+#endif
 
   uint64_t h = 0x517cc1b727220a95ULL ^ static_cast<uint64_t>(idx);
   h ^= mix64(row.descriptor_ptr);
@@ -155,6 +180,8 @@ __global__ void typed_consumer_envelope_kernel(
   h ^= mix64(envelope.expected_ordered_row_hash);
   row_ok[idx] = ok;
   row_hash[idx] = h;
+  single_field_mirror_ok[idx] = mirror_ok;
+  single_field_mirror_hash[idx] = mirror_hash;
 }
 #endif
 
@@ -254,6 +281,12 @@ static std::string macro_json() {
 #else
      << "false";
 #endif
+  os << ",\"MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD\":"
+#if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD)
+     << "true";
+#else
+     << "false";
+#endif
   os << ",\"MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_HANDLE\":"
 #if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_HANDLE)
      << "true";
@@ -313,9 +346,10 @@ int main(int argc, char** argv) {
   }
 
   uint64_t *d_descriptor = nullptr, *d_packed = nullptr, *d_scale = nullptr,
-           *d_aux = nullptr, *d_address_key = nullptr, *d_hash = nullptr;
+           *d_aux = nullptr, *d_address_key = nullptr, *d_hash = nullptr,
+           *d_single_field_mirror_hash = nullptr;
   int32_t* d_expert = nullptr;
-  uint32_t* d_ok = nullptr;
+  uint32_t *d_ok = nullptr, *d_single_field_mirror_ok = nullptr;
   const size_t u64_bytes = static_cast<size_t>(rows) * sizeof(uint64_t);
   const size_t i32_bytes = static_cast<size_t>(rows) * sizeof(int32_t);
   const size_t u32_bytes = static_cast<size_t>(rows) * sizeof(uint32_t);
@@ -329,6 +363,12 @@ int main(int argc, char** argv) {
   hip_check(hipMalloc(&d_expert, i32_bytes), "hipMalloc expert");
   hip_check(hipMalloc(&d_ok, u32_bytes), "hipMalloc ok");
   hip_check(hipMalloc(&d_hash, u64_bytes), "hipMalloc hash");
+  hip_check(
+      hipMalloc(&d_single_field_mirror_ok, u32_bytes),
+      "hipMalloc single_field_mirror_ok");
+  hip_check(
+      hipMalloc(&d_single_field_mirror_hash, u64_bytes),
+      "hipMalloc single_field_mirror_hash");
   hip_check(hipMemcpy(d_descriptor, descriptor.data(), u64_bytes, hipMemcpyHostToDevice), "copy descriptor");
   hip_check(hipMemcpy(d_packed, packed.data(), u64_bytes, hipMemcpyHostToDevice), "copy packed");
   hip_check(hipMemcpy(d_scale, scale.data(), u64_bytes, hipMemcpyHostToDevice), "copy scale");
@@ -376,7 +416,9 @@ int main(int argc, char** argv) {
       0,
       envelope,
       d_ok,
-      d_hash);
+      d_hash,
+      d_single_field_mirror_ok,
+      d_single_field_mirror_hash);
 #else
   hipLaunchKernelGGL(
       typed_consumer_kernel,
@@ -386,23 +428,56 @@ int main(int argc, char** argv) {
       0,
       table,
       d_ok,
-      d_hash);
+      d_hash,
+      d_single_field_mirror_ok,
+      d_single_field_mirror_hash);
 #endif
   hip_check(hipGetLastError(), "kernel launch");
   hip_check(hipDeviceSynchronize(), "kernel sync");
 
   std::vector<uint32_t> ok(rows);
   std::vector<uint64_t> hashes(rows);
+  std::vector<uint32_t> single_field_mirror_ok(rows);
+  std::vector<uint64_t> single_field_mirror_hashes(rows);
   hip_check(hipMemcpy(ok.data(), d_ok, u32_bytes, hipMemcpyDeviceToHost), "copy ok");
   hip_check(hipMemcpy(hashes.data(), d_hash, u64_bytes, hipMemcpyDeviceToHost), "copy hash");
+  hip_check(
+      hipMemcpy(
+          single_field_mirror_ok.data(),
+          d_single_field_mirror_ok,
+          u32_bytes,
+          hipMemcpyDeviceToHost),
+      "copy single_field_mirror_ok");
+  hip_check(
+      hipMemcpy(
+          single_field_mirror_hashes.data(),
+          d_single_field_mirror_hash,
+          u64_bytes,
+          hipMemcpyDeviceToHost),
+      "copy single_field_mirror_hash");
 
   uint64_t hash_acc = 0;
+  uint64_t single_field_mirror_hash_acc = 0;
   int ok_count = 0;
+  int single_field_mirror_ok_count = 0;
   for (int i = 0; i < rows; ++i) {
     ok_count += ok[i] == 1 ? 1 : 0;
     hash_acc ^= mix64(hashes[i] + static_cast<uint64_t>(i));
+    single_field_mirror_ok_count += single_field_mirror_ok[i] == 1 ? 1 : 0;
+    single_field_mirror_hash_acc ^=
+        mix64(single_field_mirror_hashes[i] + static_cast<uint64_t>(i));
   }
   const int error_count = rows - ok_count;
+  const bool single_field_mirror_checked =
+#if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD)
+      true;
+#else
+      false;
+#endif
+  const int single_field_mirror_row_count =
+      single_field_mirror_checked ? rows : 0;
+  const int single_field_mirror_error_count =
+      single_field_mirror_checked ? rows - single_field_mirror_ok_count : 0;
 
   hip_check(hipFree(d_descriptor), "hipFree descriptor");
   hip_check(hipFree(d_packed), "hipFree packed");
@@ -414,6 +489,10 @@ int main(int argc, char** argv) {
   hip_check(hipFree(d_expert), "hipFree expert");
   hip_check(hipFree(d_ok), "hipFree ok");
   hip_check(hipFree(d_hash), "hipFree hash");
+  hip_check(hipFree(d_single_field_mirror_ok), "hipFree single_field_mirror_ok");
+  hip_check(
+      hipFree(d_single_field_mirror_hash),
+      "hipFree single_field_mirror_hash");
 
   std::cout << "{";
   std::cout << "\"ok\":" << (error_count == 0 ? "true" : "false");
@@ -439,6 +518,25 @@ int main(int argc, char** argv) {
 #endif
   std::cout << ",\"kernel_consumer_envelope_payload_bytes\":0";
   std::cout << ",\"kernel_consumer_envelope_passed_to_kernel\":false";
+  std::cout << ",\"single_field_mirror_checked\":"
+            << (single_field_mirror_checked ? "true" : "false");
+  std::cout << ",\"single_field_mirror_mode\":\"readonly_scale_metadata_handle_abi_row_mirror\"";
+  std::cout << ",\"single_field_mirror_field_name\":\"scale_metadata_handle\"";
+  std::cout << ",\"single_field_mirror_source\":\"typed_consumer_abi_row_adapter_v1\"";
+  std::cout << ",\"single_field_mirror_row_count\":"
+            << single_field_mirror_row_count;
+  std::cout << ",\"single_field_mirror_row_ok_count\":"
+            << (single_field_mirror_checked ? single_field_mirror_ok_count : 0);
+  std::cout << ",\"single_field_mirror_error_count\":"
+            << single_field_mirror_error_count;
+  std::cout << ",\"single_field_mirror_hash_accumulator\":\"" << std::hex
+            << single_field_mirror_hash_acc << std::dec << "\"";
+  std::cout << ",\"single_field_mirror_payload_bytes\":0";
+  std::cout << ",\"single_field_mirror_passed_to_kernel\":false";
+  std::cout << ",\"single_field_mirror_changes_kernel_launch_args\":false";
+  std::cout << ",\"single_field_mirror_kernel_side_typed_consumer_compatible\":"
+            << (single_field_mirror_checked ? "true" : "false");
+  std::cout << ",\"single_field_mirror_current_wna16_arg_compatible\":false";
   std::cout << ",\"typed_schema_hash_hi\":\"" << std::hex << kTypedSchemaHashHi << std::dec << "\"";
   std::cout << ",\"typed_schema_hash_lo\":\"" << std::hex << kTypedSchemaHashLo << std::dec << "\"";
   std::cout << ",\"aux_pointer_present\":" << (args.omit_aux_pointer ? "false" : "true");

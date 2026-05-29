@@ -449,6 +449,7 @@ def _validate_required_evidence_payload(
                         "MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR",
                         "MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_DESCRIPTOR",
                         "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_HANDLE",
+                        "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD",
                         "MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_HANDLE",
                         "MTP_PREMAP_TYPED_CONSUMER_CHECK_LIFETIME",
                         "MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR",
@@ -741,6 +742,47 @@ def _validate_native_typed_consumer_stub_evidence(
     ):
         if macros.get(forbidden):
             failures.append(f"native_typed_consumer_stub_{forbidden}_enabled")
+    if macros.get("MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD"):
+        expected_mirror = {
+            "single_field_mirror_checked": True,
+            "single_field_mirror_mode": "readonly_scale_metadata_handle_abi_row_mirror",
+            "single_field_mirror_field_name": "scale_metadata_handle",
+            "single_field_mirror_source": "typed_consumer_abi_row_adapter_v1",
+            "single_field_mirror_payload_bytes": 0,
+            "single_field_mirror_passed_to_kernel": False,
+            "single_field_mirror_changes_kernel_launch_args": False,
+            "single_field_mirror_kernel_side_typed_consumer_compatible": True,
+            "single_field_mirror_current_wna16_arg_compatible": False,
+        }
+        for key, expected_value in expected_mirror.items():
+            if evidence.get(key) != expected_value:
+                failures.append(f"native_typed_consumer_stub_{key}_mismatch")
+        mirror_row_count = _int_metric(evidence, "single_field_mirror_row_count")
+        mirror_row_ok_count = _int_metric(
+            evidence,
+            "single_field_mirror_row_ok_count",
+        )
+        mirror_error_count = _int_metric(
+            evidence,
+            "single_field_mirror_error_count",
+        )
+        if row_count is not None and mirror_row_count != row_count:
+            failures.append(
+                "native_typed_consumer_stub_single_field_mirror_row_count_mismatch"
+            )
+        if row_count is not None and mirror_row_ok_count != row_count:
+            failures.append(
+                "native_typed_consumer_stub_single_field_mirror_row_ok_count_mismatch"
+            )
+        if mirror_error_count != 0:
+            failures.append(
+                "native_typed_consumer_stub_single_field_mirror_error_count_mismatch"
+            )
+        mirror_hash = evidence.get("single_field_mirror_hash_accumulator")
+        if not isinstance(mirror_hash, str) or not mirror_hash:
+            failures.append(
+                "native_typed_consumer_stub_single_field_mirror_hash_missing"
+            )
     return failures
 
 

@@ -19571,3 +19571,54 @@ premap_lab_preflight_default_kernel_envelope_schema.json:
   passed_to_kernel_required = false
   changes_kernel_launch_args_required = false
 ```
+
+## Scale-metadata single-field ABI row mirror canary
+
+The native typed consumer stub now has an explicit one-field mirror check for
+the safest handoff candidate:
+
+```text
+MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD
+```
+
+This macro loads `scale_metadata_handle` through
+`PremapKernelSideTypedConsumerRowV1` and compares the row-view value with the
+same row in the ABI table column.  It validates the future kernel-side row-read
+path for the scale metadata mirror without changing the current WNA16 kernel
+argument list:
+
+```text
+single_field_mirror_mode = readonly_scale_metadata_handle_abi_row_mirror
+single_field_mirror_field_name = scale_metadata_handle
+single_field_mirror_source = typed_consumer_abi_row_adapter_v1
+single_field_mirror_payload_bytes = 0
+single_field_mirror_passed_to_kernel = false
+single_field_mirror_changes_kernel_launch_args = false
+single_field_mirror_current_wna16_arg_compatible = false
+```
+
+GPU1 canary validation:
+
+```text
+typed_consumer_stub_gpu1_scale_metadata_mirror_canary.json:
+  passed = true
+  row_count = 64
+  row_ok_count = 64
+  single_field_mirror_checked = true
+  single_field_mirror_row_ok_count = 64
+  single_field_mirror_error_count = 0
+  payload_bytes = 0
+  passed_to_kernel = false
+  changes_kernel_launch_args = false
+
+online_prelaunch_native_stub_canary_runner.json:
+  passed = true
+  per_field_stub_summary.row_count = 204
+  per_field_stub_summary.row_ok_count = 204
+  final_preflight_status_summary.optional_evidence = 1 / 1
+  final_preflight_status_summary.required_evidence = 10 / 10
+```
+
+This remains a readonly native-stub canary.  It proves the typed ABI row adapter
+can read the scale metadata mirror, but it still does not pass typed handles to
+the real AWQ WNA16 fused-MoE kernel.
