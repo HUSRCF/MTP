@@ -20204,3 +20204,65 @@ conda run -p /home/husrcf/anaconda3/envs/TRY pytest \
 conda run -p /home/husrcf/anaconda3/envs/TRY pytest tests -q
   697 passed, 2 warnings
 ```
+
+## Descriptor pointer readonly canary
+
+The readonly one-field canary matrix now covers all four typed handle table
+columns:
+
+```text
+descriptor_ptr
+packed_weight_descriptor
+scale_metadata_handle
+aux_metadata_handle
+```
+
+The `descriptor_ptr` canary remains a mirror/parity check only.  It does not
+dereference the pointer, pass it to the real WNA16 kernel, move payload, or
+grant ready credit.
+
+GPU1 1-sample smoke:
+
+```text
+configs/trace/router_mtp_trace_external_prompt_gate_dolly_1_awq_vllm_gpu1_decode_gen16_descriptor_ptr_handle_handoff_canary.yaml
+
+field_name = descriptor_ptr
+checked_count = 640
+ready_count = 640
+parity_ok_count = 9794
+payload_bytes = 0
+passed_to_kernel_count = 0
+kernel_arg_violation_count = 0
+
+data/traces/external_prompt_gate_dolly_1_awq_vllm_gpu1_decode_gen16_descriptor_ptr_handle_handoff_canary/
+  longrun_audit_gate_descriptor_ptr_single_field_smoke.json
+```
+
+Lab preflight optional evidence now validates four optional artifacts:
+
+```text
+outputs/reports/premap_lab_preflight_latest.json
+  failures = []
+  optional_evidence.required_count = 4
+  optional_evidence.present_count = 4
+  optional_evidence.passed_count = 4
+
+optional evidence:
+  native_typed_consumer_stub_online_prelaunch_input_per_field_canary_json
+  packed_weight_single_field_handle_handoff_canary_smoke_json
+  aux_metadata_single_field_handle_handoff_canary_smoke_json
+  descriptor_ptr_single_field_handle_handoff_canary_smoke_json
+```
+
+Validation:
+
+```text
+conda run -p /home/husrcf/anaconda3/envs/TRY pytest \
+  tests/test_run_premap_lab_preflight.py \
+  tests/test_check_premap_longrun_audit_gate.py \
+  tests/test_runtime_premap.py -q
+  154 passed
+
+conda run -p /home/husrcf/anaconda3/envs/TRY pytest tests -q
+  698 passed, 2 warnings
+```

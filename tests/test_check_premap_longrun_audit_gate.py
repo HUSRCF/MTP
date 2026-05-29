@@ -2146,6 +2146,47 @@ def test_premap_longrun_audit_gate_accepts_aux_metadata_single_field_canary():
     )
 
 
+def test_premap_longrun_audit_gate_accepts_descriptor_ptr_single_field_canary():
+    result = check_summary(
+        _add_single_field_handle_handoff_canary(
+            _add_kernel_arg_semantic_handle_adapter(
+                _add_kernel_arg_handoff_launch_schema_mirror(
+                    _add_kernel_arg_handoff_attempt(_passing_summary())
+                )
+            ),
+            field_name="descriptor_ptr",
+        ),
+        max_capacity=12,
+        min_reuse_rate=0.98,
+        require_readonly_consumer=True,
+        require_descriptor_prep=True,
+        require_real_descriptor_prep=True,
+        require_kernel_arg_shadow_table=True,
+        require_consumer_shim_table_read=True,
+        require_consumer_shim_table_consume=True,
+        require_kernel_arg_handoff_attempt=True,
+        require_kernel_arg_handoff_launch_schema_mirror=True,
+        require_kernel_arg_semantic_handle_adapter=True,
+        require_single_field_handle_handoff_canary=True,
+        expected_single_field_handle_handoff_canary_field="descriptor_ptr",
+    )
+
+    assert result["passed"] is True
+    assert result["failures"] == []
+    assert (
+        result["metrics"][
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_field_name"
+        ]
+        == "descriptor_ptr"
+    )
+    assert (
+        result["metrics"][
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_mirror_mode"
+        ]
+        == "readonly_descriptor_ptr_mirror"
+    )
+
+
 def test_premap_longrun_audit_gate_rejects_wrong_single_field_canary():
     result = check_summary(
         _add_single_field_handle_handoff_canary(

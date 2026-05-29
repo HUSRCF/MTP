@@ -528,6 +528,7 @@ def check_summary(
         failures.append("single_field_replacement_live_requires_dry_run_enabled")
     allowed_single_field_handle_handoff_canary_fields = {
         "aux_metadata_handle",
+        "descriptor_ptr",
         "packed_weight_descriptor",
         "scale_metadata_handle",
     }
@@ -9583,6 +9584,7 @@ def main() -> None:
         default="scale_metadata_handle",
         choices=(
             "aux_metadata_handle",
+            "descriptor_ptr",
             "packed_weight_descriptor",
             "scale_metadata_handle",
         ),
