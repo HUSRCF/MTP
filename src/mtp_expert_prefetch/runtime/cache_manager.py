@@ -13,6 +13,10 @@ PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_COLUMNS = (
     "scale_metadata_handle",
     "aux_metadata_handle",
 )
+PREMAP_SINGLE_FIELD_HANDLE_HANDOFF_CANARY_FIELDS = (
+    "packed_weight_descriptor",
+    "scale_metadata_handle",
+)
 PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH = hashlib.sha256(
     "|".join(PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_COLUMNS).encode("utf-8")
 ).hexdigest()
@@ -90,6 +94,32 @@ PREMAP_KERNEL_SIDE_TYPED_CONSUMER_PATH_MODE = "readonly_typed_row_consumer_path"
 PREMAP_KERNEL_SIDE_TYPED_CONSUMER_PATH_SOURCE = (
     "vllm_prelaunch_prepared_handle_table"
 )
+
+
+def premap_single_field_handle_handoff_mirror_mode(field_name: str) -> str:
+    field = str(field_name)
+    if field not in PREMAP_SINGLE_FIELD_HANDLE_HANDOFF_CANARY_FIELDS:
+        msg = (
+            "premap single-field handoff canary only supports "
+            f"{list(PREMAP_SINGLE_FIELD_HANDLE_HANDOFF_CANARY_FIELDS)}; got {field!r}"
+        )
+        raise ValueError(msg)
+    return f"readonly_{field}_mirror"
+
+
+def _premap_semantic_adapter_hash_attr_for_field(field_name: str) -> str:
+    field = str(field_name)
+    mapping = {
+        "descriptor_ptr": "descriptor_ptr_handle_hash",
+        "packed_weight_descriptor": "packed_weight_descriptor_handle_hash",
+        "scale_metadata_handle": "scale_metadata_handle_hash",
+        "aux_metadata_handle": "aux_metadata_handle_hash",
+    }
+    try:
+        return mapping[field]
+    except KeyError as exc:
+        msg = f"unsupported premap semantic adapter field: {field!r}"
+        raise ValueError(msg) from exc
 
 
 @dataclass
@@ -958,9 +988,10 @@ class PremapSingleFieldHandleHandoffCanary:
     def ready(self) -> bool:
         return (
             self.mode == "readonly_single_field_handle_handoff_canary"
-            and self.field_name == "scale_metadata_handle"
+            and self.field_name in PREMAP_SINGLE_FIELD_HANDLE_HANDOFF_CANARY_FIELDS
             and self.source == "semantic_handle_table"
-            and self.mirror_mode == "readonly_scale_metadata_handle_mirror"
+            and self.mirror_mode
+            == premap_single_field_handle_handoff_mirror_mode(self.field_name)
             and self.mirror_field_name == self.field_name
             and self.mirror_source == self.source
             and bool(self.table_object_hash)
@@ -3411,6 +3442,7 @@ class ControlledPremapAddressManager:
         kernel_arg_handoff_kernel_arg_pass_enabled: bool = False,
         kernel_arg_handoff_real_kernel_arg_mutation_enabled: bool = False,
         kernel_arg_handoff_lab_gate_passed: bool = False,
+        single_field_handle_handoff_canary_field: str = "scale_metadata_handle",
         execution_mode: str = "readonly_prelaunch_consumer_shim",
     ) -> PremapDescriptorConsumerShimResult:
         """Run the minimal prelaunch consumer shim without side effects."""
@@ -4043,8 +4075,12 @@ class ControlledPremapAddressManager:
                     changes_kernel_launch_args=False,
                     live_compatible_with_current_wna16_args=False,
                 )
+                single_field_name = str(single_field_handle_handoff_canary_field)
+                single_field_mirror_mode = (
+                    premap_single_field_handle_handoff_mirror_mode(single_field_name)
+                )
                 single_field_values = [
-                    str(row.scale_metadata_handle) for row in table_object.rows
+                    str(getattr(row, single_field_name)) for row in table_object.rows
                 ]
                 single_field_hash = hashlib.sha256(
                     "|".join(single_field_values).encode("utf-8")
@@ -4055,15 +4091,30 @@ class ControlledPremapAddressManager:
                 )
                 single_field_parity_ok = (
                     single_field_hash
-                    == semantic_handle_adapter.scale_metadata_handle_hash
+                    == str(
+                        getattr(
+                            semantic_handle_adapter,
+                            _premap_semantic_adapter_hash_attr_for_field(
+                                single_field_name
+                            ),
+                        )
+                    )
+                )
+                single_field_semantic_hash = str(
+                    getattr(
+                        semantic_handle_adapter,
+                        _premap_semantic_adapter_hash_attr_for_field(
+                            single_field_name
+                        ),
+                    )
                 )
                 single_field_handle_handoff_canary = (
                     PremapSingleFieldHandleHandoffCanary(
                         mode="readonly_single_field_handle_handoff_canary",
-                        field_name="scale_metadata_handle",
+                        field_name=single_field_name,
                         source="semantic_handle_table",
-                        mirror_mode="readonly_scale_metadata_handle_mirror",
-                        mirror_field_name="scale_metadata_handle",
+                        mirror_mode=single_field_mirror_mode,
+                        mirror_field_name=single_field_name,
                         mirror_source="semantic_handle_table",
                         table_object_hash=table_object.object_hash,
                         semantic_adapter_hash=semantic_handle_adapter.adapter_hash,
@@ -4074,9 +4125,7 @@ class ControlledPremapAddressManager:
                             len(single_field_values) - single_field_nonzero_count
                         ),
                         field_handle_hash=single_field_hash,
-                        semantic_field_hash=(
-                            semantic_handle_adapter.scale_metadata_handle_hash
-                        ),
+                        semantic_field_hash=single_field_semantic_hash,
                         mirror_handle_hash=single_field_hash,
                         mirror_schema_hash=(
                             PREMAP_KERNEL_SIDE_TYPED_CONSUMER_SCHEMA_HASH

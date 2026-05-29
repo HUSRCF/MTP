@@ -19,6 +19,9 @@ from mtp_expert_prefetch.runtime.cache_manager import (
     PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_COLUMNS,
     PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH,
     PREMAP_KERNEL_SIDE_TYPED_CONSUMER_SCHEMA_HASH,
+    PREMAP_KERNEL_SIDE_TYPED_CONSUMER_PATH_MODE,
+    PREMAP_KERNEL_SIDE_TYPED_CONSUMER_PATH_NAME,
+    PREMAP_KERNEL_SIDE_TYPED_CONSUMER_PATH_SOURCE,
 )
 
 
@@ -63,6 +66,18 @@ REQUIRED_DEFAULT_GATE_CONTRACT = {
     "kernel_side_typed_consumer_object_live_enabled_required": True,
     "kernel_side_typed_consumer_object_live_eligible_required": True,
     "kernel_side_typed_consumer_object_live_compatible_with_current_wna16_args_required": False,
+    "kernel_side_typed_row_consumer_path_required": True,
+    "kernel_side_typed_row_consumer_path_mode": "readonly_typed_row_consumer_path",
+    "kernel_side_typed_row_consumer_path_name": (
+        "premap_kernel_side_typed_consumer_path_v1"
+    ),
+    "kernel_side_typed_row_consumer_path_source": (
+        "vllm_prelaunch_prepared_handle_table"
+    ),
+    "kernel_side_typed_row_consumer_path_payload_bytes_required": 0,
+    "kernel_side_typed_row_consumer_path_passed_to_kernel_required": False,
+    "kernel_side_typed_row_consumer_path_changes_kernel_launch_args_required": False,
+    "kernel_side_typed_row_consumer_path_current_wna16_arg_compatible_required": False,
     "single_field_handle_handoff_canary_required": True,
     "single_field_handle_handoff_canary_mode": (
         "readonly_single_field_handle_handoff_canary"
@@ -120,6 +135,7 @@ REQUIRED_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
     "strict_live_connected_readonly_128_gate_json",
     "strict_kernel_side_typed_consumer_object_128_gate_json",
     "strict_kernel_side_typed_consumer_object_128_selfcheck_json",
+    "strict_kernel_side_typed_row_consumer_path_128_gate_json",
     "strict_single_field_handle_handoff_canary_128_gate_json",
     "strict_native_typed_consumer_bridge_128_gate_json",
     "native_typed_consumer_bridge_smoke_json",
@@ -146,6 +162,10 @@ _NATIVE_STUB_METRIC_PREFIX = (
 _SINGLE_FIELD_CANARY_METRIC_PREFIX = (
     "premap_consumer_descriptor_prep_consumer_shim_"
     "single_field_handle_handoff_canary_"
+)
+_TYPED_ROW_CONSUMER_PATH_METRIC_PREFIX = (
+    "premap_consumer_descriptor_prep_consumer_shim_"
+    "kernel_side_typed_row_consumer_path_"
 )
 
 
@@ -333,6 +353,54 @@ def _validate_single_field_canary_evidence(metrics: dict[str, Any]) -> list[str]
     return failures
 
 
+def _validate_typed_row_consumer_path_evidence(
+    metrics: dict[str, Any],
+) -> list[str]:
+    prefix = _TYPED_ROW_CONSUMER_PATH_METRIC_PREFIX
+    failures: list[str] = []
+    checked = _int_metric(metrics, f"{prefix}checked_count")
+    if checked is None or checked <= 0:
+        failures.append(f"{prefix}checked_count_invalid")
+        checked = None
+    row_count = _int_metric(metrics, f"{prefix}row_count")
+    row_ok = _int_metric(metrics, f"{prefix}row_ok_count")
+    if row_count is None or row_count <= 0:
+        failures.append(f"{prefix}row_count_invalid")
+        row_count = None
+    if row_count is not None and row_ok != row_count:
+        failures.append(f"{prefix}row_ok_count_mismatch")
+    for suffix in ("ready_count",):
+        value = _int_metric(metrics, f"{prefix}{suffix}")
+        if checked is not None and value != checked:
+            failures.append(f"{prefix}{suffix}_mismatch")
+    for suffix in (
+        "error_count",
+        "failure_count",
+        "payload_bytes",
+        "payload_violation_count",
+        "passed_to_kernel_count",
+        "kernel_arg_violation_count",
+        "current_wna16_arg_compatible_count",
+    ):
+        failures.extend(_check_metric_equals_if_present(metrics, f"{prefix}{suffix}", 0))
+    expected_values = {
+        "mode": PREMAP_KERNEL_SIDE_TYPED_CONSUMER_PATH_MODE,
+        "name": PREMAP_KERNEL_SIDE_TYPED_CONSUMER_PATH_NAME,
+        "source": PREMAP_KERNEL_SIDE_TYPED_CONSUMER_PATH_SOURCE,
+        "schema_hash": PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH,
+    }
+    for suffix, expected in expected_values.items():
+        failures.extend(_check_metric_equals(metrics, f"{prefix}{suffix}", expected))
+    column_max = _int_metric(metrics, f"{prefix}column_count_max")
+    column_min = _int_metric(metrics, f"{prefix}column_count_min")
+    expected_columns = len(PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_COLUMNS)
+    if column_max != expected_columns:
+        failures.append(f"{prefix}column_count_max_mismatch")
+    if column_min != expected_columns:
+        failures.append(f"{prefix}column_count_min_mismatch")
+    return failures
+
+
 def _validate_required_evidence_payload(
     evidence_label: str,
     evidence: dict[str, Any],
@@ -350,6 +418,7 @@ def _validate_required_evidence_payload(
         "strict_native_typed_consumer_bridge_128_gate_json",
         "strict_single_field_handle_handoff_canary_128_gate_json",
         "strict_native_stub_online_invocation_canary_128_gate_json",
+        "strict_kernel_side_typed_row_consumer_path_128_gate_json",
         "native_typed_consumer_online_prelaunch_canary_runner_json",
         *known_stub_labels,
     }:
@@ -670,6 +739,11 @@ def _validate_required_evidence_payload(
         return [
             f"{evidence_label}:{failure}"
             for failure in _validate_single_field_canary_evidence(metrics)
+        ]
+    if evidence_label == "strict_kernel_side_typed_row_consumer_path_128_gate_json":
+        return [
+            f"{evidence_label}:{failure}"
+            for failure in _validate_typed_row_consumer_path_evidence(metrics)
         ]
     return [
         f"{evidence_label}:{failure}"
@@ -1768,6 +1842,11 @@ def run_premap_lab_preflight(
         "single_field_handle_handoff_canary_required": (
             REQUIRED_DEFAULT_GATE_CONTRACT[
                 "single_field_handle_handoff_canary_required"
+            ]
+        ),
+        "kernel_side_typed_row_consumer_path_required": (
+            REQUIRED_DEFAULT_GATE_CONTRACT[
+                "kernel_side_typed_row_consumer_path_required"
             ]
         ),
         "payload_bytes_required": REQUIRED_DEFAULT_GATE_CONTRACT[

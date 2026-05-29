@@ -1268,6 +1268,9 @@ class VllmRouterRecorder:
         str
     ) = "original_kernel_arg_identity"
     shadow_premap_kernel_arg_handoff_single_field_replacement_field: str = "B_scale"
+    shadow_premap_single_field_handle_handoff_canary_field: str = (
+        "scale_metadata_handle"
+    )
     shadow_premap_native_typed_consumer_input_export_enabled: bool = False
     shadow_premap_native_typed_consumer_input_export_dir: str | None = None
     shadow_premap_native_typed_consumer_input_export_prefix: str = (
@@ -3018,6 +3021,9 @@ class VllmRouterRecorder:
                                 kernel_arg_handoff_lab_gate_passed=(
                                     self.shadow_premap_consumer_readonly_gate_passed
                                     is True
+                                ),
+                                single_field_handle_handoff_canary_field=(
+                                    self.shadow_premap_single_field_handle_handoff_canary_field
                                 ),
                             )
                         )
@@ -13617,6 +13623,12 @@ def _apply_premap_consumer_readonly_gate(
             "B_scale",
         )
     )
+    single_field_handle_handoff_canary_field = str(
+        options.get(
+            "premap_single_field_handle_handoff_canary_field",
+            "scale_metadata_handle",
+        )
+    )
     if real_kernel_arg_mutation_enabled and not kernel_arg_pass_enabled:
         msg = (
             "premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled=True "
@@ -13707,6 +13719,20 @@ def _apply_premap_consumer_readonly_gate(
             "premap_kernel_arg_handoff_single_field_replacement_field in "
             f"{sorted(prepared_handle_table_replacement_fields)}; got "
             f"{single_field_replacement_field!r}."
+        )
+        raise ValueError(msg)
+    allowed_single_field_handle_handoff_canary_fields = {
+        "packed_weight_descriptor",
+        "scale_metadata_handle",
+    }
+    if (
+        single_field_handle_handoff_canary_field
+        not in allowed_single_field_handle_handoff_canary_fields
+    ):
+        msg = (
+            "premap_single_field_handle_handoff_canary_field must be one of "
+            f"{sorted(allowed_single_field_handle_handoff_canary_fields)}; got "
+            f"{single_field_handle_handoff_canary_field!r}."
         )
         raise ValueError(msg)
     if kernel_arg_pass_enabled and (
@@ -15539,6 +15565,12 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                                 runtime_shadow_options.get(
                                     "premap_kernel_arg_handoff_single_field_replacement_field",
                                     "B_scale",
+                                )
+                            ),
+                            shadow_premap_single_field_handle_handoff_canary_field=str(
+                                runtime_shadow_options.get(
+                                    "premap_single_field_handle_handoff_canary_field",
+                                    "scale_metadata_handle",
                                 )
                             ),
                             shadow_premap_native_typed_consumer_input_export_enabled=(

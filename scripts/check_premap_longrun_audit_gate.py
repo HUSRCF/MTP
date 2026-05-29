@@ -337,6 +337,9 @@ def check_summary(
     require_kernel_arg_handoff_live_consumer_adapter: bool = False,
     require_kernel_arg_semantic_handle_adapter: bool = False,
     require_single_field_handle_handoff_canary: bool = False,
+    expected_single_field_handle_handoff_canary_field: str = (
+        "scale_metadata_handle"
+    ),
     require_kernel_side_consumer_schema_adapter: bool = False,
     require_kernel_side_typed_consumer_object: bool = False,
     require_native_typed_consumer_bridge: bool = False,
@@ -523,6 +526,25 @@ def check_summary(
         single_field_replacement_dry_run_enabled
     ):
         failures.append("single_field_replacement_live_requires_dry_run_enabled")
+    allowed_single_field_handle_handoff_canary_fields = {
+        "packed_weight_descriptor",
+        "scale_metadata_handle",
+    }
+    expected_single_field_handle_handoff_canary_field = str(
+        expected_single_field_handle_handoff_canary_field
+        or "scale_metadata_handle"
+    )
+    if (
+        expected_single_field_handle_handoff_canary_field
+        not in allowed_single_field_handle_handoff_canary_fields
+    ):
+        failures.append(
+            "expected_single_field_handle_handoff_canary_field_unknown="
+            f"{expected_single_field_handle_handoff_canary_field}"
+        )
+    expected_single_field_handle_handoff_canary_mirror_mode = (
+        f"readonly_{expected_single_field_handle_handoff_canary_field}_mirror"
+    )
 
     unknown_events = sorted(set(event_counts) - REQUIRED_EVENT_TYPES)
     missing_events = sorted(event for event in REQUIRED_EVENT_TYPES if event_counts.get(event, 0) <= 0)
@@ -3958,7 +3980,10 @@ def check_summary(
                         "consumer_shim_single_field_handle_handoff_canary_mode_mismatch_count_nonzero="
                         f"{canary_mode_mismatch_count}"
                     )
-                if canary_field_name != "scale_metadata_handle":
+                if (
+                    canary_field_name
+                    != expected_single_field_handle_handoff_canary_field
+                ):
                     failures.append(
                         "consumer_shim_single_field_handle_handoff_canary_field_name_mismatch"
                     )
@@ -3966,7 +3991,10 @@ def check_summary(
                     failures.append(
                         "consumer_shim_single_field_handle_handoff_canary_source_mismatch"
                     )
-                if canary_mirror_mode != "readonly_scale_metadata_handle_mirror":
+                if (
+                    canary_mirror_mode
+                    != expected_single_field_handle_handoff_canary_mirror_mode
+                ):
                     failures.append(
                         "consumer_shim_single_field_handle_handoff_canary_mirror_mode_mismatch"
                     )
@@ -3975,7 +4003,10 @@ def check_summary(
                         "consumer_shim_single_field_handle_handoff_canary_mirror_ready_count_mismatch="
                         f"{canary_mirror_ready_count}!={shim_executed}"
                     )
-                if canary_mirror_field_name != "scale_metadata_handle":
+                if (
+                    canary_mirror_field_name
+                    != expected_single_field_handle_handoff_canary_field
+                ):
                     failures.append(
                         "consumer_shim_single_field_handle_handoff_canary_mirror_field_name_mismatch"
                     )
@@ -8880,6 +8911,16 @@ def check_summary(
             aggregate.get(f"{SINGLE_FIELD_HANDLE_HANDOFF_CANARY_PREFIX}source")
             or ""
         ),
+        "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_mirror_mode": str(
+            aggregate.get(f"{SINGLE_FIELD_HANDLE_HANDOFF_CANARY_PREFIX}mirror_mode")
+            or ""
+        ),
+        "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_mirror_field_name": str(
+            aggregate.get(
+                f"{SINGLE_FIELD_HANDLE_HANDOFF_CANARY_PREFIX}mirror_field_name"
+            )
+            or ""
+        ),
         "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_block_reason": str(
             aggregate.get(f"{SINGLE_FIELD_HANDLE_HANDOFF_CANARY_PREFIX}block_reason")
             or ""
@@ -9357,6 +9398,9 @@ def check_summary(
         "require_single_field_handle_handoff_canary": bool(
             require_single_field_handle_handoff_canary
         ),
+        "expected_single_field_handle_handoff_canary_field": (
+            expected_single_field_handle_handoff_canary_field
+        ),
         "require_kernel_side_consumer_schema_adapter": bool(
             require_kernel_side_consumer_schema_adapter
         ),
@@ -9528,9 +9572,19 @@ def main() -> None:
         action="store_true",
         help=(
             "Require the readonly single-field handle handoff canary. The canary "
-            "validates the safest scale-metadata handle mirror against the typed "
+            "validates a single future kernel-side handle mirror against the typed "
             "semantic handle table while keeping live handoff disabled, zero-payload, "
             "and disconnected from current WNA16 kernel arguments."
+        ),
+    )
+    parser.add_argument(
+        "--expected-single-field-handle-handoff-canary-field",
+        default="scale_metadata_handle",
+        choices=("packed_weight_descriptor", "scale_metadata_handle"),
+        help=(
+            "Expected readonly single-field handoff canary field. Keep this one "
+            "field at a time; the second-field canary currently uses "
+            "packed_weight_descriptor."
         ),
     )
     parser.add_argument(
@@ -9688,6 +9742,9 @@ def main() -> None:
         ),
         require_single_field_handle_handoff_canary=(
             args.require_single_field_handle_handoff_canary
+        ),
+        expected_single_field_handle_handoff_canary_field=(
+            args.expected_single_field_handle_handoff_canary_field
         ),
         require_kernel_side_consumer_schema_adapter=(
             args.require_kernel_side_consumer_schema_adapter

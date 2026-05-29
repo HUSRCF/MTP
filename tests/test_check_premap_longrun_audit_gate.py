@@ -474,7 +474,15 @@ def _add_kernel_arg_semantic_handle_adapter(summary: dict) -> dict:
     return summary
 
 
-def _add_single_field_handle_handoff_canary(summary: dict) -> dict:
+def _single_field_mirror_mode(field_name: str) -> str:
+    return f"readonly_{field_name}_mirror"
+
+
+def _add_single_field_handle_handoff_canary(
+    summary: dict,
+    *,
+    field_name: str = "scale_metadata_handle",
+) -> dict:
     aggregate = summary["aggregate"]
     checked_count = int(
         aggregate[
@@ -508,7 +516,7 @@ def _add_single_field_handle_handoff_canary(summary: dict) -> dict:
             "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_mode_checked_count": checked_count,
             "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_mode_missing_count": 0,
             "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_mode_mismatch_count": 0,
-            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_field_name": "scale_metadata_handle",
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_field_name": field_name,
             "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_field_name_checked_count": checked_count,
             "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_field_name_missing_count": 0,
             "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_field_name_mismatch_count": 0,
@@ -516,12 +524,12 @@ def _add_single_field_handle_handoff_canary(summary: dict) -> dict:
             "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_source_checked_count": checked_count,
             "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_source_missing_count": 0,
             "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_source_mismatch_count": 0,
-            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_mirror_mode": "readonly_scale_metadata_handle_mirror",
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_mirror_mode": _single_field_mirror_mode(field_name),
             "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_mirror_mode_checked_count": checked_count,
             "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_mirror_mode_missing_count": 0,
             "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_mirror_mode_mismatch_count": 0,
             "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_mirror_ready_count": checked_count,
-            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_mirror_field_name": "scale_metadata_handle",
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_mirror_field_name": field_name,
             "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_mirror_field_name_checked_count": checked_count,
             "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_mirror_field_name_missing_count": 0,
             "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_mirror_field_name_mismatch_count": 0,
@@ -2051,6 +2059,83 @@ def test_premap_longrun_audit_gate_accepts_single_field_handle_handoff_canary():
             "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_blocked_count"
         ]
         == 2
+    )
+
+
+def test_premap_longrun_audit_gate_accepts_packed_weight_single_field_canary():
+    result = check_summary(
+        _add_single_field_handle_handoff_canary(
+            _add_kernel_arg_semantic_handle_adapter(
+                _add_kernel_arg_handoff_launch_schema_mirror(
+                    _add_kernel_arg_handoff_attempt(_passing_summary())
+                )
+            ),
+            field_name="packed_weight_descriptor",
+        ),
+        max_capacity=12,
+        min_reuse_rate=0.98,
+        require_readonly_consumer=True,
+        require_descriptor_prep=True,
+        require_real_descriptor_prep=True,
+        require_kernel_arg_shadow_table=True,
+        require_consumer_shim_table_read=True,
+        require_consumer_shim_table_consume=True,
+        require_kernel_arg_handoff_attempt=True,
+        require_kernel_arg_handoff_launch_schema_mirror=True,
+        require_kernel_arg_semantic_handle_adapter=True,
+        require_single_field_handle_handoff_canary=True,
+        expected_single_field_handle_handoff_canary_field=(
+            "packed_weight_descriptor"
+        ),
+    )
+
+    assert result["passed"] is True
+    assert result["failures"] == []
+    assert (
+        result["metrics"][
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_field_name"
+        ]
+        == "packed_weight_descriptor"
+    )
+    assert (
+        result["metrics"][
+            "premap_consumer_descriptor_prep_consumer_shim_single_field_handle_handoff_canary_mirror_mode"
+        ]
+        == "readonly_packed_weight_descriptor_mirror"
+    )
+
+
+def test_premap_longrun_audit_gate_rejects_wrong_single_field_canary():
+    result = check_summary(
+        _add_single_field_handle_handoff_canary(
+            _add_kernel_arg_semantic_handle_adapter(
+                _add_kernel_arg_handoff_launch_schema_mirror(
+                    _add_kernel_arg_handoff_attempt(_passing_summary())
+                )
+            ),
+            field_name="scale_metadata_handle",
+        ),
+        max_capacity=12,
+        min_reuse_rate=0.98,
+        require_readonly_consumer=True,
+        require_descriptor_prep=True,
+        require_real_descriptor_prep=True,
+        require_kernel_arg_shadow_table=True,
+        require_consumer_shim_table_read=True,
+        require_consumer_shim_table_consume=True,
+        require_kernel_arg_handoff_attempt=True,
+        require_kernel_arg_handoff_launch_schema_mirror=True,
+        require_kernel_arg_semantic_handle_adapter=True,
+        require_single_field_handle_handoff_canary=True,
+        expected_single_field_handle_handoff_canary_field=(
+            "packed_weight_descriptor"
+        ),
+    )
+
+    assert result["passed"] is False
+    assert (
+        "consumer_shim_single_field_handle_handoff_canary_field_name_mismatch"
+        in result["failures"]
     )
     assert (
         result["metrics"][

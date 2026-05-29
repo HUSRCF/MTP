@@ -20027,3 +20027,87 @@ Validation:
 conda run -p /home/husrcf/anaconda3/envs/TRY pytest tests -q
   691 passed, 2 warnings
 ```
+
+## Typed row path strict gate and second field canary
+
+The kernel-side typed row consumer path is now part of the default lab
+preflight contract instead of only a native stub canary.  The 128-sample AWQ
+strict audit must now provide a typed-row consumer-path evidence artifact before
+the readonly premap gate is considered lab-ready.
+
+Implementation updates:
+
+```text
+check_premap_longrun_audit_gate.py:
+  - adds --require-kernel-side-typed-row-consumer-path
+  - validates typed row mode/name/source/schema hash
+  - requires row_ok_count == row_count
+  - requires payload_bytes=0, passed_to_kernel=0, kernel_arg_violation_count=0
+
+run_premap_lab_preflight.py:
+  - requires strict_kernel_side_typed_row_consumer_path_128_gate_json
+  - validates typed-row consumer path metrics as a default gate prerequisite
+
+runtime/cache_manager.py and vllm_router_trace.py:
+  - parameterize one-field handoff canary field selection
+  - support scale_metadata_handle and packed_weight_descriptor
+```
+
+128-sample strict audit:
+
+```text
+data/traces/external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_longrun_audit/
+  runtime_shadow.jsonl = 536M
+  performance_summary.json refreshed
+  longrun_audit_gate_typed_row_consumer_path_128.json generated
+
+typed row path:
+  checked_count > 0
+  ready_count == checked_count
+  row_ok_count == row_count
+  column_count min/max = 4
+  payload_bytes = 0
+  passed_to_kernel_count = 0
+  kernel_arg_violation_count = 0
+  current_wna16_arg_compatible_count = 0
+```
+
+Second one-field canary:
+
+```text
+configs/trace/router_mtp_trace_external_prompt_gate_dolly_1_awq_vllm_gpu1_decode_gen16_packed_weight_handle_handoff_canary.yaml
+
+field_name = packed_weight_descriptor
+mirror_mode = readonly_packed_weight_descriptor_mirror
+checked_count = 640
+ready_count = 640
+parity_ok_count = 9794
+payload_bytes = 0
+passed_to_kernel_count = 0
+kernel_arg_violation_count = 0
+```
+
+Lab preflight now passes with the typed-row strict evidence included:
+
+```text
+outputs/reports/premap_lab_preflight_latest.json
+  failures = []
+  kernel_side_typed_row_consumer_path_required = true
+```
+
+Validation:
+
+```text
+conda run -p /home/husrcf/anaconda3/envs/TRY pytest \
+  tests/test_check_premap_longrun_audit_gate.py \
+  tests/test_run_premap_lab_preflight.py \
+  tests/test_runtime_premap.py -q
+  151 passed
+
+conda run -p /home/husrcf/anaconda3/envs/TRY pytest tests -q
+  695 passed, 2 warnings
+```
+
+The next gate remains conservative: keep payload, ready credit, and real WNA16
+kernel args disabled while moving from typed-row evidence toward a native
+kernel-side compatible consumer path.
