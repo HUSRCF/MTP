@@ -186,6 +186,11 @@ def _valid_schema_payload() -> dict:
                     "individually_enableable": True,
                 },
                 {
+                    "name": "MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_MIRROR_FIELD",
+                    "default": "disabled",
+                    "individually_enableable": True,
+                },
+                {
                     "name": "MTP_PREMAP_TYPED_CONSUMER_CHECK_LIFETIME",
                     "default": "disabled",
                     "individually_enableable": True,
@@ -452,6 +457,7 @@ def _native_stub_per_field_evidence_payload(input_json: str) -> dict[str, object
         "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_HANDLE": True,
         "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD": True,
         "MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_HANDLE": True,
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_MIRROR_FIELD": False,
         "MTP_PREMAP_TYPED_CONSUMER_CHECK_LIFETIME": True,
         "MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR": True,
         "MTP_PREMAP_TYPED_CONSUMER_ENABLE_PAYLOAD_DEREF": False,

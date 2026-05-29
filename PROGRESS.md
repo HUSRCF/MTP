@@ -19724,3 +19724,35 @@ This keeps the same safety boundary as the scale-metadata mirror canary.  It
 proves that the future kernel-side typed consumer ABI can read the online
 `packed_weight_descriptor` row field through the row adapter, but it still does
 not mutate current WNA16 kernel arguments or dereference payload.
+
+## Online aux-metadata mirror canary
+
+The native typed-consumer stub now supports a third one-field mirror macro:
+
+```text
+MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_MIRROR_FIELD
+```
+
+This checks the optional `aux_metadata_handle` column through the same
+`PremapKernelSideTypedConsumerRowV1` row adapter when the online prepared table
+exports an aux column.  Only one mirror macro remains legal per stub build, so
+scale, packed-weight, and aux mirrors stay attributable to separate canaries.
+
+GPU1 validation on the online vLLM/AWQ prelaunch input:
+
+```text
+online_prelaunch_native_stub_canary_runner.json:
+  passed = true
+  aux_metadata_mirror_stub_summary.row_count = 204
+  aux_metadata_mirror_stub_summary.row_ok_count = 204
+  aux_metadata_mirror_stub_summary.single_field_mirror_checked = true
+  aux_metadata_mirror_stub_summary.single_field_mirror_field_name = aux_metadata_handle
+  aux_metadata_mirror_stub_summary.single_field_mirror_row_ok_count = 204
+  aux_metadata_mirror_stub_summary.payload_bytes = 0
+  aux_metadata_mirror_stub_summary.passed_to_kernel = false
+  aux_metadata_mirror_stub_summary.changes_kernel_launch_args = false
+```
+
+This is still a readonly typed-consumer ABI canary.  It expands field coverage
+for the future kernel-side schema but does not enable payload access, ready
+credit, or current WNA16 kernel-argument mutation.

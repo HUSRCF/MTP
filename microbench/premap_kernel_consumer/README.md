@@ -51,9 +51,11 @@ reporting `payload_bytes=0`, `passed_to_kernel=false`, and
 `changes_kernel_launch_args=false`.
 
 `MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_MIRROR_FIELD` provides the same
-one-field mirror check for `packed_weight_descriptor`. Only one mirror macro may
-be enabled in a single stub build so each canary remains attributable to a
-single field.
+one-field mirror check for `packed_weight_descriptor`, and
+`MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_MIRROR_FIELD` does the same for
+`aux_metadata_handle` when the optional aux column is present. Only one mirror
+macro may be enabled in a single stub build so each canary remains attributable
+to a single field.
 
 Runtime manager bridge:
 

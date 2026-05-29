@@ -95,6 +95,8 @@ def test_run_canary_dry_run_includes_compact_preflight_status(
             str(tmp_path / "stub_envelope_mirror.json"),
             "--packed-weight-mirror-stub-output-json",
             str(tmp_path / "stub_packed_weight_mirror.json"),
+            "--aux-metadata-mirror-stub-output-json",
+            str(tmp_path / "stub_aux_metadata_mirror.json"),
             "--preflight-output-json",
             str(tmp_path / "preflight.json"),
             "--preflight-status-output-json",
@@ -112,6 +114,7 @@ def test_run_canary_dry_run_includes_compact_preflight_status(
     assert "native_stub_per_field" in result["steps"]
     assert "native_stub_kernel_envelope_mirror" in result["steps"]
     assert "native_stub_packed_weight_mirror" in result["steps"]
+    assert "native_stub_aux_metadata_mirror" in result["steps"]
     assert result["preflight_status_output_json"] == str(status_output)
     per_field_cmd = result["steps"]["native_stub_per_field"]["cmd"]
     assert str(tmp_path / "stub_per_field.json") in per_field_cmd
@@ -125,6 +128,10 @@ def test_run_canary_dry_run_includes_compact_preflight_status(
     assert str(tmp_path / "stub_packed_weight_mirror.json") in packed_cmd
     assert "MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_MIRROR_FIELD" in packed_cmd
     assert "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD" not in packed_cmd
+    aux_cmd = result["steps"]["native_stub_aux_metadata_mirror"]["cmd"]
+    assert str(tmp_path / "stub_aux_metadata_mirror.json") in aux_cmd
+    assert "MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_MIRROR_FIELD" in aux_cmd
+    assert "MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_MIRROR_FIELD" not in aux_cmd
     assert "--defer-online-prelaunch-runner-evidence" in result["steps"]["preflight"]["cmd"]
     assert "--summary-only" in result["steps"]["preflight_status"]["cmd"]
     assert (

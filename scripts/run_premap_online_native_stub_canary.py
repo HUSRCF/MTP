@@ -60,6 +60,13 @@ DEFAULT_PACKED_WEIGHT_MIRROR_STUB_OUTPUT = (
     / "premap_kernel_consumer"
     / "typed_consumer_stub_gpu1_online_prelaunch_input_packed_weight_mirror_canary.json"
 )
+DEFAULT_AUX_METADATA_MIRROR_STUB_OUTPUT = (
+    REPO_ROOT
+    / "outputs"
+    / "reports"
+    / "premap_kernel_consumer"
+    / "typed_consumer_stub_gpu1_online_prelaunch_input_aux_metadata_mirror_canary.json"
+)
 DEFAULT_PREFLIGHT_OUTPUT = (
     REPO_ROOT
     / "outputs"
@@ -117,6 +124,12 @@ PACKED_WEIGHT_MIRROR_STUB_MACROS = [
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCHEMA",
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_ROW_ITERATION",
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_MIRROR_FIELD",
+    "MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR",
+]
+AUX_METADATA_MIRROR_STUB_MACROS = [
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCHEMA",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_ROW_ITERATION",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_MIRROR_FIELD",
     "MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR",
 ]
 
@@ -353,6 +366,21 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
             env=env,
             dry_run=bool(args.dry_run),
         )
+    aux_metadata_mirror_stub_output = _resolve_repo_path(
+        args.aux_metadata_mirror_stub_output_json
+    )
+    if not args.skip_stub and not args.skip_aux_metadata_mirror_stub:
+        steps["native_stub_aux_metadata_mirror"] = _run(
+            _stub_command(
+                input_json=input_path,
+                output_json=aux_metadata_mirror_stub_output,
+                device=int(args.stub_device),
+                offload_arch=str(args.offload_arch),
+                macros=AUX_METADATA_MIRROR_STUB_MACROS,
+            ),
+            env=env,
+            dry_run=bool(args.dry_run),
+        )
     preflight_output = _resolve_repo_path(args.preflight_output_json)
     preflight_status_output = _resolve_repo_path(args.preflight_status_output_json)
     if not args.skip_preflight:
@@ -384,6 +412,9 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
     )
     packed_weight_mirror_stub_payload = (
         {} if args.dry_run else _load_json_if_exists(packed_weight_mirror_stub_output)
+    )
+    aux_metadata_mirror_stub_payload = (
+        {} if args.dry_run else _load_json_if_exists(aux_metadata_mirror_stub_output)
     )
     preflight_payload = (
         {} if args.dry_run else _load_json_if_exists(preflight_output)
@@ -439,6 +470,23 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
             == "packed_weight_descriptor"
         )
     )
+    aux_metadata_mirror_required = not bool(
+        args.skip_stub or args.skip_aux_metadata_mirror_stub
+    )
+    aux_metadata_mirror_passed = bool(
+        args.dry_run
+        or not aux_metadata_mirror_required
+        or (
+            aux_metadata_mirror_stub_payload.get("passed") is True
+            and aux_metadata_mirror_stub_payload.get("input_json") is not None
+            and _resolve_repo_path(str(aux_metadata_mirror_stub_payload.get("input_json")))
+            == input_path
+            and aux_metadata_mirror_stub_payload.get("single_field_mirror_checked")
+            is True
+            and aux_metadata_mirror_stub_payload.get("single_field_mirror_field_name")
+            == "aux_metadata_handle"
+        )
+    )
     passed = bool(
         args.dry_run
         or (
@@ -448,6 +496,7 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
             and per_field_passed
             and envelope_mirror_passed
             and packed_weight_mirror_passed
+            and aux_metadata_mirror_passed
             and preflight_payload.get("passed") is True
             and preflight_status_payload.get("passed") is True
         )
@@ -513,6 +562,24 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
             != "packed_weight_descriptor"
         ):
             failures.append("native_stub_packed_weight_mirror_field_name_mismatch")
+    if not aux_metadata_mirror_passed:
+        if aux_metadata_mirror_stub_payload.get("passed") is not True:
+            failures.append("native_stub_aux_metadata_mirror_not_passed")
+        if aux_metadata_mirror_stub_payload.get("input_json") is None:
+            failures.append("native_stub_aux_metadata_mirror_input_json_missing")
+        elif (
+            not args.dry_run
+            and _resolve_repo_path(str(aux_metadata_mirror_stub_payload.get("input_json")))
+            != input_path
+        ):
+            failures.append("native_stub_aux_metadata_mirror_input_json_mismatch")
+        if aux_metadata_mirror_stub_payload.get("single_field_mirror_checked") is not True:
+            failures.append("native_stub_aux_metadata_mirror_field_not_checked")
+        if (
+            aux_metadata_mirror_stub_payload.get("single_field_mirror_field_name")
+            != "aux_metadata_handle"
+        ):
+            failures.append("native_stub_aux_metadata_mirror_field_name_mismatch")
 
     required_evidence = preflight_status_payload.get("required_evidence")
     if not isinstance(required_evidence, dict):
@@ -535,6 +602,9 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
         ),
         "packed_weight_mirror_native_stub_output_json": str(
             packed_weight_mirror_stub_output
+        ),
+        "aux_metadata_mirror_native_stub_output_json": str(
+            aux_metadata_mirror_stub_output
         ),
         "preflight_output_json": str(preflight_output),
         "preflight_status_output_json": str(preflight_status_output),
@@ -593,6 +663,25 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
         },
         "packed_weight_mirror_stub_summary": {
             key: packed_weight_mirror_stub_payload.get(key)
+            for key in (
+                "passed",
+                "ok",
+                "row_count",
+                "row_ok_count",
+                "error_count",
+                "single_field_mirror_checked",
+                "single_field_mirror_field_name",
+                "single_field_mirror_row_count",
+                "single_field_mirror_row_ok_count",
+                "single_field_mirror_error_count",
+                "payload_bytes",
+                "passed_to_kernel",
+                "changes_kernel_launch_args",
+                "input_json",
+            )
+        },
+        "aux_metadata_mirror_stub_summary": {
+            key: aux_metadata_mirror_stub_payload.get(key)
             for key in (
                 "passed",
                 "ok",
@@ -827,6 +916,11 @@ def build_parser() -> argparse.ArgumentParser:
         default=DEFAULT_PACKED_WEIGHT_MIRROR_STUB_OUTPUT,
     )
     parser.add_argument(
+        "--aux-metadata-mirror-stub-output-json",
+        type=Path,
+        default=DEFAULT_AUX_METADATA_MIRROR_STUB_OUTPUT,
+    )
+    parser.add_argument(
         "--preflight-output-json",
         type=Path,
         default=DEFAULT_PREFLIGHT_OUTPUT,
@@ -847,6 +941,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--skip-per-field-stub", action="store_true")
     parser.add_argument("--skip-envelope-mirror-stub", action="store_true")
     parser.add_argument("--skip-packed-weight-mirror-stub", action="store_true")
+    parser.add_argument("--skip-aux-metadata-mirror-stub", action="store_true")
     parser.add_argument("--skip-preflight", action="store_true")
     parser.add_argument("--skip-artifact-check", action="store_true")
     parser.add_argument("--dry-run", action="store_true")

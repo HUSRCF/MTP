@@ -755,6 +755,12 @@ def _validate_native_typed_consumer_stub_evidence(
         mirror_macro = "MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_MIRROR_FIELD"
         expected_mirror_mode = "readonly_packed_weight_descriptor_abi_row_mirror"
         expected_mirror_field = "packed_weight_descriptor"
+    if macros.get("MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_MIRROR_FIELD"):
+        if mirror_macro is not None:
+            failures.append("native_typed_consumer_stub_multiple_mirror_macros_enabled")
+        mirror_macro = "MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_MIRROR_FIELD"
+        expected_mirror_mode = "readonly_aux_metadata_handle_abi_row_mirror"
+        expected_mirror_field = "aux_metadata_handle"
     if mirror_macro is not None:
         expected_mirror = {
             "single_field_mirror_checked": True,
