@@ -32,6 +32,11 @@
 #error "kernel-arg passing is forbidden in the readonly native stub"
 #endif
 
+#if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD) && \
+    defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_MIRROR_FIELD)
+#error "enable only one single-field mirror canary per stub build"
+#endif
+
 static_assert(!kPremapKernelSideTypedConsumerAbiV1PayloadBytesAllowed,
               "readonly typed consumer ABI must not allow payload bytes");
 static_assert(!kPremapKernelSideTypedConsumerAbiV1KernelArgPassAllowed,
@@ -45,6 +50,24 @@ static_assert(!kPremapKernelSideTypedConsumerAdapterV1KernelArgPassAllowed,
 
 constexpr uint64_t kTypedSchemaHashHi = MTP_PREMAP_TYPED_CONSUMER_SCHEMA_HASH_HI;
 constexpr uint64_t kTypedSchemaHashLo = MTP_PREMAP_TYPED_CONSUMER_SCHEMA_HASH_LO;
+
+#if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD)
+constexpr const char* kSingleFieldMirrorMode =
+    "readonly_scale_metadata_handle_abi_row_mirror";
+constexpr const char* kSingleFieldMirrorFieldName = "scale_metadata_handle";
+constexpr const char* kSingleFieldMirrorSource =
+    "typed_consumer_abi_row_adapter_v1";
+#elif defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_MIRROR_FIELD)
+constexpr const char* kSingleFieldMirrorMode =
+    "readonly_packed_weight_descriptor_abi_row_mirror";
+constexpr const char* kSingleFieldMirrorFieldName = "packed_weight_descriptor";
+constexpr const char* kSingleFieldMirrorSource =
+    "typed_consumer_abi_row_adapter_v1";
+#else
+constexpr const char* kSingleFieldMirrorMode = "none";
+constexpr const char* kSingleFieldMirrorFieldName = "none";
+constexpr const char* kSingleFieldMirrorSource = "none";
+#endif
 
 static inline void hip_check(hipError_t err, const char* what) {
   if (err != hipSuccess) {
@@ -111,6 +134,11 @@ __global__ void typed_consumer_kernel(
   mirror_hash = mix64(row.scale_metadata_handle + 0x5ca1e00000000000ULL) ^
                 mix64(static_cast<uint64_t>(idx));
   ok &= mirror_ok;
+#elif defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_MIRROR_FIELD)
+  mirror_ok = premap_typed_consumer_packed_weight_mirror_matches_v1(table, row);
+  mirror_hash = mix64(row.packed_weight_descriptor + 0x9ac6ed0000000000ULL) ^
+                mix64(static_cast<uint64_t>(idx));
+  ok &= mirror_ok;
 #endif
 
 #if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_HANDLE)
@@ -166,6 +194,12 @@ __global__ void typed_consumer_envelope_kernel(
   mirror_ok = premap_typed_consumer_scale_metadata_mirror_matches_v1(
       envelope.table, row);
   mirror_hash = mix64(row.scale_metadata_handle + 0x5ca1e00000000000ULL) ^
+                mix64(static_cast<uint64_t>(idx));
+  ok &= mirror_ok;
+#elif defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_MIRROR_FIELD)
+  mirror_ok = premap_typed_consumer_packed_weight_mirror_matches_v1(
+      envelope.table, row);
+  mirror_hash = mix64(row.packed_weight_descriptor + 0x9ac6ed0000000000ULL) ^
                 mix64(static_cast<uint64_t>(idx));
   ok &= mirror_ok;
 #endif
@@ -283,6 +317,12 @@ static std::string macro_json() {
 #endif
   os << ",\"MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD\":"
 #if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD)
+     << "true";
+#else
+     << "false";
+#endif
+  os << ",\"MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_MIRROR_FIELD\":"
+#if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_MIRROR_FIELD)
      << "true";
 #else
      << "false";
@@ -469,7 +509,8 @@ int main(int argc, char** argv) {
   }
   const int error_count = rows - ok_count;
   const bool single_field_mirror_checked =
-#if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD)
+#if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD) || \
+    defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_MIRROR_FIELD)
       true;
 #else
       false;
@@ -520,9 +561,12 @@ int main(int argc, char** argv) {
   std::cout << ",\"kernel_consumer_envelope_passed_to_kernel\":false";
   std::cout << ",\"single_field_mirror_checked\":"
             << (single_field_mirror_checked ? "true" : "false");
-  std::cout << ",\"single_field_mirror_mode\":\"readonly_scale_metadata_handle_abi_row_mirror\"";
-  std::cout << ",\"single_field_mirror_field_name\":\"scale_metadata_handle\"";
-  std::cout << ",\"single_field_mirror_source\":\"typed_consumer_abi_row_adapter_v1\"";
+  std::cout << ",\"single_field_mirror_mode\":\"" << kSingleFieldMirrorMode
+            << "\"";
+  std::cout << ",\"single_field_mirror_field_name\":\""
+            << kSingleFieldMirrorFieldName << "\"";
+  std::cout << ",\"single_field_mirror_source\":\"" << kSingleFieldMirrorSource
+            << "\"";
   std::cout << ",\"single_field_mirror_row_count\":"
             << single_field_mirror_row_count;
   std::cout << ",\"single_field_mirror_row_ok_count\":"

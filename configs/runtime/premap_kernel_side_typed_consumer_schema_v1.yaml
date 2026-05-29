@@ -147,6 +147,10 @@ debug_macro_ladder:
       default: disabled
       individually_enableable: true
       phase: scale_metadata_handle_abi_row_mirror_no_deref
+    - name: MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_MIRROR_FIELD
+      default: disabled
+      individually_enableable: true
+      phase: packed_weight_descriptor_abi_row_mirror_no_deref
     - name: MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_HANDLE
       default: disabled
       individually_enableable: true

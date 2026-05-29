@@ -19622,3 +19622,72 @@ online_prelaunch_native_stub_canary_runner.json:
 This remains a readonly native-stub canary.  It proves the typed ABI row adapter
 can read the scale metadata mirror, but it still does not pass typed handles to
 the real AWQ WNA16 fused-MoE kernel.
+
+## Launch-envelope mirror and second-field canary
+
+The scale-metadata mirror canary is now also exercised through the future
+kernel-side launch envelope:
+
+```text
+MTP_PREMAP_TYPED_CONSUMER_CHECK_KERNEL_CONSUMER_ENVELOPE
+MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD
+```
+
+This path constructs `PremapKernelSideTypedConsumerLaunchEnvelopeV1`, then the
+native stub loads the typed table through `PremapKernelSideTypedConsumerRowV1`
+inside the envelope kernel.  It remains a readonly native-stub check:
+
+```text
+kernel_consumer_envelope_checked = true
+kernel_consumer_envelope_payload_bytes = 0
+kernel_consumer_envelope_passed_to_kernel = false
+single_field_mirror_mode = readonly_scale_metadata_handle_abi_row_mirror
+single_field_mirror_source = typed_consumer_abi_row_adapter_v1
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+```
+
+GPU1 validation:
+
+```text
+typed_consumer_stub_gpu1_kernel_envelope_scale_metadata_mirror_canary.json:
+  passed = true
+  row_count = 64
+  row_ok_count = 64
+  kernel_consumer_envelope_checked = true
+  single_field_mirror_checked = true
+  single_field_mirror_row_ok_count = 64
+
+online_prelaunch_native_stub_canary_runner.json:
+  passed = true
+  kernel_envelope_mirror_stub_summary.row_count = 204
+  kernel_envelope_mirror_stub_summary.row_ok_count = 204
+  kernel_envelope_mirror_stub_summary.kernel_consumer_envelope_checked = true
+  kernel_envelope_mirror_stub_summary.single_field_mirror_checked = true
+```
+
+The stub also now supports a second disabled-by-default one-field mirror macro:
+
+```text
+MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_MIRROR_FIELD
+```
+
+Only one mirror macro may be enabled per stub build.  The packed-weight mirror
+canary is available for the next field-by-field handoff gate but is not part of
+the default lab precondition yet.
+
+GPU1 synthetic packed-weight validation:
+
+```text
+typed_consumer_stub_gpu1_packed_weight_mirror_canary.json:
+  passed = true
+  row_count = 64
+  row_ok_count = 64
+  single_field_mirror_mode = readonly_packed_weight_descriptor_abi_row_mirror
+  single_field_mirror_field_name = packed_weight_descriptor
+  single_field_mirror_row_ok_count = 64
+  payload_bytes = 0
+  passed_to_kernel = false
+  changes_kernel_launch_args = false
+```

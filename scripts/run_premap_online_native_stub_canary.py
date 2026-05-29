@@ -46,6 +46,13 @@ DEFAULT_PER_FIELD_STUB_OUTPUT = (
     / "premap_kernel_consumer"
     / "typed_consumer_stub_gpu1_online_prelaunch_input_per_field_canary.json"
 )
+DEFAULT_ENVELOPE_MIRROR_STUB_OUTPUT = (
+    REPO_ROOT
+    / "outputs"
+    / "reports"
+    / "premap_kernel_consumer"
+    / "typed_consumer_stub_gpu1_online_prelaunch_input_kernel_envelope_mirror_canary.json"
+)
 DEFAULT_PREFLIGHT_OUTPUT = (
     REPO_ROOT
     / "outputs"
@@ -88,6 +95,15 @@ PER_FIELD_STUB_MACROS = [
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD",
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_HANDLE",
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_LIFETIME",
+    "MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR",
+]
+ENVELOPE_MIRROR_STUB_MACROS = [
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCHEMA",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_ROW_ITERATION",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_POINTER_VISIBILITY",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_LIFETIME",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_KERNEL_CONSUMER_ENVELOPE",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD",
     "MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR",
 ]
 
@@ -294,6 +310,21 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
             env=env,
             dry_run=bool(args.dry_run),
         )
+    envelope_mirror_stub_output = _resolve_repo_path(
+        args.envelope_mirror_stub_output_json
+    )
+    if not args.skip_stub and not args.skip_envelope_mirror_stub:
+        steps["native_stub_kernel_envelope_mirror"] = _run(
+            _stub_command(
+                input_json=input_path,
+                output_json=envelope_mirror_stub_output,
+                device=int(args.stub_device),
+                offload_arch=str(args.offload_arch),
+                macros=ENVELOPE_MIRROR_STUB_MACROS,
+            ),
+            env=env,
+            dry_run=bool(args.dry_run),
+        )
     preflight_output = _resolve_repo_path(args.preflight_output_json)
     preflight_status_output = _resolve_repo_path(args.preflight_status_output_json)
     if not args.skip_preflight:
@@ -320,6 +351,9 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
     per_field_stub_payload = (
         {} if args.dry_run else _load_json_if_exists(per_field_stub_output)
     )
+    envelope_mirror_stub_payload = (
+        {} if args.dry_run else _load_json_if_exists(envelope_mirror_stub_output)
+    )
     preflight_payload = (
         {} if args.dry_run else _load_json_if_exists(preflight_output)
     )
@@ -338,6 +372,23 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
             == input_path
         )
     )
+    envelope_mirror_required = not bool(
+        args.skip_stub or args.skip_envelope_mirror_stub
+    )
+    envelope_mirror_passed = bool(
+        args.dry_run
+        or not envelope_mirror_required
+        or (
+            envelope_mirror_stub_payload.get("passed") is True
+            and envelope_mirror_stub_payload.get("input_json") is not None
+            and _resolve_repo_path(str(envelope_mirror_stub_payload.get("input_json")))
+            == input_path
+            and envelope_mirror_stub_payload.get("kernel_consumer_envelope_checked")
+            is True
+            and envelope_mirror_stub_payload.get("single_field_mirror_checked")
+            is True
+        )
+    )
     passed = bool(
         args.dry_run
         or (
@@ -345,6 +396,7 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
             and stub_payload.get("input_json") is not None
             and _resolve_repo_path(str(stub_payload.get("input_json"))) == input_path
             and per_field_passed
+            and envelope_mirror_passed
             and preflight_payload.get("passed") is True
             and preflight_status_payload.get("passed") is True
         )
@@ -372,6 +424,24 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
             != input_path
         ):
             failures.append("native_stub_per_field_input_json_mismatch")
+    if not envelope_mirror_passed:
+        if envelope_mirror_stub_payload.get("passed") is not True:
+            failures.append("native_stub_kernel_envelope_mirror_not_passed")
+        if envelope_mirror_stub_payload.get("input_json") is None:
+            failures.append("native_stub_kernel_envelope_mirror_input_json_missing")
+        elif (
+            not args.dry_run
+            and _resolve_repo_path(str(envelope_mirror_stub_payload.get("input_json")))
+            != input_path
+        ):
+            failures.append("native_stub_kernel_envelope_mirror_input_json_mismatch")
+        if (
+            envelope_mirror_stub_payload.get("kernel_consumer_envelope_checked")
+            is not True
+        ):
+            failures.append("native_stub_kernel_envelope_not_checked")
+        if envelope_mirror_stub_payload.get("single_field_mirror_checked") is not True:
+            failures.append("native_stub_kernel_envelope_mirror_field_not_checked")
 
     required_evidence = preflight_status_payload.get("required_evidence")
     if not isinstance(required_evidence, dict):
@@ -389,6 +459,9 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
         "online_prelaunch_input_json": str(input_path),
         "native_stub_output_json": str(stub_output),
         "per_field_native_stub_output_json": str(per_field_stub_output),
+        "kernel_envelope_mirror_native_stub_output_json": str(
+            envelope_mirror_stub_output
+        ),
         "preflight_output_json": str(preflight_output),
         "preflight_status_output_json": str(preflight_status_output),
         "gpu_index": args.gpu_index,
@@ -416,6 +489,28 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
                 "row_count",
                 "row_ok_count",
                 "error_count",
+                "payload_bytes",
+                "passed_to_kernel",
+                "changes_kernel_launch_args",
+                "input_json",
+            )
+        },
+        "kernel_envelope_mirror_stub_summary": {
+            key: envelope_mirror_stub_payload.get(key)
+            for key in (
+                "passed",
+                "ok",
+                "row_count",
+                "row_ok_count",
+                "error_count",
+                "kernel_consumer_envelope_checked",
+                "kernel_consumer_envelope_payload_bytes",
+                "kernel_consumer_envelope_passed_to_kernel",
+                "single_field_mirror_checked",
+                "single_field_mirror_field_name",
+                "single_field_mirror_row_count",
+                "single_field_mirror_row_ok_count",
+                "single_field_mirror_error_count",
                 "payload_bytes",
                 "passed_to_kernel",
                 "changes_kernel_launch_args",
@@ -629,6 +724,11 @@ def build_parser() -> argparse.ArgumentParser:
         default=DEFAULT_PER_FIELD_STUB_OUTPUT,
     )
     parser.add_argument(
+        "--envelope-mirror-stub-output-json",
+        type=Path,
+        default=DEFAULT_ENVELOPE_MIRROR_STUB_OUTPUT,
+    )
+    parser.add_argument(
         "--preflight-output-json",
         type=Path,
         default=DEFAULT_PREFLIGHT_OUTPUT,
@@ -647,6 +747,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--skip-trace", action="store_true")
     parser.add_argument("--skip-stub", action="store_true")
     parser.add_argument("--skip-per-field-stub", action="store_true")
+    parser.add_argument("--skip-envelope-mirror-stub", action="store_true")
     parser.add_argument("--skip-preflight", action="store_true")
     parser.add_argument("--skip-artifact-check", action="store_true")
     parser.add_argument("--dry-run", action="store_true")

@@ -78,6 +78,18 @@ def test_typed_consumer_stub_rejects_forbidden_macro():
         module.validate_macros(["MTP_PREMAP_TYPED_CONSUMER_ENABLE_KERNEL_ARG_PASS"])
 
 
+def test_typed_consumer_stub_rejects_multiple_mirror_macros():
+    module = _load_module()
+
+    with pytest.raises(ValueError, match="single-field mirror"):
+        module.validate_macros(
+            [
+                "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD",
+                "MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_MIRROR_FIELD",
+            ]
+        )
+
+
 def test_typed_consumer_stub_dry_run_writes_command(tmp_path: Path):
     module = _load_module()
     output = tmp_path / "dry_run.json"
@@ -154,6 +166,29 @@ def test_typed_consumer_stub_dry_run_accepts_kernel_consumer_envelope_macro(
     assert exit_code == 0
     assert payload["requested_macros"] == [
         "MTP_PREMAP_TYPED_CONSUMER_CHECK_KERNEL_CONSUMER_ENVELOPE"
+    ]
+
+
+def test_typed_consumer_stub_dry_run_accepts_packed_weight_mirror_macro(
+    tmp_path: Path,
+) -> None:
+    module = _load_module()
+    output = tmp_path / "dry_run_packed_mirror.json"
+
+    exit_code = module.main(
+        [
+            "--dry-run",
+            "--macro",
+            "MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_MIRROR_FIELD",
+            "--output-json",
+            str(output),
+        ]
+    )
+
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    assert exit_code == 0
+    assert payload["requested_macros"] == [
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_MIRROR_FIELD"
     ]
 
 

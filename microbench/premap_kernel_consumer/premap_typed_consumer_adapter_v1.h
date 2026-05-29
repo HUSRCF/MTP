@@ -111,6 +111,16 @@ premap_typed_consumer_scale_metadata_mirror_matches_v1(
 }
 
 __device__ static inline uint32_t
+premap_typed_consumer_packed_weight_mirror_matches_v1(
+    const PremapKernelSideTypedConsumerAbiV1& table,
+    const PremapKernelSideTypedConsumerRowV1& row) {
+  return static_cast<uint32_t>(
+      table.packed_weight_descriptor != nullptr &&
+      row.packed_weight_descriptor != 0 &&
+      row.packed_weight_descriptor == table.packed_weight_descriptor[row.row_index]);
+}
+
+__device__ static inline uint32_t
 premap_typed_consumer_lifetime_valid_v1(
     const PremapKernelSideTypedConsumerAbiV1& table,
     const PremapKernelSideTypedConsumerRowV1& row) {

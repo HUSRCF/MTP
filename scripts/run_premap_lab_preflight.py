@@ -742,11 +742,24 @@ def _validate_native_typed_consumer_stub_evidence(
     ):
         if macros.get(forbidden):
             failures.append(f"native_typed_consumer_stub_{forbidden}_enabled")
+    mirror_macro = None
+    expected_mirror_mode = None
+    expected_mirror_field = None
     if macros.get("MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD"):
+        mirror_macro = "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD"
+        expected_mirror_mode = "readonly_scale_metadata_handle_abi_row_mirror"
+        expected_mirror_field = "scale_metadata_handle"
+    if macros.get("MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_MIRROR_FIELD"):
+        if mirror_macro is not None:
+            failures.append("native_typed_consumer_stub_multiple_mirror_macros_enabled")
+        mirror_macro = "MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_MIRROR_FIELD"
+        expected_mirror_mode = "readonly_packed_weight_descriptor_abi_row_mirror"
+        expected_mirror_field = "packed_weight_descriptor"
+    if mirror_macro is not None:
         expected_mirror = {
             "single_field_mirror_checked": True,
-            "single_field_mirror_mode": "readonly_scale_metadata_handle_abi_row_mirror",
-            "single_field_mirror_field_name": "scale_metadata_handle",
+            "single_field_mirror_mode": expected_mirror_mode,
+            "single_field_mirror_field_name": expected_mirror_field,
             "single_field_mirror_source": "typed_consumer_abi_row_adapter_v1",
             "single_field_mirror_payload_bytes": 0,
             "single_field_mirror_passed_to_kernel": False,

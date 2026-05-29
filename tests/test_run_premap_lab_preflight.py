@@ -176,6 +176,11 @@ def _valid_schema_payload() -> dict:
                     "individually_enableable": True,
                 },
                 {
+                    "name": "MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_MIRROR_FIELD",
+                    "default": "disabled",
+                    "individually_enableable": True,
+                },
+                {
                     "name": "MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_HANDLE",
                     "default": "disabled",
                     "individually_enableable": True,

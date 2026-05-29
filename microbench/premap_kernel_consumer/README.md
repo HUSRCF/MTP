@@ -50,6 +50,11 @@ read the scale-metadata mirror through the future typed row ABI, while still
 reporting `payload_bytes=0`, `passed_to_kernel=false`, and
 `changes_kernel_launch_args=false`.
 
+`MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_MIRROR_FIELD` provides the same
+one-field mirror check for `packed_weight_descriptor`. Only one mirror macro may
+be enabled in a single stub build so each canary remains attributable to a
+single field.
+
 Runtime manager bridge:
 
 ```text

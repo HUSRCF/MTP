@@ -98,14 +98,20 @@ Native debug support must be injected one flag at a time:
 4. `MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR`
 5. `MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_DESCRIPTOR`
 6. `MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_HANDLE`
-7. `MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_HANDLE`
-8. `MTP_PREMAP_TYPED_CONSUMER_CHECK_LIFETIME`
-9. `MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR`
+7. `MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD`
+8. `MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_MIRROR_FIELD`
+9. `MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_HANDLE`
+10. `MTP_PREMAP_TYPED_CONSUMER_CHECK_LIFETIME`
+11. `MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR`
 
 `CHECK_POINTER_VISIBILITY` is the coarse legacy visibility check for required
 handle columns. The per-field macros are the preferred ladder for future
 canaries because they let the native checker enable descriptor, packed-weight,
 scale-metadata, and optional aux-metadata validation independently.
+The mirror macros are one-field-at-a-time checks that compare a row-view value
+loaded through `PremapKernelSideTypedConsumerRowV1` with the same row in the ABI
+table column. They validate the future typed consumer row-read path without
+payload dereference or current WNA16 kernel-argument handoff.
 `CHECK_AUX_METADATA_HANDLE` is intentionally stricter than the base ABI: it
 requires the optional aux pointer to be present and non-zero, so it should only
 be used in canaries where the exported table is expected to carry aux metadata.

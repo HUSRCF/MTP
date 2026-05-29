@@ -40,6 +40,7 @@ ALLOWED_MACROS = {
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_DESCRIPTOR",
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_HANDLE",
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_MIRROR_FIELD",
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_HANDLE",
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_LIFETIME",
     "MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR",
@@ -71,6 +72,16 @@ def validate_macros(macros: list[str]) -> list[str]:
     unknown = sorted(set(normalized) - ALLOWED_MACROS)
     if unknown:
         raise ValueError(f"unsupported typed consumer macros: {unknown}")
+    mirror_fields = {
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD",
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_MIRROR_FIELD",
+    }
+    enabled_mirror_fields = sorted(set(normalized) & mirror_fields)
+    if len(enabled_mirror_fields) > 1:
+        raise ValueError(
+            "enable only one typed consumer single-field mirror macro: "
+            f"{enabled_mirror_fields}"
+        )
     return normalized
 
 
