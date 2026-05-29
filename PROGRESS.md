@@ -20111,3 +20111,45 @@ conda run -p /home/husrcf/anaconda3/envs/TRY pytest tests -q
 The next gate remains conservative: keep payload, ready credit, and real WNA16
 kernel args disabled while moving from typed-row evidence toward a native
 kernel-side compatible consumer path.
+
+## Packed-weight field canary as optional lab evidence
+
+The second one-field handoff canary is now wired into the default lab preflight
+as optional evidence.  It does not block the default readonly gate when absent,
+but when the artifact exists the preflight validates that the runtime shadow
+canary is specifically for `packed_weight_descriptor` and still keeps all live
+handoff effects disabled.
+
+Default gate update:
+
+```text
+optional_evidence_paths:
+  packed_weight_single_field_handle_handoff_canary_smoke_json:
+    data/traces/external_prompt_gate_dolly_1_awq_vllm_gpu1_decode_gen16_packed_weight_handle_handoff_canary/longrun_audit_gate_packed_weight_single_field_smoke.json
+```
+
+Real lab preflight:
+
+```text
+outputs/reports/premap_lab_preflight_latest.json
+  failures = []
+  optional_evidence.required_count = 2
+  optional_evidence.present_count = 2
+  optional_evidence.passed_count = 2
+
+packed_weight_single_field_handle_handoff_canary_smoke_json:
+  present = true
+  passed = true
+```
+
+Validation:
+
+```text
+conda run -p /home/husrcf/anaconda3/envs/TRY pytest \
+  tests/test_run_premap_lab_preflight.py \
+  tests/test_check_premap_longrun_audit_gate.py -q
+  130 passed
+
+conda run -p /home/husrcf/anaconda3/envs/TRY pytest tests -q
+  696 passed, 2 warnings
+```

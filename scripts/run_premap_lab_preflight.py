@@ -146,6 +146,7 @@ REQUIRED_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
 }
 OPTIONAL_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
     "native_typed_consumer_stub_online_prelaunch_input_per_field_canary_json",
+    "packed_weight_single_field_handle_handoff_canary_smoke_json",
 }
 ONLINE_PRELAUNCH_RUNNER_EVIDENCE_LABEL = (
     "native_typed_consumer_online_prelaunch_canary_runner_json"
@@ -273,7 +274,11 @@ def _validate_native_stub_evidence(metrics: dict[str, Any]) -> list[str]:
     return failures
 
 
-def _validate_single_field_canary_evidence(metrics: dict[str, Any]) -> list[str]:
+def _validate_single_field_canary_evidence(
+    metrics: dict[str, Any],
+    *,
+    expected_field_name: str = "scale_metadata_handle",
+) -> list[str]:
     prefix = _SINGLE_FIELD_CANARY_METRIC_PREFIX
     failures: list[str] = []
     checked = _int_metric(metrics, f"{prefix}checked_count")
@@ -344,7 +349,7 @@ def _validate_single_field_canary_evidence(metrics: dict[str, Any]) -> list[str]
         )
     expected_values = {
         "mode": "readonly_single_field_handle_handoff_canary",
-        "field_name": "scale_metadata_handle",
+        "field_name": expected_field_name,
         "source": "semantic_handle_table",
         "block_reason": "single_field_handoff_live_disabled",
     }
@@ -419,6 +424,7 @@ def _validate_required_evidence_payload(
         "strict_single_field_handle_handoff_canary_128_gate_json",
         "strict_native_stub_online_invocation_canary_128_gate_json",
         "strict_kernel_side_typed_row_consumer_path_128_gate_json",
+        "packed_weight_single_field_handle_handoff_canary_smoke_json",
         "native_typed_consumer_online_prelaunch_canary_runner_json",
         *known_stub_labels,
     }:
@@ -739,6 +745,14 @@ def _validate_required_evidence_payload(
         return [
             f"{evidence_label}:{failure}"
             for failure in _validate_single_field_canary_evidence(metrics)
+        ]
+    if evidence_label == "packed_weight_single_field_handle_handoff_canary_smoke_json":
+        return [
+            f"{evidence_label}:{failure}"
+            for failure in _validate_single_field_canary_evidence(
+                metrics,
+                expected_field_name="packed_weight_descriptor",
+            )
         ]
     if evidence_label == "strict_kernel_side_typed_row_consumer_path_128_gate_json":
         return [

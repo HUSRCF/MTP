@@ -238,7 +238,10 @@ def _write_valid_schema(root: Path) -> str:
     return schema_path
 
 
-def _lab_evidence_metrics() -> dict[str, object]:
+def _lab_evidence_metrics(
+    *,
+    single_field_name: str = "scale_metadata_handle",
+) -> dict[str, object]:
     bridge = (
         "premap_consumer_descriptor_prep_consumer_shim_"
         "native_typed_consumer_bridge_"
@@ -311,7 +314,7 @@ def _lab_evidence_metrics() -> dict[str, object]:
         f"{single}mode_checked_count": 3,
         f"{single}mode_missing_count": 0,
         f"{single}mode_mismatch_count": 0,
-        f"{single}field_name": "scale_metadata_handle",
+        f"{single}field_name": single_field_name,
         f"{single}field_name_checked_count": 3,
         f"{single}field_name_missing_count": 0,
         f"{single}field_name_mismatch_count": 0,
@@ -319,12 +322,12 @@ def _lab_evidence_metrics() -> dict[str, object]:
         f"{single}source_checked_count": 3,
         f"{single}source_missing_count": 0,
         f"{single}source_mismatch_count": 0,
-        f"{single}mirror_mode": "readonly_scale_metadata_handle_mirror",
+        f"{single}mirror_mode": f"readonly_{single_field_name}_mirror",
         f"{single}mirror_mode_checked_count": 3,
         f"{single}mirror_mode_missing_count": 0,
         f"{single}mirror_mode_mismatch_count": 0,
         f"{single}mirror_ready_count": 3,
-        f"{single}mirror_field_name": "scale_metadata_handle",
+        f"{single}mirror_field_name": single_field_name,
         f"{single}mirror_field_name_checked_count": 3,
         f"{single}mirror_field_name_missing_count": 0,
         f"{single}mirror_field_name_mismatch_count": 0,
@@ -607,6 +610,9 @@ def _write_gate(
     native_online_per_field_stub_path = (
         f"reports/{name}_native_typed_consumer_stub_online_prelaunch_input_per_field_canary.json"
     )
+    packed_weight_single_field_canary_path = (
+        f"reports/{name}_packed_weight_single_field_handle_handoff_canary_smoke.json"
+    )
     lab_payload = {
         "passed": lab_evidence_passed,
         "failures": [] if lab_evidence_failures is None else lab_evidence_failures,
@@ -617,6 +623,23 @@ def _write_gate(
         _write(root / lab_selfcheck_path, json.dumps(lab_payload) + "\n")
         _write(root / typed_row_path, json.dumps(lab_payload) + "\n")
         _write(root / single_field_canary_path, json.dumps(lab_payload) + "\n")
+        _write(
+            root / packed_weight_single_field_canary_path,
+            json.dumps(
+                {
+                    "passed": lab_evidence_passed,
+                    "failures": (
+                        []
+                        if lab_evidence_failures is None
+                        else lab_evidence_failures
+                    ),
+                    "metrics": _lab_evidence_metrics(
+                        single_field_name="packed_weight_descriptor"
+                    ),
+                }
+            )
+            + "\n",
+        )
         _write(root / lab_live_connected_path, json.dumps(lab_payload) + "\n")
         _write(root / lab_native_bridge_path, json.dumps(lab_payload) + "\n")
         _write(root / native_bridge_path, json.dumps(lab_payload) + "\n")
@@ -835,6 +858,8 @@ def _write_gate(
             "optional_evidence_paths:\n"
             "  native_typed_consumer_stub_online_prelaunch_input_per_field_canary_json: "
             f"{native_online_per_field_stub_path}\n"
+            "  packed_weight_single_field_handle_handoff_canary_smoke_json: "
+            f"{packed_weight_single_field_canary_path}\n"
             if include_lab_evidence
             else ""
         ),
@@ -920,12 +945,18 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert summary["required_evidence"]["required_count"] == 11
     assert summary["required_evidence"]["present_count"] == 11
     assert summary["required_evidence"]["passed_count"] == 11
-    assert summary["optional_evidence"]["required_count"] == 1
-    assert summary["optional_evidence"]["present_count"] == 1
-    assert summary["optional_evidence"]["passed_count"] == 1
+    assert summary["optional_evidence"]["required_count"] == 2
+    assert summary["optional_evidence"]["present_count"] == 2
+    assert summary["optional_evidence"]["passed_count"] == 2
     assert (
         summary["optional_evidence"]["evidence"][
             "native_typed_consumer_stub_online_prelaunch_input_per_field_canary_json"
+        ]["passed"]
+        is True
+    )
+    assert (
+        summary["optional_evidence"]["evidence"][
+            "packed_weight_single_field_handle_handoff_canary_smoke_json"
         ]["passed"]
         is True
     )
@@ -1004,6 +1035,47 @@ def test_premap_lab_preflight_rejects_present_optional_per_field_canary_mismatch
     assert (
         "native_typed_consumer_stub_online_prelaunch_input_per_field_canary_json:"
         "native_typed_consumer_stub_MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR_not_enabled"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_present_optional_packed_weight_canary_mismatch(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    optional_path = (
+        tmp_path
+        / "reports/default_gate_packed_weight_single_field_handle_handoff_canary_smoke.json"
+    )
+    payload = json.loads(optional_path.read_text(encoding="utf-8"))
+    metrics = payload["metrics"]
+    prefix = (
+        "premap_consumer_descriptor_prep_consumer_shim_"
+        "single_field_handle_handoff_canary_"
+    )
+    metrics[f"{prefix}field_name"] = "scale_metadata_handle"
+    optional_path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is False
+    assert "default_readonly_gate_optional_evidence_check_failed" in result["failures"]
+    failures = result["default_readonly_gate_optional_evidence_check"]["failures"]
+    assert (
+        "packed_weight_single_field_handle_handoff_canary_smoke_json:"
+        "premap_consumer_descriptor_prep_consumer_shim_"
+        "single_field_handle_handoff_canary_field_name_mismatch"
     ) in failures
 
 
@@ -1473,7 +1545,7 @@ def test_premap_lab_preflight_can_defer_self_referential_runner_evidence(
     assert summary["required_evidence"]["required_count"] == 11
     assert summary["required_evidence"]["present_count"] == 10
     assert summary["required_evidence"]["passed_count"] == 10
-    assert summary["optional_evidence"]["passed_count"] == 1
+    assert summary["optional_evidence"]["passed_count"] == 2
 
 
 def test_premap_lab_preflight_allows_missing_typed_evidence_file_when_requested(
@@ -1983,5 +2055,5 @@ def test_premap_lab_preflight_cli_summary_only_writes_status_block(tmp_path: Pat
     assert result["passed"] is True
     assert result["default_readonly_gate_path"] == default_gate
     assert result["required_evidence"]["passed_count"] == 11
-    assert result["optional_evidence"]["passed_count"] == 1
+    assert result["optional_evidence"]["passed_count"] == 2
     assert "lab_gate_status_summary" not in result
