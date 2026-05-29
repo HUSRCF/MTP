@@ -14,6 +14,7 @@ PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_COLUMNS = (
     "aux_metadata_handle",
 )
 PREMAP_SINGLE_FIELD_HANDLE_HANDOFF_CANARY_FIELDS = (
+    "aux_metadata_handle",
     "packed_weight_descriptor",
     "scale_metadata_handle",
 )

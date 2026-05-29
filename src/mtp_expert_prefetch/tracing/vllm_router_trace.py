@@ -13722,6 +13722,7 @@ def _apply_premap_consumer_readonly_gate(
         )
         raise ValueError(msg)
     allowed_single_field_handle_handoff_canary_fields = {
+        "aux_metadata_handle",
         "packed_weight_descriptor",
         "scale_metadata_handle",
     }

@@ -145,6 +145,7 @@ REQUIRED_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
     "native_typed_consumer_online_prelaunch_canary_runner_json",
 }
 OPTIONAL_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
+    "aux_metadata_single_field_handle_handoff_canary_smoke_json",
     "native_typed_consumer_stub_online_prelaunch_input_per_field_canary_json",
     "packed_weight_single_field_handle_handoff_canary_smoke_json",
 }
@@ -424,6 +425,7 @@ def _validate_required_evidence_payload(
         "strict_single_field_handle_handoff_canary_128_gate_json",
         "strict_native_stub_online_invocation_canary_128_gate_json",
         "strict_kernel_side_typed_row_consumer_path_128_gate_json",
+        "aux_metadata_single_field_handle_handoff_canary_smoke_json",
         "packed_weight_single_field_handle_handoff_canary_smoke_json",
         "native_typed_consumer_online_prelaunch_canary_runner_json",
         *known_stub_labels,
@@ -752,6 +754,14 @@ def _validate_required_evidence_payload(
             for failure in _validate_single_field_canary_evidence(
                 metrics,
                 expected_field_name="packed_weight_descriptor",
+            )
+        ]
+    if evidence_label == "aux_metadata_single_field_handle_handoff_canary_smoke_json":
+        return [
+            f"{evidence_label}:{failure}"
+            for failure in _validate_single_field_canary_evidence(
+                metrics,
+                expected_field_name="aux_metadata_handle",
             )
         ]
     if evidence_label == "strict_kernel_side_typed_row_consumer_path_128_gate_json":

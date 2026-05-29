@@ -20153,3 +20153,54 @@ conda run -p /home/husrcf/anaconda3/envs/TRY pytest \
 conda run -p /home/husrcf/anaconda3/envs/TRY pytest tests -q
   696 passed, 2 warnings
 ```
+
+## Aux metadata one-field canary
+
+The readonly one-field canary allowlist now also covers
+`aux_metadata_handle`.  This is still a metadata-only mirror path: payload,
+ready credit, and kernel argument pass remain disabled.
+
+GPU1 1-sample smoke:
+
+```text
+configs/trace/router_mtp_trace_external_prompt_gate_dolly_1_awq_vllm_gpu1_decode_gen16_aux_metadata_handle_handoff_canary.yaml
+
+field_name = aux_metadata_handle
+checked_count = 640
+ready_count = 640
+parity_ok_count = 9794
+payload_bytes = 0
+passed_to_kernel_count = 0
+kernel_arg_violation_count = 0
+
+data/traces/external_prompt_gate_dolly_1_awq_vllm_gpu1_decode_gen16_aux_metadata_handle_handoff_canary/
+  longrun_audit_gate_aux_metadata_single_field_smoke.json
+```
+
+Lab preflight optional evidence now validates three optional artifacts:
+
+```text
+outputs/reports/premap_lab_preflight_latest.json
+  failures = []
+  optional_evidence.required_count = 3
+  optional_evidence.present_count = 3
+  optional_evidence.passed_count = 3
+
+optional evidence:
+  native_typed_consumer_stub_online_prelaunch_input_per_field_canary_json
+  packed_weight_single_field_handle_handoff_canary_smoke_json
+  aux_metadata_single_field_handle_handoff_canary_smoke_json
+```
+
+Validation:
+
+```text
+conda run -p /home/husrcf/anaconda3/envs/TRY pytest \
+  tests/test_run_premap_lab_preflight.py \
+  tests/test_check_premap_longrun_audit_gate.py \
+  tests/test_runtime_premap.py -q
+  153 passed
+
+conda run -p /home/husrcf/anaconda3/envs/TRY pytest tests -q
+  697 passed, 2 warnings
+```

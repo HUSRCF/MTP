@@ -613,6 +613,9 @@ def _write_gate(
     packed_weight_single_field_canary_path = (
         f"reports/{name}_packed_weight_single_field_handle_handoff_canary_smoke.json"
     )
+    aux_metadata_single_field_canary_path = (
+        f"reports/{name}_aux_metadata_single_field_handle_handoff_canary_smoke.json"
+    )
     lab_payload = {
         "passed": lab_evidence_passed,
         "failures": [] if lab_evidence_failures is None else lab_evidence_failures,
@@ -635,6 +638,23 @@ def _write_gate(
                     ),
                     "metrics": _lab_evidence_metrics(
                         single_field_name="packed_weight_descriptor"
+                    ),
+                }
+            )
+            + "\n",
+        )
+        _write(
+            root / aux_metadata_single_field_canary_path,
+            json.dumps(
+                {
+                    "passed": lab_evidence_passed,
+                    "failures": (
+                        []
+                        if lab_evidence_failures is None
+                        else lab_evidence_failures
+                    ),
+                    "metrics": _lab_evidence_metrics(
+                        single_field_name="aux_metadata_handle"
                     ),
                 }
             )
@@ -856,6 +876,8 @@ def _write_gate(
             "  native_typed_consumer_online_prelaunch_canary_runner_json: "
             f"{native_online_runner_path}\n"
             "optional_evidence_paths:\n"
+            "  aux_metadata_single_field_handle_handoff_canary_smoke_json: "
+            f"{aux_metadata_single_field_canary_path}\n"
             "  native_typed_consumer_stub_online_prelaunch_input_per_field_canary_json: "
             f"{native_online_per_field_stub_path}\n"
             "  packed_weight_single_field_handle_handoff_canary_smoke_json: "
@@ -945,9 +967,9 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert summary["required_evidence"]["required_count"] == 11
     assert summary["required_evidence"]["present_count"] == 11
     assert summary["required_evidence"]["passed_count"] == 11
-    assert summary["optional_evidence"]["required_count"] == 2
-    assert summary["optional_evidence"]["present_count"] == 2
-    assert summary["optional_evidence"]["passed_count"] == 2
+    assert summary["optional_evidence"]["required_count"] == 3
+    assert summary["optional_evidence"]["present_count"] == 3
+    assert summary["optional_evidence"]["passed_count"] == 3
     assert (
         summary["optional_evidence"]["evidence"][
             "native_typed_consumer_stub_online_prelaunch_input_per_field_canary_json"
@@ -957,6 +979,12 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert (
         summary["optional_evidence"]["evidence"][
             "packed_weight_single_field_handle_handoff_canary_smoke_json"
+        ]["passed"]
+        is True
+    )
+    assert (
+        summary["optional_evidence"]["evidence"][
+            "aux_metadata_single_field_handle_handoff_canary_smoke_json"
         ]["passed"]
         is True
     )
@@ -1545,7 +1573,7 @@ def test_premap_lab_preflight_can_defer_self_referential_runner_evidence(
     assert summary["required_evidence"]["required_count"] == 11
     assert summary["required_evidence"]["present_count"] == 10
     assert summary["required_evidence"]["passed_count"] == 10
-    assert summary["optional_evidence"]["passed_count"] == 2
+    assert summary["optional_evidence"]["passed_count"] == 3
 
 
 def test_premap_lab_preflight_allows_missing_typed_evidence_file_when_requested(
@@ -2055,5 +2083,5 @@ def test_premap_lab_preflight_cli_summary_only_writes_status_block(tmp_path: Pat
     assert result["passed"] is True
     assert result["default_readonly_gate_path"] == default_gate
     assert result["required_evidence"]["passed_count"] == 11
-    assert result["optional_evidence"]["passed_count"] == 2
+    assert result["optional_evidence"]["passed_count"] == 3
     assert "lab_gate_status_summary" not in result
