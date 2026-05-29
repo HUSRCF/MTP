@@ -19691,3 +19691,36 @@ typed_consumer_stub_gpu1_packed_weight_mirror_canary.json:
   passed_to_kernel = false
   changes_kernel_launch_args = false
 ```
+
+## Online packed-weight mirror canary
+
+The packed-weight mirror field is now also exercised on the online vLLM/AWQ
+prelaunch typed-consumer input exported by the native-stub canary runner.  This
+uses a separate native stub invocation:
+
+```text
+MTP_PREMAP_TYPED_CONSUMER_CHECK_SCHEMA
+MTP_PREMAP_TYPED_CONSUMER_CHECK_ROW_ITERATION
+MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_MIRROR_FIELD
+MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR
+```
+
+GPU1 validation:
+
+```text
+online_prelaunch_native_stub_canary_runner.json:
+  passed = true
+  packed_weight_mirror_stub_summary.row_count = 204
+  packed_weight_mirror_stub_summary.row_ok_count = 204
+  packed_weight_mirror_stub_summary.single_field_mirror_checked = true
+  packed_weight_mirror_stub_summary.single_field_mirror_field_name = packed_weight_descriptor
+  packed_weight_mirror_stub_summary.single_field_mirror_row_ok_count = 204
+  packed_weight_mirror_stub_summary.payload_bytes = 0
+  packed_weight_mirror_stub_summary.passed_to_kernel = false
+  packed_weight_mirror_stub_summary.changes_kernel_launch_args = false
+```
+
+This keeps the same safety boundary as the scale-metadata mirror canary.  It
+proves that the future kernel-side typed consumer ABI can read the online
+`packed_weight_descriptor` row field through the row adapter, but it still does
+not mutate current WNA16 kernel arguments or dereference payload.

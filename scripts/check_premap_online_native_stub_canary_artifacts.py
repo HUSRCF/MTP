@@ -66,6 +66,47 @@ def _check_stub_summary(
     return row_count, row_ok_count
 
 
+def _check_single_field_mirror_summary(
+    stub: Any,
+    *,
+    prefix: str,
+    expected_field_name: str,
+    failures: list[str],
+    require_envelope: bool = False,
+) -> tuple[int | None, int | None]:
+    row_count, row_ok_count = _check_stub_summary(
+        stub,
+        prefix=prefix,
+        failures=failures,
+    )
+    if not isinstance(stub, dict):
+        stub = {}
+    if require_envelope:
+        expected_envelope = {
+            "kernel_consumer_envelope_checked": True,
+            "kernel_consumer_envelope_payload_bytes": 0,
+            "kernel_consumer_envelope_passed_to_kernel": False,
+        }
+        for key, expected in expected_envelope.items():
+            if stub.get(key) != expected:
+                failures.append(f"{prefix}_{key}_mismatch")
+    expected_mirror = {
+        "single_field_mirror_checked": True,
+        "single_field_mirror_field_name": expected_field_name,
+        "single_field_mirror_error_count": 0,
+    }
+    for key, expected in expected_mirror.items():
+        if stub.get(key) != expected:
+            failures.append(f"{prefix}_{key}_mismatch")
+    mirror_row_count = _int(stub.get("single_field_mirror_row_count"))
+    mirror_row_ok_count = _int(stub.get("single_field_mirror_row_ok_count"))
+    if row_count is not None and mirror_row_count != row_count:
+        failures.append(f"{prefix}_single_field_mirror_row_count_mismatch")
+    if row_count is not None and mirror_row_ok_count != row_count:
+        failures.append(f"{prefix}_single_field_mirror_row_ok_count_mismatch")
+    return row_count, row_ok_count
+
+
 def check_online_native_stub_canary_artifacts(
     *,
     root: Path,
@@ -248,6 +289,31 @@ def check_online_native_stub_canary_artifacts(
             prefix="runner_per_field_stub",
             failures=failures,
         )
+    envelope_mirror_row_count: int | None = None
+    envelope_mirror_row_ok_count: int | None = None
+    envelope_mirror_stub = runner.get("kernel_envelope_mirror_stub_summary")
+    if envelope_mirror_stub is not None:
+        envelope_mirror_row_count, envelope_mirror_row_ok_count = (
+            _check_single_field_mirror_summary(
+                envelope_mirror_stub,
+                prefix="runner_kernel_envelope_mirror_stub",
+                expected_field_name="scale_metadata_handle",
+                failures=failures,
+                require_envelope=True,
+            )
+        )
+    packed_weight_mirror_row_count: int | None = None
+    packed_weight_mirror_row_ok_count: int | None = None
+    packed_weight_mirror_stub = runner.get("packed_weight_mirror_stub_summary")
+    if packed_weight_mirror_stub is not None:
+        packed_weight_mirror_row_count, packed_weight_mirror_row_ok_count = (
+            _check_single_field_mirror_summary(
+                packed_weight_mirror_stub,
+                prefix="runner_packed_weight_mirror_stub",
+                expected_field_name="packed_weight_descriptor",
+                failures=failures,
+            )
+        )
 
     return {
         "passed": not failures,
@@ -261,6 +327,14 @@ def check_online_native_stub_canary_artifacts(
         "runner_stub_row_ok_count": row_ok_count,
         "runner_per_field_stub_row_count": per_field_row_count,
         "runner_per_field_stub_row_ok_count": per_field_row_ok_count,
+        "runner_kernel_envelope_mirror_stub_row_count": envelope_mirror_row_count,
+        "runner_kernel_envelope_mirror_stub_row_ok_count": (
+            envelope_mirror_row_ok_count
+        ),
+        "runner_packed_weight_mirror_stub_row_count": packed_weight_mirror_row_count,
+        "runner_packed_weight_mirror_stub_row_ok_count": (
+            packed_weight_mirror_row_ok_count
+        ),
         "stage1_deferred_count": stage1.get("runtime_gate_evidence_deferred_count"),
         "final_deferred_count": final.get("runtime_gate_evidence_deferred_count"),
         "status_deferred_count": status.get("runtime_gate_evidence_deferred_count"),
