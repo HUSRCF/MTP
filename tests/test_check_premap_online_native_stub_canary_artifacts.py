@@ -25,6 +25,15 @@ def _extra_input_summary(row_count: int = 4) -> dict:
             "payload_bytes": 0,
             "passed_to_kernel": False,
             "changes_kernel_launch_args": False,
+            "kernel_side_consumer_path_checked": True,
+            "kernel_side_consumer_path_name": "premap_kernel_side_typed_consumer_path_v1",
+            "kernel_side_consumer_path_row_count": row_count,
+            "kernel_side_consumer_path_row_ok_count": row_count,
+            "kernel_side_consumer_path_error_count": 0,
+            "kernel_side_consumer_path_payload_bytes": 0,
+            "kernel_side_consumer_path_passed_to_kernel": False,
+            "kernel_side_consumer_path_changes_kernel_launch_args": False,
+            "kernel_side_consumer_path_current_wna16_arg_compatible": False,
         }
 
     def mirror_summary(field_name: str, *, envelope: bool = False) -> dict:
@@ -123,6 +132,15 @@ def _payloads(root: Path) -> tuple[Path, Path, Path]:
             "payload_bytes": 0,
             "passed_to_kernel": False,
             "changes_kernel_launch_args": False,
+            "kernel_side_consumer_path_checked": True,
+            "kernel_side_consumer_path_name": "premap_kernel_side_typed_consumer_path_v1",
+            "kernel_side_consumer_path_row_count": 4,
+            "kernel_side_consumer_path_row_ok_count": 4,
+            "kernel_side_consumer_path_error_count": 0,
+            "kernel_side_consumer_path_payload_bytes": 0,
+            "kernel_side_consumer_path_passed_to_kernel": False,
+            "kernel_side_consumer_path_changes_kernel_launch_args": False,
+            "kernel_side_consumer_path_current_wna16_arg_compatible": False,
         },
         "per_field_stub_summary": {
             "passed": True,

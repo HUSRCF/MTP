@@ -42,6 +42,7 @@ def _check_stub_summary(
     *,
     prefix: str,
     failures: list[str],
+    require_kernel_side_consumer_path: bool = False,
 ) -> tuple[int | None, int | None]:
     if not isinstance(stub, dict):
         failures.append(f"{prefix}_summary_missing")
@@ -63,6 +64,30 @@ def _check_stub_summary(
     for key, expected in expected_stub.items():
         if stub.get(key) != expected:
             failures.append(f"{prefix}_{key}_mismatch")
+    if require_kernel_side_consumer_path:
+        expected_path = {
+            "kernel_side_consumer_path_checked": True,
+            "kernel_side_consumer_path_error_count": 0,
+            "kernel_side_consumer_path_payload_bytes": 0,
+            "kernel_side_consumer_path_passed_to_kernel": False,
+            "kernel_side_consumer_path_changes_kernel_launch_args": False,
+            "kernel_side_consumer_path_current_wna16_arg_compatible": False,
+        }
+        for key, expected in expected_path.items():
+            if stub.get(key) != expected:
+                failures.append(f"{prefix}_{key}_mismatch")
+        if stub.get("kernel_side_consumer_path_name") != (
+            "premap_kernel_side_typed_consumer_path_v1"
+        ):
+            failures.append(f"{prefix}_kernel_side_consumer_path_name_mismatch")
+        path_row_count = _int(stub.get("kernel_side_consumer_path_row_count"))
+        path_row_ok_count = _int(stub.get("kernel_side_consumer_path_row_ok_count"))
+        if row_count is not None and path_row_count != row_count:
+            failures.append(f"{prefix}_kernel_side_consumer_path_row_count_mismatch")
+        if row_count is not None and path_row_ok_count != row_count:
+            failures.append(
+                f"{prefix}_kernel_side_consumer_path_row_ok_count_mismatch"
+            )
     return row_count, row_ok_count
 
 
@@ -281,6 +306,7 @@ def check_online_native_stub_canary_artifacts(
         runner.get("stub_summary"),
         prefix="runner_stub",
         failures=failures,
+        require_kernel_side_consumer_path=True,
     )
     per_field_stub = runner.get("per_field_stub_summary")
     per_field_row_count: int | None = None
@@ -420,6 +446,7 @@ def check_online_native_stub_canary_artifacts(
                         summary,
                         prefix=label_prefix,
                         failures=failures,
+                        require_kernel_side_consumer_path=(label == "native_stub"),
                     )
                 else:
                     _check_single_field_mirror_summary(
@@ -440,6 +467,11 @@ def check_online_native_stub_canary_artifacts(
         "runner_preflight_status_output_json": observed_status,
         "runner_stub_row_count": row_count,
         "runner_stub_row_ok_count": row_ok_count,
+        "runner_stub_kernel_side_consumer_path_checked": (
+            bool(runner.get("stub_summary", {}).get("kernel_side_consumer_path_checked"))
+            if isinstance(runner.get("stub_summary"), dict)
+            else False
+        ),
         "runner_per_field_stub_row_count": per_field_row_count,
         "runner_per_field_stub_row_ok_count": per_field_row_ok_count,
         "runner_kernel_envelope_mirror_stub_row_count": envelope_mirror_row_count,

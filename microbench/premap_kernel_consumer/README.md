@@ -59,6 +59,15 @@ address value only; it still does not dereference payload. Only one mirror macro
 may be enabled in a single stub build so each canary remains attributable to a
 single field.
 
+`MTP_PREMAP_TYPED_CONSUMER_CHECK_KERNEL_SIDE_CONSUMER_PATH` is the next readonly
+compatibility canary. It routes each ABI row through
+`premap_typed_consumer_kernel_side_consume_row_v1`, which is the explicit native
+adapter entry point a future kernel-side consumer would call.  The check reads
+the row-view schema, validates required handles and lifetime metadata, and
+emits a path hash. It still reports `payload_bytes=0`,
+`passed_to_kernel=false`, and `changes_kernel_launch_args=false`; it is not a
+WNA16 kernel argument replacement.
+
 Runtime manager bridge:
 
 ```text

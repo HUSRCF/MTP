@@ -19896,3 +19896,74 @@ Validation:
 conda run -p /home/husrcf/anaconda3/envs/TRY pytest tests -q
   690 passed, 2 warnings
 ```
+
+## Kernel-side typed row consumer path canary
+
+The native premap consumer now has an explicit kernel-side compatible row
+consumer path, still separate from the current WNA16 fused-MoE kernel argument
+list.
+
+Implementation updates:
+
+```text
+premap_typed_consumer_adapter_v1.h:
+  - adds PremapKernelSideTypedConsumerPathResultV1
+  - adds premap_typed_consumer_kernel_side_consume_row_v1(...)
+  - consumes a typed ABI row through the future kernel-side row adapter
+
+premap_typed_consumer_stub.hip:
+  - adds MTP_PREMAP_TYPED_CONSUMER_CHECK_KERNEL_SIDE_CONSUMER_PATH
+  - records kernel_side_consumer_path_* fields
+  - keeps payload_bytes=0 and passed_to_kernel=false
+
+run_premap_online_native_stub_canary.py:
+  - base native stub now enables the kernel-side consumer path macro
+  - compact runner summaries preserve kernel_side_consumer_path_* evidence
+
+check_premap_online_native_stub_canary_artifacts.py and
+run_premap_lab_preflight.py:
+  - require the base native stub to pass kernel_side_consumer_path_checked
+  - require row_ok_count == row_count for the typed row consumer path
+```
+
+GPU1 online prelaunch canary:
+
+```text
+outputs/reports/premap_kernel_consumer/typed_consumer_stub_gpu1_online_prelaunch_input_dolly128_stride320_kernel_side_path_canary.json:
+  passed = true
+  kernel_side_consumer_path_checked = true
+  kernel_side_consumer_path_name = premap_kernel_side_typed_consumer_path_v1
+  kernel_side_consumer_path_row_count = 174
+  kernel_side_consumer_path_row_ok_count = 174
+  kernel_side_consumer_path_payload_bytes = 0
+  kernel_side_consumer_path_passed_to_kernel = false
+  kernel_side_consumer_path_changes_kernel_launch_args = false
+  kernel_side_consumer_path_current_wna16_arg_compatible = false
+```
+
+The 16-input strict runner was refreshed with this path enabled:
+
+```text
+outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_runner_dolly128_stride320_field_gate.json:
+  passed = true
+  online_prelaunch_input_check_count = 16
+  online_prelaunch_input_extra_check_passed_count = 15
+  stub_summary.kernel_side_consumer_path_checked = true
+  stub_summary.kernel_side_consumer_path_row_ok_count = 174
+
+artifact_check_summary:
+  passed = true
+  runner_online_prelaunch_input_check_count = 16
+```
+
+This moves the native bridge one step beyond field-level mirrors: the stub now
+executes a named typed row consumer path that a future kernel-side implementation
+can adopt.  It still does not pass any argument to the real WNA16 kernel and
+does not dereference payload.
+
+Validation:
+
+```text
+conda run -p /home/husrcf/anaconda3/envs/TRY pytest tests -q
+  691 passed, 2 warnings
+```

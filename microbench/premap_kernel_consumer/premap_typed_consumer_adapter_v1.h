@@ -23,6 +23,8 @@ constexpr const char* kPremapKernelSideTypedConsumerAdapterV1Name =
     "premap_kernel_side_typed_consumer_adapter_v1";
 constexpr bool kPremapKernelSideTypedConsumerAdapterV1PayloadDerefAllowed = false;
 constexpr bool kPremapKernelSideTypedConsumerAdapterV1KernelArgPassAllowed = false;
+constexpr const char* kPremapKernelSideTypedConsumerPathV1Name =
+    "premap_kernel_side_typed_consumer_path_v1";
 
 struct PremapKernelSideTypedConsumerLaunchEnvelopeV1 {
   PremapKernelSideTypedConsumerAbiV1 table;
@@ -43,6 +45,24 @@ constexpr uint32_t kPremapKernelSideTypedConsumerLaunchEnvelopeV1ReadonlyFlag =
 constexpr uint32_t
     kPremapKernelSideTypedConsumerLaunchEnvelopeV1KernelArgPassDisabledFlag =
         1u << 1;
+
+struct PremapKernelSideTypedConsumerPathResultV1 {
+  uint32_t ok;
+  uint32_t required_handle_visible;
+  uint32_t lifetime_valid;
+  uint32_t field_count;
+  uint64_t row_hash;
+};
+
+__host__ __device__ static inline uint64_t
+premap_typed_consumer_mix64_v1(uint64_t x) {
+  x ^= x >> 33;
+  x *= 0xff51afd7ed558ccdULL;
+  x ^= x >> 33;
+  x *= 0xc4ceb9fe1a85ec53ULL;
+  x ^= x >> 33;
+  return x;
+}
 
 __host__ __device__ static inline bool
 premap_typed_consumer_schema_matches_v1(
@@ -144,4 +164,32 @@ premap_typed_consumer_lifetime_valid_v1(
     const PremapKernelSideTypedConsumerRowV1& row) {
   return static_cast<uint32_t>(
       table.lifetime_epoch == 1 && row.address_key_hash != 0 && row.expert_id >= 0);
+}
+
+__device__ static inline PremapKernelSideTypedConsumerPathResultV1
+premap_typed_consumer_kernel_side_consume_row_v1(
+    const PremapKernelSideTypedConsumerAbiV1& table,
+    uint32_t row_index) {
+  const PremapKernelSideTypedConsumerRowV1 row =
+      premap_typed_consumer_load_row_v1(table, row_index);
+  PremapKernelSideTypedConsumerPathResultV1 result;
+  result.required_handle_visible =
+      premap_typed_consumer_required_handles_visible_v1(row);
+  result.lifetime_valid = premap_typed_consumer_lifetime_valid_v1(table, row);
+  result.field_count = kPremapKernelSideTypedConsumerAbiV1HandleColumnCount;
+  result.ok = static_cast<uint32_t>(
+      result.required_handle_visible != 0 && result.lifetime_valid != 0 &&
+      row_index < table.row_count &&
+      table.column_count == kPremapKernelSideTypedConsumerAbiV1HandleColumnCount);
+  result.row_hash =
+      premap_typed_consumer_mix64_v1(row.descriptor_ptr) ^
+      premap_typed_consumer_mix64_v1(row.packed_weight_descriptor + 0x1000ULL) ^
+      premap_typed_consumer_mix64_v1(row.scale_metadata_handle + 0x2000ULL) ^
+      premap_typed_consumer_mix64_v1(row.aux_metadata_handle + 0x3000ULL) ^
+      premap_typed_consumer_mix64_v1(
+          row.address_key_hash + static_cast<uint64_t>(row.expert_id)) ^
+      premap_typed_consumer_mix64_v1(static_cast<uint64_t>(row.row_index)) ^
+      premap_typed_consumer_mix64_v1(table.row_order_hash) ^
+      premap_typed_consumer_mix64_v1(table.ordered_row_hash);
+  return result;
 }

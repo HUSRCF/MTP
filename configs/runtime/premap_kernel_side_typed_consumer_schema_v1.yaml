@@ -175,6 +175,10 @@ debug_macro_ladder:
       default: disabled
       individually_enableable: true
       phase: future_kernel_consumer_envelope_canary
+    - name: MTP_PREMAP_TYPED_CONSUMER_CHECK_KERNEL_SIDE_CONSUMER_PATH
+      default: disabled
+      individually_enableable: true
+      phase: future_kernel_side_typed_row_consumer_path
     - name: MTP_PREMAP_TYPED_CONSUMER_ENABLE_PAYLOAD_DEREF
       default: disabled
       individually_enableable: false

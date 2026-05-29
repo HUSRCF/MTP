@@ -387,6 +387,36 @@ def _validate_required_evidence_payload(
                 failures.append("runner_stub_summary_row_count_invalid")
             if row_count is not None and row_ok_count != row_count:
                 failures.append("runner_stub_summary_row_ok_count_mismatch")
+            for key, expected_value in {
+                "kernel_side_consumer_path_checked": True,
+                "kernel_side_consumer_path_error_count": 0,
+                "kernel_side_consumer_path_payload_bytes": 0,
+                "kernel_side_consumer_path_passed_to_kernel": False,
+                "kernel_side_consumer_path_changes_kernel_launch_args": False,
+                "kernel_side_consumer_path_current_wna16_arg_compatible": False,
+            }.items():
+                if stub_summary.get(key) != expected_value:
+                    failures.append(f"runner_stub_summary_{key}_mismatch")
+            if stub_summary.get("kernel_side_consumer_path_name") != (
+                "premap_kernel_side_typed_consumer_path_v1"
+            ):
+                failures.append("runner_stub_summary_kernel_side_consumer_path_name_mismatch")
+            path_row_count = _int_metric(
+                stub_summary,
+                "kernel_side_consumer_path_row_count",
+            )
+            path_row_ok_count = _int_metric(
+                stub_summary,
+                "kernel_side_consumer_path_row_ok_count",
+            )
+            if row_count is not None and path_row_count != row_count:
+                failures.append(
+                    "runner_stub_summary_kernel_side_consumer_path_row_count_mismatch"
+                )
+            if row_count is not None and path_row_ok_count != row_count:
+                failures.append(
+                    "runner_stub_summary_kernel_side_consumer_path_row_ok_count_mismatch"
+                )
         preflight_summary = evidence.get("preflight_summary")
         if not isinstance(preflight_summary, dict):
             failures.append("runner_preflight_summary_missing")
@@ -413,7 +443,12 @@ def _validate_required_evidence_payload(
         if extra_passed_count != expected_extra:
             failures.append("runner_online_input_extra_check_passed_count_mismatch")
 
-        def _check_runner_stub_summary(summary: Any, prefix: str) -> None:
+        def _check_runner_stub_summary(
+            summary: Any,
+            prefix: str,
+            *,
+            require_kernel_side_consumer_path: bool = False,
+        ) -> None:
             if not isinstance(summary, dict):
                 failures.append(f"{prefix}_missing")
                 return
@@ -433,6 +468,37 @@ def _validate_required_evidence_payload(
                 failures.append(f"{prefix}_row_count_invalid")
             if row_count_value is not None and row_ok_count_value != row_count_value:
                 failures.append(f"{prefix}_row_ok_count_mismatch")
+            if require_kernel_side_consumer_path:
+                for key, expected_value in {
+                    "kernel_side_consumer_path_checked": True,
+                    "kernel_side_consumer_path_error_count": 0,
+                    "kernel_side_consumer_path_payload_bytes": 0,
+                    "kernel_side_consumer_path_passed_to_kernel": False,
+                    "kernel_side_consumer_path_changes_kernel_launch_args": False,
+                    "kernel_side_consumer_path_current_wna16_arg_compatible": False,
+                }.items():
+                    if summary.get(key) != expected_value:
+                        failures.append(f"{prefix}_{key}_mismatch")
+                if summary.get("kernel_side_consumer_path_name") != (
+                    "premap_kernel_side_typed_consumer_path_v1"
+                ):
+                    failures.append(f"{prefix}_kernel_side_consumer_path_name_mismatch")
+                path_row_count = _int_metric(
+                    summary,
+                    "kernel_side_consumer_path_row_count",
+                )
+                path_row_ok_count = _int_metric(
+                    summary,
+                    "kernel_side_consumer_path_row_ok_count",
+                )
+                if row_count_value is not None and path_row_count != row_count_value:
+                    failures.append(
+                        f"{prefix}_kernel_side_consumer_path_row_count_mismatch"
+                    )
+                if row_count_value is not None and path_row_ok_count != row_count_value:
+                    failures.append(
+                        f"{prefix}_kernel_side_consumer_path_row_ok_count_mismatch"
+                    )
 
         def _check_runner_mirror_summary(
             summary: Any,
@@ -506,7 +572,11 @@ def _validate_required_evidence_payload(
                     continue
                 summary = entry.get("summary")
                 if expected_field_name is None:
-                    _check_runner_stub_summary(summary, label_prefix)
+                    _check_runner_stub_summary(
+                        summary,
+                        label_prefix,
+                        require_kernel_side_consumer_path=(label == "native_stub"),
+                    )
                 else:
                     _check_runner_mirror_summary(
                         summary,

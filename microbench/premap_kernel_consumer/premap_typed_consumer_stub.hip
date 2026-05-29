@@ -112,7 +112,9 @@ __global__ void typed_consumer_kernel(
     uint32_t* row_ok,
     uint64_t* row_hash,
     uint32_t* single_field_mirror_ok,
-    uint64_t* single_field_mirror_hash) {
+    uint64_t* single_field_mirror_hash,
+    uint32_t* kernel_side_consumer_path_ok,
+    uint64_t* kernel_side_consumer_path_hash) {
   const uint32_t idx = blockIdx.x * blockDim.x + threadIdx.x;
   if (idx >= table.row_count) {
     return;
@@ -134,6 +136,8 @@ __global__ void typed_consumer_kernel(
       premap_typed_consumer_load_row_v1(table, idx);
   uint32_t mirror_ok = 0;
   uint64_t mirror_hash = 0;
+  uint32_t kernel_path_ok = 0;
+  uint64_t kernel_path_hash = 0;
 
 #if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_POINTER_VISIBILITY)
   ok &= premap_typed_consumer_required_handles_visible_v1(row);
@@ -182,6 +186,14 @@ __global__ void typed_consumer_kernel(
   ok &= premap_typed_consumer_lifetime_valid_v1(table, row);
 #endif
 
+#if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_KERNEL_SIDE_CONSUMER_PATH)
+  const PremapKernelSideTypedConsumerPathResultV1 kernel_path_result =
+      premap_typed_consumer_kernel_side_consume_row_v1(table, idx);
+  kernel_path_ok = kernel_path_result.ok;
+  kernel_path_hash = kernel_path_result.row_hash;
+  ok &= kernel_path_ok;
+#endif
+
 #if defined(MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR)
   h ^= mix64(row.descriptor_ptr);
   h ^= mix64(row.packed_weight_descriptor + 0x1000ULL);
@@ -200,6 +212,8 @@ __global__ void typed_consumer_kernel(
   row_hash[idx] = h;
   single_field_mirror_ok[idx] = mirror_ok;
   single_field_mirror_hash[idx] = mirror_hash;
+  kernel_side_consumer_path_ok[idx] = kernel_path_ok;
+  kernel_side_consumer_path_hash[idx] = kernel_path_hash;
 }
 
 #if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_KERNEL_CONSUMER_ENVELOPE)
@@ -208,7 +222,9 @@ __global__ void typed_consumer_envelope_kernel(
     uint32_t* row_ok,
     uint64_t* row_hash,
     uint32_t* single_field_mirror_ok,
-    uint64_t* single_field_mirror_hash) {
+    uint64_t* single_field_mirror_hash,
+    uint32_t* kernel_side_consumer_path_ok,
+    uint64_t* kernel_side_consumer_path_hash) {
   const uint32_t idx = blockIdx.x * blockDim.x + threadIdx.x;
   if (idx >= envelope.table.row_count) {
     return;
@@ -221,6 +237,8 @@ __global__ void typed_consumer_envelope_kernel(
   ok &= premap_typed_consumer_lifetime_valid_v1(envelope.table, row);
   uint32_t mirror_ok = 0;
   uint64_t mirror_hash = 0;
+  uint32_t kernel_path_ok = 0;
+  uint64_t kernel_path_hash = 0;
 
 #if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR_MIRROR_FIELD)
   mirror_ok = premap_typed_consumer_descriptor_ptr_mirror_matches_v1(
@@ -248,6 +266,14 @@ __global__ void typed_consumer_envelope_kernel(
   ok &= mirror_ok;
 #endif
 
+#if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_KERNEL_SIDE_CONSUMER_PATH)
+  const PremapKernelSideTypedConsumerPathResultV1 kernel_path_result =
+      premap_typed_consumer_kernel_side_consume_row_v1(envelope.table, idx);
+  kernel_path_ok = kernel_path_result.ok;
+  kernel_path_hash = kernel_path_result.row_hash;
+  ok &= kernel_path_ok;
+#endif
+
   uint64_t h = 0x517cc1b727220a95ULL ^ static_cast<uint64_t>(idx);
   h ^= mix64(row.descriptor_ptr);
   h ^= mix64(row.packed_weight_descriptor + 0x1000ULL);
@@ -260,6 +286,8 @@ __global__ void typed_consumer_envelope_kernel(
   row_hash[idx] = h;
   single_field_mirror_ok[idx] = mirror_ok;
   single_field_mirror_hash[idx] = mirror_hash;
+  kernel_side_consumer_path_ok[idx] = kernel_path_ok;
+  kernel_side_consumer_path_hash[idx] = kernel_path_hash;
 }
 #endif
 
@@ -407,6 +435,12 @@ static std::string macro_json() {
 #else
      << "false";
 #endif
+  os << ",\"MTP_PREMAP_TYPED_CONSUMER_CHECK_KERNEL_SIDE_CONSUMER_PATH\":"
+#if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_KERNEL_SIDE_CONSUMER_PATH)
+     << "true";
+#else
+     << "false";
+#endif
   os << "}";
   return os.str();
 }
@@ -443,9 +477,11 @@ int main(int argc, char** argv) {
 
   uint64_t *d_descriptor = nullptr, *d_packed = nullptr, *d_scale = nullptr,
            *d_aux = nullptr, *d_address_key = nullptr, *d_hash = nullptr,
-           *d_single_field_mirror_hash = nullptr;
+           *d_single_field_mirror_hash = nullptr,
+           *d_kernel_side_consumer_path_hash = nullptr;
   int32_t* d_expert = nullptr;
-  uint32_t *d_ok = nullptr, *d_single_field_mirror_ok = nullptr;
+  uint32_t *d_ok = nullptr, *d_single_field_mirror_ok = nullptr,
+           *d_kernel_side_consumer_path_ok = nullptr;
   const size_t u64_bytes = static_cast<size_t>(rows) * sizeof(uint64_t);
   const size_t i32_bytes = static_cast<size_t>(rows) * sizeof(int32_t);
   const size_t u32_bytes = static_cast<size_t>(rows) * sizeof(uint32_t);
@@ -465,6 +501,12 @@ int main(int argc, char** argv) {
   hip_check(
       hipMalloc(&d_single_field_mirror_hash, u64_bytes),
       "hipMalloc single_field_mirror_hash");
+  hip_check(
+      hipMalloc(&d_kernel_side_consumer_path_ok, u32_bytes),
+      "hipMalloc kernel_side_consumer_path_ok");
+  hip_check(
+      hipMalloc(&d_kernel_side_consumer_path_hash, u64_bytes),
+      "hipMalloc kernel_side_consumer_path_hash");
   hip_check(hipMemcpy(d_descriptor, descriptor.data(), u64_bytes, hipMemcpyHostToDevice), "copy descriptor");
   hip_check(hipMemcpy(d_packed, packed.data(), u64_bytes, hipMemcpyHostToDevice), "copy packed");
   hip_check(hipMemcpy(d_scale, scale.data(), u64_bytes, hipMemcpyHostToDevice), "copy scale");
@@ -514,7 +556,9 @@ int main(int argc, char** argv) {
       d_ok,
       d_hash,
       d_single_field_mirror_ok,
-      d_single_field_mirror_hash);
+      d_single_field_mirror_hash,
+      d_kernel_side_consumer_path_ok,
+      d_kernel_side_consumer_path_hash);
 #else
   hipLaunchKernelGGL(
       typed_consumer_kernel,
@@ -526,7 +570,9 @@ int main(int argc, char** argv) {
       d_ok,
       d_hash,
       d_single_field_mirror_ok,
-      d_single_field_mirror_hash);
+      d_single_field_mirror_hash,
+      d_kernel_side_consumer_path_ok,
+      d_kernel_side_consumer_path_hash);
 #endif
   hip_check(hipGetLastError(), "kernel launch");
   hip_check(hipDeviceSynchronize(), "kernel sync");
@@ -535,6 +581,8 @@ int main(int argc, char** argv) {
   std::vector<uint64_t> hashes(rows);
   std::vector<uint32_t> single_field_mirror_ok(rows);
   std::vector<uint64_t> single_field_mirror_hashes(rows);
+  std::vector<uint32_t> kernel_side_consumer_path_ok(rows);
+  std::vector<uint64_t> kernel_side_consumer_path_hashes(rows);
   hip_check(hipMemcpy(ok.data(), d_ok, u32_bytes, hipMemcpyDeviceToHost), "copy ok");
   hip_check(hipMemcpy(hashes.data(), d_hash, u64_bytes, hipMemcpyDeviceToHost), "copy hash");
   hip_check(
@@ -551,17 +599,37 @@ int main(int argc, char** argv) {
           u64_bytes,
           hipMemcpyDeviceToHost),
       "copy single_field_mirror_hash");
+  hip_check(
+      hipMemcpy(
+          kernel_side_consumer_path_ok.data(),
+          d_kernel_side_consumer_path_ok,
+          u32_bytes,
+          hipMemcpyDeviceToHost),
+      "copy kernel_side_consumer_path_ok");
+  hip_check(
+      hipMemcpy(
+          kernel_side_consumer_path_hashes.data(),
+          d_kernel_side_consumer_path_hash,
+          u64_bytes,
+          hipMemcpyDeviceToHost),
+      "copy kernel_side_consumer_path_hash");
 
   uint64_t hash_acc = 0;
   uint64_t single_field_mirror_hash_acc = 0;
+  uint64_t kernel_side_consumer_path_hash_acc = 0;
   int ok_count = 0;
   int single_field_mirror_ok_count = 0;
+  int kernel_side_consumer_path_ok_count = 0;
   for (int i = 0; i < rows; ++i) {
     ok_count += ok[i] == 1 ? 1 : 0;
     hash_acc ^= mix64(hashes[i] + static_cast<uint64_t>(i));
     single_field_mirror_ok_count += single_field_mirror_ok[i] == 1 ? 1 : 0;
     single_field_mirror_hash_acc ^=
         mix64(single_field_mirror_hashes[i] + static_cast<uint64_t>(i));
+    kernel_side_consumer_path_ok_count +=
+        kernel_side_consumer_path_ok[i] == 1 ? 1 : 0;
+    kernel_side_consumer_path_hash_acc ^=
+        mix64(kernel_side_consumer_path_hashes[i] + static_cast<uint64_t>(i));
   }
   const int error_count = rows - ok_count;
   const bool single_field_mirror_checked =
@@ -577,6 +645,16 @@ int main(int argc, char** argv) {
       single_field_mirror_checked ? rows : 0;
   const int single_field_mirror_error_count =
       single_field_mirror_checked ? rows - single_field_mirror_ok_count : 0;
+  const bool kernel_side_consumer_path_checked =
+#if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_KERNEL_SIDE_CONSUMER_PATH)
+      true;
+#else
+      false;
+#endif
+  const int kernel_side_consumer_path_row_count =
+      kernel_side_consumer_path_checked ? rows : 0;
+  const int kernel_side_consumer_path_error_count =
+      kernel_side_consumer_path_checked ? rows - kernel_side_consumer_path_ok_count : 0;
 
   hip_check(hipFree(d_descriptor), "hipFree descriptor");
   hip_check(hipFree(d_packed), "hipFree packed");
@@ -592,6 +670,12 @@ int main(int argc, char** argv) {
   hip_check(
       hipFree(d_single_field_mirror_hash),
       "hipFree single_field_mirror_hash");
+  hip_check(
+      hipFree(d_kernel_side_consumer_path_ok),
+      "hipFree kernel_side_consumer_path_ok");
+  hip_check(
+      hipFree(d_kernel_side_consumer_path_hash),
+      "hipFree kernel_side_consumer_path_hash");
 
   std::cout << "{";
   std::cout << "\"ok\":" << (error_count == 0 ? "true" : "false");
@@ -639,6 +723,27 @@ int main(int argc, char** argv) {
   std::cout << ",\"single_field_mirror_kernel_side_typed_consumer_compatible\":"
             << (single_field_mirror_checked ? "true" : "false");
   std::cout << ",\"single_field_mirror_current_wna16_arg_compatible\":false";
+  std::cout << ",\"kernel_side_consumer_path_name\":\""
+            << kPremapKernelSideTypedConsumerPathV1Name << "\"";
+  std::cout << ",\"kernel_side_consumer_path_checked\":"
+            << (kernel_side_consumer_path_checked ? "true" : "false");
+  std::cout << ",\"kernel_side_consumer_path_mode\":\"readonly_typed_row_consumer_path\"";
+  std::cout << ",\"kernel_side_consumer_path_source\":\""
+            << kPremapKernelSideTypedConsumerAdapterV1Name << "\"";
+  std::cout << ",\"kernel_side_consumer_path_row_count\":"
+            << kernel_side_consumer_path_row_count;
+  std::cout << ",\"kernel_side_consumer_path_row_ok_count\":"
+            << (kernel_side_consumer_path_checked
+                    ? kernel_side_consumer_path_ok_count
+                    : 0);
+  std::cout << ",\"kernel_side_consumer_path_error_count\":"
+            << kernel_side_consumer_path_error_count;
+  std::cout << ",\"kernel_side_consumer_path_hash_accumulator\":\"" << std::hex
+            << kernel_side_consumer_path_hash_acc << std::dec << "\"";
+  std::cout << ",\"kernel_side_consumer_path_payload_bytes\":0";
+  std::cout << ",\"kernel_side_consumer_path_passed_to_kernel\":false";
+  std::cout << ",\"kernel_side_consumer_path_changes_kernel_launch_args\":false";
+  std::cout << ",\"kernel_side_consumer_path_current_wna16_arg_compatible\":false";
   std::cout << ",\"typed_schema_hash_hi\":\"" << std::hex << kTypedSchemaHashHi << std::dec << "\"";
   std::cout << ",\"typed_schema_hash_lo\":\"" << std::hex << kTypedSchemaHashLo << std::dec << "\"";
   std::cout << ",\"aux_pointer_present\":" << (args.omit_aux_pointer ? "false" : "true");

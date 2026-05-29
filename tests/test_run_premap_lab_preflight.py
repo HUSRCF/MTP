@@ -211,6 +211,11 @@ def _valid_schema_payload() -> dict:
                     "individually_enableable": True,
                 },
                 {
+                    "name": "MTP_PREMAP_TYPED_CONSUMER_CHECK_KERNEL_SIDE_CONSUMER_PATH",
+                    "default": "disabled",
+                    "individually_enableable": True,
+                },
+                {
                     "name": "MTP_PREMAP_TYPED_CONSUMER_ENABLE_PAYLOAD_DEREF",
                     "default": "disabled",
                     "individually_enableable": False,
@@ -482,6 +487,15 @@ def _runner_stub_summary() -> dict[str, object]:
         "payload_bytes": 0,
         "passed_to_kernel": False,
         "changes_kernel_launch_args": False,
+        "kernel_side_consumer_path_checked": True,
+        "kernel_side_consumer_path_name": "premap_kernel_side_typed_consumer_path_v1",
+        "kernel_side_consumer_path_row_count": 2,
+        "kernel_side_consumer_path_row_ok_count": 2,
+        "kernel_side_consumer_path_error_count": 0,
+        "kernel_side_consumer_path_payload_bytes": 0,
+        "kernel_side_consumer_path_passed_to_kernel": False,
+        "kernel_side_consumer_path_changes_kernel_launch_args": False,
+        "kernel_side_consumer_path_current_wna16_arg_compatible": False,
     }
 
 
