@@ -20266,3 +20266,50 @@ conda run -p /home/husrcf/anaconda3/envs/TRY pytest \
 conda run -p /home/husrcf/anaconda3/envs/TRY pytest tests -q
   698 passed, 2 warnings
 ```
+
+## Native online prelaunch field mirror refresh
+
+The native typed-consumer runner was refreshed using the 128-sample exported
+online prelaunch inputs, without rerunning vLLM (`--skip-trace`).  This verifies
+that the native stub side agrees with the readonly runtime field canary matrix.
+
+Runner:
+
+```text
+outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_runner_dolly128_stride320_field_gate.json
+
+passed = true
+failures = []
+online_prelaunch_input_check_count = 16
+online_prelaunch_input_extra_check_count = 15
+online_prelaunch_input_extra_check_passed_count = 15
+
+artifact_check_summary:
+  passed = true
+  failures = []
+  min_online_inputs = 16
+  require_all_field_mirror_stubs = true
+  runner_stub_row_count = 174
+  runner_stub_row_ok_count = 174
+  runner_descriptor_ptr_mirror_stub_row_count = 174
+  runner_descriptor_ptr_mirror_stub_row_ok_count = 174
+  runner_packed_weight_mirror_stub_row_count = 174
+  runner_packed_weight_mirror_stub_row_ok_count = 174
+  runner_aux_metadata_mirror_stub_row_count = 174
+  runner_aux_metadata_mirror_stub_row_ok_count = 174
+  runner_kernel_envelope_mirror_stub_row_count = 174
+  runner_kernel_envelope_mirror_stub_row_ok_count = 174
+```
+
+The first input native stub also still validates the kernel-side typed row path:
+
+```text
+kernel_side_consumer_path_checked = true
+kernel_side_consumer_path_name = premap_kernel_side_typed_consumer_path_v1
+kernel_side_consumer_path_row_count = 174
+kernel_side_consumer_path_row_ok_count = 174
+kernel_side_consumer_path_payload_bytes = 0
+kernel_side_consumer_path_passed_to_kernel = false
+kernel_side_consumer_path_changes_kernel_launch_args = false
+kernel_side_consumer_path_current_wna16_arg_compatible = false
+```
