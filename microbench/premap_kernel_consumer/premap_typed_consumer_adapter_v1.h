@@ -102,6 +102,15 @@ premap_typed_consumer_required_handles_visible_v1(
 }
 
 __device__ static inline uint32_t
+premap_typed_consumer_descriptor_ptr_mirror_matches_v1(
+    const PremapKernelSideTypedConsumerAbiV1& table,
+    const PremapKernelSideTypedConsumerRowV1& row) {
+  return static_cast<uint32_t>(
+      table.descriptor_ptr != nullptr && row.descriptor_ptr != 0 &&
+      row.descriptor_ptr == table.descriptor_ptr[row.row_index]);
+}
+
+__device__ static inline uint32_t
 premap_typed_consumer_scale_metadata_mirror_matches_v1(
     const PremapKernelSideTypedConsumerAbiV1& table,
     const PremapKernelSideTypedConsumerRowV1& row) {

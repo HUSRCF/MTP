@@ -50,12 +50,14 @@ read the scale-metadata mirror through the future typed row ABI, while still
 reporting `payload_bytes=0`, `passed_to_kernel=false`, and
 `changes_kernel_launch_args=false`.
 
-`MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_MIRROR_FIELD` provides the same
-one-field mirror check for `packed_weight_descriptor`, and
-`MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_MIRROR_FIELD` does the same for
-`aux_metadata_handle` when the optional aux column is present. Only one mirror
-macro may be enabled in a single stub build so each canary remains attributable
-to a single field.
+`MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR_MIRROR_FIELD`,
+`MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_MIRROR_FIELD`, and
+`MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_MIRROR_FIELD` provide the same
+one-field mirror check for `descriptor_ptr`, `packed_weight_descriptor`, and
+`aux_metadata_handle` respectively. The descriptor pointer mirror compares the
+address value only; it still does not dereference payload. Only one mirror macro
+may be enabled in a single stub build so each canary remains attributable to a
+single field.
 
 Runtime manager bridge:
 

@@ -326,6 +326,18 @@ def check_online_native_stub_canary_artifacts(
                 failures=failures,
             )
         )
+    descriptor_ptr_mirror_row_count: int | None = None
+    descriptor_ptr_mirror_row_ok_count: int | None = None
+    descriptor_ptr_mirror_stub = runner.get("descriptor_ptr_mirror_stub_summary")
+    if descriptor_ptr_mirror_stub is not None:
+        descriptor_ptr_mirror_row_count, descriptor_ptr_mirror_row_ok_count = (
+            _check_single_field_mirror_summary(
+                descriptor_ptr_mirror_stub,
+                prefix="runner_descriptor_ptr_mirror_stub",
+                expected_field_name="descriptor_ptr",
+                failures=failures,
+            )
+        )
 
     return {
         "passed": not failures,
@@ -350,6 +362,10 @@ def check_online_native_stub_canary_artifacts(
         "runner_aux_metadata_mirror_stub_row_count": aux_metadata_mirror_row_count,
         "runner_aux_metadata_mirror_stub_row_ok_count": (
             aux_metadata_mirror_row_ok_count
+        ),
+        "runner_descriptor_ptr_mirror_stub_row_count": descriptor_ptr_mirror_row_count,
+        "runner_descriptor_ptr_mirror_stub_row_ok_count": (
+            descriptor_ptr_mirror_row_ok_count
         ),
         "stage1_deferred_count": stage1.get("runtime_gate_evidence_deferred_count"),
         "final_deferred_count": final.get("runtime_gate_evidence_deferred_count"),

@@ -123,6 +123,21 @@ def _payloads(root: Path) -> tuple[Path, Path, Path]:
             "passed_to_kernel": False,
             "changes_kernel_launch_args": False,
         },
+        "descriptor_ptr_mirror_stub_summary": {
+            "passed": True,
+            "ok": True,
+            "row_count": 4,
+            "row_ok_count": 4,
+            "error_count": 0,
+            "single_field_mirror_checked": True,
+            "single_field_mirror_field_name": "descriptor_ptr",
+            "single_field_mirror_row_count": 4,
+            "single_field_mirror_row_ok_count": 4,
+            "single_field_mirror_error_count": 0,
+            "payload_bytes": 0,
+            "passed_to_kernel": False,
+            "changes_kernel_launch_args": False,
+        },
     }
     _write_json(runner_path, runner)
     _write_json(preflight_path, {"passed": True, "failures": []})
@@ -236,6 +251,7 @@ def test_check_online_native_stub_canary_artifacts_cli_writes_json(tmp_path: Pat
     assert result["runner_kernel_envelope_mirror_stub_row_count"] == 4
     assert result["runner_packed_weight_mirror_stub_row_count"] == 4
     assert result["runner_aux_metadata_mirror_stub_row_count"] == 4
+    assert result["runner_descriptor_ptr_mirror_stub_row_count"] == 4
 
 
 def test_check_online_native_stub_canary_artifacts_rejects_per_field_stub_mismatch(
@@ -301,5 +317,29 @@ def test_check_online_native_stub_canary_artifacts_rejects_aux_mirror_mismatch(
     assert result["passed"] is False
     assert (
         "runner_aux_metadata_mirror_stub_single_field_mirror_field_name_mismatch"
+        in result["failures"]
+    )
+
+
+def test_check_online_native_stub_canary_artifacts_rejects_descriptor_mirror_mismatch(
+    tmp_path: Path,
+):
+    runner_path, preflight_path, status_path = _payloads(tmp_path)
+    runner = json.loads(runner_path.read_text(encoding="utf-8"))
+    runner["descriptor_ptr_mirror_stub_summary"][
+        "single_field_mirror_field_name"
+    ] = "aux_metadata_handle"
+    _write_json(runner_path, runner)
+
+    result = check_online_native_stub_canary_artifacts(
+        root=tmp_path,
+        runner_json=runner_path,
+        preflight_json=preflight_path,
+        status_json=status_path,
+    )
+
+    assert result["passed"] is False
+    assert (
+        "runner_descriptor_ptr_mirror_stub_single_field_mirror_field_name_mismatch"
         in result["failures"]
     )

@@ -85,7 +85,7 @@ def test_typed_consumer_stub_rejects_multiple_mirror_macros():
         module.validate_macros(
             [
                 "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD",
-                "MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_MIRROR_FIELD",
+                "MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR_MIRROR_FIELD",
             ]
         )
 
@@ -212,6 +212,29 @@ def test_typed_consumer_stub_dry_run_accepts_aux_metadata_mirror_macro(
     assert exit_code == 0
     assert payload["requested_macros"] == [
         "MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_MIRROR_FIELD"
+    ]
+
+
+def test_typed_consumer_stub_dry_run_accepts_descriptor_ptr_mirror_macro(
+    tmp_path: Path,
+) -> None:
+    module = _load_module()
+    output = tmp_path / "dry_run_descriptor_mirror.json"
+
+    exit_code = module.main(
+        [
+            "--dry-run",
+            "--macro",
+            "MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR_MIRROR_FIELD",
+            "--output-json",
+            str(output),
+        ]
+    )
+
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    assert exit_code == 0
+    assert payload["requested_macros"] == [
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR_MIRROR_FIELD"
     ]
 
 

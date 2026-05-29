@@ -135,6 +135,10 @@ debug_macro_ladder:
       default: disabled
       individually_enableable: true
       phase: descriptor_ptr_visibility_no_deref
+    - name: MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR_MIRROR_FIELD
+      default: disabled
+      individually_enableable: true
+      phase: descriptor_ptr_abi_row_mirror_no_deref
     - name: MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_DESCRIPTOR
       default: disabled
       individually_enableable: true

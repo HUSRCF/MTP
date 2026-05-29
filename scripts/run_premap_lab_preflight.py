@@ -745,7 +745,13 @@ def _validate_native_typed_consumer_stub_evidence(
     mirror_macro = None
     expected_mirror_mode = None
     expected_mirror_field = None
+    if macros.get("MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR_MIRROR_FIELD"):
+        mirror_macro = "MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR_MIRROR_FIELD"
+        expected_mirror_mode = "readonly_descriptor_ptr_abi_row_mirror"
+        expected_mirror_field = "descriptor_ptr"
     if macros.get("MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD"):
+        if mirror_macro is not None:
+            failures.append("native_typed_consumer_stub_multiple_mirror_macros_enabled")
         mirror_macro = "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD"
         expected_mirror_mode = "readonly_scale_metadata_handle_abi_row_mirror"
         expected_mirror_field = "scale_metadata_handle"

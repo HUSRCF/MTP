@@ -37,6 +37,12 @@
     (defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD) && \
      defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_MIRROR_FIELD)) || \
     (defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_MIRROR_FIELD) && \
+     defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_MIRROR_FIELD)) || \
+    (defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR_MIRROR_FIELD) && \
+     defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD)) || \
+    (defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR_MIRROR_FIELD) && \
+     defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_MIRROR_FIELD)) || \
+    (defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR_MIRROR_FIELD) && \
      defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_MIRROR_FIELD))
 #error "enable only one single-field mirror canary per stub build"
 #endif
@@ -55,7 +61,13 @@ static_assert(!kPremapKernelSideTypedConsumerAdapterV1KernelArgPassAllowed,
 constexpr uint64_t kTypedSchemaHashHi = MTP_PREMAP_TYPED_CONSUMER_SCHEMA_HASH_HI;
 constexpr uint64_t kTypedSchemaHashLo = MTP_PREMAP_TYPED_CONSUMER_SCHEMA_HASH_LO;
 
-#if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD)
+#if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR_MIRROR_FIELD)
+constexpr const char* kSingleFieldMirrorMode =
+    "readonly_descriptor_ptr_abi_row_mirror";
+constexpr const char* kSingleFieldMirrorFieldName = "descriptor_ptr";
+constexpr const char* kSingleFieldMirrorSource =
+    "typed_consumer_abi_row_adapter_v1";
+#elif defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD)
 constexpr const char* kSingleFieldMirrorMode =
     "readonly_scale_metadata_handle_abi_row_mirror";
 constexpr const char* kSingleFieldMirrorFieldName = "scale_metadata_handle";
@@ -139,7 +151,12 @@ __global__ void typed_consumer_kernel(
   ok &= static_cast<uint32_t>(row.scale_metadata_handle != 0);
 #endif
 
-#if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD)
+#if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR_MIRROR_FIELD)
+  mirror_ok = premap_typed_consumer_descriptor_ptr_mirror_matches_v1(table, row);
+  mirror_hash = mix64(row.descriptor_ptr + 0xde5c000000000000ULL) ^
+                mix64(static_cast<uint64_t>(idx));
+  ok &= mirror_ok;
+#elif defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD)
   mirror_ok = premap_typed_consumer_scale_metadata_mirror_matches_v1(table, row);
   mirror_hash = mix64(row.scale_metadata_handle + 0x5ca1e00000000000ULL) ^
                 mix64(static_cast<uint64_t>(idx));
@@ -205,7 +222,13 @@ __global__ void typed_consumer_envelope_kernel(
   uint32_t mirror_ok = 0;
   uint64_t mirror_hash = 0;
 
-#if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD)
+#if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR_MIRROR_FIELD)
+  mirror_ok = premap_typed_consumer_descriptor_ptr_mirror_matches_v1(
+      envelope.table, row);
+  mirror_hash = mix64(row.descriptor_ptr + 0xde5c000000000000ULL) ^
+                mix64(static_cast<uint64_t>(idx));
+  ok &= mirror_ok;
+#elif defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD)
   mirror_ok = premap_typed_consumer_scale_metadata_mirror_matches_v1(
       envelope.table, row);
   mirror_hash = mix64(row.scale_metadata_handle + 0x5ca1e00000000000ULL) ^
@@ -338,6 +361,12 @@ static std::string macro_json() {
 #endif
   os << ",\"MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD\":"
 #if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD)
+     << "true";
+#else
+     << "false";
+#endif
+  os << ",\"MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR_MIRROR_FIELD\":"
+#if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR_MIRROR_FIELD)
      << "true";
 #else
      << "false";
@@ -538,7 +567,8 @@ int main(int argc, char** argv) {
   const bool single_field_mirror_checked =
 #if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD) || \
     defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_MIRROR_FIELD) || \
-    defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_MIRROR_FIELD)
+    defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_MIRROR_FIELD) || \
+    defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR_MIRROR_FIELD)
       true;
 #else
       false;

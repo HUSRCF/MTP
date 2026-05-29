@@ -161,6 +161,11 @@ def _valid_schema_payload() -> dict:
                     "individually_enableable": True,
                 },
                 {
+                    "name": "MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR_MIRROR_FIELD",
+                    "default": "disabled",
+                    "individually_enableable": True,
+                },
+                {
                     "name": "MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_DESCRIPTOR",
                     "default": "disabled",
                     "individually_enableable": True,
@@ -453,6 +458,7 @@ def _native_stub_per_field_evidence_payload(input_json: str) -> dict[str, object
         "MTP_PREMAP_TYPED_CONSUMER_CHECK_ROW_ITERATION": True,
         "MTP_PREMAP_TYPED_CONSUMER_CHECK_POINTER_VISIBILITY": False,
         "MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR": True,
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR_MIRROR_FIELD": False,
         "MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_DESCRIPTOR": True,
         "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_HANDLE": True,
         "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD": True,

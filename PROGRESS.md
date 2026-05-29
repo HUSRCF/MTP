@@ -19756,3 +19756,45 @@ online_prelaunch_native_stub_canary_runner.json:
 This is still a readonly typed-consumer ABI canary.  It expands field coverage
 for the future kernel-side schema but does not enable payload access, ready
 credit, or current WNA16 kernel-argument mutation.
+
+## Online descriptor pointer mirror canary
+
+The native typed-consumer stub now covers the fourth handle column with:
+
+```text
+MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR_MIRROR_FIELD
+```
+
+This mirror compares the `descriptor_ptr` address value loaded through
+`PremapKernelSideTypedConsumerRowV1` against the ABI table column for the same
+row.  It does not dereference the descriptor pointer and still reports
+`payload_bytes=0`, `passed_to_kernel=false`, and
+`changes_kernel_launch_args=false`.
+
+GPU1 validation on the online vLLM/AWQ prelaunch input:
+
+```text
+online_prelaunch_native_stub_canary_runner.json:
+  passed = true
+  descriptor_ptr_mirror_stub_summary.row_count = 204
+  descriptor_ptr_mirror_stub_summary.row_ok_count = 204
+  descriptor_ptr_mirror_stub_summary.single_field_mirror_checked = true
+  descriptor_ptr_mirror_stub_summary.single_field_mirror_field_name = descriptor_ptr
+  descriptor_ptr_mirror_stub_summary.single_field_mirror_row_ok_count = 204
+  descriptor_ptr_mirror_stub_summary.payload_bytes = 0
+  descriptor_ptr_mirror_stub_summary.passed_to_kernel = false
+  descriptor_ptr_mirror_stub_summary.changes_kernel_launch_args = false
+```
+
+At this point all four typed handle columns have independent readonly native
+mirror canaries:
+
+```text
+descriptor_ptr
+packed_weight_descriptor
+scale_metadata_handle
+aux_metadata_handle
+```
+
+This completes ABI row-adapter field coverage for the no-op native bridge.  It
+is still not a live WNA16 kernel-argument handoff.
