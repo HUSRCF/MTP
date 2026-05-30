@@ -23,6 +23,7 @@ data/modelscope_downloads/*
 data/modelscope/*
 data/hf_downloads/*
 data/repacked/*
+traceData/
 outputs/*
 models/*
 third_party/GPTQModel/

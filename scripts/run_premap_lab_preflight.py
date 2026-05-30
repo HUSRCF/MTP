@@ -78,6 +78,18 @@ REQUIRED_DEFAULT_GATE_CONTRACT = {
     "kernel_side_typed_row_consumer_path_passed_to_kernel_required": False,
     "kernel_side_typed_row_consumer_path_changes_kernel_launch_args_required": False,
     "kernel_side_typed_row_consumer_path_current_wna16_arg_compatible_required": False,
+    "future_kernel_consumer_args_required": True,
+    "future_kernel_consumer_args_name": "premap_future_kernel_side_consumer_args_v1",
+    "future_kernel_consumer_args_mode": "readonly_future_kernel_consumer_args",
+    "future_kernel_consumer_args_source": (
+        "premap_kernel_side_typed_consumer_launch_envelope_v1"
+    ),
+    "future_kernel_consumer_args_payload_bytes_required": 0,
+    "future_kernel_consumer_args_passed_to_kernel_required": False,
+    "future_kernel_consumer_args_changes_kernel_launch_args_required": False,
+    "future_kernel_consumer_args_current_wna16_arg_compatible_required": False,
+    "future_kernel_consumer_args_single_field_mirror_required": True,
+    "future_kernel_consumer_args_single_field_mirror_field": "scale_metadata_handle",
     "single_field_handle_handoff_canary_required": True,
     "single_field_handle_handoff_canary_mode": (
         "readonly_single_field_handle_handoff_canary"
@@ -147,12 +159,29 @@ REQUIRED_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
 OPTIONAL_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
     "aux_metadata_single_field_handle_handoff_canary_smoke_json",
     "descriptor_ptr_single_field_handle_handoff_canary_smoke_json",
+    "future_kernel_native_consumer_online_artifact_check_16_128export_json",
+    "future_kernel_native_consumer_online_runner_16_128export_json",
+    "future_kernel_native_dispatch_consumer_online_artifact_check_16_128export_json",
+    "future_kernel_native_dispatch_consumer_online_runner_16_128export_json",
+    "future_kernel_native_launch_consumer_online_artifact_check_16_128export_json",
+    "future_kernel_native_launch_consumer_online_runner_16_128export_json",
     "native_typed_consumer_stub_online_prelaunch_input_per_field_canary_json",
     "packed_weight_single_field_handle_handoff_canary_smoke_json",
 }
 ONLINE_PRELAUNCH_RUNNER_EVIDENCE_LABEL = (
     "native_typed_consumer_online_prelaunch_canary_runner_json"
 )
+ONLINE_PRELAUNCH_RUNNER_EVIDENCE_LABELS = {
+    ONLINE_PRELAUNCH_RUNNER_EVIDENCE_LABEL,
+    "future_kernel_native_consumer_online_runner_16_128export_json",
+    "future_kernel_native_dispatch_consumer_online_runner_16_128export_json",
+    "future_kernel_native_launch_consumer_online_runner_16_128export_json",
+}
+ONLINE_PRELAUNCH_ARTIFACT_EVIDENCE_LABELS = {
+    "future_kernel_native_consumer_online_artifact_check_16_128export_json",
+    "future_kernel_native_dispatch_consumer_online_artifact_check_16_128export_json",
+    "future_kernel_native_launch_consumer_online_artifact_check_16_128export_json",
+}
 
 _NATIVE_BRIDGE_METRIC_PREFIX = (
     "premap_consumer_descriptor_prep_consumer_shim_"
@@ -170,6 +199,9 @@ _TYPED_ROW_CONSUMER_PATH_METRIC_PREFIX = (
     "premap_consumer_descriptor_prep_consumer_shim_"
     "kernel_side_typed_row_consumer_path_"
 )
+_FUTURE_KERNEL_REQUIRED_FIELD_MASK = 0x7
+_FUTURE_KERNEL_ALL_FIELD_MASK = 0xF
+_FUTURE_KERNEL_AUX_FIELD_MASK = 0x8
 
 
 def _int_metric(metrics: dict[str, Any], key: str) -> int | None:
@@ -192,6 +224,43 @@ def _check_metric_equals_if_present(
     expected: Any,
 ) -> list[str]:
     return [] if key not in metrics else _check_metric_equals(metrics, key, expected)
+
+
+def _check_future_field_mask_summary(
+    summary: dict[str, Any],
+    *,
+    prefix: str,
+    field_prefix: str,
+    expected_field_name: str,
+) -> list[str]:
+    failures: list[str] = []
+    field_mask = summary.get(f"{field_prefix}_field_mask")
+    required_mask = summary.get(f"{field_prefix}_required_field_mask")
+    if field_mask is None:
+        return [f"{prefix}_{field_prefix}_field_mask_missing"]
+    if required_mask is None:
+        return [f"{prefix}_{field_prefix}_required_field_mask_missing"]
+    if (
+        not isinstance(field_mask, int)
+        or isinstance(field_mask, bool)
+        or not isinstance(required_mask, int)
+        or isinstance(required_mask, bool)
+    ):
+        return [f"{prefix}_{field_prefix}_field_mask_type_mismatch"]
+    if required_mask != _FUTURE_KERNEL_REQUIRED_FIELD_MASK:
+        failures.append(f"{prefix}_{field_prefix}_required_field_mask_mismatch")
+    if (
+        field_mask & _FUTURE_KERNEL_REQUIRED_FIELD_MASK
+        != _FUTURE_KERNEL_REQUIRED_FIELD_MASK
+    ):
+        failures.append(f"{prefix}_{field_prefix}_required_field_mask_not_covered")
+    if field_mask & ~_FUTURE_KERNEL_ALL_FIELD_MASK:
+        failures.append(f"{prefix}_{field_prefix}_field_mask_unknown_bits")
+    if expected_field_name == "aux_metadata_handle" and not (
+        field_mask & _FUTURE_KERNEL_AUX_FIELD_MASK
+    ):
+        failures.append(f"{prefix}_{field_prefix}_aux_field_mask_missing")
+    return failures
 
 
 def _validate_native_bridge_evidence(metrics: dict[str, Any]) -> list[str]:
@@ -433,7 +502,7 @@ def _validate_required_evidence_payload(
         *known_stub_labels,
     }:
         return []
-    if evidence_label == "native_typed_consumer_online_prelaunch_canary_runner_json":
+    if evidence_label in ONLINE_PRELAUNCH_RUNNER_EVIDENCE_LABELS:
         failures: list[str] = []
         if evidence.get("passed") is not True:
             failures.append("runner_not_passed")
@@ -605,6 +674,537 @@ def _validate_required_evidence_payload(
             if summary.get("single_field_mirror_error_count") != 0:
                 failures.append(f"{prefix}_single_field_mirror_error_count_mismatch")
 
+        def _check_runner_kernel_side_compatible_summary(
+            summary: Any,
+            prefix: str,
+        ) -> None:
+            _check_runner_stub_summary(summary, prefix)
+            if not isinstance(summary, dict):
+                return
+            expected_values = {
+                "kernel_side_compatible_consumer_checked": True,
+                "kernel_side_compatible_consumer_name": (
+                    "premap_kernel_side_compatible_consumer_abi_v1"
+                ),
+                "kernel_side_compatible_consumer_mode": (
+                    "readonly_kernel_side_compatible_consumer_abi"
+                ),
+                "kernel_side_compatible_consumer_source": (
+                    "premap_kernel_side_typed_consumer_launch_envelope_v1"
+                ),
+                "kernel_side_compatible_consumer_error_count": 0,
+                "kernel_side_compatible_consumer_payload_bytes": 0,
+                "kernel_side_compatible_consumer_passed_to_kernel": False,
+                "kernel_side_compatible_consumer_changes_kernel_launch_args": False,
+                "kernel_side_compatible_consumer_current_wna16_arg_compatible": False,
+            }
+            for key, expected_value in expected_values.items():
+                if summary.get(key) != expected_value:
+                    failures.append(f"{prefix}_{key}_mismatch")
+            row_count_value = _int_metric(summary, "row_count")
+            compatible_row_count = _int_metric(
+                summary,
+                "kernel_side_compatible_consumer_row_count",
+            )
+            compatible_row_ok_count = _int_metric(
+                summary,
+                "kernel_side_compatible_consumer_row_ok_count",
+            )
+            if row_count_value is not None and compatible_row_count != row_count_value:
+                failures.append(f"{prefix}_kernel_side_compatible_row_count_mismatch")
+            if (
+                row_count_value is not None
+                and compatible_row_ok_count != row_count_value
+            ):
+                failures.append(f"{prefix}_kernel_side_compatible_row_ok_count_mismatch")
+
+        def _check_runner_future_kernel_args_summary(
+            summary: Any,
+            prefix: str,
+        ) -> None:
+            _check_runner_stub_summary(summary, prefix)
+            if not isinstance(summary, dict):
+                return
+            expected_values = {
+                "future_kernel_consumer_args_checked": True,
+                "future_kernel_consumer_args_name": (
+                    "premap_future_kernel_side_consumer_args_v1"
+                ),
+                "future_kernel_consumer_args_mode": (
+                    "readonly_future_kernel_consumer_args"
+                ),
+                "future_kernel_consumer_args_source": (
+                    "premap_kernel_side_typed_consumer_launch_envelope_v1"
+                ),
+                "future_kernel_consumer_args_error_count": 0,
+                "future_kernel_consumer_args_payload_bytes": 0,
+                "future_kernel_consumer_args_passed_to_kernel": False,
+                "future_kernel_consumer_args_changes_kernel_launch_args": False,
+                "future_kernel_consumer_args_current_wna16_arg_compatible": False,
+                "future_kernel_consumer_args_requires_wna16_arg_reinterpretation": False,
+                "future_kernel_consumer_args_single_field_mirror_checked": True,
+                "future_kernel_consumer_args_single_field_mirror_field_name": (
+                    "scale_metadata_handle"
+                ),
+                "future_kernel_consumer_args_single_field_mirror_error_count": 0,
+            }
+            for key, expected_value in expected_values.items():
+                if summary.get(key) != expected_value:
+                    failures.append(f"{prefix}_{key}_mismatch")
+            failures.extend(
+                _check_future_field_mask_summary(
+                    summary,
+                    prefix=prefix,
+                    field_prefix="future_kernel_consumer_args",
+                    expected_field_name="scale_metadata_handle",
+                )
+            )
+            row_count_value = _int_metric(summary, "row_count")
+            future_row_count = _int_metric(
+                summary,
+                "future_kernel_consumer_args_row_count",
+            )
+            future_row_ok_count = _int_metric(
+                summary,
+                "future_kernel_consumer_args_row_ok_count",
+            )
+            mirror_row_count = _int_metric(
+                summary,
+                "future_kernel_consumer_args_single_field_mirror_row_count",
+            )
+            mirror_row_ok_count = _int_metric(
+                summary,
+                "future_kernel_consumer_args_single_field_mirror_row_ok_count",
+            )
+            if row_count_value is not None and future_row_count != row_count_value:
+                failures.append(f"{prefix}_future_kernel_args_row_count_mismatch")
+            if row_count_value is not None and future_row_ok_count != row_count_value:
+                failures.append(f"{prefix}_future_kernel_args_row_ok_count_mismatch")
+            if row_count_value is not None and mirror_row_count != row_count_value:
+                failures.append(f"{prefix}_future_kernel_args_mirror_row_count_mismatch")
+            if row_count_value is not None and mirror_row_ok_count != row_count_value:
+                failures.append(
+                    f"{prefix}_future_kernel_args_mirror_row_ok_count_mismatch"
+                )
+
+        def _check_runner_future_kernel_args_compatible_path_summary(
+            summary: Any,
+            prefix: str,
+        ) -> None:
+            _check_runner_stub_summary(summary, prefix)
+            if not isinstance(summary, dict):
+                return
+            expected_values = {
+                "future_kernel_consumer_args_checked": True,
+                "future_kernel_consumer_args_error_count": 0,
+                "future_kernel_consumer_args_payload_bytes": 0,
+                "future_kernel_consumer_args_passed_to_kernel": False,
+                "future_kernel_consumer_args_changes_kernel_launch_args": False,
+                "future_kernel_consumer_args_current_wna16_arg_compatible": False,
+                "future_kernel_consumer_args_requires_wna16_arg_reinterpretation": False,
+                "future_kernel_args_compatible_consumer_path_checked": True,
+                "future_kernel_args_compatible_consumer_path_name": (
+                    "premap_future_kernel_args_compatible_consumer_path_v1"
+                ),
+                "future_kernel_args_compatible_consumer_path_mode": (
+                    "readonly_future_kernel_args_to_compatible_consumer_path"
+                ),
+                "future_kernel_args_compatible_consumer_path_source": (
+                    "premap_future_kernel_side_consumer_args_v1"
+                ),
+                "future_kernel_args_compatible_consumer_path_error_count": 0,
+                "future_kernel_args_compatible_consumer_path_payload_bytes": 0,
+                "future_kernel_args_compatible_consumer_path_passed_to_kernel": False,
+                "future_kernel_args_compatible_consumer_path_changes_kernel_launch_args": False,
+                "future_kernel_args_compatible_consumer_path_current_wna16_arg_compatible": False,
+                "future_kernel_args_compatible_consumer_path_requires_wna16_arg_reinterpretation": False,
+            }
+            for key, expected_value in expected_values.items():
+                if summary.get(key) != expected_value:
+                    failures.append(f"{prefix}_{key}_mismatch")
+            row_count_value = _int_metric(summary, "row_count")
+            future_row_count = _int_metric(
+                summary,
+                "future_kernel_consumer_args_row_count",
+            )
+            future_row_ok_count = _int_metric(
+                summary,
+                "future_kernel_consumer_args_row_ok_count",
+            )
+            compatible_row_count = _int_metric(
+                summary,
+                "future_kernel_args_compatible_consumer_path_row_count",
+            )
+            compatible_row_ok_count = _int_metric(
+                summary,
+                "future_kernel_args_compatible_consumer_path_row_ok_count",
+            )
+            if row_count_value is not None and future_row_count != row_count_value:
+                failures.append(f"{prefix}_future_kernel_args_row_count_mismatch")
+            if row_count_value is not None and future_row_ok_count != row_count_value:
+                failures.append(f"{prefix}_future_kernel_args_row_ok_count_mismatch")
+            if row_count_value is not None and compatible_row_count != row_count_value:
+                failures.append(f"{prefix}_compatible_path_row_count_mismatch")
+            if (
+                row_count_value is not None
+                and compatible_row_ok_count != row_count_value
+            ):
+                failures.append(f"{prefix}_compatible_path_row_ok_count_mismatch")
+
+        def _check_runner_future_kernel_native_consumer_summary(
+            summary: Any,
+            prefix: str,
+            *,
+            expected_field_name: str,
+        ) -> None:
+            _check_runner_stub_summary(summary, prefix)
+            if not isinstance(summary, dict):
+                return
+            expected_values = {
+                "future_kernel_native_consumer_checked": True,
+                "future_kernel_native_consumer_abi_name": (
+                    "premap_future_kernel_native_consumer_abi_v1"
+                ),
+                "future_kernel_native_consumer_mode": (
+                    "readonly_future_kernel_native_consumer_abi"
+                ),
+                "future_kernel_native_consumer_source": (
+                    "premap_typed_handle_table_soa_fields"
+                ),
+                "future_kernel_native_consumer_error_count": 0,
+                "future_kernel_native_consumer_payload_bytes": 0,
+                "future_kernel_native_consumer_passed_to_kernel": False,
+                "future_kernel_native_consumer_changes_kernel_launch_args": False,
+                "future_kernel_native_consumer_current_wna16_arg_compatible": False,
+                "future_kernel_native_consumer_requires_wna16_arg_reinterpretation": False,
+                "future_kernel_native_consumer_single_field_mirror_checked": True,
+                "future_kernel_native_consumer_single_field_mirror_field_name": (
+                    expected_field_name
+                ),
+                "future_kernel_native_consumer_single_field_mirror_error_count": 0,
+            }
+            for key, expected_value in expected_values.items():
+                if summary.get(key) != expected_value:
+                    failures.append(f"{prefix}_{key}_mismatch")
+            failures.extend(
+                _check_future_field_mask_summary(
+                    summary,
+                    prefix=prefix,
+                    field_prefix="future_kernel_native_consumer",
+                    expected_field_name=expected_field_name,
+                )
+            )
+            row_count_value = _int_metric(summary, "row_count")
+            native_row_count = _int_metric(
+                summary,
+                "future_kernel_native_consumer_row_count",
+            )
+            native_row_ok_count = _int_metric(
+                summary,
+                "future_kernel_native_consumer_row_ok_count",
+            )
+            mirror_row_count = _int_metric(
+                summary,
+                "future_kernel_native_consumer_single_field_mirror_row_count",
+            )
+            mirror_row_ok_count = _int_metric(
+                summary,
+                "future_kernel_native_consumer_single_field_mirror_row_ok_count",
+            )
+            if row_count_value is not None and native_row_count != row_count_value:
+                failures.append(
+                    f"{prefix}_future_kernel_native_consumer_row_count_mismatch"
+                )
+            if row_count_value is not None and native_row_ok_count != row_count_value:
+                failures.append(
+                    f"{prefix}_future_kernel_native_consumer_row_ok_count_mismatch"
+                )
+            if row_count_value is not None and mirror_row_count != row_count_value:
+                failures.append(
+                    f"{prefix}_future_kernel_native_consumer_mirror_row_count_mismatch"
+                )
+            if row_count_value is not None and mirror_row_ok_count != row_count_value:
+                failures.append(
+                    f"{prefix}_future_kernel_native_consumer_mirror_row_ok_count_mismatch"
+                )
+
+        def _check_runner_future_kernel_native_launch_consumer_summary(
+            summary: Any,
+            prefix: str,
+            *,
+            expected_field_name: str,
+        ) -> None:
+            _check_runner_stub_summary(summary, prefix)
+            if not isinstance(summary, dict):
+                return
+            expected_values = {
+                "future_kernel_native_consumer_checked": True,
+                "future_kernel_native_consumer_error_count": 0,
+                "future_kernel_native_launch_consumer_checked": True,
+                "future_kernel_native_launch_consumer_abi_name": (
+                    "premap_future_kernel_native_consumer_launch_abi_v1"
+                ),
+                "future_kernel_native_launch_consumer_mode": (
+                    "readonly_future_kernel_native_consumer_launch_abi"
+                ),
+                "future_kernel_native_launch_consumer_source": (
+                    "premap_future_kernel_native_consumer_abi_v1"
+                ),
+                "future_kernel_native_launch_consumer_error_count": 0,
+                "future_kernel_native_launch_consumer_payload_bytes": 0,
+                "future_kernel_native_launch_consumer_passed_to_kernel": False,
+                "future_kernel_native_launch_consumer_changes_kernel_launch_args": False,
+                "future_kernel_native_launch_consumer_current_wna16_arg_compatible": False,
+                "future_kernel_native_launch_consumer_requires_wna16_arg_reinterpretation": False,
+                "future_kernel_native_launch_consumer_single_field_mirror_checked": True,
+                "future_kernel_native_launch_consumer_single_field_mirror_field_name": (
+                    expected_field_name
+                ),
+                "future_kernel_native_launch_consumer_single_field_mirror_error_count": 0,
+            }
+            for key, expected_value in expected_values.items():
+                if summary.get(key) != expected_value:
+                    failures.append(f"{prefix}_{key}_mismatch")
+            failures.extend(
+                _check_future_field_mask_summary(
+                    summary,
+                    prefix=prefix,
+                    field_prefix="future_kernel_native_launch_consumer",
+                    expected_field_name=expected_field_name,
+                )
+            )
+            row_count_value = _int_metric(summary, "row_count")
+            native_row_count = _int_metric(
+                summary,
+                "future_kernel_native_consumer_row_count",
+            )
+            native_row_ok_count = _int_metric(
+                summary,
+                "future_kernel_native_consumer_row_ok_count",
+            )
+            launch_row_count = _int_metric(
+                summary,
+                "future_kernel_native_launch_consumer_row_count",
+            )
+            launch_row_ok_count = _int_metric(
+                summary,
+                "future_kernel_native_launch_consumer_row_ok_count",
+            )
+            mirror_row_count = _int_metric(
+                summary,
+                "future_kernel_native_launch_consumer_single_field_mirror_row_count",
+            )
+            mirror_row_ok_count = _int_metric(
+                summary,
+                "future_kernel_native_launch_consumer_single_field_mirror_row_ok_count",
+            )
+            if row_count_value is not None and native_row_count != row_count_value:
+                failures.append(
+                    f"{prefix}_future_kernel_native_consumer_row_count_mismatch"
+                )
+            if row_count_value is not None and native_row_ok_count != row_count_value:
+                failures.append(
+                    f"{prefix}_future_kernel_native_consumer_row_ok_count_mismatch"
+                )
+            if row_count_value is not None and launch_row_count != row_count_value:
+                failures.append(
+                    f"{prefix}_future_kernel_native_launch_consumer_row_count_mismatch"
+                )
+            if row_count_value is not None and launch_row_ok_count != row_count_value:
+                failures.append(
+                    f"{prefix}_future_kernel_native_launch_consumer_row_ok_count_mismatch"
+                )
+            if row_count_value is not None and mirror_row_count != row_count_value:
+                failures.append(
+                    f"{prefix}_future_kernel_native_launch_consumer_mirror_row_count_mismatch"
+                )
+            if row_count_value is not None and mirror_row_ok_count != row_count_value:
+                failures.append(
+                    f"{prefix}_future_kernel_native_launch_consumer_mirror_row_ok_count_mismatch"
+                )
+
+        def _check_runner_future_kernel_native_dispatch_consumer_summary(
+            summary: Any,
+            prefix: str,
+            *,
+            expected_field_name: str,
+        ) -> None:
+            _check_runner_stub_summary(summary, prefix)
+            if not isinstance(summary, dict):
+                return
+            expected_values = {
+                "future_kernel_native_consumer_checked": True,
+                "future_kernel_native_consumer_error_count": 0,
+                "future_kernel_native_dispatch_consumer_checked": True,
+                "future_kernel_native_dispatch_consumer_abi_name": (
+                    "premap_future_kernel_native_consumer_dispatch_abi_v1"
+                ),
+                "future_kernel_native_dispatch_consumer_mode": (
+                    "readonly_future_kernel_native_consumer_dispatch_abi"
+                ),
+                "future_kernel_native_dispatch_consumer_source": (
+                    "premap_future_kernel_native_consumer_launch_abi_v1"
+                ),
+                "future_kernel_native_dispatch_consumer_error_count": 0,
+                "future_kernel_native_dispatch_consumer_payload_bytes": 0,
+                "future_kernel_native_dispatch_consumer_passed_to_kernel": False,
+                "future_kernel_native_dispatch_consumer_changes_kernel_launch_args": False,
+                "future_kernel_native_dispatch_consumer_current_wna16_arg_compatible": False,
+                "future_kernel_native_dispatch_consumer_requires_wna16_arg_reinterpretation": False,
+                "future_kernel_native_dispatch_consumer_single_field_mirror_checked": True,
+                "future_kernel_native_dispatch_consumer_single_field_mirror_field_name": (
+                    expected_field_name
+                ),
+                "future_kernel_native_dispatch_consumer_single_field_mirror_error_count": 0,
+                "future_kernel_native_dispatch_consumer_launch_geometry_checked": True,
+                "future_kernel_native_dispatch_consumer_launch_covers_active_rows": True,
+                "future_kernel_native_dispatch_consumer_launch_minimal_cover": True,
+            }
+            for key, expected_value in expected_values.items():
+                if summary.get(key) != expected_value:
+                    failures.append(f"{prefix}_{key}_mismatch")
+            failures.extend(
+                _check_future_field_mask_summary(
+                    summary,
+                    prefix=prefix,
+                    field_prefix="future_kernel_native_dispatch_consumer",
+                    expected_field_name=expected_field_name,
+                )
+            )
+            row_count_value = _int_metric(summary, "row_count")
+            native_row_count = _int_metric(
+                summary,
+                "future_kernel_native_consumer_row_count",
+            )
+            native_row_ok_count = _int_metric(
+                summary,
+                "future_kernel_native_consumer_row_ok_count",
+            )
+            dispatch_row_count = _int_metric(
+                summary,
+                "future_kernel_native_dispatch_consumer_row_count",
+            )
+            dispatch_row_ok_count = _int_metric(
+                summary,
+                "future_kernel_native_dispatch_consumer_row_ok_count",
+            )
+            dispatch_active_rows = _int_metric(
+                summary,
+                "future_kernel_native_dispatch_consumer_active_rows",
+            )
+            dispatch_row_offset = _int_metric(
+                summary,
+                "future_kernel_native_dispatch_consumer_row_offset",
+            )
+            dispatch_row_limit = _int_metric(
+                summary,
+                "future_kernel_native_dispatch_consumer_row_limit",
+            )
+            dispatch_grid_x = _int_metric(
+                summary,
+                "future_kernel_native_dispatch_consumer_grid_x",
+            )
+            dispatch_block_x = _int_metric(
+                summary,
+                "future_kernel_native_dispatch_consumer_block_x",
+            )
+            dispatch_launch_threads = _int_metric(
+                summary,
+                "future_kernel_native_dispatch_consumer_launch_threads",
+            )
+            dispatch_rows_per_program = _int_metric(
+                summary,
+                "future_kernel_native_dispatch_consumer_rows_per_program",
+            )
+            mirror_row_count = _int_metric(
+                summary,
+                "future_kernel_native_dispatch_consumer_single_field_mirror_row_count",
+            )
+            mirror_row_ok_count = _int_metric(
+                summary,
+                "future_kernel_native_dispatch_consumer_single_field_mirror_row_ok_count",
+            )
+            if row_count_value is not None and native_row_count != row_count_value:
+                failures.append(
+                    f"{prefix}_future_kernel_native_consumer_row_count_mismatch"
+                )
+            if row_count_value is not None and native_row_ok_count != row_count_value:
+                failures.append(
+                    f"{prefix}_future_kernel_native_consumer_row_ok_count_mismatch"
+                )
+            if row_count_value is not None and dispatch_row_count != row_count_value:
+                failures.append(
+                    f"{prefix}_future_kernel_native_dispatch_consumer_row_count_mismatch"
+                )
+            if row_count_value is not None and dispatch_row_ok_count != row_count_value:
+                failures.append(
+                    f"{prefix}_future_kernel_native_dispatch_consumer_row_ok_count_mismatch"
+                )
+            if row_count_value is not None and mirror_row_count != row_count_value:
+                failures.append(
+                    f"{prefix}_future_kernel_native_dispatch_consumer_mirror_row_count_mismatch"
+                )
+            if row_count_value is not None and mirror_row_ok_count != row_count_value:
+                failures.append(
+                    f"{prefix}_future_kernel_native_dispatch_consumer_mirror_row_ok_count_mismatch"
+                )
+            if dispatch_row_offset is None or dispatch_row_offset < 0:
+                failures.append(
+                    f"{prefix}_future_kernel_native_dispatch_consumer_row_offset_invalid"
+                )
+            if (
+                row_count_value is not None
+                and (dispatch_row_limit is None or dispatch_row_limit > row_count_value)
+            ):
+                failures.append(
+                    f"{prefix}_future_kernel_native_dispatch_consumer_row_limit_invalid"
+                )
+            if (
+                dispatch_row_offset is not None
+                and dispatch_row_limit is not None
+                and dispatch_active_rows != dispatch_row_limit - dispatch_row_offset
+            ):
+                failures.append(
+                    f"{prefix}_future_kernel_native_dispatch_consumer_active_rows_mismatch"
+                )
+            if row_count_value is not None and dispatch_active_rows != row_count_value:
+                failures.append(
+                    f"{prefix}_future_kernel_native_dispatch_consumer_full_range_mismatch"
+                )
+            if (
+                dispatch_grid_x is None
+                or dispatch_block_x is None
+                or dispatch_launch_threads != dispatch_grid_x * dispatch_block_x
+            ):
+                failures.append(
+                    f"{prefix}_future_kernel_native_dispatch_consumer_launch_threads_mismatch"
+                )
+            if (
+                dispatch_block_x is not None
+                and dispatch_rows_per_program is not None
+                and dispatch_rows_per_program != dispatch_block_x
+            ):
+                failures.append(
+                    f"{prefix}_future_kernel_native_dispatch_consumer_rows_per_program_mismatch"
+                )
+            if (
+                dispatch_active_rows is not None
+                and dispatch_launch_threads is not None
+                and dispatch_launch_threads < dispatch_active_rows
+            ):
+                failures.append(
+                    f"{prefix}_future_kernel_native_dispatch_consumer_launch_undercoverage"
+                )
+            if (
+                dispatch_active_rows is not None
+                and dispatch_block_x is not None
+                and dispatch_launch_threads is not None
+                and dispatch_launch_threads - dispatch_active_rows >= dispatch_block_x
+            ):
+                failures.append(
+                    f"{prefix}_future_kernel_native_dispatch_consumer_launch_non_minimal"
+                )
+
         for summary_key, expected_field_name in (
             ("descriptor_ptr_mirror_stub_summary", "descriptor_ptr"),
             ("packed_weight_mirror_stub_summary", "packed_weight_descriptor"),
@@ -612,6 +1212,86 @@ def _validate_required_evidence_payload(
             ("aux_metadata_mirror_stub_summary", "aux_metadata_handle"),
         ):
             _check_runner_mirror_summary(
+                evidence.get(summary_key),
+                f"runner_{summary_key}",
+                expected_field_name=expected_field_name,
+            )
+        _check_runner_kernel_side_compatible_summary(
+            evidence.get("kernel_side_compatible_stub_summary"),
+            "runner_kernel_side_compatible_stub_summary",
+        )
+        _check_runner_future_kernel_args_summary(
+            evidence.get("future_kernel_args_stub_summary"),
+            "runner_future_kernel_args_stub_summary",
+        )
+        _check_runner_future_kernel_args_compatible_path_summary(
+            evidence.get("future_kernel_args_compatible_path_stub_summary"),
+            "runner_future_kernel_args_compatible_path_stub_summary",
+        )
+        for summary_key, expected_field_name in (
+            ("future_kernel_native_consumer_stub_summary", "scale_metadata_handle"),
+            (
+                "future_kernel_native_consumer_descriptor_ptr_stub_summary",
+                "descriptor_ptr",
+            ),
+            (
+                "future_kernel_native_consumer_packed_weight_stub_summary",
+                "packed_weight_descriptor",
+            ),
+            (
+                "future_kernel_native_consumer_aux_metadata_stub_summary",
+                "aux_metadata_handle",
+            ),
+        ):
+            _check_runner_future_kernel_native_consumer_summary(
+                evidence.get(summary_key),
+                f"runner_{summary_key}",
+                expected_field_name=expected_field_name,
+            )
+        _check_runner_future_kernel_native_launch_consumer_summary(
+            evidence.get("future_kernel_native_consumer_launch_stub_summary"),
+            "runner_future_kernel_native_consumer_launch_stub_summary",
+            expected_field_name="scale_metadata_handle",
+        )
+        for summary_key, expected_field_name in (
+            (
+                "future_kernel_native_consumer_launch_descriptor_ptr_stub_summary",
+                "descriptor_ptr",
+            ),
+            (
+                "future_kernel_native_consumer_launch_packed_weight_stub_summary",
+                "packed_weight_descriptor",
+            ),
+            (
+                "future_kernel_native_consumer_launch_aux_metadata_stub_summary",
+                "aux_metadata_handle",
+            ),
+        ):
+            _check_runner_future_kernel_native_launch_consumer_summary(
+                evidence.get(summary_key),
+                f"runner_{summary_key}",
+                expected_field_name=expected_field_name,
+            )
+        _check_runner_future_kernel_native_dispatch_consumer_summary(
+            evidence.get("future_kernel_native_consumer_dispatch_stub_summary"),
+            "runner_future_kernel_native_consumer_dispatch_stub_summary",
+            expected_field_name="scale_metadata_handle",
+        )
+        for summary_key, expected_field_name in (
+            (
+                "future_kernel_native_consumer_dispatch_descriptor_ptr_stub_summary",
+                "descriptor_ptr",
+            ),
+            (
+                "future_kernel_native_consumer_dispatch_packed_weight_stub_summary",
+                "packed_weight_descriptor",
+            ),
+            (
+                "future_kernel_native_consumer_dispatch_aux_metadata_stub_summary",
+                "aux_metadata_handle",
+            ),
+        ):
+            _check_runner_future_kernel_native_dispatch_consumer_summary(
                 evidence.get(summary_key),
                 f"runner_{summary_key}",
                 expected_field_name=expected_field_name,
@@ -629,6 +1309,47 @@ def _validate_required_evidence_payload(
             "native_stub_packed_weight_mirror": "packed_weight_descriptor",
             "native_stub_aux_metadata_mirror": "aux_metadata_handle",
             "native_stub_descriptor_ptr_mirror": "descriptor_ptr",
+            "native_stub_kernel_side_compatible_consumer_abi": "kernel_side_compatible",
+            "native_stub_future_kernel_consumer_args": "future_kernel_args",
+            "native_stub_future_kernel_args_compatible_consumer_path": (
+                "future_kernel_args_compatible_path"
+            ),
+            "native_stub_future_kernel_native_consumer_abi": (
+                "future_kernel_native_consumer:scale_metadata_handle"
+            ),
+            "native_stub_future_kernel_native_consumer_descriptor_ptr_mirror": (
+                "future_kernel_native_consumer:descriptor_ptr"
+            ),
+            "native_stub_future_kernel_native_consumer_packed_weight_mirror": (
+                "future_kernel_native_consumer:packed_weight_descriptor"
+            ),
+            "native_stub_future_kernel_native_consumer_aux_metadata_mirror": (
+                "future_kernel_native_consumer:aux_metadata_handle"
+            ),
+            "native_stub_future_kernel_native_consumer_launch_abi": (
+                "future_kernel_native_launch_consumer:scale_metadata_handle"
+            ),
+            "native_stub_future_kernel_native_consumer_launch_descriptor_ptr_mirror": (
+                "future_kernel_native_launch_consumer:descriptor_ptr"
+            ),
+            "native_stub_future_kernel_native_consumer_launch_packed_weight_mirror": (
+                "future_kernel_native_launch_consumer:packed_weight_descriptor"
+            ),
+            "native_stub_future_kernel_native_consumer_launch_aux_metadata_mirror": (
+                "future_kernel_native_launch_consumer:aux_metadata_handle"
+            ),
+            "native_stub_future_kernel_native_consumer_dispatch_abi": (
+                "future_kernel_native_dispatch_consumer:scale_metadata_handle"
+            ),
+            "native_stub_future_kernel_native_consumer_dispatch_descriptor_ptr_mirror": (
+                "future_kernel_native_dispatch_consumer:descriptor_ptr"
+            ),
+            "native_stub_future_kernel_native_consumer_dispatch_packed_weight_mirror": (
+                "future_kernel_native_dispatch_consumer:packed_weight_descriptor"
+            ),
+            "native_stub_future_kernel_native_consumer_dispatch_aux_metadata_mirror": (
+                "future_kernel_native_dispatch_consumer:aux_metadata_handle"
+            ),
         }
         for index, suite in enumerate(extra_summaries[:expected_extra], start=1):
             suite_prefix = f"runner_extra_input_{index:04d}"
@@ -655,6 +1376,45 @@ def _validate_required_evidence_payload(
                         summary,
                         label_prefix,
                         require_kernel_side_consumer_path=(label == "native_stub"),
+                    )
+                elif expected_field_name == "kernel_side_compatible":
+                    _check_runner_kernel_side_compatible_summary(
+                        summary,
+                        label_prefix,
+                    )
+                elif expected_field_name == "future_kernel_args":
+                    _check_runner_future_kernel_args_summary(
+                        summary,
+                        label_prefix,
+                    )
+                elif expected_field_name == "future_kernel_args_compatible_path":
+                    _check_runner_future_kernel_args_compatible_path_summary(
+                        summary,
+                        label_prefix,
+                    )
+                elif expected_field_name.startswith(
+                    "future_kernel_native_consumer:"
+                ):
+                    _check_runner_future_kernel_native_consumer_summary(
+                        summary,
+                        label_prefix,
+                        expected_field_name=expected_field_name.split(":", 1)[1],
+                    )
+                elif expected_field_name.startswith(
+                    "future_kernel_native_launch_consumer:"
+                ):
+                    _check_runner_future_kernel_native_launch_consumer_summary(
+                        summary,
+                        label_prefix,
+                        expected_field_name=expected_field_name.split(":", 1)[1],
+                    )
+                elif expected_field_name.startswith(
+                    "future_kernel_native_dispatch_consumer:"
+                ):
+                    _check_runner_future_kernel_native_dispatch_consumer_summary(
+                        summary,
+                        label_prefix,
+                        expected_field_name=expected_field_name.split(":", 1)[1],
                     )
                 else:
                     _check_runner_mirror_summary(
@@ -1117,6 +1877,7 @@ def _check_optional_default_gate_evidence_json(
     gate_path: str,
     *,
     root: Path,
+    deferred_labels: set[str] | None = None,
 ) -> dict[str, Any]:
     path = _path_for_label(gate_path, root)
     label = _path_label(path, root=root)
@@ -1141,9 +1902,10 @@ def _check_optional_default_gate_evidence_json(
         combined_paths.update(optional_paths)
     else:
         optional_paths = {}
+    deferred_labels = set(deferred_labels or ())
 
     for evidence_label in sorted(OPTIONAL_DEFAULT_GATE_EVIDENCE_JSON_LABELS):
-        raw_path = optional_paths.get(evidence_label)
+        raw_path = combined_paths.get(evidence_label)
         row: dict[str, Any] = {
             "label": evidence_label,
             "path": raw_path,
@@ -1153,6 +1915,10 @@ def _check_optional_default_gate_evidence_json(
             "failures_value": None,
             "optional": True,
         }
+        if evidence_label in deferred_labels:
+            row["deferred"] = True
+            rows.append(row)
+            continue
         if not isinstance(raw_path, str) or not raw_path:
             row["failure"] = "missing_optional_evidence_path"
             rows.append(row)
@@ -1427,7 +2193,7 @@ def _check_required_default_gate_evidence_json(
         }
         if (
             defer_online_prelaunch_runner_evidence
-            and evidence_label == ONLINE_PRELAUNCH_RUNNER_EVIDENCE_LABEL
+            and evidence_label in ONLINE_PRELAUNCH_RUNNER_EVIDENCE_LABELS
         ):
             row["deferred"] = True
             row["failure"] = None
@@ -1501,7 +2267,7 @@ def _check_required_default_gate_evidence_json(
         "failures": failures,
         "required_labels": sorted(REQUIRED_DEFAULT_GATE_EVIDENCE_JSON_LABELS),
         "deferred_labels": (
-            [ONLINE_PRELAUNCH_RUNNER_EVIDENCE_LABEL]
+            sorted(ONLINE_PRELAUNCH_RUNNER_EVIDENCE_LABELS)
             if defer_online_prelaunch_runner_evidence
             else []
         ),
@@ -1700,6 +2466,7 @@ def run_premap_lab_preflight(
     risky_canary_gates: list[str] | None = None,
     allow_missing_evidence: bool = False,
     defer_online_prelaunch_runner_evidence: bool = False,
+    defer_online_prelaunch_artifact_evidence: bool = False,
 ) -> dict[str, Any]:
     root = root.resolve()
     trace_configs = trace_configs or list(DEFAULT_TRACE_CONFIGS)
@@ -1724,6 +2491,12 @@ def run_premap_lab_preflight(
         default_readonly_gate,
         root=root,
     )
+    deferred_evidence_labels: set[str] = set()
+    if defer_online_prelaunch_runner_evidence:
+        deferred_evidence_labels.update(ONLINE_PRELAUNCH_RUNNER_EVIDENCE_LABELS)
+    if defer_online_prelaunch_artifact_evidence:
+        deferred_evidence_labels.update(ONLINE_PRELAUNCH_ARTIFACT_EVIDENCE_LABELS)
+
     default_gate_required_evidence_check = _check_required_default_gate_evidence_json(
         default_readonly_gate,
         root=root,
@@ -1735,11 +2508,7 @@ def run_premap_lab_preflight(
     default_gate_optional_evidence_check = _check_optional_default_gate_evidence_json(
         default_readonly_gate,
         root=root,
-    )
-    deferred_evidence_labels = (
-        {ONLINE_PRELAUNCH_RUNNER_EVIDENCE_LABEL}
-        if defer_online_prelaunch_runner_evidence
-        else set()
+        deferred_labels=deferred_evidence_labels,
     )
     risky_canary_metadata_checks = {
         _path_label(_path_for_label(raw_path, root), root=root): (
@@ -1942,6 +2711,16 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--defer-online-prelaunch-artifact-evidence",
+        action="store_true",
+        help=(
+            "Skip only the self-referential online-prelaunch artifact-check "
+            "evidence rows. Intended for canary runner generation before the "
+            "artifact check has been rewritten; do not use for normal lab "
+            "preflight."
+        ),
+    )
+    parser.add_argument(
         "--summary-only",
         action="store_true",
         help=(
@@ -1965,6 +2744,9 @@ def main(argv: list[str] | None = None) -> int:
         allow_missing_evidence=args.allow_missing_evidence,
         defer_online_prelaunch_runner_evidence=(
             args.defer_online_prelaunch_runner_evidence
+        ),
+        defer_online_prelaunch_artifact_evidence=(
+            args.defer_online_prelaunch_artifact_evidence
         ),
     )
     output_payload = (

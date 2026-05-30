@@ -74,6 +74,132 @@ DEFAULT_DESCRIPTOR_PTR_MIRROR_STUB_OUTPUT = (
     / "premap_kernel_consumer"
     / "typed_consumer_stub_gpu1_online_prelaunch_input_descriptor_ptr_mirror_canary.json"
 )
+DEFAULT_KERNEL_SIDE_COMPATIBLE_STUB_OUTPUT = (
+    REPO_ROOT
+    / "outputs"
+    / "reports"
+    / "premap_kernel_consumer"
+    / "typed_consumer_stub_gpu1_online_prelaunch_input_kernel_side_compatible_consumer_abi_canary.json"
+)
+DEFAULT_FUTURE_KERNEL_ARGS_STUB_OUTPUT = (
+    REPO_ROOT
+    / "outputs"
+    / "reports"
+    / "premap_kernel_consumer"
+    / "typed_consumer_stub_gpu1_online_prelaunch_input_future_kernel_args_scale_mirror_canary.json"
+)
+DEFAULT_FUTURE_KERNEL_ARGS_DESCRIPTOR_PTR_STUB_OUTPUT = (
+    REPO_ROOT
+    / "outputs"
+    / "reports"
+    / "premap_kernel_consumer"
+    / "typed_consumer_stub_gpu1_future_kernel_args_descriptor_ptr_mirror_canary.json"
+)
+DEFAULT_FUTURE_KERNEL_ARGS_PACKED_WEIGHT_STUB_OUTPUT = (
+    REPO_ROOT
+    / "outputs"
+    / "reports"
+    / "premap_kernel_consumer"
+    / "typed_consumer_stub_gpu1_future_kernel_args_packed_weight_mirror_canary.json"
+)
+DEFAULT_FUTURE_KERNEL_ARGS_AUX_METADATA_STUB_OUTPUT = (
+    REPO_ROOT
+    / "outputs"
+    / "reports"
+    / "premap_kernel_consumer"
+    / "typed_consumer_stub_gpu1_future_kernel_args_aux_metadata_mirror_canary.json"
+)
+DEFAULT_FUTURE_KERNEL_ARGS_COMPATIBLE_PATH_STUB_OUTPUT = (
+    REPO_ROOT
+    / "outputs"
+    / "reports"
+    / "premap_kernel_consumer"
+    / "typed_consumer_stub_gpu1_future_kernel_args_compatible_path_canary.json"
+)
+DEFAULT_FUTURE_KERNEL_NATIVE_CONSUMER_STUB_OUTPUT = (
+    REPO_ROOT
+    / "outputs"
+    / "reports"
+    / "premap_kernel_consumer"
+    / "typed_consumer_stub_gpu1_future_native_consumer_scale_mirror_canary.json"
+)
+DEFAULT_FUTURE_KERNEL_NATIVE_CONSUMER_DESCRIPTOR_PTR_STUB_OUTPUT = (
+    REPO_ROOT
+    / "outputs"
+    / "reports"
+    / "premap_kernel_consumer"
+    / "typed_consumer_stub_gpu1_future_native_consumer_descriptor_ptr_mirror_canary.json"
+)
+DEFAULT_FUTURE_KERNEL_NATIVE_CONSUMER_PACKED_WEIGHT_STUB_OUTPUT = (
+    REPO_ROOT
+    / "outputs"
+    / "reports"
+    / "premap_kernel_consumer"
+    / "typed_consumer_stub_gpu1_future_native_consumer_packed_weight_mirror_canary.json"
+)
+DEFAULT_FUTURE_KERNEL_NATIVE_CONSUMER_AUX_METADATA_STUB_OUTPUT = (
+    REPO_ROOT
+    / "outputs"
+    / "reports"
+    / "premap_kernel_consumer"
+    / "typed_consumer_stub_gpu1_future_native_consumer_aux_metadata_mirror_canary.json"
+)
+DEFAULT_FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_STUB_OUTPUT = (
+    REPO_ROOT
+    / "outputs"
+    / "reports"
+    / "premap_kernel_consumer"
+    / "typed_consumer_stub_gpu1_future_native_launch_consumer_scale_mirror_canary.json"
+)
+DEFAULT_FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_DESCRIPTOR_PTR_STUB_OUTPUT = (
+    REPO_ROOT
+    / "outputs"
+    / "reports"
+    / "premap_kernel_consumer"
+    / "typed_consumer_stub_gpu1_future_native_launch_consumer_descriptor_ptr_mirror_canary.json"
+)
+DEFAULT_FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_PACKED_WEIGHT_STUB_OUTPUT = (
+    REPO_ROOT
+    / "outputs"
+    / "reports"
+    / "premap_kernel_consumer"
+    / "typed_consumer_stub_gpu1_future_native_launch_consumer_packed_weight_mirror_canary.json"
+)
+DEFAULT_FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_AUX_METADATA_STUB_OUTPUT = (
+    REPO_ROOT
+    / "outputs"
+    / "reports"
+    / "premap_kernel_consumer"
+    / "typed_consumer_stub_gpu1_future_native_launch_consumer_aux_metadata_mirror_canary.json"
+)
+DEFAULT_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_STUB_OUTPUT = (
+    REPO_ROOT
+    / "outputs"
+    / "reports"
+    / "premap_kernel_consumer"
+    / "typed_consumer_stub_gpu1_future_native_dispatch_consumer_scale_mirror_canary.json"
+)
+DEFAULT_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_DESCRIPTOR_PTR_STUB_OUTPUT = (
+    REPO_ROOT
+    / "outputs"
+    / "reports"
+    / "premap_kernel_consumer"
+    / "typed_consumer_stub_gpu1_future_native_dispatch_consumer_descriptor_ptr_mirror_canary.json"
+)
+DEFAULT_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_PACKED_WEIGHT_STUB_OUTPUT = (
+    REPO_ROOT
+    / "outputs"
+    / "reports"
+    / "premap_kernel_consumer"
+    / "typed_consumer_stub_gpu1_future_native_dispatch_consumer_packed_weight_mirror_canary.json"
+)
+DEFAULT_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_AUX_METADATA_STUB_OUTPUT = (
+    REPO_ROOT
+    / "outputs"
+    / "reports"
+    / "premap_kernel_consumer"
+    / "typed_consumer_stub_gpu1_future_native_dispatch_consumer_aux_metadata_mirror_canary.json"
+)
 DEFAULT_PREFLIGHT_OUTPUT = (
     REPO_ROOT
     / "outputs"
@@ -146,6 +272,303 @@ DESCRIPTOR_PTR_MIRROR_STUB_MACROS = [
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR_MIRROR_FIELD",
     "MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR",
 ]
+KERNEL_SIDE_COMPATIBLE_STUB_MACROS = [
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCHEMA",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_ROW_ITERATION",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_POINTER_VISIBILITY",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_LIFETIME",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_KERNEL_CONSUMER_ENVELOPE",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_KERNEL_SIDE_COMPATIBLE_CONSUMER_ABI",
+    "MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR",
+]
+FUTURE_KERNEL_ARGS_STUB_MACROS = [
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCHEMA",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_ROW_ITERATION",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_POINTER_VISIBILITY",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_LIFETIME",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_CONSUMER_ARGS",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD",
+    "MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR",
+]
+FUTURE_KERNEL_ARGS_DESCRIPTOR_PTR_STUB_MACROS = [
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCHEMA",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_ROW_ITERATION",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_POINTER_VISIBILITY",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_LIFETIME",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_CONSUMER_ARGS",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR_MIRROR_FIELD",
+    "MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR",
+]
+FUTURE_KERNEL_ARGS_PACKED_WEIGHT_STUB_MACROS = [
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCHEMA",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_ROW_ITERATION",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_POINTER_VISIBILITY",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_LIFETIME",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_CONSUMER_ARGS",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_MIRROR_FIELD",
+    "MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR",
+]
+FUTURE_KERNEL_ARGS_AUX_METADATA_STUB_MACROS = [
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCHEMA",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_ROW_ITERATION",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_POINTER_VISIBILITY",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_LIFETIME",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_CONSUMER_ARGS",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_MIRROR_FIELD",
+    "MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR",
+]
+FUTURE_KERNEL_ARGS_COMPATIBLE_PATH_STUB_MACROS = [
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCHEMA",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_ROW_ITERATION",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_POINTER_VISIBILITY",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_LIFETIME",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_CONSUMER_ARGS",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_ARGS_COMPATIBLE_CONSUMER_PATH",
+    "MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR",
+]
+FUTURE_KERNEL_NATIVE_CONSUMER_STUB_MACROS = [
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCHEMA",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_ROW_ITERATION",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_POINTER_VISIBILITY",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_LIFETIME",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ABI",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD",
+    "MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR",
+]
+FUTURE_KERNEL_NATIVE_CONSUMER_DESCRIPTOR_PTR_STUB_MACROS = [
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCHEMA",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_ROW_ITERATION",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_POINTER_VISIBILITY",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_LIFETIME",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ABI",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR_MIRROR_FIELD",
+    "MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR",
+]
+FUTURE_KERNEL_NATIVE_CONSUMER_PACKED_WEIGHT_STUB_MACROS = [
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCHEMA",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_ROW_ITERATION",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_POINTER_VISIBILITY",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_LIFETIME",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ABI",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_MIRROR_FIELD",
+    "MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR",
+]
+FUTURE_KERNEL_NATIVE_CONSUMER_AUX_METADATA_STUB_MACROS = [
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCHEMA",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_ROW_ITERATION",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_POINTER_VISIBILITY",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_LIFETIME",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ABI",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_MIRROR_FIELD",
+    "MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR",
+]
+FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_STUB_MACROS = [
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCHEMA",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_ROW_ITERATION",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_POINTER_VISIBILITY",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_LIFETIME",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ABI",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ABI",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD",
+    "MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR",
+]
+FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_DESCRIPTOR_PTR_STUB_MACROS = [
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCHEMA",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_ROW_ITERATION",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_POINTER_VISIBILITY",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_LIFETIME",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ABI",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ABI",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR_MIRROR_FIELD",
+    "MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR",
+]
+FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_PACKED_WEIGHT_STUB_MACROS = [
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCHEMA",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_ROW_ITERATION",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_POINTER_VISIBILITY",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_LIFETIME",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ABI",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ABI",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_MIRROR_FIELD",
+    "MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR",
+]
+FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_AUX_METADATA_STUB_MACROS = [
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCHEMA",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_ROW_ITERATION",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_POINTER_VISIBILITY",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_LIFETIME",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ABI",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ABI",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_MIRROR_FIELD",
+    "MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR",
+]
+FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_STUB_MACROS = [
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCHEMA",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_ROW_ITERATION",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_POINTER_VISIBILITY",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_LIFETIME",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ABI",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ABI",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_ABI",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD",
+    "MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR",
+]
+FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_DESCRIPTOR_PTR_STUB_MACROS = [
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCHEMA",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_ROW_ITERATION",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_POINTER_VISIBILITY",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_LIFETIME",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ABI",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ABI",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_ABI",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR_MIRROR_FIELD",
+    "MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR",
+]
+FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_PACKED_WEIGHT_STUB_MACROS = [
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCHEMA",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_ROW_ITERATION",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_POINTER_VISIBILITY",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_LIFETIME",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ABI",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ABI",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_ABI",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_MIRROR_FIELD",
+    "MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR",
+]
+FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_AUX_METADATA_STUB_MACROS = [
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCHEMA",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_ROW_ITERATION",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_POINTER_VISIBILITY",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_LIFETIME",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ABI",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ABI",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_ABI",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_MIRROR_FIELD",
+    "MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR",
+]
+
+FUTURE_KERNEL_NATIVE_CONSUMER_SUMMARY_KEYS = (
+    "passed",
+    "ok",
+    "row_count",
+    "row_ok_count",
+    "error_count",
+    "future_kernel_native_consumer_abi_name",
+    "future_kernel_native_consumer_checked",
+    "future_kernel_native_consumer_mode",
+    "future_kernel_native_consumer_source",
+    "future_kernel_native_consumer_row_count",
+    "future_kernel_native_consumer_row_ok_count",
+    "future_kernel_native_consumer_error_count",
+    "future_kernel_native_consumer_payload_bytes",
+    "future_kernel_native_consumer_passed_to_kernel",
+    "future_kernel_native_consumer_changes_kernel_launch_args",
+    "future_kernel_native_consumer_current_wna16_arg_compatible",
+    "future_kernel_native_consumer_requires_wna16_arg_reinterpretation",
+    "future_kernel_native_consumer_field_mask",
+    "future_kernel_native_consumer_required_field_mask",
+    "future_kernel_native_consumer_single_field_mirror_checked",
+    "future_kernel_native_consumer_single_field_mirror_field_name",
+    "future_kernel_native_consumer_single_field_mirror_row_count",
+    "future_kernel_native_consumer_single_field_mirror_row_ok_count",
+    "future_kernel_native_consumer_single_field_mirror_error_count",
+    "payload_bytes",
+    "passed_to_kernel",
+    "changes_kernel_launch_args",
+    "input_json",
+)
+FUTURE_KERNEL_NATIVE_LAUNCH_CONSUMER_SUMMARY_KEYS = (
+    "passed",
+    "ok",
+    "row_count",
+    "row_ok_count",
+    "error_count",
+    "future_kernel_native_consumer_checked",
+    "future_kernel_native_consumer_row_count",
+    "future_kernel_native_consumer_row_ok_count",
+    "future_kernel_native_consumer_error_count",
+    "future_kernel_native_launch_consumer_abi_name",
+    "future_kernel_native_launch_consumer_checked",
+    "future_kernel_native_launch_consumer_mode",
+    "future_kernel_native_launch_consumer_source",
+    "future_kernel_native_launch_consumer_version",
+    "future_kernel_native_launch_consumer_params_struct_size",
+    "future_kernel_native_launch_consumer_result_struct_size",
+    "future_kernel_native_launch_consumer_row_stride",
+    "future_kernel_native_launch_consumer_row_count",
+    "future_kernel_native_launch_consumer_row_ok_count",
+    "future_kernel_native_launch_consumer_error_count",
+    "future_kernel_native_launch_consumer_payload_bytes",
+    "future_kernel_native_launch_consumer_passed_to_kernel",
+    "future_kernel_native_launch_consumer_changes_kernel_launch_args",
+    "future_kernel_native_launch_consumer_current_wna16_arg_compatible",
+    "future_kernel_native_launch_consumer_requires_wna16_arg_reinterpretation",
+    "future_kernel_native_launch_consumer_field_mask",
+    "future_kernel_native_launch_consumer_required_field_mask",
+    "future_kernel_native_launch_consumer_single_field_mirror_checked",
+    "future_kernel_native_launch_consumer_single_field_mirror_field_name",
+    "future_kernel_native_launch_consumer_single_field_mirror_row_count",
+    "future_kernel_native_launch_consumer_single_field_mirror_row_ok_count",
+    "future_kernel_native_launch_consumer_single_field_mirror_error_count",
+    "payload_bytes",
+    "passed_to_kernel",
+    "changes_kernel_launch_args",
+    "input_json",
+)
+FUTURE_KERNEL_NATIVE_DISPATCH_CONSUMER_SUMMARY_KEYS = (
+    "passed",
+    "ok",
+    "row_count",
+    "row_ok_count",
+    "error_count",
+    "future_kernel_native_consumer_checked",
+    "future_kernel_native_consumer_row_count",
+    "future_kernel_native_consumer_row_ok_count",
+    "future_kernel_native_consumer_error_count",
+    "future_kernel_native_launch_consumer_checked",
+    "future_kernel_native_launch_consumer_row_count",
+    "future_kernel_native_launch_consumer_row_ok_count",
+    "future_kernel_native_launch_consumer_error_count",
+    "future_kernel_native_dispatch_consumer_abi_name",
+    "future_kernel_native_dispatch_consumer_checked",
+    "future_kernel_native_dispatch_consumer_mode",
+    "future_kernel_native_dispatch_consumer_source",
+    "future_kernel_native_dispatch_consumer_version",
+    "future_kernel_native_dispatch_consumer_grid_x",
+    "future_kernel_native_dispatch_consumer_block_x",
+    "future_kernel_native_dispatch_consumer_shared_mem_bytes",
+    "future_kernel_native_dispatch_consumer_row_offset",
+    "future_kernel_native_dispatch_consumer_row_limit",
+    "future_kernel_native_dispatch_consumer_rows_per_program",
+    "future_kernel_native_dispatch_consumer_active_rows",
+    "future_kernel_native_dispatch_consumer_launch_threads",
+    "future_kernel_native_dispatch_consumer_launch_geometry_checked",
+    "future_kernel_native_dispatch_consumer_launch_covers_active_rows",
+    "future_kernel_native_dispatch_consumer_launch_minimal_cover",
+    "future_kernel_native_dispatch_consumer_row_count",
+    "future_kernel_native_dispatch_consumer_row_ok_count",
+    "future_kernel_native_dispatch_consumer_error_count",
+    "future_kernel_native_dispatch_consumer_payload_bytes",
+    "future_kernel_native_dispatch_consumer_passed_to_kernel",
+    "future_kernel_native_dispatch_consumer_changes_kernel_launch_args",
+    "future_kernel_native_dispatch_consumer_current_wna16_arg_compatible",
+    "future_kernel_native_dispatch_consumer_requires_wna16_arg_reinterpretation",
+    "future_kernel_native_dispatch_consumer_field_mask",
+    "future_kernel_native_dispatch_consumer_required_field_mask",
+    "future_kernel_native_dispatch_consumer_single_field_mirror_checked",
+    "future_kernel_native_dispatch_consumer_single_field_mirror_field_name",
+    "future_kernel_native_dispatch_consumer_single_field_mirror_row_count",
+    "future_kernel_native_dispatch_consumer_single_field_mirror_row_ok_count",
+    "future_kernel_native_dispatch_consumer_single_field_mirror_error_count",
+    "payload_bytes",
+    "passed_to_kernel",
+    "changes_kernel_launch_args",
+    "input_json",
+)
+
+_FUTURE_KERNEL_REQUIRED_FIELD_MASK = 0x7
+_FUTURE_KERNEL_ALL_FIELD_MASK = 0xF
+_FUTURE_KERNEL_AUX_FIELD_MASK = 0x8
 
 
 def _load_yaml(path: Path) -> Any:
@@ -156,6 +579,31 @@ def _load_yaml(path: Path) -> Any:
 def _resolve_repo_path(raw_path: str | Path) -> Path:
     path = Path(raw_path)
     return path if path.is_absolute() else REPO_ROOT / path
+
+
+def _future_field_mask_ok(
+    payload: dict[str, Any],
+    *,
+    prefix: str,
+    expected_field: str,
+) -> bool:
+    field_mask = payload.get(f"{prefix}_field_mask")
+    required_mask = payload.get(f"{prefix}_required_field_mask")
+    if not isinstance(field_mask, int) or isinstance(field_mask, bool):
+        return False
+    if not isinstance(required_mask, int) or isinstance(required_mask, bool):
+        return False
+    if required_mask != _FUTURE_KERNEL_REQUIRED_FIELD_MASK:
+        return False
+    if field_mask & _FUTURE_KERNEL_REQUIRED_FIELD_MASK != _FUTURE_KERNEL_REQUIRED_FIELD_MASK:
+        return False
+    if field_mask & ~_FUTURE_KERNEL_ALL_FIELD_MASK:
+        return False
+    if expected_field == "aux_metadata_handle" and not (
+        field_mask & _FUTURE_KERNEL_AUX_FIELD_MASK
+    ):
+        return False
+    return True
 
 
 def trace_output_dir(config_path: Path) -> Path:
@@ -292,12 +740,20 @@ def _stub_summary(payload: dict[str, Any], keys: tuple[str, ...]) -> dict[str, A
     return {key: payload.get(key) for key in keys}
 
 
-def _preflight_command(*, output_json: Path, summary_only: bool, defer_runner: bool) -> list[str]:
+def _preflight_command(
+    *,
+    output_json: Path,
+    summary_only: bool,
+    defer_runner: bool,
+    defer_artifact: bool = False,
+) -> list[str]:
     cmd = [sys.executable, "scripts/run_premap_lab_preflight.py"]
     if summary_only:
         cmd.append("--summary-only")
     if defer_runner:
         cmd.append("--defer-online-prelaunch-runner-evidence")
+    if defer_artifact:
+        cmd.append("--defer-online-prelaunch-artifact-evidence")
     cmd.extend(["--output-json", str(output_json)])
     return cmd
 
@@ -450,6 +906,268 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
             env=env,
             dry_run=bool(args.dry_run),
         )
+    kernel_side_compatible_stub_output = _resolve_repo_path(
+        args.kernel_side_compatible_stub_output_json
+    )
+    if not args.skip_stub and not args.skip_kernel_side_compatible_stub:
+        steps["native_stub_kernel_side_compatible_consumer_abi"] = _run(
+            _stub_command(
+                input_json=input_path,
+                output_json=kernel_side_compatible_stub_output,
+                device=int(args.stub_device),
+                offload_arch=str(args.offload_arch),
+                macros=KERNEL_SIDE_COMPATIBLE_STUB_MACROS,
+            ),
+            env=env,
+            dry_run=bool(args.dry_run),
+        )
+    future_kernel_args_stub_output = _resolve_repo_path(
+        args.future_kernel_args_stub_output_json
+    )
+    if not args.skip_stub and not args.skip_future_kernel_args_stub:
+        steps["native_stub_future_kernel_consumer_args"] = _run(
+            _stub_command(
+                input_json=input_path,
+                output_json=future_kernel_args_stub_output,
+                device=int(args.stub_device),
+                offload_arch=str(args.offload_arch),
+                macros=FUTURE_KERNEL_ARGS_STUB_MACROS,
+            ),
+            env=env,
+            dry_run=bool(args.dry_run),
+        )
+    future_kernel_args_descriptor_ptr_stub_output = _resolve_repo_path(
+        args.future_kernel_args_descriptor_ptr_stub_output_json
+    )
+    future_kernel_args_packed_weight_stub_output = _resolve_repo_path(
+        args.future_kernel_args_packed_weight_stub_output_json
+    )
+    future_kernel_args_aux_metadata_stub_output = _resolve_repo_path(
+        args.future_kernel_args_aux_metadata_stub_output_json
+    )
+    future_kernel_args_compatible_path_stub_output = _resolve_repo_path(
+        args.future_kernel_args_compatible_path_stub_output_json
+    )
+    future_kernel_native_consumer_stub_output = _resolve_repo_path(
+        args.future_kernel_native_consumer_stub_output_json
+    )
+    future_kernel_native_consumer_descriptor_ptr_stub_output = _resolve_repo_path(
+        args.future_kernel_native_consumer_descriptor_ptr_stub_output_json
+    )
+    future_kernel_native_consumer_packed_weight_stub_output = _resolve_repo_path(
+        args.future_kernel_native_consumer_packed_weight_stub_output_json
+    )
+    future_kernel_native_consumer_aux_metadata_stub_output = _resolve_repo_path(
+        args.future_kernel_native_consumer_aux_metadata_stub_output_json
+    )
+    future_kernel_native_consumer_launch_stub_output = _resolve_repo_path(
+        args.future_kernel_native_consumer_launch_stub_output_json
+    )
+    future_kernel_native_consumer_launch_descriptor_ptr_stub_output = _resolve_repo_path(
+        args.future_kernel_native_consumer_launch_descriptor_ptr_stub_output_json
+    )
+    future_kernel_native_consumer_launch_packed_weight_stub_output = _resolve_repo_path(
+        args.future_kernel_native_consumer_launch_packed_weight_stub_output_json
+    )
+    future_kernel_native_consumer_launch_aux_metadata_stub_output = _resolve_repo_path(
+        args.future_kernel_native_consumer_launch_aux_metadata_stub_output_json
+    )
+    future_kernel_native_consumer_dispatch_stub_output = _resolve_repo_path(
+        args.future_kernel_native_consumer_dispatch_stub_output_json
+    )
+    future_kernel_native_consumer_dispatch_descriptor_ptr_stub_output = _resolve_repo_path(
+        args.future_kernel_native_consumer_dispatch_descriptor_ptr_stub_output_json
+    )
+    future_kernel_native_consumer_dispatch_packed_weight_stub_output = _resolve_repo_path(
+        args.future_kernel_native_consumer_dispatch_packed_weight_stub_output_json
+    )
+    future_kernel_native_consumer_dispatch_aux_metadata_stub_output = _resolve_repo_path(
+        args.future_kernel_native_consumer_dispatch_aux_metadata_stub_output_json
+    )
+    future_args_extra_stubs = (
+        (
+            "native_stub_future_kernel_args_descriptor_ptr_mirror",
+            future_kernel_args_descriptor_ptr_stub_output,
+            FUTURE_KERNEL_ARGS_DESCRIPTOR_PTR_STUB_MACROS,
+        ),
+        (
+            "native_stub_future_kernel_args_packed_weight_mirror",
+            future_kernel_args_packed_weight_stub_output,
+            FUTURE_KERNEL_ARGS_PACKED_WEIGHT_STUB_MACROS,
+        ),
+        (
+            "native_stub_future_kernel_args_aux_metadata_mirror",
+            future_kernel_args_aux_metadata_stub_output,
+            FUTURE_KERNEL_ARGS_AUX_METADATA_STUB_MACROS,
+        ),
+    )
+    if (
+        not args.skip_stub
+        and not args.skip_future_kernel_args_stub
+        and not args.skip_future_kernel_args_extra_field_stubs
+    ):
+        for step_label, output_path, macros in future_args_extra_stubs:
+            steps[step_label] = _run(
+                _stub_command(
+                    input_json=input_path,
+                    output_json=output_path,
+                    device=int(args.stub_device),
+                    offload_arch=str(args.offload_arch),
+                    macros=macros,
+            ),
+            env=env,
+            dry_run=bool(args.dry_run),
+        )
+    if not args.skip_stub and not args.skip_future_kernel_args_compatible_path_stub:
+        steps["native_stub_future_kernel_args_compatible_consumer_path"] = _run(
+            _stub_command(
+                input_json=input_path,
+                output_json=future_kernel_args_compatible_path_stub_output,
+                device=int(args.stub_device),
+                offload_arch=str(args.offload_arch),
+                macros=FUTURE_KERNEL_ARGS_COMPATIBLE_PATH_STUB_MACROS,
+            ),
+            env=env,
+            dry_run=bool(args.dry_run),
+        )
+    if not args.skip_stub and not args.skip_future_kernel_native_consumer_stub:
+        steps["native_stub_future_kernel_native_consumer_abi"] = _run(
+            _stub_command(
+                input_json=input_path,
+                output_json=future_kernel_native_consumer_stub_output,
+                device=int(args.stub_device),
+                offload_arch=str(args.offload_arch),
+                macros=FUTURE_KERNEL_NATIVE_CONSUMER_STUB_MACROS,
+            ),
+            env=env,
+            dry_run=bool(args.dry_run),
+        )
+    future_native_extra_stubs = (
+        (
+            "native_stub_future_kernel_native_consumer_descriptor_ptr_mirror",
+            future_kernel_native_consumer_descriptor_ptr_stub_output,
+            FUTURE_KERNEL_NATIVE_CONSUMER_DESCRIPTOR_PTR_STUB_MACROS,
+        ),
+        (
+            "native_stub_future_kernel_native_consumer_packed_weight_mirror",
+            future_kernel_native_consumer_packed_weight_stub_output,
+            FUTURE_KERNEL_NATIVE_CONSUMER_PACKED_WEIGHT_STUB_MACROS,
+        ),
+        (
+            "native_stub_future_kernel_native_consumer_aux_metadata_mirror",
+            future_kernel_native_consumer_aux_metadata_stub_output,
+            FUTURE_KERNEL_NATIVE_CONSUMER_AUX_METADATA_STUB_MACROS,
+        ),
+    )
+    if (
+        not args.skip_stub
+        and not args.skip_future_kernel_native_consumer_stub
+        and not args.skip_future_kernel_native_consumer_extra_field_stubs
+    ):
+        for step_label, output_path, macros in future_native_extra_stubs:
+            steps[step_label] = _run(
+                _stub_command(
+                    input_json=input_path,
+                    output_json=output_path,
+                    device=int(args.stub_device),
+                    offload_arch=str(args.offload_arch),
+                    macros=macros,
+                ),
+                env=env,
+                dry_run=bool(args.dry_run),
+            )
+    if not args.skip_stub and not args.skip_future_kernel_native_consumer_stub:
+        steps["native_stub_future_kernel_native_consumer_dispatch_abi"] = _run(
+            _stub_command(
+                input_json=input_path,
+                output_json=future_kernel_native_consumer_dispatch_stub_output,
+                device=int(args.stub_device),
+                offload_arch=str(args.offload_arch),
+                macros=FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_STUB_MACROS,
+            ),
+            env=env,
+            dry_run=bool(args.dry_run),
+        )
+    future_native_dispatch_extra_stubs = (
+        (
+            "native_stub_future_kernel_native_consumer_dispatch_descriptor_ptr_mirror",
+            future_kernel_native_consumer_dispatch_descriptor_ptr_stub_output,
+            FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_DESCRIPTOR_PTR_STUB_MACROS,
+        ),
+        (
+            "native_stub_future_kernel_native_consumer_dispatch_packed_weight_mirror",
+            future_kernel_native_consumer_dispatch_packed_weight_stub_output,
+            FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_PACKED_WEIGHT_STUB_MACROS,
+        ),
+        (
+            "native_stub_future_kernel_native_consumer_dispatch_aux_metadata_mirror",
+            future_kernel_native_consumer_dispatch_aux_metadata_stub_output,
+            FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_AUX_METADATA_STUB_MACROS,
+        ),
+    )
+    if (
+        not args.skip_stub
+        and not args.skip_future_kernel_native_consumer_stub
+        and not args.skip_future_kernel_native_consumer_extra_field_stubs
+    ):
+        for step_label, output_path, macros in future_native_dispatch_extra_stubs:
+            steps[step_label] = _run(
+                _stub_command(
+                    input_json=input_path,
+                    output_json=output_path,
+                    device=int(args.stub_device),
+                    offload_arch=str(args.offload_arch),
+                    macros=macros,
+                ),
+                env=env,
+                dry_run=bool(args.dry_run),
+            )
+    if not args.skip_stub and not args.skip_future_kernel_native_consumer_stub:
+        steps["native_stub_future_kernel_native_consumer_launch_abi"] = _run(
+            _stub_command(
+                input_json=input_path,
+                output_json=future_kernel_native_consumer_launch_stub_output,
+                device=int(args.stub_device),
+                offload_arch=str(args.offload_arch),
+                macros=FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_STUB_MACROS,
+            ),
+            env=env,
+            dry_run=bool(args.dry_run),
+        )
+    future_native_launch_extra_stubs = (
+        (
+            "native_stub_future_kernel_native_consumer_launch_descriptor_ptr_mirror",
+            future_kernel_native_consumer_launch_descriptor_ptr_stub_output,
+            FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_DESCRIPTOR_PTR_STUB_MACROS,
+        ),
+        (
+            "native_stub_future_kernel_native_consumer_launch_packed_weight_mirror",
+            future_kernel_native_consumer_launch_packed_weight_stub_output,
+            FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_PACKED_WEIGHT_STUB_MACROS,
+        ),
+        (
+            "native_stub_future_kernel_native_consumer_launch_aux_metadata_mirror",
+            future_kernel_native_consumer_launch_aux_metadata_stub_output,
+            FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_AUX_METADATA_STUB_MACROS,
+        ),
+    )
+    if (
+        not args.skip_stub
+        and not args.skip_future_kernel_native_consumer_stub
+        and not args.skip_future_kernel_native_consumer_extra_field_stubs
+    ):
+        for step_label, output_path, macros in future_native_launch_extra_stubs:
+            steps[step_label] = _run(
+                _stub_command(
+                    input_json=input_path,
+                    output_json=output_path,
+                    device=int(args.stub_device),
+                    offload_arch=str(args.offload_arch),
+                    macros=macros,
+                ),
+                env=env,
+                dry_run=bool(args.dry_run),
+            )
 
     extra_input_check_summaries: list[dict[str, Any]] = []
     for input_index, extra_input_path in enumerate(input_paths[1:], start=1):
@@ -492,8 +1210,126 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
                 DESCRIPTOR_PTR_MIRROR_STUB_MACROS,
                 descriptor_ptr_mirror_stub_output,
             ),
+            (
+                "native_stub_kernel_side_compatible_consumer_abi",
+                "skip_kernel_side_compatible_stub",
+                KERNEL_SIDE_COMPATIBLE_STUB_MACROS,
+                kernel_side_compatible_stub_output,
+            ),
+            (
+                "native_stub_future_kernel_consumer_args",
+                "skip_future_kernel_args_stub",
+                FUTURE_KERNEL_ARGS_STUB_MACROS,
+                future_kernel_args_stub_output,
+            ),
+            (
+                "native_stub_future_kernel_args_descriptor_ptr_mirror",
+                "skip_future_kernel_args_extra_field_stubs",
+                FUTURE_KERNEL_ARGS_DESCRIPTOR_PTR_STUB_MACROS,
+                future_kernel_args_descriptor_ptr_stub_output,
+            ),
+            (
+                "native_stub_future_kernel_args_packed_weight_mirror",
+                "skip_future_kernel_args_extra_field_stubs",
+                FUTURE_KERNEL_ARGS_PACKED_WEIGHT_STUB_MACROS,
+                future_kernel_args_packed_weight_stub_output,
+            ),
+            (
+                "native_stub_future_kernel_args_aux_metadata_mirror",
+                "skip_future_kernel_args_extra_field_stubs",
+                FUTURE_KERNEL_ARGS_AUX_METADATA_STUB_MACROS,
+                future_kernel_args_aux_metadata_stub_output,
+            ),
+            (
+                "native_stub_future_kernel_args_compatible_consumer_path",
+                "skip_future_kernel_args_compatible_path_stub",
+                FUTURE_KERNEL_ARGS_COMPATIBLE_PATH_STUB_MACROS,
+                future_kernel_args_compatible_path_stub_output,
+            ),
+            (
+                "native_stub_future_kernel_native_consumer_abi",
+                "skip_future_kernel_native_consumer_stub",
+                FUTURE_KERNEL_NATIVE_CONSUMER_STUB_MACROS,
+                future_kernel_native_consumer_stub_output,
+            ),
+            (
+                "native_stub_future_kernel_native_consumer_descriptor_ptr_mirror",
+                "skip_future_kernel_native_consumer_extra_field_stubs",
+                FUTURE_KERNEL_NATIVE_CONSUMER_DESCRIPTOR_PTR_STUB_MACROS,
+                future_kernel_native_consumer_descriptor_ptr_stub_output,
+            ),
+            (
+                "native_stub_future_kernel_native_consumer_packed_weight_mirror",
+                "skip_future_kernel_native_consumer_extra_field_stubs",
+                FUTURE_KERNEL_NATIVE_CONSUMER_PACKED_WEIGHT_STUB_MACROS,
+                future_kernel_native_consumer_packed_weight_stub_output,
+            ),
+            (
+                "native_stub_future_kernel_native_consumer_aux_metadata_mirror",
+                "skip_future_kernel_native_consumer_extra_field_stubs",
+                FUTURE_KERNEL_NATIVE_CONSUMER_AUX_METADATA_STUB_MACROS,
+                future_kernel_native_consumer_aux_metadata_stub_output,
+            ),
+            (
+                "native_stub_future_kernel_native_consumer_launch_abi",
+                "skip_future_kernel_native_consumer_stub",
+                FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_STUB_MACROS,
+                future_kernel_native_consumer_launch_stub_output,
+            ),
+            (
+                "native_stub_future_kernel_native_consumer_launch_descriptor_ptr_mirror",
+                "skip_future_kernel_native_consumer_extra_field_stubs",
+                FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_DESCRIPTOR_PTR_STUB_MACROS,
+                future_kernel_native_consumer_launch_descriptor_ptr_stub_output,
+            ),
+            (
+                "native_stub_future_kernel_native_consumer_launch_packed_weight_mirror",
+                "skip_future_kernel_native_consumer_extra_field_stubs",
+                FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_PACKED_WEIGHT_STUB_MACROS,
+                future_kernel_native_consumer_launch_packed_weight_stub_output,
+            ),
+            (
+                "native_stub_future_kernel_native_consumer_launch_aux_metadata_mirror",
+                "skip_future_kernel_native_consumer_extra_field_stubs",
+                FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_AUX_METADATA_STUB_MACROS,
+                future_kernel_native_consumer_launch_aux_metadata_stub_output,
+            ),
+            (
+                "native_stub_future_kernel_native_consumer_dispatch_abi",
+                "skip_future_kernel_native_consumer_stub",
+                FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_STUB_MACROS,
+                future_kernel_native_consumer_dispatch_stub_output,
+            ),
+            (
+                "native_stub_future_kernel_native_consumer_dispatch_descriptor_ptr_mirror",
+                "skip_future_kernel_native_consumer_extra_field_stubs",
+                FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_DESCRIPTOR_PTR_STUB_MACROS,
+                future_kernel_native_consumer_dispatch_descriptor_ptr_stub_output,
+            ),
+            (
+                "native_stub_future_kernel_native_consumer_dispatch_packed_weight_mirror",
+                "skip_future_kernel_native_consumer_extra_field_stubs",
+                FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_PACKED_WEIGHT_STUB_MACROS,
+                future_kernel_native_consumer_dispatch_packed_weight_stub_output,
+            ),
+            (
+                "native_stub_future_kernel_native_consumer_dispatch_aux_metadata_mirror",
+                "skip_future_kernel_native_consumer_extra_field_stubs",
+                FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_AUX_METADATA_STUB_MACROS,
+                future_kernel_native_consumer_dispatch_aux_metadata_stub_output,
+            ),
         ):
             if bool(args.skip_stub) or bool(getattr(args, skip_label, False)):
+                continue
+            if (
+                label.startswith("native_stub_future_kernel_args_")
+                and bool(args.skip_future_kernel_args_stub)
+            ):
+                continue
+            if (
+                label.startswith("native_stub_future_kernel_native_consumer_")
+                and bool(args.skip_future_kernel_native_consumer_stub)
+            ):
                 continue
             output_path = _indexed_output_path(base_output, input_index)
             step_key = f"{label}_input{input_index:04d}"
@@ -532,6 +1368,121 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
                     "kernel_side_consumer_path_passed_to_kernel",
                     "kernel_side_consumer_path_changes_kernel_launch_args",
                     "kernel_side_consumer_path_current_wna16_arg_compatible",
+                    "kernel_side_compatible_consumer_checked",
+                    "kernel_side_compatible_consumer_name",
+                    "kernel_side_compatible_consumer_mode",
+                    "kernel_side_compatible_consumer_source",
+                    "kernel_side_compatible_consumer_row_count",
+                    "kernel_side_compatible_consumer_row_ok_count",
+                    "kernel_side_compatible_consumer_error_count",
+                    "kernel_side_compatible_consumer_payload_bytes",
+                    "kernel_side_compatible_consumer_passed_to_kernel",
+                    "kernel_side_compatible_consumer_changes_kernel_launch_args",
+                    "kernel_side_compatible_consumer_current_wna16_arg_compatible",
+                    "future_kernel_consumer_args_checked",
+                    "future_kernel_consumer_args_name",
+                    "future_kernel_consumer_args_mode",
+                    "future_kernel_consumer_args_source",
+                    "future_kernel_consumer_args_row_count",
+                    "future_kernel_consumer_args_row_ok_count",
+                    "future_kernel_consumer_args_error_count",
+                    "future_kernel_consumer_args_payload_bytes",
+                    "future_kernel_consumer_args_passed_to_kernel",
+                    "future_kernel_consumer_args_changes_kernel_launch_args",
+                    "future_kernel_consumer_args_current_wna16_arg_compatible",
+                    "future_kernel_consumer_args_requires_wna16_arg_reinterpretation",
+                    "future_kernel_consumer_args_field_mask",
+                    "future_kernel_consumer_args_required_field_mask",
+                    "future_kernel_consumer_args_single_field_mirror_checked",
+                    "future_kernel_consumer_args_single_field_mirror_field_name",
+                    "future_kernel_consumer_args_single_field_mirror_row_count",
+                    "future_kernel_consumer_args_single_field_mirror_row_ok_count",
+                    "future_kernel_consumer_args_single_field_mirror_error_count",
+                    "future_kernel_args_compatible_consumer_path_checked",
+                    "future_kernel_args_compatible_consumer_path_name",
+                    "future_kernel_args_compatible_consumer_path_mode",
+                    "future_kernel_args_compatible_consumer_path_source",
+                    "future_kernel_args_compatible_consumer_path_row_count",
+                    "future_kernel_args_compatible_consumer_path_row_ok_count",
+                    "future_kernel_args_compatible_consumer_path_error_count",
+                    "future_kernel_args_compatible_consumer_path_payload_bytes",
+                    "future_kernel_args_compatible_consumer_path_passed_to_kernel",
+                    "future_kernel_args_compatible_consumer_path_changes_kernel_launch_args",
+                    "future_kernel_args_compatible_consumer_path_current_wna16_arg_compatible",
+                    "future_kernel_args_compatible_consumer_path_requires_wna16_arg_reinterpretation",
+                    "future_kernel_native_consumer_abi_name",
+                    "future_kernel_native_consumer_checked",
+                    "future_kernel_native_consumer_mode",
+                    "future_kernel_native_consumer_source",
+                    "future_kernel_native_consumer_row_count",
+                    "future_kernel_native_consumer_row_ok_count",
+                    "future_kernel_native_consumer_error_count",
+                    "future_kernel_native_consumer_payload_bytes",
+                    "future_kernel_native_consumer_passed_to_kernel",
+                    "future_kernel_native_consumer_changes_kernel_launch_args",
+                    "future_kernel_native_consumer_current_wna16_arg_compatible",
+                    "future_kernel_native_consumer_requires_wna16_arg_reinterpretation",
+                    "future_kernel_native_consumer_field_mask",
+                    "future_kernel_native_consumer_required_field_mask",
+                    "future_kernel_native_consumer_single_field_mirror_checked",
+                    "future_kernel_native_consumer_single_field_mirror_field_name",
+                    "future_kernel_native_consumer_single_field_mirror_row_count",
+                    "future_kernel_native_consumer_single_field_mirror_row_ok_count",
+                    "future_kernel_native_consumer_single_field_mirror_error_count",
+                    "future_kernel_native_launch_consumer_abi_name",
+                    "future_kernel_native_launch_consumer_checked",
+                    "future_kernel_native_launch_consumer_mode",
+                    "future_kernel_native_launch_consumer_source",
+                    "future_kernel_native_launch_consumer_version",
+                    "future_kernel_native_launch_consumer_params_struct_size",
+                    "future_kernel_native_launch_consumer_result_struct_size",
+                    "future_kernel_native_launch_consumer_row_stride",
+                    "future_kernel_native_launch_consumer_row_count",
+                    "future_kernel_native_launch_consumer_row_ok_count",
+                    "future_kernel_native_launch_consumer_error_count",
+                    "future_kernel_native_launch_consumer_payload_bytes",
+                    "future_kernel_native_launch_consumer_passed_to_kernel",
+                    "future_kernel_native_launch_consumer_changes_kernel_launch_args",
+                    "future_kernel_native_launch_consumer_current_wna16_arg_compatible",
+                    "future_kernel_native_launch_consumer_requires_wna16_arg_reinterpretation",
+                    "future_kernel_native_launch_consumer_field_mask",
+                    "future_kernel_native_launch_consumer_required_field_mask",
+                    "future_kernel_native_launch_consumer_single_field_mirror_checked",
+                    "future_kernel_native_launch_consumer_single_field_mirror_field_name",
+                    "future_kernel_native_launch_consumer_single_field_mirror_row_count",
+                    "future_kernel_native_launch_consumer_single_field_mirror_row_ok_count",
+                    "future_kernel_native_launch_consumer_single_field_mirror_error_count",
+                    "future_kernel_native_dispatch_consumer_abi_name",
+                    "future_kernel_native_dispatch_consumer_checked",
+                    "future_kernel_native_dispatch_consumer_mode",
+                    "future_kernel_native_dispatch_consumer_source",
+                    "future_kernel_native_dispatch_consumer_version",
+                    "future_kernel_native_dispatch_consumer_grid_x",
+                    "future_kernel_native_dispatch_consumer_block_x",
+                    "future_kernel_native_dispatch_consumer_shared_mem_bytes",
+                    "future_kernel_native_dispatch_consumer_row_offset",
+                    "future_kernel_native_dispatch_consumer_row_limit",
+                    "future_kernel_native_dispatch_consumer_rows_per_program",
+                    "future_kernel_native_dispatch_consumer_active_rows",
+                    "future_kernel_native_dispatch_consumer_launch_threads",
+                    "future_kernel_native_dispatch_consumer_launch_geometry_checked",
+                    "future_kernel_native_dispatch_consumer_launch_covers_active_rows",
+                    "future_kernel_native_dispatch_consumer_launch_minimal_cover",
+                    "future_kernel_native_dispatch_consumer_row_count",
+                    "future_kernel_native_dispatch_consumer_row_ok_count",
+                    "future_kernel_native_dispatch_consumer_error_count",
+                    "future_kernel_native_dispatch_consumer_payload_bytes",
+                    "future_kernel_native_dispatch_consumer_passed_to_kernel",
+                    "future_kernel_native_dispatch_consumer_changes_kernel_launch_args",
+                    "future_kernel_native_dispatch_consumer_current_wna16_arg_compatible",
+                    "future_kernel_native_dispatch_consumer_requires_wna16_arg_reinterpretation",
+                    "future_kernel_native_dispatch_consumer_field_mask",
+                    "future_kernel_native_dispatch_consumer_required_field_mask",
+                    "future_kernel_native_dispatch_consumer_single_field_mirror_checked",
+                    "future_kernel_native_dispatch_consumer_single_field_mirror_field_name",
+                    "future_kernel_native_dispatch_consumer_single_field_mirror_row_count",
+                    "future_kernel_native_dispatch_consumer_single_field_mirror_row_ok_count",
+                    "future_kernel_native_dispatch_consumer_single_field_mirror_error_count",
                     "single_field_mirror_checked",
                     "single_field_mirror_field_name",
                     "single_field_mirror_row_count",
@@ -566,6 +1517,7 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
                 output_json=preflight_output,
                 summary_only=False,
                 defer_runner=True,
+                defer_artifact=True,
             ),
             env=env,
             dry_run=bool(args.dry_run),
@@ -575,6 +1527,7 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
                 output_json=preflight_status_output,
                 summary_only=True,
                 defer_runner=True,
+                defer_artifact=True,
             ),
             env=env,
             dry_run=bool(args.dry_run),
@@ -595,6 +1548,108 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
     )
     descriptor_ptr_mirror_stub_payload = (
         {} if args.dry_run else _load_json_if_exists(descriptor_ptr_mirror_stub_output)
+    )
+    kernel_side_compatible_stub_payload = (
+        {}
+        if args.dry_run
+        else _load_json_if_exists(kernel_side_compatible_stub_output)
+    )
+    future_kernel_args_stub_payload = (
+        {}
+        if args.dry_run
+        else _load_json_if_exists(future_kernel_args_stub_output)
+    )
+    future_kernel_args_descriptor_ptr_stub_payload = (
+        {}
+        if args.dry_run
+        else _load_json_if_exists(future_kernel_args_descriptor_ptr_stub_output)
+    )
+    future_kernel_args_packed_weight_stub_payload = (
+        {}
+        if args.dry_run
+        else _load_json_if_exists(future_kernel_args_packed_weight_stub_output)
+    )
+    future_kernel_args_aux_metadata_stub_payload = (
+        {}
+        if args.dry_run
+        else _load_json_if_exists(future_kernel_args_aux_metadata_stub_output)
+    )
+    future_kernel_args_compatible_path_stub_payload = (
+        {}
+        if args.dry_run
+        else _load_json_if_exists(future_kernel_args_compatible_path_stub_output)
+    )
+    future_kernel_native_consumer_stub_payload = (
+        {}
+        if args.dry_run
+        else _load_json_if_exists(future_kernel_native_consumer_stub_output)
+    )
+    future_kernel_native_consumer_descriptor_ptr_stub_payload = (
+        {}
+        if args.dry_run
+        else _load_json_if_exists(future_kernel_native_consumer_descriptor_ptr_stub_output)
+    )
+    future_kernel_native_consumer_packed_weight_stub_payload = (
+        {}
+        if args.dry_run
+        else _load_json_if_exists(future_kernel_native_consumer_packed_weight_stub_output)
+    )
+    future_kernel_native_consumer_aux_metadata_stub_payload = (
+        {}
+        if args.dry_run
+        else _load_json_if_exists(future_kernel_native_consumer_aux_metadata_stub_output)
+    )
+    future_kernel_native_consumer_launch_stub_payload = (
+        {}
+        if args.dry_run
+        else _load_json_if_exists(future_kernel_native_consumer_launch_stub_output)
+    )
+    future_kernel_native_consumer_launch_descriptor_ptr_stub_payload = (
+        {}
+        if args.dry_run
+        else _load_json_if_exists(
+            future_kernel_native_consumer_launch_descriptor_ptr_stub_output
+        )
+    )
+    future_kernel_native_consumer_launch_packed_weight_stub_payload = (
+        {}
+        if args.dry_run
+        else _load_json_if_exists(
+            future_kernel_native_consumer_launch_packed_weight_stub_output
+        )
+    )
+    future_kernel_native_consumer_launch_aux_metadata_stub_payload = (
+        {}
+        if args.dry_run
+        else _load_json_if_exists(
+            future_kernel_native_consumer_launch_aux_metadata_stub_output
+        )
+    )
+    future_kernel_native_consumer_dispatch_stub_payload = (
+        {}
+        if args.dry_run
+        else _load_json_if_exists(future_kernel_native_consumer_dispatch_stub_output)
+    )
+    future_kernel_native_consumer_dispatch_descriptor_ptr_stub_payload = (
+        {}
+        if args.dry_run
+        else _load_json_if_exists(
+            future_kernel_native_consumer_dispatch_descriptor_ptr_stub_output
+        )
+    )
+    future_kernel_native_consumer_dispatch_packed_weight_stub_payload = (
+        {}
+        if args.dry_run
+        else _load_json_if_exists(
+            future_kernel_native_consumer_dispatch_packed_weight_stub_output
+        )
+    )
+    future_kernel_native_consumer_dispatch_aux_metadata_stub_payload = (
+        {}
+        if args.dry_run
+        else _load_json_if_exists(
+            future_kernel_native_consumer_dispatch_aux_metadata_stub_output
+        )
     )
     preflight_payload = (
         {} if args.dry_run else _load_json_if_exists(preflight_output)
@@ -684,6 +1739,520 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
             == "descriptor_ptr"
         )
     )
+    kernel_side_compatible_required = not bool(
+        args.skip_stub or args.skip_kernel_side_compatible_stub
+    )
+    kernel_side_compatible_passed = bool(
+        args.dry_run
+        or not kernel_side_compatible_required
+        or (
+            kernel_side_compatible_stub_payload.get("passed") is True
+            and kernel_side_compatible_stub_payload.get("input_json") is not None
+            and _resolve_repo_path(
+                str(kernel_side_compatible_stub_payload.get("input_json"))
+            )
+            == input_path
+            and kernel_side_compatible_stub_payload.get(
+                "kernel_side_compatible_consumer_checked"
+            )
+            is True
+            and kernel_side_compatible_stub_payload.get(
+                "kernel_side_compatible_consumer_error_count"
+            )
+            == 0
+            and kernel_side_compatible_stub_payload.get(
+                "kernel_side_compatible_consumer_passed_to_kernel"
+            )
+            is False
+            and kernel_side_compatible_stub_payload.get(
+                "kernel_side_compatible_consumer_current_wna16_arg_compatible"
+            )
+            is False
+        )
+    )
+    future_kernel_args_required = not bool(
+        args.skip_stub or args.skip_future_kernel_args_stub
+    )
+    future_kernel_args_passed = bool(
+        args.dry_run
+        or not future_kernel_args_required
+        or (
+            future_kernel_args_stub_payload.get("passed") is True
+            and future_kernel_args_stub_payload.get("input_json") is not None
+            and _resolve_repo_path(str(future_kernel_args_stub_payload.get("input_json")))
+            == input_path
+            and future_kernel_args_stub_payload.get(
+                "future_kernel_consumer_args_checked"
+            )
+            is True
+            and future_kernel_args_stub_payload.get(
+                "future_kernel_consumer_args_error_count"
+            )
+            == 0
+            and future_kernel_args_stub_payload.get(
+                "future_kernel_consumer_args_passed_to_kernel"
+            )
+            is False
+            and future_kernel_args_stub_payload.get(
+                "future_kernel_consumer_args_current_wna16_arg_compatible"
+            )
+            is False
+            and future_kernel_args_stub_payload.get(
+                "future_kernel_consumer_args_requires_wna16_arg_reinterpretation"
+            )
+            is False
+            and _future_field_mask_ok(
+                future_kernel_args_stub_payload,
+                prefix="future_kernel_consumer_args",
+                expected_field="scale_metadata_handle",
+            )
+            and future_kernel_args_stub_payload.get(
+                "future_kernel_consumer_args_single_field_mirror_checked"
+            )
+            is True
+            and future_kernel_args_stub_payload.get(
+                "future_kernel_consumer_args_single_field_mirror_field_name"
+            )
+            == "scale_metadata_handle"
+            and future_kernel_args_stub_payload.get(
+                "future_kernel_consumer_args_single_field_mirror_error_count"
+            )
+            == 0
+        )
+    )
+
+    def _future_kernel_args_field_passed(
+        payload: dict[str, Any],
+        *,
+        expected_field: str,
+    ) -> bool:
+        return bool(
+            payload.get("passed") is True
+            and payload.get("input_json") is not None
+            and _resolve_repo_path(str(payload.get("input_json"))) == input_path
+            and payload.get("future_kernel_consumer_args_checked") is True
+            and payload.get("future_kernel_consumer_args_error_count") == 0
+            and payload.get("future_kernel_consumer_args_passed_to_kernel") is False
+            and payload.get("future_kernel_consumer_args_current_wna16_arg_compatible")
+            is False
+            and payload.get(
+                "future_kernel_consumer_args_requires_wna16_arg_reinterpretation"
+            )
+            is False
+            and _future_field_mask_ok(
+                payload,
+                prefix="future_kernel_consumer_args",
+                expected_field=expected_field,
+            )
+            and payload.get("future_kernel_consumer_args_single_field_mirror_checked")
+            is True
+            and payload.get("future_kernel_consumer_args_single_field_mirror_field_name")
+            == expected_field
+            and payload.get("future_kernel_consumer_args_single_field_mirror_error_count")
+            == 0
+        )
+
+    future_kernel_args_extra_required = not bool(
+        args.skip_stub
+        or args.skip_future_kernel_args_stub
+        or args.skip_future_kernel_args_extra_field_stubs
+    )
+    future_kernel_args_extra_passed = bool(
+        args.dry_run
+        or not future_kernel_args_extra_required
+        or (
+            _future_kernel_args_field_passed(
+                future_kernel_args_descriptor_ptr_stub_payload,
+                expected_field="descriptor_ptr",
+            )
+            and _future_kernel_args_field_passed(
+                future_kernel_args_packed_weight_stub_payload,
+                expected_field="packed_weight_descriptor",
+            )
+            and _future_kernel_args_field_passed(
+                future_kernel_args_aux_metadata_stub_payload,
+                expected_field="aux_metadata_handle",
+            )
+        )
+    )
+    future_kernel_args_compatible_path_required = not bool(
+        args.skip_stub or args.skip_future_kernel_args_compatible_path_stub
+    )
+    future_kernel_args_compatible_path_passed = bool(
+        args.dry_run
+        or not future_kernel_args_compatible_path_required
+        or (
+            future_kernel_args_compatible_path_stub_payload.get("passed") is True
+            and future_kernel_args_compatible_path_stub_payload.get("input_json")
+            is not None
+            and _resolve_repo_path(
+                str(future_kernel_args_compatible_path_stub_payload.get("input_json"))
+            )
+            == input_path
+            and future_kernel_args_compatible_path_stub_payload.get(
+                "future_kernel_consumer_args_checked"
+            )
+            is True
+            and future_kernel_args_compatible_path_stub_payload.get(
+                "future_kernel_consumer_args_error_count"
+            )
+            == 0
+            and future_kernel_args_compatible_path_stub_payload.get(
+                "future_kernel_args_compatible_consumer_path_checked"
+            )
+            is True
+            and future_kernel_args_compatible_path_stub_payload.get(
+                "future_kernel_args_compatible_consumer_path_error_count"
+            )
+            == 0
+            and future_kernel_args_compatible_path_stub_payload.get(
+                "future_kernel_args_compatible_consumer_path_passed_to_kernel"
+            )
+            is False
+            and future_kernel_args_compatible_path_stub_payload.get(
+                "future_kernel_args_compatible_consumer_path_current_wna16_arg_compatible"
+            )
+            is False
+            and future_kernel_args_compatible_path_stub_payload.get(
+                "future_kernel_consumer_args_requires_wna16_arg_reinterpretation"
+            )
+            is False
+            and future_kernel_args_compatible_path_stub_payload.get(
+                "future_kernel_args_compatible_consumer_path_requires_wna16_arg_reinterpretation"
+            )
+            is False
+        )
+    )
+
+    def _future_native_consumer_field_passed(
+        payload: dict[str, Any],
+        *,
+        expected_field: str,
+    ) -> bool:
+        return bool(
+            payload.get("passed") is True
+            and payload.get("input_json") is not None
+            and _resolve_repo_path(str(payload.get("input_json"))) == input_path
+            and payload.get("future_kernel_native_consumer_checked") is True
+            and payload.get("future_kernel_native_consumer_abi_name")
+            == "premap_future_kernel_native_consumer_abi_v1"
+            and payload.get("future_kernel_native_consumer_mode")
+            == "readonly_future_kernel_native_consumer_abi"
+            and payload.get("future_kernel_native_consumer_source")
+            == "premap_typed_handle_table_soa_fields"
+            and payload.get("future_kernel_native_consumer_error_count") == 0
+            and payload.get("future_kernel_native_consumer_payload_bytes") == 0
+            and payload.get("future_kernel_native_consumer_passed_to_kernel") is False
+            and payload.get("future_kernel_native_consumer_changes_kernel_launch_args")
+            is False
+            and payload.get("future_kernel_native_consumer_current_wna16_arg_compatible")
+            is False
+            and payload.get(
+                "future_kernel_native_consumer_requires_wna16_arg_reinterpretation"
+            )
+            is False
+            and _future_field_mask_ok(
+                payload,
+                prefix="future_kernel_native_consumer",
+                expected_field=expected_field,
+            )
+            and payload.get("future_kernel_native_consumer_single_field_mirror_checked")
+            is True
+            and payload.get("future_kernel_native_consumer_single_field_mirror_field_name")
+            == expected_field
+            and payload.get("future_kernel_native_consumer_single_field_mirror_error_count")
+            == 0
+        )
+
+    def _future_native_launch_consumer_field_passed(
+        payload: dict[str, Any],
+        *,
+        expected_field: str,
+    ) -> bool:
+        return bool(
+            payload.get("passed") is True
+            and payload.get("input_json") is not None
+            and _resolve_repo_path(str(payload.get("input_json"))) == input_path
+            and payload.get("future_kernel_native_consumer_checked") is True
+            and payload.get("future_kernel_native_consumer_error_count") == 0
+            and payload.get("future_kernel_native_launch_consumer_checked") is True
+            and payload.get("future_kernel_native_launch_consumer_abi_name")
+            == "premap_future_kernel_native_consumer_launch_abi_v1"
+            and payload.get("future_kernel_native_launch_consumer_mode")
+            == "readonly_future_kernel_native_consumer_launch_abi"
+            and payload.get("future_kernel_native_launch_consumer_source")
+            == "premap_future_kernel_native_consumer_abi_v1"
+            and payload.get("future_kernel_native_launch_consumer_error_count") == 0
+            and payload.get("future_kernel_native_launch_consumer_payload_bytes") == 0
+            and payload.get("future_kernel_native_launch_consumer_passed_to_kernel")
+            is False
+            and payload.get(
+                "future_kernel_native_launch_consumer_changes_kernel_launch_args"
+            )
+            is False
+            and payload.get(
+                "future_kernel_native_launch_consumer_current_wna16_arg_compatible"
+            )
+            is False
+            and payload.get(
+                "future_kernel_native_launch_consumer_requires_wna16_arg_reinterpretation"
+            )
+            is False
+            and _future_field_mask_ok(
+                payload,
+                prefix="future_kernel_native_launch_consumer",
+                expected_field=expected_field,
+            )
+            and payload.get(
+                "future_kernel_native_launch_consumer_single_field_mirror_checked"
+            )
+            is True
+            and payload.get(
+                "future_kernel_native_launch_consumer_single_field_mirror_field_name"
+            )
+            == expected_field
+            and payload.get(
+                "future_kernel_native_launch_consumer_single_field_mirror_error_count"
+            )
+            == 0
+        )
+
+    def _future_native_dispatch_consumer_field_passed(
+        payload: dict[str, Any],
+        *,
+        expected_field: str,
+    ) -> bool:
+        grid_x = payload.get("future_kernel_native_dispatch_consumer_grid_x")
+        block_x = payload.get("future_kernel_native_dispatch_consumer_block_x")
+        row_offset = payload.get("future_kernel_native_dispatch_consumer_row_offset")
+        row_limit = payload.get("future_kernel_native_dispatch_consumer_row_limit")
+        row_count = payload.get("row_count")
+        rows_per_program = payload.get(
+            "future_kernel_native_dispatch_consumer_rows_per_program"
+        )
+        active_rows = payload.get(
+            "future_kernel_native_dispatch_consumer_active_rows"
+        )
+        launch_threads = payload.get(
+            "future_kernel_native_dispatch_consumer_launch_threads"
+        )
+        dispatch_row_count = payload.get(
+            "future_kernel_native_dispatch_consumer_row_count"
+        )
+        dispatch_row_ok_count = payload.get(
+            "future_kernel_native_dispatch_consumer_row_ok_count"
+        )
+        mirror_row_count = payload.get(
+            "future_kernel_native_dispatch_consumer_single_field_mirror_row_count"
+        )
+        mirror_row_ok_count = payload.get(
+            "future_kernel_native_dispatch_consumer_single_field_mirror_row_ok_count"
+        )
+        dispatch_ints = (
+            grid_x,
+            block_x,
+            row_offset,
+            row_limit,
+            row_count,
+            rows_per_program,
+            active_rows,
+            launch_threads,
+            dispatch_row_count,
+            dispatch_row_ok_count,
+            mirror_row_count,
+            mirror_row_ok_count,
+        )
+        dispatch_ints_valid = all(
+            isinstance(value, int) and not isinstance(value, bool)
+            for value in dispatch_ints
+        )
+        if dispatch_ints_valid:
+            launched_threads = grid_x * block_x
+            previous_grid_threads = (grid_x - 1) * block_x
+            active_rows_expected = row_limit - row_offset
+            dispatch_geometry_ok = (
+                grid_x > 0
+                and block_x > 0
+                and row_offset == 0
+                and row_limit == row_count
+                and rows_per_program == block_x
+                and active_rows == active_rows_expected
+                and active_rows > 0
+                and launch_threads == launched_threads
+                and launched_threads >= active_rows
+                and previous_grid_threads < active_rows
+                and dispatch_row_count == active_rows
+                and dispatch_row_ok_count == active_rows
+                and mirror_row_count == active_rows
+                and mirror_row_ok_count == active_rows
+            )
+        else:
+            dispatch_geometry_ok = False
+        return bool(
+            payload.get("passed") is True
+            and payload.get("input_json") is not None
+            and _resolve_repo_path(str(payload.get("input_json"))) == input_path
+            and payload.get("future_kernel_native_consumer_checked") is True
+            and payload.get("future_kernel_native_consumer_error_count") == 0
+            and payload.get("future_kernel_native_launch_consumer_checked") is True
+            and payload.get("future_kernel_native_launch_consumer_error_count") == 0
+            and payload.get("future_kernel_native_dispatch_consumer_checked") is True
+            and payload.get("future_kernel_native_dispatch_consumer_abi_name")
+            == "premap_future_kernel_native_consumer_dispatch_abi_v1"
+            and payload.get("future_kernel_native_dispatch_consumer_mode")
+            == "readonly_future_kernel_native_consumer_dispatch_abi"
+            and payload.get("future_kernel_native_dispatch_consumer_source")
+            == "premap_future_kernel_native_consumer_launch_abi_v1"
+            and payload.get("future_kernel_native_dispatch_consumer_error_count") == 0
+            and payload.get("future_kernel_native_dispatch_consumer_payload_bytes") == 0
+            and payload.get("future_kernel_native_dispatch_consumer_passed_to_kernel")
+            is False
+            and payload.get(
+                "future_kernel_native_dispatch_consumer_changes_kernel_launch_args"
+            )
+            is False
+            and payload.get(
+                "future_kernel_native_dispatch_consumer_current_wna16_arg_compatible"
+            )
+            is False
+            and payload.get(
+                "future_kernel_native_dispatch_consumer_requires_wna16_arg_reinterpretation"
+            )
+            is False
+            and _future_field_mask_ok(
+                payload,
+                prefix="future_kernel_native_dispatch_consumer",
+                expected_field=expected_field,
+            )
+            and payload.get(
+                "future_kernel_native_dispatch_consumer_single_field_mirror_checked"
+            )
+            is True
+            and payload.get(
+                "future_kernel_native_dispatch_consumer_single_field_mirror_field_name"
+            )
+            == expected_field
+            and payload.get(
+                "future_kernel_native_dispatch_consumer_single_field_mirror_error_count"
+            )
+            == 0
+            and payload.get(
+                "future_kernel_native_dispatch_consumer_launch_geometry_checked"
+            )
+            is True
+            and payload.get(
+                "future_kernel_native_dispatch_consumer_launch_covers_active_rows"
+            )
+            is True
+            and payload.get(
+                "future_kernel_native_dispatch_consumer_launch_minimal_cover"
+            )
+            is True
+            and dispatch_geometry_ok
+        )
+
+    future_native_consumer_required = not bool(
+        args.skip_stub or args.skip_future_kernel_native_consumer_stub
+    )
+    future_native_consumer_passed = bool(
+        args.dry_run
+        or not future_native_consumer_required
+        or _future_native_consumer_field_passed(
+            future_kernel_native_consumer_stub_payload,
+            expected_field="scale_metadata_handle",
+        )
+    )
+    future_native_consumer_extra_required = not bool(
+        args.skip_stub
+        or args.skip_future_kernel_native_consumer_stub
+        or args.skip_future_kernel_native_consumer_extra_field_stubs
+    )
+    future_native_consumer_extra_passed = bool(
+        args.dry_run
+        or not future_native_consumer_extra_required
+        or (
+            _future_native_consumer_field_passed(
+                future_kernel_native_consumer_descriptor_ptr_stub_payload,
+                expected_field="descriptor_ptr",
+            )
+            and _future_native_consumer_field_passed(
+                future_kernel_native_consumer_packed_weight_stub_payload,
+                expected_field="packed_weight_descriptor",
+            )
+            and _future_native_consumer_field_passed(
+                future_kernel_native_consumer_aux_metadata_stub_payload,
+                expected_field="aux_metadata_handle",
+            )
+        )
+    )
+    future_native_launch_consumer_required = not bool(
+        args.skip_stub or args.skip_future_kernel_native_consumer_stub
+    )
+    future_native_launch_consumer_passed = bool(
+        args.dry_run
+        or not future_native_launch_consumer_required
+        or _future_native_launch_consumer_field_passed(
+            future_kernel_native_consumer_launch_stub_payload,
+            expected_field="scale_metadata_handle",
+        )
+    )
+    future_native_launch_consumer_extra_required = not bool(
+        args.skip_stub
+        or args.skip_future_kernel_native_consumer_stub
+        or args.skip_future_kernel_native_consumer_extra_field_stubs
+    )
+    future_native_launch_consumer_extra_passed = bool(
+        args.dry_run
+        or not future_native_launch_consumer_extra_required
+        or (
+            _future_native_launch_consumer_field_passed(
+                future_kernel_native_consumer_launch_descriptor_ptr_stub_payload,
+                expected_field="descriptor_ptr",
+            )
+            and _future_native_launch_consumer_field_passed(
+                future_kernel_native_consumer_launch_packed_weight_stub_payload,
+                expected_field="packed_weight_descriptor",
+            )
+            and _future_native_launch_consumer_field_passed(
+                future_kernel_native_consumer_launch_aux_metadata_stub_payload,
+                expected_field="aux_metadata_handle",
+            )
+        )
+    )
+    future_native_dispatch_consumer_required = not bool(
+        args.skip_stub or args.skip_future_kernel_native_consumer_stub
+    )
+    future_native_dispatch_consumer_passed = bool(
+        args.dry_run
+        or not future_native_dispatch_consumer_required
+        or _future_native_dispatch_consumer_field_passed(
+            future_kernel_native_consumer_dispatch_stub_payload,
+            expected_field="scale_metadata_handle",
+        )
+    )
+    future_native_dispatch_consumer_extra_required = not bool(
+        args.skip_stub
+        or args.skip_future_kernel_native_consumer_stub
+        or args.skip_future_kernel_native_consumer_extra_field_stubs
+    )
+    future_native_dispatch_consumer_extra_passed = bool(
+        args.dry_run
+        or not future_native_dispatch_consumer_extra_required
+        or (
+            _future_native_dispatch_consumer_field_passed(
+                future_kernel_native_consumer_dispatch_descriptor_ptr_stub_payload,
+                expected_field="descriptor_ptr",
+            )
+            and _future_native_dispatch_consumer_field_passed(
+                future_kernel_native_consumer_dispatch_packed_weight_stub_payload,
+                expected_field="packed_weight_descriptor",
+            )
+            and _future_native_dispatch_consumer_field_passed(
+                future_kernel_native_consumer_dispatch_aux_metadata_stub_payload,
+                expected_field="aux_metadata_handle",
+            )
+        )
+    )
     extra_input_checks_passed = bool(
         args.dry_run
         or all(item.get("passed") is True for item in extra_input_check_summaries)
@@ -699,6 +2268,16 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
             and packed_weight_mirror_passed
             and aux_metadata_mirror_passed
             and descriptor_ptr_mirror_passed
+            and kernel_side_compatible_passed
+            and future_kernel_args_passed
+            and future_kernel_args_extra_passed
+            and future_kernel_args_compatible_path_passed
+            and future_native_consumer_passed
+            and future_native_consumer_extra_passed
+            and future_native_launch_consumer_passed
+            and future_native_launch_consumer_extra_passed
+            and future_native_dispatch_consumer_passed
+            and future_native_dispatch_consumer_extra_passed
             and extra_input_checks_passed
             and preflight_payload.get("passed") is True
             and preflight_status_payload.get("passed") is True
@@ -803,6 +2382,428 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
             != "descriptor_ptr"
         ):
             failures.append("native_stub_descriptor_ptr_mirror_field_name_mismatch")
+    if not kernel_side_compatible_passed:
+        if kernel_side_compatible_stub_payload.get("passed") is not True:
+            failures.append("native_stub_kernel_side_compatible_not_passed")
+        if kernel_side_compatible_stub_payload.get("input_json") is None:
+            failures.append("native_stub_kernel_side_compatible_input_json_missing")
+        elif (
+            not args.dry_run
+            and _resolve_repo_path(
+                str(kernel_side_compatible_stub_payload.get("input_json"))
+            )
+            != input_path
+        ):
+            failures.append("native_stub_kernel_side_compatible_input_json_mismatch")
+        if (
+            kernel_side_compatible_stub_payload.get(
+                "kernel_side_compatible_consumer_checked"
+            )
+            is not True
+        ):
+            failures.append("native_stub_kernel_side_compatible_not_checked")
+        if (
+            kernel_side_compatible_stub_payload.get(
+                "kernel_side_compatible_consumer_error_count"
+            )
+            != 0
+        ):
+            failures.append("native_stub_kernel_side_compatible_error_count_mismatch")
+        if (
+            kernel_side_compatible_stub_payload.get(
+                "kernel_side_compatible_consumer_passed_to_kernel"
+            )
+            is not False
+        ):
+            failures.append("native_stub_kernel_side_compatible_passed_to_kernel")
+        if (
+            kernel_side_compatible_stub_payload.get(
+                "kernel_side_compatible_consumer_current_wna16_arg_compatible"
+            )
+            is not False
+        ):
+            failures.append("native_stub_kernel_side_compatible_wna16_arg_compatible")
+    if not future_kernel_args_passed:
+        if future_kernel_args_stub_payload.get("passed") is not True:
+            failures.append("native_stub_future_kernel_args_not_passed")
+        if future_kernel_args_stub_payload.get("input_json") is None:
+            failures.append("native_stub_future_kernel_args_input_json_missing")
+        elif (
+            not args.dry_run
+            and _resolve_repo_path(
+                str(future_kernel_args_stub_payload.get("input_json"))
+            )
+            != input_path
+        ):
+            failures.append("native_stub_future_kernel_args_input_json_mismatch")
+        if (
+            future_kernel_args_stub_payload.get(
+                "future_kernel_consumer_args_checked"
+            )
+            is not True
+        ):
+            failures.append("native_stub_future_kernel_args_not_checked")
+        if (
+            future_kernel_args_stub_payload.get(
+                "future_kernel_consumer_args_error_count"
+            )
+            != 0
+        ):
+            failures.append("native_stub_future_kernel_args_error_count_mismatch")
+        if (
+            future_kernel_args_stub_payload.get(
+                "future_kernel_consumer_args_passed_to_kernel"
+            )
+            is not False
+        ):
+            failures.append("native_stub_future_kernel_args_passed_to_kernel")
+        if (
+            future_kernel_args_stub_payload.get(
+                "future_kernel_consumer_args_current_wna16_arg_compatible"
+            )
+            is not False
+        ):
+            failures.append("native_stub_future_kernel_args_wna16_arg_compatible")
+        if (
+            future_kernel_args_stub_payload.get(
+                "future_kernel_consumer_args_single_field_mirror_checked"
+            )
+            is not True
+        ):
+            failures.append("native_stub_future_kernel_args_mirror_not_checked")
+        if (
+            future_kernel_args_stub_payload.get(
+                "future_kernel_consumer_args_single_field_mirror_field_name"
+            )
+            != "scale_metadata_handle"
+        ):
+            failures.append(
+                "native_stub_future_kernel_args_mirror_field_name_mismatch"
+            )
+    if not future_kernel_args_extra_passed:
+        for label, payload, expected_field in (
+            (
+                "descriptor_ptr",
+                future_kernel_args_descriptor_ptr_stub_payload,
+                "descriptor_ptr",
+            ),
+            (
+                "packed_weight",
+                future_kernel_args_packed_weight_stub_payload,
+                "packed_weight_descriptor",
+            ),
+            (
+                "aux_metadata",
+                future_kernel_args_aux_metadata_stub_payload,
+                "aux_metadata_handle",
+            ),
+        ):
+            if not _future_kernel_args_field_passed(
+                payload,
+                expected_field=expected_field,
+            ):
+                failures.append(f"native_stub_future_kernel_args_{label}_not_passed")
+    if not future_kernel_args_compatible_path_passed:
+        if future_kernel_args_compatible_path_stub_payload.get("passed") is not True:
+            failures.append("native_stub_future_kernel_args_compatible_path_not_passed")
+        if future_kernel_args_compatible_path_stub_payload.get("input_json") is None:
+            failures.append(
+                "native_stub_future_kernel_args_compatible_path_input_json_missing"
+            )
+        elif (
+            not args.dry_run
+            and _resolve_repo_path(
+                str(future_kernel_args_compatible_path_stub_payload.get("input_json"))
+            )
+            != input_path
+        ):
+            failures.append(
+                "native_stub_future_kernel_args_compatible_path_input_json_mismatch"
+            )
+        if (
+            future_kernel_args_compatible_path_stub_payload.get(
+                "future_kernel_args_compatible_consumer_path_checked"
+            )
+            is not True
+        ):
+            failures.append(
+                "native_stub_future_kernel_args_compatible_path_not_checked"
+            )
+        if (
+            future_kernel_args_compatible_path_stub_payload.get(
+                "future_kernel_args_compatible_consumer_path_error_count"
+            )
+            != 0
+        ):
+            failures.append(
+                "native_stub_future_kernel_args_compatible_path_error_count_mismatch"
+            )
+        if (
+            future_kernel_args_compatible_path_stub_payload.get(
+                "future_kernel_args_compatible_consumer_path_passed_to_kernel"
+            )
+            is not False
+        ):
+            failures.append(
+                "native_stub_future_kernel_args_compatible_path_passed_to_kernel"
+            )
+        if (
+            future_kernel_args_compatible_path_stub_payload.get(
+                "future_kernel_args_compatible_consumer_path_current_wna16_arg_compatible"
+            )
+            is not False
+        ):
+            failures.append(
+                "native_stub_future_kernel_args_compatible_path_wna16_arg_compatible"
+            )
+    if not future_native_consumer_passed:
+        if future_kernel_native_consumer_stub_payload.get("passed") is not True:
+            failures.append("native_stub_future_native_consumer_not_passed")
+        if future_kernel_native_consumer_stub_payload.get("input_json") is None:
+            failures.append("native_stub_future_native_consumer_input_json_missing")
+        elif (
+            not args.dry_run
+            and _resolve_repo_path(
+                str(future_kernel_native_consumer_stub_payload.get("input_json"))
+            )
+            != input_path
+        ):
+            failures.append("native_stub_future_native_consumer_input_json_mismatch")
+        if (
+            future_kernel_native_consumer_stub_payload.get(
+                "future_kernel_native_consumer_checked"
+            )
+            is not True
+        ):
+            failures.append("native_stub_future_native_consumer_not_checked")
+        if (
+            future_kernel_native_consumer_stub_payload.get(
+                "future_kernel_native_consumer_error_count"
+            )
+            != 0
+        ):
+            failures.append("native_stub_future_native_consumer_error_count_mismatch")
+        if (
+            future_kernel_native_consumer_stub_payload.get(
+                "future_kernel_native_consumer_passed_to_kernel"
+            )
+            is not False
+        ):
+            failures.append("native_stub_future_native_consumer_passed_to_kernel")
+        if (
+            future_kernel_native_consumer_stub_payload.get(
+                "future_kernel_native_consumer_current_wna16_arg_compatible"
+            )
+            is not False
+        ):
+            failures.append("native_stub_future_native_consumer_wna16_arg_compatible")
+        if (
+            future_kernel_native_consumer_stub_payload.get(
+                "future_kernel_native_consumer_single_field_mirror_checked"
+            )
+            is not True
+        ):
+            failures.append("native_stub_future_native_consumer_mirror_not_checked")
+        if (
+            future_kernel_native_consumer_stub_payload.get(
+                "future_kernel_native_consumer_single_field_mirror_field_name"
+            )
+            != "scale_metadata_handle"
+        ):
+            failures.append(
+                "native_stub_future_native_consumer_mirror_field_name_mismatch"
+            )
+    if not future_native_consumer_extra_passed:
+        for label, payload, expected_field in (
+            (
+                "descriptor_ptr",
+                future_kernel_native_consumer_descriptor_ptr_stub_payload,
+                "descriptor_ptr",
+            ),
+            (
+                "packed_weight",
+                future_kernel_native_consumer_packed_weight_stub_payload,
+                "packed_weight_descriptor",
+            ),
+            (
+                "aux_metadata",
+                future_kernel_native_consumer_aux_metadata_stub_payload,
+                "aux_metadata_handle",
+            ),
+        ):
+            if not _future_native_consumer_field_passed(
+                payload,
+                expected_field=expected_field,
+            ):
+                failures.append(f"native_stub_future_native_consumer_{label}_not_passed")
+    if not future_native_launch_consumer_passed:
+        if future_kernel_native_consumer_launch_stub_payload.get("passed") is not True:
+            failures.append("native_stub_future_native_launch_consumer_not_passed")
+        if future_kernel_native_consumer_launch_stub_payload.get("input_json") is None:
+            failures.append(
+                "native_stub_future_native_launch_consumer_input_json_missing"
+            )
+        elif (
+            not args.dry_run
+            and _resolve_repo_path(
+                str(future_kernel_native_consumer_launch_stub_payload.get("input_json"))
+            )
+            != input_path
+        ):
+            failures.append(
+                "native_stub_future_native_launch_consumer_input_json_mismatch"
+            )
+        if (
+            future_kernel_native_consumer_launch_stub_payload.get(
+                "future_kernel_native_launch_consumer_checked"
+            )
+            is not True
+        ):
+            failures.append("native_stub_future_native_launch_consumer_not_checked")
+        if (
+            future_kernel_native_consumer_launch_stub_payload.get(
+                "future_kernel_native_launch_consumer_error_count"
+            )
+            != 0
+        ):
+            failures.append(
+                "native_stub_future_native_launch_consumer_error_count_mismatch"
+            )
+        if (
+            future_kernel_native_consumer_launch_stub_payload.get(
+                "future_kernel_native_launch_consumer_passed_to_kernel"
+            )
+            is not False
+        ):
+            failures.append("native_stub_future_native_launch_consumer_passed_to_kernel")
+        if (
+            future_kernel_native_consumer_launch_stub_payload.get(
+                "future_kernel_native_launch_consumer_current_wna16_arg_compatible"
+            )
+            is not False
+        ):
+            failures.append(
+                "native_stub_future_native_launch_consumer_wna16_arg_compatible"
+            )
+        if (
+            future_kernel_native_consumer_launch_stub_payload.get(
+                "future_kernel_native_launch_consumer_single_field_mirror_checked"
+            )
+            is not True
+        ):
+            failures.append(
+                "native_stub_future_native_launch_consumer_mirror_not_checked"
+            )
+        if (
+            future_kernel_native_consumer_launch_stub_payload.get(
+                "future_kernel_native_launch_consumer_single_field_mirror_field_name"
+            )
+            != "scale_metadata_handle"
+        ):
+            failures.append(
+                "native_stub_future_native_launch_consumer_mirror_field_name_mismatch"
+            )
+    if not future_native_launch_consumer_extra_passed:
+        for label, payload, expected_field in (
+            (
+                "descriptor_ptr",
+                future_kernel_native_consumer_launch_descriptor_ptr_stub_payload,
+                "descriptor_ptr",
+            ),
+            (
+                "packed_weight",
+                future_kernel_native_consumer_launch_packed_weight_stub_payload,
+                "packed_weight_descriptor",
+            ),
+            (
+                "aux_metadata",
+                future_kernel_native_consumer_launch_aux_metadata_stub_payload,
+                "aux_metadata_handle",
+            ),
+        ):
+            if not _future_native_launch_consumer_field_passed(
+                payload,
+                expected_field=expected_field,
+            ):
+                failures.append(
+                    f"native_stub_future_native_launch_consumer_{label}_not_passed"
+                )
+    if not future_native_dispatch_consumer_passed:
+        if future_kernel_native_consumer_dispatch_stub_payload.get("passed") is not True:
+            failures.append("native_stub_future_native_dispatch_consumer_not_passed")
+        if future_kernel_native_consumer_dispatch_stub_payload.get("input_json") is None:
+            failures.append(
+                "native_stub_future_native_dispatch_consumer_input_json_missing"
+            )
+        elif (
+            not args.dry_run
+            and _resolve_repo_path(
+                str(future_kernel_native_consumer_dispatch_stub_payload.get("input_json"))
+            )
+            != input_path
+        ):
+            failures.append(
+                "native_stub_future_native_dispatch_consumer_input_json_mismatch"
+            )
+        if (
+            future_kernel_native_consumer_dispatch_stub_payload.get(
+                "future_kernel_native_dispatch_consumer_checked"
+            )
+            is not True
+        ):
+            failures.append("native_stub_future_native_dispatch_consumer_not_checked")
+        if (
+            future_kernel_native_consumer_dispatch_stub_payload.get(
+                "future_kernel_native_dispatch_consumer_error_count"
+            )
+            != 0
+        ):
+            failures.append(
+                "native_stub_future_native_dispatch_consumer_error_count_mismatch"
+            )
+        if (
+            future_kernel_native_consumer_dispatch_stub_payload.get(
+                "future_kernel_native_dispatch_consumer_passed_to_kernel"
+            )
+            is not False
+        ):
+            failures.append(
+                "native_stub_future_native_dispatch_consumer_passed_to_kernel"
+            )
+        if (
+            future_kernel_native_consumer_dispatch_stub_payload.get(
+                "future_kernel_native_dispatch_consumer_current_wna16_arg_compatible"
+            )
+            is not False
+        ):
+            failures.append(
+                "native_stub_future_native_dispatch_consumer_wna16_arg_compatible"
+            )
+    if not future_native_dispatch_consumer_extra_passed:
+        for label, payload, expected_field in (
+            (
+                "descriptor_ptr",
+                future_kernel_native_consumer_dispatch_descriptor_ptr_stub_payload,
+                "descriptor_ptr",
+            ),
+            (
+                "packed_weight",
+                future_kernel_native_consumer_dispatch_packed_weight_stub_payload,
+                "packed_weight_descriptor",
+            ),
+            (
+                "aux_metadata",
+                future_kernel_native_consumer_dispatch_aux_metadata_stub_payload,
+                "aux_metadata_handle",
+            ),
+        ):
+            if not _future_native_dispatch_consumer_field_passed(
+                payload,
+                expected_field=expected_field,
+            ):
+                failures.append(
+                    f"native_stub_future_native_dispatch_consumer_{label}_not_passed"
+                )
     if not extra_input_checks_passed:
         failures.append("extra_online_input_stub_check_not_passed")
 
@@ -840,6 +2841,60 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
         ),
         "descriptor_ptr_mirror_native_stub_output_json": str(
             descriptor_ptr_mirror_stub_output
+        ),
+        "kernel_side_compatible_native_stub_output_json": str(
+            kernel_side_compatible_stub_output
+        ),
+        "future_kernel_args_native_stub_output_json": str(
+            future_kernel_args_stub_output
+        ),
+        "future_kernel_args_descriptor_ptr_native_stub_output_json": str(
+            future_kernel_args_descriptor_ptr_stub_output
+        ),
+        "future_kernel_args_packed_weight_native_stub_output_json": str(
+            future_kernel_args_packed_weight_stub_output
+        ),
+        "future_kernel_args_aux_metadata_native_stub_output_json": str(
+            future_kernel_args_aux_metadata_stub_output
+        ),
+        "future_kernel_args_compatible_path_native_stub_output_json": str(
+            future_kernel_args_compatible_path_stub_output
+        ),
+        "future_kernel_native_consumer_native_stub_output_json": str(
+            future_kernel_native_consumer_stub_output
+        ),
+        "future_kernel_native_consumer_descriptor_ptr_native_stub_output_json": str(
+            future_kernel_native_consumer_descriptor_ptr_stub_output
+        ),
+        "future_kernel_native_consumer_packed_weight_native_stub_output_json": str(
+            future_kernel_native_consumer_packed_weight_stub_output
+        ),
+        "future_kernel_native_consumer_aux_metadata_native_stub_output_json": str(
+            future_kernel_native_consumer_aux_metadata_stub_output
+        ),
+        "future_kernel_native_consumer_launch_native_stub_output_json": str(
+            future_kernel_native_consumer_launch_stub_output
+        ),
+        "future_kernel_native_consumer_launch_descriptor_ptr_native_stub_output_json": str(
+            future_kernel_native_consumer_launch_descriptor_ptr_stub_output
+        ),
+        "future_kernel_native_consumer_launch_packed_weight_native_stub_output_json": str(
+            future_kernel_native_consumer_launch_packed_weight_stub_output
+        ),
+        "future_kernel_native_consumer_launch_aux_metadata_native_stub_output_json": str(
+            future_kernel_native_consumer_launch_aux_metadata_stub_output
+        ),
+        "future_kernel_native_consumer_dispatch_native_stub_output_json": str(
+            future_kernel_native_consumer_dispatch_stub_output
+        ),
+        "future_kernel_native_consumer_dispatch_descriptor_ptr_native_stub_output_json": str(
+            future_kernel_native_consumer_dispatch_descriptor_ptr_stub_output
+        ),
+        "future_kernel_native_consumer_dispatch_packed_weight_native_stub_output_json": str(
+            future_kernel_native_consumer_dispatch_packed_weight_stub_output
+        ),
+        "future_kernel_native_consumer_dispatch_aux_metadata_native_stub_output_json": str(
+            future_kernel_native_consumer_dispatch_aux_metadata_stub_output
         ),
         "preflight_output_json": str(preflight_output),
         "preflight_status_output_json": str(preflight_status_output),
@@ -962,6 +3017,251 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
                 "input_json",
             )
         },
+        "kernel_side_compatible_stub_summary": {
+            key: kernel_side_compatible_stub_payload.get(key)
+            for key in (
+                "passed",
+                "ok",
+                "row_count",
+                "row_ok_count",
+                "error_count",
+                "kernel_side_compatible_consumer_checked",
+                "kernel_side_compatible_consumer_name",
+                "kernel_side_compatible_consumer_mode",
+                "kernel_side_compatible_consumer_source",
+                "kernel_side_compatible_consumer_row_count",
+                "kernel_side_compatible_consumer_row_ok_count",
+                "kernel_side_compatible_consumer_error_count",
+                "kernel_side_compatible_consumer_payload_bytes",
+                "kernel_side_compatible_consumer_passed_to_kernel",
+                "kernel_side_compatible_consumer_changes_kernel_launch_args",
+                "kernel_side_compatible_consumer_current_wna16_arg_compatible",
+                "payload_bytes",
+                "passed_to_kernel",
+                "changes_kernel_launch_args",
+                "input_json",
+            )
+        },
+        "future_kernel_args_stub_summary": {
+            key: future_kernel_args_stub_payload.get(key)
+            for key in (
+                "passed",
+                "ok",
+                "row_count",
+                "row_ok_count",
+                "error_count",
+                "future_kernel_consumer_args_checked",
+                "future_kernel_consumer_args_name",
+                "future_kernel_consumer_args_mode",
+                "future_kernel_consumer_args_source",
+                "future_kernel_consumer_args_row_count",
+                "future_kernel_consumer_args_row_ok_count",
+                "future_kernel_consumer_args_error_count",
+                "future_kernel_consumer_args_payload_bytes",
+                "future_kernel_consumer_args_passed_to_kernel",
+                "future_kernel_consumer_args_changes_kernel_launch_args",
+                "future_kernel_consumer_args_current_wna16_arg_compatible",
+                "future_kernel_consumer_args_requires_wna16_arg_reinterpretation",
+                "future_kernel_consumer_args_field_mask",
+                "future_kernel_consumer_args_required_field_mask",
+                "future_kernel_consumer_args_single_field_mirror_checked",
+                "future_kernel_consumer_args_single_field_mirror_field_name",
+                "future_kernel_consumer_args_single_field_mirror_row_count",
+                "future_kernel_consumer_args_single_field_mirror_row_ok_count",
+                "future_kernel_consumer_args_single_field_mirror_error_count",
+                "payload_bytes",
+                "passed_to_kernel",
+                "changes_kernel_launch_args",
+                "input_json",
+            )
+        },
+        "future_kernel_args_descriptor_ptr_stub_summary": {
+            key: future_kernel_args_descriptor_ptr_stub_payload.get(key)
+            for key in (
+                "passed",
+                "ok",
+                "row_count",
+                "row_ok_count",
+                "error_count",
+                "future_kernel_consumer_args_checked",
+                "future_kernel_consumer_args_name",
+                "future_kernel_consumer_args_mode",
+                "future_kernel_consumer_args_source",
+                "future_kernel_consumer_args_row_count",
+                "future_kernel_consumer_args_row_ok_count",
+                "future_kernel_consumer_args_error_count",
+                "future_kernel_consumer_args_payload_bytes",
+                "future_kernel_consumer_args_passed_to_kernel",
+                "future_kernel_consumer_args_changes_kernel_launch_args",
+                "future_kernel_consumer_args_current_wna16_arg_compatible",
+                "future_kernel_consumer_args_requires_wna16_arg_reinterpretation",
+                "future_kernel_consumer_args_field_mask",
+                "future_kernel_consumer_args_required_field_mask",
+                "future_kernel_consumer_args_single_field_mirror_checked",
+                "future_kernel_consumer_args_single_field_mirror_field_name",
+                "future_kernel_consumer_args_single_field_mirror_row_count",
+                "future_kernel_consumer_args_single_field_mirror_row_ok_count",
+                "future_kernel_consumer_args_single_field_mirror_error_count",
+                "payload_bytes",
+                "passed_to_kernel",
+                "changes_kernel_launch_args",
+                "input_json",
+            )
+        },
+        "future_kernel_args_packed_weight_stub_summary": {
+            key: future_kernel_args_packed_weight_stub_payload.get(key)
+            for key in (
+                "passed",
+                "ok",
+                "row_count",
+                "row_ok_count",
+                "error_count",
+                "future_kernel_consumer_args_checked",
+                "future_kernel_consumer_args_name",
+                "future_kernel_consumer_args_mode",
+                "future_kernel_consumer_args_source",
+                "future_kernel_consumer_args_row_count",
+                "future_kernel_consumer_args_row_ok_count",
+                "future_kernel_consumer_args_error_count",
+                "future_kernel_consumer_args_payload_bytes",
+                "future_kernel_consumer_args_passed_to_kernel",
+                "future_kernel_consumer_args_changes_kernel_launch_args",
+                "future_kernel_consumer_args_current_wna16_arg_compatible",
+                "future_kernel_consumer_args_requires_wna16_arg_reinterpretation",
+                "future_kernel_consumer_args_field_mask",
+                "future_kernel_consumer_args_required_field_mask",
+                "future_kernel_consumer_args_single_field_mirror_checked",
+                "future_kernel_consumer_args_single_field_mirror_field_name",
+                "future_kernel_consumer_args_single_field_mirror_row_count",
+                "future_kernel_consumer_args_single_field_mirror_row_ok_count",
+                "future_kernel_consumer_args_single_field_mirror_error_count",
+                "payload_bytes",
+                "passed_to_kernel",
+                "changes_kernel_launch_args",
+                "input_json",
+            )
+        },
+        "future_kernel_args_aux_metadata_stub_summary": {
+            key: future_kernel_args_aux_metadata_stub_payload.get(key)
+            for key in (
+                "passed",
+                "ok",
+                "row_count",
+                "row_ok_count",
+                "error_count",
+                "future_kernel_consumer_args_checked",
+                "future_kernel_consumer_args_name",
+                "future_kernel_consumer_args_mode",
+                "future_kernel_consumer_args_source",
+                "future_kernel_consumer_args_row_count",
+                "future_kernel_consumer_args_row_ok_count",
+                "future_kernel_consumer_args_error_count",
+                "future_kernel_consumer_args_payload_bytes",
+                "future_kernel_consumer_args_passed_to_kernel",
+                "future_kernel_consumer_args_changes_kernel_launch_args",
+                "future_kernel_consumer_args_current_wna16_arg_compatible",
+                "future_kernel_consumer_args_requires_wna16_arg_reinterpretation",
+                "future_kernel_consumer_args_field_mask",
+                "future_kernel_consumer_args_required_field_mask",
+                "future_kernel_consumer_args_single_field_mirror_checked",
+                "future_kernel_consumer_args_single_field_mirror_field_name",
+                "future_kernel_consumer_args_single_field_mirror_row_count",
+                "future_kernel_consumer_args_single_field_mirror_row_ok_count",
+                "future_kernel_consumer_args_single_field_mirror_error_count",
+                "payload_bytes",
+                "passed_to_kernel",
+                "changes_kernel_launch_args",
+                "input_json",
+            )
+        },
+        "future_kernel_args_compatible_path_stub_summary": {
+            key: future_kernel_args_compatible_path_stub_payload.get(key)
+            for key in (
+                "passed",
+                "ok",
+                "row_count",
+                "row_ok_count",
+                "error_count",
+                "future_kernel_consumer_args_checked",
+                "future_kernel_consumer_args_name",
+                "future_kernel_consumer_args_mode",
+                "future_kernel_consumer_args_source",
+                "future_kernel_consumer_args_row_count",
+                "future_kernel_consumer_args_row_ok_count",
+                "future_kernel_consumer_args_error_count",
+                "future_kernel_consumer_args_payload_bytes",
+                "future_kernel_consumer_args_passed_to_kernel",
+                "future_kernel_consumer_args_changes_kernel_launch_args",
+                "future_kernel_consumer_args_current_wna16_arg_compatible",
+                "future_kernel_consumer_args_requires_wna16_arg_reinterpretation",
+                "future_kernel_consumer_args_field_mask",
+                "future_kernel_consumer_args_required_field_mask",
+                "future_kernel_args_compatible_consumer_path_checked",
+                "future_kernel_args_compatible_consumer_path_name",
+                "future_kernel_args_compatible_consumer_path_mode",
+                "future_kernel_args_compatible_consumer_path_source",
+                "future_kernel_args_compatible_consumer_path_row_count",
+                "future_kernel_args_compatible_consumer_path_row_ok_count",
+                "future_kernel_args_compatible_consumer_path_error_count",
+                "future_kernel_args_compatible_consumer_path_payload_bytes",
+                "future_kernel_args_compatible_consumer_path_passed_to_kernel",
+                "future_kernel_args_compatible_consumer_path_changes_kernel_launch_args",
+                "future_kernel_args_compatible_consumer_path_current_wna16_arg_compatible",
+                "future_kernel_args_compatible_consumer_path_requires_wna16_arg_reinterpretation",
+                "payload_bytes",
+                "passed_to_kernel",
+                "changes_kernel_launch_args",
+                "input_json",
+            )
+        },
+        "future_kernel_native_consumer_stub_summary": {
+            key: future_kernel_native_consumer_stub_payload.get(key)
+            for key in FUTURE_KERNEL_NATIVE_CONSUMER_SUMMARY_KEYS
+        },
+        "future_kernel_native_consumer_descriptor_ptr_stub_summary": {
+            key: future_kernel_native_consumer_descriptor_ptr_stub_payload.get(key)
+            for key in FUTURE_KERNEL_NATIVE_CONSUMER_SUMMARY_KEYS
+        },
+        "future_kernel_native_consumer_packed_weight_stub_summary": {
+            key: future_kernel_native_consumer_packed_weight_stub_payload.get(key)
+            for key in FUTURE_KERNEL_NATIVE_CONSUMER_SUMMARY_KEYS
+        },
+        "future_kernel_native_consumer_aux_metadata_stub_summary": {
+            key: future_kernel_native_consumer_aux_metadata_stub_payload.get(key)
+            for key in FUTURE_KERNEL_NATIVE_CONSUMER_SUMMARY_KEYS
+        },
+        "future_kernel_native_consumer_launch_stub_summary": {
+            key: future_kernel_native_consumer_launch_stub_payload.get(key)
+            for key in FUTURE_KERNEL_NATIVE_LAUNCH_CONSUMER_SUMMARY_KEYS
+        },
+        "future_kernel_native_consumer_launch_descriptor_ptr_stub_summary": {
+            key: future_kernel_native_consumer_launch_descriptor_ptr_stub_payload.get(key)
+            for key in FUTURE_KERNEL_NATIVE_LAUNCH_CONSUMER_SUMMARY_KEYS
+        },
+        "future_kernel_native_consumer_launch_packed_weight_stub_summary": {
+            key: future_kernel_native_consumer_launch_packed_weight_stub_payload.get(key)
+            for key in FUTURE_KERNEL_NATIVE_LAUNCH_CONSUMER_SUMMARY_KEYS
+        },
+        "future_kernel_native_consumer_launch_aux_metadata_stub_summary": {
+            key: future_kernel_native_consumer_launch_aux_metadata_stub_payload.get(key)
+            for key in FUTURE_KERNEL_NATIVE_LAUNCH_CONSUMER_SUMMARY_KEYS
+        },
+        "future_kernel_native_consumer_dispatch_stub_summary": {
+            key: future_kernel_native_consumer_dispatch_stub_payload.get(key)
+            for key in FUTURE_KERNEL_NATIVE_DISPATCH_CONSUMER_SUMMARY_KEYS
+        },
+        "future_kernel_native_consumer_dispatch_descriptor_ptr_stub_summary": {
+            key: future_kernel_native_consumer_dispatch_descriptor_ptr_stub_payload.get(key)
+            for key in FUTURE_KERNEL_NATIVE_DISPATCH_CONSUMER_SUMMARY_KEYS
+        },
+        "future_kernel_native_consumer_dispatch_packed_weight_stub_summary": {
+            key: future_kernel_native_consumer_dispatch_packed_weight_stub_payload.get(key)
+            for key in FUTURE_KERNEL_NATIVE_DISPATCH_CONSUMER_SUMMARY_KEYS
+        },
+        "future_kernel_native_consumer_dispatch_aux_metadata_stub_summary": {
+            key: future_kernel_native_consumer_dispatch_aux_metadata_stub_payload.get(key)
+            for key in FUTURE_KERNEL_NATIVE_DISPATCH_CONSUMER_SUMMARY_KEYS
+        },
         "preflight_summary": {
             "passed": preflight_payload.get("passed"),
             "failures": preflight_payload.get("failures"),
@@ -1041,6 +3341,7 @@ def finalize_report_with_strict_preflight(
             output_json=preflight_output,
             summary_only=False,
             defer_runner=False,
+            defer_artifact=True,
         ),
         env=env,
         dry_run=False,
@@ -1050,6 +3351,7 @@ def finalize_report_with_strict_preflight(
             output_json=preflight_status_output,
             summary_only=True,
             defer_runner=False,
+            defer_artifact=True,
         ),
         env=env,
         dry_run=False,
@@ -1180,6 +3482,108 @@ def finalize_report_with_artifact_check(
         "runner_aux_metadata_mirror_stub_row_ok_count": artifact_payload.get(
             "runner_aux_metadata_mirror_stub_row_ok_count"
         ),
+        "runner_kernel_side_compatible_stub_row_count": artifact_payload.get(
+            "runner_kernel_side_compatible_stub_row_count"
+        ),
+        "runner_kernel_side_compatible_stub_row_ok_count": artifact_payload.get(
+            "runner_kernel_side_compatible_stub_row_ok_count"
+        ),
+        "runner_future_kernel_args_stub_row_count": artifact_payload.get(
+            "runner_future_kernel_args_stub_row_count"
+        ),
+        "runner_future_kernel_args_stub_row_ok_count": artifact_payload.get(
+            "runner_future_kernel_args_stub_row_ok_count"
+        ),
+        "runner_future_kernel_args_descriptor_ptr_stub_row_count": artifact_payload.get(
+            "runner_future_kernel_args_descriptor_ptr_stub_row_count"
+        ),
+        "runner_future_kernel_args_descriptor_ptr_stub_row_ok_count": artifact_payload.get(
+            "runner_future_kernel_args_descriptor_ptr_stub_row_ok_count"
+        ),
+        "runner_future_kernel_args_packed_weight_stub_row_count": artifact_payload.get(
+            "runner_future_kernel_args_packed_weight_stub_row_count"
+        ),
+        "runner_future_kernel_args_packed_weight_stub_row_ok_count": artifact_payload.get(
+            "runner_future_kernel_args_packed_weight_stub_row_ok_count"
+        ),
+        "runner_future_kernel_args_aux_metadata_stub_row_count": artifact_payload.get(
+            "runner_future_kernel_args_aux_metadata_stub_row_count"
+        ),
+        "runner_future_kernel_args_aux_metadata_stub_row_ok_count": artifact_payload.get(
+            "runner_future_kernel_args_aux_metadata_stub_row_ok_count"
+        ),
+        "runner_future_kernel_native_consumer_stub_row_count": artifact_payload.get(
+            "runner_future_kernel_native_consumer_stub_row_count"
+        ),
+        "runner_future_kernel_native_consumer_stub_row_ok_count": artifact_payload.get(
+            "runner_future_kernel_native_consumer_stub_row_ok_count"
+        ),
+        "runner_future_kernel_native_consumer_descriptor_ptr_stub_row_count": artifact_payload.get(
+            "runner_future_kernel_native_consumer_descriptor_ptr_stub_row_count"
+        ),
+        "runner_future_kernel_native_consumer_descriptor_ptr_stub_row_ok_count": artifact_payload.get(
+            "runner_future_kernel_native_consumer_descriptor_ptr_stub_row_ok_count"
+        ),
+        "runner_future_kernel_native_consumer_packed_weight_stub_row_count": artifact_payload.get(
+            "runner_future_kernel_native_consumer_packed_weight_stub_row_count"
+        ),
+        "runner_future_kernel_native_consumer_packed_weight_stub_row_ok_count": artifact_payload.get(
+            "runner_future_kernel_native_consumer_packed_weight_stub_row_ok_count"
+        ),
+        "runner_future_kernel_native_consumer_aux_metadata_stub_row_count": artifact_payload.get(
+            "runner_future_kernel_native_consumer_aux_metadata_stub_row_count"
+        ),
+        "runner_future_kernel_native_consumer_aux_metadata_stub_row_ok_count": artifact_payload.get(
+            "runner_future_kernel_native_consumer_aux_metadata_stub_row_ok_count"
+        ),
+        "runner_future_kernel_native_consumer_launch_stub_row_count": artifact_payload.get(
+            "runner_future_kernel_native_consumer_launch_stub_row_count"
+        ),
+        "runner_future_kernel_native_consumer_launch_stub_row_ok_count": artifact_payload.get(
+            "runner_future_kernel_native_consumer_launch_stub_row_ok_count"
+        ),
+        "runner_future_kernel_native_consumer_launch_descriptor_ptr_stub_row_count": artifact_payload.get(
+            "runner_future_kernel_native_consumer_launch_descriptor_ptr_stub_row_count"
+        ),
+        "runner_future_kernel_native_consumer_launch_descriptor_ptr_stub_row_ok_count": artifact_payload.get(
+            "runner_future_kernel_native_consumer_launch_descriptor_ptr_stub_row_ok_count"
+        ),
+        "runner_future_kernel_native_consumer_launch_packed_weight_stub_row_count": artifact_payload.get(
+            "runner_future_kernel_native_consumer_launch_packed_weight_stub_row_count"
+        ),
+        "runner_future_kernel_native_consumer_launch_packed_weight_stub_row_ok_count": artifact_payload.get(
+            "runner_future_kernel_native_consumer_launch_packed_weight_stub_row_ok_count"
+        ),
+        "runner_future_kernel_native_consumer_launch_aux_metadata_stub_row_count": artifact_payload.get(
+            "runner_future_kernel_native_consumer_launch_aux_metadata_stub_row_count"
+        ),
+        "runner_future_kernel_native_consumer_launch_aux_metadata_stub_row_ok_count": artifact_payload.get(
+            "runner_future_kernel_native_consumer_launch_aux_metadata_stub_row_ok_count"
+        ),
+        "runner_future_kernel_native_consumer_dispatch_stub_row_count": artifact_payload.get(
+            "runner_future_kernel_native_consumer_dispatch_stub_row_count"
+        ),
+        "runner_future_kernel_native_consumer_dispatch_stub_row_ok_count": artifact_payload.get(
+            "runner_future_kernel_native_consumer_dispatch_stub_row_ok_count"
+        ),
+        "runner_future_kernel_native_consumer_dispatch_descriptor_ptr_stub_row_count": artifact_payload.get(
+            "runner_future_kernel_native_consumer_dispatch_descriptor_ptr_stub_row_count"
+        ),
+        "runner_future_kernel_native_consumer_dispatch_descriptor_ptr_stub_row_ok_count": artifact_payload.get(
+            "runner_future_kernel_native_consumer_dispatch_descriptor_ptr_stub_row_ok_count"
+        ),
+        "runner_future_kernel_native_consumer_dispatch_packed_weight_stub_row_count": artifact_payload.get(
+            "runner_future_kernel_native_consumer_dispatch_packed_weight_stub_row_count"
+        ),
+        "runner_future_kernel_native_consumer_dispatch_packed_weight_stub_row_ok_count": artifact_payload.get(
+            "runner_future_kernel_native_consumer_dispatch_packed_weight_stub_row_ok_count"
+        ),
+        "runner_future_kernel_native_consumer_dispatch_aux_metadata_stub_row_count": artifact_payload.get(
+            "runner_future_kernel_native_consumer_dispatch_aux_metadata_stub_row_count"
+        ),
+        "runner_future_kernel_native_consumer_dispatch_aux_metadata_stub_row_ok_count": artifact_payload.get(
+            "runner_future_kernel_native_consumer_dispatch_aux_metadata_stub_row_ok_count"
+        ),
         "stage1_deferred_count": artifact_payload.get("stage1_deferred_count"),
         "final_deferred_count": artifact_payload.get("final_deferred_count"),
         "status_deferred_count": artifact_payload.get("status_deferred_count"),
@@ -1242,6 +3646,100 @@ def build_parser() -> argparse.ArgumentParser:
         default=DEFAULT_DESCRIPTOR_PTR_MIRROR_STUB_OUTPUT,
     )
     parser.add_argument(
+        "--kernel-side-compatible-stub-output-json",
+        type=Path,
+        default=DEFAULT_KERNEL_SIDE_COMPATIBLE_STUB_OUTPUT,
+    )
+    parser.add_argument(
+        "--future-kernel-args-stub-output-json",
+        type=Path,
+        default=DEFAULT_FUTURE_KERNEL_ARGS_STUB_OUTPUT,
+    )
+    parser.add_argument(
+        "--future-kernel-args-descriptor-ptr-stub-output-json",
+        type=Path,
+        default=DEFAULT_FUTURE_KERNEL_ARGS_DESCRIPTOR_PTR_STUB_OUTPUT,
+    )
+    parser.add_argument(
+        "--future-kernel-args-packed-weight-stub-output-json",
+        type=Path,
+        default=DEFAULT_FUTURE_KERNEL_ARGS_PACKED_WEIGHT_STUB_OUTPUT,
+    )
+    parser.add_argument(
+        "--future-kernel-args-aux-metadata-stub-output-json",
+        type=Path,
+        default=DEFAULT_FUTURE_KERNEL_ARGS_AUX_METADATA_STUB_OUTPUT,
+    )
+    parser.add_argument(
+        "--future-kernel-args-compatible-path-stub-output-json",
+        type=Path,
+        default=DEFAULT_FUTURE_KERNEL_ARGS_COMPATIBLE_PATH_STUB_OUTPUT,
+    )
+    parser.add_argument(
+        "--future-kernel-native-consumer-stub-output-json",
+        type=Path,
+        default=DEFAULT_FUTURE_KERNEL_NATIVE_CONSUMER_STUB_OUTPUT,
+    )
+    parser.add_argument(
+        "--future-kernel-native-consumer-descriptor-ptr-stub-output-json",
+        type=Path,
+        default=DEFAULT_FUTURE_KERNEL_NATIVE_CONSUMER_DESCRIPTOR_PTR_STUB_OUTPUT,
+    )
+    parser.add_argument(
+        "--future-kernel-native-consumer-packed-weight-stub-output-json",
+        type=Path,
+        default=DEFAULT_FUTURE_KERNEL_NATIVE_CONSUMER_PACKED_WEIGHT_STUB_OUTPUT,
+    )
+    parser.add_argument(
+        "--future-kernel-native-consumer-aux-metadata-stub-output-json",
+        type=Path,
+        default=DEFAULT_FUTURE_KERNEL_NATIVE_CONSUMER_AUX_METADATA_STUB_OUTPUT,
+    )
+    parser.add_argument(
+        "--future-kernel-native-consumer-launch-stub-output-json",
+        type=Path,
+        default=DEFAULT_FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_STUB_OUTPUT,
+    )
+    parser.add_argument(
+        "--future-kernel-native-consumer-launch-descriptor-ptr-stub-output-json",
+        type=Path,
+        default=(
+            DEFAULT_FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_DESCRIPTOR_PTR_STUB_OUTPUT
+        ),
+    )
+    parser.add_argument(
+        "--future-kernel-native-consumer-launch-packed-weight-stub-output-json",
+        type=Path,
+        default=DEFAULT_FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_PACKED_WEIGHT_STUB_OUTPUT,
+    )
+    parser.add_argument(
+        "--future-kernel-native-consumer-launch-aux-metadata-stub-output-json",
+        type=Path,
+        default=DEFAULT_FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_AUX_METADATA_STUB_OUTPUT,
+    )
+    parser.add_argument(
+        "--future-kernel-native-consumer-dispatch-stub-output-json",
+        type=Path,
+        default=DEFAULT_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_STUB_OUTPUT,
+    )
+    parser.add_argument(
+        "--future-kernel-native-consumer-dispatch-descriptor-ptr-stub-output-json",
+        type=Path,
+        default=(
+            DEFAULT_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_DESCRIPTOR_PTR_STUB_OUTPUT
+        ),
+    )
+    parser.add_argument(
+        "--future-kernel-native-consumer-dispatch-packed-weight-stub-output-json",
+        type=Path,
+        default=DEFAULT_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_PACKED_WEIGHT_STUB_OUTPUT,
+    )
+    parser.add_argument(
+        "--future-kernel-native-consumer-dispatch-aux-metadata-stub-output-json",
+        type=Path,
+        default=DEFAULT_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_AUX_METADATA_STUB_OUTPUT,
+    )
+    parser.add_argument(
         "--preflight-output-json",
         type=Path,
         default=DEFAULT_PREFLIGHT_OUTPUT,
@@ -1264,10 +3762,64 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--skip-packed-weight-mirror-stub", action="store_true")
     parser.add_argument("--skip-aux-metadata-mirror-stub", action="store_true")
     parser.add_argument("--skip-descriptor-ptr-mirror-stub", action="store_true")
+    parser.add_argument("--skip-kernel-side-compatible-stub", action="store_true")
+    parser.add_argument("--skip-future-kernel-args-stub", action="store_true")
+    parser.add_argument(
+        "--skip-future-kernel-args-extra-field-stubs",
+        action="store_true",
+    )
+    parser.add_argument(
+        "--skip-future-kernel-args-compatible-path-stub",
+        action="store_true",
+    )
+    parser.add_argument(
+        "--skip-future-kernel-native-consumer-stub",
+        action="store_true",
+    )
+    parser.add_argument(
+        "--skip-future-kernel-native-consumer-extra-field-stubs",
+        action="store_true",
+    )
     parser.add_argument("--skip-preflight", action="store_true")
     parser.add_argument("--skip-artifact-check", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument(
+        "--stdout-mode",
+        choices=("full", "summary", "none"),
+        default="full",
+        help=(
+            "Control stdout verbosity. Use summary/none for larger multi-input "
+            "stub sweeps; output JSON artifacts are always written."
+        ),
+    )
     return parser
+
+
+def _stdout_summary(payload: dict[str, Any], *, output_json: Path) -> dict[str, Any]:
+    artifact = payload.get("artifact_check_summary")
+    artifact_summary = artifact if isinstance(artifact, dict) else {}
+    preflight = payload.get("final_preflight_status_summary")
+    preflight_summary = preflight if isinstance(preflight, dict) else {}
+    return {
+        "passed": payload.get("passed"),
+        "failures": payload.get("failures", []),
+        "output_json": str(output_json),
+        "artifact_check_output_json": payload.get("artifact_check_output_json"),
+        "artifact_check_passed": artifact_summary.get("passed"),
+        "min_online_inputs": artifact_summary.get("min_online_inputs"),
+        "online_prelaunch_input_check_count": artifact_summary.get(
+            "runner_online_prelaunch_input_check_count"
+        ),
+        "online_prelaunch_input_extra_check_count": artifact_summary.get(
+            "runner_online_prelaunch_input_extra_check_count"
+        ),
+        "online_prelaunch_input_extra_check_passed_count": artifact_summary.get(
+            "runner_online_prelaunch_input_extra_check_passed_count"
+        ),
+        "final_preflight_passed": preflight_summary.get("passed"),
+        "final_deferred_count": artifact_summary.get("final_deferred_count"),
+        "status_deferred_count": artifact_summary.get("status_deferred_count"),
+    }
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -1283,7 +3835,10 @@ def main(argv: list[str] | None = None) -> int:
         runner_json=output,
     )
     write_report(output, payload)
-    print(json.dumps(payload, indent=2, sort_keys=True))
+    if args.stdout_mode == "full":
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    elif args.stdout_mode == "summary":
+        print(json.dumps(_stdout_summary(payload, output_json=output), sort_keys=True))
     return 0 if payload.get("passed") else 1
 
 

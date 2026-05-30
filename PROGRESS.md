@@ -2,17 +2,502 @@
 
 ## Progress Version
 
-- Version: `v0.27-online-typed-row-consumer-prelaunch-gate`
-- Updated: 2026-05-29
+- Version: `v0.34-four-field-online-future-native-launch-abi-gate`
+- Updated: 2026-05-30
 - Current phase: premap descriptor/address prep now has a typed
   kernel-side consumer object and an explicit future native-consumer ABI
   artifact.  The default lab gate remains live-disabled, zero-payload, and not
   passed to the current WNA16 kernel.  The newest online prelaunch gate wires
-  the typed row consumer path into the vLLM no-op consumer shim: the prepared
-  handle table is walked with the future kernel-side row schema and checked for
-  row/schema/hash parity, while payload and kernel-arg handoff remain disabled.
-  The next execution boundary is still a true kernel-side compatible consumer
-  path, not mutating the live WNA16 fused-MoE launch.
+  the future kernel-argument envelope into a kernel-side compatible consumer
+  path: the prepared handle table is first wrapped as
+  `premap_future_kernel_side_consumer_args_v1`, then consumed by the standalone
+  typed ABI/stub path that a future kernel would use.  Payload movement,
+  current WNA16 kernel-arg compatibility, and live kernel-arg handoff remain
+  disabled.  The newest native stub adds a launch-shaped future-native ABI
+  wrapper around `PremapFutureKernelNativeConsumerParamsV1` and validates all
+  four future handle fields (`descriptor_ptr`, `packed_weight_descriptor`,
+  `scale_metadata_handle`, and `aux_metadata_handle`) through that launch-like
+  object shape without passing anything to the current WNA16 kernel.
+
+## Latest Update: Four-Field Online Future Native Launch ABI Gate
+
+The launch-shaped future-native ABI is now wired into the online prelaunch
+native-stub runner and the default lab preflight gate.  The runner uses the
+existing GPU1 Dolly-128 AWQ online prelaunch export and checks 16 exported
+typed-table inputs against the independent native stub suite.  The launch ABI
+now checks the base launch consumer plus descriptor, packed-weight, scale, and
+aux-metadata mirrors.
+
+Evidence:
+
+```text
+online_prelaunch_native_stub_canary_runner_future_native_launch_abi_16_128export.json:
+  passed = true
+  failures = []
+  runner_online_prelaunch_input_check_count = 16
+  runner_online_prelaunch_input_extra_check_count = 15
+  runner_online_prelaunch_input_extra_check_passed_count = 15
+
+online_prelaunch_native_stub_canary_artifact_check_future_native_launch_abi_16_128export.json:
+  passed = true
+  failures = []
+  require_all_field_mirror_stubs = true
+  runner_future_kernel_native_consumer_stub_row_count = 174
+  runner_future_kernel_native_consumer_stub_row_ok_count = 174
+  runner_future_kernel_native_consumer_descriptor_ptr_stub_row_ok_count = 174
+  runner_future_kernel_native_consumer_packed_weight_stub_row_ok_count = 174
+  runner_future_kernel_native_consumer_aux_metadata_stub_row_ok_count = 174
+  runner_future_kernel_native_consumer_launch_stub_row_count = 174
+  runner_future_kernel_native_consumer_launch_stub_row_ok_count = 174
+  runner_future_kernel_native_consumer_launch_descriptor_ptr_stub_row_count = 174
+  runner_future_kernel_native_consumer_launch_descriptor_ptr_stub_row_ok_count = 174
+  runner_future_kernel_native_consumer_launch_packed_weight_stub_row_count = 174
+  runner_future_kernel_native_consumer_launch_packed_weight_stub_row_ok_count = 174
+  runner_future_kernel_native_consumer_launch_aux_metadata_stub_row_count = 174
+  runner_future_kernel_native_consumer_launch_aux_metadata_stub_row_ok_count = 174
+  stage1_deferred_count = 1
+  final_deferred_count = 0
+  status_deferred_count = 0
+```
+
+The default lab preflight now points
+`native_typed_consumer_online_prelaunch_canary_runner_json` at that launch ABI
+runner artifact and validates the launch-consumer summary:
+
+```text
+premap_lab_preflight_status_future_native_launch_abi_16_128export.json:
+  passed = true
+  required_evidence = 11 / 11
+  optional_evidence = 4 / 4
+  runtime_gate_evidence_deferred_count = 0
+  payload_bytes_required = 0
+  passed_to_kernel_required = false
+  changes_kernel_launch_args_required = false
+```
+
+Validation:
+
+```text
+pytest tests/test_run_premap_lab_preflight.py \
+  tests/test_run_premap_online_native_stub_canary.py \
+  tests/test_check_premap_online_native_stub_canary_artifacts.py -q
+  53 passed
+
+pytest tests -q
+  706 passed, 2 warnings
+```
+
+Boundary: this is still a readonly, live-disabled future-kernel ABI gate.  It
+does not pass the typed table to the current WNA16 fused-MoE kernel, does not
+dereference payload, and does not claim current WNA16 kernel-argument
+compatibility.
+
+## Previous Update: Future Native Launch ABI Stub
+
+The typed premap consumer now has a more kernel-like native ABI layer:
+
+```text
+PremapFutureKernelNativeConsumerParamsV1
+  -> PremapFutureKernelNativeConsumerLaunchV1
+  -> typed_consumer_future_native_launch_kernel
+```
+
+This is still an independent native consumer stub, not a WNA16 kernel-arg
+mutation.  It keeps the lab safety boundary explicit:
+
+```text
+payload_bytes = 0
+payload_deref_allowed = false
+passed_to_kernel = false
+kernel_arg_pass_allowed = false
+changes_kernel_launch_args = false
+current_wna16_arg_compatible = false
+requires_wna16_arg_reinterpretation = false
+```
+
+GPU1 canary on the exported Dolly-128 AWQ prelaunch typed-table input:
+
+```text
+typed_consumer_stub_gpu1_future_native_launch_consumer_scale_mirror_canary.json:
+  passed = true
+  row_count = 174
+  row_ok_count = 174
+  future_kernel_native_consumer_checked = true
+  future_kernel_native_consumer_row_ok_count = 174
+  future_kernel_native_launch_consumer_checked = true
+  future_kernel_native_launch_consumer_row_ok_count = 174
+  future_kernel_native_launch_consumer_single_field_mirror_checked = true
+  future_kernel_native_launch_consumer_single_field_mirror_field_name =
+    scale_metadata_handle
+  future_kernel_native_launch_consumer_single_field_mirror_row_ok_count = 174
+```
+
+The schema artifact was updated with the launch ABI fields and passes the
+schema checker:
+
+```text
+typed_consumer_schema_check_future_native_launch_abi.json:
+  passed = true
+  failures = []
+  macro_count = 22
+```
+
+Boundary: this is a future-kernel-argument shape check only.  It does not make
+the current WNA16 fused-MoE kernel consume the typed table yet.
+
+## Previous Update: Future Native ABI Online Runner Gate
+
+The future-native consumer ABI is now part of the online prelaunch native-stub
+runner and artifact checker.  The runner still uses an exported online
+prelaunch typed-table input; it does not reroute any live WNA16 kernel argument
+and does not dereference payload.  It now validates:
+
+```text
+native_stub_future_kernel_native_consumer_abi:
+  single_field = scale_metadata_handle
+
+native_stub_future_kernel_native_consumer_descriptor_ptr_mirror:
+  single_field = descriptor_ptr
+
+native_stub_future_kernel_native_consumer_packed_weight_mirror:
+  single_field = packed_weight_descriptor
+
+native_stub_future_kernel_native_consumer_aux_metadata_mirror:
+  single_field = aux_metadata_handle
+```
+
+Online runner evidence using the existing GPU1 16-input / Dolly-128 exported
+online prelaunch trace slice:
+
+```text
+online_prelaunch_native_stub_canary_runner_future_native_consumer_abi_16_128export.json:
+  passed = true
+  failures = []
+  runner_online_prelaunch_input_check_count = 16
+  runner_online_prelaunch_input_extra_check_count = 15
+  runner_online_prelaunch_input_extra_check_passed_count = 15
+  future_kernel_native_consumer_stub_summary:
+    row_count = 174
+    row_ok_count = 174
+    future_kernel_native_consumer_checked = true
+    future_kernel_native_consumer_error_count = 0
+    single_field = scale_metadata_handle
+    single_field_row_ok_count = 174
+  future_kernel_native_consumer_descriptor_ptr_stub_summary:
+    row_ok_count = 174
+    single_field = descriptor_ptr
+  future_kernel_native_consumer_packed_weight_stub_summary:
+    row_ok_count = 174
+    single_field = packed_weight_descriptor
+  future_kernel_native_consumer_aux_metadata_stub_summary:
+    row_ok_count = 174
+    single_field = aux_metadata_handle
+  payload_bytes = 0
+  passed_to_kernel = false
+  changes_kernel_launch_args = false
+  current_wna16_arg_compatible = false
+```
+
+Strict lab preflight now uses that 16-input future-native runner as the
+required online-prelaunch evidence:
+
+```text
+premap_lab_preflight_status_future_native_consumer_abi_16_128export.json:
+  passed = true
+  required_evidence = 11 / 11
+  optional_evidence = 4 / 4
+  native_typed_consumer_online_prelaunch_canary_runner_json =
+    online_prelaunch_native_stub_canary_runner_future_native_consumer_abi_16_128export.json
+```
+
+Earlier smoke evidence using the GPU1 1-sample prelaunch export:
+
+```text
+online_prelaunch_native_stub_canary_runner_future_native_consumer_abi_1_default_export.json:
+  passed = true
+  failures = []
+  runner_online_prelaunch_input_check_count = 1
+  future_kernel_native_consumer_stub_summary:
+    row_count = 204
+    row_ok_count = 204
+    future_kernel_native_consumer_checked = true
+    future_kernel_native_consumer_error_count = 0
+    single_field = scale_metadata_handle
+    single_field_row_ok_count = 204
+  future_kernel_native_consumer_descriptor_ptr_stub_summary:
+    row_ok_count = 204
+    single_field = descriptor_ptr
+  future_kernel_native_consumer_packed_weight_stub_summary:
+    row_ok_count = 204
+    single_field = packed_weight_descriptor
+  future_kernel_native_consumer_aux_metadata_stub_summary:
+    row_ok_count = 204
+    single_field = aux_metadata_handle
+  payload_bytes = 0
+  passed_to_kernel = false
+  changes_kernel_launch_args = false
+  current_wna16_arg_compatible = false
+```
+
+Artifact checker evidence for the promoted 16-input gate:
+
+```text
+online_prelaunch_native_stub_canary_artifact_check_future_native_consumer_abi_16_128export.json:
+  passed = true
+  failures = []
+  require_all_field_mirror_stubs = true
+  runner_online_prelaunch_input_check_count = 16
+  runner_online_prelaunch_input_extra_check_count = 15
+  runner_online_prelaunch_input_extra_check_passed_count = 15
+  runner_future_kernel_native_consumer_stub_row_count = 174
+  runner_future_kernel_native_consumer_stub_row_ok_count = 174
+  runner_future_kernel_native_consumer_descriptor_ptr_stub_row_ok_count = 174
+  runner_future_kernel_native_consumer_packed_weight_stub_row_ok_count = 174
+  runner_future_kernel_native_consumer_aux_metadata_stub_row_ok_count = 174
+  stage1_deferred_count = 1
+  final_deferred_count = 0
+  status_deferred_count = 0
+```
+
+Validation:
+
+```text
+pytest tests/test_premap_typed_consumer_stub.py \
+  tests/test_premap_kernel_consumer_schema.py \
+  tests/test_run_premap_lab_preflight.py \
+  tests/test_run_premap_online_native_stub_canary.py \
+  tests/test_check_premap_online_native_stub_canary_artifacts.py -q
+  78 passed
+
+pytest tests/test_run_premap_lab_preflight.py \
+  tests/test_run_premap_online_native_stub_canary.py \
+  tests/test_check_premap_online_native_stub_canary_artifacts.py -q
+  53 passed
+
+pytest tests -q
+  704 passed, 2 warnings
+```
+
+This promotes the standalone future-native ABI canary into an online
+prelaunch artifact gate.  It remains readonly and live-disabled: no payload,
+no ready credit, no kernel-argument pass, and no compatibility claim with the
+current WNA16 argument list.
+
+## Latest Update: Future-Args Compatible Consumer Path Gate
+
+The next canary layer after `future_kernel_consumer_args` is now implemented
+and enforced by the lab preflight.  It does not reinterpret the typed table as
+an existing WNA16 argument; it builds a future argument envelope and then routes
+that envelope through an independent compatible-consumer path:
+
+```text
+future_kernel_args_compatible_consumer_path:
+  name = premap_future_kernel_args_compatible_consumer_path_v1
+  mode = readonly_future_kernel_args_to_compatible_consumer_path
+  source = premap_future_kernel_side_consumer_args_v1
+  payload_bytes = 0
+  passed_to_kernel = false
+  changes_kernel_launch_args = false
+  current_wna16_arg_compatible = false
+```
+
+Evidence:
+
+```text
+typed_consumer_stub_gpu1_future_kernel_args_compatible_path_canary.json:
+  passed = true
+  row_count = 174
+  row_ok_count = 174
+  future_kernel_consumer_args_checked = true
+  future_kernel_consumer_args_row_ok_count = 174
+  future_kernel_args_compatible_consumer_path_checked = true
+  future_kernel_args_compatible_consumer_path_row_ok_count = 174
+  future_kernel_args_compatible_consumer_path_error_count = 0
+  payload_bytes = 0
+  passed_to_kernel = false
+  changes_kernel_launch_args = false
+  current_wna16_arg_compatible = false
+
+online_prelaunch_native_stub_canary_artifact_check_future_args_compatible_path_16_128export.json:
+  passed = true
+  min_online_inputs = 16
+  runner_online_prelaunch_input_check_count = 16
+  runner_online_prelaunch_input_extra_check_passed_count = 15
+  runner_future_kernel_args_compatible_path_stub_row_count = 174
+  runner_future_kernel_args_compatible_path_stub_row_ok_count = 174
+
+premap_lab_preflight_status_future_args_compatible_path_16_128export.json:
+  passed = true
+  default_contract_passed = true
+  default_kernel_consumer_schema_passed = true
+  required_evidence = 11 / 11
+  optional_evidence = 4 / 4
+
+pytest tests/test_premap_typed_consumer_stub.py \
+  tests/test_run_premap_online_native_stub_canary.py \
+  tests/test_check_premap_online_native_stub_canary_artifacts.py \
+  tests/test_run_premap_lab_preflight.py -q
+  67 passed
+```
+
+This promotes the future-argument-to-compatible-consumer boundary into the lab
+default preflight gate.  It is still a readonly native stub/ABI canary only:
+no payload dereference, no ready credit, no current WNA16 kernel argument
+mutation, and no kernel launch argument change.
+
+## Latest Update: Future Native Consumer ABI Stub
+
+The next independent native ABI layer is now in place.  Instead of routing
+through the current WNA16 argument list, the stub constructs a standalone
+future-kernel-shaped parameter object:
+
+```text
+future_kernel_native_consumer_abi:
+  name = premap_future_kernel_native_consumer_abi_v1
+  struct = PremapFutureKernelNativeConsumerParamsV1
+  mode = readonly_future_kernel_native_consumer_abi
+  source = premap_typed_handle_table_soa_fields
+  fields =
+    descriptor_ptr
+    packed_weight_descriptor
+    scale_metadata_handle
+    aux_metadata_handle
+    expert_id
+    address_key_hash
+    row_count / column_count / lifetime_epoch
+    row_order_hash / ordered_row_hash
+    field_mask / single_field_mirror_kind
+  payload_bytes = 0
+  passed_to_kernel = false
+  changes_kernel_launch_args = false
+  current_wna16_arg_compatible = false
+```
+
+This ABI reads the same typed handle table in a shape closer to a future kernel
+argument structure, but it remains an independent HIP/native stub.  It is not
+passed into the live WNA16 fused-MoE kernel.
+
+GPU1 canary evidence on the online-exported 128-sample prelaunch table:
+
+```text
+typed_consumer_stub_gpu1_future_native_consumer_scale_mirror_canary.json:
+  passed = true
+  future_kernel_native_consumer_row_count = 174
+  future_kernel_native_consumer_row_ok_count = 174
+  single_field = scale_metadata_handle
+  single_field_row_ok_count = 174
+
+typed_consumer_stub_gpu1_future_native_consumer_packed_weight_mirror_canary.json:
+  passed = true
+  future_kernel_native_consumer_row_ok_count = 174
+  single_field = packed_weight_descriptor
+  single_field_row_ok_count = 174
+
+typed_consumer_stub_gpu1_future_native_consumer_descriptor_ptr_mirror_canary.json:
+  passed = true
+  future_kernel_native_consumer_row_ok_count = 174
+  single_field = descriptor_ptr
+  single_field_row_ok_count = 174
+
+typed_consumer_stub_gpu1_future_native_consumer_aux_metadata_mirror_canary.json:
+  passed = true
+  future_kernel_native_consumer_row_ok_count = 174
+  single_field = aux_metadata_handle
+  single_field_row_ok_count = 174
+```
+
+For all four field canaries:
+
+```text
+future_kernel_native_consumer_error_count = 0
+future_kernel_native_consumer_single_field_mirror_error_count = 0
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+current_wna16_arg_compatible = false
+```
+
+Validation:
+
+```text
+pytest tests/test_premap_kernel_consumer_schema.py \
+  tests/test_premap_typed_consumer_stub.py \
+  tests/test_run_premap_lab_preflight.py -q
+  59 passed
+
+premap_lab_preflight_status_future_native_consumer_abi_canary.json:
+  passed = true
+  default_contract_passed = true
+  default_kernel_consumer_schema_passed = true
+  required_evidence = 11 / 11
+  optional_evidence = 4 / 4
+```
+
+The next gate is to wire this native ABI stub into the online prelaunch runner
+and artifact checker in the same way as the future-args compatible path, while
+keeping it default-disabled and still outside the live WNA16 kernel launch.
+
+## Latest Update: Future Kernel Args Lab Preflight Gate
+
+The future kernel-side consumer argument object is now part of the default lab
+preflight gate instead of a loose side canary:
+
+```text
+future_kernel_consumer_args:
+  name = premap_future_kernel_side_consumer_args_v1
+  mode = readonly_future_kernel_consumer_args
+  source = premap_kernel_side_typed_consumer_launch_envelope_v1
+  payload_bytes = 0
+  passed_to_kernel = false
+  changes_kernel_launch_args = false
+  current_wna16_arg_compatible = false
+  single_field_mirror_required = true
+  single_field_mirror_field = scale_metadata_handle
+```
+
+The default lab gate now points at the online runner artifact that contains
+`future_kernel_args_stub_summary`, and `run_premap_lab_preflight.py` validates
+that summary plus the per-input `native_stub_future_kernel_consumer_args`
+outputs.  This proves the online-exported typed table can be wrapped in the
+future kernel-argument shape and consumed by the native stub while keeping the
+current WNA16 kernel untouched.
+
+Validation:
+
+```text
+premap_lab_preflight_future_kernel_args_gate.json:
+  passed = true
+  failures = []
+  required_evidence = 11 / 11
+  future_kernel_consumer_args_required = true
+
+pytest tests/test_run_premap_lab_preflight.py -q
+  33 passed
+
+pytest tests -q
+  700 passed, 2 warnings
+```
+
+Second-field canary on GPU1:
+
+```text
+typed_consumer_stub_gpu1_future_kernel_args_packed_weight_mirror_canary.json:
+  passed = true
+  row_count = 174
+  row_ok_count = 174
+  future_kernel_consumer_args_checked = true
+  future_kernel_consumer_args_row_ok_count = 174
+  future_kernel_consumer_args_single_field_mirror_field_name =
+    packed_weight_descriptor
+  future_kernel_consumer_args_single_field_mirror_row_ok_count = 174
+  future_kernel_consumer_args_single_field_mirror_error_count = 0
+  payload_bytes = 0
+  passed_to_kernel = false
+  changes_kernel_launch_args = false
+```
+
+This is still a readonly ABI/native-stub gate.  It does not authorize live
+kernel-argument mutation or payload dereference.
 
 ## Latest Update: Online Typed Row Consumer Prelaunch Gate
 
@@ -20312,4 +20797,1161 @@ kernel_side_consumer_path_payload_bytes = 0
 kernel_side_consumer_path_passed_to_kernel = false
 kernel_side_consumer_path_changes_kernel_launch_args = false
 kernel_side_consumer_path_current_wna16_arg_compatible = false
+```
+
+## Kernel-side compatible consumer ABI stub
+
+Added a distinct readonly future-kernel ABI canary instead of attempting to
+reinterpret the typed table as the current AWQ WNA16 launch arguments.
+
+New native path:
+
+```text
+PremapKernelSideTypedConsumerLaunchEnvelopeV1
+  -> premap_typed_consumer_kernel_side_compatible_consume_row_v1(...)
+  -> kernel_side_compatible_consumer_* summary fields
+```
+
+Contract:
+
+```text
+kernel_side_compatible_consumer_name =
+  premap_kernel_side_compatible_consumer_abi_v1
+kernel_side_compatible_consumer_mode =
+  readonly_kernel_side_compatible_consumer_abi
+kernel_side_compatible_consumer_source =
+  premap_kernel_side_typed_consumer_launch_envelope_v1
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+current_wna16_arg_compatible = false
+requires_wna16_arg_reinterpretation = false
+```
+
+Standalone native canary on the first 128-sample online prelaunch export:
+
+```text
+outputs/reports/premap_kernel_consumer/
+  typed_consumer_stub_gpu1_kernel_side_compatible_consumer_abi_canary.json
+
+kernel_side_compatible_consumer_checked = true
+kernel_side_compatible_consumer_row_count = 174
+kernel_side_compatible_consumer_row_ok_count = 174
+kernel_side_compatible_consumer_error_count = 0
+```
+
+Online runner refresh over 16 exported prelaunch inputs:
+
+```text
+outputs/reports/premap_kernel_consumer/
+  online_prelaunch_native_stub_canary_runner_dolly128_stride320_kernel_side_compatible_abi.json
+
+passed = true
+failures = []
+online_prelaunch_input_check_count = 16
+online_prelaunch_input_extra_check_count = 15
+online_prelaunch_input_extra_check_passed_count = 15
+
+artifact_check_summary:
+  passed = true
+  failures = []
+  runner_kernel_side_compatible_stub_row_count = 174
+  runner_kernel_side_compatible_stub_row_ok_count = 174
+```
+
+Review follow-up:
+
+```text
+Codex review found one defensive-safety issue and two evidence-strength issues.
+Fixes applied:
+  - compatible consumer now returns before row load if the launch envelope is invalid
+  - artifact checker now requires kernel_side_compatible_stub_summary when the full native suite is required
+  - artifact checker now validates kernel_side_compatible_consumer_source
+```
+
+Validation:
+
+```text
+conda run -p /home/husrcf/anaconda3/envs/TRY pytest \
+  tests/test_check_premap_online_native_stub_canary_artifacts.py \
+  tests/test_run_premap_online_native_stub_canary.py \
+  tests/test_premap_typed_consumer_stub.py \
+  tests/test_run_premap_lab_preflight.py -q
+  65 passed
+
+conda run -p /home/husrcf/anaconda3/envs/TRY pytest tests -q
+  699 passed, 2 warnings
+```
+
+## Future kernel consumer args ABI canary
+
+Added a closer-to-real native ABI canary for the eventual kernel-side
+descriptor/address consumer. This is still readonly and live-disabled; it does
+not reinterpret the typed table as the current AWQ WNA16 launch args.
+
+New native path:
+
+```text
+PremapFutureKernelSideConsumerArgsV1
+  wraps PremapKernelSideTypedConsumerLaunchEnvelopeV1
+  carries field_mask + single_field_mirror_kind
+  -> typed_consumer_future_kernel_args_kernel(...)
+  -> future_kernel_consumer_args_* summary fields
+```
+
+Contract:
+
+```text
+future_kernel_consumer_args_name =
+  premap_future_kernel_side_consumer_args_v1
+future_kernel_consumer_args_mode =
+  readonly_future_kernel_consumer_args
+future_kernel_consumer_args_source =
+  premap_kernel_side_typed_consumer_launch_envelope_v1
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+current_wna16_arg_compatible = false
+requires_wna16_arg_reinterpretation = false
+```
+
+Standalone GPU1 canary on the first 128-sample online prelaunch export:
+
+```text
+outputs/reports/premap_kernel_consumer/
+  typed_consumer_stub_gpu1_future_kernel_args_scale_mirror_canary.json
+
+future_kernel_consumer_args_checked = true
+future_kernel_consumer_args_row_count = 174
+future_kernel_consumer_args_row_ok_count = 174
+future_kernel_consumer_args_error_count = 0
+future_kernel_consumer_args_single_field_mirror_checked = true
+future_kernel_consumer_args_single_field_mirror_field_name =
+  scale_metadata_handle
+future_kernel_consumer_args_single_field_mirror_error_count = 0
+```
+
+Online runner refresh over 16 exported prelaunch inputs:
+
+```text
+outputs/reports/premap_kernel_consumer/
+  online_prelaunch_native_stub_canary_runner_dolly128_stride320_future_kernel_args.json
+
+passed = true
+failures = []
+online_prelaunch_input_check_count = 16
+online_prelaunch_input_extra_check_count = 15
+online_prelaunch_input_extra_check_passed_count = 15
+
+artifact_check_summary:
+  passed = true
+  failures = []
+  runner_future_kernel_args_stub_row_count = 174
+  runner_future_kernel_args_stub_row_ok_count = 174
+```
+
+This moves the typed premap consumer bridge one step closer to a real kernel
+ABI: the independent native stub now accepts a future parameter object and
+verifies scale-metadata one-field mirror parity through that object. It remains
+strictly no-payload and no-kernel-arg-pass.
+
+Follow-up field coverage on the same 128-sample online prelaunch export:
+
+```text
+outputs/reports/premap_kernel_consumer/
+  typed_consumer_stub_gpu1_future_kernel_args_descriptor_ptr_mirror_canary.json
+  typed_consumer_stub_gpu1_future_kernel_args_packed_weight_mirror_canary.json
+  typed_consumer_stub_gpu1_future_kernel_args_aux_metadata_mirror_canary.json
+
+all:
+  future_kernel_consumer_args_checked = true
+  future_kernel_consumer_args_row_count = 174
+  future_kernel_consumer_args_row_ok_count = 174
+  future_kernel_consumer_args_error_count = 0
+  future_kernel_consumer_args_payload_bytes = 0
+  future_kernel_consumer_args_passed_to_kernel = false
+  future_kernel_consumer_args_changes_kernel_launch_args = false
+  future_kernel_consumer_args_current_wna16_arg_compatible = false
+
+single-field mirror fields:
+  descriptor_ptr
+  packed_weight_descriptor
+  aux_metadata_handle
+```
+
+The default readonly lab gate now lists these future-args per-field canaries as
+optional evidence. The required gate remains conservative and still requires
+only the scale-metadata future-args mirror plus the existing all-field row-table
+canary matrix.
+
+Validation:
+
+```text
+conda run -p /home/husrcf/anaconda3/envs/TRY python \
+  scripts/run_premap_lab_preflight.py --summary-only \
+  --output-json outputs/reports/premap_lab_preflight_status_future_args_field_refresh.json
+
+passed = true
+required_evidence = 11 / 11
+optional_evidence = 4 / 4
+
+conda run -p /home/husrcf/anaconda3/envs/TRY pytest \
+  tests/test_run_premap_lab_preflight.py \
+  tests/test_premap_typed_consumer_stub.py -q
+  49 passed
+```
+
+Automated online runner refresh with all future-args field mirrors enabled:
+
+```text
+outputs/reports/premap_kernel_consumer/
+  online_prelaunch_native_stub_canary_runner_future_args_field_refresh.json
+
+passed = true
+failures = []
+
+future kernel args field mirrors:
+  scale_metadata_handle:
+    row_count = 204
+    row_ok_count = 204
+    error_count = 0
+    passed_to_kernel = false
+    changes_kernel_launch_args = false
+    current_wna16_arg_compatible = false
+
+  descriptor_ptr:
+    row_count = 204
+    row_ok_count = 204
+    error_count = 0
+    passed_to_kernel = false
+    changes_kernel_launch_args = false
+    current_wna16_arg_compatible = false
+
+  packed_weight_descriptor:
+    row_count = 204
+    row_ok_count = 204
+    error_count = 0
+    passed_to_kernel = false
+    changes_kernel_launch_args = false
+    current_wna16_arg_compatible = false
+
+  aux_metadata_handle:
+    row_count = 204
+    row_ok_count = 204
+    error_count = 0
+    passed_to_kernel = false
+    changes_kernel_launch_args = false
+    current_wna16_arg_compatible = false
+```
+
+This verifies that the online native-stub runner now exercises the complete
+future-kernel-args field mirror matrix automatically, not only through manual
+standalone canary commands.  The path remains a future ABI stub: no payload
+movement, no live WNA16 kernel argument mutation, and no reinterpretation of the
+current WNA16 launch schema.
+
+Validation:
+
+```text
+env PYTHONPATH=/home/husrcf/Code/ProtBind/MTP:/home/husrcf/Code/ProtBind/MTP/src \
+conda run -p /home/husrcf/anaconda3/envs/TRY python \
+  scripts/check_premap_online_native_stub_canary_artifacts.py \
+  --runner-json outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_runner_future_args_field_refresh.json \
+  --preflight-json outputs/reports/premap_lab_preflight_future_args_field_refresh.json \
+  --status-json outputs/reports/premap_lab_preflight_status_future_args_field_refresh_runner.json \
+  --output-json outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_artifact_check_future_args_field_refresh_strict.json \
+  --require-all-field-mirror-stubs \
+  --min-online-inputs 1
+
+passed = true
+failures = []
+runner_future_kernel_args_stub_row_ok_count = 204
+runner_future_kernel_args_descriptor_ptr_stub_row_ok_count = 204
+runner_future_kernel_args_packed_weight_stub_row_ok_count = 204
+runner_future_kernel_args_aux_metadata_stub_row_ok_count = 204
+
+PYTHONPATH=/home/husrcf/Code/ProtBind/MTP:/home/husrcf/Code/ProtBind/MTP/src \
+conda run -p /home/husrcf/anaconda3/envs/TRY pytest \
+  tests/test_run_premap_online_native_stub_canary.py \
+  tests/test_check_premap_online_native_stub_canary_artifacts.py \
+  tests/test_run_premap_lab_preflight.py \
+  tests/test_premap_typed_consumer_stub.py -q
+  67 passed
+
+PYTHONPATH=/home/husrcf/Code/ProtBind/MTP:/home/husrcf/Code/ProtBind/MTP/src \
+conda run -p /home/husrcf/anaconda3/envs/TRY pytest tests -q
+  701 passed, 2 warnings
+```
+
+16-input runner refresh on the 128-sample native input export:
+
+```text
+env HIP_VISIBLE_DEVICES=1 CUDA_VISIBLE_DEVICES=1 \
+  PYTHONPATH=/home/husrcf/Code/ProtBind/MTP:/home/husrcf/Code/ProtBind/MTP/src \
+conda run -p /home/husrcf/anaconda3/envs/TRY python \
+  scripts/run_premap_online_native_stub_canary.py \
+  --skip-trace \
+  --trace-config configs/trace/router_mtp_trace_external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_native_input_export_audit_mem70.yaml \
+  --max-online-inputs 16 \
+  --min-artifact-online-inputs 16 \
+  --output-json outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_runner_future_args_field_refresh_16_128export.json \
+  --preflight-output-json outputs/reports/premap_lab_preflight_future_args_field_refresh_16_128export.json \
+  --preflight-status-output-json outputs/reports/premap_lab_preflight_status_future_args_field_refresh_16_128export_runner.json \
+  --artifact-check-output-json outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_artifact_check_future_args_field_refresh_16_128export.json
+
+passed = true
+failures = []
+online_prelaunch_input_check_count = 16
+online_prelaunch_input_extra_check_count = 15
+online_prelaunch_input_extra_check_passed_count = 15
+artifact_check_summary.passed = true
+artifact_check_summary.failures = []
+artifact_check_summary.require_all_field_mirror_stubs = true
+artifact_check_summary.min_online_inputs = 16
+
+first input row_ok_count:
+  base native stub = 174 / 174
+  future args scale_metadata_handle = 174 / 174
+  future args descriptor_ptr = 174 / 174
+  future args packed_weight_descriptor = 174 / 174
+  future args aux_metadata_handle = 174 / 174
+
+all 15 extra exported prelaunch tables passed the same native stub suite.
+```
+
+This promotes the future-kernel-args bridge evidence from a single online
+prelaunch table to the existing 16-table 128-sample export.  It is still a
+readonly ABI canary only: payload movement, ready credit, WNA16 kernel argument
+mutation, and current WNA16 argument reinterpretation remain disabled.
+
+Runner summary flatten check:
+
+```text
+outputs/reports/premap_kernel_consumer/
+  online_prelaunch_native_stub_canary_runner_future_args_field_refresh_flatten_check.json
+
+passed = true
+artifact_check_summary.passed = true
+artifact_check_summary.failures = []
+artifact_check_summary.runner_future_kernel_args_stub_row_ok_count = 174
+artifact_check_summary.runner_future_kernel_args_descriptor_ptr_stub_row_ok_count = 174
+artifact_check_summary.runner_future_kernel_args_packed_weight_stub_row_ok_count = 174
+artifact_check_summary.runner_future_kernel_args_aux_metadata_stub_row_ok_count = 174
+```
+
+The runner report now exposes the complete future-args field matrix directly in
+its `artifact_check_summary`, while the separate strict checker JSON remains the
+authoritative gate artifact for the 16-input sweep.
+
+The default readonly lab gate now points its required
+`native_typed_consumer_online_prelaunch_canary_runner_json` evidence to the
+16-input field-refresh runner:
+
+```text
+configs/runtime/
+  premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_live_connected_readonly.yaml
+
+native_typed_consumer_online_prelaunch_canary_runner_json =
+  outputs/reports/premap_kernel_consumer/
+    online_prelaunch_native_stub_canary_runner_future_args_field_refresh_16_128export.json
+
+conda run -p /home/husrcf/anaconda3/envs/TRY python \
+  scripts/run_premap_lab_preflight.py --summary-only \
+  --output-json outputs/reports/premap_lab_preflight_status_future_args_field_refresh_16_128export_required_runner.json
+
+passed = true
+required_evidence = 11 / 11
+optional_evidence = 4 / 4
+```
+
+This keeps the lab precondition tied to the multi-input online native-stub
+evidence instead of the older scale-only runner artifact.
+
+### 2026-05-31 future-native launch ABI runner refresh
+
+The readonly lab preflight was refreshed to use the stricter future-native
+launch ABI runner artifact.  This closes the previous false-fail where
+`run_premap_lab_preflight.py` expected the future-kernel field-mask and
+`requires_wna16_arg_reinterpretation` fields in runner summaries, while the
+native stub outputs already contained them.
+
+Patch scope:
+
+```text
+scripts/run_premap_online_native_stub_canary.py
+  propagates *_requires_wna16_arg_reinterpretation
+  propagates *_field_mask / *_required_field_mask
+  into primary and extra online-input runner summaries
+```
+
+Refreshed evidence:
+
+```text
+outputs/reports/premap_kernel_consumer/
+  online_prelaunch_native_stub_canary_runner_future_native_launch_abi_16_128export.json
+
+passed = true
+failures = []
+online_prelaunch_input_check_count = 16
+online_prelaunch_input_extra_check_passed_count = 15
+
+future_kernel_consumer_args_requires_wna16_arg_reinterpretation = false
+future_kernel_consumer_args_field_mask = 15
+future_kernel_consumer_args_required_field_mask = 7
+
+future_kernel_native_consumer_requires_wna16_arg_reinterpretation = false
+future_kernel_native_consumer_field_mask = 15
+future_kernel_native_consumer_required_field_mask = 7
+
+future_kernel_native_launch_consumer_requires_wna16_arg_reinterpretation = false
+future_kernel_native_launch_consumer_field_mask = 15
+future_kernel_native_launch_consumer_required_field_mask = 7
+```
+
+Checker and preflight evidence:
+
+```text
+outputs/reports/premap_kernel_consumer/
+  online_prelaunch_native_stub_canary_artifact_check_future_native_launch_abi_16_128export.json
+passed = true
+failures = []
+
+outputs/reports/
+  premap_lab_preflight_future_native_launch_abi_16_128export.json
+passed = true
+failures = []
+required_evidence = 11 / 11
+optional_evidence = 4 / 4
+
+outputs/reports/
+  premap_lab_preflight_full_latest.json
+passed = true
+failures = []
+```
+
+This promotes the four-field future-native launch ABI path to the current
+default lab preflight evidence while still keeping the runtime boundary
+readonly:
+
+```text
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+current_wna16_arg_compatible = false
+requires_wna16_arg_reinterpretation = false
+```
+
+Validation:
+
+```text
+conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
+  pytest tests/test_check_premap_online_native_stub_canary_artifacts.py \
+         tests/test_run_premap_lab_preflight.py \
+         tests/test_run_premap_online_native_stub_canary.py -q
+
+53 passed
+
+conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src pytest tests -q
+
+706 passed, 2 warnings
+```
+
+### 2026-05-31 vLLM decode block-table trace sidework
+
+The decode workload trace sidework now has a schema-v2 block-table collector
+under `traceData/`.  This trace is for workload metadata and paged-KV locality
+analysis, not latency benchmarking.
+
+Main outputs:
+
+```text
+traceData/vllm_decode_block_table_v2/
+  SUMMARY.md
+  length_sweep_manifest.json
+  v2_sweep_run_status.json
+  jsonl/dolly_plen64_gen64_gpu0.jsonl
+  jsonl/dolly_plen128_gen64_gpu0.jsonl
+  jsonl/dolly_plen256_gen64_gpu0.jsonl
+  jsonl/dolly_plen512_gen64_gpu0.jsonl
+  jsonl/dolly_plen1024_gen64_gpu0.jsonl
+  jsonl/dolly_plen2048_gen64_gpu0.jsonl
+```
+
+All six length-sweep files passed the v2 checker:
+
+```text
+prompt lengths = 64 / 128 / 256 / 512 / 1024 / 2048
+samples per length = 32
+gen tokens = 64
+checker error_count = 0 for all lengths
+prompt_len null count = 0 for all lengths
+block_ids present = true
+block_size_tokens = 1056
+kv_cache_layout.available = false at metadata-builder boundary
+```
+
+A lower-level contrast run confirms the same schema can capture real KV-cache
+layout when collected at the chunked-prefill paged-decode boundary:
+
+```text
+traceData/vllm_decode_block_table_v2_kvlayout_true/
+  jsonl/dolly_plen512_gen64_gpu0.jsonl
+  jsonl/dolly_plen512_gen64_gpu0.check.json
+
+rows = 2000
+checker error_count = 0
+kv_cache_layout_available_count = 2000
+block_size_tokens = 1056
+```
+
+The nonstandard block size is expected for this model/runtime; vLLM reports:
+
+```text
+Setting attention block size to 1056 tokens to ensure that attention page size is >= mamba page size.
+```
+
+Reviewer follow-up:
+
+```text
+Subagent review found no blocker in the lab preflight evidence chain:
+summary-only output does not bypass artifact checks, and the future-kernel
+field-mask / reinterpretation fields are propagated through runner summaries.
+
+The review did find sidework checker hardening issues:
+  - block_size_tokens <= 0 could crash the checker
+  - bool/negative numeric fields could be coerced silently
+  - query_start_loc / prompt_len / generated_token_idx lacked semantic checks
+```
+
+Fixes applied:
+
+```text
+scripts/check_vllm_decode_workload_trace.py
+  rejects bool integer fields
+  rejects negative cache lengths / valid counts / block ids
+  reports block_size_tokens <= 0 as checker errors instead of crashing
+  checks query_start_loc monotonicity and closure against q_lens
+  checks sequence cache_seqlen parity
+  checks generated_token_idx == cache_seqlen - prompt_len when both fields exist
+  keeps seq_start_loc validation intentionally light: monotonic + starts at 0
+
+tests/test_check_vllm_decode_workload_trace.py
+  covers valid v2 traces
+  covers zero block size
+  covers bool cache_seqlen
+  covers negative valid_block_count
+  covers query_start_loc and generated_token_idx semantic errors
+```
+
+All trace check artifacts were refreshed with the hardened checker:
+
+```text
+traceData/vllm_decode_block_table_v2/jsonl/*.check.json
+traceData/vllm_decode_block_table_v2_kvlayout_true/jsonl/*.check.json
+
+error_count = 0 for all refreshed files
+```
+
+Validation after review fixes:
+
+```text
+conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
+  pytest tests/test_check_vllm_decode_workload_trace.py \
+         tests/test_check_premap_online_native_stub_canary_artifacts.py \
+         tests/test_run_premap_lab_preflight.py \
+         tests/test_run_premap_online_native_stub_canary.py -q
+
+58 passed
+
+conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src pytest tests -q
+
+711 passed, 2 warnings
+```
+
+## 2026-05-31 - Future Native Dispatch ABI Stub Gate
+
+The typed premap native consumer path now has one more readonly ABI rung that
+looks closer to a future kernel launch site while still avoiding current WNA16
+kernel argument mutation:
+
+```text
+premap_future_kernel_native_consumer_dispatch_abi_v1
+  source = premap_future_kernel_native_consumer_launch_abi_v1
+  payload_bytes = 0
+  passed_to_kernel = false
+  changes_kernel_launch_args = false
+  current_wna16_arg_compatible = false
+```
+
+This dispatch ABI wraps the existing native launch ABI with explicit dispatch
+metadata:
+
+```text
+grid_x
+block_x
+shared_mem_bytes
+row_offset
+row_limit
+rows_per_program
+```
+
+The independent HIP stub now validates this dispatch-shaped object and consumes
+rows through the future-native path. It still does not dereference payloads and
+does not pass anything to the real WNA16 fused-MoE kernel.
+
+Evidence:
+
+```text
+outputs/reports/premap_kernel_consumer/
+  schema_check_future_native_dispatch.json
+  typed_consumer_stub_future_native_dispatch_dry_run.json
+  typed_consumer_stub_future_native_dispatch_canary.json
+```
+
+The canary used an exported online vLLM/AWQ typed-consumer input:
+
+```text
+future_kernel_native_dispatch_consumer_checked = true
+future_kernel_native_dispatch_consumer_row_count = 174
+future_kernel_native_dispatch_consumer_row_ok_count = 174
+future_kernel_native_dispatch_consumer_error_count = 0
+future_kernel_native_dispatch_consumer_payload_bytes = 0
+future_kernel_native_dispatch_consumer_passed_to_kernel = false
+future_kernel_native_dispatch_consumer_current_wna16_arg_compatible = false
+single_field_mirror = scale_metadata_handle
+single_field_mirror_row_ok_count = 174 / 174
+```
+
+Validation:
+
+```text
+conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
+  pytest tests/test_premap_typed_consumer_stub.py \
+         tests/test_premap_kernel_consumer_schema.py \
+         tests/test_run_premap_lab_preflight.py -q
+
+64 passed
+
+conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src pytest tests -q
+
+713 passed, 2 warnings
+
+git diff --check
+
+clean
+```
+
+Current boundary:
+
+```text
+This is a future-kernel-shaped native dispatch stub, not a live WNA16 kernel
+argument replacement. The next gate is to wire this dispatch ABI into the
+online native-stub canary runner / lab preflight artifacts before any real
+kernel-side field replacement.
+```
+
+## 2026-05-31 - Future Native Dispatch Online Gate Tightening
+
+The future-native dispatch ABI is now wired into the online prelaunch native
+stub runner and the artifact checker. A review pass identified one important
+correctness gap: dispatch metadata previously did not bind the semantic row
+window tightly enough to the launch geometry.
+
+Fix:
+
+```text
+active_rows = row_limit - row_offset
+grid_x * block_x >= active_rows
+(grid_x - 1) * block_x < active_rows
+rows_per_program == block_x
+runtime gridDim.x == dispatch.grid_x
+runtime blockDim.x == dispatch.block_x
+```
+
+The stub report now emits these invariants:
+
+```text
+future_kernel_native_dispatch_consumer_active_rows
+future_kernel_native_dispatch_consumer_launch_threads
+future_kernel_native_dispatch_consumer_launch_geometry_checked
+future_kernel_native_dispatch_consumer_launch_covers_active_rows
+future_kernel_native_dispatch_consumer_launch_minimal_cover
+```
+
+The schema artifact also records the dispatch contract:
+
+```text
+future_kernel_native_consumer_dispatch_abi_launch_geometry_required = true
+future_kernel_native_consumer_dispatch_abi_row_window_required = true
+future_kernel_native_consumer_dispatch_abi_minimal_cover_required = true
+future_kernel_native_consumer_dispatch_abi_rows_per_program_source = block_x
+```
+
+Evidence:
+
+```text
+outputs/reports/premap_kernel_consumer/
+  typed_consumer_stub_future_native_dispatch_canary.json
+  online_prelaunch_native_stub_canary_runner_future_dispatch.json
+  online_prelaunch_native_stub_canary_artifact_check_future_dispatch.json
+```
+
+Low-level dispatch canary:
+
+```text
+row_count = 174
+row_ok_count = 174
+active_rows = 174
+grid_x = 1
+block_x = 256
+launch_threads = 256
+launch_geometry_checked = true
+launch_covers_active_rows = true
+launch_minimal_cover = true
+payload_bytes = 0
+passed_to_kernel = false
+current_wna16_arg_compatible = false
+```
+
+Online prelaunch canary:
+
+```text
+runner passed = true
+artifact_check passed = true
+runner_future_kernel_native_consumer_dispatch_stub_row_count = 204
+runner_future_kernel_native_consumer_dispatch_stub_row_ok_count = 204
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+```
+
+Validation:
+
+```text
+conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
+  pytest tests/test_premap_typed_consumer_stub.py \
+         tests/test_premap_kernel_consumer_schema.py \
+         tests/test_run_premap_lab_preflight.py \
+         tests/test_run_premap_online_native_stub_canary.py \
+         tests/test_check_premap_online_native_stub_canary_artifacts.py -q
+
+83 passed
+
+conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src pytest tests -q
+
+713 passed, 2 warnings
+
+git diff --check
+
+clean
+```
+
+Current boundary:
+
+```text
+The dispatch ABI is now a stricter online lab gate, but it is still readonly.
+It does not mutate payloads, does not mark ready credit, does not pass kernel
+arguments, and remains explicitly incompatible with the current WNA16 argument
+list. The next gate is a future-kernel-compatible consumer path that accepts
+this dispatch-shaped ABI as its own typed input, still default disabled.
+```
+
+## 2026-05-31 - Dispatch Row-Window Guard Review Fix
+
+A second review pass tightened the future-native dispatch ABI guardrails before
+promoting it further:
+
+```text
+1. The dispatch kernel now validates row_limit >= row_offset and
+   row_limit <= row_count before computing active_rows, preventing unsigned
+   row-window underflow from feeding row iteration.
+
+2. The artifact checker now accepts generic dispatch row windows by deriving
+   active_rows = row_limit - row_offset and comparing dispatch row counts
+   against active_rows instead of the full table row_count.
+
+3. The online runner remains stricter than the artifact checker and still
+   requires the lab-gate full-range window:
+   row_offset = 0 and row_limit = row_count.
+```
+
+Additional negative coverage now checks:
+
+```text
+active_rows mismatch
+launch_threads mismatch
+non-minimal dispatch launch cover
+```
+
+Validation:
+
+```text
+conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
+  pytest tests/test_premap_typed_consumer_stub.py \
+         tests/test_premap_kernel_consumer_schema.py \
+         tests/test_run_premap_lab_preflight.py \
+         tests/test_run_premap_online_native_stub_canary.py \
+         tests/test_check_premap_online_native_stub_canary_artifacts.py -q
+
+87 passed
+
+conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
+  python scripts/run_premap_typed_consumer_stub.py \
+    --device 0 \
+    --input-json data/traces/external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_native_input_export_audit_mem70_stride320/premap_native_typed_consumer_inputs/premap_native_typed_consumer_input_0000_sample_0_seq0_tok-1_layer0.json \
+    --output-json outputs/reports/premap_kernel_consumer/typed_consumer_stub_future_native_dispatch_canary.json \
+    --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_SCHEMA \
+    --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_ROW_ITERATION \
+    --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_POINTER_VISIBILITY \
+    --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_LIFETIME \
+    --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ABI \
+    --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ABI \
+    --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_ABI \
+    --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD \
+    --macro MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR
+
+passed = true
+row_count = 174
+future_kernel_native_dispatch_consumer_active_rows = 174
+future_kernel_native_dispatch_consumer_launch_threads = 256
+future_kernel_native_dispatch_consumer_launch_minimal_cover = true
+payload_bytes = 0
+passed_to_kernel = false
+
+conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
+  python scripts/run_premap_online_native_stub_canary.py \
+    --output-json outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_runner_future_dispatch.json \
+    --artifact-check-output-json outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_artifact_check_future_dispatch.json
+
+runner passed = true
+artifact_check passed = true
+dispatch row_count = 204
+dispatch row_ok_count = 204
+
+conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src pytest tests -q
+
+717 passed, 2 warnings
+
+git diff --check
+
+clean
+```
+
+Review:
+
+```text
+No blocking findings. The reviewer confirmed that row-window underflow is
+guarded, the online runner keeps the intended full-range lab gate, and the
+artifact checker now supports generic windowed summaries.
+```
+
+## 2026-05-31 - Future Dispatch Multi-Input Canary
+
+The future-native dispatch online canary was extended beyond the single input
+smoke by reusing the existing Dolly-128 native input export:
+
+```text
+conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
+  python scripts/run_premap_online_native_stub_canary.py \
+    --trace-config configs/trace/router_mtp_trace_external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_native_input_export_audit_mem70.yaml \
+    --skip-trace \
+    --max-online-inputs 2 \
+    --min-artifact-online-inputs 2 \
+    --output-json outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_runner_future_dispatch_2input.json \
+    --artifact-check-output-json outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_artifact_check_future_dispatch_2input.json
+```
+
+Result:
+
+```text
+runner passed = true
+artifact_check passed = true
+min_online_inputs = 2
+online_prelaunch_input_check_count = 2
+online_prelaunch_input_extra_check_count = 1
+online_prelaunch_input_extra_check_passed_count = 1
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+```
+
+This confirms that the dispatch-shaped readonly native consumer gate is not
+limited to a single exported prelaunch table. The path still remains a native
+stub / artifact gate only; it does not pass WNA16 kernel arguments.
+
+The same gate was then extended to four exported prelaunch tables:
+
+```text
+conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
+  python scripts/run_premap_online_native_stub_canary.py \
+    --trace-config configs/trace/router_mtp_trace_external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_native_input_export_audit_mem70.yaml \
+    --skip-trace \
+    --max-online-inputs 4 \
+    --min-artifact-online-inputs 4 \
+    --output-json outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_runner_future_dispatch_4input.json \
+    --artifact-check-output-json outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_artifact_check_future_dispatch_4input.json
+
+runner passed = true
+artifact_check passed = true
+min_online_inputs = 4
+online_prelaunch_input_check_count = 4
+online_prelaunch_input_extra_check_count = 3
+online_prelaunch_input_extra_check_passed_count = 3
+```
+
+The four-input run covers row-count variation across exported prelaunch tables
+while keeping the same safety boundary: no payload dereference, no ready credit,
+no WNA16 argument mutation.
+
+The runner now also supports compact stdout for larger stub sweeps:
+
+```text
+--stdout-mode full     # default, old behavior
+--stdout-mode summary  # compact status line
+--stdout-mode none     # artifacts only
+```
+
+This was used to extend the same gate to eight exported prelaunch tables:
+
+```text
+conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
+  python scripts/run_premap_online_native_stub_canary.py \
+    --trace-config configs/trace/router_mtp_trace_external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_native_input_export_audit_mem70.yaml \
+    --skip-trace \
+    --max-online-inputs 8 \
+    --min-artifact-online-inputs 8 \
+    --stdout-mode summary \
+    --output-json outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_runner_future_dispatch_8input.json \
+    --artifact-check-output-json outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_artifact_check_future_dispatch_8input.json
+
+passed = true
+artifact_check_passed = true
+min_online_inputs = 8
+online_prelaunch_input_check_count = 8
+online_prelaunch_input_extra_check_count = 7
+online_prelaunch_input_extra_check_passed_count = 7
+final_deferred_count = 0
+status_deferred_count = 0
+```
+
+The previously interrupted 16-input target now also passes with compact stdout:
+
+```text
+conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
+  python scripts/run_premap_online_native_stub_canary.py \
+    --trace-config configs/trace/router_mtp_trace_external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_native_input_export_audit_mem70.yaml \
+    --skip-trace \
+    --max-online-inputs 16 \
+    --min-artifact-online-inputs 16 \
+    --stdout-mode summary \
+    --output-json outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_runner_future_dispatch_16input.json \
+    --artifact-check-output-json outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_artifact_check_future_dispatch_16input.json
+
+passed = true
+artifact_check_passed = true
+min_online_inputs = 16
+online_prelaunch_input_check_count = 16
+online_prelaunch_input_extra_check_count = 15
+online_prelaunch_input_extra_check_passed_count = 15
+final_deferred_count = 0
+status_deferred_count = 0
+```
+
+### 2026-05-31 - Dispatch Canary Promoted Into Lab Preflight
+
+The default live-connected readonly premap gate now uses the 16-input future
+native dispatch canary as the canonical online prelaunch runner evidence:
+
+```text
+native_typed_consumer_online_prelaunch_canary_runner_json:
+  outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_runner_future_dispatch_16input.json
+```
+
+The preflight content checker now validates the dispatch ABI summary in addition
+to the existing native/launch summaries:
+
+```text
+future_kernel_native_dispatch_consumer_checked = true
+future_kernel_native_dispatch_consumer_abi_name =
+  premap_future_kernel_native_consumer_dispatch_abi_v1
+future_kernel_native_dispatch_consumer_active_rows = row_limit - row_offset
+future_kernel_native_dispatch_consumer_row_count = row_count
+future_kernel_native_dispatch_consumer_row_ok_count = row_count
+future_kernel_native_dispatch_consumer_launch_geometry_checked = true
+future_kernel_native_dispatch_consumer_launch_covers_active_rows = true
+future_kernel_native_dispatch_consumer_launch_minimal_cover = true
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+```
+
+The default preflight passes with this stricter evidence:
+
+```text
+conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
+  python scripts/run_premap_lab_preflight.py \
+    --summary-only \
+    --output-json outputs/reports/premap_lab_preflight_dispatch_default_gate_check.json
+
+passed = true
+default_contract_passed = true
+default_required_evidence_passed = true
+native_typed_consumer_online_prelaunch_canary_runner_json =
+  outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_runner_future_dispatch_16input.json
+```
+
+Validation:
+
+```text
+conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
+  pytest tests -q
+
+717 passed, 2 warnings
+git diff --check: clean
+```
+
+### 2026-05-31 - Future Dispatch Row-Window Canary
+
+The native typed consumer stub now supports an explicit dispatch row window:
+
+```text
+--dispatch-row-offset
+--dispatch-row-limit
+```
+
+Only the future-native dispatch ABI consumes this window.  The table/schema and
+other full-row checks continue to cover the full typed table, while the dispatch
+stub validates the row subset that a future kernel launch block/window would
+consume.
+
+Small online-input canary:
+
+```text
+input:
+  data/traces/external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_native_input_export_audit_mem70_stride320/premap_native_typed_consumer_inputs/premap_native_typed_consumer_input_0000_sample_0_seq0_tok-1_layer0.json
+
+output:
+  outputs/reports/premap_kernel_consumer/typed_consumer_stub_gpu1_future_native_dispatch_row_window_canary_input0000.json
+
+dispatch_row_offset = 1
+dispatch_row_limit = 5
+future_native_dispatch active_rows = 4
+future_native_dispatch row_count = 4
+future_native_dispatch row_ok_count = 4
+future_native_dispatch grid_x = 1
+future_native_dispatch launch_covers_active_rows = true
+future_native_dispatch launch_minimal_cover = true
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+```
+
+This is still a standalone native-stub gate, not a WNA16 kernel-arg handoff.
+It validates that the future dispatch ABI can represent block/window-level row
+iteration without materializing or mutating the current fused-MoE launch args.
+
+Follow-up review found one non-blocking observability gap: the future native,
+launch, and dispatch runner/artifact-check paths were listed in the gate YAML
+but not consumed by the optional preflight whitelist.  That gap is now closed:
+
+```text
+optional_evidence.required_count = 10
+optional_evidence.present_count = 10
+optional_evidence.passed_count = 10
+
+future_kernel_native_consumer_online_runner_16_128export_json = passed
+future_kernel_native_consumer_online_artifact_check_16_128export_json = passed
+future_kernel_native_launch_consumer_online_runner_16_128export_json = passed
+future_kernel_native_launch_consumer_online_artifact_check_16_128export_json = passed
+future_kernel_native_dispatch_consumer_online_runner_16_128export_json = passed
+future_kernel_native_dispatch_consumer_online_artifact_check_16_128export_json = passed
+```
+
+The self-referential runner-defer mode now defers the canonical runner plus the
+three future-native runner aliases together, so partial pre-write preflight does
+not report false missing evidence.
+
+### 2026-05-31 - Future Dispatch ABI Four-Field Mirror Gate
+
+The online native-stub canary now validates the future-native dispatch ABI
+against all four typed handle fields instead of only the scale metadata mirror:
+
+```text
+scale_metadata_handle
+descriptor_ptr
+packed_weight_descriptor
+aux_metadata_handle
+```
+
+The runner exercises the base native ABI, launch ABI, and dispatch ABI for the
+same online prelaunch inputs.  It still preserves the lab safety boundary:
+
+```text
+payload_bytes = 0
+ready_credit = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+current_wna16_arg_compatible = false
+```
+
+Latest evidence:
+
+```text
+runner:
+  outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_runner_future_dispatch_16input.json
+
+artifact check:
+  outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_artifact_check_future_dispatch_16input.json
+
+passed = true
+runner_online_prelaunch_input_check_count = 16
+runner_online_prelaunch_input_extra_check_count = 15
+runner_online_prelaunch_input_extra_check_passed_count = 15
+stage1_deferred_count = 7
+final_deferred_count = 3
+status_deferred_count = 3
+
+future_native_dispatch scale rows = 174 / 174
+future_native_dispatch descriptor_ptr rows = 174 / 174
+future_native_dispatch packed_weight rows = 174 / 174
+future_native_dispatch aux_metadata rows = 174 / 174
+```
+
+The defer contract is now split explicitly:
+
+```text
+stage1 preflight:
+  defers online runner evidence and artifact-check evidence
+  deferred_count = 7
+
+final/status preflight inside the runner:
+  defers only artifact-check evidence, because the runner artifact exists
+  deferred_count = 3
+
+default lab preflight after artifact generation:
+  defers nothing
+```
+
+This prevents runner defer mode from silently masking non-self-referential
+artifact evidence failures.  The final default lab preflight, after artifact
+generation, consumes all evidence normally:
+
+```text
+outputs/reports/premap_lab_preflight_dispatch_default_gate_check.json
+
+passed = true
+runtime_gate_evidence_deferred_count = 0
+strict_default_gate_evidence_deferred_count = 0
+required_evidence = 11 / 11
+optional_evidence = 10 / 10
+```
+
+Validation:
+
+```text
+conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
+  pytest tests -q
+
+719 passed, 2 warnings
+git diff --check: clean
 ```

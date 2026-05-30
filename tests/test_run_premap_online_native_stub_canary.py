@@ -128,6 +128,20 @@ def test_run_canary_dry_run_includes_compact_preflight_status(
             str(tmp_path / "stub_aux_metadata_mirror.json"),
             "--descriptor-ptr-mirror-stub-output-json",
             str(tmp_path / "stub_descriptor_ptr_mirror.json"),
+            "--future-kernel-args-stub-output-json",
+            str(tmp_path / "stub_future_kernel_args.json"),
+            "--future-kernel-native-consumer-stub-output-json",
+            str(tmp_path / "stub_future_native_consumer.json"),
+            "--future-kernel-native-consumer-launch-stub-output-json",
+            str(tmp_path / "stub_future_native_consumer_launch.json"),
+            "--future-kernel-native-consumer-dispatch-stub-output-json",
+            str(tmp_path / "stub_future_native_consumer_dispatch.json"),
+            "--future-kernel-native-consumer-dispatch-descriptor-ptr-stub-output-json",
+            str(tmp_path / "stub_future_native_consumer_dispatch_descriptor_ptr.json"),
+            "--future-kernel-native-consumer-dispatch-packed-weight-stub-output-json",
+            str(tmp_path / "stub_future_native_consumer_dispatch_packed_weight.json"),
+            "--future-kernel-native-consumer-dispatch-aux-metadata-stub-output-json",
+            str(tmp_path / "stub_future_native_consumer_dispatch_aux_metadata.json"),
             "--preflight-output-json",
             str(tmp_path / "preflight.json"),
             "--preflight-status-output-json",
@@ -147,6 +161,34 @@ def test_run_canary_dry_run_includes_compact_preflight_status(
     assert "native_stub_packed_weight_mirror" in result["steps"]
     assert "native_stub_aux_metadata_mirror" in result["steps"]
     assert "native_stub_descriptor_ptr_mirror" in result["steps"]
+    assert "native_stub_future_kernel_consumer_args" in result["steps"]
+    assert "native_stub_future_kernel_native_consumer_abi" in result["steps"]
+    assert "native_stub_future_kernel_native_consumer_launch_abi" in result["steps"]
+    assert (
+        "native_stub_future_kernel_native_consumer_launch_descriptor_ptr_mirror"
+        in result["steps"]
+    )
+    assert (
+        "native_stub_future_kernel_native_consumer_launch_packed_weight_mirror"
+        in result["steps"]
+    )
+    assert (
+        "native_stub_future_kernel_native_consumer_launch_aux_metadata_mirror"
+        in result["steps"]
+    )
+    assert "native_stub_future_kernel_native_consumer_dispatch_abi" in result["steps"]
+    assert (
+        "native_stub_future_kernel_native_consumer_dispatch_descriptor_ptr_mirror"
+        in result["steps"]
+    )
+    assert (
+        "native_stub_future_kernel_native_consumer_dispatch_packed_weight_mirror"
+        in result["steps"]
+    )
+    assert (
+        "native_stub_future_kernel_native_consumer_dispatch_aux_metadata_mirror"
+        in result["steps"]
+    )
     assert result["preflight_status_output_json"] == str(status_output)
     per_field_cmd = result["steps"]["native_stub_per_field"]["cmd"]
     assert str(tmp_path / "stub_per_field.json") in per_field_cmd
@@ -168,10 +210,103 @@ def test_run_canary_dry_run_includes_compact_preflight_status(
     assert str(tmp_path / "stub_descriptor_ptr_mirror.json") in descriptor_cmd
     assert "MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR_MIRROR_FIELD" in descriptor_cmd
     assert "MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_MIRROR_FIELD" not in descriptor_cmd
+    future_args_cmd = result["steps"]["native_stub_future_kernel_consumer_args"]["cmd"]
+    assert str(tmp_path / "stub_future_kernel_args.json") in future_args_cmd
+    assert "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_CONSUMER_ARGS" in future_args_cmd
+    assert "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD" in future_args_cmd
+    future_native_cmd = result["steps"]["native_stub_future_kernel_native_consumer_abi"]["cmd"]
+    assert str(tmp_path / "stub_future_native_consumer.json") in future_native_cmd
+    assert (
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ABI"
+        in future_native_cmd
+    )
+    assert "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD" in future_native_cmd
+    future_native_launch_cmd = result["steps"][
+        "native_stub_future_kernel_native_consumer_launch_abi"
+    ]["cmd"]
+    assert str(tmp_path / "stub_future_native_consumer_launch.json") in (
+        future_native_launch_cmd
+    )
+    assert (
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ABI"
+        in future_native_launch_cmd
+    )
+    assert (
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ABI"
+        in future_native_launch_cmd
+    )
+    assert "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD" in (
+        future_native_launch_cmd
+    )
+    future_native_dispatch_cmd = result["steps"][
+        "native_stub_future_kernel_native_consumer_dispatch_abi"
+    ]["cmd"]
+    assert str(tmp_path / "stub_future_native_consumer_dispatch.json") in (
+        future_native_dispatch_cmd
+    )
+    assert (
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ABI"
+        in future_native_dispatch_cmd
+    )
+    assert (
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ABI"
+        in future_native_dispatch_cmd
+    )
+    assert (
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_ABI"
+        in future_native_dispatch_cmd
+    )
+    assert "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD" in (
+        future_native_dispatch_cmd
+    )
+    future_native_dispatch_descriptor_cmd = result["steps"][
+        "native_stub_future_kernel_native_consumer_dispatch_descriptor_ptr_mirror"
+    ]["cmd"]
+    assert (
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_ABI"
+        in future_native_dispatch_descriptor_cmd
+    )
+    assert "MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR_MIRROR_FIELD" in (
+        future_native_dispatch_descriptor_cmd
+    )
+    future_native_dispatch_packed_cmd = result["steps"][
+        "native_stub_future_kernel_native_consumer_dispatch_packed_weight_mirror"
+    ]["cmd"]
+    assert (
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_ABI"
+        in future_native_dispatch_packed_cmd
+    )
+    assert "MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_MIRROR_FIELD" in (
+        future_native_dispatch_packed_cmd
+    )
+    future_native_dispatch_aux_cmd = result["steps"][
+        "native_stub_future_kernel_native_consumer_dispatch_aux_metadata_mirror"
+    ]["cmd"]
+    assert (
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_ABI"
+        in future_native_dispatch_aux_cmd
+    )
+    assert "MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_MIRROR_FIELD" in (
+        future_native_dispatch_aux_cmd
+    )
+    future_native_launch_descriptor_cmd = result["steps"][
+        "native_stub_future_kernel_native_consumer_launch_descriptor_ptr_mirror"
+    ]["cmd"]
+    assert "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ABI" in (
+        future_native_launch_descriptor_cmd
+    )
+    assert "MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR_MIRROR_FIELD" in (
+        future_native_launch_descriptor_cmd
+    )
     assert "--defer-online-prelaunch-runner-evidence" in result["steps"]["preflight"]["cmd"]
+    assert "--defer-online-prelaunch-artifact-evidence" in result["steps"]["preflight"]["cmd"]
     assert "--summary-only" in result["steps"]["preflight_status"]["cmd"]
     assert (
         "--defer-online-prelaunch-runner-evidence"
+        in result["steps"]["preflight_status"]["cmd"]
+    )
+    assert (
+        "--defer-online-prelaunch-artifact-evidence"
         in result["steps"]["preflight_status"]["cmd"]
     )
     assert "runtime_gate_evidence_deferred_count" in result["preflight_status_summary"]
@@ -220,6 +355,40 @@ def test_finalize_report_with_artifact_check_records_summary(
                     "runner_kernel_envelope_mirror_stub_row_ok_count": 4,
                     "runner_aux_metadata_mirror_stub_row_count": 4,
                     "runner_aux_metadata_mirror_stub_row_ok_count": 4,
+                    "runner_kernel_side_compatible_stub_row_count": 4,
+                    "runner_kernel_side_compatible_stub_row_ok_count": 4,
+                    "runner_future_kernel_args_stub_row_count": 4,
+                    "runner_future_kernel_args_stub_row_ok_count": 4,
+                    "runner_future_kernel_args_descriptor_ptr_stub_row_count": 4,
+                    "runner_future_kernel_args_descriptor_ptr_stub_row_ok_count": 4,
+                    "runner_future_kernel_args_packed_weight_stub_row_count": 4,
+                    "runner_future_kernel_args_packed_weight_stub_row_ok_count": 4,
+                    "runner_future_kernel_args_aux_metadata_stub_row_count": 4,
+                    "runner_future_kernel_args_aux_metadata_stub_row_ok_count": 4,
+                    "runner_future_kernel_native_consumer_stub_row_count": 4,
+                    "runner_future_kernel_native_consumer_stub_row_ok_count": 4,
+                    "runner_future_kernel_native_consumer_descriptor_ptr_stub_row_count": 4,
+                    "runner_future_kernel_native_consumer_descriptor_ptr_stub_row_ok_count": 4,
+                    "runner_future_kernel_native_consumer_packed_weight_stub_row_count": 4,
+                    "runner_future_kernel_native_consumer_packed_weight_stub_row_ok_count": 4,
+                    "runner_future_kernel_native_consumer_aux_metadata_stub_row_count": 4,
+                    "runner_future_kernel_native_consumer_aux_metadata_stub_row_ok_count": 4,
+                    "runner_future_kernel_native_consumer_launch_stub_row_count": 4,
+                    "runner_future_kernel_native_consumer_launch_stub_row_ok_count": 4,
+                    "runner_future_kernel_native_consumer_launch_descriptor_ptr_stub_row_count": 4,
+                    "runner_future_kernel_native_consumer_launch_descriptor_ptr_stub_row_ok_count": 4,
+                    "runner_future_kernel_native_consumer_launch_packed_weight_stub_row_count": 4,
+                    "runner_future_kernel_native_consumer_launch_packed_weight_stub_row_ok_count": 4,
+                    "runner_future_kernel_native_consumer_launch_aux_metadata_stub_row_count": 4,
+                    "runner_future_kernel_native_consumer_launch_aux_metadata_stub_row_ok_count": 4,
+                    "runner_future_kernel_native_consumer_dispatch_stub_row_count": 4,
+                    "runner_future_kernel_native_consumer_dispatch_stub_row_ok_count": 4,
+                    "runner_future_kernel_native_consumer_dispatch_descriptor_ptr_stub_row_count": 4,
+                    "runner_future_kernel_native_consumer_dispatch_descriptor_ptr_stub_row_ok_count": 4,
+                    "runner_future_kernel_native_consumer_dispatch_packed_weight_stub_row_count": 4,
+                    "runner_future_kernel_native_consumer_dispatch_packed_weight_stub_row_ok_count": 4,
+                    "runner_future_kernel_native_consumer_dispatch_aux_metadata_stub_row_count": 4,
+                    "runner_future_kernel_native_consumer_dispatch_aux_metadata_stub_row_ok_count": 4,
                     "stage1_deferred_count": 1,
                     "final_deferred_count": 0,
                     "status_deferred_count": 0,
@@ -273,9 +442,43 @@ def test_finalize_report_with_artifact_check_records_summary(
         "runner_kernel_envelope_mirror_stub_row_ok_count": 4,
         "runner_aux_metadata_mirror_stub_row_count": 4,
         "runner_aux_metadata_mirror_stub_row_ok_count": 4,
-        "stage1_deferred_count": 1,
-        "final_deferred_count": 0,
-        "status_deferred_count": 0,
+        "runner_kernel_side_compatible_stub_row_count": 4,
+        "runner_kernel_side_compatible_stub_row_ok_count": 4,
+            "runner_future_kernel_args_stub_row_count": 4,
+            "runner_future_kernel_args_stub_row_ok_count": 4,
+            "runner_future_kernel_args_descriptor_ptr_stub_row_count": 4,
+            "runner_future_kernel_args_descriptor_ptr_stub_row_ok_count": 4,
+            "runner_future_kernel_args_packed_weight_stub_row_count": 4,
+            "runner_future_kernel_args_packed_weight_stub_row_ok_count": 4,
+            "runner_future_kernel_args_aux_metadata_stub_row_count": 4,
+            "runner_future_kernel_args_aux_metadata_stub_row_ok_count": 4,
+            "runner_future_kernel_native_consumer_stub_row_count": 4,
+            "runner_future_kernel_native_consumer_stub_row_ok_count": 4,
+            "runner_future_kernel_native_consumer_descriptor_ptr_stub_row_count": 4,
+            "runner_future_kernel_native_consumer_descriptor_ptr_stub_row_ok_count": 4,
+            "runner_future_kernel_native_consumer_packed_weight_stub_row_count": 4,
+            "runner_future_kernel_native_consumer_packed_weight_stub_row_ok_count": 4,
+            "runner_future_kernel_native_consumer_aux_metadata_stub_row_count": 4,
+            "runner_future_kernel_native_consumer_aux_metadata_stub_row_ok_count": 4,
+            "runner_future_kernel_native_consumer_launch_stub_row_count": 4,
+            "runner_future_kernel_native_consumer_launch_stub_row_ok_count": 4,
+            "runner_future_kernel_native_consumer_launch_descriptor_ptr_stub_row_count": 4,
+            "runner_future_kernel_native_consumer_launch_descriptor_ptr_stub_row_ok_count": 4,
+            "runner_future_kernel_native_consumer_launch_packed_weight_stub_row_count": 4,
+            "runner_future_kernel_native_consumer_launch_packed_weight_stub_row_ok_count": 4,
+            "runner_future_kernel_native_consumer_launch_aux_metadata_stub_row_count": 4,
+            "runner_future_kernel_native_consumer_launch_aux_metadata_stub_row_ok_count": 4,
+            "runner_future_kernel_native_consumer_dispatch_stub_row_count": 4,
+            "runner_future_kernel_native_consumer_dispatch_stub_row_ok_count": 4,
+            "runner_future_kernel_native_consumer_dispatch_descriptor_ptr_stub_row_count": 4,
+            "runner_future_kernel_native_consumer_dispatch_descriptor_ptr_stub_row_ok_count": 4,
+            "runner_future_kernel_native_consumer_dispatch_packed_weight_stub_row_count": 4,
+            "runner_future_kernel_native_consumer_dispatch_packed_weight_stub_row_ok_count": 4,
+            "runner_future_kernel_native_consumer_dispatch_aux_metadata_stub_row_count": 4,
+            "runner_future_kernel_native_consumer_dispatch_aux_metadata_stub_row_ok_count": 4,
+            "stage1_deferred_count": 1,
+            "final_deferred_count": 0,
+            "status_deferred_count": 0,
     }
     assert "artifact_check" in result["steps"]
 

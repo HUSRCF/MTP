@@ -19,6 +19,9 @@ DEFAULT_PREFLIGHT_JSON = Path(
 DEFAULT_STATUS_JSON = Path(
     "outputs/reports/premap_lab_preflight_status_online_prelaunch_native_stub_canary.json"
 )
+_FUTURE_KERNEL_REQUIRED_FIELD_MASK = 0x7
+_FUTURE_KERNEL_ALL_FIELD_MASK = 0xF
+_FUTURE_KERNEL_AUX_FIELD_MASK = 0x8
 
 
 def _resolve(root: Path, path: str | Path) -> Path:
@@ -35,6 +38,45 @@ def _load_json(path: Path) -> dict[str, Any]:
 
 def _int(value: Any) -> int | None:
     return value if isinstance(value, int) and not isinstance(value, bool) else None
+
+
+def _check_future_field_mask(
+    stub: dict[str, Any],
+    *,
+    prefix: str,
+    field_prefix: str,
+    expected_field_name: str,
+    failures: list[str],
+) -> None:
+    field_mask = stub.get(f"{field_prefix}_field_mask")
+    required_mask = stub.get(f"{field_prefix}_required_field_mask")
+    if field_mask is None:
+        failures.append(f"{prefix}_{field_prefix}_field_mask_missing")
+        return
+    if required_mask is None:
+        failures.append(f"{prefix}_{field_prefix}_required_field_mask_missing")
+        return
+    if (
+        not isinstance(field_mask, int)
+        or isinstance(field_mask, bool)
+        or not isinstance(required_mask, int)
+        or isinstance(required_mask, bool)
+    ):
+        failures.append(f"{prefix}_{field_prefix}_field_mask_type_mismatch")
+        return
+    if required_mask != _FUTURE_KERNEL_REQUIRED_FIELD_MASK:
+        failures.append(f"{prefix}_{field_prefix}_required_field_mask_mismatch")
+    if (
+        field_mask & _FUTURE_KERNEL_REQUIRED_FIELD_MASK
+        != _FUTURE_KERNEL_REQUIRED_FIELD_MASK
+    ):
+        failures.append(f"{prefix}_{field_prefix}_required_field_mask_not_covered")
+    if field_mask & ~_FUTURE_KERNEL_ALL_FIELD_MASK:
+        failures.append(f"{prefix}_{field_prefix}_field_mask_unknown_bits")
+    if expected_field_name == "aux_metadata_handle" and not (
+        field_mask & _FUTURE_KERNEL_AUX_FIELD_MASK
+    ):
+        failures.append(f"{prefix}_{field_prefix}_aux_field_mask_missing")
 
 
 def _check_stub_summary(
@@ -132,6 +174,494 @@ def _check_single_field_mirror_summary(
     return row_count, row_ok_count
 
 
+def _check_kernel_side_compatible_summary(
+    stub: Any,
+    *,
+    prefix: str,
+    failures: list[str],
+) -> tuple[int | None, int | None]:
+    row_count, row_ok_count = _check_stub_summary(
+        stub,
+        prefix=prefix,
+        failures=failures,
+    )
+    if not isinstance(stub, dict):
+        stub = {}
+    expected = {
+        "kernel_side_compatible_consumer_checked": True,
+        "kernel_side_compatible_consumer_name": (
+            "premap_kernel_side_compatible_consumer_abi_v1"
+        ),
+        "kernel_side_compatible_consumer_mode": (
+            "readonly_kernel_side_compatible_consumer_abi"
+        ),
+        "kernel_side_compatible_consumer_source": (
+            "premap_kernel_side_typed_consumer_launch_envelope_v1"
+        ),
+        "kernel_side_compatible_consumer_error_count": 0,
+        "kernel_side_compatible_consumer_payload_bytes": 0,
+        "kernel_side_compatible_consumer_passed_to_kernel": False,
+        "kernel_side_compatible_consumer_changes_kernel_launch_args": False,
+        "kernel_side_compatible_consumer_current_wna16_arg_compatible": False,
+    }
+    for key, expected_value in expected.items():
+        if stub.get(key) != expected_value:
+            failures.append(f"{prefix}_{key}_mismatch")
+    compatible_row_count = _int(
+        stub.get("kernel_side_compatible_consumer_row_count")
+    )
+    compatible_row_ok_count = _int(
+        stub.get("kernel_side_compatible_consumer_row_ok_count")
+    )
+    if row_count is not None and compatible_row_count != row_count:
+        failures.append(f"{prefix}_kernel_side_compatible_row_count_mismatch")
+    if row_count is not None and compatible_row_ok_count != row_count:
+        failures.append(f"{prefix}_kernel_side_compatible_row_ok_count_mismatch")
+    return row_count, row_ok_count
+
+
+def _check_future_kernel_args_summary(
+    stub: Any,
+    *,
+    prefix: str,
+    expected_field_name: str = "scale_metadata_handle",
+    failures: list[str],
+) -> tuple[int | None, int | None]:
+    row_count, row_ok_count = _check_stub_summary(
+        stub,
+        prefix=prefix,
+        failures=failures,
+    )
+    if not isinstance(stub, dict):
+        stub = {}
+    expected = {
+        "future_kernel_consumer_args_checked": True,
+        "future_kernel_consumer_args_name": (
+            "premap_future_kernel_side_consumer_args_v1"
+        ),
+        "future_kernel_consumer_args_mode": (
+            "readonly_future_kernel_consumer_args"
+        ),
+        "future_kernel_consumer_args_source": (
+            "premap_kernel_side_typed_consumer_launch_envelope_v1"
+        ),
+        "future_kernel_consumer_args_error_count": 0,
+        "future_kernel_consumer_args_payload_bytes": 0,
+        "future_kernel_consumer_args_passed_to_kernel": False,
+        "future_kernel_consumer_args_changes_kernel_launch_args": False,
+        "future_kernel_consumer_args_current_wna16_arg_compatible": False,
+        "future_kernel_consumer_args_requires_wna16_arg_reinterpretation": False,
+        "future_kernel_consumer_args_single_field_mirror_checked": True,
+        "future_kernel_consumer_args_single_field_mirror_field_name": expected_field_name,
+        "future_kernel_consumer_args_single_field_mirror_error_count": 0,
+    }
+    for key, expected_value in expected.items():
+        if stub.get(key) != expected_value:
+            failures.append(f"{prefix}_{key}_mismatch")
+    _check_future_field_mask(
+        stub,
+        prefix=prefix,
+        field_prefix="future_kernel_consumer_args",
+        expected_field_name=expected_field_name,
+        failures=failures,
+    )
+    future_row_count = _int(stub.get("future_kernel_consumer_args_row_count"))
+    future_row_ok_count = _int(
+        stub.get("future_kernel_consumer_args_row_ok_count")
+    )
+    if row_count is not None and future_row_count != row_count:
+        failures.append(f"{prefix}_future_kernel_args_row_count_mismatch")
+    if row_count is not None and future_row_ok_count != row_count:
+        failures.append(f"{prefix}_future_kernel_args_row_ok_count_mismatch")
+    mirror_row_count = _int(
+        stub.get("future_kernel_consumer_args_single_field_mirror_row_count")
+    )
+    mirror_row_ok_count = _int(
+        stub.get("future_kernel_consumer_args_single_field_mirror_row_ok_count")
+    )
+    if row_count is not None and mirror_row_count != row_count:
+        failures.append(f"{prefix}_future_kernel_args_mirror_row_count_mismatch")
+    if row_count is not None and mirror_row_ok_count != row_count:
+        failures.append(f"{prefix}_future_kernel_args_mirror_row_ok_count_mismatch")
+    return row_count, row_ok_count
+
+
+def _check_future_kernel_args_compatible_path_summary(
+    stub: Any,
+    *,
+    prefix: str,
+    failures: list[str],
+) -> tuple[int | None, int | None]:
+    row_count, row_ok_count = _check_stub_summary(
+        stub,
+        prefix=prefix,
+        failures=failures,
+    )
+    if not isinstance(stub, dict):
+        stub = {}
+    expected = {
+        "future_kernel_consumer_args_checked": True,
+        "future_kernel_consumer_args_error_count": 0,
+        "future_kernel_consumer_args_payload_bytes": 0,
+        "future_kernel_consumer_args_passed_to_kernel": False,
+        "future_kernel_consumer_args_changes_kernel_launch_args": False,
+        "future_kernel_consumer_args_current_wna16_arg_compatible": False,
+        "future_kernel_consumer_args_requires_wna16_arg_reinterpretation": False,
+        "future_kernel_args_compatible_consumer_path_checked": True,
+        "future_kernel_args_compatible_consumer_path_name": (
+            "premap_future_kernel_args_compatible_consumer_path_v1"
+        ),
+        "future_kernel_args_compatible_consumer_path_mode": (
+            "readonly_future_kernel_args_to_compatible_consumer_path"
+        ),
+        "future_kernel_args_compatible_consumer_path_source": (
+            "premap_future_kernel_side_consumer_args_v1"
+        ),
+        "future_kernel_args_compatible_consumer_path_error_count": 0,
+        "future_kernel_args_compatible_consumer_path_payload_bytes": 0,
+        "future_kernel_args_compatible_consumer_path_passed_to_kernel": False,
+        "future_kernel_args_compatible_consumer_path_changes_kernel_launch_args": False,
+        "future_kernel_args_compatible_consumer_path_current_wna16_arg_compatible": False,
+        "future_kernel_args_compatible_consumer_path_requires_wna16_arg_reinterpretation": False,
+    }
+    for key, expected_value in expected.items():
+        if stub.get(key) != expected_value:
+            failures.append(f"{prefix}_{key}_mismatch")
+    future_row_count = _int(stub.get("future_kernel_consumer_args_row_count"))
+    future_row_ok_count = _int(stub.get("future_kernel_consumer_args_row_ok_count"))
+    compatible_row_count = _int(
+        stub.get("future_kernel_args_compatible_consumer_path_row_count")
+    )
+    compatible_row_ok_count = _int(
+        stub.get("future_kernel_args_compatible_consumer_path_row_ok_count")
+    )
+    if row_count is not None and future_row_count != row_count:
+        failures.append(f"{prefix}_future_kernel_args_row_count_mismatch")
+    if row_count is not None and future_row_ok_count != row_count:
+        failures.append(f"{prefix}_future_kernel_args_row_ok_count_mismatch")
+    if row_count is not None and compatible_row_count != row_count:
+        failures.append(f"{prefix}_compatible_path_row_count_mismatch")
+    if row_count is not None and compatible_row_ok_count != row_count:
+        failures.append(f"{prefix}_compatible_path_row_ok_count_mismatch")
+    return row_count, row_ok_count
+
+
+def _check_future_kernel_native_consumer_summary(
+    stub: Any,
+    *,
+    prefix: str,
+    expected_field_name: str = "scale_metadata_handle",
+    failures: list[str],
+) -> tuple[int | None, int | None]:
+    row_count, row_ok_count = _check_stub_summary(
+        stub,
+        prefix=prefix,
+        failures=failures,
+    )
+    if not isinstance(stub, dict):
+        stub = {}
+    expected = {
+        "future_kernel_native_consumer_checked": True,
+        "future_kernel_native_consumer_abi_name": (
+            "premap_future_kernel_native_consumer_abi_v1"
+        ),
+        "future_kernel_native_consumer_mode": (
+            "readonly_future_kernel_native_consumer_abi"
+        ),
+        "future_kernel_native_consumer_source": (
+            "premap_typed_handle_table_soa_fields"
+        ),
+        "future_kernel_native_consumer_error_count": 0,
+        "future_kernel_native_consumer_payload_bytes": 0,
+        "future_kernel_native_consumer_passed_to_kernel": False,
+        "future_kernel_native_consumer_changes_kernel_launch_args": False,
+        "future_kernel_native_consumer_current_wna16_arg_compatible": False,
+        "future_kernel_native_consumer_requires_wna16_arg_reinterpretation": False,
+        "future_kernel_native_consumer_single_field_mirror_checked": True,
+        "future_kernel_native_consumer_single_field_mirror_field_name": (
+            expected_field_name
+        ),
+        "future_kernel_native_consumer_single_field_mirror_error_count": 0,
+    }
+    for key, expected_value in expected.items():
+        if stub.get(key) != expected_value:
+            failures.append(f"{prefix}_{key}_mismatch")
+    _check_future_field_mask(
+        stub,
+        prefix=prefix,
+        field_prefix="future_kernel_native_consumer",
+        expected_field_name=expected_field_name,
+        failures=failures,
+    )
+    native_row_count = _int(stub.get("future_kernel_native_consumer_row_count"))
+    native_row_ok_count = _int(
+        stub.get("future_kernel_native_consumer_row_ok_count")
+    )
+    if row_count is not None and native_row_count != row_count:
+        failures.append(f"{prefix}_future_native_row_count_mismatch")
+    if row_count is not None and native_row_ok_count != row_count:
+        failures.append(f"{prefix}_future_native_row_ok_count_mismatch")
+    mirror_row_count = _int(
+        stub.get("future_kernel_native_consumer_single_field_mirror_row_count")
+    )
+    mirror_row_ok_count = _int(
+        stub.get("future_kernel_native_consumer_single_field_mirror_row_ok_count")
+    )
+    if row_count is not None and mirror_row_count != row_count:
+        failures.append(f"{prefix}_future_native_mirror_row_count_mismatch")
+    if row_count is not None and mirror_row_ok_count != row_count:
+        failures.append(f"{prefix}_future_native_mirror_row_ok_count_mismatch")
+    return row_count, row_ok_count
+
+
+def _check_future_kernel_native_launch_consumer_summary(
+    stub: Any,
+    *,
+    prefix: str,
+    expected_field_name: str = "scale_metadata_handle",
+    failures: list[str],
+) -> tuple[int | None, int | None]:
+    row_count, row_ok_count = _check_stub_summary(
+        stub,
+        prefix=prefix,
+        failures=failures,
+    )
+    if not isinstance(stub, dict):
+        stub = {}
+    expected = {
+        "future_kernel_native_consumer_checked": True,
+        "future_kernel_native_consumer_error_count": 0,
+        "future_kernel_native_launch_consumer_checked": True,
+        "future_kernel_native_launch_consumer_abi_name": (
+            "premap_future_kernel_native_consumer_launch_abi_v1"
+        ),
+        "future_kernel_native_launch_consumer_mode": (
+            "readonly_future_kernel_native_consumer_launch_abi"
+        ),
+        "future_kernel_native_launch_consumer_source": (
+            "premap_future_kernel_native_consumer_abi_v1"
+        ),
+        "future_kernel_native_launch_consumer_error_count": 0,
+        "future_kernel_native_launch_consumer_payload_bytes": 0,
+        "future_kernel_native_launch_consumer_passed_to_kernel": False,
+        "future_kernel_native_launch_consumer_changes_kernel_launch_args": False,
+        "future_kernel_native_launch_consumer_current_wna16_arg_compatible": False,
+        "future_kernel_native_launch_consumer_requires_wna16_arg_reinterpretation": False,
+        "future_kernel_native_launch_consumer_single_field_mirror_checked": True,
+        "future_kernel_native_launch_consumer_single_field_mirror_field_name": (
+            expected_field_name
+        ),
+        "future_kernel_native_launch_consumer_single_field_mirror_error_count": 0,
+    }
+    for key, expected_value in expected.items():
+        if stub.get(key) != expected_value:
+            failures.append(f"{prefix}_{key}_mismatch")
+    _check_future_field_mask(
+        stub,
+        prefix=prefix,
+        field_prefix="future_kernel_native_launch_consumer",
+        expected_field_name=expected_field_name,
+        failures=failures,
+    )
+    native_row_count = _int(stub.get("future_kernel_native_consumer_row_count"))
+    native_row_ok_count = _int(
+        stub.get("future_kernel_native_consumer_row_ok_count")
+    )
+    launch_row_count = _int(
+        stub.get("future_kernel_native_launch_consumer_row_count")
+    )
+    launch_row_ok_count = _int(
+        stub.get("future_kernel_native_launch_consumer_row_ok_count")
+    )
+    mirror_row_count = _int(
+        stub.get("future_kernel_native_launch_consumer_single_field_mirror_row_count")
+    )
+    mirror_row_ok_count = _int(
+        stub.get("future_kernel_native_launch_consumer_single_field_mirror_row_ok_count")
+    )
+    if row_count is not None and native_row_count != row_count:
+        failures.append(f"{prefix}_future_native_row_count_mismatch")
+    if row_count is not None and native_row_ok_count != row_count:
+        failures.append(f"{prefix}_future_native_row_ok_count_mismatch")
+    if row_count is not None and launch_row_count != row_count:
+        failures.append(f"{prefix}_future_native_launch_row_count_mismatch")
+    if row_count is not None and launch_row_ok_count != row_count:
+        failures.append(f"{prefix}_future_native_launch_row_ok_count_mismatch")
+    if row_count is not None and mirror_row_count != row_count:
+        failures.append(f"{prefix}_future_native_launch_mirror_row_count_mismatch")
+    if row_count is not None and mirror_row_ok_count != row_count:
+        failures.append(f"{prefix}_future_native_launch_mirror_row_ok_count_mismatch")
+    return row_count, row_ok_count
+
+
+def _check_future_kernel_native_dispatch_consumer_summary(
+    stub: Any,
+    *,
+    prefix: str,
+    expected_field_name: str = "scale_metadata_handle",
+    failures: list[str],
+) -> tuple[int | None, int | None]:
+    row_count, row_ok_count = _check_stub_summary(
+        stub,
+        prefix=prefix,
+        failures=failures,
+    )
+    if not isinstance(stub, dict):
+        stub = {}
+    expected = {
+        "future_kernel_native_consumer_checked": True,
+        "future_kernel_native_consumer_error_count": 0,
+        "future_kernel_native_launch_consumer_checked": True,
+        "future_kernel_native_launch_consumer_error_count": 0,
+        "future_kernel_native_dispatch_consumer_checked": True,
+        "future_kernel_native_dispatch_consumer_abi_name": (
+            "premap_future_kernel_native_consumer_dispatch_abi_v1"
+        ),
+        "future_kernel_native_dispatch_consumer_mode": (
+            "readonly_future_kernel_native_consumer_dispatch_abi"
+        ),
+        "future_kernel_native_dispatch_consumer_source": (
+            "premap_future_kernel_native_consumer_launch_abi_v1"
+        ),
+        "future_kernel_native_dispatch_consumer_error_count": 0,
+        "future_kernel_native_dispatch_consumer_payload_bytes": 0,
+        "future_kernel_native_dispatch_consumer_passed_to_kernel": False,
+        "future_kernel_native_dispatch_consumer_changes_kernel_launch_args": False,
+        "future_kernel_native_dispatch_consumer_current_wna16_arg_compatible": False,
+        "future_kernel_native_dispatch_consumer_requires_wna16_arg_reinterpretation": False,
+        "future_kernel_native_dispatch_consumer_single_field_mirror_checked": True,
+        "future_kernel_native_dispatch_consumer_single_field_mirror_field_name": (
+            expected_field_name
+        ),
+        "future_kernel_native_dispatch_consumer_single_field_mirror_error_count": 0,
+    }
+    for key, expected_value in expected.items():
+        if stub.get(key) != expected_value:
+            failures.append(f"{prefix}_{key}_mismatch")
+    _check_future_field_mask(
+        stub,
+        prefix=prefix,
+        field_prefix="future_kernel_native_dispatch_consumer",
+        expected_field_name=expected_field_name,
+        failures=failures,
+    )
+    dispatch_grid = _int(stub.get("future_kernel_native_dispatch_consumer_grid_x"))
+    dispatch_block = _int(stub.get("future_kernel_native_dispatch_consumer_block_x"))
+    dispatch_offset = _int(stub.get("future_kernel_native_dispatch_consumer_row_offset"))
+    dispatch_limit = _int(stub.get("future_kernel_native_dispatch_consumer_row_limit"))
+    dispatch_rows_per_program = _int(
+        stub.get("future_kernel_native_dispatch_consumer_rows_per_program")
+    )
+    dispatch_active_rows = _int(
+        stub.get("future_kernel_native_dispatch_consumer_active_rows")
+    )
+    dispatch_launch_threads = _int(
+        stub.get("future_kernel_native_dispatch_consumer_launch_threads")
+    )
+    if dispatch_grid is None or dispatch_grid <= 0:
+        failures.append(f"{prefix}_future_native_dispatch_grid_x_invalid")
+    if dispatch_block is None or dispatch_block <= 0:
+        failures.append(f"{prefix}_future_native_dispatch_block_x_invalid")
+    if (
+        dispatch_rows_per_program is None
+        or dispatch_block is None
+        or dispatch_rows_per_program != dispatch_block
+    ):
+        failures.append(f"{prefix}_future_native_dispatch_rows_per_program_mismatch")
+    dispatch_window_valid = (
+        dispatch_offset is not None
+        and dispatch_limit is not None
+        and dispatch_offset >= 0
+        and dispatch_limit > dispatch_offset
+        and (row_count is None or dispatch_limit <= row_count)
+    )
+    if not dispatch_window_valid:
+        failures.append(f"{prefix}_future_native_dispatch_row_window_invalid")
+    expected_active_rows = (
+        dispatch_limit - dispatch_offset if dispatch_window_valid else None
+    )
+    if expected_active_rows is not None and dispatch_active_rows != expected_active_rows:
+        failures.append(f"{prefix}_future_native_dispatch_active_rows_mismatch")
+    if dispatch_active_rows is not None and dispatch_active_rows <= 0:
+        failures.append(f"{prefix}_future_native_dispatch_active_rows_invalid")
+    if (
+        dispatch_grid is not None
+        and dispatch_block is not None
+        and dispatch_launch_threads != dispatch_grid * dispatch_block
+    ):
+        failures.append(f"{prefix}_future_native_dispatch_launch_threads_mismatch")
+    if (
+        dispatch_grid is not None
+        and dispatch_block is not None
+        and dispatch_active_rows is not None
+    ):
+        launched_threads = dispatch_grid * dispatch_block
+        previous_grid_threads = (dispatch_grid - 1) * dispatch_block
+        if launched_threads < dispatch_active_rows:
+            failures.append(
+                f"{prefix}_future_native_dispatch_launch_under_covers_active_rows"
+            )
+        if previous_grid_threads >= dispatch_active_rows:
+            failures.append(
+                f"{prefix}_future_native_dispatch_launch_not_minimal_cover"
+            )
+    expected_dispatch_bools = {
+        "future_kernel_native_dispatch_consumer_launch_geometry_checked": True,
+        "future_kernel_native_dispatch_consumer_launch_covers_active_rows": True,
+        "future_kernel_native_dispatch_consumer_launch_minimal_cover": True,
+    }
+    for key, expected_value in expected_dispatch_bools.items():
+        if stub.get(key) != expected_value:
+            failures.append(f"{prefix}_{key}_mismatch")
+    native_row_count = _int(stub.get("future_kernel_native_consumer_row_count"))
+    native_row_ok_count = _int(
+        stub.get("future_kernel_native_consumer_row_ok_count")
+    )
+    launch_row_count = _int(
+        stub.get("future_kernel_native_launch_consumer_row_count")
+    )
+    launch_row_ok_count = _int(
+        stub.get("future_kernel_native_launch_consumer_row_ok_count")
+    )
+    dispatch_row_count = _int(
+        stub.get("future_kernel_native_dispatch_consumer_row_count")
+    )
+    dispatch_row_ok_count = _int(
+        stub.get("future_kernel_native_dispatch_consumer_row_ok_count")
+    )
+    mirror_row_count = _int(
+        stub.get("future_kernel_native_dispatch_consumer_single_field_mirror_row_count")
+    )
+    mirror_row_ok_count = _int(
+        stub.get("future_kernel_native_dispatch_consumer_single_field_mirror_row_ok_count")
+    )
+    for label, observed in (
+        ("future_native", native_row_count),
+        ("future_native_launch", launch_row_count),
+    ):
+        if row_count is not None and observed != row_count:
+            failures.append(f"{prefix}_{label}_row_count_mismatch")
+    for label, observed in (
+        ("future_native", native_row_ok_count),
+        ("future_native_launch", launch_row_ok_count),
+    ):
+        if row_count is not None and observed != row_count:
+            failures.append(f"{prefix}_{label}_row_ok_count_mismatch")
+    for label, observed in (
+        ("future_native_dispatch", dispatch_row_count),
+        ("future_native_dispatch_mirror", mirror_row_count),
+    ):
+        if expected_active_rows is not None and observed != expected_active_rows:
+            failures.append(f"{prefix}_{label}_row_count_mismatch")
+    for label, observed in (
+        ("future_native_dispatch", dispatch_row_ok_count),
+        ("future_native_dispatch_mirror", mirror_row_ok_count),
+    ):
+        if expected_active_rows is not None and observed != expected_active_rows:
+            failures.append(f"{prefix}_{label}_row_ok_count_mismatch")
+    return row_count, row_ok_count
+
+
 def check_online_native_stub_canary_artifacts(
     *,
     root: Path,
@@ -217,36 +747,93 @@ def check_online_native_stub_canary_artifacts(
     status_optional = status.get("optional_evidence")
     if not isinstance(status_optional, dict):
         status_optional = {}
+    status_required_evidence = status_required.get("evidence")
+    if not isinstance(status_required_evidence, dict):
+        status_required_evidence = {}
+    status_optional_evidence = status_optional.get("evidence")
+    if not isinstance(status_optional_evidence, dict):
+        status_optional_evidence = {}
+
+    def _deferred_evidence_count(rows: dict[str, object]) -> int:
+        count = 0
+        for row in rows.values():
+            if not isinstance(row, dict):
+                continue
+            if (
+                row.get("present") is False
+                and row.get("passed") is False
+                and row.get("failure") is None
+            ):
+                count += 1
+        return count
+
     status_required_count = _int(status_required.get("required_count"))
     if status_required_count is None or status_required_count <= 0:
         failures.append("status_required_evidence_required_count_invalid")
         status_required_count = 0
+    status_required_deferred_count = _deferred_evidence_count(
+        status_required_evidence
+    )
+    status_required_present_count = max(
+        int(status_required_count) - int(status_required_deferred_count),
+        0,
+    )
     stage1_deferred_count = _int(stage1.get("runtime_gate_evidence_deferred_count"))
     if stage1_deferred_count is None or stage1_deferred_count < 0:
         failures.append("runner_stage1_runtime_gate_evidence_deferred_count_invalid")
         stage1_deferred_count = 0
+    stage1_required_count = _int(stage1.get("required_evidence_required_count"))
+    stage1_present_count = _int(stage1.get("required_evidence_present_count"))
+    stage1_passed_count = _int(stage1.get("required_evidence_passed_count"))
+    if stage1_required_count != status_required_count:
+        failures.append("runner_stage1_required_evidence_required_count_mismatch")
+    if (
+        stage1_present_count is None
+        or stage1_present_count < 0
+        or stage1_present_count > status_required_count
+    ):
+        failures.append("runner_stage1_required_evidence_present_count_invalid")
+    if (
+        stage1_passed_count is None
+        or stage1_passed_count < 0
+        or stage1_passed_count > status_required_count
+    ):
+        failures.append("runner_stage1_required_evidence_passed_count_invalid")
+    if (
+        stage1_present_count is not None
+        and stage1_passed_count is not None
+        and stage1_present_count != stage1_passed_count
+    ):
+        failures.append("runner_stage1_required_evidence_present_passed_mismatch")
+    if (
+        stage1_present_count is not None
+        and stage1_present_count < max(status_required_count - stage1_deferred_count, 0)
+    ):
+        failures.append("runner_stage1_required_evidence_present_count_too_low")
+    status_optional_count = _int(status_optional.get("required_count"))
+    status_optional_deferred_count = 0
+    if status_optional:
+        status_optional_deferred_count = _deferred_evidence_count(
+            status_optional_evidence
+        )
+    status_total_deferred_count = (
+        int(status_required_deferred_count) + int(status_optional_deferred_count)
+    )
     expected_stage1 = {
         "passed": True,
-        "required_evidence_present_count": max(
-            status_required_count - stage1_deferred_count, 0
-        ),
-        "required_evidence_passed_count": max(
-            status_required_count - stage1_deferred_count, 0
-        ),
-        "required_evidence_required_count": status_required_count,
-        "runtime_gate_evidence_deferred_count": 1,
-        "strict_default_gate_evidence_deferred_count": 1,
+        "runtime_gate_evidence_deferred_count": stage1_deferred_count,
+        "strict_default_gate_evidence_deferred_count": stage1_deferred_count,
         "payload_bytes_required": 0,
         "passed_to_kernel_required": False,
         "changes_kernel_launch_args_required": False,
     }
     expected_final = {
         "passed": True,
-        "required_evidence_present_count": status_required_count,
-        "required_evidence_passed_count": status_required_count,
+        "required_evidence_present_count": status_required_present_count,
+        "required_evidence_passed_count": status_required_present_count,
         "required_evidence_required_count": status_required_count,
-        "runtime_gate_evidence_deferred_count": 0,
-        "strict_default_gate_evidence_deferred_count": 0,
+        "runtime_gate_evidence_deferred_count": status_total_deferred_count,
+        "strict_default_gate_evidence_deferred_count": status_total_deferred_count,
         "payload_bytes_required": 0,
         "passed_to_kernel_required": False,
         "changes_kernel_launch_args_required": False,
@@ -259,8 +846,8 @@ def check_online_native_stub_canary_artifacts(
             failures.append(f"runner_final_{key}_mismatch")
     expected_status = {
         "passed": True,
-        "runtime_gate_evidence_deferred_count": 0,
-        "strict_default_gate_evidence_deferred_count": 0,
+        "runtime_gate_evidence_deferred_count": status_total_deferred_count,
+        "strict_default_gate_evidence_deferred_count": status_total_deferred_count,
         "payload_bytes_required": 0,
         "passed_to_kernel_required": False,
         "changes_kernel_launch_args_required": False,
@@ -269,36 +856,78 @@ def check_online_native_stub_canary_artifacts(
         if status.get(key) != expected:
             failures.append(f"status_{key}_mismatch")
     expected_required = {
-        "present_count": status_required_count,
-        "passed_count": status_required_count,
+        "present_count": status_required_present_count,
+        "passed_count": status_required_present_count,
         "required_count": status_required_count,
         "passed": True,
     }
     for key, expected in expected_required.items():
         if status_required.get(key) != expected:
             failures.append(f"status_required_evidence_{key}_mismatch")
-    status_optional_count = _int(status_optional.get("required_count"))
     if status_optional:
         if status_optional_count is None or status_optional_count < 0:
             failures.append("status_optional_evidence_required_count_invalid")
             status_optional_count = 0
+        status_optional_present_count = max(
+            int(status_optional_count) - int(status_optional_deferred_count),
+            0,
+        )
         expected_optional = {
-            "present_count": status_optional_count,
-            "passed_count": status_optional_count,
+            "present_count": status_optional_present_count,
+            "passed_count": status_optional_present_count,
             "required_count": status_optional_count,
             "passed": True,
         }
         for key, expected in expected_optional.items():
             if status_optional.get(key) != expected:
                 failures.append(f"status_optional_evidence_{key}_mismatch")
+        stage1_optional_count = _int(stage1.get("optional_evidence_required_count"))
+        stage1_optional_present_count = _int(
+            stage1.get("optional_evidence_present_count")
+        )
+        stage1_optional_passed_count = _int(
+            stage1.get("optional_evidence_passed_count")
+        )
+        if stage1_optional_count != status_optional_count:
+            failures.append("runner_stage1_optional_evidence_required_count_mismatch")
+        if (
+            stage1_optional_present_count is None
+            or stage1_optional_present_count < 0
+            or stage1_optional_present_count > int(status_optional_count)
+        ):
+            failures.append("runner_stage1_optional_evidence_present_count_invalid")
+        if (
+            stage1_optional_passed_count is None
+            or stage1_optional_passed_count < 0
+            or stage1_optional_passed_count > int(status_optional_count)
+        ):
+            failures.append("runner_stage1_optional_evidence_passed_count_invalid")
+        if (
+            stage1_optional_present_count is not None
+            and stage1_optional_passed_count is not None
+            and stage1_optional_present_count != stage1_optional_passed_count
+        ):
+            failures.append("runner_stage1_optional_evidence_present_passed_mismatch")
+        if stage1.get("optional_evidence_passed") is not True:
+            failures.append("runner_stage1_optional_evidence_passed_mismatch")
+        if (
+            stage1_present_count is not None
+            and stage1_optional_present_count is not None
+        ):
+            stage1_expected_deferred_count = (
+                max(int(status_required_count) - int(stage1_present_count), 0)
+                + max(int(status_optional_count) - int(stage1_optional_present_count), 0)
+            )
+            if stage1_deferred_count != stage1_expected_deferred_count:
+                failures.append(
+                    "runner_stage1_runtime_gate_evidence_deferred_count_mismatch"
+                )
         for key, expected in {
-            "optional_evidence_present_count": status_optional_count,
-            "optional_evidence_passed_count": status_optional_count,
+            "optional_evidence_present_count": status_optional_present_count,
+            "optional_evidence_passed_count": status_optional_present_count,
             "optional_evidence_required_count": status_optional_count,
             "optional_evidence_passed": True,
         }.items():
-            if stage1.get(key) != expected:
-                failures.append(f"runner_stage1_{key}_mismatch")
             if final.get(key) != expected:
                 failures.append(f"runner_final_{key}_mismatch")
 
@@ -374,12 +1003,357 @@ def check_online_native_stub_canary_artifacts(
                 failures=failures,
             )
         )
+    kernel_side_compatible_row_count: int | None = None
+    kernel_side_compatible_row_ok_count: int | None = None
+    kernel_side_compatible_stub = runner.get("kernel_side_compatible_stub_summary")
+    if require_all_field_mirror_stubs and kernel_side_compatible_stub is None:
+        failures.append("runner_kernel_side_compatible_stub_summary_required")
+    if kernel_side_compatible_stub is not None:
+        (
+            kernel_side_compatible_row_count,
+            kernel_side_compatible_row_ok_count,
+        ) = _check_kernel_side_compatible_summary(
+            kernel_side_compatible_stub,
+            prefix="runner_kernel_side_compatible_stub",
+            failures=failures,
+        )
+    future_kernel_args_row_count: int | None = None
+    future_kernel_args_row_ok_count: int | None = None
+    future_kernel_args_stub = runner.get("future_kernel_args_stub_summary")
+    if require_all_field_mirror_stubs and future_kernel_args_stub is None:
+        failures.append("runner_future_kernel_args_stub_summary_required")
+    if future_kernel_args_stub is not None:
+        future_kernel_args_row_count, future_kernel_args_row_ok_count = (
+            _check_future_kernel_args_summary(
+                future_kernel_args_stub,
+                prefix="runner_future_kernel_args_stub",
+                failures=failures,
+            )
+        )
+    future_kernel_args_descriptor_ptr_row_count: int | None = None
+    future_kernel_args_descriptor_ptr_row_ok_count: int | None = None
+    future_kernel_args_descriptor_ptr_stub = runner.get(
+        "future_kernel_args_descriptor_ptr_stub_summary"
+    )
+    if require_all_field_mirror_stubs and future_kernel_args_descriptor_ptr_stub is None:
+        failures.append("runner_future_kernel_args_descriptor_ptr_stub_summary_required")
+    if future_kernel_args_descriptor_ptr_stub is not None:
+        (
+            future_kernel_args_descriptor_ptr_row_count,
+            future_kernel_args_descriptor_ptr_row_ok_count,
+        ) = _check_future_kernel_args_summary(
+            future_kernel_args_descriptor_ptr_stub,
+            prefix="runner_future_kernel_args_descriptor_ptr_stub",
+            expected_field_name="descriptor_ptr",
+            failures=failures,
+        )
+    future_kernel_args_packed_weight_row_count: int | None = None
+    future_kernel_args_packed_weight_row_ok_count: int | None = None
+    future_kernel_args_packed_weight_stub = runner.get(
+        "future_kernel_args_packed_weight_stub_summary"
+    )
+    if require_all_field_mirror_stubs and future_kernel_args_packed_weight_stub is None:
+        failures.append("runner_future_kernel_args_packed_weight_stub_summary_required")
+    if future_kernel_args_packed_weight_stub is not None:
+        (
+            future_kernel_args_packed_weight_row_count,
+            future_kernel_args_packed_weight_row_ok_count,
+        ) = _check_future_kernel_args_summary(
+            future_kernel_args_packed_weight_stub,
+            prefix="runner_future_kernel_args_packed_weight_stub",
+            expected_field_name="packed_weight_descriptor",
+            failures=failures,
+        )
+    future_kernel_args_aux_metadata_row_count: int | None = None
+    future_kernel_args_aux_metadata_row_ok_count: int | None = None
+    future_kernel_args_aux_metadata_stub = runner.get(
+        "future_kernel_args_aux_metadata_stub_summary"
+    )
+    if require_all_field_mirror_stubs and future_kernel_args_aux_metadata_stub is None:
+        failures.append("runner_future_kernel_args_aux_metadata_stub_summary_required")
+    if future_kernel_args_aux_metadata_stub is not None:
+        (
+            future_kernel_args_aux_metadata_row_count,
+            future_kernel_args_aux_metadata_row_ok_count,
+        ) = _check_future_kernel_args_summary(
+            future_kernel_args_aux_metadata_stub,
+            prefix="runner_future_kernel_args_aux_metadata_stub",
+            expected_field_name="aux_metadata_handle",
+            failures=failures,
+        )
+    future_kernel_args_compatible_path_row_count: int | None = None
+    future_kernel_args_compatible_path_row_ok_count: int | None = None
+    future_kernel_args_compatible_path_stub = runner.get(
+        "future_kernel_args_compatible_path_stub_summary"
+    )
+    if require_all_field_mirror_stubs and future_kernel_args_compatible_path_stub is None:
+        failures.append(
+            "runner_future_kernel_args_compatible_path_stub_summary_required"
+        )
+    if future_kernel_args_compatible_path_stub is not None:
+        (
+            future_kernel_args_compatible_path_row_count,
+            future_kernel_args_compatible_path_row_ok_count,
+        ) = _check_future_kernel_args_compatible_path_summary(
+            future_kernel_args_compatible_path_stub,
+            prefix="runner_future_kernel_args_compatible_path_stub",
+            failures=failures,
+        )
+    future_kernel_native_consumer_row_count: int | None = None
+    future_kernel_native_consumer_row_ok_count: int | None = None
+    future_kernel_native_consumer_stub = runner.get(
+        "future_kernel_native_consumer_stub_summary"
+    )
+    if require_all_field_mirror_stubs and future_kernel_native_consumer_stub is None:
+        failures.append("runner_future_kernel_native_consumer_stub_summary_required")
+    if future_kernel_native_consumer_stub is not None:
+        (
+            future_kernel_native_consumer_row_count,
+            future_kernel_native_consumer_row_ok_count,
+        ) = _check_future_kernel_native_consumer_summary(
+            future_kernel_native_consumer_stub,
+            prefix="runner_future_kernel_native_consumer_stub",
+            failures=failures,
+        )
+    future_kernel_native_consumer_descriptor_ptr_row_count: int | None = None
+    future_kernel_native_consumer_descriptor_ptr_row_ok_count: int | None = None
+    future_kernel_native_consumer_descriptor_ptr_stub = runner.get(
+        "future_kernel_native_consumer_descriptor_ptr_stub_summary"
+    )
+    if (
+        require_all_field_mirror_stubs
+        and future_kernel_native_consumer_descriptor_ptr_stub is None
+    ):
+        failures.append(
+            "runner_future_kernel_native_consumer_descriptor_ptr_stub_summary_required"
+        )
+    if future_kernel_native_consumer_descriptor_ptr_stub is not None:
+        (
+            future_kernel_native_consumer_descriptor_ptr_row_count,
+            future_kernel_native_consumer_descriptor_ptr_row_ok_count,
+        ) = _check_future_kernel_native_consumer_summary(
+            future_kernel_native_consumer_descriptor_ptr_stub,
+            prefix="runner_future_kernel_native_consumer_descriptor_ptr_stub",
+            expected_field_name="descriptor_ptr",
+            failures=failures,
+        )
+    future_kernel_native_consumer_packed_weight_row_count: int | None = None
+    future_kernel_native_consumer_packed_weight_row_ok_count: int | None = None
+    future_kernel_native_consumer_packed_weight_stub = runner.get(
+        "future_kernel_native_consumer_packed_weight_stub_summary"
+    )
+    if (
+        require_all_field_mirror_stubs
+        and future_kernel_native_consumer_packed_weight_stub is None
+    ):
+        failures.append(
+            "runner_future_kernel_native_consumer_packed_weight_stub_summary_required"
+        )
+    if future_kernel_native_consumer_packed_weight_stub is not None:
+        (
+            future_kernel_native_consumer_packed_weight_row_count,
+            future_kernel_native_consumer_packed_weight_row_ok_count,
+        ) = _check_future_kernel_native_consumer_summary(
+            future_kernel_native_consumer_packed_weight_stub,
+            prefix="runner_future_kernel_native_consumer_packed_weight_stub",
+            expected_field_name="packed_weight_descriptor",
+            failures=failures,
+        )
+    future_kernel_native_consumer_aux_metadata_row_count: int | None = None
+    future_kernel_native_consumer_aux_metadata_row_ok_count: int | None = None
+    future_kernel_native_consumer_aux_metadata_stub = runner.get(
+        "future_kernel_native_consumer_aux_metadata_stub_summary"
+    )
+    if (
+        require_all_field_mirror_stubs
+        and future_kernel_native_consumer_aux_metadata_stub is None
+    ):
+        failures.append(
+            "runner_future_kernel_native_consumer_aux_metadata_stub_summary_required"
+        )
+    if future_kernel_native_consumer_aux_metadata_stub is not None:
+        (
+            future_kernel_native_consumer_aux_metadata_row_count,
+            future_kernel_native_consumer_aux_metadata_row_ok_count,
+        ) = _check_future_kernel_native_consumer_summary(
+            future_kernel_native_consumer_aux_metadata_stub,
+            prefix="runner_future_kernel_native_consumer_aux_metadata_stub",
+            expected_field_name="aux_metadata_handle",
+            failures=failures,
+        )
+    future_kernel_native_consumer_launch_row_count: int | None = None
+    future_kernel_native_consumer_launch_row_ok_count: int | None = None
+    future_kernel_native_consumer_launch_stub = runner.get(
+        "future_kernel_native_consumer_launch_stub_summary"
+    )
+    if require_all_field_mirror_stubs and future_kernel_native_consumer_launch_stub is None:
+        failures.append(
+            "runner_future_kernel_native_consumer_launch_stub_summary_required"
+        )
+    if future_kernel_native_consumer_launch_stub is not None:
+        (
+            future_kernel_native_consumer_launch_row_count,
+            future_kernel_native_consumer_launch_row_ok_count,
+        ) = _check_future_kernel_native_launch_consumer_summary(
+            future_kernel_native_consumer_launch_stub,
+            prefix="runner_future_kernel_native_consumer_launch_stub",
+            failures=failures,
+        )
+    future_kernel_native_consumer_launch_descriptor_ptr_row_count: int | None = None
+    future_kernel_native_consumer_launch_descriptor_ptr_row_ok_count: int | None = None
+    future_kernel_native_consumer_launch_descriptor_ptr_stub = runner.get(
+        "future_kernel_native_consumer_launch_descriptor_ptr_stub_summary"
+    )
+    if (
+        require_all_field_mirror_stubs
+        and future_kernel_native_consumer_launch_descriptor_ptr_stub is None
+    ):
+        failures.append(
+            "runner_future_kernel_native_consumer_launch_descriptor_ptr_stub_summary_required"
+        )
+    if future_kernel_native_consumer_launch_descriptor_ptr_stub is not None:
+        (
+            future_kernel_native_consumer_launch_descriptor_ptr_row_count,
+            future_kernel_native_consumer_launch_descriptor_ptr_row_ok_count,
+        ) = _check_future_kernel_native_launch_consumer_summary(
+            future_kernel_native_consumer_launch_descriptor_ptr_stub,
+            prefix="runner_future_kernel_native_consumer_launch_descriptor_ptr_stub",
+            expected_field_name="descriptor_ptr",
+            failures=failures,
+        )
+    future_kernel_native_consumer_launch_packed_weight_row_count: int | None = None
+    future_kernel_native_consumer_launch_packed_weight_row_ok_count: int | None = None
+    future_kernel_native_consumer_launch_packed_weight_stub = runner.get(
+        "future_kernel_native_consumer_launch_packed_weight_stub_summary"
+    )
+    if (
+        require_all_field_mirror_stubs
+        and future_kernel_native_consumer_launch_packed_weight_stub is None
+    ):
+        failures.append(
+            "runner_future_kernel_native_consumer_launch_packed_weight_stub_summary_required"
+        )
+    if future_kernel_native_consumer_launch_packed_weight_stub is not None:
+        (
+            future_kernel_native_consumer_launch_packed_weight_row_count,
+            future_kernel_native_consumer_launch_packed_weight_row_ok_count,
+        ) = _check_future_kernel_native_launch_consumer_summary(
+            future_kernel_native_consumer_launch_packed_weight_stub,
+            prefix="runner_future_kernel_native_consumer_launch_packed_weight_stub",
+            expected_field_name="packed_weight_descriptor",
+            failures=failures,
+        )
+    future_kernel_native_consumer_launch_aux_metadata_row_count: int | None = None
+    future_kernel_native_consumer_launch_aux_metadata_row_ok_count: int | None = None
+    future_kernel_native_consumer_launch_aux_metadata_stub = runner.get(
+        "future_kernel_native_consumer_launch_aux_metadata_stub_summary"
+    )
+    if (
+        require_all_field_mirror_stubs
+        and future_kernel_native_consumer_launch_aux_metadata_stub is None
+    ):
+        failures.append(
+            "runner_future_kernel_native_consumer_launch_aux_metadata_stub_summary_required"
+        )
+    if future_kernel_native_consumer_launch_aux_metadata_stub is not None:
+        (
+            future_kernel_native_consumer_launch_aux_metadata_row_count,
+            future_kernel_native_consumer_launch_aux_metadata_row_ok_count,
+        ) = _check_future_kernel_native_launch_consumer_summary(
+            future_kernel_native_consumer_launch_aux_metadata_stub,
+            prefix="runner_future_kernel_native_consumer_launch_aux_metadata_stub",
+            expected_field_name="aux_metadata_handle",
+            failures=failures,
+        )
+    future_kernel_native_consumer_dispatch_row_count: int | None = None
+    future_kernel_native_consumer_dispatch_row_ok_count: int | None = None
+    future_kernel_native_consumer_dispatch_stub = runner.get(
+        "future_kernel_native_consumer_dispatch_stub_summary"
+    )
+    if require_all_field_mirror_stubs and future_kernel_native_consumer_dispatch_stub is None:
+        failures.append(
+            "runner_future_kernel_native_consumer_dispatch_stub_summary_required"
+        )
+    if future_kernel_native_consumer_dispatch_stub is not None:
+        (
+            future_kernel_native_consumer_dispatch_row_count,
+            future_kernel_native_consumer_dispatch_row_ok_count,
+        ) = _check_future_kernel_native_dispatch_consumer_summary(
+            future_kernel_native_consumer_dispatch_stub,
+            prefix="runner_future_kernel_native_consumer_dispatch_stub",
+            failures=failures,
+        )
+    future_kernel_native_consumer_dispatch_descriptor_ptr_row_count: int | None = None
+    future_kernel_native_consumer_dispatch_descriptor_ptr_row_ok_count: int | None = None
+    future_kernel_native_consumer_dispatch_descriptor_ptr_stub = runner.get(
+        "future_kernel_native_consumer_dispatch_descriptor_ptr_stub_summary"
+    )
+    if (
+        require_all_field_mirror_stubs
+        and future_kernel_native_consumer_dispatch_descriptor_ptr_stub is None
+    ):
+        failures.append(
+            "runner_future_kernel_native_consumer_dispatch_descriptor_ptr_stub_summary_required"
+        )
+    if future_kernel_native_consumer_dispatch_descriptor_ptr_stub is not None:
+        (
+            future_kernel_native_consumer_dispatch_descriptor_ptr_row_count,
+            future_kernel_native_consumer_dispatch_descriptor_ptr_row_ok_count,
+        ) = _check_future_kernel_native_dispatch_consumer_summary(
+            future_kernel_native_consumer_dispatch_descriptor_ptr_stub,
+            prefix="runner_future_kernel_native_consumer_dispatch_descriptor_ptr_stub",
+            expected_field_name="descriptor_ptr",
+            failures=failures,
+        )
+    future_kernel_native_consumer_dispatch_packed_weight_row_count: int | None = None
+    future_kernel_native_consumer_dispatch_packed_weight_row_ok_count: int | None = None
+    future_kernel_native_consumer_dispatch_packed_weight_stub = runner.get(
+        "future_kernel_native_consumer_dispatch_packed_weight_stub_summary"
+    )
+    if (
+        require_all_field_mirror_stubs
+        and future_kernel_native_consumer_dispatch_packed_weight_stub is None
+    ):
+        failures.append(
+            "runner_future_kernel_native_consumer_dispatch_packed_weight_stub_summary_required"
+        )
+    if future_kernel_native_consumer_dispatch_packed_weight_stub is not None:
+        (
+            future_kernel_native_consumer_dispatch_packed_weight_row_count,
+            future_kernel_native_consumer_dispatch_packed_weight_row_ok_count,
+        ) = _check_future_kernel_native_dispatch_consumer_summary(
+            future_kernel_native_consumer_dispatch_packed_weight_stub,
+            prefix="runner_future_kernel_native_consumer_dispatch_packed_weight_stub",
+            expected_field_name="packed_weight_descriptor",
+            failures=failures,
+        )
+    future_kernel_native_consumer_dispatch_aux_metadata_row_count: int | None = None
+    future_kernel_native_consumer_dispatch_aux_metadata_row_ok_count: int | None = None
+    future_kernel_native_consumer_dispatch_aux_metadata_stub = runner.get(
+        "future_kernel_native_consumer_dispatch_aux_metadata_stub_summary"
+    )
+    if (
+        require_all_field_mirror_stubs
+        and future_kernel_native_consumer_dispatch_aux_metadata_stub is None
+    ):
+        failures.append(
+            "runner_future_kernel_native_consumer_dispatch_aux_metadata_stub_summary_required"
+        )
+    if future_kernel_native_consumer_dispatch_aux_metadata_stub is not None:
+        (
+            future_kernel_native_consumer_dispatch_aux_metadata_row_count,
+            future_kernel_native_consumer_dispatch_aux_metadata_row_ok_count,
+        ) = _check_future_kernel_native_dispatch_consumer_summary(
+            future_kernel_native_consumer_dispatch_aux_metadata_stub,
+            prefix="runner_future_kernel_native_consumer_dispatch_aux_metadata_stub",
+            expected_field_name="aux_metadata_handle",
+            failures=failures,
+        )
 
     online_input_check_count = _int(runner.get("online_prelaunch_input_check_count"))
     if online_input_check_count is None:
-        if int(min_online_inputs) > 1:
-            failures.append("runner_online_prelaunch_input_check_count_missing")
-        online_input_check_count = 1
+        failures.append("runner_online_prelaunch_input_check_count_missing")
+        online_input_check_count = 0
     if online_input_check_count < int(min_online_inputs):
         failures.append("runner_online_prelaunch_input_check_count_below_min")
     extra_input_check_count = _int(
@@ -419,6 +1393,78 @@ def check_online_native_stub_canary_artifacts(
                     ),
                     "native_stub_aux_metadata_mirror": ("aux_metadata_handle", False),
                     "native_stub_descriptor_ptr_mirror": ("descriptor_ptr", False),
+                    "native_stub_kernel_side_compatible_consumer_abi": (
+                        "kernel_side_compatible_consumer_abi",
+                        False,
+                    ),
+                    "native_stub_future_kernel_consumer_args": (
+                        "future_kernel_consumer_args:scale_metadata_handle",
+                        False,
+                    ),
+                    "native_stub_future_kernel_args_descriptor_ptr_mirror": (
+                        "future_kernel_consumer_args:descriptor_ptr",
+                        False,
+                    ),
+                    "native_stub_future_kernel_args_packed_weight_mirror": (
+                        "future_kernel_consumer_args:packed_weight_descriptor",
+                        False,
+                    ),
+                    "native_stub_future_kernel_args_aux_metadata_mirror": (
+                        "future_kernel_consumer_args:aux_metadata_handle",
+                        False,
+                    ),
+                    "native_stub_future_kernel_args_compatible_consumer_path": (
+                        "future_kernel_args_compatible_consumer_path",
+                        False,
+                    ),
+                    "native_stub_future_kernel_native_consumer_abi": (
+                        "future_kernel_native_consumer:scale_metadata_handle",
+                        False,
+                    ),
+                    "native_stub_future_kernel_native_consumer_descriptor_ptr_mirror": (
+                        "future_kernel_native_consumer:descriptor_ptr",
+                        False,
+                    ),
+                    "native_stub_future_kernel_native_consumer_packed_weight_mirror": (
+                        "future_kernel_native_consumer:packed_weight_descriptor",
+                        False,
+                    ),
+                    "native_stub_future_kernel_native_consumer_aux_metadata_mirror": (
+                        "future_kernel_native_consumer:aux_metadata_handle",
+                        False,
+                    ),
+                    "native_stub_future_kernel_native_consumer_launch_abi": (
+                        "future_kernel_native_launch_consumer:scale_metadata_handle",
+                        False,
+                    ),
+                    "native_stub_future_kernel_native_consumer_launch_descriptor_ptr_mirror": (
+                        "future_kernel_native_launch_consumer:descriptor_ptr",
+                        False,
+                    ),
+                    "native_stub_future_kernel_native_consumer_launch_packed_weight_mirror": (
+                        "future_kernel_native_launch_consumer:packed_weight_descriptor",
+                        False,
+                    ),
+                    "native_stub_future_kernel_native_consumer_launch_aux_metadata_mirror": (
+                        "future_kernel_native_launch_consumer:aux_metadata_handle",
+                        False,
+                    ),
+                    "native_stub_future_kernel_native_consumer_dispatch_abi": (
+                        "future_kernel_native_dispatch_consumer:scale_metadata_handle",
+                        False,
+                    ),
+                    "native_stub_future_kernel_native_consumer_dispatch_descriptor_ptr_mirror": (
+                        "future_kernel_native_dispatch_consumer:descriptor_ptr",
+                        False,
+                    ),
+                    "native_stub_future_kernel_native_consumer_dispatch_packed_weight_mirror": (
+                        "future_kernel_native_dispatch_consumer:packed_weight_descriptor",
+                        False,
+                    ),
+                    "native_stub_future_kernel_native_consumer_dispatch_aux_metadata_mirror": (
+                        "future_kernel_native_dispatch_consumer:aux_metadata_handle",
+                        False,
+                    ),
                 }
             )
         for index, suite in enumerate(extra_summaries[:expected_extra], start=1):
@@ -447,6 +1493,50 @@ def check_online_native_stub_canary_artifacts(
                         prefix=label_prefix,
                         failures=failures,
                         require_kernel_side_consumer_path=(label == "native_stub"),
+                    )
+                elif expected_field == "kernel_side_compatible_consumer_abi":
+                    _check_kernel_side_compatible_summary(
+                        summary,
+                        prefix=label_prefix,
+                        failures=failures,
+                    )
+                elif expected_field.startswith("future_kernel_consumer_args:"):
+                    _, future_expected_field = expected_field.split(":", 1)
+                    _check_future_kernel_args_summary(
+                        summary,
+                        prefix=label_prefix,
+                        expected_field_name=future_expected_field,
+                        failures=failures,
+                    )
+                elif expected_field == "future_kernel_args_compatible_consumer_path":
+                    _check_future_kernel_args_compatible_path_summary(
+                        summary,
+                        prefix=label_prefix,
+                        failures=failures,
+                    )
+                elif expected_field.startswith("future_kernel_native_consumer:"):
+                    _, native_expected_field = expected_field.split(":", 1)
+                    _check_future_kernel_native_consumer_summary(
+                        summary,
+                        prefix=label_prefix,
+                        expected_field_name=native_expected_field,
+                        failures=failures,
+                    )
+                elif expected_field.startswith("future_kernel_native_launch_consumer:"):
+                    _, launch_expected_field = expected_field.split(":", 1)
+                    _check_future_kernel_native_launch_consumer_summary(
+                        summary,
+                        prefix=label_prefix,
+                        expected_field_name=launch_expected_field,
+                        failures=failures,
+                    )
+                elif expected_field.startswith("future_kernel_native_dispatch_consumer:"):
+                    _, dispatch_expected_field = expected_field.split(":", 1)
+                    _check_future_kernel_native_dispatch_consumer_summary(
+                        summary,
+                        prefix=label_prefix,
+                        expected_field_name=dispatch_expected_field,
+                        failures=failures,
                     )
                 else:
                     _check_single_field_mirror_summary(
@@ -489,6 +1579,112 @@ def check_online_native_stub_canary_artifacts(
         "runner_descriptor_ptr_mirror_stub_row_count": descriptor_ptr_mirror_row_count,
         "runner_descriptor_ptr_mirror_stub_row_ok_count": (
             descriptor_ptr_mirror_row_ok_count
+        ),
+        "runner_kernel_side_compatible_stub_row_count": (
+            kernel_side_compatible_row_count
+        ),
+        "runner_kernel_side_compatible_stub_row_ok_count": (
+            kernel_side_compatible_row_ok_count
+        ),
+        "runner_future_kernel_args_stub_row_count": future_kernel_args_row_count,
+        "runner_future_kernel_args_stub_row_ok_count": (
+            future_kernel_args_row_ok_count
+        ),
+        "runner_future_kernel_args_descriptor_ptr_stub_row_count": (
+            future_kernel_args_descriptor_ptr_row_count
+        ),
+        "runner_future_kernel_args_descriptor_ptr_stub_row_ok_count": (
+            future_kernel_args_descriptor_ptr_row_ok_count
+        ),
+        "runner_future_kernel_args_packed_weight_stub_row_count": (
+            future_kernel_args_packed_weight_row_count
+        ),
+        "runner_future_kernel_args_packed_weight_stub_row_ok_count": (
+            future_kernel_args_packed_weight_row_ok_count
+        ),
+        "runner_future_kernel_args_aux_metadata_stub_row_count": (
+            future_kernel_args_aux_metadata_row_count
+        ),
+        "runner_future_kernel_args_aux_metadata_stub_row_ok_count": (
+            future_kernel_args_aux_metadata_row_ok_count
+        ),
+        "runner_future_kernel_args_compatible_path_stub_row_count": (
+            future_kernel_args_compatible_path_row_count
+        ),
+        "runner_future_kernel_args_compatible_path_stub_row_ok_count": (
+            future_kernel_args_compatible_path_row_ok_count
+        ),
+        "runner_future_kernel_native_consumer_stub_row_count": (
+            future_kernel_native_consumer_row_count
+        ),
+        "runner_future_kernel_native_consumer_stub_row_ok_count": (
+            future_kernel_native_consumer_row_ok_count
+        ),
+        "runner_future_kernel_native_consumer_descriptor_ptr_stub_row_count": (
+            future_kernel_native_consumer_descriptor_ptr_row_count
+        ),
+        "runner_future_kernel_native_consumer_descriptor_ptr_stub_row_ok_count": (
+            future_kernel_native_consumer_descriptor_ptr_row_ok_count
+        ),
+        "runner_future_kernel_native_consumer_packed_weight_stub_row_count": (
+            future_kernel_native_consumer_packed_weight_row_count
+        ),
+        "runner_future_kernel_native_consumer_packed_weight_stub_row_ok_count": (
+            future_kernel_native_consumer_packed_weight_row_ok_count
+        ),
+        "runner_future_kernel_native_consumer_aux_metadata_stub_row_count": (
+            future_kernel_native_consumer_aux_metadata_row_count
+        ),
+        "runner_future_kernel_native_consumer_aux_metadata_stub_row_ok_count": (
+            future_kernel_native_consumer_aux_metadata_row_ok_count
+        ),
+        "runner_future_kernel_native_consumer_launch_stub_row_count": (
+            future_kernel_native_consumer_launch_row_count
+        ),
+        "runner_future_kernel_native_consumer_launch_stub_row_ok_count": (
+            future_kernel_native_consumer_launch_row_ok_count
+        ),
+        "runner_future_kernel_native_consumer_launch_descriptor_ptr_stub_row_count": (
+            future_kernel_native_consumer_launch_descriptor_ptr_row_count
+        ),
+        "runner_future_kernel_native_consumer_launch_descriptor_ptr_stub_row_ok_count": (
+            future_kernel_native_consumer_launch_descriptor_ptr_row_ok_count
+        ),
+        "runner_future_kernel_native_consumer_launch_packed_weight_stub_row_count": (
+            future_kernel_native_consumer_launch_packed_weight_row_count
+        ),
+        "runner_future_kernel_native_consumer_launch_packed_weight_stub_row_ok_count": (
+            future_kernel_native_consumer_launch_packed_weight_row_ok_count
+        ),
+        "runner_future_kernel_native_consumer_launch_aux_metadata_stub_row_count": (
+            future_kernel_native_consumer_launch_aux_metadata_row_count
+        ),
+        "runner_future_kernel_native_consumer_launch_aux_metadata_stub_row_ok_count": (
+            future_kernel_native_consumer_launch_aux_metadata_row_ok_count
+        ),
+        "runner_future_kernel_native_consumer_dispatch_stub_row_count": (
+            future_kernel_native_consumer_dispatch_row_count
+        ),
+        "runner_future_kernel_native_consumer_dispatch_stub_row_ok_count": (
+            future_kernel_native_consumer_dispatch_row_ok_count
+        ),
+        "runner_future_kernel_native_consumer_dispatch_descriptor_ptr_stub_row_count": (
+            future_kernel_native_consumer_dispatch_descriptor_ptr_row_count
+        ),
+        "runner_future_kernel_native_consumer_dispatch_descriptor_ptr_stub_row_ok_count": (
+            future_kernel_native_consumer_dispatch_descriptor_ptr_row_ok_count
+        ),
+        "runner_future_kernel_native_consumer_dispatch_packed_weight_stub_row_count": (
+            future_kernel_native_consumer_dispatch_packed_weight_row_count
+        ),
+        "runner_future_kernel_native_consumer_dispatch_packed_weight_stub_row_ok_count": (
+            future_kernel_native_consumer_dispatch_packed_weight_row_ok_count
+        ),
+        "runner_future_kernel_native_consumer_dispatch_aux_metadata_stub_row_count": (
+            future_kernel_native_consumer_dispatch_aux_metadata_row_count
+        ),
+        "runner_future_kernel_native_consumer_dispatch_aux_metadata_stub_row_ok_count": (
+            future_kernel_native_consumer_dispatch_aux_metadata_row_ok_count
         ),
         "require_all_field_mirror_stubs": bool(require_all_field_mirror_stubs),
         "min_online_inputs": int(min_online_inputs),

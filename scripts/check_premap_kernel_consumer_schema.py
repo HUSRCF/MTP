@@ -80,6 +80,12 @@ REQUIRED_STEPWISE_DEBUG_MACROS = {
     "MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR",
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_KERNEL_CONSUMER_ENVELOPE",
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_KERNEL_SIDE_CONSUMER_PATH",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_KERNEL_SIDE_COMPATIBLE_CONSUMER_ABI",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_CONSUMER_ARGS",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_ARGS_COMPATIBLE_CONSUMER_PATH",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ABI",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ABI",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_ABI",
 }
 ALLOWED_CURRENT_STATUS = {
     "native_stub_pending",
@@ -171,6 +177,87 @@ def check_kernel_consumer_schema_artifact(path: Path) -> dict[str, Any]:
         "launch_envelope_default_enabled": False,
         "launch_envelope_payload_bytes_required": 0,
         "launch_envelope_passed_to_kernel_required": False,
+        "future_kernel_consumer_args_name": "premap_future_kernel_side_consumer_args_v1",
+        "future_kernel_consumer_args_struct": "PremapFutureKernelSideConsumerArgsV1",
+        "future_kernel_consumer_args_mode": "readonly_future_kernel_consumer_args",
+        "future_kernel_consumer_args_default_enabled": False,
+        "future_kernel_consumer_args_payload_bytes_required": 0,
+        "future_kernel_consumer_args_passed_to_kernel_required": False,
+        "future_kernel_consumer_args_current_wna16_arg_compatible": False,
+        "future_kernel_args_compatible_consumer_path_name": (
+            "premap_future_kernel_args_compatible_consumer_path_v1"
+        ),
+        "future_kernel_args_compatible_consumer_path_struct": (
+            "PremapFutureKernelArgsCompatibleConsumerPathResultV1"
+        ),
+        "future_kernel_args_compatible_consumer_path_mode": (
+            "readonly_future_kernel_args_to_compatible_consumer_path"
+        ),
+        "future_kernel_args_compatible_consumer_path_default_enabled": False,
+        "future_kernel_args_compatible_consumer_path_payload_bytes_required": 0,
+        "future_kernel_args_compatible_consumer_path_passed_to_kernel_required": False,
+        "future_kernel_args_compatible_consumer_path_current_wna16_arg_compatible": False,
+        "future_kernel_native_consumer_abi_name": (
+            "premap_future_kernel_native_consumer_abi_v1"
+        ),
+        "future_kernel_native_consumer_abi_struct": (
+            "PremapFutureKernelNativeConsumerParamsV1"
+        ),
+        "future_kernel_native_consumer_abi_result_struct": (
+            "PremapFutureKernelNativeConsumerResultV1"
+        ),
+        "future_kernel_native_consumer_abi_mode": (
+            "readonly_future_kernel_native_consumer_abi"
+        ),
+        "future_kernel_native_consumer_abi_source": (
+            "premap_typed_handle_table_soa_fields"
+        ),
+        "future_kernel_native_consumer_abi_default_enabled": False,
+        "future_kernel_native_consumer_abi_payload_bytes_required": 0,
+        "future_kernel_native_consumer_abi_passed_to_kernel_required": False,
+        "future_kernel_native_consumer_abi_current_wna16_arg_compatible": False,
+        "future_kernel_native_consumer_launch_abi_name": (
+            "premap_future_kernel_native_consumer_launch_abi_v1"
+        ),
+        "future_kernel_native_consumer_launch_abi_struct": (
+            "PremapFutureKernelNativeConsumerLaunchV1"
+        ),
+        "future_kernel_native_consumer_launch_abi_result_struct": (
+            "PremapFutureKernelNativeConsumerLaunchResultV1"
+        ),
+        "future_kernel_native_consumer_launch_abi_mode": (
+            "readonly_future_kernel_native_consumer_launch_abi"
+        ),
+        "future_kernel_native_consumer_launch_abi_source": (
+            "premap_future_kernel_native_consumer_abi_v1"
+        ),
+        "future_kernel_native_consumer_launch_abi_default_enabled": False,
+        "future_kernel_native_consumer_launch_abi_payload_bytes_required": 0,
+        "future_kernel_native_consumer_launch_abi_passed_to_kernel_required": False,
+        "future_kernel_native_consumer_launch_abi_current_wna16_arg_compatible": False,
+        "future_kernel_native_consumer_dispatch_abi_name": (
+            "premap_future_kernel_native_consumer_dispatch_abi_v1"
+        ),
+        "future_kernel_native_consumer_dispatch_abi_struct": (
+            "PremapFutureKernelNativeConsumerDispatchV1"
+        ),
+        "future_kernel_native_consumer_dispatch_abi_result_struct": (
+            "PremapFutureKernelNativeConsumerDispatchResultV1"
+        ),
+        "future_kernel_native_consumer_dispatch_abi_mode": (
+            "readonly_future_kernel_native_consumer_dispatch_abi"
+        ),
+        "future_kernel_native_consumer_dispatch_abi_source": (
+            "premap_future_kernel_native_consumer_launch_abi_v1"
+        ),
+        "future_kernel_native_consumer_dispatch_abi_default_enabled": False,
+        "future_kernel_native_consumer_dispatch_abi_payload_bytes_required": 0,
+        "future_kernel_native_consumer_dispatch_abi_passed_to_kernel_required": False,
+        "future_kernel_native_consumer_dispatch_abi_current_wna16_arg_compatible": False,
+        "future_kernel_native_consumer_dispatch_abi_launch_geometry_required": True,
+        "future_kernel_native_consumer_dispatch_abi_row_window_required": True,
+        "future_kernel_native_consumer_dispatch_abi_minimal_cover_required": True,
+        "future_kernel_native_consumer_dispatch_abi_rows_per_program_source": "block_x",
     }
     for key, expected in expected_native_abi.items():
         observed = native_abi.get(key)

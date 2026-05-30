@@ -15,6 +15,12 @@ The native path is split into two explicit pieces:
   envelope for a future kernel consumer.  It carries the table, expected schema
   hashes, row/order hashes, and readonly flags.  It is only used when the
   `MTP_PREMAP_TYPED_CONSUMER_CHECK_KERNEL_CONSUMER_ENVELOPE` macro is enabled.
+- `PremapFutureKernelSideConsumerArgsV1` is the closer-to-real future kernel
+  argument object.  It wraps the launch envelope plus a field mask and
+  single-field mirror selector so an independent native stub can consume the
+  same argument shape a future kernel slot would receive.  It is still not the
+  current WNA16 kernel argument list and is never passed to the real fused-MoE
+  kernel.
 
 This separation is deliberate: the adapter is the compatibility point for a
 future kernel-side consumer, not an attempt to reinterpret the current WNA16
@@ -67,6 +73,27 @@ the row-view schema, validates required handles and lifetime metadata, and
 emits a path hash. It still reports `payload_bytes=0`,
 `passed_to_kernel=false`, and `changes_kernel_launch_args=false`; it is not a
 WNA16 kernel argument replacement.
+
+`MTP_PREMAP_TYPED_CONSUMER_CHECK_KERNEL_SIDE_COMPATIBLE_CONSUMER_ABI` is the
+table/envelope-level future-kernel canary. It consumes
+`PremapKernelSideTypedConsumerLaunchEnvelopeV1` through
+`premap_typed_consumer_kernel_side_compatible_consume_row_v1`, validates the
+schema, readonly flags, row count/order hashes, and all required handle columns,
+and reports `current_wna16_arg_compatible=false`. This is the minimal ABI stub
+for a future kernel-side consumer; it still does not reinterpret the typed table
+as an existing WNA16 launch argument, dereference payload, or pass anything to
+the real fused-MoE kernel.
+
+`MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_CONSUMER_ARGS` is the current
+closest-to-kernel canary. It launches a separate native HIP checker that accepts
+`PremapFutureKernelSideConsumerArgsV1` as a future kernel parameter structure
+and iterates the typed table through that object. When combined with one
+single-field mirror macro, the checker validates that the selected field is
+read through the future args object with row parity. The online canary now runs
+this future-args path for all four mirror fields: `scale_metadata_handle`,
+`descriptor_ptr`, `packed_weight_descriptor`, and `aux_metadata_handle`. The
+output continues to require `payload_bytes=0`, `passed_to_kernel=false`,
+`changes_kernel_launch_args=false`, and `current_wna16_arg_compatible=false`.
 
 Runtime manager bridge:
 

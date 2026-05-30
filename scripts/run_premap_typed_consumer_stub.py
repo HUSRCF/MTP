@@ -48,6 +48,12 @@ ALLOWED_MACROS = {
     "MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR",
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_KERNEL_CONSUMER_ENVELOPE",
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_KERNEL_SIDE_CONSUMER_PATH",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_KERNEL_SIDE_COMPATIBLE_CONSUMER_ABI",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_CONSUMER_ARGS",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_ARGS_COMPATIBLE_CONSUMER_PATH",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ABI",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ABI",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_ABI",
 }
 FORBIDDEN_MACROS = {
     "MTP_PREMAP_TYPED_CONSUMER_ENABLE_PAYLOAD_DEREF",
@@ -86,6 +92,26 @@ def validate_macros(macros: list[str]) -> list[str]:
         raise ValueError(
             "enable only one typed consumer single-field mirror macro: "
             f"{enabled_mirror_fields}"
+        )
+    if (
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ABI"
+        in normalized
+        and "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ABI"
+        not in normalized
+    ):
+        raise ValueError(
+            "future native consumer launch ABI requires "
+            "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ABI"
+        )
+    if (
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_ABI"
+        in normalized
+        and "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ABI"
+        not in normalized
+    ):
+        raise ValueError(
+            "future native consumer dispatch ABI requires "
+            "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ABI"
         )
     return normalized
 
@@ -240,6 +266,18 @@ def run_stub(args: argparse.Namespace) -> dict[str, Any]:
     rows = int(args.rows)
     if args.input_json is not None:
         input_prefix, rows = _input_prefix_from_json(args.input_json)
+    dispatch_row_offset = int(args.dispatch_row_offset)
+    dispatch_row_limit = (
+        int(args.dispatch_row_limit)
+        if args.dispatch_row_limit is not None
+        else None
+    )
+    if dispatch_row_offset < 0:
+        raise ValueError("dispatch-row-offset must be non-negative")
+    if dispatch_row_limit is not None and (
+        dispatch_row_limit <= dispatch_row_offset or dispatch_row_limit > rows
+    ):
+        raise ValueError("dispatch-row-limit must satisfy offset < limit <= rows")
     cmd = [
         str(bin_path),
         "--device",
@@ -248,7 +286,11 @@ def run_stub(args: argparse.Namespace) -> dict[str, Any]:
         str(rows),
         "--block-threads",
         str(args.block_threads),
+        "--dispatch-row-offset",
+        str(dispatch_row_offset),
     ]
+    if dispatch_row_limit is not None:
+        cmd.extend(["--dispatch-row-limit", str(dispatch_row_limit)])
     if input_prefix is not None:
         cmd.extend(["--input-prefix", str(input_prefix)])
     if args.omit_aux_pointer:
@@ -267,6 +309,8 @@ def run_stub(args: argparse.Namespace) -> dict[str, Any]:
     if input_prefix is not None:
         payload["input_json"] = str(args.input_json)
         payload["input_prefix"] = str(input_prefix)
+    payload["requested_dispatch_row_offset"] = dispatch_row_offset
+    payload["requested_dispatch_row_limit"] = dispatch_row_limit
     if result.stderr:
         payload["stderr"] = result.stderr
     return payload
@@ -277,6 +321,8 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--device", type=int, default=0)
     parser.add_argument("--rows", type=int, default=1024)
     parser.add_argument("--block-threads", type=int, default=256)
+    parser.add_argument("--dispatch-row-offset", type=int, default=0)
+    parser.add_argument("--dispatch-row-limit", type=int)
     parser.add_argument("--input-json", type=Path)
     parser.add_argument("--macro", action="append", default=[])
     parser.add_argument("--omit-aux-pointer", action="store_true")
@@ -299,6 +345,16 @@ def _build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
     macros = validate_macros(args.macro or [])
+    dispatch_row_offset = int(args.dispatch_row_offset)
+    dispatch_row_limit = (
+        int(args.dispatch_row_limit)
+        if args.dispatch_row_limit is not None
+        else None
+    )
+    if dispatch_row_offset < 0:
+        raise ValueError("dispatch-row-offset must be non-negative")
+    if dispatch_row_limit is not None and dispatch_row_limit <= dispatch_row_offset:
+        raise ValueError("dispatch-row-limit must be greater than dispatch-row-offset")
     if args.dry_run:
         schema_hash = PREMAP_KERNEL_SIDE_TYPED_CONSUMER_SCHEMA_HASH
         key = _macro_key(macros, args.offload_arch, schema_hash)
@@ -318,6 +374,8 @@ def main(argv: list[str] | None = None) -> int:
                 schema_hash=schema_hash,
             ),
             "expected_schema_hash": schema_hash,
+            "requested_dispatch_row_offset": dispatch_row_offset,
+            "requested_dispatch_row_limit": dispatch_row_limit,
         }
     else:
         payload = run_stub(args)

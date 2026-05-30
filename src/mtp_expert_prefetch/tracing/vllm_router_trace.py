@@ -98,6 +98,1186 @@ _PREMAP_DESCRIPTOR_PREP_EXECUTION_MODES = frozenset(
 )
 
 
+_ACTIVE_DECODE_WORKLOAD_TRACE: contextvars.ContextVar[
+    "DecodeWorkloadTraceCollector | None"
+] = contextvars.ContextVar("mtp_active_decode_workload_trace", default=None)
+_DECODE_WORKLOAD_TRACE_PATCHED: set[str] = set()
+
+
+def _dtype_name(dtype: Any) -> str:
+    text = str(dtype)
+    if text.startswith("torch."):
+        text = text[len("torch.") :]
+    aliases = {
+        "float16": "fp16",
+        "bfloat16": "bf16",
+        "float32": "fp32",
+    }
+    return aliases.get(text, text)
+
+
+def _to_int_list_from_tensor(value: Any, *, limit: int | None = None) -> list[int]:
+    if value is None:
+        return []
+    if isinstance(value, int):
+        return [int(value)]
+    if isinstance(value, (list, tuple)):
+        result = [int(item) for item in value]
+        return result[:limit] if limit is not None else result
+    if not isinstance(value, torch.Tensor):
+        try:
+            return [int(value)]
+        except Exception:
+            return []
+    tensor = value
+    if limit is not None:
+        tensor = tensor.reshape(-1)[: int(limit)]
+    else:
+        tensor = tensor.reshape(-1)
+    return [int(item) for item in tensor.detach().cpu().tolist()]
+
+
+def _to_prefixed_int_rows_from_tensor(
+    value: Any,
+    *,
+    row_counts: Sequence[int],
+) -> list[list[int]]:
+    if value is None:
+        return [[] for _ in row_counts]
+    if isinstance(value, torch.Tensor):
+        tensor = value.detach().to(device="cpu", non_blocking=False)
+        if tensor.ndim == 1:
+            tensor = tensor.reshape(1, -1)
+        rows: list[list[int]] = []
+        for row_index, count in enumerate(row_counts):
+            if row_index >= int(tensor.shape[0]):
+                rows.append([])
+                continue
+            count_int = max(0, int(count))
+            rows.append(
+                [int(item) for item in tensor[row_index, :count_int].reshape(-1).tolist()]
+            )
+        return rows
+    if isinstance(value, (list, tuple)):
+        rows = []
+        for row_index, count in enumerate(row_counts):
+            if row_index >= len(value):
+                rows.append([])
+                continue
+            row = value[row_index]
+            if isinstance(row, torch.Tensor):
+                row_values = row.detach().to(device="cpu", non_blocking=False).reshape(-1)
+                rows.append([int(item) for item in row_values[: max(0, int(count))].tolist()])
+            elif isinstance(row, (list, tuple)):
+                rows.append([int(item) for item in row[: max(0, int(count))]])
+            else:
+                rows.append([])
+        return rows
+    return [[] for _ in row_counts]
+
+
+def _tensor_layout_summary(value: Any) -> dict[str, Any] | None:
+    if not isinstance(value, torch.Tensor):
+        return None
+    return {
+        "shape": [int(dim) for dim in value.shape],
+        "stride": [int(dim) for dim in value.stride()],
+        "data_ptr": int(value.data_ptr()),
+        "element_size": int(value.element_size()),
+        "dtype": _dtype_name(value.dtype),
+        "device": str(value.device),
+    }
+
+
+def _kv_cache_layout_summary(value: Any, *, layer_ordinal: int | None = None) -> dict[str, Any]:
+    layout: dict[str, Any] = {
+        "available": False,
+        "layer": int(layer_ordinal) if layer_ordinal is not None else None,
+    }
+    if isinstance(value, torch.Tensor):
+        layout["available"] = True
+        layout["kv_shape"] = [int(dim) for dim in value.shape]
+        layout["kv_stride"] = [int(dim) for dim in value.stride()]
+        layout["kv_data_ptr"] = int(value.data_ptr())
+        layout["element_size"] = int(value.element_size())
+        layout["dtype"] = _dtype_name(value.dtype)
+        layout["device"] = str(value.device)
+        if value.ndim >= 1 and int(value.shape[0]) >= 2:
+            k_view = value[0]
+            v_view = value[1]
+            layout["k_shape"] = [int(dim) for dim in k_view.shape]
+            layout["k_stride"] = [int(dim) for dim in k_view.stride()]
+            layout["k_data_ptr"] = int(k_view.data_ptr())
+            layout["v_shape"] = [int(dim) for dim in v_view.shape]
+            layout["v_stride"] = [int(dim) for dim in v_view.stride()]
+            layout["v_data_ptr"] = int(v_view.data_ptr())
+        return layout
+    if isinstance(value, (list, tuple)) and len(value) >= 2:
+        k_layout = _tensor_layout_summary(value[0])
+        v_layout = _tensor_layout_summary(value[1])
+        if k_layout is not None or v_layout is not None:
+            layout["available"] = True
+            if k_layout is not None:
+                layout.update({f"k_{key}": item for key, item in k_layout.items()})
+            if v_layout is not None:
+                layout.update({f"v_{key}": item for key, item in v_layout.items()})
+            return layout
+    return layout
+
+
+def _kv_cache_pair_layout_summary(
+    key_cache: Any,
+    value_cache: Any,
+    *,
+    layer_ordinal: int | None = None,
+) -> dict[str, Any]:
+    layout: dict[str, Any] = {
+        "available": False,
+        "layer": int(layer_ordinal) if layer_ordinal is not None else None,
+    }
+    k_layout = _tensor_layout_summary(key_cache)
+    v_layout = _tensor_layout_summary(value_cache)
+    if k_layout is None and v_layout is None:
+        return layout
+    layout["available"] = True
+    if k_layout is not None:
+        layout.update({f"k_{key}": item for key, item in k_layout.items()})
+    if v_layout is not None:
+        layout.update({f"v_{key}": item for key, item in v_layout.items()})
+    return layout
+
+
+def _infer_block_size_from_key_cache(key_cache: Any) -> int | None:
+    if not isinstance(key_cache, torch.Tensor) or key_cache.ndim < 2:
+        return None
+    shape = [int(dim) for dim in key_cache.shape]
+    preferred = [dim for dim in shape[1:] if dim in {8, 16, 32, 64, 1056}]
+    if preferred:
+        return int(max(preferred))
+    # Fall back to the first non-batch/cache dimension.  This is diagnostic
+    # metadata only; the checker will expose unusual values.
+    return int(shape[1])
+
+
+def _slice_rows_from_flat_values(
+    values: list[int],
+    *,
+    starts: Sequence[int],
+    lengths: Sequence[int],
+) -> list[list[int]]:
+    rows: list[list[int]] = []
+    for start, length in zip(starts, lengths):
+        start_int = max(0, int(start))
+        end_int = start_int + max(0, int(length))
+        rows.append([int(item) for item in values[start_int:end_int]])
+    return rows
+
+
+def _cumulative_starts(lengths: Sequence[int]) -> list[int]:
+    starts = [0]
+    total = 0
+    for length in lengths:
+        total += int(length)
+        starts.append(int(total))
+    return starts
+
+
+def _generated_token_index_from_cache_len(
+    cache_seqlen: int,
+    prompt_len: int | None,
+    fallback: int,
+) -> int:
+    if prompt_len is None:
+        return int(fallback)
+    try:
+        return max(0, int(cache_seqlen) - int(prompt_len))
+    except Exception:
+        return int(fallback)
+
+
+def _normalise_sliding_window(raw: Any) -> tuple[int | None, Any]:
+    if raw is None:
+        return None, None
+    if isinstance(raw, int):
+        return (int(raw) if int(raw) > 0 else None), int(raw)
+    if isinstance(raw, (list, tuple)):
+        raw_list = [int(item) for item in raw if item is not None]
+        positive = [item for item in raw_list if item > 0]
+        return (positive[0] if positive else None), raw_list
+    return None, str(raw)
+
+
+@dataclass
+class DecodeWorkloadTraceCollector:
+    path: Path
+    run_id: str
+    chunk_tokens: int = 32
+    head_mapping: str = "kv"
+    phase_filter: str = "decode"
+    max_rows: int | None = None
+    sample_period: int = 1
+    decode_max_q_len: int = 1
+    overwrite: bool = True
+    write_flush_every: int = 256
+    capture_point: str = "after_scheduler_before_attention_launch"
+    schema_version: int = 1
+    include_block_ids: bool = False
+    include_kv_cache_layout: bool = False
+    capture_metadata_builder: bool = True
+    capture_attention_forward: bool = True
+    capture_chunked_prefill_paged_decode: bool = False
+
+    rows_written: int = 0
+    skipped_rows: int = 0
+    error_count: int = 0
+    _call_index: int = 0
+    _current_sample_idx: int | None = None
+    _current_record_id: str | None = None
+    _current_prompt_len: int | None = None
+    _layer_ordinals: dict[int, int] = field(default_factory=dict)
+    _skip_reasons: dict[str, int] = field(default_factory=dict)
+    _handle: Any = None
+
+    def open(self) -> None:
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        if self.overwrite:
+            mode = "w"
+        else:
+            mode = "a"
+        self._handle = self.path.open(mode, encoding="utf-8")
+
+    def close(self) -> None:
+        if self._handle is not None:
+            self._handle.close()
+            self._handle = None
+
+    def set_sample(self, sample_idx: int | None, record: dict[str, Any] | None) -> None:
+        self._current_sample_idx = int(sample_idx) if sample_idx is not None else None
+        if record is None:
+            self._current_record_id = None
+            self._current_prompt_len = None
+        else:
+            self._current_record_id = str(
+                record.get("id", record.get("record_id", sample_idx))
+            )
+            prompt_len = record.get("target_prompt_tokens", record.get("prompt_len"))
+            self._current_prompt_len = (
+                int(prompt_len)
+                if isinstance(prompt_len, int) and not isinstance(prompt_len, bool)
+                else None
+            )
+
+    def stats(self) -> dict[str, Any]:
+        return {
+            "enabled": True,
+            "path": str(self.path),
+            "run_id": self.run_id,
+            "row_count": int(self.rows_written),
+            "skipped_count": int(self.skipped_rows),
+            "error_count": int(self.error_count),
+            "chunk_tokens": int(self.chunk_tokens),
+            "head_mapping": str(self.head_mapping),
+            "phase_filter": str(self.phase_filter),
+            "max_rows": self.max_rows,
+            "schema_version": int(self.schema_version),
+            "include_block_ids": bool(self.include_block_ids),
+            "include_kv_cache_layout": bool(self.include_kv_cache_layout),
+            "capture_metadata_builder": bool(self.capture_metadata_builder),
+            "capture_attention_forward": bool(self.capture_attention_forward),
+            "capture_chunked_prefill_paged_decode": bool(
+                self.capture_chunked_prefill_paged_decode
+            ),
+            "skip_reasons": dict(sorted(self._skip_reasons.items())),
+        }
+
+    def _layer_ordinal(self, layer: Any) -> int:
+        key = id(layer)
+        ordinal = self._layer_ordinals.get(key)
+        if ordinal is None:
+            ordinal = len(self._layer_ordinals)
+            self._layer_ordinals[key] = ordinal
+        return int(ordinal)
+
+    def _should_skip_sample(self) -> bool:
+        if self.sample_period <= 1 or self._current_sample_idx is None:
+            return False
+        return int(self._current_sample_idx) % int(self.sample_period) != 0
+
+    def _skip(self, reason: str) -> None:
+        self.skipped_rows += 1
+        self._skip_reasons[reason] = int(self._skip_reasons.get(reason, 0)) + 1
+
+    def record_attention(
+        self,
+        *,
+        impl: Any,
+        layer: Any,
+        query: torch.Tensor,
+        key: torch.Tensor,
+        value: torch.Tensor,
+        kv_cache: torch.Tensor,
+        attn_metadata: Any,
+    ) -> None:
+        if self._handle is None:
+            return
+        if self.max_rows is not None and self.rows_written >= int(self.max_rows):
+            self._skip("max_rows")
+            return
+        if self._should_skip_sample():
+            self._skip("sample_period")
+            return
+        try:
+            self._record_attention_impl(
+                impl=impl,
+                layer=layer,
+                query=query,
+                key=key,
+                value=value,
+                kv_cache=kv_cache,
+                attn_metadata=attn_metadata,
+            )
+        except Exception:
+            self.error_count += 1
+            if bool(os.environ.get("MTP_DECODE_WORKLOAD_TRACE_STRICT", "")):
+                raise
+
+    def record_chunked_prefill_paged_decode(
+        self,
+        *,
+        query: torch.Tensor,
+        key: torch.Tensor,
+        value: torch.Tensor,
+        key_cache: Any,
+        value_cache: Any,
+        block_table: Any,
+        query_start_loc: Any,
+        seq_lens: Any,
+        max_seq_len: Any,
+        max_query_len: Any,
+        kv_cache_dtype: Any,
+    ) -> None:
+        if self._handle is None:
+            return
+        if self.max_rows is not None and self.rows_written >= int(self.max_rows):
+            self._skip("max_rows")
+            return
+        if self._should_skip_sample():
+            self._skip("sample_period")
+            return
+        try:
+            self._record_chunked_prefill_paged_decode_impl(
+                query=query,
+                key=key,
+                value=value,
+                key_cache=key_cache,
+                value_cache=value_cache,
+                block_table=block_table,
+                query_start_loc=query_start_loc,
+                seq_lens=seq_lens,
+                max_seq_len=max_seq_len,
+                max_query_len=max_query_len,
+                kv_cache_dtype=kv_cache_dtype,
+            )
+        except Exception:
+            self.error_count += 1
+            if bool(os.environ.get("MTP_DECODE_WORKLOAD_TRACE_STRICT", "")):
+                raise
+
+    def record_common_attention_metadata(
+        self,
+        *,
+        builder: Any,
+        common_attn_metadata: Any,
+    ) -> None:
+        if self._handle is None:
+            return
+        if self.max_rows is not None and self.rows_written >= int(self.max_rows):
+            self._skip("max_rows")
+            return
+        if self._should_skip_sample():
+            self._skip("sample_period")
+            return
+        try:
+            self._record_common_attention_metadata_impl(
+                builder=builder,
+                common_attn_metadata=common_attn_metadata,
+            )
+        except Exception:
+            self.error_count += 1
+            if bool(os.environ.get("MTP_DECODE_WORKLOAD_TRACE_STRICT", "")):
+                raise
+
+    def _record_common_attention_metadata_impl(
+        self,
+        *,
+        builder: Any,
+        common_attn_metadata: Any,
+    ) -> None:
+        query_start_loc = getattr(common_attn_metadata, "query_start_loc", None)
+        seq_lens_tensor = getattr(common_attn_metadata, "seq_lens", None)
+        block_table = getattr(common_attn_metadata, "block_table_tensor", None)
+        if query_start_loc is None:
+            self._skip("builder_missing_query_start_loc")
+            return
+        if seq_lens_tensor is None:
+            self._skip("builder_missing_seq_lens")
+            return
+        if block_table is None:
+            self._skip("builder_missing_block_table")
+            return
+
+        q_starts = _to_int_list_from_tensor(query_start_loc)
+        if len(q_starts) < 2:
+            self._skip("builder_bad_query_start_loc")
+            return
+        query_lens = [
+            max(0, int(q_starts[index + 1]) - int(q_starts[index]))
+            for index in range(len(q_starts) - 1)
+        ]
+        batch_size = int(getattr(common_attn_metadata, "num_reqs", len(query_lens)) or 0)
+        batch_size = min(batch_size, len(query_lens))
+        query_lens = query_lens[:batch_size]
+        if batch_size <= 0:
+            self._skip("builder_empty_batch")
+            return
+
+        max_q_len = max(query_lens) if query_lens else 0
+        phase = "decode" if max_q_len <= int(self.decode_max_q_len) else "prefill"
+        if self.phase_filter and self.phase_filter != "all" and phase != self.phase_filter:
+            self._skip("phase_filter")
+            return
+
+        seq_lens = _to_int_list_from_tensor(seq_lens_tensor, limit=batch_size)
+        if len(seq_lens) != batch_size:
+            self._skip("builder_seq_lens_mismatch")
+            return
+
+        page_block_size = int(
+            getattr(builder, "block_size", 0)
+            or getattr(getattr(builder, "kv_cache_spec", None), "block_size", 0)
+            or 0
+        )
+        if page_block_size <= 0:
+            self._skip("builder_missing_block_size")
+            return
+        num_q_heads = int(getattr(builder, "num_heads_q", 0) or 0)
+        num_kv_heads = int(getattr(builder, "num_heads_kv", 0) or 0)
+        head_dim = int(getattr(builder, "headdim", 0) or 0)
+        if num_q_heads <= 0 or num_kv_heads <= 0 or head_dim <= 0:
+            self._skip("builder_missing_head_shape")
+            return
+
+        block_table_valid_counts = [
+            (int(length) + page_block_size - 1) // page_block_size
+            for length in seq_lens
+        ]
+        block_table_shape = [int(dim) for dim in getattr(block_table, "shape", ())]
+        sliding_window, sliding_window_raw = _normalise_sliding_window(
+            getattr(builder, "sliding_window", None)
+        )
+        effective_lengths = [
+            min(int(length), int(sliding_window))
+            if sliding_window is not None
+            else int(length)
+            for length in seq_lens
+        ]
+        chunks = [
+            (int(length) + int(self.chunk_tokens) - 1) // int(self.chunk_tokens)
+            for length in effective_lengths
+        ]
+        head_factor = num_q_heads if self.head_mapping == "q" else num_kv_heads
+        actual_work_size = int(
+            sum(int(chunk) * int(q_len) for chunk, q_len in zip(chunks, query_lens))
+            * int(head_factor)
+        )
+
+        layer_ordinal = self._layer_ordinal(builder)
+        call_index = self._call_index
+        self._call_index += 1
+        trace_id = (
+            f"{self.run_id}_sample_{self._current_sample_idx}_"
+            f"call_{call_index:08d}_builder_{layer_ordinal}"
+        )
+        dtype = getattr(getattr(builder, "model_config", None), "dtype", None)
+        kv_dtype = getattr(builder, "kv_cache_dtype", None) or getattr(
+            getattr(builder, "kv_cache_spec", None), "dtype", None
+        )
+        seq_start_loc_tensor = getattr(common_attn_metadata, "seq_start_loc", None)
+        seq_starts = _to_int_list_from_tensor(seq_start_loc_tensor)
+        if len(seq_starts) < batch_size + 1:
+            seq_starts = _cumulative_starts(query_lens)
+        slot_mapping_tensor = getattr(common_attn_metadata, "slot_mapping", None)
+        slot_values = _to_int_list_from_tensor(slot_mapping_tensor)
+        slot_rows = (
+            _slice_rows_from_flat_values(
+                slot_values,
+                starts=q_starts[:batch_size],
+                lengths=query_lens,
+            )
+            if slot_values
+            else [[] for _ in range(batch_size)]
+        )
+        notes = (
+            "trace-only CPU metadata copy; cache_seqlens measured from "
+            "CommonAttentionMetadata at metadata builder before backend launch; "
+            "block_table_valid_counts derived from ceil(cache_seqlens/page_block_size)"
+        )
+        if len(set(query_lens)) != 1:
+            notes += "; mixed query lengths stored in query_lens"
+        record = {
+            "schema_version": 1,
+            "trace_id": trace_id,
+            "phase": phase,
+            "capture_point": self.capture_point,
+            "batch_size": int(batch_size),
+            "q_len": int(max_q_len),
+            "query_lens": [int(item) for item in query_lens],
+            "num_q_heads": int(num_q_heads),
+            "num_kv_heads": int(num_kv_heads),
+            "head_dim": int(head_dim),
+            "dtype": _dtype_name(dtype) if dtype is not None else "unknown",
+            "kv_dtype": _dtype_name(kv_dtype) if kv_dtype is not None else "unknown",
+            "page_block_size": int(page_block_size),
+            "cache_seqlens": [int(item) for item in seq_lens],
+            "block_table_valid_counts": [int(item) for item in block_table_valid_counts],
+            "block_table_shape": block_table_shape,
+            "sliding_window": sliding_window,
+            "scheduler_active_tokens": int(sum(query_lens)),
+            "actual_work_size": int(actual_work_size),
+            "work_item_formula": (
+                "sum_b ceil(effective_kv_len[b] / chunk_tokens) "
+                f"* num_{self.head_mapping}_heads * query_lens[b]"
+            ),
+            "chunk_tokens": int(self.chunk_tokens),
+            "head_mapping": str(self.head_mapping),
+            "sample_idx": self._current_sample_idx,
+            "record_id": self._current_record_id,
+            "layer_ordinal": int(layer_ordinal),
+            "attention_backend": type(builder).__name__,
+            "metadata_source": "common_attention_metadata_builder",
+            "sliding_window_raw": sliding_window_raw,
+            "notes": notes,
+        }
+        if int(self.schema_version) >= 2:
+            block_id_rows = _to_prefixed_int_rows_from_tensor(
+                block_table,
+                row_counts=block_table_valid_counts,
+            )
+            sequences = []
+            for row_index in range(batch_size):
+                sequences.append(
+                    {
+                        "row": int(row_index),
+                        "request_id": str(self._current_record_id),
+                        "seq_id": str(self._current_record_id),
+                        "prompt_len": self._current_prompt_len,
+                        "generated_token_idx": _generated_token_index_from_cache_len(
+                            int(seq_lens[row_index]),
+                            self._current_prompt_len,
+                            int(call_index),
+                        ),
+                        "cache_seqlen": int(seq_lens[row_index]),
+                        "valid_block_count": int(block_table_valid_counts[row_index]),
+                        "block_ids": [
+                            int(item) for item in block_id_rows[row_index]
+                        ]
+                        if bool(self.include_block_ids)
+                        else [],
+                        "slot_mapping": [int(item) for item in slot_rows[row_index]],
+                    }
+                )
+            record.update(
+                {
+                    "schema_version": 2,
+                    "trace_type": "vllm_paged_kv_block_table",
+                    "record_idx": int(call_index),
+                    "decode_step": int(call_index),
+                    "q_lens": [int(item) for item in query_lens],
+                    "query_start_loc": [int(item) for item in q_starts[: batch_size + 1]],
+                    "seq_start_loc": [int(item) for item in seq_starts[: batch_size + 1]],
+                    "block_size_tokens": int(page_block_size),
+                    "block_tables_shape": block_table_shape,
+                    "sequences": sequences,
+                    "kv_cache_layout": {
+                        "available": False,
+                        "layer": int(layer_ordinal),
+                    },
+                }
+            )
+        self._handle.write(json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n")
+        self.rows_written += 1
+        if self.write_flush_every > 0 and self.rows_written % self.write_flush_every == 0:
+            self._handle.flush()
+
+    def _record_attention_impl(
+        self,
+        *,
+        impl: Any,
+        layer: Any,
+        query: torch.Tensor,
+        key: torch.Tensor,
+        value: torch.Tensor,
+        kv_cache: torch.Tensor,
+        attn_metadata: Any,
+    ) -> None:
+        query_start_loc = getattr(attn_metadata, "query_start_loc", None)
+        seq_lens_tensor = getattr(attn_metadata, "seq_lens", None)
+        block_table = getattr(attn_metadata, "block_table", None)
+        if query_start_loc is None:
+            self._skip("forward_missing_query_start_loc")
+            return
+        if seq_lens_tensor is None:
+            self._skip("forward_missing_seq_lens")
+            return
+        if block_table is None:
+            self._skip("forward_missing_block_table")
+            return
+
+        q_starts = _to_int_list_from_tensor(query_start_loc)
+        if len(q_starts) < 2:
+            self._skip("forward_bad_query_start_loc")
+            return
+        query_lens = [
+            max(0, int(q_starts[index + 1]) - int(q_starts[index]))
+            for index in range(len(q_starts) - 1)
+        ]
+        batch_size = len(query_lens)
+        num_decodes = getattr(attn_metadata, "num_decodes", None)
+        if num_decodes is not None:
+            batch_size = min(batch_size, max(0, int(num_decodes)))
+            query_lens = query_lens[:batch_size]
+        if batch_size <= 0:
+            self._skip("forward_empty_batch")
+            return
+
+        max_q_len = max(query_lens) if query_lens else 0
+        phase = "decode" if max_q_len <= int(self.decode_max_q_len) else "prefill"
+        if self.phase_filter and self.phase_filter != "all" and phase != self.phase_filter:
+            self._skip("phase_filter")
+            return
+
+        seq_lens = _to_int_list_from_tensor(seq_lens_tensor, limit=batch_size)
+        if len(seq_lens) != batch_size:
+            self._skip("forward_seq_lens_mismatch")
+            return
+
+        page_block_size = int(getattr(impl, "block_size", 0) or 0)
+        if page_block_size <= 0:
+            self._skip("forward_missing_block_size")
+            return
+        block_table_valid_counts = [
+            (int(length) + page_block_size - 1) // page_block_size
+            for length in seq_lens
+        ]
+        block_table_shape = [int(dim) for dim in getattr(block_table, "shape", ())]
+        sliding_window, sliding_window_raw = _normalise_sliding_window(
+            getattr(impl, "sliding_window", None)
+        )
+
+        num_q_heads = int(query.shape[1]) if query.ndim >= 2 else 0
+        num_kv_heads = int(key.shape[1]) if key is not None and key.ndim >= 2 else 0
+        head_dim = int(query.shape[2]) if query.ndim >= 3 else 0
+        effective_lengths = [
+            min(int(length), int(sliding_window))
+            if sliding_window is not None
+            else int(length)
+            for length in seq_lens
+        ]
+        chunks = [
+            (int(length) + int(self.chunk_tokens) - 1) // int(self.chunk_tokens)
+            for length in effective_lengths
+        ]
+        if self.head_mapping == "q":
+            head_factor = num_q_heads
+        else:
+            head_factor = num_kv_heads
+        actual_work_size = int(
+            sum(int(chunk) * int(q_len) for chunk, q_len in zip(chunks, query_lens))
+            * int(head_factor)
+        )
+
+        layer_ordinal = self._layer_ordinal(layer)
+        call_index = self._call_index
+        self._call_index += 1
+        trace_id = (
+            f"{self.run_id}_sample_{self._current_sample_idx}_"
+            f"call_{call_index:08d}_layer_{layer_ordinal}"
+        )
+        notes = (
+            "trace-only CPU metadata copy; cache_seqlens measured at attention "
+            "forward before backend launch; block_table_valid_counts derived "
+            "from ceil(cache_seqlens/page_block_size)"
+        )
+        seq_start_loc_tensor = getattr(attn_metadata, "seq_start_loc", None)
+        seq_starts = _to_int_list_from_tensor(seq_start_loc_tensor)
+        if len(seq_starts) < batch_size + 1:
+            seq_starts = _cumulative_starts(query_lens)
+        slot_mapping_tensor = getattr(attn_metadata, "slot_mapping", None)
+        slot_values = _to_int_list_from_tensor(slot_mapping_tensor)
+        slot_rows = (
+            _slice_rows_from_flat_values(
+                slot_values,
+                starts=q_starts[:batch_size],
+                lengths=query_lens,
+            )
+            if slot_values
+            else [[] for _ in range(batch_size)]
+        )
+        if len(set(query_lens)) != 1:
+            notes += "; mixed query lengths stored in query_lens"
+        record = {
+            "schema_version": 1,
+            "trace_id": trace_id,
+            "phase": phase,
+            "capture_point": self.capture_point,
+            "batch_size": int(batch_size),
+            "q_len": int(max_q_len),
+            "query_lens": [int(item) for item in query_lens],
+            "num_q_heads": int(num_q_heads),
+            "num_kv_heads": int(num_kv_heads),
+            "head_dim": int(head_dim),
+            "dtype": _dtype_name(query.dtype),
+            "kv_dtype": _dtype_name(kv_cache.dtype),
+            "page_block_size": int(page_block_size),
+            "cache_seqlens": [int(item) for item in seq_lens],
+            "block_table_valid_counts": [int(item) for item in block_table_valid_counts],
+            "block_table_shape": block_table_shape,
+            "sliding_window": sliding_window,
+            "scheduler_active_tokens": int(sum(query_lens)),
+            "actual_work_size": int(actual_work_size),
+            "work_item_formula": (
+                "sum_b ceil(effective_kv_len[b] / chunk_tokens) "
+                f"* num_{self.head_mapping}_heads * query_lens[b]"
+            ),
+            "chunk_tokens": int(self.chunk_tokens),
+            "head_mapping": str(self.head_mapping),
+            "sample_idx": self._current_sample_idx,
+            "record_id": self._current_record_id,
+            "layer_ordinal": int(layer_ordinal),
+            "attention_backend": type(impl).__name__,
+            "sliding_window_raw": sliding_window_raw,
+            "notes": notes,
+        }
+        if int(self.schema_version) >= 2:
+            block_id_rows = _to_prefixed_int_rows_from_tensor(
+                block_table,
+                row_counts=block_table_valid_counts,
+            )
+            sequences = []
+            for row_index in range(batch_size):
+                sequences.append(
+                    {
+                        "row": int(row_index),
+                        "request_id": str(self._current_record_id),
+                        "seq_id": str(self._current_record_id),
+                        "prompt_len": self._current_prompt_len,
+                        "generated_token_idx": _generated_token_index_from_cache_len(
+                            int(seq_lens[row_index]),
+                            self._current_prompt_len,
+                            int(call_index),
+                        ),
+                        "cache_seqlen": int(seq_lens[row_index]),
+                        "valid_block_count": int(block_table_valid_counts[row_index]),
+                        "block_ids": [
+                            int(item) for item in block_id_rows[row_index]
+                        ]
+                        if bool(self.include_block_ids)
+                        else [],
+                        "slot_mapping": [int(item) for item in slot_rows[row_index]],
+                    }
+                )
+            record.update(
+                {
+                    "schema_version": 2,
+                    "trace_type": "vllm_paged_kv_block_table",
+                    "record_idx": int(call_index),
+                    "decode_step": int(call_index),
+                    "q_lens": [int(item) for item in query_lens],
+                    "query_start_loc": [int(item) for item in q_starts[: batch_size + 1]],
+                    "seq_start_loc": [int(item) for item in seq_starts[: batch_size + 1]],
+                    "block_size_tokens": int(page_block_size),
+                    "block_tables_shape": block_table_shape,
+                    "sequences": sequences,
+                    "kv_cache_layout": _kv_cache_layout_summary(
+                        kv_cache if bool(self.include_kv_cache_layout) else None,
+                        layer_ordinal=int(layer_ordinal),
+                    ),
+                }
+            )
+        self._handle.write(json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n")
+        self.rows_written += 1
+        if self.write_flush_every > 0 and self.rows_written % self.write_flush_every == 0:
+            self._handle.flush()
+
+    def _record_chunked_prefill_paged_decode_impl(
+        self,
+        *,
+        query: torch.Tensor,
+        key: torch.Tensor,
+        value: torch.Tensor,
+        key_cache: Any,
+        value_cache: Any,
+        block_table: Any,
+        query_start_loc: Any,
+        seq_lens: Any,
+        max_seq_len: Any,
+        max_query_len: Any,
+        kv_cache_dtype: Any,
+    ) -> None:
+        if int(self.schema_version) < 2:
+            self._skip("chunked_decode_requires_schema_v2")
+            return
+        if not isinstance(query, torch.Tensor):
+            self._skip("chunked_decode_missing_query")
+            return
+        q_starts = _to_int_list_from_tensor(query_start_loc)
+        seq_values = _to_int_list_from_tensor(seq_lens)
+        if len(q_starts) < 2:
+            self._skip("chunked_decode_bad_query_start_loc")
+            return
+        query_lens = [
+            max(0, int(q_starts[index + 1]) - int(q_starts[index]))
+            for index in range(len(q_starts) - 1)
+        ]
+        batch_size = min(len(query_lens), len(seq_values))
+        if batch_size <= 0:
+            self._skip("chunked_decode_empty_batch")
+            return
+        query_lens = query_lens[:batch_size]
+        seq_values = [int(item) for item in seq_values[:batch_size]]
+        block_size = _infer_block_size_from_key_cache(key_cache)
+        if block_size is None or int(block_size) <= 0:
+            self._skip("chunked_decode_missing_block_size")
+            return
+        block_table_shape = (
+            [int(dim) for dim in block_table.shape]
+            if isinstance(block_table, torch.Tensor)
+            else []
+        )
+        if len(block_table_shape) != 2:
+            self._skip("chunked_decode_missing_block_table")
+            return
+        block_table_valid_counts = [
+            (int(seq_len) + int(block_size) - 1) // int(block_size)
+            for seq_len in seq_values
+        ]
+        block_id_rows = _to_prefixed_int_rows_from_tensor(
+            block_table,
+            row_counts=block_table_valid_counts,
+        )
+        q_shape = [int(dim) for dim in query.shape]
+        k_shape = [int(dim) for dim in key.shape] if isinstance(key, torch.Tensor) else []
+        batch_tokens = int(q_shape[0]) if q_shape else int(sum(query_lens))
+        num_q_heads = int(q_shape[1]) if len(q_shape) >= 2 else 0
+        head_dim = int(q_shape[2]) if len(q_shape) >= 3 else 0
+        num_kv_heads = int(k_shape[1]) if len(k_shape) >= 2 else num_q_heads
+        effective_lens = [
+            min(int(seq_len), int(max_seq_len)) if max_seq_len is not None else int(seq_len)
+            for seq_len in seq_values
+        ]
+        head_multiplier = num_kv_heads if self.head_mapping == "kv" else num_q_heads
+        actual_work_size = sum(
+            ((int(length) + int(self.chunk_tokens) - 1) // int(self.chunk_tokens))
+            * int(head_multiplier)
+            * max(1, int(query_lens[index]))
+            for index, length in enumerate(effective_lens)
+        )
+        call_index = self._call_index
+        self._call_index += 1
+        sequences = []
+        for row_index in range(batch_size):
+            sequences.append(
+                {
+                    "row": int(row_index),
+                    "request_id": str(self._current_record_id),
+                    "seq_id": str(self._current_record_id),
+                    "prompt_len": self._current_prompt_len,
+                    "generated_token_idx": _generated_token_index_from_cache_len(
+                        int(seq_values[row_index]),
+                        self._current_prompt_len,
+                        int(call_index),
+                    ),
+                    "cache_seqlen": int(seq_values[row_index]),
+                    "valid_block_count": int(block_table_valid_counts[row_index]),
+                    "block_ids": [
+                        int(item) for item in block_id_rows[row_index]
+                    ]
+                    if bool(self.include_block_ids)
+                    else [],
+                    "slot_mapping": [],
+                }
+            )
+        record = {
+            "schema_version": 2,
+            "trace_type": "vllm_paged_kv_block_table",
+            "trace_id": f"{self.run_id}_sample_{self._current_sample_idx}_call_{call_index:08d}_chunked_decode",
+            "capture_point": "inside_chunked_prefill_paged_decode_before_kernel",
+            "record_idx": int(call_index),
+            "decode_step": int(call_index),
+            "phase": str(self.phase_filter),
+            "metadata_source": "chunked_prefill_paged_decode",
+            "batch_size": int(batch_size),
+            "q_len": int(max(query_lens) if query_lens else 0),
+            "q_lens": [int(item) for item in query_lens],
+            "query_lens": [int(item) for item in query_lens],
+            "query_start_loc": [int(item) for item in q_starts[: batch_size + 1]],
+            "seq_start_loc": _cumulative_starts(query_lens),
+            "num_q_heads": int(num_q_heads),
+            "num_kv_heads": int(num_kv_heads),
+            "head_dim": int(head_dim),
+            "dtype": _dtype_name(query.dtype),
+            "kv_dtype": str(kv_cache_dtype),
+            "page_block_size": int(block_size),
+            "block_size_tokens": int(block_size),
+            "cache_seqlens": [int(item) for item in seq_values],
+            "block_table_valid_counts": [int(item) for item in block_table_valid_counts],
+            "block_table_shape": block_table_shape,
+            "block_tables_shape": block_table_shape,
+            "sliding_window": None,
+            "sliding_window_raw": None,
+            "scheduler_active_tokens": int(batch_tokens),
+            "actual_work_size": int(actual_work_size),
+            "work_item_formula": (
+                "sum_b ceil(effective_kv_len[b] / chunk_tokens) "
+                f"* num_{self.head_mapping}_heads * query_lens[b]"
+            ),
+            "chunk_tokens": int(self.chunk_tokens),
+            "head_mapping": str(self.head_mapping),
+            "sample_idx": self._current_sample_idx,
+            "record_id": self._current_record_id,
+            "layer_ordinal": None,
+            "attention_backend": "chunked_prefill_paged_decode",
+            "max_seq_len": int(max_seq_len) if max_seq_len is not None else None,
+            "max_query_len": int(max_query_len) if max_query_len is not None else None,
+            "notes": (
+                "trace-only CPU metadata copy; captured inside "
+                "chunked_prefill_paged_decode with real key/value cache tensors"
+            ),
+            "sequences": sequences,
+            "kv_cache_layout": _kv_cache_pair_layout_summary(
+                key_cache if bool(self.include_kv_cache_layout) else None,
+                value_cache if bool(self.include_kv_cache_layout) else None,
+                layer_ordinal=None,
+            ),
+        }
+        self._handle.write(json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n")
+        self.rows_written += 1
+        if self.write_flush_every > 0 and self.rows_written % self.write_flush_every == 0:
+            self._handle.flush()
+
+
+def _wrap_decode_workload_trace_forward(cls: type[Any], label: str) -> None:
+    if label in _DECODE_WORKLOAD_TRACE_PATCHED:
+        return
+    original = getattr(cls, "forward", None)
+    if not callable(original):
+        return
+
+    @functools.wraps(original)
+    def wrapped(self, layer, query, key, value, kv_cache, attn_metadata, output, *args, **kwargs):
+        collector = _ACTIVE_DECODE_WORKLOAD_TRACE.get()
+        if (
+            collector is not None
+            and bool(collector.capture_attention_forward)
+            and attn_metadata is not None
+        ):
+            collector.record_attention(
+                impl=self,
+                layer=layer,
+                query=query,
+                key=key,
+                value=value,
+                kv_cache=kv_cache,
+                attn_metadata=attn_metadata,
+            )
+        return original(self, layer, query, key, value, kv_cache, attn_metadata, output, *args, **kwargs)
+
+    setattr(cls, "forward", wrapped)
+    _DECODE_WORKLOAD_TRACE_PATCHED.add(label)
+
+
+def _wrap_decode_workload_trace_chunked_prefill_paged_decode(
+    module: Any,
+    label: str,
+    *,
+    attr_name: str = "chunked_prefill_paged_decode",
+) -> None:
+    if label in _DECODE_WORKLOAD_TRACE_PATCHED:
+        return
+    original = getattr(module, attr_name, None)
+    if not callable(original):
+        return
+
+    @functools.wraps(original)
+    def wrapped(
+        query,
+        key,
+        value,
+        output,
+        kv_cache_dtype,
+        key_cache,
+        value_cache,
+        block_table,
+        query_start_loc,
+        seq_lens,
+        max_seq_len,
+        max_query_len,
+        k_scale,
+        v_scale,
+        *args,
+        **kwargs,
+    ):
+        collector = _ACTIVE_DECODE_WORKLOAD_TRACE.get()
+        if collector is not None and bool(collector.capture_chunked_prefill_paged_decode):
+            collector.record_chunked_prefill_paged_decode(
+                query=query,
+                key=key,
+                value=value,
+                key_cache=key_cache,
+                value_cache=value_cache,
+                block_table=block_table,
+                query_start_loc=query_start_loc,
+                seq_lens=seq_lens,
+                max_seq_len=max_seq_len,
+                max_query_len=max_query_len,
+                kv_cache_dtype=kv_cache_dtype,
+            )
+        return original(
+            query,
+            key,
+            value,
+            output,
+            kv_cache_dtype,
+            key_cache,
+            value_cache,
+            block_table,
+            query_start_loc,
+            seq_lens,
+            max_seq_len,
+            max_query_len,
+            k_scale,
+            v_scale,
+            *args,
+            **kwargs,
+        )
+
+    setattr(module, attr_name, wrapped)
+    _DECODE_WORKLOAD_TRACE_PATCHED.add(label)
+
+
+def _wrap_decode_workload_trace_metadata_builder(cls: type[Any], label: str) -> None:
+    if label in _DECODE_WORKLOAD_TRACE_PATCHED:
+        return
+    original = getattr(cls, "build", None)
+    if not callable(original):
+        return
+
+    @functools.wraps(original)
+    def wrapped(self, common_prefix_len, common_attn_metadata, *args, **kwargs):
+        collector = _ACTIVE_DECODE_WORKLOAD_TRACE.get()
+        if (
+            collector is not None
+            and bool(collector.capture_metadata_builder)
+            and common_attn_metadata is not None
+        ):
+            collector.record_common_attention_metadata(
+                builder=self,
+                common_attn_metadata=common_attn_metadata,
+            )
+        return original(self, common_prefix_len, common_attn_metadata, *args, **kwargs)
+
+    setattr(cls, "build", wrapped)
+    _DECODE_WORKLOAD_TRACE_PATCHED.add(label)
+
+
+def _install_decode_workload_trace_patch() -> None:
+    forward_candidates = (
+        (
+            "vllm.v1.attention.backends.flash_attn",
+            "FlashAttentionImpl",
+            "flash_attn.FlashAttentionImpl",
+        ),
+        (
+            "vllm.v1.attention.backends.rocm_aiter_fa",
+            "AiterFlashAttentionImpl",
+            "rocm_aiter_fa.AiterFlashAttentionImpl",
+        ),
+        (
+            "vllm.v1.attention.backends.rocm_attn",
+            "RocmAttentionImpl",
+            "rocm_attn.RocmAttentionImpl",
+        ),
+        (
+            "vllm.v1.attention.backends.triton_attn",
+            "TritonAttentionImpl",
+            "triton_attn.TritonAttentionImpl",
+        ),
+    )
+    builder_candidates = (
+        (
+            "vllm.v1.attention.backends.flash_attn",
+            "FlashAttentionMetadataBuilder",
+            "flash_attn.FlashAttentionMetadataBuilder",
+        ),
+        (
+            "vllm.v1.attention.backends.rocm_aiter_fa",
+            "AiterFlashAttentionMetadataBuilder",
+            "rocm_aiter_fa.AiterFlashAttentionMetadataBuilder",
+        ),
+        (
+            "vllm.v1.attention.backends.rocm_attn",
+            "RocmAttentionMetadataBuilder",
+            "rocm_attn.RocmAttentionMetadataBuilder",
+        ),
+        (
+            "vllm.v1.attention.backends.triton_attn",
+            "TritonAttentionMetadataBuilder",
+            "triton_attn.TritonAttentionMetadataBuilder",
+        ),
+        (
+            "vllm.v1.attention.backends.gdn_attn",
+            "GDNAttentionMetadataBuilder",
+            "gdn_attn.GDNAttentionMetadataBuilder",
+        ),
+    )
+    for module_name, class_name, label in forward_candidates:
+        try:
+            module = importlib.import_module(module_name)
+            cls = getattr(module, class_name)
+        except Exception:
+            continue
+        _wrap_decode_workload_trace_forward(cls, label)
+    for module_name, class_name, label in builder_candidates:
+        try:
+            module = importlib.import_module(module_name)
+            cls = getattr(module, class_name)
+        except Exception:
+            continue
+        _wrap_decode_workload_trace_metadata_builder(cls, label)
+    try:
+        module = importlib.import_module(
+            "vllm.v1.attention.ops.chunked_prefill_paged_decode"
+        )
+    except Exception:
+        module = None
+    if module is not None:
+        _wrap_decode_workload_trace_chunked_prefill_paged_decode(
+            module,
+            "ops.chunked_prefill_paged_decode",
+        )
+    for module_name, label in (
+        (
+            "vllm.v1.attention.backends.rocm_attn",
+            "rocm_attn.chunked_prefill_paged_decode",
+        ),
+    ):
+        try:
+            module = importlib.import_module(module_name)
+        except Exception:
+            continue
+        _wrap_decode_workload_trace_chunked_prefill_paged_decode(module, label)
+
+
 def _normalize_premap_descriptor_prep_execution_mode(raw: Any) -> str | None:
     mode = str(raw or "off").strip().lower()
     if mode in {"", "off", "none", "false", "0"}:
@@ -14720,6 +15900,12 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
         runtime_shadow_options,
         project_root=project_root,
     )
+    decode_workload_trace_options = trace_options.get("decode_workload_trace", {})
+    if decode_workload_trace_options is None:
+        decode_workload_trace_options = {}
+    if not isinstance(decode_workload_trace_options, dict):
+        msg = "trace.decode_workload_trace must be a mapping when provided."
+        raise TypeError(msg)
     _reset_premap_kernel_arg_live_mutation_counters()
     if bool(runtime_shadow_options.get("enabled", False)) and not use_router_logits_recorder:
         msg = "runtime_shadow.enabled requires use_router_logits_recorder."
@@ -14729,6 +15915,8 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
     if use_router_logits_recorder and bool(
         vllm_options.get("disable_v1_multiprocessing_for_recorder", True)
     ):
+        os.environ.setdefault("VLLM_ENABLE_V1_MULTIPROCESSING", "0")
+    if bool(decode_workload_trace_options.get("enabled", False)):
         os.environ.setdefault("VLLM_ENABLE_V1_MULTIPROCESSING", "0")
 
     from transformers import AutoTokenizer
@@ -14762,6 +15950,66 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
         if patch_rocm_upstream_fa_adapter
         else False
     )
+    decode_workload_collector: DecodeWorkloadTraceCollector | None = None
+    if bool(decode_workload_trace_options.get("enabled", False)):
+        raw_decode_trace_path = decode_workload_trace_options.get("output_path")
+        if raw_decode_trace_path is None:
+            decode_trace_path = output_dir / "decode_workload_trace.jsonl"
+        else:
+            decode_trace_path = resolve_path(raw_decode_trace_path, base_dir=project_root)
+        decode_workload_collector = DecodeWorkloadTraceCollector(
+            path=decode_trace_path,
+            run_id=str(
+                decode_workload_trace_options.get(
+                    "run_id",
+                    trace_options.get("split_id", output_dir.name),
+                )
+            ),
+            chunk_tokens=int(decode_workload_trace_options.get("chunk_tokens", 32)),
+            head_mapping=str(decode_workload_trace_options.get("head_mapping", "kv")),
+            phase_filter=str(decode_workload_trace_options.get("phase", "decode")),
+            max_rows=(
+                int(decode_workload_trace_options["max_rows"])
+                if decode_workload_trace_options.get("max_rows") is not None
+                else None
+            ),
+            sample_period=max(1, int(decode_workload_trace_options.get("sample_period", 1))),
+            decode_max_q_len=max(
+                1,
+                int(decode_workload_trace_options.get("decode_max_q_len", 1)),
+            ),
+            overwrite=bool(decode_workload_trace_options.get("overwrite", True)),
+            write_flush_every=int(
+                decode_workload_trace_options.get("flush_every", 256)
+            ),
+            capture_point=str(
+                decode_workload_trace_options.get(
+                    "capture_point",
+                    "after_scheduler_before_attention_launch",
+                )
+            ),
+            schema_version=int(decode_workload_trace_options.get("schema_version", 1)),
+            include_block_ids=bool(
+                decode_workload_trace_options.get("include_block_ids", False)
+            ),
+            include_kv_cache_layout=bool(
+                decode_workload_trace_options.get("include_kv_cache_layout", False)
+            ),
+            capture_metadata_builder=bool(
+                decode_workload_trace_options.get("capture_metadata_builder", True)
+            ),
+            capture_attention_forward=bool(
+                decode_workload_trace_options.get("capture_attention_forward", True)
+            ),
+            capture_chunked_prefill_paged_decode=bool(
+                decode_workload_trace_options.get(
+                    "capture_chunked_prefill_paged_decode",
+                    False,
+                )
+            ),
+        )
+        decode_workload_collector.open()
+        _install_decode_workload_trace_patch()
 
     try:
         from vllm.inputs import TokensPrompt
@@ -15335,6 +16583,12 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
         ),
         "runtime_patched_rocm_upstream_flash_attn_decoder_adapter": (
             patched_rocm_upstream_fa_adapter
+        ),
+        "decode_workload_trace_enabled": decode_workload_collector is not None,
+        "decode_workload_trace_path": (
+            str(decode_workload_collector.path)
+            if decode_workload_collector is not None
+            else None
         ),
         "trace_fallback_mode": (
             "vllm_activation_and_topk_ops"
@@ -15972,8 +17226,17 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                             recorder.token_offset = int(
                                 runtime_shadow_options.get("token_offset", 0)
                             )
+                            if decode_workload_collector is not None:
+                                decode_workload_collector.set_sample(sample_idx, record)
                             set_active_vllm_router_recorder(recorder)
                             set_active_runtime_shadow_controller(runtime_shadow_controller)
+                            decode_token = (
+                                _ACTIVE_DECODE_WORKLOAD_TRACE.set(
+                                    decode_workload_collector
+                                )
+                                if decode_workload_collector is not None
+                                else None
+                            )
                             generate_start_ns = time.perf_counter_ns()
                             generate_elapsed_us = 0.0
                             generate_status = "ok"
@@ -15998,6 +17261,8 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                                 recorder.flush_moe_substage_aggregates()
                                 set_active_vllm_router_recorder(None)
                                 set_active_runtime_shadow_controller(None)
+                                if decode_token is not None:
+                                    _ACTIVE_DECODE_WORKLOAD_TRACE.reset(decode_token)
                             if len(outputs) != 1:
                                 msg = f"vLLM returned {len(outputs)} outputs for one prompt."
                                 raise RuntimeError(msg)
@@ -16036,12 +17301,44 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                                 + "\n"
                             )
                     else:
-                        generate_start_ns = time.perf_counter_ns()
-                        outputs = llm.generate(
-                            [prompt for *_prefix, prompt in chunk],
-                            sampling,
-                            use_tqdm=False,
+                        if decode_workload_collector is not None:
+                            if len(chunk) == 1:
+                                sample_idx, record, _input_ids, _prompt = chunk[0]
+                                decode_workload_collector.set_sample(sample_idx, record)
+                            else:
+                                prompt_lengths = {
+                                    int(record["target_prompt_tokens"])
+                                    for _sample_idx, record, _input_ids, _prompt in chunk
+                                    if isinstance(record.get("target_prompt_tokens"), int)
+                                    and not isinstance(
+                                        record.get("target_prompt_tokens"),
+                                        bool,
+                                    )
+                                }
+                                chunk_record = (
+                                    {
+                                        "id": f"chunk_{chunk_start}",
+                                        "target_prompt_tokens": next(iter(prompt_lengths)),
+                                    }
+                                    if len(prompt_lengths) == 1
+                                    else None
+                                )
+                                decode_workload_collector.set_sample(None, chunk_record)
+                        decode_token = (
+                            _ACTIVE_DECODE_WORKLOAD_TRACE.set(decode_workload_collector)
+                            if decode_workload_collector is not None
+                            else None
                         )
+                        generate_start_ns = time.perf_counter_ns()
+                        try:
+                            outputs = llm.generate(
+                                [prompt for *_prefix, prompt in chunk],
+                                sampling,
+                                use_tqdm=False,
+                            )
+                        finally:
+                            if decode_token is not None:
+                                _ACTIVE_DECODE_WORKLOAD_TRACE.reset(decode_token)
                         chunk_generate_elapsed_us = (
                             time.perf_counter_ns() - generate_start_ns
                         ) / 1000.0
@@ -16109,6 +17406,8 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
             if bool(runtime_shadow_options.get("flush_pending_as_timeouts", True)):
                 runtime_shadow_controller.flush_pending_as_timeouts()
             runtime_shadow_controller.close()
+        if decode_workload_collector is not None:
+            decode_workload_collector.close()
 
     performance["total_trace_wall_seconds"] = (
         time.perf_counter_ns() - trace_wall_start_ns
@@ -16133,6 +17432,8 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
         performance["runtime_shadow_controller_stats"] = (
             runtime_shadow_controller.stats_dict()
         )
+    if decode_workload_collector is not None:
+        performance["decode_workload_trace"] = decode_workload_collector.stats()
     for key, value in _premap_kernel_arg_live_mutation_counters().items():
         performance[f"runtime_shadow_premap_kernel_arg_live_mutation_{key}"] = (
             int(value)
