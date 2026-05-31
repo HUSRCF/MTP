@@ -21810,6 +21810,61 @@ conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
 git diff --check: clean
 ```
 
+Post-review hardening:
+
+```text
+artifact checker:
+  runtime/strict deferred-count summaries are now cross-checked against the
+  full preflight evidence scan when that scan is available.
+
+lab preflight:
+  --defer-online-prelaunch-artifact-evidence is rejected unless the matching
+  runner evidence is also deferred, so artifact-only defer cannot hide a
+  missing artifact-check during normal lab preflight.
+
+dispatch ABI tests:
+  added a positive grid_x > 1 / multi-program dispatch coverage case, covering
+  the future row assignment formula beyond the single-program tail-window path.
+```
+
+Latest validation:
+
+```text
+conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
+  pytest tests/test_check_premap_online_native_stub_canary_artifacts.py \
+         tests/test_run_premap_lab_preflight.py -q
+
+64 passed
+
+conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
+  python scripts/check_premap_online_native_stub_canary_artifacts.py \
+    --runner-json outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_dispatch_window_tail4_32input.json \
+    --preflight-json outputs/reports/premap_lab_preflight_dispatch_program_iteration_32required_contract_check.json \
+    --status-json outputs/reports/premap_lab_preflight_status_dispatch_program_iteration_32required_contract_check.json \
+    --output-json outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_artifact_check_dispatch_window_tail4_32input.json \
+    --require-all-field-mirror-stubs \
+    --min-online-inputs 32
+
+passed
+
+conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
+  python scripts/run_premap_lab_preflight.py \
+    --summary-only \
+    --output-json outputs/reports/premap_lab_preflight_dispatch_program_iteration_review_fix_final_status.json
+
+passed = true
+runtime_gate_evidence_deferred_count = 0
+strict_default_gate_evidence_deferred_count = 0
+deferred_online_prelaunch_runner_evidence = false
+deferred_online_prelaunch_artifact_evidence = false
+
+conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src pytest tests -q
+
+739 passed, 2 warnings
+
+git diff --check: clean
+```
+
 ### 2026-05-31 16:54 CST — Future-native dispatch ABI program/lane gate
 
 The future-native typed consumer dispatch ABI now validates the row iteration

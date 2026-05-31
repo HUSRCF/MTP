@@ -893,6 +893,15 @@ def check_online_native_stub_canary_artifacts(
     status_optional_evidence = status_optional.get("evidence")
     if not isinstance(status_optional_evidence, dict):
         status_optional_evidence = {}
+    preflight_runtime_scan = preflight.get("runtime_gate_evidence_scan")
+    if not isinstance(preflight_runtime_scan, dict):
+        preflight_runtime_scan = {}
+    preflight_strict_checks = preflight.get("strict_gate_evidence_checks")
+    if not isinstance(preflight_strict_checks, dict):
+        preflight_strict_checks = {}
+    preflight_default_strict = preflight_strict_checks.get("default_readonly_gate")
+    if not isinstance(preflight_default_strict, dict):
+        preflight_default_strict = {}
 
     def _deferred_evidence_count(rows: dict[str, object]) -> int:
         count = 0
@@ -962,17 +971,33 @@ def check_online_native_stub_canary_artifacts(
     status_runtime_deferred_count = _int(
         status.get("runtime_gate_evidence_deferred_count")
     )
+    preflight_runtime_deferred_count = _int(
+        preflight_runtime_scan.get("deferred_count")
+    )
     if status_runtime_deferred_count is None or status_runtime_deferred_count < 0:
         failures.append("status_runtime_gate_evidence_deferred_count_invalid")
         status_runtime_deferred_count = status_total_deferred_count
+    elif (
+        preflight_runtime_deferred_count is not None
+        and status_runtime_deferred_count != preflight_runtime_deferred_count
+    ):
+        failures.append("status_runtime_gate_evidence_deferred_count_mismatch")
     elif status_runtime_deferred_count < status_total_deferred_count:
         failures.append("status_runtime_gate_evidence_deferred_count_too_low")
     status_strict_deferred_count = _int(
         status.get("strict_default_gate_evidence_deferred_count")
     )
+    preflight_strict_deferred_count = _int(
+        preflight_default_strict.get("deferred_count")
+    )
     if status_strict_deferred_count is None or status_strict_deferred_count < 0:
         failures.append("status_strict_default_gate_evidence_deferred_count_invalid")
         status_strict_deferred_count = status_runtime_deferred_count
+    elif (
+        preflight_strict_deferred_count is not None
+        and status_strict_deferred_count != preflight_strict_deferred_count
+    ):
+        failures.append("status_strict_default_gate_evidence_deferred_count_mismatch")
     elif status_strict_deferred_count < status_total_deferred_count:
         failures.append("status_strict_default_gate_evidence_deferred_count_too_low")
     expected_stage1 = {
@@ -1074,9 +1099,9 @@ def check_online_native_stub_canary_artifacts(
                 max(int(status_required_count) - int(stage1_present_count), 0)
                 + max(int(status_optional_count) - int(stage1_optional_present_count), 0)
             )
-            if stage1_deferred_count < stage1_expected_deferred_count:
+            if stage1_deferred_count != stage1_expected_deferred_count:
                 failures.append(
-                    "runner_stage1_runtime_gate_evidence_deferred_count_too_low"
+                    "runner_stage1_runtime_gate_evidence_deferred_count_mismatch"
                 )
         for key, expected in {
             "optional_evidence_present_count": status_optional_present_count,

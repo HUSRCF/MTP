@@ -2788,6 +2788,13 @@ def run_premap_lab_preflight(
     canary_gate_path = _path_label(_path_for_label(canary_gate, root), root=root)
     if default_gate_path == canary_gate_path:
         gate_pair_failures.append("default_readonly_gate_equals_canary_gate")
+    if (
+        defer_online_prelaunch_artifact_evidence
+        and not defer_online_prelaunch_runner_evidence
+    ):
+        gate_pair_failures.append(
+            "defer_online_prelaunch_artifact_evidence_requires_runner_defer"
+        )
     default_gate_contract_check = _check_default_gate_contract(
         default_readonly_gate,
         root=root,
@@ -2941,6 +2948,9 @@ def run_premap_lab_preflight(
         ),
         "deferred_online_prelaunch_runner_evidence": bool(
             defer_online_prelaunch_runner_evidence
+        ),
+        "deferred_online_prelaunch_artifact_evidence": bool(
+            defer_online_prelaunch_artifact_evidence
         ),
         "native_typed_consumer_bridge_required": (
             REQUIRED_DEFAULT_GATE_CONTRACT["native_typed_consumer_bridge_required"]

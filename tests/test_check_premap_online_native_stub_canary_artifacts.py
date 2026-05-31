@@ -1431,6 +1431,54 @@ def test_check_online_native_stub_canary_artifacts_accepts_large_rows_tail_dispa
     assert result["failures"] == []
 
 
+def test_check_online_native_stub_canary_artifacts_accepts_multi_program_dispatch_window(
+    tmp_path: Path,
+):
+    runner_path, preflight_path, status_path = _payloads(tmp_path)
+    runner = json.loads(runner_path.read_text(encoding="utf-8"))
+    dispatch = runner["future_kernel_native_consumer_dispatch_stub_summary"]
+    for key in (
+        "row_count",
+        "row_ok_count",
+        "future_kernel_native_consumer_row_count",
+        "future_kernel_native_consumer_row_ok_count",
+        "future_kernel_native_launch_consumer_row_count",
+        "future_kernel_native_launch_consumer_row_ok_count",
+        "future_kernel_native_dispatch_consumer_row_count",
+        "future_kernel_native_dispatch_consumer_row_ok_count",
+        "future_kernel_native_dispatch_consumer_single_field_mirror_row_count",
+        "future_kernel_native_dispatch_consumer_single_field_mirror_row_ok_count",
+    ):
+        dispatch[key] = 520
+    dispatch["future_kernel_native_dispatch_consumer_grid_x"] = 3
+    dispatch["future_kernel_native_dispatch_consumer_block_x"] = 256
+    dispatch["future_kernel_native_dispatch_consumer_row_offset"] = 0
+    dispatch["future_kernel_native_dispatch_consumer_row_limit"] = 520
+    dispatch["future_kernel_native_dispatch_consumer_rows_per_program"] = 256
+    dispatch["future_kernel_native_dispatch_consumer_active_rows"] = 520
+    dispatch["future_kernel_native_dispatch_consumer_launch_threads"] = 768
+    dispatch["future_kernel_native_dispatch_consumer_program_count"] = 3
+    dispatch["future_kernel_native_dispatch_consumer_full_program_count"] = 2
+    dispatch["future_kernel_native_dispatch_consumer_last_program_active_rows"] = 8
+    dispatch["future_kernel_native_dispatch_consumer_inactive_lane_count"] = 248
+    dispatch["future_kernel_native_dispatch_consumer_first_program_row_offset"] = 0
+    dispatch["future_kernel_native_dispatch_consumer_last_program_row_offset"] = 512
+    dispatch["future_kernel_native_dispatch_consumer_program_iteration_hash"] = (
+        f"{_program_iteration_hash(grid_x=3, block_x=256, row_offset=0, row_limit=520, last_program_active_rows=8, inactive_lane_count=248):x}"
+    )
+    _write_json(runner_path, runner)
+
+    result = check_online_native_stub_canary_artifacts(
+        root=tmp_path,
+        runner_json=runner_path,
+        preflight_json=preflight_path,
+        status_json=status_path,
+    )
+
+    assert result["passed"] is True
+    assert result["failures"] == []
+
+
 def test_check_online_native_stub_canary_artifacts_rejects_dispatch_active_rows_mismatch(
     tmp_path: Path,
 ):
@@ -1501,6 +1549,28 @@ def test_check_online_native_stub_canary_artifacts_rejects_dispatch_program_hash
         "future_native_dispatch_program_iteration_hash_missing"
         in result["failures"]
     )
+
+
+def test_check_online_native_stub_canary_artifacts_rejects_runtime_deferred_count_mismatch(
+    tmp_path: Path,
+):
+    runner_path, preflight_path, status_path = _payloads(tmp_path)
+    preflight = json.loads(preflight_path.read_text(encoding="utf-8"))
+    preflight["runtime_gate_evidence_scan"] = {"deferred_count": 0}
+    _write_json(preflight_path, preflight)
+    status = json.loads(status_path.read_text(encoding="utf-8"))
+    status["runtime_gate_evidence_deferred_count"] = 3
+    _write_json(status_path, status)
+
+    result = check_online_native_stub_canary_artifacts(
+        root=tmp_path,
+        runner_json=runner_path,
+        preflight_json=preflight_path,
+        status_json=status_path,
+    )
+
+    assert result["passed"] is False
+    assert "status_runtime_gate_evidence_deferred_count_mismatch" in result["failures"]
 
 
 def test_check_online_native_stub_canary_artifacts_rejects_dispatch_launch_threads_mismatch(
