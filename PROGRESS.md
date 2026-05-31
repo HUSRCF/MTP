@@ -2,7 +2,7 @@
 
 ## Progress Version
 
-- Version: `v0.36-review-closure-dispatch-abi-gate`
+- Version: `v0.37-lab-preflight-dispatch-schema-summary`
 - Updated: 2026-05-31
 - Current phase: premap descriptor/address prep now has a typed
   kernel-side consumer object, a launch-shaped future native ABI, and a
@@ -12,8 +12,49 @@
   full preflight runtime/strict evidence scan and forbids the normal lab
   preflight from deferring both runner and artifact evidence at the same time.
   Review follow-up now covers the strict preflight rows/type and deferred-label
-  count mismatch branches, and the real 32-input dispatch artifact still passes
-  under the stricter checker.
+  count mismatch branches, and the lab preflight summary now exposes the
+  future dispatch ABI schema fields directly while keeping
+  `current_wna16_arg_compatible=false`.
+
+## Latest Update: Lab Preflight Dispatch Schema Summary
+
+The default lab preflight status summary now carries the typed schema and
+future dispatch ABI fields directly, so a compact preflight artifact can be used
+as the lab entrypoint without expanding the full schema checker payload.
+
+```text
+premap_lab_preflight_status_dispatch_program_iteration_32required_contract_check_summary_fields.json:
+  passed = true
+  default_kernel_consumer_schema_name =
+    fused_moe_awq_wna16_kernel_side_typed_consumer_object_v1
+  default_kernel_consumer_schema_row_field_names =
+    descriptor_ptr, packed_weight_descriptor, scale_metadata_handle, aux_metadata_handle
+  default_kernel_consumer_schema_row_metadata_names =
+    layer_id, expert_id, address_key_hash, row_order_hash, ordered_row_hash
+  default_kernel_consumer_dispatch_abi_name =
+    premap_future_kernel_native_consumer_dispatch_abi_v1
+  default_kernel_consumer_dispatch_abi_struct =
+    PremapFutureKernelNativeConsumerDispatchV1
+  default_kernel_consumer_dispatch_abi_current_wna16_arg_compatible = false
+  payload_bytes_required = 0
+  passed_to_kernel_required = false
+  changes_kernel_launch_args_required = false
+```
+
+Validation:
+
+```text
+pytest tests/test_run_premap_lab_preflight.py \
+  tests/test_premap_kernel_consumer_schema.py \
+  tests/test_check_premap_online_native_stub_canary_artifacts.py -q
+  81 passed
+
+pytest tests -q
+  747 passed, 2 warnings
+```
+
+Boundary: the summary exposes a readonly future dispatch ABI contract only. It
+does not indicate a live WNA16 argument mutation path.
 
 ## Latest Update: Review Closure for Dispatch Evidence Gate
 
