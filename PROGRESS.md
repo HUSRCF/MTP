@@ -22001,6 +22001,38 @@ conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src pytest tests -
 747 passed, 2 warnings
 ```
 
+The default lab gate now references the strict no-defer 32-input online native
+stub artifacts for all required native/future-native runner and artifact-check
+evidence labels. A fresh default preflight after the config update passes with
+zero deferred evidence:
+
+```text
+default gate config:
+  configs/runtime/premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_live_connected_readonly.yaml
+
+preflight:
+  outputs/reports/premap_lab_preflight_default_nodefer_artifact_current.json
+
+preflight status:
+  outputs/reports/premap_lab_preflight_status_default_nodefer_artifact_current.json
+
+passed = true
+failures = []
+runtime_gate_evidence_deferred_count = 0
+strict_default_gate_evidence_deferred_count = 0
+default_kernel_consumer_schema_passed = true
+```
+
+Validation:
+
+```text
+conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
+  pytest tests/test_run_premap_lab_preflight.py \
+         tests/test_check_premap_online_native_stub_canary_artifacts.py -q
+
+72 passed
+```
+
 Post-review hardening:
 
 ```text

@@ -175,13 +175,13 @@ Current post-review evidence:
 
 ```text
 runner:
-  outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_dispatch_window_tail4_32input.json
+  outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_dispatch_window_tail4_32input_nodefer.json
 
 artifact check:
-  outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_artifact_check_dispatch_window_tail4_32input.json
+  outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_artifact_check_dispatch_window_tail4_32input_nodefer.json
 
 lab preflight:
-  outputs/reports/premap_lab_preflight_post_review_latest_status.json
+  outputs/reports/premap_lab_preflight_status_default_nodefer_artifact_current.json
 
 online_prelaunch_input_check_count = 32
 online_prelaunch_input_extra_check_passed_count = 31 / 31
