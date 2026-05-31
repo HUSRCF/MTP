@@ -21958,6 +21958,49 @@ conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
 git diff --check: clean
 ```
 
+Strict no-defer runner regeneration also passes. The canary runner no longer
+asks lab preflight to defer runner/artifact evidence; both the stage preflight
+and final preflight use the same strict no-defer lab gate.
+
+```text
+runner:
+  outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_dispatch_window_tail4_32input_nodefer.json
+
+artifact check:
+  outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_artifact_check_dispatch_window_tail4_32input_nodefer.json
+
+stage preflight:
+  outputs/reports/premap_lab_preflight_online_prelaunch_native_stub_canary_nodefer_32input.json
+
+stage preflight status:
+  outputs/reports/premap_lab_preflight_status_online_prelaunch_native_stub_canary_nodefer_32input.json
+
+passed = true
+artifact_check_passed = true
+final_preflight_passed = true
+online_prelaunch_input_check_count = 32
+online_prelaunch_input_extra_check_passed_count = 31 / 31
+stage1_deferred_count = 0
+final_deferred_count = 0
+status_deferred_count = 0
+runtime_gate_evidence_deferred_count = 0
+strict_default_gate_evidence_deferred_count = 0
+```
+
+Validation:
+
+```text
+conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
+  pytest tests/test_run_premap_online_native_stub_canary.py \
+         tests/test_check_premap_online_native_stub_canary_artifacts.py -q
+
+39 passed
+
+conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src pytest tests -q
+
+747 passed, 2 warnings
+```
+
 Post-review hardening:
 
 ```text
