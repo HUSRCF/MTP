@@ -166,6 +166,14 @@ def _valid_schema_payload() -> dict:
             "future_kernel_native_consumer_dispatch_abi_row_window_required": True,
             "future_kernel_native_consumer_dispatch_abi_minimal_cover_required": True,
             "future_kernel_native_consumer_dispatch_abi_rows_per_program_source": "block_x",
+            "future_kernel_native_consumer_dispatch_abi_program_iteration_required": True,
+            "future_kernel_native_consumer_dispatch_abi_row_assignment_formula": (
+                "row_offset + program_id * rows_per_program + lane_id"
+            ),
+            "future_kernel_native_consumer_dispatch_abi_program_count_source": "grid_x",
+            "future_kernel_native_consumer_dispatch_abi_last_program_active_rows_source": (
+                "active_rows - (grid_x - 1) * rows_per_program"
+            ),
             "layout": "struct_of_arrays",
             "row_order": "vllm_prelaunch_sorted_token_ids_order",
             "row_count_source": "consumer_row_count",
@@ -851,6 +859,16 @@ def _runner_future_kernel_native_dispatch_consumer_summary(
             "future_kernel_native_dispatch_consumer_launch_threads": 256,
             "future_kernel_native_dispatch_consumer_rows_per_program": 256,
             "future_kernel_native_dispatch_consumer_shared_mem_bytes": 0,
+            "future_kernel_native_dispatch_consumer_program_iteration_checked": True,
+            "future_kernel_native_dispatch_consumer_row_assignment_formula": (
+                "row_offset + program_id * rows_per_program + lane_id"
+            ),
+            "future_kernel_native_dispatch_consumer_program_count": 1,
+            "future_kernel_native_dispatch_consumer_full_program_count": 0,
+            "future_kernel_native_dispatch_consumer_last_program_active_rows": 2,
+            "future_kernel_native_dispatch_consumer_inactive_lane_count": 254,
+            "future_kernel_native_dispatch_consumer_first_program_row_offset": 0,
+            "future_kernel_native_dispatch_consumer_last_program_row_offset": 0,
             "future_kernel_native_dispatch_consumer_launch_geometry_checked": True,
             "future_kernel_native_dispatch_consumer_launch_covers_active_rows": True,
             "future_kernel_native_dispatch_consumer_launch_minimal_cover": True,
@@ -1368,6 +1386,8 @@ def _write_gate(
         "  future_kernel_consumer_args_single_field_mirror_field: scale_metadata_handle\n"
         "  future_kernel_native_dispatch_consumer_tail_window_required: true\n"
         "  future_kernel_native_dispatch_consumer_tail_window_size: 4\n"
+        "  future_kernel_native_dispatch_consumer_program_iteration_required: true\n"
+        "  future_kernel_native_dispatch_consumer_row_assignment_formula: row_offset + program_id * rows_per_program + lane_id\n"
         "  single_field_handle_handoff_canary_required: true\n"
         "  single_field_handle_handoff_canary_mode: readonly_single_field_handle_handoff_canary\n"
         "  single_field_handle_handoff_canary_field: scale_metadata_handle\n"
@@ -1686,6 +1706,46 @@ def test_premap_lab_preflight_rejects_32input_artifact_check_backed_by_16input_a
     assert (
         "future_kernel_native_dispatch_consumer_online_artifact_check_32_128export_json:"
         "artifact_online_input_check_count_invalid"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_32input_artifact_check_missing_count_fields(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    artifact_path = (
+        tmp_path
+        / "reports/default_gate_native_online_prelaunch_canary_artifact_check_32.json"
+    )
+    payload = json.loads(artifact_path.read_text(encoding="utf-8"))
+    payload.pop("min_online_inputs")
+    payload.pop("runner_online_prelaunch_input_check_count")
+    artifact_path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    failures = result["default_readonly_gate_required_evidence_check"]["failures"]
+    assert result["passed"] is False
+    assert "default_readonly_gate_required_evidence_check_failed" in result["failures"]
+    assert (
+        "future_kernel_native_dispatch_consumer_online_artifact_check_32_128export_json:"
+        "artifact_min_online_inputs_missing"
+    ) in failures
+    assert (
+        "future_kernel_native_dispatch_consumer_online_artifact_check_32_128export_json:"
+        "artifact_online_input_check_count_missing"
     ) in failures
 
 

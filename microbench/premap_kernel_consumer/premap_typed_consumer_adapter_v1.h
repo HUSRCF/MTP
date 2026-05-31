@@ -992,3 +992,47 @@ premap_typed_consumer_future_native_dispatch_consume_row_v1(
           static_cast<uint64_t>(dispatch.row_limit) + 0xd15c0006ULL);
   return result;
 }
+
+__device__ static inline PremapFutureKernelNativeConsumerDispatchResultV1
+premap_typed_consumer_future_native_dispatch_consume_program_lane_v1(
+    const PremapFutureKernelNativeConsumerDispatchV1& dispatch,
+    uint32_t program_id,
+    uint32_t lane_id,
+    uint32_t actual_grid_x,
+    uint32_t actual_block_x,
+    uint64_t expected_schema_hash_hi,
+    uint64_t expected_schema_hash_lo) {
+  const bool program_lane_valid =
+      program_id < actual_grid_x && lane_id < actual_block_x &&
+      program_id < dispatch.grid_x && lane_id < dispatch.block_x &&
+      lane_id < dispatch.rows_per_program;
+  const uint64_t local_row_index_64 =
+      static_cast<uint64_t>(program_id) *
+          static_cast<uint64_t>(dispatch.rows_per_program) +
+      static_cast<uint64_t>(lane_id);
+  const bool local_row_index_valid = local_row_index_64 <= 0xffffffffULL;
+  PremapFutureKernelNativeConsumerDispatchResultV1 result =
+      premap_typed_consumer_future_native_dispatch_consume_row_v1(
+          dispatch,
+          local_row_index_valid ? static_cast<uint32_t>(local_row_index_64) : 0,
+          actual_grid_x,
+          actual_block_x,
+          expected_schema_hash_hi,
+          expected_schema_hash_lo);
+  result.ok = static_cast<uint32_t>(
+      result.ok != 0 && program_lane_valid && local_row_index_valid);
+  if (!program_lane_valid || !local_row_index_valid) {
+    result.row_window_valid = 0;
+    result.row_valid = 0;
+    result.launch_consumer_ok = 0;
+    result.required_handle_visible = 0;
+    result.lifetime_valid = 0;
+  }
+  result.row_hash ^=
+      premap_typed_consumer_mix64_v1(
+          static_cast<uint64_t>(program_id) + 0xd15c100000000001ULL) ^
+      premap_typed_consumer_mix64_v1(
+          static_cast<uint64_t>(lane_id) + 0xd15c100000000002ULL) ^
+      premap_typed_consumer_mix64_v1(local_row_index_64 + 0xd15c100000000003ULL);
+  return result;
+}

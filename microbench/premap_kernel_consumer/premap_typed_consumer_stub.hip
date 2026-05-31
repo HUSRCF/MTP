@@ -479,7 +479,8 @@ __global__ void typed_consumer_future_native_dispatch_kernel(
     uint64_t* future_native_dispatch_consumer_hash,
     uint32_t* future_native_dispatch_single_field_mirror_ok,
     uint64_t* future_native_dispatch_single_field_mirror_hash) {
-  const uint32_t idx = blockIdx.x * blockDim.x + threadIdx.x;
+  const uint32_t program_id = static_cast<uint32_t>(blockIdx.x);
+  const uint32_t lane_id = static_cast<uint32_t>(threadIdx.x);
   const bool row_window_valid =
       dispatch.row_limit >= dispatch.row_offset &&
       dispatch.row_limit <= dispatch.launch.params.row_count;
@@ -488,13 +489,19 @@ __global__ void typed_consumer_future_native_dispatch_kernel(
   if (!row_window_valid) {
     return;
   }
-  if (idx >= active_rows) {
+  const uint64_t local_row_index_64 =
+      static_cast<uint64_t>(program_id) *
+          static_cast<uint64_t>(dispatch.rows_per_program) +
+      static_cast<uint64_t>(lane_id);
+  if (local_row_index_64 >= static_cast<uint64_t>(active_rows)) {
     return;
   }
+  const uint32_t idx = static_cast<uint32_t>(local_row_index_64);
   const PremapFutureKernelNativeConsumerDispatchResultV1 result =
-      premap_typed_consumer_future_native_dispatch_consume_row_v1(
+      premap_typed_consumer_future_native_dispatch_consume_program_lane_v1(
           dispatch,
-          idx,
+          program_id,
+          lane_id,
           static_cast<uint32_t>(gridDim.x),
           static_cast<uint32_t>(blockDim.x),
           kTypedSchemaHashHi,
@@ -951,6 +958,46 @@ int main(int argc, char** argv) {
       ((static_cast<uint64_t>(dispatch_blocks - 1) *
         static_cast<uint64_t>(threads)) <
        static_cast<uint64_t>(dispatch_active_rows));
+  const uint64_t dispatch_previous_program_threads =
+      dispatch_blocks > 0
+          ? static_cast<uint64_t>(dispatch_blocks - 1) *
+                static_cast<uint64_t>(threads)
+          : 0ULL;
+  const uint32_t dispatch_full_program_count =
+      static_cast<uint32_t>(
+          static_cast<uint64_t>(dispatch_active_rows) /
+          static_cast<uint64_t>(threads));
+  const uint32_t dispatch_last_program_active_rows =
+      dispatch_active_rows > 0
+          ? static_cast<uint32_t>(
+                static_cast<uint64_t>(dispatch_active_rows) -
+                dispatch_previous_program_threads)
+          : 0;
+  const uint32_t dispatch_inactive_lane_count =
+      dispatch_launch_threads >= static_cast<uint64_t>(dispatch_active_rows)
+          ? static_cast<uint32_t>(
+                dispatch_launch_threads -
+                static_cast<uint64_t>(dispatch_active_rows))
+          : 0;
+  const uint32_t dispatch_first_program_row_offset = dispatch_row_offset;
+  const uint32_t dispatch_last_program_row_offset =
+      static_cast<uint32_t>(
+          static_cast<uint64_t>(dispatch_row_offset) +
+          dispatch_previous_program_threads);
+  const uint64_t dispatch_program_iteration_hash =
+      premap_typed_consumer_mix64_v1(
+          static_cast<uint64_t>(dispatch_blocks) + 0xd15c2001ULL) ^
+      premap_typed_consumer_mix64_v1(
+          static_cast<uint64_t>(threads) + 0xd15c2002ULL) ^
+      premap_typed_consumer_mix64_v1(
+          static_cast<uint64_t>(dispatch_row_offset) + 0xd15c2003ULL) ^
+      premap_typed_consumer_mix64_v1(
+          static_cast<uint64_t>(dispatch_row_limit) + 0xd15c2004ULL) ^
+      premap_typed_consumer_mix64_v1(
+          static_cast<uint64_t>(dispatch_last_program_active_rows) +
+          0xd15c2005ULL) ^
+      premap_typed_consumer_mix64_v1(
+          static_cast<uint64_t>(dispatch_inactive_lane_count) + 0xd15c2006ULL);
 #if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_KERNEL_CONSUMER_ENVELOPE)
   PremapKernelSideTypedConsumerLaunchEnvelopeV1 envelope;
   envelope.table = table;
@@ -1110,7 +1157,7 @@ int main(int argc, char** argv) {
       kPremapFutureKernelSideConsumerArgsV1RequiredFlags;
   hipLaunchKernelGGL(
       typed_consumer_future_native_dispatch_kernel,
-      dim3(blocks),
+      dim3(dispatch_blocks),
       dim3(threads),
       0,
       0,
@@ -1936,6 +1983,24 @@ int main(int argc, char** argv) {
             << future_native_dispatch_active_rows;
   std::cout << ",\"future_kernel_native_dispatch_consumer_launch_threads\":"
             << dispatch_launch_threads;
+  std::cout << ",\"future_kernel_native_dispatch_consumer_program_iteration_checked\":"
+            << (future_native_dispatch_consumer_checked ? "true" : "false");
+  std::cout << ",\"future_kernel_native_dispatch_consumer_row_assignment_formula\":\""
+            << "row_offset + program_id * rows_per_program + lane_id\"";
+  std::cout << ",\"future_kernel_native_dispatch_consumer_program_count\":"
+            << dispatch_blocks;
+  std::cout << ",\"future_kernel_native_dispatch_consumer_full_program_count\":"
+            << dispatch_full_program_count;
+  std::cout << ",\"future_kernel_native_dispatch_consumer_last_program_active_rows\":"
+            << dispatch_last_program_active_rows;
+  std::cout << ",\"future_kernel_native_dispatch_consumer_inactive_lane_count\":"
+            << dispatch_inactive_lane_count;
+  std::cout << ",\"future_kernel_native_dispatch_consumer_first_program_row_offset\":"
+            << dispatch_first_program_row_offset;
+  std::cout << ",\"future_kernel_native_dispatch_consumer_last_program_row_offset\":"
+            << dispatch_last_program_row_offset;
+  std::cout << ",\"future_kernel_native_dispatch_consumer_program_iteration_hash\":\""
+            << std::hex << dispatch_program_iteration_hash << std::dec << "\"";
   std::cout << ",\"future_kernel_native_dispatch_consumer_launch_geometry_checked\":"
             << (future_native_dispatch_consumer_checked ? "true" : "false");
   std::cout << ",\"future_kernel_native_dispatch_consumer_launch_covers_active_rows\":"

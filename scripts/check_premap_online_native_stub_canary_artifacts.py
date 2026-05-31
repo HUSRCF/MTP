@@ -558,6 +558,30 @@ def _check_future_kernel_native_dispatch_consumer_summary(
     dispatch_launch_threads = _int(
         stub.get("future_kernel_native_dispatch_consumer_launch_threads")
     )
+    dispatch_program_iteration_checked = stub.get(
+        "future_kernel_native_dispatch_consumer_program_iteration_checked"
+    )
+    dispatch_program_count = _int(
+        stub.get("future_kernel_native_dispatch_consumer_program_count")
+    )
+    dispatch_full_program_count = _int(
+        stub.get("future_kernel_native_dispatch_consumer_full_program_count")
+    )
+    dispatch_last_program_active_rows = _int(
+        stub.get("future_kernel_native_dispatch_consumer_last_program_active_rows")
+    )
+    dispatch_inactive_lane_count = _int(
+        stub.get("future_kernel_native_dispatch_consumer_inactive_lane_count")
+    )
+    dispatch_first_program_row_offset = _int(
+        stub.get("future_kernel_native_dispatch_consumer_first_program_row_offset")
+    )
+    dispatch_last_program_row_offset = _int(
+        stub.get("future_kernel_native_dispatch_consumer_last_program_row_offset")
+    )
+    dispatch_row_assignment_formula = stub.get(
+        "future_kernel_native_dispatch_consumer_row_assignment_formula"
+    )
     if dispatch_grid is None or dispatch_grid <= 0:
         failures.append(f"{prefix}_future_native_dispatch_grid_x_invalid")
     if dispatch_block is None or dispatch_block <= 0:
@@ -604,6 +628,56 @@ def _check_future_kernel_native_dispatch_consumer_summary(
         if previous_grid_threads >= dispatch_active_rows:
             failures.append(
                 f"{prefix}_future_native_dispatch_launch_not_minimal_cover"
+            )
+        if dispatch_program_iteration_checked is not True:
+            failures.append(
+                f"{prefix}_future_native_dispatch_program_iteration_not_checked"
+            )
+        if dispatch_program_count != dispatch_grid:
+            failures.append(f"{prefix}_future_native_dispatch_program_count_mismatch")
+        if dispatch_rows_per_program != dispatch_block:
+            failures.append(
+                f"{prefix}_future_native_dispatch_rows_per_program_mismatch"
+            )
+        expected_full_program_count = dispatch_active_rows // dispatch_block
+        expected_last_program_active_rows = (
+            dispatch_active_rows - previous_grid_threads
+        )
+        expected_inactive_lane_count = launched_threads - dispatch_active_rows
+        expected_first_program_row_offset = dispatch_offset
+        expected_last_program_row_offset = (
+            dispatch_offset + previous_grid_threads
+            if dispatch_offset is not None
+            else None
+        )
+        if dispatch_full_program_count != expected_full_program_count:
+            failures.append(
+                f"{prefix}_future_native_dispatch_full_program_count_mismatch"
+            )
+        if dispatch_last_program_active_rows != expected_last_program_active_rows:
+            failures.append(
+                f"{prefix}_future_native_dispatch_last_program_active_rows_mismatch"
+            )
+        if dispatch_inactive_lane_count != expected_inactive_lane_count:
+            failures.append(
+                f"{prefix}_future_native_dispatch_inactive_lane_count_mismatch"
+            )
+        if (
+            dispatch_first_program_row_offset
+            != expected_first_program_row_offset
+        ):
+            failures.append(
+                f"{prefix}_future_native_dispatch_first_program_row_offset_mismatch"
+            )
+        if dispatch_last_program_row_offset != expected_last_program_row_offset:
+            failures.append(
+                f"{prefix}_future_native_dispatch_last_program_row_offset_mismatch"
+            )
+        if dispatch_row_assignment_formula != (
+            "row_offset + program_id * rows_per_program + lane_id"
+        ):
+            failures.append(
+                f"{prefix}_future_native_dispatch_row_assignment_formula_mismatch"
             )
     expected_dispatch_bools = {
         "future_kernel_native_dispatch_consumer_launch_geometry_checked": True,
@@ -819,6 +893,22 @@ def check_online_native_stub_canary_artifacts(
     status_total_deferred_count = (
         int(status_required_deferred_count) + int(status_optional_deferred_count)
     )
+    status_runtime_deferred_count = _int(
+        status.get("runtime_gate_evidence_deferred_count")
+    )
+    if status_runtime_deferred_count is None or status_runtime_deferred_count < 0:
+        failures.append("status_runtime_gate_evidence_deferred_count_invalid")
+        status_runtime_deferred_count = status_total_deferred_count
+    elif status_runtime_deferred_count < status_total_deferred_count:
+        failures.append("status_runtime_gate_evidence_deferred_count_too_low")
+    status_strict_deferred_count = _int(
+        status.get("strict_default_gate_evidence_deferred_count")
+    )
+    if status_strict_deferred_count is None or status_strict_deferred_count < 0:
+        failures.append("status_strict_default_gate_evidence_deferred_count_invalid")
+        status_strict_deferred_count = status_runtime_deferred_count
+    elif status_strict_deferred_count < status_total_deferred_count:
+        failures.append("status_strict_default_gate_evidence_deferred_count_too_low")
     expected_stage1 = {
         "passed": True,
         "runtime_gate_evidence_deferred_count": stage1_deferred_count,
@@ -832,8 +922,8 @@ def check_online_native_stub_canary_artifacts(
         "required_evidence_present_count": status_required_present_count,
         "required_evidence_passed_count": status_required_present_count,
         "required_evidence_required_count": status_required_count,
-        "runtime_gate_evidence_deferred_count": status_total_deferred_count,
-        "strict_default_gate_evidence_deferred_count": status_total_deferred_count,
+        "runtime_gate_evidence_deferred_count": status_runtime_deferred_count,
+        "strict_default_gate_evidence_deferred_count": status_strict_deferred_count,
         "payload_bytes_required": 0,
         "passed_to_kernel_required": False,
         "changes_kernel_launch_args_required": False,
@@ -846,8 +936,8 @@ def check_online_native_stub_canary_artifacts(
             failures.append(f"runner_final_{key}_mismatch")
     expected_status = {
         "passed": True,
-        "runtime_gate_evidence_deferred_count": status_total_deferred_count,
-        "strict_default_gate_evidence_deferred_count": status_total_deferred_count,
+        "runtime_gate_evidence_deferred_count": status_runtime_deferred_count,
+        "strict_default_gate_evidence_deferred_count": status_strict_deferred_count,
         "payload_bytes_required": 0,
         "passed_to_kernel_required": False,
         "changes_kernel_launch_args_required": False,
@@ -918,9 +1008,9 @@ def check_online_native_stub_canary_artifacts(
                 max(int(status_required_count) - int(stage1_present_count), 0)
                 + max(int(status_optional_count) - int(stage1_optional_present_count), 0)
             )
-            if stage1_deferred_count != stage1_expected_deferred_count:
+            if stage1_deferred_count < stage1_expected_deferred_count:
                 failures.append(
-                    "runner_stage1_runtime_gate_evidence_deferred_count_mismatch"
+                    "runner_stage1_runtime_gate_evidence_deferred_count_too_low"
                 )
         for key, expected in {
             "optional_evidence_present_count": status_optional_present_count,

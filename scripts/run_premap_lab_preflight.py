@@ -92,6 +92,10 @@ REQUIRED_DEFAULT_GATE_CONTRACT = {
     "future_kernel_consumer_args_single_field_mirror_field": "scale_metadata_handle",
     "future_kernel_native_dispatch_consumer_tail_window_required": True,
     "future_kernel_native_dispatch_consumer_tail_window_size": 4,
+    "future_kernel_native_dispatch_consumer_program_iteration_required": True,
+    "future_kernel_native_dispatch_consumer_row_assignment_formula": (
+        "row_offset + program_id * rows_per_program + lane_id"
+    ),
     "single_field_handle_handoff_canary_required": True,
     "single_field_handle_handoff_canary_mode": (
         "readonly_single_field_handle_handoff_canary"
@@ -526,6 +530,8 @@ def _validate_required_evidence_payload(
     if evidence_label in ONLINE_PRELAUNCH_ARTIFACT_EVIDENCE_LABELS:
         failures: list[str] = []
         min_online_inputs = _int_metric(evidence, "min_online_inputs")
+        if min_online_inputs is None:
+            failures.append("artifact_min_online_inputs_missing")
         if (
             min_online_inputs is not None
             and min_online_inputs < expected_online_input_count
@@ -535,6 +541,8 @@ def _validate_required_evidence_payload(
             evidence,
             "runner_online_prelaunch_input_check_count",
         )
+        if input_check_count is None:
+            failures.append("artifact_online_input_check_count_missing")
         if (
             input_check_count is not None
             and input_check_count < expected_online_input_count
@@ -1185,6 +1193,36 @@ def _validate_required_evidence_payload(
                 summary,
                 "future_kernel_native_dispatch_consumer_launch_threads",
             )
+            dispatch_program_iteration_checked = summary.get(
+                "future_kernel_native_dispatch_consumer_program_iteration_checked",
+            )
+            dispatch_program_count = _int_metric(
+                summary,
+                "future_kernel_native_dispatch_consumer_program_count",
+            )
+            dispatch_full_program_count = _int_metric(
+                summary,
+                "future_kernel_native_dispatch_consumer_full_program_count",
+            )
+            dispatch_last_program_active_rows = _int_metric(
+                summary,
+                "future_kernel_native_dispatch_consumer_last_program_active_rows",
+            )
+            dispatch_inactive_lane_count = _int_metric(
+                summary,
+                "future_kernel_native_dispatch_consumer_inactive_lane_count",
+            )
+            dispatch_first_program_row_offset = _int_metric(
+                summary,
+                "future_kernel_native_dispatch_consumer_first_program_row_offset",
+            )
+            dispatch_last_program_row_offset = _int_metric(
+                summary,
+                "future_kernel_native_dispatch_consumer_last_program_row_offset",
+            )
+            dispatch_row_assignment_formula = summary.get(
+                "future_kernel_native_dispatch_consumer_row_assignment_formula",
+            )
             dispatch_rows_per_program = _int_metric(
                 summary,
                 "future_kernel_native_dispatch_consumer_rows_per_program",
@@ -1299,6 +1337,66 @@ def _validate_required_evidence_payload(
             ):
                 failures.append(
                     f"{prefix}_future_kernel_native_dispatch_consumer_launch_non_minimal"
+                )
+            if dispatch_program_iteration_checked is not True:
+                failures.append(
+                    f"{prefix}_future_kernel_native_dispatch_consumer_program_iteration_not_checked"
+                )
+            if dispatch_grid_x is not None and dispatch_program_count != dispatch_grid_x:
+                failures.append(
+                    f"{prefix}_future_kernel_native_dispatch_consumer_program_count_mismatch"
+                )
+            if (
+                dispatch_active_rows is not None
+                and dispatch_block_x is not None
+                and dispatch_grid_x is not None
+            ):
+                expected_full_program_count = dispatch_active_rows // dispatch_block_x
+                previous_program_threads = (dispatch_grid_x - 1) * dispatch_block_x
+                expected_last_program_active_rows = (
+                    dispatch_active_rows - previous_program_threads
+                )
+                expected_inactive_lane_count = (
+                    dispatch_grid_x * dispatch_block_x - dispatch_active_rows
+                )
+                if dispatch_full_program_count != expected_full_program_count:
+                    failures.append(
+                        f"{prefix}_future_kernel_native_dispatch_consumer_full_program_count_mismatch"
+                    )
+                if (
+                    dispatch_last_program_active_rows
+                    != expected_last_program_active_rows
+                ):
+                    failures.append(
+                        f"{prefix}_future_kernel_native_dispatch_consumer_last_program_active_rows_mismatch"
+                    )
+                if dispatch_inactive_lane_count != expected_inactive_lane_count:
+                    failures.append(
+                        f"{prefix}_future_kernel_native_dispatch_consumer_inactive_lane_count_mismatch"
+                    )
+                if (
+                    dispatch_row_offset is not None
+                    and dispatch_first_program_row_offset != dispatch_row_offset
+                ):
+                    failures.append(
+                        f"{prefix}_future_kernel_native_dispatch_consumer_first_program_row_offset_mismatch"
+                    )
+                if dispatch_row_offset is not None:
+                    expected_last_program_row_offset = (
+                        dispatch_row_offset + previous_program_threads
+                    )
+                    if (
+                        dispatch_last_program_row_offset
+                        != expected_last_program_row_offset
+                    ):
+                        failures.append(
+                            f"{prefix}_future_kernel_native_dispatch_consumer_last_program_row_offset_mismatch"
+                        )
+            if dispatch_row_assignment_formula != (
+                "row_offset + program_id * rows_per_program + lane_id"
+            ):
+                failures.append(
+                    f"{prefix}_future_kernel_native_dispatch_consumer_row_assignment_formula_mismatch"
                 )
 
         for summary_key, expected_field_name in (
@@ -1528,6 +1626,8 @@ def _validate_required_evidence_payload(
                 artifact_check_summary,
                 "min_online_inputs",
             )
+            if artifact_min_inputs is None:
+                failures.append("runner_artifact_check_min_online_inputs_missing")
             if (
                 artifact_min_inputs is not None
                 and artifact_min_inputs < expected_online_input_count
@@ -1537,6 +1637,10 @@ def _validate_required_evidence_payload(
                 artifact_check_summary,
                 "runner_online_prelaunch_input_check_count",
             )
+            if artifact_input_check_count is None:
+                failures.append(
+                    "runner_artifact_check_online_input_check_count_missing"
+                )
             if (
                 artifact_input_check_count is not None
                 and artifact_input_check_count < expected_online_input_count
@@ -2279,6 +2383,7 @@ def _check_required_default_gate_evidence_json(
     root: Path,
     allow_missing: bool = False,
     defer_online_prelaunch_runner_evidence: bool = False,
+    defer_online_prelaunch_artifact_evidence: bool = False,
 ) -> dict[str, Any]:
     path = _path_for_label(gate_path, root)
     label = _path_label(path, root=root)
@@ -2308,8 +2413,14 @@ def _check_required_default_gate_evidence_json(
             "failures_value": None,
         }
         if (
-            defer_online_prelaunch_runner_evidence
-            and evidence_label in ONLINE_PRELAUNCH_RUNNER_EVIDENCE_LABELS
+            (
+                defer_online_prelaunch_runner_evidence
+                and evidence_label in ONLINE_PRELAUNCH_RUNNER_EVIDENCE_LABELS
+            )
+            or (
+                defer_online_prelaunch_artifact_evidence
+                and evidence_label in ONLINE_PRELAUNCH_ARTIFACT_EVIDENCE_LABELS
+            )
         ):
             row["deferred"] = True
             row["failure"] = None
@@ -2382,10 +2493,17 @@ def _check_required_default_gate_evidence_json(
         "passed": not failures,
         "failures": failures,
         "required_labels": sorted(REQUIRED_DEFAULT_GATE_EVIDENCE_JSON_LABELS),
-        "deferred_labels": (
-            sorted(ONLINE_PRELAUNCH_RUNNER_EVIDENCE_LABELS)
-            if defer_online_prelaunch_runner_evidence
-            else []
+        "deferred_labels": sorted(
+            (
+                ONLINE_PRELAUNCH_RUNNER_EVIDENCE_LABELS
+                if defer_online_prelaunch_runner_evidence
+                else set()
+            )
+            | (
+                ONLINE_PRELAUNCH_ARTIFACT_EVIDENCE_LABELS
+                if defer_online_prelaunch_artifact_evidence
+                else set()
+            )
         ),
         "rows": rows,
     }
@@ -2619,6 +2737,9 @@ def run_premap_lab_preflight(
         allow_missing=allow_missing_evidence,
         defer_online_prelaunch_runner_evidence=(
             defer_online_prelaunch_runner_evidence
+        ),
+        defer_online_prelaunch_artifact_evidence=(
+            defer_online_prelaunch_artifact_evidence
         ),
     )
     default_gate_optional_evidence_check = _check_optional_default_gate_evidence_json(

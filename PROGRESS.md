@@ -21810,6 +21810,91 @@ conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
 git diff --check: clean
 ```
 
+### 2026-05-31 16:54 CST — Future-native dispatch ABI program/lane gate
+
+The future-native typed consumer dispatch ABI now validates the row iteration
+shape that a future kernel-side consumer would use:
+
+```text
+row = row_offset + program_id * rows_per_program + lane_id
+program_id = blockIdx.x
+lane_id = threadIdx.x
+rows_per_program = block_x
+```
+
+This remains a no-op bridge:
+
+```text
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+current_wna16_arg_compatible = false
+```
+
+The native stub launch was corrected to use the dispatch window grid
+(`dispatch_blocks`) rather than the full table grid, so tail-window dispatch
+geometry now matches the declared ABI when `active_rows << row_count`.
+
+Evidence:
+
+```text
+runner:
+  outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_dispatch_window_tail4_32input.json
+
+artifact check:
+  outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_artifact_check_dispatch_window_tail4_32input.json
+
+lab preflight:
+  outputs/reports/premap_lab_preflight_dispatch_program_iteration_32required_final_status.json
+
+runner passed = true
+runner failures = []
+online_prelaunch_input_check_count = 32
+online_prelaunch_input_extra_check_passed_count = 31 / 31
+artifact_check passed = true
+artifact_check failures = []
+default lab preflight passed = true
+runtime_gate_evidence_deferred_count = 0
+strict_default_gate_evidence_deferred_count = 0
+```
+
+Main dispatch summary:
+
+```text
+row_count = 174
+row_offset = 170
+row_limit = 174
+active_rows = 4
+grid_x = 1
+block_x = 256
+program_iteration_checked = true
+row_assignment_formula = row_offset + program_id * rows_per_program + lane_id
+program_count = 1
+last_program_active_rows = 4
+inactive_lane_count = 252
+first_program_row_offset = 170
+last_program_row_offset = 170
+```
+
+Validation:
+
+```text
+conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
+  pytest tests/test_check_premap_online_native_stub_canary_artifacts.py \
+         tests/test_run_premap_lab_preflight.py \
+         tests/test_premap_kernel_consumer_schema.py -q
+
+66 passed
+```
+
+Reviewer blocker fixed:
+
+```text
+dispatch.grid_x is now the actual launched dispatch grid, not the full table
+grid. Required online artifact evidence now also supports artifact deferral
+during self-bootstrapping, and missing min/count fields fail explicitly.
+```
+
 ### 2026-05-31 — 32-Input Dispatch Tail-Window Evidence in Default Preflight
 
 The 32-input adaptive dispatch tail-window evidence is now part of the default

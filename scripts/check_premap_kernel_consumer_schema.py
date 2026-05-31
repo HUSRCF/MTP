@@ -258,6 +258,14 @@ def check_kernel_consumer_schema_artifact(path: Path) -> dict[str, Any]:
         "future_kernel_native_consumer_dispatch_abi_row_window_required": True,
         "future_kernel_native_consumer_dispatch_abi_minimal_cover_required": True,
         "future_kernel_native_consumer_dispatch_abi_rows_per_program_source": "block_x",
+        "future_kernel_native_consumer_dispatch_abi_program_iteration_required": True,
+        "future_kernel_native_consumer_dispatch_abi_row_assignment_formula": (
+            "row_offset + program_id * rows_per_program + lane_id"
+        ),
+        "future_kernel_native_consumer_dispatch_abi_program_count_source": "grid_x",
+        "future_kernel_native_consumer_dispatch_abi_last_program_active_rows_source": (
+            "active_rows - (grid_x - 1) * rows_per_program"
+        ),
     }
     for key, expected in expected_native_abi.items():
         observed = native_abi.get(key)

@@ -236,6 +236,20 @@ def _extra_input_summary(row_count: int = 4) -> dict:
             "future_kernel_native_dispatch_consumer_rows_per_program": 256,
             "future_kernel_native_dispatch_consumer_active_rows": row_count,
             "future_kernel_native_dispatch_consumer_launch_threads": 256,
+            "future_kernel_native_dispatch_consumer_program_iteration_checked": True,
+            "future_kernel_native_dispatch_consumer_row_assignment_formula": (
+                "row_offset + program_id * rows_per_program + lane_id"
+            ),
+            "future_kernel_native_dispatch_consumer_program_count": 1,
+            "future_kernel_native_dispatch_consumer_full_program_count": 0,
+            "future_kernel_native_dispatch_consumer_last_program_active_rows": (
+                row_count
+            ),
+            "future_kernel_native_dispatch_consumer_inactive_lane_count": (
+                256 - row_count
+            ),
+            "future_kernel_native_dispatch_consumer_first_program_row_offset": 0,
+            "future_kernel_native_dispatch_consumer_last_program_row_offset": 0,
             "future_kernel_native_dispatch_consumer_launch_geometry_checked": True,
             "future_kernel_native_dispatch_consumer_launch_covers_active_rows": True,
             "future_kernel_native_dispatch_consumer_launch_minimal_cover": True,
@@ -551,6 +565,16 @@ def _payloads(root: Path) -> tuple[Path, Path, Path]:
             "future_kernel_native_dispatch_consumer_rows_per_program": 256,
             "future_kernel_native_dispatch_consumer_active_rows": 4,
             "future_kernel_native_dispatch_consumer_launch_threads": 256,
+            "future_kernel_native_dispatch_consumer_program_iteration_checked": True,
+            "future_kernel_native_dispatch_consumer_row_assignment_formula": (
+                "row_offset + program_id * rows_per_program + lane_id"
+            ),
+            "future_kernel_native_dispatch_consumer_program_count": 1,
+            "future_kernel_native_dispatch_consumer_full_program_count": 0,
+            "future_kernel_native_dispatch_consumer_last_program_active_rows": 4,
+            "future_kernel_native_dispatch_consumer_inactive_lane_count": 252,
+            "future_kernel_native_dispatch_consumer_first_program_row_offset": 0,
+            "future_kernel_native_dispatch_consumer_last_program_row_offset": 0,
             "future_kernel_native_dispatch_consumer_launch_geometry_checked": True,
             "future_kernel_native_dispatch_consumer_launch_covers_active_rows": True,
             "future_kernel_native_dispatch_consumer_launch_minimal_cover": True,
@@ -1070,7 +1094,10 @@ def test_check_online_native_stub_canary_artifacts_rejects_final_defer(
     )
 
     assert result["passed"] is False
-    assert "status_runtime_gate_evidence_deferred_count_mismatch" in result["failures"]
+    assert (
+        "runner_final_runtime_gate_evidence_deferred_count_mismatch"
+        in result["failures"]
+    )
 
 
 def test_check_online_native_stub_canary_artifacts_cli_writes_json(tmp_path: Path):
@@ -1332,6 +1359,52 @@ def test_check_online_native_stub_canary_artifacts_accepts_dispatch_row_window(
     dispatch[
         "future_kernel_native_dispatch_consumer_single_field_mirror_row_ok_count"
     ] = 3
+    dispatch["future_kernel_native_dispatch_consumer_last_program_active_rows"] = 3
+    dispatch["future_kernel_native_dispatch_consumer_inactive_lane_count"] = 253
+    dispatch["future_kernel_native_dispatch_consumer_first_program_row_offset"] = 1
+    dispatch["future_kernel_native_dispatch_consumer_last_program_row_offset"] = 1
+    _write_json(runner_path, runner)
+
+    result = check_online_native_stub_canary_artifacts(
+        root=tmp_path,
+        runner_json=runner_path,
+        preflight_json=preflight_path,
+        status_json=status_path,
+    )
+
+    assert result["passed"] is True
+    assert result["failures"] == []
+
+
+def test_check_online_native_stub_canary_artifacts_accepts_large_rows_tail_dispatch_window(
+    tmp_path: Path,
+):
+    runner_path, preflight_path, status_path = _payloads(tmp_path)
+    runner = json.loads(runner_path.read_text(encoding="utf-8"))
+    dispatch = runner["future_kernel_native_consumer_dispatch_stub_summary"]
+    dispatch["row_count"] = 1024
+    dispatch["row_ok_count"] = 1024
+    dispatch["future_kernel_native_consumer_row_count"] = 1024
+    dispatch["future_kernel_native_consumer_row_ok_count"] = 1024
+    dispatch["future_kernel_native_launch_consumer_row_count"] = 1024
+    dispatch["future_kernel_native_launch_consumer_row_ok_count"] = 1024
+    dispatch["future_kernel_native_dispatch_consumer_row_offset"] = 1020
+    dispatch["future_kernel_native_dispatch_consumer_row_limit"] = 1024
+    dispatch["future_kernel_native_dispatch_consumer_active_rows"] = 4
+    dispatch["future_kernel_native_dispatch_consumer_row_count"] = 4
+    dispatch["future_kernel_native_dispatch_consumer_row_ok_count"] = 4
+    dispatch[
+        "future_kernel_native_dispatch_consumer_single_field_mirror_row_count"
+    ] = 4
+    dispatch[
+        "future_kernel_native_dispatch_consumer_single_field_mirror_row_ok_count"
+    ] = 4
+    dispatch["future_kernel_native_dispatch_consumer_program_count"] = 1
+    dispatch["future_kernel_native_dispatch_consumer_full_program_count"] = 0
+    dispatch["future_kernel_native_dispatch_consumer_last_program_active_rows"] = 4
+    dispatch["future_kernel_native_dispatch_consumer_inactive_lane_count"] = 252
+    dispatch["future_kernel_native_dispatch_consumer_first_program_row_offset"] = 1020
+    dispatch["future_kernel_native_dispatch_consumer_last_program_row_offset"] = 1020
     _write_json(runner_path, runner)
 
     result = check_online_native_stub_canary_artifacts(
