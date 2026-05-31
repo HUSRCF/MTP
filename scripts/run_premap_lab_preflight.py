@@ -505,6 +505,10 @@ def _validate_required_evidence_payload(
         "native_typed_consumer_stub_online_prelaunch_input_canary_json",
         "native_typed_consumer_stub_online_prelaunch_input_per_field_canary_json",
     }
+    expected_online_input_count = ONLINE_PRELAUNCH_MIN_INPUTS_BY_LABEL.get(
+        evidence_label,
+        16,
+    )
     if evidence_label not in {
         "strict_native_typed_consumer_bridge_128_gate_json",
         "strict_single_field_handle_handoff_canary_128_gate_json",
@@ -515,8 +519,44 @@ def _validate_required_evidence_payload(
         "packed_weight_single_field_handle_handoff_canary_smoke_json",
         "native_typed_consumer_online_prelaunch_canary_runner_json",
         *known_stub_labels,
-    }:
+    } and evidence_label not in DISPATCH_WINDOW_RUNNER_EVIDENCE_LABELS and (
+        evidence_label not in ONLINE_PRELAUNCH_ARTIFACT_EVIDENCE_LABELS
+    ):
         return []
+    if evidence_label in ONLINE_PRELAUNCH_ARTIFACT_EVIDENCE_LABELS:
+        failures: list[str] = []
+        min_online_inputs = _int_metric(evidence, "min_online_inputs")
+        if (
+            min_online_inputs is not None
+            and min_online_inputs < expected_online_input_count
+        ):
+            failures.append("artifact_min_online_inputs_invalid")
+        input_check_count = _int_metric(
+            evidence,
+            "runner_online_prelaunch_input_check_count",
+        )
+        if (
+            input_check_count is not None
+            and input_check_count < expected_online_input_count
+        ):
+            failures.append("artifact_online_input_check_count_invalid")
+        extra_check_count = _int_metric(
+            evidence,
+            "runner_online_prelaunch_input_extra_check_count",
+        )
+        extra_passed_count = _int_metric(
+            evidence,
+            "runner_online_prelaunch_input_extra_check_passed_count",
+        )
+        if input_check_count is not None:
+            expected_extra = max(input_check_count - 1, 0)
+            if extra_check_count != expected_extra:
+                failures.append("artifact_online_input_extra_check_count_mismatch")
+            if extra_passed_count != expected_extra:
+                failures.append(
+                    "artifact_online_input_extra_check_passed_count_mismatch"
+                )
+        return [f"{evidence_label}:{failure}" for failure in failures]
     if evidence_label in ONLINE_PRELAUNCH_RUNNER_EVIDENCE_LABELS:
         failures: list[str] = []
         if evidence.get("passed") is not True:
@@ -596,10 +636,6 @@ def _validate_required_evidence_payload(
         extra_passed_count = _int_metric(
             evidence,
             "online_prelaunch_input_extra_check_passed_count",
-        )
-        expected_online_input_count = ONLINE_PRELAUNCH_MIN_INPUTS_BY_LABEL.get(
-            evidence_label,
-            16,
         )
         if (
             input_check_count is None

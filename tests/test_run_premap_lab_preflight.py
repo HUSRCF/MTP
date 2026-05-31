@@ -1615,6 +1615,80 @@ def test_premap_lab_preflight_allows_missing_optional_per_field_canary(
     assert summary["optional_evidence"]["passed_count"] == 6
 
 
+def test_premap_lab_preflight_rejects_32input_runner_backed_by_16input_artifact(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    gate_path = tmp_path / default_gate
+    gate_text = gate_path.read_text(encoding="utf-8")
+    gate_text = gate_text.replace(
+        "reports/default_gate_native_online_prelaunch_canary_runner_32.json",
+        "reports/default_gate_native_online_prelaunch_canary_runner.json",
+    )
+    gate_path.write_text(gate_text, encoding="utf-8")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    failures = result["default_readonly_gate_required_evidence_check"]["failures"]
+    assert result["passed"] is False
+    assert "default_readonly_gate_required_evidence_check_failed" in result["failures"]
+    assert (
+        "future_kernel_native_dispatch_consumer_online_runner_32_128export_json:"
+        "runner_online_input_check_count_invalid"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_32input_artifact_check_backed_by_16input_artifact(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    gate_path = tmp_path / default_gate
+    gate_text = gate_path.read_text(encoding="utf-8")
+    gate_text = gate_text.replace(
+        "reports/default_gate_native_online_prelaunch_canary_artifact_check_32.json",
+        "reports/default_gate_native_online_prelaunch_canary_artifact_check.json",
+    )
+    gate_path.write_text(gate_text, encoding="utf-8")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    failures = result["default_readonly_gate_required_evidence_check"]["failures"]
+    assert result["passed"] is False
+    assert "default_readonly_gate_required_evidence_check_failed" in result["failures"]
+    assert (
+        "future_kernel_native_dispatch_consumer_online_artifact_check_32_128export_json:"
+        "artifact_min_online_inputs_invalid"
+    ) in failures
+    assert (
+        "future_kernel_native_dispatch_consumer_online_artifact_check_32_128export_json:"
+        "artifact_online_input_check_count_invalid"
+    ) in failures
+
+
 def test_premap_lab_preflight_rejects_present_optional_per_field_canary_mismatch(
     tmp_path: Path,
 ):

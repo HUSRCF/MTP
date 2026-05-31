@@ -21825,7 +21825,9 @@ future_kernel_native_dispatch_consumer_online_artifact_check_32_128export_json:
 ```
 
 The preflight checker treats the 32-input runner label as a stricter online
-evidence class:
+evidence class.  The standalone artifact-check label is validated with the
+same minimum input-count rule, so a stale 16-input artifact cannot satisfy the
+32-input required gate:
 
 ```text
 min online inputs required = 32
@@ -21860,7 +21862,12 @@ conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
          tests/test_run_premap_online_native_stub_canary.py \
          tests/test_check_premap_online_native_stub_canary_artifacts.py -q
 
-63 passed
+65 passed
+
+conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
+  pytest tests -q
+
+730 passed, 2 warnings
 ```
 
 ### 2026-05-31 - Future Dispatch Row-Window Canary
