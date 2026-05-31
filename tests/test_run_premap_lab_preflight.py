@@ -61,11 +61,13 @@ def test_default_lab_gate_uses_strict_nodefer_online_native_evidence() -> None:
 
     for label in runner_labels:
         path = evidence[label]
-        assert path.endswith("_32input_nodefer.json"), label
+        assert path.endswith("_32input_nodefer_after_standalone_required.json"), label
         assert "_32input.json" not in path, label
     for label in artifact_labels:
         path = evidence[label]
-        assert path.endswith("_32input_nodefer.json"), label
+        assert path.endswith(
+            "_32input_nodefer_after_standalone_required.json"
+        ), label
         assert "_32input.json" not in path, label
         assert "artifact_check" in path
 

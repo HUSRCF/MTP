@@ -23149,3 +23149,56 @@ conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
 
 763 passed, 2 warnings
 ```
+
+## 2026-06-01 - Default lab gate now uses the nodefer 32-input online native runner
+
+The default readonly/premap lab gate now points the native/launch/dispatch
+online runner and artifact-check labels at the post-standalone 32-input
+nodefer evidence:
+
+```text
+outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_dispatch_full_32input_nodefer_after_standalone_required.json
+outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_artifact_check_dispatch_full_32input_nodefer_after_standalone_required.json
+```
+
+The runner validates 32 exported online prelaunch inputs through the native
+typed consumer path, including the future-native consumer, launch ABI, dispatch
+ABI, and dispatch-ptr ABI checks.  The run remains a no-op consumer gate:
+
+```text
+runner passed = true
+runner failures = []
+online_prelaunch_input_check_count = 32
+
+artifact_check passed = true
+artifact_check failures = []
+min_online_inputs = 32
+
+default preflight passed = true
+default status passed = true
+strict_default_gate_evidence_deferred_count = 0
+runtime_gate_evidence_deferred_count = 0
+```
+
+Compact default status after promotion:
+
+```text
+outputs/reports/premap_lab_preflight_status_default_after_online_32input_dispatch_ptr_required.json
+passed = true
+
+default_kernel_consumer_dispatch_ptr_checked = true
+default_kernel_consumer_dispatch_ptr_row_count = 174
+default_kernel_consumer_dispatch_ptr_row_ok_count = 174
+default_kernel_consumer_dispatch_ptr_payload_bytes = 0
+default_kernel_consumer_dispatch_ptr_passed_to_kernel = false
+default_kernel_consumer_dispatch_ptr_changes_kernel_launch_args = false
+
+default_kernel_consumer_dispatch_ptr_standalone_evidence_passed = true
+default_kernel_consumer_dispatch_ptr_standalone_row_count = 1024
+default_kernel_consumer_dispatch_ptr_standalone_row_ok_count = 1024
+```
+
+This is still not a WNA16 kernel-argument handoff.  The current gate proves that
+the exported prelaunch handle tables can be consumed by the independent typed
+ABI stubs and that the default lab preflight rejects missing/deferred evidence
+before any payload movement or kernel argument mutation is allowed.
