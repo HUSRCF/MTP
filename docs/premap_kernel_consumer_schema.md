@@ -194,9 +194,15 @@ changes_kernel_launch_args = false
 ```
 
 The artifact checker now cross-checks runtime and strict deferred evidence
-counts against the full preflight evidence scan, and the lab preflight rejects
-artifact-only evidence deferral. Tests also cover multi-program dispatch
-windows (`grid_x > 1`) so the future row assignment formula is validated beyond
+counts against the full preflight evidence scan.  It also binds the strict
+default deferred evidence labels to the labels recorded in the status artifact,
+so a preflight file cannot pass by preserving only the same deferred count while
+changing which evidence was deferred.  The lab preflight rejects both
+artifact-only evidence deferral and runner+artifact double deferral in the
+normal lab path.
+
+Tests cover multi-program dispatch windows (`grid_x > 1`) with both zero and
+nonzero `row_offset`, so the future row assignment formula is validated beyond
 the single-program tail-window case.
 
 ## Next Gates
