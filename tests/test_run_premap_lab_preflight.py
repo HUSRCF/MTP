@@ -1742,6 +1742,28 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
         summary["default_kernel_consumer_dispatch_abi_current_wna16_arg_compatible"]
         is False
     )
+    assert (
+        summary["default_kernel_consumer_dispatch_ptr_abi_name"]
+        == "premap_future_kernel_native_consumer_dispatch_ptr_abi_v1"
+    )
+    assert (
+        summary["default_kernel_consumer_dispatch_ptr_abi_struct"]
+        == "PremapFutureKernelNativeConsumerDispatchPtrV1"
+    )
+    assert (
+        summary["default_kernel_consumer_dispatch_ptr_abi_mode"]
+        == "readonly_future_kernel_native_consumer_dispatch_ptr_abi"
+    )
+    assert (
+        summary["default_kernel_consumer_dispatch_ptr_abi_source"]
+        == "premap_future_kernel_native_consumer_dispatch_abi_v1"
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_dispatch_ptr_abi_current_wna16_arg_compatible"
+        ]
+        is False
+    )
     assert summary["default_required_evidence_passed"] is True
     assert summary["default_optional_evidence_passed"] is True
     assert summary["runtime_gate_evidence_deferred_count"] == 0

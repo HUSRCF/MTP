@@ -3025,6 +3025,23 @@ def run_premap_lab_preflight(
                 "future_kernel_native_consumer_dispatch_abi_current_wna16_arg_compatible"
             )
         ),
+        "default_kernel_consumer_dispatch_ptr_abi_name": (
+            schema_summary.get("future_kernel_native_consumer_dispatch_ptr_abi_name")
+        ),
+        "default_kernel_consumer_dispatch_ptr_abi_struct": (
+            schema_summary.get("future_kernel_native_consumer_dispatch_ptr_abi_struct")
+        ),
+        "default_kernel_consumer_dispatch_ptr_abi_mode": (
+            schema_summary.get("future_kernel_native_consumer_dispatch_ptr_abi_mode")
+        ),
+        "default_kernel_consumer_dispatch_ptr_abi_source": (
+            schema_summary.get("future_kernel_native_consumer_dispatch_ptr_abi_source")
+        ),
+        "default_kernel_consumer_dispatch_ptr_abi_current_wna16_arg_compatible": (
+            schema_summary.get(
+                "future_kernel_native_consumer_dispatch_ptr_abi_current_wna16_arg_compatible"
+            )
+        ),
         "default_required_evidence_passed": bool(
             default_gate_required_evidence_check.get("passed", False)
         ),

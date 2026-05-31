@@ -659,6 +659,23 @@ def check_kernel_consumer_schema_artifact(path: Path) -> dict[str, Any]:
                 "future_kernel_native_consumer_dispatch_abi_current_wna16_arg_compatible"
             )
         ),
+        "future_kernel_native_consumer_dispatch_ptr_abi_name": native_abi.get(
+            "future_kernel_native_consumer_dispatch_ptr_abi_name"
+        ),
+        "future_kernel_native_consumer_dispatch_ptr_abi_struct": native_abi.get(
+            "future_kernel_native_consumer_dispatch_ptr_abi_struct"
+        ),
+        "future_kernel_native_consumer_dispatch_ptr_abi_mode": native_abi.get(
+            "future_kernel_native_consumer_dispatch_ptr_abi_mode"
+        ),
+        "future_kernel_native_consumer_dispatch_ptr_abi_source": native_abi.get(
+            "future_kernel_native_consumer_dispatch_ptr_abi_source"
+        ),
+        "future_kernel_native_consumer_dispatch_ptr_abi_current_wna16_arg_compatible": (
+            native_abi.get(
+                "future_kernel_native_consumer_dispatch_ptr_abi_current_wna16_arg_compatible"
+            )
+        ),
         "future_kernel_native_consumer_abi_layout_reported": native_abi.get(
             "future_kernel_native_consumer_abi_layout_reported"
         ),

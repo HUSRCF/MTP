@@ -80,6 +80,18 @@ def test_kernel_consumer_schema_accepts_valid_artifact(tmp_path: Path) -> None:
         == FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_ABI_LAYOUT_EXPECTED
     )
     assert (
+        result["future_kernel_native_consumer_dispatch_ptr_abi_name"]
+        == "premap_future_kernel_native_consumer_dispatch_ptr_abi_v1"
+    )
+    assert (
+        result["future_kernel_native_consumer_dispatch_ptr_abi_mode"]
+        == "readonly_future_kernel_native_consumer_dispatch_ptr_abi"
+    )
+    assert (
+        result["future_kernel_native_consumer_dispatch_ptr_abi_current_wna16_arg_compatible"]
+        is False
+    )
+    assert (
         result["future_kernel_native_consumer_dispatch_ptr_abi_layout_fields"]
         == FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_PTR_ABI_LAYOUT_FIELDS
     )

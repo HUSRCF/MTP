@@ -263,12 +263,18 @@ default_kernel_consumer_dispatch_abi_mode =
 default_kernel_consumer_dispatch_abi_row_assignment_formula =
   row_offset + program_id * rows_per_program + lane_id
 default_kernel_consumer_dispatch_abi_current_wna16_arg_compatible = false
+default_kernel_consumer_dispatch_ptr_abi_name =
+  premap_future_kernel_native_consumer_dispatch_ptr_abi_v1
+default_kernel_consumer_dispatch_ptr_abi_mode =
+  readonly_future_kernel_native_consumer_dispatch_ptr_abi
+default_kernel_consumer_dispatch_ptr_abi_current_wna16_arg_compatible = false
 payload_bytes_required = 0
 passed_to_kernel_required = false
 changes_kernel_launch_args_required = false
 ```
 
-The `default_kernel_consumer_dispatch_abi_*` summary keys are compact aliases
+The `default_kernel_consumer_dispatch_abi_*` and
+`default_kernel_consumer_dispatch_ptr_abi_*` summary keys are compact aliases
 for the future-native dispatch ABI fields.  They must not be read as current
 WNA16 launch-argument compatibility.
 The unprefixed `payload_bytes_required`, `passed_to_kernel_required`, and
