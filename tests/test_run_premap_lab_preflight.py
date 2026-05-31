@@ -1587,6 +1587,7 @@ def _write_gate(
         "  future_kernel_consumer_args_single_field_mirror_required: true\n"
         "  future_kernel_consumer_args_single_field_mirror_field: scale_metadata_handle\n"
         "  future_kernel_native_dispatch_consumer_full_table_required: true\n"
+        "  future_kernel_native_dispatch_ptr_consumer_required: true\n"
         "  future_kernel_native_dispatch_consumer_program_iteration_required: true\n"
         "  future_kernel_native_dispatch_consumer_row_assignment_formula: row_offset + program_id * rows_per_program + lane_id\n"
         "  single_field_handle_handoff_canary_required: true\n"
@@ -2105,6 +2106,40 @@ def test_premap_lab_preflight_rejects_default_gate_without_typed_consumer_contra
     assert result["default_readonly_gate_contract_check"]["failures"] == [
         "kernel_side_typed_consumer_object_required_mismatch"
     ]
+
+
+def test_premap_lab_preflight_rejects_default_gate_without_dispatch_ptr_contract(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    gate_path = tmp_path / default_gate
+    text = gate_path.read_text()
+    text = text.replace(
+        "  future_kernel_native_dispatch_ptr_consumer_required: true\n",
+        "  future_kernel_native_dispatch_ptr_consumer_required: false\n",
+    )
+    _write(gate_path, text)
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is False
+    assert "default_readonly_gate_contract_check_failed" in result["failures"]
+    assert (
+        "future_kernel_native_dispatch_ptr_consumer_required_mismatch"
+        in result["default_readonly_gate_contract_check"]["failures"]
+    )
 
 
 def test_premap_lab_preflight_rejects_default_gate_with_bad_schema_artifact(

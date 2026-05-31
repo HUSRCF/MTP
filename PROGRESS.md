@@ -22970,3 +22970,48 @@ Review and validation:
 Current status: the lab preflight now guards the closest native-stub dispatch
 shape with full-table coverage while still keeping payload movement and live
 WNA16 kernel-arg mutation disabled.
+
+## 2026-06-01 - Dispatch-pointer ABI promoted to explicit lab contract
+
+The default lab gate now explicitly requires the pointer-backed future-native
+dispatch consumer:
+
+```text
+future_kernel_native_dispatch_ptr_consumer_required = true
+```
+
+This makes the closest current ABI shape a required lab precondition rather
+than an implicit field inside the runner summary.  The required evidence remains
+the same full-table 32-input online runner, which reports:
+
+```text
+future_kernel_native_dispatch_ptr_consumer_checked = true
+future_kernel_native_dispatch_ptr_consumer_row_count = 174
+future_kernel_native_dispatch_ptr_consumer_row_ok_count = 174
+future_kernel_native_dispatch_ptr_consumer_passed_to_kernel = false
+future_kernel_native_dispatch_ptr_consumer_changes_kernel_launch_args = false
+future_kernel_native_dispatch_ptr_consumer_current_wna16_arg_compatible = false
+```
+
+The default preflight passes with this stricter contract:
+
+```text
+outputs/reports/premap_lab_preflight_status_default_after_dispatch_ptr_required.json
+passed = true
+default_contract_passed = true
+default_required_evidence_passed = true
+default_optional_evidence_passed = true
+```
+
+Validation:
+
+```text
+conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
+  pytest tests -q
+
+758 passed, 2 warnings
+```
+
+Current status: the lab default now requires full-table dispatch coverage and a
+pointer-backed future kernel dispatch packet, while still forbidding payload
+movement and live WNA16 kernel-arg mutation.

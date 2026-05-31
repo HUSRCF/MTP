@@ -99,6 +99,7 @@ REQUIRED_DEFAULT_GATE_CONTRACT = {
     "future_kernel_consumer_args_single_field_mirror_required": True,
     "future_kernel_consumer_args_single_field_mirror_field": "scale_metadata_handle",
     "future_kernel_native_dispatch_consumer_full_table_required": True,
+    "future_kernel_native_dispatch_ptr_consumer_required": True,
     "future_kernel_native_dispatch_consumer_program_iteration_required": True,
     "future_kernel_native_dispatch_consumer_row_assignment_formula": (
         "row_offset + program_id * rows_per_program + lane_id"
