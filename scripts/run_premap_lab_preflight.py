@@ -165,6 +165,8 @@ OPTIONAL_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
     "future_kernel_native_consumer_online_runner_16_128export_json",
     "future_kernel_native_dispatch_consumer_online_artifact_check_16_128export_json",
     "future_kernel_native_dispatch_consumer_online_runner_16_128export_json",
+    "future_kernel_native_dispatch_consumer_online_artifact_check_32_128export_json",
+    "future_kernel_native_dispatch_consumer_online_runner_32_128export_json",
     "future_kernel_native_launch_consumer_online_artifact_check_16_128export_json",
     "future_kernel_native_launch_consumer_online_runner_16_128export_json",
     "native_typed_consumer_stub_online_prelaunch_input_per_field_canary_json",
@@ -177,16 +179,23 @@ ONLINE_PRELAUNCH_RUNNER_EVIDENCE_LABELS = {
     ONLINE_PRELAUNCH_RUNNER_EVIDENCE_LABEL,
     "future_kernel_native_consumer_online_runner_16_128export_json",
     "future_kernel_native_dispatch_consumer_online_runner_16_128export_json",
+    "future_kernel_native_dispatch_consumer_online_runner_32_128export_json",
     "future_kernel_native_launch_consumer_online_runner_16_128export_json",
 }
 DISPATCH_WINDOW_RUNNER_EVIDENCE_LABELS = {
     ONLINE_PRELAUNCH_RUNNER_EVIDENCE_LABEL,
     "future_kernel_native_dispatch_consumer_online_runner_16_128export_json",
+    "future_kernel_native_dispatch_consumer_online_runner_32_128export_json",
 }
 ONLINE_PRELAUNCH_ARTIFACT_EVIDENCE_LABELS = {
     "future_kernel_native_consumer_online_artifact_check_16_128export_json",
     "future_kernel_native_dispatch_consumer_online_artifact_check_16_128export_json",
+    "future_kernel_native_dispatch_consumer_online_artifact_check_32_128export_json",
     "future_kernel_native_launch_consumer_online_artifact_check_16_128export_json",
+}
+ONLINE_PRELAUNCH_MIN_INPUTS_BY_LABEL = {
+    "future_kernel_native_dispatch_consumer_online_runner_32_128export_json": 32,
+    "future_kernel_native_dispatch_consumer_online_artifact_check_32_128export_json": 32,
 }
 
 _NATIVE_BRIDGE_METRIC_PREFIX = (
@@ -588,7 +597,14 @@ def _validate_required_evidence_payload(
             evidence,
             "online_prelaunch_input_extra_check_passed_count",
         )
-        if input_check_count is None or input_check_count < 16:
+        expected_online_input_count = ONLINE_PRELAUNCH_MIN_INPUTS_BY_LABEL.get(
+            evidence_label,
+            16,
+        )
+        if (
+            input_check_count is None
+            or input_check_count < expected_online_input_count
+        ):
             failures.append("runner_online_input_check_count_invalid")
             input_check_count = 0
         expected_extra = max(input_check_count - 1, 0)
@@ -1472,6 +1488,26 @@ def _validate_required_evidence_payload(
                 failures.append("runner_artifact_check_summary_not_passed")
             if artifact_check_summary.get("failures") != []:
                 failures.append("runner_artifact_check_summary_failures_not_empty")
+            artifact_min_inputs = _int_metric(
+                artifact_check_summary,
+                "min_online_inputs",
+            )
+            if (
+                artifact_min_inputs is not None
+                and artifact_min_inputs < expected_online_input_count
+            ):
+                failures.append("runner_artifact_check_min_online_inputs_invalid")
+            artifact_input_check_count = _int_metric(
+                artifact_check_summary,
+                "runner_online_prelaunch_input_check_count",
+            )
+            if (
+                artifact_input_check_count is not None
+                and artifact_input_check_count < expected_online_input_count
+            ):
+                failures.append(
+                    "runner_artifact_check_online_input_check_count_invalid"
+                )
         return [f"{evidence_label}:{failure}" for failure in failures]
     if evidence_label in known_stub_labels:
         expected_input_path = None

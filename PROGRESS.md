@@ -21810,6 +21810,58 @@ conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
 git diff --check: clean
 ```
 
+### 2026-05-31 — 32-Input Dispatch Tail-Window Evidence in Default Preflight
+
+The 32-input adaptive dispatch tail-window evidence is now part of the default
+lab gate's machine-checked optional evidence set, not just a manual PROGRESS
+artifact.  The default gate now references:
+
+```text
+future_kernel_native_dispatch_consumer_online_runner_32_128export_json:
+  outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_dispatch_window_tail4_32input.json
+
+future_kernel_native_dispatch_consumer_online_artifact_check_32_128export_json:
+  outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_artifact_check_dispatch_window_tail4_32input.json
+```
+
+The preflight checker treats the 32-input runner label as a stricter online
+evidence class:
+
+```text
+min online inputs required = 32
+future_native_dispatch_tail_window_size = 4
+row_offset = max(0, source_row_count - 4)
+row_limit = source_row_count
+active_rows = row_limit - row_offset
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+```
+
+Default preflight evidence after adding the 32-input labels:
+
+```text
+output:
+  outputs/reports/premap_lab_preflight_dispatch_tail_window_32optional_contract_check.json
+
+passed = true
+default_contract_passed = true
+default_required_evidence_passed = true
+default_optional_evidence_passed = true
+optional_evidence required/present/passed = 12 / 12 / 12
+```
+
+Validation:
+
+```text
+conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
+  pytest tests/test_run_premap_lab_preflight.py \
+         tests/test_run_premap_online_native_stub_canary.py \
+         tests/test_check_premap_online_native_stub_canary_artifacts.py -q
+
+63 passed
+```
+
 ### 2026-05-31 - Future Dispatch Row-Window Canary
 
 The native typed consumer stub now supports an explicit dispatch row window:
