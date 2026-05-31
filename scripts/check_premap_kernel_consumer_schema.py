@@ -413,8 +413,29 @@ def check_kernel_consumer_schema_artifact(path: Path) -> dict[str, Any]:
         "schema_name": schema.get("name"),
         "schema_hash": schema.get("hash"),
         "row_field_count": len(row_fields),
+        "row_field_names": row_field_names,
         "row_metadata_count": len(metadata),
+        "row_metadata_names": metadata_names,
         "macro_count": len(flags),
+        "future_kernel_native_consumer_dispatch_abi_name": native_abi.get(
+            "future_kernel_native_consumer_dispatch_abi_name"
+        ),
+        "future_kernel_native_consumer_dispatch_abi_struct": native_abi.get(
+            "future_kernel_native_consumer_dispatch_abi_struct"
+        ),
+        "future_kernel_native_consumer_dispatch_abi_mode": native_abi.get(
+            "future_kernel_native_consumer_dispatch_abi_mode"
+        ),
+        "future_kernel_native_consumer_dispatch_abi_row_assignment_formula": (
+            native_abi.get(
+                "future_kernel_native_consumer_dispatch_abi_row_assignment_formula"
+            )
+        ),
+        "future_kernel_native_consumer_dispatch_abi_current_wna16_arg_compatible": (
+            native_abi.get(
+                "future_kernel_native_consumer_dispatch_abi_current_wna16_arg_compatible"
+            )
+        ),
         "rows": rows,
     }
 

@@ -25,6 +25,20 @@ def test_kernel_consumer_schema_accepts_valid_artifact(tmp_path: Path) -> None:
     assert result["passed"] is True
     assert result["failures"] == []
     assert result["row_field_count"] == 4
+    assert result["row_field_names"] == [
+        "descriptor_ptr",
+        "packed_weight_descriptor",
+        "scale_metadata_handle",
+        "aux_metadata_handle",
+    ]
+    assert (
+        result["future_kernel_native_consumer_dispatch_abi_name"]
+        == "premap_future_kernel_native_consumer_dispatch_abi_v1"
+    )
+    assert (
+        result["future_kernel_native_consumer_dispatch_abi_current_wna16_arg_compatible"]
+        is False
+    )
 
 
 def test_kernel_consumer_schema_rejects_missing_required_row_field(

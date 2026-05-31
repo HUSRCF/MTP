@@ -991,10 +991,9 @@ def test_check_online_native_stub_canary_artifacts_rejects_non_list_preflight_ro
     )
 
     assert result["passed"] is False
-    assert (
+    assert result["failures"] == [
         "preflight_strict_default_gate_evidence_rows_missing"
-        in result["failures"]
-    )
+    ]
 
 
 def test_check_online_native_stub_canary_artifacts_rejects_preflight_deferred_label_count_mismatch(
@@ -1045,10 +1044,9 @@ def test_check_online_native_stub_canary_artifacts_rejects_preflight_deferred_la
     )
 
     assert result["passed"] is False
-    assert (
+    assert result["failures"] == [
         "preflight_strict_default_gate_evidence_deferred_labels_count_mismatch"
-        in result["failures"]
-    )
+    ]
 
 
 def test_check_online_native_stub_canary_artifacts_rejects_preflight_deferred_label_mismatch(
