@@ -2,7 +2,7 @@
 
 ## Progress Version
 
-- Version: `v0.35-dispatch-abi-gate-hardening`
+- Version: `v0.36-review-closure-dispatch-abi-gate`
 - Updated: 2026-05-31
 - Current phase: premap descriptor/address prep now has a typed
   kernel-side consumer object, a launch-shaped future native ABI, and a
@@ -11,6 +11,55 @@
   The latest hardening requires the online canary artifact checker to see the
   full preflight runtime/strict evidence scan and forbids the normal lab
   preflight from deferring both runner and artifact evidence at the same time.
+  Review follow-up now covers the strict preflight rows/type and deferred-label
+  count mismatch branches, and the real 32-input dispatch artifact still passes
+  under the stricter checker.
+
+## Latest Update: Review Closure for Dispatch Evidence Gate
+
+The post-hardening code review found no blocker and one low-severity coverage
+gap.  The missing regression tests are now covered:
+
+```text
+preflight_strict_default_gate_evidence_rows_missing:
+  covered by non-list rows regression
+
+preflight_strict_default_gate_evidence_deferred_labels_count_mismatch:
+  covered by deferred_count != deferred label count regression
+```
+
+Validation:
+
+```text
+pytest tests/test_check_premap_online_native_stub_canary_artifacts.py -q
+  29 passed
+
+pytest tests -q
+  747 passed, 2 warnings
+```
+
+The stricter checker still accepts the real dispatch-window online canary and
+default lab status:
+
+```text
+online_prelaunch_native_stub_canary_artifact_check_dispatch_window_tail4_32input_post_review_test_patch.json:
+  passed = true
+  failures = []
+  min_online_inputs = 32
+  runner_online_prelaunch_input_check_count = 32
+  require_all_field_mirror_stubs = true
+  future_native_dispatch rows = 174 / 174
+
+schema_check_post_review_test_patch.json:
+  passed = true
+  failures = []
+  schema = fused_moe_awq_wna16_kernel_side_typed_consumer_object_v1
+```
+
+Boundary remains unchanged: this is still readonly future-native typed ABI
+evidence.  It is not a live WNA16 kernel-argument pass, does not dereference
+payload, and does not claim compatibility with the current WNA16 fused-MoE
+argument list.
 
 ## Latest Update: Dispatch ABI Gate Hardening
 
