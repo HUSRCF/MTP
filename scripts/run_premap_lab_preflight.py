@@ -90,6 +90,8 @@ REQUIRED_DEFAULT_GATE_CONTRACT = {
     "future_kernel_consumer_args_current_wna16_arg_compatible_required": False,
     "future_kernel_consumer_args_single_field_mirror_required": True,
     "future_kernel_consumer_args_single_field_mirror_field": "scale_metadata_handle",
+    "future_kernel_native_dispatch_consumer_tail_window_required": True,
+    "future_kernel_native_dispatch_consumer_tail_window_size": 4,
     "single_field_handle_handoff_canary_required": True,
     "single_field_handle_handoff_canary_mode": (
         "readonly_single_field_handle_handoff_canary"
@@ -176,6 +178,10 @@ ONLINE_PRELAUNCH_RUNNER_EVIDENCE_LABELS = {
     "future_kernel_native_consumer_online_runner_16_128export_json",
     "future_kernel_native_dispatch_consumer_online_runner_16_128export_json",
     "future_kernel_native_launch_consumer_online_runner_16_128export_json",
+}
+DISPATCH_WINDOW_RUNNER_EVIDENCE_LABELS = {
+    ONLINE_PRELAUNCH_RUNNER_EVIDENCE_LABEL,
+    "future_kernel_native_dispatch_consumer_online_runner_16_128export_json",
 }
 ONLINE_PRELAUNCH_ARTIFACT_EVIDENCE_LABELS = {
     "future_kernel_native_consumer_online_artifact_check_16_128export_json",
@@ -590,6 +596,21 @@ def _validate_required_evidence_payload(
             failures.append("runner_online_input_extra_check_count_mismatch")
         if extra_passed_count != expected_extra:
             failures.append("runner_online_input_extra_check_passed_count_mismatch")
+        dispatch_tail_window_size = None
+        if evidence_label in DISPATCH_WINDOW_RUNNER_EVIDENCE_LABELS:
+            dispatch_tail_window_size = _int_metric(
+                evidence,
+                "future_native_dispatch_tail_window_size",
+            )
+            expected_tail_window_size = int(
+                REQUIRED_DEFAULT_GATE_CONTRACT[
+                    "future_kernel_native_dispatch_consumer_tail_window_size"
+                ]
+            )
+            if dispatch_tail_window_size != expected_tail_window_size:
+                failures.append(
+                    "runner_future_native_dispatch_tail_window_size_mismatch"
+                )
 
         def _check_runner_stub_summary(
             summary: Any,
@@ -1179,6 +1200,21 @@ def _validate_required_evidence_payload(
                 failures.append(
                     f"{prefix}_future_kernel_native_dispatch_consumer_active_rows_mismatch"
                 )
+            if dispatch_tail_window_size is not None and row_count_value is not None:
+                expected_row_offset = max(0, row_count_value - dispatch_tail_window_size)
+                if dispatch_row_offset != expected_row_offset:
+                    failures.append(
+                        f"{prefix}_future_kernel_native_dispatch_consumer_tail_offset_mismatch"
+                    )
+                if dispatch_row_limit != row_count_value:
+                    failures.append(
+                        f"{prefix}_future_kernel_native_dispatch_consumer_tail_limit_mismatch"
+                    )
+                expected_active_rows = row_count_value - expected_row_offset
+                if dispatch_active_rows != expected_active_rows:
+                    failures.append(
+                        f"{prefix}_future_kernel_native_dispatch_consumer_tail_active_rows_mismatch"
+                    )
             if (
                 dispatch_grid_x is None
                 or dispatch_block_x is None

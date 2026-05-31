@@ -171,6 +171,8 @@ contract:
   future_kernel_consumer_args_current_wna16_arg_compatible_required: false
   future_kernel_consumer_args_single_field_mirror_required: true
   future_kernel_consumer_args_single_field_mirror_field: scale_metadata_handle
+  future_kernel_native_dispatch_consumer_tail_window_required: true
+  future_kernel_native_dispatch_consumer_tail_window_size: 4
   single_field_handle_handoff_canary_required: true
   single_field_handle_handoff_canary_mode: readonly_single_field_handle_handoff_canary
   single_field_handle_handoff_canary_field: scale_metadata_handle

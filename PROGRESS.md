@@ -22228,6 +22228,43 @@ passed_to_kernel_required = false
 changes_kernel_launch_args_required = false
 ```
 
+The adaptive dispatch window is now an explicit default lab contract:
+
+```text
+future_kernel_native_dispatch_consumer_tail_window_required = true
+future_kernel_native_dispatch_consumer_tail_window_size = 4
+```
+
+The lab preflight validates this in two places:
+
+```text
+1. runner top-level evidence must report future_native_dispatch_tail_window_size = 4
+2. each dispatch consumer summary must satisfy:
+   row_offset = max(0, source_row_count - 4)
+   row_limit = source_row_count
+   active_rows = row_limit - row_offset
+   dispatch row_count / row_ok_count = active_rows
+```
+
+This prevents a full-range or fixed-window artifact from silently satisfying
+the default lab gate.
+
+Contract validation:
+
+```text
+output:
+  outputs/reports/premap_lab_preflight_dispatch_tail_window_contract_check.json
+
+passed = true
+default_contract_passed = true
+default_required_evidence_passed = true
+default_optional_evidence_passed = true
+strict_default_gate_evidence_passed = true
+payload_bytes_required = 0
+passed_to_kernel_required = false
+changes_kernel_launch_args_required = false
+```
+
 The stronger 32-input version also passes after exporting a dedicated 32-table
 online typed-consumer artifact:
 
@@ -22278,13 +22315,20 @@ conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
 
 conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src pytest tests -q
 
-726 passed, 2 warnings
+728 passed, 2 warnings
 
 conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
   pytest tests/test_run_premap_lab_preflight.py \
          tests/test_run_premap_online_native_stub_canary.py -q
 
 44 passed
+
+conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
+  pytest tests/test_run_premap_lab_preflight.py \
+         tests/test_run_premap_online_native_stub_canary.py \
+         tests/test_check_premap_online_native_stub_canary_artifacts.py -q
+
+63 passed
 
 conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
   python scripts/run_premap_online_native_stub_canary.py \
