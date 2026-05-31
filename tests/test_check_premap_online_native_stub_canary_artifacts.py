@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 from scripts.check_premap_online_native_stub_canary_artifacts import (
+    _program_iteration_hash,
     check_online_native_stub_canary_artifacts,
     main,
 )
@@ -250,6 +251,9 @@ def _extra_input_summary(row_count: int = 4) -> dict:
             ),
             "future_kernel_native_dispatch_consumer_first_program_row_offset": 0,
             "future_kernel_native_dispatch_consumer_last_program_row_offset": 0,
+            "future_kernel_native_dispatch_consumer_program_iteration_hash": (
+                f"{_program_iteration_hash(grid_x=1, block_x=256, row_offset=0, row_limit=row_count, last_program_active_rows=row_count, inactive_lane_count=256 - row_count):x}"
+            ),
             "future_kernel_native_dispatch_consumer_launch_geometry_checked": True,
             "future_kernel_native_dispatch_consumer_launch_covers_active_rows": True,
             "future_kernel_native_dispatch_consumer_launch_minimal_cover": True,
@@ -575,6 +579,9 @@ def _payloads(root: Path) -> tuple[Path, Path, Path]:
             "future_kernel_native_dispatch_consumer_inactive_lane_count": 252,
             "future_kernel_native_dispatch_consumer_first_program_row_offset": 0,
             "future_kernel_native_dispatch_consumer_last_program_row_offset": 0,
+            "future_kernel_native_dispatch_consumer_program_iteration_hash": (
+                f"{_program_iteration_hash(grid_x=1, block_x=256, row_offset=0, row_limit=4, last_program_active_rows=4, inactive_lane_count=252):x}"
+            ),
             "future_kernel_native_dispatch_consumer_launch_geometry_checked": True,
             "future_kernel_native_dispatch_consumer_launch_covers_active_rows": True,
             "future_kernel_native_dispatch_consumer_launch_minimal_cover": True,
@@ -1363,6 +1370,9 @@ def test_check_online_native_stub_canary_artifacts_accepts_dispatch_row_window(
     dispatch["future_kernel_native_dispatch_consumer_inactive_lane_count"] = 253
     dispatch["future_kernel_native_dispatch_consumer_first_program_row_offset"] = 1
     dispatch["future_kernel_native_dispatch_consumer_last_program_row_offset"] = 1
+    dispatch["future_kernel_native_dispatch_consumer_program_iteration_hash"] = (
+        f"{_program_iteration_hash(grid_x=1, block_x=256, row_offset=1, row_limit=4, last_program_active_rows=3, inactive_lane_count=253):x}"
+    )
     _write_json(runner_path, runner)
 
     result = check_online_native_stub_canary_artifacts(
@@ -1405,6 +1415,9 @@ def test_check_online_native_stub_canary_artifacts_accepts_large_rows_tail_dispa
     dispatch["future_kernel_native_dispatch_consumer_inactive_lane_count"] = 252
     dispatch["future_kernel_native_dispatch_consumer_first_program_row_offset"] = 1020
     dispatch["future_kernel_native_dispatch_consumer_last_program_row_offset"] = 1020
+    dispatch["future_kernel_native_dispatch_consumer_program_iteration_hash"] = (
+        f"{_program_iteration_hash(grid_x=1, block_x=256, row_offset=1020, row_limit=1024, last_program_active_rows=4, inactive_lane_count=252):x}"
+    )
     _write_json(runner_path, runner)
 
     result = check_online_native_stub_canary_artifacts(
@@ -1438,6 +1451,54 @@ def test_check_online_native_stub_canary_artifacts_rejects_dispatch_active_rows_
     assert (
         "runner_future_kernel_native_consumer_dispatch_stub_"
         "future_native_dispatch_active_rows_mismatch"
+        in result["failures"]
+    )
+
+
+def test_check_online_native_stub_canary_artifacts_rejects_dispatch_program_hash_mismatch(
+    tmp_path: Path,
+):
+    runner_path, preflight_path, status_path = _payloads(tmp_path)
+    runner = json.loads(runner_path.read_text(encoding="utf-8"))
+    dispatch = runner["future_kernel_native_consumer_dispatch_stub_summary"]
+    dispatch["future_kernel_native_dispatch_consumer_program_iteration_hash"] = "0"
+    _write_json(runner_path, runner)
+
+    result = check_online_native_stub_canary_artifacts(
+        root=tmp_path,
+        runner_json=runner_path,
+        preflight_json=preflight_path,
+        status_json=status_path,
+    )
+
+    assert result["passed"] is False
+    assert (
+        "runner_future_kernel_native_consumer_dispatch_stub_"
+        "future_native_dispatch_program_iteration_hash_mismatch"
+        in result["failures"]
+    )
+
+
+def test_check_online_native_stub_canary_artifacts_rejects_dispatch_program_hash_missing(
+    tmp_path: Path,
+):
+    runner_path, preflight_path, status_path = _payloads(tmp_path)
+    runner = json.loads(runner_path.read_text(encoding="utf-8"))
+    dispatch = runner["future_kernel_native_consumer_dispatch_stub_summary"]
+    dispatch.pop("future_kernel_native_dispatch_consumer_program_iteration_hash")
+    _write_json(runner_path, runner)
+
+    result = check_online_native_stub_canary_artifacts(
+        root=tmp_path,
+        runner_json=runner_path,
+        preflight_json=preflight_path,
+        status_json=status_path,
+    )
+
+    assert result["passed"] is False
+    assert (
+        "runner_future_kernel_native_consumer_dispatch_stub_"
+        "future_native_dispatch_program_iteration_hash_missing"
         in result["failures"]
     )
 

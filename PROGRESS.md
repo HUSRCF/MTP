@@ -21895,6 +21895,31 @@ grid. Required online artifact evidence now also supports artifact deferral
 during self-bootstrapping, and missing min/count fields fail explicitly.
 ```
 
+Follow-up hardening:
+
+```text
+future_kernel_native_dispatch_consumer_program_iteration_hash is now checked,
+not only recorded.
+
+hash formula:
+  mix64(grid_x + 0xd15c2001)
+^ mix64(block_x + 0xd15c2002)
+^ mix64(row_offset + 0xd15c2003)
+^ mix64(row_limit + 0xd15c2004)
+^ mix64(last_program_active_rows + 0xd15c2005)
+^ mix64(inactive_lane_count + 0xd15c2006)
+
+artifact checker passed = true
+default lab preflight passed = true
+
+conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src pytest tests -q
+736 passed, 2 warnings
+
+Additional regression coverage:
+  artifact checker rejects program_iteration_hash missing/mismatch
+  lab preflight rejects program_iteration_hash missing/mismatch
+```
+
 ### 2026-05-31 — 32-Input Dispatch Tail-Window Evidence in Default Preflight
 
 The 32-input adaptive dispatch tail-window evidence is now part of the default

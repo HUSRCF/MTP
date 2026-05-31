@@ -22,6 +22,13 @@ DEFAULT_STATUS_JSON = Path(
 _FUTURE_KERNEL_REQUIRED_FIELD_MASK = 0x7
 _FUTURE_KERNEL_ALL_FIELD_MASK = 0xF
 _FUTURE_KERNEL_AUX_FIELD_MASK = 0x8
+_UINT64_MASK = (1 << 64) - 1
+_PROGRAM_ITERATION_HASH_FORMULA = (
+    "mix64(grid_x + 0xd15c2001) ^ mix64(block_x + 0xd15c2002) ^ "
+    "mix64(row_offset + 0xd15c2003) ^ mix64(row_limit + 0xd15c2004) ^ "
+    "mix64(last_program_active_rows + 0xd15c2005) ^ "
+    "mix64(inactive_lane_count + 0xd15c2006)"
+)
 
 
 def _resolve(root: Path, path: str | Path) -> Path:
@@ -38,6 +45,45 @@ def _load_json(path: Path) -> dict[str, Any]:
 
 def _int(value: Any) -> int | None:
     return value if isinstance(value, int) and not isinstance(value, bool) else None
+
+
+def _mix64(value: int) -> int:
+    x = value & _UINT64_MASK
+    x ^= x >> 33
+    x = (x * 0xFF51AFD7ED558CCD) & _UINT64_MASK
+    x ^= x >> 33
+    x = (x * 0xC4CEB9FE1A85EC53) & _UINT64_MASK
+    x ^= x >> 33
+    return x & _UINT64_MASK
+
+
+def _hex64(value: Any) -> int | None:
+    if isinstance(value, str) and value:
+        try:
+            parsed = int(value, 16)
+        except ValueError:
+            return None
+        return parsed if 0 <= parsed <= _UINT64_MASK else None
+    return None
+
+
+def _program_iteration_hash(
+    *,
+    grid_x: int,
+    block_x: int,
+    row_offset: int,
+    row_limit: int,
+    last_program_active_rows: int,
+    inactive_lane_count: int,
+) -> int:
+    return (
+        _mix64(grid_x + 0xD15C2001)
+        ^ _mix64(block_x + 0xD15C2002)
+        ^ _mix64(row_offset + 0xD15C2003)
+        ^ _mix64(row_limit + 0xD15C2004)
+        ^ _mix64(last_program_active_rows + 0xD15C2005)
+        ^ _mix64(inactive_lane_count + 0xD15C2006)
+    ) & _UINT64_MASK
 
 
 def _check_future_field_mask(
@@ -582,6 +628,9 @@ def _check_future_kernel_native_dispatch_consumer_summary(
     dispatch_row_assignment_formula = stub.get(
         "future_kernel_native_dispatch_consumer_row_assignment_formula"
     )
+    dispatch_program_iteration_hash = _hex64(
+        stub.get("future_kernel_native_dispatch_consumer_program_iteration_hash")
+    )
     if dispatch_grid is None or dispatch_grid <= 0:
         failures.append(f"{prefix}_future_native_dispatch_grid_x_invalid")
     if dispatch_block is None or dispatch_block <= 0:
@@ -679,6 +728,23 @@ def _check_future_kernel_native_dispatch_consumer_summary(
             failures.append(
                 f"{prefix}_future_native_dispatch_row_assignment_formula_mismatch"
             )
+        if dispatch_program_iteration_hash is None:
+            failures.append(
+                f"{prefix}_future_native_dispatch_program_iteration_hash_missing"
+            )
+        elif dispatch_offset is not None and dispatch_limit is not None:
+            expected_program_iteration_hash = _program_iteration_hash(
+                grid_x=dispatch_grid,
+                block_x=dispatch_block,
+                row_offset=dispatch_offset,
+                row_limit=dispatch_limit,
+                last_program_active_rows=expected_last_program_active_rows,
+                inactive_lane_count=expected_inactive_lane_count,
+            )
+            if dispatch_program_iteration_hash != expected_program_iteration_hash:
+                failures.append(
+                    f"{prefix}_future_native_dispatch_program_iteration_hash_mismatch"
+                )
     expected_dispatch_bools = {
         "future_kernel_native_dispatch_consumer_launch_geometry_checked": True,
         "future_kernel_native_dispatch_consumer_launch_covers_active_rows": True,

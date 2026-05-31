@@ -221,11 +221,58 @@ _TYPED_ROW_CONSUMER_PATH_METRIC_PREFIX = (
 _FUTURE_KERNEL_REQUIRED_FIELD_MASK = 0x7
 _FUTURE_KERNEL_ALL_FIELD_MASK = 0xF
 _FUTURE_KERNEL_AUX_FIELD_MASK = 0x8
+_UINT64_MASK = (1 << 64) - 1
+_PROGRAM_ITERATION_HASH_FORMULA = (
+    "mix64(grid_x + 0xd15c2001) ^ mix64(block_x + 0xd15c2002) ^ "
+    "mix64(row_offset + 0xd15c2003) ^ mix64(row_limit + 0xd15c2004) ^ "
+    "mix64(last_program_active_rows + 0xd15c2005) ^ "
+    "mix64(inactive_lane_count + 0xd15c2006)"
+)
 
 
 def _int_metric(metrics: dict[str, Any], key: str) -> int | None:
     value = metrics.get(key)
     return value if isinstance(value, int) and not isinstance(value, bool) else None
+
+
+def _hex64_metric(metrics: dict[str, Any], key: str) -> int | None:
+    value = metrics.get(key)
+    if not isinstance(value, str) or not value:
+        return None
+    try:
+        parsed = int(value, 16)
+    except ValueError:
+        return None
+    return parsed if 0 <= parsed <= _UINT64_MASK else None
+
+
+def _mix64(value: int) -> int:
+    x = value & _UINT64_MASK
+    x ^= x >> 33
+    x = (x * 0xFF51AFD7ED558CCD) & _UINT64_MASK
+    x ^= x >> 33
+    x = (x * 0xC4CEB9FE1A85EC53) & _UINT64_MASK
+    x ^= x >> 33
+    return x & _UINT64_MASK
+
+
+def _program_iteration_hash(
+    *,
+    grid_x: int,
+    block_x: int,
+    row_offset: int,
+    row_limit: int,
+    last_program_active_rows: int,
+    inactive_lane_count: int,
+) -> int:
+    return (
+        _mix64(grid_x + 0xD15C2001)
+        ^ _mix64(block_x + 0xD15C2002)
+        ^ _mix64(row_offset + 0xD15C2003)
+        ^ _mix64(row_limit + 0xD15C2004)
+        ^ _mix64(last_program_active_rows + 0xD15C2005)
+        ^ _mix64(inactive_lane_count + 0xD15C2006)
+    ) & _UINT64_MASK
 
 
 def _check_metric_equals(
@@ -1223,6 +1270,10 @@ def _validate_required_evidence_payload(
             dispatch_row_assignment_formula = summary.get(
                 "future_kernel_native_dispatch_consumer_row_assignment_formula",
             )
+            dispatch_program_iteration_hash = _hex64_metric(
+                summary,
+                "future_kernel_native_dispatch_consumer_program_iteration_hash",
+            )
             dispatch_rows_per_program = _int_metric(
                 summary,
                 "future_kernel_native_dispatch_consumer_rows_per_program",
@@ -1374,6 +1425,26 @@ def _validate_required_evidence_payload(
                     failures.append(
                         f"{prefix}_future_kernel_native_dispatch_consumer_inactive_lane_count_mismatch"
                     )
+                if dispatch_program_iteration_hash is None:
+                    failures.append(
+                        f"{prefix}_future_kernel_native_dispatch_consumer_program_iteration_hash_missing"
+                    )
+                elif dispatch_row_offset is not None and dispatch_row_limit is not None:
+                    expected_program_iteration_hash = _program_iteration_hash(
+                        grid_x=dispatch_grid_x,
+                        block_x=dispatch_block_x,
+                        row_offset=dispatch_row_offset,
+                        row_limit=dispatch_row_limit,
+                        last_program_active_rows=expected_last_program_active_rows,
+                        inactive_lane_count=expected_inactive_lane_count,
+                    )
+                    if (
+                        dispatch_program_iteration_hash
+                        != expected_program_iteration_hash
+                    ):
+                        failures.append(
+                            f"{prefix}_future_kernel_native_dispatch_consumer_program_iteration_hash_mismatch"
+                        )
                 if (
                     dispatch_row_offset is not None
                     and dispatch_first_program_row_offset != dispatch_row_offset

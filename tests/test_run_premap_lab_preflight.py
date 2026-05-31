@@ -14,6 +14,7 @@ from mtp_expert_prefetch.runtime.cache_manager import (
     PREMAP_KERNEL_SIDE_TYPED_CONSUMER_SCHEMA_NAME,
 )
 from scripts.run_premap_lab_preflight import main, run_premap_lab_preflight
+from scripts.run_premap_lab_preflight import _program_iteration_hash
 
 
 def _write(path: Path, text: str) -> None:
@@ -869,6 +870,9 @@ def _runner_future_kernel_native_dispatch_consumer_summary(
             "future_kernel_native_dispatch_consumer_inactive_lane_count": 254,
             "future_kernel_native_dispatch_consumer_first_program_row_offset": 0,
             "future_kernel_native_dispatch_consumer_last_program_row_offset": 0,
+            "future_kernel_native_dispatch_consumer_program_iteration_hash": (
+                f"{_program_iteration_hash(grid_x=1, block_x=256, row_offset=0, row_limit=2, last_program_active_rows=2, inactive_lane_count=254):x}"
+            ),
             "future_kernel_native_dispatch_consumer_launch_geometry_checked": True,
             "future_kernel_native_dispatch_consumer_launch_covers_active_rows": True,
             "future_kernel_native_dispatch_consumer_launch_minimal_cover": True,
@@ -2366,6 +2370,76 @@ def test_premap_lab_preflight_rejects_dispatch_non_tail_window(
         "native_typed_consumer_online_prelaunch_canary_runner_json:"
         "runner_future_kernel_native_consumer_dispatch_stub_summary_"
         "future_kernel_native_dispatch_consumer_tail_offset_mismatch"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_dispatch_program_hash_mismatch(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    runner_path = (
+        tmp_path / "reports/default_gate_native_online_prelaunch_canary_runner.json"
+    )
+    payload = json.loads(runner_path.read_text())
+    dispatch = payload["future_kernel_native_consumer_dispatch_stub_summary"]
+    dispatch["future_kernel_native_dispatch_consumer_program_iteration_hash"] = "0"
+    _write(runner_path, json.dumps(payload) + "\n")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is False
+    failures = result["default_readonly_gate_required_evidence_check"]["failures"]
+    assert (
+        "native_typed_consumer_online_prelaunch_canary_runner_json:"
+        "runner_future_kernel_native_consumer_dispatch_stub_summary_"
+        "future_kernel_native_dispatch_consumer_program_iteration_hash_mismatch"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_dispatch_program_hash_missing(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    runner_path = (
+        tmp_path / "reports/default_gate_native_online_prelaunch_canary_runner.json"
+    )
+    payload = json.loads(runner_path.read_text())
+    dispatch = payload["future_kernel_native_consumer_dispatch_stub_summary"]
+    dispatch.pop("future_kernel_native_dispatch_consumer_program_iteration_hash")
+    _write(runner_path, json.dumps(payload) + "\n")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is False
+    failures = result["default_readonly_gate_required_evidence_check"]["failures"]
+    assert (
+        "native_typed_consumer_online_prelaunch_canary_runner_json:"
+        "runner_future_kernel_native_consumer_dispatch_stub_summary_"
+        "future_kernel_native_dispatch_consumer_program_iteration_hash_missing"
     ) in failures
 
 
