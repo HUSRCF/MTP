@@ -1132,19 +1132,31 @@ def _validate_required_evidence_payload(
                 failures.append(
                     f"{prefix}_future_kernel_native_consumer_row_ok_count_mismatch"
                 )
-            if row_count_value is not None and dispatch_row_count != row_count_value:
+            if (
+                dispatch_active_rows is not None
+                and dispatch_row_count != dispatch_active_rows
+            ):
                 failures.append(
                     f"{prefix}_future_kernel_native_dispatch_consumer_row_count_mismatch"
                 )
-            if row_count_value is not None and dispatch_row_ok_count != row_count_value:
+            if (
+                dispatch_active_rows is not None
+                and dispatch_row_ok_count != dispatch_active_rows
+            ):
                 failures.append(
                     f"{prefix}_future_kernel_native_dispatch_consumer_row_ok_count_mismatch"
                 )
-            if row_count_value is not None and mirror_row_count != row_count_value:
+            if (
+                dispatch_active_rows is not None
+                and mirror_row_count != dispatch_active_rows
+            ):
                 failures.append(
                     f"{prefix}_future_kernel_native_dispatch_consumer_mirror_row_count_mismatch"
                 )
-            if row_count_value is not None and mirror_row_ok_count != row_count_value:
+            if (
+                dispatch_active_rows is not None
+                and mirror_row_ok_count != dispatch_active_rows
+            ):
                 failures.append(
                     f"{prefix}_future_kernel_native_dispatch_consumer_mirror_row_ok_count_mismatch"
                 )
@@ -1166,10 +1178,6 @@ def _validate_required_evidence_payload(
             ):
                 failures.append(
                     f"{prefix}_future_kernel_native_dispatch_consumer_active_rows_mismatch"
-                )
-            if row_count_value is not None and dispatch_active_rows != row_count_value:
-                failures.append(
-                    f"{prefix}_future_kernel_native_dispatch_consumer_full_range_mismatch"
                 )
             if (
                 dispatch_grid_x is None

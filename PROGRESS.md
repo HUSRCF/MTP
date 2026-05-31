@@ -22206,6 +22206,28 @@ This remains a native typed-consumer / future-dispatch ABI gate. It still does
 not pass kernel args to WNA16, does not move payload, and does not change the
 real fused-MoE launch.
 
+The default lab preflight now points its future-native dispatch online evidence
+at the adaptive tail-window artifacts. The preflight checker was updated so
+dispatch sub-windows are validated against `active_rows` instead of incorrectly
+requiring every dispatch ABI evidence row to cover the full table.
+
+Default lab preflight after promotion:
+
+```text
+output:
+  outputs/reports/premap_lab_preflight_dispatch_tail_window_default_gate_check.json
+
+passed = true
+default_contract_passed = true
+default_required_evidence_passed = true
+default_optional_evidence_passed = true
+runtime_gate_evidence_scan_passed = true
+strict_default_gate_evidence_passed = true
+payload_bytes_required = 0
+passed_to_kernel_required = false
+changes_kernel_launch_args_required = false
+```
+
 Validation:
 
 ```text
@@ -22217,6 +22239,12 @@ conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
 conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src pytest tests -q
 
 726 passed, 2 warnings
+
+conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
+  pytest tests/test_run_premap_lab_preflight.py \
+         tests/test_run_premap_online_native_stub_canary.py -q
+
+44 passed
 
 git diff --check: clean
 ```
