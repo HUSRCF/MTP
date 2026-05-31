@@ -22033,3 +22033,105 @@ strict decode/provenance/layout requirements = true
 This replaces the older `kvlayout_true` artifact as the path for future strict
 KV-layout recapture.  The old artifact remains useful only as a shape/stride
 reference because it includes prefill-like `q_len > 1` rows and weak provenance.
+
+### Strict Decode KV-Layout Full Sweep + Replay
+
+The strict v2 paged-KV block-table sidework now has a full length sweep:
+
+```text
+root:
+  traceData/vllm_decode_block_table_v2_strict_kvlayout_true/
+
+lengths = 64, 128, 256, 512, 1024, 2048
+samples_per_length = 32
+gen = 64
+gpu = 0
+```
+
+All six JSONL traces pass the locked checker requirements:
+
+```text
+error_count = 0
+q_len = 1 only
+kv_cache_layout.available = true for every record
+sample_indices / record_ids / prompt_lens present
+sequences[].sample_idx present
+sequences[].block_ids present
+block_size_tokens explicitly recorded
+k/v shape, stride, dtype, element_size, and device present
+```
+
+Checker summary:
+
+```text
+plen64:   rows=630 errors=0 kv_layout=630/630 block_size=1056 cache_p50/max=95/127   valid_blocks=1/1 unique_blocks=32
+plen128:  rows=630 errors=0 kv_layout=630/630 block_size=1056 cache_p50/max=160/191  valid_blocks=1/1 unique_blocks=32
+plen256:  rows=630 errors=0 kv_layout=630/630 block_size=1056 cache_p50/max=288/319  valid_blocks=1/1 unique_blocks=32
+plen512:  rows=630 errors=0 kv_layout=630/630 block_size=1056 cache_p50/max=545/575  valid_blocks=1/1 unique_blocks=32
+plen1024: rows=630 errors=0 kv_layout=630/630 block_size=1056 cache_p50/max=1057/1087 valid_blocks=2/2 unique_blocks=63
+plen2048: rows=630 errors=0 kv_layout=630/630 block_size=1056 cache_p50/max=2082/2111 valid_blocks=2/2 unique_blocks=64
+```
+
+The batched records were flattened into one-sequence-per-row JSONL for replay
+consumers:
+
+```text
+flattened_rows = 114820
+```
+
+Capacity plans:
+
+```text
+batched records:
+  records = 3780
+  actual_work_size p50/p90/p99/max = 620 / 4092 / 4224 / 4224
+  recommended_classes = [128, 320, 1152, 4224]
+
+flattened rows:
+  records = 114820
+  actual_work_size p50/p90/p99/max = 20 / 130 / 132 / 132
+  recommended_classes = [64, 192]
+```
+
+unidec replay successfully consumed the flattened real block IDs.  For fused
+`paged-full-producer` over all 114,820 rows:
+
+```text
+real vLLM block_ids:     429.810 ms, 3.743 us/row
+synthetic random:        529.435 ms, 4.611 us/row
+synthetic contiguous:    515.537 ms, 4.490 us/row
+synthetic hot-page:      386.751 ms, 3.368 us/row
+```
+
+For full K/V replay (`paged-full`, `value_dim=32`):
+
+```text
+real vLLM block_ids:     434.053 ms, 3.780 us/row
+synthetic random:        535.060 ms, 4.660 us/row
+synthetic contiguous:    519.803 ms, 4.527 us/row
+synthetic hot-page:      388.823 ms, 3.386 us/row
+```
+
+This is not a vLLM endpoint performance claim.  It is a replay-level locality
+probe showing that the captured vLLM block table is materially better than
+random/contiguous synthetic placement and still leaves a measurable gap to the
+synthetic hot-page upper-locality case.
+
+Relevant files:
+
+```text
+traceData/vllm_decode_block_table_v2_strict_kvlayout_true/SUMMARY.md
+traceData/vllm_decode_block_table_v2_strict_kvlayout_true/jsonl/
+traceData/vllm_decode_block_table_v2_strict_kvlayout_true/jsonl_flattened/
+traceData/vllm_decode_block_table_v2_strict_kvlayout_true/*capacity_plan*.json
+traceData/vllm_decode_block_table_v2_strict_kvlayout_true/replay_*_paged_full*.csv
+```
+
+Validation:
+
+```text
+conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src pytest tests -q
+
+723 passed, 2 warnings
+git diff --check: clean
+```
