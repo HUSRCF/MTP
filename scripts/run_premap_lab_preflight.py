@@ -157,6 +157,8 @@ REQUIRED_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
     "native_typed_consumer_stub_gpu1_canary_json",
     "native_typed_consumer_stub_online_prelaunch_input_canary_json",
     "native_typed_consumer_online_prelaunch_canary_runner_json",
+    "future_kernel_native_dispatch_consumer_online_artifact_check_32_128export_json",
+    "future_kernel_native_dispatch_consumer_online_runner_32_128export_json",
 }
 OPTIONAL_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
     "aux_metadata_single_field_handle_handoff_canary_smoke_json",
@@ -165,8 +167,6 @@ OPTIONAL_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
     "future_kernel_native_consumer_online_runner_16_128export_json",
     "future_kernel_native_dispatch_consumer_online_artifact_check_16_128export_json",
     "future_kernel_native_dispatch_consumer_online_runner_16_128export_json",
-    "future_kernel_native_dispatch_consumer_online_artifact_check_32_128export_json",
-    "future_kernel_native_dispatch_consumer_online_runner_32_128export_json",
     "future_kernel_native_launch_consumer_online_artifact_check_16_128export_json",
     "future_kernel_native_launch_consumer_online_runner_16_128export_json",
     "native_typed_consumer_stub_online_prelaunch_input_per_field_canary_json",

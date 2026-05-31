@@ -21813,8 +21813,8 @@ git diff --check: clean
 ### 2026-05-31 — 32-Input Dispatch Tail-Window Evidence in Default Preflight
 
 The 32-input adaptive dispatch tail-window evidence is now part of the default
-lab gate's machine-checked optional evidence set, not just a manual PROGRESS
-artifact.  The default gate now references:
+lab gate's machine-checked required evidence set, not just a manual PROGRESS
+artifact.  The default gate now requires:
 
 ```text
 future_kernel_native_dispatch_consumer_online_runner_32_128export_json:
@@ -21838,17 +21838,18 @@ passed_to_kernel = false
 changes_kernel_launch_args = false
 ```
 
-Default preflight evidence after adding the 32-input labels:
+Default preflight evidence after promoting the 32-input labels:
 
 ```text
 output:
-  outputs/reports/premap_lab_preflight_dispatch_tail_window_32optional_contract_check.json
+  outputs/reports/premap_lab_preflight_dispatch_tail_window_32required_contract_check.json
 
 passed = true
 default_contract_passed = true
 default_required_evidence_passed = true
 default_optional_evidence_passed = true
-optional_evidence required/present/passed = 12 / 12 / 12
+required_evidence required/present/passed = 13 / 13 / 13
+optional_evidence required/present/passed = 10 / 10 / 10
 ```
 
 Validation:
