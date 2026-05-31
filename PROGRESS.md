@@ -23087,3 +23087,65 @@ future_kernel_native_dispatch_ptr_consumer_current_wna16_arg_compatible = false
 This spot-check exercises the standalone pointer-backed dispatch packet ABI
 directly in the native stub.  It still does not pass arguments to the current
 WNA16 fused-MoE kernel.
+
+## 2026-06-01 - Standalone dispatch-ptr ABI canary is now a default lab preflight requirement
+
+The default readonly/premap lab gate now requires the standalone
+pointer-backed future-native dispatch ABI canary:
+
+```text
+future_kernel_native_dispatch_ptr_standalone_canary_json
+```
+
+This promotes the standalone native stub check from PROGRESS-only evidence into
+the strict default preflight contract.  The required evidence must show:
+
+```text
+input_source = synthetic
+schema_hash matches the kernel-side typed consumer schema
+native / launch / dispatch / dispatch_ptr consumers checked
+row_count == row_ok_count at every consumer layer
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+current_wna16_arg_compatible = false
+required debug macros enabled
+payload dereference / kernel-arg pass macros disabled
+```
+
+The compact preflight status now also exposes the standalone canary fields:
+
+```text
+outputs/reports/premap_lab_preflight_status_default_after_dispatch_ptr_standalone_required.json
+passed = true
+required evidence = 14 / 14
+
+default_kernel_consumer_dispatch_ptr_standalone_evidence_present = true
+default_kernel_consumer_dispatch_ptr_standalone_evidence_passed = true
+default_kernel_consumer_dispatch_ptr_standalone_input_source = synthetic
+default_kernel_consumer_dispatch_ptr_standalone_checked = true
+default_kernel_consumer_dispatch_ptr_standalone_row_count = 1024
+default_kernel_consumer_dispatch_ptr_standalone_row_ok_count = 1024
+default_kernel_consumer_dispatch_ptr_standalone_payload_bytes = 0
+default_kernel_consumer_dispatch_ptr_standalone_passed_to_kernel = false
+default_kernel_consumer_dispatch_ptr_standalone_changes_kernel_launch_args = false
+default_kernel_consumer_dispatch_ptr_standalone_current_wna16_arg_compatible = false
+```
+
+Review follow-up added explicit negative tests for standalone canary schema hash
+mismatch, row-count mismatch, dispatch-ptr packet struct size mismatch, and
+unsafe kernel-arg-pass macro enablement.
+
+Validation:
+
+```text
+conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
+  pytest tests/test_run_premap_lab_preflight.py -q
+
+51 passed
+
+conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
+  pytest tests -q
+
+763 passed, 2 warnings
+```

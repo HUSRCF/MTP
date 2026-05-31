@@ -169,6 +169,7 @@ REQUIRED_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
     "native_typed_consumer_stub_gpu1_canary_json",
     "native_typed_consumer_stub_online_prelaunch_input_canary_json",
     "native_typed_consumer_online_prelaunch_canary_runner_json",
+    "future_kernel_native_dispatch_ptr_standalone_canary_json",
     "future_kernel_native_dispatch_consumer_online_artifact_check_32_128export_json",
     "future_kernel_native_dispatch_consumer_online_runner_32_128export_json",
 }
@@ -611,11 +612,19 @@ def _validate_required_evidence_payload(
         "descriptor_ptr_single_field_handle_handoff_canary_smoke_json",
         "packed_weight_single_field_handle_handoff_canary_smoke_json",
         "native_typed_consumer_online_prelaunch_canary_runner_json",
+        "future_kernel_native_dispatch_ptr_standalone_canary_json",
         *known_stub_labels,
     } and evidence_label not in DISPATCH_WINDOW_RUNNER_EVIDENCE_LABELS and (
         evidence_label not in ONLINE_PRELAUNCH_ARTIFACT_EVIDENCE_LABELS
     ):
         return []
+    if evidence_label == "future_kernel_native_dispatch_ptr_standalone_canary_json":
+        return [
+            f"{evidence_label}:{failure}"
+            for failure in _validate_future_native_dispatch_ptr_standalone_evidence(
+                evidence
+            )
+        ]
     if evidence_label in ONLINE_PRELAUNCH_ARTIFACT_EVIDENCE_LABELS:
         failures: list[str] = []
         min_online_inputs = _int_metric(evidence, "min_online_inputs")
@@ -2371,6 +2380,120 @@ def _validate_native_typed_consumer_stub_evidence(
     return failures
 
 
+def _validate_future_native_dispatch_ptr_standalone_evidence(
+    evidence: dict[str, Any],
+) -> list[str]:
+    failures: list[str] = []
+    row_count = _int_metric(evidence, "row_count")
+    if row_count is None or row_count <= 0:
+        failures.append("standalone_dispatch_ptr_row_count_invalid")
+    expected_values = {
+        "passed": True,
+        "ok": True,
+        "error_count": 0,
+        "payload_bytes": 0,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "input_source": "synthetic",
+        "expected_schema_hash": PREMAP_KERNEL_SIDE_TYPED_CONSUMER_SCHEMA_HASH,
+        "future_kernel_native_consumer_checked": True,
+        "future_kernel_native_consumer_error_count": 0,
+        "future_kernel_native_consumer_payload_bytes": 0,
+        "future_kernel_native_consumer_passed_to_kernel": False,
+        "future_kernel_native_consumer_changes_kernel_launch_args": False,
+        "future_kernel_native_consumer_current_wna16_arg_compatible": False,
+        "future_kernel_native_launch_consumer_checked": True,
+        "future_kernel_native_launch_consumer_error_count": 0,
+        "future_kernel_native_launch_consumer_payload_bytes": 0,
+        "future_kernel_native_launch_consumer_passed_to_kernel": False,
+        "future_kernel_native_launch_consumer_changes_kernel_launch_args": False,
+        "future_kernel_native_launch_consumer_current_wna16_arg_compatible": False,
+        "future_kernel_native_dispatch_consumer_checked": True,
+        "future_kernel_native_dispatch_consumer_error_count": 0,
+        "future_kernel_native_dispatch_consumer_payload_bytes": 0,
+        "future_kernel_native_dispatch_consumer_passed_to_kernel": False,
+        "future_kernel_native_dispatch_consumer_changes_kernel_launch_args": False,
+        "future_kernel_native_dispatch_consumer_current_wna16_arg_compatible": False,
+        "future_kernel_native_dispatch_ptr_consumer_checked": True,
+        "future_kernel_native_dispatch_ptr_consumer_error_count": 0,
+        "future_kernel_native_dispatch_ptr_consumer_payload_bytes": 0,
+        "future_kernel_native_dispatch_ptr_consumer_passed_to_kernel": False,
+        "future_kernel_native_dispatch_ptr_consumer_changes_kernel_launch_args": False,
+        "future_kernel_native_dispatch_ptr_consumer_current_wna16_arg_compatible": False,
+    }
+    for key, expected_value in expected_values.items():
+        if evidence.get(key) != expected_value:
+            failures.append(f"standalone_dispatch_ptr_{key}_mismatch")
+    row_count_keys = (
+        "row_ok_count",
+        "future_kernel_native_consumer_row_count",
+        "future_kernel_native_consumer_row_ok_count",
+        "future_kernel_native_launch_consumer_row_count",
+        "future_kernel_native_launch_consumer_row_ok_count",
+        "future_kernel_native_dispatch_consumer_row_count",
+        "future_kernel_native_dispatch_consumer_row_ok_count",
+        "future_kernel_native_dispatch_consumer_active_rows",
+        "future_kernel_native_dispatch_consumer_row_limit",
+        "future_kernel_native_dispatch_ptr_consumer_row_count",
+        "future_kernel_native_dispatch_ptr_consumer_row_ok_count",
+    )
+    if row_count is not None:
+        for key in row_count_keys:
+            if _int_metric(evidence, key) != row_count:
+                failures.append(f"standalone_dispatch_ptr_{key}_mismatch")
+    if _int_metric(evidence, "future_kernel_native_dispatch_consumer_row_offset") != 0:
+        failures.append("standalone_dispatch_ptr_dispatch_row_offset_mismatch")
+    if (
+        _int_metric(evidence, "future_kernel_native_dispatch_ptr_consumer_packet_struct_size")
+        != FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_PTR_ABI_LAYOUT_EXPECTED[
+            "future_kernel_native_dispatch_ptr_consumer_packet_struct_size"
+        ]
+    ):
+        failures.append("standalone_dispatch_ptr_packet_struct_size_mismatch")
+    if (
+        _int_metric(evidence, "future_kernel_native_dispatch_ptr_consumer_dispatch_struct_size")
+        != FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_PTR_ABI_LAYOUT_EXPECTED[
+            "future_kernel_native_dispatch_ptr_consumer_dispatch_struct_size"
+        ]
+    ):
+        failures.append("standalone_dispatch_ptr_dispatch_struct_size_mismatch")
+    if (
+        _int_metric(evidence, "future_kernel_native_dispatch_ptr_consumer_result_struct_size")
+        != FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_PTR_ABI_LAYOUT_EXPECTED[
+            "future_kernel_native_dispatch_ptr_consumer_result_struct_size"
+        ]
+    ):
+        failures.append("standalone_dispatch_ptr_result_struct_size_mismatch")
+    macros = evidence.get("compiled_macros")
+    if not isinstance(macros, dict):
+        failures.append("standalone_dispatch_ptr_compiled_macros_missing")
+        macros = {}
+    required_enabled = (
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCHEMA",
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_ROW_ITERATION",
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_POINTER_VISIBILITY",
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR",
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_DESCRIPTOR",
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_HANDLE",
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_LIFETIME",
+        "MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR",
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ABI",
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ABI",
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_ABI",
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_PTR_ABI",
+    )
+    for macro in required_enabled:
+        if macros.get(macro) is not True:
+            failures.append(f"standalone_dispatch_ptr_{macro}_not_enabled")
+    for forbidden in (
+        "MTP_PREMAP_TYPED_CONSUMER_ENABLE_PAYLOAD_DEREF",
+        "MTP_PREMAP_TYPED_CONSUMER_ENABLE_KERNEL_ARG_PASS",
+    ):
+        if macros.get(forbidden):
+            failures.append(f"standalone_dispatch_ptr_{forbidden}_enabled")
+    return failures
+
+
 def _check_optional_default_gate_evidence_json(
     gate_path: str,
     *,
@@ -3176,6 +3299,28 @@ def run_premap_lab_preflight(
         dispatch_runner_evidence_label,
         root=root,
     )
+    dispatch_ptr_standalone_evidence_label = (
+        "future_kernel_native_dispatch_ptr_standalone_canary_json"
+    )
+    dispatch_ptr_standalone_evidence_row = _find_evidence_row(
+        default_gate_required_evidence_check,
+        dispatch_ptr_standalone_evidence_label,
+    )
+    dispatch_ptr_standalone_evidence_present = (
+        dispatch_ptr_standalone_evidence_row.get("exists") is True
+    )
+    dispatch_ptr_standalone_evidence_passed = (
+        dispatch_ptr_standalone_evidence_present
+        and dispatch_ptr_standalone_evidence_row.get("valid_json") is True
+        and dispatch_ptr_standalone_evidence_row.get("passed_value") is True
+        and dispatch_ptr_standalone_evidence_row.get("failures_value") == []
+        and "failure" not in dispatch_ptr_standalone_evidence_row
+    )
+    dispatch_ptr_standalone_payload = _load_evidence_payload_from_check(
+        default_gate_required_evidence_check,
+        dispatch_ptr_standalone_evidence_label,
+        root=root,
+    )
     dispatch_runner_summary = dispatch_runner_payload.get(
         "future_kernel_native_consumer_dispatch_stub_summary",
     )
@@ -3288,6 +3433,66 @@ def run_premap_lab_preflight(
         ),
         "default_kernel_consumer_dispatch_runner_evidence_failure": (
             dispatch_runner_evidence_row.get("failure")
+        ),
+        "default_kernel_consumer_dispatch_ptr_standalone_evidence_label": (
+            dispatch_ptr_standalone_evidence_label
+        ),
+        "default_kernel_consumer_dispatch_ptr_standalone_evidence_path": (
+            dispatch_ptr_standalone_evidence_row.get("path")
+        ),
+        "default_kernel_consumer_dispatch_ptr_standalone_evidence_present": (
+            dispatch_ptr_standalone_evidence_present
+        ),
+        "default_kernel_consumer_dispatch_ptr_standalone_evidence_passed": (
+            dispatch_ptr_standalone_evidence_passed
+        ),
+        "default_kernel_consumer_dispatch_ptr_standalone_evidence_failure": (
+            dispatch_ptr_standalone_evidence_row.get("failure")
+        ),
+        "default_kernel_consumer_dispatch_ptr_standalone_input_source": (
+            dispatch_ptr_standalone_payload.get("input_source")
+        ),
+        "default_kernel_consumer_dispatch_ptr_standalone_checked": (
+            _bool_metric(
+                dispatch_ptr_standalone_payload,
+                "future_kernel_native_dispatch_ptr_consumer_checked",
+            )
+        ),
+        "default_kernel_consumer_dispatch_ptr_standalone_row_count": (
+            _int_metric(
+                dispatch_ptr_standalone_payload,
+                "future_kernel_native_dispatch_ptr_consumer_row_count",
+            )
+        ),
+        "default_kernel_consumer_dispatch_ptr_standalone_row_ok_count": (
+            _int_metric(
+                dispatch_ptr_standalone_payload,
+                "future_kernel_native_dispatch_ptr_consumer_row_ok_count",
+            )
+        ),
+        "default_kernel_consumer_dispatch_ptr_standalone_payload_bytes": (
+            _int_metric(
+                dispatch_ptr_standalone_payload,
+                "future_kernel_native_dispatch_ptr_consumer_payload_bytes",
+            )
+        ),
+        "default_kernel_consumer_dispatch_ptr_standalone_passed_to_kernel": (
+            _bool_metric(
+                dispatch_ptr_standalone_payload,
+                "future_kernel_native_dispatch_ptr_consumer_passed_to_kernel",
+            )
+        ),
+        "default_kernel_consumer_dispatch_ptr_standalone_changes_kernel_launch_args": (
+            _bool_metric(
+                dispatch_ptr_standalone_payload,
+                "future_kernel_native_dispatch_ptr_consumer_changes_kernel_launch_args",
+            )
+        ),
+        "default_kernel_consumer_dispatch_ptr_standalone_current_wna16_arg_compatible": (
+            _bool_metric(
+                dispatch_ptr_standalone_payload,
+                "future_kernel_native_dispatch_ptr_consumer_current_wna16_arg_compatible",
+            )
         ),
         "default_kernel_consumer_dispatch_checked": (
             _bool_metric(
