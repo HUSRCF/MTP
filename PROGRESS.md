@@ -23015,3 +23015,50 @@ conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
 Current status: the lab default now requires full-table dispatch coverage and a
 pointer-backed future kernel dispatch packet, while still forbidding payload
 movement and live WNA16 kernel-arg mutation.
+
+## 2026-06-01 - Default preflight status exposes full-table dispatch evidence
+
+The compact default lab preflight status now flattens the required 32-input
+future-native dispatch runner fields, so the status artifact can be used as the
+first lab preflight entry point without manually opening the runner evidence.
+
+New status fields include:
+
+```text
+default_kernel_consumer_dispatch_full_table_required = true
+default_kernel_consumer_dispatch_checked = true
+default_kernel_consumer_dispatch_row_count = 174
+default_kernel_consumer_dispatch_row_ok_count = 174
+default_kernel_consumer_dispatch_active_rows = 174
+default_kernel_consumer_dispatch_row_offset = 0
+default_kernel_consumer_dispatch_row_limit = 174
+default_kernel_consumer_dispatch_full_table_checked = true
+default_kernel_consumer_dispatch_payload_bytes = 0
+default_kernel_consumer_dispatch_passed_to_kernel = false
+default_kernel_consumer_dispatch_changes_kernel_launch_args = false
+
+default_kernel_consumer_dispatch_ptr_required = true
+default_kernel_consumer_dispatch_ptr_checked = true
+default_kernel_consumer_dispatch_ptr_row_count = 174
+default_kernel_consumer_dispatch_ptr_row_ok_count = 174
+default_kernel_consumer_dispatch_ptr_payload_bytes = 0
+default_kernel_consumer_dispatch_ptr_passed_to_kernel = false
+default_kernel_consumer_dispatch_ptr_changes_kernel_launch_args = false
+default_kernel_consumer_dispatch_ptr_current_wna16_arg_compatible = false
+```
+
+Generated artifact:
+
+```text
+outputs/reports/premap_lab_preflight_status_default_after_dispatch_ptr_status_flatten.json
+passed = true
+```
+
+Validation:
+
+```text
+conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
+  pytest tests -q
+
+759 passed, 2 warnings
+```

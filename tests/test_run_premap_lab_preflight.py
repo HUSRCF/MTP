@@ -1782,6 +1782,21 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
         summary["default_kernel_consumer_dispatch_abi_current_wna16_arg_compatible"]
         is False
     )
+    assert summary["default_kernel_consumer_dispatch_full_table_required"] is True
+    assert summary["default_kernel_consumer_dispatch_checked"] is True
+    assert summary["default_kernel_consumer_dispatch_row_count"] == 2
+    assert summary["default_kernel_consumer_dispatch_row_ok_count"] == 2
+    assert summary["default_kernel_consumer_dispatch_active_rows"] == 2
+    assert summary["default_kernel_consumer_dispatch_row_offset"] == 0
+    assert summary["default_kernel_consumer_dispatch_row_limit"] == 2
+    assert summary["default_kernel_consumer_dispatch_payload_bytes"] == 0
+    assert summary["default_kernel_consumer_dispatch_passed_to_kernel"] is False
+    assert summary["default_kernel_consumer_dispatch_changes_kernel_launch_args"] is False
+    assert (
+        summary["default_kernel_consumer_dispatch_current_wna16_arg_compatible"]
+        is False
+    )
+    assert summary["default_kernel_consumer_dispatch_full_table_checked"] is True
     assert (
         summary["default_kernel_consumer_dispatch_ptr_abi_name"]
         == "premap_future_kernel_native_consumer_dispatch_ptr_abi_v1"
@@ -1804,6 +1819,23 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
         ]
         is False
     )
+    assert summary["default_kernel_consumer_dispatch_ptr_required"] is True
+    assert summary["default_kernel_consumer_dispatch_ptr_checked"] is True
+    assert summary["default_kernel_consumer_dispatch_ptr_row_count"] == 2
+    assert summary["default_kernel_consumer_dispatch_ptr_row_ok_count"] == 2
+    assert summary["default_kernel_consumer_dispatch_ptr_error_count"] == 0
+    assert summary["default_kernel_consumer_dispatch_ptr_payload_bytes"] == 0
+    assert summary["default_kernel_consumer_dispatch_ptr_passed_to_kernel"] is False
+    assert (
+        summary["default_kernel_consumer_dispatch_ptr_changes_kernel_launch_args"]
+        is False
+    )
+    assert (
+        summary["default_kernel_consumer_dispatch_ptr_current_wna16_arg_compatible"]
+        is False
+    )
+    assert summary["default_kernel_consumer_dispatch_ptr_mirror_row_count"] == 2
+    assert summary["default_kernel_consumer_dispatch_ptr_mirror_row_ok_count"] == 2
     assert summary["default_required_evidence_passed"] is True
     assert summary["default_optional_evidence_passed"] is True
     assert summary["runtime_gate_evidence_deferred_count"] == 0

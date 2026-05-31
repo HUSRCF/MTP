@@ -2834,6 +2834,30 @@ def _summarize_required_evidence_check(
     }
 
 
+def _load_evidence_payload_from_check(
+    check: dict[str, Any],
+    label: str,
+    *,
+    root: Path,
+) -> dict[str, Any]:
+    rows = check.get("rows")
+    if not isinstance(rows, list):
+        return {}
+    for row in rows:
+        if not isinstance(row, dict) or row.get("label") != label:
+            continue
+        raw_path = row.get("path")
+        if not isinstance(raw_path, str) or not raw_path:
+            return {}
+        path = _path_for_label(raw_path, root)
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+            return {}
+        return payload if isinstance(payload, dict) else {}
+    return {}
+
+
 def _check_risky_canary_gate_metadata(
     gate_path: str,
     *,
@@ -3118,6 +3142,16 @@ def run_premap_lab_preflight(
     evidence_summary = _summarize_required_evidence_check(
         default_gate_required_evidence_check
     )
+    dispatch_runner_payload = _load_evidence_payload_from_check(
+        default_gate_required_evidence_check,
+        "future_kernel_native_dispatch_consumer_online_runner_32_128export_json",
+        root=root,
+    )
+    dispatch_runner_summary = dispatch_runner_payload.get(
+        "future_kernel_native_consumer_dispatch_stub_summary",
+    )
+    if not isinstance(dispatch_runner_summary, dict):
+        dispatch_runner_summary = {}
     schema_summary = (
         default_kernel_consumer_schema_check.get("schema_check")
         if isinstance(default_kernel_consumer_schema_check.get("schema_check"), dict)
@@ -3164,6 +3198,79 @@ def run_premap_lab_preflight(
                 "future_kernel_native_consumer_dispatch_abi_current_wna16_arg_compatible"
             )
         ),
+        "default_kernel_consumer_dispatch_full_table_required": (
+            REQUIRED_DEFAULT_GATE_CONTRACT[
+                "future_kernel_native_dispatch_consumer_full_table_required"
+            ]
+        ),
+        "default_kernel_consumer_dispatch_checked": (
+            dispatch_runner_summary.get(
+                "future_kernel_native_dispatch_consumer_checked"
+            )
+        ),
+        "default_kernel_consumer_dispatch_row_count": (
+            dispatch_runner_summary.get(
+                "future_kernel_native_dispatch_consumer_row_count"
+            )
+        ),
+        "default_kernel_consumer_dispatch_row_ok_count": (
+            dispatch_runner_summary.get(
+                "future_kernel_native_dispatch_consumer_row_ok_count"
+            )
+        ),
+        "default_kernel_consumer_dispatch_active_rows": (
+            dispatch_runner_summary.get(
+                "future_kernel_native_dispatch_consumer_active_rows"
+            )
+        ),
+        "default_kernel_consumer_dispatch_row_offset": (
+            dispatch_runner_summary.get(
+                "future_kernel_native_dispatch_consumer_row_offset"
+            )
+        ),
+        "default_kernel_consumer_dispatch_row_limit": (
+            dispatch_runner_summary.get(
+                "future_kernel_native_dispatch_consumer_row_limit"
+            )
+        ),
+        "default_kernel_consumer_dispatch_payload_bytes": (
+            dispatch_runner_summary.get(
+                "future_kernel_native_dispatch_consumer_payload_bytes"
+            )
+        ),
+        "default_kernel_consumer_dispatch_passed_to_kernel": (
+            dispatch_runner_summary.get(
+                "future_kernel_native_dispatch_consumer_passed_to_kernel"
+            )
+        ),
+        "default_kernel_consumer_dispatch_changes_kernel_launch_args": (
+            dispatch_runner_summary.get(
+                "future_kernel_native_dispatch_consumer_changes_kernel_launch_args"
+            )
+        ),
+        "default_kernel_consumer_dispatch_current_wna16_arg_compatible": (
+            dispatch_runner_summary.get(
+                "future_kernel_native_dispatch_consumer_current_wna16_arg_compatible"
+            )
+        ),
+        "default_kernel_consumer_dispatch_full_table_checked": (
+            dispatch_runner_summary.get(
+                "future_kernel_native_dispatch_consumer_row_offset"
+            )
+            == 0
+            and dispatch_runner_summary.get(
+                "future_kernel_native_dispatch_consumer_row_limit"
+            )
+            == dispatch_runner_summary.get(
+                "future_kernel_native_dispatch_consumer_row_count"
+            )
+            and dispatch_runner_summary.get(
+                "future_kernel_native_dispatch_consumer_active_rows"
+            )
+            == dispatch_runner_summary.get(
+                "future_kernel_native_dispatch_consumer_row_count"
+            )
+        ),
         "default_kernel_consumer_dispatch_ptr_abi_name": (
             schema_summary.get("future_kernel_native_consumer_dispatch_ptr_abi_name")
         ),
@@ -3179,6 +3286,61 @@ def run_premap_lab_preflight(
         "default_kernel_consumer_dispatch_ptr_abi_current_wna16_arg_compatible": (
             schema_summary.get(
                 "future_kernel_native_consumer_dispatch_ptr_abi_current_wna16_arg_compatible"
+            )
+        ),
+        "default_kernel_consumer_dispatch_ptr_required": (
+            REQUIRED_DEFAULT_GATE_CONTRACT[
+                "future_kernel_native_dispatch_ptr_consumer_required"
+            ]
+        ),
+        "default_kernel_consumer_dispatch_ptr_checked": (
+            dispatch_runner_summary.get(
+                "future_kernel_native_dispatch_ptr_consumer_checked"
+            )
+        ),
+        "default_kernel_consumer_dispatch_ptr_row_count": (
+            dispatch_runner_summary.get(
+                "future_kernel_native_dispatch_ptr_consumer_row_count"
+            )
+        ),
+        "default_kernel_consumer_dispatch_ptr_row_ok_count": (
+            dispatch_runner_summary.get(
+                "future_kernel_native_dispatch_ptr_consumer_row_ok_count"
+            )
+        ),
+        "default_kernel_consumer_dispatch_ptr_error_count": (
+            dispatch_runner_summary.get(
+                "future_kernel_native_dispatch_ptr_consumer_error_count"
+            )
+        ),
+        "default_kernel_consumer_dispatch_ptr_payload_bytes": (
+            dispatch_runner_summary.get(
+                "future_kernel_native_dispatch_ptr_consumer_payload_bytes"
+            )
+        ),
+        "default_kernel_consumer_dispatch_ptr_passed_to_kernel": (
+            dispatch_runner_summary.get(
+                "future_kernel_native_dispatch_ptr_consumer_passed_to_kernel"
+            )
+        ),
+        "default_kernel_consumer_dispatch_ptr_changes_kernel_launch_args": (
+            dispatch_runner_summary.get(
+                "future_kernel_native_dispatch_ptr_consumer_changes_kernel_launch_args"
+            )
+        ),
+        "default_kernel_consumer_dispatch_ptr_current_wna16_arg_compatible": (
+            dispatch_runner_summary.get(
+                "future_kernel_native_dispatch_ptr_consumer_current_wna16_arg_compatible"
+            )
+        ),
+        "default_kernel_consumer_dispatch_ptr_mirror_row_count": (
+            dispatch_runner_summary.get(
+                "future_kernel_native_dispatch_ptr_consumer_single_field_mirror_row_count"
+            )
+        ),
+        "default_kernel_consumer_dispatch_ptr_mirror_row_ok_count": (
+            dispatch_runner_summary.get(
+                "future_kernel_native_dispatch_ptr_consumer_single_field_mirror_row_ok_count"
             )
         ),
         "default_required_evidence_passed": bool(
