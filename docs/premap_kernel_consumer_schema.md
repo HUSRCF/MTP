@@ -61,6 +61,26 @@ The native canary consumes the table through:
 PremapKernelSideTypedConsumerAbiV1
 ```
 
+The current lab gate has also advanced through readonly launch and dispatch
+ABI envelopes:
+
+```cpp
+PremapFutureKernelNativeConsumerParamsV1
+PremapFutureKernelNativeConsumerLaunchV1
+PremapFutureKernelNativeConsumerDispatchV1
+```
+
+The dispatch envelope is still a future-consumer ABI, not a current WNA16
+kernel argument. It validates the row window a future kernel would receive:
+
+- `grid_x`, `block_x`, and `shared_mem_bytes`;
+- `row_offset`, `row_limit`, and active row coverage;
+- `rows_per_program == block_x`;
+- row assignment formula
+  `row_offset + program_id * rows_per_program + lane_id`;
+- minimal launch cover and inactive lane accounting;
+- a `program_iteration_hash` over the launch geometry and tail-program shape.
+
 The machine-readable schema records the ABI binding explicitly:
 
 ```yaml
@@ -81,6 +101,12 @@ native_consumer_abi:
   launch_envelope_default_enabled: false
   launch_envelope_payload_bytes_required: 0
   launch_envelope_passed_to_kernel_required: false
+  future_kernel_native_consumer_dispatch_abi_name: premap_future_kernel_native_consumer_dispatch_abi_v1
+  future_kernel_native_consumer_dispatch_abi_struct: PremapFutureKernelNativeConsumerDispatchV1
+  future_kernel_native_consumer_dispatch_abi_mode: readonly_future_kernel_native_consumer_dispatch_abi
+  future_kernel_native_consumer_dispatch_abi_default_enabled: false
+  future_kernel_native_consumer_dispatch_abi_payload_bytes_required: 0
+  future_kernel_native_consumer_dispatch_abi_passed_to_kernel_required: false
 ```
 
 This ABI is intentionally separate from the WNA16 launch argument schema.  A
@@ -143,12 +169,42 @@ bridge hashes semantic string handles into deterministic non-zero u64 handle
 identities for native row-iteration checks. It remains a no-payload identity
 bridge, not a live WNA16 kernel argument handoff.
 
+## Current Evidence
+
+Current post-review evidence:
+
+```text
+runner:
+  outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_dispatch_window_tail4_32input.json
+
+artifact check:
+  outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_artifact_check_dispatch_window_tail4_32input.json
+
+lab preflight:
+  outputs/reports/premap_lab_preflight_post_review_latest_status.json
+
+online_prelaunch_input_check_count = 32
+online_prelaunch_input_extra_check_passed_count = 31 / 31
+tail_window_size = 4
+runtime_gate_evidence_deferred_count = 0
+strict_default_gate_evidence_deferred_count = 0
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+```
+
+The artifact checker now cross-checks runtime and strict deferred evidence
+counts against the full preflight evidence scan, and the lab preflight rejects
+artifact-only evidence deferral. Tests also cover multi-program dispatch
+windows (`grid_x > 1`) so the future row assignment formula is validated beyond
+the single-program tail-window case.
+
 ## Next Gates
 
-1. Build a small HIP/C++ native stub that consumes this table and validates
-   schema/layout/row iteration without touching the real WNA16 kernel.
-2. Feed the prelaunch shim typed object into that stub under the existing lab
-   gate.
-3. Only after native-stub parity passes should a single-field replacement canary
-   be considered, default disabled, starting with metadata/scale handles rather
+1. Keep the current readonly dispatch ABI as the default lab preflight
+   condition.
+2. Build the next native consumer stub as a real future-kernel-compatible ABI
+   path, still independent from current WNA16 kernel args.
+3. Only after that native path passes should a single-field handoff canary be
+   considered, default disabled, starting with metadata/scale handles rather
    than payload pointers.
