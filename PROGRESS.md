@@ -35,6 +35,10 @@ premap_lab_preflight_status_dispatch_program_iteration_32required_contract_check
     premap_future_kernel_native_consumer_dispatch_abi_v1
   default_kernel_consumer_dispatch_abi_struct =
     PremapFutureKernelNativeConsumerDispatchV1
+  default_kernel_consumer_dispatch_abi_mode =
+    readonly_future_kernel_native_consumer_dispatch_abi
+  default_kernel_consumer_dispatch_abi_row_assignment_formula =
+    row_offset + program_id * rows_per_program + lane_id
   default_kernel_consumer_dispatch_abi_current_wna16_arg_compatible = false
   payload_bytes_required = 0
   passed_to_kernel_required = false

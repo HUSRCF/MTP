@@ -2940,6 +2940,14 @@ def run_premap_lab_preflight(
         "default_kernel_consumer_dispatch_abi_struct": (
             schema_summary.get("future_kernel_native_consumer_dispatch_abi_struct")
         ),
+        "default_kernel_consumer_dispatch_abi_mode": (
+            schema_summary.get("future_kernel_native_consumer_dispatch_abi_mode")
+        ),
+        "default_kernel_consumer_dispatch_abi_row_assignment_formula": (
+            schema_summary.get(
+                "future_kernel_native_consumer_dispatch_abi_row_assignment_formula"
+            )
+        ),
         "default_kernel_consumer_dispatch_abi_current_wna16_arg_compatible": (
             schema_summary.get(
                 "future_kernel_native_consumer_dispatch_abi_current_wna16_arg_compatible"

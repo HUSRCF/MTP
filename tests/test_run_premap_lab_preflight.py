@@ -1573,6 +1573,14 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
         == "premap_future_kernel_native_consumer_dispatch_abi_v1"
     )
     assert (
+        summary["default_kernel_consumer_dispatch_abi_mode"]
+        == "readonly_future_kernel_native_consumer_dispatch_abi"
+    )
+    assert (
+        summary["default_kernel_consumer_dispatch_abi_row_assignment_formula"]
+        == "row_offset + program_id * rows_per_program + lane_id"
+    )
+    assert (
         summary["default_kernel_consumer_dispatch_abi_current_wna16_arg_compatible"]
         is False
     )
