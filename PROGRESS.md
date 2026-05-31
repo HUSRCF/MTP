@@ -22900,3 +22900,73 @@ conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
 Current status: this is the closest native-stub ABI so far to a future
 kernel-side typed consumer argument shape, but it still does not pass any
 argument to the live WNA16 fused-MoE kernel and does not move payload.
+
+## 2026-06-01 - Full-table future-native dispatch lab gate
+
+The default lab preflight now requires full-table future-native dispatch
+evidence instead of the earlier tail-window/tail4 canary.  The default runtime
+gate contract uses:
+
+```text
+future_kernel_native_dispatch_consumer_full_table_required = true
+```
+
+and rejects stale tail-window contract keys or runner fields.  In full-table
+mode, the online runner must not contain `future_native_dispatch_tail_window_size`
+at all, including a null value.  The native dispatch summary must cover the
+entire table:
+
+```text
+row_offset = 0
+row_limit = row_count
+active_rows = row_count
+```
+
+The accepted default evidence is now:
+
+```text
+runner:
+  outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_dispatch_full_32input_nodefer.json
+
+artifact check:
+  outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_artifact_check_dispatch_full_32input_nodefer.json
+
+preflight status:
+  outputs/reports/premap_lab_preflight_status_default_after_full_dispatch_evidence_reviewfix.json
+```
+
+The regenerated full-table runner reports:
+
+```text
+passed = true
+online_prelaunch_input_check_count = 32
+online_prelaunch_input_extra_check_passed_count = 31 / 31
+future_native_dispatch_tail_window_size present = false
+dispatch row_count = 174
+dispatch row_offset / row_limit / active_rows = 0 / 174 / 174
+dispatch_ptr checked = true
+dispatch_ptr row_ok_count = 174 / 174
+dispatch_ptr passed_to_kernel = false
+dispatch_ptr changes_kernel_launch_args = false
+```
+
+Safety boundary remains unchanged:
+
+```text
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+current_wna16_arg_compatible = false
+```
+
+Review and validation:
+
+- A GPT-5.3-Codex-Spark review found no blocker after the full-table switch.
+- Review follow-up fixed null-tail acceptance, stale tail-window contract
+  coexistence, and full-table limit/active-row test coverage.
+- `conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src pytest tests -q`
+  passes with `758 passed, 2 warnings`.
+
+Current status: the lab preflight now guards the closest native-stub dispatch
+shape with full-table coverage while still keeping payload movement and live
+WNA16 kernel-arg mutation disabled.
