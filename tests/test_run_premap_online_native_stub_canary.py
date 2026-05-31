@@ -249,7 +249,7 @@ def test_run_canary_dry_run_includes_compact_preflight_status(
     assert result["passed"] is True
     assert result["future_native_dispatch_row_offset"] == 1
     assert result["future_native_dispatch_row_limit"] == 5
-    assert result["future_native_dispatch_tail_window_size"] is None
+    assert "future_native_dispatch_tail_window_size" not in result
     assert "preflight_status" in result["steps"]
     assert "native_stub_per_field" in result["steps"]
     assert "native_stub_kernel_envelope_mirror" in result["steps"]
@@ -428,6 +428,39 @@ def test_run_canary_dry_run_includes_compact_preflight_status(
         in result["steps"]["preflight_status"]["cmd"]
     )
     assert "runtime_gate_evidence_deferred_count" in result["preflight_status_summary"]
+
+
+def test_run_canary_dry_run_includes_explicit_tail_window_size(
+    tmp_path: Path,
+    monkeypatch,
+):
+    config = tmp_path / "trace.yaml"
+    config.write_text("output_dir: outputs/example\n", encoding="utf-8")
+
+    import scripts.run_premap_online_native_stub_canary as canary
+
+    monkeypatch.setattr(canary, "REPO_ROOT", tmp_path)
+    args = build_parser().parse_args(
+        [
+            "--trace-config",
+            str(config),
+            "--future-native-dispatch-tail-window-size",
+            "4",
+            "--dry-run",
+        ]
+    )
+
+    result = run_canary(args)
+
+    assert result["passed"] is True
+    assert result["future_native_dispatch_tail_window_size"] == 4
+    dispatch_cmd = result["steps"][
+        "native_stub_future_kernel_native_consumer_dispatch_abi"
+    ]["cmd"]
+    assert "--dispatch-row-offset" in dispatch_cmd
+    assert "0" in dispatch_cmd
+    assert "--dispatch-row-limit" in dispatch_cmd
+    assert "4" in dispatch_cmd
     assert (
         "strict_default_gate_evidence_deferred_count"
         in result["preflight_status_summary"]

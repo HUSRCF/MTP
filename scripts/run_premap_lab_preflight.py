@@ -98,8 +98,7 @@ REQUIRED_DEFAULT_GATE_CONTRACT = {
     "future_kernel_consumer_args_current_wna16_arg_compatible_required": False,
     "future_kernel_consumer_args_single_field_mirror_required": True,
     "future_kernel_consumer_args_single_field_mirror_field": "scale_metadata_handle",
-    "future_kernel_native_dispatch_consumer_tail_window_required": True,
-    "future_kernel_native_dispatch_consumer_tail_window_size": 4,
+    "future_kernel_native_dispatch_consumer_full_table_required": True,
     "future_kernel_native_dispatch_consumer_program_iteration_required": True,
     "future_kernel_native_dispatch_consumer_row_assignment_formula": (
         "row_offset + program_id * rows_per_program + lane_id"
@@ -740,20 +739,43 @@ def _validate_required_evidence_payload(
             failures.append("runner_online_input_extra_check_count_mismatch")
         if extra_passed_count != expected_extra:
             failures.append("runner_online_input_extra_check_passed_count_mismatch")
+        dispatch_full_table_required = bool(
+            REQUIRED_DEFAULT_GATE_CONTRACT.get(
+                "future_kernel_native_dispatch_consumer_full_table_required",
+                False,
+            )
+        )
         dispatch_tail_window_size = None
         if evidence_label in DISPATCH_WINDOW_RUNNER_EVIDENCE_LABELS:
+            dispatch_tail_window_present = (
+                "future_native_dispatch_tail_window_size" in evidence
+            )
             dispatch_tail_window_size = _int_metric(
                 evidence,
                 "future_native_dispatch_tail_window_size",
             )
-            expected_tail_window_size = int(
-                REQUIRED_DEFAULT_GATE_CONTRACT[
-                    "future_kernel_native_dispatch_consumer_tail_window_size"
-                ]
-            )
-            if dispatch_tail_window_size != expected_tail_window_size:
+            if dispatch_full_table_required:
+                if dispatch_tail_window_present:
+                    failures.append(
+                        "runner_future_native_dispatch_tail_window_unexpected"
+                    )
+                dispatch_tail_window_size = None
+            elif REQUIRED_DEFAULT_GATE_CONTRACT.get(
+                "future_kernel_native_dispatch_consumer_tail_window_required",
+                False,
+            ):
+                expected_tail_window_size = int(
+                    REQUIRED_DEFAULT_GATE_CONTRACT[
+                        "future_kernel_native_dispatch_consumer_tail_window_size"
+                    ]
+                )
+                if dispatch_tail_window_size != expected_tail_window_size:
+                    failures.append(
+                        "runner_future_native_dispatch_tail_window_size_mismatch"
+                    )
+            elif dispatch_tail_window_size is not None:
                 failures.append(
-                    "runner_future_native_dispatch_tail_window_size_mismatch"
+                    "runner_future_native_dispatch_tail_window_unexpected"
                 )
 
         def _check_runner_stub_summary(
@@ -1413,7 +1435,20 @@ def _validate_required_evidence_payload(
                 failures.append(
                     f"{prefix}_future_kernel_native_dispatch_consumer_active_rows_mismatch"
                 )
-            if dispatch_tail_window_size is not None and row_count_value is not None:
+            if dispatch_full_table_required and row_count_value is not None:
+                if dispatch_row_offset != 0:
+                    failures.append(
+                        f"{prefix}_future_kernel_native_dispatch_consumer_full_offset_mismatch"
+                    )
+                if dispatch_row_limit != row_count_value:
+                    failures.append(
+                        f"{prefix}_future_kernel_native_dispatch_consumer_full_limit_mismatch"
+                    )
+                if dispatch_active_rows != row_count_value:
+                    failures.append(
+                        f"{prefix}_future_kernel_native_dispatch_consumer_full_active_rows_mismatch"
+                    )
+            elif dispatch_tail_window_size is not None and row_count_value is not None:
                 expected_row_offset = max(0, row_count_value - dispatch_tail_window_size)
                 if dispatch_row_offset != expected_row_offset:
                     failures.append(
@@ -2545,6 +2580,13 @@ def _check_default_gate_contract(
         actual = contract.get(key)
         if actual != expected:
             failures.append(f"{key}_mismatch")
+    if contract.get("future_kernel_native_dispatch_consumer_full_table_required") is True:
+        for key in (
+            "future_kernel_native_dispatch_consumer_tail_window_required",
+            "future_kernel_native_dispatch_consumer_tail_window_size",
+        ):
+            if key in contract:
+                failures.append(f"{key}_unexpected")
     return {
         "gate_path": label,
         "passed": not failures,

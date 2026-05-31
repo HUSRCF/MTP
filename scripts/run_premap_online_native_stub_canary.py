@@ -3257,10 +3257,14 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
             if args.future_native_dispatch_row_limit is None
             else int(args.future_native_dispatch_row_limit)
         ),
-        "future_native_dispatch_tail_window_size": (
-            None
-            if args.future_native_dispatch_tail_window_size is None
-            else int(args.future_native_dispatch_tail_window_size)
+        **(
+            {
+                "future_native_dispatch_tail_window_size": int(
+                    args.future_native_dispatch_tail_window_size
+                )
+            }
+            if args.future_native_dispatch_tail_window_size is not None
+            else {}
         ),
         "steps": steps,
         "stub_summary": {
@@ -3682,6 +3686,7 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
             ),
         },
     }
+    return result
 
 
 def finalize_report_with_strict_preflight(

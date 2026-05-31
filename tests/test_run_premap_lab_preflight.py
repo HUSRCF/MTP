@@ -1375,7 +1375,6 @@ def _write_gate(
                 "passed": True,
                 "failures": [],
                 "online_prelaunch_input_json": native_online_input_path,
-                "future_native_dispatch_tail_window_size": 4,
                 "online_prelaunch_input_check_count": input_count,
                 "online_prelaunch_input_extra_check_count": extra_count,
                 "online_prelaunch_input_extra_check_passed_count": extra_count,
@@ -1587,8 +1586,7 @@ def _write_gate(
         "  future_kernel_consumer_args_current_wna16_arg_compatible_required: false\n"
         "  future_kernel_consumer_args_single_field_mirror_required: true\n"
         "  future_kernel_consumer_args_single_field_mirror_field: scale_metadata_handle\n"
-        "  future_kernel_native_dispatch_consumer_tail_window_required: true\n"
-        "  future_kernel_native_dispatch_consumer_tail_window_size: 4\n"
+        "  future_kernel_native_dispatch_consumer_full_table_required: true\n"
         "  future_kernel_native_dispatch_consumer_program_iteration_required: true\n"
         "  future_kernel_native_dispatch_consumer_row_assignment_formula: row_offset + program_id * rows_per_program + lane_id\n"
         "  single_field_handle_handoff_canary_required: true\n"
@@ -2542,7 +2540,7 @@ def test_premap_lab_preflight_rejects_future_native_runner_mismatch(
     ) in failures
 
 
-def test_premap_lab_preflight_requires_dispatch_tail_window(
+def test_premap_lab_preflight_rejects_dispatch_tail_window_for_full_table(
     tmp_path: Path,
 ):
     default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
@@ -2551,8 +2549,14 @@ def test_premap_lab_preflight_requires_dispatch_tail_window(
         tmp_path / "reports/default_gate_native_online_prelaunch_canary_runner.json"
     )
     payload = json.loads(runner_path.read_text())
-    payload["future_native_dispatch_tail_window_size"] = 8
+    payload["future_native_dispatch_tail_window_size"] = None
     _write(runner_path, json.dumps(payload) + "\n")
+    runner_32_path = (
+        tmp_path / "reports/default_gate_native_online_prelaunch_canary_runner_32.json"
+    )
+    payload_32 = json.loads(runner_32_path.read_text())
+    payload_32["future_native_dispatch_tail_window_size"] = 4
+    _write(runner_32_path, json.dumps(payload_32) + "\n")
     trace_config = _write_trace_config(
         tmp_path,
         "longrun",
@@ -2571,11 +2575,15 @@ def test_premap_lab_preflight_requires_dispatch_tail_window(
     failures = result["default_readonly_gate_required_evidence_check"]["failures"]
     assert (
         "native_typed_consumer_online_prelaunch_canary_runner_json:"
-        "runner_future_native_dispatch_tail_window_size_mismatch"
+        "runner_future_native_dispatch_tail_window_unexpected"
+    ) in failures
+    assert (
+        "future_kernel_native_dispatch_consumer_online_runner_32_128export_json:"
+        "runner_future_native_dispatch_tail_window_unexpected"
     ) in failures
 
 
-def test_premap_lab_preflight_rejects_dispatch_non_tail_window(
+def test_premap_lab_preflight_rejects_dispatch_non_full_window(
     tmp_path: Path,
 ):
     default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
@@ -2586,16 +2594,16 @@ def test_premap_lab_preflight_rejects_dispatch_non_tail_window(
     payload = json.loads(runner_path.read_text())
     dispatch = payload["future_kernel_native_consumer_dispatch_stub_summary"]
     dispatch["future_kernel_native_dispatch_consumer_row_offset"] = 1
-    dispatch["future_kernel_native_dispatch_consumer_row_limit"] = 2
-    dispatch["future_kernel_native_dispatch_consumer_active_rows"] = 1
-    dispatch["future_kernel_native_dispatch_consumer_row_count"] = 1
-    dispatch["future_kernel_native_dispatch_consumer_row_ok_count"] = 1
+    dispatch["future_kernel_native_dispatch_consumer_row_limit"] = 1
+    dispatch["future_kernel_native_dispatch_consumer_active_rows"] = 0
+    dispatch["future_kernel_native_dispatch_consumer_row_count"] = 0
+    dispatch["future_kernel_native_dispatch_consumer_row_ok_count"] = 0
     dispatch[
         "future_kernel_native_dispatch_consumer_single_field_mirror_row_count"
-    ] = 1
+    ] = 0
     dispatch[
         "future_kernel_native_dispatch_consumer_single_field_mirror_row_ok_count"
-    ] = 1
+    ] = 0
     _write(runner_path, json.dumps(payload) + "\n")
     trace_config = _write_trace_config(
         tmp_path,
@@ -2616,7 +2624,57 @@ def test_premap_lab_preflight_rejects_dispatch_non_tail_window(
     assert (
         "native_typed_consumer_online_prelaunch_canary_runner_json:"
         "runner_future_kernel_native_consumer_dispatch_stub_summary_"
-        "future_kernel_native_dispatch_consumer_tail_offset_mismatch"
+        "future_kernel_native_dispatch_consumer_full_offset_mismatch"
+    ) in failures
+    assert (
+        "native_typed_consumer_online_prelaunch_canary_runner_json:"
+        "runner_future_kernel_native_consumer_dispatch_stub_summary_"
+        "future_kernel_native_dispatch_consumer_full_limit_mismatch"
+    ) in failures
+    assert (
+        "native_typed_consumer_online_prelaunch_canary_runner_json:"
+        "runner_future_kernel_native_consumer_dispatch_stub_summary_"
+        "future_kernel_native_dispatch_consumer_full_active_rows_mismatch"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_tail_window_contract_keys_for_full_table(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    gate_path = tmp_path / default_gate
+    text = gate_path.read_text()
+    text = text.replace(
+        "  future_kernel_native_dispatch_consumer_full_table_required: true\n",
+        (
+            "  future_kernel_native_dispatch_consumer_full_table_required: true\n"
+            "  future_kernel_native_dispatch_consumer_tail_window_required: true\n"
+            "  future_kernel_native_dispatch_consumer_tail_window_size: 4\n"
+        ),
+    )
+    _write(gate_path, text)
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is False
+    failures = result["default_readonly_gate_contract_check"]["failures"]
+    assert (
+        "future_kernel_native_dispatch_consumer_tail_window_required_unexpected"
+    ) in failures
+    assert (
+        "future_kernel_native_dispatch_consumer_tail_window_size_unexpected"
     ) in failures
 
 
