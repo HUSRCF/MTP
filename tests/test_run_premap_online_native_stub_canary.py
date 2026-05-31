@@ -148,6 +148,10 @@ def test_run_canary_dry_run_includes_compact_preflight_status(
             str(status_output),
             "--output-json",
             str(tmp_path / "runner.json"),
+            "--future-native-dispatch-row-offset",
+            "1",
+            "--future-native-dispatch-row-limit",
+            "5",
             "--dry-run",
         ]
     )
@@ -155,6 +159,8 @@ def test_run_canary_dry_run_includes_compact_preflight_status(
     result = run_canary(args)
 
     assert result["passed"] is True
+    assert result["future_native_dispatch_row_offset"] == 1
+    assert result["future_native_dispatch_row_limit"] == 5
     assert "preflight_status" in result["steps"]
     assert "native_stub_per_field" in result["steps"]
     assert "native_stub_kernel_envelope_mirror" in result["steps"]
@@ -238,6 +244,8 @@ def test_run_canary_dry_run_includes_compact_preflight_status(
     assert "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD" in (
         future_native_launch_cmd
     )
+    assert "--dispatch-row-offset" not in future_native_launch_cmd
+    assert "--dispatch-row-limit" not in future_native_launch_cmd
     future_native_dispatch_cmd = result["steps"][
         "native_stub_future_kernel_native_consumer_dispatch_abi"
     ]["cmd"]
@@ -259,6 +267,10 @@ def test_run_canary_dry_run_includes_compact_preflight_status(
     assert "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD" in (
         future_native_dispatch_cmd
     )
+    assert "--dispatch-row-offset" in future_native_dispatch_cmd
+    assert "1" in future_native_dispatch_cmd
+    assert "--dispatch-row-limit" in future_native_dispatch_cmd
+    assert "5" in future_native_dispatch_cmd
     future_native_dispatch_descriptor_cmd = result["steps"][
         "native_stub_future_kernel_native_consumer_dispatch_descriptor_ptr_mirror"
     ]["cmd"]
@@ -269,6 +281,8 @@ def test_run_canary_dry_run_includes_compact_preflight_status(
     assert "MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR_MIRROR_FIELD" in (
         future_native_dispatch_descriptor_cmd
     )
+    assert "--dispatch-row-offset" in future_native_dispatch_descriptor_cmd
+    assert "--dispatch-row-limit" in future_native_dispatch_descriptor_cmd
     future_native_dispatch_packed_cmd = result["steps"][
         "native_stub_future_kernel_native_consumer_dispatch_packed_weight_mirror"
     ]["cmd"]
@@ -279,6 +293,8 @@ def test_run_canary_dry_run_includes_compact_preflight_status(
     assert "MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_MIRROR_FIELD" in (
         future_native_dispatch_packed_cmd
     )
+    assert "--dispatch-row-offset" in future_native_dispatch_packed_cmd
+    assert "--dispatch-row-limit" in future_native_dispatch_packed_cmd
     future_native_dispatch_aux_cmd = result["steps"][
         "native_stub_future_kernel_native_consumer_dispatch_aux_metadata_mirror"
     ]["cmd"]
@@ -289,6 +305,8 @@ def test_run_canary_dry_run_includes_compact_preflight_status(
     assert "MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_MIRROR_FIELD" in (
         future_native_dispatch_aux_cmd
     )
+    assert "--dispatch-row-offset" in future_native_dispatch_aux_cmd
+    assert "--dispatch-row-limit" in future_native_dispatch_aux_cmd
     future_native_launch_descriptor_cmd = result["steps"][
         "native_stub_future_kernel_native_consumer_launch_descriptor_ptr_mirror"
     ]["cmd"]

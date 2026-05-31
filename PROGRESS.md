@@ -21955,3 +21955,39 @@ conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
 719 passed, 2 warnings
 git diff --check: clean
 ```
+
+### Future-Native Dispatch Row-Window Gate
+
+The online native stub canary now supports an explicit dispatch row window for
+the future kernel-side consumer ABI:
+
+```text
+--future-native-dispatch-row-offset
+--future-native-dispatch-row-limit
+```
+
+Only dispatch ABI stubs receive this row-window contract.  Base native-consumer
+and launch ABI stubs remain full-table checks, which keeps the launch schema and
+dispatch schema separated.
+
+Latest 1-input real canary:
+
+```text
+outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_dispatch_window_1input.json
+outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_artifact_check_dispatch_window_1input.json
+
+passed = true
+artifact_check_passed = true
+future_native_dispatch_row_offset = 1
+future_native_dispatch_row_limit = 5
+future_kernel_native_dispatch_consumer_active_rows = 4
+future_kernel_native_dispatch_consumer_row_count = 4
+future_kernel_native_dispatch_consumer_row_ok_count = 4
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+```
+
+This moves the future-native dispatch ABI from a full-table read-only checker to
+a windowed row-iteration checker, which is closer to how a real kernel consumer
+would receive a subset of prepared descriptor/address rows.

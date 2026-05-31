@@ -712,6 +712,7 @@ def _stub_command(
     device: int,
     offload_arch: str,
     macros: list[str] | tuple[str, ...] = STUB_MACROS,
+    extra_args: list[str] | tuple[str, ...] = (),
 ) -> list[str]:
     cmd = [
         sys.executable,
@@ -727,7 +728,23 @@ def _stub_command(
     ]
     for macro in macros:
         cmd.extend(["--macro", macro])
+    cmd.extend(str(arg) for arg in extra_args)
     return cmd
+
+
+def _future_native_dispatch_extra_args(args: argparse.Namespace) -> list[str]:
+    extra_args = [
+        "--dispatch-row-offset",
+        str(int(args.future_native_dispatch_row_offset)),
+    ]
+    if args.future_native_dispatch_row_limit is not None:
+        extra_args.extend(
+            [
+                "--dispatch-row-limit",
+                str(int(args.future_native_dispatch_row_limit)),
+            ]
+        )
+    return extra_args
 
 
 def _indexed_output_path(path: Path, input_index: int) -> Path:
@@ -799,6 +816,17 @@ def write_report(path: Path, payload: dict[str, object]) -> None:
 
 
 def run_canary(args: argparse.Namespace) -> dict[str, object]:
+    if int(args.future_native_dispatch_row_offset) < 0:
+        raise ValueError("--future-native-dispatch-row-offset must be >= 0")
+    if (
+        args.future_native_dispatch_row_limit is not None
+        and int(args.future_native_dispatch_row_limit)
+        <= int(args.future_native_dispatch_row_offset)
+    ):
+        raise ValueError(
+            "--future-native-dispatch-row-limit must be greater than "
+            "--future-native-dispatch-row-offset"
+        )
     trace_config = _resolve_repo_path(args.trace_config)
     output_dir = trace_output_dir(trace_config)
     performance_path = output_dir / "performance_summary.json"
@@ -1084,6 +1112,7 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
                 device=int(args.stub_device),
                 offload_arch=str(args.offload_arch),
                 macros=FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_STUB_MACROS,
+                extra_args=_future_native_dispatch_extra_args(args),
             ),
             env=env,
             dry_run=bool(args.dry_run),
@@ -1118,6 +1147,7 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
                     device=int(args.stub_device),
                     offload_arch=str(args.offload_arch),
                     macros=macros,
+                    extra_args=_future_native_dispatch_extra_args(args),
                 ),
                 env=env,
                 dry_run=bool(args.dry_run),
@@ -1333,6 +1363,13 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
                 continue
             output_path = _indexed_output_path(base_output, input_index)
             step_key = f"{label}_input{input_index:04d}"
+            stub_extra_args = (
+                _future_native_dispatch_extra_args(args)
+                if label.startswith(
+                    "native_stub_future_kernel_native_consumer_dispatch_"
+                )
+                else []
+            )
             steps[step_key] = _run(
                 _stub_command(
                     input_json=extra_input_path,
@@ -1340,6 +1377,7 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
                     device=int(args.stub_device),
                     offload_arch=str(args.offload_arch),
                     macros=macros,
+                    extra_args=stub_extra_args,
                 ),
                 env=env,
                 dry_run=bool(args.dry_run),
@@ -2073,8 +2111,9 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
             dispatch_geometry_ok = (
                 grid_x > 0
                 and block_x > 0
-                and row_offset == 0
-                and row_limit == row_count
+                and row_offset >= 0
+                and row_limit <= row_count
+                and row_limit > row_offset
                 and rows_per_program == block_x
                 and active_rows == active_rows_expected
                 and active_rows > 0
@@ -2900,6 +2939,14 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
         "preflight_status_output_json": str(preflight_status_output),
         "gpu_index": args.gpu_index,
         "stub_device": int(args.stub_device),
+        "future_native_dispatch_row_offset": int(
+            args.future_native_dispatch_row_offset
+        ),
+        "future_native_dispatch_row_limit": (
+            None
+            if args.future_native_dispatch_row_limit is None
+            else int(args.future_native_dispatch_row_limit)
+        ),
         "steps": steps,
         "stub_summary": {
             key: stub_payload.get(key)
@@ -3738,6 +3785,24 @@ def build_parser() -> argparse.ArgumentParser:
         "--future-kernel-native-consumer-dispatch-aux-metadata-stub-output-json",
         type=Path,
         default=DEFAULT_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_AUX_METADATA_STUB_OUTPUT,
+    )
+    parser.add_argument(
+        "--future-native-dispatch-row-offset",
+        type=int,
+        default=0,
+        help=(
+            "Row offset passed to the future-native dispatch ABI stub. "
+            "Defaults to the full-table dispatch window."
+        ),
+    )
+    parser.add_argument(
+        "--future-native-dispatch-row-limit",
+        type=int,
+        default=None,
+        help=(
+            "Exclusive row limit passed to the future-native dispatch ABI stub. "
+            "Unset keeps the stub default of row_count."
+        ),
     )
     parser.add_argument(
         "--preflight-output-json",
