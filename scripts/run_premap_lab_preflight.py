@@ -2795,6 +2795,13 @@ def run_premap_lab_preflight(
         gate_pair_failures.append(
             "defer_online_prelaunch_artifact_evidence_requires_runner_defer"
         )
+    if (
+        defer_online_prelaunch_runner_evidence
+        and defer_online_prelaunch_artifact_evidence
+    ):
+        gate_pair_failures.append(
+            "defer_online_prelaunch_runner_and_artifact_evidence_not_allowed"
+        )
     default_gate_contract_check = _check_default_gate_contract(
         default_readonly_gate,
         root=root,

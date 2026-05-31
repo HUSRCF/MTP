@@ -2,22 +2,76 @@
 
 ## Progress Version
 
-- Version: `v0.34-four-field-online-future-native-launch-abi-gate`
-- Updated: 2026-05-30
+- Version: `v0.35-dispatch-abi-gate-hardening`
+- Updated: 2026-05-31
 - Current phase: premap descriptor/address prep now has a typed
-  kernel-side consumer object and an explicit future native-consumer ABI
-  artifact.  The default lab gate remains live-disabled, zero-payload, and not
-  passed to the current WNA16 kernel.  The newest online prelaunch gate wires
-  the future kernel-argument envelope into a kernel-side compatible consumer
-  path: the prepared handle table is first wrapped as
-  `premap_future_kernel_side_consumer_args_v1`, then consumed by the standalone
-  typed ABI/stub path that a future kernel would use.  Payload movement,
-  current WNA16 kernel-arg compatibility, and live kernel-arg handoff remain
-  disabled.  The newest native stub adds a launch-shaped future-native ABI
-  wrapper around `PremapFutureKernelNativeConsumerParamsV1` and validates all
-  four future handle fields (`descriptor_ptr`, `packed_weight_descriptor`,
-  `scale_metadata_handle`, and `aux_metadata_handle`) through that launch-like
-  object shape without passing anything to the current WNA16 kernel.
+  kernel-side consumer object, a launch-shaped future native ABI, and a
+  dispatch-shaped readonly native consumer ABI.  The default lab gate remains
+  live-disabled, zero-payload, and not passed to the current WNA16 kernel.
+  The latest hardening requires the online canary artifact checker to see the
+  full preflight runtime/strict evidence scan and forbids the normal lab
+  preflight from deferring both runner and artifact evidence at the same time.
+
+## Latest Update: Dispatch ABI Gate Hardening
+
+The dispatch-shaped future-native ABI gate is now stricter about the evidence
+chain used before any lab integration:
+
+```text
+artifact checker:
+  requires preflight.runtime_gate_evidence_scan
+  requires preflight.strict_gate_evidence_checks.default_readonly_gate
+  requires both deferred_count values to be present and consistent
+  requires strict default deferred evidence labels to match status labels
+  covers multi-program dispatch windows with both zero and nonzero row offsets
+
+lab preflight:
+  rejects defer_online_prelaunch_artifact_evidence without runner defer
+  rejects runner+artifact double defer in normal lab preflight
+```
+
+The real dispatch-window 32-input online canary remains valid under the new
+checks:
+
+```text
+online_prelaunch_native_stub_canary_artifact_check_dispatch_window_tail4_32input.json:
+  passed = true
+  failures = []
+  require_all_field_mirror_stubs = true
+  min_online_inputs = 32
+```
+
+The default post-review lab preflight also remains clean:
+
+```text
+premap_lab_preflight_post_review_latest_status.json:
+  passed = true
+  deferred_online_prelaunch_runner_evidence = false
+  deferred_online_prelaunch_artifact_evidence = false
+  runtime_gate_evidence_deferred_count = 0
+  strict_default_gate_evidence_deferred_count = 0
+  payload_bytes_required = 0
+  passed_to_kernel_required = false
+  changes_kernel_launch_args_required = false
+```
+
+Validation:
+
+```text
+pytest tests/test_check_premap_online_native_stub_canary_artifacts.py \
+  tests/test_run_premap_lab_preflight.py -q
+  70 passed
+
+pytest tests -q
+  745 passed, 2 warnings
+```
+
+Boundary: this remains a readonly future-kernel consumer path.  It validates
+the future dispatch ABI/evidence chain, but it still does not pass typed tables
+to the current WNA16 fused-MoE kernel, does not dereference payload, and does
+not claim WNA16 kernel-argument compatibility.
+
+## Previous Update: Four-Field Online Future Native Launch ABI Gate
 
 ## Latest Update: Four-Field Online Future Native Launch ABI Gate
 

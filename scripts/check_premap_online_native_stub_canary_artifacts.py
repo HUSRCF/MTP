@@ -894,13 +894,19 @@ def check_online_native_stub_canary_artifacts(
     if not isinstance(status_optional_evidence, dict):
         status_optional_evidence = {}
     preflight_runtime_scan = preflight.get("runtime_gate_evidence_scan")
-    if not isinstance(preflight_runtime_scan, dict):
+    preflight_runtime_scan_missing = not isinstance(preflight_runtime_scan, dict)
+    if preflight_runtime_scan_missing:
+        failures.append("preflight_runtime_gate_evidence_scan_missing")
         preflight_runtime_scan = {}
     preflight_strict_checks = preflight.get("strict_gate_evidence_checks")
-    if not isinstance(preflight_strict_checks, dict):
+    preflight_strict_checks_missing = not isinstance(preflight_strict_checks, dict)
+    if preflight_strict_checks_missing:
+        failures.append("preflight_strict_gate_evidence_checks_missing")
         preflight_strict_checks = {}
     preflight_default_strict = preflight_strict_checks.get("default_readonly_gate")
-    if not isinstance(preflight_default_strict, dict):
+    preflight_default_strict_missing = not isinstance(preflight_default_strict, dict)
+    if preflight_default_strict_missing:
+        failures.append("preflight_strict_default_gate_evidence_check_missing")
         preflight_default_strict = {}
 
     def _deferred_evidence_count(rows: dict[str, object]) -> int:
@@ -915,6 +921,31 @@ def check_online_native_stub_canary_artifacts(
             ):
                 count += 1
         return count
+
+    def _status_deferred_labels(rows: dict[str, object]) -> set[str]:
+        labels: set[str] = set()
+        for label, row in rows.items():
+            if not isinstance(row, dict):
+                continue
+            if (
+                row.get("present") is False
+                and row.get("passed") is False
+                and row.get("failure") is None
+            ):
+                labels.add(str(label))
+        return labels
+
+    def _preflight_deferred_labels(rows: object) -> set[str] | None:
+        if not isinstance(rows, list):
+            return None
+        labels: set[str] = set()
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            label = row.get("label")
+            if row.get("deferred") is True and isinstance(label, str) and label:
+                labels.add(label)
+        return labels
 
     status_required_count = _int(status_required.get("required_count"))
     if status_required_count is None or status_required_count <= 0:
@@ -968,12 +999,20 @@ def check_online_native_stub_canary_artifacts(
     status_total_deferred_count = (
         int(status_required_deferred_count) + int(status_optional_deferred_count)
     )
+    status_deferred_labels = _status_deferred_labels(
+        status_required_evidence
+    ) | _status_deferred_labels(status_optional_evidence)
     status_runtime_deferred_count = _int(
         status.get("runtime_gate_evidence_deferred_count")
     )
     preflight_runtime_deferred_count = _int(
         preflight_runtime_scan.get("deferred_count")
     )
+    if (
+        not preflight_runtime_scan_missing
+        and preflight_runtime_deferred_count is None
+    ):
+        failures.append("preflight_runtime_gate_evidence_deferred_count_missing")
     if status_runtime_deferred_count is None or status_runtime_deferred_count < 0:
         failures.append("status_runtime_gate_evidence_deferred_count_invalid")
         status_runtime_deferred_count = status_total_deferred_count
@@ -990,6 +1029,30 @@ def check_online_native_stub_canary_artifacts(
     preflight_strict_deferred_count = _int(
         preflight_default_strict.get("deferred_count")
     )
+    if (
+        not preflight_default_strict_missing
+        and preflight_strict_deferred_count is None
+    ):
+        failures.append("preflight_strict_default_gate_evidence_deferred_count_missing")
+    preflight_strict_deferred_labels = _preflight_deferred_labels(
+        preflight_default_strict.get("rows")
+    )
+    if not preflight_default_strict_missing:
+        if preflight_strict_deferred_labels is None:
+            failures.append("preflight_strict_default_gate_evidence_rows_missing")
+            preflight_strict_deferred_labels = set()
+        elif (
+            preflight_strict_deferred_count is not None
+            and len(preflight_strict_deferred_labels)
+            != int(preflight_strict_deferred_count)
+        ):
+            failures.append(
+                "preflight_strict_default_gate_evidence_deferred_labels_count_mismatch"
+            )
+        elif preflight_strict_deferred_labels != status_deferred_labels:
+            failures.append(
+                "preflight_strict_default_gate_evidence_deferred_labels_mismatch"
+            )
     if status_strict_deferred_count is None or status_strict_deferred_count < 0:
         failures.append("status_strict_default_gate_evidence_deferred_count_invalid")
         status_strict_deferred_count = status_runtime_deferred_count

@@ -785,7 +785,17 @@ def _payloads(root: Path) -> tuple[Path, Path, Path]:
         ),
     }
     _write_json(runner_path, runner)
-    _write_json(preflight_path, {"passed": True, "failures": []})
+    _write_json(
+        preflight_path,
+        {
+            "passed": True,
+            "failures": [],
+            "runtime_gate_evidence_scan": {"deferred_count": 0},
+            "strict_gate_evidence_checks": {
+                "default_readonly_gate": {"deferred_count": 0, "rows": []}
+            },
+        },
+    )
     _write_json(
         status_path,
         {
@@ -889,7 +899,19 @@ def test_check_online_native_stub_canary_artifacts_accepts_stage1_extra_optional
             },
         }
     )
+    preflight = json.loads(preflight_path.read_text(encoding="utf-8"))
+    preflight["runtime_gate_evidence_scan"] = {"deferred_count": 3}
+    preflight["strict_gate_evidence_checks"] = {
+        "default_readonly_gate": {
+            "deferred_count": 3,
+            "rows": [
+                {"label": f"deferred_{idx}", "deferred": True}
+                for idx in range(3)
+            ],
+        }
+    }
     _write_json(runner_path, runner)
+    _write_json(preflight_path, preflight)
     _write_json(status_path, status)
 
     result = check_online_native_stub_canary_artifacts(
@@ -904,6 +926,102 @@ def test_check_online_native_stub_canary_artifacts_accepts_stage1_extra_optional
     assert result["stage1_deferred_count"] == 7
     assert result["final_deferred_count"] == 3
     assert result["status_deferred_count"] == 3
+
+
+def test_check_online_native_stub_canary_artifacts_rejects_missing_preflight_scan(
+    tmp_path: Path,
+):
+    runner_path, preflight_path, status_path = _payloads(tmp_path)
+    _write_json(preflight_path, {"passed": True, "failures": []})
+
+    result = check_online_native_stub_canary_artifacts(
+        root=tmp_path,
+        runner_json=runner_path,
+        preflight_json=preflight_path,
+        status_json=status_path,
+    )
+
+    assert result["passed"] is False
+    assert "preflight_runtime_gate_evidence_scan_missing" in result["failures"]
+    assert "preflight_strict_gate_evidence_checks_missing" in result["failures"]
+
+
+def test_check_online_native_stub_canary_artifacts_rejects_missing_preflight_deferred_count(
+    tmp_path: Path,
+):
+    runner_path, preflight_path, status_path = _payloads(tmp_path)
+    preflight = json.loads(preflight_path.read_text(encoding="utf-8"))
+    preflight["runtime_gate_evidence_scan"] = {}
+    preflight["strict_gate_evidence_checks"] = {"default_readonly_gate": {"rows": []}}
+    _write_json(preflight_path, preflight)
+
+    result = check_online_native_stub_canary_artifacts(
+        root=tmp_path,
+        runner_json=runner_path,
+        preflight_json=preflight_path,
+        status_json=status_path,
+    )
+
+    assert result["passed"] is False
+    assert (
+        "preflight_runtime_gate_evidence_deferred_count_missing"
+        in result["failures"]
+    )
+    assert (
+        "preflight_strict_default_gate_evidence_deferred_count_missing"
+        in result["failures"]
+    )
+
+
+def test_check_online_native_stub_canary_artifacts_rejects_preflight_deferred_label_mismatch(
+    tmp_path: Path,
+):
+    runner_path, preflight_path, status_path = _payloads(tmp_path)
+    preflight = json.loads(preflight_path.read_text(encoding="utf-8"))
+    preflight["runtime_gate_evidence_scan"] = {"deferred_count": 1}
+    preflight["strict_gate_evidence_checks"] = {
+        "default_readonly_gate": {
+            "deferred_count": 1,
+            "rows": [{"label": "wrong_label", "deferred": True}],
+        }
+    }
+    _write_json(preflight_path, preflight)
+    status = json.loads(status_path.read_text(encoding="utf-8"))
+    status["runtime_gate_evidence_deferred_count"] = 1
+    status["strict_default_gate_evidence_deferred_count"] = 1
+    status["required_evidence"]["present_count"] = 9
+    status["required_evidence"]["passed_count"] = 9
+    status["required_evidence"]["evidence"] = {
+        **{
+            f"present_{idx}": {"present": True, "passed": True, "failure": None}
+            for idx in range(9)
+        },
+        "expected_label": {"present": False, "passed": False, "failure": None},
+    }
+    _write_json(status_path, status)
+    runner = json.loads(runner_path.read_text(encoding="utf-8"))
+    runner["final_preflight_status_summary"].update(
+        {
+            "required_evidence_present_count": 9,
+            "required_evidence_passed_count": 9,
+            "runtime_gate_evidence_deferred_count": 1,
+            "strict_default_gate_evidence_deferred_count": 1,
+        }
+    )
+    _write_json(runner_path, runner)
+
+    result = check_online_native_stub_canary_artifacts(
+        root=tmp_path,
+        runner_json=runner_path,
+        preflight_json=preflight_path,
+        status_json=status_path,
+    )
+
+    assert result["passed"] is False
+    assert (
+        "preflight_strict_default_gate_evidence_deferred_labels_mismatch"
+        in result["failures"]
+    )
 
 
 def test_check_online_native_stub_canary_artifacts_requires_all_field_mirrors(
@@ -1465,6 +1583,69 @@ def test_check_online_native_stub_canary_artifacts_accepts_multi_program_dispatc
     dispatch["future_kernel_native_dispatch_consumer_last_program_row_offset"] = 512
     dispatch["future_kernel_native_dispatch_consumer_program_iteration_hash"] = (
         f"{_program_iteration_hash(grid_x=3, block_x=256, row_offset=0, row_limit=520, last_program_active_rows=8, inactive_lane_count=248):x}"
+    )
+    _write_json(runner_path, runner)
+
+    result = check_online_native_stub_canary_artifacts(
+        root=tmp_path,
+        runner_json=runner_path,
+        preflight_json=preflight_path,
+        status_json=status_path,
+    )
+
+    assert result["passed"] is True
+    assert result["failures"] == []
+
+
+def test_check_online_native_stub_canary_artifacts_accepts_multi_program_offset_window(
+    tmp_path: Path,
+):
+    runner_path, preflight_path, status_path = _payloads(tmp_path)
+    runner = json.loads(runner_path.read_text(encoding="utf-8"))
+    dispatch = runner["future_kernel_native_consumer_dispatch_stub_summary"]
+    source_rows = 1024
+    active_rows = 520
+    row_offset = 17
+    row_limit = row_offset + active_rows
+    grid_x = 3
+    block_x = 256
+    for key in (
+        "row_count",
+        "row_ok_count",
+        "future_kernel_native_consumer_row_count",
+        "future_kernel_native_consumer_row_ok_count",
+        "future_kernel_native_launch_consumer_row_count",
+        "future_kernel_native_launch_consumer_row_ok_count",
+    ):
+        dispatch[key] = source_rows
+    for key in (
+        "future_kernel_native_dispatch_consumer_row_count",
+        "future_kernel_native_dispatch_consumer_row_ok_count",
+        "future_kernel_native_dispatch_consumer_single_field_mirror_row_count",
+        "future_kernel_native_dispatch_consumer_single_field_mirror_row_ok_count",
+    ):
+        dispatch[key] = active_rows
+    dispatch["future_kernel_native_dispatch_consumer_grid_x"] = grid_x
+    dispatch["future_kernel_native_dispatch_consumer_block_x"] = block_x
+    dispatch["future_kernel_native_dispatch_consumer_row_offset"] = row_offset
+    dispatch["future_kernel_native_dispatch_consumer_row_limit"] = row_limit
+    dispatch["future_kernel_native_dispatch_consumer_rows_per_program"] = block_x
+    dispatch["future_kernel_native_dispatch_consumer_active_rows"] = active_rows
+    dispatch["future_kernel_native_dispatch_consumer_launch_threads"] = (
+        grid_x * block_x
+    )
+    dispatch["future_kernel_native_dispatch_consumer_program_count"] = grid_x
+    dispatch["future_kernel_native_dispatch_consumer_full_program_count"] = 2
+    dispatch["future_kernel_native_dispatch_consumer_last_program_active_rows"] = 8
+    dispatch["future_kernel_native_dispatch_consumer_inactive_lane_count"] = 248
+    dispatch["future_kernel_native_dispatch_consumer_first_program_row_offset"] = (
+        row_offset
+    )
+    dispatch["future_kernel_native_dispatch_consumer_last_program_row_offset"] = (
+        row_offset + 2 * block_x
+    )
+    dispatch["future_kernel_native_dispatch_consumer_program_iteration_hash"] = (
+        f"{_program_iteration_hash(grid_x=grid_x, block_x=block_x, row_offset=row_offset, row_limit=row_limit, last_program_active_rows=8, inactive_lane_count=248):x}"
     )
     _write_json(runner_path, runner)
 

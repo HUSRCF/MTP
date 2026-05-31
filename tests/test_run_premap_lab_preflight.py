@@ -2553,6 +2553,37 @@ def test_premap_lab_preflight_rejects_artifact_defer_without_runner_defer(
     assert summary["deferred_online_prelaunch_artifact_evidence"] is True
 
 
+def test_premap_lab_preflight_rejects_runner_and_artifact_defer(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+        defer_online_prelaunch_runner_evidence=True,
+        defer_online_prelaunch_artifact_evidence=True,
+    )
+
+    summary = result["lab_gate_status_summary"]
+    assert result["passed"] is False
+    assert (
+        "defer_online_prelaunch_runner_and_artifact_evidence_not_allowed"
+        in result["failures"]
+    )
+    assert summary["deferred_online_prelaunch_runner_evidence"] is True
+    assert summary["deferred_online_prelaunch_artifact_evidence"] is True
+
+
 def test_premap_lab_preflight_allows_missing_typed_evidence_file_when_requested(
     tmp_path: Path,
 ):
