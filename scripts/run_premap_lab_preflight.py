@@ -2907,6 +2907,11 @@ def run_premap_lab_preflight(
     evidence_summary = _summarize_required_evidence_check(
         default_gate_required_evidence_check
     )
+    schema_summary = (
+        default_kernel_consumer_schema_check.get("schema_check")
+        if isinstance(default_kernel_consumer_schema_check.get("schema_check"), dict)
+        else default_kernel_consumer_schema_check
+    )
     lab_gate_status_summary = {
         "passed": not failures,
         "default_readonly_gate_path": default_gate_path,
@@ -2916,6 +2921,29 @@ def run_premap_lab_preflight(
         ),
         "default_kernel_consumer_schema_passed": bool(
             default_kernel_consumer_schema_check.get("passed", False)
+        ),
+        "default_kernel_consumer_schema_name": (
+            schema_summary.get("schema_name")
+        ),
+        "default_kernel_consumer_schema_hash": (
+            schema_summary.get("schema_hash")
+        ),
+        "default_kernel_consumer_schema_row_field_names": (
+            schema_summary.get("row_field_names") or []
+        ),
+        "default_kernel_consumer_schema_row_metadata_names": (
+            schema_summary.get("row_metadata_names") or []
+        ),
+        "default_kernel_consumer_dispatch_abi_name": (
+            schema_summary.get("future_kernel_native_consumer_dispatch_abi_name")
+        ),
+        "default_kernel_consumer_dispatch_abi_struct": (
+            schema_summary.get("future_kernel_native_consumer_dispatch_abi_struct")
+        ),
+        "default_kernel_consumer_dispatch_abi_current_wna16_arg_compatible": (
+            schema_summary.get(
+                "future_kernel_native_consumer_dispatch_abi_current_wna16_arg_compatible"
+            )
         ),
         "default_required_evidence_passed": bool(
             default_gate_required_evidence_check.get("passed", False)

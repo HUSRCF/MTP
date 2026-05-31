@@ -31,6 +31,13 @@ def test_kernel_consumer_schema_accepts_valid_artifact(tmp_path: Path) -> None:
         "scale_metadata_handle",
         "aux_metadata_handle",
     ]
+    assert result["row_metadata_names"] == [
+        "layer_id",
+        "expert_id",
+        "address_key_hash",
+        "row_order_hash",
+        "ordered_row_hash",
+    ]
     assert (
         result["future_kernel_native_consumer_dispatch_abi_name"]
         == "premap_future_kernel_native_consumer_dispatch_abi_v1"

@@ -1558,6 +1558,24 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert summary["passed"] is True
     assert summary["default_readonly_gate_path"] == default_gate
     assert summary["default_contract_passed"] is True
+    assert (
+        summary["default_kernel_consumer_schema_name"]
+        == "fused_moe_awq_wna16_kernel_side_typed_consumer_object_v1"
+    )
+    assert summary["default_kernel_consumer_schema_row_field_names"] == [
+        "descriptor_ptr",
+        "packed_weight_descriptor",
+        "scale_metadata_handle",
+        "aux_metadata_handle",
+    ]
+    assert (
+        summary["default_kernel_consumer_dispatch_abi_name"]
+        == "premap_future_kernel_native_consumer_dispatch_abi_v1"
+    )
+    assert (
+        summary["default_kernel_consumer_dispatch_abi_current_wna16_arg_compatible"]
+        is False
+    )
     assert summary["default_required_evidence_passed"] is True
     assert summary["default_optional_evidence_passed"] is True
     assert summary["runtime_gate_evidence_deferred_count"] == 0
