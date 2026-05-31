@@ -326,6 +326,7 @@ class DecodeWorkloadTraceCollector:
     capture_metadata_builder: bool = True
     capture_attention_forward: bool = True
     capture_chunked_prefill_paged_decode: bool = False
+    inferred_layer_count: int | None = None
 
     rows_written: int = 0
     skipped_rows: int = 0
@@ -334,6 +335,9 @@ class DecodeWorkloadTraceCollector:
     _current_sample_idx: int | None = None
     _current_record_id: str | None = None
     _current_prompt_len: int | None = None
+    _batch_sample_indices: list[int] | None = None
+    _batch_record_ids: list[str] | None = None
+    _batch_prompt_lens: list[int | None] | None = None
     _layer_ordinals: dict[int, int] = field(default_factory=dict)
     _skip_reasons: dict[str, int] = field(default_factory=dict)
     _handle: Any = None
@@ -353,6 +357,9 @@ class DecodeWorkloadTraceCollector:
 
     def set_sample(self, sample_idx: int | None, record: dict[str, Any] | None) -> None:
         self._current_sample_idx = int(sample_idx) if sample_idx is not None else None
+        self._batch_sample_indices = None
+        self._batch_record_ids = None
+        self._batch_prompt_lens = None
         if record is None:
             self._current_record_id = None
             self._current_prompt_len = None
@@ -366,6 +373,82 @@ class DecodeWorkloadTraceCollector:
                 if isinstance(prompt_len, int) and not isinstance(prompt_len, bool)
                 else None
             )
+
+    def set_batch_samples(
+        self,
+        samples: list[tuple[int, dict[str, Any], Any, Any]],
+    ) -> None:
+        self._current_sample_idx = None
+        self._current_record_id = None
+        self._current_prompt_len = None
+        sample_indices: list[int] = []
+        record_ids: list[str] = []
+        prompt_lens: list[int | None] = []
+        for sample_idx, record, _input_ids, _prompt in samples:
+            sample_indices.append(int(sample_idx))
+            record_ids.append(str(record.get("id", record.get("record_id", sample_idx))))
+            prompt_len = record.get("target_prompt_tokens", record.get("prompt_len"))
+            prompt_lens.append(
+                int(prompt_len)
+                if isinstance(prompt_len, int) and not isinstance(prompt_len, bool)
+                else None
+            )
+        self._batch_sample_indices = sample_indices
+        self._batch_record_ids = record_ids
+        self._batch_prompt_lens = prompt_lens
+
+    def _row_sample_idx(self, row_index: int) -> int | None:
+        if self._batch_sample_indices is not None and row_index < len(
+            self._batch_sample_indices
+        ):
+            return int(self._batch_sample_indices[row_index])
+        return self._current_sample_idx
+
+    def _row_record_id(self, row_index: int) -> str | None:
+        if self._batch_record_ids is not None and row_index < len(self._batch_record_ids):
+            return str(self._batch_record_ids[row_index])
+        return self._current_record_id
+
+    def _row_prompt_len(self, row_index: int) -> int | None:
+        if self._batch_prompt_lens is not None and row_index < len(
+            self._batch_prompt_lens
+        ):
+            value = self._batch_prompt_lens[row_index]
+            return int(value) if value is not None else None
+        return self._current_prompt_len
+
+    def _record_provenance_payload(self, batch_size: int) -> dict[str, Any]:
+        if self._batch_sample_indices is None:
+            return {
+                "sample_idx": self._current_sample_idx,
+                "record_id": self._current_record_id,
+                "prompt_len": self._current_prompt_len,
+                "sample_indices": (
+                    [int(self._current_sample_idx)]
+                    if self._current_sample_idx is not None
+                    else []
+                ),
+                "record_ids": [str(self._current_record_id)]
+                if self._current_record_id is not None
+                else [],
+                "prompt_lens": [self._current_prompt_len],
+            }
+        return {
+            "sample_idx": None,
+            "record_id": None,
+            "prompt_len": None,
+            "sample_indices": [
+                int(item) for item in self._batch_sample_indices[:batch_size]
+            ],
+            "record_ids": [
+                str(item) for item in self._batch_record_ids[:batch_size]
+            ]
+            if self._batch_record_ids is not None
+            else [],
+            "prompt_lens": list(self._batch_prompt_lens[:batch_size])
+            if self._batch_prompt_lens is not None
+            else [],
+        }
 
     def stats(self) -> dict[str, Any]:
         return {
@@ -387,6 +470,7 @@ class DecodeWorkloadTraceCollector:
             "capture_chunked_prefill_paged_decode": bool(
                 self.capture_chunked_prefill_paged_decode
             ),
+            "inferred_layer_count": self.inferred_layer_count,
             "skip_reasons": dict(sorted(self._skip_reasons.items())),
         }
 
@@ -650,14 +734,13 @@ class DecodeWorkloadTraceCollector:
             ),
             "chunk_tokens": int(self.chunk_tokens),
             "head_mapping": str(self.head_mapping),
-            "sample_idx": self._current_sample_idx,
-            "record_id": self._current_record_id,
             "layer_ordinal": int(layer_ordinal),
             "attention_backend": type(builder).__name__,
             "metadata_source": "common_attention_metadata_builder",
             "sliding_window_raw": sliding_window_raw,
             "notes": notes,
         }
+        record.update(self._record_provenance_payload(batch_size))
         if int(self.schema_version) >= 2:
             block_id_rows = _to_prefixed_int_rows_from_tensor(
                 block_table,
@@ -665,15 +748,18 @@ class DecodeWorkloadTraceCollector:
             )
             sequences = []
             for row_index in range(batch_size):
+                row_prompt_len = self._row_prompt_len(row_index)
+                row_record_id = self._row_record_id(row_index)
                 sequences.append(
                     {
                         "row": int(row_index),
-                        "request_id": str(self._current_record_id),
-                        "seq_id": str(self._current_record_id),
-                        "prompt_len": self._current_prompt_len,
+                        "sample_idx": self._row_sample_idx(row_index),
+                        "request_id": str(row_record_id),
+                        "seq_id": str(row_record_id),
+                        "prompt_len": row_prompt_len,
                         "generated_token_idx": _generated_token_index_from_cache_len(
                             int(seq_lens[row_index]),
-                            self._current_prompt_len,
+                            row_prompt_len,
                             int(call_index),
                         ),
                         "cache_seqlen": int(seq_lens[row_index]),
@@ -851,13 +937,12 @@ class DecodeWorkloadTraceCollector:
             ),
             "chunk_tokens": int(self.chunk_tokens),
             "head_mapping": str(self.head_mapping),
-            "sample_idx": self._current_sample_idx,
-            "record_id": self._current_record_id,
             "layer_ordinal": int(layer_ordinal),
             "attention_backend": type(impl).__name__,
             "sliding_window_raw": sliding_window_raw,
             "notes": notes,
         }
+        record.update(self._record_provenance_payload(batch_size))
         if int(self.schema_version) >= 2:
             block_id_rows = _to_prefixed_int_rows_from_tensor(
                 block_table,
@@ -865,15 +950,18 @@ class DecodeWorkloadTraceCollector:
             )
             sequences = []
             for row_index in range(batch_size):
+                row_prompt_len = self._row_prompt_len(row_index)
+                row_record_id = self._row_record_id(row_index)
                 sequences.append(
                     {
                         "row": int(row_index),
-                        "request_id": str(self._current_record_id),
-                        "seq_id": str(self._current_record_id),
-                        "prompt_len": self._current_prompt_len,
+                        "sample_idx": self._row_sample_idx(row_index),
+                        "request_id": str(row_record_id),
+                        "seq_id": str(row_record_id),
+                        "prompt_len": row_prompt_len,
                         "generated_token_idx": _generated_token_index_from_cache_len(
                             int(seq_lens[row_index]),
-                            self._current_prompt_len,
+                            row_prompt_len,
                             int(call_index),
                         ),
                         "cache_seqlen": int(seq_lens[row_index]),
@@ -945,6 +1033,15 @@ class DecodeWorkloadTraceCollector:
             return
         query_lens = query_lens[:batch_size]
         seq_values = [int(item) for item in seq_values[:batch_size]]
+        max_q_len_value = max(query_lens) if query_lens else 0
+        phase = (
+            "decode"
+            if int(max_q_len_value) <= int(self.decode_max_q_len)
+            else "prefill"
+        )
+        if self.phase_filter and self.phase_filter != "all" and phase != self.phase_filter:
+            self._skip("chunked_decode_phase_filter")
+            return
         block_size = _infer_block_size_from_key_cache(key_cache)
         if block_size is None or int(block_size) <= 0:
             self._skip("chunked_decode_missing_block_size")
@@ -984,17 +1081,26 @@ class DecodeWorkloadTraceCollector:
         )
         call_index = self._call_index
         self._call_index += 1
+        layer_ordinal = (
+            int(call_index) % int(self.inferred_layer_count)
+            if self.inferred_layer_count is not None
+            and int(self.inferred_layer_count) > 0
+            else None
+        )
         sequences = []
         for row_index in range(batch_size):
+            row_prompt_len = self._row_prompt_len(row_index)
+            row_record_id = self._row_record_id(row_index)
             sequences.append(
                 {
                     "row": int(row_index),
-                    "request_id": str(self._current_record_id),
-                    "seq_id": str(self._current_record_id),
-                    "prompt_len": self._current_prompt_len,
+                    "sample_idx": self._row_sample_idx(row_index),
+                    "request_id": str(row_record_id),
+                    "seq_id": str(row_record_id),
+                    "prompt_len": row_prompt_len,
                     "generated_token_idx": _generated_token_index_from_cache_len(
                         int(seq_values[row_index]),
-                        self._current_prompt_len,
+                        row_prompt_len,
                         int(call_index),
                     ),
                     "cache_seqlen": int(seq_values[row_index]),
@@ -1014,10 +1120,10 @@ class DecodeWorkloadTraceCollector:
             "capture_point": "inside_chunked_prefill_paged_decode_before_kernel",
             "record_idx": int(call_index),
             "decode_step": int(call_index),
-            "phase": str(self.phase_filter),
+            "phase": str(phase),
             "metadata_source": "chunked_prefill_paged_decode",
             "batch_size": int(batch_size),
-            "q_len": int(max(query_lens) if query_lens else 0),
+            "q_len": int(max_q_len_value),
             "q_lens": [int(item) for item in query_lens],
             "query_lens": [int(item) for item in query_lens],
             "query_start_loc": [int(item) for item in q_starts[: batch_size + 1]],
@@ -1043,9 +1149,8 @@ class DecodeWorkloadTraceCollector:
             ),
             "chunk_tokens": int(self.chunk_tokens),
             "head_mapping": str(self.head_mapping),
-            "sample_idx": self._current_sample_idx,
-            "record_id": self._current_record_id,
-            "layer_ordinal": None,
+            "layer_ordinal": layer_ordinal,
+            "layer_ordinal_inferred": layer_ordinal is not None,
             "attention_backend": "chunked_prefill_paged_decode",
             "max_seq_len": int(max_seq_len) if max_seq_len is not None else None,
             "max_query_len": int(max_query_len) if max_query_len is not None else None,
@@ -1057,9 +1162,10 @@ class DecodeWorkloadTraceCollector:
             "kv_cache_layout": _kv_cache_pair_layout_summary(
                 key_cache if bool(self.include_kv_cache_layout) else None,
                 value_cache if bool(self.include_kv_cache_layout) else None,
-                layer_ordinal=None,
+                layer_ordinal=layer_ordinal,
             ),
         }
+        record.update(self._record_provenance_payload(batch_size))
         self._handle.write(json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n")
         self.rows_written += 1
         if self.write_flush_every > 0 and self.rows_written % self.write_flush_every == 0:
@@ -16007,6 +16113,11 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                     False,
                 )
             ),
+            inferred_layer_count=(
+                int(decode_workload_trace_options["inferred_layer_count"])
+                if decode_workload_trace_options.get("inferred_layer_count") is not None
+                else None
+            ),
         )
         decode_workload_collector.open()
         _install_decode_workload_trace_patch()
@@ -17306,24 +17417,7 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                                 sample_idx, record, _input_ids, _prompt = chunk[0]
                                 decode_workload_collector.set_sample(sample_idx, record)
                             else:
-                                prompt_lengths = {
-                                    int(record["target_prompt_tokens"])
-                                    for _sample_idx, record, _input_ids, _prompt in chunk
-                                    if isinstance(record.get("target_prompt_tokens"), int)
-                                    and not isinstance(
-                                        record.get("target_prompt_tokens"),
-                                        bool,
-                                    )
-                                }
-                                chunk_record = (
-                                    {
-                                        "id": f"chunk_{chunk_start}",
-                                        "target_prompt_tokens": next(iter(prompt_lengths)),
-                                    }
-                                    if len(prompt_lengths) == 1
-                                    else None
-                                )
-                                decode_workload_collector.set_sample(None, chunk_record)
+                                decode_workload_collector.set_batch_samples(chunk)
                         decode_token = (
                             _ACTIVE_DECODE_WORKLOAD_TRACE.set(decode_workload_collector)
                             if decode_workload_collector is not None

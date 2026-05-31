@@ -32,6 +32,8 @@ def _valid_v2_record() -> dict:
         "sequences": [
             {
                 "row": 0,
+                "sample_idx": 0,
+                "request_id": "sample_0",
                 "prompt_len": 512,
                 "generated_token_idx": 1,
                 "cache_seqlen": 513,
@@ -77,6 +79,7 @@ def test_v2_checker_strict_mode_rejects_prefill_and_missing_provenance(tmp_path)
     record["q_len"] = 512
     record["q_lens"] = [512]
     record.pop("sample_idx")
+    record["sequences"][0].pop("sample_idx")
     record["kv_cache_layout"] = {"available": False}
 
     summary = check_trace(
@@ -87,10 +90,57 @@ def test_v2_checker_strict_mode_rejects_prefill_and_missing_provenance(tmp_path)
     )
 
     assert summary["error_count"] > 0
-    assert any("sample_idx is required" in err for err in summary["errors"])
+    assert any("sample_idx or sample_indices[1] is required" in err for err in summary["errors"])
+    assert any("sequences[0].sample_idx is required" in err for err in summary["errors"])
     assert any("kv_cache_layout.available is required" in err for err in summary["errors"])
     assert any("q_len=512 != 1" in err for err in summary["errors"])
     assert any("q_lens must all be 1 for decode-only" in err for err in summary["errors"])
+
+
+def test_v2_checker_accepts_batch_provenance_lists(tmp_path):
+    record = _valid_v2_record()
+    record["batch_size"] = 2
+    record["cache_seqlens"] = [513, 514]
+    record["q_lens"] = [1, 1]
+    record["query_start_loc"] = [0, 1, 2]
+    record["seq_start_loc"] = [0, 1, 2]
+    record["block_tables_shape"] = [2, 1]
+    record["sample_idx"] = None
+    record["record_id"] = None
+    record["sample_indices"] = [7, 8]
+    record["record_ids"] = ["sample_7", "sample_8"]
+    record["prompt_lens"] = [512, 512]
+    record["sequences"] = [
+        {
+            "row": 0,
+            "sample_idx": 7,
+            "request_id": "sample_7",
+            "prompt_len": 512,
+            "generated_token_idx": 1,
+            "cache_seqlen": 513,
+            "valid_block_count": 1,
+            "block_ids": [4],
+        },
+        {
+            "row": 1,
+            "sample_idx": 8,
+            "request_id": "sample_8",
+            "prompt_len": 512,
+            "generated_token_idx": 2,
+            "cache_seqlen": 514,
+            "valid_block_count": 1,
+            "block_ids": [5],
+        },
+    ]
+
+    summary = check_trace(
+        _write_jsonl(tmp_path, record),
+        require_decode_only=True,
+        require_provenance=True,
+        require_kv_cache_layout_available=True,
+    )
+
+    assert summary["error_count"] == 0
 
 
 def test_v2_checker_reports_zero_block_size_without_crashing(tmp_path):

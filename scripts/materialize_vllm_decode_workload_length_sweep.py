@@ -169,10 +169,8 @@ def main() -> int:
     if bool(args.strict_decode_kv_layout_trace):
         args.include_kv_cache_layout = True
         args.capture_metadata_builder = False
-        args.capture_attention_forward = True
-        args.capture_chunked_prefill_paged_decode = False
-        args.max_num_seqs = 1
-        args.engine_chunk_size = 1
+        args.capture_attention_forward = False
+        args.capture_chunked_prefill_paged_decode = True
     root = Path.cwd()
     base_trace = _load_yaml(root / args.base_trace_config)
     base_model = _load_yaml(root / args.base_model_config)
@@ -310,6 +308,11 @@ def main() -> int:
                     "capture_chunked_prefill_paged_decode": bool(
                         args.capture_chunked_prefill_paged_decode
                     ),
+                    "inferred_layer_count": int(
+                        base_model.get("architecture", {}).get("num_hidden_layers", 0)
+                        or 0
+                    )
+                    or None,
                 },
                 "runtime_shadow": {"enabled": False},
             }

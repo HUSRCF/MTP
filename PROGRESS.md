@@ -21994,3 +21994,42 @@ changes_kernel_launch_args = false
 This moves the future-native dispatch ABI from a full-table read-only checker to
 a windowed row-iteration checker, which is closer to how a real kernel consumer
 would receive a subset of prepared descriptor/address rows.
+
+### Strict Decode KV-Layout Trace Gate
+
+The sidework paged-KV trace checker now supports strict workload validation:
+
+```text
+--require-decode-only
+--require-provenance
+--require-kv-cache-layout-available
+```
+
+The materializer also has a strict recapture preset:
+
+```text
+--strict-decode-kv-layout-trace
+```
+
+This preset captures the real `chunked_prefill_paged_decode` boundary, filters
+out prefill/chunked rows by requiring `q_len == 1`, preserves batch row
+provenance through `sample_indices` / `record_ids` and
+`sequences[].sample_idx`, and records KV-cache layout shape/stride/data pointers.
+
+Strict smoke evidence:
+
+```text
+traceData/tmp_strict_layout_chunked_smoke/jsonl/dolly_plen64_gen4_gpu0.jsonl
+traceData/tmp_strict_layout_chunked_smoke/jsonl/dolly_plen64_gen4_gpu0.check.json
+
+row_count = 30
+error_count = 0
+phase_counts = {decode: 30}
+kv_cache_layout_available_count = 30
+kv_cache_layout_unavailable_count = 0
+strict decode/provenance/layout requirements = true
+```
+
+This replaces the older `kvlayout_true` artifact as the path for future strict
+KV-layout recapture.  The old artifact remains useful only as a shape/stride
+reference because it includes prefill-like `q_len > 1` rows and weak provenance.

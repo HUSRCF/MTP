@@ -263,10 +263,22 @@ def _check_record_v2(
     if record.get("trace_type") != "vllm_paged_kv_block_table":
         errors.append(f"line {line_no}: trace_type must be vllm_paged_kv_block_table")
     if require_provenance:
-        if record.get("sample_idx") is None:
-            errors.append(f"line {line_no}: sample_idx is required")
-        if record.get("record_id") is None:
-            errors.append(f"line {line_no}: record_id is required")
+        sample_indices = record.get("sample_indices")
+        record_ids = record.get("record_ids")
+        has_sample_idx = record.get("sample_idx") is not None
+        has_sample_indices = (
+            isinstance(sample_indices, list) and len(sample_indices) == batch_size
+        )
+        if not (has_sample_idx or has_sample_indices):
+            errors.append(
+                f"line {line_no}: sample_idx or sample_indices[{batch_size}] is required"
+            )
+        has_record_id = record.get("record_id") is not None
+        has_record_ids = isinstance(record_ids, list) and len(record_ids) == batch_size
+        if not (has_record_id or has_record_ids):
+            errors.append(
+                f"line {line_no}: record_id or record_ids[{batch_size}] is required"
+            )
         if record.get("layer_ordinal") is None:
             errors.append(f"line {line_no}: layer_ordinal is required")
     if require_kv_cache_layout_available:
@@ -410,6 +422,11 @@ def _check_record_v2(
         )
         if sequence_row is not None and sequence_row != row:
             errors.append(f"line {line_no}: sequences[{row}].row mismatch")
+        if require_provenance:
+            if sequence.get("sample_idx") is None:
+                errors.append(f"line {line_no}: sequences[{row}].sample_idx is required")
+            if sequence.get("request_id") in (None, "None", ""):
+                errors.append(f"line {line_no}: sequences[{row}].request_id is required")
         cache_len = cache_values[row]
         sequence_cache_len = sequence.get("cache_seqlen")
         if sequence_cache_len is not None:
