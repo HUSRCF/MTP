@@ -23026,6 +23026,8 @@ New status fields include:
 
 ```text
 default_kernel_consumer_dispatch_full_table_required = true
+default_kernel_consumer_dispatch_runner_evidence_present = true
+default_kernel_consumer_dispatch_runner_evidence_passed = true
 default_kernel_consumer_dispatch_checked = true
 default_kernel_consumer_dispatch_row_count = 174
 default_kernel_consumer_dispatch_row_ok_count = 174
@@ -23046,6 +23048,11 @@ default_kernel_consumer_dispatch_ptr_passed_to_kernel = false
 default_kernel_consumer_dispatch_ptr_changes_kernel_launch_args = false
 default_kernel_consumer_dispatch_ptr_current_wna16_arg_compatible = false
 ```
+
+Review follow-up tightened the status semantics: missing/deferred/failed runner
+evidence now appears explicitly in the compact summary instead of only producing
+empty flattened metrics, and `full_table_checked` is computed from typed integer
+metrics rather than raw JSON values.
 
 Generated artifact:
 

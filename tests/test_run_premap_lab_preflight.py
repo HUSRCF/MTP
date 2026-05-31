@@ -1783,6 +1783,13 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
         is False
     )
     assert summary["default_kernel_consumer_dispatch_full_table_required"] is True
+    assert (
+        summary["default_kernel_consumer_dispatch_runner_evidence_label"]
+        == "future_kernel_native_dispatch_consumer_online_runner_32_128export_json"
+    )
+    assert summary["default_kernel_consumer_dispatch_runner_evidence_present"] is True
+    assert summary["default_kernel_consumer_dispatch_runner_evidence_passed"] is True
+    assert summary["default_kernel_consumer_dispatch_runner_evidence_failure"] is None
     assert summary["default_kernel_consumer_dispatch_checked"] is True
     assert summary["default_kernel_consumer_dispatch_row_count"] == 2
     assert summary["default_kernel_consumer_dispatch_row_ok_count"] == 2
@@ -2672,6 +2679,23 @@ def test_premap_lab_preflight_rejects_dispatch_non_full_window(
         "future_kernel_native_dispatch_consumer_single_field_mirror_row_ok_count"
     ] = 0
     _write(runner_path, json.dumps(payload) + "\n")
+    runner_32_path = (
+        tmp_path / "reports/default_gate_native_online_prelaunch_canary_runner_32.json"
+    )
+    payload_32 = json.loads(runner_32_path.read_text())
+    dispatch_32 = payload_32["future_kernel_native_consumer_dispatch_stub_summary"]
+    dispatch_32["future_kernel_native_dispatch_consumer_row_offset"] = 1
+    dispatch_32["future_kernel_native_dispatch_consumer_row_limit"] = 1
+    dispatch_32["future_kernel_native_dispatch_consumer_active_rows"] = 0
+    dispatch_32["future_kernel_native_dispatch_consumer_row_count"] = 0
+    dispatch_32["future_kernel_native_dispatch_consumer_row_ok_count"] = 0
+    dispatch_32[
+        "future_kernel_native_dispatch_consumer_single_field_mirror_row_count"
+    ] = 0
+    dispatch_32[
+        "future_kernel_native_dispatch_consumer_single_field_mirror_row_ok_count"
+    ] = 0
+    _write(runner_32_path, json.dumps(payload_32) + "\n")
     trace_config = _write_trace_config(
         tmp_path,
         "longrun",
@@ -2687,6 +2711,10 @@ def test_premap_lab_preflight_rejects_dispatch_non_full_window(
     )
 
     assert result["passed"] is False
+    summary = result["lab_gate_status_summary"]
+    assert summary["default_kernel_consumer_dispatch_runner_evidence_present"] is True
+    assert summary["default_kernel_consumer_dispatch_runner_evidence_passed"] is False
+    assert summary["default_kernel_consumer_dispatch_full_table_checked"] is False
     failures = result["default_readonly_gate_required_evidence_check"]["failures"]
     assert (
         "native_typed_consumer_online_prelaunch_canary_runner_json:"
