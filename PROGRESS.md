@@ -21970,14 +21970,17 @@ Only dispatch ABI stubs receive this row-window contract.  Base native-consumer
 and launch ABI stubs remain full-table checks, which keeps the launch schema and
 dispatch schema separated.
 
-Latest 1-input real canary:
+Latest 16-input real canary:
 
 ```text
-outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_dispatch_window_1input.json
-outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_artifact_check_dispatch_window_1input.json
+outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_dispatch_window_16input.json
+outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_artifact_check_dispatch_window_16input.json
 
 passed = true
 artifact_check_passed = true
+online_prelaunch_input_check_count = 16
+online_prelaunch_input_extra_check_count = 15
+online_prelaunch_input_extra_check_passed_count = 15
 future_native_dispatch_row_offset = 1
 future_native_dispatch_row_limit = 5
 future_kernel_native_dispatch_consumer_active_rows = 4
