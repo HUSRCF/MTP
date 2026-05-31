@@ -1573,6 +1573,33 @@ def test_check_online_native_stub_canary_artifacts_rejects_runtime_deferred_coun
     assert "status_runtime_gate_evidence_deferred_count_mismatch" in result["failures"]
 
 
+def test_check_online_native_stub_canary_artifacts_rejects_strict_deferred_count_mismatch(
+    tmp_path: Path,
+):
+    runner_path, preflight_path, status_path = _payloads(tmp_path)
+    preflight = json.loads(preflight_path.read_text(encoding="utf-8"))
+    preflight["strict_gate_evidence_checks"] = {
+        "default_readonly_gate": {"deferred_count": 0}
+    }
+    _write_json(preflight_path, preflight)
+    status = json.loads(status_path.read_text(encoding="utf-8"))
+    status["strict_default_gate_evidence_deferred_count"] = 3
+    _write_json(status_path, status)
+
+    result = check_online_native_stub_canary_artifacts(
+        root=tmp_path,
+        runner_json=runner_path,
+        preflight_json=preflight_path,
+        status_json=status_path,
+    )
+
+    assert result["passed"] is False
+    assert (
+        "status_strict_default_gate_evidence_deferred_count_mismatch"
+        in result["failures"]
+    )
+
+
 def test_check_online_native_stub_canary_artifacts_rejects_dispatch_launch_threads_mismatch(
     tmp_path: Path,
 ):

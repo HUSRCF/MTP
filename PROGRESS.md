@@ -21430,7 +21430,7 @@ conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
          tests/test_premap_kernel_consumer_schema.py \
          tests/test_run_premap_lab_preflight.py -q
 
-64 passed
+65 passed
 
 conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src pytest tests -q
 
@@ -21825,6 +21825,7 @@ lab preflight:
 dispatch ABI tests:
   added a positive grid_x > 1 / multi-program dispatch coverage case, covering
   the future row assignment formula beyond the single-program tail-window path.
+  added explicit runtime and strict deferred-count mismatch tests.
 ```
 
 Latest validation:
@@ -21860,7 +21861,7 @@ deferred_online_prelaunch_artifact_evidence = false
 
 conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src pytest tests -q
 
-739 passed, 2 warnings
+740 passed, 2 warnings
 
 git diff --check: clean
 ```
