@@ -811,6 +811,18 @@ _RUNNER_DISPATCH_LAYOUT_SUMMARY: dict[str, object] = {
     "future_kernel_native_dispatch_consumer_offset_payload_bytes": 164,
     "future_kernel_native_dispatch_consumer_offset_flags": 168,
 }
+_RUNNER_DISPATCH_PTR_LAYOUT_SUMMARY: dict[str, object] = {
+    "future_kernel_native_dispatch_ptr_consumer_packet_struct_size": 32,
+    "future_kernel_native_dispatch_ptr_consumer_packet_struct_align": 8,
+    "future_kernel_native_dispatch_ptr_consumer_dispatch_struct_size": 176,
+    "future_kernel_native_dispatch_ptr_consumer_result_struct_size": 72,
+    "future_kernel_native_dispatch_ptr_consumer_offset_dispatch": 0,
+    "future_kernel_native_dispatch_ptr_consumer_offset_abi_version": 8,
+    "future_kernel_native_dispatch_ptr_consumer_offset_dispatch_struct_size": 12,
+    "future_kernel_native_dispatch_ptr_consumer_offset_result_struct_size": 16,
+    "future_kernel_native_dispatch_ptr_consumer_offset_payload_bytes": 20,
+    "future_kernel_native_dispatch_ptr_consumer_offset_flags": 24,
+}
 
 
 def _runner_kernel_side_compatible_summary() -> dict[str, object]:
@@ -1046,11 +1058,40 @@ def _runner_future_kernel_native_dispatch_consumer_summary(
             "future_kernel_native_dispatch_consumer_single_field_mirror_row_count": 2,
             "future_kernel_native_dispatch_consumer_single_field_mirror_row_ok_count": 2,
             "future_kernel_native_dispatch_consumer_single_field_mirror_error_count": 0,
+            "future_kernel_native_dispatch_ptr_consumer_checked": True,
+            "future_kernel_native_dispatch_ptr_consumer_abi_name": (
+                "premap_future_kernel_native_consumer_dispatch_ptr_abi_v1"
+            ),
+            "future_kernel_native_dispatch_ptr_consumer_mode": (
+                "readonly_future_kernel_native_consumer_dispatch_ptr_abi"
+            ),
+            "future_kernel_native_dispatch_ptr_consumer_source": (
+                "premap_future_kernel_native_consumer_dispatch_abi_v1"
+            ),
+            "future_kernel_native_dispatch_ptr_consumer_version": 1,
+            "future_kernel_native_dispatch_ptr_consumer_row_count": 2,
+            "future_kernel_native_dispatch_ptr_consumer_row_ok_count": 2,
+            "future_kernel_native_dispatch_ptr_consumer_error_count": 0,
+            "future_kernel_native_dispatch_ptr_consumer_payload_bytes": 0,
+            "future_kernel_native_dispatch_ptr_consumer_passed_to_kernel": False,
+            "future_kernel_native_dispatch_ptr_consumer_changes_kernel_launch_args": False,
+            "future_kernel_native_dispatch_ptr_consumer_current_wna16_arg_compatible": False,
+            "future_kernel_native_dispatch_ptr_consumer_requires_wna16_arg_reinterpretation": False,
+            "future_kernel_native_dispatch_ptr_consumer_field_mask": 15,
+            "future_kernel_native_dispatch_ptr_consumer_required_field_mask": 7,
+            "future_kernel_native_dispatch_ptr_consumer_single_field_mirror_checked": True,
+            "future_kernel_native_dispatch_ptr_consumer_single_field_mirror_field_name": (
+                field_name
+            ),
+            "future_kernel_native_dispatch_ptr_consumer_single_field_mirror_row_count": 2,
+            "future_kernel_native_dispatch_ptr_consumer_single_field_mirror_row_ok_count": 2,
+            "future_kernel_native_dispatch_ptr_consumer_single_field_mirror_error_count": 0,
         }
     )
     payload.update(_RUNNER_NATIVE_LAYOUT_SUMMARY)
     payload.update(_RUNNER_LAUNCH_LAYOUT_SUMMARY)
     payload.update(_RUNNER_DISPATCH_LAYOUT_SUMMARY)
+    payload.update(_RUNNER_DISPATCH_PTR_LAYOUT_SUMMARY)
     return payload
 
 
@@ -2646,6 +2687,43 @@ def test_premap_lab_preflight_rejects_dispatch_program_hash_missing(
         "native_typed_consumer_online_prelaunch_canary_runner_json:"
         "runner_future_kernel_native_consumer_dispatch_stub_summary_"
         "future_kernel_native_dispatch_consumer_program_iteration_hash_missing"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_missing_dispatch_ptr_packet_summary(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    runner_path = (
+        tmp_path / "reports/default_gate_native_online_prelaunch_canary_runner.json"
+    )
+    payload = json.loads(runner_path.read_text())
+    dispatch = payload["future_kernel_native_consumer_dispatch_stub_summary"]
+    for key in list(dispatch):
+        if key.startswith("future_kernel_native_dispatch_ptr_consumer_"):
+            dispatch.pop(key)
+    _write(runner_path, json.dumps(payload) + "\n")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is False
+    failures = result["default_readonly_gate_required_evidence_check"]["failures"]
+    assert (
+        "native_typed_consumer_online_prelaunch_canary_runner_json:"
+        "runner_future_kernel_native_consumer_dispatch_stub_summary_"
+        "future_kernel_native_dispatch_ptr_consumer_checked_mismatch"
     ) in failures
 
 
