@@ -1632,12 +1632,14 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
     preflight_output = _resolve_repo_path(args.preflight_output_json)
     preflight_status_output = _resolve_repo_path(args.preflight_status_output_json)
     if not args.skip_preflight:
+        # Keep this strict: lab preflight intentionally rejects deferred
+        # runner/artifact evidence combinations.
         steps["preflight"] = _run(
             _preflight_command(
                 output_json=preflight_output,
                 summary_only=False,
-                defer_runner=True,
-                defer_artifact=True,
+                defer_runner=False,
+                defer_artifact=False,
             ),
             env=env,
             dry_run=bool(args.dry_run),
@@ -1646,8 +1648,8 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
             _preflight_command(
                 output_json=preflight_status_output,
                 summary_only=True,
-                defer_runner=True,
-                defer_artifact=True,
+                defer_runner=False,
+                defer_artifact=False,
             ),
             env=env,
             dry_run=bool(args.dry_run),
@@ -3470,12 +3472,14 @@ def finalize_report_with_strict_preflight(
         payload["steps"] = steps
     preflight_output = _resolve_repo_path(args.preflight_output_json)
     preflight_status_output = _resolve_repo_path(args.preflight_status_output_json)
+    # Final validation must use the same no-defer lab gate as the standalone
+    # preflight; the runner should not weaken missing-evidence checks.
     steps["final_preflight"] = _run(
         _preflight_command(
             output_json=preflight_output,
             summary_only=False,
             defer_runner=False,
-            defer_artifact=True,
+            defer_artifact=False,
         ),
         env=env,
         dry_run=False,
@@ -3485,7 +3489,7 @@ def finalize_report_with_strict_preflight(
             output_json=preflight_status_output,
             summary_only=True,
             defer_runner=False,
-            defer_artifact=True,
+            defer_artifact=False,
         ),
         env=env,
         dry_run=False,

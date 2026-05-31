@@ -405,16 +405,22 @@ def test_run_canary_dry_run_includes_compact_preflight_status(
     assert "MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR_MIRROR_FIELD" in (
         future_native_launch_descriptor_cmd
     )
-    assert "--defer-online-prelaunch-runner-evidence" in result["steps"]["preflight"]["cmd"]
-    assert "--defer-online-prelaunch-artifact-evidence" in result["steps"]["preflight"]["cmd"]
-    assert "--summary-only" in result["steps"]["preflight_status"]["cmd"]
     assert (
         "--defer-online-prelaunch-runner-evidence"
-        in result["steps"]["preflight_status"]["cmd"]
+        not in result["steps"]["preflight"]["cmd"]
     )
     assert (
         "--defer-online-prelaunch-artifact-evidence"
-        in result["steps"]["preflight_status"]["cmd"]
+        not in result["steps"]["preflight"]["cmd"]
+    )
+    assert "--summary-only" in result["steps"]["preflight_status"]["cmd"]
+    assert (
+        "--defer-online-prelaunch-runner-evidence"
+        not in result["steps"]["preflight_status"]["cmd"]
+    )
+    assert (
+        "--defer-online-prelaunch-artifact-evidence"
+        not in result["steps"]["preflight_status"]["cmd"]
     )
     assert "runtime_gate_evidence_deferred_count" in result["preflight_status_summary"]
     assert (
@@ -496,7 +502,7 @@ def test_finalize_report_with_artifact_check_records_summary(
                     "runner_future_kernel_native_consumer_dispatch_packed_weight_stub_row_ok_count": 4,
                     "runner_future_kernel_native_consumer_dispatch_aux_metadata_stub_row_count": 4,
                     "runner_future_kernel_native_consumer_dispatch_aux_metadata_stub_row_ok_count": 4,
-                    "stage1_deferred_count": 1,
+                    "stage1_deferred_count": 0,
                     "final_deferred_count": 0,
                     "status_deferred_count": 0,
                 }
@@ -583,7 +589,7 @@ def test_finalize_report_with_artifact_check_records_summary(
             "runner_future_kernel_native_consumer_dispatch_packed_weight_stub_row_ok_count": 4,
             "runner_future_kernel_native_consumer_dispatch_aux_metadata_stub_row_count": 4,
             "runner_future_kernel_native_consumer_dispatch_aux_metadata_stub_row_ok_count": 4,
-            "stage1_deferred_count": 1,
+            "stage1_deferred_count": 0,
             "final_deferred_count": 0,
             "status_deferred_count": 0,
     }
@@ -607,7 +613,7 @@ def test_finalize_report_with_artifact_check_records_failure_without_raising(
                     "failures": ["runner_not_passed"],
                     "runner_stub_row_count": 4,
                     "runner_stub_row_ok_count": 4,
-                    "stage1_deferred_count": 1,
+                    "stage1_deferred_count": 0,
                     "final_deferred_count": 0,
                     "status_deferred_count": 0,
                 }
