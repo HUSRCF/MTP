@@ -24,6 +24,11 @@ def _valid_v2_record() -> dict:
         "kv_dtype": "bf16",
         "block_size_tokens": 1056,
         "block_tables_shape": [1, 1],
+        "sample_idx": 0,
+        "record_id": "sample_0",
+        "layer_ordinal": 0,
+        "q_len": 1,
+        "kv_cache_layout": {"available": True},
         "sequences": [
             {
                 "row": 0,
@@ -49,6 +54,43 @@ def test_v2_checker_accepts_valid_record(tmp_path):
     assert summary["error_count"] == 0
     assert summary["row_count"] == 1
     assert summary["block_size_tokens_distribution"] == {"1056": 1}
+
+
+def test_v2_checker_accepts_strict_decode_provenance_and_layout(tmp_path):
+    summary = check_trace(
+        _write_jsonl(tmp_path, _valid_v2_record()),
+        require_decode_only=True,
+        require_provenance=True,
+        require_kv_cache_layout_available=True,
+    )
+
+    assert summary["error_count"] == 0
+    assert summary["strict_requirements"] == {
+        "decode_only_q_len_1": True,
+        "provenance": True,
+        "kv_cache_layout_available": True,
+    }
+
+
+def test_v2_checker_strict_mode_rejects_prefill_and_missing_provenance(tmp_path):
+    record = _valid_v2_record()
+    record["q_len"] = 512
+    record["q_lens"] = [512]
+    record.pop("sample_idx")
+    record["kv_cache_layout"] = {"available": False}
+
+    summary = check_trace(
+        _write_jsonl(tmp_path, record),
+        require_decode_only=True,
+        require_provenance=True,
+        require_kv_cache_layout_available=True,
+    )
+
+    assert summary["error_count"] > 0
+    assert any("sample_idx is required" in err for err in summary["errors"])
+    assert any("kv_cache_layout.available is required" in err for err in summary["errors"])
+    assert any("q_len=512 != 1" in err for err in summary["errors"])
+    assert any("q_lens must all be 1 for decode-only" in err for err in summary["errors"])
 
 
 def test_v2_checker_reports_zero_block_size_without_crashing(tmp_path):

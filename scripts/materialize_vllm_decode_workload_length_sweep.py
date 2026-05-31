@@ -151,11 +151,28 @@ def parse_args() -> argparse.Namespace:
         action="store_false",
     )
     parser.add_argument("--capture-chunked-prefill-paged-decode", action="store_true")
+    parser.add_argument(
+        "--strict-decode-kv-layout-trace",
+        action="store_true",
+        help=(
+            "Preset for layout-true decode traces: disable metadata-builder and "
+            "chunked-prefill capture, keep attention-forward capture and KV-cache "
+            "layout enabled. Use with checker --require-decode-only "
+            "--require-provenance --require-kv-cache-layout-available."
+        ),
+    )
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
+    if bool(args.strict_decode_kv_layout_trace):
+        args.include_kv_cache_layout = True
+        args.capture_metadata_builder = False
+        args.capture_attention_forward = True
+        args.capture_chunked_prefill_paged_decode = False
+        args.max_num_seqs = 1
+        args.engine_chunk_size = 1
     root = Path.cwd()
     base_trace = _load_yaml(root / args.base_trace_config)
     base_model = _load_yaml(root / args.base_model_config)
@@ -322,6 +339,9 @@ def main() -> int:
                 "lengths": [int(length) for length in args.lengths],
                 "samples_per_length": int(args.samples_per_length),
                 "runs": manifest_rows,
+                "strict_decode_kv_layout_trace": bool(
+                    args.strict_decode_kv_layout_trace
+                ),
             },
             indent=2,
             sort_keys=True,

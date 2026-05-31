@@ -124,14 +124,27 @@ def _summary_int(value: Any) -> int | None:
         return None
 
 
-def _check_record(record: dict[str, Any], *, line_no: int) -> list[str]:
+def _check_record(
+    record: dict[str, Any],
+    *,
+    line_no: int,
+    require_decode_only: bool = False,
+    require_provenance: bool = False,
+    require_kv_cache_layout_available: bool = False,
+) -> list[str]:
     schema_version_raw = record.get("schema_version")
     try:
         schema_version = _as_int(schema_version_raw, "schema_version")
     except Exception:
         schema_version = 1
     if schema_version == 2:
-        return _check_record_v2(record, line_no=line_no)
+        return _check_record_v2(
+            record,
+            line_no=line_no,
+            require_decode_only=require_decode_only,
+            require_provenance=require_provenance,
+            require_kv_cache_layout_available=require_kv_cache_layout_available,
+        )
 
     errors: list[str] = []
     for field in REQUIRED_FIELDS:
@@ -223,7 +236,14 @@ def _check_record(record: dict[str, Any], *, line_no: int) -> list[str]:
     return errors
 
 
-def _check_record_v2(record: dict[str, Any], *, line_no: int) -> list[str]:
+def _check_record_v2(
+    record: dict[str, Any],
+    *,
+    line_no: int,
+    require_decode_only: bool = False,
+    require_provenance: bool = False,
+    require_kv_cache_layout_available: bool = False,
+) -> list[str]:
     errors: list[str] = []
     for field in V2_REQUIRED_FIELDS:
         if field not in record:
@@ -242,6 +262,17 @@ def _check_record_v2(record: dict[str, Any], *, line_no: int) -> list[str]:
         return [f"line {line_no}: integer field parse failed: {exc}"]
     if record.get("trace_type") != "vllm_paged_kv_block_table":
         errors.append(f"line {line_no}: trace_type must be vllm_paged_kv_block_table")
+    if require_provenance:
+        if record.get("sample_idx") is None:
+            errors.append(f"line {line_no}: sample_idx is required")
+        if record.get("record_id") is None:
+            errors.append(f"line {line_no}: record_id is required")
+        if record.get("layer_ordinal") is None:
+            errors.append(f"line {line_no}: layer_ordinal is required")
+    if require_kv_cache_layout_available:
+        kv_layout = record.get("kv_cache_layout")
+        if not (isinstance(kv_layout, dict) and bool(kv_layout.get("available"))):
+            errors.append(f"line {line_no}: kv_cache_layout.available is required")
     if batch_size <= 0:
         errors.append(f"line {line_no}: batch_size must be positive")
     if num_q_heads <= 0 or num_kv_heads <= 0:
@@ -275,6 +306,20 @@ def _check_record_v2(record: dict[str, Any], *, line_no: int) -> list[str]:
         expected_len=batch_size,
         positive=True,
     )
+    if require_decode_only:
+        if record.get("phase") != "decode":
+            errors.append(f"line {line_no}: phase must be decode")
+        q_len = _parse_int(
+            record.get("q_len", -1),
+            "q_len",
+            line_no=line_no,
+            errors=errors,
+            positive=True,
+        )
+        if q_len != 1:
+            errors.append(f"line {line_no}: q_len={q_len} != 1")
+        if q_values is not None and any(int(value) != 1 for value in q_values):
+            errors.append(f"line {line_no}: q_lens must all be 1 for decode-only")
     query_start_values = _parse_int_list(
         query_start_loc,
         "query_start_loc",
@@ -456,7 +501,13 @@ def _check_record_v2(record: dict[str, Any], *, line_no: int) -> list[str]:
     return errors
 
 
-def check_trace(path: Path) -> dict[str, Any]:
+def check_trace(
+    path: Path,
+    *,
+    require_decode_only: bool = False,
+    require_provenance: bool = False,
+    require_kv_cache_layout_available: bool = False,
+) -> dict[str, Any]:
     rows = 0
     errors: list[str] = []
     phase_counts: dict[str, int] = {}
@@ -487,7 +538,15 @@ def check_trace(path: Path) -> dict[str, Any]:
             if not isinstance(record, dict):
                 errors.append(f"line {line_no}: row must be a JSON object")
                 continue
-            errors.extend(_check_record(record, line_no=line_no))
+            errors.extend(
+                _check_record(
+                    record,
+                    line_no=line_no,
+                    require_decode_only=require_decode_only,
+                    require_provenance=require_provenance,
+                    require_kv_cache_layout_available=require_kv_cache_layout_available,
+                )
+            )
             schema = str(record.get("schema_version"))
             schema_counts[schema] = schema_counts.get(schema, 0) + 1
             phase = str(record.get("phase"))
@@ -593,6 +652,11 @@ def check_trace(path: Path) -> dict[str, Any]:
         "kv_cache_layout_available_count": int(kv_cache_layout_available),
         "kv_cache_layout_unavailable_count": int(kv_cache_layout_unavailable),
         "sequence_prompt_len_null_count": int(sequence_prompt_len_null),
+        "strict_requirements": {
+            "decode_only_q_len_1": bool(require_decode_only),
+            "provenance": bool(require_provenance),
+            "kv_cache_layout_available": bool(require_kv_cache_layout_available),
+        },
         "block_reuse_ratio": (
             float(1.0 - (len(unique_blocks) / total_block_refs))
             if total_block_refs > 0
@@ -616,9 +680,17 @@ def main() -> int:
     parser.add_argument("trace", type=Path)
     parser.add_argument("--summary-json", type=Path)
     parser.add_argument("--require-rows", type=int, default=1)
+    parser.add_argument("--require-decode-only", action="store_true")
+    parser.add_argument("--require-provenance", action="store_true")
+    parser.add_argument("--require-kv-cache-layout-available", action="store_true")
     args = parser.parse_args()
 
-    summary = check_trace(args.trace)
+    summary = check_trace(
+        args.trace,
+        require_decode_only=bool(args.require_decode_only),
+        require_provenance=bool(args.require_provenance),
+        require_kv_cache_layout_available=bool(args.require_kv_cache_layout_available),
+    )
     if summary["row_count"] < int(args.require_rows):
         summary["error_count"] += 1
         summary["errors"].append(

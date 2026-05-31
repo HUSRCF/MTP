@@ -50,6 +50,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--python", default=sys.executable)
     parser.add_argument("--only-lengths", nargs="*", type=int, default=None)
     parser.add_argument("--require-rows", type=int, default=1)
+    parser.add_argument("--require-decode-only", action="store_true")
+    parser.add_argument("--require-provenance", action="store_true")
+    parser.add_argument("--require-kv-cache-layout-available", action="store_true")
     parser.add_argument("--skip-existing", action="store_true")
     return parser.parse_args()
 
@@ -103,19 +106,22 @@ def main() -> int:
             print(f"[error] {run_id} trace failed rc={trace_rc}; log={log_path}")
             return trace_rc
         print(f"[check] {run_id} -> {check_path}")
-        check_rc = _run(
-            [
-                args.python,
-                "scripts/check_vllm_decode_workload_trace.py",
-                str(trace_path),
-                "--summary-json",
-                str(check_path),
-                "--require-rows",
-                str(int(args.require_rows)),
-            ],
-            cwd=root,
-            env=env,
-        )
+        check_cmd = [
+            args.python,
+            "scripts/check_vllm_decode_workload_trace.py",
+            str(trace_path),
+            "--summary-json",
+            str(check_path),
+            "--require-rows",
+            str(int(args.require_rows)),
+        ]
+        if bool(args.require_decode_only):
+            check_cmd.append("--require-decode-only")
+        if bool(args.require_provenance):
+            check_cmd.append("--require-provenance")
+        if bool(args.require_kv_cache_layout_available):
+            check_cmd.append("--require-kv-cache-layout-available")
+        check_rc = _run(check_cmd, cwd=root, env=env)
         if check_rc != 0:
             print(f"[error] {run_id} check failed rc={check_rc}; check={check_path}")
             return check_rc
