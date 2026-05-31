@@ -21,6 +21,16 @@ The native path is split into two explicit pieces:
   same argument shape a future kernel slot would receive.  It is still not the
   current WNA16 kernel argument list and is never passed to the real fused-MoE
   kernel.
+- `PremapFutureKernelNativeConsumerLaunchV1` wraps the standalone native
+  consumer params with version, struct-size, row-stride, payload, and readonly
+  flags that a future launch ABI would carry.
+- `PremapFutureKernelNativeConsumerDispatchV1` adds the launch-shape and
+  row-window fields that a future kernel-side consumer would use:
+  `grid_x`, `block_x`, `shared_mem_bytes`, `row_offset`, `row_limit`, and
+  `rows_per_program`.  It validates the row assignment formula
+  `row_offset + program_id * rows_per_program + lane_id`, minimal launch cover,
+  inactive lanes, and a program-iteration hash.  It is still a readonly future
+  ABI and is not the current WNA16 kernel argument list.
 
 This separation is deliberate: the adapter is the compatibility point for a
 future kernel-side consumer, not an attempt to reinterpret the current WNA16
@@ -84,8 +94,8 @@ for a future kernel-side consumer; it still does not reinterpret the typed table
 as an existing WNA16 launch argument, dereference payload, or pass anything to
 the real fused-MoE kernel.
 
-`MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_CONSUMER_ARGS` is the current
-closest-to-kernel canary. It launches a separate native HIP checker that accepts
+`MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_CONSUMER_ARGS` launches a
+separate native HIP checker that accepts
 `PremapFutureKernelSideConsumerArgsV1` as a future kernel parameter structure
 and iterates the typed table through that object. When combined with one
 single-field mirror macro, the checker validates that the selected field is
@@ -94,6 +104,31 @@ this future-args path for all four mirror fields: `scale_metadata_handle`,
 `descriptor_ptr`, `packed_weight_descriptor`, and `aux_metadata_handle`. The
 output continues to require `payload_bytes=0`, `passed_to_kernel=false`,
 `changes_kernel_launch_args=false`, and `current_wna16_arg_compatible=false`.
+
+`MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ABI` is the
+standalone native SOA consumer ABI. It exposes the descriptor/address handle
+columns directly as the fields a future consumer kernel would read.
+
+`MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ABI`
+wraps the standalone native consumer ABI in a launch-shaped object. It validates
+version, struct-size, row-stride, readonly flags, schema hash, row parity, and
+the same single-field mirror ladder without passing anything to WNA16.
+
+`MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_ABI` is
+the current closest-to-kernel readonly canary. It consumes
+`PremapFutureKernelNativeConsumerDispatchV1`, checks launch geometry and row
+window coverage, then maps each `(program_id, lane_id)` to the future row index
+with:
+
+```text
+row_index = row_offset + program_id * rows_per_program + lane_id
+```
+
+The artifact checker requires this dispatch ABI evidence to preserve
+`payload_bytes=0`, `passed_to_kernel=false`,
+`changes_kernel_launch_args=false`, and
+`current_wna16_arg_compatible=false`.  Tests cover both zero-offset and
+nonzero-offset multi-program windows.
 
 Runtime manager bridge:
 

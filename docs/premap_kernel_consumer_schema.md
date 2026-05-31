@@ -209,8 +209,9 @@ the single-program tail-window case.
 
 1. Keep the current readonly dispatch ABI as the default lab preflight
    condition.
-2. Build the next native consumer stub as a real future-kernel-compatible ABI
-   path, still independent from current WNA16 kernel args.
-3. Only after that native path passes should a single-field handoff canary be
-   considered, default disabled, starting with metadata/scale handles rather
-   than payload pointers.
+2. Build a real WNA16-adjacent consumer path only by adding an explicit typed
+   ABI slot to a future native consumer or standalone adapter. Do not reinterpret
+   the typed table as the current WNA16 argument list.
+3. Only after that compatible consumer path passes should a single-field live
+   handoff canary be considered, default disabled, starting with metadata/scale
+   handles rather than payload pointers.
