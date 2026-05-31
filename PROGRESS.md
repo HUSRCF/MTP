@@ -23069,3 +23069,21 @@ conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
 
 759 passed, 2 warnings
 ```
+
+Standalone native ABI spot-check:
+
+```text
+outputs/reports/premap_kernel_consumer/typed_consumer_stub_gpu1_future_native_dispatch_ptr_standalone_canary.json
+passed = true
+row_count = 1024
+future_kernel_native_consumer_row_ok_count = 1024
+future_kernel_native_dispatch_consumer_row_ok_count = 1024
+future_kernel_native_dispatch_ptr_consumer_row_ok_count = 1024
+future_kernel_native_dispatch_ptr_consumer_payload_bytes = 0
+future_kernel_native_dispatch_ptr_consumer_passed_to_kernel = false
+future_kernel_native_dispatch_ptr_consumer_current_wna16_arg_compatible = false
+```
+
+This spot-check exercises the standalone pointer-backed dispatch packet ABI
+directly in the native stub.  It still does not pass arguments to the current
+WNA16 fused-MoE kernel.
