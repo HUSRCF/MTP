@@ -22228,6 +22228,46 @@ passed_to_kernel_required = false
 changes_kernel_launch_args_required = false
 ```
 
+The stronger 32-input version also passes after exporting a dedicated 32-table
+online typed-consumer artifact:
+
+```text
+trace config:
+  configs/trace/router_mtp_trace_external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_native_input_export_audit_mem70_32tables.yaml
+
+export root:
+  data/traces/external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_native_input_export_audit_mem70_stride320_32tables/
+
+exported typed inputs = 32
+export stride = 320
+
+runner:
+  outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_dispatch_window_tail4_32input.json
+
+artifact check:
+  outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_artifact_check_dispatch_window_tail4_32input.json
+
+passed = true
+artifact_check_passed = true
+online_prelaunch_input_check_count = 32
+online_prelaunch_input_extra_check_passed_count = 31 / 31
+tail_window_size = 4
+```
+
+The main input dispatch window now covers only the last 4 rows:
+
+```text
+source row_count = 174
+dispatch row_offset = 170
+dispatch row_limit = 174
+dispatch active_rows = 4
+dispatch row_count = 4
+dispatch row_ok_count = 4
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+```
+
 Validation:
 
 ```text
@@ -22245,6 +22285,16 @@ conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
          tests/test_run_premap_online_native_stub_canary.py -q
 
 44 passed
+
+conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
+  python scripts/run_premap_online_native_stub_canary.py \
+    --trace-config configs/trace/router_mtp_trace_external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_native_input_export_audit_mem70_32tables.yaml \
+    --skip-trace \
+    --max-online-inputs 32 \
+    --min-artifact-online-inputs 32 \
+    --future-native-dispatch-tail-window-size 4
+
+passed = true
 
 git diff --check: clean
 ```
