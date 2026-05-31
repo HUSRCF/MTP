@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import yaml
+
 from mtp_expert_prefetch.runtime.cache_manager import (
     PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_COLUMNS,
     PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH,
@@ -17,9 +19,45 @@ from scripts.run_premap_lab_preflight import main, run_premap_lab_preflight
 from scripts.run_premap_lab_preflight import _program_iteration_hash
 
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
+
+
 def _write(path: Path, text: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8")
+
+
+def test_default_lab_gate_uses_strict_nodefer_online_native_evidence() -> None:
+    gate_path = (
+        REPO_ROOT
+        / "configs/runtime/"
+        "premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_live_connected_readonly.yaml"
+    )
+    gate = yaml.safe_load(gate_path.read_text(encoding="utf-8"))
+    evidence = gate["evidence_paths"]
+    runner_labels = {
+        "native_typed_consumer_online_prelaunch_canary_runner_json",
+        "future_kernel_native_consumer_online_runner_16_128export_json",
+        "future_kernel_native_launch_consumer_online_runner_16_128export_json",
+        "future_kernel_native_dispatch_consumer_online_runner_16_128export_json",
+        "future_kernel_native_dispatch_consumer_online_runner_32_128export_json",
+    }
+    artifact_labels = {
+        "future_kernel_native_consumer_online_artifact_check_16_128export_json",
+        "future_kernel_native_launch_consumer_online_artifact_check_16_128export_json",
+        "future_kernel_native_dispatch_consumer_online_artifact_check_16_128export_json",
+        "future_kernel_native_dispatch_consumer_online_artifact_check_32_128export_json",
+    }
+
+    for label in runner_labels:
+        path = evidence[label]
+        assert path.endswith("_32input_nodefer.json"), label
+        assert "_32input.json" not in path, label
+    for label in artifact_labels:
+        path = evidence[label]
+        assert path.endswith("_32input_nodefer.json"), label
+        assert "_32input.json" not in path, label
+        assert "artifact_check" in path
 
 
 def _valid_schema_payload() -> dict:
