@@ -1,5 +1,6 @@
 #include <hip/hip_runtime.h>
 
+#include <cstddef>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
@@ -1865,6 +1866,34 @@ int main(int argc, char** argv) {
             << kPremapFutureKernelNativeConsumerAbiV1Mode << "\"";
   std::cout << ",\"future_kernel_native_consumer_source\":\""
             << kPremapFutureKernelNativeConsumerAbiV1Source << "\"";
+  std::cout << ",\"future_kernel_native_consumer_params_struct_size\":"
+            << sizeof(PremapFutureKernelNativeConsumerParamsV1);
+  std::cout << ",\"future_kernel_native_consumer_params_struct_align\":"
+            << alignof(PremapFutureKernelNativeConsumerParamsV1);
+  std::cout << ",\"future_kernel_native_consumer_result_struct_size\":"
+            << sizeof(PremapFutureKernelNativeConsumerResultV1);
+  std::cout << ",\"future_kernel_native_consumer_result_struct_align\":"
+            << alignof(PremapFutureKernelNativeConsumerResultV1);
+  std::cout << ",\"future_kernel_native_consumer_params_offset_descriptor_ptr\":"
+            << offsetof(PremapFutureKernelNativeConsumerParamsV1, descriptor_ptr);
+  std::cout << ",\"future_kernel_native_consumer_params_offset_packed_weight_descriptor\":"
+            << offsetof(PremapFutureKernelNativeConsumerParamsV1, packed_weight_descriptor);
+  std::cout << ",\"future_kernel_native_consumer_params_offset_scale_metadata_handle\":"
+            << offsetof(PremapFutureKernelNativeConsumerParamsV1, scale_metadata_handle);
+  std::cout << ",\"future_kernel_native_consumer_params_offset_aux_metadata_handle\":"
+            << offsetof(PremapFutureKernelNativeConsumerParamsV1, aux_metadata_handle);
+  std::cout << ",\"future_kernel_native_consumer_params_offset_expert_id\":"
+            << offsetof(PremapFutureKernelNativeConsumerParamsV1, expert_id);
+  std::cout << ",\"future_kernel_native_consumer_params_offset_address_key_hash\":"
+            << offsetof(PremapFutureKernelNativeConsumerParamsV1, address_key_hash);
+  std::cout << ",\"future_kernel_native_consumer_params_offset_row_count\":"
+            << offsetof(PremapFutureKernelNativeConsumerParamsV1, row_count);
+  std::cout << ",\"future_kernel_native_consumer_params_offset_field_mask\":"
+            << offsetof(PremapFutureKernelNativeConsumerParamsV1, field_mask);
+  std::cout << ",\"future_kernel_native_consumer_params_offset_payload_bytes\":"
+            << offsetof(PremapFutureKernelNativeConsumerParamsV1, payload_bytes);
+  std::cout << ",\"future_kernel_native_consumer_params_offset_flags\":"
+            << offsetof(PremapFutureKernelNativeConsumerParamsV1, flags);
   std::cout << ",\"future_kernel_native_consumer_row_count\":"
             << future_native_consumer_row_count;
   std::cout << ",\"future_kernel_native_consumer_row_ok_count\":"
@@ -1914,10 +1943,32 @@ int main(int argc, char** argv) {
             << kPremapFutureKernelNativeConsumerLaunchAbiV1Source << "\"";
   std::cout << ",\"future_kernel_native_launch_consumer_version\":"
             << kPremapFutureKernelNativeConsumerLaunchAbiV1Version;
+  std::cout << ",\"future_kernel_native_launch_consumer_launch_struct_size\":"
+            << sizeof(PremapFutureKernelNativeConsumerLaunchV1);
+  std::cout << ",\"future_kernel_native_launch_consumer_launch_struct_align\":"
+            << alignof(PremapFutureKernelNativeConsumerLaunchV1);
   std::cout << ",\"future_kernel_native_launch_consumer_params_struct_size\":"
             << sizeof(PremapFutureKernelNativeConsumerParamsV1);
+  std::cout << ",\"future_kernel_native_launch_consumer_params_struct_align\":"
+            << alignof(PremapFutureKernelNativeConsumerParamsV1);
   std::cout << ",\"future_kernel_native_launch_consumer_result_struct_size\":"
             << sizeof(PremapFutureKernelNativeConsumerLaunchResultV1);
+  std::cout << ",\"future_kernel_native_launch_consumer_result_struct_align\":"
+            << alignof(PremapFutureKernelNativeConsumerLaunchResultV1);
+  std::cout << ",\"future_kernel_native_launch_consumer_offset_params\":"
+            << offsetof(PremapFutureKernelNativeConsumerLaunchV1, params);
+  std::cout << ",\"future_kernel_native_launch_consumer_offset_abi_version\":"
+            << offsetof(PremapFutureKernelNativeConsumerLaunchV1, abi_version);
+  std::cout << ",\"future_kernel_native_launch_consumer_offset_params_struct_size\":"
+            << offsetof(PremapFutureKernelNativeConsumerLaunchV1, params_struct_size);
+  std::cout << ",\"future_kernel_native_launch_consumer_offset_result_struct_size\":"
+            << offsetof(PremapFutureKernelNativeConsumerLaunchV1, result_struct_size);
+  std::cout << ",\"future_kernel_native_launch_consumer_offset_row_stride\":"
+            << offsetof(PremapFutureKernelNativeConsumerLaunchV1, row_stride);
+  std::cout << ",\"future_kernel_native_launch_consumer_offset_payload_bytes\":"
+            << offsetof(PremapFutureKernelNativeConsumerLaunchV1, payload_bytes);
+  std::cout << ",\"future_kernel_native_launch_consumer_offset_flags\":"
+            << offsetof(PremapFutureKernelNativeConsumerLaunchV1, flags);
   std::cout << ",\"future_kernel_native_launch_consumer_row_stride\":1";
   std::cout << ",\"future_kernel_native_launch_consumer_row_count\":"
             << future_native_launch_consumer_row_count;
@@ -1968,6 +2019,34 @@ int main(int argc, char** argv) {
             << kPremapFutureKernelNativeConsumerDispatchAbiV1Source << "\"";
   std::cout << ",\"future_kernel_native_dispatch_consumer_version\":"
             << kPremapFutureKernelNativeConsumerDispatchAbiV1Version;
+  std::cout << ",\"future_kernel_native_dispatch_consumer_dispatch_struct_size\":"
+            << sizeof(PremapFutureKernelNativeConsumerDispatchV1);
+  std::cout << ",\"future_kernel_native_dispatch_consumer_dispatch_struct_align\":"
+            << alignof(PremapFutureKernelNativeConsumerDispatchV1);
+  std::cout << ",\"future_kernel_native_dispatch_consumer_result_struct_size\":"
+            << sizeof(PremapFutureKernelNativeConsumerDispatchResultV1);
+  std::cout << ",\"future_kernel_native_dispatch_consumer_result_struct_align\":"
+            << alignof(PremapFutureKernelNativeConsumerDispatchResultV1);
+  std::cout << ",\"future_kernel_native_dispatch_consumer_offset_launch\":"
+            << offsetof(PremapFutureKernelNativeConsumerDispatchV1, launch);
+  std::cout << ",\"future_kernel_native_dispatch_consumer_offset_dispatch_version\":"
+            << offsetof(PremapFutureKernelNativeConsumerDispatchV1, dispatch_version);
+  std::cout << ",\"future_kernel_native_dispatch_consumer_offset_grid_x\":"
+            << offsetof(PremapFutureKernelNativeConsumerDispatchV1, grid_x);
+  std::cout << ",\"future_kernel_native_dispatch_consumer_offset_block_x\":"
+            << offsetof(PremapFutureKernelNativeConsumerDispatchV1, block_x);
+  std::cout << ",\"future_kernel_native_dispatch_consumer_offset_shared_mem_bytes\":"
+            << offsetof(PremapFutureKernelNativeConsumerDispatchV1, shared_mem_bytes);
+  std::cout << ",\"future_kernel_native_dispatch_consumer_offset_row_offset\":"
+            << offsetof(PremapFutureKernelNativeConsumerDispatchV1, row_offset);
+  std::cout << ",\"future_kernel_native_dispatch_consumer_offset_row_limit\":"
+            << offsetof(PremapFutureKernelNativeConsumerDispatchV1, row_limit);
+  std::cout << ",\"future_kernel_native_dispatch_consumer_offset_rows_per_program\":"
+            << offsetof(PremapFutureKernelNativeConsumerDispatchV1, rows_per_program);
+  std::cout << ",\"future_kernel_native_dispatch_consumer_offset_payload_bytes\":"
+            << offsetof(PremapFutureKernelNativeConsumerDispatchV1, payload_bytes);
+  std::cout << ",\"future_kernel_native_dispatch_consumer_offset_flags\":"
+            << offsetof(PremapFutureKernelNativeConsumerDispatchV1, flags);
   std::cout << ",\"future_kernel_native_dispatch_consumer_grid_x\":"
             << dispatch_blocks;
   std::cout << ",\"future_kernel_native_dispatch_consumer_block_x\":"

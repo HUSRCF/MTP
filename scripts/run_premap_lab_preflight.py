@@ -11,6 +11,12 @@ from typing import Any
 import yaml
 
 from scripts.check_premap_kernel_consumer_schema import (
+    FUTURE_KERNEL_NATIVE_CONSUMER_ABI_LAYOUT_EXPECTED,
+    FUTURE_KERNEL_NATIVE_CONSUMER_ABI_LAYOUT_FIELDS,
+    FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_ABI_LAYOUT_EXPECTED,
+    FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_ABI_LAYOUT_FIELDS,
+    FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ABI_LAYOUT_EXPECTED,
+    FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ABI_LAYOUT_FIELDS,
     check_kernel_consumer_schema_artifact,
 )
 from scripts.check_gate_evidence_paths import check_gate_evidence_paths
@@ -326,6 +332,35 @@ def _check_future_field_mask_summary(
         field_mask & _FUTURE_KERNEL_AUX_FIELD_MASK
     ):
         failures.append(f"{prefix}_{field_prefix}_aux_field_mask_missing")
+    return failures
+
+
+def _check_layout_summary_fields(
+    summary: dict[str, Any],
+    *,
+    prefix: str,
+    fields: list[str],
+    expected_values: dict[str, int],
+    struct_size_key: str,
+) -> list[str]:
+    failures: list[str] = []
+    for field in fields:
+        value = summary.get(field)
+        if not isinstance(value, int) or isinstance(value, bool):
+            failures.append(f"{prefix}_{field}_missing_or_not_int")
+            continue
+        expected = expected_values.get(field)
+        if expected is not None and value != expected:
+            failures.append(f"{prefix}_{field}_mismatch:{value!r}!={expected!r}")
+        if value < 0:
+            failures.append(f"{prefix}_{field}_negative")
+        if "offset" not in field and value <= 0:
+            failures.append(f"{prefix}_{field}_not_positive")
+        if "offset" in field:
+            struct_size = summary.get(struct_size_key)
+            if isinstance(struct_size, int) and not isinstance(struct_size, bool):
+                if value >= struct_size:
+                    failures.append(f"{prefix}_{field}_outside_struct")
     return failures
 
 
@@ -1022,6 +1057,15 @@ def _validate_required_evidence_payload(
                     expected_field_name=expected_field_name,
                 )
             )
+            failures.extend(
+                _check_layout_summary_fields(
+                    summary,
+                    prefix=prefix,
+                    fields=FUTURE_KERNEL_NATIVE_CONSUMER_ABI_LAYOUT_FIELDS,
+                    expected_values=FUTURE_KERNEL_NATIVE_CONSUMER_ABI_LAYOUT_EXPECTED,
+                    struct_size_key="future_kernel_native_consumer_params_struct_size",
+                )
+            )
             row_count_value = _int_metric(summary, "row_count")
             native_row_count = _int_metric(
                 summary,
@@ -1099,6 +1143,19 @@ def _validate_required_evidence_payload(
                     prefix=prefix,
                     field_prefix="future_kernel_native_launch_consumer",
                     expected_field_name=expected_field_name,
+                )
+            )
+            failures.extend(
+                _check_layout_summary_fields(
+                    summary,
+                    prefix=prefix,
+                    fields=FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ABI_LAYOUT_FIELDS,
+                    expected_values=(
+                        FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ABI_LAYOUT_EXPECTED
+                    ),
+                    struct_size_key=(
+                        "future_kernel_native_launch_consumer_launch_struct_size"
+                    ),
                 )
             )
             row_count_value = _int_metric(summary, "row_count")
@@ -1197,6 +1254,19 @@ def _validate_required_evidence_payload(
                     prefix=prefix,
                     field_prefix="future_kernel_native_dispatch_consumer",
                     expected_field_name=expected_field_name,
+                )
+            )
+            failures.extend(
+                _check_layout_summary_fields(
+                    summary,
+                    prefix=prefix,
+                    fields=FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_ABI_LAYOUT_FIELDS,
+                    expected_values=(
+                        FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_ABI_LAYOUT_EXPECTED
+                    ),
+                    struct_size_key=(
+                        "future_kernel_native_dispatch_consumer_dispatch_struct_size"
+                    ),
                 )
             )
             row_count_value = _int_metric(summary, "row_count")
@@ -2772,6 +2842,7 @@ def run_premap_lab_preflight(
     allow_missing_evidence: bool = False,
     defer_online_prelaunch_runner_evidence: bool = False,
     defer_online_prelaunch_artifact_evidence: bool = False,
+    allow_bootstrap_preflight: bool = False,
 ) -> dict[str, Any]:
     root = root.resolve()
     trace_configs = trace_configs or list(DEFAULT_TRACE_CONFIGS)
@@ -2798,6 +2869,7 @@ def run_premap_lab_preflight(
     if (
         defer_online_prelaunch_runner_evidence
         and defer_online_prelaunch_artifact_evidence
+        and not allow_bootstrap_preflight
     ):
         gate_pair_failures.append(
             "defer_online_prelaunch_runner_and_artifact_evidence_not_allowed"
@@ -2995,6 +3067,7 @@ def run_premap_lab_preflight(
         "deferred_online_prelaunch_artifact_evidence": bool(
             defer_online_prelaunch_artifact_evidence
         ),
+        "bootstrap_preflight_allowed": bool(allow_bootstrap_preflight),
         "native_typed_consumer_bridge_required": (
             REQUIRED_DEFAULT_GATE_CONTRACT["native_typed_consumer_bridge_required"]
         ),
@@ -3082,6 +3155,14 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--allow-bootstrap-preflight",
+        action="store_true",
+        help=(
+            "Allow the runner to defer both self-referential runner and artifact "
+            "evidence during stage-1 bootstrap. Final lab gates must not use this."
+        ),
+    )
+    parser.add_argument(
         "--summary-only",
         action="store_true",
         help=(
@@ -3109,6 +3190,7 @@ def main(argv: list[str] | None = None) -> int:
         defer_online_prelaunch_artifact_evidence=(
             args.defer_online_prelaunch_artifact_evidence
         ),
+        allow_bootstrap_preflight=args.allow_bootstrap_preflight,
     )
     output_payload = (
         result["lab_gate_status_summary"] if args.summary_only else result

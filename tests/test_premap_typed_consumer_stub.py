@@ -98,6 +98,9 @@ def test_typed_consumer_stub_uses_kernel_side_abi_header():
     assert "future_kernel_native_dispatch_consumer_launch_geometry_checked" in source
     assert "future_kernel_native_dispatch_consumer_launch_covers_active_rows" in source
     assert "future_kernel_native_dispatch_consumer_launch_minimal_cover" in source
+    assert "future_kernel_native_consumer_params_struct_align" in source
+    assert "future_kernel_native_dispatch_consumer_dispatch_struct_size" in source
+    assert "future_kernel_native_dispatch_consumer_offset_row_offset" in source
     assert "launch_geometry_valid" in adapter
     assert "previous_grid_threads < static_cast<uint64_t>(active_rows)" in adapter
     for field in (

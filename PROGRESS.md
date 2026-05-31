@@ -22791,3 +22791,35 @@ passed = true
 
 git diff --check: clean
 ```
+## 2026-06-01 - Premap native ABI layout gate
+
+- Added explicit ABI layout metadata for the future native typed consumer path:
+  params/launch/dispatch struct sizes, alignments, and critical field offsets.
+- The ABI layout gate now checks numeric struct size/alignment/offset values,
+  not only the presence of layout field names.
+- Added a two-stage bootstrap rule for the online native-stub canary:
+  stage-1 may defer only the self-referential runner/artifact evidence needed to
+  generate a fresh artifact, but the final lab gate requires a strict no-defer
+  preflight and final artifact check.
+- Bootstrap and final artifact checks are now recorded separately:
+  `outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_artifact_check_dispatch_window_tail4_32input_nodefer_bootstrap.json`
+  is bootstrap-only and reports `bootstrap_preflight_allowed=true`, while the
+  final gate artifact below reports `bootstrap_preflight_allowed=false`.
+- The official 32-input canary passed:
+  `outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_dispatch_window_tail4_32input_nodefer.json`
+  reports `passed=true`, `online_prelaunch_input_check_count=32`, and
+  `online_prelaunch_input_extra_check_passed_count=31`.
+- The final artifact check passed:
+  `outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_artifact_check_dispatch_window_tail4_32input_nodefer.json`
+  reports `passed=true`, `min_online_inputs=32`, `final_deferred_count=0`,
+  `status_deferred_count=0`, and `bootstrap_preflight_allowed=false`.
+- Default lab preflight passed with no deferred evidence:
+  `outputs/reports/premap_lab_preflight_default_nodefer_layout_current.json`
+  and
+  `outputs/reports/premap_lab_preflight_status_default_nodefer_layout_current.json`
+  report `passed=true`, `runtime_gate_evidence_deferred_count=0`, and
+  `strict_default_gate_evidence_deferred_count=0`.
+
+Current gate status: future native typed consumer ABI layout is now part of the
+lab preflight. Bootstrap evidence is allowed only for artifact generation; lab
+acceptance remains strict no-defer only.

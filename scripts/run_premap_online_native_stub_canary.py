@@ -457,6 +457,20 @@ FUTURE_KERNEL_NATIVE_CONSUMER_SUMMARY_KEYS = (
     "future_kernel_native_consumer_checked",
     "future_kernel_native_consumer_mode",
     "future_kernel_native_consumer_source",
+    "future_kernel_native_consumer_params_struct_size",
+    "future_kernel_native_consumer_params_struct_align",
+    "future_kernel_native_consumer_result_struct_size",
+    "future_kernel_native_consumer_result_struct_align",
+    "future_kernel_native_consumer_params_offset_descriptor_ptr",
+    "future_kernel_native_consumer_params_offset_packed_weight_descriptor",
+    "future_kernel_native_consumer_params_offset_scale_metadata_handle",
+    "future_kernel_native_consumer_params_offset_aux_metadata_handle",
+    "future_kernel_native_consumer_params_offset_expert_id",
+    "future_kernel_native_consumer_params_offset_address_key_hash",
+    "future_kernel_native_consumer_params_offset_row_count",
+    "future_kernel_native_consumer_params_offset_field_mask",
+    "future_kernel_native_consumer_params_offset_payload_bytes",
+    "future_kernel_native_consumer_params_offset_flags",
     "future_kernel_native_consumer_row_count",
     "future_kernel_native_consumer_row_ok_count",
     "future_kernel_native_consumer_error_count",
@@ -487,13 +501,38 @@ FUTURE_KERNEL_NATIVE_LAUNCH_CONSUMER_SUMMARY_KEYS = (
     "future_kernel_native_consumer_row_count",
     "future_kernel_native_consumer_row_ok_count",
     "future_kernel_native_consumer_error_count",
+    "future_kernel_native_consumer_params_struct_size",
+    "future_kernel_native_consumer_params_struct_align",
+    "future_kernel_native_consumer_result_struct_size",
+    "future_kernel_native_consumer_result_struct_align",
+    "future_kernel_native_consumer_params_offset_descriptor_ptr",
+    "future_kernel_native_consumer_params_offset_packed_weight_descriptor",
+    "future_kernel_native_consumer_params_offset_scale_metadata_handle",
+    "future_kernel_native_consumer_params_offset_aux_metadata_handle",
+    "future_kernel_native_consumer_params_offset_expert_id",
+    "future_kernel_native_consumer_params_offset_address_key_hash",
+    "future_kernel_native_consumer_params_offset_row_count",
+    "future_kernel_native_consumer_params_offset_field_mask",
+    "future_kernel_native_consumer_params_offset_payload_bytes",
+    "future_kernel_native_consumer_params_offset_flags",
     "future_kernel_native_launch_consumer_abi_name",
     "future_kernel_native_launch_consumer_checked",
     "future_kernel_native_launch_consumer_mode",
     "future_kernel_native_launch_consumer_source",
     "future_kernel_native_launch_consumer_version",
+    "future_kernel_native_launch_consumer_launch_struct_size",
+    "future_kernel_native_launch_consumer_launch_struct_align",
     "future_kernel_native_launch_consumer_params_struct_size",
+    "future_kernel_native_launch_consumer_params_struct_align",
     "future_kernel_native_launch_consumer_result_struct_size",
+    "future_kernel_native_launch_consumer_result_struct_align",
+    "future_kernel_native_launch_consumer_offset_params",
+    "future_kernel_native_launch_consumer_offset_abi_version",
+    "future_kernel_native_launch_consumer_offset_params_struct_size",
+    "future_kernel_native_launch_consumer_offset_result_struct_size",
+    "future_kernel_native_launch_consumer_offset_row_stride",
+    "future_kernel_native_launch_consumer_offset_payload_bytes",
+    "future_kernel_native_launch_consumer_offset_flags",
     "future_kernel_native_launch_consumer_row_stride",
     "future_kernel_native_launch_consumer_row_count",
     "future_kernel_native_launch_consumer_row_ok_count",
@@ -525,15 +564,56 @@ FUTURE_KERNEL_NATIVE_DISPATCH_CONSUMER_SUMMARY_KEYS = (
     "future_kernel_native_consumer_row_count",
     "future_kernel_native_consumer_row_ok_count",
     "future_kernel_native_consumer_error_count",
+    "future_kernel_native_consumer_params_struct_size",
+    "future_kernel_native_consumer_params_struct_align",
+    "future_kernel_native_consumer_result_struct_size",
+    "future_kernel_native_consumer_result_struct_align",
+    "future_kernel_native_consumer_params_offset_descriptor_ptr",
+    "future_kernel_native_consumer_params_offset_packed_weight_descriptor",
+    "future_kernel_native_consumer_params_offset_scale_metadata_handle",
+    "future_kernel_native_consumer_params_offset_aux_metadata_handle",
+    "future_kernel_native_consumer_params_offset_expert_id",
+    "future_kernel_native_consumer_params_offset_address_key_hash",
+    "future_kernel_native_consumer_params_offset_row_count",
+    "future_kernel_native_consumer_params_offset_field_mask",
+    "future_kernel_native_consumer_params_offset_payload_bytes",
+    "future_kernel_native_consumer_params_offset_flags",
     "future_kernel_native_launch_consumer_checked",
     "future_kernel_native_launch_consumer_row_count",
     "future_kernel_native_launch_consumer_row_ok_count",
     "future_kernel_native_launch_consumer_error_count",
+    "future_kernel_native_launch_consumer_launch_struct_size",
+    "future_kernel_native_launch_consumer_launch_struct_align",
+    "future_kernel_native_launch_consumer_params_struct_size",
+    "future_kernel_native_launch_consumer_params_struct_align",
+    "future_kernel_native_launch_consumer_result_struct_size",
+    "future_kernel_native_launch_consumer_result_struct_align",
+    "future_kernel_native_launch_consumer_offset_params",
+    "future_kernel_native_launch_consumer_offset_abi_version",
+    "future_kernel_native_launch_consumer_offset_params_struct_size",
+    "future_kernel_native_launch_consumer_offset_result_struct_size",
+    "future_kernel_native_launch_consumer_offset_row_stride",
+    "future_kernel_native_launch_consumer_offset_payload_bytes",
+    "future_kernel_native_launch_consumer_offset_flags",
     "future_kernel_native_dispatch_consumer_abi_name",
     "future_kernel_native_dispatch_consumer_checked",
     "future_kernel_native_dispatch_consumer_mode",
     "future_kernel_native_dispatch_consumer_source",
     "future_kernel_native_dispatch_consumer_version",
+    "future_kernel_native_dispatch_consumer_dispatch_struct_size",
+    "future_kernel_native_dispatch_consumer_dispatch_struct_align",
+    "future_kernel_native_dispatch_consumer_result_struct_size",
+    "future_kernel_native_dispatch_consumer_result_struct_align",
+    "future_kernel_native_dispatch_consumer_offset_launch",
+    "future_kernel_native_dispatch_consumer_offset_dispatch_version",
+    "future_kernel_native_dispatch_consumer_offset_grid_x",
+    "future_kernel_native_dispatch_consumer_offset_block_x",
+    "future_kernel_native_dispatch_consumer_offset_shared_mem_bytes",
+    "future_kernel_native_dispatch_consumer_offset_row_offset",
+    "future_kernel_native_dispatch_consumer_offset_row_limit",
+    "future_kernel_native_dispatch_consumer_offset_rows_per_program",
+    "future_kernel_native_dispatch_consumer_offset_payload_bytes",
+    "future_kernel_native_dispatch_consumer_offset_flags",
     "future_kernel_native_dispatch_consumer_grid_x",
     "future_kernel_native_dispatch_consumer_block_x",
     "future_kernel_native_dispatch_consumer_shared_mem_bytes",
@@ -792,6 +872,7 @@ def _preflight_command(
     summary_only: bool,
     defer_runner: bool,
     defer_artifact: bool = False,
+    allow_bootstrap_preflight: bool = False,
 ) -> list[str]:
     cmd = [sys.executable, "scripts/run_premap_lab_preflight.py"]
     if summary_only:
@@ -800,6 +881,8 @@ def _preflight_command(
         cmd.append("--defer-online-prelaunch-runner-evidence")
     if defer_artifact:
         cmd.append("--defer-online-prelaunch-artifact-evidence")
+    if allow_bootstrap_preflight:
+        cmd.append("--allow-bootstrap-preflight")
     cmd.extend(["--output-json", str(output_json)])
     return cmd
 
@@ -811,8 +894,9 @@ def _artifact_check_command(
     status_json: Path,
     output_json: Path,
     min_online_inputs: int = 1,
+    allow_bootstrap_preflight: bool = False,
 ) -> list[str]:
-    return [
+    cmd = [
         sys.executable,
         "scripts/check_premap_online_native_stub_canary_artifacts.py",
         "--runner-json",
@@ -827,6 +911,9 @@ def _artifact_check_command(
         "--min-online-inputs",
         str(int(min_online_inputs)),
     ]
+    if allow_bootstrap_preflight:
+        cmd.append("--allow-bootstrap-preflight")
+    return cmd
 
 
 def _load_json_if_exists(path: Path) -> dict[str, Any]:
@@ -1525,6 +1612,20 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
                     "future_kernel_native_consumer_checked",
                     "future_kernel_native_consumer_mode",
                     "future_kernel_native_consumer_source",
+                    "future_kernel_native_consumer_params_struct_size",
+                    "future_kernel_native_consumer_params_struct_align",
+                    "future_kernel_native_consumer_result_struct_size",
+                    "future_kernel_native_consumer_result_struct_align",
+                    "future_kernel_native_consumer_params_offset_descriptor_ptr",
+                    "future_kernel_native_consumer_params_offset_packed_weight_descriptor",
+                    "future_kernel_native_consumer_params_offset_scale_metadata_handle",
+                    "future_kernel_native_consumer_params_offset_aux_metadata_handle",
+                    "future_kernel_native_consumer_params_offset_expert_id",
+                    "future_kernel_native_consumer_params_offset_address_key_hash",
+                    "future_kernel_native_consumer_params_offset_row_count",
+                    "future_kernel_native_consumer_params_offset_field_mask",
+                    "future_kernel_native_consumer_params_offset_payload_bytes",
+                    "future_kernel_native_consumer_params_offset_flags",
                     "future_kernel_native_consumer_row_count",
                     "future_kernel_native_consumer_row_ok_count",
                     "future_kernel_native_consumer_error_count",
@@ -1545,8 +1646,19 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
                     "future_kernel_native_launch_consumer_mode",
                     "future_kernel_native_launch_consumer_source",
                     "future_kernel_native_launch_consumer_version",
+                    "future_kernel_native_launch_consumer_launch_struct_size",
+                    "future_kernel_native_launch_consumer_launch_struct_align",
                     "future_kernel_native_launch_consumer_params_struct_size",
+                    "future_kernel_native_launch_consumer_params_struct_align",
                     "future_kernel_native_launch_consumer_result_struct_size",
+                    "future_kernel_native_launch_consumer_result_struct_align",
+                    "future_kernel_native_launch_consumer_offset_params",
+                    "future_kernel_native_launch_consumer_offset_abi_version",
+                    "future_kernel_native_launch_consumer_offset_params_struct_size",
+                    "future_kernel_native_launch_consumer_offset_result_struct_size",
+                    "future_kernel_native_launch_consumer_offset_row_stride",
+                    "future_kernel_native_launch_consumer_offset_payload_bytes",
+                    "future_kernel_native_launch_consumer_offset_flags",
                     "future_kernel_native_launch_consumer_row_stride",
                     "future_kernel_native_launch_consumer_row_count",
                     "future_kernel_native_launch_consumer_row_ok_count",
@@ -1568,6 +1680,20 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
                     "future_kernel_native_dispatch_consumer_mode",
                     "future_kernel_native_dispatch_consumer_source",
                     "future_kernel_native_dispatch_consumer_version",
+                    "future_kernel_native_dispatch_consumer_dispatch_struct_size",
+                    "future_kernel_native_dispatch_consumer_dispatch_struct_align",
+                    "future_kernel_native_dispatch_consumer_result_struct_size",
+                    "future_kernel_native_dispatch_consumer_result_struct_align",
+                    "future_kernel_native_dispatch_consumer_offset_launch",
+                    "future_kernel_native_dispatch_consumer_offset_dispatch_version",
+                    "future_kernel_native_dispatch_consumer_offset_grid_x",
+                    "future_kernel_native_dispatch_consumer_offset_block_x",
+                    "future_kernel_native_dispatch_consumer_offset_shared_mem_bytes",
+                    "future_kernel_native_dispatch_consumer_offset_row_offset",
+                    "future_kernel_native_dispatch_consumer_offset_row_limit",
+                    "future_kernel_native_dispatch_consumer_offset_rows_per_program",
+                    "future_kernel_native_dispatch_consumer_offset_payload_bytes",
+                    "future_kernel_native_dispatch_consumer_offset_flags",
                     "future_kernel_native_dispatch_consumer_grid_x",
                     "future_kernel_native_dispatch_consumer_block_x",
                     "future_kernel_native_dispatch_consumer_shared_mem_bytes",
@@ -1632,14 +1758,17 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
     preflight_output = _resolve_repo_path(args.preflight_output_json)
     preflight_status_output = _resolve_repo_path(args.preflight_status_output_json)
     if not args.skip_preflight:
-        # Keep this strict: lab preflight intentionally rejects deferred
-        # runner/artifact evidence combinations.
+        # Stage-1 preflight runs before this runner JSON and its artifact
+        # consistency report exist, so it explicitly defers those two
+        # self-referential evidence rows. The final preflight below is strict
+        # no-defer and is the only result accepted as a lab gate.
         steps["preflight"] = _run(
             _preflight_command(
                 output_json=preflight_output,
                 summary_only=False,
-                defer_runner=False,
-                defer_artifact=False,
+                defer_runner=True,
+                defer_artifact=True,
+                allow_bootstrap_preflight=True,
             ),
             env=env,
             dry_run=bool(args.dry_run),
@@ -1648,8 +1777,9 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
             _preflight_command(
                 output_json=preflight_status_output,
                 summary_only=True,
-                defer_runner=False,
-                defer_artifact=False,
+                defer_runner=True,
+                defer_artifact=True,
+                allow_bootstrap_preflight=True,
             ),
             env=env,
             dry_run=bool(args.dry_run),
@@ -3555,6 +3685,7 @@ def finalize_report_with_artifact_check(
     args: argparse.Namespace,
     payload: dict[str, object],
     runner_json: Path,
+    allow_bootstrap_preflight: bool = False,
 ) -> dict[str, object]:
     if args.dry_run or args.skip_preflight or args.skip_artifact_check:
         return payload
@@ -3564,22 +3695,43 @@ def finalize_report_with_artifact_check(
         steps = {}
         payload["steps"] = steps
     artifact_output = _resolve_repo_path(args.artifact_check_output_json)
-    steps["artifact_check"] = _run(
+    if allow_bootstrap_preflight:
+        artifact_output = artifact_output.with_name(
+            f"{artifact_output.stem}_bootstrap{artifact_output.suffix}"
+        )
+    step_name = (
+        "artifact_check_bootstrap"
+        if allow_bootstrap_preflight
+        else "artifact_check_final"
+    )
+    steps[step_name] = _run(
         _artifact_check_command(
             runner_json=runner_json,
             preflight_json=_resolve_repo_path(args.preflight_output_json),
             status_json=_resolve_repo_path(args.preflight_status_output_json),
             output_json=artifact_output,
             min_online_inputs=int(args.min_artifact_online_inputs),
+            allow_bootstrap_preflight=allow_bootstrap_preflight,
         ),
         env=env,
         dry_run=False,
         allow_failure=True,
     )
     artifact_payload = _load_json_if_exists(artifact_output)
-    payload["artifact_check_output_json"] = str(artifact_output)
-    payload["artifact_check_summary"] = {
+    output_key = (
+        "artifact_check_bootstrap_output_json"
+        if allow_bootstrap_preflight
+        else "artifact_check_output_json"
+    )
+    summary_key = (
+        "artifact_check_bootstrap_summary"
+        if allow_bootstrap_preflight
+        else "artifact_check_summary"
+    )
+    payload[output_key] = str(artifact_output)
+    artifact_summary = {
         "passed": artifact_payload.get("passed"),
+        "bootstrap_preflight_allowed": bool(allow_bootstrap_preflight),
         "failures": artifact_payload.get("failures"),
         "runner_stub_row_count": artifact_payload.get("runner_stub_row_count"),
         "runner_stub_row_ok_count": artifact_payload.get("runner_stub_row_ok_count"),
@@ -3726,6 +3878,7 @@ def finalize_report_with_artifact_check(
         "final_deferred_count": artifact_payload.get("final_deferred_count"),
         "status_deferred_count": artifact_payload.get("status_deferred_count"),
     }
+    payload[summary_key] = artifact_summary
     failures = payload.get("failures")
     if not isinstance(failures, list):
         failures = []
@@ -3993,12 +4146,20 @@ def main(argv: list[str] | None = None) -> int:
     payload = run_canary(args)
     output = _resolve_repo_path(args.output_json)
     write_report(output, payload)
+    payload = finalize_report_with_artifact_check(
+        args=args,
+        payload=payload,
+        runner_json=output,
+        allow_bootstrap_preflight=True,
+    )
+    write_report(output, payload)
     payload = finalize_report_with_strict_preflight(args=args, payload=payload)
     write_report(output, payload)
     payload = finalize_report_with_artifact_check(
         args=args,
         payload=payload,
         runner_json=output,
+        allow_bootstrap_preflight=False,
     )
     write_report(output, payload)
     if args.stdout_mode == "full":

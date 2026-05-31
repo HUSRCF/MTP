@@ -107,12 +107,22 @@ native_consumer_abi:
   future_kernel_native_consumer_dispatch_abi_default_enabled: false
   future_kernel_native_consumer_dispatch_abi_payload_bytes_required: 0
   future_kernel_native_consumer_dispatch_abi_passed_to_kernel_required: false
+  future_kernel_native_consumer_abi_layout_reported: true
+  future_kernel_native_consumer_launch_abi_layout_reported: true
+  future_kernel_native_consumer_dispatch_abi_layout_reported: true
 ```
 
 This ABI is intentionally separate from the WNA16 launch argument schema.  A
 successful native canary only proves typed-table readability by a future
 consumer ABI; it does not authorize passing the table to the current WNA16
 kernel.
+
+The native stub also reports C++/HIP layout metadata for the future native
+consumer params, launch envelope, and dispatch wrapper: struct size, alignment,
+and critical field offsets.  The artifact checker requires these fields so the
+lab gate can catch accidental ABI drift before any real kernel argument handoff
+is attempted.  The schema also pins the expected numeric layout values; a field
+name match alone is not sufficient for lab acceptance.
 
 ## Macro Ladder
 

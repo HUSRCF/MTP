@@ -8,6 +8,12 @@ import json
 from pathlib import Path
 from typing import Any
 
+from scripts.check_premap_kernel_consumer_schema import (
+    FUTURE_KERNEL_NATIVE_CONSUMER_ABI_LAYOUT_EXPECTED,
+    FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_ABI_LAYOUT_EXPECTED,
+    FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ABI_LAYOUT_EXPECTED,
+)
+
 
 DEFAULT_RUNNER_JSON = Path(
     "outputs/reports/premap_kernel_consumer/"
@@ -65,6 +71,50 @@ def _hex64(value: Any) -> int | None:
             return None
         return parsed if 0 <= parsed <= _UINT64_MASK else None
     return None
+
+
+def _check_positive_int_fields(
+    stub: dict[str, Any],
+    *,
+    prefix: str,
+    fields: tuple[str, ...],
+    failures: list[str],
+) -> None:
+    for field in fields:
+        value = _int(stub.get(field))
+        if value is None or value <= 0:
+            failures.append(f"{prefix}_{field}_invalid")
+
+
+def _check_offset_fields(
+    stub: dict[str, Any],
+    *,
+    prefix: str,
+    struct_size_key: str,
+    fields: tuple[str, ...],
+    failures: list[str],
+) -> None:
+    struct_size = _int(stub.get(struct_size_key))
+    for field in fields:
+        value = _int(stub.get(field))
+        if value is None or value < 0:
+            failures.append(f"{prefix}_{field}_invalid")
+            continue
+        if struct_size is not None and value >= struct_size:
+            failures.append(f"{prefix}_{field}_outside_struct")
+
+
+def _check_expected_layout_values(
+    stub: dict[str, Any],
+    *,
+    prefix: str,
+    expected_values: dict[str, int],
+    failures: list[str],
+) -> None:
+    for field, expected in expected_values.items():
+        value = _int(stub.get(field))
+        if value != expected:
+            failures.append(f"{prefix}_{field}_mismatch:{value!r}!={expected!r}")
 
 
 def _program_iteration_hash(
@@ -439,6 +489,41 @@ def _check_future_kernel_native_consumer_summary(
         expected_field_name=expected_field_name,
         failures=failures,
     )
+    _check_positive_int_fields(
+        stub,
+        prefix=prefix,
+        fields=(
+            "future_kernel_native_consumer_params_struct_size",
+            "future_kernel_native_consumer_params_struct_align",
+            "future_kernel_native_consumer_result_struct_size",
+            "future_kernel_native_consumer_result_struct_align",
+        ),
+        failures=failures,
+    )
+    _check_offset_fields(
+        stub,
+        prefix=prefix,
+        struct_size_key="future_kernel_native_consumer_params_struct_size",
+        fields=(
+            "future_kernel_native_consumer_params_offset_descriptor_ptr",
+            "future_kernel_native_consumer_params_offset_packed_weight_descriptor",
+            "future_kernel_native_consumer_params_offset_scale_metadata_handle",
+            "future_kernel_native_consumer_params_offset_aux_metadata_handle",
+            "future_kernel_native_consumer_params_offset_expert_id",
+            "future_kernel_native_consumer_params_offset_address_key_hash",
+            "future_kernel_native_consumer_params_offset_row_count",
+            "future_kernel_native_consumer_params_offset_field_mask",
+            "future_kernel_native_consumer_params_offset_payload_bytes",
+            "future_kernel_native_consumer_params_offset_flags",
+        ),
+        failures=failures,
+    )
+    _check_expected_layout_values(
+        stub,
+        prefix=prefix,
+        expected_values=FUTURE_KERNEL_NATIVE_CONSUMER_ABI_LAYOUT_EXPECTED,
+        failures=failures,
+    )
     native_row_count = _int(stub.get("future_kernel_native_consumer_row_count"))
     native_row_ok_count = _int(
         stub.get("future_kernel_native_consumer_row_ok_count")
@@ -507,6 +592,40 @@ def _check_future_kernel_native_launch_consumer_summary(
         prefix=prefix,
         field_prefix="future_kernel_native_launch_consumer",
         expected_field_name=expected_field_name,
+        failures=failures,
+    )
+    _check_positive_int_fields(
+        stub,
+        prefix=prefix,
+        fields=(
+            "future_kernel_native_launch_consumer_launch_struct_size",
+            "future_kernel_native_launch_consumer_launch_struct_align",
+            "future_kernel_native_launch_consumer_params_struct_size",
+            "future_kernel_native_launch_consumer_params_struct_align",
+            "future_kernel_native_launch_consumer_result_struct_size",
+            "future_kernel_native_launch_consumer_result_struct_align",
+        ),
+        failures=failures,
+    )
+    _check_offset_fields(
+        stub,
+        prefix=prefix,
+        struct_size_key="future_kernel_native_launch_consumer_launch_struct_size",
+        fields=(
+            "future_kernel_native_launch_consumer_offset_params",
+            "future_kernel_native_launch_consumer_offset_abi_version",
+            "future_kernel_native_launch_consumer_offset_params_struct_size",
+            "future_kernel_native_launch_consumer_offset_result_struct_size",
+            "future_kernel_native_launch_consumer_offset_row_stride",
+            "future_kernel_native_launch_consumer_offset_payload_bytes",
+            "future_kernel_native_launch_consumer_offset_flags",
+        ),
+        failures=failures,
+    )
+    _check_expected_layout_values(
+        stub,
+        prefix=prefix,
+        expected_values=FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ABI_LAYOUT_EXPECTED,
         failures=failures,
     )
     native_row_count = _int(stub.get("future_kernel_native_consumer_row_count"))
@@ -589,6 +708,41 @@ def _check_future_kernel_native_dispatch_consumer_summary(
         prefix=prefix,
         field_prefix="future_kernel_native_dispatch_consumer",
         expected_field_name=expected_field_name,
+        failures=failures,
+    )
+    _check_positive_int_fields(
+        stub,
+        prefix=prefix,
+        fields=(
+            "future_kernel_native_dispatch_consumer_dispatch_struct_size",
+            "future_kernel_native_dispatch_consumer_dispatch_struct_align",
+            "future_kernel_native_dispatch_consumer_result_struct_size",
+            "future_kernel_native_dispatch_consumer_result_struct_align",
+        ),
+        failures=failures,
+    )
+    _check_offset_fields(
+        stub,
+        prefix=prefix,
+        struct_size_key="future_kernel_native_dispatch_consumer_dispatch_struct_size",
+        fields=(
+            "future_kernel_native_dispatch_consumer_offset_launch",
+            "future_kernel_native_dispatch_consumer_offset_dispatch_version",
+            "future_kernel_native_dispatch_consumer_offset_grid_x",
+            "future_kernel_native_dispatch_consumer_offset_block_x",
+            "future_kernel_native_dispatch_consumer_offset_shared_mem_bytes",
+            "future_kernel_native_dispatch_consumer_offset_row_offset",
+            "future_kernel_native_dispatch_consumer_offset_row_limit",
+            "future_kernel_native_dispatch_consumer_offset_rows_per_program",
+            "future_kernel_native_dispatch_consumer_offset_payload_bytes",
+            "future_kernel_native_dispatch_consumer_offset_flags",
+        ),
+        failures=failures,
+    )
+    _check_expected_layout_values(
+        stub,
+        prefix=prefix,
+        expected_values=FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_ABI_LAYOUT_EXPECTED,
         failures=failures,
     )
     dispatch_grid = _int(stub.get("future_kernel_native_dispatch_consumer_grid_x"))
@@ -810,6 +964,7 @@ def check_online_native_stub_canary_artifacts(
     status_json: Path = DEFAULT_STATUS_JSON,
     require_all_field_mirror_stubs: bool = False,
     min_online_inputs: int = 1,
+    allow_bootstrap_preflight: bool = False,
 ) -> dict[str, Any]:
     root = root.resolve()
     runner_path = _resolve(root, runner_json)
@@ -876,8 +1031,10 @@ def check_online_native_stub_canary_artifacts(
     if not isinstance(stage1, dict):
         failures.append("runner_stage1_status_missing")
         stage1 = {}
-    if not isinstance(final, dict):
+    if not isinstance(final, dict) and not allow_bootstrap_preflight:
         failures.append("runner_final_status_missing")
+        final = {}
+    elif not isinstance(final, dict):
         final = {}
 
     status_required = status.get("required_evidence")
@@ -1085,9 +1242,10 @@ def check_online_native_stub_canary_artifacts(
     for key, expected in expected_stage1.items():
         if stage1.get(key) != expected:
             failures.append(f"runner_stage1_{key}_mismatch")
-    for key, expected in expected_final.items():
-        if final.get(key) != expected:
-            failures.append(f"runner_final_{key}_mismatch")
+    if not allow_bootstrap_preflight:
+        for key, expected in expected_final.items():
+            if final.get(key) != expected:
+                failures.append(f"runner_final_{key}_mismatch")
     expected_status = {
         "passed": True,
         "runtime_gate_evidence_deferred_count": status_runtime_deferred_count,
@@ -1166,14 +1324,15 @@ def check_online_native_stub_canary_artifacts(
                 failures.append(
                     "runner_stage1_runtime_gate_evidence_deferred_count_mismatch"
                 )
-        for key, expected in {
-            "optional_evidence_present_count": status_optional_present_count,
-            "optional_evidence_passed_count": status_optional_present_count,
-            "optional_evidence_required_count": status_optional_count,
-            "optional_evidence_passed": True,
-        }.items():
-            if final.get(key) != expected:
-                failures.append(f"runner_final_{key}_mismatch")
+        if not allow_bootstrap_preflight:
+            for key, expected in {
+                "optional_evidence_present_count": status_optional_present_count,
+                "optional_evidence_passed_count": status_optional_present_count,
+                "optional_evidence_required_count": status_optional_count,
+                "optional_evidence_passed": True,
+            }.items():
+                if final.get(key) != expected:
+                    failures.append(f"runner_final_{key}_mismatch")
 
     row_count, row_ok_count = _check_stub_summary(
         runner.get("stub_summary"),
@@ -1931,6 +2090,7 @@ def check_online_native_stub_canary_artifacts(
             future_kernel_native_consumer_dispatch_aux_metadata_row_ok_count
         ),
         "require_all_field_mirror_stubs": bool(require_all_field_mirror_stubs),
+        "bootstrap_preflight_allowed": bool(allow_bootstrap_preflight),
         "min_online_inputs": int(min_online_inputs),
         "runner_online_prelaunch_input_check_count": online_input_check_count,
         "runner_online_prelaunch_input_extra_check_count": extra_input_check_count,
@@ -1952,6 +2112,15 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--output-json", type=Path)
     parser.add_argument("--require-all-field-mirror-stubs", action="store_true")
     parser.add_argument("--min-online-inputs", type=int, default=1)
+    parser.add_argument(
+        "--allow-bootstrap-preflight",
+        action="store_true",
+        help=(
+            "Allow the preflight/status artifacts to defer only the self-referential "
+            "runner/artifact evidence. This is for runner bootstrapping; final lab "
+            "gates must rerun this checker without the flag."
+        ),
+    )
     return parser
 
 
@@ -1964,6 +2133,7 @@ def main(argv: list[str] | None = None) -> int:
         status_json=args.status_json,
         require_all_field_mirror_stubs=args.require_all_field_mirror_stubs,
         min_online_inputs=int(args.min_online_inputs),
+        allow_bootstrap_preflight=bool(args.allow_bootstrap_preflight),
     )
     payload = json.dumps(result, indent=2, sort_keys=True)
     if args.output_json is not None:

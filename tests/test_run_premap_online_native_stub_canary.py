@@ -407,20 +407,25 @@ def test_run_canary_dry_run_includes_compact_preflight_status(
     )
     assert (
         "--defer-online-prelaunch-runner-evidence"
-        not in result["steps"]["preflight"]["cmd"]
+        in result["steps"]["preflight"]["cmd"]
     )
     assert (
         "--defer-online-prelaunch-artifact-evidence"
-        not in result["steps"]["preflight"]["cmd"]
+        in result["steps"]["preflight"]["cmd"]
     )
+    assert "--allow-bootstrap-preflight" in result["steps"]["preflight"]["cmd"]
     assert "--summary-only" in result["steps"]["preflight_status"]["cmd"]
     assert (
         "--defer-online-prelaunch-runner-evidence"
-        not in result["steps"]["preflight_status"]["cmd"]
+        in result["steps"]["preflight_status"]["cmd"]
     )
     assert (
         "--defer-online-prelaunch-artifact-evidence"
-        not in result["steps"]["preflight_status"]["cmd"]
+        in result["steps"]["preflight_status"]["cmd"]
+    )
+    assert (
+        "--allow-bootstrap-preflight"
+        in result["steps"]["preflight_status"]["cmd"]
     )
     assert "runtime_gate_evidence_deferred_count" in result["preflight_status_summary"]
     assert (
@@ -540,6 +545,7 @@ def test_finalize_report_with_artifact_check_records_summary(
     assert result["artifact_check_summary"] == {
         "passed": True,
         "failures": [],
+        "bootstrap_preflight_allowed": False,
         "runner_stub_row_count": 4,
         "runner_stub_row_ok_count": 4,
         "require_all_field_mirror_stubs": True,
@@ -593,7 +599,8 @@ def test_finalize_report_with_artifact_check_records_summary(
             "final_deferred_count": 0,
             "status_deferred_count": 0,
     }
-    assert "artifact_check" in result["steps"]
+    assert "artifact_check_final" in result["steps"]
+    assert "artifact_check_bootstrap" not in result["steps"]
 
 
 def test_finalize_report_with_artifact_check_records_failure_without_raising(
@@ -645,4 +652,4 @@ def test_finalize_report_with_artifact_check_records_failure_without_raising(
     assert result["failures"] == ["artifact_consistency_check_failed"]
     assert result["artifact_check_summary"]["passed"] is False
     assert result["artifact_check_summary"]["failures"] == ["runner_not_passed"]
-    assert result["steps"]["artifact_check"]["returncode"] == 1
+    assert result["steps"]["artifact_check_final"]["returncode"] == 1

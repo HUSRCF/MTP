@@ -17,6 +17,14 @@ from mtp_expert_prefetch.runtime.cache_manager import (
 )
 from scripts.run_premap_lab_preflight import main, run_premap_lab_preflight
 from scripts.run_premap_lab_preflight import _program_iteration_hash
+from scripts.check_premap_kernel_consumer_schema import (
+    FUTURE_KERNEL_NATIVE_CONSUMER_ABI_LAYOUT_EXPECTED,
+    FUTURE_KERNEL_NATIVE_CONSUMER_ABI_LAYOUT_FIELDS,
+    FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_ABI_LAYOUT_EXPECTED,
+    FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_ABI_LAYOUT_FIELDS,
+    FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ABI_LAYOUT_EXPECTED,
+    FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ABI_LAYOUT_FIELDS,
+)
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -212,6 +220,27 @@ def _valid_schema_payload() -> dict:
             "future_kernel_native_consumer_dispatch_abi_program_count_source": "grid_x",
             "future_kernel_native_consumer_dispatch_abi_last_program_active_rows_source": (
                 "active_rows - (grid_x - 1) * rows_per_program"
+            ),
+            "future_kernel_native_consumer_abi_layout_reported": True,
+            "future_kernel_native_consumer_abi_layout_fields": list(
+                FUTURE_KERNEL_NATIVE_CONSUMER_ABI_LAYOUT_FIELDS
+            ),
+            "future_kernel_native_consumer_abi_layout_expected": dict(
+                FUTURE_KERNEL_NATIVE_CONSUMER_ABI_LAYOUT_EXPECTED
+            ),
+            "future_kernel_native_consumer_launch_abi_layout_reported": True,
+            "future_kernel_native_consumer_launch_abi_layout_fields": list(
+                FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ABI_LAYOUT_FIELDS
+            ),
+            "future_kernel_native_consumer_launch_abi_layout_expected": dict(
+                FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ABI_LAYOUT_EXPECTED
+            ),
+            "future_kernel_native_consumer_dispatch_abi_layout_reported": True,
+            "future_kernel_native_consumer_dispatch_abi_layout_fields": list(
+                FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_ABI_LAYOUT_FIELDS
+            ),
+            "future_kernel_native_consumer_dispatch_abi_layout_expected": dict(
+                FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_ABI_LAYOUT_EXPECTED
             ),
             "layout": "struct_of_arrays",
             "row_order": "vllm_prelaunch_sorted_token_ids_order",
@@ -699,6 +728,55 @@ def _runner_stub_summary() -> dict[str, object]:
     }
 
 
+_RUNNER_NATIVE_LAYOUT_SUMMARY: dict[str, object] = {
+    "future_kernel_native_consumer_params_struct_size": 112,
+    "future_kernel_native_consumer_params_struct_align": 8,
+    "future_kernel_native_consumer_result_struct_size": 56,
+    "future_kernel_native_consumer_result_struct_align": 8,
+    "future_kernel_native_consumer_params_offset_descriptor_ptr": 0,
+    "future_kernel_native_consumer_params_offset_packed_weight_descriptor": 8,
+    "future_kernel_native_consumer_params_offset_scale_metadata_handle": 16,
+    "future_kernel_native_consumer_params_offset_aux_metadata_handle": 24,
+    "future_kernel_native_consumer_params_offset_expert_id": 32,
+    "future_kernel_native_consumer_params_offset_address_key_hash": 40,
+    "future_kernel_native_consumer_params_offset_row_count": 80,
+    "future_kernel_native_consumer_params_offset_field_mask": 92,
+    "future_kernel_native_consumer_params_offset_payload_bytes": 100,
+    "future_kernel_native_consumer_params_offset_flags": 104,
+}
+_RUNNER_LAUNCH_LAYOUT_SUMMARY: dict[str, object] = {
+    "future_kernel_native_launch_consumer_launch_struct_size": 136,
+    "future_kernel_native_launch_consumer_launch_struct_align": 8,
+    "future_kernel_native_launch_consumer_params_struct_size": 112,
+    "future_kernel_native_launch_consumer_params_struct_align": 8,
+    "future_kernel_native_launch_consumer_result_struct_size": 64,
+    "future_kernel_native_launch_consumer_result_struct_align": 8,
+    "future_kernel_native_launch_consumer_offset_params": 0,
+    "future_kernel_native_launch_consumer_offset_abi_version": 112,
+    "future_kernel_native_launch_consumer_offset_params_struct_size": 116,
+    "future_kernel_native_launch_consumer_offset_result_struct_size": 120,
+    "future_kernel_native_launch_consumer_offset_row_stride": 124,
+    "future_kernel_native_launch_consumer_offset_payload_bytes": 128,
+    "future_kernel_native_launch_consumer_offset_flags": 132,
+}
+_RUNNER_DISPATCH_LAYOUT_SUMMARY: dict[str, object] = {
+    "future_kernel_native_dispatch_consumer_dispatch_struct_size": 176,
+    "future_kernel_native_dispatch_consumer_dispatch_struct_align": 8,
+    "future_kernel_native_dispatch_consumer_result_struct_size": 72,
+    "future_kernel_native_dispatch_consumer_result_struct_align": 8,
+    "future_kernel_native_dispatch_consumer_offset_launch": 0,
+    "future_kernel_native_dispatch_consumer_offset_dispatch_version": 136,
+    "future_kernel_native_dispatch_consumer_offset_grid_x": 140,
+    "future_kernel_native_dispatch_consumer_offset_block_x": 144,
+    "future_kernel_native_dispatch_consumer_offset_shared_mem_bytes": 148,
+    "future_kernel_native_dispatch_consumer_offset_row_offset": 152,
+    "future_kernel_native_dispatch_consumer_offset_row_limit": 156,
+    "future_kernel_native_dispatch_consumer_offset_rows_per_program": 160,
+    "future_kernel_native_dispatch_consumer_offset_payload_bytes": 164,
+    "future_kernel_native_dispatch_consumer_offset_flags": 168,
+}
+
+
 def _runner_kernel_side_compatible_summary() -> dict[str, object]:
     payload = _runner_stub_summary()
     payload.update(
@@ -821,6 +899,7 @@ def _runner_future_kernel_native_consumer_summary(
             "future_kernel_native_consumer_single_field_mirror_error_count": 0,
         }
     )
+    payload.update(_RUNNER_NATIVE_LAYOUT_SUMMARY)
     return payload
 
 
@@ -864,6 +943,8 @@ def _runner_future_kernel_native_launch_consumer_summary(
             "future_kernel_native_launch_consumer_single_field_mirror_error_count": 0,
         }
     )
+    payload.update(_RUNNER_NATIVE_LAYOUT_SUMMARY)
+    payload.update(_RUNNER_LAUNCH_LAYOUT_SUMMARY)
     return payload
 
 
@@ -931,6 +1012,9 @@ def _runner_future_kernel_native_dispatch_consumer_summary(
             "future_kernel_native_dispatch_consumer_single_field_mirror_error_count": 0,
         }
     )
+    payload.update(_RUNNER_NATIVE_LAYOUT_SUMMARY)
+    payload.update(_RUNNER_LAUNCH_LAYOUT_SUMMARY)
+    payload.update(_RUNNER_DISPATCH_LAYOUT_SUMMARY)
     return payload
 
 

@@ -91,6 +91,133 @@ ALLOWED_CURRENT_STATUS = {
     "native_stub_pending",
     "native_stub_online_canary_passed",
 }
+FUTURE_KERNEL_NATIVE_CONSUMER_ABI_LAYOUT_FIELDS = [
+    "future_kernel_native_consumer_params_struct_size",
+    "future_kernel_native_consumer_params_struct_align",
+    "future_kernel_native_consumer_result_struct_size",
+    "future_kernel_native_consumer_result_struct_align",
+    "future_kernel_native_consumer_params_offset_descriptor_ptr",
+    "future_kernel_native_consumer_params_offset_packed_weight_descriptor",
+    "future_kernel_native_consumer_params_offset_scale_metadata_handle",
+    "future_kernel_native_consumer_params_offset_aux_metadata_handle",
+    "future_kernel_native_consumer_params_offset_expert_id",
+    "future_kernel_native_consumer_params_offset_address_key_hash",
+    "future_kernel_native_consumer_params_offset_row_count",
+    "future_kernel_native_consumer_params_offset_field_mask",
+    "future_kernel_native_consumer_params_offset_payload_bytes",
+    "future_kernel_native_consumer_params_offset_flags",
+]
+FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ABI_LAYOUT_FIELDS = [
+    "future_kernel_native_launch_consumer_launch_struct_size",
+    "future_kernel_native_launch_consumer_launch_struct_align",
+    "future_kernel_native_launch_consumer_params_struct_size",
+    "future_kernel_native_launch_consumer_params_struct_align",
+    "future_kernel_native_launch_consumer_result_struct_size",
+    "future_kernel_native_launch_consumer_result_struct_align",
+    "future_kernel_native_launch_consumer_offset_params",
+    "future_kernel_native_launch_consumer_offset_abi_version",
+    "future_kernel_native_launch_consumer_offset_params_struct_size",
+    "future_kernel_native_launch_consumer_offset_result_struct_size",
+    "future_kernel_native_launch_consumer_offset_row_stride",
+    "future_kernel_native_launch_consumer_offset_payload_bytes",
+    "future_kernel_native_launch_consumer_offset_flags",
+]
+FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_ABI_LAYOUT_FIELDS = [
+    "future_kernel_native_dispatch_consumer_dispatch_struct_size",
+    "future_kernel_native_dispatch_consumer_dispatch_struct_align",
+    "future_kernel_native_dispatch_consumer_result_struct_size",
+    "future_kernel_native_dispatch_consumer_result_struct_align",
+    "future_kernel_native_dispatch_consumer_offset_launch",
+    "future_kernel_native_dispatch_consumer_offset_dispatch_version",
+    "future_kernel_native_dispatch_consumer_offset_grid_x",
+    "future_kernel_native_dispatch_consumer_offset_block_x",
+    "future_kernel_native_dispatch_consumer_offset_shared_mem_bytes",
+    "future_kernel_native_dispatch_consumer_offset_row_offset",
+    "future_kernel_native_dispatch_consumer_offset_row_limit",
+    "future_kernel_native_dispatch_consumer_offset_rows_per_program",
+    "future_kernel_native_dispatch_consumer_offset_payload_bytes",
+    "future_kernel_native_dispatch_consumer_offset_flags",
+]
+FUTURE_KERNEL_NATIVE_CONSUMER_ABI_LAYOUT_EXPECTED = {
+    "future_kernel_native_consumer_params_struct_size": 112,
+    "future_kernel_native_consumer_params_struct_align": 8,
+    "future_kernel_native_consumer_result_struct_size": 56,
+    "future_kernel_native_consumer_result_struct_align": 8,
+    "future_kernel_native_consumer_params_offset_descriptor_ptr": 0,
+    "future_kernel_native_consumer_params_offset_packed_weight_descriptor": 8,
+    "future_kernel_native_consumer_params_offset_scale_metadata_handle": 16,
+    "future_kernel_native_consumer_params_offset_aux_metadata_handle": 24,
+    "future_kernel_native_consumer_params_offset_expert_id": 32,
+    "future_kernel_native_consumer_params_offset_address_key_hash": 40,
+    "future_kernel_native_consumer_params_offset_row_count": 80,
+    "future_kernel_native_consumer_params_offset_field_mask": 92,
+    "future_kernel_native_consumer_params_offset_payload_bytes": 100,
+    "future_kernel_native_consumer_params_offset_flags": 104,
+}
+FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ABI_LAYOUT_EXPECTED = {
+    "future_kernel_native_launch_consumer_launch_struct_size": 136,
+    "future_kernel_native_launch_consumer_launch_struct_align": 8,
+    "future_kernel_native_launch_consumer_params_struct_size": 112,
+    "future_kernel_native_launch_consumer_params_struct_align": 8,
+    "future_kernel_native_launch_consumer_result_struct_size": 64,
+    "future_kernel_native_launch_consumer_result_struct_align": 8,
+    "future_kernel_native_launch_consumer_offset_params": 0,
+    "future_kernel_native_launch_consumer_offset_abi_version": 112,
+    "future_kernel_native_launch_consumer_offset_params_struct_size": 116,
+    "future_kernel_native_launch_consumer_offset_result_struct_size": 120,
+    "future_kernel_native_launch_consumer_offset_row_stride": 124,
+    "future_kernel_native_launch_consumer_offset_payload_bytes": 128,
+    "future_kernel_native_launch_consumer_offset_flags": 132,
+}
+FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_ABI_LAYOUT_EXPECTED = {
+    "future_kernel_native_dispatch_consumer_dispatch_struct_size": 176,
+    "future_kernel_native_dispatch_consumer_dispatch_struct_align": 8,
+    "future_kernel_native_dispatch_consumer_result_struct_size": 72,
+    "future_kernel_native_dispatch_consumer_result_struct_align": 8,
+    "future_kernel_native_dispatch_consumer_offset_launch": 0,
+    "future_kernel_native_dispatch_consumer_offset_dispatch_version": 136,
+    "future_kernel_native_dispatch_consumer_offset_grid_x": 140,
+    "future_kernel_native_dispatch_consumer_offset_block_x": 144,
+    "future_kernel_native_dispatch_consumer_offset_shared_mem_bytes": 148,
+    "future_kernel_native_dispatch_consumer_offset_row_offset": 152,
+    "future_kernel_native_dispatch_consumer_offset_row_limit": 156,
+    "future_kernel_native_dispatch_consumer_offset_rows_per_program": 160,
+    "future_kernel_native_dispatch_consumer_offset_payload_bytes": 164,
+    "future_kernel_native_dispatch_consumer_offset_flags": 168,
+}
+
+
+def _check_layout_field_contract(
+    *,
+    native_abi: dict[str, Any],
+    failures: list[str],
+    reported_key: str,
+    fields_key: str,
+    expected_fields: list[str],
+) -> list[str]:
+    if native_abi.get(reported_key) is not True:
+        failures.append(f"native_consumer_abi.{reported_key}_not_true")
+    observed = native_abi.get(fields_key)
+    if observed != expected_fields:
+        failures.append(
+            f"native_consumer_abi.{fields_key}_mismatch:{observed!r}!={expected_fields!r}"
+        )
+    return observed if isinstance(observed, list) else []
+
+
+def _check_layout_expected_contract(
+    *,
+    native_abi: dict[str, Any],
+    failures: list[str],
+    expected_key: str,
+    expected_values: dict[str, int],
+) -> dict[str, Any]:
+    observed = native_abi.get(expected_key)
+    if observed != expected_values:
+        failures.append(
+            f"native_consumer_abi.{expected_key}_mismatch:{observed!r}!={expected_values!r}"
+        )
+    return observed if isinstance(observed, dict) else {}
 
 
 def _load_yaml(path: Path) -> Any:
@@ -277,6 +404,45 @@ def check_kernel_consumer_schema_artifact(path: Path) -> dict[str, Any]:
         failures.append("native_consumer_abi.row_order_mismatch")
     if native_abi.get("row_count_source") != "consumer_row_count":
         failures.append("native_consumer_abi.row_count_source_mismatch")
+    native_layout_fields = _check_layout_field_contract(
+        native_abi=native_abi,
+        failures=failures,
+        reported_key="future_kernel_native_consumer_abi_layout_reported",
+        fields_key="future_kernel_native_consumer_abi_layout_fields",
+        expected_fields=FUTURE_KERNEL_NATIVE_CONSUMER_ABI_LAYOUT_FIELDS,
+    )
+    launch_layout_fields = _check_layout_field_contract(
+        native_abi=native_abi,
+        failures=failures,
+        reported_key="future_kernel_native_consumer_launch_abi_layout_reported",
+        fields_key="future_kernel_native_consumer_launch_abi_layout_fields",
+        expected_fields=FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ABI_LAYOUT_FIELDS,
+    )
+    dispatch_layout_fields = _check_layout_field_contract(
+        native_abi=native_abi,
+        failures=failures,
+        reported_key="future_kernel_native_consumer_dispatch_abi_layout_reported",
+        fields_key="future_kernel_native_consumer_dispatch_abi_layout_fields",
+        expected_fields=FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_ABI_LAYOUT_FIELDS,
+    )
+    native_layout_expected = _check_layout_expected_contract(
+        native_abi=native_abi,
+        failures=failures,
+        expected_key="future_kernel_native_consumer_abi_layout_expected",
+        expected_values=FUTURE_KERNEL_NATIVE_CONSUMER_ABI_LAYOUT_EXPECTED,
+    )
+    launch_layout_expected = _check_layout_expected_contract(
+        native_abi=native_abi,
+        failures=failures,
+        expected_key="future_kernel_native_consumer_launch_abi_layout_expected",
+        expected_values=FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ABI_LAYOUT_EXPECTED,
+    )
+    dispatch_layout_expected = _check_layout_expected_contract(
+        native_abi=native_abi,
+        failures=failures,
+        expected_key="future_kernel_native_consumer_dispatch_abi_layout_expected",
+        expected_values=FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_ABI_LAYOUT_EXPECTED,
+    )
 
     row_fields = native_abi.get("row_fields")
     row_fields = row_fields if isinstance(row_fields, list) else []
@@ -435,6 +601,25 @@ def check_kernel_consumer_schema_artifact(path: Path) -> dict[str, Any]:
             native_abi.get(
                 "future_kernel_native_consumer_dispatch_abi_current_wna16_arg_compatible"
             )
+        ),
+        "future_kernel_native_consumer_abi_layout_reported": native_abi.get(
+            "future_kernel_native_consumer_abi_layout_reported"
+        ),
+        "future_kernel_native_consumer_abi_layout_fields": native_layout_fields,
+        "future_kernel_native_consumer_abi_layout_expected": native_layout_expected,
+        "future_kernel_native_consumer_launch_abi_layout_reported": native_abi.get(
+            "future_kernel_native_consumer_launch_abi_layout_reported"
+        ),
+        "future_kernel_native_consumer_launch_abi_layout_fields": launch_layout_fields,
+        "future_kernel_native_consumer_launch_abi_layout_expected": (
+            launch_layout_expected
+        ),
+        "future_kernel_native_consumer_dispatch_abi_layout_reported": native_abi.get(
+            "future_kernel_native_consumer_dispatch_abi_layout_reported"
+        ),
+        "future_kernel_native_consumer_dispatch_abi_layout_fields": dispatch_layout_fields,
+        "future_kernel_native_consumer_dispatch_abi_layout_expected": (
+            dispatch_layout_expected
         ),
         "rows": rows,
     }

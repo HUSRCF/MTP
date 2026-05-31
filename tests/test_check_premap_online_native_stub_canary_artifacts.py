@@ -8,6 +8,11 @@ from scripts.check_premap_online_native_stub_canary_artifacts import (
     check_online_native_stub_canary_artifacts,
     main,
 )
+from scripts.check_premap_kernel_consumer_schema import (
+    FUTURE_KERNEL_NATIVE_CONSUMER_ABI_LAYOUT_EXPECTED,
+    FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_ABI_LAYOUT_EXPECTED,
+    FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ABI_LAYOUT_EXPECTED,
+)
 
 
 def _write_json(path: Path, payload: dict) -> None:
@@ -153,6 +158,7 @@ def _extra_input_summary(row_count: int = 4) -> dict:
             "future_kernel_native_consumer_source": (
                 "premap_typed_handle_table_soa_fields"
             ),
+            **FUTURE_KERNEL_NATIVE_CONSUMER_ABI_LAYOUT_EXPECTED,
             "future_kernel_native_consumer_row_count": row_count,
             "future_kernel_native_consumer_row_ok_count": row_count,
             "future_kernel_native_consumer_error_count": 0,
@@ -179,6 +185,7 @@ def _extra_input_summary(row_count: int = 4) -> dict:
             "future_kernel_native_consumer_row_count": row_count,
             "future_kernel_native_consumer_row_ok_count": row_count,
             "future_kernel_native_consumer_error_count": 0,
+            **FUTURE_KERNEL_NATIVE_CONSUMER_ABI_LAYOUT_EXPECTED,
             "future_kernel_native_launch_consumer_checked": True,
             "future_kernel_native_launch_consumer_abi_name": (
                 "premap_future_kernel_native_consumer_launch_abi_v1"
@@ -190,6 +197,8 @@ def _extra_input_summary(row_count: int = 4) -> dict:
                 "premap_future_kernel_native_consumer_abi_v1"
             ),
             "future_kernel_native_launch_consumer_version": 1,
+            **FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ABI_LAYOUT_EXPECTED,
+            "future_kernel_native_launch_consumer_row_stride": 1,
             "future_kernel_native_launch_consumer_row_count": row_count,
             "future_kernel_native_launch_consumer_row_ok_count": row_count,
             "future_kernel_native_launch_consumer_error_count": 0,
@@ -229,6 +238,7 @@ def _extra_input_summary(row_count: int = 4) -> dict:
                 "premap_future_kernel_native_consumer_launch_abi_v1"
             ),
             "future_kernel_native_dispatch_consumer_version": 1,
+            **FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_ABI_LAYOUT_EXPECTED,
             "future_kernel_native_dispatch_consumer_grid_x": 1,
             "future_kernel_native_dispatch_consumer_block_x": 256,
             "future_kernel_native_dispatch_consumer_shared_mem_bytes": 0,
@@ -477,6 +487,7 @@ def _payloads(root: Path) -> tuple[Path, Path, Path]:
             "future_kernel_native_consumer_source": (
                 "premap_typed_handle_table_soa_fields"
             ),
+            **FUTURE_KERNEL_NATIVE_CONSUMER_ABI_LAYOUT_EXPECTED,
             "future_kernel_native_consumer_row_count": 4,
             "future_kernel_native_consumer_row_ok_count": 4,
             "future_kernel_native_consumer_error_count": 0,
@@ -512,6 +523,7 @@ def _payloads(root: Path) -> tuple[Path, Path, Path]:
             "future_kernel_native_consumer_row_count": 4,
             "future_kernel_native_consumer_row_ok_count": 4,
             "future_kernel_native_consumer_error_count": 0,
+            **FUTURE_KERNEL_NATIVE_CONSUMER_ABI_LAYOUT_EXPECTED,
             "future_kernel_native_launch_consumer_checked": True,
             "future_kernel_native_launch_consumer_abi_name": (
                 "premap_future_kernel_native_consumer_launch_abi_v1"
@@ -523,6 +535,8 @@ def _payloads(root: Path) -> tuple[Path, Path, Path]:
                 "premap_future_kernel_native_consumer_abi_v1"
             ),
             "future_kernel_native_launch_consumer_version": 1,
+            **FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ABI_LAYOUT_EXPECTED,
+            "future_kernel_native_launch_consumer_row_stride": 1,
             "future_kernel_native_launch_consumer_row_count": 4,
             "future_kernel_native_launch_consumer_row_ok_count": 4,
             "future_kernel_native_launch_consumer_error_count": 0,
@@ -561,6 +575,7 @@ def _payloads(root: Path) -> tuple[Path, Path, Path]:
                 "premap_future_kernel_native_consumer_launch_abi_v1"
             ),
             "future_kernel_native_dispatch_consumer_version": 1,
+            **FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_ABI_LAYOUT_EXPECTED,
             "future_kernel_native_dispatch_consumer_grid_x": 1,
             "future_kernel_native_dispatch_consumer_block_x": 256,
             "future_kernel_native_dispatch_consumer_shared_mem_bytes": 0,
