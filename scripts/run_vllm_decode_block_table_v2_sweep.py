@@ -53,6 +53,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--require-decode-only", action="store_true")
     parser.add_argument("--require-provenance", action="store_true")
     parser.add_argument("--require-kv-cache-layout-available", action="store_true")
+    parser.add_argument("--require-kv-cache-layout-fields", action="store_true")
     parser.add_argument("--skip-existing", action="store_true")
     return parser.parse_args()
 
@@ -121,6 +122,8 @@ def main() -> int:
             check_cmd.append("--require-provenance")
         if bool(args.require_kv_cache_layout_available):
             check_cmd.append("--require-kv-cache-layout-available")
+        if bool(args.require_kv_cache_layout_fields):
+            check_cmd.append("--require-kv-cache-layout-fields")
         check_rc = _run(check_cmd, cwd=root, env=env)
         if check_rc != 0:
             print(f"[error] {run_id} check failed rc={check_rc}; check={check_path}")

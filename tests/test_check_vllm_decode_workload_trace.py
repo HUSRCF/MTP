@@ -26,9 +26,24 @@ def _valid_v2_record() -> dict:
         "block_tables_shape": [1, 1],
         "sample_idx": 0,
         "record_id": "sample_0",
+        "sample_indices": [0],
+        "record_ids": ["sample_0"],
+        "prompt_lens": [512],
         "layer_ordinal": 0,
         "q_len": 1,
-        "kv_cache_layout": {"available": True},
+        "kv_cache_layout": {
+            "available": True,
+            "k_shape": [4, 2, 32, 1056, 8],
+            "k_stride": [540672, 270336, 8448, 8, 1],
+            "k_dtype": "bf16",
+            "k_element_size": 2,
+            "k_device": "cuda:0",
+            "v_shape": [4, 2, 256, 1056],
+            "v_stride": [540672, 270336, 1056, 1],
+            "v_dtype": "bf16",
+            "v_element_size": 2,
+            "v_device": "cuda:0",
+        },
         "sequences": [
             {
                 "row": 0,
@@ -64,6 +79,7 @@ def test_v2_checker_accepts_strict_decode_provenance_and_layout(tmp_path):
         require_decode_only=True,
         require_provenance=True,
         require_kv_cache_layout_available=True,
+        require_kv_cache_layout_fields=True,
     )
 
     assert summary["error_count"] == 0
@@ -71,6 +87,7 @@ def test_v2_checker_accepts_strict_decode_provenance_and_layout(tmp_path):
         "decode_only_q_len_1": True,
         "provenance": True,
         "kv_cache_layout_available": True,
+        "kv_cache_layout_fields": True,
     }
 
 
@@ -79,6 +96,7 @@ def test_v2_checker_strict_mode_rejects_prefill_and_missing_provenance(tmp_path)
     record["q_len"] = 512
     record["q_lens"] = [512]
     record.pop("sample_idx")
+    record.pop("sample_indices")
     record["sequences"][0].pop("sample_idx")
     record["kv_cache_layout"] = {"available": False}
 
@@ -87,10 +105,11 @@ def test_v2_checker_strict_mode_rejects_prefill_and_missing_provenance(tmp_path)
         require_decode_only=True,
         require_provenance=True,
         require_kv_cache_layout_available=True,
+        require_kv_cache_layout_fields=True,
     )
 
     assert summary["error_count"] > 0
-    assert any("sample_idx or sample_indices[1] is required" in err for err in summary["errors"])
+    assert any("sample_indices[1] is required" in err for err in summary["errors"])
     assert any("sequences[0].sample_idx is required" in err for err in summary["errors"])
     assert any("kv_cache_layout.available is required" in err for err in summary["errors"])
     assert any("q_len=512 != 1" in err for err in summary["errors"])
@@ -138,9 +157,27 @@ def test_v2_checker_accepts_batch_provenance_lists(tmp_path):
         require_decode_only=True,
         require_provenance=True,
         require_kv_cache_layout_available=True,
+        require_kv_cache_layout_fields=True,
     )
 
     assert summary["error_count"] == 0
+
+
+def test_v2_checker_strict_mode_rejects_incomplete_kv_layout(tmp_path):
+    record = _valid_v2_record()
+    record["kv_cache_layout"] = {"available": True, "k_shape": [1]}
+
+    summary = check_trace(
+        _write_jsonl(tmp_path, record),
+        require_decode_only=True,
+        require_provenance=True,
+        require_kv_cache_layout_available=True,
+        require_kv_cache_layout_fields=True,
+    )
+
+    assert summary["error_count"] > 0
+    assert any("kv_cache_layout.k_stride is required" in err for err in summary["errors"])
+    assert any("kv_cache_layout.v_device is required" in err for err in summary["errors"])
 
 
 def test_v2_checker_reports_zero_block_size_without_crashing(tmp_path):

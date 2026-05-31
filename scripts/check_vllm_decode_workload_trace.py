@@ -131,6 +131,7 @@ def _check_record(
     require_decode_only: bool = False,
     require_provenance: bool = False,
     require_kv_cache_layout_available: bool = False,
+    require_kv_cache_layout_fields: bool = False,
 ) -> list[str]:
     schema_version_raw = record.get("schema_version")
     try:
@@ -144,6 +145,7 @@ def _check_record(
             require_decode_only=require_decode_only,
             require_provenance=require_provenance,
             require_kv_cache_layout_available=require_kv_cache_layout_available,
+            require_kv_cache_layout_fields=require_kv_cache_layout_fields,
         )
 
     errors: list[str] = []
@@ -243,6 +245,7 @@ def _check_record_v2(
     require_decode_only: bool = False,
     require_provenance: bool = False,
     require_kv_cache_layout_available: bool = False,
+    require_kv_cache_layout_fields: bool = False,
 ) -> list[str]:
     errors: list[str] = []
     for field in V2_REQUIRED_FIELDS:
@@ -265,26 +268,41 @@ def _check_record_v2(
     if require_provenance:
         sample_indices = record.get("sample_indices")
         record_ids = record.get("record_ids")
-        has_sample_idx = record.get("sample_idx") is not None
-        has_sample_indices = (
-            isinstance(sample_indices, list) and len(sample_indices) == batch_size
-        )
-        if not (has_sample_idx or has_sample_indices):
+        prompt_lens = record.get("prompt_lens")
+        has_sample_indices = isinstance(sample_indices, list) and len(sample_indices) == batch_size
+        if not has_sample_indices:
             errors.append(
-                f"line {line_no}: sample_idx or sample_indices[{batch_size}] is required"
+                f"line {line_no}: sample_indices[{batch_size}] is required"
             )
-        has_record_id = record.get("record_id") is not None
         has_record_ids = isinstance(record_ids, list) and len(record_ids) == batch_size
-        if not (has_record_id or has_record_ids):
+        if not has_record_ids:
             errors.append(
-                f"line {line_no}: record_id or record_ids[{batch_size}] is required"
+                f"line {line_no}: record_ids[{batch_size}] is required"
             )
+        if not (isinstance(prompt_lens, list) and len(prompt_lens) == batch_size):
+            errors.append(f"line {line_no}: prompt_lens[{batch_size}] is required")
         if record.get("layer_ordinal") is None:
             errors.append(f"line {line_no}: layer_ordinal is required")
     if require_kv_cache_layout_available:
         kv_layout = record.get("kv_cache_layout")
         if not (isinstance(kv_layout, dict) and bool(kv_layout.get("available"))):
             errors.append(f"line {line_no}: kv_cache_layout.available is required")
+        elif require_kv_cache_layout_fields:
+            layout_required = (
+                "k_shape",
+                "k_stride",
+                "k_dtype",
+                "k_element_size",
+                "k_device",
+                "v_shape",
+                "v_stride",
+                "v_dtype",
+                "v_element_size",
+                "v_device",
+            )
+            for field in layout_required:
+                if kv_layout.get(field) in (None, [], ""):
+                    errors.append(f"line {line_no}: kv_cache_layout.{field} is required")
     if batch_size <= 0:
         errors.append(f"line {line_no}: batch_size must be positive")
     if num_q_heads <= 0 or num_kv_heads <= 0:
@@ -524,6 +542,7 @@ def check_trace(
     require_decode_only: bool = False,
     require_provenance: bool = False,
     require_kv_cache_layout_available: bool = False,
+    require_kv_cache_layout_fields: bool = False,
 ) -> dict[str, Any]:
     rows = 0
     errors: list[str] = []
@@ -562,6 +581,7 @@ def check_trace(
                     require_decode_only=require_decode_only,
                     require_provenance=require_provenance,
                     require_kv_cache_layout_available=require_kv_cache_layout_available,
+                    require_kv_cache_layout_fields=require_kv_cache_layout_fields,
                 )
             )
             schema = str(record.get("schema_version"))
@@ -673,6 +693,7 @@ def check_trace(
             "decode_only_q_len_1": bool(require_decode_only),
             "provenance": bool(require_provenance),
             "kv_cache_layout_available": bool(require_kv_cache_layout_available),
+            "kv_cache_layout_fields": bool(require_kv_cache_layout_fields),
         },
         "block_reuse_ratio": (
             float(1.0 - (len(unique_blocks) / total_block_refs))
@@ -700,6 +721,7 @@ def main() -> int:
     parser.add_argument("--require-decode-only", action="store_true")
     parser.add_argument("--require-provenance", action="store_true")
     parser.add_argument("--require-kv-cache-layout-available", action="store_true")
+    parser.add_argument("--require-kv-cache-layout-fields", action="store_true")
     args = parser.parse_args()
 
     summary = check_trace(
@@ -707,6 +729,7 @@ def main() -> int:
         require_decode_only=bool(args.require_decode_only),
         require_provenance=bool(args.require_provenance),
         require_kv_cache_layout_available=bool(args.require_kv_cache_layout_available),
+        require_kv_cache_layout_fields=bool(args.require_kv_cache_layout_fields),
     )
     if summary["row_count"] < int(args.require_rows):
         summary["error_count"] += 1
