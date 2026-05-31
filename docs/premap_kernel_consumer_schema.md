@@ -201,6 +201,26 @@ changing which evidence was deferred.  The lab preflight rejects both
 artifact-only evidence deferral and runner+artifact double deferral in the
 normal lab path.
 
+The compact lab preflight summary also mirrors the future dispatch ABI schema
+without exposing a live kernel path:
+
+```text
+default_kernel_consumer_schema_row_field_names =
+  descriptor_ptr, packed_weight_descriptor, scale_metadata_handle, aux_metadata_handle
+default_kernel_consumer_schema_row_metadata_names =
+  layer_id, expert_id, address_key_hash, row_order_hash, ordered_row_hash
+default_kernel_consumer_dispatch_abi_name =
+  premap_future_kernel_native_consumer_dispatch_abi_v1
+default_kernel_consumer_dispatch_abi_current_wna16_arg_compatible = false
+payload_bytes_required = 0
+passed_to_kernel_required = false
+changes_kernel_launch_args_required = false
+```
+
+The `default_kernel_consumer_dispatch_abi_*` summary keys are compact aliases
+for the future-native dispatch ABI fields.  They must not be read as current
+WNA16 launch-argument compatibility.
+
 Tests cover multi-program dispatch windows (`grid_x > 1`) with both zero and
 nonzero `row_offset`, so the future row assignment formula is validated beyond
 the single-program tail-window case.
