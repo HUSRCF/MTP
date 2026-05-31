@@ -973,6 +973,84 @@ def test_check_online_native_stub_canary_artifacts_rejects_missing_preflight_def
     )
 
 
+def test_check_online_native_stub_canary_artifacts_rejects_non_list_preflight_rows(
+    tmp_path: Path,
+):
+    runner_path, preflight_path, status_path = _payloads(tmp_path)
+    preflight = json.loads(preflight_path.read_text(encoding="utf-8"))
+    preflight["strict_gate_evidence_checks"] = {
+        "default_readonly_gate": {"deferred_count": 0, "rows": {"bad": "shape"}}
+    }
+    _write_json(preflight_path, preflight)
+
+    result = check_online_native_stub_canary_artifacts(
+        root=tmp_path,
+        runner_json=runner_path,
+        preflight_json=preflight_path,
+        status_json=status_path,
+    )
+
+    assert result["passed"] is False
+    assert (
+        "preflight_strict_default_gate_evidence_rows_missing"
+        in result["failures"]
+    )
+
+
+def test_check_online_native_stub_canary_artifacts_rejects_preflight_deferred_label_count_mismatch(
+    tmp_path: Path,
+):
+    runner_path, preflight_path, status_path = _payloads(tmp_path)
+    preflight = json.loads(preflight_path.read_text(encoding="utf-8"))
+    preflight["runtime_gate_evidence_scan"] = {"deferred_count": 2}
+    preflight["strict_gate_evidence_checks"] = {
+        "default_readonly_gate": {
+            "deferred_count": 2,
+            "rows": [{"label": "deferred_a", "deferred": True}],
+        }
+    }
+    _write_json(preflight_path, preflight)
+
+    status = json.loads(status_path.read_text(encoding="utf-8"))
+    status["runtime_gate_evidence_deferred_count"] = 2
+    status["strict_default_gate_evidence_deferred_count"] = 2
+    status["required_evidence"]["present_count"] = 8
+    status["required_evidence"]["passed_count"] = 8
+    status["required_evidence"]["evidence"] = {
+        **{
+            f"present_{idx}": {"present": True, "passed": True, "failure": None}
+            for idx in range(8)
+        },
+        "deferred_a": {"present": False, "passed": False, "failure": None},
+        "deferred_b": {"present": False, "passed": False, "failure": None},
+    }
+    _write_json(status_path, status)
+
+    runner = json.loads(runner_path.read_text(encoding="utf-8"))
+    runner["final_preflight_status_summary"].update(
+        {
+            "required_evidence_present_count": 8,
+            "required_evidence_passed_count": 8,
+            "runtime_gate_evidence_deferred_count": 2,
+            "strict_default_gate_evidence_deferred_count": 2,
+        }
+    )
+    _write_json(runner_path, runner)
+
+    result = check_online_native_stub_canary_artifacts(
+        root=tmp_path,
+        runner_json=runner_path,
+        preflight_json=preflight_path,
+        status_json=status_path,
+    )
+
+    assert result["passed"] is False
+    assert (
+        "preflight_strict_default_gate_evidence_deferred_labels_count_mismatch"
+        in result["failures"]
+    )
+
+
 def test_check_online_native_stub_canary_artifacts_rejects_preflight_deferred_label_mismatch(
     tmp_path: Path,
 ):
