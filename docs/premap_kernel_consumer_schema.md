@@ -68,6 +68,7 @@ ABI envelopes:
 PremapFutureKernelNativeConsumerParamsV1
 PremapFutureKernelNativeConsumerLaunchV1
 PremapFutureKernelNativeConsumerDispatchV1
+PremapFutureKernelNativeConsumerDispatchPtrV1
 ```
 
 The dispatch envelope is still a future-consumer ABI, not a current WNA16
@@ -80,6 +81,13 @@ kernel argument. It validates the row window a future kernel would receive:
   `row_offset + program_id * rows_per_program + lane_id`;
 - minimal launch cover and inactive lane accounting;
 - a `program_iteration_hash` over the launch geometry and tail-program shape.
+
+The dispatch-pointer envelope is one step closer to a future kernel launch
+slot: it passes a compact packet containing a device pointer to
+`PremapFutureKernelNativeConsumerDispatchV1`, plus ABI version, struct-size,
+result-size, zero-payload, and readonly/no-kernel-pass flags.  It is still a
+standalone native-consumer canary.  It must not be interpreted as permission to
+pass a typed table or dispatch packet into the current WNA16 kernel.
 
 The machine-readable schema records the ABI binding explicitly:
 
@@ -107,9 +115,16 @@ native_consumer_abi:
   future_kernel_native_consumer_dispatch_abi_default_enabled: false
   future_kernel_native_consumer_dispatch_abi_payload_bytes_required: 0
   future_kernel_native_consumer_dispatch_abi_passed_to_kernel_required: false
+  future_kernel_native_consumer_dispatch_ptr_abi_name: premap_future_kernel_native_consumer_dispatch_ptr_abi_v1
+  future_kernel_native_consumer_dispatch_ptr_abi_struct: PremapFutureKernelNativeConsumerDispatchPtrV1
+  future_kernel_native_consumer_dispatch_ptr_abi_mode: readonly_future_kernel_native_consumer_dispatch_ptr_abi
+  future_kernel_native_consumer_dispatch_ptr_abi_default_enabled: false
+  future_kernel_native_consumer_dispatch_ptr_abi_payload_bytes_required: 0
+  future_kernel_native_consumer_dispatch_ptr_abi_passed_to_kernel_required: false
   future_kernel_native_consumer_abi_layout_reported: true
   future_kernel_native_consumer_launch_abi_layout_reported: true
   future_kernel_native_consumer_dispatch_abi_layout_reported: true
+  future_kernel_native_consumer_dispatch_ptr_abi_layout_reported: true
 ```
 
 This ABI is intentionally separate from the WNA16 launch argument schema.  A
@@ -123,6 +138,28 @@ and critical field offsets.  The artifact checker requires these fields so the
 lab gate can catch accidental ABI drift before any real kernel argument handoff
 is attempted.  The schema also pins the expected numeric layout values; a field
 name match alone is not sufficient for lab acceptance.
+
+The dispatch-pointer packet layout is pinned separately from the pointed-to
+dispatch layout:
+
+```text
+PremapFutureKernelNativeConsumerDispatchPtrV1
+  size = 32
+  align = 8
+  offset(dispatch) = 0
+  offset(abi_version) = 8
+  offset(dispatch_struct_size) = 12
+  offset(result_struct_size) = 16
+  offset(payload_bytes) = 20
+  offset(flags) = 24
+```
+
+The pointed-to dispatch struct and the result struct remain pinned as
+`PremapFutureKernelNativeConsumerDispatchV1` and
+`PremapFutureKernelNativeConsumerDispatchResultV1`; the pointer packet only
+changes how a future kernel-side consumer would receive the dispatch metadata.
+It does not change payload, readiness, router, descriptor order, or the live
+WNA16 launch argument contract.
 
 ## Macro Ladder
 
@@ -247,9 +284,12 @@ the single-program tail-window case.
 
 1. Keep the current readonly dispatch ABI as the default lab preflight
    condition.
-2. Build a real WNA16-adjacent consumer path only by adding an explicit typed
+2. Keep the pointer-backed dispatch ABI as a stricter standalone native-consumer
+   bridge.  It may model a future kernel argument slot, but it remains outside
+   the current WNA16 fused-MoE launch.
+3. Build a real WNA16-adjacent consumer path only by adding an explicit typed
    ABI slot to a future native consumer or standalone adapter. Do not reinterpret
    the typed table as the current WNA16 argument list.
-3. Only after that compatible consumer path passes should a single-field live
+4. Only after that compatible consumer path passes should a single-field live
    handoff canary be considered, default disabled, starting with metadata/scale
    handles rather than payload pointers.

@@ -9,6 +9,8 @@ from scripts.check_premap_kernel_consumer_schema import (
     FUTURE_KERNEL_NATIVE_CONSUMER_ABI_LAYOUT_FIELDS,
     FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_ABI_LAYOUT_EXPECTED,
     FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_ABI_LAYOUT_FIELDS,
+    FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_PTR_ABI_LAYOUT_EXPECTED,
+    FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_PTR_ABI_LAYOUT_FIELDS,
     FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ABI_LAYOUT_EXPECTED,
     FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ABI_LAYOUT_FIELDS,
     check_kernel_consumer_schema_artifact,
@@ -76,6 +78,14 @@ def test_kernel_consumer_schema_accepts_valid_artifact(tmp_path: Path) -> None:
     assert (
         result["future_kernel_native_consumer_dispatch_abi_layout_expected"]
         == FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_ABI_LAYOUT_EXPECTED
+    )
+    assert (
+        result["future_kernel_native_consumer_dispatch_ptr_abi_layout_fields"]
+        == FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_PTR_ABI_LAYOUT_FIELDS
+    )
+    assert (
+        result["future_kernel_native_consumer_dispatch_ptr_abi_layout_expected"]
+        == FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_PTR_ABI_LAYOUT_EXPECTED
     )
 
 

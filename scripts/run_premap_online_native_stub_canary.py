@@ -410,6 +410,7 @@ FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_STUB_MACROS = [
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ABI",
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ABI",
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_ABI",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_PTR_ABI",
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD",
     "MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR",
 ]
@@ -421,6 +422,7 @@ FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_DESCRIPTOR_PTR_STUB_MACROS = [
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ABI",
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ABI",
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_ABI",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_PTR_ABI",
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR_MIRROR_FIELD",
     "MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR",
 ]
@@ -432,6 +434,7 @@ FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_PACKED_WEIGHT_STUB_MACROS = [
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ABI",
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ABI",
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_ABI",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_PTR_ABI",
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_MIRROR_FIELD",
     "MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR",
 ]
@@ -443,6 +446,7 @@ FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_AUX_METADATA_STUB_MACROS = [
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ABI",
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ABI",
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_ABI",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_PTR_ABI",
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_MIRROR_FIELD",
     "MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR",
 ]
@@ -649,6 +653,36 @@ FUTURE_KERNEL_NATIVE_DISPATCH_CONSUMER_SUMMARY_KEYS = (
     "future_kernel_native_dispatch_consumer_single_field_mirror_row_count",
     "future_kernel_native_dispatch_consumer_single_field_mirror_row_ok_count",
     "future_kernel_native_dispatch_consumer_single_field_mirror_error_count",
+    "future_kernel_native_dispatch_ptr_consumer_abi_name",
+    "future_kernel_native_dispatch_ptr_consumer_checked",
+    "future_kernel_native_dispatch_ptr_consumer_mode",
+    "future_kernel_native_dispatch_ptr_consumer_source",
+    "future_kernel_native_dispatch_ptr_consumer_version",
+    "future_kernel_native_dispatch_ptr_consumer_packet_struct_size",
+    "future_kernel_native_dispatch_ptr_consumer_packet_struct_align",
+    "future_kernel_native_dispatch_ptr_consumer_dispatch_struct_size",
+    "future_kernel_native_dispatch_ptr_consumer_result_struct_size",
+    "future_kernel_native_dispatch_ptr_consumer_offset_dispatch",
+    "future_kernel_native_dispatch_ptr_consumer_offset_abi_version",
+    "future_kernel_native_dispatch_ptr_consumer_offset_dispatch_struct_size",
+    "future_kernel_native_dispatch_ptr_consumer_offset_result_struct_size",
+    "future_kernel_native_dispatch_ptr_consumer_offset_payload_bytes",
+    "future_kernel_native_dispatch_ptr_consumer_offset_flags",
+    "future_kernel_native_dispatch_ptr_consumer_row_count",
+    "future_kernel_native_dispatch_ptr_consumer_row_ok_count",
+    "future_kernel_native_dispatch_ptr_consumer_error_count",
+    "future_kernel_native_dispatch_ptr_consumer_payload_bytes",
+    "future_kernel_native_dispatch_ptr_consumer_passed_to_kernel",
+    "future_kernel_native_dispatch_ptr_consumer_changes_kernel_launch_args",
+    "future_kernel_native_dispatch_ptr_consumer_current_wna16_arg_compatible",
+    "future_kernel_native_dispatch_ptr_consumer_requires_wna16_arg_reinterpretation",
+    "future_kernel_native_dispatch_ptr_consumer_field_mask",
+    "future_kernel_native_dispatch_ptr_consumer_required_field_mask",
+    "future_kernel_native_dispatch_ptr_consumer_single_field_mirror_checked",
+    "future_kernel_native_dispatch_ptr_consumer_single_field_mirror_field_name",
+    "future_kernel_native_dispatch_ptr_consumer_single_field_mirror_row_count",
+    "future_kernel_native_dispatch_ptr_consumer_single_field_mirror_row_ok_count",
+    "future_kernel_native_dispatch_ptr_consumer_single_field_mirror_error_count",
     "payload_bytes",
     "passed_to_kernel",
     "changes_kernel_launch_args",
@@ -1729,6 +1763,7 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
                     "future_kernel_native_dispatch_consumer_single_field_mirror_row_count",
                     "future_kernel_native_dispatch_consumer_single_field_mirror_row_ok_count",
                     "future_kernel_native_dispatch_consumer_single_field_mirror_error_count",
+                    *FUTURE_KERNEL_NATIVE_DISPATCH_CONSUMER_SUMMARY_KEYS,
                     "single_field_mirror_checked",
                     "single_field_mirror_field_name",
                     "single_field_mirror_row_count",
@@ -2300,6 +2335,18 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
         mirror_row_ok_count = payload.get(
             "future_kernel_native_dispatch_consumer_single_field_mirror_row_ok_count"
         )
+        ptr_dispatch_row_count = payload.get(
+            "future_kernel_native_dispatch_ptr_consumer_row_count"
+        )
+        ptr_dispatch_row_ok_count = payload.get(
+            "future_kernel_native_dispatch_ptr_consumer_row_ok_count"
+        )
+        ptr_mirror_row_count = payload.get(
+            "future_kernel_native_dispatch_ptr_consumer_single_field_mirror_row_count"
+        )
+        ptr_mirror_row_ok_count = payload.get(
+            "future_kernel_native_dispatch_ptr_consumer_single_field_mirror_row_ok_count"
+        )
         dispatch_ints = (
             grid_x,
             block_x,
@@ -2313,6 +2360,10 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
             dispatch_row_ok_count,
             mirror_row_count,
             mirror_row_ok_count,
+            ptr_dispatch_row_count,
+            ptr_dispatch_row_ok_count,
+            ptr_mirror_row_count,
+            ptr_mirror_row_ok_count,
         )
         dispatch_ints_valid = all(
             isinstance(value, int) and not isinstance(value, bool)
@@ -2338,6 +2389,10 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
                 and dispatch_row_ok_count == active_rows
                 and mirror_row_count == active_rows
                 and mirror_row_ok_count == active_rows
+                and ptr_dispatch_row_count == active_rows
+                and ptr_dispatch_row_ok_count == active_rows
+                and ptr_mirror_row_count == active_rows
+                and ptr_mirror_row_ok_count == active_rows
             )
         else:
             dispatch_geometry_ok = False
@@ -2401,6 +2456,47 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
                 "future_kernel_native_dispatch_consumer_launch_minimal_cover"
             )
             is True
+            and payload.get("future_kernel_native_dispatch_ptr_consumer_checked")
+            is True
+            and payload.get("future_kernel_native_dispatch_ptr_consumer_abi_name")
+            == "premap_future_kernel_native_consumer_dispatch_ptr_abi_v1"
+            and payload.get("future_kernel_native_dispatch_ptr_consumer_mode")
+            == "readonly_future_kernel_native_consumer_dispatch_ptr_abi"
+            and payload.get("future_kernel_native_dispatch_ptr_consumer_source")
+            == "premap_future_kernel_native_consumer_dispatch_abi_v1"
+            and payload.get("future_kernel_native_dispatch_ptr_consumer_error_count") == 0
+            and payload.get("future_kernel_native_dispatch_ptr_consumer_payload_bytes") == 0
+            and payload.get("future_kernel_native_dispatch_ptr_consumer_passed_to_kernel")
+            is False
+            and payload.get(
+                "future_kernel_native_dispatch_ptr_consumer_changes_kernel_launch_args"
+            )
+            is False
+            and payload.get(
+                "future_kernel_native_dispatch_ptr_consumer_current_wna16_arg_compatible"
+            )
+            is False
+            and payload.get(
+                "future_kernel_native_dispatch_ptr_consumer_requires_wna16_arg_reinterpretation"
+            )
+            is False
+            and _future_field_mask_ok(
+                payload,
+                prefix="future_kernel_native_dispatch_ptr_consumer",
+                expected_field=expected_field,
+            )
+            and payload.get(
+                "future_kernel_native_dispatch_ptr_consumer_single_field_mirror_checked"
+            )
+            is True
+            and payload.get(
+                "future_kernel_native_dispatch_ptr_consumer_single_field_mirror_field_name"
+            )
+            == expected_field
+            and payload.get(
+                "future_kernel_native_dispatch_ptr_consumer_single_field_mirror_error_count"
+            )
+            == 0
             and dispatch_geometry_ok
         )
 

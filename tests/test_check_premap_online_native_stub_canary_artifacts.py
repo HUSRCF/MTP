@@ -11,6 +11,7 @@ from scripts.check_premap_online_native_stub_canary_artifacts import (
 from scripts.check_premap_kernel_consumer_schema import (
     FUTURE_KERNEL_NATIVE_CONSUMER_ABI_LAYOUT_EXPECTED,
     FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_ABI_LAYOUT_EXPECTED,
+    FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_PTR_ABI_LAYOUT_EXPECTED,
     FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ABI_LAYOUT_EXPECTED,
 )
 
@@ -288,6 +289,39 @@ def _extra_input_summary(row_count: int = 4) -> dict:
                 row_count
             ),
             "future_kernel_native_dispatch_consumer_single_field_mirror_error_count": 0,
+            "future_kernel_native_dispatch_ptr_consumer_checked": True,
+            "future_kernel_native_dispatch_ptr_consumer_abi_name": (
+                "premap_future_kernel_native_consumer_dispatch_ptr_abi_v1"
+            ),
+            "future_kernel_native_dispatch_ptr_consumer_mode": (
+                "readonly_future_kernel_native_consumer_dispatch_ptr_abi"
+            ),
+            "future_kernel_native_dispatch_ptr_consumer_source": (
+                "premap_future_kernel_native_consumer_dispatch_abi_v1"
+            ),
+            "future_kernel_native_dispatch_ptr_consumer_version": 1,
+            **FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_PTR_ABI_LAYOUT_EXPECTED,
+            "future_kernel_native_dispatch_ptr_consumer_row_count": row_count,
+            "future_kernel_native_dispatch_ptr_consumer_row_ok_count": row_count,
+            "future_kernel_native_dispatch_ptr_consumer_error_count": 0,
+            "future_kernel_native_dispatch_ptr_consumer_payload_bytes": 0,
+            "future_kernel_native_dispatch_ptr_consumer_passed_to_kernel": False,
+            "future_kernel_native_dispatch_ptr_consumer_changes_kernel_launch_args": False,
+            "future_kernel_native_dispatch_ptr_consumer_current_wna16_arg_compatible": False,
+            "future_kernel_native_dispatch_ptr_consumer_requires_wna16_arg_reinterpretation": False,
+            "future_kernel_native_dispatch_ptr_consumer_field_mask": 15,
+            "future_kernel_native_dispatch_ptr_consumer_required_field_mask": 7,
+            "future_kernel_native_dispatch_ptr_consumer_single_field_mirror_checked": True,
+            "future_kernel_native_dispatch_ptr_consumer_single_field_mirror_field_name": (
+                field_name
+            ),
+            "future_kernel_native_dispatch_ptr_consumer_single_field_mirror_row_count": (
+                row_count
+            ),
+            "future_kernel_native_dispatch_ptr_consumer_single_field_mirror_row_ok_count": (
+                row_count
+            ),
+            "future_kernel_native_dispatch_ptr_consumer_single_field_mirror_error_count": 0,
         }
 
     return {
@@ -617,6 +651,35 @@ def _payloads(root: Path) -> tuple[Path, Path, Path]:
             "future_kernel_native_dispatch_consumer_single_field_mirror_row_count": 4,
             "future_kernel_native_dispatch_consumer_single_field_mirror_row_ok_count": 4,
             "future_kernel_native_dispatch_consumer_single_field_mirror_error_count": 0,
+            "future_kernel_native_dispatch_ptr_consumer_checked": True,
+            "future_kernel_native_dispatch_ptr_consumer_abi_name": (
+                "premap_future_kernel_native_consumer_dispatch_ptr_abi_v1"
+            ),
+            "future_kernel_native_dispatch_ptr_consumer_mode": (
+                "readonly_future_kernel_native_consumer_dispatch_ptr_abi"
+            ),
+            "future_kernel_native_dispatch_ptr_consumer_source": (
+                "premap_future_kernel_native_consumer_dispatch_abi_v1"
+            ),
+            "future_kernel_native_dispatch_ptr_consumer_version": 1,
+            **FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_PTR_ABI_LAYOUT_EXPECTED,
+            "future_kernel_native_dispatch_ptr_consumer_row_count": 4,
+            "future_kernel_native_dispatch_ptr_consumer_row_ok_count": 4,
+            "future_kernel_native_dispatch_ptr_consumer_error_count": 0,
+            "future_kernel_native_dispatch_ptr_consumer_payload_bytes": 0,
+            "future_kernel_native_dispatch_ptr_consumer_passed_to_kernel": False,
+            "future_kernel_native_dispatch_ptr_consumer_changes_kernel_launch_args": False,
+            "future_kernel_native_dispatch_ptr_consumer_current_wna16_arg_compatible": False,
+            "future_kernel_native_dispatch_ptr_consumer_requires_wna16_arg_reinterpretation": False,
+            "future_kernel_native_dispatch_ptr_consumer_field_mask": 15,
+            "future_kernel_native_dispatch_ptr_consumer_required_field_mask": 7,
+            "future_kernel_native_dispatch_ptr_consumer_single_field_mirror_checked": True,
+            "future_kernel_native_dispatch_ptr_consumer_single_field_mirror_field_name": (
+                field_name
+            ),
+            "future_kernel_native_dispatch_ptr_consumer_single_field_mirror_row_count": 4,
+            "future_kernel_native_dispatch_ptr_consumer_single_field_mirror_row_ok_count": 4,
+            "future_kernel_native_dispatch_ptr_consumer_single_field_mirror_error_count": 0,
             "payload_bytes": 0,
             "passed_to_kernel": False,
             "changes_kernel_launch_args": False,
@@ -1575,6 +1638,14 @@ def test_check_online_native_stub_canary_artifacts_accepts_dispatch_row_window(
     dispatch[
         "future_kernel_native_dispatch_consumer_single_field_mirror_row_ok_count"
     ] = 3
+    dispatch["future_kernel_native_dispatch_ptr_consumer_row_count"] = 3
+    dispatch["future_kernel_native_dispatch_ptr_consumer_row_ok_count"] = 3
+    dispatch[
+        "future_kernel_native_dispatch_ptr_consumer_single_field_mirror_row_count"
+    ] = 3
+    dispatch[
+        "future_kernel_native_dispatch_ptr_consumer_single_field_mirror_row_ok_count"
+    ] = 3
     dispatch["future_kernel_native_dispatch_consumer_last_program_active_rows"] = 3
     dispatch["future_kernel_native_dispatch_consumer_inactive_lane_count"] = 253
     dispatch["future_kernel_native_dispatch_consumer_first_program_row_offset"] = 1
@@ -1618,6 +1689,14 @@ def test_check_online_native_stub_canary_artifacts_accepts_large_rows_tail_dispa
     dispatch[
         "future_kernel_native_dispatch_consumer_single_field_mirror_row_ok_count"
     ] = 4
+    dispatch["future_kernel_native_dispatch_ptr_consumer_row_count"] = 4
+    dispatch["future_kernel_native_dispatch_ptr_consumer_row_ok_count"] = 4
+    dispatch[
+        "future_kernel_native_dispatch_ptr_consumer_single_field_mirror_row_count"
+    ] = 4
+    dispatch[
+        "future_kernel_native_dispatch_ptr_consumer_single_field_mirror_row_ok_count"
+    ] = 4
     dispatch["future_kernel_native_dispatch_consumer_program_count"] = 1
     dispatch["future_kernel_native_dispatch_consumer_full_program_count"] = 0
     dispatch["future_kernel_native_dispatch_consumer_last_program_active_rows"] = 4
@@ -1657,6 +1736,10 @@ def test_check_online_native_stub_canary_artifacts_accepts_multi_program_dispatc
         "future_kernel_native_dispatch_consumer_row_ok_count",
         "future_kernel_native_dispatch_consumer_single_field_mirror_row_count",
         "future_kernel_native_dispatch_consumer_single_field_mirror_row_ok_count",
+        "future_kernel_native_dispatch_ptr_consumer_row_count",
+        "future_kernel_native_dispatch_ptr_consumer_row_ok_count",
+        "future_kernel_native_dispatch_ptr_consumer_single_field_mirror_row_count",
+        "future_kernel_native_dispatch_ptr_consumer_single_field_mirror_row_ok_count",
     ):
         dispatch[key] = 520
     dispatch["future_kernel_native_dispatch_consumer_grid_x"] = 3
@@ -1714,6 +1797,10 @@ def test_check_online_native_stub_canary_artifacts_accepts_multi_program_offset_
         "future_kernel_native_dispatch_consumer_row_ok_count",
         "future_kernel_native_dispatch_consumer_single_field_mirror_row_count",
         "future_kernel_native_dispatch_consumer_single_field_mirror_row_ok_count",
+        "future_kernel_native_dispatch_ptr_consumer_row_count",
+        "future_kernel_native_dispatch_ptr_consumer_row_ok_count",
+        "future_kernel_native_dispatch_ptr_consumer_single_field_mirror_row_count",
+        "future_kernel_native_dispatch_ptr_consumer_single_field_mirror_row_ok_count",
     ):
         dispatch[key] = active_rows
     dispatch["future_kernel_native_dispatch_consumer_grid_x"] = grid_x
@@ -1819,6 +1906,80 @@ def test_check_online_native_stub_canary_artifacts_rejects_dispatch_program_hash
     assert (
         "runner_future_kernel_native_consumer_dispatch_stub_"
         "future_native_dispatch_program_iteration_hash_missing"
+        in result["failures"]
+    )
+
+
+def test_check_online_native_stub_canary_artifacts_rejects_dispatch_ptr_metadata_mismatch(
+    tmp_path: Path,
+):
+    runner_path, preflight_path, status_path = _payloads(tmp_path)
+    runner = json.loads(runner_path.read_text(encoding="utf-8"))
+    dispatch = runner["future_kernel_native_consumer_dispatch_stub_summary"]
+    dispatch["future_kernel_native_dispatch_ptr_consumer_version"] = 2
+    _write_json(runner_path, runner)
+
+    result = check_online_native_stub_canary_artifacts(
+        root=tmp_path,
+        runner_json=runner_path,
+        preflight_json=preflight_path,
+        status_json=status_path,
+    )
+
+    assert result["passed"] is False
+    assert (
+        "runner_future_kernel_native_consumer_dispatch_stub_"
+        "future_kernel_native_dispatch_ptr_consumer_version_mismatch"
+        in result["failures"]
+    )
+
+
+def test_check_online_native_stub_canary_artifacts_rejects_dispatch_ptr_layout_mismatch(
+    tmp_path: Path,
+):
+    runner_path, preflight_path, status_path = _payloads(tmp_path)
+    runner = json.loads(runner_path.read_text(encoding="utf-8"))
+    dispatch = runner["future_kernel_native_consumer_dispatch_stub_summary"]
+    dispatch["future_kernel_native_dispatch_ptr_consumer_packet_struct_size"] = 40
+    _write_json(runner_path, runner)
+
+    result = check_online_native_stub_canary_artifacts(
+        root=tmp_path,
+        runner_json=runner_path,
+        preflight_json=preflight_path,
+        status_json=status_path,
+    )
+
+    assert result["passed"] is False
+    assert any(
+        failure.startswith(
+            "runner_future_kernel_native_consumer_dispatch_stub_"
+            "future_kernel_native_dispatch_ptr_consumer_packet_struct_size_mismatch"
+        )
+        for failure in result["failures"]
+    )
+
+
+def test_check_online_native_stub_canary_artifacts_rejects_dispatch_ptr_safety_flag(
+    tmp_path: Path,
+):
+    runner_path, preflight_path, status_path = _payloads(tmp_path)
+    runner = json.loads(runner_path.read_text(encoding="utf-8"))
+    dispatch = runner["future_kernel_native_consumer_dispatch_stub_summary"]
+    dispatch["future_kernel_native_dispatch_ptr_consumer_passed_to_kernel"] = True
+    _write_json(runner_path, runner)
+
+    result = check_online_native_stub_canary_artifacts(
+        root=tmp_path,
+        runner_json=runner_path,
+        preflight_json=preflight_path,
+        status_json=status_path,
+    )
+
+    assert result["passed"] is False
+    assert (
+        "runner_future_kernel_native_consumer_dispatch_stub_"
+        "future_kernel_native_dispatch_ptr_consumer_passed_to_kernel_mismatch"
         in result["failures"]
     )
 

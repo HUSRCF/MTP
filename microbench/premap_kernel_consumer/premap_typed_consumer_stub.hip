@@ -48,6 +48,11 @@
 #error "future native consumer dispatch ABI requires future native consumer launch ABI"
 #endif
 
+#if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_PTR_ABI) && \
+    !defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_ABI)
+#error "future native consumer dispatch pointer ABI requires future native consumer dispatch ABI"
+#endif
+
 #if (defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD) && \
      defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_MIRROR_FIELD)) || \
     (defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD) && \
@@ -114,6 +119,15 @@ static_assert(!kPremapFutureKernelNativeConsumerDispatchAbiV1KernelArgPassAllowe
 static_assert(
     !kPremapFutureKernelNativeConsumerDispatchAbiV1CurrentWna16ArgCompatible,
     "future native consumer dispatch ABI must not be the current WNA16 arg list");
+static_assert(
+    !kPremapFutureKernelNativeConsumerDispatchPtrAbiV1PayloadDerefAllowed,
+    "future native consumer dispatch pointer ABI must not allow payload dereference");
+static_assert(
+    !kPremapFutureKernelNativeConsumerDispatchPtrAbiV1KernelArgPassAllowed,
+    "future native consumer dispatch pointer ABI must not allow kernel-arg pass");
+static_assert(
+    !kPremapFutureKernelNativeConsumerDispatchPtrAbiV1CurrentWna16ArgCompatible,
+    "future native consumer dispatch pointer ABI must not be the current WNA16 arg list");
 
 constexpr uint64_t kTypedSchemaHashHi = MTP_PREMAP_TYPED_CONSUMER_SCHEMA_HASH_HI;
 constexpr uint64_t kTypedSchemaHashLo = MTP_PREMAP_TYPED_CONSUMER_SCHEMA_HASH_LO;
@@ -515,6 +529,53 @@ __global__ void typed_consumer_future_native_dispatch_kernel(
       result.single_field_mirror_hash;
 }
 
+__global__ void typed_consumer_future_native_dispatch_ptr_kernel(
+    PremapFutureKernelNativeConsumerDispatchPtrV1 dispatch_ptr,
+    uint32_t* future_native_dispatch_ptr_consumer_ok,
+    uint64_t* future_native_dispatch_ptr_consumer_hash,
+    uint32_t* future_native_dispatch_ptr_single_field_mirror_ok,
+    uint64_t* future_native_dispatch_ptr_single_field_mirror_hash) {
+  const uint32_t program_id = static_cast<uint32_t>(blockIdx.x);
+  const uint32_t lane_id = static_cast<uint32_t>(threadIdx.x);
+  if (!premap_typed_consumer_future_native_dispatch_ptr_packet_matches_v1(
+          dispatch_ptr)) {
+    return;
+  }
+  const PremapFutureKernelNativeConsumerDispatchV1 dispatch =
+      *dispatch_ptr.dispatch;
+  const bool row_window_valid =
+      dispatch.row_limit >= dispatch.row_offset &&
+      dispatch.row_limit <= dispatch.launch.params.row_count;
+  const uint32_t active_rows =
+      row_window_valid ? dispatch.row_limit - dispatch.row_offset : 0;
+  if (!row_window_valid || dispatch.rows_per_program == 0) {
+    return;
+  }
+  const uint64_t local_row_index_64 =
+      static_cast<uint64_t>(program_id) *
+          static_cast<uint64_t>(dispatch.rows_per_program) +
+      static_cast<uint64_t>(lane_id);
+  if (local_row_index_64 >= static_cast<uint64_t>(active_rows)) {
+    return;
+  }
+  const uint32_t idx = static_cast<uint32_t>(local_row_index_64);
+  const PremapFutureKernelNativeConsumerDispatchResultV1 result =
+      premap_typed_consumer_future_native_dispatch_ptr_consume_program_lane_v1(
+          dispatch_ptr,
+          program_id,
+          lane_id,
+          static_cast<uint32_t>(gridDim.x),
+          static_cast<uint32_t>(blockDim.x),
+          kTypedSchemaHashHi,
+          kTypedSchemaHashLo);
+  future_native_dispatch_ptr_consumer_ok[idx] = result.ok;
+  future_native_dispatch_ptr_consumer_hash[idx] = result.row_hash;
+  future_native_dispatch_ptr_single_field_mirror_ok[idx] =
+      result.single_field_mirror_checked != 0 ? result.single_field_mirror_ok : 0;
+  future_native_dispatch_ptr_single_field_mirror_hash[idx] =
+      result.single_field_mirror_hash;
+}
+
 struct Args {
   int device = 0;
   int rows = 1024;
@@ -715,6 +776,12 @@ static std::string macro_json() {
 #else
      << "false";
 #endif
+  os << ",\"MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_PTR_ABI\":"
+#if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_PTR_ABI)
+     << "true";
+#else
+     << "false";
+#endif
   os << "}";
   return os.str();
 }
@@ -762,7 +829,11 @@ int main(int argc, char** argv) {
            *d_future_native_launch_consumer_hash = nullptr,
            *d_future_native_launch_single_field_mirror_hash = nullptr,
            *d_future_native_dispatch_consumer_hash = nullptr,
-           *d_future_native_dispatch_single_field_mirror_hash = nullptr;
+           *d_future_native_dispatch_single_field_mirror_hash = nullptr,
+           *d_future_native_dispatch_ptr_consumer_hash = nullptr,
+           *d_future_native_dispatch_ptr_single_field_mirror_hash = nullptr;
+  PremapFutureKernelNativeConsumerDispatchV1* d_future_native_dispatch_packet =
+      nullptr;
   int32_t* d_expert = nullptr;
   uint32_t *d_ok = nullptr, *d_single_field_mirror_ok = nullptr,
            *d_kernel_side_consumer_path_ok = nullptr,
@@ -775,7 +846,9 @@ int main(int argc, char** argv) {
            *d_future_native_launch_consumer_ok = nullptr,
            *d_future_native_launch_single_field_mirror_ok = nullptr,
            *d_future_native_dispatch_consumer_ok = nullptr,
-           *d_future_native_dispatch_single_field_mirror_ok = nullptr;
+           *d_future_native_dispatch_single_field_mirror_ok = nullptr,
+           *d_future_native_dispatch_ptr_consumer_ok = nullptr,
+           *d_future_native_dispatch_ptr_single_field_mirror_ok = nullptr;
   const size_t u64_bytes = static_cast<size_t>(rows) * sizeof(uint64_t);
   const size_t i32_bytes = static_cast<size_t>(rows) * sizeof(int32_t);
   const size_t u32_bytes = static_cast<size_t>(rows) * sizeof(uint32_t);
@@ -861,6 +934,18 @@ int main(int argc, char** argv) {
   hip_check(
       hipMalloc(&d_future_native_dispatch_single_field_mirror_hash, u64_bytes),
       "hipMalloc future_native_dispatch_single_field_mirror_hash");
+  hip_check(
+      hipMalloc(&d_future_native_dispatch_ptr_consumer_ok, u32_bytes),
+      "hipMalloc future_native_dispatch_ptr_consumer_ok");
+  hip_check(
+      hipMalloc(&d_future_native_dispatch_ptr_consumer_hash, u64_bytes),
+      "hipMalloc future_native_dispatch_ptr_consumer_hash");
+  hip_check(
+      hipMalloc(&d_future_native_dispatch_ptr_single_field_mirror_ok, u32_bytes),
+      "hipMalloc future_native_dispatch_ptr_single_field_mirror_ok");
+  hip_check(
+      hipMalloc(&d_future_native_dispatch_ptr_single_field_mirror_hash, u64_bytes),
+      "hipMalloc future_native_dispatch_ptr_single_field_mirror_hash");
   hip_check(hipMemcpy(d_descriptor, descriptor.data(), u64_bytes, hipMemcpyHostToDevice), "copy descriptor");
   hip_check(hipMemcpy(d_packed, packed.data(), u64_bytes, hipMemcpyHostToDevice), "copy packed");
   hip_check(hipMemcpy(d_scale, scale.data(), u64_bytes, hipMemcpyHostToDevice), "copy scale");
@@ -903,6 +988,18 @@ int main(int argc, char** argv) {
   hip_check(
       hipMemset(d_future_native_dispatch_single_field_mirror_hash, 0, u64_bytes),
       "memset future_native_dispatch_single_field_mirror_hash");
+  hip_check(
+      hipMemset(d_future_native_dispatch_ptr_consumer_ok, 0, u32_bytes),
+      "memset future_native_dispatch_ptr_consumer_ok");
+  hip_check(
+      hipMemset(d_future_native_dispatch_ptr_consumer_hash, 0, u64_bytes),
+      "memset future_native_dispatch_ptr_consumer_hash");
+  hip_check(
+      hipMemset(d_future_native_dispatch_ptr_single_field_mirror_ok, 0, u32_bytes),
+      "memset future_native_dispatch_ptr_single_field_mirror_ok");
+  hip_check(
+      hipMemset(d_future_native_dispatch_ptr_single_field_mirror_hash, 0, u64_bytes),
+      "memset future_native_dispatch_ptr_single_field_mirror_hash");
 
   PremapKernelSideTypedConsumerAbiV1 table;
   table.typed_schema_hash_hi = kTypedSchemaHashHi;
@@ -1169,6 +1266,45 @@ int main(int argc, char** argv) {
       d_future_native_dispatch_single_field_mirror_hash);
   hip_check(hipGetLastError(), "future native dispatch consumer launch");
   hip_check(hipDeviceSynchronize(), "future native dispatch consumer sync");
+
+#if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_PTR_ABI)
+  hip_check(
+      hipMalloc(
+          &d_future_native_dispatch_packet,
+          sizeof(PremapFutureKernelNativeConsumerDispatchV1)),
+      "hipMalloc future native dispatch packet");
+  hip_check(
+      hipMemcpy(
+          d_future_native_dispatch_packet,
+          &future_native_dispatch,
+          sizeof(PremapFutureKernelNativeConsumerDispatchV1),
+          hipMemcpyHostToDevice),
+      "copy future native dispatch packet");
+  PremapFutureKernelNativeConsumerDispatchPtrV1 future_native_dispatch_ptr;
+  future_native_dispatch_ptr.dispatch = d_future_native_dispatch_packet;
+  future_native_dispatch_ptr.abi_version =
+      kPremapFutureKernelNativeConsumerDispatchPtrAbiV1Version;
+  future_native_dispatch_ptr.dispatch_struct_size =
+      sizeof(PremapFutureKernelNativeConsumerDispatchV1);
+  future_native_dispatch_ptr.result_struct_size =
+      sizeof(PremapFutureKernelNativeConsumerDispatchResultV1);
+  future_native_dispatch_ptr.payload_bytes = 0;
+  future_native_dispatch_ptr.flags =
+      kPremapFutureKernelSideConsumerArgsV1RequiredFlags;
+  hipLaunchKernelGGL(
+      typed_consumer_future_native_dispatch_ptr_kernel,
+      dim3(dispatch_blocks),
+      dim3(threads),
+      0,
+      0,
+      future_native_dispatch_ptr,
+      d_future_native_dispatch_ptr_consumer_ok,
+      d_future_native_dispatch_ptr_consumer_hash,
+      d_future_native_dispatch_ptr_single_field_mirror_ok,
+      d_future_native_dispatch_ptr_single_field_mirror_hash);
+  hip_check(hipGetLastError(), "future native dispatch pointer consumer launch");
+  hip_check(hipDeviceSynchronize(), "future native dispatch pointer consumer sync");
+#endif
 #endif
 #endif
 #endif
@@ -1199,6 +1335,10 @@ int main(int argc, char** argv) {
   std::vector<uint64_t> future_native_dispatch_consumer_hashes(rows);
   std::vector<uint32_t> future_native_dispatch_single_field_mirror_ok(rows);
   std::vector<uint64_t> future_native_dispatch_single_field_mirror_hashes(rows);
+  std::vector<uint32_t> future_native_dispatch_ptr_consumer_ok(rows);
+  std::vector<uint64_t> future_native_dispatch_ptr_consumer_hashes(rows);
+  std::vector<uint32_t> future_native_dispatch_ptr_single_field_mirror_ok(rows);
+  std::vector<uint64_t> future_native_dispatch_ptr_single_field_mirror_hashes(rows);
   hip_check(hipMemcpy(ok.data(), d_ok, u32_bytes, hipMemcpyDeviceToHost), "copy ok");
   hip_check(hipMemcpy(hashes.data(), d_hash, u64_bytes, hipMemcpyDeviceToHost), "copy hash");
   hip_check(
@@ -1369,6 +1509,34 @@ int main(int argc, char** argv) {
           u64_bytes,
           hipMemcpyDeviceToHost),
       "copy future_native_dispatch_single_field_mirror_hash");
+  hip_check(
+      hipMemcpy(
+          future_native_dispatch_ptr_consumer_ok.data(),
+          d_future_native_dispatch_ptr_consumer_ok,
+          u32_bytes,
+          hipMemcpyDeviceToHost),
+      "copy future_native_dispatch_ptr_consumer_ok");
+  hip_check(
+      hipMemcpy(
+          future_native_dispatch_ptr_consumer_hashes.data(),
+          d_future_native_dispatch_ptr_consumer_hash,
+          u64_bytes,
+          hipMemcpyDeviceToHost),
+      "copy future_native_dispatch_ptr_consumer_hash");
+  hip_check(
+      hipMemcpy(
+          future_native_dispatch_ptr_single_field_mirror_ok.data(),
+          d_future_native_dispatch_ptr_single_field_mirror_ok,
+          u32_bytes,
+          hipMemcpyDeviceToHost),
+      "copy future_native_dispatch_ptr_single_field_mirror_ok");
+  hip_check(
+      hipMemcpy(
+          future_native_dispatch_ptr_single_field_mirror_hashes.data(),
+          d_future_native_dispatch_ptr_single_field_mirror_hash,
+          u64_bytes,
+          hipMemcpyDeviceToHost),
+      "copy future_native_dispatch_ptr_single_field_mirror_hash");
 
   uint64_t hash_acc = 0;
   uint64_t single_field_mirror_hash_acc = 0;
@@ -1383,6 +1551,8 @@ int main(int argc, char** argv) {
   uint64_t future_native_launch_single_field_mirror_hash_acc = 0;
   uint64_t future_native_dispatch_consumer_hash_acc = 0;
   uint64_t future_native_dispatch_single_field_mirror_hash_acc = 0;
+  uint64_t future_native_dispatch_ptr_consumer_hash_acc = 0;
+  uint64_t future_native_dispatch_ptr_single_field_mirror_hash_acc = 0;
   int ok_count = 0;
   int single_field_mirror_ok_count = 0;
   int kernel_side_consumer_path_ok_count = 0;
@@ -1396,6 +1566,8 @@ int main(int argc, char** argv) {
   int future_native_launch_single_field_mirror_ok_count = 0;
   int future_native_dispatch_consumer_ok_count = 0;
   int future_native_dispatch_single_field_mirror_ok_count = 0;
+  int future_native_dispatch_ptr_consumer_ok_count = 0;
+  int future_native_dispatch_ptr_single_field_mirror_ok_count = 0;
   for (int i = 0; i < rows; ++i) {
     ok_count += ok[i] == 1 ? 1 : 0;
     hash_acc ^= mix64(hashes[i] + static_cast<uint64_t>(i));
@@ -1459,6 +1631,18 @@ int main(int argc, char** argv) {
     future_native_dispatch_single_field_mirror_hash_acc ^=
         mix64(
             future_native_dispatch_single_field_mirror_hashes[i] +
+            static_cast<uint64_t>(i));
+    future_native_dispatch_ptr_consumer_ok_count +=
+        future_native_dispatch_ptr_consumer_ok[i] == 1 ? 1 : 0;
+    future_native_dispatch_ptr_consumer_hash_acc ^=
+        mix64(
+            future_native_dispatch_ptr_consumer_hashes[i] +
+            static_cast<uint64_t>(i));
+    future_native_dispatch_ptr_single_field_mirror_ok_count +=
+        future_native_dispatch_ptr_single_field_mirror_ok[i] == 1 ? 1 : 0;
+    future_native_dispatch_ptr_single_field_mirror_hash_acc ^=
+        mix64(
+            future_native_dispatch_ptr_single_field_mirror_hashes[i] +
             static_cast<uint64_t>(i));
   }
   const int error_count = rows - ok_count;
@@ -1602,6 +1786,32 @@ int main(int argc, char** argv) {
           ? future_native_dispatch_active_rows -
                 future_native_dispatch_single_field_mirror_ok_count
           : 0;
+  const bool future_native_dispatch_ptr_consumer_checked =
+#if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_PTR_ABI)
+      true;
+#else
+      false;
+#endif
+  const int future_native_dispatch_ptr_consumer_row_count =
+      future_native_dispatch_ptr_consumer_checked
+          ? future_native_dispatch_active_rows
+          : 0;
+  const int future_native_dispatch_ptr_consumer_error_count =
+      future_native_dispatch_ptr_consumer_checked
+          ? future_native_dispatch_active_rows -
+                future_native_dispatch_ptr_consumer_ok_count
+          : 0;
+  const bool future_native_dispatch_ptr_single_field_mirror_checked =
+      future_native_dispatch_ptr_consumer_checked && single_field_mirror_checked;
+  const int future_native_dispatch_ptr_single_field_mirror_row_count =
+      future_native_dispatch_ptr_single_field_mirror_checked
+          ? future_native_dispatch_active_rows
+          : 0;
+  const int future_native_dispatch_ptr_single_field_mirror_error_count =
+      future_native_dispatch_ptr_single_field_mirror_checked
+          ? future_native_dispatch_active_rows -
+                future_native_dispatch_ptr_single_field_mirror_ok_count
+          : 0;
   const bool all_ok =
       error_count == 0 && future_kernel_consumer_args_error_count == 0 &&
       future_kernel_single_field_mirror_error_count == 0 &&
@@ -1611,7 +1821,9 @@ int main(int argc, char** argv) {
       future_native_launch_consumer_error_count == 0 &&
       future_native_launch_single_field_mirror_error_count == 0 &&
       future_native_dispatch_consumer_error_count == 0 &&
-      future_native_dispatch_single_field_mirror_error_count == 0;
+      future_native_dispatch_single_field_mirror_error_count == 0 &&
+      future_native_dispatch_ptr_consumer_error_count == 0 &&
+      future_native_dispatch_ptr_single_field_mirror_error_count == 0;
 
   hip_check(hipFree(d_descriptor), "hipFree descriptor");
   hip_check(hipFree(d_packed), "hipFree packed");
@@ -1693,6 +1905,23 @@ int main(int argc, char** argv) {
   hip_check(
       hipFree(d_future_native_dispatch_single_field_mirror_hash),
       "hipFree future_native_dispatch_single_field_mirror_hash");
+  hip_check(
+      hipFree(d_future_native_dispatch_ptr_consumer_ok),
+      "hipFree future_native_dispatch_ptr_consumer_ok");
+  hip_check(
+      hipFree(d_future_native_dispatch_ptr_consumer_hash),
+      "hipFree future_native_dispatch_ptr_consumer_hash");
+  hip_check(
+      hipFree(d_future_native_dispatch_ptr_single_field_mirror_ok),
+      "hipFree future_native_dispatch_ptr_single_field_mirror_ok");
+  hip_check(
+      hipFree(d_future_native_dispatch_ptr_single_field_mirror_hash),
+      "hipFree future_native_dispatch_ptr_single_field_mirror_hash");
+  if (d_future_native_dispatch_packet != nullptr) {
+    hip_check(
+        hipFree(d_future_native_dispatch_packet),
+        "hipFree future_native_dispatch_packet");
+  }
 
   std::cout << "{";
   std::cout << "\"ok\":" << (all_ok ? "true" : "false");
@@ -2125,6 +2354,75 @@ int main(int argc, char** argv) {
   std::cout << ",\"future_kernel_native_dispatch_consumer_changes_kernel_launch_args\":false";
   std::cout << ",\"future_kernel_native_dispatch_consumer_current_wna16_arg_compatible\":false";
   std::cout << ",\"future_kernel_native_dispatch_consumer_requires_wna16_arg_reinterpretation\":false";
+  std::cout << ",\"future_kernel_native_dispatch_ptr_consumer_abi_name\":\""
+            << kPremapFutureKernelNativeConsumerDispatchPtrAbiV1Name << "\"";
+  std::cout << ",\"future_kernel_native_dispatch_ptr_consumer_checked\":"
+            << (future_native_dispatch_ptr_consumer_checked ? "true" : "false");
+  std::cout << ",\"future_kernel_native_dispatch_ptr_consumer_mode\":\""
+            << kPremapFutureKernelNativeConsumerDispatchPtrAbiV1Mode << "\"";
+  std::cout << ",\"future_kernel_native_dispatch_ptr_consumer_source\":\""
+            << kPremapFutureKernelNativeConsumerDispatchPtrAbiV1Source << "\"";
+  std::cout << ",\"future_kernel_native_dispatch_ptr_consumer_version\":"
+            << kPremapFutureKernelNativeConsumerDispatchPtrAbiV1Version;
+  std::cout << ",\"future_kernel_native_dispatch_ptr_consumer_packet_struct_size\":"
+            << sizeof(PremapFutureKernelNativeConsumerDispatchPtrV1);
+  std::cout << ",\"future_kernel_native_dispatch_ptr_consumer_packet_struct_align\":"
+            << alignof(PremapFutureKernelNativeConsumerDispatchPtrV1);
+  std::cout << ",\"future_kernel_native_dispatch_ptr_consumer_dispatch_struct_size\":"
+            << sizeof(PremapFutureKernelNativeConsumerDispatchV1);
+  std::cout << ",\"future_kernel_native_dispatch_ptr_consumer_result_struct_size\":"
+            << sizeof(PremapFutureKernelNativeConsumerDispatchResultV1);
+  std::cout << ",\"future_kernel_native_dispatch_ptr_consumer_offset_dispatch\":"
+            << offsetof(PremapFutureKernelNativeConsumerDispatchPtrV1, dispatch);
+  std::cout << ",\"future_kernel_native_dispatch_ptr_consumer_offset_abi_version\":"
+            << offsetof(PremapFutureKernelNativeConsumerDispatchPtrV1, abi_version);
+  std::cout << ",\"future_kernel_native_dispatch_ptr_consumer_offset_dispatch_struct_size\":"
+            << offsetof(PremapFutureKernelNativeConsumerDispatchPtrV1, dispatch_struct_size);
+  std::cout << ",\"future_kernel_native_dispatch_ptr_consumer_offset_result_struct_size\":"
+            << offsetof(PremapFutureKernelNativeConsumerDispatchPtrV1, result_struct_size);
+  std::cout << ",\"future_kernel_native_dispatch_ptr_consumer_offset_payload_bytes\":"
+            << offsetof(PremapFutureKernelNativeConsumerDispatchPtrV1, payload_bytes);
+  std::cout << ",\"future_kernel_native_dispatch_ptr_consumer_offset_flags\":"
+            << offsetof(PremapFutureKernelNativeConsumerDispatchPtrV1, flags);
+  std::cout << ",\"future_kernel_native_dispatch_ptr_consumer_row_count\":"
+            << future_native_dispatch_ptr_consumer_row_count;
+  std::cout << ",\"future_kernel_native_dispatch_ptr_consumer_row_ok_count\":"
+            << (future_native_dispatch_ptr_consumer_checked
+                    ? future_native_dispatch_ptr_consumer_ok_count
+                    : 0);
+  std::cout << ",\"future_kernel_native_dispatch_ptr_consumer_error_count\":"
+            << future_native_dispatch_ptr_consumer_error_count;
+  std::cout << ",\"future_kernel_native_dispatch_ptr_consumer_hash_accumulator\":\""
+            << std::hex << future_native_dispatch_ptr_consumer_hash_acc
+            << std::dec << "\"";
+  std::cout << ",\"future_kernel_native_dispatch_ptr_consumer_field_mask\":"
+            << future_kernel_consumer_args_field_mask;
+  std::cout << ",\"future_kernel_native_dispatch_ptr_consumer_required_field_mask\":"
+            << kPremapFutureKernelSideConsumerFieldMaskRequired;
+  std::cout << ",\"future_kernel_native_dispatch_ptr_consumer_single_field_mirror_kind\":"
+            << kSingleFieldMirrorKind;
+  std::cout << ",\"future_kernel_native_dispatch_ptr_consumer_single_field_mirror_checked\":"
+            << (future_native_dispatch_ptr_single_field_mirror_checked ? "true" : "false");
+  std::cout << ",\"future_kernel_native_dispatch_ptr_consumer_single_field_mirror_field_name\":\""
+            << kSingleFieldMirrorFieldName << "\"";
+  std::cout << ",\"future_kernel_native_dispatch_ptr_consumer_single_field_mirror_row_count\":"
+            << future_native_dispatch_ptr_single_field_mirror_row_count;
+  std::cout << ",\"future_kernel_native_dispatch_ptr_consumer_single_field_mirror_row_ok_count\":"
+            << (future_native_dispatch_ptr_single_field_mirror_checked
+                    ? future_native_dispatch_ptr_single_field_mirror_ok_count
+                    : 0);
+  std::cout << ",\"future_kernel_native_dispatch_ptr_consumer_single_field_mirror_error_count\":"
+            << future_native_dispatch_ptr_single_field_mirror_error_count;
+  std::cout << ",\"future_kernel_native_dispatch_ptr_consumer_single_field_mirror_hash_accumulator\":\""
+            << std::hex << future_native_dispatch_ptr_single_field_mirror_hash_acc
+            << std::dec << "\"";
+  std::cout << ",\"future_kernel_native_dispatch_ptr_consumer_payload_bytes\":0";
+  std::cout << ",\"future_kernel_native_dispatch_ptr_consumer_payload_deref_allowed\":false";
+  std::cout << ",\"future_kernel_native_dispatch_ptr_consumer_passed_to_kernel\":false";
+  std::cout << ",\"future_kernel_native_dispatch_ptr_consumer_kernel_arg_pass_allowed\":false";
+  std::cout << ",\"future_kernel_native_dispatch_ptr_consumer_changes_kernel_launch_args\":false";
+  std::cout << ",\"future_kernel_native_dispatch_ptr_consumer_current_wna16_arg_compatible\":false";
+  std::cout << ",\"future_kernel_native_dispatch_ptr_consumer_requires_wna16_arg_reinterpretation\":false";
   std::cout << ",\"typed_schema_hash_hi\":\"" << std::hex << kTypedSchemaHashHi << std::dec << "\"";
   std::cout << ",\"typed_schema_hash_lo\":\"" << std::hex << kTypedSchemaHashLo << std::dec << "\"";
   std::cout << ",\"aux_pointer_present\":" << (args.omit_aux_pointer ? "false" : "true");

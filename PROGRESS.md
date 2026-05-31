@@ -22823,3 +22823,80 @@ git diff --check: clean
 Current gate status: future native typed consumer ABI layout is now part of the
 lab preflight. Bootstrap evidence is allowed only for artifact generation; lab
 acceptance remains strict no-defer only.
+
+## 2026-06-01 - Pointer-backed future-native dispatch ABI
+
+Added a pointer-backed future dispatch ABI packet:
+
+```cpp
+PremapFutureKernelNativeConsumerDispatchPtrV1
+```
+
+This packet models a future kernel-side argument slot more closely than the
+previous by-value dispatch mirror: it carries a device pointer to
+`PremapFutureKernelNativeConsumerDispatchV1`, ABI version, dispatch/result
+struct sizes, zero payload bytes, and readonly/no-kernel-pass/no-payload-deref
+flags.  It remains a standalone native typed-consumer canary and is explicitly
+not compatible with the current AWQ/WNA16 fused-MoE kernel argument list.
+
+Safety boundary:
+
+```text
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+current_wna16_arg_compatible = false
+requires_wna16_arg_reinterpretation = false
+```
+
+Review follow-up:
+
+- A code-review pass found no blocker.
+- The device-side dispatch-pointer consumer now validates the by-value packet
+  metadata before dereferencing the pointed-to dispatch struct.
+- Artifact checks now require dispatch-pointer summaries for the online
+  future-dispatch path, including ABI identity, layout values, row counts,
+  single-field mirror status, and safety flags.
+- Added negative tests for dispatch-pointer ABI version, layout size, and
+  kernel-pass safety flag mismatches.
+
+Evidence:
+
+```text
+HIP tail smoke:
+  /tmp/premap_dispatch_ptr_tail_smoke_after_review.json
+  row_count = 4
+  row_ok_count = 4
+  error_count = 0
+
+online runner:
+  outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_runner_future_native_dispatch_ptr_16input.json
+
+artifact check:
+  outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_artifact_check_future_native_dispatch_ptr_16input.json
+
+preflight:
+  outputs/reports/premap_lab_preflight_status_online_prelaunch_native_stub_canary_future_native_dispatch_ptr_16input.json
+
+online_prelaunch_input_check_count = 16
+online_prelaunch_input_extra_check_passed_count = 15 / 15
+artifact_check_passed = true
+final_preflight_passed = true
+final_deferred_count = 0
+status_deferred_count = 0
+```
+
+Validation:
+
+```text
+conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
+  pytest tests/test_check_premap_online_native_stub_canary_artifacts.py \
+         tests/test_premap_typed_consumer_stub.py \
+         tests/test_run_premap_online_native_stub_canary.py -q
+
+64 passed
+```
+
+Current status: this is the closest native-stub ABI so far to a future
+kernel-side typed consumer argument shape, but it still does not pass any
+argument to the live WNA16 fused-MoE kernel and does not move payload.
