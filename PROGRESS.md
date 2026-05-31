@@ -22135,3 +22135,88 @@ conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src pytest tests -
 723 passed, 2 warnings
 git diff --check: clean
 ```
+
+### 2026-05-31 — Adaptive future-native dispatch row-window canary
+
+The future-native dispatch ABI canary now supports a per-input adaptive tail
+window:
+
+```text
+--future-native-dispatch-tail-window-size N
+```
+
+This keeps the existing fixed `--future-native-dispatch-row-offset/limit`
+contract intact, but when the tail-window mode is enabled each exported
+typed-consumer input derives its own dispatch window from that input's
+`row_count`:
+
+```text
+row_offset = max(0, row_count - N)
+row_limit  = row_count
+```
+
+Motivation:
+
+```text
+fixed head window 0..4:
+  passed on 16 online inputs
+
+fixed mid window 100..104:
+  correctly failed on a small exported input with row_count=8
+
+adaptive tail window size 4:
+  passed on 16 online inputs
+```
+
+Successful canary:
+
+```text
+output:
+  outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_dispatch_window_tail4_16input.json
+
+artifact check:
+  outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_artifact_check_dispatch_window_tail4_16input.json
+
+passed = true
+artifact_check_passed = true
+online_prelaunch_input_check_count = 16
+online_prelaunch_input_extra_check_passed_count = 15 / 15
+tail_window_size = 4
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+```
+
+Representative small-row exported inputs now select the valid tail window
+instead of failing on a global offset:
+
+```text
+input0010 row_count = 8
+dispatch row_offset = 4
+dispatch row_limit = 8
+active_rows = 4
+
+input0015 row_count = 8
+dispatch row_offset = 4
+dispatch row_limit = 8
+active_rows = 4
+```
+
+This remains a native typed-consumer / future-dispatch ABI gate. It still does
+not pass kernel args to WNA16, does not move payload, and does not change the
+real fused-MoE launch.
+
+Validation:
+
+```text
+conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
+  pytest tests/test_run_premap_online_native_stub_canary.py -q
+
+10 passed
+
+conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src pytest tests -q
+
+726 passed, 2 warnings
+
+git diff --check: clean
+```

@@ -732,7 +732,27 @@ def _stub_command(
     return cmd
 
 
-def _future_native_dispatch_extra_args(args: argparse.Namespace) -> list[str]:
+def _future_native_dispatch_extra_args(
+    args: argparse.Namespace,
+    *,
+    input_json: Path | None = None,
+) -> list[str]:
+    if args.future_native_dispatch_tail_window_size is not None:
+        if input_json is None:
+            raise ValueError(
+                "--future-native-dispatch-tail-window-size requires an input JSON"
+            )
+        window_size = int(args.future_native_dispatch_tail_window_size)
+        if bool(getattr(args, "dry_run", False)) and not input_json.exists():
+            row_count = window_size
+        else:
+            row_count = _typed_consumer_input_row_count(input_json)
+        return [
+            "--dispatch-row-offset",
+            str(max(0, row_count - window_size)),
+            "--dispatch-row-limit",
+            str(row_count),
+        ]
     extra_args = [
         "--dispatch-row-offset",
         str(int(args.future_native_dispatch_row_offset)),
@@ -807,6 +827,37 @@ def _load_json_if_exists(path: Path) -> dict[str, Any]:
     return {}
 
 
+def _typed_consumer_input_row_count(path: Path) -> int:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"typed consumer input is not a JSON object: {path}")
+    for container_name in ("_meta", "_export_context"):
+        container = payload.get(container_name)
+        if not isinstance(container, dict):
+            continue
+        value = container.get("row_count")
+        if value is None:
+            continue
+        if isinstance(value, bool):
+            raise ValueError(f"{container_name}.row_count must be an integer in {path}")
+        row_count = int(value)
+        if row_count <= 0:
+            raise ValueError(f"{container_name}.row_count must be positive in {path}")
+        return row_count
+    value = payload.get("row_count")
+    if value is not None:
+        if isinstance(value, bool):
+            raise ValueError(f"row_count must be an integer in {path}")
+        row_count = int(value)
+        if row_count <= 0:
+            raise ValueError(f"row_count must be positive in {path}")
+        return row_count
+    raise ValueError(
+        "typed consumer input does not expose row_count in _meta, "
+        f"_export_context, or top level: {path}"
+    )
+
+
 def write_report(path: Path, payload: dict[str, object]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
@@ -816,17 +867,21 @@ def write_report(path: Path, payload: dict[str, object]) -> None:
 
 
 def run_canary(args: argparse.Namespace) -> dict[str, object]:
-    if int(args.future_native_dispatch_row_offset) < 0:
-        raise ValueError("--future-native-dispatch-row-offset must be >= 0")
-    if (
-        args.future_native_dispatch_row_limit is not None
-        and int(args.future_native_dispatch_row_limit)
-        <= int(args.future_native_dispatch_row_offset)
-    ):
-        raise ValueError(
-            "--future-native-dispatch-row-limit must be greater than "
-            "--future-native-dispatch-row-offset"
-        )
+    if args.future_native_dispatch_tail_window_size is not None:
+        if int(args.future_native_dispatch_tail_window_size) <= 0:
+            raise ValueError("--future-native-dispatch-tail-window-size must be > 0")
+    else:
+        if int(args.future_native_dispatch_row_offset) < 0:
+            raise ValueError("--future-native-dispatch-row-offset must be >= 0")
+        if (
+            args.future_native_dispatch_row_limit is not None
+            and int(args.future_native_dispatch_row_limit)
+            <= int(args.future_native_dispatch_row_offset)
+        ):
+            raise ValueError(
+                "--future-native-dispatch-row-limit must be greater than "
+                "--future-native-dispatch-row-offset"
+            )
     trace_config = _resolve_repo_path(args.trace_config)
     output_dir = trace_output_dir(trace_config)
     performance_path = output_dir / "performance_summary.json"
@@ -1112,7 +1167,10 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
                 device=int(args.stub_device),
                 offload_arch=str(args.offload_arch),
                 macros=FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_STUB_MACROS,
-                extra_args=_future_native_dispatch_extra_args(args),
+                extra_args=_future_native_dispatch_extra_args(
+                    args,
+                    input_json=input_path,
+                ),
             ),
             env=env,
             dry_run=bool(args.dry_run),
@@ -1147,7 +1205,10 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
                     device=int(args.stub_device),
                     offload_arch=str(args.offload_arch),
                     macros=macros,
-                    extra_args=_future_native_dispatch_extra_args(args),
+                    extra_args=_future_native_dispatch_extra_args(
+                        args,
+                        input_json=input_path,
+                    ),
                 ),
                 env=env,
                 dry_run=bool(args.dry_run),
@@ -1364,7 +1425,10 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
             output_path = _indexed_output_path(base_output, input_index)
             step_key = f"{label}_input{input_index:04d}"
             stub_extra_args = (
-                _future_native_dispatch_extra_args(args)
+                _future_native_dispatch_extra_args(
+                    args,
+                    input_json=extra_input_path,
+                )
                 if label.startswith(
                     "native_stub_future_kernel_native_consumer_dispatch_"
                 )
@@ -2947,6 +3011,11 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
             if args.future_native_dispatch_row_limit is None
             else int(args.future_native_dispatch_row_limit)
         ),
+        "future_native_dispatch_tail_window_size": (
+            None
+            if args.future_native_dispatch_tail_window_size is None
+            else int(args.future_native_dispatch_tail_window_size)
+        ),
         "steps": steps,
         "stub_summary": {
             key: stub_payload.get(key)
@@ -3802,6 +3871,16 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "Exclusive row limit passed to the future-native dispatch ABI stub. "
             "Unset keeps the stub default of row_count."
+        ),
+    )
+    parser.add_argument(
+        "--future-native-dispatch-tail-window-size",
+        type=int,
+        default=None,
+        help=(
+            "Use a per-input tail dispatch window of this many rows for the "
+            "future-native dispatch ABI stub. When set, it overrides the fixed "
+            "row offset/limit for every exported typed-consumer input."
         ),
     )
     parser.add_argument(

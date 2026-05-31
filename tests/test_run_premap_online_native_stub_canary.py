@@ -101,6 +101,94 @@ def test_exported_inputs_from_performance_selects_multiple_paths(tmp_path: Path)
     assert exported_inputs_from_performance(perf, max_inputs=0) == inputs
 
 
+def test_future_native_dispatch_tail_window_uses_input_row_count(tmp_path: Path):
+    import scripts.run_premap_online_native_stub_canary as canary
+
+    input_path = tmp_path / "typed_consumer_input.json"
+    input_path.write_text(
+        json.dumps({"_meta": {"row_count": 8}, "_export_context": {"row_count": 16}})
+        + "\n",
+        encoding="utf-8",
+    )
+    args = build_parser().parse_args(
+        [
+            "--trace-config",
+            str(tmp_path / "trace.yaml"),
+            "--future-native-dispatch-row-offset",
+            "100",
+            "--future-native-dispatch-row-limit",
+            "104",
+            "--future-native-dispatch-tail-window-size",
+            "4",
+        ]
+    )
+
+    assert canary._typed_consumer_input_row_count(input_path) == 8
+    assert canary._future_native_dispatch_extra_args(
+        args,
+        input_json=input_path,
+    ) == [
+        "--dispatch-row-offset",
+        "4",
+        "--dispatch-row-limit",
+        "8",
+    ]
+
+
+def test_future_native_dispatch_tail_window_clamps_to_table_head(tmp_path: Path):
+    import scripts.run_premap_online_native_stub_canary as canary
+
+    input_path = tmp_path / "typed_consumer_input.json"
+    input_path.write_text(
+        json.dumps({"_export_context": {"row_count": 3}}) + "\n",
+        encoding="utf-8",
+    )
+    args = build_parser().parse_args(
+        [
+            "--trace-config",
+            str(tmp_path / "trace.yaml"),
+            "--future-native-dispatch-tail-window-size",
+            "4",
+        ]
+    )
+
+    assert canary._future_native_dispatch_extra_args(
+        args,
+        input_json=input_path,
+    ) == [
+        "--dispatch-row-offset",
+        "0",
+        "--dispatch-row-limit",
+        "3",
+    ]
+
+
+def test_future_native_dispatch_tail_window_supports_dry_run_without_input(
+    tmp_path: Path,
+):
+    import scripts.run_premap_online_native_stub_canary as canary
+
+    args = build_parser().parse_args(
+        [
+            "--trace-config",
+            str(tmp_path / "trace.yaml"),
+            "--future-native-dispatch-tail-window-size",
+            "4",
+            "--dry-run",
+        ]
+    )
+
+    assert canary._future_native_dispatch_extra_args(
+        args,
+        input_json=tmp_path / "missing_online_input.json",
+    ) == [
+        "--dispatch-row-offset",
+        "0",
+        "--dispatch-row-limit",
+        "4",
+    ]
+
+
 def test_run_canary_dry_run_includes_compact_preflight_status(
     tmp_path: Path,
     monkeypatch,
@@ -161,6 +249,7 @@ def test_run_canary_dry_run_includes_compact_preflight_status(
     assert result["passed"] is True
     assert result["future_native_dispatch_row_offset"] == 1
     assert result["future_native_dispatch_row_limit"] == 5
+    assert result["future_native_dispatch_tail_window_size"] is None
     assert "preflight_status" in result["steps"]
     assert "native_stub_per_field" in result["steps"]
     assert "native_stub_kernel_envelope_mirror" in result["steps"]
