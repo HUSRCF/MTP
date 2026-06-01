@@ -1204,6 +1204,17 @@ def _standalone_dispatch_ptr_canary_payload() -> dict[str, object]:
     return payload
 
 
+def _standalone_arg_slot_canary_payload() -> dict[str, object]:
+    payload = _standalone_dispatch_ptr_canary_payload()
+    compiled_macros = dict(payload["compiled_macros"])
+    compiled_macros[
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ARG_SLOT_ABI"
+    ] = True
+    compiled_macros["MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD"] = True
+    payload["compiled_macros"] = compiled_macros
+    return payload
+
+
 def _runner_mirror_summary(field_name: str) -> dict[str, object]:
     payload = _runner_stub_summary()
     payload.update(
@@ -1362,6 +1373,9 @@ def _write_gate(
     )
     standalone_dispatch_ptr_canary_path = (
         f"reports/{name}_future_native_dispatch_ptr_standalone_canary.json"
+    )
+    standalone_arg_slot_canary_path = (
+        f"reports/{name}_future_native_arg_slot_standalone_canary.json"
     )
     native_online_per_field_stub_path = (
         f"reports/{name}_native_typed_consumer_stub_online_prelaunch_input_per_field_canary.json"
@@ -1651,6 +1665,10 @@ def _write_gate(
             root / standalone_dispatch_ptr_canary_path,
             json.dumps(_standalone_dispatch_ptr_canary_payload()) + "\n",
         )
+        _write(
+            root / standalone_arg_slot_canary_path,
+            json.dumps(_standalone_arg_slot_canary_payload()) + "\n",
+        )
     gate_path = f"configs/runtime/{name}.yaml"
     metadata_lines = ""
     if canary is not None:
@@ -1800,6 +1818,8 @@ def _write_gate(
             f"{native_online_artifact_check_32_path}\n"
             "  future_kernel_native_dispatch_ptr_standalone_canary_json: "
             f"{standalone_dispatch_ptr_canary_path}\n"
+            "  future_kernel_native_arg_slot_standalone_canary_json: "
+            f"{standalone_arg_slot_canary_path}\n"
             "optional_evidence_paths:\n"
             "  aux_metadata_single_field_handle_handoff_canary_smoke_json: "
             f"{aux_metadata_single_field_canary_path}\n"
@@ -1875,7 +1895,7 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert result["passed"] is True
     assert result["failures"] == []
     assert result["runtime_gate_evidence_scan"]["gate_count"] == 3
-    assert result["runtime_gate_evidence_scan"]["evidence_path_count"] == 48
+    assert result["runtime_gate_evidence_scan"]["evidence_path_count"] == 50
     assert result["default_readonly_gate_required_evidence_check"]["passed"] is True
     summary = result["lab_gate_status_summary"]
     assert summary["passed"] is True
@@ -2128,6 +2148,41 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
         ]
         is False
     )
+    assert (
+        summary["default_kernel_consumer_arg_slot_standalone_evidence_label"]
+        == "future_kernel_native_arg_slot_standalone_canary_json"
+    )
+    assert (
+        summary["default_kernel_consumer_arg_slot_standalone_evidence_present"]
+        is True
+    )
+    assert (
+        summary["default_kernel_consumer_arg_slot_standalone_evidence_passed"]
+        is True
+    )
+    assert summary["default_kernel_consumer_arg_slot_standalone_input_source"] == (
+        "synthetic"
+    )
+    assert summary["default_kernel_consumer_arg_slot_standalone_checked"] is True
+    assert summary["default_kernel_consumer_arg_slot_standalone_row_count"] == 2
+    assert summary["default_kernel_consumer_arg_slot_standalone_row_ok_count"] == 2
+    assert summary["default_kernel_consumer_arg_slot_standalone_payload_bytes"] == 0
+    assert (
+        summary["default_kernel_consumer_arg_slot_standalone_passed_to_kernel"]
+        is False
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_arg_slot_standalone_changes_kernel_launch_args"
+        ]
+        is False
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_arg_slot_standalone_current_wna16_arg_compatible"
+        ]
+        is False
+    )
     assert summary["default_required_evidence_passed"] is True
     assert summary["default_optional_evidence_passed"] is True
     assert summary["runtime_gate_evidence_deferred_count"] == 0
@@ -2138,9 +2193,9 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert summary["payload_bytes_required"] == 0
     assert summary["passed_to_kernel_required"] is False
     assert summary["changes_kernel_launch_args_required"] is False
-    assert summary["required_evidence"]["required_count"] == 14
-    assert summary["required_evidence"]["present_count"] == 14
-    assert summary["required_evidence"]["passed_count"] == 14
+    assert summary["required_evidence"]["required_count"] == 15
+    assert summary["required_evidence"]["present_count"] == 15
+    assert summary["required_evidence"]["passed_count"] == 15
     assert summary["optional_evidence"]["required_count"] == 10
     assert summary["optional_evidence"]["present_count"] == 10
     assert summary["optional_evidence"]["passed_count"] == 10
@@ -2203,7 +2258,7 @@ def test_premap_lab_preflight_allows_missing_optional_per_field_canary(
 
     summary = result["lab_gate_status_summary"]
     assert result["passed"] is True
-    assert summary["required_evidence"]["passed_count"] == 14
+    assert summary["required_evidence"]["passed_count"] == 15
     assert summary["default_optional_evidence_passed"] is True
     assert summary["optional_evidence"]["present_count"] == 6
     assert summary["optional_evidence"]["passed_count"] == 6
@@ -2563,6 +2618,7 @@ def test_premap_lab_preflight_rejects_default_gate_without_typed_evidence(
             "future_kernel_native_dispatch_consumer_online_artifact_check_32_128export_json:missing_evidence_path",
             "future_kernel_native_dispatch_consumer_online_runner_32_128export_json:missing_evidence_path",
             "future_kernel_native_dispatch_ptr_standalone_canary_json:missing_evidence_path",
+            "future_kernel_native_arg_slot_standalone_canary_json:missing_evidence_path",
             "strict_live_connected_readonly_128_gate_json:missing_evidence_path",
         "strict_native_typed_consumer_bridge_128_gate_json:missing_evidence_path",
         "strict_kernel_side_typed_consumer_object_128_gate_json:missing_evidence_path",
@@ -3422,6 +3478,78 @@ def test_premap_lab_preflight_rejects_standalone_dispatch_ptr_unsafe_macro(
     ) in failures
 
 
+def test_premap_lab_preflight_rejects_standalone_arg_slot_row_mismatch(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    standalone_path = (
+        tmp_path
+        / "reports/default_gate_future_native_arg_slot_standalone_canary.json"
+    )
+    payload = json.loads(standalone_path.read_text())
+    payload["future_kernel_native_arg_slot_consumer_row_ok_count"] = 1
+    _write(standalone_path, json.dumps(payload) + "\n")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is False
+    failures = result["default_readonly_gate_required_evidence_check"]["failures"]
+    assert (
+        "future_kernel_native_arg_slot_standalone_canary_json:"
+        "standalone_arg_slot_future_kernel_native_arg_slot_consumer_"
+        "row_ok_count_mismatch"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_standalone_arg_slot_missing_mirror_macro(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    standalone_path = (
+        tmp_path
+        / "reports/default_gate_future_native_arg_slot_standalone_canary.json"
+    )
+    payload = json.loads(standalone_path.read_text())
+    payload["compiled_macros"][
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD"
+    ] = False
+    _write(standalone_path, json.dumps(payload) + "\n")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is False
+    failures = result["default_readonly_gate_required_evidence_check"]["failures"]
+    assert (
+        "future_kernel_native_arg_slot_standalone_canary_json:"
+        "standalone_arg_slot_"
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD_not_enabled"
+    ) in failures
+
+
 def test_premap_lab_preflight_rejects_missing_typed_evidence_file(
     tmp_path: Path,
 ):
@@ -3488,9 +3616,9 @@ def test_premap_lab_preflight_can_defer_self_referential_runner_evidence(
     assert summary["deferred_online_prelaunch_artifact_evidence"] is False
     assert summary["runtime_gate_evidence_deferred_count"] == 10
     assert summary["strict_default_gate_evidence_deferred_count"] == 5
-    assert summary["required_evidence"]["required_count"] == 14
-    assert summary["required_evidence"]["present_count"] == 12
-    assert summary["required_evidence"]["passed_count"] == 12
+    assert summary["required_evidence"]["required_count"] == 15
+    assert summary["required_evidence"]["present_count"] == 13
+    assert summary["required_evidence"]["passed_count"] == 13
     assert summary["optional_evidence"]["passed_count"] == 7
     for label in (
         "future_kernel_native_consumer_online_artifact_check_16_128export_json",
@@ -4033,7 +4161,7 @@ def test_premap_lab_preflight_cli_writes_summary(tmp_path: Path):
     assert result["lab_gate_status_summary"]["passed"] is True
     assert (
         result["lab_gate_status_summary"]["required_evidence"]["passed_count"]
-        == 14
+        == 15
     )
 
 
@@ -4069,6 +4197,6 @@ def test_premap_lab_preflight_cli_summary_only_writes_status_block(tmp_path: Pat
     assert exit_code == 0
     assert result["passed"] is True
     assert result["default_readonly_gate_path"] == default_gate
-    assert result["required_evidence"]["passed_count"] == 14
+    assert result["required_evidence"]["passed_count"] == 15
     assert result["optional_evidence"]["passed_count"] == 10
     assert "lab_gate_status_summary" not in result

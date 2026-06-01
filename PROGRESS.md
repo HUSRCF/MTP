@@ -23579,3 +23579,56 @@ strict_default_gate_evidence_deferred_count = 0
 arg-slot rows = 174 / 174
 passed_to_kernel = false
 ```
+
+Standalone arg-slot native canary is now also part of the default lab gate.
+This separates the future kernel argument-slot ABI check from the online
+runner artifact and verifies the scale-metadata single-field mirror path in
+the native stub itself:
+
+```text
+required evidence:
+  future_kernel_native_arg_slot_standalone_canary_json
+
+artifact:
+  outputs/reports/premap_kernel_consumer/typed_consumer_stub_gpu1_future_native_arg_slot_standalone_canary.json
+
+standalone rows = 1024 / 1024
+single-field mirror = scale_metadata_handle
+mirror rows = 1024 / 1024
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+current_wna16_arg_compatible = false
+requires_wna16_arg_reinterpretation = false
+```
+
+Default lab preflight with the standalone arg-slot evidence:
+
+```text
+output = outputs/reports/premap_lab_preflight_status_default_arg_slot_standalone.json
+
+passed = true
+failures = []
+required evidence = 15 / 15
+standalone arg-slot evidence = passed
+runtime_gate_evidence_deferred_count = 0
+strict_default_gate_evidence_deferred_count = 0
+```
+
+Validation:
+
+```text
+conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
+  pytest tests/test_run_premap_lab_preflight.py -q
+
+56 passed
+
+conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
+  pytest tests -q
+
+776 passed, 2 warnings
+```
+
+Boundary remains unchanged: this is still a no-op future-kernel ABI gate.  It
+does not move payload, does not issue ready credit, does not pass kernel args,
+and does not reinterpret current WNA16 arguments.
