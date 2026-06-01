@@ -24826,3 +24826,33 @@ extra online input checks = 31 / 31 passed
 runtime_gate_evidence_deferred_count = 0
 strict_default_gate_evidence_deferred_count = 0
 ```
+
+Additional nonzero row-window canary:
+
+```text
+outputs/reports/premap_kernel_consumer/
+  online_prelaunch_native_stub_canary_arg_slot_tail8_4input_hashchain_projection_nodefer.json
+outputs/reports/premap_kernel_consumer/
+  online_prelaunch_native_stub_canary_artifact_check_arg_slot_tail8_4input_hashchain_projection_nodefer.json
+
+online runner passed = true
+artifact_check_passed = true
+stdout final_preflight_passed = true
+stdout final_deferred_count = 0
+online inputs = 4
+extra online input checks = 3 / 3 passed
+
+dispatch row_count = 8
+dispatch row_offset = 166
+dispatch row_limit = 174
+dispatch active_rows = 8
+
+dispatch handle_projection_hash_accumulator = 625adc96bd325030
+dispatch_ptr handle_projection_hash_accumulator = 625adc96bd325030
+arg_slot handle_projection_hash_accumulator = 625adc96bd325030
+```
+
+This verifies the same packet-chain projection contract on a nonzero tail
+dispatch window, which is closer to how a future kernel-side consumer would
+iterate a row slice.  It is recorded as supplemental evidence for now; the
+default required lab gate remains the 32-input full-table projection canary.
