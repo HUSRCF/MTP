@@ -3647,7 +3647,9 @@ def run_premap_lab_preflight(
     def _observed_default_contract_value(key: str) -> Any | None:
         if key in observed_default_contract:
             value = observed_default_contract[key]
-            expected = REQUIRED_DEFAULT_GATE_CONTRACT[key]
+            expected = REQUIRED_DEFAULT_GATE_CONTRACT.get(key)
+            if expected is None:
+                return None
             if isinstance(expected, bool):
                 return value if isinstance(value, bool) else None
             if isinstance(expected, int):
