@@ -23999,7 +23999,7 @@ validation:
   42 passed
 
   conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src pytest tests -q
-  790 passed, 2 warnings
+  791 passed, 2 warnings
 ```
 
 This closes the gap between the standalone native typed consumer canary and the
@@ -24012,3 +24012,8 @@ auxiliary single-field canaries can be checked without pretending that every
 handle field macro was enabled.  The checker also hard-fails if the top-level
 artifact ever reports nonzero payload bytes, kernel handoff, kernel launch
 argument changes, or current-WNA16 argument compatibility.
+The default lab preflight standalone-evidence validator now uses the same
+field-aware macro rule for arg-slot canaries, so optional descriptor,
+packed-weight, and auxiliary mirror artifacts are not forced to enable unrelated
+handle macros, but each must still enable the handle macro for the field it
+claims to mirror.

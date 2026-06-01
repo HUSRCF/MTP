@@ -2640,13 +2640,10 @@ def _validate_future_native_dispatch_ptr_standalone_evidence(
     if not isinstance(macros, dict):
         failures.append(f"{failure_prefix}_compiled_macros_missing")
         macros = {}
-    required_enabled = (
+    always_required_enabled = (
         "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCHEMA",
         "MTP_PREMAP_TYPED_CONSUMER_CHECK_ROW_ITERATION",
         "MTP_PREMAP_TYPED_CONSUMER_CHECK_POINTER_VISIBILITY",
-        "MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR",
-        "MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_DESCRIPTOR",
-        "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_HANDLE",
         "MTP_PREMAP_TYPED_CONSUMER_CHECK_LIFETIME",
         "MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR",
         "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ABI",
@@ -2654,11 +2651,30 @@ def _validate_future_native_dispatch_ptr_standalone_evidence(
         "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_ABI",
         "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_PTR_ABI",
     )
+    field_macro_by_field = {
+        "descriptor_ptr": "MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR",
+        "scale_metadata_handle": "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_HANDLE",
+        "packed_weight_descriptor": "MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_DESCRIPTOR",
+        "aux_metadata_handle": "MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_HANDLE",
+    }
+    required_enabled = tuple(always_required_enabled)
     if require_arg_slot:
+        arg_slot_field_macro = field_macro_by_field.get(arg_slot_mirror_field)
+        if arg_slot_field_macro is None:
+            failures.append(f"{failure_prefix}_arg_slot_field_macro_unknown")
+            arg_slot_field_macro = ""
         required_enabled = (
             *required_enabled,
+            arg_slot_field_macro,
             "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ARG_SLOT_ABI",
             arg_slot_mirror_macro,
+        )
+    else:
+        required_enabled = (
+            *required_enabled,
+            "MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR",
+            "MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_DESCRIPTOR",
+            "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_HANDLE",
         )
     for macro in required_enabled:
         if macros.get(macro) is not True:

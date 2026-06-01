@@ -1225,6 +1225,13 @@ def _standalone_arg_slot_canary_payload(
             "MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_MIRROR_FIELD"
         ),
     }
+    handle_macro_by_field = {
+        "descriptor_ptr": "MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR",
+        "scale_metadata_handle": "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_HANDLE",
+        "packed_weight_descriptor": "MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_DESCRIPTOR",
+        "aux_metadata_handle": "MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_HANDLE",
+    }
+    compiled_macros[handle_macro_by_field[mirror_field]] = True
     compiled_macros[mirror_macro_by_field[mirror_field]] = True
     payload["compiled_macros"] = compiled_macros
     payload[
@@ -2653,6 +2660,43 @@ def test_premap_lab_preflight_rejects_optional_arg_slot_packed_weight_mismatch(
         "future_kernel_native_arg_slot_packed_weight_mirror_canary_json:"
         "standalone_arg_slot_packed_weight_"
         "future_kernel_native_arg_slot_consumer_single_field_mirror_field_name_mismatch"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_optional_arg_slot_missing_field_macro(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    optional_path = (
+        tmp_path / "reports/default_gate_future_native_arg_slot_aux_metadata_canary.json"
+    )
+    payload = json.loads(optional_path.read_text(encoding="utf-8"))
+    payload["compiled_macros"]["MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_HANDLE"] = (
+        False
+    )
+    optional_path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is False
+    assert "default_readonly_gate_optional_evidence_check_failed" in result["failures"]
+    failures = result["default_readonly_gate_optional_evidence_check"]["failures"]
+    assert (
+        "future_kernel_native_arg_slot_aux_metadata_mirror_canary_json:"
+        "standalone_arg_slot_aux_metadata_"
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_HANDLE_not_enabled"
     ) in failures
 
 
