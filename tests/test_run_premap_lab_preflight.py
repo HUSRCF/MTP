@@ -81,7 +81,23 @@ def test_default_lab_gate_uses_strict_nodefer_online_native_evidence() -> None:
     )
     assert (
         evidence[
+            "future_kernel_native_launch_consumer_online_runner_16_128export_json"
+        ]
+        == evidence[
+            "future_kernel_native_dispatch_consumer_online_runner_32_128export_json"
+        ]
+    )
+    assert (
+        evidence[
             "future_kernel_native_consumer_online_artifact_check_16_128export_json"
+        ]
+        == evidence[
+            "future_kernel_native_dispatch_consumer_online_artifact_check_32_128export_json"
+        ]
+    )
+    assert (
+        evidence[
+            "future_kernel_native_launch_consumer_online_artifact_check_16_128export_json"
         ]
         == evidence[
             "future_kernel_native_dispatch_consumer_online_artifact_check_32_128export_json"
@@ -5182,6 +5198,39 @@ def test_premap_lab_preflight_allows_missing_typed_evidence_file_when_requested(
         item
         for item in result["default_readonly_gate_required_evidence_check"]["rows"]
         if item["label"] == "strict_kernel_side_typed_consumer_object_128_gate_json"
+    )
+    assert row["failure"] == "missing_file"
+    assert row["allowed_missing"] is True
+
+
+def test_premap_lab_preflight_allows_missing_required_multiprogram_evidence_when_requested(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    (
+        tmp_path / "reports/default_gate_future_native_arg_slot_multiprogram_canary.json"
+    ).unlink()
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+        allow_missing_evidence=True,
+    )
+
+    assert result["passed"] is True
+    row = next(
+        item
+        for item in result["default_readonly_gate_required_evidence_check"]["rows"]
+        if item["label"] == "future_kernel_native_arg_slot_multiprogram_canary_json"
     )
     assert row["failure"] == "missing_file"
     assert row["allowed_missing"] is True

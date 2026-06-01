@@ -24992,4 +24992,8 @@ non-minimal, or if `full_program_count`, `last_program_active_rows`,
 `inactive_lane_count`, first/last program row offsets, or the
 program-iteration hash disagree with the row assignment formula.  Focused
 tests cover the single-program, missing-launch-threads, and bad-full-program
-failure modes.
+failure modes.  Additional regression coverage keeps the legacy
+`*_16_128export` launch labels tied to the same 32-table hard-hashchain
+artifact and verifies that `--allow-missing-evidence` marks missing required
+multi-program evidence as allowed-missing rather than silently passing it as
+present.
