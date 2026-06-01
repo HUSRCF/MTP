@@ -24918,3 +24918,44 @@ arg_slot row hashchain is not valid hex64 evidence, or if the typed-handle
 projection hash is not equal across those packet boundaries.  Focused tests
 cover both failure cases so this cannot silently regress into summary-only
 observability.
+
+32-input online prelaunch native-stub canary with the hard hashchain preflight
+gate:
+
+```text
+outputs/reports/premap_kernel_consumer/
+  online_prelaunch_native_stub_canary_arg_slot_32input_hard_hashchain_preflight_32tables.json
+  online_prelaunch_native_stub_canary_artifact_check_arg_slot_32input_hard_hashchain_preflight_32tables.json
+
+runner passed = true
+artifact_check passed = true
+failures = []
+online_prelaunch_input_check_count = 32
+online_prelaunch_input_extra_check_passed_count = 31 / 31
+online row_count min/max/diverse = 8 / 198 / true
+
+final strict preflight passed = true
+runtime_gate_evidence_deferred_count = 0
+strict_default_gate_evidence_deferred_count = 0
+required evidence = 15 / 15
+optional evidence = 13 / 13
+
+dispatch rows / ok = 174 / 174
+arg_slot rows / ok = 174 / 174
+
+dispatch row hash = b85d3491976eca34
+dispatch_ptr row hash = 50685f4a0fd6f707
+arg_slot row hash = a8bb5d2ff3a6e662
+
+dispatch / dispatch_ptr / arg_slot handle-projection hash =
+  877da3c93286127c
+
+arg_slot payload_bytes = 0
+arg_slot passed_to_kernel = false
+arg_slot changes_kernel_launch_args = false
+```
+
+This promotes the future-native dispatch/arg-slot path from single-table
+online evidence to a 32-table online prelaunch canary under the same strict
+no-defer lab gate.  It still does not hand the typed table to the current
+WNA16 kernel and it does not move payload.
