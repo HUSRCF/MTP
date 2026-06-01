@@ -23820,3 +23820,30 @@ arg-slot status still mirrors only the safest scale metadata field, while its
 diagnostic dispatch summaries and standalone native stub artifacts cover the
 remaining fields. No payload is moved, no kernel launch argument is changed,
 and no current WNA16 argument is reinterpreted.
+
+The online total mirror coverage is now a strict no-defer lab preflight
+condition.  A missing descriptor/packed-weight/aux diagnostic dispatch summary
+fails the lab gate instead of only lowering a reporting field:
+
+```text
+required failure:
+  default_kernel_consumer_arg_slot_online_total_mirror_coverage_incomplete
+
+output = outputs/reports/premap_lab_preflight_status_arg_slot_online_coverage_required.json
+passed = true
+failures = []
+online total coverage:
+  descriptor_ptr
+  packed_weight_descriptor
+  scale_metadata_handle
+  aux_metadata_handle
+  full_field_mirror_coverage = true
+
+validation:
+  conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src pytest tests -q
+  780 passed, 2 warnings
+```
+
+This makes the default lab gate stricter while preserving the bootstrap boundary:
+stage-1/deferred runner preflight can still defer self-evidence, but final
+strict no-defer lab preflight requires full online arg-slot mirror coverage.

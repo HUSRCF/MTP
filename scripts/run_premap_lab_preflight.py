@@ -3625,6 +3625,15 @@ def run_premap_lab_preflight(
         set(arg_slot_standalone_mirror_field_coverage)
         | set(arg_slot_optional_mirror_field_coverage)
     )
+    if (
+        not allow_missing_evidence
+        and not defer_online_prelaunch_runner_evidence
+        and set(arg_slot_online_total_mirror_field_coverage)
+        != set(ARG_SLOT_MIRROR_FIELDS)
+    ):
+        failures.append(
+            "default_kernel_consumer_arg_slot_online_total_mirror_coverage_incomplete"
+        )
     dispatch_runner_final_status_summary = dispatch_runner_payload.get(
         "final_preflight_status_summary",
     )

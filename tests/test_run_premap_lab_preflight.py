@@ -3192,6 +3192,52 @@ def test_premap_lab_preflight_rejects_dispatch_tail_window_for_full_table(
     ) in failures
 
 
+def test_premap_lab_preflight_rejects_incomplete_online_arg_slot_coverage(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    runner_path = (
+        tmp_path / "reports/default_gate_native_online_prelaunch_canary_runner_32.json"
+    )
+    payload = json.loads(runner_path.read_text())
+    payload.pop("future_kernel_native_consumer_dispatch_descriptor_ptr_stub_summary")
+    _write(runner_path, json.dumps(payload) + "\n")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is False
+    assert (
+        "default_kernel_consumer_arg_slot_online_total_mirror_coverage_incomplete"
+        in result["failures"]
+    )
+    summary = result["lab_gate_status_summary"]
+    assert summary["default_kernel_consumer_arg_slot_online_mirror_field_coverage"] == [
+        "scale_metadata_handle"
+    ]
+    assert summary[
+        "default_kernel_consumer_arg_slot_online_diagnostic_mirror_field_coverage"
+    ] == [
+        "aux_metadata_handle",
+        "packed_weight_descriptor",
+    ]
+    assert (
+        summary["default_kernel_consumer_arg_slot_online_total_full_field_mirror_coverage"]
+        is False
+    )
+
+
 def test_premap_lab_preflight_rejects_dispatch_non_full_window(
     tmp_path: Path,
 ):
