@@ -2897,6 +2897,15 @@ def _check_default_gate_contract(
             "observed_contract_available": False,
         }
     contract = ((payload or {}).get("contract") or {})
+    if not isinstance(contract, dict):
+        return {
+            "gate_path": label,
+            "passed": False,
+            "failures": ["contract_type_mismatch"],
+            "observed_contract": {},
+            "required_contract": dict(REQUIRED_DEFAULT_GATE_CONTRACT),
+            "observed_contract_available": False,
+        }
     for key, expected in REQUIRED_DEFAULT_GATE_CONTRACT.items():
         actual = contract.get(key)
         if actual != expected:
@@ -3637,7 +3646,19 @@ def run_premap_lab_preflight(
 
     def _observed_default_contract_value(key: str) -> Any | None:
         if key in observed_default_contract:
-            return observed_default_contract[key]
+            value = observed_default_contract[key]
+            expected = REQUIRED_DEFAULT_GATE_CONTRACT[key]
+            if isinstance(expected, bool):
+                return value if isinstance(value, bool) else None
+            if isinstance(expected, int):
+                return (
+                    value
+                    if isinstance(value, int) and not isinstance(value, bool)
+                    else None
+                )
+            if isinstance(expected, str):
+                return value if isinstance(value, str) else None
+            return value
         return None
 
     arg_slot_online_total_mirror_coverage_required = (

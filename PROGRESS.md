@@ -35,6 +35,11 @@ contract while the contract checker still fails the gate.
 If a contract key is missing, the summary reports that requirement as `null`
 instead of silently substituting the default value; this makes broken contract
 artifacts easier to read from the compact preflight status alone.
+The contract parser now also rejects non-mapping `contract` payloads with a
+structured `contract_type_mismatch` failure instead of raising an uncaught
+`AttributeError`.  Contract values with the wrong shape, such as string
+`"true"` for a boolean field, are shown as `null` in the compact summary while
+the contract checker still reports the exact mismatch.
 
 The online arg-slot full-field coverage hard-fail is also conditioned on the
 observed default gate contract:
@@ -69,10 +74,10 @@ Validation:
 
 ```text
 pytest tests/test_run_premap_lab_preflight.py -q
-  63 passed
+  65 passed
 
 pytest tests -q
-  783 passed, 2 warnings
+  785 passed, 2 warnings
 ```
 
 Boundary is unchanged: this is a lab gate reporting/checking hardening only.

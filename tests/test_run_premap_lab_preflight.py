@@ -2879,6 +2879,74 @@ def test_premap_lab_preflight_reports_missing_observed_contract_field_as_unknown
     assert summary["native_typed_consumer_bridge_required"] is None
 
 
+def test_premap_lab_preflight_rejects_non_mapping_default_gate_contract(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    gate_path = tmp_path / default_gate
+    payload = yaml.safe_load(gate_path.read_text())
+    payload["contract"] = "broken"
+    _write(gate_path, yaml.safe_dump(payload, sort_keys=False))
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is False
+    assert "default_readonly_gate_contract_check_failed" in result["failures"]
+    assert result["default_readonly_gate_contract_check"]["failures"] == [
+        "contract_type_mismatch"
+    ]
+    summary = result["lab_gate_status_summary"]
+    assert summary["default_contract_observed_available"] is False
+    assert summary["native_typed_consumer_bridge_required"] is None
+
+
+def test_premap_lab_preflight_reports_bad_contract_value_type_as_unknown(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    gate_path = tmp_path / default_gate
+    payload = yaml.safe_load(gate_path.read_text())
+    payload["contract"]["native_typed_consumer_bridge_required"] = "true"
+    payload["contract"]["native_typed_consumer_bridge_payload_bytes_required"] = "0"
+    _write(gate_path, yaml.safe_dump(payload, sort_keys=False))
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is False
+    assert "default_readonly_gate_contract_check_failed" in result["failures"]
+    failures = result["default_readonly_gate_contract_check"]["failures"]
+    assert "native_typed_consumer_bridge_required_mismatch" in failures
+    assert "native_typed_consumer_bridge_payload_bytes_required_mismatch" in failures
+    summary = result["lab_gate_status_summary"]
+    assert summary["default_contract_observed_available"] is True
+    assert summary["native_typed_consumer_bridge_required"] is None
+    assert summary["payload_bytes_required"] is None
+
+
 def test_premap_lab_preflight_rejects_default_gate_with_bad_schema_artifact(
     tmp_path: Path,
 ):
