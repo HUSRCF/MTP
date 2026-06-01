@@ -3201,7 +3201,12 @@ def test_premap_lab_preflight_rejects_incomplete_online_arg_slot_coverage(
         tmp_path / "reports/default_gate_native_online_prelaunch_canary_runner_32.json"
     )
     payload = json.loads(runner_path.read_text())
-    payload.pop("future_kernel_native_consumer_dispatch_descriptor_ptr_stub_summary")
+    descriptor_summary = payload[
+        "future_kernel_native_consumer_dispatch_descriptor_ptr_stub_summary"
+    ]
+    descriptor_summary[
+        "future_kernel_native_arg_slot_consumer_single_field_mirror_field_name"
+    ] = "scale_metadata_handle"
     _write(runner_path, json.dumps(payload) + "\n")
     trace_config = _write_trace_config(
         tmp_path,
