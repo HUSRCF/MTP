@@ -24057,3 +24057,103 @@ all four:
   passed_to_kernel = false
   current_wna16_arg_compatible = false
 ```
+
+## 2026-06-01 - Online prelaunch native stub canary refreshed with 32 inputs
+
+The four-field readonly/native gate is now exercised through the online
+prelaunch typed-consumer input path, not just standalone artifacts.  The runner
+exports typed prelaunch inputs from the vLLM/AWQ trace and feeds them through
+the native typed consumer stub suite, including the future native consumer,
+launch, dispatch, and arg-slot ABI paths.  This remains a no-op integration:
+
+```text
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+current WNA16 kernel args are not modified
+```
+
+Artifacts:
+
+```text
+runner:
+  outputs/reports/premap_kernel_consumer/
+    online_prelaunch_native_stub_canary_arg_slot_32input_nodefer.json
+
+artifact checker:
+  outputs/reports/premap_kernel_consumer/
+    online_prelaunch_native_stub_canary_artifact_check_arg_slot_32input_nodefer.json
+
+final default preflight:
+  outputs/reports/
+    premap_lab_preflight_default_after_online_arg_slot_32input_refresh.json
+```
+
+Result:
+
+```text
+runner passed = true
+runner failures = []
+online_prelaunch_input_check_count = 32
+online_prelaunch_input_extra_check_count = 31
+online_prelaunch_input_extra_check_passed_count = 31
+
+artifact checker passed = true
+artifact checker failures = []
+min_online_inputs = 32
+final_deferred_count = 0
+status_deferred_count = 0
+
+future native dispatch arg-slot row_count / row_ok_count = 174 / 174
+future native dispatch arg-slot mirror row_count / row_ok_count = 174 / 174
+
+final strict default lab preflight:
+  passed = true
+  failures = []
+  runtime_gate_evidence_deferred_count = 0
+  strict_default_gate_evidence_deferred_count = 0
+  bootstrap_preflight_allowed = false
+  online_runner_self_finalization_allowed = false
+```
+
+During the refresh, the runner exposed a self-referential gate ordering issue:
+the final no-defer preflight expected the runner JSON to already contain the
+final artifact-check and final-preflight summaries, while the runner could only
+write those summaries after running the checks.  The fix makes the sequence
+explicit:
+
+```text
+1. stage-1 bootstrap preflight may defer only runner/artifact self-evidence;
+2. self-finalization preflight may read the bootstrap artifact summary only to
+   let the runner write its final preflight summary;
+3. final artifact check runs against that runner JSON;
+4. final strict preflight reruns with no defer and no self-finalization escape.
+```
+
+Only step 4 is accepted as the lab gate.  The final status above confirms that
+the online prelaunch native stub canary is now a strict no-defer lab preflight
+condition while still staying readonly and disconnected from the WNA16 launch
+arguments.
+
+Review hardening:
+
+```text
+--allow-online-runner-self-finalization is accepted only when the runner
+artifact carries artifact_check_bootstrap_summary.bootstrap_preflight_allowed=true.
+
+Normal/default lab preflight does not enable this flag and still requires
+final_preflight_status_summary plus final_deferred_count=0.
+```
+
+Validation:
+
+```text
+conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
+  pytest tests/test_run_premap_lab_preflight.py \
+         tests/test_run_premap_online_native_stub_canary.py \
+         tests/test_check_premap_online_native_stub_canary_artifacts.py -q
+121 passed
+
+conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src pytest tests -q
+793 passed, 2 warnings
+```

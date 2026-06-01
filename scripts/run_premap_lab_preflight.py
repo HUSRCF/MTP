@@ -624,6 +624,7 @@ def _validate_required_evidence_payload(
     *,
     evidence_paths: dict[str, Any] | None = None,
     root: Path | None = None,
+    allow_online_runner_self_finalization: bool = False,
 ) -> list[str]:
     metrics = evidence.get("metrics")
     known_stub_labels = {
@@ -1985,6 +1986,20 @@ def _validate_required_evidence_payload(
                         expected_field_name=expected_field_name,
                     )
         artifact_check_summary = evidence.get("artifact_check_summary")
+        using_bootstrap_artifact_summary = False
+        if (
+            not isinstance(artifact_check_summary, dict)
+            and allow_online_runner_self_finalization
+        ):
+            bootstrap_summary = evidence.get("artifact_check_bootstrap_summary")
+            if isinstance(bootstrap_summary, dict):
+                if bootstrap_summary.get("bootstrap_preflight_allowed") is True:
+                    artifact_check_summary = bootstrap_summary
+                    using_bootstrap_artifact_summary = True
+                else:
+                    failures.append(
+                        "runner_artifact_check_bootstrap_summary_not_bootstrap"
+                    )
         if not isinstance(artifact_check_summary, dict):
             failures.append("runner_artifact_check_summary_missing")
             artifact_check_summary = {}
@@ -2008,7 +2023,11 @@ def _validate_required_evidence_payload(
             "final_deferred_count",
         )
         if artifact_final_deferred_count is None:
-            failures.append("runner_artifact_check_final_deferred_count_missing")
+            if not (
+                allow_online_runner_self_finalization
+                and using_bootstrap_artifact_summary
+            ):
+                failures.append("runner_artifact_check_final_deferred_count_missing")
         elif artifact_final_deferred_count != 0:
             failures.append("runner_artifact_check_final_deferred_count_nonzero")
         artifact_input_check_count = _int_metric(
@@ -2041,9 +2060,13 @@ def _validate_required_evidence_payload(
             failures.append("runner_artifact_check_extra_passed_count_mismatch")
         final_status_summary = evidence.get("final_preflight_status_summary")
         if not isinstance(final_status_summary, dict):
-            failures.append("runner_final_preflight_status_summary_missing")
+            if not allow_online_runner_self_finalization:
+                failures.append("runner_final_preflight_status_summary_missing")
             final_status_summary = {}
-        if final_status_summary.get("passed") is not True:
+        if (
+            not allow_online_runner_self_finalization
+            and final_status_summary.get("passed") is not True
+        ):
             failures.append("runner_final_preflight_status_not_passed")
         final_strict_deferred = _int_metric(
             final_status_summary,
@@ -2053,6 +2076,8 @@ def _validate_required_evidence_payload(
             final_status_summary,
             "runtime_gate_evidence_deferred_count",
         )
+        if allow_online_runner_self_finalization:
+            return [f"{evidence_label}:{failure}" for failure in failures]
         if final_strict_deferred is None:
             failures.append("runner_final_strict_deferred_count_missing")
         elif final_strict_deferred != 0:
@@ -2704,6 +2729,7 @@ def _check_optional_default_gate_evidence_json(
     *,
     root: Path,
     deferred_labels: set[str] | None = None,
+    allow_online_runner_self_finalization: bool = False,
 ) -> dict[str, Any]:
     path = _path_for_label(gate_path, root)
     label = _path_label(path, root=root)
@@ -2797,6 +2823,9 @@ def _check_optional_default_gate_evidence_json(
                 evidence,
                 evidence_paths=combined_paths,
                 root=root,
+                allow_online_runner_self_finalization=(
+                    allow_online_runner_self_finalization
+                ),
             )
             if content_failures:
                 failures.extend(content_failures)
@@ -3011,6 +3040,7 @@ def _check_required_default_gate_evidence_json(
     allow_missing: bool = False,
     defer_online_prelaunch_runner_evidence: bool = False,
     defer_online_prelaunch_artifact_evidence: bool = False,
+    allow_online_runner_self_finalization: bool = False,
 ) -> dict[str, Any]:
     path = _path_for_label(gate_path, root)
     label = _path_label(path, root=root)
@@ -3109,6 +3139,9 @@ def _check_required_default_gate_evidence_json(
                 evidence,
                 evidence_paths=evidence_paths,
                 root=root,
+                allow_online_runner_self_finalization=(
+                    allow_online_runner_self_finalization
+                ),
             )
             if content_failures:
                 failures.extend(content_failures)
@@ -3390,6 +3423,7 @@ def run_premap_lab_preflight(
     defer_online_prelaunch_runner_evidence: bool = False,
     defer_online_prelaunch_artifact_evidence: bool = False,
     allow_bootstrap_preflight: bool = False,
+    allow_online_runner_self_finalization: bool = False,
 ) -> dict[str, Any]:
     root = root.resolve()
     trace_configs = trace_configs or list(DEFAULT_TRACE_CONFIGS)
@@ -3445,11 +3479,17 @@ def run_premap_lab_preflight(
         defer_online_prelaunch_artifact_evidence=(
             defer_online_prelaunch_artifact_evidence
         ),
+        allow_online_runner_self_finalization=(
+            allow_online_runner_self_finalization
+        ),
     )
     default_gate_optional_evidence_check = _check_optional_default_gate_evidence_json(
         default_readonly_gate,
         root=root,
         deferred_labels=deferred_evidence_labels,
+        allow_online_runner_self_finalization=(
+            allow_online_runner_self_finalization
+        ),
     )
     risky_canary_metadata_checks = {
         _path_label(_path_for_label(raw_path, root), root=root): (
@@ -4348,6 +4388,9 @@ def run_premap_lab_preflight(
             defer_online_prelaunch_artifact_evidence
         ),
         "bootstrap_preflight_allowed": bool(allow_bootstrap_preflight),
+        "online_runner_self_finalization_allowed": bool(
+            allow_online_runner_self_finalization
+        ),
         "native_typed_consumer_bridge_required": (
             _observed_default_contract_value("native_typed_consumer_bridge_required")
         ),
@@ -4443,6 +4486,16 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--allow-online-runner-self-finalization",
+        action="store_true",
+        help=(
+            "Allow an online-prelaunch runner artifact that already has bootstrap "
+            "artifact evidence to generate its final no-defer preflight summary. "
+            "The runner must rerun the strict preflight without this flag after "
+            "writing the final artifact-check summary."
+        ),
+    )
+    parser.add_argument(
         "--summary-only",
         action="store_true",
         help=(
@@ -4471,6 +4524,9 @@ def main(argv: list[str] | None = None) -> int:
             args.defer_online_prelaunch_artifact_evidence
         ),
         allow_bootstrap_preflight=args.allow_bootstrap_preflight,
+        allow_online_runner_self_finalization=(
+            args.allow_online_runner_self_finalization
+        ),
     )
     output_payload = (
         result["lab_gate_status_summary"] if args.summary_only else result

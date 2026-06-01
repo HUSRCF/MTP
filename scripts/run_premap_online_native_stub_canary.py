@@ -941,6 +941,7 @@ def _preflight_command(
     defer_runner: bool,
     defer_artifact: bool = False,
     allow_bootstrap_preflight: bool = False,
+    allow_runner_self_finalization: bool = False,
 ) -> list[str]:
     cmd = [sys.executable, "scripts/run_premap_lab_preflight.py"]
     if summary_only:
@@ -951,6 +952,8 @@ def _preflight_command(
         cmd.append("--defer-online-prelaunch-artifact-evidence")
     if allow_bootstrap_preflight:
         cmd.append("--allow-bootstrap-preflight")
+    if allow_runner_self_finalization:
+        cmd.append("--allow-online-runner-self-finalization")
     cmd.extend(["--output-json", str(output_json)])
     return cmd
 
@@ -3788,6 +3791,8 @@ def finalize_report_with_strict_preflight(
     *,
     args: argparse.Namespace,
     payload: dict[str, object],
+    allow_runner_self_finalization: bool = False,
+    step_prefix: str = "final",
 ) -> dict[str, object]:
     if args.dry_run or args.skip_preflight:
         return payload
@@ -3800,22 +3805,26 @@ def finalize_report_with_strict_preflight(
     preflight_status_output = _resolve_repo_path(args.preflight_status_output_json)
     # Final validation must use the same no-defer lab gate as the standalone
     # preflight; the runner should not weaken missing-evidence checks.
-    steps["final_preflight"] = _run(
+    preflight_step = f"{step_prefix}_preflight"
+    status_step = f"{step_prefix}_preflight_status"
+    steps[preflight_step] = _run(
         _preflight_command(
             output_json=preflight_output,
             summary_only=False,
             defer_runner=False,
             defer_artifact=False,
+            allow_runner_self_finalization=allow_runner_self_finalization,
         ),
         env=env,
         dry_run=False,
     )
-    steps["final_preflight_status"] = _run(
+    steps[status_step] = _run(
         _preflight_command(
             output_json=preflight_status_output,
             summary_only=True,
             defer_runner=False,
             defer_artifact=False,
+            allow_runner_self_finalization=allow_runner_self_finalization,
         ),
         env=env,
         dry_run=False,
@@ -3862,6 +3871,12 @@ def finalize_report_with_strict_preflight(
             "changes_kernel_launch_args_required"
         ),
     }
+    final_preflight_summary["runner_self_finalization_allowed"] = bool(
+        allow_runner_self_finalization
+    )
+    final_status_summary["runner_self_finalization_allowed"] = bool(
+        allow_runner_self_finalization
+    )
     payload["final_preflight_summary"] = final_preflight_summary
     payload["final_preflight_status_summary"] = final_status_summary
     failures = payload.get("failures")
@@ -4361,13 +4376,25 @@ def main(argv: list[str] | None = None) -> int:
         allow_bootstrap_preflight=True,
     )
     write_report(output, payload)
-    payload = finalize_report_with_strict_preflight(args=args, payload=payload)
+    payload = finalize_report_with_strict_preflight(
+        args=args,
+        payload=payload,
+        allow_runner_self_finalization=True,
+        step_prefix="self_finalization",
+    )
     write_report(output, payload)
     payload = finalize_report_with_artifact_check(
         args=args,
         payload=payload,
         runner_json=output,
         allow_bootstrap_preflight=False,
+    )
+    write_report(output, payload)
+    payload = finalize_report_with_strict_preflight(
+        args=args,
+        payload=payload,
+        allow_runner_self_finalization=False,
+        step_prefix="final",
     )
     write_report(output, payload)
     if args.stdout_mode == "full":
