@@ -3445,6 +3445,22 @@ def run_premap_lab_preflight(
         dispatch_runner_summary,
         "future_kernel_native_dispatch_ptr_consumer_single_field_mirror_row_ok_count",
     )
+    arg_slot_row_count = _int_metric(
+        dispatch_runner_summary,
+        "future_kernel_native_arg_slot_consumer_row_count",
+    )
+    arg_slot_row_ok_count = _int_metric(
+        dispatch_runner_summary,
+        "future_kernel_native_arg_slot_consumer_row_ok_count",
+    )
+    arg_slot_mirror_row_count = _int_metric(
+        dispatch_runner_summary,
+        "future_kernel_native_arg_slot_consumer_single_field_mirror_row_count",
+    )
+    arg_slot_mirror_row_ok_count = _int_metric(
+        dispatch_runner_summary,
+        "future_kernel_native_arg_slot_consumer_single_field_mirror_row_ok_count",
+    )
     schema_summary = (
         default_kernel_consumer_schema_check.get("schema_check")
         if isinstance(default_kernel_consumer_schema_check.get("schema_check"), dict)
@@ -3740,6 +3756,138 @@ def run_premap_lab_preflight(
         ),
         "default_kernel_consumer_dispatch_ptr_mirror_row_ok_count": (
             dispatch_ptr_mirror_row_ok_count
+        ),
+        "default_kernel_consumer_arg_slot_abi_name": (
+            schema_summary.get("future_kernel_native_consumer_arg_slot_abi_name")
+        ),
+        "default_kernel_consumer_arg_slot_abi_struct": (
+            schema_summary.get("future_kernel_native_consumer_arg_slot_abi_struct")
+        ),
+        "default_kernel_consumer_arg_slot_abi_mode": (
+            schema_summary.get("future_kernel_native_consumer_arg_slot_abi_mode")
+        ),
+        "default_kernel_consumer_arg_slot_abi_source": (
+            schema_summary.get("future_kernel_native_consumer_arg_slot_abi_source")
+        ),
+        "default_kernel_consumer_arg_slot_abi_current_wna16_arg_compatible": (
+            schema_summary.get(
+                "future_kernel_native_consumer_arg_slot_abi_current_wna16_arg_compatible"
+            )
+        ),
+        "default_kernel_consumer_arg_slot_checked": (
+            _bool_metric(
+                dispatch_runner_summary,
+                "future_kernel_native_arg_slot_consumer_checked",
+            )
+        ),
+        "default_kernel_consumer_arg_slot_row_count": arg_slot_row_count,
+        "default_kernel_consumer_arg_slot_row_ok_count": arg_slot_row_ok_count,
+        "default_kernel_consumer_arg_slot_error_count": (
+            _int_metric(
+                dispatch_runner_summary,
+                "future_kernel_native_arg_slot_consumer_error_count",
+            )
+        ),
+        "default_kernel_consumer_arg_slot_payload_bytes": (
+            _int_metric(
+                dispatch_runner_summary,
+                "future_kernel_native_arg_slot_consumer_payload_bytes",
+            )
+        ),
+        "default_kernel_consumer_arg_slot_passed_to_kernel": (
+            _bool_metric(
+                dispatch_runner_summary,
+                "future_kernel_native_arg_slot_consumer_passed_to_kernel",
+            )
+        ),
+        "default_kernel_consumer_arg_slot_changes_kernel_launch_args": (
+            _bool_metric(
+                dispatch_runner_summary,
+                "future_kernel_native_arg_slot_consumer_changes_kernel_launch_args",
+            )
+        ),
+        "default_kernel_consumer_arg_slot_current_wna16_arg_compatible": (
+            _bool_metric(
+                dispatch_runner_summary,
+                "future_kernel_native_arg_slot_consumer_current_wna16_arg_compatible",
+            )
+        ),
+        "default_kernel_consumer_arg_slot_requires_wna16_arg_reinterpretation": (
+            _bool_metric(
+                dispatch_runner_summary,
+                "future_kernel_native_arg_slot_consumer_requires_wna16_arg_reinterpretation",
+            )
+        ),
+        "default_kernel_consumer_arg_slot_field_mask": (
+            _int_metric(
+                dispatch_runner_summary,
+                "future_kernel_native_arg_slot_consumer_field_mask",
+            )
+        ),
+        "default_kernel_consumer_arg_slot_required_field_mask": (
+            _int_metric(
+                dispatch_runner_summary,
+                "future_kernel_native_arg_slot_consumer_required_field_mask",
+            )
+        ),
+        "default_kernel_consumer_arg_slot_mirror_checked": (
+            _bool_metric(
+                dispatch_runner_summary,
+                "future_kernel_native_arg_slot_consumer_single_field_mirror_checked",
+            )
+        ),
+        "default_kernel_consumer_arg_slot_mirror_field_name": (
+            dispatch_runner_summary.get(
+                "future_kernel_native_arg_slot_consumer_single_field_mirror_field_name"
+            )
+        ),
+        "default_kernel_consumer_arg_slot_mirror_row_count": (
+            arg_slot_mirror_row_count
+        ),
+        "default_kernel_consumer_arg_slot_mirror_row_ok_count": (
+            arg_slot_mirror_row_ok_count
+        ),
+        "default_kernel_consumer_arg_slot_mirror_error_count": (
+            _int_metric(
+                dispatch_runner_summary,
+                "future_kernel_native_arg_slot_consumer_single_field_mirror_error_count",
+            )
+        ),
+        "default_kernel_consumer_arg_slot_slot_struct_size": (
+            _int_metric(
+                dispatch_runner_summary,
+                "future_kernel_native_arg_slot_consumer_slot_struct_size",
+            )
+        ),
+        "default_kernel_consumer_arg_slot_slot_struct_align": (
+            _int_metric(
+                dispatch_runner_summary,
+                "future_kernel_native_arg_slot_consumer_slot_struct_align",
+            )
+        ),
+        "default_kernel_consumer_arg_slot_dispatch_ptr_struct_size": (
+            _int_metric(
+                dispatch_runner_summary,
+                "future_kernel_native_arg_slot_consumer_dispatch_ptr_struct_size",
+            )
+        ),
+        "default_kernel_consumer_arg_slot_result_struct_size": (
+            _int_metric(
+                dispatch_runner_summary,
+                "future_kernel_native_arg_slot_consumer_result_struct_size",
+            )
+        ),
+        "default_kernel_consumer_arg_slot_offset_dispatch_ptr": (
+            _int_metric(
+                dispatch_runner_summary,
+                "future_kernel_native_arg_slot_consumer_offset_dispatch_ptr",
+            )
+        ),
+        "default_kernel_consumer_arg_slot_offset_flags": (
+            _int_metric(
+                dispatch_runner_summary,
+                "future_kernel_native_arg_slot_consumer_offset_flags",
+            )
         ),
         "default_required_evidence_passed": bool(
             default_gate_required_evidence_check.get("passed", False)

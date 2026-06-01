@@ -23428,3 +23428,82 @@ conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
 
 771 passed, 2 warnings
 ```
+
+## 2026-06-01 -- Arg-slot nodefer artifact refreshed and flattened in lab status
+
+The future native arg-slot ABI gate has now been refreshed with the existing
+32 exported online inputs, without rerunning vLLM tracing:
+
+```text
+runner:
+  outputs/reports/premap_kernel_consumer/
+    online_prelaunch_native_stub_canary_arg_slot_32input_nodefer.json
+
+artifact check:
+  outputs/reports/premap_kernel_consumer/
+    online_prelaunch_native_stub_canary_artifact_check_arg_slot_32input_nodefer.json
+
+preflight:
+  outputs/reports/premap_lab_preflight_online_prelaunch_native_stub_canary_arg_slot_32input_nodefer.json
+
+status:
+  outputs/reports/premap_lab_preflight_status_online_prelaunch_native_stub_canary_arg_slot_32input_nodefer.json
+```
+
+Result:
+
+```text
+passed = true
+artifact_check_passed = true
+final_preflight_passed = true
+final_deferred_count = 0
+status_deferred_count = 0
+online_prelaunch_input_check_count = 32
+online_prelaunch_input_extra_check_count = 31
+online_prelaunch_input_extra_check_passed_count = 31
+active dispatch rows = 174
+arg-slot stub rows = 174 / 174
+arg-slot mirror rows = 174 / 174
+```
+
+The refreshed artifact confirms the same safety boundary:
+
+```text
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+current_wna16_arg_compatible = false
+requires_wna16_arg_reinterpretation = false
+```
+
+Follow-up review found no blocker, but pointed out that the lab preflight
+status flattened only the dispatch-ptr evidence and not the arg-slot evidence.
+The status summary now also exposes arg-slot fields at the same lab-contract
+level:
+
+```text
+default_kernel_consumer_arg_slot_abi_name
+default_kernel_consumer_arg_slot_checked
+default_kernel_consumer_arg_slot_row_count / row_ok_count
+default_kernel_consumer_arg_slot_payload_bytes
+default_kernel_consumer_arg_slot_passed_to_kernel
+default_kernel_consumer_arg_slot_changes_kernel_launch_args
+default_kernel_consumer_arg_slot_field_mask / required_field_mask
+default_kernel_consumer_arg_slot_mirror_row_count / mirror_row_ok_count
+default_kernel_consumer_arg_slot_slot_struct_size / align
+default_kernel_consumer_arg_slot_offset_dispatch_ptr / offset_flags
+```
+
+The artifact checker tests now include dedicated arg-slot negative cases for
+source mismatch, field-mask mismatch, and required-field-mask mismatch, in
+addition to the existing safety-flag and layout mismatch checks.
+
+Validation:
+
+```text
+conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
+  pytest tests/test_run_premap_lab_preflight.py \
+    tests/test_check_premap_online_native_stub_canary_artifacts.py -q
+
+91 passed
+```

@@ -2133,6 +2133,78 @@ def test_check_online_native_stub_canary_artifacts_rejects_arg_slot_layout_misma
     )
 
 
+def test_check_online_native_stub_canary_artifacts_rejects_arg_slot_source_mismatch(
+    tmp_path: Path,
+):
+    runner_path, preflight_path, status_path = _payloads(tmp_path)
+    runner = json.loads(runner_path.read_text(encoding="utf-8"))
+    dispatch = runner["future_kernel_native_consumer_dispatch_stub_summary"]
+    dispatch["future_kernel_native_arg_slot_consumer_source"] = "wrong_source"
+    _write_json(runner_path, runner)
+
+    result = check_online_native_stub_canary_artifacts(
+        root=tmp_path,
+        runner_json=runner_path,
+        preflight_json=preflight_path,
+        status_json=status_path,
+    )
+
+    assert result["passed"] is False
+    assert (
+        "runner_future_kernel_native_consumer_dispatch_stub_"
+        "future_kernel_native_arg_slot_consumer_source_mismatch"
+        in result["failures"]
+    )
+
+
+def test_check_online_native_stub_canary_artifacts_rejects_arg_slot_field_mask_mismatch(
+    tmp_path: Path,
+):
+    runner_path, preflight_path, status_path = _payloads(tmp_path)
+    runner = json.loads(runner_path.read_text(encoding="utf-8"))
+    dispatch = runner["future_kernel_native_consumer_dispatch_stub_summary"]
+    dispatch["future_kernel_native_arg_slot_consumer_field_mask"] = 1
+    _write_json(runner_path, runner)
+
+    result = check_online_native_stub_canary_artifacts(
+        root=tmp_path,
+        runner_json=runner_path,
+        preflight_json=preflight_path,
+        status_json=status_path,
+    )
+
+    assert result["passed"] is False
+    assert (
+        "runner_future_kernel_native_consumer_dispatch_stub_"
+        "future_kernel_native_arg_slot_consumer_required_field_mask_not_covered"
+        in result["failures"]
+    )
+
+
+def test_check_online_native_stub_canary_artifacts_rejects_arg_slot_required_field_mask_mismatch(
+    tmp_path: Path,
+):
+    runner_path, preflight_path, status_path = _payloads(tmp_path)
+    runner = json.loads(runner_path.read_text(encoding="utf-8"))
+    dispatch = runner["future_kernel_native_consumer_dispatch_stub_summary"]
+    dispatch["future_kernel_native_arg_slot_consumer_required_field_mask"] = 1
+    _write_json(runner_path, runner)
+
+    result = check_online_native_stub_canary_artifacts(
+        root=tmp_path,
+        runner_json=runner_path,
+        preflight_json=preflight_path,
+        status_json=status_path,
+    )
+
+    assert result["passed"] is False
+    assert (
+        "runner_future_kernel_native_consumer_dispatch_stub_"
+        "future_kernel_native_arg_slot_consumer_required_field_mask_mismatch"
+        in result["failures"]
+    )
+
+
 def test_check_online_native_stub_canary_artifacts_rejects_runtime_deferred_count_mismatch(
     tmp_path: Path,
 ):

@@ -861,6 +861,18 @@ _RUNNER_DISPATCH_PTR_LAYOUT_SUMMARY: dict[str, object] = {
     "future_kernel_native_dispatch_ptr_consumer_offset_payload_bytes": 20,
     "future_kernel_native_dispatch_ptr_consumer_offset_flags": 24,
 }
+_RUNNER_ARG_SLOT_LAYOUT_SUMMARY: dict[str, object] = {
+    "future_kernel_native_arg_slot_consumer_slot_struct_size": 32,
+    "future_kernel_native_arg_slot_consumer_slot_struct_align": 8,
+    "future_kernel_native_arg_slot_consumer_dispatch_ptr_struct_size": 32,
+    "future_kernel_native_arg_slot_consumer_result_struct_size": 72,
+    "future_kernel_native_arg_slot_consumer_offset_dispatch_ptr": 0,
+    "future_kernel_native_arg_slot_consumer_offset_abi_version": 8,
+    "future_kernel_native_arg_slot_consumer_offset_dispatch_ptr_struct_size": 12,
+    "future_kernel_native_arg_slot_consumer_offset_result_struct_size": 16,
+    "future_kernel_native_arg_slot_consumer_offset_payload_bytes": 20,
+    "future_kernel_native_arg_slot_consumer_offset_flags": 24,
+}
 
 
 def _runner_kernel_side_compatible_summary() -> dict[str, object]:
@@ -1126,12 +1138,41 @@ def _runner_future_kernel_native_dispatch_consumer_summary(
             "future_kernel_native_dispatch_ptr_consumer_single_field_mirror_row_count": 2,
             "future_kernel_native_dispatch_ptr_consumer_single_field_mirror_row_ok_count": 2,
             "future_kernel_native_dispatch_ptr_consumer_single_field_mirror_error_count": 0,
+            "future_kernel_native_arg_slot_consumer_checked": True,
+            "future_kernel_native_arg_slot_consumer_abi_name": (
+                "premap_future_kernel_native_consumer_arg_slot_abi_v1"
+            ),
+            "future_kernel_native_arg_slot_consumer_mode": (
+                "readonly_future_kernel_native_consumer_arg_slot_abi"
+            ),
+            "future_kernel_native_arg_slot_consumer_source": (
+                "premap_future_kernel_native_consumer_dispatch_ptr_abi_v1"
+            ),
+            "future_kernel_native_arg_slot_consumer_version": 1,
+            "future_kernel_native_arg_slot_consumer_row_count": 2,
+            "future_kernel_native_arg_slot_consumer_row_ok_count": 2,
+            "future_kernel_native_arg_slot_consumer_error_count": 0,
+            "future_kernel_native_arg_slot_consumer_payload_bytes": 0,
+            "future_kernel_native_arg_slot_consumer_passed_to_kernel": False,
+            "future_kernel_native_arg_slot_consumer_changes_kernel_launch_args": False,
+            "future_kernel_native_arg_slot_consumer_current_wna16_arg_compatible": False,
+            "future_kernel_native_arg_slot_consumer_requires_wna16_arg_reinterpretation": False,
+            "future_kernel_native_arg_slot_consumer_field_mask": 15,
+            "future_kernel_native_arg_slot_consumer_required_field_mask": 7,
+            "future_kernel_native_arg_slot_consumer_single_field_mirror_checked": True,
+            "future_kernel_native_arg_slot_consumer_single_field_mirror_field_name": (
+                field_name
+            ),
+            "future_kernel_native_arg_slot_consumer_single_field_mirror_row_count": 2,
+            "future_kernel_native_arg_slot_consumer_single_field_mirror_row_ok_count": 2,
+            "future_kernel_native_arg_slot_consumer_single_field_mirror_error_count": 0,
         }
     )
     payload.update(_RUNNER_NATIVE_LAYOUT_SUMMARY)
     payload.update(_RUNNER_LAUNCH_LAYOUT_SUMMARY)
     payload.update(_RUNNER_DISPATCH_LAYOUT_SUMMARY)
     payload.update(_RUNNER_DISPATCH_PTR_LAYOUT_SUMMARY)
+    payload.update(_RUNNER_ARG_SLOT_LAYOUT_SUMMARY)
     return payload
 
 
@@ -1986,6 +2027,66 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     )
     assert summary["default_kernel_consumer_dispatch_ptr_mirror_row_count"] == 2
     assert summary["default_kernel_consumer_dispatch_ptr_mirror_row_ok_count"] == 2
+    assert (
+        summary["default_kernel_consumer_arg_slot_abi_name"]
+        == "premap_future_kernel_native_consumer_arg_slot_abi_v1"
+    )
+    assert (
+        summary["default_kernel_consumer_arg_slot_abi_struct"]
+        == "PremapFutureKernelNativeConsumerArgSlotV1"
+    )
+    assert (
+        summary["default_kernel_consumer_arg_slot_abi_mode"]
+        == "readonly_future_kernel_native_consumer_arg_slot_abi"
+    )
+    assert (
+        summary["default_kernel_consumer_arg_slot_abi_source"]
+        == "premap_future_kernel_native_consumer_dispatch_ptr_abi_v1"
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_arg_slot_abi_current_wna16_arg_compatible"
+        ]
+        is False
+    )
+    assert summary["default_kernel_consumer_arg_slot_checked"] is True
+    assert summary["default_kernel_consumer_arg_slot_row_count"] == 2
+    assert summary["default_kernel_consumer_arg_slot_row_ok_count"] == 2
+    assert summary["default_kernel_consumer_arg_slot_error_count"] == 0
+    assert summary["default_kernel_consumer_arg_slot_payload_bytes"] == 0
+    assert summary["default_kernel_consumer_arg_slot_passed_to_kernel"] is False
+    assert (
+        summary["default_kernel_consumer_arg_slot_changes_kernel_launch_args"]
+        is False
+    )
+    assert (
+        summary["default_kernel_consumer_arg_slot_current_wna16_arg_compatible"]
+        is False
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_arg_slot_requires_wna16_arg_reinterpretation"
+        ]
+        is False
+    )
+    assert summary["default_kernel_consumer_arg_slot_field_mask"] == 15
+    assert summary["default_kernel_consumer_arg_slot_required_field_mask"] == 7
+    assert summary["default_kernel_consumer_arg_slot_mirror_checked"] is True
+    assert (
+        summary["default_kernel_consumer_arg_slot_mirror_field_name"]
+        == "scale_metadata_handle"
+    )
+    assert summary["default_kernel_consumer_arg_slot_mirror_row_count"] == 2
+    assert summary["default_kernel_consumer_arg_slot_mirror_row_ok_count"] == 2
+    assert summary["default_kernel_consumer_arg_slot_mirror_error_count"] == 0
+    assert summary["default_kernel_consumer_arg_slot_slot_struct_size"] == 32
+    assert summary["default_kernel_consumer_arg_slot_slot_struct_align"] == 8
+    assert (
+        summary["default_kernel_consumer_arg_slot_dispatch_ptr_struct_size"] == 32
+    )
+    assert summary["default_kernel_consumer_arg_slot_result_struct_size"] == 72
+    assert summary["default_kernel_consumer_arg_slot_offset_dispatch_ptr"] == 0
+    assert summary["default_kernel_consumer_arg_slot_offset_flags"] == 24
     assert (
         summary[
             "default_kernel_consumer_dispatch_ptr_standalone_evidence_label"
