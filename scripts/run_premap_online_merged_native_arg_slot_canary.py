@@ -159,16 +159,45 @@ def _program_count(row_count: int, block_threads: int) -> int:
     return (int(row_count) + int(block_threads) - 1) // int(block_threads)
 
 
+def _dispatch_bounds(
+    *,
+    row_count: int,
+    dispatch_row_offset: int,
+    dispatch_row_limit: int | None,
+    tail_window_size: int | None,
+) -> tuple[int, int]:
+    if tail_window_size is not None:
+        if tail_window_size <= 0:
+            raise ValueError("tail-window-size must be positive when provided")
+        if dispatch_row_offset != 0 or dispatch_row_limit is not None:
+            raise ValueError(
+                "tail-window-size cannot be combined with explicit dispatch row bounds"
+            )
+        limit = int(row_count)
+        offset = max(0, limit - int(tail_window_size))
+    else:
+        offset = int(dispatch_row_offset)
+        limit = int(dispatch_row_limit) if dispatch_row_limit is not None else int(row_count)
+    if offset < 0:
+        raise ValueError("dispatch-row-offset must be non-negative")
+    if limit <= offset or limit > int(row_count):
+        raise ValueError("dispatch row bounds must satisfy 0 <= offset < limit <= row_count")
+    return offset, limit
+
+
 def _validate_stub(
     stub: dict[str, Any],
     *,
     merged_input: dict[str, Any],
     merged_output_json: Path,
     block_threads: int,
+    dispatch_row_offset: int,
+    dispatch_row_limit: int,
 ) -> list[str]:
     failures: list[str] = []
     row_count = int(merged_input["_meta"]["row_count"])
-    expected_program_count = _program_count(row_count, block_threads)
+    active_rows = int(dispatch_row_limit) - int(dispatch_row_offset)
+    expected_program_count = _program_count(active_rows, block_threads)
     expected_input_json = str(merged_output_json)
     if stub.get("input_json") != expected_input_json:
         failures.append("stub_input_json_mismatch")
@@ -182,8 +211,8 @@ def _validate_stub(
         "passed_to_kernel": False,
         "changes_kernel_launch_args": False,
         "future_kernel_native_arg_slot_consumer_checked": True,
-        "future_kernel_native_arg_slot_consumer_row_count": row_count,
-        "future_kernel_native_arg_slot_consumer_row_ok_count": row_count,
+        "future_kernel_native_arg_slot_consumer_row_count": active_rows,
+        "future_kernel_native_arg_slot_consumer_row_ok_count": active_rows,
         "future_kernel_native_arg_slot_consumer_error_count": 0,
         "future_kernel_native_arg_slot_consumer_payload_bytes": 0,
         "future_kernel_native_arg_slot_consumer_passed_to_kernel": False,
@@ -192,12 +221,16 @@ def _validate_stub(
         "future_kernel_native_arg_slot_consumer_requires_wna16_arg_reinterpretation": False,
         "future_kernel_native_arg_slot_consumer_single_field_mirror_checked": True,
         "future_kernel_native_arg_slot_consumer_single_field_mirror_field_name": "scale_metadata_handle",
-        "future_kernel_native_arg_slot_consumer_single_field_mirror_row_count": row_count,
-        "future_kernel_native_arg_slot_consumer_single_field_mirror_row_ok_count": row_count,
+        "future_kernel_native_arg_slot_consumer_single_field_mirror_row_count": active_rows,
+        "future_kernel_native_arg_slot_consumer_single_field_mirror_row_ok_count": active_rows,
         "future_kernel_native_dispatch_consumer_checked": True,
         "future_kernel_native_dispatch_consumer_grid_x": expected_program_count,
         "future_kernel_native_dispatch_consumer_block_x": int(block_threads),
-        "future_kernel_native_dispatch_consumer_row_limit": row_count,
+        "future_kernel_native_dispatch_consumer_row_offset": int(dispatch_row_offset),
+        "future_kernel_native_dispatch_consumer_row_limit": int(dispatch_row_limit),
+        "future_kernel_native_dispatch_consumer_active_rows": active_rows,
+        "future_kernel_native_dispatch_consumer_row_count": active_rows,
+        "future_kernel_native_dispatch_consumer_row_ok_count": active_rows,
         "future_kernel_native_dispatch_consumer_rows_per_program": int(block_threads),
         "future_kernel_native_dispatch_consumer_program_count": expected_program_count,
         "future_kernel_native_dispatch_consumer_launch_covers_active_rows": True,
@@ -205,6 +238,8 @@ def _validate_stub(
         "future_kernel_native_dispatch_ptr_consumer_checked": True,
         "future_kernel_native_dispatch_ptr_consumer_packet_visible": True,
         "future_kernel_native_dispatch_ptr_consumer_dispatch_packet_visible": True,
+        "future_kernel_native_dispatch_ptr_consumer_row_count": active_rows,
+        "future_kernel_native_dispatch_ptr_consumer_row_ok_count": active_rows,
         "future_kernel_native_arg_slot_consumer_slot_visible": True,
         "future_kernel_native_arg_slot_consumer_dispatch_ptr_packet_visible": True,
         "future_kernel_native_arg_slot_consumer_dispatch_packet_visible": True,
@@ -235,14 +270,16 @@ def _validate_stub(
 
 
 def _stub_namespace(args: argparse.Namespace, *, input_json: Path) -> SimpleNamespace:
+    # Bounds are validated after the merged input is materialized; this namespace
+    # is filled in run_canary once the row count is known.
     return SimpleNamespace(
         macro=ARG_SLOT_MACROS,
         offload_arch=args.offload_arch,
         force_build=bool(args.force_build),
         rows=0,
         input_json=input_json,
-        dispatch_row_offset=0,
-        dispatch_row_limit=None,
+        dispatch_row_offset=int(args._resolved_dispatch_row_offset),
+        dispatch_row_limit=int(args._resolved_dispatch_row_limit),
         block_threads=int(args.block_threads),
         device=int(args.device),
         omit_aux_pointer=False,
@@ -277,10 +314,25 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
             f"{args.min_source_count}"
         )
     _write_json(merged_output_json, merged_input)
+    row_count = int(merged_input["_meta"]["row_count"])
+    dispatch_row_offset, dispatch_row_limit = _dispatch_bounds(
+        row_count=row_count,
+        dispatch_row_offset=int(args.dispatch_row_offset),
+        dispatch_row_limit=(
+            int(args.dispatch_row_limit)
+            if args.dispatch_row_limit is not None
+            else None
+        ),
+        tail_window_size=(
+            int(args.tail_window_size) if args.tail_window_size is not None else None
+        ),
+    )
+    args._resolved_dispatch_row_offset = dispatch_row_offset
+    args._resolved_dispatch_row_limit = dispatch_row_limit
+    active_rows = dispatch_row_limit - dispatch_row_offset
 
     if args.dry_run:
-        row_count = int(merged_input["_meta"]["row_count"])
-        program_count = _program_count(row_count, int(args.block_threads))
+        program_count = _program_count(active_rows, int(args.block_threads))
         stub_payload: dict[str, Any] = {
             "passed": True,
             "ok": True,
@@ -294,8 +346,8 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
             "changes_kernel_launch_args": False,
             "requested_macros": validate_macros(ARG_SLOT_MACROS),
             "future_kernel_native_arg_slot_consumer_checked": True,
-            "future_kernel_native_arg_slot_consumer_row_count": row_count,
-            "future_kernel_native_arg_slot_consumer_row_ok_count": row_count,
+            "future_kernel_native_arg_slot_consumer_row_count": active_rows,
+            "future_kernel_native_arg_slot_consumer_row_ok_count": active_rows,
             "future_kernel_native_arg_slot_consumer_error_count": 0,
             "future_kernel_native_arg_slot_consumer_payload_bytes": 0,
             "future_kernel_native_arg_slot_consumer_passed_to_kernel": False,
@@ -304,12 +356,16 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
             "future_kernel_native_arg_slot_consumer_requires_wna16_arg_reinterpretation": False,
             "future_kernel_native_arg_slot_consumer_single_field_mirror_checked": True,
             "future_kernel_native_arg_slot_consumer_single_field_mirror_field_name": "scale_metadata_handle",
-            "future_kernel_native_arg_slot_consumer_single_field_mirror_row_count": row_count,
-            "future_kernel_native_arg_slot_consumer_single_field_mirror_row_ok_count": row_count,
+            "future_kernel_native_arg_slot_consumer_single_field_mirror_row_count": active_rows,
+            "future_kernel_native_arg_slot_consumer_single_field_mirror_row_ok_count": active_rows,
             "future_kernel_native_dispatch_consumer_checked": True,
             "future_kernel_native_dispatch_consumer_grid_x": program_count,
             "future_kernel_native_dispatch_consumer_block_x": int(args.block_threads),
-            "future_kernel_native_dispatch_consumer_row_limit": row_count,
+            "future_kernel_native_dispatch_consumer_row_offset": dispatch_row_offset,
+            "future_kernel_native_dispatch_consumer_row_limit": dispatch_row_limit,
+            "future_kernel_native_dispatch_consumer_active_rows": active_rows,
+            "future_kernel_native_dispatch_consumer_row_count": active_rows,
+            "future_kernel_native_dispatch_consumer_row_ok_count": active_rows,
             "future_kernel_native_dispatch_consumer_rows_per_program": int(args.block_threads),
             "future_kernel_native_dispatch_consumer_program_count": program_count,
             "future_kernel_native_dispatch_consumer_launch_covers_active_rows": True,
@@ -318,6 +374,8 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
             "future_kernel_native_dispatch_ptr_consumer_checked": True,
             "future_kernel_native_dispatch_ptr_consumer_packet_visible": True,
             "future_kernel_native_dispatch_ptr_consumer_dispatch_packet_visible": True,
+            "future_kernel_native_dispatch_ptr_consumer_row_count": active_rows,
+            "future_kernel_native_dispatch_ptr_consumer_row_ok_count": active_rows,
             "future_kernel_native_dispatch_ptr_consumer_handle_projection_hash_accumulator": "dry",
             "future_kernel_native_arg_slot_consumer_slot_visible": True,
             "future_kernel_native_arg_slot_consumer_dispatch_ptr_packet_visible": True,
@@ -338,6 +396,8 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
         merged_input=merged_input,
         merged_output_json=merged_output_json,
         block_threads=int(args.block_threads),
+        dispatch_row_offset=dispatch_row_offset,
+        dispatch_row_limit=dispatch_row_limit,
     )
     report: dict[str, Any] = {
         "passed": not failures,
@@ -350,9 +410,16 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
         "merged_output_json": str(merged_output_json),
         "stub_output_json": str(stub_output_json),
         "merged_row_count": int(merged_input["_meta"]["row_count"]),
-        "expected_program_count": int(
+        "merged_expected_program_count": int(
             merged_input["_merge_context"]["expected_program_count"]
         ),
+        "dispatch_row_offset": dispatch_row_offset,
+        "dispatch_row_limit": dispatch_row_limit,
+        "dispatch_active_rows": active_rows,
+        "dispatch_expected_program_count": _program_count(
+            active_rows, int(args.block_threads)
+        ),
+        "tail_window_size": args.tail_window_size,
         "block_threads": int(args.block_threads),
         "device": int(args.device),
         "hip_visible_devices": args.hip_visible_devices,
@@ -375,6 +442,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--min-source-count", type=int, default=32)
     parser.add_argument("--min-total-rows", type=int, default=257)
     parser.add_argument("--block-threads", type=int, default=256)
+    parser.add_argument("--dispatch-row-offset", type=int, default=0)
+    parser.add_argument("--dispatch-row-limit", type=int)
+    parser.add_argument("--tail-window-size", type=int)
     parser.add_argument("--device", type=int, default=0)
     parser.add_argument("--hip-visible-devices")
     parser.add_argument("--offload-arch", default="gfx1100")

@@ -74,6 +74,28 @@ current_wna16_arg_compatible = false
 not_a_single_vllm_launch_table = true
 ```
 
+The same runner now also supports dispatch row-window canaries.  The latest
+tail-window run keeps the full merged table resident but asks the future
+dispatch/dispatch-pointer/arg-slot ABI to consume only the last active window:
+
+```text
+outputs/reports/premap_kernel_consumer/
+  online_merged_future_native_arg_slot_tail_window49_canary_runner.json
+
+merged_row_count = 1841
+dispatch_row_offset = 1792
+dispatch_row_limit = 1841
+dispatch_active_rows = 49
+dispatch_expected_program_count = 1
+
+future_kernel_native_dispatch_consumer_row_ok_count = 49 / 49
+future_kernel_native_dispatch_ptr_consumer_row_ok_count = 49 / 49
+future_kernel_native_arg_slot_consumer_row_ok_count = 49 / 49
+```
+
+This validates the row-window semantics a real future launch would use while
+still keeping the current WNA16 kernel arguments untouched.
+
 Focused validation:
 
 ```text
@@ -81,7 +103,7 @@ conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
   pytest tests/test_run_premap_online_merged_native_arg_slot_canary.py \
          tests/test_materialize_premap_online_merged_typed_consumer_input.py -q
 
-9 passed
+10 passed
 ```
 
 Default lab preflight after adding the runner artifact path:
@@ -99,7 +121,7 @@ Full validation:
 ```text
 conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src pytest tests -q
 
-849 passed, 2 warnings
+850 passed, 2 warnings
 ```
 
 ## Latest Update: Online-Merged Future Native Arg-Slot Canary

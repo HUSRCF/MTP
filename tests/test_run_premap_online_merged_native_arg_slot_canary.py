@@ -100,7 +100,9 @@ def test_online_merged_arg_slot_canary_dry_run_writes_artifacts(tmp_path: Path):
     assert result["passed"] is True
     assert result["selected_source_count"] == 2
     assert result["merged_row_count"] == 7
-    assert result["expected_program_count"] == 2
+    assert result["merged_expected_program_count"] == 2
+    assert result["dispatch_active_rows"] == 7
+    assert result["dispatch_expected_program_count"] == 2
     assert result["not_a_single_vllm_launch_table"] is True
     assert json.loads(merged.read_text(encoding="utf-8"))["_meta"]["row_count"] == 7
     stub_payload = json.loads(stub.read_text(encoding="utf-8"))
@@ -135,6 +137,50 @@ def test_online_merged_arg_slot_canary_rejects_too_few_sources(tmp_path: Path):
 
     with pytest.raises(ValueError, match="need at least 2"):
         module.run_canary(args)
+
+
+def test_online_merged_arg_slot_canary_tail_window_uses_active_rows(tmp_path: Path):
+    module = _load_module()
+    first = tmp_path / "input0.json"
+    second = tmp_path / "input1.json"
+    runner = tmp_path / "runner.json"
+    _write_input(first, start=0, rows=3, export_index=0)
+    _write_input(second, start=100, rows=4, export_index=1)
+    _write_runner(runner, [first, second])
+
+    args = module.build_parser().parse_args(
+        [
+            "--runner-json",
+            str(runner),
+            "--min-source-count",
+            "2",
+            "--min-total-rows",
+            "7",
+            "--block-threads",
+            "4",
+            "--tail-window-size",
+            "3",
+            "--merged-output-json",
+            str(tmp_path / "merged.json"),
+            "--stub-output-json",
+            str(tmp_path / "stub.json"),
+            "--output-json",
+            str(tmp_path / "report.json"),
+            "--dry-run",
+        ]
+    )
+
+    result = module.run_canary(args)
+
+    assert result["passed"] is True
+    assert result["dispatch_row_offset"] == 4
+    assert result["dispatch_row_limit"] == 7
+    assert result["dispatch_active_rows"] == 3
+    assert result["dispatch_expected_program_count"] == 1
+    assert result["stub_summary"]["future_kernel_native_arg_slot_consumer_row_count"] == 3
+    assert (
+        result["stub_summary"]["future_kernel_native_dispatch_consumer_grid_x"] == 1
+    )
 
 
 def test_online_merged_arg_slot_canary_flags_stub_geometry_mismatch(tmp_path: Path):
@@ -191,6 +237,8 @@ def test_online_merged_arg_slot_canary_flags_stub_geometry_mismatch(tmp_path: Pa
         merged_input=merged_input,
         merged_output_json=tmp_path / "merged.json",
         block_threads=4,
+        dispatch_row_offset=0,
+        dispatch_row_limit=7,
     )
 
     assert any("future_kernel_native_dispatch_consumer_grid_x_mismatch" in item for item in failures)
