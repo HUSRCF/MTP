@@ -23996,13 +23996,19 @@ required compiled macros:
 validation:
   conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
     pytest tests/test_check_premap_online_native_stub_canary_artifacts.py -q
-  40 passed
+  42 passed
 
   conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src pytest tests -q
-  788 passed, 2 warnings
+  790 passed, 2 warnings
 ```
 
 This closes the gap between the standalone native typed consumer canary and the
 online lab gate checker: the future arg-slot ABI evidence must now carry the
 expected compile-time guard set and still prove that it is readonly, non-payload,
 not passed to the current WNA16 kernel, and not current-WNA16-arg compatible.
+The standalone checker keeps the default artifact strict, but its field macro
+requirement is now tied to `expected_field_name`, so descriptor/packed-weight/
+auxiliary single-field canaries can be checked without pretending that every
+handle field macro was enabled.  The checker also hard-fails if the top-level
+artifact ever reports nonzero payload bytes, kernel handoff, kernel launch
+argument changes, or current-WNA16 argument compatibility.

@@ -25,15 +25,19 @@ def _write_json(path: Path, payload: dict) -> None:
 
 def _arg_slot_required_macros(
     field_name: str = "scale_metadata_handle",
+    *,
+    include_all_handle_macros: bool = True,
 ) -> dict[str, bool]:
     macros = {
         "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCHEMA": True,
         "MTP_PREMAP_TYPED_CONSUMER_CHECK_ROW_ITERATION": True,
         "MTP_PREMAP_TYPED_CONSUMER_CHECK_POINTER_VISIBILITY": True,
-        "MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR": True,
-        "MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_DESCRIPTOR": True,
-        "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_HANDLE": True,
-        "MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_HANDLE": True,
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR": include_all_handle_macros,
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_DESCRIPTOR": (
+            include_all_handle_macros
+        ),
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_HANDLE": include_all_handle_macros,
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_HANDLE": include_all_handle_macros,
         "MTP_PREMAP_TYPED_CONSUMER_CHECK_LIFETIME": True,
         "MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR": True,
         "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ABI": True,
@@ -52,6 +56,13 @@ def _arg_slot_required_macros(
         "packed_weight_descriptor": "MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_MIRROR_FIELD",
         "aux_metadata_handle": "MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_MIRROR_FIELD",
     }
+    handle_by_field = {
+        "descriptor_ptr": "MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR",
+        "scale_metadata_handle": "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_HANDLE",
+        "packed_weight_descriptor": "MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_DESCRIPTOR",
+        "aux_metadata_handle": "MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_HANDLE",
+    }
+    macros[handle_by_field[field_name]] = True
     macros[mirror_by_field[field_name]] = True
     return macros
 
@@ -1049,6 +1060,51 @@ def test_check_standalone_native_stub_artifact_rejects_missing_required_macro(
         "standalone_stub_required_macro_disabled:"
         "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ARG_SLOT_ABI"
     ) in result["failures"]
+
+
+def test_check_standalone_native_stub_artifact_allows_field_specific_handle_macro(
+    tmp_path: Path,
+):
+    payload = _extra_input_summary(row_count=4)["outputs"][
+        "native_stub_future_kernel_native_consumer_dispatch_descriptor_ptr_mirror"
+    ]["summary"]
+    payload["compiled_macros"] = _arg_slot_required_macros(
+        "descriptor_ptr",
+        include_all_handle_macros=False,
+    )
+    stub_path = tmp_path / "standalone_stub.json"
+    _write_json(stub_path, payload)
+
+    result = check_standalone_native_stub_artifact(
+        root=tmp_path,
+        stub_json=stub_path,
+        expected_field_name="descriptor_ptr",
+    )
+
+    assert result["passed"] is True
+    assert result["failures"] == []
+    assert result["expected_field_name"] == "descriptor_ptr"
+    assert result["row_count"] == 4
+
+
+def test_check_standalone_native_stub_artifact_rejects_top_level_kernel_mutation(
+    tmp_path: Path,
+):
+    payload = _extra_input_summary(row_count=4)["outputs"][
+        "native_stub_future_kernel_native_consumer_dispatch_abi"
+    ]["summary"]
+    payload["compiled_macros"] = _arg_slot_required_macros()
+    payload["passed_to_kernel"] = True
+    stub_path = tmp_path / "standalone_stub.json"
+    _write_json(stub_path, payload)
+
+    result = check_standalone_native_stub_artifact(
+        root=tmp_path,
+        stub_json=stub_path,
+    )
+
+    assert result["passed"] is False
+    assert "standalone_stub_passed_to_kernel_not_false" in result["failures"]
 
 
 def test_check_standalone_native_stub_artifact_cli_writes_json(tmp_path: Path):

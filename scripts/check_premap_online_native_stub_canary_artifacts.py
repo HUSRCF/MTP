@@ -2338,14 +2338,10 @@ def check_standalone_native_stub_artifact(
     if not isinstance(compiled_macros, dict):
         failures.append("standalone_stub_compiled_macros_missing")
         compiled_macros = {}
-    required_macros = (
+    always_required_macros = (
         "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCHEMA",
         "MTP_PREMAP_TYPED_CONSUMER_CHECK_ROW_ITERATION",
         "MTP_PREMAP_TYPED_CONSUMER_CHECK_POINTER_VISIBILITY",
-        "MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR",
-        "MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_DESCRIPTOR",
-        "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_HANDLE",
-        "MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_HANDLE",
         "MTP_PREMAP_TYPED_CONSUMER_CHECK_LIFETIME",
         "MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR",
         "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ABI",
@@ -2354,6 +2350,18 @@ def check_standalone_native_stub_artifact(
         "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_PTR_ABI",
         "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ARG_SLOT_ABI",
     )
+    field_macro_by_field = {
+        "descriptor_ptr": "MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR",
+        "scale_metadata_handle": "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_HANDLE",
+        "packed_weight_descriptor": "MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_DESCRIPTOR",
+        "aux_metadata_handle": "MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_HANDLE",
+    }
+    required_macros = list(always_required_macros)
+    field_macro = field_macro_by_field.get(expected_field_name)
+    if field_macro is None:
+        failures.append("standalone_stub_expected_field_unknown")
+    else:
+        required_macros.append(field_macro)
     for macro in required_macros:
         if compiled_macros.get(macro) is not True:
             failures.append(f"standalone_stub_required_macro_disabled:{macro}")
@@ -2364,10 +2372,19 @@ def check_standalone_native_stub_artifact(
         "aux_metadata_handle": "MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_MIRROR_FIELD",
     }
     mirror_macro = mirror_macro_by_field.get(expected_field_name)
-    if mirror_macro is None:
-        failures.append("standalone_stub_expected_field_unknown")
-    elif compiled_macros.get(mirror_macro) is not True:
+    if mirror_macro is not None and compiled_macros.get(mirror_macro) is not True:
         failures.append(f"standalone_stub_mirror_macro_disabled:{mirror_macro}")
+    if stub.get("payload_bytes") != 0:
+        failures.append("standalone_stub_payload_bytes_nonzero")
+    if stub.get("passed_to_kernel") is not False:
+        failures.append("standalone_stub_passed_to_kernel_not_false")
+    if stub.get("changes_kernel_launch_args") is not False:
+        failures.append("standalone_stub_changes_kernel_launch_args_not_false")
+    if (
+        stub.get("future_kernel_native_arg_slot_consumer_current_wna16_arg_compatible")
+        is not False
+    ):
+        failures.append("standalone_stub_current_wna16_arg_compatible_not_false")
 
     return {
         "passed": not failures,
