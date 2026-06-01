@@ -65,16 +65,28 @@ def test_default_lab_gate_uses_strict_nodefer_online_native_evidence() -> None:
     for label in runner_labels:
         path = evidence[label]
         assert path.endswith(
-            "_arg_slot_32input_alias_rowstats_hashchain_projection_nodefer.json"
+            "_arg_slot_32input_hard_hashchain_preflight_32tables.json"
         ), label
         assert "_32input.json" not in path, label
     for label in artifact_labels:
         path = evidence[label]
         assert path.endswith(
-            "_artifact_check_arg_slot_32input_alias_rowstats_hashchain_projection_nodefer.json"
+            "_artifact_check_arg_slot_32input_hard_hashchain_preflight_32tables.json"
         ), label
         assert "_32input.json" not in path, label
         assert "artifact_check" in path
+    assert (
+        evidence["future_kernel_native_consumer_online_runner_16_128export_json"]
+        == evidence["future_kernel_native_dispatch_consumer_online_runner_32_128export_json"]
+    )
+    assert (
+        evidence[
+            "future_kernel_native_consumer_online_artifact_check_16_128export_json"
+        ]
+        == evidence[
+            "future_kernel_native_dispatch_consumer_online_artifact_check_32_128export_json"
+        ]
+    )
 
 
 def _valid_schema_payload() -> dict:
