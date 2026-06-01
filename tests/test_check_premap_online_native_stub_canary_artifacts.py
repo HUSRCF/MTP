@@ -960,6 +960,12 @@ def _payloads(root: Path) -> tuple[Path, Path, Path]:
         "future_kernel_native_consumer_dispatch_stub_summary": (
             future_native_dispatch_summary()
         ),
+        "future_kernel_native_consumer_dispatch_arg_slot_stub_summary": (
+            future_native_dispatch_summary()
+        ),
+        "future_kernel_native_consumer_dispatch_arg_slot_mirror_stub_summary": (
+            future_native_dispatch_summary()
+        ),
         "future_kernel_native_consumer_dispatch_descriptor_ptr_stub_summary": (
             future_native_dispatch_summary("descriptor_ptr")
         ),
@@ -1006,6 +1012,25 @@ def _payloads(root: Path) -> tuple[Path, Path, Path]:
         },
     )
     return runner_path, preflight_path, status_path
+
+
+def _sync_arg_slot_projection_from_dispatch(runner: dict) -> None:
+    dispatch = runner["future_kernel_native_consumer_dispatch_stub_summary"]
+    projection_keys = [
+        key
+        for key in dispatch
+        if key.startswith("future_kernel_native_arg_slot_consumer_")
+    ]
+    projection_keys.extend(
+        ["payload_bytes", "passed_to_kernel", "changes_kernel_launch_args"]
+    )
+    for target_key in (
+        "future_kernel_native_consumer_dispatch_arg_slot_stub_summary",
+        "future_kernel_native_consumer_dispatch_arg_slot_mirror_stub_summary",
+    ):
+        target = runner[target_key]
+        for key in projection_keys:
+            target[key] = dispatch[key]
 
 
 def test_check_standalone_native_stub_artifact_accepts_future_arg_slot(
@@ -1517,6 +1542,40 @@ def test_check_online_native_stub_canary_artifacts_requires_all_field_mirrors(
         in result["failures"]
     )
 
+    runner, _, _ = _payloads(tmp_path / "native_dispatch_arg_slot")
+    payload = json.loads(runner.read_text(encoding="utf-8"))
+    payload.pop("future_kernel_native_consumer_dispatch_arg_slot_stub_summary")
+    _write_json(runner, payload)
+    result = check_online_native_stub_canary_artifacts(
+        root=tmp_path / "native_dispatch_arg_slot",
+        runner_json=runner,
+        preflight_json=tmp_path / "native_dispatch_arg_slot" / "preflight.json",
+        status_json=tmp_path / "native_dispatch_arg_slot" / "status.json",
+        require_all_field_mirror_stubs=True,
+    )
+    assert result["passed"] is False
+    assert (
+        "runner_future_kernel_native_consumer_dispatch_arg_slot_stub_summary_required"
+        in result["failures"]
+    )
+
+    runner, _, _ = _payloads(tmp_path / "native_dispatch_arg_slot_mirror")
+    payload = json.loads(runner.read_text(encoding="utf-8"))
+    payload.pop("future_kernel_native_consumer_dispatch_arg_slot_mirror_stub_summary")
+    _write_json(runner, payload)
+    result = check_online_native_stub_canary_artifacts(
+        root=tmp_path / "native_dispatch_arg_slot_mirror",
+        runner_json=runner,
+        preflight_json=tmp_path / "native_dispatch_arg_slot_mirror" / "preflight.json",
+        status_json=tmp_path / "native_dispatch_arg_slot_mirror" / "status.json",
+        require_all_field_mirror_stubs=True,
+    )
+    assert result["passed"] is False
+    assert (
+        "runner_future_kernel_native_consumer_dispatch_arg_slot_mirror_stub_summary_required"
+        in result["failures"]
+    )
+
 
 def test_check_online_native_stub_canary_artifacts_requires_min_online_inputs(
     tmp_path: Path,
@@ -1907,6 +1966,7 @@ def test_check_online_native_stub_canary_artifacts_accepts_dispatch_row_window(
     dispatch["future_kernel_native_dispatch_consumer_program_iteration_hash"] = (
         f"{_program_iteration_hash(grid_x=1, block_x=256, row_offset=1, row_limit=4, last_program_active_rows=3, inactive_lane_count=253):x}"
     )
+    _sync_arg_slot_projection_from_dispatch(runner)
     _write_json(runner_path, runner)
 
     result = check_online_native_stub_canary_artifacts(
@@ -1968,6 +2028,7 @@ def test_check_online_native_stub_canary_artifacts_accepts_large_rows_tail_dispa
     dispatch["future_kernel_native_dispatch_consumer_program_iteration_hash"] = (
         f"{_program_iteration_hash(grid_x=1, block_x=256, row_offset=1020, row_limit=1024, last_program_active_rows=4, inactive_lane_count=252):x}"
     )
+    _sync_arg_slot_projection_from_dispatch(runner)
     _write_json(runner_path, runner)
 
     result = check_online_native_stub_canary_artifacts(
@@ -2024,6 +2085,7 @@ def test_check_online_native_stub_canary_artifacts_accepts_multi_program_dispatc
     dispatch["future_kernel_native_dispatch_consumer_program_iteration_hash"] = (
         f"{_program_iteration_hash(grid_x=3, block_x=256, row_offset=0, row_limit=520, last_program_active_rows=8, inactive_lane_count=248):x}"
     )
+    _sync_arg_slot_projection_from_dispatch(runner)
     _write_json(runner_path, runner)
 
     result = check_online_native_stub_canary_artifacts(
@@ -2095,6 +2157,7 @@ def test_check_online_native_stub_canary_artifacts_accepts_multi_program_offset_
     dispatch["future_kernel_native_dispatch_consumer_program_iteration_hash"] = (
         f"{_program_iteration_hash(grid_x=grid_x, block_x=block_x, row_offset=row_offset, row_limit=row_limit, last_program_active_rows=8, inactive_lane_count=248):x}"
     )
+    _sync_arg_slot_projection_from_dispatch(runner)
     _write_json(runner_path, runner)
 
     result = check_online_native_stub_canary_artifacts(
@@ -2273,6 +2336,53 @@ def test_check_online_native_stub_canary_artifacts_rejects_arg_slot_safety_flag(
     assert result["passed"] is False
     assert (
         "runner_future_kernel_native_consumer_dispatch_stub_"
+        "future_kernel_native_arg_slot_consumer_passed_to_kernel_mismatch"
+        in result["failures"]
+    )
+
+
+def test_check_online_native_stub_canary_artifacts_rejects_arg_slot_projection_mismatch(
+    tmp_path: Path,
+):
+    runner_path, preflight_path, status_path = _payloads(tmp_path)
+    runner = json.loads(runner_path.read_text(encoding="utf-8"))
+    projection = runner["future_kernel_native_consumer_dispatch_arg_slot_stub_summary"]
+    projection["future_kernel_native_arg_slot_consumer_row_count"] = 3
+    _write_json(runner_path, runner)
+
+    result = check_online_native_stub_canary_artifacts(
+        root=tmp_path,
+        runner_json=runner_path,
+        preflight_json=preflight_path,
+        status_json=status_path,
+    )
+
+    assert result["passed"] is False
+    assert (
+        "runner_future_kernel_native_consumer_dispatch_arg_slot_stub_row_count_mismatch"
+        in result["failures"]
+    )
+
+
+def test_check_online_native_stub_canary_artifacts_rejects_arg_slot_projection_safety_flag(
+    tmp_path: Path,
+):
+    runner_path, preflight_path, status_path = _payloads(tmp_path)
+    runner = json.loads(runner_path.read_text(encoding="utf-8"))
+    projection = runner["future_kernel_native_consumer_dispatch_arg_slot_stub_summary"]
+    projection["future_kernel_native_arg_slot_consumer_passed_to_kernel"] = True
+    _write_json(runner_path, runner)
+
+    result = check_online_native_stub_canary_artifacts(
+        root=tmp_path,
+        runner_json=runner_path,
+        preflight_json=preflight_path,
+        status_json=status_path,
+    )
+
+    assert result["passed"] is False
+    assert (
+        "runner_future_kernel_native_consumer_dispatch_arg_slot_stub_"
         "future_kernel_native_arg_slot_consumer_passed_to_kernel_mismatch"
         in result["failures"]
     )

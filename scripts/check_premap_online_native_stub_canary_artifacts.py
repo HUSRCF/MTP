@@ -1135,6 +1135,110 @@ def _check_future_kernel_native_dispatch_consumer_summary(
     return row_count, row_ok_count
 
 
+def _check_future_kernel_native_arg_slot_projection_summary(
+    stub: Any,
+    *,
+    prefix: str,
+    expected_field_name: str = "scale_metadata_handle",
+    expected_active_rows: int | None = None,
+    failures: list[str],
+) -> tuple[int | None, int | None]:
+    if not isinstance(stub, dict):
+        failures.append(f"{prefix}_summary_missing")
+        stub = {}
+    expected_arg_slot = {
+        "future_kernel_native_arg_slot_consumer_checked": True,
+        "future_kernel_native_arg_slot_consumer_abi_name": (
+            "premap_future_kernel_native_consumer_arg_slot_abi_v1"
+        ),
+        "future_kernel_native_arg_slot_consumer_mode": (
+            "readonly_future_kernel_native_consumer_arg_slot_abi"
+        ),
+        "future_kernel_native_arg_slot_consumer_source": (
+            "premap_future_kernel_native_consumer_dispatch_ptr_abi_v1"
+        ),
+        "future_kernel_native_arg_slot_consumer_version": 1,
+        "future_kernel_native_arg_slot_consumer_error_count": 0,
+        "future_kernel_native_arg_slot_consumer_payload_bytes": 0,
+        "future_kernel_native_arg_slot_consumer_passed_to_kernel": False,
+        "future_kernel_native_arg_slot_consumer_changes_kernel_launch_args": False,
+        "future_kernel_native_arg_slot_consumer_current_wna16_arg_compatible": False,
+        "future_kernel_native_arg_slot_consumer_requires_wna16_arg_reinterpretation": False,
+        "future_kernel_native_arg_slot_consumer_single_field_mirror_checked": True,
+        "future_kernel_native_arg_slot_consumer_single_field_mirror_field_name": (
+            expected_field_name
+        ),
+        "future_kernel_native_arg_slot_consumer_single_field_mirror_error_count": 0,
+        "payload_bytes": 0,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+    }
+    for key, expected_value in expected_arg_slot.items():
+        if stub.get(key) != expected_value:
+            failures.append(f"{prefix}_{key}_mismatch")
+    _check_future_field_mask(
+        stub,
+        prefix=prefix,
+        field_prefix="future_kernel_native_arg_slot_consumer",
+        expected_field_name=expected_field_name,
+        failures=failures,
+    )
+    _check_positive_int_fields(
+        stub,
+        prefix=prefix,
+        fields=(
+            "future_kernel_native_arg_slot_consumer_slot_struct_size",
+            "future_kernel_native_arg_slot_consumer_slot_struct_align",
+            "future_kernel_native_arg_slot_consumer_dispatch_ptr_struct_size",
+            "future_kernel_native_arg_slot_consumer_result_struct_size",
+        ),
+        failures=failures,
+    )
+    _check_offset_fields(
+        stub,
+        prefix=prefix,
+        struct_size_key="future_kernel_native_arg_slot_consumer_slot_struct_size",
+        fields=(
+            "future_kernel_native_arg_slot_consumer_offset_dispatch_ptr",
+            "future_kernel_native_arg_slot_consumer_offset_abi_version",
+            "future_kernel_native_arg_slot_consumer_offset_dispatch_ptr_struct_size",
+            "future_kernel_native_arg_slot_consumer_offset_result_struct_size",
+            "future_kernel_native_arg_slot_consumer_offset_payload_bytes",
+            "future_kernel_native_arg_slot_consumer_offset_flags",
+        ),
+        failures=failures,
+    )
+    _check_expected_layout_values(
+        stub,
+        prefix=prefix,
+        expected_values=FUTURE_KERNEL_NATIVE_CONSUMER_ARG_SLOT_ABI_LAYOUT_EXPECTED,
+        failures=failures,
+    )
+    row_count = _int(stub.get("future_kernel_native_arg_slot_consumer_row_count"))
+    row_ok_count = _int(stub.get("future_kernel_native_arg_slot_consumer_row_ok_count"))
+    mirror_row_count = _int(
+        stub.get("future_kernel_native_arg_slot_consumer_single_field_mirror_row_count")
+    )
+    mirror_row_ok_count = _int(
+        stub.get(
+            "future_kernel_native_arg_slot_consumer_single_field_mirror_row_ok_count"
+        )
+    )
+    for label, observed in (
+        ("row_count", row_count),
+        ("mirror_row_count", mirror_row_count),
+    ):
+        if expected_active_rows is not None and observed != expected_active_rows:
+            failures.append(f"{prefix}_{label}_mismatch")
+    for label, observed in (
+        ("row_ok_count", row_ok_count),
+        ("mirror_row_ok_count", mirror_row_ok_count),
+    ):
+        if expected_active_rows is not None and observed != expected_active_rows:
+            failures.append(f"{prefix}_{label}_mismatch")
+    return row_count, row_ok_count
+
+
 def check_online_native_stub_canary_artifacts(
     *,
     root: Path,
@@ -1931,6 +2035,88 @@ def check_online_native_stub_canary_artifacts(
             expected_field_name="aux_metadata_handle",
             failures=failures,
         )
+    future_kernel_native_consumer_dispatch_arg_slot_row_count: int | None = None
+    future_kernel_native_consumer_dispatch_arg_slot_row_ok_count: int | None = None
+    future_kernel_native_consumer_dispatch_arg_slot_stub = runner.get(
+        "future_kernel_native_consumer_dispatch_arg_slot_stub_summary"
+    )
+    if (
+        require_all_field_mirror_stubs
+        and future_kernel_native_consumer_dispatch_arg_slot_stub is None
+    ):
+        failures.append(
+            "runner_future_kernel_native_consumer_dispatch_arg_slot_stub_summary_required"
+        )
+    if future_kernel_native_consumer_dispatch_arg_slot_stub is not None:
+        expected_arg_slot_active_rows = (
+            _int(future_kernel_native_consumer_dispatch_stub.get(
+                "future_kernel_native_arg_slot_consumer_row_count"
+            ))
+            if isinstance(future_kernel_native_consumer_dispatch_stub, dict)
+            else None
+        )
+        (
+            future_kernel_native_consumer_dispatch_arg_slot_row_count,
+            future_kernel_native_consumer_dispatch_arg_slot_row_ok_count,
+        ) = _check_future_kernel_native_arg_slot_projection_summary(
+            future_kernel_native_consumer_dispatch_arg_slot_stub,
+            prefix="runner_future_kernel_native_consumer_dispatch_arg_slot_stub",
+            expected_active_rows=expected_arg_slot_active_rows,
+            failures=failures,
+        )
+    elif isinstance(future_kernel_native_consumer_dispatch_stub, dict):
+        future_kernel_native_consumer_dispatch_arg_slot_row_count = _int(
+            future_kernel_native_consumer_dispatch_stub.get(
+                "future_kernel_native_arg_slot_consumer_row_count"
+            )
+        )
+        future_kernel_native_consumer_dispatch_arg_slot_row_ok_count = _int(
+            future_kernel_native_consumer_dispatch_stub.get(
+                "future_kernel_native_arg_slot_consumer_row_ok_count"
+            )
+        )
+    future_kernel_native_consumer_dispatch_arg_slot_mirror_row_count: int | None = None
+    future_kernel_native_consumer_dispatch_arg_slot_mirror_row_ok_count: int | None = None
+    future_kernel_native_consumer_dispatch_arg_slot_mirror_stub = runner.get(
+        "future_kernel_native_consumer_dispatch_arg_slot_mirror_stub_summary"
+    )
+    if (
+        require_all_field_mirror_stubs
+        and future_kernel_native_consumer_dispatch_arg_slot_mirror_stub is None
+    ):
+        failures.append(
+            "runner_future_kernel_native_consumer_dispatch_arg_slot_mirror_stub_summary_required"
+        )
+    if future_kernel_native_consumer_dispatch_arg_slot_mirror_stub is not None:
+        expected_arg_slot_mirror_active_rows = (
+            _int(future_kernel_native_consumer_dispatch_stub.get(
+                "future_kernel_native_arg_slot_consumer_single_field_mirror_row_count"
+            ))
+            if isinstance(future_kernel_native_consumer_dispatch_stub, dict)
+            else None
+        )
+        (
+            future_kernel_native_consumer_dispatch_arg_slot_mirror_row_count,
+            future_kernel_native_consumer_dispatch_arg_slot_mirror_row_ok_count,
+        ) = _check_future_kernel_native_arg_slot_projection_summary(
+            future_kernel_native_consumer_dispatch_arg_slot_mirror_stub,
+            prefix=(
+                "runner_future_kernel_native_consumer_dispatch_arg_slot_mirror_stub"
+            ),
+            expected_active_rows=expected_arg_slot_mirror_active_rows,
+            failures=failures,
+        )
+    elif isinstance(future_kernel_native_consumer_dispatch_stub, dict):
+        future_kernel_native_consumer_dispatch_arg_slot_mirror_row_count = _int(
+            future_kernel_native_consumer_dispatch_stub.get(
+                "future_kernel_native_arg_slot_consumer_single_field_mirror_row_count"
+            )
+        )
+        future_kernel_native_consumer_dispatch_arg_slot_mirror_row_ok_count = _int(
+            future_kernel_native_consumer_dispatch_stub.get(
+                "future_kernel_native_arg_slot_consumer_single_field_mirror_row_ok_count"
+            )
+        )
 
     online_input_check_count = _int(runner.get("online_prelaunch_input_check_count"))
     if online_input_check_count is None:
@@ -2269,32 +2455,16 @@ def check_online_native_stub_canary_artifacts(
             future_kernel_native_consumer_dispatch_aux_metadata_row_ok_count
         ),
         "runner_future_kernel_native_consumer_dispatch_arg_slot_stub_row_count": (
-            _int(future_kernel_native_consumer_dispatch_stub.get(
-                "future_kernel_native_arg_slot_consumer_row_count"
-            ))
-            if isinstance(future_kernel_native_consumer_dispatch_stub, dict)
-            else None
+            future_kernel_native_consumer_dispatch_arg_slot_row_count
         ),
         "runner_future_kernel_native_consumer_dispatch_arg_slot_stub_row_ok_count": (
-            _int(future_kernel_native_consumer_dispatch_stub.get(
-                "future_kernel_native_arg_slot_consumer_row_ok_count"
-            ))
-            if isinstance(future_kernel_native_consumer_dispatch_stub, dict)
-            else None
+            future_kernel_native_consumer_dispatch_arg_slot_row_ok_count
         ),
         "runner_future_kernel_native_consumer_dispatch_arg_slot_mirror_stub_row_count": (
-            _int(future_kernel_native_consumer_dispatch_stub.get(
-                "future_kernel_native_arg_slot_consumer_single_field_mirror_row_count"
-            ))
-            if isinstance(future_kernel_native_consumer_dispatch_stub, dict)
-            else None
+            future_kernel_native_consumer_dispatch_arg_slot_mirror_row_count
         ),
         "runner_future_kernel_native_consumer_dispatch_arg_slot_mirror_stub_row_ok_count": (
-            _int(future_kernel_native_consumer_dispatch_stub.get(
-                "future_kernel_native_arg_slot_consumer_single_field_mirror_row_ok_count"
-            ))
-            if isinstance(future_kernel_native_consumer_dispatch_stub, dict)
-            else None
+            future_kernel_native_consumer_dispatch_arg_slot_mirror_row_ok_count
         ),
         "require_all_field_mirror_stubs": bool(require_all_field_mirror_stubs),
         "bootstrap_preflight_allowed": bool(allow_bootstrap_preflight),
