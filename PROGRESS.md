@@ -23507,3 +23507,44 @@ conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
 
 91 passed
 ```
+
+The default lab gate now points at the refreshed arg-slot 32-input nodefer
+runner and artifact check:
+
+```text
+configs/runtime/premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_live_connected_readonly.yaml
+
+future_kernel_native_dispatch_consumer_online_runner_32_128export_json:
+  outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_arg_slot_32input_nodefer.json
+
+future_kernel_native_dispatch_consumer_online_artifact_check_32_128export_json:
+  outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_artifact_check_arg_slot_32input_nodefer.json
+```
+
+Final no-defer preflight:
+
+```text
+conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
+  python scripts/run_premap_lab_preflight.py \
+    --default-readonly-gate configs/runtime/premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_live_connected_readonly.yaml \
+    --canary-gate configs/runtime/premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_kernel_arg_shadow.yaml \
+    --output-json outputs/reports/premap_lab_preflight_status_default_arg_slot_32input_nodefer.json
+
+passed = true
+failures = []
+runner path = outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_arg_slot_32input_nodefer.json
+artifact path = outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_artifact_check_arg_slot_32input_nodefer.json
+online input count = 32
+artifact final_deferred_count = 0
+runtime_gate_evidence_deferred_count = 0
+strict_default_gate_evidence_deferred_count = 0
+arg-slot rows = 174 / 174
+arg-slot mirror rows = 174 / 174
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+current_wna16_arg_compatible = false
+```
+
+This promotes the arg-slot runner from standalone evidence to the default lab
+precondition while preserving the no-op boundary.
