@@ -24856,3 +24856,35 @@ This verifies the same packet-chain projection contract on a nonzero tail
 dispatch window, which is closer to how a future kernel-side consumer would
 iterate a row slice.  It is recorded as supplemental evidence for now; the
 default required lab gate remains the 32-input full-table projection canary.
+
+Standalone multi-program native-stub canary:
+
+```text
+outputs/reports/premap_kernel_consumer/
+  typed_consumer_stub_gpu1_future_native_arg_slot_multiprogram_handle_projection_canary.json
+
+passed = true
+row_count = 520
+dispatch grid_x = 3
+dispatch block_x = 256
+dispatch program_count = 3
+dispatch full_program_count = 2
+dispatch last_program_active_rows = 8
+dispatch inactive_lane_count = 248
+
+dispatch handle_projection_hash_accumulator = 12201358096b98ac
+dispatch_ptr handle_projection_hash_accumulator = 12201358096b98ac
+arg_slot handle_projection_hash_accumulator = 12201358096b98ac
+
+dispatch row_ok_count = 520
+dispatch_ptr row_ok_count = 520
+arg_slot row_ok_count = 520
+payload_bytes = 0
+passed_to_kernel = false
+current_wna16_arg_compatible = false
+```
+
+This is synthetic rather than online-vLLM evidence, but it exercises the future
+native dispatch geometry beyond a single block/program.  It confirms the
+packet-chain consumer can iterate the same typed handle projection over a
+multi-program row assignment without changing the current kernel boundary.
