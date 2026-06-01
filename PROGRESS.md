@@ -24017,3 +24017,21 @@ field-aware macro rule for arg-slot canaries, so optional descriptor,
 packed-weight, and auxiliary mirror artifacts are not forced to enable unrelated
 handle macros, but each must still enable the handle macro for the field it
 claims to mirror.
+
+The default lab preflight still passes after the macro alignment:
+
+```text
+output =
+  outputs/reports/premap_lab_preflight_default_after_arg_slot_macro_alignment.json
+
+passed = true
+failures = []
+default_kernel_consumer_arg_slot_online_total_full_field_mirror_coverage = true
+default_kernel_consumer_arg_slot_total_full_field_mirror_coverage = true
+
+focused validation:
+  conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
+    pytest tests/test_run_premap_lab_preflight.py \
+           tests/test_check_premap_online_native_stub_canary_artifacts.py -q
+  108 passed
+```
