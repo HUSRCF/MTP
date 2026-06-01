@@ -2108,6 +2108,14 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert summary["default_kernel_consumer_arg_slot_offset_dispatch_ptr"] == 0
     assert summary["default_kernel_consumer_arg_slot_offset_flags"] == 24
     assert (
+        summary["default_kernel_consumer_arg_slot_status_source"]
+        == "online_dispatch_runner_summary"
+    )
+    assert (
+        summary["default_kernel_consumer_arg_slot_status_evidence_label"]
+        == "future_kernel_native_dispatch_consumer_online_runner_32_128export_json"
+    )
+    assert (
         summary[
             "default_kernel_consumer_dispatch_ptr_standalone_evidence_label"
         ]
@@ -2162,6 +2170,10 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     )
     assert summary["default_kernel_consumer_arg_slot_standalone_input_source"] == (
         "synthetic"
+    )
+    assert (
+        summary["default_kernel_consumer_arg_slot_standalone_status_source"]
+        == "standalone_native_stub_artifact"
     )
     assert summary["default_kernel_consumer_arg_slot_standalone_checked"] is True
     assert summary["default_kernel_consumer_arg_slot_standalone_row_count"] == 2

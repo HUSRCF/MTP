@@ -23661,3 +23661,17 @@ required evidence = 15 / 15
 standalone arg-slot rows = 1024 / 1024
 passed_to_kernel = false
 ```
+
+The flattened lab status now labels the two arg-slot evidence sources
+explicitly:
+
+```text
+default_kernel_consumer_arg_slot_status_source =
+  online_dispatch_runner_summary
+
+default_kernel_consumer_arg_slot_standalone_status_source =
+  standalone_native_stub_artifact
+```
+
+This keeps the 32-input online runner evidence and the standalone native
+arg-slot canary evidence distinguishable in downstream status dashboards.

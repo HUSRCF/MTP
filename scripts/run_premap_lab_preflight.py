@@ -3759,6 +3759,9 @@ def run_premap_lab_preflight(
         "default_kernel_consumer_arg_slot_standalone_input_source": (
             arg_slot_standalone_payload.get("input_source")
         ),
+        "default_kernel_consumer_arg_slot_standalone_status_source": (
+            "standalone_native_stub_artifact"
+        ),
         "default_kernel_consumer_arg_slot_standalone_checked": (
             _bool_metric(
                 arg_slot_standalone_payload,
@@ -3923,6 +3926,15 @@ def run_premap_lab_preflight(
             schema_summary.get(
                 "future_kernel_native_consumer_arg_slot_abi_current_wna16_arg_compatible"
             )
+        ),
+        "default_kernel_consumer_arg_slot_status_source": (
+            "online_dispatch_runner_summary"
+        ),
+        "default_kernel_consumer_arg_slot_status_evidence_label": (
+            dispatch_runner_evidence_label
+        ),
+        "default_kernel_consumer_arg_slot_status_evidence_path": (
+            dispatch_runner_evidence_row.get("path")
         ),
         "default_kernel_consumer_arg_slot_checked": (
             _bool_metric(
