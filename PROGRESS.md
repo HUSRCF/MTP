@@ -24960,15 +24960,15 @@ online evidence to a 32-table online prelaunch canary under the same strict
 no-defer lab gate.  It still does not hand the typed table to the current
 WNA16 kernel and it does not move payload.
 
-Default lab preflight now also tracks the multi-program future-native
-arg-slot canary as visible optional evidence:
+Default lab preflight now requires the multi-program future-native arg-slot
+canary as part of the strict lab precondition:
 
 ```text
-outputs/reports/premap_lab_preflight_default_with_multiprogram_optional_gate.json
+outputs/reports/premap_lab_preflight_default_required_multiprogram_gate.json
 
 passed = true
-required evidence = 15 / 15
-optional evidence = 14 / 14
+required evidence = 16 / 16
+optional evidence = 13 / 13
 
 future_kernel_native_arg_slot_multiprogram_canary_json:
   present = true
@@ -24977,7 +24977,7 @@ future_kernel_native_arg_slot_multiprogram_canary_json:
     typed_consumer_stub_gpu1_future_native_arg_slot_multiprogram_handle_projection_canary.json
 ```
 
-The optional canary is content-checked rather than treated as a loose
+The canary is content-checked rather than treated as a loose
 `passed=true` artifact.  It must satisfy the arg-slot no-op safety contract,
 multi-program dispatch geometry, program-iteration hash validation, and
 dispatch / dispatch_ptr / arg_slot handle-projection hash equality.  The
@@ -24986,7 +24986,7 @@ multi-program validator does not require the raw scale-metadata handle macro;
 the existing required single-program arg-slot gate remains strict.
 
 Review tightened the multi-program geometry validation before commit: the
-optional evidence now fails if launch-thread metadata is missing, if the active
+required evidence now fails if launch-thread metadata is missing, if the active
 row window does not match the full table, if the launch is under-covered or
 non-minimal, or if `full_program_count`, `last_program_active_rows`,
 `inactive_lane_count`, first/last program row offsets, or the
