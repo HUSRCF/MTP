@@ -24,6 +24,8 @@ from scripts.check_premap_kernel_consumer_schema import (
     FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_ABI_LAYOUT_FIELDS,
     FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_PTR_ABI_LAYOUT_EXPECTED,
     FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_PTR_ABI_LAYOUT_FIELDS,
+    FUTURE_KERNEL_NATIVE_CONSUMER_ARG_SLOT_ABI_LAYOUT_EXPECTED,
+    FUTURE_KERNEL_NATIVE_CONSUMER_ARG_SLOT_ABI_LAYOUT_FIELDS,
     FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ABI_LAYOUT_EXPECTED,
     FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ABI_LAYOUT_FIELDS,
 )
@@ -244,6 +246,25 @@ def _valid_schema_payload() -> dict:
             "future_kernel_native_consumer_dispatch_ptr_abi_payload_bytes_required": 0,
             "future_kernel_native_consumer_dispatch_ptr_abi_passed_to_kernel_required": False,
             "future_kernel_native_consumer_dispatch_ptr_abi_current_wna16_arg_compatible": False,
+            "future_kernel_native_consumer_arg_slot_abi_name": (
+                "premap_future_kernel_native_consumer_arg_slot_abi_v1"
+            ),
+            "future_kernel_native_consumer_arg_slot_abi_struct": (
+                "PremapFutureKernelNativeConsumerArgSlotV1"
+            ),
+            "future_kernel_native_consumer_arg_slot_abi_result_struct": (
+                "PremapFutureKernelNativeConsumerDispatchResultV1"
+            ),
+            "future_kernel_native_consumer_arg_slot_abi_mode": (
+                "readonly_future_kernel_native_consumer_arg_slot_abi"
+            ),
+            "future_kernel_native_consumer_arg_slot_abi_source": (
+                "premap_future_kernel_native_consumer_dispatch_ptr_abi_v1"
+            ),
+            "future_kernel_native_consumer_arg_slot_abi_default_enabled": False,
+            "future_kernel_native_consumer_arg_slot_abi_payload_bytes_required": 0,
+            "future_kernel_native_consumer_arg_slot_abi_passed_to_kernel_required": False,
+            "future_kernel_native_consumer_arg_slot_abi_current_wna16_arg_compatible": False,
             "future_kernel_native_consumer_abi_layout_reported": True,
             "future_kernel_native_consumer_abi_layout_fields": list(
                 FUTURE_KERNEL_NATIVE_CONSUMER_ABI_LAYOUT_FIELDS
@@ -271,6 +292,13 @@ def _valid_schema_payload() -> dict:
             ),
             "future_kernel_native_consumer_dispatch_ptr_abi_layout_expected": dict(
                 FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_PTR_ABI_LAYOUT_EXPECTED
+            ),
+            "future_kernel_native_consumer_arg_slot_abi_layout_reported": True,
+            "future_kernel_native_consumer_arg_slot_abi_layout_fields": list(
+                FUTURE_KERNEL_NATIVE_CONSUMER_ARG_SLOT_ABI_LAYOUT_FIELDS
+            ),
+            "future_kernel_native_consumer_arg_slot_abi_layout_expected": dict(
+                FUTURE_KERNEL_NATIVE_CONSUMER_ARG_SLOT_ABI_LAYOUT_EXPECTED
             ),
             "layout": "struct_of_arrays",
             "row_order": "vllm_prelaunch_sorted_token_ids_order",
@@ -448,6 +476,14 @@ def _valid_schema_payload() -> dict:
                     "name": (
                         "MTP_PREMAP_TYPED_CONSUMER_CHECK_"
                         "FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_PTR_ABI"
+                    ),
+                    "default": "disabled",
+                    "individually_enableable": True,
+                },
+                {
+                    "name": (
+                        "MTP_PREMAP_TYPED_CONSUMER_CHECK_"
+                        "FUTURE_KERNEL_NATIVE_CONSUMER_ARG_SLOT_ABI"
                     ),
                     "default": "disabled",
                     "individually_enableable": True,

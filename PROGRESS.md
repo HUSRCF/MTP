@@ -23341,3 +23341,90 @@ conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
 
 766 passed, 2 warnings
 ```
+
+## 2026-06-01 - Future native arg-slot ABI is now part of the schema and artifact gate
+
+The future native consumer path now has one more checked ABI layer above the
+dispatch-pointer packet:
+
+```text
+PremapFutureKernelNativeConsumerArgSlotV1
+  dispatch_ptr -> dispatch-ptr packet -> dispatch metadata -> launch params
+```
+
+This arg-slot packet models the mirror object a future kernel launcher would
+bind as a typed native argument bundle.  It is still explicitly disconnected
+from the current WNA16 kernel arguments:
+
+```text
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+current_wna16_arg_compatible = false
+requires_wna16_arg_reinterpretation = false
+```
+
+The lab schema now pins the arg-slot ABI metadata and numeric layout:
+
+```text
+abi_name = premap_future_kernel_native_consumer_arg_slot_abi_v1
+mode = readonly_future_kernel_native_consumer_arg_slot_abi
+source = premap_future_kernel_native_consumer_dispatch_ptr_abi_v1
+slot_struct_size = 32
+slot_struct_align = 8
+offset(dispatch_ptr) = 0
+offset(abi_version) = 8
+offset(dispatch_ptr_struct_size) = 12
+offset(result_struct_size) = 16
+offset(payload_bytes) = 20
+offset(flags) = 24
+```
+
+The online native-stub artifact checker now requires the arg-slot layer in the
+dispatch stub summary.  It verifies:
+
+```text
+checked = true
+version = 1
+field mask covers descriptor_ptr / packed_weight_descriptor / scale_metadata_handle
+single-field mirror field matches the expected canary field
+row_count / row_ok_count == active dispatch rows
+mirror row_count / row_ok_count == active dispatch rows
+layout values match the pinned schema
+payload/kernel-arg/WNA16 safety flags remain disabled
+```
+
+This closes the evidence gap where the runner internally checked arg-slot
+rows but the independent artifact gate only enforced the dispatch-ptr layer.
+The result is still a no-op readiness gate, not a WNA16 handoff or performance
+claim.
+
+Validation:
+
+```text
+conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
+  python scripts/check_premap_kernel_consumer_schema.py \
+    configs/runtime/premap_kernel_side_typed_consumer_schema_v1.yaml \
+    --output-json outputs/reports/premap_kernel_consumer/schema_check_arg_slot_current.json
+
+passed = true
+failures = []
+
+conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
+  pytest tests/test_premap_kernel_consumer_schema.py \
+    tests/test_check_premap_online_native_stub_canary_artifacts.py \
+    tests/test_run_premap_online_native_stub_canary.py -q
+
+58 passed
+
+conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
+  pytest tests/test_run_premap_lab_preflight.py \
+    tests/test_premap_typed_consumer_stub.py -q
+
+78 passed
+
+conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
+  pytest tests -q
+
+771 passed, 2 warnings
+```

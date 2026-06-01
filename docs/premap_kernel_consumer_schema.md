@@ -176,6 +176,23 @@ changes how a future kernel-side consumer would receive the dispatch metadata.
 It does not change payload, readiness, router, descriptor order, or the live
 WNA16 launch argument contract.
 
+The future kernel argument-slot packet is pinned one layer above the dispatch
+pointer packet.  It represents the mirror object a future kernel launcher would
+bind as a typed native argument bundle, while remaining disconnected from the
+current WNA16 kernel arguments:
+
+```text
+PremapFutureKernelNativeConsumerArgSlotV1
+  size = 32
+  align = 8
+  offset(dispatch_ptr) = 0
+  offset(abi_version) = 8
+  offset(dispatch_ptr_struct_size) = 12
+  offset(result_struct_size) = 16
+  offset(payload_bytes) = 20
+  offset(flags) = 24
+```
+
 ## Macro Ladder
 
 Native debug support must be injected one flag at a time:
@@ -191,6 +208,7 @@ Native debug support must be injected one flag at a time:
 9. `MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_HANDLE`
 10. `MTP_PREMAP_TYPED_CONSUMER_CHECK_LIFETIME`
 11. `MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR`
+12. `MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ARG_SLOT_ABI`
 
 `CHECK_POINTER_VISIBILITY` is the coarse legacy visibility check for required
 handle columns. The per-field macros are the preferred ladder for future

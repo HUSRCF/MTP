@@ -4070,6 +4070,18 @@ def finalize_report_with_artifact_check(
         "runner_future_kernel_native_consumer_dispatch_aux_metadata_stub_row_ok_count": artifact_payload.get(
             "runner_future_kernel_native_consumer_dispatch_aux_metadata_stub_row_ok_count"
         ),
+        "runner_future_kernel_native_consumer_dispatch_arg_slot_stub_row_count": artifact_payload.get(
+            "runner_future_kernel_native_consumer_dispatch_arg_slot_stub_row_count"
+        ),
+        "runner_future_kernel_native_consumer_dispatch_arg_slot_stub_row_ok_count": artifact_payload.get(
+            "runner_future_kernel_native_consumer_dispatch_arg_slot_stub_row_ok_count"
+        ),
+        "runner_future_kernel_native_consumer_dispatch_arg_slot_mirror_stub_row_count": artifact_payload.get(
+            "runner_future_kernel_native_consumer_dispatch_arg_slot_mirror_stub_row_count"
+        ),
+        "runner_future_kernel_native_consumer_dispatch_arg_slot_mirror_stub_row_ok_count": artifact_payload.get(
+            "runner_future_kernel_native_consumer_dispatch_arg_slot_mirror_stub_row_ok_count"
+        ),
         "stage1_deferred_count": artifact_payload.get("stage1_deferred_count"),
         "final_deferred_count": artifact_payload.get("final_deferred_count"),
         "status_deferred_count": artifact_payload.get("status_deferred_count"),
