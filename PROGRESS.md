@@ -24157,3 +24157,54 @@ conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
 conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src pytest tests -q
 793 passed, 2 warnings
 ```
+
+### Online prelaunch native arg-slot summary refresh
+
+Refreshed the 32-input online prelaunch native stub canary after exposing the
+future native dispatch arg-slot summaries at the runner top level.
+
+```text
+runner:
+  outputs/reports/premap_kernel_consumer/
+    online_prelaunch_native_stub_canary_arg_slot_32input_alias_nodefer.json
+
+artifact checker:
+  outputs/reports/premap_kernel_consumer/
+    online_prelaunch_native_stub_canary_artifact_check_arg_slot_32input_alias_nodefer.json
+```
+
+Result:
+
+```text
+runner passed = true
+runner failures = []
+online_prelaunch_input_check_count = 32
+online_prelaunch_input_extra_check_passed_count = 31
+
+top-level future native dispatch arg-slot summary:
+  row_count = 174
+  mirror_row_count = 174
+
+top-level future native dispatch arg-slot mirror summary:
+  row_count = 174
+  mirror_row_count = 174
+
+artifact checker passed = true
+artifact checker failures = []
+min_online_inputs = 32
+final_deferred_count = 0
+status_deferred_count = 0
+bootstrap_preflight_allowed = false
+```
+
+Here `row_count` and `mirror_row_count` are the readable summary names for the
+runner JSON keys `future_kernel_native_arg_slot_consumer_row_count` and
+`future_kernel_native_arg_slot_consumer_single_field_mirror_row_count`.
+They apply to each top-level summary projection above: the arg-slot summary and
+the arg-slot mirror summary each carry their own row/mirror counts.
+
+This does not change the safety boundary: the canary still runs only the
+readonly native checker/stub path, keeps payload bytes at zero, and does not
+pass or reinterpret WNA16 kernel arguments.  The value is observability: the
+future kernel argument slot is now visible as a first-class runner summary in
+addition to the nested dispatch-stub payload.
