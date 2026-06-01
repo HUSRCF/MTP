@@ -24575,3 +24575,61 @@ changes_kernel_launch_args = false
 current_wna16_arg_compatible = false
 requires_wna16_arg_reinterpretation = false
 ```
+
+### Packet-chain mirror hash equivalence
+
+The future native dispatch, dispatch-pointer packet, and arg-slot packet now
+must expose valid path-specific row hash accumulators and identical
+single-field mirror hash accumulators in the online runner/artifact gate.  This
+tightens the packet-chain evidence from "the packets are visible" to "each
+packet layer sees the same mirrored handle field while keeping its own
+ABI-specific row hash."
+
+Checked requirements:
+
+```text
+future_kernel_native_dispatch_consumer_hash_accumulator is valid hex64
+future_kernel_native_dispatch_ptr_consumer_hash_accumulator is valid hex64
+future_kernel_native_arg_slot_consumer_hash_accumulator is valid hex64
+
+future_kernel_native_dispatch_consumer_single_field_mirror_hash_accumulator
+== future_kernel_native_dispatch_ptr_consumer_single_field_mirror_hash_accumulator
+== future_kernel_native_arg_slot_consumer_single_field_mirror_hash_accumulator
+```
+
+The full row hashes intentionally remain path-specific because they include
+ABI-wrapper metadata for dispatch, dispatch pointer, and arg-slot packets.  The
+single-field mirror hash is the cross-packet equivalence check for handle-field
+visibility.
+
+This remains a readonly future-kernel ABI check only:
+
+```text
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+current_wna16_arg_compatible = false
+requires_wna16_arg_reinterpretation = false
+```
+
+Refreshed evidence:
+
+```text
+outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_arg_slot_32input_alias_rowstats_hashchain_nodefer.json
+outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_artifact_check_arg_slot_32input_alias_rowstats_hashchain_nodefer.json
+outputs/reports/premap_lab_preflight_default_after_packet_chain_hash_equivalence.json
+```
+
+Gate result:
+
+```text
+online runner passed = true
+artifact_check_passed = true
+final_preflight_passed = true
+online inputs = 32
+extra online input checks = 31 / 31 passed
+runtime_gate_evidence_deferred_count = 0
+strict_default_gate_evidence_deferred_count = 0
+required_evidence = 15 / 15 passed
+optional_evidence = 13 / 13 passed
+```

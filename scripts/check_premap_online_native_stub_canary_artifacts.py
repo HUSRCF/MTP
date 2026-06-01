@@ -134,6 +134,46 @@ def _check_expected_layout_values(
             failures.append(f"{prefix}_{field}_mismatch:{value!r}!={expected!r}")
 
 
+def _check_equal_hex_accumulators(
+    stub: dict[str, Any],
+    *,
+    prefix: str,
+    field_prefixes: tuple[str, ...],
+    suffix: str,
+    failures: list[str],
+) -> None:
+    parsed: dict[str, int] = {}
+    for field_prefix in field_prefixes:
+        field = f"{field_prefix}_{suffix}"
+        value = _hex64(stub.get(field))
+        if value is None:
+            failures.append(f"{prefix}_{field}_missing_or_invalid")
+            continue
+        parsed[field_prefix] = value
+    if len(parsed) != len(field_prefixes):
+        return
+    expected = next(iter(parsed.values()))
+    for field_prefix, value in parsed.items():
+        if value != expected:
+            failures.append(
+                f"{prefix}_{field_prefix}_{suffix}_mismatch"
+            )
+
+
+def _check_hex_accumulators_present(
+    stub: dict[str, Any],
+    *,
+    prefix: str,
+    field_prefixes: tuple[str, ...],
+    suffix: str,
+    failures: list[str],
+) -> None:
+    for field_prefix in field_prefixes:
+        field = f"{field_prefix}_{suffix}"
+        if _hex64(stub.get(field)) is None:
+            failures.append(f"{prefix}_{field}_missing_or_invalid")
+
+
 def _program_iteration_hash(
     *,
     grid_x: int,
@@ -1139,6 +1179,25 @@ def _check_future_kernel_native_dispatch_consumer_summary(
     ):
         if expected_active_rows is not None and observed != expected_active_rows:
             failures.append(f"{prefix}_{label}_row_ok_count_mismatch")
+    chain_prefixes = (
+        "future_kernel_native_dispatch_consumer",
+        "future_kernel_native_dispatch_ptr_consumer",
+        "future_kernel_native_arg_slot_consumer",
+    )
+    _check_hex_accumulators_present(
+        stub,
+        prefix=prefix,
+        field_prefixes=chain_prefixes,
+        suffix="hash_accumulator",
+        failures=failures,
+    )
+    _check_equal_hex_accumulators(
+        stub,
+        prefix=prefix,
+        field_prefixes=chain_prefixes,
+        suffix="single_field_mirror_hash_accumulator",
+        failures=failures,
+    )
     return row_count, row_ok_count
 
 

@@ -317,6 +317,7 @@ def _extra_input_summary(row_count: int = 4) -> dict:
             "future_kernel_native_dispatch_consumer_row_count": row_count,
             "future_kernel_native_dispatch_consumer_row_ok_count": row_count,
             "future_kernel_native_dispatch_consumer_error_count": 0,
+            "future_kernel_native_dispatch_consumer_hash_accumulator": "abc123",
             "future_kernel_native_dispatch_consumer_payload_bytes": 0,
             "future_kernel_native_dispatch_consumer_passed_to_kernel": False,
             "future_kernel_native_dispatch_consumer_changes_kernel_launch_args": False,
@@ -335,6 +336,9 @@ def _extra_input_summary(row_count: int = 4) -> dict:
                 row_count
             ),
             "future_kernel_native_dispatch_consumer_single_field_mirror_error_count": 0,
+            "future_kernel_native_dispatch_consumer_single_field_mirror_hash_accumulator": (
+                "def456"
+            ),
             "future_kernel_native_dispatch_ptr_consumer_checked": True,
             "future_kernel_native_dispatch_ptr_consumer_abi_name": (
                 "premap_future_kernel_native_consumer_dispatch_ptr_abi_v1"
@@ -350,6 +354,7 @@ def _extra_input_summary(row_count: int = 4) -> dict:
             "future_kernel_native_dispatch_ptr_consumer_row_count": row_count,
             "future_kernel_native_dispatch_ptr_consumer_row_ok_count": row_count,
             "future_kernel_native_dispatch_ptr_consumer_error_count": 0,
+            "future_kernel_native_dispatch_ptr_consumer_hash_accumulator": "abc123",
             "future_kernel_native_dispatch_ptr_consumer_packet_visible": True,
             "future_kernel_native_dispatch_ptr_consumer_dispatch_packet_visible": True,
             "future_kernel_native_dispatch_ptr_consumer_packet_chain_depth": 2,
@@ -371,6 +376,9 @@ def _extra_input_summary(row_count: int = 4) -> dict:
                 row_count
             ),
             "future_kernel_native_dispatch_ptr_consumer_single_field_mirror_error_count": 0,
+            "future_kernel_native_dispatch_ptr_consumer_single_field_mirror_hash_accumulator": (
+                "def456"
+            ),
             "future_kernel_native_arg_slot_consumer_checked": True,
             "future_kernel_native_arg_slot_consumer_abi_name": (
                 "premap_future_kernel_native_consumer_arg_slot_abi_v1"
@@ -386,6 +394,7 @@ def _extra_input_summary(row_count: int = 4) -> dict:
             "future_kernel_native_arg_slot_consumer_row_count": row_count,
             "future_kernel_native_arg_slot_consumer_row_ok_count": row_count,
             "future_kernel_native_arg_slot_consumer_error_count": 0,
+            "future_kernel_native_arg_slot_consumer_hash_accumulator": "abc123",
             "future_kernel_native_arg_slot_consumer_slot_visible": True,
             "future_kernel_native_arg_slot_consumer_dispatch_ptr_packet_visible": True,
             "future_kernel_native_arg_slot_consumer_dispatch_packet_visible": True,
@@ -408,6 +417,9 @@ def _extra_input_summary(row_count: int = 4) -> dict:
                 row_count
             ),
             "future_kernel_native_arg_slot_consumer_single_field_mirror_error_count": 0,
+            "future_kernel_native_arg_slot_consumer_single_field_mirror_hash_accumulator": (
+                "def456"
+            ),
         }
 
     return {
@@ -723,6 +735,7 @@ def _payloads(root: Path) -> tuple[Path, Path, Path]:
             "future_kernel_native_dispatch_consumer_row_count": 4,
             "future_kernel_native_dispatch_consumer_row_ok_count": 4,
             "future_kernel_native_dispatch_consumer_error_count": 0,
+            "future_kernel_native_dispatch_consumer_hash_accumulator": "abc123",
             "future_kernel_native_dispatch_consumer_payload_bytes": 0,
             "future_kernel_native_dispatch_consumer_passed_to_kernel": False,
             "future_kernel_native_dispatch_consumer_changes_kernel_launch_args": False,
@@ -737,6 +750,9 @@ def _payloads(root: Path) -> tuple[Path, Path, Path]:
             "future_kernel_native_dispatch_consumer_single_field_mirror_row_count": 4,
             "future_kernel_native_dispatch_consumer_single_field_mirror_row_ok_count": 4,
             "future_kernel_native_dispatch_consumer_single_field_mirror_error_count": 0,
+            "future_kernel_native_dispatch_consumer_single_field_mirror_hash_accumulator": (
+                "def456"
+            ),
             "future_kernel_native_dispatch_ptr_consumer_checked": True,
             "future_kernel_native_dispatch_ptr_consumer_abi_name": (
                 "premap_future_kernel_native_consumer_dispatch_ptr_abi_v1"
@@ -752,6 +768,7 @@ def _payloads(root: Path) -> tuple[Path, Path, Path]:
             "future_kernel_native_dispatch_ptr_consumer_row_count": 4,
             "future_kernel_native_dispatch_ptr_consumer_row_ok_count": 4,
             "future_kernel_native_dispatch_ptr_consumer_error_count": 0,
+            "future_kernel_native_dispatch_ptr_consumer_hash_accumulator": "abc123",
             "future_kernel_native_dispatch_ptr_consumer_packet_visible": True,
             "future_kernel_native_dispatch_ptr_consumer_dispatch_packet_visible": True,
             "future_kernel_native_dispatch_ptr_consumer_packet_chain_depth": 2,
@@ -769,6 +786,9 @@ def _payloads(root: Path) -> tuple[Path, Path, Path]:
             "future_kernel_native_dispatch_ptr_consumer_single_field_mirror_row_count": 4,
             "future_kernel_native_dispatch_ptr_consumer_single_field_mirror_row_ok_count": 4,
             "future_kernel_native_dispatch_ptr_consumer_single_field_mirror_error_count": 0,
+            "future_kernel_native_dispatch_ptr_consumer_single_field_mirror_hash_accumulator": (
+                "def456"
+            ),
             "future_kernel_native_arg_slot_consumer_checked": True,
             "future_kernel_native_arg_slot_consumer_abi_name": (
                 "premap_future_kernel_native_consumer_arg_slot_abi_v1"
@@ -784,6 +804,7 @@ def _payloads(root: Path) -> tuple[Path, Path, Path]:
             "future_kernel_native_arg_slot_consumer_row_count": 4,
             "future_kernel_native_arg_slot_consumer_row_ok_count": 4,
             "future_kernel_native_arg_slot_consumer_error_count": 0,
+            "future_kernel_native_arg_slot_consumer_hash_accumulator": "abc123",
             "future_kernel_native_arg_slot_consumer_slot_visible": True,
             "future_kernel_native_arg_slot_consumer_dispatch_ptr_packet_visible": True,
             "future_kernel_native_arg_slot_consumer_dispatch_packet_visible": True,
@@ -802,6 +823,9 @@ def _payloads(root: Path) -> tuple[Path, Path, Path]:
             "future_kernel_native_arg_slot_consumer_single_field_mirror_row_count": 4,
             "future_kernel_native_arg_slot_consumer_single_field_mirror_row_ok_count": 4,
             "future_kernel_native_arg_slot_consumer_single_field_mirror_error_count": 0,
+            "future_kernel_native_arg_slot_consumer_single_field_mirror_hash_accumulator": (
+                "def456"
+            ),
             "payload_bytes": 0,
             "passed_to_kernel": False,
             "changes_kernel_launch_args": False,
@@ -2385,6 +2409,130 @@ def test_check_online_native_stub_canary_artifacts_rejects_dispatch_program_hash
     assert (
         "runner_future_kernel_native_consumer_dispatch_stub_"
         "future_native_dispatch_program_iteration_hash_missing"
+        in result["failures"]
+    )
+
+
+def test_check_online_native_stub_canary_artifacts_allows_path_specific_row_hashes(
+    tmp_path: Path,
+):
+    runner_path, preflight_path, status_path = _payloads(tmp_path)
+    runner = json.loads(runner_path.read_text(encoding="utf-8"))
+    dispatch = runner["future_kernel_native_consumer_dispatch_stub_summary"]
+    dispatch["future_kernel_native_dispatch_ptr_consumer_hash_accumulator"] = "bad"
+    _write_json(runner_path, runner)
+
+    result = check_online_native_stub_canary_artifacts(
+        root=tmp_path,
+        runner_json=runner_path,
+        preflight_json=preflight_path,
+        status_json=status_path,
+    )
+
+    assert result["passed"] is True
+    assert result["failures"] == []
+
+
+def test_check_online_native_stub_canary_artifacts_rejects_dispatch_ptr_row_hash_missing(
+    tmp_path: Path,
+):
+    runner_path, preflight_path, status_path = _payloads(tmp_path)
+    runner = json.loads(runner_path.read_text(encoding="utf-8"))
+    dispatch = runner["future_kernel_native_consumer_dispatch_stub_summary"]
+    dispatch.pop("future_kernel_native_dispatch_ptr_consumer_hash_accumulator")
+    _write_json(runner_path, runner)
+
+    result = check_online_native_stub_canary_artifacts(
+        root=tmp_path,
+        runner_json=runner_path,
+        preflight_json=preflight_path,
+        status_json=status_path,
+    )
+
+    assert result["passed"] is False
+    assert (
+        "runner_future_kernel_native_consumer_dispatch_stub_"
+        "future_kernel_native_dispatch_ptr_consumer_"
+        "hash_accumulator_missing_or_invalid"
+        in result["failures"]
+    )
+
+
+def test_check_online_native_stub_canary_artifacts_rejects_dispatch_ptr_row_hash_invalid(
+    tmp_path: Path,
+):
+    runner_path, preflight_path, status_path = _payloads(tmp_path)
+    runner = json.loads(runner_path.read_text(encoding="utf-8"))
+    dispatch = runner["future_kernel_native_consumer_dispatch_stub_summary"]
+    dispatch["future_kernel_native_dispatch_ptr_consumer_hash_accumulator"] = "not_hex"
+    _write_json(runner_path, runner)
+
+    result = check_online_native_stub_canary_artifacts(
+        root=tmp_path,
+        runner_json=runner_path,
+        preflight_json=preflight_path,
+        status_json=status_path,
+    )
+
+    assert result["passed"] is False
+    assert (
+        "runner_future_kernel_native_consumer_dispatch_stub_"
+        "future_kernel_native_dispatch_ptr_consumer_"
+        "hash_accumulator_missing_or_invalid"
+        in result["failures"]
+    )
+
+
+def test_check_online_native_stub_canary_artifacts_rejects_arg_slot_mirror_hash_mismatch(
+    tmp_path: Path,
+):
+    runner_path, preflight_path, status_path = _payloads(tmp_path)
+    runner = json.loads(runner_path.read_text(encoding="utf-8"))
+    dispatch = runner["future_kernel_native_consumer_dispatch_stub_summary"]
+    dispatch[
+        "future_kernel_native_arg_slot_consumer_single_field_mirror_hash_accumulator"
+    ] = "bad"
+    _write_json(runner_path, runner)
+
+    result = check_online_native_stub_canary_artifacts(
+        root=tmp_path,
+        runner_json=runner_path,
+        preflight_json=preflight_path,
+        status_json=status_path,
+    )
+
+    assert result["passed"] is False
+    assert (
+        "runner_future_kernel_native_consumer_dispatch_stub_"
+        "future_kernel_native_arg_slot_consumer_"
+        "single_field_mirror_hash_accumulator_mismatch"
+        in result["failures"]
+    )
+
+
+def test_check_online_native_stub_canary_artifacts_rejects_arg_slot_mirror_hash_invalid(
+    tmp_path: Path,
+):
+    runner_path, preflight_path, status_path = _payloads(tmp_path)
+    runner = json.loads(runner_path.read_text(encoding="utf-8"))
+    dispatch = runner["future_kernel_native_consumer_dispatch_stub_summary"]
+    dispatch[
+        "future_kernel_native_arg_slot_consumer_single_field_mirror_hash_accumulator"
+    ] = "not_hex"
+    _write_json(runner_path, runner)
+
+    result = check_online_native_stub_canary_artifacts(
+        root=tmp_path,
+        runner_json=runner_path,
+        preflight_json=preflight_path,
+        status_json=status_path,
+    )
+
+    assert result["passed"] is False
+    assert (
+        "runner_future_kernel_native_consumer_dispatch_stub_"
+        "future_kernel_native_arg_slot_consumer_"
+        "single_field_mirror_hash_accumulator_missing_or_invalid"
         in result["failures"]
     )
 

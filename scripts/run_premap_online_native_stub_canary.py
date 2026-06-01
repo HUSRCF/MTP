@@ -645,6 +645,7 @@ FUTURE_KERNEL_NATIVE_DISPATCH_CONSUMER_SUMMARY_KEYS = (
     "future_kernel_native_dispatch_consumer_row_count",
     "future_kernel_native_dispatch_consumer_row_ok_count",
     "future_kernel_native_dispatch_consumer_error_count",
+    "future_kernel_native_dispatch_consumer_hash_accumulator",
     "future_kernel_native_dispatch_consumer_payload_bytes",
     "future_kernel_native_dispatch_consumer_passed_to_kernel",
     "future_kernel_native_dispatch_consumer_changes_kernel_launch_args",
@@ -657,6 +658,7 @@ FUTURE_KERNEL_NATIVE_DISPATCH_CONSUMER_SUMMARY_KEYS = (
     "future_kernel_native_dispatch_consumer_single_field_mirror_row_count",
     "future_kernel_native_dispatch_consumer_single_field_mirror_row_ok_count",
     "future_kernel_native_dispatch_consumer_single_field_mirror_error_count",
+    "future_kernel_native_dispatch_consumer_single_field_mirror_hash_accumulator",
     "future_kernel_native_dispatch_ptr_consumer_abi_name",
     "future_kernel_native_dispatch_ptr_consumer_checked",
     "future_kernel_native_dispatch_ptr_consumer_mode",
@@ -678,6 +680,7 @@ FUTURE_KERNEL_NATIVE_DISPATCH_CONSUMER_SUMMARY_KEYS = (
     "future_kernel_native_dispatch_ptr_consumer_row_count",
     "future_kernel_native_dispatch_ptr_consumer_row_ok_count",
     "future_kernel_native_dispatch_ptr_consumer_error_count",
+    "future_kernel_native_dispatch_ptr_consumer_hash_accumulator",
     "future_kernel_native_dispatch_ptr_consumer_payload_bytes",
     "future_kernel_native_dispatch_ptr_consumer_passed_to_kernel",
     "future_kernel_native_dispatch_ptr_consumer_changes_kernel_launch_args",
@@ -690,6 +693,7 @@ FUTURE_KERNEL_NATIVE_DISPATCH_CONSUMER_SUMMARY_KEYS = (
     "future_kernel_native_dispatch_ptr_consumer_single_field_mirror_row_count",
     "future_kernel_native_dispatch_ptr_consumer_single_field_mirror_row_ok_count",
     "future_kernel_native_dispatch_ptr_consumer_single_field_mirror_error_count",
+    "future_kernel_native_dispatch_ptr_consumer_single_field_mirror_hash_accumulator",
     "future_kernel_native_arg_slot_consumer_abi_name",
     "future_kernel_native_arg_slot_consumer_checked",
     "future_kernel_native_arg_slot_consumer_mode",
@@ -712,6 +716,7 @@ FUTURE_KERNEL_NATIVE_DISPATCH_CONSUMER_SUMMARY_KEYS = (
     "future_kernel_native_arg_slot_consumer_row_count",
     "future_kernel_native_arg_slot_consumer_row_ok_count",
     "future_kernel_native_arg_slot_consumer_error_count",
+    "future_kernel_native_arg_slot_consumer_hash_accumulator",
     "future_kernel_native_arg_slot_consumer_payload_bytes",
     "future_kernel_native_arg_slot_consumer_passed_to_kernel",
     "future_kernel_native_arg_slot_consumer_changes_kernel_launch_args",
@@ -724,6 +729,7 @@ FUTURE_KERNEL_NATIVE_DISPATCH_CONSUMER_SUMMARY_KEYS = (
     "future_kernel_native_arg_slot_consumer_single_field_mirror_row_count",
     "future_kernel_native_arg_slot_consumer_single_field_mirror_row_ok_count",
     "future_kernel_native_arg_slot_consumer_single_field_mirror_error_count",
+    "future_kernel_native_arg_slot_consumer_single_field_mirror_hash_accumulator",
     "payload_bytes",
     "passed_to_kernel",
     "changes_kernel_launch_args",
@@ -757,6 +763,7 @@ FUTURE_KERNEL_NATIVE_ARG_SLOT_CONSUMER_SUMMARY_KEYS = (
     "future_kernel_native_arg_slot_consumer_row_count",
     "future_kernel_native_arg_slot_consumer_row_ok_count",
     "future_kernel_native_arg_slot_consumer_error_count",
+    "future_kernel_native_arg_slot_consumer_hash_accumulator",
     "future_kernel_native_arg_slot_consumer_payload_bytes",
     "future_kernel_native_arg_slot_consumer_passed_to_kernel",
     "future_kernel_native_arg_slot_consumer_changes_kernel_launch_args",
@@ -769,6 +776,7 @@ FUTURE_KERNEL_NATIVE_ARG_SLOT_CONSUMER_SUMMARY_KEYS = (
     "future_kernel_native_arg_slot_consumer_single_field_mirror_row_count",
     "future_kernel_native_arg_slot_consumer_single_field_mirror_row_ok_count",
     "future_kernel_native_arg_slot_consumer_single_field_mirror_error_count",
+    "future_kernel_native_arg_slot_consumer_single_field_mirror_hash_accumulator",
     "payload_bytes",
     "passed_to_kernel",
     "changes_kernel_launch_args",
@@ -778,6 +786,7 @@ FUTURE_KERNEL_NATIVE_ARG_SLOT_CONSUMER_SUMMARY_KEYS = (
 _FUTURE_KERNEL_REQUIRED_FIELD_MASK = 0x7
 _FUTURE_KERNEL_ALL_FIELD_MASK = 0xF
 _FUTURE_KERNEL_AUX_FIELD_MASK = 0x8
+_UINT64_MASK = (1 << 64) - 1
 
 
 def _load_yaml(path: Path) -> Any:
@@ -813,6 +822,18 @@ def _future_field_mask_ok(
     ):
         return False
     return True
+
+
+def _parse_hex64(value: Any) -> int | None:
+    if not isinstance(value, str) or not value:
+        return None
+    try:
+        parsed = int(value, 16)
+    except ValueError:
+        return None
+    if parsed < 0 or parsed > _UINT64_MASK:
+        return None
+    return parsed
 
 
 def trace_output_dir(config_path: Path) -> Path:
@@ -2510,6 +2531,26 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
             )
         else:
             dispatch_geometry_ok = False
+        def _hash_chain_equal(suffix: str) -> bool:
+            values = tuple(
+                _parse_hex64(payload.get(f"{prefix}_{suffix}"))
+                for prefix in (
+                    "future_kernel_native_dispatch_consumer",
+                    "future_kernel_native_dispatch_ptr_consumer",
+                    "future_kernel_native_arg_slot_consumer",
+                )
+            )
+            return all(value is not None for value in values) and len(set(values)) == 1
+        def _hash_chain_valid(suffix: str) -> bool:
+            return all(
+                _parse_hex64(payload.get(f"{prefix}_{suffix}")) is not None
+                for prefix in (
+                    "future_kernel_native_dispatch_consumer",
+                    "future_kernel_native_dispatch_ptr_consumer",
+                    "future_kernel_native_arg_slot_consumer",
+                )
+            )
+
         return bool(
             payload.get("passed") is True
             and payload.get("input_json") is not None
@@ -2653,6 +2694,8 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
             )
             == 0
             and dispatch_geometry_ok
+            and _hash_chain_valid("hash_accumulator")
+            and _hash_chain_equal("single_field_mirror_hash_accumulator")
         )
 
     future_native_consumer_required = not bool(
