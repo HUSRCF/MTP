@@ -23,6 +23,54 @@
 
 ## Latest Update: Future Native Arg-Slot ABI Canary
 
+## Latest Update: Contract-Conditioned Lab Preflight Summary
+
+The lab preflight summary now reports requirement fields from the observed
+default gate contract instead of reusing hard-coded defaults.  This keeps
+negative contract tests readable: if a test gate intentionally flips
+`kernel_side_typed_row_consumer_path_required` or
+`native_typed_consumer_bridge_passed_to_kernel_required`, the summary mirrors
+that observed contract while the contract checker still fails the gate.
+
+The online arg-slot full-field coverage hard-fail is also conditioned on the
+observed default gate contract:
+
+```text
+future_kernel_native_arg_slot_online_total_mirror_coverage_required = true
+  -> final no-defer preflight requires all four online mirror fields
+
+future_kernel_native_arg_slot_online_total_mirror_coverage_required = false
+  -> contract mismatch fails the gate, but the coverage-specific hard-fail is
+     not emitted as a second, misleading failure
+```
+
+Current default preflight remains strict:
+
+```text
+output = outputs/reports/premap_lab_preflight_status_contract_summary_observed.json
+passed = true
+failures = []
+
+kernel_side_typed_row_consumer_path_required = true
+native_typed_consumer_bridge_required = true
+default_kernel_consumer_arg_slot_online_total_mirror_coverage_required = true
+default_kernel_consumer_arg_slot_online_total_full_field_mirror_coverage = true
+```
+
+Validation:
+
+```text
+pytest tests/test_run_premap_lab_preflight.py -q
+  62 passed
+
+pytest tests -q
+  782 passed, 2 warnings
+```
+
+Boundary is unchanged: this is a lab gate reporting/checking hardening only.
+No payload is moved, no kernel launch argument is changed, and the future typed
+consumer ABI is still not passed to the current WNA16 fused-MoE kernel.
+
 The standalone native typed-consumer path now has one more future-kernel ABI
 layer:
 

@@ -3630,6 +3630,12 @@ def run_premap_lab_preflight(
     observed_default_contract = default_gate_contract_check.get("observed_contract")
     if not isinstance(observed_default_contract, dict):
         observed_default_contract = {}
+
+    def _observed_default_contract_value(key: str) -> Any:
+        if key in observed_default_contract:
+            return observed_default_contract[key]
+        return REQUIRED_DEFAULT_GATE_CONTRACT[key]
+
     arg_slot_online_total_mirror_coverage_required = (
         observed_default_contract.get(
             "future_kernel_native_arg_slot_online_total_mirror_coverage_required"
@@ -4297,33 +4303,33 @@ def run_premap_lab_preflight(
         ),
         "bootstrap_preflight_allowed": bool(allow_bootstrap_preflight),
         "native_typed_consumer_bridge_required": (
-            REQUIRED_DEFAULT_GATE_CONTRACT["native_typed_consumer_bridge_required"]
+            _observed_default_contract_value("native_typed_consumer_bridge_required")
         ),
         "native_stub_online_invocation_canary_required": (
-            REQUIRED_DEFAULT_GATE_CONTRACT[
+            _observed_default_contract_value(
                 "native_stub_online_invocation_canary_required"
-            ]
+            )
         ),
         "single_field_handle_handoff_canary_required": (
-            REQUIRED_DEFAULT_GATE_CONTRACT[
+            _observed_default_contract_value(
                 "single_field_handle_handoff_canary_required"
-            ]
+            )
         ),
         "kernel_side_typed_row_consumer_path_required": (
-            REQUIRED_DEFAULT_GATE_CONTRACT[
+            _observed_default_contract_value(
                 "kernel_side_typed_row_consumer_path_required"
-            ]
+            )
         ),
-        "payload_bytes_required": REQUIRED_DEFAULT_GATE_CONTRACT[
+        "payload_bytes_required": _observed_default_contract_value(
             "native_typed_consumer_bridge_payload_bytes_required"
-        ],
-        "passed_to_kernel_required": REQUIRED_DEFAULT_GATE_CONTRACT[
+        ),
+        "passed_to_kernel_required": _observed_default_contract_value(
             "native_typed_consumer_bridge_passed_to_kernel_required"
-        ],
+        ),
         "changes_kernel_launch_args_required": (
-            REQUIRED_DEFAULT_GATE_CONTRACT[
+            _observed_default_contract_value(
                 "native_typed_consumer_bridge_changes_kernel_launch_args_required"
-            ]
+            )
         ),
     }
 

@@ -2779,6 +2779,51 @@ def test_premap_lab_preflight_conditions_online_arg_slot_coverage_on_contract(
     )
 
 
+def test_premap_lab_preflight_reports_observed_contract_requirement_fields(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    gate_path = tmp_path / default_gate
+    text = gate_path.read_text()
+    text = text.replace(
+        "  kernel_side_typed_row_consumer_path_required: true\n",
+        "  kernel_side_typed_row_consumer_path_required: false\n",
+    )
+    text = text.replace(
+        "  native_typed_consumer_bridge_passed_to_kernel_required: false\n",
+        "  native_typed_consumer_bridge_passed_to_kernel_required: true\n",
+    )
+    _write(gate_path, text)
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is False
+    assert "default_readonly_gate_contract_check_failed" in result["failures"]
+    assert (
+        "kernel_side_typed_row_consumer_path_required_mismatch"
+        in result["default_readonly_gate_contract_check"]["failures"]
+    )
+    assert (
+        "native_typed_consumer_bridge_passed_to_kernel_required_mismatch"
+        in result["default_readonly_gate_contract_check"]["failures"]
+    )
+    summary = result["lab_gate_status_summary"]
+    assert summary["kernel_side_typed_row_consumer_path_required"] is False
+    assert summary["passed_to_kernel_required"] is True
+
+
 def test_premap_lab_preflight_rejects_default_gate_with_bad_schema_artifact(
     tmp_path: Path,
 ):
