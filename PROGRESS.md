@@ -2,8 +2,8 @@
 
 ## Progress Version
 
-- Version: `v0.39-online-merged-multiprogram-abi`
-- Updated: 2026-06-01
+- Version: `v0.40-online-merged-arg-slot-runner`
+- Updated: 2026-06-02
 - Current phase: premap descriptor/address prep now has a typed
   kernel-side consumer object, a launch-shaped future native ABI, and a
   dispatch-shaped readonly native consumer ABI.  The default lab gate remains
@@ -23,7 +23,84 @@
   The latest required lab evidence now runs the future-native arg-slot ABI over
   a merged table built from 32 real online vLLM prelaunch typed-consumer
   exports, so the multi-program packet chain is validated on online handle
-  distributions rather than only on a standalone synthetic table.
+  distributions rather than only on a standalone synthetic table.  The same
+  online-merged canary is now reproducible through a dedicated runner script
+  instead of relying on a hand-materialized artifact.
+
+## Latest Update: Reproducible Online-Merged Arg-Slot Runner
+
+The online-merged arg-slot canary now has a one-step evidence runner:
+
+```text
+scripts/run_premap_online_merged_native_arg_slot_canary.py
+```
+
+It consumes the existing online prelaunch native-stub runner artifact, merges
+the exported typed-consumer input tables, runs the future native arg-slot HIP
+stub, and emits a compact runner report:
+
+```text
+outputs/reports/premap_kernel_consumer/
+  online_merged_future_native_arg_slot_canary_runner_latest.json
+```
+
+The latest GPU1 run used 32 online vLLM prelaunch typed input tables:
+
+```text
+selected_source_count = 32
+merged_row_count = 1841
+block_threads = 256
+expected_program_count = 8
+
+future_kernel_native_dispatch_consumer_row_ok_count = 1841 / 1841
+future_kernel_native_dispatch_ptr_consumer_row_ok_count = 1841 / 1841
+future_kernel_native_arg_slot_consumer_row_ok_count = 1841 / 1841
+
+future_kernel_native_dispatch_consumer_handle_projection_hash_accumulator =
+  9748c8c92c02281b
+future_kernel_native_dispatch_ptr_consumer_handle_projection_hash_accumulator =
+  9748c8c92c02281b
+future_kernel_native_arg_slot_consumer_handle_projection_hash_accumulator =
+  9748c8c92c02281b
+```
+
+The runner preserves the lab safety boundary:
+
+```text
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+current_wna16_arg_compatible = false
+not_a_single_vllm_launch_table = true
+```
+
+Focused validation:
+
+```text
+conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
+  pytest tests/test_run_premap_online_merged_native_arg_slot_canary.py \
+         tests/test_materialize_premap_online_merged_typed_consumer_input.py -q
+
+9 passed
+```
+
+Default lab preflight after adding the runner artifact path:
+
+```text
+outputs/reports/premap_lab_preflight_default_after_online_merged_runner.json
+
+passed = true
+required_evidence = 17 / 17
+optional_evidence = 13 / 13
+```
+
+Full validation:
+
+```text
+conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src pytest tests -q
+
+849 passed, 2 warnings
+```
 
 ## Latest Update: Online-Merged Future Native Arg-Slot Canary
 

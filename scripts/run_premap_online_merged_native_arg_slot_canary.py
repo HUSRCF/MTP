@@ -1,0 +1,397 @@
+#!/usr/bin/env python3
+"""Run a merged online prelaunch typed-consumer arg-slot canary.
+
+This runner turns the existing online prelaunch native-input exports into a
+single multiprogram native-stub input, then runs the future native arg-slot
+consumer stub against that merged input.
+
+It is still a no-op bridge:
+
+* no payload dereference,
+* no ready credit,
+* no router or descriptor-order mutation,
+* no current WNA16 kernel-argument pass.
+
+The merged table is diagnostic evidence only.  It is explicitly not a single
+vLLM launch table; it exists to prove that the future typed ABI can iterate a
+real online-derived row stream across multiple native programs.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+from pathlib import Path
+import sys
+from types import SimpleNamespace
+from typing import Any
+
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from scripts.materialize_premap_online_merged_typed_consumer_input import (  # noqa: E402
+    input_paths_from_runner_artifact,
+    materialize_merged_input,
+)
+from scripts.run_premap_typed_consumer_stub import run_stub, validate_macros  # noqa: E402
+
+
+DEFAULT_SOURCE_RUNNER_JSON = (
+    REPO_ROOT
+    / "outputs"
+    / "reports"
+    / "premap_kernel_consumer"
+    / "online_prelaunch_native_stub_canary_arg_slot_32input_hard_hashchain_preflight_32tables.json"
+)
+DEFAULT_MERGED_OUTPUT_JSON = (
+    REPO_ROOT
+    / "outputs"
+    / "reports"
+    / "premap_kernel_consumer"
+    / "online_merged_prelaunch_typed_consumer_input_arg_slot_32tables.json"
+)
+DEFAULT_STUB_OUTPUT_JSON = (
+    REPO_ROOT
+    / "outputs"
+    / "reports"
+    / "premap_kernel_consumer"
+    / "typed_consumer_stub_gpu1_online_merged_future_native_arg_slot_32tables_canary.json"
+)
+DEFAULT_REPORT_JSON = (
+    REPO_ROOT
+    / "outputs"
+    / "reports"
+    / "premap_kernel_consumer"
+    / "online_merged_future_native_arg_slot_canary_runner.json"
+)
+
+ARG_SLOT_MACROS = [
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCHEMA",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_ROW_ITERATION",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_LIFETIME",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ABI",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ABI",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_ABI",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_PTR_ABI",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ARG_SLOT_ABI",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD",
+    "MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR",
+]
+
+STUB_SUMMARY_KEYS = (
+    "passed",
+    "ok",
+    "row_count",
+    "row_ok_count",
+    "error_count",
+    "input_json",
+    "input_source",
+    "payload_bytes",
+    "passed_to_kernel",
+    "changes_kernel_launch_args",
+    "current_wna16_arg_compatible",
+    "requested_macros",
+    "future_kernel_native_consumer_checked",
+    "future_kernel_native_consumer_row_count",
+    "future_kernel_native_consumer_row_ok_count",
+    "future_kernel_native_launch_consumer_checked",
+    "future_kernel_native_launch_consumer_row_count",
+    "future_kernel_native_launch_consumer_row_ok_count",
+    "future_kernel_native_dispatch_consumer_checked",
+    "future_kernel_native_dispatch_consumer_grid_x",
+    "future_kernel_native_dispatch_consumer_block_x",
+    "future_kernel_native_dispatch_consumer_row_limit",
+    "future_kernel_native_dispatch_consumer_rows_per_program",
+    "future_kernel_native_dispatch_consumer_program_count",
+    "future_kernel_native_dispatch_consumer_full_program_count",
+    "future_kernel_native_dispatch_consumer_last_program_active_rows",
+    "future_kernel_native_dispatch_consumer_inactive_lane_count",
+    "future_kernel_native_dispatch_consumer_launch_covers_active_rows",
+    "future_kernel_native_dispatch_consumer_launch_minimal_cover",
+    "future_kernel_native_dispatch_consumer_handle_projection_hash_accumulator",
+    "future_kernel_native_dispatch_ptr_consumer_checked",
+    "future_kernel_native_dispatch_ptr_consumer_packet_visible",
+    "future_kernel_native_dispatch_ptr_consumer_dispatch_packet_visible",
+    "future_kernel_native_dispatch_ptr_consumer_row_count",
+    "future_kernel_native_dispatch_ptr_consumer_row_ok_count",
+    "future_kernel_native_dispatch_ptr_consumer_handle_projection_hash_accumulator",
+    "future_kernel_native_arg_slot_consumer_checked",
+    "future_kernel_native_arg_slot_consumer_slot_visible",
+    "future_kernel_native_arg_slot_consumer_dispatch_ptr_packet_visible",
+    "future_kernel_native_arg_slot_consumer_dispatch_packet_visible",
+    "future_kernel_native_arg_slot_consumer_packet_chain_depth",
+    "future_kernel_native_arg_slot_consumer_row_count",
+    "future_kernel_native_arg_slot_consumer_row_ok_count",
+    "future_kernel_native_arg_slot_consumer_error_count",
+    "future_kernel_native_arg_slot_consumer_payload_bytes",
+    "future_kernel_native_arg_slot_consumer_passed_to_kernel",
+    "future_kernel_native_arg_slot_consumer_changes_kernel_launch_args",
+    "future_kernel_native_arg_slot_consumer_current_wna16_arg_compatible",
+    "future_kernel_native_arg_slot_consumer_requires_wna16_arg_reinterpretation",
+    "future_kernel_native_arg_slot_consumer_single_field_mirror_checked",
+    "future_kernel_native_arg_slot_consumer_single_field_mirror_field_name",
+    "future_kernel_native_arg_slot_consumer_single_field_mirror_row_count",
+    "future_kernel_native_arg_slot_consumer_single_field_mirror_row_ok_count",
+    "future_kernel_native_arg_slot_consumer_handle_projection_hash_accumulator",
+)
+
+
+def _resolve(path: str | Path) -> Path:
+    candidate = Path(path)
+    return candidate if candidate.is_absolute() else REPO_ROOT / candidate
+
+
+def _write_json(path: Path, payload: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+
+def _summary(payload: dict[str, Any]) -> dict[str, Any]:
+    return {key: payload[key] for key in STUB_SUMMARY_KEYS if key in payload}
+
+
+def _program_count(row_count: int, block_threads: int) -> int:
+    return (int(row_count) + int(block_threads) - 1) // int(block_threads)
+
+
+def _validate_stub(
+    stub: dict[str, Any],
+    *,
+    merged_input: dict[str, Any],
+    merged_output_json: Path,
+    block_threads: int,
+) -> list[str]:
+    failures: list[str] = []
+    row_count = int(merged_input["_meta"]["row_count"])
+    expected_program_count = _program_count(row_count, block_threads)
+    expected_input_json = str(merged_output_json)
+    if stub.get("input_json") != expected_input_json:
+        failures.append("stub_input_json_mismatch")
+    expected_scalars: dict[str, Any] = {
+        "passed": True,
+        "ok": True,
+        "row_count": row_count,
+        "row_ok_count": row_count,
+        "error_count": 0,
+        "payload_bytes": 0,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "future_kernel_native_arg_slot_consumer_checked": True,
+        "future_kernel_native_arg_slot_consumer_row_count": row_count,
+        "future_kernel_native_arg_slot_consumer_row_ok_count": row_count,
+        "future_kernel_native_arg_slot_consumer_error_count": 0,
+        "future_kernel_native_arg_slot_consumer_payload_bytes": 0,
+        "future_kernel_native_arg_slot_consumer_passed_to_kernel": False,
+        "future_kernel_native_arg_slot_consumer_changes_kernel_launch_args": False,
+        "future_kernel_native_arg_slot_consumer_current_wna16_arg_compatible": False,
+        "future_kernel_native_arg_slot_consumer_requires_wna16_arg_reinterpretation": False,
+        "future_kernel_native_arg_slot_consumer_single_field_mirror_checked": True,
+        "future_kernel_native_arg_slot_consumer_single_field_mirror_field_name": "scale_metadata_handle",
+        "future_kernel_native_arg_slot_consumer_single_field_mirror_row_count": row_count,
+        "future_kernel_native_arg_slot_consumer_single_field_mirror_row_ok_count": row_count,
+        "future_kernel_native_dispatch_consumer_checked": True,
+        "future_kernel_native_dispatch_consumer_grid_x": expected_program_count,
+        "future_kernel_native_dispatch_consumer_block_x": int(block_threads),
+        "future_kernel_native_dispatch_consumer_row_limit": row_count,
+        "future_kernel_native_dispatch_consumer_rows_per_program": int(block_threads),
+        "future_kernel_native_dispatch_consumer_program_count": expected_program_count,
+        "future_kernel_native_dispatch_consumer_launch_covers_active_rows": True,
+        "future_kernel_native_dispatch_consumer_launch_minimal_cover": True,
+        "future_kernel_native_dispatch_ptr_consumer_checked": True,
+        "future_kernel_native_dispatch_ptr_consumer_packet_visible": True,
+        "future_kernel_native_dispatch_ptr_consumer_dispatch_packet_visible": True,
+        "future_kernel_native_arg_slot_consumer_slot_visible": True,
+        "future_kernel_native_arg_slot_consumer_dispatch_ptr_packet_visible": True,
+        "future_kernel_native_arg_slot_consumer_dispatch_packet_visible": True,
+        "future_kernel_native_arg_slot_consumer_packet_chain_depth": 3,
+    }
+    for key, expected in expected_scalars.items():
+        if stub.get(key) != expected:
+            failures.append(f"{key}_mismatch:{stub.get(key)!r}!={expected!r}")
+    macros = stub.get("requested_macros")
+    if macros != validate_macros(ARG_SLOT_MACROS):
+        failures.append("requested_macros_mismatch")
+    for key in (
+        "future_kernel_native_dispatch_consumer_handle_projection_hash_accumulator",
+        "future_kernel_native_dispatch_ptr_consumer_handle_projection_hash_accumulator",
+        "future_kernel_native_arg_slot_consumer_handle_projection_hash_accumulator",
+    ):
+        value = stub.get(key)
+        if not isinstance(value, str) or not value:
+            failures.append(f"{key}_missing")
+    values = {
+        stub.get("future_kernel_native_dispatch_consumer_handle_projection_hash_accumulator"),
+        stub.get("future_kernel_native_dispatch_ptr_consumer_handle_projection_hash_accumulator"),
+        stub.get("future_kernel_native_arg_slot_consumer_handle_projection_hash_accumulator"),
+    }
+    if len(values) != 1:
+        failures.append("handle_projection_hash_accumulator_mismatch")
+    return failures
+
+
+def _stub_namespace(args: argparse.Namespace, *, input_json: Path) -> SimpleNamespace:
+    return SimpleNamespace(
+        macro=ARG_SLOT_MACROS,
+        offload_arch=args.offload_arch,
+        force_build=bool(args.force_build),
+        rows=0,
+        input_json=input_json,
+        dispatch_row_offset=0,
+        dispatch_row_limit=None,
+        block_threads=int(args.block_threads),
+        device=int(args.device),
+        omit_aux_pointer=False,
+        hip_visible_devices=args.hip_visible_devices,
+    )
+
+
+def run_canary(args: argparse.Namespace) -> dict[str, Any]:
+    input_paths: list[Path] = []
+    if args.runner_json is not None:
+        input_paths.extend(input_paths_from_runner_artifact(_resolve(args.runner_json)))
+    input_paths.extend(_resolve(path) for path in (args.input_json or []))
+    if len(input_paths) < int(args.min_source_count):
+        raise ValueError(
+            f"need at least {args.min_source_count} online input JSONs; "
+            f"got {len(input_paths)}"
+        )
+
+    merged_output_json = _resolve(args.merged_output_json)
+    stub_output_json = _resolve(args.stub_output_json)
+    report_json = _resolve(args.output_json)
+    merged_input = materialize_merged_input(
+        input_paths,
+        max_inputs=int(args.max_inputs) if args.max_inputs else None,
+        min_total_rows=int(args.min_total_rows),
+        block_threads=int(args.block_threads),
+    )
+    source_count = int(merged_input["_merge_context"]["source_count"])
+    if source_count < int(args.min_source_count):
+        raise ValueError(
+            f"selected source_count {source_count} is below required "
+            f"{args.min_source_count}"
+        )
+    _write_json(merged_output_json, merged_input)
+
+    if args.dry_run:
+        row_count = int(merged_input["_meta"]["row_count"])
+        program_count = _program_count(row_count, int(args.block_threads))
+        stub_payload: dict[str, Any] = {
+            "passed": True,
+            "ok": True,
+            "dry_run": True,
+            "row_count": row_count,
+            "row_ok_count": row_count,
+            "error_count": 0,
+            "input_json": str(merged_output_json),
+            "payload_bytes": 0,
+            "passed_to_kernel": False,
+            "changes_kernel_launch_args": False,
+            "requested_macros": validate_macros(ARG_SLOT_MACROS),
+            "future_kernel_native_arg_slot_consumer_checked": True,
+            "future_kernel_native_arg_slot_consumer_row_count": row_count,
+            "future_kernel_native_arg_slot_consumer_row_ok_count": row_count,
+            "future_kernel_native_arg_slot_consumer_error_count": 0,
+            "future_kernel_native_arg_slot_consumer_payload_bytes": 0,
+            "future_kernel_native_arg_slot_consumer_passed_to_kernel": False,
+            "future_kernel_native_arg_slot_consumer_changes_kernel_launch_args": False,
+            "future_kernel_native_arg_slot_consumer_current_wna16_arg_compatible": False,
+            "future_kernel_native_arg_slot_consumer_requires_wna16_arg_reinterpretation": False,
+            "future_kernel_native_arg_slot_consumer_single_field_mirror_checked": True,
+            "future_kernel_native_arg_slot_consumer_single_field_mirror_field_name": "scale_metadata_handle",
+            "future_kernel_native_arg_slot_consumer_single_field_mirror_row_count": row_count,
+            "future_kernel_native_arg_slot_consumer_single_field_mirror_row_ok_count": row_count,
+            "future_kernel_native_dispatch_consumer_checked": True,
+            "future_kernel_native_dispatch_consumer_grid_x": program_count,
+            "future_kernel_native_dispatch_consumer_block_x": int(args.block_threads),
+            "future_kernel_native_dispatch_consumer_row_limit": row_count,
+            "future_kernel_native_dispatch_consumer_rows_per_program": int(args.block_threads),
+            "future_kernel_native_dispatch_consumer_program_count": program_count,
+            "future_kernel_native_dispatch_consumer_launch_covers_active_rows": True,
+            "future_kernel_native_dispatch_consumer_launch_minimal_cover": True,
+            "future_kernel_native_dispatch_consumer_handle_projection_hash_accumulator": "dry",
+            "future_kernel_native_dispatch_ptr_consumer_checked": True,
+            "future_kernel_native_dispatch_ptr_consumer_packet_visible": True,
+            "future_kernel_native_dispatch_ptr_consumer_dispatch_packet_visible": True,
+            "future_kernel_native_dispatch_ptr_consumer_handle_projection_hash_accumulator": "dry",
+            "future_kernel_native_arg_slot_consumer_slot_visible": True,
+            "future_kernel_native_arg_slot_consumer_dispatch_ptr_packet_visible": True,
+            "future_kernel_native_arg_slot_consumer_dispatch_packet_visible": True,
+            "future_kernel_native_arg_slot_consumer_packet_chain_depth": 3,
+            "future_kernel_native_arg_slot_consumer_handle_projection_hash_accumulator": "dry",
+        }
+    else:
+        stub_payload = run_stub(_stub_namespace(args, input_json=merged_output_json))
+    stub_payload.setdefault("passed", bool(stub_payload.get("ok", False)))
+    stub_payload.setdefault(
+        "failures", [] if bool(stub_payload.get("ok", False)) else ["stub_not_ok"]
+    )
+    _write_json(stub_output_json, stub_payload)
+
+    failures = _validate_stub(
+        stub_payload,
+        merged_input=merged_input,
+        merged_output_json=merged_output_json,
+        block_threads=int(args.block_threads),
+    )
+    report: dict[str, Any] = {
+        "passed": not failures,
+        "failures": failures,
+        "source": "online_merged_future_native_arg_slot_canary_runner",
+        "runner_json": str(args.runner_json) if args.runner_json is not None else None,
+        "input_jsons": [str(path) for path in input_paths],
+        "selected_source_count": source_count,
+        "min_source_count": int(args.min_source_count),
+        "merged_output_json": str(merged_output_json),
+        "stub_output_json": str(stub_output_json),
+        "merged_row_count": int(merged_input["_meta"]["row_count"]),
+        "expected_program_count": int(
+            merged_input["_merge_context"]["expected_program_count"]
+        ),
+        "block_threads": int(args.block_threads),
+        "device": int(args.device),
+        "hip_visible_devices": args.hip_visible_devices,
+        "no_payload": True,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "current_wna16_arg_compatible": False,
+        "not_a_single_vllm_launch_table": True,
+        "stub_summary": _summary(stub_payload),
+    }
+    _write_json(report_json, report)
+    return report
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--runner-json", type=Path, default=DEFAULT_SOURCE_RUNNER_JSON)
+    parser.add_argument("--input-json", type=Path, action="append", default=[])
+    parser.add_argument("--max-inputs", type=int, default=32)
+    parser.add_argument("--min-source-count", type=int, default=32)
+    parser.add_argument("--min-total-rows", type=int, default=257)
+    parser.add_argument("--block-threads", type=int, default=256)
+    parser.add_argument("--device", type=int, default=0)
+    parser.add_argument("--hip-visible-devices")
+    parser.add_argument("--offload-arch", default="gfx1100")
+    parser.add_argument("--force-build", action="store_true")
+    parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--merged-output-json", type=Path, default=DEFAULT_MERGED_OUTPUT_JSON)
+    parser.add_argument("--stub-output-json", type=Path, default=DEFAULT_STUB_OUTPUT_JSON)
+    parser.add_argument("--output-json", type=Path, default=DEFAULT_REPORT_JSON)
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
+    report = run_canary(args)
+    print(json.dumps(report, indent=2, sort_keys=True))
+    return 0 if report.get("passed") else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
