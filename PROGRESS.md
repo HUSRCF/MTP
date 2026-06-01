@@ -24959,3 +24959,28 @@ This promotes the future-native dispatch/arg-slot path from single-table
 online evidence to a 32-table online prelaunch canary under the same strict
 no-defer lab gate.  It still does not hand the typed table to the current
 WNA16 kernel and it does not move payload.
+
+Default lab preflight now also tracks the multi-program future-native
+arg-slot canary as visible optional evidence:
+
+```text
+outputs/reports/premap_lab_preflight_default_with_multiprogram_optional_gate.json
+
+passed = true
+required evidence = 15 / 15
+optional evidence = 14 / 14
+
+future_kernel_native_arg_slot_multiprogram_canary_json:
+  present = true
+  passed = true
+  path = outputs/reports/premap_kernel_consumer/
+    typed_consumer_stub_gpu1_future_native_arg_slot_multiprogram_handle_projection_canary.json
+```
+
+The optional canary is content-checked rather than treated as a loose
+`passed=true` artifact.  It must satisfy the arg-slot no-op safety contract,
+multi-program dispatch geometry, program-iteration hash validation, and
+dispatch / dispatch_ptr / arg_slot handle-projection hash equality.  The
+current artifact uses a mirror-only scale-metadata field check, so the
+multi-program validator does not require the raw scale-metadata handle macro;
+the existing required single-program arg-slot gate remains strict.
