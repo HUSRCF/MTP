@@ -4008,18 +4008,27 @@ def run_premap_lab_preflight(
         dispatch_runner_summary,
         "future_kernel_native_arg_slot_consumer_handle_projection_hash_accumulator",
     )
-    projection_hashes = (
-        dispatch_projection_hash,
-        dispatch_ptr_projection_hash,
-        arg_slot_projection_hash,
+    projection_hash_values = (
+        _hex64_metric(
+            dispatch_runner_summary,
+            "future_kernel_native_dispatch_consumer_handle_projection_hash_accumulator",
+        ),
+        _hex64_metric(
+            dispatch_runner_summary,
+            "future_kernel_native_dispatch_ptr_consumer_handle_projection_hash_accumulator",
+        ),
+        _hex64_metric(
+            dispatch_runner_summary,
+            "future_kernel_native_arg_slot_consumer_handle_projection_hash_accumulator",
+        ),
     )
     row_hashchain_all_valid = all(
         value is not None
         for value in (dispatch_row_hash, dispatch_ptr_row_hash, arg_slot_row_hash)
     )
     projection_hashchain_equal = (
-        all(value is not None for value in projection_hashes)
-        and len(set(projection_hashes)) == 1
+        all(value is not None for value in projection_hash_values)
+        and len(set(projection_hash_values)) == 1
     )
     if not allow_missing_evidence and not defer_online_prelaunch_runner_evidence:
         if not row_hashchain_all_valid:

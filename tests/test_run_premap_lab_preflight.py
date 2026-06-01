@@ -2495,6 +2495,7 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
 def _run_preflight_with_modified_default_runner(
     tmp_path: Path,
     mutate_runner: Callable[[dict[str, object]], None],
+    **preflight_kwargs: object,
 ) -> dict[str, object]:
     default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
     canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
@@ -2516,6 +2517,7 @@ def _run_preflight_with_modified_default_runner(
         trace_configs=[trace_config],
         default_readonly_gate=default_gate,
         canary_gate=canary_gate,
+        **preflight_kwargs,
     )
 
 
@@ -2562,6 +2564,72 @@ def test_premap_lab_preflight_summary_marks_projection_hash_mismatch(
     assert (
         summary["default_kernel_consumer_dispatch_runner_row_hashchain_all_valid"]
         is True
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_dispatch_runner_handle_projection_hashchain_equal"
+        ]
+        is False
+    )
+
+
+def test_premap_lab_preflight_summary_defers_hashchain_hard_failures(
+    tmp_path: Path,
+):
+    def _mutate(runner: dict[str, object]) -> None:
+        dispatch = runner["future_kernel_native_consumer_dispatch_stub_summary"]
+        assert isinstance(dispatch, dict)
+        dispatch[
+            "future_kernel_native_dispatch_ptr_consumer_hash_accumulator"
+        ] = "not_hex"
+        dispatch[
+            "future_kernel_native_dispatch_ptr_consumer_handle_projection_hash_accumulator"
+        ] = "4820"
+
+    result = _run_preflight_with_modified_default_runner(
+        tmp_path,
+        _mutate,
+        defer_online_prelaunch_runner_evidence=True,
+    )
+    summary = result["lab_gate_status_summary"]
+
+    assert result["passed"] is True
+    assert (
+        summary["default_kernel_consumer_dispatch_runner_row_hashchain_all_valid"]
+        is False
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_dispatch_runner_handle_projection_hashchain_equal"
+        ]
+        is False
+    )
+
+
+def test_premap_lab_preflight_summary_allows_missing_hashchain_hard_failures(
+    tmp_path: Path,
+):
+    def _mutate(runner: dict[str, object]) -> None:
+        dispatch = runner["future_kernel_native_consumer_dispatch_stub_summary"]
+        assert isinstance(dispatch, dict)
+        dispatch[
+            "future_kernel_native_dispatch_ptr_consumer_hash_accumulator"
+        ] = "not_hex"
+        dispatch[
+            "future_kernel_native_dispatch_ptr_consumer_handle_projection_hash_accumulator"
+        ] = "4820"
+
+    result = _run_preflight_with_modified_default_runner(
+        tmp_path,
+        _mutate,
+        allow_missing_evidence=True,
+    )
+    summary = result["lab_gate_status_summary"]
+
+    assert result["passed"] is True
+    assert (
+        summary["default_kernel_consumer_dispatch_runner_row_hashchain_all_valid"]
+        is False
     )
     assert (
         summary[
