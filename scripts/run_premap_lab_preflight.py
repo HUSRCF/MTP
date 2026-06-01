@@ -198,6 +198,17 @@ ARG_SLOT_OPTIONAL_MIRROR_LABEL_BY_FIELD = {
         "future_kernel_native_arg_slot_packed_weight_mirror_canary_json"
     ),
 }
+ARG_SLOT_ONLINE_DIAGNOSTIC_SUMMARY_KEY_BY_FIELD = {
+    "aux_metadata_handle": (
+        "future_kernel_native_consumer_dispatch_aux_metadata_stub_summary"
+    ),
+    "descriptor_ptr": (
+        "future_kernel_native_consumer_dispatch_descriptor_ptr_stub_summary"
+    ),
+    "packed_weight_descriptor": (
+        "future_kernel_native_consumer_dispatch_packed_weight_stub_summary"
+    ),
+}
 ONLINE_PRELAUNCH_RUNNER_EVIDENCE_LABEL = (
     "native_typed_consumer_online_prelaunch_canary_runner_json"
 )
@@ -3579,6 +3590,19 @@ def run_premap_lab_preflight(
     arg_slot_online_mirror_field_coverage = _arg_slot_mirror_field_coverage(
         dispatch_runner_summary
     )
+    arg_slot_online_diagnostic_mirror_field_coverage: list[str] = []
+    arg_slot_online_diagnostic_summary_keys: list[str] = []
+    for field, summary_key in ARG_SLOT_ONLINE_DIAGNOSTIC_SUMMARY_KEY_BY_FIELD.items():
+        summary = dispatch_runner_payload.get(summary_key)
+        if not isinstance(summary, dict):
+            continue
+        if _arg_slot_mirror_field_coverage(summary) == [field]:
+            arg_slot_online_diagnostic_mirror_field_coverage.append(field)
+            arg_slot_online_diagnostic_summary_keys.append(summary_key)
+    arg_slot_online_total_mirror_field_coverage = sorted(
+        set(arg_slot_online_mirror_field_coverage)
+        | set(arg_slot_online_diagnostic_mirror_field_coverage)
+    )
     arg_slot_standalone_mirror_field_coverage = _arg_slot_mirror_field_coverage(
         arg_slot_standalone_payload
     )
@@ -4127,6 +4151,19 @@ def run_premap_lab_preflight(
         ),
         "default_kernel_consumer_arg_slot_online_full_field_mirror_coverage": (
             set(arg_slot_online_mirror_field_coverage) == set(ARG_SLOT_MIRROR_FIELDS)
+        ),
+        "default_kernel_consumer_arg_slot_online_diagnostic_mirror_field_coverage": (
+            sorted(arg_slot_online_diagnostic_mirror_field_coverage)
+        ),
+        "default_kernel_consumer_arg_slot_online_diagnostic_summary_keys": (
+            sorted(arg_slot_online_diagnostic_summary_keys)
+        ),
+        "default_kernel_consumer_arg_slot_online_total_mirror_field_coverage": (
+            arg_slot_online_total_mirror_field_coverage
+        ),
+        "default_kernel_consumer_arg_slot_online_total_full_field_mirror_coverage": (
+            set(arg_slot_online_total_mirror_field_coverage)
+            == set(ARG_SLOT_MIRROR_FIELDS)
         ),
         "default_kernel_consumer_arg_slot_optional_mirror_field_coverage": (
             sorted(arg_slot_optional_mirror_field_coverage)

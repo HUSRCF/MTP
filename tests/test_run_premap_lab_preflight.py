@@ -2161,6 +2161,33 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
         summary["default_kernel_consumer_arg_slot_online_full_field_mirror_coverage"]
         is False
     )
+    assert (
+        summary[
+            "default_kernel_consumer_arg_slot_online_diagnostic_mirror_field_coverage"
+        ]
+        == [
+            "aux_metadata_handle",
+            "descriptor_ptr",
+            "packed_weight_descriptor",
+        ]
+    )
+    assert summary["default_kernel_consumer_arg_slot_online_diagnostic_summary_keys"] == [
+        "future_kernel_native_consumer_dispatch_aux_metadata_stub_summary",
+        "future_kernel_native_consumer_dispatch_descriptor_ptr_stub_summary",
+        "future_kernel_native_consumer_dispatch_packed_weight_stub_summary",
+    ]
+    assert summary["default_kernel_consumer_arg_slot_online_total_mirror_field_coverage"] == [
+        "aux_metadata_handle",
+        "descriptor_ptr",
+        "packed_weight_descriptor",
+        "scale_metadata_handle",
+    ]
+    assert (
+        summary[
+            "default_kernel_consumer_arg_slot_online_total_full_field_mirror_coverage"
+        ]
+        is True
+    )
     assert summary["default_kernel_consumer_arg_slot_optional_mirror_field_coverage"] == [
         "aux_metadata_handle",
         "descriptor_ptr",

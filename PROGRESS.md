@@ -23786,6 +23786,18 @@ online runner mirror coverage:
   scale_metadata_handle
   full_field_mirror_coverage = false
 
+online runner diagnostic dispatch coverage:
+  descriptor_ptr
+  packed_weight_descriptor
+  aux_metadata_handle
+
+online runner total coverage:
+  descriptor_ptr
+  packed_weight_descriptor
+  scale_metadata_handle
+  aux_metadata_handle
+  full_field_mirror_coverage = true
+
 standalone required coverage:
   scale_metadata_handle
   full_field_mirror_coverage = false
@@ -23803,8 +23815,8 @@ total standalone coverage:
   full_field_mirror_coverage = true
 ```
 
-This preserves the current gate semantics: the online dispatch runner still
-mirrors only the safest scale metadata field, while standalone native stub
-artifacts provide diagnostic coverage for the remaining fields. No payload is
-moved, no kernel launch argument is changed, and no current WNA16 argument is
-reinterpreted.
+This preserves the current gate semantics: the online dispatch runner's primary
+arg-slot status still mirrors only the safest scale metadata field, while its
+diagnostic dispatch summaries and standalone native stub artifacts cover the
+remaining fields. No payload is moved, no kernel launch argument is changed,
+and no current WNA16 argument is reinterpreted.
