@@ -3326,6 +3326,11 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
         "online_prelaunch_input_row_count_sum": (
             sum(input_row_counts) if input_row_counts else None
         ),
+        "online_prelaunch_input_row_count_diverse": (
+            (min(input_row_counts) < max(input_row_counts))
+            if input_row_counts
+            else None
+        ),
         "online_prelaunch_input_extra_check_count": len(extra_input_check_summaries),
         "online_prelaunch_input_extra_check_passed_count": sum(
             1 for item in extra_input_check_summaries if item.get("passed") is True
@@ -4020,6 +4025,9 @@ def finalize_report_with_artifact_check(
         "min_online_inputs": artifact_payload.get("min_online_inputs"),
         "runner_online_prelaunch_input_check_count": artifact_payload.get(
             "runner_online_prelaunch_input_check_count"
+        ),
+        "runner_online_prelaunch_input_row_counts": artifact_payload.get(
+            "runner_online_prelaunch_input_row_counts"
         ),
         "runner_online_prelaunch_input_row_count_min": artifact_payload.get(
             "runner_online_prelaunch_input_row_count_min"

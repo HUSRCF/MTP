@@ -2513,6 +2513,7 @@ def check_online_native_stub_canary_artifacts(
         "bootstrap_preflight_allowed": bool(allow_bootstrap_preflight),
         "min_online_inputs": int(min_online_inputs),
         "runner_online_prelaunch_input_check_count": online_input_check_count,
+        "runner_online_prelaunch_input_row_counts": row_count_values,
         "runner_online_prelaunch_input_row_count_min": (
             min(row_count_values) if row_count_values else None
         ),

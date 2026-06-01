@@ -281,6 +281,62 @@ def _bool_metric(metrics: dict[str, Any], key: str) -> bool | None:
     return value if isinstance(value, bool) else None
 
 
+def _validate_online_input_row_stats(
+    metrics: dict[str, Any],
+    *,
+    expected_online_input_count: int,
+    failure_prefix: str,
+) -> list[str]:
+    if expected_online_input_count <= 1:
+        return []
+    failures: list[str] = []
+    row_counts = metrics.get("runner_online_prelaunch_input_row_counts")
+    row_min = _int_metric(metrics, "runner_online_prelaunch_input_row_count_min")
+    row_max = _int_metric(metrics, "runner_online_prelaunch_input_row_count_max")
+    row_sum = _int_metric(metrics, "runner_online_prelaunch_input_row_count_sum")
+    row_diverse = _bool_metric(
+        metrics,
+        "runner_online_prelaunch_input_row_count_diverse",
+    )
+    row_count_values: list[int] = []
+    row_counts_valid = True
+    if not isinstance(row_counts, list):
+        failures.append(f"{failure_prefix}_row_counts_missing")
+        row_counts_valid = False
+    elif len(row_counts) != expected_online_input_count:
+        failures.append(f"{failure_prefix}_row_counts_count_mismatch")
+        row_counts_valid = False
+    else:
+        for index, value in enumerate(row_counts):
+            if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
+                failures.append(
+                    f"{failure_prefix}_row_counts_{index:04d}_invalid"
+                )
+                row_counts_valid = False
+                continue
+            row_count_values.append(value)
+    if row_min is None:
+        failures.append(f"{failure_prefix}_row_count_min_missing")
+    if row_max is None:
+        failures.append(f"{failure_prefix}_row_count_max_missing")
+    if row_sum is None:
+        failures.append(f"{failure_prefix}_row_count_sum_missing")
+    if row_diverse is not True:
+        failures.append(f"{failure_prefix}_row_count_not_diverse")
+    if row_min is not None and row_max is not None and row_min >= row_max:
+        failures.append(f"{failure_prefix}_row_count_min_max_invalid")
+    if row_counts_valid and row_count_values:
+        if row_min != min(row_count_values):
+            failures.append(f"{failure_prefix}_row_count_min_mismatch")
+        if row_max != max(row_count_values):
+            failures.append(f"{failure_prefix}_row_count_max_mismatch")
+        if row_sum != sum(row_count_values):
+            failures.append(f"{failure_prefix}_row_count_sum_mismatch")
+        if row_diverse is not (min(row_count_values) < max(row_count_values)):
+            failures.append(f"{failure_prefix}_row_count_diverse_mismatch")
+    return failures
+
+
 def _hex64_metric(metrics: dict[str, Any], key: str) -> int | None:
     value = metrics.get(key)
     if not isinstance(value, str) or not value:
@@ -744,6 +800,13 @@ def _validate_required_evidence_payload(
                 failures.append(
                     "artifact_online_input_extra_check_passed_count_mismatch"
                 )
+        failures.extend(
+            _validate_online_input_row_stats(
+                evidence,
+                expected_online_input_count=expected_online_input_count,
+                failure_prefix="artifact_online_input",
+            )
+        )
         return [f"{evidence_label}:{failure}" for failure in failures]
     if evidence_label in ONLINE_PRELAUNCH_RUNNER_EVIDENCE_LABELS:
         failures: list[str] = []
@@ -2058,6 +2121,13 @@ def _validate_required_evidence_payload(
             failures.append("runner_artifact_check_extra_count_mismatch")
         if artifact_extra_passed_count != extra_passed_count:
             failures.append("runner_artifact_check_extra_passed_count_mismatch")
+        failures.extend(
+            _validate_online_input_row_stats(
+                artifact_check_summary,
+                expected_online_input_count=expected_online_input_count,
+                failure_prefix="runner_artifact_check_online_input",
+            )
+        )
         final_status_summary = evidence.get("final_preflight_status_summary")
         if not isinstance(final_status_summary, dict):
             if not allow_online_runner_self_finalization:
@@ -3902,6 +3972,30 @@ def run_premap_lab_preflight(
         ),
         "default_kernel_consumer_dispatch_runner_artifact_check_min_online_inputs": (
             _int_metric(dispatch_runner_artifact_payload, "min_online_inputs")
+        ),
+        "default_kernel_consumer_dispatch_runner_artifact_check_row_count_min": (
+            _int_metric(
+                dispatch_runner_artifact_payload,
+                "runner_online_prelaunch_input_row_count_min",
+            )
+        ),
+        "default_kernel_consumer_dispatch_runner_artifact_check_row_count_max": (
+            _int_metric(
+                dispatch_runner_artifact_payload,
+                "runner_online_prelaunch_input_row_count_max",
+            )
+        ),
+        "default_kernel_consumer_dispatch_runner_artifact_check_row_count_sum": (
+            _int_metric(
+                dispatch_runner_artifact_payload,
+                "runner_online_prelaunch_input_row_count_sum",
+            )
+        ),
+        "default_kernel_consumer_dispatch_runner_artifact_check_row_count_diverse": (
+            _bool_metric(
+                dispatch_runner_artifact_payload,
+                "runner_online_prelaunch_input_row_count_diverse",
+            )
         ),
         "default_kernel_consumer_dispatch_runner_artifact_check_final_deferred_count": (
             _int_metric(dispatch_runner_artifact_payload, "final_deferred_count")

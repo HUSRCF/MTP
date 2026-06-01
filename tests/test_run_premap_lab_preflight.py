@@ -1632,6 +1632,7 @@ def _write_gate(
 
         def _artifact_check_payload(input_count: int) -> dict[str, object]:
             extra_count = input_count - 1
+            row_counts = [4] if input_count <= 1 else [4] + [2] * (input_count - 1)
             return {
                 "passed": True,
                 "failures": [],
@@ -1640,6 +1641,13 @@ def _write_gate(
                 "require_all_field_mirror_stubs": True,
                 "min_online_inputs": input_count,
                 "runner_online_prelaunch_input_check_count": input_count,
+                "runner_online_prelaunch_input_row_counts": row_counts,
+                "runner_online_prelaunch_input_row_count_min": min(row_counts),
+                "runner_online_prelaunch_input_row_count_max": max(row_counts),
+                "runner_online_prelaunch_input_row_count_sum": sum(row_counts),
+                "runner_online_prelaunch_input_row_count_diverse": (
+                    min(row_counts) < max(row_counts)
+                ),
                 "runner_online_prelaunch_input_extra_check_count": extra_count,
                 "runner_online_prelaunch_input_extra_check_passed_count": extra_count,
                 "runner_descriptor_ptr_mirror_stub_row_count": 2,
@@ -2037,6 +2045,30 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
             "default_kernel_consumer_dispatch_runner_artifact_check_min_online_inputs"
         ]
         == 32
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_dispatch_runner_artifact_check_row_count_min"
+        ]
+        == 2
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_dispatch_runner_artifact_check_row_count_max"
+        ]
+        == 4
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_dispatch_runner_artifact_check_row_count_sum"
+        ]
+        == 66
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_dispatch_runner_artifact_check_row_count_diverse"
+        ]
+        is True
     )
     assert (
         summary[
@@ -3648,6 +3680,116 @@ def test_premap_lab_preflight_rejects_runner_embedded_artifact_defer(
     assert (
         "future_kernel_native_dispatch_consumer_online_runner_32_128export_json:"
         "runner_artifact_check_final_deferred_count_nonzero"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_runner_embedded_artifact_nondiverse_rows(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    runner_32_path = (
+        tmp_path / "reports/default_gate_native_online_prelaunch_canary_runner_32.json"
+    )
+    payload = json.loads(runner_32_path.read_text())
+    artifact = payload["artifact_check_summary"]
+    artifact["runner_online_prelaunch_input_row_counts"] = [4] * 32
+    artifact["runner_online_prelaunch_input_row_count_min"] = 4
+    artifact["runner_online_prelaunch_input_row_count_max"] = 4
+    artifact["runner_online_prelaunch_input_row_count_sum"] = 128
+    artifact["runner_online_prelaunch_input_row_count_diverse"] = False
+    _write(runner_32_path, json.dumps(payload) + "\n")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is False
+    failures = result["default_readonly_gate_required_evidence_check"]["failures"]
+    assert (
+        "future_kernel_native_dispatch_consumer_online_runner_32_128export_json:"
+        "runner_artifact_check_online_input_row_count_not_diverse"
+    ) in failures
+    assert (
+        "future_kernel_native_dispatch_consumer_online_runner_32_128export_json:"
+        "runner_artifact_check_online_input_row_count_min_max_invalid"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_artifact_check_missing_row_stats(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    artifact_32_path = (
+        tmp_path
+        / "reports/default_gate_native_online_prelaunch_canary_artifact_check_32.json"
+    )
+    payload = json.loads(artifact_32_path.read_text())
+    payload.pop("runner_online_prelaunch_input_row_count_min")
+    _write(artifact_32_path, json.dumps(payload) + "\n")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is False
+    failures = result["default_readonly_gate_required_evidence_check"]["failures"]
+    assert (
+        "future_kernel_native_dispatch_consumer_online_artifact_check_32_128export_json:"
+        "artifact_online_input_row_count_min_missing"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_artifact_check_bad_row_sum(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    artifact_32_path = (
+        tmp_path
+        / "reports/default_gate_native_online_prelaunch_canary_artifact_check_32.json"
+    )
+    payload = json.loads(artifact_32_path.read_text())
+    payload["runner_online_prelaunch_input_row_count_sum"] = 65
+    _write(artifact_32_path, json.dumps(payload) + "\n")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is False
+    failures = result["default_readonly_gate_required_evidence_check"]["failures"]
+    assert (
+        "future_kernel_native_dispatch_consumer_online_artifact_check_32_128export_json:"
+        "artifact_online_input_row_count_sum_mismatch"
     ) in failures
 
 

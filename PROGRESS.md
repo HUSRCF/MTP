@@ -24273,6 +24273,42 @@ conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
 798 passed, 2 warnings
 ```
 
+Follow-up lab preflight hardening:
+
+```text
+default lab preflight now also requires/exposes:
+  default_kernel_consumer_dispatch_runner_artifact_check_row_count_min = 8
+  default_kernel_consumer_dispatch_runner_artifact_check_row_count_max = 198
+  default_kernel_consumer_dispatch_runner_artifact_check_row_count_sum = 1841
+  default_kernel_consumer_dispatch_runner_artifact_check_row_count_diverse = true
+
+default preflight:
+  outputs/reports/premap_lab_preflight_default_after_rowstats_summary_fields.json
+
+passed = true
+runtime_gate_evidence_deferred_count = 0
+strict_default_gate_evidence_deferred_count = 0
+```
+
+The canary runner now also writes its own top-level
+`online_prelaunch_input_row_count_diverse` field, so runner output, artifact
+checker output, and lab preflight status use the same row-shape diversity
+contract.
+
+The artifact checker also exposes the raw 32-entry row-count list, and lab
+preflight recomputes min/max/sum/diverse from that list.  This prevents a
+tampered or stale artifact summary from satisfying the default gate with an
+incorrect `row_count_sum`.
+
+Validation:
+
+```text
+conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
+  pytest tests -q
+
+800 passed, 2 warnings
+```
+
 Safety boundary unchanged:
 
 ```text
