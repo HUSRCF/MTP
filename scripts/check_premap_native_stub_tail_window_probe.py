@@ -137,8 +137,8 @@ def _check_dispatch_summary(
     offset = _int(summary.get("future_kernel_native_dispatch_consumer_row_offset"))
     limit = _int(summary.get("future_kernel_native_dispatch_consumer_row_limit"))
     active = _int(summary.get("future_kernel_native_dispatch_consumer_active_rows"))
-    if row_count is None or row_count <= expected_tail_window_size:
-        failures.append(f"{prefix}_row_count_not_larger_than_tail_window")
+    if row_count is None or row_count <= 0:
+        failures.append(f"{prefix}_row_count_invalid")
     if (
         row_count is not None
         and expected_input_row_count is not None
@@ -176,10 +176,17 @@ def check_tail_window_probe(
     runner_json: Path = DEFAULT_RUNNER_JSON,
     expected_tail_window_size: int = 8,
     min_online_inputs: int = 4,
-    require_diverse_row_counts: bool = False,
+    min_tail_windowed_inputs: int = 4,
+    require_diverse_row_counts: bool = True,
 ) -> dict[str, Any]:
     runner_path = runner_json.resolve()
     failures: list[str] = []
+    if int(expected_tail_window_size) <= 0:
+        failures.append("expected_tail_window_size_not_positive")
+    if int(min_online_inputs) <= 0:
+        failures.append("min_online_inputs_not_positive")
+    if int(min_tail_windowed_inputs) <= 0:
+        failures.append("min_tail_windowed_inputs_not_positive")
     try:
         runner = _load_json(runner_path)
     except (
@@ -238,6 +245,13 @@ def check_tail_window_probe(
             failures.append("runner_online_input_row_count_diverse_mismatch")
         if require_diverse_row_counts and not row_counts_diverse:
             failures.append("runner_online_input_row_counts_not_diverse")
+        tail_windowed_input_count = sum(
+            1 for value in valid_row_counts if value > int(expected_tail_window_size)
+        )
+        if tail_windowed_input_count < int(min_tail_windowed_inputs):
+            failures.append("runner_tail_windowed_input_count_below_min")
+    else:
+        tail_windowed_input_count = 0
 
     expected_first_input_row_count = valid_row_counts[0] if valid_row_counts else None
     dispatch_window_rows: dict[str, int | None] = {}
@@ -352,6 +366,7 @@ def check_tail_window_probe(
         "runner_json": str(runner_path),
         "expected_tail_window_size": int(expected_tail_window_size),
         "min_online_inputs": int(min_online_inputs),
+        "min_tail_windowed_inputs": int(min_tail_windowed_inputs),
         "runner_online_prelaunch_input_check_count": input_count,
         "runner_online_prelaunch_input_row_counts": valid_row_counts,
         "runner_online_prelaunch_input_row_count_min": (
@@ -368,6 +383,7 @@ def check_tail_window_probe(
             if valid_row_counts
             else None
         ),
+        "runner_tail_windowed_input_count": tail_windowed_input_count,
         "dispatch_input_rows": dispatch_input_rows,
         "dispatch_window_rows": dispatch_window_rows,
         "dispatch_offsets": dispatch_offsets,
@@ -381,7 +397,19 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--runner-json", type=Path, default=DEFAULT_RUNNER_JSON)
     parser.add_argument("--expected-tail-window-size", type=int, default=8)
     parser.add_argument("--min-online-inputs", type=int, default=4)
-    parser.add_argument("--require-diverse-row-counts", action="store_true")
+    parser.add_argument("--min-tail-windowed-inputs", type=int, default=4)
+    diverse_group = parser.add_mutually_exclusive_group()
+    diverse_group.add_argument(
+        "--require-diverse-row-counts",
+        action="store_true",
+        dest="require_diverse_row_counts",
+        default=True,
+    )
+    diverse_group.add_argument(
+        "--allow-uniform-row-counts",
+        action="store_false",
+        dest="require_diverse_row_counts",
+    )
     parser.add_argument("--output-json", type=Path)
     return parser
 
@@ -392,6 +420,7 @@ def main(argv: list[str] | None = None) -> int:
         runner_json=args.runner_json,
         expected_tail_window_size=args.expected_tail_window_size,
         min_online_inputs=args.min_online_inputs,
+        min_tail_windowed_inputs=args.min_tail_windowed_inputs,
         require_diverse_row_counts=args.require_diverse_row_counts,
     )
     if args.output_json is not None:

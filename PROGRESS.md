@@ -24353,6 +24353,21 @@ row_count_diverse = true
   row_count_min/max/sum = 106 / 190 / 1294
   row_count_diverse = true
 
+16-input mixed-size check:
+  runner:
+    outputs/reports/premap_kernel_consumer/
+      online_prelaunch_native_stub_canary_arg_slot_16input_tail8_probe.json
+  checker output:
+    outputs/reports/premap_kernel_consumer/
+      online_prelaunch_native_stub_canary_arg_slot_16input_tail8_probe_check.json
+  passed = true
+  input row counts = [174, 190, 106, 187, 139, 134, 175, 189,
+                      173, 198, 8, 8, 8, 8, 8, 8]
+  row_count_min/max/sum = 8 / 198 / 1713
+  row_count_diverse = true
+  tail_windowed_input_count = 10
+  extra_online_input_tail_window_check_count = 15
+
 dispatch input rows:
   scale_metadata_handle = 174
   descriptor_ptr = 174
@@ -24381,6 +24396,19 @@ entry, not just the top-level first input:
 ```text
 extra_online_input_tail_window_check_count = 7
 ```
+
+The 16-input checker extends this to mixed-size online inputs.  Inputs with
+`row_count > tail_window_size` must consume exactly the tail window, while
+inputs with `row_count <= tail_window_size` consume their full table with the
+same offset/limit/active-row formula.  This prevents the side artifact from
+rejecting valid small prepared tables while still requiring real tail-window
+coverage through `min_tail_windowed_inputs`.
+
+The checker defaults are intentionally conservative for this side artifact:
+`min_tail_windowed_inputs=4` and row-count diversity is required unless a caller
+explicitly opts out with `--allow-uniform-row-counts`.  The 16-input artifact
+above was checked with `--min-tail-windowed-inputs 8`, and 10 inputs actually
+exercised the tail-window path.
 
 This is intentionally not the default lab gate yet.  The default preflight
 continues to require full-table coverage.  The tail-window artifact proves the
