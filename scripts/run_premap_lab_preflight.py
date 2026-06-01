@@ -3144,6 +3144,7 @@ def _summarize_required_evidence_check(
     return {
         "passed": bool(check.get("passed", False)),
         "required_count": required_count,
+        "label_count": required_count,
         "present_count": present_count,
         "passed_count": passed_count,
         "evidence": evidence,
