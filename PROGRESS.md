@@ -24428,6 +24428,25 @@ explicitly opts out with `--allow-uniform-row-counts`.  The 16-input artifact
 above was checked with `--min-tail-windowed-inputs 8`, and 10 inputs actually
 exercised the tail-window path.
 
+Default lab preflight after the 32-input side probe:
+
+```text
+outputs/reports/premap_lab_preflight_default_after_tail_window_side_probe.json
+
+passed = true
+default_contract_passed = true
+default_kernel_consumer_dispatch_full_table_required = true
+default_kernel_consumer_dispatch_full_table_checked = true
+default_kernel_consumer_arg_slot_online_total_full_field_mirror_coverage = true
+default_kernel_consumer_arg_slot_passed_to_kernel = false
+default_kernel_consumer_arg_slot_changes_kernel_launch_args = false
+default_kernel_consumer_arg_slot_current_wna16_arg_compatible = false
+default_kernel_consumer_arg_slot_requires_wna16_arg_reinterpretation = false
+```
+
+This confirms the tail-window side evidence does not replace or weaken the
+default full-table lab gate.
+
 This is intentionally not the default lab gate yet.  The default preflight
 continues to require full-table coverage.  The tail-window artifact proves the
 future kernel-side ABI can consume a row-window slice of the prepared handle
