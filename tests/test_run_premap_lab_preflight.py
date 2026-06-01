@@ -2154,6 +2154,36 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
         summary["default_kernel_consumer_arg_slot_mirror_field_name"]
         == "scale_metadata_handle"
     )
+    assert summary["default_kernel_consumer_arg_slot_online_mirror_field_coverage"] == [
+        "scale_metadata_handle"
+    ]
+    assert (
+        summary["default_kernel_consumer_arg_slot_online_full_field_mirror_coverage"]
+        is False
+    )
+    assert summary["default_kernel_consumer_arg_slot_optional_mirror_field_coverage"] == [
+        "aux_metadata_handle",
+        "descriptor_ptr",
+        "packed_weight_descriptor",
+    ]
+    assert summary["default_kernel_consumer_arg_slot_optional_mirror_evidence_labels"] == [
+        "future_kernel_native_arg_slot_aux_metadata_mirror_canary_json",
+        "future_kernel_native_arg_slot_descriptor_ptr_mirror_canary_json",
+        "future_kernel_native_arg_slot_packed_weight_mirror_canary_json",
+    ]
+    assert summary["default_kernel_consumer_arg_slot_total_mirror_field_coverage"] == [
+        "aux_metadata_handle",
+        "descriptor_ptr",
+        "packed_weight_descriptor",
+        "scale_metadata_handle",
+    ]
+    assert (
+        summary["default_kernel_consumer_arg_slot_total_full_field_mirror_coverage"]
+        is True
+    )
+    assert summary["default_kernel_consumer_arg_slot_all_mirror_fields"] == list(
+        PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_COLUMNS
+    )
     assert summary["default_kernel_consumer_arg_slot_mirror_row_count"] == 2
     assert summary["default_kernel_consumer_arg_slot_mirror_row_ok_count"] == 2
     assert summary["default_kernel_consumer_arg_slot_mirror_error_count"] == 0
@@ -2250,6 +2280,16 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert (
         summary[
             "default_kernel_consumer_arg_slot_standalone_current_wna16_arg_compatible"
+        ]
+        is False
+    )
+    assert (
+        summary["default_kernel_consumer_arg_slot_standalone_mirror_field_coverage"]
+        == ["scale_metadata_handle"]
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_arg_slot_standalone_full_field_mirror_coverage"
         ]
         is False
     )

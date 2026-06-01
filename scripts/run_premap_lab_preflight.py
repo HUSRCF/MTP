@@ -190,6 +190,14 @@ OPTIONAL_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
     "native_typed_consumer_stub_online_prelaunch_input_per_field_canary_json",
     "packed_weight_single_field_handle_handoff_canary_smoke_json",
 }
+ARG_SLOT_MIRROR_FIELDS = tuple(PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_COLUMNS)
+ARG_SLOT_OPTIONAL_MIRROR_LABEL_BY_FIELD = {
+    "aux_metadata_handle": "future_kernel_native_arg_slot_aux_metadata_mirror_canary_json",
+    "descriptor_ptr": "future_kernel_native_arg_slot_descriptor_ptr_mirror_canary_json",
+    "packed_weight_descriptor": (
+        "future_kernel_native_arg_slot_packed_weight_mirror_canary_json"
+    ),
+}
 ONLINE_PRELAUNCH_RUNNER_EVIDENCE_LABEL = (
     "native_typed_consumer_online_prelaunch_canary_runner_json"
 )
@@ -3144,6 +3152,35 @@ def _find_evidence_row(
     return {}
 
 
+def _evidence_row_passed(row: dict[str, Any]) -> bool:
+    return (
+        row.get("exists") is True
+        and row.get("valid_json") is True
+        and row.get("passed_value") is True
+        and row.get("failures_value") == []
+        and "failure" not in row
+    )
+
+
+def _arg_slot_mirror_field_coverage(payload: dict[str, Any]) -> list[str]:
+    field = payload.get(
+        "future_kernel_native_arg_slot_consumer_single_field_mirror_field_name"
+    )
+    if (
+        payload.get("future_kernel_native_arg_slot_consumer_single_field_mirror_checked")
+        is True
+        and _int_metric(
+            payload,
+            "future_kernel_native_arg_slot_consumer_single_field_mirror_error_count",
+        )
+        == 0
+        and isinstance(field, str)
+        and field in ARG_SLOT_MIRROR_FIELDS
+    ):
+        return [field]
+    return []
+
+
 def _load_evidence_payload_from_check(
     check: dict[str, Any],
     label: str,
@@ -3539,6 +3576,30 @@ def run_premap_lab_preflight(
     )
     if not isinstance(dispatch_runner_summary, dict):
         dispatch_runner_summary = {}
+    arg_slot_online_mirror_field_coverage = _arg_slot_mirror_field_coverage(
+        dispatch_runner_summary
+    )
+    arg_slot_standalone_mirror_field_coverage = _arg_slot_mirror_field_coverage(
+        arg_slot_standalone_payload
+    )
+    arg_slot_optional_mirror_field_coverage: list[str] = []
+    arg_slot_optional_mirror_evidence_labels: list[str] = []
+    for field, label in ARG_SLOT_OPTIONAL_MIRROR_LABEL_BY_FIELD.items():
+        row = _find_evidence_row(default_gate_optional_evidence_check, label)
+        if not _evidence_row_passed(row):
+            continue
+        payload = _load_evidence_payload_from_check(
+            default_gate_optional_evidence_check,
+            label,
+            root=root,
+        )
+        if _arg_slot_mirror_field_coverage(payload) == [field]:
+            arg_slot_optional_mirror_field_coverage.append(field)
+            arg_slot_optional_mirror_evidence_labels.append(label)
+    arg_slot_total_mirror_field_coverage = sorted(
+        set(arg_slot_standalone_mirror_field_coverage)
+        | set(arg_slot_optional_mirror_field_coverage)
+    )
     dispatch_runner_final_status_summary = dispatch_runner_payload.get(
         "final_preflight_status_summary",
     )
@@ -3855,6 +3916,13 @@ def run_premap_lab_preflight(
                 "future_kernel_native_arg_slot_consumer_current_wna16_arg_compatible",
             )
         ),
+        "default_kernel_consumer_arg_slot_standalone_mirror_field_coverage": (
+            arg_slot_standalone_mirror_field_coverage
+        ),
+        "default_kernel_consumer_arg_slot_standalone_full_field_mirror_coverage": (
+            set(arg_slot_standalone_mirror_field_coverage)
+            == set(ARG_SLOT_MIRROR_FIELDS)
+        ),
         "default_kernel_consumer_dispatch_checked": (
             _bool_metric(
                 dispatch_runner_summary,
@@ -4053,6 +4121,27 @@ def run_premap_lab_preflight(
             dispatch_runner_summary.get(
                 "future_kernel_native_arg_slot_consumer_single_field_mirror_field_name"
             )
+        ),
+        "default_kernel_consumer_arg_slot_online_mirror_field_coverage": (
+            arg_slot_online_mirror_field_coverage
+        ),
+        "default_kernel_consumer_arg_slot_online_full_field_mirror_coverage": (
+            set(arg_slot_online_mirror_field_coverage) == set(ARG_SLOT_MIRROR_FIELDS)
+        ),
+        "default_kernel_consumer_arg_slot_optional_mirror_field_coverage": (
+            sorted(arg_slot_optional_mirror_field_coverage)
+        ),
+        "default_kernel_consumer_arg_slot_optional_mirror_evidence_labels": (
+            sorted(arg_slot_optional_mirror_evidence_labels)
+        ),
+        "default_kernel_consumer_arg_slot_total_mirror_field_coverage": (
+            arg_slot_total_mirror_field_coverage
+        ),
+        "default_kernel_consumer_arg_slot_total_full_field_mirror_coverage": (
+            set(arg_slot_total_mirror_field_coverage) == set(ARG_SLOT_MIRROR_FIELDS)
+        ),
+        "default_kernel_consumer_arg_slot_all_mirror_fields": (
+            list(ARG_SLOT_MIRROR_FIELDS)
         ),
         "default_kernel_consumer_arg_slot_mirror_row_count": (
             arg_slot_mirror_row_count

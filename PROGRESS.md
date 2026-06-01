@@ -23773,3 +23773,38 @@ optional diagnostic:
   packed_weight_descriptor
   aux_metadata_handle
 ```
+
+The lab preflight summary now exposes arg-slot mirror field coverage explicitly,
+so the online runner status cannot be mistaken for all-field online mirror
+coverage:
+
+```text
+output = outputs/reports/premap_lab_preflight_status_arg_slot_coverage.json
+passed = true
+
+online runner mirror coverage:
+  scale_metadata_handle
+  full_field_mirror_coverage = false
+
+standalone required coverage:
+  scale_metadata_handle
+  full_field_mirror_coverage = false
+
+standalone optional diagnostic coverage:
+  descriptor_ptr
+  packed_weight_descriptor
+  aux_metadata_handle
+
+total standalone coverage:
+  descriptor_ptr
+  packed_weight_descriptor
+  scale_metadata_handle
+  aux_metadata_handle
+  full_field_mirror_coverage = true
+```
+
+This preserves the current gate semantics: the online dispatch runner still
+mirrors only the safest scale metadata field, while standalone native stub
+artifacts provide diagnostic coverage for the remaining fields. No payload is
+moved, no kernel launch argument is changed, and no current WNA16 argument is
+reinterpreted.
