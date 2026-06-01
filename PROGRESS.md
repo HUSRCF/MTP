@@ -29,7 +29,8 @@
 
 ## Latest Update: Reproducible Online-Merged Arg-Slot Runner
 
-The online-merged arg-slot canary now has a one-step evidence runner:
+The online-merged arg-slot canary now has a one-step evidence runner, and the
+default lab preflight now checks that runner as required evidence:
 
 ```text
 scripts/run_premap_online_merged_native_arg_slot_canary.py
@@ -106,13 +107,13 @@ conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
 10 passed
 ```
 
-Default lab preflight after adding the runner artifact path:
+Default lab preflight after promoting the runner artifact to required evidence:
 
 ```text
-outputs/reports/premap_lab_preflight_default_after_online_merged_runner.json
+outputs/reports/premap_lab_preflight_default_after_runner_required_gate.json
 
 passed = true
-required_evidence = 17 / 17
+required_evidence = 18 / 18
 optional_evidence = 13 / 13
 ```
 
@@ -121,7 +122,7 @@ Full validation:
 ```text
 conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src pytest tests -q
 
-850 passed, 2 warnings
+851 passed, 2 warnings
 ```
 
 ## Latest Update: Online-Merged Future Native Arg-Slot Canary
@@ -179,13 +180,14 @@ future_kernel_native_arg_slot_consumer_handle_projection_hash_accumulator =
   9748c8c92c02281b
 ```
 
-Default lab preflight now accepts this as required evidence:
+Default lab preflight now accepts this as required evidence together with the
+reproducible runner evidence:
 
 ```text
-outputs/reports/premap_lab_preflight_default_online_merged_multiprogram_required_gate.json
+outputs/reports/premap_lab_preflight_default_after_runner_required_gate.json
 
 passed = true
-required_evidence = 17 / 17
+required_evidence = 18 / 18
 optional_evidence = 13 / 13
 ```
 

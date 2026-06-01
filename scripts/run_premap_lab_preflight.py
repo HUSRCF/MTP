@@ -175,6 +175,7 @@ REQUIRED_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
     "future_kernel_native_dispatch_ptr_standalone_canary_json",
     "future_kernel_native_arg_slot_standalone_canary_json",
     "future_kernel_native_arg_slot_multiprogram_canary_json",
+    "future_kernel_native_arg_slot_online_merged_multiprogram_runner_json",
     "future_kernel_native_arg_slot_online_merged_multiprogram_canary_json",
     "future_kernel_native_dispatch_consumer_online_artifact_check_32_128export_json",
     "future_kernel_native_dispatch_consumer_online_runner_32_128export_json",
@@ -709,6 +710,7 @@ def _validate_required_evidence_payload(
         "future_kernel_native_arg_slot_aux_metadata_mirror_canary_json",
         "future_kernel_native_arg_slot_descriptor_ptr_mirror_canary_json",
         "future_kernel_native_arg_slot_multiprogram_canary_json",
+        "future_kernel_native_arg_slot_online_merged_multiprogram_runner_json",
         "future_kernel_native_arg_slot_online_merged_multiprogram_canary_json",
         "future_kernel_native_arg_slot_packed_weight_mirror_canary_json",
         *known_stub_labels,
@@ -776,6 +778,15 @@ def _validate_required_evidence_payload(
             for failure in _validate_future_native_arg_slot_online_merged_multiprogram_evidence(
                 evidence,
                 root=root,
+            )
+        ]
+    if evidence_label == "future_kernel_native_arg_slot_online_merged_multiprogram_runner_json":
+        return [
+            f"{evidence_label}:{failure}"
+            for failure in _validate_future_native_arg_slot_online_merged_multiprogram_runner_evidence(
+                evidence,
+                root=root,
+                evidence_paths=evidence_paths,
             )
         ]
     if evidence_label in ONLINE_PRELAUNCH_ARTIFACT_EVIDENCE_LABELS:
@@ -3257,6 +3268,146 @@ def _validate_future_native_arg_slot_online_merged_multiprogram_evidence(
                     failures.append(
                         f"{failure_prefix}_source_context_{idx}_row_count_mismatch"
                     )
+    return failures
+
+
+def _validate_future_native_arg_slot_online_merged_multiprogram_runner_evidence(
+    evidence: dict[str, Any],
+    *,
+    root: Path | None = None,
+    evidence_paths: dict[str, Any] | None = None,
+) -> list[str]:
+    failure_prefix = "online_merged_multiprogram_arg_slot_runner"
+    failures: list[str] = []
+    if evidence.get("passed") is not True:
+        failures.append(f"{failure_prefix}_not_passed")
+    runner_failures = evidence.get("failures")
+    if runner_failures != []:
+        failures.append(f"{failure_prefix}_failures_not_empty")
+    if evidence.get("source") != "online_merged_future_native_arg_slot_canary_runner":
+        failures.append(f"{failure_prefix}_source_mismatch")
+    if evidence.get("not_a_single_vllm_launch_table") is not True:
+        failures.append(f"{failure_prefix}_single_launch_flag_mismatch")
+    for key, expected_value in {
+        "no_payload": True,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "current_wna16_arg_compatible": False,
+    }.items():
+        if evidence.get(key) != expected_value:
+            failures.append(f"{failure_prefix}_{key}_mismatch")
+
+    source_count = _int_metric(evidence, "selected_source_count")
+    merged_row_count = _int_metric(evidence, "merged_row_count")
+    block_threads = _int_metric(evidence, "block_threads")
+    merged_program_count = _int_metric(evidence, "merged_expected_program_count")
+    dispatch_offset = _int_metric(evidence, "dispatch_row_offset")
+    dispatch_limit = _int_metric(evidence, "dispatch_row_limit")
+    dispatch_active_rows = _int_metric(evidence, "dispatch_active_rows")
+    dispatch_program_count = _int_metric(evidence, "dispatch_expected_program_count")
+    if source_count is None:
+        failures.append(f"{failure_prefix}_source_count_missing")
+    elif source_count < 32:
+        failures.append(f"{failure_prefix}_source_count_too_small")
+    if merged_row_count is None or merged_row_count <= 0:
+        failures.append(f"{failure_prefix}_merged_row_count_invalid")
+    if block_threads is None or block_threads <= 0:
+        failures.append(f"{failure_prefix}_block_threads_invalid")
+    if (
+        merged_row_count is not None
+        and block_threads is not None
+        and merged_program_count is not None
+        and (merged_row_count + block_threads - 1) // block_threads
+        != merged_program_count
+    ):
+        failures.append(f"{failure_prefix}_merged_program_count_mismatch")
+    # The default lab gate requires the runner artifact to cover the full merged
+    # table.  Tail/window runners are valid supporting diagnostics but are not
+    # the required default evidence.
+    if dispatch_offset != 0:
+        failures.append(f"{failure_prefix}_dispatch_offset_not_zero")
+    if merged_row_count is not None and dispatch_limit != merged_row_count:
+        failures.append(f"{failure_prefix}_dispatch_limit_not_full_table")
+    if merged_row_count is not None and dispatch_active_rows != merged_row_count:
+        failures.append(f"{failure_prefix}_dispatch_active_rows_mismatch")
+    if (
+        dispatch_active_rows is not None
+        and block_threads is not None
+        and dispatch_program_count is not None
+        and (dispatch_active_rows + block_threads - 1) // block_threads
+        != dispatch_program_count
+    ):
+        failures.append(f"{failure_prefix}_dispatch_program_count_mismatch")
+
+    stub_summary = evidence.get("stub_summary")
+    if not isinstance(stub_summary, dict):
+        failures.append(f"{failure_prefix}_stub_summary_missing")
+        stub_summary = {}
+    else:
+        for key, expected_value in {
+            "passed": True,
+            "ok": True,
+            "payload_bytes": 0,
+            "passed_to_kernel": False,
+            "changes_kernel_launch_args": False,
+            "future_kernel_native_arg_slot_consumer_checked": True,
+            "future_kernel_native_arg_slot_consumer_passed_to_kernel": False,
+            "future_kernel_native_arg_slot_consumer_changes_kernel_launch_args": False,
+            "future_kernel_native_arg_slot_consumer_current_wna16_arg_compatible": False,
+            "future_kernel_native_arg_slot_consumer_requires_wna16_arg_reinterpretation": False,
+        }.items():
+            if stub_summary.get(key) != expected_value:
+                failures.append(f"{failure_prefix}_stub_summary_{key}_mismatch")
+        if (
+            merged_row_count is not None
+            and stub_summary.get("future_kernel_native_arg_slot_consumer_row_count")
+            != merged_row_count
+        ):
+            failures.append(f"{failure_prefix}_stub_summary_arg_slot_row_count_mismatch")
+        if (
+            dispatch_program_count is not None
+            and stub_summary.get("future_kernel_native_dispatch_consumer_grid_x")
+            != dispatch_program_count
+        ):
+            failures.append(f"{failure_prefix}_stub_summary_dispatch_grid_mismatch")
+
+    stub_output = evidence.get("stub_output_json")
+    if not isinstance(stub_output, str) or not stub_output:
+        failures.append(f"{failure_prefix}_stub_output_json_missing")
+        return failures
+    if evidence_paths is not None:
+        expected_stub_output = evidence_paths.get(
+            "future_kernel_native_arg_slot_online_merged_multiprogram_canary_json"
+        )
+        if isinstance(expected_stub_output, str) and expected_stub_output:
+            if root is not None:
+                expected_path = _path_for_label(expected_stub_output, root).resolve()
+                actual_path = _path_for_label(stub_output, root).resolve()
+                if expected_path != actual_path:
+                    failures.append(f"{failure_prefix}_stub_output_path_mismatch")
+            elif expected_stub_output != stub_output:
+                failures.append(f"{failure_prefix}_stub_output_path_mismatch")
+    if root is None:
+        return failures
+    stub_path = _path_for_label(stub_output, root)
+    try:
+        stub_payload = json.loads(stub_path.read_text(encoding="utf-8"))
+    except (FileNotFoundError, OSError, UnicodeDecodeError) as exc:
+        failures.append(f"{failure_prefix}_stub_output_read_failed:{type(exc).__name__}")
+        return failures
+    except json.JSONDecodeError:
+        failures.append(f"{failure_prefix}_stub_output_invalid_json")
+        return failures
+    if not isinstance(stub_payload, dict):
+        failures.append(f"{failure_prefix}_stub_output_not_object")
+        return failures
+    failures.extend(
+        f"{failure_prefix}_stub:{failure}"
+        for failure in _validate_future_native_arg_slot_online_merged_multiprogram_evidence(
+            stub_payload,
+            root=root,
+        )
+    )
     return failures
 
 
