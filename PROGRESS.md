@@ -24318,3 +24318,79 @@ changes_kernel_launch_args = false
 current_wna16_arg_compatible = false
 requires_wna16_arg_reinterpretation = false
 ```
+
+Tail-window native consumer side artifact:
+
+```text
+runner:
+  outputs/reports/premap_kernel_consumer/
+    online_prelaunch_native_stub_canary_arg_slot_4input_tail8_probe.json
+
+checker:
+  scripts/check_premap_native_stub_tail_window_probe.py
+
+checker output:
+  outputs/reports/premap_kernel_consumer/
+    online_prelaunch_native_stub_canary_arg_slot_4input_tail8_probe_check.json
+
+stronger side probe:
+  outputs/reports/premap_kernel_consumer/
+    online_prelaunch_native_stub_canary_arg_slot_8input_tail8_probe.json
+
+stronger side probe check:
+  outputs/reports/premap_kernel_consumer/
+    online_prelaunch_native_stub_canary_arg_slot_8input_tail8_probe_check.json
+
+passed = true
+tail_window_size = 8
+online inputs = 4
+input row counts = [174, 190, 106, 187]
+row_count_diverse = true
+
+8-input check:
+  passed = true
+  input row counts = [174, 190, 106, 187, 139, 134, 175, 189]
+  row_count_min/max/sum = 106 / 190 / 1294
+  row_count_diverse = true
+
+dispatch input rows:
+  scale_metadata_handle = 174
+  descriptor_ptr = 174
+  packed_weight_descriptor = 174
+  aux_metadata_handle = 174
+
+dispatch/dispatch_ptr/arg-slot active rows:
+  scale_metadata_handle = 8
+  descriptor_ptr = 8
+  packed_weight_descriptor = 8
+  aux_metadata_handle = 8
+```
+
+The checker now rejects:
+
+```text
+summary row_count not matching the online input row count
+cross-field row_count / offset / limit / active-row mismatch
+requires_wna16_arg_reinterpretation = true
+non-diverse multi-input row-count evidence when requested
+```
+
+The 8-input checker also validates every `extra_online_input_check_summaries`
+entry, not just the top-level first input:
+
+```text
+extra_online_input_tail_window_check_count = 7
+```
+
+This is intentionally not the default lab gate yet.  The default preflight
+continues to require full-table coverage.  The tail-window artifact proves the
+future kernel-side ABI can consume a row-window slice of the prepared handle
+table while preserving the no-op boundary:
+
+```text
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+current_wna16_arg_compatible = false
+requires_wna16_arg_reinterpretation = false
+```
