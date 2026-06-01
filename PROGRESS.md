@@ -23548,3 +23548,34 @@ current_wna16_arg_compatible = false
 
 This promotes the arg-slot runner from standalone evidence to the default lab
 precondition while preserving the no-op boundary.
+
+Review follow-up tightened the legacy `16_128export` evidence labels that now
+reuse the same 32-input arg-slot runner/artifact.  The lab preflight minimum
+input table now explicitly requires 32 online inputs for those labels too:
+
+```text
+native_typed_consumer_online_prelaunch_canary_runner_json
+future_kernel_native_consumer_online_runner_16_128export_json
+future_kernel_native_consumer_online_artifact_check_16_128export_json
+future_kernel_native_launch_consumer_online_runner_16_128export_json
+future_kernel_native_launch_consumer_online_artifact_check_16_128export_json
+future_kernel_native_dispatch_consumer_online_runner_16_128export_json
+future_kernel_native_dispatch_consumer_online_artifact_check_16_128export_json
+future_kernel_native_dispatch_consumer_online_runner_32_128export_json
+future_kernel_native_dispatch_consumer_online_artifact_check_32_128export_json
+```
+
+Final no-defer preflight after this tightening:
+
+```text
+output = outputs/reports/premap_lab_preflight_status_default_arg_slot_32input_nodefer_min32.json
+
+passed = true
+failures = []
+runner_count = 32
+artifact_min_online_inputs = 32
+runtime_gate_evidence_deferred_count = 0
+strict_default_gate_evidence_deferred_count = 0
+arg-slot rows = 174 / 174
+passed_to_kernel = false
+```

@@ -207,6 +207,13 @@ ONLINE_PRELAUNCH_ARTIFACT_EVIDENCE_LABELS = {
     "future_kernel_native_launch_consumer_online_artifact_check_16_128export_json",
 }
 ONLINE_PRELAUNCH_MIN_INPUTS_BY_LABEL = {
+    ONLINE_PRELAUNCH_RUNNER_EVIDENCE_LABEL: 32,
+    "future_kernel_native_consumer_online_runner_16_128export_json": 32,
+    "future_kernel_native_consumer_online_artifact_check_16_128export_json": 32,
+    "future_kernel_native_launch_consumer_online_runner_16_128export_json": 32,
+    "future_kernel_native_launch_consumer_online_artifact_check_16_128export_json": 32,
+    "future_kernel_native_dispatch_consumer_online_runner_16_128export_json": 32,
+    "future_kernel_native_dispatch_consumer_online_artifact_check_16_128export_json": 32,
     "future_kernel_native_dispatch_consumer_online_runner_32_128export_json": 32,
     "future_kernel_native_dispatch_consumer_online_artifact_check_32_128export_json": 32,
 }

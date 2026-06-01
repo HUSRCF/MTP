@@ -1781,19 +1781,19 @@ def _write_gate(
             "  native_typed_consumer_online_prelaunch_export_performance_json: "
             f"{native_online_perf_path}\n"
             "  native_typed_consumer_online_prelaunch_canary_runner_json: "
-            f"{native_online_runner_path}\n"
+            f"{native_online_runner_32_path}\n"
             "  future_kernel_native_consumer_online_runner_16_128export_json: "
-            f"{native_online_runner_path}\n"
+            f"{native_online_runner_32_path}\n"
             "  future_kernel_native_consumer_online_artifact_check_16_128export_json: "
-            f"{native_online_artifact_check_path}\n"
+            f"{native_online_artifact_check_32_path}\n"
             "  future_kernel_native_launch_consumer_online_runner_16_128export_json: "
-            f"{native_online_runner_path}\n"
+            f"{native_online_runner_32_path}\n"
             "  future_kernel_native_launch_consumer_online_artifact_check_16_128export_json: "
-            f"{native_online_artifact_check_path}\n"
+            f"{native_online_artifact_check_32_path}\n"
             "  future_kernel_native_dispatch_consumer_online_runner_16_128export_json: "
-            f"{native_online_runner_path}\n"
+            f"{native_online_runner_32_path}\n"
             "  future_kernel_native_dispatch_consumer_online_artifact_check_16_128export_json: "
-            f"{native_online_artifact_check_path}\n"
+            f"{native_online_artifact_check_32_path}\n"
             "  future_kernel_native_dispatch_consumer_online_runner_32_128export_json: "
             f"{native_online_runner_32_path}\n"
             "  future_kernel_native_dispatch_consumer_online_artifact_check_32_128export_json: "
@@ -2846,7 +2846,7 @@ def test_premap_lab_preflight_rejects_future_native_runner_mismatch(
     default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
     canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
     runner_path = (
-        tmp_path / "reports/default_gate_native_online_prelaunch_canary_runner.json"
+        tmp_path / "reports/default_gate_native_online_prelaunch_canary_runner_32.json"
     )
     payload = json.loads(runner_path.read_text())
     payload["future_kernel_native_consumer_descriptor_ptr_stub_summary"][
@@ -2906,7 +2906,7 @@ def test_premap_lab_preflight_rejects_dispatch_tail_window_for_full_table(
     default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
     canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
     runner_path = (
-        tmp_path / "reports/default_gate_native_online_prelaunch_canary_runner.json"
+        tmp_path / "reports/default_gate_native_online_prelaunch_canary_runner_32.json"
     )
     payload = json.loads(runner_path.read_text())
     payload["future_native_dispatch_tail_window_size"] = None
@@ -2949,7 +2949,7 @@ def test_premap_lab_preflight_rejects_dispatch_non_full_window(
     default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
     canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
     runner_path = (
-        tmp_path / "reports/default_gate_native_online_prelaunch_canary_runner.json"
+        tmp_path / "reports/default_gate_native_online_prelaunch_canary_runner_32.json"
     )
     payload = json.loads(runner_path.read_text())
     dispatch = payload["future_kernel_native_consumer_dispatch_stub_summary"]
@@ -3181,7 +3181,7 @@ def test_premap_lab_preflight_rejects_dispatch_program_hash_mismatch(
     default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
     canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
     runner_path = (
-        tmp_path / "reports/default_gate_native_online_prelaunch_canary_runner.json"
+        tmp_path / "reports/default_gate_native_online_prelaunch_canary_runner_32.json"
     )
     payload = json.loads(runner_path.read_text())
     dispatch = payload["future_kernel_native_consumer_dispatch_stub_summary"]
@@ -3216,7 +3216,7 @@ def test_premap_lab_preflight_rejects_dispatch_program_hash_missing(
     default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
     canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
     runner_path = (
-        tmp_path / "reports/default_gate_native_online_prelaunch_canary_runner.json"
+        tmp_path / "reports/default_gate_native_online_prelaunch_canary_runner_32.json"
     )
     payload = json.loads(runner_path.read_text())
     dispatch = payload["future_kernel_native_consumer_dispatch_stub_summary"]
@@ -3251,7 +3251,7 @@ def test_premap_lab_preflight_rejects_missing_dispatch_ptr_packet_summary(
     default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
     canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
     runner_path = (
-        tmp_path / "reports/default_gate_native_online_prelaunch_canary_runner.json"
+        tmp_path / "reports/default_gate_native_online_prelaunch_canary_runner_32.json"
     )
     payload = json.loads(runner_path.read_text())
     dispatch = payload["future_kernel_native_consumer_dispatch_stub_summary"]
@@ -3454,7 +3454,7 @@ def test_premap_lab_preflight_can_defer_self_referential_runner_evidence(
     default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
     runner_path = (
         tmp_path
-        / "reports/default_gate_native_online_prelaunch_canary_runner.json"
+        / "reports/default_gate_native_online_prelaunch_canary_runner_32.json"
     )
     runner_path.unlink()
     canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
