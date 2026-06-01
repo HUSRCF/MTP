@@ -29,8 +29,9 @@ The lab preflight summary now reports requirement fields from the observed
 default gate contract instead of reusing hard-coded defaults.  This keeps
 negative contract tests readable: if a test gate intentionally flips
 `kernel_side_typed_row_consumer_path_required` or
-`native_typed_consumer_bridge_passed_to_kernel_required`, the summary mirrors
-that observed contract while the contract checker still fails the gate.
+`native_typed_consumer_bridge_passed_to_kernel_required`, or the dispatch
+full-table / dispatch-ptr contract flags, the summary mirrors that observed
+contract while the contract checker still fails the gate.
 
 The online arg-slot full-field coverage hard-fail is also conditioned on the
 observed default gate contract:
@@ -53,6 +54,9 @@ failures = []
 
 kernel_side_typed_row_consumer_path_required = true
 native_typed_consumer_bridge_required = true
+default_kernel_consumer_dispatch_full_table_required = true
+default_kernel_consumer_dispatch_ptr_required = true
+passed_to_kernel_required = false
 default_kernel_consumer_arg_slot_online_total_mirror_coverage_required = true
 default_kernel_consumer_arg_slot_online_total_full_field_mirror_coverage = true
 ```

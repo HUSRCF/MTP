@@ -2791,6 +2791,14 @@ def test_premap_lab_preflight_reports_observed_contract_requirement_fields(
         "  kernel_side_typed_row_consumer_path_required: false\n",
     )
     text = text.replace(
+        "  future_kernel_native_dispatch_consumer_full_table_required: true\n",
+        "  future_kernel_native_dispatch_consumer_full_table_required: false\n",
+    )
+    text = text.replace(
+        "  future_kernel_native_dispatch_ptr_consumer_required: true\n",
+        "  future_kernel_native_dispatch_ptr_consumer_required: false\n",
+    )
+    text = text.replace(
         "  native_typed_consumer_bridge_passed_to_kernel_required: false\n",
         "  native_typed_consumer_bridge_passed_to_kernel_required: true\n",
     )
@@ -2816,11 +2824,21 @@ def test_premap_lab_preflight_reports_observed_contract_requirement_fields(
         in result["default_readonly_gate_contract_check"]["failures"]
     )
     assert (
+        "future_kernel_native_dispatch_consumer_full_table_required_mismatch"
+        in result["default_readonly_gate_contract_check"]["failures"]
+    )
+    assert (
+        "future_kernel_native_dispatch_ptr_consumer_required_mismatch"
+        in result["default_readonly_gate_contract_check"]["failures"]
+    )
+    assert (
         "native_typed_consumer_bridge_passed_to_kernel_required_mismatch"
         in result["default_readonly_gate_contract_check"]["failures"]
     )
     summary = result["lab_gate_status_summary"]
     assert summary["kernel_side_typed_row_consumer_path_required"] is False
+    assert summary["default_kernel_consumer_dispatch_full_table_required"] is False
+    assert summary["default_kernel_consumer_dispatch_ptr_required"] is False
     assert summary["passed_to_kernel_required"] is True
 
 

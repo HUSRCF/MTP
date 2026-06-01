@@ -3762,9 +3762,9 @@ def run_premap_lab_preflight(
             )
         ),
         "default_kernel_consumer_dispatch_full_table_required": (
-            REQUIRED_DEFAULT_GATE_CONTRACT[
+            _observed_default_contract_value(
                 "future_kernel_native_dispatch_consumer_full_table_required"
-            ]
+            )
         ),
         "default_kernel_consumer_dispatch_runner_evidence_label": (
             dispatch_runner_evidence_label
@@ -4031,9 +4031,9 @@ def run_premap_lab_preflight(
             )
         ),
         "default_kernel_consumer_dispatch_ptr_required": (
-            REQUIRED_DEFAULT_GATE_CONTRACT[
+            _observed_default_contract_value(
                 "future_kernel_native_dispatch_ptr_consumer_required"
-            ]
+            )
         ),
         "default_kernel_consumer_dispatch_ptr_checked": (
             _bool_metric(
