@@ -70,6 +70,8 @@ def test_typed_consumer_stub_uses_kernel_side_abi_header():
     assert "struct PremapFutureKernelNativeConsumerLaunchResultV1" in adapter
     assert "struct PremapFutureKernelNativeConsumerDispatchV1" in adapter
     assert "struct PremapFutureKernelNativeConsumerDispatchResultV1" in adapter
+    assert "struct PremapFutureKernelNativeConsumerArgSlotV1" in adapter
+    assert "PremapFutureKernelNativeConsumerArgSlotResultV1" in adapter
     assert "kPremapKernelSideCompatibleConsumerAbiV1Name" in adapter
     assert "kPremapFutureKernelSideConsumerArgsV1Name" in adapter
     assert "kPremapFutureKernelNativeConsumerAbiV1Name" in adapter
@@ -83,11 +85,16 @@ def test_typed_consumer_stub_uses_kernel_side_abi_header():
     assert "premap_typed_consumer_future_native_consume_row_v1" in adapter
     assert "premap_typed_consumer_future_native_launch_consume_row_v1" in adapter
     assert "premap_typed_consumer_future_native_dispatch_consume_row_v1" in adapter
+    assert (
+        "premap_typed_consumer_future_native_arg_slot_consume_program_lane_v1"
+        in adapter
+    )
     assert "typed_consumer_envelope_kernel" in source
     assert "typed_consumer_future_kernel_args_kernel" in source
     assert "typed_consumer_future_native_kernel" in source
     assert "typed_consumer_future_native_launch_kernel" in source
     assert "typed_consumer_future_native_dispatch_kernel" in source
+    assert "typed_consumer_future_native_arg_slot_kernel" in source
     assert "kernel_side_compatible_consumer_checked" in source
     assert "future_kernel_consumer_args_checked" in source
     assert "future_kernel_native_consumer_checked" in source
@@ -98,6 +105,8 @@ def test_typed_consumer_stub_uses_kernel_side_abi_header():
     assert "future_kernel_native_dispatch_consumer_launch_geometry_checked" in source
     assert "future_kernel_native_dispatch_consumer_launch_covers_active_rows" in source
     assert "future_kernel_native_dispatch_consumer_launch_minimal_cover" in source
+    assert "future_kernel_native_arg_slot_consumer_checked" in source
+    assert "future_kernel_native_arg_slot_consumer_slot_struct_size" in source
     assert "future_kernel_native_consumer_params_struct_align" in source
     assert "future_kernel_native_dispatch_consumer_dispatch_struct_size" in source
     assert "future_kernel_native_dispatch_consumer_offset_row_offset" in source
@@ -441,6 +450,58 @@ def test_typed_consumer_stub_rejects_future_native_dispatch_without_launch_abi()
             [
                 "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ABI",
                 "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_ABI",
+            ]
+        )
+
+
+def test_typed_consumer_stub_dry_run_accepts_future_native_arg_slot_macro(
+    tmp_path: Path,
+) -> None:
+    module = _load_module()
+    output = tmp_path / "dry_run_future_native_arg_slot_consumer.json"
+
+    exit_code = module.main(
+        [
+            "--dry-run",
+            "--macro",
+            "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ABI",
+            "--macro",
+            "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ABI",
+            "--macro",
+            "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_ABI",
+            "--macro",
+            "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_PTR_ABI",
+            "--macro",
+            "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ARG_SLOT_ABI",
+            "--macro",
+            "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD",
+            "--output-json",
+            str(output),
+        ]
+    )
+
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    assert exit_code == 0
+    assert payload["requested_macros"] == [
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ABI",
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ARG_SLOT_ABI",
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_ABI",
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_PTR_ABI",
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ABI",
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD",
+    ]
+
+
+def test_typed_consumer_stub_rejects_future_native_arg_slot_without_dispatch_ptr():
+    module = _load_module()
+
+    with pytest.raises(ValueError, match="future native consumer arg-slot ABI requires"):
+        module.validate_macros(
+            [
+                "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ABI",
+                "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ABI",
+                "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_ABI",
+                "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ARG_SLOT_ABI",
             ]
         )
 

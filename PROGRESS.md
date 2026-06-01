@@ -14,9 +14,60 @@
   Review follow-up now covers the strict preflight rows/type and deferred-label
   count mismatch branches, and the lab preflight summary now exposes the
   future dispatch ABI schema fields directly while keeping
-  `current_wna16_arg_compatible=false`.  The latest compact status fields now
+  `current_wna16_arg_compatible=false`.  A new future-native arg-slot ABI
+  canary now models the compact parameter slot a future kernel could receive,
+  while still keeping payload and WNA16 kernel-arg pass disabled.  The latest
+  compact status fields now
   bind `artifact_check_passed` to the independent artifact evidence row and
   bind `final_preflight_passed` to both final status and no-defer closure.
+
+## Latest Update: Future Native Arg-Slot ABI Canary
+
+The standalone native typed-consumer path now has one more future-kernel ABI
+layer:
+
+```cpp
+PremapFutureKernelNativeConsumerArgSlotV1
+```
+
+This arg-slot packet points at `PremapFutureKernelNativeConsumerDispatchPtrV1`,
+which points at dispatch metadata and then the typed descriptor/address table.
+The canary validates ABI version, struct sizes, readonly flags, row iteration,
+and single-field mirror parity through this packet chain.
+
+Standalone smoke:
+
+```text
+typed_consumer_stub_future_arg_slot_smoke.json:
+  passed = true
+  future_kernel_native_arg_slot_consumer_checked = true
+  future_kernel_native_arg_slot_consumer_row_count = 17
+  future_kernel_native_arg_slot_consumer_row_ok_count = 17
+  future_kernel_native_arg_slot_consumer_error_count = 0
+  future_kernel_native_arg_slot_consumer_single_field_mirror_field_name =
+    scale_metadata_handle
+  future_kernel_native_arg_slot_consumer_single_field_mirror_row_ok_count = 17
+  future_kernel_native_arg_slot_consumer_payload_bytes = 0
+  future_kernel_native_arg_slot_consumer_passed_to_kernel = false
+  future_kernel_native_arg_slot_consumer_changes_kernel_launch_args = false
+  future_kernel_native_arg_slot_consumer_current_wna16_arg_compatible = false
+```
+
+Validation:
+
+```text
+pytest tests/test_premap_typed_consumer_stub.py \
+  tests/test_run_premap_online_native_stub_canary.py \
+  tests/test_check_premap_online_native_stub_canary_artifacts.py -q
+  67 passed
+
+pytest tests -q
+  768 passed, 2 warnings
+```
+
+Boundary is unchanged: the arg-slot ABI is still an independent native canary.
+It does not pass the slot to the current WNA16 fused-MoE kernel, does not move
+payload, and does not claim WNA16 kernel-argument compatibility.
 
 ## Latest Update: Online Runner Status Semantics
 

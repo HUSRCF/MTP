@@ -31,6 +31,11 @@ The native path is split into two explicit pieces:
   `row_offset + program_id * rows_per_program + lane_id`, minimal launch cover,
   inactive lanes, and a program-iteration hash.  It is still a readonly future
   ABI and is not the current WNA16 kernel argument list.
+- `PremapFutureKernelNativeConsumerArgSlotV1` models the compact future kernel
+  argument slot. It points at the dispatch-pointer packet and validates ABI
+  version, struct sizes, zero payload, readonly flags, row iteration, and
+  single-field mirrors through the same native consumer path. It is still
+  standalone and never mutates the current WNA16 launch arguments.
 
 This separation is deliberate: the adapter is the compatibility point for a
 future kernel-side consumer, not an attempt to reinterpret the current WNA16
@@ -129,6 +134,13 @@ The artifact checker requires this dispatch ABI evidence to preserve
 `changes_kernel_launch_args=false`, and
 `current_wna16_arg_compatible=false`.  Tests cover both zero-offset and
 nonzero-offset multi-program windows.
+
+`MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ARG_SLOT_ABI`
+adds the final standalone packet layer currently used by the native canary:
+the kernel receives `PremapFutureKernelNativeConsumerArgSlotV1`, follows it to
+the dispatch-pointer packet, then to dispatch metadata and the typed handle
+table.  This validates the future kernel argument slot shape without passing
+that slot to the real fused-MoE/WNA16 kernel.
 
 Runtime manager bridge:
 

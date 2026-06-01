@@ -69,6 +69,7 @@ PremapFutureKernelNativeConsumerParamsV1
 PremapFutureKernelNativeConsumerLaunchV1
 PremapFutureKernelNativeConsumerDispatchV1
 PremapFutureKernelNativeConsumerDispatchPtrV1
+PremapFutureKernelNativeConsumerArgSlotV1
 ```
 
 The dispatch envelope is still a future-consumer ABI, not a current WNA16
@@ -88,6 +89,13 @@ slot: it passes a compact packet containing a device pointer to
 result-size, zero-payload, and readonly/no-kernel-pass flags.  It is still a
 standalone native-consumer canary.  It must not be interpreted as permission to
 pass a typed table or dispatch packet into the current WNA16 kernel.
+
+The arg-slot envelope adds one more level of future-kernel indirection:
+`PremapFutureKernelNativeConsumerArgSlotV1` points at the dispatch-pointer
+packet and carries its own ABI version, packet-size, result-size,
+zero-payload, and readonly/no-kernel-pass flags.  This models the compact slot
+a future kernel launch could receive while preserving the same lab boundary:
+the current WNA16 kernel arguments are still untouched.
 
 The machine-readable schema records the ABI binding explicitly:
 
@@ -121,10 +129,17 @@ native_consumer_abi:
   future_kernel_native_consumer_dispatch_ptr_abi_default_enabled: false
   future_kernel_native_consumer_dispatch_ptr_abi_payload_bytes_required: 0
   future_kernel_native_consumer_dispatch_ptr_abi_passed_to_kernel_required: false
+  future_kernel_native_consumer_arg_slot_abi_name: premap_future_kernel_native_consumer_arg_slot_abi_v1
+  future_kernel_native_consumer_arg_slot_abi_struct: PremapFutureKernelNativeConsumerArgSlotV1
+  future_kernel_native_consumer_arg_slot_abi_mode: readonly_future_kernel_native_consumer_arg_slot_abi
+  future_kernel_native_consumer_arg_slot_abi_default_enabled: false
+  future_kernel_native_consumer_arg_slot_abi_payload_bytes_required: 0
+  future_kernel_native_consumer_arg_slot_abi_passed_to_kernel_required: false
   future_kernel_native_consumer_abi_layout_reported: true
   future_kernel_native_consumer_launch_abi_layout_reported: true
   future_kernel_native_consumer_dispatch_abi_layout_reported: true
   future_kernel_native_consumer_dispatch_ptr_abi_layout_reported: true
+  future_kernel_native_consumer_arg_slot_abi_layout_reported: true
 ```
 
 This ABI is intentionally separate from the WNA16 launch argument schema.  A

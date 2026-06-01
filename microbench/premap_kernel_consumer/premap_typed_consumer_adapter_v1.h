@@ -121,6 +121,20 @@ constexpr bool
 constexpr bool
     kPremapFutureKernelNativeConsumerDispatchPtrAbiV1CurrentWna16ArgCompatible =
         false;
+constexpr const char* kPremapFutureKernelNativeConsumerArgSlotAbiV1Name =
+    "premap_future_kernel_native_consumer_arg_slot_abi_v1";
+constexpr const char* kPremapFutureKernelNativeConsumerArgSlotAbiV1Mode =
+    "readonly_future_kernel_native_consumer_arg_slot_abi";
+constexpr const char* kPremapFutureKernelNativeConsumerArgSlotAbiV1Source =
+    "premap_future_kernel_native_consumer_dispatch_ptr_abi_v1";
+constexpr uint32_t kPremapFutureKernelNativeConsumerArgSlotAbiV1Version = 1;
+constexpr bool
+    kPremapFutureKernelNativeConsumerArgSlotAbiV1PayloadDerefAllowed = false;
+constexpr bool
+    kPremapFutureKernelNativeConsumerArgSlotAbiV1KernelArgPassAllowed = false;
+constexpr bool
+    kPremapFutureKernelNativeConsumerArgSlotAbiV1CurrentWna16ArgCompatible =
+        false;
 
 constexpr uint32_t kPremapFutureKernelSideConsumerArgsV1ReadonlyFlag = 1u << 0;
 constexpr uint32_t
@@ -237,6 +251,19 @@ struct PremapFutureKernelNativeConsumerDispatchPtrV1 {
   uint32_t flags;
 };
 
+// Future kernel argument slot.  This models the compact argument packet a
+// future kernel would receive: the slot points at a dispatch pointer packet,
+// which points at dispatch metadata, which points at the typed handle table.
+// It is intentionally not the current WNA16 fused-MoE kernel argument list.
+struct PremapFutureKernelNativeConsumerArgSlotV1 {
+  const PremapFutureKernelNativeConsumerDispatchPtrV1* dispatch_ptr;
+  uint32_t abi_version;
+  uint32_t dispatch_ptr_struct_size;
+  uint32_t result_struct_size;
+  uint32_t payload_bytes;
+  uint32_t flags;
+};
+
 constexpr const char* kPremapKernelSideTypedConsumerLaunchEnvelopeV1Name =
     "premap_kernel_side_typed_consumer_launch_envelope_v1";
 constexpr uint32_t kPremapKernelSideTypedConsumerLaunchEnvelopeV1ReadonlyFlag =
@@ -338,6 +365,9 @@ struct PremapFutureKernelNativeConsumerDispatchResultV1 {
   uint64_t row_hash;
   uint64_t single_field_mirror_hash;
 };
+
+using PremapFutureKernelNativeConsumerArgSlotResultV1 =
+    PremapFutureKernelNativeConsumerDispatchResultV1;
 
 __host__ __device__ static inline uint64_t
 premap_typed_consumer_mix64_v1(uint64_t x) {
@@ -518,6 +548,29 @@ premap_typed_consumer_future_native_dispatch_ptr_packet_matches_v1(
          !kPremapFutureKernelNativeConsumerDispatchPtrAbiV1PayloadDerefAllowed &&
          !kPremapFutureKernelNativeConsumerDispatchPtrAbiV1KernelArgPassAllowed &&
          !kPremapFutureKernelNativeConsumerDispatchPtrAbiV1CurrentWna16ArgCompatible;
+}
+
+__device__ static inline bool
+premap_typed_consumer_future_native_arg_slot_packet_matches_v1(
+    const PremapFutureKernelNativeConsumerArgSlotV1& arg_slot) {
+  return arg_slot.dispatch_ptr != nullptr &&
+         arg_slot.abi_version ==
+             kPremapFutureKernelNativeConsumerArgSlotAbiV1Version &&
+         arg_slot.dispatch_ptr_struct_size ==
+             sizeof(PremapFutureKernelNativeConsumerDispatchPtrV1) &&
+         arg_slot.result_struct_size ==
+             sizeof(PremapFutureKernelNativeConsumerArgSlotResultV1) &&
+         arg_slot.payload_bytes == 0 &&
+         (arg_slot.flags &
+          kPremapFutureKernelSideConsumerArgsV1ReadonlyFlag) != 0 &&
+         (arg_slot.flags &
+          kPremapFutureKernelSideConsumerArgsV1KernelArgPassDisabledFlag) != 0 &&
+         (arg_slot.flags &
+          kPremapFutureKernelSideConsumerArgsV1PayloadDerefDisabledFlag) != 0 &&
+         arg_slot.flags == kPremapFutureKernelSideConsumerArgsV1RequiredFlags &&
+         !kPremapFutureKernelNativeConsumerArgSlotAbiV1PayloadDerefAllowed &&
+         !kPremapFutureKernelNativeConsumerArgSlotAbiV1KernelArgPassAllowed &&
+         !kPremapFutureKernelNativeConsumerArgSlotAbiV1CurrentWna16ArgCompatible;
 }
 
 __device__ static inline bool
@@ -1158,5 +1211,62 @@ premap_typed_consumer_future_native_dispatch_ptr_consume_program_lane_v1(
       premap_typed_consumer_mix64_v1(
           static_cast<uint64_t>(dispatch_ptr.result_struct_size) +
           0xd15c300000000003ULL);
+  return result;
+}
+
+__device__ static inline PremapFutureKernelNativeConsumerArgSlotResultV1
+premap_typed_consumer_future_native_arg_slot_consume_program_lane_v1(
+    const PremapFutureKernelNativeConsumerArgSlotV1& arg_slot,
+    uint32_t program_id,
+    uint32_t lane_id,
+    uint32_t actual_grid_x,
+    uint32_t actual_block_x,
+    uint64_t expected_schema_hash_hi,
+    uint64_t expected_schema_hash_lo) {
+  PremapFutureKernelNativeConsumerArgSlotResultV1 result;
+  if (!premap_typed_consumer_future_native_arg_slot_packet_matches_v1(
+          arg_slot)) {
+    result.dispatch_valid = 0;
+    result.launch_geometry_valid = 0;
+    result.launch_consumer_ok = 0;
+    result.launch_valid = 0;
+    result.row_window_valid = 0;
+    result.active_rows = 0;
+    result.row_valid = 0;
+    result.required_handle_visible = 0;
+    result.lifetime_valid = 0;
+    result.single_field_mirror_checked = 0;
+    result.single_field_mirror_ok = 0;
+    result.single_field_mirror_kind = kPremapFutureKernelSideConsumerFieldNone;
+    result.field_count = kPremapKernelSideTypedConsumerAbiV1HandleColumnCount;
+    result.single_field_mirror_hash = 0;
+    result.row_hash = 0;
+    result.ok = 0;
+    return result;
+  }
+  result =
+      premap_typed_consumer_future_native_dispatch_ptr_consume_program_lane_v1(
+          *arg_slot.dispatch_ptr,
+          program_id,
+          lane_id,
+          actual_grid_x,
+          actual_block_x,
+          expected_schema_hash_hi,
+          expected_schema_hash_lo);
+  result.ok = static_cast<uint32_t>(
+      result.ok != 0 &&
+      !kPremapFutureKernelNativeConsumerArgSlotAbiV1PayloadDerefAllowed &&
+      !kPremapFutureKernelNativeConsumerArgSlotAbiV1KernelArgPassAllowed &&
+      !kPremapFutureKernelNativeConsumerArgSlotAbiV1CurrentWna16ArgCompatible);
+  result.row_hash ^=
+      premap_typed_consumer_mix64_v1(
+          static_cast<uint64_t>(arg_slot.abi_version) +
+          0xa951000000000001ULL) ^
+      premap_typed_consumer_mix64_v1(
+          static_cast<uint64_t>(arg_slot.dispatch_ptr_struct_size) +
+          0xa951000000000002ULL) ^
+      premap_typed_consumer_mix64_v1(
+          static_cast<uint64_t>(arg_slot.result_struct_size) +
+          0xa951000000000003ULL);
   return result;
 }
