@@ -14,6 +14,7 @@ from scripts.check_premap_kernel_consumer_schema import (
     FUTURE_KERNEL_NATIVE_CONSUMER_ABI_LAYOUT_EXPECTED,
     FUTURE_KERNEL_NATIVE_CONSUMER_ABI_LAYOUT_FIELDS,
     FUTURE_KERNEL_NATIVE_CONSUMER_ARG_SLOT_ABI_LAYOUT_EXPECTED,
+    FUTURE_KERNEL_NATIVE_CONSUMER_ARG_SLOT_ABI_LAYOUT_FIELDS,
     FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_ABI_LAYOUT_EXPECTED,
     FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_ABI_LAYOUT_FIELDS,
     FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_PTR_ABI_LAYOUT_EXPECTED,
@@ -1749,6 +1750,9 @@ def _validate_required_evidence_payload(
                 ),
                 "future_kernel_native_dispatch_ptr_consumer_version": 1,
                 "future_kernel_native_dispatch_ptr_consumer_error_count": 0,
+                "future_kernel_native_dispatch_ptr_consumer_packet_visible": True,
+                "future_kernel_native_dispatch_ptr_consumer_dispatch_packet_visible": True,
+                "future_kernel_native_dispatch_ptr_consumer_packet_chain_depth": 2,
                 "future_kernel_native_dispatch_ptr_consumer_payload_bytes": 0,
                 "future_kernel_native_dispatch_ptr_consumer_passed_to_kernel": False,
                 "future_kernel_native_dispatch_ptr_consumer_changes_kernel_launch_args": False,
@@ -1829,6 +1833,102 @@ def _validate_required_evidence_payload(
             ):
                 failures.append(
                     f"{prefix}_future_kernel_native_dispatch_ptr_consumer_mirror_row_ok_count_mismatch"
+                )
+            expected_arg_slot_values = {
+                "future_kernel_native_arg_slot_consumer_checked": True,
+                "future_kernel_native_arg_slot_consumer_abi_name": (
+                    "premap_future_kernel_native_consumer_arg_slot_abi_v1"
+                ),
+                "future_kernel_native_arg_slot_consumer_mode": (
+                    "readonly_future_kernel_native_consumer_arg_slot_abi"
+                ),
+                "future_kernel_native_arg_slot_consumer_source": (
+                    "premap_future_kernel_native_consumer_dispatch_ptr_abi_v1"
+                ),
+                "future_kernel_native_arg_slot_consumer_version": 1,
+                "future_kernel_native_arg_slot_consumer_error_count": 0,
+                "future_kernel_native_arg_slot_consumer_slot_visible": True,
+                "future_kernel_native_arg_slot_consumer_dispatch_ptr_packet_visible": True,
+                "future_kernel_native_arg_slot_consumer_dispatch_packet_visible": True,
+                "future_kernel_native_arg_slot_consumer_packet_chain_depth": 3,
+                "future_kernel_native_arg_slot_consumer_payload_bytes": 0,
+                "future_kernel_native_arg_slot_consumer_passed_to_kernel": False,
+                "future_kernel_native_arg_slot_consumer_changes_kernel_launch_args": False,
+                "future_kernel_native_arg_slot_consumer_current_wna16_arg_compatible": False,
+                "future_kernel_native_arg_slot_consumer_requires_wna16_arg_reinterpretation": False,
+                "future_kernel_native_arg_slot_consumer_single_field_mirror_checked": True,
+                "future_kernel_native_arg_slot_consumer_single_field_mirror_field_name": (
+                    expected_field_name
+                ),
+                "future_kernel_native_arg_slot_consumer_single_field_mirror_error_count": 0,
+            }
+            for key, expected_value in expected_arg_slot_values.items():
+                if summary.get(key) != expected_value:
+                    failures.append(f"{prefix}_{key}_mismatch")
+            failures.extend(
+                _check_future_field_mask_summary(
+                    summary,
+                    prefix=prefix,
+                    field_prefix="future_kernel_native_arg_slot_consumer",
+                    expected_field_name=expected_field_name,
+                )
+            )
+            failures.extend(
+                _check_layout_summary_fields(
+                    summary,
+                    prefix=prefix,
+                    fields=FUTURE_KERNEL_NATIVE_CONSUMER_ARG_SLOT_ABI_LAYOUT_FIELDS,
+                    expected_values=(
+                        FUTURE_KERNEL_NATIVE_CONSUMER_ARG_SLOT_ABI_LAYOUT_EXPECTED
+                    ),
+                    struct_size_key=(
+                        "future_kernel_native_arg_slot_consumer_slot_struct_size"
+                    ),
+                )
+            )
+            arg_slot_row_count = _int_metric(
+                summary,
+                "future_kernel_native_arg_slot_consumer_row_count",
+            )
+            arg_slot_row_ok_count = _int_metric(
+                summary,
+                "future_kernel_native_arg_slot_consumer_row_ok_count",
+            )
+            arg_slot_mirror_row_count = _int_metric(
+                summary,
+                "future_kernel_native_arg_slot_consumer_single_field_mirror_row_count",
+            )
+            arg_slot_mirror_row_ok_count = _int_metric(
+                summary,
+                "future_kernel_native_arg_slot_consumer_single_field_mirror_row_ok_count",
+            )
+            if (
+                dispatch_active_rows is not None
+                and arg_slot_row_count != dispatch_active_rows
+            ):
+                failures.append(
+                    f"{prefix}_future_kernel_native_arg_slot_consumer_row_count_mismatch"
+                )
+            if (
+                dispatch_active_rows is not None
+                and arg_slot_row_ok_count != dispatch_active_rows
+            ):
+                failures.append(
+                    f"{prefix}_future_kernel_native_arg_slot_consumer_row_ok_count_mismatch"
+                )
+            if (
+                dispatch_active_rows is not None
+                and arg_slot_mirror_row_count != dispatch_active_rows
+            ):
+                failures.append(
+                    f"{prefix}_future_kernel_native_arg_slot_consumer_mirror_row_count_mismatch"
+                )
+            if (
+                dispatch_active_rows is not None
+                and arg_slot_mirror_row_ok_count != dispatch_active_rows
+            ):
+                failures.append(
+                    f"{prefix}_future_kernel_native_arg_slot_consumer_mirror_row_ok_count_mismatch"
                 )
 
         for summary_key, expected_field_name in (
@@ -2641,6 +2741,9 @@ def _validate_future_native_dispatch_ptr_standalone_evidence(
         "future_kernel_native_dispatch_consumer_current_wna16_arg_compatible": False,
         "future_kernel_native_dispatch_ptr_consumer_checked": True,
         "future_kernel_native_dispatch_ptr_consumer_error_count": 0,
+        "future_kernel_native_dispatch_ptr_consumer_packet_visible": True,
+        "future_kernel_native_dispatch_ptr_consumer_dispatch_packet_visible": True,
+        "future_kernel_native_dispatch_ptr_consumer_packet_chain_depth": 2,
         "future_kernel_native_dispatch_ptr_consumer_payload_bytes": 0,
         "future_kernel_native_dispatch_ptr_consumer_passed_to_kernel": False,
         "future_kernel_native_dispatch_ptr_consumer_changes_kernel_launch_args": False,
@@ -2703,6 +2806,10 @@ def _validate_future_native_dispatch_ptr_standalone_evidence(
         expected_arg_slot = {
             "future_kernel_native_arg_slot_consumer_checked": True,
             "future_kernel_native_arg_slot_consumer_error_count": 0,
+            "future_kernel_native_arg_slot_consumer_slot_visible": True,
+            "future_kernel_native_arg_slot_consumer_dispatch_ptr_packet_visible": True,
+            "future_kernel_native_arg_slot_consumer_dispatch_packet_visible": True,
+            "future_kernel_native_arg_slot_consumer_packet_chain_depth": 3,
             "future_kernel_native_arg_slot_consumer_payload_bytes": 0,
             "future_kernel_native_arg_slot_consumer_passed_to_kernel": False,
             "future_kernel_native_arg_slot_consumer_changes_kernel_launch_args": False,

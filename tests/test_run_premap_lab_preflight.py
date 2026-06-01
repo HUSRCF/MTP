@@ -1124,6 +1124,9 @@ def _runner_future_kernel_native_dispatch_consumer_summary(
             "future_kernel_native_dispatch_ptr_consumer_row_count": 2,
             "future_kernel_native_dispatch_ptr_consumer_row_ok_count": 2,
             "future_kernel_native_dispatch_ptr_consumer_error_count": 0,
+            "future_kernel_native_dispatch_ptr_consumer_packet_visible": True,
+            "future_kernel_native_dispatch_ptr_consumer_dispatch_packet_visible": True,
+            "future_kernel_native_dispatch_ptr_consumer_packet_chain_depth": 2,
             "future_kernel_native_dispatch_ptr_consumer_payload_bytes": 0,
             "future_kernel_native_dispatch_ptr_consumer_passed_to_kernel": False,
             "future_kernel_native_dispatch_ptr_consumer_changes_kernel_launch_args": False,
@@ -1152,6 +1155,10 @@ def _runner_future_kernel_native_dispatch_consumer_summary(
             "future_kernel_native_arg_slot_consumer_row_count": 2,
             "future_kernel_native_arg_slot_consumer_row_ok_count": 2,
             "future_kernel_native_arg_slot_consumer_error_count": 0,
+            "future_kernel_native_arg_slot_consumer_slot_visible": True,
+            "future_kernel_native_arg_slot_consumer_dispatch_ptr_packet_visible": True,
+            "future_kernel_native_arg_slot_consumer_dispatch_packet_visible": True,
+            "future_kernel_native_arg_slot_consumer_packet_chain_depth": 3,
             "future_kernel_native_arg_slot_consumer_payload_bytes": 0,
             "future_kernel_native_arg_slot_consumer_passed_to_kernel": False,
             "future_kernel_native_arg_slot_consumer_changes_kernel_launch_args": False,
@@ -4098,6 +4105,150 @@ def test_premap_lab_preflight_rejects_missing_dispatch_ptr_packet_summary(
     ) in failures
 
 
+def test_premap_lab_preflight_rejects_runner_dispatch_ptr_chain_invisible(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    runner_path = (
+        tmp_path / "reports/default_gate_native_online_prelaunch_canary_runner_32.json"
+    )
+    payload = json.loads(runner_path.read_text())
+    dispatch = payload["future_kernel_native_consumer_dispatch_stub_summary"]
+    dispatch["future_kernel_native_dispatch_ptr_consumer_packet_chain_depth"] = 1
+    _write(runner_path, json.dumps(payload) + "\n")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is False
+    failures = result["default_readonly_gate_required_evidence_check"]["failures"]
+    assert (
+        "native_typed_consumer_online_prelaunch_canary_runner_json:"
+        "runner_future_kernel_native_consumer_dispatch_stub_summary_"
+        "future_kernel_native_dispatch_ptr_consumer_packet_chain_depth_mismatch"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_runner_dispatch_packet_invisible(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    runner_path = (
+        tmp_path / "reports/default_gate_native_online_prelaunch_canary_runner_32.json"
+    )
+    payload = json.loads(runner_path.read_text())
+    dispatch = payload["future_kernel_native_consumer_dispatch_stub_summary"]
+    dispatch["future_kernel_native_dispatch_ptr_consumer_dispatch_packet_visible"] = (
+        False
+    )
+    _write(runner_path, json.dumps(payload) + "\n")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is False
+    failures = result["default_readonly_gate_required_evidence_check"]["failures"]
+    assert (
+        "native_typed_consumer_online_prelaunch_canary_runner_json:"
+        "runner_future_kernel_native_consumer_dispatch_stub_summary_"
+        "future_kernel_native_dispatch_ptr_consumer_dispatch_packet_visible_mismatch"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_runner_arg_slot_chain_invisible(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    runner_path = (
+        tmp_path / "reports/default_gate_native_online_prelaunch_canary_runner_32.json"
+    )
+    payload = json.loads(runner_path.read_text())
+    dispatch = payload["future_kernel_native_consumer_dispatch_stub_summary"]
+    dispatch["future_kernel_native_arg_slot_consumer_slot_visible"] = False
+    _write(runner_path, json.dumps(payload) + "\n")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is False
+    failures = result["default_readonly_gate_required_evidence_check"]["failures"]
+    assert (
+        "native_typed_consumer_online_prelaunch_canary_runner_json:"
+        "runner_future_kernel_native_consumer_dispatch_stub_summary_"
+        "future_kernel_native_arg_slot_consumer_slot_visible_mismatch"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_runner_arg_slot_dispatch_ptr_invisible(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    runner_path = (
+        tmp_path / "reports/default_gate_native_online_prelaunch_canary_runner_32.json"
+    )
+    payload = json.loads(runner_path.read_text())
+    dispatch = payload["future_kernel_native_consumer_dispatch_stub_summary"]
+    dispatch["future_kernel_native_arg_slot_consumer_dispatch_ptr_packet_visible"] = (
+        False
+    )
+    _write(runner_path, json.dumps(payload) + "\n")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is False
+    failures = result["default_readonly_gate_required_evidence_check"]["failures"]
+    assert (
+        "native_typed_consumer_online_prelaunch_canary_runner_json:"
+        "runner_future_kernel_native_consumer_dispatch_stub_summary_"
+        "future_kernel_native_arg_slot_consumer_dispatch_ptr_packet_visible_mismatch"
+    ) in failures
+
+
 def test_premap_lab_preflight_rejects_standalone_dispatch_ptr_schema_hash_mismatch(
     tmp_path: Path,
 ):
@@ -4201,6 +4352,41 @@ def test_premap_lab_preflight_rejects_standalone_dispatch_ptr_struct_mismatch(
     ) in failures
 
 
+def test_premap_lab_preflight_rejects_standalone_dispatch_ptr_chain_invisible(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    standalone_path = (
+        tmp_path
+        / "reports/default_gate_future_native_dispatch_ptr_standalone_canary.json"
+    )
+    payload = json.loads(standalone_path.read_text())
+    payload["future_kernel_native_dispatch_ptr_consumer_dispatch_packet_visible"] = False
+    _write(standalone_path, json.dumps(payload) + "\n")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is False
+    failures = result["default_readonly_gate_required_evidence_check"]["failures"]
+    assert (
+        "future_kernel_native_dispatch_ptr_standalone_canary_json:"
+        "standalone_dispatch_ptr_future_kernel_native_dispatch_ptr_consumer_"
+        "dispatch_packet_visible_mismatch"
+    ) in failures
+
+
 def test_premap_lab_preflight_rejects_standalone_dispatch_ptr_unsafe_macro(
     tmp_path: Path,
 ):
@@ -4270,6 +4456,41 @@ def test_premap_lab_preflight_rejects_standalone_arg_slot_row_mismatch(
         "future_kernel_native_arg_slot_standalone_canary_json:"
         "standalone_arg_slot_future_kernel_native_arg_slot_consumer_"
         "row_ok_count_mismatch"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_standalone_arg_slot_chain_invisible(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    standalone_path = (
+        tmp_path
+        / "reports/default_gate_future_native_arg_slot_standalone_canary.json"
+    )
+    payload = json.loads(standalone_path.read_text())
+    payload["future_kernel_native_arg_slot_consumer_dispatch_ptr_packet_visible"] = False
+    _write(standalone_path, json.dumps(payload) + "\n")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is False
+    failures = result["default_readonly_gate_required_evidence_check"]["failures"]
+    assert (
+        "future_kernel_native_arg_slot_standalone_canary_json:"
+        "standalone_arg_slot_future_kernel_native_arg_slot_consumer_"
+        "dispatch_ptr_packet_visible_mismatch"
     ) in failures
 
 

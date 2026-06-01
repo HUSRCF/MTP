@@ -2619,6 +2619,11 @@ int main(int argc, char** argv) {
             << offsetof(PremapFutureKernelNativeConsumerDispatchPtrV1, payload_bytes);
   std::cout << ",\"future_kernel_native_dispatch_ptr_consumer_offset_flags\":"
             << offsetof(PremapFutureKernelNativeConsumerDispatchPtrV1, flags);
+  std::cout << ",\"future_kernel_native_dispatch_ptr_consumer_packet_visible\":"
+            << (future_native_dispatch_ptr.dispatch != nullptr ? "true" : "false");
+  std::cout << ",\"future_kernel_native_dispatch_ptr_consumer_dispatch_packet_visible\":"
+            << (d_future_native_dispatch_packet != nullptr ? "true" : "false");
+  std::cout << ",\"future_kernel_native_dispatch_ptr_consumer_packet_chain_depth\":2";
   std::cout << ",\"future_kernel_native_dispatch_ptr_consumer_row_count\":"
             << future_native_dispatch_ptr_consumer_row_count;
   std::cout << ",\"future_kernel_native_dispatch_ptr_consumer_row_ok_count\":"
@@ -2688,6 +2693,13 @@ int main(int argc, char** argv) {
             << offsetof(PremapFutureKernelNativeConsumerArgSlotV1, payload_bytes);
   std::cout << ",\"future_kernel_native_arg_slot_consumer_offset_flags\":"
             << offsetof(PremapFutureKernelNativeConsumerArgSlotV1, flags);
+  std::cout << ",\"future_kernel_native_arg_slot_consumer_slot_visible\":"
+            << (future_native_arg_slot.dispatch_ptr != nullptr ? "true" : "false");
+  std::cout << ",\"future_kernel_native_arg_slot_consumer_dispatch_ptr_packet_visible\":"
+            << (d_future_native_dispatch_ptr_packet != nullptr ? "true" : "false");
+  std::cout << ",\"future_kernel_native_arg_slot_consumer_dispatch_packet_visible\":"
+            << (d_future_native_dispatch_packet != nullptr ? "true" : "false");
+  std::cout << ",\"future_kernel_native_arg_slot_consumer_packet_chain_depth\":3";
   std::cout << ",\"future_kernel_native_arg_slot_consumer_row_count\":"
             << future_native_arg_slot_consumer_row_count;
   std::cout << ",\"future_kernel_native_arg_slot_consumer_row_ok_count\":"

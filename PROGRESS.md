@@ -23,6 +23,62 @@
 
 ## Latest Update: Future Native Arg-Slot ABI Canary
 
+## Latest Update: Future Native Packet-Chain Visibility Gate
+
+The future native typed-consumer path now reports and requires explicit
+packet-chain visibility for the two launch-shaped native packets that are
+closest to a future kernel argument handoff:
+
+```text
+future_kernel_native_dispatch_ptr_consumer_packet_visible = true
+future_kernel_native_dispatch_ptr_consumer_dispatch_packet_visible = true
+future_kernel_native_dispatch_ptr_consumer_packet_chain_depth = 2
+
+future_kernel_native_arg_slot_consumer_slot_visible = true
+future_kernel_native_arg_slot_consumer_dispatch_ptr_packet_visible = true
+future_kernel_native_arg_slot_consumer_dispatch_packet_visible = true
+future_kernel_native_arg_slot_consumer_packet_chain_depth = 3
+```
+
+These fields are emitted by the native HIP stub and required by both the lab
+preflight checker and the online native-stub artifact checker.  New negative
+tests reject invisible dispatch-ptr and arg-slot packet-chain evidence.
+
+GPU1 canary:
+
+```text
+outputs/reports/premap_kernel_consumer/typed_consumer_stub_gpu1_arg_slot_packet_chain_visibility_canary.json
+
+row_count = 32
+future_kernel_native_dispatch_ptr_consumer_row_ok_count = 32
+future_kernel_native_arg_slot_consumer_row_ok_count = 32
+future_kernel_native_arg_slot_consumer_single_field_mirror_field_name =
+  scale_metadata_handle
+future_kernel_native_arg_slot_consumer_payload_bytes = 0
+future_kernel_native_arg_slot_consumer_passed_to_kernel = false
+future_kernel_native_arg_slot_consumer_current_wna16_arg_compatible = false
+```
+
+Validation:
+
+```text
+conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
+  pytest tests/test_premap_typed_consumer_stub.py \
+         tests/test_run_premap_lab_preflight.py \
+         tests/test_check_premap_online_native_stub_canary_artifacts.py -q
+
+146 passed
+
+conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
+  pytest tests -q
+
+817 passed, 2 warnings
+```
+
+Boundary remains unchanged: this is still readonly/native-stub evidence only.
+It does not move payload, does not mark ready credit, does not pass or mutate
+the current WNA16 kernel arguments, and does not claim latency improvement.
+
 ## Latest Update: Contract-Conditioned Lab Preflight Summary
 
 ## Latest Update: Standalone Future Arg-Slot Native Canary Refresh
