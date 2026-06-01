@@ -3326,6 +3326,16 @@ def run_premap_lab_preflight(
     )
     if not isinstance(dispatch_runner_summary, dict):
         dispatch_runner_summary = {}
+    dispatch_runner_artifact_check_summary = dispatch_runner_payload.get(
+        "artifact_check_summary",
+    )
+    if not isinstance(dispatch_runner_artifact_check_summary, dict):
+        dispatch_runner_artifact_check_summary = {}
+    dispatch_runner_final_status_summary = dispatch_runner_payload.get(
+        "final_preflight_status_summary",
+    )
+    if not isinstance(dispatch_runner_final_status_summary, dict):
+        dispatch_runner_final_status_summary = {}
     dispatch_row_count = _int_metric(
         dispatch_runner_summary,
         "future_kernel_native_dispatch_consumer_row_count",
@@ -3433,6 +3443,45 @@ def run_premap_lab_preflight(
         ),
         "default_kernel_consumer_dispatch_runner_evidence_failure": (
             dispatch_runner_evidence_row.get("failure")
+        ),
+        "default_kernel_consumer_dispatch_runner_online_input_count": (
+            _int_metric(dispatch_runner_payload, "online_prelaunch_input_check_count")
+        ),
+        "default_kernel_consumer_dispatch_runner_online_extra_input_count": (
+            _int_metric(
+                dispatch_runner_payload,
+                "online_prelaunch_input_extra_check_count",
+            )
+        ),
+        "default_kernel_consumer_dispatch_runner_online_extra_input_passed_count": (
+            _int_metric(
+                dispatch_runner_payload,
+                "online_prelaunch_input_extra_check_passed_count",
+            )
+        ),
+        "default_kernel_consumer_dispatch_runner_artifact_check_passed": (
+            _bool_metric(dispatch_runner_artifact_check_summary, "passed")
+        ),
+        "default_kernel_consumer_dispatch_runner_artifact_check_min_online_inputs": (
+            _int_metric(dispatch_runner_artifact_check_summary, "min_online_inputs")
+        ),
+        "default_kernel_consumer_dispatch_runner_artifact_check_final_deferred_count": (
+            _int_metric(dispatch_runner_artifact_check_summary, "final_deferred_count")
+        ),
+        "default_kernel_consumer_dispatch_runner_final_preflight_passed": (
+            _bool_metric(dispatch_runner_final_status_summary, "passed")
+        ),
+        "default_kernel_consumer_dispatch_runner_final_strict_default_gate_evidence_deferred_count": (
+            _int_metric(
+                dispatch_runner_final_status_summary,
+                "strict_default_gate_evidence_deferred_count",
+            )
+        ),
+        "default_kernel_consumer_dispatch_runner_final_runtime_gate_evidence_deferred_count": (
+            _int_metric(
+                dispatch_runner_final_status_summary,
+                "runtime_gate_evidence_deferred_count",
+            )
         ),
         "default_kernel_consumer_dispatch_ptr_standalone_evidence_label": (
             dispatch_ptr_standalone_evidence_label

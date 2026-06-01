@@ -1497,6 +1497,11 @@ def _write_gate(
                     "passed": True,
                     "failures": [],
                 },
+                "final_preflight_status_summary": {
+                    "passed": True,
+                    "strict_default_gate_evidence_deferred_count": 0,
+                    "runtime_gate_evidence_deferred_count": 0,
+                },
                 "artifact_check_summary": _artifact_check_payload(input_count),
             }
 
@@ -1505,6 +1510,8 @@ def _write_gate(
             return {
                 "passed": True,
                 "failures": [],
+                "bootstrap_preflight_allowed": False,
+                "final_deferred_count": 0,
                 "require_all_field_mirror_stubs": True,
                 "min_online_inputs": input_count,
                 "runner_online_prelaunch_input_check_count": input_count,
@@ -1831,6 +1838,49 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert summary["default_kernel_consumer_dispatch_runner_evidence_present"] is True
     assert summary["default_kernel_consumer_dispatch_runner_evidence_passed"] is True
     assert summary["default_kernel_consumer_dispatch_runner_evidence_failure"] is None
+    assert summary["default_kernel_consumer_dispatch_runner_online_input_count"] == 32
+    assert (
+        summary["default_kernel_consumer_dispatch_runner_online_extra_input_count"]
+        == 31
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_dispatch_runner_online_extra_input_passed_count"
+        ]
+        == 31
+    )
+    assert (
+        summary["default_kernel_consumer_dispatch_runner_artifact_check_passed"]
+        is True
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_dispatch_runner_artifact_check_min_online_inputs"
+        ]
+        == 32
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_dispatch_runner_artifact_check_final_deferred_count"
+        ]
+        == 0
+    )
+    assert (
+        summary["default_kernel_consumer_dispatch_runner_final_preflight_passed"]
+        is True
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_dispatch_runner_final_strict_default_gate_evidence_deferred_count"
+        ]
+        == 0
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_dispatch_runner_final_runtime_gate_evidence_deferred_count"
+        ]
+        == 0
+    )
     assert summary["default_kernel_consumer_dispatch_checked"] is True
     assert summary["default_kernel_consumer_dispatch_row_count"] == 2
     assert summary["default_kernel_consumer_dispatch_row_ok_count"] == 2
