@@ -24888,3 +24888,33 @@ This is synthetic rather than online-vLLM evidence, but it exercises the future
 native dispatch geometry beyond a single block/program.  It confirms the
 packet-chain consumer can iterate the same typed handle projection over a
 multi-program row assignment without changing the current kernel boundary.
+
+Default preflight summary now exposes and enforces the hashchain state
+directly:
+
+```text
+outputs/reports/premap_lab_preflight_default_projection_hashchain_summary_fields.json
+outputs/reports/premap_lab_preflight_default_projection_hashchain_hard_gate.json
+
+passed = true
+default_kernel_consumer_dispatch_runner_row_hashchain_all_valid = true
+default_kernel_consumer_dispatch_runner_handle_projection_hashchain_equal = true
+
+dispatch row hash = b85d3491976eca34
+dispatch_ptr row hash = 50685f4a0fd6f707
+arg_slot row hash = a8bb5d2ff3a6e662
+
+dispatch handle projection hash = 877da3c93286127c
+dispatch_ptr handle projection hash = 877da3c93286127c
+arg_slot handle projection hash = 877da3c93286127c
+```
+
+This keeps the summary faithful to the contract: row hashes are path-local
+packet evidence, while handle-projection hashes are cross-packet equivalence
+evidence.
+
+The default no-defer lab gate now fails if the dispatch / dispatch_ptr /
+arg_slot row hashchain is not valid hex64 evidence, or if the typed-handle
+projection hash is not equal across those packet boundaries.  Focused tests
+cover both failure cases so this cannot silently regress into summary-only
+observability.

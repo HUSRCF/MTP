@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Callable
 
 import yaml
 
@@ -1073,6 +1074,8 @@ def _runner_future_kernel_native_dispatch_consumer_summary(
             "future_kernel_native_dispatch_consumer_version": 1,
             "future_kernel_native_dispatch_consumer_row_count": 2,
             "future_kernel_native_dispatch_consumer_row_ok_count": 2,
+            "future_kernel_native_dispatch_consumer_hash_accumulator": "abc123",
+            "future_kernel_native_dispatch_consumer_handle_projection_hash_accumulator": "481d",
             "future_kernel_native_dispatch_consumer_active_rows": 2,
             "future_kernel_native_dispatch_consumer_row_offset": 0,
             "future_kernel_native_dispatch_consumer_row_limit": 2,
@@ -1126,6 +1129,8 @@ def _runner_future_kernel_native_dispatch_consumer_summary(
             "future_kernel_native_dispatch_ptr_consumer_row_count": 2,
             "future_kernel_native_dispatch_ptr_consumer_row_ok_count": 2,
             "future_kernel_native_dispatch_ptr_consumer_error_count": 0,
+            "future_kernel_native_dispatch_ptr_consumer_hash_accumulator": "def456",
+            "future_kernel_native_dispatch_ptr_consumer_handle_projection_hash_accumulator": "481d",
             "future_kernel_native_dispatch_ptr_consumer_packet_visible": True,
             "future_kernel_native_dispatch_ptr_consumer_dispatch_packet_visible": True,
             "future_kernel_native_dispatch_ptr_consumer_packet_chain_depth": 2,
@@ -1157,6 +1162,8 @@ def _runner_future_kernel_native_dispatch_consumer_summary(
             "future_kernel_native_arg_slot_consumer_row_count": 2,
             "future_kernel_native_arg_slot_consumer_row_ok_count": 2,
             "future_kernel_native_arg_slot_consumer_error_count": 0,
+            "future_kernel_native_arg_slot_consumer_hash_accumulator": "fedcba",
+            "future_kernel_native_arg_slot_consumer_handle_projection_hash_accumulator": "481d",
             "future_kernel_native_arg_slot_consumer_slot_visible": True,
             "future_kernel_native_arg_slot_consumer_dispatch_ptr_packet_visible": True,
             "future_kernel_native_arg_slot_consumer_dispatch_packet_visible": True,
@@ -2086,6 +2093,48 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
         == 0
     )
     assert (
+        summary["default_kernel_consumer_dispatch_runner_row_hashchain_all_valid"]
+        is True
+    )
+    assert (
+        summary["default_kernel_consumer_dispatch_runner_dispatch_hash_accumulator"]
+        == "abc123"
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_dispatch_runner_dispatch_ptr_hash_accumulator"
+        ]
+        == "def456"
+    )
+    assert (
+        summary["default_kernel_consumer_dispatch_runner_arg_slot_hash_accumulator"]
+        == "fedcba"
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_dispatch_runner_handle_projection_hashchain_equal"
+        ]
+        is True
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_dispatch_runner_dispatch_handle_projection_hash_accumulator"
+        ]
+        == "481d"
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_dispatch_runner_dispatch_ptr_handle_projection_hash_accumulator"
+        ]
+        == "481d"
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_dispatch_runner_arg_slot_handle_projection_hash_accumulator"
+        ]
+        == "481d"
+    )
+    assert (
         summary["default_kernel_consumer_dispatch_runner_final_preflight_passed"]
         is True
     )
@@ -2441,6 +2490,85 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     )
     assert result["trace_config_checks"][0]["passed"] is True
     assert result["trace_config_checks"][0]["readonly_gate_path_label"] == default_gate
+
+
+def _run_preflight_with_modified_default_runner(
+    tmp_path: Path,
+    mutate_runner: Callable[[dict[str, object]], None],
+) -> dict[str, object]:
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+    runner_path = (
+        tmp_path / "reports/default_gate_native_online_prelaunch_canary_runner_32.json"
+    )
+    runner = json.loads(runner_path.read_text(encoding="utf-8"))
+    mutate_runner(runner)
+    _write(runner_path, json.dumps(runner) + "\n")
+
+    return run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+
+def test_premap_lab_preflight_summary_marks_invalid_row_hashchain(
+    tmp_path: Path,
+):
+    def _mutate(runner: dict[str, object]) -> None:
+        dispatch = runner["future_kernel_native_consumer_dispatch_stub_summary"]
+        assert isinstance(dispatch, dict)
+        dispatch[
+            "future_kernel_native_dispatch_ptr_consumer_hash_accumulator"
+        ] = "not_hex"
+
+    result = _run_preflight_with_modified_default_runner(tmp_path, _mutate)
+    summary = result["lab_gate_status_summary"]
+
+    assert result["passed"] is False
+    assert (
+        summary["default_kernel_consumer_dispatch_runner_row_hashchain_all_valid"]
+        is False
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_dispatch_runner_handle_projection_hashchain_equal"
+        ]
+        is True
+    )
+
+
+def test_premap_lab_preflight_summary_marks_projection_hash_mismatch(
+    tmp_path: Path,
+):
+    def _mutate(runner: dict[str, object]) -> None:
+        dispatch = runner["future_kernel_native_consumer_dispatch_stub_summary"]
+        assert isinstance(dispatch, dict)
+        dispatch[
+            "future_kernel_native_dispatch_ptr_consumer_handle_projection_hash_accumulator"
+        ] = "4820"
+
+    result = _run_preflight_with_modified_default_runner(tmp_path, _mutate)
+    summary = result["lab_gate_status_summary"]
+
+    assert result["passed"] is False
+    assert (
+        summary["default_kernel_consumer_dispatch_runner_row_hashchain_all_valid"]
+        is True
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_dispatch_runner_handle_projection_hashchain_equal"
+        ]
+        is False
+    )
 
 
 def test_premap_lab_preflight_allows_missing_optional_per_field_canary(

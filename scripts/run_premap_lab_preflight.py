@@ -3975,6 +3975,61 @@ def run_premap_lab_preflight(
         dispatch_runner_summary,
         "future_kernel_native_arg_slot_consumer_single_field_mirror_row_ok_count",
     )
+
+    def _hex_metric_text(metrics: dict[str, Any], key: str) -> str | None:
+        value = metrics.get(key)
+        return (
+            value
+            if isinstance(value, str) and _hex64_metric(metrics, key) is not None
+            else None
+        )
+
+    dispatch_row_hash = _hex_metric_text(
+        dispatch_runner_summary,
+        "future_kernel_native_dispatch_consumer_hash_accumulator",
+    )
+    dispatch_ptr_row_hash = _hex_metric_text(
+        dispatch_runner_summary,
+        "future_kernel_native_dispatch_ptr_consumer_hash_accumulator",
+    )
+    arg_slot_row_hash = _hex_metric_text(
+        dispatch_runner_summary,
+        "future_kernel_native_arg_slot_consumer_hash_accumulator",
+    )
+    dispatch_projection_hash = _hex_metric_text(
+        dispatch_runner_summary,
+        "future_kernel_native_dispatch_consumer_handle_projection_hash_accumulator",
+    )
+    dispatch_ptr_projection_hash = _hex_metric_text(
+        dispatch_runner_summary,
+        "future_kernel_native_dispatch_ptr_consumer_handle_projection_hash_accumulator",
+    )
+    arg_slot_projection_hash = _hex_metric_text(
+        dispatch_runner_summary,
+        "future_kernel_native_arg_slot_consumer_handle_projection_hash_accumulator",
+    )
+    projection_hashes = (
+        dispatch_projection_hash,
+        dispatch_ptr_projection_hash,
+        arg_slot_projection_hash,
+    )
+    row_hashchain_all_valid = all(
+        value is not None
+        for value in (dispatch_row_hash, dispatch_ptr_row_hash, arg_slot_row_hash)
+    )
+    projection_hashchain_equal = (
+        all(value is not None for value in projection_hashes)
+        and len(set(projection_hashes)) == 1
+    )
+    if not allow_missing_evidence and not defer_online_prelaunch_runner_evidence:
+        if not row_hashchain_all_valid:
+            failures.append(
+                "default_kernel_consumer_dispatch_runner_row_hashchain_invalid"
+            )
+        if not projection_hashchain_equal:
+            failures.append(
+                "default_kernel_consumer_dispatch_runner_projection_hashchain_mismatch"
+            )
     schema_summary = (
         default_kernel_consumer_schema_check.get("schema_check")
         if isinstance(default_kernel_consumer_schema_check.get("schema_check"), dict)
@@ -4106,6 +4161,30 @@ def run_premap_lab_preflight(
         ),
         "default_kernel_consumer_dispatch_runner_artifact_check_final_deferred_count": (
             _int_metric(dispatch_runner_artifact_payload, "final_deferred_count")
+        ),
+        "default_kernel_consumer_dispatch_runner_row_hashchain_all_valid": (
+            row_hashchain_all_valid
+        ),
+        "default_kernel_consumer_dispatch_runner_dispatch_hash_accumulator": (
+            dispatch_row_hash
+        ),
+        "default_kernel_consumer_dispatch_runner_dispatch_ptr_hash_accumulator": (
+            dispatch_ptr_row_hash
+        ),
+        "default_kernel_consumer_dispatch_runner_arg_slot_hash_accumulator": (
+            arg_slot_row_hash
+        ),
+        "default_kernel_consumer_dispatch_runner_handle_projection_hashchain_equal": (
+            projection_hashchain_equal
+        ),
+        "default_kernel_consumer_dispatch_runner_dispatch_handle_projection_hash_accumulator": (
+            dispatch_projection_hash
+        ),
+        "default_kernel_consumer_dispatch_runner_dispatch_ptr_handle_projection_hash_accumulator": (
+            dispatch_ptr_projection_hash
+        ),
+        "default_kernel_consumer_dispatch_runner_arg_slot_handle_projection_hash_accumulator": (
+            arg_slot_projection_hash
         ),
         "default_kernel_consumer_dispatch_runner_final_preflight_passed": (
             _bool_metric(dispatch_runner_final_status_summary, "passed") is True
