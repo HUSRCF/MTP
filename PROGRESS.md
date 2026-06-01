@@ -21,6 +21,74 @@
   bind `artifact_check_passed` to the independent artifact evidence row and
   bind `final_preflight_passed` to both final status and no-defer closure.
 
+## Latest Update: Future Native Handle-Projection Packet Chain
+
+The future native dispatch, dispatch-pointer packet, and arg-slot packet now
+also report an ABI-independent full-row handle projection hash:
+
+```text
+future_kernel_native_dispatch_consumer_handle_projection_hash_accumulator
+future_kernel_native_dispatch_ptr_consumer_handle_projection_hash_accumulator
+future_kernel_native_arg_slot_consumer_handle_projection_hash_accumulator
+```
+
+Unlike the path-specific `hash_accumulator`, this projection hashes only the
+typed handle row view:
+
+```text
+descriptor_ptr
+packed_weight_descriptor
+scale_metadata_handle
+aux_metadata_handle
+address_key_hash
+expert_id
+row_index
+```
+
+The artifact checker still only requires the normal row hashes to be present
+and valid, because those include packet-wrapper metadata and may differ by ABI
+path.  It now requires the handle-projection hashes and the single-field mirror
+hashes to match across the dispatch -> dispatch_ptr -> arg_slot chain.
+
+GPU1 standalone native-stub smoke:
+
+```text
+outputs/reports/premap_kernel_consumer/
+  typed_consumer_stub_gpu1_future_native_arg_slot_handle_projection_smoke.json
+
+row_count = 16
+future_kernel_native_dispatch_consumer_row_ok_count = 16
+future_kernel_native_dispatch_ptr_consumer_row_ok_count = 16
+future_kernel_native_arg_slot_consumer_row_ok_count = 16
+
+future_kernel_native_dispatch_consumer_handle_projection_hash_accumulator =
+  9eac876e3b41938b
+future_kernel_native_dispatch_ptr_consumer_handle_projection_hash_accumulator =
+  9eac876e3b41938b
+future_kernel_native_arg_slot_consumer_handle_projection_hash_accumulator =
+  9eac876e3b41938b
+
+payload_bytes = 0
+passed_to_kernel = false
+current_wna16_arg_compatible = false
+```
+
+Validation:
+
+```text
+conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
+  pytest tests/test_check_premap_online_native_stub_canary_artifacts.py \
+         tests/test_run_premap_lab_preflight.py \
+         tests/test_premap_typed_consumer_stub.py -q
+
+159 passed
+```
+
+Boundary remains unchanged: this is still independent native-stub and online
+artifact evidence only.  The current WNA16 fused-MoE kernel does not consume
+this packet chain, no payload is moved, and no kernel launch argument is passed
+or mutated.
+
 ## Latest Update: Future Native Arg-Slot ABI Canary
 
 ## Latest Update: Future Native Packet-Chain Visibility Gate
@@ -24632,4 +24700,98 @@ runtime_gate_evidence_deferred_count = 0
 strict_default_gate_evidence_deferred_count = 0
 required_evidence = 15 / 15 passed
 optional_evidence = 13 / 13 passed
+```
+
+### Packet-chain handle-projection hash equivalence
+
+The packet-chain hash gate now also validates an ABI-independent full-row handle
+projection across the future native dispatch, dispatch-pointer packet, and
+arg-slot packet:
+
+```text
+future_kernel_native_dispatch_consumer_handle_projection_hash_accumulator
+== future_kernel_native_dispatch_ptr_consumer_handle_projection_hash_accumulator
+== future_kernel_native_arg_slot_consumer_handle_projection_hash_accumulator
+```
+
+This projection intentionally excludes ABI/packet wrapper metadata and hashes
+only the typed row handle view:
+
+```text
+descriptor_ptr
+packed_weight_descriptor
+scale_metadata_handle
+aux_metadata_handle
+address_key_hash
+expert_id
+row_index
+```
+
+The distinction is important:
+
+```text
+path-specific row hash accumulator:
+  must be present and valid, but may differ by packet shape
+
+single-field mirror hash accumulator:
+  must match across dispatch -> dispatch_ptr -> arg_slot
+
+handle-projection hash accumulator:
+  must match across dispatch -> dispatch_ptr -> arg_slot
+```
+
+Standalone GPU1 native-stub smoke:
+
+```text
+outputs/reports/premap_kernel_consumer/
+  typed_consumer_stub_gpu1_future_native_arg_slot_handle_projection_smoke.json
+
+row_count = 16
+dispatch / dispatch_ptr / arg_slot row_ok_count = 16 / 16 / 16
+handle_projection_hash_accumulator = 9eac876e3b41938b on all three packet paths
+payload_bytes = 0
+passed_to_kernel = false
+current_wna16_arg_compatible = false
+```
+
+Refreshed 32-input online prelaunch canary:
+
+```text
+outputs/reports/premap_kernel_consumer/
+  online_prelaunch_native_stub_canary_arg_slot_32input_alias_rowstats_hashchain_projection_nodefer.json
+outputs/reports/premap_kernel_consumer/
+  online_prelaunch_native_stub_canary_artifact_check_arg_slot_32input_alias_rowstats_hashchain_projection_nodefer.json
+
+online runner passed = true
+artifact_check_passed = true
+stdout final_preflight_passed = true
+stdout final_deferred_count = 0
+online inputs = 32
+extra online input checks = 31 / 31 passed
+
+dispatch handle_projection_hash_accumulator = 877da3c93286127c
+dispatch_ptr handle_projection_hash_accumulator = 877da3c93286127c
+arg_slot handle_projection_hash_accumulator = 877da3c93286127c
+
+dispatch row hash accumulator = b85d3491976eca34
+dispatch_ptr row hash accumulator = 50685f4a0fd6f707
+arg_slot row hash accumulator = a8bb5d2ff3a6e662
+```
+
+The differing row hashes confirm that the checker still treats packet-specific
+row hashes as ABI-local evidence.  The matching handle-projection hashes confirm
+that all three packet layers read the same typed descriptor/address handle row
+view.  Boundary remains unchanged: no payload transfer, no ready credit, and no
+current WNA16 kernel-argument mutation.
+
+Default lab preflight refresh:
+
+```text
+outputs/reports/premap_lab_preflight_default_after_handle_projection_hashchain.json
+
+passed = true
+runtime_gate_evidence_deferred_count = 0
+strict_default_gate_evidence_deferred_count = 0
+payload_bytes_required = 0
+passed_to_kernel_required = false
 ```

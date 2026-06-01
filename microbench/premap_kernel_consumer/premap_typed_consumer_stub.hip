@@ -202,6 +202,20 @@ __host__ __device__ static inline uint64_t mix64(uint64_t x) {
   return x;
 }
 
+__device__ static inline uint64_t handle_projection_hash(
+    const PremapFutureKernelNativeConsumerParamsV1& params,
+    uint32_t row_index) {
+  const PremapKernelSideTypedConsumerRowV1 row =
+      premap_typed_consumer_load_future_native_row_v1(params, row_index);
+  return mix64(row.descriptor_ptr + 0x481d000000000001ULL) ^
+         mix64(row.packed_weight_descriptor + 0x481d000000000002ULL) ^
+         mix64(row.scale_metadata_handle + 0x481d000000000003ULL) ^
+         mix64(row.aux_metadata_handle + 0x481d000000000004ULL) ^
+         mix64(row.address_key_hash + 0x481d000000000005ULL) ^
+         mix64(static_cast<uint64_t>(row.expert_id) + 0x481d000000000006ULL) ^
+         mix64(static_cast<uint64_t>(row.row_index) + 0x481d000000000007ULL);
+}
+
 __global__ void typed_consumer_kernel(
     PremapKernelSideTypedConsumerAbiV1 table,
     uint32_t* row_ok,
@@ -506,6 +520,7 @@ __global__ void typed_consumer_future_native_dispatch_kernel(
     PremapFutureKernelNativeConsumerDispatchV1 dispatch,
     uint32_t* future_native_dispatch_consumer_ok,
     uint64_t* future_native_dispatch_consumer_hash,
+    uint64_t* future_native_dispatch_handle_projection_hash,
     uint32_t* future_native_dispatch_single_field_mirror_ok,
     uint64_t* future_native_dispatch_single_field_mirror_hash) {
   const uint32_t program_id = static_cast<uint32_t>(blockIdx.x);
@@ -526,6 +541,7 @@ __global__ void typed_consumer_future_native_dispatch_kernel(
     return;
   }
   const uint32_t idx = static_cast<uint32_t>(local_row_index_64);
+  const uint32_t row_index = dispatch.row_offset + idx;
   const PremapFutureKernelNativeConsumerDispatchResultV1 result =
       premap_typed_consumer_future_native_dispatch_consume_program_lane_v1(
           dispatch,
@@ -537,6 +553,8 @@ __global__ void typed_consumer_future_native_dispatch_kernel(
           kTypedSchemaHashLo);
   future_native_dispatch_consumer_ok[idx] = result.ok;
   future_native_dispatch_consumer_hash[idx] = result.row_hash;
+  future_native_dispatch_handle_projection_hash[idx] =
+      handle_projection_hash(dispatch.launch.params, row_index);
   future_native_dispatch_single_field_mirror_ok[idx] =
       result.single_field_mirror_checked != 0 ? result.single_field_mirror_ok : 0;
   future_native_dispatch_single_field_mirror_hash[idx] =
@@ -547,6 +565,7 @@ __global__ void typed_consumer_future_native_dispatch_ptr_kernel(
     PremapFutureKernelNativeConsumerDispatchPtrV1 dispatch_ptr,
     uint32_t* future_native_dispatch_ptr_consumer_ok,
     uint64_t* future_native_dispatch_ptr_consumer_hash,
+    uint64_t* future_native_dispatch_ptr_handle_projection_hash,
     uint32_t* future_native_dispatch_ptr_single_field_mirror_ok,
     uint64_t* future_native_dispatch_ptr_single_field_mirror_hash) {
   const uint32_t program_id = static_cast<uint32_t>(blockIdx.x);
@@ -573,6 +592,7 @@ __global__ void typed_consumer_future_native_dispatch_ptr_kernel(
     return;
   }
   const uint32_t idx = static_cast<uint32_t>(local_row_index_64);
+  const uint32_t row_index = dispatch.row_offset + idx;
   const PremapFutureKernelNativeConsumerDispatchResultV1 result =
       premap_typed_consumer_future_native_dispatch_ptr_consume_program_lane_v1(
           dispatch_ptr,
@@ -584,6 +604,8 @@ __global__ void typed_consumer_future_native_dispatch_ptr_kernel(
           kTypedSchemaHashLo);
   future_native_dispatch_ptr_consumer_ok[idx] = result.ok;
   future_native_dispatch_ptr_consumer_hash[idx] = result.row_hash;
+  future_native_dispatch_ptr_handle_projection_hash[idx] =
+      handle_projection_hash(dispatch.launch.params, row_index);
   future_native_dispatch_ptr_single_field_mirror_ok[idx] =
       result.single_field_mirror_checked != 0 ? result.single_field_mirror_ok : 0;
   future_native_dispatch_ptr_single_field_mirror_hash[idx] =
@@ -594,6 +616,7 @@ __global__ void typed_consumer_future_native_arg_slot_kernel(
     PremapFutureKernelNativeConsumerArgSlotV1 arg_slot,
     uint32_t* future_native_arg_slot_consumer_ok,
     uint64_t* future_native_arg_slot_consumer_hash,
+    uint64_t* future_native_arg_slot_handle_projection_hash,
     uint32_t* future_native_arg_slot_single_field_mirror_ok,
     uint64_t* future_native_arg_slot_single_field_mirror_hash) {
   const uint32_t program_id = static_cast<uint32_t>(blockIdx.x);
@@ -626,6 +649,7 @@ __global__ void typed_consumer_future_native_arg_slot_kernel(
     return;
   }
   const uint32_t idx = static_cast<uint32_t>(local_row_index_64);
+  const uint32_t row_index = dispatch.row_offset + idx;
   const PremapFutureKernelNativeConsumerArgSlotResultV1 result =
       premap_typed_consumer_future_native_arg_slot_consume_program_lane_v1(
           arg_slot,
@@ -637,6 +661,8 @@ __global__ void typed_consumer_future_native_arg_slot_kernel(
           kTypedSchemaHashLo);
   future_native_arg_slot_consumer_ok[idx] = result.ok;
   future_native_arg_slot_consumer_hash[idx] = result.row_hash;
+  future_native_arg_slot_handle_projection_hash[idx] =
+      handle_projection_hash(dispatch.launch.params, row_index);
   future_native_arg_slot_single_field_mirror_ok[idx] =
       result.single_field_mirror_checked != 0 ? result.single_field_mirror_ok : 0;
   future_native_arg_slot_single_field_mirror_hash[idx] =
@@ -902,10 +928,13 @@ int main(int argc, char** argv) {
            *d_future_native_launch_consumer_hash = nullptr,
            *d_future_native_launch_single_field_mirror_hash = nullptr,
            *d_future_native_dispatch_consumer_hash = nullptr,
+           *d_future_native_dispatch_handle_projection_hash = nullptr,
            *d_future_native_dispatch_single_field_mirror_hash = nullptr,
            *d_future_native_dispatch_ptr_consumer_hash = nullptr,
+           *d_future_native_dispatch_ptr_handle_projection_hash = nullptr,
            *d_future_native_dispatch_ptr_single_field_mirror_hash = nullptr,
            *d_future_native_arg_slot_consumer_hash = nullptr,
+           *d_future_native_arg_slot_handle_projection_hash = nullptr,
            *d_future_native_arg_slot_single_field_mirror_hash = nullptr;
   PremapFutureKernelNativeConsumerDispatchV1* d_future_native_dispatch_packet =
       nullptr;
@@ -1008,6 +1037,9 @@ int main(int argc, char** argv) {
       hipMalloc(&d_future_native_dispatch_consumer_hash, u64_bytes),
       "hipMalloc future_native_dispatch_consumer_hash");
   hip_check(
+      hipMalloc(&d_future_native_dispatch_handle_projection_hash, u64_bytes),
+      "hipMalloc future_native_dispatch_handle_projection_hash");
+  hip_check(
       hipMalloc(&d_future_native_dispatch_single_field_mirror_ok, u32_bytes),
       "hipMalloc future_native_dispatch_single_field_mirror_ok");
   hip_check(
@@ -1020,6 +1052,11 @@ int main(int argc, char** argv) {
       hipMalloc(&d_future_native_dispatch_ptr_consumer_hash, u64_bytes),
       "hipMalloc future_native_dispatch_ptr_consumer_hash");
   hip_check(
+      hipMalloc(
+          &d_future_native_dispatch_ptr_handle_projection_hash,
+          u64_bytes),
+      "hipMalloc future_native_dispatch_ptr_handle_projection_hash");
+  hip_check(
       hipMalloc(&d_future_native_dispatch_ptr_single_field_mirror_ok, u32_bytes),
       "hipMalloc future_native_dispatch_ptr_single_field_mirror_ok");
   hip_check(
@@ -1031,6 +1068,9 @@ int main(int argc, char** argv) {
   hip_check(
       hipMalloc(&d_future_native_arg_slot_consumer_hash, u64_bytes),
       "hipMalloc future_native_arg_slot_consumer_hash");
+  hip_check(
+      hipMalloc(&d_future_native_arg_slot_handle_projection_hash, u64_bytes),
+      "hipMalloc future_native_arg_slot_handle_projection_hash");
   hip_check(
       hipMalloc(&d_future_native_arg_slot_single_field_mirror_ok, u32_bytes),
       "hipMalloc future_native_arg_slot_single_field_mirror_ok");
@@ -1074,6 +1114,9 @@ int main(int argc, char** argv) {
       hipMemset(d_future_native_dispatch_consumer_hash, 0, u64_bytes),
       "memset future_native_dispatch_consumer_hash");
   hip_check(
+      hipMemset(d_future_native_dispatch_handle_projection_hash, 0, u64_bytes),
+      "memset future_native_dispatch_handle_projection_hash");
+  hip_check(
       hipMemset(d_future_native_dispatch_single_field_mirror_ok, 0, u32_bytes),
       "memset future_native_dispatch_single_field_mirror_ok");
   hip_check(
@@ -1086,6 +1129,12 @@ int main(int argc, char** argv) {
       hipMemset(d_future_native_dispatch_ptr_consumer_hash, 0, u64_bytes),
       "memset future_native_dispatch_ptr_consumer_hash");
   hip_check(
+      hipMemset(
+          d_future_native_dispatch_ptr_handle_projection_hash,
+          0,
+          u64_bytes),
+      "memset future_native_dispatch_ptr_handle_projection_hash");
+  hip_check(
       hipMemset(d_future_native_dispatch_ptr_single_field_mirror_ok, 0, u32_bytes),
       "memset future_native_dispatch_ptr_single_field_mirror_ok");
   hip_check(
@@ -1097,6 +1146,9 @@ int main(int argc, char** argv) {
   hip_check(
       hipMemset(d_future_native_arg_slot_consumer_hash, 0, u64_bytes),
       "memset future_native_arg_slot_consumer_hash");
+  hip_check(
+      hipMemset(d_future_native_arg_slot_handle_projection_hash, 0, u64_bytes),
+      "memset future_native_arg_slot_handle_projection_hash");
   hip_check(
       hipMemset(d_future_native_arg_slot_single_field_mirror_ok, 0, u32_bytes),
       "memset future_native_arg_slot_single_field_mirror_ok");
@@ -1365,6 +1417,7 @@ int main(int argc, char** argv) {
       future_native_dispatch,
       d_future_native_dispatch_consumer_ok,
       d_future_native_dispatch_consumer_hash,
+      d_future_native_dispatch_handle_projection_hash,
       d_future_native_dispatch_single_field_mirror_ok,
       d_future_native_dispatch_single_field_mirror_hash);
   hip_check(hipGetLastError(), "future native dispatch consumer launch");
@@ -1403,6 +1456,7 @@ int main(int argc, char** argv) {
       future_native_dispatch_ptr,
       d_future_native_dispatch_ptr_consumer_ok,
       d_future_native_dispatch_ptr_consumer_hash,
+      d_future_native_dispatch_ptr_handle_projection_hash,
       d_future_native_dispatch_ptr_single_field_mirror_ok,
       d_future_native_dispatch_ptr_single_field_mirror_hash);
   hip_check(hipGetLastError(), "future native dispatch pointer consumer launch");
@@ -1441,6 +1495,7 @@ int main(int argc, char** argv) {
       future_native_arg_slot,
       d_future_native_arg_slot_consumer_ok,
       d_future_native_arg_slot_consumer_hash,
+      d_future_native_arg_slot_handle_projection_hash,
       d_future_native_arg_slot_single_field_mirror_ok,
       d_future_native_arg_slot_single_field_mirror_hash);
   hip_check(hipGetLastError(), "future native arg-slot consumer launch");
@@ -1475,14 +1530,17 @@ int main(int argc, char** argv) {
   std::vector<uint64_t> future_native_launch_single_field_mirror_hashes(rows);
   std::vector<uint32_t> future_native_dispatch_consumer_ok(rows);
   std::vector<uint64_t> future_native_dispatch_consumer_hashes(rows);
+  std::vector<uint64_t> future_native_dispatch_handle_projection_hashes(rows);
   std::vector<uint32_t> future_native_dispatch_single_field_mirror_ok(rows);
   std::vector<uint64_t> future_native_dispatch_single_field_mirror_hashes(rows);
   std::vector<uint32_t> future_native_dispatch_ptr_consumer_ok(rows);
   std::vector<uint64_t> future_native_dispatch_ptr_consumer_hashes(rows);
+  std::vector<uint64_t> future_native_dispatch_ptr_handle_projection_hashes(rows);
   std::vector<uint32_t> future_native_dispatch_ptr_single_field_mirror_ok(rows);
   std::vector<uint64_t> future_native_dispatch_ptr_single_field_mirror_hashes(rows);
   std::vector<uint32_t> future_native_arg_slot_consumer_ok(rows);
   std::vector<uint64_t> future_native_arg_slot_consumer_hashes(rows);
+  std::vector<uint64_t> future_native_arg_slot_handle_projection_hashes(rows);
   std::vector<uint32_t> future_native_arg_slot_single_field_mirror_ok(rows);
   std::vector<uint64_t> future_native_arg_slot_single_field_mirror_hashes(rows);
   hip_check(hipMemcpy(ok.data(), d_ok, u32_bytes, hipMemcpyDeviceToHost), "copy ok");
@@ -1643,6 +1701,13 @@ int main(int argc, char** argv) {
       "copy future_native_dispatch_consumer_hash");
   hip_check(
       hipMemcpy(
+          future_native_dispatch_handle_projection_hashes.data(),
+          d_future_native_dispatch_handle_projection_hash,
+          u64_bytes,
+          hipMemcpyDeviceToHost),
+      "copy future_native_dispatch_handle_projection_hash");
+  hip_check(
+      hipMemcpy(
           future_native_dispatch_single_field_mirror_ok.data(),
           d_future_native_dispatch_single_field_mirror_ok,
           u32_bytes,
@@ -1669,6 +1734,13 @@ int main(int argc, char** argv) {
           u64_bytes,
           hipMemcpyDeviceToHost),
       "copy future_native_dispatch_ptr_consumer_hash");
+  hip_check(
+      hipMemcpy(
+          future_native_dispatch_ptr_handle_projection_hashes.data(),
+          d_future_native_dispatch_ptr_handle_projection_hash,
+          u64_bytes,
+          hipMemcpyDeviceToHost),
+      "copy future_native_dispatch_ptr_handle_projection_hash");
   hip_check(
       hipMemcpy(
           future_native_dispatch_ptr_single_field_mirror_ok.data(),
@@ -1699,6 +1771,13 @@ int main(int argc, char** argv) {
       "copy future_native_arg_slot_consumer_hash");
   hip_check(
       hipMemcpy(
+          future_native_arg_slot_handle_projection_hashes.data(),
+          d_future_native_arg_slot_handle_projection_hash,
+          u64_bytes,
+          hipMemcpyDeviceToHost),
+      "copy future_native_arg_slot_handle_projection_hash");
+  hip_check(
+      hipMemcpy(
           future_native_arg_slot_single_field_mirror_ok.data(),
           d_future_native_arg_slot_single_field_mirror_ok,
           u32_bytes,
@@ -1724,10 +1803,13 @@ int main(int argc, char** argv) {
   uint64_t future_native_launch_consumer_hash_acc = 0;
   uint64_t future_native_launch_single_field_mirror_hash_acc = 0;
   uint64_t future_native_dispatch_consumer_hash_acc = 0;
+  uint64_t future_native_dispatch_handle_projection_hash_acc = 0;
   uint64_t future_native_dispatch_single_field_mirror_hash_acc = 0;
   uint64_t future_native_dispatch_ptr_consumer_hash_acc = 0;
+  uint64_t future_native_dispatch_ptr_handle_projection_hash_acc = 0;
   uint64_t future_native_dispatch_ptr_single_field_mirror_hash_acc = 0;
   uint64_t future_native_arg_slot_consumer_hash_acc = 0;
+  uint64_t future_native_arg_slot_handle_projection_hash_acc = 0;
   uint64_t future_native_arg_slot_single_field_mirror_hash_acc = 0;
   int ok_count = 0;
   int single_field_mirror_ok_count = 0;
@@ -1804,6 +1886,10 @@ int main(int argc, char** argv) {
         mix64(
             future_native_dispatch_consumer_hashes[i] +
             static_cast<uint64_t>(i));
+    future_native_dispatch_handle_projection_hash_acc ^=
+        mix64(
+            future_native_dispatch_handle_projection_hashes[i] +
+            static_cast<uint64_t>(i));
     future_native_dispatch_single_field_mirror_ok_count +=
         future_native_dispatch_single_field_mirror_ok[i] == 1 ? 1 : 0;
     future_native_dispatch_single_field_mirror_hash_acc ^=
@@ -1816,6 +1902,10 @@ int main(int argc, char** argv) {
         mix64(
             future_native_dispatch_ptr_consumer_hashes[i] +
             static_cast<uint64_t>(i));
+    future_native_dispatch_ptr_handle_projection_hash_acc ^=
+        mix64(
+            future_native_dispatch_ptr_handle_projection_hashes[i] +
+            static_cast<uint64_t>(i));
     future_native_dispatch_ptr_single_field_mirror_ok_count +=
         future_native_dispatch_ptr_single_field_mirror_ok[i] == 1 ? 1 : 0;
     future_native_dispatch_ptr_single_field_mirror_hash_acc ^=
@@ -1827,6 +1917,10 @@ int main(int argc, char** argv) {
     future_native_arg_slot_consumer_hash_acc ^=
         mix64(
             future_native_arg_slot_consumer_hashes[i] +
+            static_cast<uint64_t>(i));
+    future_native_arg_slot_handle_projection_hash_acc ^=
+        mix64(
+            future_native_arg_slot_handle_projection_hashes[i] +
             static_cast<uint64_t>(i));
     future_native_arg_slot_single_field_mirror_ok_count +=
         future_native_arg_slot_single_field_mirror_ok[i] == 1 ? 1 : 0;
@@ -2118,6 +2212,9 @@ int main(int argc, char** argv) {
       hipFree(d_future_native_dispatch_consumer_hash),
       "hipFree future_native_dispatch_consumer_hash");
   hip_check(
+      hipFree(d_future_native_dispatch_handle_projection_hash),
+      "hipFree future_native_dispatch_handle_projection_hash");
+  hip_check(
       hipFree(d_future_native_dispatch_single_field_mirror_ok),
       "hipFree future_native_dispatch_single_field_mirror_ok");
   hip_check(
@@ -2130,6 +2227,9 @@ int main(int argc, char** argv) {
       hipFree(d_future_native_dispatch_ptr_consumer_hash),
       "hipFree future_native_dispatch_ptr_consumer_hash");
   hip_check(
+      hipFree(d_future_native_dispatch_ptr_handle_projection_hash),
+      "hipFree future_native_dispatch_ptr_handle_projection_hash");
+  hip_check(
       hipFree(d_future_native_dispatch_ptr_single_field_mirror_ok),
       "hipFree future_native_dispatch_ptr_single_field_mirror_ok");
   hip_check(
@@ -2141,6 +2241,9 @@ int main(int argc, char** argv) {
   hip_check(
       hipFree(d_future_native_arg_slot_consumer_hash),
       "hipFree future_native_arg_slot_consumer_hash");
+  hip_check(
+      hipFree(d_future_native_arg_slot_handle_projection_hash),
+      "hipFree future_native_arg_slot_handle_projection_hash");
   hip_check(
       hipFree(d_future_native_arg_slot_single_field_mirror_ok),
       "hipFree future_native_arg_slot_single_field_mirror_ok");
@@ -2561,6 +2664,9 @@ int main(int argc, char** argv) {
   std::cout << ",\"future_kernel_native_dispatch_consumer_hash_accumulator\":\""
             << std::hex << future_native_dispatch_consumer_hash_acc << std::dec
             << "\"";
+  std::cout << ",\"future_kernel_native_dispatch_consumer_handle_projection_hash_accumulator\":\""
+            << std::hex << future_native_dispatch_handle_projection_hash_acc
+            << std::dec << "\"";
   std::cout << ",\"future_kernel_native_dispatch_consumer_field_mask\":"
             << future_kernel_consumer_args_field_mask;
   std::cout << ",\"future_kernel_native_dispatch_consumer_required_field_mask\":"
@@ -2644,6 +2750,10 @@ int main(int argc, char** argv) {
   std::cout << ",\"future_kernel_native_dispatch_ptr_consumer_hash_accumulator\":\""
             << std::hex << future_native_dispatch_ptr_consumer_hash_acc
             << std::dec << "\"";
+  std::cout << ",\"future_kernel_native_dispatch_ptr_consumer_handle_projection_hash_accumulator\":\""
+            << std::hex
+            << future_native_dispatch_ptr_handle_projection_hash_acc << std::dec
+            << "\"";
   std::cout << ",\"future_kernel_native_dispatch_ptr_consumer_field_mask\":"
             << future_kernel_consumer_args_field_mask;
   std::cout << ",\"future_kernel_native_dispatch_ptr_consumer_required_field_mask\":"
@@ -2728,6 +2838,9 @@ int main(int argc, char** argv) {
             << future_native_arg_slot_consumer_error_count;
   std::cout << ",\"future_kernel_native_arg_slot_consumer_hash_accumulator\":\""
             << std::hex << future_native_arg_slot_consumer_hash_acc
+            << std::dec << "\"";
+  std::cout << ",\"future_kernel_native_arg_slot_consumer_handle_projection_hash_accumulator\":\""
+            << std::hex << future_native_arg_slot_handle_projection_hash_acc
             << std::dec << "\"";
   std::cout << ",\"future_kernel_native_arg_slot_consumer_field_mask\":"
             << future_kernel_consumer_args_field_mask;

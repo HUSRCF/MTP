@@ -1195,6 +1195,13 @@ def _check_future_kernel_native_dispatch_consumer_summary(
         stub,
         prefix=prefix,
         field_prefixes=chain_prefixes,
+        suffix="handle_projection_hash_accumulator",
+        failures=failures,
+    )
+    _check_equal_hex_accumulators(
+        stub,
+        prefix=prefix,
+        field_prefixes=chain_prefixes,
         suffix="single_field_mirror_hash_accumulator",
         failures=failures,
     )

@@ -646,6 +646,7 @@ FUTURE_KERNEL_NATIVE_DISPATCH_CONSUMER_SUMMARY_KEYS = (
     "future_kernel_native_dispatch_consumer_row_ok_count",
     "future_kernel_native_dispatch_consumer_error_count",
     "future_kernel_native_dispatch_consumer_hash_accumulator",
+    "future_kernel_native_dispatch_consumer_handle_projection_hash_accumulator",
     "future_kernel_native_dispatch_consumer_payload_bytes",
     "future_kernel_native_dispatch_consumer_passed_to_kernel",
     "future_kernel_native_dispatch_consumer_changes_kernel_launch_args",
@@ -681,6 +682,7 @@ FUTURE_KERNEL_NATIVE_DISPATCH_CONSUMER_SUMMARY_KEYS = (
     "future_kernel_native_dispatch_ptr_consumer_row_ok_count",
     "future_kernel_native_dispatch_ptr_consumer_error_count",
     "future_kernel_native_dispatch_ptr_consumer_hash_accumulator",
+    "future_kernel_native_dispatch_ptr_consumer_handle_projection_hash_accumulator",
     "future_kernel_native_dispatch_ptr_consumer_payload_bytes",
     "future_kernel_native_dispatch_ptr_consumer_passed_to_kernel",
     "future_kernel_native_dispatch_ptr_consumer_changes_kernel_launch_args",
@@ -717,6 +719,7 @@ FUTURE_KERNEL_NATIVE_DISPATCH_CONSUMER_SUMMARY_KEYS = (
     "future_kernel_native_arg_slot_consumer_row_ok_count",
     "future_kernel_native_arg_slot_consumer_error_count",
     "future_kernel_native_arg_slot_consumer_hash_accumulator",
+    "future_kernel_native_arg_slot_consumer_handle_projection_hash_accumulator",
     "future_kernel_native_arg_slot_consumer_payload_bytes",
     "future_kernel_native_arg_slot_consumer_passed_to_kernel",
     "future_kernel_native_arg_slot_consumer_changes_kernel_launch_args",
@@ -764,6 +767,7 @@ FUTURE_KERNEL_NATIVE_ARG_SLOT_CONSUMER_SUMMARY_KEYS = (
     "future_kernel_native_arg_slot_consumer_row_ok_count",
     "future_kernel_native_arg_slot_consumer_error_count",
     "future_kernel_native_arg_slot_consumer_hash_accumulator",
+    "future_kernel_native_arg_slot_consumer_handle_projection_hash_accumulator",
     "future_kernel_native_arg_slot_consumer_payload_bytes",
     "future_kernel_native_arg_slot_consumer_passed_to_kernel",
     "future_kernel_native_arg_slot_consumer_changes_kernel_launch_args",
@@ -2695,6 +2699,7 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
             == 0
             and dispatch_geometry_ok
             and _hash_chain_valid("hash_accumulator")
+            and _hash_chain_equal("handle_projection_hash_accumulator")
             and _hash_chain_equal("single_field_mirror_hash_accumulator")
         )
 
