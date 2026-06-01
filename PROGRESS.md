@@ -25203,33 +25203,46 @@ mirror.  The runner now also supports explicit `--mirror-field` selection for
 `descriptor_ptr`, `packed_weight_descriptor`, and `aux_metadata_handle`, so
 field-level canaries can be run without changing the current WNA16 launch ABI.
 
-GPU1 tail-window canaries passed for the remaining three fields:
+GPU1 tail-window and full-table canaries passed for the remaining three fields:
 
 ```text
-dispatch window:
+tail dispatch window:
   row_offset = 1792
   row_limit = 1841
   active_rows = 49
   expected_program_count = 1
   block_threads = 256
 
+full-table dispatch window:
+  row_offset = 0
+  row_limit = 1841
+  active_rows = 1841
+  expected_program_count = 8
+  block_threads = 256
+
 descriptor_ptr:
-  runner = outputs/reports/premap_kernel_consumer/
+  tail runner = outputs/reports/premap_kernel_consumer/
     online_merged_future_native_arg_slot_tail_window49_descriptor_ptr_canary_runner.json
-  passed = true
-  arg_slot rows / ok = 49 / 49
+  full runner = outputs/reports/premap_kernel_consumer/
+    online_merged_future_native_arg_slot_32tables_descriptor_ptr_canary_runner.json
+  tail rows / ok = 49 / 49
+  full rows / ok = 1841 / 1841
 
 packed_weight_descriptor:
-  runner = outputs/reports/premap_kernel_consumer/
+  tail runner = outputs/reports/premap_kernel_consumer/
     online_merged_future_native_arg_slot_tail_window49_packed_weight_canary_runner.json
-  passed = true
-  arg_slot rows / ok = 49 / 49
+  full runner = outputs/reports/premap_kernel_consumer/
+    online_merged_future_native_arg_slot_32tables_packed_weight_canary_runner.json
+  tail rows / ok = 49 / 49
+  full rows / ok = 1841 / 1841
 
 aux_metadata_handle:
-  runner = outputs/reports/premap_kernel_consumer/
+  tail runner = outputs/reports/premap_kernel_consumer/
     online_merged_future_native_arg_slot_tail_window49_aux_metadata_canary_runner.json
-  passed = true
-  arg_slot rows / ok = 49 / 49
+  full runner = outputs/reports/premap_kernel_consumer/
+    online_merged_future_native_arg_slot_32tables_aux_metadata_canary_runner.json
+  tail rows / ok = 49 / 49
+  full rows / ok = 1841 / 1841
 ```
 
 All three runs preserve the strict no-op contract:
