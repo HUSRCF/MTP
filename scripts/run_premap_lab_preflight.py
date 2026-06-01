@@ -182,6 +182,7 @@ OPTIONAL_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
     "future_kernel_native_consumer_online_runner_16_128export_json",
     "future_kernel_native_dispatch_consumer_online_artifact_check_16_128export_json",
     "future_kernel_native_dispatch_consumer_online_runner_16_128export_json",
+    "future_kernel_native_arg_slot_packed_weight_mirror_canary_json",
     "future_kernel_native_launch_consumer_online_artifact_check_16_128export_json",
     "future_kernel_native_launch_consumer_online_runner_16_128export_json",
     "native_typed_consumer_stub_online_prelaunch_input_per_field_canary_json",
@@ -623,6 +624,7 @@ def _validate_required_evidence_payload(
         "native_typed_consumer_online_prelaunch_canary_runner_json",
         "future_kernel_native_dispatch_ptr_standalone_canary_json",
         "future_kernel_native_arg_slot_standalone_canary_json",
+        "future_kernel_native_arg_slot_packed_weight_mirror_canary_json",
         *known_stub_labels,
     } and evidence_label not in DISPATCH_WINDOW_RUNNER_EVIDENCE_LABELS and (
         evidence_label not in ONLINE_PRELAUNCH_ARTIFACT_EVIDENCE_LABELS
@@ -641,7 +643,18 @@ def _validate_required_evidence_payload(
             for failure in _validate_future_native_dispatch_ptr_standalone_evidence(
                 evidence,
                 require_arg_slot=True,
+                arg_slot_mirror_field="scale_metadata_handle",
                 failure_prefix="standalone_arg_slot",
+            )
+        ]
+    if evidence_label == "future_kernel_native_arg_slot_packed_weight_mirror_canary_json":
+        return [
+            f"{evidence_label}:{failure}"
+            for failure in _validate_future_native_dispatch_ptr_standalone_evidence(
+                evidence,
+                require_arg_slot=True,
+                arg_slot_mirror_field="packed_weight_descriptor",
+                failure_prefix="standalone_arg_slot_packed_weight",
             )
         ]
     if evidence_label in ONLINE_PRELAUNCH_ARTIFACT_EVIDENCE_LABELS:
@@ -2453,6 +2466,7 @@ def _validate_future_native_dispatch_ptr_standalone_evidence(
     evidence: dict[str, Any],
     *,
     require_arg_slot: bool = False,
+    arg_slot_mirror_field: str = "scale_metadata_handle",
     failure_prefix: str = "standalone_dispatch_ptr",
 ) -> list[str]:
     failures: list[str] = []
@@ -2537,6 +2551,16 @@ def _validate_future_native_dispatch_ptr_standalone_evidence(
     ):
         failures.append(f"{failure_prefix}_result_struct_size_mismatch")
     if require_arg_slot:
+        mirror_macro_by_field = {
+            "descriptor_ptr": "MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR_MIRROR_FIELD",
+            "scale_metadata_handle": "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD",
+            "packed_weight_descriptor": "MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_MIRROR_FIELD",
+            "aux_metadata_handle": "MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_MIRROR_FIELD",
+        }
+        arg_slot_mirror_macro = mirror_macro_by_field.get(arg_slot_mirror_field)
+        if arg_slot_mirror_macro is None:
+            failures.append(f"{failure_prefix}_arg_slot_mirror_field_unknown")
+            arg_slot_mirror_macro = ""
         expected_arg_slot = {
             "future_kernel_native_arg_slot_consumer_checked": True,
             "future_kernel_native_arg_slot_consumer_error_count": 0,
@@ -2548,7 +2572,7 @@ def _validate_future_native_dispatch_ptr_standalone_evidence(
             "future_kernel_native_arg_slot_consumer_field_mask": 15,
             "future_kernel_native_arg_slot_consumer_required_field_mask": 7,
             "future_kernel_native_arg_slot_consumer_single_field_mirror_checked": True,
-            "future_kernel_native_arg_slot_consumer_single_field_mirror_field_name": "scale_metadata_handle",
+            "future_kernel_native_arg_slot_consumer_single_field_mirror_field_name": arg_slot_mirror_field,
             "future_kernel_native_arg_slot_consumer_single_field_mirror_error_count": 0,
         }
         for key, expected_value in expected_arg_slot.items():
@@ -2590,7 +2614,7 @@ def _validate_future_native_dispatch_ptr_standalone_evidence(
         required_enabled = (
             *required_enabled,
             "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ARG_SLOT_ABI",
-            "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD",
+            arg_slot_mirror_macro,
         )
     for macro in required_enabled:
         if macros.get(macro) is not True:
@@ -2598,9 +2622,12 @@ def _validate_future_native_dispatch_ptr_standalone_evidence(
     if require_arg_slot:
         for forbidden_mirror in (
             "MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR_MIRROR_FIELD",
+            "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD",
             "MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_MIRROR_FIELD",
             "MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_MIRROR_FIELD",
         ):
+            if forbidden_mirror == arg_slot_mirror_macro:
+                continue
             if macros.get(forbidden_mirror):
                 failures.append(f"{failure_prefix}_{forbidden_mirror}_enabled")
     for forbidden in (
