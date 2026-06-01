@@ -2721,6 +2721,64 @@ def test_premap_lab_preflight_rejects_default_gate_without_dispatch_ptr_contract
     )
 
 
+def test_premap_lab_preflight_conditions_online_arg_slot_coverage_on_contract(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    gate_path = tmp_path / default_gate
+    text = gate_path.read_text()
+    text = text.replace(
+        "  future_kernel_native_arg_slot_online_total_mirror_coverage_required: true\n",
+        "  future_kernel_native_arg_slot_online_total_mirror_coverage_required: false\n",
+    )
+    _write(gate_path, text)
+    runner_path = (
+        tmp_path / "reports/default_gate_native_online_prelaunch_canary_runner_32.json"
+    )
+    payload = json.loads(runner_path.read_text())
+    descriptor_summary = payload[
+        "future_kernel_native_consumer_dispatch_descriptor_ptr_stub_summary"
+    ]
+    descriptor_summary[
+        "future_kernel_native_arg_slot_consumer_single_field_mirror_field_name"
+    ] = "scale_metadata_handle"
+    _write(runner_path, json.dumps(payload) + "\n")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is False
+    assert "default_readonly_gate_contract_check_failed" in result["failures"]
+    assert (
+        "future_kernel_native_arg_slot_online_total_mirror_coverage_required_mismatch"
+        in result["default_readonly_gate_contract_check"]["failures"]
+    )
+    assert (
+        "default_kernel_consumer_arg_slot_online_total_mirror_coverage_incomplete"
+        not in result["failures"]
+    )
+    summary = result["lab_gate_status_summary"]
+    assert (
+        summary["default_kernel_consumer_arg_slot_online_total_mirror_coverage_required"]
+        is False
+    )
+    assert (
+        summary["default_kernel_consumer_arg_slot_online_total_full_field_mirror_coverage"]
+        is False
+    )
+
+
 def test_premap_lab_preflight_rejects_default_gate_with_bad_schema_artifact(
     tmp_path: Path,
 ):

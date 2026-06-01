@@ -2909,6 +2909,7 @@ def _check_default_gate_contract(
         "gate_path": label,
         "passed": not failures,
         "failures": failures,
+        "observed_contract": dict(contract) if isinstance(contract, dict) else {},
         "required_contract": dict(REQUIRED_DEFAULT_GATE_CONTRACT),
     }
 
@@ -3626,8 +3627,18 @@ def run_premap_lab_preflight(
         set(arg_slot_standalone_mirror_field_coverage)
         | set(arg_slot_optional_mirror_field_coverage)
     )
+    observed_default_contract = default_gate_contract_check.get("observed_contract")
+    if not isinstance(observed_default_contract, dict):
+        observed_default_contract = {}
+    arg_slot_online_total_mirror_coverage_required = (
+        observed_default_contract.get(
+            "future_kernel_native_arg_slot_online_total_mirror_coverage_required"
+        )
+        is True
+    )
     if (
-        not allow_missing_evidence
+        arg_slot_online_total_mirror_coverage_required
+        and not allow_missing_evidence
         and not defer_online_prelaunch_runner_evidence
         and set(arg_slot_online_total_mirror_field_coverage)
         != set(ARG_SLOT_MIRROR_FIELDS)
@@ -4189,9 +4200,7 @@ def run_premap_lab_preflight(
             set(arg_slot_total_mirror_field_coverage) == set(ARG_SLOT_MIRROR_FIELDS)
         ),
         "default_kernel_consumer_arg_slot_online_total_mirror_coverage_required": (
-            REQUIRED_DEFAULT_GATE_CONTRACT[
-                "future_kernel_native_arg_slot_online_total_mirror_coverage_required"
-            ]
+            arg_slot_online_total_mirror_coverage_required
         ),
         "default_kernel_consumer_arg_slot_all_mirror_fields": (
             list(ARG_SLOT_MIRROR_FIELDS)
