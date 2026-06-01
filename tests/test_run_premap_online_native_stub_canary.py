@@ -284,6 +284,18 @@ def test_run_canary_dry_run_includes_compact_preflight_status(
         "native_stub_future_kernel_native_consumer_dispatch_aux_metadata_mirror"
         in result["steps"]
     )
+    assert "future_kernel_native_consumer_dispatch_arg_slot_stub_summary" in result
+    assert (
+        "future_kernel_native_arg_slot_consumer_row_count"
+        in result["future_kernel_native_consumer_dispatch_arg_slot_stub_summary"]
+    )
+    assert "future_kernel_native_consumer_dispatch_arg_slot_mirror_stub_summary" in result
+    assert (
+        "future_kernel_native_arg_slot_consumer_single_field_mirror_row_count"
+        in result[
+            "future_kernel_native_consumer_dispatch_arg_slot_mirror_stub_summary"
+        ]
+    )
     assert result["preflight_status_output_json"] == str(status_output)
     per_field_cmd = result["steps"]["native_stub_per_field"]["cmd"]
     assert str(tmp_path / "stub_per_field.json") in per_field_cmd

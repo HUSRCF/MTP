@@ -722,6 +722,47 @@ FUTURE_KERNEL_NATIVE_DISPATCH_CONSUMER_SUMMARY_KEYS = (
     "changes_kernel_launch_args",
     "input_json",
 )
+FUTURE_KERNEL_NATIVE_ARG_SLOT_CONSUMER_SUMMARY_KEYS = (
+    "passed",
+    "ok",
+    "row_count",
+    "row_ok_count",
+    "error_count",
+    "future_kernel_native_arg_slot_consumer_abi_name",
+    "future_kernel_native_arg_slot_consumer_checked",
+    "future_kernel_native_arg_slot_consumer_mode",
+    "future_kernel_native_arg_slot_consumer_source",
+    "future_kernel_native_arg_slot_consumer_version",
+    "future_kernel_native_arg_slot_consumer_slot_struct_size",
+    "future_kernel_native_arg_slot_consumer_slot_struct_align",
+    "future_kernel_native_arg_slot_consumer_dispatch_ptr_struct_size",
+    "future_kernel_native_arg_slot_consumer_result_struct_size",
+    "future_kernel_native_arg_slot_consumer_offset_dispatch_ptr",
+    "future_kernel_native_arg_slot_consumer_offset_abi_version",
+    "future_kernel_native_arg_slot_consumer_offset_dispatch_ptr_struct_size",
+    "future_kernel_native_arg_slot_consumer_offset_result_struct_size",
+    "future_kernel_native_arg_slot_consumer_offset_payload_bytes",
+    "future_kernel_native_arg_slot_consumer_offset_flags",
+    "future_kernel_native_arg_slot_consumer_row_count",
+    "future_kernel_native_arg_slot_consumer_row_ok_count",
+    "future_kernel_native_arg_slot_consumer_error_count",
+    "future_kernel_native_arg_slot_consumer_payload_bytes",
+    "future_kernel_native_arg_slot_consumer_passed_to_kernel",
+    "future_kernel_native_arg_slot_consumer_changes_kernel_launch_args",
+    "future_kernel_native_arg_slot_consumer_current_wna16_arg_compatible",
+    "future_kernel_native_arg_slot_consumer_requires_wna16_arg_reinterpretation",
+    "future_kernel_native_arg_slot_consumer_field_mask",
+    "future_kernel_native_arg_slot_consumer_required_field_mask",
+    "future_kernel_native_arg_slot_consumer_single_field_mirror_checked",
+    "future_kernel_native_arg_slot_consumer_single_field_mirror_field_name",
+    "future_kernel_native_arg_slot_consumer_single_field_mirror_row_count",
+    "future_kernel_native_arg_slot_consumer_single_field_mirror_row_ok_count",
+    "future_kernel_native_arg_slot_consumer_single_field_mirror_error_count",
+    "payload_bytes",
+    "passed_to_kernel",
+    "changes_kernel_launch_args",
+    "input_json",
+)
 
 _FUTURE_KERNEL_REQUIRED_FIELD_MASK = 0x7
 _FUTURE_KERNEL_ALL_FIELD_MASK = 0xF
@@ -3725,6 +3766,18 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
         "future_kernel_native_consumer_dispatch_aux_metadata_stub_summary": {
             key: future_kernel_native_consumer_dispatch_aux_metadata_stub_payload.get(key)
             for key in FUTURE_KERNEL_NATIVE_DISPATCH_CONSUMER_SUMMARY_KEYS
+        },
+        # The arg-slot summaries below are projections of the same dispatch
+        # payload used by the dispatch ABI canary.  They are top-level
+        # observability aliases so readers do not need to mine the full
+        # dispatch summary or artifact checker for arg-slot row counts.
+        "future_kernel_native_consumer_dispatch_arg_slot_stub_summary": {
+            key: future_kernel_native_consumer_dispatch_stub_payload.get(key)
+            for key in FUTURE_KERNEL_NATIVE_ARG_SLOT_CONSUMER_SUMMARY_KEYS
+        },
+        "future_kernel_native_consumer_dispatch_arg_slot_mirror_stub_summary": {
+            key: future_kernel_native_consumer_dispatch_stub_payload.get(key)
+            for key in FUTURE_KERNEL_NATIVE_ARG_SLOT_CONSUMER_SUMMARY_KEYS
         },
         "preflight_summary": {
             "passed": preflight_payload.get("passed"),
