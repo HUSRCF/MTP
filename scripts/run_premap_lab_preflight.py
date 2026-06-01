@@ -646,6 +646,11 @@ def _validate_required_evidence_payload(
             and input_check_count < expected_online_input_count
         ):
             failures.append("artifact_online_input_check_count_invalid")
+        final_deferred_count = _int_metric(evidence, "final_deferred_count")
+        if final_deferred_count is None:
+            failures.append("artifact_final_deferred_count_missing")
+        elif final_deferred_count != 0:
+            failures.append("artifact_final_deferred_count_nonzero")
         extra_check_count = _int_metric(
             evidence,
             "runner_online_prelaunch_input_extra_check_count",
@@ -1904,37 +1909,82 @@ def _validate_required_evidence_payload(
                         expected_field_name=expected_field_name,
                     )
         artifact_check_summary = evidence.get("artifact_check_summary")
-        if isinstance(artifact_check_summary, dict):
-            if artifact_check_summary.get("passed") is not True:
-                failures.append("runner_artifact_check_summary_not_passed")
-            if artifact_check_summary.get("failures") != []:
-                failures.append("runner_artifact_check_summary_failures_not_empty")
-            artifact_min_inputs = _int_metric(
-                artifact_check_summary,
-                "min_online_inputs",
-            )
-            if artifact_min_inputs is None:
-                failures.append("runner_artifact_check_min_online_inputs_missing")
-            if (
-                artifact_min_inputs is not None
-                and artifact_min_inputs < expected_online_input_count
-            ):
-                failures.append("runner_artifact_check_min_online_inputs_invalid")
-            artifact_input_check_count = _int_metric(
-                artifact_check_summary,
-                "runner_online_prelaunch_input_check_count",
-            )
-            if artifact_input_check_count is None:
-                failures.append(
-                    "runner_artifact_check_online_input_check_count_missing"
-                )
-            if (
-                artifact_input_check_count is not None
-                and artifact_input_check_count < expected_online_input_count
-            ):
-                failures.append(
-                    "runner_artifact_check_online_input_check_count_invalid"
-                )
+        if not isinstance(artifact_check_summary, dict):
+            failures.append("runner_artifact_check_summary_missing")
+            artifact_check_summary = {}
+        if artifact_check_summary.get("passed") is not True:
+            failures.append("runner_artifact_check_summary_not_passed")
+        if artifact_check_summary.get("failures") != []:
+            failures.append("runner_artifact_check_summary_failures_not_empty")
+        artifact_min_inputs = _int_metric(
+            artifact_check_summary,
+            "min_online_inputs",
+        )
+        if artifact_min_inputs is None:
+            failures.append("runner_artifact_check_min_online_inputs_missing")
+        if (
+            artifact_min_inputs is not None
+            and artifact_min_inputs < expected_online_input_count
+        ):
+            failures.append("runner_artifact_check_min_online_inputs_invalid")
+        artifact_final_deferred_count = _int_metric(
+            artifact_check_summary,
+            "final_deferred_count",
+        )
+        if artifact_final_deferred_count is None:
+            failures.append("runner_artifact_check_final_deferred_count_missing")
+        elif artifact_final_deferred_count != 0:
+            failures.append("runner_artifact_check_final_deferred_count_nonzero")
+        artifact_input_check_count = _int_metric(
+            artifact_check_summary,
+            "runner_online_prelaunch_input_check_count",
+        )
+        if artifact_input_check_count is None:
+            failures.append("runner_artifact_check_online_input_check_count_missing")
+        if (
+            artifact_input_check_count is not None
+            and artifact_input_check_count < expected_online_input_count
+        ):
+            failures.append("runner_artifact_check_online_input_check_count_invalid")
+        if (
+            artifact_input_check_count is not None
+            and artifact_input_check_count != input_check_count
+        ):
+            failures.append("runner_artifact_check_online_input_count_mismatch")
+        artifact_extra_count = _int_metric(
+            artifact_check_summary,
+            "runner_online_prelaunch_input_extra_check_count",
+        )
+        artifact_extra_passed_count = _int_metric(
+            artifact_check_summary,
+            "runner_online_prelaunch_input_extra_check_passed_count",
+        )
+        if artifact_extra_count != extra_check_count:
+            failures.append("runner_artifact_check_extra_count_mismatch")
+        if artifact_extra_passed_count != extra_passed_count:
+            failures.append("runner_artifact_check_extra_passed_count_mismatch")
+        final_status_summary = evidence.get("final_preflight_status_summary")
+        if not isinstance(final_status_summary, dict):
+            failures.append("runner_final_preflight_status_summary_missing")
+            final_status_summary = {}
+        if final_status_summary.get("passed") is not True:
+            failures.append("runner_final_preflight_status_not_passed")
+        final_strict_deferred = _int_metric(
+            final_status_summary,
+            "strict_default_gate_evidence_deferred_count",
+        )
+        final_runtime_deferred = _int_metric(
+            final_status_summary,
+            "runtime_gate_evidence_deferred_count",
+        )
+        if final_strict_deferred is None:
+            failures.append("runner_final_strict_deferred_count_missing")
+        elif final_strict_deferred != 0:
+            failures.append("runner_final_strict_deferred_count_nonzero")
+        if final_runtime_deferred is None:
+            failures.append("runner_final_runtime_deferred_count_missing")
+        elif final_runtime_deferred != 0:
+            failures.append("runner_final_runtime_deferred_count_nonzero")
         return [f"{evidence_label}:{failure}" for failure in failures]
     if evidence_label in known_stub_labels:
         expected_input_path = None
@@ -3299,6 +3349,28 @@ def run_premap_lab_preflight(
         dispatch_runner_evidence_label,
         root=root,
     )
+    dispatch_runner_artifact_evidence_label = (
+        "future_kernel_native_dispatch_consumer_online_artifact_check_32_128export_json"
+    )
+    dispatch_runner_artifact_evidence_row = _find_evidence_row(
+        default_gate_required_evidence_check,
+        dispatch_runner_artifact_evidence_label,
+    )
+    dispatch_runner_artifact_evidence_present = (
+        dispatch_runner_artifact_evidence_row.get("exists") is True
+    )
+    dispatch_runner_artifact_evidence_passed = (
+        dispatch_runner_artifact_evidence_present
+        and dispatch_runner_artifact_evidence_row.get("valid_json") is True
+        and dispatch_runner_artifact_evidence_row.get("passed_value") is True
+        and dispatch_runner_artifact_evidence_row.get("failures_value") == []
+        and "failure" not in dispatch_runner_artifact_evidence_row
+    )
+    dispatch_runner_artifact_payload = _load_evidence_payload_from_check(
+        default_gate_required_evidence_check,
+        dispatch_runner_artifact_evidence_label,
+        root=root,
+    )
     dispatch_ptr_standalone_evidence_label = (
         "future_kernel_native_dispatch_ptr_standalone_canary_json"
     )
@@ -3326,11 +3398,6 @@ def run_premap_lab_preflight(
     )
     if not isinstance(dispatch_runner_summary, dict):
         dispatch_runner_summary = {}
-    dispatch_runner_artifact_check_summary = dispatch_runner_payload.get(
-        "artifact_check_summary",
-    )
-    if not isinstance(dispatch_runner_artifact_check_summary, dict):
-        dispatch_runner_artifact_check_summary = {}
     dispatch_runner_final_status_summary = dispatch_runner_payload.get(
         "final_preflight_status_summary",
     )
@@ -3444,6 +3511,21 @@ def run_premap_lab_preflight(
         "default_kernel_consumer_dispatch_runner_evidence_failure": (
             dispatch_runner_evidence_row.get("failure")
         ),
+        "default_kernel_consumer_dispatch_runner_artifact_evidence_label": (
+            dispatch_runner_artifact_evidence_label
+        ),
+        "default_kernel_consumer_dispatch_runner_artifact_evidence_path": (
+            dispatch_runner_artifact_evidence_row.get("path")
+        ),
+        "default_kernel_consumer_dispatch_runner_artifact_evidence_present": (
+            dispatch_runner_artifact_evidence_present
+        ),
+        "default_kernel_consumer_dispatch_runner_artifact_evidence_passed": (
+            dispatch_runner_artifact_evidence_passed
+        ),
+        "default_kernel_consumer_dispatch_runner_artifact_evidence_failure": (
+            dispatch_runner_artifact_evidence_row.get("failure")
+        ),
         "default_kernel_consumer_dispatch_runner_online_input_count": (
             _int_metric(dispatch_runner_payload, "online_prelaunch_input_check_count")
         ),
@@ -3460,13 +3542,13 @@ def run_premap_lab_preflight(
             )
         ),
         "default_kernel_consumer_dispatch_runner_artifact_check_passed": (
-            _bool_metric(dispatch_runner_artifact_check_summary, "passed")
+            _bool_metric(dispatch_runner_artifact_payload, "passed")
         ),
         "default_kernel_consumer_dispatch_runner_artifact_check_min_online_inputs": (
-            _int_metric(dispatch_runner_artifact_check_summary, "min_online_inputs")
+            _int_metric(dispatch_runner_artifact_payload, "min_online_inputs")
         ),
         "default_kernel_consumer_dispatch_runner_artifact_check_final_deferred_count": (
-            _int_metric(dispatch_runner_artifact_check_summary, "final_deferred_count")
+            _int_metric(dispatch_runner_artifact_payload, "final_deferred_count")
         ),
         "default_kernel_consumer_dispatch_runner_final_preflight_passed": (
             _bool_metric(dispatch_runner_final_status_summary, "passed")

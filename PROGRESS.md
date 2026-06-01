@@ -23212,3 +23212,31 @@ This is still not a WNA16 kernel-argument handoff.  The current gate proves that
 the exported prelaunch handle tables can be consumed by the independent typed
 ABI stubs and that the default lab preflight rejects missing/deferred evidence
 before any payload movement or kernel argument mutation is allowed.
+
+Review follow-up tightened this status path:
+
+```text
+runner artifact_check_summary must be present
+runner artifact_check_summary.final_deferred_count must be 0
+runner final_preflight_status_summary must be present
+runner final strict/runtime deferred counts must be 0
+compact artifact-check fields are sourced from the independent artifact-check
+evidence path, not only from the runner-embedded summary
+```
+
+Additional negative tests cover runner-embedded artifact defer, missing runner
+final status, and independent artifact-check defer.
+
+Validation after the follow-up:
+
+```text
+conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
+  pytest tests/test_run_premap_lab_preflight.py -q
+
+54 passed
+
+conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
+  pytest tests -q
+
+766 passed, 2 warnings
+```
