@@ -2126,6 +2126,8 @@ def _write_gate(
             f"{standalone_arg_slot_canary_path}\n"
             "  future_kernel_native_arg_slot_multiprogram_canary_json: "
             f"{standalone_arg_slot_multiprogram_canary_path}\n"
+            "  future_kernel_native_arg_slot_online_merged_multiprogram_canary_json: "
+            f"{online_merged_arg_slot_multiprogram_canary_path}\n"
             "optional_evidence_paths:\n"
             "  aux_metadata_single_field_handle_handoff_canary_smoke_json: "
             f"{aux_metadata_single_field_canary_path}\n"
@@ -2133,8 +2135,6 @@ def _write_gate(
             f"{standalone_arg_slot_aux_metadata_canary_path}\n"
             "  future_kernel_native_arg_slot_descriptor_ptr_mirror_canary_json: "
             f"{standalone_arg_slot_descriptor_ptr_canary_path}\n"
-            "  future_kernel_native_arg_slot_online_merged_multiprogram_canary_json: "
-            f"{online_merged_arg_slot_multiprogram_canary_path}\n"
             "  future_kernel_native_arg_slot_packed_weight_mirror_canary_json: "
             f"{standalone_arg_slot_packed_weight_canary_path}\n"
             "  descriptor_ptr_single_field_handle_handoff_canary_smoke_json: "
@@ -2209,7 +2209,7 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert result["passed"] is True
     assert result["failures"] == []
     assert result["runtime_gate_evidence_scan"]["gate_count"] == 3
-    assert result["runtime_gate_evidence_scan"]["evidence_path_count"] == 52
+    assert result["runtime_gate_evidence_scan"]["evidence_path_count"] == 54
     assert result["default_readonly_gate_required_evidence_check"]["passed"] is True
     summary = result["lab_gate_status_summary"]
     assert summary["passed"] is True
@@ -2658,12 +2658,12 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert summary["payload_bytes_required"] == 0
     assert summary["passed_to_kernel_required"] is False
     assert summary["changes_kernel_launch_args_required"] is False
-    assert summary["required_evidence"]["required_count"] == 16
-    assert summary["required_evidence"]["present_count"] == 16
-    assert summary["required_evidence"]["passed_count"] == 16
-    assert summary["optional_evidence"]["required_count"] == 14
-    assert summary["optional_evidence"]["present_count"] == 14
-    assert summary["optional_evidence"]["passed_count"] == 14
+    assert summary["required_evidence"]["required_count"] == 17
+    assert summary["required_evidence"]["present_count"] == 17
+    assert summary["required_evidence"]["passed_count"] == 17
+    assert summary["optional_evidence"]["required_count"] == 13
+    assert summary["optional_evidence"]["present_count"] == 13
+    assert summary["optional_evidence"]["passed_count"] == 13
     assert (
         summary["required_evidence"]["evidence"][
             "future_kernel_native_arg_slot_multiprogram_canary_json"
@@ -2677,7 +2677,7 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
         is True
     )
     assert (
-        summary["optional_evidence"]["evidence"][
+        summary["required_evidence"]["evidence"][
             "future_kernel_native_arg_slot_online_merged_multiprogram_canary_json"
         ]["passed"]
         is True
@@ -2900,7 +2900,7 @@ def test_premap_lab_preflight_allows_missing_optional_per_field_canary(
 
     summary = result["lab_gate_status_summary"]
     assert result["passed"] is True
-    assert summary["required_evidence"]["passed_count"] == 16
+    assert summary["required_evidence"]["passed_count"] == 17
     assert summary["default_optional_evidence_passed"] is True
     assert summary["optional_evidence"]["present_count"] == 6
     assert summary["optional_evidence"]["passed_count"] == 6
@@ -3098,7 +3098,7 @@ def test_premap_lab_preflight_rejects_present_optional_packed_weight_canary_mism
     ) in failures
 
 
-def test_premap_lab_preflight_rejects_optional_online_merged_arg_slot_source_count(
+def test_premap_lab_preflight_rejects_required_online_merged_arg_slot_source_count(
     tmp_path: Path,
 ):
     default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
@@ -3124,15 +3124,15 @@ def test_premap_lab_preflight_rejects_optional_online_merged_arg_slot_source_cou
     )
 
     assert result["passed"] is False
-    assert "default_readonly_gate_optional_evidence_check_failed" in result["failures"]
-    failures = result["default_readonly_gate_optional_evidence_check"]["failures"]
+    assert "default_readonly_gate_required_evidence_check_failed" in result["failures"]
+    failures = result["default_readonly_gate_required_evidence_check"]["failures"]
     assert (
         "future_kernel_native_arg_slot_online_merged_multiprogram_canary_json:"
         "online_merged_multiprogram_arg_slot_source_count_too_small"
     ) in failures
 
 
-def test_premap_lab_preflight_rejects_optional_online_merged_source_context_mismatch(
+def test_premap_lab_preflight_rejects_required_online_merged_source_context_mismatch(
     tmp_path: Path,
 ):
     default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
@@ -3158,8 +3158,8 @@ def test_premap_lab_preflight_rejects_optional_online_merged_source_context_mism
     )
 
     assert result["passed"] is False
-    assert "default_readonly_gate_optional_evidence_check_failed" in result["failures"]
-    failures = result["default_readonly_gate_optional_evidence_check"]["failures"]
+    assert "default_readonly_gate_required_evidence_check_failed" in result["failures"]
+    failures = result["default_readonly_gate_required_evidence_check"]["failures"]
     assert (
         "future_kernel_native_arg_slot_online_merged_multiprogram_canary_json:"
         "online_merged_multiprogram_arg_slot_source_context_0_row_count_mismatch"
@@ -3653,6 +3653,7 @@ def test_premap_lab_preflight_rejects_default_gate_without_typed_evidence(
             "future_kernel_native_dispatch_ptr_standalone_canary_json:missing_evidence_path",
             "future_kernel_native_arg_slot_standalone_canary_json:missing_evidence_path",
             "future_kernel_native_arg_slot_multiprogram_canary_json:missing_evidence_path",
+            "future_kernel_native_arg_slot_online_merged_multiprogram_canary_json:missing_evidence_path",
             "strict_live_connected_readonly_128_gate_json:missing_evidence_path",
         "strict_native_typed_consumer_bridge_128_gate_json:missing_evidence_path",
         "strict_kernel_side_typed_consumer_object_128_gate_json:missing_evidence_path",
@@ -5273,10 +5274,10 @@ def test_premap_lab_preflight_can_defer_self_referential_runner_evidence(
     assert summary["deferred_online_prelaunch_artifact_evidence"] is False
     assert summary["runtime_gate_evidence_deferred_count"] == 10
     assert summary["strict_default_gate_evidence_deferred_count"] == 5
-    assert summary["required_evidence"]["required_count"] == 16
-    assert summary["required_evidence"]["present_count"] == 14
-    assert summary["required_evidence"]["passed_count"] == 14
-    assert summary["optional_evidence"]["passed_count"] == 11
+    assert summary["required_evidence"]["required_count"] == 17
+    assert summary["required_evidence"]["present_count"] == 15
+    assert summary["required_evidence"]["passed_count"] == 15
+    assert summary["optional_evidence"]["passed_count"] == 10
     for label in (
         "future_kernel_native_consumer_online_artifact_check_16_128export_json",
         "future_kernel_native_dispatch_consumer_online_artifact_check_16_128export_json",
@@ -5851,7 +5852,7 @@ def test_premap_lab_preflight_cli_writes_summary(tmp_path: Path):
     assert result["lab_gate_status_summary"]["passed"] is True
     assert (
         result["lab_gate_status_summary"]["required_evidence"]["passed_count"]
-        == 16
+        == 17
     )
 
 
@@ -5887,6 +5888,6 @@ def test_premap_lab_preflight_cli_summary_only_writes_status_block(tmp_path: Pat
     assert exit_code == 0
     assert result["passed"] is True
     assert result["default_readonly_gate_path"] == default_gate
-    assert result["required_evidence"]["passed_count"] == 16
-    assert result["optional_evidence"]["passed_count"] == 14
+    assert result["required_evidence"]["passed_count"] == 17
+    assert result["optional_evidence"]["passed_count"] == 13
     assert "lab_gate_status_summary" not in result

@@ -175,6 +175,7 @@ REQUIRED_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
     "future_kernel_native_dispatch_ptr_standalone_canary_json",
     "future_kernel_native_arg_slot_standalone_canary_json",
     "future_kernel_native_arg_slot_multiprogram_canary_json",
+    "future_kernel_native_arg_slot_online_merged_multiprogram_canary_json",
     "future_kernel_native_dispatch_consumer_online_artifact_check_32_128export_json",
     "future_kernel_native_dispatch_consumer_online_runner_32_128export_json",
 }
@@ -187,7 +188,6 @@ OPTIONAL_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
     "future_kernel_native_dispatch_consumer_online_runner_16_128export_json",
     "future_kernel_native_arg_slot_aux_metadata_mirror_canary_json",
     "future_kernel_native_arg_slot_descriptor_ptr_mirror_canary_json",
-    "future_kernel_native_arg_slot_online_merged_multiprogram_canary_json",
     "future_kernel_native_arg_slot_packed_weight_mirror_canary_json",
     "future_kernel_native_launch_consumer_online_artifact_check_16_128export_json",
     "future_kernel_native_launch_consumer_online_runner_16_128export_json",

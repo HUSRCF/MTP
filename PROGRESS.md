@@ -20,14 +20,14 @@
   compact status fields now
   bind `artifact_check_passed` to the independent artifact evidence row and
   bind `final_preflight_passed` to both final status and no-defer closure.
-  The latest optional lab evidence now runs the future-native arg-slot ABI over
+  The latest required lab evidence now runs the future-native arg-slot ABI over
   a merged table built from 32 real online vLLM prelaunch typed-consumer
   exports, so the multi-program packet chain is validated on online handle
   distributions rather than only on a standalone synthetic table.
 
 ## Latest Update: Online-Merged Future Native Arg-Slot Canary
 
-The lab gate now has an optional online-merged multi-program ABI canary:
+The lab gate now requires an online-merged multi-program ABI canary:
 
 ```text
 future_kernel_native_arg_slot_online_merged_multiprogram_canary_json:
@@ -80,14 +80,14 @@ future_kernel_native_arg_slot_consumer_handle_projection_hash_accumulator =
   9748c8c92c02281b
 ```
 
-Default lab preflight now accepts this as optional evidence:
+Default lab preflight now accepts this as required evidence:
 
 ```text
-outputs/reports/premap_lab_preflight_default_online_merged_multiprogram_optional_gate.json
+outputs/reports/premap_lab_preflight_default_online_merged_multiprogram_required_gate.json
 
 passed = true
-required_evidence = 16 / 16
-optional_evidence = 14 / 14
+required_evidence = 17 / 17
+optional_evidence = 13 / 13
 ```
 
 Validation:
