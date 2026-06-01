@@ -2892,6 +2892,9 @@ def _check_default_gate_contract(
             "gate_path": label,
             "passed": False,
             "failures": [f"{type(exc).__name__}:{exc}"],
+            "observed_contract": {},
+            "required_contract": dict(REQUIRED_DEFAULT_GATE_CONTRACT),
+            "observed_contract_available": False,
         }
     contract = ((payload or {}).get("contract") or {})
     for key, expected in REQUIRED_DEFAULT_GATE_CONTRACT.items():
@@ -2911,6 +2914,7 @@ def _check_default_gate_contract(
         "failures": failures,
         "observed_contract": dict(contract) if isinstance(contract, dict) else {},
         "required_contract": dict(REQUIRED_DEFAULT_GATE_CONTRACT),
+        "observed_contract_available": isinstance(contract, dict),
     }
 
 
@@ -3631,10 +3635,10 @@ def run_premap_lab_preflight(
     if not isinstance(observed_default_contract, dict):
         observed_default_contract = {}
 
-    def _observed_default_contract_value(key: str) -> Any:
+    def _observed_default_contract_value(key: str) -> Any | None:
         if key in observed_default_contract:
             return observed_default_contract[key]
-        return REQUIRED_DEFAULT_GATE_CONTRACT[key]
+        return None
 
     arg_slot_online_total_mirror_coverage_required = (
         observed_default_contract.get(
@@ -3726,6 +3730,9 @@ def run_premap_lab_preflight(
         "canary_gate_path": canary_gate_path,
         "default_contract_passed": bool(
             default_gate_contract_check.get("passed", False)
+        ),
+        "default_contract_observed_available": bool(
+            default_gate_contract_check.get("observed_contract_available", False)
         ),
         "default_kernel_consumer_schema_passed": bool(
             default_kernel_consumer_schema_check.get("passed", False)

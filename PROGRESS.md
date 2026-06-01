@@ -32,6 +32,9 @@ negative contract tests readable: if a test gate intentionally flips
 `native_typed_consumer_bridge_passed_to_kernel_required`, or the dispatch
 full-table / dispatch-ptr contract flags, the summary mirrors that observed
 contract while the contract checker still fails the gate.
+If a contract key is missing, the summary reports that requirement as `null`
+instead of silently substituting the default value; this makes broken contract
+artifacts easier to read from the compact preflight status alone.
 
 The online arg-slot full-field coverage hard-fail is also conditioned on the
 observed default gate contract:
@@ -59,16 +62,17 @@ default_kernel_consumer_dispatch_ptr_required = true
 passed_to_kernel_required = false
 default_kernel_consumer_arg_slot_online_total_mirror_coverage_required = true
 default_kernel_consumer_arg_slot_online_total_full_field_mirror_coverage = true
+default_contract_observed_available = true
 ```
 
 Validation:
 
 ```text
 pytest tests/test_run_premap_lab_preflight.py -q
-  62 passed
+  63 passed
 
 pytest tests -q
-  782 passed, 2 warnings
+  783 passed, 2 warnings
 ```
 
 Boundary is unchanged: this is a lab gate reporting/checking hardening only.
