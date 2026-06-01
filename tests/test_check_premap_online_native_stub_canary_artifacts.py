@@ -6,6 +6,7 @@ from pathlib import Path
 from scripts.check_premap_online_native_stub_canary_artifacts import (
     _program_iteration_hash,
     check_online_native_stub_canary_artifacts,
+    check_standalone_native_stub_artifact,
     main,
 )
 from scripts.check_premap_kernel_consumer_schema import (
@@ -20,6 +21,39 @@ from scripts.check_premap_kernel_consumer_schema import (
 def _write_json(path: Path, payload: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+
+
+def _arg_slot_required_macros(
+    field_name: str = "scale_metadata_handle",
+) -> dict[str, bool]:
+    macros = {
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCHEMA": True,
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_ROW_ITERATION": True,
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_POINTER_VISIBILITY": True,
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR": True,
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_DESCRIPTOR": True,
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_HANDLE": True,
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_HANDLE": True,
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_LIFETIME": True,
+        "MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR": True,
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ABI": True,
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ABI": True,
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_ABI": True,
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_PTR_ABI": True,
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ARG_SLOT_ABI": True,
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR_MIRROR_FIELD": False,
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD": False,
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_MIRROR_FIELD": False,
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_MIRROR_FIELD": False,
+    }
+    mirror_by_field = {
+        "descriptor_ptr": "MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR_MIRROR_FIELD",
+        "scale_metadata_handle": "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD",
+        "packed_weight_descriptor": "MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_MIRROR_FIELD",
+        "aux_metadata_handle": "MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_MIRROR_FIELD",
+    }
+    macros[mirror_by_field[field_name]] = True
+    return macros
 
 
 def _extra_input_summary(row_count: int = 4) -> dict:
@@ -961,6 +995,87 @@ def _payloads(root: Path) -> tuple[Path, Path, Path]:
         },
     )
     return runner_path, preflight_path, status_path
+
+
+def test_check_standalone_native_stub_artifact_accepts_future_arg_slot(
+    tmp_path: Path,
+):
+    payload = _extra_input_summary(row_count=4)["outputs"][
+        "native_stub_future_kernel_native_consumer_dispatch_abi"
+    ]["summary"]
+    payload["compiled_macros"] = _arg_slot_required_macros()
+    stub_path = tmp_path / "standalone_stub.json"
+    _write_json(stub_path, payload)
+
+    result = check_standalone_native_stub_artifact(
+        root=tmp_path,
+        stub_json=stub_path,
+    )
+
+    assert result["passed"] is True
+    assert result["failures"] == []
+    assert result["row_count"] == 4
+    assert result["row_ok_count"] == 4
+    assert result["arg_slot_checked"] is True
+    assert result["arg_slot_row_count"] == 4
+    assert result["arg_slot_row_ok_count"] == 4
+    assert result["payload_bytes"] == 0
+    assert result["passed_to_kernel"] is False
+    assert result["changes_kernel_launch_args"] is False
+    assert result["current_wna16_arg_compatible"] is False
+
+
+def test_check_standalone_native_stub_artifact_rejects_missing_required_macro(
+    tmp_path: Path,
+):
+    payload = _extra_input_summary(row_count=4)["outputs"][
+        "native_stub_future_kernel_native_consumer_dispatch_abi"
+    ]["summary"]
+    compiled_macros = _arg_slot_required_macros()
+    compiled_macros[
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ARG_SLOT_ABI"
+    ] = False
+    payload["compiled_macros"] = compiled_macros
+    stub_path = tmp_path / "standalone_stub.json"
+    _write_json(stub_path, payload)
+
+    result = check_standalone_native_stub_artifact(
+        root=tmp_path,
+        stub_json=stub_path,
+    )
+
+    assert result["passed"] is False
+    assert (
+        "standalone_stub_required_macro_disabled:"
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ARG_SLOT_ABI"
+    ) in result["failures"]
+
+
+def test_check_standalone_native_stub_artifact_cli_writes_json(tmp_path: Path):
+    payload = _extra_input_summary(row_count=4)["outputs"][
+        "native_stub_future_kernel_native_consumer_dispatch_abi"
+    ]["summary"]
+    payload["compiled_macros"] = _arg_slot_required_macros()
+    stub_path = tmp_path / "standalone_stub.json"
+    output_path = tmp_path / "standalone_check.json"
+    _write_json(stub_path, payload)
+
+    exit_code = main(
+        [
+            "--root",
+            str(tmp_path),
+            "--standalone-stub-json",
+            str(stub_path),
+            "--output-json",
+            str(output_path),
+        ]
+    )
+
+    result = json.loads(output_path.read_text(encoding="utf-8"))
+    assert exit_code == 0
+    assert result["passed"] is True
+    assert result["expected_field_name"] == "scale_metadata_handle"
+    assert result["arg_slot_row_count"] == 4
 
 
 def test_check_online_native_stub_canary_artifacts_accepts_consistent_payloads(

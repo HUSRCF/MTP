@@ -23964,3 +23964,45 @@ validation:
 This makes the default lab gate stricter while preserving the bootstrap boundary:
 stage-1/deferred runner preflight can still defer self-evidence, but final
 strict no-defer lab preflight requires full online arg-slot mirror coverage.
+
+The latest standalone future native arg-slot canary is now machine-checked by
+the lab artifact checker instead of being read manually from the JSON output:
+
+```text
+canary =
+  outputs/reports/premap_kernel_consumer/
+    typed_consumer_stub_gpu1_future_native_arg_slot_full_guard_scale_canary_latest.json
+
+checker =
+  outputs/reports/premap_kernel_consumer/
+    typed_consumer_stub_gpu1_future_native_arg_slot_full_guard_scale_canary_latest.check.json
+
+passed = true
+row_count / row_ok_count = 1024 / 1024
+arg_slot_row_count / arg_slot_row_ok_count = 1024 / 1024
+expected mirror field = scale_metadata_handle
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+current_wna16_arg_compatible = false
+
+required compiled macros:
+  schema / row_iteration / pointer_visibility
+  descriptor_ptr / packed_weight_descriptor / scale_metadata_handle / aux_metadata_handle
+  lifetime / hash_accumulator
+  future_native consumer / launch / dispatch / dispatch_ptr / arg_slot ABI
+  scale_metadata mirror field
+
+validation:
+  conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
+    pytest tests/test_check_premap_online_native_stub_canary_artifacts.py -q
+  40 passed
+
+  conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src pytest tests -q
+  788 passed, 2 warnings
+```
+
+This closes the gap between the standalone native typed consumer canary and the
+online lab gate checker: the future arg-slot ABI evidence must now carry the
+expected compile-time guard set and still prove that it is readonly, non-payload,
+not passed to the current WNA16 kernel, and not current-WNA16-arg compatible.

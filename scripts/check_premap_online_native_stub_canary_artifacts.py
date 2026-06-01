@@ -26,6 +26,10 @@ DEFAULT_PREFLIGHT_JSON = Path(
 DEFAULT_STATUS_JSON = Path(
     "outputs/reports/premap_lab_preflight_status_online_prelaunch_native_stub_canary.json"
 )
+DEFAULT_STANDALONE_STUB_JSON = Path(
+    "outputs/reports/premap_kernel_consumer/"
+    "typed_consumer_stub_gpu1_future_native_arg_slot_full_guard_scale_canary_latest.json"
+)
 _FUTURE_KERNEL_REQUIRED_FIELD_MASK = 0x7
 _FUTURE_KERNEL_ALL_FIELD_MASK = 0xF
 _FUTURE_KERNEL_AUX_FIELD_MASK = 0x8
@@ -2306,9 +2310,91 @@ def check_online_native_stub_canary_artifacts(
     }
 
 
+def check_standalone_native_stub_artifact(
+    *,
+    root: Path,
+    stub_json: Path = DEFAULT_STANDALONE_STUB_JSON,
+    expected_field_name: str = "scale_metadata_handle",
+) -> dict[str, Any]:
+    root = root.resolve()
+    stub_path = _resolve(root, stub_json)
+    failures: list[str] = []
+    try:
+        stub = _load_json(stub_path)
+    except (FileNotFoundError, OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
+        return {
+            "passed": False,
+            "failures": [f"standalone_stub_json_read_failed:{type(exc).__name__}"],
+            "standalone_stub_json": str(stub_path),
+        }
+
+    row_count, row_ok_count = _check_future_kernel_native_dispatch_consumer_summary(
+        stub,
+        prefix="standalone_stub",
+        expected_field_name=expected_field_name,
+        failures=failures,
+    )
+    compiled_macros = stub.get("compiled_macros")
+    if not isinstance(compiled_macros, dict):
+        failures.append("standalone_stub_compiled_macros_missing")
+        compiled_macros = {}
+    required_macros = (
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCHEMA",
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_ROW_ITERATION",
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_POINTER_VISIBILITY",
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR",
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_DESCRIPTOR",
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_HANDLE",
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_HANDLE",
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_LIFETIME",
+        "MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR",
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ABI",
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ABI",
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_ABI",
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_PTR_ABI",
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ARG_SLOT_ABI",
+    )
+    for macro in required_macros:
+        if compiled_macros.get(macro) is not True:
+            failures.append(f"standalone_stub_required_macro_disabled:{macro}")
+    mirror_macro_by_field = {
+        "descriptor_ptr": "MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR_MIRROR_FIELD",
+        "scale_metadata_handle": "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD",
+        "packed_weight_descriptor": "MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_MIRROR_FIELD",
+        "aux_metadata_handle": "MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_MIRROR_FIELD",
+    }
+    mirror_macro = mirror_macro_by_field.get(expected_field_name)
+    if mirror_macro is None:
+        failures.append("standalone_stub_expected_field_unknown")
+    elif compiled_macros.get(mirror_macro) is not True:
+        failures.append(f"standalone_stub_mirror_macro_disabled:{mirror_macro}")
+
+    return {
+        "passed": not failures,
+        "failures": failures,
+        "standalone_stub_json": str(stub_path),
+        "expected_field_name": expected_field_name,
+        "row_count": row_count,
+        "row_ok_count": row_ok_count,
+        "arg_slot_checked": stub.get("future_kernel_native_arg_slot_consumer_checked"),
+        "arg_slot_row_count": stub.get("future_kernel_native_arg_slot_consumer_row_count"),
+        "arg_slot_row_ok_count": stub.get(
+            "future_kernel_native_arg_slot_consumer_row_ok_count"
+        ),
+        "payload_bytes": stub.get("payload_bytes"),
+        "passed_to_kernel": stub.get("passed_to_kernel"),
+        "changes_kernel_launch_args": stub.get("changes_kernel_launch_args"),
+        "current_wna16_arg_compatible": stub.get(
+            "future_kernel_native_arg_slot_consumer_current_wna16_arg_compatible"
+        ),
+    }
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=Path("."))
+    parser.add_argument("--standalone-stub-json", type=Path)
+    parser.add_argument("--expected-field-name", default="scale_metadata_handle")
     parser.add_argument("--runner-json", type=Path, default=DEFAULT_RUNNER_JSON)
     parser.add_argument("--preflight-json", type=Path, default=DEFAULT_PREFLIGHT_JSON)
     parser.add_argument("--status-json", type=Path, default=DEFAULT_STATUS_JSON)
@@ -2329,15 +2415,22 @@ def _build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
-    result = check_online_native_stub_canary_artifacts(
-        root=args.root,
-        runner_json=args.runner_json,
-        preflight_json=args.preflight_json,
-        status_json=args.status_json,
-        require_all_field_mirror_stubs=args.require_all_field_mirror_stubs,
-        min_online_inputs=int(args.min_online_inputs),
-        allow_bootstrap_preflight=bool(args.allow_bootstrap_preflight),
-    )
+    if args.standalone_stub_json is not None:
+        result = check_standalone_native_stub_artifact(
+            root=args.root,
+            stub_json=args.standalone_stub_json,
+            expected_field_name=str(args.expected_field_name),
+        )
+    else:
+        result = check_online_native_stub_canary_artifacts(
+            root=args.root,
+            runner_json=args.runner_json,
+            preflight_json=args.preflight_json,
+            status_json=args.status_json,
+            require_all_field_mirror_stubs=args.require_all_field_mirror_stubs,
+            min_online_inputs=int(args.min_online_inputs),
+            allow_bootstrap_preflight=bool(args.allow_bootstrap_preflight),
+        )
     payload = json.dumps(result, indent=2, sort_keys=True)
     if args.output_json is not None:
         args.output_json.parent.mkdir(parents=True, exist_ok=True)
