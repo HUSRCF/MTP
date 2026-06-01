@@ -2941,6 +2941,11 @@ def test_premap_lab_preflight_rejects_runner_missing_final_status(
     )
 
     assert result["passed"] is False
+    summary = result["lab_gate_status_summary"]
+    assert (
+        summary["default_kernel_consumer_dispatch_runner_final_preflight_passed"]
+        is False
+    )
     failures = result["default_readonly_gate_required_evidence_check"]["failures"]
     assert (
         "future_kernel_native_dispatch_consumer_online_runner_32_128export_json:"
@@ -2981,6 +2986,10 @@ def test_premap_lab_preflight_rejects_artifact_check_defer(
             "default_kernel_consumer_dispatch_runner_artifact_check_final_deferred_count"
         ]
         == 1
+    )
+    assert (
+        summary["default_kernel_consumer_dispatch_runner_artifact_check_passed"]
+        is False
     )
     failures = result["default_readonly_gate_required_evidence_check"]["failures"]
     assert (

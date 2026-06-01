@@ -2,8 +2,8 @@
 
 ## Progress Version
 
-- Version: `v0.37-lab-preflight-dispatch-schema-summary`
-- Updated: 2026-05-31
+- Version: `v0.38-online-runner-status-semantics`
+- Updated: 2026-06-01
 - Current phase: premap descriptor/address prep now has a typed
   kernel-side consumer object, a launch-shaped future native ABI, and a
   dispatch-shaped readonly native consumer ABI.  The default lab gate remains
@@ -14,7 +14,57 @@
   Review follow-up now covers the strict preflight rows/type and deferred-label
   count mismatch branches, and the lab preflight summary now exposes the
   future dispatch ABI schema fields directly while keeping
-  `current_wna16_arg_compatible=false`.
+  `current_wna16_arg_compatible=false`.  The latest compact status fields now
+  bind `artifact_check_passed` to the independent artifact evidence row and
+  bind `final_preflight_passed` to both final status and no-defer closure.
+
+## Latest Update: Online Runner Status Semantics
+
+The default lab compact status now exposes the 32-input online native runner
+gate with stricter flat-field semantics.  In particular:
+
+```text
+default_kernel_consumer_dispatch_runner_artifact_check_passed:
+  derived from the independent artifact evidence row
+  requires present + valid JSON + passed=true + failures=[]
+
+default_kernel_consumer_dispatch_runner_final_preflight_passed:
+  requires the embedded final preflight status to pass
+  requires final strict default deferred_count = 0
+  requires final runtime deferred_count = 0
+```
+
+Current default compact status:
+
+```text
+premap_lab_preflight_status_default_after_online_32input_dispatch_ptr_required.json:
+  passed = true
+  online_input_count = 32
+  online_extra_input_count = 31
+  online_extra_input_passed_count = 31
+  artifact_evidence_passed = true
+  artifact_check_passed = true
+  artifact_check_min_online_inputs = 32
+  artifact_check_final_deferred_count = 0
+  final_preflight_passed = true
+  final_strict_default_gate_evidence_deferred_count = 0
+  final_runtime_gate_evidence_deferred_count = 0
+```
+
+Validation:
+
+```text
+pytest tests/test_run_premap_lab_preflight.py -q
+  54 passed
+
+pytest tests -q
+  766 passed, 2 warnings
+```
+
+Boundary is unchanged: the default lab gate validates readonly online typed
+consumer evidence only.  It still does not pass typed tables to the current
+WNA16 fused-MoE kernel, does not move payload, and does not claim current
+WNA16 kernel-argument compatibility.
 
 ## Latest Update: Lab Preflight Dispatch Schema Summary
 

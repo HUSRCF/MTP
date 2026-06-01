@@ -3542,7 +3542,7 @@ def run_premap_lab_preflight(
             )
         ),
         "default_kernel_consumer_dispatch_runner_artifact_check_passed": (
-            _bool_metric(dispatch_runner_artifact_payload, "passed")
+            dispatch_runner_artifact_evidence_passed
         ),
         "default_kernel_consumer_dispatch_runner_artifact_check_min_online_inputs": (
             _int_metric(dispatch_runner_artifact_payload, "min_online_inputs")
@@ -3551,7 +3551,17 @@ def run_premap_lab_preflight(
             _int_metric(dispatch_runner_artifact_payload, "final_deferred_count")
         ),
         "default_kernel_consumer_dispatch_runner_final_preflight_passed": (
-            _bool_metric(dispatch_runner_final_status_summary, "passed")
+            _bool_metric(dispatch_runner_final_status_summary, "passed") is True
+            and _int_metric(
+                dispatch_runner_final_status_summary,
+                "strict_default_gate_evidence_deferred_count",
+            )
+            == 0
+            and _int_metric(
+                dispatch_runner_final_status_summary,
+                "runtime_gate_evidence_deferred_count",
+            )
+            == 0
         ),
         "default_kernel_consumer_dispatch_runner_final_strict_default_gate_evidence_deferred_count": (
             _int_metric(
