@@ -1284,7 +1284,10 @@ def _standalone_arg_slot_canary_payload(
     return payload
 
 
-def _standalone_arg_slot_multiprogram_canary_payload() -> dict[str, object]:
+def _standalone_arg_slot_multiprogram_canary_payload(
+    *,
+    mirror_field: str = "scale_metadata_handle",
+) -> dict[str, object]:
     row_count = 520
     block_x = 256
     grid_x = 3
@@ -1299,7 +1302,7 @@ def _standalone_arg_slot_multiprogram_canary_payload() -> dict[str, object]:
         last_program_active_rows=last_program_active_rows,
         inactive_lane_count=inactive_lane_count,
     )
-    payload = _standalone_arg_slot_canary_payload()
+    payload = _standalone_arg_slot_canary_payload(mirror_field=mirror_field)
     payload.update(
         {
             "row_count": row_count,
@@ -1443,8 +1446,12 @@ def _online_merged_arg_slot_multiprogram_input_payload() -> dict[str, object]:
 
 def _online_merged_arg_slot_multiprogram_canary_payload(
     input_path: str,
+    *,
+    mirror_field: str = "scale_metadata_handle",
 ) -> dict[str, object]:
-    payload = _standalone_arg_slot_multiprogram_canary_payload()
+    payload = _standalone_arg_slot_multiprogram_canary_payload(
+        mirror_field=mirror_field
+    )
     payload["input_json"] = input_path
     payload["input_source"] = "binary_prefix"
     return payload
@@ -1453,8 +1460,13 @@ def _online_merged_arg_slot_multiprogram_canary_payload(
 def _online_merged_arg_slot_multiprogram_runner_payload(
     input_path: str,
     stub_path: str,
+    *,
+    mirror_field: str = "scale_metadata_handle",
 ) -> dict[str, object]:
-    stub_summary = _online_merged_arg_slot_multiprogram_canary_payload(input_path)
+    stub_summary = _online_merged_arg_slot_multiprogram_canary_payload(
+        input_path,
+        mirror_field=mirror_field,
+    )
     return {
         "passed": True,
         "failures": [],
@@ -1478,6 +1490,7 @@ def _online_merged_arg_slot_multiprogram_runner_payload(
         "changes_kernel_launch_args": False,
         "current_wna16_arg_compatible": False,
         "not_a_single_vllm_launch_table": True,
+        "mirror_field": mirror_field,
         "stub_summary": stub_summary,
     }
 
@@ -1664,6 +1677,15 @@ def _write_gate(
     )
     online_merged_arg_slot_multiprogram_runner_path = (
         f"reports/{name}_online_merged_future_native_arg_slot_multiprogram_runner.json"
+    )
+    online_merged_arg_slot_descriptor_ptr_runner_path = (
+        f"reports/{name}_online_merged_future_native_arg_slot_descriptor_ptr_runner.json"
+    )
+    online_merged_arg_slot_packed_weight_runner_path = (
+        f"reports/{name}_online_merged_future_native_arg_slot_packed_weight_runner.json"
+    )
+    online_merged_arg_slot_aux_metadata_runner_path = (
+        f"reports/{name}_online_merged_future_native_arg_slot_aux_metadata_runner.json"
     )
     native_online_per_field_stub_path = (
         f"reports/{name}_native_typed_consumer_stub_online_prelaunch_input_per_field_canary.json"
@@ -2017,6 +2039,39 @@ def _write_gate(
             )
             + "\n",
         )
+        for mirror_field, runner_path in (
+            ("descriptor_ptr", online_merged_arg_slot_descriptor_ptr_runner_path),
+            (
+                "packed_weight_descriptor",
+                online_merged_arg_slot_packed_weight_runner_path,
+            ),
+            ("aux_metadata_handle", online_merged_arg_slot_aux_metadata_runner_path),
+        ):
+            stub_path = (
+                f"reports/{name}_online_merged_future_native_arg_slot_"
+                f"{mirror_field}_canary.json"
+            )
+            _write(
+                root / stub_path,
+                json.dumps(
+                    _online_merged_arg_slot_multiprogram_canary_payload(
+                        online_merged_arg_slot_multiprogram_input_path,
+                        mirror_field=mirror_field,
+                    )
+                )
+                + "\n",
+            )
+            _write(
+                root / runner_path,
+                json.dumps(
+                    _online_merged_arg_slot_multiprogram_runner_payload(
+                        online_merged_arg_slot_multiprogram_input_path,
+                        stub_path,
+                        mirror_field=mirror_field,
+                    )
+                )
+                + "\n",
+            )
     gate_path = f"configs/runtime/{name}.yaml"
     metadata_lines = ""
     if canary is not None:
@@ -2182,6 +2237,12 @@ def _write_gate(
             f"{standalone_arg_slot_aux_metadata_canary_path}\n"
             "  future_kernel_native_arg_slot_descriptor_ptr_mirror_canary_json: "
             f"{standalone_arg_slot_descriptor_ptr_canary_path}\n"
+            "  future_kernel_native_arg_slot_online_merged_aux_metadata_mirror_runner_json: "
+            f"{online_merged_arg_slot_aux_metadata_runner_path}\n"
+            "  future_kernel_native_arg_slot_online_merged_descriptor_ptr_mirror_runner_json: "
+            f"{online_merged_arg_slot_descriptor_ptr_runner_path}\n"
+            "  future_kernel_native_arg_slot_online_merged_packed_weight_mirror_runner_json: "
+            f"{online_merged_arg_slot_packed_weight_runner_path}\n"
             "  future_kernel_native_arg_slot_packed_weight_mirror_canary_json: "
             f"{standalone_arg_slot_packed_weight_canary_path}\n"
             "  descriptor_ptr_single_field_handle_handoff_canary_smoke_json: "
@@ -2573,6 +2634,26 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
         "future_kernel_native_arg_slot_descriptor_ptr_mirror_canary_json",
         "future_kernel_native_arg_slot_packed_weight_mirror_canary_json",
     ]
+    assert (
+        summary[
+            "default_kernel_consumer_arg_slot_online_merged_optional_mirror_field_coverage"
+        ]
+        == [
+            "aux_metadata_handle",
+            "descriptor_ptr",
+            "packed_weight_descriptor",
+        ]
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_arg_slot_online_merged_optional_mirror_evidence_labels"
+        ]
+        == [
+            "future_kernel_native_arg_slot_online_merged_aux_metadata_mirror_runner_json",
+            "future_kernel_native_arg_slot_online_merged_descriptor_ptr_mirror_runner_json",
+            "future_kernel_native_arg_slot_online_merged_packed_weight_mirror_runner_json",
+        ]
+    )
     assert summary["default_kernel_consumer_arg_slot_total_mirror_field_coverage"] == [
         "aux_metadata_handle",
         "descriptor_ptr",
@@ -2708,9 +2789,9 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert summary["required_evidence"]["required_count"] == 18
     assert summary["required_evidence"]["present_count"] == 18
     assert summary["required_evidence"]["passed_count"] == 18
-    assert summary["optional_evidence"]["required_count"] == 13
-    assert summary["optional_evidence"]["present_count"] == 13
-    assert summary["optional_evidence"]["passed_count"] == 13
+    assert summary["optional_evidence"]["required_count"] == 16
+    assert summary["optional_evidence"]["present_count"] == 16
+    assert summary["optional_evidence"]["passed_count"] == 16
     assert (
         summary["required_evidence"]["evidence"][
             "future_kernel_native_arg_slot_multiprogram_canary_json"
@@ -5368,7 +5449,7 @@ def test_premap_lab_preflight_can_defer_self_referential_runner_evidence(
     assert summary["required_evidence"]["required_count"] == 18
     assert summary["required_evidence"]["present_count"] == 16
     assert summary["required_evidence"]["passed_count"] == 16
-    assert summary["optional_evidence"]["passed_count"] == 10
+    assert summary["optional_evidence"]["passed_count"] == 13
     for label in (
         "future_kernel_native_consumer_online_artifact_check_16_128export_json",
         "future_kernel_native_dispatch_consumer_online_artifact_check_16_128export_json",
@@ -5980,5 +6061,5 @@ def test_premap_lab_preflight_cli_summary_only_writes_status_block(tmp_path: Pat
     assert result["passed"] is True
     assert result["default_readonly_gate_path"] == default_gate
     assert result["required_evidence"]["passed_count"] == 18
-    assert result["optional_evidence"]["passed_count"] == 13
+    assert result["optional_evidence"]["passed_count"] == 16
     assert "lab_gate_status_summary" not in result

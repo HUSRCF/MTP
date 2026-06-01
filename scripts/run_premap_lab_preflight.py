@@ -189,6 +189,9 @@ OPTIONAL_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
     "future_kernel_native_dispatch_consumer_online_runner_16_128export_json",
     "future_kernel_native_arg_slot_aux_metadata_mirror_canary_json",
     "future_kernel_native_arg_slot_descriptor_ptr_mirror_canary_json",
+    "future_kernel_native_arg_slot_online_merged_aux_metadata_mirror_runner_json",
+    "future_kernel_native_arg_slot_online_merged_descriptor_ptr_mirror_runner_json",
+    "future_kernel_native_arg_slot_online_merged_packed_weight_mirror_runner_json",
     "future_kernel_native_arg_slot_packed_weight_mirror_canary_json",
     "future_kernel_native_launch_consumer_online_artifact_check_16_128export_json",
     "future_kernel_native_launch_consumer_online_runner_16_128export_json",
@@ -201,6 +204,17 @@ ARG_SLOT_OPTIONAL_MIRROR_LABEL_BY_FIELD = {
     "descriptor_ptr": "future_kernel_native_arg_slot_descriptor_ptr_mirror_canary_json",
     "packed_weight_descriptor": (
         "future_kernel_native_arg_slot_packed_weight_mirror_canary_json"
+    ),
+}
+ARG_SLOT_ONLINE_MERGED_OPTIONAL_MIRROR_RUNNER_LABEL_BY_FIELD = {
+    "aux_metadata_handle": (
+        "future_kernel_native_arg_slot_online_merged_aux_metadata_mirror_runner_json"
+    ),
+    "descriptor_ptr": (
+        "future_kernel_native_arg_slot_online_merged_descriptor_ptr_mirror_runner_json"
+    ),
+    "packed_weight_descriptor": (
+        "future_kernel_native_arg_slot_online_merged_packed_weight_mirror_runner_json"
     ),
 }
 ARG_SLOT_ONLINE_DIAGNOSTIC_SUMMARY_KEY_BY_FIELD = {
@@ -789,6 +803,21 @@ def _validate_required_evidence_payload(
                 evidence_paths=evidence_paths,
             )
         ]
+    for (
+        field,
+        label,
+    ) in ARG_SLOT_ONLINE_MERGED_OPTIONAL_MIRROR_RUNNER_LABEL_BY_FIELD.items():
+        if evidence_label == label:
+            return [
+                f"{evidence_label}:{failure}"
+                for failure in _validate_future_native_arg_slot_online_merged_multiprogram_runner_evidence(
+                    evidence,
+                    root=root,
+                    evidence_paths=evidence_paths,
+                    expected_stub_output_label=None,
+                    arg_slot_mirror_field=field,
+                )
+            ]
     if evidence_label in ONLINE_PRELAUNCH_ARTIFACT_EVIDENCE_LABELS:
         failures: list[str] = []
         min_online_inputs = _int_metric(evidence, "min_online_inputs")
@@ -2944,13 +2973,14 @@ def _validate_future_native_arg_slot_multiprogram_evidence(
     *,
     expected_input_source: str = "synthetic",
     require_pointer_visibility_macro: bool = True,
+    arg_slot_mirror_field: str = "scale_metadata_handle",
 ) -> list[str]:
     failure_prefix = "multiprogram_arg_slot"
     failures = _validate_future_native_dispatch_ptr_standalone_evidence(
         evidence,
         require_arg_slot=True,
         require_arg_slot_handle_macro=False,
-        arg_slot_mirror_field="scale_metadata_handle",
+        arg_slot_mirror_field=arg_slot_mirror_field,
         expected_input_source=expected_input_source,
         require_pointer_visibility_macro=require_pointer_visibility_macro,
         failure_prefix=failure_prefix,
@@ -3138,12 +3168,14 @@ def _validate_future_native_arg_slot_online_merged_multiprogram_evidence(
     evidence: dict[str, Any],
     *,
     root: Path | None = None,
+    arg_slot_mirror_field: str = "scale_metadata_handle",
 ) -> list[str]:
     failure_prefix = "online_merged_multiprogram_arg_slot"
     failures = _validate_future_native_arg_slot_multiprogram_evidence(
         evidence,
         expected_input_source="binary_prefix",
         require_pointer_visibility_macro=False,
+        arg_slot_mirror_field=arg_slot_mirror_field,
     )
     input_json = evidence.get("input_json")
     if not isinstance(input_json, str) or not input_json:
@@ -3276,6 +3308,10 @@ def _validate_future_native_arg_slot_online_merged_multiprogram_runner_evidence(
     *,
     root: Path | None = None,
     evidence_paths: dict[str, Any] | None = None,
+    expected_stub_output_label: str | None = (
+        "future_kernel_native_arg_slot_online_merged_multiprogram_canary_json"
+    ),
+    arg_slot_mirror_field: str = "scale_metadata_handle",
 ) -> list[str]:
     failure_prefix = "online_merged_multiprogram_arg_slot_runner"
     failures: list[str] = []
@@ -3286,6 +3322,8 @@ def _validate_future_native_arg_slot_online_merged_multiprogram_runner_evidence(
         failures.append(f"{failure_prefix}_failures_not_empty")
     if evidence.get("source") != "online_merged_future_native_arg_slot_canary_runner":
         failures.append(f"{failure_prefix}_source_mismatch")
+    if evidence.get("mirror_field") != arg_slot_mirror_field:
+        failures.append(f"{failure_prefix}_mirror_field_mismatch")
     if evidence.get("not_a_single_vllm_launch_table") is not True:
         failures.append(f"{failure_prefix}_single_launch_flag_mismatch")
     for key, expected_value in {
@@ -3375,10 +3413,8 @@ def _validate_future_native_arg_slot_online_merged_multiprogram_runner_evidence(
     if not isinstance(stub_output, str) or not stub_output:
         failures.append(f"{failure_prefix}_stub_output_json_missing")
         return failures
-    if evidence_paths is not None:
-        expected_stub_output = evidence_paths.get(
-            "future_kernel_native_arg_slot_online_merged_multiprogram_canary_json"
-        )
+    if evidence_paths is not None and expected_stub_output_label is not None:
+        expected_stub_output = evidence_paths.get(expected_stub_output_label)
         if isinstance(expected_stub_output, str) and expected_stub_output:
             if root is not None:
                 expected_path = _path_for_label(expected_stub_output, root).resolve()
@@ -3406,6 +3442,7 @@ def _validate_future_native_arg_slot_online_merged_multiprogram_runner_evidence(
         for failure in _validate_future_native_arg_slot_online_merged_multiprogram_evidence(
             stub_payload,
             root=root,
+            arg_slot_mirror_field=arg_slot_mirror_field,
         )
     )
     return failures
@@ -4362,6 +4399,26 @@ def run_premap_lab_preflight(
         set(arg_slot_online_mirror_field_coverage)
         | set(arg_slot_online_diagnostic_mirror_field_coverage)
     )
+    arg_slot_online_merged_optional_mirror_field_coverage: list[str] = []
+    arg_slot_online_merged_optional_mirror_evidence_labels: list[str] = []
+    for (
+        field,
+        label,
+    ) in ARG_SLOT_ONLINE_MERGED_OPTIONAL_MIRROR_RUNNER_LABEL_BY_FIELD.items():
+        row = _find_evidence_row(default_gate_optional_evidence_check, label)
+        if not _evidence_row_passed(row):
+            continue
+        payload = _load_evidence_payload_from_check(
+            default_gate_optional_evidence_check,
+            label,
+            root=root,
+        )
+        summary = payload.get("stub_summary")
+        if not isinstance(summary, dict):
+            continue
+        if _arg_slot_mirror_field_coverage(summary) == [field]:
+            arg_slot_online_merged_optional_mirror_field_coverage.append(field)
+            arg_slot_online_merged_optional_mirror_evidence_labels.append(label)
     arg_slot_standalone_mirror_field_coverage = _arg_slot_mirror_field_coverage(
         arg_slot_standalone_payload
     )
@@ -4382,6 +4439,7 @@ def run_premap_lab_preflight(
     arg_slot_total_mirror_field_coverage = sorted(
         set(arg_slot_standalone_mirror_field_coverage)
         | set(arg_slot_optional_mirror_field_coverage)
+        | set(arg_slot_online_merged_optional_mirror_field_coverage)
     )
     observed_default_contract = default_gate_contract_check.get("observed_contract")
     if not isinstance(observed_default_contract, dict):
@@ -5083,6 +5141,12 @@ def run_premap_lab_preflight(
         ),
         "default_kernel_consumer_arg_slot_optional_mirror_evidence_labels": (
             sorted(arg_slot_optional_mirror_evidence_labels)
+        ),
+        "default_kernel_consumer_arg_slot_online_merged_optional_mirror_field_coverage": (
+            sorted(arg_slot_online_merged_optional_mirror_field_coverage)
+        ),
+        "default_kernel_consumer_arg_slot_online_merged_optional_mirror_evidence_labels": (
+            sorted(arg_slot_online_merged_optional_mirror_evidence_labels)
         ),
         "default_kernel_consumer_arg_slot_total_mirror_field_coverage": (
             arg_slot_total_mirror_field_coverage

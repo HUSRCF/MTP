@@ -145,6 +145,9 @@ STUB_SUMMARY_KEYS = (
     "future_kernel_native_arg_slot_consumer_requires_wna16_arg_reinterpretation",
     "future_kernel_native_arg_slot_consumer_single_field_mirror_checked",
     "future_kernel_native_arg_slot_consumer_single_field_mirror_field_name",
+    "future_kernel_native_arg_slot_consumer_single_field_mirror_error_count",
+    "future_kernel_native_arg_slot_consumer_single_field_mirror_hash_accumulator",
+    "future_kernel_native_arg_slot_consumer_single_field_mirror_kind",
     "future_kernel_native_arg_slot_consumer_single_field_mirror_row_count",
     "future_kernel_native_arg_slot_consumer_single_field_mirror_row_ok_count",
     "future_kernel_native_arg_slot_consumer_handle_projection_hash_accumulator",
@@ -379,6 +382,11 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
             "future_kernel_native_arg_slot_consumer_requires_wna16_arg_reinterpretation": False,
             "future_kernel_native_arg_slot_consumer_single_field_mirror_checked": True,
             "future_kernel_native_arg_slot_consumer_single_field_mirror_field_name": args.mirror_field,
+            "future_kernel_native_arg_slot_consumer_single_field_mirror_error_count": 0,
+            "future_kernel_native_arg_slot_consumer_single_field_mirror_hash_accumulator": "dry",
+            "future_kernel_native_arg_slot_consumer_single_field_mirror_kind": (
+                "future_kernel_native_arg_slot_single_field_mirror"
+            ),
             "future_kernel_native_arg_slot_consumer_single_field_mirror_row_count": active_rows,
             "future_kernel_native_arg_slot_consumer_single_field_mirror_row_ok_count": active_rows,
             "future_kernel_native_dispatch_consumer_checked": True,

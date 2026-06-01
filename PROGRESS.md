@@ -25259,3 +25259,23 @@ This does not make the existing WNA16 kernel consume the typed table.  It only
 shows that the future-native dispatch / dispatch_ptr / arg-slot consumer path
 can read each typed schema field through the same online-derived row window
 without payload movement or kernel-argument mutation.
+
+The three full-table non-default mirror runners are now optional lab preflight
+evidence:
+
+```text
+outputs/reports/premap_lab_preflight_default_with_online_merged_mirror_optional.json
+
+passed = true
+required evidence = 18 / 18
+optional evidence = 16 / 16
+
+online-merged optional mirror coverage:
+  aux_metadata_handle
+  descriptor_ptr
+  packed_weight_descriptor
+```
+
+The required default full-table runner still uses `scale_metadata_handle`;
+the new optional entries only add stricter field-level evidence for the
+future-native typed ABI and do not change the no-op lab gate boundary.
