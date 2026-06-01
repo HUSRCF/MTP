@@ -186,6 +186,7 @@ OPTIONAL_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
     "future_kernel_native_dispatch_consumer_online_runner_16_128export_json",
     "future_kernel_native_arg_slot_aux_metadata_mirror_canary_json",
     "future_kernel_native_arg_slot_descriptor_ptr_mirror_canary_json",
+    "future_kernel_native_arg_slot_multiprogram_canary_json",
     "future_kernel_native_arg_slot_packed_weight_mirror_canary_json",
     "future_kernel_native_launch_consumer_online_artifact_check_16_128export_json",
     "future_kernel_native_launch_consumer_online_runner_16_128export_json",
@@ -706,6 +707,7 @@ def _validate_required_evidence_payload(
         "future_kernel_native_arg_slot_standalone_canary_json",
         "future_kernel_native_arg_slot_aux_metadata_mirror_canary_json",
         "future_kernel_native_arg_slot_descriptor_ptr_mirror_canary_json",
+        "future_kernel_native_arg_slot_multiprogram_canary_json",
         "future_kernel_native_arg_slot_packed_weight_mirror_canary_json",
         *known_stub_labels,
     } and evidence_label not in DISPATCH_WINDOW_RUNNER_EVIDENCE_LABELS and (
@@ -757,6 +759,13 @@ def _validate_required_evidence_payload(
                 require_arg_slot=True,
                 arg_slot_mirror_field="descriptor_ptr",
                 failure_prefix="standalone_arg_slot_descriptor_ptr",
+            )
+        ]
+    if evidence_label == "future_kernel_native_arg_slot_multiprogram_canary_json":
+        return [
+            f"{evidence_label}:{failure}"
+            for failure in _validate_future_native_arg_slot_multiprogram_evidence(
+                evidence
             )
         ]
     if evidence_label in ONLINE_PRELAUNCH_ARTIFACT_EVIDENCE_LABELS:
@@ -2705,6 +2714,7 @@ def _validate_future_native_dispatch_ptr_standalone_evidence(
     evidence: dict[str, Any],
     *,
     require_arg_slot: bool = False,
+    require_arg_slot_handle_macro: bool = True,
     arg_slot_mirror_field: str = "scale_metadata_handle",
     failure_prefix: str = "standalone_dispatch_ptr",
 ) -> list[str]:
@@ -2867,10 +2877,11 @@ def _validate_future_native_dispatch_ptr_standalone_evidence(
             arg_slot_field_macro = ""
         required_enabled = (
             *required_enabled,
-            arg_slot_field_macro,
             "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ARG_SLOT_ABI",
             arg_slot_mirror_macro,
         )
+        if require_arg_slot_handle_macro:
+            required_enabled = (*required_enabled, arg_slot_field_macro)
     else:
         required_enabled = (
             *required_enabled,
@@ -2898,6 +2909,139 @@ def _validate_future_native_dispatch_ptr_standalone_evidence(
     ):
         if macros.get(forbidden):
             failures.append(f"{failure_prefix}_{forbidden}_enabled")
+    return failures
+
+
+def _validate_future_native_arg_slot_multiprogram_evidence(
+    evidence: dict[str, Any],
+) -> list[str]:
+    failure_prefix = "multiprogram_arg_slot"
+    failures = _validate_future_native_dispatch_ptr_standalone_evidence(
+        evidence,
+        require_arg_slot=True,
+        require_arg_slot_handle_macro=False,
+        arg_slot_mirror_field="scale_metadata_handle",
+        failure_prefix=failure_prefix,
+    )
+    row_count = _int_metric(evidence, "row_count")
+    grid_x = _int_metric(evidence, "future_kernel_native_dispatch_consumer_grid_x")
+    block_x = _int_metric(evidence, "future_kernel_native_dispatch_consumer_block_x")
+    program_count = _int_metric(
+        evidence, "future_kernel_native_dispatch_consumer_program_count"
+    )
+    full_program_count = _int_metric(
+        evidence, "future_kernel_native_dispatch_consumer_full_program_count"
+    )
+    last_program_active_rows = _int_metric(
+        evidence, "future_kernel_native_dispatch_consumer_last_program_active_rows"
+    )
+    inactive_lane_count = _int_metric(
+        evidence, "future_kernel_native_dispatch_consumer_inactive_lane_count"
+    )
+    launch_threads = _int_metric(
+        evidence, "future_kernel_native_dispatch_consumer_launch_threads"
+    )
+    row_offset = _int_metric(
+        evidence, "future_kernel_native_dispatch_consumer_row_offset"
+    )
+    row_limit = _int_metric(evidence, "future_kernel_native_dispatch_consumer_row_limit")
+    rows_per_program = _int_metric(
+        evidence, "future_kernel_native_dispatch_consumer_rows_per_program"
+    )
+    if grid_x is None or grid_x <= 1:
+        failures.append(f"{failure_prefix}_grid_x_not_multiprogram")
+    if program_count is None or program_count <= 1:
+        failures.append(f"{failure_prefix}_program_count_not_multiprogram")
+    if (
+        grid_x is not None
+        and program_count is not None
+        and grid_x != program_count
+    ):
+        failures.append(f"{failure_prefix}_program_count_grid_x_mismatch")
+    if block_x is None or block_x <= 0:
+        failures.append(f"{failure_prefix}_block_x_invalid")
+    if rows_per_program is None or rows_per_program <= 0:
+        failures.append(f"{failure_prefix}_rows_per_program_invalid")
+    elif block_x is not None and rows_per_program != block_x:
+        failures.append(f"{failure_prefix}_rows_per_program_block_x_mismatch")
+    if row_count is not None and rows_per_program is not None:
+        if row_count <= rows_per_program:
+            failures.append(f"{failure_prefix}_row_count_single_program")
+    if full_program_count is None or full_program_count <= 0:
+        failures.append(f"{failure_prefix}_full_program_count_invalid")
+    if last_program_active_rows is None or last_program_active_rows <= 0:
+        failures.append(f"{failure_prefix}_last_program_active_rows_invalid")
+    elif block_x is not None and last_program_active_rows >= block_x:
+        failures.append(f"{failure_prefix}_last_program_active_rows_not_partial")
+    if inactive_lane_count is None or inactive_lane_count <= 0:
+        failures.append(f"{failure_prefix}_inactive_lane_count_invalid")
+    if (
+        grid_x is not None
+        and block_x is not None
+        and launch_threads is not None
+        and launch_threads != grid_x * block_x
+    ):
+        failures.append(f"{failure_prefix}_launch_threads_mismatch")
+    for key in (
+        "future_kernel_native_dispatch_consumer_launch_geometry_checked",
+        "future_kernel_native_dispatch_consumer_launch_covers_active_rows",
+        "future_kernel_native_dispatch_consumer_launch_minimal_cover",
+        "future_kernel_native_dispatch_consumer_program_iteration_checked",
+    ):
+        if evidence.get(key) is not True:
+            failures.append(f"{failure_prefix}_{key}_mismatch")
+    if (
+        evidence.get("future_kernel_native_dispatch_consumer_row_assignment_formula")
+        != REQUIRED_DEFAULT_GATE_CONTRACT.get(
+            "future_kernel_native_dispatch_consumer_row_assignment_formula"
+        )
+    ):
+        failures.append(f"{failure_prefix}_row_assignment_formula_mismatch")
+    expected_program_iteration_hash: int | None = None
+    if (
+        grid_x is not None
+        and block_x is not None
+        and row_offset is not None
+        and row_limit is not None
+        and last_program_active_rows is not None
+        and inactive_lane_count is not None
+    ):
+        expected_program_iteration_hash = _program_iteration_hash(
+            grid_x=grid_x,
+            block_x=block_x,
+            row_offset=row_offset,
+            row_limit=row_limit,
+            last_program_active_rows=last_program_active_rows,
+            inactive_lane_count=inactive_lane_count,
+        )
+    actual_program_iteration_hash = _hex64_metric(
+        evidence, "future_kernel_native_dispatch_consumer_program_iteration_hash"
+    )
+    if actual_program_iteration_hash is None:
+        failures.append(f"{failure_prefix}_program_iteration_hash_missing")
+    elif (
+        expected_program_iteration_hash is not None
+        and actual_program_iteration_hash != expected_program_iteration_hash
+    ):
+        failures.append(f"{failure_prefix}_program_iteration_hash_mismatch")
+    projection_hashes = [
+        _hex64_metric(
+            evidence,
+            "future_kernel_native_dispatch_consumer_handle_projection_hash_accumulator",
+        ),
+        _hex64_metric(
+            evidence,
+            "future_kernel_native_dispatch_ptr_consumer_handle_projection_hash_accumulator",
+        ),
+        _hex64_metric(
+            evidence,
+            "future_kernel_native_arg_slot_consumer_handle_projection_hash_accumulator",
+        ),
+    ]
+    if any(value is None for value in projection_hashes):
+        failures.append(f"{failure_prefix}_handle_projection_hash_missing")
+    elif len(set(projection_hashes)) != 1:
+        failures.append(f"{failure_prefix}_handle_projection_hash_mismatch")
     return failures
 
 

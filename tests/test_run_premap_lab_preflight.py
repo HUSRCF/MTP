@@ -1268,6 +1268,91 @@ def _standalone_arg_slot_canary_payload(
     return payload
 
 
+def _standalone_arg_slot_multiprogram_canary_payload() -> dict[str, object]:
+    row_count = 520
+    block_x = 256
+    grid_x = 3
+    full_program_count = 2
+    last_program_active_rows = 8
+    inactive_lane_count = 248
+    program_iteration_hash = _program_iteration_hash(
+        grid_x=grid_x,
+        block_x=block_x,
+        row_offset=0,
+        row_limit=row_count,
+        last_program_active_rows=last_program_active_rows,
+        inactive_lane_count=inactive_lane_count,
+    )
+    payload = _standalone_arg_slot_canary_payload()
+    payload.update(
+        {
+            "row_count": row_count,
+            "row_ok_count": row_count,
+            "hash_accumulator": "a0725e89da1555b8",
+            "future_kernel_native_consumer_row_count": row_count,
+            "future_kernel_native_consumer_row_ok_count": row_count,
+            "future_kernel_native_consumer_handle_projection_hash_accumulator": (
+                "12201358096b98ac"
+            ),
+            "future_kernel_native_launch_consumer_row_count": row_count,
+            "future_kernel_native_launch_consumer_row_ok_count": row_count,
+            "future_kernel_native_launch_consumer_handle_projection_hash_accumulator": (
+                "12201358096b98ac"
+            ),
+            "future_kernel_native_dispatch_consumer_row_count": row_count,
+            "future_kernel_native_dispatch_consumer_row_ok_count": row_count,
+            "future_kernel_native_dispatch_consumer_active_rows": row_count,
+            "future_kernel_native_dispatch_consumer_row_limit": row_count,
+            "future_kernel_native_dispatch_consumer_grid_x": grid_x,
+            "future_kernel_native_dispatch_consumer_block_x": block_x,
+            "future_kernel_native_dispatch_consumer_launch_threads": grid_x * block_x,
+            "future_kernel_native_dispatch_consumer_program_count": grid_x,
+            "future_kernel_native_dispatch_consumer_full_program_count": (
+                full_program_count
+            ),
+            "future_kernel_native_dispatch_consumer_last_program_active_rows": (
+                last_program_active_rows
+            ),
+            "future_kernel_native_dispatch_consumer_inactive_lane_count": (
+                inactive_lane_count
+            ),
+            "future_kernel_native_dispatch_consumer_rows_per_program": block_x,
+            "future_kernel_native_dispatch_consumer_row_offset": 0,
+            "future_kernel_native_dispatch_consumer_last_program_row_offset": 512,
+            "future_kernel_native_dispatch_consumer_launch_geometry_checked": True,
+            "future_kernel_native_dispatch_consumer_launch_covers_active_rows": True,
+            "future_kernel_native_dispatch_consumer_launch_minimal_cover": True,
+            "future_kernel_native_dispatch_consumer_program_iteration_checked": True,
+            "future_kernel_native_dispatch_consumer_program_iteration_hash": (
+                f"{program_iteration_hash:x}"
+            ),
+            "future_kernel_native_dispatch_consumer_row_assignment_formula": (
+                "row_offset + program_id * rows_per_program + lane_id"
+            ),
+            "future_kernel_native_dispatch_consumer_handle_projection_hash_accumulator": (
+                "12201358096b98ac"
+            ),
+            "future_kernel_native_dispatch_ptr_consumer_row_count": row_count,
+            "future_kernel_native_dispatch_ptr_consumer_row_ok_count": row_count,
+            "future_kernel_native_dispatch_ptr_consumer_handle_projection_hash_accumulator": (
+                "12201358096b98ac"
+            ),
+            "future_kernel_native_arg_slot_consumer_row_count": row_count,
+            "future_kernel_native_arg_slot_consumer_row_ok_count": row_count,
+            "future_kernel_native_arg_slot_consumer_single_field_mirror_row_count": (
+                row_count
+            ),
+            "future_kernel_native_arg_slot_consumer_single_field_mirror_row_ok_count": (
+                row_count
+            ),
+            "future_kernel_native_arg_slot_consumer_handle_projection_hash_accumulator": (
+                "12201358096b98ac"
+            ),
+        }
+    )
+    return payload
+
+
 def _runner_mirror_summary(field_name: str) -> dict[str, object]:
     payload = _runner_stub_summary()
     payload.update(
@@ -1438,6 +1523,9 @@ def _write_gate(
     )
     standalone_arg_slot_descriptor_ptr_canary_path = (
         f"reports/{name}_future_native_arg_slot_descriptor_ptr_canary.json"
+    )
+    standalone_arg_slot_multiprogram_canary_path = (
+        f"reports/{name}_future_native_arg_slot_multiprogram_canary.json"
     )
     native_online_per_field_stub_path = (
         f"reports/{name}_native_typed_consumer_stub_online_prelaunch_input_per_field_canary.json"
@@ -1764,6 +1852,10 @@ def _write_gate(
             )
             + "\n",
         )
+        _write(
+            root / standalone_arg_slot_multiprogram_canary_path,
+            json.dumps(_standalone_arg_slot_multiprogram_canary_payload()) + "\n",
+        )
     gate_path = f"configs/runtime/{name}.yaml"
     metadata_lines = ""
     if canary is not None:
@@ -1923,6 +2015,8 @@ def _write_gate(
             f"{standalone_arg_slot_aux_metadata_canary_path}\n"
             "  future_kernel_native_arg_slot_descriptor_ptr_mirror_canary_json: "
             f"{standalone_arg_slot_descriptor_ptr_canary_path}\n"
+            "  future_kernel_native_arg_slot_multiprogram_canary_json: "
+            f"{standalone_arg_slot_multiprogram_canary_path}\n"
             "  future_kernel_native_arg_slot_packed_weight_mirror_canary_json: "
             f"{standalone_arg_slot_packed_weight_canary_path}\n"
             "  descriptor_ptr_single_field_handle_handoff_canary_smoke_json: "
@@ -2449,9 +2543,9 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert summary["required_evidence"]["required_count"] == 15
     assert summary["required_evidence"]["present_count"] == 15
     assert summary["required_evidence"]["passed_count"] == 15
-    assert summary["optional_evidence"]["required_count"] == 13
-    assert summary["optional_evidence"]["present_count"] == 13
-    assert summary["optional_evidence"]["passed_count"] == 13
+    assert summary["optional_evidence"]["required_count"] == 14
+    assert summary["optional_evidence"]["present_count"] == 14
+    assert summary["optional_evidence"]["passed_count"] == 14
     assert (
         summary["optional_evidence"]["evidence"][
             "native_typed_consumer_stub_online_prelaunch_input_per_field_canary_json"
@@ -2479,6 +2573,12 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert (
         summary["optional_evidence"]["evidence"][
             "future_kernel_native_arg_slot_descriptor_ptr_mirror_canary_json"
+        ]["passed"]
+        is True
+    )
+    assert (
+        summary["optional_evidence"]["evidence"][
+            "future_kernel_native_arg_slot_multiprogram_canary_json"
         ]["passed"]
         is True
     )
@@ -4813,6 +4913,41 @@ def test_premap_lab_preflight_rejects_standalone_arg_slot_kernel_arg_pass(
     ) in failures
 
 
+def test_premap_lab_preflight_rejects_optional_arg_slot_multiprogram_single_program(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    multiprogram_path = (
+        tmp_path / "reports/default_gate_future_native_arg_slot_multiprogram_canary.json"
+    )
+    payload = json.loads(multiprogram_path.read_text())
+    payload["future_kernel_native_dispatch_consumer_grid_x"] = 1
+    payload["future_kernel_native_dispatch_consumer_program_count"] = 1
+    payload["future_kernel_native_dispatch_consumer_launch_threads"] = 256
+    _write(multiprogram_path, json.dumps(payload) + "\n")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is False
+    failures = result["default_readonly_gate_optional_evidence_check"]["failures"]
+    assert (
+        "future_kernel_native_arg_slot_multiprogram_canary_json:"
+        "multiprogram_arg_slot_grid_x_not_multiprogram"
+    ) in failures
+
+
 def test_premap_lab_preflight_rejects_missing_typed_evidence_file(
     tmp_path: Path,
 ):
@@ -4882,7 +5017,7 @@ def test_premap_lab_preflight_can_defer_self_referential_runner_evidence(
     assert summary["required_evidence"]["required_count"] == 15
     assert summary["required_evidence"]["present_count"] == 13
     assert summary["required_evidence"]["passed_count"] == 13
-    assert summary["optional_evidence"]["passed_count"] == 10
+    assert summary["optional_evidence"]["passed_count"] == 11
     for label in (
         "future_kernel_native_consumer_online_artifact_check_16_128export_json",
         "future_kernel_native_dispatch_consumer_online_artifact_check_16_128export_json",
@@ -5461,5 +5596,5 @@ def test_premap_lab_preflight_cli_summary_only_writes_status_block(tmp_path: Pat
     assert result["passed"] is True
     assert result["default_readonly_gate_path"] == default_gate
     assert result["required_evidence"]["passed_count"] == 15
-    assert result["optional_evidence"]["passed_count"] == 13
+    assert result["optional_evidence"]["passed_count"] == 14
     assert "lab_gate_status_summary" not in result
