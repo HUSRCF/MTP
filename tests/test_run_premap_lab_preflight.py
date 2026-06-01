@@ -1401,6 +1401,9 @@ def _write_gate(
     standalone_arg_slot_aux_metadata_canary_path = (
         f"reports/{name}_future_native_arg_slot_aux_metadata_canary.json"
     )
+    standalone_arg_slot_descriptor_ptr_canary_path = (
+        f"reports/{name}_future_native_arg_slot_descriptor_ptr_canary.json"
+    )
     native_online_per_field_stub_path = (
         f"reports/{name}_native_typed_consumer_stub_online_prelaunch_input_per_field_canary.json"
     )
@@ -1711,6 +1714,13 @@ def _write_gate(
             )
             + "\n",
         )
+        _write(
+            root / standalone_arg_slot_descriptor_ptr_canary_path,
+            json.dumps(
+                _standalone_arg_slot_canary_payload(mirror_field="descriptor_ptr")
+            )
+            + "\n",
+        )
     gate_path = f"configs/runtime/{name}.yaml"
     metadata_lines = ""
     if canary is not None:
@@ -1867,6 +1877,8 @@ def _write_gate(
             f"{aux_metadata_single_field_canary_path}\n"
             "  future_kernel_native_arg_slot_aux_metadata_mirror_canary_json: "
             f"{standalone_arg_slot_aux_metadata_canary_path}\n"
+            "  future_kernel_native_arg_slot_descriptor_ptr_mirror_canary_json: "
+            f"{standalone_arg_slot_descriptor_ptr_canary_path}\n"
             "  future_kernel_native_arg_slot_packed_weight_mirror_canary_json: "
             f"{standalone_arg_slot_packed_weight_canary_path}\n"
             "  descriptor_ptr_single_field_handle_handoff_canary_smoke_json: "
@@ -2254,9 +2266,9 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert summary["required_evidence"]["required_count"] == 15
     assert summary["required_evidence"]["present_count"] == 15
     assert summary["required_evidence"]["passed_count"] == 15
-    assert summary["optional_evidence"]["required_count"] == 12
-    assert summary["optional_evidence"]["present_count"] == 12
-    assert summary["optional_evidence"]["passed_count"] == 12
+    assert summary["optional_evidence"]["required_count"] == 13
+    assert summary["optional_evidence"]["present_count"] == 13
+    assert summary["optional_evidence"]["passed_count"] == 13
     assert (
         summary["optional_evidence"]["evidence"][
             "native_typed_consumer_stub_online_prelaunch_input_per_field_canary_json"
@@ -2278,6 +2290,12 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert (
         summary["optional_evidence"]["evidence"][
             "future_kernel_native_arg_slot_aux_metadata_mirror_canary_json"
+        ]["passed"]
+        is True
+    )
+    assert (
+        summary["optional_evidence"]["evidence"][
+            "future_kernel_native_arg_slot_descriptor_ptr_mirror_canary_json"
         ]["passed"]
         is True
     )
@@ -3799,7 +3817,7 @@ def test_premap_lab_preflight_can_defer_self_referential_runner_evidence(
     assert summary["required_evidence"]["required_count"] == 15
     assert summary["required_evidence"]["present_count"] == 13
     assert summary["required_evidence"]["passed_count"] == 13
-    assert summary["optional_evidence"]["passed_count"] == 9
+    assert summary["optional_evidence"]["passed_count"] == 10
     for label in (
         "future_kernel_native_consumer_online_artifact_check_16_128export_json",
         "future_kernel_native_dispatch_consumer_online_artifact_check_16_128export_json",
@@ -4378,5 +4396,5 @@ def test_premap_lab_preflight_cli_summary_only_writes_status_block(tmp_path: Pat
     assert result["passed"] is True
     assert result["default_readonly_gate_path"] == default_gate
     assert result["required_evidence"]["passed_count"] == 15
-    assert result["optional_evidence"]["passed_count"] == 12
+    assert result["optional_evidence"]["passed_count"] == 13
     assert "lab_gate_status_summary" not in result

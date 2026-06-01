@@ -23736,3 +23736,40 @@ optional evidence = 12 / 12
 With this, the default lab gate requires scale-metadata arg-slot evidence and
 tracks packed-weight plus aux-metadata arg-slot evidence as optional field-level
 canaries.
+
+Descriptor pointer was added as the final optional arg-slot diagnostic field:
+
+```text
+optional evidence:
+  future_kernel_native_arg_slot_descriptor_ptr_mirror_canary_json
+
+artifact:
+  outputs/reports/premap_kernel_consumer/typed_consumer_stub_gpu1_future_native_arg_slot_descriptor_ptr_mirror_canary.json
+
+field = descriptor_ptr
+standalone rows = 1024 / 1024
+mirror rows = 1024 / 1024
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+current_wna16_arg_compatible = false
+
+output = outputs/reports/premap_lab_preflight_status_default_arg_slot_all_fields_optional.json
+passed = true
+failures = []
+required evidence = 15 / 15
+optional evidence = 13 / 13
+```
+
+The future native arg-slot ABI now has field coverage for all four handle
+columns:
+
+```text
+required:
+  scale_metadata_handle
+
+optional diagnostic:
+  descriptor_ptr
+  packed_weight_descriptor
+  aux_metadata_handle
+```
