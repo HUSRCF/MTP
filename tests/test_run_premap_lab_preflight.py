@@ -3550,6 +3550,78 @@ def test_premap_lab_preflight_rejects_standalone_arg_slot_missing_mirror_macro(
     ) in failures
 
 
+def test_premap_lab_preflight_rejects_standalone_arg_slot_multiple_mirror_macros(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    standalone_path = (
+        tmp_path
+        / "reports/default_gate_future_native_arg_slot_standalone_canary.json"
+    )
+    payload = json.loads(standalone_path.read_text())
+    payload["compiled_macros"][
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR_MIRROR_FIELD"
+    ] = True
+    _write(standalone_path, json.dumps(payload) + "\n")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is False
+    failures = result["default_readonly_gate_required_evidence_check"]["failures"]
+    assert (
+        "future_kernel_native_arg_slot_standalone_canary_json:"
+        "standalone_arg_slot_"
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR_MIRROR_FIELD_enabled"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_standalone_arg_slot_kernel_arg_pass(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    standalone_path = (
+        tmp_path
+        / "reports/default_gate_future_native_arg_slot_standalone_canary.json"
+    )
+    payload = json.loads(standalone_path.read_text())
+    payload["future_kernel_native_arg_slot_consumer_passed_to_kernel"] = True
+    _write(standalone_path, json.dumps(payload) + "\n")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is False
+    failures = result["default_readonly_gate_required_evidence_check"]["failures"]
+    assert (
+        "future_kernel_native_arg_slot_standalone_canary_json:"
+        "standalone_arg_slot_"
+        "future_kernel_native_arg_slot_consumer_passed_to_kernel_mismatch"
+    ) in failures
+
+
 def test_premap_lab_preflight_rejects_missing_typed_evidence_file(
     tmp_path: Path,
 ):

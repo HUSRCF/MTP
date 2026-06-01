@@ -2595,6 +2595,14 @@ def _validate_future_native_dispatch_ptr_standalone_evidence(
     for macro in required_enabled:
         if macros.get(macro) is not True:
             failures.append(f"{failure_prefix}_{macro}_not_enabled")
+    if require_arg_slot:
+        for forbidden_mirror in (
+            "MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR_MIRROR_FIELD",
+            "MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_MIRROR_FIELD",
+            "MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_MIRROR_FIELD",
+        ):
+            if macros.get(forbidden_mirror):
+                failures.append(f"{failure_prefix}_{forbidden_mirror}_enabled")
     for forbidden in (
         "MTP_PREMAP_TYPED_CONSUMER_ENABLE_PAYLOAD_DEREF",
         "MTP_PREMAP_TYPED_CONSUMER_ENABLE_KERNEL_ARG_PASS",

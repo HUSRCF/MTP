@@ -23632,3 +23632,32 @@ conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
 Boundary remains unchanged: this is still a no-op future-kernel ABI gate.  It
 does not move payload, does not issue ready credit, does not pass kernel args,
 and does not reinterpret current WNA16 arguments.
+
+Review follow-up tightened the standalone arg-slot validator:
+
+```text
+must enable exactly the scale_metadata mirror macro
+must reject descriptor/packed/aux mirror macros in the same standalone canary
+must reject no-op boundary violations such as passed_to_kernel=true
+```
+
+Updated validation:
+
+```text
+conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
+  pytest tests/test_run_premap_lab_preflight.py -q
+
+58 passed
+
+conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
+  pytest tests -q
+
+778 passed, 2 warnings
+
+output = outputs/reports/premap_lab_preflight_status_default_arg_slot_standalone_strict.json
+passed = true
+failures = []
+required evidence = 15 / 15
+standalone arg-slot rows = 1024 / 1024
+passed_to_kernel = false
+```
