@@ -24515,3 +24515,63 @@ changes_kernel_launch_args = false
 current_wna16_arg_compatible = false
 requires_wna16_arg_reinterpretation = false
 ```
+
+### Packet-chain visibility restored in the default lab gate
+
+The future native ABI runner now carries packet-chain visibility fields through
+the compact online runner summary, not only through the full native stub JSON.
+This matters because the lab preflight checks the runner/artifact evidence, not
+just standalone HIP stub outputs.
+
+Fixes in this gate:
+
+```text
+dispatch-ptr-only standalone builds no longer reference the arg-slot object
+unless MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ARG_SLOT_ABI
+is enabled.
+
+online runner summaries now include:
+  future_kernel_native_dispatch_ptr_consumer_packet_visible
+  future_kernel_native_dispatch_ptr_consumer_dispatch_packet_visible
+  future_kernel_native_dispatch_ptr_consumer_packet_chain_depth
+  future_kernel_native_arg_slot_consumer_slot_visible
+  future_kernel_native_arg_slot_consumer_dispatch_ptr_packet_visible
+  future_kernel_native_arg_slot_consumer_dispatch_packet_visible
+  future_kernel_native_arg_slot_consumer_packet_chain_depth
+```
+
+Refreshed evidence:
+
+```text
+outputs/reports/premap_kernel_consumer/typed_consumer_stub_gpu1_future_native_dispatch_ptr_standalone_canary.json
+outputs/reports/premap_kernel_consumer/typed_consumer_stub_gpu1_future_native_arg_slot_standalone_canary.json
+outputs/reports/premap_kernel_consumer/typed_consumer_stub_gpu1_future_native_arg_slot_descriptor_ptr_mirror_canary.json
+outputs/reports/premap_kernel_consumer/typed_consumer_stub_gpu1_future_native_arg_slot_packed_weight_mirror_canary.json
+outputs/reports/premap_kernel_consumer/typed_consumer_stub_gpu1_future_native_arg_slot_aux_metadata_mirror_canary.json
+outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_arg_slot_32input_alias_rowstats_nodefer.json
+outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_artifact_check_arg_slot_32input_alias_rowstats_nodefer.json
+outputs/reports/premap_lab_preflight_default_after_packet_chain_visibility.json
+```
+
+Final default lab preflight:
+
+```text
+passed = true
+runtime_gate_evidence_deferred_count = 0
+strict_default_gate_evidence_deferred_count = 0
+required_evidence = 15 / 15 passed
+optional_evidence = 13 / 13 passed
+online runner inputs = 32
+extra online input checks = 31 / 31 passed
+artifact check passed = true
+```
+
+Safety boundary remains unchanged:
+
+```text
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+current_wna16_arg_compatible = false
+requires_wna16_arg_reinterpretation = false
+```
