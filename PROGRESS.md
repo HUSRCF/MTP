@@ -23832,6 +23832,8 @@ required failure:
 output = outputs/reports/premap_lab_preflight_status_arg_slot_online_coverage_required.json
 passed = true
 failures = []
+contract:
+  future_kernel_native_arg_slot_online_total_mirror_coverage_required = true
 online total coverage:
   descriptor_ptr
   packed_weight_descriptor

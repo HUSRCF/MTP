@@ -1783,6 +1783,7 @@ def _write_gate(
         "  future_kernel_native_dispatch_ptr_consumer_required: true\n"
         "  future_kernel_native_dispatch_consumer_program_iteration_required: true\n"
         "  future_kernel_native_dispatch_consumer_row_assignment_formula: row_offset + program_id * rows_per_program + lane_id\n"
+        "  future_kernel_native_arg_slot_online_total_mirror_coverage_required: true\n"
         "  single_field_handle_handoff_canary_required: true\n"
         "  single_field_handle_handoff_canary_mode: readonly_single_field_handle_handoff_canary\n"
         "  single_field_handle_handoff_canary_field: scale_metadata_handle\n"
@@ -2185,6 +2186,12 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert (
         summary[
             "default_kernel_consumer_arg_slot_online_total_full_field_mirror_coverage"
+        ]
+        is True
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_arg_slot_online_total_mirror_coverage_required"
         ]
         is True
     )

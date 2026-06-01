@@ -105,6 +105,7 @@ REQUIRED_DEFAULT_GATE_CONTRACT = {
     "future_kernel_native_dispatch_consumer_row_assignment_formula": (
         "row_offset + program_id * rows_per_program + lane_id"
     ),
+    "future_kernel_native_arg_slot_online_total_mirror_coverage_required": True,
     "single_field_handle_handoff_canary_required": True,
     "single_field_handle_handoff_canary_mode": (
         "readonly_single_field_handle_handoff_canary"
@@ -4186,6 +4187,11 @@ def run_premap_lab_preflight(
         ),
         "default_kernel_consumer_arg_slot_total_full_field_mirror_coverage": (
             set(arg_slot_total_mirror_field_coverage) == set(ARG_SLOT_MIRROR_FIELDS)
+        ),
+        "default_kernel_consumer_arg_slot_online_total_mirror_coverage_required": (
+            REQUIRED_DEFAULT_GATE_CONTRACT[
+                "future_kernel_native_arg_slot_online_total_mirror_coverage_required"
+            ]
         ),
         "default_kernel_consumer_arg_slot_all_mirror_fields": (
             list(ARG_SLOT_MIRROR_FIELDS)
