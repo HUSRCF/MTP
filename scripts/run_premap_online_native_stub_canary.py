@@ -1111,6 +1111,11 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
             max_inputs=None if max_online_inputs == 0 else max_online_inputs,
         )
     input_path = input_paths[0]
+    input_row_counts = (
+        []
+        if args.dry_run
+        else [_typed_consumer_input_row_count(path) for path in input_paths]
+    )
 
     stub_output = _resolve_repo_path(args.stub_output_json)
     if not args.skip_stub:
@@ -3311,6 +3316,16 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
         "online_prelaunch_input_json": str(input_path),
         "online_prelaunch_input_jsons": [str(path) for path in input_paths],
         "online_prelaunch_input_check_count": len(input_paths),
+        "online_prelaunch_input_row_counts": input_row_counts,
+        "online_prelaunch_input_row_count_min": (
+            min(input_row_counts) if input_row_counts else None
+        ),
+        "online_prelaunch_input_row_count_max": (
+            max(input_row_counts) if input_row_counts else None
+        ),
+        "online_prelaunch_input_row_count_sum": (
+            sum(input_row_counts) if input_row_counts else None
+        ),
         "online_prelaunch_input_extra_check_count": len(extra_input_check_summaries),
         "online_prelaunch_input_extra_check_passed_count": sum(
             1 for item in extra_input_check_summaries if item.get("passed") is True
@@ -4005,6 +4020,15 @@ def finalize_report_with_artifact_check(
         "min_online_inputs": artifact_payload.get("min_online_inputs"),
         "runner_online_prelaunch_input_check_count": artifact_payload.get(
             "runner_online_prelaunch_input_check_count"
+        ),
+        "runner_online_prelaunch_input_row_count_min": artifact_payload.get(
+            "runner_online_prelaunch_input_row_count_min"
+        ),
+        "runner_online_prelaunch_input_row_count_max": artifact_payload.get(
+            "runner_online_prelaunch_input_row_count_max"
+        ),
+        "runner_online_prelaunch_input_row_count_sum": artifact_payload.get(
+            "runner_online_prelaunch_input_row_count_sum"
         ),
         "runner_online_prelaunch_input_extra_check_count": artifact_payload.get(
             "runner_online_prelaunch_input_extra_check_count"

@@ -2124,6 +2124,45 @@ def check_online_native_stub_canary_artifacts(
         online_input_check_count = 0
     if online_input_check_count < int(min_online_inputs):
         failures.append("runner_online_prelaunch_input_check_count_below_min")
+    input_row_counts = runner.get("online_prelaunch_input_row_counts")
+    if online_input_check_count > 1:
+        if not isinstance(input_row_counts, list):
+            failures.append("runner_online_prelaunch_input_row_counts_missing")
+            input_row_counts = []
+        elif len(input_row_counts) != online_input_check_count:
+            failures.append("runner_online_prelaunch_input_row_counts_count_mismatch")
+    elif input_row_counts is None:
+        input_row_counts = []
+    row_count_values: list[int] = []
+    row_count_values_valid = True
+    if isinstance(input_row_counts, list):
+        for index, value in enumerate(input_row_counts):
+            if not isinstance(value, int) or isinstance(value, bool):
+                failures.append(
+                    f"runner_online_prelaunch_input_row_counts_{index:04d}_invalid"
+                )
+                row_count_values_valid = False
+                continue
+            if value <= 0:
+                failures.append(
+                    f"runner_online_prelaunch_input_row_counts_{index:04d}_invalid"
+                )
+                row_count_values_valid = False
+                continue
+            row_count_values.append(value)
+    if row_count_values_valid and row_count_values:
+        if _int(runner.get("online_prelaunch_input_row_count_min")) != min(
+            row_count_values
+        ):
+            failures.append("runner_online_prelaunch_input_row_count_min_mismatch")
+        if _int(runner.get("online_prelaunch_input_row_count_max")) != max(
+            row_count_values
+        ):
+            failures.append("runner_online_prelaunch_input_row_count_max_mismatch")
+        if _int(runner.get("online_prelaunch_input_row_count_sum")) != sum(
+            row_count_values
+        ):
+            failures.append("runner_online_prelaunch_input_row_count_sum_mismatch")
     extra_input_check_count = _int(
         runner.get("online_prelaunch_input_extra_check_count")
     )
@@ -2470,6 +2509,15 @@ def check_online_native_stub_canary_artifacts(
         "bootstrap_preflight_allowed": bool(allow_bootstrap_preflight),
         "min_online_inputs": int(min_online_inputs),
         "runner_online_prelaunch_input_check_count": online_input_check_count,
+        "runner_online_prelaunch_input_row_count_min": (
+            min(row_count_values) if row_count_values else None
+        ),
+        "runner_online_prelaunch_input_row_count_max": (
+            max(row_count_values) if row_count_values else None
+        ),
+        "runner_online_prelaunch_input_row_count_sum": (
+            sum(row_count_values) if row_count_values else None
+        ),
         "runner_online_prelaunch_input_extra_check_count": extra_input_check_count,
         "runner_online_prelaunch_input_extra_check_passed_count": (
             extra_input_check_passed_count

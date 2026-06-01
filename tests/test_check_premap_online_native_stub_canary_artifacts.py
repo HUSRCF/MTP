@@ -799,6 +799,10 @@ def _payloads(root: Path) -> tuple[Path, Path, Path]:
         "preflight_output_json": str(preflight_path),
         "preflight_status_output_json": str(status_path),
         "online_prelaunch_input_check_count": 1,
+        "online_prelaunch_input_row_counts": [4],
+        "online_prelaunch_input_row_count_min": 4,
+        "online_prelaunch_input_row_count_max": 4,
+        "online_prelaunch_input_row_count_sum": 4,
         "online_prelaunch_input_extra_check_count": 0,
         "online_prelaunch_input_extra_check_passed_count": 0,
         "preflight_status_summary": stage1,
@@ -1583,6 +1587,10 @@ def test_check_online_native_stub_canary_artifacts_requires_min_online_inputs(
     runner_path, preflight_path, status_path = _payloads(tmp_path)
     runner = json.loads(runner_path.read_text(encoding="utf-8"))
     runner["online_prelaunch_input_check_count"] = 2
+    runner["online_prelaunch_input_row_counts"] = [4, 6]
+    runner["online_prelaunch_input_row_count_min"] = 4
+    runner["online_prelaunch_input_row_count_max"] = 6
+    runner["online_prelaunch_input_row_count_sum"] = 10
     runner["online_prelaunch_input_extra_check_count"] = 1
     runner["online_prelaunch_input_extra_check_passed_count"] = 1
     runner["extra_online_input_check_summaries"] = [_extra_input_summary()]
@@ -1599,6 +1607,25 @@ def test_check_online_native_stub_canary_artifacts_requires_min_online_inputs(
     assert result["passed"] is True
     assert result["min_online_inputs"] == 2
     assert result["runner_online_prelaunch_input_check_count"] == 2
+    assert result["runner_online_prelaunch_input_row_count_min"] == 4
+    assert result["runner_online_prelaunch_input_row_count_max"] == 6
+    assert result["runner_online_prelaunch_input_row_count_sum"] == 10
+
+    runner["online_prelaunch_input_row_count_max"] = 5
+    _write_json(runner_path, runner)
+    failed_rows = check_online_native_stub_canary_artifacts(
+        root=tmp_path,
+        runner_json=runner_path,
+        preflight_json=preflight_path,
+        status_json=status_path,
+        min_online_inputs=2,
+    )
+    assert failed_rows["passed"] is False
+    assert (
+        "runner_online_prelaunch_input_row_count_max_mismatch"
+        in failed_rows["failures"]
+    )
+    runner["online_prelaunch_input_row_count_max"] = 6
 
     runner["online_prelaunch_input_extra_check_passed_count"] = 0
     _write_json(runner_path, runner)
@@ -1629,6 +1656,88 @@ def test_check_online_native_stub_canary_artifacts_requires_min_online_inputs(
     )
     assert failed_summary["passed"] is False
     assert "runner_extra_input_0001_not_passed" in failed_summary["failures"]
+
+
+def test_check_online_native_stub_canary_artifacts_requires_multi_input_row_counts(
+    tmp_path: Path,
+):
+    runner_path, preflight_path, status_path = _payloads(tmp_path)
+    runner = json.loads(runner_path.read_text(encoding="utf-8"))
+    runner["online_prelaunch_input_check_count"] = 2
+    runner["online_prelaunch_input_extra_check_count"] = 1
+    runner["online_prelaunch_input_extra_check_passed_count"] = 1
+    runner["extra_online_input_check_summaries"] = [_extra_input_summary()]
+    runner.pop("online_prelaunch_input_row_counts")
+    _write_json(runner_path, runner)
+
+    result = check_online_native_stub_canary_artifacts(
+        root=tmp_path,
+        runner_json=runner_path,
+        preflight_json=preflight_path,
+        status_json=status_path,
+        min_online_inputs=2,
+    )
+
+    assert result["passed"] is False
+    assert "runner_online_prelaunch_input_row_counts_missing" in result["failures"]
+
+
+def test_check_online_native_stub_canary_artifacts_rejects_non_integer_row_counts(
+    tmp_path: Path,
+):
+    runner_path, preflight_path, status_path = _payloads(tmp_path)
+    runner = json.loads(runner_path.read_text(encoding="utf-8"))
+    runner["online_prelaunch_input_check_count"] = 2
+    runner["online_prelaunch_input_row_counts"] = [4, "6"]
+    runner["online_prelaunch_input_row_count_min"] = 4
+    runner["online_prelaunch_input_row_count_max"] = 6
+    runner["online_prelaunch_input_row_count_sum"] = 10
+    runner["online_prelaunch_input_extra_check_count"] = 1
+    runner["online_prelaunch_input_extra_check_passed_count"] = 1
+    runner["extra_online_input_check_summaries"] = [_extra_input_summary()]
+    _write_json(runner_path, runner)
+
+    result = check_online_native_stub_canary_artifacts(
+        root=tmp_path,
+        runner_json=runner_path,
+        preflight_json=preflight_path,
+        status_json=status_path,
+        min_online_inputs=2,
+    )
+
+    assert result["passed"] is False
+    assert (
+        "runner_online_prelaunch_input_row_counts_0001_invalid"
+        in result["failures"]
+    )
+
+
+def test_check_online_native_stub_canary_artifacts_rejects_row_count_min_sum_mismatch(
+    tmp_path: Path,
+):
+    runner_path, preflight_path, status_path = _payloads(tmp_path)
+    runner = json.loads(runner_path.read_text(encoding="utf-8"))
+    runner["online_prelaunch_input_check_count"] = 2
+    runner["online_prelaunch_input_row_counts"] = [4, 6]
+    runner["online_prelaunch_input_row_count_min"] = 5
+    runner["online_prelaunch_input_row_count_max"] = 6
+    runner["online_prelaunch_input_row_count_sum"] = 11
+    runner["online_prelaunch_input_extra_check_count"] = 1
+    runner["online_prelaunch_input_extra_check_passed_count"] = 1
+    runner["extra_online_input_check_summaries"] = [_extra_input_summary()]
+    _write_json(runner_path, runner)
+
+    result = check_online_native_stub_canary_artifacts(
+        root=tmp_path,
+        runner_json=runner_path,
+        preflight_json=preflight_path,
+        status_json=status_path,
+        min_online_inputs=2,
+    )
+
+    assert result["passed"] is False
+    assert "runner_online_prelaunch_input_row_count_min_mismatch" in result["failures"]
+    assert "runner_online_prelaunch_input_row_count_sum_mismatch" in result["failures"]
 
 
 def test_check_online_native_stub_canary_artifacts_rejects_stale_status_path(
