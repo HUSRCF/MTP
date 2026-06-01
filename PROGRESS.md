@@ -24208,3 +24208,77 @@ readonly native checker/stub path, keeps payload bytes at zero, and does not
 pass or reinterpret WNA16 kernel arguments.  The value is observability: the
 future kernel argument slot is now visible as a first-class runner summary in
 addition to the nested dispatch-stub payload.
+
+### Online native canary row-stats lab gate
+
+The online prelaunch native stub canary now records the row-count distribution
+across the selected online exported typed-consumer inputs, and the artifact
+checker validates that distribution before the artifact can satisfy the default
+lab gate.
+
+New default runner/artifact:
+
+```text
+runner:
+  outputs/reports/premap_kernel_consumer/
+    online_prelaunch_native_stub_canary_arg_slot_32input_alias_rowstats_nodefer.json
+
+artifact checker:
+  outputs/reports/premap_kernel_consumer/
+    online_prelaunch_native_stub_canary_artifact_check_arg_slot_32input_alias_rowstats_nodefer.json
+```
+
+Strict checker result:
+
+```text
+passed = true
+failures = []
+online_prelaunch_input_check_count = 32
+online_prelaunch_input_extra_check_passed_count = 31
+
+online input row_count:
+  min = 8
+  max = 198
+  sum = 1841
+  diverse = true
+
+arg-slot projection rows = 174
+arg-slot mirror projection rows = 174
+final_deferred_count = 0
+status_deferred_count = 0
+```
+
+The checker now rejects multi-input artifacts that omit row counts, report
+non-integer or non-positive row counts, mismatch min/max/sum, or use multiple
+inputs with only a single row-count shape.  This turns the 32-input canary from
+"many inputs passed" into "many inputs with varied handle-table shapes passed."
+
+Default preflight with the row-stats artifact:
+
+```text
+passed = true
+runtime_gate_evidence_deferred_count = 0
+strict_default_gate_evidence_deferred_count = 0
+default_kernel_consumer_dispatch_runner_artifact_check_passed = true
+default_kernel_consumer_dispatch_runner_artifact_check_min_online_inputs = 32
+default_kernel_consumer_dispatch_runner_artifact_check_final_deferred_count = 0
+```
+
+Validation:
+
+```text
+conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
+  pytest tests -q
+
+798 passed, 2 warnings
+```
+
+Safety boundary unchanged:
+
+```text
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+current_wna16_arg_compatible = false
+requires_wna16_arg_reinterpretation = false
+```
