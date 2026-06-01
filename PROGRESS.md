@@ -25179,3 +25179,70 @@ failure modes.  Additional regression coverage keeps the legacy
 artifact and verifies that `--allow-missing-evidence` marks missing required
 multi-program evidence as allowed-missing rather than silently passing it as
 present.
+
+## 2026-06-02 - online-merged future arg-slot mirror-field canaries
+
+The online prelaunch native-stub evidence can now be merged into a single
+future-native arg-slot table and checked with a selectable one-field mirror:
+
+```text
+script:
+  scripts/run_premap_online_merged_native_arg_slot_canary.py
+
+input:
+  outputs/reports/premap_kernel_consumer/
+    online_prelaunch_native_stub_canary_arg_slot_32input_hard_hashchain_preflight_32tables.json
+
+merged table:
+  outputs/reports/premap_kernel_consumer/
+    online_merged_prelaunch_typed_consumer_input_arg_slot_32tables.json
+```
+
+The default lab evidence remains the full-table `scale_metadata_handle`
+mirror.  The runner now also supports explicit `--mirror-field` selection for
+`descriptor_ptr`, `packed_weight_descriptor`, and `aux_metadata_handle`, so
+field-level canaries can be run without changing the current WNA16 launch ABI.
+
+GPU1 tail-window canaries passed for the remaining three fields:
+
+```text
+dispatch window:
+  row_offset = 1792
+  row_limit = 1841
+  active_rows = 49
+  expected_program_count = 1
+  block_threads = 256
+
+descriptor_ptr:
+  runner = outputs/reports/premap_kernel_consumer/
+    online_merged_future_native_arg_slot_tail_window49_descriptor_ptr_canary_runner.json
+  passed = true
+  arg_slot rows / ok = 49 / 49
+
+packed_weight_descriptor:
+  runner = outputs/reports/premap_kernel_consumer/
+    online_merged_future_native_arg_slot_tail_window49_packed_weight_canary_runner.json
+  passed = true
+  arg_slot rows / ok = 49 / 49
+
+aux_metadata_handle:
+  runner = outputs/reports/premap_kernel_consumer/
+    online_merged_future_native_arg_slot_tail_window49_aux_metadata_canary_runner.json
+  passed = true
+  arg_slot rows / ok = 49 / 49
+```
+
+All three runs preserve the strict no-op contract:
+
+```text
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+current_wna16_arg_compatible = false
+requires_wna16_arg_reinterpretation = false
+```
+
+This does not make the existing WNA16 kernel consume the typed table.  It only
+shows that the future-native dispatch / dispatch_ptr / arg-slot consumer path
+can read each typed schema field through the same online-derived row window
+without payload movement or kernel-argument mutation.

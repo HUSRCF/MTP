@@ -107,7 +107,70 @@ def test_online_merged_arg_slot_canary_dry_run_writes_artifacts(tmp_path: Path):
     assert json.loads(merged.read_text(encoding="utf-8"))["_meta"]["row_count"] == 7
     stub_payload = json.loads(stub.read_text(encoding="utf-8"))
     assert stub_payload["future_kernel_native_arg_slot_consumer_checked"] is True
+    assert stub_payload["requested_macros"] == module.arg_slot_macros(
+        "scale_metadata_handle"
+    )
+    assert (
+        stub_payload[
+            "future_kernel_native_arg_slot_consumer_single_field_mirror_field_name"
+        ]
+        == "scale_metadata_handle"
+    )
     assert json.loads(report.read_text(encoding="utf-8"))["passed"] is True
+
+
+def test_online_merged_arg_slot_canary_dry_run_accepts_mirror_field(
+    tmp_path: Path,
+):
+    module = _load_module()
+    first = tmp_path / "input0.json"
+    second = tmp_path / "input1.json"
+    runner = tmp_path / "runner.json"
+    stub = tmp_path / "stub.json"
+    _write_input(first, start=0, rows=3, export_index=0)
+    _write_input(second, start=100, rows=4, export_index=1)
+    _write_runner(runner, [first, second])
+
+    args = module.build_parser().parse_args(
+        [
+            "--runner-json",
+            str(runner),
+            "--min-source-count",
+            "2",
+            "--min-total-rows",
+            "7",
+            "--block-threads",
+            "4",
+            "--mirror-field",
+            "packed_weight_descriptor",
+            "--merged-output-json",
+            str(tmp_path / "merged.json"),
+            "--stub-output-json",
+            str(stub),
+            "--output-json",
+            str(tmp_path / "report.json"),
+            "--dry-run",
+        ]
+    )
+
+    result = module.run_canary(args)
+    stub_payload = json.loads(stub.read_text(encoding="utf-8"))
+
+    assert result["passed"] is True
+    assert result["mirror_field"] == "packed_weight_descriptor"
+    assert result["stub_summary"]["requested_macros"] == module.arg_slot_macros(
+        "packed_weight_descriptor"
+    )
+    assert (
+        stub_payload[
+            "future_kernel_native_arg_slot_consumer_single_field_mirror_field_name"
+        ]
+        == "packed_weight_descriptor"
+    )
+    assert (
+        module.MIRROR_FIELD_MACRO["packed_weight_descriptor"]
+        in stub_payload["requested_macros"]
+    )
 
 
 def test_online_merged_arg_slot_canary_rejects_too_few_sources(tmp_path: Path):
@@ -198,7 +261,7 @@ def test_online_merged_arg_slot_canary_flags_stub_geometry_mismatch(tmp_path: Pa
         "payload_bytes": 0,
         "passed_to_kernel": False,
         "changes_kernel_launch_args": False,
-        "requested_macros": module.validate_macros(module.ARG_SLOT_MACROS),
+        "requested_macros": module.arg_slot_macros("scale_metadata_handle"),
         "future_kernel_native_arg_slot_consumer_checked": True,
         "future_kernel_native_arg_slot_consumer_row_count": 7,
         "future_kernel_native_arg_slot_consumer_row_ok_count": 7,
@@ -215,7 +278,11 @@ def test_online_merged_arg_slot_canary_flags_stub_geometry_mismatch(tmp_path: Pa
         "future_kernel_native_dispatch_consumer_checked": True,
         "future_kernel_native_dispatch_consumer_grid_x": 1,
         "future_kernel_native_dispatch_consumer_block_x": 4,
+        "future_kernel_native_dispatch_consumer_row_offset": 0,
         "future_kernel_native_dispatch_consumer_row_limit": 7,
+        "future_kernel_native_dispatch_consumer_active_rows": 7,
+        "future_kernel_native_dispatch_consumer_row_count": 7,
+        "future_kernel_native_dispatch_consumer_row_ok_count": 7,
         "future_kernel_native_dispatch_consumer_rows_per_program": 4,
         "future_kernel_native_dispatch_consumer_program_count": 1,
         "future_kernel_native_dispatch_consumer_launch_covers_active_rows": True,
@@ -224,6 +291,8 @@ def test_online_merged_arg_slot_canary_flags_stub_geometry_mismatch(tmp_path: Pa
         "future_kernel_native_dispatch_ptr_consumer_checked": True,
         "future_kernel_native_dispatch_ptr_consumer_packet_visible": True,
         "future_kernel_native_dispatch_ptr_consumer_dispatch_packet_visible": True,
+        "future_kernel_native_dispatch_ptr_consumer_row_count": 7,
+        "future_kernel_native_dispatch_ptr_consumer_row_ok_count": 7,
         "future_kernel_native_dispatch_ptr_consumer_handle_projection_hash_accumulator": "abc",
         "future_kernel_native_arg_slot_consumer_slot_visible": True,
         "future_kernel_native_arg_slot_consumer_dispatch_ptr_packet_visible": True,
@@ -239,6 +308,7 @@ def test_online_merged_arg_slot_canary_flags_stub_geometry_mismatch(tmp_path: Pa
         block_threads=4,
         dispatch_row_offset=0,
         dispatch_row_limit=7,
+        mirror_field="scale_metadata_handle",
     )
 
     assert any("future_kernel_native_dispatch_consumer_grid_x_mismatch" in item for item in failures)

@@ -67,7 +67,7 @@ DEFAULT_REPORT_JSON = (
     / "online_merged_future_native_arg_slot_canary_runner.json"
 )
 
-ARG_SLOT_MACROS = [
+ARG_SLOT_BASE_MACROS = [
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCHEMA",
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_ROW_ITERATION",
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_LIFETIME",
@@ -76,8 +76,21 @@ ARG_SLOT_MACROS = [
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_ABI",
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_PTR_ABI",
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ARG_SLOT_ABI",
-    "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD",
     "MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR",
+]
+MIRROR_FIELD_MACRO = {
+    "descriptor_ptr": "MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR_MIRROR_FIELD",
+    "packed_weight_descriptor": (
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_MIRROR_FIELD"
+    ),
+    "scale_metadata_handle": (
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD"
+    ),
+    "aux_metadata_handle": "MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_MIRROR_FIELD",
+}
+ARG_SLOT_MACROS = [
+    *ARG_SLOT_BASE_MACROS,
+    MIRROR_FIELD_MACRO["scale_metadata_handle"],
 ]
 
 STUB_SUMMARY_KEYS = (
@@ -159,6 +172,14 @@ def _program_count(row_count: int, block_threads: int) -> int:
     return (int(row_count) + int(block_threads) - 1) // int(block_threads)
 
 
+def arg_slot_macros(mirror_field: str) -> list[str]:
+    try:
+        mirror_macro = MIRROR_FIELD_MACRO[mirror_field]
+    except KeyError as exc:
+        raise ValueError(f"unsupported mirror field: {mirror_field}") from exc
+    return validate_macros([*ARG_SLOT_BASE_MACROS, mirror_macro])
+
+
 def _dispatch_bounds(
     *,
     row_count: int,
@@ -193,6 +214,7 @@ def _validate_stub(
     block_threads: int,
     dispatch_row_offset: int,
     dispatch_row_limit: int,
+    mirror_field: str,
 ) -> list[str]:
     failures: list[str] = []
     row_count = int(merged_input["_meta"]["row_count"])
@@ -220,7 +242,7 @@ def _validate_stub(
         "future_kernel_native_arg_slot_consumer_current_wna16_arg_compatible": False,
         "future_kernel_native_arg_slot_consumer_requires_wna16_arg_reinterpretation": False,
         "future_kernel_native_arg_slot_consumer_single_field_mirror_checked": True,
-        "future_kernel_native_arg_slot_consumer_single_field_mirror_field_name": "scale_metadata_handle",
+        "future_kernel_native_arg_slot_consumer_single_field_mirror_field_name": mirror_field,
         "future_kernel_native_arg_slot_consumer_single_field_mirror_row_count": active_rows,
         "future_kernel_native_arg_slot_consumer_single_field_mirror_row_ok_count": active_rows,
         "future_kernel_native_dispatch_consumer_checked": True,
@@ -249,7 +271,7 @@ def _validate_stub(
         if stub.get(key) != expected:
             failures.append(f"{key}_mismatch:{stub.get(key)!r}!={expected!r}")
     macros = stub.get("requested_macros")
-    if macros != validate_macros(ARG_SLOT_MACROS):
+    if macros != arg_slot_macros(mirror_field):
         failures.append("requested_macros_mismatch")
     for key in (
         "future_kernel_native_dispatch_consumer_handle_projection_hash_accumulator",
@@ -273,7 +295,7 @@ def _stub_namespace(args: argparse.Namespace, *, input_json: Path) -> SimpleName
     # Bounds are validated after the merged input is materialized; this namespace
     # is filled in run_canary once the row count is known.
     return SimpleNamespace(
-        macro=ARG_SLOT_MACROS,
+        macro=arg_slot_macros(args.mirror_field),
         offload_arch=args.offload_arch,
         force_build=bool(args.force_build),
         rows=0,
@@ -344,7 +366,8 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
             "payload_bytes": 0,
             "passed_to_kernel": False,
             "changes_kernel_launch_args": False,
-            "requested_macros": validate_macros(ARG_SLOT_MACROS),
+            "requested_macros": arg_slot_macros(args.mirror_field),
+            "mirror_field": args.mirror_field,
             "future_kernel_native_arg_slot_consumer_checked": True,
             "future_kernel_native_arg_slot_consumer_row_count": active_rows,
             "future_kernel_native_arg_slot_consumer_row_ok_count": active_rows,
@@ -355,7 +378,7 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
             "future_kernel_native_arg_slot_consumer_current_wna16_arg_compatible": False,
             "future_kernel_native_arg_slot_consumer_requires_wna16_arg_reinterpretation": False,
             "future_kernel_native_arg_slot_consumer_single_field_mirror_checked": True,
-            "future_kernel_native_arg_slot_consumer_single_field_mirror_field_name": "scale_metadata_handle",
+            "future_kernel_native_arg_slot_consumer_single_field_mirror_field_name": args.mirror_field,
             "future_kernel_native_arg_slot_consumer_single_field_mirror_row_count": active_rows,
             "future_kernel_native_arg_slot_consumer_single_field_mirror_row_ok_count": active_rows,
             "future_kernel_native_dispatch_consumer_checked": True,
@@ -398,6 +421,7 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
         block_threads=int(args.block_threads),
         dispatch_row_offset=dispatch_row_offset,
         dispatch_row_limit=dispatch_row_limit,
+        mirror_field=args.mirror_field,
     )
     report: dict[str, Any] = {
         "passed": not failures,
@@ -420,6 +444,7 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
             active_rows, int(args.block_threads)
         ),
         "tail_window_size": args.tail_window_size,
+        "mirror_field": args.mirror_field,
         "block_threads": int(args.block_threads),
         "device": int(args.device),
         "hip_visible_devices": args.hip_visible_devices,
@@ -445,6 +470,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--dispatch-row-offset", type=int, default=0)
     parser.add_argument("--dispatch-row-limit", type=int)
     parser.add_argument("--tail-window-size", type=int)
+    parser.add_argument(
+        "--mirror-field",
+        choices=sorted(MIRROR_FIELD_MACRO),
+        default="scale_metadata_handle",
+        help="single typed handle field mirrored by the future arg-slot canary",
+    )
     parser.add_argument("--device", type=int, default=0)
     parser.add_argument("--hip-visible-devices")
     parser.add_argument("--offload-arch", default="gfx1100")
