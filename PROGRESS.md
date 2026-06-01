@@ -23708,3 +23708,31 @@ optional evidence = 11 / 11
 This is intentionally optional/diagnostic.  The lab default precondition still
 requires the scale-metadata standalone arg-slot canary; packed-weight mirror is
 tracked as the next field-level canary without expanding the required gate.
+
+Aux metadata was added to the same optional arg-slot diagnostic lane:
+
+```text
+optional evidence:
+  future_kernel_native_arg_slot_aux_metadata_mirror_canary_json
+
+artifact:
+  outputs/reports/premap_kernel_consumer/typed_consumer_stub_gpu1_future_native_arg_slot_aux_metadata_mirror_canary.json
+
+field = aux_metadata_handle
+standalone rows = 1024 / 1024
+mirror rows = 1024 / 1024
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+current_wna16_arg_compatible = false
+
+output = outputs/reports/premap_lab_preflight_status_default_arg_slot_aux_optional.json
+passed = true
+failures = []
+required evidence = 15 / 15
+optional evidence = 12 / 12
+```
+
+With this, the default lab gate requires scale-metadata arg-slot evidence and
+tracks packed-weight plus aux-metadata arg-slot evidence as optional field-level
+canaries.

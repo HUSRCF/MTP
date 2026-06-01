@@ -182,6 +182,7 @@ OPTIONAL_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
     "future_kernel_native_consumer_online_runner_16_128export_json",
     "future_kernel_native_dispatch_consumer_online_artifact_check_16_128export_json",
     "future_kernel_native_dispatch_consumer_online_runner_16_128export_json",
+    "future_kernel_native_arg_slot_aux_metadata_mirror_canary_json",
     "future_kernel_native_arg_slot_packed_weight_mirror_canary_json",
     "future_kernel_native_launch_consumer_online_artifact_check_16_128export_json",
     "future_kernel_native_launch_consumer_online_runner_16_128export_json",
@@ -624,6 +625,7 @@ def _validate_required_evidence_payload(
         "native_typed_consumer_online_prelaunch_canary_runner_json",
         "future_kernel_native_dispatch_ptr_standalone_canary_json",
         "future_kernel_native_arg_slot_standalone_canary_json",
+        "future_kernel_native_arg_slot_aux_metadata_mirror_canary_json",
         "future_kernel_native_arg_slot_packed_weight_mirror_canary_json",
         *known_stub_labels,
     } and evidence_label not in DISPATCH_WINDOW_RUNNER_EVIDENCE_LABELS and (
@@ -655,6 +657,16 @@ def _validate_required_evidence_payload(
                 require_arg_slot=True,
                 arg_slot_mirror_field="packed_weight_descriptor",
                 failure_prefix="standalone_arg_slot_packed_weight",
+            )
+        ]
+    if evidence_label == "future_kernel_native_arg_slot_aux_metadata_mirror_canary_json":
+        return [
+            f"{evidence_label}:{failure}"
+            for failure in _validate_future_native_dispatch_ptr_standalone_evidence(
+                evidence,
+                require_arg_slot=True,
+                arg_slot_mirror_field="aux_metadata_handle",
+                failure_prefix="standalone_arg_slot_aux_metadata",
             )
         ]
     if evidence_label in ONLINE_PRELAUNCH_ARTIFACT_EVIDENCE_LABELS:
