@@ -2924,6 +2924,9 @@ def _validate_future_native_arg_slot_multiprogram_evidence(
         failure_prefix=failure_prefix,
     )
     row_count = _int_metric(evidence, "row_count")
+    active_rows = _int_metric(
+        evidence, "future_kernel_native_dispatch_consumer_active_rows"
+    )
     grid_x = _int_metric(evidence, "future_kernel_native_dispatch_consumer_grid_x")
     block_x = _int_metric(evidence, "future_kernel_native_dispatch_consumer_block_x")
     program_count = _int_metric(
@@ -2945,6 +2948,12 @@ def _validate_future_native_arg_slot_multiprogram_evidence(
         evidence, "future_kernel_native_dispatch_consumer_row_offset"
     )
     row_limit = _int_metric(evidence, "future_kernel_native_dispatch_consumer_row_limit")
+    first_program_row_offset = _int_metric(
+        evidence, "future_kernel_native_dispatch_consumer_first_program_row_offset"
+    )
+    last_program_row_offset = _int_metric(
+        evidence, "future_kernel_native_dispatch_consumer_last_program_row_offset"
+    )
     rows_per_program = _int_metric(
         evidence, "future_kernel_native_dispatch_consumer_rows_per_program"
     )
@@ -2967,6 +2976,23 @@ def _validate_future_native_arg_slot_multiprogram_evidence(
     if row_count is not None and rows_per_program is not None:
         if row_count <= rows_per_program:
             failures.append(f"{failure_prefix}_row_count_single_program")
+    if active_rows is None or active_rows <= 0:
+        failures.append(f"{failure_prefix}_active_rows_invalid")
+    elif row_count is not None and active_rows != row_count:
+        failures.append(f"{failure_prefix}_active_rows_mismatch")
+    if row_offset is None or row_offset != 0:
+        failures.append(f"{failure_prefix}_row_offset_mismatch")
+    if row_limit is None or row_limit <= 0:
+        failures.append(f"{failure_prefix}_row_limit_invalid")
+    elif row_count is not None and row_limit != row_count:
+        failures.append(f"{failure_prefix}_row_limit_mismatch")
+    if (
+        row_offset is not None
+        and row_limit is not None
+        and active_rows is not None
+        and active_rows != row_limit - row_offset
+    ):
+        failures.append(f"{failure_prefix}_row_limit_active_rows_mismatch")
     if full_program_count is None or full_program_count <= 0:
         failures.append(f"{failure_prefix}_full_program_count_invalid")
     if last_program_active_rows is None or last_program_active_rows <= 0:
@@ -2975,13 +3001,43 @@ def _validate_future_native_arg_slot_multiprogram_evidence(
         failures.append(f"{failure_prefix}_last_program_active_rows_not_partial")
     if inactive_lane_count is None or inactive_lane_count <= 0:
         failures.append(f"{failure_prefix}_inactive_lane_count_invalid")
-    if (
+    if launch_threads is None:
+        failures.append(f"{failure_prefix}_launch_threads_missing")
+    elif (
         grid_x is not None
         and block_x is not None
-        and launch_threads is not None
         and launch_threads != grid_x * block_x
     ):
         failures.append(f"{failure_prefix}_launch_threads_mismatch")
+    if (
+        active_rows is not None
+        and launch_threads is not None
+        and launch_threads < active_rows
+    ):
+        failures.append(f"{failure_prefix}_launch_undercoverage")
+    if (
+        active_rows is not None
+        and block_x is not None
+        and launch_threads is not None
+        and launch_threads - active_rows >= block_x
+    ):
+        failures.append(f"{failure_prefix}_launch_non_minimal")
+    if active_rows is not None and block_x is not None and grid_x is not None:
+        expected_full_program_count = active_rows // block_x
+        previous_program_threads = (grid_x - 1) * block_x
+        expected_last_program_active_rows = active_rows - previous_program_threads
+        expected_inactive_lane_count = grid_x * block_x - active_rows
+        expected_last_program_row_offset = previous_program_threads
+        if full_program_count != expected_full_program_count:
+            failures.append(f"{failure_prefix}_full_program_count_mismatch")
+        if last_program_active_rows != expected_last_program_active_rows:
+            failures.append(f"{failure_prefix}_last_program_active_rows_mismatch")
+        if inactive_lane_count != expected_inactive_lane_count:
+            failures.append(f"{failure_prefix}_inactive_lane_count_mismatch")
+        if first_program_row_offset != 0:
+            failures.append(f"{failure_prefix}_first_program_row_offset_mismatch")
+        if last_program_row_offset != expected_last_program_row_offset:
+            failures.append(f"{failure_prefix}_last_program_row_offset_mismatch")
     for key in (
         "future_kernel_native_dispatch_consumer_launch_geometry_checked",
         "future_kernel_native_dispatch_consumer_launch_covers_active_rows",
@@ -3003,16 +3059,17 @@ def _validate_future_native_arg_slot_multiprogram_evidence(
         and block_x is not None
         and row_offset is not None
         and row_limit is not None
-        and last_program_active_rows is not None
-        and inactive_lane_count is not None
+        and active_rows is not None
     ):
+        expected_last_program_active_rows = active_rows - (grid_x - 1) * block_x
+        expected_inactive_lane_count = grid_x * block_x - active_rows
         expected_program_iteration_hash = _program_iteration_hash(
             grid_x=grid_x,
             block_x=block_x,
             row_offset=row_offset,
             row_limit=row_limit,
-            last_program_active_rows=last_program_active_rows,
-            inactive_lane_count=inactive_lane_count,
+            last_program_active_rows=expected_last_program_active_rows,
+            inactive_lane_count=expected_inactive_lane_count,
         )
     actual_program_iteration_hash = _hex64_metric(
         evidence, "future_kernel_native_dispatch_consumer_program_iteration_hash"

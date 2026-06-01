@@ -24984,3 +24984,12 @@ dispatch / dispatch_ptr / arg_slot handle-projection hash equality.  The
 current artifact uses a mirror-only scale-metadata field check, so the
 multi-program validator does not require the raw scale-metadata handle macro;
 the existing required single-program arg-slot gate remains strict.
+
+Review tightened the multi-program geometry validation before commit: the
+optional evidence now fails if launch-thread metadata is missing, if the active
+row window does not match the full table, if the launch is under-covered or
+non-minimal, or if `full_program_count`, `last_program_active_rows`,
+`inactive_lane_count`, first/last program row offsets, or the
+program-iteration hash disagree with the row assignment formula.  Focused
+tests cover the single-program, missing-launch-threads, and bad-full-program
+failure modes.
