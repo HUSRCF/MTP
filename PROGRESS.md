@@ -24035,3 +24035,25 @@ focused validation:
            tests/test_check_premap_online_native_stub_canary_artifacts.py -q
   108 passed
 ```
+
+All four standalone future native arg-slot mirror artifacts now have machine
+checker outputs under the same readonly/no-kernel-arg contract:
+
+```text
+scale:
+  typed_consumer_stub_gpu1_future_native_arg_slot_full_guard_scale_canary_latest.check.json
+descriptor_ptr:
+  typed_consumer_stub_gpu1_future_native_arg_slot_descriptor_ptr_mirror_canary.check.json
+packed_weight_descriptor:
+  typed_consumer_stub_gpu1_future_native_arg_slot_packed_weight_mirror_canary.check.json
+aux_metadata_handle:
+  typed_consumer_stub_gpu1_future_native_arg_slot_aux_metadata_mirror_canary.check.json
+
+all four:
+  passed = true
+  row_count = 1024
+  arg_slot_row_count = 1024
+  payload_bytes = 0
+  passed_to_kernel = false
+  current_wna16_arg_compatible = false
+```
