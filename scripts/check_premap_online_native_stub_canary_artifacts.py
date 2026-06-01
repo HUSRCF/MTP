@@ -2163,6 +2163,10 @@ def check_online_native_stub_canary_artifacts(
             row_count_values
         ):
             failures.append("runner_online_prelaunch_input_row_count_sum_mismatch")
+        if online_input_check_count > 1 and min(row_count_values) == max(
+            row_count_values
+        ):
+            failures.append("runner_online_prelaunch_input_row_count_not_diverse")
     extra_input_check_count = _int(
         runner.get("online_prelaunch_input_extra_check_count")
     )
@@ -2517,6 +2521,9 @@ def check_online_native_stub_canary_artifacts(
         ),
         "runner_online_prelaunch_input_row_count_sum": (
             sum(row_count_values) if row_count_values else None
+        ),
+        "runner_online_prelaunch_input_row_count_diverse": (
+            (min(row_count_values) < max(row_count_values)) if row_count_values else None
         ),
         "runner_online_prelaunch_input_extra_check_count": extra_input_check_count,
         "runner_online_prelaunch_input_extra_check_passed_count": (

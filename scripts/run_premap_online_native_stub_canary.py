@@ -4030,6 +4030,9 @@ def finalize_report_with_artifact_check(
         "runner_online_prelaunch_input_row_count_sum": artifact_payload.get(
             "runner_online_prelaunch_input_row_count_sum"
         ),
+        "runner_online_prelaunch_input_row_count_diverse": artifact_payload.get(
+            "runner_online_prelaunch_input_row_count_diverse"
+        ),
         "runner_online_prelaunch_input_extra_check_count": artifact_payload.get(
             "runner_online_prelaunch_input_extra_check_count"
         ),

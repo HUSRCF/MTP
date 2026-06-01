@@ -1610,6 +1610,7 @@ def test_check_online_native_stub_canary_artifacts_requires_min_online_inputs(
     assert result["runner_online_prelaunch_input_row_count_min"] == 4
     assert result["runner_online_prelaunch_input_row_count_max"] == 6
     assert result["runner_online_prelaunch_input_row_count_sum"] == 10
+    assert result["runner_online_prelaunch_input_row_count_diverse"] is True
 
     runner["online_prelaunch_input_row_count_max"] = 5
     _write_json(runner_path, runner)
@@ -1626,6 +1627,28 @@ def test_check_online_native_stub_canary_artifacts_requires_min_online_inputs(
         in failed_rows["failures"]
     )
     runner["online_prelaunch_input_row_count_max"] = 6
+
+    runner["online_prelaunch_input_row_counts"] = [4, 4]
+    runner["online_prelaunch_input_row_count_min"] = 4
+    runner["online_prelaunch_input_row_count_max"] = 4
+    runner["online_prelaunch_input_row_count_sum"] = 8
+    _write_json(runner_path, runner)
+    failed_diversity = check_online_native_stub_canary_artifacts(
+        root=tmp_path,
+        runner_json=runner_path,
+        preflight_json=preflight_path,
+        status_json=status_path,
+        min_online_inputs=2,
+    )
+    assert failed_diversity["passed"] is False
+    assert (
+        "runner_online_prelaunch_input_row_count_not_diverse"
+        in failed_diversity["failures"]
+    )
+    runner["online_prelaunch_input_row_counts"] = [4, 6]
+    runner["online_prelaunch_input_row_count_min"] = 4
+    runner["online_prelaunch_input_row_count_max"] = 6
+    runner["online_prelaunch_input_row_count_sum"] = 10
 
     runner["online_prelaunch_input_extra_check_passed_count"] = 0
     _write_json(runner_path, runner)
