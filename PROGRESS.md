@@ -24368,6 +24368,24 @@ row_count_diverse = true
   tail_windowed_input_count = 10
   extra_online_input_tail_window_check_count = 15
 
+32-input mixed-size check:
+  runner:
+    outputs/reports/premap_kernel_consumer/
+      online_prelaunch_native_stub_canary_arg_slot_32input_tail8_probe.json
+  checker output:
+    outputs/reports/premap_kernel_consumer/
+      online_prelaunch_native_stub_canary_arg_slot_32input_tail8_probe_check.json
+  passed = true
+  input row counts = [174, 190, 106, 187, 139, 134, 175, 189,
+                      173, 198, 8, 8, 8, 8, 8, 8,
+                      8, 8, 8, 8, 8, 8, 8, 8,
+                      8, 8, 8, 8, 8, 8, 8, 8]
+  row_count_min/max/sum = 8 / 198 / 1841
+  row_count_diverse = true
+  tail_windowed_input_count = 10
+  extra_online_input_tail_window_check_count = 31
+  checker min_tail_windowed_inputs = 10
+
 dispatch input rows:
   scale_metadata_handle = 174
   descriptor_ptr = 174
