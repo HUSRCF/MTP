@@ -24795,3 +24795,34 @@ strict_default_gate_evidence_deferred_count = 0
 payload_bytes_required = 0
 passed_to_kernel_required = false
 ```
+
+The default lab gate evidence paths were then promoted from the older
+`rowstats_nodefer` canary to the handle-projection artifact:
+
+```text
+configs/runtime/
+  premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_live_connected_readonly.yaml
+
+required runner evidence =
+  outputs/reports/premap_kernel_consumer/
+    online_prelaunch_native_stub_canary_arg_slot_32input_alias_rowstats_hashchain_projection_nodefer.json
+
+required artifact-check evidence =
+  outputs/reports/premap_kernel_consumer/
+    online_prelaunch_native_stub_canary_artifact_check_arg_slot_32input_alias_rowstats_hashchain_projection_nodefer.json
+```
+
+Refreshed default lab preflight:
+
+```text
+outputs/reports/premap_lab_preflight_default_requires_handle_projection_hashchain.json
+
+passed = true
+runner evidence path = ...hashchain_projection_nodefer.json
+artifact evidence path = ...hashchain_projection_nodefer.json
+artifact_check_passed = true
+online inputs = 32
+extra online input checks = 31 / 31 passed
+runtime_gate_evidence_deferred_count = 0
+strict_default_gate_evidence_deferred_count = 0
+```
