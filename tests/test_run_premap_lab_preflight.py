@@ -1369,6 +1369,87 @@ def _standalone_arg_slot_multiprogram_canary_payload() -> dict[str, object]:
     return payload
 
 
+def _online_merged_arg_slot_multiprogram_input_payload() -> dict[str, object]:
+    row_count = 520
+    source_count = 32
+    source_rows = [17] * 8 + [16] * 24
+    row_spans = []
+    source_contexts = []
+    cursor = 0
+    for idx, span_rows in enumerate(source_rows):
+        row_spans.append(
+            {
+                "source_index": idx,
+                "path": f"reports/online_input_{idx:04d}.json",
+                "row_start": cursor,
+                "row_count": span_rows,
+                "row_end": cursor + span_rows,
+                "source_table_object_hash": f"table-{idx}",
+                "source_schema_hash": PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH,
+            }
+        )
+        source_contexts.append(
+            {
+                "source_index": idx,
+                "export_index": idx,
+                "layer_id": idx % 40,
+                "request_id": f"req-{idx}",
+                "sequence_id": "seq0",
+                "token_index": -1,
+                "row_count": span_rows,
+            }
+        )
+        cursor += span_rows
+    assert cursor == row_count
+    return {
+        "descriptor_ptr": [1000 + idx for idx in range(row_count)],
+        "packed_weight_descriptor": [2000 + idx for idx in range(row_count)],
+        "scale_metadata_handle": [3000 + idx for idx in range(row_count)],
+        "aux_metadata_handle": [4000 + idx for idx in range(row_count)],
+        "expert_id": [idx % 8 for idx in range(row_count)],
+        "address_key_hash": [5000 + idx for idx in range(row_count)],
+        "_meta": {
+            "schema_hash": PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH,
+            "row_count": row_count,
+            "column_count": 4,
+            "row_order_hash": "row-order-hash",
+            "ordered_row_hash": "ordered-row-hash",
+            "table_object_hash": "merged-table-object-hash",
+            "payload_bytes": 0,
+            "ready_credit": False,
+            "changes_router": False,
+            "changes_descriptor_order": False,
+            "passed_to_kernel": False,
+            "changes_kernel_launch_args": False,
+        },
+        "_merge_context": {
+            "source": "merged_vllm_prelaunch_typed_consumer_inputs",
+            "source_count": source_count,
+            "row_count": row_count,
+            "row_spans": row_spans,
+            "source_contexts": source_contexts,
+            "block_threads": 256,
+            "expected_program_count": 3,
+            "payload_bytes": 0,
+            "ready_credit": False,
+            "changes_router": False,
+            "changes_descriptor_order": False,
+            "passed_to_kernel": False,
+            "changes_kernel_launch_args": False,
+            "not_a_single_vllm_launch_table": True,
+        },
+    }
+
+
+def _online_merged_arg_slot_multiprogram_canary_payload(
+    input_path: str,
+) -> dict[str, object]:
+    payload = _standalone_arg_slot_multiprogram_canary_payload()
+    payload["input_json"] = input_path
+    payload["input_source"] = "binary_prefix"
+    return payload
+
+
 def _runner_mirror_summary(field_name: str) -> dict[str, object]:
     payload = _runner_stub_summary()
     payload.update(
@@ -1542,6 +1623,12 @@ def _write_gate(
     )
     standalone_arg_slot_multiprogram_canary_path = (
         f"reports/{name}_future_native_arg_slot_multiprogram_canary.json"
+    )
+    online_merged_arg_slot_multiprogram_input_path = (
+        f"reports/{name}_online_merged_arg_slot_multiprogram_input.json"
+    )
+    online_merged_arg_slot_multiprogram_canary_path = (
+        f"reports/{name}_online_merged_future_native_arg_slot_multiprogram_canary.json"
     )
     native_online_per_field_stub_path = (
         f"reports/{name}_native_typed_consumer_stub_online_prelaunch_input_per_field_canary.json"
@@ -1872,6 +1959,19 @@ def _write_gate(
             root / standalone_arg_slot_multiprogram_canary_path,
             json.dumps(_standalone_arg_slot_multiprogram_canary_payload()) + "\n",
         )
+        _write(
+            root / online_merged_arg_slot_multiprogram_input_path,
+            json.dumps(_online_merged_arg_slot_multiprogram_input_payload()) + "\n",
+        )
+        _write(
+            root / online_merged_arg_slot_multiprogram_canary_path,
+            json.dumps(
+                _online_merged_arg_slot_multiprogram_canary_payload(
+                    online_merged_arg_slot_multiprogram_input_path
+                )
+            )
+            + "\n",
+        )
     gate_path = f"configs/runtime/{name}.yaml"
     metadata_lines = ""
     if canary is not None:
@@ -2033,6 +2133,8 @@ def _write_gate(
             f"{standalone_arg_slot_aux_metadata_canary_path}\n"
             "  future_kernel_native_arg_slot_descriptor_ptr_mirror_canary_json: "
             f"{standalone_arg_slot_descriptor_ptr_canary_path}\n"
+            "  future_kernel_native_arg_slot_online_merged_multiprogram_canary_json: "
+            f"{online_merged_arg_slot_multiprogram_canary_path}\n"
             "  future_kernel_native_arg_slot_packed_weight_mirror_canary_json: "
             f"{standalone_arg_slot_packed_weight_canary_path}\n"
             "  descriptor_ptr_single_field_handle_handoff_canary_smoke_json: "
@@ -2559,9 +2661,9 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert summary["required_evidence"]["required_count"] == 16
     assert summary["required_evidence"]["present_count"] == 16
     assert summary["required_evidence"]["passed_count"] == 16
-    assert summary["optional_evidence"]["required_count"] == 13
-    assert summary["optional_evidence"]["present_count"] == 13
-    assert summary["optional_evidence"]["passed_count"] == 13
+    assert summary["optional_evidence"]["required_count"] == 14
+    assert summary["optional_evidence"]["present_count"] == 14
+    assert summary["optional_evidence"]["passed_count"] == 14
     assert (
         summary["required_evidence"]["evidence"][
             "future_kernel_native_arg_slot_multiprogram_canary_json"
@@ -2571,6 +2673,12 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert (
         summary["optional_evidence"]["evidence"][
             "native_typed_consumer_stub_online_prelaunch_input_per_field_canary_json"
+        ]["passed"]
+        is True
+    )
+    assert (
+        summary["optional_evidence"]["evidence"][
+            "future_kernel_native_arg_slot_online_merged_multiprogram_canary_json"
         ]["passed"]
         is True
     )
@@ -2987,6 +3095,74 @@ def test_premap_lab_preflight_rejects_present_optional_packed_weight_canary_mism
         "packed_weight_single_field_handle_handoff_canary_smoke_json:"
         "premap_consumer_descriptor_prep_consumer_shim_"
         "single_field_handle_handoff_canary_field_name_mismatch"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_optional_online_merged_arg_slot_source_count(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    merged_input_path = (
+        tmp_path / "reports/default_gate_online_merged_arg_slot_multiprogram_input.json"
+    )
+    payload = json.loads(merged_input_path.read_text(encoding="utf-8"))
+    payload["_merge_context"]["source_count"] = 1
+    merged_input_path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is False
+    assert "default_readonly_gate_optional_evidence_check_failed" in result["failures"]
+    failures = result["default_readonly_gate_optional_evidence_check"]["failures"]
+    assert (
+        "future_kernel_native_arg_slot_online_merged_multiprogram_canary_json:"
+        "online_merged_multiprogram_arg_slot_source_count_too_small"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_optional_online_merged_source_context_mismatch(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    merged_input_path = (
+        tmp_path / "reports/default_gate_online_merged_arg_slot_multiprogram_input.json"
+    )
+    payload = json.loads(merged_input_path.read_text(encoding="utf-8"))
+    payload["_merge_context"]["source_contexts"][0]["row_count"] = 1
+    merged_input_path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is False
+    assert "default_readonly_gate_optional_evidence_check_failed" in result["failures"]
+    failures = result["default_readonly_gate_optional_evidence_check"]["failures"]
+    assert (
+        "future_kernel_native_arg_slot_online_merged_multiprogram_canary_json:"
+        "online_merged_multiprogram_arg_slot_source_context_0_row_count_mismatch"
     ) in failures
 
 
@@ -5100,7 +5276,7 @@ def test_premap_lab_preflight_can_defer_self_referential_runner_evidence(
     assert summary["required_evidence"]["required_count"] == 16
     assert summary["required_evidence"]["present_count"] == 14
     assert summary["required_evidence"]["passed_count"] == 14
-    assert summary["optional_evidence"]["passed_count"] == 10
+    assert summary["optional_evidence"]["passed_count"] == 11
     for label in (
         "future_kernel_native_consumer_online_artifact_check_16_128export_json",
         "future_kernel_native_dispatch_consumer_online_artifact_check_16_128export_json",
@@ -5712,5 +5888,5 @@ def test_premap_lab_preflight_cli_summary_only_writes_status_block(tmp_path: Pat
     assert result["passed"] is True
     assert result["default_readonly_gate_path"] == default_gate
     assert result["required_evidence"]["passed_count"] == 16
-    assert result["optional_evidence"]["passed_count"] == 13
+    assert result["optional_evidence"]["passed_count"] == 14
     assert "lab_gate_status_summary" not in result

@@ -187,6 +187,7 @@ OPTIONAL_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
     "future_kernel_native_dispatch_consumer_online_runner_16_128export_json",
     "future_kernel_native_arg_slot_aux_metadata_mirror_canary_json",
     "future_kernel_native_arg_slot_descriptor_ptr_mirror_canary_json",
+    "future_kernel_native_arg_slot_online_merged_multiprogram_canary_json",
     "future_kernel_native_arg_slot_packed_weight_mirror_canary_json",
     "future_kernel_native_launch_consumer_online_artifact_check_16_128export_json",
     "future_kernel_native_launch_consumer_online_runner_16_128export_json",
@@ -708,6 +709,7 @@ def _validate_required_evidence_payload(
         "future_kernel_native_arg_slot_aux_metadata_mirror_canary_json",
         "future_kernel_native_arg_slot_descriptor_ptr_mirror_canary_json",
         "future_kernel_native_arg_slot_multiprogram_canary_json",
+        "future_kernel_native_arg_slot_online_merged_multiprogram_canary_json",
         "future_kernel_native_arg_slot_packed_weight_mirror_canary_json",
         *known_stub_labels,
     } and evidence_label not in DISPATCH_WINDOW_RUNNER_EVIDENCE_LABELS and (
@@ -766,6 +768,14 @@ def _validate_required_evidence_payload(
             f"{evidence_label}:{failure}"
             for failure in _validate_future_native_arg_slot_multiprogram_evidence(
                 evidence
+            )
+        ]
+    if evidence_label == "future_kernel_native_arg_slot_online_merged_multiprogram_canary_json":
+        return [
+            f"{evidence_label}:{failure}"
+            for failure in _validate_future_native_arg_slot_online_merged_multiprogram_evidence(
+                evidence,
+                root=root,
             )
         ]
     if evidence_label in ONLINE_PRELAUNCH_ARTIFACT_EVIDENCE_LABELS:
@@ -2716,6 +2726,8 @@ def _validate_future_native_dispatch_ptr_standalone_evidence(
     require_arg_slot: bool = False,
     require_arg_slot_handle_macro: bool = True,
     arg_slot_mirror_field: str = "scale_metadata_handle",
+    expected_input_source: str = "synthetic",
+    require_pointer_visibility_macro: bool = True,
     failure_prefix: str = "standalone_dispatch_ptr",
 ) -> list[str]:
     failures: list[str] = []
@@ -2729,7 +2741,7 @@ def _validate_future_native_dispatch_ptr_standalone_evidence(
         "payload_bytes": 0,
         "passed_to_kernel": False,
         "changes_kernel_launch_args": False,
-        "input_source": "synthetic",
+        "input_source": expected_input_source,
         "expected_schema_hash": PREMAP_KERNEL_SIDE_TYPED_CONSUMER_SCHEMA_HASH,
         "future_kernel_native_consumer_checked": True,
         "future_kernel_native_consumer_error_count": 0,
@@ -2855,7 +2867,6 @@ def _validate_future_native_dispatch_ptr_standalone_evidence(
     always_required_enabled = (
         "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCHEMA",
         "MTP_PREMAP_TYPED_CONSUMER_CHECK_ROW_ITERATION",
-        "MTP_PREMAP_TYPED_CONSUMER_CHECK_POINTER_VISIBILITY",
         "MTP_PREMAP_TYPED_CONSUMER_CHECK_LIFETIME",
         "MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR",
         "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ABI",
@@ -2863,6 +2874,11 @@ def _validate_future_native_dispatch_ptr_standalone_evidence(
         "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_ABI",
         "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_PTR_ABI",
     )
+    if require_pointer_visibility_macro:
+        always_required_enabled = (
+            *always_required_enabled,
+            "MTP_PREMAP_TYPED_CONSUMER_CHECK_POINTER_VISIBILITY",
+        )
     field_macro_by_field = {
         "descriptor_ptr": "MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR",
         "scale_metadata_handle": "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_HANDLE",
@@ -2914,6 +2930,9 @@ def _validate_future_native_dispatch_ptr_standalone_evidence(
 
 def _validate_future_native_arg_slot_multiprogram_evidence(
     evidence: dict[str, Any],
+    *,
+    expected_input_source: str = "synthetic",
+    require_pointer_visibility_macro: bool = True,
 ) -> list[str]:
     failure_prefix = "multiprogram_arg_slot"
     failures = _validate_future_native_dispatch_ptr_standalone_evidence(
@@ -2921,6 +2940,8 @@ def _validate_future_native_arg_slot_multiprogram_evidence(
         require_arg_slot=True,
         require_arg_slot_handle_macro=False,
         arg_slot_mirror_field="scale_metadata_handle",
+        expected_input_source=expected_input_source,
+        require_pointer_visibility_macro=require_pointer_visibility_macro,
         failure_prefix=failure_prefix,
     )
     row_count = _int_metric(evidence, "row_count")
@@ -3099,6 +3120,143 @@ def _validate_future_native_arg_slot_multiprogram_evidence(
         failures.append(f"{failure_prefix}_handle_projection_hash_missing")
     elif len(set(projection_hashes)) != 1:
         failures.append(f"{failure_prefix}_handle_projection_hash_mismatch")
+    return failures
+
+
+def _validate_future_native_arg_slot_online_merged_multiprogram_evidence(
+    evidence: dict[str, Any],
+    *,
+    root: Path | None = None,
+) -> list[str]:
+    failure_prefix = "online_merged_multiprogram_arg_slot"
+    failures = _validate_future_native_arg_slot_multiprogram_evidence(
+        evidence,
+        expected_input_source="binary_prefix",
+        require_pointer_visibility_macro=False,
+    )
+    input_json = evidence.get("input_json")
+    if not isinstance(input_json, str) or not input_json:
+        failures.append(f"{failure_prefix}_input_json_missing")
+        return failures
+    if root is None:
+        return failures
+    input_path = _path_for_label(input_json, root)
+    try:
+        payload = json.loads(input_path.read_text(encoding="utf-8"))
+    except (FileNotFoundError, OSError, UnicodeDecodeError) as exc:
+        failures.append(f"{failure_prefix}_input_json_read_failed:{type(exc).__name__}")
+        return failures
+    except json.JSONDecodeError:
+        failures.append(f"{failure_prefix}_input_json_invalid_json")
+        return failures
+    if not isinstance(payload, dict):
+        failures.append(f"{failure_prefix}_input_json_not_object")
+        return failures
+    meta = payload.get("_meta")
+    if not isinstance(meta, dict):
+        failures.append(f"{failure_prefix}_meta_missing")
+        meta = {}
+    merge_context = payload.get("_merge_context")
+    if not isinstance(merge_context, dict):
+        failures.append(f"{failure_prefix}_merge_context_missing")
+        merge_context = {}
+    row_count = _int_metric(evidence, "row_count")
+    grid_x = _int_metric(evidence, "future_kernel_native_dispatch_consumer_grid_x")
+    block_x = _int_metric(evidence, "future_kernel_native_dispatch_consumer_block_x")
+    expected_program_count = merge_context.get("expected_program_count")
+    block_threads = merge_context.get("block_threads")
+    source_count = merge_context.get("source_count")
+    if merge_context.get("source") != "merged_vllm_prelaunch_typed_consumer_inputs":
+        failures.append(f"{failure_prefix}_source_mismatch")
+    if merge_context.get("not_a_single_vllm_launch_table") is not True:
+        failures.append(f"{failure_prefix}_single_launch_flag_mismatch")
+    if not isinstance(source_count, int) or isinstance(source_count, bool):
+        failures.append(f"{failure_prefix}_source_count_invalid")
+    elif source_count < 32:
+        failures.append(f"{failure_prefix}_source_count_too_small")
+    if row_count is not None:
+        if meta.get("row_count") != row_count:
+            failures.append(f"{failure_prefix}_meta_row_count_mismatch")
+        if merge_context.get("row_count") != row_count:
+            failures.append(f"{failure_prefix}_merge_row_count_mismatch")
+    if grid_x is not None and expected_program_count != grid_x:
+        failures.append(f"{failure_prefix}_expected_program_count_mismatch")
+    if not isinstance(block_threads, int) or isinstance(block_threads, bool):
+        failures.append(f"{failure_prefix}_block_threads_invalid")
+    elif block_threads <= 0:
+        failures.append(f"{failure_prefix}_block_threads_invalid")
+    elif block_x is not None and block_threads != block_x:
+        failures.append(f"{failure_prefix}_block_threads_block_x_mismatch")
+    for key, expected_value in {
+        "payload_bytes": 0,
+        "ready_credit": False,
+        "changes_router": False,
+        "changes_descriptor_order": False,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+    }.items():
+        if meta.get(key) != expected_value:
+            failures.append(f"{failure_prefix}_meta_{key}_mismatch")
+        if merge_context.get(key) != expected_value:
+            failures.append(f"{failure_prefix}_merge_{key}_mismatch")
+    row_spans = merge_context.get("row_spans")
+    normalized_row_spans: list[dict[str, Any]] = []
+    if not isinstance(row_spans, list) or not row_spans:
+        failures.append(f"{failure_prefix}_row_spans_missing")
+    else:
+        cursor = 0
+        for idx, span in enumerate(row_spans):
+            if not isinstance(span, dict):
+                failures.append(f"{failure_prefix}_row_span_{idx}_invalid")
+                continue
+            if span.get("source_index") != idx:
+                failures.append(f"{failure_prefix}_row_span_{idx}_source_index_mismatch")
+            row_start = span.get("row_start")
+            row_end = span.get("row_end")
+            span_rows = span.get("row_count")
+            if row_start != cursor:
+                failures.append(f"{failure_prefix}_row_span_{idx}_start_mismatch")
+            if (
+                not isinstance(span_rows, int)
+                or isinstance(span_rows, bool)
+                or span_rows <= 0
+            ):
+                failures.append(f"{failure_prefix}_row_span_{idx}_row_count_invalid")
+                continue
+            cursor += span_rows
+            if row_end != cursor:
+                failures.append(f"{failure_prefix}_row_span_{idx}_end_mismatch")
+            if not isinstance(span.get("path"), str) or not span.get("path"):
+                failures.append(f"{failure_prefix}_row_span_{idx}_path_missing")
+            normalized_row_spans.append(span)
+        if row_count is not None and cursor != row_count:
+            failures.append(f"{failure_prefix}_row_spans_total_mismatch")
+        if isinstance(source_count, int) and len(row_spans) != source_count:
+            failures.append(f"{failure_prefix}_row_spans_source_count_mismatch")
+    source_contexts = merge_context.get("source_contexts")
+    if not isinstance(source_contexts, list) or not source_contexts:
+        failures.append(f"{failure_prefix}_source_contexts_missing")
+    elif isinstance(source_count, int) and len(source_contexts) != source_count:
+        failures.append(f"{failure_prefix}_source_contexts_source_count_mismatch")
+    elif isinstance(source_contexts, list):
+        for idx, context in enumerate(source_contexts):
+            if not isinstance(context, dict):
+                failures.append(f"{failure_prefix}_source_context_{idx}_invalid")
+                continue
+            if context.get("source_index") != idx:
+                failures.append(
+                    f"{failure_prefix}_source_context_{idx}_source_index_mismatch"
+                )
+            if not isinstance(context.get("request_id"), str) or not context.get("request_id"):
+                failures.append(f"{failure_prefix}_source_context_{idx}_request_id_missing")
+            if "layer_id" not in context:
+                failures.append(f"{failure_prefix}_source_context_{idx}_layer_id_missing")
+            if idx < len(normalized_row_spans):
+                span = normalized_row_spans[idx]
+                if context.get("row_count") != span.get("row_count"):
+                    failures.append(
+                        f"{failure_prefix}_source_context_{idx}_row_count_mismatch"
+                    )
     return failures
 
 

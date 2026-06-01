@@ -2,7 +2,7 @@
 
 ## Progress Version
 
-- Version: `v0.38-online-runner-status-semantics`
+- Version: `v0.39-online-merged-multiprogram-abi`
 - Updated: 2026-06-01
 - Current phase: premap descriptor/address prep now has a typed
   kernel-side consumer object, a launch-shaped future native ABI, and a
@@ -20,6 +20,87 @@
   compact status fields now
   bind `artifact_check_passed` to the independent artifact evidence row and
   bind `final_preflight_passed` to both final status and no-defer closure.
+  The latest optional lab evidence now runs the future-native arg-slot ABI over
+  a merged table built from 32 real online vLLM prelaunch typed-consumer
+  exports, so the multi-program packet chain is validated on online handle
+  distributions rather than only on a standalone synthetic table.
+
+## Latest Update: Online-Merged Future Native Arg-Slot Canary
+
+The lab gate now has an optional online-merged multi-program ABI canary:
+
+```text
+future_kernel_native_arg_slot_online_merged_multiprogram_canary_json:
+  outputs/reports/premap_kernel_consumer/
+    typed_consumer_stub_gpu1_online_merged_future_native_arg_slot_32tables_canary.json
+```
+
+It is generated from a merged typed-consumer input:
+
+```text
+outputs/reports/premap_kernel_consumer/
+  online_merged_prelaunch_typed_consumer_input_arg_slot_32tables.json
+
+source_count = 32 real online prelaunch typed input tables
+row_count = 1841
+block_threads = 256
+expected_program_count = 8
+```
+
+The merged input is explicitly marked as diagnostic:
+
+```text
+source = merged_vllm_prelaunch_typed_consumer_inputs
+not_a_single_vllm_launch_table = true
+payload_bytes = 0
+ready_credit = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+```
+
+GPU1 native stub result:
+
+```text
+future_kernel_native_dispatch_consumer_row_ok_count = 1841 / 1841
+future_kernel_native_dispatch_ptr_consumer_row_ok_count = 1841 / 1841
+future_kernel_native_arg_slot_consumer_row_ok_count = 1841 / 1841
+
+grid_x = 8
+block_x = 256
+launch_threads = 2048
+full_program_count = 7
+last_program_active_rows = 49
+inactive_lane_count = 207
+
+future_kernel_native_dispatch_consumer_handle_projection_hash_accumulator =
+  9748c8c92c02281b
+future_kernel_native_dispatch_ptr_consumer_handle_projection_hash_accumulator =
+  9748c8c92c02281b
+future_kernel_native_arg_slot_consumer_handle_projection_hash_accumulator =
+  9748c8c92c02281b
+```
+
+Default lab preflight now accepts this as optional evidence:
+
+```text
+outputs/reports/premap_lab_preflight_default_online_merged_multiprogram_optional_gate.json
+
+passed = true
+required_evidence = 16 / 16
+optional_evidence = 14 / 14
+```
+
+Validation:
+
+```text
+conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src \
+  pytest tests/test_materialize_premap_online_merged_typed_consumer_input.py \
+         tests/test_run_premap_lab_preflight.py -q
+
+conda run -p /home/husrcf/anaconda3/envs/TRY env PYTHONPATH=.:src pytest tests -q
+
+843 passed, 2 warnings
+```
 
 ## Latest Update: Future Native Handle-Projection Packet Chain
 
