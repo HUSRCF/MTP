@@ -25,6 +25,60 @@
 
 ## Latest Update: Contract-Conditioned Lab Preflight Summary
 
+## Latest Update: Standalone Future Arg-Slot Native Canary Refresh
+
+The independent native typed-consumer stub was rerun on GPU1 with the full
+future-native arg-slot guard chain:
+
+```text
+MTP_PREMAP_TYPED_CONSUMER_CHECK_SCHEMA
+MTP_PREMAP_TYPED_CONSUMER_CHECK_ROW_ITERATION
+MTP_PREMAP_TYPED_CONSUMER_CHECK_POINTER_VISIBILITY
+MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR
+MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_DESCRIPTOR
+MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_HANDLE
+MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_HANDLE
+MTP_PREMAP_TYPED_CONSUMER_CHECK_LIFETIME
+MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR
+MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ABI
+MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ABI
+MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_ABI
+MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_PTR_ABI
+MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ARG_SLOT_ABI
+MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD
+```
+
+Artifact:
+
+```text
+outputs/reports/premap_kernel_consumer/typed_consumer_stub_gpu1_future_native_arg_slot_full_guard_scale_canary_latest.json
+
+ok = true
+future_kernel_native_arg_slot_consumer_checked = true
+future_kernel_native_arg_slot_consumer_row_count = 1024
+future_kernel_native_arg_slot_consumer_row_ok_count = 1024
+future_kernel_native_arg_slot_consumer_error_count = 0
+future_kernel_native_arg_slot_consumer_payload_bytes = 0
+future_kernel_native_arg_slot_consumer_passed_to_kernel = false
+future_kernel_native_arg_slot_consumer_current_wna16_arg_compatible = false
+future_kernel_native_dispatch_consumer_launch_geometry_checked = true
+future_kernel_native_dispatch_consumer_launch_minimal_cover = true
+```
+
+The schema checker was also rerun:
+
+```text
+outputs/reports/premap_kernel_consumer/typed_consumer_schema_check_latest.json
+passed = true
+failures = []
+rows = 4
+```
+
+Boundary is unchanged.  This is an independent native typed-consumer canary that
+reads the future arg-slot ABI shape; it still does not pass the slot to the
+current WNA16 fused-MoE kernel, does not move payload, and does not claim a
+runtime performance result.
+
 The lab preflight summary now reports requirement fields from the observed
 default gate contract instead of reusing hard-coded defaults.  This keeps
 negative contract tests readable: if a test gate intentionally flips
