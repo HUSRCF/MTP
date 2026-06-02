@@ -490,6 +490,7 @@ def check_window_sweep_artifact(
         "require_non_degenerate_windows": bool(require_non_degenerate_windows),
         "require_child_field_masks": bool(require_child_artifacts),
         "require_child_consumer_view": bool(require_child_artifacts),
+        "require_child_consumer_view_layout": bool(require_child_artifacts),
         "row_count": row_count,
         "windows_checked": list(REQUIRED_WINDOWS),
     }

@@ -2154,6 +2154,64 @@ passed = true
 failures = []
 ```
 
+## Consumer-view layout is now an explicit lab-gate requirement
+
+The premap lab gate now requires child window-sweep checks to prove the
+future native consumer-view ABI layout, not only the presence of consumer-view
+row fields.
+
+Both strict checker outputs now expose:
+
+```text
+require_child_consumer_view_layout = true
+```
+
+and the top-level lab gate rejects artifacts where either:
+
+```text
+window_sweep_check.require_child_consumer_view_layout != true
+all_field_window_sweep_check.require_child_consumer_view_layout != true
+```
+
+This keeps the current handoff at the same safety boundary:
+
+```text
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+current_wna16_arg_compatible = false
+```
+
+Verification:
+
+```text
+python scripts/run_premap_lab_gate_verify.py \
+  --output-json outputs/reports/premap_lab_gate_verify.json
+
+passed = true
+window_sweep_check.require_child_consumer_view_layout = true
+all_field_window_sweep_check.require_child_consumer_view_layout = true
+
+python scripts/check_premap_lab_gate_verify.py \
+  outputs/reports/premap_lab_gate_verify.json \
+  --output-json outputs/reports/premap_lab_gate_verify.check.json
+
+passed = true
+failures = []
+
+python -m pytest \
+  tests/test_check_premap_online_merged_native_arg_slot_window_sweep.py \
+  tests/test_check_premap_online_merged_native_arg_slot_all_field_window_sweep.py \
+  tests/test_run_premap_lab_gate_verify.py \
+  tests/test_check_premap_lab_gate_verify.py -q
+
+35 passed
+
+python -m pytest tests -q
+
+929 passed, 2 warnings
+```
+
 Malformed evidence paths fail closed (`missing_evidence_path`, `missing_file`,
 `not_file`, `read_failed`, `invalid_json`, `json_not_object`, `not_passed`, or
 `failures_not_empty`).  This makes the typed-consumer-object lab gate a single

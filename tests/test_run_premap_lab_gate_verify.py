@@ -125,6 +125,7 @@ def test_status_failures_reject_kernel_boundary_mutation():
             "require_child_artifacts": True,
             "require_child_field_masks": True,
             "require_child_consumer_view": True,
+            "require_child_consumer_view_layout": True,
             "require_non_degenerate_windows": True,
             "expected_window_size": 512,
             "windows_checked": ["full", "head", "middle", "tail"],
@@ -144,6 +145,7 @@ def test_status_failures_reject_kernel_boundary_mutation():
             "require_child_checks": True,
             "require_child_field_masks": True,
             "require_child_consumer_view": True,
+            "require_child_consumer_view_layout": True,
             "expected_window_size": 512,
             "mirror_fields_checked": [
                 "descriptor_ptr",
@@ -205,6 +207,7 @@ def test_status_failures_reject_tail_checker_without_tail_requirement():
             "require_child_artifacts": True,
             "require_child_field_masks": True,
             "require_child_consumer_view": True,
+            "require_child_consumer_view_layout": True,
             "require_non_degenerate_windows": True,
             "expected_window_size": 512,
             "windows_checked": ["full", "head", "middle", "tail"],
@@ -224,6 +227,7 @@ def test_status_failures_reject_tail_checker_without_tail_requirement():
             "require_child_checks": True,
             "require_child_field_masks": True,
             "require_child_consumer_view": True,
+            "require_child_consumer_view_layout": True,
             "expected_window_size": 512,
             "mirror_fields_checked": [
                 "descriptor_ptr",
@@ -380,6 +384,7 @@ def test_status_failures_reject_window_sweep_checker_without_consumer_view():
             "require_child_checks": True,
             "require_child_field_masks": True,
             "require_child_consumer_view": True,
+            "require_child_consumer_view_layout": True,
             "expected_window_size": 512,
             "mirror_fields_checked": [
                 "descriptor_ptr",
@@ -393,6 +398,88 @@ def test_status_failures_reject_window_sweep_checker_without_consumer_view():
     failures = _status_failures(statuses)
 
     assert "window_sweep_check_did_not_require_child_consumer_view" in failures
+
+
+def test_status_failures_reject_window_sweep_checker_without_consumer_view_layout():
+    statuses = {
+        "default_closure": {
+            "exists": True,
+            "passed": True,
+            "failures": [],
+            "payload_bytes": 0,
+            "passed_to_kernel": False,
+            "changes_kernel_launch_args": False,
+            "tail_window_probe_enabled": False,
+        },
+        "default_closure_check": {
+            "exists": True,
+            "passed": True,
+            "failures": [],
+        },
+        "tail_window_closure": {
+            "exists": True,
+            "passed": True,
+            "failures": [],
+            "payload_bytes": 0,
+            "passed_to_kernel": False,
+            "changes_kernel_launch_args": False,
+            "tail_window_probe_enabled": True,
+        },
+        "tail_window_closure_check": {
+            "exists": True,
+            "passed": True,
+            "failures": [],
+            "require_tail_window_probe": True,
+        },
+        "window_sweep": {
+            "exists": True,
+            "passed": True,
+            "failures": [],
+            "payload_bytes": 0,
+            "passed_to_kernel": False,
+            "changes_kernel_launch_args": False,
+        },
+        "window_sweep_check": {
+            "exists": True,
+            "passed": True,
+            "failures": [],
+            "require_child_artifacts": True,
+            "require_child_field_masks": True,
+            "require_child_consumer_view": True,
+            "require_child_consumer_view_layout": False,
+            "require_non_degenerate_windows": True,
+            "expected_window_size": 512,
+            "windows_checked": ["full", "head", "middle", "tail"],
+        },
+        "all_field_window_sweep": {
+            "exists": True,
+            "passed": True,
+            "failures": [],
+            "payload_bytes": 0,
+            "passed_to_kernel": False,
+            "changes_kernel_launch_args": False,
+        },
+        "all_field_window_sweep_check": {
+            "exists": True,
+            "passed": True,
+            "failures": [],
+            "require_child_checks": True,
+            "require_child_field_masks": True,
+            "require_child_consumer_view": True,
+            "require_child_consumer_view_layout": True,
+            "expected_window_size": 512,
+            "mirror_fields_checked": [
+                "descriptor_ptr",
+                "packed_weight_descriptor",
+                "scale_metadata_handle",
+                "aux_metadata_handle",
+            ],
+        },
+    }
+
+    failures = _status_failures(statuses)
+
+    assert "window_sweep_check_did_not_require_child_consumer_view_layout" in failures
 
 
 def test_status_failures_reject_window_sweep_checker_without_nondegenerate_gate():
@@ -441,6 +528,7 @@ def test_status_failures_reject_window_sweep_checker_without_nondegenerate_gate(
             "require_child_artifacts": True,
             "require_child_field_masks": True,
             "require_child_consumer_view": True,
+            "require_child_consumer_view_layout": True,
             "require_non_degenerate_windows": False,
             "expected_window_size": 512,
             "windows_checked": ["full", "head", "middle", "tail"],
@@ -460,6 +548,7 @@ def test_status_failures_reject_window_sweep_checker_without_nondegenerate_gate(
             "require_child_checks": True,
             "require_child_field_masks": True,
             "require_child_consumer_view": True,
+            "require_child_consumer_view_layout": True,
             "expected_window_size": 512,
             "mirror_fields_checked": [
                 "descriptor_ptr",
@@ -521,6 +610,7 @@ def test_status_failures_reject_all_field_checker_without_child_checks():
             "require_child_artifacts": True,
             "require_child_field_masks": True,
             "require_child_consumer_view": True,
+            "require_child_consumer_view_layout": True,
             "require_non_degenerate_windows": True,
             "expected_window_size": 512,
             "windows_checked": ["full", "head", "middle", "tail"],
@@ -599,6 +689,7 @@ def test_status_failures_reject_all_field_checker_without_consumer_view():
             "require_child_artifacts": True,
             "require_child_field_masks": True,
             "require_child_consumer_view": True,
+            "require_child_consumer_view_layout": True,
             "require_non_degenerate_windows": True,
             "expected_window_size": 512,
             "windows_checked": ["full", "head", "middle", "tail"],
@@ -632,6 +723,91 @@ def test_status_failures_reject_all_field_checker_without_consumer_view():
 
     assert (
         "all_field_window_sweep_check_did_not_require_child_consumer_view"
+        in failures
+    )
+
+
+def test_status_failures_reject_all_field_checker_without_consumer_view_layout():
+    statuses = {
+        "default_closure": {
+            "exists": True,
+            "passed": True,
+            "failures": [],
+            "payload_bytes": 0,
+            "passed_to_kernel": False,
+            "changes_kernel_launch_args": False,
+            "tail_window_probe_enabled": False,
+        },
+        "default_closure_check": {
+            "exists": True,
+            "passed": True,
+            "failures": [],
+        },
+        "tail_window_closure": {
+            "exists": True,
+            "passed": True,
+            "failures": [],
+            "payload_bytes": 0,
+            "passed_to_kernel": False,
+            "changes_kernel_launch_args": False,
+            "tail_window_probe_enabled": True,
+        },
+        "tail_window_closure_check": {
+            "exists": True,
+            "passed": True,
+            "failures": [],
+            "require_tail_window_probe": True,
+        },
+        "window_sweep": {
+            "exists": True,
+            "passed": True,
+            "failures": [],
+            "payload_bytes": 0,
+            "passed_to_kernel": False,
+            "changes_kernel_launch_args": False,
+        },
+        "window_sweep_check": {
+            "exists": True,
+            "passed": True,
+            "failures": [],
+            "require_child_artifacts": True,
+            "require_child_field_masks": True,
+            "require_child_consumer_view": True,
+            "require_child_consumer_view_layout": True,
+            "require_non_degenerate_windows": True,
+            "expected_window_size": 512,
+            "windows_checked": ["full", "head", "middle", "tail"],
+        },
+        "all_field_window_sweep": {
+            "exists": True,
+            "passed": True,
+            "failures": [],
+            "payload_bytes": 0,
+            "passed_to_kernel": False,
+            "changes_kernel_launch_args": False,
+        },
+        "all_field_window_sweep_check": {
+            "exists": True,
+            "passed": True,
+            "failures": [],
+            "require_child_checks": True,
+            "require_child_field_masks": True,
+            "require_child_consumer_view": True,
+            "require_child_consumer_view_layout": False,
+            "expected_window_size": 512,
+            "mirror_fields_checked": [
+                "descriptor_ptr",
+                "packed_weight_descriptor",
+                "scale_metadata_handle",
+                "aux_metadata_handle",
+            ],
+        },
+    }
+
+    failures = _status_failures(statuses)
+
+    assert (
+        "all_field_window_sweep_check_did_not_require_child_consumer_view_layout"
         in failures
     )
 
