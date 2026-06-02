@@ -123,9 +123,17 @@ def test_tail_window_probe_failures_accept_expected_window():
             "passed": True,
             "tail_window_size": 4,
             "merged_row_count": 16,
+            "block_threads": 4,
             "dispatch_row_offset": 12,
             "dispatch_row_limit": 16,
             "dispatch_active_rows": 4,
+            "dispatch_expected_program_count": 1,
+            "no_payload": True,
+            "passed_to_kernel": False,
+            "changes_kernel_launch_args": False,
+            "current_wna16_arg_compatible": False,
+            "not_a_single_vllm_launch_table": True,
+            "handle_projection_all_handle_fields_checked": True,
         }
     }
 
@@ -146,9 +154,17 @@ def test_tail_window_probe_failures_reject_full_table_window():
             "passed": True,
             "tail_window_size": 4,
             "merged_row_count": 16,
+            "block_threads": 4,
             "dispatch_row_offset": 0,
             "dispatch_row_limit": 16,
             "dispatch_active_rows": 16,
+            "dispatch_expected_program_count": 4,
+            "no_payload": True,
+            "passed_to_kernel": False,
+            "changes_kernel_launch_args": False,
+            "current_wna16_arg_compatible": False,
+            "not_a_single_vllm_launch_table": True,
+            "handle_projection_all_handle_fields_checked": True,
         }
     }
 
@@ -161,6 +177,37 @@ def test_tail_window_probe_failures_reject_full_table_window():
 
     assert "arg_slot_tail_window_dispatch_offset_mismatch" in failures
     assert "arg_slot_tail_window_dispatch_active_mismatch" in failures
+
+
+def test_tail_window_probe_failures_reject_kernel_boundary_mutation():
+    summaries = {
+        "arg_slot_tail_window_runner": {
+            "exists": True,
+            "passed": True,
+            "tail_window_size": 4,
+            "merged_row_count": 16,
+            "block_threads": 4,
+            "dispatch_row_offset": 12,
+            "dispatch_row_limit": 16,
+            "dispatch_active_rows": 4,
+            "dispatch_expected_program_count": 1,
+            "no_payload": True,
+            "passed_to_kernel": True,
+            "changes_kernel_launch_args": False,
+            "current_wna16_arg_compatible": False,
+            "not_a_single_vllm_launch_table": True,
+            "handle_projection_all_handle_fields_checked": True,
+        }
+    }
+
+    failures = _tail_window_probe_failures(
+        summaries,
+        enabled=True,
+        dry_run=False,
+        expected_tail_window_size=4,
+    )
+
+    assert "arg_slot_tail_window_passed_to_kernel_mismatch" in failures
 
 
 def test_run_premap_lab_gate_closure_dry_run_can_include_tail_window_probe(

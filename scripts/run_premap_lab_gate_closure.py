@@ -132,10 +132,18 @@ def _load_json_summary(path: Path) -> dict[str, Any]:
         "device",
         "selected_source_count",
         "merged_row_count",
+        "block_threads",
         "tail_window_size",
         "dispatch_row_offset",
         "dispatch_row_limit",
         "dispatch_active_rows",
+        "dispatch_expected_program_count",
+        "handle_projection_all_handle_fields_checked",
+        "no_payload",
+        "passed_to_kernel",
+        "changes_kernel_launch_args",
+        "current_wna16_arg_compatible",
+        "not_a_single_vllm_launch_table",
         "online_merged_source_count",
         "online_merged_row_count",
         "online_merged_dispatch_active_rows",
@@ -187,21 +195,39 @@ def _tail_window_probe_failures(
         failures.append("arg_slot_tail_window_runner_not_passed")
     if tail_summary.get("tail_window_size") != int(expected_tail_window_size):
         failures.append("arg_slot_tail_window_size_mismatch")
+    for key, expected_value in {
+        "no_payload": True,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "current_wna16_arg_compatible": False,
+        "not_a_single_vllm_launch_table": True,
+        "handle_projection_all_handle_fields_checked": True,
+    }.items():
+        if tail_summary.get(key) != expected_value:
+            failures.append(f"arg_slot_tail_window_{key}_mismatch")
     merged_row_count = tail_summary.get("merged_row_count")
+    block_threads = tail_summary.get("block_threads")
     dispatch_offset = tail_summary.get("dispatch_row_offset")
     dispatch_limit = tail_summary.get("dispatch_row_limit")
     dispatch_active = tail_summary.get("dispatch_active_rows")
+    dispatch_programs = tail_summary.get("dispatch_expected_program_count")
     if not isinstance(merged_row_count, int) or isinstance(merged_row_count, bool):
         failures.append("arg_slot_tail_window_merged_row_count_invalid")
         return failures
+    if not isinstance(block_threads, int) or isinstance(block_threads, bool):
+        failures.append("arg_slot_tail_window_block_threads_invalid")
+        return failures
     expected_offset = max(0, int(merged_row_count) - int(expected_tail_window_size))
     expected_active = int(merged_row_count) - expected_offset
+    expected_programs = (expected_active + int(block_threads) - 1) // int(block_threads)
     if dispatch_offset != expected_offset:
         failures.append("arg_slot_tail_window_dispatch_offset_mismatch")
     if dispatch_limit != int(merged_row_count):
         failures.append("arg_slot_tail_window_dispatch_limit_mismatch")
     if dispatch_active != expected_active:
         failures.append("arg_slot_tail_window_dispatch_active_mismatch")
+    if dispatch_programs != expected_programs:
+        failures.append("arg_slot_tail_window_dispatch_program_count_mismatch")
     return failures
 
 
