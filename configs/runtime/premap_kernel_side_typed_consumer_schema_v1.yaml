@@ -126,6 +126,17 @@ native_consumer_abi:
   future_kernel_native_consumer_arg_slot_abi_payload_bytes_required: 0
   future_kernel_native_consumer_arg_slot_abi_passed_to_kernel_required: false
   future_kernel_native_consumer_arg_slot_abi_current_wna16_arg_compatible: false
+  future_kernel_native_consumer_view_abi_name: premap_future_kernel_native_consumer_view_abi_v1
+  future_kernel_native_consumer_view_abi_struct: PremapFutureKernelNativeConsumerViewV1
+  future_kernel_native_consumer_view_abi_result_struct: PremapFutureKernelNativeConsumerViewResultV1
+  future_kernel_native_consumer_view_abi_mode: readonly_future_kernel_native_consumer_view_abi
+  future_kernel_native_consumer_view_abi_source: premap_future_kernel_native_consumer_arg_slot_abi_v1
+  future_kernel_native_consumer_view_abi_default_enabled: false
+  future_kernel_native_consumer_view_abi_payload_bytes_required: 0
+  future_kernel_native_consumer_view_abi_passed_to_kernel_required: false
+  future_kernel_native_consumer_view_abi_current_wna16_arg_compatible: false
+  future_kernel_native_consumer_view_abi_requires_wna16_arg_reinterpretation: false
+  future_kernel_native_consumer_view_abi_source_packet_chain_depth_required: 3
   future_kernel_native_consumer_abi_layout_reported: true
   future_kernel_native_consumer_abi_layout_fields:
     - future_kernel_native_consumer_params_struct_size
@@ -263,6 +274,37 @@ native_consumer_abi:
     future_kernel_native_arg_slot_consumer_offset_result_struct_size: 16
     future_kernel_native_arg_slot_consumer_offset_payload_bytes: 20
     future_kernel_native_arg_slot_consumer_offset_flags: 24
+  future_kernel_native_consumer_view_abi_layout_reported: true
+  future_kernel_native_consumer_view_abi_layout_fields:
+    - future_kernel_native_consumer_view_struct_size
+    - future_kernel_native_consumer_view_struct_align
+    - future_kernel_native_consumer_view_params_struct_size
+    - future_kernel_native_consumer_view_params_struct_align
+    - future_kernel_native_consumer_view_result_struct_size
+    - future_kernel_native_consumer_view_result_struct_align
+    - future_kernel_native_consumer_view_offset_params
+    - future_kernel_native_consumer_view_offset_abi_version
+    - future_kernel_native_consumer_view_offset_source_packet_chain_depth
+    - future_kernel_native_consumer_view_offset_row_offset
+    - future_kernel_native_consumer_view_offset_row_limit
+    - future_kernel_native_consumer_view_offset_rows_per_program
+    - future_kernel_native_consumer_view_offset_payload_bytes
+    - future_kernel_native_consumer_view_offset_flags
+  future_kernel_native_consumer_view_abi_layout_expected:
+    future_kernel_native_consumer_view_struct_size: 208
+    future_kernel_native_consumer_view_struct_align: 8
+    future_kernel_native_consumer_view_params_struct_size: 112
+    future_kernel_native_consumer_view_params_struct_align: 8
+    future_kernel_native_consumer_view_result_struct_size: 80
+    future_kernel_native_consumer_view_result_struct_align: 8
+    future_kernel_native_consumer_view_offset_params: 0
+    future_kernel_native_consumer_view_offset_abi_version: 112
+    future_kernel_native_consumer_view_offset_source_packet_chain_depth: 116
+    future_kernel_native_consumer_view_offset_row_offset: 120
+    future_kernel_native_consumer_view_offset_row_limit: 124
+    future_kernel_native_consumer_view_offset_rows_per_program: 128
+    future_kernel_native_consumer_view_offset_payload_bytes: 132
+    future_kernel_native_consumer_view_offset_flags: 136
   layout: struct_of_arrays
   row_order: vllm_prelaunch_sorted_token_ids_order
   row_count_source: consumer_row_count
@@ -436,6 +478,10 @@ debug_macro_ladder:
       default: disabled
       individually_enableable: true
       phase: future_kernel_native_consumer_arg_slot_abi_stub
+    - name: MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_VIEW_ABI
+      default: disabled
+      individually_enableable: true
+      phase: future_kernel_native_consumer_view_abi_stub
     - name: MTP_PREMAP_TYPED_CONSUMER_ENABLE_PAYLOAD_DEREF
       default: disabled
       individually_enableable: false

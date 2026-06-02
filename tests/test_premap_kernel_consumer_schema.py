@@ -15,6 +15,8 @@ from scripts.check_premap_kernel_consumer_schema import (
     FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_PTR_ABI_LAYOUT_FIELDS,
     FUTURE_KERNEL_NATIVE_CONSUMER_ARG_SLOT_ABI_LAYOUT_EXPECTED,
     FUTURE_KERNEL_NATIVE_CONSUMER_ARG_SLOT_ABI_LAYOUT_FIELDS,
+    FUTURE_KERNEL_NATIVE_CONSUMER_VIEW_ABI_LAYOUT_EXPECTED,
+    FUTURE_KERNEL_NATIVE_CONSUMER_VIEW_ABI_LAYOUT_FIELDS,
     FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ABI_LAYOUT_EXPECTED,
     FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ABI_LAYOUT_FIELDS,
     check_kernel_consumer_schema_artifact,
@@ -131,6 +133,37 @@ def test_kernel_consumer_schema_accepts_valid_artifact(tmp_path: Path) -> None:
     assert (
         result["future_kernel_native_consumer_arg_slot_abi_layout_expected"]
         == FUTURE_KERNEL_NATIVE_CONSUMER_ARG_SLOT_ABI_LAYOUT_EXPECTED
+    )
+    assert (
+        result["future_kernel_native_consumer_view_abi_name"]
+        == "premap_future_kernel_native_consumer_view_abi_v1"
+    )
+    assert (
+        result["future_kernel_native_consumer_view_abi_mode"]
+        == "readonly_future_kernel_native_consumer_view_abi"
+    )
+    assert (
+        result["future_kernel_native_consumer_view_abi_source"]
+        == "premap_future_kernel_native_consumer_arg_slot_abi_v1"
+    )
+    assert (
+        result["future_kernel_native_consumer_view_abi_current_wna16_arg_compatible"]
+        is False
+    )
+    assert (
+        result["future_kernel_native_consumer_view_abi_requires_wna16_arg_reinterpretation"]
+        is False
+    )
+    assert result[
+        "future_kernel_native_consumer_view_abi_source_packet_chain_depth_required"
+    ] == 3
+    assert (
+        result["future_kernel_native_consumer_view_abi_layout_fields"]
+        == FUTURE_KERNEL_NATIVE_CONSUMER_VIEW_ABI_LAYOUT_FIELDS
+    )
+    assert (
+        result["future_kernel_native_consumer_view_abi_layout_expected"]
+        == FUTURE_KERNEL_NATIVE_CONSUMER_VIEW_ABI_LAYOUT_EXPECTED
     )
 
 
@@ -366,6 +399,28 @@ def test_kernel_consumer_schema_rejects_arg_slot_layout_value_drift(
         failure.startswith(
             "native_consumer_abi."
             "future_kernel_native_consumer_arg_slot_abi_layout_expected_mismatch"
+        )
+        for failure in result["failures"]
+    )
+
+
+def test_kernel_consumer_schema_rejects_consumer_view_layout_value_drift(
+    tmp_path: Path,
+) -> None:
+    payload = _valid_schema_payload()
+    payload["native_consumer_abi"][
+        "future_kernel_native_consumer_view_abi_layout_expected"
+    ]["future_kernel_native_consumer_view_offset_source_packet_chain_depth"] = 120
+    schema_path = tmp_path / "schema.yaml"
+    _write_schema(schema_path, payload)
+
+    result = check_kernel_consumer_schema_artifact(schema_path)
+
+    assert result["passed"] is False
+    assert any(
+        failure.startswith(
+            "native_consumer_abi."
+            "future_kernel_native_consumer_view_abi_layout_expected_mismatch"
         )
         for failure in result["failures"]
     )

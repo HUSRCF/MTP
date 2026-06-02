@@ -70,6 +70,7 @@ PremapFutureKernelNativeConsumerLaunchV1
 PremapFutureKernelNativeConsumerDispatchV1
 PremapFutureKernelNativeConsumerDispatchPtrV1
 PremapFutureKernelNativeConsumerArgSlotV1
+PremapFutureKernelNativeConsumerViewV1
 ```
 
 The dispatch envelope is still a future-consumer ABI, not a current WNA16
@@ -96,6 +97,14 @@ packet and carries its own ABI version, packet-size, result-size,
 zero-payload, and readonly/no-kernel-pass flags.  This models the compact slot
 a future kernel launch could receive while preserving the same lab boundary:
 the current WNA16 kernel arguments are still untouched.
+
+The consumer-view envelope decodes that future arg slot into the row window a
+future kernel-side consumer would iterate:
+`PremapFutureKernelNativeConsumerViewV1` carries native params plus
+`source_packet_chain_depth`, `row_offset`, `row_limit`, and `rows_per_program`.
+The native stub must read all four handle fields from this view.  This still
+does not pass the object to the current WNA16 kernel and still forbids payload
+dereference.
 
 The machine-readable schema records the ABI binding explicitly:
 
@@ -135,11 +144,22 @@ native_consumer_abi:
   future_kernel_native_consumer_arg_slot_abi_default_enabled: false
   future_kernel_native_consumer_arg_slot_abi_payload_bytes_required: 0
   future_kernel_native_consumer_arg_slot_abi_passed_to_kernel_required: false
+  future_kernel_native_consumer_view_abi_name: premap_future_kernel_native_consumer_view_abi_v1
+  future_kernel_native_consumer_view_abi_struct: PremapFutureKernelNativeConsumerViewV1
+  future_kernel_native_consumer_view_abi_mode: readonly_future_kernel_native_consumer_view_abi
+  future_kernel_native_consumer_view_abi_source: premap_future_kernel_native_consumer_arg_slot_abi_v1
+  future_kernel_native_consumer_view_abi_default_enabled: false
+  future_kernel_native_consumer_view_abi_payload_bytes_required: 0
+  future_kernel_native_consumer_view_abi_passed_to_kernel_required: false
+  future_kernel_native_consumer_view_abi_current_wna16_arg_compatible: false
+  future_kernel_native_consumer_view_abi_requires_wna16_arg_reinterpretation: false
+  future_kernel_native_consumer_view_abi_source_packet_chain_depth_required: 3
   future_kernel_native_consumer_abi_layout_reported: true
   future_kernel_native_consumer_launch_abi_layout_reported: true
   future_kernel_native_consumer_dispatch_abi_layout_reported: true
   future_kernel_native_consumer_dispatch_ptr_abi_layout_reported: true
   future_kernel_native_consumer_arg_slot_abi_layout_reported: true
+  future_kernel_native_consumer_view_abi_layout_reported: true
 ```
 
 This ABI is intentionally separate from the WNA16 launch argument schema.  A
@@ -193,6 +213,29 @@ PremapFutureKernelNativeConsumerArgSlotV1
   offset(flags) = 24
 ```
 
+The future native consumer-view packet is pinned as the decoded row-window view
+that a future kernel-side consumer would read after resolving the arg slot:
+
+```text
+PremapFutureKernelNativeConsumerViewV1
+  size = 208
+  align = 8
+  params_size = 112
+  result_size = 80
+  offset(params) = 0
+  offset(abi_version) = 112
+  offset(source_packet_chain_depth) = 116
+  offset(row_offset) = 120
+  offset(row_limit) = 124
+  offset(rows_per_program) = 128
+  offset(payload_bytes) = 132
+  offset(flags) = 136
+```
+
+The lab gate requires `source_packet_chain_depth = 3`, all four typed handle
+fields readable through the view, `payload_bytes = 0`, `passed_to_kernel =
+false`, and `current_wna16_arg_compatible = false`.
+
 ## Artifact Checker Path Contract
 
 The online native-stub canary runner writes the exact strict preflight artifacts
@@ -230,6 +273,7 @@ Native debug support must be injected one flag at a time:
 10. `MTP_PREMAP_TYPED_CONSUMER_CHECK_LIFETIME`
 11. `MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR`
 12. `MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ARG_SLOT_ABI`
+13. `MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_VIEW_ABI`
 
 `CHECK_POINTER_VISIBILITY` is the coarse legacy visibility check for required
 handle columns. The per-field macros are the preferred ladder for future

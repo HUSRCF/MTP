@@ -26608,3 +26608,74 @@ python -m pytest tests -q
 
 917 passed, 2 warnings
 ```
+
+## Consumer-view ABI added to the machine-readable kernel consumer schema
+
+The future native consumer-view ABI is now part of the formal premap
+kernel-side typed consumer schema, not only a runtime stub artifact.
+
+Updated artifacts:
+
+```text
+docs/premap_kernel_consumer_schema.md
+configs/runtime/premap_kernel_side_typed_consumer_schema_v1.yaml
+scripts/check_premap_kernel_consumer_schema.py
+```
+
+The schema now pins:
+
+```text
+future_kernel_native_consumer_view_abi_name =
+  premap_future_kernel_native_consumer_view_abi_v1
+future_kernel_native_consumer_view_abi_struct =
+  PremapFutureKernelNativeConsumerViewV1
+future_kernel_native_consumer_view_abi_source =
+  premap_future_kernel_native_consumer_arg_slot_abi_v1
+future_kernel_native_consumer_view_abi_source_packet_chain_depth_required = 3
+future_kernel_native_consumer_view_abi_payload_bytes_required = 0
+future_kernel_native_consumer_view_abi_passed_to_kernel_required = false
+future_kernel_native_consumer_view_abi_current_wna16_arg_compatible = false
+future_kernel_native_consumer_view_abi_requires_wna16_arg_reinterpretation = false
+```
+
+It also pins the C++ layout:
+
+```text
+PremapFutureKernelNativeConsumerViewV1
+  size = 208
+  align = 8
+  params_size = 112
+  result_size = 80
+  offset(params) = 0
+  offset(abi_version) = 112
+  offset(source_packet_chain_depth) = 116
+  offset(row_offset) = 120
+  offset(row_limit) = 124
+  offset(rows_per_program) = 128
+  offset(payload_bytes) = 132
+  offset(flags) = 136
+```
+
+The macro ladder now includes:
+
+```text
+MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_VIEW_ABI
+```
+
+Verification:
+
+```text
+env PYTHONPATH=src python scripts/check_premap_kernel_consumer_schema.py \
+  configs/runtime/premap_kernel_side_typed_consumer_schema_v1.yaml \
+  --output-json outputs/reports/premap_kernel_consumer_schema_check.json
+
+python -m pytest tests/test_premap_kernel_consumer_schema.py \
+  tests/test_run_premap_lab_preflight.py \
+  tests/test_check_premap_lab_preflight_summary.py -q
+
+115 passed
+
+python -m pytest tests -q
+
+918 passed, 2 warnings
+```
