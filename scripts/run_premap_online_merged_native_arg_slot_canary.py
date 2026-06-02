@@ -66,6 +66,7 @@ DEFAULT_REPORT_JSON = (
     / "premap_kernel_consumer"
     / "online_merged_future_native_arg_slot_canary_runner.json"
 )
+LAB_DEFAULT_GPU_DEVICE = 1
 
 ARG_SLOT_BASE_MACROS = [
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCHEMA",
@@ -514,7 +515,7 @@ def build_parser() -> argparse.ArgumentParser:
         default="scale_metadata_handle",
         help="single typed handle field mirrored by the future arg-slot canary",
     )
-    parser.add_argument("--device", type=int, default=0)
+    parser.add_argument("--device", type=int, default=LAB_DEFAULT_GPU_DEVICE)
     parser.add_argument("--hip-visible-devices")
     parser.add_argument("--offload-arch", default="gfx1100")
     parser.add_argument("--force-build", action="store_true")

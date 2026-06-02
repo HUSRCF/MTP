@@ -22714,6 +22714,32 @@ pytest tests -q:
   867 passed, 2 warnings
 ```
 
+## 2026-06-02 - Merged arg-slot runner lab GPU default
+
+The online-merged future native arg-slot runner now defaults to the same device
+as the lab preflight requirement:
+
+```text
+LAB_DEFAULT_GPU_DEVICE = 1
+--device default = 1
+```
+
+The preflight had already rejected merged multiprogram arg-slot evidence whose
+runner artifact did not target GPU1.  This patch removes the mismatch where
+the runner could generate a default GPU0 artifact that was immediately invalid
+for the lab gate unless the caller remembered to pass `--device 1`.
+
+The option remains configurable for manual diagnostics, but the default runner
+artifact is now aligned with the strict lab precondition.
+
+Validation:
+
+```text
+pytest tests/test_run_premap_online_merged_native_arg_slot_canary.py \
+       tests/test_run_premap_lab_preflight.py -q:
+  97 passed
+```
+
 ## 2026-06-02 - Post-schema-refresh lab preflight
 
 After refreshing the kernel consumer schema documentation, the default lab

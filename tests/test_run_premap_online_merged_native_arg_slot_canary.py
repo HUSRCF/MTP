@@ -103,6 +103,7 @@ def test_online_merged_arg_slot_canary_dry_run_writes_artifacts(tmp_path: Path):
     assert result["merged_expected_program_count"] == 2
     assert result["dispatch_active_rows"] == 7
     assert result["dispatch_expected_program_count"] == 2
+    assert result["device"] == module.LAB_DEFAULT_GPU_DEVICE == 1
     assert result["not_a_single_vllm_launch_table"] is True
     assert result["handle_projection_field_names"] == [
         "descriptor_ptr",
