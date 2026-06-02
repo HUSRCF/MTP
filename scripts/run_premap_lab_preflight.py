@@ -4743,6 +4743,11 @@ def run_premap_lab_preflight(
     schema_row_field_names = schema_summary.get("row_field_names")
     if not isinstance(schema_row_field_names, list):
         schema_row_field_names = []
+    future_kernel_args_layout_expected = schema_summary.get(
+        "future_kernel_consumer_args_layout_expected",
+    )
+    if not isinstance(future_kernel_args_layout_expected, dict):
+        future_kernel_args_layout_expected = {}
     arg_slot_projection_field_names = list(ARG_SLOT_MIRROR_FIELDS)
     arg_slot_projection_all_handle_fields_schema_covered = set(
         arg_slot_projection_field_names
@@ -4784,6 +4789,22 @@ def run_premap_lab_preflight(
         ),
         "default_kernel_consumer_schema_row_metadata_names": (
             schema_summary.get("row_metadata_names") or []
+        ),
+        "default_kernel_consumer_future_kernel_args_layout_reported": (
+            schema_summary.get("future_kernel_consumer_args_layout_reported")
+        ),
+        "default_kernel_consumer_future_kernel_args_layout_expected": (
+            future_kernel_args_layout_expected
+        ),
+        "default_kernel_consumer_future_kernel_args_struct_size": (
+            future_kernel_args_layout_expected.get(
+                "future_kernel_consumer_args_struct_size"
+            )
+        ),
+        "default_kernel_consumer_future_kernel_args_offset_field_mask": (
+            future_kernel_args_layout_expected.get(
+                "future_kernel_consumer_args_offset_field_mask"
+            )
         ),
         "default_kernel_consumer_dispatch_abi_name": (
             schema_summary.get("future_kernel_native_consumer_dispatch_abi_name")

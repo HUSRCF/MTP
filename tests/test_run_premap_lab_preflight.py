@@ -2389,6 +2389,26 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
         "aux_metadata_handle",
     ]
     assert (
+        summary["default_kernel_consumer_future_kernel_args_layout_reported"]
+        is True
+    )
+    assert (
+        summary["default_kernel_consumer_future_kernel_args_layout_expected"]
+        == FUTURE_KERNEL_CONSUMER_ARGS_LAYOUT_EXPECTED
+    )
+    assert (
+        summary["default_kernel_consumer_future_kernel_args_struct_size"]
+        == FUTURE_KERNEL_CONSUMER_ARGS_LAYOUT_EXPECTED[
+            "future_kernel_consumer_args_struct_size"
+        ]
+    )
+    assert (
+        summary["default_kernel_consumer_future_kernel_args_offset_field_mask"]
+        == FUTURE_KERNEL_CONSUMER_ARGS_LAYOUT_EXPECTED[
+            "future_kernel_consumer_args_offset_field_mask"
+        ]
+    )
+    assert (
         summary["default_kernel_consumer_dispatch_abi_name"]
         == "premap_future_kernel_native_consumer_dispatch_abi_v1"
     )
