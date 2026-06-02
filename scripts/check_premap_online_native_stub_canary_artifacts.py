@@ -1191,6 +1191,12 @@ def _check_future_kernel_native_dispatch_consumer_summary(
         "future_kernel_native_dispatch_ptr_consumer",
         "future_kernel_native_arg_slot_consumer",
     )
+    projection_chain_prefixes = chain_prefixes
+    if "future_kernel_native_consumer_view_handle_projection_hash_accumulator" in stub:
+        projection_chain_prefixes = (
+            *projection_chain_prefixes,
+            "future_kernel_native_consumer_view",
+        )
     _check_hex_accumulators_present(
         stub,
         prefix=prefix,
@@ -1201,7 +1207,7 @@ def _check_future_kernel_native_dispatch_consumer_summary(
     _check_equal_hex_accumulators(
         stub,
         prefix=prefix,
-        field_prefixes=chain_prefixes,
+        field_prefixes=projection_chain_prefixes,
         suffix="handle_projection_hash_accumulator",
         failures=failures,
     )

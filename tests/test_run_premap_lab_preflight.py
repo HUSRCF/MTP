@@ -1557,6 +1557,35 @@ def _standalone_arg_slot_multiprogram_canary_payload(
             "future_kernel_native_arg_slot_consumer_aux_metadata_handle_read_hash_accumulator": (
                 "d35c4"
             ),
+            "future_kernel_native_consumer_view_row_count": row_count,
+            "future_kernel_native_consumer_view_row_ok_count": row_count,
+            "future_kernel_native_consumer_view_handle_projection_hash_accumulator": (
+                "12201358096b98ac"
+            ),
+            "future_kernel_native_consumer_view_descriptor_ptr_read_row_count": (
+                row_count
+            ),
+            "future_kernel_native_consumer_view_descriptor_ptr_read_row_ok_count": (
+                row_count
+            ),
+            "future_kernel_native_consumer_view_packed_weight_descriptor_read_row_count": (
+                row_count
+            ),
+            "future_kernel_native_consumer_view_packed_weight_descriptor_read_row_ok_count": (
+                row_count
+            ),
+            "future_kernel_native_consumer_view_scale_metadata_handle_read_row_count": (
+                row_count
+            ),
+            "future_kernel_native_consumer_view_scale_metadata_handle_read_row_ok_count": (
+                row_count
+            ),
+            "future_kernel_native_consumer_view_aux_metadata_handle_read_row_count": (
+                row_count
+            ),
+            "future_kernel_native_consumer_view_aux_metadata_handle_read_row_ok_count": (
+                row_count
+            ),
         }
     )
     return payload
@@ -2779,6 +2808,12 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     )
     assert (
         summary[
+            "default_kernel_consumer_dispatch_runner_consumer_view_handle_projection_hash_accumulator"
+        ]
+        == "481d"
+    )
+    assert (
+        summary[
             "default_kernel_consumer_dispatch_runner_handle_projection_field_names"
         ]
         == [
@@ -3064,7 +3099,7 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
         ]
     )
     assert (
-        summary["default_kernel_consumer_consumer_view_field_read_row_count"] == 2
+        summary["default_kernel_consumer_consumer_view_field_read_row_count"] == 520
     )
     assert (
         summary["default_kernel_consumer_consumer_view_all_handle_fields_read"]
@@ -3073,10 +3108,10 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert summary[
         "default_kernel_consumer_consumer_view_field_read_row_ok_counts"
     ] == {
-        "descriptor_ptr": 2,
-        "packed_weight_descriptor": 2,
-        "scale_metadata_handle": 2,
-        "aux_metadata_handle": 2,
+        "descriptor_ptr": 520,
+        "packed_weight_descriptor": 520,
+        "scale_metadata_handle": 520,
+        "aux_metadata_handle": 520,
     }
     assert summary[
         "default_kernel_consumer_consumer_view_field_read_error_counts"
@@ -3515,6 +3550,44 @@ def test_premap_lab_preflight_summary_marks_projection_hash_mismatch(
             "default_kernel_consumer_dispatch_runner_handle_projection_hashchain_equal"
         ]
         is False
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_dispatch_runner_handle_projection_all_handle_fields_checked"
+        ]
+        is False
+    )
+
+
+def test_premap_lab_preflight_summary_marks_consumer_view_projection_hash_mismatch(
+    tmp_path: Path,
+):
+    def _mutate(runner: dict[str, object]) -> None:
+        dispatch = runner["future_kernel_native_consumer_dispatch_stub_summary"]
+        assert isinstance(dispatch, dict)
+        dispatch[
+            "future_kernel_native_consumer_view_handle_projection_hash_accumulator"
+        ] = "4820"
+
+    result = _run_preflight_with_modified_default_runner(tmp_path, _mutate)
+    summary = result["lab_gate_status_summary"]
+
+    assert result["passed"] is False
+    assert (
+        summary["default_kernel_consumer_dispatch_runner_row_hashchain_all_valid"]
+        is True
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_dispatch_runner_handle_projection_hashchain_equal"
+        ]
+        is False
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_dispatch_runner_consumer_view_handle_projection_hash_accumulator"
+        ]
+        == "4820"
     )
     assert (
         summary[

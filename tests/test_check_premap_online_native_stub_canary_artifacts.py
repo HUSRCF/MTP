@@ -2547,6 +2547,33 @@ def test_check_online_native_stub_canary_artifacts_rejects_handle_projection_has
     )
 
 
+def test_check_online_native_stub_canary_artifacts_rejects_consumer_view_handle_projection_hash_mismatch(
+    tmp_path: Path,
+):
+    runner_path, preflight_path, status_path = _payloads(tmp_path)
+    runner = json.loads(runner_path.read_text(encoding="utf-8"))
+    dispatch = runner["future_kernel_native_consumer_dispatch_stub_summary"]
+    dispatch[
+        "future_kernel_native_consumer_view_handle_projection_hash_accumulator"
+    ] = "4820"
+    _write_json(runner_path, runner)
+
+    result = check_online_native_stub_canary_artifacts(
+        root=tmp_path,
+        runner_json=runner_path,
+        preflight_json=preflight_path,
+        status_json=status_path,
+    )
+
+    assert result["passed"] is False
+    assert (
+        "runner_future_kernel_native_consumer_dispatch_stub_"
+        "future_kernel_native_consumer_view_"
+        "handle_projection_hash_accumulator_mismatch"
+        in result["failures"]
+    )
+
+
 def test_check_online_native_stub_canary_artifacts_rejects_handle_projection_hash_invalid(
     tmp_path: Path,
 ):

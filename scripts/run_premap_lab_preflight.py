@@ -3195,6 +3195,12 @@ def _validate_future_native_arg_slot_multiprogram_evidence(
             "future_kernel_native_arg_slot_consumer_handle_projection_hash_accumulator",
         ),
     ]
+    consumer_view_projection_hash = _hex64_metric(
+        evidence,
+        "future_kernel_native_consumer_view_handle_projection_hash_accumulator",
+    )
+    if consumer_view_projection_hash is not None:
+        projection_hashes.append(consumer_view_projection_hash)
     if any(value is None for value in projection_hashes):
         failures.append(f"{failure_prefix}_handle_projection_hash_missing")
     elif len(set(projection_hashes)) != 1:
@@ -4897,6 +4903,10 @@ def run_premap_lab_preflight(
         dispatch_runner_summary,
         "future_kernel_native_arg_slot_consumer_handle_projection_hash_accumulator",
     )
+    consumer_view_projection_hash = _hex_metric_text(
+        dispatch_runner_summary,
+        "future_kernel_native_consumer_view_handle_projection_hash_accumulator",
+    )
     projection_hash_values = (
         _hex64_metric(
             dispatch_runner_summary,
@@ -4911,6 +4921,15 @@ def run_premap_lab_preflight(
             "future_kernel_native_arg_slot_consumer_handle_projection_hash_accumulator",
         ),
     )
+    consumer_view_projection_value = _hex64_metric(
+        dispatch_runner_summary,
+        "future_kernel_native_consumer_view_handle_projection_hash_accumulator",
+    )
+    if consumer_view_projection_value is not None:
+        projection_hash_values = (
+            *projection_hash_values,
+            consumer_view_projection_value,
+        )
     row_hashchain_all_valid = all(
         value is not None
         for value in (dispatch_row_hash, dispatch_ptr_row_hash, arg_slot_row_hash)
@@ -5249,6 +5268,9 @@ def run_premap_lab_preflight(
         ),
         "default_kernel_consumer_dispatch_runner_arg_slot_handle_projection_hash_accumulator": (
             arg_slot_projection_hash
+        ),
+        "default_kernel_consumer_dispatch_runner_consumer_view_handle_projection_hash_accumulator": (
+            consumer_view_projection_hash
         ),
         "default_kernel_consumer_dispatch_runner_handle_projection_field_names": (
             arg_slot_projection_field_names

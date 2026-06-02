@@ -2,7 +2,7 @@
 
 ## Progress Version
 
-- Version: `v0.46-runner-level-consumer-view-projection-gate`
+- Version: `v0.47-preflight-consumer-view-projection-gate`
 - Updated: 2026-06-03
 - Current phase: premap descriptor/address prep now has a typed
   kernel-side consumer object, a launch-shaped future native ABI, and a
@@ -51,9 +51,12 @@
   row-window projection chain as dispatch, dispatch-pointer, and arg-slot.
   Review follow-up now enforces that same four-way projection hashchain at the
   native and online-merged runner level as well, with hex64 parsing and direct
-  consumer-view mismatch regression coverage.
+  consumer-view mismatch regression coverage.  The preflight summary and
+  native artifact checker also now include consumer-view projection in their
+  hashchain when that field is present, so newer four-way evidence cannot be
+  silently accepted by older three-way validation paths.
 
-## Latest Update: Runner-Level Consumer-View Projection Gate
+## Latest Update: Runner/Preflight Consumer-View Projection Gate
 
 The consumer-view handle projection requirement is now enforced before the
 window-sweep/lab-gate checker layer.  The native online canary and the
@@ -71,6 +74,13 @@ review gap where the downstream checker required consumer-view projection
 parity, but the executable runner summaries could still report
 `handle_projection_hashchain_equal=true` using only the first three paths.
 
+The same rule is now reflected in the lab preflight summary and native
+artifact checker.  These layers keep legacy compatibility by treating
+consumer-view projection as optional when the field is absent, but if a
+`future_kernel_native_consumer_view_handle_projection_hash_accumulator` is
+present it must parse as hex64 and match the dispatch, dispatch-pointer, and
+arg-slot projection hashchain.
+
 Validation:
 
 ```text
@@ -80,12 +90,18 @@ python -m pytest \
   24 passed
 
 python -m pytest \
+  tests/test_run_premap_lab_preflight.py \
+  tests/test_check_premap_online_native_stub_canary_artifacts.py \
+  tests/test_check_premap_lab_preflight_summary.py -q
+  160 passed
+
+python -m pytest \
   tests/test_check_premap_online_merged_native_arg_slot_window_sweep.py \
   tests/test_check_premap_online_merged_native_arg_slot_all_field_window_sweep.py \
   tests/test_check_premap_lab_gate_verify.py \
   tests/test_run_premap_lab_gate_verify.py \
   tests/test_premap_typed_consumer_stub.py -q
-  69 passed
+  93 passed
 
 python scripts/run_premap_lab_gate_verify.py \
   --output-json outputs/reports/premap_lab_gate_verify.json
@@ -97,7 +113,7 @@ python scripts/check_premap_lab_gate_verify.py \
   passed
 
 python -m pytest tests -q
-  940 passed, 2 warnings
+  942 passed, 2 warnings
 ```
 
 ## Latest Update: Consumer-View Handle Projection Gate
