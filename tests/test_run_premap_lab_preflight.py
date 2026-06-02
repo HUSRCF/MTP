@@ -2500,6 +2500,61 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
         == 0
     )
     assert (
+        summary["default_kernel_consumer_online_merged_multiprogram_evidence_label"]
+        == "future_kernel_native_arg_slot_online_merged_multiprogram_runner_json"
+    )
+    assert (
+        summary["default_kernel_consumer_online_merged_multiprogram_evidence_passed"]
+        is True
+    )
+    assert (
+        summary["default_kernel_consumer_online_merged_multiprogram_source_count"]
+        == 32
+    )
+    assert summary["default_kernel_consumer_online_merged_multiprogram_row_count"] == 520
+    assert (
+        summary[
+            "default_kernel_consumer_online_merged_multiprogram_dispatch_row_offset"
+        ]
+        == 0
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_online_merged_multiprogram_dispatch_row_limit"
+        ]
+        == 520
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_online_merged_multiprogram_dispatch_active_rows"
+        ]
+        == 520
+    )
+    assert (
+        summary["default_kernel_consumer_online_merged_multiprogram_hashchain_equal"]
+        is True
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_online_merged_multiprogram_all_handle_fields_checked"
+        ]
+        is True
+    )
+    assert (
+        summary["default_kernel_consumer_online_merged_multiprogram_no_payload"]
+        is True
+    )
+    assert (
+        summary["default_kernel_consumer_online_merged_multiprogram_passed_to_kernel"]
+        is False
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_online_merged_multiprogram_changes_kernel_launch_args"
+        ]
+        is False
+    )
+    assert (
         summary["default_kernel_consumer_dispatch_runner_row_hashchain_all_valid"]
         is True
     )

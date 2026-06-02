@@ -25571,3 +25571,27 @@ This remains diagnostic evidence rather than a real vLLM launch table.  It
 shows that the future typed ABI can iterate a real online-derived row stream
 across multiple native programs, including a bounded tail window, without
 touching WNA16 kernel arguments or dereferencing payload.
+
+The compact lab preflight status now also exposes the required online-merged
+multiprogram runner fields directly:
+
+```text
+artifact:
+  outputs/reports/
+    premap_lab_preflight_default_with_online_merged_summary_fields.json
+
+passed = true
+online_merged evidence passed = true
+source_count = 32
+merged_row_count = 1841
+dispatch_row_offset = 0
+dispatch_row_limit = 1841
+dispatch_active_rows = 1841
+handle_projection_hashchain_equal = true
+all_handle_fields_checked = true
+no_payload = true
+passed_to_kernel = false
+changes_kernel_launch_args = false
+runtime_gate_evidence_deferred_count = 0
+strict_default_gate_evidence_deferred_count = 0
+```

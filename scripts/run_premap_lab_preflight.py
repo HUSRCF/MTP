@@ -4471,6 +4471,18 @@ def run_premap_lab_preflight(
         if _arg_slot_mirror_field_coverage(summary) == [field]:
             arg_slot_online_merged_optional_mirror_field_coverage.append(field)
             arg_slot_online_merged_optional_mirror_evidence_labels.append(label)
+    online_merged_multiprogram_runner_evidence_label = (
+        "future_kernel_native_arg_slot_online_merged_multiprogram_runner_json"
+    )
+    online_merged_multiprogram_runner_evidence_row = _find_evidence_row(
+        default_gate_required_evidence_check,
+        online_merged_multiprogram_runner_evidence_label,
+    )
+    online_merged_multiprogram_runner_payload = _load_evidence_payload_from_check(
+        default_gate_required_evidence_check,
+        online_merged_multiprogram_runner_evidence_label,
+        root=root,
+    )
     arg_slot_standalone_mirror_field_coverage = _arg_slot_mirror_field_coverage(
         arg_slot_standalone_payload
     )
@@ -4907,6 +4919,72 @@ def run_premap_lab_preflight(
         ),
         "default_kernel_consumer_dispatch_runner_artifact_check_final_deferred_count": (
             _int_metric(dispatch_runner_artifact_payload, "final_deferred_count")
+        ),
+        "default_kernel_consumer_online_merged_multiprogram_evidence_label": (
+            online_merged_multiprogram_runner_evidence_label
+        ),
+        "default_kernel_consumer_online_merged_multiprogram_evidence_path": (
+            online_merged_multiprogram_runner_evidence_row.get("path")
+        ),
+        "default_kernel_consumer_online_merged_multiprogram_evidence_passed": (
+            _evidence_row_passed(online_merged_multiprogram_runner_evidence_row)
+        ),
+        "default_kernel_consumer_online_merged_multiprogram_source_count": (
+            _int_metric(
+                online_merged_multiprogram_runner_payload,
+                "selected_source_count",
+            )
+        ),
+        "default_kernel_consumer_online_merged_multiprogram_row_count": (
+            _int_metric(
+                online_merged_multiprogram_runner_payload,
+                "merged_row_count",
+            )
+        ),
+        "default_kernel_consumer_online_merged_multiprogram_dispatch_row_offset": (
+            _int_metric(
+                online_merged_multiprogram_runner_payload,
+                "dispatch_row_offset",
+            )
+        ),
+        "default_kernel_consumer_online_merged_multiprogram_dispatch_row_limit": (
+            _int_metric(
+                online_merged_multiprogram_runner_payload,
+                "dispatch_row_limit",
+            )
+        ),
+        "default_kernel_consumer_online_merged_multiprogram_dispatch_active_rows": (
+            _int_metric(
+                online_merged_multiprogram_runner_payload,
+                "dispatch_active_rows",
+            )
+        ),
+        "default_kernel_consumer_online_merged_multiprogram_hashchain_equal": (
+            _bool_metric(
+                online_merged_multiprogram_runner_payload,
+                "handle_projection_hashchain_equal",
+            )
+        ),
+        "default_kernel_consumer_online_merged_multiprogram_all_handle_fields_checked": (
+            _bool_metric(
+                online_merged_multiprogram_runner_payload,
+                "handle_projection_all_handle_fields_checked",
+            )
+        ),
+        "default_kernel_consumer_online_merged_multiprogram_no_payload": (
+            _bool_metric(online_merged_multiprogram_runner_payload, "no_payload")
+        ),
+        "default_kernel_consumer_online_merged_multiprogram_passed_to_kernel": (
+            _bool_metric(
+                online_merged_multiprogram_runner_payload,
+                "passed_to_kernel",
+            )
+        ),
+        "default_kernel_consumer_online_merged_multiprogram_changes_kernel_launch_args": (
+            _bool_metric(
+                online_merged_multiprogram_runner_payload,
+                "changes_kernel_launch_args",
+            )
         ),
         "default_kernel_consumer_dispatch_runner_row_hashchain_all_valid": (
             row_hashchain_all_valid
