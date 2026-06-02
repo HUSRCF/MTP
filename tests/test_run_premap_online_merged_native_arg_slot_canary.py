@@ -120,9 +120,25 @@ def test_online_merged_arg_slot_canary_dry_run_writes_artifacts(tmp_path: Path):
         "aux_metadata_handle",
     ]
     assert result["arg_slot_all_handle_fields_read"] is True
+    assert result["consumer_view_field_read_field_names"] == [
+        "descriptor_ptr",
+        "packed_weight_descriptor",
+        "scale_metadata_handle",
+        "aux_metadata_handle",
+    ]
+    assert result["consumer_view_all_handle_fields_read"] is True
+    assert result["consumer_view_source_packet_chain_depth"] == 3
     assert json.loads(merged.read_text(encoding="utf-8"))["_meta"]["row_count"] == 7
     stub_payload = json.loads(stub.read_text(encoding="utf-8"))
     assert stub_payload["future_kernel_native_arg_slot_consumer_checked"] is True
+    assert stub_payload["future_kernel_native_consumer_view_checked"] is True
+    assert stub_payload["future_kernel_native_consumer_view_row_ok_count"] == 7
+    assert (
+        stub_payload[
+            "future_kernel_native_consumer_view_scale_metadata_handle_read_row_ok_count"
+        ]
+        == 7
+    )
     assert stub_payload["requested_macros"] == module.arg_slot_macros(
         "scale_metadata_handle"
     )

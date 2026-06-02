@@ -62,6 +62,7 @@ def _summary() -> dict[str, object]:
             "scale_metadata_handle",
             "aux_metadata_handle",
         ],
+        "default_kernel_consumer_arg_slot_field_read_row_count": 1841,
         "default_kernel_consumer_arg_slot_field_read_row_ok_counts": {
             "descriptor_ptr": 1841,
             "packed_weight_descriptor": 1841,
@@ -80,6 +81,38 @@ def _summary() -> dict[str, object]:
             "scale_metadata_handle": "d35c3",
             "aux_metadata_handle": "d35c4",
         },
+        "default_kernel_consumer_consumer_view_all_handle_fields_read": True,
+        "default_kernel_consumer_consumer_view_field_read_field_names": [
+            "descriptor_ptr",
+            "packed_weight_descriptor",
+            "scale_metadata_handle",
+            "aux_metadata_handle",
+        ],
+        "default_kernel_consumer_consumer_view_field_read_row_count": 1841,
+        "default_kernel_consumer_consumer_view_field_read_row_ok_counts": {
+            "descriptor_ptr": 1841,
+            "packed_weight_descriptor": 1841,
+            "scale_metadata_handle": 1841,
+            "aux_metadata_handle": 1841,
+        },
+        "default_kernel_consumer_consumer_view_field_read_error_counts": {
+            "descriptor_ptr": 0,
+            "packed_weight_descriptor": 0,
+            "scale_metadata_handle": 0,
+            "aux_metadata_handle": 0,
+        },
+        "default_kernel_consumer_consumer_view_field_read_hashes": {
+            "descriptor_ptr": "c0511",
+            "packed_weight_descriptor": "c0512",
+            "scale_metadata_handle": "c0513",
+            "aux_metadata_handle": "c0514",
+        },
+        "default_kernel_consumer_consumer_view_source_packet_chain_depth": 3,
+        "default_kernel_consumer_consumer_view_payload_bytes": 0,
+        "default_kernel_consumer_consumer_view_passed_to_kernel": False,
+        "default_kernel_consumer_consumer_view_changes_kernel_launch_args": False,
+        "default_kernel_consumer_consumer_view_current_wna16_arg_compatible": False,
+        "default_kernel_consumer_consumer_view_requires_wna16_arg_reinterpretation": False,
         "runtime_gate_evidence_deferred_count": 0,
         "strict_default_gate_evidence_deferred_count": 0,
         "default_kernel_consumer_dispatch_runner_final_runtime_gate_evidence_deferred_count": 0,
@@ -172,6 +205,36 @@ def test_check_premap_lab_preflight_summary_rejects_arg_slot_field_read_gap() ->
         "failures"
     ]
     assert "arg_slot_scale_metadata_handle_read_error_count_mismatch" in result[
+        "failures"
+    ]
+
+
+def test_check_premap_lab_preflight_summary_rejects_consumer_view_field_read_gap() -> None:
+    summary = _summary()
+    summary["default_kernel_consumer_consumer_view_all_handle_fields_read"] = False
+    summary["default_kernel_consumer_consumer_view_field_read_row_ok_counts"] = {
+        "descriptor_ptr": 1841,
+        "packed_weight_descriptor": 1841,
+        "scale_metadata_handle": 1841,
+        "aux_metadata_handle": 1840,
+    }
+    summary["default_kernel_consumer_consumer_view_field_read_error_counts"] = {
+        "descriptor_ptr": 0,
+        "packed_weight_descriptor": 0,
+        "scale_metadata_handle": 0,
+        "aux_metadata_handle": 1,
+    }
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is False
+    assert "default_kernel_consumer_consumer_view_all_handle_fields_read_mismatch" in result[
+        "failures"
+    ]
+    assert "consumer_view_aux_metadata_handle_read_row_ok_count_mismatch" in result[
+        "failures"
+    ]
+    assert "consumer_view_aux_metadata_handle_read_error_count_mismatch" in result[
         "failures"
     ]
 

@@ -135,6 +135,20 @@ constexpr bool
 constexpr bool
     kPremapFutureKernelNativeConsumerArgSlotAbiV1CurrentWna16ArgCompatible =
         false;
+constexpr const char* kPremapFutureKernelNativeConsumerViewAbiV1Name =
+    "premap_future_kernel_native_consumer_view_abi_v1";
+constexpr const char* kPremapFutureKernelNativeConsumerViewAbiV1Mode =
+    "readonly_future_kernel_native_consumer_view_abi";
+constexpr const char* kPremapFutureKernelNativeConsumerViewAbiV1Source =
+    "premap_future_kernel_native_consumer_arg_slot_abi_v1";
+constexpr uint32_t kPremapFutureKernelNativeConsumerViewAbiV1Version = 1;
+constexpr bool
+    kPremapFutureKernelNativeConsumerViewAbiV1PayloadDerefAllowed = false;
+constexpr bool
+    kPremapFutureKernelNativeConsumerViewAbiV1KernelArgPassAllowed = false;
+constexpr bool
+    kPremapFutureKernelNativeConsumerViewAbiV1CurrentWna16ArgCompatible =
+        false;
 
 constexpr uint32_t kPremapFutureKernelSideConsumerArgsV1ReadonlyFlag = 1u << 0;
 constexpr uint32_t
@@ -264,6 +278,21 @@ struct PremapFutureKernelNativeConsumerArgSlotV1 {
   uint32_t flags;
 };
 
+// Device-side row view produced after decoding the future arg slot.  A future
+// kernel would typically unpack a compact launch argument into a view like this
+// before iterating rows.  It remains readonly and is not the current WNA16
+// fused-MoE kernel argument list.
+struct PremapFutureKernelNativeConsumerViewV1 {
+  PremapFutureKernelNativeConsumerParamsV1 params;
+  uint32_t abi_version;
+  uint32_t source_packet_chain_depth;
+  uint32_t row_offset;
+  uint32_t row_limit;
+  uint32_t rows_per_program;
+  uint32_t payload_bytes;
+  uint32_t flags;
+};
+
 constexpr const char* kPremapKernelSideTypedConsumerLaunchEnvelopeV1Name =
     "premap_kernel_side_typed_consumer_launch_envelope_v1";
 constexpr uint32_t kPremapKernelSideTypedConsumerLaunchEnvelopeV1ReadonlyFlag =
@@ -368,6 +397,19 @@ struct PremapFutureKernelNativeConsumerDispatchResultV1 {
 
 using PremapFutureKernelNativeConsumerArgSlotResultV1 =
     PremapFutureKernelNativeConsumerDispatchResultV1;
+
+struct PremapFutureKernelNativeConsumerViewResultV1 {
+  uint32_t ok;
+  uint32_t view_valid;
+  uint32_t launch_geometry_valid;
+  uint32_t row_window_valid;
+  uint32_t row_valid;
+  uint32_t required_handle_visible;
+  uint32_t lifetime_valid;
+  uint32_t all_handle_fields_read;
+  uint32_t field_count;
+  uint64_t row_hash;
+};
 
 __host__ __device__ static inline uint64_t
 premap_typed_consumer_mix64_v1(uint64_t x) {
@@ -571,6 +613,32 @@ premap_typed_consumer_future_native_arg_slot_packet_matches_v1(
          !kPremapFutureKernelNativeConsumerArgSlotAbiV1PayloadDerefAllowed &&
          !kPremapFutureKernelNativeConsumerArgSlotAbiV1KernelArgPassAllowed &&
          !kPremapFutureKernelNativeConsumerArgSlotAbiV1CurrentWna16ArgCompatible;
+}
+
+__host__ __device__ static inline bool
+premap_typed_consumer_future_native_view_matches_v1(
+    const PremapFutureKernelNativeConsumerViewV1& view,
+    uint64_t expected_schema_hash_hi,
+    uint64_t expected_schema_hash_lo) {
+  const bool row_window_valid =
+      view.row_offset <= view.params.row_count &&
+      view.row_limit <= view.params.row_count &&
+      view.row_offset < view.row_limit;
+  return premap_typed_consumer_future_native_params_match_v1(
+             view.params, expected_schema_hash_hi, expected_schema_hash_lo) &&
+         view.abi_version ==
+             kPremapFutureKernelNativeConsumerViewAbiV1Version &&
+         view.source_packet_chain_depth == 3 && row_window_valid &&
+         view.rows_per_program > 0 && view.payload_bytes == 0 &&
+         (view.flags & kPremapFutureKernelSideConsumerArgsV1ReadonlyFlag) != 0 &&
+         (view.flags &
+          kPremapFutureKernelSideConsumerArgsV1KernelArgPassDisabledFlag) != 0 &&
+         (view.flags &
+          kPremapFutureKernelSideConsumerArgsV1PayloadDerefDisabledFlag) != 0 &&
+         view.flags == kPremapFutureKernelSideConsumerArgsV1RequiredFlags &&
+         !kPremapFutureKernelNativeConsumerViewAbiV1PayloadDerefAllowed &&
+         !kPremapFutureKernelNativeConsumerViewAbiV1KernelArgPassAllowed &&
+         !kPremapFutureKernelNativeConsumerViewAbiV1CurrentWna16ArgCompatible;
 }
 
 __device__ static inline bool
@@ -1268,5 +1336,91 @@ premap_typed_consumer_future_native_arg_slot_consume_program_lane_v1(
       premap_typed_consumer_mix64_v1(
           static_cast<uint64_t>(arg_slot.result_struct_size) +
           0xa951000000000003ULL);
+  return result;
+}
+
+__device__ static inline PremapFutureKernelNativeConsumerViewResultV1
+premap_typed_consumer_future_native_view_consume_program_lane_v1(
+    const PremapFutureKernelNativeConsumerViewV1& view,
+    uint32_t program_id,
+    uint32_t lane_id,
+    uint32_t actual_grid_x,
+    uint32_t actual_block_x,
+    uint64_t expected_schema_hash_hi,
+    uint64_t expected_schema_hash_lo) {
+  PremapFutureKernelNativeConsumerViewResultV1 result;
+  result.view_valid = static_cast<uint32_t>(
+      premap_typed_consumer_future_native_view_matches_v1(
+          view, expected_schema_hash_hi, expected_schema_hash_lo));
+  result.launch_geometry_valid = static_cast<uint32_t>(
+      program_id < actual_grid_x && lane_id < actual_block_x &&
+      lane_id < view.rows_per_program);
+  result.row_window_valid = 0;
+  result.row_valid = 0;
+  result.required_handle_visible = 0;
+  result.lifetime_valid = 0;
+  result.all_handle_fields_read = 0;
+  result.field_count = kPremapKernelSideTypedConsumerAbiV1HandleColumnCount;
+  result.row_hash = 0;
+  const uint64_t local_row_index_64 =
+      static_cast<uint64_t>(program_id) *
+          static_cast<uint64_t>(view.rows_per_program) +
+      static_cast<uint64_t>(lane_id);
+  const bool local_row_index_valid = local_row_index_64 <= 0xffffffffULL;
+  const uint32_t local_row_index =
+      local_row_index_valid ? static_cast<uint32_t>(local_row_index_64) : 0;
+  const uint32_t active_rows =
+      view.row_limit >= view.row_offset ? view.row_limit - view.row_offset : 0;
+  const bool row_index_add_valid =
+      local_row_index <= (0xffffffffu - view.row_offset);
+  const uint32_t row_index =
+      row_index_add_valid ? view.row_offset + local_row_index : 0;
+  result.row_window_valid = static_cast<uint32_t>(
+      local_row_index_valid && row_index_add_valid &&
+      local_row_index < active_rows && row_index < view.row_limit &&
+      row_index < view.params.row_count);
+  if (result.view_valid == 0 || result.launch_geometry_valid == 0 ||
+      result.row_window_valid == 0) {
+    result.ok = 0;
+    return result;
+  }
+  const PremapFutureKernelNativeConsumerResultV1 native =
+      premap_typed_consumer_future_native_consume_row_v1(
+          view.params,
+          row_index,
+          expected_schema_hash_hi,
+          expected_schema_hash_lo);
+  const PremapKernelSideTypedConsumerRowV1 row =
+      premap_typed_consumer_load_future_native_row_v1(view.params, row_index);
+  result.row_valid = native.row_valid;
+  result.required_handle_visible = native.required_handle_visible;
+  result.lifetime_valid = native.lifetime_valid;
+  result.all_handle_fields_read = static_cast<uint32_t>(
+      row.descriptor_ptr != 0 && row.packed_weight_descriptor != 0 &&
+      row.scale_metadata_handle != 0 &&
+      ((view.params.field_mask &
+        kPremapFutureKernelSideConsumerFieldMaskAuxMetadataHandle) == 0 ||
+       row.aux_metadata_handle != 0));
+  result.ok = static_cast<uint32_t>(
+      native.ok != 0 && result.all_handle_fields_read != 0 &&
+      !kPremapFutureKernelNativeConsumerViewAbiV1PayloadDerefAllowed &&
+      !kPremapFutureKernelNativeConsumerViewAbiV1KernelArgPassAllowed &&
+      !kPremapFutureKernelNativeConsumerViewAbiV1CurrentWna16ArgCompatible);
+  result.row_hash =
+      premap_typed_consumer_mix64_v1(native.row_hash + 0xc051000000000001ULL) ^
+      premap_typed_consumer_mix64_v1(row.descriptor_ptr + 0xc051000000000002ULL) ^
+      premap_typed_consumer_mix64_v1(
+          row.packed_weight_descriptor + 0xc051000000000003ULL) ^
+      premap_typed_consumer_mix64_v1(
+          row.scale_metadata_handle + 0xc051000000000004ULL) ^
+      premap_typed_consumer_mix64_v1(
+          row.aux_metadata_handle + 0xc051000000000005ULL) ^
+      premap_typed_consumer_mix64_v1(
+          static_cast<uint64_t>(view.source_packet_chain_depth) +
+          0xc051000000000006ULL) ^
+      premap_typed_consumer_mix64_v1(
+          static_cast<uint64_t>(view.row_offset) + 0xc051000000000007ULL) ^
+      premap_typed_consumer_mix64_v1(
+          static_cast<uint64_t>(view.row_limit) + 0xc051000000000008ULL);
   return result;
 }

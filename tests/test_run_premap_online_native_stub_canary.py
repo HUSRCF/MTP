@@ -810,6 +810,67 @@ def test_finalize_report_with_artifact_check_records_failure_without_raising(
     assert result["steps"]["artifact_check_final"]["returncode"] == 1
 
 
+def test_finalize_report_with_artifact_check_mirrors_bootstrap_to_canonical_path(
+    tmp_path: Path,
+    monkeypatch,
+):
+    import scripts.run_premap_online_native_stub_canary as canary
+
+    artifact_output = tmp_path / "artifact_check.json"
+    bootstrap_output = tmp_path / "artifact_check_bootstrap.json"
+
+    def fake_run(cmd, *, env, dry_run, allow_failure=False):
+        assert allow_failure is True
+        assert "--allow-bootstrap-preflight" in cmd
+        output = Path(cmd[cmd.index("--output-json") + 1])
+        assert output == bootstrap_output
+        output.write_text(
+            json.dumps(
+                {
+                    "passed": False,
+                    "failures": ["runner_not_passed"],
+                    "bootstrap_preflight_allowed": True,
+                    "runner_stub_row_count": 4,
+                    "runner_stub_row_ok_count": 4,
+                    "stage1_deferred_count": 0,
+                    "final_deferred_count": 0,
+                    "status_deferred_count": 0,
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        return {"cmd": cmd, "returncode": 1}
+
+    monkeypatch.setattr(canary, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(canary, "_run", fake_run)
+    args = build_parser().parse_args(
+        [
+            "--artifact-check-output-json",
+            str(artifact_output),
+            "--output-json",
+            str(tmp_path / "runner.json"),
+        ]
+    )
+    payload = {"passed": True, "failures": [], "steps": {}}
+
+    result = finalize_report_with_artifact_check(
+        args=args,
+        payload=payload,
+        runner_json=tmp_path / "runner.json",
+        allow_bootstrap_preflight=True,
+    )
+
+    assert result["artifact_check_bootstrap_output_json"] == str(bootstrap_output)
+    assert result["artifact_check_bootstrap_summary"]["bootstrap_preflight_allowed"]
+    assert bootstrap_output.exists()
+    assert artifact_output.exists()
+    assert json.loads(artifact_output.read_text(encoding="utf-8"))[
+        "bootstrap_preflight_allowed"
+    ] is True
+    assert result["steps"]["artifact_check_bootstrap"]["returncode"] == 1
+
+
 def test_finalize_report_with_strict_preflight_runs_status_checker(
     tmp_path: Path,
     monkeypatch,

@@ -4780,6 +4780,56 @@ def run_premap_lab_preflight(
             for field in ARG_SLOT_MIRROR_FIELDS
         )
     )
+    consumer_view_field_read_row_count = _int_metric(
+        (
+            online_merged_arg_slot_summary
+            if online_merged_arg_slot_summary.get(
+                "future_kernel_native_consumer_view_checked"
+            )
+            is True
+            else dispatch_runner_summary
+        ),
+        "future_kernel_native_consumer_view_row_count",
+    )
+    consumer_view_summary = (
+        online_merged_arg_slot_summary
+        if online_merged_arg_slot_summary.get(
+            "future_kernel_native_consumer_view_checked"
+        )
+        is True
+        else dispatch_runner_summary
+    )
+    consumer_view_field_read_row_ok_counts: dict[str, int | None] = {}
+    consumer_view_field_read_error_counts: dict[str, int | None] = {}
+    consumer_view_field_read_hashes: dict[str, str | None] = {}
+    for field in ARG_SLOT_MIRROR_FIELDS:
+        prefix = f"future_kernel_native_consumer_view_{field}_read"
+        consumer_view_field_read_row_ok_counts[field] = _int_metric(
+            consumer_view_summary,
+            f"{prefix}_row_ok_count",
+        )
+        consumer_view_field_read_error_counts[field] = _int_metric(
+            consumer_view_summary,
+            f"{prefix}_error_count",
+        )
+        hash_key = f"{prefix}_hash_accumulator"
+        hash_value = consumer_view_summary.get(hash_key)
+        consumer_view_field_read_hashes[field] = (
+            hash_value
+            if isinstance(hash_value, str)
+            and _hex64_metric(consumer_view_summary, hash_key) is not None
+            else None
+        )
+    consumer_view_all_handle_fields_read = (
+        consumer_view_field_read_row_count is not None
+        and all(
+            consumer_view_field_read_row_ok_counts.get(field)
+            == consumer_view_field_read_row_count
+            and consumer_view_field_read_error_counts.get(field) == 0
+            and consumer_view_field_read_hashes.get(field) is not None
+            for field in ARG_SLOT_MIRROR_FIELDS
+        )
+    )
     future_kernel_args_summary = dispatch_runner_payload.get(
         "future_kernel_args_stub_summary",
     )
@@ -4915,6 +4965,14 @@ def run_premap_lab_preflight(
     ):
         failures.append(
             "default_kernel_consumer_arg_slot_all_handle_fields_read_unchecked"
+        )
+    if (
+        not allow_missing_evidence
+        and not defer_online_prelaunch_runner_evidence
+        and not consumer_view_all_handle_fields_read
+    ):
+        failures.append(
+            "default_kernel_consumer_consumer_view_all_handle_fields_read_unchecked"
         )
     lab_gate_status_summary = {
         "passed": not failures,
@@ -5643,6 +5701,9 @@ def run_premap_lab_preflight(
         "default_kernel_consumer_arg_slot_field_read_field_names": (
             list(ARG_SLOT_MIRROR_FIELDS)
         ),
+        "default_kernel_consumer_arg_slot_field_read_row_count": (
+            arg_slot_field_read_row_count
+        ),
         "default_kernel_consumer_arg_slot_all_handle_fields_read": (
             arg_slot_all_handle_fields_read
         ),
@@ -5654,6 +5715,60 @@ def run_premap_lab_preflight(
         ),
         "default_kernel_consumer_arg_slot_field_read_hashes": (
             arg_slot_field_read_hashes
+        ),
+        "default_kernel_consumer_consumer_view_field_read_field_names": (
+            list(ARG_SLOT_MIRROR_FIELDS)
+        ),
+        "default_kernel_consumer_consumer_view_field_read_row_count": (
+            consumer_view_field_read_row_count
+        ),
+        "default_kernel_consumer_consumer_view_all_handle_fields_read": (
+            consumer_view_all_handle_fields_read
+        ),
+        "default_kernel_consumer_consumer_view_field_read_row_ok_counts": (
+            consumer_view_field_read_row_ok_counts
+        ),
+        "default_kernel_consumer_consumer_view_field_read_error_counts": (
+            consumer_view_field_read_error_counts
+        ),
+        "default_kernel_consumer_consumer_view_field_read_hashes": (
+            consumer_view_field_read_hashes
+        ),
+        "default_kernel_consumer_consumer_view_source_packet_chain_depth": (
+            _int_metric(
+                consumer_view_summary,
+                "future_kernel_native_consumer_view_source_packet_chain_depth",
+            )
+        ),
+        "default_kernel_consumer_consumer_view_payload_bytes": (
+            _int_metric(
+                consumer_view_summary,
+                "future_kernel_native_consumer_view_payload_bytes",
+            )
+        ),
+        "default_kernel_consumer_consumer_view_passed_to_kernel": (
+            _bool_metric(
+                consumer_view_summary,
+                "future_kernel_native_consumer_view_passed_to_kernel",
+            )
+        ),
+        "default_kernel_consumer_consumer_view_changes_kernel_launch_args": (
+            _bool_metric(
+                consumer_view_summary,
+                "future_kernel_native_consumer_view_changes_kernel_launch_args",
+            )
+        ),
+        "default_kernel_consumer_consumer_view_current_wna16_arg_compatible": (
+            _bool_metric(
+                consumer_view_summary,
+                "future_kernel_native_consumer_view_current_wna16_arg_compatible",
+            )
+        ),
+        "default_kernel_consumer_consumer_view_requires_wna16_arg_reinterpretation": (
+            _bool_metric(
+                consumer_view_summary,
+                "future_kernel_native_consumer_view_requires_wna16_arg_reinterpretation",
+            )
         ),
         "default_kernel_consumer_arg_slot_error_count": (
             _int_metric(

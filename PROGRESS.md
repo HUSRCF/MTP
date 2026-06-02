@@ -26519,3 +26519,92 @@ python -m pytest tests -q
 
 913 passed, 2 warnings
 ```
+
+## Future native consumer-view ABI gate added to lab preflight
+
+The premap typed-consumer path now has one more native ABI layer after the
+future native arg-slot packet:
+
+```text
+typed handle table
+  -> future native consumer params
+  -> launch envelope
+  -> dispatch packet
+  -> dispatch-ptr packet
+  -> arg-slot packet
+  -> future native consumer-view packet
+```
+
+The new consumer-view ABI is still a readonly, no-payload, no-kernel-mutation
+contract.  It does not reinterpret the object as an existing WNA16 argument.
+Instead, it models the shape of a future kernel-side consumer view and requires
+the native stub to explicitly read all four typed handle fields:
+
+```text
+descriptor_ptr
+packed_weight_descriptor
+scale_metadata_handle
+aux_metadata_handle
+```
+
+The lab preflight compact status now checks the consumer-view row-read evidence:
+
+```text
+default_kernel_consumer_consumer_view_all_handle_fields_read = true
+default_kernel_consumer_consumer_view_field_read_row_count = 174
+default_kernel_consumer_consumer_view_source_packet_chain_depth = 3
+default_kernel_consumer_consumer_view_payload_bytes = 0
+default_kernel_consumer_consumer_view_passed_to_kernel = false
+default_kernel_consumer_consumer_view_changes_kernel_launch_args = false
+default_kernel_consumer_consumer_view_current_wna16_arg_compatible = false
+default_kernel_consumer_consumer_view_requires_wna16_arg_reinterpretation = false
+```
+
+The default 32-input online prelaunch native-stub artifact was re-finalized with
+strict no-defer evidence:
+
+```text
+runner:
+  outputs/reports/premap_kernel_consumer/
+    online_prelaunch_native_stub_canary_arg_slot_32input_hard_hashchain_preflight_32tables.json
+
+artifact check:
+  outputs/reports/premap_kernel_consumer/
+    online_prelaunch_native_stub_canary_artifact_check_arg_slot_32input_hard_hashchain_preflight_32tables.json
+
+compact preflight:
+  outputs/reports/
+    premap_lab_preflight_status_online_prelaunch_native_stub_canary_hard_hashchain_preflight_32tables.json
+  outputs/reports/
+    premap_lab_preflight_status_online_prelaunch_native_stub_canary_hard_hashchain_preflight_32tables.check.json
+```
+
+Status:
+
+```text
+online inputs = 32
+extra online inputs = 31 / 31 passed
+artifact_check_passed = true
+final_preflight_passed = true
+final_deferred_count = 0
+status_deferred_count = 0
+```
+
+This keeps the approved two-stage bootstrap rule: the runner may mirror a
+bootstrap artifact only to close the self-referential evidence loop, then the
+canonical artifact is overwritten by the final strict artifact-check.  The lab
+gate accepts only the final no-defer passed state.
+
+Verification:
+
+```text
+python -m pytest tests/test_run_premap_online_native_stub_canary.py \
+  tests/test_run_premap_lab_preflight.py \
+  tests/test_check_premap_lab_preflight_summary.py -q
+
+116 passed
+
+python -m pytest tests -q
+
+917 passed, 2 warnings
+```

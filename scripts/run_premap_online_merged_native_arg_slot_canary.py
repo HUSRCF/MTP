@@ -79,6 +79,7 @@ ARG_SLOT_BASE_MACROS = [
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_ABI",
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_PTR_ABI",
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ARG_SLOT_ABI",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_VIEW_ABI",
     "MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR",
 ]
 MIRROR_FIELD_MACRO = {
@@ -106,6 +107,7 @@ _FUTURE_KERNEL_FIELD_MASK_PREFIXES = (
     "future_kernel_native_dispatch_consumer",
     "future_kernel_native_dispatch_ptr_consumer",
     "future_kernel_native_arg_slot_consumer",
+    "future_kernel_native_consumer_view",
 )
 
 STUB_SUMMARY_KEYS = (
@@ -192,6 +194,36 @@ STUB_SUMMARY_KEYS = (
     "future_kernel_native_arg_slot_consumer_aux_metadata_handle_read_hash_accumulator",
     "future_kernel_native_arg_slot_consumer_field_mask",
     "future_kernel_native_arg_slot_consumer_required_field_mask",
+    "future_kernel_native_consumer_view_checked",
+    "future_kernel_native_consumer_view_source",
+    "future_kernel_native_consumer_view_source_packet_chain_depth",
+    "future_kernel_native_consumer_view_row_count",
+    "future_kernel_native_consumer_view_row_ok_count",
+    "future_kernel_native_consumer_view_error_count",
+    "future_kernel_native_consumer_view_payload_bytes",
+    "future_kernel_native_consumer_view_passed_to_kernel",
+    "future_kernel_native_consumer_view_changes_kernel_launch_args",
+    "future_kernel_native_consumer_view_current_wna16_arg_compatible",
+    "future_kernel_native_consumer_view_requires_wna16_arg_reinterpretation",
+    "future_kernel_native_consumer_view_hash_accumulator",
+    "future_kernel_native_consumer_view_descriptor_ptr_read_row_count",
+    "future_kernel_native_consumer_view_descriptor_ptr_read_row_ok_count",
+    "future_kernel_native_consumer_view_descriptor_ptr_read_error_count",
+    "future_kernel_native_consumer_view_descriptor_ptr_read_hash_accumulator",
+    "future_kernel_native_consumer_view_packed_weight_descriptor_read_row_count",
+    "future_kernel_native_consumer_view_packed_weight_descriptor_read_row_ok_count",
+    "future_kernel_native_consumer_view_packed_weight_descriptor_read_error_count",
+    "future_kernel_native_consumer_view_packed_weight_descriptor_read_hash_accumulator",
+    "future_kernel_native_consumer_view_scale_metadata_handle_read_row_count",
+    "future_kernel_native_consumer_view_scale_metadata_handle_read_row_ok_count",
+    "future_kernel_native_consumer_view_scale_metadata_handle_read_error_count",
+    "future_kernel_native_consumer_view_scale_metadata_handle_read_hash_accumulator",
+    "future_kernel_native_consumer_view_aux_metadata_handle_read_row_count",
+    "future_kernel_native_consumer_view_aux_metadata_handle_read_row_ok_count",
+    "future_kernel_native_consumer_view_aux_metadata_handle_read_error_count",
+    "future_kernel_native_consumer_view_aux_metadata_handle_read_hash_accumulator",
+    "future_kernel_native_consumer_view_field_mask",
+    "future_kernel_native_consumer_view_required_field_mask",
 )
 
 
@@ -262,6 +294,33 @@ def _check_arg_slot_field_reads(
     failures: list[str] = []
     for field in ARG_SLOT_FIELD_READ_FIELDS:
         prefix = f"future_kernel_native_arg_slot_consumer_{field}_read"
+        expected = {
+            f"{prefix}_row_count": int(active_rows),
+            f"{prefix}_row_ok_count": int(active_rows),
+            f"{prefix}_error_count": 0,
+        }
+        for key, value in expected.items():
+            if stub.get(key) != value:
+                failures.append(f"{key}_mismatch:{stub.get(key)!r}!={value!r}")
+        hash_key = f"{prefix}_hash_accumulator"
+        hash_value = stub.get(hash_key)
+        if not isinstance(hash_value, str) or not hash_value:
+            failures.append(f"{hash_key}_missing")
+    return failures
+
+
+def _check_consumer_view_field_reads(
+    stub: dict[str, Any],
+    *,
+    active_rows: int,
+) -> list[str]:
+    failures: list[str] = []
+    if stub.get("future_kernel_native_consumer_view_checked") is not True:
+        failures.append("future_kernel_native_consumer_view_checked_mismatch")
+    if stub.get("future_kernel_native_consumer_view_source_packet_chain_depth") != 3:
+        failures.append("future_kernel_native_consumer_view_source_packet_chain_depth_mismatch")
+    for field in ARG_SLOT_FIELD_READ_FIELDS:
+        prefix = f"future_kernel_native_consumer_view_{field}_read"
         expected = {
             f"{prefix}_row_count": int(active_rows),
             f"{prefix}_row_ok_count": int(active_rows),
@@ -371,6 +430,16 @@ def _validate_stub(
         "future_kernel_native_arg_slot_consumer_dispatch_ptr_packet_visible": True,
         "future_kernel_native_arg_slot_consumer_dispatch_packet_visible": True,
         "future_kernel_native_arg_slot_consumer_packet_chain_depth": 3,
+        "future_kernel_native_consumer_view_checked": True,
+        "future_kernel_native_consumer_view_source_packet_chain_depth": 3,
+        "future_kernel_native_consumer_view_row_count": active_rows,
+        "future_kernel_native_consumer_view_row_ok_count": active_rows,
+        "future_kernel_native_consumer_view_error_count": 0,
+        "future_kernel_native_consumer_view_payload_bytes": 0,
+        "future_kernel_native_consumer_view_passed_to_kernel": False,
+        "future_kernel_native_consumer_view_changes_kernel_launch_args": False,
+        "future_kernel_native_consumer_view_current_wna16_arg_compatible": False,
+        "future_kernel_native_consumer_view_requires_wna16_arg_reinterpretation": False,
     }
     for key, expected in expected_scalars.items():
         if stub.get(key) != expected:
@@ -395,6 +464,7 @@ def _validate_stub(
         failures.append("handle_projection_hash_accumulator_mismatch")
     failures.extend(_check_future_field_masks(stub))
     failures.extend(_check_arg_slot_field_reads(stub, active_rows=active_rows))
+    failures.extend(_check_consumer_view_field_reads(stub, active_rows=active_rows))
     return failures
 
 
@@ -555,6 +625,33 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
             "future_kernel_native_arg_slot_consumer_aux_metadata_handle_read_row_ok_count": active_rows,
             "future_kernel_native_arg_slot_consumer_aux_metadata_handle_read_error_count": 0,
             "future_kernel_native_arg_slot_consumer_aux_metadata_handle_read_hash_accumulator": "dry",
+            "future_kernel_native_consumer_view_checked": True,
+            "future_kernel_native_consumer_view_source_packet_chain_depth": 3,
+            "future_kernel_native_consumer_view_row_count": active_rows,
+            "future_kernel_native_consumer_view_row_ok_count": active_rows,
+            "future_kernel_native_consumer_view_error_count": 0,
+            "future_kernel_native_consumer_view_payload_bytes": 0,
+            "future_kernel_native_consumer_view_passed_to_kernel": False,
+            "future_kernel_native_consumer_view_changes_kernel_launch_args": False,
+            "future_kernel_native_consumer_view_current_wna16_arg_compatible": False,
+            "future_kernel_native_consumer_view_requires_wna16_arg_reinterpretation": False,
+            "future_kernel_native_consumer_view_hash_accumulator": "dry",
+            "future_kernel_native_consumer_view_descriptor_ptr_read_row_count": active_rows,
+            "future_kernel_native_consumer_view_descriptor_ptr_read_row_ok_count": active_rows,
+            "future_kernel_native_consumer_view_descriptor_ptr_read_error_count": 0,
+            "future_kernel_native_consumer_view_descriptor_ptr_read_hash_accumulator": "dry",
+            "future_kernel_native_consumer_view_packed_weight_descriptor_read_row_count": active_rows,
+            "future_kernel_native_consumer_view_packed_weight_descriptor_read_row_ok_count": active_rows,
+            "future_kernel_native_consumer_view_packed_weight_descriptor_read_error_count": 0,
+            "future_kernel_native_consumer_view_packed_weight_descriptor_read_hash_accumulator": "dry",
+            "future_kernel_native_consumer_view_scale_metadata_handle_read_row_count": active_rows,
+            "future_kernel_native_consumer_view_scale_metadata_handle_read_row_ok_count": active_rows,
+            "future_kernel_native_consumer_view_scale_metadata_handle_read_error_count": 0,
+            "future_kernel_native_consumer_view_scale_metadata_handle_read_hash_accumulator": "dry",
+            "future_kernel_native_consumer_view_aux_metadata_handle_read_row_count": active_rows,
+            "future_kernel_native_consumer_view_aux_metadata_handle_read_row_ok_count": active_rows,
+            "future_kernel_native_consumer_view_aux_metadata_handle_read_error_count": 0,
+            "future_kernel_native_consumer_view_aux_metadata_handle_read_hash_accumulator": "dry",
         }
     else:
         stub_payload = run_stub(_stub_namespace(args, input_json=merged_output_json))
@@ -607,6 +704,13 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
         "arg_slot_field_read_field_names": list(ARG_SLOT_FIELD_READ_FIELDS),
         "arg_slot_all_handle_fields_read": not _check_arg_slot_field_reads(
             stub_payload, active_rows=active_rows
+        ),
+        "consumer_view_field_read_field_names": list(ARG_SLOT_FIELD_READ_FIELDS),
+        "consumer_view_all_handle_fields_read": not _check_consumer_view_field_reads(
+            stub_payload, active_rows=active_rows
+        ),
+        "consumer_view_source_packet_chain_depth": stub_payload.get(
+            "future_kernel_native_consumer_view_source_packet_chain_depth"
         ),
         "handle_projection_hashchain_equal": _handle_projection_hashchain_equal(
             stub_payload

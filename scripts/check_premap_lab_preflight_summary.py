@@ -83,6 +83,12 @@ def check_premap_lab_preflight_summary(
         "default_kernel_consumer_arg_slot_current_wna16_arg_compatible": False,
         "default_kernel_consumer_arg_slot_requires_wna16_arg_reinterpretation": False,
         "default_kernel_consumer_arg_slot_all_handle_fields_read": True,
+        "default_kernel_consumer_consumer_view_all_handle_fields_read": True,
+        "default_kernel_consumer_consumer_view_payload_bytes": 0,
+        "default_kernel_consumer_consumer_view_passed_to_kernel": False,
+        "default_kernel_consumer_consumer_view_changes_kernel_launch_args": False,
+        "default_kernel_consumer_consumer_view_current_wna16_arg_compatible": False,
+        "default_kernel_consumer_consumer_view_requires_wna16_arg_reinterpretation": False,
         "payload_bytes_required": 0,
         "passed_to_kernel_required": False,
         "changes_kernel_launch_args_required": False,
@@ -144,6 +150,10 @@ def check_premap_lab_preflight_summary(
 
     if summary.get("default_kernel_consumer_arg_slot_field_read_field_names") != REQUIRED_ROW_FIELDS:
         failures.append("arg_slot_field_read_field_names_mismatch")
+    arg_slot_read_row_count = _int_metric(
+        summary,
+        "default_kernel_consumer_arg_slot_field_read_row_count",
+    )
     row_ok_counts = summary.get(
         "default_kernel_consumer_arg_slot_field_read_row_ok_counts"
     )
@@ -160,14 +170,49 @@ def check_premap_lab_preflight_summary(
     if not isinstance(read_hashes, dict):
         failures.append("arg_slot_field_read_hashes_missing")
         read_hashes = {}
-    if row_count is not None:
+    if arg_slot_read_row_count is not None:
         for field in REQUIRED_ROW_FIELDS:
-            if row_ok_counts.get(field) != row_count:
+            if row_ok_counts.get(field) != arg_slot_read_row_count:
                 failures.append(f"arg_slot_{field}_read_row_ok_count_mismatch")
             if error_counts.get(field) != 0:
                 failures.append(f"arg_slot_{field}_read_error_count_mismatch")
             if not isinstance(read_hashes.get(field), str) or not read_hashes.get(field):
                 failures.append(f"arg_slot_{field}_read_hash_missing")
+
+    if summary.get("default_kernel_consumer_consumer_view_field_read_field_names") != REQUIRED_ROW_FIELDS:
+        failures.append("consumer_view_field_read_field_names_mismatch")
+    consumer_view_read_row_count = _int_metric(
+        summary,
+        "default_kernel_consumer_consumer_view_field_read_row_count",
+    )
+    view_row_ok_counts = summary.get(
+        "default_kernel_consumer_consumer_view_field_read_row_ok_counts"
+    )
+    view_error_counts = summary.get(
+        "default_kernel_consumer_consumer_view_field_read_error_counts"
+    )
+    view_read_hashes = summary.get(
+        "default_kernel_consumer_consumer_view_field_read_hashes"
+    )
+    if not isinstance(view_row_ok_counts, dict):
+        failures.append("consumer_view_field_read_row_ok_counts_missing")
+        view_row_ok_counts = {}
+    if not isinstance(view_error_counts, dict):
+        failures.append("consumer_view_field_read_error_counts_missing")
+        view_error_counts = {}
+    if not isinstance(view_read_hashes, dict):
+        failures.append("consumer_view_field_read_hashes_missing")
+        view_read_hashes = {}
+    if consumer_view_read_row_count is not None:
+        for field in REQUIRED_ROW_FIELDS:
+            if view_row_ok_counts.get(field) != consumer_view_read_row_count:
+                failures.append(f"consumer_view_{field}_read_row_ok_count_mismatch")
+            if view_error_counts.get(field) != 0:
+                failures.append(f"consumer_view_{field}_read_error_count_mismatch")
+            if not isinstance(view_read_hashes.get(field), str) or not view_read_hashes.get(field):
+                failures.append(f"consumer_view_{field}_read_hash_missing")
+    if summary.get("default_kernel_consumer_consumer_view_source_packet_chain_depth") != 3:
+        failures.append("consumer_view_source_packet_chain_depth_mismatch")
 
     if summary.get("default_kernel_consumer_schema_row_field_names") != REQUIRED_ROW_FIELDS:
         failures.append("schema_row_field_names_mismatch")

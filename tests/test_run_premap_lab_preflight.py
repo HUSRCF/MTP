@@ -915,6 +915,22 @@ _RUNNER_ARG_SLOT_LAYOUT_SUMMARY: dict[str, object] = {
     "future_kernel_native_arg_slot_consumer_offset_payload_bytes": 20,
     "future_kernel_native_arg_slot_consumer_offset_flags": 24,
 }
+_RUNNER_CONSUMER_VIEW_LAYOUT_SUMMARY: dict[str, object] = {
+    "future_kernel_native_consumer_view_struct_size": 208,
+    "future_kernel_native_consumer_view_struct_align": 8,
+    "future_kernel_native_consumer_view_params_struct_size": 112,
+    "future_kernel_native_consumer_view_params_struct_align": 8,
+    "future_kernel_native_consumer_view_result_struct_size": 80,
+    "future_kernel_native_consumer_view_result_struct_align": 8,
+    "future_kernel_native_consumer_view_offset_params": 0,
+    "future_kernel_native_consumer_view_offset_abi_version": 112,
+    "future_kernel_native_consumer_view_offset_source_packet_chain_depth": 116,
+    "future_kernel_native_consumer_view_offset_row_offset": 120,
+    "future_kernel_native_consumer_view_offset_row_limit": 124,
+    "future_kernel_native_consumer_view_offset_rows_per_program": 128,
+    "future_kernel_native_consumer_view_offset_payload_bytes": 132,
+    "future_kernel_native_consumer_view_offset_flags": 136,
+}
 
 
 def _runner_kernel_side_compatible_summary() -> dict[str, object]:
@@ -1248,6 +1264,54 @@ def _runner_future_kernel_native_dispatch_consumer_summary(
             "future_kernel_native_arg_slot_consumer_single_field_mirror_row_count": 2,
             "future_kernel_native_arg_slot_consumer_single_field_mirror_row_ok_count": 2,
             "future_kernel_native_arg_slot_consumer_single_field_mirror_error_count": 0,
+            "future_kernel_native_consumer_view_checked": True,
+            "future_kernel_native_consumer_view_abi_name": (
+                "premap_future_kernel_native_consumer_view_abi_v1"
+            ),
+            "future_kernel_native_consumer_view_mode": (
+                "readonly_future_kernel_native_consumer_view_abi"
+            ),
+            "future_kernel_native_consumer_view_source": (
+                "premap_future_kernel_native_consumer_arg_slot_abi_v1"
+            ),
+            "future_kernel_native_consumer_view_version": 1,
+            "future_kernel_native_consumer_view_row_count": 2,
+            "future_kernel_native_consumer_view_row_ok_count": 2,
+            "future_kernel_native_consumer_view_error_count": 0,
+            "future_kernel_native_consumer_view_hash_accumulator": "0fedcb",
+            "future_kernel_native_consumer_view_handle_projection_hash_accumulator": "481d",
+            "future_kernel_native_consumer_view_descriptor_ptr_read_row_count": 2,
+            "future_kernel_native_consumer_view_descriptor_ptr_read_row_ok_count": 2,
+            "future_kernel_native_consumer_view_descriptor_ptr_read_error_count": 0,
+            "future_kernel_native_consumer_view_descriptor_ptr_read_hash_accumulator": "c35c1",
+            "future_kernel_native_consumer_view_packed_weight_descriptor_read_row_count": 2,
+            "future_kernel_native_consumer_view_packed_weight_descriptor_read_row_ok_count": 2,
+            "future_kernel_native_consumer_view_packed_weight_descriptor_read_error_count": 0,
+            "future_kernel_native_consumer_view_packed_weight_descriptor_read_hash_accumulator": "c35c2",
+            "future_kernel_native_consumer_view_scale_metadata_handle_read_row_count": 2,
+            "future_kernel_native_consumer_view_scale_metadata_handle_read_row_ok_count": 2,
+            "future_kernel_native_consumer_view_scale_metadata_handle_read_error_count": 0,
+            "future_kernel_native_consumer_view_scale_metadata_handle_read_hash_accumulator": "c35c3",
+            "future_kernel_native_consumer_view_aux_metadata_handle_read_row_count": 2,
+            "future_kernel_native_consumer_view_aux_metadata_handle_read_row_ok_count": 2,
+            "future_kernel_native_consumer_view_aux_metadata_handle_read_error_count": 0,
+            "future_kernel_native_consumer_view_aux_metadata_handle_read_hash_accumulator": "c35c4",
+            "future_kernel_native_consumer_view_packet_chain_depth": 3,
+            "future_kernel_native_consumer_view_source_packet_chain_depth": 3,
+            "future_kernel_native_consumer_view_payload_bytes": 0,
+            "future_kernel_native_consumer_view_passed_to_kernel": False,
+            "future_kernel_native_consumer_view_changes_kernel_launch_args": False,
+            "future_kernel_native_consumer_view_current_wna16_arg_compatible": False,
+            "future_kernel_native_consumer_view_requires_wna16_arg_reinterpretation": False,
+            "future_kernel_native_consumer_view_field_mask": 15,
+            "future_kernel_native_consumer_view_required_field_mask": 7,
+            "future_kernel_native_consumer_view_single_field_mirror_checked": True,
+            "future_kernel_native_consumer_view_single_field_mirror_field_name": (
+                field_name
+            ),
+            "future_kernel_native_consumer_view_single_field_mirror_row_count": 2,
+            "future_kernel_native_consumer_view_single_field_mirror_row_ok_count": 2,
+            "future_kernel_native_consumer_view_single_field_mirror_error_count": 0,
         }
     )
     payload.update(_RUNNER_NATIVE_LAYOUT_SUMMARY)
@@ -1255,6 +1319,7 @@ def _runner_future_kernel_native_dispatch_consumer_summary(
     payload.update(_RUNNER_DISPATCH_LAYOUT_SUMMARY)
     payload.update(_RUNNER_DISPATCH_PTR_LAYOUT_SUMMARY)
     payload.update(_RUNNER_ARG_SLOT_LAYOUT_SUMMARY)
+    payload.update(_RUNNER_CONSUMER_VIEW_LAYOUT_SUMMARY)
     return payload
 
 
@@ -2928,6 +2993,7 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
         "scale_metadata_handle",
         "aux_metadata_handle",
     ]
+    assert summary["default_kernel_consumer_arg_slot_field_read_row_count"] == 520
     assert summary["default_kernel_consumer_arg_slot_all_handle_fields_read"] is True
     assert summary["default_kernel_consumer_arg_slot_field_read_row_ok_counts"] == {
         "descriptor_ptr": 520,
@@ -2941,6 +3007,60 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
         "scale_metadata_handle": 0,
         "aux_metadata_handle": 0,
     }
+    assert (
+        summary["default_kernel_consumer_consumer_view_field_read_field_names"]
+        == [
+            "descriptor_ptr",
+            "packed_weight_descriptor",
+            "scale_metadata_handle",
+            "aux_metadata_handle",
+        ]
+    )
+    assert (
+        summary["default_kernel_consumer_consumer_view_field_read_row_count"] == 2
+    )
+    assert (
+        summary["default_kernel_consumer_consumer_view_all_handle_fields_read"]
+        is True
+    )
+    assert summary[
+        "default_kernel_consumer_consumer_view_field_read_row_ok_counts"
+    ] == {
+        "descriptor_ptr": 2,
+        "packed_weight_descriptor": 2,
+        "scale_metadata_handle": 2,
+        "aux_metadata_handle": 2,
+    }
+    assert summary[
+        "default_kernel_consumer_consumer_view_field_read_error_counts"
+    ] == {
+        "descriptor_ptr": 0,
+        "packed_weight_descriptor": 0,
+        "scale_metadata_handle": 0,
+        "aux_metadata_handle": 0,
+    }
+    assert (
+        summary["default_kernel_consumer_consumer_view_source_packet_chain_depth"]
+        == 3
+    )
+    assert summary["default_kernel_consumer_consumer_view_payload_bytes"] == 0
+    assert summary["default_kernel_consumer_consumer_view_passed_to_kernel"] is False
+    assert (
+        summary["default_kernel_consumer_consumer_view_changes_kernel_launch_args"]
+        is False
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_consumer_view_current_wna16_arg_compatible"
+        ]
+        is False
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_consumer_view_requires_wna16_arg_reinterpretation"
+        ]
+        is False
+    )
     assert summary["default_kernel_consumer_arg_slot_payload_bytes"] == 0
     assert summary["default_kernel_consumer_arg_slot_passed_to_kernel"] is False
     assert (

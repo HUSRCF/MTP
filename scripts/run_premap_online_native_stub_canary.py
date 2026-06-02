@@ -232,6 +232,12 @@ DEFAULT_ARTIFACT_CHECK_OUTPUT = (
     / "premap_kernel_consumer"
     / "online_prelaunch_native_stub_canary_artifact_check.json"
 )
+TYPED_HANDLE_FIELDS = (
+    "descriptor_ptr",
+    "packed_weight_descriptor",
+    "scale_metadata_handle",
+    "aux_metadata_handle",
+)
 STUB_MACROS = [
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCHEMA",
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_ROW_ITERATION",
@@ -429,6 +435,7 @@ FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_STUB_MACROS = [
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_ABI",
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_PTR_ABI",
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ARG_SLOT_ABI",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_VIEW_ABI",
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD",
     "MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR",
 ]
@@ -442,6 +449,7 @@ FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_DESCRIPTOR_PTR_STUB_MACROS = [
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_ABI",
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_PTR_ABI",
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ARG_SLOT_ABI",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_VIEW_ABI",
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR_MIRROR_FIELD",
     "MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR",
 ]
@@ -455,6 +463,7 @@ FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_PACKED_WEIGHT_STUB_MACROS = [
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_ABI",
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_PTR_ABI",
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ARG_SLOT_ABI",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_VIEW_ABI",
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_MIRROR_FIELD",
     "MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR",
 ]
@@ -468,6 +477,7 @@ FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_AUX_METADATA_STUB_MACROS = [
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_ABI",
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_PTR_ABI",
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ARG_SLOT_ABI",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_VIEW_ABI",
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_MIRROR_FIELD",
     "MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR",
 ]
@@ -766,6 +776,59 @@ FUTURE_KERNEL_NATIVE_DISPATCH_CONSUMER_SUMMARY_KEYS = (
     "future_kernel_native_arg_slot_consumer_single_field_mirror_row_ok_count",
     "future_kernel_native_arg_slot_consumer_single_field_mirror_error_count",
     "future_kernel_native_arg_slot_consumer_single_field_mirror_hash_accumulator",
+    "future_kernel_native_consumer_view_abi_name",
+    "future_kernel_native_consumer_view_checked",
+    "future_kernel_native_consumer_view_mode",
+    "future_kernel_native_consumer_view_source",
+    "future_kernel_native_consumer_view_version",
+    "future_kernel_native_consumer_view_struct_size",
+    "future_kernel_native_consumer_view_struct_align",
+    "future_kernel_native_consumer_view_params_struct_size",
+    "future_kernel_native_consumer_view_params_struct_align",
+    "future_kernel_native_consumer_view_result_struct_size",
+    "future_kernel_native_consumer_view_result_struct_align",
+    "future_kernel_native_consumer_view_offset_params",
+    "future_kernel_native_consumer_view_offset_abi_version",
+    "future_kernel_native_consumer_view_offset_source_packet_chain_depth",
+    "future_kernel_native_consumer_view_offset_row_offset",
+    "future_kernel_native_consumer_view_offset_row_limit",
+    "future_kernel_native_consumer_view_offset_rows_per_program",
+    "future_kernel_native_consumer_view_offset_payload_bytes",
+    "future_kernel_native_consumer_view_offset_flags",
+    "future_kernel_native_consumer_view_source_packet_chain_depth",
+    "future_kernel_native_consumer_view_row_count",
+    "future_kernel_native_consumer_view_row_ok_count",
+    "future_kernel_native_consumer_view_error_count",
+    "future_kernel_native_consumer_view_hash_accumulator",
+    "future_kernel_native_consumer_view_descriptor_ptr_read_row_count",
+    "future_kernel_native_consumer_view_descriptor_ptr_read_row_ok_count",
+    "future_kernel_native_consumer_view_descriptor_ptr_read_error_count",
+    "future_kernel_native_consumer_view_descriptor_ptr_read_hash_accumulator",
+    "future_kernel_native_consumer_view_packed_weight_descriptor_read_row_count",
+    "future_kernel_native_consumer_view_packed_weight_descriptor_read_row_ok_count",
+    "future_kernel_native_consumer_view_packed_weight_descriptor_read_error_count",
+    "future_kernel_native_consumer_view_packed_weight_descriptor_read_hash_accumulator",
+    "future_kernel_native_consumer_view_scale_metadata_handle_read_row_count",
+    "future_kernel_native_consumer_view_scale_metadata_handle_read_row_ok_count",
+    "future_kernel_native_consumer_view_scale_metadata_handle_read_error_count",
+    "future_kernel_native_consumer_view_scale_metadata_handle_read_hash_accumulator",
+    "future_kernel_native_consumer_view_aux_metadata_handle_read_row_count",
+    "future_kernel_native_consumer_view_aux_metadata_handle_read_row_ok_count",
+    "future_kernel_native_consumer_view_aux_metadata_handle_read_error_count",
+    "future_kernel_native_consumer_view_aux_metadata_handle_read_hash_accumulator",
+    "future_kernel_native_consumer_view_payload_bytes",
+    "future_kernel_native_consumer_view_passed_to_kernel",
+    "future_kernel_native_consumer_view_changes_kernel_launch_args",
+    "future_kernel_native_consumer_view_current_wna16_arg_compatible",
+    "future_kernel_native_consumer_view_requires_wna16_arg_reinterpretation",
+    "future_kernel_native_consumer_view_field_mask",
+    "future_kernel_native_consumer_view_required_field_mask",
+    "future_kernel_native_consumer_view_single_field_mirror_checked",
+    "future_kernel_native_consumer_view_single_field_mirror_field_name",
+    "future_kernel_native_consumer_view_single_field_mirror_row_count",
+    "future_kernel_native_consumer_view_single_field_mirror_row_ok_count",
+    "future_kernel_native_consumer_view_single_field_mirror_error_count",
+    "future_kernel_native_consumer_view_single_field_mirror_hash_accumulator",
     "payload_bytes",
     "passed_to_kernel",
     "changes_kernel_launch_args",
@@ -874,6 +937,26 @@ def _future_field_mask_ok(
         field_mask & _FUTURE_KERNEL_AUX_FIELD_MASK
     ):
         return False
+    return True
+
+
+def _future_handle_field_reads_ok(
+    payload: dict[str, Any],
+    *,
+    prefix: str,
+    expected_rows: int,
+) -> bool:
+    for field in TYPED_HANDLE_FIELDS:
+        read_prefix = f"{prefix}_{field}_read"
+        if payload.get(f"{read_prefix}_row_count") != expected_rows:
+            return False
+        if payload.get(f"{read_prefix}_row_ok_count") != expected_rows:
+            return False
+        if payload.get(f"{read_prefix}_error_count") != 0:
+            return False
+        hash_value = payload.get(f"{read_prefix}_hash_accumulator")
+        if not isinstance(hash_value, str) or not hash_value:
+            return False
     return True
 
 
@@ -2602,6 +2685,12 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
         arg_slot_mirror_row_ok_count = payload.get(
             "future_kernel_native_arg_slot_consumer_single_field_mirror_row_ok_count"
         )
+        consumer_view_row_count = payload.get(
+            "future_kernel_native_consumer_view_row_count"
+        )
+        consumer_view_row_ok_count = payload.get(
+            "future_kernel_native_consumer_view_row_ok_count"
+        )
         dispatch_ints = (
             grid_x,
             block_x,
@@ -2623,6 +2712,8 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
             arg_slot_row_ok_count,
             arg_slot_mirror_row_count,
             arg_slot_mirror_row_ok_count,
+            consumer_view_row_count,
+            consumer_view_row_ok_count,
         )
         dispatch_ints_valid = all(
             isinstance(value, int) and not isinstance(value, bool)
@@ -2656,6 +2747,8 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
                 and arg_slot_row_ok_count == active_rows
                 and arg_slot_mirror_row_count == active_rows
                 and arg_slot_mirror_row_ok_count == active_rows
+                and consumer_view_row_count == active_rows
+                and consumer_view_row_ok_count == active_rows
             )
         else:
             dispatch_geometry_ok = False
@@ -2821,6 +2914,46 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
                 "future_kernel_native_arg_slot_consumer_single_field_mirror_error_count"
             )
             == 0
+            and _future_handle_field_reads_ok(
+                payload,
+                prefix="future_kernel_native_arg_slot_consumer",
+                expected_rows=active_rows,
+            )
+            and payload.get("future_kernel_native_consumer_view_checked") is True
+            and payload.get("future_kernel_native_consumer_view_abi_name")
+            == "premap_future_kernel_native_consumer_view_abi_v1"
+            and payload.get("future_kernel_native_consumer_view_mode")
+            == "readonly_future_kernel_native_consumer_view_abi"
+            and payload.get("future_kernel_native_consumer_view_source")
+            == "premap_future_kernel_native_consumer_arg_slot_abi_v1"
+            and payload.get("future_kernel_native_consumer_view_source_packet_chain_depth")
+            == 3
+            and payload.get("future_kernel_native_consumer_view_error_count") == 0
+            and payload.get("future_kernel_native_consumer_view_payload_bytes") == 0
+            and payload.get("future_kernel_native_consumer_view_passed_to_kernel")
+            is False
+            and payload.get(
+                "future_kernel_native_consumer_view_changes_kernel_launch_args"
+            )
+            is False
+            and payload.get(
+                "future_kernel_native_consumer_view_current_wna16_arg_compatible"
+            )
+            is False
+            and payload.get(
+                "future_kernel_native_consumer_view_requires_wna16_arg_reinterpretation"
+            )
+            is False
+            and _future_field_mask_ok(
+                payload,
+                prefix="future_kernel_native_consumer_view",
+                expected_field=expected_field,
+            )
+            and _future_handle_field_reads_ok(
+                payload,
+                prefix="future_kernel_native_consumer_view",
+                expected_rows=active_rows,
+            )
             and dispatch_geometry_ok
             and _hash_chain_valid("hash_accumulator")
             and _hash_chain_equal("handle_projection_hash_accumulator")
@@ -4202,7 +4335,8 @@ def finalize_report_with_artifact_check(
     if not isinstance(steps, dict):
         steps = {}
         payload["steps"] = steps
-    artifact_output = _resolve_repo_path(args.artifact_check_output_json)
+    canonical_artifact_output = _resolve_repo_path(args.artifact_check_output_json)
+    artifact_output = canonical_artifact_output
     if allow_bootstrap_preflight:
         artifact_output = artifact_output.with_name(
             f"{artifact_output.stem}_bootstrap{artifact_output.suffix}"
@@ -4226,6 +4360,17 @@ def finalize_report_with_artifact_check(
         allow_failure=True,
     )
     artifact_payload = _load_json_if_exists(artifact_output)
+    if allow_bootstrap_preflight and artifact_payload:
+        # The lab gate points at the canonical artifact-check path. During the
+        # bootstrap stage, mirror the bootstrap payload there so the
+        # self-finalization preflight can recognize the evidence as deliberately
+        # self-referential. The later strict artifact-check pass overwrites this
+        # path with the no-defer artifact before the final lab gate is accepted.
+        canonical_artifact_output.parent.mkdir(parents=True, exist_ok=True)
+        canonical_artifact_output.write_text(
+            json.dumps(artifact_payload, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
     output_key = (
         "artifact_check_bootstrap_output_json"
         if allow_bootstrap_preflight

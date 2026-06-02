@@ -58,6 +58,11 @@
 #error "future native consumer arg-slot ABI requires future native consumer dispatch pointer ABI"
 #endif
 
+#if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_VIEW_ABI) && \
+    !defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ARG_SLOT_ABI)
+#error "future native consumer view ABI requires future native consumer arg-slot ABI"
+#endif
+
 #if (defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD) && \
      defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_MIRROR_FIELD)) || \
     (defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD) && \
@@ -142,6 +147,15 @@ static_assert(
 static_assert(
     !kPremapFutureKernelNativeConsumerArgSlotAbiV1CurrentWna16ArgCompatible,
     "future native consumer arg slot ABI must not be the current WNA16 arg list");
+static_assert(
+    !kPremapFutureKernelNativeConsumerViewAbiV1PayloadDerefAllowed,
+    "future native consumer view ABI must not allow payload dereference");
+static_assert(
+    !kPremapFutureKernelNativeConsumerViewAbiV1KernelArgPassAllowed,
+    "future native consumer view ABI must not allow kernel-arg pass");
+static_assert(
+    !kPremapFutureKernelNativeConsumerViewAbiV1CurrentWna16ArgCompatible,
+    "future native consumer view ABI must not be the current WNA16 arg list");
 
 constexpr uint64_t kTypedSchemaHashHi = MTP_PREMAP_TYPED_CONSUMER_SCHEMA_HASH_HI;
 constexpr uint64_t kTypedSchemaHashLo = MTP_PREMAP_TYPED_CONSUMER_SCHEMA_HASH_LO;
@@ -729,6 +743,101 @@ __global__ void typed_consumer_future_native_arg_slot_kernel(
       result.single_field_mirror_hash;
 }
 
+__global__ void typed_consumer_future_native_consumer_view_kernel(
+    PremapFutureKernelNativeConsumerViewV1 view,
+    uint32_t* future_native_consumer_view_ok,
+    uint64_t* future_native_consumer_view_hash,
+    uint32_t* future_native_consumer_view_descriptor_ptr_read_ok,
+    uint64_t* future_native_consumer_view_descriptor_ptr_read_hash,
+    uint32_t* future_native_consumer_view_packed_weight_descriptor_read_ok,
+    uint64_t* future_native_consumer_view_packed_weight_descriptor_read_hash,
+    uint32_t* future_native_consumer_view_scale_metadata_handle_read_ok,
+    uint64_t* future_native_consumer_view_scale_metadata_handle_read_hash,
+    uint32_t* future_native_consumer_view_aux_metadata_handle_read_ok,
+    uint64_t* future_native_consumer_view_aux_metadata_handle_read_hash) {
+  const uint32_t program_id = static_cast<uint32_t>(blockIdx.x);
+  const uint32_t lane_id = static_cast<uint32_t>(threadIdx.x);
+  const bool row_window_valid =
+      view.row_limit >= view.row_offset &&
+      view.row_limit <= view.params.row_count;
+  const uint32_t active_rows =
+      row_window_valid ? view.row_limit - view.row_offset : 0;
+  if (!row_window_valid || view.rows_per_program == 0) {
+    return;
+  }
+  const uint64_t local_row_index_64 =
+      static_cast<uint64_t>(program_id) *
+          static_cast<uint64_t>(view.rows_per_program) +
+      static_cast<uint64_t>(lane_id);
+  if (local_row_index_64 >= static_cast<uint64_t>(active_rows)) {
+    return;
+  }
+  const uint32_t idx = static_cast<uint32_t>(local_row_index_64);
+  const uint32_t row_index = view.row_offset + idx;
+  const PremapFutureKernelNativeConsumerViewResultV1 result =
+      premap_typed_consumer_future_native_view_consume_program_lane_v1(
+          view,
+          program_id,
+          lane_id,
+          static_cast<uint32_t>(gridDim.x),
+          static_cast<uint32_t>(blockDim.x),
+          kTypedSchemaHashHi,
+          kTypedSchemaHashLo);
+  future_native_consumer_view_ok[idx] = result.ok;
+  future_native_consumer_view_hash[idx] = result.row_hash;
+  const PremapKernelSideTypedConsumerRowV1 row =
+      premap_typed_consumer_load_future_native_row_v1(view.params, row_index);
+  const uint32_t field_mask = view.params.field_mask;
+  const uint32_t descriptor_ptr_visible =
+      static_cast<uint32_t>(
+          (field_mask & kPremapFutureKernelSideConsumerFieldMaskDescriptorPtr) !=
+              0 &&
+          row.descriptor_ptr != 0);
+  const uint32_t packed_weight_descriptor_visible =
+      static_cast<uint32_t>(
+          (field_mask &
+           kPremapFutureKernelSideConsumerFieldMaskPackedWeightDescriptor) != 0 &&
+          row.packed_weight_descriptor != 0);
+  const uint32_t scale_metadata_handle_visible =
+      static_cast<uint32_t>(
+          (field_mask &
+           kPremapFutureKernelSideConsumerFieldMaskScaleMetadataHandle) != 0 &&
+          row.scale_metadata_handle != 0);
+  const uint32_t aux_metadata_handle_visible =
+      static_cast<uint32_t>(
+          (field_mask & kPremapFutureKernelSideConsumerFieldMaskAuxMetadataHandle) !=
+              0 &&
+          row.aux_metadata_handle != 0);
+  future_native_consumer_view_descriptor_ptr_read_ok[idx] =
+      descriptor_ptr_visible;
+  future_native_consumer_view_descriptor_ptr_read_hash[idx] =
+      descriptor_ptr_visible
+          ? (mix64(row.descriptor_ptr + 0xc051000000000101ULL) ^
+             mix64(row.address_key_hash + static_cast<uint64_t>(row_index)))
+          : 0ULL;
+  future_native_consumer_view_packed_weight_descriptor_read_ok[idx] =
+      packed_weight_descriptor_visible;
+  future_native_consumer_view_packed_weight_descriptor_read_hash[idx] =
+      packed_weight_descriptor_visible
+          ? (mix64(row.packed_weight_descriptor + 0xc051000000000102ULL) ^
+             mix64(row.address_key_hash + static_cast<uint64_t>(row_index)))
+          : 0ULL;
+  future_native_consumer_view_scale_metadata_handle_read_ok[idx] =
+      scale_metadata_handle_visible;
+  future_native_consumer_view_scale_metadata_handle_read_hash[idx] =
+      scale_metadata_handle_visible
+          ? (mix64(row.scale_metadata_handle + 0xc051000000000103ULL) ^
+             mix64(row.address_key_hash + static_cast<uint64_t>(row_index)))
+          : 0ULL;
+  future_native_consumer_view_aux_metadata_handle_read_ok[idx] =
+      aux_metadata_handle_visible;
+  future_native_consumer_view_aux_metadata_handle_read_hash[idx] =
+      aux_metadata_handle_visible
+          ? (mix64(row.aux_metadata_handle + 0xc051000000000104ULL) ^
+             mix64(row.address_key_hash + static_cast<uint64_t>(row_index)))
+          : 0ULL;
+}
+
 struct Args {
   int device = 0;
   int rows = 1024;
@@ -941,6 +1050,12 @@ static std::string macro_json() {
 #else
      << "false";
 #endif
+  os << ",\"MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_VIEW_ABI\":"
+#if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_VIEW_ABI)
+     << "true";
+#else
+     << "false";
+#endif
   os << "}";
   return os.str();
 }
@@ -999,7 +1114,12 @@ int main(int argc, char** argv) {
            *d_future_native_arg_slot_packed_weight_descriptor_read_hash = nullptr,
            *d_future_native_arg_slot_scale_metadata_handle_read_hash = nullptr,
            *d_future_native_arg_slot_aux_metadata_handle_read_hash = nullptr,
-           *d_future_native_arg_slot_single_field_mirror_hash = nullptr;
+           *d_future_native_arg_slot_single_field_mirror_hash = nullptr,
+           *d_future_native_consumer_view_hash = nullptr,
+           *d_future_native_consumer_view_descriptor_ptr_read_hash = nullptr,
+           *d_future_native_consumer_view_packed_weight_descriptor_read_hash = nullptr,
+           *d_future_native_consumer_view_scale_metadata_handle_read_hash = nullptr,
+           *d_future_native_consumer_view_aux_metadata_handle_read_hash = nullptr;
   PremapFutureKernelNativeConsumerDispatchV1* d_future_native_dispatch_packet =
       nullptr;
   PremapFutureKernelNativeConsumerDispatchPtrV1*
@@ -1024,7 +1144,12 @@ int main(int argc, char** argv) {
            *d_future_native_arg_slot_packed_weight_descriptor_read_ok = nullptr,
            *d_future_native_arg_slot_scale_metadata_handle_read_ok = nullptr,
            *d_future_native_arg_slot_aux_metadata_handle_read_ok = nullptr,
-           *d_future_native_arg_slot_single_field_mirror_ok = nullptr;
+           *d_future_native_arg_slot_single_field_mirror_ok = nullptr,
+           *d_future_native_consumer_view_ok = nullptr,
+           *d_future_native_consumer_view_descriptor_ptr_read_ok = nullptr,
+           *d_future_native_consumer_view_packed_weight_descriptor_read_ok = nullptr,
+           *d_future_native_consumer_view_scale_metadata_handle_read_ok = nullptr,
+           *d_future_native_consumer_view_aux_metadata_handle_read_ok = nullptr;
   const size_t u64_bytes = static_cast<size_t>(rows) * sizeof(uint64_t);
   const size_t i32_bytes = static_cast<size_t>(rows) * sizeof(int32_t);
   const size_t u32_bytes = static_cast<size_t>(rows) * sizeof(uint32_t);
@@ -1175,6 +1300,48 @@ int main(int argc, char** argv) {
   hip_check(
       hipMalloc(&d_future_native_arg_slot_single_field_mirror_hash, u64_bytes),
       "hipMalloc future_native_arg_slot_single_field_mirror_hash");
+  hip_check(
+      hipMalloc(&d_future_native_consumer_view_ok, u32_bytes),
+      "hipMalloc future_native_consumer_view_ok");
+  hip_check(
+      hipMalloc(&d_future_native_consumer_view_hash, u64_bytes),
+      "hipMalloc future_native_consumer_view_hash");
+  hip_check(
+      hipMalloc(&d_future_native_consumer_view_descriptor_ptr_read_ok, u32_bytes),
+      "hipMalloc future_native_consumer_view_descriptor_ptr_read_ok");
+  hip_check(
+      hipMalloc(&d_future_native_consumer_view_descriptor_ptr_read_hash, u64_bytes),
+      "hipMalloc future_native_consumer_view_descriptor_ptr_read_hash");
+  hip_check(
+      hipMalloc(
+          &d_future_native_consumer_view_packed_weight_descriptor_read_ok,
+          u32_bytes),
+      "hipMalloc future_native_consumer_view_packed_weight_descriptor_read_ok");
+  hip_check(
+      hipMalloc(
+          &d_future_native_consumer_view_packed_weight_descriptor_read_hash,
+          u64_bytes),
+      "hipMalloc future_native_consumer_view_packed_weight_descriptor_read_hash");
+  hip_check(
+      hipMalloc(
+          &d_future_native_consumer_view_scale_metadata_handle_read_ok,
+          u32_bytes),
+      "hipMalloc future_native_consumer_view_scale_metadata_handle_read_ok");
+  hip_check(
+      hipMalloc(
+          &d_future_native_consumer_view_scale_metadata_handle_read_hash,
+          u64_bytes),
+      "hipMalloc future_native_consumer_view_scale_metadata_handle_read_hash");
+  hip_check(
+      hipMalloc(
+          &d_future_native_consumer_view_aux_metadata_handle_read_ok,
+          u32_bytes),
+      "hipMalloc future_native_consumer_view_aux_metadata_handle_read_ok");
+  hip_check(
+      hipMalloc(
+          &d_future_native_consumer_view_aux_metadata_handle_read_hash,
+          u64_bytes),
+      "hipMalloc future_native_consumer_view_aux_metadata_handle_read_hash");
   hip_check(hipMemcpy(d_descriptor, descriptor.data(), u64_bytes, hipMemcpyHostToDevice), "copy descriptor");
   hip_check(hipMemcpy(d_packed, packed.data(), u64_bytes, hipMemcpyHostToDevice), "copy packed");
   hip_check(hipMemcpy(d_scale, scale.data(), u64_bytes, hipMemcpyHostToDevice), "copy scale");
@@ -1295,6 +1462,57 @@ int main(int argc, char** argv) {
   hip_check(
       hipMemset(d_future_native_arg_slot_single_field_mirror_hash, 0, u64_bytes),
       "memset future_native_arg_slot_single_field_mirror_hash");
+  hip_check(
+      hipMemset(d_future_native_consumer_view_ok, 0, u32_bytes),
+      "memset future_native_consumer_view_ok");
+  hip_check(
+      hipMemset(d_future_native_consumer_view_hash, 0, u64_bytes),
+      "memset future_native_consumer_view_hash");
+  hip_check(
+      hipMemset(d_future_native_consumer_view_descriptor_ptr_read_ok, 0, u32_bytes),
+      "memset future_native_consumer_view_descriptor_ptr_read_ok");
+  hip_check(
+      hipMemset(
+          d_future_native_consumer_view_descriptor_ptr_read_hash,
+          0,
+          u64_bytes),
+      "memset future_native_consumer_view_descriptor_ptr_read_hash");
+  hip_check(
+      hipMemset(
+          d_future_native_consumer_view_packed_weight_descriptor_read_ok,
+          0,
+          u32_bytes),
+      "memset future_native_consumer_view_packed_weight_descriptor_read_ok");
+  hip_check(
+      hipMemset(
+          d_future_native_consumer_view_packed_weight_descriptor_read_hash,
+          0,
+          u64_bytes),
+      "memset future_native_consumer_view_packed_weight_descriptor_read_hash");
+  hip_check(
+      hipMemset(
+          d_future_native_consumer_view_scale_metadata_handle_read_ok,
+          0,
+          u32_bytes),
+      "memset future_native_consumer_view_scale_metadata_handle_read_ok");
+  hip_check(
+      hipMemset(
+          d_future_native_consumer_view_scale_metadata_handle_read_hash,
+          0,
+          u64_bytes),
+      "memset future_native_consumer_view_scale_metadata_handle_read_hash");
+  hip_check(
+      hipMemset(
+          d_future_native_consumer_view_aux_metadata_handle_read_ok,
+          0,
+          u32_bytes),
+      "memset future_native_consumer_view_aux_metadata_handle_read_ok");
+  hip_check(
+      hipMemset(
+          d_future_native_consumer_view_aux_metadata_handle_read_hash,
+          0,
+          u64_bytes),
+      "memset future_native_consumer_view_aux_metadata_handle_read_hash");
 
   PremapKernelSideTypedConsumerAbiV1 table;
   table.typed_schema_hash_hi = kTypedSchemaHashHi;
@@ -1648,6 +1866,39 @@ int main(int argc, char** argv) {
       d_future_native_arg_slot_single_field_mirror_hash);
   hip_check(hipGetLastError(), "future native arg-slot consumer launch");
   hip_check(hipDeviceSynchronize(), "future native arg-slot consumer sync");
+
+#if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_VIEW_ABI)
+  PremapFutureKernelNativeConsumerViewV1 future_native_consumer_view;
+  future_native_consumer_view.params = future_native_params;
+  future_native_consumer_view.abi_version =
+      kPremapFutureKernelNativeConsumerViewAbiV1Version;
+  future_native_consumer_view.source_packet_chain_depth = 3;
+  future_native_consumer_view.row_offset = dispatch_row_offset;
+  future_native_consumer_view.row_limit = dispatch_row_limit;
+  future_native_consumer_view.rows_per_program = static_cast<uint32_t>(threads);
+  future_native_consumer_view.payload_bytes = 0;
+  future_native_consumer_view.flags =
+      kPremapFutureKernelSideConsumerArgsV1RequiredFlags;
+  hipLaunchKernelGGL(
+      typed_consumer_future_native_consumer_view_kernel,
+      dim3(dispatch_blocks),
+      dim3(threads),
+      0,
+      0,
+      future_native_consumer_view,
+      d_future_native_consumer_view_ok,
+      d_future_native_consumer_view_hash,
+      d_future_native_consumer_view_descriptor_ptr_read_ok,
+      d_future_native_consumer_view_descriptor_ptr_read_hash,
+      d_future_native_consumer_view_packed_weight_descriptor_read_ok,
+      d_future_native_consumer_view_packed_weight_descriptor_read_hash,
+      d_future_native_consumer_view_scale_metadata_handle_read_ok,
+      d_future_native_consumer_view_scale_metadata_handle_read_hash,
+      d_future_native_consumer_view_aux_metadata_handle_read_ok,
+      d_future_native_consumer_view_aux_metadata_handle_read_hash);
+  hip_check(hipGetLastError(), "future native consumer view launch");
+  hip_check(hipDeviceSynchronize(), "future native consumer view sync");
+#endif
 #endif
 #endif
 #endif
@@ -1703,6 +1954,20 @@ int main(int argc, char** argv) {
   std::vector<uint64_t> future_native_arg_slot_aux_metadata_handle_read_hashes(rows);
   std::vector<uint32_t> future_native_arg_slot_single_field_mirror_ok(rows);
   std::vector<uint64_t> future_native_arg_slot_single_field_mirror_hashes(rows);
+  std::vector<uint32_t> future_native_consumer_view_ok(rows);
+  std::vector<uint64_t> future_native_consumer_view_hashes(rows);
+  std::vector<uint32_t> future_native_consumer_view_descriptor_ptr_read_ok(rows);
+  std::vector<uint64_t> future_native_consumer_view_descriptor_ptr_read_hashes(rows);
+  std::vector<uint32_t>
+      future_native_consumer_view_packed_weight_descriptor_read_ok(rows);
+  std::vector<uint64_t>
+      future_native_consumer_view_packed_weight_descriptor_read_hashes(rows);
+  std::vector<uint32_t>
+      future_native_consumer_view_scale_metadata_handle_read_ok(rows);
+  std::vector<uint64_t>
+      future_native_consumer_view_scale_metadata_handle_read_hashes(rows);
+  std::vector<uint32_t> future_native_consumer_view_aux_metadata_handle_read_ok(rows);
+  std::vector<uint64_t> future_native_consumer_view_aux_metadata_handle_read_hashes(rows);
   hip_check(hipMemcpy(ok.data(), d_ok, u32_bytes, hipMemcpyDeviceToHost), "copy ok");
   hip_check(hipMemcpy(hashes.data(), d_hash, u64_bytes, hipMemcpyDeviceToHost), "copy hash");
   hip_check(
@@ -2006,6 +2271,76 @@ int main(int argc, char** argv) {
           u64_bytes,
           hipMemcpyDeviceToHost),
       "copy future_native_arg_slot_single_field_mirror_hash");
+  hip_check(
+      hipMemcpy(
+          future_native_consumer_view_ok.data(),
+          d_future_native_consumer_view_ok,
+          u32_bytes,
+          hipMemcpyDeviceToHost),
+      "copy future_native_consumer_view_ok");
+  hip_check(
+      hipMemcpy(
+          future_native_consumer_view_hashes.data(),
+          d_future_native_consumer_view_hash,
+          u64_bytes,
+          hipMemcpyDeviceToHost),
+      "copy future_native_consumer_view_hash");
+  hip_check(
+      hipMemcpy(
+          future_native_consumer_view_descriptor_ptr_read_ok.data(),
+          d_future_native_consumer_view_descriptor_ptr_read_ok,
+          u32_bytes,
+          hipMemcpyDeviceToHost),
+      "copy future_native_consumer_view_descriptor_ptr_read_ok");
+  hip_check(
+      hipMemcpy(
+          future_native_consumer_view_descriptor_ptr_read_hashes.data(),
+          d_future_native_consumer_view_descriptor_ptr_read_hash,
+          u64_bytes,
+          hipMemcpyDeviceToHost),
+      "copy future_native_consumer_view_descriptor_ptr_read_hash");
+  hip_check(
+      hipMemcpy(
+          future_native_consumer_view_packed_weight_descriptor_read_ok.data(),
+          d_future_native_consumer_view_packed_weight_descriptor_read_ok,
+          u32_bytes,
+          hipMemcpyDeviceToHost),
+      "copy future_native_consumer_view_packed_weight_descriptor_read_ok");
+  hip_check(
+      hipMemcpy(
+          future_native_consumer_view_packed_weight_descriptor_read_hashes.data(),
+          d_future_native_consumer_view_packed_weight_descriptor_read_hash,
+          u64_bytes,
+          hipMemcpyDeviceToHost),
+      "copy future_native_consumer_view_packed_weight_descriptor_read_hash");
+  hip_check(
+      hipMemcpy(
+          future_native_consumer_view_scale_metadata_handle_read_ok.data(),
+          d_future_native_consumer_view_scale_metadata_handle_read_ok,
+          u32_bytes,
+          hipMemcpyDeviceToHost),
+      "copy future_native_consumer_view_scale_metadata_handle_read_ok");
+  hip_check(
+      hipMemcpy(
+          future_native_consumer_view_scale_metadata_handle_read_hashes.data(),
+          d_future_native_consumer_view_scale_metadata_handle_read_hash,
+          u64_bytes,
+          hipMemcpyDeviceToHost),
+      "copy future_native_consumer_view_scale_metadata_handle_read_hash");
+  hip_check(
+      hipMemcpy(
+          future_native_consumer_view_aux_metadata_handle_read_ok.data(),
+          d_future_native_consumer_view_aux_metadata_handle_read_ok,
+          u32_bytes,
+          hipMemcpyDeviceToHost),
+      "copy future_native_consumer_view_aux_metadata_handle_read_ok");
+  hip_check(
+      hipMemcpy(
+          future_native_consumer_view_aux_metadata_handle_read_hashes.data(),
+          d_future_native_consumer_view_aux_metadata_handle_read_hash,
+          u64_bytes,
+          hipMemcpyDeviceToHost),
+      "copy future_native_consumer_view_aux_metadata_handle_read_hash");
 
   uint64_t hash_acc = 0;
   uint64_t single_field_mirror_hash_acc = 0;
@@ -2031,6 +2366,11 @@ int main(int argc, char** argv) {
   uint64_t future_native_arg_slot_scale_metadata_handle_read_hash_acc = 0;
   uint64_t future_native_arg_slot_aux_metadata_handle_read_hash_acc = 0;
   uint64_t future_native_arg_slot_single_field_mirror_hash_acc = 0;
+  uint64_t future_native_consumer_view_hash_acc = 0;
+  uint64_t future_native_consumer_view_descriptor_ptr_read_hash_acc = 0;
+  uint64_t future_native_consumer_view_packed_weight_descriptor_read_hash_acc = 0;
+  uint64_t future_native_consumer_view_scale_metadata_handle_read_hash_acc = 0;
+  uint64_t future_native_consumer_view_aux_metadata_handle_read_hash_acc = 0;
   int ok_count = 0;
   int single_field_mirror_ok_count = 0;
   int kernel_side_consumer_path_ok_count = 0;
@@ -2052,6 +2392,11 @@ int main(int argc, char** argv) {
   int future_native_arg_slot_scale_metadata_handle_read_ok_count = 0;
   int future_native_arg_slot_aux_metadata_handle_read_ok_count = 0;
   int future_native_arg_slot_single_field_mirror_ok_count = 0;
+  int future_native_consumer_view_ok_count = 0;
+  int future_native_consumer_view_descriptor_ptr_read_ok_count = 0;
+  int future_native_consumer_view_packed_weight_descriptor_read_ok_count = 0;
+  int future_native_consumer_view_scale_metadata_handle_read_ok_count = 0;
+  int future_native_consumer_view_aux_metadata_handle_read_ok_count = 0;
   for (int i = 0; i < rows; ++i) {
     ok_count += ok[i] == 1 ? 1 : 0;
     hash_acc ^= mix64(hashes[i] + static_cast<uint64_t>(i));
@@ -2175,6 +2520,34 @@ int main(int argc, char** argv) {
     future_native_arg_slot_single_field_mirror_hash_acc ^=
         mix64(
             future_native_arg_slot_single_field_mirror_hashes[i] +
+            static_cast<uint64_t>(i));
+    future_native_consumer_view_ok_count +=
+        future_native_consumer_view_ok[i] == 1 ? 1 : 0;
+    future_native_consumer_view_hash_acc ^=
+        mix64(future_native_consumer_view_hashes[i] + static_cast<uint64_t>(i));
+    future_native_consumer_view_descriptor_ptr_read_ok_count +=
+        future_native_consumer_view_descriptor_ptr_read_ok[i] == 1 ? 1 : 0;
+    future_native_consumer_view_descriptor_ptr_read_hash_acc ^=
+        mix64(
+            future_native_consumer_view_descriptor_ptr_read_hashes[i] +
+            static_cast<uint64_t>(i));
+    future_native_consumer_view_packed_weight_descriptor_read_ok_count +=
+        future_native_consumer_view_packed_weight_descriptor_read_ok[i] == 1 ? 1 : 0;
+    future_native_consumer_view_packed_weight_descriptor_read_hash_acc ^=
+        mix64(
+            future_native_consumer_view_packed_weight_descriptor_read_hashes[i] +
+            static_cast<uint64_t>(i));
+    future_native_consumer_view_scale_metadata_handle_read_ok_count +=
+        future_native_consumer_view_scale_metadata_handle_read_ok[i] == 1 ? 1 : 0;
+    future_native_consumer_view_scale_metadata_handle_read_hash_acc ^=
+        mix64(
+            future_native_consumer_view_scale_metadata_handle_read_hashes[i] +
+            static_cast<uint64_t>(i));
+    future_native_consumer_view_aux_metadata_handle_read_ok_count +=
+        future_native_consumer_view_aux_metadata_handle_read_ok[i] == 1 ? 1 : 0;
+    future_native_consumer_view_aux_metadata_handle_read_hash_acc ^=
+        mix64(
+            future_native_consumer_view_aux_metadata_handle_read_hashes[i] +
             static_cast<uint64_t>(i));
   }
   const int error_count = rows - ok_count;
@@ -2402,6 +2775,53 @@ int main(int argc, char** argv) {
           ? future_native_dispatch_active_rows -
                 future_native_arg_slot_single_field_mirror_ok_count
           : 0;
+  const bool future_native_consumer_view_checked =
+#if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_VIEW_ABI)
+      true;
+#else
+      false;
+#endif
+  const int future_native_consumer_view_row_count =
+      future_native_consumer_view_checked
+          ? future_native_dispatch_active_rows
+          : 0;
+  const int future_native_consumer_view_error_count =
+      future_native_consumer_view_checked
+          ? future_native_dispatch_active_rows -
+                future_native_consumer_view_ok_count
+          : 0;
+  const int future_native_consumer_view_descriptor_ptr_read_row_count =
+      future_native_consumer_view_checked ? future_native_dispatch_active_rows : 0;
+  const int future_native_consumer_view_packed_weight_descriptor_read_row_count =
+      future_native_consumer_view_checked ? future_native_dispatch_active_rows : 0;
+  const int future_native_consumer_view_scale_metadata_handle_read_row_count =
+      future_native_consumer_view_checked ? future_native_dispatch_active_rows : 0;
+  const int future_native_consumer_view_aux_metadata_handle_read_row_count =
+      future_native_consumer_view_checked &&
+              (future_kernel_consumer_args_field_mask &
+               kPremapFutureKernelSideConsumerFieldMaskAuxMetadataHandle) != 0
+          ? future_native_dispatch_active_rows
+          : 0;
+  const int future_native_consumer_view_descriptor_ptr_read_error_count =
+      future_native_consumer_view_checked
+          ? future_native_consumer_view_descriptor_ptr_read_row_count -
+                future_native_consumer_view_descriptor_ptr_read_ok_count
+          : 0;
+  const int future_native_consumer_view_packed_weight_descriptor_read_error_count =
+      future_native_consumer_view_checked
+          ? future_native_consumer_view_packed_weight_descriptor_read_row_count -
+                future_native_consumer_view_packed_weight_descriptor_read_ok_count
+          : 0;
+  const int future_native_consumer_view_scale_metadata_handle_read_error_count =
+      future_native_consumer_view_checked
+          ? future_native_consumer_view_scale_metadata_handle_read_row_count -
+                future_native_consumer_view_scale_metadata_handle_read_ok_count
+          : 0;
+  const int future_native_consumer_view_aux_metadata_handle_read_error_count =
+      future_native_consumer_view_checked
+          ? future_native_consumer_view_aux_metadata_handle_read_row_count -
+                future_native_consumer_view_aux_metadata_handle_read_ok_count
+          : 0;
   const bool all_ok =
       error_count == 0 && future_kernel_consumer_args_error_count == 0 &&
       future_kernel_single_field_mirror_error_count == 0 &&
@@ -2419,7 +2839,12 @@ int main(int argc, char** argv) {
       future_native_arg_slot_packed_weight_descriptor_read_error_count == 0 &&
       future_native_arg_slot_scale_metadata_handle_read_error_count == 0 &&
       future_native_arg_slot_aux_metadata_handle_read_error_count == 0 &&
-      future_native_arg_slot_single_field_mirror_error_count == 0;
+      future_native_arg_slot_single_field_mirror_error_count == 0 &&
+      future_native_consumer_view_error_count == 0 &&
+      future_native_consumer_view_descriptor_ptr_read_error_count == 0 &&
+      future_native_consumer_view_packed_weight_descriptor_read_error_count == 0 &&
+      future_native_consumer_view_scale_metadata_handle_read_error_count == 0 &&
+      future_native_consumer_view_aux_metadata_handle_read_error_count == 0;
 
   hip_check(hipFree(d_descriptor), "hipFree descriptor");
   hip_check(hipFree(d_packed), "hipFree packed");
@@ -2558,6 +2983,36 @@ int main(int argc, char** argv) {
   hip_check(
       hipFree(d_future_native_arg_slot_single_field_mirror_hash),
       "hipFree future_native_arg_slot_single_field_mirror_hash");
+  hip_check(
+      hipFree(d_future_native_consumer_view_ok),
+      "hipFree future_native_consumer_view_ok");
+  hip_check(
+      hipFree(d_future_native_consumer_view_hash),
+      "hipFree future_native_consumer_view_hash");
+  hip_check(
+      hipFree(d_future_native_consumer_view_descriptor_ptr_read_ok),
+      "hipFree future_native_consumer_view_descriptor_ptr_read_ok");
+  hip_check(
+      hipFree(d_future_native_consumer_view_descriptor_ptr_read_hash),
+      "hipFree future_native_consumer_view_descriptor_ptr_read_hash");
+  hip_check(
+      hipFree(d_future_native_consumer_view_packed_weight_descriptor_read_ok),
+      "hipFree future_native_consumer_view_packed_weight_descriptor_read_ok");
+  hip_check(
+      hipFree(d_future_native_consumer_view_packed_weight_descriptor_read_hash),
+      "hipFree future_native_consumer_view_packed_weight_descriptor_read_hash");
+  hip_check(
+      hipFree(d_future_native_consumer_view_scale_metadata_handle_read_ok),
+      "hipFree future_native_consumer_view_scale_metadata_handle_read_ok");
+  hip_check(
+      hipFree(d_future_native_consumer_view_scale_metadata_handle_read_hash),
+      "hipFree future_native_consumer_view_scale_metadata_handle_read_hash");
+  hip_check(
+      hipFree(d_future_native_consumer_view_aux_metadata_handle_read_ok),
+      "hipFree future_native_consumer_view_aux_metadata_handle_read_ok");
+  hip_check(
+      hipFree(d_future_native_consumer_view_aux_metadata_handle_read_hash),
+      "hipFree future_native_consumer_view_aux_metadata_handle_read_hash");
   if (d_future_native_dispatch_packet != nullptr) {
     hip_check(
         hipFree(d_future_native_dispatch_packet),
@@ -3242,6 +3697,116 @@ int main(int argc, char** argv) {
   std::cout << ",\"future_kernel_native_arg_slot_consumer_changes_kernel_launch_args\":false";
   std::cout << ",\"future_kernel_native_arg_slot_consumer_current_wna16_arg_compatible\":false";
   std::cout << ",\"future_kernel_native_arg_slot_consumer_requires_wna16_arg_reinterpretation\":false";
+  std::cout << ",\"future_kernel_native_consumer_view_abi_name\":\""
+            << kPremapFutureKernelNativeConsumerViewAbiV1Name << "\"";
+  std::cout << ",\"future_kernel_native_consumer_view_checked\":"
+            << (future_native_consumer_view_checked ? "true" : "false");
+  std::cout << ",\"future_kernel_native_consumer_view_mode\":\""
+            << kPremapFutureKernelNativeConsumerViewAbiV1Mode << "\"";
+  std::cout << ",\"future_kernel_native_consumer_view_source\":\""
+            << kPremapFutureKernelNativeConsumerViewAbiV1Source << "\"";
+  std::cout << ",\"future_kernel_native_consumer_view_version\":"
+            << kPremapFutureKernelNativeConsumerViewAbiV1Version;
+  std::cout << ",\"future_kernel_native_consumer_view_struct_size\":"
+            << sizeof(PremapFutureKernelNativeConsumerViewV1);
+  std::cout << ",\"future_kernel_native_consumer_view_struct_align\":"
+            << alignof(PremapFutureKernelNativeConsumerViewV1);
+  std::cout << ",\"future_kernel_native_consumer_view_result_struct_size\":"
+            << sizeof(PremapFutureKernelNativeConsumerViewResultV1);
+  std::cout << ",\"future_kernel_native_consumer_view_result_struct_align\":"
+            << alignof(PremapFutureKernelNativeConsumerViewResultV1);
+  std::cout << ",\"future_kernel_native_consumer_view_offset_params\":"
+            << offsetof(PremapFutureKernelNativeConsumerViewV1, params);
+  std::cout << ",\"future_kernel_native_consumer_view_offset_abi_version\":"
+            << offsetof(PremapFutureKernelNativeConsumerViewV1, abi_version);
+  std::cout << ",\"future_kernel_native_consumer_view_offset_source_packet_chain_depth\":"
+            << offsetof(PremapFutureKernelNativeConsumerViewV1, source_packet_chain_depth);
+  std::cout << ",\"future_kernel_native_consumer_view_offset_row_offset\":"
+            << offsetof(PremapFutureKernelNativeConsumerViewV1, row_offset);
+  std::cout << ",\"future_kernel_native_consumer_view_offset_row_limit\":"
+            << offsetof(PremapFutureKernelNativeConsumerViewV1, row_limit);
+  std::cout << ",\"future_kernel_native_consumer_view_offset_rows_per_program\":"
+            << offsetof(PremapFutureKernelNativeConsumerViewV1, rows_per_program);
+  std::cout << ",\"future_kernel_native_consumer_view_offset_payload_bytes\":"
+            << offsetof(PremapFutureKernelNativeConsumerViewV1, payload_bytes);
+  std::cout << ",\"future_kernel_native_consumer_view_offset_flags\":"
+            << offsetof(PremapFutureKernelNativeConsumerViewV1, flags);
+  std::cout << ",\"future_kernel_native_consumer_view_source_packet_chain_depth\":"
+            << (future_native_consumer_view_checked ? 3 : 0);
+  std::cout << ",\"future_kernel_native_consumer_view_row_offset\":"
+            << (future_native_consumer_view_checked ? dispatch_row_offset : 0);
+  std::cout << ",\"future_kernel_native_consumer_view_row_limit\":"
+            << (future_native_consumer_view_checked ? dispatch_row_limit : 0);
+  std::cout << ",\"future_kernel_native_consumer_view_rows_per_program\":"
+            << (future_native_consumer_view_checked ? threads : 0);
+  std::cout << ",\"future_kernel_native_consumer_view_row_count\":"
+            << future_native_consumer_view_row_count;
+  std::cout << ",\"future_kernel_native_consumer_view_row_ok_count\":"
+            << (future_native_consumer_view_checked
+                    ? future_native_consumer_view_ok_count
+                    : 0);
+  std::cout << ",\"future_kernel_native_consumer_view_error_count\":"
+            << future_native_consumer_view_error_count;
+  std::cout << ",\"future_kernel_native_consumer_view_hash_accumulator\":\""
+            << std::hex << future_native_consumer_view_hash_acc
+            << std::dec << "\"";
+  std::cout << ",\"future_kernel_native_consumer_view_descriptor_ptr_read_row_count\":"
+            << future_native_consumer_view_descriptor_ptr_read_row_count;
+  std::cout << ",\"future_kernel_native_consumer_view_descriptor_ptr_read_row_ok_count\":"
+            << (future_native_consumer_view_checked
+                    ? future_native_consumer_view_descriptor_ptr_read_ok_count
+                    : 0);
+  std::cout << ",\"future_kernel_native_consumer_view_descriptor_ptr_read_error_count\":"
+            << future_native_consumer_view_descriptor_ptr_read_error_count;
+  std::cout << ",\"future_kernel_native_consumer_view_descriptor_ptr_read_hash_accumulator\":\""
+            << std::hex << future_native_consumer_view_descriptor_ptr_read_hash_acc
+            << std::dec << "\"";
+  std::cout << ",\"future_kernel_native_consumer_view_packed_weight_descriptor_read_row_count\":"
+            << future_native_consumer_view_packed_weight_descriptor_read_row_count;
+  std::cout << ",\"future_kernel_native_consumer_view_packed_weight_descriptor_read_row_ok_count\":"
+            << (future_native_consumer_view_checked
+                    ? future_native_consumer_view_packed_weight_descriptor_read_ok_count
+                    : 0);
+  std::cout << ",\"future_kernel_native_consumer_view_packed_weight_descriptor_read_error_count\":"
+            << future_native_consumer_view_packed_weight_descriptor_read_error_count;
+  std::cout << ",\"future_kernel_native_consumer_view_packed_weight_descriptor_read_hash_accumulator\":\""
+            << std::hex
+            << future_native_consumer_view_packed_weight_descriptor_read_hash_acc
+            << std::dec << "\"";
+  std::cout << ",\"future_kernel_native_consumer_view_scale_metadata_handle_read_row_count\":"
+            << future_native_consumer_view_scale_metadata_handle_read_row_count;
+  std::cout << ",\"future_kernel_native_consumer_view_scale_metadata_handle_read_row_ok_count\":"
+            << (future_native_consumer_view_checked
+                    ? future_native_consumer_view_scale_metadata_handle_read_ok_count
+                    : 0);
+  std::cout << ",\"future_kernel_native_consumer_view_scale_metadata_handle_read_error_count\":"
+            << future_native_consumer_view_scale_metadata_handle_read_error_count;
+  std::cout << ",\"future_kernel_native_consumer_view_scale_metadata_handle_read_hash_accumulator\":\""
+            << std::hex
+            << future_native_consumer_view_scale_metadata_handle_read_hash_acc
+            << std::dec << "\"";
+  std::cout << ",\"future_kernel_native_consumer_view_aux_metadata_handle_read_row_count\":"
+            << future_native_consumer_view_aux_metadata_handle_read_row_count;
+  std::cout << ",\"future_kernel_native_consumer_view_aux_metadata_handle_read_row_ok_count\":"
+            << (future_native_consumer_view_checked
+                    ? future_native_consumer_view_aux_metadata_handle_read_ok_count
+                    : 0);
+  std::cout << ",\"future_kernel_native_consumer_view_aux_metadata_handle_read_error_count\":"
+            << future_native_consumer_view_aux_metadata_handle_read_error_count;
+  std::cout << ",\"future_kernel_native_consumer_view_aux_metadata_handle_read_hash_accumulator\":\""
+            << std::hex << future_native_consumer_view_aux_metadata_handle_read_hash_acc
+            << std::dec << "\"";
+  std::cout << ",\"future_kernel_native_consumer_view_field_mask\":"
+            << future_kernel_consumer_args_field_mask;
+  std::cout << ",\"future_kernel_native_consumer_view_required_field_mask\":"
+            << kPremapFutureKernelSideConsumerFieldMaskRequired;
+  std::cout << ",\"future_kernel_native_consumer_view_payload_bytes\":0";
+  std::cout << ",\"future_kernel_native_consumer_view_payload_deref_allowed\":false";
+  std::cout << ",\"future_kernel_native_consumer_view_passed_to_kernel\":false";
+  std::cout << ",\"future_kernel_native_consumer_view_kernel_arg_pass_allowed\":false";
+  std::cout << ",\"future_kernel_native_consumer_view_changes_kernel_launch_args\":false";
+  std::cout << ",\"future_kernel_native_consumer_view_current_wna16_arg_compatible\":false";
+  std::cout << ",\"future_kernel_native_consumer_view_requires_wna16_arg_reinterpretation\":false";
   std::cout << ",\"typed_schema_hash_hi\":\"" << std::hex << kTypedSchemaHashHi << std::dec << "\"";
   std::cout << ",\"typed_schema_hash_lo\":\"" << std::hex << kTypedSchemaHashLo << std::dec << "\"";
   std::cout << ",\"aux_pointer_present\":" << (args.omit_aux_pointer ? "false" : "true");
