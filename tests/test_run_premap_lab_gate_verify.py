@@ -107,6 +107,7 @@ def test_status_failures_reject_kernel_boundary_mutation():
             "passed": True,
             "failures": [],
             "require_child_artifacts": True,
+            "require_non_degenerate_windows": True,
             "expected_window_size": 512,
             "windows_checked": ["full", "head", "middle", "tail"],
         },
@@ -161,6 +162,7 @@ def test_status_failures_reject_tail_checker_without_tail_requirement():
             "passed": True,
             "failures": [],
             "require_child_artifacts": True,
+            "require_non_degenerate_windows": True,
             "expected_window_size": 512,
             "windows_checked": ["full", "head", "middle", "tail"],
         },
@@ -215,6 +217,7 @@ def test_status_failures_reject_window_sweep_checker_without_child_artifacts():
             "passed": True,
             "failures": [],
             "require_child_artifacts": False,
+            "require_non_degenerate_windows": True,
             "expected_window_size": 512,
             "windows_checked": ["full", "head", "middle", "tail"],
         },
@@ -223,6 +226,61 @@ def test_status_failures_reject_window_sweep_checker_without_child_artifacts():
     failures = _status_failures(statuses)
 
     assert "window_sweep_check_did_not_require_child_artifacts" in failures
+
+
+def test_status_failures_reject_window_sweep_checker_without_nondegenerate_gate():
+    statuses = {
+        "default_closure": {
+            "exists": True,
+            "passed": True,
+            "failures": [],
+            "payload_bytes": 0,
+            "passed_to_kernel": False,
+            "changes_kernel_launch_args": False,
+            "tail_window_probe_enabled": False,
+        },
+        "default_closure_check": {
+            "exists": True,
+            "passed": True,
+            "failures": [],
+        },
+        "tail_window_closure": {
+            "exists": True,
+            "passed": True,
+            "failures": [],
+            "payload_bytes": 0,
+            "passed_to_kernel": False,
+            "changes_kernel_launch_args": False,
+            "tail_window_probe_enabled": True,
+        },
+        "tail_window_closure_check": {
+            "exists": True,
+            "passed": True,
+            "failures": [],
+            "require_tail_window_probe": True,
+        },
+        "window_sweep": {
+            "exists": True,
+            "passed": True,
+            "failures": [],
+            "payload_bytes": 0,
+            "passed_to_kernel": False,
+            "changes_kernel_launch_args": False,
+        },
+        "window_sweep_check": {
+            "exists": True,
+            "passed": True,
+            "failures": [],
+            "require_child_artifacts": True,
+            "require_non_degenerate_windows": False,
+            "expected_window_size": 512,
+            "windows_checked": ["full", "head", "middle", "tail"],
+        },
+    }
+
+    failures = _status_failures(statuses)
+
+    assert "window_sweep_check_did_not_require_non_degenerate_windows" in failures
 
 
 def test_run_premap_lab_gate_verify_main_writes_report(tmp_path: Path):

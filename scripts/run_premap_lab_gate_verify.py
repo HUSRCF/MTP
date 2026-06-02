@@ -87,6 +87,9 @@ def _load_status(path: Path) -> dict[str, Any]:
         "expected_window_size": payload.get("expected_window_size"),
         "expected_block_threads": payload.get("expected_block_threads"),
         "require_child_artifacts": payload.get("require_child_artifacts"),
+        "require_non_degenerate_windows": payload.get(
+            "require_non_degenerate_windows"
+        ),
         "windows_checked": payload.get("windows_checked"),
     }
 
@@ -120,6 +123,8 @@ def _status_failures(statuses: dict[str, dict[str, Any]]) -> list[str]:
     window_check = statuses.get("window_sweep_check", {})
     if window_check.get("require_child_artifacts") is not True:
         failures.append("window_sweep_check_did_not_require_child_artifacts")
+    if window_check.get("require_non_degenerate_windows") is not True:
+        failures.append("window_sweep_check_did_not_require_non_degenerate_windows")
     if window_check.get("expected_window_size") != 512:
         failures.append("window_sweep_check_window_size_mismatch")
     if window_check.get("windows_checked") != ["full", "head", "middle", "tail"]:

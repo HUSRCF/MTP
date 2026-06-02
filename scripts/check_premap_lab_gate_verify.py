@@ -130,6 +130,8 @@ def check_lab_gate_verify_artifact(
         failures.append("window_sweep_check_window_size_mismatch")
     if window_check.get("require_child_artifacts") is not True:
         failures.append("window_sweep_check_did_not_require_child_artifacts")
+    if window_check.get("require_non_degenerate_windows") is not True:
+        failures.append("window_sweep_check_did_not_require_non_degenerate_windows")
     if window_check.get("windows_checked") != ["full", "head", "middle", "tail"]:
         failures.append("window_sweep_check_windows_checked_mismatch")
 
