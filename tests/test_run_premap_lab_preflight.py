@@ -1490,6 +1490,14 @@ def _online_merged_arg_slot_multiprogram_runner_payload(
         "changes_kernel_launch_args": False,
         "current_wna16_arg_compatible": False,
         "not_a_single_vllm_launch_table": True,
+        "handle_projection_field_names": [
+            "descriptor_ptr",
+            "packed_weight_descriptor",
+            "scale_metadata_handle",
+            "aux_metadata_handle",
+        ],
+        "handle_projection_hashchain_equal": True,
+        "handle_projection_all_handle_fields_checked": True,
         "mirror_field": mirror_field,
         "stub_summary": stub_summary,
     }
@@ -3363,6 +3371,41 @@ def test_premap_lab_preflight_rejects_required_online_merged_runner_window(
     assert (
         "future_kernel_native_arg_slot_online_merged_multiprogram_runner_json:"
         "online_merged_multiprogram_arg_slot_runner_dispatch_offset_not_zero"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_required_online_merged_runner_without_projection_coverage(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    runner_path = (
+        tmp_path
+        / "reports/default_gate_online_merged_future_native_arg_slot_multiprogram_runner.json"
+    )
+    payload = json.loads(runner_path.read_text(encoding="utf-8"))
+    payload["handle_projection_all_handle_fields_checked"] = False
+    runner_path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is False
+    assert "default_readonly_gate_required_evidence_check_failed" in result["failures"]
+    failures = result["default_readonly_gate_required_evidence_check"]["failures"]
+    assert (
+        "future_kernel_native_arg_slot_online_merged_multiprogram_runner_json:"
+        "online_merged_multiprogram_arg_slot_runner_handle_projection_all_fields_unchecked"
     ) in failures
 
 

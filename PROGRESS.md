@@ -78,6 +78,10 @@ handle_projection_field_names =
    aux_metadata_handle]
 ```
 
+The default lab preflight required-evidence validator now also checks these
+runner-level fields directly, so a runner report with a missing or false
+all-field projection marker is rejected before it can satisfy the lab gate.
+
 ## Latest Update: Reproducible Online-Merged Arg-Slot Runner
 
 The online-merged arg-slot canary now has a one-step evidence runner, and the

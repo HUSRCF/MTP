@@ -3326,6 +3326,12 @@ def _validate_future_native_arg_slot_online_merged_multiprogram_runner_evidence(
         failures.append(f"{failure_prefix}_mirror_field_mismatch")
     if evidence.get("not_a_single_vllm_launch_table") is not True:
         failures.append(f"{failure_prefix}_single_launch_flag_mismatch")
+    if evidence.get("handle_projection_hashchain_equal") is not True:
+        failures.append(f"{failure_prefix}_handle_projection_hashchain_not_equal")
+    if evidence.get("handle_projection_field_names") != list(ARG_SLOT_MIRROR_FIELDS):
+        failures.append(f"{failure_prefix}_handle_projection_field_names_mismatch")
+    if evidence.get("handle_projection_all_handle_fields_checked") is not True:
+        failures.append(f"{failure_prefix}_handle_projection_all_fields_unchecked")
     for key, expected_value in {
         "no_payload": True,
         "passed_to_kernel": False,
