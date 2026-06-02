@@ -45,6 +45,27 @@ native_consumer_abi:
   future_kernel_consumer_args_payload_bytes_required: 0
   future_kernel_consumer_args_passed_to_kernel_required: false
   future_kernel_consumer_args_current_wna16_arg_compatible: false
+  future_kernel_consumer_args_layout_reported: true
+  future_kernel_consumer_args_layout_fields:
+    - future_kernel_consumer_args_struct_size
+    - future_kernel_consumer_args_struct_align
+    - future_kernel_consumer_args_result_struct_size
+    - future_kernel_consumer_args_result_struct_align
+    - future_kernel_consumer_args_offset_envelope
+    - future_kernel_consumer_args_offset_field_mask
+    - future_kernel_consumer_args_offset_single_field_mirror_kind
+    - future_kernel_consumer_args_offset_payload_bytes
+    - future_kernel_consumer_args_offset_flags
+  future_kernel_consumer_args_layout_expected:
+    future_kernel_consumer_args_struct_size: 160
+    future_kernel_consumer_args_struct_align: 8
+    future_kernel_consumer_args_result_struct_size: 56
+    future_kernel_consumer_args_result_struct_align: 8
+    future_kernel_consumer_args_offset_envelope: 0
+    future_kernel_consumer_args_offset_field_mask: 144
+    future_kernel_consumer_args_offset_single_field_mirror_kind: 148
+    future_kernel_consumer_args_offset_payload_bytes: 152
+    future_kernel_consumer_args_offset_flags: 156
   future_kernel_args_compatible_consumer_path_name: premap_future_kernel_args_compatible_consumer_path_v1
   future_kernel_args_compatible_consumer_path_struct: PremapFutureKernelArgsCompatibleConsumerPathResultV1
   future_kernel_args_compatible_consumer_path_mode: readonly_future_kernel_args_to_compatible_consumer_path

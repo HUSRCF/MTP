@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from scripts.check_premap_kernel_consumer_schema import (
+    FUTURE_KERNEL_CONSUMER_ARGS_LAYOUT_EXPECTED,
     FUTURE_KERNEL_NATIVE_CONSUMER_ABI_LAYOUT_EXPECTED,
     FUTURE_KERNEL_NATIVE_CONSUMER_ARG_SLOT_ABI_LAYOUT_EXPECTED,
     FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_ABI_LAYOUT_EXPECTED,
@@ -411,6 +412,9 @@ def _check_future_kernel_args_summary(
     for key, expected_value in expected.items():
         if stub.get(key) != expected_value:
             failures.append(f"{prefix}_{key}_mismatch")
+    for key, expected_value in FUTURE_KERNEL_CONSUMER_ARGS_LAYOUT_EXPECTED.items():
+        if stub.get(key) != expected_value:
+            failures.append(f"{prefix}_{key}_mismatch")
     _check_future_field_mask(
         stub,
         prefix=prefix,
@@ -478,6 +482,9 @@ def _check_future_kernel_args_compatible_path_summary(
         "future_kernel_args_compatible_consumer_path_requires_wna16_arg_reinterpretation": False,
     }
     for key, expected_value in expected.items():
+        if stub.get(key) != expected_value:
+            failures.append(f"{prefix}_{key}_mismatch")
+    for key, expected_value in FUTURE_KERNEL_CONSUMER_ARGS_LAYOUT_EXPECTED.items():
         if stub.get(key) != expected_value:
             failures.append(f"{prefix}_{key}_mismatch")
     future_row_count = _int(stub.get("future_kernel_consumer_args_row_count"))

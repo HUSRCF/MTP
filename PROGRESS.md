@@ -25435,3 +25435,69 @@ online-merged optional mirror coverage:
 The required default full-table runner still uses `scale_metadata_handle`;
 the new optional entries only add stricter field-level evidence for the
 future-native typed ABI and do not change the no-op lab gate boundary.
+
+## 2026-06-02 - Future kernel args ABI layout pinned
+
+The future kernel-side consumer args packet is now layout-pinned as an explicit
+ABI contract rather than just a Python-side summary object.  The native typed
+consumer stub reports the `PremapFutureKernelSideConsumerArgsV1` size, alignment,
+result size/alignment, and field offsets for:
+
+```text
+envelope
+field_mask
+single_field_mirror_kind
+payload_bytes
+flags
+```
+
+The schema checker, online canary artifact checker, lab preflight checker, and
+runner tests now require this layout evidence.  The current pinned layout is:
+
+```text
+args struct size / align = 160 / 8
+result struct size / align = 56 / 8
+offset(envelope) = 0
+offset(field_mask) = 144
+offset(single_field_mirror_kind) = 148
+offset(payload_bytes) = 152
+offset(flags) = 156
+```
+
+The refreshed GPU1 32-input online prelaunch native-stub canary passes with
+strict no-defer evidence:
+
+```text
+runner:
+  outputs/reports/premap_kernel_consumer/
+    online_prelaunch_native_stub_canary_arg_slot_32input_hard_hashchain_preflight_32tables.json
+
+artifact check:
+  outputs/reports/premap_kernel_consumer/
+    online_prelaunch_native_stub_canary_artifact_check_arg_slot_32input_hard_hashchain_preflight_32tables.json
+
+passed = true
+artifact_check_passed = true
+final_preflight_passed = true
+online inputs = 32
+extra input checks = 31 / 31
+final_deferred_count = 0
+status_deferred_count = 0
+```
+
+The default lab preflight also passes with no deferred evidence:
+
+```text
+outputs/reports/premap_lab_preflight_default_with_projection_coverage.json
+
+passed = true
+runtime_gate_evidence_deferred_count = 0
+strict_default_gate_evidence_deferred_count = 0
+payload_bytes_required = 0
+passed_to_kernel_required = false
+changes_kernel_launch_args_required = false
+```
+
+This is still a no-op bridge toward a future kernel ABI.  It does not pass
+typed table handles into the current WNA16 kernel, does not move payload, and
+does not reinterpret the existing WNA16 kernel argument layout.

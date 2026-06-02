@@ -10,6 +10,7 @@ from scripts.check_premap_online_native_stub_canary_artifacts import (
     main,
 )
 from scripts.check_premap_kernel_consumer_schema import (
+    FUTURE_KERNEL_CONSUMER_ARGS_LAYOUT_EXPECTED,
     FUTURE_KERNEL_NATIVE_CONSUMER_ABI_LAYOUT_EXPECTED,
     FUTURE_KERNEL_NATIVE_CONSUMER_ARG_SLOT_ABI_LAYOUT_EXPECTED,
     FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_ABI_LAYOUT_EXPECTED,
@@ -147,6 +148,7 @@ def _extra_input_summary(row_count: int = 4) -> dict:
             "future_kernel_consumer_args_row_count": row_count,
             "future_kernel_consumer_args_row_ok_count": row_count,
             "future_kernel_consumer_args_error_count": 0,
+            **FUTURE_KERNEL_CONSUMER_ARGS_LAYOUT_EXPECTED,
             "future_kernel_consumer_args_payload_bytes": 0,
             "future_kernel_consumer_args_passed_to_kernel": False,
             "future_kernel_consumer_args_changes_kernel_launch_args": False,
@@ -564,6 +566,7 @@ def _payloads(root: Path) -> tuple[Path, Path, Path]:
             "future_kernel_consumer_args_row_count": 4,
             "future_kernel_consumer_args_row_ok_count": 4,
             "future_kernel_consumer_args_error_count": 0,
+            **FUTURE_KERNEL_CONSUMER_ARGS_LAYOUT_EXPECTED,
             "future_kernel_consumer_args_payload_bytes": 0,
             "future_kernel_consumer_args_passed_to_kernel": False,
             "future_kernel_consumer_args_changes_kernel_launch_args": False,

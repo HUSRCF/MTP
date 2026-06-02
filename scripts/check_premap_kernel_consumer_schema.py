@@ -93,6 +93,17 @@ ALLOWED_CURRENT_STATUS = {
     "native_stub_pending",
     "native_stub_online_canary_passed",
 }
+FUTURE_KERNEL_CONSUMER_ARGS_LAYOUT_FIELDS = [
+    "future_kernel_consumer_args_struct_size",
+    "future_kernel_consumer_args_struct_align",
+    "future_kernel_consumer_args_result_struct_size",
+    "future_kernel_consumer_args_result_struct_align",
+    "future_kernel_consumer_args_offset_envelope",
+    "future_kernel_consumer_args_offset_field_mask",
+    "future_kernel_consumer_args_offset_single_field_mirror_kind",
+    "future_kernel_consumer_args_offset_payload_bytes",
+    "future_kernel_consumer_args_offset_flags",
+]
 FUTURE_KERNEL_NATIVE_CONSUMER_ABI_LAYOUT_FIELDS = [
     "future_kernel_native_consumer_params_struct_size",
     "future_kernel_native_consumer_params_struct_align",
@@ -164,6 +175,17 @@ FUTURE_KERNEL_NATIVE_CONSUMER_ARG_SLOT_ABI_LAYOUT_FIELDS = [
     "future_kernel_native_arg_slot_consumer_offset_payload_bytes",
     "future_kernel_native_arg_slot_consumer_offset_flags",
 ]
+FUTURE_KERNEL_CONSUMER_ARGS_LAYOUT_EXPECTED = {
+    "future_kernel_consumer_args_struct_size": 160,
+    "future_kernel_consumer_args_struct_align": 8,
+    "future_kernel_consumer_args_result_struct_size": 56,
+    "future_kernel_consumer_args_result_struct_align": 8,
+    "future_kernel_consumer_args_offset_envelope": 0,
+    "future_kernel_consumer_args_offset_field_mask": 144,
+    "future_kernel_consumer_args_offset_single_field_mirror_kind": 148,
+    "future_kernel_consumer_args_offset_payload_bytes": 152,
+    "future_kernel_consumer_args_offset_flags": 156,
+}
 FUTURE_KERNEL_NATIVE_CONSUMER_ABI_LAYOUT_EXPECTED = {
     "future_kernel_native_consumer_params_struct_size": 112,
     "future_kernel_native_consumer_params_struct_align": 8,
@@ -492,6 +514,13 @@ def check_kernel_consumer_schema_artifact(path: Path) -> dict[str, Any]:
         failures.append("native_consumer_abi.row_order_mismatch")
     if native_abi.get("row_count_source") != "consumer_row_count":
         failures.append("native_consumer_abi.row_count_source_mismatch")
+    future_args_layout_fields = _check_layout_field_contract(
+        native_abi=native_abi,
+        failures=failures,
+        reported_key="future_kernel_consumer_args_layout_reported",
+        fields_key="future_kernel_consumer_args_layout_fields",
+        expected_fields=FUTURE_KERNEL_CONSUMER_ARGS_LAYOUT_FIELDS,
+    )
     native_layout_fields = _check_layout_field_contract(
         native_abi=native_abi,
         failures=failures,
@@ -556,6 +585,12 @@ def check_kernel_consumer_schema_artifact(path: Path) -> dict[str, Any]:
         failures=failures,
         expected_key="future_kernel_native_consumer_arg_slot_abi_layout_expected",
         expected_values=FUTURE_KERNEL_NATIVE_CONSUMER_ARG_SLOT_ABI_LAYOUT_EXPECTED,
+    )
+    future_args_layout_expected = _check_layout_expected_contract(
+        native_abi=native_abi,
+        failures=failures,
+        expected_key="future_kernel_consumer_args_layout_expected",
+        expected_values=FUTURE_KERNEL_CONSUMER_ARGS_LAYOUT_EXPECTED,
     )
 
     row_fields = native_abi.get("row_fields")
@@ -750,6 +785,11 @@ def check_kernel_consumer_schema_artifact(path: Path) -> dict[str, Any]:
                 "future_kernel_native_consumer_arg_slot_abi_current_wna16_arg_compatible"
             )
         ),
+        "future_kernel_consumer_args_layout_reported": native_abi.get(
+            "future_kernel_consumer_args_layout_reported"
+        ),
+        "future_kernel_consumer_args_layout_fields": future_args_layout_fields,
+        "future_kernel_consumer_args_layout_expected": future_args_layout_expected,
         "future_kernel_native_consumer_abi_layout_reported": native_abi.get(
             "future_kernel_native_consumer_abi_layout_reported"
         ),

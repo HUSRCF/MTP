@@ -326,6 +326,17 @@ FUTURE_KERNEL_ARGS_COMPATIBLE_PATH_STUB_MACROS = [
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_ARGS_COMPATIBLE_CONSUMER_PATH",
     "MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR",
 ]
+FUTURE_KERNEL_ARGS_LAYOUT_SUMMARY_KEYS = (
+    "future_kernel_consumer_args_struct_size",
+    "future_kernel_consumer_args_struct_align",
+    "future_kernel_consumer_args_result_struct_size",
+    "future_kernel_consumer_args_result_struct_align",
+    "future_kernel_consumer_args_offset_envelope",
+    "future_kernel_consumer_args_offset_field_mask",
+    "future_kernel_consumer_args_offset_single_field_mirror_kind",
+    "future_kernel_consumer_args_offset_payload_bytes",
+    "future_kernel_consumer_args_offset_flags",
+)
 FUTURE_KERNEL_NATIVE_CONSUMER_STUB_MACROS = [
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCHEMA",
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_ROW_ITERATION",
@@ -915,6 +926,23 @@ def _run(
 ) -> dict[str, object]:
     if dry_run:
         return {"cmd": cmd, "returncode": 0, "dry_run": True}
+    if (
+        env.get("MTP_PREMAP_REUSE_EXISTING_STUB_OUTPUTS") == "1"
+        and len(cmd) >= 2
+        and cmd[1] == "scripts/run_premap_typed_consumer_stub.py"
+        and "--output-json" in cmd
+    ):
+        output_index = cmd.index("--output-json") + 1
+        if output_index < len(cmd):
+            output_path = Path(cmd[output_index])
+            output_path = output_path if output_path.is_absolute() else REPO_ROOT / output_path
+            if output_path.exists():
+                return {
+                    "cmd": cmd,
+                    "returncode": 0,
+                    "reused_existing_output": True,
+                    "output_json": str(output_path),
+                }
     result = subprocess.run(
         cmd,
         cwd=REPO_ROOT,
@@ -1749,6 +1777,7 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
                     "future_kernel_consumer_args_single_field_mirror_row_count",
                     "future_kernel_consumer_args_single_field_mirror_row_ok_count",
                     "future_kernel_consumer_args_single_field_mirror_error_count",
+                    *FUTURE_KERNEL_ARGS_LAYOUT_SUMMARY_KEYS,
                     "future_kernel_args_compatible_consumer_path_checked",
                     "future_kernel_args_compatible_consumer_path_name",
                     "future_kernel_args_compatible_consumer_path_mode",
@@ -3638,6 +3667,7 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
                 "future_kernel_consumer_args_name",
                 "future_kernel_consumer_args_mode",
                 "future_kernel_consumer_args_source",
+                *FUTURE_KERNEL_ARGS_LAYOUT_SUMMARY_KEYS,
                 "future_kernel_consumer_args_row_count",
                 "future_kernel_consumer_args_row_ok_count",
                 "future_kernel_consumer_args_error_count",
@@ -3671,6 +3701,7 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
                 "future_kernel_consumer_args_name",
                 "future_kernel_consumer_args_mode",
                 "future_kernel_consumer_args_source",
+                *FUTURE_KERNEL_ARGS_LAYOUT_SUMMARY_KEYS,
                 "future_kernel_consumer_args_row_count",
                 "future_kernel_consumer_args_row_ok_count",
                 "future_kernel_consumer_args_error_count",
@@ -3704,6 +3735,7 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
                 "future_kernel_consumer_args_name",
                 "future_kernel_consumer_args_mode",
                 "future_kernel_consumer_args_source",
+                *FUTURE_KERNEL_ARGS_LAYOUT_SUMMARY_KEYS,
                 "future_kernel_consumer_args_row_count",
                 "future_kernel_consumer_args_row_ok_count",
                 "future_kernel_consumer_args_error_count",
@@ -3737,6 +3769,7 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
                 "future_kernel_consumer_args_name",
                 "future_kernel_consumer_args_mode",
                 "future_kernel_consumer_args_source",
+                *FUTURE_KERNEL_ARGS_LAYOUT_SUMMARY_KEYS,
                 "future_kernel_consumer_args_row_count",
                 "future_kernel_consumer_args_row_ok_count",
                 "future_kernel_consumer_args_error_count",
@@ -3770,6 +3803,7 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
                 "future_kernel_consumer_args_name",
                 "future_kernel_consumer_args_mode",
                 "future_kernel_consumer_args_source",
+                *FUTURE_KERNEL_ARGS_LAYOUT_SUMMARY_KEYS,
                 "future_kernel_consumer_args_row_count",
                 "future_kernel_consumer_args_row_ok_count",
                 "future_kernel_consumer_args_error_count",

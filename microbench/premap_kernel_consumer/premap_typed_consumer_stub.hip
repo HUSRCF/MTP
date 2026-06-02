@@ -2361,6 +2361,24 @@ int main(int argc, char** argv) {
             << kPremapFutureKernelSideConsumerArgsV1Mode << "\"";
   std::cout << ",\"future_kernel_consumer_args_source\":\""
             << kPremapKernelSideTypedConsumerLaunchEnvelopeV1Name << "\"";
+  std::cout << ",\"future_kernel_consumer_args_struct_size\":"
+            << sizeof(PremapFutureKernelSideConsumerArgsV1);
+  std::cout << ",\"future_kernel_consumer_args_struct_align\":"
+            << alignof(PremapFutureKernelSideConsumerArgsV1);
+  std::cout << ",\"future_kernel_consumer_args_result_struct_size\":"
+            << sizeof(PremapFutureKernelSideConsumerResultV1);
+  std::cout << ",\"future_kernel_consumer_args_result_struct_align\":"
+            << alignof(PremapFutureKernelSideConsumerResultV1);
+  std::cout << ",\"future_kernel_consumer_args_offset_envelope\":"
+            << offsetof(PremapFutureKernelSideConsumerArgsV1, envelope);
+  std::cout << ",\"future_kernel_consumer_args_offset_field_mask\":"
+            << offsetof(PremapFutureKernelSideConsumerArgsV1, field_mask);
+  std::cout << ",\"future_kernel_consumer_args_offset_single_field_mirror_kind\":"
+            << offsetof(PremapFutureKernelSideConsumerArgsV1, single_field_mirror_kind);
+  std::cout << ",\"future_kernel_consumer_args_offset_payload_bytes\":"
+            << offsetof(PremapFutureKernelSideConsumerArgsV1, payload_bytes);
+  std::cout << ",\"future_kernel_consumer_args_offset_flags\":"
+            << offsetof(PremapFutureKernelSideConsumerArgsV1, flags);
   std::cout << ",\"future_kernel_consumer_args_row_count\":"
             << future_kernel_consumer_args_row_count;
   std::cout << ",\"future_kernel_consumer_args_row_ok_count\":"

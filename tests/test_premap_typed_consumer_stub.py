@@ -97,6 +97,9 @@ def test_typed_consumer_stub_uses_kernel_side_abi_header():
     assert "typed_consumer_future_native_arg_slot_kernel" in source
     assert "kernel_side_compatible_consumer_checked" in source
     assert "future_kernel_consumer_args_checked" in source
+    assert "future_kernel_consumer_args_struct_size" in source
+    assert "future_kernel_consumer_args_offset_field_mask" in source
+    assert "future_kernel_consumer_args_offset_single_field_mirror_kind" in source
     assert "future_kernel_native_consumer_checked" in source
     assert "future_kernel_native_launch_consumer_checked" in source
     assert "future_kernel_native_dispatch_consumer_checked" in source

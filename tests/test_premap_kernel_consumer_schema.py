@@ -5,6 +5,8 @@ import json
 from pathlib import Path
 
 from scripts.check_premap_kernel_consumer_schema import (
+    FUTURE_KERNEL_CONSUMER_ARGS_LAYOUT_EXPECTED,
+    FUTURE_KERNEL_CONSUMER_ARGS_LAYOUT_FIELDS,
     FUTURE_KERNEL_NATIVE_CONSUMER_ABI_LAYOUT_EXPECTED,
     FUTURE_KERNEL_NATIVE_CONSUMER_ABI_LAYOUT_FIELDS,
     FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_ABI_LAYOUT_EXPECTED,
@@ -55,6 +57,15 @@ def test_kernel_consumer_schema_accepts_valid_artifact(tmp_path: Path) -> None:
     assert (
         result["future_kernel_native_consumer_dispatch_abi_current_wna16_arg_compatible"]
         is False
+    )
+    assert result["future_kernel_consumer_args_layout_reported"] is True
+    assert (
+        result["future_kernel_consumer_args_layout_fields"]
+        == FUTURE_KERNEL_CONSUMER_ARGS_LAYOUT_FIELDS
+    )
+    assert (
+        result["future_kernel_consumer_args_layout_expected"]
+        == FUTURE_KERNEL_CONSUMER_ARGS_LAYOUT_EXPECTED
     )
     assert result["future_kernel_native_consumer_abi_layout_reported"] is True
     assert (
@@ -255,6 +266,23 @@ def test_kernel_consumer_schema_rejects_missing_native_layout_contract(
     ) in result["failures"]
 
 
+def test_kernel_consumer_schema_rejects_missing_future_args_layout_contract(
+    tmp_path: Path,
+) -> None:
+    payload = _valid_schema_payload()
+    payload["native_consumer_abi"].pop("future_kernel_consumer_args_layout_reported")
+    schema_path = tmp_path / "schema.yaml"
+    _write_schema(schema_path, payload)
+
+    result = check_kernel_consumer_schema_artifact(schema_path)
+
+    assert result["passed"] is False
+    assert (
+        "native_consumer_abi.future_kernel_consumer_args_layout_reported_not_true"
+        in result["failures"]
+    )
+
+
 def test_kernel_consumer_schema_rejects_dispatch_layout_field_drift(
     tmp_path: Path,
 ) -> None:
@@ -294,6 +322,28 @@ def test_kernel_consumer_schema_rejects_native_layout_value_drift(
         failure.startswith(
             "native_consumer_abi."
             "future_kernel_native_consumer_abi_layout_expected_mismatch"
+        )
+        for failure in result["failures"]
+    )
+
+
+def test_kernel_consumer_schema_rejects_future_args_layout_value_drift(
+    tmp_path: Path,
+) -> None:
+    payload = _valid_schema_payload()
+    payload["native_consumer_abi"]["future_kernel_consumer_args_layout_expected"][
+        "future_kernel_consumer_args_struct_size"
+    ] = 168
+    schema_path = tmp_path / "schema.yaml"
+    _write_schema(schema_path, payload)
+
+    result = check_kernel_consumer_schema_artifact(schema_path)
+
+    assert result["passed"] is False
+    assert any(
+        failure.startswith(
+            "native_consumer_abi."
+            "future_kernel_consumer_args_layout_expected_mismatch"
         )
         for failure in result["failures"]
     )

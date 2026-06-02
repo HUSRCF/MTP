@@ -11,6 +11,8 @@ from typing import Any
 import yaml
 
 from scripts.check_premap_kernel_consumer_schema import (
+    FUTURE_KERNEL_CONSUMER_ARGS_LAYOUT_EXPECTED,
+    FUTURE_KERNEL_CONSUMER_ARGS_LAYOUT_FIELDS,
     FUTURE_KERNEL_NATIVE_CONSUMER_ABI_LAYOUT_EXPECTED,
     FUTURE_KERNEL_NATIVE_CONSUMER_ABI_LAYOUT_FIELDS,
     FUTURE_KERNEL_NATIVE_CONSUMER_ARG_SLOT_ABI_LAYOUT_EXPECTED,
@@ -1178,6 +1180,9 @@ def _validate_required_evidence_payload(
             for key, expected_value in expected_values.items():
                 if summary.get(key) != expected_value:
                     failures.append(f"{prefix}_{key}_mismatch")
+            for key, expected_value in FUTURE_KERNEL_CONSUMER_ARGS_LAYOUT_EXPECTED.items():
+                if summary.get(key) != expected_value:
+                    failures.append(f"{prefix}_{key}_mismatch")
             failures.extend(
                 _check_future_field_mask_summary(
                     summary,
@@ -1247,6 +1252,9 @@ def _validate_required_evidence_payload(
                 "future_kernel_args_compatible_consumer_path_requires_wna16_arg_reinterpretation": False,
             }
             for key, expected_value in expected_values.items():
+                if summary.get(key) != expected_value:
+                    failures.append(f"{prefix}_{key}_mismatch")
+            for key, expected_value in FUTURE_KERNEL_CONSUMER_ARGS_LAYOUT_EXPECTED.items():
                 if summary.get(key) != expected_value:
                     failures.append(f"{prefix}_{key}_mismatch")
             row_count_value = _int_metric(summary, "row_count")

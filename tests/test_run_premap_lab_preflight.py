@@ -19,6 +19,8 @@ from mtp_expert_prefetch.runtime.cache_manager import (
 from scripts.run_premap_lab_preflight import main, run_premap_lab_preflight
 from scripts.run_premap_lab_preflight import _program_iteration_hash
 from scripts.check_premap_kernel_consumer_schema import (
+    FUTURE_KERNEL_CONSUMER_ARGS_LAYOUT_EXPECTED,
+    FUTURE_KERNEL_CONSUMER_ARGS_LAYOUT_FIELDS,
     FUTURE_KERNEL_NATIVE_CONSUMER_ABI_LAYOUT_EXPECTED,
     FUTURE_KERNEL_NATIVE_CONSUMER_ABI_LAYOUT_FIELDS,
     FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_ABI_LAYOUT_EXPECTED,
@@ -176,6 +178,13 @@ def _valid_schema_payload() -> dict:
             "future_kernel_consumer_args_payload_bytes_required": 0,
             "future_kernel_consumer_args_passed_to_kernel_required": False,
             "future_kernel_consumer_args_current_wna16_arg_compatible": False,
+            "future_kernel_consumer_args_layout_reported": True,
+            "future_kernel_consumer_args_layout_fields": list(
+                FUTURE_KERNEL_CONSUMER_ARGS_LAYOUT_FIELDS
+            ),
+            "future_kernel_consumer_args_layout_expected": dict(
+                FUTURE_KERNEL_CONSUMER_ARGS_LAYOUT_EXPECTED
+            ),
             "future_kernel_args_compatible_consumer_path_name": (
                 "premap_future_kernel_args_compatible_consumer_path_v1"
             ),
@@ -952,6 +961,15 @@ def _runner_future_kernel_args_summary(
             "future_kernel_consumer_args_row_count": 2,
             "future_kernel_consumer_args_row_ok_count": 2,
             "future_kernel_consumer_args_error_count": 0,
+            "future_kernel_consumer_args_struct_size": 160,
+            "future_kernel_consumer_args_struct_align": 8,
+            "future_kernel_consumer_args_result_struct_size": 56,
+            "future_kernel_consumer_args_result_struct_align": 8,
+            "future_kernel_consumer_args_offset_envelope": 0,
+            "future_kernel_consumer_args_offset_field_mask": 144,
+            "future_kernel_consumer_args_offset_single_field_mirror_kind": 148,
+            "future_kernel_consumer_args_offset_payload_bytes": 152,
+            "future_kernel_consumer_args_offset_flags": 156,
             "future_kernel_consumer_args_payload_bytes": 0,
             "future_kernel_consumer_args_passed_to_kernel": False,
             "future_kernel_consumer_args_changes_kernel_launch_args": False,
