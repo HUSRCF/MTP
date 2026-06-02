@@ -44,11 +44,17 @@ def _summary() -> dict[str, object]:
         "default_kernel_consumer_online_merged_multiprogram_dispatch_row_offset": 0,
         "default_kernel_consumer_online_merged_multiprogram_dispatch_row_limit": 1841,
         "default_kernel_consumer_online_merged_multiprogram_dispatch_active_rows": 1841,
+        "default_kernel_consumer_online_merged_multiprogram_device": 1,
+        "default_kernel_consumer_online_merged_multiprogram_mirror_field": (
+            "scale_metadata_handle"
+        ),
+        "default_kernel_consumer_online_merged_multiprogram_not_single_launch_table": True,
         "default_kernel_consumer_online_merged_multiprogram_hashchain_equal": True,
         "default_kernel_consumer_online_merged_multiprogram_all_handle_fields_checked": True,
         "default_kernel_consumer_online_merged_multiprogram_no_payload": True,
         "default_kernel_consumer_online_merged_multiprogram_passed_to_kernel": False,
         "default_kernel_consumer_online_merged_multiprogram_changes_kernel_launch_args": False,
+        "default_kernel_consumer_online_merged_multiprogram_current_wna16_arg_compatible": False,
         "runtime_gate_evidence_deferred_count": 0,
         "strict_default_gate_evidence_deferred_count": 0,
         "default_kernel_consumer_dispatch_runner_final_runtime_gate_evidence_deferred_count": 0,
@@ -86,6 +92,8 @@ def test_check_premap_lab_preflight_summary_accepts_valid_summary() -> None:
     assert result["failures"] == []
     assert result["online_merged_source_count"] == 32
     assert result["online_merged_row_count"] == 1841
+    assert result["online_merged_device"] == 1
+    assert result["online_merged_mirror_field"] == "scale_metadata_handle"
 
 
 def test_check_premap_lab_preflight_summary_rejects_missing_sha() -> None:
@@ -109,6 +117,34 @@ def test_check_premap_lab_preflight_summary_rejects_defer_and_kernel_mutation() 
     assert "strict_default_gate_evidence_deferred_count_not_zero" in result["failures"]
     assert (
         "default_kernel_consumer_online_merged_multiprogram_passed_to_kernel_mismatch"
+        in result["failures"]
+    )
+
+
+def test_check_premap_lab_preflight_summary_rejects_arg_slot_runner_boundary() -> None:
+    summary = _summary()
+    summary["default_kernel_consumer_online_merged_multiprogram_device"] = 0
+    summary["default_kernel_consumer_online_merged_multiprogram_mirror_field"] = (
+        "packed_weight_descriptor"
+    )
+    summary[
+        "default_kernel_consumer_online_merged_multiprogram_not_single_launch_table"
+    ] = False
+    summary[
+        "default_kernel_consumer_online_merged_multiprogram_current_wna16_arg_compatible"
+    ] = True
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is False
+    assert "online_merged_device_not_gpu1" in result["failures"]
+    assert "online_merged_mirror_field_mismatch" in result["failures"]
+    assert (
+        "default_kernel_consumer_online_merged_multiprogram_not_single_launch_table_mismatch"
+        in result["failures"]
+    )
+    assert (
+        "default_kernel_consumer_online_merged_multiprogram_current_wna16_arg_compatible_mismatch"
         in result["failures"]
     )
 

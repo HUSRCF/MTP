@@ -75,6 +75,8 @@ def check_premap_lab_preflight_summary(
         "default_kernel_consumer_online_merged_multiprogram_no_payload": True,
         "default_kernel_consumer_online_merged_multiprogram_passed_to_kernel": False,
         "default_kernel_consumer_online_merged_multiprogram_changes_kernel_launch_args": False,
+        "default_kernel_consumer_online_merged_multiprogram_not_single_launch_table": True,
+        "default_kernel_consumer_online_merged_multiprogram_current_wna16_arg_compatible": False,
         "default_kernel_consumer_dispatch_abi_current_wna16_arg_compatible": False,
         "default_kernel_consumer_dispatch_ptr_abi_current_wna16_arg_compatible": False,
         "default_kernel_consumer_arg_slot_abi_current_wna16_arg_compatible": False,
@@ -127,6 +129,17 @@ def check_premap_lab_preflight_summary(
         failures.append("online_merged_dispatch_limit_not_full_table")
     if row_count is not None and active_rows != row_count:
         failures.append("online_merged_dispatch_active_rows_mismatch")
+    device = _int_metric(
+        summary,
+        "default_kernel_consumer_online_merged_multiprogram_device",
+    )
+    if device != 1:
+        failures.append("online_merged_device_not_gpu1")
+    if (
+        summary.get("default_kernel_consumer_online_merged_multiprogram_mirror_field")
+        != "scale_metadata_handle"
+    ):
+        failures.append("online_merged_mirror_field_mismatch")
 
     if summary.get("default_kernel_consumer_schema_row_field_names") != REQUIRED_ROW_FIELDS:
         failures.append("schema_row_field_names_mismatch")
@@ -173,6 +186,10 @@ def check_premap_lab_preflight_summary(
         "online_merged_source_count": source_count,
         "online_merged_row_count": row_count,
         "online_merged_dispatch_active_rows": active_rows,
+        "online_merged_device": device,
+        "online_merged_mirror_field": summary.get(
+            "default_kernel_consumer_online_merged_multiprogram_mirror_field"
+        ),
     }
 
 

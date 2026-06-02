@@ -22740,6 +22740,51 @@ pytest tests/test_run_premap_online_merged_native_arg_slot_canary.py \
   97 passed
 ```
 
+## 2026-06-02 - Compact preflight arg-slot boundary fields
+
+The summary-only lab preflight artifact now exposes the online-merged
+multiprogram arg-slot runner boundary fields required to judge whether compact
+status is equivalent to the full lab gate:
+
+```text
+default_kernel_consumer_online_merged_multiprogram_device = 1
+default_kernel_consumer_online_merged_multiprogram_mirror_field =
+  scale_metadata_handle
+default_kernel_consumer_online_merged_multiprogram_not_single_launch_table =
+  true
+default_kernel_consumer_online_merged_multiprogram_current_wna16_arg_compatible =
+  false
+```
+
+The compact preflight summary checker now rejects summaries that target the
+wrong lab GPU, use the wrong arg-slot mirror field, pretend the merged evidence
+is a single vLLM launch table, or mark the future arg-slot ABI as current-WNA16
+compatible.
+
+Refreshed artifact check:
+
+```text
+outputs/reports/premap_lab_preflight_default_with_gate_schema_sha256.json:
+  device = 1
+  mirror_field = scale_metadata_handle
+  not_single_launch_table = true
+  current_wna16_arg_compatible = false
+
+outputs/reports/premap_lab_preflight_default_with_gate_schema_sha256.check.json:
+  passed = true
+```
+
+Validation:
+
+```text
+pytest tests/test_check_premap_lab_preflight_summary.py \
+       tests/test_run_premap_lab_preflight.py -q:
+  97 passed
+
+pytest tests -q:
+  868 passed, 2 warnings
+```
+
 ## 2026-06-02 - Post-schema-refresh lab preflight
 
 After refreshing the kernel consumer schema documentation, the default lab

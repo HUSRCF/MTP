@@ -5013,6 +5013,23 @@ def run_premap_lab_preflight(
                 "dispatch_active_rows",
             )
         ),
+        "default_kernel_consumer_online_merged_multiprogram_device": (
+            _int_metric(online_merged_multiprogram_runner_payload, "device")
+        ),
+        "default_kernel_consumer_online_merged_multiprogram_mirror_field": (
+            online_merged_multiprogram_runner_payload.get("mirror_field")
+            if isinstance(
+                online_merged_multiprogram_runner_payload.get("mirror_field"),
+                str,
+            )
+            else None
+        ),
+        "default_kernel_consumer_online_merged_multiprogram_not_single_launch_table": (
+            _bool_metric(
+                online_merged_multiprogram_runner_payload,
+                "not_a_single_vllm_launch_table",
+            )
+        ),
         "default_kernel_consumer_online_merged_multiprogram_hashchain_equal": (
             _bool_metric(
                 online_merged_multiprogram_runner_payload,
@@ -5038,6 +5055,12 @@ def run_premap_lab_preflight(
             _bool_metric(
                 online_merged_multiprogram_runner_payload,
                 "changes_kernel_launch_args",
+            )
+        ),
+        "default_kernel_consumer_online_merged_multiprogram_current_wna16_arg_compatible": (
+            _bool_metric(
+                online_merged_multiprogram_runner_payload,
+                "current_wna16_arg_compatible",
             )
         ),
         "default_kernel_consumer_dispatch_runner_row_hashchain_all_valid": (
