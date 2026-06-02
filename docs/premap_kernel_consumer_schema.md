@@ -255,17 +255,20 @@ Current post-review evidence:
 
 ```text
 runner:
-  outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_dispatch_window_tail4_32input_nodefer.json
+  outputs/reports/premap_kernel_consumer/
+    online_prelaunch_native_stub_canary_arg_slot_32input_hard_hashchain_preflight_32tables.json
 
 artifact check:
-  outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_artifact_check_dispatch_window_tail4_32input_nodefer.json
+  outputs/reports/premap_kernel_consumer/
+    online_prelaunch_native_stub_canary_artifact_check_arg_slot_32input_hard_hashchain_preflight_32tables.json
 
 lab preflight:
-  outputs/reports/premap_lab_preflight_status_default_nodefer_artifact_current.json
+  outputs/reports/premap_lab_preflight_default_with_online_merged_summary_fields.json
 
 online_prelaunch_input_check_count = 32
 online_prelaunch_input_extra_check_passed_count = 31 / 31
-tail_window_size = 4
+final_preflight_passed = true
+artifact_check_passed = true
 runtime_gate_evidence_deferred_count = 0
 strict_default_gate_evidence_deferred_count = 0
 payload_bytes = 0
@@ -301,6 +304,13 @@ default_kernel_consumer_dispatch_ptr_abi_name =
 default_kernel_consumer_dispatch_ptr_abi_mode =
   readonly_future_kernel_native_consumer_dispatch_ptr_abi
 default_kernel_consumer_dispatch_ptr_abi_current_wna16_arg_compatible = false
+default_kernel_consumer_online_merged_multiprogram_source_count = 32
+default_kernel_consumer_online_merged_multiprogram_row_count = 1841
+default_kernel_consumer_online_merged_multiprogram_dispatch_row_offset = 0
+default_kernel_consumer_online_merged_multiprogram_dispatch_row_limit = 1841
+default_kernel_consumer_online_merged_multiprogram_dispatch_active_rows = 1841
+default_kernel_consumer_online_merged_multiprogram_hashchain_equal = true
+default_kernel_consumer_online_merged_multiprogram_all_handle_fields_checked = true
 payload_bytes_required = 0
 passed_to_kernel_required = false
 changes_kernel_launch_args_required = false
@@ -309,7 +319,12 @@ changes_kernel_launch_args_required = false
 The `default_kernel_consumer_dispatch_abi_*` and
 `default_kernel_consumer_dispatch_ptr_abi_*` summary keys are compact aliases
 for the future-native dispatch ABI fields.  They must not be read as current
-WNA16 launch-argument compatibility.
+WNA16 launch-argument compatibility. The
+`default_kernel_consumer_online_merged_multiprogram_*` fields summarize the
+required online-merged full-table runner evidence: 32 real online prelaunch
+exports merged into a 1841-row native stream. Tail-window artifacts are
+supporting diagnostics only and are not accepted as the required default lab
+gate evidence.
 The unprefixed `payload_bytes_required`, `passed_to_kernel_required`, and
 `changes_kernel_launch_args_required` entries in this compact block are the
 lab-summary contract aliases for the default gate's zero-payload/no-kernel-arg
