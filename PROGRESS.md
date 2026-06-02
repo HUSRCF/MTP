@@ -22709,6 +22709,24 @@ The preflight summary now also records SHA256 digests for required evidence
 files, so a later run can detect if a `latest` evidence path resolves to
 different content.
 
+The compact status also records SHA256 digests for the default readonly gate,
+the blocked canary gate, and the typed consumer schema artifact:
+
+```text
+artifact:
+  outputs/reports/premap_lab_preflight_default_with_gate_schema_sha256.json
+
+passed = true
+default_readonly_gate_sha256 =
+  d71b6f5afd476212165fd366ca05995d2d19c849d77864af715f536d5fdf3d92
+canary_gate_sha256 =
+  b9ffed4a6b70ab79598c4c3ef7fabf7b87f1df1691b39d25fee58b35a62bc9f6
+default_kernel_consumer_schema_artifact_sha256 =
+  cd5330301d4c2cb9fc0999d20dcbeeefd5f02e02572ae2d8ccfea64f36ba9fc0
+runtime_gate_evidence_deferred_count = 0
+strict_default_gate_evidence_deferred_count = 0
+```
+
 The standalone schema checker also passes on the typed consumer schema artifact:
 
 ```text

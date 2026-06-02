@@ -3627,6 +3627,18 @@ def _file_sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _path_label_sha256(raw_path: Any, *, root: Path) -> str | None:
+    if not isinstance(raw_path, str) or not raw_path:
+        return None
+    path = _path_for_label(raw_path, root)
+    if not path.is_file():
+        return None
+    try:
+        return _file_sha256(path)
+    except OSError:
+        return None
+
+
 def _load_yaml(path: Path) -> Any:
     return yaml.safe_load(path.read_text(encoding="utf-8"))
 
@@ -4802,7 +4814,12 @@ def run_premap_lab_preflight(
     lab_gate_status_summary = {
         "passed": not failures,
         "default_readonly_gate_path": default_gate_path,
+        "default_readonly_gate_sha256": _path_label_sha256(
+            default_readonly_gate,
+            root=root,
+        ),
         "canary_gate_path": canary_gate_path,
+        "canary_gate_sha256": _path_label_sha256(canary_gate, root=root),
         "default_contract_passed": bool(
             default_gate_contract_check.get("passed", False)
         ),
@@ -4817,6 +4834,12 @@ def run_premap_lab_preflight(
         ),
         "default_kernel_consumer_schema_hash": (
             schema_summary.get("schema_hash")
+        ),
+        "default_kernel_consumer_schema_artifact_sha256": (
+            _path_label_sha256(
+                default_kernel_consumer_schema_check.get("schema_path"),
+                root=root,
+            )
         ),
         "default_kernel_consumer_schema_row_field_names": (
             schema_summary.get("row_field_names") or []

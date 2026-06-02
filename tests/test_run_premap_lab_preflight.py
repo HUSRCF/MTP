@@ -2378,11 +2378,23 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     summary = result["lab_gate_status_summary"]
     assert summary["passed"] is True
     assert summary["default_readonly_gate_path"] == default_gate
+    assert summary["default_readonly_gate_sha256"] == hashlib.sha256(
+        (tmp_path / default_gate).read_bytes()
+    ).hexdigest()
+    assert summary["canary_gate_sha256"] == hashlib.sha256(
+        (tmp_path / canary_gate).read_bytes()
+    ).hexdigest()
     assert summary["default_contract_passed"] is True
     assert (
         summary["default_kernel_consumer_schema_name"]
         == "fused_moe_awq_wna16_kernel_side_typed_consumer_object_v1"
     )
+    assert summary["default_kernel_consumer_schema_artifact_sha256"] == hashlib.sha256(
+        (
+            tmp_path
+            / "configs/runtime/premap_kernel_side_typed_consumer_schema_v1.yaml"
+        ).read_bytes()
+    ).hexdigest()
     assert summary["default_kernel_consumer_schema_row_field_names"] == [
         "descriptor_ptr",
         "packed_weight_descriptor",
