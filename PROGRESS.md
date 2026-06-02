@@ -22785,6 +22785,36 @@ pytest tests -q:
   868 passed, 2 warnings
 ```
 
+Post-commit runtime canary check with the new lab default also passed:
+
+```text
+command:
+  python scripts/run_premap_online_merged_native_arg_slot_canary.py
+    --output-json
+      outputs/reports/premap_kernel_consumer/
+        online_merged_future_native_arg_slot_canary_runner_latest.json
+    --stub-output-json
+      outputs/reports/premap_kernel_consumer/
+        typed_consumer_stub_gpu1_online_merged_future_native_arg_slot_32tables_canary_latest.json
+    --merged-output-json
+      outputs/reports/premap_kernel_consumer/
+        online_merged_prelaunch_typed_consumer_input_arg_slot_32tables_latest.json
+
+passed = true
+device = 1
+selected_source_count = 32
+merged_row_count = 1841
+dispatch_active_rows = 1841
+future_kernel_native_arg_slot_consumer_row_ok_count = 1841 / 1841
+packet_chain_depth = 3
+handle_projection_hashchain_equal = true
+no_payload = true
+passed_to_kernel = false
+changes_kernel_launch_args = false
+current_wna16_arg_compatible = false
+not_a_single_vllm_launch_table = true
+```
+
 ## 2026-06-02 - Post-schema-refresh lab preflight
 
 After refreshing the kernel consumer schema documentation, the default lab
