@@ -42,7 +42,54 @@
   one-step lab closure runner now additionally requires the native artifact
   checker to consume the preflight/status paths recorded by the native runner
   itself, so explicit manual paths can no longer satisfy the default lab
-  closure accidentally.
+  closure accidentally.  The latest lab gate now also requires child
+  future-native arg-slot artifacts to expose an all-field typed handle mask
+  (`field_mask=15`, `required_field_mask=7`) across native, launch, dispatch,
+  dispatch-pointer, and arg-slot consumer layers.
+
+## Latest Update: Future Native Arg-Slot Field-Mask Gate
+
+The online-merged future-native arg-slot gate now verifies that the native
+consumer path is not only row/window/hash correct, but also exposes the full
+typed handle schema expected by a future kernel-side consumer:
+
+```text
+future_kernel_native_*_field_mask = 15
+future_kernel_native_*_required_field_mask = 7
+```
+
+This is enforced for native consumer, launch consumer, dispatch consumer,
+dispatch-pointer consumer, and arg-slot consumer summaries.  The window sweep
+checker now requires child artifacts to carry these masks, and the all-field
+window sweep plus one-step lab gate verify now surface
+`require_child_field_masks=true`.
+
+Validation:
+
+```text
+python -m pytest tests -q
+  912 passed, 2 warnings
+
+python scripts/run_premap_lab_gate_verify.py
+  passed = true
+
+python scripts/check_premap_lab_gate_verify.py \
+  --output-json outputs/reports/premap_lab_gate_verify.check.json
+  passed = true
+```
+
+The lab gate remains no-op with respect to the real vLLM/WNA16 path:
+
+```text
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+current_wna16_arg_compatible = false
+```
+
+The lab closure/verify orchestrators now also set subprocess `PYTHONPATH`
+explicitly to `repo:repo/src:$PYTHONPATH`, so the gate no longer depends on a
+manually configured shell environment for child script imports.
 
 ## Latest Update: Optional Tail-Window Closure Probe
 
