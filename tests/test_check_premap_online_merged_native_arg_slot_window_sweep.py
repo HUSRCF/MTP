@@ -16,6 +16,7 @@ def _child_payload(
     programs: int,
     block_threads: int,
     merged_row_count: int,
+    mirror_field: str,
 ) -> dict[str, object]:
     active = limit - offset
     return {
@@ -34,6 +35,7 @@ def _child_payload(
         "dispatch_expected_program_count": programs,
         "block_threads": block_threads,
         "merged_row_count": merged_row_count,
+        "mirror_field": mirror_field,
         "stub_summary": {
             "passed": True,
             "payload_bytes": 0,
@@ -43,6 +45,7 @@ def _child_payload(
             "future_kernel_native_arg_slot_consumer_row_ok_count": active,
             "future_kernel_native_arg_slot_consumer_single_field_mirror_row_count": active,
             "future_kernel_native_arg_slot_consumer_single_field_mirror_row_ok_count": active,
+            "future_kernel_native_arg_slot_consumer_single_field_mirror_field_name": mirror_field,
             "future_kernel_native_dispatch_consumer_program_count": programs,
             "future_kernel_native_dispatch_consumer_block_x": block_threads,
             "future_kernel_native_dispatch_consumer_row_limit": limit,
@@ -56,6 +59,7 @@ def _write_artifact(
     bad_middle_offset: bool = False,
     row_count: int = 17,
     window_size: int = 4,
+    mirror_field: str = "scale_metadata_handle",
 ) -> Path:
     block_threads = 4
     active = min(window_size, row_count)
@@ -80,6 +84,7 @@ def _write_artifact(
                     programs=programs,
                     block_threads=block_threads,
                     merged_row_count=row_count,
+                    mirror_field=mirror_field,
                 )
             )
             + "\n",
@@ -103,7 +108,7 @@ def _write_artifact(
         "row_count": row_count,
         "window_size": window_size,
         "device": 1,
-        "mirror_field": "scale_metadata_handle",
+        "mirror_field": mirror_field,
         "payload_bytes": 0,
         "passed_to_kernel": False,
         "changes_kernel_launch_args": False,
@@ -169,6 +174,33 @@ def test_window_sweep_check_rejects_bad_child_program_count(tmp_path: Path):
         "head_child_stub_future_kernel_native_arg_slot_consumer_row_count_mismatch"
         in result["failures"]
     )
+
+
+def test_window_sweep_check_rejects_child_mirror_field_mismatch(tmp_path: Path):
+    path = _write_artifact(tmp_path)
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    windows = payload["windows"]
+    assert isinstance(windows, dict)
+    child_path = Path(windows["tail"]["output_json"])
+    child = json.loads(child_path.read_text(encoding="utf-8"))
+    child["mirror_field"] = "descriptor_ptr"
+    child["stub_summary"][
+        "future_kernel_native_arg_slot_consumer_single_field_mirror_field_name"
+    ] = "descriptor_ptr"
+    child_path.write_text(json.dumps(child) + "\n", encoding="utf-8")
+
+    result = check_window_sweep_artifact(
+        path,
+        expected_window_size=4,
+        expected_block_threads=4,
+        min_row_count=17,
+    )
+
+    assert result["passed"] is False
+    assert "tail_child_mirror_field_mismatch" in result["failures"]
+    assert "tail_child_stub_single_field_mirror_field_name_mismatch" in result[
+        "failures"
+    ]
 
 
 def test_window_sweep_check_rejects_degenerate_windows(tmp_path: Path):

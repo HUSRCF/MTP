@@ -57,11 +57,17 @@ def _window_bounds(row_count: int, window_size: int) -> dict[str, tuple[int, int
     }
 
 
-def _artifact_paths(output_dir: Path, *, label: str) -> tuple[Path, Path, Path]:
+def _artifact_paths(
+    output_dir: Path,
+    *,
+    label: str,
+    mirror_field: str,
+) -> tuple[Path, Path, Path]:
+    prefix = f"{mirror_field}_{label}_window"
     return (
-        output_dir / f"online_merged_future_native_arg_slot_{label}_window_canary_runner.json",
-        output_dir / f"typed_consumer_stub_gpu1_online_merged_future_native_arg_slot_{label}_window_canary.json",
-        output_dir / f"online_merged_prelaunch_typed_consumer_input_arg_slot_{label}_window.json",
+        output_dir / f"online_merged_future_native_arg_slot_{prefix}_canary_runner.json",
+        output_dir / f"typed_consumer_stub_gpu1_online_merged_future_native_arg_slot_{prefix}_canary.json",
+        output_dir / f"online_merged_prelaunch_typed_consumer_input_arg_slot_{prefix}.json",
     )
 
 
@@ -141,7 +147,11 @@ def run_sweep(args: argparse.Namespace) -> dict[str, Any]:
     output_dir = _resolve(args.output_dir)
     output_json = _resolve(args.output_json)
 
-    full_report, full_stub, full_merged = _artifact_paths(output_dir, label="full")
+    full_report, full_stub, full_merged = _artifact_paths(
+        output_dir,
+        label="full",
+        mirror_field=args.mirror_field,
+    )
     full_result = run_canary(
         _canary_args(
             args,
@@ -168,7 +178,11 @@ def run_sweep(args: argparse.Namespace) -> dict[str, Any]:
         }
     }
     for label, (offset, limit) in window_bounds.items():
-        report_path, stub_path, merged_path = _artifact_paths(output_dir, label=label)
+        report_path, stub_path, merged_path = _artifact_paths(
+            output_dir,
+            label=label,
+            mirror_field=args.mirror_field,
+        )
         result = run_canary(
             _canary_args(
                 args,

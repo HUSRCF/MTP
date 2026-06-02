@@ -73,6 +73,7 @@ def _check_child_artifact(
     expected_programs: int,
     expected_block_threads: int,
     expected_merged_row_count: int,
+    expected_mirror_field: str | None,
 ) -> list[str]:
     failures: list[str] = []
     expected_pairs: dict[str, Any] = {
@@ -92,6 +93,8 @@ def _check_child_artifact(
         "block_threads": expected_block_threads,
         "merged_row_count": expected_merged_row_count,
     }
+    if expected_mirror_field is not None:
+        expected_pairs["mirror_field"] = expected_mirror_field
     for key, expected in expected_pairs.items():
         if child.get(key) != expected:
             failures.append(f"{label}_child_{key}_mismatch")
@@ -114,6 +117,12 @@ def _check_child_artifact(
         }.items():
             if stub_summary.get(key) != expected:
                 failures.append(f"{label}_child_stub_{key}_mismatch")
+        if expected_mirror_field is not None and stub_summary.get(
+            "future_kernel_native_arg_slot_consumer_single_field_mirror_field_name"
+        ) != expected_mirror_field:
+            failures.append(
+                f"{label}_child_stub_single_field_mirror_field_name_mismatch"
+            )
     return failures
 
 
@@ -217,6 +226,7 @@ def check_window_sweep_artifact(
                     expected_programs=expected_programs,
                     expected_block_threads=int(expected_block_threads),
                     expected_merged_row_count=row_count,
+                    expected_mirror_field=expected_mirror_field,
                 )
             )
 

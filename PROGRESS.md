@@ -26295,3 +26295,27 @@ passed = true
 failures = []
 require_non_degenerate_windows = true
 ```
+
+The window-sweep runner now uses field-specific child artifact paths.  This
+prevents optional mirror-field sweeps from overwriting the default
+`scale_metadata_handle` child artifacts:
+
+```text
+scale_metadata_handle:
+  online_merged_future_native_arg_slot_scale_metadata_handle_{full,head,middle,tail}_window_canary_runner.json
+
+descriptor_ptr:
+  online_merged_future_native_arg_slot_descriptor_ptr_{full,head,middle,tail}_window_canary_runner.json
+
+packed_weight_descriptor:
+  online_merged_future_native_arg_slot_packed_weight_descriptor_{full,head,middle,tail}_window_canary_runner.json
+
+aux_metadata_handle:
+  online_merged_future_native_arg_slot_aux_metadata_handle_{full,head,middle,tail}_window_canary_runner.json
+```
+
+The checker now also validates the child `mirror_field` and the native stub's
+`future_kernel_native_arg_slot_consumer_single_field_mirror_field_name`, so a
+child artifact from another mirror field cannot satisfy the default lab gate.
+All four mirror fields passed the 1841-row full/head/middle/tail window sweep
+with the strict no-payload / no-kernel-arg boundary intact.
