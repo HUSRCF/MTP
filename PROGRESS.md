@@ -103,6 +103,11 @@ passed_to_kernel = false
 changes_kernel_launch_args = false
 ```
 
+The verify runner now also inspects the generated statuses directly, so a
+subcommand returning zero is not enough if its artifact reports failed checks,
+payload bytes, kernel handoff, or a tail-window checker that did not actually
+require the tail-window contract.
+
 This pushes the future kernel-side typed-consumer path closer to real
 CTA/program row-slice consumption while preserving the current safety boundary:
 no payload dereference or transfer, no ready credit, no router/order mutation,

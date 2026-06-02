@@ -71,6 +71,35 @@ def _load_status(path: Path) -> dict[str, Any]:
     }
 
 
+def _status_failures(statuses: dict[str, dict[str, Any]]) -> list[str]:
+    failures: list[str] = []
+    for name, status in statuses.items():
+        if status.get("exists") is not True:
+            failures.append(f"{name}_missing")
+            continue
+        if status.get("passed") is not True:
+            failures.append(f"{name}_not_passed")
+        if status.get("failures") != []:
+            failures.append(f"{name}_failures_not_empty")
+
+    for name in ("default_closure", "tail_window_closure"):
+        status = statuses.get(name, {})
+        if status.get("payload_bytes") != 0:
+            failures.append(f"{name}_payload_bytes_mismatch")
+        if status.get("passed_to_kernel") is not False:
+            failures.append(f"{name}_passed_to_kernel_mismatch")
+        if status.get("changes_kernel_launch_args") is not False:
+            failures.append(f"{name}_changes_kernel_launch_args_mismatch")
+
+    if statuses.get("default_closure", {}).get("tail_window_probe_enabled") is not False:
+        failures.append("default_closure_tail_window_enabled")
+    if statuses.get("tail_window_closure", {}).get("tail_window_probe_enabled") is not True:
+        failures.append("tail_window_closure_tail_window_not_enabled")
+    if statuses.get("tail_window_closure_check", {}).get("require_tail_window_probe") is not True:
+        failures.append("tail_window_closure_check_did_not_require_tail_window")
+    return failures
+
+
 def run_verify(args: argparse.Namespace) -> dict[str, Any]:
     closure_json = _resolve(args.closure_json)
     closure_check_json = _resolve(args.closure_check_json)
@@ -123,11 +152,19 @@ def run_verify(args: argparse.Namespace) -> dict[str, Any]:
             dry_run=bool(args.dry_run),
         ),
     }
-    failures = [
+    step_failures = [
         name
         for name, step in steps.items()
         if int(step.get("returncode", 1)) != 0
     ]
+    statuses = {
+        "default_closure": _load_status(closure_json),
+        "default_closure_check": _load_status(closure_check_json),
+        "tail_window_closure": _load_status(tail_closure_json),
+        "tail_window_closure_check": _load_status(tail_closure_check_json),
+    }
+    status_failures = [] if args.dry_run else _status_failures(statuses)
+    failures = step_failures + status_failures
     report = {
         "passed": not failures,
         "failures": failures,
@@ -141,12 +178,7 @@ def run_verify(args: argparse.Namespace) -> dict[str, Any]:
             "tail_closure_check_json": str(tail_closure_check_json),
         },
         "steps": steps,
-        "statuses": {
-            "default_closure": _load_status(closure_json),
-            "default_closure_check": _load_status(closure_check_json),
-            "tail_window_closure": _load_status(tail_closure_json),
-            "tail_window_closure_check": _load_status(tail_closure_check_json),
-        },
+        "statuses": statuses,
         "payload_bytes": 0,
         "passed_to_kernel": False,
         "changes_kernel_launch_args": False,
