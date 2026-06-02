@@ -85,6 +85,24 @@ outputs/reports/premap_lab_gate_closure_tail_window512.check.json
   require_tail_window_probe = true
 ```
 
+A one-step verify runner now refreshes both closures and checks both artifacts:
+
+```text
+scripts/run_premap_lab_gate_verify.py
+
+outputs/reports/premap_lab_gate_verify.json
+
+passed = true
+steps =
+  default_closure
+  default_closure_check
+  tail_window_closure
+  tail_window_closure_check
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+```
+
 This pushes the future kernel-side typed-consumer path closer to real
 CTA/program row-slice consumption while preserving the current safety boundary:
 no payload dereference or transfer, no ready credit, no router/order mutation,
