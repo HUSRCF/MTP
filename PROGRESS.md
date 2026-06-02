@@ -91,6 +91,21 @@ The lab closure/verify orchestrators now also set subprocess `PYTHONPATH`
 explicitly to `repo:repo/src:$PYTHONPATH`, so the gate no longer depends on a
 manually configured shell environment for child script imports.
 
+The compact `run_premap_lab_preflight.py --summary-only` status now also
+flattens the same five consumer-layer masks:
+
+```text
+default_kernel_consumer_native_field_mask = 15
+default_kernel_consumer_launch_field_mask = 15
+default_kernel_consumer_dispatch_field_mask = 15
+default_kernel_consumer_dispatch_ptr_field_mask = 15
+default_kernel_consumer_arg_slot_field_mask = 15
+```
+
+`scripts/run_premap_lab_preflight.py` now bootstraps `repo` and `repo/src` on
+`sys.path`, so the compact status entrypoint can be invoked directly without an
+external `PYTHONPATH`.
+
 ## Latest Update: Optional Tail-Window Closure Probe
 
 The lab closure runner can now optionally refresh and validate a row-window
