@@ -40,8 +40,9 @@ _FUTURE_KERNEL_FIELD_MASK_PREFIXES = (
     "future_kernel_native_dispatch_consumer",
     "future_kernel_native_dispatch_ptr_consumer",
     "future_kernel_native_arg_slot_consumer",
+    "future_kernel_native_consumer_view",
 )
-ARG_SLOT_FIELD_READ_FIELDS = (
+HANDLE_FIELD_READ_FIELDS = (
     "descriptor_ptr",
     "packed_weight_descriptor",
     "scale_metadata_handle",
@@ -110,24 +111,25 @@ def _check_future_field_masks(
     return failures
 
 
-def _check_arg_slot_field_reads(
+def _check_field_reads(
     summary: dict[str, Any],
     *,
     label: str,
+    prefix: str,
     expected_active: int,
 ) -> list[str]:
     failures: list[str] = []
-    for field in ARG_SLOT_FIELD_READ_FIELDS:
-        prefix = f"future_kernel_native_arg_slot_consumer_{field}_read"
+    for field in HANDLE_FIELD_READ_FIELDS:
+        field_prefix = f"{prefix}_{field}_read"
         for suffix, expected in (
             ("row_count", expected_active),
             ("row_ok_count", expected_active),
             ("error_count", 0),
         ):
-            key = f"{prefix}_{suffix}"
+            key = f"{field_prefix}_{suffix}"
             if summary.get(key) != expected:
                 failures.append(f"{label}_child_stub_{key}_mismatch")
-        hash_key = f"{prefix}_hash_accumulator"
+        hash_key = f"{field_prefix}_hash_accumulator"
         hash_value = summary.get(hash_key)
         if not isinstance(hash_value, str) or not hash_value:
             failures.append(f"{label}_child_stub_{hash_key}_missing")
@@ -185,6 +187,16 @@ def _check_child_artifact(
             "future_kernel_native_dispatch_consumer_program_count": expected_programs,
             "future_kernel_native_dispatch_consumer_block_x": expected_block_threads,
             "future_kernel_native_dispatch_consumer_row_limit": expected_limit,
+            "future_kernel_native_consumer_view_checked": True,
+            "future_kernel_native_consumer_view_row_count": expected_active,
+            "future_kernel_native_consumer_view_row_ok_count": expected_active,
+            "future_kernel_native_consumer_view_error_count": 0,
+            "future_kernel_native_consumer_view_source_packet_chain_depth": 3,
+            "future_kernel_native_consumer_view_payload_bytes": 0,
+            "future_kernel_native_consumer_view_passed_to_kernel": False,
+            "future_kernel_native_consumer_view_changes_kernel_launch_args": False,
+            "future_kernel_native_consumer_view_current_wna16_arg_compatible": False,
+            "future_kernel_native_consumer_view_requires_wna16_arg_reinterpretation": False,
         }.items():
             if stub_summary.get(key) != expected:
                 failures.append(f"{label}_child_stub_{key}_mismatch")
@@ -196,9 +208,18 @@ def _check_child_artifact(
             )
         failures.extend(_check_future_field_masks(stub_summary, label=label))
         failures.extend(
-            _check_arg_slot_field_reads(
+            _check_field_reads(
                 stub_summary,
                 label=label,
+                prefix="future_kernel_native_arg_slot_consumer",
+                expected_active=expected_active,
+            )
+        )
+        failures.extend(
+            _check_field_reads(
+                stub_summary,
+                label=label,
+                prefix="future_kernel_native_consumer_view",
                 expected_active=expected_active,
             )
         )
@@ -321,6 +342,7 @@ def check_window_sweep_artifact(
         "require_child_artifacts": bool(require_child_artifacts),
         "require_non_degenerate_windows": bool(require_non_degenerate_windows),
         "require_child_field_masks": bool(require_child_artifacts),
+        "require_child_consumer_view": bool(require_child_artifacts),
         "row_count": row_count,
         "windows_checked": list(REQUIRED_WINDOWS),
     }

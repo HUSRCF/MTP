@@ -26679,3 +26679,68 @@ python -m pytest tests -q
 
 918 passed, 2 warnings
 ```
+
+## Consumer-view ABI is now enforced by the unified lab gate
+
+The canonical premap lab gate now requires the future native consumer-view path,
+not only the arg-slot path.
+
+The window-sweep checker now validates, for each full/head/middle/tail child
+canary:
+
+```text
+future_kernel_native_consumer_view_checked = true
+future_kernel_native_consumer_view_source_packet_chain_depth = 3
+future_kernel_native_consumer_view_row_count / row_ok_count match active rows
+future_kernel_native_consumer_view_error_count = 0
+all four handle fields are read:
+  descriptor_ptr
+  packed_weight_descriptor
+  scale_metadata_handle
+  aux_metadata_handle
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+current_wna16_arg_compatible = false
+requires_wna16_arg_reinterpretation = false
+```
+
+The all-field sweep checker and the top-level lab gate checker now require:
+
+```text
+require_child_consumer_view = true
+```
+
+This means the lab preflight no longer accepts artifacts that only prove
+arg-slot readability.  The typed consumer bridge must prove the future
+kernel-side consumer-view ABI reads the four-field handle table while still
+remaining a strict no-op with respect to the current WNA16 launch.
+
+Verification:
+
+```text
+python -m pytest \
+  tests/test_check_premap_online_merged_native_arg_slot_window_sweep.py \
+  tests/test_check_premap_online_merged_native_arg_slot_all_field_window_sweep.py \
+  tests/test_check_premap_lab_gate_verify.py \
+  tests/test_run_premap_lab_gate_verify.py -q
+
+29 passed
+
+python scripts/run_premap_lab_gate_verify.py \
+  --output-json outputs/reports/premap_lab_gate_verify.json
+
+passed = true
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+window_sweep_check.require_child_consumer_view = true
+all_field_window_sweep_check.require_child_consumer_view = true
+
+python scripts/check_premap_lab_gate_verify.py \
+  outputs/reports/premap_lab_gate_verify.json \
+  --output-json outputs/reports/premap_lab_gate_verify.check.json
+
+passed = true
+failures = []
+```

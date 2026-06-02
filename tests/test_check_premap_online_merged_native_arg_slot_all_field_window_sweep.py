@@ -29,6 +29,7 @@ def _write_field_check(
         "expected_block_threads": block_threads,
         "require_child_artifacts": True,
         "require_child_field_masks": True,
+        "require_child_consumer_view": True,
         "require_non_degenerate_windows": True,
         "row_count": row_count,
         "windows_checked": ["full", "head", "middle", "tail"],

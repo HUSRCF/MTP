@@ -118,6 +118,7 @@ def _load_status(path: Path) -> dict[str, Any]:
         "expected_block_threads": payload.get("expected_block_threads"),
         "require_child_artifacts": payload.get("require_child_artifacts"),
         "require_child_field_masks": payload.get("require_child_field_masks"),
+        "require_child_consumer_view": payload.get("require_child_consumer_view"),
         "require_non_degenerate_windows": payload.get(
             "require_non_degenerate_windows"
         ),
@@ -163,6 +164,8 @@ def _status_failures(statuses: dict[str, dict[str, Any]]) -> list[str]:
         failures.append("window_sweep_check_did_not_require_child_artifacts")
     if window_check.get("require_child_field_masks") is not True:
         failures.append("window_sweep_check_did_not_require_child_field_masks")
+    if window_check.get("require_child_consumer_view") is not True:
+        failures.append("window_sweep_check_did_not_require_child_consumer_view")
     if window_check.get("require_non_degenerate_windows") is not True:
         failures.append("window_sweep_check_did_not_require_non_degenerate_windows")
     if window_check.get("expected_window_size") != 512:
@@ -175,6 +178,10 @@ def _status_failures(statuses: dict[str, dict[str, Any]]) -> list[str]:
     if all_field_check.get("require_child_field_masks") is not True:
         failures.append(
             "all_field_window_sweep_check_did_not_require_child_field_masks"
+        )
+    if all_field_check.get("require_child_consumer_view") is not True:
+        failures.append(
+            "all_field_window_sweep_check_did_not_require_child_consumer_view"
         )
     if all_field_check.get("expected_window_size") != 512:
         failures.append("all_field_window_sweep_check_window_size_mismatch")

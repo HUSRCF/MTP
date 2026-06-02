@@ -15,6 +15,7 @@ _FIELD_MASK_PREFIXES = (
     "future_kernel_native_dispatch_consumer",
     "future_kernel_native_dispatch_ptr_consumer",
     "future_kernel_native_arg_slot_consumer",
+    "future_kernel_native_consumer_view",
 )
 
 
@@ -26,7 +27,7 @@ def _field_mask_pairs() -> dict[str, int]:
     return pairs
 
 
-def _arg_slot_field_read_pairs(active: int) -> dict[str, object]:
+def _field_read_pairs(prefix: str, active: int) -> dict[str, object]:
     pairs: dict[str, object] = {}
     for field in (
         "descriptor_ptr",
@@ -34,11 +35,11 @@ def _arg_slot_field_read_pairs(active: int) -> dict[str, object]:
         "scale_metadata_handle",
         "aux_metadata_handle",
     ):
-        prefix = f"future_kernel_native_arg_slot_consumer_{field}_read"
-        pairs[f"{prefix}_row_count"] = active
-        pairs[f"{prefix}_row_ok_count"] = active
-        pairs[f"{prefix}_error_count"] = 0
-        pairs[f"{prefix}_hash_accumulator"] = field
+        field_prefix = f"{prefix}_{field}_read"
+        pairs[f"{field_prefix}_row_count"] = active
+        pairs[f"{field_prefix}_row_ok_count"] = active
+        pairs[f"{field_prefix}_error_count"] = 0
+        pairs[f"{field_prefix}_hash_accumulator"] = field
     return pairs
 
 
@@ -82,8 +83,22 @@ def _child_payload(
             "future_kernel_native_dispatch_consumer_program_count": programs,
             "future_kernel_native_dispatch_consumer_block_x": block_threads,
             "future_kernel_native_dispatch_consumer_row_limit": limit,
+            "future_kernel_native_consumer_view_checked": True,
+            "future_kernel_native_consumer_view_row_count": active,
+            "future_kernel_native_consumer_view_row_ok_count": active,
+            "future_kernel_native_consumer_view_error_count": 0,
+            "future_kernel_native_consumer_view_row_offset": offset,
+            "future_kernel_native_consumer_view_row_limit": limit,
+            "future_kernel_native_consumer_view_rows_per_program": block_threads,
+            "future_kernel_native_consumer_view_source_packet_chain_depth": 3,
+            "future_kernel_native_consumer_view_payload_bytes": 0,
+            "future_kernel_native_consumer_view_passed_to_kernel": False,
+            "future_kernel_native_consumer_view_changes_kernel_launch_args": False,
+            "future_kernel_native_consumer_view_current_wna16_arg_compatible": False,
+            "future_kernel_native_consumer_view_requires_wna16_arg_reinterpretation": False,
             **_field_mask_pairs(),
-            **_arg_slot_field_read_pairs(active),
+            **_field_read_pairs("future_kernel_native_arg_slot_consumer", active),
+            **_field_read_pairs("future_kernel_native_consumer_view", active),
         },
     }
 
@@ -258,6 +273,32 @@ def test_window_sweep_check_rejects_child_field_mask_mismatch(tmp_path: Path):
     assert result["passed"] is False
     assert (
         "full_child_stub_future_kernel_native_arg_slot_consumer_field_mask_not_all_fields"
+        in result["failures"]
+    )
+
+
+def test_window_sweep_check_rejects_missing_consumer_view_read(tmp_path: Path):
+    path = _write_artifact(tmp_path)
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    windows = payload["windows"]
+    assert isinstance(windows, dict)
+    child_path = Path(windows["head"]["output_json"])
+    child = json.loads(child_path.read_text(encoding="utf-8"))
+    child["stub_summary"][
+        "future_kernel_native_consumer_view_scale_metadata_handle_read_row_ok_count"
+    ] = 0
+    child_path.write_text(json.dumps(child) + "\n", encoding="utf-8")
+
+    result = check_window_sweep_artifact(
+        path,
+        expected_window_size=4,
+        expected_block_threads=4,
+        min_row_count=17,
+    )
+
+    assert result["passed"] is False
+    assert (
+        "head_child_stub_future_kernel_native_consumer_view_scale_metadata_handle_read_row_ok_count_mismatch"
         in result["failures"]
     )
 
