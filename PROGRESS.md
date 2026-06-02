@@ -331,6 +331,62 @@ pytest tests -q:
   869 passed, 2 warnings
 ```
 
+## 2026-06-02 - Lab gate closure runner
+
+Added a single orchestration entrypoint for the readonly premap lab gate:
+
+```text
+scripts/run_premap_lab_gate_closure.py
+```
+
+It runs the canonical closure sequence without enabling payload movement or
+current WNA16 kernel argument handoff:
+
+```text
+1. refresh online-merged future native arg-slot runner evidence
+2. run full no-defer lab preflight
+3. run summary-only lab preflight
+4. run compact preflight summary checker
+5. run native prelaunch artifact checker using runner-recorded paths
+```
+
+The closure report keeps the same safety boundary:
+
+```text
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+```
+
+Validation:
+
+```text
+python scripts/run_premap_lab_gate_closure.py \
+  --output-json outputs/reports/premap_lab_gate_closure.json
+
+result:
+  passed = true
+  arg_slot_runner.passed = true
+  full_preflight.passed = true
+  summary_preflight.passed = true
+  summary_check.passed = true
+  native_artifact_check.passed = true
+  native_artifact_check.preflight_json_source = runner_recorded
+  native_artifact_check.status_json_source = runner_recorded
+
+pytest tests/test_run_premap_lab_gate_closure.py -q:
+  2 passed
+
+pytest tests/test_run_premap_lab_gate_closure.py \
+       tests/test_check_premap_online_native_stub_canary_artifacts.py \
+       tests/test_check_premap_lab_preflight_summary.py \
+       tests/test_run_premap_lab_preflight.py -q:
+  158 passed
+
+pytest tests -q:
+  871 passed, 2 warnings
+```
+
 The same runner now also supports dispatch row-window canaries.  The latest
 tail-window run keeps the full merged table resident but asks the future
 dispatch/dispatch-pointer/arg-slot ABI to consume only the last active window:
