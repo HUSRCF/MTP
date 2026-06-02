@@ -3597,6 +3597,71 @@ def test_premap_lab_preflight_summary_marks_consumer_view_projection_hash_mismat
     )
 
 
+def test_premap_lab_preflight_summary_rejects_invalid_consumer_view_projection_hash(
+    tmp_path: Path,
+):
+    def _mutate(runner: dict[str, object]) -> None:
+        dispatch = runner["future_kernel_native_consumer_dispatch_stub_summary"]
+        assert isinstance(dispatch, dict)
+        dispatch[
+            "future_kernel_native_consumer_view_handle_projection_hash_accumulator"
+        ] = "not_hex"
+
+    result = _run_preflight_with_modified_default_runner(tmp_path, _mutate)
+    summary = result["lab_gate_status_summary"]
+
+    assert result["passed"] is False
+    assert (
+        summary["default_kernel_consumer_dispatch_runner_row_hashchain_all_valid"]
+        is True
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_dispatch_runner_handle_projection_hashchain_equal"
+        ]
+        is False
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_dispatch_runner_consumer_view_handle_projection_hash_accumulator"
+        ]
+        is None
+    )
+
+
+def test_premap_lab_preflight_summary_allows_missing_consumer_view_projection_hash(
+    tmp_path: Path,
+):
+    def _mutate(runner: dict[str, object]) -> None:
+        dispatch = runner["future_kernel_native_consumer_dispatch_stub_summary"]
+        assert isinstance(dispatch, dict)
+        dispatch.pop(
+            "future_kernel_native_consumer_view_handle_projection_hash_accumulator",
+            None,
+        )
+
+    result = _run_preflight_with_modified_default_runner(tmp_path, _mutate)
+    summary = result["lab_gate_status_summary"]
+
+    assert result["passed"] is True
+    assert (
+        summary["default_kernel_consumer_dispatch_runner_row_hashchain_all_valid"]
+        is True
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_dispatch_runner_handle_projection_hashchain_equal"
+        ]
+        is True
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_dispatch_runner_consumer_view_handle_projection_hash_accumulator"
+        ]
+        is None
+    )
+
+
 def test_premap_lab_preflight_summary_defers_hashchain_hard_failures(
     tmp_path: Path,
 ):
@@ -4031,6 +4096,48 @@ def test_premap_lab_preflight_rejects_required_online_merged_runner_without_proj
     assert (
         "future_kernel_native_arg_slot_online_merged_multiprogram_runner_json:"
         "online_merged_multiprogram_arg_slot_runner_handle_projection_all_fields_unchecked"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_required_online_merged_runner_invalid_consumer_view_projection_hash(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    stub_path = (
+        tmp_path
+        / "reports/default_gate_online_merged_future_native_arg_slot_multiprogram_canary.json"
+    )
+    payload = json.loads(stub_path.read_text(encoding="utf-8"))
+    payload[
+        "future_kernel_native_consumer_view_handle_projection_hash_accumulator"
+    ] = "not_hex"
+    stub_path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is False
+    assert "default_readonly_gate_required_evidence_check_failed" in result["failures"]
+    failures = result["default_readonly_gate_required_evidence_check"]["failures"]
+    assert (
+        "future_kernel_native_arg_slot_online_merged_multiprogram_runner_json:"
+        "online_merged_multiprogram_arg_slot_runner_stub:"
+        "multiprogram_arg_slot_handle_projection_hash_missing"
+    ) in failures
+    assert (
+        "future_kernel_native_arg_slot_online_merged_multiprogram_canary_json:"
+        "multiprogram_arg_slot_handle_projection_hash_missing"
     ) in failures
 
 

@@ -3199,7 +3199,10 @@ def _validate_future_native_arg_slot_multiprogram_evidence(
         evidence,
         "future_kernel_native_consumer_view_handle_projection_hash_accumulator",
     )
-    if consumer_view_projection_hash is not None:
+    if (
+        "future_kernel_native_consumer_view_handle_projection_hash_accumulator"
+        in evidence
+    ):
         projection_hashes.append(consumer_view_projection_hash)
     if any(value is None for value in projection_hashes):
         failures.append(f"{failure_prefix}_handle_projection_hash_missing")
@@ -4925,7 +4928,10 @@ def run_premap_lab_preflight(
         dispatch_runner_summary,
         "future_kernel_native_consumer_view_handle_projection_hash_accumulator",
     )
-    if consumer_view_projection_value is not None:
+    if (
+        "future_kernel_native_consumer_view_handle_projection_hash_accumulator"
+        in dispatch_runner_summary
+    ):
         projection_hash_values = (
             *projection_hash_values,
             consumer_view_projection_value,

@@ -2,7 +2,7 @@
 
 ## Progress Version
 
-- Version: `v0.47-preflight-consumer-view-projection-gate`
+- Version: `v0.48-preflight-consumer-view-projection-strict-hex`
 - Updated: 2026-06-03
 - Current phase: premap descriptor/address prep now has a typed
   kernel-side consumer object, a launch-shaped future native ABI, and a
@@ -54,7 +54,53 @@
   consumer-view mismatch regression coverage.  The preflight summary and
   native artifact checker also now include consumer-view projection in their
   hashchain when that field is present, so newer four-way evidence cannot be
-  silently accepted by older three-way validation paths.
+  silently accepted by older three-way validation paths.  A second review
+  follow-up now makes that optional compatibility strict: legacy artifacts may
+  omit the consumer-view projection field, but if the field exists it must parse
+  as a valid uint64 hex value and participate in the four-way projection
+  hashchain.
+
+## Latest Update: Strict Consumer-View Projection Parsing
+
+The lab preflight now distinguishes between "consumer-view projection field is
+absent" and "consumer-view projection field exists but is invalid."  Missing
+consumer-view projection remains accepted for older artifacts, but an invalid
+present value such as `not_hex` is appended to the projection hashchain as a
+failed value and forces the preflight to fail.
+
+This closes the review gap where the preflight path could treat an invalid
+`future_kernel_native_consumer_view_handle_projection_hash_accumulator` as if
+the field were missing, while the native artifact checker already rejected the
+same invalid evidence.  Regression coverage now checks both compact preflight
+summary inputs and the required online-merged runner/canary evidence path.
+
+Validation:
+
+```text
+python -m pytest tests/test_run_premap_lab_preflight.py -q
+  96 passed
+
+python scripts/run_premap_lab_preflight.py \
+  --output-json outputs/reports/premap_lab_preflight.json
+  passed
+
+python scripts/run_premap_lab_gate_verify.py \
+  --output-json outputs/reports/premap_lab_gate_verify.json
+  passed
+
+python scripts/check_premap_lab_gate_verify.py \
+  outputs/reports/premap_lab_gate_verify.json \
+  --output-json outputs/reports/premap_lab_gate_verify.check.json
+  passed
+
+python scripts/check_premap_lab_preflight_summary.py \
+  outputs/reports/premap_lab_preflight_default_with_gate_schema_sha256.json \
+  --output-json outputs/reports/premap_lab_preflight_default_with_gate_schema_sha256.check.json
+  passed
+
+python -m pytest tests -q
+  944 passed, 2 warnings
+```
 
 ## Latest Update: Runner/Preflight Consumer-View Projection Gate
 
