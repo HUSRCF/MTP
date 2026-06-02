@@ -26117,3 +26117,74 @@ changes_kernel_launch_args = false
 runtime_gate_evidence_deferred_count = 0
 strict_default_gate_evidence_deferred_count = 0
 ```
+
+## 2026-06-02 - Online-merged arg-slot row-window sweep
+
+The online-merged future-native arg-slot ABI now has a row-window sweep runner
+that validates full-table, head, middle, and tail row slices from the same
+online-derived typed handle stream.  This is a geometry / future-kernel
+consumer check only: the typed table is still not passed to the current WNA16
+kernel and no payload bytes are moved.
+
+GPU1 strict canary:
+
+```text
+runner:
+  outputs/reports/premap_kernel_consumer/
+    online_merged_future_native_arg_slot_window_sweep_runner.json
+
+source runner:
+  outputs/reports/premap_kernel_consumer/
+    online_prelaunch_native_stub_canary_arg_slot_32input_hard_hashchain_preflight_32tables.json
+
+row_count = 1841
+window_size = 512
+mirror_field = scale_metadata_handle
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+```
+
+Window coverage:
+
+```text
+full:
+  dispatch_row_offset = 0
+  dispatch_row_limit = 1841
+  dispatch_active_rows = 1841
+  dispatch_expected_program_count = 8
+
+head:
+  dispatch_row_offset = 0
+  dispatch_row_limit = 512
+  dispatch_active_rows = 512
+  dispatch_expected_program_count = 2
+
+middle:
+  dispatch_row_offset = 664
+  dispatch_row_limit = 1176
+  dispatch_active_rows = 512
+  dispatch_expected_program_count = 2
+
+tail:
+  dispatch_row_offset = 1329
+  dispatch_row_limit = 1841
+  dispatch_active_rows = 512
+  dispatch_expected_program_count = 2
+```
+
+All four windows pass the native typed consumer stub with:
+
+```text
+no_payload = true
+passed_to_kernel = false
+changes_kernel_launch_args = false
+current_wna16_arg_compatible = false
+not_a_single_vllm_launch_table = true
+handle_projection_all_handle_fields_checked = true
+```
+
+This extends the previous full-table and tail-only evidence to cover the row
+slice patterns a future kernel-side consumer would need for CTA/program-level
+iteration.  It remains a no-op typed ABI canary, not a live WNA16 kernel-arg
+handoff.
