@@ -172,6 +172,7 @@ contract:
   future_kernel_consumer_args_single_field_mirror_required: true
   future_kernel_consumer_args_single_field_mirror_field: scale_metadata_handle
   future_kernel_consumer_args_total_mirror_coverage_required: true
+  future_kernel_args_compatible_consumer_path_required: true
   future_kernel_native_dispatch_consumer_full_table_required: true
   future_kernel_native_dispatch_ptr_consumer_required: true
   future_kernel_native_dispatch_consumer_program_iteration_required: true

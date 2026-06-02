@@ -2160,6 +2160,7 @@ def _write_gate(
         "  future_kernel_consumer_args_single_field_mirror_required: true\n"
         "  future_kernel_consumer_args_single_field_mirror_field: scale_metadata_handle\n"
         "  future_kernel_consumer_args_total_mirror_coverage_required: true\n"
+        "  future_kernel_args_compatible_consumer_path_required: true\n"
         "  future_kernel_native_dispatch_consumer_full_table_required: true\n"
         "  future_kernel_native_dispatch_ptr_consumer_required: true\n"
         "  future_kernel_native_dispatch_consumer_program_iteration_required: true\n"
@@ -2570,6 +2571,12 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert (
         summary[
             "default_kernel_consumer_dispatch_runner_future_kernel_args_compatible_path_checked"
+        ]
+        is True
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_dispatch_runner_future_kernel_args_compatible_path_required"
         ]
         is True
     )

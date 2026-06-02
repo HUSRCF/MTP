@@ -101,6 +101,7 @@ REQUIRED_DEFAULT_GATE_CONTRACT = {
     "future_kernel_consumer_args_single_field_mirror_required": True,
     "future_kernel_consumer_args_single_field_mirror_field": "scale_metadata_handle",
     "future_kernel_consumer_args_total_mirror_coverage_required": True,
+    "future_kernel_args_compatible_consumer_path_required": True,
     "future_kernel_native_dispatch_consumer_full_table_required": True,
     "future_kernel_native_dispatch_ptr_consumer_required": True,
     "future_kernel_native_dispatch_consumer_program_iteration_required": True,
@@ -4948,6 +4949,11 @@ def run_premap_lab_preflight(
             _bool_metric(
                 future_kernel_args_compatible_path_summary,
                 "future_kernel_args_compatible_consumer_path_checked",
+            )
+        ),
+        "default_kernel_consumer_dispatch_runner_future_kernel_args_compatible_path_required": (
+            _observed_default_contract_value(
+                "future_kernel_args_compatible_consumer_path_required"
             )
         ),
         "default_kernel_consumer_dispatch_runner_future_kernel_args_compatible_path_row_count": (

@@ -37,7 +37,8 @@
   runner JSON.  Future kernel-args mirror coverage is now also visible in the
   same compact status and reaches all four typed handle fields in the default
   lab artifact.  That full-field future-kernel-args coverage is now a strict
-  lab preflight requirement.
+  lab preflight requirement.  The future kernel-args compatible consumer path
+  is also now visible as an explicit required lab contract field.
 
 ## Latest Update: GPU1-target online-merged arg-slot runner gate
 
@@ -100,6 +101,7 @@ default_kernel_consumer_dispatch_runner_future_kernel_args_passed_to_kernel = fa
 default_kernel_consumer_dispatch_runner_future_kernel_args_current_wna16_arg_compatible = false
 
 default_kernel_consumer_dispatch_runner_future_kernel_args_compatible_path_checked = true
+default_kernel_consumer_dispatch_runner_future_kernel_args_compatible_path_required = true
 default_kernel_consumer_dispatch_runner_future_kernel_args_compatible_path_row_count = 174
 default_kernel_consumer_dispatch_runner_future_kernel_args_compatible_path_row_ok_count = 174
 default_kernel_consumer_dispatch_runner_future_kernel_args_compatible_path_payload_bytes = 0
