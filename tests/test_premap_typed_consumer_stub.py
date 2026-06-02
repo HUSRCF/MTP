@@ -108,6 +108,22 @@ def test_typed_consumer_stub_uses_kernel_side_abi_header():
     assert "future_kernel_native_dispatch_consumer_launch_geometry_checked" in source
     assert "future_kernel_native_dispatch_consumer_launch_covers_active_rows" in source
     assert "future_kernel_native_dispatch_consumer_launch_minimal_cover" in source
+    assert (
+        "future_kernel_native_arg_slot_consumer_descriptor_ptr_read_row_ok_count"
+        in source
+    )
+    assert (
+        "future_kernel_native_arg_slot_consumer_packed_weight_descriptor_read_row_ok_count"
+        in source
+    )
+    assert (
+        "future_kernel_native_arg_slot_consumer_scale_metadata_handle_read_row_ok_count"
+        in source
+    )
+    assert (
+        "future_kernel_native_arg_slot_consumer_aux_metadata_handle_read_row_ok_count"
+        in source
+    )
     assert "future_kernel_native_arg_slot_consumer_checked" in source
     assert "future_kernel_native_arg_slot_consumer_slot_struct_size" in source
     assert "future_kernel_native_consumer_params_struct_align" in source

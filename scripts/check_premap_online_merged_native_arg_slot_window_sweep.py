@@ -41,6 +41,12 @@ _FUTURE_KERNEL_FIELD_MASK_PREFIXES = (
     "future_kernel_native_dispatch_ptr_consumer",
     "future_kernel_native_arg_slot_consumer",
 )
+ARG_SLOT_FIELD_READ_FIELDS = (
+    "descriptor_ptr",
+    "packed_weight_descriptor",
+    "scale_metadata_handle",
+    "aux_metadata_handle",
+)
 
 
 def _load_json(path: Path) -> dict[str, Any]:
@@ -101,6 +107,30 @@ def _check_future_field_masks(
             failures.append(f"{label}_child_stub_{required_key}_mismatch")
         if field_mask != _FUTURE_KERNEL_ALL_FIELD_MASK:
             failures.append(f"{label}_child_stub_{field_key}_not_all_fields")
+    return failures
+
+
+def _check_arg_slot_field_reads(
+    summary: dict[str, Any],
+    *,
+    label: str,
+    expected_active: int,
+) -> list[str]:
+    failures: list[str] = []
+    for field in ARG_SLOT_FIELD_READ_FIELDS:
+        prefix = f"future_kernel_native_arg_slot_consumer_{field}_read"
+        for suffix, expected in (
+            ("row_count", expected_active),
+            ("row_ok_count", expected_active),
+            ("error_count", 0),
+        ):
+            key = f"{prefix}_{suffix}"
+            if summary.get(key) != expected:
+                failures.append(f"{label}_child_stub_{key}_mismatch")
+        hash_key = f"{prefix}_hash_accumulator"
+        hash_value = summary.get(hash_key)
+        if not isinstance(hash_value, str) or not hash_value:
+            failures.append(f"{label}_child_stub_{hash_key}_missing")
     return failures
 
 
@@ -165,6 +195,13 @@ def _check_child_artifact(
                 f"{label}_child_stub_single_field_mirror_field_name_mismatch"
             )
         failures.extend(_check_future_field_masks(stub_summary, label=label))
+        failures.extend(
+            _check_arg_slot_field_reads(
+                stub_summary,
+                label=label,
+                expected_active=expected_active,
+            )
+        )
     return failures
 
 

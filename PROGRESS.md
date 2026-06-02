@@ -26440,3 +26440,82 @@ The lab preflight now requires both the default scale-metadata row-window sweep
 and the stricter all-field sweep before any future kernel-side typed consumer
 experiment.  The gate remains explicitly no-op with respect to the current
 vLLM/WNA16 launch path.
+
+## Native arg-slot row-read evidence promoted into compact lab preflight
+
+The future native arg-slot consumer now reports per-row field-read evidence for
+all four typed handle fields:
+
+```text
+descriptor_ptr
+packed_weight_descriptor
+scale_metadata_handle
+aux_metadata_handle
+```
+
+The HIP stub reads each field through the future native arg-slot path and emits
+row counts, ok counts, error counts, and hash accumulators:
+
+```text
+future_kernel_native_arg_slot_consumer_<field>_read_row_count
+future_kernel_native_arg_slot_consumer_<field>_read_row_ok_count
+future_kernel_native_arg_slot_consumer_<field>_read_error_count
+future_kernel_native_arg_slot_consumer_<field>_read_hash_accumulator
+```
+
+The online-merged default lab artifact was refreshed and finalized:
+
+```text
+runner:
+  outputs/reports/premap_kernel_consumer/
+    online_prelaunch_native_stub_canary_arg_slot_32input_hard_hashchain_preflight_32tables.json
+
+artifact check:
+  outputs/reports/premap_kernel_consumer/
+    online_prelaunch_native_stub_canary_artifact_check_arg_slot_32input_hard_hashchain_preflight_32tables.json
+
+compact preflight:
+  outputs/reports/premap_lab_preflight_status_arg_slot_field_reads.json
+  outputs/reports/premap_lab_preflight_status_arg_slot_field_reads.check.json
+```
+
+Status:
+
+```text
+online inputs = 32
+online-merged rows = 1841
+arg_slot_all_handle_fields_read = true
+descriptor_ptr row_ok = 1841
+packed_weight_descriptor row_ok = 1841
+scale_metadata_handle row_ok = 1841
+aux_metadata_handle row_ok = 1841
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+current_wna16_arg_compatible = false
+```
+
+The compact lab preflight checker now requires these online-merged row-read
+counts/hashes.  A two-stage bootstrap path remains available only for producing
+self-referential runner artifacts; the final lab gate accepts only strict
+no-defer evidence.  The runner also gained a `--finalize-existing` mode so the
+self-finalization / artifact-check / final-preflight closure can be rerun
+without rebuilding all native stub inputs.
+
+Verification:
+
+```text
+python -m pytest tests/test_premap_typed_consumer_stub.py \
+  tests/test_run_premap_online_merged_native_arg_slot_canary.py \
+  tests/test_check_premap_online_merged_native_arg_slot_window_sweep.py \
+  tests/test_check_premap_online_merged_native_arg_slot_all_field_window_sweep.py \
+  tests/test_run_premap_online_native_stub_canary.py \
+  tests/test_run_premap_lab_preflight.py \
+  tests/test_check_premap_lab_preflight_summary.py -q
+
+154 passed
+
+python -m pytest tests -q
+
+913 passed, 2 warnings
+```

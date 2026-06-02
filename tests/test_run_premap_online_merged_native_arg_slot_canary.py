@@ -113,6 +113,13 @@ def test_online_merged_arg_slot_canary_dry_run_writes_artifacts(tmp_path: Path):
     ]
     assert result["handle_projection_hashchain_equal"] is True
     assert result["handle_projection_all_handle_fields_checked"] is True
+    assert result["arg_slot_field_read_field_names"] == [
+        "descriptor_ptr",
+        "packed_weight_descriptor",
+        "scale_metadata_handle",
+        "aux_metadata_handle",
+    ]
+    assert result["arg_slot_all_handle_fields_read"] is True
     assert json.loads(merged.read_text(encoding="utf-8"))["_meta"]["row_count"] == 7
     stub_payload = json.loads(stub.read_text(encoding="utf-8"))
     assert stub_payload["future_kernel_native_arg_slot_consumer_checked"] is True
@@ -314,6 +321,22 @@ def test_online_merged_arg_slot_canary_flags_stub_geometry_mismatch(tmp_path: Pa
         "future_kernel_native_arg_slot_consumer_dispatch_packet_visible": True,
         "future_kernel_native_arg_slot_consumer_packet_chain_depth": 3,
         "future_kernel_native_arg_slot_consumer_handle_projection_hash_accumulator": "abc",
+        "future_kernel_native_arg_slot_consumer_descriptor_ptr_read_row_count": 7,
+        "future_kernel_native_arg_slot_consumer_descriptor_ptr_read_row_ok_count": 7,
+        "future_kernel_native_arg_slot_consumer_descriptor_ptr_read_error_count": 0,
+        "future_kernel_native_arg_slot_consumer_descriptor_ptr_read_hash_accumulator": "d",
+        "future_kernel_native_arg_slot_consumer_packed_weight_descriptor_read_row_count": 7,
+        "future_kernel_native_arg_slot_consumer_packed_weight_descriptor_read_row_ok_count": 7,
+        "future_kernel_native_arg_slot_consumer_packed_weight_descriptor_read_error_count": 0,
+        "future_kernel_native_arg_slot_consumer_packed_weight_descriptor_read_hash_accumulator": "p",
+        "future_kernel_native_arg_slot_consumer_scale_metadata_handle_read_row_count": 7,
+        "future_kernel_native_arg_slot_consumer_scale_metadata_handle_read_row_ok_count": 7,
+        "future_kernel_native_arg_slot_consumer_scale_metadata_handle_read_error_count": 0,
+        "future_kernel_native_arg_slot_consumer_scale_metadata_handle_read_hash_accumulator": "s",
+        "future_kernel_native_arg_slot_consumer_aux_metadata_handle_read_row_count": 7,
+        "future_kernel_native_arg_slot_consumer_aux_metadata_handle_read_row_ok_count": 7,
+        "future_kernel_native_arg_slot_consumer_aux_metadata_handle_read_error_count": 0,
+        "future_kernel_native_arg_slot_consumer_aux_metadata_handle_read_hash_accumulator": "a",
     }
 
     failures = module._validate_stub(

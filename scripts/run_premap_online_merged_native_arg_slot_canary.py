@@ -28,8 +28,10 @@ from typing import Any
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
+SRC_ROOT = REPO_ROOT / "src"
+for _path in (REPO_ROOT, SRC_ROOT):
+    if str(_path) not in sys.path:
+        sys.path.insert(0, str(_path))
 
 from scripts.materialize_premap_online_merged_typed_consumer_input import (  # noqa: E402
     input_paths_from_runner_artifact,
@@ -90,6 +92,7 @@ MIRROR_FIELD_MACRO = {
     "aux_metadata_handle": "MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_MIRROR_FIELD",
 }
 ARG_SLOT_HANDLE_PROJECTION_FIELDS = tuple(MIRROR_FIELD_MACRO)
+ARG_SLOT_FIELD_READ_FIELDS = ARG_SLOT_HANDLE_PROJECTION_FIELDS
 ARG_SLOT_MACROS = [
     *ARG_SLOT_BASE_MACROS,
     MIRROR_FIELD_MACRO["scale_metadata_handle"],
@@ -171,6 +174,22 @@ STUB_SUMMARY_KEYS = (
     "future_kernel_native_arg_slot_consumer_single_field_mirror_row_count",
     "future_kernel_native_arg_slot_consumer_single_field_mirror_row_ok_count",
     "future_kernel_native_arg_slot_consumer_handle_projection_hash_accumulator",
+    "future_kernel_native_arg_slot_consumer_descriptor_ptr_read_row_count",
+    "future_kernel_native_arg_slot_consumer_descriptor_ptr_read_row_ok_count",
+    "future_kernel_native_arg_slot_consumer_descriptor_ptr_read_error_count",
+    "future_kernel_native_arg_slot_consumer_descriptor_ptr_read_hash_accumulator",
+    "future_kernel_native_arg_slot_consumer_packed_weight_descriptor_read_row_count",
+    "future_kernel_native_arg_slot_consumer_packed_weight_descriptor_read_row_ok_count",
+    "future_kernel_native_arg_slot_consumer_packed_weight_descriptor_read_error_count",
+    "future_kernel_native_arg_slot_consumer_packed_weight_descriptor_read_hash_accumulator",
+    "future_kernel_native_arg_slot_consumer_scale_metadata_handle_read_row_count",
+    "future_kernel_native_arg_slot_consumer_scale_metadata_handle_read_row_ok_count",
+    "future_kernel_native_arg_slot_consumer_scale_metadata_handle_read_error_count",
+    "future_kernel_native_arg_slot_consumer_scale_metadata_handle_read_hash_accumulator",
+    "future_kernel_native_arg_slot_consumer_aux_metadata_handle_read_row_count",
+    "future_kernel_native_arg_slot_consumer_aux_metadata_handle_read_row_ok_count",
+    "future_kernel_native_arg_slot_consumer_aux_metadata_handle_read_error_count",
+    "future_kernel_native_arg_slot_consumer_aux_metadata_handle_read_hash_accumulator",
     "future_kernel_native_arg_slot_consumer_field_mask",
     "future_kernel_native_arg_slot_consumer_required_field_mask",
 )
@@ -232,6 +251,29 @@ def _check_future_field_masks(stub: dict[str, Any]) -> list[str]:
             failures.append(f"{required_key}_mismatch")
         if field_mask != _FUTURE_KERNEL_ALL_FIELD_MASK:
             failures.append(f"{field_key}_not_all_fields")
+    return failures
+
+
+def _check_arg_slot_field_reads(
+    stub: dict[str, Any],
+    *,
+    active_rows: int,
+) -> list[str]:
+    failures: list[str] = []
+    for field in ARG_SLOT_FIELD_READ_FIELDS:
+        prefix = f"future_kernel_native_arg_slot_consumer_{field}_read"
+        expected = {
+            f"{prefix}_row_count": int(active_rows),
+            f"{prefix}_row_ok_count": int(active_rows),
+            f"{prefix}_error_count": 0,
+        }
+        for key, value in expected.items():
+            if stub.get(key) != value:
+                failures.append(f"{key}_mismatch:{stub.get(key)!r}!={value!r}")
+        hash_key = f"{prefix}_hash_accumulator"
+        hash_value = stub.get(hash_key)
+        if not isinstance(hash_value, str) or not hash_value:
+            failures.append(f"{hash_key}_missing")
     return failures
 
 
@@ -352,6 +394,7 @@ def _validate_stub(
     if len(values) != 1:
         failures.append("handle_projection_hash_accumulator_mismatch")
     failures.extend(_check_future_field_masks(stub))
+    failures.extend(_check_arg_slot_field_reads(stub, active_rows=active_rows))
     return failures
 
 
@@ -496,6 +539,22 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
             "future_kernel_native_arg_slot_consumer_dispatch_packet_visible": True,
             "future_kernel_native_arg_slot_consumer_packet_chain_depth": 3,
             "future_kernel_native_arg_slot_consumer_handle_projection_hash_accumulator": "dry",
+            "future_kernel_native_arg_slot_consumer_descriptor_ptr_read_row_count": active_rows,
+            "future_kernel_native_arg_slot_consumer_descriptor_ptr_read_row_ok_count": active_rows,
+            "future_kernel_native_arg_slot_consumer_descriptor_ptr_read_error_count": 0,
+            "future_kernel_native_arg_slot_consumer_descriptor_ptr_read_hash_accumulator": "dry",
+            "future_kernel_native_arg_slot_consumer_packed_weight_descriptor_read_row_count": active_rows,
+            "future_kernel_native_arg_slot_consumer_packed_weight_descriptor_read_row_ok_count": active_rows,
+            "future_kernel_native_arg_slot_consumer_packed_weight_descriptor_read_error_count": 0,
+            "future_kernel_native_arg_slot_consumer_packed_weight_descriptor_read_hash_accumulator": "dry",
+            "future_kernel_native_arg_slot_consumer_scale_metadata_handle_read_row_count": active_rows,
+            "future_kernel_native_arg_slot_consumer_scale_metadata_handle_read_row_ok_count": active_rows,
+            "future_kernel_native_arg_slot_consumer_scale_metadata_handle_read_error_count": 0,
+            "future_kernel_native_arg_slot_consumer_scale_metadata_handle_read_hash_accumulator": "dry",
+            "future_kernel_native_arg_slot_consumer_aux_metadata_handle_read_row_count": active_rows,
+            "future_kernel_native_arg_slot_consumer_aux_metadata_handle_read_row_ok_count": active_rows,
+            "future_kernel_native_arg_slot_consumer_aux_metadata_handle_read_error_count": 0,
+            "future_kernel_native_arg_slot_consumer_aux_metadata_handle_read_hash_accumulator": "dry",
         }
     else:
         stub_payload = run_stub(_stub_namespace(args, input_json=merged_output_json))
@@ -545,6 +604,10 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
         "current_wna16_arg_compatible": False,
         "not_a_single_vllm_launch_table": True,
         "handle_projection_field_names": list(ARG_SLOT_HANDLE_PROJECTION_FIELDS),
+        "arg_slot_field_read_field_names": list(ARG_SLOT_FIELD_READ_FIELDS),
+        "arg_slot_all_handle_fields_read": not _check_arg_slot_field_reads(
+            stub_payload, active_rows=active_rows
+        ),
         "handle_projection_hashchain_equal": _handle_projection_hashchain_equal(
             stub_payload
         ),

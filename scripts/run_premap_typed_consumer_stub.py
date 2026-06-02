@@ -10,14 +10,20 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import sys
 from typing import Any
 
-from mtp_expert_prefetch.runtime.cache_manager import (
+REPO_ROOT = Path(__file__).resolve().parents[1]
+SRC_ROOT = REPO_ROOT / "src"
+for _path in (REPO_ROOT, SRC_ROOT):
+    if str(_path) not in sys.path:
+        sys.path.insert(0, str(_path))
+
+from mtp_expert_prefetch.runtime.cache_manager import (  # noqa: E402
     PREMAP_KERNEL_SIDE_TYPED_CONSUMER_SCHEMA_HASH,
 )
 
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
 SRC = REPO_ROOT / "microbench" / "premap_kernel_consumer" / "premap_typed_consumer_stub.hip"
 ABI_HEADER = (
     REPO_ROOT

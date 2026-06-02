@@ -1214,6 +1214,22 @@ def _runner_future_kernel_native_dispatch_consumer_summary(
             "future_kernel_native_arg_slot_consumer_error_count": 0,
             "future_kernel_native_arg_slot_consumer_hash_accumulator": "fedcba",
             "future_kernel_native_arg_slot_consumer_handle_projection_hash_accumulator": "481d",
+            "future_kernel_native_arg_slot_consumer_descriptor_ptr_read_row_count": 2,
+            "future_kernel_native_arg_slot_consumer_descriptor_ptr_read_row_ok_count": 2,
+            "future_kernel_native_arg_slot_consumer_descriptor_ptr_read_error_count": 0,
+            "future_kernel_native_arg_slot_consumer_descriptor_ptr_read_hash_accumulator": "d35c1",
+            "future_kernel_native_arg_slot_consumer_packed_weight_descriptor_read_row_count": 2,
+            "future_kernel_native_arg_slot_consumer_packed_weight_descriptor_read_row_ok_count": 2,
+            "future_kernel_native_arg_slot_consumer_packed_weight_descriptor_read_error_count": 0,
+            "future_kernel_native_arg_slot_consumer_packed_weight_descriptor_read_hash_accumulator": "d35c2",
+            "future_kernel_native_arg_slot_consumer_scale_metadata_handle_read_row_count": 2,
+            "future_kernel_native_arg_slot_consumer_scale_metadata_handle_read_row_ok_count": 2,
+            "future_kernel_native_arg_slot_consumer_scale_metadata_handle_read_error_count": 0,
+            "future_kernel_native_arg_slot_consumer_scale_metadata_handle_read_hash_accumulator": "d35c3",
+            "future_kernel_native_arg_slot_consumer_aux_metadata_handle_read_row_count": 2,
+            "future_kernel_native_arg_slot_consumer_aux_metadata_handle_read_row_ok_count": 2,
+            "future_kernel_native_arg_slot_consumer_aux_metadata_handle_read_error_count": 0,
+            "future_kernel_native_arg_slot_consumer_aux_metadata_handle_read_hash_accumulator": "d35c4",
             "future_kernel_native_arg_slot_consumer_slot_visible": True,
             "future_kernel_native_arg_slot_consumer_dispatch_ptr_packet_visible": True,
             "future_kernel_native_arg_slot_consumer_dispatch_packet_visible": True,
@@ -1388,6 +1404,46 @@ def _standalone_arg_slot_multiprogram_canary_payload(
             ),
             "future_kernel_native_arg_slot_consumer_handle_projection_hash_accumulator": (
                 "12201358096b98ac"
+            ),
+            "future_kernel_native_arg_slot_consumer_descriptor_ptr_read_row_count": (
+                row_count
+            ),
+            "future_kernel_native_arg_slot_consumer_descriptor_ptr_read_row_ok_count": (
+                row_count
+            ),
+            "future_kernel_native_arg_slot_consumer_descriptor_ptr_read_error_count": 0,
+            "future_kernel_native_arg_slot_consumer_descriptor_ptr_read_hash_accumulator": (
+                "d35c1"
+            ),
+            "future_kernel_native_arg_slot_consumer_packed_weight_descriptor_read_row_count": (
+                row_count
+            ),
+            "future_kernel_native_arg_slot_consumer_packed_weight_descriptor_read_row_ok_count": (
+                row_count
+            ),
+            "future_kernel_native_arg_slot_consumer_packed_weight_descriptor_read_error_count": 0,
+            "future_kernel_native_arg_slot_consumer_packed_weight_descriptor_read_hash_accumulator": (
+                "d35c2"
+            ),
+            "future_kernel_native_arg_slot_consumer_scale_metadata_handle_read_row_count": (
+                row_count
+            ),
+            "future_kernel_native_arg_slot_consumer_scale_metadata_handle_read_row_ok_count": (
+                row_count
+            ),
+            "future_kernel_native_arg_slot_consumer_scale_metadata_handle_read_error_count": 0,
+            "future_kernel_native_arg_slot_consumer_scale_metadata_handle_read_hash_accumulator": (
+                "d35c3"
+            ),
+            "future_kernel_native_arg_slot_consumer_aux_metadata_handle_read_row_count": (
+                row_count
+            ),
+            "future_kernel_native_arg_slot_consumer_aux_metadata_handle_read_row_ok_count": (
+                row_count
+            ),
+            "future_kernel_native_arg_slot_consumer_aux_metadata_handle_read_error_count": 0,
+            "future_kernel_native_arg_slot_consumer_aux_metadata_handle_read_hash_accumulator": (
+                "d35c4"
             ),
         }
     )
@@ -2866,6 +2922,25 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert summary["default_kernel_consumer_arg_slot_row_count"] == 2
     assert summary["default_kernel_consumer_arg_slot_row_ok_count"] == 2
     assert summary["default_kernel_consumer_arg_slot_error_count"] == 0
+    assert summary["default_kernel_consumer_arg_slot_field_read_field_names"] == [
+        "descriptor_ptr",
+        "packed_weight_descriptor",
+        "scale_metadata_handle",
+        "aux_metadata_handle",
+    ]
+    assert summary["default_kernel_consumer_arg_slot_all_handle_fields_read"] is True
+    assert summary["default_kernel_consumer_arg_slot_field_read_row_ok_counts"] == {
+        "descriptor_ptr": 520,
+        "packed_weight_descriptor": 520,
+        "scale_metadata_handle": 520,
+        "aux_metadata_handle": 520,
+    }
+    assert summary["default_kernel_consumer_arg_slot_field_read_error_counts"] == {
+        "descriptor_ptr": 0,
+        "packed_weight_descriptor": 0,
+        "scale_metadata_handle": 0,
+        "aux_metadata_handle": 0,
+    }
     assert summary["default_kernel_consumer_arg_slot_payload_bytes"] == 0
     assert summary["default_kernel_consumer_arg_slot_passed_to_kernel"] is False
     assert (

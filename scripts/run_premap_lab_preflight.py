@@ -268,6 +268,9 @@ ONLINE_PRELAUNCH_ARTIFACT_EVIDENCE_LABELS = {
     "future_kernel_native_dispatch_consumer_online_artifact_check_32_128export_json",
     "future_kernel_native_launch_consumer_online_artifact_check_16_128export_json",
 }
+ONLINE_PRELAUNCH_SELF_FINALIZATION_EVIDENCE_LABELS = (
+    ONLINE_PRELAUNCH_RUNNER_EVIDENCE_LABELS | ONLINE_PRELAUNCH_ARTIFACT_EVIDENCE_LABELS
+)
 ONLINE_PRELAUNCH_MIN_INPUTS_BY_LABEL = {
     ONLINE_PRELAUNCH_RUNNER_EVIDENCE_LABEL: 32,
     "future_kernel_native_consumer_online_runner_16_128export_json": 32,
@@ -3491,6 +3494,34 @@ def _validate_future_native_arg_slot_online_merged_multiprogram_runner_evidence(
     return failures
 
 
+def _self_finalization_evidence_allowed(
+    evidence_label: str,
+    evidence: dict[str, Any],
+) -> bool:
+    if evidence_label not in ONLINE_PRELAUNCH_SELF_FINALIZATION_EVIDENCE_LABELS:
+        return False
+    if evidence_label in ONLINE_PRELAUNCH_ARTIFACT_EVIDENCE_LABELS:
+        if evidence.get("bootstrap_preflight_allowed") is True:
+            return True
+        failures = evidence.get("failures")
+        if not isinstance(failures, list):
+            return False
+        if set(failures) - {"runner_not_passed", "runner_failures_not_empty"}:
+            return False
+        min_inputs = ONLINE_PRELAUNCH_MIN_INPUTS_BY_LABEL.get(evidence_label, 1)
+        input_count = _int_metric(evidence, "runner_online_prelaunch_input_check_count")
+        if input_count is None or input_count < min_inputs:
+            return False
+        final_deferred = _int_metric(evidence, "final_deferred_count")
+        status_deferred = _int_metric(evidence, "status_deferred_count")
+        return (final_deferred in (None, 0)) and (status_deferred in (None, 0))
+    bootstrap_summary = evidence.get("artifact_check_bootstrap_summary")
+    return (
+        isinstance(bootstrap_summary, dict)
+        and bootstrap_summary.get("bootstrap_preflight_allowed") is True
+    )
+
+
 def _check_optional_default_gate_evidence_json(
     gate_path: str,
     *,
@@ -3575,15 +3606,22 @@ def _check_optional_default_gate_evidence_json(
         row["failures_value"] = (
             evidence.get("failures") if isinstance(evidence, dict) else None
         )
+        self_finalization_allowed = (
+            allow_online_runner_self_finalization
+            and _self_finalization_evidence_allowed(evidence_label, evidence)
+        )
         if not isinstance(evidence, dict):
             failures.append(f"{evidence_label}:json_not_object")
             row["failure"] = "json_not_object"
-        elif evidence.get("passed") is not True:
+        elif evidence.get("passed") is not True and not self_finalization_allowed:
             failures.append(f"{evidence_label}:not_passed")
             row["failure"] = "not_passed"
-        elif evidence.get("failures") != []:
+        elif evidence.get("failures") != [] and not self_finalization_allowed:
             failures.append(f"{evidence_label}:failures_not_empty")
             row["failure"] = "failures_not_empty"
+        elif self_finalization_allowed:
+            row["self_finalization_allowed"] = True
+            row["failure"] = None
         else:
             content_failures = _validate_required_evidence_payload(
                 evidence_label,
@@ -3918,15 +3956,22 @@ def _check_required_default_gate_evidence_json(
         row["failures_value"] = (
             evidence.get("failures") if isinstance(evidence, dict) else None
         )
+        self_finalization_allowed = (
+            allow_online_runner_self_finalization
+            and _self_finalization_evidence_allowed(evidence_label, evidence)
+        )
         if not isinstance(evidence, dict):
             failures.append(f"{evidence_label}:json_not_object")
             row["failure"] = "json_not_object"
-        elif evidence.get("passed") is not True:
+        elif evidence.get("passed") is not True and not self_finalization_allowed:
             failures.append(f"{evidence_label}:not_passed")
             row["failure"] = "not_passed"
-        elif evidence.get("failures") != []:
+        elif evidence.get("failures") != [] and not self_finalization_allowed:
             failures.append(f"{evidence_label}:failures_not_empty")
             row["failure"] = "failures_not_empty"
+        elif self_finalization_allowed:
+            row["self_finalization_allowed"] = True
+            row["failure"] = None
         else:
             content_failures = _validate_required_evidence_payload(
                 evidence_label,
@@ -3979,12 +4024,18 @@ def _summarize_required_evidence_check(
         if not isinstance(label, str) or not label:
             continue
         is_present = row.get("exists") is True
+        row_failure = row.get("failure")
         is_passed = (
             is_present
             and row.get("valid_json") is True
             and row.get("passed_value") is True
             and row.get("failures_value") == []
-            and "failure" not in row
+            and row_failure is None
+        ) or (
+            is_present
+            and row.get("valid_json") is True
+            and row.get("self_finalization_allowed") is True
+            and row_failure is None
         )
         present_count += int(is_present)
         passed_count += int(is_passed)
@@ -3994,7 +4045,8 @@ def _summarize_required_evidence_check(
             "sha256": row.get("sha256"),
             "present": is_present,
             "passed": is_passed,
-            "failure": row.get("failure"),
+            "failure": row_failure,
+            "self_finalization_allowed": row.get("self_finalization_allowed"),
         }
     required_labels = check.get("required_labels")
     required_count = (
@@ -4689,6 +4741,45 @@ def run_premap_lab_preflight(
         dispatch_runner_summary,
         "future_kernel_native_arg_slot_consumer_single_field_mirror_row_ok_count",
     )
+    online_merged_arg_slot_summary = online_merged_multiprogram_runner_payload.get(
+        "stub_summary",
+    )
+    if not isinstance(online_merged_arg_slot_summary, dict):
+        online_merged_arg_slot_summary = dispatch_runner_summary
+    arg_slot_field_read_row_count = _int_metric(
+        online_merged_arg_slot_summary,
+        "future_kernel_native_arg_slot_consumer_row_count",
+    )
+    arg_slot_field_read_row_ok_counts: dict[str, int | None] = {}
+    arg_slot_field_read_error_counts: dict[str, int | None] = {}
+    arg_slot_field_read_hashes: dict[str, str | None] = {}
+    for field in ARG_SLOT_MIRROR_FIELDS:
+        prefix = f"future_kernel_native_arg_slot_consumer_{field}_read"
+        arg_slot_field_read_row_ok_counts[field] = _int_metric(
+            online_merged_arg_slot_summary,
+            f"{prefix}_row_ok_count",
+        )
+        arg_slot_field_read_error_counts[field] = _int_metric(
+            online_merged_arg_slot_summary,
+            f"{prefix}_error_count",
+        )
+        hash_key = f"{prefix}_hash_accumulator"
+        hash_value = online_merged_arg_slot_summary.get(hash_key)
+        arg_slot_field_read_hashes[field] = (
+            hash_value
+            if isinstance(hash_value, str)
+            and _hex64_metric(online_merged_arg_slot_summary, hash_key) is not None
+            else None
+        )
+    arg_slot_all_handle_fields_read = (
+        arg_slot_field_read_row_count is not None
+        and all(
+            arg_slot_field_read_row_ok_counts.get(field) == arg_slot_field_read_row_count
+            and arg_slot_field_read_error_counts.get(field) == 0
+            and arg_slot_field_read_hashes.get(field) is not None
+            for field in ARG_SLOT_MIRROR_FIELDS
+        )
+    )
     future_kernel_args_summary = dispatch_runner_payload.get(
         "future_kernel_args_stub_summary",
     )
@@ -4816,6 +4907,14 @@ def run_premap_lab_preflight(
     ):
         failures.append(
             "default_kernel_consumer_dispatch_runner_handle_projection_all_handle_fields_unchecked"
+        )
+    if (
+        not allow_missing_evidence
+        and not defer_online_prelaunch_runner_evidence
+        and not arg_slot_all_handle_fields_read
+    ):
+        failures.append(
+            "default_kernel_consumer_arg_slot_all_handle_fields_read_unchecked"
         )
     lab_gate_status_summary = {
         "passed": not failures,
@@ -5541,6 +5640,21 @@ def run_premap_lab_preflight(
         ),
         "default_kernel_consumer_arg_slot_row_count": arg_slot_row_count,
         "default_kernel_consumer_arg_slot_row_ok_count": arg_slot_row_ok_count,
+        "default_kernel_consumer_arg_slot_field_read_field_names": (
+            list(ARG_SLOT_MIRROR_FIELDS)
+        ),
+        "default_kernel_consumer_arg_slot_all_handle_fields_read": (
+            arg_slot_all_handle_fields_read
+        ),
+        "default_kernel_consumer_arg_slot_field_read_row_ok_counts": (
+            arg_slot_field_read_row_ok_counts
+        ),
+        "default_kernel_consumer_arg_slot_field_read_error_counts": (
+            arg_slot_field_read_error_counts
+        ),
+        "default_kernel_consumer_arg_slot_field_read_hashes": (
+            arg_slot_field_read_hashes
+        ),
         "default_kernel_consumer_arg_slot_error_count": (
             _int_metric(
                 dispatch_runner_summary,

@@ -26,6 +26,22 @@ def _field_mask_pairs() -> dict[str, int]:
     return pairs
 
 
+def _arg_slot_field_read_pairs(active: int) -> dict[str, object]:
+    pairs: dict[str, object] = {}
+    for field in (
+        "descriptor_ptr",
+        "packed_weight_descriptor",
+        "scale_metadata_handle",
+        "aux_metadata_handle",
+    ):
+        prefix = f"future_kernel_native_arg_slot_consumer_{field}_read"
+        pairs[f"{prefix}_row_count"] = active
+        pairs[f"{prefix}_row_ok_count"] = active
+        pairs[f"{prefix}_error_count"] = 0
+        pairs[f"{prefix}_hash_accumulator"] = field
+    return pairs
+
+
 def _child_payload(
     *,
     offset: int,
@@ -67,6 +83,7 @@ def _child_payload(
             "future_kernel_native_dispatch_consumer_block_x": block_threads,
             "future_kernel_native_dispatch_consumer_row_limit": limit,
             **_field_mask_pairs(),
+            **_arg_slot_field_read_pairs(active),
         },
     }
 
