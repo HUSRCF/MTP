@@ -25557,6 +25557,10 @@ tail dispatch active rows = 512
 handle projection hashchain equal = true
 all handle fields projected = true
 single_field_mirror = scale_metadata_handle
+tail one-field mirrors also passed =
+  descriptor_ptr
+  packed_weight_descriptor
+  aux_metadata_handle
 payload_bytes = 0
 passed_to_kernel = false
 changes_kernel_launch_args = false
