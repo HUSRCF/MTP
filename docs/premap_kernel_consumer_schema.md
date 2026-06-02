@@ -193,6 +193,27 @@ PremapFutureKernelNativeConsumerArgSlotV1
   offset(flags) = 24
 ```
 
+## Artifact Checker Path Contract
+
+The online native-stub canary runner writes the exact strict preflight artifacts
+that belong to that runner:
+
+```text
+preflight_output_json
+preflight_status_output_json
+```
+
+`scripts/check_premap_online_native_stub_canary_artifacts.py` follows those
+runner-recorded paths by default.  This is the preferred lab workflow because
+the runner, its final no-defer preflight, and its summary/status artifact must
+be checked as one evidence bundle.
+
+Explicit `--preflight-json` and `--status-json` are still available for manual
+cross-checks, but they should only be used when intentionally comparing against
+non-runner-recorded artifacts.  Passing a generic preflight/status filename for
+a specialized runner can produce a real mismatch even when the runner itself is
+valid.
+
 ## Macro Ladder
 
 Native debug support must be injected one flag at a time:
