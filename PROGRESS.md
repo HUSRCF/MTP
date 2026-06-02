@@ -26319,3 +26319,35 @@ The checker now also validates the child `mirror_field` and the native stub's
 child artifact from another mirror field cannot satisfy the default lab gate.
 All four mirror fields passed the 1841-row full/head/middle/tail window sweep
 with the strict no-payload / no-kernel-arg boundary intact.
+
+A convenience all-field runner now refreshes the four mirror-field sweeps and
+their static checks in one command:
+
+```text
+all-field runner:
+  outputs/reports/premap_kernel_consumer/
+    online_merged_future_native_arg_slot_all_field_window_sweep_runner.json
+
+passed = true
+failures = []
+window_size = 512
+block_threads = 256
+row_counts =
+  descriptor_ptr = 1841
+  packed_weight_descriptor = 1841
+  scale_metadata_handle = 1841
+  aux_metadata_handle = 1841
+
+field_reports:
+  descriptor_ptr: full/head/middle/tail checked
+  packed_weight_descriptor: full/head/middle/tail checked
+  scale_metadata_handle: full/head/middle/tail checked
+  aux_metadata_handle: full/head/middle/tail checked
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+```
+
+This is still a native-stub ABI check, not a live WNA16 handoff.  It does,
+however, verify that every field in the future typed handle schema can be read
+through the same row-window dispatch geometry.
