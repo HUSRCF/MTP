@@ -22687,6 +22687,16 @@ default_kernel_consumer_online_merged_multiprogram_all_handle_fields_checked = t
 default_kernel_consumer_online_merged_multiprogram_no_payload = true
 default_kernel_consumer_online_merged_multiprogram_passed_to_kernel = false
 default_kernel_consumer_online_merged_multiprogram_changes_kernel_launch_args = false
+default_kernel_consumer_dispatch_runner_evidence_sha256 =
+  79b3df236b19f2ab08e3020280424e155402e883bb05c14f0bd5d8d783371469
+default_kernel_consumer_dispatch_runner_artifact_evidence_sha256 =
+  f094f2488273062866c126fa8a3f2e7cb869e155a1ddce3e232a21bd1ede4e6f
+default_kernel_consumer_online_merged_multiprogram_evidence_sha256 =
+  dae8057ebb0f9b350578f5030b85582de828c437d56f9e5a73ec9f5e7b27ed86
+default_kernel_consumer_dispatch_ptr_standalone_evidence_sha256 =
+  7a1f89aba767b4c530fe6fa2a78555691202d9d7a1a884ac4587cb92c29d1be7
+default_kernel_consumer_arg_slot_standalone_evidence_sha256 =
+  1b542fbbe0848a5716d7a3629b69e25da5adae64ded9cd70597e6f1b8c7c0331
 runtime_gate_evidence_deferred_count = 0
 strict_default_gate_evidence_deferred_count = 0
 ```
@@ -22695,6 +22705,9 @@ This keeps the lab default gate on the safe future-native typed ABI path:
 readonly/prelaunch-derived handle rows are consumed by the native bridge and
 merged multiprogram runner, while payload movement, ready credit, current WNA16
 argument mutation, and WNA16 argument reinterpretation remain disabled.
+The preflight summary now also records SHA256 digests for required evidence
+files, so a later run can detect if a `latest` evidence path resolves to
+different content.
 
 The standalone schema checker also passes on the typed consumer schema artifact:
 

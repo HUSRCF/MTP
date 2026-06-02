@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 from typing import Callable
@@ -3101,6 +3102,26 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
             "future_kernel_native_arg_slot_online_merged_multiprogram_runner_json"
         ]["passed"]
         is True
+    )
+    online_merged_runner_sha = hashlib.sha256(
+        (
+            tmp_path
+            / summary["required_evidence"]["evidence"][
+                "future_kernel_native_arg_slot_online_merged_multiprogram_runner_json"
+            ]["path"]
+        ).read_bytes()
+    ).hexdigest()
+    assert (
+        summary["required_evidence"]["evidence"][
+            "future_kernel_native_arg_slot_online_merged_multiprogram_runner_json"
+        ]["sha256"]
+        == online_merged_runner_sha
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_online_merged_multiprogram_evidence_sha256"
+        ]
+        == online_merged_runner_sha
     )
     assert (
         summary["required_evidence"]["evidence"][

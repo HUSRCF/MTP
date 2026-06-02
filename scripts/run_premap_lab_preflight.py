@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 from typing import Any
@@ -3618,6 +3619,14 @@ def _path_for_label(raw_path: str, root: Path) -> Path:
     return path if path.is_absolute() else root / path
 
 
+def _file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 def _load_yaml(path: Path) -> Any:
     return yaml.safe_load(path.read_text(encoding="utf-8"))
 
@@ -3864,6 +3873,13 @@ def _check_required_default_gate_evidence_json(
             rows.append(row)
             continue
         try:
+            row["sha256"] = _file_sha256(evidence_path)
+        except OSError as exc:
+            failures.append(f"{evidence_label}:sha256_failed")
+            row["failure"] = f"sha256_failed:{type(exc).__name__}:{exc}"
+            rows.append(row)
+            continue
+        try:
             evidence = json.loads(evidence_path.read_text(encoding="utf-8"))
         except (OSError, UnicodeDecodeError) as exc:
             failures.append(f"{evidence_label}:read_failed")
@@ -3957,6 +3973,7 @@ def _summarize_required_evidence_check(
         evidence[label] = {
             "path": row.get("path"),
             "path_label": row.get("path_label"),
+            "sha256": row.get("sha256"),
             "present": is_present,
             "passed": is_passed,
             "failure": row.get("failure"),
@@ -3996,6 +4013,11 @@ def _evidence_row_passed(row: dict[str, Any]) -> bool:
         and row.get("failures_value") == []
         and "failure" not in row
     )
+
+
+def _evidence_row_sha256(row: dict[str, Any]) -> str | None:
+    value = row.get("sha256")
+    return value if isinstance(value, str) and len(value) == 64 else None
 
 
 def _arg_slot_mirror_field_coverage(payload: dict[str, Any]) -> list[str]:
@@ -4848,6 +4870,9 @@ def run_premap_lab_preflight(
         "default_kernel_consumer_dispatch_runner_evidence_path": (
             dispatch_runner_evidence_row.get("path")
         ),
+        "default_kernel_consumer_dispatch_runner_evidence_sha256": (
+            _evidence_row_sha256(dispatch_runner_evidence_row)
+        ),
         "default_kernel_consumer_dispatch_runner_evidence_present": (
             dispatch_runner_evidence_present
         ),
@@ -4862,6 +4887,9 @@ def run_premap_lab_preflight(
         ),
         "default_kernel_consumer_dispatch_runner_artifact_evidence_path": (
             dispatch_runner_artifact_evidence_row.get("path")
+        ),
+        "default_kernel_consumer_dispatch_runner_artifact_evidence_sha256": (
+            _evidence_row_sha256(dispatch_runner_artifact_evidence_row)
         ),
         "default_kernel_consumer_dispatch_runner_artifact_evidence_present": (
             dispatch_runner_artifact_evidence_present
@@ -4925,6 +4953,9 @@ def run_premap_lab_preflight(
         ),
         "default_kernel_consumer_online_merged_multiprogram_evidence_path": (
             online_merged_multiprogram_runner_evidence_row.get("path")
+        ),
+        "default_kernel_consumer_online_merged_multiprogram_evidence_sha256": (
+            _evidence_row_sha256(online_merged_multiprogram_runner_evidence_row)
         ),
         "default_kernel_consumer_online_merged_multiprogram_evidence_passed": (
             _evidence_row_passed(online_merged_multiprogram_runner_evidence_row)
@@ -5140,6 +5171,9 @@ def run_premap_lab_preflight(
         "default_kernel_consumer_dispatch_ptr_standalone_evidence_path": (
             dispatch_ptr_standalone_evidence_row.get("path")
         ),
+        "default_kernel_consumer_dispatch_ptr_standalone_evidence_sha256": (
+            _evidence_row_sha256(dispatch_ptr_standalone_evidence_row)
+        ),
         "default_kernel_consumer_dispatch_ptr_standalone_evidence_present": (
             dispatch_ptr_standalone_evidence_present
         ),
@@ -5199,6 +5233,9 @@ def run_premap_lab_preflight(
         ),
         "default_kernel_consumer_arg_slot_standalone_evidence_path": (
             arg_slot_standalone_evidence_row.get("path")
+        ),
+        "default_kernel_consumer_arg_slot_standalone_evidence_sha256": (
+            _evidence_row_sha256(arg_slot_standalone_evidence_row)
         ),
         "default_kernel_consumer_arg_slot_standalone_evidence_present": (
             arg_slot_standalone_evidence_present
