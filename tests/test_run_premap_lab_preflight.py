@@ -2582,6 +2582,36 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
         is False
     )
     assert (
+        summary[
+            "default_kernel_consumer_dispatch_runner_future_kernel_args_mirror_field_coverage"
+        ]
+        == ["scale_metadata_handle"]
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_dispatch_runner_future_kernel_args_optional_mirror_field_coverage"
+        ]
+        == []
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_dispatch_runner_future_kernel_args_optional_mirror_evidence_labels"
+        ]
+        == []
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_dispatch_runner_future_kernel_args_total_mirror_field_coverage"
+        ]
+        == ["scale_metadata_handle"]
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_dispatch_runner_future_kernel_args_total_full_field_mirror_coverage"
+        ]
+        is False
+    )
+    assert (
         summary["default_kernel_consumer_dispatch_runner_final_preflight_passed"]
         is True
     )
@@ -2904,7 +2934,7 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert summary["required_evidence"]["required_count"] == 18
     assert summary["required_evidence"]["present_count"] == 18
     assert summary["required_evidence"]["passed_count"] == 18
-    assert summary["optional_evidence"]["required_count"] == 16
+    assert summary["optional_evidence"]["required_count"] == 19
     assert summary["optional_evidence"]["present_count"] == 16
     assert summary["optional_evidence"]["passed_count"] == 16
     assert (

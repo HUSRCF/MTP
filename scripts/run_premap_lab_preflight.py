@@ -193,6 +193,9 @@ OPTIONAL_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
     "future_kernel_native_arg_slot_online_merged_descriptor_ptr_mirror_runner_json",
     "future_kernel_native_arg_slot_online_merged_packed_weight_mirror_runner_json",
     "future_kernel_native_arg_slot_packed_weight_mirror_canary_json",
+    "future_kernel_args_aux_metadata_mirror_canary_json",
+    "future_kernel_args_descriptor_ptr_mirror_canary_json",
+    "future_kernel_args_packed_weight_mirror_canary_json",
     "future_kernel_native_launch_consumer_online_artifact_check_16_128export_json",
     "future_kernel_native_launch_consumer_online_runner_16_128export_json",
     "native_typed_consumer_stub_online_prelaunch_input_per_field_canary_json",
@@ -227,6 +230,11 @@ ARG_SLOT_ONLINE_DIAGNOSTIC_SUMMARY_KEY_BY_FIELD = {
     "packed_weight_descriptor": (
         "future_kernel_native_consumer_dispatch_packed_weight_stub_summary"
     ),
+}
+FUTURE_KERNEL_ARGS_OPTIONAL_MIRROR_LABEL_BY_FIELD = {
+    "aux_metadata_handle": "future_kernel_args_aux_metadata_mirror_canary_json",
+    "descriptor_ptr": "future_kernel_args_descriptor_ptr_mirror_canary_json",
+    "packed_weight_descriptor": "future_kernel_args_packed_weight_mirror_canary_json",
 }
 ONLINE_PRELAUNCH_RUNNER_EVIDENCE_LABEL = (
     "native_typed_consumer_online_prelaunch_canary_runner_json"
@@ -3999,6 +4007,22 @@ def _arg_slot_mirror_field_coverage(payload: dict[str, Any]) -> list[str]:
     return []
 
 
+def _future_kernel_args_mirror_field_coverage(payload: dict[str, Any]) -> list[str]:
+    field = payload.get("future_kernel_consumer_args_single_field_mirror_field_name")
+    if (
+        payload.get("future_kernel_consumer_args_single_field_mirror_checked") is True
+        and _int_metric(
+            payload,
+            "future_kernel_consumer_args_single_field_mirror_error_count",
+        )
+        == 0
+        and isinstance(field, str)
+        and field in ARG_SLOT_MIRROR_FIELDS
+    ):
+        return [field]
+    return []
+
+
 def _load_evidence_payload_from_check(
     check: dict[str, Any],
     label: str,
@@ -4459,6 +4483,32 @@ def run_premap_lab_preflight(
         | set(arg_slot_optional_mirror_field_coverage)
         | set(arg_slot_online_merged_optional_mirror_field_coverage)
     )
+    future_kernel_args_runner_summary = dispatch_runner_payload.get(
+        "future_kernel_args_stub_summary",
+    )
+    if not isinstance(future_kernel_args_runner_summary, dict):
+        future_kernel_args_runner_summary = {}
+    future_kernel_args_mirror_field_coverage = (
+        _future_kernel_args_mirror_field_coverage(future_kernel_args_runner_summary)
+    )
+    future_kernel_args_optional_mirror_field_coverage: list[str] = []
+    future_kernel_args_optional_mirror_evidence_labels: list[str] = []
+    for field, label in FUTURE_KERNEL_ARGS_OPTIONAL_MIRROR_LABEL_BY_FIELD.items():
+        row = _find_evidence_row(default_gate_optional_evidence_check, label)
+        if not _evidence_row_passed(row):
+            continue
+        payload = _load_evidence_payload_from_check(
+            default_gate_optional_evidence_check,
+            label,
+            root=root,
+        )
+        if _future_kernel_args_mirror_field_coverage(payload) == [field]:
+            future_kernel_args_optional_mirror_field_coverage.append(field)
+            future_kernel_args_optional_mirror_evidence_labels.append(label)
+    future_kernel_args_total_mirror_field_coverage = sorted(
+        set(future_kernel_args_mirror_field_coverage)
+        | set(future_kernel_args_optional_mirror_field_coverage)
+    )
     observed_default_contract = default_gate_contract_check.get("observed_contract")
     if not isinstance(observed_default_contract, dict):
         observed_default_contract = {}
@@ -4909,6 +4959,22 @@ def run_premap_lab_preflight(
                 future_kernel_args_compatible_path_summary,
                 "future_kernel_args_compatible_consumer_path_current_wna16_arg_compatible",
             )
+        ),
+        "default_kernel_consumer_dispatch_runner_future_kernel_args_mirror_field_coverage": (
+            future_kernel_args_mirror_field_coverage
+        ),
+        "default_kernel_consumer_dispatch_runner_future_kernel_args_optional_mirror_field_coverage": (
+            sorted(future_kernel_args_optional_mirror_field_coverage)
+        ),
+        "default_kernel_consumer_dispatch_runner_future_kernel_args_optional_mirror_evidence_labels": (
+            sorted(future_kernel_args_optional_mirror_evidence_labels)
+        ),
+        "default_kernel_consumer_dispatch_runner_future_kernel_args_total_mirror_field_coverage": (
+            future_kernel_args_total_mirror_field_coverage
+        ),
+        "default_kernel_consumer_dispatch_runner_future_kernel_args_total_full_field_mirror_coverage": (
+            set(future_kernel_args_total_mirror_field_coverage)
+            == set(ARG_SLOT_MIRROR_FIELDS)
         ),
         "default_kernel_consumer_dispatch_runner_final_preflight_passed": (
             _bool_metric(dispatch_runner_final_status_summary, "passed") is True

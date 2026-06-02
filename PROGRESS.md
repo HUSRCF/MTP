@@ -34,7 +34,9 @@
   `device=0` under `HIP_VISIBLE_DEVICES=1`.  The compact preflight status now
   also exposes the future kernel-args and compatible-consumer-path row/safety
   fields so the next kernel-side ABI step is visible without opening the full
-  runner JSON.
+  runner JSON.  Future kernel-args mirror coverage is now also visible in the
+  same compact status and reaches all four typed handle fields in the default
+  lab artifact.
 
 ## Latest Update: GPU1-target online-merged arg-slot runner gate
 
@@ -102,6 +104,15 @@ default_kernel_consumer_dispatch_runner_future_kernel_args_compatible_path_row_o
 default_kernel_consumer_dispatch_runner_future_kernel_args_compatible_path_payload_bytes = 0
 default_kernel_consumer_dispatch_runner_future_kernel_args_compatible_path_passed_to_kernel = false
 default_kernel_consumer_dispatch_runner_future_kernel_args_compatible_path_current_wna16_arg_compatible = false
+
+default_kernel_consumer_dispatch_runner_future_kernel_args_mirror_field_coverage =
+  [scale_metadata_handle]
+default_kernel_consumer_dispatch_runner_future_kernel_args_optional_mirror_field_coverage =
+  [aux_metadata_handle, descriptor_ptr, packed_weight_descriptor]
+default_kernel_consumer_dispatch_runner_future_kernel_args_total_mirror_field_coverage =
+  [aux_metadata_handle, descriptor_ptr, packed_weight_descriptor,
+   scale_metadata_handle]
+default_kernel_consumer_dispatch_runner_future_kernel_args_total_full_field_mirror_coverage = true
 ```
 
 ## Latest Update: Explicit All-Handle Projection Coverage
