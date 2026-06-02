@@ -22696,6 +22696,34 @@ readonly/prelaunch-derived handle rows are consumed by the native bridge and
 merged multiprogram runner, while payload movement, ready credit, current WNA16
 argument mutation, and WNA16 argument reinterpretation remain disabled.
 
+The standalone schema checker also passes on the typed consumer schema artifact:
+
+```text
+artifact:
+  outputs/reports/premap_kernel_consumer/schema_check_post_schema_refresh.json
+
+schema = fused_moe_awq_wna16_kernel_side_typed_consumer_object_v1
+schema_hash = c1384d55958c9aa78b07b4ee3e9094f835ec1ca4c61bd7e9613c01ceb8275e98
+row fields =
+  descriptor_ptr
+  packed_weight_descriptor
+  scale_metadata_handle
+  aux_metadata_handle
+row metadata =
+  layer_id
+  expert_id
+  address_key_hash
+  row_order_hash
+  ordered_row_hash
+future args layout reported = true
+native consumer ABI layout reported = true
+launch ABI layout reported = true
+dispatch ABI layout reported = true
+dispatch-ptr ABI layout reported = true
+arg-slot ABI layout reported = true
+passed = true
+```
+
 Validation:
 
 ```text
