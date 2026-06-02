@@ -22672,7 +22672,7 @@ preflight was rerun in summary-only, no-defer mode:
 
 ```text
 artifact:
-  outputs/reports/premap_lab_preflight_default_post_schema_refresh.json
+  outputs/reports/premap_lab_preflight_default_with_evidence_sha256_final.json
 
 passed = true
 default_contract_passed = true
