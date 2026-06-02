@@ -189,6 +189,93 @@ def test_future_native_dispatch_tail_window_supports_dry_run_without_input(
     ]
 
 
+def test_existing_stub_reuse_requires_matching_dispatch_window(tmp_path: Path):
+    import scripts.run_premap_online_native_stub_canary as canary
+
+    output = tmp_path / "stub.json"
+    output.write_text(
+        json.dumps(
+            {
+                "passed": True,
+                "requested_dispatch_row_offset": 1,
+                "requested_dispatch_row_limit": 5,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    matching_cmd = [
+        "python",
+        "scripts/run_premap_typed_consumer_stub.py",
+        "--output-json",
+        str(output),
+        "--dispatch-row-offset",
+        "1",
+        "--dispatch-row-limit",
+        "5",
+    ]
+    mismatched_cmd = [
+        "python",
+        "scripts/run_premap_typed_consumer_stub.py",
+        "--output-json",
+        str(output),
+        "--dispatch-row-offset",
+        "0",
+        "--dispatch-row-limit",
+        "5",
+    ]
+    full_table_cmd = [
+        "python",
+        "scripts/run_premap_typed_consumer_stub.py",
+        "--output-json",
+        str(output),
+    ]
+
+    assert canary._can_reuse_existing_stub_output(matching_cmd, output) is True
+    assert canary._can_reuse_existing_stub_output(mismatched_cmd, output) is False
+    assert canary._can_reuse_existing_stub_output(full_table_cmd, output) is False
+
+
+def test_existing_stub_reuse_accepts_matching_full_table_output(tmp_path: Path):
+    import scripts.run_premap_online_native_stub_canary as canary
+
+    output = tmp_path / "stub.json"
+    output.write_text(
+        json.dumps(
+            {
+                "passed": True,
+                "requested_dispatch_row_offset": 0,
+                "requested_dispatch_row_limit": None,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    cmd = [
+        "python",
+        "scripts/run_premap_typed_consumer_stub.py",
+        "--output-json",
+        str(output),
+    ]
+
+    assert canary._can_reuse_existing_stub_output(cmd, output) is True
+
+
+def test_existing_stub_reuse_rejects_legacy_output_without_window(tmp_path: Path):
+    import scripts.run_premap_online_native_stub_canary as canary
+
+    output = tmp_path / "stub.json"
+    output.write_text(json.dumps({"passed": True}) + "\n", encoding="utf-8")
+    cmd = [
+        "python",
+        "scripts/run_premap_typed_consumer_stub.py",
+        "--output-json",
+        str(output),
+    ]
+
+    assert canary._can_reuse_existing_stub_output(cmd, output) is False
+
+
 def test_run_canary_dry_run_includes_compact_preflight_status(
     tmp_path: Path,
     monkeypatch,

@@ -25501,3 +25501,35 @@ changes_kernel_launch_args_required = false
 This is still a no-op bridge toward a future kernel ABI.  It does not pass
 typed table handles into the current WNA16 kernel, does not move payload, and
 does not reinterpret the existing WNA16 kernel argument layout.
+
+## 2026-06-02 - Future-native row-window canary
+
+The future-native typed consumer stub now has an independent middle-window
+canary for the dispatch / dispatch-ptr / arg-slot ABI path.  This verifies that
+the native bridge can consume a row subset rather than only full-table inputs:
+
+```text
+artifact:
+  outputs/reports/premap_kernel_consumer/
+    typed_consumer_stub_gpu1_future_native_arg_slot_middle_window32_96_input0.json
+
+requested_dispatch_row_offset = 32
+requested_dispatch_row_limit = 96
+future_kernel_native_dispatch_consumer_active_rows = 64
+future_kernel_native_dispatch_consumer_launch_covers_active_rows = true
+future_kernel_native_dispatch_consumer_launch_minimal_cover = true
+future_kernel_native_dispatch_consumer_program_iteration_checked = true
+future_kernel_native_dispatch_ptr_consumer_row_count = 64
+future_kernel_native_arg_slot_consumer_row_count = 64
+single_field_mirror = scale_metadata_handle
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+```
+
+The online native-stub canary runner now also guards its optional
+`MTP_PREMAP_REUSE_EXISTING_STUB_OUTPUTS=1` fast path: existing stub outputs are
+reused only when their `requested_dispatch_row_offset` and
+`requested_dispatch_row_limit` match the current command.  Legacy outputs
+without explicit dispatch-window evidence are rejected and rerun.  This prevents
+full-table artifacts from being accidentally reused as row-window evidence.

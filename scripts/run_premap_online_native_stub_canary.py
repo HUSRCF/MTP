@@ -917,6 +917,42 @@ def _base_env(*, gpu_index: int | None) -> dict[str, str]:
     return env
 
 
+def _int_arg(cmd: list[str], name: str, default: int | None) -> int | None:
+    if name not in cmd:
+        return default
+    index = cmd.index(name) + 1
+    if index >= len(cmd):
+        raise ValueError(f"missing value for {name}")
+    return int(cmd[index])
+
+
+def _expected_stub_dispatch_window(cmd: list[str]) -> tuple[int, int | None]:
+    return (
+        int(_int_arg(cmd, "--dispatch-row-offset", 0) or 0),
+        _int_arg(cmd, "--dispatch-row-limit", None),
+    )
+
+
+def _can_reuse_existing_stub_output(cmd: list[str], output_path: Path) -> bool:
+    try:
+        payload = json.loads(output_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False
+    if not bool(payload.get("passed", payload.get("ok", False))):
+        return False
+    expected_offset, expected_limit = _expected_stub_dispatch_window(cmd)
+    if "requested_dispatch_row_offset" not in payload:
+        return False
+    if int(payload["requested_dispatch_row_offset"]) != expected_offset:
+        return False
+    if "requested_dispatch_row_limit" not in payload:
+        return False
+    actual_limit = payload["requested_dispatch_row_limit"]
+    if actual_limit is None:
+        return expected_limit is None
+    return expected_limit is not None and int(actual_limit) == expected_limit
+
+
 def _run(
     cmd: list[str],
     *,
@@ -936,11 +972,15 @@ def _run(
         if output_index < len(cmd):
             output_path = Path(cmd[output_index])
             output_path = output_path if output_path.is_absolute() else REPO_ROOT / output_path
-            if output_path.exists():
+            if output_path.exists() and _can_reuse_existing_stub_output(
+                cmd,
+                output_path,
+            ):
                 return {
                     "cmd": cmd,
                     "returncode": 0,
                     "reused_existing_output": True,
+                    "reuse_dispatch_window_checked": True,
                     "output_json": str(output_path),
                 }
     result = subprocess.run(
