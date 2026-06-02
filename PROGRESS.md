@@ -2,7 +2,7 @@
 
 ## Progress Version
 
-- Version: `v0.42-gpu1-online-merged-runner-gate`
+- Version: `v0.43-future-kernel-args-coverage-gate`
 - Updated: 2026-06-02
 - Current phase: premap descriptor/address prep now has a typed
   kernel-side consumer object, a launch-shaped future native ABI, and a
@@ -36,7 +36,8 @@
   fields so the next kernel-side ABI step is visible without opening the full
   runner JSON.  Future kernel-args mirror coverage is now also visible in the
   same compact status and reaches all four typed handle fields in the default
-  lab artifact.
+  lab artifact.  That full-field future-kernel-args coverage is now a strict
+  lab preflight requirement.
 
 ## Latest Update: GPU1-target online-merged arg-slot runner gate
 
@@ -113,7 +114,20 @@ default_kernel_consumer_dispatch_runner_future_kernel_args_total_mirror_field_co
   [aux_metadata_handle, descriptor_ptr, packed_weight_descriptor,
    scale_metadata_handle]
 default_kernel_consumer_dispatch_runner_future_kernel_args_total_full_field_mirror_coverage = true
+default_kernel_consumer_dispatch_runner_future_kernel_args_total_mirror_coverage_required = true
 ```
+
+The strict preflight now rejects missing future-kernel-args full-field coverage
+via:
+
+```text
+default_kernel_consumer_future_kernel_args_total_mirror_coverage_incomplete
+```
+
+This promotes the future kernel-args path from a visible compact status into a
+real lab precondition for the next kernel-side compatible consumer step.  It
+still does not make the path compatible with the current WNA16 kernel args and
+does not pass any typed object to the current kernel.
 
 ## Latest Update: Explicit All-Handle Projection Coverage
 

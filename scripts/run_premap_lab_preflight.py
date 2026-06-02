@@ -100,6 +100,7 @@ REQUIRED_DEFAULT_GATE_CONTRACT = {
     "future_kernel_consumer_args_current_wna16_arg_compatible_required": False,
     "future_kernel_consumer_args_single_field_mirror_required": True,
     "future_kernel_consumer_args_single_field_mirror_field": "scale_metadata_handle",
+    "future_kernel_consumer_args_total_mirror_coverage_required": True,
     "future_kernel_native_dispatch_consumer_full_table_required": True,
     "future_kernel_native_dispatch_ptr_consumer_required": True,
     "future_kernel_native_dispatch_consumer_program_iteration_required": True,
@@ -4538,6 +4539,12 @@ def run_premap_lab_preflight(
         )
         is True
     )
+    future_kernel_args_total_mirror_coverage_required = (
+        observed_default_contract.get(
+            "future_kernel_consumer_args_total_mirror_coverage_required"
+        )
+        is True
+    )
     if (
         arg_slot_online_total_mirror_coverage_required
         and not allow_missing_evidence
@@ -4547,6 +4554,16 @@ def run_premap_lab_preflight(
     ):
         failures.append(
             "default_kernel_consumer_arg_slot_online_total_mirror_coverage_incomplete"
+        )
+    if (
+        future_kernel_args_total_mirror_coverage_required
+        and not allow_missing_evidence
+        and not defer_online_prelaunch_runner_evidence
+        and set(future_kernel_args_total_mirror_field_coverage)
+        != set(ARG_SLOT_MIRROR_FIELDS)
+    ):
+        failures.append(
+            "default_kernel_consumer_future_kernel_args_total_mirror_coverage_incomplete"
         )
     dispatch_runner_final_status_summary = dispatch_runner_payload.get(
         "final_preflight_status_summary",
@@ -4975,6 +4992,9 @@ def run_premap_lab_preflight(
         "default_kernel_consumer_dispatch_runner_future_kernel_args_total_full_field_mirror_coverage": (
             set(future_kernel_args_total_mirror_field_coverage)
             == set(ARG_SLOT_MIRROR_FIELDS)
+        ),
+        "default_kernel_consumer_dispatch_runner_future_kernel_args_total_mirror_coverage_required": (
+            future_kernel_args_total_mirror_coverage_required
         ),
         "default_kernel_consumer_dispatch_runner_final_preflight_passed": (
             _bool_metric(dispatch_runner_final_status_summary, "passed") is True
