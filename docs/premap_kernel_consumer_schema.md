@@ -330,6 +330,35 @@ The unprefixed `payload_bytes_required`, `passed_to_kernel_required`, and
 lab-summary contract aliases for the default gate's zero-payload/no-kernel-arg
 requirements.
 
+The compact summary can be checked without rerunning the full preflight:
+
+```bash
+python scripts/check_premap_lab_preflight_summary.py \
+  outputs/reports/premap_lab_preflight_default_with_gate_schema_sha256.json \
+  --output-json \
+  outputs/reports/premap_lab_preflight_default_with_gate_schema_sha256.check.json
+```
+
+The checker requires:
+
+```text
+passed = true
+runtime_gate_evidence_deferred_count = 0
+strict_default_gate_evidence_deferred_count = 0
+payload_bytes_required = 0
+passed_to_kernel_required = false
+changes_kernel_launch_args_required = false
+default_kernel_consumer_online_merged_multiprogram_source_count >= 32
+default_kernel_consumer_online_merged_multiprogram_dispatch_active_rows =
+  default_kernel_consumer_online_merged_multiprogram_row_count
+default_kernel_consumer_online_merged_multiprogram_hashchain_equal = true
+default_kernel_consumer_online_merged_multiprogram_all_handle_fields_checked = true
+default_kernel_consumer_online_merged_multiprogram_no_payload = true
+default_kernel_consumer_online_merged_multiprogram_passed_to_kernel = false
+default_kernel_consumer_online_merged_multiprogram_changes_kernel_launch_args = false
+all gate/schema/evidence SHA256 summary fields are present
+```
+
 Tests cover multi-program dispatch windows (`grid_x > 1`) with both zero and
 nonzero `row_offset`, so the future row assignment formula is validated beyond
 the single-program tail-window case.
