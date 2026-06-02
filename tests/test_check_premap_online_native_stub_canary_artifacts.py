@@ -1244,6 +1244,22 @@ def test_check_online_native_stub_canary_artifacts_accepts_consistent_payloads(
     assert result["runner_online_prelaunch_input_check_count"] == 1
 
 
+def test_check_online_native_stub_canary_artifacts_uses_runner_recorded_paths(
+    tmp_path: Path,
+):
+    runner_path, _preflight_path, _status_path = _payloads(tmp_path)
+
+    result = check_online_native_stub_canary_artifacts(
+        root=tmp_path,
+        runner_json=runner_path,
+    )
+
+    assert result["passed"] is True
+    assert result["failures"] == []
+    assert result["preflight_json_source"] == "runner_recorded"
+    assert result["status_json_source"] == "runner_recorded"
+
+
 def test_check_online_native_stub_canary_artifacts_accepts_stage1_extra_optional_defer(
     tmp_path: Path,
 ):

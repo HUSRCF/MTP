@@ -1327,16 +1327,18 @@ def check_online_native_stub_canary_artifacts(
     *,
     root: Path,
     runner_json: Path = DEFAULT_RUNNER_JSON,
-    preflight_json: Path = DEFAULT_PREFLIGHT_JSON,
-    status_json: Path = DEFAULT_STATUS_JSON,
+    preflight_json: Path | None = None,
+    status_json: Path | None = None,
     require_all_field_mirror_stubs: bool = False,
     min_online_inputs: int = 1,
     allow_bootstrap_preflight: bool = False,
 ) -> dict[str, Any]:
     root = root.resolve()
     runner_path = _resolve(root, runner_json)
-    preflight_path = _resolve(root, preflight_json)
-    status_path = _resolve(root, status_json)
+    preflight_path = _resolve(root, preflight_json or DEFAULT_PREFLIGHT_JSON)
+    status_path = _resolve(root, status_json or DEFAULT_STATUS_JSON)
+    preflight_path_source = "explicit" if preflight_json is not None else "default"
+    status_path_source = "explicit" if status_json is not None else "default"
     failures: list[str] = []
 
     try:
@@ -1349,6 +1351,16 @@ def check_online_native_stub_canary_artifacts(
             "preflight_json": str(preflight_path),
             "status_json": str(status_path),
         }
+    if preflight_json is None:
+        observed_preflight = runner.get("preflight_output_json")
+        if isinstance(observed_preflight, str) and observed_preflight:
+            preflight_path = _resolve(root, observed_preflight)
+            preflight_path_source = "runner_recorded"
+    if status_json is None:
+        observed_status = runner.get("preflight_status_output_json")
+        if isinstance(observed_status, str) and observed_status:
+            status_path = _resolve(root, observed_status)
+            status_path_source = "runner_recorded"
     try:
         preflight = _load_json(preflight_path)
     except (FileNotFoundError, OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
@@ -2447,7 +2459,9 @@ def check_online_native_stub_canary_artifacts(
         "failures": failures,
         "runner_json": str(runner_path),
         "preflight_json": str(preflight_path),
+        "preflight_json_source": preflight_path_source,
         "status_json": str(status_path),
+        "status_json_source": status_path_source,
         "runner_preflight_output_json": observed_preflight,
         "runner_preflight_status_output_json": observed_status,
         "runner_stub_row_count": row_count,
@@ -2723,8 +2737,22 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--standalone-stub-json", type=Path)
     parser.add_argument("--expected-field-name", default="scale_metadata_handle")
     parser.add_argument("--runner-json", type=Path, default=DEFAULT_RUNNER_JSON)
-    parser.add_argument("--preflight-json", type=Path, default=DEFAULT_PREFLIGHT_JSON)
-    parser.add_argument("--status-json", type=Path, default=DEFAULT_STATUS_JSON)
+    parser.add_argument(
+        "--preflight-json",
+        type=Path,
+        help=(
+            "Preflight artifact to check. When omitted, the checker uses the "
+            "preflight_output_json recorded by the runner artifact."
+        ),
+    )
+    parser.add_argument(
+        "--status-json",
+        type=Path,
+        help=(
+            "Summary/status artifact to check. When omitted, the checker uses "
+            "the preflight_status_output_json recorded by the runner artifact."
+        ),
+    )
     parser.add_argument("--output-json", type=Path)
     parser.add_argument("--require-all-field-mirror-stubs", action="store_true")
     parser.add_argument("--min-online-inputs", type=int, default=1)

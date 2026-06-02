@@ -287,6 +287,50 @@ artifact checker:
   passed
 ```
 
+## 2026-06-02 - Runner-recorded artifact checker paths
+
+The native prelaunch artifact checker now defaults to the preflight/status
+paths recorded by the runner artifact:
+
+```text
+runner.preflight_output_json
+runner.preflight_status_output_json
+```
+
+Explicit `--preflight-json` and `--status-json` still work for manual
+cross-checks, but the default CLI path now follows the runner's own final
+strict preflight artifacts.  This prevents the common failure mode where the
+checker is pointed at generic preflight/status filenames that do not correspond
+to the runner under review.
+
+Validation:
+
+```text
+python scripts/check_premap_online_native_stub_canary_artifacts.py \
+  --runner-json \
+    outputs/reports/premap_kernel_consumer/
+      online_prelaunch_native_stub_canary_arg_slot_32input_hard_hashchain_preflight_32tables.json \
+  --output-json \
+    outputs/reports/premap_kernel_consumer/
+      online_prelaunch_native_stub_canary_artifact_check_runner_recorded_current.json
+
+result:
+  passed = true
+  preflight_json_source = runner_recorded
+  status_json_source = runner_recorded
+
+pytest tests/test_check_premap_online_native_stub_canary_artifacts.py -q:
+  59 passed
+
+pytest tests/test_check_premap_online_native_stub_canary_artifacts.py \
+       tests/test_run_premap_online_native_stub_canary.py \
+       tests/test_run_premap_lab_preflight.py -q:
+  167 passed
+
+pytest tests -q:
+  869 passed, 2 warnings
+```
+
 The same runner now also supports dispatch row-window canaries.  The latest
 tail-window run keeps the full merged table resident but asks the future
 dispatch/dispatch-pointer/arg-slot ABI to consume only the last active window:
