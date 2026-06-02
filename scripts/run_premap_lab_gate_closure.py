@@ -123,6 +123,27 @@ def _load_json_summary(path: Path) -> dict[str, Any]:
     return summary
 
 
+def _runner_recorded_path_failures(
+    summaries: dict[str, dict[str, Any]],
+    *,
+    dry_run: bool,
+    allow_explicit_artifact_paths: bool,
+) -> list[str]:
+    if dry_run or allow_explicit_artifact_paths:
+        return []
+
+    artifact_summary = summaries.get("native_artifact_check", {})
+    if not artifact_summary.get("exists"):
+        return ["native_artifact_check_missing_for_runner_recorded_path_check"]
+
+    failures: list[str] = []
+    if artifact_summary.get("preflight_json_source") != "runner_recorded":
+        failures.append("native_artifact_check_preflight_path_not_runner_recorded")
+    if artifact_summary.get("status_json_source") != "runner_recorded":
+        failures.append("native_artifact_check_status_path_not_runner_recorded")
+    return failures
+
+
 def run_closure(args: argparse.Namespace) -> dict[str, Any]:
     arg_slot_runner_json = _resolve(args.arg_slot_runner_json)
     arg_slot_stub_json = _resolve(args.arg_slot_stub_json)
@@ -189,16 +210,32 @@ def run_closure(args: argparse.Namespace) -> dict[str, Any]:
         dry_run=bool(args.dry_run),
     )
 
-    failures = [
+    step_failures = [
         name
         for name, step in steps.items()
         if int(step.get("returncode", 1)) != 0
     ]
+    summaries = {
+        "arg_slot_runner": _load_json_summary(arg_slot_runner_json),
+        "full_preflight": _load_json_summary(full_preflight_json),
+        "summary_preflight": _load_json_summary(summary_json),
+        "summary_check": _load_json_summary(summary_check_json),
+        "native_artifact_check": _load_json_summary(artifact_check_json),
+    }
+    runner_recorded_failures = _runner_recorded_path_failures(
+        summaries,
+        dry_run=bool(args.dry_run),
+        allow_explicit_artifact_paths=bool(args.allow_explicit_artifact_paths),
+    )
+    failures = step_failures + runner_recorded_failures
     report = {
         "passed": not failures,
         "failures": failures,
         "source": "premap_lab_gate_closure",
         "dry_run": bool(args.dry_run),
+        "requires_runner_recorded_artifact_paths": not bool(
+            args.allow_explicit_artifact_paths
+        ),
         "paths": {
             "arg_slot_runner_json": str(arg_slot_runner_json),
             "arg_slot_stub_json": str(arg_slot_stub_json),
@@ -210,13 +247,7 @@ def run_closure(args: argparse.Namespace) -> dict[str, Any]:
             "artifact_check_json": str(artifact_check_json),
         },
         "steps": steps,
-        "summaries": {
-            "arg_slot_runner": _load_json_summary(arg_slot_runner_json),
-            "full_preflight": _load_json_summary(full_preflight_json),
-            "summary_preflight": _load_json_summary(summary_json),
-            "summary_check": _load_json_summary(summary_check_json),
-            "native_artifact_check": _load_json_summary(artifact_check_json),
-        },
+        "summaries": summaries,
         "payload_bytes": 0,
         "passed_to_kernel": False,
         "changes_kernel_launch_args": False,
@@ -236,6 +267,14 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--artifact-check-json", type=Path, default=DEFAULT_ARTIFACT_CHECK_JSON)
     parser.add_argument("--output-json", type=Path, default=DEFAULT_REPORT_JSON)
     parser.add_argument("--skip-arg-slot-runner", action="store_true")
+    parser.add_argument(
+        "--allow-explicit-artifact-paths",
+        action="store_true",
+        help=(
+            "Allow the native artifact checker to use explicit preflight/status "
+            "paths. The default lab gate requires runner-recorded paths."
+        ),
+    )
     parser.add_argument("--dry-run", action="store_true")
     return parser
 

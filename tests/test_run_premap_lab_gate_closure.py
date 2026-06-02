@@ -3,7 +3,12 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from scripts.run_premap_lab_gate_closure import _build_parser, main, run_closure
+from scripts.run_premap_lab_gate_closure import (
+    _build_parser,
+    _runner_recorded_path_failures,
+    main,
+    run_closure,
+)
 
 
 def test_run_premap_lab_gate_closure_dry_run_records_canonical_steps(
@@ -52,6 +57,61 @@ def test_run_premap_lab_gate_closure_dry_run_records_canonical_steps(
     assert "--preflight-json" not in artifact_cmd
     assert "--status-json" not in artifact_cmd
     assert "--runner-json" in artifact_cmd
+    assert result["requires_runner_recorded_artifact_paths"] is True
+
+
+def test_runner_recorded_path_failures_reject_explicit_sources():
+    summaries = {
+        "native_artifact_check": {
+            "exists": True,
+            "preflight_json_source": "explicit_arg",
+            "status_json_source": "runner_recorded",
+        }
+    }
+
+    failures = _runner_recorded_path_failures(
+        summaries,
+        dry_run=False,
+        allow_explicit_artifact_paths=False,
+    )
+
+    assert failures == ["native_artifact_check_preflight_path_not_runner_recorded"]
+
+
+def test_runner_recorded_path_failures_accept_runner_recorded_sources():
+    summaries = {
+        "native_artifact_check": {
+            "exists": True,
+            "preflight_json_source": "runner_recorded",
+            "status_json_source": "runner_recorded",
+        }
+    }
+
+    failures = _runner_recorded_path_failures(
+        summaries,
+        dry_run=False,
+        allow_explicit_artifact_paths=False,
+    )
+
+    assert failures == []
+
+
+def test_runner_recorded_path_failures_allow_manual_override():
+    summaries = {
+        "native_artifact_check": {
+            "exists": True,
+            "preflight_json_source": "explicit_arg",
+            "status_json_source": "explicit_arg",
+        }
+    }
+
+    failures = _runner_recorded_path_failures(
+        summaries,
+        dry_run=False,
+        allow_explicit_artifact_paths=True,
+    )
+
+    assert failures == []
 
 
 def test_run_premap_lab_gate_closure_main_writes_report(tmp_path: Path):

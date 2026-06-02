@@ -2,7 +2,7 @@
 
 ## Progress Version
 
-- Version: `v0.43-future-kernel-args-coverage-gate`
+- Version: `v0.44-runner-recorded-lab-closure`
 - Updated: 2026-06-02
 - Current phase: premap descriptor/address prep now has a typed
   kernel-side consumer object, a launch-shaped future native ABI, and a
@@ -38,7 +38,46 @@
   same compact status and reaches all four typed handle fields in the default
   lab artifact.  That full-field future-kernel-args coverage is now a strict
   lab preflight requirement.  The future kernel-args compatible consumer path
-  is also now visible as an explicit required lab contract field.
+  is also now visible as an explicit required lab contract field.  The
+  one-step lab closure runner now additionally requires the native artifact
+  checker to consume the preflight/status paths recorded by the native runner
+  itself, so explicit manual paths can no longer satisfy the default lab
+  closure accidentally.
+
+## Latest Update: Runner-Recorded Lab Closure Contract
+
+The canonical lab closure runner now enforces the evidence path contract that
+the native artifact checker must use paths recorded by the native runner:
+
+```text
+scripts/run_premap_lab_gate_closure.py
+
+requires_runner_recorded_artifact_paths = true
+native_artifact_check.preflight_json_source = runner_recorded
+native_artifact_check.status_json_source = runner_recorded
+```
+
+The latest closure artifact passes under the default strict contract:
+
+```text
+outputs/reports/premap_lab_gate_closure.json
+
+passed = true
+failures = []
+selected_source_count = 32
+merged_row_count = 1841
+dispatch_active_rows = 1841
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+```
+
+This prevents a manual `--preflight-json` / `--status-json` override from
+silently satisfying the lab closure.  Manual explicit paths remain available
+only through an explicit override flag for debugging, not as the default lab
+precondition.  The safety boundary is unchanged: no payload dereference or
+transfer, no ready credit, no router/order mutation, and no current WNA16
+kernel-argument pass.
 
 ## Latest Update: GPU1-target online-merged arg-slot runner gate
 
