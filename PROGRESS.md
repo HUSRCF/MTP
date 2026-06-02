@@ -72,6 +72,19 @@ passed_to_kernel = false
 changes_kernel_launch_args = false
 ```
 
+The closure artifact can now be checked without rerunning native/GPU canaries:
+
+```text
+scripts/check_premap_lab_gate_closure.py
+
+outputs/reports/premap_lab_gate_closure.check.json
+  passed = true
+
+outputs/reports/premap_lab_gate_closure_tail_window512.check.json
+  passed = true
+  require_tail_window_probe = true
+```
+
 This pushes the future kernel-side typed-consumer path closer to real
 CTA/program row-slice consumption while preserving the current safety boundary:
 no payload dereference or transfer, no ready credit, no router/order mutation,
