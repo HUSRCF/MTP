@@ -26188,3 +26188,24 @@ This extends the previous full-table and tail-only evidence to cover the row
 slice patterns a future kernel-side consumer would need for CTA/program-level
 iteration.  It remains a no-op typed ABI canary, not a live WNA16 kernel-arg
 handoff.
+
+The sweep artifact is now machine-checkable:
+
+```text
+checker:
+  outputs/reports/premap_kernel_consumer/
+    online_merged_future_native_arg_slot_window_sweep_check.json
+
+passed = true
+failures = []
+expected_window_size = 512
+expected_block_threads = 256
+expected_mirror_field = scale_metadata_handle
+require_child_artifacts = true
+row_count = 1841
+windows_checked = full, head, middle, tail
+```
+
+The checker rejects missing or mismatched row-window geometry and also reads the
+per-window child canary artifacts, so this evidence can be promoted into a lab
+preflight requirement without relying on manual JSON inspection.
