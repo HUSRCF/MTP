@@ -2,7 +2,7 @@
 
 ## Progress Version
 
-- Version: `v0.41-arg-slot-projection-coverage`
+- Version: `v0.42-gpu1-online-merged-runner-gate`
 - Updated: 2026-06-02
 - Current phase: premap descriptor/address prep now has a typed
   kernel-side consumer object, a launch-shaped future native ABI, and a
@@ -29,6 +29,59 @@
   now explicitly marks that the dispatch/dispatch-pointer/arg-slot
   handle-projection hash covers all four typed handle fields, and the strict
   preflight now fails if that all-field projection check is not satisfied.
+  The online-merged arg-slot runner evidence is now also checked to target the
+  default GPU1 lab device, accepting either physical `device=1` or logical
+  `device=0` under `HIP_VISIBLE_DEVICES=1`.
+
+## Latest Update: GPU1-target online-merged arg-slot runner gate
+
+The default lab preflight now rejects online-merged future-native arg-slot
+runner evidence that does not target the GPU1 lab device:
+
+```text
+online_merged_multiprogram_arg_slot_runner_device_not_gpu1
+```
+
+The check deliberately accepts both forms used in local runs:
+
+```text
+device = 1
+or
+device = 0 with HIP_VISIBLE_DEVICES=1
+```
+
+The optional online-merged one-field mirror runner artifacts were refreshed
+with explicit `--device 1` and current all-handle projection metadata:
+
+```text
+outputs/reports/premap_kernel_consumer/
+  online_merged_future_native_arg_slot_32tables_descriptor_ptr_canary_runner.json
+  online_merged_future_native_arg_slot_32tables_packed_weight_canary_runner.json
+  online_merged_future_native_arg_slot_32tables_aux_metadata_canary_runner.json
+
+device = 1
+merged_row_count = 1841
+handle_projection_all_handle_fields_checked = true
+handle_projection_field_names =
+  [descriptor_ptr, packed_weight_descriptor, scale_metadata_handle,
+   aux_metadata_handle]
+```
+
+The default preflight artifact remains green:
+
+```text
+outputs/reports/premap_lab_preflight_default_with_projection_coverage.json
+
+passed = true
+default_optional_evidence_passed = true
+default_kernel_consumer_arg_slot_online_merged_optional_mirror_field_coverage =
+  [aux_metadata_handle, descriptor_ptr, packed_weight_descriptor]
+default_kernel_consumer_dispatch_runner_handle_projection_all_handle_fields_checked = true
+```
+
+This is still a lab-gate/evidence hardening step only.  The safety boundary is
+unchanged: no payload dereference or transfer, no ready credit, no router/order
+mutation, and no WNA16 kernel-argument pass.
 
 ## Latest Update: Explicit All-Handle Projection Coverage
 

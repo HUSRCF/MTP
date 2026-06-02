@@ -299,6 +299,16 @@ def _bool_metric(metrics: dict[str, Any], key: str) -> bool | None:
     return value if isinstance(value, bool) else None
 
 
+def _targets_default_lab_gpu1(evidence: dict[str, Any]) -> bool:
+    """Accept either physical GPU1 or logical GPU0 under HIP_VISIBLE_DEVICES=1."""
+
+    device = _int_metric(evidence, "device")
+    hip_visible_devices = evidence.get("hip_visible_devices")
+    if device == 1:
+        return True
+    return device == 0 and str(hip_visible_devices) == "1"
+
+
 def _validate_online_input_row_stats(
     metrics: dict[str, Any],
     *,
@@ -3322,6 +3332,8 @@ def _validate_future_native_arg_slot_online_merged_multiprogram_runner_evidence(
         failures.append(f"{failure_prefix}_failures_not_empty")
     if evidence.get("source") != "online_merged_future_native_arg_slot_canary_runner":
         failures.append(f"{failure_prefix}_source_mismatch")
+    if not _targets_default_lab_gpu1(evidence):
+        failures.append(f"{failure_prefix}_device_not_gpu1")
     if evidence.get("mirror_field") != arg_slot_mirror_field:
         failures.append(f"{failure_prefix}_mirror_field_mismatch")
     if evidence.get("not_a_single_vllm_launch_table") is not True:
