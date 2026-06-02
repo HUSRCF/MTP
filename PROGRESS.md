@@ -22727,6 +22727,24 @@ runtime_gate_evidence_deferred_count = 0
 strict_default_gate_evidence_deferred_count = 0
 ```
 
+A compact summary checker is now available for this artifact:
+
+```text
+script:
+  scripts/check_premap_lab_preflight_summary.py
+
+input:
+  outputs/reports/premap_lab_preflight_default_with_gate_schema_sha256.json
+output:
+  outputs/reports/premap_lab_preflight_default_with_gate_schema_sha256.check.json
+
+passed = true
+online_merged_source_count = 32
+online_merged_row_count = 1841
+online_merged_dispatch_active_rows = 1841
+failures = []
+```
+
 The standalone schema checker also passes on the typed consumer schema artifact:
 
 ```text
