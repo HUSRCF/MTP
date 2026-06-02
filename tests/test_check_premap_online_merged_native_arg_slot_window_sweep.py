@@ -43,6 +43,15 @@ def _field_read_pairs(prefix: str, active: int) -> dict[str, object]:
     return pairs
 
 
+def _handle_projection_pairs(value: str = "projection") -> dict[str, str]:
+    return {
+        "future_kernel_native_dispatch_consumer_handle_projection_hash_accumulator": value,
+        "future_kernel_native_dispatch_ptr_consumer_handle_projection_hash_accumulator": value,
+        "future_kernel_native_arg_slot_consumer_handle_projection_hash_accumulator": value,
+        "future_kernel_native_consumer_view_handle_projection_hash_accumulator": value,
+    }
+
+
 def _consumer_view_layout_pairs() -> dict[str, int]:
     return {
         "future_kernel_native_consumer_view_struct_size": 208,
@@ -131,6 +140,7 @@ def _child_payload(
             "future_kernel_native_consumer_view_requires_wna16_arg_reinterpretation": False,
             **_consumer_view_layout_pairs(),
             **_consumer_view_row_layout_pairs(),
+            **_handle_projection_pairs(),
             **_field_mask_pairs(),
             **_field_read_pairs("future_kernel_native_arg_slot_consumer", active),
             **_field_read_pairs("future_kernel_native_consumer_view", active),
@@ -266,6 +276,44 @@ def test_window_sweep_check_rejects_bad_child_program_count(tmp_path: Path):
     assert "head_child_dispatch_expected_program_count_mismatch" in result["failures"]
     assert (
         "head_child_stub_future_kernel_native_arg_slot_consumer_row_count_mismatch"
+        in result["failures"]
+    )
+
+
+def test_window_sweep_check_rejects_consumer_view_projection_mismatch(
+    tmp_path: Path,
+):
+    path = _write_artifact(tmp_path)
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    windows = payload["windows"]
+    assert isinstance(windows, dict)
+    child_path = Path(windows["head"]["output_json"])
+    stub_path = Path(windows["head"]["stub_output_json"])
+    child = json.loads(child_path.read_text(encoding="utf-8"))
+    stub_payload = json.loads(stub_path.read_text(encoding="utf-8"))
+    child["stub_summary"][
+        "future_kernel_native_consumer_view_handle_projection_hash_accumulator"
+    ] = "different"
+    stub_payload[
+        "future_kernel_native_consumer_view_handle_projection_hash_accumulator"
+    ] = "different"
+    child_path.write_text(json.dumps(child) + "\n", encoding="utf-8")
+    stub_path.write_text(json.dumps(stub_payload) + "\n", encoding="utf-8")
+
+    result = check_window_sweep_artifact(
+        path,
+        expected_window_size=4,
+        expected_block_threads=4,
+        min_row_count=17,
+    )
+
+    assert result["passed"] is False
+    assert (
+        "head_child_stub_consumer_view_handle_projection_mismatch"
+        in result["failures"]
+    )
+    assert (
+        "head_child_stub_artifact_child_stub_consumer_view_handle_projection_mismatch"
         in result["failures"]
     )
 

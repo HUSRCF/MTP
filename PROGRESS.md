@@ -2,8 +2,8 @@
 
 ## Progress Version
 
-- Version: `v0.44-runner-recorded-lab-closure`
-- Updated: 2026-06-02
+- Version: `v0.45-consumer-view-handle-projection-gate`
+- Updated: 2026-06-03
 - Current phase: premap descriptor/address prep now has a typed
   kernel-side consumer object, a launch-shaped future native ABI, and a
   dispatch-shaped readonly native consumer ABI.  The default lab gate remains
@@ -45,7 +45,68 @@
   closure accidentally.  The latest lab gate now also requires child
   future-native arg-slot artifacts to expose an all-field typed handle mask
   (`field_mask=15`, `required_field_mask=7`) across native, launch, dispatch,
-  dispatch-pointer, and arg-slot consumer layers.
+  dispatch-pointer, and arg-slot consumer layers.  The current lab gate also
+  requires the future native consumer-view path to emit its own
+  handle-projection hash accumulator, and verifies it matches the same
+  row-window projection chain as dispatch, dispatch-pointer, and arg-slot.
+
+## Latest Update: Consumer-View Handle Projection Gate
+
+The future-native consumer-view ABI now proves that its view-shaped row reader
+consumes the same typed handle projection as the dispatch, dispatch-pointer,
+and compact arg-slot paths.  The native stub emits:
+
+```text
+future_kernel_native_consumer_view_handle_projection_hash_accumulator
+```
+
+and the online-merged row-window checker requires this value to be present and
+equal to:
+
+```text
+future_kernel_native_dispatch_consumer_handle_projection_hash_accumulator
+future_kernel_native_dispatch_ptr_consumer_handle_projection_hash_accumulator
+future_kernel_native_arg_slot_consumer_handle_projection_hash_accumulator
+```
+
+This requirement is propagated through:
+
+```text
+require_child_consumer_view_handle_projection = true
+```
+
+for the window sweep checker, all-field window sweep checker, and the one-step
+lab gate verifier.
+
+Validation:
+
+```text
+python -m pytest \
+  tests/test_check_premap_online_merged_native_arg_slot_window_sweep.py \
+  tests/test_check_premap_online_merged_native_arg_slot_all_field_window_sweep.py \
+  tests/test_check_premap_lab_gate_verify.py \
+  tests/test_run_premap_lab_gate_verify.py \
+  tests/test_premap_typed_consumer_stub.py -q
+  69 passed
+
+python scripts/run_premap_lab_gate_verify.py \
+  --output-json outputs/reports/premap_lab_gate_verify.json
+  passed = true
+
+python scripts/check_premap_lab_gate_verify.py \
+  outputs/reports/premap_lab_gate_verify.json \
+  --output-json outputs/reports/premap_lab_gate_verify.check.json
+  passed = true
+```
+
+The gate remains a no-op with respect to the real WNA16/vLLM launch:
+
+```text
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+current_wna16_arg_compatible = false
+```
 
 ## Latest Update: Future Native Arg-Slot Field-Mask Gate
 

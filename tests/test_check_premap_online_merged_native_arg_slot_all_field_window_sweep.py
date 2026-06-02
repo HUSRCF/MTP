@@ -32,6 +32,7 @@ def _write_field_check(
         "require_child_consumer_view": True,
         "require_child_consumer_view_layout": True,
         "require_child_consumer_view_row_layout": True,
+        "require_child_consumer_view_handle_projection": True,
         "require_non_degenerate_windows": True,
         "row_count": row_count,
         "windows_checked": ["full", "head", "middle", "tail"],

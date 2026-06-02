@@ -45,6 +45,7 @@ def _status_payload(name: str) -> dict[str, object]:
                 "require_child_consumer_view": True,
                 "require_child_consumer_view_layout": True,
                 "require_child_consumer_view_row_layout": True,
+                "require_child_consumer_view_handle_projection": True,
                 "require_non_degenerate_windows": True,
                 "windows_checked": ["full", "head", "middle", "tail"],
             }
@@ -58,6 +59,7 @@ def _status_payload(name: str) -> dict[str, object]:
                 "require_child_consumer_view": True,
                 "require_child_consumer_view_layout": True,
                 "require_child_consumer_view_row_layout": True,
+                "require_child_consumer_view_handle_projection": True,
                 "mirror_fields_checked": [
                     "descriptor_ptr",
                     "packed_weight_descriptor",
@@ -194,6 +196,27 @@ def test_lab_gate_verify_check_rejects_window_checker_without_consumer_view_row_
     )
 
 
+def test_lab_gate_verify_check_rejects_window_checker_without_consumer_view_handle_projection(
+    tmp_path: Path,
+):
+    path = tmp_path / "verify.json"
+    payload = _write_verify(path)
+    statuses = payload["statuses"]
+    assert isinstance(statuses, dict)
+    window_check = statuses["window_sweep_check"]
+    assert isinstance(window_check, dict)
+    window_check["require_child_consumer_view_handle_projection"] = False
+    path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+
+    result = check_lab_gate_verify_artifact(path)
+
+    assert result["passed"] is False
+    assert (
+        "window_sweep_check_did_not_require_child_consumer_view_handle_projection"
+        in result["failures"]
+    )
+
+
 def test_lab_gate_verify_check_rejects_window_checker_without_nondegenerate_gate(
     tmp_path: Path,
 ):
@@ -292,6 +315,27 @@ def test_lab_gate_verify_check_rejects_all_field_checker_without_consumer_view_r
     assert result["passed"] is False
     assert (
         "all_field_window_sweep_check_did_not_require_child_consumer_view_row_layout"
+        in result["failures"]
+    )
+
+
+def test_lab_gate_verify_check_rejects_all_field_checker_without_consumer_view_handle_projection(
+    tmp_path: Path,
+):
+    path = tmp_path / "verify.json"
+    payload = _write_verify(path)
+    statuses = payload["statuses"]
+    assert isinstance(statuses, dict)
+    all_field_check = statuses["all_field_window_sweep_check"]
+    assert isinstance(all_field_check, dict)
+    all_field_check["require_child_consumer_view_handle_projection"] = False
+    path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+
+    result = check_lab_gate_verify_artifact(path)
+
+    assert result["passed"] is False
+    assert (
+        "all_field_window_sweep_check_did_not_require_child_consumer_view_handle_projection"
         in result["failures"]
     )
 

@@ -149,6 +149,10 @@ def check_lab_gate_verify_artifact(
         failures.append(
             "window_sweep_check_did_not_require_child_consumer_view_row_layout"
         )
+    if window_check.get("require_child_consumer_view_handle_projection") is not True:
+        failures.append(
+            "window_sweep_check_did_not_require_child_consumer_view_handle_projection"
+        )
     if window_check.get("require_non_degenerate_windows") is not True:
         failures.append("window_sweep_check_did_not_require_non_degenerate_windows")
     if window_check.get("windows_checked") != ["full", "head", "middle", "tail"]:
@@ -173,6 +177,13 @@ def check_lab_gate_verify_artifact(
     if all_field_check.get("require_child_consumer_view_row_layout") is not True:
         failures.append(
             "all_field_window_sweep_check_did_not_require_child_consumer_view_row_layout"
+        )
+    if (
+        all_field_check.get("require_child_consumer_view_handle_projection")
+        is not True
+    ):
+        failures.append(
+            "all_field_window_sweep_check_did_not_require_child_consumer_view_handle_projection"
         )
     if all_field_check.get("mirror_fields_checked") != [
         "descriptor_ptr",

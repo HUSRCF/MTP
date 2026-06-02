@@ -809,6 +809,7 @@ FUTURE_KERNEL_NATIVE_DISPATCH_CONSUMER_SUMMARY_KEYS = (
     "future_kernel_native_consumer_view_row_ok_count",
     "future_kernel_native_consumer_view_error_count",
     "future_kernel_native_consumer_view_hash_accumulator",
+    "future_kernel_native_consumer_view_handle_projection_hash_accumulator",
     "future_kernel_native_consumer_view_descriptor_ptr_read_row_count",
     "future_kernel_native_consumer_view_descriptor_ptr_read_row_ok_count",
     "future_kernel_native_consumer_view_descriptor_ptr_read_error_count",

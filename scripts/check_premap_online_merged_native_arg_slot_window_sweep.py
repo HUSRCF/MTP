@@ -163,6 +163,32 @@ def _check_field_reads(
     return failures
 
 
+def _check_consumer_view_handle_projection(
+    summary: dict[str, Any],
+    *,
+    label: str,
+) -> list[str]:
+    failures: list[str] = []
+    chain_keys = (
+        "future_kernel_native_dispatch_consumer_handle_projection_hash_accumulator",
+        "future_kernel_native_dispatch_ptr_consumer_handle_projection_hash_accumulator",
+        "future_kernel_native_arg_slot_consumer_handle_projection_hash_accumulator",
+        "future_kernel_native_consumer_view_handle_projection_hash_accumulator",
+    )
+    values: list[str] = []
+    for key in chain_keys:
+        value = summary.get(key)
+        if not isinstance(value, str) or not value:
+            failures.append(f"{label}_child_stub_{key}_missing")
+            continue
+        values.append(value)
+    if failures:
+        return failures
+    if len(set(values)) != 1:
+        failures.append(f"{label}_child_stub_consumer_view_handle_projection_mismatch")
+    return failures
+
+
 def _int_value(payload: dict[str, Any], key: str) -> int | None:
     value = payload.get(key)
     if isinstance(value, bool) or not isinstance(value, int):
@@ -312,6 +338,12 @@ def _check_child_stub_artifact(
         )
     )
     failures.extend(
+        _check_consumer_view_handle_projection(
+            stub_payload,
+            label=f"{label}_child_stub_artifact",
+        )
+    )
+    failures.extend(
         _check_consumer_view_layout(
             stub_payload,
             label=f"{label}_child_stub_artifact",
@@ -413,6 +445,9 @@ def _check_child_artifact(
                 prefix="future_kernel_native_consumer_view",
                 expected_active=expected_active,
             )
+        )
+        failures.extend(
+            _check_consumer_view_handle_projection(stub_summary, label=label)
         )
     failures.extend(
         _check_child_stub_artifact(
@@ -548,6 +583,7 @@ def check_window_sweep_artifact(
         "require_child_consumer_view": bool(require_child_artifacts),
         "require_child_consumer_view_layout": bool(require_child_artifacts),
         "require_child_consumer_view_row_layout": bool(require_child_artifacts),
+        "require_child_consumer_view_handle_projection": bool(require_child_artifacts),
         "row_count": row_count,
         "windows_checked": list(REQUIRED_WINDOWS),
     }

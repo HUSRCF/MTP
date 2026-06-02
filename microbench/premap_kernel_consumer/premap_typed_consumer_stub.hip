@@ -747,6 +747,7 @@ __global__ void typed_consumer_future_native_consumer_view_kernel(
     PremapFutureKernelNativeConsumerViewV1 view,
     uint32_t* future_native_consumer_view_ok,
     uint64_t* future_native_consumer_view_hash,
+    uint64_t* future_native_consumer_view_handle_projection_hash,
     uint32_t* future_native_consumer_view_descriptor_ptr_read_ok,
     uint64_t* future_native_consumer_view_descriptor_ptr_read_hash,
     uint32_t* future_native_consumer_view_packed_weight_descriptor_read_ok,
@@ -787,6 +788,8 @@ __global__ void typed_consumer_future_native_consumer_view_kernel(
   future_native_consumer_view_hash[idx] = result.row_hash;
   const PremapKernelSideTypedConsumerRowV1 row =
       premap_typed_consumer_load_future_native_row_v1(view.params, row_index);
+  future_native_consumer_view_handle_projection_hash[idx] =
+      handle_projection_hash(view.params, row_index);
   const uint32_t field_mask = view.params.field_mask;
   const uint32_t descriptor_ptr_visible =
       static_cast<uint32_t>(
@@ -1116,6 +1119,7 @@ int main(int argc, char** argv) {
            *d_future_native_arg_slot_aux_metadata_handle_read_hash = nullptr,
            *d_future_native_arg_slot_single_field_mirror_hash = nullptr,
            *d_future_native_consumer_view_hash = nullptr,
+           *d_future_native_consumer_view_handle_projection_hash = nullptr,
            *d_future_native_consumer_view_descriptor_ptr_read_hash = nullptr,
            *d_future_native_consumer_view_packed_weight_descriptor_read_hash = nullptr,
            *d_future_native_consumer_view_scale_metadata_handle_read_hash = nullptr,
@@ -1307,6 +1311,9 @@ int main(int argc, char** argv) {
       hipMalloc(&d_future_native_consumer_view_hash, u64_bytes),
       "hipMalloc future_native_consumer_view_hash");
   hip_check(
+      hipMalloc(&d_future_native_consumer_view_handle_projection_hash, u64_bytes),
+      "hipMalloc future_native_consumer_view_handle_projection_hash");
+  hip_check(
       hipMalloc(&d_future_native_consumer_view_descriptor_ptr_read_ok, u32_bytes),
       "hipMalloc future_native_consumer_view_descriptor_ptr_read_ok");
   hip_check(
@@ -1468,6 +1475,9 @@ int main(int argc, char** argv) {
   hip_check(
       hipMemset(d_future_native_consumer_view_hash, 0, u64_bytes),
       "memset future_native_consumer_view_hash");
+  hip_check(
+      hipMemset(d_future_native_consumer_view_handle_projection_hash, 0, u64_bytes),
+      "memset future_native_consumer_view_handle_projection_hash");
   hip_check(
       hipMemset(d_future_native_consumer_view_descriptor_ptr_read_ok, 0, u32_bytes),
       "memset future_native_consumer_view_descriptor_ptr_read_ok");
@@ -1888,6 +1898,7 @@ int main(int argc, char** argv) {
       future_native_consumer_view,
       d_future_native_consumer_view_ok,
       d_future_native_consumer_view_hash,
+      d_future_native_consumer_view_handle_projection_hash,
       d_future_native_consumer_view_descriptor_ptr_read_ok,
       d_future_native_consumer_view_descriptor_ptr_read_hash,
       d_future_native_consumer_view_packed_weight_descriptor_read_ok,
@@ -1956,6 +1967,7 @@ int main(int argc, char** argv) {
   std::vector<uint64_t> future_native_arg_slot_single_field_mirror_hashes(rows);
   std::vector<uint32_t> future_native_consumer_view_ok(rows);
   std::vector<uint64_t> future_native_consumer_view_hashes(rows);
+  std::vector<uint64_t> future_native_consumer_view_handle_projection_hashes(rows);
   std::vector<uint32_t> future_native_consumer_view_descriptor_ptr_read_ok(rows);
   std::vector<uint64_t> future_native_consumer_view_descriptor_ptr_read_hashes(rows);
   std::vector<uint32_t>
@@ -2287,6 +2299,13 @@ int main(int argc, char** argv) {
       "copy future_native_consumer_view_hash");
   hip_check(
       hipMemcpy(
+          future_native_consumer_view_handle_projection_hashes.data(),
+          d_future_native_consumer_view_handle_projection_hash,
+          u64_bytes,
+          hipMemcpyDeviceToHost),
+      "copy future_native_consumer_view_handle_projection_hash");
+  hip_check(
+      hipMemcpy(
           future_native_consumer_view_descriptor_ptr_read_ok.data(),
           d_future_native_consumer_view_descriptor_ptr_read_ok,
           u32_bytes,
@@ -2367,6 +2386,7 @@ int main(int argc, char** argv) {
   uint64_t future_native_arg_slot_aux_metadata_handle_read_hash_acc = 0;
   uint64_t future_native_arg_slot_single_field_mirror_hash_acc = 0;
   uint64_t future_native_consumer_view_hash_acc = 0;
+  uint64_t future_native_consumer_view_handle_projection_hash_acc = 0;
   uint64_t future_native_consumer_view_descriptor_ptr_read_hash_acc = 0;
   uint64_t future_native_consumer_view_packed_weight_descriptor_read_hash_acc = 0;
   uint64_t future_native_consumer_view_scale_metadata_handle_read_hash_acc = 0;
@@ -2525,6 +2545,10 @@ int main(int argc, char** argv) {
         future_native_consumer_view_ok[i] == 1 ? 1 : 0;
     future_native_consumer_view_hash_acc ^=
         mix64(future_native_consumer_view_hashes[i] + static_cast<uint64_t>(i));
+    future_native_consumer_view_handle_projection_hash_acc ^=
+        mix64(
+            future_native_consumer_view_handle_projection_hashes[i] +
+            static_cast<uint64_t>(i));
     future_native_consumer_view_descriptor_ptr_read_ok_count +=
         future_native_consumer_view_descriptor_ptr_read_ok[i] == 1 ? 1 : 0;
     future_native_consumer_view_descriptor_ptr_read_hash_acc ^=
@@ -2989,6 +3013,9 @@ int main(int argc, char** argv) {
   hip_check(
       hipFree(d_future_native_consumer_view_hash),
       "hipFree future_native_consumer_view_hash");
+  hip_check(
+      hipFree(d_future_native_consumer_view_handle_projection_hash),
+      "hipFree future_native_consumer_view_handle_projection_hash");
   hip_check(
       hipFree(d_future_native_consumer_view_descriptor_ptr_read_ok),
       "hipFree future_native_consumer_view_descriptor_ptr_read_ok");
@@ -3771,6 +3798,10 @@ int main(int argc, char** argv) {
             << future_native_consumer_view_error_count;
   std::cout << ",\"future_kernel_native_consumer_view_hash_accumulator\":\""
             << std::hex << future_native_consumer_view_hash_acc
+            << std::dec << "\"";
+  std::cout << ",\"future_kernel_native_consumer_view_handle_projection_hash_accumulator\":\""
+            << std::hex
+            << future_native_consumer_view_handle_projection_hash_acc
             << std::dec << "\"";
   std::cout << ",\"future_kernel_native_consumer_view_descriptor_ptr_read_row_count\":"
             << future_native_consumer_view_descriptor_ptr_read_row_count;
