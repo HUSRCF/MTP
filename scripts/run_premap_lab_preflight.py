@@ -7,9 +7,15 @@ import argparse
 import hashlib
 import json
 from pathlib import Path
+import sys
 from typing import Any
 
 import yaml
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+for _path in (REPO_ROOT, REPO_ROOT / "src"):
+    if str(_path) not in sys.path:
+        sys.path.insert(0, str(_path))
 
 from scripts.check_premap_kernel_consumer_schema import (
     FUTURE_KERNEL_CONSUMER_ARGS_LAYOUT_EXPECTED,
@@ -5095,6 +5101,54 @@ def run_premap_lab_preflight(
         ),
         "default_kernel_consumer_dispatch_runner_handle_projection_all_handle_fields_checked": (
             arg_slot_projection_all_handle_fields_checked
+        ),
+        "default_kernel_consumer_native_field_mask": (
+            _int_metric(
+                dispatch_runner_summary,
+                "future_kernel_native_consumer_field_mask",
+            )
+        ),
+        "default_kernel_consumer_native_required_field_mask": (
+            _int_metric(
+                dispatch_runner_summary,
+                "future_kernel_native_consumer_required_field_mask",
+            )
+        ),
+        "default_kernel_consumer_launch_field_mask": (
+            _int_metric(
+                dispatch_runner_summary,
+                "future_kernel_native_launch_consumer_field_mask",
+            )
+        ),
+        "default_kernel_consumer_launch_required_field_mask": (
+            _int_metric(
+                dispatch_runner_summary,
+                "future_kernel_native_launch_consumer_required_field_mask",
+            )
+        ),
+        "default_kernel_consumer_dispatch_field_mask": (
+            _int_metric(
+                dispatch_runner_summary,
+                "future_kernel_native_dispatch_consumer_field_mask",
+            )
+        ),
+        "default_kernel_consumer_dispatch_required_field_mask": (
+            _int_metric(
+                dispatch_runner_summary,
+                "future_kernel_native_dispatch_consumer_required_field_mask",
+            )
+        ),
+        "default_kernel_consumer_dispatch_ptr_field_mask": (
+            _int_metric(
+                dispatch_runner_summary,
+                "future_kernel_native_dispatch_ptr_consumer_field_mask",
+            )
+        ),
+        "default_kernel_consumer_dispatch_ptr_required_field_mask": (
+            _int_metric(
+                dispatch_runner_summary,
+                "future_kernel_native_dispatch_ptr_consumer_required_field_mask",
+            )
         ),
         "default_kernel_consumer_dispatch_runner_future_kernel_args_checked": (
             _bool_metric(

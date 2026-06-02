@@ -2882,6 +2882,14 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
         ]
         is False
     )
+    assert summary["default_kernel_consumer_native_field_mask"] == 15
+    assert summary["default_kernel_consumer_native_required_field_mask"] == 7
+    assert summary["default_kernel_consumer_launch_field_mask"] == 15
+    assert summary["default_kernel_consumer_launch_required_field_mask"] == 7
+    assert summary["default_kernel_consumer_dispatch_field_mask"] == 15
+    assert summary["default_kernel_consumer_dispatch_required_field_mask"] == 7
+    assert summary["default_kernel_consumer_dispatch_ptr_field_mask"] == 15
+    assert summary["default_kernel_consumer_dispatch_ptr_required_field_mask"] == 7
     assert summary["default_kernel_consumer_arg_slot_field_mask"] == 15
     assert summary["default_kernel_consumer_arg_slot_required_field_mask"] == 7
     assert summary["default_kernel_consumer_arg_slot_mirror_checked"] is True
