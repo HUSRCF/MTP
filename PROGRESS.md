@@ -2,7 +2,7 @@
 
 ## Progress Version
 
-- Version: `v0.45-consumer-view-handle-projection-gate`
+- Version: `v0.46-runner-level-consumer-view-projection-gate`
 - Updated: 2026-06-03
 - Current phase: premap descriptor/address prep now has a typed
   kernel-side consumer object, a launch-shaped future native ABI, and a
@@ -49,6 +49,56 @@
   requires the future native consumer-view path to emit its own
   handle-projection hash accumulator, and verifies it matches the same
   row-window projection chain as dispatch, dispatch-pointer, and arg-slot.
+  Review follow-up now enforces that same four-way projection hashchain at the
+  native and online-merged runner level as well, with hex64 parsing and direct
+  consumer-view mismatch regression coverage.
+
+## Latest Update: Runner-Level Consumer-View Projection Gate
+
+The consumer-view handle projection requirement is now enforced before the
+window-sweep/lab-gate checker layer.  The native online canary and the
+online-merged arg-slot canary both require the projection hashchain to include:
+
+```text
+future_kernel_native_dispatch_consumer_handle_projection_hash_accumulator
+future_kernel_native_dispatch_ptr_consumer_handle_projection_hash_accumulator
+future_kernel_native_arg_slot_consumer_handle_projection_hash_accumulator
+future_kernel_native_consumer_view_handle_projection_hash_accumulator
+```
+
+All four values are parsed as hex64 values and must be equal.  This closes the
+review gap where the downstream checker required consumer-view projection
+parity, but the executable runner summaries could still report
+`handle_projection_hashchain_equal=true` using only the first three paths.
+
+Validation:
+
+```text
+python -m pytest \
+  tests/test_run_premap_online_native_stub_canary.py \
+  tests/test_run_premap_online_merged_native_arg_slot_canary.py -q
+  24 passed
+
+python -m pytest \
+  tests/test_check_premap_online_merged_native_arg_slot_window_sweep.py \
+  tests/test_check_premap_online_merged_native_arg_slot_all_field_window_sweep.py \
+  tests/test_check_premap_lab_gate_verify.py \
+  tests/test_run_premap_lab_gate_verify.py \
+  tests/test_premap_typed_consumer_stub.py -q
+  69 passed
+
+python scripts/run_premap_lab_gate_verify.py \
+  --output-json outputs/reports/premap_lab_gate_verify.json
+  passed
+
+python scripts/check_premap_lab_gate_verify.py \
+  outputs/reports/premap_lab_gate_verify.json \
+  --output-json outputs/reports/premap_lab_gate_verify.check.json
+  passed
+
+python -m pytest tests -q
+  940 passed, 2 warnings
+```
 
 ## Latest Update: Consumer-View Handle Projection Gate
 

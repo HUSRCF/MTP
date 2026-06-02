@@ -982,6 +982,24 @@ def _parse_hex64(value: Any) -> int | None:
     return parsed
 
 
+_FUTURE_NATIVE_HANDLE_PROJECTION_HASH_PREFIXES = (
+    "future_kernel_native_dispatch_consumer",
+    "future_kernel_native_dispatch_ptr_consumer",
+    "future_kernel_native_arg_slot_consumer",
+    "future_kernel_native_consumer_view",
+)
+
+
+def _future_native_handle_projection_hashchain_equal(
+    payload: dict[str, Any],
+) -> bool:
+    values = tuple(
+        _parse_hex64(payload.get(f"{prefix}_handle_projection_hash_accumulator"))
+        for prefix in _FUTURE_NATIVE_HANDLE_PROJECTION_HASH_PREFIXES
+    )
+    return all(value is not None for value in values) and len(set(values)) == 1
+
+
 def trace_output_dir(config_path: Path) -> Path:
     config = _load_yaml(config_path)
     if not isinstance(config, dict):
@@ -2762,24 +2780,23 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
             )
         else:
             dispatch_geometry_ok = False
+        def _hash_chain_prefixes() -> tuple[str, ...]:
+            return (
+                "future_kernel_native_dispatch_consumer",
+                "future_kernel_native_dispatch_ptr_consumer",
+                "future_kernel_native_arg_slot_consumer",
+            )
+
         def _hash_chain_equal(suffix: str) -> bool:
             values = tuple(
                 _parse_hex64(payload.get(f"{prefix}_{suffix}"))
-                for prefix in (
-                    "future_kernel_native_dispatch_consumer",
-                    "future_kernel_native_dispatch_ptr_consumer",
-                    "future_kernel_native_arg_slot_consumer",
-                )
+                for prefix in _hash_chain_prefixes()
             )
             return all(value is not None for value in values) and len(set(values)) == 1
         def _hash_chain_valid(suffix: str) -> bool:
             return all(
                 _parse_hex64(payload.get(f"{prefix}_{suffix}")) is not None
-                for prefix in (
-                    "future_kernel_native_dispatch_consumer",
-                    "future_kernel_native_dispatch_ptr_consumer",
-                    "future_kernel_native_arg_slot_consumer",
-                )
+                for prefix in _hash_chain_prefixes()
             )
 
         return bool(
@@ -2966,7 +2983,7 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
             )
             and dispatch_geometry_ok
             and _hash_chain_valid("hash_accumulator")
-            and _hash_chain_equal("handle_projection_hash_accumulator")
+            and _future_native_handle_projection_hashchain_equal(payload)
             and _hash_chain_equal("single_field_mirror_hash_accumulator")
         )
 

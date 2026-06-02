@@ -288,6 +288,28 @@ def test_online_merged_arg_slot_canary_tail_window_uses_active_rows(tmp_path: Pa
     )
 
 
+def test_online_merged_arg_slot_canary_hashchain_includes_consumer_view_projection():
+    module = _load_module()
+    stub = {
+        "future_kernel_native_dispatch_consumer_handle_projection_hash_accumulator": "abc",
+        "future_kernel_native_dispatch_ptr_consumer_handle_projection_hash_accumulator": "abc",
+        "future_kernel_native_arg_slot_consumer_handle_projection_hash_accumulator": "abc",
+        "future_kernel_native_consumer_view_handle_projection_hash_accumulator": "abc",
+    }
+
+    assert module._handle_projection_hashchain_equal(stub) is True
+
+    stub["future_kernel_native_consumer_view_handle_projection_hash_accumulator"] = (
+        "abd"
+    )
+    assert module._handle_projection_hashchain_equal(stub) is False
+
+    stub["future_kernel_native_consumer_view_handle_projection_hash_accumulator"] = (
+        "not_hex"
+    )
+    assert module._handle_projection_hashchain_equal(stub) is False
+
+
 def test_online_merged_arg_slot_canary_flags_stub_geometry_mismatch(tmp_path: Path):
     module = _load_module()
     merged_input = {

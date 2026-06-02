@@ -109,6 +109,12 @@ _FUTURE_KERNEL_FIELD_MASK_PREFIXES = (
     "future_kernel_native_arg_slot_consumer",
     "future_kernel_native_consumer_view",
 )
+_HANDLE_PROJECTION_HASH_PREFIXES = (
+    "future_kernel_native_dispatch_consumer",
+    "future_kernel_native_dispatch_ptr_consumer",
+    "future_kernel_native_arg_slot_consumer",
+    "future_kernel_native_consumer_view",
+)
 
 STUB_SUMMARY_KEYS = (
     "passed",
@@ -287,6 +293,18 @@ def _check_future_field_masks(stub: dict[str, Any]) -> list[str]:
     return failures
 
 
+def _parse_hex64(value: object) -> int | None:
+    if not isinstance(value, str) or not value:
+        return None
+    try:
+        parsed = int(value, 16)
+    except ValueError:
+        return None
+    if parsed < 0 or parsed > 0xFFFFFFFFFFFFFFFF:
+        return None
+    return parsed
+
+
 def _check_arg_slot_field_reads(
     stub: dict[str, Any],
     *,
@@ -451,20 +469,17 @@ def _validate_stub(
     macros = stub.get("requested_macros")
     if macros != arg_slot_macros(mirror_field):
         failures.append("requested_macros_mismatch")
-    for key in (
-        "future_kernel_native_dispatch_consumer_handle_projection_hash_accumulator",
-        "future_kernel_native_dispatch_ptr_consumer_handle_projection_hash_accumulator",
-        "future_kernel_native_arg_slot_consumer_handle_projection_hash_accumulator",
-    ):
-        value = stub.get(key)
-        if not isinstance(value, str) or not value:
+    projection_values: list[int] = []
+    for prefix in _HANDLE_PROJECTION_HASH_PREFIXES:
+        key = f"{prefix}_handle_projection_hash_accumulator"
+        value = _parse_hex64(stub.get(key))
+        if value is None:
             failures.append(f"{key}_missing")
-    values = {
-        stub.get("future_kernel_native_dispatch_consumer_handle_projection_hash_accumulator"),
-        stub.get("future_kernel_native_dispatch_ptr_consumer_handle_projection_hash_accumulator"),
-        stub.get("future_kernel_native_arg_slot_consumer_handle_projection_hash_accumulator"),
-    }
-    if len(values) != 1:
+        else:
+            projection_values.append(value)
+    if len(projection_values) != len(_HANDLE_PROJECTION_HASH_PREFIXES) or len(
+        set(projection_values)
+    ) != 1:
         failures.append("handle_projection_hash_accumulator_mismatch")
     failures.extend(_check_future_field_masks(stub))
     failures.extend(_check_arg_slot_field_reads(stub, active_rows=active_rows))
@@ -472,25 +487,16 @@ def _validate_stub(
     return failures
 
 
-def _handle_projection_hash_values(stub: dict[str, Any]) -> tuple[Any, Any, Any]:
-    return (
-        stub.get(
-            "future_kernel_native_dispatch_consumer_handle_projection_hash_accumulator"
-        ),
-        stub.get(
-            "future_kernel_native_dispatch_ptr_consumer_handle_projection_hash_accumulator"
-        ),
-        stub.get(
-            "future_kernel_native_arg_slot_consumer_handle_projection_hash_accumulator"
-        ),
+def _handle_projection_hash_values(stub: dict[str, Any]) -> tuple[int | None, ...]:
+    return tuple(
+        _parse_hex64(stub.get(f"{prefix}_handle_projection_hash_accumulator"))
+        for prefix in _HANDLE_PROJECTION_HASH_PREFIXES
     )
 
 
 def _handle_projection_hashchain_equal(stub: dict[str, Any]) -> bool:
     values = _handle_projection_hash_values(stub)
-    return all(isinstance(value, str) and bool(value) for value in values) and len(
-        set(values)
-    ) == 1
+    return all(value is not None for value in values) and len(set(values)) == 1
 
 
 def _stub_namespace(args: argparse.Namespace, *, input_json: Path) -> SimpleNamespace:
@@ -601,18 +607,18 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
             "future_kernel_native_dispatch_consumer_program_count": program_count,
             "future_kernel_native_dispatch_consumer_launch_covers_active_rows": True,
             "future_kernel_native_dispatch_consumer_launch_minimal_cover": True,
-            "future_kernel_native_dispatch_consumer_handle_projection_hash_accumulator": "dry",
+            "future_kernel_native_dispatch_consumer_handle_projection_hash_accumulator": "d",
             "future_kernel_native_dispatch_ptr_consumer_checked": True,
             "future_kernel_native_dispatch_ptr_consumer_packet_visible": True,
             "future_kernel_native_dispatch_ptr_consumer_dispatch_packet_visible": True,
             "future_kernel_native_dispatch_ptr_consumer_row_count": active_rows,
             "future_kernel_native_dispatch_ptr_consumer_row_ok_count": active_rows,
-            "future_kernel_native_dispatch_ptr_consumer_handle_projection_hash_accumulator": "dry",
+            "future_kernel_native_dispatch_ptr_consumer_handle_projection_hash_accumulator": "d",
             "future_kernel_native_arg_slot_consumer_slot_visible": True,
             "future_kernel_native_arg_slot_consumer_dispatch_ptr_packet_visible": True,
             "future_kernel_native_arg_slot_consumer_dispatch_packet_visible": True,
             "future_kernel_native_arg_slot_consumer_packet_chain_depth": 3,
-            "future_kernel_native_arg_slot_consumer_handle_projection_hash_accumulator": "dry",
+            "future_kernel_native_arg_slot_consumer_handle_projection_hash_accumulator": "d",
             "future_kernel_native_arg_slot_consumer_descriptor_ptr_read_row_count": active_rows,
             "future_kernel_native_arg_slot_consumer_descriptor_ptr_read_row_ok_count": active_rows,
             "future_kernel_native_arg_slot_consumer_descriptor_ptr_read_error_count": 0,
@@ -643,7 +649,7 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
             "future_kernel_native_consumer_view_current_wna16_arg_compatible": False,
             "future_kernel_native_consumer_view_requires_wna16_arg_reinterpretation": False,
             "future_kernel_native_consumer_view_hash_accumulator": "dry",
-            "future_kernel_native_consumer_view_handle_projection_hash_accumulator": "dry",
+            "future_kernel_native_consumer_view_handle_projection_hash_accumulator": "d",
             "future_kernel_native_consumer_view_descriptor_ptr_read_row_count": active_rows,
             "future_kernel_native_consumer_view_descriptor_ptr_read_row_ok_count": active_rows,
             "future_kernel_native_consumer_view_descriptor_ptr_read_error_count": 0,

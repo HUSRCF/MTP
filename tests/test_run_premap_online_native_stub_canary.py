@@ -190,6 +190,29 @@ def test_future_native_dispatch_tail_window_supports_dry_run_without_input(
     ]
 
 
+def test_future_native_projection_hashchain_includes_consumer_view():
+    import scripts.run_premap_online_native_stub_canary as canary
+
+    payload = {
+        "future_kernel_native_dispatch_consumer_handle_projection_hash_accumulator": "abc",
+        "future_kernel_native_dispatch_ptr_consumer_handle_projection_hash_accumulator": "abc",
+        "future_kernel_native_arg_slot_consumer_handle_projection_hash_accumulator": "abc",
+        "future_kernel_native_consumer_view_handle_projection_hash_accumulator": "abc",
+    }
+
+    assert canary._future_native_handle_projection_hashchain_equal(payload) is True
+
+    payload[
+        "future_kernel_native_consumer_view_handle_projection_hash_accumulator"
+    ] = "abd"
+    assert canary._future_native_handle_projection_hashchain_equal(payload) is False
+
+    payload[
+        "future_kernel_native_consumer_view_handle_projection_hash_accumulator"
+    ] = "not_hex"
+    assert canary._future_native_handle_projection_hashchain_equal(payload) is False
+
+
 def test_existing_stub_reuse_requires_matching_dispatch_window(tmp_path: Path):
     import scripts.run_premap_online_native_stub_canary as canary
 
