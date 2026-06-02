@@ -45,11 +45,11 @@ def _field_read_pairs(prefix: str, active: int) -> dict[str, object]:
 
 def _consumer_view_layout_pairs() -> dict[str, int]:
     return {
-        "future_kernel_native_consumer_view_struct_size": 144,
+        "future_kernel_native_consumer_view_struct_size": 208,
         "future_kernel_native_consumer_view_struct_align": 8,
         "future_kernel_native_consumer_view_params_struct_size": 112,
         "future_kernel_native_consumer_view_params_struct_align": 8,
-        "future_kernel_native_consumer_view_result_struct_size": 48,
+        "future_kernel_native_consumer_view_result_struct_size": 80,
         "future_kernel_native_consumer_view_result_struct_align": 8,
         "future_kernel_native_consumer_view_offset_params": 0,
         "future_kernel_native_consumer_view_offset_abi_version": 112,
@@ -59,6 +59,20 @@ def _consumer_view_layout_pairs() -> dict[str, int]:
         "future_kernel_native_consumer_view_offset_rows_per_program": 128,
         "future_kernel_native_consumer_view_offset_payload_bytes": 132,
         "future_kernel_native_consumer_view_offset_flags": 136,
+    }
+
+
+def _consumer_view_row_layout_pairs() -> dict[str, int]:
+    return {
+        "future_kernel_native_consumer_view_row_struct_size": 56,
+        "future_kernel_native_consumer_view_row_struct_align": 8,
+        "future_kernel_native_consumer_view_row_offset_descriptor_ptr": 0,
+        "future_kernel_native_consumer_view_row_offset_packed_weight_descriptor": 8,
+        "future_kernel_native_consumer_view_row_offset_scale_metadata_handle": 16,
+        "future_kernel_native_consumer_view_row_offset_aux_metadata_handle": 24,
+        "future_kernel_native_consumer_view_row_offset_expert_id": 32,
+        "future_kernel_native_consumer_view_row_offset_address_key_hash": 40,
+        "future_kernel_native_consumer_view_row_offset_row_index": 48,
     }
 
 
@@ -116,6 +130,7 @@ def _child_payload(
             "future_kernel_native_consumer_view_current_wna16_arg_compatible": False,
             "future_kernel_native_consumer_view_requires_wna16_arg_reinterpretation": False,
             **_consumer_view_layout_pairs(),
+            **_consumer_view_row_layout_pairs(),
             **_field_mask_pairs(),
             **_field_read_pairs("future_kernel_native_arg_slot_consumer", active),
             **_field_read_pairs("future_kernel_native_consumer_view", active),
@@ -380,6 +395,32 @@ def test_window_sweep_check_rejects_stub_consumer_view_layout_mismatch(
     assert result["passed"] is False
     assert (
         "head_child_stub_artifact_future_kernel_native_consumer_view_offset_row_limit_layout_mismatch"
+        in result["failures"]
+    )
+
+
+def test_window_sweep_check_rejects_stub_consumer_view_row_layout_mismatch(
+    tmp_path: Path,
+):
+    path = _write_artifact(tmp_path)
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    windows = payload["windows"]
+    assert isinstance(windows, dict)
+    stub_path = Path(windows["tail"]["stub_output_json"])
+    stub = json.loads(stub_path.read_text(encoding="utf-8"))
+    stub["future_kernel_native_consumer_view_row_offset_row_index"] = 52
+    stub_path.write_text(json.dumps(stub) + "\n", encoding="utf-8")
+
+    result = check_window_sweep_artifact(
+        path,
+        expected_window_size=4,
+        expected_block_threads=4,
+        min_row_count=17,
+    )
+
+    assert result["passed"] is False
+    assert (
+        "tail_child_stub_artifact_future_kernel_native_consumer_view_row_offset_row_index_layout_mismatch"
         in result["failures"]
     )
 

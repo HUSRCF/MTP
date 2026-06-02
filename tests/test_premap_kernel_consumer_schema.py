@@ -426,6 +426,28 @@ def test_kernel_consumer_schema_rejects_consumer_view_layout_value_drift(
     )
 
 
+def test_kernel_consumer_schema_rejects_consumer_view_row_layout_value_drift(
+    tmp_path: Path,
+) -> None:
+    payload = _valid_schema_payload()
+    payload["native_consumer_abi"][
+        "future_kernel_native_consumer_view_abi_layout_expected"
+    ]["future_kernel_native_consumer_view_row_offset_row_index"] = 52
+    schema_path = tmp_path / "schema.yaml"
+    _write_schema(schema_path, payload)
+
+    result = check_kernel_consumer_schema_artifact(schema_path)
+
+    assert result["passed"] is False
+    assert any(
+        failure.startswith(
+            "native_consumer_abi."
+            "future_kernel_native_consumer_view_abi_layout_expected_mismatch"
+        )
+        for failure in result["failures"]
+    )
+
+
 def test_kernel_consumer_schema_rejects_enabled_forbidden_macro(
     tmp_path: Path,
 ) -> None:

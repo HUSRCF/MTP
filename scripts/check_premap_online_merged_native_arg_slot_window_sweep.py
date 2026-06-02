@@ -64,6 +64,17 @@ _CONSUMER_VIEW_LAYOUT_INT_FIELDS = (
     "future_kernel_native_consumer_view_offset_payload_bytes",
     "future_kernel_native_consumer_view_offset_flags",
 )
+_CONSUMER_VIEW_ROW_LAYOUT_INT_FIELDS = (
+    "future_kernel_native_consumer_view_row_struct_size",
+    "future_kernel_native_consumer_view_row_struct_align",
+    "future_kernel_native_consumer_view_row_offset_descriptor_ptr",
+    "future_kernel_native_consumer_view_row_offset_packed_weight_descriptor",
+    "future_kernel_native_consumer_view_row_offset_scale_metadata_handle",
+    "future_kernel_native_consumer_view_row_offset_aux_metadata_handle",
+    "future_kernel_native_consumer_view_row_offset_expert_id",
+    "future_kernel_native_consumer_view_row_offset_address_key_hash",
+    "future_kernel_native_consumer_view_row_offset_row_index",
+)
 
 
 def _load_json(path: Path) -> dict[str, Any]:
@@ -215,6 +226,45 @@ def _check_consumer_view_layout(
     return failures
 
 
+def _check_consumer_view_row_layout(
+    summary: dict[str, Any],
+    *,
+    label: str,
+) -> list[str]:
+    failures: list[str] = []
+    values: dict[str, int] = {}
+    for key in _CONSUMER_VIEW_ROW_LAYOUT_INT_FIELDS:
+        value = _int_value(summary, key)
+        if value is None:
+            failures.append(f"{label}_{key}_missing_or_non_int")
+            continue
+        values[key] = value
+    if failures:
+        return failures
+
+    struct_size = values["future_kernel_native_consumer_view_row_struct_size"]
+    struct_align = values["future_kernel_native_consumer_view_row_struct_align"]
+    expected_offsets = {
+        "future_kernel_native_consumer_view_row_offset_descriptor_ptr": 0,
+        "future_kernel_native_consumer_view_row_offset_packed_weight_descriptor": 8,
+        "future_kernel_native_consumer_view_row_offset_scale_metadata_handle": 16,
+        "future_kernel_native_consumer_view_row_offset_aux_metadata_handle": 24,
+        "future_kernel_native_consumer_view_row_offset_expert_id": 32,
+        "future_kernel_native_consumer_view_row_offset_address_key_hash": 40,
+        "future_kernel_native_consumer_view_row_offset_row_index": 48,
+    }
+    for key, expected in expected_offsets.items():
+        if values[key] != expected:
+            failures.append(f"{label}_{key}_layout_mismatch")
+    if struct_size != 56:
+        failures.append(f"{label}_consumer_view_row_struct_size_mismatch")
+    if struct_align != 8:
+        failures.append(f"{label}_consumer_view_row_struct_align_mismatch")
+    if struct_align <= 0 or struct_size % struct_align != 0:
+        failures.append(f"{label}_consumer_view_row_struct_align_invalid")
+    return failures
+
+
 def _check_child_stub_artifact(
     child: dict[str, Any],
     *,
@@ -263,6 +313,12 @@ def _check_child_stub_artifact(
     )
     failures.extend(
         _check_consumer_view_layout(
+            stub_payload,
+            label=f"{label}_child_stub_artifact",
+        )
+    )
+    failures.extend(
+        _check_consumer_view_row_layout(
             stub_payload,
             label=f"{label}_child_stub_artifact",
         )
@@ -491,6 +547,7 @@ def check_window_sweep_artifact(
         "require_child_field_masks": bool(require_child_artifacts),
         "require_child_consumer_view": bool(require_child_artifacts),
         "require_child_consumer_view_layout": bool(require_child_artifacts),
+        "require_child_consumer_view_row_layout": bool(require_child_artifacts),
         "row_count": row_count,
         "windows_checked": list(REQUIRED_WINDOWS),
     }

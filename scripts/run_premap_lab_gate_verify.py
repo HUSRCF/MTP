@@ -122,6 +122,9 @@ def _load_status(path: Path) -> dict[str, Any]:
         "require_child_consumer_view_layout": payload.get(
             "require_child_consumer_view_layout"
         ),
+        "require_child_consumer_view_row_layout": payload.get(
+            "require_child_consumer_view_row_layout"
+        ),
         "require_non_degenerate_windows": payload.get(
             "require_non_degenerate_windows"
         ),
@@ -173,6 +176,10 @@ def _status_failures(statuses: dict[str, dict[str, Any]]) -> list[str]:
         failures.append(
             "window_sweep_check_did_not_require_child_consumer_view_layout"
         )
+    if window_check.get("require_child_consumer_view_row_layout") is not True:
+        failures.append(
+            "window_sweep_check_did_not_require_child_consumer_view_row_layout"
+        )
     if window_check.get("require_non_degenerate_windows") is not True:
         failures.append("window_sweep_check_did_not_require_non_degenerate_windows")
     if window_check.get("expected_window_size") != 512:
@@ -193,6 +200,10 @@ def _status_failures(statuses: dict[str, dict[str, Any]]) -> list[str]:
     if all_field_check.get("require_child_consumer_view_layout") is not True:
         failures.append(
             "all_field_window_sweep_check_did_not_require_child_consumer_view_layout"
+        )
+    if all_field_check.get("require_child_consumer_view_row_layout") is not True:
+        failures.append(
+            "all_field_window_sweep_check_did_not_require_child_consumer_view_row_layout"
         )
     if all_field_check.get("expected_window_size") != 512:
         failures.append("all_field_window_sweep_check_window_size_mismatch")

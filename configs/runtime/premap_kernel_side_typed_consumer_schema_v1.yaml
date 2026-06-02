@@ -282,6 +282,15 @@ native_consumer_abi:
     - future_kernel_native_consumer_view_params_struct_align
     - future_kernel_native_consumer_view_result_struct_size
     - future_kernel_native_consumer_view_result_struct_align
+    - future_kernel_native_consumer_view_row_struct_size
+    - future_kernel_native_consumer_view_row_struct_align
+    - future_kernel_native_consumer_view_row_offset_descriptor_ptr
+    - future_kernel_native_consumer_view_row_offset_packed_weight_descriptor
+    - future_kernel_native_consumer_view_row_offset_scale_metadata_handle
+    - future_kernel_native_consumer_view_row_offset_aux_metadata_handle
+    - future_kernel_native_consumer_view_row_offset_expert_id
+    - future_kernel_native_consumer_view_row_offset_address_key_hash
+    - future_kernel_native_consumer_view_row_offset_row_index
     - future_kernel_native_consumer_view_offset_params
     - future_kernel_native_consumer_view_offset_abi_version
     - future_kernel_native_consumer_view_offset_source_packet_chain_depth
@@ -297,6 +306,15 @@ native_consumer_abi:
     future_kernel_native_consumer_view_params_struct_align: 8
     future_kernel_native_consumer_view_result_struct_size: 80
     future_kernel_native_consumer_view_result_struct_align: 8
+    future_kernel_native_consumer_view_row_struct_size: 56
+    future_kernel_native_consumer_view_row_struct_align: 8
+    future_kernel_native_consumer_view_row_offset_descriptor_ptr: 0
+    future_kernel_native_consumer_view_row_offset_packed_weight_descriptor: 8
+    future_kernel_native_consumer_view_row_offset_scale_metadata_handle: 16
+    future_kernel_native_consumer_view_row_offset_aux_metadata_handle: 24
+    future_kernel_native_consumer_view_row_offset_expert_id: 32
+    future_kernel_native_consumer_view_row_offset_address_key_hash: 40
+    future_kernel_native_consumer_view_row_offset_row_index: 48
     future_kernel_native_consumer_view_offset_params: 0
     future_kernel_native_consumer_view_offset_abi_version: 112
     future_kernel_native_consumer_view_offset_source_packet_chain_depth: 116

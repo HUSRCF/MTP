@@ -2212,6 +2212,84 @@ python -m pytest tests -q
 929 passed, 2 warnings
 ```
 
+## Consumer-view row adapter layout is now gated
+
+The future native consumer-view gate now validates the typed row adapter layout
+that a future kernel-side consumer would read, not only the consumer-view
+header packet.
+
+The native stub reports:
+
+```text
+PremapKernelSideTypedConsumerRowV1
+  size = 56
+  align = 8
+  offset(descriptor_ptr) = 0
+  offset(packed_weight_descriptor) = 8
+  offset(scale_metadata_handle) = 16
+  offset(aux_metadata_handle) = 24
+  offset(expert_id) = 32
+  offset(address_key_hash) = 40
+  offset(row_index) = 48
+```
+
+The window-sweep checker follows each child native stub artifact and now
+requires:
+
+```text
+require_child_consumer_view = true
+require_child_consumer_view_layout = true
+require_child_consumer_view_row_layout = true
+```
+
+The all-field sweep and top-level lab gate propagate the same requirement. This
+keeps the current boundary unchanged:
+
+```text
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+current_wna16_arg_compatible = false
+```
+
+Verification:
+
+```text
+env PYTHONPATH=src python scripts/check_premap_kernel_consumer_schema.py \
+  configs/runtime/premap_kernel_side_typed_consumer_schema_v1.yaml \
+  --output-json outputs/reports/premap_kernel_consumer_schema.check.json
+
+passed = true
+
+python scripts/run_premap_lab_gate_verify.py \
+  --output-json outputs/reports/premap_lab_gate_verify.json
+
+passed = true
+window_sweep_check.require_child_consumer_view_row_layout = true
+all_field_window_sweep_check.require_child_consumer_view_row_layout = true
+
+python scripts/check_premap_lab_gate_verify.py \
+  outputs/reports/premap_lab_gate_verify.json \
+  --output-json outputs/reports/premap_lab_gate_verify.check.json
+
+passed = true
+failures = []
+
+python -m pytest \
+  tests/test_check_premap_online_merged_native_arg_slot_window_sweep.py \
+  tests/test_check_premap_online_merged_native_arg_slot_all_field_window_sweep.py \
+  tests/test_check_premap_lab_gate_verify.py \
+  tests/test_run_premap_lab_gate_verify.py \
+  tests/test_premap_kernel_consumer_schema.py \
+  tests/test_premap_typed_consumer_stub.py -q
+
+83 passed
+
+python -m pytest tests -q
+
+935 passed, 2 warnings
+```
+
 Malformed evidence paths fail closed (`missing_evidence_path`, `missing_file`,
 `not_file`, `read_failed`, `invalid_json`, `json_not_object`, `not_passed`, or
 `failures_not_empty`).  This makes the typed-consumer-object lab gate a single

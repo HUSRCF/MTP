@@ -3719,6 +3719,24 @@ int main(int argc, char** argv) {
             << sizeof(PremapFutureKernelNativeConsumerViewResultV1);
   std::cout << ",\"future_kernel_native_consumer_view_result_struct_align\":"
             << alignof(PremapFutureKernelNativeConsumerViewResultV1);
+  std::cout << ",\"future_kernel_native_consumer_view_row_struct_size\":"
+            << sizeof(PremapKernelSideTypedConsumerRowV1);
+  std::cout << ",\"future_kernel_native_consumer_view_row_struct_align\":"
+            << alignof(PremapKernelSideTypedConsumerRowV1);
+  std::cout << ",\"future_kernel_native_consumer_view_row_offset_descriptor_ptr\":"
+            << offsetof(PremapKernelSideTypedConsumerRowV1, descriptor_ptr);
+  std::cout << ",\"future_kernel_native_consumer_view_row_offset_packed_weight_descriptor\":"
+            << offsetof(PremapKernelSideTypedConsumerRowV1, packed_weight_descriptor);
+  std::cout << ",\"future_kernel_native_consumer_view_row_offset_scale_metadata_handle\":"
+            << offsetof(PremapKernelSideTypedConsumerRowV1, scale_metadata_handle);
+  std::cout << ",\"future_kernel_native_consumer_view_row_offset_aux_metadata_handle\":"
+            << offsetof(PremapKernelSideTypedConsumerRowV1, aux_metadata_handle);
+  std::cout << ",\"future_kernel_native_consumer_view_row_offset_expert_id\":"
+            << offsetof(PremapKernelSideTypedConsumerRowV1, expert_id);
+  std::cout << ",\"future_kernel_native_consumer_view_row_offset_address_key_hash\":"
+            << offsetof(PremapKernelSideTypedConsumerRowV1, address_key_hash);
+  std::cout << ",\"future_kernel_native_consumer_view_row_offset_row_index\":"
+            << offsetof(PremapKernelSideTypedConsumerRowV1, row_index);
   std::cout << ",\"future_kernel_native_consumer_view_offset_params\":"
             << offsetof(PremapFutureKernelNativeConsumerViewV1, params);
   std::cout << ",\"future_kernel_native_consumer_view_offset_abi_version\":"

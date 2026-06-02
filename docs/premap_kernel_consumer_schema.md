@@ -218,11 +218,11 @@ that a future kernel-side consumer would read after resolving the arg slot:
 
 ```text
 PremapFutureKernelNativeConsumerViewV1
-  size = 144
+  size = 208
   align = 8
   params_size = 112
   params_align = 8
-  result_size = 48
+  result_size = 80
   result_align = 8
   offset(params) = 0
   offset(abi_version) = 112
@@ -232,6 +232,21 @@ PremapFutureKernelNativeConsumerViewV1
   offset(rows_per_program) = 128
   offset(payload_bytes) = 132
   offset(flags) = 136
+```
+
+The row adapter layout consumed through the view is pinned separately:
+
+```text
+PremapKernelSideTypedConsumerRowV1
+  size = 56
+  align = 8
+  offset(descriptor_ptr) = 0
+  offset(packed_weight_descriptor) = 8
+  offset(scale_metadata_handle) = 16
+  offset(aux_metadata_handle) = 24
+  offset(expert_id) = 32
+  offset(address_key_hash) = 40
+  offset(row_index) = 48
 ```
 
 The lab gate requires `source_packet_chain_depth = 3`, all four typed handle
@@ -248,6 +263,7 @@ source_packet_chain_depth / row_offset / row_limit / rows_per_program /
 payload_bytes / flags are contiguous 32-bit fields
 offset(flags) + 4 <= size
 size and result_size respect their reported alignments
+typed row handle fields use the pinned 64-bit row adapter offsets
 ```
 
 This keeps the online prelaunch canary tied to the future kernel-side ABI
