@@ -4624,6 +4624,14 @@ def run_premap_lab_preflight(
         and arg_slot_projection_hash is not None
         and arg_slot_projection_all_handle_fields_schema_covered
     )
+    if (
+        not allow_missing_evidence
+        and not defer_online_prelaunch_runner_evidence
+        and not arg_slot_projection_all_handle_fields_checked
+    ):
+        failures.append(
+            "default_kernel_consumer_dispatch_runner_handle_projection_all_handle_fields_unchecked"
+        )
     lab_gate_status_summary = {
         "passed": not failures,
         "default_readonly_gate_path": default_gate_path,

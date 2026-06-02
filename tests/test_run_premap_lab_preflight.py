@@ -3818,6 +3818,10 @@ def test_premap_lab_preflight_marks_projection_uncovered_when_schema_lacks_field
     assert result["passed"] is False
     assert "default_kernel_consumer_schema_check_failed" in result["failures"]
     assert (
+        "default_kernel_consumer_dispatch_runner_handle_projection_all_handle_fields_unchecked"
+        in result["failures"]
+    )
+    assert (
         summary[
             "default_kernel_consumer_dispatch_runner_handle_projection_hashchain_equal"
         ]

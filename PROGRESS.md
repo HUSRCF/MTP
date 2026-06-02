@@ -27,13 +27,14 @@
   online-merged canary is now reproducible through a dedicated runner script
   instead of relying on a hand-materialized artifact.  The lab preflight status
   now explicitly marks that the dispatch/dispatch-pointer/arg-slot
-  handle-projection hash covers all four typed handle fields.
+  handle-projection hash covers all four typed handle fields, and the strict
+  preflight now fails if that all-field projection check is not satisfied.
 
 ## Latest Update: Explicit All-Handle Projection Coverage
 
-The default lab preflight now exposes the full handle-projection coverage of
-the future-native arg-slot path instead of relying on the reader to infer it
-from the hashchain fields:
+The default lab preflight now exposes and enforces the full handle-projection
+coverage of the future-native arg-slot path instead of relying on the reader to
+infer it from the hashchain fields:
 
 ```text
 outputs/reports/premap_lab_preflight_default_with_projection_coverage.json
@@ -50,9 +51,16 @@ default_kernel_consumer_arg_slot_total_full_field_mirror_coverage = true
 
 This does not change the safety boundary: the arg-slot path still only reads a
 future typed ABI object, does not dereference payload, and is not passed to the
-current WNA16 kernel.  The new status field makes the gate clearer: single-field
-mirror canaries cover one field at a time, while the projection hash validates
-that the native consumer row path reads the full typed handle row.
+current WNA16 kernel.  The new status field makes the gate clearer, and the
+strict no-defer preflight now rejects missing coverage via:
+
+```text
+default_kernel_consumer_dispatch_runner_handle_projection_all_handle_fields_unchecked
+```
+
+Single-field mirror canaries cover one field at a time, while the projection
+hash validates that the native consumer row path reads the full typed handle
+row.
 
 ## Latest Update: Reproducible Online-Merged Arg-Slot Runner
 
