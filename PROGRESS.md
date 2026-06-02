@@ -44,6 +44,39 @@
   itself, so explicit manual paths can no longer satisfy the default lab
   closure accidentally.
 
+## Latest Update: Optional Tail-Window Closure Probe
+
+The lab closure runner can now optionally refresh and validate a row-window
+future-native arg-slot canary:
+
+```text
+scripts/run_premap_lab_gate_closure.py --run-tail-window-probe --tail-window-size 512
+```
+
+This is deliberately a side probe, not a replacement for the default full-table
+lab gate.  It keeps the same merged online prelaunch typed-consumer table
+resident, but asks the future native dispatch/dispatch-pointer/arg-slot ABI to
+consume only the tail row window:
+
+```text
+outputs/reports/premap_lab_gate_closure_tail_window512.json
+
+passed = true
+arg_slot_tail_window_runner.tail_window_size = 512
+arg_slot_tail_window_runner.merged_row_count = 1841
+arg_slot_tail_window_runner.dispatch_row_offset = 1329
+arg_slot_tail_window_runner.dispatch_row_limit = 1841
+arg_slot_tail_window_runner.dispatch_active_rows = 512
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+```
+
+This pushes the future kernel-side typed-consumer path closer to real
+CTA/program row-slice consumption while preserving the current safety boundary:
+no payload dereference or transfer, no ready credit, no router/order mutation,
+and no current WNA16 kernel-argument pass.
+
 ## Latest Update: Runner-Recorded Lab Closure Contract
 
 The canonical lab closure runner now enforces the evidence path contract that

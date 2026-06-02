@@ -39,6 +39,27 @@ DEFAULT_ARG_SLOT_MERGED_JSON = (
     / "premap_kernel_consumer"
     / "online_merged_prelaunch_typed_consumer_input_arg_slot_32tables.json"
 )
+DEFAULT_ARG_SLOT_TAIL_RUNNER_JSON = (
+    REPO_ROOT
+    / "outputs"
+    / "reports"
+    / "premap_kernel_consumer"
+    / "online_merged_future_native_arg_slot_tail_window512_canary_runner_current.json"
+)
+DEFAULT_ARG_SLOT_TAIL_STUB_JSON = (
+    REPO_ROOT
+    / "outputs"
+    / "reports"
+    / "premap_kernel_consumer"
+    / "typed_consumer_stub_gpu1_online_merged_future_native_arg_slot_tail512_canary.json"
+)
+DEFAULT_ARG_SLOT_TAIL_MERGED_JSON = (
+    REPO_ROOT
+    / "outputs"
+    / "reports"
+    / "premap_kernel_consumer"
+    / "online_merged_prelaunch_typed_consumer_input_arg_slot_tail512.json"
+)
 DEFAULT_NATIVE_RUNNER_JSON = (
     REPO_ROOT
     / "outputs"
@@ -111,6 +132,9 @@ def _load_json_summary(path: Path) -> dict[str, Any]:
         "device",
         "selected_source_count",
         "merged_row_count",
+        "tail_window_size",
+        "dispatch_row_offset",
+        "dispatch_row_limit",
         "dispatch_active_rows",
         "online_merged_source_count",
         "online_merged_row_count",
@@ -144,10 +168,50 @@ def _runner_recorded_path_failures(
     return failures
 
 
+def _tail_window_probe_failures(
+    summaries: dict[str, dict[str, Any]],
+    *,
+    enabled: bool,
+    dry_run: bool,
+    expected_tail_window_size: int,
+) -> list[str]:
+    if not enabled or dry_run:
+        return []
+
+    tail_summary = summaries.get("arg_slot_tail_window_runner", {})
+    if not tail_summary.get("exists"):
+        return ["arg_slot_tail_window_runner_missing"]
+
+    failures: list[str] = []
+    if tail_summary.get("passed") is not True:
+        failures.append("arg_slot_tail_window_runner_not_passed")
+    if tail_summary.get("tail_window_size") != int(expected_tail_window_size):
+        failures.append("arg_slot_tail_window_size_mismatch")
+    merged_row_count = tail_summary.get("merged_row_count")
+    dispatch_offset = tail_summary.get("dispatch_row_offset")
+    dispatch_limit = tail_summary.get("dispatch_row_limit")
+    dispatch_active = tail_summary.get("dispatch_active_rows")
+    if not isinstance(merged_row_count, int) or isinstance(merged_row_count, bool):
+        failures.append("arg_slot_tail_window_merged_row_count_invalid")
+        return failures
+    expected_offset = max(0, int(merged_row_count) - int(expected_tail_window_size))
+    expected_active = int(merged_row_count) - expected_offset
+    if dispatch_offset != expected_offset:
+        failures.append("arg_slot_tail_window_dispatch_offset_mismatch")
+    if dispatch_limit != int(merged_row_count):
+        failures.append("arg_slot_tail_window_dispatch_limit_mismatch")
+    if dispatch_active != expected_active:
+        failures.append("arg_slot_tail_window_dispatch_active_mismatch")
+    return failures
+
+
 def run_closure(args: argparse.Namespace) -> dict[str, Any]:
     arg_slot_runner_json = _resolve(args.arg_slot_runner_json)
     arg_slot_stub_json = _resolve(args.arg_slot_stub_json)
     arg_slot_merged_json = _resolve(args.arg_slot_merged_json)
+    arg_slot_tail_runner_json = _resolve(args.arg_slot_tail_runner_json)
+    arg_slot_tail_stub_json = _resolve(args.arg_slot_tail_stub_json)
+    arg_slot_tail_merged_json = _resolve(args.arg_slot_tail_merged_json)
     native_runner_json = _resolve(args.native_runner_json)
     full_preflight_json = _resolve(args.full_preflight_json)
     summary_json = _resolve(args.summary_json)
@@ -166,6 +230,24 @@ def run_closure(args: argparse.Namespace) -> dict[str, Any]:
                 str(arg_slot_stub_json),
                 "--merged-output-json",
                 str(arg_slot_merged_json),
+            ],
+            dry_run=bool(args.dry_run),
+        )
+    if args.run_tail_window_probe:
+        steps["arg_slot_tail_window_runner"] = _run_step(
+            [
+                sys.executable,
+                "scripts/run_premap_online_merged_native_arg_slot_canary.py",
+                "--runner-json",
+                str(native_runner_json),
+                "--tail-window-size",
+                str(int(args.tail_window_size)),
+                "--output-json",
+                str(arg_slot_tail_runner_json),
+                "--stub-output-json",
+                str(arg_slot_tail_stub_json),
+                "--merged-output-json",
+                str(arg_slot_tail_merged_json),
             ],
             dry_run=bool(args.dry_run),
         )
@@ -217,6 +299,7 @@ def run_closure(args: argparse.Namespace) -> dict[str, Any]:
     ]
     summaries = {
         "arg_slot_runner": _load_json_summary(arg_slot_runner_json),
+        "arg_slot_tail_window_runner": _load_json_summary(arg_slot_tail_runner_json),
         "full_preflight": _load_json_summary(full_preflight_json),
         "summary_preflight": _load_json_summary(summary_json),
         "summary_check": _load_json_summary(summary_check_json),
@@ -227,7 +310,13 @@ def run_closure(args: argparse.Namespace) -> dict[str, Any]:
         dry_run=bool(args.dry_run),
         allow_explicit_artifact_paths=bool(args.allow_explicit_artifact_paths),
     )
-    failures = step_failures + runner_recorded_failures
+    tail_window_failures = _tail_window_probe_failures(
+        summaries,
+        enabled=bool(args.run_tail_window_probe),
+        dry_run=bool(args.dry_run),
+        expected_tail_window_size=int(args.tail_window_size),
+    )
+    failures = step_failures + runner_recorded_failures + tail_window_failures
     report = {
         "passed": not failures,
         "failures": failures,
@@ -240,6 +329,9 @@ def run_closure(args: argparse.Namespace) -> dict[str, Any]:
             "arg_slot_runner_json": str(arg_slot_runner_json),
             "arg_slot_stub_json": str(arg_slot_stub_json),
             "arg_slot_merged_json": str(arg_slot_merged_json),
+            "arg_slot_tail_runner_json": str(arg_slot_tail_runner_json),
+            "arg_slot_tail_stub_json": str(arg_slot_tail_stub_json),
+            "arg_slot_tail_merged_json": str(arg_slot_tail_merged_json),
             "native_runner_json": str(native_runner_json),
             "full_preflight_json": str(full_preflight_json),
             "summary_json": str(summary_json),
@@ -251,6 +343,8 @@ def run_closure(args: argparse.Namespace) -> dict[str, Any]:
         "payload_bytes": 0,
         "passed_to_kernel": False,
         "changes_kernel_launch_args": False,
+        "tail_window_probe_enabled": bool(args.run_tail_window_probe),
+        "tail_window_size": int(args.tail_window_size),
     }
     return report
 
@@ -260,6 +354,9 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--arg-slot-runner-json", type=Path, default=DEFAULT_ARG_SLOT_RUNNER_JSON)
     parser.add_argument("--arg-slot-stub-json", type=Path, default=DEFAULT_ARG_SLOT_STUB_JSON)
     parser.add_argument("--arg-slot-merged-json", type=Path, default=DEFAULT_ARG_SLOT_MERGED_JSON)
+    parser.add_argument("--arg-slot-tail-runner-json", type=Path, default=DEFAULT_ARG_SLOT_TAIL_RUNNER_JSON)
+    parser.add_argument("--arg-slot-tail-stub-json", type=Path, default=DEFAULT_ARG_SLOT_TAIL_STUB_JSON)
+    parser.add_argument("--arg-slot-tail-merged-json", type=Path, default=DEFAULT_ARG_SLOT_TAIL_MERGED_JSON)
     parser.add_argument("--native-runner-json", type=Path, default=DEFAULT_NATIVE_RUNNER_JSON)
     parser.add_argument("--full-preflight-json", type=Path, default=DEFAULT_FULL_PREFLIGHT_JSON)
     parser.add_argument("--summary-json", type=Path, default=DEFAULT_SUMMARY_JSON)
@@ -267,6 +364,15 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--artifact-check-json", type=Path, default=DEFAULT_ARTIFACT_CHECK_JSON)
     parser.add_argument("--output-json", type=Path, default=DEFAULT_REPORT_JSON)
     parser.add_argument("--skip-arg-slot-runner", action="store_true")
+    parser.add_argument(
+        "--run-tail-window-probe",
+        action="store_true",
+        help=(
+            "Also run a readonly row-window/tail-window arg-slot canary. This "
+            "does not replace the default full-table lab gate."
+        ),
+    )
+    parser.add_argument("--tail-window-size", type=int, default=512)
     parser.add_argument(
         "--allow-explicit-artifact-paths",
         action="store_true",
