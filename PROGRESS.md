@@ -62,6 +62,22 @@ Single-field mirror canaries cover one field at a time, while the projection
 hash validates that the native consumer row path reads the full typed handle
 row.
 
+The online-merged runner report now carries the same self-description directly:
+
+```text
+outputs/reports/premap_kernel_consumer/
+  online_merged_future_native_arg_slot_canary_runner_latest.json
+
+device = 1
+selected_source_count = 32
+merged_row_count = 1841
+handle_projection_hashchain_equal = true
+handle_projection_all_handle_fields_checked = true
+handle_projection_field_names =
+  [descriptor_ptr, packed_weight_descriptor, scale_metadata_handle,
+   aux_metadata_handle]
+```
+
 ## Latest Update: Reproducible Online-Merged Arg-Slot Runner
 
 The online-merged arg-slot canary now has a one-step evidence runner, and the

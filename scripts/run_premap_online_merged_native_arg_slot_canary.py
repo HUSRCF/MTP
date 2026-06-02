@@ -88,6 +88,7 @@ MIRROR_FIELD_MACRO = {
     ),
     "aux_metadata_handle": "MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_MIRROR_FIELD",
 }
+ARG_SLOT_HANDLE_PROJECTION_FIELDS = tuple(MIRROR_FIELD_MACRO)
 ARG_SLOT_MACROS = [
     *ARG_SLOT_BASE_MACROS,
     MIRROR_FIELD_MACRO["scale_metadata_handle"],
@@ -294,6 +295,27 @@ def _validate_stub(
     return failures
 
 
+def _handle_projection_hash_values(stub: dict[str, Any]) -> tuple[Any, Any, Any]:
+    return (
+        stub.get(
+            "future_kernel_native_dispatch_consumer_handle_projection_hash_accumulator"
+        ),
+        stub.get(
+            "future_kernel_native_dispatch_ptr_consumer_handle_projection_hash_accumulator"
+        ),
+        stub.get(
+            "future_kernel_native_arg_slot_consumer_handle_projection_hash_accumulator"
+        ),
+    )
+
+
+def _handle_projection_hashchain_equal(stub: dict[str, Any]) -> bool:
+    values = _handle_projection_hash_values(stub)
+    return all(isinstance(value, str) and bool(value) for value in values) and len(
+        set(values)
+    ) == 1
+
+
 def _stub_namespace(args: argparse.Namespace, *, input_json: Path) -> SimpleNamespace:
     # Bounds are validated after the merged input is materialized; this namespace
     # is filled in run_canary once the row count is known.
@@ -461,6 +483,14 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
         "changes_kernel_launch_args": False,
         "current_wna16_arg_compatible": False,
         "not_a_single_vllm_launch_table": True,
+        "handle_projection_field_names": list(ARG_SLOT_HANDLE_PROJECTION_FIELDS),
+        "handle_projection_hashchain_equal": _handle_projection_hashchain_equal(
+            stub_payload
+        ),
+        "handle_projection_all_handle_fields_checked": (
+            _handle_projection_hashchain_equal(stub_payload)
+            and set(ARG_SLOT_HANDLE_PROJECTION_FIELDS) == set(MIRROR_FIELD_MACRO)
+        ),
         "stub_summary": _summary(stub_payload),
     }
     _write_json(report_json, report)

@@ -104,6 +104,14 @@ def test_online_merged_arg_slot_canary_dry_run_writes_artifacts(tmp_path: Path):
     assert result["dispatch_active_rows"] == 7
     assert result["dispatch_expected_program_count"] == 2
     assert result["not_a_single_vllm_launch_table"] is True
+    assert result["handle_projection_field_names"] == [
+        "descriptor_ptr",
+        "packed_weight_descriptor",
+        "scale_metadata_handle",
+        "aux_metadata_handle",
+    ]
+    assert result["handle_projection_hashchain_equal"] is True
+    assert result["handle_projection_all_handle_fields_checked"] is True
     assert json.loads(merged.read_text(encoding="utf-8"))["_meta"]["row_count"] == 7
     stub_payload = json.loads(stub.read_text(encoding="utf-8"))
     assert stub_payload["future_kernel_native_arg_slot_consumer_checked"] is True
@@ -117,6 +125,12 @@ def test_online_merged_arg_slot_canary_dry_run_writes_artifacts(tmp_path: Path):
         == "scale_metadata_handle"
     )
     assert json.loads(report.read_text(encoding="utf-8"))["passed"] is True
+    assert (
+        json.loads(report.read_text(encoding="utf-8"))[
+            "handle_projection_all_handle_fields_checked"
+        ]
+        is True
+    )
 
 
 def test_online_merged_arg_slot_canary_dry_run_accepts_mirror_field(
