@@ -3,7 +3,8 @@
 
 This helper is still read-only with respect to the real vLLM/WNA16 path.  It
 refreshes the default full-table closure, refreshes the optional tail-window
-closure, and then checks both artifacts with the static closure checker.
+closure, refreshes the online-merged row-window sweep, and then checks all
+artifacts with static checkers.
 """
 
 from __future__ import annotations
@@ -27,6 +28,20 @@ DEFAULT_TAIL_CLOSURE_JSON = (
 )
 DEFAULT_TAIL_CLOSURE_CHECK_JSON = (
     REPO_ROOT / "outputs" / "reports" / "premap_lab_gate_closure_tail_window512.check.json"
+)
+DEFAULT_WINDOW_SWEEP_JSON = (
+    REPO_ROOT
+    / "outputs"
+    / "reports"
+    / "premap_kernel_consumer"
+    / "online_merged_future_native_arg_slot_window_sweep_runner.json"
+)
+DEFAULT_WINDOW_SWEEP_CHECK_JSON = (
+    REPO_ROOT
+    / "outputs"
+    / "reports"
+    / "premap_kernel_consumer"
+    / "online_merged_future_native_arg_slot_window_sweep_check.json"
 )
 DEFAULT_VERIFY_JSON = (
     REPO_ROOT / "outputs" / "reports" / "premap_lab_gate_verify.json"
@@ -68,6 +83,11 @@ def _load_status(path: Path) -> dict[str, Any]:
         "tail_window_probe_enabled": payload.get("tail_window_probe_enabled"),
         "tail_window_size": payload.get("tail_window_size"),
         "require_tail_window_probe": payload.get("require_tail_window_probe"),
+        "row_count": payload.get("row_count"),
+        "expected_window_size": payload.get("expected_window_size"),
+        "expected_block_threads": payload.get("expected_block_threads"),
+        "require_child_artifacts": payload.get("require_child_artifacts"),
+        "windows_checked": payload.get("windows_checked"),
     }
 
 
@@ -82,7 +102,7 @@ def _status_failures(statuses: dict[str, dict[str, Any]]) -> list[str]:
         if status.get("failures") != []:
             failures.append(f"{name}_failures_not_empty")
 
-    for name in ("default_closure", "tail_window_closure"):
+    for name in ("default_closure", "tail_window_closure", "window_sweep"):
         status = statuses.get(name, {})
         if status.get("payload_bytes") != 0:
             failures.append(f"{name}_payload_bytes_mismatch")
@@ -97,6 +117,13 @@ def _status_failures(statuses: dict[str, dict[str, Any]]) -> list[str]:
         failures.append("tail_window_closure_tail_window_not_enabled")
     if statuses.get("tail_window_closure_check", {}).get("require_tail_window_probe") is not True:
         failures.append("tail_window_closure_check_did_not_require_tail_window")
+    window_check = statuses.get("window_sweep_check", {})
+    if window_check.get("require_child_artifacts") is not True:
+        failures.append("window_sweep_check_did_not_require_child_artifacts")
+    if window_check.get("expected_window_size") != 512:
+        failures.append("window_sweep_check_window_size_mismatch")
+    if window_check.get("windows_checked") != ["full", "head", "middle", "tail"]:
+        failures.append("window_sweep_check_windows_checked_mismatch")
     return failures
 
 
@@ -105,6 +132,8 @@ def run_verify(args: argparse.Namespace) -> dict[str, Any]:
     closure_check_json = _resolve(args.closure_check_json)
     tail_closure_json = _resolve(args.tail_closure_json)
     tail_closure_check_json = _resolve(args.tail_closure_check_json)
+    window_sweep_json = _resolve(args.window_sweep_json)
+    window_sweep_check_json = _resolve(args.window_sweep_check_json)
 
     steps = {
         "default_closure": _run_step(
@@ -151,6 +180,29 @@ def run_verify(args: argparse.Namespace) -> dict[str, Any]:
             ],
             dry_run=bool(args.dry_run),
         ),
+        "window_sweep": _run_step(
+            [
+                sys.executable,
+                "scripts/run_premap_online_merged_native_arg_slot_window_sweep.py",
+                "--window-size",
+                "512",
+                "--output-json",
+                str(window_sweep_json),
+            ],
+            dry_run=bool(args.dry_run),
+        ),
+        "window_sweep_check": _run_step(
+            [
+                sys.executable,
+                "scripts/check_premap_online_merged_native_arg_slot_window_sweep.py",
+                str(window_sweep_json),
+                "--expected-window-size",
+                "512",
+                "--output-json",
+                str(window_sweep_check_json),
+            ],
+            dry_run=bool(args.dry_run),
+        ),
     }
     step_failures = [
         name
@@ -162,6 +214,8 @@ def run_verify(args: argparse.Namespace) -> dict[str, Any]:
         "default_closure_check": _load_status(closure_check_json),
         "tail_window_closure": _load_status(tail_closure_json),
         "tail_window_closure_check": _load_status(tail_closure_check_json),
+        "window_sweep": _load_status(window_sweep_json),
+        "window_sweep_check": _load_status(window_sweep_check_json),
     }
     status_failures = [] if args.dry_run else _status_failures(statuses)
     failures = step_failures + status_failures
@@ -176,6 +230,8 @@ def run_verify(args: argparse.Namespace) -> dict[str, Any]:
             "closure_check_json": str(closure_check_json),
             "tail_closure_json": str(tail_closure_json),
             "tail_closure_check_json": str(tail_closure_check_json),
+            "window_sweep_json": str(window_sweep_json),
+            "window_sweep_check_json": str(window_sweep_check_json),
         },
         "steps": steps,
         "statuses": statuses,
@@ -205,6 +261,16 @@ def _build_parser() -> argparse.ArgumentParser:
         default=DEFAULT_TAIL_CLOSURE_CHECK_JSON,
     )
     parser.add_argument("--tail-window-size", type=int, default=512)
+    parser.add_argument(
+        "--window-sweep-json",
+        type=Path,
+        default=DEFAULT_WINDOW_SWEEP_JSON,
+    )
+    parser.add_argument(
+        "--window-sweep-check-json",
+        type=Path,
+        default=DEFAULT_WINDOW_SWEEP_CHECK_JSON,
+    )
     parser.add_argument("--output-json", type=Path, default=DEFAULT_VERIFY_JSON)
     parser.add_argument("--dry-run", action="store_true")
     return parser

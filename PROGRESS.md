@@ -26209,3 +26209,33 @@ windows_checked = full, head, middle, tail
 The checker rejects missing or mismatched row-window geometry and also reads the
 per-window child canary artifacts, so this evidence can be promoted into a lab
 preflight requirement without relying on manual JSON inspection.
+
+The one-step lab gate verifier now refreshes and checks this window sweep as
+part of the canonical readonly premap lab preflight:
+
+```text
+verify artifact:
+  outputs/reports/premap_lab_gate_verify.json
+
+passed = true
+failures = []
+steps =
+  default_closure
+  default_closure_check
+  tail_window_closure
+  tail_window_closure_check
+  window_sweep
+  window_sweep_check
+
+window_sweep_check:
+  passed = true
+  row_count = 1841
+  expected_window_size = 512
+  expected_block_threads = 256
+  require_child_artifacts = true
+  windows_checked = full, head, middle, tail
+```
+
+This makes the full/head/middle/tail future-native arg-slot row-window evidence
+a machine-checked lab preflight condition while still preserving the strict
+no-payload / no-current-WNA16-arg boundary.

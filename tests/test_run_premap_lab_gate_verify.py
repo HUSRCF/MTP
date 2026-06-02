@@ -23,6 +23,10 @@ def test_run_premap_lab_gate_verify_dry_run_records_all_steps(tmp_path: Path):
             str(tmp_path / "tail.json"),
             "--tail-closure-check-json",
             str(tmp_path / "tail.check.json"),
+            "--window-sweep-json",
+            str(tmp_path / "window_sweep.json"),
+            "--window-sweep-check-json",
+            str(tmp_path / "window_sweep.check.json"),
             "--tail-window-size",
             "8",
         ]
@@ -41,11 +45,22 @@ def test_run_premap_lab_gate_verify_dry_run_records_all_steps(tmp_path: Path):
         "default_closure_check",
         "tail_window_closure",
         "tail_window_closure_check",
+        "window_sweep",
+        "window_sweep_check",
     ]
     tail_cmd = result["steps"]["tail_window_closure_check"]["cmd"]
     assert "--require-tail-window-probe" in tail_cmd
     assert "--expected-tail-window-size" in tail_cmd
     assert "8" in tail_cmd
+    sweep_cmd = result["steps"]["window_sweep"]["cmd"]
+    assert "scripts/run_premap_online_merged_native_arg_slot_window_sweep.py" in sweep_cmd
+    assert "--window-size" in sweep_cmd
+    assert "512" in sweep_cmd
+    sweep_check_cmd = result["steps"]["window_sweep_check"]["cmd"]
+    assert "scripts/check_premap_online_merged_native_arg_slot_window_sweep.py" in (
+        sweep_check_cmd
+    )
+    assert "--expected-window-size" in sweep_check_cmd
 
 
 def test_status_failures_reject_kernel_boundary_mutation():
@@ -78,6 +93,22 @@ def test_status_failures_reject_kernel_boundary_mutation():
             "passed": True,
             "failures": [],
             "require_tail_window_probe": True,
+        },
+        "window_sweep": {
+            "exists": True,
+            "passed": True,
+            "failures": [],
+            "payload_bytes": 0,
+            "passed_to_kernel": False,
+            "changes_kernel_launch_args": False,
+        },
+        "window_sweep_check": {
+            "exists": True,
+            "passed": True,
+            "failures": [],
+            "require_child_artifacts": True,
+            "expected_window_size": 512,
+            "windows_checked": ["full", "head", "middle", "tail"],
         },
     }
 
@@ -117,11 +148,81 @@ def test_status_failures_reject_tail_checker_without_tail_requirement():
             "failures": [],
             "require_tail_window_probe": False,
         },
+        "window_sweep": {
+            "exists": True,
+            "passed": True,
+            "failures": [],
+            "payload_bytes": 0,
+            "passed_to_kernel": False,
+            "changes_kernel_launch_args": False,
+        },
+        "window_sweep_check": {
+            "exists": True,
+            "passed": True,
+            "failures": [],
+            "require_child_artifacts": True,
+            "expected_window_size": 512,
+            "windows_checked": ["full", "head", "middle", "tail"],
+        },
     }
 
     failures = _status_failures(statuses)
 
     assert "tail_window_closure_check_did_not_require_tail_window" in failures
+
+
+def test_status_failures_reject_window_sweep_checker_without_child_artifacts():
+    statuses = {
+        "default_closure": {
+            "exists": True,
+            "passed": True,
+            "failures": [],
+            "payload_bytes": 0,
+            "passed_to_kernel": False,
+            "changes_kernel_launch_args": False,
+            "tail_window_probe_enabled": False,
+        },
+        "default_closure_check": {
+            "exists": True,
+            "passed": True,
+            "failures": [],
+        },
+        "tail_window_closure": {
+            "exists": True,
+            "passed": True,
+            "failures": [],
+            "payload_bytes": 0,
+            "passed_to_kernel": False,
+            "changes_kernel_launch_args": False,
+            "tail_window_probe_enabled": True,
+        },
+        "tail_window_closure_check": {
+            "exists": True,
+            "passed": True,
+            "failures": [],
+            "require_tail_window_probe": True,
+        },
+        "window_sweep": {
+            "exists": True,
+            "passed": True,
+            "failures": [],
+            "payload_bytes": 0,
+            "passed_to_kernel": False,
+            "changes_kernel_launch_args": False,
+        },
+        "window_sweep_check": {
+            "exists": True,
+            "passed": True,
+            "failures": [],
+            "require_child_artifacts": False,
+            "expected_window_size": 512,
+            "windows_checked": ["full", "head", "middle", "tail"],
+        },
+    }
+
+    failures = _status_failures(statuses)
+
+    assert "window_sweep_check_did_not_require_child_artifacts" in failures
 
 
 def test_run_premap_lab_gate_verify_main_writes_report(tmp_path: Path):
