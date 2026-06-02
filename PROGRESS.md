@@ -264,6 +264,29 @@ compact checker:
   passed
 ```
 
+The online native-stub artifact checker must be run with the preflight/status
+paths recorded by the runner, not the generic default filenames.  The current
+matching set also passes:
+
+```text
+runner:
+  outputs/reports/premap_kernel_consumer/
+    online_prelaunch_native_stub_canary_arg_slot_32input_hard_hashchain_preflight_32tables.json
+
+preflight:
+  outputs/reports/
+    premap_lab_preflight_online_prelaunch_native_stub_canary_hard_hashchain_preflight_32tables.json
+
+status:
+  outputs/reports/
+    premap_lab_preflight_status_online_prelaunch_native_stub_canary_hard_hashchain_preflight_32tables.json
+
+artifact checker:
+  outputs/reports/premap_kernel_consumer/
+    online_prelaunch_native_stub_canary_artifact_check_current.json
+  passed
+```
+
 The same runner now also supports dispatch row-window canaries.  The latest
 tail-window run keeps the full merged table resident but asks the future
 dispatch/dispatch-pointer/arg-slot ABI to consume only the last active window:
