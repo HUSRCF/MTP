@@ -10,6 +10,7 @@ from scripts.run_premap_online_native_stub_canary import (
     exported_input_from_performance,
     exported_inputs_from_performance,
     finalize_report_with_artifact_check,
+    finalize_report_with_strict_preflight,
     run_canary,
     trace_output_dir,
 )
@@ -287,6 +288,7 @@ def test_run_canary_dry_run_includes_compact_preflight_status(
 
     monkeypatch.setattr(canary, "REPO_ROOT", tmp_path)
     status_output = tmp_path / "status.json"
+    status_check_output = tmp_path / "status.check.json"
     args = build_parser().parse_args(
         [
             "--trace-config",
@@ -321,6 +323,8 @@ def test_run_canary_dry_run_includes_compact_preflight_status(
             str(tmp_path / "preflight.json"),
             "--preflight-status-output-json",
             str(status_output),
+            "--preflight-status-check-output-json",
+            str(status_check_output),
             "--output-json",
             str(tmp_path / "runner.json"),
             "--future-native-dispatch-row-offset",
@@ -384,6 +388,7 @@ def test_run_canary_dry_run_includes_compact_preflight_status(
         ]
     )
     assert result["preflight_status_output_json"] == str(status_output)
+    assert result["preflight_status_check_output_json"] == str(status_check_output)
     per_field_cmd = result["steps"]["native_stub_per_field"]["cmd"]
     assert str(tmp_path / "stub_per_field.json") in per_field_cmd
     assert "MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR" in per_field_cmd
@@ -803,3 +808,150 @@ def test_finalize_report_with_artifact_check_records_failure_without_raising(
     assert result["artifact_check_summary"]["passed"] is False
     assert result["artifact_check_summary"]["failures"] == ["runner_not_passed"]
     assert result["steps"]["artifact_check_final"]["returncode"] == 1
+
+
+def test_finalize_report_with_strict_preflight_runs_status_checker(
+    tmp_path: Path,
+    monkeypatch,
+):
+    import scripts.run_premap_online_native_stub_canary as canary
+
+    def fake_run(cmd, *, env, dry_run, allow_failure=False):
+        output = Path(cmd[cmd.index("--output-json") + 1])
+        if cmd[1] == "scripts/check_premap_lab_preflight_summary.py":
+            output.write_text(
+                json.dumps(
+                    {
+                        "passed": True,
+                        "failures": [],
+                        "source": "premap_lab_preflight_summary_check",
+                        "online_merged_source_count": 32,
+                        "online_merged_row_count": 1841,
+                        "online_merged_dispatch_active_rows": 1841,
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+        elif "--summary-only" in cmd:
+            output.write_text(
+                json.dumps(
+                    {
+                        "passed": True,
+                        "runtime_gate_evidence_deferred_count": 0,
+                        "strict_default_gate_evidence_deferred_count": 0,
+                        "required_evidence": {
+                            "passed": True,
+                            "present_count": 18,
+                            "passed_count": 18,
+                            "required_count": 18,
+                        },
+                        "optional_evidence": {
+                            "passed": True,
+                            "present_count": 19,
+                            "passed_count": 19,
+                            "required_count": 19,
+                        },
+                        "native_typed_consumer_bridge_required": True,
+                        "native_stub_online_invocation_canary_required": True,
+                        "payload_bytes_required": 0,
+                        "passed_to_kernel_required": False,
+                        "changes_kernel_launch_args_required": False,
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+        else:
+            output.write_text(
+                json.dumps({"passed": True, "failures": []}) + "\n",
+                encoding="utf-8",
+            )
+        return {"cmd": cmd, "returncode": 0}
+
+    monkeypatch.setattr(canary, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(canary, "_run", fake_run)
+    status_check_output = tmp_path / "status.check.json"
+    args = build_parser().parse_args(
+        [
+            "--preflight-output-json",
+            str(tmp_path / "preflight.json"),
+            "--preflight-status-output-json",
+            str(tmp_path / "status.json"),
+            "--preflight-status-check-output-json",
+            str(status_check_output),
+            "--output-json",
+            str(tmp_path / "runner.json"),
+        ]
+    )
+    payload = {"passed": True, "failures": [], "steps": {}}
+
+    result = finalize_report_with_strict_preflight(args=args, payload=payload)
+
+    assert result["passed"] is True
+    assert result["failures"] == []
+    assert result["final_preflight_status_check_output_json"] == str(
+        status_check_output
+    )
+    assert result["final_preflight_status_check_summary"] == {
+        "passed": True,
+        "failures": [],
+        "source": "premap_lab_preflight_summary_check",
+        "online_merged_source_count": 32,
+        "online_merged_row_count": 1841,
+        "online_merged_dispatch_active_rows": 1841,
+    }
+    assert "final_preflight_status_check" in result["steps"]
+
+
+def test_finalize_report_with_strict_preflight_fails_on_status_checker_failure(
+    tmp_path: Path,
+    monkeypatch,
+):
+    import scripts.run_premap_online_native_stub_canary as canary
+
+    def fake_run(cmd, *, env, dry_run, allow_failure=False):
+        output = Path(cmd[cmd.index("--output-json") + 1])
+        if cmd[1] == "scripts/check_premap_lab_preflight_summary.py":
+            output.write_text(
+                json.dumps(
+                    {
+                        "passed": False,
+                        "failures": ["payload_bytes_required_mismatch"],
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+        elif "--summary-only" in cmd:
+            output.write_text(json.dumps({"passed": True}) + "\n", encoding="utf-8")
+        else:
+            output.write_text(
+                json.dumps({"passed": True, "failures": []}) + "\n",
+                encoding="utf-8",
+            )
+        return {"cmd": cmd, "returncode": 0}
+
+    monkeypatch.setattr(canary, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(canary, "_run", fake_run)
+    args = build_parser().parse_args(
+        [
+            "--preflight-output-json",
+            str(tmp_path / "preflight.json"),
+            "--preflight-status-output-json",
+            str(tmp_path / "status.json"),
+            "--preflight-status-check-output-json",
+            str(tmp_path / "status.check.json"),
+            "--output-json",
+            str(tmp_path / "runner.json"),
+        ]
+    )
+    payload = {"passed": True, "failures": [], "steps": {}}
+
+    result = finalize_report_with_strict_preflight(args=args, payload=payload)
+
+    assert result["passed"] is False
+    assert "final_preflight_status_check_not_passed" in result["failures"]
+    assert result["final_preflight_status_check_summary"]["failures"] == [
+        "payload_bytes_required_mismatch"
+    ]

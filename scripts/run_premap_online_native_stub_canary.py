@@ -212,6 +212,12 @@ DEFAULT_PREFLIGHT_STATUS_OUTPUT = (
     / "reports"
     / "premap_lab_preflight_status_online_prelaunch_native_stub_canary.json"
 )
+DEFAULT_PREFLIGHT_STATUS_CHECK_OUTPUT = (
+    REPO_ROOT
+    / "outputs"
+    / "reports"
+    / "premap_lab_preflight_status_online_prelaunch_native_stub_canary.check.json"
+)
 DEFAULT_REPORT = (
     REPO_ROOT
     / "outputs"
@@ -1132,6 +1138,20 @@ def _artifact_check_command(
     return cmd
 
 
+def _preflight_status_check_command(
+    *,
+    summary_json: Path,
+    output_json: Path,
+) -> list[str]:
+    return [
+        sys.executable,
+        "scripts/check_premap_lab_preflight_summary.py",
+        str(summary_json),
+        "--output-json",
+        str(output_json),
+    ]
+
+
 def _load_json_if_exists(path: Path) -> dict[str, Any]:
     if path.exists():
         payload = json.loads(path.read_text(encoding="utf-8"))
@@ -1980,6 +2000,9 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
         extra_input_check_summaries.append(suite)
     preflight_output = _resolve_repo_path(args.preflight_output_json)
     preflight_status_output = _resolve_repo_path(args.preflight_status_output_json)
+    preflight_status_check_output = _resolve_repo_path(
+        args.preflight_status_check_output_json
+    )
     if not args.skip_preflight:
         # Stage-1 preflight runs before this runner JSON and its artifact
         # consistency report exist, so it explicitly defers those two
@@ -3534,6 +3557,7 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
         ),
         "preflight_output_json": str(preflight_output),
         "preflight_status_output_json": str(preflight_status_output),
+        "preflight_status_check_output_json": str(preflight_status_check_output),
         "gpu_index": args.gpu_index,
         "stub_device": int(args.stub_device),
         "future_native_dispatch_row_offset": int(
@@ -4009,10 +4033,14 @@ def finalize_report_with_strict_preflight(
         payload["steps"] = steps
     preflight_output = _resolve_repo_path(args.preflight_output_json)
     preflight_status_output = _resolve_repo_path(args.preflight_status_output_json)
+    preflight_status_check_output = _resolve_repo_path(
+        args.preflight_status_check_output_json
+    )
     # Final validation must use the same no-defer lab gate as the standalone
     # preflight; the runner should not weaken missing-evidence checks.
     preflight_step = f"{step_prefix}_preflight"
     status_step = f"{step_prefix}_preflight_status"
+    status_check_step = f"{step_prefix}_preflight_status_check"
     steps[preflight_step] = _run(
         _preflight_command(
             output_json=preflight_output,
@@ -4035,8 +4063,17 @@ def finalize_report_with_strict_preflight(
         env=env,
         dry_run=False,
     )
+    steps[status_check_step] = _run(
+        _preflight_status_check_command(
+            summary_json=preflight_status_output,
+            output_json=preflight_status_check_output,
+        ),
+        env=env,
+        dry_run=False,
+    )
     final_preflight_payload = _load_json_if_exists(preflight_output)
     final_status_payload = _load_json_if_exists(preflight_status_output)
+    final_status_check_payload = _load_json_if_exists(preflight_status_check_output)
     final_preflight_summary = {
         "passed": final_preflight_payload.get("passed"),
         "failures": final_preflight_payload.get("failures"),
@@ -4085,6 +4122,23 @@ def finalize_report_with_strict_preflight(
     )
     payload["final_preflight_summary"] = final_preflight_summary
     payload["final_preflight_status_summary"] = final_status_summary
+    payload["final_preflight_status_check_output_json"] = str(
+        preflight_status_check_output
+    )
+    payload["final_preflight_status_check_summary"] = {
+        "passed": final_status_check_payload.get("passed"),
+        "failures": final_status_check_payload.get("failures"),
+        "source": final_status_check_payload.get("source"),
+        "online_merged_source_count": final_status_check_payload.get(
+            "online_merged_source_count"
+        ),
+        "online_merged_row_count": final_status_check_payload.get(
+            "online_merged_row_count"
+        ),
+        "online_merged_dispatch_active_rows": final_status_check_payload.get(
+            "online_merged_dispatch_active_rows"
+        ),
+    }
     failures = payload.get("failures")
     if not isinstance(failures, list):
         failures = []
@@ -4092,6 +4146,8 @@ def finalize_report_with_strict_preflight(
         failures.append("final_preflight_not_passed")
     if final_status_payload.get("passed") is not True:
         failures.append("final_preflight_status_not_passed")
+    if final_status_check_payload.get("passed") is not True:
+        failures.append("final_preflight_status_check_not_passed")
     payload["failures"] = failures
     payload["passed"] = bool(payload.get("passed") is True and not failures)
     return payload
@@ -4511,6 +4567,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--preflight-status-output-json",
         type=Path,
         default=DEFAULT_PREFLIGHT_STATUS_OUTPUT,
+    )
+    parser.add_argument(
+        "--preflight-status-check-output-json",
+        type=Path,
+        default=DEFAULT_PREFLIGHT_STATUS_CHECK_OUTPUT,
     )
     parser.add_argument(
         "--artifact-check-output-json",

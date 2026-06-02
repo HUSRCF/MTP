@@ -22665,6 +22665,55 @@ runtime_gate_evidence_deferred_count = 0
 strict_default_gate_evidence_deferred_count = 0
 ```
 
+## 2026-06-02 - Native runner final compact status check
+
+The online native-stub canary runner now validates its final no-defer lab
+preflight status with the compact preflight summary checker before accepting
+the run as a strict gate.  The runner already performs the two-stage flow:
+
+```text
+stage1:
+  allow deferred runner/artifact self-evidence
+  used only to bootstrap the runner artifacts
+
+final:
+  strict no-defer full preflight
+  strict no-defer summary-only preflight
+  compact summary checker over the final summary artifact
+```
+
+The final checker result is recorded in the runner report:
+
+```text
+final_preflight_status_check_output_json
+final_preflight_status_check_summary.passed
+final_preflight_status_check_summary.failures
+final_preflight_status_check_summary.online_merged_source_count
+final_preflight_status_check_summary.online_merged_row_count
+final_preflight_status_check_summary.online_merged_dispatch_active_rows
+```
+
+If the compact checker fails, the runner now appends
+`final_preflight_status_check_not_passed` and the final report is not accepted
+as passed.  This closes the gap between generating a compact summary and
+actually validating that the summary is sufficient for the lab default
+preflight gate.
+
+Validation:
+
+```text
+pytest tests/test_run_premap_online_native_stub_canary.py -q:
+  16 passed
+
+pytest tests/test_check_premap_lab_preflight_summary.py \
+       tests/test_run_premap_lab_preflight.py \
+       tests/test_run_premap_online_native_stub_canary.py -q:
+  112 passed
+
+pytest tests -q:
+  867 passed, 2 warnings
+```
+
 ## 2026-06-02 - Post-schema-refresh lab preflight
 
 After refreshing the kernel consumer schema documentation, the default lab
