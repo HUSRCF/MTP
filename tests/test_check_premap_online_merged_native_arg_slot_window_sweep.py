@@ -123,20 +123,29 @@ def _write_artifact(
     windows: dict[str, dict[str, object]] = {}
     for label, (offset, limit) in bounds.items():
         child_path = tmp_path / f"{label}.json"
+        stub_path = tmp_path / f"{label}.stub.json"
         child_offset = offset + 1 if label == "middle" and bad_middle_offset else offset
         expected_active = limit - offset
         programs = (expected_active + block_threads - 1) // block_threads
+        child = _child_payload(
+            offset=child_offset,
+            limit=limit,
+            programs=programs,
+            block_threads=block_threads,
+            merged_row_count=row_count,
+            mirror_field=mirror_field,
+        )
+        child["stub_output_json"] = str(stub_path)
+        stub_summary = child["stub_summary"]
+        assert isinstance(stub_summary, dict)
+        stub_payload = dict(stub_summary)
         child_path.write_text(
-            json.dumps(
-                _child_payload(
-                    offset=child_offset,
-                    limit=limit,
-                    programs=programs,
-                    block_threads=block_threads,
-                    merged_row_count=row_count,
-                    mirror_field=mirror_field,
-                )
-            )
+            json.dumps(child)
+            + "\n",
+            encoding="utf-8",
+        )
+        stub_path.write_text(
+            json.dumps(stub_payload)
             + "\n",
             encoding="utf-8",
         )
@@ -148,7 +157,7 @@ def _write_artifact(
             "dispatch_expected_program_count": programs,
             "merged_row_count": row_count,
             "output_json": str(child_path),
-            "stub_output_json": str(tmp_path / f"{label}.stub.json"),
+            "stub_output_json": str(stub_path),
             "merged_output_json": str(tmp_path / f"{label}.merged.json"),
         }
     payload = {
@@ -299,6 +308,32 @@ def test_window_sweep_check_rejects_missing_consumer_view_read(tmp_path: Path):
     assert result["passed"] is False
     assert (
         "head_child_stub_future_kernel_native_consumer_view_scale_metadata_handle_read_row_ok_count_mismatch"
+        in result["failures"]
+    )
+
+
+def test_window_sweep_check_rejects_stub_consumer_view_geometry_mismatch(
+    tmp_path: Path,
+):
+    path = _write_artifact(tmp_path)
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    windows = payload["windows"]
+    assert isinstance(windows, dict)
+    stub_path = Path(windows["middle"]["stub_output_json"])
+    stub = json.loads(stub_path.read_text(encoding="utf-8"))
+    stub["future_kernel_native_consumer_view_row_offset"] = 0
+    stub_path.write_text(json.dumps(stub) + "\n", encoding="utf-8")
+
+    result = check_window_sweep_artifact(
+        path,
+        expected_window_size=4,
+        expected_block_threads=4,
+        min_row_count=17,
+    )
+
+    assert result["passed"] is False
+    assert (
+        "middle_child_stub_artifact_future_kernel_native_consumer_view_row_offset_mismatch"
         in result["failures"]
     )
 

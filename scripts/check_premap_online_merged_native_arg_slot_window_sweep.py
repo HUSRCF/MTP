@@ -136,10 +136,60 @@ def _check_field_reads(
     return failures
 
 
+def _check_child_stub_artifact(
+    child: dict[str, Any],
+    *,
+    label: str,
+    parent: Path,
+    expected_offset: int,
+    expected_limit: int,
+    expected_active: int,
+    expected_block_threads: int,
+) -> list[str]:
+    failures: list[str] = []
+    stub_path = _resolve_child_path(child.get("stub_output_json"), parent=parent)
+    if stub_path is None:
+        return [f"{label}_child_stub_output_json_missing"]
+    stub_payload, stub_error = _safe_load_json(stub_path)
+    if stub_payload is None:
+        return [f"{label}_child_stub_output_json_read_failed:{stub_error}"]
+    for key, expected in {
+        "passed": True,
+        "payload_bytes": 0,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "future_kernel_native_consumer_view_checked": True,
+        "future_kernel_native_consumer_view_row_count": expected_active,
+        "future_kernel_native_consumer_view_row_ok_count": expected_active,
+        "future_kernel_native_consumer_view_error_count": 0,
+        "future_kernel_native_consumer_view_row_offset": expected_offset,
+        "future_kernel_native_consumer_view_row_limit": expected_limit,
+        "future_kernel_native_consumer_view_rows_per_program": expected_block_threads,
+        "future_kernel_native_consumer_view_source_packet_chain_depth": 3,
+        "future_kernel_native_consumer_view_payload_bytes": 0,
+        "future_kernel_native_consumer_view_passed_to_kernel": False,
+        "future_kernel_native_consumer_view_changes_kernel_launch_args": False,
+        "future_kernel_native_consumer_view_current_wna16_arg_compatible": False,
+        "future_kernel_native_consumer_view_requires_wna16_arg_reinterpretation": False,
+    }.items():
+        if stub_payload.get(key) != expected:
+            failures.append(f"{label}_child_stub_artifact_{key}_mismatch")
+    failures.extend(
+        _check_field_reads(
+            stub_payload,
+            label=f"{label}_child_stub_artifact",
+            prefix="future_kernel_native_consumer_view",
+            expected_active=expected_active,
+        )
+    )
+    return failures
+
+
 def _check_child_artifact(
     child: dict[str, Any],
     *,
     label: str,
+    parent: Path,
     expected_offset: int,
     expected_limit: int,
     expected_active: int,
@@ -223,6 +273,17 @@ def _check_child_artifact(
                 expected_active=expected_active,
             )
         )
+    failures.extend(
+        _check_child_stub_artifact(
+            child,
+            label=label,
+            parent=parent,
+            expected_offset=expected_offset,
+            expected_limit=expected_limit,
+            expected_active=expected_active,
+            expected_block_threads=expected_block_threads,
+        )
+    )
     return failures
 
 
@@ -320,6 +381,7 @@ def check_window_sweep_artifact(
                 _check_child_artifact(
                     child,
                     label=label,
+                    parent=child_path.parent,
                     expected_offset=expected_offset,
                     expected_limit=expected_limit,
                     expected_active=expected_active,

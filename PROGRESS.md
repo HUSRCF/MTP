@@ -26705,6 +26705,18 @@ current_wna16_arg_compatible = false
 requires_wna16_arg_reinterpretation = false
 ```
 
+The checker also follows each child canary's `stub_output_json` and validates
+the native stub artifact itself:
+
+```text
+future_kernel_native_consumer_view_row_offset
+future_kernel_native_consumer_view_row_limit
+future_kernel_native_consumer_view_rows_per_program
+```
+
+This keeps the gate tied to the future native consumer ABI output, not only the
+runner's summarized status.
+
 The all-field sweep checker and the top-level lab gate checker now require:
 
 ```text
