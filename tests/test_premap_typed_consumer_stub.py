@@ -129,6 +129,8 @@ def test_typed_consumer_stub_uses_kernel_side_abi_header():
         in source
     )
     assert "future_kernel_native_consumer_view_checked" in source
+    assert "future_kernel_native_consumer_view_params_struct_size" in source
+    assert "future_kernel_native_consumer_view_params_struct_align" in source
     assert (
         "future_kernel_native_consumer_view_scale_metadata_handle_read_row_ok_count"
         in source

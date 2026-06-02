@@ -26757,6 +26757,78 @@ passed = true
 failures = []
 ```
 
+## Consumer-view ABI layout is checked by the window gate
+
+The future native consumer-view packet is now part of the lab evidence as a
+layout-checked ABI object, not just a group of JSON summary fields.
+
+The native stub now emits:
+
+```text
+future_kernel_native_consumer_view_struct_size
+future_kernel_native_consumer_view_struct_align
+future_kernel_native_consumer_view_params_struct_size
+future_kernel_native_consumer_view_params_struct_align
+future_kernel_native_consumer_view_result_struct_size
+future_kernel_native_consumer_view_result_struct_align
+future_kernel_native_consumer_view_offset_params
+future_kernel_native_consumer_view_offset_abi_version
+future_kernel_native_consumer_view_offset_source_packet_chain_depth
+future_kernel_native_consumer_view_offset_row_offset
+future_kernel_native_consumer_view_offset_row_limit
+future_kernel_native_consumer_view_offset_rows_per_program
+future_kernel_native_consumer_view_offset_payload_bytes
+future_kernel_native_consumer_view_offset_flags
+```
+
+The window-sweep checker follows each child canary's `stub_output_json` and
+validates that:
+
+```text
+offset(params) = 0
+offset(abi_version) = params_struct_size
+source_packet_chain_depth / row_offset / row_limit / rows_per_program /
+payload_bytes / flags are contiguous uint32 fields
+offset(flags) + 4 <= struct_size
+struct_size and result_struct_size respect their alignments
+```
+
+This catches ABI layout drift at the future kernel-side consumer-view boundary
+while preserving the no-op runtime contract:
+
+```text
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+current_wna16_arg_compatible = false
+```
+
+Verification:
+
+```text
+python -m pytest \
+  tests/test_premap_typed_consumer_stub.py \
+  tests/test_check_premap_online_merged_native_arg_slot_window_sweep.py \
+  tests/test_run_premap_online_merged_native_arg_slot_canary.py \
+  tests/test_run_premap_online_merged_native_arg_slot_window_sweep.py -q
+
+44 passed
+
+python scripts/run_premap_lab_gate_verify.py \
+  --output-json outputs/reports/premap_lab_gate_verify.json
+
+passed = true
+window_sweep_check.require_child_consumer_view = true
+all_field_window_sweep_check.require_child_consumer_view = true
+
+python scripts/check_premap_lab_gate_verify.py \
+  outputs/reports/premap_lab_gate_verify.json \
+  --output-json outputs/reports/premap_lab_gate_verify.check.json
+
+passed = true
+failures = []
+```
+
 ## Canary runner now validates consumer-view row geometry directly
 
 The online merged native arg-slot canary now validates the future native

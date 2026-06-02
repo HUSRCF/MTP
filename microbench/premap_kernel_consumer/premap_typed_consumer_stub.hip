@@ -3711,6 +3711,10 @@ int main(int argc, char** argv) {
             << sizeof(PremapFutureKernelNativeConsumerViewV1);
   std::cout << ",\"future_kernel_native_consumer_view_struct_align\":"
             << alignof(PremapFutureKernelNativeConsumerViewV1);
+  std::cout << ",\"future_kernel_native_consumer_view_params_struct_size\":"
+            << sizeof(PremapFutureKernelNativeConsumerParamsV1);
+  std::cout << ",\"future_kernel_native_consumer_view_params_struct_align\":"
+            << alignof(PremapFutureKernelNativeConsumerParamsV1);
   std::cout << ",\"future_kernel_native_consumer_view_result_struct_size\":"
             << sizeof(PremapFutureKernelNativeConsumerViewResultV1);
   std::cout << ",\"future_kernel_native_consumer_view_result_struct_align\":"

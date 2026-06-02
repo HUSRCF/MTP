@@ -48,6 +48,22 @@ HANDLE_FIELD_READ_FIELDS = (
     "scale_metadata_handle",
     "aux_metadata_handle",
 )
+_CONSUMER_VIEW_LAYOUT_INT_FIELDS = (
+    "future_kernel_native_consumer_view_struct_size",
+    "future_kernel_native_consumer_view_struct_align",
+    "future_kernel_native_consumer_view_params_struct_size",
+    "future_kernel_native_consumer_view_params_struct_align",
+    "future_kernel_native_consumer_view_result_struct_size",
+    "future_kernel_native_consumer_view_result_struct_align",
+    "future_kernel_native_consumer_view_offset_params",
+    "future_kernel_native_consumer_view_offset_abi_version",
+    "future_kernel_native_consumer_view_offset_source_packet_chain_depth",
+    "future_kernel_native_consumer_view_offset_row_offset",
+    "future_kernel_native_consumer_view_offset_row_limit",
+    "future_kernel_native_consumer_view_offset_rows_per_program",
+    "future_kernel_native_consumer_view_offset_payload_bytes",
+    "future_kernel_native_consumer_view_offset_flags",
+)
 
 
 def _load_json(path: Path) -> dict[str, Any]:
@@ -136,6 +152,69 @@ def _check_field_reads(
     return failures
 
 
+def _int_value(payload: dict[str, Any], key: str) -> int | None:
+    value = payload.get(key)
+    if isinstance(value, bool) or not isinstance(value, int):
+        return None
+    return value
+
+
+def _check_consumer_view_layout(
+    summary: dict[str, Any],
+    *,
+    label: str,
+) -> list[str]:
+    failures: list[str] = []
+    values: dict[str, int] = {}
+    for key in _CONSUMER_VIEW_LAYOUT_INT_FIELDS:
+        value = _int_value(summary, key)
+        if value is None:
+            failures.append(f"{label}_{key}_missing_or_non_int")
+            continue
+        values[key] = value
+    if failures:
+        return failures
+
+    struct_size = values["future_kernel_native_consumer_view_struct_size"]
+    struct_align = values["future_kernel_native_consumer_view_struct_align"]
+    params_size = values["future_kernel_native_consumer_view_params_struct_size"]
+    params_align = values["future_kernel_native_consumer_view_params_struct_align"]
+    result_size = values["future_kernel_native_consumer_view_result_struct_size"]
+    result_align = values["future_kernel_native_consumer_view_result_struct_align"]
+    if struct_size <= 0:
+        failures.append(f"{label}_consumer_view_struct_size_invalid")
+    if result_size <= 0:
+        failures.append(f"{label}_consumer_view_result_struct_size_invalid")
+    if struct_align < 4 or params_align < 4 or result_align < 4:
+        failures.append(f"{label}_consumer_view_align_invalid")
+    if values["future_kernel_native_consumer_view_offset_params"] != 0:
+        failures.append(f"{label}_consumer_view_offset_params_mismatch")
+    if values["future_kernel_native_consumer_view_offset_abi_version"] != params_size:
+        failures.append(
+            f"{label}_consumer_view_offset_abi_version_mismatch"
+        )
+
+    expected_next = values["future_kernel_native_consumer_view_offset_abi_version"]
+    for field in (
+        "future_kernel_native_consumer_view_offset_source_packet_chain_depth",
+        "future_kernel_native_consumer_view_offset_row_offset",
+        "future_kernel_native_consumer_view_offset_row_limit",
+        "future_kernel_native_consumer_view_offset_rows_per_program",
+        "future_kernel_native_consumer_view_offset_payload_bytes",
+        "future_kernel_native_consumer_view_offset_flags",
+    ):
+        expected_next += 4
+        if values[field] != expected_next:
+            failures.append(f"{label}_{field}_layout_mismatch")
+    if values["future_kernel_native_consumer_view_offset_flags"] + 4 > struct_size:
+        failures.append(f"{label}_consumer_view_flags_outside_struct")
+    if struct_size % struct_align != 0:
+        failures.append(f"{label}_consumer_view_struct_align_mismatch")
+    if result_size % result_align != 0:
+        failures.append(f"{label}_consumer_view_result_align_mismatch")
+    return failures
+
+
 def _check_child_stub_artifact(
     child: dict[str, Any],
     *,
@@ -180,6 +259,12 @@ def _check_child_stub_artifact(
             label=f"{label}_child_stub_artifact",
             prefix="future_kernel_native_consumer_view",
             expected_active=expected_active,
+        )
+    )
+    failures.extend(
+        _check_consumer_view_layout(
+            stub_payload,
+            label=f"{label}_child_stub_artifact",
         )
     )
     return failures

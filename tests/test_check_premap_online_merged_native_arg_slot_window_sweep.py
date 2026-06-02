@@ -43,6 +43,25 @@ def _field_read_pairs(prefix: str, active: int) -> dict[str, object]:
     return pairs
 
 
+def _consumer_view_layout_pairs() -> dict[str, int]:
+    return {
+        "future_kernel_native_consumer_view_struct_size": 144,
+        "future_kernel_native_consumer_view_struct_align": 8,
+        "future_kernel_native_consumer_view_params_struct_size": 112,
+        "future_kernel_native_consumer_view_params_struct_align": 8,
+        "future_kernel_native_consumer_view_result_struct_size": 48,
+        "future_kernel_native_consumer_view_result_struct_align": 8,
+        "future_kernel_native_consumer_view_offset_params": 0,
+        "future_kernel_native_consumer_view_offset_abi_version": 112,
+        "future_kernel_native_consumer_view_offset_source_packet_chain_depth": 116,
+        "future_kernel_native_consumer_view_offset_row_offset": 120,
+        "future_kernel_native_consumer_view_offset_row_limit": 124,
+        "future_kernel_native_consumer_view_offset_rows_per_program": 128,
+        "future_kernel_native_consumer_view_offset_payload_bytes": 132,
+        "future_kernel_native_consumer_view_offset_flags": 136,
+    }
+
+
 def _child_payload(
     *,
     offset: int,
@@ -96,6 +115,7 @@ def _child_payload(
             "future_kernel_native_consumer_view_changes_kernel_launch_args": False,
             "future_kernel_native_consumer_view_current_wna16_arg_compatible": False,
             "future_kernel_native_consumer_view_requires_wna16_arg_reinterpretation": False,
+            **_consumer_view_layout_pairs(),
             **_field_mask_pairs(),
             **_field_read_pairs("future_kernel_native_arg_slot_consumer", active),
             **_field_read_pairs("future_kernel_native_consumer_view", active),
@@ -334,6 +354,32 @@ def test_window_sweep_check_rejects_stub_consumer_view_geometry_mismatch(
     assert result["passed"] is False
     assert (
         "middle_child_stub_artifact_future_kernel_native_consumer_view_row_offset_mismatch"
+        in result["failures"]
+    )
+
+
+def test_window_sweep_check_rejects_stub_consumer_view_layout_mismatch(
+    tmp_path: Path,
+):
+    path = _write_artifact(tmp_path)
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    windows = payload["windows"]
+    assert isinstance(windows, dict)
+    stub_path = Path(windows["head"]["stub_output_json"])
+    stub = json.loads(stub_path.read_text(encoding="utf-8"))
+    stub["future_kernel_native_consumer_view_offset_row_limit"] = 128
+    stub_path.write_text(json.dumps(stub) + "\n", encoding="utf-8")
+
+    result = check_window_sweep_artifact(
+        path,
+        expected_window_size=4,
+        expected_block_threads=4,
+        min_row_count=17,
+    )
+
+    assert result["passed"] is False
+    assert (
+        "head_child_stub_artifact_future_kernel_native_consumer_view_offset_row_limit_layout_mismatch"
         in result["failures"]
     )
 

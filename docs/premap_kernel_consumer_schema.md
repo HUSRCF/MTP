@@ -218,10 +218,12 @@ that a future kernel-side consumer would read after resolving the arg slot:
 
 ```text
 PremapFutureKernelNativeConsumerViewV1
-  size = 208
+  size = 144
   align = 8
   params_size = 112
-  result_size = 80
+  params_align = 8
+  result_size = 48
+  result_align = 8
   offset(params) = 0
   offset(abi_version) = 112
   offset(source_packet_chain_depth) = 116
@@ -235,6 +237,21 @@ PremapFutureKernelNativeConsumerViewV1
 The lab gate requires `source_packet_chain_depth = 3`, all four typed handle
 fields readable through the view, `payload_bytes = 0`, `passed_to_kernel =
 false`, and `current_wna16_arg_compatible = false`.
+
+The window-sweep checker also follows each child canary's native stub artifact
+and validates the consumer-view layout relationship:
+
+```text
+offset(params) = 0
+offset(abi_version) = params_size
+source_packet_chain_depth / row_offset / row_limit / rows_per_program /
+payload_bytes / flags are contiguous 32-bit fields
+offset(flags) + 4 <= size
+size and result_size respect their reported alignments
+```
+
+This keeps the online prelaunch canary tied to the future kernel-side ABI
+packet shape, not only to JSON summary field names.
 
 ## Artifact Checker Path Contract
 
