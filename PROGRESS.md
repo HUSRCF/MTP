@@ -26351,3 +26351,30 @@ changes_kernel_launch_args = false
 This is still a native-stub ABI check, not a live WNA16 handoff.  It does,
 however, verify that every field in the future typed handle schema can be read
 through the same row-window dispatch geometry.
+
+The all-field sweep is now part of the canonical lab gate verifier:
+
+```text
+verify artifact:
+  outputs/reports/premap_lab_gate_verify.json
+
+verify checker:
+  outputs/reports/premap_lab_gate_verify.check.json
+
+passed = true
+failures = []
+required_steps =
+  default_closure
+  default_closure_check
+  tail_window_closure
+  tail_window_closure_check
+  window_sweep
+  window_sweep_check
+  all_field_window_sweep
+  all_field_window_sweep_check
+```
+
+The lab preflight now requires both the default scale-metadata row-window sweep
+and the stricter all-field sweep before any future kernel-side typed consumer
+experiment.  The gate remains explicitly no-op with respect to the current
+vLLM/WNA16 launch path.

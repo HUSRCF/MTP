@@ -29,8 +29,15 @@ REQUIRED_STEPS = (
     "tail_window_closure_check",
     "window_sweep",
     "window_sweep_check",
+    "all_field_window_sweep",
+    "all_field_window_sweep_check",
 )
-SAFETY_STATUS_NAMES = ("default_closure", "tail_window_closure", "window_sweep")
+SAFETY_STATUS_NAMES = (
+    "default_closure",
+    "tail_window_closure",
+    "window_sweep",
+    "all_field_window_sweep",
+)
 
 
 def _load_json(path: Path) -> dict[str, Any]:
@@ -134,6 +141,18 @@ def check_lab_gate_verify_artifact(
         failures.append("window_sweep_check_did_not_require_non_degenerate_windows")
     if window_check.get("windows_checked") != ["full", "head", "middle", "tail"]:
         failures.append("window_sweep_check_windows_checked_mismatch")
+    all_field_check = statuses.get("all_field_window_sweep_check", {})
+    if all_field_check.get("expected_window_size") != int(expected_window_size):
+        failures.append("all_field_window_sweep_check_window_size_mismatch")
+    if all_field_check.get("require_child_checks") is not True:
+        failures.append("all_field_window_sweep_check_did_not_require_child_checks")
+    if all_field_check.get("mirror_fields_checked") != [
+        "descriptor_ptr",
+        "packed_weight_descriptor",
+        "scale_metadata_handle",
+        "aux_metadata_handle",
+    ]:
+        failures.append("all_field_window_sweep_check_fields_checked_mismatch")
 
     return {
         "passed": not failures,
