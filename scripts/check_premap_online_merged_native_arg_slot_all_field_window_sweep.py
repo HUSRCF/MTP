@@ -100,6 +100,7 @@ def _check_field_report(
         "expected_window_size": expected_window_size,
         "expected_block_threads": expected_block_threads,
         "require_child_artifacts": True,
+        "require_child_field_masks": True,
         "require_non_degenerate_windows": True,
         "row_count": expected_row_count,
         "windows_checked": list(REQUIRED_WINDOWS),
@@ -202,6 +203,7 @@ def check_all_field_window_sweep_artifact(
         "expected_block_threads": int(expected_block_threads),
         "min_row_count": int(min_row_count),
         "require_child_checks": bool(require_child_checks),
+        "require_child_field_masks": bool(require_child_checks),
         "mirror_fields_checked": list(MIRROR_FIELDS),
         "row_count": expected_row_count,
     }

@@ -32,6 +32,15 @@ SAFETY_FALSE_FIELDS = (
     "changes_kernel_launch_args",
     "current_wna16_arg_compatible",
 )
+_FUTURE_KERNEL_REQUIRED_FIELD_MASK = 0x7
+_FUTURE_KERNEL_ALL_FIELD_MASK = 0xF
+_FUTURE_KERNEL_FIELD_MASK_PREFIXES = (
+    "future_kernel_native_consumer",
+    "future_kernel_native_launch_consumer",
+    "future_kernel_native_dispatch_consumer",
+    "future_kernel_native_dispatch_ptr_consumer",
+    "future_kernel_native_arg_slot_consumer",
+)
 
 
 def _load_json(path: Path) -> dict[str, Any]:
@@ -61,6 +70,38 @@ def _resolve_child_path(value: object, *, parent: Path) -> Path | None:
     if path.is_absolute():
         return path
     return parent / path
+
+
+def _check_future_field_masks(
+    summary: dict[str, Any],
+    *,
+    label: str,
+) -> list[str]:
+    failures: list[str] = []
+    for prefix in _FUTURE_KERNEL_FIELD_MASK_PREFIXES:
+        field_key = f"{prefix}_field_mask"
+        required_key = f"{prefix}_required_field_mask"
+        field_mask = summary.get(field_key)
+        required_mask = summary.get(required_key)
+        if field_mask is None:
+            failures.append(f"{label}_child_stub_{field_key}_missing")
+            continue
+        if required_mask is None:
+            failures.append(f"{label}_child_stub_{required_key}_missing")
+            continue
+        if (
+            not isinstance(field_mask, int)
+            or isinstance(field_mask, bool)
+            or not isinstance(required_mask, int)
+            or isinstance(required_mask, bool)
+        ):
+            failures.append(f"{label}_child_stub_{prefix}_field_mask_type_mismatch")
+            continue
+        if required_mask != _FUTURE_KERNEL_REQUIRED_FIELD_MASK:
+            failures.append(f"{label}_child_stub_{required_key}_mismatch")
+        if field_mask != _FUTURE_KERNEL_ALL_FIELD_MASK:
+            failures.append(f"{label}_child_stub_{field_key}_not_all_fields")
+    return failures
 
 
 def _check_child_artifact(
@@ -123,6 +164,7 @@ def _check_child_artifact(
             failures.append(
                 f"{label}_child_stub_single_field_mirror_field_name_mismatch"
             )
+        failures.extend(_check_future_field_masks(stub_summary, label=label))
     return failures
 
 
@@ -241,6 +283,7 @@ def check_window_sweep_artifact(
         "expected_mirror_field": expected_mirror_field,
         "require_child_artifacts": bool(require_child_artifacts),
         "require_non_degenerate_windows": bool(require_non_degenerate_windows),
+        "require_child_field_masks": bool(require_child_artifacts),
         "row_count": row_count,
         "windows_checked": list(REQUIRED_WINDOWS),
     }

@@ -137,6 +137,8 @@ def check_lab_gate_verify_artifact(
         failures.append("window_sweep_check_window_size_mismatch")
     if window_check.get("require_child_artifacts") is not True:
         failures.append("window_sweep_check_did_not_require_child_artifacts")
+    if window_check.get("require_child_field_masks") is not True:
+        failures.append("window_sweep_check_did_not_require_child_field_masks")
     if window_check.get("require_non_degenerate_windows") is not True:
         failures.append("window_sweep_check_did_not_require_non_degenerate_windows")
     if window_check.get("windows_checked") != ["full", "head", "middle", "tail"]:
@@ -146,6 +148,10 @@ def check_lab_gate_verify_artifact(
         failures.append("all_field_window_sweep_check_window_size_mismatch")
     if all_field_check.get("require_child_checks") is not True:
         failures.append("all_field_window_sweep_check_did_not_require_child_checks")
+    if all_field_check.get("require_child_field_masks") is not True:
+        failures.append(
+            "all_field_window_sweep_check_did_not_require_child_field_masks"
+        )
     if all_field_check.get("mirror_fields_checked") != [
         "descriptor_ptr",
         "packed_weight_descriptor",

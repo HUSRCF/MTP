@@ -94,6 +94,16 @@ ARG_SLOT_MACROS = [
     *ARG_SLOT_BASE_MACROS,
     MIRROR_FIELD_MACRO["scale_metadata_handle"],
 ]
+_FUTURE_KERNEL_REQUIRED_FIELD_MASK = 0x7
+_FUTURE_KERNEL_ALL_FIELD_MASK = 0xF
+
+_FUTURE_KERNEL_FIELD_MASK_PREFIXES = (
+    "future_kernel_native_consumer",
+    "future_kernel_native_launch_consumer",
+    "future_kernel_native_dispatch_consumer",
+    "future_kernel_native_dispatch_ptr_consumer",
+    "future_kernel_native_arg_slot_consumer",
+)
 
 STUB_SUMMARY_KEYS = (
     "passed",
@@ -111,9 +121,13 @@ STUB_SUMMARY_KEYS = (
     "future_kernel_native_consumer_checked",
     "future_kernel_native_consumer_row_count",
     "future_kernel_native_consumer_row_ok_count",
+    "future_kernel_native_consumer_field_mask",
+    "future_kernel_native_consumer_required_field_mask",
     "future_kernel_native_launch_consumer_checked",
     "future_kernel_native_launch_consumer_row_count",
     "future_kernel_native_launch_consumer_row_ok_count",
+    "future_kernel_native_launch_consumer_field_mask",
+    "future_kernel_native_launch_consumer_required_field_mask",
     "future_kernel_native_dispatch_consumer_checked",
     "future_kernel_native_dispatch_consumer_grid_x",
     "future_kernel_native_dispatch_consumer_block_x",
@@ -126,12 +140,16 @@ STUB_SUMMARY_KEYS = (
     "future_kernel_native_dispatch_consumer_launch_covers_active_rows",
     "future_kernel_native_dispatch_consumer_launch_minimal_cover",
     "future_kernel_native_dispatch_consumer_handle_projection_hash_accumulator",
+    "future_kernel_native_dispatch_consumer_field_mask",
+    "future_kernel_native_dispatch_consumer_required_field_mask",
     "future_kernel_native_dispatch_ptr_consumer_checked",
     "future_kernel_native_dispatch_ptr_consumer_packet_visible",
     "future_kernel_native_dispatch_ptr_consumer_dispatch_packet_visible",
     "future_kernel_native_dispatch_ptr_consumer_row_count",
     "future_kernel_native_dispatch_ptr_consumer_row_ok_count",
     "future_kernel_native_dispatch_ptr_consumer_handle_projection_hash_accumulator",
+    "future_kernel_native_dispatch_ptr_consumer_field_mask",
+    "future_kernel_native_dispatch_ptr_consumer_required_field_mask",
     "future_kernel_native_arg_slot_consumer_checked",
     "future_kernel_native_arg_slot_consumer_slot_visible",
     "future_kernel_native_arg_slot_consumer_dispatch_ptr_packet_visible",
@@ -153,6 +171,8 @@ STUB_SUMMARY_KEYS = (
     "future_kernel_native_arg_slot_consumer_single_field_mirror_row_count",
     "future_kernel_native_arg_slot_consumer_single_field_mirror_row_ok_count",
     "future_kernel_native_arg_slot_consumer_handle_projection_hash_accumulator",
+    "future_kernel_native_arg_slot_consumer_field_mask",
+    "future_kernel_native_arg_slot_consumer_required_field_mask",
 )
 
 
@@ -175,6 +195,44 @@ def _summary(payload: dict[str, Any]) -> dict[str, Any]:
 
 def _program_count(row_count: int, block_threads: int) -> int:
     return (int(row_count) + int(block_threads) - 1) // int(block_threads)
+
+
+def _future_field_mask_expectations() -> dict[str, int]:
+    expectations: dict[str, int] = {}
+    for prefix in _FUTURE_KERNEL_FIELD_MASK_PREFIXES:
+        expectations[f"{prefix}_field_mask"] = _FUTURE_KERNEL_ALL_FIELD_MASK
+        expectations[f"{prefix}_required_field_mask"] = (
+            _FUTURE_KERNEL_REQUIRED_FIELD_MASK
+        )
+    return expectations
+
+
+def _check_future_field_masks(stub: dict[str, Any]) -> list[str]:
+    failures: list[str] = []
+    for prefix in _FUTURE_KERNEL_FIELD_MASK_PREFIXES:
+        field_key = f"{prefix}_field_mask"
+        required_key = f"{prefix}_required_field_mask"
+        field_mask = stub.get(field_key)
+        required_mask = stub.get(required_key)
+        if field_mask is None:
+            failures.append(f"{field_key}_missing")
+            continue
+        if required_mask is None:
+            failures.append(f"{required_key}_missing")
+            continue
+        if (
+            not isinstance(field_mask, int)
+            or isinstance(field_mask, bool)
+            or not isinstance(required_mask, int)
+            or isinstance(required_mask, bool)
+        ):
+            failures.append(f"{prefix}_field_mask_type_mismatch")
+            continue
+        if required_mask != _FUTURE_KERNEL_REQUIRED_FIELD_MASK:
+            failures.append(f"{required_key}_mismatch")
+        if field_mask != _FUTURE_KERNEL_ALL_FIELD_MASK:
+            failures.append(f"{field_key}_not_all_fields")
+    return failures
 
 
 def arg_slot_macros(mirror_field: str) -> list[str]:
@@ -293,6 +351,7 @@ def _validate_stub(
     }
     if len(values) != 1:
         failures.append("handle_projection_hash_accumulator_mismatch")
+    failures.extend(_check_future_field_masks(stub))
     return failures
 
 
@@ -394,6 +453,7 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
             "changes_kernel_launch_args": False,
             "requested_macros": arg_slot_macros(args.mirror_field),
             "mirror_field": args.mirror_field,
+            **_future_field_mask_expectations(),
             "future_kernel_native_arg_slot_consumer_checked": True,
             "future_kernel_native_arg_slot_consumer_row_count": active_rows,
             "future_kernel_native_arg_slot_consumer_row_ok_count": active_rows,

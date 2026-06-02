@@ -9,6 +9,23 @@ from scripts.check_premap_online_merged_native_arg_slot_window_sweep import (
 )
 
 
+_FIELD_MASK_PREFIXES = (
+    "future_kernel_native_consumer",
+    "future_kernel_native_launch_consumer",
+    "future_kernel_native_dispatch_consumer",
+    "future_kernel_native_dispatch_ptr_consumer",
+    "future_kernel_native_arg_slot_consumer",
+)
+
+
+def _field_mask_pairs() -> dict[str, int]:
+    pairs: dict[str, int] = {}
+    for prefix in _FIELD_MASK_PREFIXES:
+        pairs[f"{prefix}_field_mask"] = 15
+        pairs[f"{prefix}_required_field_mask"] = 7
+    return pairs
+
+
 def _child_payload(
     *,
     offset: int,
@@ -49,6 +66,7 @@ def _child_payload(
             "future_kernel_native_dispatch_consumer_program_count": programs,
             "future_kernel_native_dispatch_consumer_block_x": block_threads,
             "future_kernel_native_dispatch_consumer_row_limit": limit,
+            **_field_mask_pairs(),
         },
     }
 
@@ -201,6 +219,30 @@ def test_window_sweep_check_rejects_child_mirror_field_mismatch(tmp_path: Path):
     assert "tail_child_stub_single_field_mirror_field_name_mismatch" in result[
         "failures"
     ]
+
+
+def test_window_sweep_check_rejects_child_field_mask_mismatch(tmp_path: Path):
+    path = _write_artifact(tmp_path)
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    windows = payload["windows"]
+    assert isinstance(windows, dict)
+    child_path = Path(windows["full"]["output_json"])
+    child = json.loads(child_path.read_text(encoding="utf-8"))
+    child["stub_summary"]["future_kernel_native_arg_slot_consumer_field_mask"] = 7
+    child_path.write_text(json.dumps(child) + "\n", encoding="utf-8")
+
+    result = check_window_sweep_artifact(
+        path,
+        expected_window_size=4,
+        expected_block_threads=4,
+        min_row_count=17,
+    )
+
+    assert result["passed"] is False
+    assert (
+        "full_child_stub_future_kernel_native_arg_slot_consumer_field_mask_not_all_fields"
+        in result["failures"]
+    )
 
 
 def test_window_sweep_check_rejects_degenerate_windows(tmp_path: Path):

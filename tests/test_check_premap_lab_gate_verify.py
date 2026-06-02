@@ -41,6 +41,7 @@ def _status_payload(name: str) -> dict[str, object]:
             {
                 "expected_window_size": 512,
                 "require_child_artifacts": True,
+                "require_child_field_masks": True,
                 "require_non_degenerate_windows": True,
                 "windows_checked": ["full", "head", "middle", "tail"],
             }
@@ -50,6 +51,7 @@ def _status_payload(name: str) -> dict[str, object]:
             {
                 "expected_window_size": 512,
                 "require_child_checks": True,
+                "require_child_field_masks": True,
                 "mirror_fields_checked": [
                     "descriptor_ptr",
                     "packed_weight_descriptor",

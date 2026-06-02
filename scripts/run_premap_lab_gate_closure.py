@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -105,12 +106,27 @@ def _resolve(path: str | Path) -> Path:
     return candidate if candidate.is_absolute() else REPO_ROOT / candidate
 
 
+def _subprocess_env() -> dict[str, str]:
+    env = os.environ.copy()
+    existing = env.get("PYTHONPATH")
+    entries = [str(REPO_ROOT), str(REPO_ROOT / "src")]
+    if existing:
+        entries.append(existing)
+    env["PYTHONPATH"] = os.pathsep.join(entries)
+    return env
+
+
 def _run_step(cmd: list[str], *, dry_run: bool) -> dict[str, Any]:
     result: dict[str, Any] = {"cmd": cmd, "dry_run": bool(dry_run)}
     if dry_run:
         result["returncode"] = 0
         return result
-    completed = subprocess.run(cmd, cwd=REPO_ROOT, check=False)
+    completed = subprocess.run(
+        cmd,
+        cwd=REPO_ROOT,
+        check=False,
+        env=_subprocess_env(),
+    )
     result["returncode"] = int(completed.returncode)
     return result
 

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -67,12 +68,27 @@ def _resolve(path: str | Path) -> Path:
     return candidate if candidate.is_absolute() else REPO_ROOT / candidate
 
 
+def _subprocess_env() -> dict[str, str]:
+    env = os.environ.copy()
+    existing = env.get("PYTHONPATH")
+    entries = [str(REPO_ROOT), str(REPO_ROOT / "src")]
+    if existing:
+        entries.append(existing)
+    env["PYTHONPATH"] = os.pathsep.join(entries)
+    return env
+
+
 def _run_step(cmd: list[str], *, dry_run: bool) -> dict[str, Any]:
     result: dict[str, Any] = {"cmd": cmd, "dry_run": bool(dry_run)}
     if dry_run:
         result["returncode"] = 0
         return result
-    completed = subprocess.run(cmd, cwd=REPO_ROOT, check=False)
+    completed = subprocess.run(
+        cmd,
+        cwd=REPO_ROOT,
+        check=False,
+        env=_subprocess_env(),
+    )
     result["returncode"] = int(completed.returncode)
     return result
 
@@ -101,6 +117,7 @@ def _load_status(path: Path) -> dict[str, Any]:
         "expected_window_size": payload.get("expected_window_size"),
         "expected_block_threads": payload.get("expected_block_threads"),
         "require_child_artifacts": payload.get("require_child_artifacts"),
+        "require_child_field_masks": payload.get("require_child_field_masks"),
         "require_non_degenerate_windows": payload.get(
             "require_non_degenerate_windows"
         ),
@@ -144,6 +161,8 @@ def _status_failures(statuses: dict[str, dict[str, Any]]) -> list[str]:
     window_check = statuses.get("window_sweep_check", {})
     if window_check.get("require_child_artifacts") is not True:
         failures.append("window_sweep_check_did_not_require_child_artifacts")
+    if window_check.get("require_child_field_masks") is not True:
+        failures.append("window_sweep_check_did_not_require_child_field_masks")
     if window_check.get("require_non_degenerate_windows") is not True:
         failures.append("window_sweep_check_did_not_require_non_degenerate_windows")
     if window_check.get("expected_window_size") != 512:
@@ -153,6 +172,10 @@ def _status_failures(statuses: dict[str, dict[str, Any]]) -> list[str]:
     all_field_check = statuses.get("all_field_window_sweep_check", {})
     if all_field_check.get("require_child_checks") is not True:
         failures.append("all_field_window_sweep_check_did_not_require_child_checks")
+    if all_field_check.get("require_child_field_masks") is not True:
+        failures.append(
+            "all_field_window_sweep_check_did_not_require_child_field_masks"
+        )
     if all_field_check.get("expected_window_size") != 512:
         failures.append("all_field_window_sweep_check_window_size_mismatch")
     if all_field_check.get("mirror_fields_checked") != [
