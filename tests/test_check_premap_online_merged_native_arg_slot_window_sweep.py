@@ -9,37 +9,80 @@ from scripts.check_premap_online_merged_native_arg_slot_window_sweep import (
 )
 
 
-def _child_payload(*, offset: int, limit: int) -> dict[str, object]:
+def _child_payload(
+    *,
+    offset: int,
+    limit: int,
+    programs: int,
+    block_threads: int,
+    merged_row_count: int,
+) -> dict[str, object]:
     active = limit - offset
     return {
         "passed": True,
+        "failures": [],
         "no_payload": True,
         "passed_to_kernel": False,
         "changes_kernel_launch_args": False,
         "current_wna16_arg_compatible": False,
         "not_a_single_vllm_launch_table": True,
         "handle_projection_all_handle_fields_checked": True,
+        "handle_projection_hashchain_equal": True,
         "dispatch_row_offset": offset,
         "dispatch_row_limit": limit,
         "dispatch_active_rows": active,
+        "dispatch_expected_program_count": programs,
+        "block_threads": block_threads,
+        "merged_row_count": merged_row_count,
+        "stub_summary": {
+            "passed": True,
+            "payload_bytes": 0,
+            "passed_to_kernel": False,
+            "changes_kernel_launch_args": False,
+            "future_kernel_native_arg_slot_consumer_row_count": active,
+            "future_kernel_native_arg_slot_consumer_row_ok_count": active,
+            "future_kernel_native_arg_slot_consumer_single_field_mirror_row_count": active,
+            "future_kernel_native_arg_slot_consumer_single_field_mirror_row_ok_count": active,
+            "future_kernel_native_dispatch_consumer_program_count": programs,
+            "future_kernel_native_dispatch_consumer_block_x": block_threads,
+            "future_kernel_native_dispatch_consumer_row_limit": limit,
+        },
     }
 
 
-def _write_artifact(tmp_path: Path, *, bad_middle_offset: bool = False) -> Path:
-    row_count = 17
+def _write_artifact(
+    tmp_path: Path,
+    *,
+    bad_middle_offset: bool = False,
+    row_count: int = 17,
+    window_size: int = 4,
+) -> Path:
     block_threads = 4
+    active = min(window_size, row_count)
+    middle_offset = max(0, (row_count - active) // 2)
     bounds = {
-        "full": (0, 17),
-        "head": (0, 4),
-        "middle": (6, 10),
-        "tail": (13, 17),
+        "full": (0, row_count),
+        "head": (0, active),
+        "middle": (middle_offset, middle_offset + active),
+        "tail": (row_count - active, row_count),
     }
     windows: dict[str, dict[str, object]] = {}
     for label, (offset, limit) in bounds.items():
         child_path = tmp_path / f"{label}.json"
         child_offset = offset + 1 if label == "middle" and bad_middle_offset else offset
+        expected_active = limit - offset
+        programs = (expected_active + block_threads - 1) // block_threads
         child_path.write_text(
-            json.dumps(_child_payload(offset=child_offset, limit=limit)) + "\n",
+            json.dumps(
+                _child_payload(
+                    offset=child_offset,
+                    limit=limit,
+                    programs=programs,
+                    block_threads=block_threads,
+                    merged_row_count=row_count,
+                )
+            )
+            + "\n",
             encoding="utf-8",
         )
         windows[label] = {
@@ -47,8 +90,7 @@ def _write_artifact(tmp_path: Path, *, bad_middle_offset: bool = False) -> Path:
             "dispatch_row_offset": child_offset,
             "dispatch_row_limit": limit,
             "dispatch_active_rows": limit - child_offset,
-            "dispatch_expected_program_count": (limit - offset + block_threads - 1)
-            // block_threads,
+            "dispatch_expected_program_count": programs,
             "merged_row_count": row_count,
             "output_json": str(child_path),
             "stub_output_json": str(tmp_path / f"{label}.stub.json"),
@@ -59,7 +101,7 @@ def _write_artifact(tmp_path: Path, *, bad_middle_offset: bool = False) -> Path:
         "failures": [],
         "source": "online_merged_future_native_arg_slot_window_sweep_runner",
         "row_count": row_count,
-        "window_size": 4,
+        "window_size": window_size,
         "device": 1,
         "mirror_field": "scale_metadata_handle",
         "payload_bytes": 0,
@@ -101,6 +143,46 @@ def test_window_sweep_check_rejects_bad_middle_offset(tmp_path: Path):
     assert result["passed"] is False
     assert "middle_dispatch_row_offset_mismatch" in result["failures"]
     assert "middle_child_dispatch_row_offset_mismatch" in result["failures"]
+
+
+def test_window_sweep_check_rejects_bad_child_program_count(tmp_path: Path):
+    path = _write_artifact(tmp_path)
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    windows = payload["windows"]
+    assert isinstance(windows, dict)
+    child_path = Path(windows["head"]["output_json"])
+    child = json.loads(child_path.read_text(encoding="utf-8"))
+    child["dispatch_expected_program_count"] = 99
+    child["stub_summary"]["future_kernel_native_arg_slot_consumer_row_count"] = 99
+    child_path.write_text(json.dumps(child) + "\n", encoding="utf-8")
+
+    result = check_window_sweep_artifact(
+        path,
+        expected_window_size=4,
+        expected_block_threads=4,
+        min_row_count=17,
+    )
+
+    assert result["passed"] is False
+    assert "head_child_dispatch_expected_program_count_mismatch" in result["failures"]
+    assert (
+        "head_child_stub_future_kernel_native_arg_slot_consumer_row_count_mismatch"
+        in result["failures"]
+    )
+
+
+def test_window_sweep_check_rejects_degenerate_windows(tmp_path: Path):
+    path = _write_artifact(tmp_path, row_count=4, window_size=4)
+
+    result = check_window_sweep_artifact(
+        path,
+        expected_window_size=4,
+        expected_block_threads=4,
+        min_row_count=4,
+    )
+
+    assert result["passed"] is False
+    assert "row_count_not_larger_than_window_size" in result["failures"]
 
 
 def test_window_sweep_check_cli_writes_output(tmp_path: Path):

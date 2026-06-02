@@ -70,23 +70,50 @@ def _check_child_artifact(
     expected_offset: int,
     expected_limit: int,
     expected_active: int,
+    expected_programs: int,
+    expected_block_threads: int,
+    expected_merged_row_count: int,
 ) -> list[str]:
     failures: list[str] = []
     expected_pairs: dict[str, Any] = {
         "passed": True,
+        "failures": [],
         "no_payload": True,
         "passed_to_kernel": False,
         "changes_kernel_launch_args": False,
         "current_wna16_arg_compatible": False,
         "not_a_single_vllm_launch_table": True,
         "handle_projection_all_handle_fields_checked": True,
+        "handle_projection_hashchain_equal": True,
         "dispatch_row_offset": expected_offset,
         "dispatch_row_limit": expected_limit,
         "dispatch_active_rows": expected_active,
+        "dispatch_expected_program_count": expected_programs,
+        "block_threads": expected_block_threads,
+        "merged_row_count": expected_merged_row_count,
     }
     for key, expected in expected_pairs.items():
         if child.get(key) != expected:
             failures.append(f"{label}_child_{key}_mismatch")
+    stub_summary = child.get("stub_summary")
+    if not isinstance(stub_summary, dict):
+        failures.append(f"{label}_child_stub_summary_missing")
+    else:
+        for key, expected in {
+            "passed": True,
+            "payload_bytes": 0,
+            "passed_to_kernel": False,
+            "changes_kernel_launch_args": False,
+            "future_kernel_native_arg_slot_consumer_row_count": expected_active,
+            "future_kernel_native_arg_slot_consumer_row_ok_count": expected_active,
+            "future_kernel_native_arg_slot_consumer_single_field_mirror_row_count": expected_active,
+            "future_kernel_native_arg_slot_consumer_single_field_mirror_row_ok_count": expected_active,
+            "future_kernel_native_dispatch_consumer_program_count": expected_programs,
+            "future_kernel_native_dispatch_consumer_block_x": expected_block_threads,
+            "future_kernel_native_dispatch_consumer_row_limit": expected_limit,
+        }.items():
+            if stub_summary.get(key) != expected:
+                failures.append(f"{label}_child_stub_{key}_mismatch")
     return failures
 
 
@@ -98,6 +125,7 @@ def check_window_sweep_artifact(
     min_row_count: int = 257,
     expected_mirror_field: str | None = "scale_metadata_handle",
     require_child_artifacts: bool = True,
+    require_non_degenerate_windows: bool = True,
 ) -> dict[str, Any]:
     sweep_path = path.resolve()
     payload, error = _safe_load_json(sweep_path)
@@ -133,6 +161,8 @@ def check_window_sweep_artifact(
         failures.append("row_count_invalid")
     if row_count < int(min_row_count):
         failures.append("row_count_below_min")
+    if require_non_degenerate_windows and row_count <= int(expected_window_size):
+        failures.append("row_count_not_larger_than_window_size")
 
     windows = payload.get("windows")
     if not isinstance(windows, dict):
@@ -184,6 +214,9 @@ def check_window_sweep_artifact(
                     expected_offset=expected_offset,
                     expected_limit=expected_limit,
                     expected_active=expected_active,
+                    expected_programs=expected_programs,
+                    expected_block_threads=int(expected_block_threads),
+                    expected_merged_row_count=row_count,
                 )
             )
 
@@ -197,6 +230,7 @@ def check_window_sweep_artifact(
         "min_row_count": int(min_row_count),
         "expected_mirror_field": expected_mirror_field,
         "require_child_artifacts": bool(require_child_artifacts),
+        "require_non_degenerate_windows": bool(require_non_degenerate_windows),
         "row_count": row_count,
         "windows_checked": list(REQUIRED_WINDOWS),
     }
@@ -210,6 +244,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--min-row-count", type=int, default=257)
     parser.add_argument("--expected-mirror-field", default="scale_metadata_handle")
     parser.add_argument("--no-require-child-artifacts", action="store_true")
+    parser.add_argument("--allow-degenerate-windows", action="store_true")
     parser.add_argument("--output-json", type=Path)
     return parser
 
@@ -223,6 +258,7 @@ def main(argv: list[str] | None = None) -> int:
         min_row_count=int(args.min_row_count),
         expected_mirror_field=args.expected_mirror_field,
         require_child_artifacts=not bool(args.no_require_child_artifacts),
+        require_non_degenerate_windows=not bool(args.allow_degenerate_windows),
     )
     if args.output_json is not None:
         args.output_json.parent.mkdir(parents=True, exist_ok=True)

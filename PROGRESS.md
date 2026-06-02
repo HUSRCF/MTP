@@ -26263,3 +26263,35 @@ This gives the lab a single no-defer preflight entrypoint: run
 `scripts/run_premap_lab_gate_verify.py`, then require
 `scripts/check_premap_lab_gate_verify.py` to pass before any future
 kernel-side typed consumer experiment.
+
+Code review tightened the row-window checker further.  The checker now rejects
+degenerate sweeps where `row_count <= window_size`, and it reads each child
+window canary artifact to validate:
+
+```text
+dispatch_expected_program_count
+block_threads
+merged_row_count
+handle_projection_hashchain_equal
+stub_summary.future_kernel_native_arg_slot_consumer_row_count
+stub_summary.future_kernel_native_arg_slot_consumer_row_ok_count
+stub_summary.future_kernel_native_arg_slot_consumer_single_field_mirror_row_count
+stub_summary.future_kernel_native_arg_slot_consumer_single_field_mirror_row_ok_count
+stub_summary.future_kernel_native_dispatch_consumer_program_count
+stub_summary.future_kernel_native_dispatch_consumer_block_x
+stub_summary.future_kernel_native_dispatch_consumer_row_limit
+```
+
+The refreshed real artifacts still pass:
+
+```text
+outputs/reports/premap_kernel_consumer/
+  online_merged_future_native_arg_slot_window_sweep_check.json
+
+outputs/reports/
+  premap_lab_gate_verify.check.json
+
+passed = true
+failures = []
+require_non_degenerate_windows = true
+```
