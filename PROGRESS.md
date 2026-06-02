@@ -26239,3 +26239,27 @@ window_sweep_check:
 This makes the full/head/middle/tail future-native arg-slot row-window evidence
 a machine-checked lab preflight condition while still preserving the strict
 no-payload / no-current-WNA16-arg boundary.
+
+The integrated verify report itself is now statically checkable:
+
+```text
+verify checker:
+  outputs/reports/premap_lab_gate_verify.check.json
+
+passed = true
+failures = []
+allow_dry_run = false
+expected_window_size = 512
+required_steps =
+  default_closure
+  default_closure_check
+  tail_window_closure
+  tail_window_closure_check
+  window_sweep
+  window_sweep_check
+```
+
+This gives the lab a single no-defer preflight entrypoint: run
+`scripts/run_premap_lab_gate_verify.py`, then require
+`scripts/check_premap_lab_gate_verify.py` to pass before any future
+kernel-side typed consumer experiment.
