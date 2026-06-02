@@ -231,6 +231,39 @@ current_wna16_arg_compatible = false
 not_a_single_vllm_launch_table = true
 ```
 
+The first post-commit canary used `*_latest` runner and `*_latest` stub paths;
+that proved the native arg-slot path works, but the full lab gate expects the
+latest runner artifact to point at the canonical stub evidence path.  The
+canonical evidence was refreshed and the full no-defer lab gate now closes:
+
+```text
+canonical runner:
+  outputs/reports/premap_kernel_consumer/
+    online_merged_future_native_arg_slot_canary_runner_latest.json
+
+canonical stub:
+  outputs/reports/premap_kernel_consumer/
+    typed_consumer_stub_gpu1_online_merged_future_native_arg_slot_32tables_canary.json
+
+canonical merged input:
+  outputs/reports/premap_kernel_consumer/
+    online_merged_prelaunch_typed_consumer_input_arg_slot_32tables.json
+
+full no-defer preflight:
+  python scripts/run_premap_lab_preflight.py
+    --output-json
+      outputs/reports/premap_lab_preflight_default_with_gate_schema_sha256.full.json
+  passed
+
+summary-only preflight:
+  outputs/reports/premap_lab_preflight_default_with_gate_schema_sha256.json
+  passed
+
+compact checker:
+  outputs/reports/premap_lab_preflight_default_with_gate_schema_sha256.check.json
+  passed
+```
+
 The same runner now also supports dispatch row-window canaries.  The latest
 tail-window run keeps the full merged table resident but asks the future
 dispatch/dispatch-pointer/arg-slot ABI to consume only the last active window:
