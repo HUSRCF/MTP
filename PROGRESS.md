@@ -25533,3 +25533,37 @@ reused only when their `requested_dispatch_row_offset` and
 `requested_dispatch_row_limit` match the current command.  Legacy outputs
 without explicit dispatch-window evidence are rejected and rerun.  This prevents
 full-table artifacts from being accidentally reused as row-window evidence.
+
+## 2026-06-02 - Merged online arg-slot canary
+
+The future-native arg-slot ABI now has a merged online canary that combines 32
+online prelaunch typed-consumer exports into one multiprogram row stream and
+feeds it to the native stub:
+
+```text
+full merged artifact:
+  outputs/reports/premap_kernel_consumer/
+    online_merged_future_native_arg_slot_canary_runner_32input_gpu1.json
+
+tail-window artifact:
+  outputs/reports/premap_kernel_consumer/
+    online_merged_future_native_arg_slot_canary_runner_32input_tail512_gpu1.json
+
+selected sources = 32
+merged row count = 1841
+full dispatch active rows = 1841
+tail dispatch window = rows [1329, 1841)
+tail dispatch active rows = 512
+handle projection hashchain equal = true
+all handle fields projected = true
+single_field_mirror = scale_metadata_handle
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+current_wna16_arg_compatible = false
+```
+
+This remains diagnostic evidence rather than a real vLLM launch table.  It
+shows that the future typed ABI can iterate a real online-derived row stream
+across multiple native programs, including a bounded tail window, without
+touching WNA16 kernel arguments or dereferencing payload.
