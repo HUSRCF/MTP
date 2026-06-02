@@ -4561,6 +4561,40 @@ def run_premap_lab_preflight(
         dispatch_runner_summary,
         "future_kernel_native_arg_slot_consumer_single_field_mirror_row_ok_count",
     )
+    future_kernel_args_summary = dispatch_runner_payload.get(
+        "future_kernel_args_stub_summary",
+    )
+    if not isinstance(future_kernel_args_summary, dict):
+        future_kernel_args_summary = {}
+    future_kernel_args_compatible_path_summary = dispatch_runner_payload.get(
+        "future_kernel_args_compatible_path_stub_summary",
+    )
+    if not isinstance(future_kernel_args_compatible_path_summary, dict):
+        future_kernel_args_compatible_path_summary = {}
+    future_kernel_args_row_count = _int_metric(
+        future_kernel_args_summary,
+        "future_kernel_consumer_args_row_count",
+    )
+    future_kernel_args_row_ok_count = _int_metric(
+        future_kernel_args_summary,
+        "future_kernel_consumer_args_row_ok_count",
+    )
+    future_kernel_args_payload_bytes = _int_metric(
+        future_kernel_args_summary,
+        "future_kernel_consumer_args_payload_bytes",
+    )
+    future_kernel_args_compatible_row_count = _int_metric(
+        future_kernel_args_compatible_path_summary,
+        "future_kernel_args_compatible_consumer_path_row_count",
+    )
+    future_kernel_args_compatible_row_ok_count = _int_metric(
+        future_kernel_args_compatible_path_summary,
+        "future_kernel_args_compatible_consumer_path_row_ok_count",
+    )
+    future_kernel_args_compatible_payload_bytes = _int_metric(
+        future_kernel_args_compatible_path_summary,
+        "future_kernel_args_compatible_consumer_path_payload_bytes",
+    )
 
     def _hex_metric_text(metrics: dict[str, Any], key: str) -> str | None:
         value = metrics.get(key)
@@ -4809,6 +4843,72 @@ def run_premap_lab_preflight(
         ),
         "default_kernel_consumer_dispatch_runner_handle_projection_all_handle_fields_checked": (
             arg_slot_projection_all_handle_fields_checked
+        ),
+        "default_kernel_consumer_dispatch_runner_future_kernel_args_checked": (
+            _bool_metric(
+                future_kernel_args_summary,
+                "future_kernel_consumer_args_checked",
+            )
+        ),
+        "default_kernel_consumer_dispatch_runner_future_kernel_args_row_count": (
+            future_kernel_args_row_count
+        ),
+        "default_kernel_consumer_dispatch_runner_future_kernel_args_row_ok_count": (
+            future_kernel_args_row_ok_count
+        ),
+        "default_kernel_consumer_dispatch_runner_future_kernel_args_payload_bytes": (
+            future_kernel_args_payload_bytes
+        ),
+        "default_kernel_consumer_dispatch_runner_future_kernel_args_passed_to_kernel": (
+            _bool_metric(
+                future_kernel_args_summary,
+                "future_kernel_consumer_args_passed_to_kernel",
+            )
+        ),
+        "default_kernel_consumer_dispatch_runner_future_kernel_args_changes_kernel_launch_args": (
+            _bool_metric(
+                future_kernel_args_summary,
+                "future_kernel_consumer_args_changes_kernel_launch_args",
+            )
+        ),
+        "default_kernel_consumer_dispatch_runner_future_kernel_args_current_wna16_arg_compatible": (
+            _bool_metric(
+                future_kernel_args_summary,
+                "future_kernel_consumer_args_current_wna16_arg_compatible",
+            )
+        ),
+        "default_kernel_consumer_dispatch_runner_future_kernel_args_compatible_path_checked": (
+            _bool_metric(
+                future_kernel_args_compatible_path_summary,
+                "future_kernel_args_compatible_consumer_path_checked",
+            )
+        ),
+        "default_kernel_consumer_dispatch_runner_future_kernel_args_compatible_path_row_count": (
+            future_kernel_args_compatible_row_count
+        ),
+        "default_kernel_consumer_dispatch_runner_future_kernel_args_compatible_path_row_ok_count": (
+            future_kernel_args_compatible_row_ok_count
+        ),
+        "default_kernel_consumer_dispatch_runner_future_kernel_args_compatible_path_payload_bytes": (
+            future_kernel_args_compatible_payload_bytes
+        ),
+        "default_kernel_consumer_dispatch_runner_future_kernel_args_compatible_path_passed_to_kernel": (
+            _bool_metric(
+                future_kernel_args_compatible_path_summary,
+                "future_kernel_args_compatible_consumer_path_passed_to_kernel",
+            )
+        ),
+        "default_kernel_consumer_dispatch_runner_future_kernel_args_compatible_path_changes_kernel_launch_args": (
+            _bool_metric(
+                future_kernel_args_compatible_path_summary,
+                "future_kernel_args_compatible_consumer_path_changes_kernel_launch_args",
+            )
+        ),
+        "default_kernel_consumer_dispatch_runner_future_kernel_args_compatible_path_current_wna16_arg_compatible": (
+            _bool_metric(
+                future_kernel_args_compatible_path_summary,
+                "future_kernel_args_compatible_consumer_path_current_wna16_arg_compatible",
+            )
         ),
         "default_kernel_consumer_dispatch_runner_final_preflight_passed": (
             _bool_metric(dispatch_runner_final_status_summary, "passed") is True

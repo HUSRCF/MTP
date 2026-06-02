@@ -2498,6 +2498,90 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
         is True
     )
     assert (
+        summary[
+            "default_kernel_consumer_dispatch_runner_future_kernel_args_checked"
+        ]
+        is True
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_dispatch_runner_future_kernel_args_row_count"
+        ]
+        == 2
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_dispatch_runner_future_kernel_args_row_ok_count"
+        ]
+        == 2
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_dispatch_runner_future_kernel_args_payload_bytes"
+        ]
+        == 0
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_dispatch_runner_future_kernel_args_passed_to_kernel"
+        ]
+        is False
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_dispatch_runner_future_kernel_args_changes_kernel_launch_args"
+        ]
+        is False
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_dispatch_runner_future_kernel_args_current_wna16_arg_compatible"
+        ]
+        is False
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_dispatch_runner_future_kernel_args_compatible_path_checked"
+        ]
+        is True
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_dispatch_runner_future_kernel_args_compatible_path_row_count"
+        ]
+        == 2
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_dispatch_runner_future_kernel_args_compatible_path_row_ok_count"
+        ]
+        == 2
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_dispatch_runner_future_kernel_args_compatible_path_payload_bytes"
+        ]
+        == 0
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_dispatch_runner_future_kernel_args_compatible_path_passed_to_kernel"
+        ]
+        is False
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_dispatch_runner_future_kernel_args_compatible_path_changes_kernel_launch_args"
+        ]
+        is False
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_dispatch_runner_future_kernel_args_compatible_path_current_wna16_arg_compatible"
+        ]
+        is False
+    )
+    assert (
         summary["default_kernel_consumer_dispatch_runner_final_preflight_passed"]
         is True
     )

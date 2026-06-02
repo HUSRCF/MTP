@@ -31,7 +31,10 @@
   preflight now fails if that all-field projection check is not satisfied.
   The online-merged arg-slot runner evidence is now also checked to target the
   default GPU1 lab device, accepting either physical `device=1` or logical
-  `device=0` under `HIP_VISIBLE_DEVICES=1`.
+  `device=0` under `HIP_VISIBLE_DEVICES=1`.  The compact preflight status now
+  also exposes the future kernel-args and compatible-consumer-path row/safety
+  fields so the next kernel-side ABI step is visible without opening the full
+  runner JSON.
 
 ## Latest Update: GPU1-target online-merged arg-slot runner gate
 
@@ -82,6 +85,24 @@ default_kernel_consumer_dispatch_runner_handle_projection_all_handle_fields_chec
 This is still a lab-gate/evidence hardening step only.  The safety boundary is
 unchanged: no payload dereference or transfer, no ready credit, no router/order
 mutation, and no WNA16 kernel-argument pass.
+
+The same compact artifact now also exposes the future kernel-args path:
+
+```text
+default_kernel_consumer_dispatch_runner_future_kernel_args_checked = true
+default_kernel_consumer_dispatch_runner_future_kernel_args_row_count = 174
+default_kernel_consumer_dispatch_runner_future_kernel_args_row_ok_count = 174
+default_kernel_consumer_dispatch_runner_future_kernel_args_payload_bytes = 0
+default_kernel_consumer_dispatch_runner_future_kernel_args_passed_to_kernel = false
+default_kernel_consumer_dispatch_runner_future_kernel_args_current_wna16_arg_compatible = false
+
+default_kernel_consumer_dispatch_runner_future_kernel_args_compatible_path_checked = true
+default_kernel_consumer_dispatch_runner_future_kernel_args_compatible_path_row_count = 174
+default_kernel_consumer_dispatch_runner_future_kernel_args_compatible_path_row_ok_count = 174
+default_kernel_consumer_dispatch_runner_future_kernel_args_compatible_path_payload_bytes = 0
+default_kernel_consumer_dispatch_runner_future_kernel_args_compatible_path_passed_to_kernel = false
+default_kernel_consumer_dispatch_runner_future_kernel_args_compatible_path_current_wna16_arg_compatible = false
+```
 
 ## Latest Update: Explicit All-Handle Projection Coverage
 
