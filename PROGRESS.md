@@ -22665,6 +22665,37 @@ runtime_gate_evidence_deferred_count = 0
 strict_default_gate_evidence_deferred_count = 0
 ```
 
+## 2026-06-02 - Post-schema-refresh lab preflight
+
+After refreshing the kernel consumer schema documentation, the default lab
+preflight was rerun in summary-only, no-defer mode:
+
+```text
+artifact:
+  outputs/reports/premap_lab_preflight_default_post_schema_refresh.json
+
+passed = true
+default_contract_passed = true
+default_required_evidence_passed = true
+default_optional_evidence_passed = true
+default_kernel_consumer_schema_passed = true
+default_kernel_consumer_online_merged_multiprogram_source_count = 32
+default_kernel_consumer_online_merged_multiprogram_row_count = 1841
+default_kernel_consumer_online_merged_multiprogram_dispatch_active_rows = 1841
+default_kernel_consumer_online_merged_multiprogram_hashchain_equal = true
+default_kernel_consumer_online_merged_multiprogram_all_handle_fields_checked = true
+default_kernel_consumer_online_merged_multiprogram_no_payload = true
+default_kernel_consumer_online_merged_multiprogram_passed_to_kernel = false
+default_kernel_consumer_online_merged_multiprogram_changes_kernel_launch_args = false
+runtime_gate_evidence_deferred_count = 0
+strict_default_gate_evidence_deferred_count = 0
+```
+
+This keeps the lab default gate on the safe future-native typed ABI path:
+readonly/prelaunch-derived handle rows are consumed by the native bridge and
+merged multiprogram runner, while payload movement, ready credit, current WNA16
+argument mutation, and WNA16 argument reinterpretation remain disabled.
+
 Validation:
 
 ```text
