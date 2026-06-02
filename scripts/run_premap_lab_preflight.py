@@ -4612,6 +4612,18 @@ def run_premap_lab_preflight(
         if isinstance(default_kernel_consumer_schema_check.get("schema_check"), dict)
         else default_kernel_consumer_schema_check
     )
+    schema_row_field_names = schema_summary.get("row_field_names")
+    if not isinstance(schema_row_field_names, list):
+        schema_row_field_names = []
+    arg_slot_projection_field_names = list(ARG_SLOT_MIRROR_FIELDS)
+    arg_slot_projection_all_handle_fields_schema_covered = set(
+        arg_slot_projection_field_names
+    ).issubset(set(schema_row_field_names))
+    arg_slot_projection_all_handle_fields_checked = (
+        projection_hashchain_equal
+        and arg_slot_projection_hash is not None
+        and arg_slot_projection_all_handle_fields_schema_covered
+    )
     lab_gate_status_summary = {
         "passed": not failures,
         "default_readonly_gate_path": default_gate_path,
@@ -4762,6 +4774,15 @@ def run_premap_lab_preflight(
         ),
         "default_kernel_consumer_dispatch_runner_arg_slot_handle_projection_hash_accumulator": (
             arg_slot_projection_hash
+        ),
+        "default_kernel_consumer_dispatch_runner_handle_projection_field_names": (
+            arg_slot_projection_field_names
+        ),
+        "default_kernel_consumer_dispatch_runner_handle_projection_all_handle_fields_schema_covered": (
+            arg_slot_projection_all_handle_fields_schema_covered
+        ),
+        "default_kernel_consumer_dispatch_runner_handle_projection_all_handle_fields_checked": (
+            arg_slot_projection_all_handle_fields_checked
         ),
         "default_kernel_consumer_dispatch_runner_final_preflight_passed": (
             _bool_metric(dispatch_runner_final_status_summary, "passed") is True

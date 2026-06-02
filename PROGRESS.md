@@ -2,7 +2,7 @@
 
 ## Progress Version
 
-- Version: `v0.40-online-merged-arg-slot-runner`
+- Version: `v0.41-arg-slot-projection-coverage`
 - Updated: 2026-06-02
 - Current phase: premap descriptor/address prep now has a typed
   kernel-side consumer object, a launch-shaped future native ABI, and a
@@ -25,7 +25,34 @@
   exports, so the multi-program packet chain is validated on online handle
   distributions rather than only on a standalone synthetic table.  The same
   online-merged canary is now reproducible through a dedicated runner script
-  instead of relying on a hand-materialized artifact.
+  instead of relying on a hand-materialized artifact.  The lab preflight status
+  now explicitly marks that the dispatch/dispatch-pointer/arg-slot
+  handle-projection hash covers all four typed handle fields.
+
+## Latest Update: Explicit All-Handle Projection Coverage
+
+The default lab preflight now exposes the full handle-projection coverage of
+the future-native arg-slot path instead of relying on the reader to infer it
+from the hashchain fields:
+
+```text
+outputs/reports/premap_lab_preflight_default_with_projection_coverage.json
+
+default_kernel_consumer_dispatch_runner_handle_projection_hashchain_equal = true
+default_kernel_consumer_dispatch_runner_handle_projection_field_names =
+  [descriptor_ptr, packed_weight_descriptor, scale_metadata_handle,
+   aux_metadata_handle]
+default_kernel_consumer_dispatch_runner_handle_projection_all_handle_fields_schema_covered = true
+default_kernel_consumer_dispatch_runner_handle_projection_all_handle_fields_checked = true
+default_kernel_consumer_arg_slot_online_total_full_field_mirror_coverage = true
+default_kernel_consumer_arg_slot_total_full_field_mirror_coverage = true
+```
+
+This does not change the safety boundary: the arg-slot path still only reads a
+future typed ABI object, does not dereference payload, and is not passed to the
+current WNA16 kernel.  The new status field makes the gate clearer: single-field
+mirror canaries cover one field at a time, while the projection hash validates
+that the native consumer row path reads the full typed handle row.
 
 ## Latest Update: Reproducible Online-Merged Arg-Slot Runner
 

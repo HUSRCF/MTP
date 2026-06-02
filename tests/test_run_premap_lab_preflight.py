@@ -2467,6 +2467,29 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
         == "481d"
     )
     assert (
+        summary[
+            "default_kernel_consumer_dispatch_runner_handle_projection_field_names"
+        ]
+        == [
+            "descriptor_ptr",
+            "packed_weight_descriptor",
+            "scale_metadata_handle",
+            "aux_metadata_handle",
+        ]
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_dispatch_runner_handle_projection_all_handle_fields_schema_covered"
+        ]
+        is True
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_dispatch_runner_handle_projection_all_handle_fields_checked"
+        ]
+        is True
+    )
+    assert (
         summary["default_kernel_consumer_dispatch_runner_final_preflight_passed"]
         is True
     )
@@ -2938,6 +2961,12 @@ def test_premap_lab_preflight_summary_marks_projection_hash_mismatch(
     assert (
         summary[
             "default_kernel_consumer_dispatch_runner_handle_projection_hashchain_equal"
+        ]
+        is False
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_dispatch_runner_handle_projection_all_handle_fields_checked"
         ]
         is False
     )
@@ -3754,6 +3783,58 @@ def test_premap_lab_preflight_rejects_default_gate_with_bad_schema_artifact(
         "schema_check:debug_macro_default_not_disabled:"
         "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCHEMA"
     ) in result["default_kernel_consumer_schema_check"]["failures"]
+
+
+def test_premap_lab_preflight_marks_projection_uncovered_when_schema_lacks_field(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    schema_path = tmp_path / "configs/runtime/premap_kernel_side_typed_consumer_schema_v1.yaml"
+    payload = _valid_schema_payload()
+    native_consumer_abi = payload["native_consumer_abi"]
+    assert isinstance(native_consumer_abi, dict)
+    row_fields = native_consumer_abi["row_fields"]
+    assert isinstance(row_fields, list)
+    native_consumer_abi["row_fields"] = [
+        row for row in row_fields if row.get("name") != "aux_metadata_handle"
+    ]
+    _write(schema_path, json.dumps(payload) + "\n")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+    summary = result["lab_gate_status_summary"]
+
+    assert result["passed"] is False
+    assert "default_kernel_consumer_schema_check_failed" in result["failures"]
+    assert (
+        summary[
+            "default_kernel_consumer_dispatch_runner_handle_projection_hashchain_equal"
+        ]
+        is True
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_dispatch_runner_handle_projection_all_handle_fields_schema_covered"
+        ]
+        is False
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_dispatch_runner_handle_projection_all_handle_fields_checked"
+        ]
+        is False
+    )
 
 
 def test_premap_lab_preflight_rejects_default_gate_without_schema_artifact(
