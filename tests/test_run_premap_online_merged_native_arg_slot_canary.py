@@ -133,6 +133,9 @@ def test_online_merged_arg_slot_canary_dry_run_writes_artifacts(tmp_path: Path):
     assert stub_payload["future_kernel_native_arg_slot_consumer_checked"] is True
     assert stub_payload["future_kernel_native_consumer_view_checked"] is True
     assert stub_payload["future_kernel_native_consumer_view_row_ok_count"] == 7
+    assert stub_payload["future_kernel_native_consumer_view_row_offset"] == 0
+    assert stub_payload["future_kernel_native_consumer_view_row_limit"] == 7
+    assert stub_payload["future_kernel_native_consumer_view_rows_per_program"] == 4
     assert (
         stub_payload[
             "future_kernel_native_consumer_view_scale_metadata_handle_read_row_ok_count"
@@ -279,6 +282,7 @@ def test_online_merged_arg_slot_canary_tail_window_uses_active_rows(tmp_path: Pa
     assert result["dispatch_active_rows"] == 3
     assert result["dispatch_expected_program_count"] == 1
     assert result["stub_summary"]["future_kernel_native_arg_slot_consumer_row_count"] == 3
+    assert result["stub_summary"]["future_kernel_native_consumer_view_row_count"] == 3
     assert (
         result["stub_summary"]["future_kernel_native_dispatch_consumer_grid_x"] == 1
     )

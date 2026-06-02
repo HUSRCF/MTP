@@ -26756,3 +26756,56 @@ python scripts/check_premap_lab_gate_verify.py \
 passed = true
 failures = []
 ```
+
+## Canary runner now validates consumer-view row geometry directly
+
+The online merged native arg-slot canary now validates the future native
+consumer-view geometry inside the runner itself, not only in the downstream
+window-sweep checker.
+
+For each dispatch window, the canary requires the native stub summary to match:
+
+```text
+future_kernel_native_consumer_view_row_offset = dispatch_row_offset
+future_kernel_native_consumer_view_row_limit = dispatch_row_limit
+future_kernel_native_consumer_view_rows_per_program = block_threads
+future_kernel_native_consumer_view_row_count = active_rows
+future_kernel_native_consumer_view_row_ok_count = active_rows
+future_kernel_native_consumer_view_error_count = 0
+```
+
+The dry-run stub artifact emits the same geometry fields, so schema drift is
+caught before the higher-level lab gate consumes the artifact.  This keeps the
+future kernel-side consumer-view ABI tied to the same row window that the
+prelaunch shim intends to expose, while still enforcing:
+
+```text
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+```
+
+Verification:
+
+```text
+python -m pytest \
+  tests/test_run_premap_online_merged_native_arg_slot_canary.py \
+  tests/test_check_premap_online_merged_native_arg_slot_window_sweep.py \
+  tests/test_run_premap_online_merged_native_arg_slot_window_sweep.py -q
+
+17 passed
+
+python scripts/run_premap_lab_gate_verify.py \
+  --output-json outputs/reports/premap_lab_gate_verify.json
+
+passed = true
+window_sweep_check.require_child_consumer_view = true
+all_field_window_sweep_check.require_child_consumer_view = true
+
+python scripts/check_premap_lab_gate_verify.py \
+  outputs/reports/premap_lab_gate_verify.json \
+  --output-json outputs/reports/premap_lab_gate_verify.check.json
+
+passed = true
+failures = []
+```
