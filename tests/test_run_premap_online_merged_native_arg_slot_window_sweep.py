@@ -10,6 +10,10 @@ from scripts.run_premap_online_merged_native_arg_slot_window_sweep import (
     main,
     run_sweep,
 )
+from scripts.run_premap_online_merged_native_arg_slot_canary import (
+    _launch_envelope_args_dry_run_pairs,
+    _launch_envelope_args_ptr_dry_run_pairs,
+)
 
 
 def _write_input(path: Path, *, start: int, rows: int, export_index: int) -> None:
@@ -210,6 +214,62 @@ def test_window_result_rejects_missing_program_view_ptr_evidence_and_collects_pa
     )
 
 
+def test_window_result_accepts_launch_envelope_args_ptr_requirement():
+    result = {
+        "passed": True,
+        "no_payload": True,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "current_wna16_arg_compatible": False,
+        "not_a_single_vllm_launch_table": True,
+        "handle_projection_all_handle_fields_checked": True,
+        "dispatch_row_offset": 13,
+        "dispatch_row_limit": 17,
+        "dispatch_active_rows": 4,
+        "block_threads": 4,
+        "require_launch_envelope_args_abi": True,
+        "require_launch_envelope_args_ptr_abi": True,
+        "launch_envelope_args_checked": True,
+        "launch_envelope_args_all_handle_fields_read": True,
+        "launch_envelope_args_error_count": 0,
+        "launch_envelope_args_packet_chain_depth": 7,
+        "launch_envelope_args_grid_x": 1,
+        "launch_envelope_args_block_x": 4,
+        "launch_envelope_args_row_offset": 13,
+        "launch_envelope_args_row_limit": 17,
+        "launch_envelope_args_rows_per_program": 4,
+        "launch_envelope_args_ptr_checked": True,
+        "launch_envelope_args_ptr_all_handle_fields_read": True,
+        "launch_envelope_args_ptr_error_count": 0,
+        "launch_envelope_args_ptr_packet_chain_depth": 8,
+        "launch_envelope_args_ptr_version": 1,
+        "launch_envelope_args_ptr_struct_size": 32,
+        "launch_envelope_args_ptr_struct_align": 8,
+        "launch_envelope_args_ptr_launch_args_struct_size": 48,
+        "launch_envelope_args_ptr_pointer_size": 8,
+        "stub_summary": {
+            **_launch_envelope_args_dry_run_pairs(
+                active_rows=4,
+                block_threads=4,
+                dispatch_row_offset=13,
+                dispatch_row_limit=17,
+            ),
+            **_launch_envelope_args_ptr_dry_run_pairs(active_rows=4),
+        },
+    }
+
+    assert (
+        _validate_window_result(
+            result,
+            label="tail",
+            expected_offset=13,
+            expected_limit=17,
+            require_launch_envelope_args_ptr_abi=True,
+        )
+        == []
+    )
+
+
 def test_window_sweep_dry_run_records_expected_windows(tmp_path: Path):
     first = tmp_path / "input0.json"
     second = tmp_path / "input1.json"
@@ -253,6 +313,48 @@ def test_window_sweep_dry_run_records_expected_windows(tmp_path: Path):
     assert result["windows"]["tail"]["dispatch_row_offset"] == 13
     assert result["windows"]["tail"]["dispatch_row_limit"] == 17
     assert json.loads(output.read_text(encoding="utf-8"))["passed"] is True
+
+
+def test_window_sweep_dry_run_can_require_launch_envelope_args_ptr(tmp_path: Path):
+    first = tmp_path / "input0.json"
+    second = tmp_path / "input1.json"
+    runner = tmp_path / "runner.json"
+    output = tmp_path / "sweep.json"
+    _write_input(first, start=0, rows=8, export_index=0)
+    _write_input(second, start=100, rows=9, export_index=1)
+    _write_runner(runner, [first, second])
+
+    args = build_parser().parse_args(
+        [
+            "--runner-json",
+            str(runner),
+            "--output-dir",
+            str(tmp_path / "artifacts"),
+            "--output-json",
+            str(output),
+            "--min-source-count",
+            "2",
+            "--min-total-rows",
+            "17",
+            "--block-threads",
+            "4",
+            "--window-size",
+            "4",
+            "--require-launch-envelope-args-ptr-abi",
+            "--dry-run",
+        ]
+    )
+
+    result = run_sweep(args)
+
+    assert result["passed"] is True
+    assert result["require_launch_envelope_args_ptr_abi"] is True
+    for label in ("full", "head", "middle", "tail"):
+        child_path = Path(result["windows"][label]["output_json"])
+        child = json.loads(child_path.read_text(encoding="utf-8"))
+        assert child["require_launch_envelope_args_abi"] is True
+        assert child["require_launch_envelope_args_ptr_abi"] is True
+        assert child["launch_envelope_args_ptr_packet_chain_depth"] == 8
 
 
 def test_window_sweep_cli_writes_output(tmp_path: Path):

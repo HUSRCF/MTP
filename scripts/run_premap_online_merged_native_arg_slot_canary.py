@@ -1322,16 +1322,20 @@ def _handle_projection_hashchain_equal(stub: dict[str, Any]) -> bool:
     return all(value is not None for value in values) and len(set(values)) == 1
 
 
-def _stub_namespace(args: argparse.Namespace, *, input_json: Path) -> SimpleNamespace:
+def _stub_namespace(
+    args: argparse.Namespace,
+    *,
+    input_json: Path,
+    require_launch_envelope_args_abi: bool,
+    require_launch_envelope_args_ptr_abi: bool,
+) -> SimpleNamespace:
     # Bounds are validated after the merged input is materialized; this namespace
     # is filled in run_canary once the row count is known.
     return SimpleNamespace(
         macro=arg_slot_macros(
             args.mirror_field,
-            include_launch_envelope_args=bool(args.require_launch_envelope_args_abi),
-            include_launch_envelope_args_ptr=bool(
-                args.require_launch_envelope_args_ptr_abi
-            ),
+            include_launch_envelope_args=require_launch_envelope_args_abi,
+            include_launch_envelope_args_ptr=require_launch_envelope_args_ptr_abi,
         ),
         offload_arch=args.offload_arch,
         force_build=bool(args.force_build),
@@ -1765,7 +1769,16 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
                 _launch_envelope_args_ptr_dry_run_pairs(active_rows=active_rows)
             )
     else:
-        stub_payload = run_stub(_stub_namespace(args, input_json=merged_output_json))
+        stub_payload = run_stub(
+            _stub_namespace(
+                args,
+                input_json=merged_output_json,
+                require_launch_envelope_args_abi=require_launch_envelope_args_abi,
+                require_launch_envelope_args_ptr_abi=(
+                    require_launch_envelope_args_ptr_abi
+                ),
+            )
+        )
     stub_payload.setdefault("passed", bool(stub_payload.get("ok", False)))
     stub_payload.setdefault(
         "failures", [] if bool(stub_payload.get("ok", False)) else ["stub_not_ok"]

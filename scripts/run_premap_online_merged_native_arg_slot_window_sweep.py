@@ -23,6 +23,8 @@ if str(REPO_ROOT) not in sys.path:
 from scripts.run_premap_online_merged_native_arg_slot_canary import (  # noqa: E402
     DEFAULT_SOURCE_RUNNER_JSON,
     LAB_DEFAULT_GPU_DEVICE,
+    _check_launch_envelope_args,
+    _check_launch_envelope_args_ptr,
     build_parser as build_arg_slot_parser,
     run_canary,
 )
@@ -138,6 +140,8 @@ def _canary_args(
         argv.append("--force-build")
     if args.dry_run:
         argv.append("--dry-run")
+    if args.require_launch_envelope_args_ptr_abi:
+        argv.append("--require-launch-envelope-args-ptr-abi")
     if offset is not None and limit is not None:
         argv.extend(["--dispatch-row-offset", str(int(offset))])
         argv.extend(["--dispatch-row-limit", str(int(limit))])
@@ -151,6 +155,7 @@ def _validate_window_result(
     expected_offset: int,
     expected_limit: int,
     require_program_view_ptr_abi: bool = False,
+    require_launch_envelope_args_ptr_abi: bool = False,
 ) -> list[str]:
     failures: list[str] = []
     expected_active = int(expected_limit) - int(expected_offset)
@@ -276,6 +281,60 @@ def _validate_window_result(
             or (field_mask & required_field_mask) != required_field_mask
         ):
             failures.append(f"{label}_kernel_arg_packet_field_mask_mismatch")
+    if require_launch_envelope_args_ptr_abi:
+        block_threads = int(result.get("block_threads", 0))
+        expected_programs = (
+            (expected_active + block_threads - 1) // block_threads
+            if block_threads > 0
+            else 0
+        )
+        if result.get("require_launch_envelope_args_abi") is not True:
+            failures.append(f"{label}_require_launch_envelope_args_abi_mismatch")
+        if result.get("require_launch_envelope_args_ptr_abi") is not True:
+            failures.append(f"{label}_require_launch_envelope_args_ptr_abi_mismatch")
+        for key, expected in {
+            "launch_envelope_args_checked": True,
+            "launch_envelope_args_all_handle_fields_read": True,
+            "launch_envelope_args_error_count": 0,
+            "launch_envelope_args_packet_chain_depth": 7,
+            "launch_envelope_args_grid_x": expected_programs,
+            "launch_envelope_args_block_x": block_threads,
+            "launch_envelope_args_row_offset": int(expected_offset),
+            "launch_envelope_args_row_limit": int(expected_limit),
+            "launch_envelope_args_rows_per_program": block_threads,
+            "launch_envelope_args_ptr_checked": True,
+            "launch_envelope_args_ptr_all_handle_fields_read": True,
+            "launch_envelope_args_ptr_error_count": 0,
+            "launch_envelope_args_ptr_packet_chain_depth": 8,
+            "launch_envelope_args_ptr_version": 1,
+            "launch_envelope_args_ptr_struct_size": 32,
+            "launch_envelope_args_ptr_struct_align": 8,
+            "launch_envelope_args_ptr_launch_args_struct_size": 48,
+            "launch_envelope_args_ptr_pointer_size": 8,
+        }.items():
+            if result.get(key) != expected:
+                failures.append(f"{label}_{key}_mismatch")
+        stub_summary = result.get("stub_summary")
+        if not isinstance(stub_summary, dict):
+            failures.append(f"{label}_launch_envelope_stub_summary_missing")
+            stub_summary = {}
+        failures.extend(
+            f"{label}_stub_summary_{failure}"
+            for failure in _check_launch_envelope_args(
+                stub_summary,
+                active_rows=expected_active,
+                block_threads=block_threads,
+                dispatch_row_offset=int(expected_offset),
+                dispatch_row_limit=int(expected_limit),
+            )
+        )
+        failures.extend(
+            f"{label}_stub_summary_{failure}"
+            for failure in _check_launch_envelope_args_ptr(
+                stub_summary,
+                active_rows=expected_active,
+            )
+        )
     return failures
 
 
@@ -305,6 +364,9 @@ def run_sweep(args: argparse.Namespace) -> dict[str, Any]:
         expected_offset=0,
         expected_limit=row_count,
         require_program_view_ptr_abi=bool(args.require_program_view_ptr_abi),
+        require_launch_envelope_args_ptr_abi=bool(
+            args.require_launch_envelope_args_ptr_abi
+        ),
     )
     window_results: dict[str, dict[str, Any]] = {"full": full_result}
     window_artifacts: dict[str, dict[str, str]] = {
@@ -339,6 +401,9 @@ def run_sweep(args: argparse.Namespace) -> dict[str, Any]:
                 require_program_view_ptr_abi=bool(
                     args.require_program_view_ptr_abi
                 ),
+                require_launch_envelope_args_ptr_abi=bool(
+                    args.require_launch_envelope_args_ptr_abi
+                ),
             )
         )
         window_results[label] = result
@@ -355,6 +420,9 @@ def run_sweep(args: argparse.Namespace) -> dict[str, Any]:
         "runner_json": str(_resolve(args.runner_json)),
         "window_size": int(args.window_size),
         "require_program_view_ptr_abi": bool(args.require_program_view_ptr_abi),
+        "require_launch_envelope_args_ptr_abi": bool(
+            args.require_launch_envelope_args_ptr_abi
+        ),
         "row_count": row_count,
         "device": int(args.device),
         "mirror_field": args.mirror_field,
@@ -396,6 +464,15 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "Require each child canary to validate the future native "
             "program-view pointer ABI for its row window."
+        ),
+    )
+    parser.add_argument(
+        "--require-launch-envelope-args-ptr-abi",
+        action="store_true",
+        help=(
+            "Require each child canary to validate the pointer-backed future "
+            "launch-envelope ABI for its row window.  This implies the "
+            "by-value launch-envelope ABI inside the child canary."
         ),
     )
     parser.add_argument("--max-inputs", type=int, default=32)

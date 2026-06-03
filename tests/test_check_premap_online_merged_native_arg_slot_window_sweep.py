@@ -197,6 +197,121 @@ def _kernel_entry_args_ptr_pairs(active: int) -> dict[str, object]:
     }
 
 
+def _launch_envelope_args_pairs(
+    *,
+    active: int,
+    offset: int,
+    limit: int,
+    programs: int,
+    block_threads: int,
+) -> dict[str, object]:
+    return {
+        "future_kernel_native_consumer_launch_envelope_args_abi_name": (
+            "premap_future_kernel_native_consumer_launch_envelope_args_abi_v1"
+        ),
+        "future_kernel_native_consumer_launch_envelope_args_checked": True,
+        "future_kernel_native_consumer_launch_envelope_args_mode": (
+            "readonly_future_kernel_native_consumer_launch_envelope_args_abi"
+        ),
+        "future_kernel_native_consumer_launch_envelope_args_source": (
+            "premap_future_kernel_native_consumer_kernel_entry_args_ptr_abi_v1"
+        ),
+        "future_kernel_native_consumer_launch_envelope_args_field_read_path": (
+            "launch_envelope_args_to_entry_args_ptr_to_kernel_entry_args_to_kernel_arg_packet_to_program_view_rows"
+        ),
+        "future_kernel_native_consumer_launch_envelope_args_packet_chain_depth": 7,
+        "future_kernel_native_consumer_launch_envelope_args_version": 1,
+        "future_kernel_native_consumer_launch_envelope_args_struct_size": 48,
+        "future_kernel_native_consumer_launch_envelope_args_struct_align": 8,
+        "future_kernel_native_consumer_launch_envelope_args_entry_args_struct_size": 40,
+        "future_kernel_native_consumer_launch_envelope_args_pointer_size": 8,
+        "future_kernel_native_consumer_launch_envelope_args_offset_entry_args": 0,
+        "future_kernel_native_consumer_launch_envelope_args_offset_abi_version": 8,
+        "future_kernel_native_consumer_launch_envelope_args_offset_grid_x": 20,
+        "future_kernel_native_consumer_launch_envelope_args_offset_block_x": 24,
+        "future_kernel_native_consumer_launch_envelope_args_offset_row_offset": 28,
+        "future_kernel_native_consumer_launch_envelope_args_offset_row_limit": 32,
+        "future_kernel_native_consumer_launch_envelope_args_offset_rows_per_program": 36,
+        "future_kernel_native_consumer_launch_envelope_args_offset_payload_bytes": 40,
+        "future_kernel_native_consumer_launch_envelope_args_offset_flags": 44,
+        "future_kernel_native_consumer_launch_envelope_args_grid_x": programs,
+        "future_kernel_native_consumer_launch_envelope_args_block_x": block_threads,
+        "future_kernel_native_consumer_launch_envelope_args_row_offset": offset,
+        "future_kernel_native_consumer_launch_envelope_args_row_limit": limit,
+        "future_kernel_native_consumer_launch_envelope_args_rows_per_program": block_threads,
+        "future_kernel_native_consumer_launch_envelope_args_summary_packet_valid": 1,
+        "future_kernel_native_consumer_launch_envelope_args_summary_row_count": active,
+        "future_kernel_native_consumer_launch_envelope_args_summary_row_ok_count": active,
+        "future_kernel_native_consumer_launch_envelope_args_summary_descriptor_ptr_read_row_ok_count": active,
+        "future_kernel_native_consumer_launch_envelope_args_summary_packed_weight_descriptor_read_row_ok_count": active,
+        "future_kernel_native_consumer_launch_envelope_args_summary_scale_metadata_handle_read_row_ok_count": active,
+        "future_kernel_native_consumer_launch_envelope_args_summary_aux_metadata_handle_read_row_ok_count": active,
+        "future_kernel_native_consumer_launch_envelope_args_summary_expert_id_read_row_ok_count": active,
+        "future_kernel_native_consumer_launch_envelope_args_summary_address_key_hash_read_row_ok_count": active,
+        "future_kernel_native_consumer_launch_envelope_args_summary_row_metadata_read_row_ok_count": active,
+        "future_kernel_native_consumer_launch_envelope_args_summary_error_count": 0,
+        "future_kernel_native_consumer_launch_envelope_args_summary_field_mask": 15,
+        "future_kernel_native_consumer_launch_envelope_args_payload_bytes": 0,
+        "future_kernel_native_consumer_launch_envelope_args_passed_to_kernel": False,
+        "future_kernel_native_consumer_launch_envelope_args_changes_kernel_launch_args": False,
+        "future_kernel_native_consumer_launch_envelope_args_current_wna16_arg_compatible": False,
+        "future_kernel_native_consumer_launch_envelope_args_requires_wna16_arg_reinterpretation": False,
+        "future_kernel_native_consumer_launch_envelope_args_summary_row_hash_accumulator": "launch-row",
+        "future_kernel_native_consumer_launch_envelope_args_summary_field_read_hash_accumulator": "launch-field",
+        "future_kernel_native_consumer_launch_envelope_args_summary_row_metadata_hash_accumulator": "launch-meta",
+    }
+
+
+def _launch_envelope_args_ptr_pairs(active: int) -> dict[str, object]:
+    return {
+        "future_kernel_native_consumer_launch_envelope_args_ptr_abi_name": (
+            "premap_future_kernel_native_consumer_launch_envelope_args_ptr_abi_v1"
+        ),
+        "future_kernel_native_consumer_launch_envelope_args_ptr_checked": True,
+        "future_kernel_native_consumer_launch_envelope_args_ptr_mode": (
+            "readonly_future_kernel_native_consumer_launch_envelope_args_ptr_abi"
+        ),
+        "future_kernel_native_consumer_launch_envelope_args_ptr_source": (
+            "premap_future_kernel_native_consumer_launch_envelope_args_abi_v1"
+        ),
+        "future_kernel_native_consumer_launch_envelope_args_ptr_field_read_path": (
+            "launch_envelope_args_ptr_to_launch_envelope_args_to_entry_args_ptr_to_kernel_entry_args_to_kernel_arg_packet_to_program_view_rows"
+        ),
+        "future_kernel_native_consumer_launch_envelope_args_ptr_packet_chain_depth": 8,
+        "future_kernel_native_consumer_launch_envelope_args_ptr_version": 1,
+        "future_kernel_native_consumer_launch_envelope_args_ptr_struct_size": 32,
+        "future_kernel_native_consumer_launch_envelope_args_ptr_struct_align": 8,
+        "future_kernel_native_consumer_launch_envelope_args_ptr_offset_launch_args": 0,
+        "future_kernel_native_consumer_launch_envelope_args_ptr_offset_abi_version": 8,
+        "future_kernel_native_consumer_launch_envelope_args_ptr_offset_launch_args_struct_size": 12,
+        "future_kernel_native_consumer_launch_envelope_args_ptr_offset_pointer_size": 16,
+        "future_kernel_native_consumer_launch_envelope_args_ptr_offset_payload_bytes": 20,
+        "future_kernel_native_consumer_launch_envelope_args_ptr_offset_flags": 24,
+        "future_kernel_native_consumer_launch_envelope_args_ptr_launch_args_struct_size": 48,
+        "future_kernel_native_consumer_launch_envelope_args_ptr_pointer_size": 8,
+        "future_kernel_native_consumer_launch_envelope_args_ptr_summary_packet_valid": 1,
+        "future_kernel_native_consumer_launch_envelope_args_ptr_summary_row_count": active,
+        "future_kernel_native_consumer_launch_envelope_args_ptr_summary_row_ok_count": active,
+        "future_kernel_native_consumer_launch_envelope_args_ptr_summary_descriptor_ptr_read_row_ok_count": active,
+        "future_kernel_native_consumer_launch_envelope_args_ptr_summary_packed_weight_descriptor_read_row_ok_count": active,
+        "future_kernel_native_consumer_launch_envelope_args_ptr_summary_scale_metadata_handle_read_row_ok_count": active,
+        "future_kernel_native_consumer_launch_envelope_args_ptr_summary_aux_metadata_handle_read_row_ok_count": active,
+        "future_kernel_native_consumer_launch_envelope_args_ptr_summary_expert_id_read_row_ok_count": active,
+        "future_kernel_native_consumer_launch_envelope_args_ptr_summary_address_key_hash_read_row_ok_count": active,
+        "future_kernel_native_consumer_launch_envelope_args_ptr_summary_row_metadata_read_row_ok_count": active,
+        "future_kernel_native_consumer_launch_envelope_args_ptr_summary_error_count": 0,
+        "future_kernel_native_consumer_launch_envelope_args_ptr_summary_field_mask": 15,
+        "future_kernel_native_consumer_launch_envelope_args_ptr_payload_bytes": 0,
+        "future_kernel_native_consumer_launch_envelope_args_ptr_passed_to_kernel": False,
+        "future_kernel_native_consumer_launch_envelope_args_ptr_changes_kernel_launch_args": False,
+        "future_kernel_native_consumer_launch_envelope_args_ptr_current_wna16_arg_compatible": False,
+        "future_kernel_native_consumer_launch_envelope_args_ptr_requires_wna16_arg_reinterpretation": False,
+        "future_kernel_native_consumer_launch_envelope_args_ptr_summary_row_hash_accumulator": "launch-ptr-row",
+        "future_kernel_native_consumer_launch_envelope_args_ptr_summary_field_read_hash_accumulator": "launch-ptr-field",
+        "future_kernel_native_consumer_launch_envelope_args_ptr_summary_row_metadata_hash_accumulator": "launch-ptr-meta",
+    }
+
+
 def _handle_projection_pairs(value: str = "projection") -> dict[str, str]:
     return {
         "future_kernel_native_dispatch_consumer_handle_projection_hash_accumulator": value,
@@ -297,9 +412,51 @@ def _child_payload(
     block_threads: int,
     merged_row_count: int,
     mirror_field: str,
+    include_launch_envelope_args_ptr_abi: bool = False,
 ) -> dict[str, object]:
     active = limit - offset
-    return {
+    stub_summary = {
+        "passed": True,
+        "payload_bytes": 0,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "future_kernel_native_arg_slot_consumer_row_count": active,
+        "future_kernel_native_arg_slot_consumer_row_ok_count": active,
+        "future_kernel_native_arg_slot_consumer_single_field_mirror_row_count": active,
+        "future_kernel_native_arg_slot_consumer_single_field_mirror_row_ok_count": active,
+        "future_kernel_native_arg_slot_consumer_single_field_mirror_field_name": mirror_field,
+        "future_kernel_native_dispatch_consumer_program_count": programs,
+        "future_kernel_native_dispatch_consumer_block_x": block_threads,
+        "future_kernel_native_dispatch_consumer_row_limit": limit,
+        "future_kernel_native_consumer_view_checked": True,
+        "future_kernel_native_consumer_view_row_count": active,
+        "future_kernel_native_consumer_view_row_ok_count": active,
+        "future_kernel_native_consumer_view_error_count": 0,
+        "future_kernel_native_consumer_view_row_offset": offset,
+        "future_kernel_native_consumer_view_row_limit": limit,
+        "future_kernel_native_consumer_view_rows_per_program": block_threads,
+        "future_kernel_native_consumer_view_source_packet_chain_depth": 3,
+        "future_kernel_native_consumer_view_payload_bytes": 0,
+        "future_kernel_native_consumer_view_passed_to_kernel": False,
+        "future_kernel_native_consumer_view_changes_kernel_launch_args": False,
+        "future_kernel_native_consumer_view_current_wna16_arg_compatible": False,
+        "future_kernel_native_consumer_view_requires_wna16_arg_reinterpretation": False,
+        **_consumer_view_layout_pairs(),
+        **_consumer_view_row_layout_pairs(),
+        **_handle_projection_pairs(),
+        **_program_view_ptr_pairs(active),
+        **_kernel_arg_packet_pairs(active),
+        **_field_mask_pairs(),
+        **_field_read_pairs("future_kernel_native_arg_slot_consumer", active),
+        **_field_read_pairs("future_kernel_native_consumer_view", active),
+        **_field_read_pairs(
+            "future_kernel_native_consumer_kernel_arg_packet", active
+        ),
+        **_kernel_entry_summary_pairs(active),
+        **_kernel_entry_args_pairs(active),
+        **_kernel_entry_args_ptr_pairs(active),
+    }
+    child: dict[str, object] = {
         "passed": True,
         "failures": [],
         "no_payload": True,
@@ -316,48 +473,42 @@ def _child_payload(
         "block_threads": block_threads,
         "merged_row_count": merged_row_count,
         "mirror_field": mirror_field,
-        "stub_summary": {
-            "passed": True,
-            "payload_bytes": 0,
-            "passed_to_kernel": False,
-            "changes_kernel_launch_args": False,
-            "future_kernel_native_arg_slot_consumer_row_count": active,
-            "future_kernel_native_arg_slot_consumer_row_ok_count": active,
-            "future_kernel_native_arg_slot_consumer_single_field_mirror_row_count": active,
-            "future_kernel_native_arg_slot_consumer_single_field_mirror_row_ok_count": active,
-            "future_kernel_native_arg_slot_consumer_single_field_mirror_field_name": mirror_field,
-            "future_kernel_native_dispatch_consumer_program_count": programs,
-            "future_kernel_native_dispatch_consumer_block_x": block_threads,
-            "future_kernel_native_dispatch_consumer_row_limit": limit,
-            "future_kernel_native_consumer_view_checked": True,
-            "future_kernel_native_consumer_view_row_count": active,
-            "future_kernel_native_consumer_view_row_ok_count": active,
-            "future_kernel_native_consumer_view_error_count": 0,
-            "future_kernel_native_consumer_view_row_offset": offset,
-            "future_kernel_native_consumer_view_row_limit": limit,
-            "future_kernel_native_consumer_view_rows_per_program": block_threads,
-            "future_kernel_native_consumer_view_source_packet_chain_depth": 3,
-            "future_kernel_native_consumer_view_payload_bytes": 0,
-            "future_kernel_native_consumer_view_passed_to_kernel": False,
-            "future_kernel_native_consumer_view_changes_kernel_launch_args": False,
-            "future_kernel_native_consumer_view_current_wna16_arg_compatible": False,
-            "future_kernel_native_consumer_view_requires_wna16_arg_reinterpretation": False,
-            **_consumer_view_layout_pairs(),
-            **_consumer_view_row_layout_pairs(),
-            **_handle_projection_pairs(),
-            **_program_view_ptr_pairs(active),
-            **_kernel_arg_packet_pairs(active),
-            **_field_mask_pairs(),
-            **_field_read_pairs("future_kernel_native_arg_slot_consumer", active),
-            **_field_read_pairs("future_kernel_native_consumer_view", active),
-            **_field_read_pairs(
-                "future_kernel_native_consumer_kernel_arg_packet", active
-            ),
-            **_kernel_entry_summary_pairs(active),
-            **_kernel_entry_args_pairs(active),
-            **_kernel_entry_args_ptr_pairs(active),
-        },
+        "stub_summary": stub_summary,
     }
+    if include_launch_envelope_args_ptr_abi:
+        child.update(
+            {
+                "require_launch_envelope_args_abi": True,
+                "require_launch_envelope_args_ptr_abi": True,
+                "launch_envelope_args_checked": True,
+                "launch_envelope_args_all_handle_fields_read": True,
+                "launch_envelope_args_error_count": 0,
+                "launch_envelope_args_packet_chain_depth": 7,
+                "launch_envelope_args_row_offset": offset,
+                "launch_envelope_args_row_limit": limit,
+                "launch_envelope_args_rows_per_program": block_threads,
+                "launch_envelope_args_ptr_checked": True,
+                "launch_envelope_args_ptr_all_handle_fields_read": True,
+                "launch_envelope_args_ptr_error_count": 0,
+                "launch_envelope_args_ptr_packet_chain_depth": 8,
+                "launch_envelope_args_ptr_version": 1,
+                "launch_envelope_args_ptr_struct_size": 32,
+                "launch_envelope_args_ptr_struct_align": 8,
+                "launch_envelope_args_ptr_launch_args_struct_size": 48,
+                "launch_envelope_args_ptr_pointer_size": 8,
+            }
+        )
+        stub_summary.update(
+            _launch_envelope_args_pairs(
+                active=active,
+                offset=offset,
+                limit=limit,
+                programs=programs,
+                block_threads=block_threads,
+            )
+        )
+        stub_summary.update(_launch_envelope_args_ptr_pairs(active))
+    return child
 
 
 def _write_artifact(
@@ -367,6 +518,7 @@ def _write_artifact(
     row_count: int = 17,
     window_size: int = 4,
     mirror_field: str = "scale_metadata_handle",
+    include_launch_envelope_args_ptr_abi: bool = False,
 ) -> Path:
     block_threads = 4
     active = min(window_size, row_count)
@@ -391,6 +543,9 @@ def _write_artifact(
             block_threads=block_threads,
             merged_row_count=row_count,
             mirror_field=mirror_field,
+            include_launch_envelope_args_ptr_abi=(
+                include_launch_envelope_args_ptr_abi
+            ),
         )
         child["stub_output_json"] = str(stub_path)
         stub_summary = child["stub_summary"]
@@ -425,6 +580,9 @@ def _write_artifact(
         "window_size": window_size,
         "device": 1,
         "mirror_field": mirror_field,
+        "require_launch_envelope_args_ptr_abi": (
+            include_launch_envelope_args_ptr_abi
+        ),
         "payload_bytes": 0,
         "passed_to_kernel": False,
         "changes_kernel_launch_args": False,
@@ -663,6 +821,89 @@ def test_window_sweep_check_accepts_kernel_entry_args_ptr_requirement(
     assert result["require_child_kernel_entry_args_abi"] is True
     assert result["require_child_kernel_entry_args_ptr_abi"] is True
     assert result["require_child_kernel_entry_row_metadata"] is True
+
+
+def test_window_sweep_check_accepts_launch_envelope_args_ptr_requirement(
+    tmp_path: Path,
+):
+    path = _write_artifact(tmp_path, include_launch_envelope_args_ptr_abi=True)
+
+    result = check_window_sweep_artifact(
+        path,
+        expected_window_size=4,
+        expected_block_threads=4,
+        min_row_count=17,
+        require_child_kernel_entry_args_abi=True,
+        require_child_kernel_entry_args_ptr_abi=True,
+        require_child_launch_envelope_args_ptr_abi=True,
+    )
+
+    assert result["passed"] is True
+    assert result["require_child_kernel_entry_args_abi"] is True
+    assert result["require_child_kernel_entry_args_ptr_abi"] is True
+    assert result["require_child_launch_envelope_args_ptr_abi"] is True
+    assert result["require_child_kernel_entry_row_metadata"] is True
+
+
+def test_window_sweep_check_rejects_launch_envelope_args_ptr_without_entry_args_ptr(
+    tmp_path: Path,
+):
+    path = _write_artifact(tmp_path, include_launch_envelope_args_ptr_abi=True)
+
+    result = check_window_sweep_artifact(
+        path,
+        expected_window_size=4,
+        expected_block_threads=4,
+        min_row_count=17,
+        require_child_launch_envelope_args_ptr_abi=True,
+    )
+
+    assert result["passed"] is False
+    assert (
+        "require_child_launch_envelope_args_ptr_requires_entry_args_ptr_abi"
+        in result["failures"]
+    )
+
+
+def test_window_sweep_check_rejects_missing_launch_envelope_args_ptr_requirement(
+    tmp_path: Path,
+):
+    path = _write_artifact(tmp_path, include_launch_envelope_args_ptr_abi=True)
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    windows = payload["windows"]
+    assert isinstance(windows, dict)
+    child_path = Path(windows["head"]["output_json"])
+    stub_path = Path(windows["head"]["stub_output_json"])
+    child = json.loads(child_path.read_text(encoding="utf-8"))
+    stub_payload = json.loads(stub_path.read_text(encoding="utf-8"))
+    child["launch_envelope_args_ptr_checked"] = False
+    for item in (child["stub_summary"], stub_payload):
+        assert isinstance(item, dict)
+        item.pop("future_kernel_native_consumer_launch_envelope_args_ptr_checked")
+    child_path.write_text(json.dumps(child) + "\n", encoding="utf-8")
+    stub_path.write_text(json.dumps(stub_payload) + "\n", encoding="utf-8")
+
+    result = check_window_sweep_artifact(
+        path,
+        expected_window_size=4,
+        expected_block_threads=4,
+        min_row_count=17,
+        require_child_kernel_entry_args_abi=True,
+        require_child_kernel_entry_args_ptr_abi=True,
+        require_child_launch_envelope_args_ptr_abi=True,
+    )
+
+    assert result["passed"] is False
+    assert "head_child_launch_envelope_args_ptr_checked_mismatch" in result[
+        "failures"
+    ]
+    assert "head_launch_envelope_args_ptr_missing_or_dry_run_unsupported" in result[
+        "failures"
+    ]
+    assert (
+        "head_child_stub_artifact_launch_envelope_args_ptr_missing_or_dry_run_unsupported"
+        in result["failures"]
+    )
 
 
 def test_window_sweep_check_rejects_missing_kernel_entry_args_ptr_requirement(

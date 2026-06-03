@@ -3062,6 +3062,90 @@ passed = true
 failures = []
 ```
 
+## Pointer-backed launch-envelope ABI window gate
+
+The future-native premap consumer path now has an optional row-window sweep
+requirement for the outer launch-envelope pointer ABI:
+
+```text
+PremapFutureKernelNativeConsumerLaunchEnvelopeArgsPtrV1
+  -> PremapFutureKernelNativeConsumerLaunchEnvelopeArgsV1
+  -> PremapFutureKernelNativeConsumerKernelEntryArgsPtrV1
+  -> PremapFutureKernelNativeConsumerKernelEntryArgsV1
+  -> PremapFutureKernelNativeConsumerKernelArgPacketV1
+  -> PremapFutureKernelNativeConsumerProgramViewPtrV1
+  -> PremapFutureKernelNativeConsumerProgramViewV1
+  -> rows
+```
+
+This extends the single-canary pointer-backed launch-envelope check into the
+full/head/middle/tail window sweep.  The child canaries can now be launched
+with:
+
+```text
+--require-launch-envelope-args-ptr-abi
+```
+
+and the static checker can require the corresponding child evidence with:
+
+```text
+--require-child-kernel-entry-args-abi
+--require-child-kernel-entry-args-ptr-abi
+--require-child-launch-envelope-args-ptr-abi
+```
+
+The requirement remains explicitly future-native:
+
+```text
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+current_wna16_arg_compatible = false
+requires_wna16_arg_reinterpretation = false
+packet_chain_depth = 8
+```
+
+The canary runner now derives the by-value launch-envelope requirement from the
+pointer-backed requirement without mutating the parsed argparse namespace, and
+the native-stub namespace consumes those derived booleans directly.  This keeps
+the macro set stable even if future flags split by-value and pointer-envelope
+semantics.
+
+Verification:
+
+```text
+/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_run_premap_online_merged_native_arg_slot_canary.py \
+  tests/test_run_premap_online_merged_native_arg_slot_window_sweep.py \
+  tests/test_check_premap_online_merged_native_arg_slot_window_sweep.py -q
+
+45 passed
+
+/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest tests -q
+
+1015 passed, 2 warnings
+```
+
+Dry-run window evidence was also generated from the existing 16-input online
+prelaunch runner:
+
+```text
+outputs/reports/premap_kernel_consumer/tmp_launch_envelope_ptr_window_sweep/sweep.json
+row_count = 1713
+windows = full/head/middle/tail
+require_launch_envelope_args_ptr_abi = true
+passed = true
+
+outputs/reports/premap_kernel_consumer/tmp_launch_envelope_ptr_window_sweep/check_no_child_artifacts.json
+passed = true
+failures = []
+```
+
+The dry-run checker used `--no-require-child-artifacts` because dry-run stub
+artifacts do not include the real native consumer-view layout fields; the real
+GPU/native child-artifact checker remains stricter and still validates those
+layout fields when native stub artifacts are present.
+
 ### 2026-06-03: Future kernel entry consumer ABI path is now source/path checked
 
 The typed premap consumer lab gate now requires the future kernel entry
