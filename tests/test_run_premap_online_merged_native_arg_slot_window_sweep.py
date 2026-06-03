@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 from scripts.run_premap_online_merged_native_arg_slot_window_sweep import (
+    _validate_window_result,
     _window_bounds,
     build_parser,
     main,
@@ -57,6 +58,131 @@ def test_window_bounds_cover_head_middle_tail():
         "middle": (6, 10),
         "tail": (13, 17),
     }
+
+
+def test_window_result_accepts_program_view_ptr_requirement():
+    result = {
+        "passed": True,
+        "no_payload": True,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "current_wna16_arg_compatible": False,
+        "not_a_single_vllm_launch_table": True,
+        "handle_projection_all_handle_fields_checked": True,
+        "dispatch_row_offset": 13,
+        "dispatch_row_limit": 17,
+        "dispatch_active_rows": 4,
+        "stub_summary": {
+            "future_kernel_native_consumer_program_view_ptr_checked": True,
+            "future_kernel_native_consumer_program_view_ptr_source": (
+                "premap_future_kernel_native_consumer_program_view_abi_v1"
+            ),
+            "future_kernel_native_consumer_program_view_ptr_row_count": 4,
+            "future_kernel_native_consumer_program_view_ptr_row_ok_count": 4,
+            "future_kernel_native_consumer_program_view_ptr_error_count": 0,
+            "future_kernel_native_consumer_program_view_ptr_field_mask": 15,
+            "future_kernel_native_consumer_program_view_ptr_required_field_mask": 7,
+            "future_kernel_native_consumer_program_view_ptr_payload_bytes": 0,
+            "future_kernel_native_consumer_program_view_ptr_passed_to_kernel": False,
+            "future_kernel_native_consumer_program_view_ptr_changes_kernel_launch_args": (
+                False
+            ),
+            "future_kernel_native_consumer_program_view_ptr_current_wna16_arg_compatible": (
+                False
+            ),
+            "future_kernel_native_consumer_program_view_ptr_requires_wna16_arg_reinterpretation": (
+                False
+            ),
+        },
+    }
+
+    assert (
+        _validate_window_result(
+            result,
+            label="tail",
+            expected_offset=13,
+            expected_limit=17,
+            require_program_view_ptr_abi=True,
+        )
+        == []
+    )
+
+
+def test_window_result_rejects_program_view_ptr_row_count_mismatch():
+    result = {
+        "passed": True,
+        "no_payload": True,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "current_wna16_arg_compatible": False,
+        "not_a_single_vllm_launch_table": True,
+        "handle_projection_all_handle_fields_checked": True,
+        "dispatch_row_offset": 0,
+        "dispatch_row_limit": 4,
+        "dispatch_active_rows": 4,
+        "stub_summary": {
+            "future_kernel_native_consumer_program_view_ptr_checked": True,
+            "future_kernel_native_consumer_program_view_ptr_source": (
+                "premap_future_kernel_native_consumer_program_view_abi_v1"
+            ),
+            "future_kernel_native_consumer_program_view_ptr_row_count": 4,
+            "future_kernel_native_consumer_program_view_ptr_row_ok_count": 3,
+            "future_kernel_native_consumer_program_view_ptr_error_count": 0,
+            "future_kernel_native_consumer_program_view_ptr_field_mask": 15,
+            "future_kernel_native_consumer_program_view_ptr_required_field_mask": 7,
+            "future_kernel_native_consumer_program_view_ptr_payload_bytes": 0,
+            "future_kernel_native_consumer_program_view_ptr_passed_to_kernel": False,
+            "future_kernel_native_consumer_program_view_ptr_changes_kernel_launch_args": (
+                False
+            ),
+            "future_kernel_native_consumer_program_view_ptr_current_wna16_arg_compatible": (
+                False
+            ),
+            "future_kernel_native_consumer_program_view_ptr_requires_wna16_arg_reinterpretation": (
+                False
+            ),
+        },
+    }
+
+    failures = _validate_window_result(
+        result,
+        label="head",
+        expected_offset=0,
+        expected_limit=4,
+        require_program_view_ptr_abi=True,
+    )
+
+    assert "head_program_view_ptr_row_ok_count_mismatch" in failures
+
+
+def test_window_result_rejects_missing_program_view_ptr_evidence_once():
+    result = {
+        "passed": True,
+        "no_payload": True,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "current_wna16_arg_compatible": False,
+        "not_a_single_vllm_launch_table": True,
+        "handle_projection_all_handle_fields_checked": True,
+        "dispatch_row_offset": 0,
+        "dispatch_row_limit": 4,
+        "dispatch_active_rows": 4,
+        "stub_summary": {
+            "typed_consumer_checked": True,
+        },
+    }
+
+    failures = _validate_window_result(
+        result,
+        label="head",
+        expected_offset=0,
+        expected_limit=4,
+        require_program_view_ptr_abi=True,
+    )
+
+    assert failures == [
+        "head_program_view_ptr_evidence_missing_or_dry_run_unsupported"
+    ]
 
 
 def test_window_sweep_dry_run_records_expected_windows(tmp_path: Path):

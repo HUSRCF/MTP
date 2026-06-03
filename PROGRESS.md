@@ -2419,6 +2419,90 @@ passed = true
 failures = []
 ```
 
+## Program-view pointer ABI is now a strict window-sweep gate
+
+The online-merged native arg-slot window sweep can now require each
+full/head/middle/tail child canary to validate the future native
+program-view pointer ABI, not only the higher-level program-view object.
+
+Strict mode is enabled with:
+
+```text
+--require-program-view-ptr-abi
+```
+
+For every dispatch window, the runner now requires:
+
+```text
+future_kernel_native_consumer_program_view_ptr_checked = true
+source = schema.future_kernel_native_consumer_program_view_ptr_abi_source
+row_count = active_rows
+row_ok_count = active_rows
+error_count = 0
+field_mask covers required_field_mask
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+current_wna16_arg_compatible = false
+requires_wna16_arg_reinterpretation = false
+```
+
+This remains a readonly native-stub gate. It does not pass typed tables to the
+current WNA16 kernel, does not move payload, and does not mutate launch args.
+
+The strict evidence path intentionally rejects dry-run-only artifacts.  If a
+child result does not contain the `future_kernel_native_consumer_program_view_ptr_*`
+fields, the runner reports:
+
+```text
+<window>_program_view_ptr_evidence_missing_or_dry_run_unsupported
+```
+
+and fails closed instead of emitting a long list of misleading field mismatch
+errors.  The expected ABI source is read from
+`configs/runtime/premap_kernel_side_typed_consumer_schema_v1.yaml`, keeping the
+window sweep aligned with the lab preflight schema.
+
+Verification:
+
+```text
+python scripts/run_premap_online_merged_native_arg_slot_window_sweep.py \
+  --device 0 \
+  --hip-visible-devices 1 \
+  --window-size 512 \
+  --require-program-view-ptr-abi \
+  --output-json outputs/reports/premap_kernel_consumer/online_merged_future_native_arg_slot_window_sweep_require_program_view_ptr.json
+
+passed = true
+windows = full / head / middle / tail
+active rows = 1841 / 512 / 512 / 512
+
+python scripts/check_premap_online_merged_native_arg_slot_window_sweep.py \
+  outputs/reports/premap_kernel_consumer/online_merged_future_native_arg_slot_window_sweep_require_program_view_ptr.json \
+  --expected-window-size 512 \
+  --output-json outputs/reports/premap_kernel_consumer/online_merged_future_native_arg_slot_window_sweep_require_program_view_ptr.check.json
+
+passed = true
+failures = []
+
+python -m pytest \
+  tests/test_run_premap_online_merged_native_arg_slot_window_sweep.py \
+  tests/test_check_premap_online_merged_native_arg_slot_window_sweep.py -q
+
+18 passed
+
+python -m pytest \
+  tests/test_run_premap_online_merged_native_arg_slot_canary.py \
+  tests/test_premap_typed_consumer_stub.py \
+  tests/test_run_premap_lab_preflight.py -q
+
+142 passed
+
+python -m pytest tests -q
+
+966 passed, 2 warnings
+```
+
 ## Future native program-view pointer ABI canary
 
 The typed premap consumer path now has one more native-only step toward a

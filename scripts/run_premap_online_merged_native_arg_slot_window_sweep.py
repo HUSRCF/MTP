@@ -36,6 +36,32 @@ DEFAULT_OUTPUT_JSON = (
     / "online_merged_future_native_arg_slot_window_sweep_runner.json"
 )
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "outputs" / "reports" / "premap_kernel_consumer"
+DEFAULT_TYPED_CONSUMER_SCHEMA_YAML = (
+    REPO_ROOT / "configs" / "runtime" / "premap_kernel_side_typed_consumer_schema_v1.yaml"
+)
+
+
+def _schema_scalar(path: Path, key: str) -> str | None:
+    try:
+        for line in path.read_text(encoding="utf-8").splitlines():
+            stripped = line.strip()
+            if not stripped or stripped.startswith("#"):
+                continue
+            if not stripped.startswith(f"{key}:"):
+                continue
+            value = stripped.split(":", 1)[1].strip()
+            if not value:
+                return None
+            return value.strip("'\"")
+    except OSError:
+        return None
+    return None
+
+
+EXPECTED_PROGRAM_VIEW_PTR_ABI_SOURCE = _schema_scalar(
+    DEFAULT_TYPED_CONSUMER_SCHEMA_YAML,
+    "future_kernel_native_consumer_program_view_ptr_abi_source",
+)
 
 
 def _resolve(path: str | Path) -> Path:
@@ -120,6 +146,7 @@ def _validate_window_result(
     label: str,
     expected_offset: int,
     expected_limit: int,
+    require_program_view_ptr_abi: bool = False,
 ) -> list[str]:
     failures: list[str] = []
     expected_active = int(expected_limit) - int(expected_offset)
@@ -140,6 +167,64 @@ def _validate_window_result(
         failures.append(f"{label}_dispatch_row_limit_mismatch")
     if result.get("dispatch_active_rows") != expected_active:
         failures.append(f"{label}_dispatch_active_rows_mismatch")
+    if require_program_view_ptr_abi:
+        stub_summary = result.get("stub_summary")
+        if not isinstance(stub_summary, dict):
+            failures.append(f"{label}_program_view_ptr_stub_summary_missing")
+            stub_summary = {}
+        if "future_kernel_native_consumer_program_view_ptr_checked" not in stub_summary:
+            failures.append(
+                f"{label}_program_view_ptr_evidence_missing_or_dry_run_unsupported"
+            )
+            return failures
+        for key, expected in {
+            "future_kernel_native_consumer_program_view_ptr_checked": True,
+            "future_kernel_native_consumer_program_view_ptr_payload_bytes": 0,
+            "future_kernel_native_consumer_program_view_ptr_passed_to_kernel": False,
+            "future_kernel_native_consumer_program_view_ptr_changes_kernel_launch_args": False,
+            "future_kernel_native_consumer_program_view_ptr_current_wna16_arg_compatible": False,
+            "future_kernel_native_consumer_program_view_ptr_requires_wna16_arg_reinterpretation": False,
+        }.items():
+            if stub_summary.get(key) != expected:
+                failures.append(f"{label}_{key}_mismatch")
+        if (
+            stub_summary.get("future_kernel_native_consumer_program_view_ptr_source")
+            != EXPECTED_PROGRAM_VIEW_PTR_ABI_SOURCE
+        ):
+            failures.append(f"{label}_program_view_ptr_source_mismatch")
+        if (
+            stub_summary.get("future_kernel_native_consumer_program_view_ptr_row_count")
+            != expected_active
+        ):
+            failures.append(f"{label}_program_view_ptr_row_count_mismatch")
+        if (
+            stub_summary.get(
+                "future_kernel_native_consumer_program_view_ptr_row_ok_count"
+            )
+            != expected_active
+        ):
+            failures.append(f"{label}_program_view_ptr_row_ok_count_mismatch")
+        if (
+            stub_summary.get(
+                "future_kernel_native_consumer_program_view_ptr_error_count"
+            )
+            != 0
+        ):
+            failures.append(f"{label}_program_view_ptr_error_count_mismatch")
+        field_mask = stub_summary.get(
+            "future_kernel_native_consumer_program_view_ptr_field_mask"
+        )
+        required_field_mask = stub_summary.get(
+            "future_kernel_native_consumer_program_view_ptr_required_field_mask"
+        )
+        if (
+            not isinstance(field_mask, int)
+            or isinstance(field_mask, bool)
+            or not isinstance(required_field_mask, int)
+            or isinstance(required_field_mask, bool)
+            or (field_mask & required_field_mask) != required_field_mask
+        ):
+            failures.append(f"{label}_program_view_ptr_field_mask_mismatch")
     return failures
 
 
@@ -168,6 +253,7 @@ def run_sweep(args: argparse.Namespace) -> dict[str, Any]:
         label="full",
         expected_offset=0,
         expected_limit=row_count,
+        require_program_view_ptr_abi=bool(args.require_program_view_ptr_abi),
     )
     window_results: dict[str, dict[str, Any]] = {"full": full_result}
     window_artifacts: dict[str, dict[str, str]] = {
@@ -199,6 +285,9 @@ def run_sweep(args: argparse.Namespace) -> dict[str, Any]:
                 label=label,
                 expected_offset=offset,
                 expected_limit=limit,
+                require_program_view_ptr_abi=bool(
+                    args.require_program_view_ptr_abi
+                ),
             )
         )
         window_results[label] = result
@@ -214,6 +303,7 @@ def run_sweep(args: argparse.Namespace) -> dict[str, Any]:
         "source": "online_merged_future_native_arg_slot_window_sweep_runner",
         "runner_json": str(_resolve(args.runner_json)),
         "window_size": int(args.window_size),
+        "require_program_view_ptr_abi": bool(args.require_program_view_ptr_abi),
         "row_count": row_count,
         "device": int(args.device),
         "mirror_field": args.mirror_field,
@@ -249,6 +339,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
     parser.add_argument("--output-json", type=Path, default=DEFAULT_OUTPUT_JSON)
     parser.add_argument("--window-size", type=int, default=512)
+    parser.add_argument(
+        "--require-program-view-ptr-abi",
+        action="store_true",
+        help=(
+            "Require each child canary to validate the future native "
+            "program-view pointer ABI for its row window."
+        ),
+    )
     parser.add_argument("--max-inputs", type=int, default=32)
     parser.add_argument("--min-source-count", type=int, default=32)
     parser.add_argument("--min-total-rows", type=int, default=257)
