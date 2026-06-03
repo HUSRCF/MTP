@@ -1054,6 +1054,24 @@ def exported_input_from_performance(performance_path: Path) -> Path:
     return exported_inputs_from_performance(performance_path, max_inputs=1)[0]
 
 
+def _require_min_online_inputs(
+    input_paths: list[Path],
+    *,
+    min_online_inputs: int,
+    performance_path: Path,
+) -> None:
+    if min_online_inputs < 0:
+        raise ValueError(
+            f"min_artifact_online_inputs must be non-negative: {min_online_inputs}"
+        )
+    if min_online_inputs > 0 and len(input_paths) < min_online_inputs:
+        raise ValueError(
+            "not enough exported online typed-consumer inputs selected: "
+            f"selected={len(input_paths)} min_required={min_online_inputs} "
+            f"performance_summary={performance_path}"
+        )
+
+
 def _base_env(*, gpu_index: int | None) -> dict[str, str]:
     env = os.environ.copy()
     pythonpath = f"{REPO_ROOT}:{REPO_ROOT / 'src'}"
@@ -1376,6 +1394,11 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
         input_paths = exported_inputs_from_performance(
             performance_path,
             max_inputs=None if max_online_inputs == 0 else max_online_inputs,
+        )
+        _require_min_online_inputs(
+            input_paths,
+            min_online_inputs=int(args.min_artifact_online_inputs),
+            performance_path=performance_path,
         )
     input_path = input_paths[0]
     input_row_counts = (

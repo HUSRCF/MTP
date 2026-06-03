@@ -51,6 +51,61 @@ def test_exported_input_from_performance_requires_current_run_path(tmp_path: Pat
     assert exported_input_from_performance(perf) == online_input
 
 
+def test_run_canary_rejects_too_few_exported_inputs_before_stub(
+    tmp_path: Path,
+    monkeypatch,
+):
+    trace_dir = tmp_path / "trace"
+    trace_dir.mkdir()
+    config = tmp_path / "trace.yaml"
+    config.write_text(f"output_dir: {trace_dir}\n", encoding="utf-8")
+    online_input = trace_dir / "input0.json"
+    online_input.write_text("{}\n", encoding="utf-8")
+    (trace_dir / "performance_summary.json").write_text(
+        json.dumps(
+            {
+                "runtime_shadow_premap_native_typed_consumer_input_export_enabled": True,
+                "runtime_shadow_premap_native_typed_consumer_input_export_count": 1,
+                "runtime_shadow_premap_native_typed_consumer_input_export_first_path": str(
+                    online_input
+                ),
+                "runtime_shadow_premap_native_typed_consumer_input_export_paths": [
+                    str(online_input)
+                ],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    import scripts.run_premap_online_native_stub_canary as canary
+
+    calls: list[list[str]] = []
+
+    def fake_run(cmd, **kwargs):
+        calls.append(list(cmd))
+        return {"cmd": cmd, "returncode": 0}
+
+    monkeypatch.setattr(canary, "_run", fake_run)
+    args = build_parser().parse_args(
+        [
+            "--trace-config",
+            str(config),
+            "--skip-trace",
+            "--min-artifact-online-inputs",
+            "2",
+            "--max-online-inputs",
+            "2",
+            "--output-json",
+            str(tmp_path / "runner.json"),
+        ]
+    )
+
+    with pytest.raises(ValueError, match="not enough exported online typed-consumer"):
+        run_canary(args)
+    assert calls == []
+
+
 def test_exported_input_from_performance_rejects_unlisted_first_path(tmp_path: Path):
     online_input = tmp_path / "online_input.json"
     online_input.write_text("{}\n", encoding="utf-8")

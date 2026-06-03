@@ -2,7 +2,7 @@
 
 ## Progress Version
 
-- Version: `v0.48-preflight-consumer-view-projection-strict-hex`
+- Version: `v0.49-online-native-runner-min-input-guard`
 - Updated: 2026-06-03
 - Current phase: premap descriptor/address prep now has a typed
   kernel-side consumer object, a launch-shaped future native ABI, and a
@@ -60,7 +60,64 @@
   as a valid uint64 hex value and participate in the four-way projection
   hashchain.
 
-## Latest Update: Strict Consumer-View Projection Parsing
+## Latest Update: 32-Input Native Runner Finalization and Min-Input Guard
+
+The online prelaunch native typed-consumer runner has been refreshed against
+the 32-table Dolly/AWQ online export artifact instead of the 1-input canary
+trace.  The runner now closes the intended two-stage self-referential lab gate:
+bootstrap artifact evidence is used only to finalize the runner, and the final
+accepted result is a strict no-defer preflight with `final_deferred_count=0` and
+`status_deferred_count=0`.
+
+The refreshed compact default preflight status now exposes the four-way
+projection chain across dispatch, dispatch-pointer, arg-slot, and consumer-view
+paths:
+
+```text
+default_kernel_consumer_dispatch_runner_dispatch_handle_projection_hash_accumulator
+default_kernel_consumer_dispatch_runner_dispatch_ptr_handle_projection_hash_accumulator
+default_kernel_consumer_dispatch_runner_arg_slot_handle_projection_hash_accumulator
+default_kernel_consumer_dispatch_runner_consumer_view_handle_projection_hash_accumulator
+```
+
+All four hashes match in the current lab artifact, and the compact summary
+reports `default_kernel_consumer_dispatch_runner_handle_projection_hashchain_equal=true`.
+
+The native runner also now fails fast when `--min-artifact-online-inputs` exceeds
+the selected exported online typed-consumer inputs.  This prevents accidentally
+running the expensive native stub suite on the 1-input canary config when the
+intended lab gate requires 32 online inputs.
+
+Validation:
+
+```text
+python scripts/run_premap_online_native_stub_canary.py \
+  --trace-config configs/trace/router_mtp_trace_external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_native_input_export_audit_mem70_32tables.yaml \
+  --skip-trace --max-online-inputs 32 --min-artifact-online-inputs 32 \
+  --finalize-existing --stdout-mode summary
+# passed=true, artifact_check_passed=true, final_preflight_passed=true,
+# online_prelaunch_input_check_count=32, final_deferred_count=0
+
+python scripts/check_premap_lab_preflight_summary.py \
+  outputs/reports/premap_lab_preflight_default_with_gate_schema_sha256.json \
+  --output-json outputs/reports/premap_lab_preflight_default_with_gate_schema_sha256.check.json
+
+PYTHONPATH=src:. python -m scripts.check_premap_online_native_stub_canary_artifacts \
+  --runner-json outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_arg_slot_32input_hard_hashchain_preflight_32tables.json \
+  --preflight-json outputs/reports/premap_lab_preflight_online_prelaunch_native_stub_canary_hard_hashchain_preflight_32tables.json \
+  --status-json outputs/reports/premap_lab_preflight_status_online_prelaunch_native_stub_canary_hard_hashchain_preflight_32tables.json \
+  --output-json outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_artifact_check_arg_slot_32input_hard_hashchain_preflight_32tables.manual_check.json \
+  --min-online-inputs 32
+
+python -m pytest tests/test_run_premap_online_native_stub_canary.py -q
+```
+
+The same safety boundaries remain unchanged: payload bytes are zero, no ready
+credit is issued, no WNA16 kernel arguments are passed or mutated, and the
+current WNA16 argument ABI is still explicitly marked incompatible with the
+future typed consumer table.
+
+## Previous Update: Strict Consumer-View Projection Parsing
 
 The lab preflight now distinguishes between "consumer-view projection field is
 absent" and "consumer-view projection field exists but is invalid."  Missing
