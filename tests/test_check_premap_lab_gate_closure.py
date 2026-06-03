@@ -10,6 +10,33 @@ def _summary(passed: bool = True) -> dict:
     return {"exists": True, "passed": passed, "failures": []}
 
 
+def _arg_slot_runner_summary(passed: bool = True) -> dict:
+    payload = _summary(passed=passed)
+    payload.update(
+        {
+            "require_kernel_launch_context_abi": True,
+            "require_kernel_invocation_abi": True,
+            "kernel_launch_context_checked": True,
+            "kernel_launch_context_all_handle_fields_read": True,
+            "kernel_launch_context_packet_chain_depth": 10,
+            "kernel_launch_context_payload_bytes": 0,
+            "kernel_launch_context_passed_to_kernel": False,
+            "kernel_launch_context_kernel_arg_pass_allowed": False,
+            "kernel_launch_context_changes_kernel_launch_args": False,
+            "kernel_launch_context_current_wna16_arg_compatible": False,
+            "kernel_invocation_checked": True,
+            "kernel_invocation_all_handle_fields_read": True,
+            "kernel_invocation_packet_chain_depth": 11,
+            "kernel_invocation_payload_bytes": 0,
+            "kernel_invocation_passed_to_kernel": False,
+            "kernel_invocation_kernel_arg_pass_allowed": False,
+            "kernel_invocation_changes_kernel_launch_args": False,
+            "kernel_invocation_current_wna16_arg_compatible": False,
+        }
+    )
+    return payload
+
+
 def _tail_summary() -> dict:
     return {
         "exists": True,
@@ -40,7 +67,7 @@ def _closure_payload(*, tail: bool = False) -> dict:
         "native_artifact_check": {"returncode": 0, "dry_run": False},
     }
     summaries = {
-        "arg_slot_runner": _summary(),
+        "arg_slot_runner": _arg_slot_runner_summary(),
         "full_preflight": _summary(),
         "summary_preflight": _summary(),
         "summary_check": _summary(),
@@ -98,6 +125,77 @@ def test_check_closure_artifact_rejects_explicit_artifact_paths(tmp_path: Path):
 
     assert result["passed"] is False
     assert "native_artifact_check_preflight_source_mismatch" in result["failures"]
+
+
+def test_check_closure_artifact_rejects_missing_invocation_abi(tmp_path: Path):
+    path = tmp_path / "closure.json"
+    payload = _closure_payload()
+    payload["summaries"]["arg_slot_runner"]["require_kernel_invocation_abi"] = False
+    payload["summaries"]["arg_slot_runner"]["kernel_invocation_checked"] = False
+    _write_json(path, payload)
+
+    result = check_closure_artifact(path)
+
+    assert result["passed"] is False
+    assert (
+        "arg_slot_runner_require_kernel_invocation_abi_mismatch"
+        in result["failures"]
+    )
+    assert "arg_slot_runner_kernel_invocation_checked_mismatch" in result["failures"]
+
+
+def test_check_closure_artifact_rejects_invocation_kernel_boundary_mutation(
+    tmp_path: Path,
+):
+    path = tmp_path / "closure.json"
+    payload = _closure_payload()
+    payload["summaries"]["arg_slot_runner"]["kernel_invocation_passed_to_kernel"] = True
+    _write_json(path, payload)
+
+    result = check_closure_artifact(path)
+
+    assert result["passed"] is False
+    assert "arg_slot_runner_kernel_invocation_passed_to_kernel_mismatch" in result[
+        "failures"
+    ]
+
+
+def test_check_closure_artifact_rejects_invocation_launch_arg_mutation(
+    tmp_path: Path,
+):
+    path = tmp_path / "closure.json"
+    payload = _closure_payload()
+    payload["summaries"]["arg_slot_runner"][
+        "kernel_invocation_changes_kernel_launch_args"
+    ] = True
+    _write_json(path, payload)
+
+    result = check_closure_artifact(path)
+
+    assert result["passed"] is False
+    assert (
+        "arg_slot_runner_kernel_invocation_changes_kernel_launch_args_mismatch"
+        in result["failures"]
+    )
+
+
+def test_check_closure_artifact_rejects_context_launch_arg_mutation(
+    tmp_path: Path,
+):
+    path = tmp_path / "closure.json"
+    payload = _closure_payload()
+    payload["summaries"]["arg_slot_runner"][
+        "kernel_launch_context_changes_kernel_launch_args"
+    ] = True
+    _write_json(path, payload)
+
+    result = check_closure_artifact(path)
+
+    assert result["passed"] is False
+    assert (
+        "arg_slot_runner_kernel_launch_context_changes_kernel_launch_args_mismatch"
+        in result["failures"]
+    )
 
 
 def test_check_closure_artifact_accepts_tail_window_closure(tmp_path: Path):

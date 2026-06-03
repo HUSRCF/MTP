@@ -24,21 +24,21 @@ DEFAULT_ARG_SLOT_RUNNER_JSON = (
     / "outputs"
     / "reports"
     / "premap_kernel_consumer"
-    / "online_merged_future_native_arg_slot_kernel_launch_context_canary_runner.json"
+    / "online_merged_future_native_arg_slot_invocation_canary_runner.json"
 )
 DEFAULT_ARG_SLOT_STUB_JSON = (
     REPO_ROOT
     / "outputs"
     / "reports"
     / "premap_kernel_consumer"
-    / "typed_consumer_stub_gpu1_online_merged_future_native_arg_slot_kernel_launch_context_canary.json"
+    / "typed_consumer_stub_gpu1_online_merged_future_native_arg_slot_invocation_canary.json"
 )
 DEFAULT_ARG_SLOT_MERGED_JSON = (
     REPO_ROOT
     / "outputs"
     / "reports"
     / "premap_kernel_consumer"
-    / "online_merged_prelaunch_typed_consumer_input_arg_slot_32tables.json"
+    / "online_merged_prelaunch_typed_consumer_input_arg_slot_32tables_invocation.json"
 )
 DEFAULT_ARG_SLOT_TAIL_RUNNER_JSON = (
     REPO_ROOT
@@ -175,6 +175,24 @@ def _load_json_summary(path: Path) -> dict[str, Any]:
         "changes_kernel_launch_args",
         "current_wna16_arg_compatible",
         "not_a_single_vllm_launch_table",
+        "require_kernel_launch_context_abi",
+        "require_kernel_invocation_abi",
+        "kernel_launch_context_checked",
+        "kernel_launch_context_all_handle_fields_read",
+        "kernel_launch_context_packet_chain_depth",
+        "kernel_launch_context_payload_bytes",
+        "kernel_launch_context_passed_to_kernel",
+        "kernel_launch_context_kernel_arg_pass_allowed",
+        "kernel_launch_context_changes_kernel_launch_args",
+        "kernel_launch_context_current_wna16_arg_compatible",
+        "kernel_invocation_checked",
+        "kernel_invocation_all_handle_fields_read",
+        "kernel_invocation_packet_chain_depth",
+        "kernel_invocation_payload_bytes",
+        "kernel_invocation_passed_to_kernel",
+        "kernel_invocation_kernel_arg_pass_allowed",
+        "kernel_invocation_changes_kernel_launch_args",
+        "kernel_invocation_current_wna16_arg_compatible",
         "online_merged_source_count",
         "online_merged_row_count",
         "online_merged_dispatch_active_rows",
@@ -290,6 +308,7 @@ def run_closure(args: argparse.Namespace) -> dict[str, Any]:
                 "--merged-output-json",
                 str(arg_slot_merged_json),
                 "--require-kernel-launch-context-abi",
+                "--require-kernel-invocation-abi",
                 *arg_slot_device_args,
             ],
             dry_run=bool(args.dry_run),

@@ -12,6 +12,22 @@ from scripts.run_premap_lab_gate_closure import (
 )
 
 
+def test_run_premap_lab_gate_closure_defaults_use_invocation_artifacts():
+    args = _build_parser().parse_args([])
+
+    assert args.arg_slot_runner_json.name == (
+        "online_merged_future_native_arg_slot_invocation_canary_runner.json"
+    )
+    assert args.arg_slot_stub_json.name == (
+        "typed_consumer_stub_gpu1_online_merged_future_native_arg_slot_"
+        "invocation_canary.json"
+    )
+    assert args.arg_slot_merged_json.name == (
+        "online_merged_prelaunch_typed_consumer_input_arg_slot_"
+        "32tables_invocation.json"
+    )
+
+
 def test_run_premap_lab_gate_closure_dry_run_records_canonical_steps(
     tmp_path: Path,
 ):
@@ -60,6 +76,9 @@ def test_run_premap_lab_gate_closure_dry_run_records_canonical_steps(
     assert "--runner-json" in artifact_cmd
     assert result["requires_runner_recorded_artifact_paths"] is True
     assert result["tail_window_probe_enabled"] is False
+    arg_slot_cmd = result["steps"]["arg_slot_runner"]["cmd"]
+    assert "--require-kernel-launch-context-abi" in arg_slot_cmd
+    assert "--require-kernel-invocation-abi" in arg_slot_cmd
 
 
 def test_runner_recorded_path_failures_reject_explicit_sources():

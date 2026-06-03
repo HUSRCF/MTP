@@ -37,6 +37,39 @@ REQUIRED_STEPS = (
 )
 
 
+def _arg_slot_invocation_summary_failures(summary: dict[str, Any]) -> list[str]:
+    failures: list[str] = []
+    expected = {
+        "require_kernel_launch_context_abi": True,
+        "require_kernel_invocation_abi": True,
+        "kernel_launch_context_checked": True,
+        "kernel_launch_context_all_handle_fields_read": True,
+        "kernel_launch_context_payload_bytes": 0,
+        "kernel_launch_context_passed_to_kernel": False,
+        "kernel_launch_context_kernel_arg_pass_allowed": False,
+        "kernel_launch_context_changes_kernel_launch_args": False,
+        "kernel_launch_context_current_wna16_arg_compatible": False,
+        "kernel_invocation_checked": True,
+        "kernel_invocation_all_handle_fields_read": True,
+        "kernel_invocation_payload_bytes": 0,
+        "kernel_invocation_passed_to_kernel": False,
+        "kernel_invocation_kernel_arg_pass_allowed": False,
+        "kernel_invocation_changes_kernel_launch_args": False,
+        "kernel_invocation_current_wna16_arg_compatible": False,
+    }
+    for key, expected_value in expected.items():
+        if summary.get(key) != expected_value:
+            failures.append(f"arg_slot_runner_{key}_mismatch")
+    for key in (
+        "kernel_launch_context_packet_chain_depth",
+        "kernel_invocation_packet_chain_depth",
+    ):
+        value = summary.get(key)
+        if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
+            failures.append(f"arg_slot_runner_{key}_invalid")
+    return failures
+
+
 def _load_json(path: Path) -> dict[str, Any]:
     payload = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(payload, dict):
@@ -128,6 +161,9 @@ def check_closure_artifact(
             failures.append(f"{summary_name}_summary_missing")
         elif summary.get("passed") is not True:
             failures.append(f"{summary_name}_summary_not_passed")
+    arg_slot_summary = summaries.get("arg_slot_runner")
+    if isinstance(arg_slot_summary, dict):
+        failures.extend(_arg_slot_invocation_summary_failures(arg_slot_summary))
 
     failures.extend(
         _tail_window_probe_failures(
