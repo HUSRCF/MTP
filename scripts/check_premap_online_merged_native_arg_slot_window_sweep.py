@@ -82,6 +82,19 @@ _CONSUMER_VIEW_ROW_LAYOUT_INT_FIELDS = (
     "future_kernel_native_consumer_view_row_offset_address_key_hash",
     "future_kernel_native_consumer_view_row_offset_row_index",
 )
+_KERNEL_ENTRY_ARGS_LAYOUT_EXPECTED = {
+    "future_kernel_native_consumer_kernel_entry_args_struct_size": 40,
+    "future_kernel_native_consumer_kernel_entry_args_struct_align": 8,
+    "future_kernel_native_consumer_kernel_entry_args_kernel_arg_packet_struct_size": 32,
+    "future_kernel_native_consumer_kernel_entry_args_summary_struct_size": 104,
+    "future_kernel_native_consumer_kernel_entry_args_offset_kernel_arg_packet": 0,
+    "future_kernel_native_consumer_kernel_entry_args_offset_summary": 8,
+    "future_kernel_native_consumer_kernel_entry_args_offset_abi_version": 16,
+    "future_kernel_native_consumer_kernel_entry_args_offset_kernel_arg_packet_struct_size": 20,
+    "future_kernel_native_consumer_kernel_entry_args_offset_summary_struct_size": 24,
+    "future_kernel_native_consumer_kernel_entry_args_offset_payload_bytes": 28,
+    "future_kernel_native_consumer_kernel_entry_args_offset_flags": 32,
+}
 
 
 def _load_json(path: Path) -> dict[str, Any]:
@@ -420,17 +433,13 @@ def _check_kernel_entry_args(
         value = summary.get(hash_key)
         if not isinstance(value, str) or not value:
             failures.append(f"{label}_{hash_key}_missing")
-    for size_key in (
-        f"{prefix}_struct_size",
-        f"{prefix}_struct_align",
-        f"{prefix}_kernel_arg_packet_struct_size",
-        f"{prefix}_summary_struct_size",
-    ):
-        value = summary.get(size_key)
-        if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
-            failures.append(f"{label}_{size_key}_invalid")
-    if summary.get(f"{prefix}_offset_kernel_arg_packet") != 0:
-        failures.append(f"{label}_{prefix}_offset_kernel_arg_packet_mismatch")
+    for key, expected in _KERNEL_ENTRY_ARGS_LAYOUT_EXPECTED.items():
+        value = summary.get(key)
+        if not isinstance(value, int) or isinstance(value, bool):
+            failures.append(f"{label}_{key}_invalid")
+            continue
+        if value != expected:
+            failures.append(f"{label}_{key}_mismatch")
     return failures
 
 

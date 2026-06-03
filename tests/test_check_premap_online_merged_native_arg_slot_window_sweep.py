@@ -101,6 +101,12 @@ def _kernel_entry_args_pairs(active: int) -> dict[str, object]:
         "future_kernel_native_consumer_kernel_entry_args_kernel_arg_packet_struct_size": 32,
         "future_kernel_native_consumer_kernel_entry_args_summary_struct_size": 104,
         "future_kernel_native_consumer_kernel_entry_args_offset_kernel_arg_packet": 0,
+        "future_kernel_native_consumer_kernel_entry_args_offset_summary": 8,
+        "future_kernel_native_consumer_kernel_entry_args_offset_abi_version": 16,
+        "future_kernel_native_consumer_kernel_entry_args_offset_kernel_arg_packet_struct_size": 20,
+        "future_kernel_native_consumer_kernel_entry_args_offset_summary_struct_size": 24,
+        "future_kernel_native_consumer_kernel_entry_args_offset_payload_bytes": 28,
+        "future_kernel_native_consumer_kernel_entry_args_offset_flags": 32,
         "future_kernel_native_consumer_kernel_entry_args_summary_packet_valid": 1,
         "future_kernel_native_consumer_kernel_entry_args_summary_row_count": active,
         "future_kernel_native_consumer_kernel_entry_args_summary_row_ok_count": active,
@@ -602,6 +608,44 @@ def test_window_sweep_check_rejects_missing_kernel_entry_args_requirement(
     ]
     assert (
         "head_child_stub_artifact_kernel_entry_args_missing_or_dry_run_unsupported"
+        in result["failures"]
+    )
+
+
+def test_window_sweep_check_rejects_kernel_entry_args_layout_mismatch(
+    tmp_path: Path,
+):
+    path = _write_artifact(tmp_path)
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    windows = payload["windows"]
+    assert isinstance(windows, dict)
+    child_path = Path(windows["head"]["output_json"])
+    stub_path = Path(windows["head"]["stub_output_json"])
+    child = json.loads(child_path.read_text(encoding="utf-8"))
+    stub_payload = json.loads(stub_path.read_text(encoding="utf-8"))
+    for item in (child["stub_summary"], stub_payload):
+        assert isinstance(item, dict)
+        item[
+            "future_kernel_native_consumer_kernel_entry_args_offset_summary"
+        ] = 16
+    child_path.write_text(json.dumps(child) + "\n", encoding="utf-8")
+    stub_path.write_text(json.dumps(stub_payload) + "\n", encoding="utf-8")
+
+    result = check_window_sweep_artifact(
+        path,
+        expected_window_size=4,
+        expected_block_threads=4,
+        min_row_count=17,
+        require_child_kernel_entry_args_abi=True,
+    )
+
+    assert result["passed"] is False
+    assert (
+        "head_future_kernel_native_consumer_kernel_entry_args_offset_summary_mismatch"
+        in result["failures"]
+    )
+    assert (
+        "head_child_stub_artifact_future_kernel_native_consumer_kernel_entry_args_offset_summary_mismatch"
         in result["failures"]
     )
 

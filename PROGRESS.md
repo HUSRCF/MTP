@@ -2,7 +2,7 @@
 
 ## Progress Version
 
-- Version: `v0.52-entry-args-layout-gate`
+- Version: `v0.53-runtime-entry-args-layout-gate`
 - Updated: 2026-06-03
 - Current phase: premap descriptor/address prep now has a typed
   kernel-side consumer object, a launch-shaped future native ABI, and a
@@ -65,6 +65,50 @@
   now also pins `PremapFutureKernelNativeConsumerKernelEntryArgsV1` size,
   alignment, and field offsets so the future kernel-side ABI cannot drift while
   still remaining readonly and disconnected from the current WNA16 launch args.
+  The online-merged row-window checker now also validates those entry-args
+  layout values in child native-stub artifacts, so runtime evidence cannot pass
+  with a drifted entry wrapper.
+
+## Latest Update: Runtime Kernel-Entry Args Layout Check
+
+The online-merged arg-slot window checker now validates the full
+`PremapFutureKernelNativeConsumerKernelEntryArgsV1` layout emitted by child
+native-stub artifacts:
+
+```text
+struct_size = 40
+struct_align = 8
+kernel_arg_packet_struct_size = 32
+summary_struct_size = 104
+offset(kernel_arg_packet) = 0
+offset(summary) = 8
+offset(abi_version) = 16
+offset(kernel_arg_packet_struct_size) = 20
+offset(summary_struct_size) = 24
+offset(payload_bytes) = 28
+offset(flags) = 32
+```
+
+This extends the previous static schema gate into the runtime artifact gate:
+full/head/middle/tail window checks now reject child artifacts whose entry-args
+layout drifts, including the standalone stub JSON and the runner
+`stub_summary`.
+
+Validation:
+
+```bash
+python -m pytest \
+  tests/test_check_premap_online_merged_native_arg_slot_window_sweep.py \
+  tests/test_check_premap_online_merged_native_arg_slot_all_field_window_sweep.py -q
+# 29 passed
+
+python scripts/run_premap_lab_gate_verify.py \
+  --output-json outputs/reports/premap_lab_gate_verify.json
+# passed
+```
+
+Boundary remains unchanged: this is still a readonly native ABI/stub gate with
+zero payload bytes, no ready credit, and no current WNA16 kernel-argument pass.
 
 ## Latest Update: Kernel-Entry Args ABI Layout Gate
 
