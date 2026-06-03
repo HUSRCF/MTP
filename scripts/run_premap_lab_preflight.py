@@ -328,6 +328,15 @@ _KERNEL_LAUNCH_CONTEXT_STRUCT_ALIGN = 8
 _KERNEL_LAUNCH_CONTEXT_LAUNCH_DESCRIPTOR_STRUCT_SIZE = 80
 _KERNEL_LAUNCH_CONTEXT_SUMMARY_STRUCT_SIZE = 104
 _KERNEL_LAUNCH_CONTEXT_POINTER_SIZE = 8
+_INVOCATION_ABI_NAME = "premap_future_kernel_native_consumer_invocation_abi_v1"
+_INVOCATION_MODE = "readonly_future_kernel_native_consumer_invocation_abi"
+_INVOCATION_SOURCE = _KERNEL_LAUNCH_CONTEXT_ABI_NAME
+_INVOCATION_PACKET_CHAIN_DEPTH = 11
+_INVOCATION_STRUCT_SIZE = 72
+_INVOCATION_STRUCT_ALIGN = 8
+_INVOCATION_CONTEXT_STRUCT_SIZE = _KERNEL_LAUNCH_CONTEXT_STRUCT_SIZE
+_INVOCATION_SUMMARY_STRUCT_SIZE = 104
+_INVOCATION_POINTER_SIZE = 8
 
 
 def _int_metric(metrics: dict[str, Any], key: str) -> int | None:
@@ -530,6 +539,157 @@ def _validate_kernel_launch_context_stub_summary_metrics(
     ):
         if _hex64_metric(metrics, key) is None:
             failures.append(f"{failure_prefix}_{key}_invalid")
+    return failures
+
+
+def _validate_invocation_runner_metrics(
+    metrics: dict[str, Any],
+    *,
+    prefix: str,
+    failure_prefix: str,
+    expected_device: int | None,
+    require_error_count: bool = True,
+) -> list[str]:
+    failures: list[str] = []
+    expected_values: dict[str, Any] = {
+        f"{prefix}_checked": True,
+        f"{prefix}_abi_name": _INVOCATION_ABI_NAME,
+        f"{prefix}_mode": _INVOCATION_MODE,
+        f"{prefix}_source": _INVOCATION_SOURCE,
+        f"{prefix}_version": 1,
+        f"{prefix}_packet_chain_depth": _INVOCATION_PACKET_CHAIN_DEPTH,
+        f"{prefix}_struct_size": _INVOCATION_STRUCT_SIZE,
+        f"{prefix}_struct_align": _INVOCATION_STRUCT_ALIGN,
+        f"{prefix}_context_struct_size": _INVOCATION_CONTEXT_STRUCT_SIZE,
+        f"{prefix}_summary_struct_size": _INVOCATION_SUMMARY_STRUCT_SIZE,
+        f"{prefix}_pointer_size": _INVOCATION_POINTER_SIZE,
+        f"{prefix}_id": 1,
+        f"{prefix}_stream_domain": 0,
+        f"{prefix}_payload_bytes": 0,
+        f"{prefix}_payload_deref_allowed": False,
+        f"{prefix}_passed_to_kernel": False,
+        f"{prefix}_kernel_arg_pass_allowed": False,
+        f"{prefix}_changes_kernel_launch_args": False,
+        f"{prefix}_current_wna16_arg_compatible": False,
+        f"{prefix}_requires_wna16_arg_reinterpretation": False,
+    }
+    if require_error_count:
+        expected_values[f"{prefix}_error_count"] = 0
+    for key, expected in expected_values.items():
+        if metrics.get(key) != expected:
+            failures.append(f"{failure_prefix}_{key}_mismatch")
+    if expected_device is not None and metrics.get(f"{prefix}_device_ordinal") != expected_device:
+        failures.append(f"{failure_prefix}_{prefix}_device_ordinal_mismatch")
+    all_fields_key = f"{prefix}_all_handle_fields_read"
+    if all_fields_key in metrics and metrics.get(all_fields_key) is not True:
+        failures.append(f"{failure_prefix}_{all_fields_key}_mismatch")
+    for key in (
+        f"{prefix}_row_hash_accumulator",
+        f"{prefix}_field_read_hash_accumulator",
+        f"{prefix}_row_metadata_hash_accumulator",
+    ):
+        if key in metrics and _hex64_metric(metrics, key) is None:
+            failures.append(f"{failure_prefix}_{key}_invalid")
+    return failures
+
+
+def _validate_invocation_stub_summary_metrics(
+    metrics: dict[str, Any],
+    *,
+    prefix: str = "future_kernel_native_consumer_invocation",
+    failure_prefix: str,
+    expected_rows: int | None,
+    expected_device: int | None,
+) -> list[str]:
+    failures = _validate_invocation_runner_metrics(
+        metrics,
+        prefix=prefix,
+        failure_prefix=failure_prefix,
+        expected_device=expected_device,
+        require_error_count=False,
+    )
+    if (
+        metrics.get(f"{prefix}_field_read_path")
+        != (
+            "invocation_to_kernel_launch_context_to_kernel_launch_descriptor_to_"
+            "launch_envelope_args_ptr_to_launch_envelope_args_to_entry_args_ptr_to_"
+            "kernel_entry_args_to_kernel_arg_packet_to_program_view_rows"
+        )
+    ):
+        failures.append(f"{failure_prefix}_{prefix}_field_read_path_mismatch")
+    summary_expected: dict[str, Any] = {
+        f"{prefix}_summary_error_count": 0,
+        f"{prefix}_summary_field_mask": _FUTURE_KERNEL_ALL_FIELD_MASK,
+        f"{prefix}_summary_packet_valid": 1,
+    }
+    if expected_rows is not None:
+        summary_expected.update(
+            {
+                f"{prefix}_summary_row_count": expected_rows,
+                f"{prefix}_summary_row_ok_count": expected_rows,
+                f"{prefix}_summary_descriptor_ptr_read_row_ok_count": expected_rows,
+                f"{prefix}_summary_packed_weight_descriptor_read_row_ok_count": (
+                    expected_rows
+                ),
+                f"{prefix}_summary_scale_metadata_handle_read_row_ok_count": (
+                    expected_rows
+                ),
+                f"{prefix}_summary_aux_metadata_handle_read_row_ok_count": expected_rows,
+                f"{prefix}_summary_expert_id_read_row_ok_count": expected_rows,
+                f"{prefix}_summary_address_key_hash_read_row_ok_count": expected_rows,
+                f"{prefix}_summary_row_metadata_read_row_ok_count": expected_rows,
+            }
+        )
+    for key, expected in summary_expected.items():
+        if metrics.get(key) != expected:
+            failures.append(f"{failure_prefix}_{key}_mismatch")
+    for key in (
+        f"{prefix}_summary_row_hash_accumulator",
+        f"{prefix}_summary_field_read_hash_accumulator",
+        f"{prefix}_summary_row_metadata_hash_accumulator",
+    ):
+        if _hex64_metric(metrics, key) is None:
+            failures.append(f"{failure_prefix}_{key}_invalid")
+    return failures
+
+
+def _validate_invocation_cross_layer_metrics(
+    runner_metrics: dict[str, Any],
+    other_metrics: dict[str, Any],
+    *,
+    other_label: str,
+    failure_prefix: str,
+) -> list[str]:
+    runner_prefix = "kernel_invocation"
+    other_prefix = "future_kernel_native_consumer_invocation"
+    pairs = (
+        ("checked", "checked"),
+        ("packet_chain_depth", "packet_chain_depth"),
+        ("payload_bytes", "payload_bytes"),
+        ("payload_deref_allowed", "payload_deref_allowed"),
+        ("passed_to_kernel", "passed_to_kernel"),
+        ("kernel_arg_pass_allowed", "kernel_arg_pass_allowed"),
+        ("changes_kernel_launch_args", "changes_kernel_launch_args"),
+        ("current_wna16_arg_compatible", "current_wna16_arg_compatible"),
+        (
+            "requires_wna16_arg_reinterpretation",
+            "requires_wna16_arg_reinterpretation",
+        ),
+        ("row_hash_accumulator", "summary_row_hash_accumulator"),
+        ("field_read_hash_accumulator", "summary_field_read_hash_accumulator"),
+        (
+            "row_metadata_hash_accumulator",
+            "summary_row_metadata_hash_accumulator",
+        ),
+    )
+    failures: list[str] = []
+    for runner_suffix, other_suffix in pairs:
+        runner_key = f"{runner_prefix}_{runner_suffix}"
+        other_key = f"{other_prefix}_{other_suffix}"
+        if runner_metrics.get(runner_key) != other_metrics.get(other_key):
+            failures.append(
+                f"{failure_prefix}_invocation_{other_label}_{runner_suffix}_mismatch"
+            )
     return failures
 
 
@@ -984,6 +1144,7 @@ def _validate_required_evidence_payload(
                     expected_stub_output_label=None,
                     arg_slot_mirror_field=field,
                     require_kernel_launch_context_abi=False,
+                    require_kernel_invocation_abi=False,
                 )
             ]
     if evidence_label in ONLINE_PRELAUNCH_ARTIFACT_EVIDENCE_LABELS:
@@ -3557,6 +3718,7 @@ def _validate_future_native_arg_slot_online_merged_multiprogram_runner_evidence(
     ),
     arg_slot_mirror_field: str = "scale_metadata_handle",
     require_kernel_launch_context_abi: bool = True,
+    require_kernel_invocation_abi: bool = True,
 ) -> list[str]:
     failure_prefix = "online_merged_multiprogram_arg_slot_runner"
     failures: list[str] = []
@@ -3596,6 +3758,8 @@ def _validate_future_native_arg_slot_online_merged_multiprogram_runner_evidence(
         ):
             if evidence.get(key) is not True:
                 failures.append(f"{failure_prefix}_{key}_missing")
+    if require_kernel_invocation_abi and evidence.get("require_kernel_invocation_abi") is not True:
+        failures.append(f"{failure_prefix}_require_kernel_invocation_abi_missing")
 
     source_count = _int_metric(evidence, "selected_source_count")
     merged_row_count = _int_metric(evidence, "merged_row_count")
@@ -3648,6 +3812,15 @@ def _validate_future_native_arg_slot_online_merged_multiprogram_runner_evidence(
                 expected_device=expected_device,
             )
         )
+    if require_kernel_invocation_abi:
+        failures.extend(
+            _validate_invocation_runner_metrics(
+                evidence,
+                prefix="kernel_invocation",
+                failure_prefix=failure_prefix,
+                expected_device=expected_device,
+            )
+        )
 
     stub_summary = evidence.get("stub_summary")
     if not isinstance(stub_summary, dict):
@@ -3687,6 +3860,23 @@ def _validate_future_native_arg_slot_online_merged_multiprogram_runner_evidence(
                     failure_prefix=f"{failure_prefix}_stub_summary",
                     expected_rows=merged_row_count,
                     expected_device=expected_device,
+                )
+            )
+        if require_kernel_invocation_abi:
+            failures.extend(
+                _validate_invocation_stub_summary_metrics(
+                    stub_summary,
+                    failure_prefix=f"{failure_prefix}_stub_summary",
+                    expected_rows=merged_row_count,
+                    expected_device=expected_device,
+                )
+            )
+            failures.extend(
+                _validate_invocation_cross_layer_metrics(
+                    evidence,
+                    stub_summary,
+                    other_label="stub_summary",
+                    failure_prefix=failure_prefix,
                 )
             )
 
@@ -3734,6 +3924,24 @@ def _validate_future_native_arg_slot_online_merged_multiprogram_runner_evidence(
                 failure_prefix="kernel_launch_context",
                 expected_rows=merged_row_count,
                 expected_device=expected_device,
+            )
+        )
+    if require_kernel_invocation_abi:
+        failures.extend(
+            f"{failure_prefix}_stub:{failure}"
+            for failure in _validate_invocation_stub_summary_metrics(
+                stub_payload,
+                failure_prefix="kernel_invocation",
+                expected_rows=merged_row_count,
+                expected_device=expected_device,
+            )
+        )
+        failures.extend(
+            _validate_invocation_cross_layer_metrics(
+                evidence,
+                stub_payload,
+                other_label="stub_payload",
+                failure_prefix=failure_prefix,
             )
         )
     return failures
@@ -6273,6 +6481,69 @@ def run_premap_lab_preflight(
             _bool_metric(
                 online_merged_multiprogram_runner_payload,
                 "current_wna16_arg_compatible",
+            )
+        ),
+        "default_kernel_consumer_online_merged_multiprogram_require_kernel_invocation_abi": (
+            _bool_metric(
+                online_merged_multiprogram_runner_payload,
+                "require_kernel_invocation_abi",
+            )
+        ),
+        "default_kernel_consumer_kernel_invocation_checked": (
+            _bool_metric(online_merged_multiprogram_runner_payload, "kernel_invocation_checked")
+        ),
+        "default_kernel_consumer_kernel_invocation_all_handle_fields_read": (
+            _bool_metric(
+                online_merged_multiprogram_runner_payload,
+                "kernel_invocation_all_handle_fields_read",
+            )
+        ),
+        "default_kernel_consumer_kernel_invocation_packet_chain_depth": (
+            _int_metric(
+                online_merged_multiprogram_runner_payload,
+                "kernel_invocation_packet_chain_depth",
+            )
+        ),
+        "default_kernel_consumer_kernel_invocation_payload_bytes": (
+            _int_metric(
+                online_merged_multiprogram_runner_payload,
+                "kernel_invocation_payload_bytes",
+            )
+        ),
+        "default_kernel_consumer_kernel_invocation_passed_to_kernel": (
+            _bool_metric(
+                online_merged_multiprogram_runner_payload,
+                "kernel_invocation_passed_to_kernel",
+            )
+        ),
+        "default_kernel_consumer_kernel_invocation_kernel_arg_pass_allowed": (
+            _bool_metric(
+                online_merged_multiprogram_runner_payload,
+                "kernel_invocation_kernel_arg_pass_allowed",
+            )
+        ),
+        "default_kernel_consumer_kernel_invocation_current_wna16_arg_compatible": (
+            _bool_metric(
+                online_merged_multiprogram_runner_payload,
+                "kernel_invocation_current_wna16_arg_compatible",
+            )
+        ),
+        "default_kernel_consumer_kernel_invocation_row_hash_accumulator": (
+            _hex_metric_text(
+                online_merged_multiprogram_runner_payload,
+                "kernel_invocation_row_hash_accumulator",
+            )
+        ),
+        "default_kernel_consumer_kernel_invocation_field_read_hash_accumulator": (
+            _hex_metric_text(
+                online_merged_multiprogram_runner_payload,
+                "kernel_invocation_field_read_hash_accumulator",
+            )
+        ),
+        "default_kernel_consumer_kernel_invocation_row_metadata_hash_accumulator": (
+            _hex_metric_text(
+                online_merged_multiprogram_runner_payload,
+                "kernel_invocation_row_metadata_hash_accumulator",
             )
         ),
         "default_kernel_consumer_dispatch_runner_row_hashchain_all_valid": (
