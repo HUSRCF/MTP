@@ -4750,6 +4750,22 @@ def run_premap_lab_preflight(
         dispatch_runner_summary,
         "future_kernel_native_arg_slot_consumer_single_field_mirror_row_ok_count",
     )
+    schema_summary = (
+        default_kernel_consumer_schema_check.get("schema_check")
+        if isinstance(default_kernel_consumer_schema_check.get("schema_check"), dict)
+        else default_kernel_consumer_schema_check
+    )
+    schema_row_field_names = schema_summary.get("row_field_names")
+    if not isinstance(schema_row_field_names, list):
+        schema_row_field_names = []
+    future_kernel_args_layout_expected = schema_summary.get(
+        "future_kernel_consumer_args_layout_expected",
+    )
+    if not isinstance(future_kernel_args_layout_expected, dict):
+        future_kernel_args_layout_expected = {}
+    required_gate_checks = schema_summary.get("required_gate_checks")
+    if not isinstance(required_gate_checks, dict):
+        required_gate_checks = {}
     online_merged_arg_slot_summary = online_merged_multiprogram_runner_payload.get(
         "stub_summary",
     )
@@ -4817,10 +4833,20 @@ def run_premap_lab_preflight(
         if online_merged_consumer_view_checked
         else dispatch_runner_summary
     )
+    consumer_view_status_source = (
+        "online_merged_arg_slot_summary"
+        if online_merged_consumer_view_checked
+        else "dispatch_runner_summary"
+    )
     consumer_view_row_window_summary = (
         online_merged_arg_slot_summary
         if online_merged_consumer_view_checked and online_merged_dispatch_checked
         else dispatch_runner_summary
+    )
+    consumer_view_row_window_source = (
+        "online_merged_arg_slot_summary"
+        if online_merged_consumer_view_checked and online_merged_dispatch_checked
+        else "dispatch_runner_summary"
     )
     consumer_view_field_read_row_ok_counts: dict[str, int | None] = {}
     consumer_view_field_read_error_counts: dict[str, int | None] = {}
@@ -4885,6 +4911,80 @@ def run_premap_lab_preflight(
         all(value is not None for value in dispatch_row_window.values())
         and all(value is not None for value in consumer_view_row_window.values())
         and consumer_view_row_window == dispatch_row_window
+    )
+    consumer_view_source = consumer_view_summary.get(
+        "future_kernel_native_consumer_view_source"
+    )
+    consumer_view_source = (
+        consumer_view_source if isinstance(consumer_view_source, str) else None
+    )
+    expected_consumer_view_source = schema_summary.get(
+        "future_kernel_native_consumer_view_abi_source"
+    )
+    expected_consumer_view_source = (
+        expected_consumer_view_source
+        if isinstance(expected_consumer_view_source, str)
+        else None
+    )
+    consumer_view_source_matches_schema = (
+        consumer_view_source is not None
+        and expected_consumer_view_source is not None
+        and consumer_view_source == expected_consumer_view_source
+    )
+    consumer_view_source_packet_chain_depth = _int_metric(
+        consumer_view_summary,
+        "future_kernel_native_consumer_view_source_packet_chain_depth",
+    )
+    consumer_view_payload_bytes = _int_metric(
+        consumer_view_summary,
+        "future_kernel_native_consumer_view_payload_bytes",
+    )
+    consumer_view_passed_to_kernel = _bool_metric(
+        consumer_view_summary,
+        "future_kernel_native_consumer_view_passed_to_kernel",
+    )
+    consumer_view_changes_kernel_launch_args = _bool_metric(
+        consumer_view_summary,
+        "future_kernel_native_consumer_view_changes_kernel_launch_args",
+    )
+    consumer_view_current_wna16_arg_compatible = _bool_metric(
+        consumer_view_summary,
+        "future_kernel_native_consumer_view_current_wna16_arg_compatible",
+    )
+    consumer_view_requires_wna16_arg_reinterpretation = _bool_metric(
+        consumer_view_summary,
+        "future_kernel_native_consumer_view_requires_wna16_arg_reinterpretation",
+    )
+    consumer_view_required_source_depth = required_gate_checks.get(
+        "consumer_view_source_packet_chain_depth_required"
+    )
+    consumer_view_required_payload_bytes = required_gate_checks.get(
+        "payload_bytes_required"
+    )
+    consumer_view_required_passed_to_kernel = required_gate_checks.get(
+        "passed_to_kernel_required"
+    )
+    consumer_view_required_changes_kernel_launch_args = required_gate_checks.get(
+        "changes_kernel_launch_args_required"
+    )
+    consumer_view_required_current_wna16_arg_compatible = required_gate_checks.get(
+        "current_wna16_arg_compatible_required"
+    )
+    consumer_view_expected_requires_reinterpretation = schema_summary.get(
+        "future_kernel_native_consumer_view_abi_requires_wna16_arg_reinterpretation"
+    )
+    consumer_view_safety_matches_required = (
+        consumer_view_source_matches_schema
+        and consumer_view_source_packet_chain_depth
+        == consumer_view_required_source_depth
+        and consumer_view_payload_bytes == consumer_view_required_payload_bytes
+        and consumer_view_passed_to_kernel == consumer_view_required_passed_to_kernel
+        and consumer_view_changes_kernel_launch_args
+        == consumer_view_required_changes_kernel_launch_args
+        and consumer_view_current_wna16_arg_compatible
+        == consumer_view_required_current_wna16_arg_compatible
+        and consumer_view_requires_wna16_arg_reinterpretation
+        == consumer_view_expected_requires_reinterpretation
     )
     future_kernel_args_summary = dispatch_runner_payload.get(
         "future_kernel_args_stub_summary",
@@ -5000,22 +5100,6 @@ def run_premap_lab_preflight(
             failures.append(
                 "default_kernel_consumer_dispatch_runner_projection_hashchain_mismatch"
             )
-    schema_summary = (
-        default_kernel_consumer_schema_check.get("schema_check")
-        if isinstance(default_kernel_consumer_schema_check.get("schema_check"), dict)
-        else default_kernel_consumer_schema_check
-    )
-    schema_row_field_names = schema_summary.get("row_field_names")
-    if not isinstance(schema_row_field_names, list):
-        schema_row_field_names = []
-    future_kernel_args_layout_expected = schema_summary.get(
-        "future_kernel_consumer_args_layout_expected",
-    )
-    if not isinstance(future_kernel_args_layout_expected, dict):
-        future_kernel_args_layout_expected = {}
-    required_gate_checks = schema_summary.get("required_gate_checks")
-    if not isinstance(required_gate_checks, dict):
-        required_gate_checks = {}
     arg_slot_projection_field_names = list(ARG_SLOT_MIRROR_FIELDS)
     arg_slot_projection_all_handle_fields_schema_covered = set(
         arg_slot_projection_field_names
@@ -5056,6 +5140,14 @@ def run_premap_lab_preflight(
     ):
         failures.append(
             "default_kernel_consumer_consumer_view_row_window_mismatch"
+        )
+    if (
+        not allow_missing_evidence
+        and not defer_online_prelaunch_runner_evidence
+        and not consumer_view_safety_matches_required
+    ):
+        failures.append(
+            "default_kernel_consumer_consumer_view_safety_contract_mismatch"
         )
     lab_gate_status_summary = {
         "passed": not failures,
@@ -5848,11 +5940,21 @@ def run_premap_lab_preflight(
         "default_kernel_consumer_consumer_view_field_read_hashes": (
             consumer_view_field_read_hashes
         ),
+        "default_kernel_consumer_consumer_view_status_source": (
+            consumer_view_status_source
+        ),
+        "default_kernel_consumer_consumer_view_row_window_source": (
+            consumer_view_row_window_source
+        ),
+        "default_kernel_consumer_consumer_view_source": consumer_view_source,
+        "default_kernel_consumer_consumer_view_source_expected": (
+            expected_consumer_view_source
+        ),
+        "default_kernel_consumer_consumer_view_source_matches_schema": (
+            consumer_view_source_matches_schema
+        ),
         "default_kernel_consumer_consumer_view_source_packet_chain_depth": (
-            _int_metric(
-                consumer_view_summary,
-                "future_kernel_native_consumer_view_source_packet_chain_depth",
-            )
+            consumer_view_source_packet_chain_depth
         ),
         "default_kernel_consumer_dispatch_row_window": dispatch_row_window,
         "default_kernel_consumer_consumer_view_row_window": (
@@ -5871,34 +5973,22 @@ def run_premap_lab_preflight(
             consumer_view_row_window.get("rows_per_program")
         ),
         "default_kernel_consumer_consumer_view_payload_bytes": (
-            _int_metric(
-                consumer_view_summary,
-                "future_kernel_native_consumer_view_payload_bytes",
-            )
+            consumer_view_payload_bytes
         ),
         "default_kernel_consumer_consumer_view_passed_to_kernel": (
-            _bool_metric(
-                consumer_view_summary,
-                "future_kernel_native_consumer_view_passed_to_kernel",
-            )
+            consumer_view_passed_to_kernel
         ),
         "default_kernel_consumer_consumer_view_changes_kernel_launch_args": (
-            _bool_metric(
-                consumer_view_summary,
-                "future_kernel_native_consumer_view_changes_kernel_launch_args",
-            )
+            consumer_view_changes_kernel_launch_args
         ),
         "default_kernel_consumer_consumer_view_current_wna16_arg_compatible": (
-            _bool_metric(
-                consumer_view_summary,
-                "future_kernel_native_consumer_view_current_wna16_arg_compatible",
-            )
+            consumer_view_current_wna16_arg_compatible
         ),
         "default_kernel_consumer_consumer_view_requires_wna16_arg_reinterpretation": (
-            _bool_metric(
-                consumer_view_summary,
-                "future_kernel_native_consumer_view_requires_wna16_arg_reinterpretation",
-            )
+            consumer_view_requires_wna16_arg_reinterpretation
+        ),
+        "default_kernel_consumer_consumer_view_safety_matches_required": (
+            consumer_view_safety_matches_required
         ),
         "default_kernel_consumer_arg_slot_error_count": (
             _int_metric(
