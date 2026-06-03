@@ -46,6 +46,9 @@ def _write_field_check(
         "require_child_kernel_entry_args_abi": bool(
             require_kernel_entry_args_abi
         ),
+        "require_child_kernel_entry_row_metadata": bool(
+            require_kernel_entry_args_abi
+        ),
         "require_non_degenerate_windows": True,
         "row_count": row_count,
         "windows_checked": ["full", "head", "middle", "tail"],
@@ -198,6 +201,7 @@ def test_all_field_window_sweep_check_accepts_program_view_ptr_requirement(
     assert result["require_child_program_view_ptr_abi"] is True
     assert result["require_child_kernel_arg_packet_abi"] is True
     assert result["require_child_kernel_entry_args_abi"] is True
+    assert result["require_child_kernel_entry_row_metadata"] is True
 
 
 def test_all_field_window_sweep_check_rejects_missing_program_view_ptr_gate(

@@ -121,6 +121,7 @@ def _check_field_report(
         expected_pairs["require_child_kernel_arg_packet_abi"] = True
     if require_child_kernel_entry_args_abi:
         expected_pairs["require_child_kernel_entry_args_abi"] = True
+        expected_pairs["require_child_kernel_entry_row_metadata"] = True
     for key, expected in expected_pairs.items():
         if check_payload.get(key) != expected:
             failures.append(f"{field}_check_{key}_mismatch")
@@ -152,6 +153,10 @@ def _check_field_report(
         if recomputed.get("require_child_kernel_entry_args_abi") is not True:
             failures.append(
                 f"{field}_entry_args_window_recheck_did_not_require_entry_args"
+            )
+        if recomputed.get("require_child_kernel_entry_row_metadata") is not True:
+            failures.append(
+                f"{field}_entry_args_window_recheck_did_not_require_row_metadata"
             )
     return failures
 
@@ -287,6 +292,9 @@ def check_all_field_window_sweep_artifact(
             require_child_kernel_arg_packet_abi
         ),
         "require_child_kernel_entry_args_abi": bool(
+            require_child_kernel_entry_args_abi
+        ),
+        "require_child_kernel_entry_row_metadata": bool(
             require_child_kernel_entry_args_abi
         ),
         "mirror_fields_checked": list(MIRROR_FIELDS),

@@ -49,6 +49,7 @@ def _status_payload(name: str) -> dict[str, object]:
                 "require_child_program_view_ptr_abi": True,
                 "require_child_kernel_arg_packet_abi": True,
                 "require_child_kernel_entry_args_abi": True,
+                "require_child_kernel_entry_row_metadata": True,
                 "require_non_degenerate_windows": True,
                 "windows_checked": ["full", "head", "middle", "tail"],
             }
@@ -66,6 +67,7 @@ def _status_payload(name: str) -> dict[str, object]:
                 "require_child_program_view_ptr_abi": True,
                 "require_child_kernel_arg_packet_abi": True,
                 "require_child_kernel_entry_args_abi": True,
+                "require_child_kernel_entry_row_metadata": True,
                 "mirror_fields_checked": [
                     "descriptor_ptr",
                     "packed_weight_descriptor",
@@ -283,6 +285,26 @@ def test_lab_gate_verify_check_rejects_window_checker_without_kernel_entry_args_
     ]
 
 
+def test_lab_gate_verify_check_rejects_window_checker_without_kernel_entry_row_metadata(
+    tmp_path: Path,
+):
+    path = tmp_path / "verify.json"
+    payload = _write_verify(path)
+    statuses = payload["statuses"]
+    assert isinstance(statuses, dict)
+    window_check = statuses["window_sweep_check"]
+    assert isinstance(window_check, dict)
+    window_check["require_child_kernel_entry_row_metadata"] = False
+    path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+
+    result = check_lab_gate_verify_artifact(path)
+
+    assert result["passed"] is False
+    assert "window_sweep_check_did_not_require_kernel_entry_row_metadata" in result[
+        "failures"
+    ]
+
+
 def test_lab_gate_verify_check_rejects_window_checker_without_nondegenerate_gate(
     tmp_path: Path,
 ):
@@ -465,6 +487,27 @@ def test_lab_gate_verify_check_rejects_all_field_checker_without_kernel_entry_ar
     assert result["passed"] is False
     assert (
         "all_field_window_sweep_check_did_not_require_kernel_entry_args_abi"
+        in result["failures"]
+    )
+
+
+def test_lab_gate_verify_check_rejects_all_field_checker_without_kernel_entry_row_metadata(
+    tmp_path: Path,
+):
+    path = tmp_path / "verify.json"
+    payload = _write_verify(path)
+    statuses = payload["statuses"]
+    assert isinstance(statuses, dict)
+    all_field_check = statuses["all_field_window_sweep_check"]
+    assert isinstance(all_field_check, dict)
+    all_field_check["require_child_kernel_entry_row_metadata"] = False
+    path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+
+    result = check_lab_gate_verify_artifact(path)
+
+    assert result["passed"] is False
+    assert (
+        "all_field_window_sweep_check_did_not_require_kernel_entry_row_metadata"
         in result["failures"]
     )
 

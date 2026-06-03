@@ -137,6 +137,9 @@ def _load_status(path: Path) -> dict[str, Any]:
         "require_child_kernel_entry_args_abi": payload.get(
             "require_child_kernel_entry_args_abi"
         ),
+        "require_child_kernel_entry_row_metadata": payload.get(
+            "require_child_kernel_entry_row_metadata"
+        ),
         "require_non_degenerate_windows": payload.get(
             "require_non_degenerate_windows"
         ),
@@ -202,6 +205,8 @@ def _status_failures(statuses: dict[str, dict[str, Any]]) -> list[str]:
         failures.append("window_sweep_check_did_not_require_kernel_arg_packet_abi")
     if window_check.get("require_child_kernel_entry_args_abi") is not True:
         failures.append("window_sweep_check_did_not_require_kernel_entry_args_abi")
+    if window_check.get("require_child_kernel_entry_row_metadata") is not True:
+        failures.append("window_sweep_check_did_not_require_kernel_entry_row_metadata")
     if window_check.get("require_non_degenerate_windows") is not True:
         failures.append("window_sweep_check_did_not_require_non_degenerate_windows")
     if window_check.get("expected_window_size") != 512:
@@ -245,6 +250,10 @@ def _status_failures(statuses: dict[str, dict[str, Any]]) -> list[str]:
     if all_field_check.get("require_child_kernel_entry_args_abi") is not True:
         failures.append(
             "all_field_window_sweep_check_did_not_require_kernel_entry_args_abi"
+        )
+    if all_field_check.get("require_child_kernel_entry_row_metadata") is not True:
+        failures.append(
+            "all_field_window_sweep_check_did_not_require_kernel_entry_row_metadata"
         )
     if all_field_check.get("expected_window_size") != 512:
         failures.append("all_field_window_sweep_check_window_size_mismatch")

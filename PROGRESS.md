@@ -2,7 +2,7 @@
 
 ## Progress Version
 
-- Version: `v0.50-kernel-consumer-required-gate-checks`
+- Version: `v0.51-entry-args-row-metadata-gate`
 - Updated: 2026-06-03
 - Current phase: premap descriptor/address prep now has a typed
   kernel-side consumer object, a launch-shaped future native ABI, and a
@@ -58,7 +58,50 @@
   follow-up now makes that optional compatibility strict: legacy artifacts may
   omit the consumer-view projection field, but if the field exists it must parse
   as a valid uint64 hex value and participate in the four-way projection
-  hashchain.
+  hashchain.  The latest hardening makes future kernel-entry args row metadata
+  a first-class lab gate requirement, and fixes the checker path so requiring
+  both kernel-arg packet ABI and kernel-entry args ABI validates both branches
+  rather than letting the packet check mask entry-args evidence.
+
+## Latest Update: Kernel-Entry Args Row Metadata Gate
+
+The future-native kernel-entry args ABI now has an explicit row-metadata gate.
+When the lab gate requires `--require-child-kernel-entry-args-abi`, the window
+checker and all-field checker now also return and require:
+
+```text
+require_child_kernel_entry_row_metadata = true
+```
+
+The checker path was also tightened so `require_child_kernel_arg_packet_abi`
+and `require_child_kernel_entry_args_abi` are independent requirements.  A
+child artifact can no longer satisfy the default lab gate by passing the
+kernel-arg packet ABI while omitting kernel-entry args row metadata.  The lab
+gate runner now preserves this field in its compact status summaries, and the
+top-level lab gate checker rejects artifacts that omit it.
+
+Validation:
+
+```bash
+python -m pytest \
+  tests/test_check_premap_online_merged_native_arg_slot_window_sweep.py \
+  tests/test_check_premap_online_merged_native_arg_slot_all_field_window_sweep.py \
+  tests/test_check_premap_lab_gate_verify.py \
+  tests/test_run_premap_lab_gate_verify.py -q
+# 63 passed
+
+python scripts/run_premap_lab_gate_verify.py \
+  --output-json outputs/reports/premap_lab_gate_verify.json
+
+python scripts/check_premap_lab_gate_verify.py \
+  outputs/reports/premap_lab_gate_verify.json \
+  --output-json outputs/reports/premap_lab_gate_verify.check.json
+# passed
+```
+
+Boundary remains unchanged: this is still a readonly future-kernel ABI gate.
+Payload bytes remain zero, the typed table is not passed to the current WNA16
+kernel, and launch arguments are not mutated.
 
 ## Latest Update: Required Consumer-View Gate Checks
 

@@ -619,7 +619,7 @@ def _check_child_stub_artifact(
                 expected_active=expected_active,
             )
         )
-    elif require_child_kernel_entry_args_abi:
+    if require_child_kernel_entry_args_abi:
         failures.extend(
             _check_kernel_entry_args(
                 stub_payload,
@@ -748,7 +748,7 @@ def _check_child_artifact(
                     expected_active=expected_active,
                 )
             )
-        elif require_child_kernel_entry_args_abi:
+        if require_child_kernel_entry_args_abi:
             failures.extend(
                 _check_kernel_entry_args(
                     stub_summary,
@@ -915,6 +915,9 @@ def check_window_sweep_artifact(
             require_child_kernel_arg_packet_abi
         ),
         "require_child_kernel_entry_args_abi": bool(
+            require_child_kernel_entry_args_abi
+        ),
+        "require_child_kernel_entry_row_metadata": bool(
             require_child_kernel_entry_args_abi
         ),
         "row_count": row_count,
