@@ -136,6 +136,15 @@ def _summary() -> dict[str, object]:
         "default_kernel_consumer_kernel_entry_args_summary_row_metadata_read_row_ok_count": 1841,
         "default_kernel_consumer_kernel_entry_args_summary_error_count": 0,
         "default_kernel_consumer_kernel_entry_args_summary_field_mask": 15,
+        "default_kernel_consumer_kernel_entry_args_summary_row_hash_accumulator": (
+            "c4b51a0fa5ba88c4"
+        ),
+        "default_kernel_consumer_kernel_entry_args_summary_field_read_hash_accumulator": (
+            "c2e4ae7fa9bc3227"
+        ),
+        "default_kernel_consumer_kernel_entry_args_summary_row_metadata_hash_accumulator": (
+            "1a11b42afa9e8576"
+        ),
         "default_kernel_consumer_kernel_entry_args_all_handle_fields_read": True,
         "default_kernel_consumer_kernel_entry_args_payload_bytes": 0,
         "default_kernel_consumer_kernel_entry_args_passed_to_kernel": False,
@@ -336,6 +345,21 @@ def test_check_premap_lab_preflight_summary_rejects_kernel_entry_read_gap() -> N
         in result["failures"]
     )
     assert "kernel_entry_args_summary_error_count_mismatch" in result["failures"]
+
+
+def test_check_premap_lab_preflight_summary_rejects_kernel_entry_hash_gap() -> None:
+    summary = _summary()
+    summary[
+        "default_kernel_consumer_kernel_entry_args_summary_field_read_hash_accumulator"
+    ] = "not-hex"
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is False
+    assert (
+        "default_kernel_consumer_kernel_entry_args_summary_field_read_hash_accumulator_invalid"
+        in result["failures"]
+    )
 
 
 def test_check_premap_lab_preflight_summary_cli_writes_output(tmp_path: Path) -> None:

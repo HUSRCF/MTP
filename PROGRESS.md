@@ -2,7 +2,7 @@
 
 ## Progress Version
 
-- Version: `v0.56-compact-kernel-entry-readpath-preflight`
+- Version: `v0.57-compact-kernel-entry-hash-preflight`
 - Updated: 2026-06-03
 - Current phase: premap descriptor/address prep now has a typed
   kernel-side consumer object, a launch-shaped future native ABI, and a
@@ -78,9 +78,48 @@
   kernel-entry args row-read path, requiring
   `kernel_entry_args -> kernel_arg_packet -> program_view -> rows` to read all
   four typed handle fields plus row metadata while keeping payload bytes,
-  kernel-arg pass, and current WNA16 compatibility disabled.
+  kernel-arg pass, and current WNA16 compatibility disabled.  The compact
+  status also now carries and gates the entry-args row, field-read, and
+  row-metadata hash accumulators as valid uint64 hex strings, so the read path
+  is bound to deterministic native evidence instead of only count closure.
 
-## Latest Update: Compact Kernel-Entry Read-Path Gate
+## Latest Update: Compact Kernel-Entry Hash Gate
+
+The lab preflight summary now exposes native hash accumulators from the
+future kernel-entry args path:
+
+```text
+default_kernel_consumer_kernel_entry_args_summary_row_hash_accumulator
+default_kernel_consumer_kernel_entry_args_summary_field_read_hash_accumulator
+default_kernel_consumer_kernel_entry_args_summary_row_metadata_hash_accumulator
+```
+
+`scripts/check_premap_lab_preflight_summary.py` gates them as non-empty uint64
+hex strings.  This keeps the entry path readonly and disconnected from current
+WNA16 launch args, while making compact preflight evidence bind both counts and
+native row/read hashes.
+
+Validation:
+
+```bash
+python -m pytest \
+  tests/test_check_premap_lab_preflight_summary.py \
+  tests/test_run_premap_lab_preflight.py -q
+# 118 passed
+
+python scripts/run_premap_lab_preflight.py --summary-only \
+  --output-json outputs/reports/premap_lab_preflight_default_with_gate_schema_sha256.json
+
+python scripts/check_premap_lab_preflight_summary.py \
+  outputs/reports/premap_lab_preflight_default_with_gate_schema_sha256.json \
+  --output-json outputs/reports/premap_lab_preflight_default_with_gate_schema_sha256.check.json
+# passed
+
+python -m pytest tests -q
+# 991 passed
+```
+
+## Previous Update: Compact Kernel-Entry Read-Path Gate
 
 The compact lab preflight now proves that the future native kernel-entry args
 object is not only layout-compatible, but actually reads through the intended

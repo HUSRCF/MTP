@@ -5852,6 +5852,21 @@ def run_premap_lab_preflight(
                 "future_kernel_native_consumer_kernel_entry_args_summary_field_mask",
             )
         ),
+        "default_kernel_consumer_kernel_entry_args_summary_row_hash_accumulator": (
+            online_merged_arg_slot_summary.get(
+                "future_kernel_native_consumer_kernel_entry_args_summary_row_hash_accumulator"
+            )
+        ),
+        "default_kernel_consumer_kernel_entry_args_summary_field_read_hash_accumulator": (
+            online_merged_arg_slot_summary.get(
+                "future_kernel_native_consumer_kernel_entry_args_summary_field_read_hash_accumulator"
+            )
+        ),
+        "default_kernel_consumer_kernel_entry_args_summary_row_metadata_hash_accumulator": (
+            online_merged_arg_slot_summary.get(
+                "future_kernel_native_consumer_kernel_entry_args_summary_row_metadata_hash_accumulator"
+            )
+        ),
         "default_kernel_consumer_kernel_entry_args_all_handle_fields_read": (
             kernel_entry_args_all_handle_fields_read
         ),

@@ -1888,6 +1888,15 @@ def _standalone_arg_slot_multiprogram_canary_payload(
             ),
             "future_kernel_native_consumer_kernel_entry_args_summary_error_count": 0,
             "future_kernel_native_consumer_kernel_entry_args_summary_field_mask": 15,
+            "future_kernel_native_consumer_kernel_entry_args_summary_row_hash_accumulator": (
+                "c4b51a0fa5ba88c4"
+            ),
+            "future_kernel_native_consumer_kernel_entry_args_summary_field_read_hash_accumulator": (
+                "c2e4ae7fa9bc3227"
+            ),
+            "future_kernel_native_consumer_kernel_entry_args_summary_row_metadata_hash_accumulator": (
+                "1a11b42afa9e8576"
+            ),
             "future_kernel_native_consumer_kernel_entry_args_payload_bytes": 0,
             "future_kernel_native_consumer_kernel_entry_args_passed_to_kernel": False,
             "future_kernel_native_consumer_kernel_entry_args_changes_kernel_launch_args": (
@@ -3090,6 +3099,24 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     )
     assert summary["default_kernel_consumer_kernel_entry_args_summary_error_count"] == 0
     assert summary["default_kernel_consumer_kernel_entry_args_summary_field_mask"] == 15
+    assert (
+        summary[
+            "default_kernel_consumer_kernel_entry_args_summary_row_hash_accumulator"
+        ]
+        == "c4b51a0fa5ba88c4"
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_kernel_entry_args_summary_field_read_hash_accumulator"
+        ]
+        == "c2e4ae7fa9bc3227"
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_kernel_entry_args_summary_row_metadata_hash_accumulator"
+        ]
+        == "1a11b42afa9e8576"
+    )
     assert summary["default_kernel_consumer_kernel_entry_args_payload_bytes"] == 0
     assert summary["default_kernel_consumer_kernel_entry_args_passed_to_kernel"] is False
     assert (

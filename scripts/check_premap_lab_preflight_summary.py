@@ -62,6 +62,16 @@ def _is_hex64(value: Any) -> bool:
     return True
 
 
+def _is_hex_u64(value: Any) -> bool:
+    if not isinstance(value, str) or not value or len(value) > 16:
+        return False
+    try:
+        parsed = int(value, 16)
+    except ValueError:
+        return False
+    return 0 <= parsed <= 0xFFFFFFFFFFFFFFFF
+
+
 def _int_metric(summary: dict[str, Any], key: str) -> int | None:
     value = summary.get(key)
     return value if isinstance(value, int) and not isinstance(value, bool) else None
@@ -282,6 +292,13 @@ def check_premap_lab_preflight_summary(
         != 15
     ):
         failures.append("kernel_entry_args_summary_field_mask_mismatch")
+    for key in (
+        "default_kernel_consumer_kernel_entry_args_summary_row_hash_accumulator",
+        "default_kernel_consumer_kernel_entry_args_summary_field_read_hash_accumulator",
+        "default_kernel_consumer_kernel_entry_args_summary_row_metadata_hash_accumulator",
+    ):
+        if not _is_hex_u64(summary.get(key)):
+            failures.append(f"{key}_invalid")
 
     if summary.get("default_kernel_consumer_schema_row_field_names") != REQUIRED_ROW_FIELDS:
         failures.append("schema_row_field_names_mismatch")
