@@ -80,6 +80,16 @@ kernel-arg packet ABI while omitting kernel-entry args row metadata.  The lab
 gate runner now preserves this field in its compact status summaries, and the
 top-level lab gate checker rejects artifacts that omit it.
 
+The typed consumer schema now mirrors this contract in `required_gate_checks`:
+
+```text
+kernel_entry_summary_row_metadata_required = true
+kernel_entry_args_row_metadata_required = true
+```
+
+This keeps the schema artifact, preflight summary, window/all-field checkers,
+and one-step lab gate verifier aligned on the same future-kernel ABI boundary.
+
 Validation:
 
 ```bash
@@ -97,6 +107,15 @@ python scripts/check_premap_lab_gate_verify.py \
   outputs/reports/premap_lab_gate_verify.json \
   --output-json outputs/reports/premap_lab_gate_verify.check.json
 # passed
+
+env PYTHONPATH=src:. python scripts/check_premap_kernel_consumer_schema.py \
+  configs/runtime/premap_kernel_side_typed_consumer_schema_v1.yaml \
+  --output-json outputs/reports/premap_kernel_consumer/schema_v1_entry_row_metadata_gate.check.json
+# passed
+
+python -m pytest tests/test_premap_kernel_consumer_schema.py \
+  tests/test_run_premap_lab_preflight.py -q
+# 127 passed
 ```
 
 Boundary remains unchanged: this is still a readonly future-kernel ABI gate.

@@ -170,8 +170,9 @@ kernel.
 The schema also carries a `required_gate_checks` block.  This block is part of
 the lab preflight contract, not just documentation: the checker requires the
 consumer-view envelope, row layout, handle projection, all four handle fields,
-source packet chain depth of three, zero payload bytes, no kernel pass, no
-kernel launch argument mutation, and `current_wna16_arg_compatible = false`.
+source packet chain depth of three, kernel-entry summary and kernel-entry args
+row-metadata reads, zero payload bytes, no kernel pass, no kernel launch
+argument mutation, and `current_wna16_arg_compatible = false`.
 
 The native stub also reports C++/HIP layout metadata for the future native
 consumer params, launch envelope, and dispatch wrapper: struct size, alignment,

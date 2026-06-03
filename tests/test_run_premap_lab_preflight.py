@@ -514,6 +514,8 @@ def _valid_schema_payload() -> dict:
             "consumer_program_view_row_assignment_formula": (
                 "program_id * rows_per_program + lane_id + row_offset"
             ),
+            "kernel_entry_summary_row_metadata_required": True,
+            "kernel_entry_args_row_metadata_required": True,
             "payload_bytes_required": 0,
             "passed_to_kernel_required": False,
             "changes_kernel_launch_args_required": False,
@@ -2864,6 +2866,8 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
         "consumer_program_view_row_assignment_formula": (
             "program_id * rows_per_program + lane_id + row_offset"
         ),
+        "kernel_entry_summary_row_metadata_required": True,
+        "kernel_entry_args_row_metadata_required": True,
         "payload_bytes_required": 0,
         "passed_to_kernel_required": False,
         "changes_kernel_launch_args_required": False,
