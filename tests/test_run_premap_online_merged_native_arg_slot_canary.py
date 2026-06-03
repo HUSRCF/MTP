@@ -353,6 +353,21 @@ def test_online_merged_arg_slot_canary_macros_can_require_launch_envelope_args_p
     )
 
 
+def test_online_merged_arg_slot_canary_macros_can_require_invocation():
+    module = _load_module()
+
+    macros = module.arg_slot_macros(
+        "scale_metadata_handle",
+        include_invocation=True,
+    )
+
+    assert module.LAUNCH_ENVELOPE_ARGS_MACRO in macros
+    assert module.LAUNCH_ENVELOPE_ARGS_PTR_MACRO in macros
+    assert module.KERNEL_LAUNCH_DESCRIPTOR_MACRO in macros
+    assert module.KERNEL_LAUNCH_CONTEXT_MACRO in macros
+    assert module.INVOCATION_MACRO in macros
+
+
 def test_online_merged_arg_slot_canary_dry_run_accepts_launch_envelope_args(
     tmp_path: Path,
 ):
@@ -797,6 +812,223 @@ def test_online_merged_arg_slot_canary_dry_run_accepts_kernel_launch_context(
             "future_kernel_native_consumer_kernel_launch_context_packet_chain_depth"
         ]
         == 10
+    )
+
+
+def test_online_merged_arg_slot_canary_dry_run_accepts_invocation(
+    tmp_path: Path,
+):
+    module = _load_module()
+    first = tmp_path / "input0.json"
+    second = tmp_path / "input1.json"
+    runner = tmp_path / "runner.json"
+    stub = tmp_path / "stub.json"
+    _write_input(first, start=0, rows=3, export_index=0)
+    _write_input(second, start=100, rows=4, export_index=1)
+    _write_runner(runner, [first, second])
+
+    args = module.build_parser().parse_args(
+        [
+            "--runner-json",
+            str(runner),
+            "--min-source-count",
+            "2",
+            "--min-total-rows",
+            "7",
+            "--block-threads",
+            "4",
+            "--require-kernel-invocation-abi",
+            "--merged-output-json",
+            str(tmp_path / "merged.json"),
+            "--stub-output-json",
+            str(stub),
+            "--output-json",
+            str(tmp_path / "report.json"),
+            "--dry-run",
+        ]
+    )
+
+    result = module.run_canary(args)
+    stub_payload = json.loads(stub.read_text(encoding="utf-8"))
+
+    assert result["passed"] is True
+    assert args.require_launch_envelope_args_abi is False
+    assert args.require_launch_envelope_args_ptr_abi is False
+    assert args.require_kernel_launch_descriptor_abi is False
+    assert args.require_kernel_launch_context_abi is False
+    assert result["require_launch_envelope_args_abi"] is True
+    assert result["require_launch_envelope_args_ptr_abi"] is True
+    assert result["require_kernel_launch_descriptor_abi"] is True
+    assert result["require_kernel_launch_context_abi"] is True
+    assert result["require_kernel_invocation_abi"] is True
+    assert result["kernel_invocation_checked"] is True
+    assert (
+        result["kernel_invocation_abi_name"]
+        == "premap_future_kernel_native_consumer_invocation_abi_v1"
+    )
+    assert (
+        result["kernel_invocation_mode"]
+        == "readonly_future_kernel_native_consumer_invocation_abi"
+    )
+    assert (
+        result["kernel_invocation_source"]
+        == "premap_future_kernel_native_consumer_kernel_launch_context_abi_v1"
+    )
+    assert result["kernel_invocation_error_count"] == 0
+    assert result["kernel_invocation_all_handle_fields_read"] is True
+    assert result["kernel_invocation_packet_chain_depth"] == 11
+    assert result["kernel_invocation_version"] == 1
+    assert result["kernel_invocation_struct_size"] == 72
+    assert result["kernel_invocation_struct_align"] == 8
+    assert result["kernel_invocation_context_struct_size"] == 64
+    assert result["kernel_invocation_summary_struct_size"] == 104
+    assert result["kernel_invocation_pointer_size"] == 8
+    assert result["kernel_invocation_id"] == 1
+    assert result["kernel_invocation_device_ordinal"] == module.LAB_DEFAULT_GPU_DEVICE
+    assert result["kernel_invocation_stream_domain"] == 0
+    assert result["kernel_invocation_payload_bytes"] == 0
+    assert result["kernel_invocation_payload_deref_allowed"] is False
+    assert result["kernel_invocation_passed_to_kernel"] is False
+    assert result["kernel_invocation_kernel_arg_pass_allowed"] is False
+    assert result["kernel_invocation_changes_kernel_launch_args"] is False
+    assert result["kernel_invocation_current_wna16_arg_compatible"] is False
+    assert result["kernel_invocation_requires_wna16_arg_reinterpretation"] is False
+    assert int(result["kernel_invocation_row_hash_accumulator"], 16) == 1
+    assert int(result["kernel_invocation_field_read_hash_accumulator"], 16) == 2
+    assert int(result["kernel_invocation_row_metadata_hash_accumulator"], 16) == 3
+    assert module.LAUNCH_ENVELOPE_ARGS_MACRO in stub_payload["requested_macros"]
+    assert module.LAUNCH_ENVELOPE_ARGS_PTR_MACRO in stub_payload["requested_macros"]
+    assert module.KERNEL_LAUNCH_DESCRIPTOR_MACRO in stub_payload["requested_macros"]
+    assert module.KERNEL_LAUNCH_CONTEXT_MACRO in stub_payload["requested_macros"]
+    assert module.INVOCATION_MACRO in stub_payload["requested_macros"]
+    assert stub_payload["requested_macros"] == module.arg_slot_macros(
+        "scale_metadata_handle",
+        include_invocation=True,
+    )
+    assert (
+        stub_payload["future_kernel_native_consumer_invocation_field_read_path"]
+        == "invocation_to_kernel_launch_context_to_kernel_launch_descriptor_to_launch_envelope_args_ptr_to_launch_envelope_args_to_entry_args_ptr_to_kernel_entry_args_to_kernel_arg_packet_to_program_view_rows"
+    )
+    assert (
+        stub_payload["future_kernel_native_consumer_invocation_summary_row_count"]
+        == 7
+    )
+    assert (
+        stub_payload[
+            "future_kernel_native_consumer_invocation_summary_scale_metadata_handle_read_row_ok_count"
+        ]
+        == 7
+    )
+    assert (
+        stub_payload["future_kernel_native_consumer_invocation_payload_bytes"]
+        == 0
+    )
+    assert (
+        stub_payload[
+            "future_kernel_native_consumer_invocation_kernel_arg_pass_allowed"
+        ]
+        is False
+    )
+    assert (
+        result["stub_summary"][
+            "future_kernel_native_consumer_invocation_packet_chain_depth"
+        ]
+        == 11
+    )
+
+
+def test_online_merged_arg_slot_canary_mock_real_run_accepts_invocation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    module = _load_module()
+    first = tmp_path / "input0.json"
+    second = tmp_path / "input1.json"
+    runner = tmp_path / "runner.json"
+    dry_stub = tmp_path / "stub_dry.json"
+    real_stub = tmp_path / "stub_real.json"
+    _write_input(first, start=0, rows=3, export_index=0)
+    _write_input(second, start=100, rows=4, export_index=1)
+    _write_runner(runner, [first, second])
+
+    dry_args = module.build_parser().parse_args(
+        [
+            "--runner-json",
+            str(runner),
+            "--min-source-count",
+            "2",
+            "--min-total-rows",
+            "7",
+            "--block-threads",
+            "4",
+            "--require-kernel-invocation-abi",
+            "--merged-output-json",
+            str(tmp_path / "merged_dry.json"),
+            "--stub-output-json",
+            str(dry_stub),
+            "--output-json",
+            str(tmp_path / "report_dry.json"),
+            "--dry-run",
+        ]
+    )
+    dry_result = module.run_canary(dry_args)
+    assert dry_result["passed"] is True
+    dry_stub_payload = json.loads(dry_stub.read_text(encoding="utf-8"))
+    captured: dict[str, object] = {}
+
+    def fake_run_stub(namespace):
+        captured["macro"] = list(namespace.macro)
+        captured["input_json"] = str(namespace.input_json)
+        captured["dispatch_row_offset"] = namespace.dispatch_row_offset
+        captured["dispatch_row_limit"] = namespace.dispatch_row_limit
+        payload = dict(dry_stub_payload)
+        payload.pop("dry_run", None)
+        payload["input_json"] = str(namespace.input_json)
+        payload["requested_macros"] = list(namespace.macro)
+        return payload
+
+    monkeypatch.setattr(module, "run_stub", fake_run_stub)
+    real_args = module.build_parser().parse_args(
+        [
+            "--runner-json",
+            str(runner),
+            "--min-source-count",
+            "2",
+            "--min-total-rows",
+            "7",
+            "--block-threads",
+            "4",
+            "--require-kernel-invocation-abi",
+            "--merged-output-json",
+            str(tmp_path / "merged_real.json"),
+            "--stub-output-json",
+            str(real_stub),
+            "--output-json",
+            str(tmp_path / "report_real.json"),
+        ]
+    )
+
+    result = module.run_canary(real_args)
+    stub_payload = json.loads(real_stub.read_text(encoding="utf-8"))
+
+    assert result["passed"] is True
+    assert result["require_kernel_invocation_abi"] is True
+    assert result["kernel_invocation_checked"] is True
+    assert result["kernel_invocation_all_handle_fields_read"] is True
+    assert result["kernel_invocation_passed_to_kernel"] is False
+    assert result["kernel_invocation_kernel_arg_pass_allowed"] is False
+    assert result["kernel_invocation_current_wna16_arg_compatible"] is False
+    assert captured["macro"] == module.arg_slot_macros(
+        "scale_metadata_handle",
+        include_invocation=True,
+    )
+    assert captured["dispatch_row_offset"] == 0
+    assert captured["dispatch_row_limit"] == 7
+    assert stub_payload["requested_macros"] == captured["macro"]
+    assert module.INVOCATION_MACRO in stub_payload["requested_macros"]
+    assert (
+        stub_payload["future_kernel_native_consumer_invocation_packet_chain_depth"]
+        == 11
     )
 
 
