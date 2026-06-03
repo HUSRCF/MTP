@@ -233,6 +233,26 @@ constexpr bool
 constexpr bool
     kPremapFutureKernelNativeConsumerKernelEntryArgsAbiV1CurrentWna16ArgCompatible =
         false;
+constexpr const char*
+    kPremapFutureKernelNativeConsumerKernelEntryArgsPtrAbiV1Name =
+        "premap_future_kernel_native_consumer_kernel_entry_args_ptr_abi_v1";
+constexpr const char*
+    kPremapFutureKernelNativeConsumerKernelEntryArgsPtrAbiV1Mode =
+        "readonly_future_kernel_native_consumer_kernel_entry_args_ptr_abi";
+constexpr const char*
+    kPremapFutureKernelNativeConsumerKernelEntryArgsPtrAbiV1Source =
+        "premap_future_kernel_native_consumer_kernel_entry_args_abi_v1";
+constexpr uint32_t
+    kPremapFutureKernelNativeConsumerKernelEntryArgsPtrAbiV1Version = 1;
+constexpr bool
+    kPremapFutureKernelNativeConsumerKernelEntryArgsPtrAbiV1PayloadDerefAllowed =
+        false;
+constexpr bool
+    kPremapFutureKernelNativeConsumerKernelEntryArgsPtrAbiV1KernelArgPassAllowed =
+        false;
+constexpr bool
+    kPremapFutureKernelNativeConsumerKernelEntryArgsPtrAbiV1CurrentWna16ArgCompatible =
+        false;
 
 constexpr uint32_t kPremapFutureKernelSideConsumerArgsV1ReadonlyFlag = 1u << 0;
 constexpr uint32_t

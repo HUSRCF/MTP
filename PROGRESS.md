@@ -2,7 +2,7 @@
 
 ## Progress Version
 
-- Version: `v0.57-compact-kernel-entry-hash-preflight`
+- Version: `v0.58-entry-args-ptr-native-stub`
 - Updated: 2026-06-03
 - Current phase: premap descriptor/address prep now has a typed
   kernel-side consumer object, a launch-shaped future native ABI, and a
@@ -82,8 +82,113 @@
   status also now carries and gates the entry-args row, field-read, and
   row-metadata hash accumulators as valid uint64 hex strings, so the read path
   is bound to deterministic native evidence instead of only count closure.
+  The latest future-native stub adds a device-side pointer entry layer:
+  `PremapFutureKernelNativeConsumerKernelEntryArgsV1*`.  The standalone native
+  kernel now dereferences that entry pointer, follows
+  `entry_args_ptr -> entry_args -> kernel_arg_packet -> program_view -> rows`,
+  and validates all four typed handle fields plus row metadata while still
+  reporting `payload_bytes=0`, `passed_to_kernel=false`,
+  `changes_kernel_launch_args=false`, and
+  `current_wna16_arg_compatible=false`.  The online merged arg-slot canary now
+  includes this pointer-entry ABI in its default macro chain, so the lab gate
+  closure, full/head/middle/tail window sweep, and all-field sweep all exercise
+  the deeper future-kernel argument path without passing any typed table to the
+  current WNA16 kernel.
 
-## Latest Update: Compact Kernel-Entry Hash Gate
+## Latest Update: Future Kernel-Entry Pointer ABI Gate
+
+The typed native consumer path now includes a closer-to-real future kernel
+entry-point shape:
+
+```text
+PremapFutureKernelNativeConsumerKernelEntryArgsV1*
+```
+
+The new standalone native stub kernel receives a pointer to the entry-args
+object, loads it on device, validates the entry wrapper, and then reads through
+the existing packet chain:
+
+```text
+kernel_entry_args_ptr
+  -> kernel_entry_args
+  -> kernel_arg_packet
+  -> program_view_ptr
+  -> program_view
+  -> typed rows
+```
+
+This is still an independent future ABI/stub path, not the current AWQ WNA16
+fused-MoE launch ABI:
+
+```text
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+current_wna16_arg_compatible = false
+requires_wna16_arg_reinterpretation = false
+```
+
+Validation:
+
+```bash
+python -m pytest \
+  tests/test_premap_typed_consumer_stub.py \
+  tests/test_run_premap_online_merged_native_arg_slot_canary.py -q
+# 36 passed
+
+python scripts/run_premap_typed_consumer_stub.py \
+  --device 1 \
+  --rows 64 \
+  --force-build \
+  --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_SCHEMA \
+  --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_ROW_ITERATION \
+  --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_POINTER_VISIBILITY \
+  --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR \
+  --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_DESCRIPTOR \
+  --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_HANDLE \
+  --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_AUX_METADATA_HANDLE \
+  --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_LIFETIME \
+  --macro MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR \
+  --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ABI \
+  --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ABI \
+  --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_ABI \
+  --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_PTR_ABI \
+  --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ARG_SLOT_ABI \
+  --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_VIEW_ABI \
+  --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_PROGRAM_VIEW_ABI \
+  --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_PROGRAM_VIEW_PTR_ABI \
+  --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ARG_PACKET_ABI \
+  --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ENTRY_ARGS_ABI \
+  --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ENTRY_ARGS_PTR_ABI \
+  --output-json outputs/reports/premap_kernel_consumer/typed_consumer_stub_gpu1_entry_args_ptr_smoke.json
+# ok = true
+# future_kernel_native_consumer_kernel_entry_args_ptr_checked = true
+# row_count = row_ok_count = 64
+# summary_error_count = 0
+
+python scripts/run_premap_online_merged_native_arg_slot_canary.py \
+  --device 1 \
+  --max-inputs 32 \
+  --min-source-count 32 \
+  --min-total-rows 257 \
+  --output-json outputs/reports/premap_kernel_consumer/online_merged_future_native_arg_slot_canary_entry_args_ptr_runner.json \
+  --stub-output-json outputs/reports/premap_kernel_consumer/typed_consumer_stub_gpu1_online_merged_future_native_entry_args_ptr_canary.json \
+  --merged-output-json outputs/reports/premap_kernel_consumer/online_merged_prelaunch_typed_consumer_input_entry_args_ptr.json
+# passed = true
+# selected_source_count = 32
+# merged_row_count = 1841
+# kernel_entry_args_ptr_checked = true
+# kernel_entry_args_ptr_all_handle_fields_read = true
+# kernel_entry_args_ptr_error_count = 0
+
+python scripts/run_premap_lab_gate_verify.py \
+  --output-json outputs/reports/premap_lab_gate_verify_entry_args_ptr.json
+# passed = true
+# window sweep and all-field sweep pass with payload_bytes=0,
+# passed_to_kernel=false, changes_kernel_launch_args=false
+```
+
+## Previous Update: Compact Kernel-Entry Hash Gate
 
 The lab preflight summary now exposes native hash accumulators from the
 future kernel-entry args path:
