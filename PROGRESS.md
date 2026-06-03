@@ -2,7 +2,7 @@
 
 ## Progress Version
 
-- Version: `v0.64-lab-gate-pointer-backed-launch-envelope-args`
+- Version: `v0.65-kernel-launch-descriptor-native-abi-canary`
 - Updated: 2026-06-03
 - Current phase: premap descriptor/address prep now has a typed
   kernel-side consumer object, a launch-shaped future native ABI, and a
@@ -129,6 +129,56 @@
   gate now also requires the child row-window checker to validate this
   pointer-backed launch-envelope ABI, so it is part of the default lab
   precondition before moving closer to a real kernel-side typed consumer path.
+
+## Latest Update: Future Kernel Launch Descriptor Native ABI Canary
+
+Update: the standalone native typed-consumer stub now includes
+`PremapFutureKernelNativeConsumerKernelLaunchDescriptorV1`, a closer-to-real
+future kernel entry object.  The descriptor points at the pointer-backed
+launch-envelope packet plus a summary sink, carries the expected schema hash,
+launch geometry, row window, and readonly safety flags, and then lets the native
+stub follow:
+
+```text
+kernel_launch_descriptor
+  -> launch_envelope_args_ptr
+  -> launch_envelope_args
+  -> entry_args_ptr
+  -> entry_args
+  -> kernel_arg_packet
+  -> program_view
+  -> rows
+```
+
+This is still an independent native canary, not the current WNA16 fused-MoE
+kernel argument list.
+
+Evidence:
+
+- GPU1 standalone native stub smoke:
+  `outputs/reports/premap_kernel_consumer/typed_consumer_stub_gpu1_kernel_launch_descriptor_smoke.json`
+- GPU1 descriptor schema-mismatch negative canary:
+  `outputs/reports/premap_kernel_consumer/typed_consumer_stub_gpu1_kernel_launch_descriptor_fault_schema_hash.json`
+- Result: `ok=true`, kernel-launch descriptor checked, packet chain depth `9`,
+  row count `64`, row ok count `64`, summary error count `0`.
+- Negative result: the explicit schema-hash fault returns `ok=false`,
+  native return code `1`, and descriptor summary error count `1`, while
+  upstream kernel-arg packet, entry-args pointer, and launch-envelope pointer
+  summaries remain error-free.
+- All four typed handle fields plus row metadata remain readable through the
+  descriptor path.
+- Safety boundary remains unchanged: `payload_bytes=0`,
+  `passed_to_kernel=false`, `changes_kernel_launch_args=false`, and
+  `current_wna16_arg_compatible=false`.
+
+Validation:
+
+- `/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest tests/test_premap_typed_consumer_stub.py -q`
+  passed with `37 passed`.
+- `/home/husrcf/anaconda3/envs/TRY/bin/python scripts/run_premap_typed_consumer_stub.py --hip-visible-devices 1 --device 0 --rows 64 --block-threads 64 --force-build ... --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_LAUNCH_DESCRIPTOR_ABI`
+  passed.
+- `/home/husrcf/anaconda3/envs/TRY/bin/python scripts/run_premap_typed_consumer_stub.py --hip-visible-devices 1 --device 0 --rows 64 --block-threads 64 --force-build ... --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_LAUNCH_DESCRIPTOR_ABI --fault-kernel-launch-descriptor-schema-hash`
+  produced the expected failure artifact.
 
 ## Latest Update: Lab Gate Requires Pointer-Backed Launch-Envelope ABI
 

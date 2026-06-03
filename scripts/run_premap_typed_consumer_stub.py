@@ -70,6 +70,7 @@ ALLOWED_MACROS = {
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ENTRY_ARGS_PTR_ABI",
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ENVELOPE_ARGS_ABI",
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ENVELOPE_ARGS_PTR_ABI",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_LAUNCH_DESCRIPTOR_ABI",
 }
 FORBIDDEN_MACROS = {
     "MTP_PREMAP_TYPED_CONSUMER_ENABLE_PAYLOAD_DEREF",
@@ -229,6 +230,16 @@ def validate_macros(macros: list[str]) -> list[str]:
             "future native consumer launch-envelope args pointer ABI requires "
             "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ENVELOPE_ARGS_ABI"
         )
+    if (
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_LAUNCH_DESCRIPTOR_ABI"
+        in normalized
+        and "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ENVELOPE_ARGS_PTR_ABI"
+        not in normalized
+    ):
+        raise ValueError(
+            "future native consumer kernel launch descriptor ABI requires "
+            "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ENVELOPE_ARGS_PTR_ABI"
+        )
     return normalized
 
 
@@ -262,6 +273,7 @@ def run_cmd(
     cmd: list[str],
     *,
     env: dict[str, str] | None = None,
+    allow_failure: bool = False,
 ) -> subprocess.CompletedProcess[str]:
     result = subprocess.run(
         cmd,
@@ -272,7 +284,7 @@ def run_cmd(
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
-    if result.returncode != 0:
+    if result.returncode != 0 and not allow_failure:
         msg = (
             "command failed with exit code "
             f"{result.returncode}: {' '.join(cmd)}\n"
@@ -411,11 +423,21 @@ def run_stub(args: argparse.Namespace) -> dict[str, Any]:
         cmd.extend(["--input-prefix", str(input_prefix)])
     if args.omit_aux_pointer:
         cmd.append("--omit-aux-pointer")
+    if args.fault_kernel_launch_descriptor_schema_hash:
+        cmd.append("--fault-kernel-launch-descriptor-schema-hash")
     env = os.environ.copy()
     if args.hip_visible_devices is not None:
         env["HIP_VISIBLE_DEVICES"] = str(args.hip_visible_devices)
-    result = run_cmd(cmd, env=env)
+    result = run_cmd(
+        cmd,
+        env=env,
+        allow_failure=bool(args.fault_kernel_launch_descriptor_schema_hash),
+    )
     payload = json.loads(result.stdout)
+    payload["native_returncode"] = int(result.returncode)
+    payload["fault_kernel_launch_descriptor_schema_hash"] = bool(
+        args.fault_kernel_launch_descriptor_schema_hash
+    )
     payload["binary"] = str(bin_path)
     payload["source"] = str(SRC)
     payload["abi_header"] = str(ABI_HEADER)
@@ -442,6 +464,14 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--input-json", type=Path)
     parser.add_argument("--macro", action="append", default=[])
     parser.add_argument("--omit-aux-pointer", action="store_true")
+    parser.add_argument(
+        "--fault-kernel-launch-descriptor-schema-hash",
+        action="store_true",
+        help=(
+            "Inject a schema-hash mismatch into the future native kernel-launch "
+            "descriptor canary. This is a negative test hook only."
+        ),
+    )
     parser.add_argument("--offload-arch", default="gfx1100")
     parser.add_argument("--hip-visible-devices")
     parser.add_argument("--force-build", action="store_true")
@@ -492,6 +522,9 @@ def main(argv: list[str] | None = None) -> int:
             "expected_schema_hash": schema_hash,
             "requested_dispatch_row_offset": dispatch_row_offset,
             "requested_dispatch_row_limit": dispatch_row_limit,
+            "fault_kernel_launch_descriptor_schema_hash": bool(
+                args.fault_kernel_launch_descriptor_schema_hash
+            ),
         }
     else:
         payload = run_stub(args)

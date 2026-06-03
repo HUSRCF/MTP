@@ -293,6 +293,26 @@ constexpr bool
 constexpr bool
     kPremapFutureKernelNativeConsumerLaunchEnvelopeArgsPtrAbiV1CurrentWna16ArgCompatible =
         false;
+constexpr const char*
+    kPremapFutureKernelNativeConsumerKernelLaunchDescriptorAbiV1Name =
+        "premap_future_kernel_native_consumer_kernel_launch_descriptor_abi_v1";
+constexpr const char*
+    kPremapFutureKernelNativeConsumerKernelLaunchDescriptorAbiV1Mode =
+        "readonly_future_kernel_native_consumer_kernel_launch_descriptor_abi";
+constexpr const char*
+    kPremapFutureKernelNativeConsumerKernelLaunchDescriptorAbiV1Source =
+        "premap_future_kernel_native_consumer_launch_envelope_args_ptr_abi_v1";
+constexpr uint32_t
+    kPremapFutureKernelNativeConsumerKernelLaunchDescriptorAbiV1Version = 1;
+constexpr bool
+    kPremapFutureKernelNativeConsumerKernelLaunchDescriptorAbiV1PayloadDerefAllowed =
+        false;
+constexpr bool
+    kPremapFutureKernelNativeConsumerKernelLaunchDescriptorAbiV1KernelArgPassAllowed =
+        false;
+constexpr bool
+    kPremapFutureKernelNativeConsumerKernelLaunchDescriptorAbiV1CurrentWna16ArgCompatible =
+        false;
 
 constexpr uint32_t kPremapFutureKernelSideConsumerArgsV1ReadonlyFlag = 1u << 0;
 constexpr uint32_t
@@ -553,6 +573,29 @@ struct PremapFutureKernelNativeConsumerLaunchEnvelopeArgsPtrV1 {
   uint32_t abi_version;
   uint32_t launch_args_struct_size;
   uint32_t pointer_size;
+  uint32_t payload_bytes;
+  uint32_t flags;
+};
+
+// Future kernel launch descriptor.  This models the object a future typed
+// descriptor/address consumer kernel would receive at its real launch boundary:
+// one readonly descriptor points at the launch-envelope pointer packet plus a
+// summary/status sink.  It remains independent from the current WNA16 argument
+// list and does not authorize payload movement.
+struct PremapFutureKernelNativeConsumerKernelLaunchDescriptorV1 {
+  const PremapFutureKernelNativeConsumerLaunchEnvelopeArgsPtrV1* launch_args_ptr;
+  PremapFutureKernelNativeConsumerKernelEntrySummaryV1* summary;
+  uint64_t expected_schema_hash_hi;
+  uint64_t expected_schema_hash_lo;
+  uint32_t abi_version;
+  uint32_t launch_args_ptr_struct_size;
+  uint32_t summary_struct_size;
+  uint32_t pointer_size;
+  uint32_t grid_x;
+  uint32_t block_x;
+  uint32_t row_offset;
+  uint32_t row_limit;
+  uint32_t rows_per_program;
   uint32_t payload_bytes;
   uint32_t flags;
 };
@@ -1188,6 +1231,85 @@ premap_typed_consumer_future_native_launch_envelope_args_ptr_matches_v1(
          !kPremapFutureKernelNativeConsumerLaunchEnvelopeArgsPtrAbiV1PayloadDerefAllowed &&
          !kPremapFutureKernelNativeConsumerLaunchEnvelopeArgsPtrAbiV1KernelArgPassAllowed &&
          !kPremapFutureKernelNativeConsumerLaunchEnvelopeArgsPtrAbiV1CurrentWna16ArgCompatible;
+}
+
+__device__ static inline bool
+premap_typed_consumer_future_native_kernel_launch_descriptor_matches_v1(
+    const PremapFutureKernelNativeConsumerKernelLaunchDescriptorV1& descriptor) {
+  if (descriptor.launch_args_ptr == nullptr || descriptor.summary == nullptr ||
+      descriptor.abi_version !=
+          kPremapFutureKernelNativeConsumerKernelLaunchDescriptorAbiV1Version ||
+      descriptor.launch_args_ptr_struct_size !=
+          sizeof(PremapFutureKernelNativeConsumerLaunchEnvelopeArgsPtrV1) ||
+      descriptor.summary_struct_size !=
+          sizeof(PremapFutureKernelNativeConsumerKernelEntrySummaryV1) ||
+      descriptor.pointer_size !=
+          sizeof(PremapFutureKernelNativeConsumerLaunchEnvelopeArgsPtrV1*) ||
+      descriptor.payload_bytes != 0 ||
+      (descriptor.flags & kPremapFutureKernelSideConsumerArgsV1ReadonlyFlag) == 0 ||
+      (descriptor.flags &
+       kPremapFutureKernelSideConsumerArgsV1KernelArgPassDisabledFlag) == 0 ||
+      (descriptor.flags &
+       kPremapFutureKernelSideConsumerArgsV1PayloadDerefDisabledFlag) == 0 ||
+      descriptor.flags != kPremapFutureKernelSideConsumerArgsV1RequiredFlags ||
+      kPremapFutureKernelNativeConsumerKernelLaunchDescriptorAbiV1PayloadDerefAllowed ||
+      kPremapFutureKernelNativeConsumerKernelLaunchDescriptorAbiV1KernelArgPassAllowed ||
+      kPremapFutureKernelNativeConsumerKernelLaunchDescriptorAbiV1CurrentWna16ArgCompatible) {
+    return false;
+  }
+
+  const PremapFutureKernelNativeConsumerLaunchEnvelopeArgsPtrV1 launch_args_ptr =
+      *descriptor.launch_args_ptr;
+  if (!premap_typed_consumer_future_native_launch_envelope_args_ptr_matches_v1(
+          launch_args_ptr) ||
+      launch_args_ptr.launch_args == nullptr) {
+    return false;
+  }
+  const PremapFutureKernelNativeConsumerLaunchEnvelopeArgsV1 launch_args =
+      *launch_args_ptr.launch_args;
+  if (!premap_typed_consumer_future_native_launch_envelope_args_matches_v1(
+          launch_args) ||
+      launch_args.entry_args == nullptr ||
+      launch_args.grid_x != descriptor.grid_x ||
+      launch_args.block_x != descriptor.block_x ||
+      launch_args.row_offset != descriptor.row_offset ||
+      launch_args.row_limit != descriptor.row_limit ||
+      launch_args.rows_per_program != descriptor.rows_per_program) {
+    return false;
+  }
+  const PremapFutureKernelNativeConsumerKernelEntryArgsV1 entry_args =
+      *launch_args.entry_args;
+  if (!premap_typed_consumer_future_native_kernel_entry_args_matches_v1(
+          entry_args) ||
+      entry_args.kernel_arg_packet == nullptr) {
+    return false;
+  }
+  const PremapFutureKernelNativeConsumerKernelArgPacketV1 kernel_arg_packet =
+      *entry_args.kernel_arg_packet;
+  if (!premap_typed_consumer_future_native_kernel_arg_packet_matches_v1(
+          kernel_arg_packet) ||
+      kernel_arg_packet.program_view_ptr == nullptr) {
+    return false;
+  }
+  const PremapFutureKernelNativeConsumerProgramViewPtrV1 program_view_ptr =
+      *kernel_arg_packet.program_view_ptr;
+  if (!premap_typed_consumer_future_native_program_view_ptr_packet_matches_v1(
+          program_view_ptr) ||
+      program_view_ptr.program_view == nullptr) {
+    return false;
+  }
+  const PremapFutureKernelNativeConsumerProgramViewV1 program_view =
+      *program_view_ptr.program_view;
+  return program_view.view.params.typed_schema_hash_hi ==
+             descriptor.expected_schema_hash_hi &&
+         program_view.view.params.typed_schema_hash_lo ==
+             descriptor.expected_schema_hash_lo &&
+         descriptor.expected_schema_hash_hi != 0 &&
+         descriptor.expected_schema_hash_lo != 0 &&
+         program_view.program_count == descriptor.grid_x &&
+         program_view.view.rows_per_program == descriptor.rows_per_program &&
+         program_view.view.row_offset == descriptor.row_offset &&
+         program_view.view.row_limit == descriptor.row_limit;
 }
 
 __device__ static inline bool
