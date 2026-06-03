@@ -4366,6 +4366,7 @@ def run_premap_lab_preflight(
     defer_online_prelaunch_artifact_evidence: bool = False,
     allow_bootstrap_preflight: bool = False,
     allow_online_runner_self_finalization: bool = False,
+    require_program_view_ptr_abi: bool = False,
 ) -> dict[str, Any]:
     root = root.resolve()
     trace_configs = trace_configs or list(DEFAULT_TRACE_CONFIGS)
@@ -5238,6 +5239,102 @@ def run_premap_lab_preflight(
         == required_gate_checks.get("current_wna16_arg_compatible_required")
         and consumer_program_view_requires_wna16_arg_reinterpretation is False
     )
+    consumer_program_view_ptr_summary = online_merged_arg_slot_summary
+    consumer_program_view_ptr_checked = (
+        consumer_program_view_ptr_summary.get(
+            "future_kernel_native_consumer_program_view_ptr_checked"
+        )
+        is True
+    )
+    consumer_program_view_ptr_source = consumer_program_view_ptr_summary.get(
+        "future_kernel_native_consumer_program_view_ptr_source"
+    )
+    consumer_program_view_ptr_source = (
+        consumer_program_view_ptr_source
+        if isinstance(consumer_program_view_ptr_source, str)
+        else None
+    )
+    expected_consumer_program_view_ptr_source = schema_summary.get(
+        "future_kernel_native_consumer_program_view_ptr_abi_source"
+    )
+    expected_consumer_program_view_ptr_source = (
+        expected_consumer_program_view_ptr_source
+        if isinstance(expected_consumer_program_view_ptr_source, str)
+        else None
+    )
+    consumer_program_view_ptr_source_matches_schema = (
+        consumer_program_view_ptr_source is not None
+        and expected_consumer_program_view_ptr_source is not None
+        and consumer_program_view_ptr_source
+        == expected_consumer_program_view_ptr_source
+    )
+    consumer_program_view_ptr_row_count = _int_metric(
+        consumer_program_view_ptr_summary,
+        "future_kernel_native_consumer_program_view_ptr_row_count",
+    )
+    consumer_program_view_ptr_row_ok_count = _int_metric(
+        consumer_program_view_ptr_summary,
+        "future_kernel_native_consumer_program_view_ptr_row_ok_count",
+    )
+    consumer_program_view_ptr_error_count = _int_metric(
+        consumer_program_view_ptr_summary,
+        "future_kernel_native_consumer_program_view_ptr_error_count",
+    )
+    consumer_program_view_ptr_field_mask = _int_metric(
+        consumer_program_view_ptr_summary,
+        "future_kernel_native_consumer_program_view_ptr_field_mask",
+    )
+    consumer_program_view_ptr_required_field_mask = _int_metric(
+        consumer_program_view_ptr_summary,
+        "future_kernel_native_consumer_program_view_ptr_required_field_mask",
+    )
+    consumer_program_view_ptr_payload_bytes = _int_metric(
+        consumer_program_view_ptr_summary,
+        "future_kernel_native_consumer_program_view_ptr_payload_bytes",
+    )
+    consumer_program_view_ptr_passed_to_kernel = _bool_metric(
+        consumer_program_view_ptr_summary,
+        "future_kernel_native_consumer_program_view_ptr_passed_to_kernel",
+    )
+    consumer_program_view_ptr_changes_kernel_launch_args = _bool_metric(
+        consumer_program_view_ptr_summary,
+        "future_kernel_native_consumer_program_view_ptr_changes_kernel_launch_args",
+    )
+    consumer_program_view_ptr_current_wna16_arg_compatible = _bool_metric(
+        consumer_program_view_ptr_summary,
+        "future_kernel_native_consumer_program_view_ptr_current_wna16_arg_compatible",
+    )
+    consumer_program_view_ptr_requires_wna16_arg_reinterpretation = _bool_metric(
+        consumer_program_view_ptr_summary,
+        "future_kernel_native_consumer_program_view_ptr_requires_wna16_arg_reinterpretation",
+    )
+    consumer_program_view_ptr_row_count_matches_dispatch = (
+        consumer_program_view_ptr_row_count is not None
+        and dispatch_row_window_active_rows is not None
+        and consumer_program_view_ptr_row_count == dispatch_row_window_active_rows
+        and consumer_program_view_ptr_row_ok_count == dispatch_row_window_active_rows
+        and consumer_program_view_ptr_error_count == 0
+    )
+    consumer_program_view_ptr_required_fields_visible = (
+        consumer_program_view_ptr_field_mask is not None
+        and consumer_program_view_ptr_required_field_mask is not None
+        and (
+            consumer_program_view_ptr_field_mask
+            & consumer_program_view_ptr_required_field_mask
+        )
+        == consumer_program_view_ptr_required_field_mask
+    )
+    consumer_program_view_ptr_safety_matches_required = (
+        consumer_program_view_ptr_payload_bytes
+        == required_gate_checks.get("payload_bytes_required")
+        and consumer_program_view_ptr_passed_to_kernel
+        == required_gate_checks.get("passed_to_kernel_required")
+        and consumer_program_view_ptr_changes_kernel_launch_args
+        == required_gate_checks.get("changes_kernel_launch_args_required")
+        and consumer_program_view_ptr_current_wna16_arg_compatible
+        == required_gate_checks.get("current_wna16_arg_compatible_required")
+        and consumer_program_view_ptr_requires_wna16_arg_reinterpretation is False
+    )
     future_kernel_args_summary = dispatch_runner_payload.get(
         "future_kernel_args_stub_summary",
     )
@@ -5456,6 +5553,43 @@ def run_premap_lab_preflight(
     ):
         failures.append(
             "default_kernel_consumer_consumer_program_view_safety_contract_mismatch"
+        )
+    if (
+        require_program_view_ptr_abi
+        and not allow_missing_evidence
+        and not defer_online_prelaunch_runner_evidence
+        and not consumer_program_view_ptr_checked
+    ):
+        failures.append("default_kernel_consumer_program_view_ptr_missing")
+    if (
+        require_program_view_ptr_abi
+        and not allow_missing_evidence
+        and not defer_online_prelaunch_runner_evidence
+        and not consumer_program_view_ptr_source_matches_schema
+    ):
+        failures.append("default_kernel_consumer_program_view_ptr_source_mismatch")
+    if (
+        require_program_view_ptr_abi
+        and not allow_missing_evidence
+        and not defer_online_prelaunch_runner_evidence
+        and not consumer_program_view_ptr_row_count_matches_dispatch
+    ):
+        failures.append("default_kernel_consumer_program_view_ptr_row_count_mismatch")
+    if (
+        require_program_view_ptr_abi
+        and not allow_missing_evidence
+        and not defer_online_prelaunch_runner_evidence
+        and not consumer_program_view_ptr_required_fields_visible
+    ):
+        failures.append("default_kernel_consumer_program_view_ptr_field_mask_mismatch")
+    if (
+        require_program_view_ptr_abi
+        and not allow_missing_evidence
+        and not defer_online_prelaunch_runner_evidence
+        and not consumer_program_view_ptr_safety_matches_required
+    ):
+        failures.append(
+            "default_kernel_consumer_program_view_ptr_safety_contract_mismatch"
         )
     lab_gate_status_summary = {
         "passed": not failures,
@@ -6379,6 +6513,60 @@ def run_premap_lab_preflight(
         "default_kernel_consumer_consumer_program_view_safety_matches_required": (
             consumer_program_view_safety_matches_required
         ),
+        "default_kernel_consumer_program_view_ptr_required": (
+            require_program_view_ptr_abi
+        ),
+        "default_kernel_consumer_program_view_ptr_checked": (
+            consumer_program_view_ptr_checked
+        ),
+        "default_kernel_consumer_program_view_ptr_source": (
+            consumer_program_view_ptr_source
+        ),
+        "default_kernel_consumer_program_view_ptr_source_expected": (
+            expected_consumer_program_view_ptr_source
+        ),
+        "default_kernel_consumer_program_view_ptr_source_matches_schema": (
+            consumer_program_view_ptr_source_matches_schema
+        ),
+        "default_kernel_consumer_program_view_ptr_row_count": (
+            consumer_program_view_ptr_row_count
+        ),
+        "default_kernel_consumer_program_view_ptr_row_ok_count": (
+            consumer_program_view_ptr_row_ok_count
+        ),
+        "default_kernel_consumer_program_view_ptr_error_count": (
+            consumer_program_view_ptr_error_count
+        ),
+        "default_kernel_consumer_program_view_ptr_row_count_matches_dispatch": (
+            consumer_program_view_ptr_row_count_matches_dispatch
+        ),
+        "default_kernel_consumer_program_view_ptr_field_mask": (
+            consumer_program_view_ptr_field_mask
+        ),
+        "default_kernel_consumer_program_view_ptr_required_field_mask": (
+            consumer_program_view_ptr_required_field_mask
+        ),
+        "default_kernel_consumer_program_view_ptr_required_fields_visible": (
+            consumer_program_view_ptr_required_fields_visible
+        ),
+        "default_kernel_consumer_program_view_ptr_payload_bytes": (
+            consumer_program_view_ptr_payload_bytes
+        ),
+        "default_kernel_consumer_program_view_ptr_passed_to_kernel": (
+            consumer_program_view_ptr_passed_to_kernel
+        ),
+        "default_kernel_consumer_program_view_ptr_changes_kernel_launch_args": (
+            consumer_program_view_ptr_changes_kernel_launch_args
+        ),
+        "default_kernel_consumer_program_view_ptr_current_wna16_arg_compatible": (
+            consumer_program_view_ptr_current_wna16_arg_compatible
+        ),
+        "default_kernel_consumer_program_view_ptr_requires_wna16_arg_reinterpretation": (
+            consumer_program_view_ptr_requires_wna16_arg_reinterpretation
+        ),
+        "default_kernel_consumer_program_view_ptr_safety_matches_required": (
+            consumer_program_view_ptr_safety_matches_required
+        ),
         "default_kernel_consumer_arg_slot_error_count": (
             _int_metric(
                 dispatch_runner_summary,
@@ -6687,6 +6875,15 @@ def _build_parser() -> argparse.ArgumentParser:
             "keeping the full preflight result for the exit code."
         ),
     )
+    parser.add_argument(
+        "--require-program-view-ptr-abi",
+        action="store_true",
+        help=(
+            "Require the optional future-native program-view pointer ABI "
+            "canary in the online merged runner evidence. This does not pass "
+            "payloads or current WNA16 kernel args."
+        ),
+    )
     parser.add_argument("--output-json", type=Path)
     return parser
 
@@ -6711,6 +6908,7 @@ def main(argv: list[str] | None = None) -> int:
         allow_online_runner_self_finalization=(
             args.allow_online_runner_self_finalization
         ),
+        require_program_view_ptr_abi=args.require_program_view_ptr_abi,
     )
     output_payload = (
         result["lab_gate_status_summary"] if args.summary_only else result

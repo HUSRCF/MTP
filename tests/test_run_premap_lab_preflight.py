@@ -1482,6 +1482,30 @@ def _runner_future_kernel_native_dispatch_consumer_summary(
             "future_kernel_native_consumer_program_view_requires_wna16_arg_reinterpretation": False,
             "future_kernel_native_consumer_program_view_field_mask": 15,
             "future_kernel_native_consumer_program_view_required_field_mask": 7,
+            "future_kernel_native_consumer_program_view_ptr_checked": True,
+            "future_kernel_native_consumer_program_view_ptr_abi_name": (
+                "premap_future_kernel_native_consumer_program_view_ptr_abi_v1"
+            ),
+            "future_kernel_native_consumer_program_view_ptr_mode": (
+                "readonly_future_kernel_native_consumer_program_view_ptr_abi"
+            ),
+            "future_kernel_native_consumer_program_view_ptr_source": (
+                "premap_future_kernel_native_consumer_program_view_abi_v1"
+            ),
+            "future_kernel_native_consumer_program_view_ptr_version": 1,
+            "future_kernel_native_consumer_program_view_ptr_row_count": 2,
+            "future_kernel_native_consumer_program_view_ptr_row_ok_count": 2,
+            "future_kernel_native_consumer_program_view_ptr_error_count": 0,
+            "future_kernel_native_consumer_program_view_ptr_hash_accumulator": (
+                "0c053"
+            ),
+            "future_kernel_native_consumer_program_view_ptr_field_mask": 15,
+            "future_kernel_native_consumer_program_view_ptr_required_field_mask": 7,
+            "future_kernel_native_consumer_program_view_ptr_payload_bytes": 0,
+            "future_kernel_native_consumer_program_view_ptr_passed_to_kernel": False,
+            "future_kernel_native_consumer_program_view_ptr_changes_kernel_launch_args": False,
+            "future_kernel_native_consumer_program_view_ptr_current_wna16_arg_compatible": False,
+            "future_kernel_native_consumer_program_view_ptr_requires_wna16_arg_reinterpretation": False,
         }
     )
     payload.update(_RUNNER_NATIVE_LAYOUT_SUMMARY)
@@ -1756,6 +1780,27 @@ def _standalone_arg_slot_multiprogram_canary_payload(
                 False
             ),
             "future_kernel_native_consumer_program_view_requires_wna16_arg_reinterpretation": (
+                False
+            ),
+            "future_kernel_native_consumer_program_view_ptr_checked": True,
+            "future_kernel_native_consumer_program_view_ptr_source": (
+                "premap_future_kernel_native_consumer_program_view_abi_v1"
+            ),
+            "future_kernel_native_consumer_program_view_ptr_row_count": row_count,
+            "future_kernel_native_consumer_program_view_ptr_row_ok_count": row_count,
+            "future_kernel_native_consumer_program_view_ptr_error_count": 0,
+            "future_kernel_native_consumer_program_view_ptr_hash_accumulator": (
+                "c053998877665544"
+            ),
+            "future_kernel_native_consumer_program_view_ptr_field_mask": 15,
+            "future_kernel_native_consumer_program_view_ptr_required_field_mask": 7,
+            "future_kernel_native_consumer_program_view_ptr_payload_bytes": 0,
+            "future_kernel_native_consumer_program_view_ptr_passed_to_kernel": False,
+            "future_kernel_native_consumer_program_view_ptr_changes_kernel_launch_args": False,
+            "future_kernel_native_consumer_program_view_ptr_current_wna16_arg_compatible": (
+                False
+            ),
+            "future_kernel_native_consumer_program_view_ptr_requires_wna16_arg_reinterpretation": (
                 False
             ),
         }
@@ -3744,6 +3789,84 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     )
     assert result["trace_config_checks"][0]["passed"] is True
     assert result["trace_config_checks"][0]["readonly_gate_path_label"] == default_gate
+
+
+def test_premap_lab_preflight_accepts_program_view_ptr_strict_requirement(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+        require_program_view_ptr_abi=True,
+    )
+
+    assert result["passed"] is True
+    summary = result["lab_gate_status_summary"]
+    assert summary["default_kernel_consumer_program_view_ptr_required"] is True
+    assert summary["default_kernel_consumer_program_view_ptr_checked"] is True
+    assert (
+        summary["default_kernel_consumer_program_view_ptr_source_matches_schema"]
+        is True
+    )
+    assert (
+        summary["default_kernel_consumer_program_view_ptr_row_count_matches_dispatch"]
+        is True
+    )
+    assert (
+        summary["default_kernel_consumer_program_view_ptr_required_fields_visible"]
+        is True
+    )
+    assert (
+        summary["default_kernel_consumer_program_view_ptr_safety_matches_required"]
+        is True
+    )
+
+
+def test_premap_lab_preflight_rejects_program_view_ptr_strict_row_count_mismatch(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    runner_path = (
+        tmp_path
+        / "reports/default_gate_online_merged_future_native_arg_slot_multiprogram_runner.json"
+    )
+    payload = json.loads(runner_path.read_text(encoding="utf-8"))
+    stub_summary = payload["stub_summary"]
+    assert isinstance(stub_summary, dict)
+    stub_summary["future_kernel_native_consumer_program_view_ptr_row_ok_count"] = 519
+    runner_path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+        require_program_view_ptr_abi=True,
+    )
+
+    assert result["passed"] is False
+    assert (
+        "default_kernel_consumer_program_view_ptr_row_count_mismatch"
+        in result["failures"]
+    )
 
 
 def _run_preflight_with_modified_default_runner(
