@@ -500,6 +500,7 @@ def test_online_merged_arg_slot_canary_dry_run_accepts_launch_envelope_args_ptr(
     stub_payload = json.loads(stub.read_text(encoding="utf-8"))
 
     assert result["passed"] is True
+    assert args.require_launch_envelope_args_abi is False
     assert result["require_launch_envelope_args_abi"] is True
     assert result["require_launch_envelope_args_ptr_abi"] is True
     assert result["launch_envelope_args_ptr_checked"] is True

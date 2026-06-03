@@ -1347,8 +1347,13 @@ def _stub_namespace(args: argparse.Namespace, *, input_json: Path) -> SimpleName
 
 
 def run_canary(args: argparse.Namespace) -> dict[str, Any]:
-    if bool(args.require_launch_envelope_args_ptr_abi):
-        args.require_launch_envelope_args_abi = True
+    require_launch_envelope_args_ptr_abi = bool(
+        args.require_launch_envelope_args_ptr_abi
+    )
+    require_launch_envelope_args_abi = (
+        bool(args.require_launch_envelope_args_abi)
+        or require_launch_envelope_args_ptr_abi
+    )
 
     input_paths: list[Path] = []
     if args.runner_json is not None:
@@ -1417,11 +1422,9 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
             "changes_kernel_launch_args": False,
             "requested_macros": arg_slot_macros(
                 args.mirror_field,
-                include_launch_envelope_args=bool(
-                    args.require_launch_envelope_args_abi
-                ),
-                include_launch_envelope_args_ptr=bool(
-                    args.require_launch_envelope_args_ptr_abi
+                include_launch_envelope_args=require_launch_envelope_args_abi,
+                include_launch_envelope_args_ptr=(
+                    require_launch_envelope_args_ptr_abi
                 ),
             ),
             "mirror_field": args.mirror_field,
@@ -1748,7 +1751,7 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
             "future_kernel_native_consumer_kernel_entry_args_ptr_summary_field_read_hash_accumulator": "dry",
             "future_kernel_native_consumer_kernel_entry_args_ptr_summary_row_metadata_hash_accumulator": "dry",
         }
-        if args.require_launch_envelope_args_abi:
+        if require_launch_envelope_args_abi:
             stub_payload.update(
                 _launch_envelope_args_dry_run_pairs(
                     active_rows=active_rows,
@@ -1757,7 +1760,7 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
                     dispatch_row_limit=dispatch_row_limit,
                 )
             )
-        if args.require_launch_envelope_args_ptr_abi:
+        if require_launch_envelope_args_ptr_abi:
             stub_payload.update(
                 _launch_envelope_args_ptr_dry_run_pairs(active_rows=active_rows)
             )
@@ -1777,9 +1780,9 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
         dispatch_row_offset=dispatch_row_offset,
         dispatch_row_limit=dispatch_row_limit,
         mirror_field=args.mirror_field,
-        require_launch_envelope_args_abi=bool(args.require_launch_envelope_args_abi),
-        require_launch_envelope_args_ptr_abi=bool(
-            args.require_launch_envelope_args_ptr_abi
+        require_launch_envelope_args_abi=require_launch_envelope_args_abi,
+        require_launch_envelope_args_ptr_abi=(
+            require_launch_envelope_args_ptr_abi
         ),
     )
     launch_envelope_args_failures = (
@@ -1790,12 +1793,12 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
             dispatch_row_offset=dispatch_row_offset,
             dispatch_row_limit=dispatch_row_limit,
         )
-        if args.require_launch_envelope_args_abi
+        if require_launch_envelope_args_abi
         else []
     )
     launch_envelope_args_ptr_failures = (
         _check_launch_envelope_args_ptr(stub_payload, active_rows=active_rows)
-        if args.require_launch_envelope_args_ptr_abi
+        if require_launch_envelope_args_ptr_abi
         else []
     )
     report: dict[str, Any] = {
@@ -1820,11 +1823,9 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
         ),
         "tail_window_size": args.tail_window_size,
         "mirror_field": args.mirror_field,
-        "require_launch_envelope_args_abi": bool(
-            args.require_launch_envelope_args_abi
-        ),
-        "require_launch_envelope_args_ptr_abi": bool(
-            args.require_launch_envelope_args_ptr_abi
+        "require_launch_envelope_args_abi": require_launch_envelope_args_abi,
+        "require_launch_envelope_args_ptr_abi": (
+            require_launch_envelope_args_ptr_abi
         ),
         "block_threads": int(args.block_threads),
         "device": int(args.device),
@@ -1909,8 +1910,7 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
             "future_kernel_native_consumer_launch_envelope_args_summary_error_count"
         ),
         "launch_envelope_args_all_handle_fields_read": (
-            args.require_launch_envelope_args_abi
-            and not launch_envelope_args_failures
+            require_launch_envelope_args_abi and not launch_envelope_args_failures
         ),
         "launch_envelope_args_packet_chain_depth": stub_payload.get(
             "future_kernel_native_consumer_launch_envelope_args_packet_chain_depth"
@@ -1967,7 +1967,7 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
             "future_kernel_native_consumer_launch_envelope_args_ptr_summary_error_count"
         ),
         "launch_envelope_args_ptr_all_handle_fields_read": (
-            args.require_launch_envelope_args_ptr_abi
+            require_launch_envelope_args_ptr_abi
             and not launch_envelope_args_ptr_failures
         ),
         "launch_envelope_args_ptr_packet_chain_depth": stub_payload.get(
