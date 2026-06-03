@@ -104,6 +104,45 @@ ARG_SLOT_MACROS = [
 ]
 _FUTURE_KERNEL_REQUIRED_FIELD_MASK = 0x7
 _FUTURE_KERNEL_ALL_FIELD_MASK = 0xF
+_KERNEL_ENTRY_SUMMARY_LAYOUT_EXPECTED = {
+    "future_kernel_native_consumer_kernel_entry_summary_struct_size": 104,
+    "future_kernel_native_consumer_kernel_entry_summary_struct_align": 8,
+    "future_kernel_native_consumer_kernel_entry_summary_offset_abi_version": 0,
+    "future_kernel_native_consumer_kernel_entry_summary_offset_packet_valid": 4,
+    "future_kernel_native_consumer_kernel_entry_summary_offset_row_count": 8,
+    "future_kernel_native_consumer_kernel_entry_summary_offset_row_ok_count": 12,
+    "future_kernel_native_consumer_kernel_entry_summary_offset_descriptor_ptr_read_ok_count": 16,
+    "future_kernel_native_consumer_kernel_entry_summary_offset_packed_weight_descriptor_read_ok_count": 20,
+    "future_kernel_native_consumer_kernel_entry_summary_offset_scale_metadata_handle_read_ok_count": 24,
+    "future_kernel_native_consumer_kernel_entry_summary_offset_aux_metadata_handle_read_ok_count": 28,
+    "future_kernel_native_consumer_kernel_entry_summary_offset_expert_id_read_ok_count": 32,
+    "future_kernel_native_consumer_kernel_entry_summary_offset_address_key_hash_read_ok_count": 36,
+    "future_kernel_native_consumer_kernel_entry_summary_offset_row_metadata_read_ok_count": 40,
+    "future_kernel_native_consumer_kernel_entry_summary_offset_error_count": 44,
+    "future_kernel_native_consumer_kernel_entry_summary_offset_field_mask": 48,
+    "future_kernel_native_consumer_kernel_entry_summary_offset_payload_bytes": 52,
+    "future_kernel_native_consumer_kernel_entry_summary_offset_passed_to_kernel": 56,
+    "future_kernel_native_consumer_kernel_entry_summary_offset_changes_kernel_launch_args": 60,
+    "future_kernel_native_consumer_kernel_entry_summary_offset_current_wna16_arg_compatible": 64,
+    "future_kernel_native_consumer_kernel_entry_summary_offset_requires_wna16_arg_reinterpretation": 68,
+    "future_kernel_native_consumer_kernel_entry_summary_offset_reserved": 72,
+    "future_kernel_native_consumer_kernel_entry_summary_offset_row_hash_accumulator": 80,
+    "future_kernel_native_consumer_kernel_entry_summary_offset_field_read_hash_accumulator": 88,
+    "future_kernel_native_consumer_kernel_entry_summary_offset_row_metadata_hash_accumulator": 96,
+}
+_KERNEL_ENTRY_ARGS_LAYOUT_EXPECTED = {
+    "future_kernel_native_consumer_kernel_entry_args_struct_size": 40,
+    "future_kernel_native_consumer_kernel_entry_args_struct_align": 8,
+    "future_kernel_native_consumer_kernel_entry_args_kernel_arg_packet_struct_size": 32,
+    "future_kernel_native_consumer_kernel_entry_args_summary_struct_size": 104,
+    "future_kernel_native_consumer_kernel_entry_args_offset_kernel_arg_packet": 0,
+    "future_kernel_native_consumer_kernel_entry_args_offset_summary": 8,
+    "future_kernel_native_consumer_kernel_entry_args_offset_abi_version": 16,
+    "future_kernel_native_consumer_kernel_entry_args_offset_kernel_arg_packet_struct_size": 20,
+    "future_kernel_native_consumer_kernel_entry_args_offset_summary_struct_size": 24,
+    "future_kernel_native_consumer_kernel_entry_args_offset_payload_bytes": 28,
+    "future_kernel_native_consumer_kernel_entry_args_offset_flags": 32,
+}
 
 _FUTURE_KERNEL_FIELD_MASK_PREFIXES = (
     "future_kernel_native_consumer",
@@ -317,6 +356,31 @@ STUB_SUMMARY_KEYS = (
     "future_kernel_native_consumer_kernel_entry_summary_source",
     "future_kernel_native_consumer_kernel_entry_summary_field_read_path",
     "future_kernel_native_consumer_kernel_entry_summary_packet_chain_depth",
+    "future_kernel_native_consumer_kernel_entry_summary_version",
+    "future_kernel_native_consumer_kernel_entry_summary_struct_size",
+    "future_kernel_native_consumer_kernel_entry_summary_struct_align",
+    "future_kernel_native_consumer_kernel_entry_summary_offset_abi_version",
+    "future_kernel_native_consumer_kernel_entry_summary_offset_packet_valid",
+    "future_kernel_native_consumer_kernel_entry_summary_offset_row_count",
+    "future_kernel_native_consumer_kernel_entry_summary_offset_row_ok_count",
+    "future_kernel_native_consumer_kernel_entry_summary_offset_descriptor_ptr_read_ok_count",
+    "future_kernel_native_consumer_kernel_entry_summary_offset_packed_weight_descriptor_read_ok_count",
+    "future_kernel_native_consumer_kernel_entry_summary_offset_scale_metadata_handle_read_ok_count",
+    "future_kernel_native_consumer_kernel_entry_summary_offset_aux_metadata_handle_read_ok_count",
+    "future_kernel_native_consumer_kernel_entry_summary_offset_expert_id_read_ok_count",
+    "future_kernel_native_consumer_kernel_entry_summary_offset_address_key_hash_read_ok_count",
+    "future_kernel_native_consumer_kernel_entry_summary_offset_row_metadata_read_ok_count",
+    "future_kernel_native_consumer_kernel_entry_summary_offset_error_count",
+    "future_kernel_native_consumer_kernel_entry_summary_offset_field_mask",
+    "future_kernel_native_consumer_kernel_entry_summary_offset_payload_bytes",
+    "future_kernel_native_consumer_kernel_entry_summary_offset_passed_to_kernel",
+    "future_kernel_native_consumer_kernel_entry_summary_offset_changes_kernel_launch_args",
+    "future_kernel_native_consumer_kernel_entry_summary_offset_current_wna16_arg_compatible",
+    "future_kernel_native_consumer_kernel_entry_summary_offset_requires_wna16_arg_reinterpretation",
+    "future_kernel_native_consumer_kernel_entry_summary_offset_reserved",
+    "future_kernel_native_consumer_kernel_entry_summary_offset_row_hash_accumulator",
+    "future_kernel_native_consumer_kernel_entry_summary_offset_field_read_hash_accumulator",
+    "future_kernel_native_consumer_kernel_entry_summary_offset_row_metadata_hash_accumulator",
     "future_kernel_native_consumer_kernel_entry_summary_packet_valid",
     "future_kernel_native_consumer_kernel_entry_summary_row_count",
     "future_kernel_native_consumer_kernel_entry_summary_row_ok_count",
@@ -564,6 +628,13 @@ def _check_kernel_entry_summary(
         hash_value = stub.get(hash_key)
         if not isinstance(hash_value, str) or not hash_value:
             failures.append(f"{hash_key}_missing")
+    for key, expected_value in _KERNEL_ENTRY_SUMMARY_LAYOUT_EXPECTED.items():
+        value = stub.get(key)
+        if not isinstance(value, int) or isinstance(value, bool):
+            failures.append(f"{key}_invalid")
+            continue
+        if value != expected_value:
+            failures.append(f"{key}_mismatch:{value!r}!={expected_value!r}")
     return failures
 
 
@@ -610,17 +681,13 @@ def _check_kernel_entry_args(
         hash_value = stub.get(hash_key)
         if not isinstance(hash_value, str) or not hash_value:
             failures.append(f"{hash_key}_missing")
-    for size_key in (
-        f"{prefix}_struct_size",
-        f"{prefix}_struct_align",
-        f"{prefix}_kernel_arg_packet_struct_size",
-        f"{prefix}_summary_struct_size",
-    ):
-        value = stub.get(size_key)
-        if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
-            failures.append(f"{size_key}_invalid")
-    if stub.get(f"{prefix}_offset_kernel_arg_packet") != 0:
-        failures.append(f"{prefix}_offset_kernel_arg_packet_mismatch")
+    for key, expected_value in _KERNEL_ENTRY_ARGS_LAYOUT_EXPECTED.items():
+        value = stub.get(key)
+        if not isinstance(value, int) or isinstance(value, bool):
+            failures.append(f"{key}_invalid")
+            continue
+        if value != expected_value:
+            failures.append(f"{key}_mismatch:{value!r}!={expected_value!r}")
     return failures
 
 
@@ -1137,6 +1204,31 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
                 "kernel_entry_summary_to_kernel_arg_packet_to_program_view_rows"
             ),
             "future_kernel_native_consumer_kernel_entry_summary_packet_chain_depth": 4,
+            "future_kernel_native_consumer_kernel_entry_summary_version": 1,
+            "future_kernel_native_consumer_kernel_entry_summary_struct_size": 104,
+            "future_kernel_native_consumer_kernel_entry_summary_struct_align": 8,
+            "future_kernel_native_consumer_kernel_entry_summary_offset_abi_version": 0,
+            "future_kernel_native_consumer_kernel_entry_summary_offset_packet_valid": 4,
+            "future_kernel_native_consumer_kernel_entry_summary_offset_row_count": 8,
+            "future_kernel_native_consumer_kernel_entry_summary_offset_row_ok_count": 12,
+            "future_kernel_native_consumer_kernel_entry_summary_offset_descriptor_ptr_read_ok_count": 16,
+            "future_kernel_native_consumer_kernel_entry_summary_offset_packed_weight_descriptor_read_ok_count": 20,
+            "future_kernel_native_consumer_kernel_entry_summary_offset_scale_metadata_handle_read_ok_count": 24,
+            "future_kernel_native_consumer_kernel_entry_summary_offset_aux_metadata_handle_read_ok_count": 28,
+            "future_kernel_native_consumer_kernel_entry_summary_offset_expert_id_read_ok_count": 32,
+            "future_kernel_native_consumer_kernel_entry_summary_offset_address_key_hash_read_ok_count": 36,
+            "future_kernel_native_consumer_kernel_entry_summary_offset_row_metadata_read_ok_count": 40,
+            "future_kernel_native_consumer_kernel_entry_summary_offset_error_count": 44,
+            "future_kernel_native_consumer_kernel_entry_summary_offset_field_mask": 48,
+            "future_kernel_native_consumer_kernel_entry_summary_offset_payload_bytes": 52,
+            "future_kernel_native_consumer_kernel_entry_summary_offset_passed_to_kernel": 56,
+            "future_kernel_native_consumer_kernel_entry_summary_offset_changes_kernel_launch_args": 60,
+            "future_kernel_native_consumer_kernel_entry_summary_offset_current_wna16_arg_compatible": 64,
+            "future_kernel_native_consumer_kernel_entry_summary_offset_requires_wna16_arg_reinterpretation": 68,
+            "future_kernel_native_consumer_kernel_entry_summary_offset_reserved": 72,
+            "future_kernel_native_consumer_kernel_entry_summary_offset_row_hash_accumulator": 80,
+            "future_kernel_native_consumer_kernel_entry_summary_offset_field_read_hash_accumulator": 88,
+            "future_kernel_native_consumer_kernel_entry_summary_offset_row_metadata_hash_accumulator": 96,
             "future_kernel_native_consumer_kernel_entry_summary_packet_valid": 1,
             "future_kernel_native_consumer_kernel_entry_summary_row_count": active_rows,
             "future_kernel_native_consumer_kernel_entry_summary_row_ok_count": active_rows,

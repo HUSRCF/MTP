@@ -5371,6 +5371,94 @@ int main(int argc, char** argv) {
             << sizeof(PremapFutureKernelNativeConsumerKernelEntrySummaryV1);
   std::cout << ",\"future_kernel_native_consumer_kernel_entry_summary_struct_align\":"
             << alignof(PremapFutureKernelNativeConsumerKernelEntrySummaryV1);
+  std::cout << ",\"future_kernel_native_consumer_kernel_entry_summary_offset_abi_version\":"
+            << offsetof(
+                   PremapFutureKernelNativeConsumerKernelEntrySummaryV1,
+                   abi_version);
+  std::cout << ",\"future_kernel_native_consumer_kernel_entry_summary_offset_packet_valid\":"
+            << offsetof(
+                   PremapFutureKernelNativeConsumerKernelEntrySummaryV1,
+                   packet_valid);
+  std::cout << ",\"future_kernel_native_consumer_kernel_entry_summary_offset_row_count\":"
+            << offsetof(
+                   PremapFutureKernelNativeConsumerKernelEntrySummaryV1,
+                   row_count);
+  std::cout << ",\"future_kernel_native_consumer_kernel_entry_summary_offset_row_ok_count\":"
+            << offsetof(
+                   PremapFutureKernelNativeConsumerKernelEntrySummaryV1,
+                   row_ok_count);
+  std::cout << ",\"future_kernel_native_consumer_kernel_entry_summary_offset_descriptor_ptr_read_ok_count\":"
+            << offsetof(
+                   PremapFutureKernelNativeConsumerKernelEntrySummaryV1,
+                   descriptor_ptr_read_ok_count);
+  std::cout << ",\"future_kernel_native_consumer_kernel_entry_summary_offset_packed_weight_descriptor_read_ok_count\":"
+            << offsetof(
+                   PremapFutureKernelNativeConsumerKernelEntrySummaryV1,
+                   packed_weight_descriptor_read_ok_count);
+  std::cout << ",\"future_kernel_native_consumer_kernel_entry_summary_offset_scale_metadata_handle_read_ok_count\":"
+            << offsetof(
+                   PremapFutureKernelNativeConsumerKernelEntrySummaryV1,
+                   scale_metadata_handle_read_ok_count);
+  std::cout << ",\"future_kernel_native_consumer_kernel_entry_summary_offset_aux_metadata_handle_read_ok_count\":"
+            << offsetof(
+                   PremapFutureKernelNativeConsumerKernelEntrySummaryV1,
+                   aux_metadata_handle_read_ok_count);
+  std::cout << ",\"future_kernel_native_consumer_kernel_entry_summary_offset_expert_id_read_ok_count\":"
+            << offsetof(
+                   PremapFutureKernelNativeConsumerKernelEntrySummaryV1,
+                   expert_id_read_ok_count);
+  std::cout << ",\"future_kernel_native_consumer_kernel_entry_summary_offset_address_key_hash_read_ok_count\":"
+            << offsetof(
+                   PremapFutureKernelNativeConsumerKernelEntrySummaryV1,
+                   address_key_hash_read_ok_count);
+  std::cout << ",\"future_kernel_native_consumer_kernel_entry_summary_offset_row_metadata_read_ok_count\":"
+            << offsetof(
+                   PremapFutureKernelNativeConsumerKernelEntrySummaryV1,
+                   row_metadata_read_ok_count);
+  std::cout << ",\"future_kernel_native_consumer_kernel_entry_summary_offset_error_count\":"
+            << offsetof(
+                   PremapFutureKernelNativeConsumerKernelEntrySummaryV1,
+                   error_count);
+  std::cout << ",\"future_kernel_native_consumer_kernel_entry_summary_offset_field_mask\":"
+            << offsetof(
+                   PremapFutureKernelNativeConsumerKernelEntrySummaryV1,
+                   field_mask);
+  std::cout << ",\"future_kernel_native_consumer_kernel_entry_summary_offset_payload_bytes\":"
+            << offsetof(
+                   PremapFutureKernelNativeConsumerKernelEntrySummaryV1,
+                   payload_bytes);
+  std::cout << ",\"future_kernel_native_consumer_kernel_entry_summary_offset_passed_to_kernel\":"
+            << offsetof(
+                   PremapFutureKernelNativeConsumerKernelEntrySummaryV1,
+                   passed_to_kernel);
+  std::cout << ",\"future_kernel_native_consumer_kernel_entry_summary_offset_changes_kernel_launch_args\":"
+            << offsetof(
+                   PremapFutureKernelNativeConsumerKernelEntrySummaryV1,
+                   changes_kernel_launch_args);
+  std::cout << ",\"future_kernel_native_consumer_kernel_entry_summary_offset_current_wna16_arg_compatible\":"
+            << offsetof(
+                   PremapFutureKernelNativeConsumerKernelEntrySummaryV1,
+                   current_wna16_arg_compatible);
+  std::cout << ",\"future_kernel_native_consumer_kernel_entry_summary_offset_requires_wna16_arg_reinterpretation\":"
+            << offsetof(
+                   PremapFutureKernelNativeConsumerKernelEntrySummaryV1,
+                   requires_wna16_arg_reinterpretation);
+  std::cout << ",\"future_kernel_native_consumer_kernel_entry_summary_offset_reserved\":"
+            << offsetof(
+                   PremapFutureKernelNativeConsumerKernelEntrySummaryV1,
+                   reserved);
+  std::cout << ",\"future_kernel_native_consumer_kernel_entry_summary_offset_row_hash_accumulator\":"
+            << offsetof(
+                   PremapFutureKernelNativeConsumerKernelEntrySummaryV1,
+                   row_hash_accumulator);
+  std::cout << ",\"future_kernel_native_consumer_kernel_entry_summary_offset_field_read_hash_accumulator\":"
+            << offsetof(
+                   PremapFutureKernelNativeConsumerKernelEntrySummaryV1,
+                   field_read_hash_accumulator);
+  std::cout << ",\"future_kernel_native_consumer_kernel_entry_summary_offset_row_metadata_hash_accumulator\":"
+            << offsetof(
+                   PremapFutureKernelNativeConsumerKernelEntrySummaryV1,
+                   row_metadata_hash_accumulator);
   std::cout << ",\"future_kernel_native_consumer_kernel_entry_summary_packet_valid\":"
             << (future_native_consumer_kernel_entry_summary_checked
                     ? future_native_consumer_kernel_entry_summary.packet_valid

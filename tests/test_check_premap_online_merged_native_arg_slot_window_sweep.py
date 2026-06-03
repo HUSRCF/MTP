@@ -59,6 +59,31 @@ def _kernel_entry_summary_pairs(active: int) -> dict[str, object]:
             "kernel_entry_summary_to_kernel_arg_packet_to_program_view_rows"
         ),
         "future_kernel_native_consumer_kernel_entry_summary_packet_chain_depth": 4,
+        "future_kernel_native_consumer_kernel_entry_summary_version": 1,
+        "future_kernel_native_consumer_kernel_entry_summary_struct_size": 104,
+        "future_kernel_native_consumer_kernel_entry_summary_struct_align": 8,
+        "future_kernel_native_consumer_kernel_entry_summary_offset_abi_version": 0,
+        "future_kernel_native_consumer_kernel_entry_summary_offset_packet_valid": 4,
+        "future_kernel_native_consumer_kernel_entry_summary_offset_row_count": 8,
+        "future_kernel_native_consumer_kernel_entry_summary_offset_row_ok_count": 12,
+        "future_kernel_native_consumer_kernel_entry_summary_offset_descriptor_ptr_read_ok_count": 16,
+        "future_kernel_native_consumer_kernel_entry_summary_offset_packed_weight_descriptor_read_ok_count": 20,
+        "future_kernel_native_consumer_kernel_entry_summary_offset_scale_metadata_handle_read_ok_count": 24,
+        "future_kernel_native_consumer_kernel_entry_summary_offset_aux_metadata_handle_read_ok_count": 28,
+        "future_kernel_native_consumer_kernel_entry_summary_offset_expert_id_read_ok_count": 32,
+        "future_kernel_native_consumer_kernel_entry_summary_offset_address_key_hash_read_ok_count": 36,
+        "future_kernel_native_consumer_kernel_entry_summary_offset_row_metadata_read_ok_count": 40,
+        "future_kernel_native_consumer_kernel_entry_summary_offset_error_count": 44,
+        "future_kernel_native_consumer_kernel_entry_summary_offset_field_mask": 48,
+        "future_kernel_native_consumer_kernel_entry_summary_offset_payload_bytes": 52,
+        "future_kernel_native_consumer_kernel_entry_summary_offset_passed_to_kernel": 56,
+        "future_kernel_native_consumer_kernel_entry_summary_offset_changes_kernel_launch_args": 60,
+        "future_kernel_native_consumer_kernel_entry_summary_offset_current_wna16_arg_compatible": 64,
+        "future_kernel_native_consumer_kernel_entry_summary_offset_requires_wna16_arg_reinterpretation": 68,
+        "future_kernel_native_consumer_kernel_entry_summary_offset_reserved": 72,
+        "future_kernel_native_consumer_kernel_entry_summary_offset_row_hash_accumulator": 80,
+        "future_kernel_native_consumer_kernel_entry_summary_offset_field_read_hash_accumulator": 88,
+        "future_kernel_native_consumer_kernel_entry_summary_offset_row_metadata_hash_accumulator": 96,
         "future_kernel_native_consumer_kernel_entry_summary_packet_valid": 1,
         "future_kernel_native_consumer_kernel_entry_summary_row_count": active,
         "future_kernel_native_consumer_kernel_entry_summary_row_ok_count": active,
@@ -608,6 +633,44 @@ def test_window_sweep_check_rejects_missing_kernel_entry_args_requirement(
     ]
     assert (
         "head_child_stub_artifact_kernel_entry_args_missing_or_dry_run_unsupported"
+        in result["failures"]
+    )
+
+
+def test_window_sweep_check_rejects_kernel_entry_summary_layout_mismatch(
+    tmp_path: Path,
+):
+    path = _write_artifact(tmp_path)
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    windows = payload["windows"]
+    assert isinstance(windows, dict)
+    child_path = Path(windows["head"]["output_json"])
+    stub_path = Path(windows["head"]["stub_output_json"])
+    child = json.loads(child_path.read_text(encoding="utf-8"))
+    stub_payload = json.loads(stub_path.read_text(encoding="utf-8"))
+    for item in (child["stub_summary"], stub_payload):
+        assert isinstance(item, dict)
+        item[
+            "future_kernel_native_consumer_kernel_entry_summary_offset_row_hash_accumulator"
+        ] = 88
+    child_path.write_text(json.dumps(child) + "\n", encoding="utf-8")
+    stub_path.write_text(json.dumps(stub_payload) + "\n", encoding="utf-8")
+
+    result = check_window_sweep_artifact(
+        path,
+        expected_window_size=4,
+        expected_block_threads=4,
+        min_row_count=17,
+        require_child_kernel_entry_args_abi=True,
+    )
+
+    assert result["passed"] is False
+    assert (
+        "head_future_kernel_native_consumer_kernel_entry_summary_offset_row_hash_accumulator_mismatch"
+        in result["failures"]
+    )
+    assert (
+        "head_child_stub_artifact_future_kernel_native_consumer_kernel_entry_summary_offset_row_hash_accumulator_mismatch"
         in result["failures"]
     )
 

@@ -2,7 +2,7 @@
 
 ## Progress Version
 
-- Version: `v0.53-runtime-entry-args-layout-gate`
+- Version: `v0.54-kernel-entry-summary-layout-gate`
 - Updated: 2026-06-03
 - Current phase: premap descriptor/address prep now has a typed
   kernel-side consumer object, a launch-shaped future native ABI, and a
@@ -67,7 +67,82 @@
   still remaining readonly and disconnected from the current WNA16 launch args.
   The online-merged row-window checker now also validates those entry-args
   layout values in child native-stub artifacts, so runtime evidence cannot pass
-  with a drifted entry wrapper.
+  with a drifted entry wrapper.  The compact kernel-entry summary object now
+  also emits and gates its native size/alignment/offset layout, so both pointers
+  carried by `PremapFutureKernelNativeConsumerKernelEntryArgsV1` target
+  machine-checkable native ABI objects.
+
+## Latest Update: Kernel-Entry Summary ABI Layout Gate
+
+The future-native kernel-entry summary now reports and gates its native struct
+layout:
+
+```text
+PremapFutureKernelNativeConsumerKernelEntrySummaryV1
+  struct_size = 104
+  struct_align = 8
+  offset(abi_version) = 0
+  offset(packet_valid) = 4
+  offset(row_count) = 8
+  offset(row_ok_count) = 12
+  offset(descriptor_ptr_read_ok_count) = 16
+  offset(packed_weight_descriptor_read_ok_count) = 20
+  offset(scale_metadata_handle_read_ok_count) = 24
+  offset(aux_metadata_handle_read_ok_count) = 28
+  offset(expert_id_read_ok_count) = 32
+  offset(address_key_hash_read_ok_count) = 36
+  offset(row_metadata_read_ok_count) = 40
+  offset(error_count) = 44
+  offset(field_mask) = 48
+  offset(payload_bytes) = 52
+  offset(passed_to_kernel) = 56
+  offset(changes_kernel_launch_args) = 60
+  offset(current_wna16_arg_compatible) = 64
+  offset(requires_wna16_arg_reinterpretation) = 68
+  offset(reserved) = 72
+  offset(row_hash_accumulator) = 80
+  offset(field_read_hash_accumulator) = 88
+  offset(row_metadata_hash_accumulator) = 96
+```
+
+The native stub emits these values using `sizeof`, `alignof`, and `offsetof`.
+The schema checker, online-merged runner validator, and row-window checker now
+reject drifted summary layouts.  This closes the layout contract around both
+objects reachable from the single future kernel-entry args envelope:
+
+```text
+entry_args -> kernel_arg_packet -> program_view_ptr -> typed rows
+entry_args -> kernel_entry_summary
+```
+
+Validation:
+
+```bash
+python -m pytest \
+  tests/test_premap_kernel_consumer_schema.py \
+  tests/test_run_premap_lab_preflight.py \
+  tests/test_check_premap_online_merged_native_arg_slot_window_sweep.py \
+  tests/test_check_premap_online_merged_native_arg_slot_all_field_window_sweep.py \
+  tests/test_run_premap_online_merged_native_arg_slot_canary.py \
+  tests/test_premap_typed_consumer_stub.py -q
+# 191 passed
+
+env PYTHONPATH=src:. python scripts/check_premap_kernel_consumer_schema.py \
+  configs/runtime/premap_kernel_side_typed_consumer_schema_v1.yaml \
+  --output-json outputs/reports/premap_kernel_consumer/schema_v1_kernel_entry_summary_layout.check.json
+# passed
+
+python scripts/run_premap_lab_gate_verify.py \
+  --output-json outputs/reports/premap_lab_gate_verify.json
+# passed
+
+python -m pytest tests -q
+# 988 passed
+```
+
+Boundary remains unchanged: the summary is readonly diagnostic/native-stub
+evidence.  It is not passed to the current WNA16 fused-MoE kernel, does not
+move payload, and does not authorize live kernel-argument mutation.
 
 ## Latest Update: Runtime Kernel-Entry Args Layout Check
 

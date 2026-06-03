@@ -95,6 +95,32 @@ _KERNEL_ENTRY_ARGS_LAYOUT_EXPECTED = {
     "future_kernel_native_consumer_kernel_entry_args_offset_payload_bytes": 28,
     "future_kernel_native_consumer_kernel_entry_args_offset_flags": 32,
 }
+_KERNEL_ENTRY_SUMMARY_LAYOUT_EXPECTED = {
+    "future_kernel_native_consumer_kernel_entry_summary_struct_size": 104,
+    "future_kernel_native_consumer_kernel_entry_summary_struct_align": 8,
+    "future_kernel_native_consumer_kernel_entry_summary_offset_abi_version": 0,
+    "future_kernel_native_consumer_kernel_entry_summary_offset_packet_valid": 4,
+    "future_kernel_native_consumer_kernel_entry_summary_offset_row_count": 8,
+    "future_kernel_native_consumer_kernel_entry_summary_offset_row_ok_count": 12,
+    "future_kernel_native_consumer_kernel_entry_summary_offset_descriptor_ptr_read_ok_count": 16,
+    "future_kernel_native_consumer_kernel_entry_summary_offset_packed_weight_descriptor_read_ok_count": 20,
+    "future_kernel_native_consumer_kernel_entry_summary_offset_scale_metadata_handle_read_ok_count": 24,
+    "future_kernel_native_consumer_kernel_entry_summary_offset_aux_metadata_handle_read_ok_count": 28,
+    "future_kernel_native_consumer_kernel_entry_summary_offset_expert_id_read_ok_count": 32,
+    "future_kernel_native_consumer_kernel_entry_summary_offset_address_key_hash_read_ok_count": 36,
+    "future_kernel_native_consumer_kernel_entry_summary_offset_row_metadata_read_ok_count": 40,
+    "future_kernel_native_consumer_kernel_entry_summary_offset_error_count": 44,
+    "future_kernel_native_consumer_kernel_entry_summary_offset_field_mask": 48,
+    "future_kernel_native_consumer_kernel_entry_summary_offset_payload_bytes": 52,
+    "future_kernel_native_consumer_kernel_entry_summary_offset_passed_to_kernel": 56,
+    "future_kernel_native_consumer_kernel_entry_summary_offset_changes_kernel_launch_args": 60,
+    "future_kernel_native_consumer_kernel_entry_summary_offset_current_wna16_arg_compatible": 64,
+    "future_kernel_native_consumer_kernel_entry_summary_offset_requires_wna16_arg_reinterpretation": 68,
+    "future_kernel_native_consumer_kernel_entry_summary_offset_reserved": 72,
+    "future_kernel_native_consumer_kernel_entry_summary_offset_row_hash_accumulator": 80,
+    "future_kernel_native_consumer_kernel_entry_summary_offset_field_read_hash_accumulator": 88,
+    "future_kernel_native_consumer_kernel_entry_summary_offset_row_metadata_hash_accumulator": 96,
+}
 
 
 def _load_json(path: Path) -> dict[str, Any]:
@@ -385,6 +411,13 @@ def _check_kernel_entry_summary(
         value = summary.get(hash_key)
         if not isinstance(value, str) or not value:
             failures.append(f"{label}_{hash_key}_missing")
+    for key, expected in _KERNEL_ENTRY_SUMMARY_LAYOUT_EXPECTED.items():
+        value = summary.get(key)
+        if not isinstance(value, int) or isinstance(value, bool):
+            failures.append(f"{label}_{key}_invalid")
+            continue
+        if value != expected:
+            failures.append(f"{label}_{key}_mismatch")
     return failures
 
 
@@ -629,6 +662,14 @@ def _check_child_stub_artifact(
             )
         )
     if require_child_kernel_entry_args_abi:
+        if not require_child_kernel_arg_packet_abi:
+            failures.extend(
+                _check_kernel_entry_summary(
+                    stub_payload,
+                    label=f"{label}_child_stub_artifact",
+                    expected_active=expected_active,
+                )
+            )
         failures.extend(
             _check_kernel_entry_args(
                 stub_payload,
@@ -758,6 +799,14 @@ def _check_child_artifact(
                 )
             )
         if require_child_kernel_entry_args_abi:
+            if not require_child_kernel_arg_packet_abi:
+                failures.extend(
+                    _check_kernel_entry_summary(
+                        stub_summary,
+                        label=label,
+                        expected_active=expected_active,
+                    )
+                )
             failures.extend(
                 _check_kernel_entry_args(
                     stub_summary,

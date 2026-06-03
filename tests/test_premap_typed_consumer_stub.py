@@ -176,6 +176,14 @@ def test_typed_consumer_stub_uses_kernel_side_abi_header():
         in source
     )
     assert (
+        "future_kernel_native_consumer_kernel_entry_summary_offset_row_hash_accumulator"
+        in source
+    )
+    assert (
+        "future_kernel_native_consumer_kernel_entry_summary_offset_row_metadata_hash_accumulator"
+        in source
+    )
+    assert (
         "future_kernel_native_consumer_kernel_entry_args_summary_error_count"
         in source
     )

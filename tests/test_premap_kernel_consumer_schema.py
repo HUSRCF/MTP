@@ -16,6 +16,8 @@ from scripts.check_premap_kernel_consumer_schema import (
     FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_PTR_ABI_LAYOUT_FIELDS,
     FUTURE_KERNEL_NATIVE_CONSUMER_ARG_SLOT_ABI_LAYOUT_EXPECTED,
     FUTURE_KERNEL_NATIVE_CONSUMER_ARG_SLOT_ABI_LAYOUT_FIELDS,
+    FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ENTRY_SUMMARY_ABI_LAYOUT_EXPECTED,
+    FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ENTRY_SUMMARY_ABI_LAYOUT_FIELDS,
     FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ENTRY_ARGS_ABI_LAYOUT_EXPECTED,
     FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ENTRY_ARGS_ABI_LAYOUT_FIELDS,
     FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ARG_PACKET_ABI_LAYOUT_EXPECTED,
@@ -263,6 +265,14 @@ def test_kernel_consumer_schema_accepts_valid_artifact(tmp_path: Path) -> None:
     assert (
         result["future_kernel_native_consumer_kernel_arg_packet_abi_layout_expected"]
         == FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ARG_PACKET_ABI_LAYOUT_EXPECTED
+    )
+    assert (
+        result["future_kernel_native_consumer_kernel_entry_summary_abi_layout_fields"]
+        == FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ENTRY_SUMMARY_ABI_LAYOUT_FIELDS
+    )
+    assert (
+        result["future_kernel_native_consumer_kernel_entry_summary_abi_layout_expected"]
+        == FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ENTRY_SUMMARY_ABI_LAYOUT_EXPECTED
     )
     assert (
         result["future_kernel_native_consumer_kernel_entry_args_abi_layout_fields"]
