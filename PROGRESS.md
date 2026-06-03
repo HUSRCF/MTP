@@ -2,8 +2,25 @@
 
 ## Progress Version
 
-- Version: `v0.67-invocation-abi-lab-closure`
+- Version: `v0.68-endpoint-abi-native-stub`
 - Updated: 2026-06-04
+- Latest endpoint update: the standalone native typed consumer path now has a
+  future kernel-side endpoint ABI canary,
+  `PremapFutureKernelNativeConsumerEndpointV1`.  The endpoint embeds the
+  invocation by value and walks the typed chain through
+  `endpoint -> invocation -> kernel_launch_context ->
+  kernel_launch_descriptor -> launch_envelope_args_ptr ->
+  launch_envelope_args -> entry_args_ptr -> kernel_entry_args ->
+  kernel_arg_packet -> program_view rows`.  The GPU1 standalone endpoint
+  canary
+  `outputs/reports/premap_kernel_consumer/typed_consumer_stub_endpoint_canary_gpu1.json`
+  passes with 128 rows, all rows read through the endpoint path, and
+  `payload_bytes=0`, `passed_to_kernel=false`,
+  `kernel_arg_pass_allowed=false`, `changes_kernel_launch_args=false`,
+  `current_wna16_arg_compatible=false`, and
+  `requires_wna16_arg_reinterpretation=false`.  This is still a standalone
+  future native consumer ABI/stub and is not passed to the current WNA16
+  fused-MoE kernel.
 - Latest closure update: the canonical lab-gate closure now defaults to the
   online-merged future-native `invocation` ABI artifacts, not the older
   `kernel_launch_context` artifacts.  The closure runner passes

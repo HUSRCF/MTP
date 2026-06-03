@@ -352,6 +352,25 @@ constexpr bool
 constexpr bool
     kPremapFutureKernelNativeConsumerInvocationAbiV1CurrentWna16ArgCompatible =
         false;
+constexpr const char*
+    kPremapFutureKernelNativeConsumerEndpointAbiV1Name =
+        "premap_future_kernel_native_consumer_endpoint_abi_v1";
+constexpr const char*
+    kPremapFutureKernelNativeConsumerEndpointAbiV1Mode =
+        "readonly_future_kernel_native_consumer_endpoint_abi";
+constexpr const char*
+    kPremapFutureKernelNativeConsumerEndpointAbiV1Source =
+        "premap_future_kernel_native_consumer_invocation_entry_abi_v1";
+constexpr uint32_t kPremapFutureKernelNativeConsumerEndpointAbiV1Version = 1;
+constexpr bool
+    kPremapFutureKernelNativeConsumerEndpointAbiV1PayloadDerefAllowed =
+        false;
+constexpr bool
+    kPremapFutureKernelNativeConsumerEndpointAbiV1KernelArgPassAllowed =
+        false;
+constexpr bool
+    kPremapFutureKernelNativeConsumerEndpointAbiV1CurrentWna16ArgCompatible =
+        false;
 
 constexpr uint32_t kPremapFutureKernelSideConsumerArgsV1ReadonlyFlag = 1u << 0;
 constexpr uint32_t
@@ -675,6 +694,22 @@ struct PremapFutureKernelNativeConsumerInvocationV1 {
   uint32_t invocation_id;
   uint32_t device_ordinal;
   uint32_t stream_domain;
+  uint32_t payload_bytes;
+  uint32_t flags;
+};
+
+// Future kernel-side consumer endpoint.  This is the standalone ABI object a
+// future descriptor/address preparation consumer can receive after the
+// prelaunch bridge has built a typed invocation. It deliberately embeds the
+// invocation by value instead of reinterpreting the current WNA16 argument
+// list, and it still cannot dereference payload bytes or pass kernel args.
+struct PremapFutureKernelNativeConsumerEndpointV1 {
+  PremapFutureKernelNativeConsumerInvocationV1 invocation;
+  uint32_t abi_version;
+  uint32_t invocation_struct_size;
+  uint32_t summary_struct_size;
+  uint32_t pointer_size;
+  uint32_t endpoint_id;
   uint32_t payload_bytes;
   uint32_t flags;
 };
@@ -1474,6 +1509,35 @@ premap_typed_consumer_future_native_invocation_matches_v1(
          context.stream_domain == invocation.stream_domain &&
          premap_typed_consumer_future_native_kernel_launch_context_matches_v1(
              context);
+}
+
+__device__ static inline bool
+premap_typed_consumer_future_native_endpoint_matches_v1(
+    const PremapFutureKernelNativeConsumerEndpointV1& endpoint) {
+  if (endpoint.abi_version !=
+          kPremapFutureKernelNativeConsumerEndpointAbiV1Version ||
+      endpoint.invocation_struct_size !=
+          sizeof(PremapFutureKernelNativeConsumerInvocationV1) ||
+      endpoint.summary_struct_size !=
+          sizeof(PremapFutureKernelNativeConsumerKernelEntrySummaryV1) ||
+      endpoint.pointer_size !=
+          sizeof(PremapFutureKernelNativeConsumerKernelLaunchContextV1*) ||
+      endpoint.endpoint_id == 0 || endpoint.payload_bytes != 0 ||
+      endpoint.invocation.summary == nullptr ||
+      (endpoint.flags & kPremapFutureKernelSideConsumerArgsV1ReadonlyFlag) ==
+          0 ||
+      (endpoint.flags &
+       kPremapFutureKernelSideConsumerArgsV1KernelArgPassDisabledFlag) == 0 ||
+      (endpoint.flags &
+       kPremapFutureKernelSideConsumerArgsV1PayloadDerefDisabledFlag) == 0 ||
+      endpoint.flags != kPremapFutureKernelSideConsumerArgsV1RequiredFlags ||
+      kPremapFutureKernelNativeConsumerEndpointAbiV1PayloadDerefAllowed ||
+      kPremapFutureKernelNativeConsumerEndpointAbiV1KernelArgPassAllowed ||
+      kPremapFutureKernelNativeConsumerEndpointAbiV1CurrentWna16ArgCompatible) {
+    return false;
+  }
+  return premap_typed_consumer_future_native_invocation_matches_v1(
+      endpoint.invocation);
 }
 
 __device__ static inline bool
