@@ -45,6 +45,7 @@ def _summary() -> dict[str, object]:
         "default_kernel_consumer_online_merged_multiprogram_dispatch_row_limit": 1841,
         "default_kernel_consumer_online_merged_multiprogram_dispatch_active_rows": 1841,
         "default_kernel_consumer_online_merged_multiprogram_device": 1,
+        "default_kernel_consumer_online_merged_multiprogram_hip_visible_devices": None,
         "default_kernel_consumer_online_merged_multiprogram_mirror_field": (
             "scale_metadata_handle"
         ),
@@ -206,6 +207,22 @@ def test_check_premap_lab_preflight_summary_accepts_visible_device_zero() -> Non
     assert result["failures"] == []
     assert result["online_merged_device"] == 0
     assert result["expected_online_merged_device"] == 0
+
+
+def test_check_premap_lab_preflight_summary_accepts_gpu1_visible_device_zero() -> None:
+    summary = _summary()
+    summary["default_kernel_consumer_online_merged_multiprogram_device"] = 0
+    summary[
+        "default_kernel_consumer_online_merged_multiprogram_hip_visible_devices"
+    ] = "1"
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is True
+    assert result["failures"] == []
+    assert result["online_merged_device"] == 0
+    assert result["online_merged_hip_visible_devices"] == "1"
+    assert result["expected_online_merged_device"] == 1
 
 
 def test_check_premap_lab_preflight_summary_rejects_missing_sha() -> None:

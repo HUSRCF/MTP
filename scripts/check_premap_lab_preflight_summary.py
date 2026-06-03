@@ -169,7 +169,15 @@ def check_premap_lab_preflight_summary(
         summary,
         "default_kernel_consumer_online_merged_multiprogram_device",
     )
-    if device != int(expected_online_merged_device):
+    hip_visible_devices = summary.get(
+        "default_kernel_consumer_online_merged_multiprogram_hip_visible_devices"
+    )
+    logical_gpu1 = (
+        int(expected_online_merged_device) == 1
+        and device == 0
+        and str(hip_visible_devices) == "1"
+    )
+    if device != int(expected_online_merged_device) and not logical_gpu1:
         if int(expected_online_merged_device) == 1:
             failures.append("online_merged_device_not_gpu1")
         else:
@@ -354,6 +362,7 @@ def check_premap_lab_preflight_summary(
         "online_merged_row_count": row_count,
         "online_merged_dispatch_active_rows": active_rows,
         "online_merged_device": device,
+        "online_merged_hip_visible_devices": hip_visible_devices,
         "expected_online_merged_device": int(expected_online_merged_device),
         "online_merged_mirror_field": summary.get(
             "default_kernel_consumer_online_merged_multiprogram_mirror_field"

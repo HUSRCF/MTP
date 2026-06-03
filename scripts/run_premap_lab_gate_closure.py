@@ -24,14 +24,14 @@ DEFAULT_ARG_SLOT_RUNNER_JSON = (
     / "outputs"
     / "reports"
     / "premap_kernel_consumer"
-    / "online_merged_future_native_arg_slot_canary_runner_latest.json"
+    / "online_merged_future_native_arg_slot_kernel_launch_context_canary_runner.json"
 )
 DEFAULT_ARG_SLOT_STUB_JSON = (
     REPO_ROOT
     / "outputs"
     / "reports"
     / "premap_kernel_consumer"
-    / "typed_consumer_stub_gpu1_online_merged_future_native_arg_slot_32tables_canary.json"
+    / "typed_consumer_stub_gpu1_online_merged_future_native_arg_slot_kernel_launch_context_canary.json"
 )
 DEFAULT_ARG_SLOT_MERGED_JSON = (
     REPO_ROOT
@@ -289,6 +289,7 @@ def run_closure(args: argparse.Namespace) -> dict[str, Any]:
                 str(arg_slot_stub_json),
                 "--merged-output-json",
                 str(arg_slot_merged_json),
+                "--require-kernel-launch-context-abi",
                 *arg_slot_device_args,
             ],
             dry_run=bool(args.dry_run),

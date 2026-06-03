@@ -1644,6 +1644,72 @@ def _standalone_arg_slot_canary_payload(
     return payload
 
 
+def _kernel_launch_context_metrics(
+    *,
+    prefix: str,
+    row_count: int,
+    device_ordinal: int = 0,
+    include_all_handle_fields_read: bool = False,
+) -> dict[str, object]:
+    payload: dict[str, object] = {
+        f"{prefix}_checked": True,
+        f"{prefix}_abi_name": (
+            "premap_future_kernel_native_consumer_kernel_launch_context_abi_v1"
+        ),
+        f"{prefix}_mode": (
+            "readonly_future_kernel_native_consumer_kernel_launch_context_abi"
+        ),
+        f"{prefix}_source": (
+            "premap_future_kernel_native_consumer_kernel_launch_descriptor_abi_v1"
+        ),
+        f"{prefix}_version": 1,
+        f"{prefix}_field_read_path": (
+            "kernel_launch_context_to_kernel_launch_descriptor_to_"
+            "launch_envelope_args_ptr_to_launch_envelope_args_to_"
+            "entry_args_ptr_to_kernel_entry_args_to_kernel_arg_packet_to_"
+            "program_view_rows"
+        ),
+        f"{prefix}_packet_chain_depth": 10,
+        f"{prefix}_error_count": 0,
+        f"{prefix}_struct_size": 64,
+        f"{prefix}_struct_align": 8,
+        f"{prefix}_launch_descriptor_struct_size": 80,
+        f"{prefix}_summary_struct_size": 104,
+        f"{prefix}_pointer_size": 8,
+        f"{prefix}_device_ordinal": device_ordinal,
+        f"{prefix}_stream_domain": 0,
+        f"{prefix}_payload_bytes": 0,
+        f"{prefix}_payload_deref_allowed": False,
+        f"{prefix}_passed_to_kernel": False,
+        f"{prefix}_kernel_arg_pass_allowed": False,
+        f"{prefix}_changes_kernel_launch_args": False,
+        f"{prefix}_current_wna16_arg_compatible": False,
+        f"{prefix}_requires_wna16_arg_reinterpretation": False,
+        f"{prefix}_summary_row_count": row_count,
+        f"{prefix}_summary_row_ok_count": row_count,
+        f"{prefix}_summary_descriptor_ptr_read_row_ok_count": row_count,
+        f"{prefix}_summary_packed_weight_descriptor_read_row_ok_count": row_count,
+        f"{prefix}_summary_scale_metadata_handle_read_row_ok_count": row_count,
+        f"{prefix}_summary_aux_metadata_handle_read_row_ok_count": row_count,
+        f"{prefix}_summary_expert_id_read_row_ok_count": row_count,
+        f"{prefix}_summary_address_key_hash_read_row_ok_count": row_count,
+        f"{prefix}_summary_row_metadata_read_row_ok_count": row_count,
+        f"{prefix}_summary_error_count": 0,
+        f"{prefix}_summary_field_mask": 15,
+        f"{prefix}_summary_packet_valid": 1,
+        f"{prefix}_summary_struct_size": 104,
+        f"{prefix}_summary_row_hash_accumulator": "c4b51a0fa5ba88c4",
+        f"{prefix}_summary_field_read_hash_accumulator": "c2e4ae7fa9bc3227",
+        f"{prefix}_summary_row_metadata_hash_accumulator": "1a11b42afa9e8576",
+    }
+    if include_all_handle_fields_read:
+        payload[f"{prefix}_all_handle_fields_read"] = True
+        payload[f"{prefix}_row_hash_accumulator"] = "c4b51a0fa5ba88c4"
+        payload[f"{prefix}_field_read_hash_accumulator"] = "c2e4ae7fa9bc3227"
+        payload[f"{prefix}_row_metadata_hash_accumulator"] = "1a11b42afa9e8576"
+    return payload
+
+
 def _standalone_arg_slot_multiprogram_canary_payload(
     *,
     mirror_field: str = "scale_metadata_handle",
@@ -1910,6 +1976,12 @@ def _standalone_arg_slot_multiprogram_canary_payload(
             ),
         }
     )
+    payload.update(
+        _kernel_launch_context_metrics(
+            prefix="future_kernel_native_consumer_kernel_launch_context",
+            row_count=row_count,
+        )
+    )
     return payload
 
 
@@ -2008,7 +2080,7 @@ def _online_merged_arg_slot_multiprogram_runner_payload(
         input_path,
         mirror_field=mirror_field,
     )
-    return {
+    payload = {
         "passed": True,
         "failures": [],
         "source": "online_merged_future_native_arg_slot_canary_runner",
@@ -2042,6 +2114,22 @@ def _online_merged_arg_slot_multiprogram_runner_payload(
         "mirror_field": mirror_field,
         "stub_summary": stub_summary,
     }
+    payload.update(
+        {
+            "require_kernel_launch_context_abi": True,
+            "require_kernel_launch_descriptor_abi": True,
+            "require_launch_envelope_args_abi": True,
+            "require_launch_envelope_args_ptr_abi": True,
+        }
+    )
+    payload.update(
+        _kernel_launch_context_metrics(
+            prefix="kernel_launch_context",
+            row_count=520,
+            include_all_handle_fields_read=True,
+        )
+    )
+    return payload
 
 
 def _runner_mirror_summary(field_name: str) -> dict[str, object]:
@@ -4733,6 +4821,94 @@ def test_premap_lab_preflight_rejects_required_online_merged_runner_without_proj
         "future_kernel_native_arg_slot_online_merged_multiprogram_runner_json:"
         "online_merged_multiprogram_arg_slot_runner_handle_projection_all_fields_unchecked"
     ) in failures
+
+
+def test_premap_lab_preflight_rejects_required_online_merged_runner_without_kernel_launch_context(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    runner_path = (
+        tmp_path
+        / "reports/default_gate_online_merged_future_native_arg_slot_multiprogram_runner.json"
+    )
+    payload = json.loads(runner_path.read_text(encoding="utf-8"))
+    payload["require_kernel_launch_context_abi"] = False
+    payload["kernel_launch_context_checked"] = False
+    runner_path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is False
+    assert "default_readonly_gate_required_evidence_check_failed" in result["failures"]
+    failures = result["default_readonly_gate_required_evidence_check"]["failures"]
+    assert (
+        "future_kernel_native_arg_slot_online_merged_multiprogram_runner_json:"
+        "online_merged_multiprogram_arg_slot_runner_require_kernel_launch_context_abi_missing"
+    ) in failures
+    assert (
+        "future_kernel_native_arg_slot_online_merged_multiprogram_runner_json:"
+        "online_merged_multiprogram_arg_slot_runner_kernel_launch_context_checked_mismatch"
+    ) in failures
+
+
+def test_premap_lab_preflight_allows_optional_online_merged_runner_without_kernel_launch_context(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    optional_runner_path = (
+        tmp_path
+        / "reports/default_gate_online_merged_future_native_arg_slot_descriptor_ptr_runner.json"
+    )
+    payload = json.loads(optional_runner_path.read_text(encoding="utf-8"))
+    payload.pop("require_kernel_launch_context_abi", None)
+    payload.pop("require_kernel_launch_descriptor_abi", None)
+    payload.pop("require_launch_envelope_args_abi", None)
+    payload.pop("require_launch_envelope_args_ptr_abi", None)
+    for key in list(payload):
+        if key.startswith("kernel_launch_context_"):
+            payload.pop(key)
+    stub_summary = payload.get("stub_summary")
+    assert isinstance(stub_summary, dict)
+    for key in list(stub_summary):
+        if "kernel_launch_context" in key:
+            stub_summary.pop(key)
+    optional_runner_path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is True
+    summary = result["lab_gate_status_summary"]
+    assert summary["default_optional_evidence_passed"] is True
+    assert (
+        "future_kernel_native_arg_slot_online_merged_descriptor_ptr_mirror_runner_json"
+        in summary[
+            "default_kernel_consumer_arg_slot_online_merged_optional_mirror_evidence_labels"
+        ]
+    )
 
 
 def test_premap_lab_preflight_rejects_required_online_merged_runner_invalid_consumer_view_projection_hash(
