@@ -333,6 +333,25 @@ constexpr bool
 constexpr bool
     kPremapFutureKernelNativeConsumerKernelLaunchContextAbiV1CurrentWna16ArgCompatible =
         false;
+constexpr const char*
+    kPremapFutureKernelNativeConsumerInvocationAbiV1Name =
+        "premap_future_kernel_native_consumer_invocation_abi_v1";
+constexpr const char*
+    kPremapFutureKernelNativeConsumerInvocationAbiV1Mode =
+        "readonly_future_kernel_native_consumer_invocation_abi";
+constexpr const char*
+    kPremapFutureKernelNativeConsumerInvocationAbiV1Source =
+        "premap_future_kernel_native_consumer_kernel_launch_context_abi_v1";
+constexpr uint32_t kPremapFutureKernelNativeConsumerInvocationAbiV1Version = 1;
+constexpr bool
+    kPremapFutureKernelNativeConsumerInvocationAbiV1PayloadDerefAllowed =
+        false;
+constexpr bool
+    kPremapFutureKernelNativeConsumerInvocationAbiV1KernelArgPassAllowed =
+        false;
+constexpr bool
+    kPremapFutureKernelNativeConsumerInvocationAbiV1CurrentWna16ArgCompatible =
+        false;
 
 constexpr uint32_t kPremapFutureKernelSideConsumerArgsV1ReadonlyFlag = 1u << 0;
 constexpr uint32_t
@@ -634,6 +653,26 @@ struct PremapFutureKernelNativeConsumerKernelLaunchContextV1 {
   uint32_t launch_descriptor_struct_size;
   uint32_t summary_struct_size;
   uint32_t pointer_size;
+  uint32_t device_ordinal;
+  uint32_t stream_domain;
+  uint32_t payload_bytes;
+  uint32_t flags;
+};
+
+// Future kernel-side consumer invocation. This wraps the launch context in the
+// object shape a native consumer entry point would receive from a prelaunch
+// bridge. It is intentionally standalone: payload dereference and current
+// WNA16 kernel-arg handoff remain disabled.
+struct PremapFutureKernelNativeConsumerInvocationV1 {
+  const PremapFutureKernelNativeConsumerKernelLaunchContextV1* context;
+  PremapFutureKernelNativeConsumerKernelEntrySummaryV1* summary;
+  uint64_t expected_schema_hash_hi;
+  uint64_t expected_schema_hash_lo;
+  uint32_t abi_version;
+  uint32_t context_struct_size;
+  uint32_t summary_struct_size;
+  uint32_t pointer_size;
+  uint32_t invocation_id;
   uint32_t device_ordinal;
   uint32_t stream_domain;
   uint32_t payload_bytes;
@@ -1391,6 +1430,44 @@ premap_typed_consumer_future_native_kernel_launch_context_matches_v1(
          descriptor.expected_schema_hash_lo == context.expected_schema_hash_lo &&
          premap_typed_consumer_future_native_kernel_launch_descriptor_matches_v1(
              descriptor);
+}
+
+__device__ static inline bool
+premap_typed_consumer_future_native_invocation_matches_v1(
+    const PremapFutureKernelNativeConsumerInvocationV1& invocation) {
+  if (invocation.context == nullptr || invocation.summary == nullptr ||
+      invocation.abi_version !=
+          kPremapFutureKernelNativeConsumerInvocationAbiV1Version ||
+      invocation.context_struct_size !=
+          sizeof(PremapFutureKernelNativeConsumerKernelLaunchContextV1) ||
+      invocation.summary_struct_size !=
+          sizeof(PremapFutureKernelNativeConsumerKernelEntrySummaryV1) ||
+      invocation.pointer_size !=
+          sizeof(PremapFutureKernelNativeConsumerKernelLaunchContextV1*) ||
+      invocation.expected_schema_hash_hi == 0 ||
+      invocation.expected_schema_hash_lo == 0 ||
+      invocation.payload_bytes != 0 || invocation.stream_domain != 0 ||
+      (invocation.flags &
+       kPremapFutureKernelSideConsumerArgsV1ReadonlyFlag) == 0 ||
+      (invocation.flags &
+       kPremapFutureKernelSideConsumerArgsV1KernelArgPassDisabledFlag) == 0 ||
+      (invocation.flags &
+       kPremapFutureKernelSideConsumerArgsV1PayloadDerefDisabledFlag) == 0 ||
+      invocation.flags != kPremapFutureKernelSideConsumerArgsV1RequiredFlags ||
+      kPremapFutureKernelNativeConsumerInvocationAbiV1PayloadDerefAllowed ||
+      kPremapFutureKernelNativeConsumerInvocationAbiV1KernelArgPassAllowed ||
+      kPremapFutureKernelNativeConsumerInvocationAbiV1CurrentWna16ArgCompatible) {
+    return false;
+  }
+
+  const PremapFutureKernelNativeConsumerKernelLaunchContextV1 context =
+      *invocation.context;
+  return context.expected_schema_hash_hi ==
+             invocation.expected_schema_hash_hi &&
+         context.expected_schema_hash_lo ==
+             invocation.expected_schema_hash_lo &&
+         premap_typed_consumer_future_native_kernel_launch_context_matches_v1(
+             context);
 }
 
 __device__ static inline bool

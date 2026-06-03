@@ -2,9 +2,21 @@
 
 ## Progress Version
 
-- Version: `v0.65-kernel-launch-descriptor-native-abi-canary`
+- Version: `v0.66-future-native-consumer-invocation-abi-canary`
 - Updated: 2026-06-03
-- Current phase: premap descriptor/address prep now has a typed
+- Current phase: the standalone native typed consumer path now includes a
+  future `PremapFutureKernelNativeConsumerInvocationV1` ABI canary.  This
+  invocation object wraps the kernel-launch context as the next future
+  kernel-side consumer entry shape, follows
+  `invocation -> kernel_launch_context -> kernel_launch_descriptor ->
+  launch_envelope_args_ptr -> launch_envelope_args -> entry_args_ptr ->
+  entry_args -> kernel_arg_packet -> program_view -> rows`, and validates all
+  typed handle fields plus row metadata while still reporting
+  `payload_bytes=0`, `passed_to_kernel=false`,
+  `changes_kernel_launch_args=false`, and
+  `current_wna16_arg_compatible=false`.  It is a standalone native checker
+  path and is not passed to the current WNA16 fused-MoE kernel.
+  Premap descriptor/address prep now has a typed
   kernel-side consumer object, a launch-shaped future native ABI, and a
   dispatch-shaped readonly native consumer ABI.  The default lab gate remains
   live-disabled, zero-payload, and not passed to the current WNA16 kernel.
