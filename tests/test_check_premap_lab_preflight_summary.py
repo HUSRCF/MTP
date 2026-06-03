@@ -113,6 +113,15 @@ def _summary() -> dict[str, object]:
         "default_kernel_consumer_consumer_view_changes_kernel_launch_args": False,
         "default_kernel_consumer_consumer_view_current_wna16_arg_compatible": False,
         "default_kernel_consumer_consumer_view_requires_wna16_arg_reinterpretation": False,
+        "default_kernel_consumer_kernel_arg_packet_layout_reported": True,
+        "default_kernel_consumer_kernel_arg_packet_struct_size": 32,
+        "default_kernel_consumer_kernel_arg_packet_offset_program_view_ptr": 0,
+        "default_kernel_consumer_kernel_entry_summary_layout_reported": True,
+        "default_kernel_consumer_kernel_entry_summary_struct_size": 104,
+        "default_kernel_consumer_kernel_entry_summary_offset_row_hash_accumulator": 80,
+        "default_kernel_consumer_kernel_entry_args_layout_reported": True,
+        "default_kernel_consumer_kernel_entry_args_struct_size": 40,
+        "default_kernel_consumer_kernel_entry_args_offset_summary": 8,
         "runtime_gate_evidence_deferred_count": 0,
         "strict_default_gate_evidence_deferred_count": 0,
         "default_kernel_consumer_dispatch_runner_final_runtime_gate_evidence_deferred_count": 0,
@@ -263,6 +272,26 @@ def test_check_premap_lab_preflight_summary_rejects_arg_slot_runner_boundary() -
     )
     assert (
         "default_kernel_consumer_online_merged_multiprogram_current_wna16_arg_compatible_mismatch"
+        in result["failures"]
+    )
+
+
+def test_check_premap_lab_preflight_summary_rejects_kernel_entry_layout_gap() -> None:
+    summary = _summary()
+    summary["default_kernel_consumer_kernel_entry_args_struct_size"] = 48
+    summary[
+        "default_kernel_consumer_kernel_entry_summary_offset_row_hash_accumulator"
+    ] = 88
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is False
+    assert (
+        "default_kernel_consumer_kernel_entry_args_struct_size_mismatch"
+        in result["failures"]
+    )
+    assert (
+        "default_kernel_consumer_kernel_entry_summary_offset_row_hash_accumulator_mismatch"
         in result["failures"]
     )
 

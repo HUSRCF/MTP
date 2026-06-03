@@ -4829,6 +4829,21 @@ def run_premap_lab_preflight(
     )
     if not isinstance(future_kernel_args_layout_expected, dict):
         future_kernel_args_layout_expected = {}
+    kernel_arg_packet_layout_expected = schema_summary.get(
+        "future_kernel_native_consumer_kernel_arg_packet_abi_layout_expected",
+    )
+    if not isinstance(kernel_arg_packet_layout_expected, dict):
+        kernel_arg_packet_layout_expected = {}
+    kernel_entry_summary_layout_expected = schema_summary.get(
+        "future_kernel_native_consumer_kernel_entry_summary_abi_layout_expected",
+    )
+    if not isinstance(kernel_entry_summary_layout_expected, dict):
+        kernel_entry_summary_layout_expected = {}
+    kernel_entry_args_layout_expected = schema_summary.get(
+        "future_kernel_native_consumer_kernel_entry_args_abi_layout_expected",
+    )
+    if not isinstance(kernel_entry_args_layout_expected, dict):
+        kernel_entry_args_layout_expected = {}
     required_gate_checks = schema_summary.get("required_gate_checks")
     if not isinstance(required_gate_checks, dict):
         required_gate_checks = {}
@@ -5684,6 +5699,60 @@ def run_premap_lab_preflight(
         "default_kernel_consumer_future_kernel_args_offset_field_mask": (
             future_kernel_args_layout_expected.get(
                 "future_kernel_consumer_args_offset_field_mask"
+            )
+        ),
+        "default_kernel_consumer_kernel_arg_packet_layout_reported": (
+            schema_summary.get(
+                "future_kernel_native_consumer_kernel_arg_packet_abi_layout_reported"
+            )
+        ),
+        "default_kernel_consumer_kernel_arg_packet_layout_expected": (
+            kernel_arg_packet_layout_expected
+        ),
+        "default_kernel_consumer_kernel_arg_packet_struct_size": (
+            kernel_arg_packet_layout_expected.get(
+                "future_kernel_native_consumer_kernel_arg_packet_struct_size"
+            )
+        ),
+        "default_kernel_consumer_kernel_arg_packet_offset_program_view_ptr": (
+            kernel_arg_packet_layout_expected.get(
+                "future_kernel_native_consumer_kernel_arg_packet_offset_program_view_ptr"
+            )
+        ),
+        "default_kernel_consumer_kernel_entry_summary_layout_reported": (
+            schema_summary.get(
+                "future_kernel_native_consumer_kernel_entry_summary_abi_layout_reported"
+            )
+        ),
+        "default_kernel_consumer_kernel_entry_summary_layout_expected": (
+            kernel_entry_summary_layout_expected
+        ),
+        "default_kernel_consumer_kernel_entry_summary_struct_size": (
+            kernel_entry_summary_layout_expected.get(
+                "future_kernel_native_consumer_kernel_entry_summary_struct_size"
+            )
+        ),
+        "default_kernel_consumer_kernel_entry_summary_offset_row_hash_accumulator": (
+            kernel_entry_summary_layout_expected.get(
+                "future_kernel_native_consumer_kernel_entry_summary_offset_row_hash_accumulator"
+            )
+        ),
+        "default_kernel_consumer_kernel_entry_args_layout_reported": (
+            schema_summary.get(
+                "future_kernel_native_consumer_kernel_entry_args_abi_layout_reported"
+            )
+        ),
+        "default_kernel_consumer_kernel_entry_args_layout_expected": (
+            kernel_entry_args_layout_expected
+        ),
+        "default_kernel_consumer_kernel_entry_args_struct_size": (
+            kernel_entry_args_layout_expected.get(
+                "future_kernel_native_consumer_kernel_entry_args_struct_size"
+            )
+        ),
+        "default_kernel_consumer_kernel_entry_args_offset_summary": (
+            kernel_entry_args_layout_expected.get(
+                "future_kernel_native_consumer_kernel_entry_args_offset_summary"
             )
         ),
         "default_kernel_consumer_dispatch_abi_name": (

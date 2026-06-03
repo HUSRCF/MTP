@@ -2952,6 +2952,70 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
         ]
     )
     assert (
+        summary["default_kernel_consumer_kernel_arg_packet_layout_reported"]
+        is True
+    )
+    assert (
+        summary["default_kernel_consumer_kernel_arg_packet_layout_expected"]
+        == FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ARG_PACKET_ABI_LAYOUT_EXPECTED
+    )
+    assert (
+        summary["default_kernel_consumer_kernel_arg_packet_struct_size"]
+        == FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ARG_PACKET_ABI_LAYOUT_EXPECTED[
+            "future_kernel_native_consumer_kernel_arg_packet_struct_size"
+        ]
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_kernel_arg_packet_offset_program_view_ptr"
+        ]
+        == FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ARG_PACKET_ABI_LAYOUT_EXPECTED[
+            "future_kernel_native_consumer_kernel_arg_packet_offset_program_view_ptr"
+        ]
+    )
+    assert (
+        summary["default_kernel_consumer_kernel_entry_summary_layout_reported"]
+        is True
+    )
+    assert (
+        summary["default_kernel_consumer_kernel_entry_summary_layout_expected"]
+        == FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ENTRY_SUMMARY_ABI_LAYOUT_EXPECTED
+    )
+    assert (
+        summary["default_kernel_consumer_kernel_entry_summary_struct_size"]
+        == FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ENTRY_SUMMARY_ABI_LAYOUT_EXPECTED[
+            "future_kernel_native_consumer_kernel_entry_summary_struct_size"
+        ]
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_kernel_entry_summary_offset_row_hash_accumulator"
+        ]
+        == FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ENTRY_SUMMARY_ABI_LAYOUT_EXPECTED[
+            "future_kernel_native_consumer_kernel_entry_summary_offset_row_hash_accumulator"
+        ]
+    )
+    assert (
+        summary["default_kernel_consumer_kernel_entry_args_layout_reported"]
+        is True
+    )
+    assert (
+        summary["default_kernel_consumer_kernel_entry_args_layout_expected"]
+        == FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ENTRY_ARGS_ABI_LAYOUT_EXPECTED
+    )
+    assert (
+        summary["default_kernel_consumer_kernel_entry_args_struct_size"]
+        == FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ENTRY_ARGS_ABI_LAYOUT_EXPECTED[
+            "future_kernel_native_consumer_kernel_entry_args_struct_size"
+        ]
+    )
+    assert (
+        summary["default_kernel_consumer_kernel_entry_args_offset_summary"]
+        == FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ENTRY_ARGS_ABI_LAYOUT_EXPECTED[
+            "future_kernel_native_consumer_kernel_entry_args_offset_summary"
+        ]
+    )
+    assert (
         summary["default_kernel_consumer_dispatch_abi_name"]
         == "premap_future_kernel_native_consumer_dispatch_abi_v1"
     )

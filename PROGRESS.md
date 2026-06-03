@@ -2,7 +2,7 @@
 
 ## Progress Version
 
-- Version: `v0.54-kernel-entry-summary-layout-gate`
+- Version: `v0.55-compact-kernel-entry-layout-preflight`
 - Updated: 2026-06-03
 - Current phase: premap descriptor/address prep now has a typed
   kernel-side consumer object, a launch-shaped future native ABI, and a
@@ -70,9 +70,56 @@
   with a drifted entry wrapper.  The compact kernel-entry summary object now
   also emits and gates its native size/alignment/offset layout, so both pointers
   carried by `PremapFutureKernelNativeConsumerKernelEntryArgsV1` target
-  machine-checkable native ABI objects.
+  machine-checkable native ABI objects.  The compact lab preflight artifact now
+  surfaces the packet, entry-summary, and entry-args native layout status
+  directly and the summary checker gates the key struct-size/offset invariants,
+  so the default lab preflight cannot pass with hidden future-kernel ABI drift.
 
-## Latest Update: Kernel-Entry Summary ABI Layout Gate
+## Latest Update: Compact Preflight Native Entry ABI Status
+
+The default lab preflight summary now exposes the future native kernel ABI
+layout status without requiring readers to open the full schema or runner JSON:
+
+```text
+kernel_arg_packet:
+  layout_reported = true
+  struct_size = 32
+  offset(program_view_ptr) = 0
+
+kernel_entry_summary:
+  layout_reported = true
+  struct_size = 104
+  offset(row_hash_accumulator) = 80
+
+kernel_entry_args:
+  layout_reported = true
+  struct_size = 40
+  offset(summary) = 8
+```
+
+`scripts/check_premap_lab_preflight_summary.py` now treats these compact fields
+as gate invariants.  This keeps the path readonly and disconnected from current
+WNA16 kernel arguments, but makes future kernel-side ABI drift visible at the
+default lab preflight boundary.
+
+Validation:
+
+```bash
+python -m pytest \
+  tests/test_check_premap_lab_preflight_summary.py \
+  tests/test_run_premap_lab_preflight.py -q
+# 116 passed
+
+python scripts/run_premap_lab_preflight.py --summary-only \
+  --output-json outputs/reports/premap_lab_preflight_default_with_gate_schema_sha256.json
+
+python scripts/check_premap_lab_preflight_summary.py \
+  outputs/reports/premap_lab_preflight_default_with_gate_schema_sha256.json \
+  --output-json outputs/reports/premap_lab_preflight_default_with_gate_schema_sha256.check.json
+# passed
+```
+
+## Previous Update: Kernel-Entry Summary ABI Layout Gate
 
 The future-native kernel-entry summary now reports and gates its native struct
 layout:

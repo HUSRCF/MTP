@@ -32,6 +32,17 @@ REQUIRED_SHA_FIELDS = [
     "default_kernel_consumer_dispatch_ptr_standalone_evidence_sha256",
     "default_kernel_consumer_arg_slot_standalone_evidence_sha256",
 ]
+REQUIRED_LAYOUT_CHECKS = {
+    "default_kernel_consumer_kernel_arg_packet_layout_reported": True,
+    "default_kernel_consumer_kernel_entry_summary_layout_reported": True,
+    "default_kernel_consumer_kernel_entry_args_layout_reported": True,
+    "default_kernel_consumer_kernel_arg_packet_struct_size": 32,
+    "default_kernel_consumer_kernel_arg_packet_offset_program_view_ptr": 0,
+    "default_kernel_consumer_kernel_entry_summary_struct_size": 104,
+    "default_kernel_consumer_kernel_entry_summary_offset_row_hash_accumulator": 80,
+    "default_kernel_consumer_kernel_entry_args_struct_size": 40,
+    "default_kernel_consumer_kernel_entry_args_offset_summary": 8,
+}
 
 
 def _load_json(path: Path) -> dict[str, Any]:
@@ -218,6 +229,10 @@ def check_premap_lab_preflight_summary(
         failures.append("schema_row_field_names_mismatch")
     if summary.get("default_kernel_consumer_schema_row_metadata_names") != REQUIRED_ROW_METADATA:
         failures.append("schema_row_metadata_names_mismatch")
+
+    for key, expected in REQUIRED_LAYOUT_CHECKS.items():
+        if summary.get(key) != expected:
+            failures.append(f"{key}_mismatch")
 
     for key in REQUIRED_SHA_FIELDS:
         if not _is_hex64(summary.get(key)):
