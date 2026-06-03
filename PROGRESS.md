@@ -117,6 +117,11 @@ python scripts/check_premap_lab_preflight_summary.py \
 
 python -m pytest tests -q
 # 991 passed
+
+python scripts/run_premap_lab_gate_verify.py \
+  --output-json outputs/reports/premap_lab_gate_verify.json
+# passed; 32 online sources, 1841 rows, full/head/middle/tail window sweep,
+# all four typed handle fields checked, payload_bytes=0, passed_to_kernel=false
 ```
 
 ## Previous Update: Compact Kernel-Entry Read-Path Gate
