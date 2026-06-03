@@ -128,6 +128,18 @@ def test_online_merged_arg_slot_canary_dry_run_writes_artifacts(tmp_path: Path):
     ]
     assert result["consumer_view_all_handle_fields_read"] is True
     assert result["consumer_view_source_packet_chain_depth"] == 3
+    assert result["stub_summary"]["future_kernel_native_dispatch_consumer_row_offset"] == 0
+    assert result["stub_summary"]["future_kernel_native_dispatch_consumer_row_limit"] == 7
+    assert (
+        result["stub_summary"]["future_kernel_native_dispatch_consumer_rows_per_program"]
+        == 4
+    )
+    assert result["stub_summary"]["future_kernel_native_consumer_view_row_offset"] == 0
+    assert result["stub_summary"]["future_kernel_native_consumer_view_row_limit"] == 7
+    assert (
+        result["stub_summary"]["future_kernel_native_consumer_view_rows_per_program"]
+        == 4
+    )
     assert json.loads(merged.read_text(encoding="utf-8"))["_meta"]["row_count"] == 7
     stub_payload = json.loads(stub.read_text(encoding="utf-8"))
     assert stub_payload["future_kernel_native_arg_slot_consumer_checked"] is True

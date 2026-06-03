@@ -1356,6 +1356,9 @@ def _runner_future_kernel_native_dispatch_consumer_summary(
             "future_kernel_native_consumer_view_aux_metadata_handle_read_hash_accumulator": "c35c4",
             "future_kernel_native_consumer_view_packet_chain_depth": 3,
             "future_kernel_native_consumer_view_source_packet_chain_depth": 3,
+            "future_kernel_native_consumer_view_row_offset": 0,
+            "future_kernel_native_consumer_view_row_limit": 2,
+            "future_kernel_native_consumer_view_rows_per_program": 256,
             "future_kernel_native_consumer_view_payload_bytes": 0,
             "future_kernel_native_consumer_view_passed_to_kernel": False,
             "future_kernel_native_consumer_view_changes_kernel_launch_args": False,
@@ -1570,6 +1573,9 @@ def _standalone_arg_slot_multiprogram_canary_payload(
             ),
             "future_kernel_native_consumer_view_row_count": row_count,
             "future_kernel_native_consumer_view_row_ok_count": row_count,
+            "future_kernel_native_consumer_view_row_offset": 0,
+            "future_kernel_native_consumer_view_row_limit": row_count,
+            "future_kernel_native_consumer_view_rows_per_program": block_x,
             "future_kernel_native_consumer_view_handle_projection_hash_accumulator": (
                 "12201358096b98ac"
             ),
@@ -3180,6 +3186,25 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
         summary["default_kernel_consumer_consumer_view_source_packet_chain_depth"]
         == 3
     )
+    assert summary["default_kernel_consumer_dispatch_row_window"] == {
+        "row_offset": 0,
+        "row_limit": 520,
+        "rows_per_program": 256,
+    }
+    assert summary["default_kernel_consumer_consumer_view_row_window"] == {
+        "row_offset": 0,
+        "row_limit": 520,
+        "rows_per_program": 256,
+    }
+    assert (
+        summary[
+            "default_kernel_consumer_consumer_view_row_window_matches_dispatch"
+        ]
+        is True
+    )
+    assert summary["default_kernel_consumer_consumer_view_row_offset"] == 0
+    assert summary["default_kernel_consumer_consumer_view_row_limit"] == 520
+    assert summary["default_kernel_consumer_consumer_view_rows_per_program"] == 256
     assert summary["default_kernel_consumer_consumer_view_payload_bytes"] == 0
     assert summary["default_kernel_consumer_consumer_view_passed_to_kernel"] is False
     assert (
@@ -4194,6 +4219,58 @@ def test_premap_lab_preflight_rejects_required_online_merged_runner_invalid_cons
         "future_kernel_native_arg_slot_online_merged_multiprogram_canary_json:"
         "multiprogram_arg_slot_handle_projection_hash_missing"
     ) in failures
+
+
+def test_premap_lab_preflight_rejects_consumer_view_row_window_mismatch(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    runner_path = (
+        tmp_path
+        / "reports/default_gate_online_merged_future_native_arg_slot_multiprogram_runner.json"
+    )
+    payload = json.loads(runner_path.read_text(encoding="utf-8"))
+    stub_summary = payload["stub_summary"]
+    assert isinstance(stub_summary, dict)
+    stub_summary["future_kernel_native_consumer_view_row_offset"] = 1
+    runner_path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+    summary = result["lab_gate_status_summary"]
+
+    assert result["passed"] is False
+    assert (
+        "default_kernel_consumer_consumer_view_row_window_mismatch"
+        in result["failures"]
+    )
+    assert summary["default_kernel_consumer_dispatch_row_window"] == {
+        "row_offset": 0,
+        "row_limit": 520,
+        "rows_per_program": 256,
+    }
+    assert summary["default_kernel_consumer_consumer_view_row_window"] == {
+        "row_offset": 1,
+        "row_limit": 520,
+        "rows_per_program": 256,
+    }
+    assert (
+        summary[
+            "default_kernel_consumer_consumer_view_row_window_matches_dispatch"
+        ]
+        is False
+    )
 
 
 def test_premap_lab_preflight_rejects_required_online_merged_runner_not_targeting_gpu1(

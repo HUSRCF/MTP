@@ -4808,6 +4808,14 @@ def run_premap_lab_preflight(
         is True
         else dispatch_runner_summary
     )
+    consumer_view_dispatch_summary = (
+        online_merged_arg_slot_summary
+        if online_merged_arg_slot_summary.get(
+            "future_kernel_native_dispatch_consumer_checked"
+        )
+        is True
+        else dispatch_runner_summary
+    )
     consumer_view_field_read_row_ok_counts: dict[str, int | None] = {}
     consumer_view_field_read_error_counts: dict[str, int | None] = {}
     consumer_view_field_read_hashes: dict[str, str | None] = {}
@@ -4838,6 +4846,39 @@ def run_premap_lab_preflight(
             and consumer_view_field_read_hashes.get(field) is not None
             for field in ARG_SLOT_MIRROR_FIELDS
         )
+    )
+    dispatch_row_window = {
+        "row_offset": _int_metric(
+            consumer_view_dispatch_summary,
+            "future_kernel_native_dispatch_consumer_row_offset",
+        ),
+        "row_limit": _int_metric(
+            consumer_view_dispatch_summary,
+            "future_kernel_native_dispatch_consumer_row_limit",
+        ),
+        "rows_per_program": _int_metric(
+            consumer_view_dispatch_summary,
+            "future_kernel_native_dispatch_consumer_rows_per_program",
+        ),
+    }
+    consumer_view_row_window = {
+        "row_offset": _int_metric(
+            consumer_view_summary,
+            "future_kernel_native_consumer_view_row_offset",
+        ),
+        "row_limit": _int_metric(
+            consumer_view_summary,
+            "future_kernel_native_consumer_view_row_limit",
+        ),
+        "rows_per_program": _int_metric(
+            consumer_view_summary,
+            "future_kernel_native_consumer_view_rows_per_program",
+        ),
+    }
+    consumer_view_row_window_matches_dispatch = (
+        all(value is not None for value in dispatch_row_window.values())
+        and all(value is not None for value in consumer_view_row_window.values())
+        and consumer_view_row_window == dispatch_row_window
     )
     future_kernel_args_summary = dispatch_runner_payload.get(
         "future_kernel_args_stub_summary",
@@ -5001,6 +5042,14 @@ def run_premap_lab_preflight(
     ):
         failures.append(
             "default_kernel_consumer_consumer_view_all_handle_fields_read_unchecked"
+        )
+    if (
+        not allow_missing_evidence
+        and not defer_online_prelaunch_runner_evidence
+        and not consumer_view_row_window_matches_dispatch
+    ):
+        failures.append(
+            "default_kernel_consumer_consumer_view_row_window_mismatch"
         )
     lab_gate_status_summary = {
         "passed": not failures,
@@ -5798,6 +5847,22 @@ def run_premap_lab_preflight(
                 consumer_view_summary,
                 "future_kernel_native_consumer_view_source_packet_chain_depth",
             )
+        ),
+        "default_kernel_consumer_dispatch_row_window": dispatch_row_window,
+        "default_kernel_consumer_consumer_view_row_window": (
+            consumer_view_row_window
+        ),
+        "default_kernel_consumer_consumer_view_row_window_matches_dispatch": (
+            consumer_view_row_window_matches_dispatch
+        ),
+        "default_kernel_consumer_consumer_view_row_offset": (
+            consumer_view_row_window.get("row_offset")
+        ),
+        "default_kernel_consumer_consumer_view_row_limit": (
+            consumer_view_row_window.get("row_limit")
+        ),
+        "default_kernel_consumer_consumer_view_rows_per_program": (
+            consumer_view_row_window.get("rows_per_program")
         ),
         "default_kernel_consumer_consumer_view_payload_bytes": (
             _int_metric(
