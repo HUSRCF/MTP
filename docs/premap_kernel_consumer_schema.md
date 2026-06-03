@@ -467,13 +467,73 @@ Tests cover multi-program dispatch windows (`grid_x > 1`) with both zero and
 nonzero `row_offset`, so the future row assignment formula is validated beyond
 the single-program tail-window case.
 
+## Future Kernel-Arg Packet ABI
+
+The latest native-consumer bridge adds one more explicit ABI layer:
+
+```text
+PremapFutureKernelNativeConsumerKernelArgPacketV1
+```
+
+This packet is a compact future-kernel argument object.  It contains a pointer
+to `PremapFutureKernelNativeConsumerProgramViewPtrV1` plus ABI version,
+dependent struct sizes, `payload_bytes`, and readonly/no-kernel flags.  A
+future standalone native consumer can receive this packet and walk the typed
+handle table through:
+
+```text
+kernel_arg_packet
+  -> program_view_ptr
+  -> program_view
+  -> consumer_view
+  -> typed descriptor/address rows
+```
+
+The packet is intentionally not compatible with the current WNA16 fused-MoE
+kernel argument list:
+
+```text
+future_kernel_native_consumer_kernel_arg_packet_payload_bytes = 0
+future_kernel_native_consumer_kernel_arg_packet_passed_to_kernel = false
+future_kernel_native_consumer_kernel_arg_packet_changes_kernel_launch_args = false
+future_kernel_native_consumer_kernel_arg_packet_current_wna16_arg_compatible = false
+future_kernel_native_consumer_kernel_arg_packet_requires_wna16_arg_reinterpretation = false
+```
+
+The schema pins the packet layout:
+
+```text
+future_kernel_native_consumer_kernel_arg_packet_struct_size = 32
+future_kernel_native_consumer_kernel_arg_packet_struct_align = 8
+future_kernel_native_consumer_kernel_arg_packet_program_view_ptr_struct_size = 32
+future_kernel_native_consumer_kernel_arg_packet_result_struct_size = 64
+future_kernel_native_consumer_kernel_arg_packet_offset_program_view_ptr = 0
+future_kernel_native_consumer_kernel_arg_packet_offset_abi_version = 8
+future_kernel_native_consumer_kernel_arg_packet_offset_program_view_ptr_struct_size = 12
+future_kernel_native_consumer_kernel_arg_packet_offset_result_struct_size = 16
+future_kernel_native_consumer_kernel_arg_packet_offset_payload_bytes = 20
+future_kernel_native_consumer_kernel_arg_packet_offset_flags = 24
+```
+
+The strict lab gate now requires both packet layers explicitly:
+
+```text
+require_child_program_view_ptr_abi = true
+require_child_kernel_arg_packet_abi = true
+```
+
+When `require_child_kernel_arg_packet_abi` is false, the static checker remains
+compatible with older artifacts that did not emit packet fields.  When it is
+true, the checker requires packet source, row count, row-ok count, field masks,
+and the no-payload/no-kernel/no-WNA16-reinterpretation safety bits.
+
 ## Next Gates
 
 1. Keep the current readonly dispatch ABI as the default lab preflight
    condition.
-2. Keep the pointer-backed dispatch ABI as a stricter standalone native-consumer
-   bridge.  It may model a future kernel argument slot, but it remains outside
-   the current WNA16 fused-MoE launch.
+2. Keep the pointer-backed program-view and kernel-arg packet ABIs as stricter
+   standalone native-consumer bridges.  They model future kernel argument
+   objects, but remain outside the current WNA16 fused-MoE launch.
 3. Build a real WNA16-adjacent consumer path only by adding an explicit typed
    ABI slot to a future native consumer or standalone adapter. Do not reinterpret
    the typed table as the current WNA16 argument list.
