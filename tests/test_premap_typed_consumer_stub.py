@@ -78,6 +78,10 @@ def test_typed_consumer_stub_uses_kernel_side_abi_header():
         "struct PremapFutureKernelNativeConsumerKernelEntrySummaryV1"
         in adapter
     )
+    assert (
+        "struct PremapFutureKernelNativeConsumerKernelEntryArgsV1"
+        in adapter
+    )
     assert "kPremapKernelSideCompatibleConsumerAbiV1Name" in adapter
     assert "kPremapFutureKernelSideConsumerArgsV1Name" in adapter
     assert "kPremapFutureKernelNativeConsumerAbiV1Name" in adapter
@@ -106,6 +110,10 @@ def test_typed_consumer_stub_uses_kernel_side_abi_header():
     assert "typed_consumer_future_native_consumer_kernel_arg_packet_kernel" in source
     assert (
         "typed_consumer_future_native_consumer_kernel_entry_summary_kernel"
+        in source
+    )
+    assert (
+        "typed_consumer_future_native_consumer_kernel_entry_args_kernel"
         in source
     )
     assert "kernel_side_compatible_consumer_checked" in source
@@ -165,6 +173,14 @@ def test_typed_consumer_stub_uses_kernel_side_abi_header():
     )
     assert (
         "future_kernel_native_consumer_kernel_entry_summary_error_count"
+        in source
+    )
+    assert (
+        "future_kernel_native_consumer_kernel_entry_args_summary_error_count"
+        in source
+    )
+    assert (
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ENTRY_ARGS_ABI"
         in source
     )
     assert "future_kernel_native_arg_slot_consumer_checked" in source

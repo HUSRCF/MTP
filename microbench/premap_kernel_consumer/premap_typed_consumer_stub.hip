@@ -78,6 +78,11 @@
 #error "future native consumer kernel-arg packet ABI requires future native consumer program-view pointer ABI"
 #endif
 
+#if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ENTRY_ARGS_ABI) && \
+    !defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ARG_PACKET_ABI)
+#error "future native consumer kernel entry-args ABI requires future native consumer kernel-arg packet ABI"
+#endif
+
 #if (defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD) && \
      defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_MIRROR_FIELD)) || \
     (defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD) && \
@@ -198,6 +203,15 @@ static_assert(
 static_assert(
     !kPremapFutureKernelNativeConsumerKernelArgPacketAbiV1CurrentWna16ArgCompatible,
     "future native consumer kernel-arg packet ABI must not be the current WNA16 arg list");
+static_assert(
+    !kPremapFutureKernelNativeConsumerKernelEntryArgsAbiV1PayloadDerefAllowed,
+    "future native consumer kernel entry-args ABI must not allow payload dereference");
+static_assert(
+    !kPremapFutureKernelNativeConsumerKernelEntryArgsAbiV1KernelArgPassAllowed,
+    "future native consumer kernel entry-args ABI must not allow kernel-arg pass");
+static_assert(
+    !kPremapFutureKernelNativeConsumerKernelEntryArgsAbiV1CurrentWna16ArgCompatible,
+    "future native consumer kernel entry-args ABI must not be the current WNA16 arg list");
 
 constexpr uint64_t kTypedSchemaHashHi = MTP_PREMAP_TYPED_CONSUMER_SCHEMA_HASH_HI;
 constexpr uint64_t kTypedSchemaHashLo = MTP_PREMAP_TYPED_CONSUMER_SCHEMA_HASH_LO;
@@ -1078,13 +1092,9 @@ __global__ void typed_consumer_future_native_consumer_kernel_arg_packet_kernel(
           : 0ULL;
 }
 
-__global__ void
-typed_consumer_future_native_consumer_kernel_entry_summary_kernel(
-    PremapFutureKernelNativeConsumerKernelArgPacketV1 kernel_arg_packet,
-    PremapFutureKernelNativeConsumerKernelEntrySummaryV1* summary) {
-  if (blockIdx.x != 0 || threadIdx.x != 0 || summary == nullptr) {
-    return;
-  }
+__device__ static inline PremapFutureKernelNativeConsumerKernelEntrySummaryV1
+premap_typed_consumer_build_future_native_kernel_entry_summary_v1(
+    const PremapFutureKernelNativeConsumerKernelArgPacketV1& kernel_arg_packet) {
   PremapFutureKernelNativeConsumerKernelEntrySummaryV1 out{};
   out.abi_version =
       kPremapFutureKernelNativeConsumerKernelEntrySummaryAbiV1Version;
@@ -1100,16 +1110,14 @@ typed_consumer_future_native_consumer_kernel_entry_summary_kernel(
   out.packet_valid = static_cast<uint32_t>(packet_valid);
   if (!packet_valid || kernel_arg_packet.program_view_ptr == nullptr) {
     out.error_count = 1;
-    *summary = out;
-    return;
+    return out;
   }
 
   const PremapFutureKernelNativeConsumerProgramViewPtrV1& program_view_ptr =
       *kernel_arg_packet.program_view_ptr;
   if (program_view_ptr.program_view == nullptr) {
     out.error_count = 1;
-    *summary = out;
-    return;
+    return out;
   }
 
   const PremapFutureKernelNativeConsumerProgramViewV1& program_view =
@@ -1121,8 +1129,7 @@ typed_consumer_future_native_consumer_kernel_entry_summary_kernel(
   if (!row_window_valid) {
     out.error_count = 1;
     out.field_mask = view.params.field_mask;
-    *summary = out;
-    return;
+    return out;
   }
 
   const uint32_t active_rows = view.row_limit - view.row_offset;
@@ -1194,7 +1201,44 @@ typed_consumer_future_native_consumer_kernel_entry_summary_kernel(
       (active_rows - out.packed_weight_descriptor_read_ok_count) +
       (active_rows - out.scale_metadata_handle_read_ok_count) +
       (expected_aux_rows - out.aux_metadata_handle_read_ok_count);
-  *summary = out;
+  return out;
+}
+
+__global__ void
+typed_consumer_future_native_consumer_kernel_entry_summary_kernel(
+    PremapFutureKernelNativeConsumerKernelArgPacketV1 kernel_arg_packet,
+    PremapFutureKernelNativeConsumerKernelEntrySummaryV1* summary) {
+  if (blockIdx.x != 0 || threadIdx.x != 0 || summary == nullptr) {
+    return;
+  }
+  *summary =
+      premap_typed_consumer_build_future_native_kernel_entry_summary_v1(
+          kernel_arg_packet);
+}
+
+__global__ void
+typed_consumer_future_native_consumer_kernel_entry_args_kernel(
+    PremapFutureKernelNativeConsumerKernelEntryArgsV1 entry_args) {
+  if (blockIdx.x != 0 || threadIdx.x != 0 || entry_args.summary == nullptr) {
+    return;
+  }
+  if (!premap_typed_consumer_future_native_kernel_entry_args_matches_v1(
+          entry_args)) {
+    PremapFutureKernelNativeConsumerKernelEntrySummaryV1 out{};
+    out.abi_version =
+        kPremapFutureKernelNativeConsumerKernelEntrySummaryAbiV1Version;
+    out.payload_bytes = 0;
+    out.passed_to_kernel = 0;
+    out.changes_kernel_launch_args = 0;
+    out.current_wna16_arg_compatible = 0;
+    out.requires_wna16_arg_reinterpretation = 0;
+    out.error_count = 1;
+    *entry_args.summary = out;
+    return;
+  }
+  *entry_args.summary =
+      premap_typed_consumer_build_future_native_kernel_entry_summary_v1(
+          *entry_args.kernel_arg_packet);
 }
 
 struct Args {
@@ -1433,6 +1477,12 @@ static std::string macro_json() {
 #else
      << "false";
 #endif
+  os << ",\"MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ENTRY_ARGS_ABI\":"
+#if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ENTRY_ARGS_ABI)
+     << "true";
+#else
+     << "false";
+#endif
   os << "}";
   return os.str();
 }
@@ -1518,8 +1568,12 @@ int main(int argc, char** argv) {
       d_future_native_consumer_program_view_packet = nullptr;
   PremapFutureKernelNativeConsumerProgramViewPtrV1*
       d_future_native_consumer_program_view_ptr_packet = nullptr;
+  PremapFutureKernelNativeConsumerKernelArgPacketV1*
+      d_future_native_consumer_kernel_arg_packet = nullptr;
   PremapFutureKernelNativeConsumerKernelEntrySummaryV1*
       d_future_native_consumer_kernel_entry_summary = nullptr;
+  PremapFutureKernelNativeConsumerKernelEntrySummaryV1*
+      d_future_native_consumer_kernel_entry_args_summary = nullptr;
   int32_t* d_expert = nullptr;
   uint32_t *d_ok = nullptr, *d_single_field_mirror_ok = nullptr,
            *d_kernel_side_consumer_path_ok = nullptr,
@@ -1820,6 +1874,16 @@ int main(int argc, char** argv) {
           &d_future_native_consumer_kernel_entry_summary,
           sizeof(PremapFutureKernelNativeConsumerKernelEntrySummaryV1)),
       "hipMalloc future_native_consumer_kernel_entry_summary");
+  hip_check(
+      hipMalloc(
+          &d_future_native_consumer_kernel_arg_packet,
+          sizeof(PremapFutureKernelNativeConsumerKernelArgPacketV1)),
+      "hipMalloc future_native_consumer_kernel_arg_packet");
+  hip_check(
+      hipMalloc(
+          &d_future_native_consumer_kernel_entry_args_summary,
+          sizeof(PremapFutureKernelNativeConsumerKernelEntrySummaryV1)),
+      "hipMalloc future_native_consumer_kernel_entry_args_summary");
   hip_check(hipMemcpy(d_descriptor, descriptor.data(), u64_bytes, hipMemcpyHostToDevice), "copy descriptor");
   hip_check(hipMemcpy(d_packed, packed.data(), u64_bytes, hipMemcpyHostToDevice), "copy packed");
   hip_check(hipMemcpy(d_scale, scale.data(), u64_bytes, hipMemcpyHostToDevice), "copy scale");
@@ -2072,6 +2136,12 @@ int main(int argc, char** argv) {
           0,
           sizeof(PremapFutureKernelNativeConsumerKernelEntrySummaryV1)),
       "memset future_native_consumer_kernel_entry_summary");
+  hip_check(
+      hipMemset(
+          d_future_native_consumer_kernel_entry_args_summary,
+          0,
+          sizeof(PremapFutureKernelNativeConsumerKernelEntrySummaryV1)),
+      "memset future_native_consumer_kernel_entry_args_summary");
 
   PremapKernelSideTypedConsumerAbiV1 table;
   table.typed_schema_hash_hi = kTypedSchemaHashHi;
@@ -2560,6 +2630,13 @@ int main(int argc, char** argv) {
   future_native_consumer_kernel_arg_packet.payload_bytes = 0;
   future_native_consumer_kernel_arg_packet.flags =
       kPremapFutureKernelSideConsumerArgsV1RequiredFlags;
+  hip_check(
+      hipMemcpy(
+          d_future_native_consumer_kernel_arg_packet,
+          &future_native_consumer_kernel_arg_packet,
+          sizeof(PremapFutureKernelNativeConsumerKernelArgPacketV1),
+          hipMemcpyHostToDevice),
+      "copy future_native_consumer_kernel_arg_packet");
   hipLaunchKernelGGL(
       typed_consumer_future_native_consumer_kernel_arg_packet_kernel,
       dim3(dispatch_blocks),
@@ -2597,6 +2674,36 @@ int main(int argc, char** argv) {
   hip_check(
       hipDeviceSynchronize(),
       "future native consumer kernel entry summary sync");
+#if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ENTRY_ARGS_ABI)
+  PremapFutureKernelNativeConsumerKernelEntryArgsV1
+      future_native_consumer_kernel_entry_args;
+  future_native_consumer_kernel_entry_args.kernel_arg_packet =
+      d_future_native_consumer_kernel_arg_packet;
+  future_native_consumer_kernel_entry_args.summary =
+      d_future_native_consumer_kernel_entry_args_summary;
+  future_native_consumer_kernel_entry_args.abi_version =
+      kPremapFutureKernelNativeConsumerKernelEntryArgsAbiV1Version;
+  future_native_consumer_kernel_entry_args.kernel_arg_packet_struct_size =
+      sizeof(PremapFutureKernelNativeConsumerKernelArgPacketV1);
+  future_native_consumer_kernel_entry_args.summary_struct_size =
+      sizeof(PremapFutureKernelNativeConsumerKernelEntrySummaryV1);
+  future_native_consumer_kernel_entry_args.payload_bytes = 0;
+  future_native_consumer_kernel_entry_args.flags =
+      kPremapFutureKernelSideConsumerArgsV1RequiredFlags;
+  hipLaunchKernelGGL(
+      typed_consumer_future_native_consumer_kernel_entry_args_kernel,
+      dim3(1),
+      dim3(1),
+      0,
+      0,
+      future_native_consumer_kernel_entry_args);
+  hip_check(
+      hipGetLastError(),
+      "future native consumer kernel entry-args launch");
+  hip_check(
+      hipDeviceSynchronize(),
+      "future native consumer kernel entry-args sync");
+#endif
 #endif
 #endif
 #endif
@@ -2702,6 +2809,8 @@ int main(int argc, char** argv) {
           rows);
   PremapFutureKernelNativeConsumerKernelEntrySummaryV1
       future_native_consumer_kernel_entry_summary{};
+  PremapFutureKernelNativeConsumerKernelEntrySummaryV1
+      future_native_consumer_kernel_entry_args_summary{};
   hip_check(hipMemcpy(ok.data(), d_ok, u32_bytes, hipMemcpyDeviceToHost), "copy ok");
   hip_check(hipMemcpy(hashes.data(), d_hash, u64_bytes, hipMemcpyDeviceToHost), "copy hash");
   hip_check(
@@ -3197,6 +3306,13 @@ int main(int argc, char** argv) {
           sizeof(PremapFutureKernelNativeConsumerKernelEntrySummaryV1),
           hipMemcpyDeviceToHost),
       "copy future_native_consumer_kernel_entry_summary");
+  hip_check(
+      hipMemcpy(
+          &future_native_consumer_kernel_entry_args_summary,
+          d_future_native_consumer_kernel_entry_args_summary,
+          sizeof(PremapFutureKernelNativeConsumerKernelEntrySummaryV1),
+          hipMemcpyDeviceToHost),
+      "copy future_native_consumer_kernel_entry_args_summary");
 
   uint64_t hash_acc = 0;
   uint64_t single_field_mirror_hash_acc = 0;
@@ -3869,6 +3985,17 @@ int main(int argc, char** argv) {
           ? static_cast<int>(
                 future_native_consumer_kernel_entry_summary.error_count)
           : 0;
+  const bool future_native_consumer_kernel_entry_args_checked =
+#if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ENTRY_ARGS_ABI)
+      true;
+#else
+      false;
+#endif
+  const int future_native_consumer_kernel_entry_args_error_count =
+      future_native_consumer_kernel_entry_args_checked
+          ? static_cast<int>(
+                future_native_consumer_kernel_entry_args_summary.error_count)
+          : 0;
   const bool all_ok =
       error_count == 0 && future_kernel_consumer_args_error_count == 0 &&
       future_kernel_single_field_mirror_error_count == 0 &&
@@ -3899,7 +4026,8 @@ int main(int argc, char** argv) {
       future_native_consumer_kernel_arg_packet_packed_weight_descriptor_read_error_count == 0 &&
       future_native_consumer_kernel_arg_packet_scale_metadata_handle_read_error_count == 0 &&
       future_native_consumer_kernel_arg_packet_aux_metadata_handle_read_error_count == 0 &&
-      future_native_consumer_kernel_entry_summary_error_count == 0;
+      future_native_consumer_kernel_entry_summary_error_count == 0 &&
+      future_native_consumer_kernel_entry_args_error_count == 0;
 
   hip_check(hipFree(d_descriptor), "hipFree descriptor");
   hip_check(hipFree(d_packed), "hipFree packed");
@@ -4122,6 +4250,12 @@ int main(int argc, char** argv) {
   hip_check(
       hipFree(d_future_native_consumer_kernel_entry_summary),
       "hipFree future_native_consumer_kernel_entry_summary");
+  hip_check(
+      hipFree(d_future_native_consumer_kernel_arg_packet),
+      "hipFree future_native_consumer_kernel_arg_packet");
+  hip_check(
+      hipFree(d_future_native_consumer_kernel_entry_args_summary),
+      "hipFree future_native_consumer_kernel_entry_args_summary");
   if (d_future_native_dispatch_packet != nullptr) {
     hip_check(
         hipFree(d_future_native_dispatch_packet),
@@ -5270,6 +5404,108 @@ int main(int argc, char** argv) {
             << std::hex
             << (future_native_consumer_kernel_entry_summary_checked
                     ? future_native_consumer_kernel_entry_summary
+                          .field_read_hash_accumulator
+                    : 0ULL)
+            << std::dec << "\"";
+  std::cout << ",\"future_kernel_native_consumer_kernel_entry_args_abi_name\":\""
+            << kPremapFutureKernelNativeConsumerKernelEntryArgsAbiV1Name
+            << "\"";
+  std::cout << ",\"future_kernel_native_consumer_kernel_entry_args_checked\":"
+            << (future_native_consumer_kernel_entry_args_checked ? "true"
+                                                                 : "false");
+  std::cout << ",\"future_kernel_native_consumer_kernel_entry_args_version\":"
+            << kPremapFutureKernelNativeConsumerKernelEntryArgsAbiV1Version;
+  std::cout << ",\"future_kernel_native_consumer_kernel_entry_args_struct_size\":"
+            << sizeof(PremapFutureKernelNativeConsumerKernelEntryArgsV1);
+  std::cout << ",\"future_kernel_native_consumer_kernel_entry_args_struct_align\":"
+            << alignof(PremapFutureKernelNativeConsumerKernelEntryArgsV1);
+  std::cout << ",\"future_kernel_native_consumer_kernel_entry_args_offset_kernel_arg_packet\":"
+            << offsetof(
+                   PremapFutureKernelNativeConsumerKernelEntryArgsV1,
+                   kernel_arg_packet);
+  std::cout << ",\"future_kernel_native_consumer_kernel_entry_args_offset_summary\":"
+            << offsetof(
+                   PremapFutureKernelNativeConsumerKernelEntryArgsV1,
+                   summary);
+  std::cout << ",\"future_kernel_native_consumer_kernel_entry_args_offset_abi_version\":"
+            << offsetof(
+                   PremapFutureKernelNativeConsumerKernelEntryArgsV1,
+                   abi_version);
+  std::cout << ",\"future_kernel_native_consumer_kernel_entry_args_offset_kernel_arg_packet_struct_size\":"
+            << offsetof(
+                   PremapFutureKernelNativeConsumerKernelEntryArgsV1,
+                   kernel_arg_packet_struct_size);
+  std::cout << ",\"future_kernel_native_consumer_kernel_entry_args_offset_summary_struct_size\":"
+            << offsetof(
+                   PremapFutureKernelNativeConsumerKernelEntryArgsV1,
+                   summary_struct_size);
+  std::cout << ",\"future_kernel_native_consumer_kernel_entry_args_offset_payload_bytes\":"
+            << offsetof(
+                   PremapFutureKernelNativeConsumerKernelEntryArgsV1,
+                   payload_bytes);
+  std::cout << ",\"future_kernel_native_consumer_kernel_entry_args_offset_flags\":"
+            << offsetof(
+                   PremapFutureKernelNativeConsumerKernelEntryArgsV1,
+                   flags);
+  std::cout << ",\"future_kernel_native_consumer_kernel_entry_args_kernel_arg_packet_struct_size\":"
+            << sizeof(PremapFutureKernelNativeConsumerKernelArgPacketV1);
+  std::cout << ",\"future_kernel_native_consumer_kernel_entry_args_summary_struct_size\":"
+            << sizeof(PremapFutureKernelNativeConsumerKernelEntrySummaryV1);
+  std::cout << ",\"future_kernel_native_consumer_kernel_entry_args_summary_packet_valid\":"
+            << (future_native_consumer_kernel_entry_args_checked
+                    ? future_native_consumer_kernel_entry_args_summary.packet_valid
+                    : 0);
+  std::cout << ",\"future_kernel_native_consumer_kernel_entry_args_summary_row_count\":"
+            << (future_native_consumer_kernel_entry_args_checked
+                    ? future_native_consumer_kernel_entry_args_summary.row_count
+                    : 0);
+  std::cout << ",\"future_kernel_native_consumer_kernel_entry_args_summary_row_ok_count\":"
+            << (future_native_consumer_kernel_entry_args_checked
+                    ? future_native_consumer_kernel_entry_args_summary
+                          .row_ok_count
+                    : 0);
+  std::cout << ",\"future_kernel_native_consumer_kernel_entry_args_summary_descriptor_ptr_read_row_ok_count\":"
+            << (future_native_consumer_kernel_entry_args_checked
+                    ? future_native_consumer_kernel_entry_args_summary
+                          .descriptor_ptr_read_ok_count
+                    : 0);
+  std::cout << ",\"future_kernel_native_consumer_kernel_entry_args_summary_packed_weight_descriptor_read_row_ok_count\":"
+            << (future_native_consumer_kernel_entry_args_checked
+                    ? future_native_consumer_kernel_entry_args_summary
+                          .packed_weight_descriptor_read_ok_count
+                    : 0);
+  std::cout << ",\"future_kernel_native_consumer_kernel_entry_args_summary_scale_metadata_handle_read_row_ok_count\":"
+            << (future_native_consumer_kernel_entry_args_checked
+                    ? future_native_consumer_kernel_entry_args_summary
+                          .scale_metadata_handle_read_ok_count
+                    : 0);
+  std::cout << ",\"future_kernel_native_consumer_kernel_entry_args_summary_aux_metadata_handle_read_row_ok_count\":"
+            << (future_native_consumer_kernel_entry_args_checked
+                    ? future_native_consumer_kernel_entry_args_summary
+                          .aux_metadata_handle_read_ok_count
+                    : 0);
+  std::cout << ",\"future_kernel_native_consumer_kernel_entry_args_summary_error_count\":"
+            << future_native_consumer_kernel_entry_args_error_count;
+  std::cout << ",\"future_kernel_native_consumer_kernel_entry_args_summary_field_mask\":"
+            << (future_native_consumer_kernel_entry_args_checked
+                    ? future_native_consumer_kernel_entry_args_summary.field_mask
+                    : 0);
+  std::cout << ",\"future_kernel_native_consumer_kernel_entry_args_payload_bytes\":0";
+  std::cout << ",\"future_kernel_native_consumer_kernel_entry_args_passed_to_kernel\":false";
+  std::cout << ",\"future_kernel_native_consumer_kernel_entry_args_changes_kernel_launch_args\":false";
+  std::cout << ",\"future_kernel_native_consumer_kernel_entry_args_current_wna16_arg_compatible\":false";
+  std::cout << ",\"future_kernel_native_consumer_kernel_entry_args_requires_wna16_arg_reinterpretation\":false";
+  std::cout << ",\"future_kernel_native_consumer_kernel_entry_args_summary_row_hash_accumulator\":\""
+            << std::hex
+            << (future_native_consumer_kernel_entry_args_checked
+                    ? future_native_consumer_kernel_entry_args_summary
+                          .row_hash_accumulator
+                    : 0ULL)
+            << std::dec << "\"";
+  std::cout << ",\"future_kernel_native_consumer_kernel_entry_args_summary_field_read_hash_accumulator\":\""
+            << std::hex
+            << (future_native_consumer_kernel_entry_args_checked
+                    ? future_native_consumer_kernel_entry_args_summary
                           .field_read_hash_accumulator
                     : 0ULL)
             << std::dec << "\"";

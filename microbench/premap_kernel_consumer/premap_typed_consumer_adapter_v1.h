@@ -219,6 +219,20 @@ constexpr bool
 constexpr bool
     kPremapFutureKernelNativeConsumerKernelEntrySummaryAbiV1CurrentWna16ArgCompatible =
         false;
+constexpr const char*
+    kPremapFutureKernelNativeConsumerKernelEntryArgsAbiV1Name =
+        "premap_future_kernel_native_consumer_kernel_entry_args_abi_v1";
+constexpr uint32_t
+    kPremapFutureKernelNativeConsumerKernelEntryArgsAbiV1Version = 1;
+constexpr bool
+    kPremapFutureKernelNativeConsumerKernelEntryArgsAbiV1PayloadDerefAllowed =
+        false;
+constexpr bool
+    kPremapFutureKernelNativeConsumerKernelEntryArgsAbiV1KernelArgPassAllowed =
+        false;
+constexpr bool
+    kPremapFutureKernelNativeConsumerKernelEntryArgsAbiV1CurrentWna16ArgCompatible =
+        false;
 
 constexpr uint32_t kPremapFutureKernelSideConsumerArgsV1ReadonlyFlag = 1u << 0;
 constexpr uint32_t
@@ -430,6 +444,21 @@ struct PremapFutureKernelNativeConsumerKernelEntrySummaryV1 {
   uint32_t reserved;
   uint64_t row_hash_accumulator;
   uint64_t field_read_hash_accumulator;
+};
+
+// Single-argument future kernel entry envelope.  This models the ABI shape a
+// future descriptor/address consumer kernel would receive at launch: one
+// compact argument object that points to the readonly kernel-arg packet and a
+// diagnostics/status summary.  It is still not the current WNA16 kernel
+// argument list and does not authorize payload movement.
+struct PremapFutureKernelNativeConsumerKernelEntryArgsV1 {
+  const PremapFutureKernelNativeConsumerKernelArgPacketV1* kernel_arg_packet;
+  PremapFutureKernelNativeConsumerKernelEntrySummaryV1* summary;
+  uint32_t abi_version;
+  uint32_t kernel_arg_packet_struct_size;
+  uint32_t summary_struct_size;
+  uint32_t payload_bytes;
+  uint32_t flags;
 };
 
 constexpr const char* kPremapKernelSideTypedConsumerLaunchEnvelopeV1Name =
@@ -976,6 +1005,29 @@ premap_typed_consumer_future_native_kernel_arg_packet_matches_v1(
          !kPremapFutureKernelNativeConsumerKernelArgPacketAbiV1PayloadDerefAllowed &&
          !kPremapFutureKernelNativeConsumerKernelArgPacketAbiV1KernelArgPassAllowed &&
          !kPremapFutureKernelNativeConsumerKernelArgPacketAbiV1CurrentWna16ArgCompatible;
+}
+
+__device__ static inline bool
+premap_typed_consumer_future_native_kernel_entry_args_matches_v1(
+    const PremapFutureKernelNativeConsumerKernelEntryArgsV1& entry_args) {
+  return entry_args.kernel_arg_packet != nullptr && entry_args.summary != nullptr &&
+         entry_args.abi_version ==
+             kPremapFutureKernelNativeConsumerKernelEntryArgsAbiV1Version &&
+         entry_args.kernel_arg_packet_struct_size ==
+             sizeof(PremapFutureKernelNativeConsumerKernelArgPacketV1) &&
+         entry_args.summary_struct_size ==
+             sizeof(PremapFutureKernelNativeConsumerKernelEntrySummaryV1) &&
+         entry_args.payload_bytes == 0 &&
+         (entry_args.flags &
+          kPremapFutureKernelSideConsumerArgsV1ReadonlyFlag) != 0 &&
+         (entry_args.flags &
+          kPremapFutureKernelSideConsumerArgsV1KernelArgPassDisabledFlag) != 0 &&
+         (entry_args.flags &
+          kPremapFutureKernelSideConsumerArgsV1PayloadDerefDisabledFlag) != 0 &&
+         entry_args.flags == kPremapFutureKernelSideConsumerArgsV1RequiredFlags &&
+         !kPremapFutureKernelNativeConsumerKernelEntryArgsAbiV1PayloadDerefAllowed &&
+         !kPremapFutureKernelNativeConsumerKernelEntryArgsAbiV1KernelArgPassAllowed &&
+         !kPremapFutureKernelNativeConsumerKernelEntryArgsAbiV1CurrentWna16ArgCompatible;
 }
 
 __device__ static inline bool

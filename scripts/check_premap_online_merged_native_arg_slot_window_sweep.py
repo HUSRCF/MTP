@@ -318,6 +318,13 @@ def _check_kernel_arg_packet_abi(
             expected_active=expected_active,
         )
     )
+    failures.extend(
+        _check_kernel_entry_args(
+            summary,
+            label=label,
+            expected_active=expected_active,
+        )
+    )
     return failures
 
 
@@ -357,6 +364,57 @@ def _check_kernel_entry_summary(
         value = summary.get(hash_key)
         if not isinstance(value, str) or not value:
             failures.append(f"{label}_{hash_key}_missing")
+    return failures
+
+
+def _check_kernel_entry_args(
+    summary: dict[str, Any],
+    *,
+    label: str,
+    expected_active: int,
+) -> list[str]:
+    failures: list[str] = []
+    prefix = "future_kernel_native_consumer_kernel_entry_args"
+    if f"{prefix}_checked" not in summary:
+        return [f"{label}_kernel_entry_args_missing_or_dry_run_unsupported"]
+    for key, expected in {
+        f"{prefix}_checked": True,
+        f"{prefix}_version": 1,
+        f"{prefix}_summary_packet_valid": 1,
+        f"{prefix}_summary_row_count": expected_active,
+        f"{prefix}_summary_row_ok_count": expected_active,
+        f"{prefix}_summary_descriptor_ptr_read_row_ok_count": expected_active,
+        f"{prefix}_summary_packed_weight_descriptor_read_row_ok_count": expected_active,
+        f"{prefix}_summary_scale_metadata_handle_read_row_ok_count": expected_active,
+        f"{prefix}_summary_aux_metadata_handle_read_row_ok_count": expected_active,
+        f"{prefix}_summary_error_count": 0,
+        f"{prefix}_summary_field_mask": _FUTURE_KERNEL_ALL_FIELD_MASK,
+        f"{prefix}_payload_bytes": 0,
+        f"{prefix}_passed_to_kernel": False,
+        f"{prefix}_changes_kernel_launch_args": False,
+        f"{prefix}_current_wna16_arg_compatible": False,
+        f"{prefix}_requires_wna16_arg_reinterpretation": False,
+    }.items():
+        if summary.get(key) != expected:
+            failures.append(f"{label}_{key}_mismatch")
+    for hash_key in (
+        f"{prefix}_summary_row_hash_accumulator",
+        f"{prefix}_summary_field_read_hash_accumulator",
+    ):
+        value = summary.get(hash_key)
+        if not isinstance(value, str) or not value:
+            failures.append(f"{label}_{hash_key}_missing")
+    for size_key in (
+        f"{prefix}_struct_size",
+        f"{prefix}_struct_align",
+        f"{prefix}_kernel_arg_packet_struct_size",
+        f"{prefix}_summary_struct_size",
+    ):
+        value = summary.get(size_key)
+        if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
+            failures.append(f"{label}_{size_key}_invalid")
+    if summary.get(f"{prefix}_offset_kernel_arg_packet") != 0:
+        failures.append(f"{label}_{prefix}_offset_kernel_arg_packet_mismatch")
     return failures
 
 

@@ -83,6 +83,7 @@ ARG_SLOT_BASE_MACROS = [
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_PROGRAM_VIEW_ABI",
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_PROGRAM_VIEW_PTR_ABI",
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ARG_PACKET_ABI",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ENTRY_ARGS_ABI",
     "MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR",
 ]
 MIRROR_FIELD_MACRO = {
@@ -328,6 +329,35 @@ STUB_SUMMARY_KEYS = (
     "future_kernel_native_consumer_kernel_entry_summary_requires_wna16_arg_reinterpretation",
     "future_kernel_native_consumer_kernel_entry_summary_row_hash_accumulator",
     "future_kernel_native_consumer_kernel_entry_summary_field_read_hash_accumulator",
+    "future_kernel_native_consumer_kernel_entry_args_checked",
+    "future_kernel_native_consumer_kernel_entry_args_version",
+    "future_kernel_native_consumer_kernel_entry_args_struct_size",
+    "future_kernel_native_consumer_kernel_entry_args_struct_align",
+    "future_kernel_native_consumer_kernel_entry_args_offset_kernel_arg_packet",
+    "future_kernel_native_consumer_kernel_entry_args_offset_summary",
+    "future_kernel_native_consumer_kernel_entry_args_offset_abi_version",
+    "future_kernel_native_consumer_kernel_entry_args_offset_kernel_arg_packet_struct_size",
+    "future_kernel_native_consumer_kernel_entry_args_offset_summary_struct_size",
+    "future_kernel_native_consumer_kernel_entry_args_offset_payload_bytes",
+    "future_kernel_native_consumer_kernel_entry_args_offset_flags",
+    "future_kernel_native_consumer_kernel_entry_args_kernel_arg_packet_struct_size",
+    "future_kernel_native_consumer_kernel_entry_args_summary_struct_size",
+    "future_kernel_native_consumer_kernel_entry_args_summary_packet_valid",
+    "future_kernel_native_consumer_kernel_entry_args_summary_row_count",
+    "future_kernel_native_consumer_kernel_entry_args_summary_row_ok_count",
+    "future_kernel_native_consumer_kernel_entry_args_summary_descriptor_ptr_read_row_ok_count",
+    "future_kernel_native_consumer_kernel_entry_args_summary_packed_weight_descriptor_read_row_ok_count",
+    "future_kernel_native_consumer_kernel_entry_args_summary_scale_metadata_handle_read_row_ok_count",
+    "future_kernel_native_consumer_kernel_entry_args_summary_aux_metadata_handle_read_row_ok_count",
+    "future_kernel_native_consumer_kernel_entry_args_summary_error_count",
+    "future_kernel_native_consumer_kernel_entry_args_summary_field_mask",
+    "future_kernel_native_consumer_kernel_entry_args_payload_bytes",
+    "future_kernel_native_consumer_kernel_entry_args_passed_to_kernel",
+    "future_kernel_native_consumer_kernel_entry_args_changes_kernel_launch_args",
+    "future_kernel_native_consumer_kernel_entry_args_current_wna16_arg_compatible",
+    "future_kernel_native_consumer_kernel_entry_args_requires_wna16_arg_reinterpretation",
+    "future_kernel_native_consumer_kernel_entry_args_summary_row_hash_accumulator",
+    "future_kernel_native_consumer_kernel_entry_args_summary_field_read_hash_accumulator",
 )
 
 
@@ -510,6 +540,55 @@ def _check_kernel_entry_summary(
         hash_value = stub.get(hash_key)
         if not isinstance(hash_value, str) or not hash_value:
             failures.append(f"{hash_key}_missing")
+    return failures
+
+
+def _check_kernel_entry_args(
+    stub: dict[str, Any],
+    *,
+    active_rows: int,
+) -> list[str]:
+    failures: list[str] = []
+    prefix = "future_kernel_native_consumer_kernel_entry_args"
+    expected = {
+        f"{prefix}_checked": True,
+        f"{prefix}_version": 1,
+        f"{prefix}_summary_packet_valid": 1,
+        f"{prefix}_summary_row_count": int(active_rows),
+        f"{prefix}_summary_row_ok_count": int(active_rows),
+        f"{prefix}_summary_descriptor_ptr_read_row_ok_count": int(active_rows),
+        f"{prefix}_summary_packed_weight_descriptor_read_row_ok_count": int(active_rows),
+        f"{prefix}_summary_scale_metadata_handle_read_row_ok_count": int(active_rows),
+        f"{prefix}_summary_aux_metadata_handle_read_row_ok_count": int(active_rows),
+        f"{prefix}_summary_error_count": 0,
+        f"{prefix}_summary_field_mask": _FUTURE_KERNEL_ALL_FIELD_MASK,
+        f"{prefix}_payload_bytes": 0,
+        f"{prefix}_passed_to_kernel": False,
+        f"{prefix}_changes_kernel_launch_args": False,
+        f"{prefix}_current_wna16_arg_compatible": False,
+        f"{prefix}_requires_wna16_arg_reinterpretation": False,
+    }
+    for key, value in expected.items():
+        if stub.get(key) != value:
+            failures.append(f"{key}_mismatch:{stub.get(key)!r}!={value!r}")
+    for hash_key in (
+        f"{prefix}_summary_row_hash_accumulator",
+        f"{prefix}_summary_field_read_hash_accumulator",
+    ):
+        hash_value = stub.get(hash_key)
+        if not isinstance(hash_value, str) or not hash_value:
+            failures.append(f"{hash_key}_missing")
+    for size_key in (
+        f"{prefix}_struct_size",
+        f"{prefix}_struct_align",
+        f"{prefix}_kernel_arg_packet_struct_size",
+        f"{prefix}_summary_struct_size",
+    ):
+        value = stub.get(size_key)
+        if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
+            failures.append(f"{size_key}_invalid")
+    if stub.get(f"{prefix}_offset_kernel_arg_packet") != 0:
+        failures.append(f"{prefix}_offset_kernel_arg_packet_mismatch")
     return failures
 
 
@@ -724,6 +803,7 @@ def _validate_stub(
         _check_kernel_arg_packet_field_reads(stub, active_rows=active_rows)
     )
     failures.extend(_check_kernel_entry_summary(stub, active_rows=active_rows))
+    failures.extend(_check_kernel_entry_args(stub, active_rows=active_rows))
     return failures
 
 
@@ -1031,6 +1111,35 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
             "future_kernel_native_consumer_kernel_entry_summary_requires_wna16_arg_reinterpretation": False,
             "future_kernel_native_consumer_kernel_entry_summary_row_hash_accumulator": "dry",
             "future_kernel_native_consumer_kernel_entry_summary_field_read_hash_accumulator": "dry",
+            "future_kernel_native_consumer_kernel_entry_args_checked": True,
+            "future_kernel_native_consumer_kernel_entry_args_version": 1,
+            "future_kernel_native_consumer_kernel_entry_args_struct_size": 40,
+            "future_kernel_native_consumer_kernel_entry_args_struct_align": 8,
+            "future_kernel_native_consumer_kernel_entry_args_offset_kernel_arg_packet": 0,
+            "future_kernel_native_consumer_kernel_entry_args_offset_summary": 8,
+            "future_kernel_native_consumer_kernel_entry_args_offset_abi_version": 16,
+            "future_kernel_native_consumer_kernel_entry_args_offset_kernel_arg_packet_struct_size": 20,
+            "future_kernel_native_consumer_kernel_entry_args_offset_summary_struct_size": 24,
+            "future_kernel_native_consumer_kernel_entry_args_offset_payload_bytes": 28,
+            "future_kernel_native_consumer_kernel_entry_args_offset_flags": 32,
+            "future_kernel_native_consumer_kernel_entry_args_kernel_arg_packet_struct_size": 32,
+            "future_kernel_native_consumer_kernel_entry_args_summary_struct_size": 80,
+            "future_kernel_native_consumer_kernel_entry_args_summary_packet_valid": 1,
+            "future_kernel_native_consumer_kernel_entry_args_summary_row_count": active_rows,
+            "future_kernel_native_consumer_kernel_entry_args_summary_row_ok_count": active_rows,
+            "future_kernel_native_consumer_kernel_entry_args_summary_descriptor_ptr_read_row_ok_count": active_rows,
+            "future_kernel_native_consumer_kernel_entry_args_summary_packed_weight_descriptor_read_row_ok_count": active_rows,
+            "future_kernel_native_consumer_kernel_entry_args_summary_scale_metadata_handle_read_row_ok_count": active_rows,
+            "future_kernel_native_consumer_kernel_entry_args_summary_aux_metadata_handle_read_row_ok_count": active_rows,
+            "future_kernel_native_consumer_kernel_entry_args_summary_error_count": 0,
+            "future_kernel_native_consumer_kernel_entry_args_summary_field_mask": _FUTURE_KERNEL_ALL_FIELD_MASK,
+            "future_kernel_native_consumer_kernel_entry_args_payload_bytes": 0,
+            "future_kernel_native_consumer_kernel_entry_args_passed_to_kernel": False,
+            "future_kernel_native_consumer_kernel_entry_args_changes_kernel_launch_args": False,
+            "future_kernel_native_consumer_kernel_entry_args_current_wna16_arg_compatible": False,
+            "future_kernel_native_consumer_kernel_entry_args_requires_wna16_arg_reinterpretation": False,
+            "future_kernel_native_consumer_kernel_entry_args_summary_row_hash_accumulator": "dry",
+            "future_kernel_native_consumer_kernel_entry_args_summary_field_read_hash_accumulator": "dry",
         }
     else:
         stub_payload = run_stub(_stub_namespace(args, input_json=merged_output_json))
@@ -1108,6 +1217,18 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
         ),
         "kernel_entry_summary_all_handle_fields_read": (
             not _check_kernel_entry_summary(stub_payload, active_rows=active_rows)
+        ),
+        "kernel_entry_args_checked": (
+            stub_payload.get(
+                "future_kernel_native_consumer_kernel_entry_args_checked"
+            )
+            is True
+        ),
+        "kernel_entry_args_error_count": stub_payload.get(
+            "future_kernel_native_consumer_kernel_entry_args_summary_error_count"
+        ),
+        "kernel_entry_args_all_handle_fields_read": (
+            not _check_kernel_entry_args(stub_payload, active_rows=active_rows)
         ),
         "consumer_view_source_packet_chain_depth": stub_payload.get(
             "future_kernel_native_consumer_view_source_packet_chain_depth"

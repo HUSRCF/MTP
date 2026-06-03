@@ -27546,6 +27546,82 @@ fields.  This promotes the compact future-kernel entry from a smoke-only
 artifact into the same strict window gate as the existing future kernel-arg
 packet ABI.
 
+## Single-argument future kernel-entry args ABI
+
+The native typed consumer stub now includes a single-argument future kernel
+entry envelope:
+
+```text
+PremapFutureKernelNativeConsumerKernelEntryArgsV1
+```
+
+This object contains:
+
+```text
+kernel_arg_packet*
+entry_summary*
+abi_version
+kernel_arg_packet_struct_size
+summary_struct_size
+payload_bytes = 0
+flags = readonly | kernel-arg-pass-disabled | payload-deref-disabled
+```
+
+The new canary kernel receives only this entry-args object, resolves the
+future kernel-arg packet on device, and fills the compact entry summary.  This
+models a future kernel launch ABI more closely than passing the packet and
+summary as separate diagnostic arguments.
+
+The safety boundary is unchanged:
+
+```text
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+current_wna16_arg_compatible = false
+requires_wna16_arg_reinterpretation = false
+```
+
+Smoke evidence:
+
+```text
+outputs/reports/premap_typed_consumer_kernel_entry_args_smoke.json
+
+ok = true
+compiled_macros.MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ENTRY_ARGS_ABI = true
+future_kernel_native_consumer_kernel_entry_args_checked = true
+future_kernel_native_consumer_kernel_entry_args_summary_packet_valid = 1
+future_kernel_native_consumer_kernel_entry_args_summary_row_count = 64
+future_kernel_native_consumer_kernel_entry_args_summary_row_ok_count = 64
+future_kernel_native_consumer_kernel_entry_args_summary_descriptor_ptr_read_row_ok_count = 64
+future_kernel_native_consumer_kernel_entry_args_summary_packed_weight_descriptor_read_row_ok_count = 64
+future_kernel_native_consumer_kernel_entry_args_summary_scale_metadata_handle_read_row_ok_count = 64
+future_kernel_native_consumer_kernel_entry_args_summary_aux_metadata_handle_read_row_ok_count = 64
+future_kernel_native_consumer_kernel_entry_args_summary_error_count = 0
+```
+
+Online merged window sweep evidence:
+
+```text
+python scripts/run_premap_online_merged_native_arg_slot_all_field_window_sweep.py \
+  --require-program-view-ptr-abi \
+  --force-build
+
+passed = true
+row_count = 1841
+fields = descriptor_ptr / packed_weight_descriptor / scale_metadata_handle / aux_metadata_handle
+windows = full / head / middle / tail
+require_kernel_arg_packet_abi = true
+require_kernel_entry_args_abi = true
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+```
+
+This is still not a WNA16 kernel-argument replacement.  It is the next
+future-native ABI preflight layer before any real kernel-side typed consumer
+path is allowed to consume these handles.
+
 ## Consumer-view ABI layout is checked by the window gate
 
 The future native consumer-view packet is now part of the lab evidence as a

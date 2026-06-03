@@ -287,6 +287,28 @@ This summary is still diagnostic-only: it validates that a compact future
 kernel entry can consume the typed handle table, but it is not passed to the
 current WNA16 fused-MoE kernel and does not authorize payload movement.
 
+The next envelope is the single-argument future kernel entry ABI:
+
+```text
+PremapFutureKernelNativeConsumerKernelEntryArgsV1
+  size = 40
+  align = 8
+  offset(kernel_arg_packet) = 0
+  offset(summary) = 8
+  offset(abi_version) = 16
+  offset(kernel_arg_packet_struct_size) = 20
+  offset(summary_struct_size) = 24
+  offset(payload_bytes) = 28
+  offset(flags) = 32
+```
+
+The native stub launches a separate canary kernel that receives only this
+single entry-args object.  The object points at the future kernel-arg packet
+and the compact summary buffer, then the kernel resolves the typed rows through
+the same packet chain.  This is closer to a future kernel launch ABI than the
+two-argument diagnostic entry, but it still forbids payload dereference and is
+not connected to the current WNA16 fused-MoE kernel argument list.
+
 The window-sweep checker also follows each child canary's native stub artifact
 and validates the consumer-view layout relationship:
 

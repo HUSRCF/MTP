@@ -138,6 +138,9 @@ def test_online_merged_arg_slot_canary_dry_run_writes_artifacts(tmp_path: Path):
     assert result["kernel_entry_summary_packet_valid"] == 1
     assert result["kernel_entry_summary_error_count"] == 0
     assert result["kernel_entry_summary_all_handle_fields_read"] is True
+    assert result["kernel_entry_args_checked"] is True
+    assert result["kernel_entry_args_error_count"] == 0
+    assert result["kernel_entry_args_all_handle_fields_read"] is True
     assert result["consumer_view_source_packet_chain_depth"] == 3
     assert result["stub_summary"]["future_kernel_native_dispatch_consumer_row_offset"] == 0
     assert result["stub_summary"]["future_kernel_native_dispatch_consumer_row_limit"] == 7
@@ -164,6 +167,18 @@ def test_online_merged_arg_slot_canary_dry_run_writes_artifacts(tmp_path: Path):
             "future_kernel_native_consumer_program_view_program_count"
         ]
         == 2
+    )
+    assert (
+        result["stub_summary"][
+            "future_kernel_native_consumer_kernel_entry_args_summary_row_count"
+        ]
+        == 7
+    )
+    assert (
+        result["stub_summary"][
+            "future_kernel_native_consumer_kernel_entry_args_summary_error_count"
+        ]
+        == 0
     )
     assert json.loads(merged.read_text(encoding="utf-8"))["_meta"]["row_count"] == 7
     stub_payload = json.loads(stub.read_text(encoding="utf-8"))
@@ -194,6 +209,18 @@ def test_online_merged_arg_slot_canary_dry_run_writes_artifacts(tmp_path: Path):
     assert (
         stub_payload[
             "future_kernel_native_consumer_kernel_entry_summary_error_count"
+        ]
+        == 0
+    )
+    assert (
+        stub_payload[
+            "future_kernel_native_consumer_kernel_entry_args_summary_scale_metadata_handle_read_row_ok_count"
+        ]
+        == 7
+    )
+    assert (
+        stub_payload[
+            "future_kernel_native_consumer_kernel_entry_args_summary_error_count"
         ]
         == 0
     )
