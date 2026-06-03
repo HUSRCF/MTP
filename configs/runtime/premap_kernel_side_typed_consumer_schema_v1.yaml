@@ -137,6 +137,17 @@ native_consumer_abi:
   future_kernel_native_consumer_view_abi_current_wna16_arg_compatible: false
   future_kernel_native_consumer_view_abi_requires_wna16_arg_reinterpretation: false
   future_kernel_native_consumer_view_abi_source_packet_chain_depth_required: 3
+  future_kernel_native_consumer_program_view_abi_name: premap_future_kernel_native_consumer_program_view_abi_v1
+  future_kernel_native_consumer_program_view_abi_struct: PremapFutureKernelNativeConsumerProgramViewV1
+  future_kernel_native_consumer_program_view_abi_result_struct: PremapFutureKernelNativeConsumerProgramViewResultV1
+  future_kernel_native_consumer_program_view_abi_mode: readonly_future_kernel_native_consumer_program_view_abi
+  future_kernel_native_consumer_program_view_abi_source: premap_future_kernel_native_consumer_view_abi_v1
+  future_kernel_native_consumer_program_view_abi_default_enabled: false
+  future_kernel_native_consumer_program_view_abi_payload_bytes_required: 0
+  future_kernel_native_consumer_program_view_abi_passed_to_kernel_required: false
+  future_kernel_native_consumer_program_view_abi_current_wna16_arg_compatible: false
+  future_kernel_native_consumer_program_view_abi_requires_wna16_arg_reinterpretation: false
+  future_kernel_native_consumer_program_view_abi_row_assignment_formula: program_id * rows_per_program + lane_id + row_offset
   future_kernel_native_consumer_abi_layout_reported: true
   future_kernel_native_consumer_abi_layout_fields:
     - future_kernel_native_consumer_params_struct_size
@@ -407,6 +418,8 @@ required_gate_checks:
   consumer_view_handle_projection_required: true
   consumer_view_all_handle_fields_required: true
   consumer_view_source_packet_chain_depth_required: 3
+  consumer_program_view_required: true
+  consumer_program_view_row_assignment_formula: program_id * rows_per_program + lane_id + row_offset
   payload_bytes_required: 0
   passed_to_kernel_required: false
   changes_kernel_launch_args_required: false
@@ -511,6 +524,10 @@ debug_macro_ladder:
       default: disabled
       individually_enableable: true
       phase: future_kernel_native_consumer_view_abi_stub
+    - name: MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_PROGRAM_VIEW_ABI
+      default: disabled
+      individually_enableable: true
+      phase: future_kernel_native_consumer_program_view_abi_stub
     - name: MTP_PREMAP_TYPED_CONSUMER_ENABLE_PAYLOAD_DEREF
       default: disabled
       individually_enableable: false

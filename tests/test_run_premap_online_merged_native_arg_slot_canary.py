@@ -140,6 +140,20 @@ def test_online_merged_arg_slot_canary_dry_run_writes_artifacts(tmp_path: Path):
         result["stub_summary"]["future_kernel_native_consumer_view_rows_per_program"]
         == 4
     )
+    assert (
+        result["stub_summary"]["future_kernel_native_consumer_program_view_checked"]
+        is True
+    )
+    assert (
+        result["stub_summary"]["future_kernel_native_consumer_program_view_row_count"]
+        == 7
+    )
+    assert (
+        result["stub_summary"][
+            "future_kernel_native_consumer_program_view_program_count"
+        ]
+        == 2
+    )
     assert json.loads(merged.read_text(encoding="utf-8"))["_meta"]["row_count"] == 7
     stub_payload = json.loads(stub.read_text(encoding="utf-8"))
     assert stub_payload["future_kernel_native_arg_slot_consumer_checked"] is True
@@ -307,6 +321,7 @@ def test_online_merged_arg_slot_canary_hashchain_includes_consumer_view_projecti
         "future_kernel_native_dispatch_ptr_consumer_handle_projection_hash_accumulator": "abc",
         "future_kernel_native_arg_slot_consumer_handle_projection_hash_accumulator": "abc",
         "future_kernel_native_consumer_view_handle_projection_hash_accumulator": "abc",
+        "future_kernel_native_consumer_program_view_handle_projection_hash_accumulator": "abc",
     }
 
     assert module._handle_projection_hashchain_equal(stub) is True

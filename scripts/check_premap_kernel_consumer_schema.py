@@ -90,6 +90,7 @@ REQUIRED_STEPWISE_DEBUG_MACROS = {
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_PTR_ABI",
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ARG_SLOT_ABI",
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_VIEW_ABI",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_PROGRAM_VIEW_ABI",
 }
 ALLOWED_CURRENT_STATUS = {
     "native_stub_pending",
@@ -101,6 +102,10 @@ EXPECTED_REQUIRED_GATE_CHECKS = {
     "consumer_view_handle_projection_required": True,
     "consumer_view_all_handle_fields_required": True,
     "consumer_view_source_packet_chain_depth_required": 3,
+    "consumer_program_view_required": True,
+    "consumer_program_view_row_assignment_formula": (
+        "program_id * rows_per_program + lane_id + row_offset"
+    ),
     "payload_bytes_required": 0,
     "passed_to_kernel_required": False,
     "changes_kernel_launch_args_required": False,
@@ -596,6 +601,29 @@ def check_kernel_consumer_schema_artifact(path: Path) -> dict[str, Any]:
         "future_kernel_native_consumer_view_abi_current_wna16_arg_compatible": False,
         "future_kernel_native_consumer_view_abi_requires_wna16_arg_reinterpretation": False,
         "future_kernel_native_consumer_view_abi_source_packet_chain_depth_required": 3,
+        "future_kernel_native_consumer_program_view_abi_name": (
+            "premap_future_kernel_native_consumer_program_view_abi_v1"
+        ),
+        "future_kernel_native_consumer_program_view_abi_struct": (
+            "PremapFutureKernelNativeConsumerProgramViewV1"
+        ),
+        "future_kernel_native_consumer_program_view_abi_result_struct": (
+            "PremapFutureKernelNativeConsumerProgramViewResultV1"
+        ),
+        "future_kernel_native_consumer_program_view_abi_mode": (
+            "readonly_future_kernel_native_consumer_program_view_abi"
+        ),
+        "future_kernel_native_consumer_program_view_abi_source": (
+            "premap_future_kernel_native_consumer_view_abi_v1"
+        ),
+        "future_kernel_native_consumer_program_view_abi_default_enabled": False,
+        "future_kernel_native_consumer_program_view_abi_payload_bytes_required": 0,
+        "future_kernel_native_consumer_program_view_abi_passed_to_kernel_required": False,
+        "future_kernel_native_consumer_program_view_abi_current_wna16_arg_compatible": False,
+        "future_kernel_native_consumer_program_view_abi_requires_wna16_arg_reinterpretation": False,
+        "future_kernel_native_consumer_program_view_abi_row_assignment_formula": (
+            "program_id * rows_per_program + lane_id + row_offset"
+        ),
     }
     for key, expected in expected_native_abi.items():
         observed = native_abi.get(key)
@@ -927,6 +955,33 @@ def check_kernel_consumer_schema_artifact(path: Path) -> dict[str, Any]:
         "future_kernel_native_consumer_view_abi_source_packet_chain_depth_required": (
             native_abi.get(
                 "future_kernel_native_consumer_view_abi_source_packet_chain_depth_required"
+            )
+        ),
+        "future_kernel_native_consumer_program_view_abi_name": native_abi.get(
+            "future_kernel_native_consumer_program_view_abi_name"
+        ),
+        "future_kernel_native_consumer_program_view_abi_struct": native_abi.get(
+            "future_kernel_native_consumer_program_view_abi_struct"
+        ),
+        "future_kernel_native_consumer_program_view_abi_mode": native_abi.get(
+            "future_kernel_native_consumer_program_view_abi_mode"
+        ),
+        "future_kernel_native_consumer_program_view_abi_source": native_abi.get(
+            "future_kernel_native_consumer_program_view_abi_source"
+        ),
+        "future_kernel_native_consumer_program_view_abi_current_wna16_arg_compatible": (
+            native_abi.get(
+                "future_kernel_native_consumer_program_view_abi_current_wna16_arg_compatible"
+            )
+        ),
+        "future_kernel_native_consumer_program_view_abi_requires_wna16_arg_reinterpretation": (
+            native_abi.get(
+                "future_kernel_native_consumer_program_view_abi_requires_wna16_arg_reinterpretation"
+            )
+        ),
+        "future_kernel_native_consumer_program_view_abi_row_assignment_formula": (
+            native_abi.get(
+                "future_kernel_native_consumer_program_view_abi_row_assignment_formula"
             )
         ),
         "future_kernel_consumer_args_layout_reported": native_abi.get(

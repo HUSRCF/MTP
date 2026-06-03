@@ -117,6 +117,10 @@ REQUIRED_DEFAULT_GATE_CONTRACT = {
     "future_kernel_native_dispatch_consumer_row_assignment_formula": (
         "row_offset + program_id * rows_per_program + lane_id"
     ),
+    "consumer_program_view_required": True,
+    "consumer_program_view_row_assignment_formula": (
+        "program_id * rows_per_program + lane_id + row_offset"
+    ),
     "future_kernel_native_arg_slot_online_total_mirror_coverage_required": True,
     "single_field_handle_handoff_canary_required": True,
     "single_field_handle_handoff_canary_mode": (
@@ -3204,10 +3208,71 @@ def _validate_future_native_arg_slot_multiprogram_evidence(
         in evidence
     ):
         projection_hashes.append(consumer_view_projection_hash)
+    consumer_program_view_projection_hash = _hex64_metric(
+        evidence,
+        "future_kernel_native_consumer_program_view_handle_projection_hash_accumulator",
+    )
+    if (
+        "future_kernel_native_consumer_program_view_handle_projection_hash_accumulator"
+        in evidence
+    ):
+        projection_hashes.append(consumer_program_view_projection_hash)
     if any(value is None for value in projection_hashes):
         failures.append(f"{failure_prefix}_handle_projection_hash_missing")
     elif len(set(projection_hashes)) != 1:
         failures.append(f"{failure_prefix}_handle_projection_hash_mismatch")
+    if evidence.get("future_kernel_native_consumer_program_view_checked") is True:
+        program_view_expected = {
+            "future_kernel_native_consumer_program_view_row_count": active_rows,
+            "future_kernel_native_consumer_program_view_row_ok_count": active_rows,
+            "future_kernel_native_consumer_program_view_error_count": 0,
+            "future_kernel_native_consumer_program_view_program_count": grid_x,
+            "future_kernel_native_consumer_program_view_full_program_count": (
+                full_program_count
+            ),
+            "future_kernel_native_consumer_program_view_last_program_active_rows": (
+                last_program_active_rows
+            ),
+            "future_kernel_native_consumer_program_view_inactive_lane_count": (
+                inactive_lane_count
+            ),
+            "future_kernel_native_consumer_program_view_first_program_row_offset": (
+                first_program_row_offset
+            ),
+            "future_kernel_native_consumer_program_view_last_program_row_offset": (
+                last_program_row_offset
+            ),
+            "future_kernel_native_consumer_program_view_payload_bytes": 0,
+            "future_kernel_native_consumer_program_view_passed_to_kernel": False,
+            "future_kernel_native_consumer_program_view_changes_kernel_launch_args": False,
+            "future_kernel_native_consumer_program_view_current_wna16_arg_compatible": (
+                False
+            ),
+            "future_kernel_native_consumer_program_view_requires_wna16_arg_reinterpretation": (
+                False
+            ),
+        }
+        for key, expected in program_view_expected.items():
+            if evidence.get(key) != expected:
+                failures.append(f"{failure_prefix}_{key}_mismatch")
+        if (
+            evidence.get(
+                "future_kernel_native_consumer_program_view_row_assignment_formula"
+            )
+            != "program_id * rows_per_program + lane_id + row_offset"
+        ):
+            failures.append(f"{failure_prefix}_program_view_formula_mismatch")
+        program_view_iteration_hash = _hex64_metric(
+            evidence,
+            "future_kernel_native_consumer_program_view_program_iteration_hash",
+        )
+        if program_view_iteration_hash is None:
+            failures.append(f"{failure_prefix}_program_view_iteration_hash_missing")
+        elif (
+            actual_program_iteration_hash is not None
+            and program_view_iteration_hash != actual_program_iteration_hash
+        ):
+            failures.append(f"{failure_prefix}_program_view_iteration_hash_mismatch")
     return failures
 
 
@@ -4848,6 +4913,47 @@ def run_premap_lab_preflight(
         if online_merged_consumer_view_checked and online_merged_dispatch_checked
         else "dispatch_runner_summary"
     )
+
+    def _hex_metric_text(metrics: dict[str, Any], key: str) -> str | None:
+        value = metrics.get(key)
+        return (
+            value
+            if isinstance(value, str) and _hex64_metric(metrics, key) is not None
+            else None
+        )
+
+    dispatch_program_count = _int_metric(
+        consumer_view_row_window_summary,
+        "future_kernel_native_dispatch_consumer_program_count",
+    )
+    dispatch_row_window_active_rows = _int_metric(
+        consumer_view_row_window_summary,
+        "future_kernel_native_dispatch_consumer_active_rows",
+    )
+    dispatch_full_program_count = _int_metric(
+        consumer_view_row_window_summary,
+        "future_kernel_native_dispatch_consumer_full_program_count",
+    )
+    dispatch_last_program_active_rows = _int_metric(
+        consumer_view_row_window_summary,
+        "future_kernel_native_dispatch_consumer_last_program_active_rows",
+    )
+    dispatch_inactive_lane_count = _int_metric(
+        consumer_view_row_window_summary,
+        "future_kernel_native_dispatch_consumer_inactive_lane_count",
+    )
+    dispatch_first_program_row_offset = _int_metric(
+        consumer_view_row_window_summary,
+        "future_kernel_native_dispatch_consumer_first_program_row_offset",
+    )
+    dispatch_last_program_row_offset = _int_metric(
+        consumer_view_row_window_summary,
+        "future_kernel_native_dispatch_consumer_last_program_row_offset",
+    )
+    dispatch_program_iteration_hash_text = _hex_metric_text(
+        consumer_view_row_window_summary,
+        "future_kernel_native_dispatch_consumer_program_iteration_hash",
+    )
     consumer_view_field_read_row_ok_counts: dict[str, int | None] = {}
     consumer_view_field_read_error_counts: dict[str, int | None] = {}
     consumer_view_field_read_hashes: dict[str, str | None] = {}
@@ -4986,6 +5092,152 @@ def run_premap_lab_preflight(
         and consumer_view_requires_wna16_arg_reinterpretation
         == consumer_view_expected_requires_reinterpretation
     )
+    consumer_view_projection_hash = _hex_metric_text(
+        consumer_view_summary,
+        "future_kernel_native_consumer_view_handle_projection_hash_accumulator",
+    )
+    online_merged_consumer_program_view_checked = (
+        online_merged_arg_slot_summary.get(
+            "future_kernel_native_consumer_program_view_checked"
+        )
+        is True
+    )
+    consumer_program_view_summary = (
+        online_merged_arg_slot_summary
+        if online_merged_consumer_program_view_checked
+        else dispatch_runner_summary
+    )
+    consumer_program_view_status_source = (
+        "online_merged_arg_slot_summary"
+        if online_merged_consumer_program_view_checked
+        else "dispatch_runner_summary"
+    )
+    consumer_program_view_checked = (
+        consumer_program_view_summary.get(
+            "future_kernel_native_consumer_program_view_checked"
+        )
+        is True
+    )
+    consumer_program_view_source = consumer_program_view_summary.get(
+        "future_kernel_native_consumer_program_view_source"
+    )
+    consumer_program_view_source = (
+        consumer_program_view_source
+        if isinstance(consumer_program_view_source, str)
+        else None
+    )
+    consumer_program_view_row_count = _int_metric(
+        consumer_program_view_summary,
+        "future_kernel_native_consumer_program_view_row_count",
+    )
+    consumer_program_view_row_ok_count = _int_metric(
+        consumer_program_view_summary,
+        "future_kernel_native_consumer_program_view_row_ok_count",
+    )
+    consumer_program_view_error_count = _int_metric(
+        consumer_program_view_summary,
+        "future_kernel_native_consumer_program_view_error_count",
+    )
+    consumer_program_view_program_count = _int_metric(
+        consumer_program_view_summary,
+        "future_kernel_native_consumer_program_view_program_count",
+    )
+    consumer_program_view_full_program_count = _int_metric(
+        consumer_program_view_summary,
+        "future_kernel_native_consumer_program_view_full_program_count",
+    )
+    consumer_program_view_last_program_active_rows = _int_metric(
+        consumer_program_view_summary,
+        "future_kernel_native_consumer_program_view_last_program_active_rows",
+    )
+    consumer_program_view_inactive_lane_count = _int_metric(
+        consumer_program_view_summary,
+        "future_kernel_native_consumer_program_view_inactive_lane_count",
+    )
+    consumer_program_view_first_program_row_offset = _int_metric(
+        consumer_program_view_summary,
+        "future_kernel_native_consumer_program_view_first_program_row_offset",
+    )
+    consumer_program_view_last_program_row_offset = _int_metric(
+        consumer_program_view_summary,
+        "future_kernel_native_consumer_program_view_last_program_row_offset",
+    )
+    consumer_program_view_program_iteration_hash = _hex_metric_text(
+        consumer_program_view_summary,
+        "future_kernel_native_consumer_program_view_program_iteration_hash",
+    )
+    consumer_program_view_projection_hash = _hex_metric_text(
+        consumer_program_view_summary,
+        "future_kernel_native_consumer_program_view_handle_projection_hash_accumulator",
+    )
+    consumer_program_view_payload_bytes = _int_metric(
+        consumer_program_view_summary,
+        "future_kernel_native_consumer_program_view_payload_bytes",
+    )
+    consumer_program_view_passed_to_kernel = _bool_metric(
+        consumer_program_view_summary,
+        "future_kernel_native_consumer_program_view_passed_to_kernel",
+    )
+    consumer_program_view_changes_kernel_launch_args = _bool_metric(
+        consumer_program_view_summary,
+        "future_kernel_native_consumer_program_view_changes_kernel_launch_args",
+    )
+    consumer_program_view_current_wna16_arg_compatible = _bool_metric(
+        consumer_program_view_summary,
+        "future_kernel_native_consumer_program_view_current_wna16_arg_compatible",
+    )
+    consumer_program_view_requires_wna16_arg_reinterpretation = _bool_metric(
+        consumer_program_view_summary,
+        "future_kernel_native_consumer_program_view_requires_wna16_arg_reinterpretation",
+    )
+    consumer_program_view_formula = consumer_program_view_summary.get(
+        "future_kernel_native_consumer_program_view_row_assignment_formula"
+    )
+    consumer_program_view_formula = (
+        consumer_program_view_formula
+        if isinstance(consumer_program_view_formula, str)
+        else None
+    )
+    consumer_program_view_row_count_matches_dispatch = (
+        consumer_program_view_row_count is not None
+        and dispatch_row_window_active_rows is not None
+        and consumer_program_view_row_count == dispatch_row_window_active_rows
+        and consumer_program_view_row_ok_count == dispatch_row_window_active_rows
+        and consumer_program_view_error_count == 0
+    )
+    consumer_program_view_geometry_matches_dispatch = (
+        consumer_program_view_program_count == dispatch_program_count
+        and consumer_program_view_full_program_count == dispatch_full_program_count
+        and consumer_program_view_last_program_active_rows
+        == dispatch_last_program_active_rows
+        and consumer_program_view_inactive_lane_count == dispatch_inactive_lane_count
+        and consumer_program_view_first_program_row_offset
+        == dispatch_first_program_row_offset
+        and consumer_program_view_last_program_row_offset
+        == dispatch_last_program_row_offset
+    )
+    consumer_program_view_hash_matches_dispatch = (
+        consumer_program_view_program_iteration_hash is not None
+        and dispatch_program_iteration_hash_text is not None
+        and consumer_program_view_program_iteration_hash
+        == dispatch_program_iteration_hash_text
+    )
+    consumer_program_view_projection_matches_view = (
+        consumer_program_view_projection_hash is not None
+        and consumer_view_projection_hash is not None
+        and consumer_program_view_projection_hash == consumer_view_projection_hash
+    )
+    consumer_program_view_safety_matches_required = (
+        consumer_program_view_payload_bytes
+        == required_gate_checks.get("payload_bytes_required")
+        and consumer_program_view_passed_to_kernel
+        == required_gate_checks.get("passed_to_kernel_required")
+        and consumer_program_view_changes_kernel_launch_args
+        == required_gate_checks.get("changes_kernel_launch_args_required")
+        and consumer_program_view_current_wna16_arg_compatible
+        == required_gate_checks.get("current_wna16_arg_compatible_required")
+        and consumer_program_view_requires_wna16_arg_reinterpretation is False
+    )
     future_kernel_args_summary = dispatch_runner_payload.get(
         "future_kernel_args_stub_summary",
     )
@@ -5020,14 +5272,6 @@ def run_premap_lab_preflight(
         future_kernel_args_compatible_path_summary,
         "future_kernel_args_compatible_consumer_path_payload_bytes",
     )
-
-    def _hex_metric_text(metrics: dict[str, Any], key: str) -> str | None:
-        value = metrics.get(key)
-        return (
-            value
-            if isinstance(value, str) and _hex64_metric(metrics, key) is not None
-            else None
-        )
 
     dispatch_row_hash = _hex_metric_text(
         dispatch_runner_summary,
@@ -5149,6 +5393,70 @@ def run_premap_lab_preflight(
         failures.append(
             "default_kernel_consumer_consumer_view_safety_contract_mismatch"
         )
+    if (
+        not allow_missing_evidence
+        and not defer_online_prelaunch_runner_evidence
+        and required_gate_checks.get("consumer_program_view_required") is True
+        and not consumer_program_view_checked
+    ):
+        failures.append(
+            "default_kernel_consumer_consumer_program_view_missing"
+        )
+    if (
+        not allow_missing_evidence
+        and not defer_online_prelaunch_runner_evidence
+        and required_gate_checks.get("consumer_program_view_required") is True
+        and not consumer_program_view_row_count_matches_dispatch
+    ):
+        failures.append(
+            "default_kernel_consumer_consumer_program_view_row_count_mismatch"
+        )
+    if (
+        not allow_missing_evidence
+        and not defer_online_prelaunch_runner_evidence
+        and required_gate_checks.get("consumer_program_view_required") is True
+        and not consumer_program_view_geometry_matches_dispatch
+    ):
+        failures.append(
+            "default_kernel_consumer_consumer_program_view_geometry_mismatch"
+        )
+    if (
+        not allow_missing_evidence
+        and not defer_online_prelaunch_runner_evidence
+        and required_gate_checks.get("consumer_program_view_required") is True
+        and not consumer_program_view_hash_matches_dispatch
+    ):
+        failures.append(
+            "default_kernel_consumer_consumer_program_view_iteration_hash_mismatch"
+        )
+    if (
+        not allow_missing_evidence
+        and not defer_online_prelaunch_runner_evidence
+        and required_gate_checks.get("consumer_program_view_required") is True
+        and not consumer_program_view_projection_matches_view
+    ):
+        failures.append(
+            "default_kernel_consumer_consumer_program_view_projection_mismatch"
+        )
+    if (
+        not allow_missing_evidence
+        and not defer_online_prelaunch_runner_evidence
+        and required_gate_checks.get("consumer_program_view_required") is True
+        and consumer_program_view_formula
+        != required_gate_checks.get("consumer_program_view_row_assignment_formula")
+    ):
+        failures.append(
+            "default_kernel_consumer_consumer_program_view_formula_mismatch"
+        )
+    if (
+        not allow_missing_evidence
+        and not defer_online_prelaunch_runner_evidence
+        and required_gate_checks.get("consumer_program_view_required") is True
+        and not consumer_program_view_safety_matches_required
+    ):
+        failures.append(
+            "default_kernel_consumer_consumer_program_view_safety_contract_mismatch"
+        )
     lab_gate_status_summary = {
         "passed": not failures,
         "default_readonly_gate_path": default_gate_path,
@@ -5200,6 +5508,12 @@ def run_premap_lab_preflight(
         ),
         "default_kernel_consumer_consumer_view_source_packet_chain_depth_required": (
             required_gate_checks.get("consumer_view_source_packet_chain_depth_required")
+        ),
+        "default_kernel_consumer_consumer_program_view_required": (
+            required_gate_checks.get("consumer_program_view_required")
+        ),
+        "default_kernel_consumer_consumer_program_view_row_assignment_formula_required": (
+            required_gate_checks.get("consumer_program_view_row_assignment_formula")
         ),
         "default_kernel_consumer_required_gate_payload_bytes_required": (
             required_gate_checks.get("payload_bytes_required")
@@ -5455,6 +5769,9 @@ def run_premap_lab_preflight(
         ),
         "default_kernel_consumer_dispatch_runner_consumer_view_handle_projection_hash_accumulator": (
             consumer_view_projection_hash
+        ),
+        "default_kernel_consumer_dispatch_runner_consumer_program_view_handle_projection_hash_accumulator": (
+            consumer_program_view_projection_hash
         ),
         "default_kernel_consumer_dispatch_runner_handle_projection_field_names": (
             arg_slot_projection_field_names
@@ -5989,6 +6306,78 @@ def run_premap_lab_preflight(
         ),
         "default_kernel_consumer_consumer_view_safety_matches_required": (
             consumer_view_safety_matches_required
+        ),
+        "default_kernel_consumer_consumer_program_view_checked": (
+            consumer_program_view_checked
+        ),
+        "default_kernel_consumer_consumer_program_view_status_source": (
+            consumer_program_view_status_source
+        ),
+        "default_kernel_consumer_consumer_program_view_source": (
+            consumer_program_view_source
+        ),
+        "default_kernel_consumer_consumer_program_view_row_count": (
+            consumer_program_view_row_count
+        ),
+        "default_kernel_consumer_consumer_program_view_row_ok_count": (
+            consumer_program_view_row_ok_count
+        ),
+        "default_kernel_consumer_consumer_program_view_error_count": (
+            consumer_program_view_error_count
+        ),
+        "default_kernel_consumer_consumer_program_view_row_count_matches_dispatch": (
+            consumer_program_view_row_count_matches_dispatch
+        ),
+        "default_kernel_consumer_consumer_program_view_program_count": (
+            consumer_program_view_program_count
+        ),
+        "default_kernel_consumer_consumer_program_view_full_program_count": (
+            consumer_program_view_full_program_count
+        ),
+        "default_kernel_consumer_consumer_program_view_last_program_active_rows": (
+            consumer_program_view_last_program_active_rows
+        ),
+        "default_kernel_consumer_consumer_program_view_inactive_lane_count": (
+            consumer_program_view_inactive_lane_count
+        ),
+        "default_kernel_consumer_consumer_program_view_first_program_row_offset": (
+            consumer_program_view_first_program_row_offset
+        ),
+        "default_kernel_consumer_consumer_program_view_last_program_row_offset": (
+            consumer_program_view_last_program_row_offset
+        ),
+        "default_kernel_consumer_consumer_program_view_geometry_matches_dispatch": (
+            consumer_program_view_geometry_matches_dispatch
+        ),
+        "default_kernel_consumer_consumer_program_view_program_iteration_hash": (
+            consumer_program_view_program_iteration_hash
+        ),
+        "default_kernel_consumer_consumer_program_view_program_iteration_hash_matches_dispatch": (
+            consumer_program_view_hash_matches_dispatch
+        ),
+        "default_kernel_consumer_consumer_program_view_projection_matches_view": (
+            consumer_program_view_projection_matches_view
+        ),
+        "default_kernel_consumer_consumer_program_view_row_assignment_formula": (
+            consumer_program_view_formula
+        ),
+        "default_kernel_consumer_consumer_program_view_payload_bytes": (
+            consumer_program_view_payload_bytes
+        ),
+        "default_kernel_consumer_consumer_program_view_passed_to_kernel": (
+            consumer_program_view_passed_to_kernel
+        ),
+        "default_kernel_consumer_consumer_program_view_changes_kernel_launch_args": (
+            consumer_program_view_changes_kernel_launch_args
+        ),
+        "default_kernel_consumer_consumer_program_view_current_wna16_arg_compatible": (
+            consumer_program_view_current_wna16_arg_compatible
+        ),
+        "default_kernel_consumer_consumer_program_view_requires_wna16_arg_reinterpretation": (
+            consumer_program_view_requires_wna16_arg_reinterpretation
+        ),
+        "default_kernel_consumer_consumer_program_view_safety_matches_required": (
+            consumer_program_view_safety_matches_required
         ),
         "default_kernel_consumer_arg_slot_error_count": (
             _int_metric(

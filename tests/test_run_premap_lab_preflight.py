@@ -329,6 +329,29 @@ def _valid_schema_payload() -> dict:
             "future_kernel_native_consumer_view_abi_current_wna16_arg_compatible": False,
             "future_kernel_native_consumer_view_abi_requires_wna16_arg_reinterpretation": False,
             "future_kernel_native_consumer_view_abi_source_packet_chain_depth_required": 3,
+            "future_kernel_native_consumer_program_view_abi_name": (
+                "premap_future_kernel_native_consumer_program_view_abi_v1"
+            ),
+            "future_kernel_native_consumer_program_view_abi_struct": (
+                "PremapFutureKernelNativeConsumerProgramViewV1"
+            ),
+            "future_kernel_native_consumer_program_view_abi_result_struct": (
+                "PremapFutureKernelNativeConsumerProgramViewResultV1"
+            ),
+            "future_kernel_native_consumer_program_view_abi_mode": (
+                "readonly_future_kernel_native_consumer_program_view_abi"
+            ),
+            "future_kernel_native_consumer_program_view_abi_source": (
+                "premap_future_kernel_native_consumer_view_abi_v1"
+            ),
+            "future_kernel_native_consumer_program_view_abi_default_enabled": False,
+            "future_kernel_native_consumer_program_view_abi_payload_bytes_required": 0,
+            "future_kernel_native_consumer_program_view_abi_passed_to_kernel_required": False,
+            "future_kernel_native_consumer_program_view_abi_current_wna16_arg_compatible": False,
+            "future_kernel_native_consumer_program_view_abi_requires_wna16_arg_reinterpretation": False,
+            "future_kernel_native_consumer_program_view_abi_row_assignment_formula": (
+                "program_id * rows_per_program + lane_id + row_offset"
+            ),
             "future_kernel_native_consumer_abi_layout_reported": True,
             "future_kernel_native_consumer_abi_layout_fields": list(
                 FUTURE_KERNEL_NATIVE_CONSUMER_ABI_LAYOUT_FIELDS
@@ -429,6 +452,10 @@ def _valid_schema_payload() -> dict:
             "consumer_view_handle_projection_required": True,
             "consumer_view_all_handle_fields_required": True,
             "consumer_view_source_packet_chain_depth_required": 3,
+            "consumer_program_view_required": True,
+            "consumer_program_view_row_assignment_formula": (
+                "program_id * rows_per_program + lane_id + row_offset"
+            ),
             "payload_bytes_required": 0,
             "passed_to_kernel_required": False,
             "changes_kernel_launch_args_required": False,
@@ -574,6 +601,14 @@ def _valid_schema_payload() -> dict:
                     "name": (
                         "MTP_PREMAP_TYPED_CONSUMER_CHECK_"
                         "FUTURE_KERNEL_NATIVE_CONSUMER_VIEW_ABI"
+                    ),
+                    "default": "disabled",
+                    "individually_enableable": True,
+                },
+                {
+                    "name": (
+                        "MTP_PREMAP_TYPED_CONSUMER_CHECK_"
+                        "FUTURE_KERNEL_NATIVE_CONSUMER_PROGRAM_VIEW_ABI"
                     ),
                     "default": "disabled",
                     "individually_enableable": True,
@@ -1373,6 +1408,43 @@ def _runner_future_kernel_native_dispatch_consumer_summary(
             "future_kernel_native_consumer_view_single_field_mirror_row_count": 2,
             "future_kernel_native_consumer_view_single_field_mirror_row_ok_count": 2,
             "future_kernel_native_consumer_view_single_field_mirror_error_count": 0,
+            "future_kernel_native_consumer_program_view_checked": True,
+            "future_kernel_native_consumer_program_view_abi_name": (
+                "premap_future_kernel_native_consumer_program_view_abi_v1"
+            ),
+            "future_kernel_native_consumer_program_view_mode": (
+                "readonly_future_kernel_native_consumer_program_view_abi"
+            ),
+            "future_kernel_native_consumer_program_view_source": (
+                "premap_future_kernel_native_consumer_view_abi_v1"
+            ),
+            "future_kernel_native_consumer_program_view_version": 1,
+            "future_kernel_native_consumer_program_view_row_count": 2,
+            "future_kernel_native_consumer_program_view_row_ok_count": 2,
+            "future_kernel_native_consumer_program_view_error_count": 0,
+            "future_kernel_native_consumer_program_view_hash_accumulator": "0abcde",
+            "future_kernel_native_consumer_program_view_handle_projection_hash_accumulator": (
+                "481d"
+            ),
+            "future_kernel_native_consumer_program_view_program_count": 1,
+            "future_kernel_native_consumer_program_view_full_program_count": 0,
+            "future_kernel_native_consumer_program_view_last_program_active_rows": 2,
+            "future_kernel_native_consumer_program_view_inactive_lane_count": 254,
+            "future_kernel_native_consumer_program_view_first_program_row_offset": 0,
+            "future_kernel_native_consumer_program_view_last_program_row_offset": 0,
+            "future_kernel_native_consumer_program_view_program_iteration_hash": (
+                f"{_program_iteration_hash(grid_x=1, block_x=256, row_offset=0, row_limit=2, last_program_active_rows=2, inactive_lane_count=254):x}"
+            ),
+            "future_kernel_native_consumer_program_view_row_assignment_formula": (
+                "program_id * rows_per_program + lane_id + row_offset"
+            ),
+            "future_kernel_native_consumer_program_view_payload_bytes": 0,
+            "future_kernel_native_consumer_program_view_passed_to_kernel": False,
+            "future_kernel_native_consumer_program_view_changes_kernel_launch_args": False,
+            "future_kernel_native_consumer_program_view_current_wna16_arg_compatible": False,
+            "future_kernel_native_consumer_program_view_requires_wna16_arg_reinterpretation": False,
+            "future_kernel_native_consumer_program_view_field_mask": 15,
+            "future_kernel_native_consumer_program_view_required_field_mask": 7,
         }
     )
     payload.update(_RUNNER_NATIVE_LAYOUT_SUMMARY)
@@ -1420,6 +1492,12 @@ def _standalone_arg_slot_canary_payload(
     compiled_macros = dict(payload["compiled_macros"])
     compiled_macros[
         "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ARG_SLOT_ABI"
+    ] = True
+    compiled_macros[
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_VIEW_ABI"
+    ] = True
+    compiled_macros[
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_PROGRAM_VIEW_ABI"
     ] = True
     mirror_macro_by_field = {
         "descriptor_ptr": "MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR_MIRROR_FIELD",
@@ -1602,6 +1680,46 @@ def _standalone_arg_slot_multiprogram_canary_payload(
             ),
             "future_kernel_native_consumer_view_aux_metadata_handle_read_row_ok_count": (
                 row_count
+            ),
+            "future_kernel_native_consumer_program_view_checked": True,
+            "future_kernel_native_consumer_program_view_source": (
+                "premap_future_kernel_native_consumer_view_abi_v1"
+            ),
+            "future_kernel_native_consumer_program_view_row_count": row_count,
+            "future_kernel_native_consumer_program_view_row_ok_count": row_count,
+            "future_kernel_native_consumer_program_view_error_count": 0,
+            "future_kernel_native_consumer_program_view_hash_accumulator": (
+                "bbaa998877665544"
+            ),
+            "future_kernel_native_consumer_program_view_handle_projection_hash_accumulator": (
+                "12201358096b98ac"
+            ),
+            "future_kernel_native_consumer_program_view_program_count": grid_x,
+            "future_kernel_native_consumer_program_view_full_program_count": (
+                full_program_count
+            ),
+            "future_kernel_native_consumer_program_view_last_program_active_rows": (
+                last_program_active_rows
+            ),
+            "future_kernel_native_consumer_program_view_inactive_lane_count": (
+                inactive_lane_count
+            ),
+            "future_kernel_native_consumer_program_view_first_program_row_offset": 0,
+            "future_kernel_native_consumer_program_view_last_program_row_offset": 512,
+            "future_kernel_native_consumer_program_view_program_iteration_hash": (
+                f"{program_iteration_hash:x}"
+            ),
+            "future_kernel_native_consumer_program_view_row_assignment_formula": (
+                "program_id * rows_per_program + lane_id + row_offset"
+            ),
+            "future_kernel_native_consumer_program_view_payload_bytes": 0,
+            "future_kernel_native_consumer_program_view_passed_to_kernel": False,
+            "future_kernel_native_consumer_program_view_changes_kernel_launch_args": False,
+            "future_kernel_native_consumer_program_view_current_wna16_arg_compatible": (
+                False
+            ),
+            "future_kernel_native_consumer_program_view_requires_wna16_arg_reinterpretation": (
+                False
             ),
         }
     )
@@ -2398,6 +2516,8 @@ def _write_gate(
         "  future_kernel_native_dispatch_ptr_consumer_required: true\n"
         "  future_kernel_native_dispatch_consumer_program_iteration_required: true\n"
         "  future_kernel_native_dispatch_consumer_row_assignment_formula: row_offset + program_id * rows_per_program + lane_id\n"
+        "  consumer_program_view_required: true\n"
+        "  consumer_program_view_row_assignment_formula: program_id * rows_per_program + lane_id + row_offset\n"
         "  future_kernel_native_arg_slot_online_total_mirror_coverage_required: true\n"
         "  single_field_handle_handoff_canary_required: true\n"
         "  single_field_handle_handoff_canary_mode: readonly_single_field_handle_handoff_canary\n"
@@ -2621,6 +2741,10 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
         "consumer_view_handle_projection_required": True,
         "consumer_view_all_handle_fields_required": True,
         "consumer_view_source_packet_chain_depth_required": 3,
+        "consumer_program_view_required": True,
+        "consumer_program_view_row_assignment_formula": (
+            "program_id * rows_per_program + lane_id + row_offset"
+        ),
         "payload_bytes_required": 0,
         "passed_to_kernel_required": False,
         "changes_kernel_launch_args_required": False,
@@ -2641,6 +2765,13 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
             "default_kernel_consumer_consumer_view_source_packet_chain_depth_required"
         ]
         == 3
+    )
+    assert summary["default_kernel_consumer_consumer_program_view_required"] is True
+    assert (
+        summary[
+            "default_kernel_consumer_consumer_program_view_row_assignment_formula_required"
+        ]
+        == "program_id * rows_per_program + lane_id + row_offset"
     )
     assert summary["default_kernel_consumer_required_gate_payload_bytes_required"] == 0
     assert (

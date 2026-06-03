@@ -80,6 +80,7 @@ ARG_SLOT_BASE_MACROS = [
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_PTR_ABI",
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ARG_SLOT_ABI",
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_VIEW_ABI",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_PROGRAM_VIEW_ABI",
     "MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR",
 ]
 MIRROR_FIELD_MACRO = {
@@ -108,12 +109,14 @@ _FUTURE_KERNEL_FIELD_MASK_PREFIXES = (
     "future_kernel_native_dispatch_ptr_consumer",
     "future_kernel_native_arg_slot_consumer",
     "future_kernel_native_consumer_view",
+    "future_kernel_native_consumer_program_view",
 )
 _HANDLE_PROJECTION_HASH_PREFIXES = (
     "future_kernel_native_dispatch_consumer",
     "future_kernel_native_dispatch_ptr_consumer",
     "future_kernel_native_arg_slot_consumer",
     "future_kernel_native_consumer_view",
+    "future_kernel_native_consumer_program_view",
 )
 
 STUB_SUMMARY_KEYS = (
@@ -142,6 +145,7 @@ STUB_SUMMARY_KEYS = (
     "future_kernel_native_dispatch_consumer_checked",
     "future_kernel_native_dispatch_consumer_grid_x",
     "future_kernel_native_dispatch_consumer_block_x",
+    "future_kernel_native_dispatch_consumer_active_rows",
     "future_kernel_native_dispatch_consumer_row_offset",
     "future_kernel_native_dispatch_consumer_row_limit",
     "future_kernel_native_dispatch_consumer_rows_per_program",
@@ -149,6 +153,10 @@ STUB_SUMMARY_KEYS = (
     "future_kernel_native_dispatch_consumer_full_program_count",
     "future_kernel_native_dispatch_consumer_last_program_active_rows",
     "future_kernel_native_dispatch_consumer_inactive_lane_count",
+    "future_kernel_native_dispatch_consumer_first_program_row_offset",
+    "future_kernel_native_dispatch_consumer_last_program_row_offset",
+    "future_kernel_native_dispatch_consumer_program_iteration_hash",
+    "future_kernel_native_dispatch_consumer_program_iteration_checked",
     "future_kernel_native_dispatch_consumer_launch_covers_active_rows",
     "future_kernel_native_dispatch_consumer_launch_minimal_cover",
     "future_kernel_native_dispatch_consumer_handle_projection_hash_accumulator",
@@ -235,6 +243,28 @@ STUB_SUMMARY_KEYS = (
     "future_kernel_native_consumer_view_aux_metadata_handle_read_hash_accumulator",
     "future_kernel_native_consumer_view_field_mask",
     "future_kernel_native_consumer_view_required_field_mask",
+    "future_kernel_native_consumer_program_view_checked",
+    "future_kernel_native_consumer_program_view_source",
+    "future_kernel_native_consumer_program_view_row_count",
+    "future_kernel_native_consumer_program_view_row_ok_count",
+    "future_kernel_native_consumer_program_view_error_count",
+    "future_kernel_native_consumer_program_view_program_count",
+    "future_kernel_native_consumer_program_view_full_program_count",
+    "future_kernel_native_consumer_program_view_last_program_active_rows",
+    "future_kernel_native_consumer_program_view_inactive_lane_count",
+    "future_kernel_native_consumer_program_view_first_program_row_offset",
+    "future_kernel_native_consumer_program_view_last_program_row_offset",
+    "future_kernel_native_consumer_program_view_program_iteration_hash",
+    "future_kernel_native_consumer_program_view_row_assignment_formula",
+    "future_kernel_native_consumer_program_view_hash_accumulator",
+    "future_kernel_native_consumer_program_view_handle_projection_hash_accumulator",
+    "future_kernel_native_consumer_program_view_payload_bytes",
+    "future_kernel_native_consumer_program_view_passed_to_kernel",
+    "future_kernel_native_consumer_program_view_changes_kernel_launch_args",
+    "future_kernel_native_consumer_program_view_current_wna16_arg_compatible",
+    "future_kernel_native_consumer_program_view_requires_wna16_arg_reinterpretation",
+    "future_kernel_native_consumer_program_view_field_mask",
+    "future_kernel_native_consumer_program_view_required_field_mask",
 )
 
 
@@ -407,6 +437,17 @@ def _validate_stub(
     row_count = int(merged_input["_meta"]["row_count"])
     active_rows = int(dispatch_row_limit) - int(dispatch_row_offset)
     expected_program_count = _program_count(active_rows, block_threads)
+    expected_full_program_count = int(active_rows) // int(block_threads)
+    expected_launched_lanes = int(expected_program_count) * int(block_threads)
+    expected_inactive_lane_count = expected_launched_lanes - int(active_rows)
+    expected_previous_program_lanes = max(0, int(expected_program_count) - 1) * int(
+        block_threads
+    )
+    expected_last_program_active_rows = int(active_rows) - expected_previous_program_lanes
+    expected_first_program_row_offset = int(dispatch_row_offset)
+    expected_last_program_row_offset = (
+        int(dispatch_row_offset) + expected_previous_program_lanes
+    )
     expected_input_json = str(merged_output_json)
     if stub.get("input_json") != expected_input_json:
         failures.append("stub_input_json_mismatch")
@@ -466,6 +507,37 @@ def _validate_stub(
         "future_kernel_native_consumer_view_changes_kernel_launch_args": False,
         "future_kernel_native_consumer_view_current_wna16_arg_compatible": False,
         "future_kernel_native_consumer_view_requires_wna16_arg_reinterpretation": False,
+        "future_kernel_native_consumer_program_view_checked": True,
+        "future_kernel_native_consumer_program_view_source": (
+            "premap_future_kernel_native_consumer_view_abi_v1"
+        ),
+        "future_kernel_native_consumer_program_view_row_count": active_rows,
+        "future_kernel_native_consumer_program_view_row_ok_count": active_rows,
+        "future_kernel_native_consumer_program_view_error_count": 0,
+        "future_kernel_native_consumer_program_view_program_count": expected_program_count,
+        "future_kernel_native_consumer_program_view_full_program_count": (
+            expected_full_program_count
+        ),
+        "future_kernel_native_consumer_program_view_last_program_active_rows": (
+            expected_last_program_active_rows
+        ),
+        "future_kernel_native_consumer_program_view_inactive_lane_count": (
+            expected_inactive_lane_count
+        ),
+        "future_kernel_native_consumer_program_view_first_program_row_offset": (
+            expected_first_program_row_offset
+        ),
+        "future_kernel_native_consumer_program_view_last_program_row_offset": (
+            expected_last_program_row_offset
+        ),
+        "future_kernel_native_consumer_program_view_row_assignment_formula": (
+            "program_id * rows_per_program + lane_id + row_offset"
+        ),
+        "future_kernel_native_consumer_program_view_payload_bytes": 0,
+        "future_kernel_native_consumer_program_view_passed_to_kernel": False,
+        "future_kernel_native_consumer_program_view_changes_kernel_launch_args": False,
+        "future_kernel_native_consumer_program_view_current_wna16_arg_compatible": False,
+        "future_kernel_native_consumer_program_view_requires_wna16_arg_reinterpretation": False,
     }
     for key, expected in expected_scalars.items():
         if stub.get(key) != expected:
@@ -485,6 +557,18 @@ def _validate_stub(
         set(projection_values)
     ) != 1:
         failures.append("handle_projection_hash_accumulator_mismatch")
+    dispatch_iteration_hash = stub.get(
+        "future_kernel_native_dispatch_consumer_program_iteration_hash"
+    )
+    program_view_iteration_hash = stub.get(
+        "future_kernel_native_consumer_program_view_program_iteration_hash"
+    )
+    if (
+        not isinstance(dispatch_iteration_hash, str)
+        or not dispatch_iteration_hash
+        or dispatch_iteration_hash != program_view_iteration_hash
+    ):
+        failures.append("consumer_program_view_iteration_hash_mismatch")
     failures.extend(_check_future_field_masks(stub))
     failures.extend(_check_arg_slot_field_reads(stub, active_rows=active_rows))
     failures.extend(_check_consumer_view_field_reads(stub, active_rows=active_rows))
@@ -567,6 +651,15 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
 
     if args.dry_run:
         program_count = _program_count(active_rows, int(args.block_threads))
+        full_program_count = int(active_rows) // int(args.block_threads)
+        previous_program_lanes = max(0, int(program_count) - 1) * int(
+            args.block_threads
+        )
+        last_program_active_rows = int(active_rows) - previous_program_lanes
+        inactive_lane_count = int(program_count) * int(args.block_threads) - int(
+            active_rows
+        )
+        last_program_row_offset = int(dispatch_row_offset) + previous_program_lanes
         stub_payload: dict[str, Any] = {
             "passed": True,
             "ok": True,
@@ -609,8 +702,23 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
             "future_kernel_native_dispatch_consumer_row_ok_count": active_rows,
             "future_kernel_native_dispatch_consumer_rows_per_program": int(args.block_threads),
             "future_kernel_native_dispatch_consumer_program_count": program_count,
+            "future_kernel_native_dispatch_consumer_full_program_count": full_program_count,
+            "future_kernel_native_dispatch_consumer_last_program_active_rows": (
+                last_program_active_rows
+            ),
+            "future_kernel_native_dispatch_consumer_inactive_lane_count": (
+                inactive_lane_count
+            ),
+            "future_kernel_native_dispatch_consumer_first_program_row_offset": (
+                dispatch_row_offset
+            ),
+            "future_kernel_native_dispatch_consumer_last_program_row_offset": (
+                last_program_row_offset
+            ),
+            "future_kernel_native_dispatch_consumer_program_iteration_hash": "d",
             "future_kernel_native_dispatch_consumer_launch_covers_active_rows": True,
             "future_kernel_native_dispatch_consumer_launch_minimal_cover": True,
+            "future_kernel_native_dispatch_consumer_program_iteration_checked": True,
             "future_kernel_native_dispatch_consumer_handle_projection_hash_accumulator": "d",
             "future_kernel_native_dispatch_ptr_consumer_checked": True,
             "future_kernel_native_dispatch_ptr_consumer_packet_visible": True,
@@ -670,6 +778,44 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
             "future_kernel_native_consumer_view_aux_metadata_handle_read_row_ok_count": active_rows,
             "future_kernel_native_consumer_view_aux_metadata_handle_read_error_count": 0,
             "future_kernel_native_consumer_view_aux_metadata_handle_read_hash_accumulator": "dry",
+            "future_kernel_native_consumer_program_view_checked": True,
+            "future_kernel_native_consumer_program_view_source": (
+                "premap_future_kernel_native_consumer_view_abi_v1"
+            ),
+            "future_kernel_native_consumer_program_view_row_count": active_rows,
+            "future_kernel_native_consumer_program_view_row_ok_count": active_rows,
+            "future_kernel_native_consumer_program_view_error_count": 0,
+            "future_kernel_native_consumer_program_view_program_count": program_count,
+            "future_kernel_native_consumer_program_view_full_program_count": (
+                full_program_count
+            ),
+            "future_kernel_native_consumer_program_view_last_program_active_rows": (
+                last_program_active_rows
+            ),
+            "future_kernel_native_consumer_program_view_inactive_lane_count": (
+                inactive_lane_count
+            ),
+            "future_kernel_native_consumer_program_view_first_program_row_offset": (
+                dispatch_row_offset
+            ),
+            "future_kernel_native_consumer_program_view_last_program_row_offset": (
+                last_program_row_offset
+            ),
+            "future_kernel_native_consumer_program_view_program_iteration_hash": "d",
+            "future_kernel_native_consumer_program_view_row_assignment_formula": (
+                "program_id * rows_per_program + lane_id + row_offset"
+            ),
+            "future_kernel_native_consumer_program_view_payload_bytes": 0,
+            "future_kernel_native_consumer_program_view_passed_to_kernel": False,
+            "future_kernel_native_consumer_program_view_changes_kernel_launch_args": False,
+            "future_kernel_native_consumer_program_view_current_wna16_arg_compatible": False,
+            "future_kernel_native_consumer_program_view_requires_wna16_arg_reinterpretation": (
+                False
+            ),
+            "future_kernel_native_consumer_program_view_hash_accumulator": "dry",
+            "future_kernel_native_consumer_program_view_handle_projection_hash_accumulator": (
+                "d"
+            ),
         }
     else:
         stub_payload = run_stub(_stub_namespace(args, input_json=merged_output_json))

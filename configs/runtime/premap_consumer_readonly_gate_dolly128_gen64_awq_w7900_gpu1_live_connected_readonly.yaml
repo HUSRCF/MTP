@@ -177,6 +177,8 @@ contract:
   future_kernel_native_dispatch_ptr_consumer_required: true
   future_kernel_native_dispatch_consumer_program_iteration_required: true
   future_kernel_native_dispatch_consumer_row_assignment_formula: row_offset + program_id * rows_per_program + lane_id
+  consumer_program_view_required: true
+  consumer_program_view_row_assignment_formula: program_id * rows_per_program + lane_id + row_offset
   future_kernel_native_arg_slot_online_total_mirror_coverage_required: true
   single_field_handle_handoff_canary_required: true
   single_field_handle_handoff_canary_mode: readonly_single_field_handle_handoff_canary
