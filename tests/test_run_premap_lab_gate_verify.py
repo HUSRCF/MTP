@@ -11,6 +11,98 @@ from scripts.run_premap_lab_gate_verify import (
 )
 
 
+def _passing_lab_gate_statuses() -> dict[str, dict]:
+    return {
+        "default_closure": {
+            "exists": True,
+            "passed": True,
+            "failures": [],
+            "payload_bytes": 0,
+            "passed_to_kernel": False,
+            "changes_kernel_launch_args": False,
+            "tail_window_probe_enabled": False,
+        },
+        "default_closure_check": {
+            "exists": True,
+            "passed": True,
+            "failures": [],
+        },
+        "tail_window_closure": {
+            "exists": True,
+            "passed": True,
+            "failures": [],
+            "payload_bytes": 0,
+            "passed_to_kernel": False,
+            "changes_kernel_launch_args": False,
+            "tail_window_probe_enabled": True,
+        },
+        "tail_window_closure_check": {
+            "exists": True,
+            "passed": True,
+            "failures": [],
+            "require_tail_window_probe": True,
+        },
+        "window_sweep": {
+            "exists": True,
+            "passed": True,
+            "failures": [],
+            "payload_bytes": 0,
+            "passed_to_kernel": False,
+            "changes_kernel_launch_args": False,
+        },
+        "window_sweep_check": {
+            "exists": True,
+            "passed": True,
+            "failures": [],
+            "require_child_artifacts": True,
+            "require_child_field_masks": True,
+            "require_child_consumer_view": True,
+            "require_child_consumer_view_layout": True,
+            "require_child_consumer_view_row_layout": True,
+            "require_child_consumer_view_handle_projection": True,
+            "require_child_program_view_ptr_abi": True,
+            "require_child_kernel_arg_packet_abi": True,
+            "require_child_kernel_entry_args_abi": True,
+            "require_child_kernel_entry_args_ptr_abi": True,
+            "require_child_kernel_entry_row_metadata": True,
+            "require_non_degenerate_windows": True,
+            "expected_window_size": 512,
+            "windows_checked": ["full", "head", "middle", "tail"],
+        },
+        "all_field_window_sweep": {
+            "exists": True,
+            "passed": True,
+            "failures": [],
+            "payload_bytes": 0,
+            "passed_to_kernel": False,
+            "changes_kernel_launch_args": False,
+        },
+        "all_field_window_sweep_check": {
+            "exists": True,
+            "passed": True,
+            "failures": [],
+            "require_child_checks": True,
+            "require_child_field_masks": True,
+            "require_child_consumer_view": True,
+            "require_child_consumer_view_layout": True,
+            "require_child_consumer_view_row_layout": True,
+            "require_child_consumer_view_handle_projection": True,
+            "require_child_program_view_ptr_abi": True,
+            "require_child_kernel_arg_packet_abi": True,
+            "require_child_kernel_entry_args_abi": True,
+            "require_child_kernel_entry_args_ptr_abi": True,
+            "require_child_kernel_entry_row_metadata": True,
+            "expected_window_size": 512,
+            "mirror_fields_checked": [
+                "descriptor_ptr",
+                "packed_weight_descriptor",
+                "scale_metadata_handle",
+                "aux_metadata_handle",
+            ],
+        },
+    }
+
+
 def test_run_premap_lab_gate_verify_dry_run_records_all_steps(tmp_path: Path):
     args = _build_parser().parse_args(
         [
@@ -90,6 +182,30 @@ def test_run_premap_lab_gate_verify_dry_run_records_all_steps(tmp_path: Path):
     assert "--require-child-kernel-arg-packet-abi" in all_field_check_cmd
     assert "--require-child-kernel-entry-args-abi" in all_field_check_cmd
     assert "--require-child-kernel-entry-args-ptr-abi" in all_field_check_cmd
+
+
+def test_status_failures_precisely_reject_window_checker_without_entry_args_ptr_gate():
+    statuses = _passing_lab_gate_statuses()
+    statuses["window_sweep_check"]["require_child_kernel_entry_args_ptr_abi"] = False
+
+    failures = _status_failures(statuses)
+
+    assert failures == [
+        "window_sweep_check_did_not_require_kernel_entry_args_ptr_abi"
+    ]
+
+
+def test_status_failures_precisely_reject_all_field_checker_without_entry_args_ptr_gate():
+    statuses = _passing_lab_gate_statuses()
+    statuses["all_field_window_sweep_check"][
+        "require_child_kernel_entry_args_ptr_abi"
+    ] = False
+
+    failures = _status_failures(statuses)
+
+    assert failures == [
+        "all_field_window_sweep_check_did_not_require_kernel_entry_args_ptr_abi"
+    ]
 
 
 def test_status_failures_reject_kernel_boundary_mutation():

@@ -2,7 +2,7 @@
 
 ## Progress Version
 
-- Version: `v0.59-explicit-entry-args-ptr-lab-gate`
+- Version: `v0.60-launch-envelope-args-abi-canary`
 - Updated: 2026-06-03
 - Current phase: premap descriptor/address prep now has a typed
   kernel-side consumer object, a launch-shaped future native ABI, and a
@@ -99,8 +99,50 @@
   `require_child_kernel_entry_args_ptr_abi=true`, and the lab verify runner
   records the requirement in
   `outputs/reports/premap_lab_gate_verify_entry_args_ptr_explicit.json`.
+  The next standalone native canary now adds
+  `PremapFutureKernelNativeConsumerLaunchEnvelopeArgsV1`, a future-launch
+  shaped envelope that carries the entry-args pointer plus grid/block and
+  row-window metadata.  Its device stub follows
+  `launch_envelope_args -> entry_args_ptr -> entry_args -> kernel_arg_packet ->
+  program_view -> rows`, checks that the launch envelope row window matches the
+  program-view row window, and reads all four typed handle fields plus row
+  metadata.  This is still disabled by default and remains an independent
+  native stub path: `payload_bytes=0`, `passed_to_kernel=false`,
+  `changes_kernel_launch_args=false`, and
+  `current_wna16_arg_compatible=false`.
 
-## Latest Update: Future Kernel-Entry Pointer ABI Gate
+## Latest Update: Future Launch-Envelope Args ABI Canary
+
+Update: a standalone future-native launch-envelope ABI canary now sits one
+layer above the entry-args pointer.  It models a future kernel launch receiving
+one compact envelope with an entry-args pointer and launch geometry, while
+still avoiding the current WNA16 argument list.
+
+GPU1 standalone smoke:
+
+```text
+artifact:
+  outputs/reports/premap_kernel_consumer/typed_consumer_stub_gpu1_launch_envelope_args_smoke.json
+
+future_kernel_native_consumer_launch_envelope_args_checked = true
+packet_chain_depth = 7
+summary_error_count = 0
+summary_row_count = 64
+summary_row_ok_count = 64
+descriptor_ptr / packed_weight_descriptor / scale_metadata_handle /
+aux_metadata_handle / row_metadata read rows = 64 / 64
+
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+current_wna16_arg_compatible = false
+```
+
+This is not yet promoted to the default lab gate.  It is the next independent
+ABI canary for the future kernel-side typed consumer path and remains separate
+from the existing WNA16 fused-MoE kernel arguments.
+
+## Previous Update: Future Kernel-Entry Pointer ABI Gate
 
 Update: this ABI is now a strict preflight requirement.  The standalone pointer
 stub evidence already existed in the default online-merged canary; the latest

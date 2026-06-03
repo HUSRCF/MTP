@@ -253,6 +253,26 @@ constexpr bool
 constexpr bool
     kPremapFutureKernelNativeConsumerKernelEntryArgsPtrAbiV1CurrentWna16ArgCompatible =
         false;
+constexpr const char*
+    kPremapFutureKernelNativeConsumerLaunchEnvelopeArgsAbiV1Name =
+        "premap_future_kernel_native_consumer_launch_envelope_args_abi_v1";
+constexpr const char*
+    kPremapFutureKernelNativeConsumerLaunchEnvelopeArgsAbiV1Mode =
+        "readonly_future_kernel_native_consumer_launch_envelope_args_abi";
+constexpr const char*
+    kPremapFutureKernelNativeConsumerLaunchEnvelopeArgsAbiV1Source =
+        "premap_future_kernel_native_consumer_kernel_entry_args_ptr_abi_v1";
+constexpr uint32_t
+    kPremapFutureKernelNativeConsumerLaunchEnvelopeArgsAbiV1Version = 1;
+constexpr bool
+    kPremapFutureKernelNativeConsumerLaunchEnvelopeArgsAbiV1PayloadDerefAllowed =
+        false;
+constexpr bool
+    kPremapFutureKernelNativeConsumerLaunchEnvelopeArgsAbiV1KernelArgPassAllowed =
+        false;
+constexpr bool
+    kPremapFutureKernelNativeConsumerLaunchEnvelopeArgsAbiV1CurrentWna16ArgCompatible =
+        false;
 
 constexpr uint32_t kPremapFutureKernelSideConsumerArgsV1ReadonlyFlag = 1u << 0;
 constexpr uint32_t
@@ -481,6 +501,25 @@ struct PremapFutureKernelNativeConsumerKernelEntryArgsV1 {
   uint32_t abi_version;
   uint32_t kernel_arg_packet_struct_size;
   uint32_t summary_struct_size;
+  uint32_t payload_bytes;
+  uint32_t flags;
+};
+
+// Future launch-envelope entry.  This is one step closer to a real kernel
+// launch ABI than the raw entry-args pointer: it carries the entry-args pointer
+// plus the row-window and launch geometry a future native consumer would use to
+// assign typed descriptor/address table rows.  It remains a standalone canary
+// and is not the current WNA16 fused-MoE kernel argument list.
+struct PremapFutureKernelNativeConsumerLaunchEnvelopeArgsV1 {
+  const PremapFutureKernelNativeConsumerKernelEntryArgsV1* entry_args;
+  uint32_t abi_version;
+  uint32_t entry_args_struct_size;
+  uint32_t pointer_size;
+  uint32_t grid_x;
+  uint32_t block_x;
+  uint32_t row_offset;
+  uint32_t row_limit;
+  uint32_t rows_per_program;
   uint32_t payload_bytes;
   uint32_t flags;
 };
@@ -1052,6 +1091,46 @@ premap_typed_consumer_future_native_kernel_entry_args_matches_v1(
          !kPremapFutureKernelNativeConsumerKernelEntryArgsAbiV1PayloadDerefAllowed &&
          !kPremapFutureKernelNativeConsumerKernelEntryArgsAbiV1KernelArgPassAllowed &&
          !kPremapFutureKernelNativeConsumerKernelEntryArgsAbiV1CurrentWna16ArgCompatible;
+}
+
+__host__ __device__ static inline bool
+premap_typed_consumer_future_native_launch_envelope_args_matches_v1(
+    const PremapFutureKernelNativeConsumerLaunchEnvelopeArgsV1& launch_args) {
+  const bool row_window_valid =
+      launch_args.row_offset < launch_args.row_limit &&
+      launch_args.grid_x > 0 && launch_args.block_x > 0 &&
+      launch_args.rows_per_program == launch_args.block_x;
+  const uint32_t active_rows =
+      row_window_valid ? launch_args.row_limit - launch_args.row_offset : 0;
+  const uint64_t launched_lanes =
+      static_cast<uint64_t>(launch_args.grid_x) *
+      static_cast<uint64_t>(launch_args.block_x);
+  const uint64_t previous_grid_lanes =
+      launch_args.grid_x > 0
+          ? static_cast<uint64_t>(launch_args.grid_x - 1) *
+                static_cast<uint64_t>(launch_args.block_x)
+          : 0ULL;
+  return launch_args.entry_args != nullptr &&
+         launch_args.abi_version ==
+             kPremapFutureKernelNativeConsumerLaunchEnvelopeArgsAbiV1Version &&
+         launch_args.entry_args_struct_size ==
+             sizeof(PremapFutureKernelNativeConsumerKernelEntryArgsV1) &&
+         launch_args.pointer_size ==
+             sizeof(PremapFutureKernelNativeConsumerKernelEntryArgsV1*) &&
+         row_window_valid && active_rows > 0 &&
+         launched_lanes >= static_cast<uint64_t>(active_rows) &&
+         previous_grid_lanes < static_cast<uint64_t>(active_rows) &&
+         launch_args.payload_bytes == 0 &&
+         (launch_args.flags &
+          kPremapFutureKernelSideConsumerArgsV1ReadonlyFlag) != 0 &&
+         (launch_args.flags &
+          kPremapFutureKernelSideConsumerArgsV1KernelArgPassDisabledFlag) != 0 &&
+         (launch_args.flags &
+          kPremapFutureKernelSideConsumerArgsV1PayloadDerefDisabledFlag) != 0 &&
+         launch_args.flags == kPremapFutureKernelSideConsumerArgsV1RequiredFlags &&
+         !kPremapFutureKernelNativeConsumerLaunchEnvelopeArgsAbiV1PayloadDerefAllowed &&
+         !kPremapFutureKernelNativeConsumerLaunchEnvelopeArgsAbiV1KernelArgPassAllowed &&
+         !kPremapFutureKernelNativeConsumerLaunchEnvelopeArgsAbiV1CurrentWna16ArgCompatible;
 }
 
 __device__ static inline bool
