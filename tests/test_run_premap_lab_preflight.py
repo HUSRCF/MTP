@@ -4388,6 +4388,47 @@ def test_premap_lab_preflight_rejects_consumer_view_safety_contract_mismatch(
     assert summary["default_kernel_consumer_consumer_view_passed_to_kernel"] is True
 
 
+def test_premap_lab_preflight_rejects_missing_consumer_view_source(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    runner_path = (
+        tmp_path
+        / "reports/default_gate_online_merged_future_native_arg_slot_multiprogram_runner.json"
+    )
+    payload = json.loads(runner_path.read_text(encoding="utf-8"))
+    stub_summary = payload["stub_summary"]
+    assert isinstance(stub_summary, dict)
+    stub_summary.pop("future_kernel_native_consumer_view_source")
+    runner_path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+    summary = result["lab_gate_status_summary"]
+
+    assert result["passed"] is False
+    assert (
+        "default_kernel_consumer_consumer_view_safety_contract_mismatch"
+        in result["failures"]
+    )
+    assert summary["default_kernel_consumer_consumer_view_source"] is None
+    assert (
+        summary["default_kernel_consumer_consumer_view_source_matches_schema"]
+        is False
+    )
+
+
 def test_premap_lab_preflight_allows_consumer_view_row_window_mismatch_when_missing_evidence_allowed(
     tmp_path: Path,
 ):
