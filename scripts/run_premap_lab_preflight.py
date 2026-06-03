@@ -4800,20 +4800,26 @@ def run_premap_lab_preflight(
         ),
         "future_kernel_native_consumer_view_row_count",
     )
-    consumer_view_summary = (
-        online_merged_arg_slot_summary
-        if online_merged_arg_slot_summary.get(
+    online_merged_consumer_view_checked = (
+        online_merged_arg_slot_summary.get(
             "future_kernel_native_consumer_view_checked"
         )
         is True
-        else dispatch_runner_summary
     )
-    consumer_view_dispatch_summary = (
-        online_merged_arg_slot_summary
-        if online_merged_arg_slot_summary.get(
+    online_merged_dispatch_checked = (
+        online_merged_arg_slot_summary.get(
             "future_kernel_native_dispatch_consumer_checked"
         )
         is True
+    )
+    consumer_view_summary = (
+        online_merged_arg_slot_summary
+        if online_merged_consumer_view_checked
+        else dispatch_runner_summary
+    )
+    consumer_view_row_window_summary = (
+        online_merged_arg_slot_summary
+        if online_merged_consumer_view_checked and online_merged_dispatch_checked
         else dispatch_runner_summary
     )
     consumer_view_field_read_row_ok_counts: dict[str, int | None] = {}
@@ -4849,29 +4855,29 @@ def run_premap_lab_preflight(
     )
     dispatch_row_window = {
         "row_offset": _int_metric(
-            consumer_view_dispatch_summary,
+            consumer_view_row_window_summary,
             "future_kernel_native_dispatch_consumer_row_offset",
         ),
         "row_limit": _int_metric(
-            consumer_view_dispatch_summary,
+            consumer_view_row_window_summary,
             "future_kernel_native_dispatch_consumer_row_limit",
         ),
         "rows_per_program": _int_metric(
-            consumer_view_dispatch_summary,
+            consumer_view_row_window_summary,
             "future_kernel_native_dispatch_consumer_rows_per_program",
         ),
     }
     consumer_view_row_window = {
         "row_offset": _int_metric(
-            consumer_view_summary,
+            consumer_view_row_window_summary,
             "future_kernel_native_consumer_view_row_offset",
         ),
         "row_limit": _int_metric(
-            consumer_view_summary,
+            consumer_view_row_window_summary,
             "future_kernel_native_consumer_view_row_limit",
         ),
         "rows_per_program": _int_metric(
-            consumer_view_summary,
+            consumer_view_row_window_summary,
             "future_kernel_native_consumer_view_rows_per_program",
         ),
     }
