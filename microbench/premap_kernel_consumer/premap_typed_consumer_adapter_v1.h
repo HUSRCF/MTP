@@ -205,6 +205,20 @@ constexpr bool
 constexpr bool
     kPremapFutureKernelNativeConsumerKernelArgPacketAbiV1CurrentWna16ArgCompatible =
         false;
+constexpr const char*
+    kPremapFutureKernelNativeConsumerKernelEntrySummaryAbiV1Name =
+        "premap_future_kernel_native_consumer_kernel_entry_summary_abi_v1";
+constexpr uint32_t
+    kPremapFutureKernelNativeConsumerKernelEntrySummaryAbiV1Version = 1;
+constexpr bool
+    kPremapFutureKernelNativeConsumerKernelEntrySummaryAbiV1PayloadDerefAllowed =
+        false;
+constexpr bool
+    kPremapFutureKernelNativeConsumerKernelEntrySummaryAbiV1KernelArgPassAllowed =
+        false;
+constexpr bool
+    kPremapFutureKernelNativeConsumerKernelEntrySummaryAbiV1CurrentWna16ArgCompatible =
+        false;
 
 constexpr uint32_t kPremapFutureKernelSideConsumerArgsV1ReadonlyFlag = 1u << 0;
 constexpr uint32_t
@@ -391,6 +405,31 @@ struct PremapFutureKernelNativeConsumerKernelArgPacketV1 {
   uint32_t result_struct_size;
   uint32_t payload_bytes;
   uint32_t flags;
+};
+
+// Compact readonly summary produced by a future-kernel-shaped entry stub.  The
+// entry stub receives only the future kernel-arg packet plus this summary
+// pointer, then walks the packet chain and typed rows internally.  It is still
+// not the current WNA16 argument list and it does not move payload bytes.
+struct PremapFutureKernelNativeConsumerKernelEntrySummaryV1 {
+  uint32_t abi_version;
+  uint32_t packet_valid;
+  uint32_t row_count;
+  uint32_t row_ok_count;
+  uint32_t descriptor_ptr_read_ok_count;
+  uint32_t packed_weight_descriptor_read_ok_count;
+  uint32_t scale_metadata_handle_read_ok_count;
+  uint32_t aux_metadata_handle_read_ok_count;
+  uint32_t error_count;
+  uint32_t field_mask;
+  uint32_t payload_bytes;
+  uint32_t passed_to_kernel;
+  uint32_t changes_kernel_launch_args;
+  uint32_t current_wna16_arg_compatible;
+  uint32_t requires_wna16_arg_reinterpretation;
+  uint32_t reserved;
+  uint64_t row_hash_accumulator;
+  uint64_t field_read_hash_accumulator;
 };
 
 constexpr const char* kPremapKernelSideTypedConsumerLaunchEnvelopeV1Name =

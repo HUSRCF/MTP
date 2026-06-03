@@ -311,6 +311,52 @@ def _check_kernel_arg_packet_abi(
             expected_active=expected_active,
         )
     )
+    failures.extend(
+        _check_kernel_entry_summary(
+            summary,
+            label=label,
+            expected_active=expected_active,
+        )
+    )
+    return failures
+
+
+def _check_kernel_entry_summary(
+    summary: dict[str, Any],
+    *,
+    label: str,
+    expected_active: int,
+) -> list[str]:
+    failures: list[str] = []
+    prefix = "future_kernel_native_consumer_kernel_entry_summary"
+    if f"{prefix}_checked" not in summary:
+        return [f"{label}_kernel_entry_summary_missing_or_dry_run_unsupported"]
+    for key, expected in {
+        f"{prefix}_checked": True,
+        f"{prefix}_packet_valid": 1,
+        f"{prefix}_row_count": expected_active,
+        f"{prefix}_row_ok_count": expected_active,
+        f"{prefix}_descriptor_ptr_read_row_ok_count": expected_active,
+        f"{prefix}_packed_weight_descriptor_read_row_ok_count": expected_active,
+        f"{prefix}_scale_metadata_handle_read_row_ok_count": expected_active,
+        f"{prefix}_aux_metadata_handle_read_row_ok_count": expected_active,
+        f"{prefix}_error_count": 0,
+        f"{prefix}_field_mask": _FUTURE_KERNEL_ALL_FIELD_MASK,
+        f"{prefix}_payload_bytes": 0,
+        f"{prefix}_passed_to_kernel": False,
+        f"{prefix}_changes_kernel_launch_args": False,
+        f"{prefix}_current_wna16_arg_compatible": False,
+        f"{prefix}_requires_wna16_arg_reinterpretation": False,
+    }.items():
+        if summary.get(key) != expected:
+            failures.append(f"{label}_{key}_mismatch")
+    for hash_key in (
+        f"{prefix}_row_hash_accumulator",
+        f"{prefix}_field_read_hash_accumulator",
+    ):
+        value = summary.get(hash_key)
+        if not isinstance(value, str) or not value:
+            failures.append(f"{label}_{hash_key}_missing")
     return failures
 
 

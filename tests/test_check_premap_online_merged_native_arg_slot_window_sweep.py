@@ -46,6 +46,28 @@ def _field_read_pairs(prefix: str, active: int) -> dict[str, object]:
     return pairs
 
 
+def _kernel_entry_summary_pairs(active: int) -> dict[str, object]:
+    return {
+        "future_kernel_native_consumer_kernel_entry_summary_checked": True,
+        "future_kernel_native_consumer_kernel_entry_summary_packet_valid": 1,
+        "future_kernel_native_consumer_kernel_entry_summary_row_count": active,
+        "future_kernel_native_consumer_kernel_entry_summary_row_ok_count": active,
+        "future_kernel_native_consumer_kernel_entry_summary_descriptor_ptr_read_row_ok_count": active,
+        "future_kernel_native_consumer_kernel_entry_summary_packed_weight_descriptor_read_row_ok_count": active,
+        "future_kernel_native_consumer_kernel_entry_summary_scale_metadata_handle_read_row_ok_count": active,
+        "future_kernel_native_consumer_kernel_entry_summary_aux_metadata_handle_read_row_ok_count": active,
+        "future_kernel_native_consumer_kernel_entry_summary_error_count": 0,
+        "future_kernel_native_consumer_kernel_entry_summary_field_mask": 15,
+        "future_kernel_native_consumer_kernel_entry_summary_payload_bytes": 0,
+        "future_kernel_native_consumer_kernel_entry_summary_passed_to_kernel": False,
+        "future_kernel_native_consumer_kernel_entry_summary_changes_kernel_launch_args": False,
+        "future_kernel_native_consumer_kernel_entry_summary_current_wna16_arg_compatible": False,
+        "future_kernel_native_consumer_kernel_entry_summary_requires_wna16_arg_reinterpretation": False,
+        "future_kernel_native_consumer_kernel_entry_summary_row_hash_accumulator": "entry-row",
+        "future_kernel_native_consumer_kernel_entry_summary_field_read_hash_accumulator": "entry-field",
+    }
+
+
 def _handle_projection_pairs(value: str = "projection") -> dict[str, str]:
     return {
         "future_kernel_native_dispatch_consumer_handle_projection_hash_accumulator": value,
@@ -202,6 +224,7 @@ def _child_payload(
             **_field_read_pairs(
                 "future_kernel_native_consumer_kernel_arg_packet", active
             ),
+            **_kernel_entry_summary_pairs(active),
         },
     }
 

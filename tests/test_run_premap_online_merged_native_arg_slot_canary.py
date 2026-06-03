@@ -134,6 +134,10 @@ def test_online_merged_arg_slot_canary_dry_run_writes_artifacts(tmp_path: Path):
         "aux_metadata_handle",
     ]
     assert result["kernel_arg_packet_all_handle_fields_read"] is True
+    assert result["kernel_entry_summary_checked"] is True
+    assert result["kernel_entry_summary_packet_valid"] == 1
+    assert result["kernel_entry_summary_error_count"] == 0
+    assert result["kernel_entry_summary_all_handle_fields_read"] is True
     assert result["consumer_view_source_packet_chain_depth"] == 3
     assert result["stub_summary"]["future_kernel_native_dispatch_consumer_row_offset"] == 0
     assert result["stub_summary"]["future_kernel_native_dispatch_consumer_row_limit"] == 7
@@ -180,6 +184,18 @@ def test_online_merged_arg_slot_canary_dry_run_writes_artifacts(tmp_path: Path):
             "future_kernel_native_consumer_kernel_arg_packet_scale_metadata_handle_read_row_ok_count"
         ]
         == 7
+    )
+    assert (
+        stub_payload[
+            "future_kernel_native_consumer_kernel_entry_summary_scale_metadata_handle_read_row_ok_count"
+        ]
+        == 7
+    )
+    assert (
+        stub_payload[
+            "future_kernel_native_consumer_kernel_entry_summary_error_count"
+        ]
+        == 0
     )
     assert stub_payload["requested_macros"] == module.arg_slot_macros(
         "scale_metadata_handle"

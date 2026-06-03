@@ -259,6 +259,34 @@ The lab gate requires `source_packet_chain_depth = 3`, all four typed handle
 fields readable through the view, `payload_bytes = 0`, `passed_to_kernel =
 false`, and `current_wna16_arg_compatible = false`.
 
+The compact future kernel-entry summary is pinned as the next no-op bridge.
+Unlike the debug packet canary, the native kernel receives only the future
+kernel-arg packet plus a summary pointer, then resolves the program-view chain
+and typed rows internally:
+
+```text
+PremapFutureKernelNativeConsumerKernelEntrySummaryV1
+  abi_version = 1
+  packet_valid = 1
+  row_count = active_rows
+  row_ok_count = active_rows
+  descriptor_ptr_read_ok_count = active_rows
+  packed_weight_descriptor_read_ok_count = active_rows
+  scale_metadata_handle_read_ok_count = active_rows
+  aux_metadata_handle_read_ok_count = active_rows
+  error_count = 0
+  field_mask = 0xf
+  payload_bytes = 0
+  passed_to_kernel = false
+  changes_kernel_launch_args = false
+  current_wna16_arg_compatible = false
+  requires_wna16_arg_reinterpretation = false
+```
+
+This summary is still diagnostic-only: it validates that a compact future
+kernel entry can consume the typed handle table, but it is not passed to the
+current WNA16 fused-MoE kernel and does not authorize payload movement.
+
 The window-sweep checker also follows each child canary's native stub artifact
 and validates the consumer-view layout relationship:
 

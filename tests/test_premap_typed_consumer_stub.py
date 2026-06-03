@@ -74,6 +74,10 @@ def test_typed_consumer_stub_uses_kernel_side_abi_header():
     assert "PremapFutureKernelNativeConsumerArgSlotResultV1" in adapter
     assert "struct PremapFutureKernelNativeConsumerViewV1" in adapter
     assert "struct PremapFutureKernelNativeConsumerViewResultV1" in adapter
+    assert (
+        "struct PremapFutureKernelNativeConsumerKernelEntrySummaryV1"
+        in adapter
+    )
     assert "kPremapKernelSideCompatibleConsumerAbiV1Name" in adapter
     assert "kPremapFutureKernelSideConsumerArgsV1Name" in adapter
     assert "kPremapFutureKernelNativeConsumerAbiV1Name" in adapter
@@ -100,6 +104,10 @@ def test_typed_consumer_stub_uses_kernel_side_abi_header():
     assert "typed_consumer_future_native_arg_slot_kernel" in source
     assert "typed_consumer_future_native_consumer_view_kernel" in source
     assert "typed_consumer_future_native_consumer_kernel_arg_packet_kernel" in source
+    assert (
+        "typed_consumer_future_native_consumer_kernel_entry_summary_kernel"
+        in source
+    )
     assert "kernel_side_compatible_consumer_checked" in source
     assert "future_kernel_consumer_args_checked" in source
     assert "future_kernel_consumer_args_struct_size" in source
@@ -153,6 +161,10 @@ def test_typed_consumer_stub_uses_kernel_side_abi_header():
     )
     assert (
         "future_kernel_native_consumer_kernel_arg_packet_aux_metadata_handle_read_row_ok_count"
+        in source
+    )
+    assert (
+        "future_kernel_native_consumer_kernel_entry_summary_error_count"
         in source
     )
     assert "future_kernel_native_arg_slot_consumer_checked" in source

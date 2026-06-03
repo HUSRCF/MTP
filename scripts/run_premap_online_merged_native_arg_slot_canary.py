@@ -311,6 +311,23 @@ STUB_SUMMARY_KEYS = (
     "future_kernel_native_consumer_kernel_arg_packet_requires_wna16_arg_reinterpretation",
     "future_kernel_native_consumer_kernel_arg_packet_field_mask",
     "future_kernel_native_consumer_kernel_arg_packet_required_field_mask",
+    "future_kernel_native_consumer_kernel_entry_summary_checked",
+    "future_kernel_native_consumer_kernel_entry_summary_packet_valid",
+    "future_kernel_native_consumer_kernel_entry_summary_row_count",
+    "future_kernel_native_consumer_kernel_entry_summary_row_ok_count",
+    "future_kernel_native_consumer_kernel_entry_summary_descriptor_ptr_read_row_ok_count",
+    "future_kernel_native_consumer_kernel_entry_summary_packed_weight_descriptor_read_row_ok_count",
+    "future_kernel_native_consumer_kernel_entry_summary_scale_metadata_handle_read_row_ok_count",
+    "future_kernel_native_consumer_kernel_entry_summary_aux_metadata_handle_read_row_ok_count",
+    "future_kernel_native_consumer_kernel_entry_summary_error_count",
+    "future_kernel_native_consumer_kernel_entry_summary_field_mask",
+    "future_kernel_native_consumer_kernel_entry_summary_payload_bytes",
+    "future_kernel_native_consumer_kernel_entry_summary_passed_to_kernel",
+    "future_kernel_native_consumer_kernel_entry_summary_changes_kernel_launch_args",
+    "future_kernel_native_consumer_kernel_entry_summary_current_wna16_arg_compatible",
+    "future_kernel_native_consumer_kernel_entry_summary_requires_wna16_arg_reinterpretation",
+    "future_kernel_native_consumer_kernel_entry_summary_row_hash_accumulator",
+    "future_kernel_native_consumer_kernel_entry_summary_field_read_hash_accumulator",
 )
 
 
@@ -456,6 +473,43 @@ def _check_kernel_arg_packet_field_reads(
             prefix_root="future_kernel_native_consumer_kernel_arg_packet",
         )
     )
+    return failures
+
+
+def _check_kernel_entry_summary(
+    stub: dict[str, Any],
+    *,
+    active_rows: int,
+) -> list[str]:
+    failures: list[str] = []
+    prefix = "future_kernel_native_consumer_kernel_entry_summary"
+    expected = {
+        f"{prefix}_checked": True,
+        f"{prefix}_packet_valid": 1,
+        f"{prefix}_row_count": int(active_rows),
+        f"{prefix}_row_ok_count": int(active_rows),
+        f"{prefix}_descriptor_ptr_read_row_ok_count": int(active_rows),
+        f"{prefix}_packed_weight_descriptor_read_row_ok_count": int(active_rows),
+        f"{prefix}_scale_metadata_handle_read_row_ok_count": int(active_rows),
+        f"{prefix}_aux_metadata_handle_read_row_ok_count": int(active_rows),
+        f"{prefix}_error_count": 0,
+        f"{prefix}_field_mask": _FUTURE_KERNEL_ALL_FIELD_MASK,
+        f"{prefix}_payload_bytes": 0,
+        f"{prefix}_passed_to_kernel": False,
+        f"{prefix}_changes_kernel_launch_args": False,
+        f"{prefix}_current_wna16_arg_compatible": False,
+        f"{prefix}_requires_wna16_arg_reinterpretation": False,
+    }
+    for key, value in expected.items():
+        if stub.get(key) != value:
+            failures.append(f"{key}_mismatch:{stub.get(key)!r}!={value!r}")
+    for hash_key in (
+        f"{prefix}_row_hash_accumulator",
+        f"{prefix}_field_read_hash_accumulator",
+    ):
+        hash_value = stub.get(hash_key)
+        if not isinstance(hash_value, str) or not hash_value:
+            failures.append(f"{hash_key}_missing")
     return failures
 
 
@@ -669,6 +723,7 @@ def _validate_stub(
     failures.extend(
         _check_kernel_arg_packet_field_reads(stub, active_rows=active_rows)
     )
+    failures.extend(_check_kernel_entry_summary(stub, active_rows=active_rows))
     return failures
 
 
@@ -959,6 +1014,23 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
             "future_kernel_native_consumer_kernel_arg_packet_requires_wna16_arg_reinterpretation": (
                 False
             ),
+            "future_kernel_native_consumer_kernel_entry_summary_checked": True,
+            "future_kernel_native_consumer_kernel_entry_summary_packet_valid": 1,
+            "future_kernel_native_consumer_kernel_entry_summary_row_count": active_rows,
+            "future_kernel_native_consumer_kernel_entry_summary_row_ok_count": active_rows,
+            "future_kernel_native_consumer_kernel_entry_summary_descriptor_ptr_read_row_ok_count": active_rows,
+            "future_kernel_native_consumer_kernel_entry_summary_packed_weight_descriptor_read_row_ok_count": active_rows,
+            "future_kernel_native_consumer_kernel_entry_summary_scale_metadata_handle_read_row_ok_count": active_rows,
+            "future_kernel_native_consumer_kernel_entry_summary_aux_metadata_handle_read_row_ok_count": active_rows,
+            "future_kernel_native_consumer_kernel_entry_summary_error_count": 0,
+            "future_kernel_native_consumer_kernel_entry_summary_field_mask": _FUTURE_KERNEL_ALL_FIELD_MASK,
+            "future_kernel_native_consumer_kernel_entry_summary_payload_bytes": 0,
+            "future_kernel_native_consumer_kernel_entry_summary_passed_to_kernel": False,
+            "future_kernel_native_consumer_kernel_entry_summary_changes_kernel_launch_args": False,
+            "future_kernel_native_consumer_kernel_entry_summary_current_wna16_arg_compatible": False,
+            "future_kernel_native_consumer_kernel_entry_summary_requires_wna16_arg_reinterpretation": False,
+            "future_kernel_native_consumer_kernel_entry_summary_row_hash_accumulator": "dry",
+            "future_kernel_native_consumer_kernel_entry_summary_field_read_hash_accumulator": "dry",
         }
     else:
         stub_payload = run_stub(_stub_namespace(args, input_json=merged_output_json))
@@ -1021,6 +1093,21 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
             not _check_kernel_arg_packet_field_reads(
                 stub_payload, active_rows=active_rows
             )
+        ),
+        "kernel_entry_summary_checked": (
+            stub_payload.get(
+                "future_kernel_native_consumer_kernel_entry_summary_checked"
+            )
+            is True
+        ),
+        "kernel_entry_summary_packet_valid": stub_payload.get(
+            "future_kernel_native_consumer_kernel_entry_summary_packet_valid"
+        ),
+        "kernel_entry_summary_error_count": stub_payload.get(
+            "future_kernel_native_consumer_kernel_entry_summary_error_count"
+        ),
+        "kernel_entry_summary_all_handle_fields_read": (
+            not _check_kernel_entry_summary(stub_payload, active_rows=active_rows)
         ),
         "consumer_view_source_packet_chain_depth": stub_payload.get(
             "future_kernel_native_consumer_view_source_packet_chain_depth"

@@ -27482,6 +27482,70 @@ passed = true
 failures = []
 ```
 
+## Compact future kernel-entry summary gate
+
+The future kernel-side typed consumer path now has a compact entry-summary
+native stub:
+
+```text
+typed_consumer_future_native_consumer_kernel_entry_summary_kernel
+```
+
+This kernel receives the future kernel-arg packet and a summary pointer, then
+walks the packet -> program-view-ptr -> program-view -> view chain internally.
+It reads the same typed handle rows a future kernel-side consumer would need,
+but does not receive the current WNA16 fused-MoE kernel arguments.
+
+The safety boundary remains unchanged:
+
+```text
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+current_wna16_arg_compatible = false
+requires_wna16_arg_reinterpretation = false
+```
+
+Native smoke:
+
+```text
+outputs/reports/premap_typed_consumer_kernel_entry_summary_smoke.json
+
+ok = true
+future_kernel_native_consumer_kernel_entry_summary_checked = true
+future_kernel_native_consumer_kernel_entry_summary_packet_valid = 1
+future_kernel_native_consumer_kernel_entry_summary_row_count = 64
+future_kernel_native_consumer_kernel_entry_summary_row_ok_count = 64
+future_kernel_native_consumer_kernel_entry_summary_descriptor_ptr_read_row_ok_count = 64
+future_kernel_native_consumer_kernel_entry_summary_packed_weight_descriptor_read_row_ok_count = 64
+future_kernel_native_consumer_kernel_entry_summary_scale_metadata_handle_read_row_ok_count = 64
+future_kernel_native_consumer_kernel_entry_summary_aux_metadata_handle_read_row_ok_count = 64
+future_kernel_native_consumer_kernel_entry_summary_error_count = 0
+```
+
+Strict all-field row-window sweep:
+
+```text
+python scripts/run_premap_online_merged_native_arg_slot_all_field_window_sweep.py \
+  --require-program-view-ptr-abi \
+  --force-build
+
+passed = true
+row_count = 1841
+fields = descriptor_ptr / packed_weight_descriptor / scale_metadata_handle / aux_metadata_handle
+windows = full / head / middle / tail
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+require_kernel_arg_packet_abi = true
+```
+
+The checker now follows each child stub artifact and requires the compact
+entry-summary packet-valid, row-count, per-field read-count, hash, and safety
+fields.  This promotes the compact future-kernel entry from a smoke-only
+artifact into the same strict window gate as the existing future kernel-arg
+packet ABI.
+
 ## Consumer-view ABI layout is checked by the window gate
 
 The future native consumer-view packet is now part of the lab evidence as a
