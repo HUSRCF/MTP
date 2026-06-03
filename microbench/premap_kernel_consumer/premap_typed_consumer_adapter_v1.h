@@ -371,6 +371,26 @@ constexpr bool
 constexpr bool
     kPremapFutureKernelNativeConsumerEndpointAbiV1CurrentWna16ArgCompatible =
         false;
+constexpr const char*
+    kPremapFutureKernelNativeConsumerEndpointPtrAbiV1Name =
+        "premap_future_kernel_native_consumer_endpoint_ptr_abi_v1";
+constexpr const char*
+    kPremapFutureKernelNativeConsumerEndpointPtrAbiV1Mode =
+        "readonly_future_kernel_native_consumer_endpoint_ptr_abi";
+constexpr const char*
+    kPremapFutureKernelNativeConsumerEndpointPtrAbiV1Source =
+        "premap_future_kernel_native_consumer_endpoint_abi_v1";
+constexpr uint32_t
+    kPremapFutureKernelNativeConsumerEndpointPtrAbiV1Version = 1;
+constexpr bool
+    kPremapFutureKernelNativeConsumerEndpointPtrAbiV1PayloadDerefAllowed =
+        false;
+constexpr bool
+    kPremapFutureKernelNativeConsumerEndpointPtrAbiV1KernelArgPassAllowed =
+        false;
+constexpr bool
+    kPremapFutureKernelNativeConsumerEndpointPtrAbiV1CurrentWna16ArgCompatible =
+        false;
 
 constexpr uint32_t kPremapFutureKernelSideConsumerArgsV1ReadonlyFlag = 1u << 0;
 constexpr uint32_t
@@ -707,6 +727,23 @@ struct PremapFutureKernelNativeConsumerEndpointV1 {
   PremapFutureKernelNativeConsumerInvocationV1 invocation;
   uint32_t abi_version;
   uint32_t invocation_struct_size;
+  uint32_t summary_struct_size;
+  uint32_t pointer_size;
+  uint32_t endpoint_id;
+  uint32_t payload_bytes;
+  uint32_t flags;
+};
+
+// Pointer-shaped endpoint ABI.  This models a future kernel receiving a stable
+// pointer to the prepared endpoint packet rather than a by-value host object.
+// It remains a standalone readonly stub contract: the pointed endpoint is only
+// walked for descriptor/address handle parity and no payload/current WNA16
+// argument is consumed.
+struct PremapFutureKernelNativeConsumerEndpointPtrV1 {
+  const PremapFutureKernelNativeConsumerEndpointV1* endpoint;
+  PremapFutureKernelNativeConsumerKernelEntrySummaryV1* summary;
+  uint32_t abi_version;
+  uint32_t endpoint_struct_size;
   uint32_t summary_struct_size;
   uint32_t pointer_size;
   uint32_t endpoint_id;
@@ -1538,6 +1575,37 @@ premap_typed_consumer_future_native_endpoint_matches_v1(
   }
   return premap_typed_consumer_future_native_invocation_matches_v1(
       endpoint.invocation);
+}
+
+__device__ static inline bool
+premap_typed_consumer_future_native_endpoint_ptr_matches_v1(
+    const PremapFutureKernelNativeConsumerEndpointPtrV1& endpoint_ptr) {
+  if (endpoint_ptr.endpoint == nullptr || endpoint_ptr.summary == nullptr ||
+      endpoint_ptr.abi_version !=
+          kPremapFutureKernelNativeConsumerEndpointPtrAbiV1Version ||
+      endpoint_ptr.endpoint_struct_size !=
+          sizeof(PremapFutureKernelNativeConsumerEndpointV1) ||
+      endpoint_ptr.summary_struct_size !=
+          sizeof(PremapFutureKernelNativeConsumerKernelEntrySummaryV1) ||
+      endpoint_ptr.pointer_size !=
+          sizeof(PremapFutureKernelNativeConsumerEndpointV1*) ||
+      endpoint_ptr.endpoint_id == 0 || endpoint_ptr.payload_bytes != 0 ||
+      (endpoint_ptr.flags &
+       kPremapFutureKernelSideConsumerArgsV1ReadonlyFlag) == 0 ||
+      (endpoint_ptr.flags &
+       kPremapFutureKernelSideConsumerArgsV1KernelArgPassDisabledFlag) == 0 ||
+      (endpoint_ptr.flags &
+       kPremapFutureKernelSideConsumerArgsV1PayloadDerefDisabledFlag) == 0 ||
+      endpoint_ptr.flags != kPremapFutureKernelSideConsumerArgsV1RequiredFlags ||
+      kPremapFutureKernelNativeConsumerEndpointPtrAbiV1PayloadDerefAllowed ||
+      kPremapFutureKernelNativeConsumerEndpointPtrAbiV1KernelArgPassAllowed ||
+      kPremapFutureKernelNativeConsumerEndpointPtrAbiV1CurrentWna16ArgCompatible) {
+    return false;
+  }
+  const PremapFutureKernelNativeConsumerEndpointV1 endpoint =
+      *endpoint_ptr.endpoint;
+  return endpoint.endpoint_id == endpoint_ptr.endpoint_id &&
+         premap_typed_consumer_future_native_endpoint_matches_v1(endpoint);
 }
 
 __device__ static inline bool

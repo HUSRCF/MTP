@@ -2,8 +2,22 @@
 
 ## Progress Version
 
-- Version: `v0.69-endpoint-abi-lab-gate`
+- Version: `v0.70-endpoint-ptr-abi-stub`
 - Updated: 2026-06-04
+- Latest native-stub update: added a standalone endpoint-pointer ABI canary,
+  `PremapFutureKernelNativeConsumerEndpointPtrV1`, guarded by
+  `MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ENDPOINT_PTR_ABI`.
+  This models a future kernel receiving a pointer to a prepared endpoint packet
+  rather than a by-value host endpoint object, while still staying outside the
+  current WNA16 fused-MoE kernel argument list.  The GPU1 canary
+  `outputs/reports/premap_kernel_consumer/typed_consumer_stub_endpoint_ptr_canary_gpu1.json`
+  passes with 128 rows, `packet_chain_depth=13`, endpoint-pointer checked,
+  `summary_error_count=0`, and matching endpoint/endpoint-pointer row hash
+  `6eee1d2a2b221508`.  The shutdown boundary remains intact:
+  `payload_bytes=0`, `passed_to_kernel=false`,
+  `kernel_arg_pass_allowed=false`, `changes_kernel_launch_args=false`,
+  `current_wna16_arg_compatible=false`, and
+  `requires_wna16_arg_reinterpretation=false`.
 - Latest lab-gate update: the default readonly lab gate now points its required
   online-merged multiprogram evidence at the GPU1 endpoint ABI runner,
   `outputs/reports/premap_kernel_consumer/online_merged_future_native_endpoint_canary_runner.json`,
