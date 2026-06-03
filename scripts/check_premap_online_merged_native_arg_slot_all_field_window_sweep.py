@@ -72,6 +72,7 @@ def _check_field_report(
     require_child_program_view_ptr_abi: bool,
     require_child_kernel_arg_packet_abi: bool,
     require_child_kernel_entry_args_abi: bool,
+    require_child_kernel_entry_args_ptr_abi: bool,
 ) -> list[str]:
     failures: list[str] = []
     if report.get("passed") is not True:
@@ -122,10 +123,13 @@ def _check_field_report(
     if require_child_kernel_entry_args_abi:
         expected_pairs["require_child_kernel_entry_args_abi"] = True
         expected_pairs["require_child_kernel_entry_row_metadata"] = True
+    if require_child_kernel_entry_args_ptr_abi:
+        expected_pairs["require_child_kernel_entry_args_ptr_abi"] = True
+        expected_pairs["require_child_kernel_entry_row_metadata"] = True
     for key, expected in expected_pairs.items():
         if check_payload.get(key) != expected:
             failures.append(f"{field}_check_{key}_mismatch")
-    if require_child_kernel_entry_args_abi:
+    if require_child_kernel_entry_args_abi or require_child_kernel_entry_args_ptr_abi:
         sweep_path = _resolve_child_path(report.get("sweep_json"), parent=parent)
         if sweep_path is None:
             failures.append(f"{field}_sweep_json_missing_for_entry_args_evidence")
@@ -145,6 +149,9 @@ def _check_field_report(
                 require_child_kernel_arg_packet_abi
             ),
             require_child_kernel_entry_args_abi=True,
+            require_child_kernel_entry_args_ptr_abi=bool(
+                require_child_kernel_entry_args_ptr_abi
+            ),
         )
         if recomputed.get("passed") is not True:
             failures.append(f"{field}_entry_args_window_recheck_not_passed")
@@ -157,6 +164,13 @@ def _check_field_report(
         if recomputed.get("require_child_kernel_entry_row_metadata") is not True:
             failures.append(
                 f"{field}_entry_args_window_recheck_did_not_require_row_metadata"
+            )
+        if (
+            require_child_kernel_entry_args_ptr_abi
+            and recomputed.get("require_child_kernel_entry_args_ptr_abi") is not True
+        ):
+            failures.append(
+                f"{field}_entry_args_window_recheck_did_not_require_entry_args_ptr"
             )
     return failures
 
@@ -171,6 +185,7 @@ def check_all_field_window_sweep_artifact(
     require_child_program_view_ptr_abi: bool = False,
     require_child_kernel_arg_packet_abi: bool = False,
     require_child_kernel_entry_args_abi: bool = False,
+    require_child_kernel_entry_args_ptr_abi: bool = False,
 ) -> dict[str, Any]:
     sweep_path = path.resolve()
     payload, error = _safe_load_json(sweep_path)
@@ -183,6 +198,8 @@ def check_all_field_window_sweep_artifact(
         }
 
     failures: list[str] = []
+    if require_child_kernel_entry_args_ptr_abi and not require_child_kernel_entry_args_abi:
+        failures.append("require_child_kernel_entry_args_ptr_requires_entry_args_abi")
     if payload.get("source") != (
         "online_merged_future_native_arg_slot_all_field_window_sweep_runner"
     ):
@@ -220,6 +237,11 @@ def check_all_field_window_sweep_artifact(
         and payload.get("require_kernel_entry_args_abi") is not True
     ):
         failures.append("require_kernel_entry_args_abi_mismatch")
+    if (
+        require_child_kernel_entry_args_ptr_abi
+        and payload.get("require_kernel_entry_args_ptr_abi") is not True
+    ):
+        failures.append("require_kernel_entry_args_ptr_abi_mismatch")
 
     row_counts = payload.get("row_counts")
     if not isinstance(row_counts, dict):
@@ -268,6 +290,9 @@ def check_all_field_window_sweep_artifact(
                 require_child_kernel_entry_args_abi=bool(
                     require_child_kernel_entry_args_abi
                 ),
+                require_child_kernel_entry_args_ptr_abi=bool(
+                    require_child_kernel_entry_args_ptr_abi
+                ),
             )
         )
 
@@ -294,8 +319,12 @@ def check_all_field_window_sweep_artifact(
         "require_child_kernel_entry_args_abi": bool(
             require_child_kernel_entry_args_abi
         ),
+        "require_child_kernel_entry_args_ptr_abi": bool(
+            require_child_kernel_entry_args_ptr_abi
+        ),
         "require_child_kernel_entry_row_metadata": bool(
             require_child_kernel_entry_args_abi
+            or require_child_kernel_entry_args_ptr_abi
         ),
         "mirror_fields_checked": list(MIRROR_FIELDS),
         "row_count": expected_row_count,
@@ -312,6 +341,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--require-child-program-view-ptr-abi", action="store_true")
     parser.add_argument("--require-child-kernel-arg-packet-abi", action="store_true")
     parser.add_argument("--require-child-kernel-entry-args-abi", action="store_true")
+    parser.add_argument("--require-child-kernel-entry-args-ptr-abi", action="store_true")
     parser.add_argument("--output-json", type=Path)
     return parser
 
@@ -332,6 +362,9 @@ def main(argv: list[str] | None = None) -> int:
         ),
         require_child_kernel_entry_args_abi=bool(
             args.require_child_kernel_entry_args_abi
+        ),
+        require_child_kernel_entry_args_ptr_abi=bool(
+            args.require_child_kernel_entry_args_ptr_abi
         ),
     )
     if args.output_json is not None:

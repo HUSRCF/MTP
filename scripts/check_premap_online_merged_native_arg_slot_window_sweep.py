@@ -476,6 +476,56 @@ def _check_kernel_entry_args(
     return failures
 
 
+def _check_kernel_entry_args_ptr(
+    summary: dict[str, Any],
+    *,
+    label: str,
+    expected_active: int,
+) -> list[str]:
+    failures: list[str] = []
+    prefix = "future_kernel_native_consumer_kernel_entry_args_ptr"
+    if f"{prefix}_checked" not in summary:
+        return [f"{label}_kernel_entry_args_ptr_missing_or_dry_run_unsupported"]
+    for key, expected in {
+        f"{prefix}_checked": True,
+        f"{prefix}_mode": "readonly_future_kernel_native_consumer_kernel_entry_args_ptr_abi",
+        f"{prefix}_source": "premap_future_kernel_native_consumer_kernel_entry_args_abi_v1",
+        f"{prefix}_field_read_path": "kernel_entry_args_ptr_to_kernel_entry_args_to_kernel_arg_packet_to_program_view_rows",
+        f"{prefix}_packet_chain_depth": 6,
+        f"{prefix}_version": 1,
+        f"{prefix}_pointer_size": 8,
+        f"{prefix}_entry_args_struct_size": 40,
+        f"{prefix}_summary_packet_valid": 1,
+        f"{prefix}_summary_row_count": expected_active,
+        f"{prefix}_summary_row_ok_count": expected_active,
+        f"{prefix}_summary_descriptor_ptr_read_row_ok_count": expected_active,
+        f"{prefix}_summary_packed_weight_descriptor_read_row_ok_count": expected_active,
+        f"{prefix}_summary_scale_metadata_handle_read_row_ok_count": expected_active,
+        f"{prefix}_summary_aux_metadata_handle_read_row_ok_count": expected_active,
+        f"{prefix}_summary_expert_id_read_row_ok_count": expected_active,
+        f"{prefix}_summary_address_key_hash_read_row_ok_count": expected_active,
+        f"{prefix}_summary_row_metadata_read_row_ok_count": expected_active,
+        f"{prefix}_summary_error_count": 0,
+        f"{prefix}_summary_field_mask": _FUTURE_KERNEL_ALL_FIELD_MASK,
+        f"{prefix}_payload_bytes": 0,
+        f"{prefix}_passed_to_kernel": False,
+        f"{prefix}_changes_kernel_launch_args": False,
+        f"{prefix}_current_wna16_arg_compatible": False,
+        f"{prefix}_requires_wna16_arg_reinterpretation": False,
+    }.items():
+        if summary.get(key) != expected:
+            failures.append(f"{label}_{key}_mismatch")
+    for hash_key in (
+        f"{prefix}_summary_row_hash_accumulator",
+        f"{prefix}_summary_field_read_hash_accumulator",
+        f"{prefix}_summary_row_metadata_hash_accumulator",
+    ):
+        value = summary.get(hash_key)
+        if not isinstance(value, str) or not value:
+            failures.append(f"{label}_{hash_key}_missing")
+    return failures
+
+
 def _int_value(payload: dict[str, Any], key: str) -> int | None:
     value = payload.get(key)
     if isinstance(value, bool) or not isinstance(value, int):
@@ -590,6 +640,7 @@ def _check_child_stub_artifact(
     require_child_program_view_ptr_abi: bool,
     require_child_kernel_arg_packet_abi: bool,
     require_child_kernel_entry_args_abi: bool,
+    require_child_kernel_entry_args_ptr_abi: bool,
 ) -> list[str]:
     failures: list[str] = []
     stub_path = _resolve_child_path(child.get("stub_output_json"), parent=parent)
@@ -677,6 +728,14 @@ def _check_child_stub_artifact(
                 expected_active=expected_active,
             )
         )
+    if require_child_kernel_entry_args_ptr_abi:
+        failures.extend(
+            _check_kernel_entry_args_ptr(
+                stub_payload,
+                label=f"{label}_child_stub_artifact",
+                expected_active=expected_active,
+            )
+        )
     return failures
 
 
@@ -695,6 +754,7 @@ def _check_child_artifact(
     require_child_program_view_ptr_abi: bool,
     require_child_kernel_arg_packet_abi: bool,
     require_child_kernel_entry_args_abi: bool,
+    require_child_kernel_entry_args_ptr_abi: bool,
 ) -> list[str]:
     failures: list[str] = []
     expected_pairs: dict[str, Any] = {
@@ -814,6 +874,14 @@ def _check_child_artifact(
                     expected_active=expected_active,
                 )
             )
+        if require_child_kernel_entry_args_ptr_abi:
+            failures.extend(
+                _check_kernel_entry_args_ptr(
+                    stub_summary,
+                    label=label,
+                    expected_active=expected_active,
+                )
+            )
     failures.extend(
         _check_child_stub_artifact(
             child,
@@ -827,6 +895,9 @@ def _check_child_artifact(
             require_child_kernel_arg_packet_abi=require_child_kernel_arg_packet_abi,
             require_child_kernel_entry_args_abi=(
                 require_child_kernel_entry_args_abi
+            ),
+            require_child_kernel_entry_args_ptr_abi=(
+                require_child_kernel_entry_args_ptr_abi
             ),
         )
     )
@@ -845,6 +916,7 @@ def check_window_sweep_artifact(
     require_child_program_view_ptr_abi: bool = False,
     require_child_kernel_arg_packet_abi: bool = False,
     require_child_kernel_entry_args_abi: bool = False,
+    require_child_kernel_entry_args_ptr_abi: bool = False,
 ) -> dict[str, Any]:
     sweep_path = path.resolve()
     payload, error = _safe_load_json(sweep_path)
@@ -857,6 +929,8 @@ def check_window_sweep_artifact(
         }
 
     failures: list[str] = []
+    if require_child_kernel_entry_args_ptr_abi and not require_child_kernel_entry_args_abi:
+        failures.append("require_child_kernel_entry_args_ptr_requires_entry_args_abi")
     if payload.get("source") != "online_merged_future_native_arg_slot_window_sweep_runner":
         failures.append("source_mismatch")
     if payload.get("passed") is not True:
@@ -947,6 +1021,9 @@ def check_window_sweep_artifact(
                     require_child_kernel_entry_args_abi=bool(
                         require_child_kernel_entry_args_abi
                     ),
+                    require_child_kernel_entry_args_ptr_abi=bool(
+                        require_child_kernel_entry_args_ptr_abi
+                    ),
                 )
             )
 
@@ -975,8 +1052,12 @@ def check_window_sweep_artifact(
         "require_child_kernel_entry_args_abi": bool(
             require_child_kernel_entry_args_abi
         ),
+        "require_child_kernel_entry_args_ptr_abi": bool(
+            require_child_kernel_entry_args_ptr_abi
+        ),
         "require_child_kernel_entry_row_metadata": bool(
             require_child_kernel_entry_args_abi
+            or require_child_kernel_entry_args_ptr_abi
         ),
         "row_count": row_count,
         "windows_checked": list(REQUIRED_WINDOWS),
@@ -995,6 +1076,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--require-child-program-view-ptr-abi", action="store_true")
     parser.add_argument("--require-child-kernel-arg-packet-abi", action="store_true")
     parser.add_argument("--require-child-kernel-entry-args-abi", action="store_true")
+    parser.add_argument("--require-child-kernel-entry-args-ptr-abi", action="store_true")
     parser.add_argument("--output-json", type=Path)
     return parser
 
@@ -1017,6 +1099,9 @@ def main(argv: list[str] | None = None) -> int:
         ),
         require_child_kernel_entry_args_abi=bool(
             args.require_child_kernel_entry_args_abi
+        ),
+        require_child_kernel_entry_args_ptr_abi=bool(
+            args.require_child_kernel_entry_args_ptr_abi
         ),
     )
     if args.output_json is not None:

@@ -98,8 +98,15 @@ def _field_sweep_args(
     return build_window_sweep_parser().parse_args(argv)
 
 
+def _require_kernel_entry_args_ptr_abi(args: argparse.Namespace) -> bool:
+    return bool(getattr(args, "require_kernel_entry_args_ptr_abi", False))
+
+
 def _require_kernel_entry_args_abi(args: argparse.Namespace) -> bool:
-    return bool(getattr(args, "require_kernel_entry_args_abi", False))
+    return bool(
+        getattr(args, "require_kernel_entry_args_abi", False)
+        or _require_kernel_entry_args_ptr_abi(args)
+    )
 
 
 def _require_kernel_arg_packet_abi(args: argparse.Namespace) -> bool:
@@ -151,6 +158,9 @@ def run_all_field_sweep(args: argparse.Namespace) -> dict[str, Any]:
                 require_child_kernel_entry_args_abi=bool(
                     _require_kernel_entry_args_abi(args)
                 ),
+                require_child_kernel_entry_args_ptr_abi=bool(
+                    _require_kernel_entry_args_ptr_abi(args)
+                ),
             )
         )
         if not args.dry_run:
@@ -193,6 +203,7 @@ def run_all_field_sweep(args: argparse.Namespace) -> dict[str, Any]:
         "require_program_view_ptr_abi": _require_program_view_ptr_abi(args),
         "require_kernel_arg_packet_abi": _require_kernel_arg_packet_abi(args),
         "require_kernel_entry_args_abi": _require_kernel_entry_args_abi(args),
+        "require_kernel_entry_args_ptr_abi": _require_kernel_entry_args_ptr_abi(args),
         "block_threads": int(args.block_threads),
         "device": int(args.device),
         "mirror_fields": list(MIRROR_FIELDS),
@@ -240,6 +251,16 @@ def build_parser() -> argparse.ArgumentParser:
             "Require every per-field child window sweep to validate the "
             "single-argument future kernel entry ABI. This also requires the "
             "kernel-arg packet and program-view pointer ABI."
+        ),
+    )
+    parser.add_argument(
+        "--require-kernel-entry-args-ptr-abi",
+        action="store_true",
+        help=(
+            "Require every per-field child window sweep to validate the "
+            "device pointer to the future kernel entry ABI. This also "
+            "requires the entry args, kernel-arg packet, and program-view "
+            "pointer ABIs."
         ),
     )
     parser.add_argument("--max-inputs", type=int, default=32)

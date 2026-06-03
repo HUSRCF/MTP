@@ -155,6 +155,48 @@ def _kernel_entry_args_pairs(active: int) -> dict[str, object]:
     }
 
 
+def _kernel_entry_args_ptr_pairs(active: int) -> dict[str, object]:
+    return {
+        "future_kernel_native_consumer_kernel_entry_args_ptr_abi_name": (
+            "premap_future_kernel_native_consumer_kernel_entry_args_ptr_abi_v1"
+        ),
+        "future_kernel_native_consumer_kernel_entry_args_ptr_checked": True,
+        "future_kernel_native_consumer_kernel_entry_args_ptr_mode": (
+            "readonly_future_kernel_native_consumer_kernel_entry_args_ptr_abi"
+        ),
+        "future_kernel_native_consumer_kernel_entry_args_ptr_source": (
+            "premap_future_kernel_native_consumer_kernel_entry_args_abi_v1"
+        ),
+        "future_kernel_native_consumer_kernel_entry_args_ptr_field_read_path": (
+            "kernel_entry_args_ptr_to_kernel_entry_args_to_kernel_arg_packet_to_program_view_rows"
+        ),
+        "future_kernel_native_consumer_kernel_entry_args_ptr_packet_chain_depth": 6,
+        "future_kernel_native_consumer_kernel_entry_args_ptr_version": 1,
+        "future_kernel_native_consumer_kernel_entry_args_ptr_pointer_size": 8,
+        "future_kernel_native_consumer_kernel_entry_args_ptr_entry_args_struct_size": 40,
+        "future_kernel_native_consumer_kernel_entry_args_ptr_summary_packet_valid": 1,
+        "future_kernel_native_consumer_kernel_entry_args_ptr_summary_row_count": active,
+        "future_kernel_native_consumer_kernel_entry_args_ptr_summary_row_ok_count": active,
+        "future_kernel_native_consumer_kernel_entry_args_ptr_summary_descriptor_ptr_read_row_ok_count": active,
+        "future_kernel_native_consumer_kernel_entry_args_ptr_summary_packed_weight_descriptor_read_row_ok_count": active,
+        "future_kernel_native_consumer_kernel_entry_args_ptr_summary_scale_metadata_handle_read_row_ok_count": active,
+        "future_kernel_native_consumer_kernel_entry_args_ptr_summary_aux_metadata_handle_read_row_ok_count": active,
+        "future_kernel_native_consumer_kernel_entry_args_ptr_summary_expert_id_read_row_ok_count": active,
+        "future_kernel_native_consumer_kernel_entry_args_ptr_summary_address_key_hash_read_row_ok_count": active,
+        "future_kernel_native_consumer_kernel_entry_args_ptr_summary_row_metadata_read_row_ok_count": active,
+        "future_kernel_native_consumer_kernel_entry_args_ptr_summary_error_count": 0,
+        "future_kernel_native_consumer_kernel_entry_args_ptr_summary_field_mask": 15,
+        "future_kernel_native_consumer_kernel_entry_args_ptr_payload_bytes": 0,
+        "future_kernel_native_consumer_kernel_entry_args_ptr_passed_to_kernel": False,
+        "future_kernel_native_consumer_kernel_entry_args_ptr_changes_kernel_launch_args": False,
+        "future_kernel_native_consumer_kernel_entry_args_ptr_current_wna16_arg_compatible": False,
+        "future_kernel_native_consumer_kernel_entry_args_ptr_requires_wna16_arg_reinterpretation": False,
+        "future_kernel_native_consumer_kernel_entry_args_ptr_summary_row_hash_accumulator": "entry-args-ptr-row",
+        "future_kernel_native_consumer_kernel_entry_args_ptr_summary_field_read_hash_accumulator": "entry-args-ptr-field",
+        "future_kernel_native_consumer_kernel_entry_args_ptr_summary_row_metadata_hash_accumulator": "entry-args-ptr-meta",
+    }
+
+
 def _handle_projection_pairs(value: str = "projection") -> dict[str, str]:
     return {
         "future_kernel_native_dispatch_consumer_handle_projection_hash_accumulator": value,
@@ -313,6 +355,7 @@ def _child_payload(
             ),
             **_kernel_entry_summary_pairs(active),
             **_kernel_entry_args_pairs(active),
+            **_kernel_entry_args_ptr_pairs(active),
         },
     }
 
@@ -600,6 +643,62 @@ def test_window_sweep_check_accepts_kernel_entry_args_requirement(
     assert result["require_child_kernel_arg_packet_abi"] is False
     assert result["require_child_kernel_entry_args_abi"] is True
     assert result["require_child_kernel_entry_row_metadata"] is True
+
+
+def test_window_sweep_check_accepts_kernel_entry_args_ptr_requirement(
+    tmp_path: Path,
+):
+    path = _write_artifact(tmp_path)
+
+    result = check_window_sweep_artifact(
+        path,
+        expected_window_size=4,
+        expected_block_threads=4,
+        min_row_count=17,
+        require_child_kernel_entry_args_abi=True,
+        require_child_kernel_entry_args_ptr_abi=True,
+    )
+
+    assert result["passed"] is True
+    assert result["require_child_kernel_entry_args_abi"] is True
+    assert result["require_child_kernel_entry_args_ptr_abi"] is True
+    assert result["require_child_kernel_entry_row_metadata"] is True
+
+
+def test_window_sweep_check_rejects_missing_kernel_entry_args_ptr_requirement(
+    tmp_path: Path,
+):
+    path = _write_artifact(tmp_path)
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    windows = payload["windows"]
+    assert isinstance(windows, dict)
+    child_path = Path(windows["head"]["output_json"])
+    stub_path = Path(windows["head"]["stub_output_json"])
+    child = json.loads(child_path.read_text(encoding="utf-8"))
+    stub_payload = json.loads(stub_path.read_text(encoding="utf-8"))
+    for item in (child["stub_summary"], stub_payload):
+        assert isinstance(item, dict)
+        item.pop("future_kernel_native_consumer_kernel_entry_args_ptr_checked")
+    child_path.write_text(json.dumps(child) + "\n", encoding="utf-8")
+    stub_path.write_text(json.dumps(stub_payload) + "\n", encoding="utf-8")
+
+    result = check_window_sweep_artifact(
+        path,
+        expected_window_size=4,
+        expected_block_threads=4,
+        min_row_count=17,
+        require_child_kernel_entry_args_abi=True,
+        require_child_kernel_entry_args_ptr_abi=True,
+    )
+
+    assert result["passed"] is False
+    assert "head_kernel_entry_args_ptr_missing_or_dry_run_unsupported" in result[
+        "failures"
+    ]
+    assert (
+        "head_child_stub_artifact_kernel_entry_args_ptr_missing_or_dry_run_unsupported"
+        in result["failures"]
+    )
 
 
 def test_window_sweep_check_rejects_missing_kernel_entry_args_requirement(

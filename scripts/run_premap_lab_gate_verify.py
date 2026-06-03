@@ -137,6 +137,9 @@ def _load_status(path: Path) -> dict[str, Any]:
         "require_child_kernel_entry_args_abi": payload.get(
             "require_child_kernel_entry_args_abi"
         ),
+        "require_child_kernel_entry_args_ptr_abi": payload.get(
+            "require_child_kernel_entry_args_ptr_abi"
+        ),
         "require_child_kernel_entry_row_metadata": payload.get(
             "require_child_kernel_entry_row_metadata"
         ),
@@ -205,6 +208,10 @@ def _status_failures(statuses: dict[str, dict[str, Any]]) -> list[str]:
         failures.append("window_sweep_check_did_not_require_kernel_arg_packet_abi")
     if window_check.get("require_child_kernel_entry_args_abi") is not True:
         failures.append("window_sweep_check_did_not_require_kernel_entry_args_abi")
+    if window_check.get("require_child_kernel_entry_args_ptr_abi") is not True:
+        failures.append(
+            "window_sweep_check_did_not_require_kernel_entry_args_ptr_abi"
+        )
     if window_check.get("require_child_kernel_entry_row_metadata") is not True:
         failures.append("window_sweep_check_did_not_require_kernel_entry_row_metadata")
     if window_check.get("require_non_degenerate_windows") is not True:
@@ -250,6 +257,10 @@ def _status_failures(statuses: dict[str, dict[str, Any]]) -> list[str]:
     if all_field_check.get("require_child_kernel_entry_args_abi") is not True:
         failures.append(
             "all_field_window_sweep_check_did_not_require_kernel_entry_args_abi"
+        )
+    if all_field_check.get("require_child_kernel_entry_args_ptr_abi") is not True:
+        failures.append(
+            "all_field_window_sweep_check_did_not_require_kernel_entry_args_ptr_abi"
         )
     if all_field_check.get("require_child_kernel_entry_row_metadata") is not True:
         failures.append(
@@ -346,6 +357,7 @@ def run_verify(args: argparse.Namespace) -> dict[str, Any]:
                 "--require-child-program-view-ptr-abi",
                 "--require-child-kernel-arg-packet-abi",
                 "--require-child-kernel-entry-args-abi",
+                "--require-child-kernel-entry-args-ptr-abi",
                 "--output-json",
                 str(window_sweep_check_json),
             ],
@@ -360,6 +372,7 @@ def run_verify(args: argparse.Namespace) -> dict[str, Any]:
                 "--require-program-view-ptr-abi",
                 "--require-kernel-arg-packet-abi",
                 "--require-kernel-entry-args-abi",
+                "--require-kernel-entry-args-ptr-abi",
                 "--output-json",
                 str(all_field_window_sweep_json),
             ],
@@ -375,6 +388,7 @@ def run_verify(args: argparse.Namespace) -> dict[str, Any]:
                 "--require-child-program-view-ptr-abi",
                 "--require-child-kernel-arg-packet-abi",
                 "--require-child-kernel-entry-args-abi",
+                "--require-child-kernel-entry-args-ptr-abi",
                 "--output-json",
                 str(all_field_window_sweep_check_json),
             ],

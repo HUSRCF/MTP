@@ -25,6 +25,7 @@ def _write_field_check(
     require_program_view_ptr_abi: bool = False,
     require_kernel_arg_packet_abi: bool = False,
     require_kernel_entry_args_abi: bool = False,
+    require_kernel_entry_args_ptr_abi: bool = False,
 ) -> None:
     payload = {
         "passed": True,
@@ -46,8 +47,11 @@ def _write_field_check(
         "require_child_kernel_entry_args_abi": bool(
             require_kernel_entry_args_abi
         ),
+        "require_child_kernel_entry_args_ptr_abi": bool(
+            require_kernel_entry_args_ptr_abi
+        ),
         "require_child_kernel_entry_row_metadata": bool(
-            require_kernel_entry_args_abi
+            require_kernel_entry_args_abi or require_kernel_entry_args_ptr_abi
         ),
         "require_non_degenerate_windows": True,
         "row_count": row_count,
@@ -64,6 +68,7 @@ def _write_all_field_artifact(
     require_program_view_ptr_abi: bool = False,
     require_kernel_arg_packet_abi: bool = False,
     require_kernel_entry_args_abi: bool = False,
+    require_kernel_entry_args_ptr_abi: bool = False,
 ) -> Path:
     row_count = 17
     window_size = 4
@@ -90,6 +95,7 @@ def _write_all_field_artifact(
             require_program_view_ptr_abi=require_program_view_ptr_abi,
             require_kernel_arg_packet_abi=require_kernel_arg_packet_abi,
             require_kernel_entry_args_abi=require_kernel_entry_args_abi,
+            require_kernel_entry_args_ptr_abi=require_kernel_entry_args_ptr_abi,
         )
         field_reports[field] = {
             "passed": True,
@@ -111,6 +117,9 @@ def _write_all_field_artifact(
         "require_program_view_ptr_abi": bool(require_program_view_ptr_abi),
         "require_kernel_arg_packet_abi": bool(require_kernel_arg_packet_abi),
         "require_kernel_entry_args_abi": bool(require_kernel_entry_args_abi),
+        "require_kernel_entry_args_ptr_abi": bool(
+            require_kernel_entry_args_ptr_abi
+        ),
         "block_threads": block_threads,
         "mirror_fields": list(MIRROR_FIELDS),
         "field_reports": field_reports,
@@ -204,6 +213,34 @@ def test_all_field_window_sweep_check_accepts_program_view_ptr_requirement(
     assert result["require_child_kernel_entry_row_metadata"] is True
 
 
+def test_all_field_window_sweep_check_accepts_kernel_entry_args_ptr_requirement(
+    tmp_path: Path,
+):
+    path = _write_all_field_artifact(
+        tmp_path,
+        require_program_view_ptr_abi=True,
+        require_kernel_arg_packet_abi=True,
+        require_kernel_entry_args_abi=True,
+        require_kernel_entry_args_ptr_abi=True,
+    )
+
+    result = check_all_field_window_sweep_artifact(
+        path,
+        expected_window_size=4,
+        expected_block_threads=4,
+        min_row_count=17,
+        require_child_program_view_ptr_abi=True,
+        require_child_kernel_arg_packet_abi=True,
+        require_child_kernel_entry_args_abi=True,
+        require_child_kernel_entry_args_ptr_abi=True,
+    )
+
+    assert result["passed"] is True
+    assert result["require_child_kernel_entry_args_abi"] is True
+    assert result["require_child_kernel_entry_args_ptr_abi"] is True
+    assert result["require_child_kernel_entry_row_metadata"] is True
+
+
 def test_all_field_window_sweep_check_rejects_missing_program_view_ptr_gate(
     tmp_path: Path,
 ):
@@ -273,6 +310,32 @@ def test_all_field_window_sweep_check_rejects_missing_kernel_entry_args_gate(
     assert "require_kernel_entry_args_abi_mismatch" in result["failures"]
 
 
+def test_all_field_window_sweep_check_rejects_missing_kernel_entry_args_ptr_gate(
+    tmp_path: Path,
+):
+    path = _write_all_field_artifact(
+        tmp_path,
+        require_program_view_ptr_abi=True,
+        require_kernel_arg_packet_abi=True,
+        require_kernel_entry_args_abi=True,
+        require_kernel_entry_args_ptr_abi=False,
+    )
+
+    result = check_all_field_window_sweep_artifact(
+        path,
+        expected_window_size=4,
+        expected_block_threads=4,
+        min_row_count=17,
+        require_child_program_view_ptr_abi=True,
+        require_child_kernel_arg_packet_abi=True,
+        require_child_kernel_entry_args_abi=True,
+        require_child_kernel_entry_args_ptr_abi=True,
+    )
+
+    assert result["passed"] is False
+    assert "require_kernel_entry_args_ptr_abi_mismatch" in result["failures"]
+
+
 def test_all_field_window_sweep_check_rejects_missing_child_entry_args_evidence(
     tmp_path: Path,
 ):
@@ -281,6 +344,7 @@ def test_all_field_window_sweep_check_rejects_missing_child_entry_args_evidence(
         require_program_view_ptr_abi=True,
         require_kernel_arg_packet_abi=True,
         require_kernel_entry_args_abi=True,
+        require_kernel_entry_args_ptr_abi=True,
     )
     payload = json.loads(path.read_text(encoding="utf-8"))
     field_reports = payload["field_reports"]
@@ -309,6 +373,7 @@ def test_all_field_window_sweep_check_rejects_missing_child_entry_args_evidence(
         require_child_program_view_ptr_abi=True,
         require_child_kernel_arg_packet_abi=True,
         require_child_kernel_entry_args_abi=True,
+        require_child_kernel_entry_args_ptr_abi=True,
     )
 
     assert result["passed"] is False

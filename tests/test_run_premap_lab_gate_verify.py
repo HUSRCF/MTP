@@ -71,6 +71,7 @@ def test_run_premap_lab_gate_verify_dry_run_records_all_steps(tmp_path: Path):
     assert "--require-child-program-view-ptr-abi" in sweep_check_cmd
     assert "--require-child-kernel-arg-packet-abi" in sweep_check_cmd
     assert "--require-child-kernel-entry-args-abi" in sweep_check_cmd
+    assert "--require-child-kernel-entry-args-ptr-abi" in sweep_check_cmd
     all_field_cmd = result["steps"]["all_field_window_sweep"]["cmd"]
     assert (
         "scripts/run_premap_online_merged_native_arg_slot_all_field_window_sweep.py"
@@ -79,6 +80,7 @@ def test_run_premap_lab_gate_verify_dry_run_records_all_steps(tmp_path: Path):
     assert "--require-program-view-ptr-abi" in all_field_cmd
     assert "--require-kernel-arg-packet-abi" in all_field_cmd
     assert "--require-kernel-entry-args-abi" in all_field_cmd
+    assert "--require-kernel-entry-args-ptr-abi" in all_field_cmd
     all_field_check_cmd = result["steps"]["all_field_window_sweep_check"]["cmd"]
     assert (
         "scripts/check_premap_online_merged_native_arg_slot_all_field_window_sweep.py"
@@ -87,6 +89,7 @@ def test_run_premap_lab_gate_verify_dry_run_records_all_steps(tmp_path: Path):
     assert "--require-child-program-view-ptr-abi" in all_field_check_cmd
     assert "--require-child-kernel-arg-packet-abi" in all_field_check_cmd
     assert "--require-child-kernel-entry-args-abi" in all_field_check_cmd
+    assert "--require-child-kernel-entry-args-ptr-abi" in all_field_check_cmd
 
 
 def test_status_failures_reject_kernel_boundary_mutation():

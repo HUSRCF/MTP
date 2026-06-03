@@ -2,7 +2,7 @@
 
 ## Progress Version
 
-- Version: `v0.58-entry-args-ptr-native-stub`
+- Version: `v0.59-explicit-entry-args-ptr-lab-gate`
 - Updated: 2026-06-03
 - Current phase: premap descriptor/address prep now has a typed
   kernel-side consumer object, a launch-shaped future native ABI, and a
@@ -93,9 +93,32 @@
   includes this pointer-entry ABI in its default macro chain, so the lab gate
   closure, full/head/middle/tail window sweep, and all-field sweep all exercise
   the deeper future-kernel argument path without passing any typed table to the
-  current WNA16 kernel.
+  current WNA16 kernel.  The pointer-entry ABI is now also an explicit lab gate
+  requirement rather than only an implicit default macro: the row-window
+  checker, all-field checker, and one-step lab verify checker all require
+  `require_child_kernel_entry_args_ptr_abi=true`, and the lab verify runner
+  records the requirement in
+  `outputs/reports/premap_lab_gate_verify_entry_args_ptr_explicit.json`.
 
 ## Latest Update: Future Kernel-Entry Pointer ABI Gate
+
+Update: this ABI is now a strict preflight requirement.  The standalone pointer
+stub evidence already existed in the default online-merged canary; the latest
+patch makes the requirement visible and enforceable in the static checkers:
+
+```text
+window_sweep_check.require_child_kernel_entry_args_ptr_abi = true
+all_field_window_sweep_check.require_child_kernel_entry_args_ptr_abi = true
+```
+
+The refreshed artifact passes the static lab-gate checker while preserving:
+
+```text
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+current_wna16_arg_compatible = false
+```
 
 The typed native consumer path now includes a closer-to-real future kernel
 entry-point shape:
