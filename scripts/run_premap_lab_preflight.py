@@ -6855,10 +6855,22 @@ def run_premap_lab_preflight(
                 "kernel_endpoint_kernel_arg_pass_allowed",
             )
         ),
+        "default_kernel_consumer_kernel_endpoint_changes_kernel_launch_args": (
+            _bool_metric(
+                online_merged_multiprogram_runner_payload,
+                "kernel_endpoint_changes_kernel_launch_args",
+            )
+        ),
         "default_kernel_consumer_kernel_endpoint_current_wna16_arg_compatible": (
             _bool_metric(
                 online_merged_multiprogram_runner_payload,
                 "kernel_endpoint_current_wna16_arg_compatible",
+            )
+        ),
+        "default_kernel_consumer_kernel_endpoint_requires_wna16_arg_reinterpretation": (
+            _bool_metric(
+                online_merged_multiprogram_runner_payload,
+                "kernel_endpoint_requires_wna16_arg_reinterpretation",
             )
         ),
         "default_kernel_consumer_kernel_endpoint_row_hash_accumulator": (

@@ -193,7 +193,9 @@ def _summary() -> dict[str, object]:
         "default_kernel_consumer_kernel_endpoint_payload_bytes": 0,
         "default_kernel_consumer_kernel_endpoint_passed_to_kernel": False,
         "default_kernel_consumer_kernel_endpoint_kernel_arg_pass_allowed": False,
+        "default_kernel_consumer_kernel_endpoint_changes_kernel_launch_args": False,
         "default_kernel_consumer_kernel_endpoint_current_wna16_arg_compatible": False,
+        "default_kernel_consumer_kernel_endpoint_requires_wna16_arg_reinterpretation": False,
         "default_kernel_consumer_kernel_endpoint_row_hash_accumulator": (
             "5152535455565758"
         ),
@@ -529,6 +531,10 @@ def test_check_premap_lab_preflight_summary_rejects_endpoint_gap() -> None:
     summary["default_kernel_consumer_kernel_endpoint_packet_chain_depth"] = 11
     summary["default_kernel_consumer_kernel_endpoint_payload_bytes"] = 1
     summary["default_kernel_consumer_kernel_endpoint_passed_to_kernel"] = True
+    summary["default_kernel_consumer_kernel_endpoint_changes_kernel_launch_args"] = True
+    summary[
+        "default_kernel_consumer_kernel_endpoint_requires_wna16_arg_reinterpretation"
+    ] = True
     summary[
         "default_kernel_consumer_kernel_endpoint_field_read_hash_accumulator"
     ] = "not-hex"
@@ -552,6 +558,12 @@ def test_check_premap_lab_preflight_summary_rejects_endpoint_gap() -> None:
         "failures"
     ]
     assert "default_kernel_consumer_kernel_endpoint_passed_to_kernel_mismatch" in result[
+        "failures"
+    ]
+    assert "default_kernel_consumer_kernel_endpoint_changes_kernel_launch_args_mismatch" in result[
+        "failures"
+    ]
+    assert "default_kernel_consumer_kernel_endpoint_requires_wna16_arg_reinterpretation_mismatch" in result[
         "failures"
     ]
     assert (
