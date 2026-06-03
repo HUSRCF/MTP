@@ -3146,6 +3146,47 @@ artifacts do not include the real native consumer-view layout fields; the real
 GPU/native child-artifact checker remains stricter and still validates those
 layout fields when native stub artifacts are present.
 
+Native child-artifact validation also passes on GPU1 using the existing
+16-input online prelaunch runner:
+
+```text
+/home/husrcf/anaconda3/envs/TRY/bin/python \
+  scripts/run_premap_online_merged_native_arg_slot_window_sweep.py \
+  --runner-json outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_runner_future_native_consumer_abi_16_128export.json \
+  --output-dir outputs/reports/premap_kernel_consumer/launch_envelope_ptr_window_sweep_native_16input \
+  --output-json outputs/reports/premap_kernel_consumer/launch_envelope_ptr_window_sweep_native_16input/sweep.json \
+  --window-size 512 \
+  --max-inputs 16 \
+  --min-source-count 1 \
+  --min-total-rows 257 \
+  --block-threads 256 \
+  --require-launch-envelope-args-ptr-abi \
+  --device 1
+
+passed = true
+row_count = 1713
+windows = full/head/middle/tail
+
+/home/husrcf/anaconda3/envs/TRY/bin/python \
+  scripts/check_premap_online_merged_native_arg_slot_window_sweep.py \
+  outputs/reports/premap_kernel_consumer/launch_envelope_ptr_window_sweep_native_16input/sweep.json \
+  --expected-window-size 512 \
+  --expected-block-threads 256 \
+  --min-row-count 257 \
+  --require-child-kernel-entry-args-abi \
+  --require-child-kernel-entry-args-ptr-abi \
+  --require-child-launch-envelope-args-ptr-abi \
+  --output-json outputs/reports/premap_kernel_consumer/launch_envelope_ptr_window_sweep_native_16input/check.json
+
+passed = true
+failures = []
+require_child_artifacts = true
+```
+
+This promotes the pointer-backed launch-envelope window gate from report-level
+dry-run evidence to real native child-artifact evidence while preserving the
+same no-payload/no-kernel-arg boundary.
+
 ### 2026-06-03: Future kernel entry consumer ABI path is now source/path checked
 
 The typed premap consumer lab gate now requires the future kernel entry
