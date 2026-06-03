@@ -2339,6 +2339,16 @@ def _online_merged_arg_slot_multiprogram_runner_payload(
             row_count=520,
         )
     )
+    # The online runner embeds a compact stub_summary.  The full stub artifact
+    # still carries ABI identity/layout fields, but the embedded summary keeps
+    # only the runtime safety fields plus summary_* counters.
+    for compact_key in (
+        "future_kernel_native_consumer_invocation_entry_abi_name",
+        "future_kernel_native_consumer_invocation_entry_error_count",
+        "future_kernel_native_consumer_endpoint_abi_name",
+        "future_kernel_native_consumer_endpoint_error_count",
+    ):
+        stub_summary.pop(compact_key, None)
     return payload
 
 
@@ -2520,10 +2530,10 @@ def _write_gate(
         f"reports/{name}_online_merged_arg_slot_multiprogram_input.json"
     )
     online_merged_arg_slot_multiprogram_canary_path = (
-        f"reports/{name}_online_merged_future_native_arg_slot_multiprogram_canary.json"
+        f"reports/{name}_online_merged_future_native_endpoint_canary.json"
     )
     online_merged_arg_slot_multiprogram_runner_path = (
-        f"reports/{name}_online_merged_future_native_arg_slot_multiprogram_runner.json"
+        f"reports/{name}_online_merged_future_native_endpoint_runner.json"
     )
     online_merged_arg_slot_descriptor_ptr_runner_path = (
         f"reports/{name}_online_merged_future_native_arg_slot_descriptor_ptr_runner.json"
@@ -4376,7 +4386,7 @@ def test_premap_lab_preflight_rejects_program_view_ptr_strict_row_count_mismatch
     default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
     runner_path = (
         tmp_path
-        / "reports/default_gate_online_merged_future_native_arg_slot_multiprogram_runner.json"
+        / "reports/default_gate_online_merged_future_native_endpoint_runner.json"
     )
     payload = json.loads(runner_path.read_text(encoding="utf-8"))
     stub_summary = payload["stub_summary"]
@@ -4967,7 +4977,7 @@ def test_premap_lab_preflight_rejects_required_online_merged_runner_window(
     default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
     runner_path = (
         tmp_path
-        / "reports/default_gate_online_merged_future_native_arg_slot_multiprogram_runner.json"
+        / "reports/default_gate_online_merged_future_native_endpoint_runner.json"
     )
     payload = json.loads(runner_path.read_text(encoding="utf-8"))
     payload["dispatch_row_offset"] = 256
@@ -5004,7 +5014,7 @@ def test_premap_lab_preflight_rejects_required_online_merged_runner_without_proj
     default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
     runner_path = (
         tmp_path
-        / "reports/default_gate_online_merged_future_native_arg_slot_multiprogram_runner.json"
+        / "reports/default_gate_online_merged_future_native_endpoint_runner.json"
     )
     payload = json.loads(runner_path.read_text(encoding="utf-8"))
     payload["handle_projection_all_handle_fields_checked"] = False
@@ -5039,7 +5049,7 @@ def test_premap_lab_preflight_rejects_required_online_merged_runner_without_kern
     default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
     runner_path = (
         tmp_path
-        / "reports/default_gate_online_merged_future_native_arg_slot_multiprogram_runner.json"
+        / "reports/default_gate_online_merged_future_native_endpoint_runner.json"
     )
     payload = json.loads(runner_path.read_text(encoding="utf-8"))
     payload["require_kernel_launch_context_abi"] = False
@@ -5079,7 +5089,7 @@ def test_premap_lab_preflight_rejects_required_online_merged_runner_without_invo
     default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
     runner_path = (
         tmp_path
-        / "reports/default_gate_online_merged_future_native_arg_slot_multiprogram_runner.json"
+        / "reports/default_gate_online_merged_future_native_endpoint_runner.json"
     )
     payload = json.loads(runner_path.read_text(encoding="utf-8"))
     payload["require_kernel_invocation_abi"] = False
@@ -5119,7 +5129,7 @@ def test_premap_lab_preflight_rejects_required_online_merged_runner_without_invo
     default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
     runner_path = (
         tmp_path
-        / "reports/default_gate_online_merged_future_native_arg_slot_multiprogram_runner.json"
+        / "reports/default_gate_online_merged_future_native_endpoint_runner.json"
     )
     payload = json.loads(runner_path.read_text(encoding="utf-8"))
     payload["require_kernel_invocation_entry_abi"] = False
@@ -5159,7 +5169,7 @@ def test_premap_lab_preflight_rejects_required_online_merged_runner_without_endp
     default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
     runner_path = (
         tmp_path
-        / "reports/default_gate_online_merged_future_native_arg_slot_multiprogram_runner.json"
+        / "reports/default_gate_online_merged_future_native_endpoint_runner.json"
     )
     payload = json.loads(runner_path.read_text(encoding="utf-8"))
     payload["require_kernel_endpoint_abi"] = False
@@ -5193,13 +5203,61 @@ def test_premap_lab_preflight_rejects_required_online_merged_runner_without_endp
     ) in failures
 
 
+def test_premap_lab_preflight_rejects_required_online_merged_runner_compact_summary_error_count_mismatch(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    runner_path = (
+        tmp_path
+        / "reports/default_gate_online_merged_future_native_endpoint_runner.json"
+    )
+    payload = json.loads(runner_path.read_text(encoding="utf-8"))
+    stub_summary = payload["stub_summary"]
+    assert isinstance(stub_summary, dict)
+    stub_summary["future_kernel_native_consumer_invocation_entry_error_count"] = 0
+    stub_summary[
+        "future_kernel_native_consumer_invocation_entry_summary_error_count"
+    ] = 1
+    stub_summary["future_kernel_native_consumer_endpoint_error_count"] = 0
+    stub_summary["future_kernel_native_consumer_endpoint_summary_error_count"] = 1
+    runner_path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is False
+    assert "default_readonly_gate_required_evidence_check_failed" in result["failures"]
+    failures = result["default_readonly_gate_required_evidence_check"]["failures"]
+    assert (
+        "future_kernel_native_arg_slot_online_merged_multiprogram_runner_json:"
+        "online_merged_multiprogram_arg_slot_runner_stub_summary_"
+        "future_kernel_native_consumer_invocation_entry_summary_error_count_inconsistent"
+    ) in failures
+    assert (
+        "future_kernel_native_arg_slot_online_merged_multiprogram_runner_json:"
+        "online_merged_multiprogram_arg_slot_runner_stub_summary_"
+        "future_kernel_native_consumer_endpoint_summary_error_count_inconsistent"
+    ) in failures
+
+
 def test_premap_lab_preflight_rejects_required_online_merged_runner_invocation_cross_layer_mismatch(
     tmp_path: Path,
 ):
     default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
     runner_path = (
         tmp_path
-        / "reports/default_gate_online_merged_future_native_arg_slot_multiprogram_runner.json"
+        / "reports/default_gate_online_merged_future_native_endpoint_runner.json"
     )
     payload = json.loads(runner_path.read_text(encoding="utf-8"))
     stub_summary = payload["stub_summary"]
@@ -5286,7 +5344,7 @@ def test_premap_lab_preflight_rejects_required_online_merged_runner_invalid_cons
     default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
     stub_path = (
         tmp_path
-        / "reports/default_gate_online_merged_future_native_arg_slot_multiprogram_canary.json"
+        / "reports/default_gate_online_merged_future_native_endpoint_canary.json"
     )
     payload = json.loads(stub_path.read_text(encoding="utf-8"))
     payload[
@@ -5328,7 +5386,7 @@ def test_premap_lab_preflight_rejects_required_online_merged_program_view_row_co
     default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
     stub_path = (
         tmp_path
-        / "reports/default_gate_online_merged_future_native_arg_slot_multiprogram_canary.json"
+        / "reports/default_gate_online_merged_future_native_endpoint_canary.json"
     )
     payload = json.loads(stub_path.read_text(encoding="utf-8"))
     payload["future_kernel_native_consumer_program_view_row_count"] = 519
@@ -5370,7 +5428,7 @@ def test_premap_lab_preflight_rejects_required_online_merged_program_view_iterat
     default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
     stub_path = (
         tmp_path
-        / "reports/default_gate_online_merged_future_native_arg_slot_multiprogram_canary.json"
+        / "reports/default_gate_online_merged_future_native_endpoint_canary.json"
     )
     payload = json.loads(stub_path.read_text(encoding="utf-8"))
     payload["future_kernel_native_consumer_program_view_program_iteration_hash"] = (
@@ -5412,7 +5470,7 @@ def test_premap_lab_preflight_rejects_consumer_view_row_window_mismatch(
     default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
     runner_path = (
         tmp_path
-        / "reports/default_gate_online_merged_future_native_arg_slot_multiprogram_runner.json"
+        / "reports/default_gate_online_merged_future_native_endpoint_runner.json"
     )
     payload = json.loads(runner_path.read_text(encoding="utf-8"))
     stub_summary = payload["stub_summary"]
@@ -5464,7 +5522,7 @@ def test_premap_lab_preflight_marks_consumer_view_row_window_fallback_source(
     default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
     runner_path = (
         tmp_path
-        / "reports/default_gate_online_merged_future_native_arg_slot_multiprogram_runner.json"
+        / "reports/default_gate_online_merged_future_native_endpoint_runner.json"
     )
     payload = json.loads(runner_path.read_text(encoding="utf-8"))
     stub_summary = payload["stub_summary"]
@@ -5510,7 +5568,7 @@ def test_premap_lab_preflight_rejects_consumer_view_safety_contract_mismatch(
     default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
     runner_path = (
         tmp_path
-        / "reports/default_gate_online_merged_future_native_arg_slot_multiprogram_runner.json"
+        / "reports/default_gate_online_merged_future_native_endpoint_runner.json"
     )
     payload = json.loads(runner_path.read_text(encoding="utf-8"))
     stub_summary = payload["stub_summary"]
@@ -5553,7 +5611,7 @@ def test_premap_lab_preflight_rejects_consumer_program_view_safety_contract_mism
     default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
     runner_path = (
         tmp_path
-        / "reports/default_gate_online_merged_future_native_arg_slot_multiprogram_runner.json"
+        / "reports/default_gate_online_merged_future_native_endpoint_runner.json"
     )
     payload = json.loads(runner_path.read_text(encoding="utf-8"))
     stub_summary = payload["stub_summary"]
@@ -5599,7 +5657,7 @@ def test_premap_lab_preflight_rejects_missing_consumer_view_source(
     default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
     runner_path = (
         tmp_path
-        / "reports/default_gate_online_merged_future_native_arg_slot_multiprogram_runner.json"
+        / "reports/default_gate_online_merged_future_native_endpoint_runner.json"
     )
     payload = json.loads(runner_path.read_text(encoding="utf-8"))
     stub_summary = payload["stub_summary"]
@@ -5640,7 +5698,7 @@ def test_premap_lab_preflight_allows_consumer_view_row_window_mismatch_when_miss
     default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
     runner_path = (
         tmp_path
-        / "reports/default_gate_online_merged_future_native_arg_slot_multiprogram_runner.json"
+        / "reports/default_gate_online_merged_future_native_endpoint_runner.json"
     )
     payload = json.loads(runner_path.read_text(encoding="utf-8"))
     stub_summary = payload["stub_summary"]
@@ -5679,7 +5737,7 @@ def test_premap_lab_preflight_rejects_required_online_merged_runner_not_targetin
     default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
     runner_path = (
         tmp_path
-        / "reports/default_gate_online_merged_future_native_arg_slot_multiprogram_runner.json"
+        / "reports/default_gate_online_merged_future_native_endpoint_runner.json"
     )
     payload = json.loads(runner_path.read_text(encoding="utf-8"))
     payload["device"] = 0

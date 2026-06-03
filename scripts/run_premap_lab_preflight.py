@@ -724,15 +724,14 @@ def _validate_invocation_entry_metrics(
     prefix: str,
     failure_prefix: str,
     expected_rows: int | None,
+    compact_summary: bool = False,
 ) -> list[str]:
     failures: list[str] = []
     expected_values: dict[str, Any] = {
         f"{prefix}_checked": True,
-        f"{prefix}_abi_name": _INVOCATION_ENTRY_ABI_NAME,
         f"{prefix}_mode": _INVOCATION_ENTRY_MODE,
         f"{prefix}_source": _INVOCATION_ENTRY_SOURCE,
         f"{prefix}_packet_chain_depth": _INVOCATION_ENTRY_PACKET_CHAIN_DEPTH,
-        f"{prefix}_error_count": 0,
         f"{prefix}_payload_bytes": 0,
         f"{prefix}_payload_deref_allowed": False,
         f"{prefix}_passed_to_kernel": False,
@@ -741,6 +740,27 @@ def _validate_invocation_entry_metrics(
         f"{prefix}_current_wna16_arg_compatible": False,
         f"{prefix}_requires_wna16_arg_reinterpretation": False,
     }
+    if not compact_summary or f"{prefix}_abi_name" in metrics:
+        expected_values[f"{prefix}_abi_name"] = _INVOCATION_ENTRY_ABI_NAME
+    error_count_key = f"{prefix}_error_count"
+    summary_error_count_key = f"{prefix}_summary_error_count"
+    if compact_summary:
+        if error_count_key not in metrics and summary_error_count_key not in metrics:
+            failures.append(f"{failure_prefix}_{error_count_key}_missing")
+        if error_count_key in metrics:
+            expected_values[error_count_key] = 0
+        if summary_error_count_key in metrics:
+            expected_values[summary_error_count_key] = 0
+        if (
+            error_count_key in metrics
+            and summary_error_count_key in metrics
+            and metrics.get(error_count_key) != metrics.get(summary_error_count_key)
+        ):
+            failures.append(
+                f"{failure_prefix}_{summary_error_count_key}_inconsistent"
+            )
+    else:
+        expected_values[error_count_key] = 0
     all_fields_key = f"{prefix}_all_handle_fields_read"
     if all_fields_key in metrics:
         expected_values[all_fields_key] = True
@@ -788,15 +808,14 @@ def _validate_endpoint_metrics(
     prefix: str,
     failure_prefix: str,
     expected_rows: int | None,
+    compact_summary: bool = False,
 ) -> list[str]:
     failures: list[str] = []
     expected_values: dict[str, Any] = {
         f"{prefix}_checked": True,
-        f"{prefix}_abi_name": _ENDPOINT_ABI_NAME,
         f"{prefix}_mode": _ENDPOINT_MODE,
         f"{prefix}_source": _ENDPOINT_SOURCE,
         f"{prefix}_packet_chain_depth": _ENDPOINT_PACKET_CHAIN_DEPTH,
-        f"{prefix}_error_count": 0,
         f"{prefix}_payload_bytes": 0,
         f"{prefix}_payload_deref_allowed": False,
         f"{prefix}_passed_to_kernel": False,
@@ -805,6 +824,27 @@ def _validate_endpoint_metrics(
         f"{prefix}_current_wna16_arg_compatible": False,
         f"{prefix}_requires_wna16_arg_reinterpretation": False,
     }
+    if not compact_summary or f"{prefix}_abi_name" in metrics:
+        expected_values[f"{prefix}_abi_name"] = _ENDPOINT_ABI_NAME
+    error_count_key = f"{prefix}_error_count"
+    summary_error_count_key = f"{prefix}_summary_error_count"
+    if compact_summary:
+        if error_count_key not in metrics and summary_error_count_key not in metrics:
+            failures.append(f"{failure_prefix}_{error_count_key}_missing")
+        if error_count_key in metrics:
+            expected_values[error_count_key] = 0
+        if summary_error_count_key in metrics:
+            expected_values[summary_error_count_key] = 0
+        if (
+            error_count_key in metrics
+            and summary_error_count_key in metrics
+            and metrics.get(error_count_key) != metrics.get(summary_error_count_key)
+        ):
+            failures.append(
+                f"{failure_prefix}_{summary_error_count_key}_inconsistent"
+            )
+    else:
+        expected_values[error_count_key] = 0
     all_fields_key = f"{prefix}_all_handle_fields_read"
     if all_fields_key in metrics:
         expected_values[all_fields_key] = True
@@ -4072,6 +4112,7 @@ def _validate_future_native_arg_slot_online_merged_multiprogram_runner_evidence(
                     prefix="future_kernel_native_consumer_invocation_entry",
                     failure_prefix=f"{failure_prefix}_stub_summary",
                     expected_rows=merged_row_count,
+                    compact_summary=True,
                 )
             )
         if require_kernel_endpoint_abi:
@@ -4081,6 +4122,7 @@ def _validate_future_native_arg_slot_online_merged_multiprogram_runner_evidence(
                     prefix="future_kernel_native_consumer_endpoint",
                     failure_prefix=f"{failure_prefix}_stub_summary",
                     expected_rows=merged_row_count,
+                    compact_summary=True,
                 )
             )
 

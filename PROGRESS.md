@@ -2,8 +2,26 @@
 
 ## Progress Version
 
-- Version: `v0.68-endpoint-abi-native-stub`
+- Version: `v0.69-endpoint-abi-lab-gate`
 - Updated: 2026-06-04
+- Latest lab-gate update: the default readonly lab gate now points its required
+  online-merged multiprogram evidence at the GPU1 endpoint ABI runner,
+  `outputs/reports/premap_kernel_consumer/online_merged_future_native_endpoint_canary_runner.json`,
+  with the matching stub artifact
+  `outputs/reports/premap_kernel_consumer/typed_consumer_stub_gpu1_online_merged_endpoint_canary.json`.
+  A final strict no-defer preflight was run via
+  `outputs/reports/premap_lab_preflight_status_default_endpoint_abi_summary.json`
+  and independently checked by
+  `outputs/reports/premap_lab_preflight_status_default_endpoint_abi_summary.check.json`.
+  The summary passes with 32 online sources, 1841 merged rows, GPU1, endpoint
+  checked, and `payload_bytes=0`, `passed_to_kernel=false`,
+  `kernel_arg_pass_allowed=false`, `changes_kernel_launch_args=false`,
+  `current_wna16_arg_compatible=false`, and
+  `requires_wna16_arg_reinterpretation=false`.  The preflight validator now
+  treats the runner-embedded `stub_summary` as a compact summary while still
+  validating the full runner/stub artifacts, so the default lab precondition
+  accepts the endpoint ABI evidence without relaxing the no-payload/no-kernel
+  boundary.
 - Latest endpoint update: the standalone native typed consumer path now has a
   future kernel-side endpoint ABI canary,
   `PremapFutureKernelNativeConsumerEndpointV1`.  The endpoint embeds the
