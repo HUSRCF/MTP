@@ -1346,6 +1346,8 @@ def check_online_native_stub_canary_artifacts(
     preflight_path_source = "explicit" if preflight_json is not None else "default"
     status_path_source = "explicit" if status_json is not None else "default"
     failures: list[str] = []
+    if min_online_inputs < 0:
+        failures.append("min_online_inputs_invalid")
 
     try:
         runner = _load_json(runner_path)

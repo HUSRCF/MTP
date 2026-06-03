@@ -1756,6 +1756,23 @@ def test_check_online_native_stub_canary_artifacts_requires_min_online_inputs(
     assert "runner_extra_input_0001_not_passed" in failed_summary["failures"]
 
 
+def test_check_online_native_stub_canary_artifacts_rejects_negative_min_online_inputs(
+    tmp_path: Path,
+):
+    runner_path, preflight_path, status_path = _payloads(tmp_path)
+
+    result = check_online_native_stub_canary_artifacts(
+        root=tmp_path,
+        runner_json=runner_path,
+        preflight_json=preflight_path,
+        status_json=status_path,
+        min_online_inputs=-1,
+    )
+
+    assert result["passed"] is False
+    assert "min_online_inputs_invalid" in result["failures"]
+
+
 def test_check_online_native_stub_canary_artifacts_requires_multi_input_row_counts(
     tmp_path: Path,
 ):

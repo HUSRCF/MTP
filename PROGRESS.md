@@ -86,7 +86,9 @@ reports `default_kernel_consumer_dispatch_runner_handle_projection_hashchain_equ
 The native runner also now fails fast when `--min-artifact-online-inputs` exceeds
 the selected exported online typed-consumer inputs.  This prevents accidentally
 running the expensive native stub suite on the 1-input canary config when the
-intended lab gate requires 32 online inputs.
+intended lab gate requires 32 online inputs.  Review follow-up aligns the
+artifact checker with the same boundary: negative `min_online_inputs` is invalid
+in both runner-side input gating and checker-side finalization.
 
 Validation:
 
@@ -109,7 +111,11 @@ PYTHONPATH=src:. python -m scripts.check_premap_online_native_stub_canary_artifa
   --output-json outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_artifact_check_arg_slot_32input_hard_hashchain_preflight_32tables.manual_check.json \
   --min-online-inputs 32
 
-python -m pytest tests/test_run_premap_online_native_stub_canary.py -q
+python -m pytest \
+  tests/test_check_premap_online_native_stub_canary_artifacts.py \
+  tests/test_run_premap_online_native_stub_canary.py -q
+
+python -m pytest tests -q
 ```
 
 The same safety boundaries remain unchanged: payload bytes are zero, no ready
