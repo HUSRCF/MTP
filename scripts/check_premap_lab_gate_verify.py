@@ -19,7 +19,11 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from scripts.run_premap_lab_gate_verify import DEFAULT_VERIFY_JSON  # noqa: E402
+from scripts.run_premap_lab_gate_verify import (  # noqa: E402
+    ARG_SLOT_INVOCATION_EXPECTED,
+    ARG_SLOT_INVOCATION_POSITIVE_INT_FIELDS,
+    DEFAULT_VERIFY_JSON,
+)
 
 
 REQUIRED_STEPS = (
@@ -38,7 +42,6 @@ SAFETY_STATUS_NAMES = (
     "window_sweep",
     "all_field_window_sweep",
 )
-
 
 def _load_json(path: Path) -> dict[str, Any]:
     payload = json.loads(path.read_text(encoding="utf-8"))
@@ -127,6 +130,14 @@ def check_lab_gate_verify_artifact(
 
     if statuses.get("default_closure", {}).get("tail_window_probe_enabled") is not False:
         failures.append("default_closure_tail_window_enabled")
+    default_closure = statuses.get("default_closure", {})
+    for key, expected in ARG_SLOT_INVOCATION_EXPECTED.items():
+        if default_closure.get(key) != expected:
+            failures.append(f"default_closure_{key}_mismatch")
+    for key in ARG_SLOT_INVOCATION_POSITIVE_INT_FIELDS:
+        value = default_closure.get(key)
+        if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
+            failures.append(f"default_closure_{key}_invalid")
     if statuses.get("tail_window_closure", {}).get("tail_window_probe_enabled") is not True:
         failures.append("tail_window_closure_tail_window_not_enabled")
     if statuses.get("tail_window_closure_check", {}).get("require_tail_window_probe") is not True:

@@ -5,6 +5,7 @@ from pathlib import Path
 
 from scripts.run_premap_lab_gate_verify import (
     _build_parser,
+    _load_status,
     _status_failures,
     main,
     run_verify,
@@ -21,6 +22,24 @@ def _passing_lab_gate_statuses() -> dict[str, dict]:
             "passed_to_kernel": False,
             "changes_kernel_launch_args": False,
             "tail_window_probe_enabled": False,
+            "arg_slot_runner_require_kernel_launch_context_abi": True,
+            "arg_slot_runner_require_kernel_invocation_abi": True,
+            "arg_slot_runner_kernel_launch_context_checked": True,
+            "arg_slot_runner_kernel_launch_context_all_handle_fields_read": True,
+            "arg_slot_runner_kernel_launch_context_packet_chain_depth": 10,
+            "arg_slot_runner_kernel_launch_context_payload_bytes": 0,
+            "arg_slot_runner_kernel_launch_context_passed_to_kernel": False,
+            "arg_slot_runner_kernel_launch_context_kernel_arg_pass_allowed": False,
+            "arg_slot_runner_kernel_launch_context_changes_kernel_launch_args": False,
+            "arg_slot_runner_kernel_launch_context_current_wna16_arg_compatible": False,
+            "arg_slot_runner_kernel_invocation_checked": True,
+            "arg_slot_runner_kernel_invocation_all_handle_fields_read": True,
+            "arg_slot_runner_kernel_invocation_packet_chain_depth": 11,
+            "arg_slot_runner_kernel_invocation_payload_bytes": 0,
+            "arg_slot_runner_kernel_invocation_passed_to_kernel": False,
+            "arg_slot_runner_kernel_invocation_kernel_arg_pass_allowed": False,
+            "arg_slot_runner_kernel_invocation_changes_kernel_launch_args": False,
+            "arg_slot_runner_kernel_invocation_current_wna16_arg_compatible": False,
         },
         "default_closure_check": {
             "exists": True,
@@ -332,6 +351,75 @@ def test_status_failures_reject_kernel_boundary_mutation():
     failures = _status_failures(statuses)
 
     assert "default_closure_passed_to_kernel_mismatch" in failures
+
+
+def test_status_failures_reject_default_closure_without_invocation_abi():
+    statuses = _passing_lab_gate_statuses()
+    statuses["default_closure"]["arg_slot_runner_require_kernel_invocation_abi"] = False
+    statuses["default_closure"]["arg_slot_runner_kernel_invocation_checked"] = False
+
+    failures = _status_failures(statuses)
+
+    assert (
+        "default_closure_arg_slot_runner_require_kernel_invocation_abi_mismatch"
+        in failures
+    )
+    assert (
+        "default_closure_arg_slot_runner_kernel_invocation_checked_mismatch"
+        in failures
+    )
+
+
+def test_status_failures_reject_invalid_default_closure_packet_depth():
+    statuses = _passing_lab_gate_statuses()
+    statuses["default_closure"][
+        "arg_slot_runner_kernel_launch_context_packet_chain_depth"
+    ] = False
+    statuses["default_closure"]["arg_slot_runner_kernel_invocation_packet_chain_depth"] = 0
+
+    failures = _status_failures(statuses)
+
+    assert (
+        "default_closure_arg_slot_runner_kernel_launch_context_packet_chain_depth_invalid"
+        in failures
+    )
+    assert (
+        "default_closure_arg_slot_runner_kernel_invocation_packet_chain_depth_invalid"
+        in failures
+    )
+
+
+def test_load_status_flattens_default_closure_invocation_summary(tmp_path: Path):
+    path = tmp_path / "closure.json"
+    path.write_text(
+        json.dumps(
+            {
+                "passed": True,
+                "failures": [],
+                "source": "premap_lab_gate_closure",
+                "payload_bytes": 0,
+                "passed_to_kernel": False,
+                "changes_kernel_launch_args": False,
+                "summaries": {
+                    "arg_slot_runner": {
+                        "require_kernel_invocation_abi": True,
+                        "kernel_invocation_checked": True,
+                        "kernel_invocation_all_handle_fields_read": True,
+                        "kernel_invocation_packet_chain_depth": 11,
+                    }
+                },
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    status = _load_status(path)
+
+    assert status["arg_slot_runner_require_kernel_invocation_abi"] is True
+    assert status["arg_slot_runner_kernel_invocation_checked"] is True
+    assert status["arg_slot_runner_kernel_invocation_all_handle_fields_read"] is True
+    assert status["arg_slot_runner_kernel_invocation_packet_chain_depth"] == 11
 
 
 def test_status_failures_reject_tail_checker_without_tail_requirement():

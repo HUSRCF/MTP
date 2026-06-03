@@ -62,6 +62,49 @@ DEFAULT_VERIFY_JSON = (
     REPO_ROOT / "outputs" / "reports" / "premap_lab_gate_verify.json"
 )
 
+ARG_SLOT_INVOCATION_STATUS_FIELDS = (
+    "require_kernel_launch_context_abi",
+    "require_kernel_invocation_abi",
+    "kernel_launch_context_checked",
+    "kernel_launch_context_all_handle_fields_read",
+    "kernel_launch_context_packet_chain_depth",
+    "kernel_launch_context_payload_bytes",
+    "kernel_launch_context_passed_to_kernel",
+    "kernel_launch_context_kernel_arg_pass_allowed",
+    "kernel_launch_context_changes_kernel_launch_args",
+    "kernel_launch_context_current_wna16_arg_compatible",
+    "kernel_invocation_checked",
+    "kernel_invocation_all_handle_fields_read",
+    "kernel_invocation_packet_chain_depth",
+    "kernel_invocation_payload_bytes",
+    "kernel_invocation_passed_to_kernel",
+    "kernel_invocation_kernel_arg_pass_allowed",
+    "kernel_invocation_changes_kernel_launch_args",
+    "kernel_invocation_current_wna16_arg_compatible",
+)
+ARG_SLOT_INVOCATION_EXPECTED = {
+    "arg_slot_runner_require_kernel_launch_context_abi": True,
+    "arg_slot_runner_require_kernel_invocation_abi": True,
+    "arg_slot_runner_kernel_launch_context_checked": True,
+    "arg_slot_runner_kernel_launch_context_all_handle_fields_read": True,
+    "arg_slot_runner_kernel_launch_context_payload_bytes": 0,
+    "arg_slot_runner_kernel_launch_context_passed_to_kernel": False,
+    "arg_slot_runner_kernel_launch_context_kernel_arg_pass_allowed": False,
+    "arg_slot_runner_kernel_launch_context_changes_kernel_launch_args": False,
+    "arg_slot_runner_kernel_launch_context_current_wna16_arg_compatible": False,
+    "arg_slot_runner_kernel_invocation_checked": True,
+    "arg_slot_runner_kernel_invocation_all_handle_fields_read": True,
+    "arg_slot_runner_kernel_invocation_payload_bytes": 0,
+    "arg_slot_runner_kernel_invocation_passed_to_kernel": False,
+    "arg_slot_runner_kernel_invocation_kernel_arg_pass_allowed": False,
+    "arg_slot_runner_kernel_invocation_changes_kernel_launch_args": False,
+    "arg_slot_runner_kernel_invocation_current_wna16_arg_compatible": False,
+}
+ARG_SLOT_INVOCATION_POSITIVE_INT_FIELDS = (
+    "arg_slot_runner_kernel_launch_context_packet_chain_depth",
+    "arg_slot_runner_kernel_invocation_packet_chain_depth",
+)
+
 
 def _resolve(path: str | Path) -> Path:
     candidate = Path(path)
@@ -111,7 +154,7 @@ def _load_status(path: Path) -> dict[str, Any]:
         return {"exists": True, "read_error": type(exc).__name__}
     if not isinstance(payload, dict):
         return {"exists": True, "read_error": "non_object_json"}
-    return {
+    status = {
         "exists": True,
         "passed": payload.get("passed"),
         "failures": payload.get("failures"),
@@ -165,6 +208,13 @@ def _load_status(path: Path) -> dict[str, Any]:
         "mirror_fields_checked": payload.get("mirror_fields_checked"),
         "windows_checked": payload.get("windows_checked"),
     }
+    summaries = payload.get("summaries")
+    if isinstance(summaries, dict):
+        arg_slot_runner = summaries.get("arg_slot_runner")
+        if isinstance(arg_slot_runner, dict):
+            for field in ARG_SLOT_INVOCATION_STATUS_FIELDS:
+                status[f"arg_slot_runner_{field}"] = arg_slot_runner.get(field)
+    return status
 
 
 def _status_failures(statuses: dict[str, dict[str, Any]]) -> list[str]:
@@ -194,6 +244,14 @@ def _status_failures(statuses: dict[str, dict[str, Any]]) -> list[str]:
 
     if statuses.get("default_closure", {}).get("tail_window_probe_enabled") is not False:
         failures.append("default_closure_tail_window_enabled")
+    default_closure = statuses.get("default_closure", {})
+    for key, expected in ARG_SLOT_INVOCATION_EXPECTED.items():
+        if default_closure.get(key) != expected:
+            failures.append(f"default_closure_{key}_mismatch")
+    for key in ARG_SLOT_INVOCATION_POSITIVE_INT_FIELDS:
+        value = default_closure.get(key)
+        if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
+            failures.append(f"default_closure_{key}_invalid")
     if statuses.get("tail_window_closure", {}).get("tail_window_probe_enabled") is not True:
         failures.append("tail_window_closure_tail_window_not_enabled")
     if statuses.get("tail_window_closure_check", {}).get("require_tail_window_probe") is not True:
