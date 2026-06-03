@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -382,7 +383,15 @@ def check_kernel_consumer_schema_artifact(path: Path) -> dict[str, Any]:
     source_contract = payload.get("source_contract") or {}
     native_abi = payload.get("native_consumer_abi") or {}
     safety = payload.get("safety_contract") or {}
-    required_gate_checks = payload.get("required_gate_checks") or {}
+    required_gate_checks_raw = payload.get("required_gate_checks") or {}
+    if not isinstance(required_gate_checks_raw, Mapping):
+        failures.append(
+            "required_gate_checks_not_mapping:"
+            f"{type(required_gate_checks_raw).__name__}"
+        )
+        required_gate_checks: Mapping[str, Any] = {}
+    else:
+        required_gate_checks = required_gate_checks_raw
     macro_ladder = payload.get("debug_macro_ladder") or {}
 
     expected_scalars = {

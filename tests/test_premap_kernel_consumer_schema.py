@@ -335,6 +335,24 @@ def test_kernel_consumer_schema_rejects_missing_required_gate_check(
     ) in result["failures"]
 
 
+def test_kernel_consumer_schema_rejects_non_mapping_required_gate_checks(
+    tmp_path: Path,
+) -> None:
+    payload = _valid_schema_payload()
+    payload["required_gate_checks"] = ["not", "a", "mapping"]
+    schema_path = tmp_path / "schema.yaml"
+    _write_schema(schema_path, payload)
+
+    result = check_kernel_consumer_schema_artifact(schema_path)
+
+    assert result["passed"] is False
+    assert "required_gate_checks_not_mapping:list" in result["failures"]
+    assert (
+        "required_gate_checks.consumer_view_required_mismatch:None!=True"
+        in result["failures"]
+    )
+
+
 def test_kernel_consumer_schema_rejects_dispatch_layout_field_drift(
     tmp_path: Path,
 ) -> None:

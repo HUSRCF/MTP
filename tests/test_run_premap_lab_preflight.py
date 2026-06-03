@@ -4654,6 +4654,37 @@ def test_premap_lab_preflight_rejects_default_gate_with_bad_schema_artifact(
     ) in result["default_kernel_consumer_schema_check"]["failures"]
 
 
+def test_premap_lab_preflight_rejects_bad_required_schema_gate_check(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    schema_path = tmp_path / "configs/runtime/premap_kernel_side_typed_consumer_schema_v1.yaml"
+    payload = _valid_schema_payload()
+    payload["required_gate_checks"]["passed_to_kernel_required"] = True
+    _write(schema_path, json.dumps(payload) + "\n")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is False
+    assert "default_kernel_consumer_schema_check_failed" in result["failures"]
+    assert (
+        "schema_check:required_gate_checks.passed_to_kernel_required_mismatch:"
+        "True!=False"
+    ) in result["default_kernel_consumer_schema_check"]["failures"]
+
+
 def test_premap_lab_preflight_marks_projection_uncovered_when_schema_lacks_field(
     tmp_path: Path,
 ):
