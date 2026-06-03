@@ -142,6 +142,13 @@ the dispatch-pointer packet, then to dispatch metadata and the typed handle
 table.  This validates the future kernel argument slot shape without passing
 that slot to the real fused-MoE/WNA16 kernel.
 
+`MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ENTRY_ARGS_ABI`
+adds the current closest readonly entry shape: a standalone canary kernel
+receives `PremapFutureKernelNativeConsumerKernelEntryArgsV1`, follows the
+kernel-arg packet to the program-view rows, and writes a compact summary proving
+that all four typed handle fields and row metadata were read.  This remains a
+future kernel ABI stub only; no WNA16 launch arguments are passed or mutated.
+
 Runtime manager bridge:
 
 ```text

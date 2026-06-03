@@ -641,6 +641,24 @@ descriptor/address handle columns as the arg-slot and consumer-view paths.  They
 remain readonly evidence only: no payload is dereferenced and no current WNA16
 kernel argument is changed.
 
+The compact lab preflight also gates the entry-args read path itself:
+
+```text
+future_kernel_native_consumer_kernel_entry_args_field_read_path =
+  kernel_entry_args_to_kernel_arg_packet_to_program_view_rows
+future_kernel_native_consumer_kernel_entry_args_packet_chain_depth = 5
+future_kernel_native_consumer_kernel_entry_args_summary_row_count =
+  future_kernel_native_consumer_kernel_entry_args_summary_row_ok_count
+future_kernel_native_consumer_kernel_entry_args_summary_*_read_row_ok_count =
+  future_kernel_native_consumer_kernel_entry_args_summary_row_count
+future_kernel_native_consumer_kernel_entry_args_summary_error_count = 0
+future_kernel_native_consumer_kernel_entry_args_summary_field_mask = 15
+```
+
+This makes the default lab preflight reject a future kernel-entry object that
+only reports the correct layout but does not actually traverse the packet chain
+and read all typed handle fields plus row metadata.
+
 ## Next Gates
 
 1. Keep the current readonly dispatch ABI as the default lab preflight
