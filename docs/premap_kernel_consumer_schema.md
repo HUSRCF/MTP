@@ -167,6 +167,12 @@ successful native canary only proves typed-table readability by a future
 consumer ABI; it does not authorize passing the table to the current WNA16
 kernel.
 
+The schema also carries a `required_gate_checks` block.  This block is part of
+the lab preflight contract, not just documentation: the checker requires the
+consumer-view envelope, row layout, handle projection, all four handle fields,
+source packet chain depth of three, zero payload bytes, no kernel pass, no
+kernel launch argument mutation, and `current_wna16_arg_compatible = false`.
+
 The native stub also reports C++/HIP layout metadata for the future native
 consumer params, launch envelope, and dispatch wrapper: struct size, alignment,
 and critical field offsets.  The artifact checker requires these fields so the

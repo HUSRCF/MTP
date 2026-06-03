@@ -423,6 +423,17 @@ def _valid_schema_payload() -> dict:
             "live_compatible_with_current_wna16_args_required": False,
             "current_status": "native_stub_pending",
         },
+        "required_gate_checks": {
+            "consumer_view_required": True,
+            "consumer_view_row_layout_required": True,
+            "consumer_view_handle_projection_required": True,
+            "consumer_view_all_handle_fields_required": True,
+            "consumer_view_source_packet_chain_depth_required": 3,
+            "payload_bytes_required": 0,
+            "passed_to_kernel_required": False,
+            "changes_kernel_launch_args_required": False,
+            "current_wna16_arg_compatible_required": False,
+        },
         "debug_macro_ladder": {
             "compile_guard_macro": "MTP_PREMAP_TYPED_CONSUMER_SCHEMA_V1",
             "flags": [

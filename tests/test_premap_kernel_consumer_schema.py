@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 
 from scripts.check_premap_kernel_consumer_schema import (
+    EXPECTED_REQUIRED_GATE_CHECKS,
     FUTURE_KERNEL_CONSUMER_ARGS_LAYOUT_EXPECTED,
     FUTURE_KERNEL_CONSUMER_ARGS_LAYOUT_FIELDS,
     FUTURE_KERNEL_NATIVE_CONSUMER_ABI_LAYOUT_EXPECTED,
@@ -165,6 +166,7 @@ def test_kernel_consumer_schema_accepts_valid_artifact(tmp_path: Path) -> None:
         result["future_kernel_native_consumer_view_abi_layout_expected"]
         == FUTURE_KERNEL_NATIVE_CONSUMER_VIEW_ABI_LAYOUT_EXPECTED
     )
+    assert result["required_gate_checks"] == EXPECTED_REQUIRED_GATE_CHECKS
 
 
 def test_kernel_consumer_schema_rejects_missing_required_row_field(
@@ -314,6 +316,23 @@ def test_kernel_consumer_schema_rejects_missing_future_args_layout_contract(
         "native_consumer_abi.future_kernel_consumer_args_layout_reported_not_true"
         in result["failures"]
     )
+
+
+def test_kernel_consumer_schema_rejects_missing_required_gate_check(
+    tmp_path: Path,
+) -> None:
+    payload = _valid_schema_payload()
+    payload["required_gate_checks"].pop("consumer_view_handle_projection_required")
+    schema_path = tmp_path / "schema.yaml"
+    _write_schema(schema_path, payload)
+
+    result = check_kernel_consumer_schema_artifact(schema_path)
+
+    assert result["passed"] is False
+    assert (
+        "required_gate_checks.consumer_view_handle_projection_required_mismatch:"
+        "None!=True"
+    ) in result["failures"]
 
 
 def test_kernel_consumer_schema_rejects_dispatch_layout_field_drift(

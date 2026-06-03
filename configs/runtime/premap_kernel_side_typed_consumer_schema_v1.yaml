@@ -401,6 +401,17 @@ safety_contract:
   live_compatible_with_current_wna16_args_required: false
   current_status: native_stub_online_canary_passed
 
+required_gate_checks:
+  consumer_view_required: true
+  consumer_view_row_layout_required: true
+  consumer_view_handle_projection_required: true
+  consumer_view_all_handle_fields_required: true
+  consumer_view_source_packet_chain_depth_required: 3
+  payload_bytes_required: 0
+  passed_to_kernel_required: false
+  changes_kernel_launch_args_required: false
+  current_wna16_arg_compatible_required: false
+
 debug_macro_ladder:
   compile_guard_macro: MTP_PREMAP_TYPED_CONSUMER_SCHEMA_V1
   flags:

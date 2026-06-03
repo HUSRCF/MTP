@@ -2,7 +2,7 @@
 
 ## Progress Version
 
-- Version: `v0.49-online-native-runner-min-input-guard`
+- Version: `v0.50-kernel-consumer-required-gate-checks`
 - Updated: 2026-06-03
 - Current phase: premap descriptor/address prep now has a typed
   kernel-side consumer object, a launch-shaped future native ABI, and a
@@ -59,6 +59,35 @@
   omit the consumer-view projection field, but if the field exists it must parse
   as a valid uint64 hex value and participate in the four-way projection
   hashchain.
+
+## Latest Update: Required Consumer-View Gate Checks
+
+The typed kernel-side consumer schema now records a machine-checkable
+`required_gate_checks` block.  The schema checker requires the lab artifact to
+state that the consumer-view envelope is present, its row layout and handle
+projection are checked, all four typed handle fields participate, the
+source-packet chain depth remains three, payload bytes stay zero, the object is
+not passed to the current kernel, launch arguments are not mutated, and
+`current_wna16_arg_compatible=false`.
+
+This is still a readonly future-consumer ABI gate.  It does not authorize
+passing the typed table into the current WNA16 fused-MoE kernel, does not move
+payload, and does not grant ready credit.
+
+Validation:
+
+```bash
+python -m pytest tests/test_premap_kernel_consumer_schema.py tests/test_run_premap_lab_preflight.py -q
+# 114 passed
+
+env PYTHONPATH=src:. python -m scripts.check_premap_kernel_consumer_schema \
+  configs/runtime/premap_kernel_side_typed_consumer_schema_v1.yaml \
+  --output-json outputs/reports/premap_kernel_consumer/schema_v1_required_gate_checks.check.json
+# passed
+
+python -m pytest tests -q
+# 948 passed, 2 warnings
+```
 
 ## Latest Update: 32-Input Native Runner Finalization and Min-Input Guard
 

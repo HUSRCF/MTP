@@ -94,6 +94,17 @@ ALLOWED_CURRENT_STATUS = {
     "native_stub_pending",
     "native_stub_online_canary_passed",
 }
+EXPECTED_REQUIRED_GATE_CHECKS = {
+    "consumer_view_required": True,
+    "consumer_view_row_layout_required": True,
+    "consumer_view_handle_projection_required": True,
+    "consumer_view_all_handle_fields_required": True,
+    "consumer_view_source_packet_chain_depth_required": 3,
+    "payload_bytes_required": 0,
+    "passed_to_kernel_required": False,
+    "changes_kernel_launch_args_required": False,
+    "current_wna16_arg_compatible_required": False,
+}
 FUTURE_KERNEL_CONSUMER_ARGS_LAYOUT_FIELDS = [
     "future_kernel_consumer_args_struct_size",
     "future_kernel_consumer_args_struct_align",
@@ -371,6 +382,7 @@ def check_kernel_consumer_schema_artifact(path: Path) -> dict[str, Any]:
     source_contract = payload.get("source_contract") or {}
     native_abi = payload.get("native_consumer_abi") or {}
     safety = payload.get("safety_contract") or {}
+    required_gate_checks = payload.get("required_gate_checks") or {}
     macro_ladder = payload.get("debug_macro_ladder") or {}
 
     expected_scalars = {
@@ -778,6 +790,13 @@ def check_kernel_consumer_schema_artifact(path: Path) -> dict[str, Any]:
     if current_status not in ALLOWED_CURRENT_STATUS:
         failures.append(f"safety_contract.current_status_mismatch:{current_status!r}")
 
+    for key, expected in EXPECTED_REQUIRED_GATE_CHECKS.items():
+        observed = required_gate_checks.get(key)
+        if observed != expected:
+            failures.append(
+                f"required_gate_checks.{key}_mismatch:{observed!r}!={expected!r}"
+            )
+
     flags = macro_ladder.get("flags")
     flags = flags if isinstance(flags, list) else []
     if macro_ladder.get("compile_guard_macro") != "MTP_PREMAP_TYPED_CONSUMER_SCHEMA_V1":
@@ -817,6 +836,10 @@ def check_kernel_consumer_schema_artifact(path: Path) -> dict[str, Any]:
         "row_metadata_count": len(metadata),
         "row_metadata_names": metadata_names,
         "macro_count": len(flags),
+        "required_gate_checks": {
+            key: required_gate_checks.get(key)
+            for key in EXPECTED_REQUIRED_GATE_CHECKS
+        },
         "future_kernel_native_consumer_dispatch_abi_name": native_abi.get(
             "future_kernel_native_consumer_dispatch_abi_name"
         ),
