@@ -449,12 +449,15 @@ def run_stub(args: argparse.Namespace) -> dict[str, Any]:
         cmd.append("--fault-kernel-launch-descriptor-schema-hash")
     if args.fault_invocation_device_ordinal:
         cmd.append("--fault-invocation-device-ordinal")
+    if args.fault_invocation_stream_domain:
+        cmd.append("--fault-invocation-stream-domain")
     env = os.environ.copy()
     if args.hip_visible_devices is not None:
         env["HIP_VISIBLE_DEVICES"] = str(args.hip_visible_devices)
     fault_failure_allowed = bool(
         args.fault_kernel_launch_descriptor_schema_hash
         or args.fault_invocation_device_ordinal
+        or args.fault_invocation_stream_domain
     )
     result = run_cmd(
         cmd,
@@ -496,6 +499,9 @@ def run_stub(args: argparse.Namespace) -> dict[str, Any]:
     payload["fault_invocation_device_ordinal"] = bool(
         args.fault_invocation_device_ordinal
     )
+    payload["fault_invocation_stream_domain"] = bool(
+        args.fault_invocation_stream_domain
+    )
     payload["binary"] = str(bin_path)
     payload["source"] = str(SRC)
     payload["abi_header"] = str(ABI_HEADER)
@@ -535,6 +541,15 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help=(
             "Inject a device-ordinal mismatch between the future native "
+            "invocation object and its launch context. This is a negative "
+            "test hook only."
+        ),
+    )
+    parser.add_argument(
+        "--fault-invocation-stream-domain",
+        action="store_true",
+        help=(
+            "Inject a stream-domain mismatch between the future native "
             "invocation object and its launch context. This is a negative "
             "test hook only."
         ),
@@ -594,6 +609,9 @@ def main(argv: list[str] | None = None) -> int:
             ),
             "fault_invocation_device_ordinal": bool(
                 args.fault_invocation_device_ordinal
+            ),
+            "fault_invocation_stream_domain": bool(
+                args.fault_invocation_stream_domain
             ),
         }
     else:

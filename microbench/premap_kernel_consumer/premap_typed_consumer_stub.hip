@@ -1592,6 +1592,7 @@ struct Args {
   bool omit_aux_pointer = false;
   bool fault_kernel_launch_descriptor_schema_hash = false;
   bool fault_invocation_device_ordinal = false;
+  bool fault_invocation_stream_domain = false;
 };
 
 static Args parse_args(int argc, char** argv) {
@@ -1623,6 +1624,8 @@ static Args parse_args(int argc, char** argv) {
       args.fault_kernel_launch_descriptor_schema_hash = true;
     } else if (key == "--fault-invocation-device-ordinal") {
       args.fault_invocation_device_ordinal = true;
+    } else if (key == "--fault-invocation-stream-domain") {
+      args.fault_invocation_stream_domain = true;
     } else {
       std::cerr << "unknown argument: " << key << "\n";
       std::exit(2);
@@ -1878,6 +1881,8 @@ int main(int argc, char** argv) {
       args.fault_invocation_device_ordinal
           ? (requested_device_ordinal ^ uint32_t{1})
           : requested_device_ordinal;
+  const uint32_t invocation_stream_domain =
+      args.fault_invocation_stream_domain ? uint32_t{1} : uint32_t{0};
   hip_check(hipSetDevice(args.device), "hipSetDevice");
 
   const int rows = args.rows;
@@ -3477,7 +3482,7 @@ int main(int argc, char** argv) {
       sizeof(PremapFutureKernelNativeConsumerKernelLaunchContextV1*);
   future_native_consumer_invocation.invocation_id = 1;
   future_native_consumer_invocation.device_ordinal = invocation_device_ordinal;
-  future_native_consumer_invocation.stream_domain = 0;
+  future_native_consumer_invocation.stream_domain = invocation_stream_domain;
   future_native_consumer_invocation.payload_bytes = 0;
   future_native_consumer_invocation.flags =
       kPremapFutureKernelSideConsumerArgsV1RequiredFlags;
@@ -7392,7 +7397,8 @@ int main(int argc, char** argv) {
   std::cout << ",\"future_kernel_native_consumer_invocation_id\":1";
   std::cout << ",\"future_kernel_native_consumer_invocation_device_ordinal\":"
             << invocation_device_ordinal;
-  std::cout << ",\"future_kernel_native_consumer_invocation_stream_domain\":0";
+  std::cout << ",\"future_kernel_native_consumer_invocation_stream_domain\":"
+            << invocation_stream_domain;
   std::cout << ",\"future_kernel_native_consumer_invocation_summary_packet_valid\":"
             << (future_native_consumer_invocation_checked
                     ? future_native_consumer_invocation_summary.packet_valid
@@ -7479,6 +7485,8 @@ int main(int argc, char** argv) {
   std::cout << ",\"aux_pointer_present\":" << (args.omit_aux_pointer ? "false" : "true");
   std::cout << ",\"fault_invocation_device_ordinal\":"
             << (args.fault_invocation_device_ordinal ? "true" : "false");
+  std::cout << ",\"fault_invocation_stream_domain\":"
+            << (args.fault_invocation_stream_domain ? "true" : "false");
   std::cout << ",\"row_ok_count\":" << ok_count;
   std::cout << ",\"error_count\":" << error_count;
   std::cout << ",\"input_source\":\"" << (args.input_prefix.empty() ? "synthetic" : "binary_prefix") << "\"";
