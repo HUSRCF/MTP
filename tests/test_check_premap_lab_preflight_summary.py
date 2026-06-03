@@ -189,7 +189,23 @@ def test_check_premap_lab_preflight_summary_accepts_valid_summary() -> None:
     assert result["online_merged_source_count"] == 32
     assert result["online_merged_row_count"] == 1841
     assert result["online_merged_device"] == 1
+    assert result["expected_online_merged_device"] == 1
     assert result["online_merged_mirror_field"] == "scale_metadata_handle"
+
+
+def test_check_premap_lab_preflight_summary_accepts_visible_device_zero() -> None:
+    summary = _summary()
+    summary["default_kernel_consumer_online_merged_multiprogram_device"] = 0
+
+    result = check_premap_lab_preflight_summary(
+        summary,
+        expected_online_merged_device=0,
+    )
+
+    assert result["passed"] is True
+    assert result["failures"] == []
+    assert result["online_merged_device"] == 0
+    assert result["expected_online_merged_device"] == 0
 
 
 def test_check_premap_lab_preflight_summary_rejects_missing_sha() -> None:
@@ -303,6 +319,19 @@ def test_check_premap_lab_preflight_summary_rejects_arg_slot_runner_boundary() -
         "default_kernel_consumer_online_merged_multiprogram_current_wna16_arg_compatible_mismatch"
         in result["failures"]
     )
+
+
+def test_check_premap_lab_preflight_summary_rejects_visible_device_mismatch() -> None:
+    summary = _summary()
+    summary["default_kernel_consumer_online_merged_multiprogram_device"] = 1
+
+    result = check_premap_lab_preflight_summary(
+        summary,
+        expected_online_merged_device=0,
+    )
+
+    assert result["passed"] is False
+    assert "online_merged_device_mismatch" in result["failures"]
 
 
 def test_check_premap_lab_preflight_summary_rejects_kernel_entry_layout_gap() -> None:

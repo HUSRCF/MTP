@@ -93,6 +93,15 @@ def _run_step(cmd: list[str], *, dry_run: bool) -> dict[str, Any]:
     return result
 
 
+def _optional_device_args(args: argparse.Namespace) -> list[str]:
+    device_args: list[str] = []
+    if args.device is not None:
+        device_args.extend(["--device", str(int(args.device))])
+    if args.hip_visible_devices:
+        device_args.extend(["--hip-visible-devices", args.hip_visible_devices])
+    return device_args
+
+
 def _load_status(path: Path) -> dict[str, Any]:
     if not path.exists():
         return {"exists": False}
@@ -303,6 +312,7 @@ def run_verify(args: argparse.Namespace) -> dict[str, Any]:
     all_field_window_sweep_check_json = _resolve(
         args.all_field_window_sweep_check_json
     )
+    device_args = _optional_device_args(args)
 
     steps = {
         "default_closure": _run_step(
@@ -311,6 +321,7 @@ def run_verify(args: argparse.Namespace) -> dict[str, Any]:
                 "scripts/run_premap_lab_gate_closure.py",
                 "--output-json",
                 str(closure_json),
+                *device_args,
             ],
             dry_run=bool(args.dry_run),
         ),
@@ -333,6 +344,7 @@ def run_verify(args: argparse.Namespace) -> dict[str, Any]:
                 str(int(args.tail_window_size)),
                 "--output-json",
                 str(tail_closure_json),
+                *device_args,
             ],
             dry_run=bool(args.dry_run),
         ),
@@ -360,6 +372,7 @@ def run_verify(args: argparse.Namespace) -> dict[str, Any]:
                 "--require-kernel-launch-descriptor-abi",
                 "--output-json",
                 str(window_sweep_json),
+                *device_args,
             ],
             dry_run=bool(args.dry_run),
         ),
@@ -393,6 +406,7 @@ def run_verify(args: argparse.Namespace) -> dict[str, Any]:
                 "--require-kernel-entry-args-ptr-abi",
                 "--output-json",
                 str(all_field_window_sweep_json),
+                *device_args,
             ],
             dry_run=bool(args.dry_run),
         ),
@@ -499,6 +513,8 @@ def _build_parser() -> argparse.ArgumentParser:
         default=DEFAULT_ALL_FIELD_WINDOW_SWEEP_CHECK_JSON,
     )
     parser.add_argument("--output-json", type=Path, default=DEFAULT_VERIFY_JSON)
+    parser.add_argument("--device", type=int)
+    parser.add_argument("--hip-visible-devices")
     parser.add_argument("--dry-run", action="store_true")
     return parser
 

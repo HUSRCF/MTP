@@ -81,6 +81,7 @@ def check_premap_lab_preflight_summary(
     summary: dict[str, Any],
     *,
     min_source_count: int = 32,
+    expected_online_merged_device: int = 1,
 ) -> dict[str, Any]:
     failures: list[str] = []
 
@@ -168,8 +169,11 @@ def check_premap_lab_preflight_summary(
         summary,
         "default_kernel_consumer_online_merged_multiprogram_device",
     )
-    if device != 1:
-        failures.append("online_merged_device_not_gpu1")
+    if device != int(expected_online_merged_device):
+        if int(expected_online_merged_device) == 1:
+            failures.append("online_merged_device_not_gpu1")
+        else:
+            failures.append("online_merged_device_mismatch")
     if (
         summary.get("default_kernel_consumer_online_merged_multiprogram_mirror_field")
         != "scale_metadata_handle"
@@ -350,6 +354,7 @@ def check_premap_lab_preflight_summary(
         "online_merged_row_count": row_count,
         "online_merged_dispatch_active_rows": active_rows,
         "online_merged_device": device,
+        "expected_online_merged_device": int(expected_online_merged_device),
         "online_merged_mirror_field": summary.get(
             "default_kernel_consumer_online_merged_multiprogram_mirror_field"
         ),
@@ -360,6 +365,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("summary_json", type=Path)
     parser.add_argument("--min-source-count", type=int, default=32)
+    parser.add_argument("--expected-online-merged-device", type=int, default=1)
     parser.add_argument("--output-json", type=Path)
     return parser
 
@@ -369,6 +375,7 @@ def main() -> None:
     result = check_premap_lab_preflight_summary(
         _load_json(args.summary_json),
         min_source_count=args.min_source_count,
+        expected_online_merged_device=args.expected_online_merged_device,
     )
     if args.output_json is not None:
         args.output_json.parent.mkdir(parents=True, exist_ok=True)

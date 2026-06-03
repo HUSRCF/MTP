@@ -131,6 +131,21 @@ def _run_step(cmd: list[str], *, dry_run: bool) -> dict[str, Any]:
     return result
 
 
+def _optional_device_args(args: argparse.Namespace) -> list[str]:
+    device_args: list[str] = []
+    if args.device is not None:
+        device_args.extend(["--device", str(int(args.device))])
+    if args.hip_visible_devices:
+        device_args.extend(["--hip-visible-devices", args.hip_visible_devices])
+    return device_args
+
+
+def _summary_check_device_args(args: argparse.Namespace) -> list[str]:
+    if args.device is None:
+        return []
+    return ["--expected-online-merged-device", str(int(args.device))]
+
+
 def _load_json_summary(path: Path) -> dict[str, Any]:
     if not path.exists():
         return {"exists": False}
@@ -259,6 +274,8 @@ def run_closure(args: argparse.Namespace) -> dict[str, Any]:
     summary_json = _resolve(args.summary_json)
     summary_check_json = _resolve(args.summary_check_json)
     artifact_check_json = _resolve(args.artifact_check_json)
+    arg_slot_device_args = _optional_device_args(args)
+    summary_check_device_args = _summary_check_device_args(args)
 
     steps: dict[str, dict[str, Any]] = {}
     if not args.skip_arg_slot_runner:
@@ -272,6 +289,7 @@ def run_closure(args: argparse.Namespace) -> dict[str, Any]:
                 str(arg_slot_stub_json),
                 "--merged-output-json",
                 str(arg_slot_merged_json),
+                *arg_slot_device_args,
             ],
             dry_run=bool(args.dry_run),
         )
@@ -290,6 +308,7 @@ def run_closure(args: argparse.Namespace) -> dict[str, Any]:
                 str(arg_slot_tail_stub_json),
                 "--merged-output-json",
                 str(arg_slot_tail_merged_json),
+                *arg_slot_device_args,
             ],
             dry_run=bool(args.dry_run),
         )
@@ -317,6 +336,7 @@ def run_closure(args: argparse.Namespace) -> dict[str, Any]:
             sys.executable,
             "scripts/check_premap_lab_preflight_summary.py",
             str(summary_json),
+            *summary_check_device_args,
             "--output-json",
             str(summary_check_json),
         ],
@@ -415,6 +435,8 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument("--tail-window-size", type=int, default=512)
+    parser.add_argument("--device", type=int)
+    parser.add_argument("--hip-visible-devices")
     parser.add_argument(
         "--allow-explicit-artifact-paths",
         action="store_true",

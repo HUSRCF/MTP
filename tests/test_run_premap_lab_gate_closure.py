@@ -239,6 +239,44 @@ def test_run_premap_lab_gate_closure_dry_run_can_include_tail_window_probe(
     assert "8" in tail_cmd
 
 
+def test_run_premap_lab_gate_closure_dry_run_passes_visible_device_args(
+    tmp_path: Path,
+):
+    args = _build_parser().parse_args(
+        [
+            "--dry-run",
+            "--device",
+            "0",
+            "--hip-visible-devices",
+            "1",
+            "--arg-slot-runner-json",
+            str(tmp_path / "arg_slot_runner.json"),
+            "--arg-slot-stub-json",
+            str(tmp_path / "arg_slot_stub.json"),
+            "--arg-slot-merged-json",
+            str(tmp_path / "arg_slot_merged.json"),
+            "--summary-json",
+            str(tmp_path / "summary.json"),
+            "--summary-check-json",
+            str(tmp_path / "summary.check.json"),
+            "--output-json",
+            str(tmp_path / "closure.json"),
+        ]
+    )
+
+    result = run_closure(args)
+
+    assert result["passed"] is True
+    arg_slot_cmd = result["steps"]["arg_slot_runner"]["cmd"]
+    assert "--device" in arg_slot_cmd
+    assert "0" in arg_slot_cmd
+    assert "--hip-visible-devices" in arg_slot_cmd
+    assert "1" in arg_slot_cmd
+    summary_check_cmd = result["steps"]["summary_check"]["cmd"]
+    assert "--expected-online-merged-device" in summary_check_cmd
+    assert "0" in summary_check_cmd
+
+
 def test_run_premap_lab_gate_closure_main_writes_report(tmp_path: Path):
     output_json = tmp_path / "closure.json"
 
