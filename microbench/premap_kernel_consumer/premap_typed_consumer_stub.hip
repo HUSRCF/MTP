@@ -103,6 +103,11 @@
 #error "future native consumer kernel launch descriptor ABI requires future native consumer launch-envelope args pointer ABI"
 #endif
 
+#if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_LAUNCH_CONTEXT_ABI) && \
+    !defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_LAUNCH_DESCRIPTOR_ABI)
+#error "future native consumer kernel launch context ABI requires future native consumer kernel launch descriptor ABI"
+#endif
+
 #if (defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD) && \
      defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_MIRROR_FIELD)) || \
     (defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD) && \
@@ -268,6 +273,15 @@ static_assert(
 static_assert(
     !kPremapFutureKernelNativeConsumerKernelLaunchDescriptorAbiV1CurrentWna16ArgCompatible,
     "future native consumer kernel launch descriptor ABI must not be the current WNA16 arg list");
+static_assert(
+    !kPremapFutureKernelNativeConsumerKernelLaunchContextAbiV1PayloadDerefAllowed,
+    "future native consumer kernel launch context ABI must not allow payload dereference");
+static_assert(
+    !kPremapFutureKernelNativeConsumerKernelLaunchContextAbiV1KernelArgPassAllowed,
+    "future native consumer kernel launch context ABI must not allow kernel-arg pass");
+static_assert(
+    !kPremapFutureKernelNativeConsumerKernelLaunchContextAbiV1CurrentWna16ArgCompatible,
+    "future native consumer kernel launch context ABI must not be the current WNA16 arg list");
 
 constexpr uint64_t kTypedSchemaHashHi = MTP_PREMAP_TYPED_CONSUMER_SCHEMA_HASH_HI;
 constexpr uint64_t kTypedSchemaHashLo = MTP_PREMAP_TYPED_CONSUMER_SCHEMA_HASH_LO;
@@ -1480,6 +1494,43 @@ typed_consumer_future_native_consumer_kernel_launch_descriptor_kernel(
           *entry_args.kernel_arg_packet);
 }
 
+__global__ void
+typed_consumer_future_native_consumer_kernel_launch_context_kernel(
+    const PremapFutureKernelNativeConsumerKernelLaunchContextV1* context) {
+  if (blockIdx.x != 0 || threadIdx.x != 0 || context == nullptr) {
+    return;
+  }
+  const PremapFutureKernelNativeConsumerKernelLaunchContextV1 local = *context;
+  if (local.summary == nullptr) {
+    return;
+  }
+  if (!premap_typed_consumer_future_native_kernel_launch_context_matches_v1(
+          local)) {
+    PremapFutureKernelNativeConsumerKernelEntrySummaryV1 out{};
+    out.abi_version =
+        kPremapFutureKernelNativeConsumerKernelEntrySummaryAbiV1Version;
+    out.payload_bytes = 0;
+    out.passed_to_kernel = 0;
+    out.changes_kernel_launch_args = 0;
+    out.current_wna16_arg_compatible = 0;
+    out.requires_wna16_arg_reinterpretation = 0;
+    out.error_count = 1;
+    *local.summary = out;
+    return;
+  }
+  const PremapFutureKernelNativeConsumerKernelLaunchDescriptorV1 descriptor =
+      *local.launch_descriptor;
+  const PremapFutureKernelNativeConsumerLaunchEnvelopeArgsPtrV1 launch_args_ptr =
+      *descriptor.launch_args_ptr;
+  const PremapFutureKernelNativeConsumerLaunchEnvelopeArgsV1 launch_args =
+      *launch_args_ptr.launch_args;
+  const PremapFutureKernelNativeConsumerKernelEntryArgsV1 entry_args =
+      *launch_args.entry_args;
+  *local.summary =
+      premap_typed_consumer_build_future_native_kernel_entry_summary_v1(
+          *entry_args.kernel_arg_packet);
+}
+
 struct Args {
   int device = 0;
   int rows = 1024;
@@ -1749,6 +1800,12 @@ static std::string macro_json() {
 #else
      << "false";
 #endif
+  os << ",\"MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_LAUNCH_CONTEXT_ABI\":"
+#if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_LAUNCH_CONTEXT_ABI)
+     << "true";
+#else
+     << "false";
+#endif
   os << "}";
   return os.str();
 }
@@ -1856,6 +1913,10 @@ int main(int argc, char** argv) {
       d_future_native_consumer_launch_envelope_args_ptr_packet = nullptr;
   PremapFutureKernelNativeConsumerKernelLaunchDescriptorV1*
       d_future_native_consumer_kernel_launch_descriptor_packet = nullptr;
+  PremapFutureKernelNativeConsumerKernelEntrySummaryV1*
+      d_future_native_consumer_kernel_launch_context_summary = nullptr;
+  PremapFutureKernelNativeConsumerKernelLaunchContextV1*
+      d_future_native_consumer_kernel_launch_context_packet = nullptr;
   int32_t* d_expert = nullptr;
   uint32_t *d_ok = nullptr, *d_single_field_mirror_ok = nullptr,
            *d_kernel_side_consumer_path_ok = nullptr,
@@ -2206,6 +2267,16 @@ int main(int argc, char** argv) {
           &d_future_native_consumer_kernel_launch_descriptor_packet,
           sizeof(PremapFutureKernelNativeConsumerKernelLaunchDescriptorV1)),
       "hipMalloc future_native_consumer_kernel_launch_descriptor_packet");
+  hip_check(
+      hipMalloc(
+          &d_future_native_consumer_kernel_launch_context_summary,
+          sizeof(PremapFutureKernelNativeConsumerKernelEntrySummaryV1)),
+      "hipMalloc future_native_consumer_kernel_launch_context_summary");
+  hip_check(
+      hipMalloc(
+          &d_future_native_consumer_kernel_launch_context_packet,
+          sizeof(PremapFutureKernelNativeConsumerKernelLaunchContextV1)),
+      "hipMalloc future_native_consumer_kernel_launch_context_packet");
   hip_check(hipMemcpy(d_descriptor, descriptor.data(), u64_bytes, hipMemcpyHostToDevice), "copy descriptor");
   hip_check(hipMemcpy(d_packed, packed.data(), u64_bytes, hipMemcpyHostToDevice), "copy packed");
   hip_check(hipMemcpy(d_scale, scale.data(), u64_bytes, hipMemcpyHostToDevice), "copy scale");
@@ -2512,6 +2583,18 @@ int main(int argc, char** argv) {
           0,
           sizeof(PremapFutureKernelNativeConsumerKernelLaunchDescriptorV1)),
       "memset future_native_consumer_kernel_launch_descriptor_packet");
+  hip_check(
+      hipMemset(
+          d_future_native_consumer_kernel_launch_context_summary,
+          0,
+          sizeof(PremapFutureKernelNativeConsumerKernelEntrySummaryV1)),
+      "memset future_native_consumer_kernel_launch_context_summary");
+  hip_check(
+      hipMemset(
+          d_future_native_consumer_kernel_launch_context_packet,
+          0,
+          sizeof(PremapFutureKernelNativeConsumerKernelLaunchContextV1)),
+      "memset future_native_consumer_kernel_launch_context_packet");
 
   PremapKernelSideTypedConsumerAbiV1 table;
   table.typed_schema_hash_hi = kTypedSchemaHashHi;
@@ -3238,6 +3321,52 @@ int main(int argc, char** argv) {
   hip_check(
       hipDeviceSynchronize(),
       "future native consumer kernel launch descriptor sync");
+#if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_LAUNCH_CONTEXT_ABI)
+  PremapFutureKernelNativeConsumerKernelLaunchContextV1
+      future_native_consumer_kernel_launch_context;
+  future_native_consumer_kernel_launch_context.launch_descriptor =
+      d_future_native_consumer_kernel_launch_descriptor_packet;
+  future_native_consumer_kernel_launch_context.summary =
+      d_future_native_consumer_kernel_launch_context_summary;
+  future_native_consumer_kernel_launch_context.expected_schema_hash_hi =
+      kTypedSchemaHashHi;
+  future_native_consumer_kernel_launch_context.expected_schema_hash_lo =
+      kTypedSchemaHashLo;
+  future_native_consumer_kernel_launch_context.abi_version =
+      kPremapFutureKernelNativeConsumerKernelLaunchContextAbiV1Version;
+  future_native_consumer_kernel_launch_context.launch_descriptor_struct_size =
+      sizeof(PremapFutureKernelNativeConsumerKernelLaunchDescriptorV1);
+  future_native_consumer_kernel_launch_context.summary_struct_size =
+      sizeof(PremapFutureKernelNativeConsumerKernelEntrySummaryV1);
+  future_native_consumer_kernel_launch_context.pointer_size =
+      sizeof(PremapFutureKernelNativeConsumerKernelLaunchDescriptorV1*);
+  future_native_consumer_kernel_launch_context.device_ordinal =
+      static_cast<uint32_t>(args.device);
+  future_native_consumer_kernel_launch_context.stream_domain = 0;
+  future_native_consumer_kernel_launch_context.payload_bytes = 0;
+  future_native_consumer_kernel_launch_context.flags =
+      kPremapFutureKernelSideConsumerArgsV1RequiredFlags;
+  hip_check(
+      hipMemcpy(
+          d_future_native_consumer_kernel_launch_context_packet,
+          &future_native_consumer_kernel_launch_context,
+          sizeof(PremapFutureKernelNativeConsumerKernelLaunchContextV1),
+          hipMemcpyHostToDevice),
+      "copy future_native_consumer_kernel_launch_context_packet");
+  hipLaunchKernelGGL(
+      typed_consumer_future_native_consumer_kernel_launch_context_kernel,
+      dim3(1),
+      dim3(1),
+      0,
+      0,
+      d_future_native_consumer_kernel_launch_context_packet);
+  hip_check(
+      hipGetLastError(),
+      "future native consumer kernel launch context launch");
+  hip_check(
+      hipDeviceSynchronize(),
+      "future native consumer kernel launch context sync");
+#endif
 #endif
 #endif
 #endif
@@ -3358,6 +3487,8 @@ int main(int argc, char** argv) {
       future_native_consumer_launch_envelope_args_ptr_summary{};
   PremapFutureKernelNativeConsumerKernelEntrySummaryV1
       future_native_consumer_kernel_launch_descriptor_summary{};
+  PremapFutureKernelNativeConsumerKernelEntrySummaryV1
+      future_native_consumer_kernel_launch_context_summary{};
   hip_check(hipMemcpy(ok.data(), d_ok, u32_bytes, hipMemcpyDeviceToHost), "copy ok");
   hip_check(hipMemcpy(hashes.data(), d_hash, u64_bytes, hipMemcpyDeviceToHost), "copy hash");
   hip_check(
@@ -3888,6 +4019,13 @@ int main(int argc, char** argv) {
           sizeof(PremapFutureKernelNativeConsumerKernelEntrySummaryV1),
           hipMemcpyDeviceToHost),
       "copy future_native_consumer_kernel_launch_descriptor_summary");
+  hip_check(
+      hipMemcpy(
+          &future_native_consumer_kernel_launch_context_summary,
+          d_future_native_consumer_kernel_launch_context_summary,
+          sizeof(PremapFutureKernelNativeConsumerKernelEntrySummaryV1),
+          hipMemcpyDeviceToHost),
+      "copy future_native_consumer_kernel_launch_context_summary");
 
   uint64_t hash_acc = 0;
   uint64_t single_field_mirror_hash_acc = 0;
@@ -4617,6 +4755,18 @@ int main(int argc, char** argv) {
                 future_native_consumer_kernel_launch_descriptor_summary
                     .error_count)
           : 0;
+  const bool future_native_consumer_kernel_launch_context_checked =
+#if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_LAUNCH_CONTEXT_ABI)
+      true;
+#else
+      false;
+#endif
+  const int future_native_consumer_kernel_launch_context_error_count =
+      future_native_consumer_kernel_launch_context_checked
+          ? static_cast<int>(
+                future_native_consumer_kernel_launch_context_summary
+                    .error_count)
+          : 0;
   const bool all_ok =
       error_count == 0 && future_kernel_consumer_args_error_count == 0 &&
       future_kernel_single_field_mirror_error_count == 0 &&
@@ -4652,7 +4802,8 @@ int main(int argc, char** argv) {
       future_native_consumer_kernel_entry_args_ptr_error_count == 0 &&
       future_native_consumer_launch_envelope_args_error_count == 0 &&
       future_native_consumer_launch_envelope_args_ptr_error_count == 0 &&
-      future_native_consumer_kernel_launch_descriptor_error_count == 0;
+      future_native_consumer_kernel_launch_descriptor_error_count == 0 &&
+      future_native_consumer_kernel_launch_context_error_count == 0;
 
   hip_check(hipFree(d_descriptor), "hipFree descriptor");
   hip_check(hipFree(d_packed), "hipFree packed");
@@ -4894,6 +5045,9 @@ int main(int argc, char** argv) {
       hipFree(d_future_native_consumer_kernel_launch_descriptor_summary),
       "hipFree future_native_consumer_kernel_launch_descriptor_summary");
   hip_check(
+      hipFree(d_future_native_consumer_kernel_launch_context_summary),
+      "hipFree future_native_consumer_kernel_launch_context_summary");
+  hip_check(
       hipFree(d_future_native_consumer_kernel_entry_args),
       "hipFree future_native_consumer_kernel_entry_args");
   hip_check(
@@ -4905,6 +5059,9 @@ int main(int argc, char** argv) {
   hip_check(
       hipFree(d_future_native_consumer_kernel_launch_descriptor_packet),
       "hipFree future_native_consumer_kernel_launch_descriptor_packet");
+  hip_check(
+      hipFree(d_future_native_consumer_kernel_launch_context_packet),
+      "hipFree future_native_consumer_kernel_launch_context_packet");
   if (d_future_native_dispatch_packet != nullptr) {
     hip_check(
         hipFree(d_future_native_dispatch_packet),
@@ -6841,6 +6998,168 @@ int main(int argc, char** argv) {
             << std::hex
             << (future_native_consumer_kernel_launch_descriptor_checked
                     ? future_native_consumer_kernel_launch_descriptor_summary
+                          .row_metadata_hash_accumulator
+                    : 0ULL)
+            << std::dec << "\"";
+  std::cout << ",\"future_kernel_native_consumer_kernel_launch_context_abi_name\":\""
+            << kPremapFutureKernelNativeConsumerKernelLaunchContextAbiV1Name
+            << "\"";
+  std::cout << ",\"future_kernel_native_consumer_kernel_launch_context_mode\":\""
+            << kPremapFutureKernelNativeConsumerKernelLaunchContextAbiV1Mode
+            << "\"";
+  std::cout << ",\"future_kernel_native_consumer_kernel_launch_context_source\":\""
+            << kPremapFutureKernelNativeConsumerKernelLaunchContextAbiV1Source
+            << "\"";
+  std::cout << ",\"future_kernel_native_consumer_kernel_launch_context_field_read_path\":\"kernel_launch_context_to_kernel_launch_descriptor_to_launch_envelope_args_ptr_to_launch_envelope_args_to_entry_args_ptr_to_kernel_entry_args_to_kernel_arg_packet_to_program_view_rows\"";
+  std::cout << ",\"future_kernel_native_consumer_kernel_launch_context_packet_chain_depth\":10";
+  std::cout << ",\"future_kernel_native_consumer_kernel_launch_context_checked\":"
+            << (future_native_consumer_kernel_launch_context_checked ? "true"
+                                                                     : "false");
+  std::cout << ",\"future_kernel_native_consumer_kernel_launch_context_version\":"
+            << kPremapFutureKernelNativeConsumerKernelLaunchContextAbiV1Version;
+  std::cout << ",\"future_kernel_native_consumer_kernel_launch_context_struct_size\":"
+            << sizeof(PremapFutureKernelNativeConsumerKernelLaunchContextV1);
+  std::cout << ",\"future_kernel_native_consumer_kernel_launch_context_struct_align\":"
+            << alignof(PremapFutureKernelNativeConsumerKernelLaunchContextV1);
+  std::cout << ",\"future_kernel_native_consumer_kernel_launch_context_offset_launch_descriptor\":"
+            << offsetof(
+                   PremapFutureKernelNativeConsumerKernelLaunchContextV1,
+                   launch_descriptor);
+  std::cout << ",\"future_kernel_native_consumer_kernel_launch_context_offset_summary\":"
+            << offsetof(
+                   PremapFutureKernelNativeConsumerKernelLaunchContextV1,
+                   summary);
+  std::cout << ",\"future_kernel_native_consumer_kernel_launch_context_offset_expected_schema_hash_hi\":"
+            << offsetof(
+                   PremapFutureKernelNativeConsumerKernelLaunchContextV1,
+                   expected_schema_hash_hi);
+  std::cout << ",\"future_kernel_native_consumer_kernel_launch_context_offset_expected_schema_hash_lo\":"
+            << offsetof(
+                   PremapFutureKernelNativeConsumerKernelLaunchContextV1,
+                   expected_schema_hash_lo);
+  std::cout << ",\"future_kernel_native_consumer_kernel_launch_context_offset_abi_version\":"
+            << offsetof(
+                   PremapFutureKernelNativeConsumerKernelLaunchContextV1,
+                   abi_version);
+  std::cout << ",\"future_kernel_native_consumer_kernel_launch_context_offset_launch_descriptor_struct_size\":"
+            << offsetof(
+                   PremapFutureKernelNativeConsumerKernelLaunchContextV1,
+                   launch_descriptor_struct_size);
+  std::cout << ",\"future_kernel_native_consumer_kernel_launch_context_offset_summary_struct_size\":"
+            << offsetof(
+                   PremapFutureKernelNativeConsumerKernelLaunchContextV1,
+                   summary_struct_size);
+  std::cout << ",\"future_kernel_native_consumer_kernel_launch_context_offset_pointer_size\":"
+            << offsetof(
+                   PremapFutureKernelNativeConsumerKernelLaunchContextV1,
+                   pointer_size);
+  std::cout << ",\"future_kernel_native_consumer_kernel_launch_context_offset_device_ordinal\":"
+            << offsetof(
+                   PremapFutureKernelNativeConsumerKernelLaunchContextV1,
+                   device_ordinal);
+  std::cout << ",\"future_kernel_native_consumer_kernel_launch_context_offset_stream_domain\":"
+            << offsetof(
+                   PremapFutureKernelNativeConsumerKernelLaunchContextV1,
+                   stream_domain);
+  std::cout << ",\"future_kernel_native_consumer_kernel_launch_context_offset_payload_bytes\":"
+            << offsetof(
+                   PremapFutureKernelNativeConsumerKernelLaunchContextV1,
+                   payload_bytes);
+  std::cout << ",\"future_kernel_native_consumer_kernel_launch_context_offset_flags\":"
+            << offsetof(
+                   PremapFutureKernelNativeConsumerKernelLaunchContextV1,
+                   flags);
+  std::cout << ",\"future_kernel_native_consumer_kernel_launch_context_launch_descriptor_struct_size\":"
+            << sizeof(PremapFutureKernelNativeConsumerKernelLaunchDescriptorV1);
+  std::cout << ",\"future_kernel_native_consumer_kernel_launch_context_summary_struct_size\":"
+            << sizeof(PremapFutureKernelNativeConsumerKernelEntrySummaryV1);
+  std::cout << ",\"future_kernel_native_consumer_kernel_launch_context_pointer_size\":"
+            << sizeof(PremapFutureKernelNativeConsumerKernelLaunchDescriptorV1*);
+  std::cout << ",\"future_kernel_native_consumer_kernel_launch_context_device_ordinal\":"
+            << args.device;
+  std::cout << ",\"future_kernel_native_consumer_kernel_launch_context_stream_domain\":0";
+  std::cout << ",\"future_kernel_native_consumer_kernel_launch_context_summary_packet_valid\":"
+            << (future_native_consumer_kernel_launch_context_checked
+                    ? future_native_consumer_kernel_launch_context_summary
+                          .packet_valid
+                    : 0);
+  std::cout << ",\"future_kernel_native_consumer_kernel_launch_context_summary_row_count\":"
+            << (future_native_consumer_kernel_launch_context_checked
+                    ? future_native_consumer_kernel_launch_context_summary
+                          .row_count
+                    : 0);
+  std::cout << ",\"future_kernel_native_consumer_kernel_launch_context_summary_row_ok_count\":"
+            << (future_native_consumer_kernel_launch_context_checked
+                    ? future_native_consumer_kernel_launch_context_summary
+                          .row_ok_count
+                    : 0);
+  std::cout << ",\"future_kernel_native_consumer_kernel_launch_context_summary_descriptor_ptr_read_row_ok_count\":"
+            << (future_native_consumer_kernel_launch_context_checked
+                    ? future_native_consumer_kernel_launch_context_summary
+                          .descriptor_ptr_read_ok_count
+                    : 0);
+  std::cout << ",\"future_kernel_native_consumer_kernel_launch_context_summary_packed_weight_descriptor_read_row_ok_count\":"
+            << (future_native_consumer_kernel_launch_context_checked
+                    ? future_native_consumer_kernel_launch_context_summary
+                          .packed_weight_descriptor_read_ok_count
+                    : 0);
+  std::cout << ",\"future_kernel_native_consumer_kernel_launch_context_summary_scale_metadata_handle_read_row_ok_count\":"
+            << (future_native_consumer_kernel_launch_context_checked
+                    ? future_native_consumer_kernel_launch_context_summary
+                          .scale_metadata_handle_read_ok_count
+                    : 0);
+  std::cout << ",\"future_kernel_native_consumer_kernel_launch_context_summary_aux_metadata_handle_read_row_ok_count\":"
+            << (future_native_consumer_kernel_launch_context_checked
+                    ? future_native_consumer_kernel_launch_context_summary
+                          .aux_metadata_handle_read_ok_count
+                    : 0);
+  std::cout << ",\"future_kernel_native_consumer_kernel_launch_context_summary_expert_id_read_row_ok_count\":"
+            << (future_native_consumer_kernel_launch_context_checked
+                    ? future_native_consumer_kernel_launch_context_summary
+                          .expert_id_read_ok_count
+                    : 0);
+  std::cout << ",\"future_kernel_native_consumer_kernel_launch_context_summary_address_key_hash_read_row_ok_count\":"
+            << (future_native_consumer_kernel_launch_context_checked
+                    ? future_native_consumer_kernel_launch_context_summary
+                          .address_key_hash_read_ok_count
+                    : 0);
+  std::cout << ",\"future_kernel_native_consumer_kernel_launch_context_summary_row_metadata_read_row_ok_count\":"
+            << (future_native_consumer_kernel_launch_context_checked
+                    ? future_native_consumer_kernel_launch_context_summary
+                          .row_metadata_read_ok_count
+                    : 0);
+  std::cout << ",\"future_kernel_native_consumer_kernel_launch_context_summary_error_count\":"
+            << future_native_consumer_kernel_launch_context_error_count;
+  std::cout << ",\"future_kernel_native_consumer_kernel_launch_context_summary_field_mask\":"
+            << (future_native_consumer_kernel_launch_context_checked
+                    ? future_native_consumer_kernel_launch_context_summary
+                          .field_mask
+                    : 0);
+  std::cout << ",\"future_kernel_native_consumer_kernel_launch_context_payload_bytes\":0";
+  std::cout << ",\"future_kernel_native_consumer_kernel_launch_context_payload_deref_allowed\":false";
+  std::cout << ",\"future_kernel_native_consumer_kernel_launch_context_passed_to_kernel\":false";
+  std::cout << ",\"future_kernel_native_consumer_kernel_launch_context_kernel_arg_pass_allowed\":false";
+  std::cout << ",\"future_kernel_native_consumer_kernel_launch_context_changes_kernel_launch_args\":false";
+  std::cout << ",\"future_kernel_native_consumer_kernel_launch_context_current_wna16_arg_compatible\":false";
+  std::cout << ",\"future_kernel_native_consumer_kernel_launch_context_requires_wna16_arg_reinterpretation\":false";
+  std::cout << ",\"future_kernel_native_consumer_kernel_launch_context_summary_row_hash_accumulator\":\""
+            << std::hex
+            << (future_native_consumer_kernel_launch_context_checked
+                    ? future_native_consumer_kernel_launch_context_summary
+                          .row_hash_accumulator
+                    : 0ULL)
+            << std::dec << "\"";
+  std::cout << ",\"future_kernel_native_consumer_kernel_launch_context_summary_field_read_hash_accumulator\":\""
+            << std::hex
+            << (future_native_consumer_kernel_launch_context_checked
+                    ? future_native_consumer_kernel_launch_context_summary
+                          .field_read_hash_accumulator
+                    : 0ULL)
+            << std::dec << "\"";
+  std::cout << ",\"future_kernel_native_consumer_kernel_launch_context_summary_row_metadata_hash_accumulator\":\""
+            << std::hex
+            << (future_native_consumer_kernel_launch_context_checked
+                    ? future_native_consumer_kernel_launch_context_summary
                           .row_metadata_hash_accumulator
                     : 0ULL)
             << std::dec << "\"";

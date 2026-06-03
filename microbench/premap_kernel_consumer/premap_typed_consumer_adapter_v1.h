@@ -313,6 +313,26 @@ constexpr bool
 constexpr bool
     kPremapFutureKernelNativeConsumerKernelLaunchDescriptorAbiV1CurrentWna16ArgCompatible =
         false;
+constexpr const char*
+    kPremapFutureKernelNativeConsumerKernelLaunchContextAbiV1Name =
+        "premap_future_kernel_native_consumer_kernel_launch_context_abi_v1";
+constexpr const char*
+    kPremapFutureKernelNativeConsumerKernelLaunchContextAbiV1Mode =
+        "readonly_future_kernel_native_consumer_kernel_launch_context_abi";
+constexpr const char*
+    kPremapFutureKernelNativeConsumerKernelLaunchContextAbiV1Source =
+        "premap_future_kernel_native_consumer_kernel_launch_descriptor_abi_v1";
+constexpr uint32_t
+    kPremapFutureKernelNativeConsumerKernelLaunchContextAbiV1Version = 1;
+constexpr bool
+    kPremapFutureKernelNativeConsumerKernelLaunchContextAbiV1PayloadDerefAllowed =
+        false;
+constexpr bool
+    kPremapFutureKernelNativeConsumerKernelLaunchContextAbiV1KernelArgPassAllowed =
+        false;
+constexpr bool
+    kPremapFutureKernelNativeConsumerKernelLaunchContextAbiV1CurrentWna16ArgCompatible =
+        false;
 
 constexpr uint32_t kPremapFutureKernelSideConsumerArgsV1ReadonlyFlag = 1u << 0;
 constexpr uint32_t
@@ -596,6 +616,26 @@ struct PremapFutureKernelNativeConsumerKernelLaunchDescriptorV1 {
   uint32_t row_offset;
   uint32_t row_limit;
   uint32_t rows_per_program;
+  uint32_t payload_bytes;
+  uint32_t flags;
+};
+
+// Future kernel launch context. This is a top-level typed consumer object a
+// future kernel-side descriptor/address prep consumer could receive before it
+// unpacks the launch descriptor. It remains a standalone native canary: no
+// payload bytes are moved and no current WNA16 kernel argument is passed.
+struct PremapFutureKernelNativeConsumerKernelLaunchContextV1 {
+  const PremapFutureKernelNativeConsumerKernelLaunchDescriptorV1*
+      launch_descriptor;
+  PremapFutureKernelNativeConsumerKernelEntrySummaryV1* summary;
+  uint64_t expected_schema_hash_hi;
+  uint64_t expected_schema_hash_lo;
+  uint32_t abi_version;
+  uint32_t launch_descriptor_struct_size;
+  uint32_t summary_struct_size;
+  uint32_t pointer_size;
+  uint32_t device_ordinal;
+  uint32_t stream_domain;
   uint32_t payload_bytes;
   uint32_t flags;
 };
@@ -1310,6 +1350,47 @@ premap_typed_consumer_future_native_kernel_launch_descriptor_matches_v1(
          program_view.view.rows_per_program == descriptor.rows_per_program &&
          program_view.view.row_offset == descriptor.row_offset &&
          program_view.view.row_limit == descriptor.row_limit;
+}
+
+__device__ static inline bool
+premap_typed_consumer_future_native_kernel_launch_context_matches_v1(
+    const PremapFutureKernelNativeConsumerKernelLaunchContextV1& context) {
+  if (context.launch_descriptor == nullptr || context.summary == nullptr ||
+      context.abi_version !=
+          kPremapFutureKernelNativeConsumerKernelLaunchContextAbiV1Version ||
+      context.launch_descriptor_struct_size !=
+          sizeof(PremapFutureKernelNativeConsumerKernelLaunchDescriptorV1) ||
+      context.summary_struct_size !=
+          sizeof(PremapFutureKernelNativeConsumerKernelEntrySummaryV1) ||
+      context.pointer_size !=
+          sizeof(PremapFutureKernelNativeConsumerKernelLaunchDescriptorV1*) ||
+      context.expected_schema_hash_hi == 0 ||
+      context.expected_schema_hash_lo == 0 || context.payload_bytes != 0 ||
+      context.stream_domain != 0 ||
+      (context.flags & kPremapFutureKernelSideConsumerArgsV1ReadonlyFlag) == 0 ||
+      (context.flags &
+       kPremapFutureKernelSideConsumerArgsV1KernelArgPassDisabledFlag) == 0 ||
+      (context.flags &
+       kPremapFutureKernelSideConsumerArgsV1PayloadDerefDisabledFlag) == 0 ||
+      context.flags != kPremapFutureKernelSideConsumerArgsV1RequiredFlags ||
+      kPremapFutureKernelNativeConsumerKernelLaunchContextAbiV1PayloadDerefAllowed ||
+      kPremapFutureKernelNativeConsumerKernelLaunchContextAbiV1KernelArgPassAllowed ||
+      kPremapFutureKernelNativeConsumerKernelLaunchContextAbiV1CurrentWna16ArgCompatible) {
+    return false;
+  }
+
+  const PremapFutureKernelNativeConsumerKernelLaunchDescriptorV1 descriptor =
+      *context.launch_descriptor;
+  // The top-level launch context owns its own summary/status sink.  It wraps a
+  // valid launch descriptor but does not require aliasing the descriptor-level
+  // summary pointer; that would make a future prelaunch context unable to
+  // report independently from the nested descriptor canary.  The runner checks
+  // device_ordinal against the selected HIP device; the device-side stub only
+  // enforces the stream-domain contract that is part of this standalone ABI.
+  return descriptor.expected_schema_hash_hi == context.expected_schema_hash_hi &&
+         descriptor.expected_schema_hash_lo == context.expected_schema_hash_lo &&
+         premap_typed_consumer_future_native_kernel_launch_descriptor_matches_v1(
+             descriptor);
 }
 
 __device__ static inline bool
