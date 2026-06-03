@@ -377,9 +377,32 @@ def test_online_merged_arg_slot_canary_dry_run_accepts_launch_envelope_args(
     assert result["passed"] is True
     assert result["require_launch_envelope_args_abi"] is True
     assert result["launch_envelope_args_checked"] is True
+    assert (
+        result["launch_envelope_args_abi_name"]
+        == "premap_future_kernel_native_consumer_launch_envelope_args_abi_v1"
+    )
+    assert (
+        result["launch_envelope_args_mode"]
+        == "readonly_future_kernel_native_consumer_launch_envelope_args_abi"
+    )
+    assert (
+        result["launch_envelope_args_source"]
+        == "premap_future_kernel_native_consumer_kernel_entry_args_ptr_abi_v1"
+    )
     assert result["launch_envelope_args_error_count"] == 0
     assert result["launch_envelope_args_all_handle_fields_read"] is True
     assert result["launch_envelope_args_packet_chain_depth"] == 7
+    assert result["launch_envelope_args_version"] == 1
+    assert result["launch_envelope_args_grid_x"] == 2
+    assert result["launch_envelope_args_block_x"] == 4
+    assert result["launch_envelope_args_row_offset"] == 0
+    assert result["launch_envelope_args_row_limit"] == 7
+    assert result["launch_envelope_args_rows_per_program"] == 4
+    assert result["launch_envelope_args_struct_size"] == 48
+    assert result["launch_envelope_args_struct_align"] == 8
+    assert int(result["launch_envelope_args_row_hash_accumulator"], 16) == 1
+    assert int(result["launch_envelope_args_field_read_hash_accumulator"], 16) == 2
+    assert int(result["launch_envelope_args_row_metadata_hash_accumulator"], 16) == 3
     assert module.LAUNCH_ENVELOPE_ARGS_MACRO in stub_payload["requested_macros"]
     assert (
         stub_payload[
@@ -422,6 +445,62 @@ def test_online_merged_arg_slot_canary_dry_run_accepts_launch_envelope_args(
             "future_kernel_native_consumer_launch_envelope_args_packet_chain_depth"
         ]
         == 7
+    )
+
+
+def test_online_merged_arg_slot_canary_tail_window_checks_launch_envelope_args(
+    tmp_path: Path,
+):
+    module = _load_module()
+    first = tmp_path / "input0.json"
+    second = tmp_path / "input1.json"
+    runner = tmp_path / "runner.json"
+    _write_input(first, start=0, rows=3, export_index=0)
+    _write_input(second, start=100, rows=4, export_index=1)
+    _write_runner(runner, [first, second])
+
+    args = module.build_parser().parse_args(
+        [
+            "--runner-json",
+            str(runner),
+            "--min-source-count",
+            "2",
+            "--min-total-rows",
+            "7",
+            "--block-threads",
+            "4",
+            "--tail-window-size",
+            "3",
+            "--require-launch-envelope-args-abi",
+            "--merged-output-json",
+            str(tmp_path / "merged.json"),
+            "--stub-output-json",
+            str(tmp_path / "stub.json"),
+            "--output-json",
+            str(tmp_path / "report.json"),
+            "--dry-run",
+        ]
+    )
+
+    result = module.run_canary(args)
+
+    assert result["passed"] is True
+    assert result["dispatch_row_offset"] == 4
+    assert result["dispatch_row_limit"] == 7
+    assert result["dispatch_active_rows"] == 3
+    assert result["dispatch_expected_program_count"] == 1
+    assert result["launch_envelope_args_checked"] is True
+    assert result["launch_envelope_args_all_handle_fields_read"] is True
+    assert result["launch_envelope_args_grid_x"] == 1
+    assert result["launch_envelope_args_block_x"] == 4
+    assert result["launch_envelope_args_row_offset"] == 4
+    assert result["launch_envelope_args_row_limit"] == 7
+    assert result["launch_envelope_args_rows_per_program"] == 4
+    assert (
+        result["stub_summary"][
+            "future_kernel_native_consumer_launch_envelope_args_summary_row_count"
+        ]
+        == 3
     )
 
 

@@ -889,9 +889,9 @@ def _launch_envelope_args_dry_run_pairs(
             dispatch_row_offset=dispatch_row_offset,
             dispatch_row_limit=dispatch_row_limit,
         ),
-        "future_kernel_native_consumer_launch_envelope_args_summary_row_hash_accumulator": "dry",
-        "future_kernel_native_consumer_launch_envelope_args_summary_field_read_hash_accumulator": "dry",
-        "future_kernel_native_consumer_launch_envelope_args_summary_row_metadata_hash_accumulator": "dry",
+        "future_kernel_native_consumer_launch_envelope_args_summary_row_hash_accumulator": "0000000000000001",
+        "future_kernel_native_consumer_launch_envelope_args_summary_field_read_hash_accumulator": "0000000000000002",
+        "future_kernel_native_consumer_launch_envelope_args_summary_row_metadata_hash_accumulator": "0000000000000003",
     }
 
 
@@ -928,9 +928,8 @@ def _check_launch_envelope_args(
         f"{prefix}_summary_field_read_hash_accumulator",
         f"{prefix}_summary_row_metadata_hash_accumulator",
     ):
-        hash_value = stub.get(hash_key)
-        if not isinstance(hash_value, str) or not hash_value:
-            failures.append(f"{hash_key}_missing")
+        if _parse_hex64(stub.get(hash_key)) is None:
+            failures.append(f"{hash_key}_invalid")
     return failures
 
 
@@ -1734,6 +1733,15 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
             )
             is True
         ),
+        "launch_envelope_args_abi_name": stub_payload.get(
+            "future_kernel_native_consumer_launch_envelope_args_abi_name"
+        ),
+        "launch_envelope_args_mode": stub_payload.get(
+            "future_kernel_native_consumer_launch_envelope_args_mode"
+        ),
+        "launch_envelope_args_source": stub_payload.get(
+            "future_kernel_native_consumer_launch_envelope_args_source"
+        ),
         "launch_envelope_args_error_count": stub_payload.get(
             "future_kernel_native_consumer_launch_envelope_args_summary_error_count"
         ),
@@ -1743,6 +1751,39 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
         ),
         "launch_envelope_args_packet_chain_depth": stub_payload.get(
             "future_kernel_native_consumer_launch_envelope_args_packet_chain_depth"
+        ),
+        "launch_envelope_args_version": stub_payload.get(
+            "future_kernel_native_consumer_launch_envelope_args_version"
+        ),
+        "launch_envelope_args_grid_x": stub_payload.get(
+            "future_kernel_native_consumer_launch_envelope_args_grid_x"
+        ),
+        "launch_envelope_args_block_x": stub_payload.get(
+            "future_kernel_native_consumer_launch_envelope_args_block_x"
+        ),
+        "launch_envelope_args_row_offset": stub_payload.get(
+            "future_kernel_native_consumer_launch_envelope_args_row_offset"
+        ),
+        "launch_envelope_args_row_limit": stub_payload.get(
+            "future_kernel_native_consumer_launch_envelope_args_row_limit"
+        ),
+        "launch_envelope_args_rows_per_program": stub_payload.get(
+            "future_kernel_native_consumer_launch_envelope_args_rows_per_program"
+        ),
+        "launch_envelope_args_struct_size": stub_payload.get(
+            "future_kernel_native_consumer_launch_envelope_args_struct_size"
+        ),
+        "launch_envelope_args_struct_align": stub_payload.get(
+            "future_kernel_native_consumer_launch_envelope_args_struct_align"
+        ),
+        "launch_envelope_args_row_hash_accumulator": stub_payload.get(
+            "future_kernel_native_consumer_launch_envelope_args_summary_row_hash_accumulator"
+        ),
+        "launch_envelope_args_field_read_hash_accumulator": stub_payload.get(
+            "future_kernel_native_consumer_launch_envelope_args_summary_field_read_hash_accumulator"
+        ),
+        "launch_envelope_args_row_metadata_hash_accumulator": stub_payload.get(
+            "future_kernel_native_consumer_launch_envelope_args_summary_row_metadata_hash_accumulator"
         ),
         "consumer_view_source_packet_chain_depth": stub_payload.get(
             "future_kernel_native_consumer_view_source_packet_chain_depth"
