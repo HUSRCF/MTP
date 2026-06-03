@@ -163,6 +163,10 @@ def check_lab_gate_verify_artifact(
         failures.append(
             "window_sweep_check_did_not_require_kernel_entry_args_ptr_abi"
         )
+    if window_check.get("require_child_launch_envelope_args_ptr_abi") is not True:
+        failures.append(
+            "window_sweep_check_did_not_require_launch_envelope_args_ptr_abi"
+        )
     if window_check.get("require_child_kernel_entry_row_metadata") is not True:
         failures.append("window_sweep_check_did_not_require_kernel_entry_row_metadata")
     if window_check.get("require_non_degenerate_windows") is not True:

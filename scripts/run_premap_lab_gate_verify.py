@@ -140,6 +140,9 @@ def _load_status(path: Path) -> dict[str, Any]:
         "require_child_kernel_entry_args_ptr_abi": payload.get(
             "require_child_kernel_entry_args_ptr_abi"
         ),
+        "require_child_launch_envelope_args_ptr_abi": payload.get(
+            "require_child_launch_envelope_args_ptr_abi"
+        ),
         "require_child_kernel_entry_row_metadata": payload.get(
             "require_child_kernel_entry_row_metadata"
         ),
@@ -211,6 +214,10 @@ def _status_failures(statuses: dict[str, dict[str, Any]]) -> list[str]:
     if window_check.get("require_child_kernel_entry_args_ptr_abi") is not True:
         failures.append(
             "window_sweep_check_did_not_require_kernel_entry_args_ptr_abi"
+        )
+    if window_check.get("require_child_launch_envelope_args_ptr_abi") is not True:
+        failures.append(
+            "window_sweep_check_did_not_require_launch_envelope_args_ptr_abi"
         )
     if window_check.get("require_child_kernel_entry_row_metadata") is not True:
         failures.append("window_sweep_check_did_not_require_kernel_entry_row_metadata")
@@ -342,6 +349,7 @@ def run_verify(args: argparse.Namespace) -> dict[str, Any]:
                 "--window-size",
                 "512",
                 "--require-program-view-ptr-abi",
+                "--require-launch-envelope-args-ptr-abi",
                 "--output-json",
                 str(window_sweep_json),
             ],
@@ -358,6 +366,7 @@ def run_verify(args: argparse.Namespace) -> dict[str, Any]:
                 "--require-child-kernel-arg-packet-abi",
                 "--require-child-kernel-entry-args-abi",
                 "--require-child-kernel-entry-args-ptr-abi",
+                "--require-child-launch-envelope-args-ptr-abi",
                 "--output-json",
                 str(window_sweep_check_json),
             ],

@@ -2,7 +2,7 @@
 
 ## Progress Version
 
-- Version: `v0.63-online-merged-pointer-backed-launch-envelope-args-canary`
+- Version: `v0.64-lab-gate-pointer-backed-launch-envelope-args`
 - Updated: 2026-06-03
 - Current phase: premap descriptor/address prep now has a typed
   kernel-side consumer object, a launch-shaped future native ABI, and a
@@ -125,8 +125,47 @@
   `current_wna16_arg_compatible=false`.  The same pointer-backed
   launch-envelope ABI is now available as an explicit optional check in the
   online-merged arg-slot runner, and has passed on the existing 1841-row table
-  merged from 32 real vLLM prelaunch typed-consumer exports.  This remains
-  opt-in and is not yet a default lab preflight requirement.
+  merged from 32 real vLLM prelaunch typed-consumer exports.  The one-step lab
+  gate now also requires the child row-window checker to validate this
+  pointer-backed launch-envelope ABI, so it is part of the default lab
+  precondition before moving closer to a real kernel-side typed consumer path.
+
+## Latest Update: Lab Gate Requires Pointer-Backed Launch-Envelope ABI
+
+Update: the default lab gate verifier now requires the child online-merged
+row-window sweep to run and check the pointer-backed future launch-envelope ABI.
+This promotes the previous opt-in canary into the lab precondition for moving
+toward a more realistic kernel-side typed consumer path while still keeping the
+current WNA16 kernel untouched.
+
+Evidence:
+
+- Lab gate artifact:
+  `outputs/reports/premap_lab_gate_verify.json`
+- Lab gate checker:
+  `outputs/reports/premap_lab_gate_verify.check.json`
+- Child row-window sweep:
+  `outputs/reports/premap_kernel_consumer/online_merged_future_native_arg_slot_window_sweep_runner.json`
+- Child row-window checker:
+  `outputs/reports/premap_kernel_consumer/online_merged_future_native_arg_slot_window_sweep_check.json`
+- Result: lab gate `passed=true`, checker `passed=true`, row count `1841`,
+  windows checked `full/head/middle/tail`.
+- The child checker records
+  `require_child_launch_envelope_args_ptr_abi=true`, alongside the existing
+  program-view, kernel packet, kernel-entry args, kernel-entry pointer, row
+  metadata, field-mask, and consumer-view requirements.
+- Safety boundary remains unchanged: `payload_bytes=0`,
+  `passed_to_kernel=false`, `changes_kernel_launch_args=false`, and no typed
+  table is passed to the current WNA16 fused-MoE kernel.
+
+Validation:
+
+- `/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest tests/test_run_premap_lab_gate_verify.py tests/test_check_premap_lab_gate_verify.py -q`
+  passed with `41 passed`.
+- `/home/husrcf/anaconda3/envs/TRY/bin/python scripts/run_premap_lab_gate_verify.py --output-json outputs/reports/premap_lab_gate_verify.json`
+  passed.
+- `/home/husrcf/anaconda3/envs/TRY/bin/python scripts/check_premap_lab_gate_verify.py outputs/reports/premap_lab_gate_verify.json --output-json outputs/reports/premap_lab_gate_verify.check.json`
+  passed.
 
 ## Latest Update: Online-Merged Pointer-Backed Launch-Envelope Args ABI Canary
 
