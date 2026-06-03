@@ -52,6 +52,31 @@ def _handle_projection_pairs(value: str = "projection") -> dict[str, str]:
     }
 
 
+def _program_view_ptr_pairs(active: int) -> dict[str, object]:
+    return {
+        "future_kernel_native_consumer_program_view_ptr_checked": True,
+        "future_kernel_native_consumer_program_view_ptr_source": (
+            "premap_future_kernel_native_consumer_program_view_abi_v1"
+        ),
+        "future_kernel_native_consumer_program_view_ptr_row_count": active,
+        "future_kernel_native_consumer_program_view_ptr_row_ok_count": active,
+        "future_kernel_native_consumer_program_view_ptr_error_count": 0,
+        "future_kernel_native_consumer_program_view_ptr_field_mask": 15,
+        "future_kernel_native_consumer_program_view_ptr_required_field_mask": 7,
+        "future_kernel_native_consumer_program_view_ptr_payload_bytes": 0,
+        "future_kernel_native_consumer_program_view_ptr_passed_to_kernel": False,
+        "future_kernel_native_consumer_program_view_ptr_changes_kernel_launch_args": (
+            False
+        ),
+        "future_kernel_native_consumer_program_view_ptr_current_wna16_arg_compatible": (
+            False
+        ),
+        "future_kernel_native_consumer_program_view_ptr_requires_wna16_arg_reinterpretation": (
+            False
+        ),
+    }
+
+
 def _consumer_view_layout_pairs() -> dict[str, int]:
     return {
         "future_kernel_native_consumer_view_struct_size": 208,
@@ -141,6 +166,7 @@ def _child_payload(
             **_consumer_view_layout_pairs(),
             **_consumer_view_row_layout_pairs(),
             **_handle_projection_pairs(),
+            **_program_view_ptr_pairs(active),
             **_field_mask_pairs(),
             **_field_read_pairs("future_kernel_native_arg_slot_consumer", active),
             **_field_read_pairs("future_kernel_native_consumer_view", active),
@@ -391,6 +417,59 @@ def test_window_sweep_check_rejects_missing_consumer_view_read(tmp_path: Path):
     assert result["passed"] is False
     assert (
         "head_child_stub_future_kernel_native_consumer_view_scale_metadata_handle_read_row_ok_count_mismatch"
+        in result["failures"]
+    )
+
+
+def test_window_sweep_check_accepts_program_view_ptr_requirement(
+    tmp_path: Path,
+):
+    path = _write_artifact(tmp_path)
+
+    result = check_window_sweep_artifact(
+        path,
+        expected_window_size=4,
+        expected_block_threads=4,
+        min_row_count=17,
+        require_child_program_view_ptr_abi=True,
+    )
+
+    assert result["passed"] is True
+    assert result["require_child_program_view_ptr_abi"] is True
+
+
+def test_window_sweep_check_rejects_missing_program_view_ptr_requirement(
+    tmp_path: Path,
+):
+    path = _write_artifact(tmp_path)
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    windows = payload["windows"]
+    assert isinstance(windows, dict)
+    child_path = Path(windows["head"]["output_json"])
+    stub_path = Path(windows["head"]["stub_output_json"])
+    child = json.loads(child_path.read_text(encoding="utf-8"))
+    stub_payload = json.loads(stub_path.read_text(encoding="utf-8"))
+    for item in (child["stub_summary"], stub_payload):
+        assert isinstance(item, dict)
+        item.pop("future_kernel_native_consumer_program_view_ptr_checked")
+    child_path.write_text(json.dumps(child) + "\n", encoding="utf-8")
+    stub_path.write_text(json.dumps(stub_payload) + "\n", encoding="utf-8")
+
+    result = check_window_sweep_artifact(
+        path,
+        expected_window_size=4,
+        expected_block_threads=4,
+        min_row_count=17,
+        require_child_program_view_ptr_abi=True,
+    )
+
+    assert result["passed"] is False
+    assert (
+        "head_program_view_ptr_evidence_missing_or_dry_run_unsupported"
+        in result["failures"]
+    )
+    assert (
+        "head_child_stub_artifact_program_view_ptr_evidence_missing_or_dry_run_unsupported"
         in result["failures"]
     )
 

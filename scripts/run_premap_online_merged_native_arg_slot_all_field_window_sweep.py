@@ -93,6 +93,8 @@ def _field_sweep_args(
         argv.append("--force-build")
     if args.dry_run:
         argv.append("--dry-run")
+    if args.require_program_view_ptr_abi:
+        argv.append("--require-program-view-ptr-abi")
     return build_window_sweep_parser().parse_args(argv)
 
 
@@ -122,6 +124,9 @@ def run_all_field_sweep(args: argparse.Namespace) -> dict[str, Any]:
                 expected_mirror_field=field,
                 require_child_artifacts=True,
                 require_non_degenerate_windows=True,
+                require_child_program_view_ptr_abi=bool(
+                    args.require_program_view_ptr_abi
+                ),
             )
         )
         if not args.dry_run:
@@ -161,6 +166,7 @@ def run_all_field_sweep(args: argparse.Namespace) -> dict[str, Any]:
         "dry_run": bool(args.dry_run),
         "runner_json": str(_resolve(args.runner_json)),
         "window_size": int(args.window_size),
+        "require_program_view_ptr_abi": bool(args.require_program_view_ptr_abi),
         "block_threads": int(args.block_threads),
         "device": int(args.device),
         "mirror_fields": list(MIRROR_FIELDS),
@@ -184,6 +190,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
     parser.add_argument("--output-json", type=Path, default=DEFAULT_OUTPUT_JSON)
     parser.add_argument("--window-size", type=int, default=512)
+    parser.add_argument(
+        "--require-program-view-ptr-abi",
+        action="store_true",
+        help=(
+            "Require every per-field child window sweep to validate the "
+            "future native program-view pointer ABI."
+        ),
+    )
     parser.add_argument("--max-inputs", type=int, default=32)
     parser.add_argument("--min-source-count", type=int, default=32)
     parser.add_argument("--min-total-rows", type=int, default=257)

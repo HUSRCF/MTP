@@ -61,22 +61,26 @@ def test_run_premap_lab_gate_verify_dry_run_records_all_steps(tmp_path: Path):
     sweep_cmd = result["steps"]["window_sweep"]["cmd"]
     assert "scripts/run_premap_online_merged_native_arg_slot_window_sweep.py" in sweep_cmd
     assert "--window-size" in sweep_cmd
+    assert "--require-program-view-ptr-abi" in sweep_cmd
     assert "512" in sweep_cmd
     sweep_check_cmd = result["steps"]["window_sweep_check"]["cmd"]
     assert "scripts/check_premap_online_merged_native_arg_slot_window_sweep.py" in (
         sweep_check_cmd
     )
     assert "--expected-window-size" in sweep_check_cmd
+    assert "--require-child-program-view-ptr-abi" in sweep_check_cmd
     all_field_cmd = result["steps"]["all_field_window_sweep"]["cmd"]
     assert (
         "scripts/run_premap_online_merged_native_arg_slot_all_field_window_sweep.py"
         in all_field_cmd
     )
+    assert "--require-program-view-ptr-abi" in all_field_cmd
     all_field_check_cmd = result["steps"]["all_field_window_sweep_check"]["cmd"]
     assert (
         "scripts/check_premap_online_merged_native_arg_slot_all_field_window_sweep.py"
         in all_field_check_cmd
     )
+    assert "--require-child-program-view-ptr-abi" in all_field_check_cmd
 
 
 def test_status_failures_reject_kernel_boundary_mutation():
@@ -128,6 +132,7 @@ def test_status_failures_reject_kernel_boundary_mutation():
             "require_child_consumer_view_layout": True,
             "require_child_consumer_view_row_layout": True,
             "require_child_consumer_view_handle_projection": True,
+            "require_child_program_view_ptr_abi": True,
             "require_non_degenerate_windows": True,
             "expected_window_size": 512,
             "windows_checked": ["full", "head", "middle", "tail"],
@@ -150,6 +155,7 @@ def test_status_failures_reject_kernel_boundary_mutation():
             "require_child_consumer_view_layout": True,
             "require_child_consumer_view_row_layout": True,
             "require_child_consumer_view_handle_projection": True,
+            "require_child_program_view_ptr_abi": True,
             "expected_window_size": 512,
             "mirror_fields_checked": [
                 "descriptor_ptr",
@@ -214,6 +220,7 @@ def test_status_failures_reject_tail_checker_without_tail_requirement():
             "require_child_consumer_view_layout": True,
             "require_child_consumer_view_row_layout": True,
             "require_child_consumer_view_handle_projection": True,
+            "require_child_program_view_ptr_abi": True,
             "require_non_degenerate_windows": True,
             "expected_window_size": 512,
             "windows_checked": ["full", "head", "middle", "tail"],
@@ -236,6 +243,7 @@ def test_status_failures_reject_tail_checker_without_tail_requirement():
             "require_child_consumer_view_layout": True,
             "require_child_consumer_view_row_layout": True,
             "require_child_consumer_view_handle_projection": True,
+            "require_child_program_view_ptr_abi": True,
             "expected_window_size": 512,
             "mirror_fields_checked": [
                 "descriptor_ptr",
@@ -395,6 +403,7 @@ def test_status_failures_reject_window_sweep_checker_without_consumer_view():
             "require_child_consumer_view_layout": True,
             "require_child_consumer_view_row_layout": True,
             "require_child_consumer_view_handle_projection": True,
+            "require_child_program_view_ptr_abi": True,
             "expected_window_size": 512,
             "mirror_fields_checked": [
                 "descriptor_ptr",
@@ -479,6 +488,7 @@ def test_status_failures_reject_window_sweep_checker_without_consumer_view_layou
             "require_child_consumer_view_layout": True,
             "require_child_consumer_view_row_layout": True,
             "require_child_consumer_view_handle_projection": True,
+            "require_child_program_view_ptr_abi": True,
             "expected_window_size": 512,
             "mirror_fields_checked": [
                 "descriptor_ptr",
@@ -564,6 +574,7 @@ def test_status_failures_reject_window_sweep_checker_without_consumer_view_row_l
             "require_child_consumer_view_layout": True,
             "require_child_consumer_view_row_layout": True,
             "require_child_consumer_view_handle_projection": True,
+            "require_child_program_view_ptr_abi": True,
             "expected_window_size": 512,
             "mirror_fields_checked": [
                 "descriptor_ptr",
@@ -628,6 +639,7 @@ def test_status_failures_reject_window_sweep_checker_without_nondegenerate_gate(
             "require_child_consumer_view_layout": True,
             "require_child_consumer_view_row_layout": True,
             "require_child_consumer_view_handle_projection": True,
+            "require_child_program_view_ptr_abi": True,
             "require_non_degenerate_windows": False,
             "expected_window_size": 512,
             "windows_checked": ["full", "head", "middle", "tail"],
@@ -650,6 +662,7 @@ def test_status_failures_reject_window_sweep_checker_without_nondegenerate_gate(
             "require_child_consumer_view_layout": True,
             "require_child_consumer_view_row_layout": True,
             "require_child_consumer_view_handle_projection": True,
+            "require_child_program_view_ptr_abi": True,
             "expected_window_size": 512,
             "mirror_fields_checked": [
                 "descriptor_ptr",
@@ -714,6 +727,7 @@ def test_status_failures_reject_all_field_checker_without_child_checks():
             "require_child_consumer_view_layout": True,
             "require_child_consumer_view_row_layout": True,
             "require_child_consumer_view_handle_projection": True,
+            "require_child_program_view_ptr_abi": True,
             "require_non_degenerate_windows": True,
             "expected_window_size": 512,
             "windows_checked": ["full", "head", "middle", "tail"],
@@ -795,6 +809,7 @@ def test_status_failures_reject_all_field_checker_without_consumer_view():
             "require_child_consumer_view_layout": True,
             "require_child_consumer_view_row_layout": True,
             "require_child_consumer_view_handle_projection": True,
+            "require_child_program_view_ptr_abi": True,
             "require_non_degenerate_windows": True,
             "expected_window_size": 512,
             "windows_checked": ["full", "head", "middle", "tail"],
@@ -881,6 +896,7 @@ def test_status_failures_reject_all_field_checker_without_consumer_view_layout()
             "require_child_consumer_view_layout": True,
             "require_child_consumer_view_row_layout": True,
             "require_child_consumer_view_handle_projection": True,
+            "require_child_program_view_ptr_abi": True,
             "require_non_degenerate_windows": True,
             "expected_window_size": 512,
             "windows_checked": ["full", "head", "middle", "tail"],
@@ -968,6 +984,7 @@ def test_status_failures_reject_all_field_checker_without_consumer_view_row_layo
             "require_child_consumer_view_layout": True,
             "require_child_consumer_view_row_layout": True,
             "require_child_consumer_view_handle_projection": True,
+            "require_child_program_view_ptr_abi": True,
             "require_non_degenerate_windows": True,
             "expected_window_size": 512,
             "windows_checked": ["full", "head", "middle", "tail"],

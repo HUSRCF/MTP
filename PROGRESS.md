@@ -2503,6 +2503,91 @@ python -m pytest tests -q
 966 passed, 2 warnings
 ```
 
+## Program-view pointer ABI is now part of the default lab gate
+
+The strict program-view pointer ABI check is now propagated through the
+canonical lab gate, not only through an ad-hoc single-field window sweep.
+
+The default lab gate now runs:
+
+```text
+window_sweep:
+  run_premap_online_merged_native_arg_slot_window_sweep.py
+    --window-size 512
+    --require-program-view-ptr-abi
+
+window_sweep_check:
+  check_premap_online_merged_native_arg_slot_window_sweep.py
+    --expected-window-size 512
+    --require-child-program-view-ptr-abi
+
+all_field_window_sweep:
+  run_premap_online_merged_native_arg_slot_all_field_window_sweep.py
+    --window-size 512
+    --require-program-view-ptr-abi
+
+all_field_window_sweep_check:
+  check_premap_online_merged_native_arg_slot_all_field_window_sweep.py
+    --expected-window-size 512
+    --require-child-program-view-ptr-abi
+```
+
+This makes the four typed handle fields:
+
+```text
+descriptor_ptr
+packed_weight_descriptor
+scale_metadata_handle
+aux_metadata_handle
+```
+
+all pass the same future native program-view pointer ABI over full/head/middle/tail
+row windows.  The lab gate status checker now rejects artifacts that do not
+declare `require_child_program_view_ptr_abi = true` for both the single-field
+and all-field window checks.
+
+Verification:
+
+```text
+python scripts/run_premap_lab_gate_verify.py \
+  --output-json outputs/reports/premap_lab_gate_verify.json
+
+passed = true
+window_sweep_check.require_child_program_view_ptr_abi = true
+all_field_window_sweep_check.require_child_program_view_ptr_abi = true
+all fields row_count = 1841
+windows = full / head / middle / tail
+
+python scripts/check_premap_lab_gate_verify.py \
+  outputs/reports/premap_lab_gate_verify.json \
+  --output-json outputs/reports/premap_lab_gate_verify.check.json
+
+passed = true
+failures = []
+
+python -m pytest \
+  tests/test_check_premap_online_merged_native_arg_slot_window_sweep.py \
+  tests/test_run_premap_online_merged_native_arg_slot_window_sweep.py \
+  tests/test_check_premap_online_merged_native_arg_slot_all_field_window_sweep.py \
+  tests/test_run_premap_online_merged_native_arg_slot_all_field_window_sweep.py \
+  tests/test_run_premap_lab_gate_verify.py \
+  tests/test_check_premap_lab_gate_verify.py -q
+
+57 passed
+
+python -m pytest tests -q
+
+972 passed, 2 warnings
+```
+
+Operational note:
+
+```text
+Do not wrap the canonical lab gate with HIP_VISIBLE_DEVICES=1 unless the child
+--device arguments are also remapped to local ordinal 0.  The default lab gate
+expects the global GPU1 ordinal to be visible and records device = 1.
+```
+
 ## Future native program-view pointer ABI canary
 
 The typed premap consumer path now has one more native-only step toward a

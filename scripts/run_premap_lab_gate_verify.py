@@ -128,6 +128,9 @@ def _load_status(path: Path) -> dict[str, Any]:
         "require_child_consumer_view_handle_projection": payload.get(
             "require_child_consumer_view_handle_projection"
         ),
+        "require_child_program_view_ptr_abi": payload.get(
+            "require_child_program_view_ptr_abi"
+        ),
         "require_non_degenerate_windows": payload.get(
             "require_non_degenerate_windows"
         ),
@@ -187,6 +190,8 @@ def _status_failures(statuses: dict[str, dict[str, Any]]) -> list[str]:
         failures.append(
             "window_sweep_check_did_not_require_child_consumer_view_handle_projection"
         )
+    if window_check.get("require_child_program_view_ptr_abi") is not True:
+        failures.append("window_sweep_check_did_not_require_program_view_ptr_abi")
     if window_check.get("require_non_degenerate_windows") is not True:
         failures.append("window_sweep_check_did_not_require_non_degenerate_windows")
     if window_check.get("expected_window_size") != 512:
@@ -218,6 +223,10 @@ def _status_failures(statuses: dict[str, dict[str, Any]]) -> list[str]:
     ):
         failures.append(
             "all_field_window_sweep_check_did_not_require_child_consumer_view_handle_projection"
+        )
+    if all_field_check.get("require_child_program_view_ptr_abi") is not True:
+        failures.append(
+            "all_field_window_sweep_check_did_not_require_program_view_ptr_abi"
         )
     if all_field_check.get("expected_window_size") != 512:
         failures.append("all_field_window_sweep_check_window_size_mismatch")
@@ -294,6 +303,7 @@ def run_verify(args: argparse.Namespace) -> dict[str, Any]:
                 "scripts/run_premap_online_merged_native_arg_slot_window_sweep.py",
                 "--window-size",
                 "512",
+                "--require-program-view-ptr-abi",
                 "--output-json",
                 str(window_sweep_json),
             ],
@@ -306,6 +316,7 @@ def run_verify(args: argparse.Namespace) -> dict[str, Any]:
                 str(window_sweep_json),
                 "--expected-window-size",
                 "512",
+                "--require-child-program-view-ptr-abi",
                 "--output-json",
                 str(window_sweep_check_json),
             ],
@@ -317,6 +328,7 @@ def run_verify(args: argparse.Namespace) -> dict[str, Any]:
                 "scripts/run_premap_online_merged_native_arg_slot_all_field_window_sweep.py",
                 "--window-size",
                 "512",
+                "--require-program-view-ptr-abi",
                 "--output-json",
                 str(all_field_window_sweep_json),
             ],
@@ -329,6 +341,7 @@ def run_verify(args: argparse.Namespace) -> dict[str, Any]:
                 str(all_field_window_sweep_json),
                 "--expected-window-size",
                 "512",
+                "--require-child-program-view-ptr-abi",
                 "--output-json",
                 str(all_field_window_sweep_check_json),
             ],

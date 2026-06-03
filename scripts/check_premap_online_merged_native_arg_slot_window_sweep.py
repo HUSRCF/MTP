@@ -22,6 +22,7 @@ if str(REPO_ROOT) not in sys.path:
 
 from scripts.run_premap_online_merged_native_arg_slot_window_sweep import (  # noqa: E402
     DEFAULT_OUTPUT_JSON,
+    EXPECTED_PROGRAM_VIEW_PTR_ABI_SOURCE,
     _window_bounds,
 )
 
@@ -189,6 +190,58 @@ def _check_consumer_view_handle_projection(
     return failures
 
 
+def _check_program_view_ptr_abi(
+    summary: dict[str, Any],
+    *,
+    label: str,
+    expected_active: int,
+) -> list[str]:
+    failures: list[str] = []
+    if "future_kernel_native_consumer_program_view_ptr_checked" not in summary:
+        return [
+            f"{label}_program_view_ptr_evidence_missing_or_dry_run_unsupported"
+        ]
+    for key, expected in {
+        "future_kernel_native_consumer_program_view_ptr_checked": True,
+        "future_kernel_native_consumer_program_view_ptr_source": (
+            EXPECTED_PROGRAM_VIEW_PTR_ABI_SOURCE
+        ),
+        "future_kernel_native_consumer_program_view_ptr_row_count": (
+            expected_active
+        ),
+        "future_kernel_native_consumer_program_view_ptr_row_ok_count": (
+            expected_active
+        ),
+        "future_kernel_native_consumer_program_view_ptr_error_count": 0,
+        "future_kernel_native_consumer_program_view_ptr_payload_bytes": 0,
+        "future_kernel_native_consumer_program_view_ptr_passed_to_kernel": False,
+        "future_kernel_native_consumer_program_view_ptr_changes_kernel_launch_args": (
+            False
+        ),
+        "future_kernel_native_consumer_program_view_ptr_current_wna16_arg_compatible": (
+            False
+        ),
+        "future_kernel_native_consumer_program_view_ptr_requires_wna16_arg_reinterpretation": (
+            False
+        ),
+    }.items():
+        if summary.get(key) != expected:
+            failures.append(f"{label}_{key}_mismatch")
+    field_mask = summary.get("future_kernel_native_consumer_program_view_ptr_field_mask")
+    required_field_mask = summary.get(
+        "future_kernel_native_consumer_program_view_ptr_required_field_mask"
+    )
+    if (
+        not isinstance(field_mask, int)
+        or isinstance(field_mask, bool)
+        or not isinstance(required_field_mask, int)
+        or isinstance(required_field_mask, bool)
+        or (field_mask & required_field_mask) != required_field_mask
+    ):
+        failures.append(f"{label}_program_view_ptr_field_mask_mismatch")
+    return failures
+
+
 def _int_value(payload: dict[str, Any], key: str) -> int | None:
     value = payload.get(key)
     if isinstance(value, bool) or not isinstance(value, int):
@@ -300,6 +353,7 @@ def _check_child_stub_artifact(
     expected_limit: int,
     expected_active: int,
     expected_block_threads: int,
+    require_child_program_view_ptr_abi: bool,
 ) -> list[str]:
     failures: list[str] = []
     stub_path = _resolve_child_path(child.get("stub_output_json"), parent=parent)
@@ -355,6 +409,14 @@ def _check_child_stub_artifact(
             label=f"{label}_child_stub_artifact",
         )
     )
+    if require_child_program_view_ptr_abi:
+        failures.extend(
+            _check_program_view_ptr_abi(
+                stub_payload,
+                label=f"{label}_child_stub_artifact",
+                expected_active=expected_active,
+            )
+        )
     return failures
 
 
@@ -370,6 +432,7 @@ def _check_child_artifact(
     expected_block_threads: int,
     expected_merged_row_count: int,
     expected_mirror_field: str | None,
+    require_child_program_view_ptr_abi: bool,
 ) -> list[str]:
     failures: list[str] = []
     expected_pairs: dict[str, Any] = {
@@ -449,6 +512,14 @@ def _check_child_artifact(
         failures.extend(
             _check_consumer_view_handle_projection(stub_summary, label=label)
         )
+        if require_child_program_view_ptr_abi:
+            failures.extend(
+                _check_program_view_ptr_abi(
+                    stub_summary,
+                    label=label,
+                    expected_active=expected_active,
+                )
+            )
     failures.extend(
         _check_child_stub_artifact(
             child,
@@ -458,6 +529,7 @@ def _check_child_artifact(
             expected_limit=expected_limit,
             expected_active=expected_active,
             expected_block_threads=expected_block_threads,
+            require_child_program_view_ptr_abi=require_child_program_view_ptr_abi,
         )
     )
     return failures
@@ -472,6 +544,7 @@ def check_window_sweep_artifact(
     expected_mirror_field: str | None = "scale_metadata_handle",
     require_child_artifacts: bool = True,
     require_non_degenerate_windows: bool = True,
+    require_child_program_view_ptr_abi: bool = False,
 ) -> dict[str, Any]:
     sweep_path = path.resolve()
     payload, error = _safe_load_json(sweep_path)
@@ -565,6 +638,9 @@ def check_window_sweep_artifact(
                     expected_block_threads=int(expected_block_threads),
                     expected_merged_row_count=row_count,
                     expected_mirror_field=expected_mirror_field,
+                    require_child_program_view_ptr_abi=bool(
+                        require_child_program_view_ptr_abi
+                    ),
                 )
             )
 
@@ -584,6 +660,9 @@ def check_window_sweep_artifact(
         "require_child_consumer_view_layout": bool(require_child_artifacts),
         "require_child_consumer_view_row_layout": bool(require_child_artifacts),
         "require_child_consumer_view_handle_projection": bool(require_child_artifacts),
+        "require_child_program_view_ptr_abi": bool(
+            require_child_program_view_ptr_abi
+        ),
         "row_count": row_count,
         "windows_checked": list(REQUIRED_WINDOWS),
     }
@@ -598,6 +677,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--expected-mirror-field", default="scale_metadata_handle")
     parser.add_argument("--no-require-child-artifacts", action="store_true")
     parser.add_argument("--allow-degenerate-windows", action="store_true")
+    parser.add_argument("--require-child-program-view-ptr-abi", action="store_true")
     parser.add_argument("--output-json", type=Path)
     return parser
 
@@ -612,6 +692,9 @@ def main(argv: list[str] | None = None) -> int:
         expected_mirror_field=args.expected_mirror_field,
         require_child_artifacts=not bool(args.no_require_child_artifacts),
         require_non_degenerate_windows=not bool(args.allow_degenerate_windows),
+        require_child_program_view_ptr_abi=bool(
+            args.require_child_program_view_ptr_abi
+        ),
     )
     if args.output_json is not None:
         args.output_json.parent.mkdir(parents=True, exist_ok=True)
