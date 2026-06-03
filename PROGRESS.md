@@ -27558,6 +27558,17 @@ object, that row-window/program-lane iteration still reaches the required
 descriptor/address handle fields, and that all field masks remain visible
 through the packet wrapper.
 
+The lab gate now makes this requirement explicit in both the single-field
+window sweep and the all-field sweep:
+
+```text
+require_child_program_view_ptr_abi = true
+require_child_kernel_arg_packet_abi = true
+```
+
+This keeps the future kernel-arg packet ABI from being only an implicit side
+effect of the program-view pointer check.
+
 Verification:
 
 ```text

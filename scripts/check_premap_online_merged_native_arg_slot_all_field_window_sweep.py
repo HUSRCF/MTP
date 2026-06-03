@@ -67,6 +67,7 @@ def _check_field_report(
     parent: Path,
     require_child_checks: bool,
     require_child_program_view_ptr_abi: bool,
+    require_child_kernel_arg_packet_abi: bool,
 ) -> list[str]:
     failures: list[str] = []
     if report.get("passed") is not True:
@@ -112,6 +113,8 @@ def _check_field_report(
     }
     if require_child_program_view_ptr_abi:
         expected_pairs["require_child_program_view_ptr_abi"] = True
+    if require_child_kernel_arg_packet_abi:
+        expected_pairs["require_child_kernel_arg_packet_abi"] = True
     for key, expected in expected_pairs.items():
         if check_payload.get(key) != expected:
             failures.append(f"{field}_check_{key}_mismatch")
@@ -126,6 +129,7 @@ def check_all_field_window_sweep_artifact(
     min_row_count: int = 257,
     require_child_checks: bool = True,
     require_child_program_view_ptr_abi: bool = False,
+    require_child_kernel_arg_packet_abi: bool = False,
 ) -> dict[str, Any]:
     sweep_path = path.resolve()
     payload, error = _safe_load_json(sweep_path)
@@ -165,6 +169,11 @@ def check_all_field_window_sweep_artifact(
         and payload.get("require_program_view_ptr_abi") is not True
     ):
         failures.append("require_program_view_ptr_abi_mismatch")
+    if (
+        require_child_kernel_arg_packet_abi
+        and payload.get("require_kernel_arg_packet_abi") is not True
+    ):
+        failures.append("require_kernel_arg_packet_abi_mismatch")
 
     row_counts = payload.get("row_counts")
     if not isinstance(row_counts, dict):
@@ -207,6 +216,9 @@ def check_all_field_window_sweep_artifact(
                 require_child_program_view_ptr_abi=bool(
                     require_child_program_view_ptr_abi
                 ),
+                require_child_kernel_arg_packet_abi=bool(
+                    require_child_kernel_arg_packet_abi
+                ),
             )
         )
 
@@ -227,6 +239,9 @@ def check_all_field_window_sweep_artifact(
         "require_child_program_view_ptr_abi": bool(
             require_child_program_view_ptr_abi
         ),
+        "require_child_kernel_arg_packet_abi": bool(
+            require_child_kernel_arg_packet_abi
+        ),
         "mirror_fields_checked": list(MIRROR_FIELDS),
         "row_count": expected_row_count,
     }
@@ -240,6 +255,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--min-row-count", type=int, default=257)
     parser.add_argument("--no-require-child-checks", action="store_true")
     parser.add_argument("--require-child-program-view-ptr-abi", action="store_true")
+    parser.add_argument("--require-child-kernel-arg-packet-abi", action="store_true")
     parser.add_argument("--output-json", type=Path)
     return parser
 
@@ -254,6 +270,9 @@ def main(argv: list[str] | None = None) -> int:
         require_child_checks=not bool(args.no_require_child_checks),
         require_child_program_view_ptr_abi=bool(
             args.require_child_program_view_ptr_abi
+        ),
+        require_child_kernel_arg_packet_abi=bool(
+            args.require_child_kernel_arg_packet_abi
         ),
     )
     if args.output_json is not None:

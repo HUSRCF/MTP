@@ -20,6 +20,7 @@ def _write_field_check(
     window_size: int,
     block_threads: int,
     require_program_view_ptr_abi: bool = False,
+    require_kernel_arg_packet_abi: bool = False,
 ) -> None:
     payload = {
         "passed": True,
@@ -35,6 +36,9 @@ def _write_field_check(
         "require_child_consumer_view_row_layout": True,
         "require_child_consumer_view_handle_projection": True,
         "require_child_program_view_ptr_abi": bool(require_program_view_ptr_abi),
+        "require_child_kernel_arg_packet_abi": bool(
+            require_kernel_arg_packet_abi
+        ),
         "require_non_degenerate_windows": True,
         "row_count": row_count,
         "windows_checked": ["full", "head", "middle", "tail"],
@@ -48,6 +52,7 @@ def _write_all_field_artifact(
     bad_field_check: str | None = None,
     mismatched_row_count: bool = False,
     require_program_view_ptr_abi: bool = False,
+    require_kernel_arg_packet_abi: bool = False,
 ) -> Path:
     row_count = 17
     window_size = 4
@@ -64,6 +69,7 @@ def _write_all_field_artifact(
             window_size=window_size,
             block_threads=block_threads,
             require_program_view_ptr_abi=require_program_view_ptr_abi,
+            require_kernel_arg_packet_abi=require_kernel_arg_packet_abi,
         )
         field_reports[field] = {
             "passed": True,
@@ -83,6 +89,7 @@ def _write_all_field_artifact(
         "dry_run": False,
         "window_size": window_size,
         "require_program_view_ptr_abi": bool(require_program_view_ptr_abi),
+        "require_kernel_arg_packet_abi": bool(require_kernel_arg_packet_abi),
         "block_threads": block_threads,
         "mirror_fields": list(MIRROR_FIELDS),
         "field_reports": field_reports,
@@ -155,6 +162,7 @@ def test_all_field_window_sweep_check_accepts_program_view_ptr_requirement(
     path = _write_all_field_artifact(
         tmp_path,
         require_program_view_ptr_abi=True,
+        require_kernel_arg_packet_abi=True,
     )
 
     result = check_all_field_window_sweep_artifact(
@@ -163,10 +171,12 @@ def test_all_field_window_sweep_check_accepts_program_view_ptr_requirement(
         expected_block_threads=4,
         min_row_count=17,
         require_child_program_view_ptr_abi=True,
+        require_child_kernel_arg_packet_abi=True,
     )
 
     assert result["passed"] is True
     assert result["require_child_program_view_ptr_abi"] is True
+    assert result["require_child_kernel_arg_packet_abi"] is True
 
 
 def test_all_field_window_sweep_check_rejects_missing_program_view_ptr_gate(
@@ -180,10 +190,34 @@ def test_all_field_window_sweep_check_rejects_missing_program_view_ptr_gate(
         expected_block_threads=4,
         min_row_count=17,
         require_child_program_view_ptr_abi=True,
+        require_child_kernel_arg_packet_abi=True,
     )
 
     assert result["passed"] is False
     assert "require_program_view_ptr_abi_mismatch" in result["failures"]
+    assert "require_kernel_arg_packet_abi_mismatch" in result["failures"]
+
+
+def test_all_field_window_sweep_check_rejects_missing_kernel_arg_packet_gate(
+    tmp_path: Path,
+):
+    path = _write_all_field_artifact(
+        tmp_path,
+        require_program_view_ptr_abi=True,
+        require_kernel_arg_packet_abi=False,
+    )
+
+    result = check_all_field_window_sweep_artifact(
+        path,
+        expected_window_size=4,
+        expected_block_threads=4,
+        min_row_count=17,
+        require_child_program_view_ptr_abi=True,
+        require_child_kernel_arg_packet_abi=True,
+    )
+
+    assert result["passed"] is False
+    assert "require_kernel_arg_packet_abi_mismatch" in result["failures"]
 
 
 def test_all_field_window_sweep_check_cli_writes_output(tmp_path: Path):

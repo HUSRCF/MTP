@@ -127,6 +127,9 @@ def run_all_field_sweep(args: argparse.Namespace) -> dict[str, Any]:
                 require_child_program_view_ptr_abi=bool(
                     args.require_program_view_ptr_abi
                 ),
+                require_child_kernel_arg_packet_abi=bool(
+                    args.require_program_view_ptr_abi
+                ),
             )
         )
         if not args.dry_run:
@@ -167,6 +170,7 @@ def run_all_field_sweep(args: argparse.Namespace) -> dict[str, Any]:
         "runner_json": str(_resolve(args.runner_json)),
         "window_size": int(args.window_size),
         "require_program_view_ptr_abi": bool(args.require_program_view_ptr_abi),
+        "require_kernel_arg_packet_abi": bool(args.require_program_view_ptr_abi),
         "block_threads": int(args.block_threads),
         "device": int(args.device),
         "mirror_fields": list(MIRROR_FIELDS),
