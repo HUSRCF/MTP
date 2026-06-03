@@ -4378,6 +4378,90 @@ def test_premap_lab_preflight_rejects_required_online_merged_runner_invalid_cons
     ) in failures
 
 
+def test_premap_lab_preflight_rejects_required_online_merged_program_view_row_count_mismatch(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    stub_path = (
+        tmp_path
+        / "reports/default_gate_online_merged_future_native_arg_slot_multiprogram_canary.json"
+    )
+    payload = json.loads(stub_path.read_text(encoding="utf-8"))
+    payload["future_kernel_native_consumer_program_view_row_count"] = 519
+    stub_path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is False
+    assert "default_readonly_gate_required_evidence_check_failed" in result["failures"]
+    failures = result["default_readonly_gate_required_evidence_check"]["failures"]
+    assert (
+        "future_kernel_native_arg_slot_online_merged_multiprogram_runner_json:"
+        "online_merged_multiprogram_arg_slot_runner_stub:"
+        "multiprogram_arg_slot_"
+        "future_kernel_native_consumer_program_view_row_count_mismatch"
+    ) in failures
+    assert (
+        "future_kernel_native_arg_slot_online_merged_multiprogram_canary_json:"
+        "multiprogram_arg_slot_"
+        "future_kernel_native_consumer_program_view_row_count_mismatch"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_required_online_merged_program_view_iteration_hash_mismatch(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    stub_path = (
+        tmp_path
+        / "reports/default_gate_online_merged_future_native_arg_slot_multiprogram_canary.json"
+    )
+    payload = json.loads(stub_path.read_text(encoding="utf-8"))
+    payload["future_kernel_native_consumer_program_view_program_iteration_hash"] = (
+        "0000000000000000"
+    )
+    stub_path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is False
+    assert "default_readonly_gate_required_evidence_check_failed" in result["failures"]
+    failures = result["default_readonly_gate_required_evidence_check"]["failures"]
+    assert (
+        "future_kernel_native_arg_slot_online_merged_multiprogram_runner_json:"
+        "online_merged_multiprogram_arg_slot_runner_stub:"
+        "multiprogram_arg_slot_program_view_iteration_hash_mismatch"
+    ) in failures
+    assert (
+        "future_kernel_native_arg_slot_online_merged_multiprogram_canary_json:"
+        "multiprogram_arg_slot_program_view_iteration_hash_mismatch"
+    ) in failures
+
+
 def test_premap_lab_preflight_rejects_consumer_view_row_window_mismatch(
     tmp_path: Path,
 ):
@@ -4517,6 +4601,52 @@ def test_premap_lab_preflight_rejects_consumer_view_safety_contract_mismatch(
         is False
     )
     assert summary["default_kernel_consumer_consumer_view_passed_to_kernel"] is True
+
+
+def test_premap_lab_preflight_rejects_consumer_program_view_safety_contract_mismatch(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    runner_path = (
+        tmp_path
+        / "reports/default_gate_online_merged_future_native_arg_slot_multiprogram_runner.json"
+    )
+    payload = json.loads(runner_path.read_text(encoding="utf-8"))
+    stub_summary = payload["stub_summary"]
+    assert isinstance(stub_summary, dict)
+    stub_summary["future_kernel_native_consumer_program_view_passed_to_kernel"] = True
+    runner_path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+    summary = result["lab_gate_status_summary"]
+
+    assert result["passed"] is False
+    assert (
+        "default_kernel_consumer_consumer_program_view_safety_contract_mismatch"
+        in result["failures"]
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_consumer_program_view_safety_matches_required"
+        ]
+        is False
+    )
+    assert (
+        summary["default_kernel_consumer_consumer_program_view_passed_to_kernel"]
+        is True
+    )
 
 
 def test_premap_lab_preflight_rejects_missing_consumer_view_source(
