@@ -338,6 +338,21 @@ def test_online_merged_arg_slot_canary_macros_can_require_launch_envelope_args()
     ) < macros.index(module.LAUNCH_ENVELOPE_ARGS_MACRO)
 
 
+def test_online_merged_arg_slot_canary_macros_can_require_launch_envelope_args_ptr():
+    module = _load_module()
+
+    macros = module.arg_slot_macros(
+        "scale_metadata_handle",
+        include_launch_envelope_args_ptr=True,
+    )
+
+    assert module.LAUNCH_ENVELOPE_ARGS_MACRO in macros
+    assert module.LAUNCH_ENVELOPE_ARGS_PTR_MACRO in macros
+    assert macros.index(module.LAUNCH_ENVELOPE_ARGS_MACRO) < macros.index(
+        module.LAUNCH_ENVELOPE_ARGS_PTR_MACRO
+    )
+
+
 def test_online_merged_arg_slot_canary_dry_run_accepts_launch_envelope_args(
     tmp_path: Path,
 ):
@@ -445,6 +460,109 @@ def test_online_merged_arg_slot_canary_dry_run_accepts_launch_envelope_args(
             "future_kernel_native_consumer_launch_envelope_args_packet_chain_depth"
         ]
         == 7
+    )
+
+
+def test_online_merged_arg_slot_canary_dry_run_accepts_launch_envelope_args_ptr(
+    tmp_path: Path,
+):
+    module = _load_module()
+    first = tmp_path / "input0.json"
+    second = tmp_path / "input1.json"
+    runner = tmp_path / "runner.json"
+    stub = tmp_path / "stub.json"
+    _write_input(first, start=0, rows=3, export_index=0)
+    _write_input(second, start=100, rows=4, export_index=1)
+    _write_runner(runner, [first, second])
+
+    args = module.build_parser().parse_args(
+        [
+            "--runner-json",
+            str(runner),
+            "--min-source-count",
+            "2",
+            "--min-total-rows",
+            "7",
+            "--block-threads",
+            "4",
+            "--require-launch-envelope-args-ptr-abi",
+            "--merged-output-json",
+            str(tmp_path / "merged.json"),
+            "--stub-output-json",
+            str(stub),
+            "--output-json",
+            str(tmp_path / "report.json"),
+            "--dry-run",
+        ]
+    )
+
+    result = module.run_canary(args)
+    stub_payload = json.loads(stub.read_text(encoding="utf-8"))
+
+    assert result["passed"] is True
+    assert result["require_launch_envelope_args_abi"] is True
+    assert result["require_launch_envelope_args_ptr_abi"] is True
+    assert result["launch_envelope_args_ptr_checked"] is True
+    assert (
+        result["launch_envelope_args_ptr_abi_name"]
+        == "premap_future_kernel_native_consumer_launch_envelope_args_ptr_abi_v1"
+    )
+    assert (
+        result["launch_envelope_args_ptr_mode"]
+        == "readonly_future_kernel_native_consumer_launch_envelope_args_ptr_abi"
+    )
+    assert (
+        result["launch_envelope_args_ptr_source"]
+        == "premap_future_kernel_native_consumer_launch_envelope_args_abi_v1"
+    )
+    assert result["launch_envelope_args_ptr_error_count"] == 0
+    assert result["launch_envelope_args_ptr_all_handle_fields_read"] is True
+    assert result["launch_envelope_args_ptr_packet_chain_depth"] == 8
+    assert result["launch_envelope_args_ptr_version"] == 1
+    assert result["launch_envelope_args_ptr_struct_size"] == 32
+    assert result["launch_envelope_args_ptr_struct_align"] == 8
+    assert result["launch_envelope_args_ptr_launch_args_struct_size"] == 48
+    assert result["launch_envelope_args_ptr_pointer_size"] == 8
+    assert int(result["launch_envelope_args_ptr_row_hash_accumulator"], 16) == 1
+    assert int(result["launch_envelope_args_ptr_field_read_hash_accumulator"], 16) == 2
+    assert int(result["launch_envelope_args_ptr_row_metadata_hash_accumulator"], 16) == 3
+    assert module.LAUNCH_ENVELOPE_ARGS_MACRO in stub_payload["requested_macros"]
+    assert module.LAUNCH_ENVELOPE_ARGS_PTR_MACRO in stub_payload["requested_macros"]
+    assert (
+        stub_payload[
+            "future_kernel_native_consumer_launch_envelope_args_ptr_field_read_path"
+        ]
+        == "launch_envelope_args_ptr_to_launch_envelope_args_to_entry_args_ptr_to_kernel_entry_args_to_kernel_arg_packet_to_program_view_rows"
+    )
+    assert (
+        stub_payload[
+            "future_kernel_native_consumer_launch_envelope_args_ptr_summary_row_count"
+        ]
+        == 7
+    )
+    assert (
+        stub_payload[
+            "future_kernel_native_consumer_launch_envelope_args_ptr_payload_bytes"
+        ]
+        == 0
+    )
+    assert (
+        stub_payload[
+            "future_kernel_native_consumer_launch_envelope_args_ptr_passed_to_kernel"
+        ]
+        is False
+    )
+    assert (
+        stub_payload[
+            "future_kernel_native_consumer_launch_envelope_args_ptr_current_wna16_arg_compatible"
+        ]
+        is False
+    )
+    assert (
+        result["stub_summary"][
+            "future_kernel_native_consumer_launch_envelope_args_ptr_packet_chain_depth"
+        ]
+        == 8
     )
 
 

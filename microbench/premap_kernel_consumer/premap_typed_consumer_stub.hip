@@ -1403,6 +1403,26 @@ typed_consumer_future_native_consumer_launch_envelope_args_ptr_kernel(
   if (!premap_typed_consumer_future_native_launch_envelope_args_ptr_matches_v1(
           local) ||
       local.launch_args == nullptr) {
+    if (local.launch_args != nullptr) {
+      const PremapFutureKernelNativeConsumerLaunchEnvelopeArgsV1 launch_args =
+          *local.launch_args;
+      if (launch_args.entry_args != nullptr) {
+        const PremapFutureKernelNativeConsumerKernelEntryArgsV1 entry_args =
+            *launch_args.entry_args;
+        if (entry_args.summary != nullptr) {
+          PremapFutureKernelNativeConsumerKernelEntrySummaryV1 out{};
+          out.abi_version =
+              kPremapFutureKernelNativeConsumerKernelEntrySummaryAbiV1Version;
+          out.payload_bytes = 0;
+          out.passed_to_kernel = 0;
+          out.changes_kernel_launch_args = 0;
+          out.current_wna16_arg_compatible = 0;
+          out.requires_wna16_arg_reinterpretation = 0;
+          out.error_count = 1;
+          *entry_args.summary = out;
+        }
+      }
+    }
     return;
   }
   premap_typed_consumer_future_native_consumer_launch_envelope_args_write_summary_v1(

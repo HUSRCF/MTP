@@ -2,7 +2,7 @@
 
 ## Progress Version
 
-- Version: `v0.62-pointer-backed-launch-envelope-args-canary`
+- Version: `v0.63-online-merged-pointer-backed-launch-envelope-args-canary`
 - Updated: 2026-06-03
 - Current phase: premap descriptor/address prep now has a typed
   kernel-side consumer object, a launch-shaped future native ABI, and a
@@ -122,7 +122,42 @@
   reads 64/64 rows through this eight-deep packet chain and keeps
   `payload_bytes=0`, `passed_to_kernel=false`,
   `changes_kernel_launch_args=false`, and
-  `current_wna16_arg_compatible=false`.
+  `current_wna16_arg_compatible=false`.  The same pointer-backed
+  launch-envelope ABI is now available as an explicit optional check in the
+  online-merged arg-slot runner, and has passed on the existing 1841-row table
+  merged from 32 real vLLM prelaunch typed-consumer exports.  This remains
+  opt-in and is not yet a default lab preflight requirement.
+
+## Latest Update: Online-Merged Pointer-Backed Launch-Envelope Args ABI Canary
+
+Update: the online-merged arg-slot canary now supports
+`--require-launch-envelope-args-ptr-abi`, which implies the existing
+launch-envelope args ABI and compiles
+`MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ENVELOPE_ARGS_PTR_ABI`.
+The native stub receives a device-resident pointer packet and follows
+`launch_envelope_args_ptr -> launch_envelope_args -> entry_args_ptr ->
+entry_args -> kernel_arg_packet -> program_view -> rows` over online-derived
+typed handle rows.
+
+Evidence:
+
+- GPU1 online-merged canary:
+  `outputs/reports/premap_kernel_consumer/online_merged_future_native_arg_slot_launch_envelope_args_ptr_canary_runner.json`
+- Source table:
+  `outputs/reports/premap_kernel_consumer/online_merged_prelaunch_typed_consumer_input_arg_slot_launch_envelope_args_ptr.json`
+- Result: `passed=true`, selected source count `32`, merged row count `1841`,
+  dispatch program count `8`.
+- Pointer launch-envelope ABI checked, packet chain depth `8`, row count
+  `1841`, all four typed handle fields plus row metadata read successfully,
+  summary error count `0`.
+- Safety boundary remains unchanged: no payload dereference, no kernel-arg pass
+  to the current WNA16 fused-MoE kernel, no kernel launch arg mutation, and no
+  WNA16 arg reinterpretation.
+
+Validation:
+
+- `/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest tests/test_premap_typed_consumer_stub.py tests/test_run_premap_online_merged_native_arg_slot_canary.py -q`
+  passed with `45 passed`.
 
 ## Latest Update: Pointer-Backed Future Launch-Envelope Args ABI Canary
 
