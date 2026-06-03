@@ -2466,6 +2466,37 @@ future_kernel_native_consumer_kernel_arg_packet_*_read_row_ok_count = 256
 future_kernel_native_consumer_kernel_arg_packet_*_read_error_count = 0
 ```
 
+Strict all-field validation:
+
+```text
+python scripts/run_premap_online_merged_native_arg_slot_all_field_window_sweep.py \
+  --require-program-view-ptr-abi \
+  --force-build
+
+passed = true
+row_count = 1841 for all four fields
+windows_checked = full / head / middle / tail
+require_program_view_ptr_abi = true
+require_kernel_arg_packet_abi = true
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+```
+
+Focused regression:
+
+```text
+python -m pytest \
+  tests/test_premap_typed_consumer_stub.py \
+  tests/test_premap_kernel_consumer_schema.py \
+  tests/test_run_premap_online_merged_native_arg_slot_canary.py \
+  tests/test_check_premap_online_merged_native_arg_slot_window_sweep.py \
+  tests/test_run_premap_lab_gate_verify.py \
+  -q
+
+82 passed
+```
+
 ## Program-view pointer ABI is now a strict window-sweep gate
 
 The online-merged native arg-slot window sweep can now require each
