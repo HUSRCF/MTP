@@ -1860,6 +1860,45 @@ def _standalone_arg_slot_multiprogram_canary_payload(
             "future_kernel_native_consumer_program_view_ptr_requires_wna16_arg_reinterpretation": (
                 False
             ),
+            "future_kernel_native_consumer_kernel_entry_args_checked": True,
+            "future_kernel_native_consumer_kernel_entry_args_field_read_path": (
+                "kernel_entry_args_to_kernel_arg_packet_to_program_view_rows"
+            ),
+            "future_kernel_native_consumer_kernel_entry_args_packet_chain_depth": 5,
+            "future_kernel_native_consumer_kernel_entry_args_summary_row_count": (
+                row_count
+            ),
+            "future_kernel_native_consumer_kernel_entry_args_summary_row_ok_count": (
+                row_count
+            ),
+            "future_kernel_native_consumer_kernel_entry_args_summary_descriptor_ptr_read_row_ok_count": (
+                row_count
+            ),
+            "future_kernel_native_consumer_kernel_entry_args_summary_packed_weight_descriptor_read_row_ok_count": (
+                row_count
+            ),
+            "future_kernel_native_consumer_kernel_entry_args_summary_scale_metadata_handle_read_row_ok_count": (
+                row_count
+            ),
+            "future_kernel_native_consumer_kernel_entry_args_summary_aux_metadata_handle_read_row_ok_count": (
+                row_count
+            ),
+            "future_kernel_native_consumer_kernel_entry_args_summary_row_metadata_read_row_ok_count": (
+                row_count
+            ),
+            "future_kernel_native_consumer_kernel_entry_args_summary_error_count": 0,
+            "future_kernel_native_consumer_kernel_entry_args_summary_field_mask": 15,
+            "future_kernel_native_consumer_kernel_entry_args_payload_bytes": 0,
+            "future_kernel_native_consumer_kernel_entry_args_passed_to_kernel": False,
+            "future_kernel_native_consumer_kernel_entry_args_changes_kernel_launch_args": (
+                False
+            ),
+            "future_kernel_native_consumer_kernel_entry_args_current_wna16_arg_compatible": (
+                False
+            ),
+            "future_kernel_native_consumer_kernel_entry_args_requires_wna16_arg_reinterpretation": (
+                False
+            ),
         }
     )
     return payload
@@ -3014,6 +3053,56 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
         == FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ENTRY_ARGS_ABI_LAYOUT_EXPECTED[
             "future_kernel_native_consumer_kernel_entry_args_offset_summary"
         ]
+    )
+    assert summary["default_kernel_consumer_kernel_entry_args_checked"] is True
+    assert (
+        summary["default_kernel_consumer_kernel_entry_args_field_read_path"]
+        == "kernel_entry_args_to_kernel_arg_packet_to_program_view_rows"
+    )
+    assert summary["default_kernel_consumer_kernel_entry_args_packet_chain_depth"] == 5
+    assert summary["default_kernel_consumer_kernel_entry_args_all_handle_fields_read"] is True
+    entry_args_row_count = summary[
+        "default_kernel_consumer_kernel_entry_args_summary_row_count"
+    ]
+    assert entry_args_row_count == 520
+    assert (
+        summary["default_kernel_consumer_kernel_entry_args_summary_row_ok_count"]
+        == entry_args_row_count
+    )
+    for field in (
+        "descriptor_ptr",
+        "packed_weight_descriptor",
+        "scale_metadata_handle",
+        "aux_metadata_handle",
+    ):
+        assert (
+            summary[
+                "default_kernel_consumer_kernel_entry_args_summary_"
+                f"{field}_read_row_ok_count"
+            ]
+            == entry_args_row_count
+        )
+    assert (
+        summary[
+            "default_kernel_consumer_kernel_entry_args_summary_row_metadata_read_row_ok_count"
+        ]
+        == entry_args_row_count
+    )
+    assert summary["default_kernel_consumer_kernel_entry_args_summary_error_count"] == 0
+    assert summary["default_kernel_consumer_kernel_entry_args_summary_field_mask"] == 15
+    assert summary["default_kernel_consumer_kernel_entry_args_payload_bytes"] == 0
+    assert summary["default_kernel_consumer_kernel_entry_args_passed_to_kernel"] is False
+    assert (
+        summary[
+            "default_kernel_consumer_kernel_entry_args_changes_kernel_launch_args"
+        ]
+        is False
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_kernel_entry_args_current_wna16_arg_compatible"
+        ]
+        is False
     )
     assert (
         summary["default_kernel_consumer_dispatch_abi_name"]

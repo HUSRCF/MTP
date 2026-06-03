@@ -2,7 +2,7 @@
 
 ## Progress Version
 
-- Version: `v0.55-compact-kernel-entry-layout-preflight`
+- Version: `v0.56-compact-kernel-entry-readpath-preflight`
 - Updated: 2026-06-03
 - Current phase: premap descriptor/address prep now has a typed
   kernel-side consumer object, a launch-shaped future native ABI, and a
@@ -74,8 +74,60 @@
   surfaces the packet, entry-summary, and entry-args native layout status
   directly and the summary checker gates the key struct-size/offset invariants,
   so the default lab preflight cannot pass with hidden future-kernel ABI drift.
+  The same compact preflight status now also exposes and gates the future
+  kernel-entry args row-read path, requiring
+  `kernel_entry_args -> kernel_arg_packet -> program_view -> rows` to read all
+  four typed handle fields plus row metadata while keeping payload bytes,
+  kernel-arg pass, and current WNA16 compatibility disabled.
 
-## Latest Update: Compact Preflight Native Entry ABI Status
+## Latest Update: Compact Kernel-Entry Read-Path Gate
+
+The compact lab preflight now proves that the future native kernel-entry args
+object is not only layout-compatible, but actually reads through the intended
+packet chain:
+
+```text
+field_read_path = kernel_entry_args_to_kernel_arg_packet_to_program_view_rows
+packet_chain_depth = 5
+row_count = row_ok_count
+descriptor_ptr_read_row_ok_count = row_count
+packed_weight_descriptor_read_row_ok_count = row_count
+scale_metadata_handle_read_row_ok_count = row_count
+aux_metadata_handle_read_row_ok_count = row_count
+row_metadata_read_row_ok_count = row_count
+error_count = 0
+field_mask = 15
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+current_wna16_arg_compatible = false
+```
+
+This keeps the current WNA16 launch untouched, but turns the future kernel-entry
+object into a compact lab-gated online read-path contract instead of a
+layout-only status field.
+
+Validation:
+
+```bash
+python -m pytest \
+  tests/test_check_premap_lab_preflight_summary.py \
+  tests/test_run_premap_lab_preflight.py -q
+# 117 passed
+
+python scripts/run_premap_lab_preflight.py --summary-only \
+  --output-json outputs/reports/premap_lab_preflight_default_with_gate_schema_sha256.json
+
+python scripts/check_premap_lab_preflight_summary.py \
+  outputs/reports/premap_lab_preflight_default_with_gate_schema_sha256.json \
+  --output-json outputs/reports/premap_lab_preflight_default_with_gate_schema_sha256.check.json
+# passed
+
+python -m pytest tests -q
+# 990 passed
+```
+
+## Previous Update: Compact Preflight Native Entry ABI Status
 
 The default lab preflight summary now exposes the future native kernel ABI
 layout status without requiring readers to open the full schema or runner JSON:

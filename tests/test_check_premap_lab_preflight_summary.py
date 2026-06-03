@@ -122,6 +122,26 @@ def _summary() -> dict[str, object]:
         "default_kernel_consumer_kernel_entry_args_layout_reported": True,
         "default_kernel_consumer_kernel_entry_args_struct_size": 40,
         "default_kernel_consumer_kernel_entry_args_offset_summary": 8,
+        "default_kernel_consumer_kernel_entry_args_checked": True,
+        "default_kernel_consumer_kernel_entry_args_field_read_path": (
+            "kernel_entry_args_to_kernel_arg_packet_to_program_view_rows"
+        ),
+        "default_kernel_consumer_kernel_entry_args_packet_chain_depth": 5,
+        "default_kernel_consumer_kernel_entry_args_summary_row_count": 1841,
+        "default_kernel_consumer_kernel_entry_args_summary_row_ok_count": 1841,
+        "default_kernel_consumer_kernel_entry_args_summary_descriptor_ptr_read_row_ok_count": 1841,
+        "default_kernel_consumer_kernel_entry_args_summary_packed_weight_descriptor_read_row_ok_count": 1841,
+        "default_kernel_consumer_kernel_entry_args_summary_scale_metadata_handle_read_row_ok_count": 1841,
+        "default_kernel_consumer_kernel_entry_args_summary_aux_metadata_handle_read_row_ok_count": 1841,
+        "default_kernel_consumer_kernel_entry_args_summary_row_metadata_read_row_ok_count": 1841,
+        "default_kernel_consumer_kernel_entry_args_summary_error_count": 0,
+        "default_kernel_consumer_kernel_entry_args_summary_field_mask": 15,
+        "default_kernel_consumer_kernel_entry_args_all_handle_fields_read": True,
+        "default_kernel_consumer_kernel_entry_args_payload_bytes": 0,
+        "default_kernel_consumer_kernel_entry_args_passed_to_kernel": False,
+        "default_kernel_consumer_kernel_entry_args_changes_kernel_launch_args": False,
+        "default_kernel_consumer_kernel_entry_args_current_wna16_arg_compatible": False,
+        "default_kernel_consumer_kernel_entry_args_requires_wna16_arg_reinterpretation": False,
         "runtime_gate_evidence_deferred_count": 0,
         "strict_default_gate_evidence_deferred_count": 0,
         "default_kernel_consumer_dispatch_runner_final_runtime_gate_evidence_deferred_count": 0,
@@ -294,6 +314,28 @@ def test_check_premap_lab_preflight_summary_rejects_kernel_entry_layout_gap() ->
         "default_kernel_consumer_kernel_entry_summary_offset_row_hash_accumulator_mismatch"
         in result["failures"]
     )
+
+
+def test_check_premap_lab_preflight_summary_rejects_kernel_entry_read_gap() -> None:
+    summary = _summary()
+    summary[
+        "default_kernel_consumer_kernel_entry_args_summary_scale_metadata_handle_read_row_ok_count"
+    ] = 1840
+    summary["default_kernel_consumer_kernel_entry_args_summary_error_count"] = 1
+    summary["default_kernel_consumer_kernel_entry_args_all_handle_fields_read"] = False
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is False
+    assert (
+        "default_kernel_consumer_kernel_entry_args_all_handle_fields_read_mismatch"
+        in result["failures"]
+    )
+    assert (
+        "kernel_entry_args_scale_metadata_handle_read_row_ok_count_mismatch"
+        in result["failures"]
+    )
+    assert "kernel_entry_args_summary_error_count_mismatch" in result["failures"]
 
 
 def test_check_premap_lab_preflight_summary_cli_writes_output(tmp_path: Path) -> None:

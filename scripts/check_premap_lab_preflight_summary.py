@@ -100,6 +100,13 @@ def check_premap_lab_preflight_summary(
         "default_kernel_consumer_consumer_view_changes_kernel_launch_args": False,
         "default_kernel_consumer_consumer_view_current_wna16_arg_compatible": False,
         "default_kernel_consumer_consumer_view_requires_wna16_arg_reinterpretation": False,
+        "default_kernel_consumer_kernel_entry_args_checked": True,
+        "default_kernel_consumer_kernel_entry_args_all_handle_fields_read": True,
+        "default_kernel_consumer_kernel_entry_args_payload_bytes": 0,
+        "default_kernel_consumer_kernel_entry_args_passed_to_kernel": False,
+        "default_kernel_consumer_kernel_entry_args_changes_kernel_launch_args": False,
+        "default_kernel_consumer_kernel_entry_args_current_wna16_arg_compatible": False,
+        "default_kernel_consumer_kernel_entry_args_requires_wna16_arg_reinterpretation": False,
         "payload_bytes_required": 0,
         "passed_to_kernel_required": False,
         "changes_kernel_launch_args_required": False,
@@ -224,6 +231,57 @@ def check_premap_lab_preflight_summary(
                 failures.append(f"consumer_view_{field}_read_hash_missing")
     if summary.get("default_kernel_consumer_consumer_view_source_packet_chain_depth") != 3:
         failures.append("consumer_view_source_packet_chain_depth_mismatch")
+    if (
+        summary.get("default_kernel_consumer_kernel_entry_args_field_read_path")
+        != "kernel_entry_args_to_kernel_arg_packet_to_program_view_rows"
+    ):
+        failures.append("kernel_entry_args_field_read_path_mismatch")
+    if summary.get("default_kernel_consumer_kernel_entry_args_packet_chain_depth") != 5:
+        failures.append("kernel_entry_args_packet_chain_depth_mismatch")
+    entry_row_count = _int_metric(
+        summary,
+        "default_kernel_consumer_kernel_entry_args_summary_row_count",
+    )
+    entry_row_ok_count = _int_metric(
+        summary,
+        "default_kernel_consumer_kernel_entry_args_summary_row_ok_count",
+    )
+    if entry_row_count is None or entry_row_count <= 0:
+        failures.append("kernel_entry_args_summary_row_count_invalid")
+    if entry_row_count is not None and entry_row_ok_count != entry_row_count:
+        failures.append("kernel_entry_args_summary_row_ok_count_mismatch")
+    for field in REQUIRED_ROW_FIELDS:
+        key = (
+            "default_kernel_consumer_kernel_entry_args_summary_"
+            f"{field}_read_row_ok_count"
+        )
+        if entry_row_count is not None and _int_metric(summary, key) != entry_row_count:
+            failures.append(f"kernel_entry_args_{field}_read_row_ok_count_mismatch")
+    if (
+        entry_row_count is not None
+        and _int_metric(
+            summary,
+            "default_kernel_consumer_kernel_entry_args_summary_row_metadata_read_row_ok_count",
+        )
+        != entry_row_count
+    ):
+        failures.append("kernel_entry_args_row_metadata_read_row_ok_count_mismatch")
+    if (
+        _int_metric(
+            summary,
+            "default_kernel_consumer_kernel_entry_args_summary_error_count",
+        )
+        != 0
+    ):
+        failures.append("kernel_entry_args_summary_error_count_mismatch")
+    if (
+        _int_metric(
+            summary,
+            "default_kernel_consumer_kernel_entry_args_summary_field_mask",
+        )
+        != 15
+    ):
+        failures.append("kernel_entry_args_summary_field_mask_mismatch")
 
     if summary.get("default_kernel_consumer_schema_row_field_names") != REQUIRED_ROW_FIELDS:
         failures.append("schema_row_field_names_mismatch")

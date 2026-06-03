@@ -4886,6 +4886,57 @@ def run_premap_lab_preflight(
             for field in ARG_SLOT_MIRROR_FIELDS
         )
     )
+    kernel_entry_args_summary_row_count = _int_metric(
+        online_merged_arg_slot_summary,
+        "future_kernel_native_consumer_kernel_entry_args_summary_row_count",
+    )
+    kernel_entry_args_summary_row_ok_count = _int_metric(
+        online_merged_arg_slot_summary,
+        "future_kernel_native_consumer_kernel_entry_args_summary_row_ok_count",
+    )
+    kernel_entry_args_summary_descriptor_ptr_read_row_ok_count = _int_metric(
+        online_merged_arg_slot_summary,
+        "future_kernel_native_consumer_kernel_entry_args_summary_descriptor_ptr_read_row_ok_count",
+    )
+    kernel_entry_args_summary_packed_weight_descriptor_read_row_ok_count = (
+        _int_metric(
+            online_merged_arg_slot_summary,
+            "future_kernel_native_consumer_kernel_entry_args_summary_packed_weight_descriptor_read_row_ok_count",
+        )
+    )
+    kernel_entry_args_summary_scale_metadata_handle_read_row_ok_count = (
+        _int_metric(
+            online_merged_arg_slot_summary,
+            "future_kernel_native_consumer_kernel_entry_args_summary_scale_metadata_handle_read_row_ok_count",
+        )
+    )
+    kernel_entry_args_summary_aux_metadata_handle_read_row_ok_count = _int_metric(
+        online_merged_arg_slot_summary,
+        "future_kernel_native_consumer_kernel_entry_args_summary_aux_metadata_handle_read_row_ok_count",
+    )
+    kernel_entry_args_summary_row_metadata_read_row_ok_count = _int_metric(
+        online_merged_arg_slot_summary,
+        "future_kernel_native_consumer_kernel_entry_args_summary_row_metadata_read_row_ok_count",
+    )
+    kernel_entry_args_summary_error_count = _int_metric(
+        online_merged_arg_slot_summary,
+        "future_kernel_native_consumer_kernel_entry_args_summary_error_count",
+    )
+    kernel_entry_args_all_handle_fields_read = (
+        kernel_entry_args_summary_row_count is not None
+        and kernel_entry_args_summary_row_ok_count == kernel_entry_args_summary_row_count
+        and kernel_entry_args_summary_descriptor_ptr_read_row_ok_count
+        == kernel_entry_args_summary_row_count
+        and kernel_entry_args_summary_packed_weight_descriptor_read_row_ok_count
+        == kernel_entry_args_summary_row_count
+        and kernel_entry_args_summary_scale_metadata_handle_read_row_ok_count
+        == kernel_entry_args_summary_row_count
+        and kernel_entry_args_summary_aux_metadata_handle_read_row_ok_count
+        == kernel_entry_args_summary_row_count
+        and kernel_entry_args_summary_row_metadata_read_row_ok_count
+        == kernel_entry_args_summary_row_count
+        and kernel_entry_args_summary_error_count == 0
+    )
     consumer_view_field_read_row_count = _int_metric(
         (
             online_merged_arg_slot_summary
@@ -5753,6 +5804,81 @@ def run_premap_lab_preflight(
         "default_kernel_consumer_kernel_entry_args_offset_summary": (
             kernel_entry_args_layout_expected.get(
                 "future_kernel_native_consumer_kernel_entry_args_offset_summary"
+            )
+        ),
+        "default_kernel_consumer_kernel_entry_args_checked": (
+            online_merged_arg_slot_summary.get(
+                "future_kernel_native_consumer_kernel_entry_args_checked"
+            )
+        ),
+        "default_kernel_consumer_kernel_entry_args_field_read_path": (
+            online_merged_arg_slot_summary.get(
+                "future_kernel_native_consumer_kernel_entry_args_field_read_path"
+            )
+        ),
+        "default_kernel_consumer_kernel_entry_args_packet_chain_depth": (
+            _int_metric(
+                online_merged_arg_slot_summary,
+                "future_kernel_native_consumer_kernel_entry_args_packet_chain_depth",
+            )
+        ),
+        "default_kernel_consumer_kernel_entry_args_summary_row_count": (
+            kernel_entry_args_summary_row_count
+        ),
+        "default_kernel_consumer_kernel_entry_args_summary_row_ok_count": (
+            kernel_entry_args_summary_row_ok_count
+        ),
+        "default_kernel_consumer_kernel_entry_args_summary_descriptor_ptr_read_row_ok_count": (
+            kernel_entry_args_summary_descriptor_ptr_read_row_ok_count
+        ),
+        "default_kernel_consumer_kernel_entry_args_summary_packed_weight_descriptor_read_row_ok_count": (
+            kernel_entry_args_summary_packed_weight_descriptor_read_row_ok_count
+        ),
+        "default_kernel_consumer_kernel_entry_args_summary_scale_metadata_handle_read_row_ok_count": (
+            kernel_entry_args_summary_scale_metadata_handle_read_row_ok_count
+        ),
+        "default_kernel_consumer_kernel_entry_args_summary_aux_metadata_handle_read_row_ok_count": (
+            kernel_entry_args_summary_aux_metadata_handle_read_row_ok_count
+        ),
+        "default_kernel_consumer_kernel_entry_args_summary_row_metadata_read_row_ok_count": (
+            kernel_entry_args_summary_row_metadata_read_row_ok_count
+        ),
+        "default_kernel_consumer_kernel_entry_args_summary_error_count": (
+            kernel_entry_args_summary_error_count
+        ),
+        "default_kernel_consumer_kernel_entry_args_summary_field_mask": (
+            _int_metric(
+                online_merged_arg_slot_summary,
+                "future_kernel_native_consumer_kernel_entry_args_summary_field_mask",
+            )
+        ),
+        "default_kernel_consumer_kernel_entry_args_all_handle_fields_read": (
+            kernel_entry_args_all_handle_fields_read
+        ),
+        "default_kernel_consumer_kernel_entry_args_payload_bytes": (
+            _int_metric(
+                online_merged_arg_slot_summary,
+                "future_kernel_native_consumer_kernel_entry_args_payload_bytes",
+            )
+        ),
+        "default_kernel_consumer_kernel_entry_args_passed_to_kernel": (
+            online_merged_arg_slot_summary.get(
+                "future_kernel_native_consumer_kernel_entry_args_passed_to_kernel"
+            )
+        ),
+        "default_kernel_consumer_kernel_entry_args_changes_kernel_launch_args": (
+            online_merged_arg_slot_summary.get(
+                "future_kernel_native_consumer_kernel_entry_args_changes_kernel_launch_args"
+            )
+        ),
+        "default_kernel_consumer_kernel_entry_args_current_wna16_arg_compatible": (
+            online_merged_arg_slot_summary.get(
+                "future_kernel_native_consumer_kernel_entry_args_current_wna16_arg_compatible"
+            )
+        ),
+        "default_kernel_consumer_kernel_entry_args_requires_wna16_arg_reinterpretation": (
+            online_merged_arg_slot_summary.get(
+                "future_kernel_native_consumer_kernel_entry_args_requires_wna16_arg_reinterpretation"
             )
         ),
         "default_kernel_consumer_dispatch_abi_name": (
