@@ -1423,9 +1423,11 @@ premap_typed_consumer_future_native_kernel_launch_context_matches_v1(
   // The top-level launch context owns its own summary/status sink.  It wraps a
   // valid launch descriptor but does not require aliasing the descriptor-level
   // summary pointer; that would make a future prelaunch context unable to
-  // report independently from the nested descriptor canary.  The runner checks
-  // device_ordinal against the selected HIP device; the device-side stub only
-  // enforces the stream-domain contract that is part of this standalone ABI.
+  // report independently from the nested descriptor canary.  At the
+  // launch-context layer, the runner checks device_ordinal against the
+  // selected HIP device; the device-side stub only enforces the stream-domain
+  // contract that is part of this standalone ABI.  The invocation layer below
+  // additionally binds the context and invocation launch domains.
   return descriptor.expected_schema_hash_hi == context.expected_schema_hash_hi &&
          descriptor.expected_schema_hash_lo == context.expected_schema_hash_lo &&
          premap_typed_consumer_future_native_kernel_launch_descriptor_matches_v1(
@@ -1462,10 +1464,14 @@ premap_typed_consumer_future_native_invocation_matches_v1(
 
   const PremapFutureKernelNativeConsumerKernelLaunchContextV1 context =
       *invocation.context;
+  // The invocation is the first ABI object that binds a concrete call to its
+  // launch context, so it must agree on the launch domain before row access.
   return context.expected_schema_hash_hi ==
              invocation.expected_schema_hash_hi &&
          context.expected_schema_hash_lo ==
              invocation.expected_schema_hash_lo &&
+         context.device_ordinal == invocation.device_ordinal &&
+         context.stream_domain == invocation.stream_domain &&
          premap_typed_consumer_future_native_kernel_launch_context_matches_v1(
              context);
 }

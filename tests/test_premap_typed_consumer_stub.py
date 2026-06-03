@@ -106,6 +106,8 @@ def test_typed_consumer_stub_uses_kernel_side_abi_header():
         "struct PremapFutureKernelNativeConsumerKernelLaunchContextV1"
         in adapter
     )
+    assert "context.device_ordinal == invocation.device_ordinal" in adapter
+    assert "context.stream_domain == invocation.stream_domain" in adapter
     assert (
         "kPremapFutureKernelNativeConsumerLaunchEnvelopeArgsPtrAbiV1Name"
         in adapter
@@ -1436,6 +1438,95 @@ def test_typed_consumer_stub_dry_run_records_kernel_launch_descriptor_fault_hook
     payload = json.loads(output.read_text(encoding="utf-8"))
     assert exit_code == 0
     assert payload["fault_kernel_launch_descriptor_schema_hash"] is True
+
+
+def test_typed_consumer_stub_dry_run_records_invocation_device_fault_hook(
+    tmp_path: Path,
+) -> None:
+    module = _load_module()
+    output = tmp_path / "dry_run_future_native_invocation_device_fault.json"
+
+    exit_code = module.main(
+        [
+            "--dry-run",
+            "--macro",
+            "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ABI",
+            "--macro",
+            "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ABI",
+            "--macro",
+            "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_ABI",
+            "--macro",
+            "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_PTR_ABI",
+            "--macro",
+            "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ARG_SLOT_ABI",
+            "--macro",
+            "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_VIEW_ABI",
+            "--macro",
+            "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_PROGRAM_VIEW_ABI",
+            "--macro",
+            "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_PROGRAM_VIEW_PTR_ABI",
+            "--macro",
+            "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ARG_PACKET_ABI",
+            "--macro",
+            "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ENTRY_ARGS_ABI",
+            "--macro",
+            "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ENTRY_ARGS_PTR_ABI",
+            "--macro",
+            "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ENVELOPE_ARGS_ABI",
+            "--macro",
+            "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ENVELOPE_ARGS_PTR_ABI",
+            "--macro",
+            "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_LAUNCH_DESCRIPTOR_ABI",
+            "--macro",
+            "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_LAUNCH_CONTEXT_ABI",
+            "--macro",
+            "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_INVOCATION_ABI",
+            "--fault-invocation-device-ordinal",
+            "--output-json",
+            str(output),
+        ]
+    )
+
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    assert exit_code == 0
+    assert payload["fault_invocation_device_ordinal"] is True
+
+
+def test_typed_consumer_stub_returns_structured_payload_for_fault_non_json(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    module = _load_module()
+    args = module._build_parser().parse_args(
+        [
+            "--rows",
+            "8",
+            "--fault-invocation-device-ordinal",
+        ]
+    )
+
+    monkeypatch.setattr(module, "build", lambda **_: tmp_path / "fake_stub")
+
+    def fake_run_cmd(cmd, *, env=None, allow_failure=False):
+        assert allow_failure is True
+        return module.subprocess.CompletedProcess(
+            cmd,
+            2,
+            stdout="not-json",
+            stderr="native failed before JSON",
+        )
+
+    monkeypatch.setattr(module, "run_cmd", fake_run_cmd)
+
+    payload = module.run_stub(args)
+
+    assert payload["ok"] is False
+    assert payload["passed"] is False
+    assert payload["native_returncode"] == 2
+    assert payload["fault_invocation_device_ordinal"] is True
+    assert "native_json_parse_error" in payload
+    assert payload["native_stdout"] == "not-json"
+    assert payload["stderr"] == "native failed before JSON"
 
 
 def test_typed_consumer_stub_dry_run_accepts_aux_metadata_mirror_macro(

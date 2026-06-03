@@ -447,18 +447,54 @@ def run_stub(args: argparse.Namespace) -> dict[str, Any]:
         cmd.append("--omit-aux-pointer")
     if args.fault_kernel_launch_descriptor_schema_hash:
         cmd.append("--fault-kernel-launch-descriptor-schema-hash")
+    if args.fault_invocation_device_ordinal:
+        cmd.append("--fault-invocation-device-ordinal")
     env = os.environ.copy()
     if args.hip_visible_devices is not None:
         env["HIP_VISIBLE_DEVICES"] = str(args.hip_visible_devices)
+    fault_failure_allowed = bool(
+        args.fault_kernel_launch_descriptor_schema_hash
+        or args.fault_invocation_device_ordinal
+    )
     result = run_cmd(
         cmd,
         env=env,
-        allow_failure=bool(args.fault_kernel_launch_descriptor_schema_hash),
+        allow_failure=fault_failure_allowed,
     )
-    payload = json.loads(result.stdout)
+    try:
+        decoded_payload = json.loads(result.stdout)
+    except json.JSONDecodeError as exc:
+        if not fault_failure_allowed:
+            msg = (
+                "native typed consumer emitted invalid JSON "
+                f"with exit code {result.returncode}: {exc}\n"
+                f"stdout:\n{result.stdout}\n"
+                f"stderr:\n{result.stderr}"
+            )
+            raise RuntimeError(msg) from exc
+        decoded_payload = {
+            "ok": False,
+            "passed": False,
+            "native_json_parse_error": str(exc),
+            "native_stdout": result.stdout,
+        }
+    if not isinstance(decoded_payload, dict):
+        msg = "native typed consumer JSON payload must be an object"
+        if not fault_failure_allowed:
+            raise RuntimeError(msg)
+        decoded_payload = {
+            "ok": False,
+            "passed": False,
+            "native_json_parse_error": msg,
+            "native_stdout": result.stdout,
+        }
+    payload = decoded_payload
     payload["native_returncode"] = int(result.returncode)
     payload["fault_kernel_launch_descriptor_schema_hash"] = bool(
         args.fault_kernel_launch_descriptor_schema_hash
+    )
+    payload["fault_invocation_device_ordinal"] = bool(
+        args.fault_invocation_device_ordinal
     )
     payload["binary"] = str(bin_path)
     payload["source"] = str(SRC)
@@ -492,6 +528,15 @@ def _build_parser() -> argparse.ArgumentParser:
         help=(
             "Inject a schema-hash mismatch into the future native kernel-launch "
             "descriptor canary. This is a negative test hook only."
+        ),
+    )
+    parser.add_argument(
+        "--fault-invocation-device-ordinal",
+        action="store_true",
+        help=(
+            "Inject a device-ordinal mismatch between the future native "
+            "invocation object and its launch context. This is a negative "
+            "test hook only."
         ),
     )
     parser.add_argument("--offload-arch", default="gfx1100")
@@ -546,6 +591,9 @@ def main(argv: list[str] | None = None) -> int:
             "requested_dispatch_row_limit": dispatch_row_limit,
             "fault_kernel_launch_descriptor_schema_hash": bool(
                 args.fault_kernel_launch_descriptor_schema_hash
+            ),
+            "fault_invocation_device_ordinal": bool(
+                args.fault_invocation_device_ordinal
             ),
         }
     else:
