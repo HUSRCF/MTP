@@ -383,6 +383,19 @@ def test_online_merged_arg_slot_canary_macros_can_require_invocation_entry():
     )
 
 
+def test_online_merged_arg_slot_canary_macros_can_require_endpoint():
+    module = _load_module()
+
+    macros = module.arg_slot_macros(
+        "scale_metadata_handle",
+        include_endpoint=True,
+    )
+
+    assert module.INVOCATION_MACRO in macros
+    assert module.INVOCATION_ENTRY_MACRO in macros
+    assert module.ENDPOINT_MACRO in macros
+
+
 def test_online_merged_arg_slot_canary_dry_run_accepts_launch_envelope_args(
     tmp_path: Path,
 ):
@@ -1056,6 +1069,101 @@ def test_online_merged_arg_slot_canary_dry_run_accepts_invocation_entry(
             "future_kernel_native_consumer_invocation_entry_packet_chain_depth"
         ]
         == 11
+    )
+
+
+def test_online_merged_arg_slot_canary_dry_run_accepts_endpoint(
+    tmp_path: Path,
+):
+    module = _load_module()
+    first = tmp_path / "input0.json"
+    second = tmp_path / "input1.json"
+    runner = tmp_path / "runner.json"
+    stub = tmp_path / "stub.json"
+    _write_input(first, start=0, rows=3, export_index=0)
+    _write_input(second, start=100, rows=4, export_index=1)
+    _write_runner(runner, [first, second])
+
+    args = module.build_parser().parse_args(
+        [
+            "--runner-json",
+            str(runner),
+            "--min-source-count",
+            "2",
+            "--min-total-rows",
+            "7",
+            "--block-threads",
+            "4",
+            "--require-kernel-endpoint-abi",
+            "--merged-output-json",
+            str(tmp_path / "merged.json"),
+            "--stub-output-json",
+            str(stub),
+            "--output-json",
+            str(tmp_path / "report.json"),
+            "--dry-run",
+        ]
+    )
+
+    result = module.run_canary(args)
+    stub_payload = json.loads(stub.read_text(encoding="utf-8"))
+
+    assert result["passed"] is True
+    assert result["require_kernel_invocation_abi"] is True
+    assert result["require_kernel_invocation_entry_abi"] is True
+    assert result["require_kernel_endpoint_abi"] is True
+    assert result["kernel_endpoint_checked"] is True
+    assert (
+        result["kernel_endpoint_abi_name"]
+        == "premap_future_kernel_native_consumer_endpoint_abi_v1"
+    )
+    assert (
+        result["kernel_endpoint_mode"]
+        == "readonly_future_kernel_native_consumer_endpoint_abi"
+    )
+    assert (
+        result["kernel_endpoint_source"]
+        == "premap_future_kernel_native_consumer_invocation_entry_abi_v1"
+    )
+    assert result["kernel_endpoint_error_count"] == 0
+    assert result["kernel_endpoint_all_handle_fields_read"] is True
+    assert result["kernel_endpoint_packet_chain_depth"] == 12
+    assert result["kernel_endpoint_payload_bytes"] == 0
+    assert result["kernel_endpoint_payload_deref_allowed"] is False
+    assert result["kernel_endpoint_passed_to_kernel"] is False
+    assert result["kernel_endpoint_kernel_arg_pass_allowed"] is False
+    assert result["kernel_endpoint_changes_kernel_launch_args"] is False
+    assert result["kernel_endpoint_current_wna16_arg_compatible"] is False
+    assert result["kernel_endpoint_requires_wna16_arg_reinterpretation"] is False
+    assert int(result["kernel_endpoint_row_hash_accumulator"], 16) == 1
+    assert int(result["kernel_endpoint_field_read_hash_accumulator"], 16) == 2
+    assert int(result["kernel_endpoint_row_metadata_hash_accumulator"], 16) == 3
+    assert module.INVOCATION_ENTRY_MACRO in stub_payload["requested_macros"]
+    assert module.ENDPOINT_MACRO in stub_payload["requested_macros"]
+    assert stub_payload["requested_macros"] == module.arg_slot_macros(
+        "scale_metadata_handle",
+        include_endpoint=True,
+    )
+    assert (
+        stub_payload["future_kernel_native_consumer_endpoint_field_read_path"]
+        == "endpoint_to_by_value_invocation_to_kernel_launch_context_to_kernel_launch_descriptor_to_launch_envelope_args_ptr_to_launch_envelope_args_to_entry_args_ptr_to_kernel_entry_args_to_kernel_arg_packet_to_program_view_rows"
+    )
+    assert (
+        stub_payload["future_kernel_native_consumer_endpoint_summary_row_count"]
+        == 7
+    )
+    assert (
+        stub_payload[
+            "future_kernel_native_consumer_endpoint_summary_scale_metadata_handle_read_row_ok_count"
+        ]
+        == 7
+    )
+    assert stub_payload["future_kernel_native_consumer_endpoint_payload_bytes"] == 0
+    assert (
+        result["stub_summary"][
+            "future_kernel_native_consumer_endpoint_packet_chain_depth"
+        ]
+        == 12
     )
 
 

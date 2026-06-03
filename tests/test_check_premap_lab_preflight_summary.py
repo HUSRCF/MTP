@@ -58,6 +58,7 @@ def _summary() -> dict[str, object]:
         "default_kernel_consumer_online_merged_multiprogram_current_wna16_arg_compatible": False,
         "default_kernel_consumer_online_merged_multiprogram_require_kernel_invocation_abi": True,
         "default_kernel_consumer_online_merged_multiprogram_require_kernel_invocation_entry_abi": True,
+        "default_kernel_consumer_online_merged_multiprogram_require_kernel_endpoint_abi": True,
         "default_kernel_consumer_arg_slot_all_handle_fields_read": True,
         "default_kernel_consumer_arg_slot_field_read_field_names": [
             "descriptor_ptr",
@@ -185,6 +186,22 @@ def _summary() -> dict[str, object]:
         ),
         "default_kernel_consumer_kernel_invocation_entry_row_metadata_hash_accumulator": (
             "4142434445464748"
+        ),
+        "default_kernel_consumer_kernel_endpoint_checked": True,
+        "default_kernel_consumer_kernel_endpoint_all_handle_fields_read": True,
+        "default_kernel_consumer_kernel_endpoint_packet_chain_depth": 12,
+        "default_kernel_consumer_kernel_endpoint_payload_bytes": 0,
+        "default_kernel_consumer_kernel_endpoint_passed_to_kernel": False,
+        "default_kernel_consumer_kernel_endpoint_kernel_arg_pass_allowed": False,
+        "default_kernel_consumer_kernel_endpoint_current_wna16_arg_compatible": False,
+        "default_kernel_consumer_kernel_endpoint_row_hash_accumulator": (
+            "5152535455565758"
+        ),
+        "default_kernel_consumer_kernel_endpoint_field_read_hash_accumulator": (
+            "6162636465666768"
+        ),
+        "default_kernel_consumer_kernel_endpoint_row_metadata_hash_accumulator": (
+            "7172737475767778"
         ),
         "runtime_gate_evidence_deferred_count": 0,
         "strict_default_gate_evidence_deferred_count": 0,
@@ -499,6 +516,46 @@ def test_check_premap_lab_preflight_summary_rejects_invocation_entry_gap() -> No
     ]
     assert (
         "default_kernel_consumer_kernel_invocation_entry_field_read_hash_accumulator_invalid"
+        in result["failures"]
+    )
+
+
+def test_check_premap_lab_preflight_summary_rejects_endpoint_gap() -> None:
+    summary = _summary()
+    summary[
+        "default_kernel_consumer_online_merged_multiprogram_require_kernel_endpoint_abi"
+    ] = False
+    summary["default_kernel_consumer_kernel_endpoint_all_handle_fields_read"] = False
+    summary["default_kernel_consumer_kernel_endpoint_packet_chain_depth"] = 11
+    summary["default_kernel_consumer_kernel_endpoint_payload_bytes"] = 1
+    summary["default_kernel_consumer_kernel_endpoint_passed_to_kernel"] = True
+    summary[
+        "default_kernel_consumer_kernel_endpoint_field_read_hash_accumulator"
+    ] = "not-hex"
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is False
+    assert (
+        "default_kernel_consumer_online_merged_multiprogram_require_kernel_endpoint_abi_mismatch"
+        in result["failures"]
+    )
+    assert (
+        "default_kernel_consumer_kernel_endpoint_all_handle_fields_read_mismatch"
+        in result["failures"]
+    )
+    assert (
+        "default_kernel_consumer_kernel_endpoint_packet_chain_depth_mismatch"
+        in result["failures"]
+    )
+    assert "default_kernel_consumer_kernel_endpoint_payload_bytes_mismatch" in result[
+        "failures"
+    ]
+    assert "default_kernel_consumer_kernel_endpoint_passed_to_kernel_mismatch" in result[
+        "failures"
+    ]
+    assert (
+        "default_kernel_consumer_kernel_endpoint_field_read_hash_accumulator_invalid"
         in result["failures"]
     )
 

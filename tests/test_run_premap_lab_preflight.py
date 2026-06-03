@@ -1826,6 +1826,58 @@ def _invocation_entry_metrics(
     return payload
 
 
+def _endpoint_metrics(
+    *,
+    prefix: str,
+    row_count: int,
+    include_all_handle_fields_read: bool = False,
+) -> dict[str, object]:
+    payload: dict[str, object] = {
+        f"{prefix}_checked": True,
+        f"{prefix}_abi_name": "premap_future_kernel_native_consumer_endpoint_abi_v1",
+        f"{prefix}_mode": "readonly_future_kernel_native_consumer_endpoint_abi",
+        f"{prefix}_source": (
+            "premap_future_kernel_native_consumer_invocation_entry_abi_v1"
+        ),
+        f"{prefix}_field_read_path": (
+            "endpoint_to_by_value_invocation_to_kernel_launch_context_to_"
+            "kernel_launch_descriptor_to_launch_envelope_args_ptr_to_"
+            "launch_envelope_args_to_entry_args_ptr_to_kernel_entry_args_to_"
+            "kernel_arg_packet_to_program_view_rows"
+        ),
+        f"{prefix}_packet_chain_depth": 12,
+        f"{prefix}_error_count": 0,
+        f"{prefix}_payload_bytes": 0,
+        f"{prefix}_payload_deref_allowed": False,
+        f"{prefix}_passed_to_kernel": False,
+        f"{prefix}_kernel_arg_pass_allowed": False,
+        f"{prefix}_changes_kernel_launch_args": False,
+        f"{prefix}_current_wna16_arg_compatible": False,
+        f"{prefix}_requires_wna16_arg_reinterpretation": False,
+        f"{prefix}_summary_row_count": row_count,
+        f"{prefix}_summary_row_ok_count": row_count,
+        f"{prefix}_summary_descriptor_ptr_read_row_ok_count": row_count,
+        f"{prefix}_summary_packed_weight_descriptor_read_row_ok_count": row_count,
+        f"{prefix}_summary_scale_metadata_handle_read_row_ok_count": row_count,
+        f"{prefix}_summary_aux_metadata_handle_read_row_ok_count": row_count,
+        f"{prefix}_summary_expert_id_read_row_ok_count": row_count,
+        f"{prefix}_summary_address_key_hash_read_row_ok_count": row_count,
+        f"{prefix}_summary_row_metadata_read_row_ok_count": row_count,
+        f"{prefix}_summary_error_count": 0,
+        f"{prefix}_summary_field_mask": 15,
+        f"{prefix}_summary_packet_valid": 1,
+        f"{prefix}_summary_row_hash_accumulator": "c4b51a0fa5ba88c4",
+        f"{prefix}_summary_field_read_hash_accumulator": "c2e4ae7fa9bc3227",
+        f"{prefix}_summary_row_metadata_hash_accumulator": "1a11b42afa9e8576",
+    }
+    if include_all_handle_fields_read:
+        payload[f"{prefix}_all_handle_fields_read"] = True
+        payload[f"{prefix}_row_hash_accumulator"] = "c4b51a0fa5ba88c4"
+        payload[f"{prefix}_field_read_hash_accumulator"] = "c2e4ae7fa9bc3227"
+        payload[f"{prefix}_row_metadata_hash_accumulator"] = "1a11b42afa9e8576"
+    return payload
+
+
 def _standalone_arg_slot_multiprogram_canary_payload(
     *,
     mirror_field: str = "scale_metadata_handle",
@@ -2244,6 +2296,7 @@ def _online_merged_arg_slot_multiprogram_runner_payload(
             "require_launch_envelope_args_ptr_abi": True,
             "require_kernel_invocation_abi": True,
             "require_kernel_invocation_entry_abi": True,
+            "require_kernel_endpoint_abi": True,
         }
     )
     payload.update(
@@ -2267,9 +2320,22 @@ def _online_merged_arg_slot_multiprogram_runner_payload(
             include_all_handle_fields_read=True,
         )
     )
+    payload.update(
+        _endpoint_metrics(
+            prefix="kernel_endpoint",
+            row_count=520,
+            include_all_handle_fields_read=True,
+        )
+    )
     stub_summary.update(
         _invocation_entry_metrics(
             prefix="future_kernel_native_consumer_invocation_entry",
+            row_count=520,
+        )
+    )
+    stub_summary.update(
+        _endpoint_metrics(
+            prefix="future_kernel_native_consumer_endpoint",
             row_count=520,
         )
     )
@@ -5084,6 +5150,46 @@ def test_premap_lab_preflight_rejects_required_online_merged_runner_without_invo
     assert (
         "future_kernel_native_arg_slot_online_merged_multiprogram_runner_json:"
         "online_merged_multiprogram_arg_slot_runner_kernel_invocation_entry_checked_mismatch"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_required_online_merged_runner_without_endpoint(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    runner_path = (
+        tmp_path
+        / "reports/default_gate_online_merged_future_native_arg_slot_multiprogram_runner.json"
+    )
+    payload = json.loads(runner_path.read_text(encoding="utf-8"))
+    payload["require_kernel_endpoint_abi"] = False
+    payload["kernel_endpoint_checked"] = False
+    runner_path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is False
+    assert "default_readonly_gate_required_evidence_check_failed" in result["failures"]
+    failures = result["default_readonly_gate_required_evidence_check"]["failures"]
+    assert (
+        "future_kernel_native_arg_slot_online_merged_multiprogram_runner_json:"
+        "online_merged_multiprogram_arg_slot_runner_require_kernel_endpoint_abi_missing"
+    ) in failures
+    assert (
+        "future_kernel_native_arg_slot_online_merged_multiprogram_runner_json:"
+        "online_merged_multiprogram_arg_slot_runner_kernel_endpoint_checked_mismatch"
     ) in failures
 
 

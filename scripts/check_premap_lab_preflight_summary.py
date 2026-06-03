@@ -101,6 +101,7 @@ def check_premap_lab_preflight_summary(
         "default_kernel_consumer_online_merged_multiprogram_current_wna16_arg_compatible": False,
         "default_kernel_consumer_online_merged_multiprogram_require_kernel_invocation_abi": True,
         "default_kernel_consumer_online_merged_multiprogram_require_kernel_invocation_entry_abi": True,
+        "default_kernel_consumer_online_merged_multiprogram_require_kernel_endpoint_abi": True,
         "default_kernel_consumer_dispatch_abi_current_wna16_arg_compatible": False,
         "default_kernel_consumer_dispatch_ptr_abi_current_wna16_arg_compatible": False,
         "default_kernel_consumer_arg_slot_abi_current_wna16_arg_compatible": False,
@@ -132,6 +133,12 @@ def check_premap_lab_preflight_summary(
         "default_kernel_consumer_kernel_invocation_entry_passed_to_kernel": False,
         "default_kernel_consumer_kernel_invocation_entry_kernel_arg_pass_allowed": False,
         "default_kernel_consumer_kernel_invocation_entry_current_wna16_arg_compatible": False,
+        "default_kernel_consumer_kernel_endpoint_checked": True,
+        "default_kernel_consumer_kernel_endpoint_all_handle_fields_read": True,
+        "default_kernel_consumer_kernel_endpoint_payload_bytes": 0,
+        "default_kernel_consumer_kernel_endpoint_passed_to_kernel": False,
+        "default_kernel_consumer_kernel_endpoint_kernel_arg_pass_allowed": False,
+        "default_kernel_consumer_kernel_endpoint_current_wna16_arg_compatible": False,
         "payload_bytes_required": 0,
         "passed_to_kernel_required": False,
         "changes_kernel_launch_args_required": False,
@@ -328,8 +335,12 @@ def check_premap_lab_preflight_summary(
     for prefix in (
         "default_kernel_consumer_kernel_invocation",
         "default_kernel_consumer_kernel_invocation_entry",
+        "default_kernel_consumer_kernel_endpoint",
     ):
-        if summary.get(f"{prefix}_packet_chain_depth") != 11:
+        expected_depth = (
+            12 if prefix == "default_kernel_consumer_kernel_endpoint" else 11
+        )
+        if summary.get(f"{prefix}_packet_chain_depth") != expected_depth:
             failures.append(f"{prefix}_packet_chain_depth_mismatch")
         for suffix in (
             "row_hash_accumulator",
