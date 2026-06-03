@@ -199,6 +199,9 @@ def _child_payload(
             **_field_mask_pairs(),
             **_field_read_pairs("future_kernel_native_arg_slot_consumer", active),
             **_field_read_pairs("future_kernel_native_consumer_view", active),
+            **_field_read_pairs(
+                "future_kernel_native_consumer_kernel_arg_packet", active
+            ),
         },
     }
 

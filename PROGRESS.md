@@ -2419,6 +2419,53 @@ passed = true
 failures = []
 ```
 
+### Packet-level typed field-read gate
+
+The future native kernel-arg packet stub now emits explicit per-row read
+counters for all four typed handle fields:
+
+```text
+descriptor_ptr
+packed_weight_descriptor
+scale_metadata_handle
+aux_metadata_handle
+```
+
+This tightens the previous packet ABI gate.  The lab checker no longer only
+requires `kernel_arg_packet_checked=true`; when the packet ABI is required, it
+also requires packet-level field read `row_count`, `row_ok_count`,
+`error_count=0`, and non-empty read hashes.
+
+Boundary remains unchanged:
+
+```text
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+current_wna16_arg_compatible = false
+requires_wna16_arg_reinterpretation = false
+```
+
+Smoke:
+
+```text
+python scripts/run_premap_typed_consumer_stub.py \
+  --rows 256 \
+  --block-threads 64 \
+  --dispatch-row-offset 0 \
+  --dispatch-row-limit 256 \
+  --device 0 \
+  --force-build \
+  --output-json outputs/reports/premap_typed_consumer_packet_field_read_smoke.json \
+  ... future-native ABI macros ...
+
+ok = true
+future_kernel_native_consumer_kernel_arg_packet_checked = true
+future_kernel_native_consumer_kernel_arg_packet_row_ok_count = 256
+future_kernel_native_consumer_kernel_arg_packet_*_read_row_ok_count = 256
+future_kernel_native_consumer_kernel_arg_packet_*_read_error_count = 0
+```
+
 ## Program-view pointer ABI is now a strict window-sweep gate
 
 The online-merged native arg-slot window sweep can now require each

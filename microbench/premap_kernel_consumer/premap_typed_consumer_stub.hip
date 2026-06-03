@@ -967,7 +967,21 @@ __global__ void typed_consumer_future_native_consumer_program_view_ptr_kernel(
 __global__ void typed_consumer_future_native_consumer_kernel_arg_packet_kernel(
     PremapFutureKernelNativeConsumerKernelArgPacketV1 kernel_arg_packet,
     uint32_t* future_native_consumer_kernel_arg_packet_ok,
-    uint64_t* future_native_consumer_kernel_arg_packet_hash) {
+    uint64_t* future_native_consumer_kernel_arg_packet_hash,
+    uint32_t* future_native_consumer_kernel_arg_packet_descriptor_ptr_read_ok,
+    uint64_t* future_native_consumer_kernel_arg_packet_descriptor_ptr_read_hash,
+    uint32_t*
+        future_native_consumer_kernel_arg_packet_packed_weight_descriptor_read_ok,
+    uint64_t*
+        future_native_consumer_kernel_arg_packet_packed_weight_descriptor_read_hash,
+    uint32_t*
+        future_native_consumer_kernel_arg_packet_scale_metadata_handle_read_ok,
+    uint64_t*
+        future_native_consumer_kernel_arg_packet_scale_metadata_handle_read_hash,
+    uint32_t*
+        future_native_consumer_kernel_arg_packet_aux_metadata_handle_read_ok,
+    uint64_t*
+        future_native_consumer_kernel_arg_packet_aux_metadata_handle_read_hash) {
   const uint32_t program_id = static_cast<uint32_t>(blockIdx.x);
   const uint32_t lane_id = static_cast<uint32_t>(threadIdx.x);
   if (kernel_arg_packet.program_view_ptr == nullptr) {
@@ -1008,6 +1022,60 @@ __global__ void typed_consumer_future_native_consumer_kernel_arg_packet_kernel(
           kTypedSchemaHashLo);
   future_native_consumer_kernel_arg_packet_ok[idx] = result.ok;
   future_native_consumer_kernel_arg_packet_hash[idx] = result.row_hash;
+  const uint32_t row_index =
+      program_view.view.row_offset + static_cast<uint32_t>(local_row_index_64);
+  const PremapKernelSideTypedConsumerRowV1 row =
+      premap_typed_consumer_load_future_native_row_v1(
+          program_view.view.params, row_index);
+  const uint32_t field_mask = program_view.view.params.field_mask;
+  const uint32_t descriptor_ptr_visible =
+      static_cast<uint32_t>(
+          (field_mask & kPremapFutureKernelSideConsumerFieldMaskDescriptorPtr) !=
+              0 &&
+          row.descriptor_ptr != 0);
+  const uint32_t packed_weight_descriptor_visible =
+      static_cast<uint32_t>(
+          (field_mask &
+           kPremapFutureKernelSideConsumerFieldMaskPackedWeightDescriptor) != 0 &&
+          row.packed_weight_descriptor != 0);
+  const uint32_t scale_metadata_handle_visible =
+      static_cast<uint32_t>(
+          (field_mask &
+           kPremapFutureKernelSideConsumerFieldMaskScaleMetadataHandle) != 0 &&
+          row.scale_metadata_handle != 0);
+  const uint32_t aux_metadata_handle_visible =
+      static_cast<uint32_t>(
+          (field_mask & kPremapFutureKernelSideConsumerFieldMaskAuxMetadataHandle) !=
+              0 &&
+          row.aux_metadata_handle != 0);
+  future_native_consumer_kernel_arg_packet_descriptor_ptr_read_ok[idx] =
+      descriptor_ptr_visible;
+  future_native_consumer_kernel_arg_packet_descriptor_ptr_read_hash[idx] =
+      descriptor_ptr_visible
+          ? (mix64(row.descriptor_ptr + 0xc054000000000101ULL) ^
+             mix64(row.address_key_hash + static_cast<uint64_t>(row_index)))
+          : 0ULL;
+  future_native_consumer_kernel_arg_packet_packed_weight_descriptor_read_ok[idx] =
+      packed_weight_descriptor_visible;
+  future_native_consumer_kernel_arg_packet_packed_weight_descriptor_read_hash[idx] =
+      packed_weight_descriptor_visible
+          ? (mix64(row.packed_weight_descriptor + 0xc054000000000102ULL) ^
+             mix64(row.address_key_hash + static_cast<uint64_t>(row_index)))
+          : 0ULL;
+  future_native_consumer_kernel_arg_packet_scale_metadata_handle_read_ok[idx] =
+      scale_metadata_handle_visible;
+  future_native_consumer_kernel_arg_packet_scale_metadata_handle_read_hash[idx] =
+      scale_metadata_handle_visible
+          ? (mix64(row.scale_metadata_handle + 0xc054000000000103ULL) ^
+             mix64(row.address_key_hash + static_cast<uint64_t>(row_index)))
+          : 0ULL;
+  future_native_consumer_kernel_arg_packet_aux_metadata_handle_read_ok[idx] =
+      aux_metadata_handle_visible;
+  future_native_consumer_kernel_arg_packet_aux_metadata_handle_read_hash[idx] =
+      aux_metadata_handle_visible
+          ? (mix64(row.aux_metadata_handle + 0xc054000000000104ULL) ^
+             mix64(row.address_key_hash + static_cast<uint64_t>(row_index)))
+          : 0ULL;
 }
 
 struct Args {
@@ -1314,7 +1382,15 @@ int main(int argc, char** argv) {
            *d_future_native_consumer_program_view_hash = nullptr,
            *d_future_native_consumer_program_view_handle_projection_hash = nullptr,
            *d_future_native_consumer_program_view_ptr_hash = nullptr,
-           *d_future_native_consumer_kernel_arg_packet_hash = nullptr;
+           *d_future_native_consumer_kernel_arg_packet_hash = nullptr,
+           *d_future_native_consumer_kernel_arg_packet_descriptor_ptr_read_hash =
+               nullptr,
+           *d_future_native_consumer_kernel_arg_packet_packed_weight_descriptor_read_hash =
+               nullptr,
+           *d_future_native_consumer_kernel_arg_packet_scale_metadata_handle_read_hash =
+               nullptr,
+           *d_future_native_consumer_kernel_arg_packet_aux_metadata_handle_read_hash =
+               nullptr;
   PremapFutureKernelNativeConsumerDispatchV1* d_future_native_dispatch_packet =
       nullptr;
   PremapFutureKernelNativeConsumerDispatchPtrV1*
@@ -1351,7 +1427,15 @@ int main(int argc, char** argv) {
            *d_future_native_consumer_view_aux_metadata_handle_read_ok = nullptr,
            *d_future_native_consumer_program_view_ok = nullptr,
            *d_future_native_consumer_program_view_ptr_ok = nullptr,
-           *d_future_native_consumer_kernel_arg_packet_ok = nullptr;
+           *d_future_native_consumer_kernel_arg_packet_ok = nullptr,
+           *d_future_native_consumer_kernel_arg_packet_descriptor_ptr_read_ok =
+               nullptr,
+           *d_future_native_consumer_kernel_arg_packet_packed_weight_descriptor_read_ok =
+               nullptr,
+           *d_future_native_consumer_kernel_arg_packet_scale_metadata_handle_read_ok =
+               nullptr,
+           *d_future_native_consumer_kernel_arg_packet_aux_metadata_handle_read_ok =
+               nullptr;
   const size_t u64_bytes = static_cast<size_t>(rows) * sizeof(uint64_t);
   const size_t i32_bytes = static_cast<size_t>(rows) * sizeof(int32_t);
   const size_t u32_bytes = static_cast<size_t>(rows) * sizeof(uint32_t);
@@ -1570,6 +1654,46 @@ int main(int argc, char** argv) {
   hip_check(
       hipMalloc(&d_future_native_consumer_kernel_arg_packet_hash, u64_bytes),
       "hipMalloc future_native_consumer_kernel_arg_packet_hash");
+  hip_check(
+      hipMalloc(
+          &d_future_native_consumer_kernel_arg_packet_descriptor_ptr_read_ok,
+          u32_bytes),
+      "hipMalloc future_native_consumer_kernel_arg_packet_descriptor_ptr_read_ok");
+  hip_check(
+      hipMalloc(
+          &d_future_native_consumer_kernel_arg_packet_descriptor_ptr_read_hash,
+          u64_bytes),
+      "hipMalloc future_native_consumer_kernel_arg_packet_descriptor_ptr_read_hash");
+  hip_check(
+      hipMalloc(
+          &d_future_native_consumer_kernel_arg_packet_packed_weight_descriptor_read_ok,
+          u32_bytes),
+      "hipMalloc future_native_consumer_kernel_arg_packet_packed_weight_descriptor_read_ok");
+  hip_check(
+      hipMalloc(
+          &d_future_native_consumer_kernel_arg_packet_packed_weight_descriptor_read_hash,
+          u64_bytes),
+      "hipMalloc future_native_consumer_kernel_arg_packet_packed_weight_descriptor_read_hash");
+  hip_check(
+      hipMalloc(
+          &d_future_native_consumer_kernel_arg_packet_scale_metadata_handle_read_ok,
+          u32_bytes),
+      "hipMalloc future_native_consumer_kernel_arg_packet_scale_metadata_handle_read_ok");
+  hip_check(
+      hipMalloc(
+          &d_future_native_consumer_kernel_arg_packet_scale_metadata_handle_read_hash,
+          u64_bytes),
+      "hipMalloc future_native_consumer_kernel_arg_packet_scale_metadata_handle_read_hash");
+  hip_check(
+      hipMalloc(
+          &d_future_native_consumer_kernel_arg_packet_aux_metadata_handle_read_ok,
+          u32_bytes),
+      "hipMalloc future_native_consumer_kernel_arg_packet_aux_metadata_handle_read_ok");
+  hip_check(
+      hipMalloc(
+          &d_future_native_consumer_kernel_arg_packet_aux_metadata_handle_read_hash,
+          u64_bytes),
+      "hipMalloc future_native_consumer_kernel_arg_packet_aux_metadata_handle_read_hash");
   hip_check(hipMemcpy(d_descriptor, descriptor.data(), u64_bytes, hipMemcpyHostToDevice), "copy descriptor");
   hip_check(hipMemcpy(d_packed, packed.data(), u64_bytes, hipMemcpyHostToDevice), "copy packed");
   hip_check(hipMemcpy(d_scale, scale.data(), u64_bytes, hipMemcpyHostToDevice), "copy scale");
@@ -1768,6 +1892,54 @@ int main(int argc, char** argv) {
   hip_check(
       hipMemset(d_future_native_consumer_kernel_arg_packet_hash, 0, u64_bytes),
       "memset future_native_consumer_kernel_arg_packet_hash");
+  hip_check(
+      hipMemset(
+          d_future_native_consumer_kernel_arg_packet_descriptor_ptr_read_ok,
+          0,
+          u32_bytes),
+      "memset future_native_consumer_kernel_arg_packet_descriptor_ptr_read_ok");
+  hip_check(
+      hipMemset(
+          d_future_native_consumer_kernel_arg_packet_descriptor_ptr_read_hash,
+          0,
+          u64_bytes),
+      "memset future_native_consumer_kernel_arg_packet_descriptor_ptr_read_hash");
+  hip_check(
+      hipMemset(
+          d_future_native_consumer_kernel_arg_packet_packed_weight_descriptor_read_ok,
+          0,
+          u32_bytes),
+      "memset future_native_consumer_kernel_arg_packet_packed_weight_descriptor_read_ok");
+  hip_check(
+      hipMemset(
+          d_future_native_consumer_kernel_arg_packet_packed_weight_descriptor_read_hash,
+          0,
+          u64_bytes),
+      "memset future_native_consumer_kernel_arg_packet_packed_weight_descriptor_read_hash");
+  hip_check(
+      hipMemset(
+          d_future_native_consumer_kernel_arg_packet_scale_metadata_handle_read_ok,
+          0,
+          u32_bytes),
+      "memset future_native_consumer_kernel_arg_packet_scale_metadata_handle_read_ok");
+  hip_check(
+      hipMemset(
+          d_future_native_consumer_kernel_arg_packet_scale_metadata_handle_read_hash,
+          0,
+          u64_bytes),
+      "memset future_native_consumer_kernel_arg_packet_scale_metadata_handle_read_hash");
+  hip_check(
+      hipMemset(
+          d_future_native_consumer_kernel_arg_packet_aux_metadata_handle_read_ok,
+          0,
+          u32_bytes),
+      "memset future_native_consumer_kernel_arg_packet_aux_metadata_handle_read_ok");
+  hip_check(
+      hipMemset(
+          d_future_native_consumer_kernel_arg_packet_aux_metadata_handle_read_hash,
+          0,
+          u64_bytes),
+      "memset future_native_consumer_kernel_arg_packet_aux_metadata_handle_read_hash");
 
   PremapKernelSideTypedConsumerAbiV1 table;
   table.typed_schema_hash_hi = kTypedSchemaHashHi;
@@ -2264,7 +2436,15 @@ int main(int argc, char** argv) {
       0,
       future_native_consumer_kernel_arg_packet,
       d_future_native_consumer_kernel_arg_packet_ok,
-      d_future_native_consumer_kernel_arg_packet_hash);
+      d_future_native_consumer_kernel_arg_packet_hash,
+      d_future_native_consumer_kernel_arg_packet_descriptor_ptr_read_ok,
+      d_future_native_consumer_kernel_arg_packet_descriptor_ptr_read_hash,
+      d_future_native_consumer_kernel_arg_packet_packed_weight_descriptor_read_ok,
+      d_future_native_consumer_kernel_arg_packet_packed_weight_descriptor_read_hash,
+      d_future_native_consumer_kernel_arg_packet_scale_metadata_handle_read_ok,
+      d_future_native_consumer_kernel_arg_packet_scale_metadata_handle_read_hash,
+      d_future_native_consumer_kernel_arg_packet_aux_metadata_handle_read_ok,
+      d_future_native_consumer_kernel_arg_packet_aux_metadata_handle_read_hash);
   hip_check(
       hipGetLastError(),
       "future native consumer kernel-arg packet launch");
@@ -2354,6 +2534,26 @@ int main(int argc, char** argv) {
   std::vector<uint32_t> future_native_consumer_kernel_arg_packet_ok(rows);
   std::vector<uint64_t>
       future_native_consumer_kernel_arg_packet_hashes(rows);
+  std::vector<uint32_t>
+      future_native_consumer_kernel_arg_packet_descriptor_ptr_read_ok(rows);
+  std::vector<uint64_t>
+      future_native_consumer_kernel_arg_packet_descriptor_ptr_read_hashes(rows);
+  std::vector<uint32_t>
+      future_native_consumer_kernel_arg_packet_packed_weight_descriptor_read_ok(
+          rows);
+  std::vector<uint64_t>
+      future_native_consumer_kernel_arg_packet_packed_weight_descriptor_read_hashes(
+          rows);
+  std::vector<uint32_t>
+      future_native_consumer_kernel_arg_packet_scale_metadata_handle_read_ok(rows);
+  std::vector<uint64_t>
+      future_native_consumer_kernel_arg_packet_scale_metadata_handle_read_hashes(
+          rows);
+  std::vector<uint32_t>
+      future_native_consumer_kernel_arg_packet_aux_metadata_handle_read_ok(rows);
+  std::vector<uint64_t>
+      future_native_consumer_kernel_arg_packet_aux_metadata_handle_read_hashes(
+          rows);
   hip_check(hipMemcpy(ok.data(), d_ok, u32_bytes, hipMemcpyDeviceToHost), "copy ok");
   hip_check(hipMemcpy(hashes.data(), d_hash, u64_bytes, hipMemcpyDeviceToHost), "copy hash");
   hip_check(
@@ -2783,6 +2983,65 @@ int main(int argc, char** argv) {
           u64_bytes,
           hipMemcpyDeviceToHost),
       "copy future_native_consumer_kernel_arg_packet_hash");
+  hip_check(
+      hipMemcpy(
+          future_native_consumer_kernel_arg_packet_descriptor_ptr_read_ok.data(),
+          d_future_native_consumer_kernel_arg_packet_descriptor_ptr_read_ok,
+          u32_bytes,
+          hipMemcpyDeviceToHost),
+      "copy future_native_consumer_kernel_arg_packet_descriptor_ptr_read_ok");
+  hip_check(
+      hipMemcpy(
+          future_native_consumer_kernel_arg_packet_descriptor_ptr_read_hashes.data(),
+          d_future_native_consumer_kernel_arg_packet_descriptor_ptr_read_hash,
+          u64_bytes,
+          hipMemcpyDeviceToHost),
+      "copy future_native_consumer_kernel_arg_packet_descriptor_ptr_read_hash");
+  hip_check(
+      hipMemcpy(
+          future_native_consumer_kernel_arg_packet_packed_weight_descriptor_read_ok
+              .data(),
+          d_future_native_consumer_kernel_arg_packet_packed_weight_descriptor_read_ok,
+          u32_bytes,
+          hipMemcpyDeviceToHost),
+      "copy future_native_consumer_kernel_arg_packet_packed_weight_descriptor_read_ok");
+  hip_check(
+      hipMemcpy(
+          future_native_consumer_kernel_arg_packet_packed_weight_descriptor_read_hashes
+              .data(),
+          d_future_native_consumer_kernel_arg_packet_packed_weight_descriptor_read_hash,
+          u64_bytes,
+          hipMemcpyDeviceToHost),
+      "copy future_native_consumer_kernel_arg_packet_packed_weight_descriptor_read_hash");
+  hip_check(
+      hipMemcpy(
+          future_native_consumer_kernel_arg_packet_scale_metadata_handle_read_ok.data(),
+          d_future_native_consumer_kernel_arg_packet_scale_metadata_handle_read_ok,
+          u32_bytes,
+          hipMemcpyDeviceToHost),
+      "copy future_native_consumer_kernel_arg_packet_scale_metadata_handle_read_ok");
+  hip_check(
+      hipMemcpy(
+          future_native_consumer_kernel_arg_packet_scale_metadata_handle_read_hashes
+              .data(),
+          d_future_native_consumer_kernel_arg_packet_scale_metadata_handle_read_hash,
+          u64_bytes,
+          hipMemcpyDeviceToHost),
+      "copy future_native_consumer_kernel_arg_packet_scale_metadata_handle_read_hash");
+  hip_check(
+      hipMemcpy(
+          future_native_consumer_kernel_arg_packet_aux_metadata_handle_read_ok.data(),
+          d_future_native_consumer_kernel_arg_packet_aux_metadata_handle_read_ok,
+          u32_bytes,
+          hipMemcpyDeviceToHost),
+      "copy future_native_consumer_kernel_arg_packet_aux_metadata_handle_read_ok");
+  hip_check(
+      hipMemcpy(
+          future_native_consumer_kernel_arg_packet_aux_metadata_handle_read_hashes.data(),
+          d_future_native_consumer_kernel_arg_packet_aux_metadata_handle_read_hash,
+          u64_bytes,
+          hipMemcpyDeviceToHost),
+      "copy future_native_consumer_kernel_arg_packet_aux_metadata_handle_read_hash");
 
   uint64_t hash_acc = 0;
   uint64_t single_field_mirror_hash_acc = 0;
@@ -2818,6 +3077,17 @@ int main(int argc, char** argv) {
   uint64_t future_native_consumer_program_view_handle_projection_hash_acc = 0;
   uint64_t future_native_consumer_program_view_ptr_hash_acc = 0;
   uint64_t future_native_consumer_kernel_arg_packet_hash_acc = 0;
+  uint64_t
+      future_native_consumer_kernel_arg_packet_descriptor_ptr_read_hash_acc = 0;
+  uint64_t
+      future_native_consumer_kernel_arg_packet_packed_weight_descriptor_read_hash_acc =
+          0;
+  uint64_t
+      future_native_consumer_kernel_arg_packet_scale_metadata_handle_read_hash_acc =
+          0;
+  uint64_t
+      future_native_consumer_kernel_arg_packet_aux_metadata_handle_read_hash_acc =
+          0;
   int ok_count = 0;
   int single_field_mirror_ok_count = 0;
   int kernel_side_consumer_path_ok_count = 0;
@@ -2847,6 +3117,14 @@ int main(int argc, char** argv) {
   int future_native_consumer_program_view_ok_count = 0;
   int future_native_consumer_program_view_ptr_ok_count = 0;
   int future_native_consumer_kernel_arg_packet_ok_count = 0;
+  int future_native_consumer_kernel_arg_packet_descriptor_ptr_read_ok_count = 0;
+  int
+      future_native_consumer_kernel_arg_packet_packed_weight_descriptor_read_ok_count =
+          0;
+  int future_native_consumer_kernel_arg_packet_scale_metadata_handle_read_ok_count =
+      0;
+  int future_native_consumer_kernel_arg_packet_aux_metadata_handle_read_ok_count =
+      0;
   for (int i = 0; i < rows; ++i) {
     ok_count += ok[i] == 1 ? 1 : 0;
     hash_acc ^= mix64(hashes[i] + static_cast<uint64_t>(i));
@@ -3024,6 +3302,42 @@ int main(int argc, char** argv) {
     future_native_consumer_kernel_arg_packet_hash_acc ^=
         mix64(
             future_native_consumer_kernel_arg_packet_hashes[i] +
+            static_cast<uint64_t>(i));
+    future_native_consumer_kernel_arg_packet_descriptor_ptr_read_ok_count +=
+        future_native_consumer_kernel_arg_packet_descriptor_ptr_read_ok[i] == 1
+            ? 1
+            : 0;
+    future_native_consumer_kernel_arg_packet_descriptor_ptr_read_hash_acc ^=
+        mix64(
+            future_native_consumer_kernel_arg_packet_descriptor_ptr_read_hashes[i] +
+            static_cast<uint64_t>(i));
+    future_native_consumer_kernel_arg_packet_packed_weight_descriptor_read_ok_count +=
+        future_native_consumer_kernel_arg_packet_packed_weight_descriptor_read_ok[i] ==
+                1
+            ? 1
+            : 0;
+    future_native_consumer_kernel_arg_packet_packed_weight_descriptor_read_hash_acc ^=
+        mix64(
+            future_native_consumer_kernel_arg_packet_packed_weight_descriptor_read_hashes
+                [i] +
+            static_cast<uint64_t>(i));
+    future_native_consumer_kernel_arg_packet_scale_metadata_handle_read_ok_count +=
+        future_native_consumer_kernel_arg_packet_scale_metadata_handle_read_ok[i] ==
+                1
+            ? 1
+            : 0;
+    future_native_consumer_kernel_arg_packet_scale_metadata_handle_read_hash_acc ^=
+        mix64(
+            future_native_consumer_kernel_arg_packet_scale_metadata_handle_read_hashes
+                [i] +
+            static_cast<uint64_t>(i));
+    future_native_consumer_kernel_arg_packet_aux_metadata_handle_read_ok_count +=
+        future_native_consumer_kernel_arg_packet_aux_metadata_handle_read_ok[i] == 1
+            ? 1
+            : 0;
+    future_native_consumer_kernel_arg_packet_aux_metadata_handle_read_hash_acc ^=
+        mix64(
+            future_native_consumer_kernel_arg_packet_aux_metadata_handle_read_hashes[i] +
             static_cast<uint64_t>(i));
   }
   const int error_count = rows - ok_count;
@@ -3343,6 +3657,52 @@ int main(int argc, char** argv) {
           ? future_native_dispatch_active_rows -
                 future_native_consumer_kernel_arg_packet_ok_count
           : 0;
+  const int
+      future_native_consumer_kernel_arg_packet_descriptor_ptr_read_row_count =
+          future_native_consumer_kernel_arg_packet_checked
+              ? future_native_dispatch_active_rows
+              : 0;
+  const int
+      future_native_consumer_kernel_arg_packet_packed_weight_descriptor_read_row_count =
+          future_native_consumer_kernel_arg_packet_checked
+              ? future_native_dispatch_active_rows
+              : 0;
+  const int
+      future_native_consumer_kernel_arg_packet_scale_metadata_handle_read_row_count =
+          future_native_consumer_kernel_arg_packet_checked
+              ? future_native_dispatch_active_rows
+              : 0;
+  const int
+      future_native_consumer_kernel_arg_packet_aux_metadata_handle_read_row_count =
+          future_native_consumer_kernel_arg_packet_checked &&
+                  (future_kernel_consumer_args_field_mask &
+                   kPremapFutureKernelSideConsumerFieldMaskAuxMetadataHandle) != 0
+              ? future_native_dispatch_active_rows
+              : 0;
+  const int
+      future_native_consumer_kernel_arg_packet_descriptor_ptr_read_error_count =
+          future_native_consumer_kernel_arg_packet_checked
+              ? future_native_consumer_kernel_arg_packet_descriptor_ptr_read_row_count -
+                    future_native_consumer_kernel_arg_packet_descriptor_ptr_read_ok_count
+              : 0;
+  const int
+      future_native_consumer_kernel_arg_packet_packed_weight_descriptor_read_error_count =
+          future_native_consumer_kernel_arg_packet_checked
+              ? future_native_consumer_kernel_arg_packet_packed_weight_descriptor_read_row_count -
+                    future_native_consumer_kernel_arg_packet_packed_weight_descriptor_read_ok_count
+              : 0;
+  const int
+      future_native_consumer_kernel_arg_packet_scale_metadata_handle_read_error_count =
+          future_native_consumer_kernel_arg_packet_checked
+              ? future_native_consumer_kernel_arg_packet_scale_metadata_handle_read_row_count -
+                    future_native_consumer_kernel_arg_packet_scale_metadata_handle_read_ok_count
+              : 0;
+  const int
+      future_native_consumer_kernel_arg_packet_aux_metadata_handle_read_error_count =
+          future_native_consumer_kernel_arg_packet_checked
+              ? future_native_consumer_kernel_arg_packet_aux_metadata_handle_read_row_count -
+                    future_native_consumer_kernel_arg_packet_aux_metadata_handle_read_ok_count
+              : 0;
   const bool all_ok =
       error_count == 0 && future_kernel_consumer_args_error_count == 0 &&
       future_kernel_single_field_mirror_error_count == 0 &&
@@ -3368,7 +3728,11 @@ int main(int argc, char** argv) {
       future_native_consumer_view_aux_metadata_handle_read_error_count == 0 &&
       future_native_consumer_program_view_error_count == 0 &&
       future_native_consumer_program_view_ptr_error_count == 0 &&
-      future_native_consumer_kernel_arg_packet_error_count == 0;
+      future_native_consumer_kernel_arg_packet_error_count == 0 &&
+      future_native_consumer_kernel_arg_packet_descriptor_ptr_read_error_count == 0 &&
+      future_native_consumer_kernel_arg_packet_packed_weight_descriptor_read_error_count == 0 &&
+      future_native_consumer_kernel_arg_packet_scale_metadata_handle_read_error_count == 0 &&
+      future_native_consumer_kernel_arg_packet_aux_metadata_handle_read_error_count == 0;
 
   hip_check(hipFree(d_descriptor), "hipFree descriptor");
   hip_check(hipFree(d_packed), "hipFree packed");
@@ -3561,6 +3925,33 @@ int main(int argc, char** argv) {
   hip_check(
       hipFree(d_future_native_consumer_kernel_arg_packet_hash),
       "hipFree future_native_consumer_kernel_arg_packet_hash");
+  hip_check(
+      hipFree(d_future_native_consumer_kernel_arg_packet_descriptor_ptr_read_ok),
+      "hipFree future_native_consumer_kernel_arg_packet_descriptor_ptr_read_ok");
+  hip_check(
+      hipFree(d_future_native_consumer_kernel_arg_packet_descriptor_ptr_read_hash),
+      "hipFree future_native_consumer_kernel_arg_packet_descriptor_ptr_read_hash");
+  hip_check(
+      hipFree(
+          d_future_native_consumer_kernel_arg_packet_packed_weight_descriptor_read_ok),
+      "hipFree future_native_consumer_kernel_arg_packet_packed_weight_descriptor_read_ok");
+  hip_check(
+      hipFree(
+          d_future_native_consumer_kernel_arg_packet_packed_weight_descriptor_read_hash),
+      "hipFree future_native_consumer_kernel_arg_packet_packed_weight_descriptor_read_hash");
+  hip_check(
+      hipFree(d_future_native_consumer_kernel_arg_packet_scale_metadata_handle_read_ok),
+      "hipFree future_native_consumer_kernel_arg_packet_scale_metadata_handle_read_ok");
+  hip_check(
+      hipFree(
+          d_future_native_consumer_kernel_arg_packet_scale_metadata_handle_read_hash),
+      "hipFree future_native_consumer_kernel_arg_packet_scale_metadata_handle_read_hash");
+  hip_check(
+      hipFree(d_future_native_consumer_kernel_arg_packet_aux_metadata_handle_read_ok),
+      "hipFree future_native_consumer_kernel_arg_packet_aux_metadata_handle_read_ok");
+  hip_check(
+      hipFree(d_future_native_consumer_kernel_arg_packet_aux_metadata_handle_read_hash),
+      "hipFree future_native_consumer_kernel_arg_packet_aux_metadata_handle_read_hash");
   if (d_future_native_dispatch_packet != nullptr) {
     hip_check(
         hipFree(d_future_native_dispatch_packet),
@@ -4580,6 +4971,54 @@ int main(int argc, char** argv) {
             << future_native_consumer_kernel_arg_packet_error_count;
   std::cout << ",\"future_kernel_native_consumer_kernel_arg_packet_hash_accumulator\":\""
             << std::hex << future_native_consumer_kernel_arg_packet_hash_acc
+            << std::dec << "\"";
+  std::cout << ",\"future_kernel_native_consumer_kernel_arg_packet_descriptor_ptr_read_row_count\":"
+            << future_native_consumer_kernel_arg_packet_descriptor_ptr_read_row_count;
+  std::cout << ",\"future_kernel_native_consumer_kernel_arg_packet_descriptor_ptr_read_row_ok_count\":"
+            << (future_native_consumer_kernel_arg_packet_checked
+                    ? future_native_consumer_kernel_arg_packet_descriptor_ptr_read_ok_count
+                    : 0);
+  std::cout << ",\"future_kernel_native_consumer_kernel_arg_packet_descriptor_ptr_read_error_count\":"
+            << future_native_consumer_kernel_arg_packet_descriptor_ptr_read_error_count;
+  std::cout << ",\"future_kernel_native_consumer_kernel_arg_packet_descriptor_ptr_read_hash_accumulator\":\""
+            << std::hex
+            << future_native_consumer_kernel_arg_packet_descriptor_ptr_read_hash_acc
+            << std::dec << "\"";
+  std::cout << ",\"future_kernel_native_consumer_kernel_arg_packet_packed_weight_descriptor_read_row_count\":"
+            << future_native_consumer_kernel_arg_packet_packed_weight_descriptor_read_row_count;
+  std::cout << ",\"future_kernel_native_consumer_kernel_arg_packet_packed_weight_descriptor_read_row_ok_count\":"
+            << (future_native_consumer_kernel_arg_packet_checked
+                    ? future_native_consumer_kernel_arg_packet_packed_weight_descriptor_read_ok_count
+                    : 0);
+  std::cout << ",\"future_kernel_native_consumer_kernel_arg_packet_packed_weight_descriptor_read_error_count\":"
+            << future_native_consumer_kernel_arg_packet_packed_weight_descriptor_read_error_count;
+  std::cout << ",\"future_kernel_native_consumer_kernel_arg_packet_packed_weight_descriptor_read_hash_accumulator\":\""
+            << std::hex
+            << future_native_consumer_kernel_arg_packet_packed_weight_descriptor_read_hash_acc
+            << std::dec << "\"";
+  std::cout << ",\"future_kernel_native_consumer_kernel_arg_packet_scale_metadata_handle_read_row_count\":"
+            << future_native_consumer_kernel_arg_packet_scale_metadata_handle_read_row_count;
+  std::cout << ",\"future_kernel_native_consumer_kernel_arg_packet_scale_metadata_handle_read_row_ok_count\":"
+            << (future_native_consumer_kernel_arg_packet_checked
+                    ? future_native_consumer_kernel_arg_packet_scale_metadata_handle_read_ok_count
+                    : 0);
+  std::cout << ",\"future_kernel_native_consumer_kernel_arg_packet_scale_metadata_handle_read_error_count\":"
+            << future_native_consumer_kernel_arg_packet_scale_metadata_handle_read_error_count;
+  std::cout << ",\"future_kernel_native_consumer_kernel_arg_packet_scale_metadata_handle_read_hash_accumulator\":\""
+            << std::hex
+            << future_native_consumer_kernel_arg_packet_scale_metadata_handle_read_hash_acc
+            << std::dec << "\"";
+  std::cout << ",\"future_kernel_native_consumer_kernel_arg_packet_aux_metadata_handle_read_row_count\":"
+            << future_native_consumer_kernel_arg_packet_aux_metadata_handle_read_row_count;
+  std::cout << ",\"future_kernel_native_consumer_kernel_arg_packet_aux_metadata_handle_read_row_ok_count\":"
+            << (future_native_consumer_kernel_arg_packet_checked
+                    ? future_native_consumer_kernel_arg_packet_aux_metadata_handle_read_ok_count
+                    : 0);
+  std::cout << ",\"future_kernel_native_consumer_kernel_arg_packet_aux_metadata_handle_read_error_count\":"
+            << future_native_consumer_kernel_arg_packet_aux_metadata_handle_read_error_count;
+  std::cout << ",\"future_kernel_native_consumer_kernel_arg_packet_aux_metadata_handle_read_hash_accumulator\":\""
+            << std::hex
+            << future_native_consumer_kernel_arg_packet_aux_metadata_handle_read_hash_acc
             << std::dec << "\"";
   std::cout << ",\"future_kernel_native_consumer_kernel_arg_packet_field_mask\":"
             << future_kernel_consumer_args_field_mask;

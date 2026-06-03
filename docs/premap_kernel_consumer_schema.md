@@ -527,6 +527,21 @@ compatible with older artifacts that did not emit packet fields.  When it is
 true, the checker requires packet source, row count, row-ok count, field masks,
 and the no-payload/no-kernel/no-WNA16-reinterpretation safety bits.
 
+The packet checker also requires explicit per-row field-read evidence for the
+future consumer handles:
+
+```text
+future_kernel_native_consumer_kernel_arg_packet_descriptor_ptr_read_*
+future_kernel_native_consumer_kernel_arg_packet_packed_weight_descriptor_read_*
+future_kernel_native_consumer_kernel_arg_packet_scale_metadata_handle_read_*
+future_kernel_native_consumer_kernel_arg_packet_aux_metadata_handle_read_*
+```
+
+These counters prove that the compact packet path reaches the same typed
+descriptor/address handle columns as the arg-slot and consumer-view paths.  They
+remain readonly evidence only: no payload is dereferenced and no current WNA16
+kernel argument is changed.
+
 ## Next Gates
 
 1. Keep the current readonly dispatch ABI as the default lab preflight

@@ -303,6 +303,14 @@ def _check_kernel_arg_packet_abi(
         or (field_mask & required_field_mask) != required_field_mask
     ):
         failures.append(f"{label}_kernel_arg_packet_field_mask_mismatch")
+    failures.extend(
+        _check_field_reads(
+            summary,
+            label=label,
+            prefix="future_kernel_native_consumer_kernel_arg_packet",
+            expected_active=expected_active,
+        )
+    )
     return failures
 
 

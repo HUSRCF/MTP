@@ -127,6 +127,13 @@ def test_online_merged_arg_slot_canary_dry_run_writes_artifacts(tmp_path: Path):
         "aux_metadata_handle",
     ]
     assert result["consumer_view_all_handle_fields_read"] is True
+    assert result["kernel_arg_packet_field_read_field_names"] == [
+        "descriptor_ptr",
+        "packed_weight_descriptor",
+        "scale_metadata_handle",
+        "aux_metadata_handle",
+    ]
+    assert result["kernel_arg_packet_all_handle_fields_read"] is True
     assert result["consumer_view_source_packet_chain_depth"] == 3
     assert result["stub_summary"]["future_kernel_native_dispatch_consumer_row_offset"] == 0
     assert result["stub_summary"]["future_kernel_native_dispatch_consumer_row_limit"] == 7
@@ -165,6 +172,12 @@ def test_online_merged_arg_slot_canary_dry_run_writes_artifacts(tmp_path: Path):
     assert (
         stub_payload[
             "future_kernel_native_consumer_view_scale_metadata_handle_read_row_ok_count"
+        ]
+        == 7
+    )
+    assert (
+        stub_payload[
+            "future_kernel_native_consumer_kernel_arg_packet_scale_metadata_handle_read_row_ok_count"
         ]
         == 7
     )

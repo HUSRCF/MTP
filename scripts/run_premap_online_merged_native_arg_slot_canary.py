@@ -288,6 +288,22 @@ STUB_SUMMARY_KEYS = (
     "future_kernel_native_consumer_kernel_arg_packet_row_ok_count",
     "future_kernel_native_consumer_kernel_arg_packet_error_count",
     "future_kernel_native_consumer_kernel_arg_packet_hash_accumulator",
+    "future_kernel_native_consumer_kernel_arg_packet_descriptor_ptr_read_row_count",
+    "future_kernel_native_consumer_kernel_arg_packet_descriptor_ptr_read_row_ok_count",
+    "future_kernel_native_consumer_kernel_arg_packet_descriptor_ptr_read_error_count",
+    "future_kernel_native_consumer_kernel_arg_packet_descriptor_ptr_read_hash_accumulator",
+    "future_kernel_native_consumer_kernel_arg_packet_packed_weight_descriptor_read_row_count",
+    "future_kernel_native_consumer_kernel_arg_packet_packed_weight_descriptor_read_row_ok_count",
+    "future_kernel_native_consumer_kernel_arg_packet_packed_weight_descriptor_read_error_count",
+    "future_kernel_native_consumer_kernel_arg_packet_packed_weight_descriptor_read_hash_accumulator",
+    "future_kernel_native_consumer_kernel_arg_packet_scale_metadata_handle_read_row_count",
+    "future_kernel_native_consumer_kernel_arg_packet_scale_metadata_handle_read_row_ok_count",
+    "future_kernel_native_consumer_kernel_arg_packet_scale_metadata_handle_read_error_count",
+    "future_kernel_native_consumer_kernel_arg_packet_scale_metadata_handle_read_hash_accumulator",
+    "future_kernel_native_consumer_kernel_arg_packet_aux_metadata_handle_read_row_count",
+    "future_kernel_native_consumer_kernel_arg_packet_aux_metadata_handle_read_row_ok_count",
+    "future_kernel_native_consumer_kernel_arg_packet_aux_metadata_handle_read_error_count",
+    "future_kernel_native_consumer_kernel_arg_packet_aux_metadata_handle_read_hash_accumulator",
     "future_kernel_native_consumer_kernel_arg_packet_payload_bytes",
     "future_kernel_native_consumer_kernel_arg_packet_passed_to_kernel",
     "future_kernel_native_consumer_kernel_arg_packet_changes_kernel_launch_args",
@@ -369,14 +385,15 @@ def _parse_hex64(value: object) -> int | None:
     return parsed
 
 
-def _check_arg_slot_field_reads(
+def _check_prefixed_field_reads(
     stub: dict[str, Any],
     *,
     active_rows: int,
+    prefix_root: str,
 ) -> list[str]:
     failures: list[str] = []
     for field in ARG_SLOT_FIELD_READ_FIELDS:
-        prefix = f"future_kernel_native_arg_slot_consumer_{field}_read"
+        prefix = f"{prefix_root}_{field}_read"
         expected = {
             f"{prefix}_row_count": int(active_rows),
             f"{prefix}_row_ok_count": int(active_rows),
@@ -392,6 +409,18 @@ def _check_arg_slot_field_reads(
     return failures
 
 
+def _check_arg_slot_field_reads(
+    stub: dict[str, Any],
+    *,
+    active_rows: int,
+) -> list[str]:
+    return _check_prefixed_field_reads(
+        stub,
+        active_rows=active_rows,
+        prefix_root="future_kernel_native_arg_slot_consumer",
+    )
+
+
 def _check_consumer_view_field_reads(
     stub: dict[str, Any],
     *,
@@ -402,20 +431,31 @@ def _check_consumer_view_field_reads(
         failures.append("future_kernel_native_consumer_view_checked_mismatch")
     if stub.get("future_kernel_native_consumer_view_source_packet_chain_depth") != 3:
         failures.append("future_kernel_native_consumer_view_source_packet_chain_depth_mismatch")
-    for field in ARG_SLOT_FIELD_READ_FIELDS:
-        prefix = f"future_kernel_native_consumer_view_{field}_read"
-        expected = {
-            f"{prefix}_row_count": int(active_rows),
-            f"{prefix}_row_ok_count": int(active_rows),
-            f"{prefix}_error_count": 0,
-        }
-        for key, value in expected.items():
-            if stub.get(key) != value:
-                failures.append(f"{key}_mismatch:{stub.get(key)!r}!={value!r}")
-        hash_key = f"{prefix}_hash_accumulator"
-        hash_value = stub.get(hash_key)
-        if not isinstance(hash_value, str) or not hash_value:
-            failures.append(f"{hash_key}_missing")
+    failures.extend(
+        _check_prefixed_field_reads(
+            stub,
+            active_rows=active_rows,
+            prefix_root="future_kernel_native_consumer_view",
+        )
+    )
+    return failures
+
+
+def _check_kernel_arg_packet_field_reads(
+    stub: dict[str, Any],
+    *,
+    active_rows: int,
+) -> list[str]:
+    failures: list[str] = []
+    if stub.get("future_kernel_native_consumer_kernel_arg_packet_checked") is not True:
+        failures.append("future_kernel_native_consumer_kernel_arg_packet_checked_mismatch")
+    failures.extend(
+        _check_prefixed_field_reads(
+            stub,
+            active_rows=active_rows,
+            prefix_root="future_kernel_native_consumer_kernel_arg_packet",
+        )
+    )
     return failures
 
 
@@ -626,6 +666,9 @@ def _validate_stub(
     failures.extend(_check_future_field_masks(stub))
     failures.extend(_check_arg_slot_field_reads(stub, active_rows=active_rows))
     failures.extend(_check_consumer_view_field_reads(stub, active_rows=active_rows))
+    failures.extend(
+        _check_kernel_arg_packet_field_reads(stub, active_rows=active_rows)
+    )
     return failures
 
 
@@ -893,6 +936,22 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
             "future_kernel_native_consumer_kernel_arg_packet_row_ok_count": active_rows,
             "future_kernel_native_consumer_kernel_arg_packet_error_count": 0,
             "future_kernel_native_consumer_kernel_arg_packet_hash_accumulator": "dry",
+            "future_kernel_native_consumer_kernel_arg_packet_descriptor_ptr_read_row_count": active_rows,
+            "future_kernel_native_consumer_kernel_arg_packet_descriptor_ptr_read_row_ok_count": active_rows,
+            "future_kernel_native_consumer_kernel_arg_packet_descriptor_ptr_read_error_count": 0,
+            "future_kernel_native_consumer_kernel_arg_packet_descriptor_ptr_read_hash_accumulator": "dry",
+            "future_kernel_native_consumer_kernel_arg_packet_packed_weight_descriptor_read_row_count": active_rows,
+            "future_kernel_native_consumer_kernel_arg_packet_packed_weight_descriptor_read_row_ok_count": active_rows,
+            "future_kernel_native_consumer_kernel_arg_packet_packed_weight_descriptor_read_error_count": 0,
+            "future_kernel_native_consumer_kernel_arg_packet_packed_weight_descriptor_read_hash_accumulator": "dry",
+            "future_kernel_native_consumer_kernel_arg_packet_scale_metadata_handle_read_row_count": active_rows,
+            "future_kernel_native_consumer_kernel_arg_packet_scale_metadata_handle_read_row_ok_count": active_rows,
+            "future_kernel_native_consumer_kernel_arg_packet_scale_metadata_handle_read_error_count": 0,
+            "future_kernel_native_consumer_kernel_arg_packet_scale_metadata_handle_read_hash_accumulator": "dry",
+            "future_kernel_native_consumer_kernel_arg_packet_aux_metadata_handle_read_row_count": active_rows,
+            "future_kernel_native_consumer_kernel_arg_packet_aux_metadata_handle_read_row_ok_count": active_rows,
+            "future_kernel_native_consumer_kernel_arg_packet_aux_metadata_handle_read_error_count": 0,
+            "future_kernel_native_consumer_kernel_arg_packet_aux_metadata_handle_read_hash_accumulator": "dry",
             "future_kernel_native_consumer_kernel_arg_packet_payload_bytes": 0,
             "future_kernel_native_consumer_kernel_arg_packet_passed_to_kernel": False,
             "future_kernel_native_consumer_kernel_arg_packet_changes_kernel_launch_args": False,
@@ -956,6 +1015,12 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
         "consumer_view_field_read_field_names": list(ARG_SLOT_FIELD_READ_FIELDS),
         "consumer_view_all_handle_fields_read": not _check_consumer_view_field_reads(
             stub_payload, active_rows=active_rows
+        ),
+        "kernel_arg_packet_field_read_field_names": list(ARG_SLOT_FIELD_READ_FIELDS),
+        "kernel_arg_packet_all_handle_fields_read": (
+            not _check_kernel_arg_packet_field_reads(
+                stub_payload, active_rows=active_rows
+            )
         ),
         "consumer_view_source_packet_chain_depth": stub_payload.get(
             "future_kernel_native_consumer_view_source_packet_chain_depth"
