@@ -30,6 +30,8 @@ from scripts.check_premap_kernel_consumer_schema import (
     FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_PTR_ABI_LAYOUT_FIELDS,
     FUTURE_KERNEL_NATIVE_CONSUMER_ARG_SLOT_ABI_LAYOUT_EXPECTED,
     FUTURE_KERNEL_NATIVE_CONSUMER_ARG_SLOT_ABI_LAYOUT_FIELDS,
+    FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ENTRY_ARGS_ABI_LAYOUT_EXPECTED,
+    FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ENTRY_ARGS_ABI_LAYOUT_FIELDS,
     FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ARG_PACKET_ABI_LAYOUT_EXPECTED,
     FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ARG_PACKET_ABI_LAYOUT_FIELDS,
     FUTURE_KERNEL_NATIVE_CONSUMER_VIEW_ABI_LAYOUT_EXPECTED,
@@ -451,6 +453,13 @@ def _valid_schema_payload() -> dict:
             ),
             "future_kernel_native_consumer_kernel_arg_packet_abi_layout_expected": dict(
                 FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ARG_PACKET_ABI_LAYOUT_EXPECTED
+            ),
+            "future_kernel_native_consumer_kernel_entry_args_abi_layout_reported": True,
+            "future_kernel_native_consumer_kernel_entry_args_abi_layout_fields": list(
+                FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ENTRY_ARGS_ABI_LAYOUT_FIELDS
+            ),
+            "future_kernel_native_consumer_kernel_entry_args_abi_layout_expected": dict(
+                FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ENTRY_ARGS_ABI_LAYOUT_EXPECTED
             ),
             "layout": "struct_of_arrays",
             "row_order": "vllm_prelaunch_sorted_token_ids_order",

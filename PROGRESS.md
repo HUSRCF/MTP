@@ -2,7 +2,7 @@
 
 ## Progress Version
 
-- Version: `v0.51-entry-args-row-metadata-gate`
+- Version: `v0.52-entry-args-layout-gate`
 - Updated: 2026-06-03
 - Current phase: premap descriptor/address prep now has a typed
   kernel-side consumer object, a launch-shaped future native ABI, and a
@@ -61,7 +61,44 @@
   hashchain.  The latest hardening makes future kernel-entry args row metadata
   a first-class lab gate requirement, and fixes the checker path so requiring
   both kernel-arg packet ABI and kernel-entry args ABI validates both branches
-  rather than letting the packet check mask entry-args evidence.
+  rather than letting the packet check mask entry-args evidence.  The schema
+  now also pins `PremapFutureKernelNativeConsumerKernelEntryArgsV1` size,
+  alignment, and field offsets so the future kernel-side ABI cannot drift while
+  still remaining readonly and disconnected from the current WNA16 launch args.
+
+## Latest Update: Kernel-Entry Args ABI Layout Gate
+
+The typed kernel-side consumer schema now pins the future native kernel-entry
+args wrapper layout:
+
+```text
+PremapFutureKernelNativeConsumerKernelEntryArgsV1
+  kernel_arg_packet pointer offset = 0
+  summary pointer offset = 8
+  abi_version offset = 16
+  kernel_arg_packet_struct_size offset = 20
+  summary_struct_size offset = 24
+  payload_bytes offset = 28
+  flags offset = 32
+  struct_size = 40
+  struct_align = 8
+```
+
+This is the next independent typed ABI/stub boundary after the kernel-arg
+packet layout.  It makes the future-kernel entry object checkable as a real
+native ABI envelope instead of a loose Python-side tuple, while preserving the
+same safety contract:
+
+```text
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+current_wna16_arg_compatible = false
+```
+
+The schema checker now validates both the reported field list and the expected
+layout values.  The test fixture and schema tests mirror the new fields so the
+lab preflight artifact cannot omit entry-args layout evidence.
 
 ## Latest Update: Kernel-Entry Args Row Metadata Gate
 

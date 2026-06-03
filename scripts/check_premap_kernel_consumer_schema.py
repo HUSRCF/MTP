@@ -246,6 +246,19 @@ FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ARG_PACKET_ABI_LAYOUT_FIELDS = [
     "future_kernel_native_consumer_kernel_arg_packet_offset_payload_bytes",
     "future_kernel_native_consumer_kernel_arg_packet_offset_flags",
 ]
+FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ENTRY_ARGS_ABI_LAYOUT_FIELDS = [
+    "future_kernel_native_consumer_kernel_entry_args_struct_size",
+    "future_kernel_native_consumer_kernel_entry_args_struct_align",
+    "future_kernel_native_consumer_kernel_entry_args_kernel_arg_packet_struct_size",
+    "future_kernel_native_consumer_kernel_entry_args_summary_struct_size",
+    "future_kernel_native_consumer_kernel_entry_args_offset_kernel_arg_packet",
+    "future_kernel_native_consumer_kernel_entry_args_offset_summary",
+    "future_kernel_native_consumer_kernel_entry_args_offset_abi_version",
+    "future_kernel_native_consumer_kernel_entry_args_offset_kernel_arg_packet_struct_size",
+    "future_kernel_native_consumer_kernel_entry_args_offset_summary_struct_size",
+    "future_kernel_native_consumer_kernel_entry_args_offset_payload_bytes",
+    "future_kernel_native_consumer_kernel_entry_args_offset_flags",
+]
 FUTURE_KERNEL_CONSUMER_ARGS_LAYOUT_EXPECTED = {
     "future_kernel_consumer_args_struct_size": 160,
     "future_kernel_consumer_args_struct_align": 8,
@@ -376,6 +389,19 @@ FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ARG_PACKET_ABI_LAYOUT_EXPECTED = {
     "future_kernel_native_consumer_kernel_arg_packet_offset_result_struct_size": 16,
     "future_kernel_native_consumer_kernel_arg_packet_offset_payload_bytes": 20,
     "future_kernel_native_consumer_kernel_arg_packet_offset_flags": 24,
+}
+FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ENTRY_ARGS_ABI_LAYOUT_EXPECTED = {
+    "future_kernel_native_consumer_kernel_entry_args_struct_size": 40,
+    "future_kernel_native_consumer_kernel_entry_args_struct_align": 8,
+    "future_kernel_native_consumer_kernel_entry_args_kernel_arg_packet_struct_size": 32,
+    "future_kernel_native_consumer_kernel_entry_args_summary_struct_size": 104,
+    "future_kernel_native_consumer_kernel_entry_args_offset_kernel_arg_packet": 0,
+    "future_kernel_native_consumer_kernel_entry_args_offset_summary": 8,
+    "future_kernel_native_consumer_kernel_entry_args_offset_abi_version": 16,
+    "future_kernel_native_consumer_kernel_entry_args_offset_kernel_arg_packet_struct_size": 20,
+    "future_kernel_native_consumer_kernel_entry_args_offset_summary_struct_size": 24,
+    "future_kernel_native_consumer_kernel_entry_args_offset_payload_bytes": 28,
+    "future_kernel_native_consumer_kernel_entry_args_offset_flags": 32,
 }
 
 
@@ -800,6 +826,19 @@ def check_kernel_consumer_schema_artifact(path: Path) -> dict[str, Any]:
             FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ARG_PACKET_ABI_LAYOUT_FIELDS
         ),
     )
+    kernel_entry_args_layout_fields = _check_layout_field_contract(
+        native_abi=native_abi,
+        failures=failures,
+        reported_key=(
+            "future_kernel_native_consumer_kernel_entry_args_abi_layout_reported"
+        ),
+        fields_key=(
+            "future_kernel_native_consumer_kernel_entry_args_abi_layout_fields"
+        ),
+        expected_fields=(
+            FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ENTRY_ARGS_ABI_LAYOUT_FIELDS
+        ),
+    )
     native_layout_expected = _check_layout_expected_contract(
         native_abi=native_abi,
         failures=failures,
@@ -854,6 +893,16 @@ def check_kernel_consumer_schema_artifact(path: Path) -> dict[str, Any]:
         ),
         expected_values=(
             FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ARG_PACKET_ABI_LAYOUT_EXPECTED
+        ),
+    )
+    kernel_entry_args_layout_expected = _check_layout_expected_contract(
+        native_abi=native_abi,
+        failures=failures,
+        expected_key=(
+            "future_kernel_native_consumer_kernel_entry_args_abi_layout_expected"
+        ),
+        expected_values=(
+            FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ENTRY_ARGS_ABI_LAYOUT_EXPECTED
         ),
     )
     future_args_layout_expected = _check_layout_expected_contract(
@@ -1236,6 +1285,17 @@ def check_kernel_consumer_schema_artifact(path: Path) -> dict[str, Any]:
         ),
         "future_kernel_native_consumer_kernel_arg_packet_abi_layout_expected": (
             kernel_arg_packet_layout_expected
+        ),
+        "future_kernel_native_consumer_kernel_entry_args_abi_layout_reported": (
+            native_abi.get(
+                "future_kernel_native_consumer_kernel_entry_args_abi_layout_reported"
+            )
+        ),
+        "future_kernel_native_consumer_kernel_entry_args_abi_layout_fields": (
+            kernel_entry_args_layout_fields
+        ),
+        "future_kernel_native_consumer_kernel_entry_args_abi_layout_expected": (
+            kernel_entry_args_layout_expected
         ),
         "rows": rows,
     }

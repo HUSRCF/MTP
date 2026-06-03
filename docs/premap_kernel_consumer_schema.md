@@ -566,11 +566,30 @@ future_kernel_native_consumer_kernel_arg_packet_offset_payload_bytes = 20
 future_kernel_native_consumer_kernel_arg_packet_offset_flags = 24
 ```
 
+The next readonly wrapper is `PremapFutureKernelNativeConsumerKernelEntryArgsV1`.
+It carries a pointer to the kernel-arg packet, a pointer to the entry summary,
+and no payload/kernel launch mutation.  The schema pins its layout separately:
+
+```text
+future_kernel_native_consumer_kernel_entry_args_struct_size = 40
+future_kernel_native_consumer_kernel_entry_args_struct_align = 8
+future_kernel_native_consumer_kernel_entry_args_kernel_arg_packet_struct_size = 32
+future_kernel_native_consumer_kernel_entry_args_summary_struct_size = 104
+future_kernel_native_consumer_kernel_entry_args_offset_kernel_arg_packet = 0
+future_kernel_native_consumer_kernel_entry_args_offset_summary = 8
+future_kernel_native_consumer_kernel_entry_args_offset_abi_version = 16
+future_kernel_native_consumer_kernel_entry_args_offset_kernel_arg_packet_struct_size = 20
+future_kernel_native_consumer_kernel_entry_args_offset_summary_struct_size = 24
+future_kernel_native_consumer_kernel_entry_args_offset_payload_bytes = 28
+future_kernel_native_consumer_kernel_entry_args_offset_flags = 32
+```
+
 The strict lab gate now requires both packet layers explicitly:
 
 ```text
 require_child_program_view_ptr_abi = true
 require_child_kernel_arg_packet_abi = true
+require_child_kernel_entry_args_abi = true
 ```
 
 When `require_child_kernel_arg_packet_abi` is false, the static checker remains
