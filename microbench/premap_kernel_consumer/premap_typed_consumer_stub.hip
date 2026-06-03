@@ -1176,18 +1176,33 @@ premap_typed_consumer_build_future_native_kernel_entry_summary_v1(
             (view.params.field_mask &
              kPremapFutureKernelSideConsumerFieldMaskAuxMetadataHandle) != 0 &&
             row.aux_metadata_handle != 0);
+    const uint32_t expert_id_visible =
+        static_cast<uint32_t>(row.expert_id >= 0);
+    const uint32_t address_key_hash_visible =
+        static_cast<uint32_t>(row.address_key_hash != 0);
+    const uint32_t row_metadata_visible =
+        static_cast<uint32_t>(expert_id_visible != 0 &&
+                              address_key_hash_visible != 0 &&
+                              row.row_index == row_index);
 
     out.descriptor_ptr_read_ok_count += descriptor_ptr_visible;
     out.packed_weight_descriptor_read_ok_count +=
         packed_weight_descriptor_visible;
     out.scale_metadata_handle_read_ok_count += scale_metadata_handle_visible;
     out.aux_metadata_handle_read_ok_count += aux_metadata_handle_visible;
+    out.expert_id_read_ok_count += expert_id_visible;
+    out.address_key_hash_read_ok_count += address_key_hash_visible;
+    out.row_metadata_read_ok_count += row_metadata_visible;
     out.field_read_hash_accumulator ^=
         mix64(row.descriptor_ptr + 0xce17000000000101ULL) ^
         mix64(row.packed_weight_descriptor + 0xce17000000000102ULL) ^
         mix64(row.scale_metadata_handle + 0xce17000000000103ULL) ^
         mix64(row.aux_metadata_handle + 0xce17000000000104ULL) ^
         mix64(row.address_key_hash + static_cast<uint64_t>(row_index));
+    out.row_metadata_hash_accumulator ^=
+        mix64(static_cast<uint64_t>(row.row_index) + 0xce17000000000201ULL) ^
+        mix64(static_cast<uint64_t>(row.expert_id) + 0xce17000000000202ULL) ^
+        mix64(row.address_key_hash + 0xce17000000000203ULL);
   }
 
   const uint32_t expected_aux_rows =
@@ -1200,7 +1215,10 @@ premap_typed_consumer_build_future_native_kernel_entry_summary_v1(
       (active_rows - out.descriptor_ptr_read_ok_count) +
       (active_rows - out.packed_weight_descriptor_read_ok_count) +
       (active_rows - out.scale_metadata_handle_read_ok_count) +
-      (expected_aux_rows - out.aux_metadata_handle_read_ok_count);
+      (expected_aux_rows - out.aux_metadata_handle_read_ok_count) +
+      (active_rows - out.expert_id_read_ok_count) +
+      (active_rows - out.address_key_hash_read_ok_count) +
+      (active_rows - out.row_metadata_read_ok_count);
   return out;
 }
 
@@ -5385,6 +5403,21 @@ int main(int argc, char** argv) {
                     ? future_native_consumer_kernel_entry_summary
                           .aux_metadata_handle_read_ok_count
                     : 0);
+  std::cout << ",\"future_kernel_native_consumer_kernel_entry_summary_expert_id_read_row_ok_count\":"
+            << (future_native_consumer_kernel_entry_summary_checked
+                    ? future_native_consumer_kernel_entry_summary
+                          .expert_id_read_ok_count
+                    : 0);
+  std::cout << ",\"future_kernel_native_consumer_kernel_entry_summary_address_key_hash_read_row_ok_count\":"
+            << (future_native_consumer_kernel_entry_summary_checked
+                    ? future_native_consumer_kernel_entry_summary
+                          .address_key_hash_read_ok_count
+                    : 0);
+  std::cout << ",\"future_kernel_native_consumer_kernel_entry_summary_row_metadata_read_row_ok_count\":"
+            << (future_native_consumer_kernel_entry_summary_checked
+                    ? future_native_consumer_kernel_entry_summary
+                          .row_metadata_read_ok_count
+                    : 0);
   std::cout << ",\"future_kernel_native_consumer_kernel_entry_summary_error_count\":"
             << future_native_consumer_kernel_entry_summary_error_count;
   std::cout << ",\"future_kernel_native_consumer_kernel_entry_summary_field_mask\":"
@@ -5411,6 +5444,13 @@ int main(int argc, char** argv) {
             << (future_native_consumer_kernel_entry_summary_checked
                     ? future_native_consumer_kernel_entry_summary
                           .field_read_hash_accumulator
+                    : 0ULL)
+            << std::dec << "\"";
+  std::cout << ",\"future_kernel_native_consumer_kernel_entry_summary_row_metadata_hash_accumulator\":\""
+            << std::hex
+            << (future_native_consumer_kernel_entry_summary_checked
+                    ? future_native_consumer_kernel_entry_summary
+                          .row_metadata_hash_accumulator
                     : 0ULL)
             << std::dec << "\"";
   std::cout << ",\"future_kernel_native_consumer_kernel_entry_args_abi_name\":\""
@@ -5496,6 +5536,21 @@ int main(int argc, char** argv) {
                     ? future_native_consumer_kernel_entry_args_summary
                           .aux_metadata_handle_read_ok_count
                     : 0);
+  std::cout << ",\"future_kernel_native_consumer_kernel_entry_args_summary_expert_id_read_row_ok_count\":"
+            << (future_native_consumer_kernel_entry_args_checked
+                    ? future_native_consumer_kernel_entry_args_summary
+                          .expert_id_read_ok_count
+                    : 0);
+  std::cout << ",\"future_kernel_native_consumer_kernel_entry_args_summary_address_key_hash_read_row_ok_count\":"
+            << (future_native_consumer_kernel_entry_args_checked
+                    ? future_native_consumer_kernel_entry_args_summary
+                          .address_key_hash_read_ok_count
+                    : 0);
+  std::cout << ",\"future_kernel_native_consumer_kernel_entry_args_summary_row_metadata_read_row_ok_count\":"
+            << (future_native_consumer_kernel_entry_args_checked
+                    ? future_native_consumer_kernel_entry_args_summary
+                          .row_metadata_read_ok_count
+                    : 0);
   std::cout << ",\"future_kernel_native_consumer_kernel_entry_args_summary_error_count\":"
             << future_native_consumer_kernel_entry_args_error_count;
   std::cout << ",\"future_kernel_native_consumer_kernel_entry_args_summary_field_mask\":"
@@ -5519,6 +5574,13 @@ int main(int argc, char** argv) {
             << (future_native_consumer_kernel_entry_args_checked
                     ? future_native_consumer_kernel_entry_args_summary
                           .field_read_hash_accumulator
+                    : 0ULL)
+            << std::dec << "\"";
+  std::cout << ",\"future_kernel_native_consumer_kernel_entry_args_summary_row_metadata_hash_accumulator\":\""
+            << std::hex
+            << (future_native_consumer_kernel_entry_args_checked
+                    ? future_native_consumer_kernel_entry_args_summary
+                          .row_metadata_hash_accumulator
                     : 0ULL)
             << std::dec << "\"";
   std::cout << ",\"typed_schema_hash_hi\":\"" << std::hex << kTypedSchemaHashHi << std::dec << "\"";

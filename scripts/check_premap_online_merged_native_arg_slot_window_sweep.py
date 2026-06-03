@@ -351,6 +351,9 @@ def _check_kernel_entry_summary(
         f"{prefix}_packed_weight_descriptor_read_row_ok_count": expected_active,
         f"{prefix}_scale_metadata_handle_read_row_ok_count": expected_active,
         f"{prefix}_aux_metadata_handle_read_row_ok_count": expected_active,
+        f"{prefix}_expert_id_read_row_ok_count": expected_active,
+        f"{prefix}_address_key_hash_read_row_ok_count": expected_active,
+        f"{prefix}_row_metadata_read_row_ok_count": expected_active,
         f"{prefix}_error_count": 0,
         f"{prefix}_field_mask": _FUTURE_KERNEL_ALL_FIELD_MASK,
         f"{prefix}_payload_bytes": 0,
@@ -364,6 +367,7 @@ def _check_kernel_entry_summary(
     for hash_key in (
         f"{prefix}_row_hash_accumulator",
         f"{prefix}_field_read_hash_accumulator",
+        f"{prefix}_row_metadata_hash_accumulator",
     ):
         value = summary.get(hash_key)
         if not isinstance(value, str) or not value:
@@ -395,6 +399,9 @@ def _check_kernel_entry_args(
         f"{prefix}_summary_packed_weight_descriptor_read_row_ok_count": expected_active,
         f"{prefix}_summary_scale_metadata_handle_read_row_ok_count": expected_active,
         f"{prefix}_summary_aux_metadata_handle_read_row_ok_count": expected_active,
+        f"{prefix}_summary_expert_id_read_row_ok_count": expected_active,
+        f"{prefix}_summary_address_key_hash_read_row_ok_count": expected_active,
+        f"{prefix}_summary_row_metadata_read_row_ok_count": expected_active,
         f"{prefix}_summary_error_count": 0,
         f"{prefix}_summary_field_mask": _FUTURE_KERNEL_ALL_FIELD_MASK,
         f"{prefix}_payload_bytes": 0,
@@ -408,6 +415,7 @@ def _check_kernel_entry_args(
     for hash_key in (
         f"{prefix}_summary_row_hash_accumulator",
         f"{prefix}_summary_field_read_hash_accumulator",
+        f"{prefix}_summary_row_metadata_hash_accumulator",
     ):
         value = summary.get(hash_key)
         if not isinstance(value, str) or not value:

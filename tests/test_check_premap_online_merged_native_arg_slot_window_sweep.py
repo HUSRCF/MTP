@@ -66,6 +66,9 @@ def _kernel_entry_summary_pairs(active: int) -> dict[str, object]:
         "future_kernel_native_consumer_kernel_entry_summary_packed_weight_descriptor_read_row_ok_count": active,
         "future_kernel_native_consumer_kernel_entry_summary_scale_metadata_handle_read_row_ok_count": active,
         "future_kernel_native_consumer_kernel_entry_summary_aux_metadata_handle_read_row_ok_count": active,
+        "future_kernel_native_consumer_kernel_entry_summary_expert_id_read_row_ok_count": active,
+        "future_kernel_native_consumer_kernel_entry_summary_address_key_hash_read_row_ok_count": active,
+        "future_kernel_native_consumer_kernel_entry_summary_row_metadata_read_row_ok_count": active,
         "future_kernel_native_consumer_kernel_entry_summary_error_count": 0,
         "future_kernel_native_consumer_kernel_entry_summary_field_mask": 15,
         "future_kernel_native_consumer_kernel_entry_summary_payload_bytes": 0,
@@ -75,6 +78,7 @@ def _kernel_entry_summary_pairs(active: int) -> dict[str, object]:
         "future_kernel_native_consumer_kernel_entry_summary_requires_wna16_arg_reinterpretation": False,
         "future_kernel_native_consumer_kernel_entry_summary_row_hash_accumulator": "entry-row",
         "future_kernel_native_consumer_kernel_entry_summary_field_read_hash_accumulator": "entry-field",
+        "future_kernel_native_consumer_kernel_entry_summary_row_metadata_hash_accumulator": "entry-meta",
     }
 
 
@@ -95,7 +99,7 @@ def _kernel_entry_args_pairs(active: int) -> dict[str, object]:
         "future_kernel_native_consumer_kernel_entry_args_struct_size": 40,
         "future_kernel_native_consumer_kernel_entry_args_struct_align": 8,
         "future_kernel_native_consumer_kernel_entry_args_kernel_arg_packet_struct_size": 32,
-        "future_kernel_native_consumer_kernel_entry_args_summary_struct_size": 80,
+        "future_kernel_native_consumer_kernel_entry_args_summary_struct_size": 104,
         "future_kernel_native_consumer_kernel_entry_args_offset_kernel_arg_packet": 0,
         "future_kernel_native_consumer_kernel_entry_args_summary_packet_valid": 1,
         "future_kernel_native_consumer_kernel_entry_args_summary_row_count": active,
@@ -104,6 +108,9 @@ def _kernel_entry_args_pairs(active: int) -> dict[str, object]:
         "future_kernel_native_consumer_kernel_entry_args_summary_packed_weight_descriptor_read_row_ok_count": active,
         "future_kernel_native_consumer_kernel_entry_args_summary_scale_metadata_handle_read_row_ok_count": active,
         "future_kernel_native_consumer_kernel_entry_args_summary_aux_metadata_handle_read_row_ok_count": active,
+        "future_kernel_native_consumer_kernel_entry_args_summary_expert_id_read_row_ok_count": active,
+        "future_kernel_native_consumer_kernel_entry_args_summary_address_key_hash_read_row_ok_count": active,
+        "future_kernel_native_consumer_kernel_entry_args_summary_row_metadata_read_row_ok_count": active,
         "future_kernel_native_consumer_kernel_entry_args_summary_error_count": 0,
         "future_kernel_native_consumer_kernel_entry_args_summary_field_mask": 15,
         "future_kernel_native_consumer_kernel_entry_args_payload_bytes": 0,
@@ -113,6 +120,7 @@ def _kernel_entry_args_pairs(active: int) -> dict[str, object]:
         "future_kernel_native_consumer_kernel_entry_args_requires_wna16_arg_reinterpretation": False,
         "future_kernel_native_consumer_kernel_entry_args_summary_row_hash_accumulator": "entry-args-row",
         "future_kernel_native_consumer_kernel_entry_args_summary_field_read_hash_accumulator": "entry-args-field",
+        "future_kernel_native_consumer_kernel_entry_args_summary_row_metadata_hash_accumulator": "entry-args-meta",
     }
 
 

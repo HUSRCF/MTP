@@ -434,6 +434,9 @@ struct PremapFutureKernelNativeConsumerKernelEntrySummaryV1 {
   uint32_t packed_weight_descriptor_read_ok_count;
   uint32_t scale_metadata_handle_read_ok_count;
   uint32_t aux_metadata_handle_read_ok_count;
+  uint32_t expert_id_read_ok_count;
+  uint32_t address_key_hash_read_ok_count;
+  uint32_t row_metadata_read_ok_count;
   uint32_t error_count;
   uint32_t field_mask;
   uint32_t payload_bytes;
@@ -444,6 +447,7 @@ struct PremapFutureKernelNativeConsumerKernelEntrySummaryV1 {
   uint32_t reserved;
   uint64_t row_hash_accumulator;
   uint64_t field_read_hash_accumulator;
+  uint64_t row_metadata_hash_accumulator;
 };
 
 // Single-argument future kernel entry envelope.  This models the ABI shape a

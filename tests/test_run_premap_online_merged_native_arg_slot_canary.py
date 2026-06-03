@@ -208,6 +208,12 @@ def test_online_merged_arg_slot_canary_dry_run_writes_artifacts(tmp_path: Path):
     )
     assert (
         stub_payload[
+            "future_kernel_native_consumer_kernel_entry_summary_row_metadata_read_row_ok_count"
+        ]
+        == 7
+    )
+    assert (
+        stub_payload[
             "future_kernel_native_consumer_kernel_entry_summary_error_count"
         ]
         == 0
@@ -215,6 +221,12 @@ def test_online_merged_arg_slot_canary_dry_run_writes_artifacts(tmp_path: Path):
     assert (
         stub_payload[
             "future_kernel_native_consumer_kernel_entry_args_summary_scale_metadata_handle_read_row_ok_count"
+        ]
+        == 7
+    )
+    assert (
+        stub_payload[
+            "future_kernel_native_consumer_kernel_entry_args_summary_row_metadata_read_row_ok_count"
         ]
         == 7
     )

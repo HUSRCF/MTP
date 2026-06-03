@@ -2498,6 +2498,64 @@ python -m pytest \
 66 passed
 ```
 
+### 2026-06-03: Future kernel entry ABI now validates row metadata reads
+
+The independent typed native stub now checks not only the four handle columns,
+but also the row metadata a future kernel-side descriptor/address consumer
+would need for row-level dispatch:
+
+```text
+expert_id
+address_key_hash
+row_index
+```
+
+The future kernel entry summary and entry-args path now report:
+
+```text
+future_kernel_native_consumer_kernel_entry_summary_expert_id_read_row_ok_count
+future_kernel_native_consumer_kernel_entry_summary_address_key_hash_read_row_ok_count
+future_kernel_native_consumer_kernel_entry_summary_row_metadata_read_row_ok_count
+future_kernel_native_consumer_kernel_entry_summary_row_metadata_hash_accumulator
+
+future_kernel_native_consumer_kernel_entry_args_summary_expert_id_read_row_ok_count
+future_kernel_native_consumer_kernel_entry_args_summary_address_key_hash_read_row_ok_count
+future_kernel_native_consumer_kernel_entry_args_summary_row_metadata_read_row_ok_count
+future_kernel_native_consumer_kernel_entry_args_summary_row_metadata_hash_accumulator
+```
+
+These fields are now required by the online merged arg-slot window checker.  In
+the latest lab gate run, both the full 1841-row merged input and the 512-row
+tail window pass with all row metadata counts equal to the active row count.
+
+The boundary remains unchanged:
+
+```text
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+current_wna16_arg_compatible = false
+requires_wna16_arg_reinterpretation = false
+```
+
+Verification:
+
+```text
+python scripts/run_premap_lab_gate_verify.py \
+  --output-json outputs/reports/premap_lab_gate_verify.json
+
+passed = true
+row_count = 1841
+all_field_window_sweep_check.passed = true
+
+python scripts/check_premap_lab_gate_verify.py \
+  outputs/reports/premap_lab_gate_verify.json \
+  --output-json outputs/reports/premap_lab_gate_verify.check.json
+
+passed = true
+failures = []
+```
+
 ### Premap future kernel entry-args ABI is now a lab-gate requirement
 
 The native typed-consumer path now has a single-argument future kernel-entry

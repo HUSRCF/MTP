@@ -324,6 +324,9 @@ STUB_SUMMARY_KEYS = (
     "future_kernel_native_consumer_kernel_entry_summary_packed_weight_descriptor_read_row_ok_count",
     "future_kernel_native_consumer_kernel_entry_summary_scale_metadata_handle_read_row_ok_count",
     "future_kernel_native_consumer_kernel_entry_summary_aux_metadata_handle_read_row_ok_count",
+    "future_kernel_native_consumer_kernel_entry_summary_expert_id_read_row_ok_count",
+    "future_kernel_native_consumer_kernel_entry_summary_address_key_hash_read_row_ok_count",
+    "future_kernel_native_consumer_kernel_entry_summary_row_metadata_read_row_ok_count",
     "future_kernel_native_consumer_kernel_entry_summary_error_count",
     "future_kernel_native_consumer_kernel_entry_summary_field_mask",
     "future_kernel_native_consumer_kernel_entry_summary_payload_bytes",
@@ -333,6 +336,7 @@ STUB_SUMMARY_KEYS = (
     "future_kernel_native_consumer_kernel_entry_summary_requires_wna16_arg_reinterpretation",
     "future_kernel_native_consumer_kernel_entry_summary_row_hash_accumulator",
     "future_kernel_native_consumer_kernel_entry_summary_field_read_hash_accumulator",
+    "future_kernel_native_consumer_kernel_entry_summary_row_metadata_hash_accumulator",
     "future_kernel_native_consumer_kernel_entry_args_checked",
     "future_kernel_native_consumer_kernel_entry_args_mode",
     "future_kernel_native_consumer_kernel_entry_args_source",
@@ -357,6 +361,9 @@ STUB_SUMMARY_KEYS = (
     "future_kernel_native_consumer_kernel_entry_args_summary_packed_weight_descriptor_read_row_ok_count",
     "future_kernel_native_consumer_kernel_entry_args_summary_scale_metadata_handle_read_row_ok_count",
     "future_kernel_native_consumer_kernel_entry_args_summary_aux_metadata_handle_read_row_ok_count",
+    "future_kernel_native_consumer_kernel_entry_args_summary_expert_id_read_row_ok_count",
+    "future_kernel_native_consumer_kernel_entry_args_summary_address_key_hash_read_row_ok_count",
+    "future_kernel_native_consumer_kernel_entry_args_summary_row_metadata_read_row_ok_count",
     "future_kernel_native_consumer_kernel_entry_args_summary_error_count",
     "future_kernel_native_consumer_kernel_entry_args_summary_field_mask",
     "future_kernel_native_consumer_kernel_entry_args_payload_bytes",
@@ -366,6 +373,7 @@ STUB_SUMMARY_KEYS = (
     "future_kernel_native_consumer_kernel_entry_args_requires_wna16_arg_reinterpretation",
     "future_kernel_native_consumer_kernel_entry_args_summary_row_hash_accumulator",
     "future_kernel_native_consumer_kernel_entry_args_summary_field_read_hash_accumulator",
+    "future_kernel_native_consumer_kernel_entry_args_summary_row_metadata_hash_accumulator",
 )
 
 
@@ -534,6 +542,9 @@ def _check_kernel_entry_summary(
         f"{prefix}_packed_weight_descriptor_read_row_ok_count": int(active_rows),
         f"{prefix}_scale_metadata_handle_read_row_ok_count": int(active_rows),
         f"{prefix}_aux_metadata_handle_read_row_ok_count": int(active_rows),
+        f"{prefix}_expert_id_read_row_ok_count": int(active_rows),
+        f"{prefix}_address_key_hash_read_row_ok_count": int(active_rows),
+        f"{prefix}_row_metadata_read_row_ok_count": int(active_rows),
         f"{prefix}_error_count": 0,
         f"{prefix}_field_mask": _FUTURE_KERNEL_ALL_FIELD_MASK,
         f"{prefix}_payload_bytes": 0,
@@ -548,6 +559,7 @@ def _check_kernel_entry_summary(
     for hash_key in (
         f"{prefix}_row_hash_accumulator",
         f"{prefix}_field_read_hash_accumulator",
+        f"{prefix}_row_metadata_hash_accumulator",
     ):
         hash_value = stub.get(hash_key)
         if not isinstance(hash_value, str) or not hash_value:
@@ -576,6 +588,9 @@ def _check_kernel_entry_args(
         f"{prefix}_summary_packed_weight_descriptor_read_row_ok_count": int(active_rows),
         f"{prefix}_summary_scale_metadata_handle_read_row_ok_count": int(active_rows),
         f"{prefix}_summary_aux_metadata_handle_read_row_ok_count": int(active_rows),
+        f"{prefix}_summary_expert_id_read_row_ok_count": int(active_rows),
+        f"{prefix}_summary_address_key_hash_read_row_ok_count": int(active_rows),
+        f"{prefix}_summary_row_metadata_read_row_ok_count": int(active_rows),
         f"{prefix}_summary_error_count": 0,
         f"{prefix}_summary_field_mask": _FUTURE_KERNEL_ALL_FIELD_MASK,
         f"{prefix}_payload_bytes": 0,
@@ -590,6 +605,7 @@ def _check_kernel_entry_args(
     for hash_key in (
         f"{prefix}_summary_row_hash_accumulator",
         f"{prefix}_summary_field_read_hash_accumulator",
+        f"{prefix}_summary_row_metadata_hash_accumulator",
     ):
         hash_value = stub.get(hash_key)
         if not isinstance(hash_value, str) or not hash_value:
@@ -1128,6 +1144,9 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
             "future_kernel_native_consumer_kernel_entry_summary_packed_weight_descriptor_read_row_ok_count": active_rows,
             "future_kernel_native_consumer_kernel_entry_summary_scale_metadata_handle_read_row_ok_count": active_rows,
             "future_kernel_native_consumer_kernel_entry_summary_aux_metadata_handle_read_row_ok_count": active_rows,
+            "future_kernel_native_consumer_kernel_entry_summary_expert_id_read_row_ok_count": active_rows,
+            "future_kernel_native_consumer_kernel_entry_summary_address_key_hash_read_row_ok_count": active_rows,
+            "future_kernel_native_consumer_kernel_entry_summary_row_metadata_read_row_ok_count": active_rows,
             "future_kernel_native_consumer_kernel_entry_summary_error_count": 0,
             "future_kernel_native_consumer_kernel_entry_summary_field_mask": _FUTURE_KERNEL_ALL_FIELD_MASK,
             "future_kernel_native_consumer_kernel_entry_summary_payload_bytes": 0,
@@ -1137,6 +1156,7 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
             "future_kernel_native_consumer_kernel_entry_summary_requires_wna16_arg_reinterpretation": False,
             "future_kernel_native_consumer_kernel_entry_summary_row_hash_accumulator": "dry",
             "future_kernel_native_consumer_kernel_entry_summary_field_read_hash_accumulator": "dry",
+            "future_kernel_native_consumer_kernel_entry_summary_row_metadata_hash_accumulator": "dry",
             "future_kernel_native_consumer_kernel_entry_args_checked": True,
             "future_kernel_native_consumer_kernel_entry_args_mode": (
                 "readonly_future_kernel_native_consumer_kernel_entry_args_abi"
@@ -1159,7 +1179,7 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
             "future_kernel_native_consumer_kernel_entry_args_offset_payload_bytes": 28,
             "future_kernel_native_consumer_kernel_entry_args_offset_flags": 32,
             "future_kernel_native_consumer_kernel_entry_args_kernel_arg_packet_struct_size": 32,
-            "future_kernel_native_consumer_kernel_entry_args_summary_struct_size": 80,
+            "future_kernel_native_consumer_kernel_entry_args_summary_struct_size": 104,
             "future_kernel_native_consumer_kernel_entry_args_summary_packet_valid": 1,
             "future_kernel_native_consumer_kernel_entry_args_summary_row_count": active_rows,
             "future_kernel_native_consumer_kernel_entry_args_summary_row_ok_count": active_rows,
@@ -1167,6 +1187,9 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
             "future_kernel_native_consumer_kernel_entry_args_summary_packed_weight_descriptor_read_row_ok_count": active_rows,
             "future_kernel_native_consumer_kernel_entry_args_summary_scale_metadata_handle_read_row_ok_count": active_rows,
             "future_kernel_native_consumer_kernel_entry_args_summary_aux_metadata_handle_read_row_ok_count": active_rows,
+            "future_kernel_native_consumer_kernel_entry_args_summary_expert_id_read_row_ok_count": active_rows,
+            "future_kernel_native_consumer_kernel_entry_args_summary_address_key_hash_read_row_ok_count": active_rows,
+            "future_kernel_native_consumer_kernel_entry_args_summary_row_metadata_read_row_ok_count": active_rows,
             "future_kernel_native_consumer_kernel_entry_args_summary_error_count": 0,
             "future_kernel_native_consumer_kernel_entry_args_summary_field_mask": _FUTURE_KERNEL_ALL_FIELD_MASK,
             "future_kernel_native_consumer_kernel_entry_args_payload_bytes": 0,
@@ -1176,6 +1199,7 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
             "future_kernel_native_consumer_kernel_entry_args_requires_wna16_arg_reinterpretation": False,
             "future_kernel_native_consumer_kernel_entry_args_summary_row_hash_accumulator": "dry",
             "future_kernel_native_consumer_kernel_entry_args_summary_field_read_hash_accumulator": "dry",
+            "future_kernel_native_consumer_kernel_entry_args_summary_row_metadata_hash_accumulator": "dry",
         }
     else:
         stub_payload = run_stub(_stub_namespace(args, input_json=merged_output_json))
