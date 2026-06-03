@@ -2,7 +2,7 @@
 
 ## Progress Version
 
-- Version: `v0.60-launch-envelope-args-abi-canary`
+- Version: `v0.61-online-merged-launch-envelope-args-canary`
 - Updated: 2026-06-03
 - Current phase: premap descriptor/address prep now has a typed
   kernel-side consumer object, a launch-shaped future native ABI, and a
@@ -109,9 +109,50 @@
   metadata.  This is still disabled by default and remains an independent
   native stub path: `payload_bytes=0`, `passed_to_kernel=false`,
   `changes_kernel_launch_args=false`, and
-  `current_wna16_arg_compatible=false`.
+  `current_wna16_arg_compatible=false`.  That launch-envelope ABI is now also
+  available as an explicit optional check in the online-merged arg-slot runner,
+  and has passed on the existing 1841-row table merged from 32 real vLLM
+  prelaunch typed-consumer exports.  This is still opt-in and is not yet a
+  default lab preflight requirement.
 
-## Latest Update: Future Launch-Envelope Args ABI Canary
+## Latest Update: Online-Merged Future Launch-Envelope Args ABI Canary
+
+Update: the future-native launch-envelope ABI canary now runs through the
+online-merged arg-slot runner as an explicit opt-in requirement.  It models a
+future kernel launch receiving one compact envelope with an entry-args pointer
+and launch geometry, while still avoiding the current WNA16 argument list.
+
+GPU1 online-merged canary:
+
+```text
+artifact:
+  outputs/reports/premap_kernel_consumer/online_merged_future_native_arg_slot_launch_envelope_args_canary_runner.json
+
+source table:
+  outputs/reports/premap_kernel_consumer/online_merged_prelaunch_typed_consumer_input_arg_slot_launch_envelope_args.json
+
+selected_source_count = 1
+merged_row_count = 1841
+dispatch_active_rows = 1841
+dispatch_expected_program_count = 8
+require_launch_envelope_args_abi = true
+
+launch_envelope_args_checked = true
+launch_envelope_args_packet_chain_depth = 7
+launch_envelope_args_error_count = 0
+launch_envelope_args_all_handle_fields_read = true
+
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+current_wna16_arg_compatible = false
+```
+
+This online runner path is still not promoted to the default lab gate.  It is
+the next independent ABI canary for the future kernel-side typed consumer path
+and remains separate from the existing WNA16 fused-MoE kernel arguments.
+
+## Previous Update: Future Launch-Envelope Args ABI Canary
 
 Update: a standalone future-native launch-envelope ABI canary now sits one
 layer above the entry-args pointer.  It models a future kernel launch receiving

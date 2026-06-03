@@ -87,6 +87,9 @@ ARG_SLOT_BASE_MACROS = [
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ENTRY_ARGS_PTR_ABI",
     "MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR",
 ]
+LAUNCH_ENVELOPE_ARGS_MACRO = (
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ENVELOPE_ARGS_ABI"
+)
 MIRROR_FIELD_MACRO = {
     "descriptor_ptr": "MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR_MIRROR_FIELD",
     "packed_weight_descriptor": (
@@ -143,6 +146,17 @@ _KERNEL_ENTRY_ARGS_LAYOUT_EXPECTED = {
     "future_kernel_native_consumer_kernel_entry_args_offset_summary_struct_size": 24,
     "future_kernel_native_consumer_kernel_entry_args_offset_payload_bytes": 28,
     "future_kernel_native_consumer_kernel_entry_args_offset_flags": 32,
+}
+_LAUNCH_ENVELOPE_ARGS_LAYOUT_EXPECTED = {
+    "future_kernel_native_consumer_launch_envelope_args_struct_size": 48,
+    "future_kernel_native_consumer_launch_envelope_args_struct_align": 8,
+    "future_kernel_native_consumer_launch_envelope_args_offset_entry_args": 0,
+    "future_kernel_native_consumer_launch_envelope_args_offset_abi_version": 8,
+    "future_kernel_native_consumer_launch_envelope_args_offset_grid_x": 20,
+    "future_kernel_native_consumer_launch_envelope_args_offset_block_x": 24,
+    "future_kernel_native_consumer_launch_envelope_args_offset_row_offset": 28,
+    "future_kernel_native_consumer_launch_envelope_args_offset_row_limit": 32,
+    "future_kernel_native_consumer_launch_envelope_args_offset_rows_per_program": 36,
 }
 
 _FUTURE_KERNEL_FIELD_MASK_PREFIXES = (
@@ -467,6 +481,49 @@ STUB_SUMMARY_KEYS = (
     "future_kernel_native_consumer_kernel_entry_args_ptr_summary_row_hash_accumulator",
     "future_kernel_native_consumer_kernel_entry_args_ptr_summary_field_read_hash_accumulator",
     "future_kernel_native_consumer_kernel_entry_args_ptr_summary_row_metadata_hash_accumulator",
+    "future_kernel_native_consumer_launch_envelope_args_abi_name",
+    "future_kernel_native_consumer_launch_envelope_args_checked",
+    "future_kernel_native_consumer_launch_envelope_args_mode",
+    "future_kernel_native_consumer_launch_envelope_args_source",
+    "future_kernel_native_consumer_launch_envelope_args_field_read_path",
+    "future_kernel_native_consumer_launch_envelope_args_packet_chain_depth",
+    "future_kernel_native_consumer_launch_envelope_args_version",
+    "future_kernel_native_consumer_launch_envelope_args_struct_size",
+    "future_kernel_native_consumer_launch_envelope_args_struct_align",
+    "future_kernel_native_consumer_launch_envelope_args_offset_entry_args",
+    "future_kernel_native_consumer_launch_envelope_args_offset_abi_version",
+    "future_kernel_native_consumer_launch_envelope_args_offset_grid_x",
+    "future_kernel_native_consumer_launch_envelope_args_offset_block_x",
+    "future_kernel_native_consumer_launch_envelope_args_offset_row_offset",
+    "future_kernel_native_consumer_launch_envelope_args_offset_row_limit",
+    "future_kernel_native_consumer_launch_envelope_args_offset_rows_per_program",
+    "future_kernel_native_consumer_launch_envelope_args_entry_args_struct_size",
+    "future_kernel_native_consumer_launch_envelope_args_pointer_size",
+    "future_kernel_native_consumer_launch_envelope_args_grid_x",
+    "future_kernel_native_consumer_launch_envelope_args_block_x",
+    "future_kernel_native_consumer_launch_envelope_args_row_offset",
+    "future_kernel_native_consumer_launch_envelope_args_row_limit",
+    "future_kernel_native_consumer_launch_envelope_args_rows_per_program",
+    "future_kernel_native_consumer_launch_envelope_args_summary_packet_valid",
+    "future_kernel_native_consumer_launch_envelope_args_summary_row_count",
+    "future_kernel_native_consumer_launch_envelope_args_summary_row_ok_count",
+    "future_kernel_native_consumer_launch_envelope_args_summary_descriptor_ptr_read_row_ok_count",
+    "future_kernel_native_consumer_launch_envelope_args_summary_packed_weight_descriptor_read_row_ok_count",
+    "future_kernel_native_consumer_launch_envelope_args_summary_scale_metadata_handle_read_row_ok_count",
+    "future_kernel_native_consumer_launch_envelope_args_summary_aux_metadata_handle_read_row_ok_count",
+    "future_kernel_native_consumer_launch_envelope_args_summary_expert_id_read_row_ok_count",
+    "future_kernel_native_consumer_launch_envelope_args_summary_address_key_hash_read_row_ok_count",
+    "future_kernel_native_consumer_launch_envelope_args_summary_row_metadata_read_row_ok_count",
+    "future_kernel_native_consumer_launch_envelope_args_summary_error_count",
+    "future_kernel_native_consumer_launch_envelope_args_summary_field_mask",
+    "future_kernel_native_consumer_launch_envelope_args_payload_bytes",
+    "future_kernel_native_consumer_launch_envelope_args_passed_to_kernel",
+    "future_kernel_native_consumer_launch_envelope_args_changes_kernel_launch_args",
+    "future_kernel_native_consumer_launch_envelope_args_current_wna16_arg_compatible",
+    "future_kernel_native_consumer_launch_envelope_args_requires_wna16_arg_reinterpretation",
+    "future_kernel_native_consumer_launch_envelope_args_summary_row_hash_accumulator",
+    "future_kernel_native_consumer_launch_envelope_args_summary_field_read_hash_accumulator",
+    "future_kernel_native_consumer_launch_envelope_args_summary_row_metadata_hash_accumulator",
 )
 
 
@@ -772,12 +829,125 @@ def _check_kernel_entry_args_ptr(
     return failures
 
 
-def arg_slot_macros(mirror_field: str) -> list[str]:
+def _launch_envelope_args_expected_pairs(
+    *,
+    active_rows: int,
+    block_threads: int,
+    dispatch_row_offset: int,
+    dispatch_row_limit: int,
+) -> dict[str, Any]:
+    prefix = "future_kernel_native_consumer_launch_envelope_args"
+    return {
+        f"{prefix}_abi_name": "premap_future_kernel_native_consumer_launch_envelope_args_abi_v1",
+        f"{prefix}_checked": True,
+        f"{prefix}_mode": "readonly_future_kernel_native_consumer_launch_envelope_args_abi",
+        f"{prefix}_source": "premap_future_kernel_native_consumer_kernel_entry_args_ptr_abi_v1",
+        f"{prefix}_field_read_path": (
+            "launch_envelope_args_to_entry_args_ptr_to_kernel_entry_args_to_kernel_arg_packet_to_program_view_rows"
+        ),
+        f"{prefix}_packet_chain_depth": 7,
+        f"{prefix}_version": 1,
+        f"{prefix}_entry_args_struct_size": 40,
+        f"{prefix}_pointer_size": 8,
+        f"{prefix}_grid_x": _program_count(active_rows, block_threads),
+        f"{prefix}_block_x": int(block_threads),
+        f"{prefix}_row_offset": int(dispatch_row_offset),
+        f"{prefix}_row_limit": int(dispatch_row_limit),
+        f"{prefix}_rows_per_program": int(block_threads),
+        f"{prefix}_summary_packet_valid": 1,
+        f"{prefix}_summary_row_count": int(active_rows),
+        f"{prefix}_summary_row_ok_count": int(active_rows),
+        f"{prefix}_summary_descriptor_ptr_read_row_ok_count": int(active_rows),
+        f"{prefix}_summary_packed_weight_descriptor_read_row_ok_count": int(active_rows),
+        f"{prefix}_summary_scale_metadata_handle_read_row_ok_count": int(active_rows),
+        f"{prefix}_summary_aux_metadata_handle_read_row_ok_count": int(active_rows),
+        f"{prefix}_summary_expert_id_read_row_ok_count": int(active_rows),
+        f"{prefix}_summary_address_key_hash_read_row_ok_count": int(active_rows),
+        f"{prefix}_summary_row_metadata_read_row_ok_count": int(active_rows),
+        f"{prefix}_summary_error_count": 0,
+        f"{prefix}_summary_field_mask": _FUTURE_KERNEL_ALL_FIELD_MASK,
+        f"{prefix}_payload_bytes": 0,
+        f"{prefix}_passed_to_kernel": False,
+        f"{prefix}_changes_kernel_launch_args": False,
+        f"{prefix}_current_wna16_arg_compatible": False,
+        f"{prefix}_requires_wna16_arg_reinterpretation": False,
+    }
+
+
+def _launch_envelope_args_dry_run_pairs(
+    *,
+    active_rows: int,
+    block_threads: int,
+    dispatch_row_offset: int,
+    dispatch_row_limit: int,
+) -> dict[str, Any]:
+    return {
+        **_LAUNCH_ENVELOPE_ARGS_LAYOUT_EXPECTED,
+        **_launch_envelope_args_expected_pairs(
+            active_rows=active_rows,
+            block_threads=block_threads,
+            dispatch_row_offset=dispatch_row_offset,
+            dispatch_row_limit=dispatch_row_limit,
+        ),
+        "future_kernel_native_consumer_launch_envelope_args_summary_row_hash_accumulator": "dry",
+        "future_kernel_native_consumer_launch_envelope_args_summary_field_read_hash_accumulator": "dry",
+        "future_kernel_native_consumer_launch_envelope_args_summary_row_metadata_hash_accumulator": "dry",
+    }
+
+
+def _check_launch_envelope_args(
+    stub: dict[str, Any],
+    *,
+    active_rows: int,
+    block_threads: int,
+    dispatch_row_offset: int,
+    dispatch_row_limit: int,
+) -> list[str]:
+    failures: list[str] = []
+    prefix = "future_kernel_native_consumer_launch_envelope_args"
+    if f"{prefix}_checked" not in stub:
+        return [f"{prefix}_missing_or_dry_run_unsupported"]
+    expected = _launch_envelope_args_expected_pairs(
+        active_rows=active_rows,
+        block_threads=block_threads,
+        dispatch_row_offset=dispatch_row_offset,
+        dispatch_row_limit=dispatch_row_limit,
+    )
+    for key, value in expected.items():
+        if stub.get(key) != value:
+            failures.append(f"{key}_mismatch:{stub.get(key)!r}!={value!r}")
+    for key, expected_value in _LAUNCH_ENVELOPE_ARGS_LAYOUT_EXPECTED.items():
+        value = stub.get(key)
+        if not isinstance(value, int) or isinstance(value, bool):
+            failures.append(f"{key}_invalid")
+            continue
+        if value != expected_value:
+            failures.append(f"{key}_mismatch:{value!r}!={expected_value!r}")
+    for hash_key in (
+        f"{prefix}_summary_row_hash_accumulator",
+        f"{prefix}_summary_field_read_hash_accumulator",
+        f"{prefix}_summary_row_metadata_hash_accumulator",
+    ):
+        hash_value = stub.get(hash_key)
+        if not isinstance(hash_value, str) or not hash_value:
+            failures.append(f"{hash_key}_missing")
+    return failures
+
+
+def arg_slot_macros(
+    mirror_field: str,
+    *,
+    include_launch_envelope_args: bool = False,
+) -> list[str]:
     try:
         mirror_macro = MIRROR_FIELD_MACRO[mirror_field]
     except KeyError as exc:
         raise ValueError(f"unsupported mirror field: {mirror_field}") from exc
-    return validate_macros([*ARG_SLOT_BASE_MACROS, mirror_macro])
+    macros = [*ARG_SLOT_BASE_MACROS]
+    if include_launch_envelope_args:
+        macros.append(LAUNCH_ENVELOPE_ARGS_MACRO)
+    macros.append(mirror_macro)
+    return validate_macros(macros)
 
 
 def _dispatch_bounds(
@@ -815,6 +985,7 @@ def _validate_stub(
     dispatch_row_offset: int,
     dispatch_row_limit: int,
     mirror_field: str,
+    require_launch_envelope_args_abi: bool,
 ) -> list[str]:
     failures: list[str] = []
     row_count = int(merged_input["_meta"]["row_count"])
@@ -950,7 +1121,10 @@ def _validate_stub(
         if stub.get(key) != expected:
             failures.append(f"{key}_mismatch:{stub.get(key)!r}!={expected!r}")
     macros = stub.get("requested_macros")
-    if macros != arg_slot_macros(mirror_field):
+    if macros != arg_slot_macros(
+        mirror_field,
+        include_launch_envelope_args=require_launch_envelope_args_abi,
+    ):
         failures.append("requested_macros_mismatch")
     projection_values: list[int] = []
     for prefix in _HANDLE_PROJECTION_HASH_PREFIXES:
@@ -985,6 +1159,16 @@ def _validate_stub(
     failures.extend(_check_kernel_entry_summary(stub, active_rows=active_rows))
     failures.extend(_check_kernel_entry_args(stub, active_rows=active_rows))
     failures.extend(_check_kernel_entry_args_ptr(stub, active_rows=active_rows))
+    if require_launch_envelope_args_abi:
+        failures.extend(
+            _check_launch_envelope_args(
+                stub,
+                active_rows=active_rows,
+                block_threads=block_threads,
+                dispatch_row_offset=dispatch_row_offset,
+                dispatch_row_limit=dispatch_row_limit,
+            )
+        )
     return failures
 
 
@@ -1004,7 +1188,10 @@ def _stub_namespace(args: argparse.Namespace, *, input_json: Path) -> SimpleName
     # Bounds are validated after the merged input is materialized; this namespace
     # is filled in run_canary once the row count is known.
     return SimpleNamespace(
-        macro=arg_slot_macros(args.mirror_field),
+        macro=arg_slot_macros(
+            args.mirror_field,
+            include_launch_envelope_args=bool(args.require_launch_envelope_args_abi),
+        ),
         offload_arch=args.offload_arch,
         force_build=bool(args.force_build),
         rows=0,
@@ -1084,7 +1271,12 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
             "payload_bytes": 0,
             "passed_to_kernel": False,
             "changes_kernel_launch_args": False,
-            "requested_macros": arg_slot_macros(args.mirror_field),
+            "requested_macros": arg_slot_macros(
+                args.mirror_field,
+                include_launch_envelope_args=bool(
+                    args.require_launch_envelope_args_abi
+                ),
+            ),
             "mirror_field": args.mirror_field,
             **_future_field_mask_expectations(),
             "future_kernel_native_arg_slot_consumer_checked": True,
@@ -1409,6 +1601,15 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
             "future_kernel_native_consumer_kernel_entry_args_ptr_summary_field_read_hash_accumulator": "dry",
             "future_kernel_native_consumer_kernel_entry_args_ptr_summary_row_metadata_hash_accumulator": "dry",
         }
+        if args.require_launch_envelope_args_abi:
+            stub_payload.update(
+                _launch_envelope_args_dry_run_pairs(
+                    active_rows=active_rows,
+                    block_threads=int(args.block_threads),
+                    dispatch_row_offset=dispatch_row_offset,
+                    dispatch_row_limit=dispatch_row_limit,
+                )
+            )
     else:
         stub_payload = run_stub(_stub_namespace(args, input_json=merged_output_json))
     stub_payload.setdefault("passed", bool(stub_payload.get("ok", False)))
@@ -1425,6 +1626,18 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
         dispatch_row_offset=dispatch_row_offset,
         dispatch_row_limit=dispatch_row_limit,
         mirror_field=args.mirror_field,
+        require_launch_envelope_args_abi=bool(args.require_launch_envelope_args_abi),
+    )
+    launch_envelope_args_failures = (
+        _check_launch_envelope_args(
+            stub_payload,
+            active_rows=active_rows,
+            block_threads=int(args.block_threads),
+            dispatch_row_offset=dispatch_row_offset,
+            dispatch_row_limit=dispatch_row_limit,
+        )
+        if args.require_launch_envelope_args_abi
+        else []
     )
     report: dict[str, Any] = {
         "passed": not failures,
@@ -1448,6 +1661,9 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
         ),
         "tail_window_size": args.tail_window_size,
         "mirror_field": args.mirror_field,
+        "require_launch_envelope_args_abi": bool(
+            args.require_launch_envelope_args_abi
+        ),
         "block_threads": int(args.block_threads),
         "device": int(args.device),
         "hip_visible_devices": args.hip_visible_devices,
@@ -1512,6 +1728,22 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
                 stub_payload, active_rows=active_rows
             )
         ),
+        "launch_envelope_args_checked": (
+            stub_payload.get(
+                "future_kernel_native_consumer_launch_envelope_args_checked"
+            )
+            is True
+        ),
+        "launch_envelope_args_error_count": stub_payload.get(
+            "future_kernel_native_consumer_launch_envelope_args_summary_error_count"
+        ),
+        "launch_envelope_args_all_handle_fields_read": (
+            args.require_launch_envelope_args_abi
+            and not launch_envelope_args_failures
+        ),
+        "launch_envelope_args_packet_chain_depth": stub_payload.get(
+            "future_kernel_native_consumer_launch_envelope_args_packet_chain_depth"
+        ),
         "consumer_view_source_packet_chain_depth": stub_payload.get(
             "future_kernel_native_consumer_view_source_packet_chain_depth"
         ),
@@ -1544,6 +1776,14 @@ def build_parser() -> argparse.ArgumentParser:
         choices=sorted(MIRROR_FIELD_MACRO),
         default="scale_metadata_handle",
         help="single typed handle field mirrored by the future arg-slot canary",
+    )
+    parser.add_argument(
+        "--require-launch-envelope-args-abi",
+        action="store_true",
+        help=(
+            "also require the future launch-envelope args ABI checker; default is "
+            "disabled so the lab gate does not change implicitly"
+        ),
     )
     parser.add_argument("--device", type=int, default=LAB_DEFAULT_GPU_DEVICE)
     parser.add_argument("--hip-visible-devices")

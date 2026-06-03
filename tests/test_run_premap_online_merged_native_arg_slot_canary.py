@@ -320,6 +320,111 @@ def test_online_merged_arg_slot_canary_dry_run_accepts_mirror_field(
     )
 
 
+def test_online_merged_arg_slot_canary_macros_can_require_launch_envelope_args():
+    module = _load_module()
+
+    macros = module.arg_slot_macros(
+        "scale_metadata_handle",
+        include_launch_envelope_args=True,
+    )
+
+    assert module.LAUNCH_ENVELOPE_ARGS_MACRO in macros
+    assert (
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ENTRY_ARGS_PTR_ABI"
+        in macros
+    )
+    assert macros.index(
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ENTRY_ARGS_PTR_ABI"
+    ) < macros.index(module.LAUNCH_ENVELOPE_ARGS_MACRO)
+
+
+def test_online_merged_arg_slot_canary_dry_run_accepts_launch_envelope_args(
+    tmp_path: Path,
+):
+    module = _load_module()
+    first = tmp_path / "input0.json"
+    second = tmp_path / "input1.json"
+    runner = tmp_path / "runner.json"
+    stub = tmp_path / "stub.json"
+    _write_input(first, start=0, rows=3, export_index=0)
+    _write_input(second, start=100, rows=4, export_index=1)
+    _write_runner(runner, [first, second])
+
+    args = module.build_parser().parse_args(
+        [
+            "--runner-json",
+            str(runner),
+            "--min-source-count",
+            "2",
+            "--min-total-rows",
+            "7",
+            "--block-threads",
+            "4",
+            "--require-launch-envelope-args-abi",
+            "--merged-output-json",
+            str(tmp_path / "merged.json"),
+            "--stub-output-json",
+            str(stub),
+            "--output-json",
+            str(tmp_path / "report.json"),
+            "--dry-run",
+        ]
+    )
+
+    result = module.run_canary(args)
+    stub_payload = json.loads(stub.read_text(encoding="utf-8"))
+
+    assert result["passed"] is True
+    assert result["require_launch_envelope_args_abi"] is True
+    assert result["launch_envelope_args_checked"] is True
+    assert result["launch_envelope_args_error_count"] == 0
+    assert result["launch_envelope_args_all_handle_fields_read"] is True
+    assert result["launch_envelope_args_packet_chain_depth"] == 7
+    assert module.LAUNCH_ENVELOPE_ARGS_MACRO in stub_payload["requested_macros"]
+    assert (
+        stub_payload[
+            "future_kernel_native_consumer_launch_envelope_args_field_read_path"
+        ]
+        == "launch_envelope_args_to_entry_args_ptr_to_kernel_entry_args_to_kernel_arg_packet_to_program_view_rows"
+    )
+    assert (
+        stub_payload[
+            "future_kernel_native_consumer_launch_envelope_args_summary_row_count"
+        ]
+        == 7
+    )
+    assert (
+        stub_payload[
+            "future_kernel_native_consumer_launch_envelope_args_row_offset"
+        ]
+        == 0
+    )
+    assert (
+        stub_payload[
+            "future_kernel_native_consumer_launch_envelope_args_row_limit"
+        ]
+        == 7
+    )
+    assert (
+        stub_payload[
+            "future_kernel_native_consumer_launch_envelope_args_payload_bytes"
+        ]
+        == 0
+    )
+    assert (
+        stub_payload[
+            "future_kernel_native_consumer_launch_envelope_args_passed_to_kernel"
+        ]
+        is False
+    )
+    assert (
+        result["stub_summary"][
+            "future_kernel_native_consumer_launch_envelope_args_packet_chain_depth"
+        ]
+        == 7
+    )
+
+
 def test_online_merged_arg_slot_canary_rejects_too_few_sources(tmp_path: Path):
     module = _load_module()
     first = tmp_path / "input0.json"
@@ -496,6 +601,7 @@ def test_online_merged_arg_slot_canary_flags_stub_geometry_mismatch(tmp_path: Pa
         dispatch_row_offset=0,
         dispatch_row_limit=7,
         mirror_field="scale_metadata_handle",
+        require_launch_envelope_args_abi=False,
     )
 
     assert any("future_kernel_native_dispatch_consumer_grid_x_mismatch" in item for item in failures)
