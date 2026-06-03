@@ -5080,6 +5080,10 @@ def run_premap_lab_preflight(
     consumer_view_expected_requires_reinterpretation = schema_summary.get(
         "future_kernel_native_consumer_view_abi_requires_wna16_arg_reinterpretation"
     )
+    consumer_view_reinterpretation_flags_valid = (
+        isinstance(consumer_view_requires_wna16_arg_reinterpretation, bool)
+        and isinstance(consumer_view_expected_requires_reinterpretation, bool)
+    )
     consumer_view_safety_matches_required = (
         consumer_view_source_matches_schema
         and consumer_view_source_packet_chain_depth
@@ -5090,6 +5094,7 @@ def run_premap_lab_preflight(
         == consumer_view_required_changes_kernel_launch_args
         and consumer_view_current_wna16_arg_compatible
         == consumer_view_required_current_wna16_arg_compatible
+        and consumer_view_reinterpretation_flags_valid
         and consumer_view_requires_wna16_arg_reinterpretation
         == consumer_view_expected_requires_reinterpretation
     )
@@ -5469,6 +5474,8 @@ def run_premap_lab_preflight(
     if (
         not allow_missing_evidence
         and not defer_online_prelaunch_runner_evidence
+        and required_gate_checks.get("consumer_view_all_handle_fields_required")
+        is True
         and not consumer_view_all_handle_fields_read
     ):
         failures.append(
@@ -5477,6 +5484,7 @@ def run_premap_lab_preflight(
     if (
         not allow_missing_evidence
         and not defer_online_prelaunch_runner_evidence
+        and required_gate_checks.get("consumer_view_row_layout_required") is True
         and not consumer_view_row_window_matches_dispatch
     ):
         failures.append(
@@ -5485,6 +5493,7 @@ def run_premap_lab_preflight(
     if (
         not allow_missing_evidence
         and not defer_online_prelaunch_runner_evidence
+        and required_gate_checks.get("consumer_view_required") is True
         and not consumer_view_safety_matches_required
     ):
         failures.append(
@@ -6437,6 +6446,9 @@ def run_premap_lab_preflight(
         ),
         "default_kernel_consumer_consumer_view_requires_wna16_arg_reinterpretation": (
             consumer_view_requires_wna16_arg_reinterpretation
+        ),
+        "default_kernel_consumer_consumer_view_reinterpretation_flags_valid": (
+            consumer_view_reinterpretation_flags_valid
         ),
         "default_kernel_consumer_consumer_view_safety_matches_required": (
             consumer_view_safety_matches_required
