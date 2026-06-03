@@ -313,6 +313,10 @@ STUB_SUMMARY_KEYS = (
     "future_kernel_native_consumer_kernel_arg_packet_field_mask",
     "future_kernel_native_consumer_kernel_arg_packet_required_field_mask",
     "future_kernel_native_consumer_kernel_entry_summary_checked",
+    "future_kernel_native_consumer_kernel_entry_summary_mode",
+    "future_kernel_native_consumer_kernel_entry_summary_source",
+    "future_kernel_native_consumer_kernel_entry_summary_field_read_path",
+    "future_kernel_native_consumer_kernel_entry_summary_packet_chain_depth",
     "future_kernel_native_consumer_kernel_entry_summary_packet_valid",
     "future_kernel_native_consumer_kernel_entry_summary_row_count",
     "future_kernel_native_consumer_kernel_entry_summary_row_ok_count",
@@ -330,6 +334,10 @@ STUB_SUMMARY_KEYS = (
     "future_kernel_native_consumer_kernel_entry_summary_row_hash_accumulator",
     "future_kernel_native_consumer_kernel_entry_summary_field_read_hash_accumulator",
     "future_kernel_native_consumer_kernel_entry_args_checked",
+    "future_kernel_native_consumer_kernel_entry_args_mode",
+    "future_kernel_native_consumer_kernel_entry_args_source",
+    "future_kernel_native_consumer_kernel_entry_args_field_read_path",
+    "future_kernel_native_consumer_kernel_entry_args_packet_chain_depth",
     "future_kernel_native_consumer_kernel_entry_args_version",
     "future_kernel_native_consumer_kernel_entry_args_struct_size",
     "future_kernel_native_consumer_kernel_entry_args_struct_align",
@@ -515,6 +523,10 @@ def _check_kernel_entry_summary(
     prefix = "future_kernel_native_consumer_kernel_entry_summary"
     expected = {
         f"{prefix}_checked": True,
+        f"{prefix}_mode": "readonly_future_kernel_native_consumer_kernel_entry_summary_abi",
+        f"{prefix}_source": "premap_future_kernel_native_consumer_kernel_arg_packet_abi_v1",
+        f"{prefix}_field_read_path": "kernel_entry_summary_to_kernel_arg_packet_to_program_view_rows",
+        f"{prefix}_packet_chain_depth": 4,
         f"{prefix}_packet_valid": 1,
         f"{prefix}_row_count": int(active_rows),
         f"{prefix}_row_ok_count": int(active_rows),
@@ -552,6 +564,10 @@ def _check_kernel_entry_args(
     prefix = "future_kernel_native_consumer_kernel_entry_args"
     expected = {
         f"{prefix}_checked": True,
+        f"{prefix}_mode": "readonly_future_kernel_native_consumer_kernel_entry_args_abi",
+        f"{prefix}_source": "premap_future_kernel_native_consumer_kernel_arg_packet_abi_v1",
+        f"{prefix}_field_read_path": "kernel_entry_args_to_kernel_arg_packet_to_program_view_rows",
+        f"{prefix}_packet_chain_depth": 5,
         f"{prefix}_version": 1,
         f"{prefix}_summary_packet_valid": 1,
         f"{prefix}_summary_row_count": int(active_rows),
@@ -1095,6 +1111,16 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
                 False
             ),
             "future_kernel_native_consumer_kernel_entry_summary_checked": True,
+            "future_kernel_native_consumer_kernel_entry_summary_mode": (
+                "readonly_future_kernel_native_consumer_kernel_entry_summary_abi"
+            ),
+            "future_kernel_native_consumer_kernel_entry_summary_source": (
+                "premap_future_kernel_native_consumer_kernel_arg_packet_abi_v1"
+            ),
+            "future_kernel_native_consumer_kernel_entry_summary_field_read_path": (
+                "kernel_entry_summary_to_kernel_arg_packet_to_program_view_rows"
+            ),
+            "future_kernel_native_consumer_kernel_entry_summary_packet_chain_depth": 4,
             "future_kernel_native_consumer_kernel_entry_summary_packet_valid": 1,
             "future_kernel_native_consumer_kernel_entry_summary_row_count": active_rows,
             "future_kernel_native_consumer_kernel_entry_summary_row_ok_count": active_rows,
@@ -1112,6 +1138,16 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
             "future_kernel_native_consumer_kernel_entry_summary_row_hash_accumulator": "dry",
             "future_kernel_native_consumer_kernel_entry_summary_field_read_hash_accumulator": "dry",
             "future_kernel_native_consumer_kernel_entry_args_checked": True,
+            "future_kernel_native_consumer_kernel_entry_args_mode": (
+                "readonly_future_kernel_native_consumer_kernel_entry_args_abi"
+            ),
+            "future_kernel_native_consumer_kernel_entry_args_source": (
+                "premap_future_kernel_native_consumer_kernel_arg_packet_abi_v1"
+            ),
+            "future_kernel_native_consumer_kernel_entry_args_field_read_path": (
+                "kernel_entry_args_to_kernel_arg_packet_to_program_view_rows"
+            ),
+            "future_kernel_native_consumer_kernel_entry_args_packet_chain_depth": 5,
             "future_kernel_native_consumer_kernel_entry_args_version": 1,
             "future_kernel_native_consumer_kernel_entry_args_struct_size": 40,
             "future_kernel_native_consumer_kernel_entry_args_struct_align": 8,

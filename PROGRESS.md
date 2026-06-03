@@ -2419,6 +2419,85 @@ passed = true
 failures = []
 ```
 
+### 2026-06-03: Future kernel entry consumer ABI path is now source/path checked
+
+The typed premap consumer lab gate now requires the future kernel entry
+summary/entry-args layers to report the exact read path back to the typed
+program-view rows, rather than only proving that the lower-level packet ABI was
+reachable.
+
+The native stub now emits explicit evidence for both layers:
+
+```text
+future_kernel_native_consumer_kernel_entry_summary_mode
+future_kernel_native_consumer_kernel_entry_summary_source
+future_kernel_native_consumer_kernel_entry_summary_field_read_path
+future_kernel_native_consumer_kernel_entry_summary_packet_chain_depth
+
+future_kernel_native_consumer_kernel_entry_args_mode
+future_kernel_native_consumer_kernel_entry_args_source
+future_kernel_native_consumer_kernel_entry_args_field_read_path
+future_kernel_native_consumer_kernel_entry_args_packet_chain_depth
+```
+
+The checker requires:
+
+```text
+entry_summary:
+  mode = readonly_future_kernel_native_consumer_kernel_entry_summary_abi
+  source = premap_future_kernel_native_consumer_kernel_arg_packet_abi_v1
+  field_read_path = kernel_entry_summary_to_kernel_arg_packet_to_program_view_rows
+  packet_chain_depth = 4
+
+entry_args:
+  mode = readonly_future_kernel_native_consumer_kernel_entry_args_abi
+  source = premap_future_kernel_native_consumer_kernel_arg_packet_abi_v1
+  field_read_path = kernel_entry_args_to_kernel_arg_packet_to_program_view_rows
+  packet_chain_depth = 5
+```
+
+This keeps the future kernel-side consumer path as an independent typed ABI
+contract, not a reinterpretation of the existing WNA16 kernel argument list.
+
+Safety boundary remains unchanged:
+
+```text
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+current_wna16_arg_compatible = false
+requires_wna16_arg_reinterpretation = false
+```
+
+Verification:
+
+```text
+python scripts/run_premap_lab_gate_verify.py \
+  --output-json outputs/reports/premap_lab_gate_verify.json
+
+passed = true
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+
+python scripts/check_premap_lab_gate_verify.py \
+  outputs/reports/premap_lab_gate_verify.json \
+  --output-json outputs/reports/premap_lab_gate_verify.check.json
+
+passed = true
+failures = []
+
+python -m pytest \
+  tests/test_check_premap_online_merged_native_arg_slot_window_sweep.py \
+  tests/test_check_premap_online_merged_native_arg_slot_all_field_window_sweep.py \
+  tests/test_run_premap_online_merged_native_arg_slot_canary.py \
+  tests/test_run_premap_lab_gate_verify.py \
+  tests/test_check_premap_lab_gate_verify.py \
+  -q
+
+66 passed
+```
+
 ### Premap future kernel entry-args ABI is now a lab-gate requirement
 
 The native typed-consumer path now has a single-argument future kernel-entry

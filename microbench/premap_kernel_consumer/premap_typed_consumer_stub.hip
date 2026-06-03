@@ -5338,6 +5338,12 @@ int main(int argc, char** argv) {
   std::cout << ",\"future_kernel_native_consumer_kernel_entry_summary_abi_name\":\""
             << kPremapFutureKernelNativeConsumerKernelEntrySummaryAbiV1Name
             << "\"";
+  std::cout << ",\"future_kernel_native_consumer_kernel_entry_summary_mode\":\"readonly_future_kernel_native_consumer_kernel_entry_summary_abi\"";
+  std::cout << ",\"future_kernel_native_consumer_kernel_entry_summary_source\":\""
+            << kPremapFutureKernelNativeConsumerKernelArgPacketAbiV1Name
+            << "\"";
+  std::cout << ",\"future_kernel_native_consumer_kernel_entry_summary_field_read_path\":\"kernel_entry_summary_to_kernel_arg_packet_to_program_view_rows\"";
+  std::cout << ",\"future_kernel_native_consumer_kernel_entry_summary_packet_chain_depth\":4";
   std::cout << ",\"future_kernel_native_consumer_kernel_entry_summary_checked\":"
             << (future_native_consumer_kernel_entry_summary_checked ? "true"
                                                                     : "false");
@@ -5410,6 +5416,12 @@ int main(int argc, char** argv) {
   std::cout << ",\"future_kernel_native_consumer_kernel_entry_args_abi_name\":\""
             << kPremapFutureKernelNativeConsumerKernelEntryArgsAbiV1Name
             << "\"";
+  std::cout << ",\"future_kernel_native_consumer_kernel_entry_args_mode\":\"readonly_future_kernel_native_consumer_kernel_entry_args_abi\"";
+  std::cout << ",\"future_kernel_native_consumer_kernel_entry_args_source\":\""
+            << kPremapFutureKernelNativeConsumerKernelArgPacketAbiV1Name
+            << "\"";
+  std::cout << ",\"future_kernel_native_consumer_kernel_entry_args_field_read_path\":\"kernel_entry_args_to_kernel_arg_packet_to_program_view_rows\"";
+  std::cout << ",\"future_kernel_native_consumer_kernel_entry_args_packet_chain_depth\":5";
   std::cout << ",\"future_kernel_native_consumer_kernel_entry_args_checked\":"
             << (future_native_consumer_kernel_entry_args_checked ? "true"
                                                                  : "false");

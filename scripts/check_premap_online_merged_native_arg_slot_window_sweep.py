@@ -340,6 +340,10 @@ def _check_kernel_entry_summary(
         return [f"{label}_kernel_entry_summary_missing_or_dry_run_unsupported"]
     for key, expected in {
         f"{prefix}_checked": True,
+        f"{prefix}_mode": "readonly_future_kernel_native_consumer_kernel_entry_summary_abi",
+        f"{prefix}_source": "premap_future_kernel_native_consumer_kernel_arg_packet_abi_v1",
+        f"{prefix}_field_read_path": "kernel_entry_summary_to_kernel_arg_packet_to_program_view_rows",
+        f"{prefix}_packet_chain_depth": 4,
         f"{prefix}_packet_valid": 1,
         f"{prefix}_row_count": expected_active,
         f"{prefix}_row_ok_count": expected_active,
@@ -379,6 +383,10 @@ def _check_kernel_entry_args(
         return [f"{label}_kernel_entry_args_missing_or_dry_run_unsupported"]
     for key, expected in {
         f"{prefix}_checked": True,
+        f"{prefix}_mode": "readonly_future_kernel_native_consumer_kernel_entry_args_abi",
+        f"{prefix}_source": "premap_future_kernel_native_consumer_kernel_arg_packet_abi_v1",
+        f"{prefix}_field_read_path": "kernel_entry_args_to_kernel_arg_packet_to_program_view_rows",
+        f"{prefix}_packet_chain_depth": 5,
         f"{prefix}_version": 1,
         f"{prefix}_summary_packet_valid": 1,
         f"{prefix}_summary_row_count": expected_active,

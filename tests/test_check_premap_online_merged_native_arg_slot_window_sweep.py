@@ -49,6 +49,16 @@ def _field_read_pairs(prefix: str, active: int) -> dict[str, object]:
 def _kernel_entry_summary_pairs(active: int) -> dict[str, object]:
     return {
         "future_kernel_native_consumer_kernel_entry_summary_checked": True,
+        "future_kernel_native_consumer_kernel_entry_summary_mode": (
+            "readonly_future_kernel_native_consumer_kernel_entry_summary_abi"
+        ),
+        "future_kernel_native_consumer_kernel_entry_summary_source": (
+            "premap_future_kernel_native_consumer_kernel_arg_packet_abi_v1"
+        ),
+        "future_kernel_native_consumer_kernel_entry_summary_field_read_path": (
+            "kernel_entry_summary_to_kernel_arg_packet_to_program_view_rows"
+        ),
+        "future_kernel_native_consumer_kernel_entry_summary_packet_chain_depth": 4,
         "future_kernel_native_consumer_kernel_entry_summary_packet_valid": 1,
         "future_kernel_native_consumer_kernel_entry_summary_row_count": active,
         "future_kernel_native_consumer_kernel_entry_summary_row_ok_count": active,
@@ -71,6 +81,16 @@ def _kernel_entry_summary_pairs(active: int) -> dict[str, object]:
 def _kernel_entry_args_pairs(active: int) -> dict[str, object]:
     return {
         "future_kernel_native_consumer_kernel_entry_args_checked": True,
+        "future_kernel_native_consumer_kernel_entry_args_mode": (
+            "readonly_future_kernel_native_consumer_kernel_entry_args_abi"
+        ),
+        "future_kernel_native_consumer_kernel_entry_args_source": (
+            "premap_future_kernel_native_consumer_kernel_arg_packet_abi_v1"
+        ),
+        "future_kernel_native_consumer_kernel_entry_args_field_read_path": (
+            "kernel_entry_args_to_kernel_arg_packet_to_program_view_rows"
+        ),
+        "future_kernel_native_consumer_kernel_entry_args_packet_chain_depth": 5,
         "future_kernel_native_consumer_kernel_entry_args_version": 1,
         "future_kernel_native_consumer_kernel_entry_args_struct_size": 40,
         "future_kernel_native_consumer_kernel_entry_args_struct_align": 8,
