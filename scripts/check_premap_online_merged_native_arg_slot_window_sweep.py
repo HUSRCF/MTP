@@ -531,6 +531,7 @@ def _check_child_stub_artifact(
     expected_block_threads: int,
     require_child_program_view_ptr_abi: bool,
     require_child_kernel_arg_packet_abi: bool,
+    require_child_kernel_entry_args_abi: bool,
 ) -> list[str]:
     failures: list[str] = []
     stub_path = _resolve_child_path(child.get("stub_output_json"), parent=parent)
@@ -602,6 +603,14 @@ def _check_child_stub_artifact(
                 expected_active=expected_active,
             )
         )
+    elif require_child_kernel_entry_args_abi:
+        failures.extend(
+            _check_kernel_entry_args(
+                stub_payload,
+                label=f"{label}_child_stub_artifact",
+                expected_active=expected_active,
+            )
+        )
     return failures
 
 
@@ -619,6 +628,7 @@ def _check_child_artifact(
     expected_mirror_field: str | None,
     require_child_program_view_ptr_abi: bool,
     require_child_kernel_arg_packet_abi: bool,
+    require_child_kernel_entry_args_abi: bool,
 ) -> list[str]:
     failures: list[str] = []
     expected_pairs: dict[str, Any] = {
@@ -722,6 +732,14 @@ def _check_child_artifact(
                     expected_active=expected_active,
                 )
             )
+        elif require_child_kernel_entry_args_abi:
+            failures.extend(
+                _check_kernel_entry_args(
+                    stub_summary,
+                    label=label,
+                    expected_active=expected_active,
+                )
+            )
     failures.extend(
         _check_child_stub_artifact(
             child,
@@ -733,6 +751,9 @@ def _check_child_artifact(
             expected_block_threads=expected_block_threads,
             require_child_program_view_ptr_abi=require_child_program_view_ptr_abi,
             require_child_kernel_arg_packet_abi=require_child_kernel_arg_packet_abi,
+            require_child_kernel_entry_args_abi=(
+                require_child_kernel_entry_args_abi
+            ),
         )
     )
     return failures
@@ -749,6 +770,7 @@ def check_window_sweep_artifact(
     require_non_degenerate_windows: bool = True,
     require_child_program_view_ptr_abi: bool = False,
     require_child_kernel_arg_packet_abi: bool = False,
+    require_child_kernel_entry_args_abi: bool = False,
 ) -> dict[str, Any]:
     sweep_path = path.resolve()
     payload, error = _safe_load_json(sweep_path)
@@ -848,6 +870,9 @@ def check_window_sweep_artifact(
                     require_child_kernel_arg_packet_abi=bool(
                         require_child_kernel_arg_packet_abi
                     ),
+                    require_child_kernel_entry_args_abi=bool(
+                        require_child_kernel_entry_args_abi
+                    ),
                 )
             )
 
@@ -873,6 +898,9 @@ def check_window_sweep_artifact(
         "require_child_kernel_arg_packet_abi": bool(
             require_child_kernel_arg_packet_abi
         ),
+        "require_child_kernel_entry_args_abi": bool(
+            require_child_kernel_entry_args_abi
+        ),
         "row_count": row_count,
         "windows_checked": list(REQUIRED_WINDOWS),
     }
@@ -889,6 +917,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--allow-degenerate-windows", action="store_true")
     parser.add_argument("--require-child-program-view-ptr-abi", action="store_true")
     parser.add_argument("--require-child-kernel-arg-packet-abi", action="store_true")
+    parser.add_argument("--require-child-kernel-entry-args-abi", action="store_true")
     parser.add_argument("--output-json", type=Path)
     return parser
 
@@ -908,6 +937,9 @@ def main(argv: list[str] | None = None) -> int:
         ),
         require_child_kernel_arg_packet_abi=bool(
             args.require_child_kernel_arg_packet_abi
+        ),
+        require_child_kernel_entry_args_abi=bool(
+            args.require_child_kernel_entry_args_abi
         ),
     )
     if args.output_json is not None:

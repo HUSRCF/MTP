@@ -93,9 +93,27 @@ def _field_sweep_args(
         argv.append("--force-build")
     if args.dry_run:
         argv.append("--dry-run")
-    if args.require_program_view_ptr_abi:
+    if _require_program_view_ptr_abi(args):
         argv.append("--require-program-view-ptr-abi")
     return build_window_sweep_parser().parse_args(argv)
+
+
+def _require_kernel_entry_args_abi(args: argparse.Namespace) -> bool:
+    return bool(getattr(args, "require_kernel_entry_args_abi", False))
+
+
+def _require_kernel_arg_packet_abi(args: argparse.Namespace) -> bool:
+    return bool(
+        getattr(args, "require_kernel_arg_packet_abi", False)
+        or _require_kernel_entry_args_abi(args)
+    )
+
+
+def _require_program_view_ptr_abi(args: argparse.Namespace) -> bool:
+    return bool(
+        getattr(args, "require_program_view_ptr_abi", False)
+        or _require_kernel_arg_packet_abi(args)
+    )
 
 
 def run_all_field_sweep(args: argparse.Namespace) -> dict[str, Any]:
@@ -125,10 +143,13 @@ def run_all_field_sweep(args: argparse.Namespace) -> dict[str, Any]:
                 require_child_artifacts=True,
                 require_non_degenerate_windows=True,
                 require_child_program_view_ptr_abi=bool(
-                    args.require_program_view_ptr_abi
+                    _require_program_view_ptr_abi(args)
                 ),
                 require_child_kernel_arg_packet_abi=bool(
-                    args.require_program_view_ptr_abi
+                    _require_kernel_arg_packet_abi(args)
+                ),
+                require_child_kernel_entry_args_abi=bool(
+                    _require_kernel_entry_args_abi(args)
                 ),
             )
         )
@@ -169,9 +190,9 @@ def run_all_field_sweep(args: argparse.Namespace) -> dict[str, Any]:
         "dry_run": bool(args.dry_run),
         "runner_json": str(_resolve(args.runner_json)),
         "window_size": int(args.window_size),
-        "require_program_view_ptr_abi": bool(args.require_program_view_ptr_abi),
-        "require_kernel_arg_packet_abi": bool(args.require_program_view_ptr_abi),
-        "require_kernel_entry_args_abi": bool(args.require_program_view_ptr_abi),
+        "require_program_view_ptr_abi": _require_program_view_ptr_abi(args),
+        "require_kernel_arg_packet_abi": _require_kernel_arg_packet_abi(args),
+        "require_kernel_entry_args_abi": _require_kernel_entry_args_abi(args),
         "block_threads": int(args.block_threads),
         "device": int(args.device),
         "mirror_fields": list(MIRROR_FIELDS),
@@ -201,6 +222,24 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "Require every per-field child window sweep to validate the "
             "future native program-view pointer ABI."
+        ),
+    )
+    parser.add_argument(
+        "--require-kernel-arg-packet-abi",
+        action="store_true",
+        help=(
+            "Require every per-field child window sweep to validate the "
+            "future native kernel-arg packet ABI. This also requires the "
+            "program-view pointer ABI."
+        ),
+    )
+    parser.add_argument(
+        "--require-kernel-entry-args-abi",
+        action="store_true",
+        help=(
+            "Require every per-field child window sweep to validate the "
+            "single-argument future kernel entry ABI. This also requires the "
+            "kernel-arg packet and program-view pointer ABI."
         ),
     )
     parser.add_argument("--max-inputs", type=int, default=32)

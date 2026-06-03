@@ -2419,6 +2419,84 @@ passed = true
 failures = []
 ```
 
+### Premap future kernel entry-args ABI is now a lab-gate requirement
+
+The native typed-consumer path now has a single-argument future kernel-entry
+envelope:
+
+```text
+PremapFutureKernelNativeConsumerKernelEntryArgsV1
+```
+
+This mirrors the shape of a future kernel launch signature more closely than
+passing a loose set of Python-side objects.  The entry argument points to the
+future kernel-arg packet and an output summary buffer; the native checker then
+walks the packet -> program-view pointer -> program-view -> row table chain.
+
+The contract is still deliberately no-op:
+
+```text
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+current_wna16_arg_compatible = false
+requires_wna16_arg_reinterpretation = false
+```
+
+The lab gate now requires this evidence explicitly in both row-window checks:
+
+```text
+require_child_program_view_ptr_abi = true
+require_child_kernel_arg_packet_abi = true
+require_child_kernel_entry_args_abi = true
+```
+
+The all-field runner also exposes the three requirements as explicit flags:
+
+```text
+--require-program-view-ptr-abi
+--require-kernel-arg-packet-abi
+--require-kernel-entry-args-abi
+```
+
+The all-field checker does not only trust the child check JSON flag.  When
+`require_child_kernel_entry_args_abi=true`, it re-runs the static per-field
+window-sweep checker against each field's `sweep_json`, so missing
+`future_kernel_native_consumer_kernel_entry_args_*` evidence in a child stub
+fails the all-field gate.
+
+Verification refreshed the canonical lab gate artifact:
+
+```text
+python scripts/run_premap_lab_gate_verify.py \
+  --output-json outputs/reports/premap_lab_gate_verify.json
+
+passed = true
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+
+window_sweep_check:
+  row_count = 1841
+  require_child_kernel_entry_args_abi = true
+
+all_field_window_sweep_check:
+  row_count = 1841
+  mirror_fields = descriptor_ptr / packed_weight_descriptor / scale_metadata_handle / aux_metadata_handle
+  require_child_kernel_entry_args_abi = true
+
+python scripts/check_premap_lab_gate_verify.py \
+  outputs/reports/premap_lab_gate_verify.json \
+  --output-json outputs/reports/premap_lab_gate_verify.check.json
+
+passed = true
+failures = []
+```
+
+This keeps the next kernel-side consumer step on a typed ABI/stub path instead
+of trying to reinterpret the prepared handle table as an existing WNA16 kernel
+argument.
+
 ### Packet-level typed field-read gate
 
 The future native kernel-arg packet stub now emits explicit per-row read

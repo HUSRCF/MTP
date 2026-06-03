@@ -524,6 +524,59 @@ def test_window_sweep_check_accepts_program_view_ptr_requirement(
     assert result["require_child_kernel_arg_packet_abi"] is True
 
 
+def test_window_sweep_check_accepts_kernel_entry_args_requirement(
+    tmp_path: Path,
+):
+    path = _write_artifact(tmp_path)
+
+    result = check_window_sweep_artifact(
+        path,
+        expected_window_size=4,
+        expected_block_threads=4,
+        min_row_count=17,
+        require_child_kernel_entry_args_abi=True,
+    )
+
+    assert result["passed"] is True
+    assert result["require_child_kernel_arg_packet_abi"] is False
+    assert result["require_child_kernel_entry_args_abi"] is True
+
+
+def test_window_sweep_check_rejects_missing_kernel_entry_args_requirement(
+    tmp_path: Path,
+):
+    path = _write_artifact(tmp_path)
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    windows = payload["windows"]
+    assert isinstance(windows, dict)
+    child_path = Path(windows["head"]["output_json"])
+    stub_path = Path(windows["head"]["stub_output_json"])
+    child = json.loads(child_path.read_text(encoding="utf-8"))
+    stub_payload = json.loads(stub_path.read_text(encoding="utf-8"))
+    for item in (child["stub_summary"], stub_payload):
+        assert isinstance(item, dict)
+        item.pop("future_kernel_native_consumer_kernel_entry_args_checked")
+    child_path.write_text(json.dumps(child) + "\n", encoding="utf-8")
+    stub_path.write_text(json.dumps(stub_payload) + "\n", encoding="utf-8")
+
+    result = check_window_sweep_artifact(
+        path,
+        expected_window_size=4,
+        expected_block_threads=4,
+        min_row_count=17,
+        require_child_kernel_entry_args_abi=True,
+    )
+
+    assert result["passed"] is False
+    assert "head_kernel_entry_args_missing_or_dry_run_unsupported" in result[
+        "failures"
+    ]
+    assert (
+        "head_child_stub_artifact_kernel_entry_args_missing_or_dry_run_unsupported"
+        in result["failures"]
+    )
+
+
 def test_window_sweep_check_rejects_missing_program_view_ptr_requirement(
     tmp_path: Path,
 ):

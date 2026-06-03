@@ -10,6 +10,9 @@ from scripts.check_premap_online_merged_native_arg_slot_all_field_window_sweep i
 from scripts.run_premap_online_merged_native_arg_slot_all_field_window_sweep import (
     MIRROR_FIELDS,
 )
+from tests.test_check_premap_online_merged_native_arg_slot_window_sweep import (
+    _write_artifact as _write_window_sweep_artifact,
+)
 
 
 def _write_field_check(
@@ -21,6 +24,7 @@ def _write_field_check(
     block_threads: int,
     require_program_view_ptr_abi: bool = False,
     require_kernel_arg_packet_abi: bool = False,
+    require_kernel_entry_args_abi: bool = False,
 ) -> None:
     payload = {
         "passed": True,
@@ -39,6 +43,9 @@ def _write_field_check(
         "require_child_kernel_arg_packet_abi": bool(
             require_kernel_arg_packet_abi
         ),
+        "require_child_kernel_entry_args_abi": bool(
+            require_kernel_entry_args_abi
+        ),
         "require_non_degenerate_windows": True,
         "row_count": row_count,
         "windows_checked": ["full", "head", "middle", "tail"],
@@ -53,6 +60,7 @@ def _write_all_field_artifact(
     mismatched_row_count: bool = False,
     require_program_view_ptr_abi: bool = False,
     require_kernel_arg_packet_abi: bool = False,
+    require_kernel_entry_args_abi: bool = False,
 ) -> Path:
     row_count = 17
     window_size = 4
@@ -61,6 +69,14 @@ def _write_all_field_artifact(
     row_counts: dict[str, int] = {}
     for index, field in enumerate(MIRROR_FIELDS):
         field_row_count = row_count + 1 if mismatched_row_count and index == 0 else row_count
+        field_dir = tmp_path / field
+        field_dir.mkdir()
+        sweep_path = _write_window_sweep_artifact(
+            field_dir,
+            row_count=field_row_count,
+            window_size=window_size,
+            mirror_field=field,
+        )
         check_path = tmp_path / f"{field}.check.json"
         _write_field_check(
             check_path,
@@ -70,10 +86,11 @@ def _write_all_field_artifact(
             block_threads=block_threads,
             require_program_view_ptr_abi=require_program_view_ptr_abi,
             require_kernel_arg_packet_abi=require_kernel_arg_packet_abi,
+            require_kernel_entry_args_abi=require_kernel_entry_args_abi,
         )
         field_reports[field] = {
             "passed": True,
-            "sweep_json": str(tmp_path / f"{field}.runner.json"),
+            "sweep_json": str(sweep_path),
             "check_json": str(check_path),
             "sweep_failures": [],
             "check_failures": [],
@@ -90,6 +107,7 @@ def _write_all_field_artifact(
         "window_size": window_size,
         "require_program_view_ptr_abi": bool(require_program_view_ptr_abi),
         "require_kernel_arg_packet_abi": bool(require_kernel_arg_packet_abi),
+        "require_kernel_entry_args_abi": bool(require_kernel_entry_args_abi),
         "block_threads": block_threads,
         "mirror_fields": list(MIRROR_FIELDS),
         "field_reports": field_reports,
@@ -163,6 +181,7 @@ def test_all_field_window_sweep_check_accepts_program_view_ptr_requirement(
         tmp_path,
         require_program_view_ptr_abi=True,
         require_kernel_arg_packet_abi=True,
+        require_kernel_entry_args_abi=True,
     )
 
     result = check_all_field_window_sweep_artifact(
@@ -172,11 +191,13 @@ def test_all_field_window_sweep_check_accepts_program_view_ptr_requirement(
         min_row_count=17,
         require_child_program_view_ptr_abi=True,
         require_child_kernel_arg_packet_abi=True,
+        require_child_kernel_entry_args_abi=True,
     )
 
     assert result["passed"] is True
     assert result["require_child_program_view_ptr_abi"] is True
     assert result["require_child_kernel_arg_packet_abi"] is True
+    assert result["require_child_kernel_entry_args_abi"] is True
 
 
 def test_all_field_window_sweep_check_rejects_missing_program_view_ptr_gate(
@@ -191,11 +212,13 @@ def test_all_field_window_sweep_check_rejects_missing_program_view_ptr_gate(
         min_row_count=17,
         require_child_program_view_ptr_abi=True,
         require_child_kernel_arg_packet_abi=True,
+        require_child_kernel_entry_args_abi=True,
     )
 
     assert result["passed"] is False
     assert "require_program_view_ptr_abi_mismatch" in result["failures"]
     assert "require_kernel_arg_packet_abi_mismatch" in result["failures"]
+    assert "require_kernel_entry_args_abi_mismatch" in result["failures"]
 
 
 def test_all_field_window_sweep_check_rejects_missing_kernel_arg_packet_gate(
@@ -205,6 +228,7 @@ def test_all_field_window_sweep_check_rejects_missing_kernel_arg_packet_gate(
         tmp_path,
         require_program_view_ptr_abi=True,
         require_kernel_arg_packet_abi=False,
+        require_kernel_entry_args_abi=True,
     )
 
     result = check_all_field_window_sweep_artifact(
@@ -214,10 +238,85 @@ def test_all_field_window_sweep_check_rejects_missing_kernel_arg_packet_gate(
         min_row_count=17,
         require_child_program_view_ptr_abi=True,
         require_child_kernel_arg_packet_abi=True,
+        require_child_kernel_entry_args_abi=True,
     )
 
     assert result["passed"] is False
     assert "require_kernel_arg_packet_abi_mismatch" in result["failures"]
+
+
+def test_all_field_window_sweep_check_rejects_missing_kernel_entry_args_gate(
+    tmp_path: Path,
+):
+    path = _write_all_field_artifact(
+        tmp_path,
+        require_program_view_ptr_abi=True,
+        require_kernel_arg_packet_abi=True,
+        require_kernel_entry_args_abi=False,
+    )
+
+    result = check_all_field_window_sweep_artifact(
+        path,
+        expected_window_size=4,
+        expected_block_threads=4,
+        min_row_count=17,
+        require_child_program_view_ptr_abi=True,
+        require_child_kernel_arg_packet_abi=True,
+        require_child_kernel_entry_args_abi=True,
+    )
+
+    assert result["passed"] is False
+    assert "require_kernel_entry_args_abi_mismatch" in result["failures"]
+
+
+def test_all_field_window_sweep_check_rejects_missing_child_entry_args_evidence(
+    tmp_path: Path,
+):
+    path = _write_all_field_artifact(
+        tmp_path,
+        require_program_view_ptr_abi=True,
+        require_kernel_arg_packet_abi=True,
+        require_kernel_entry_args_abi=True,
+    )
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    field_reports = payload["field_reports"]
+    assert isinstance(field_reports, dict)
+    descriptor_report = field_reports["descriptor_ptr"]
+    assert isinstance(descriptor_report, dict)
+    sweep_path = Path(descriptor_report["sweep_json"])
+    sweep_payload = json.loads(sweep_path.read_text(encoding="utf-8"))
+    windows = sweep_payload["windows"]
+    assert isinstance(windows, dict)
+    child_path = Path(windows["head"]["output_json"])
+    stub_path = Path(windows["head"]["stub_output_json"])
+    child = json.loads(child_path.read_text(encoding="utf-8"))
+    stub_payload = json.loads(stub_path.read_text(encoding="utf-8"))
+    for item in (child["stub_summary"], stub_payload):
+        assert isinstance(item, dict)
+        item.pop("future_kernel_native_consumer_kernel_entry_args_checked")
+    child_path.write_text(json.dumps(child) + "\n", encoding="utf-8")
+    stub_path.write_text(json.dumps(stub_payload) + "\n", encoding="utf-8")
+
+    result = check_all_field_window_sweep_artifact(
+        path,
+        expected_window_size=4,
+        expected_block_threads=4,
+        min_row_count=17,
+        require_child_program_view_ptr_abi=True,
+        require_child_kernel_arg_packet_abi=True,
+        require_child_kernel_entry_args_abi=True,
+    )
+
+    assert result["passed"] is False
+    assert "descriptor_ptr_entry_args_window_recheck_not_passed" in result[
+        "failures"
+    ]
+    assert any(
+        failure.startswith(
+            "descriptor_ptr_entry_args_window_recheck:head_kernel_entry_args"
+        )
+        for failure in result["failures"]
+    )
 
 
 def test_all_field_window_sweep_check_cli_writes_output(tmp_path: Path):
