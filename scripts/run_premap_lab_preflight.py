@@ -337,6 +337,21 @@ _INVOCATION_STRUCT_ALIGN = 8
 _INVOCATION_CONTEXT_STRUCT_SIZE = _KERNEL_LAUNCH_CONTEXT_STRUCT_SIZE
 _INVOCATION_SUMMARY_STRUCT_SIZE = 104
 _INVOCATION_POINTER_SIZE = 8
+_INVOCATION_ENTRY_ABI_NAME = (
+    "premap_future_kernel_native_consumer_invocation_entry_abi_v1"
+)
+_INVOCATION_ENTRY_MODE = (
+    "readonly_future_kernel_native_consumer_invocation_entry_abi"
+)
+_INVOCATION_ENTRY_SOURCE = (
+    "premap_future_kernel_native_consumer_invocation_abi_v1_by_value"
+)
+_INVOCATION_ENTRY_FIELD_READ_PATH = (
+    "by_value_invocation_to_kernel_launch_context_to_kernel_launch_descriptor_to_"
+    "launch_envelope_args_ptr_to_launch_envelope_args_to_entry_args_ptr_to_"
+    "kernel_entry_args_to_kernel_arg_packet_to_program_view_rows"
+)
+_INVOCATION_ENTRY_PACKET_CHAIN_DEPTH = 11
 
 
 def _int_metric(metrics: dict[str, Any], key: str) -> int | None:
@@ -690,6 +705,70 @@ def _validate_invocation_cross_layer_metrics(
             failures.append(
                 f"{failure_prefix}_invocation_{other_label}_{runner_suffix}_mismatch"
             )
+    return failures
+
+
+def _validate_invocation_entry_metrics(
+    metrics: dict[str, Any],
+    *,
+    prefix: str,
+    failure_prefix: str,
+    expected_rows: int | None,
+) -> list[str]:
+    failures: list[str] = []
+    expected_values: dict[str, Any] = {
+        f"{prefix}_checked": True,
+        f"{prefix}_abi_name": _INVOCATION_ENTRY_ABI_NAME,
+        f"{prefix}_mode": _INVOCATION_ENTRY_MODE,
+        f"{prefix}_source": _INVOCATION_ENTRY_SOURCE,
+        f"{prefix}_packet_chain_depth": _INVOCATION_ENTRY_PACKET_CHAIN_DEPTH,
+        f"{prefix}_error_count": 0,
+        f"{prefix}_payload_bytes": 0,
+        f"{prefix}_payload_deref_allowed": False,
+        f"{prefix}_passed_to_kernel": False,
+        f"{prefix}_kernel_arg_pass_allowed": False,
+        f"{prefix}_changes_kernel_launch_args": False,
+        f"{prefix}_current_wna16_arg_compatible": False,
+        f"{prefix}_requires_wna16_arg_reinterpretation": False,
+    }
+    all_fields_key = f"{prefix}_all_handle_fields_read"
+    if all_fields_key in metrics:
+        expected_values[all_fields_key] = True
+    if expected_rows is not None:
+        for suffix in ("summary_row_count", "summary_row_ok_count"):
+            key = f"{prefix}_{suffix}"
+            if key in metrics:
+                expected_values[key] = expected_rows
+        for suffix in (
+            "summary_descriptor_ptr_read_row_ok_count",
+            "summary_packed_weight_descriptor_read_row_ok_count",
+            "summary_scale_metadata_handle_read_row_ok_count",
+            "summary_aux_metadata_handle_read_row_ok_count",
+            "summary_expert_id_read_row_ok_count",
+            "summary_address_key_hash_read_row_ok_count",
+            "summary_row_metadata_read_row_ok_count",
+        ):
+            if f"{prefix}_{suffix}" in metrics:
+                expected_values[f"{prefix}_{suffix}"] = expected_rows
+    for key, expected in expected_values.items():
+        if metrics.get(key) != expected:
+            failures.append(f"{failure_prefix}_{key}_mismatch")
+    if (
+        f"{prefix}_field_read_path" in metrics
+        and metrics.get(f"{prefix}_field_read_path")
+        != _INVOCATION_ENTRY_FIELD_READ_PATH
+    ):
+        failures.append(f"{failure_prefix}_{prefix}_field_read_path_mismatch")
+    for key in (
+        f"{prefix}_row_hash_accumulator",
+        f"{prefix}_field_read_hash_accumulator",
+        f"{prefix}_row_metadata_hash_accumulator",
+        f"{prefix}_summary_row_hash_accumulator",
+        f"{prefix}_summary_field_read_hash_accumulator",
+        f"{prefix}_summary_row_metadata_hash_accumulator",
+    ):
+        if key in metrics and _hex64_metric(metrics, key) is None:
+            failures.append(f"{failure_prefix}_{key}_invalid")
     return failures
 
 
@@ -1145,6 +1224,7 @@ def _validate_required_evidence_payload(
                     arg_slot_mirror_field=field,
                     require_kernel_launch_context_abi=False,
                     require_kernel_invocation_abi=False,
+                    require_kernel_invocation_entry_abi=False,
                 )
             ]
     if evidence_label in ONLINE_PRELAUNCH_ARTIFACT_EVIDENCE_LABELS:
@@ -3719,6 +3799,7 @@ def _validate_future_native_arg_slot_online_merged_multiprogram_runner_evidence(
     arg_slot_mirror_field: str = "scale_metadata_handle",
     require_kernel_launch_context_abi: bool = True,
     require_kernel_invocation_abi: bool = True,
+    require_kernel_invocation_entry_abi: bool = True,
 ) -> list[str]:
     failure_prefix = "online_merged_multiprogram_arg_slot_runner"
     failures: list[str] = []
@@ -3760,6 +3841,13 @@ def _validate_future_native_arg_slot_online_merged_multiprogram_runner_evidence(
                 failures.append(f"{failure_prefix}_{key}_missing")
     if require_kernel_invocation_abi and evidence.get("require_kernel_invocation_abi") is not True:
         failures.append(f"{failure_prefix}_require_kernel_invocation_abi_missing")
+    if (
+        require_kernel_invocation_entry_abi
+        and evidence.get("require_kernel_invocation_entry_abi") is not True
+    ):
+        failures.append(
+            f"{failure_prefix}_require_kernel_invocation_entry_abi_missing"
+        )
 
     source_count = _int_metric(evidence, "selected_source_count")
     merged_row_count = _int_metric(evidence, "merged_row_count")
@@ -3821,6 +3909,15 @@ def _validate_future_native_arg_slot_online_merged_multiprogram_runner_evidence(
                 expected_device=expected_device,
             )
         )
+    if require_kernel_invocation_entry_abi:
+        failures.extend(
+            _validate_invocation_entry_metrics(
+                evidence,
+                prefix="kernel_invocation_entry",
+                failure_prefix=failure_prefix,
+                expected_rows=dispatch_active_rows,
+            )
+        )
 
     stub_summary = evidence.get("stub_summary")
     if not isinstance(stub_summary, dict):
@@ -3877,6 +3974,15 @@ def _validate_future_native_arg_slot_online_merged_multiprogram_runner_evidence(
                     stub_summary,
                     other_label="stub_summary",
                     failure_prefix=failure_prefix,
+                )
+            )
+        if require_kernel_invocation_entry_abi:
+            failures.extend(
+                _validate_invocation_entry_metrics(
+                    stub_summary,
+                    prefix="future_kernel_native_consumer_invocation_entry",
+                    failure_prefix=f"{failure_prefix}_stub_summary",
+                    expected_rows=merged_row_count,
                 )
             )
 
@@ -6489,6 +6595,12 @@ def run_premap_lab_preflight(
                 "require_kernel_invocation_abi",
             )
         ),
+        "default_kernel_consumer_online_merged_multiprogram_require_kernel_invocation_entry_abi": (
+            _bool_metric(
+                online_merged_multiprogram_runner_payload,
+                "require_kernel_invocation_entry_abi",
+            )
+        ),
         "default_kernel_consumer_kernel_invocation_checked": (
             _bool_metric(online_merged_multiprogram_runner_payload, "kernel_invocation_checked")
         ),
@@ -6544,6 +6656,66 @@ def run_premap_lab_preflight(
             _hex_metric_text(
                 online_merged_multiprogram_runner_payload,
                 "kernel_invocation_row_metadata_hash_accumulator",
+            )
+        ),
+        "default_kernel_consumer_kernel_invocation_entry_checked": (
+            _bool_metric(
+                online_merged_multiprogram_runner_payload,
+                "kernel_invocation_entry_checked",
+            )
+        ),
+        "default_kernel_consumer_kernel_invocation_entry_all_handle_fields_read": (
+            _bool_metric(
+                online_merged_multiprogram_runner_payload,
+                "kernel_invocation_entry_all_handle_fields_read",
+            )
+        ),
+        "default_kernel_consumer_kernel_invocation_entry_packet_chain_depth": (
+            _int_metric(
+                online_merged_multiprogram_runner_payload,
+                "kernel_invocation_entry_packet_chain_depth",
+            )
+        ),
+        "default_kernel_consumer_kernel_invocation_entry_payload_bytes": (
+            _int_metric(
+                online_merged_multiprogram_runner_payload,
+                "kernel_invocation_entry_payload_bytes",
+            )
+        ),
+        "default_kernel_consumer_kernel_invocation_entry_passed_to_kernel": (
+            _bool_metric(
+                online_merged_multiprogram_runner_payload,
+                "kernel_invocation_entry_passed_to_kernel",
+            )
+        ),
+        "default_kernel_consumer_kernel_invocation_entry_kernel_arg_pass_allowed": (
+            _bool_metric(
+                online_merged_multiprogram_runner_payload,
+                "kernel_invocation_entry_kernel_arg_pass_allowed",
+            )
+        ),
+        "default_kernel_consumer_kernel_invocation_entry_current_wna16_arg_compatible": (
+            _bool_metric(
+                online_merged_multiprogram_runner_payload,
+                "kernel_invocation_entry_current_wna16_arg_compatible",
+            )
+        ),
+        "default_kernel_consumer_kernel_invocation_entry_row_hash_accumulator": (
+            _hex_metric_text(
+                online_merged_multiprogram_runner_payload,
+                "kernel_invocation_entry_row_hash_accumulator",
+            )
+        ),
+        "default_kernel_consumer_kernel_invocation_entry_field_read_hash_accumulator": (
+            _hex_metric_text(
+                online_merged_multiprogram_runner_payload,
+                "kernel_invocation_entry_field_read_hash_accumulator",
+            )
+        ),
+        "default_kernel_consumer_kernel_invocation_entry_row_metadata_hash_accumulator": (
+            _hex_metric_text(
+                online_merged_multiprogram_runner_payload,
+                "kernel_invocation_entry_row_metadata_hash_accumulator",
             )
         ),
         "default_kernel_consumer_dispatch_runner_row_hashchain_all_valid": (
