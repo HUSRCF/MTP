@@ -2609,6 +2609,50 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
         "scale_metadata_handle",
         "aux_metadata_handle",
     ]
+    assert summary["default_kernel_consumer_required_gate_checks"] == {
+        "consumer_view_required": True,
+        "consumer_view_row_layout_required": True,
+        "consumer_view_handle_projection_required": True,
+        "consumer_view_all_handle_fields_required": True,
+        "consumer_view_source_packet_chain_depth_required": 3,
+        "payload_bytes_required": 0,
+        "passed_to_kernel_required": False,
+        "changes_kernel_launch_args_required": False,
+        "current_wna16_arg_compatible_required": False,
+    }
+    assert summary["default_kernel_consumer_consumer_view_required"] is True
+    assert summary["default_kernel_consumer_consumer_view_row_layout_required"] is True
+    assert (
+        summary["default_kernel_consumer_consumer_view_handle_projection_required"]
+        is True
+    )
+    assert (
+        summary["default_kernel_consumer_consumer_view_all_handle_fields_required"]
+        is True
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_consumer_view_source_packet_chain_depth_required"
+        ]
+        == 3
+    )
+    assert summary["default_kernel_consumer_required_gate_payload_bytes_required"] == 0
+    assert (
+        summary["default_kernel_consumer_required_gate_passed_to_kernel_required"]
+        is False
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_required_gate_changes_kernel_launch_args_required"
+        ]
+        is False
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_required_gate_current_wna16_arg_compatible_required"
+        ]
+        is False
+    )
     assert (
         summary["default_kernel_consumer_future_kernel_args_layout_reported"]
         is True
@@ -4683,6 +4727,39 @@ def test_premap_lab_preflight_rejects_bad_required_schema_gate_check(
         "schema_check:required_gate_checks.passed_to_kernel_required_mismatch:"
         "True!=False"
     ) in result["default_kernel_consumer_schema_check"]["failures"]
+
+
+def test_premap_lab_preflight_rejects_non_mapping_required_schema_gate_checks(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    schema_path = tmp_path / "configs/runtime/premap_kernel_side_typed_consumer_schema_v1.yaml"
+    payload = _valid_schema_payload()
+    payload["required_gate_checks"] = "not-a-mapping"
+    _write(schema_path, json.dumps(payload) + "\n")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is False
+    assert "default_kernel_consumer_schema_check_failed" in result["failures"]
+    failures = result["default_kernel_consumer_schema_check"]["failures"]
+    assert "schema_check:required_gate_checks_not_mapping:str" in failures
+    assert (
+        "schema_check:required_gate_checks.consumer_view_required_mismatch:"
+        "None!=True"
+    ) in failures
 
 
 def test_premap_lab_preflight_marks_projection_uncovered_when_schema_lacks_field(

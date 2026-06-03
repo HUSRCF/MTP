@@ -4966,6 +4966,9 @@ def run_premap_lab_preflight(
     )
     if not isinstance(future_kernel_args_layout_expected, dict):
         future_kernel_args_layout_expected = {}
+    required_gate_checks = schema_summary.get("required_gate_checks")
+    if not isinstance(required_gate_checks, dict):
+        required_gate_checks = {}
     arg_slot_projection_field_names = list(ARG_SLOT_MIRROR_FIELDS)
     arg_slot_projection_all_handle_fields_schema_covered = set(
         arg_slot_projection_field_names
@@ -5034,6 +5037,34 @@ def run_premap_lab_preflight(
         ),
         "default_kernel_consumer_schema_row_metadata_names": (
             schema_summary.get("row_metadata_names") or []
+        ),
+        "default_kernel_consumer_required_gate_checks": required_gate_checks,
+        "default_kernel_consumer_consumer_view_required": (
+            required_gate_checks.get("consumer_view_required")
+        ),
+        "default_kernel_consumer_consumer_view_row_layout_required": (
+            required_gate_checks.get("consumer_view_row_layout_required")
+        ),
+        "default_kernel_consumer_consumer_view_handle_projection_required": (
+            required_gate_checks.get("consumer_view_handle_projection_required")
+        ),
+        "default_kernel_consumer_consumer_view_all_handle_fields_required": (
+            required_gate_checks.get("consumer_view_all_handle_fields_required")
+        ),
+        "default_kernel_consumer_consumer_view_source_packet_chain_depth_required": (
+            required_gate_checks.get("consumer_view_source_packet_chain_depth_required")
+        ),
+        "default_kernel_consumer_required_gate_payload_bytes_required": (
+            required_gate_checks.get("payload_bytes_required")
+        ),
+        "default_kernel_consumer_required_gate_passed_to_kernel_required": (
+            required_gate_checks.get("passed_to_kernel_required")
+        ),
+        "default_kernel_consumer_required_gate_changes_kernel_launch_args_required": (
+            required_gate_checks.get("changes_kernel_launch_args_required")
+        ),
+        "default_kernel_consumer_required_gate_current_wna16_arg_compatible_required": (
+            required_gate_checks.get("current_wna16_arg_compatible_required")
         ),
         "default_kernel_consumer_future_kernel_args_layout_reported": (
             schema_summary.get("future_kernel_consumer_args_layout_reported")
