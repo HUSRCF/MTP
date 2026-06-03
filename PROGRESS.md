@@ -2419,6 +2419,83 @@ passed = true
 failures = []
 ```
 
+## Future native program-view pointer ABI canary
+
+The typed premap consumer path now has one more native-only step toward a
+future kernel-side consumer ABI:
+
+```text
+PremapFutureKernelNativeConsumerProgramViewPtrV1
+  -> pointer to PremapFutureKernelNativeConsumerProgramViewV1
+  -> program/lane row iteration inside the native stub
+```
+
+This is intentionally **not** a current WNA16 kernel argument.  It remains a
+readonly native stub/canary path:
+
+```text
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+current_wna16_arg_compatible = false
+requires_wna16_arg_reinterpretation = false
+```
+
+The schema artifact records the pointer-packet layout and keeps the debug macro
+disabled by default:
+
+```text
+MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_PROGRAM_VIEW_PTR_ABI
+```
+
+A new strict preflight option can require this optional pointer ABI without
+making it part of the default lab gate:
+
+```text
+python scripts/run_premap_lab_preflight.py \
+  --summary-only \
+  --require-program-view-ptr-abi \
+  --output-json outputs/reports/premap_lab_preflight_default_require_program_view_ptr_abi.json
+
+passed = true
+program_view_ptr_checked = true
+program_view_ptr_row_count = 1841
+program_view_ptr_row_ok_count = 1841
+program_view_ptr_error_count = 0
+program_view_ptr_source_matches_schema = true
+program_view_ptr_required_fields_visible = true
+program_view_ptr_safety_matches_required = true
+```
+
+Verification:
+
+```text
+python -m pytest \
+  tests/test_premap_kernel_consumer_schema.py \
+  tests/test_premap_typed_consumer_stub.py \
+  tests/test_run_premap_online_merged_native_arg_slot_canary.py -q
+
+53 passed
+
+python -m pytest tests/test_run_premap_lab_preflight.py -q
+
+108 passed
+
+python -m pytest tests -q
+
+963 passed, 2 warnings
+```
+
+Current boundary:
+
+```text
+This is still a standalone native typed ABI/stub path.
+It does not pass the typed table into the existing WNA16 fused-MoE kernel.
+The next real integration step is a kernel-side compatible consumer that
+accepts this future ABI intentionally, not by reinterpreting the current WNA16
+argument list.
+```
+
 ## Consumer-view layout is now an explicit lab-gate requirement
 
 The premap lab gate now requires child window-sweep checks to prove the
