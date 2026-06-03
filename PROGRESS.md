@@ -2,7 +2,7 @@
 
 ## Progress Version
 
-- Version: `v0.61-online-merged-launch-envelope-args-canary`
+- Version: `v0.62-pointer-backed-launch-envelope-args-canary`
 - Updated: 2026-06-03
 - Current phase: premap descriptor/address prep now has a typed
   kernel-side consumer object, a launch-shaped future native ABI, and a
@@ -113,7 +113,43 @@
   available as an explicit optional check in the online-merged arg-slot runner,
   and has passed on the existing 1841-row table merged from 32 real vLLM
   prelaunch typed-consumer exports.  This is still opt-in and is not yet a
-  default lab preflight requirement.
+  default lab preflight requirement.  The latest standalone native stub extends
+  that launch-shaped envelope with a device-resident pointer packet,
+  `PremapFutureKernelNativeConsumerLaunchEnvelopeArgsPtrV1`, so the stub now
+  validates the future-kernel path
+  `launch_envelope_args_ptr -> launch_envelope_args -> entry_args_ptr ->
+  entry_args -> kernel_arg_packet -> program_view -> rows`.  The GPU1 smoke
+  reads 64/64 rows through this eight-deep packet chain and keeps
+  `payload_bytes=0`, `passed_to_kernel=false`,
+  `changes_kernel_launch_args=false`, and
+  `current_wna16_arg_compatible=false`.
+
+## Latest Update: Pointer-Backed Future Launch-Envelope Args ABI Canary
+
+Update: the standalone native typed-consumer stub now supports
+`MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ENVELOPE_ARGS_PTR_ABI`.
+This opt-in macro requires the existing future-native launch-envelope args ABI
+and models the next ABI shape where a future kernel entry receives a pointer to
+the launch-envelope argument packet rather than a by-value diagnostic object.
+
+Evidence:
+
+- GPU1 standalone native stub smoke:
+  `outputs/reports/premap_kernel_consumer/typed_consumer_stub_gpu1_launch_envelope_args_ptr_smoke.json`
+- Result: `ok=true`, pointer launch-envelope ABI checked, packet chain depth
+  `8`, row count `64`, row ok count `64`, summary error count `0`.
+- All four typed handle fields plus row metadata are read through the pointer
+  path.
+- Safety boundary remains unchanged: no payload dereference, no kernel-arg pass
+  to the current WNA16 fused-MoE kernel, no kernel launch arg mutation, and no
+  WNA16 arg reinterpretation.
+
+Validation:
+
+- `/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest tests/test_premap_typed_consumer_stub.py -q`
+  passed with `34 passed`.
+- `/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest tests -q` passed with
+  `1008 passed, 2 warnings`.
 
 ## Latest Update: Online-Merged Future Launch-Envelope Args ABI Canary
 
