@@ -175,7 +175,7 @@ def test_window_result_rejects_program_view_ptr_row_count_mismatch():
     assert "head_program_view_ptr_row_ok_count_mismatch" in failures
 
 
-def test_window_result_rejects_missing_program_view_ptr_evidence_once():
+def test_window_result_rejects_missing_program_view_ptr_evidence_and_collects_packet_errors():
     result = {
         "passed": True,
         "no_payload": True,
@@ -200,9 +200,14 @@ def test_window_result_rejects_missing_program_view_ptr_evidence_once():
         require_program_view_ptr_abi=True,
     )
 
-    assert failures == [
+    assert (
         "head_program_view_ptr_evidence_missing_or_dry_run_unsupported"
-    ]
+        in failures
+    )
+    assert (
+        "head_future_kernel_native_consumer_kernel_arg_packet_checked_mismatch"
+        in failures
+    )
 
 
 def test_window_sweep_dry_run_records_expected_windows(tmp_path: Path):

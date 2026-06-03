@@ -45,7 +45,9 @@ _FUTURE_KERNEL_FIELD_MASK_PREFIXES = (
     "future_kernel_native_consumer_view",
     "future_kernel_native_consumer_program_view",
     "future_kernel_native_consumer_program_view_ptr",
-    "future_kernel_native_consumer_kernel_arg_packet",
+)
+_FUTURE_KERNEL_ARG_PACKET_FIELD_MASK_PREFIX = (
+    "future_kernel_native_consumer_kernel_arg_packet"
 )
 HANDLE_FIELD_READ_FIELDS = (
     "descriptor_ptr",
@@ -115,9 +117,13 @@ def _check_future_field_masks(
     summary: dict[str, Any],
     *,
     label: str,
+    require_child_kernel_arg_packet_abi: bool = False,
 ) -> list[str]:
     failures: list[str] = []
-    for prefix in _FUTURE_KERNEL_FIELD_MASK_PREFIXES:
+    prefixes = list(_FUTURE_KERNEL_FIELD_MASK_PREFIXES)
+    if require_child_kernel_arg_packet_abi:
+        prefixes.append(_FUTURE_KERNEL_ARG_PACKET_FIELD_MASK_PREFIX)
+    for prefix in prefixes:
         field_key = f"{prefix}_field_mask"
         required_key = f"{prefix}_required_field_mask"
         field_mask = summary.get(field_key)
@@ -560,7 +566,15 @@ def _check_child_artifact(
             failures.append(
                 f"{label}_child_stub_single_field_mirror_field_name_mismatch"
             )
-        failures.extend(_check_future_field_masks(stub_summary, label=label))
+        failures.extend(
+            _check_future_field_masks(
+                stub_summary,
+                label=label,
+                require_child_kernel_arg_packet_abi=(
+                    require_child_kernel_arg_packet_abi
+                ),
+            )
+        )
         failures.extend(
             _check_field_reads(
                 stub_summary,

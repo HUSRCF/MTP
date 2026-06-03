@@ -543,6 +543,42 @@ def test_window_sweep_check_rejects_missing_kernel_arg_packet_requirement(
     )
 
 
+def test_window_sweep_check_allows_missing_kernel_arg_packet_without_requirement(
+    tmp_path: Path,
+):
+    path = _write_artifact(tmp_path)
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    windows = payload["windows"]
+    assert isinstance(windows, dict)
+    for window in windows.values():
+        assert isinstance(window, dict)
+        child_path = Path(window["output_json"])
+        stub_path = Path(window["stub_output_json"])
+        child = json.loads(child_path.read_text(encoding="utf-8"))
+        stub_payload = json.loads(stub_path.read_text(encoding="utf-8"))
+        for item in (child["stub_summary"], stub_payload):
+            assert isinstance(item, dict)
+            for key in list(item):
+                if key.startswith(
+                    "future_kernel_native_consumer_kernel_arg_packet_"
+                ):
+                    item.pop(key)
+        child_path.write_text(json.dumps(child) + "\n", encoding="utf-8")
+        stub_path.write_text(json.dumps(stub_payload) + "\n", encoding="utf-8")
+
+    result = check_window_sweep_artifact(
+        path,
+        expected_window_size=4,
+        expected_block_threads=4,
+        min_row_count=17,
+        require_child_program_view_ptr_abi=True,
+        require_child_kernel_arg_packet_abi=False,
+    )
+
+    assert result["passed"] is True
+    assert result["require_child_kernel_arg_packet_abi"] is False
+
+
 def test_window_sweep_check_rejects_stub_consumer_view_geometry_mismatch(
     tmp_path: Path,
 ):

@@ -180,7 +180,6 @@ def _validate_window_result(
             failures.append(
                 f"{label}_program_view_ptr_evidence_missing_or_dry_run_unsupported"
             )
-            return failures
         for key, expected in {
             "future_kernel_native_consumer_program_view_ptr_checked": True,
             "future_kernel_native_consumer_program_view_ptr_payload_bytes": 0,
