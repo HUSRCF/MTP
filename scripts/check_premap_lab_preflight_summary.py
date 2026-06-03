@@ -99,6 +99,8 @@ def check_premap_lab_preflight_summary(
         "default_kernel_consumer_online_merged_multiprogram_changes_kernel_launch_args": False,
         "default_kernel_consumer_online_merged_multiprogram_not_single_launch_table": True,
         "default_kernel_consumer_online_merged_multiprogram_current_wna16_arg_compatible": False,
+        "default_kernel_consumer_online_merged_multiprogram_require_kernel_invocation_abi": True,
+        "default_kernel_consumer_online_merged_multiprogram_require_kernel_invocation_entry_abi": True,
         "default_kernel_consumer_dispatch_abi_current_wna16_arg_compatible": False,
         "default_kernel_consumer_dispatch_ptr_abi_current_wna16_arg_compatible": False,
         "default_kernel_consumer_arg_slot_abi_current_wna16_arg_compatible": False,
@@ -118,6 +120,18 @@ def check_premap_lab_preflight_summary(
         "default_kernel_consumer_kernel_entry_args_changes_kernel_launch_args": False,
         "default_kernel_consumer_kernel_entry_args_current_wna16_arg_compatible": False,
         "default_kernel_consumer_kernel_entry_args_requires_wna16_arg_reinterpretation": False,
+        "default_kernel_consumer_kernel_invocation_checked": True,
+        "default_kernel_consumer_kernel_invocation_all_handle_fields_read": True,
+        "default_kernel_consumer_kernel_invocation_payload_bytes": 0,
+        "default_kernel_consumer_kernel_invocation_passed_to_kernel": False,
+        "default_kernel_consumer_kernel_invocation_kernel_arg_pass_allowed": False,
+        "default_kernel_consumer_kernel_invocation_current_wna16_arg_compatible": False,
+        "default_kernel_consumer_kernel_invocation_entry_checked": True,
+        "default_kernel_consumer_kernel_invocation_entry_all_handle_fields_read": True,
+        "default_kernel_consumer_kernel_invocation_entry_payload_bytes": 0,
+        "default_kernel_consumer_kernel_invocation_entry_passed_to_kernel": False,
+        "default_kernel_consumer_kernel_invocation_entry_kernel_arg_pass_allowed": False,
+        "default_kernel_consumer_kernel_invocation_entry_current_wna16_arg_compatible": False,
         "payload_bytes_required": 0,
         "passed_to_kernel_required": False,
         "changes_kernel_launch_args_required": False,
@@ -311,6 +325,20 @@ def check_premap_lab_preflight_summary(
     ):
         if not _is_hex_u64(summary.get(key)):
             failures.append(f"{key}_invalid")
+    for prefix in (
+        "default_kernel_consumer_kernel_invocation",
+        "default_kernel_consumer_kernel_invocation_entry",
+    ):
+        if summary.get(f"{prefix}_packet_chain_depth") != 11:
+            failures.append(f"{prefix}_packet_chain_depth_mismatch")
+        for suffix in (
+            "row_hash_accumulator",
+            "field_read_hash_accumulator",
+            "row_metadata_hash_accumulator",
+        ):
+            key = f"{prefix}_{suffix}"
+            if not _is_hex_u64(summary.get(key)):
+                failures.append(f"{key}_invalid")
 
     if summary.get("default_kernel_consumer_schema_row_field_names") != REQUIRED_ROW_FIELDS:
         failures.append("schema_row_field_names_mismatch")
