@@ -165,6 +165,26 @@ constexpr bool
 constexpr bool
     kPremapFutureKernelNativeConsumerProgramViewAbiV1CurrentWna16ArgCompatible =
         false;
+constexpr const char*
+    kPremapFutureKernelNativeConsumerProgramViewPtrAbiV1Name =
+        "premap_future_kernel_native_consumer_program_view_ptr_abi_v1";
+constexpr const char*
+    kPremapFutureKernelNativeConsumerProgramViewPtrAbiV1Mode =
+        "readonly_future_kernel_native_consumer_program_view_ptr_abi";
+constexpr const char*
+    kPremapFutureKernelNativeConsumerProgramViewPtrAbiV1Source =
+        "premap_future_kernel_native_consumer_program_view_abi_v1";
+constexpr uint32_t
+    kPremapFutureKernelNativeConsumerProgramViewPtrAbiV1Version = 1;
+constexpr bool
+    kPremapFutureKernelNativeConsumerProgramViewPtrAbiV1PayloadDerefAllowed =
+        false;
+constexpr bool
+    kPremapFutureKernelNativeConsumerProgramViewPtrAbiV1KernelArgPassAllowed =
+        false;
+constexpr bool
+    kPremapFutureKernelNativeConsumerProgramViewPtrAbiV1CurrentWna16ArgCompatible =
+        false;
 
 constexpr uint32_t kPremapFutureKernelSideConsumerArgsV1ReadonlyFlag = 1u << 0;
 constexpr uint32_t
@@ -327,6 +347,19 @@ struct PremapFutureKernelNativeConsumerProgramViewV1 {
   uint32_t flags;
 };
 
+// Pointer-backed packet for the program/lane-level view.  This is closer to a
+// real kernel argument than the by-value diagnostic view above: a future kernel
+// would receive one compact pointer packet, then load the readonly program-view
+// object before assigning rows to lanes.
+struct PremapFutureKernelNativeConsumerProgramViewPtrV1 {
+  const PremapFutureKernelNativeConsumerProgramViewV1* program_view;
+  uint32_t abi_version;
+  uint32_t program_view_struct_size;
+  uint32_t result_struct_size;
+  uint32_t payload_bytes;
+  uint32_t flags;
+};
+
 constexpr const char* kPremapKernelSideTypedConsumerLaunchEnvelopeV1Name =
     "premap_kernel_side_typed_consumer_launch_envelope_v1";
 constexpr uint32_t kPremapKernelSideTypedConsumerLaunchEnvelopeV1ReadonlyFlag =
@@ -447,6 +480,22 @@ struct PremapFutureKernelNativeConsumerViewResultV1 {
 
 struct PremapFutureKernelNativeConsumerProgramViewResultV1 {
   uint32_t ok;
+  uint32_t program_view_valid;
+  uint32_t view_valid;
+  uint32_t launch_geometry_valid;
+  uint32_t row_window_valid;
+  uint32_t program_iteration_valid;
+  uint32_t row_valid;
+  uint32_t required_handle_visible;
+  uint32_t lifetime_valid;
+  uint32_t all_handle_fields_read;
+  uint32_t field_count;
+  uint64_t row_hash;
+};
+
+struct PremapFutureKernelNativeConsumerProgramViewPtrResultV1 {
+  uint32_t ok;
+  uint32_t packet_valid;
   uint32_t program_view_valid;
   uint32_t view_valid;
   uint32_t launch_geometry_valid;
@@ -790,6 +839,30 @@ premap_typed_consumer_future_native_program_view_matches_v1(
          !kPremapFutureKernelNativeConsumerProgramViewAbiV1PayloadDerefAllowed &&
          !kPremapFutureKernelNativeConsumerProgramViewAbiV1KernelArgPassAllowed &&
          !kPremapFutureKernelNativeConsumerProgramViewAbiV1CurrentWna16ArgCompatible;
+}
+
+__device__ static inline bool
+premap_typed_consumer_future_native_program_view_ptr_packet_matches_v1(
+    const PremapFutureKernelNativeConsumerProgramViewPtrV1& program_view_ptr) {
+  return program_view_ptr.program_view != nullptr &&
+         program_view_ptr.abi_version ==
+             kPremapFutureKernelNativeConsumerProgramViewPtrAbiV1Version &&
+         program_view_ptr.program_view_struct_size ==
+             sizeof(PremapFutureKernelNativeConsumerProgramViewV1) &&
+         program_view_ptr.result_struct_size ==
+             sizeof(PremapFutureKernelNativeConsumerProgramViewPtrResultV1) &&
+         program_view_ptr.payload_bytes == 0 &&
+         (program_view_ptr.flags &
+          kPremapFutureKernelSideConsumerArgsV1ReadonlyFlag) != 0 &&
+         (program_view_ptr.flags &
+          kPremapFutureKernelSideConsumerArgsV1KernelArgPassDisabledFlag) != 0 &&
+         (program_view_ptr.flags &
+          kPremapFutureKernelSideConsumerArgsV1PayloadDerefDisabledFlag) != 0 &&
+         program_view_ptr.flags ==
+             kPremapFutureKernelSideConsumerArgsV1RequiredFlags &&
+         !kPremapFutureKernelNativeConsumerProgramViewPtrAbiV1PayloadDerefAllowed &&
+         !kPremapFutureKernelNativeConsumerProgramViewPtrAbiV1KernelArgPassAllowed &&
+         !kPremapFutureKernelNativeConsumerProgramViewPtrAbiV1CurrentWna16ArgCompatible;
 }
 
 __device__ static inline bool
@@ -1642,5 +1715,73 @@ premap_typed_consumer_future_native_program_view_consume_program_lane_v1(
           0xc052000000000004ULL) ^
       premap_typed_consumer_mix64_v1(
           program_view.program_iteration_hash + 0xc052000000000005ULL);
+  return result;
+}
+
+__device__ static inline PremapFutureKernelNativeConsumerProgramViewPtrResultV1
+premap_typed_consumer_future_native_program_view_ptr_consume_program_lane_v1(
+    const PremapFutureKernelNativeConsumerProgramViewPtrV1& program_view_ptr,
+    uint32_t program_id,
+    uint32_t lane_id,
+    uint32_t actual_grid_x,
+    uint32_t actual_block_x,
+    uint64_t expected_schema_hash_hi,
+    uint64_t expected_schema_hash_lo) {
+  PremapFutureKernelNativeConsumerProgramViewPtrResultV1 result;
+  result.packet_valid = static_cast<uint32_t>(
+      premap_typed_consumer_future_native_program_view_ptr_packet_matches_v1(
+          program_view_ptr));
+  result.program_view_valid = 0;
+  result.view_valid = 0;
+  result.launch_geometry_valid = 0;
+  result.row_window_valid = 0;
+  result.program_iteration_valid = 0;
+  result.row_valid = 0;
+  result.required_handle_visible = 0;
+  result.lifetime_valid = 0;
+  result.all_handle_fields_read = 0;
+  result.field_count = kPremapKernelSideTypedConsumerAbiV1HandleColumnCount;
+  result.row_hash = 0;
+  result.ok = 0;
+  if (result.packet_valid == 0) {
+    return result;
+  }
+  const PremapFutureKernelNativeConsumerProgramViewV1& program_view =
+      *program_view_ptr.program_view;
+  const PremapFutureKernelNativeConsumerProgramViewResultV1 inner =
+      premap_typed_consumer_future_native_program_view_consume_program_lane_v1(
+          program_view,
+          program_id,
+          lane_id,
+          actual_grid_x,
+          actual_block_x,
+          expected_schema_hash_hi,
+          expected_schema_hash_lo);
+  result.program_view_valid = inner.program_view_valid;
+  result.view_valid = inner.view_valid;
+  result.launch_geometry_valid = inner.launch_geometry_valid;
+  result.row_window_valid = inner.row_window_valid;
+  result.program_iteration_valid = inner.program_iteration_valid;
+  result.row_valid = inner.row_valid;
+  result.required_handle_visible = inner.required_handle_visible;
+  result.lifetime_valid = inner.lifetime_valid;
+  result.all_handle_fields_read = inner.all_handle_fields_read;
+  result.field_count = inner.field_count;
+  result.ok = static_cast<uint32_t>(
+      inner.ok != 0 &&
+      !kPremapFutureKernelNativeConsumerProgramViewPtrAbiV1PayloadDerefAllowed &&
+      !kPremapFutureKernelNativeConsumerProgramViewPtrAbiV1KernelArgPassAllowed &&
+      !kPremapFutureKernelNativeConsumerProgramViewPtrAbiV1CurrentWna16ArgCompatible);
+  result.row_hash =
+      premap_typed_consumer_mix64_v1(inner.row_hash + 0xc053000000000001ULL) ^
+      premap_typed_consumer_mix64_v1(
+          static_cast<uint64_t>(program_view_ptr.abi_version) +
+          0xc053000000000002ULL) ^
+      premap_typed_consumer_mix64_v1(
+          static_cast<uint64_t>(program_view_ptr.program_view_struct_size) +
+          0xc053000000000003ULL) ^
+      premap_typed_consumer_mix64_v1(
+          static_cast<uint64_t>(program_view_ptr.result_struct_size) +
+          0xc053000000000004ULL);
   return result;
 }

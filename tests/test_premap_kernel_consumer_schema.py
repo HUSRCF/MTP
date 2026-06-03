@@ -18,6 +18,8 @@ from scripts.check_premap_kernel_consumer_schema import (
     FUTURE_KERNEL_NATIVE_CONSUMER_ARG_SLOT_ABI_LAYOUT_FIELDS,
     FUTURE_KERNEL_NATIVE_CONSUMER_VIEW_ABI_LAYOUT_EXPECTED,
     FUTURE_KERNEL_NATIVE_CONSUMER_VIEW_ABI_LAYOUT_FIELDS,
+    FUTURE_KERNEL_NATIVE_CONSUMER_PROGRAM_VIEW_PTR_ABI_LAYOUT_EXPECTED,
+    FUTURE_KERNEL_NATIVE_CONSUMER_PROGRAM_VIEW_PTR_ABI_LAYOUT_FIELDS,
     FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ABI_LAYOUT_EXPECTED,
     FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ABI_LAYOUT_FIELDS,
     check_kernel_consumer_schema_artifact,
@@ -187,12 +189,44 @@ def test_kernel_consumer_schema_accepts_valid_artifact(tmp_path: Path) -> None:
         == "program_id * rows_per_program + lane_id + row_offset"
     )
     assert (
+        result["future_kernel_native_consumer_program_view_ptr_abi_name"]
+        == "premap_future_kernel_native_consumer_program_view_ptr_abi_v1"
+    )
+    assert (
+        result["future_kernel_native_consumer_program_view_ptr_abi_mode"]
+        == "readonly_future_kernel_native_consumer_program_view_ptr_abi"
+    )
+    assert (
+        result["future_kernel_native_consumer_program_view_ptr_abi_source"]
+        == "premap_future_kernel_native_consumer_program_view_abi_v1"
+    )
+    assert (
+        result[
+            "future_kernel_native_consumer_program_view_ptr_abi_current_wna16_arg_compatible"
+        ]
+        is False
+    )
+    assert (
+        result[
+            "future_kernel_native_consumer_program_view_ptr_abi_requires_wna16_arg_reinterpretation"
+        ]
+        is False
+    )
+    assert (
         result["future_kernel_native_consumer_view_abi_layout_fields"]
         == FUTURE_KERNEL_NATIVE_CONSUMER_VIEW_ABI_LAYOUT_FIELDS
     )
     assert (
         result["future_kernel_native_consumer_view_abi_layout_expected"]
         == FUTURE_KERNEL_NATIVE_CONSUMER_VIEW_ABI_LAYOUT_EXPECTED
+    )
+    assert (
+        result["future_kernel_native_consumer_program_view_ptr_abi_layout_fields"]
+        == FUTURE_KERNEL_NATIVE_CONSUMER_PROGRAM_VIEW_PTR_ABI_LAYOUT_FIELDS
+    )
+    assert (
+        result["future_kernel_native_consumer_program_view_ptr_abi_layout_expected"]
+        == FUTURE_KERNEL_NATIVE_CONSUMER_PROGRAM_VIEW_PTR_ABI_LAYOUT_EXPECTED
     )
     assert result["required_gate_checks"] == EXPECTED_REQUIRED_GATE_CHECKS
 

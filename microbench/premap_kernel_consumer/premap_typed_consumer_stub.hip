@@ -68,6 +68,11 @@
 #error "future native consumer program-view ABI requires future native consumer view ABI"
 #endif
 
+#if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_PROGRAM_VIEW_PTR_ABI) && \
+    !defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_PROGRAM_VIEW_ABI)
+#error "future native consumer program-view pointer ABI requires future native consumer program-view ABI"
+#endif
+
 #if (defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD) && \
      defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_PACKED_WEIGHT_MIRROR_FIELD)) || \
     (defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_SCALE_METADATA_MIRROR_FIELD) && \
@@ -170,6 +175,15 @@ static_assert(
 static_assert(
     !kPremapFutureKernelNativeConsumerProgramViewAbiV1CurrentWna16ArgCompatible,
     "future native consumer program-view ABI must not be the current WNA16 arg list");
+static_assert(
+    !kPremapFutureKernelNativeConsumerProgramViewPtrAbiV1PayloadDerefAllowed,
+    "future native consumer program-view pointer ABI must not allow payload dereference");
+static_assert(
+    !kPremapFutureKernelNativeConsumerProgramViewPtrAbiV1KernelArgPassAllowed,
+    "future native consumer program-view pointer ABI must not allow kernel-arg pass");
+static_assert(
+    !kPremapFutureKernelNativeConsumerProgramViewPtrAbiV1CurrentWna16ArgCompatible,
+    "future native consumer program-view pointer ABI must not be the current WNA16 arg list");
 
 constexpr uint64_t kTypedSchemaHashHi = MTP_PREMAP_TYPED_CONSUMER_SCHEMA_HASH_HI;
 constexpr uint64_t kTypedSchemaHashLo = MTP_PREMAP_TYPED_CONSUMER_SCHEMA_HASH_LO;
@@ -895,6 +909,47 @@ __global__ void typed_consumer_future_native_consumer_program_view_kernel(
       handle_projection_hash(program_view.view.params, row_index);
 }
 
+__global__ void typed_consumer_future_native_consumer_program_view_ptr_kernel(
+    PremapFutureKernelNativeConsumerProgramViewPtrV1 program_view_ptr,
+    uint32_t* future_native_consumer_program_view_ptr_ok,
+    uint64_t* future_native_consumer_program_view_ptr_hash) {
+  const uint32_t program_id = static_cast<uint32_t>(blockIdx.x);
+  const uint32_t lane_id = static_cast<uint32_t>(threadIdx.x);
+  if (program_view_ptr.program_view == nullptr) {
+    return;
+  }
+  const PremapFutureKernelNativeConsumerProgramViewV1& program_view =
+      *program_view_ptr.program_view;
+  const bool row_window_valid =
+      program_view.view.row_limit >= program_view.view.row_offset &&
+      program_view.view.row_limit <= program_view.view.params.row_count;
+  const uint32_t active_rows =
+      row_window_valid ? program_view.view.row_limit - program_view.view.row_offset
+                       : 0;
+  if (!row_window_valid || program_view.view.rows_per_program == 0) {
+    return;
+  }
+  const uint64_t local_row_index_64 =
+      static_cast<uint64_t>(program_id) *
+          static_cast<uint64_t>(program_view.view.rows_per_program) +
+      static_cast<uint64_t>(lane_id);
+  if (local_row_index_64 >= static_cast<uint64_t>(active_rows)) {
+    return;
+  }
+  const uint32_t idx = static_cast<uint32_t>(local_row_index_64);
+  const PremapFutureKernelNativeConsumerProgramViewPtrResultV1 result =
+      premap_typed_consumer_future_native_program_view_ptr_consume_program_lane_v1(
+          program_view_ptr,
+          program_id,
+          lane_id,
+          static_cast<uint32_t>(gridDim.x),
+          static_cast<uint32_t>(blockDim.x),
+          kTypedSchemaHashHi,
+          kTypedSchemaHashLo);
+  future_native_consumer_program_view_ptr_ok[idx] = result.ok;
+  future_native_consumer_program_view_ptr_hash[idx] = result.row_hash;
+}
+
 struct Args {
   int device = 0;
   int rows = 1024;
@@ -1119,6 +1174,12 @@ static std::string macro_json() {
 #else
      << "false";
 #endif
+  os << ",\"MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_PROGRAM_VIEW_PTR_ABI\":"
+#if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_PROGRAM_VIEW_PTR_ABI)
+     << "true";
+#else
+     << "false";
+#endif
   os << "}";
   return os.str();
 }
@@ -1185,11 +1246,14 @@ int main(int argc, char** argv) {
            *d_future_native_consumer_view_scale_metadata_handle_read_hash = nullptr,
            *d_future_native_consumer_view_aux_metadata_handle_read_hash = nullptr,
            *d_future_native_consumer_program_view_hash = nullptr,
-           *d_future_native_consumer_program_view_handle_projection_hash = nullptr;
+           *d_future_native_consumer_program_view_handle_projection_hash = nullptr,
+           *d_future_native_consumer_program_view_ptr_hash = nullptr;
   PremapFutureKernelNativeConsumerDispatchV1* d_future_native_dispatch_packet =
       nullptr;
   PremapFutureKernelNativeConsumerDispatchPtrV1*
       d_future_native_dispatch_ptr_packet = nullptr;
+  PremapFutureKernelNativeConsumerProgramViewV1*
+      d_future_native_consumer_program_view_packet = nullptr;
   int32_t* d_expert = nullptr;
   uint32_t *d_ok = nullptr, *d_single_field_mirror_ok = nullptr,
            *d_kernel_side_consumer_path_ok = nullptr,
@@ -1216,7 +1280,8 @@ int main(int argc, char** argv) {
            *d_future_native_consumer_view_packed_weight_descriptor_read_ok = nullptr,
            *d_future_native_consumer_view_scale_metadata_handle_read_ok = nullptr,
            *d_future_native_consumer_view_aux_metadata_handle_read_ok = nullptr,
-           *d_future_native_consumer_program_view_ok = nullptr;
+           *d_future_native_consumer_program_view_ok = nullptr,
+           *d_future_native_consumer_program_view_ptr_ok = nullptr;
   const size_t u64_bytes = static_cast<size_t>(rows) * sizeof(uint64_t);
   const size_t i32_bytes = static_cast<size_t>(rows) * sizeof(int32_t);
   const size_t u32_bytes = static_cast<size_t>(rows) * sizeof(uint32_t);
@@ -1423,6 +1488,12 @@ int main(int argc, char** argv) {
           &d_future_native_consumer_program_view_handle_projection_hash,
           u64_bytes),
       "hipMalloc future_native_consumer_program_view_handle_projection_hash");
+  hip_check(
+      hipMalloc(&d_future_native_consumer_program_view_ptr_ok, u32_bytes),
+      "hipMalloc future_native_consumer_program_view_ptr_ok");
+  hip_check(
+      hipMalloc(&d_future_native_consumer_program_view_ptr_hash, u64_bytes),
+      "hipMalloc future_native_consumer_program_view_ptr_hash");
   hip_check(hipMemcpy(d_descriptor, descriptor.data(), u64_bytes, hipMemcpyHostToDevice), "copy descriptor");
   hip_check(hipMemcpy(d_packed, packed.data(), u64_bytes, hipMemcpyHostToDevice), "copy packed");
   hip_check(hipMemcpy(d_scale, scale.data(), u64_bytes, hipMemcpyHostToDevice), "copy scale");
@@ -1609,6 +1680,12 @@ int main(int argc, char** argv) {
           0,
           u64_bytes),
       "memset future_native_consumer_program_view_handle_projection_hash");
+  hip_check(
+      hipMemset(d_future_native_consumer_program_view_ptr_ok, 0, u32_bytes),
+      "memset future_native_consumer_program_view_ptr_ok");
+  hip_check(
+      hipMemset(d_future_native_consumer_program_view_ptr_hash, 0, u64_bytes),
+      "memset future_native_consumer_program_view_ptr_hash");
 
   PremapKernelSideTypedConsumerAbiV1 table;
   table.typed_schema_hash_hi = kTypedSchemaHashHi;
@@ -2031,6 +2108,47 @@ int main(int argc, char** argv) {
       d_future_native_consumer_program_view_handle_projection_hash);
   hip_check(hipGetLastError(), "future native consumer program-view launch");
   hip_check(hipDeviceSynchronize(), "future native consumer program-view sync");
+
+#if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_PROGRAM_VIEW_PTR_ABI)
+  hip_check(
+      hipMalloc(
+          &d_future_native_consumer_program_view_packet,
+          sizeof(PremapFutureKernelNativeConsumerProgramViewV1)),
+      "hipMalloc future native consumer program-view packet");
+  hip_check(
+      hipMemcpy(
+          d_future_native_consumer_program_view_packet,
+          &future_native_consumer_program_view,
+          sizeof(PremapFutureKernelNativeConsumerProgramViewV1),
+          hipMemcpyHostToDevice),
+      "copy future native consumer program-view packet");
+  PremapFutureKernelNativeConsumerProgramViewPtrV1
+      future_native_consumer_program_view_ptr;
+  future_native_consumer_program_view_ptr.program_view =
+      d_future_native_consumer_program_view_packet;
+  future_native_consumer_program_view_ptr.abi_version =
+      kPremapFutureKernelNativeConsumerProgramViewPtrAbiV1Version;
+  future_native_consumer_program_view_ptr.program_view_struct_size =
+      sizeof(PremapFutureKernelNativeConsumerProgramViewV1);
+  future_native_consumer_program_view_ptr.result_struct_size =
+      sizeof(PremapFutureKernelNativeConsumerProgramViewPtrResultV1);
+  future_native_consumer_program_view_ptr.payload_bytes = 0;
+  future_native_consumer_program_view_ptr.flags =
+      kPremapFutureKernelSideConsumerArgsV1RequiredFlags;
+  hipLaunchKernelGGL(
+      typed_consumer_future_native_consumer_program_view_ptr_kernel,
+      dim3(dispatch_blocks),
+      dim3(threads),
+      0,
+      0,
+      future_native_consumer_program_view_ptr,
+      d_future_native_consumer_program_view_ptr_ok,
+      d_future_native_consumer_program_view_ptr_hash);
+  hip_check(hipGetLastError(), "future native consumer program-view pointer launch");
+  hip_check(
+      hipDeviceSynchronize(),
+      "future native consumer program-view pointer sync");
+#endif
 #endif
 #endif
 #endif
@@ -2107,6 +2225,8 @@ int main(int argc, char** argv) {
   std::vector<uint64_t> future_native_consumer_program_view_hashes(rows);
   std::vector<uint64_t>
       future_native_consumer_program_view_handle_projection_hashes(rows);
+  std::vector<uint32_t> future_native_consumer_program_view_ptr_ok(rows);
+  std::vector<uint64_t> future_native_consumer_program_view_ptr_hashes(rows);
   hip_check(hipMemcpy(ok.data(), d_ok, u32_bytes, hipMemcpyDeviceToHost), "copy ok");
   hip_check(hipMemcpy(hashes.data(), d_hash, u64_bytes, hipMemcpyDeviceToHost), "copy hash");
   hip_check(
@@ -2508,6 +2628,20 @@ int main(int argc, char** argv) {
           u64_bytes,
           hipMemcpyDeviceToHost),
       "copy future_native_consumer_program_view_handle_projection_hash");
+  hip_check(
+      hipMemcpy(
+          future_native_consumer_program_view_ptr_ok.data(),
+          d_future_native_consumer_program_view_ptr_ok,
+          u32_bytes,
+          hipMemcpyDeviceToHost),
+      "copy future_native_consumer_program_view_ptr_ok");
+  hip_check(
+      hipMemcpy(
+          future_native_consumer_program_view_ptr_hashes.data(),
+          d_future_native_consumer_program_view_ptr_hash,
+          u64_bytes,
+          hipMemcpyDeviceToHost),
+      "copy future_native_consumer_program_view_ptr_hash");
 
   uint64_t hash_acc = 0;
   uint64_t single_field_mirror_hash_acc = 0;
@@ -2541,6 +2675,7 @@ int main(int argc, char** argv) {
   uint64_t future_native_consumer_view_aux_metadata_handle_read_hash_acc = 0;
   uint64_t future_native_consumer_program_view_hash_acc = 0;
   uint64_t future_native_consumer_program_view_handle_projection_hash_acc = 0;
+  uint64_t future_native_consumer_program_view_ptr_hash_acc = 0;
   int ok_count = 0;
   int single_field_mirror_ok_count = 0;
   int kernel_side_consumer_path_ok_count = 0;
@@ -2568,6 +2703,7 @@ int main(int argc, char** argv) {
   int future_native_consumer_view_scale_metadata_handle_read_ok_count = 0;
   int future_native_consumer_view_aux_metadata_handle_read_ok_count = 0;
   int future_native_consumer_program_view_ok_count = 0;
+  int future_native_consumer_program_view_ptr_ok_count = 0;
   for (int i = 0; i < rows; ++i) {
     ok_count += ok[i] == 1 ? 1 : 0;
     hash_acc ^= mix64(hashes[i] + static_cast<uint64_t>(i));
@@ -2733,6 +2869,12 @@ int main(int argc, char** argv) {
     future_native_consumer_program_view_handle_projection_hash_acc ^=
         mix64(
             future_native_consumer_program_view_handle_projection_hashes[i] +
+            static_cast<uint64_t>(i));
+    future_native_consumer_program_view_ptr_ok_count +=
+        future_native_consumer_program_view_ptr_ok[i] == 1 ? 1 : 0;
+    future_native_consumer_program_view_ptr_hash_acc ^=
+        mix64(
+            future_native_consumer_program_view_ptr_hashes[i] +
             static_cast<uint64_t>(i));
   }
   const int error_count = rows - ok_count;
@@ -3022,6 +3164,21 @@ int main(int argc, char** argv) {
           ? future_native_dispatch_active_rows -
                 future_native_consumer_program_view_ok_count
           : 0;
+  const bool future_native_consumer_program_view_ptr_checked =
+#if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_PROGRAM_VIEW_PTR_ABI)
+      true;
+#else
+      false;
+#endif
+  const int future_native_consumer_program_view_ptr_row_count =
+      future_native_consumer_program_view_ptr_checked
+          ? future_native_dispatch_active_rows
+          : 0;
+  const int future_native_consumer_program_view_ptr_error_count =
+      future_native_consumer_program_view_ptr_checked
+          ? future_native_dispatch_active_rows -
+                future_native_consumer_program_view_ptr_ok_count
+          : 0;
   const bool all_ok =
       error_count == 0 && future_kernel_consumer_args_error_count == 0 &&
       future_kernel_single_field_mirror_error_count == 0 &&
@@ -3045,7 +3202,8 @@ int main(int argc, char** argv) {
       future_native_consumer_view_packed_weight_descriptor_read_error_count == 0 &&
       future_native_consumer_view_scale_metadata_handle_read_error_count == 0 &&
       future_native_consumer_view_aux_metadata_handle_read_error_count == 0 &&
-      future_native_consumer_program_view_error_count == 0;
+      future_native_consumer_program_view_error_count == 0 &&
+      future_native_consumer_program_view_ptr_error_count == 0;
 
   hip_check(hipFree(d_descriptor), "hipFree descriptor");
   hip_check(hipFree(d_packed), "hipFree packed");
@@ -3226,6 +3384,12 @@ int main(int argc, char** argv) {
   hip_check(
       hipFree(d_future_native_consumer_program_view_handle_projection_hash),
       "hipFree future_native_consumer_program_view_handle_projection_hash");
+  hip_check(
+      hipFree(d_future_native_consumer_program_view_ptr_ok),
+      "hipFree future_native_consumer_program_view_ptr_ok");
+  hip_check(
+      hipFree(d_future_native_consumer_program_view_ptr_hash),
+      "hipFree future_native_consumer_program_view_ptr_hash");
   if (d_future_native_dispatch_packet != nullptr) {
     hip_check(
         hipFree(d_future_native_dispatch_packet),
@@ -3235,6 +3399,11 @@ int main(int argc, char** argv) {
     hip_check(
         hipFree(d_future_native_dispatch_ptr_packet),
         "hipFree future_native_dispatch_ptr_packet");
+  }
+  if (d_future_native_consumer_program_view_packet != nullptr) {
+    hip_check(
+        hipFree(d_future_native_consumer_program_view_packet),
+        "hipFree future_native_consumer_program_view_packet");
   }
 
   std::cout << "{";
@@ -4143,6 +4312,58 @@ int main(int argc, char** argv) {
   std::cout << ",\"future_kernel_native_consumer_program_view_changes_kernel_launch_args\":false";
   std::cout << ",\"future_kernel_native_consumer_program_view_current_wna16_arg_compatible\":false";
   std::cout << ",\"future_kernel_native_consumer_program_view_requires_wna16_arg_reinterpretation\":false";
+  std::cout << ",\"future_kernel_native_consumer_program_view_ptr_abi_name\":\""
+            << kPremapFutureKernelNativeConsumerProgramViewPtrAbiV1Name << "\"";
+  std::cout << ",\"future_kernel_native_consumer_program_view_ptr_checked\":"
+            << (future_native_consumer_program_view_ptr_checked ? "true" : "false");
+  std::cout << ",\"future_kernel_native_consumer_program_view_ptr_mode\":\""
+            << kPremapFutureKernelNativeConsumerProgramViewPtrAbiV1Mode << "\"";
+  std::cout << ",\"future_kernel_native_consumer_program_view_ptr_source\":\""
+            << kPremapFutureKernelNativeConsumerProgramViewPtrAbiV1Source << "\"";
+  std::cout << ",\"future_kernel_native_consumer_program_view_ptr_version\":"
+            << kPremapFutureKernelNativeConsumerProgramViewPtrAbiV1Version;
+  std::cout << ",\"future_kernel_native_consumer_program_view_ptr_packet_struct_size\":"
+            << sizeof(PremapFutureKernelNativeConsumerProgramViewPtrV1);
+  std::cout << ",\"future_kernel_native_consumer_program_view_ptr_packet_struct_align\":"
+            << alignof(PremapFutureKernelNativeConsumerProgramViewPtrV1);
+  std::cout << ",\"future_kernel_native_consumer_program_view_ptr_program_view_struct_size\":"
+            << sizeof(PremapFutureKernelNativeConsumerProgramViewV1);
+  std::cout << ",\"future_kernel_native_consumer_program_view_ptr_result_struct_size\":"
+            << sizeof(PremapFutureKernelNativeConsumerProgramViewPtrResultV1);
+  std::cout << ",\"future_kernel_native_consumer_program_view_ptr_offset_program_view\":"
+            << offsetof(PremapFutureKernelNativeConsumerProgramViewPtrV1, program_view);
+  std::cout << ",\"future_kernel_native_consumer_program_view_ptr_offset_abi_version\":"
+            << offsetof(PremapFutureKernelNativeConsumerProgramViewPtrV1, abi_version);
+  std::cout << ",\"future_kernel_native_consumer_program_view_ptr_offset_program_view_struct_size\":"
+            << offsetof(PremapFutureKernelNativeConsumerProgramViewPtrV1, program_view_struct_size);
+  std::cout << ",\"future_kernel_native_consumer_program_view_ptr_offset_result_struct_size\":"
+            << offsetof(PremapFutureKernelNativeConsumerProgramViewPtrV1, result_struct_size);
+  std::cout << ",\"future_kernel_native_consumer_program_view_ptr_offset_payload_bytes\":"
+            << offsetof(PremapFutureKernelNativeConsumerProgramViewPtrV1, payload_bytes);
+  std::cout << ",\"future_kernel_native_consumer_program_view_ptr_offset_flags\":"
+            << offsetof(PremapFutureKernelNativeConsumerProgramViewPtrV1, flags);
+  std::cout << ",\"future_kernel_native_consumer_program_view_ptr_row_count\":"
+            << future_native_consumer_program_view_ptr_row_count;
+  std::cout << ",\"future_kernel_native_consumer_program_view_ptr_row_ok_count\":"
+            << (future_native_consumer_program_view_ptr_checked
+                    ? future_native_consumer_program_view_ptr_ok_count
+                    : 0);
+  std::cout << ",\"future_kernel_native_consumer_program_view_ptr_error_count\":"
+            << future_native_consumer_program_view_ptr_error_count;
+  std::cout << ",\"future_kernel_native_consumer_program_view_ptr_hash_accumulator\":\""
+            << std::hex << future_native_consumer_program_view_ptr_hash_acc
+            << std::dec << "\"";
+  std::cout << ",\"future_kernel_native_consumer_program_view_ptr_field_mask\":"
+            << future_kernel_consumer_args_field_mask;
+  std::cout << ",\"future_kernel_native_consumer_program_view_ptr_required_field_mask\":"
+            << kPremapFutureKernelSideConsumerFieldMaskRequired;
+  std::cout << ",\"future_kernel_native_consumer_program_view_ptr_payload_bytes\":0";
+  std::cout << ",\"future_kernel_native_consumer_program_view_ptr_payload_deref_allowed\":false";
+  std::cout << ",\"future_kernel_native_consumer_program_view_ptr_passed_to_kernel\":false";
+  std::cout << ",\"future_kernel_native_consumer_program_view_ptr_kernel_arg_pass_allowed\":false";
+  std::cout << ",\"future_kernel_native_consumer_program_view_ptr_changes_kernel_launch_args\":false";
+  std::cout << ",\"future_kernel_native_consumer_program_view_ptr_current_wna16_arg_compatible\":false";
+  std::cout << ",\"future_kernel_native_consumer_program_view_ptr_requires_wna16_arg_reinterpretation\":false";
   std::cout << ",\"typed_schema_hash_hi\":\"" << std::hex << kTypedSchemaHashHi << std::dec << "\"";
   std::cout << ",\"typed_schema_hash_lo\":\"" << std::hex << kTypedSchemaHashLo << std::dec << "\"";
   std::cout << ",\"aux_pointer_present\":" << (args.omit_aux_pointer ? "false" : "true");

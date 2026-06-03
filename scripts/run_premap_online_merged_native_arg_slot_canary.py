@@ -81,6 +81,7 @@ ARG_SLOT_BASE_MACROS = [
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ARG_SLOT_ABI",
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_VIEW_ABI",
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_PROGRAM_VIEW_ABI",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_PROGRAM_VIEW_PTR_ABI",
     "MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR",
 ]
 MIRROR_FIELD_MACRO = {
@@ -110,6 +111,7 @@ _FUTURE_KERNEL_FIELD_MASK_PREFIXES = (
     "future_kernel_native_arg_slot_consumer",
     "future_kernel_native_consumer_view",
     "future_kernel_native_consumer_program_view",
+    "future_kernel_native_consumer_program_view_ptr",
 )
 _HANDLE_PROJECTION_HASH_PREFIXES = (
     "future_kernel_native_dispatch_consumer",
@@ -265,6 +267,19 @@ STUB_SUMMARY_KEYS = (
     "future_kernel_native_consumer_program_view_requires_wna16_arg_reinterpretation",
     "future_kernel_native_consumer_program_view_field_mask",
     "future_kernel_native_consumer_program_view_required_field_mask",
+    "future_kernel_native_consumer_program_view_ptr_checked",
+    "future_kernel_native_consumer_program_view_ptr_source",
+    "future_kernel_native_consumer_program_view_ptr_row_count",
+    "future_kernel_native_consumer_program_view_ptr_row_ok_count",
+    "future_kernel_native_consumer_program_view_ptr_error_count",
+    "future_kernel_native_consumer_program_view_ptr_hash_accumulator",
+    "future_kernel_native_consumer_program_view_ptr_payload_bytes",
+    "future_kernel_native_consumer_program_view_ptr_passed_to_kernel",
+    "future_kernel_native_consumer_program_view_ptr_changes_kernel_launch_args",
+    "future_kernel_native_consumer_program_view_ptr_current_wna16_arg_compatible",
+    "future_kernel_native_consumer_program_view_ptr_requires_wna16_arg_reinterpretation",
+    "future_kernel_native_consumer_program_view_ptr_field_mask",
+    "future_kernel_native_consumer_program_view_ptr_required_field_mask",
 )
 
 
