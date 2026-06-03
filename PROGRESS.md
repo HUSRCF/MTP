@@ -2,8 +2,27 @@
 
 ## Progress Version
 
-- Version: `v0.66-future-native-consumer-invocation-abi-canary`
-- Updated: 2026-06-03
+- Version: `v0.67-invocation-abi-lab-closure`
+- Updated: 2026-06-04
+- Latest closure update: the canonical lab-gate closure now defaults to the
+  online-merged future-native `invocation` ABI artifacts, not the older
+  `kernel_launch_context` artifacts.  The closure runner passes
+  `--require-kernel-launch-context-abi` and
+  `--require-kernel-invocation-abi`, and the static closure checker now rejects
+  missing invocation evidence plus any `passed_to_kernel`,
+  `kernel_arg_pass_allowed`, `changes_kernel_launch_args`, payload, or current
+  WNA16-compatibility boundary violation at both launch-context and invocation
+  layers.  The refreshed GPU1 closure artifact
+  `outputs/reports/premap_lab_gate_closure_invocation_abi_gpu1.json` passes
+  with 32 online inputs, 1841 rows, `kernel_invocation_packet_chain_depth=11`,
+  all four typed handle fields read through the recorded runner evidence,
+  `payload_bytes=0`,
+  `passed_to_kernel=false`, `kernel_arg_pass_allowed=false`,
+  `changes_kernel_launch_args=false`, and
+  `current_wna16_arg_compatible=false`.  Its static checker artifact
+  `outputs/reports/premap_lab_gate_closure_invocation_abi_gpu1.check.json`
+  also passes.  Code/tests were committed and pushed as
+  `0fea4de Require invocation ABI in lab gate closure`.
 - Current phase: the standalone native typed consumer path now includes a
   future `PremapFutureKernelNativeConsumerInvocationV1` ABI canary.  This
   invocation object wraps the kernel-launch context as the next future
