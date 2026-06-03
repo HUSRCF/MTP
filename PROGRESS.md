@@ -3151,6 +3151,105 @@ passed = true
 failures = []
 ```
 
+## v0.66-online-merged-kernel-launch-descriptor-abi
+
+The future typed consumer path now has an online-merged native ABI canary for a
+kernel-launch descriptor wrapper.  This is one level closer to a real kernel-side
+consumer than the standalone launch-descriptor smoke because it starts from the
+32 exported online prelaunch typed-consumer inputs, merges them into one table,
+and asks the native stub to consume the descriptor through the full pointer
+chain:
+
+```text
+kernel_launch_descriptor
+  -> launch_envelope_args_ptr
+  -> launch_envelope_args
+  -> kernel_entry_args_ptr
+  -> kernel_entry_args
+  -> kernel_arg_packet
+  -> program_view
+  -> typed rows
+```
+
+The contract is still deliberately no-op with respect to the current WNA16
+fused-MoE kernel:
+
+```text
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+current_wna16_arg_compatible = false
+requires_wna16_arg_reinterpretation = false
+```
+
+Verification:
+
+```text
+python scripts/run_premap_online_merged_native_arg_slot_canary.py \
+  --require-kernel-launch-descriptor-abi \
+  --hip-visible-devices 1 \
+  --device 0 \
+  --force-build \
+  --output-json outputs/reports/premap_kernel_consumer/online_merged_future_native_arg_slot_kernel_launch_descriptor_canary_runner.json \
+  --stub-output-json outputs/reports/premap_kernel_consumer/typed_consumer_stub_gpu1_online_merged_future_native_arg_slot_kernel_launch_descriptor_canary.json \
+  --merged-output-json outputs/reports/premap_kernel_consumer/online_merged_prelaunch_typed_consumer_input_arg_slot_kernel_launch_descriptor.json
+
+passed = true
+selected_source_count = 32
+merged_row_count = 1841
+kernel_launch_descriptor_checked = true
+kernel_launch_descriptor_packet_chain_depth = 9
+kernel_launch_descriptor_error_count = 0
+kernel_launch_descriptor_all_handle_fields_read = true
+kernel_launch_descriptor_grid_x = 8
+kernel_launch_descriptor_block_x = 256
+kernel_launch_descriptor_row_offset = 0
+kernel_launch_descriptor_row_limit = 1841
+kernel_launch_descriptor_rows_per_program = 256
+```
+
+The row-window sweep also passes under the same descriptor ABI requirement:
+
+```text
+python scripts/run_premap_online_merged_native_arg_slot_window_sweep.py \
+  --require-kernel-launch-descriptor-abi \
+  --hip-visible-devices 1 \
+  --device 0 \
+  --force-build \
+  --output-json outputs/reports/premap_kernel_consumer/online_merged_future_native_arg_slot_kernel_launch_descriptor_window_sweep_runner.json \
+  --output-dir outputs/reports/premap_kernel_consumer/kernel_launch_descriptor_window_sweep
+
+passed = true
+require_kernel_launch_descriptor_abi = true
+require_launch_envelope_args_ptr_abi = true
+windows = full/head/middle/tail all passed
+row_count = 1841
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+```
+
+The static window-sweep checker now also enforces this requirement instead of
+trusting the runner report alone:
+
+```text
+python scripts/check_premap_online_merged_native_arg_slot_window_sweep.py \
+  outputs/reports/premap_kernel_consumer/online_merged_future_native_arg_slot_kernel_launch_descriptor_window_sweep_runner.json \
+  --expected-window-size 512 \
+  --require-child-program-view-ptr-abi \
+  --require-child-kernel-arg-packet-abi \
+  --require-child-kernel-entry-args-abi \
+  --require-child-kernel-entry-args-ptr-abi \
+  --require-child-launch-envelope-args-ptr-abi \
+  --require-child-kernel-launch-descriptor-abi \
+  --output-json outputs/reports/premap_kernel_consumer/online_merged_future_native_arg_slot_kernel_launch_descriptor_window_sweep_check.json
+
+passed = true
+failures = []
+require_child_kernel_launch_descriptor_abi = true
+windows_checked = full/head/middle/tail
+```
+
 ## Pointer-backed launch-envelope ABI window gate
 
 The future-native premap consumer path now has an optional row-window sweep

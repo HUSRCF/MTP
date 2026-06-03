@@ -65,6 +65,7 @@ def _passing_lab_gate_statuses() -> dict[str, dict]:
             "require_child_kernel_entry_args_abi": True,
             "require_child_kernel_entry_args_ptr_abi": True,
             "require_child_launch_envelope_args_ptr_abi": True,
+            "require_child_kernel_launch_descriptor_abi": True,
             "require_child_kernel_entry_row_metadata": True,
             "require_non_degenerate_windows": True,
             "expected_window_size": 512,
@@ -156,6 +157,7 @@ def test_run_premap_lab_gate_verify_dry_run_records_all_steps(tmp_path: Path):
     assert "--window-size" in sweep_cmd
     assert "--require-program-view-ptr-abi" in sweep_cmd
     assert "--require-launch-envelope-args-ptr-abi" in sweep_cmd
+    assert "--require-kernel-launch-descriptor-abi" in sweep_cmd
     assert "512" in sweep_cmd
     sweep_check_cmd = result["steps"]["window_sweep_check"]["cmd"]
     assert "scripts/check_premap_online_merged_native_arg_slot_window_sweep.py" in (
@@ -167,6 +169,7 @@ def test_run_premap_lab_gate_verify_dry_run_records_all_steps(tmp_path: Path):
     assert "--require-child-kernel-entry-args-abi" in sweep_check_cmd
     assert "--require-child-kernel-entry-args-ptr-abi" in sweep_check_cmd
     assert "--require-child-launch-envelope-args-ptr-abi" in sweep_check_cmd
+    assert "--require-child-kernel-launch-descriptor-abi" in sweep_check_cmd
     all_field_cmd = result["steps"]["all_field_window_sweep"]["cmd"]
     assert (
         "scripts/run_premap_online_merged_native_arg_slot_all_field_window_sweep.py"
@@ -208,6 +211,19 @@ def test_status_failures_precisely_reject_window_checker_without_launch_envelope
 
     assert failures == [
         "window_sweep_check_did_not_require_launch_envelope_args_ptr_abi"
+    ]
+
+
+def test_status_failures_precisely_reject_window_checker_without_kernel_launch_descriptor_gate():
+    statuses = _passing_lab_gate_statuses()
+    statuses["window_sweep_check"][
+        "require_child_kernel_launch_descriptor_abi"
+    ] = False
+
+    failures = _status_failures(statuses)
+
+    assert failures == [
+        "window_sweep_check_did_not_require_kernel_launch_descriptor_abi"
     ]
 
 

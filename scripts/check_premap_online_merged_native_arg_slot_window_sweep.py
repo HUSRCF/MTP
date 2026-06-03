@@ -29,6 +29,7 @@ from scripts.run_premap_online_merged_native_arg_slot_window_sweep import (  # n
 from scripts.run_premap_online_merged_native_arg_slot_canary import (  # noqa: E402
     _LAUNCH_ENVELOPE_ARGS_LAYOUT_EXPECTED,
     _LAUNCH_ENVELOPE_ARGS_PTR_LAYOUT_EXPECTED,
+    _check_kernel_launch_descriptor,
 )
 
 
@@ -771,6 +772,7 @@ def _check_child_stub_artifact(
     require_child_kernel_entry_args_abi: bool,
     require_child_kernel_entry_args_ptr_abi: bool,
     require_child_launch_envelope_args_ptr_abi: bool,
+    require_child_kernel_launch_descriptor_abi: bool,
 ) -> list[str]:
     failures: list[str] = []
     stub_path = _resolve_child_path(child.get("stub_output_json"), parent=parent)
@@ -887,6 +889,17 @@ def _check_child_stub_artifact(
                 expected_active=expected_active,
             )
         )
+    if require_child_kernel_launch_descriptor_abi:
+        failures.extend(
+            f"{label}_child_stub_artifact_{failure}"
+            for failure in _check_kernel_launch_descriptor(
+                stub_payload,
+                active_rows=expected_active,
+                block_threads=expected_block_threads,
+                dispatch_row_offset=expected_offset,
+                dispatch_row_limit=expected_limit,
+            )
+        )
     return failures
 
 
@@ -907,6 +920,7 @@ def _check_child_artifact(
     require_child_kernel_entry_args_abi: bool,
     require_child_kernel_entry_args_ptr_abi: bool,
     require_child_launch_envelope_args_ptr_abi: bool,
+    require_child_kernel_launch_descriptor_abi: bool,
 ) -> list[str]:
     failures: list[str] = []
     expected_pairs: dict[str, Any] = {
@@ -1075,6 +1089,39 @@ def _check_child_artifact(
             }.items():
                 if child.get(key) != expected:
                     failures.append(f"{label}_child_{key}_mismatch")
+        if require_child_kernel_launch_descriptor_abi:
+            failures.extend(
+                f"{label}_{failure}"
+                for failure in _check_kernel_launch_descriptor(
+                    stub_summary,
+                    active_rows=expected_active,
+                    block_threads=expected_block_threads,
+                    dispatch_row_offset=expected_offset,
+                    dispatch_row_limit=expected_limit,
+                )
+            )
+            for key, expected in {
+                "require_launch_envelope_args_abi": True,
+                "require_launch_envelope_args_ptr_abi": True,
+                "require_kernel_launch_descriptor_abi": True,
+                "kernel_launch_descriptor_checked": True,
+                "kernel_launch_descriptor_all_handle_fields_read": True,
+                "kernel_launch_descriptor_error_count": 0,
+                "kernel_launch_descriptor_packet_chain_depth": 9,
+                "kernel_launch_descriptor_grid_x": expected_programs,
+                "kernel_launch_descriptor_block_x": expected_block_threads,
+                "kernel_launch_descriptor_row_offset": expected_offset,
+                "kernel_launch_descriptor_row_limit": expected_limit,
+                "kernel_launch_descriptor_rows_per_program": expected_block_threads,
+                "kernel_launch_descriptor_version": 1,
+                "kernel_launch_descriptor_struct_size": 80,
+                "kernel_launch_descriptor_struct_align": 8,
+                "kernel_launch_descriptor_launch_args_ptr_struct_size": 32,
+                "kernel_launch_descriptor_summary_struct_size": 104,
+                "kernel_launch_descriptor_pointer_size": 8,
+            }.items():
+                if child.get(key) != expected:
+                    failures.append(f"{label}_child_{key}_mismatch")
     failures.extend(
         _check_child_stub_artifact(
             child,
@@ -1095,6 +1142,9 @@ def _check_child_artifact(
             require_child_launch_envelope_args_ptr_abi=(
                 require_child_launch_envelope_args_ptr_abi
             ),
+            require_child_kernel_launch_descriptor_abi=(
+                require_child_kernel_launch_descriptor_abi
+            ),
         )
     )
     return failures
@@ -1114,6 +1164,7 @@ def check_window_sweep_artifact(
     require_child_kernel_entry_args_abi: bool = False,
     require_child_kernel_entry_args_ptr_abi: bool = False,
     require_child_launch_envelope_args_ptr_abi: bool = False,
+    require_child_kernel_launch_descriptor_abi: bool = False,
 ) -> dict[str, Any]:
     sweep_path = path.resolve()
     payload, error = _safe_load_json(sweep_path)
@@ -1126,6 +1177,13 @@ def check_window_sweep_artifact(
         }
 
     failures: list[str] = []
+    require_child_kernel_launch_descriptor_abi = bool(
+        require_child_kernel_launch_descriptor_abi
+    )
+    require_child_launch_envelope_args_ptr_abi = (
+        bool(require_child_launch_envelope_args_ptr_abi)
+        or require_child_kernel_launch_descriptor_abi
+    )
     if require_child_kernel_entry_args_ptr_abi and not require_child_kernel_entry_args_abi:
         failures.append("require_child_kernel_entry_args_ptr_requires_entry_args_abi")
     if (
@@ -1154,6 +1212,11 @@ def check_window_sweep_artifact(
         "require_launch_envelope_args_ptr_abi"
     ) is not True:
         failures.append("require_launch_envelope_args_ptr_abi_mismatch")
+    if require_child_kernel_launch_descriptor_abi:
+        if payload.get("require_launch_envelope_args_ptr_abi") is not True:
+            failures.append("kernel_launch_descriptor_missing_launch_envelope_ptr")
+        if payload.get("require_kernel_launch_descriptor_abi") is not True:
+            failures.append("require_kernel_launch_descriptor_abi_mismatch")
 
     try:
         row_count = int(payload.get("row_count"))
@@ -1235,6 +1298,9 @@ def check_window_sweep_artifact(
                     require_child_launch_envelope_args_ptr_abi=bool(
                         require_child_launch_envelope_args_ptr_abi
                     ),
+                    require_child_kernel_launch_descriptor_abi=bool(
+                        require_child_kernel_launch_descriptor_abi
+                    ),
                 )
             )
 
@@ -1269,10 +1335,14 @@ def check_window_sweep_artifact(
         "require_child_launch_envelope_args_ptr_abi": bool(
             require_child_launch_envelope_args_ptr_abi
         ),
+        "require_child_kernel_launch_descriptor_abi": bool(
+            require_child_kernel_launch_descriptor_abi
+        ),
         "require_child_kernel_entry_row_metadata": bool(
             require_child_kernel_entry_args_abi
             or require_child_kernel_entry_args_ptr_abi
             or require_child_launch_envelope_args_ptr_abi
+            or require_child_kernel_launch_descriptor_abi
         ),
         "row_count": row_count,
         "windows_checked": list(REQUIRED_WINDOWS),
@@ -1294,6 +1364,10 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--require-child-kernel-entry-args-ptr-abi", action="store_true")
     parser.add_argument(
         "--require-child-launch-envelope-args-ptr-abi",
+        action="store_true",
+    )
+    parser.add_argument(
+        "--require-child-kernel-launch-descriptor-abi",
         action="store_true",
     )
     parser.add_argument("--output-json", type=Path)
@@ -1324,6 +1398,9 @@ def main(argv: list[str] | None = None) -> int:
         ),
         require_child_launch_envelope_args_ptr_abi=bool(
             args.require_child_launch_envelope_args_ptr_abi
+        ),
+        require_child_kernel_launch_descriptor_abi=bool(
+            args.require_child_kernel_launch_descriptor_abi
         ),
     )
     if args.output_json is not None:

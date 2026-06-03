@@ -567,6 +567,119 @@ def test_online_merged_arg_slot_canary_dry_run_accepts_launch_envelope_args_ptr(
     )
 
 
+def test_online_merged_arg_slot_canary_dry_run_accepts_kernel_launch_descriptor(
+    tmp_path: Path,
+):
+    module = _load_module()
+    first = tmp_path / "input0.json"
+    second = tmp_path / "input1.json"
+    runner = tmp_path / "runner.json"
+    stub = tmp_path / "stub.json"
+    _write_input(first, start=0, rows=3, export_index=0)
+    _write_input(second, start=100, rows=4, export_index=1)
+    _write_runner(runner, [first, second])
+
+    args = module.build_parser().parse_args(
+        [
+            "--runner-json",
+            str(runner),
+            "--min-source-count",
+            "2",
+            "--min-total-rows",
+            "7",
+            "--block-threads",
+            "4",
+            "--require-kernel-launch-descriptor-abi",
+            "--merged-output-json",
+            str(tmp_path / "merged.json"),
+            "--stub-output-json",
+            str(stub),
+            "--output-json",
+            str(tmp_path / "report.json"),
+            "--dry-run",
+        ]
+    )
+
+    result = module.run_canary(args)
+    stub_payload = json.loads(stub.read_text(encoding="utf-8"))
+
+    assert result["passed"] is True
+    assert args.require_launch_envelope_args_abi is False
+    assert args.require_launch_envelope_args_ptr_abi is False
+    assert result["require_launch_envelope_args_abi"] is True
+    assert result["require_launch_envelope_args_ptr_abi"] is True
+    assert result["require_kernel_launch_descriptor_abi"] is True
+    assert result["kernel_launch_descriptor_checked"] is True
+    assert (
+        result["kernel_launch_descriptor_abi_name"]
+        == "premap_future_kernel_native_consumer_kernel_launch_descriptor_abi_v1"
+    )
+    assert (
+        result["kernel_launch_descriptor_mode"]
+        == "readonly_future_kernel_native_consumer_kernel_launch_descriptor_abi"
+    )
+    assert (
+        result["kernel_launch_descriptor_source"]
+        == "premap_future_kernel_native_consumer_launch_envelope_args_ptr_abi_v1"
+    )
+    assert result["kernel_launch_descriptor_error_count"] == 0
+    assert result["kernel_launch_descriptor_all_handle_fields_read"] is True
+    assert result["kernel_launch_descriptor_packet_chain_depth"] == 9
+    assert result["kernel_launch_descriptor_version"] == 1
+    assert result["kernel_launch_descriptor_struct_size"] == 80
+    assert result["kernel_launch_descriptor_struct_align"] == 8
+    assert result["kernel_launch_descriptor_launch_args_ptr_struct_size"] == 32
+    assert result["kernel_launch_descriptor_summary_struct_size"] == 104
+    assert result["kernel_launch_descriptor_pointer_size"] == 8
+    assert result["kernel_launch_descriptor_grid_x"] == 2
+    assert result["kernel_launch_descriptor_block_x"] == 4
+    assert result["kernel_launch_descriptor_row_offset"] == 0
+    assert result["kernel_launch_descriptor_row_limit"] == 7
+    assert result["kernel_launch_descriptor_rows_per_program"] == 4
+    assert int(result["kernel_launch_descriptor_row_hash_accumulator"], 16) == 1
+    assert int(result["kernel_launch_descriptor_field_read_hash_accumulator"], 16) == 2
+    assert int(result["kernel_launch_descriptor_row_metadata_hash_accumulator"], 16) == 3
+    assert module.LAUNCH_ENVELOPE_ARGS_MACRO in stub_payload["requested_macros"]
+    assert module.LAUNCH_ENVELOPE_ARGS_PTR_MACRO in stub_payload["requested_macros"]
+    assert module.KERNEL_LAUNCH_DESCRIPTOR_MACRO in stub_payload["requested_macros"]
+    assert (
+        stub_payload[
+            "future_kernel_native_consumer_kernel_launch_descriptor_field_read_path"
+        ]
+        == "kernel_launch_descriptor_to_launch_envelope_args_ptr_to_launch_envelope_args_to_entry_args_ptr_to_kernel_entry_args_to_kernel_arg_packet_to_program_view_rows"
+    )
+    assert (
+        stub_payload[
+            "future_kernel_native_consumer_kernel_launch_descriptor_summary_row_count"
+        ]
+        == 7
+    )
+    assert (
+        stub_payload[
+            "future_kernel_native_consumer_kernel_launch_descriptor_payload_bytes"
+        ]
+        == 0
+    )
+    assert (
+        stub_payload[
+            "future_kernel_native_consumer_kernel_launch_descriptor_passed_to_kernel"
+        ]
+        is False
+    )
+    assert (
+        stub_payload[
+            "future_kernel_native_consumer_kernel_launch_descriptor_current_wna16_arg_compatible"
+        ]
+        is False
+    )
+    assert (
+        result["stub_summary"][
+            "future_kernel_native_consumer_kernel_launch_descriptor_packet_chain_depth"
+        ]
+        == 9
+    )
+
+
 def test_online_merged_arg_slot_canary_tail_window_checks_launch_envelope_args(
     tmp_path: Path,
 ):

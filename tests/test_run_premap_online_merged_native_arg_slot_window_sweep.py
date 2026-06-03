@@ -357,6 +357,52 @@ def test_window_sweep_dry_run_can_require_launch_envelope_args_ptr(tmp_path: Pat
         assert child["launch_envelope_args_ptr_packet_chain_depth"] == 8
 
 
+def test_window_sweep_dry_run_can_require_kernel_launch_descriptor(tmp_path: Path):
+    first = tmp_path / "input0.json"
+    second = tmp_path / "input1.json"
+    runner = tmp_path / "runner.json"
+    output = tmp_path / "sweep.json"
+    _write_input(first, start=0, rows=8, export_index=0)
+    _write_input(second, start=100, rows=9, export_index=1)
+    _write_runner(runner, [first, second])
+
+    args = build_parser().parse_args(
+        [
+            "--runner-json",
+            str(runner),
+            "--output-dir",
+            str(tmp_path / "artifacts"),
+            "--output-json",
+            str(output),
+            "--min-source-count",
+            "2",
+            "--min-total-rows",
+            "17",
+            "--block-threads",
+            "4",
+            "--window-size",
+            "4",
+            "--require-kernel-launch-descriptor-abi",
+            "--dry-run",
+        ]
+    )
+
+    result = run_sweep(args)
+
+    assert result["passed"] is True
+    assert result["require_kernel_launch_descriptor_abi"] is True
+    for label in ("full", "head", "middle", "tail"):
+        child_path = Path(result["windows"][label]["output_json"])
+        child = json.loads(child_path.read_text(encoding="utf-8"))
+        assert child["require_launch_envelope_args_abi"] is True
+        assert child["require_launch_envelope_args_ptr_abi"] is True
+        assert child["require_kernel_launch_descriptor_abi"] is True
+        assert child["kernel_launch_descriptor_checked"] is True
+        assert child["kernel_launch_descriptor_packet_chain_depth"] == 9
+        assert child["kernel_launch_descriptor_error_count"] == 0
+        assert child["kernel_launch_descriptor_all_handle_fields_read"] is True
+
+
 def test_window_sweep_cli_writes_output(tmp_path: Path):
     first = tmp_path / "input0.json"
     second = tmp_path / "input1.json"

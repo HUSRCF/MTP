@@ -23,6 +23,7 @@ if str(REPO_ROOT) not in sys.path:
 from scripts.run_premap_online_merged_native_arg_slot_canary import (  # noqa: E402
     DEFAULT_SOURCE_RUNNER_JSON,
     LAB_DEFAULT_GPU_DEVICE,
+    _check_kernel_launch_descriptor,
     _check_launch_envelope_args,
     _check_launch_envelope_args_ptr,
     build_parser as build_arg_slot_parser,
@@ -142,6 +143,8 @@ def _canary_args(
         argv.append("--dry-run")
     if args.require_launch_envelope_args_ptr_abi:
         argv.append("--require-launch-envelope-args-ptr-abi")
+    if args.require_kernel_launch_descriptor_abi:
+        argv.append("--require-kernel-launch-descriptor-abi")
     if offset is not None and limit is not None:
         argv.extend(["--dispatch-row-offset", str(int(offset))])
         argv.extend(["--dispatch-row-limit", str(int(limit))])
@@ -156,6 +159,7 @@ def _validate_window_result(
     expected_limit: int,
     require_program_view_ptr_abi: bool = False,
     require_launch_envelope_args_ptr_abi: bool = False,
+    require_kernel_launch_descriptor_abi: bool = False,
 ) -> list[str]:
     failures: list[str] = []
     expected_active = int(expected_limit) - int(expected_offset)
@@ -335,12 +339,66 @@ def _validate_window_result(
                 active_rows=expected_active,
             )
         )
+    if require_kernel_launch_descriptor_abi:
+        block_threads = int(result.get("block_threads", 0))
+        expected_programs = (
+            (expected_active + block_threads - 1) // block_threads
+            if block_threads > 0
+            else 0
+        )
+        if result.get("require_launch_envelope_args_abi") is not True:
+            failures.append(f"{label}_require_launch_envelope_args_abi_mismatch")
+        if result.get("require_launch_envelope_args_ptr_abi") is not True:
+            failures.append(f"{label}_require_launch_envelope_args_ptr_abi_mismatch")
+        if result.get("require_kernel_launch_descriptor_abi") is not True:
+            failures.append(f"{label}_require_kernel_launch_descriptor_abi_mismatch")
+        for key, expected in {
+            "kernel_launch_descriptor_checked": True,
+            "kernel_launch_descriptor_all_handle_fields_read": True,
+            "kernel_launch_descriptor_error_count": 0,
+            "kernel_launch_descriptor_packet_chain_depth": 9,
+            "kernel_launch_descriptor_grid_x": expected_programs,
+            "kernel_launch_descriptor_block_x": block_threads,
+            "kernel_launch_descriptor_row_offset": int(expected_offset),
+            "kernel_launch_descriptor_row_limit": int(expected_limit),
+            "kernel_launch_descriptor_rows_per_program": block_threads,
+            "kernel_launch_descriptor_version": 1,
+            "kernel_launch_descriptor_struct_size": 80,
+            "kernel_launch_descriptor_struct_align": 8,
+            "kernel_launch_descriptor_launch_args_ptr_struct_size": 32,
+            "kernel_launch_descriptor_summary_struct_size": 104,
+            "kernel_launch_descriptor_pointer_size": 8,
+        }.items():
+            if result.get(key) != expected:
+                failures.append(f"{label}_{key}_mismatch")
+        stub_summary = result.get("stub_summary")
+        if not isinstance(stub_summary, dict):
+            failures.append(f"{label}_kernel_launch_descriptor_stub_summary_missing")
+            stub_summary = {}
+        failures.extend(
+            f"{label}_stub_summary_{failure}"
+            for failure in _check_kernel_launch_descriptor(
+                stub_summary,
+                active_rows=expected_active,
+                block_threads=block_threads,
+                dispatch_row_offset=int(expected_offset),
+                dispatch_row_limit=int(expected_limit),
+            )
+        )
     return failures
 
 
 def run_sweep(args: argparse.Namespace) -> dict[str, Any]:
     output_dir = _resolve(args.output_dir)
     output_json = _resolve(args.output_json)
+    require_kernel_launch_descriptor_abi = bool(
+        args.require_kernel_launch_descriptor_abi
+    )
+    require_launch_envelope_args_ptr_abi = (
+        bool(args.require_launch_envelope_args_ptr_abi)
+        or require_kernel_launch_descriptor_abi
+    )
+    require_program_view_ptr_abi = bool(args.require_program_view_ptr_abi)
 
     full_report, full_stub, full_merged = _artifact_paths(
         output_dir,
@@ -363,10 +421,9 @@ def run_sweep(args: argparse.Namespace) -> dict[str, Any]:
         label="full",
         expected_offset=0,
         expected_limit=row_count,
-        require_program_view_ptr_abi=bool(args.require_program_view_ptr_abi),
-        require_launch_envelope_args_ptr_abi=bool(
-            args.require_launch_envelope_args_ptr_abi
-        ),
+        require_program_view_ptr_abi=require_program_view_ptr_abi,
+        require_launch_envelope_args_ptr_abi=require_launch_envelope_args_ptr_abi,
+        require_kernel_launch_descriptor_abi=require_kernel_launch_descriptor_abi,
     )
     window_results: dict[str, dict[str, Any]] = {"full": full_result}
     window_artifacts: dict[str, dict[str, str]] = {
@@ -398,11 +455,12 @@ def run_sweep(args: argparse.Namespace) -> dict[str, Any]:
                 label=label,
                 expected_offset=offset,
                 expected_limit=limit,
-                require_program_view_ptr_abi=bool(
-                    args.require_program_view_ptr_abi
+                require_program_view_ptr_abi=require_program_view_ptr_abi,
+                require_launch_envelope_args_ptr_abi=(
+                    require_launch_envelope_args_ptr_abi
                 ),
-                require_launch_envelope_args_ptr_abi=bool(
-                    args.require_launch_envelope_args_ptr_abi
+                require_kernel_launch_descriptor_abi=(
+                    require_kernel_launch_descriptor_abi
                 ),
             )
         )
@@ -419,9 +477,12 @@ def run_sweep(args: argparse.Namespace) -> dict[str, Any]:
         "source": "online_merged_future_native_arg_slot_window_sweep_runner",
         "runner_json": str(_resolve(args.runner_json)),
         "window_size": int(args.window_size),
-        "require_program_view_ptr_abi": bool(args.require_program_view_ptr_abi),
+        "require_program_view_ptr_abi": require_program_view_ptr_abi,
         "require_launch_envelope_args_ptr_abi": bool(
-            args.require_launch_envelope_args_ptr_abi
+            require_launch_envelope_args_ptr_abi
+        ),
+        "require_kernel_launch_descriptor_abi": bool(
+            require_kernel_launch_descriptor_abi
         ),
         "row_count": row_count,
         "device": int(args.device),
@@ -473,6 +534,15 @@ def build_parser() -> argparse.ArgumentParser:
             "Require each child canary to validate the pointer-backed future "
             "launch-envelope ABI for its row window.  This implies the "
             "by-value launch-envelope ABI inside the child canary."
+        ),
+    )
+    parser.add_argument(
+        "--require-kernel-launch-descriptor-abi",
+        action="store_true",
+        help=(
+            "Require each child canary to validate the future native "
+            "kernel-launch descriptor ABI. This implies the pointer-backed "
+            "launch-envelope ABI inside the child canary."
         ),
     )
     parser.add_argument("--max-inputs", type=int, default=32)

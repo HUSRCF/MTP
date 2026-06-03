@@ -312,6 +312,75 @@ def _launch_envelope_args_ptr_pairs(active: int) -> dict[str, object]:
     }
 
 
+def _kernel_launch_descriptor_pairs(
+    *,
+    active: int,
+    offset: int,
+    limit: int,
+    programs: int,
+    block_threads: int,
+) -> dict[str, object]:
+    return {
+        "future_kernel_native_consumer_kernel_launch_descriptor_abi_name": (
+            "premap_future_kernel_native_consumer_kernel_launch_descriptor_abi_v1"
+        ),
+        "future_kernel_native_consumer_kernel_launch_descriptor_checked": True,
+        "future_kernel_native_consumer_kernel_launch_descriptor_mode": (
+            "readonly_future_kernel_native_consumer_kernel_launch_descriptor_abi"
+        ),
+        "future_kernel_native_consumer_kernel_launch_descriptor_source": (
+            "premap_future_kernel_native_consumer_launch_envelope_args_ptr_abi_v1"
+        ),
+        "future_kernel_native_consumer_kernel_launch_descriptor_field_read_path": (
+            "kernel_launch_descriptor_to_launch_envelope_args_ptr_to_launch_envelope_args_to_entry_args_ptr_to_kernel_entry_args_to_kernel_arg_packet_to_program_view_rows"
+        ),
+        "future_kernel_native_consumer_kernel_launch_descriptor_packet_chain_depth": 9,
+        "future_kernel_native_consumer_kernel_launch_descriptor_version": 1,
+        "future_kernel_native_consumer_kernel_launch_descriptor_struct_size": 80,
+        "future_kernel_native_consumer_kernel_launch_descriptor_struct_align": 8,
+        "future_kernel_native_consumer_kernel_launch_descriptor_offset_launch_args_ptr": 0,
+        "future_kernel_native_consumer_kernel_launch_descriptor_offset_summary": 8,
+        "future_kernel_native_consumer_kernel_launch_descriptor_offset_expected_schema_hash_hi": 16,
+        "future_kernel_native_consumer_kernel_launch_descriptor_offset_expected_schema_hash_lo": 24,
+        "future_kernel_native_consumer_kernel_launch_descriptor_offset_abi_version": 32,
+        "future_kernel_native_consumer_kernel_launch_descriptor_offset_grid_x": 48,
+        "future_kernel_native_consumer_kernel_launch_descriptor_offset_block_x": 52,
+        "future_kernel_native_consumer_kernel_launch_descriptor_offset_row_offset": 56,
+        "future_kernel_native_consumer_kernel_launch_descriptor_offset_row_limit": 60,
+        "future_kernel_native_consumer_kernel_launch_descriptor_offset_rows_per_program": 64,
+        "future_kernel_native_consumer_kernel_launch_descriptor_offset_payload_bytes": 68,
+        "future_kernel_native_consumer_kernel_launch_descriptor_offset_flags": 72,
+        "future_kernel_native_consumer_kernel_launch_descriptor_launch_args_ptr_struct_size": 32,
+        "future_kernel_native_consumer_kernel_launch_descriptor_summary_struct_size": 104,
+        "future_kernel_native_consumer_kernel_launch_descriptor_pointer_size": 8,
+        "future_kernel_native_consumer_kernel_launch_descriptor_grid_x": programs,
+        "future_kernel_native_consumer_kernel_launch_descriptor_block_x": block_threads,
+        "future_kernel_native_consumer_kernel_launch_descriptor_row_offset": offset,
+        "future_kernel_native_consumer_kernel_launch_descriptor_row_limit": limit,
+        "future_kernel_native_consumer_kernel_launch_descriptor_rows_per_program": block_threads,
+        "future_kernel_native_consumer_kernel_launch_descriptor_summary_packet_valid": 1,
+        "future_kernel_native_consumer_kernel_launch_descriptor_summary_row_count": active,
+        "future_kernel_native_consumer_kernel_launch_descriptor_summary_row_ok_count": active,
+        "future_kernel_native_consumer_kernel_launch_descriptor_summary_descriptor_ptr_read_row_ok_count": active,
+        "future_kernel_native_consumer_kernel_launch_descriptor_summary_packed_weight_descriptor_read_row_ok_count": active,
+        "future_kernel_native_consumer_kernel_launch_descriptor_summary_scale_metadata_handle_read_row_ok_count": active,
+        "future_kernel_native_consumer_kernel_launch_descriptor_summary_aux_metadata_handle_read_row_ok_count": active,
+        "future_kernel_native_consumer_kernel_launch_descriptor_summary_expert_id_read_row_ok_count": active,
+        "future_kernel_native_consumer_kernel_launch_descriptor_summary_address_key_hash_read_row_ok_count": active,
+        "future_kernel_native_consumer_kernel_launch_descriptor_summary_row_metadata_read_row_ok_count": active,
+        "future_kernel_native_consumer_kernel_launch_descriptor_summary_error_count": 0,
+        "future_kernel_native_consumer_kernel_launch_descriptor_summary_field_mask": 15,
+        "future_kernel_native_consumer_kernel_launch_descriptor_payload_bytes": 0,
+        "future_kernel_native_consumer_kernel_launch_descriptor_passed_to_kernel": False,
+        "future_kernel_native_consumer_kernel_launch_descriptor_changes_kernel_launch_args": False,
+        "future_kernel_native_consumer_kernel_launch_descriptor_current_wna16_arg_compatible": False,
+        "future_kernel_native_consumer_kernel_launch_descriptor_requires_wna16_arg_reinterpretation": False,
+        "future_kernel_native_consumer_kernel_launch_descriptor_summary_row_hash_accumulator": "0000000000000001",
+        "future_kernel_native_consumer_kernel_launch_descriptor_summary_field_read_hash_accumulator": "0000000000000002",
+        "future_kernel_native_consumer_kernel_launch_descriptor_summary_row_metadata_hash_accumulator": "0000000000000003",
+    }
+
+
 def _handle_projection_pairs(value: str = "projection") -> dict[str, str]:
     return {
         "future_kernel_native_dispatch_consumer_handle_projection_hash_accumulator": value,
@@ -413,8 +482,13 @@ def _child_payload(
     merged_row_count: int,
     mirror_field: str,
     include_launch_envelope_args_ptr_abi: bool = False,
+    include_kernel_launch_descriptor_abi: bool = False,
 ) -> dict[str, object]:
     active = limit - offset
+    include_launch_envelope_args_ptr_abi = (
+        include_launch_envelope_args_ptr_abi
+        or include_kernel_launch_descriptor_abi
+    )
     stub_summary = {
         "passed": True,
         "payload_bytes": 0,
@@ -508,6 +582,36 @@ def _child_payload(
             )
         )
         stub_summary.update(_launch_envelope_args_ptr_pairs(active))
+    if include_kernel_launch_descriptor_abi:
+        child.update(
+            {
+                "require_kernel_launch_descriptor_abi": True,
+                "kernel_launch_descriptor_checked": True,
+                "kernel_launch_descriptor_all_handle_fields_read": True,
+                "kernel_launch_descriptor_error_count": 0,
+                "kernel_launch_descriptor_packet_chain_depth": 9,
+                "kernel_launch_descriptor_grid_x": programs,
+                "kernel_launch_descriptor_block_x": block_threads,
+                "kernel_launch_descriptor_row_offset": offset,
+                "kernel_launch_descriptor_row_limit": limit,
+                "kernel_launch_descriptor_rows_per_program": block_threads,
+                "kernel_launch_descriptor_version": 1,
+                "kernel_launch_descriptor_struct_size": 80,
+                "kernel_launch_descriptor_struct_align": 8,
+                "kernel_launch_descriptor_launch_args_ptr_struct_size": 32,
+                "kernel_launch_descriptor_summary_struct_size": 104,
+                "kernel_launch_descriptor_pointer_size": 8,
+            }
+        )
+        stub_summary.update(
+            _kernel_launch_descriptor_pairs(
+                active=active,
+                offset=offset,
+                limit=limit,
+                programs=programs,
+                block_threads=block_threads,
+            )
+        )
     return child
 
 
@@ -519,6 +623,7 @@ def _write_artifact(
     window_size: int = 4,
     mirror_field: str = "scale_metadata_handle",
     include_launch_envelope_args_ptr_abi: bool = False,
+    include_kernel_launch_descriptor_abi: bool = False,
 ) -> Path:
     block_threads = 4
     active = min(window_size, row_count)
@@ -545,6 +650,9 @@ def _write_artifact(
             mirror_field=mirror_field,
             include_launch_envelope_args_ptr_abi=(
                 include_launch_envelope_args_ptr_abi
+            ),
+            include_kernel_launch_descriptor_abi=(
+                include_kernel_launch_descriptor_abi
             ),
         )
         child["stub_output_json"] = str(stub_path)
@@ -582,6 +690,10 @@ def _write_artifact(
         "mirror_field": mirror_field,
         "require_launch_envelope_args_ptr_abi": (
             include_launch_envelope_args_ptr_abi
+            or include_kernel_launch_descriptor_abi
+        ),
+        "require_kernel_launch_descriptor_abi": (
+            include_kernel_launch_descriptor_abi
         ),
         "payload_bytes": 0,
         "passed_to_kernel": False,
@@ -845,6 +957,30 @@ def test_window_sweep_check_accepts_launch_envelope_args_ptr_requirement(
     assert result["require_child_kernel_entry_row_metadata"] is True
 
 
+def test_window_sweep_check_accepts_kernel_launch_descriptor_requirement(
+    tmp_path: Path,
+):
+    path = _write_artifact(tmp_path, include_kernel_launch_descriptor_abi=True)
+
+    result = check_window_sweep_artifact(
+        path,
+        expected_window_size=4,
+        expected_block_threads=4,
+        min_row_count=17,
+        require_child_kernel_entry_args_abi=True,
+        require_child_kernel_entry_args_ptr_abi=True,
+        require_child_launch_envelope_args_ptr_abi=True,
+        require_child_kernel_launch_descriptor_abi=True,
+    )
+
+    assert result["passed"] is True
+    assert result["require_child_kernel_entry_args_abi"] is True
+    assert result["require_child_kernel_entry_args_ptr_abi"] is True
+    assert result["require_child_launch_envelope_args_ptr_abi"] is True
+    assert result["require_child_kernel_launch_descriptor_abi"] is True
+    assert result["require_child_kernel_entry_row_metadata"] is True
+
+
 def test_window_sweep_check_rejects_launch_envelope_args_ptr_without_entry_args_ptr(
     tmp_path: Path,
 ):
@@ -902,6 +1038,49 @@ def test_window_sweep_check_rejects_missing_launch_envelope_args_ptr_requirement
     ]
     assert (
         "head_child_stub_artifact_launch_envelope_args_ptr_missing_or_dry_run_unsupported"
+        in result["failures"]
+    )
+
+
+def test_window_sweep_check_rejects_missing_kernel_launch_descriptor_requirement(
+    tmp_path: Path,
+):
+    path = _write_artifact(tmp_path, include_kernel_launch_descriptor_abi=True)
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    windows = payload["windows"]
+    assert isinstance(windows, dict)
+    child_path = Path(windows["head"]["output_json"])
+    stub_path = Path(windows["head"]["stub_output_json"])
+    child = json.loads(child_path.read_text(encoding="utf-8"))
+    stub_payload = json.loads(stub_path.read_text(encoding="utf-8"))
+    child["kernel_launch_descriptor_checked"] = False
+    for item in (child["stub_summary"], stub_payload):
+        assert isinstance(item, dict)
+        item.pop("future_kernel_native_consumer_kernel_launch_descriptor_checked")
+    child_path.write_text(json.dumps(child) + "\n", encoding="utf-8")
+    stub_path.write_text(json.dumps(stub_payload) + "\n", encoding="utf-8")
+
+    result = check_window_sweep_artifact(
+        path,
+        expected_window_size=4,
+        expected_block_threads=4,
+        min_row_count=17,
+        require_child_kernel_entry_args_abi=True,
+        require_child_kernel_entry_args_ptr_abi=True,
+        require_child_launch_envelope_args_ptr_abi=True,
+        require_child_kernel_launch_descriptor_abi=True,
+    )
+
+    assert result["passed"] is False
+    assert "head_child_kernel_launch_descriptor_checked_mismatch" in result[
+        "failures"
+    ]
+    assert (
+        "head_future_kernel_native_consumer_kernel_launch_descriptor_missing_or_dry_run_unsupported"
+        in result["failures"]
+    )
+    assert (
+        "head_child_stub_artifact_future_kernel_native_consumer_kernel_launch_descriptor_missing_or_dry_run_unsupported"
         in result["failures"]
     )
 
