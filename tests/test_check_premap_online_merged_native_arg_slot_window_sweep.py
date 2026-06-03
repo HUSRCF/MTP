@@ -16,6 +16,9 @@ _FIELD_MASK_PREFIXES = (
     "future_kernel_native_dispatch_ptr_consumer",
     "future_kernel_native_arg_slot_consumer",
     "future_kernel_native_consumer_view",
+    "future_kernel_native_consumer_program_view",
+    "future_kernel_native_consumer_program_view_ptr",
+    "future_kernel_native_consumer_kernel_arg_packet",
 )
 
 
@@ -72,6 +75,31 @@ def _program_view_ptr_pairs(active: int) -> dict[str, object]:
             False
         ),
         "future_kernel_native_consumer_program_view_ptr_requires_wna16_arg_reinterpretation": (
+            False
+        ),
+    }
+
+
+def _kernel_arg_packet_pairs(active: int) -> dict[str, object]:
+    return {
+        "future_kernel_native_consumer_kernel_arg_packet_checked": True,
+        "future_kernel_native_consumer_kernel_arg_packet_source": (
+            "premap_future_kernel_native_consumer_program_view_ptr_abi_v1"
+        ),
+        "future_kernel_native_consumer_kernel_arg_packet_row_count": active,
+        "future_kernel_native_consumer_kernel_arg_packet_row_ok_count": active,
+        "future_kernel_native_consumer_kernel_arg_packet_error_count": 0,
+        "future_kernel_native_consumer_kernel_arg_packet_field_mask": 15,
+        "future_kernel_native_consumer_kernel_arg_packet_required_field_mask": 7,
+        "future_kernel_native_consumer_kernel_arg_packet_payload_bytes": 0,
+        "future_kernel_native_consumer_kernel_arg_packet_passed_to_kernel": False,
+        "future_kernel_native_consumer_kernel_arg_packet_changes_kernel_launch_args": (
+            False
+        ),
+        "future_kernel_native_consumer_kernel_arg_packet_current_wna16_arg_compatible": (
+            False
+        ),
+        "future_kernel_native_consumer_kernel_arg_packet_requires_wna16_arg_reinterpretation": (
             False
         ),
     }
@@ -167,6 +195,7 @@ def _child_payload(
             **_consumer_view_row_layout_pairs(),
             **_handle_projection_pairs(),
             **_program_view_ptr_pairs(active),
+            **_kernel_arg_packet_pairs(active),
             **_field_mask_pairs(),
             **_field_read_pairs("future_kernel_native_arg_slot_consumer", active),
             **_field_read_pairs("future_kernel_native_consumer_view", active),

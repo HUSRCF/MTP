@@ -27528,3 +27528,81 @@ python scripts/check_premap_lab_gate_verify.py \
 passed = true
 failures = []
 ```
+
+## Future native kernel-arg packet ABI gate
+
+The typed premap consumer path now includes an explicit future kernel-arg
+packet ABI:
+
+```text
+PremapFutureKernelNativeConsumerKernelArgPacketV1
+```
+
+This is a compact wrapper around the existing future native
+`program_view_ptr` ABI.  It models the shape of a future kernel-side argument
+packet without reinterpreting the table as the current WNA16 fused-MoE kernel
+argument list.
+
+The contract remains read-only and no-op with respect to the real vLLM kernel:
+
+```text
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+current_wna16_arg_compatible = false
+requires_wna16_arg_reinterpretation = false
+```
+
+The native stub validates that the packet points at a valid program-view pointer
+object, that row-window/program-lane iteration still reaches the required
+descriptor/address handle fields, and that all field masks remain visible
+through the packet wrapper.
+
+Verification:
+
+```text
+python scripts/run_premap_typed_consumer_stub.py \
+  --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_SCHEMA \
+  --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_ROW_ITERATION \
+  --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_POINTER_VISIBILITY \
+  --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_LIFETIME \
+  --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ABI \
+  --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ABI \
+  --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_ABI \
+  --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_PTR_ABI \
+  --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ARG_SLOT_ABI \
+  --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_VIEW_ABI \
+  --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_PROGRAM_VIEW_ABI \
+  --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_PROGRAM_VIEW_PTR_ABI \
+  --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ARG_PACKET_ABI \
+  --macro MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR \
+  --rows 64 \
+  --device 0
+
+ok = true
+future_kernel_native_consumer_kernel_arg_packet_checked = true
+future_kernel_native_consumer_kernel_arg_packet_row_count = 64
+future_kernel_native_consumer_kernel_arg_packet_row_ok_count = 64
+future_kernel_native_consumer_kernel_arg_packet_error_count = 0
+
+python scripts/check_premap_kernel_consumer_schema.py \
+  configs/runtime/premap_kernel_side_typed_consumer_schema_v1.yaml \
+  --output-json /tmp/premap_schema_check.json
+
+passed = true
+
+python scripts/run_premap_lab_gate_verify.py \
+  --output-json outputs/reports/premap_lab_gate_verify.json
+
+passed = true
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+
+python scripts/check_premap_lab_gate_verify.py \
+  outputs/reports/premap_lab_gate_verify.json \
+  --output-json outputs/reports/premap_lab_gate_verify.check.json
+
+passed = true
+failures = []
+```

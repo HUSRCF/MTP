@@ -42,6 +42,9 @@ _FUTURE_KERNEL_FIELD_MASK_PREFIXES = (
     "future_kernel_native_dispatch_ptr_consumer",
     "future_kernel_native_arg_slot_consumer",
     "future_kernel_native_consumer_view",
+    "future_kernel_native_consumer_program_view",
+    "future_kernel_native_consumer_program_view_ptr",
+    "future_kernel_native_consumer_kernel_arg_packet",
 )
 HANDLE_FIELD_READ_FIELDS = (
     "descriptor_ptr",

@@ -62,6 +62,10 @@ EXPECTED_PROGRAM_VIEW_PTR_ABI_SOURCE = _schema_scalar(
     DEFAULT_TYPED_CONSUMER_SCHEMA_YAML,
     "future_kernel_native_consumer_program_view_ptr_abi_source",
 )
+EXPECTED_KERNEL_ARG_PACKET_ABI_SOURCE = _schema_scalar(
+    DEFAULT_TYPED_CONSUMER_SCHEMA_YAML,
+    "future_kernel_native_consumer_kernel_arg_packet_abi_source",
+)
 
 
 def _resolve(path: str | Path) -> Path:
@@ -225,6 +229,54 @@ def _validate_window_result(
             or (field_mask & required_field_mask) != required_field_mask
         ):
             failures.append(f"{label}_program_view_ptr_field_mask_mismatch")
+        for key, expected in {
+            "future_kernel_native_consumer_kernel_arg_packet_checked": True,
+            "future_kernel_native_consumer_kernel_arg_packet_payload_bytes": 0,
+            "future_kernel_native_consumer_kernel_arg_packet_passed_to_kernel": False,
+            "future_kernel_native_consumer_kernel_arg_packet_changes_kernel_launch_args": False,
+            "future_kernel_native_consumer_kernel_arg_packet_current_wna16_arg_compatible": False,
+            "future_kernel_native_consumer_kernel_arg_packet_requires_wna16_arg_reinterpretation": False,
+        }.items():
+            if stub_summary.get(key) != expected:
+                failures.append(f"{label}_{key}_mismatch")
+        if (
+            stub_summary.get("future_kernel_native_consumer_kernel_arg_packet_source")
+            != EXPECTED_KERNEL_ARG_PACKET_ABI_SOURCE
+        ):
+            failures.append(f"{label}_kernel_arg_packet_source_mismatch")
+        if (
+            stub_summary.get("future_kernel_native_consumer_kernel_arg_packet_row_count")
+            != expected_active
+        ):
+            failures.append(f"{label}_kernel_arg_packet_row_count_mismatch")
+        if (
+            stub_summary.get(
+                "future_kernel_native_consumer_kernel_arg_packet_row_ok_count"
+            )
+            != expected_active
+        ):
+            failures.append(f"{label}_kernel_arg_packet_row_ok_count_mismatch")
+        if (
+            stub_summary.get(
+                "future_kernel_native_consumer_kernel_arg_packet_error_count"
+            )
+            != 0
+        ):
+            failures.append(f"{label}_kernel_arg_packet_error_count_mismatch")
+        field_mask = stub_summary.get(
+            "future_kernel_native_consumer_kernel_arg_packet_field_mask"
+        )
+        required_field_mask = stub_summary.get(
+            "future_kernel_native_consumer_kernel_arg_packet_required_field_mask"
+        )
+        if (
+            not isinstance(field_mask, int)
+            or isinstance(field_mask, bool)
+            or not isinstance(required_field_mask, int)
+            or isinstance(required_field_mask, bool)
+            or (field_mask & required_field_mask) != required_field_mask
+        ):
+            failures.append(f"{label}_kernel_arg_packet_field_mask_mismatch")
     return failures
 
 

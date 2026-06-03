@@ -185,6 +185,26 @@ constexpr bool
 constexpr bool
     kPremapFutureKernelNativeConsumerProgramViewPtrAbiV1CurrentWna16ArgCompatible =
         false;
+constexpr const char*
+    kPremapFutureKernelNativeConsumerKernelArgPacketAbiV1Name =
+        "premap_future_kernel_native_consumer_kernel_arg_packet_abi_v1";
+constexpr const char*
+    kPremapFutureKernelNativeConsumerKernelArgPacketAbiV1Mode =
+        "readonly_future_kernel_native_consumer_kernel_arg_packet_abi";
+constexpr const char*
+    kPremapFutureKernelNativeConsumerKernelArgPacketAbiV1Source =
+        "premap_future_kernel_native_consumer_program_view_ptr_abi_v1";
+constexpr uint32_t
+    kPremapFutureKernelNativeConsumerKernelArgPacketAbiV1Version = 1;
+constexpr bool
+    kPremapFutureKernelNativeConsumerKernelArgPacketAbiV1PayloadDerefAllowed =
+        false;
+constexpr bool
+    kPremapFutureKernelNativeConsumerKernelArgPacketAbiV1KernelArgPassAllowed =
+        false;
+constexpr bool
+    kPremapFutureKernelNativeConsumerKernelArgPacketAbiV1CurrentWna16ArgCompatible =
+        false;
 
 constexpr uint32_t kPremapFutureKernelSideConsumerArgsV1ReadonlyFlag = 1u << 0;
 constexpr uint32_t
@@ -360,6 +380,19 @@ struct PremapFutureKernelNativeConsumerProgramViewPtrV1 {
   uint32_t flags;
 };
 
+// Future kernel argument packet.  This is the closest readonly ABI shape in
+// this stub: a future kernel would receive this compact packet, load the
+// pointer-backed program-view packet, then iterate rows.  It is deliberately
+// not passed to the current WNA16 fused-MoE kernel.
+struct PremapFutureKernelNativeConsumerKernelArgPacketV1 {
+  const PremapFutureKernelNativeConsumerProgramViewPtrV1* program_view_ptr;
+  uint32_t abi_version;
+  uint32_t program_view_ptr_struct_size;
+  uint32_t result_struct_size;
+  uint32_t payload_bytes;
+  uint32_t flags;
+};
+
 constexpr const char* kPremapKernelSideTypedConsumerLaunchEnvelopeV1Name =
     "premap_kernel_side_typed_consumer_launch_envelope_v1";
 constexpr uint32_t kPremapKernelSideTypedConsumerLaunchEnvelopeV1ReadonlyFlag =
@@ -496,6 +529,23 @@ struct PremapFutureKernelNativeConsumerProgramViewResultV1 {
 struct PremapFutureKernelNativeConsumerProgramViewPtrResultV1 {
   uint32_t ok;
   uint32_t packet_valid;
+  uint32_t program_view_valid;
+  uint32_t view_valid;
+  uint32_t launch_geometry_valid;
+  uint32_t row_window_valid;
+  uint32_t program_iteration_valid;
+  uint32_t row_valid;
+  uint32_t required_handle_visible;
+  uint32_t lifetime_valid;
+  uint32_t all_handle_fields_read;
+  uint32_t field_count;
+  uint64_t row_hash;
+};
+
+struct PremapFutureKernelNativeConsumerKernelArgPacketResultV1 {
+  uint32_t ok;
+  uint32_t packet_valid;
+  uint32_t program_view_ptr_valid;
   uint32_t program_view_valid;
   uint32_t view_valid;
   uint32_t launch_geometry_valid;
@@ -863,6 +913,30 @@ premap_typed_consumer_future_native_program_view_ptr_packet_matches_v1(
          !kPremapFutureKernelNativeConsumerProgramViewPtrAbiV1PayloadDerefAllowed &&
          !kPremapFutureKernelNativeConsumerProgramViewPtrAbiV1KernelArgPassAllowed &&
          !kPremapFutureKernelNativeConsumerProgramViewPtrAbiV1CurrentWna16ArgCompatible;
+}
+
+__device__ static inline bool
+premap_typed_consumer_future_native_kernel_arg_packet_matches_v1(
+    const PremapFutureKernelNativeConsumerKernelArgPacketV1& kernel_arg_packet) {
+  return kernel_arg_packet.program_view_ptr != nullptr &&
+         kernel_arg_packet.abi_version ==
+             kPremapFutureKernelNativeConsumerKernelArgPacketAbiV1Version &&
+         kernel_arg_packet.program_view_ptr_struct_size ==
+             sizeof(PremapFutureKernelNativeConsumerProgramViewPtrV1) &&
+         kernel_arg_packet.result_struct_size ==
+             sizeof(PremapFutureKernelNativeConsumerKernelArgPacketResultV1) &&
+         kernel_arg_packet.payload_bytes == 0 &&
+         (kernel_arg_packet.flags &
+          kPremapFutureKernelSideConsumerArgsV1ReadonlyFlag) != 0 &&
+         (kernel_arg_packet.flags &
+          kPremapFutureKernelSideConsumerArgsV1KernelArgPassDisabledFlag) != 0 &&
+         (kernel_arg_packet.flags &
+          kPremapFutureKernelSideConsumerArgsV1PayloadDerefDisabledFlag) != 0 &&
+         kernel_arg_packet.flags ==
+             kPremapFutureKernelSideConsumerArgsV1RequiredFlags &&
+         !kPremapFutureKernelNativeConsumerKernelArgPacketAbiV1PayloadDerefAllowed &&
+         !kPremapFutureKernelNativeConsumerKernelArgPacketAbiV1KernelArgPassAllowed &&
+         !kPremapFutureKernelNativeConsumerKernelArgPacketAbiV1CurrentWna16ArgCompatible;
 }
 
 __device__ static inline bool
@@ -1783,5 +1857,75 @@ premap_typed_consumer_future_native_program_view_ptr_consume_program_lane_v1(
       premap_typed_consumer_mix64_v1(
           static_cast<uint64_t>(program_view_ptr.result_struct_size) +
           0xc053000000000004ULL);
+  return result;
+}
+
+__device__ static inline PremapFutureKernelNativeConsumerKernelArgPacketResultV1
+premap_typed_consumer_future_native_kernel_arg_packet_consume_program_lane_v1(
+    const PremapFutureKernelNativeConsumerKernelArgPacketV1& kernel_arg_packet,
+    uint32_t program_id,
+    uint32_t lane_id,
+    uint32_t actual_grid_x,
+    uint32_t actual_block_x,
+    uint64_t expected_schema_hash_hi,
+    uint64_t expected_schema_hash_lo) {
+  PremapFutureKernelNativeConsumerKernelArgPacketResultV1 result;
+  result.packet_valid = static_cast<uint32_t>(
+      premap_typed_consumer_future_native_kernel_arg_packet_matches_v1(
+          kernel_arg_packet));
+  result.program_view_ptr_valid = 0;
+  result.program_view_valid = 0;
+  result.view_valid = 0;
+  result.launch_geometry_valid = 0;
+  result.row_window_valid = 0;
+  result.program_iteration_valid = 0;
+  result.row_valid = 0;
+  result.required_handle_visible = 0;
+  result.lifetime_valid = 0;
+  result.all_handle_fields_read = 0;
+  result.field_count = kPremapKernelSideTypedConsumerAbiV1HandleColumnCount;
+  result.row_hash = 0;
+  result.ok = 0;
+  if (result.packet_valid == 0) {
+    return result;
+  }
+  const PremapFutureKernelNativeConsumerProgramViewPtrV1& program_view_ptr =
+      *kernel_arg_packet.program_view_ptr;
+  const PremapFutureKernelNativeConsumerProgramViewPtrResultV1 inner =
+      premap_typed_consumer_future_native_program_view_ptr_consume_program_lane_v1(
+          program_view_ptr,
+          program_id,
+          lane_id,
+          actual_grid_x,
+          actual_block_x,
+          expected_schema_hash_hi,
+          expected_schema_hash_lo);
+  result.program_view_ptr_valid = inner.packet_valid;
+  result.program_view_valid = inner.program_view_valid;
+  result.view_valid = inner.view_valid;
+  result.launch_geometry_valid = inner.launch_geometry_valid;
+  result.row_window_valid = inner.row_window_valid;
+  result.program_iteration_valid = inner.program_iteration_valid;
+  result.row_valid = inner.row_valid;
+  result.required_handle_visible = inner.required_handle_visible;
+  result.lifetime_valid = inner.lifetime_valid;
+  result.all_handle_fields_read = inner.all_handle_fields_read;
+  result.field_count = inner.field_count;
+  result.ok = static_cast<uint32_t>(
+      inner.ok != 0 &&
+      !kPremapFutureKernelNativeConsumerKernelArgPacketAbiV1PayloadDerefAllowed &&
+      !kPremapFutureKernelNativeConsumerKernelArgPacketAbiV1KernelArgPassAllowed &&
+      !kPremapFutureKernelNativeConsumerKernelArgPacketAbiV1CurrentWna16ArgCompatible);
+  result.row_hash =
+      premap_typed_consumer_mix64_v1(inner.row_hash + 0xc054000000000001ULL) ^
+      premap_typed_consumer_mix64_v1(
+          static_cast<uint64_t>(kernel_arg_packet.abi_version) +
+          0xc054000000000002ULL) ^
+      premap_typed_consumer_mix64_v1(
+          static_cast<uint64_t>(kernel_arg_packet.program_view_ptr_struct_size) +
+          0xc054000000000003ULL) ^
+      premap_typed_consumer_mix64_v1(
+          static_cast<uint64_t>(kernel_arg_packet.result_struct_size) +
+          0xc054000000000004ULL);
   return result;
 }
