@@ -225,6 +225,7 @@ REQUIRED_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
     "future_kernel_native_arg_slot_aux_metadata_mirror_canary_json",
     "future_kernel_native_arg_slot_standalone_canary_json",
     "future_kernel_native_arg_slot_multiprogram_canary_json",
+    "future_kernel_native_arg_slot_online_merged_aux_metadata_mirror_canary_json",
     "future_kernel_native_arg_slot_online_merged_aux_metadata_mirror_runner_json",
     "future_kernel_native_arg_slot_online_merged_multiprogram_runner_json",
     "future_kernel_native_arg_slot_online_merged_multiprogram_canary_json",
@@ -268,6 +269,11 @@ ARG_SLOT_ONLINE_MERGED_REQUIRED_MIRROR_RUNNER_LABEL_BY_FIELD = {
         "future_kernel_native_arg_slot_online_merged_aux_metadata_mirror_runner_json"
     ),
 }
+ARG_SLOT_ONLINE_MERGED_REQUIRED_MIRROR_STUB_LABEL_BY_FIELD = {
+    "aux_metadata_handle": (
+        "future_kernel_native_arg_slot_online_merged_aux_metadata_mirror_canary_json"
+    ),
+}
 ARG_SLOT_ONLINE_MERGED_OPTIONAL_MIRROR_RUNNER_LABEL_BY_FIELD = {
     "descriptor_ptr": (
         "future_kernel_native_arg_slot_online_merged_descriptor_ptr_mirror_runner_json"
@@ -279,6 +285,9 @@ ARG_SLOT_ONLINE_MERGED_OPTIONAL_MIRROR_RUNNER_LABEL_BY_FIELD = {
 ARG_SLOT_ONLINE_MERGED_MIRROR_RUNNER_LABEL_BY_FIELD = {
     **ARG_SLOT_ONLINE_MERGED_REQUIRED_MIRROR_RUNNER_LABEL_BY_FIELD,
     **ARG_SLOT_ONLINE_MERGED_OPTIONAL_MIRROR_RUNNER_LABEL_BY_FIELD,
+}
+ARG_SLOT_ONLINE_MERGED_MIRROR_STUB_LABEL_BY_FIELD = {
+    **ARG_SLOT_ONLINE_MERGED_REQUIRED_MIRROR_STUB_LABEL_BY_FIELD,
 }
 ARG_SLOT_ONLINE_DIAGNOSTIC_SUMMARY_KEY_BY_FIELD = {
     "aux_metadata_handle": (
@@ -1469,6 +1478,19 @@ def _validate_required_evidence_payload(
                 root=root,
             )
         ]
+    for (
+        field,
+        label,
+    ) in ARG_SLOT_ONLINE_MERGED_MIRROR_STUB_LABEL_BY_FIELD.items():
+        if evidence_label == label:
+            return [
+                f"{evidence_label}:{failure}"
+                for failure in _validate_future_native_arg_slot_online_merged_multiprogram_evidence(
+                    evidence,
+                    root=root,
+                    arg_slot_mirror_field=field,
+                )
+            ]
     if evidence_label == "future_kernel_native_arg_slot_online_merged_multiprogram_runner_json":
         return [
             f"{evidence_label}:{failure}"
@@ -1489,7 +1511,9 @@ def _validate_required_evidence_payload(
                     evidence,
                     root=root,
                     evidence_paths=evidence_paths,
-                    expected_stub_output_label=None,
+                    expected_stub_output_label=ARG_SLOT_ONLINE_MERGED_MIRROR_STUB_LABEL_BY_FIELD.get(
+                        field
+                    ),
                     arg_slot_mirror_field=field,
                     require_kernel_launch_context_abi=False,
                     require_kernel_invocation_abi=False,
