@@ -3424,6 +3424,64 @@ the native ABI review returns clean, then continue with a future-kernel-side
 typed consumer path that remains independent from current WNA16 args.
 ```
 
+### 2026-06-04 - Request-launch ABI promoted to lab preflight gate
+
+The request-launch typed consumer ABI is now part of the default readonly lab
+preflight evidence set.  The gate requires an independent online prelaunch
+input request-launch canary in addition to the older online runner artifacts.
+This keeps the request-launch ABI from being only a standalone smoke result.
+
+The compact lab status now exposes request-launch fields directly:
+
+```text
+default_kernel_consumer_request_launch_checked = true
+default_kernel_consumer_request_launch_device_ordinal = 0
+default_kernel_consumer_request_launch_field_read_path =
+  request_launch_to_request_ptr_to_kernel_arg_packet_to_program_view_rows
+default_kernel_consumer_request_launch_packet_chain_depth = 5
+default_kernel_consumer_request_launch_summary_row_count = 174
+default_kernel_consumer_request_launch_summary_row_ok_count = 174
+default_kernel_consumer_request_launch_all_handle_fields_read = true
+default_kernel_consumer_request_launch_payload_bytes = 0
+default_kernel_consumer_request_launch_passed_to_kernel = false
+default_kernel_consumer_request_launch_changes_kernel_launch_args = false
+default_kernel_consumer_request_launch_current_wna16_arg_compatible = false
+```
+
+The checker also rejects missing, negative, or top-level device-mismatched
+`device_ordinal` values, and the native adapter rejects negative launch device
+ordinals before validating the row window.  The old 32-input online runner is
+not required to carry the request-launch summary; the default gate accepts a
+dedicated request-launch evidence artifact so the runner does not become a
+heavy compile/runtime blocker.
+
+Verification:
+
+```text
+/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_run_premap_lab_preflight.py \
+  tests/test_run_premap_online_native_stub_canary.py \
+  tests/test_premap_typed_consumer_stub.py -q
+
+198 passed
+
+/home/husrcf/anaconda3/envs/TRY/bin/python \
+  scripts/run_premap_lab_preflight.py \
+  --root . \
+  --summary-only \
+  --output-json outputs/reports/premap_kernel_consumer/lab_preflight_status_request_launch.json
+
+passed = true
+required evidence = 22 / 22
+
+/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest tests -q
+
+1085 passed, 2 warnings
+```
+
+This remains a future-kernel-side typed consumer gate only.  It still does not
+pass payloads, ready credit, or current WNA16 kernel arguments.
+
 ## v0.66-online-merged-kernel-launch-descriptor-abi
 
 The future typed consumer path now has an online-merged native ABI canary for a
