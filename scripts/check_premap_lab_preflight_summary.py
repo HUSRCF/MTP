@@ -77,6 +77,65 @@ def _int_metric(summary: dict[str, Any], key: str) -> int | None:
     return value if isinstance(value, int) and not isinstance(value, bool) else None
 
 
+def _check_kernel_consumer_handle_summary(
+    summary: dict[str, Any],
+    failures: list[str],
+    *,
+    prefix: str,
+    label: str,
+    expected_field_read_path: str,
+    expected_packet_chain_depth: int,
+) -> None:
+    if summary.get(f"{prefix}_checked") is not True:
+        failures.append(f"{label}_checked_mismatch")
+    if summary.get(f"{prefix}_field_read_path") != expected_field_read_path:
+        failures.append(f"{label}_field_read_path_mismatch")
+    if summary.get(f"{prefix}_packet_chain_depth") != int(expected_packet_chain_depth):
+        failures.append(f"{label}_packet_chain_depth_mismatch")
+    row_count = _int_metric(summary, f"{prefix}_summary_row_count")
+    row_ok_count = _int_metric(summary, f"{prefix}_summary_row_ok_count")
+    if row_count is None or row_count <= 0:
+        failures.append(f"{label}_summary_row_count_invalid")
+    if row_count is not None and row_ok_count != row_count:
+        failures.append(f"{label}_summary_row_ok_count_mismatch")
+    for field in REQUIRED_ROW_FIELDS:
+        key = f"{prefix}_summary_{field}_read_row_ok_count"
+        if row_count is not None and _int_metric(summary, key) != row_count:
+            failures.append(f"{label}_{field}_read_row_ok_count_mismatch")
+    if (
+        row_count is not None
+        and _int_metric(summary, f"{prefix}_summary_row_metadata_read_row_ok_count")
+        != row_count
+    ):
+        failures.append(f"{label}_row_metadata_read_row_ok_count_mismatch")
+    if _int_metric(summary, f"{prefix}_summary_error_count") != 0:
+        failures.append(f"{label}_summary_error_count_mismatch")
+    if _int_metric(summary, f"{prefix}_summary_field_mask") != 15:
+        failures.append(f"{label}_summary_field_mask_mismatch")
+    for suffix in (
+        "summary_row_hash_accumulator",
+        "summary_field_read_hash_accumulator",
+        "summary_row_metadata_hash_accumulator",
+    ):
+        key = f"{prefix}_{suffix}"
+        if not _is_hex_u64(summary.get(key)):
+            failures.append(f"{key}_invalid")
+    if summary.get(f"{prefix}_all_handle_fields_read") is not True:
+        failures.append(f"{label}_all_handle_fields_read_mismatch")
+    if _int_metric(summary, f"{prefix}_payload_bytes") != 0:
+        failures.append(f"{label}_payload_bytes_mismatch")
+    if summary.get(f"{prefix}_passed_to_kernel") is not False:
+        failures.append(f"{label}_passed_to_kernel_mismatch")
+    if summary.get(f"{prefix}_kernel_arg_pass_allowed") is not False:
+        failures.append(f"{label}_kernel_arg_pass_allowed_mismatch")
+    if summary.get(f"{prefix}_changes_kernel_launch_args") is not False:
+        failures.append(f"{label}_changes_kernel_launch_args_mismatch")
+    if summary.get(f"{prefix}_current_wna16_arg_compatible") is not False:
+        failures.append(f"{label}_current_wna16_arg_compatible_mismatch")
+    if summary.get(f"{prefix}_requires_wna16_arg_reinterpretation") is not False:
+        failures.append(f"{label}_requires_wna16_arg_reinterpretation_mismatch")
+
+
 def check_premap_lab_preflight_summary(
     summary: dict[str, Any],
     *,
@@ -334,6 +393,26 @@ def check_premap_lab_preflight_summary(
     ):
         if not _is_hex_u64(summary.get(key)):
             failures.append(f"{key}_invalid")
+    _check_kernel_consumer_handle_summary(
+        summary,
+        failures,
+        prefix="default_kernel_consumer_request_launch",
+        label="request_launch",
+        expected_field_read_path=(
+            "request_launch_to_request_ptr_to_kernel_arg_packet_to_program_view_rows"
+        ),
+        expected_packet_chain_depth=5,
+    )
+    _check_kernel_consumer_handle_summary(
+        summary,
+        failures,
+        prefix="default_kernel_consumer_request_launch_ptr",
+        label="request_launch_ptr",
+        expected_field_read_path=(
+            "request_launch_ptr_to_request_launch_to_request_ptr_to_kernel_arg_packet_to_program_view_rows"
+        ),
+        expected_packet_chain_depth=6,
+    )
     for prefix in (
         "default_kernel_consumer_kernel_invocation",
         "default_kernel_consumer_kernel_invocation_entry",

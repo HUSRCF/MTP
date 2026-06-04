@@ -205,6 +205,72 @@ def _summary() -> dict[str, object]:
         "default_kernel_consumer_kernel_endpoint_row_metadata_hash_accumulator": (
             "7172737475767778"
         ),
+        "default_kernel_consumer_request_launch_checked": True,
+        "default_kernel_consumer_request_launch_field_read_path": (
+            "request_launch_to_request_ptr_to_kernel_arg_packet_to_program_view_rows"
+        ),
+        "default_kernel_consumer_request_launch_packet_chain_depth": 5,
+        "default_kernel_consumer_request_launch_device_ordinal": 1,
+        "default_kernel_consumer_request_launch_grid_x": 8,
+        "default_kernel_consumer_request_launch_block_x": 256,
+        "default_kernel_consumer_request_launch_row_offset": 0,
+        "default_kernel_consumer_request_launch_row_limit": 1841,
+        "default_kernel_consumer_request_launch_rows_per_program": 256,
+        "default_kernel_consumer_request_launch_summary_row_count": 1841,
+        "default_kernel_consumer_request_launch_summary_row_ok_count": 1841,
+        "default_kernel_consumer_request_launch_summary_descriptor_ptr_read_row_ok_count": 1841,
+        "default_kernel_consumer_request_launch_summary_packed_weight_descriptor_read_row_ok_count": 1841,
+        "default_kernel_consumer_request_launch_summary_scale_metadata_handle_read_row_ok_count": 1841,
+        "default_kernel_consumer_request_launch_summary_aux_metadata_handle_read_row_ok_count": 1841,
+        "default_kernel_consumer_request_launch_summary_row_metadata_read_row_ok_count": 1841,
+        "default_kernel_consumer_request_launch_summary_error_count": 0,
+        "default_kernel_consumer_request_launch_summary_field_mask": 15,
+        "default_kernel_consumer_request_launch_summary_row_hash_accumulator": (
+            "8182838485868788"
+        ),
+        "default_kernel_consumer_request_launch_summary_field_read_hash_accumulator": (
+            "9192939495969798"
+        ),
+        "default_kernel_consumer_request_launch_summary_row_metadata_hash_accumulator": (
+            "a1a2a3a4a5a6a7a8"
+        ),
+        "default_kernel_consumer_request_launch_all_handle_fields_read": True,
+        "default_kernel_consumer_request_launch_payload_bytes": 0,
+        "default_kernel_consumer_request_launch_passed_to_kernel": False,
+        "default_kernel_consumer_request_launch_kernel_arg_pass_allowed": False,
+        "default_kernel_consumer_request_launch_changes_kernel_launch_args": False,
+        "default_kernel_consumer_request_launch_current_wna16_arg_compatible": False,
+        "default_kernel_consumer_request_launch_requires_wna16_arg_reinterpretation": False,
+        "default_kernel_consumer_request_launch_ptr_checked": True,
+        "default_kernel_consumer_request_launch_ptr_field_read_path": (
+            "request_launch_ptr_to_request_launch_to_request_ptr_to_kernel_arg_packet_to_program_view_rows"
+        ),
+        "default_kernel_consumer_request_launch_ptr_packet_chain_depth": 6,
+        "default_kernel_consumer_request_launch_ptr_summary_row_count": 1841,
+        "default_kernel_consumer_request_launch_ptr_summary_row_ok_count": 1841,
+        "default_kernel_consumer_request_launch_ptr_summary_descriptor_ptr_read_row_ok_count": 1841,
+        "default_kernel_consumer_request_launch_ptr_summary_packed_weight_descriptor_read_row_ok_count": 1841,
+        "default_kernel_consumer_request_launch_ptr_summary_scale_metadata_handle_read_row_ok_count": 1841,
+        "default_kernel_consumer_request_launch_ptr_summary_aux_metadata_handle_read_row_ok_count": 1841,
+        "default_kernel_consumer_request_launch_ptr_summary_row_metadata_read_row_ok_count": 1841,
+        "default_kernel_consumer_request_launch_ptr_summary_error_count": 0,
+        "default_kernel_consumer_request_launch_ptr_summary_field_mask": 15,
+        "default_kernel_consumer_request_launch_ptr_summary_row_hash_accumulator": (
+            "b1b2b3b4b5b6b7b8"
+        ),
+        "default_kernel_consumer_request_launch_ptr_summary_field_read_hash_accumulator": (
+            "c1c2c3c4c5c6c7c8"
+        ),
+        "default_kernel_consumer_request_launch_ptr_summary_row_metadata_hash_accumulator": (
+            "d1d2d3d4d5d6d7d8"
+        ),
+        "default_kernel_consumer_request_launch_ptr_all_handle_fields_read": True,
+        "default_kernel_consumer_request_launch_ptr_payload_bytes": 0,
+        "default_kernel_consumer_request_launch_ptr_passed_to_kernel": False,
+        "default_kernel_consumer_request_launch_ptr_kernel_arg_pass_allowed": False,
+        "default_kernel_consumer_request_launch_ptr_changes_kernel_launch_args": False,
+        "default_kernel_consumer_request_launch_ptr_current_wna16_arg_compatible": False,
+        "default_kernel_consumer_request_launch_ptr_requires_wna16_arg_reinterpretation": False,
         "runtime_gate_evidence_deferred_count": 0,
         "strict_default_gate_evidence_deferred_count": 0,
         "default_kernel_consumer_dispatch_runner_final_runtime_gate_evidence_deferred_count": 0,
@@ -568,6 +634,64 @@ def test_check_premap_lab_preflight_summary_rejects_endpoint_gap() -> None:
     ]
     assert (
         "default_kernel_consumer_kernel_endpoint_field_read_hash_accumulator_invalid"
+        in result["failures"]
+    )
+
+
+def test_check_premap_lab_preflight_summary_rejects_request_launch_gap() -> None:
+    summary = _summary()
+    summary["default_kernel_consumer_request_launch_checked"] = False
+    summary["default_kernel_consumer_request_launch_packet_chain_depth"] = 4
+    summary[
+        "default_kernel_consumer_request_launch_summary_scale_metadata_handle_read_row_ok_count"
+    ] = 1840
+    summary["default_kernel_consumer_request_launch_summary_error_count"] = 1
+    summary["default_kernel_consumer_request_launch_all_handle_fields_read"] = False
+    summary[
+        "default_kernel_consumer_request_launch_summary_field_read_hash_accumulator"
+    ] = "not-hex"
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is False
+    assert "request_launch_checked_mismatch" in result["failures"]
+    assert "request_launch_packet_chain_depth_mismatch" in result["failures"]
+    assert "request_launch_scale_metadata_handle_read_row_ok_count_mismatch" in result[
+        "failures"
+    ]
+    assert "request_launch_summary_error_count_mismatch" in result["failures"]
+    assert "request_launch_all_handle_fields_read_mismatch" in result["failures"]
+    assert (
+        "default_kernel_consumer_request_launch_summary_field_read_hash_accumulator_invalid"
+        in result["failures"]
+    )
+
+
+def test_check_premap_lab_preflight_summary_rejects_request_launch_ptr_boundary() -> None:
+    summary = _summary()
+    summary["default_kernel_consumer_request_launch_ptr_field_read_path"] = "wrong"
+    summary["default_kernel_consumer_request_launch_ptr_payload_bytes"] = 8
+    summary["default_kernel_consumer_request_launch_ptr_passed_to_kernel"] = True
+    summary["default_kernel_consumer_request_launch_ptr_kernel_arg_pass_allowed"] = True
+    summary[
+        "default_kernel_consumer_request_launch_ptr_changes_kernel_launch_args"
+    ] = True
+    summary[
+        "default_kernel_consumer_request_launch_ptr_requires_wna16_arg_reinterpretation"
+    ] = True
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is False
+    assert "request_launch_ptr_field_read_path_mismatch" in result["failures"]
+    assert "request_launch_ptr_payload_bytes_mismatch" in result["failures"]
+    assert "request_launch_ptr_passed_to_kernel_mismatch" in result["failures"]
+    assert "request_launch_ptr_kernel_arg_pass_allowed_mismatch" in result["failures"]
+    assert "request_launch_ptr_changes_kernel_launch_args_mismatch" in result[
+        "failures"
+    ]
+    assert (
+        "request_launch_ptr_requires_wna16_arg_reinterpretation_mismatch"
         in result["failures"]
     )
 

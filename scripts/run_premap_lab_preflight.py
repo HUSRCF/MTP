@@ -7889,6 +7889,11 @@ def run_premap_lab_preflight(
                 "future_kernel_native_consumer_request_launch_passed_to_kernel"
             )
         ),
+        "default_kernel_consumer_request_launch_kernel_arg_pass_allowed": (
+            request_launch_summary_source.get(
+                "future_kernel_native_consumer_request_launch_kernel_arg_pass_allowed"
+            )
+        ),
         "default_kernel_consumer_request_launch_changes_kernel_launch_args": (
             request_launch_summary_source.get(
                 "future_kernel_native_consumer_request_launch_changes_kernel_launch_args"
@@ -7977,6 +7982,11 @@ def run_premap_lab_preflight(
         "default_kernel_consumer_request_launch_ptr_passed_to_kernel": (
             request_launch_ptr_summary_source.get(
                 "future_kernel_native_consumer_request_launch_ptr_passed_to_kernel"
+            )
+        ),
+        "default_kernel_consumer_request_launch_ptr_kernel_arg_pass_allowed": (
+            request_launch_ptr_summary_source.get(
+                "future_kernel_native_consumer_request_launch_ptr_kernel_arg_pass_allowed"
             )
         ),
         "default_kernel_consumer_request_launch_ptr_changes_kernel_launch_args": (
