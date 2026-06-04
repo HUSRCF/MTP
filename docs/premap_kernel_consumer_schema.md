@@ -780,9 +780,32 @@ argument slot compatible with the typed table.
    ```
 
    This promotion still does not pass current WNA16 kernel arguments.
-6. Next, connect the same explicit future typed slot through the online
-   prelaunch bridge/native consumer path, still without passing current WNA16
-   kernel arguments or payload handles.
-7. Only after that compatible consumer path passes should a single-field live
-   handoff canary be considered, default disabled, starting with metadata/scale
-   handles rather than payload pointers.
+6. The online prelaunch bridge now connects the same explicit future typed slot
+   through the native consumer path.  The runner requires the actual native
+   stub macro:
+
+   ```text
+   MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_WNA16_ADJACENT_TYPED_SLOT_ABI
+   ```
+
+   Online bridge evidence:
+
+   ```text
+   future_kernel_wna16_adjacent_typed_slot_canary_json
+     -> outputs/reports/premap_kernel_consumer/online_merged_wna16_adjacent_typed_slot_native_bridge_runner.json
+
+   passed = true
+   dispatch_active_rows = 1841
+   wna16_adjacent_typed_slot_checked = true
+   wna16_adjacent_typed_slot_row_count = 1841
+   wna16_adjacent_typed_slot_row_ok_count = 1841
+   wna16_adjacent_typed_slot_error_count = 0
+   ```
+
+   The reported `wna16_adjacent_typed_slot_*` fields come from the native stub's
+   `future_kernel_native_consumer_wna16_adjacent_typed_slot_*` summary rather
+   than from endpoint-pointer summary derivation.  The current WNA16 fused-MoE
+   launch remains untouched.
+7. Only after this compatible consumer path remains stable should a
+   single-field live handoff canary be considered, default disabled, starting
+   with metadata/scale handles rather than payload pointers.
