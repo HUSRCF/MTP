@@ -6680,6 +6680,75 @@ def run_premap_lab_preflight(
         == kernel_entry_args_summary_row_count
         and kernel_entry_args_summary_error_count == 0
     )
+    request_ptr_summary_source = online_merged_arg_slot_summary
+    if (
+        request_ptr_summary_source.get(
+            "future_kernel_native_consumer_request_ptr_checked"
+        )
+        is not True
+    ):
+        request_ptr_evidence_label = (
+            "native_typed_consumer_stub_online_prelaunch_input_request_ptr_canary_json"
+        )
+        request_ptr_evidence_row = _find_evidence_row(
+            default_gate_required_evidence_check,
+            request_ptr_evidence_label,
+        )
+        if _evidence_row_passed(request_ptr_evidence_row):
+            request_ptr_payload = _load_evidence_payload_from_check(
+                default_gate_required_evidence_check,
+                request_ptr_evidence_label,
+                root=root,
+            )
+            if isinstance(request_ptr_payload, dict):
+                request_ptr_summary_source = request_ptr_payload
+    request_ptr_summary_row_count = _int_metric(
+        request_ptr_summary_source,
+        "future_kernel_native_consumer_request_ptr_summary_row_count",
+    )
+    request_ptr_summary_row_ok_count = _int_metric(
+        request_ptr_summary_source,
+        "future_kernel_native_consumer_request_ptr_summary_row_ok_count",
+    )
+    request_ptr_summary_descriptor_ptr_read_row_ok_count = _int_metric(
+        request_ptr_summary_source,
+        "future_kernel_native_consumer_request_ptr_summary_descriptor_ptr_read_row_ok_count",
+    )
+    request_ptr_summary_packed_weight_descriptor_read_row_ok_count = _int_metric(
+        request_ptr_summary_source,
+        "future_kernel_native_consumer_request_ptr_summary_packed_weight_descriptor_read_row_ok_count",
+    )
+    request_ptr_summary_scale_metadata_handle_read_row_ok_count = _int_metric(
+        request_ptr_summary_source,
+        "future_kernel_native_consumer_request_ptr_summary_scale_metadata_handle_read_row_ok_count",
+    )
+    request_ptr_summary_aux_metadata_handle_read_row_ok_count = _int_metric(
+        request_ptr_summary_source,
+        "future_kernel_native_consumer_request_ptr_summary_aux_metadata_handle_read_row_ok_count",
+    )
+    request_ptr_summary_row_metadata_read_row_ok_count = _int_metric(
+        request_ptr_summary_source,
+        "future_kernel_native_consumer_request_ptr_summary_row_metadata_read_row_ok_count",
+    )
+    request_ptr_summary_error_count = _int_metric(
+        request_ptr_summary_source,
+        "future_kernel_native_consumer_request_ptr_summary_error_count",
+    )
+    request_ptr_all_handle_fields_read = (
+        request_ptr_summary_row_count is not None
+        and request_ptr_summary_row_ok_count == request_ptr_summary_row_count
+        and request_ptr_summary_descriptor_ptr_read_row_ok_count
+        == request_ptr_summary_row_count
+        and request_ptr_summary_packed_weight_descriptor_read_row_ok_count
+        == request_ptr_summary_row_count
+        and request_ptr_summary_scale_metadata_handle_read_row_ok_count
+        == request_ptr_summary_row_count
+        and request_ptr_summary_aux_metadata_handle_read_row_ok_count
+        == request_ptr_summary_row_count
+        and request_ptr_summary_row_metadata_read_row_ok_count
+        == request_ptr_summary_row_count
+        and request_ptr_summary_error_count == 0
+    )
     request_launch_summary_source = online_merged_arg_slot_summary
     if (
         request_launch_summary_source.get(
@@ -7776,6 +7845,101 @@ def run_premap_lab_preflight(
         "default_kernel_consumer_kernel_entry_args_requires_wna16_arg_reinterpretation": (
             online_merged_arg_slot_summary.get(
                 "future_kernel_native_consumer_kernel_entry_args_requires_wna16_arg_reinterpretation"
+            )
+        ),
+        "default_kernel_consumer_request_ptr_checked": (
+            request_ptr_summary_source.get(
+                "future_kernel_native_consumer_request_ptr_checked"
+            )
+        ),
+        "default_kernel_consumer_request_ptr_field_read_path": (
+            request_ptr_summary_source.get(
+                "future_kernel_native_consumer_request_ptr_field_read_path"
+            )
+        ),
+        "default_kernel_consumer_request_ptr_packet_chain_depth": (
+            _int_metric(
+                request_ptr_summary_source,
+                "future_kernel_native_consumer_request_ptr_packet_chain_depth",
+            )
+        ),
+        "default_kernel_consumer_request_ptr_summary_row_count": (
+            request_ptr_summary_row_count
+        ),
+        "default_kernel_consumer_request_ptr_summary_row_ok_count": (
+            request_ptr_summary_row_ok_count
+        ),
+        "default_kernel_consumer_request_ptr_summary_descriptor_ptr_read_row_ok_count": (
+            request_ptr_summary_descriptor_ptr_read_row_ok_count
+        ),
+        "default_kernel_consumer_request_ptr_summary_packed_weight_descriptor_read_row_ok_count": (
+            request_ptr_summary_packed_weight_descriptor_read_row_ok_count
+        ),
+        "default_kernel_consumer_request_ptr_summary_scale_metadata_handle_read_row_ok_count": (
+            request_ptr_summary_scale_metadata_handle_read_row_ok_count
+        ),
+        "default_kernel_consumer_request_ptr_summary_aux_metadata_handle_read_row_ok_count": (
+            request_ptr_summary_aux_metadata_handle_read_row_ok_count
+        ),
+        "default_kernel_consumer_request_ptr_summary_row_metadata_read_row_ok_count": (
+            request_ptr_summary_row_metadata_read_row_ok_count
+        ),
+        "default_kernel_consumer_request_ptr_summary_error_count": (
+            request_ptr_summary_error_count
+        ),
+        "default_kernel_consumer_request_ptr_summary_field_mask": (
+            _int_metric(
+                request_ptr_summary_source,
+                "future_kernel_native_consumer_request_ptr_summary_field_mask",
+            )
+        ),
+        "default_kernel_consumer_request_ptr_summary_row_hash_accumulator": (
+            request_ptr_summary_source.get(
+                "future_kernel_native_consumer_request_ptr_summary_row_hash_accumulator"
+            )
+        ),
+        "default_kernel_consumer_request_ptr_summary_field_read_hash_accumulator": (
+            request_ptr_summary_source.get(
+                "future_kernel_native_consumer_request_ptr_summary_field_read_hash_accumulator"
+            )
+        ),
+        "default_kernel_consumer_request_ptr_summary_row_metadata_hash_accumulator": (
+            request_ptr_summary_source.get(
+                "future_kernel_native_consumer_request_ptr_summary_row_metadata_hash_accumulator"
+            )
+        ),
+        "default_kernel_consumer_request_ptr_all_handle_fields_read": (
+            request_ptr_all_handle_fields_read
+        ),
+        "default_kernel_consumer_request_ptr_payload_bytes": (
+            _int_metric(
+                request_ptr_summary_source,
+                "future_kernel_native_consumer_request_ptr_payload_bytes",
+            )
+        ),
+        "default_kernel_consumer_request_ptr_passed_to_kernel": (
+            request_ptr_summary_source.get(
+                "future_kernel_native_consumer_request_ptr_passed_to_kernel"
+            )
+        ),
+        "default_kernel_consumer_request_ptr_kernel_arg_pass_allowed": (
+            request_ptr_summary_source.get(
+                "future_kernel_native_consumer_request_ptr_kernel_arg_pass_allowed"
+            )
+        ),
+        "default_kernel_consumer_request_ptr_changes_kernel_launch_args": (
+            request_ptr_summary_source.get(
+                "future_kernel_native_consumer_request_ptr_changes_kernel_launch_args"
+            )
+        ),
+        "default_kernel_consumer_request_ptr_current_wna16_arg_compatible": (
+            request_ptr_summary_source.get(
+                "future_kernel_native_consumer_request_ptr_current_wna16_arg_compatible"
+            )
+        ),
+        "default_kernel_consumer_request_ptr_requires_wna16_arg_reinterpretation": (
+            request_ptr_summary_source.get(
+                "future_kernel_native_consumer_request_ptr_requires_wna16_arg_reinterpretation"
             )
         ),
         "default_kernel_consumer_request_launch_checked": (

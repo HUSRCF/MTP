@@ -396,6 +396,16 @@ def check_premap_lab_preflight_summary(
     _check_kernel_consumer_handle_summary(
         summary,
         failures,
+        prefix="default_kernel_consumer_request_ptr",
+        label="request_ptr",
+        expected_field_read_path=(
+            "request_ptr_to_kernel_arg_packet_to_program_view_rows"
+        ),
+        expected_packet_chain_depth=4,
+    )
+    _check_kernel_consumer_handle_summary(
+        summary,
+        failures,
         prefix="default_kernel_consumer_request_launch",
         label="request_launch",
         expected_field_read_path=(

@@ -205,6 +205,36 @@ def _summary() -> dict[str, object]:
         "default_kernel_consumer_kernel_endpoint_row_metadata_hash_accumulator": (
             "7172737475767778"
         ),
+        "default_kernel_consumer_request_ptr_checked": True,
+        "default_kernel_consumer_request_ptr_field_read_path": (
+            "request_ptr_to_kernel_arg_packet_to_program_view_rows"
+        ),
+        "default_kernel_consumer_request_ptr_packet_chain_depth": 4,
+        "default_kernel_consumer_request_ptr_summary_row_count": 1841,
+        "default_kernel_consumer_request_ptr_summary_row_ok_count": 1841,
+        "default_kernel_consumer_request_ptr_summary_descriptor_ptr_read_row_ok_count": 1841,
+        "default_kernel_consumer_request_ptr_summary_packed_weight_descriptor_read_row_ok_count": 1841,
+        "default_kernel_consumer_request_ptr_summary_scale_metadata_handle_read_row_ok_count": 1841,
+        "default_kernel_consumer_request_ptr_summary_aux_metadata_handle_read_row_ok_count": 1841,
+        "default_kernel_consumer_request_ptr_summary_row_metadata_read_row_ok_count": 1841,
+        "default_kernel_consumer_request_ptr_summary_error_count": 0,
+        "default_kernel_consumer_request_ptr_summary_field_mask": 15,
+        "default_kernel_consumer_request_ptr_summary_row_hash_accumulator": (
+            "7172737475767778"
+        ),
+        "default_kernel_consumer_request_ptr_summary_field_read_hash_accumulator": (
+            "8182838485868788"
+        ),
+        "default_kernel_consumer_request_ptr_summary_row_metadata_hash_accumulator": (
+            "9192939495969798"
+        ),
+        "default_kernel_consumer_request_ptr_all_handle_fields_read": True,
+        "default_kernel_consumer_request_ptr_payload_bytes": 0,
+        "default_kernel_consumer_request_ptr_passed_to_kernel": False,
+        "default_kernel_consumer_request_ptr_kernel_arg_pass_allowed": False,
+        "default_kernel_consumer_request_ptr_changes_kernel_launch_args": False,
+        "default_kernel_consumer_request_ptr_current_wna16_arg_compatible": False,
+        "default_kernel_consumer_request_ptr_requires_wna16_arg_reinterpretation": False,
         "default_kernel_consumer_request_launch_checked": True,
         "default_kernel_consumer_request_launch_field_read_path": (
             "request_launch_to_request_ptr_to_kernel_arg_packet_to_program_view_rows"
@@ -665,6 +695,55 @@ def test_check_premap_lab_preflight_summary_rejects_request_launch_gap() -> None
         "default_kernel_consumer_request_launch_summary_field_read_hash_accumulator_invalid"
         in result["failures"]
     )
+
+
+def test_check_premap_lab_preflight_summary_rejects_request_ptr_gap() -> None:
+    summary = _summary()
+    summary["default_kernel_consumer_request_ptr_checked"] = False
+    summary["default_kernel_consumer_request_ptr_packet_chain_depth"] = 3
+    summary[
+        "default_kernel_consumer_request_ptr_summary_descriptor_ptr_read_row_ok_count"
+    ] = 1840
+    summary["default_kernel_consumer_request_ptr_summary_error_count"] = 1
+    summary["default_kernel_consumer_request_ptr_all_handle_fields_read"] = False
+    summary[
+        "default_kernel_consumer_request_ptr_summary_row_hash_accumulator"
+    ] = "not-hex"
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is False
+    assert "request_ptr_checked_mismatch" in result["failures"]
+    assert "request_ptr_packet_chain_depth_mismatch" in result["failures"]
+    assert "request_ptr_descriptor_ptr_read_row_ok_count_mismatch" in result[
+        "failures"
+    ]
+    assert "request_ptr_summary_error_count_mismatch" in result["failures"]
+    assert "request_ptr_all_handle_fields_read_mismatch" in result["failures"]
+    assert (
+        "default_kernel_consumer_request_ptr_summary_row_hash_accumulator_invalid"
+        in result["failures"]
+    )
+
+
+def test_check_premap_lab_preflight_summary_rejects_request_ptr_boundary() -> None:
+    summary = _summary()
+    summary["default_kernel_consumer_request_ptr_payload_bytes"] = 8
+    summary["default_kernel_consumer_request_ptr_passed_to_kernel"] = True
+    summary["default_kernel_consumer_request_ptr_kernel_arg_pass_allowed"] = True
+    summary["default_kernel_consumer_request_ptr_changes_kernel_launch_args"] = True
+    summary[
+        "default_kernel_consumer_request_ptr_current_wna16_arg_compatible"
+    ] = True
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is False
+    assert "request_ptr_payload_bytes_mismatch" in result["failures"]
+    assert "request_ptr_passed_to_kernel_mismatch" in result["failures"]
+    assert "request_ptr_kernel_arg_pass_allowed_mismatch" in result["failures"]
+    assert "request_ptr_changes_kernel_launch_args_mismatch" in result["failures"]
+    assert "request_ptr_current_wna16_arg_compatible_mismatch" in result["failures"]
 
 
 def test_check_premap_lab_preflight_summary_rejects_request_launch_boundary() -> None:
