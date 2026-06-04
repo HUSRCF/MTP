@@ -1032,6 +1032,89 @@ def _native_stub_endpoint_ptr_evidence_payload(
     return payload
 
 
+def _native_stub_request_ptr_evidence_payload(input_json: str) -> dict[str, object]:
+    payload = _native_stub_evidence_payload(input_json)
+    row_hash = "request-ptr-row-hash"
+    field_read_hash = "request-ptr-field-read-hash"
+    row_metadata_hash = "request-ptr-row-metadata-hash"
+    payload.update(
+        {
+            "future_kernel_native_consumer_request_ptr_abi_name": (
+                "premap_future_kernel_native_consumer_request_ptr_abi_v1"
+            ),
+            "future_kernel_native_consumer_request_ptr_mode": (
+                "readonly_future_kernel_native_consumer_request_ptr_abi"
+            ),
+            "future_kernel_native_consumer_request_ptr_source": (
+                "premap_future_kernel_native_consumer_kernel_arg_packet_abi_v1"
+            ),
+            "future_kernel_native_consumer_request_ptr_field_read_path": (
+                "request_ptr_to_kernel_arg_packet_to_program_view_rows"
+            ),
+            "future_kernel_native_consumer_request_ptr_checked": True,
+            "future_kernel_native_consumer_request_ptr_version": 1,
+            "future_kernel_native_consumer_request_ptr_packet_chain_depth": 4,
+            "future_kernel_native_consumer_request_ptr_pointer_size": 8,
+            "future_kernel_native_consumer_request_ptr_request_id": 1,
+            "future_kernel_native_consumer_request_ptr_payload_bytes": 0,
+            "future_kernel_native_consumer_request_ptr_payload_deref_allowed": False,
+            "future_kernel_native_consumer_request_ptr_passed_to_kernel": False,
+            "future_kernel_native_consumer_request_ptr_kernel_arg_pass_allowed": False,
+            "future_kernel_native_consumer_request_ptr_changes_kernel_launch_args": False,
+            "future_kernel_native_consumer_request_ptr_current_wna16_arg_compatible": False,
+            "future_kernel_native_consumer_request_ptr_requires_wna16_arg_reinterpretation": False,
+            "future_kernel_native_consumer_request_ptr_summary_row_count": 2,
+            "future_kernel_native_consumer_request_ptr_summary_row_ok_count": 2,
+            "future_kernel_native_consumer_request_ptr_summary_error_count": 0,
+            "future_kernel_native_consumer_request_ptr_summary_field_mask": 15,
+            "future_kernel_native_consumer_request_ptr_summary_descriptor_ptr_read_row_ok_count": 2,
+            "future_kernel_native_consumer_request_ptr_summary_packed_weight_descriptor_read_row_ok_count": 2,
+            "future_kernel_native_consumer_request_ptr_summary_scale_metadata_handle_read_row_ok_count": 2,
+            "future_kernel_native_consumer_request_ptr_summary_aux_metadata_handle_read_row_ok_count": 2,
+            "future_kernel_native_consumer_request_ptr_summary_expert_id_read_row_ok_count": 2,
+            "future_kernel_native_consumer_request_ptr_summary_address_key_hash_read_row_ok_count": 2,
+            "future_kernel_native_consumer_request_ptr_summary_row_metadata_read_row_ok_count": 2,
+            "future_kernel_native_consumer_request_ptr_summary_row_hash_accumulator": row_hash,
+            "future_kernel_native_consumer_request_ptr_summary_field_read_hash_accumulator": field_read_hash,
+            "future_kernel_native_consumer_request_ptr_summary_row_metadata_hash_accumulator": row_metadata_hash,
+            "future_kernel_native_consumer_kernel_entry_summary_row_count": 2,
+            "future_kernel_native_consumer_kernel_entry_summary_row_ok_count": 2,
+            "future_kernel_native_consumer_kernel_entry_summary_error_count": 0,
+            "future_kernel_native_consumer_kernel_entry_summary_field_mask": 15,
+            "future_kernel_native_consumer_kernel_entry_summary_descriptor_ptr_read_row_ok_count": 2,
+            "future_kernel_native_consumer_kernel_entry_summary_packed_weight_descriptor_read_row_ok_count": 2,
+            "future_kernel_native_consumer_kernel_entry_summary_scale_metadata_handle_read_row_ok_count": 2,
+            "future_kernel_native_consumer_kernel_entry_summary_aux_metadata_handle_read_row_ok_count": 2,
+            "future_kernel_native_consumer_kernel_entry_summary_expert_id_read_row_ok_count": 2,
+            "future_kernel_native_consumer_kernel_entry_summary_address_key_hash_read_row_ok_count": 2,
+            "future_kernel_native_consumer_kernel_entry_summary_row_metadata_read_row_ok_count": 2,
+            "future_kernel_native_consumer_kernel_entry_summary_row_hash_accumulator": row_hash,
+            "future_kernel_native_consumer_kernel_entry_summary_field_read_hash_accumulator": field_read_hash,
+            "future_kernel_native_consumer_kernel_entry_summary_row_metadata_hash_accumulator": row_metadata_hash,
+        }
+    )
+    payload["compiled_macros"] = {
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCHEMA": True,
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_ROW_ITERATION": True,
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_POINTER_VISIBILITY": True,
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_LIFETIME": True,
+        "MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR": True,
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ABI": True,
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ABI": True,
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_ABI": True,
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_PTR_ABI": True,
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ARG_SLOT_ABI": True,
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_VIEW_ABI": True,
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_PROGRAM_VIEW_ABI": True,
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_PROGRAM_VIEW_PTR_ABI": True,
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ARG_PACKET_ABI": True,
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_PTR_ABI": True,
+        "MTP_PREMAP_TYPED_CONSUMER_ENABLE_PAYLOAD_DEREF": False,
+        "MTP_PREMAP_TYPED_CONSUMER_ENABLE_KERNEL_ARG_PASS": False,
+    }
+    return payload
+
+
 def _native_stub_per_field_evidence_payload(input_json: str) -> dict[str, object]:
     payload = _native_stub_evidence_payload(input_json)
     payload.update(
@@ -2588,6 +2671,9 @@ def _write_gate(
     native_online_endpoint_ptr_stub_path = (
         f"reports/{name}_native_typed_consumer_stub_online_prelaunch_input_endpoint_ptr_canary.json"
     )
+    native_online_request_ptr_stub_path = (
+        f"reports/{name}_native_typed_consumer_stub_online_prelaunch_input_request_ptr_canary.json"
+    )
     native_online_perf_path = (
         f"reports/{name}_native_online_prelaunch_export_performance.json"
     )
@@ -2756,6 +2842,13 @@ def _write_gate(
                     field_mask=15,
                     aux_read_count=2,
                 )
+            )
+            + "\n",
+        )
+        _write(
+            root / native_online_request_ptr_stub_path,
+            json.dumps(
+                _native_stub_request_ptr_evidence_payload(native_online_input_path)
             )
             + "\n",
         )
@@ -3194,6 +3287,8 @@ def _write_gate(
             f"{native_online_stub_path}\n"
             "  native_typed_consumer_stub_online_prelaunch_input_endpoint_ptr_canary_json: "
             f"{native_online_endpoint_ptr_stub_path}\n"
+            "  native_typed_consumer_stub_online_prelaunch_input_request_ptr_canary_json: "
+            f"{native_online_request_ptr_stub_path}\n"
             "  native_typed_consumer_online_prelaunch_input_json: "
             f"{native_online_input_path}\n"
             "  native_typed_consumer_online_prelaunch_export_performance_json: "
@@ -3319,7 +3414,7 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert result["passed"] is True
     assert result["failures"] == []
     assert result["runtime_gate_evidence_scan"]["gate_count"] == 3
-    assert result["runtime_gate_evidence_scan"]["evidence_path_count"] == 60
+    assert result["runtime_gate_evidence_scan"]["evidence_path_count"] == 62
     assert result["default_readonly_gate_required_evidence_check"]["passed"] is True
     summary = result["lab_gate_status_summary"]
     assert summary["passed"] is True
@@ -4359,9 +4454,9 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert summary["payload_bytes_required"] == 0
     assert summary["passed_to_kernel_required"] is False
     assert summary["changes_kernel_launch_args_required"] is False
-    assert summary["required_evidence"]["required_count"] == 20
-    assert summary["required_evidence"]["present_count"] == 20
-    assert summary["required_evidence"]["passed_count"] == 20
+    assert summary["required_evidence"]["required_count"] == 21
+    assert summary["required_evidence"]["present_count"] == 21
+    assert summary["required_evidence"]["passed_count"] == 21
     assert summary["optional_evidence"]["required_count"] == 19
     assert summary["optional_evidence"]["present_count"] == 19
     assert summary["optional_evidence"]["passed_count"] == 19
@@ -4818,7 +4913,7 @@ def test_premap_lab_preflight_rejects_missing_optional_future_args_coverage(
         "default_kernel_consumer_future_kernel_args_total_mirror_coverage_incomplete"
         in result["failures"]
     )
-    assert summary["required_evidence"]["passed_count"] == 20
+    assert summary["required_evidence"]["passed_count"] == 21
     assert summary["default_optional_evidence_passed"] is True
     assert (
         summary[
@@ -6533,6 +6628,7 @@ def test_premap_lab_preflight_rejects_default_gate_without_typed_evidence(
         "native_typed_consumer_stub_gpu1_canary_json:missing_evidence_path",
         "native_typed_consumer_stub_online_prelaunch_input_canary_json:missing_evidence_path",
         "native_typed_consumer_stub_online_prelaunch_input_endpoint_ptr_canary_json:missing_evidence_path",
+        "native_typed_consumer_stub_online_prelaunch_input_request_ptr_canary_json:missing_evidence_path",
             "native_typed_consumer_online_prelaunch_canary_runner_json:missing_evidence_path",
             "future_kernel_native_dispatch_consumer_online_artifact_check_32_128export_json:missing_evidence_path",
             "future_kernel_native_dispatch_consumer_online_runner_32_128export_json:missing_evidence_path",
@@ -6843,6 +6939,144 @@ def test_premap_lab_preflight_rejects_online_endpoint_ptr_input_mismatch(
     assert (
         "native_typed_consumer_stub_online_prelaunch_input_endpoint_ptr_canary_json:"
         "native_typed_consumer_stub_input_json_mismatch"
+    ) in result["default_readonly_gate_required_evidence_check"]["failures"]
+
+
+def test_premap_lab_preflight_rejects_online_request_ptr_field_mask(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    request_ptr_path = (
+        tmp_path
+        / "reports/default_gate_native_typed_consumer_stub_online_prelaunch_input_request_ptr_canary.json"
+    )
+    payload = json.loads(request_ptr_path.read_text(encoding="utf-8"))
+    payload["future_kernel_native_consumer_request_ptr_summary_field_mask"] = 7
+    _write(request_ptr_path, json.dumps(payload) + "\n")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is False
+    assert "default_readonly_gate_required_evidence_check_failed" in result["failures"]
+    assert (
+        "native_typed_consumer_stub_online_prelaunch_input_request_ptr_canary_json:"
+        "native_typed_consumer_stub_request_ptr_summary_field_mask_mismatch"
+    ) in result["default_readonly_gate_required_evidence_check"]["failures"]
+
+
+def test_premap_lab_preflight_rejects_online_request_ptr_hash_mismatch(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    request_ptr_path = (
+        tmp_path
+        / "reports/default_gate_native_typed_consumer_stub_online_prelaunch_input_request_ptr_canary.json"
+    )
+    payload = json.loads(request_ptr_path.read_text(encoding="utf-8"))
+    payload[
+        "future_kernel_native_consumer_request_ptr_summary_row_hash_accumulator"
+    ] = "wrong-request-ptr-hash"
+    _write(request_ptr_path, json.dumps(payload) + "\n")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is False
+    assert "default_readonly_gate_required_evidence_check_failed" in result["failures"]
+    assert (
+        "native_typed_consumer_stub_online_prelaunch_input_request_ptr_canary_json:"
+        "native_typed_consumer_stub_request_ptr_summary_row_hash_mismatch"
+    ) in result["default_readonly_gate_required_evidence_check"]["failures"]
+
+
+def test_premap_lab_preflight_rejects_online_request_ptr_pointer_size(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    request_ptr_path = (
+        tmp_path
+        / "reports/default_gate_native_typed_consumer_stub_online_prelaunch_input_request_ptr_canary.json"
+    )
+    payload = json.loads(request_ptr_path.read_text(encoding="utf-8"))
+    payload["future_kernel_native_consumer_request_ptr_pointer_size"] = 4
+    _write(request_ptr_path, json.dumps(payload) + "\n")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is False
+    assert "default_readonly_gate_required_evidence_check_failed" in result["failures"]
+    assert (
+        "native_typed_consumer_stub_online_prelaunch_input_request_ptr_canary_json:"
+        "native_typed_consumer_stub_request_ptr_pointer_size_mismatch"
+    ) in result["default_readonly_gate_required_evidence_check"]["failures"]
+
+
+def test_premap_lab_preflight_rejects_online_request_ptr_kernel_entry_field_mask(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    request_ptr_path = (
+        tmp_path
+        / "reports/default_gate_native_typed_consumer_stub_online_prelaunch_input_request_ptr_canary.json"
+    )
+    payload = json.loads(request_ptr_path.read_text(encoding="utf-8"))
+    payload["future_kernel_native_consumer_kernel_entry_summary_field_mask"] = 7
+    _write(request_ptr_path, json.dumps(payload) + "\n")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is False
+    assert "default_readonly_gate_required_evidence_check_failed" in result["failures"]
+    assert (
+        "native_typed_consumer_stub_online_prelaunch_input_request_ptr_canary_json:"
+        "native_typed_consumer_stub_kernel_entry_summary_field_mask_mismatch"
     ) in result["default_readonly_gate_required_evidence_check"]["failures"]
 
 
@@ -8305,9 +8539,9 @@ def test_premap_lab_preflight_can_defer_self_referential_runner_evidence(
     assert summary["deferred_online_prelaunch_artifact_evidence"] is False
     assert summary["runtime_gate_evidence_deferred_count"] == 10
     assert summary["strict_default_gate_evidence_deferred_count"] == 5
-    assert summary["required_evidence"]["required_count"] == 20
-    assert summary["required_evidence"]["present_count"] == 18
-    assert summary["required_evidence"]["passed_count"] == 18
+    assert summary["required_evidence"]["required_count"] == 21
+    assert summary["required_evidence"]["present_count"] == 19
+    assert summary["required_evidence"]["passed_count"] == 19
     assert summary["optional_evidence"]["passed_count"] == 16
     for label in (
         "future_kernel_native_consumer_online_artifact_check_16_128export_json",
@@ -8883,7 +9117,7 @@ def test_premap_lab_preflight_cli_writes_summary(tmp_path: Path):
     assert result["lab_gate_status_summary"]["passed"] is True
     assert (
         result["lab_gate_status_summary"]["required_evidence"]["passed_count"]
-        == 20
+        == 21
     )
 
 
@@ -8919,6 +9153,6 @@ def test_premap_lab_preflight_cli_summary_only_writes_status_block(tmp_path: Pat
     assert exit_code == 0
     assert result["passed"] is True
     assert result["default_readonly_gate_path"] == default_gate
-    assert result["required_evidence"]["passed_count"] == 20
+    assert result["required_evidence"]["passed_count"] == 21
     assert result["optional_evidence"]["passed_count"] == 19
     assert "lab_gate_status_summary" not in result

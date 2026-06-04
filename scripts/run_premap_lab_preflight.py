@@ -188,6 +188,7 @@ REQUIRED_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
     "native_typed_consumer_stub_endpoint_ptr_canary_json",
     "native_typed_consumer_stub_online_prelaunch_input_canary_json",
     "native_typed_consumer_stub_online_prelaunch_input_endpoint_ptr_canary_json",
+    "native_typed_consumer_stub_online_prelaunch_input_request_ptr_canary_json",
     "native_typed_consumer_online_prelaunch_canary_runner_json",
     "future_kernel_native_dispatch_ptr_standalone_canary_json",
     "future_kernel_native_arg_slot_standalone_canary_json",
@@ -1227,6 +1228,7 @@ def _validate_required_evidence_payload(
         "native_typed_consumer_stub_endpoint_ptr_canary_json",
         "native_typed_consumer_stub_online_prelaunch_input_canary_json",
         "native_typed_consumer_stub_online_prelaunch_input_endpoint_ptr_canary_json",
+        "native_typed_consumer_stub_online_prelaunch_input_request_ptr_canary_json",
         "native_typed_consumer_stub_online_prelaunch_input_per_field_canary_json",
     }
     expected_online_input_count = ONLINE_PRELAUNCH_MIN_INPUTS_BY_LABEL.get(
@@ -2858,6 +2860,7 @@ def _validate_required_evidence_payload(
                 in {
                     "native_typed_consumer_stub_online_prelaunch_input_canary_json",
                     "native_typed_consumer_stub_online_prelaunch_input_endpoint_ptr_canary_json",
+                    "native_typed_consumer_stub_online_prelaunch_input_request_ptr_canary_json",
                     "native_typed_consumer_stub_online_prelaunch_input_per_field_canary_json",
                 }
                 else "native_typed_consumer_bridge_input_json"
@@ -2876,6 +2879,7 @@ def _validate_required_evidence_payload(
                 in {
                     "native_typed_consumer_stub_online_prelaunch_input_canary_json",
                     "native_typed_consumer_stub_online_prelaunch_input_endpoint_ptr_canary_json",
+                    "native_typed_consumer_stub_online_prelaunch_input_request_ptr_canary_json",
                     "native_typed_consumer_stub_online_prelaunch_input_per_field_canary_json",
                 }
                 else None
@@ -2883,6 +2887,7 @@ def _validate_required_evidence_payload(
         is_online_prelaunch_stub = evidence_label in {
             "native_typed_consumer_stub_online_prelaunch_input_canary_json",
             "native_typed_consumer_stub_online_prelaunch_input_endpoint_ptr_canary_json",
+            "native_typed_consumer_stub_online_prelaunch_input_request_ptr_canary_json",
             "native_typed_consumer_stub_online_prelaunch_input_per_field_canary_json",
         }
         is_per_field_stub = (
@@ -2893,6 +2898,10 @@ def _validate_required_evidence_payload(
             "native_typed_consumer_stub_endpoint_ptr_canary_json",
             "native_typed_consumer_stub_online_prelaunch_input_endpoint_ptr_canary_json",
         }
+        is_request_ptr_stub = (
+            evidence_label
+            == "native_typed_consumer_stub_online_prelaunch_input_request_ptr_canary_json"
+        )
         endpoint_ptr_expected_field_mask = (
             15
             if evidence_label
@@ -2943,6 +2952,19 @@ def _validate_required_evidence_payload(
                         "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ENDPOINT_PTR_ABI",
                     )
                     if is_endpoint_ptr_stub
+                    else (
+                        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ABI",
+                        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ABI",
+                        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_ABI",
+                        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_PTR_ABI",
+                        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ARG_SLOT_ABI",
+                        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_VIEW_ABI",
+                        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_PROGRAM_VIEW_ABI",
+                        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_PROGRAM_VIEW_PTR_ABI",
+                        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ARG_PACKET_ABI",
+                        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_PTR_ABI",
+                    )
+                    if is_request_ptr_stub
                     else None
                 ),
                 required_disabled_macros=(
@@ -2953,6 +2975,8 @@ def _validate_required_evidence_payload(
                 require_kernel_side_abi_meta=is_per_field_stub,
                 require_endpoint_ptr_abi_meta=is_endpoint_ptr_stub,
                 endpoint_ptr_expected_field_mask=endpoint_ptr_expected_field_mask,
+                require_request_ptr_abi_meta=is_request_ptr_stub,
+                request_ptr_expected_field_mask=15,
             )
         ]
     if not isinstance(metrics, dict):
@@ -3015,6 +3039,8 @@ def _validate_native_typed_consumer_stub_evidence(
     require_kernel_side_abi_meta: bool = False,
     require_endpoint_ptr_abi_meta: bool = False,
     endpoint_ptr_expected_field_mask: int = 7,
+    require_request_ptr_abi_meta: bool = False,
+    request_ptr_expected_field_mask: int = 15,
 ) -> list[str]:
     failures: list[str] = []
     row_count = _int_metric(evidence, "row_count")
@@ -3161,6 +3187,158 @@ def _validate_native_typed_consumer_stub_evidence(
         ):
             failures.append(
                 "native_typed_consumer_stub_endpoint_ptr_summary_row_hash_mismatch"
+            )
+    if require_request_ptr_abi_meta:
+        expected_request_ptr_values: dict[str, Any] = {
+            "future_kernel_native_consumer_request_ptr_abi_name": (
+                "premap_future_kernel_native_consumer_request_ptr_abi_v1"
+            ),
+            "future_kernel_native_consumer_request_ptr_mode": (
+                "readonly_future_kernel_native_consumer_request_ptr_abi"
+            ),
+            "future_kernel_native_consumer_request_ptr_source": (
+                "premap_future_kernel_native_consumer_kernel_arg_packet_abi_v1"
+            ),
+            "future_kernel_native_consumer_request_ptr_field_read_path": (
+                "request_ptr_to_kernel_arg_packet_to_program_view_rows"
+            ),
+            "future_kernel_native_consumer_request_ptr_checked": True,
+            "future_kernel_native_consumer_request_ptr_version": 1,
+            "future_kernel_native_consumer_request_ptr_packet_chain_depth": 4,
+            "future_kernel_native_consumer_request_ptr_payload_bytes": 0,
+            "future_kernel_native_consumer_request_ptr_payload_deref_allowed": False,
+            "future_kernel_native_consumer_request_ptr_passed_to_kernel": False,
+            "future_kernel_native_consumer_request_ptr_kernel_arg_pass_allowed": False,
+            "future_kernel_native_consumer_request_ptr_changes_kernel_launch_args": False,
+            "future_kernel_native_consumer_request_ptr_current_wna16_arg_compatible": False,
+            "future_kernel_native_consumer_request_ptr_requires_wna16_arg_reinterpretation": False,
+        }
+        for key, expected_value in expected_request_ptr_values.items():
+            if evidence.get(key) != expected_value:
+                failures.append(f"native_typed_consumer_stub_{key}_mismatch")
+        if _int_metric(evidence, "future_kernel_native_consumer_request_ptr_request_id") is None:
+            failures.append("native_typed_consumer_stub_request_ptr_request_id_missing")
+        if _int_metric(evidence, "future_kernel_native_consumer_request_ptr_pointer_size") != 8:
+            failures.append("native_typed_consumer_stub_request_ptr_pointer_size_mismatch")
+        request_ptr_row_count = _int_metric(
+            evidence,
+            "future_kernel_native_consumer_request_ptr_summary_row_count",
+        )
+        request_ptr_row_ok_count = _int_metric(
+            evidence,
+            "future_kernel_native_consumer_request_ptr_summary_row_ok_count",
+        )
+        request_ptr_error_count = _int_metric(
+            evidence,
+            "future_kernel_native_consumer_request_ptr_summary_error_count",
+        )
+        if row_count is not None and request_ptr_row_count != row_count:
+            failures.append(
+                "native_typed_consumer_stub_request_ptr_summary_row_count_mismatch"
+            )
+        if row_count is not None and request_ptr_row_ok_count != row_count:
+            failures.append(
+                "native_typed_consumer_stub_request_ptr_summary_row_ok_count_mismatch"
+            )
+        if request_ptr_error_count != 0:
+            failures.append(
+                "native_typed_consumer_stub_request_ptr_summary_error_count_mismatch"
+            )
+        if (
+            _int_metric(evidence, "future_kernel_native_consumer_request_ptr_summary_field_mask")
+            != request_ptr_expected_field_mask
+        ):
+            failures.append(
+                "native_typed_consumer_stub_request_ptr_summary_field_mask_mismatch"
+            )
+        expected_aux_count = (
+            row_count if request_ptr_expected_field_mask & 8 else 0
+        )
+        request_ptr_read_count_expectations = {
+            "descriptor_ptr_read_row_ok_count": row_count,
+            "packed_weight_descriptor_read_row_ok_count": row_count,
+            "scale_metadata_handle_read_row_ok_count": row_count,
+            "aux_metadata_handle_read_row_ok_count": expected_aux_count,
+            "expert_id_read_row_ok_count": row_count,
+            "address_key_hash_read_row_ok_count": row_count,
+            "row_metadata_read_row_ok_count": row_count,
+        }
+        for suffix, expected_value in request_ptr_read_count_expectations.items():
+            if (
+                _int_metric(
+                    evidence,
+                    f"future_kernel_native_consumer_request_ptr_summary_{suffix}",
+                )
+                != expected_value
+            ):
+                failures.append(
+                    "native_typed_consumer_stub_"
+                    f"future_kernel_native_consumer_request_ptr_summary_{suffix}_mismatch"
+                )
+        kernel_entry_row_count = _int_metric(
+            evidence,
+            "future_kernel_native_consumer_kernel_entry_summary_row_count",
+        )
+        kernel_entry_row_ok_count = _int_metric(
+            evidence,
+            "future_kernel_native_consumer_kernel_entry_summary_row_ok_count",
+        )
+        kernel_entry_error_count = _int_metric(
+            evidence,
+            "future_kernel_native_consumer_kernel_entry_summary_error_count",
+        )
+        if row_count is not None and kernel_entry_row_count != row_count:
+            failures.append(
+                "native_typed_consumer_stub_kernel_entry_summary_row_count_mismatch"
+            )
+        if row_count is not None and kernel_entry_row_ok_count != row_count:
+            failures.append(
+                "native_typed_consumer_stub_kernel_entry_summary_row_ok_count_mismatch"
+            )
+        if kernel_entry_error_count != 0:
+            failures.append(
+                "native_typed_consumer_stub_kernel_entry_summary_error_count_mismatch"
+            )
+        if (
+            _int_metric(evidence, "future_kernel_native_consumer_kernel_entry_summary_field_mask")
+            != request_ptr_expected_field_mask
+        ):
+            failures.append(
+                "native_typed_consumer_stub_kernel_entry_summary_field_mask_mismatch"
+            )
+        for suffix, expected_value in request_ptr_read_count_expectations.items():
+            if (
+                _int_metric(
+                    evidence,
+                    f"future_kernel_native_consumer_kernel_entry_summary_{suffix}",
+                )
+                != expected_value
+            ):
+                failures.append(
+                    "native_typed_consumer_stub_"
+                    f"future_kernel_native_consumer_kernel_entry_summary_{suffix}_mismatch"
+                )
+        request_ptr_hash = evidence.get(
+            "future_kernel_native_consumer_request_ptr_summary_row_hash_accumulator"
+        )
+        kernel_entry_hash = evidence.get(
+            "future_kernel_native_consumer_kernel_entry_summary_row_hash_accumulator"
+        )
+        if not isinstance(request_ptr_hash, str) or not request_ptr_hash:
+            failures.append(
+                "native_typed_consumer_stub_request_ptr_summary_row_hash_missing"
+            )
+        if not isinstance(kernel_entry_hash, str) or not kernel_entry_hash:
+            failures.append(
+                "native_typed_consumer_stub_kernel_entry_summary_row_hash_missing"
+            )
+        if (
+            isinstance(request_ptr_hash, str)
+            and isinstance(kernel_entry_hash, str)
+            and request_ptr_hash != kernel_entry_hash
+        ):
+            failures.append(
+                "native_typed_consumer_stub_request_ptr_summary_row_hash_mismatch"
             )
     if expected_input_path is None:
         failures.append("native_typed_consumer_stub_expected_input_json_missing")

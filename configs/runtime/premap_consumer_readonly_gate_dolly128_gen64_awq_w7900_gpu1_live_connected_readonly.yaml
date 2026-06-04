@@ -877,6 +877,7 @@ evidence_paths:
   native_typed_consumer_online_prelaunch_export_performance_json: data/traces/external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_native_input_export_audit_mem70_stride320/performance_summary.json
   native_typed_consumer_stub_online_prelaunch_input_canary_json: outputs/reports/premap_kernel_consumer/typed_consumer_stub_gpu1_online_prelaunch_input_dolly128_stride320_canary.json
   native_typed_consumer_stub_online_prelaunch_input_endpoint_ptr_canary_json: outputs/reports/premap_kernel_consumer/typed_consumer_stub_gpu1_online_prelaunch_input_endpoint_ptr_canary.json
+  native_typed_consumer_stub_online_prelaunch_input_request_ptr_canary_json: outputs/reports/premap_kernel_consumer/typed_consumer_stub_gpu1_online_prelaunch_input_request_ptr_canary.json
   # The legacy *_16_128export labels are retained for preflight/checker
   # compatibility, but now point at the stronger 32-table no-defer online
   # canary.  This artifact satisfies both the older 16-input requirement and

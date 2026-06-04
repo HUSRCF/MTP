@@ -2,9 +2,27 @@
 
 ## Progress Version
 
-- Version: `v0.72-request-ptr-native-canary`
+- Version: `v0.73-request-ptr-lab-gate`
 - Updated: 2026-06-04
-- Latest native-stub update: added a direct request-pointer ABI canary,
+- Latest lab-gate update: promoted the real online request-pointer ABI canary
+  into the default readonly lab preflight as required evidence,
+  `native_typed_consumer_stub_online_prelaunch_input_request_ptr_canary_json`.
+  The default gate now points at
+  `outputs/reports/premap_kernel_consumer/typed_consumer_stub_gpu1_online_prelaunch_input_request_ptr_canary.json`,
+  which validates the exported 174-row vLLM prelaunch typed table through
+  `request_ptr -> kernel_arg_packet -> program_view_rows` with
+  `field_mask=15` and aux handles present.  The refreshed preflight summary
+  `outputs/reports/premap_lab_preflight_status_default_request_ptr_abi_summary.json`
+  passes with 21/21 required evidence rows, and
+  `outputs/reports/premap_lab_preflight_status_default_request_ptr_abi_summary.check.json`
+  passes with no failures.  The request-pointer summary row hash matches the
+  kernel-entry summary row hash, `summary_error_count=0`,
+  `payload_bytes=0`, `passed_to_kernel=false`,
+  `kernel_arg_pass_allowed=false`, `changes_kernel_launch_args=false`,
+  and `current_wna16_arg_compatible=false`.  This is now a default lab
+  precondition, still as a readonly native stub/checker path and not the
+  current WNA16 fused-MoE argument list.
+- Previous native-stub update: added a direct request-pointer ABI canary,
   `PremapFutureKernelNativeConsumerRequestPtrV1`, guarded by
   `MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_PTR_ABI`.
   Unlike the endpoint-pointer chain, this packet models a future native kernel
@@ -21,8 +39,9 @@
   existing kernel-entry summary hash, `summary_error_count=0`,
   `payload_bytes=0`, `passed_to_kernel=false`,
   `kernel_arg_pass_allowed=false`, `changes_kernel_launch_args=false`,
-  and `current_wna16_arg_compatible=false`.  This is new standalone canary
-  evidence only; it is not yet promoted into the default lab preflight gate.
+  and `current_wna16_arg_compatible=false`.  This standalone canary evidence
+  is now consumed by the default lab preflight through the online request
+  pointer evidence row above.
 - Latest lab-gate update: promoted the endpoint-pointer ABI stub into the
   default readonly lab preflight as required evidence,
   `native_typed_consumer_stub_endpoint_ptr_canary_json`, now pointing at the
