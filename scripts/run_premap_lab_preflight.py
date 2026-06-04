@@ -187,6 +187,7 @@ REQUIRED_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
     "native_typed_consumer_stub_gpu1_canary_json",
     "native_typed_consumer_stub_endpoint_ptr_canary_json",
     "native_typed_consumer_stub_online_prelaunch_input_canary_json",
+    "native_typed_consumer_stub_online_prelaunch_input_endpoint_ptr_canary_json",
     "native_typed_consumer_online_prelaunch_canary_runner_json",
     "future_kernel_native_dispatch_ptr_standalone_canary_json",
     "future_kernel_native_arg_slot_standalone_canary_json",
@@ -1225,6 +1226,7 @@ def _validate_required_evidence_payload(
         "native_typed_consumer_stub_gpu1_canary_json",
         "native_typed_consumer_stub_endpoint_ptr_canary_json",
         "native_typed_consumer_stub_online_prelaunch_input_canary_json",
+        "native_typed_consumer_stub_online_prelaunch_input_endpoint_ptr_canary_json",
         "native_typed_consumer_stub_online_prelaunch_input_per_field_canary_json",
     }
     expected_online_input_count = ONLINE_PRELAUNCH_MIN_INPUTS_BY_LABEL.get(
@@ -2855,6 +2857,7 @@ def _validate_required_evidence_payload(
                 if evidence_label
                 in {
                     "native_typed_consumer_stub_online_prelaunch_input_canary_json",
+                    "native_typed_consumer_stub_online_prelaunch_input_endpoint_ptr_canary_json",
                     "native_typed_consumer_stub_online_prelaunch_input_per_field_canary_json",
                 }
                 else "native_typed_consumer_bridge_input_json"
@@ -2872,20 +2875,29 @@ def _validate_required_evidence_payload(
                 and evidence_label
                 in {
                     "native_typed_consumer_stub_online_prelaunch_input_canary_json",
+                    "native_typed_consumer_stub_online_prelaunch_input_endpoint_ptr_canary_json",
                     "native_typed_consumer_stub_online_prelaunch_input_per_field_canary_json",
                 }
                 else None
             )
         is_online_prelaunch_stub = evidence_label in {
             "native_typed_consumer_stub_online_prelaunch_input_canary_json",
+            "native_typed_consumer_stub_online_prelaunch_input_endpoint_ptr_canary_json",
             "native_typed_consumer_stub_online_prelaunch_input_per_field_canary_json",
         }
         is_per_field_stub = (
             evidence_label
             == "native_typed_consumer_stub_online_prelaunch_input_per_field_canary_json"
         )
-        is_endpoint_ptr_stub = (
-            evidence_label == "native_typed_consumer_stub_endpoint_ptr_canary_json"
+        is_endpoint_ptr_stub = evidence_label in {
+            "native_typed_consumer_stub_endpoint_ptr_canary_json",
+            "native_typed_consumer_stub_online_prelaunch_input_endpoint_ptr_canary_json",
+        }
+        endpoint_ptr_expected_field_mask = (
+            15
+            if evidence_label
+            == "native_typed_consumer_stub_online_prelaunch_input_endpoint_ptr_canary_json"
+            else 7
         )
         return [
             f"{evidence_label}:{failure}"
@@ -2940,6 +2952,7 @@ def _validate_required_evidence_payload(
                 ),
                 require_kernel_side_abi_meta=is_per_field_stub,
                 require_endpoint_ptr_abi_meta=is_endpoint_ptr_stub,
+                endpoint_ptr_expected_field_mask=endpoint_ptr_expected_field_mask,
             )
         ]
     if not isinstance(metrics, dict):
@@ -3001,6 +3014,7 @@ def _validate_native_typed_consumer_stub_evidence(
     required_disabled_macros: tuple[str, ...] = (),
     require_kernel_side_abi_meta: bool = False,
     require_endpoint_ptr_abi_meta: bool = False,
+    endpoint_ptr_expected_field_mask: int = 7,
 ) -> list[str]:
     failures: list[str] = []
     row_count = _int_metric(evidence, "row_count")
@@ -3108,15 +3122,21 @@ def _validate_native_typed_consumer_stub_evidence(
             "future_kernel_native_consumer_endpoint_summary_",
             "future_kernel_native_consumer_endpoint_ptr_summary_",
         ):
-            if _int_metric(evidence, f"{summary_prefix}field_mask") != 7:
+            if (
+                _int_metric(evidence, f"{summary_prefix}field_mask")
+                != endpoint_ptr_expected_field_mask
+            ):
                 failures.append(
                     f"native_typed_consumer_stub_{summary_prefix}field_mask_mismatch"
                 )
+            expected_aux_count = (
+                row_count if endpoint_ptr_expected_field_mask & 8 else 0
+            )
             read_count_expectations = {
                 "descriptor_ptr_read_row_ok_count": row_count,
                 "packed_weight_descriptor_read_row_ok_count": row_count,
                 "scale_metadata_handle_read_row_ok_count": row_count,
-                "aux_metadata_handle_read_row_ok_count": 0,
+                "aux_metadata_handle_read_row_ok_count": expected_aux_count,
                 "expert_id_read_row_ok_count": row_count,
                 "address_key_hash_read_row_ok_count": row_count,
                 "row_metadata_read_row_ok_count": row_count,

@@ -23,6 +23,20 @@
   `kernel_arg_pass_allowed=false`, `changes_kernel_launch_args=false`,
   `current_wna16_arg_compatible=false`, and
   `requires_wna16_arg_reinterpretation=false`.
+- Online endpoint-pointer gate update: added
+  `native_typed_consumer_stub_online_prelaunch_input_endpoint_ptr_canary_json`
+  as a second required default evidence row.  It is bound to the real exported
+  online prelaunch input
+  `data/traces/external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_native_input_export_audit_mem70_stride320/premap_native_typed_consumer_inputs/premap_native_typed_consumer_input_0000_sample_0_seq0_tok-1_layer0.json`
+  and validates 174 rows with the optional aux pointer present.  The gate now
+  distinguishes the two endpoint-pointer modes explicitly: bridge smoke uses
+  `field_mask=7` and aux read count 0, while online prelaunch uses
+  `field_mask=15` and aux read count equal to `row_count`.  The refreshed
+  preflight summary
+  `outputs/reports/premap_lab_preflight_status_default_online_endpoint_ptr_abi_summary.json`
+  passes with 20/20 required evidence rows and the checker artifact
+  `outputs/reports/premap_lab_preflight_status_default_online_endpoint_ptr_abi_summary.check.json`
+  has no failures.
 - Latest native-stub update: added a standalone endpoint-pointer ABI canary,
   `PremapFutureKernelNativeConsumerEndpointPtrV1`, guarded by
   `MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ENDPOINT_PTR_ABI`.
