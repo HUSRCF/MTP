@@ -3499,8 +3499,84 @@ required evidence = 22 / 22
 1085 passed, 2 warnings
 ```
 
-This remains a future-kernel-side typed consumer gate only.  It still does not
-pass payloads, ready credit, or current WNA16 kernel arguments.
+  This remains a future-kernel-side typed consumer gate only.  It still does not
+  pass payloads, ready credit, or current WNA16 kernel arguments.
+
+### 2026-06-04 - Future native request-launch pointer ABI canary
+
+Added a pointer-backed request-launch ABI:
+
+```text
+PremapFutureKernelNativeConsumerRequestLaunchPtrV1
+```
+
+This follows the same pattern as the earlier endpoint pointer ABI, but on the
+short future request-launch path:
+
+```text
+request_launch_ptr
+  -> request_launch
+  -> request_ptr
+  -> kernel_arg_packet
+  -> program_view rows
+```
+
+The new macro is:
+
+```text
+MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_LAUNCH_PTR_ABI
+```
+
+The runner rejects this macro unless
+`MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_LAUNCH_ABI`
+is also enabled, and the HIP stub has the same compile-time dependency guard.
+The adapter validates the pointer packet, request id, summary pointer, struct
+sizes, pointer size, readonly flags, and then delegates to the existing
+request-launch matcher.  This is still not the current WNA16 fused-MoE kernel
+argument list.
+
+Standalone GPU canary:
+
+```text
+output =
+  outputs/reports/premap_kernel_consumer/
+  typed_consumer_stub_gpu0_request_launch_ptr_canary.json
+
+passed = true
+future_kernel_native_consumer_request_launch_ptr_checked = true
+future_kernel_native_consumer_request_launch_ptr_packet_chain_depth = 6
+future_kernel_native_consumer_request_launch_ptr_summary_row_count = 16
+future_kernel_native_consumer_request_launch_ptr_summary_row_ok_count = 16
+future_kernel_native_consumer_request_launch_ptr_summary_error_count = 0
+future_kernel_native_consumer_request_launch_ptr_summary_field_mask = 15
+request_launch_ptr/request_launch row_hash match = true
+payload_bytes = 0
+passed_to_kernel = false
+kernel_arg_pass_allowed = false
+changes_kernel_launch_args = false
+current_wna16_arg_compatible = false
+```
+
+Verification:
+
+```text
+/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_premap_typed_consumer_stub.py -q
+
+56 passed
+
+/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest tests -q
+
+1087 passed, 2 warnings
+```
+
+Next gate:
+
+```text
+If this pointer-backed request-launch shape remains useful, promote it into
+online prelaunch input evidence/lab preflight the same way request-launch was
+promoted.  Do not pass it to current WNA16 kernel args.
+```
 
 ## v0.66-online-merged-kernel-launch-descriptor-abi
 
