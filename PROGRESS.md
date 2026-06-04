@@ -29654,3 +29654,68 @@ runtime_gate_evidence_deferred_count = 0
 This makes the standalone native ABI/stub evidence a lab gate precondition
 rather than optional diagnostic coverage, while keeping the real WNA16 kernel
 argument list untouched.
+
+## WNA16-adjacent typed slot online native bridge gate
+
+The online merged prelaunch canary now requests the explicit native
+WNA16-adjacent typed-slot stub macro:
+
+```text
+MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_WNA16_ADJACENT_TYPED_SLOT_ABI
+```
+
+The top-level `wna16_adjacent_typed_slot_*` report fields are now read from the
+native stub's actual `future_kernel_native_consumer_wna16_adjacent_typed_slot_*`
+summary fields instead of being derived from endpoint-pointer evidence.
+
+Online native bridge evidence:
+
+```text
+outputs/reports/premap_kernel_consumer/online_merged_wna16_adjacent_typed_slot_native_bridge_runner.json
+
+passed = true
+failures = []
+dispatch_active_rows = 1841
+wna16_adjacent_typed_slot_checked = true
+wna16_adjacent_typed_slot_row_count = 1841
+wna16_adjacent_typed_slot_row_ok_count = 1841
+wna16_adjacent_typed_slot_error_count = 0
+wna16_adjacent_typed_slot_all_handle_fields_read = true
+wna16_adjacent_typed_slot_packet_chain_depth = 14
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+current_wna16_arg_compatible = false
+requires_wna16_arg_reinterpretation = false
+explicit_typed_abi_slot = true
+reuses_current_wna16_arg_slot = false
+```
+
+The default lab gate now requires this online/native bridge artifact:
+
+```text
+configs/runtime/premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_live_connected_readonly.yaml
+  future_kernel_wna16_adjacent_typed_slot_canary_json:
+    outputs/reports/premap_kernel_consumer/online_merged_wna16_adjacent_typed_slot_native_bridge_runner.json
+```
+
+Preflight evidence:
+
+```text
+outputs/reports/premap_kernel_consumer/lab_preflight_wna16_adjacent_typed_slot_native_bridge_required.json
+
+passed = true
+failures = []
+required_evidence = 37 / 37 / 37
+optional_evidence = 13 / 13 / 13
+future_kernel_wna16_adjacent_typed_slot_canary_json:
+  present = true
+  passed = true
+strict_default_gate_evidence_deferred_count = 0
+runtime_gate_evidence_deferred_count = 0
+```
+
+This upgrades the WNA16-adjacent evidence from a derived online summary plus
+standalone stub into a real online-derived row stream consumed by the native
+typed-slot stub. It still does not pass the typed slot to the current WNA16
+kernel and still does not move payload or grant readiness credit.

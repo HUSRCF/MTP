@@ -1368,9 +1368,60 @@ def test_online_merged_arg_slot_canary_dry_run_accepts_wna16_adjacent_typed_slot
         == result["kernel_endpoint_ptr_field_read_hash_accumulator"]
     )
     assert module.ENDPOINT_PTR_MACRO in stub_payload["requested_macros"]
+    assert (
+        module.WNA16_ADJACENT_TYPED_SLOT_MACRO in stub_payload["requested_macros"]
+    )
     assert stub_payload["requested_macros"] == module.arg_slot_macros(
         "scale_metadata_handle",
-        include_endpoint_ptr=True,
+        include_wna16_adjacent_typed_slot=True,
+    )
+    assert (
+        stub_payload[
+            "future_kernel_native_consumer_wna16_adjacent_typed_slot_checked"
+        ]
+        is True
+    )
+    assert (
+        stub_payload[
+            "future_kernel_native_consumer_wna16_adjacent_typed_slot_summary_row_count"
+        ]
+        == 7
+    )
+    assert (
+        stub_payload[
+            "future_kernel_native_consumer_wna16_adjacent_typed_slot_summary_row_ok_count"
+        ]
+        == 7
+    )
+    assert (
+        stub_payload[
+            "future_kernel_native_consumer_wna16_adjacent_typed_slot_summary_error_count"
+        ]
+        == 0
+    )
+    assert (
+        stub_payload[
+            "future_kernel_native_consumer_wna16_adjacent_typed_slot_payload_bytes"
+        ]
+        == 0
+    )
+    assert (
+        stub_payload[
+            "future_kernel_native_consumer_wna16_adjacent_typed_slot_passed_to_kernel"
+        ]
+        is False
+    )
+    assert (
+        stub_payload[
+            "future_kernel_native_consumer_wna16_adjacent_typed_slot_changes_kernel_launch_args"
+        ]
+        is False
+    )
+    assert (
+        stub_payload[
+            "future_kernel_native_consumer_wna16_adjacent_typed_slot_current_wna16_arg_compatible"
+        ]
+        is False
     )
 
 
