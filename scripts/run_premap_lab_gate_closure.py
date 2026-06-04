@@ -227,6 +227,20 @@ def _load_json_summary(path: Path) -> dict[str, Any]:
     ):
         if key in payload:
             summary[key] = payload.get(key)
+    stub_summary = payload.get("stub_summary")
+    requested_macros_source = None
+    requested_macros = None
+    if isinstance(stub_summary, dict) and isinstance(
+        stub_summary.get("requested_macros"), list
+    ):
+        requested_macros = stub_summary.get("requested_macros")
+        requested_macros_source = "stub_summary"
+    elif isinstance(payload.get("requested_macros"), list):
+        requested_macros = payload.get("requested_macros")
+        requested_macros_source = "top_level"
+    if isinstance(requested_macros, list):
+        summary["stub_requested_macros"] = list(requested_macros)
+        summary["stub_requested_macros_source"] = requested_macros_source
     return summary
 
 

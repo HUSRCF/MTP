@@ -5,6 +5,7 @@ from pathlib import Path
 
 from scripts.run_premap_lab_gate_closure import (
     _build_parser,
+    _load_json_summary,
     _runner_recorded_path_failures,
     _tail_window_probe_failures,
     main,
@@ -24,6 +25,38 @@ def test_run_premap_lab_gate_closure_defaults_use_endpoint_artifacts():
     assert args.arg_slot_merged_json.name == (
         "online_merged_prelaunch_typed_consumer_input_endpoint_canary.json"
     )
+
+
+def test_load_json_summary_prefers_stub_summary_requested_macros(tmp_path: Path):
+    path = tmp_path / "runner.json"
+    path.write_text(
+        json.dumps(
+            {
+                "passed": True,
+                "requested_macros": ["TOP_LEVEL_MACRO"],
+                "stub_summary": {"requested_macros": ["STUB_MACRO"]},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    summary = _load_json_summary(path)
+
+    assert summary["stub_requested_macros"] == ["STUB_MACRO"]
+    assert summary["stub_requested_macros_source"] == "stub_summary"
+
+
+def test_load_json_summary_accepts_top_level_requested_macros(tmp_path: Path):
+    path = tmp_path / "runner.json"
+    path.write_text(
+        json.dumps({"passed": True, "requested_macros": ["TOP_LEVEL_MACRO"]}),
+        encoding="utf-8",
+    )
+
+    summary = _load_json_summary(path)
+
+    assert summary["stub_requested_macros"] == ["TOP_LEVEL_MACRO"]
+    assert summary["stub_requested_macros_source"] == "top_level"
 
 
 def test_run_premap_lab_gate_closure_dry_run_records_canonical_steps(

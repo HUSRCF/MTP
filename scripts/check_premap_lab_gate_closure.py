@@ -35,6 +35,14 @@ REQUIRED_STEPS = (
     "summary_check",
     "native_artifact_check",
 )
+REQUIRED_ARG_SLOT_ENDPOINT_MACROS = frozenset(
+    {
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_LAUNCH_CONTEXT_ABI",
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_INVOCATION_ABI",
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_INVOCATION_ENTRY_ABI",
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ENDPOINT_ABI",
+    }
+)
 
 
 def _arg_slot_endpoint_summary_failures(summary: dict[str, Any]) -> list[str]:
@@ -93,6 +101,17 @@ def _arg_slot_endpoint_summary_failures(summary: dict[str, Any]) -> list[str]:
         value = summary.get(key)
         if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
             failures.append(f"arg_slot_runner_{key}_invalid")
+    requested_macros = summary.get("stub_requested_macros")
+    if not isinstance(requested_macros, list):
+        failures.append("arg_slot_runner_stub_requested_macros_missing")
+    else:
+        macros_source = summary.get("stub_requested_macros_source")
+        if macros_source not in ("stub_summary", "top_level"):
+            failures.append("arg_slot_runner_stub_requested_macros_source_invalid")
+        requested_macro_set = {macro for macro in requested_macros if isinstance(macro, str)}
+        for macro in sorted(REQUIRED_ARG_SLOT_ENDPOINT_MACROS):
+            if macro not in requested_macro_set:
+                failures.append(f"arg_slot_runner_stub_requested_macro_missing:{macro}")
     return failures
 
 

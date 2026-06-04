@@ -58,6 +58,13 @@ def _arg_slot_runner_summary(passed: bool = True) -> dict:
             "kernel_endpoint_changes_kernel_launch_args": False,
             "kernel_endpoint_current_wna16_arg_compatible": False,
             "kernel_endpoint_requires_wna16_arg_reinterpretation": False,
+            "stub_requested_macros": [
+                "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_LAUNCH_CONTEXT_ABI",
+                "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_INVOCATION_ABI",
+                "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_INVOCATION_ENTRY_ABI",
+                "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ENDPOINT_ABI",
+            ],
+            "stub_requested_macros_source": "stub_summary",
         }
     )
     return payload
@@ -139,6 +146,20 @@ def test_check_closure_artifact_accepts_default_closure(tmp_path: Path):
     assert result["failures"] == []
 
 
+def test_check_closure_artifact_accepts_top_level_endpoint_stub_macro_source(
+    tmp_path: Path,
+):
+    path = tmp_path / "closure.json"
+    payload = _closure_payload()
+    payload["summaries"]["arg_slot_runner"]["stub_requested_macros_source"] = "top_level"
+    _write_json(path, payload)
+
+    result = check_closure_artifact(path)
+
+    assert result["passed"] is True
+    assert result["failures"] == []
+
+
 def test_check_closure_artifact_rejects_explicit_artifact_paths(tmp_path: Path):
     path = tmp_path / "closure.json"
     payload = _closure_payload()
@@ -185,6 +206,40 @@ def test_check_closure_artifact_rejects_missing_endpoint_abi(tmp_path: Path):
         in result["failures"]
     )
     assert "arg_slot_runner_kernel_endpoint_checked_mismatch" in result["failures"]
+
+
+def test_check_closure_artifact_rejects_missing_endpoint_stub_macro(tmp_path: Path):
+    path = tmp_path / "closure.json"
+    payload = _closure_payload()
+    macros = payload["summaries"]["arg_slot_runner"]["stub_requested_macros"]
+    assert isinstance(macros, list)
+    macros.remove(
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ENDPOINT_ABI"
+    )
+    _write_json(path, payload)
+
+    result = check_closure_artifact(path)
+
+    assert result["passed"] is False
+    assert (
+        "arg_slot_runner_stub_requested_macro_missing:"
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ENDPOINT_ABI"
+        in result["failures"]
+    )
+
+
+def test_check_closure_artifact_rejects_missing_endpoint_stub_macro_source(
+    tmp_path: Path,
+):
+    path = tmp_path / "closure.json"
+    payload = _closure_payload()
+    payload["summaries"]["arg_slot_runner"].pop("stub_requested_macros_source")
+    _write_json(path, payload)
+
+    result = check_closure_artifact(path)
+
+    assert result["passed"] is False
+    assert "arg_slot_runner_stub_requested_macros_source_invalid" in result["failures"]
 
 
 def test_check_closure_artifact_rejects_invocation_kernel_boundary_mutation(
