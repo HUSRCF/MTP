@@ -136,6 +136,51 @@ def _check_kernel_consumer_handle_summary(
         failures.append(f"{label}_requires_wna16_arg_reinterpretation_mismatch")
 
 
+def _check_request_launch_geometry(
+    summary: dict[str, Any],
+    failures: list[str],
+) -> None:
+    row_count = _int_metric(
+        summary,
+        "default_kernel_consumer_request_launch_summary_row_count",
+    )
+    grid_x = _int_metric(summary, "default_kernel_consumer_request_launch_grid_x")
+    block_x = _int_metric(summary, "default_kernel_consumer_request_launch_block_x")
+    row_offset = _int_metric(
+        summary,
+        "default_kernel_consumer_request_launch_row_offset",
+    )
+    row_limit = _int_metric(
+        summary,
+        "default_kernel_consumer_request_launch_row_limit",
+    )
+    rows_per_program = _int_metric(
+        summary,
+        "default_kernel_consumer_request_launch_rows_per_program",
+    )
+    if row_count is None or row_count <= 0:
+        failures.append("request_launch_geometry_row_count_invalid")
+        return
+    if grid_x is None or grid_x <= 0:
+        failures.append("request_launch_geometry_grid_x_invalid")
+        return
+    if block_x is None or block_x <= 0:
+        failures.append("request_launch_geometry_block_x_invalid")
+        return
+    if row_offset != 0:
+        failures.append("request_launch_geometry_row_offset_mismatch")
+    if row_limit != row_count:
+        failures.append("request_launch_geometry_row_limit_mismatch")
+    if rows_per_program != block_x:
+        failures.append("request_launch_geometry_rows_per_program_mismatch")
+    launched_lanes = grid_x * block_x
+    previous_grid_lanes = (grid_x - 1) * block_x
+    if launched_lanes < row_count:
+        failures.append("request_launch_geometry_under_covers_rows")
+    if previous_grid_lanes >= row_count:
+        failures.append("request_launch_geometry_overprovisioned_grid")
+
+
 def check_premap_lab_preflight_summary(
     summary: dict[str, Any],
     *,
@@ -413,6 +458,7 @@ def check_premap_lab_preflight_summary(
         ),
         expected_packet_chain_depth=5,
     )
+    _check_request_launch_geometry(summary, failures)
     _check_kernel_consumer_handle_summary(
         summary,
         failures,

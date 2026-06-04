@@ -672,6 +672,9 @@ def test_check_premap_lab_preflight_summary_rejects_request_launch_gap() -> None
     summary = _summary()
     summary["default_kernel_consumer_request_launch_checked"] = False
     summary["default_kernel_consumer_request_launch_packet_chain_depth"] = 4
+    summary["default_kernel_consumer_request_launch_row_offset"] = 1
+    summary["default_kernel_consumer_request_launch_row_limit"] = 1840
+    summary["default_kernel_consumer_request_launch_rows_per_program"] = 128
     summary[
         "default_kernel_consumer_request_launch_summary_scale_metadata_handle_read_row_ok_count"
     ] = 1840
@@ -691,6 +694,9 @@ def test_check_premap_lab_preflight_summary_rejects_request_launch_gap() -> None
     ]
     assert "request_launch_summary_error_count_mismatch" in result["failures"]
     assert "request_launch_all_handle_fields_read_mismatch" in result["failures"]
+    assert "request_launch_geometry_row_offset_mismatch" in result["failures"]
+    assert "request_launch_geometry_row_limit_mismatch" in result["failures"]
+    assert "request_launch_geometry_rows_per_program_mismatch" in result["failures"]
     assert (
         "default_kernel_consumer_request_launch_summary_field_read_hash_accumulator_invalid"
         in result["failures"]
@@ -769,6 +775,26 @@ def test_check_premap_lab_preflight_summary_rejects_request_launch_boundary() ->
         "request_launch_requires_wna16_arg_reinterpretation_mismatch"
         in result["failures"]
     )
+
+
+def test_check_premap_lab_preflight_summary_rejects_request_launch_grid_under_cover() -> None:
+    summary = _summary()
+    summary["default_kernel_consumer_request_launch_grid_x"] = 7
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is False
+    assert "request_launch_geometry_under_covers_rows" in result["failures"]
+
+
+def test_check_premap_lab_preflight_summary_rejects_request_launch_grid_overprovision() -> None:
+    summary = _summary()
+    summary["default_kernel_consumer_request_launch_grid_x"] = 9
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is False
+    assert "request_launch_geometry_overprovisioned_grid" in result["failures"]
 
 
 def test_check_premap_lab_preflight_summary_rejects_request_launch_ptr_boundary() -> None:
