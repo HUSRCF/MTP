@@ -207,6 +207,13 @@ DEFAULT_FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_PTR_STUB_OUTPUT = (
     / "premap_kernel_consumer"
     / "typed_consumer_stub_gpu1_future_native_request_ptr_canary.json"
 )
+DEFAULT_FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_LAUNCH_STUB_OUTPUT = (
+    REPO_ROOT
+    / "outputs"
+    / "reports"
+    / "premap_kernel_consumer"
+    / "typed_consumer_stub_gpu1_future_native_request_launch_canary.json"
+)
 DEFAULT_PREFLIGHT_OUTPUT = (
     REPO_ROOT
     / "outputs"
@@ -503,6 +510,11 @@ FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_PTR_STUB_MACROS = [
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_PROGRAM_VIEW_PTR_ABI",
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ARG_PACKET_ABI",
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_PTR_ABI",
+    "MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR",
+]
+FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_LAUNCH_STUB_MACROS = [
+    *FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_PTR_STUB_MACROS[:-1],
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_LAUNCH_ABI",
     "MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR",
 ]
 
@@ -923,6 +935,55 @@ FUTURE_KERNEL_NATIVE_REQUEST_PTR_CONSUMER_SUMMARY_KEYS = (
     "changes_kernel_launch_args",
     "input_json",
 )
+FUTURE_KERNEL_NATIVE_REQUEST_LAUNCH_CONSUMER_SUMMARY_KEYS = (
+    "passed",
+    "ok",
+    "row_count",
+    "row_ok_count",
+    "error_count",
+    "future_kernel_native_consumer_request_launch_abi_name",
+    "future_kernel_native_consumer_request_launch_mode",
+    "future_kernel_native_consumer_request_launch_source",
+    "future_kernel_native_consumer_request_launch_field_read_path",
+    "future_kernel_native_consumer_request_launch_checked",
+    "future_kernel_native_consumer_request_launch_version",
+    "future_kernel_native_consumer_request_launch_packet_chain_depth",
+    "future_kernel_native_consumer_request_launch_pointer_size",
+    "future_kernel_native_consumer_request_launch_request_id",
+    "future_kernel_native_consumer_request_launch_device_ordinal",
+    "future_kernel_native_consumer_request_launch_stream_domain",
+    "future_kernel_native_consumer_request_launch_grid_x",
+    "future_kernel_native_consumer_request_launch_block_x",
+    "future_kernel_native_consumer_request_launch_row_offset",
+    "future_kernel_native_consumer_request_launch_row_limit",
+    "future_kernel_native_consumer_request_launch_rows_per_program",
+    "future_kernel_native_consumer_request_launch_row_count",
+    "future_kernel_native_consumer_request_launch_payload_bytes",
+    "future_kernel_native_consumer_request_launch_payload_deref_allowed",
+    "future_kernel_native_consumer_request_launch_passed_to_kernel",
+    "future_kernel_native_consumer_request_launch_kernel_arg_pass_allowed",
+    "future_kernel_native_consumer_request_launch_changes_kernel_launch_args",
+    "future_kernel_native_consumer_request_launch_current_wna16_arg_compatible",
+    "future_kernel_native_consumer_request_launch_requires_wna16_arg_reinterpretation",
+    "future_kernel_native_consumer_request_launch_summary_row_count",
+    "future_kernel_native_consumer_request_launch_summary_row_ok_count",
+    "future_kernel_native_consumer_request_launch_summary_error_count",
+    "future_kernel_native_consumer_request_launch_summary_field_mask",
+    "future_kernel_native_consumer_request_launch_summary_descriptor_ptr_read_row_ok_count",
+    "future_kernel_native_consumer_request_launch_summary_packed_weight_descriptor_read_row_ok_count",
+    "future_kernel_native_consumer_request_launch_summary_scale_metadata_handle_read_row_ok_count",
+    "future_kernel_native_consumer_request_launch_summary_aux_metadata_handle_read_row_ok_count",
+    "future_kernel_native_consumer_request_launch_summary_expert_id_read_row_ok_count",
+    "future_kernel_native_consumer_request_launch_summary_address_key_hash_read_row_ok_count",
+    "future_kernel_native_consumer_request_launch_summary_row_metadata_read_row_ok_count",
+    "future_kernel_native_consumer_request_launch_summary_row_hash_accumulator",
+    "future_kernel_native_consumer_request_launch_summary_field_read_hash_accumulator",
+    "future_kernel_native_consumer_request_launch_summary_row_metadata_hash_accumulator",
+    "payload_bytes",
+    "passed_to_kernel",
+    "changes_kernel_launch_args",
+    "input_json",
+)
 FUTURE_KERNEL_NATIVE_ARG_SLOT_CONSUMER_SUMMARY_KEYS = (
     "passed",
     "ok",
@@ -1172,6 +1233,23 @@ def _int_arg(cmd: list[str], name: str, default: int | None) -> int | None:
     return int(cmd[index])
 
 
+def _str_arg(cmd: list[str], name: str, default: str | None = None) -> str | None:
+    if name not in cmd:
+        return default
+    index = cmd.index(name) + 1
+    if index >= len(cmd):
+        raise ValueError(f"missing value for {name}")
+    return str(cmd[index])
+
+
+def _multi_arg(cmd: list[str], name: str) -> list[str]:
+    values: list[str] = []
+    for index, item in enumerate(cmd[:-1]):
+        if item == name:
+            values.append(str(cmd[index + 1]))
+    return values
+
+
 def _expected_stub_dispatch_window(cmd: list[str]) -> tuple[int, int | None]:
     return (
         int(_int_arg(cmd, "--dispatch-row-offset", 0) or 0),
@@ -1186,6 +1264,24 @@ def _can_reuse_existing_stub_output(cmd: list[str], output_path: Path) -> bool:
         return False
     if not bool(payload.get("passed", payload.get("ok", False))):
         return False
+    expected_macros = sorted(_multi_arg(cmd, "--macro"))
+    observed_macros = payload.get("requested_macros")
+    if not isinstance(observed_macros, list):
+        return False
+    if sorted(str(item) for item in observed_macros) != expected_macros:
+        return False
+    expected_offload_arch = _str_arg(cmd, "--offload-arch")
+    if expected_offload_arch is None or payload.get("offload_arch") != expected_offload_arch:
+        return False
+    expected_input_json = _str_arg(cmd, "--input-json")
+    if expected_input_json is not None:
+        observed_input_json = payload.get("input_json")
+        if not isinstance(observed_input_json, str) or not observed_input_json:
+            return False
+        if _resolve_repo_path(observed_input_json) != _resolve_repo_path(
+            expected_input_json
+        ):
+            return False
     expected_offset, expected_limit = _expected_stub_dispatch_window(cmd)
     if "requested_dispatch_row_offset" not in payload:
         return False
@@ -1652,6 +1748,9 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
     future_kernel_native_consumer_request_ptr_stub_output = _resolve_repo_path(
         args.future_kernel_native_consumer_request_ptr_stub_output_json
     )
+    future_kernel_native_consumer_request_launch_stub_output = _resolve_repo_path(
+        args.future_kernel_native_consumer_request_launch_stub_output_json
+    )
     future_args_extra_stubs = (
         (
             "native_stub_future_kernel_args_descriptor_ptr_mirror",
@@ -1752,6 +1851,18 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
                 device=int(args.stub_device),
                 offload_arch=str(args.offload_arch),
                 macros=FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_PTR_STUB_MACROS,
+            ),
+            env=env,
+            dry_run=bool(args.dry_run),
+        )
+    if not args.skip_stub and not args.skip_future_kernel_native_consumer_request_launch_stub:
+        steps["native_stub_future_kernel_native_consumer_request_launch_abi"] = _run(
+            _stub_command(
+                input_json=input_path,
+                output_json=future_kernel_native_consumer_request_launch_stub_output,
+                device=int(args.stub_device),
+                offload_arch=str(args.offload_arch),
+                macros=FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_LAUNCH_STUB_MACROS,
             ),
             env=env,
             dry_run=bool(args.dry_run),
@@ -2012,6 +2123,12 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
                 FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_PTR_STUB_MACROS,
                 future_kernel_native_consumer_request_ptr_stub_output,
             ),
+            (
+                "native_stub_future_kernel_native_consumer_request_launch_abi",
+                "skip_future_kernel_native_consumer_request_launch_stub",
+                FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_LAUNCH_STUB_MACROS,
+                future_kernel_native_consumer_request_launch_stub_output,
+            ),
         ):
             if bool(args.skip_stub) or bool(getattr(args, skip_label, False)):
                 continue
@@ -2239,6 +2356,7 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
                     "future_kernel_native_dispatch_consumer_single_field_mirror_error_count",
                     *FUTURE_KERNEL_NATIVE_DISPATCH_CONSUMER_SUMMARY_KEYS,
                     *FUTURE_KERNEL_NATIVE_REQUEST_PTR_CONSUMER_SUMMARY_KEYS,
+                    *FUTURE_KERNEL_NATIVE_REQUEST_LAUNCH_CONSUMER_SUMMARY_KEYS,
                     "single_field_mirror_checked",
                     "single_field_mirror_field_name",
                     "single_field_mirror_row_count",
@@ -2420,6 +2538,13 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
         {}
         if args.dry_run
         else _load_json_if_exists(future_kernel_native_consumer_request_ptr_stub_output)
+    )
+    future_kernel_native_consumer_request_launch_stub_payload = (
+        {}
+        if args.dry_run
+        else _load_json_if_exists(
+            future_kernel_native_consumer_request_launch_stub_output
+        )
     )
     preflight_payload = (
         {} if args.dry_run else _load_json_if_exists(preflight_output)
@@ -3321,6 +3446,144 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
             future_kernel_native_consumer_request_ptr_stub_payload
         )
     )
+    future_native_request_launch_required = not bool(
+        args.skip_stub or args.skip_future_kernel_native_consumer_request_launch_stub
+    )
+
+    def _future_native_request_launch_passed(payload: dict[str, Any]) -> bool:
+        row_count = payload.get("row_count")
+        if not isinstance(row_count, int) or isinstance(row_count, bool) or row_count <= 0:
+            return False
+        device_ordinal = payload.get(
+            "future_kernel_native_consumer_request_launch_device_ordinal"
+        )
+        if device_ordinal != int(args.stub_device):
+            return False
+        block_x = payload.get("future_kernel_native_consumer_request_launch_block_x")
+        grid_x = payload.get("future_kernel_native_consumer_request_launch_grid_x")
+        rows_per_program = payload.get(
+            "future_kernel_native_consumer_request_launch_rows_per_program"
+        )
+        if (
+            not isinstance(block_x, int)
+            or isinstance(block_x, bool)
+            or block_x <= 0
+            or not isinstance(grid_x, int)
+            or isinstance(grid_x, bool)
+            or grid_x <= 0
+        ):
+            return False
+        if rows_per_program != block_x:
+            return False
+        if grid_x != (row_count + block_x - 1) // block_x:
+            return False
+        hash_suffixes = (
+            "row_hash_accumulator",
+            "field_read_hash_accumulator",
+            "row_metadata_hash_accumulator",
+        )
+        read_count_expectations = {
+            "descriptor_ptr_read_row_ok_count": row_count,
+            "packed_weight_descriptor_read_row_ok_count": row_count,
+            "scale_metadata_handle_read_row_ok_count": row_count,
+            "aux_metadata_handle_read_row_ok_count": row_count,
+            "expert_id_read_row_ok_count": row_count,
+            "address_key_hash_read_row_ok_count": row_count,
+            "row_metadata_read_row_ok_count": row_count,
+        }
+        for summary_prefix in (
+            "future_kernel_native_consumer_request_launch_summary",
+            "future_kernel_native_consumer_request_ptr_summary",
+            "future_kernel_native_consumer_kernel_entry_summary",
+        ):
+            if payload.get(f"{summary_prefix}_row_count") != row_count:
+                return False
+            if payload.get(f"{summary_prefix}_row_ok_count") != row_count:
+                return False
+            if payload.get(f"{summary_prefix}_error_count") != 0:
+                return False
+            if payload.get(f"{summary_prefix}_field_mask") != _FUTURE_KERNEL_ALL_FIELD_MASK:
+                return False
+            for suffix, expected_value in read_count_expectations.items():
+                if payload.get(f"{summary_prefix}_{suffix}") != expected_value:
+                    return False
+            for suffix in hash_suffixes:
+                if _parse_hex64(payload.get(f"{summary_prefix}_{suffix}")) is None:
+                    return False
+        for suffix in hash_suffixes:
+            values = [
+                _parse_hex64(
+                    payload.get(f"{prefix}_{suffix}")
+                )
+                for prefix in (
+                    "future_kernel_native_consumer_request_launch_summary",
+                    "future_kernel_native_consumer_request_ptr_summary",
+                    "future_kernel_native_consumer_kernel_entry_summary",
+                )
+            ]
+            if any(value is None for value in values) or len(set(values)) != 1:
+                return False
+        return bool(
+            payload.get("passed") is True
+            and payload.get("input_json") is not None
+            and _resolve_repo_path(str(payload.get("input_json"))) == input_path
+            and payload.get("future_kernel_native_consumer_request_launch_checked")
+            is True
+            and payload.get("future_kernel_native_consumer_request_launch_abi_name")
+            == "premap_future_kernel_native_consumer_request_launch_abi_v1"
+            and payload.get("future_kernel_native_consumer_request_launch_mode")
+            == "readonly_future_kernel_native_consumer_request_launch_abi"
+            and payload.get("future_kernel_native_consumer_request_launch_source")
+            == "premap_future_kernel_native_consumer_request_ptr_abi_v1"
+            and payload.get("future_kernel_native_consumer_request_launch_field_read_path")
+            == "request_launch_to_request_ptr_to_kernel_arg_packet_to_program_view_rows"
+            and payload.get(
+                "future_kernel_native_consumer_request_launch_packet_chain_depth"
+            )
+            == 5
+            and payload.get("future_kernel_native_consumer_request_launch_pointer_size")
+            == 8
+            and payload.get("future_kernel_native_consumer_request_launch_stream_domain")
+            == 0
+            and payload.get("future_kernel_native_consumer_request_launch_row_offset")
+            == 0
+            and payload.get("future_kernel_native_consumer_request_launch_row_limit")
+            == row_count
+            and payload.get("future_kernel_native_consumer_request_launch_row_count")
+            == row_count
+            and payload.get("future_kernel_native_consumer_request_launch_payload_bytes")
+            == 0
+            and payload.get(
+                "future_kernel_native_consumer_request_launch_payload_deref_allowed"
+            )
+            is False
+            and payload.get("future_kernel_native_consumer_request_launch_passed_to_kernel")
+            is False
+            and payload.get(
+                "future_kernel_native_consumer_request_launch_kernel_arg_pass_allowed"
+            )
+            is False
+            and payload.get(
+                "future_kernel_native_consumer_request_launch_changes_kernel_launch_args"
+            )
+            is False
+            and payload.get(
+                "future_kernel_native_consumer_request_launch_current_wna16_arg_compatible"
+            )
+            is False
+            and payload.get(
+                "future_kernel_native_consumer_request_launch_requires_wna16_arg_reinterpretation"
+            )
+            is False
+        )
+
+    future_native_request_launch_passed = bool(
+        args.dry_run
+        or not future_native_request_launch_required
+        or _future_native_request_launch_passed(
+            future_kernel_native_consumer_request_launch_stub_payload
+        )
+    )
     extra_input_checks_passed = bool(
         args.dry_run
         or all(item.get("passed") is True for item in extra_input_check_summaries)
@@ -3347,6 +3610,7 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
             and future_native_dispatch_consumer_passed
             and future_native_dispatch_consumer_extra_passed
             and future_native_request_ptr_passed
+            and future_native_request_launch_passed
             and extra_input_checks_passed
             and preflight_payload.get("passed") is True
             and preflight_status_payload.get("passed") is True
@@ -3911,6 +4175,58 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
             )
         ):
             failures.append("native_stub_future_native_request_ptr_row_hash_mismatch")
+    if not future_native_request_launch_passed:
+        if (
+            future_kernel_native_consumer_request_launch_stub_payload.get("passed")
+            is not True
+        ):
+            failures.append("native_stub_future_native_request_launch_not_passed")
+        if (
+            future_kernel_native_consumer_request_launch_stub_payload.get("input_json")
+            is None
+        ):
+            failures.append(
+                "native_stub_future_native_request_launch_input_json_missing"
+            )
+        elif (
+            not args.dry_run
+            and _resolve_repo_path(
+                str(
+                    future_kernel_native_consumer_request_launch_stub_payload.get(
+                        "input_json"
+                    )
+                )
+            )
+            != input_path
+        ):
+            failures.append(
+                "native_stub_future_native_request_launch_input_json_mismatch"
+            )
+        if (
+            future_kernel_native_consumer_request_launch_stub_payload.get(
+                "future_kernel_native_consumer_request_launch_checked"
+            )
+            is not True
+        ):
+            failures.append("native_stub_future_native_request_launch_not_checked")
+        if (
+            future_kernel_native_consumer_request_launch_stub_payload.get(
+                "future_kernel_native_consumer_request_launch_summary_error_count"
+            )
+            != 0
+        ):
+            failures.append(
+                "native_stub_future_native_request_launch_summary_error_count_mismatch"
+            )
+        if (
+            future_kernel_native_consumer_request_launch_stub_payload.get(
+                "future_kernel_native_consumer_request_launch_summary_row_hash_accumulator"
+            )
+            != future_kernel_native_consumer_request_launch_stub_payload.get(
+                "future_kernel_native_consumer_request_ptr_summary_row_hash_accumulator"
+            )
+        ):
+            failures.append("native_stub_future_native_request_launch_row_hash_mismatch")
     if not extra_input_checks_passed:
         failures.append("extra_online_input_stub_check_not_passed")
 
@@ -4020,6 +4336,9 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
         ),
         "future_kernel_native_consumer_request_ptr_native_stub_output_json": str(
             future_kernel_native_consumer_request_ptr_stub_output
+        ),
+        "future_kernel_native_consumer_request_launch_native_stub_output_json": str(
+            future_kernel_native_consumer_request_launch_stub_output
         ),
         "preflight_output_json": str(preflight_output),
         "preflight_status_output_json": str(preflight_status_output),
@@ -4413,6 +4732,10 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
         "future_kernel_native_consumer_request_ptr_stub_summary": {
             key: future_kernel_native_consumer_request_ptr_stub_payload.get(key)
             for key in FUTURE_KERNEL_NATIVE_REQUEST_PTR_CONSUMER_SUMMARY_KEYS
+        },
+        "future_kernel_native_consumer_request_launch_stub_summary": {
+            key: future_kernel_native_consumer_request_launch_stub_payload.get(key)
+            for key in FUTURE_KERNEL_NATIVE_REQUEST_LAUNCH_CONSUMER_SUMMARY_KEYS
         },
         # The arg-slot summaries below are projections of the same dispatch
         # payload used by the dispatch ABI canary.  They are top-level
@@ -5027,6 +5350,11 @@ def build_parser() -> argparse.ArgumentParser:
         default=DEFAULT_FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_PTR_STUB_OUTPUT,
     )
     parser.add_argument(
+        "--future-kernel-native-consumer-request-launch-stub-output-json",
+        type=Path,
+        default=DEFAULT_FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_LAUNCH_STUB_OUTPUT,
+    )
+    parser.add_argument(
         "--future-native-dispatch-row-offset",
         type=int,
         default=0,
@@ -5102,6 +5430,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--skip-future-kernel-native-consumer-request-ptr-stub",
+        action="store_true",
+    )
+    parser.add_argument(
+        "--skip-future-kernel-native-consumer-request-launch-stub",
         action="store_true",
     )
     parser.add_argument("--skip-preflight", action="store_true")

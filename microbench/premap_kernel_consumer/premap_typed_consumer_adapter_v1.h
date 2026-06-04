@@ -411,6 +411,26 @@ constexpr bool
 constexpr bool
     kPremapFutureKernelNativeConsumerRequestPtrAbiV1CurrentWna16ArgCompatible =
         false;
+constexpr const char*
+    kPremapFutureKernelNativeConsumerRequestLaunchAbiV1Name =
+        "premap_future_kernel_native_consumer_request_launch_abi_v1";
+constexpr const char*
+    kPremapFutureKernelNativeConsumerRequestLaunchAbiV1Mode =
+        "readonly_future_kernel_native_consumer_request_launch_abi";
+constexpr const char*
+    kPremapFutureKernelNativeConsumerRequestLaunchAbiV1Source =
+        "premap_future_kernel_native_consumer_request_ptr_abi_v1";
+constexpr uint32_t
+    kPremapFutureKernelNativeConsumerRequestLaunchAbiV1Version = 1;
+constexpr bool
+    kPremapFutureKernelNativeConsumerRequestLaunchAbiV1PayloadDerefAllowed =
+        false;
+constexpr bool
+    kPremapFutureKernelNativeConsumerRequestLaunchAbiV1KernelArgPassAllowed =
+        false;
+constexpr bool
+    kPremapFutureKernelNativeConsumerRequestLaunchAbiV1CurrentWna16ArgCompatible =
+        false;
 
 constexpr uint32_t kPremapFutureKernelSideConsumerArgsV1ReadonlyFlag = 1u << 0;
 constexpr uint32_t
@@ -790,6 +810,35 @@ struct PremapFutureKernelNativeConsumerRequestPtrV1 {
   uint32_t row_count;
   uint32_t field_mask;
   uint32_t request_id;
+  uint32_t payload_bytes;
+  uint32_t flags;
+};
+
+// Future request-launch ABI for a standalone typed consumer entry.  This wraps
+// the direct request pointer with the launch geometry and row-window metadata a
+// future kernel-side descriptor/address consumer would receive.  It remains
+// independent from the current WNA16 fused-MoE argument list.
+struct PremapFutureKernelNativeConsumerRequestLaunchV1 {
+  const PremapFutureKernelNativeConsumerRequestPtrV1* request_ptr;
+  PremapFutureKernelNativeConsumerKernelEntrySummaryV1* summary;
+  uint64_t expected_schema_hash_hi;
+  uint64_t expected_schema_hash_lo;
+  uint64_t expected_row_order_hash;
+  uint64_t expected_ordered_row_hash;
+  uint32_t abi_version;
+  uint32_t request_ptr_struct_size;
+  uint32_t summary_struct_size;
+  uint32_t pointer_size;
+  uint32_t grid_x;
+  uint32_t block_x;
+  uint32_t row_offset;
+  uint32_t row_limit;
+  uint32_t rows_per_program;
+  uint32_t row_count;
+  uint32_t field_mask;
+  uint32_t request_id;
+  uint32_t device_ordinal;
+  uint32_t stream_domain;
   uint32_t payload_bytes;
   uint32_t flags;
 };
@@ -1704,6 +1753,62 @@ premap_typed_consumer_future_native_request_ptr_matches_v1(
              program_view,
              request.expected_schema_hash_hi,
              request.expected_schema_hash_lo);
+}
+
+__device__ static inline bool
+premap_typed_consumer_future_native_request_launch_matches_v1(
+    const PremapFutureKernelNativeConsumerRequestLaunchV1& launch) {
+  const bool row_window_valid =
+      launch.row_offset == 0 && launch.row_limit == launch.row_count &&
+      launch.row_count > 0 && launch.grid_x > 0 && launch.block_x > 0 &&
+      launch.rows_per_program == launch.block_x;
+  const uint64_t launched_lanes =
+      static_cast<uint64_t>(launch.grid_x) *
+      static_cast<uint64_t>(launch.block_x);
+  const uint64_t previous_grid_lanes =
+      launch.grid_x > 0
+          ? static_cast<uint64_t>(launch.grid_x - 1) *
+                static_cast<uint64_t>(launch.block_x)
+          : 0ULL;
+  if (launch.request_ptr == nullptr || launch.summary == nullptr ||
+      launch.abi_version !=
+          kPremapFutureKernelNativeConsumerRequestLaunchAbiV1Version ||
+      launch.request_ptr_struct_size !=
+          sizeof(PremapFutureKernelNativeConsumerRequestPtrV1) ||
+      launch.summary_struct_size !=
+          sizeof(PremapFutureKernelNativeConsumerKernelEntrySummaryV1) ||
+      launch.pointer_size !=
+          sizeof(PremapFutureKernelNativeConsumerRequestPtrV1*) ||
+      launch.expected_schema_hash_hi == 0 ||
+      launch.expected_schema_hash_lo == 0 || !row_window_valid ||
+      launched_lanes < static_cast<uint64_t>(launch.row_count) ||
+      previous_grid_lanes >= static_cast<uint64_t>(launch.row_count) ||
+      launch.request_id == 0 || launch.stream_domain != 0 ||
+      launch.device_ordinal < 0 || launch.payload_bytes != 0 ||
+      (launch.field_mask & ~kPremapFutureKernelSideConsumerFieldMaskAll) != 0 ||
+      (launch.field_mask & kPremapFutureKernelSideConsumerFieldMaskRequired) !=
+          kPremapFutureKernelSideConsumerFieldMaskRequired ||
+      (launch.flags & kPremapFutureKernelSideConsumerArgsV1ReadonlyFlag) == 0 ||
+      (launch.flags &
+       kPremapFutureKernelSideConsumerArgsV1KernelArgPassDisabledFlag) == 0 ||
+      (launch.flags &
+       kPremapFutureKernelSideConsumerArgsV1PayloadDerefDisabledFlag) == 0 ||
+      launch.flags != kPremapFutureKernelSideConsumerArgsV1RequiredFlags ||
+      kPremapFutureKernelNativeConsumerRequestLaunchAbiV1PayloadDerefAllowed ||
+      kPremapFutureKernelNativeConsumerRequestLaunchAbiV1KernelArgPassAllowed ||
+      kPremapFutureKernelNativeConsumerRequestLaunchAbiV1CurrentWna16ArgCompatible) {
+    return false;
+  }
+  const PremapFutureKernelNativeConsumerRequestPtrV1 request =
+      *launch.request_ptr;
+  return request.expected_schema_hash_hi == launch.expected_schema_hash_hi &&
+         request.expected_schema_hash_lo == launch.expected_schema_hash_lo &&
+         request.expected_row_order_hash == launch.expected_row_order_hash &&
+         request.expected_ordered_row_hash == launch.expected_ordered_row_hash &&
+         request.row_count == launch.row_count &&
+         request.field_mask == launch.field_mask &&
+         request.request_id == launch.request_id &&
+         premap_typed_consumer_future_native_request_ptr_matches_v1(request);
 }
 
 __device__ static inline bool

@@ -3321,6 +3321,109 @@ passed = true
 failures = []
 ```
 
+### 2026-06-04 - Future native request-launch ABI canary
+
+Added a standalone future native request-launch ABI:
+
+```text
+PremapFutureKernelNativeConsumerRequestLaunchV1
+```
+
+This wraps the direct `RequestPtrV1` packet with the launch metadata a future
+kernel-side descriptor/address consumer would need:
+
+```text
+request_ptr
+summary
+expected schema/order hashes
+grid_x / block_x
+row_offset / row_limit / rows_per_program
+row_count / field_mask / request_id
+device_ordinal / stream_domain
+payload safety flags
+```
+
+The native stub now validates:
+
+```text
+request_launch
+  -> request_ptr
+  -> kernel_arg_packet
+  -> program_view_ptr
+  -> program_view rows
+```
+
+The contract remains strictly no-op with respect to the current vLLM WNA16
+kernel:
+
+```text
+payload_bytes = 0
+passed_to_kernel = false
+kernel_arg_pass_allowed = false
+changes_kernel_launch_args = false
+current_wna16_arg_compatible = false
+requires_wna16_arg_reinterpretation = false
+```
+
+This is a future-kernel-entry ABI canary, not a WNA16 argument mutation.
+
+Verification:
+
+```text
+/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_premap_typed_consumer_stub.py \
+  tests/test_run_premap_online_native_stub_canary.py -q
+
+73 passed
+
+/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest tests -q
+
+1085 passed
+```
+
+Standalone synthetic request-launch canary:
+
+```text
+rows = 16
+passed = true
+future_kernel_native_consumer_request_launch_checked = true
+request_launch summary row_count = 16
+request_launch summary row_ok_count = 16
+request_launch summary error_count = 0
+request_launch/request_ptr row_hash match = true
+payload/kernel/WNA16 mutation flags = false/0
+```
+
+Online prelaunch input request-launch canary:
+
+```text
+input =
+  data/traces/external_prompt_gate_dolly_1_awq_vllm_gpu1_decode_gen16_native_input_export_canary/
+  premap_native_typed_consumer_inputs/
+  premap_native_typed_consumer_input_0000_sample_0_seq0_tok-1_layer0.json
+
+rows = 204
+passed = true
+future_kernel_native_consumer_request_launch_checked = true
+request_launch summary row_count = 204
+request_launch summary row_ok_count = 204
+request_launch summary error_count = 0
+request_launch/request_ptr/kernel_entry row_hash match = true
+payload_bytes = 0
+passed_to_kernel = false
+kernel_arg_pass_allowed = false
+changes_kernel_launch_args = false
+current_wna16_arg_compatible = false
+```
+
+Next gate:
+
+```text
+Promote request-launch ABI into the online artifact/lab preflight checker once
+the native ABI review returns clean, then continue with a future-kernel-side
+typed consumer path that remains independent from current WNA16 args.
+```
+
 ## v0.66-online-merged-kernel-launch-descriptor-abi
 
 The future typed consumer path now has an online-merged native ABI canary for a

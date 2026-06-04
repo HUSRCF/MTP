@@ -1115,6 +1115,67 @@ def _native_stub_request_ptr_evidence_payload(input_json: str) -> dict[str, obje
     return payload
 
 
+def _native_stub_request_launch_evidence_payload(input_json: str) -> dict[str, object]:
+    payload = _native_stub_request_ptr_evidence_payload(input_json)
+    row_hash = "1234567890abcdef"
+    field_read_hash = "0fedcba987654321"
+    row_metadata_hash = "55aa55aa55aa55aa"
+    payload.update(
+        {
+            "future_kernel_native_consumer_request_launch_abi_name": (
+                "premap_future_kernel_native_consumer_request_launch_abi_v1"
+            ),
+            "future_kernel_native_consumer_request_launch_mode": (
+                "readonly_future_kernel_native_consumer_request_launch_abi"
+            ),
+            "future_kernel_native_consumer_request_launch_source": (
+                "premap_future_kernel_native_consumer_request_ptr_abi_v1"
+            ),
+            "future_kernel_native_consumer_request_launch_field_read_path": (
+                "request_launch_to_request_ptr_to_kernel_arg_packet_to_program_view_rows"
+            ),
+            "future_kernel_native_consumer_request_launch_checked": True,
+            "future_kernel_native_consumer_request_launch_version": 1,
+            "future_kernel_native_consumer_request_launch_packet_chain_depth": 5,
+            "future_kernel_native_consumer_request_launch_pointer_size": 8,
+            "future_kernel_native_consumer_request_launch_request_id": 1,
+            "future_kernel_native_consumer_request_launch_device_ordinal": 0,
+            "future_kernel_native_consumer_request_launch_stream_domain": 0,
+            "future_kernel_native_consumer_request_launch_grid_x": 1,
+            "future_kernel_native_consumer_request_launch_block_x": 256,
+            "future_kernel_native_consumer_request_launch_row_offset": 0,
+            "future_kernel_native_consumer_request_launch_row_limit": 2,
+            "future_kernel_native_consumer_request_launch_rows_per_program": 256,
+            "future_kernel_native_consumer_request_launch_row_count": 2,
+            "future_kernel_native_consumer_request_launch_payload_bytes": 0,
+            "future_kernel_native_consumer_request_launch_payload_deref_allowed": False,
+            "future_kernel_native_consumer_request_launch_passed_to_kernel": False,
+            "future_kernel_native_consumer_request_launch_kernel_arg_pass_allowed": False,
+            "future_kernel_native_consumer_request_launch_changes_kernel_launch_args": False,
+            "future_kernel_native_consumer_request_launch_current_wna16_arg_compatible": False,
+            "future_kernel_native_consumer_request_launch_requires_wna16_arg_reinterpretation": False,
+            "future_kernel_native_consumer_request_launch_summary_row_count": 2,
+            "future_kernel_native_consumer_request_launch_summary_row_ok_count": 2,
+            "future_kernel_native_consumer_request_launch_summary_error_count": 0,
+            "future_kernel_native_consumer_request_launch_summary_field_mask": 15,
+            "future_kernel_native_consumer_request_launch_summary_descriptor_ptr_read_row_ok_count": 2,
+            "future_kernel_native_consumer_request_launch_summary_packed_weight_descriptor_read_row_ok_count": 2,
+            "future_kernel_native_consumer_request_launch_summary_scale_metadata_handle_read_row_ok_count": 2,
+            "future_kernel_native_consumer_request_launch_summary_aux_metadata_handle_read_row_ok_count": 2,
+            "future_kernel_native_consumer_request_launch_summary_expert_id_read_row_ok_count": 2,
+            "future_kernel_native_consumer_request_launch_summary_address_key_hash_read_row_ok_count": 2,
+            "future_kernel_native_consumer_request_launch_summary_row_metadata_read_row_ok_count": 2,
+            "future_kernel_native_consumer_request_launch_summary_row_hash_accumulator": row_hash,
+            "future_kernel_native_consumer_request_launch_summary_field_read_hash_accumulator": field_read_hash,
+            "future_kernel_native_consumer_request_launch_summary_row_metadata_hash_accumulator": row_metadata_hash,
+        }
+    )
+    payload["compiled_macros"][
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_LAUNCH_ABI"
+    ] = True
+    return payload
+
+
 def _native_stub_per_field_evidence_payload(input_json: str) -> dict[str, object]:
     payload = _native_stub_evidence_payload(input_json)
     payload.update(
@@ -1805,6 +1866,64 @@ def _runner_future_kernel_native_request_ptr_summary() -> dict[str, object]:
             "future_kernel_native_consumer_kernel_entry_summary_row_hash_accumulator": row_hash,
             "future_kernel_native_consumer_kernel_entry_summary_field_read_hash_accumulator": field_read_hash,
             "future_kernel_native_consumer_kernel_entry_summary_row_metadata_hash_accumulator": row_metadata_hash,
+        }
+    )
+    return payload
+
+
+def _runner_future_kernel_native_request_launch_summary() -> dict[str, object]:
+    row_hash = "1234567890abcdef"
+    field_read_hash = "0fedcba987654321"
+    row_metadata_hash = "55aa55aa55aa55aa"
+    payload = _runner_future_kernel_native_request_ptr_summary()
+    payload.update(
+        {
+            "future_kernel_native_consumer_request_launch_abi_name": (
+                "premap_future_kernel_native_consumer_request_launch_abi_v1"
+            ),
+            "future_kernel_native_consumer_request_launch_mode": (
+                "readonly_future_kernel_native_consumer_request_launch_abi"
+            ),
+            "future_kernel_native_consumer_request_launch_source": (
+                "premap_future_kernel_native_consumer_request_ptr_abi_v1"
+            ),
+            "future_kernel_native_consumer_request_launch_field_read_path": (
+                "request_launch_to_request_ptr_to_kernel_arg_packet_to_program_view_rows"
+            ),
+            "future_kernel_native_consumer_request_launch_checked": True,
+            "future_kernel_native_consumer_request_launch_version": 1,
+            "future_kernel_native_consumer_request_launch_packet_chain_depth": 5,
+            "future_kernel_native_consumer_request_launch_pointer_size": 8,
+            "future_kernel_native_consumer_request_launch_request_id": 1,
+            "future_kernel_native_consumer_request_launch_device_ordinal": 0,
+            "future_kernel_native_consumer_request_launch_stream_domain": 0,
+            "future_kernel_native_consumer_request_launch_grid_x": 1,
+            "future_kernel_native_consumer_request_launch_block_x": 256,
+            "future_kernel_native_consumer_request_launch_row_offset": 0,
+            "future_kernel_native_consumer_request_launch_row_limit": 2,
+            "future_kernel_native_consumer_request_launch_rows_per_program": 256,
+            "future_kernel_native_consumer_request_launch_row_count": 2,
+            "future_kernel_native_consumer_request_launch_payload_bytes": 0,
+            "future_kernel_native_consumer_request_launch_payload_deref_allowed": False,
+            "future_kernel_native_consumer_request_launch_passed_to_kernel": False,
+            "future_kernel_native_consumer_request_launch_kernel_arg_pass_allowed": False,
+            "future_kernel_native_consumer_request_launch_changes_kernel_launch_args": False,
+            "future_kernel_native_consumer_request_launch_current_wna16_arg_compatible": False,
+            "future_kernel_native_consumer_request_launch_requires_wna16_arg_reinterpretation": False,
+            "future_kernel_native_consumer_request_launch_summary_row_count": 2,
+            "future_kernel_native_consumer_request_launch_summary_row_ok_count": 2,
+            "future_kernel_native_consumer_request_launch_summary_error_count": 0,
+            "future_kernel_native_consumer_request_launch_summary_field_mask": 15,
+            "future_kernel_native_consumer_request_launch_summary_descriptor_ptr_read_row_ok_count": 2,
+            "future_kernel_native_consumer_request_launch_summary_packed_weight_descriptor_read_row_ok_count": 2,
+            "future_kernel_native_consumer_request_launch_summary_scale_metadata_handle_read_row_ok_count": 2,
+            "future_kernel_native_consumer_request_launch_summary_aux_metadata_handle_read_row_ok_count": 2,
+            "future_kernel_native_consumer_request_launch_summary_expert_id_read_row_ok_count": 2,
+            "future_kernel_native_consumer_request_launch_summary_address_key_hash_read_row_ok_count": 2,
+            "future_kernel_native_consumer_request_launch_summary_row_metadata_read_row_ok_count": 2,
+            "future_kernel_native_consumer_request_launch_summary_row_hash_accumulator": row_hash,
+            "future_kernel_native_consumer_request_launch_summary_field_read_hash_accumulator": field_read_hash,
+            "future_kernel_native_consumer_request_launch_summary_row_metadata_hash_accumulator": row_metadata_hash,
         }
     )
     return payload
@@ -2697,6 +2816,9 @@ def _runner_extra_input_summary(index: int = 1) -> dict[str, object]:
             "native_stub_future_kernel_native_consumer_request_ptr_abi": {
                 "summary": _runner_future_kernel_native_request_ptr_summary()
             },
+            "native_stub_future_kernel_native_consumer_request_launch_abi": {
+                "summary": _runner_future_kernel_native_request_launch_summary()
+            },
         },
     }
 
@@ -2740,6 +2862,9 @@ def _write_gate(
     )
     native_online_request_ptr_stub_path = (
         f"reports/{name}_native_typed_consumer_stub_online_prelaunch_input_request_ptr_canary.json"
+    )
+    native_online_request_launch_stub_path = (
+        f"reports/{name}_native_typed_consumer_stub_online_prelaunch_input_request_launch_canary.json"
     )
     native_online_perf_path = (
         f"reports/{name}_native_online_prelaunch_export_performance.json"
@@ -2920,6 +3045,13 @@ def _write_gate(
             + "\n",
         )
         _write(
+            root / native_online_request_launch_stub_path,
+            json.dumps(
+                _native_stub_request_launch_evidence_payload(native_online_input_path)
+            )
+            + "\n",
+        )
+        _write(
             root / native_online_per_field_stub_path,
             json.dumps(
                 _native_stub_per_field_evidence_payload(native_online_input_path)
@@ -3036,6 +3168,9 @@ def _write_gate(
                 "future_kernel_native_consumer_request_ptr_stub_summary": (
                     _runner_future_kernel_native_request_ptr_summary()
                 ),
+                "future_kernel_native_consumer_request_launch_stub_summary": (
+                    _runner_future_kernel_native_request_launch_summary()
+                ),
                 "preflight_summary": {
                     "passed": True,
                     "failures": [],
@@ -3108,6 +3243,8 @@ def _write_gate(
                 "runner_future_kernel_native_consumer_dispatch_aux_metadata_stub_row_ok_count": 2,
                 "runner_future_kernel_native_consumer_request_ptr_stub_row_count": 2,
                 "runner_future_kernel_native_consumer_request_ptr_stub_row_ok_count": 2,
+                "runner_future_kernel_native_consumer_request_launch_stub_row_count": 2,
+                "runner_future_kernel_native_consumer_request_launch_stub_row_ok_count": 2,
             }
 
         _write(root / native_online_runner_path, json.dumps(_runner_payload(16)) + "\n")
@@ -3361,6 +3498,8 @@ def _write_gate(
             f"{native_online_endpoint_ptr_stub_path}\n"
             "  native_typed_consumer_stub_online_prelaunch_input_request_ptr_canary_json: "
             f"{native_online_request_ptr_stub_path}\n"
+            "  native_typed_consumer_stub_online_prelaunch_input_request_launch_canary_json: "
+            f"{native_online_request_launch_stub_path}\n"
             "  native_typed_consumer_online_prelaunch_input_json: "
             f"{native_online_input_path}\n"
             "  native_typed_consumer_online_prelaunch_export_performance_json: "
@@ -3486,7 +3625,7 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert result["passed"] is True
     assert result["failures"] == []
     assert result["runtime_gate_evidence_scan"]["gate_count"] == 3
-    assert result["runtime_gate_evidence_scan"]["evidence_path_count"] == 62
+    assert result["runtime_gate_evidence_scan"]["evidence_path_count"] == 64
     assert result["default_readonly_gate_required_evidence_check"]["passed"] is True
     summary = result["lab_gate_status_summary"]
     assert summary["passed"] is True
@@ -4516,6 +4655,76 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
         ]
         is False
     )
+    assert summary["default_kernel_consumer_request_launch_checked"] is True
+    assert (
+        summary["default_kernel_consumer_request_launch_field_read_path"]
+        == "request_launch_to_request_ptr_to_kernel_arg_packet_to_program_view_rows"
+    )
+    assert summary["default_kernel_consumer_request_launch_packet_chain_depth"] == 5
+    assert summary["default_kernel_consumer_request_launch_device_ordinal"] == 0
+    assert summary["default_kernel_consumer_request_launch_grid_x"] == 1
+    assert summary["default_kernel_consumer_request_launch_block_x"] == 256
+    assert summary["default_kernel_consumer_request_launch_row_offset"] == 0
+    assert summary["default_kernel_consumer_request_launch_row_limit"] == 2
+    assert summary["default_kernel_consumer_request_launch_rows_per_program"] == 256
+    request_launch_row_count = summary[
+        "default_kernel_consumer_request_launch_summary_row_count"
+    ]
+    assert request_launch_row_count == 2
+    assert (
+        summary["default_kernel_consumer_request_launch_summary_row_ok_count"]
+        == request_launch_row_count
+    )
+    for field in (
+        "descriptor_ptr",
+        "packed_weight_descriptor",
+        "scale_metadata_handle",
+        "aux_metadata_handle",
+    ):
+        assert (
+            summary[
+                "default_kernel_consumer_request_launch_summary_"
+                f"{field}_read_row_ok_count"
+            ]
+            == request_launch_row_count
+        )
+    assert (
+        summary[
+            "default_kernel_consumer_request_launch_summary_row_metadata_read_row_ok_count"
+        ]
+        == request_launch_row_count
+    )
+    assert summary["default_kernel_consumer_request_launch_summary_error_count"] == 0
+    assert summary["default_kernel_consumer_request_launch_summary_field_mask"] == 15
+    assert (
+        summary[
+            "default_kernel_consumer_request_launch_summary_row_hash_accumulator"
+        ]
+        == "1234567890abcdef"
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_request_launch_summary_field_read_hash_accumulator"
+        ]
+        == "0fedcba987654321"
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_request_launch_summary_row_metadata_hash_accumulator"
+        ]
+        == "55aa55aa55aa55aa"
+    )
+    assert summary["default_kernel_consumer_request_launch_all_handle_fields_read"] is True
+    assert summary["default_kernel_consumer_request_launch_payload_bytes"] == 0
+    assert summary["default_kernel_consumer_request_launch_passed_to_kernel"] is False
+    assert (
+        summary["default_kernel_consumer_request_launch_changes_kernel_launch_args"]
+        is False
+    )
+    assert (
+        summary["default_kernel_consumer_request_launch_current_wna16_arg_compatible"]
+        is False
+    )
     assert summary["default_required_evidence_passed"] is True
     assert summary["default_optional_evidence_passed"] is True
     assert summary["runtime_gate_evidence_deferred_count"] == 0
@@ -4526,9 +4735,9 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert summary["payload_bytes_required"] == 0
     assert summary["passed_to_kernel_required"] is False
     assert summary["changes_kernel_launch_args_required"] is False
-    assert summary["required_evidence"]["required_count"] == 21
-    assert summary["required_evidence"]["present_count"] == 21
-    assert summary["required_evidence"]["passed_count"] == 21
+    assert summary["required_evidence"]["required_count"] == 22
+    assert summary["required_evidence"]["present_count"] == 22
+    assert summary["required_evidence"]["passed_count"] == 22
     assert summary["optional_evidence"]["required_count"] == 19
     assert summary["optional_evidence"]["present_count"] == 19
     assert summary["optional_evidence"]["passed_count"] == 19
@@ -4985,7 +5194,7 @@ def test_premap_lab_preflight_rejects_missing_optional_future_args_coverage(
         "default_kernel_consumer_future_kernel_args_total_mirror_coverage_incomplete"
         in result["failures"]
     )
-    assert summary["required_evidence"]["passed_count"] == 21
+    assert summary["required_evidence"]["passed_count"] == 22
     assert summary["default_optional_evidence_passed"] is True
     assert (
         summary[
@@ -6699,9 +6908,10 @@ def test_premap_lab_preflight_rejects_default_gate_without_typed_evidence(
         "strict_native_stub_online_invocation_canary_128_gate_json:missing_evidence_path",
         "native_typed_consumer_stub_gpu1_canary_json:missing_evidence_path",
         "native_typed_consumer_stub_online_prelaunch_input_canary_json:missing_evidence_path",
-        "native_typed_consumer_stub_online_prelaunch_input_endpoint_ptr_canary_json:missing_evidence_path",
-        "native_typed_consumer_stub_online_prelaunch_input_request_ptr_canary_json:missing_evidence_path",
-            "native_typed_consumer_online_prelaunch_canary_runner_json:missing_evidence_path",
+            "native_typed_consumer_stub_online_prelaunch_input_endpoint_ptr_canary_json:missing_evidence_path",
+            "native_typed_consumer_stub_online_prelaunch_input_request_ptr_canary_json:missing_evidence_path",
+            "native_typed_consumer_stub_online_prelaunch_input_request_launch_canary_json:missing_evidence_path",
+                "native_typed_consumer_online_prelaunch_canary_runner_json:missing_evidence_path",
             "future_kernel_native_dispatch_consumer_online_artifact_check_32_128export_json:missing_evidence_path",
             "future_kernel_native_dispatch_consumer_online_runner_32_128export_json:missing_evidence_path",
             "future_kernel_native_dispatch_ptr_standalone_canary_json:missing_evidence_path",
@@ -8683,9 +8893,9 @@ def test_premap_lab_preflight_can_defer_self_referential_runner_evidence(
     assert summary["deferred_online_prelaunch_artifact_evidence"] is False
     assert summary["runtime_gate_evidence_deferred_count"] == 10
     assert summary["strict_default_gate_evidence_deferred_count"] == 5
-    assert summary["required_evidence"]["required_count"] == 21
-    assert summary["required_evidence"]["present_count"] == 19
-    assert summary["required_evidence"]["passed_count"] == 19
+    assert summary["required_evidence"]["required_count"] == 22
+    assert summary["required_evidence"]["present_count"] == 20
+    assert summary["required_evidence"]["passed_count"] == 20
     assert summary["optional_evidence"]["passed_count"] == 16
     for label in (
         "future_kernel_native_consumer_online_artifact_check_16_128export_json",
@@ -9261,7 +9471,7 @@ def test_premap_lab_preflight_cli_writes_summary(tmp_path: Path):
     assert result["lab_gate_status_summary"]["passed"] is True
     assert (
         result["lab_gate_status_summary"]["required_evidence"]["passed_count"]
-        == 21
+        == 22
     )
 
 
@@ -9297,6 +9507,6 @@ def test_premap_lab_preflight_cli_summary_only_writes_status_block(tmp_path: Pat
     assert exit_code == 0
     assert result["passed"] is True
     assert result["default_readonly_gate_path"] == default_gate
-    assert result["required_evidence"]["passed_count"] == 21
+    assert result["required_evidence"]["passed_count"] == 22
     assert result["optional_evidence"]["passed_count"] == 19
     assert "lab_gate_status_summary" not in result

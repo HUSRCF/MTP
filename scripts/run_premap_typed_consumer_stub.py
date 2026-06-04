@@ -77,6 +77,7 @@ ALLOWED_MACROS = {
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ENDPOINT_ABI",
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ENDPOINT_PTR_ABI",
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_PTR_ABI",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_LAUNCH_ABI",
 }
 FORBIDDEN_MACROS = {
     "MTP_PREMAP_TYPED_CONSUMER_ENABLE_PAYLOAD_DEREF",
@@ -305,6 +306,16 @@ def validate_macros(macros: list[str]) -> list[str]:
         raise ValueError(
             "future native consumer request pointer ABI requires "
             "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ARG_PACKET_ABI"
+        )
+    if (
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_LAUNCH_ABI"
+        in normalized
+        and "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_PTR_ABI"
+        not in normalized
+    ):
+        raise ValueError(
+            "future native consumer request launch ABI requires "
+            "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_PTR_ABI"
         )
     return normalized
 
@@ -551,6 +562,7 @@ def run_stub(args: argparse.Namespace) -> dict[str, Any]:
     payload["abi_header"] = str(ABI_HEADER)
     payload["adapter_header"] = str(ADAPTER_HEADER)
     payload["requested_macros"] = macros
+    payload["offload_arch"] = str(args.offload_arch)
     payload["expected_schema_hash"] = schema_hash
     if input_prefix is not None:
         payload["input_json"] = str(args.input_json)
@@ -639,6 +651,7 @@ def main(argv: list[str] | None = None) -> int:
             "adapter_header": str(ADAPTER_HEADER),
             "binary": str(bin_path),
             "requested_macros": macros,
+            "offload_arch": str(args.offload_arch),
             "build_command": build_command(
                 macros=macros,
                 offload_arch=args.offload_arch,

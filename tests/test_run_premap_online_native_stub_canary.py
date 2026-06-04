@@ -272,10 +272,19 @@ def test_existing_stub_reuse_requires_matching_dispatch_window(tmp_path: Path):
     import scripts.run_premap_online_native_stub_canary as canary
 
     output = tmp_path / "stub.json"
+    input_json = tmp_path / "input.json"
+    input_json.write_text("{}\n", encoding="utf-8")
+    macros = [
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCHEMA",
+        "MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR",
+    ]
     output.write_text(
         json.dumps(
             {
                 "passed": True,
+                "requested_macros": macros,
+                "offload_arch": "gfx1100",
+                "input_json": str(input_json),
                 "requested_dispatch_row_offset": 1,
                 "requested_dispatch_row_limit": 5,
             }
@@ -286,8 +295,16 @@ def test_existing_stub_reuse_requires_matching_dispatch_window(tmp_path: Path):
     matching_cmd = [
         "python",
         "scripts/run_premap_typed_consumer_stub.py",
+        "--input-json",
+        str(input_json),
+        "--offload-arch",
+        "gfx1100",
         "--output-json",
         str(output),
+        "--macro",
+        macros[0],
+        "--macro",
+        macros[1],
         "--dispatch-row-offset",
         "1",
         "--dispatch-row-limit",
@@ -296,8 +313,16 @@ def test_existing_stub_reuse_requires_matching_dispatch_window(tmp_path: Path):
     mismatched_cmd = [
         "python",
         "scripts/run_premap_typed_consumer_stub.py",
+        "--input-json",
+        str(input_json),
+        "--offload-arch",
+        "gfx1100",
         "--output-json",
         str(output),
+        "--macro",
+        macros[0],
+        "--macro",
+        macros[1],
         "--dispatch-row-offset",
         "0",
         "--dispatch-row-limit",
@@ -306,23 +331,42 @@ def test_existing_stub_reuse_requires_matching_dispatch_window(tmp_path: Path):
     full_table_cmd = [
         "python",
         "scripts/run_premap_typed_consumer_stub.py",
+        "--input-json",
+        str(input_json),
+        "--offload-arch",
+        "gfx1100",
         "--output-json",
         str(output),
+        "--macro",
+        macros[0],
+        "--macro",
+        macros[1],
+    ]
+    mismatched_macro_cmd = matching_cmd + [
+        "--macro",
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_LAUNCH_ABI",
     ]
 
     assert canary._can_reuse_existing_stub_output(matching_cmd, output) is True
     assert canary._can_reuse_existing_stub_output(mismatched_cmd, output) is False
     assert canary._can_reuse_existing_stub_output(full_table_cmd, output) is False
+    assert canary._can_reuse_existing_stub_output(mismatched_macro_cmd, output) is False
 
 
 def test_existing_stub_reuse_accepts_matching_full_table_output(tmp_path: Path):
     import scripts.run_premap_online_native_stub_canary as canary
 
     output = tmp_path / "stub.json"
+    input_json = tmp_path / "input.json"
+    input_json.write_text("{}\n", encoding="utf-8")
+    macros = ["MTP_PREMAP_TYPED_CONSUMER_CHECK_SCHEMA"]
     output.write_text(
         json.dumps(
             {
                 "passed": True,
+                "requested_macros": macros,
+                "offload_arch": "gfx1100",
+                "input_json": str(input_json),
                 "requested_dispatch_row_offset": 0,
                 "requested_dispatch_row_limit": None,
             }
@@ -333,8 +377,14 @@ def test_existing_stub_reuse_accepts_matching_full_table_output(tmp_path: Path):
     cmd = [
         "python",
         "scripts/run_premap_typed_consumer_stub.py",
+        "--input-json",
+        str(input_json),
+        "--offload-arch",
+        "gfx1100",
         "--output-json",
         str(output),
+        "--macro",
+        macros[0],
     ]
 
     assert canary._can_reuse_existing_stub_output(cmd, output) is True
