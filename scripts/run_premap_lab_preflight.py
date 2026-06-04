@@ -121,6 +121,7 @@ REQUIRED_DEFAULT_GATE_CONTRACT = {
     "consumer_program_view_row_assignment_formula": (
         "program_id * rows_per_program + lane_id + row_offset"
     ),
+    "consumer_program_view_ptr_required": True,
     "future_kernel_native_arg_slot_online_total_mirror_coverage_required": True,
     "single_field_handle_handoff_canary_required": True,
     "single_field_handle_handoff_canary_mode": (
@@ -7747,6 +7748,10 @@ def run_premap_lab_preflight(
         == required_gate_checks.get("current_wna16_arg_compatible_required")
         and consumer_program_view_ptr_requires_wna16_arg_reinterpretation is False
     )
+    effective_require_program_view_ptr_abi = (
+        require_program_view_ptr_abi
+        or required_gate_checks.get("consumer_program_view_ptr_required") is True
+    )
     future_kernel_args_summary = dispatch_runner_payload.get(
         "future_kernel_args_stub_summary",
     )
@@ -7971,35 +7976,35 @@ def run_premap_lab_preflight(
             "default_kernel_consumer_consumer_program_view_safety_contract_mismatch"
         )
     if (
-        require_program_view_ptr_abi
+        effective_require_program_view_ptr_abi
         and not allow_missing_evidence
         and not defer_online_prelaunch_runner_evidence
         and not consumer_program_view_ptr_checked
     ):
         failures.append("default_kernel_consumer_program_view_ptr_missing")
     if (
-        require_program_view_ptr_abi
+        effective_require_program_view_ptr_abi
         and not allow_missing_evidence
         and not defer_online_prelaunch_runner_evidence
         and not consumer_program_view_ptr_source_matches_schema
     ):
         failures.append("default_kernel_consumer_program_view_ptr_source_mismatch")
     if (
-        require_program_view_ptr_abi
+        effective_require_program_view_ptr_abi
         and not allow_missing_evidence
         and not defer_online_prelaunch_runner_evidence
         and not consumer_program_view_ptr_row_count_matches_dispatch
     ):
         failures.append("default_kernel_consumer_program_view_ptr_row_count_mismatch")
     if (
-        require_program_view_ptr_abi
+        effective_require_program_view_ptr_abi
         and not allow_missing_evidence
         and not defer_online_prelaunch_runner_evidence
         and not consumer_program_view_ptr_required_fields_visible
     ):
         failures.append("default_kernel_consumer_program_view_ptr_field_mask_mismatch")
     if (
-        require_program_view_ptr_abi
+        effective_require_program_view_ptr_abi
         and not allow_missing_evidence
         and not defer_online_prelaunch_runner_evidence
         and not consumer_program_view_ptr_safety_matches_required
@@ -9880,7 +9885,7 @@ def run_premap_lab_preflight(
             consumer_program_view_safety_matches_required
         ),
         "default_kernel_consumer_program_view_ptr_required": (
-            require_program_view_ptr_abi
+            effective_require_program_view_ptr_abi
         ),
         "default_kernel_consumer_program_view_ptr_checked": (
             consumer_program_view_ptr_checked

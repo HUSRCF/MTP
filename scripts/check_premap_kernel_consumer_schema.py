@@ -111,6 +111,7 @@ EXPECTED_REQUIRED_GATE_CHECKS = {
     "consumer_program_view_row_assignment_formula": (
         "program_id * rows_per_program + lane_id + row_offset"
     ),
+    "consumer_program_view_ptr_required": True,
     "kernel_entry_summary_row_metadata_required": True,
     "kernel_entry_args_row_metadata_required": True,
     "payload_bytes_required": 0,

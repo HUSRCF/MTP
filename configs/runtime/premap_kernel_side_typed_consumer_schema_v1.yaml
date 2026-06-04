@@ -717,6 +717,7 @@ required_gate_checks:
   consumer_view_source_packet_chain_depth_required: 3
   consumer_program_view_required: true
   consumer_program_view_row_assignment_formula: program_id * rows_per_program + lane_id + row_offset
+  consumer_program_view_ptr_required: true
   kernel_entry_summary_row_metadata_required: true
   kernel_entry_args_row_metadata_required: true
   payload_bytes_required: 0

@@ -633,6 +633,7 @@ def _valid_schema_payload() -> dict:
             "consumer_program_view_row_assignment_formula": (
                 "program_id * rows_per_program + lane_id + row_offset"
             ),
+            "consumer_program_view_ptr_required": True,
             "kernel_entry_summary_row_metadata_required": True,
             "kernel_entry_args_row_metadata_required": True,
             "payload_bytes_required": 0,
@@ -3701,6 +3702,7 @@ def _write_gate(
         "  future_kernel_native_dispatch_consumer_row_assignment_formula: row_offset + program_id * rows_per_program + lane_id\n"
         "  consumer_program_view_required: true\n"
         "  consumer_program_view_row_assignment_formula: program_id * rows_per_program + lane_id + row_offset\n"
+        "  consumer_program_view_ptr_required: true\n"
         "  future_kernel_native_arg_slot_online_total_mirror_coverage_required: true\n"
         "  single_field_handle_handoff_canary_required: true\n"
         "  single_field_handle_handoff_canary_mode: readonly_single_field_handle_handoff_canary\n"
@@ -3978,6 +3980,7 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
         "consumer_program_view_row_assignment_formula": (
             "program_id * rows_per_program + lane_id + row_offset"
         ),
+        "consumer_program_view_ptr_required": True,
         "kernel_entry_summary_row_metadata_required": True,
         "kernel_entry_args_row_metadata_required": True,
         "payload_bytes_required": 0,
