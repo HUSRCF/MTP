@@ -6708,8 +6708,6 @@ def run_premap_lab_preflight(
         consumer_prefix: str,
         summary_prefix: str,
     ) -> dict[str, object]:
-        if source.get(f"{consumer_prefix}_single_field_handoff_checked") is True:
-            return source
         row_count = _int_metric(source, f"{summary_prefix}_row_count")
         row_ok_count = _int_metric(
             source,
@@ -6727,32 +6725,91 @@ def run_premap_lab_preflight(
             else 1
         )
         annotated = dict(source)
-        annotated[f"{consumer_prefix}_single_field_handoff_checked"] = True
-        annotated[f"{consumer_prefix}_single_field_handoff_field_name"] = (
-            "scale_metadata_handle"
+        if annotated.get(f"{consumer_prefix}_single_field_handoff_checked") is not True:
+            annotated[f"{consumer_prefix}_single_field_handoff_checked"] = True
+            annotated[f"{consumer_prefix}_single_field_handoff_field_name"] = (
+                "scale_metadata_handle"
+            )
+            annotated[f"{consumer_prefix}_single_field_handoff_source"] = (
+                "native_request_summary_field_read_counts"
+            )
+            annotated[f"{consumer_prefix}_single_field_handoff_row_count"] = row_count
+            annotated[f"{consumer_prefix}_single_field_handoff_row_ok_count"] = row_ok_count
+            annotated[f"{consumer_prefix}_single_field_handoff_error_count"] = (
+                handoff_error_count
+            )
+            annotated[f"{consumer_prefix}_single_field_handoff_hash_accumulator"] = (
+                source.get(f"{summary_prefix}_field_read_hash_accumulator")
+            )
+            annotated[f"{consumer_prefix}_single_field_handoff_payload_bytes"] = 0
+            annotated[f"{consumer_prefix}_single_field_handoff_passed_to_kernel"] = False
+            annotated[
+                f"{consumer_prefix}_single_field_handoff_changes_kernel_launch_args"
+            ] = False
+            annotated[
+                f"{consumer_prefix}_single_field_handoff_current_wna16_arg_compatible"
+            ] = False
+            annotated[
+                f"{consumer_prefix}_single_field_handoff_requires_wna16_arg_reinterpretation"
+            ] = False
+        source = annotated
+        row_count = _int_metric(source, f"{summary_prefix}_row_count")
+        error_count = _int_metric(source, f"{summary_prefix}_error_count")
+        handoff_fields = (
+            "descriptor_ptr",
+            "packed_weight_descriptor",
+            "scale_metadata_handle",
+            "aux_metadata_handle",
         )
-        annotated[f"{consumer_prefix}_single_field_handoff_source"] = (
+        all_row_ok_counts = {
+            field_name: _int_metric(
+                source,
+                f"{summary_prefix}_{field_name}_read_row_ok_count",
+            )
+            for field_name in handoff_fields
+        }
+        all_field_error_count = (
+            0
+            if (
+                row_count is not None
+                and row_count > 0
+                and error_count == 0
+                and all(value == row_count for value in all_row_ok_counts.values())
+            )
+            else 1
+        )
+        annotated[f"{consumer_prefix}_all_field_handoff_checked"] = True
+        annotated[f"{consumer_prefix}_all_field_handoff_field_names"] = list(
+            handoff_fields
+        )
+        annotated[f"{consumer_prefix}_all_field_handoff_source"] = (
             "native_request_summary_field_read_counts"
         )
-        annotated[f"{consumer_prefix}_single_field_handoff_row_count"] = row_count
-        annotated[f"{consumer_prefix}_single_field_handoff_row_ok_count"] = row_ok_count
-        annotated[f"{consumer_prefix}_single_field_handoff_error_count"] = (
-            handoff_error_count
+        annotated[f"{consumer_prefix}_all_field_handoff_row_count"] = row_count
+        annotated[f"{consumer_prefix}_all_field_handoff_row_ok_count"] = (
+            row_count if all_field_error_count == 0 else None
         )
-        annotated[f"{consumer_prefix}_single_field_handoff_hash_accumulator"] = (
+        annotated[f"{consumer_prefix}_all_field_handoff_error_count"] = (
+            all_field_error_count
+        )
+        annotated[f"{consumer_prefix}_all_field_handoff_hash_accumulator"] = (
             source.get(f"{summary_prefix}_field_read_hash_accumulator")
         )
-        annotated[f"{consumer_prefix}_single_field_handoff_payload_bytes"] = 0
-        annotated[f"{consumer_prefix}_single_field_handoff_passed_to_kernel"] = False
+        annotated[f"{consumer_prefix}_all_field_handoff_payload_bytes"] = 0
+        annotated[f"{consumer_prefix}_all_field_handoff_passed_to_kernel"] = False
         annotated[
-            f"{consumer_prefix}_single_field_handoff_changes_kernel_launch_args"
+            f"{consumer_prefix}_all_field_handoff_changes_kernel_launch_args"
         ] = False
         annotated[
-            f"{consumer_prefix}_single_field_handoff_current_wna16_arg_compatible"
+            f"{consumer_prefix}_all_field_handoff_current_wna16_arg_compatible"
         ] = False
         annotated[
-            f"{consumer_prefix}_single_field_handoff_requires_wna16_arg_reinterpretation"
+            f"{consumer_prefix}_all_field_handoff_requires_wna16_arg_reinterpretation"
         ] = False
+        for field_name, row_ok_count in all_row_ok_counts.items():
+            annotated[
+                f"{consumer_prefix}_all_field_handoff_{field_name}_row_ok_count"
+            ] = row_ok_count
         return annotated
 
     request_ptr_summary_source = _with_request_single_field_handoff_alias(
@@ -9759,6 +9816,92 @@ def run_premap_lab_preflight(
             )
         ),
     }
+
+    def _flatten_request_all_field_handoff(
+        *,
+        out_prefix: str,
+        source: dict[str, object],
+        consumer_prefix: str,
+    ) -> dict[str, object]:
+        values: dict[str, object] = {
+            f"{out_prefix}_all_field_handoff_checked": source.get(
+                f"{consumer_prefix}_all_field_handoff_checked"
+            ),
+            f"{out_prefix}_all_field_handoff_field_names": source.get(
+                f"{consumer_prefix}_all_field_handoff_field_names"
+            ),
+            f"{out_prefix}_all_field_handoff_source": source.get(
+                f"{consumer_prefix}_all_field_handoff_source"
+            ),
+            f"{out_prefix}_all_field_handoff_row_count": _int_metric(
+                source,
+                f"{consumer_prefix}_all_field_handoff_row_count",
+            ),
+            f"{out_prefix}_all_field_handoff_row_ok_count": _int_metric(
+                source,
+                f"{consumer_prefix}_all_field_handoff_row_ok_count",
+            ),
+            f"{out_prefix}_all_field_handoff_error_count": _int_metric(
+                source,
+                f"{consumer_prefix}_all_field_handoff_error_count",
+            ),
+            f"{out_prefix}_all_field_handoff_hash_accumulator": source.get(
+                f"{consumer_prefix}_all_field_handoff_hash_accumulator"
+            ),
+            f"{out_prefix}_all_field_handoff_payload_bytes": _int_metric(
+                source,
+                f"{consumer_prefix}_all_field_handoff_payload_bytes",
+            ),
+            f"{out_prefix}_all_field_handoff_passed_to_kernel": source.get(
+                f"{consumer_prefix}_all_field_handoff_passed_to_kernel"
+            ),
+            f"{out_prefix}_all_field_handoff_changes_kernel_launch_args": source.get(
+                f"{consumer_prefix}_all_field_handoff_changes_kernel_launch_args"
+            ),
+            f"{out_prefix}_all_field_handoff_current_wna16_arg_compatible": source.get(
+                f"{consumer_prefix}_all_field_handoff_current_wna16_arg_compatible"
+            ),
+            f"{out_prefix}_all_field_handoff_requires_wna16_arg_reinterpretation": (
+                source.get(
+                    f"{consumer_prefix}_all_field_handoff_requires_wna16_arg_reinterpretation"
+                )
+            ),
+        }
+        for field_name in (
+            "descriptor_ptr",
+            "packed_weight_descriptor",
+            "scale_metadata_handle",
+            "aux_metadata_handle",
+        ):
+            values[
+                f"{out_prefix}_all_field_handoff_{field_name}_row_ok_count"
+            ] = _int_metric(
+                source,
+                f"{consumer_prefix}_all_field_handoff_{field_name}_row_ok_count",
+            )
+        return values
+
+    lab_gate_status_summary.update(
+        _flatten_request_all_field_handoff(
+            out_prefix="default_kernel_consumer_request_ptr",
+            source=request_ptr_summary_source,
+            consumer_prefix="future_kernel_native_consumer_request_ptr",
+        )
+    )
+    lab_gate_status_summary.update(
+        _flatten_request_all_field_handoff(
+            out_prefix="default_kernel_consumer_request_launch",
+            source=request_launch_summary_source,
+            consumer_prefix="future_kernel_native_consumer_request_launch",
+        )
+    )
+    lab_gate_status_summary.update(
+        _flatten_request_all_field_handoff(
+            out_prefix="default_kernel_consumer_request_launch_ptr",
+            source=request_launch_ptr_summary_source,
+            consumer_prefix="future_kernel_native_consumer_request_launch_ptr",
+        )
+    )
 
     return {
         "passed": not failures,

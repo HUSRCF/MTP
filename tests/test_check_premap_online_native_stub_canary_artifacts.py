@@ -505,6 +505,24 @@ def _extra_input_summary(row_count: int = 4) -> dict:
             "future_kernel_native_consumer_kernel_entry_summary_row_metadata_hash_accumulator": row_metadata_hash,
         }
 
+    def future_native_request_level_summary(consumer_prefix: str) -> dict:
+        field_read_hash = "def456"
+        summary_prefix = f"{consumer_prefix}_summary"
+        return {
+            **stub_summary(),
+            f"{summary_prefix}_row_count": row_count,
+            f"{summary_prefix}_row_ok_count": row_count,
+            f"{summary_prefix}_error_count": 0,
+            f"{summary_prefix}_field_mask": 15,
+            f"{summary_prefix}_descriptor_ptr_read_row_ok_count": row_count,
+            f"{summary_prefix}_packed_weight_descriptor_read_row_ok_count": row_count,
+            f"{summary_prefix}_scale_metadata_handle_read_row_ok_count": row_count,
+            f"{summary_prefix}_aux_metadata_handle_read_row_ok_count": row_count,
+            f"{summary_prefix}_row_hash_accumulator": "abc123",
+            f"{summary_prefix}_field_read_hash_accumulator": field_read_hash,
+            f"{summary_prefix}_row_metadata_hash_accumulator": "fedcba",
+        }
+
     return {
         "input_index": 1,
         "input_json": "input1.json",
@@ -581,6 +599,16 @@ def _extra_input_summary(row_count: int = 4) -> dict:
             },
             "native_stub_future_kernel_native_consumer_request_ptr_abi": {
                 "summary": future_native_request_ptr_summary()
+            },
+            "native_stub_future_kernel_native_consumer_request_launch_abi": {
+                "summary": future_native_request_level_summary(
+                    "future_kernel_native_consumer_request_launch"
+                )
+            },
+            "native_stub_future_kernel_native_consumer_request_launch_ptr_abi": {
+                "summary": future_native_request_level_summary(
+                    "future_kernel_native_consumer_request_launch_ptr"
+                )
             },
         },
     }
@@ -1006,6 +1034,36 @@ def _payloads(root: Path) -> tuple[Path, Path, Path]:
             "future_kernel_native_consumer_kernel_entry_summary_row_metadata_hash_accumulator": row_metadata_hash,
         }
 
+    def future_native_request_level_summary(
+        consumer_prefix: str,
+        *,
+        row_hash: str = "abc123",
+        field_read_hash: str = "def456",
+        row_metadata_hash: str = "fedcba",
+    ) -> dict[str, object]:
+        summary_prefix = f"{consumer_prefix}_summary"
+        return {
+            "passed": True,
+            "ok": True,
+            "row_count": 4,
+            "row_ok_count": 4,
+            "error_count": 0,
+            "payload_bytes": 0,
+            "passed_to_kernel": False,
+            "changes_kernel_launch_args": False,
+            f"{summary_prefix}_row_count": 4,
+            f"{summary_prefix}_row_ok_count": 4,
+            f"{summary_prefix}_error_count": 0,
+            f"{summary_prefix}_field_mask": 15,
+            f"{summary_prefix}_descriptor_ptr_read_row_ok_count": 4,
+            f"{summary_prefix}_packed_weight_descriptor_read_row_ok_count": 4,
+            f"{summary_prefix}_scale_metadata_handle_read_row_ok_count": 4,
+            f"{summary_prefix}_aux_metadata_handle_read_row_ok_count": 4,
+            f"{summary_prefix}_row_hash_accumulator": row_hash,
+            f"{summary_prefix}_field_read_hash_accumulator": field_read_hash,
+            f"{summary_prefix}_row_metadata_hash_accumulator": row_metadata_hash,
+        }
+
     runner = {
         "passed": True,
         "failures": [],
@@ -1194,6 +1252,16 @@ def _payloads(root: Path) -> tuple[Path, Path, Path]:
         ),
         "future_kernel_native_consumer_request_ptr_stub_summary": (
             future_native_request_ptr_summary()
+        ),
+        "future_kernel_native_consumer_request_launch_stub_summary": (
+            future_native_request_level_summary(
+                "future_kernel_native_consumer_request_launch"
+            )
+        ),
+        "future_kernel_native_consumer_request_launch_ptr_stub_summary": (
+            future_native_request_level_summary(
+                "future_kernel_native_consumer_request_launch_ptr"
+            )
         ),
     }
     _write_json(runner_path, runner)

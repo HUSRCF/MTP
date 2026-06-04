@@ -683,6 +683,46 @@ readonly schema/stub evidence: payload bytes must be zero, kernel argument pass
 is disabled, and the objects are explicitly not compatible with the current
 WNA16 fused-MoE argument list.
 
+The request-level single-field handoff evidence is currently a readonly alias
+derived from the request-level native summary reads:
+
+```text
+request_*_single_field_handoff_field_name = scale_metadata_handle
+request_*_single_field_handoff_source =
+  request_level_native_summary_read_counts
+request_*_single_field_handoff_passed_to_kernel = false
+request_*_single_field_handoff_changes_kernel_launch_args = false
+request_*_single_field_handoff_current_wna16_arg_compatible = false
+request_*_single_field_handoff_requires_wna16_arg_reinterpretation = false
+```
+
+This alias proves that the request-level packet chain can carry the chosen
+field through the future typed-consumer object graph, but it is not a new
+current-WNA16 launch argument and it is not a native struct-layout replacement
+for any existing WNA16 argument slot.  A future live handoff must still add an
+explicit kernel-side typed-consumer ABI slot rather than reusing the current
+WNA16 fused-MoE argument layout.
+
+The lab preflight also requires all-field request-level handoff coverage:
+
+```text
+request_*_all_field_handoff_field_names =
+  [descriptor_ptr, packed_weight_descriptor, scale_metadata_handle,
+   aux_metadata_handle]
+request_*_all_field_handoff_source =
+  native_request_summary_field_read_counts
+request_*_all_field_handoff_row_ok_count = request_*_summary_row_count
+request_*_all_field_handoff_error_count = 0
+request_*_all_field_handoff_payload_bytes = 0
+request_*_all_field_handoff_passed_to_kernel = false
+request_*_all_field_handoff_changes_kernel_launch_args = false
+```
+
+This is stronger than the single-field handoff alias: it checks that the
+request-level native summary read path covers all four future handle columns.
+It remains readonly evidence only and still does not make any current WNA16
+argument slot compatible with the typed table.
+
 ## Next Gates
 
 1. Keep the current readonly dispatch ABI as the default lab preflight

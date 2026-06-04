@@ -13,6 +13,39 @@ from scripts.check_premap_lab_preflight_summary import (
 HEX = "a" * 64
 
 
+def _request_all_field_handoff(
+    prefix: str,
+    *,
+    row_count: int = 1841,
+    field_hash: str,
+) -> dict[str, object]:
+    fields = [
+        "descriptor_ptr",
+        "packed_weight_descriptor",
+        "scale_metadata_handle",
+        "aux_metadata_handle",
+    ]
+    values: dict[str, object] = {
+        f"{prefix}_all_field_handoff_checked": True,
+        f"{prefix}_all_field_handoff_field_names": fields,
+        f"{prefix}_all_field_handoff_source": (
+            "native_request_summary_field_read_counts"
+        ),
+        f"{prefix}_all_field_handoff_row_count": row_count,
+        f"{prefix}_all_field_handoff_row_ok_count": row_count,
+        f"{prefix}_all_field_handoff_error_count": 0,
+        f"{prefix}_all_field_handoff_hash_accumulator": field_hash,
+        f"{prefix}_all_field_handoff_payload_bytes": 0,
+        f"{prefix}_all_field_handoff_passed_to_kernel": False,
+        f"{prefix}_all_field_handoff_changes_kernel_launch_args": False,
+        f"{prefix}_all_field_handoff_current_wna16_arg_compatible": False,
+        f"{prefix}_all_field_handoff_requires_wna16_arg_reinterpretation": False,
+    }
+    for field_name in fields:
+        values[f"{prefix}_all_field_handoff_{field_name}_row_ok_count"] = row_count
+    return values
+
+
 def _summary() -> dict[str, object]:
     return {
         "passed": True,
@@ -253,6 +286,10 @@ def _summary() -> dict[str, object]:
         "default_kernel_consumer_request_ptr_single_field_handoff_changes_kernel_launch_args": False,
         "default_kernel_consumer_request_ptr_single_field_handoff_current_wna16_arg_compatible": False,
         "default_kernel_consumer_request_ptr_single_field_handoff_requires_wna16_arg_reinterpretation": False,
+        **_request_all_field_handoff(
+            "default_kernel_consumer_request_ptr",
+            field_hash="8182838485868788",
+        ),
         "default_kernel_consumer_request_launch_checked": True,
         "default_kernel_consumer_request_launch_field_read_path": (
             "request_launch_to_request_ptr_to_kernel_arg_packet_to_program_view_rows"
@@ -307,6 +344,10 @@ def _summary() -> dict[str, object]:
         "default_kernel_consumer_request_launch_single_field_handoff_changes_kernel_launch_args": False,
         "default_kernel_consumer_request_launch_single_field_handoff_current_wna16_arg_compatible": False,
         "default_kernel_consumer_request_launch_single_field_handoff_requires_wna16_arg_reinterpretation": False,
+        **_request_all_field_handoff(
+            "default_kernel_consumer_request_launch",
+            field_hash="9192939495969798",
+        ),
         "default_kernel_consumer_request_launch_ptr_checked": True,
         "default_kernel_consumer_request_launch_ptr_field_read_path": (
             "request_launch_ptr_to_request_launch_to_request_ptr_to_kernel_arg_packet_to_program_view_rows"
@@ -355,6 +396,10 @@ def _summary() -> dict[str, object]:
         "default_kernel_consumer_request_launch_ptr_single_field_handoff_changes_kernel_launch_args": False,
         "default_kernel_consumer_request_launch_ptr_single_field_handoff_current_wna16_arg_compatible": False,
         "default_kernel_consumer_request_launch_ptr_single_field_handoff_requires_wna16_arg_reinterpretation": False,
+        **_request_all_field_handoff(
+            "default_kernel_consumer_request_launch_ptr",
+            field_hash="c1c2c3c4c5c6c7c8",
+        ),
         "runtime_gate_evidence_deferred_count": 0,
         "strict_default_gate_evidence_deferred_count": 0,
         "default_kernel_consumer_dispatch_runner_final_runtime_gate_evidence_deferred_count": 0,

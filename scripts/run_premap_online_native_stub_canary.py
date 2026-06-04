@@ -260,6 +260,12 @@ TYPED_HANDLE_FIELDS = (
     "aux_metadata_handle",
 )
 REQUEST_LEVEL_SINGLE_FIELD_HANDOFF_FIELD = "scale_metadata_handle"
+REQUEST_LEVEL_HANDOFF_FIELDS = (
+    "descriptor_ptr",
+    "packed_weight_descriptor",
+    "scale_metadata_handle",
+    "aux_metadata_handle",
+)
 STUB_MACROS = [
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_SCHEMA",
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_ROW_ITERATION",
@@ -941,6 +947,22 @@ FUTURE_KERNEL_NATIVE_REQUEST_PTR_CONSUMER_SUMMARY_KEYS = (
     "future_kernel_native_consumer_request_ptr_single_field_handoff_changes_kernel_launch_args",
     "future_kernel_native_consumer_request_ptr_single_field_handoff_current_wna16_arg_compatible",
     "future_kernel_native_consumer_request_ptr_single_field_handoff_requires_wna16_arg_reinterpretation",
+    "future_kernel_native_consumer_request_ptr_all_field_handoff_checked",
+    "future_kernel_native_consumer_request_ptr_all_field_handoff_field_names",
+    "future_kernel_native_consumer_request_ptr_all_field_handoff_source",
+    "future_kernel_native_consumer_request_ptr_all_field_handoff_row_count",
+    "future_kernel_native_consumer_request_ptr_all_field_handoff_row_ok_count",
+    "future_kernel_native_consumer_request_ptr_all_field_handoff_error_count",
+    "future_kernel_native_consumer_request_ptr_all_field_handoff_hash_accumulator",
+    "future_kernel_native_consumer_request_ptr_all_field_handoff_descriptor_ptr_row_ok_count",
+    "future_kernel_native_consumer_request_ptr_all_field_handoff_packed_weight_descriptor_row_ok_count",
+    "future_kernel_native_consumer_request_ptr_all_field_handoff_scale_metadata_handle_row_ok_count",
+    "future_kernel_native_consumer_request_ptr_all_field_handoff_aux_metadata_handle_row_ok_count",
+    "future_kernel_native_consumer_request_ptr_all_field_handoff_payload_bytes",
+    "future_kernel_native_consumer_request_ptr_all_field_handoff_passed_to_kernel",
+    "future_kernel_native_consumer_request_ptr_all_field_handoff_changes_kernel_launch_args",
+    "future_kernel_native_consumer_request_ptr_all_field_handoff_current_wna16_arg_compatible",
+    "future_kernel_native_consumer_request_ptr_all_field_handoff_requires_wna16_arg_reinterpretation",
     "future_kernel_native_consumer_kernel_entry_summary_row_count",
     "future_kernel_native_consumer_kernel_entry_summary_row_ok_count",
     "future_kernel_native_consumer_kernel_entry_summary_error_count",
@@ -1016,6 +1038,22 @@ FUTURE_KERNEL_NATIVE_REQUEST_LAUNCH_CONSUMER_SUMMARY_KEYS = (
     "future_kernel_native_consumer_request_launch_single_field_handoff_changes_kernel_launch_args",
     "future_kernel_native_consumer_request_launch_single_field_handoff_current_wna16_arg_compatible",
     "future_kernel_native_consumer_request_launch_single_field_handoff_requires_wna16_arg_reinterpretation",
+    "future_kernel_native_consumer_request_launch_all_field_handoff_checked",
+    "future_kernel_native_consumer_request_launch_all_field_handoff_field_names",
+    "future_kernel_native_consumer_request_launch_all_field_handoff_source",
+    "future_kernel_native_consumer_request_launch_all_field_handoff_row_count",
+    "future_kernel_native_consumer_request_launch_all_field_handoff_row_ok_count",
+    "future_kernel_native_consumer_request_launch_all_field_handoff_error_count",
+    "future_kernel_native_consumer_request_launch_all_field_handoff_hash_accumulator",
+    "future_kernel_native_consumer_request_launch_all_field_handoff_descriptor_ptr_row_ok_count",
+    "future_kernel_native_consumer_request_launch_all_field_handoff_packed_weight_descriptor_row_ok_count",
+    "future_kernel_native_consumer_request_launch_all_field_handoff_scale_metadata_handle_row_ok_count",
+    "future_kernel_native_consumer_request_launch_all_field_handoff_aux_metadata_handle_row_ok_count",
+    "future_kernel_native_consumer_request_launch_all_field_handoff_payload_bytes",
+    "future_kernel_native_consumer_request_launch_all_field_handoff_passed_to_kernel",
+    "future_kernel_native_consumer_request_launch_all_field_handoff_changes_kernel_launch_args",
+    "future_kernel_native_consumer_request_launch_all_field_handoff_current_wna16_arg_compatible",
+    "future_kernel_native_consumer_request_launch_all_field_handoff_requires_wna16_arg_reinterpretation",
     "payload_bytes",
     "passed_to_kernel",
     "changes_kernel_launch_args",
@@ -1069,6 +1107,22 @@ FUTURE_KERNEL_NATIVE_REQUEST_LAUNCH_PTR_CONSUMER_SUMMARY_KEYS = (
     "future_kernel_native_consumer_request_launch_ptr_single_field_handoff_changes_kernel_launch_args",
     "future_kernel_native_consumer_request_launch_ptr_single_field_handoff_current_wna16_arg_compatible",
     "future_kernel_native_consumer_request_launch_ptr_single_field_handoff_requires_wna16_arg_reinterpretation",
+    "future_kernel_native_consumer_request_launch_ptr_all_field_handoff_checked",
+    "future_kernel_native_consumer_request_launch_ptr_all_field_handoff_field_names",
+    "future_kernel_native_consumer_request_launch_ptr_all_field_handoff_source",
+    "future_kernel_native_consumer_request_launch_ptr_all_field_handoff_row_count",
+    "future_kernel_native_consumer_request_launch_ptr_all_field_handoff_row_ok_count",
+    "future_kernel_native_consumer_request_launch_ptr_all_field_handoff_error_count",
+    "future_kernel_native_consumer_request_launch_ptr_all_field_handoff_hash_accumulator",
+    "future_kernel_native_consumer_request_launch_ptr_all_field_handoff_descriptor_ptr_row_ok_count",
+    "future_kernel_native_consumer_request_launch_ptr_all_field_handoff_packed_weight_descriptor_row_ok_count",
+    "future_kernel_native_consumer_request_launch_ptr_all_field_handoff_scale_metadata_handle_row_ok_count",
+    "future_kernel_native_consumer_request_launch_ptr_all_field_handoff_aux_metadata_handle_row_ok_count",
+    "future_kernel_native_consumer_request_launch_ptr_all_field_handoff_payload_bytes",
+    "future_kernel_native_consumer_request_launch_ptr_all_field_handoff_passed_to_kernel",
+    "future_kernel_native_consumer_request_launch_ptr_all_field_handoff_changes_kernel_launch_args",
+    "future_kernel_native_consumer_request_launch_ptr_all_field_handoff_current_wna16_arg_compatible",
+    "future_kernel_native_consumer_request_launch_ptr_all_field_handoff_requires_wna16_arg_reinterpretation",
     "future_kernel_native_consumer_request_launch_summary_row_count",
     "future_kernel_native_consumer_request_launch_summary_row_ok_count",
     "future_kernel_native_consumer_request_launch_summary_error_count",
@@ -1254,6 +1308,10 @@ def _parse_hex64(value: Any) -> int | None:
     return parsed
 
 
+def _strict_int_equals(value: Any, expected: int) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool) and value == expected
+
+
 def _annotate_request_level_single_field_handoff(
     payload: dict[str, Any],
     *,
@@ -1302,6 +1360,54 @@ def _annotate_request_level_single_field_handoff(
         f"{consumer_prefix}_single_field_handoff_requires_wna16_arg_reinterpretation"
     ] = False
 
+    all_field_row_ok = [
+        payload.get(f"{summary_prefix}_{item}_read_row_ok_count")
+        for item in REQUEST_LEVEL_HANDOFF_FIELDS
+    ]
+    all_field_error_count = (
+        0
+        if (
+            isinstance(row_count, int)
+            and not isinstance(row_count, bool)
+            and row_count > 0
+            and summary_error_count == 0
+            and all(value == row_count for value in all_field_row_ok)
+        )
+        else 1
+    )
+    payload[f"{consumer_prefix}_all_field_handoff_checked"] = True
+    payload[f"{consumer_prefix}_all_field_handoff_field_names"] = list(
+        REQUEST_LEVEL_HANDOFF_FIELDS
+    )
+    payload[f"{consumer_prefix}_all_field_handoff_source"] = (
+        "native_request_summary_field_read_counts"
+    )
+    payload[f"{consumer_prefix}_all_field_handoff_row_count"] = row_count
+    payload[f"{consumer_prefix}_all_field_handoff_row_ok_count"] = (
+        row_count if all_field_error_count == 0 else None
+    )
+    payload[f"{consumer_prefix}_all_field_handoff_error_count"] = (
+        all_field_error_count
+    )
+    payload[f"{consumer_prefix}_all_field_handoff_hash_accumulator"] = payload.get(
+        f"{summary_prefix}_field_read_hash_accumulator"
+    )
+    payload[f"{consumer_prefix}_all_field_handoff_payload_bytes"] = 0
+    payload[f"{consumer_prefix}_all_field_handoff_passed_to_kernel"] = False
+    payload[f"{consumer_prefix}_all_field_handoff_changes_kernel_launch_args"] = False
+    payload[f"{consumer_prefix}_all_field_handoff_current_wna16_arg_compatible"] = False
+    payload[
+        f"{consumer_prefix}_all_field_handoff_requires_wna16_arg_reinterpretation"
+    ] = False
+    for field_name_item, row_ok_count_item in zip(
+        REQUEST_LEVEL_HANDOFF_FIELDS,
+        all_field_row_ok,
+        strict=True,
+    ):
+        payload[
+            f"{consumer_prefix}_all_field_handoff_{field_name_item}_row_ok_count"
+        ] = row_ok_count_item
+
 
 def _request_level_single_field_handoff_passed(
     payload: dict[str, Any],
@@ -1316,16 +1422,26 @@ def _request_level_single_field_handoff_passed(
         == field_name
         and payload.get(f"{consumer_prefix}_single_field_handoff_source")
         == "native_request_summary_field_read_counts"
-        and payload.get(f"{consumer_prefix}_single_field_handoff_row_count")
-        == expected_rows
-        and payload.get(f"{consumer_prefix}_single_field_handoff_row_ok_count")
-        == expected_rows
-        and payload.get(f"{consumer_prefix}_single_field_handoff_error_count") == 0
+        and _strict_int_equals(
+            payload.get(f"{consumer_prefix}_single_field_handoff_row_count"),
+            expected_rows,
+        )
+        and _strict_int_equals(
+            payload.get(f"{consumer_prefix}_single_field_handoff_row_ok_count"),
+            expected_rows,
+        )
+        and _strict_int_equals(
+            payload.get(f"{consumer_prefix}_single_field_handoff_error_count"),
+            0,
+        )
         and _parse_hex64(
             payload.get(f"{consumer_prefix}_single_field_handoff_hash_accumulator")
         )
         is not None
-        and payload.get(f"{consumer_prefix}_single_field_handoff_payload_bytes") == 0
+        and _strict_int_equals(
+            payload.get(f"{consumer_prefix}_single_field_handoff_payload_bytes"),
+            0,
+        )
         and payload.get(f"{consumer_prefix}_single_field_handoff_passed_to_kernel")
         is False
         and payload.get(
@@ -1338,6 +1454,54 @@ def _request_level_single_field_handoff_passed(
         is False
         and payload.get(
             f"{consumer_prefix}_single_field_handoff_requires_wna16_arg_reinterpretation"
+        )
+        is False
+        and payload.get(f"{consumer_prefix}_all_field_handoff_checked") is True
+        and payload.get(f"{consumer_prefix}_all_field_handoff_field_names")
+        == list(REQUEST_LEVEL_HANDOFF_FIELDS)
+        and payload.get(f"{consumer_prefix}_all_field_handoff_source")
+        == "native_request_summary_field_read_counts"
+        and _strict_int_equals(
+            payload.get(f"{consumer_prefix}_all_field_handoff_row_count"),
+            expected_rows,
+        )
+        and _strict_int_equals(
+            payload.get(f"{consumer_prefix}_all_field_handoff_row_ok_count"),
+            expected_rows,
+        )
+        and _strict_int_equals(
+            payload.get(f"{consumer_prefix}_all_field_handoff_error_count"),
+            0,
+        )
+        and _parse_hex64(
+            payload.get(f"{consumer_prefix}_all_field_handoff_hash_accumulator")
+        )
+        is not None
+        and all(
+            _strict_int_equals(
+                payload.get(
+                    f"{consumer_prefix}_all_field_handoff_{item}_row_ok_count"
+                ),
+                expected_rows,
+            )
+            for item in REQUEST_LEVEL_HANDOFF_FIELDS
+        )
+        and _strict_int_equals(
+            payload.get(f"{consumer_prefix}_all_field_handoff_payload_bytes"),
+            0,
+        )
+        and payload.get(f"{consumer_prefix}_all_field_handoff_passed_to_kernel")
+        is False
+        and payload.get(
+            f"{consumer_prefix}_all_field_handoff_changes_kernel_launch_args"
+        )
+        is False
+        and payload.get(
+            f"{consumer_prefix}_all_field_handoff_current_wna16_arg_compatible"
+        )
+        is False
+        and payload.get(
+            f"{consumer_prefix}_all_field_handoff_requires_wna16_arg_reinterpretation"
         )
         is False
     )
