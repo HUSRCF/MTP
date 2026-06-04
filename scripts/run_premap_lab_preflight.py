@@ -190,6 +190,7 @@ REQUIRED_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
     "native_typed_consumer_stub_online_prelaunch_input_endpoint_ptr_canary_json",
     "native_typed_consumer_stub_online_prelaunch_input_request_ptr_canary_json",
     "native_typed_consumer_stub_online_prelaunch_input_request_launch_canary_json",
+    "native_typed_consumer_stub_online_prelaunch_input_request_launch_ptr_canary_json",
     "native_typed_consumer_online_prelaunch_canary_runner_json",
     "future_kernel_native_dispatch_ptr_standalone_canary_json",
     "future_kernel_native_arg_slot_standalone_canary_json",
@@ -1231,6 +1232,7 @@ def _validate_required_evidence_payload(
         "native_typed_consumer_stub_online_prelaunch_input_endpoint_ptr_canary_json",
         "native_typed_consumer_stub_online_prelaunch_input_request_ptr_canary_json",
         "native_typed_consumer_stub_online_prelaunch_input_request_launch_canary_json",
+        "native_typed_consumer_stub_online_prelaunch_input_request_launch_ptr_canary_json",
         "native_typed_consumer_stub_online_prelaunch_input_per_field_canary_json",
     }
     expected_online_input_count = ONLINE_PRELAUNCH_MIN_INPUTS_BY_LABEL.get(
@@ -3189,6 +3191,7 @@ def _validate_required_evidence_payload(
                     "native_typed_consumer_stub_online_prelaunch_input_endpoint_ptr_canary_json",
                     "native_typed_consumer_stub_online_prelaunch_input_request_ptr_canary_json",
                     "native_typed_consumer_stub_online_prelaunch_input_request_launch_canary_json",
+                    "native_typed_consumer_stub_online_prelaunch_input_request_launch_ptr_canary_json",
                     "native_typed_consumer_stub_online_prelaunch_input_per_field_canary_json",
                 }
                 else "native_typed_consumer_bridge_input_json"
@@ -3209,6 +3212,7 @@ def _validate_required_evidence_payload(
                     "native_typed_consumer_stub_online_prelaunch_input_endpoint_ptr_canary_json",
                     "native_typed_consumer_stub_online_prelaunch_input_request_ptr_canary_json",
                     "native_typed_consumer_stub_online_prelaunch_input_request_launch_canary_json",
+                    "native_typed_consumer_stub_online_prelaunch_input_request_launch_ptr_canary_json",
                     "native_typed_consumer_stub_online_prelaunch_input_per_field_canary_json",
                 }
                 else None
@@ -3218,6 +3222,7 @@ def _validate_required_evidence_payload(
             "native_typed_consumer_stub_online_prelaunch_input_endpoint_ptr_canary_json",
             "native_typed_consumer_stub_online_prelaunch_input_request_ptr_canary_json",
             "native_typed_consumer_stub_online_prelaunch_input_request_launch_canary_json",
+            "native_typed_consumer_stub_online_prelaunch_input_request_launch_ptr_canary_json",
             "native_typed_consumer_stub_online_prelaunch_input_per_field_canary_json",
         }
         is_per_field_stub = (
@@ -3235,6 +3240,10 @@ def _validate_required_evidence_payload(
         is_request_launch_stub = (
             evidence_label
             == "native_typed_consumer_stub_online_prelaunch_input_request_launch_canary_json"
+        )
+        is_request_launch_ptr_stub = (
+            evidence_label
+            == "native_typed_consumer_stub_online_prelaunch_input_request_launch_ptr_canary_json"
         )
         endpoint_ptr_expected_field_mask = (
             15
@@ -3313,6 +3322,21 @@ def _validate_required_evidence_payload(
                         "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_LAUNCH_ABI",
                     )
                     if is_request_launch_stub
+                    else (
+                        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ABI",
+                        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ABI",
+                        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_ABI",
+                        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_PTR_ABI",
+                        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ARG_SLOT_ABI",
+                        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_VIEW_ABI",
+                        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_PROGRAM_VIEW_ABI",
+                        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_PROGRAM_VIEW_PTR_ABI",
+                        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ARG_PACKET_ABI",
+                        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_PTR_ABI",
+                        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_LAUNCH_ABI",
+                        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_LAUNCH_PTR_ABI",
+                    )
+                    if is_request_launch_ptr_stub
                     else None
                 ),
                 required_disabled_macros=(
@@ -3327,6 +3351,8 @@ def _validate_required_evidence_payload(
                 request_ptr_expected_field_mask=15,
                 require_request_launch_abi_meta=is_request_launch_stub,
                 request_launch_expected_field_mask=15,
+                require_request_launch_ptr_abi_meta=is_request_launch_ptr_stub,
+                request_launch_ptr_expected_field_mask=15,
             )
         ]
     if not isinstance(metrics, dict):
@@ -3393,6 +3419,8 @@ def _validate_native_typed_consumer_stub_evidence(
     request_ptr_expected_field_mask: int = 15,
     require_request_launch_abi_meta: bool = False,
     request_launch_expected_field_mask: int = 15,
+    require_request_launch_ptr_abi_meta: bool = False,
+    request_launch_ptr_expected_field_mask: int = 15,
 ) -> list[str]:
     failures: list[str] = []
     row_count = _int_metric(evidence, "row_count")
@@ -3973,6 +4001,140 @@ def _validate_native_typed_consumer_stub_evidence(
                     "native_typed_consumer_stub_request_launch_summary_"
                     f"{failure_suffix}_kernel_entry_mismatch"
                 )
+    if require_request_launch_ptr_abi_meta:
+        expected_request_launch_ptr_values: dict[str, Any] = {
+            "future_kernel_native_consumer_request_launch_ptr_abi_name": (
+                "premap_future_kernel_native_consumer_request_launch_ptr_abi_v1"
+            ),
+            "future_kernel_native_consumer_request_launch_ptr_mode": (
+                "readonly_future_kernel_native_consumer_request_launch_ptr_abi"
+            ),
+            "future_kernel_native_consumer_request_launch_ptr_source": (
+                "premap_future_kernel_native_consumer_request_launch_abi_v1"
+            ),
+            "future_kernel_native_consumer_request_launch_ptr_field_read_path": (
+                "request_launch_ptr_to_request_launch_to_request_ptr_to_kernel_arg_packet_to_program_view_rows"
+            ),
+            "future_kernel_native_consumer_request_launch_ptr_checked": True,
+            "future_kernel_native_consumer_request_launch_ptr_version": 1,
+            "future_kernel_native_consumer_request_launch_ptr_packet_chain_depth": 6,
+            "future_kernel_native_consumer_request_launch_ptr_pointer_size": 8,
+            "future_kernel_native_consumer_request_launch_ptr_payload_bytes": 0,
+            "future_kernel_native_consumer_request_launch_ptr_payload_deref_allowed": False,
+            "future_kernel_native_consumer_request_launch_ptr_passed_to_kernel": False,
+            "future_kernel_native_consumer_request_launch_ptr_kernel_arg_pass_allowed": False,
+            "future_kernel_native_consumer_request_launch_ptr_changes_kernel_launch_args": False,
+            "future_kernel_native_consumer_request_launch_ptr_current_wna16_arg_compatible": False,
+            "future_kernel_native_consumer_request_launch_ptr_requires_wna16_arg_reinterpretation": False,
+        }
+        for key, expected_value in expected_request_launch_ptr_values.items():
+            if evidence.get(key) != expected_value:
+                failures.append(f"native_typed_consumer_stub_{key}_mismatch")
+        if (
+            _int_metric(
+                evidence,
+                "future_kernel_native_consumer_request_launch_ptr_request_id",
+            )
+            is None
+        ):
+            failures.append(
+                "native_typed_consumer_stub_request_launch_ptr_request_id_missing"
+            )
+        request_launch_ptr_row_count = _int_metric(
+            evidence,
+            "future_kernel_native_consumer_request_launch_ptr_summary_row_count",
+        )
+        if row_count is not None and request_launch_ptr_row_count != row_count:
+            failures.append(
+                "native_typed_consumer_stub_request_launch_ptr_summary_row_count_mismatch"
+            )
+        request_launch_ptr_read_count_expectations = {
+            "descriptor_ptr_read_row_ok_count": row_count,
+            "packed_weight_descriptor_read_row_ok_count": row_count,
+            "scale_metadata_handle_read_row_ok_count": row_count,
+            "aux_metadata_handle_read_row_ok_count": (
+                row_count if request_launch_ptr_expected_field_mask & 8 else 0
+            ),
+            "expert_id_read_row_ok_count": row_count,
+            "address_key_hash_read_row_ok_count": row_count,
+            "row_metadata_read_row_ok_count": row_count,
+        }
+        for summary_prefix in (
+            "future_kernel_native_consumer_request_launch_ptr_summary",
+            "future_kernel_native_consumer_request_launch_summary",
+            "future_kernel_native_consumer_request_ptr_summary",
+            "future_kernel_native_consumer_kernel_entry_summary",
+        ):
+            if (
+                row_count is not None
+                and _int_metric(evidence, f"{summary_prefix}_row_count") != row_count
+            ):
+                failures.append(
+                    f"native_typed_consumer_stub_{summary_prefix}_row_count_mismatch"
+                )
+            if (
+                row_count is not None
+                and _int_metric(evidence, f"{summary_prefix}_row_ok_count")
+                != row_count
+            ):
+                failures.append(
+                    f"native_typed_consumer_stub_{summary_prefix}_row_ok_count_mismatch"
+                )
+            if _int_metric(evidence, f"{summary_prefix}_error_count") != 0:
+                failures.append(
+                    f"native_typed_consumer_stub_{summary_prefix}_error_count_mismatch"
+                )
+            if (
+                _int_metric(evidence, f"{summary_prefix}_field_mask")
+                != request_launch_ptr_expected_field_mask
+            ):
+                failures.append(
+                    f"native_typed_consumer_stub_{summary_prefix}_field_mask_mismatch"
+                )
+            for suffix, expected_value in request_launch_ptr_read_count_expectations.items():
+                if _int_metric(evidence, f"{summary_prefix}_{suffix}") != expected_value:
+                    failures.append(
+                        "native_typed_consumer_stub_"
+                        f"{summary_prefix}_{suffix}_mismatch"
+                    )
+        for suffix in (
+            "row_hash_accumulator",
+            "field_read_hash_accumulator",
+            "row_metadata_hash_accumulator",
+        ):
+            hashes = {
+                "request_launch_ptr": _hex64_metric(
+                    evidence,
+                    f"future_kernel_native_consumer_request_launch_ptr_summary_{suffix}",
+                ),
+                "request_launch": _hex64_metric(
+                    evidence,
+                    f"future_kernel_native_consumer_request_launch_summary_{suffix}",
+                ),
+                "request_ptr": _hex64_metric(
+                    evidence,
+                    f"future_kernel_native_consumer_request_ptr_summary_{suffix}",
+                ),
+                "kernel_entry": _hex64_metric(
+                    evidence,
+                    f"future_kernel_native_consumer_kernel_entry_summary_{suffix}",
+                ),
+            }
+            failure_suffix = suffix.removesuffix("_accumulator")
+            for name, value in hashes.items():
+                if value is None:
+                    failures.append(
+                        "native_typed_consumer_stub_"
+                        f"{name}_summary_{failure_suffix}_missing"
+                    )
+            ptr_hash = hashes["request_launch_ptr"]
+            for name in ("request_launch", "request_ptr", "kernel_entry"):
+                other_hash = hashes[name]
+                if ptr_hash is not None and other_hash is not None and ptr_hash != other_hash:
+                    failures.append(
+                        "native_typed_consumer_stub_request_launch_ptr_summary_"
+                        f"{failure_suffix}_{name}_mismatch"
+                    )
     if expected_input_path is None:
         failures.append("native_typed_consumer_stub_expected_input_json_missing")
     else:
@@ -6587,6 +6749,76 @@ def run_premap_lab_preflight(
         == request_launch_summary_row_count
         and request_launch_summary_error_count == 0
     )
+    request_launch_ptr_summary_source = online_merged_arg_slot_summary
+    if (
+        request_launch_ptr_summary_source.get(
+            "future_kernel_native_consumer_request_launch_ptr_checked"
+        )
+        is not True
+    ):
+        request_launch_ptr_evidence_label = (
+            "native_typed_consumer_stub_online_prelaunch_input_request_launch_ptr_canary_json"
+        )
+        request_launch_ptr_evidence_row = _find_evidence_row(
+            default_gate_required_evidence_check,
+            request_launch_ptr_evidence_label,
+        )
+        if _evidence_row_passed(request_launch_ptr_evidence_row):
+            request_launch_ptr_payload = _load_evidence_payload_from_check(
+                default_gate_required_evidence_check,
+                request_launch_ptr_evidence_label,
+                root=root,
+            )
+            if isinstance(request_launch_ptr_payload, dict):
+                request_launch_ptr_summary_source = request_launch_ptr_payload
+    request_launch_ptr_summary_row_count = _int_metric(
+        request_launch_ptr_summary_source,
+        "future_kernel_native_consumer_request_launch_ptr_summary_row_count",
+    )
+    request_launch_ptr_summary_row_ok_count = _int_metric(
+        request_launch_ptr_summary_source,
+        "future_kernel_native_consumer_request_launch_ptr_summary_row_ok_count",
+    )
+    request_launch_ptr_summary_descriptor_ptr_read_row_ok_count = _int_metric(
+        request_launch_ptr_summary_source,
+        "future_kernel_native_consumer_request_launch_ptr_summary_descriptor_ptr_read_row_ok_count",
+    )
+    request_launch_ptr_summary_packed_weight_descriptor_read_row_ok_count = _int_metric(
+        request_launch_ptr_summary_source,
+        "future_kernel_native_consumer_request_launch_ptr_summary_packed_weight_descriptor_read_row_ok_count",
+    )
+    request_launch_ptr_summary_scale_metadata_handle_read_row_ok_count = _int_metric(
+        request_launch_ptr_summary_source,
+        "future_kernel_native_consumer_request_launch_ptr_summary_scale_metadata_handle_read_row_ok_count",
+    )
+    request_launch_ptr_summary_aux_metadata_handle_read_row_ok_count = _int_metric(
+        request_launch_ptr_summary_source,
+        "future_kernel_native_consumer_request_launch_ptr_summary_aux_metadata_handle_read_row_ok_count",
+    )
+    request_launch_ptr_summary_row_metadata_read_row_ok_count = _int_metric(
+        request_launch_ptr_summary_source,
+        "future_kernel_native_consumer_request_launch_ptr_summary_row_metadata_read_row_ok_count",
+    )
+    request_launch_ptr_summary_error_count = _int_metric(
+        request_launch_ptr_summary_source,
+        "future_kernel_native_consumer_request_launch_ptr_summary_error_count",
+    )
+    request_launch_ptr_all_handle_fields_read = (
+        request_launch_ptr_summary_row_count is not None
+        and request_launch_ptr_summary_row_ok_count
+        == request_launch_ptr_summary_row_count
+        and request_launch_ptr_summary_descriptor_ptr_read_row_ok_count
+        == request_launch_ptr_summary_row_count
+        and request_launch_ptr_summary_packed_weight_descriptor_read_row_ok_count
+        == request_launch_ptr_summary_row_count
+        and request_launch_ptr_summary_scale_metadata_handle_read_row_ok_count
+        == request_launch_ptr_summary_row_count
+        and request_launch_ptr_summary_aux_metadata_handle_read_row_ok_count
+        == request_launch_ptr_summary_row_count
+        and request_launch_ptr_summary_row_metadata_read_row_ok_count
+        == request_launch_ptr_summary_row_count
+        and request_launch_ptr_summary_error_count == 0
+    )
     consumer_view_field_read_row_count = _int_metric(
         (
             online_merged_arg_slot_summary
@@ -7665,6 +7897,101 @@ def run_premap_lab_preflight(
         "default_kernel_consumer_request_launch_current_wna16_arg_compatible": (
             request_launch_summary_source.get(
                 "future_kernel_native_consumer_request_launch_current_wna16_arg_compatible"
+            )
+        ),
+        "default_kernel_consumer_request_launch_requires_wna16_arg_reinterpretation": (
+            request_launch_summary_source.get(
+                "future_kernel_native_consumer_request_launch_requires_wna16_arg_reinterpretation"
+            )
+        ),
+        "default_kernel_consumer_request_launch_ptr_checked": (
+            request_launch_ptr_summary_source.get(
+                "future_kernel_native_consumer_request_launch_ptr_checked"
+            )
+        ),
+        "default_kernel_consumer_request_launch_ptr_field_read_path": (
+            request_launch_ptr_summary_source.get(
+                "future_kernel_native_consumer_request_launch_ptr_field_read_path"
+            )
+        ),
+        "default_kernel_consumer_request_launch_ptr_packet_chain_depth": (
+            _int_metric(
+                request_launch_ptr_summary_source,
+                "future_kernel_native_consumer_request_launch_ptr_packet_chain_depth",
+            )
+        ),
+        "default_kernel_consumer_request_launch_ptr_summary_row_count": (
+            request_launch_ptr_summary_row_count
+        ),
+        "default_kernel_consumer_request_launch_ptr_summary_row_ok_count": (
+            request_launch_ptr_summary_row_ok_count
+        ),
+        "default_kernel_consumer_request_launch_ptr_summary_descriptor_ptr_read_row_ok_count": (
+            request_launch_ptr_summary_descriptor_ptr_read_row_ok_count
+        ),
+        "default_kernel_consumer_request_launch_ptr_summary_packed_weight_descriptor_read_row_ok_count": (
+            request_launch_ptr_summary_packed_weight_descriptor_read_row_ok_count
+        ),
+        "default_kernel_consumer_request_launch_ptr_summary_scale_metadata_handle_read_row_ok_count": (
+            request_launch_ptr_summary_scale_metadata_handle_read_row_ok_count
+        ),
+        "default_kernel_consumer_request_launch_ptr_summary_aux_metadata_handle_read_row_ok_count": (
+            request_launch_ptr_summary_aux_metadata_handle_read_row_ok_count
+        ),
+        "default_kernel_consumer_request_launch_ptr_summary_row_metadata_read_row_ok_count": (
+            request_launch_ptr_summary_row_metadata_read_row_ok_count
+        ),
+        "default_kernel_consumer_request_launch_ptr_summary_error_count": (
+            request_launch_ptr_summary_error_count
+        ),
+        "default_kernel_consumer_request_launch_ptr_summary_field_mask": (
+            _int_metric(
+                request_launch_ptr_summary_source,
+                "future_kernel_native_consumer_request_launch_ptr_summary_field_mask",
+            )
+        ),
+        "default_kernel_consumer_request_launch_ptr_summary_row_hash_accumulator": (
+            request_launch_ptr_summary_source.get(
+                "future_kernel_native_consumer_request_launch_ptr_summary_row_hash_accumulator"
+            )
+        ),
+        "default_kernel_consumer_request_launch_ptr_summary_field_read_hash_accumulator": (
+            request_launch_ptr_summary_source.get(
+                "future_kernel_native_consumer_request_launch_ptr_summary_field_read_hash_accumulator"
+            )
+        ),
+        "default_kernel_consumer_request_launch_ptr_summary_row_metadata_hash_accumulator": (
+            request_launch_ptr_summary_source.get(
+                "future_kernel_native_consumer_request_launch_ptr_summary_row_metadata_hash_accumulator"
+            )
+        ),
+        "default_kernel_consumer_request_launch_ptr_all_handle_fields_read": (
+            request_launch_ptr_all_handle_fields_read
+        ),
+        "default_kernel_consumer_request_launch_ptr_payload_bytes": (
+            _int_metric(
+                request_launch_ptr_summary_source,
+                "future_kernel_native_consumer_request_launch_ptr_payload_bytes",
+            )
+        ),
+        "default_kernel_consumer_request_launch_ptr_passed_to_kernel": (
+            request_launch_ptr_summary_source.get(
+                "future_kernel_native_consumer_request_launch_ptr_passed_to_kernel"
+            )
+        ),
+        "default_kernel_consumer_request_launch_ptr_changes_kernel_launch_args": (
+            request_launch_ptr_summary_source.get(
+                "future_kernel_native_consumer_request_launch_ptr_changes_kernel_launch_args"
+            )
+        ),
+        "default_kernel_consumer_request_launch_ptr_current_wna16_arg_compatible": (
+            request_launch_ptr_summary_source.get(
+                "future_kernel_native_consumer_request_launch_ptr_current_wna16_arg_compatible"
+            )
+        ),
+        "default_kernel_consumer_request_launch_ptr_requires_wna16_arg_reinterpretation": (
+            request_launch_ptr_summary_source.get(
+                "future_kernel_native_consumer_request_launch_ptr_requires_wna16_arg_reinterpretation"
             )
         ),
         "default_kernel_consumer_dispatch_abi_name": (

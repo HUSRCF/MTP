@@ -3341,6 +3341,84 @@ passed = true
 failures = []
 ```
 
+### Request-launch pointer ABI promoted to online lab preflight evidence
+
+`request_launch_ptr` is no longer only a standalone native-stub canary.  The
+default lab gate now requires a dedicated online-prelaunch input evidence row:
+
+```text
+native_typed_consumer_stub_online_prelaunch_input_request_launch_ptr_canary_json
+```
+
+The evidence is generated from the real exported vLLM/AWQ prelaunch typed
+consumer table and validates this future native chain:
+
+```text
+request_launch_ptr
+  -> request_launch
+  -> request_ptr
+  -> kernel_arg_packet
+  -> program_view rows
+```
+
+The preflight checker now requires the request-launch pointer ABI macro,
+validates the field-read path and chain depth, checks all four handle fields
+per row, and verifies that the row/field/metadata hashes match the downstream
+request-launch, request-pointer, and kernel-entry summaries.
+
+The safety contract remains unchanged:
+
+```text
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+current_wna16_arg_compatible = false
+requires_wna16_arg_reinterpretation = false
+```
+
+Current online-prelaunch evidence:
+
+```text
+outputs/reports/premap_kernel_consumer/typed_consumer_stub_gpu1_online_prelaunch_input_request_launch_ptr_canary.json
+
+passed = true
+row_count = 174
+future_kernel_native_consumer_request_launch_ptr_checked = true
+future_kernel_native_consumer_request_launch_ptr_packet_chain_depth = 6
+future_kernel_native_consumer_request_launch_ptr_summary_row_ok_count = 174
+future_kernel_native_consumer_request_launch_ptr_summary_error_count = 0
+future_kernel_native_consumer_request_launch_ptr_summary_field_mask = 15
+```
+
+Default lab preflight status:
+
+```text
+outputs/reports/premap_kernel_consumer/lab_preflight_status_request_launch_ptr.json
+
+passed = true
+default_required_evidence_passed = true
+default_kernel_consumer_request_launch_ptr_checked = true
+default_kernel_consumer_request_launch_ptr_all_handle_fields_read = true
+default_kernel_consumer_request_launch_ptr_payload_bytes = 0
+default_kernel_consumer_request_launch_ptr_passed_to_kernel = false
+default_kernel_consumer_request_launch_ptr_changes_kernel_launch_args = false
+default_kernel_consumer_request_launch_ptr_current_wna16_arg_compatible = false
+```
+
+Verification:
+
+```text
+python -m pytest tests/test_run_premap_lab_preflight.py -q
+126 passed
+
+python -m pytest tests/test_run_premap_lab_preflight.py \
+  tests/test_premap_typed_consumer_stub.py -q
+181 passed
+
+python -m pytest tests -q
+1088 passed, 2 warnings
+```
+
 ### 2026-06-04 - Future native request-launch ABI canary
 
 Added a standalone future native request-launch ABI:
