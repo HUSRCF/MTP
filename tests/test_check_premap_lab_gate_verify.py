@@ -38,6 +38,7 @@ def _status_payload(name: str) -> dict[str, object]:
                 "arg_slot_runner_require_kernel_invocation_abi": True,
                 "arg_slot_runner_require_kernel_invocation_entry_abi": True,
                 "arg_slot_runner_require_kernel_endpoint_abi": True,
+                "arg_slot_runner_require_kernel_endpoint_ptr_abi": True,
                 "arg_slot_runner_kernel_launch_context_checked": True,
                 "arg_slot_runner_kernel_launch_context_all_handle_fields_read": True,
                 "arg_slot_runner_kernel_launch_context_error_count": 0,
@@ -78,6 +79,16 @@ def _status_payload(name: str) -> dict[str, object]:
                 "arg_slot_runner_kernel_endpoint_changes_kernel_launch_args": False,
                 "arg_slot_runner_kernel_endpoint_current_wna16_arg_compatible": False,
                 "arg_slot_runner_kernel_endpoint_requires_wna16_arg_reinterpretation": False,
+                "arg_slot_runner_kernel_endpoint_ptr_checked": True,
+                "arg_slot_runner_kernel_endpoint_ptr_all_handle_fields_read": True,
+                "arg_slot_runner_kernel_endpoint_ptr_error_count": 0,
+                "arg_slot_runner_kernel_endpoint_ptr_packet_chain_depth": 13,
+                "arg_slot_runner_kernel_endpoint_ptr_payload_bytes": 0,
+                "arg_slot_runner_kernel_endpoint_ptr_passed_to_kernel": False,
+                "arg_slot_runner_kernel_endpoint_ptr_kernel_arg_pass_allowed": False,
+                "arg_slot_runner_kernel_endpoint_ptr_changes_kernel_launch_args": False,
+                "arg_slot_runner_kernel_endpoint_ptr_current_wna16_arg_compatible": False,
+                "arg_slot_runner_kernel_endpoint_ptr_requires_wna16_arg_reinterpretation": False,
             }
         )
     if name == "tail_window_closure":

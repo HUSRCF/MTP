@@ -310,6 +310,7 @@ def check_premap_lab_preflight_summary(
         "default_kernel_consumer_online_merged_multiprogram_require_kernel_invocation_abi": True,
         "default_kernel_consumer_online_merged_multiprogram_require_kernel_invocation_entry_abi": True,
         "default_kernel_consumer_online_merged_multiprogram_require_kernel_endpoint_abi": True,
+        "default_kernel_consumer_online_merged_multiprogram_require_kernel_endpoint_ptr_abi": True,
         "default_kernel_consumer_dispatch_abi_current_wna16_arg_compatible": False,
         "default_kernel_consumer_dispatch_ptr_abi_current_wna16_arg_compatible": False,
         "default_kernel_consumer_arg_slot_abi_current_wna16_arg_compatible": False,
@@ -349,6 +350,14 @@ def check_premap_lab_preflight_summary(
         "default_kernel_consumer_kernel_endpoint_changes_kernel_launch_args": False,
         "default_kernel_consumer_kernel_endpoint_current_wna16_arg_compatible": False,
         "default_kernel_consumer_kernel_endpoint_requires_wna16_arg_reinterpretation": False,
+        "default_kernel_consumer_kernel_endpoint_ptr_checked": True,
+        "default_kernel_consumer_kernel_endpoint_ptr_all_handle_fields_read": True,
+        "default_kernel_consumer_kernel_endpoint_ptr_payload_bytes": 0,
+        "default_kernel_consumer_kernel_endpoint_ptr_passed_to_kernel": False,
+        "default_kernel_consumer_kernel_endpoint_ptr_kernel_arg_pass_allowed": False,
+        "default_kernel_consumer_kernel_endpoint_ptr_changes_kernel_launch_args": False,
+        "default_kernel_consumer_kernel_endpoint_ptr_current_wna16_arg_compatible": False,
+        "default_kernel_consumer_kernel_endpoint_ptr_requires_wna16_arg_reinterpretation": False,
         "payload_bytes_required": 0,
         "passed_to_kernel_required": False,
         "changes_kernel_launch_args_required": False,
@@ -577,10 +586,14 @@ def check_premap_lab_preflight_summary(
         "default_kernel_consumer_kernel_invocation",
         "default_kernel_consumer_kernel_invocation_entry",
         "default_kernel_consumer_kernel_endpoint",
+        "default_kernel_consumer_kernel_endpoint_ptr",
     ):
-        expected_depth = (
-            12 if prefix == "default_kernel_consumer_kernel_endpoint" else 11
-        )
+        if prefix.endswith("endpoint_ptr"):
+            expected_depth = 13
+        elif prefix.endswith("endpoint"):
+            expected_depth = 12
+        else:
+            expected_depth = 11
         if summary.get(f"{prefix}_packet_chain_depth") != expected_depth:
             failures.append(f"{prefix}_packet_chain_depth_mismatch")
         for suffix in (

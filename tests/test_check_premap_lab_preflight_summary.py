@@ -92,6 +92,7 @@ def _summary() -> dict[str, object]:
         "default_kernel_consumer_online_merged_multiprogram_require_kernel_invocation_abi": True,
         "default_kernel_consumer_online_merged_multiprogram_require_kernel_invocation_entry_abi": True,
         "default_kernel_consumer_online_merged_multiprogram_require_kernel_endpoint_abi": True,
+        "default_kernel_consumer_online_merged_multiprogram_require_kernel_endpoint_ptr_abi": True,
         "default_kernel_consumer_arg_slot_all_handle_fields_read": True,
         "default_kernel_consumer_arg_slot_field_read_field_names": [
             "descriptor_ptr",
@@ -237,6 +238,24 @@ def _summary() -> dict[str, object]:
         ),
         "default_kernel_consumer_kernel_endpoint_row_metadata_hash_accumulator": (
             "7172737475767778"
+        ),
+        "default_kernel_consumer_kernel_endpoint_ptr_checked": True,
+        "default_kernel_consumer_kernel_endpoint_ptr_all_handle_fields_read": True,
+        "default_kernel_consumer_kernel_endpoint_ptr_packet_chain_depth": 13,
+        "default_kernel_consumer_kernel_endpoint_ptr_payload_bytes": 0,
+        "default_kernel_consumer_kernel_endpoint_ptr_passed_to_kernel": False,
+        "default_kernel_consumer_kernel_endpoint_ptr_kernel_arg_pass_allowed": False,
+        "default_kernel_consumer_kernel_endpoint_ptr_changes_kernel_launch_args": False,
+        "default_kernel_consumer_kernel_endpoint_ptr_current_wna16_arg_compatible": False,
+        "default_kernel_consumer_kernel_endpoint_ptr_requires_wna16_arg_reinterpretation": False,
+        "default_kernel_consumer_kernel_endpoint_ptr_row_hash_accumulator": (
+            "8182838485868788"
+        ),
+        "default_kernel_consumer_kernel_endpoint_ptr_field_read_hash_accumulator": (
+            "9192939495969798"
+        ),
+        "default_kernel_consumer_kernel_endpoint_ptr_row_metadata_hash_accumulator": (
+            "a1a2a3a4a5a6a7a8"
         ),
         "default_kernel_consumer_request_ptr_checked": True,
         "default_kernel_consumer_request_ptr_field_read_path": (

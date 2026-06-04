@@ -2411,6 +2411,57 @@ def _endpoint_metrics(
     return payload
 
 
+def _endpoint_ptr_metrics(
+    *,
+    prefix: str,
+    row_count: int,
+    include_all_handle_fields_read: bool = False,
+) -> dict[str, object]:
+    payload: dict[str, object] = {
+        f"{prefix}_checked": True,
+        f"{prefix}_abi_name": (
+            "premap_future_kernel_native_consumer_endpoint_ptr_abi_v1"
+        ),
+        f"{prefix}_mode": "readonly_future_kernel_native_consumer_endpoint_ptr_abi",
+        f"{prefix}_source": "premap_future_kernel_native_consumer_endpoint_abi_v1",
+        f"{prefix}_field_read_path": (
+            "endpoint_ptr_to_endpoint_to_by_value_invocation_to_kernel_launch_context_to_"
+            "kernel_launch_descriptor_to_launch_envelope_args_ptr_to_launch_envelope_args_to_"
+            "entry_args_ptr_to_kernel_entry_args_to_kernel_arg_packet_to_program_view_rows"
+        ),
+        f"{prefix}_packet_chain_depth": 13,
+        f"{prefix}_error_count": 0,
+        f"{prefix}_payload_bytes": 0,
+        f"{prefix}_payload_deref_allowed": False,
+        f"{prefix}_passed_to_kernel": False,
+        f"{prefix}_kernel_arg_pass_allowed": False,
+        f"{prefix}_changes_kernel_launch_args": False,
+        f"{prefix}_current_wna16_arg_compatible": False,
+        f"{prefix}_requires_wna16_arg_reinterpretation": False,
+        f"{prefix}_summary_row_count": row_count,
+        f"{prefix}_summary_row_ok_count": row_count,
+        f"{prefix}_summary_descriptor_ptr_read_row_ok_count": row_count,
+        f"{prefix}_summary_packed_weight_descriptor_read_row_ok_count": row_count,
+        f"{prefix}_summary_scale_metadata_handle_read_row_ok_count": row_count,
+        f"{prefix}_summary_aux_metadata_handle_read_row_ok_count": row_count,
+        f"{prefix}_summary_expert_id_read_row_ok_count": row_count,
+        f"{prefix}_summary_address_key_hash_read_row_ok_count": row_count,
+        f"{prefix}_summary_row_metadata_read_row_ok_count": row_count,
+        f"{prefix}_summary_error_count": 0,
+        f"{prefix}_summary_field_mask": 15,
+        f"{prefix}_summary_packet_valid": 1,
+        f"{prefix}_summary_row_hash_accumulator": "c4b51a0fa5ba88c4",
+        f"{prefix}_summary_field_read_hash_accumulator": "c2e4ae7fa9bc3227",
+        f"{prefix}_summary_row_metadata_hash_accumulator": "1a11b42afa9e8576",
+    }
+    if include_all_handle_fields_read:
+        payload[f"{prefix}_all_handle_fields_read"] = True
+        payload[f"{prefix}_row_hash_accumulator"] = "c4b51a0fa5ba88c4"
+        payload[f"{prefix}_field_read_hash_accumulator"] = "c2e4ae7fa9bc3227"
+        payload[f"{prefix}_row_metadata_hash_accumulator"] = "1a11b42afa9e8576"
+    return payload
+
+
 def _standalone_arg_slot_multiprogram_canary_payload(
     *,
     mirror_field: str = "scale_metadata_handle",
@@ -2830,6 +2881,7 @@ def _online_merged_arg_slot_multiprogram_runner_payload(
             "require_kernel_invocation_abi": True,
             "require_kernel_invocation_entry_abi": True,
             "require_kernel_endpoint_abi": True,
+            "require_kernel_endpoint_ptr_abi": True,
         }
     )
     payload.update(
@@ -2860,6 +2912,13 @@ def _online_merged_arg_slot_multiprogram_runner_payload(
             include_all_handle_fields_read=True,
         )
     )
+    payload.update(
+        _endpoint_ptr_metrics(
+            prefix="kernel_endpoint_ptr",
+            row_count=520,
+            include_all_handle_fields_read=True,
+        )
+    )
     stub_summary.update(
         _invocation_entry_metrics(
             prefix="future_kernel_native_consumer_invocation_entry",
@@ -2869,6 +2928,12 @@ def _online_merged_arg_slot_multiprogram_runner_payload(
     stub_summary.update(
         _endpoint_metrics(
             prefix="future_kernel_native_consumer_endpoint",
+            row_count=520,
+        )
+    )
+    stub_summary.update(
+        _endpoint_ptr_metrics(
+            prefix="future_kernel_native_consumer_endpoint_ptr",
             row_count=520,
         )
     )

@@ -111,6 +111,7 @@ def test_run_premap_lab_gate_closure_dry_run_records_canonical_steps(
     assert "--require-kernel-launch-context-abi" in arg_slot_cmd
     assert "--require-kernel-invocation-abi" in arg_slot_cmd
     assert "--require-kernel-endpoint-abi" in arg_slot_cmd
+    assert "--require-kernel-endpoint-ptr-abi" in arg_slot_cmd
 
 
 def test_runner_recorded_path_failures_reject_explicit_sources():
