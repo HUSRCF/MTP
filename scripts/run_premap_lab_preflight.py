@@ -223,10 +223,13 @@ REQUIRED_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
     "native_typed_consumer_online_prelaunch_canary_runner_json",
     "future_kernel_native_dispatch_ptr_standalone_canary_json",
     "future_kernel_native_arg_slot_aux_metadata_mirror_canary_json",
+    "future_kernel_native_arg_slot_packed_weight_mirror_canary_json",
     "future_kernel_native_arg_slot_standalone_canary_json",
     "future_kernel_native_arg_slot_multiprogram_canary_json",
     "future_kernel_native_arg_slot_online_merged_aux_metadata_mirror_canary_json",
     "future_kernel_native_arg_slot_online_merged_aux_metadata_mirror_runner_json",
+    "future_kernel_native_arg_slot_online_merged_packed_weight_mirror_canary_json",
+    "future_kernel_native_arg_slot_online_merged_packed_weight_mirror_runner_json",
     "future_kernel_native_arg_slot_online_merged_multiprogram_runner_json",
     "future_kernel_native_arg_slot_online_merged_multiprogram_canary_json",
     "future_kernel_native_dispatch_consumer_online_artifact_check_32_128export_json",
@@ -240,8 +243,6 @@ OPTIONAL_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
     "future_kernel_native_dispatch_consumer_online_runner_16_128export_json",
     "future_kernel_native_arg_slot_descriptor_ptr_mirror_canary_json",
     "future_kernel_native_arg_slot_online_merged_descriptor_ptr_mirror_runner_json",
-    "future_kernel_native_arg_slot_online_merged_packed_weight_mirror_runner_json",
-    "future_kernel_native_arg_slot_packed_weight_mirror_canary_json",
     "future_kernel_args_aux_metadata_mirror_canary_json",
     "future_kernel_args_descriptor_ptr_mirror_canary_json",
     "future_kernel_args_packed_weight_mirror_canary_json",
@@ -253,12 +254,12 @@ OPTIONAL_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
 ARG_SLOT_MIRROR_FIELDS = tuple(PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_COLUMNS)
 ARG_SLOT_REQUIRED_MIRROR_LABEL_BY_FIELD = {
     "aux_metadata_handle": "future_kernel_native_arg_slot_aux_metadata_mirror_canary_json",
-}
-ARG_SLOT_OPTIONAL_MIRROR_LABEL_BY_FIELD = {
-    "descriptor_ptr": "future_kernel_native_arg_slot_descriptor_ptr_mirror_canary_json",
     "packed_weight_descriptor": (
         "future_kernel_native_arg_slot_packed_weight_mirror_canary_json"
     ),
+}
+ARG_SLOT_OPTIONAL_MIRROR_LABEL_BY_FIELD = {
+    "descriptor_ptr": "future_kernel_native_arg_slot_descriptor_ptr_mirror_canary_json",
 }
 ARG_SLOT_MIRROR_LABEL_BY_FIELD = {
     **ARG_SLOT_REQUIRED_MIRROR_LABEL_BY_FIELD,
@@ -268,18 +269,21 @@ ARG_SLOT_ONLINE_MERGED_REQUIRED_MIRROR_RUNNER_LABEL_BY_FIELD = {
     "aux_metadata_handle": (
         "future_kernel_native_arg_slot_online_merged_aux_metadata_mirror_runner_json"
     ),
+    "packed_weight_descriptor": (
+        "future_kernel_native_arg_slot_online_merged_packed_weight_mirror_runner_json"
+    ),
 }
 ARG_SLOT_ONLINE_MERGED_REQUIRED_MIRROR_STUB_LABEL_BY_FIELD = {
     "aux_metadata_handle": (
         "future_kernel_native_arg_slot_online_merged_aux_metadata_mirror_canary_json"
     ),
+    "packed_weight_descriptor": (
+        "future_kernel_native_arg_slot_online_merged_packed_weight_mirror_canary_json"
+    ),
 }
 ARG_SLOT_ONLINE_MERGED_OPTIONAL_MIRROR_RUNNER_LABEL_BY_FIELD = {
     "descriptor_ptr": (
         "future_kernel_native_arg_slot_online_merged_descriptor_ptr_mirror_runner_json"
-    ),
-    "packed_weight_descriptor": (
-        "future_kernel_native_arg_slot_online_merged_packed_weight_mirror_runner_json"
     ),
 }
 ARG_SLOT_ONLINE_MERGED_MIRROR_RUNNER_LABEL_BY_FIELD = {
@@ -1411,6 +1415,8 @@ def _validate_required_evidence_payload(
         "future_kernel_native_arg_slot_online_merged_multiprogram_runner_json",
         "future_kernel_native_arg_slot_online_merged_multiprogram_canary_json",
         "future_kernel_native_arg_slot_packed_weight_mirror_canary_json",
+        *ARG_SLOT_ONLINE_MERGED_MIRROR_RUNNER_LABEL_BY_FIELD.values(),
+        *ARG_SLOT_ONLINE_MERGED_MIRROR_STUB_LABEL_BY_FIELD.values(),
         *known_stub_labels,
     } and evidence_label not in DISPATCH_WINDOW_RUNNER_EVIDENCE_LABELS and (
         evidence_label not in ONLINE_PRELAUNCH_ARTIFACT_EVIDENCE_LABELS
