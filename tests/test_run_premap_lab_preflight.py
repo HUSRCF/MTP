@@ -3185,6 +3185,33 @@ def _write_gate(
     future_kernel_args_aux_metadata_canary_path = (
         f"reports/{name}_future_kernel_args_aux_metadata_canary.json"
     )
+    future_kernel_args_compatible_path_canary_path = (
+        f"reports/{name}_future_kernel_args_compatible_path_canary.json"
+    )
+    future_kernel_args_compatible_path_artifact_check_path = (
+        f"reports/{name}_future_kernel_args_compatible_path_artifact_check.json"
+    )
+    future_kernel_args_field_refresh_flatten_check_path = (
+        f"reports/{name}_future_kernel_args_field_refresh_flatten_check.json"
+    )
+    future_kernel_args_field_refresh_artifact_check_path = (
+        f"reports/{name}_future_kernel_args_field_refresh_artifact_check.json"
+    )
+    future_kernel_native_consumer_scale_canary_path = (
+        f"reports/{name}_future_kernel_native_consumer_scale_canary.json"
+    )
+    future_kernel_native_consumer_descriptor_ptr_canary_path = (
+        f"reports/{name}_future_kernel_native_consumer_descriptor_ptr_canary.json"
+    )
+    future_kernel_native_consumer_packed_weight_canary_path = (
+        f"reports/{name}_future_kernel_native_consumer_packed_weight_canary.json"
+    )
+    future_kernel_native_consumer_aux_metadata_canary_path = (
+        f"reports/{name}_future_kernel_native_consumer_aux_metadata_canary.json"
+    )
+    future_kernel_native_consumer_launch_scale_canary_path = (
+        f"reports/{name}_future_kernel_native_consumer_launch_scale_canary.json"
+    )
     native_online_per_field_stub_path = (
         f"reports/{name}_native_typed_consumer_stub_online_prelaunch_input_per_field_canary.json"
     )
@@ -3638,6 +3665,42 @@ def _write_gate(
                 root / canary_path,
                 json.dumps(_runner_future_kernel_args_summary(mirror_field)) + "\n",
             )
+        _write(
+            root / future_kernel_args_compatible_path_canary_path,
+            json.dumps(_runner_future_kernel_args_compatible_path_summary()) + "\n",
+        )
+        for canary_path in (
+            future_kernel_args_compatible_path_artifact_check_path,
+            future_kernel_args_field_refresh_flatten_check_path,
+            future_kernel_args_field_refresh_artifact_check_path,
+        ):
+            _write(
+                root / canary_path,
+                json.dumps({"passed": True, "failures": []}) + "\n",
+            )
+        for mirror_field, canary_path in (
+            ("scale_metadata_handle", future_kernel_native_consumer_scale_canary_path),
+            ("descriptor_ptr", future_kernel_native_consumer_descriptor_ptr_canary_path),
+            (
+                "packed_weight_descriptor",
+                future_kernel_native_consumer_packed_weight_canary_path,
+            ),
+            ("aux_metadata_handle", future_kernel_native_consumer_aux_metadata_canary_path),
+        ):
+            _write(
+                root / canary_path,
+                json.dumps(_runner_future_kernel_native_consumer_summary(mirror_field))
+                + "\n",
+            )
+        _write(
+            root / future_kernel_native_consumer_launch_scale_canary_path,
+            json.dumps(
+                _runner_future_kernel_native_launch_consumer_summary(
+                    "scale_metadata_handle"
+                )
+            )
+            + "\n",
+        )
     gate_path = f"configs/runtime/{name}.yaml"
     metadata_lines = ""
     if canary is not None:
@@ -3874,10 +3937,28 @@ def _write_gate(
             "optional_evidence_paths:\n"
             "  future_kernel_args_aux_metadata_mirror_canary_json: "
             f"{future_kernel_args_aux_metadata_canary_path}\n"
+            "  future_kernel_args_compatible_path_16_128export_artifact_check_json: "
+            f"{future_kernel_args_compatible_path_artifact_check_path}\n"
+            "  future_kernel_args_compatible_path_canary_json: "
+            f"{future_kernel_args_compatible_path_canary_path}\n"
             "  future_kernel_args_descriptor_ptr_mirror_canary_json: "
             f"{future_kernel_args_descriptor_ptr_canary_path}\n"
+            "  future_kernel_args_field_refresh_16_128export_artifact_check_json: "
+            f"{future_kernel_args_field_refresh_artifact_check_path}\n"
+            "  future_kernel_args_field_refresh_flatten_check_json: "
+            f"{future_kernel_args_field_refresh_flatten_check_path}\n"
             "  future_kernel_args_packed_weight_mirror_canary_json: "
             f"{future_kernel_args_packed_weight_canary_path}\n"
+            "  future_kernel_native_consumer_aux_metadata_mirror_canary_json: "
+            f"{future_kernel_native_consumer_aux_metadata_canary_path}\n"
+            "  future_kernel_native_consumer_descriptor_ptr_mirror_canary_json: "
+            f"{future_kernel_native_consumer_descriptor_ptr_canary_path}\n"
+            "  future_kernel_native_consumer_launch_scale_mirror_canary_json: "
+            f"{future_kernel_native_consumer_launch_scale_canary_path}\n"
+            "  future_kernel_native_consumer_packed_weight_mirror_canary_json: "
+            f"{future_kernel_native_consumer_packed_weight_canary_path}\n"
+            "  future_kernel_native_consumer_scale_mirror_canary_json: "
+            f"{future_kernel_native_consumer_scale_canary_path}\n"
             "  native_typed_consumer_stub_online_prelaunch_input_per_field_canary_json: "
             f"{native_online_per_field_stub_path}\n"
             if include_lab_evidence
@@ -5168,9 +5249,9 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert summary["required_evidence"]["required_count"] == 35
     assert summary["required_evidence"]["present_count"] == 35
     assert summary["required_evidence"]["passed_count"] == 35
-    assert summary["optional_evidence"]["required_count"] == 10
-    assert summary["optional_evidence"]["present_count"] == 10
-    assert summary["optional_evidence"]["passed_count"] == 10
+    assert summary["optional_evidence"]["required_count"] == 13
+    assert summary["optional_evidence"]["present_count"] == 13
+    assert summary["optional_evidence"]["passed_count"] == 13
     assert (
         summary["required_evidence"]["evidence"][
             "future_kernel_native_arg_slot_multiprogram_canary_json"
@@ -9609,11 +9690,11 @@ def test_premap_lab_preflight_can_defer_self_referential_runner_evidence(
     assert summary["required_evidence"]["required_count"] == 35
     assert summary["required_evidence"]["present_count"] == 33
     assert summary["required_evidence"]["passed_count"] == 33
-    assert summary["optional_evidence"]["passed_count"] == 7
+    assert summary["optional_evidence"]["passed_count"] == 13
     for label in (
-        "future_kernel_native_consumer_online_artifact_check_16_128export_json",
-        "future_kernel_native_dispatch_consumer_online_artifact_check_16_128export_json",
-        "future_kernel_native_launch_consumer_online_artifact_check_16_128export_json",
+        "future_kernel_args_compatible_path_16_128export_artifact_check_json",
+        "future_kernel_args_field_refresh_16_128export_artifact_check_json",
+        "future_kernel_args_field_refresh_flatten_check_json",
     ):
         row = summary["optional_evidence"]["evidence"][label]
         assert row["present"] is True
@@ -10221,5 +10302,5 @@ def test_premap_lab_preflight_cli_summary_only_writes_status_block(tmp_path: Pat
     assert result["passed"] is True
     assert result["default_readonly_gate_path"] == default_gate
     assert result["required_evidence"]["passed_count"] == 35
-    assert result["optional_evidence"]["passed_count"] == 10
+    assert result["optional_evidence"]["passed_count"] == 13
     assert "lab_gate_status_summary" not in result

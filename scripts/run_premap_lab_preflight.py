@@ -268,15 +268,18 @@ REQUIRED_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
     "future_kernel_native_dispatch_consumer_online_runner_32_128export_json",
 }
 OPTIONAL_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
-    "future_kernel_native_consumer_online_artifact_check_16_128export_json",
-    "future_kernel_native_consumer_online_runner_16_128export_json",
-    "future_kernel_native_dispatch_consumer_online_artifact_check_16_128export_json",
-    "future_kernel_native_dispatch_consumer_online_runner_16_128export_json",
     "future_kernel_args_aux_metadata_mirror_canary_json",
+    "future_kernel_args_compatible_path_16_128export_artifact_check_json",
+    "future_kernel_args_compatible_path_canary_json",
     "future_kernel_args_descriptor_ptr_mirror_canary_json",
+    "future_kernel_args_field_refresh_16_128export_artifact_check_json",
+    "future_kernel_args_field_refresh_flatten_check_json",
     "future_kernel_args_packed_weight_mirror_canary_json",
-    "future_kernel_native_launch_consumer_online_artifact_check_16_128export_json",
-    "future_kernel_native_launch_consumer_online_runner_16_128export_json",
+    "future_kernel_native_consumer_aux_metadata_mirror_canary_json",
+    "future_kernel_native_consumer_descriptor_ptr_mirror_canary_json",
+    "future_kernel_native_consumer_launch_scale_mirror_canary_json",
+    "future_kernel_native_consumer_packed_weight_mirror_canary_json",
+    "future_kernel_native_consumer_scale_mirror_canary_json",
     "native_typed_consumer_stub_online_prelaunch_input_per_field_canary_json",
 }
 ARG_SLOT_MIRROR_FIELDS = tuple(PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_COLUMNS)
