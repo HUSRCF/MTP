@@ -108,6 +108,9 @@ INVOCATION_ENTRY_MACRO = (
 ENDPOINT_MACRO = (
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ENDPOINT_ABI"
 )
+ENDPOINT_PTR_MACRO = (
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ENDPOINT_PTR_ABI"
+)
 MIRROR_FIELD_MACRO = {
     "descriptor_ptr": "MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR_MIRROR_FIELD",
     "packed_weight_descriptor": (
@@ -836,6 +839,43 @@ STUB_SUMMARY_KEYS = (
     "future_kernel_native_consumer_endpoint_summary_row_hash_accumulator",
     "future_kernel_native_consumer_endpoint_summary_field_read_hash_accumulator",
     "future_kernel_native_consumer_endpoint_summary_row_metadata_hash_accumulator",
+    "future_kernel_native_consumer_endpoint_ptr_abi_name",
+    "future_kernel_native_consumer_endpoint_ptr_checked",
+    "future_kernel_native_consumer_endpoint_ptr_mode",
+    "future_kernel_native_consumer_endpoint_ptr_source",
+    "future_kernel_native_consumer_endpoint_ptr_field_read_path",
+    "future_kernel_native_consumer_endpoint_ptr_packet_chain_depth",
+    "future_kernel_native_consumer_endpoint_ptr_version",
+    "future_kernel_native_consumer_endpoint_ptr_struct_size",
+    "future_kernel_native_consumer_endpoint_ptr_struct_align",
+    "future_kernel_native_consumer_endpoint_ptr_offset_endpoint",
+    "future_kernel_native_consumer_endpoint_ptr_offset_summary",
+    "future_kernel_native_consumer_endpoint_ptr_endpoint_struct_size",
+    "future_kernel_native_consumer_endpoint_ptr_summary_struct_size",
+    "future_kernel_native_consumer_endpoint_ptr_pointer_size",
+    "future_kernel_native_consumer_endpoint_ptr_id",
+    "future_kernel_native_consumer_endpoint_ptr_summary_packet_valid",
+    "future_kernel_native_consumer_endpoint_ptr_summary_row_count",
+    "future_kernel_native_consumer_endpoint_ptr_summary_row_ok_count",
+    "future_kernel_native_consumer_endpoint_ptr_summary_descriptor_ptr_read_row_ok_count",
+    "future_kernel_native_consumer_endpoint_ptr_summary_packed_weight_descriptor_read_row_ok_count",
+    "future_kernel_native_consumer_endpoint_ptr_summary_scale_metadata_handle_read_row_ok_count",
+    "future_kernel_native_consumer_endpoint_ptr_summary_aux_metadata_handle_read_row_ok_count",
+    "future_kernel_native_consumer_endpoint_ptr_summary_expert_id_read_row_ok_count",
+    "future_kernel_native_consumer_endpoint_ptr_summary_address_key_hash_read_row_ok_count",
+    "future_kernel_native_consumer_endpoint_ptr_summary_row_metadata_read_row_ok_count",
+    "future_kernel_native_consumer_endpoint_ptr_summary_error_count",
+    "future_kernel_native_consumer_endpoint_ptr_summary_field_mask",
+    "future_kernel_native_consumer_endpoint_ptr_payload_bytes",
+    "future_kernel_native_consumer_endpoint_ptr_payload_deref_allowed",
+    "future_kernel_native_consumer_endpoint_ptr_passed_to_kernel",
+    "future_kernel_native_consumer_endpoint_ptr_kernel_arg_pass_allowed",
+    "future_kernel_native_consumer_endpoint_ptr_changes_kernel_launch_args",
+    "future_kernel_native_consumer_endpoint_ptr_current_wna16_arg_compatible",
+    "future_kernel_native_consumer_endpoint_ptr_requires_wna16_arg_reinterpretation",
+    "future_kernel_native_consumer_endpoint_ptr_summary_row_hash_accumulator",
+    "future_kernel_native_consumer_endpoint_ptr_summary_field_read_hash_accumulator",
+    "future_kernel_native_consumer_endpoint_ptr_summary_row_metadata_hash_accumulator",
 )
 
 
@@ -1712,6 +1752,14 @@ def _endpoint_expected_pairs(*, active_rows: int) -> dict[str, Any]:
     }
 
 
+def _strict_scalar_equal(actual: object, expected: object) -> bool:
+    if isinstance(expected, bool):
+        return isinstance(actual, bool) and actual is expected
+    if isinstance(expected, int):
+        return isinstance(actual, int) and not isinstance(actual, bool) and actual == expected
+    return actual == expected
+
+
 def _endpoint_dry_run_pairs(*, active_rows: int) -> dict[str, Any]:
     return {
         **_endpoint_expected_pairs(active_rows=active_rows),
@@ -1731,7 +1779,72 @@ def _check_endpoint(
     if f"{prefix}_checked" not in stub:
         return [f"{prefix}_missing_or_dry_run_unsupported"]
     for key, value in _endpoint_expected_pairs(active_rows=active_rows).items():
-        if stub.get(key) != value:
+        if not _strict_scalar_equal(stub.get(key), value):
+            failures.append(f"{key}_mismatch:{stub.get(key)!r}!={value!r}")
+    for hash_key in (
+        f"{prefix}_summary_row_hash_accumulator",
+        f"{prefix}_summary_field_read_hash_accumulator",
+        f"{prefix}_summary_row_metadata_hash_accumulator",
+    ):
+        if _parse_hex64(stub.get(hash_key)) is None:
+            failures.append(f"{hash_key}_invalid")
+    return failures
+
+
+def _endpoint_ptr_expected_pairs(*, active_rows: int) -> dict[str, Any]:
+    prefix = "future_kernel_native_consumer_endpoint_ptr"
+    return {
+        f"{prefix}_abi_name": "premap_future_kernel_native_consumer_endpoint_ptr_abi_v1",
+        f"{prefix}_checked": True,
+        f"{prefix}_mode": "readonly_future_kernel_native_consumer_endpoint_ptr_abi",
+        f"{prefix}_source": "premap_future_kernel_native_consumer_endpoint_abi_v1",
+        f"{prefix}_field_read_path": (
+            "endpoint_ptr_to_endpoint_to_by_value_invocation_to_kernel_launch_context_to_kernel_launch_descriptor_to_launch_envelope_args_ptr_to_launch_envelope_args_to_entry_args_ptr_to_kernel_entry_args_to_kernel_arg_packet_to_program_view_rows"
+        ),
+        f"{prefix}_packet_chain_depth": 13,
+        f"{prefix}_version": 1,
+        f"{prefix}_summary_packet_valid": 1,
+        f"{prefix}_summary_row_count": int(active_rows),
+        f"{prefix}_summary_row_ok_count": int(active_rows),
+        f"{prefix}_summary_descriptor_ptr_read_row_ok_count": int(active_rows),
+        f"{prefix}_summary_packed_weight_descriptor_read_row_ok_count": int(active_rows),
+        f"{prefix}_summary_scale_metadata_handle_read_row_ok_count": int(active_rows),
+        f"{prefix}_summary_aux_metadata_handle_read_row_ok_count": int(active_rows),
+        f"{prefix}_summary_expert_id_read_row_ok_count": int(active_rows),
+        f"{prefix}_summary_address_key_hash_read_row_ok_count": int(active_rows),
+        f"{prefix}_summary_row_metadata_read_row_ok_count": int(active_rows),
+        f"{prefix}_summary_error_count": 0,
+        f"{prefix}_summary_field_mask": _FUTURE_KERNEL_ALL_FIELD_MASK,
+        f"{prefix}_payload_bytes": 0,
+        f"{prefix}_payload_deref_allowed": False,
+        f"{prefix}_passed_to_kernel": False,
+        f"{prefix}_kernel_arg_pass_allowed": False,
+        f"{prefix}_changes_kernel_launch_args": False,
+        f"{prefix}_current_wna16_arg_compatible": False,
+        f"{prefix}_requires_wna16_arg_reinterpretation": False,
+    }
+
+
+def _endpoint_ptr_dry_run_pairs(*, active_rows: int) -> dict[str, Any]:
+    return {
+        **_endpoint_ptr_expected_pairs(active_rows=active_rows),
+        "future_kernel_native_consumer_endpoint_ptr_summary_row_hash_accumulator": "0000000000000001",
+        "future_kernel_native_consumer_endpoint_ptr_summary_field_read_hash_accumulator": "0000000000000002",
+        "future_kernel_native_consumer_endpoint_ptr_summary_row_metadata_hash_accumulator": "0000000000000003",
+    }
+
+
+def _check_endpoint_ptr(
+    stub: dict[str, Any],
+    *,
+    active_rows: int,
+) -> list[str]:
+    failures: list[str] = []
+    prefix = "future_kernel_native_consumer_endpoint_ptr"
+    if f"{prefix}_checked" not in stub:
+        return [f"{prefix}_missing_or_dry_run_unsupported"]
+    for key, value in _endpoint_ptr_expected_pairs(active_rows=active_rows).items():
+        if not _strict_scalar_equal(stub.get(key), value):
             failures.append(f"{key}_mismatch:{stub.get(key)!r}!={value!r}")
     for hash_key in (
         f"{prefix}_summary_row_hash_accumulator",
@@ -1753,12 +1866,15 @@ def arg_slot_macros(
     include_invocation: bool = False,
     include_invocation_entry: bool = False,
     include_endpoint: bool = False,
+    include_endpoint_ptr: bool = False,
 ) -> list[str]:
     try:
         mirror_macro = MIRROR_FIELD_MACRO[mirror_field]
     except KeyError as exc:
         raise ValueError(f"unsupported mirror field: {mirror_field}") from exc
     macros = [*ARG_SLOT_BASE_MACROS]
+    if include_endpoint_ptr:
+        include_endpoint = True
     if include_endpoint:
         include_invocation_entry = True
     if include_invocation_entry:
@@ -1785,6 +1901,8 @@ def arg_slot_macros(
         macros.append(INVOCATION_ENTRY_MACRO)
     if include_endpoint:
         macros.append(ENDPOINT_MACRO)
+    if include_endpoint_ptr:
+        macros.append(ENDPOINT_PTR_MACRO)
     macros.append(mirror_macro)
     return validate_macros(macros)
 
@@ -1832,6 +1950,7 @@ def _validate_stub(
     require_kernel_invocation_abi: bool = False,
     require_kernel_invocation_entry_abi: bool = False,
     require_kernel_endpoint_abi: bool = False,
+    require_kernel_endpoint_ptr_abi: bool = False,
 ) -> list[str]:
     failures: list[str] = []
     row_count = int(merged_input["_meta"]["row_count"])
@@ -1964,7 +2083,7 @@ def _validate_stub(
         "future_kernel_native_consumer_kernel_arg_packet_requires_wna16_arg_reinterpretation": False,
     }
     for key, expected in expected_scalars.items():
-        if stub.get(key) != expected:
+        if not _strict_scalar_equal(stub.get(key), expected):
             failures.append(f"{key}_mismatch:{stub.get(key)!r}!={expected!r}")
     macros = stub.get("requested_macros")
     if macros != arg_slot_macros(
@@ -1976,6 +2095,7 @@ def _validate_stub(
         include_invocation=require_kernel_invocation_abi,
         include_invocation_entry=require_kernel_invocation_entry_abi,
         include_endpoint=require_kernel_endpoint_abi,
+        include_endpoint_ptr=require_kernel_endpoint_ptr_abi,
     ):
         failures.append("requested_macros_mismatch")
     projection_values: list[int] = []
@@ -2063,6 +2183,8 @@ def _validate_stub(
         )
     if require_kernel_endpoint_abi:
         failures.extend(_check_endpoint(stub, active_rows=active_rows))
+    if require_kernel_endpoint_ptr_abi:
+        failures.extend(_check_endpoint_ptr(stub, active_rows=active_rows))
     return failures
 
 
@@ -2089,6 +2211,7 @@ def _stub_namespace(
     require_kernel_invocation_abi: bool,
     require_kernel_invocation_entry_abi: bool,
     require_kernel_endpoint_abi: bool,
+    require_kernel_endpoint_ptr_abi: bool,
 ) -> SimpleNamespace:
     # Bounds are validated after the merged input is materialized; this namespace
     # is filled in run_canary once the row count is known.
@@ -2102,6 +2225,7 @@ def _stub_namespace(
             include_invocation=require_kernel_invocation_abi,
             include_invocation_entry=require_kernel_invocation_entry_abi,
             include_endpoint=require_kernel_endpoint_abi,
+            include_endpoint_ptr=require_kernel_endpoint_ptr_abi,
         ),
         offload_arch=args.offload_arch,
         force_build=bool(args.force_build),
@@ -2120,7 +2244,10 @@ def _stub_namespace(
 
 
 def run_canary(args: argparse.Namespace) -> dict[str, Any]:
-    require_kernel_endpoint_abi = bool(args.require_kernel_endpoint_abi)
+    require_kernel_endpoint_ptr_abi = bool(args.require_kernel_endpoint_ptr_abi)
+    require_kernel_endpoint_abi = (
+        bool(args.require_kernel_endpoint_abi) or require_kernel_endpoint_ptr_abi
+    )
     require_kernel_invocation_entry_abi = bool(
         args.require_kernel_invocation_entry_abi
     ) or require_kernel_endpoint_abi
@@ -2221,6 +2348,7 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
                 include_invocation=require_kernel_invocation_abi,
                 include_invocation_entry=require_kernel_invocation_entry_abi,
                 include_endpoint=require_kernel_endpoint_abi,
+                include_endpoint_ptr=require_kernel_endpoint_ptr_abi,
             ),
             "mirror_field": args.mirror_field,
             **_future_field_mask_expectations(),
@@ -2588,6 +2716,8 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
             )
         if require_kernel_endpoint_abi:
             stub_payload.update(_endpoint_dry_run_pairs(active_rows=active_rows))
+        if require_kernel_endpoint_ptr_abi:
+            stub_payload.update(_endpoint_ptr_dry_run_pairs(active_rows=active_rows))
     else:
         stub_payload = run_stub(
             _stub_namespace(
@@ -2606,6 +2736,7 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
                     require_kernel_invocation_entry_abi
                 ),
                 require_kernel_endpoint_abi=require_kernel_endpoint_abi,
+                require_kernel_endpoint_ptr_abi=require_kernel_endpoint_ptr_abi,
             )
         )
     stub_payload.setdefault("passed", bool(stub_payload.get("ok", False)))
@@ -2632,6 +2763,7 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
         require_kernel_invocation_abi=require_kernel_invocation_abi,
         require_kernel_invocation_entry_abi=require_kernel_invocation_entry_abi,
         require_kernel_endpoint_abi=require_kernel_endpoint_abi,
+        require_kernel_endpoint_ptr_abi=require_kernel_endpoint_ptr_abi,
     )
     launch_envelope_args_failures = (
         _check_launch_envelope_args(
@@ -2688,6 +2820,11 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
         if require_kernel_endpoint_abi
         else []
     )
+    kernel_endpoint_ptr_failures = (
+        _check_endpoint_ptr(stub_payload, active_rows=active_rows)
+        if require_kernel_endpoint_ptr_abi
+        else []
+    )
     report: dict[str, Any] = {
         "passed": not failures,
         "failures": failures,
@@ -2721,6 +2858,7 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
         "require_kernel_invocation_abi": require_kernel_invocation_abi,
         "require_kernel_invocation_entry_abi": require_kernel_invocation_entry_abi,
         "require_kernel_endpoint_abi": require_kernel_endpoint_abi,
+        "require_kernel_endpoint_ptr_abi": require_kernel_endpoint_ptr_abi,
         "block_threads": int(args.block_threads),
         "device": int(args.device),
         "hip_visible_devices": args.hip_visible_devices,
@@ -3225,6 +3363,76 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
         "kernel_endpoint_row_metadata_hash_accumulator": stub_payload.get(
             "future_kernel_native_consumer_endpoint_summary_row_metadata_hash_accumulator"
         ),
+        "kernel_endpoint_ptr_checked": (
+            stub_payload.get("future_kernel_native_consumer_endpoint_ptr_checked")
+            is True
+        ),
+        "kernel_endpoint_ptr_abi_name": stub_payload.get(
+            "future_kernel_native_consumer_endpoint_ptr_abi_name"
+        ),
+        "kernel_endpoint_ptr_mode": stub_payload.get(
+            "future_kernel_native_consumer_endpoint_ptr_mode"
+        ),
+        "kernel_endpoint_ptr_source": stub_payload.get(
+            "future_kernel_native_consumer_endpoint_ptr_source"
+        ),
+        "kernel_endpoint_ptr_error_count": stub_payload.get(
+            "future_kernel_native_consumer_endpoint_ptr_summary_error_count"
+        ),
+        "kernel_endpoint_ptr_all_handle_fields_read": (
+            require_kernel_endpoint_ptr_abi and not kernel_endpoint_ptr_failures
+        ),
+        "kernel_endpoint_ptr_packet_chain_depth": stub_payload.get(
+            "future_kernel_native_consumer_endpoint_ptr_packet_chain_depth"
+        ),
+        "kernel_endpoint_ptr_version": stub_payload.get(
+            "future_kernel_native_consumer_endpoint_ptr_version"
+        ),
+        "kernel_endpoint_ptr_struct_size": stub_payload.get(
+            "future_kernel_native_consumer_endpoint_ptr_struct_size"
+        ),
+        "kernel_endpoint_ptr_struct_align": stub_payload.get(
+            "future_kernel_native_consumer_endpoint_ptr_struct_align"
+        ),
+        "kernel_endpoint_ptr_endpoint_struct_size": stub_payload.get(
+            "future_kernel_native_consumer_endpoint_ptr_endpoint_struct_size"
+        ),
+        "kernel_endpoint_ptr_summary_struct_size": stub_payload.get(
+            "future_kernel_native_consumer_endpoint_ptr_summary_struct_size"
+        ),
+        "kernel_endpoint_ptr_pointer_size": stub_payload.get(
+            "future_kernel_native_consumer_endpoint_ptr_pointer_size"
+        ),
+        "kernel_endpoint_ptr_payload_bytes": stub_payload.get(
+            "future_kernel_native_consumer_endpoint_ptr_payload_bytes"
+        ),
+        "kernel_endpoint_ptr_payload_deref_allowed": stub_payload.get(
+            "future_kernel_native_consumer_endpoint_ptr_payload_deref_allowed"
+        ),
+        "kernel_endpoint_ptr_passed_to_kernel": stub_payload.get(
+            "future_kernel_native_consumer_endpoint_ptr_passed_to_kernel"
+        ),
+        "kernel_endpoint_ptr_kernel_arg_pass_allowed": stub_payload.get(
+            "future_kernel_native_consumer_endpoint_ptr_kernel_arg_pass_allowed"
+        ),
+        "kernel_endpoint_ptr_changes_kernel_launch_args": stub_payload.get(
+            "future_kernel_native_consumer_endpoint_ptr_changes_kernel_launch_args"
+        ),
+        "kernel_endpoint_ptr_current_wna16_arg_compatible": stub_payload.get(
+            "future_kernel_native_consumer_endpoint_ptr_current_wna16_arg_compatible"
+        ),
+        "kernel_endpoint_ptr_requires_wna16_arg_reinterpretation": stub_payload.get(
+            "future_kernel_native_consumer_endpoint_ptr_requires_wna16_arg_reinterpretation"
+        ),
+        "kernel_endpoint_ptr_row_hash_accumulator": stub_payload.get(
+            "future_kernel_native_consumer_endpoint_ptr_summary_row_hash_accumulator"
+        ),
+        "kernel_endpoint_ptr_field_read_hash_accumulator": stub_payload.get(
+            "future_kernel_native_consumer_endpoint_ptr_summary_field_read_hash_accumulator"
+        ),
+        "kernel_endpoint_ptr_row_metadata_hash_accumulator": stub_payload.get(
+            "future_kernel_native_consumer_endpoint_ptr_summary_row_metadata_hash_accumulator"
+        ),
         "consumer_view_source_packet_chain_depth": stub_payload.get(
             "future_kernel_native_consumer_view_source_packet_chain_depth"
         ),
@@ -3317,6 +3525,14 @@ def build_parser() -> argparse.ArgumentParser:
             "also require the standalone future native endpoint ABI checker; "
             "implies --require-kernel-invocation-entry-abi and remains disabled "
             "by default"
+        ),
+    )
+    parser.add_argument(
+        "--require-kernel-endpoint-ptr-abi",
+        action="store_true",
+        help=(
+            "also require the pointer-backed future native endpoint ABI checker; "
+            "implies --require-kernel-endpoint-abi and remains disabled by default"
         ),
     )
     parser.add_argument("--device", type=int, default=LAB_DEFAULT_GPU_DEVICE)
