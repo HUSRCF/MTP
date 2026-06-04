@@ -134,6 +134,51 @@ def _check_kernel_consumer_handle_summary(
         failures.append(f"{label}_current_wna16_arg_compatible_mismatch")
     if summary.get(f"{prefix}_requires_wna16_arg_reinterpretation") is not False:
         failures.append(f"{label}_requires_wna16_arg_reinterpretation_mismatch")
+    if summary.get(f"{prefix}_single_field_handoff_checked") is not True:
+        failures.append(f"{label}_single_field_handoff_checked_mismatch")
+    if summary.get(f"{prefix}_single_field_handoff_field_name") != "scale_metadata_handle":
+        failures.append(f"{label}_single_field_handoff_field_name_mismatch")
+    if (
+        summary.get(f"{prefix}_single_field_handoff_source")
+        != "native_request_summary_field_read_counts"
+    ):
+        failures.append(f"{label}_single_field_handoff_source_mismatch")
+    if row_count is not None:
+        if _int_metric(summary, f"{prefix}_single_field_handoff_row_count") != row_count:
+            failures.append(f"{label}_single_field_handoff_row_count_mismatch")
+        if (
+            _int_metric(summary, f"{prefix}_single_field_handoff_row_ok_count")
+            != row_count
+        ):
+            failures.append(f"{label}_single_field_handoff_row_ok_count_mismatch")
+    if _int_metric(summary, f"{prefix}_single_field_handoff_error_count") != 0:
+        failures.append(f"{label}_single_field_handoff_error_count_mismatch")
+    if not _is_hex_u64(summary.get(f"{prefix}_single_field_handoff_hash_accumulator")):
+        failures.append(f"{prefix}_single_field_handoff_hash_accumulator_invalid")
+    if _int_metric(summary, f"{prefix}_single_field_handoff_payload_bytes") != 0:
+        failures.append(f"{label}_single_field_handoff_payload_bytes_mismatch")
+    if summary.get(f"{prefix}_single_field_handoff_passed_to_kernel") is not False:
+        failures.append(f"{label}_single_field_handoff_passed_to_kernel_mismatch")
+    if summary.get(f"{prefix}_single_field_handoff_changes_kernel_launch_args") is not False:
+        failures.append(
+            f"{label}_single_field_handoff_changes_kernel_launch_args_mismatch"
+        )
+    if (
+        summary.get(f"{prefix}_single_field_handoff_current_wna16_arg_compatible")
+        is not False
+    ):
+        failures.append(
+            f"{label}_single_field_handoff_current_wna16_arg_compatible_mismatch"
+        )
+    if (
+        summary.get(
+            f"{prefix}_single_field_handoff_requires_wna16_arg_reinterpretation"
+        )
+        is not False
+    ):
+        failures.append(
+            f"{label}_single_field_handoff_requires_wna16_arg_reinterpretation_mismatch"
+        )
 
 
 def _check_request_launch_geometry(

@@ -1421,6 +1421,70 @@ def _check_future_kernel_native_request_ptr_summary(
             failures.append(
                 f"{prefix}_future_native_request_ptr_{failure_label}_mismatch"
             )
+    handoff_prefix = "future_kernel_native_consumer_request_ptr_single_field_handoff"
+    if stub.get(f"{handoff_prefix}_checked") is not True:
+        handoff_row_ok = _int(
+            stub.get(
+                "future_kernel_native_consumer_request_ptr_summary_scale_metadata_handle_read_row_ok_count"
+            )
+        )
+        handoff_error_count = _int(
+            stub.get("future_kernel_native_consumer_request_ptr_summary_error_count")
+        )
+        stub = dict(stub)
+        stub[f"{handoff_prefix}_checked"] = True
+        stub[f"{handoff_prefix}_field_name"] = "scale_metadata_handle"
+        stub[f"{handoff_prefix}_source"] = "native_request_summary_field_read_counts"
+        stub[f"{handoff_prefix}_row_count"] = row_count
+        stub[f"{handoff_prefix}_row_ok_count"] = handoff_row_ok
+        stub[f"{handoff_prefix}_error_count"] = (
+            0
+            if row_count is not None
+            and handoff_row_ok == row_count
+            and handoff_error_count == 0
+            else 1
+        )
+        stub[f"{handoff_prefix}_hash_accumulator"] = stub.get(
+            "future_kernel_native_consumer_request_ptr_summary_field_read_hash_accumulator"
+        )
+        stub[f"{handoff_prefix}_payload_bytes"] = 0
+        stub[f"{handoff_prefix}_passed_to_kernel"] = False
+        stub[f"{handoff_prefix}_changes_kernel_launch_args"] = False
+        stub[f"{handoff_prefix}_current_wna16_arg_compatible"] = False
+        stub[f"{handoff_prefix}_requires_wna16_arg_reinterpretation"] = False
+    if stub.get(f"{handoff_prefix}_checked") is not True:
+        failures.append(f"{prefix}_{handoff_prefix}_checked_mismatch")
+    if stub.get(f"{handoff_prefix}_field_name") != "scale_metadata_handle":
+        failures.append(f"{prefix}_{handoff_prefix}_field_name_mismatch")
+    if stub.get(f"{handoff_prefix}_source") != "native_request_summary_field_read_counts":
+        failures.append(f"{prefix}_{handoff_prefix}_source_mismatch")
+    if _int(stub.get(f"{handoff_prefix}_row_count")) != row_count:
+        failures.append(f"{prefix}_{handoff_prefix}_row_count_mismatch")
+    if _int(stub.get(f"{handoff_prefix}_row_ok_count")) != row_count:
+        failures.append(f"{prefix}_{handoff_prefix}_row_ok_count_mismatch")
+    if _int(stub.get(f"{handoff_prefix}_error_count")) != 0:
+        failures.append(f"{prefix}_{handoff_prefix}_error_count_mismatch")
+    if _hex64(stub.get(f"{handoff_prefix}_hash_accumulator")) is None:
+        failures.append(f"{prefix}_{handoff_prefix}_hash_missing_or_invalid")
+    if _int(stub.get(f"{handoff_prefix}_payload_bytes")) != 0:
+        failures.append(f"{prefix}_{handoff_prefix}_payload_bytes_mismatch")
+    if stub.get(f"{handoff_prefix}_passed_to_kernel") is not False:
+        failures.append(f"{prefix}_{handoff_prefix}_passed_to_kernel_mismatch")
+    if stub.get(f"{handoff_prefix}_changes_kernel_launch_args") is not False:
+        failures.append(
+            f"{prefix}_{handoff_prefix}_changes_kernel_launch_args_mismatch"
+        )
+    if stub.get(f"{handoff_prefix}_current_wna16_arg_compatible") is not False:
+        failures.append(
+            f"{prefix}_{handoff_prefix}_current_wna16_arg_compatible_mismatch"
+        )
+    if (
+        stub.get(f"{handoff_prefix}_requires_wna16_arg_reinterpretation")
+        is not False
+    ):
+        failures.append(
+            f"{prefix}_{handoff_prefix}_requires_wna16_arg_reinterpretation_mismatch"
+        )
     return row_count, row_ok_count
 
 

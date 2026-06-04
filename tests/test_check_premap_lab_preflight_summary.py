@@ -235,6 +235,24 @@ def _summary() -> dict[str, object]:
         "default_kernel_consumer_request_ptr_changes_kernel_launch_args": False,
         "default_kernel_consumer_request_ptr_current_wna16_arg_compatible": False,
         "default_kernel_consumer_request_ptr_requires_wna16_arg_reinterpretation": False,
+        "default_kernel_consumer_request_ptr_single_field_handoff_checked": True,
+        "default_kernel_consumer_request_ptr_single_field_handoff_field_name": (
+            "scale_metadata_handle"
+        ),
+        "default_kernel_consumer_request_ptr_single_field_handoff_source": (
+            "native_request_summary_field_read_counts"
+        ),
+        "default_kernel_consumer_request_ptr_single_field_handoff_row_count": 1841,
+        "default_kernel_consumer_request_ptr_single_field_handoff_row_ok_count": 1841,
+        "default_kernel_consumer_request_ptr_single_field_handoff_error_count": 0,
+        "default_kernel_consumer_request_ptr_single_field_handoff_hash_accumulator": (
+            "8182838485868788"
+        ),
+        "default_kernel_consumer_request_ptr_single_field_handoff_payload_bytes": 0,
+        "default_kernel_consumer_request_ptr_single_field_handoff_passed_to_kernel": False,
+        "default_kernel_consumer_request_ptr_single_field_handoff_changes_kernel_launch_args": False,
+        "default_kernel_consumer_request_ptr_single_field_handoff_current_wna16_arg_compatible": False,
+        "default_kernel_consumer_request_ptr_single_field_handoff_requires_wna16_arg_reinterpretation": False,
         "default_kernel_consumer_request_launch_checked": True,
         "default_kernel_consumer_request_launch_field_read_path": (
             "request_launch_to_request_ptr_to_kernel_arg_packet_to_program_view_rows"
@@ -271,6 +289,24 @@ def _summary() -> dict[str, object]:
         "default_kernel_consumer_request_launch_changes_kernel_launch_args": False,
         "default_kernel_consumer_request_launch_current_wna16_arg_compatible": False,
         "default_kernel_consumer_request_launch_requires_wna16_arg_reinterpretation": False,
+        "default_kernel_consumer_request_launch_single_field_handoff_checked": True,
+        "default_kernel_consumer_request_launch_single_field_handoff_field_name": (
+            "scale_metadata_handle"
+        ),
+        "default_kernel_consumer_request_launch_single_field_handoff_source": (
+            "native_request_summary_field_read_counts"
+        ),
+        "default_kernel_consumer_request_launch_single_field_handoff_row_count": 1841,
+        "default_kernel_consumer_request_launch_single_field_handoff_row_ok_count": 1841,
+        "default_kernel_consumer_request_launch_single_field_handoff_error_count": 0,
+        "default_kernel_consumer_request_launch_single_field_handoff_hash_accumulator": (
+            "9192939495969798"
+        ),
+        "default_kernel_consumer_request_launch_single_field_handoff_payload_bytes": 0,
+        "default_kernel_consumer_request_launch_single_field_handoff_passed_to_kernel": False,
+        "default_kernel_consumer_request_launch_single_field_handoff_changes_kernel_launch_args": False,
+        "default_kernel_consumer_request_launch_single_field_handoff_current_wna16_arg_compatible": False,
+        "default_kernel_consumer_request_launch_single_field_handoff_requires_wna16_arg_reinterpretation": False,
         "default_kernel_consumer_request_launch_ptr_checked": True,
         "default_kernel_consumer_request_launch_ptr_field_read_path": (
             "request_launch_ptr_to_request_launch_to_request_ptr_to_kernel_arg_packet_to_program_view_rows"
@@ -301,6 +337,24 @@ def _summary() -> dict[str, object]:
         "default_kernel_consumer_request_launch_ptr_changes_kernel_launch_args": False,
         "default_kernel_consumer_request_launch_ptr_current_wna16_arg_compatible": False,
         "default_kernel_consumer_request_launch_ptr_requires_wna16_arg_reinterpretation": False,
+        "default_kernel_consumer_request_launch_ptr_single_field_handoff_checked": True,
+        "default_kernel_consumer_request_launch_ptr_single_field_handoff_field_name": (
+            "scale_metadata_handle"
+        ),
+        "default_kernel_consumer_request_launch_ptr_single_field_handoff_source": (
+            "native_request_summary_field_read_counts"
+        ),
+        "default_kernel_consumer_request_launch_ptr_single_field_handoff_row_count": 1841,
+        "default_kernel_consumer_request_launch_ptr_single_field_handoff_row_ok_count": 1841,
+        "default_kernel_consumer_request_launch_ptr_single_field_handoff_error_count": 0,
+        "default_kernel_consumer_request_launch_ptr_single_field_handoff_hash_accumulator": (
+            "c1c2c3c4c5c6c7c8"
+        ),
+        "default_kernel_consumer_request_launch_ptr_single_field_handoff_payload_bytes": 0,
+        "default_kernel_consumer_request_launch_ptr_single_field_handoff_passed_to_kernel": False,
+        "default_kernel_consumer_request_launch_ptr_single_field_handoff_changes_kernel_launch_args": False,
+        "default_kernel_consumer_request_launch_ptr_single_field_handoff_current_wna16_arg_compatible": False,
+        "default_kernel_consumer_request_launch_ptr_single_field_handoff_requires_wna16_arg_reinterpretation": False,
         "runtime_gate_evidence_deferred_count": 0,
         "strict_default_gate_evidence_deferred_count": 0,
         "default_kernel_consumer_dispatch_runner_final_runtime_gate_evidence_deferred_count": 0,

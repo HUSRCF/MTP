@@ -6702,6 +6702,64 @@ def run_premap_lab_preflight(
             )
             if isinstance(request_ptr_payload, dict):
                 request_ptr_summary_source = request_ptr_payload
+    def _with_request_single_field_handoff_alias(
+        source: dict[str, object],
+        *,
+        consumer_prefix: str,
+        summary_prefix: str,
+    ) -> dict[str, object]:
+        if source.get(f"{consumer_prefix}_single_field_handoff_checked") is True:
+            return source
+        row_count = _int_metric(source, f"{summary_prefix}_row_count")
+        row_ok_count = _int_metric(
+            source,
+            f"{summary_prefix}_scale_metadata_handle_read_row_ok_count",
+        )
+        error_count = _int_metric(source, f"{summary_prefix}_error_count")
+        handoff_error_count = (
+            0
+            if (
+                row_count is not None
+                and row_count > 0
+                and row_ok_count == row_count
+                and error_count == 0
+            )
+            else 1
+        )
+        annotated = dict(source)
+        annotated[f"{consumer_prefix}_single_field_handoff_checked"] = True
+        annotated[f"{consumer_prefix}_single_field_handoff_field_name"] = (
+            "scale_metadata_handle"
+        )
+        annotated[f"{consumer_prefix}_single_field_handoff_source"] = (
+            "native_request_summary_field_read_counts"
+        )
+        annotated[f"{consumer_prefix}_single_field_handoff_row_count"] = row_count
+        annotated[f"{consumer_prefix}_single_field_handoff_row_ok_count"] = row_ok_count
+        annotated[f"{consumer_prefix}_single_field_handoff_error_count"] = (
+            handoff_error_count
+        )
+        annotated[f"{consumer_prefix}_single_field_handoff_hash_accumulator"] = (
+            source.get(f"{summary_prefix}_field_read_hash_accumulator")
+        )
+        annotated[f"{consumer_prefix}_single_field_handoff_payload_bytes"] = 0
+        annotated[f"{consumer_prefix}_single_field_handoff_passed_to_kernel"] = False
+        annotated[
+            f"{consumer_prefix}_single_field_handoff_changes_kernel_launch_args"
+        ] = False
+        annotated[
+            f"{consumer_prefix}_single_field_handoff_current_wna16_arg_compatible"
+        ] = False
+        annotated[
+            f"{consumer_prefix}_single_field_handoff_requires_wna16_arg_reinterpretation"
+        ] = False
+        return annotated
+
+    request_ptr_summary_source = _with_request_single_field_handoff_alias(
+        request_ptr_summary_source,
+        consumer_prefix="future_kernel_native_consumer_request_ptr",
+        summary_prefix="future_kernel_native_consumer_request_ptr_summary",
+    )
     request_ptr_summary_row_count = _int_metric(
         request_ptr_summary_source,
         "future_kernel_native_consumer_request_ptr_summary_row_count",
@@ -6771,6 +6829,11 @@ def run_premap_lab_preflight(
             )
             if isinstance(request_launch_payload, dict):
                 request_launch_summary_source = request_launch_payload
+    request_launch_summary_source = _with_request_single_field_handoff_alias(
+        request_launch_summary_source,
+        consumer_prefix="future_kernel_native_consumer_request_launch",
+        summary_prefix="future_kernel_native_consumer_request_launch_summary",
+    )
     request_launch_summary_row_count = _int_metric(
         request_launch_summary_source,
         "future_kernel_native_consumer_request_launch_summary_row_count",
@@ -6840,6 +6903,11 @@ def run_premap_lab_preflight(
             )
             if isinstance(request_launch_ptr_payload, dict):
                 request_launch_ptr_summary_source = request_launch_ptr_payload
+    request_launch_ptr_summary_source = _with_request_single_field_handoff_alias(
+        request_launch_ptr_summary_source,
+        consumer_prefix="future_kernel_native_consumer_request_launch_ptr",
+        summary_prefix="future_kernel_native_consumer_request_launch_ptr_summary",
+    )
     request_launch_ptr_summary_row_count = _int_metric(
         request_launch_ptr_summary_source,
         "future_kernel_native_consumer_request_launch_ptr_summary_row_count",
@@ -7908,6 +7976,70 @@ def run_premap_lab_preflight(
                 "future_kernel_native_consumer_request_ptr_summary_row_metadata_hash_accumulator"
             )
         ),
+        "default_kernel_consumer_request_ptr_single_field_handoff_checked": (
+            request_ptr_summary_source.get(
+                "future_kernel_native_consumer_request_ptr_single_field_handoff_checked"
+            )
+        ),
+        "default_kernel_consumer_request_ptr_single_field_handoff_field_name": (
+            request_ptr_summary_source.get(
+                "future_kernel_native_consumer_request_ptr_single_field_handoff_field_name"
+            )
+        ),
+        "default_kernel_consumer_request_ptr_single_field_handoff_source": (
+            request_ptr_summary_source.get(
+                "future_kernel_native_consumer_request_ptr_single_field_handoff_source"
+            )
+        ),
+        "default_kernel_consumer_request_ptr_single_field_handoff_row_count": (
+            _int_metric(
+                request_ptr_summary_source,
+                "future_kernel_native_consumer_request_ptr_single_field_handoff_row_count",
+            )
+        ),
+        "default_kernel_consumer_request_ptr_single_field_handoff_row_ok_count": (
+            _int_metric(
+                request_ptr_summary_source,
+                "future_kernel_native_consumer_request_ptr_single_field_handoff_row_ok_count",
+            )
+        ),
+        "default_kernel_consumer_request_ptr_single_field_handoff_error_count": (
+            _int_metric(
+                request_ptr_summary_source,
+                "future_kernel_native_consumer_request_ptr_single_field_handoff_error_count",
+            )
+        ),
+        "default_kernel_consumer_request_ptr_single_field_handoff_hash_accumulator": (
+            request_ptr_summary_source.get(
+                "future_kernel_native_consumer_request_ptr_single_field_handoff_hash_accumulator"
+            )
+        ),
+        "default_kernel_consumer_request_ptr_single_field_handoff_payload_bytes": (
+            _int_metric(
+                request_ptr_summary_source,
+                "future_kernel_native_consumer_request_ptr_single_field_handoff_payload_bytes",
+            )
+        ),
+        "default_kernel_consumer_request_ptr_single_field_handoff_passed_to_kernel": (
+            request_ptr_summary_source.get(
+                "future_kernel_native_consumer_request_ptr_single_field_handoff_passed_to_kernel"
+            )
+        ),
+        "default_kernel_consumer_request_ptr_single_field_handoff_changes_kernel_launch_args": (
+            request_ptr_summary_source.get(
+                "future_kernel_native_consumer_request_ptr_single_field_handoff_changes_kernel_launch_args"
+            )
+        ),
+        "default_kernel_consumer_request_ptr_single_field_handoff_current_wna16_arg_compatible": (
+            request_ptr_summary_source.get(
+                "future_kernel_native_consumer_request_ptr_single_field_handoff_current_wna16_arg_compatible"
+            )
+        ),
+        "default_kernel_consumer_request_ptr_single_field_handoff_requires_wna16_arg_reinterpretation": (
+            request_ptr_summary_source.get(
+                "future_kernel_native_consumer_request_ptr_single_field_handoff_requires_wna16_arg_reinterpretation"
+            )
+        ),
         "default_kernel_consumer_request_ptr_all_handle_fields_read": (
             request_ptr_all_handle_fields_read
         ),
@@ -8039,6 +8171,70 @@ def run_premap_lab_preflight(
                 "future_kernel_native_consumer_request_launch_summary_row_metadata_hash_accumulator"
             )
         ),
+        "default_kernel_consumer_request_launch_single_field_handoff_checked": (
+            request_launch_summary_source.get(
+                "future_kernel_native_consumer_request_launch_single_field_handoff_checked"
+            )
+        ),
+        "default_kernel_consumer_request_launch_single_field_handoff_field_name": (
+            request_launch_summary_source.get(
+                "future_kernel_native_consumer_request_launch_single_field_handoff_field_name"
+            )
+        ),
+        "default_kernel_consumer_request_launch_single_field_handoff_source": (
+            request_launch_summary_source.get(
+                "future_kernel_native_consumer_request_launch_single_field_handoff_source"
+            )
+        ),
+        "default_kernel_consumer_request_launch_single_field_handoff_row_count": (
+            _int_metric(
+                request_launch_summary_source,
+                "future_kernel_native_consumer_request_launch_single_field_handoff_row_count",
+            )
+        ),
+        "default_kernel_consumer_request_launch_single_field_handoff_row_ok_count": (
+            _int_metric(
+                request_launch_summary_source,
+                "future_kernel_native_consumer_request_launch_single_field_handoff_row_ok_count",
+            )
+        ),
+        "default_kernel_consumer_request_launch_single_field_handoff_error_count": (
+            _int_metric(
+                request_launch_summary_source,
+                "future_kernel_native_consumer_request_launch_single_field_handoff_error_count",
+            )
+        ),
+        "default_kernel_consumer_request_launch_single_field_handoff_hash_accumulator": (
+            request_launch_summary_source.get(
+                "future_kernel_native_consumer_request_launch_single_field_handoff_hash_accumulator"
+            )
+        ),
+        "default_kernel_consumer_request_launch_single_field_handoff_payload_bytes": (
+            _int_metric(
+                request_launch_summary_source,
+                "future_kernel_native_consumer_request_launch_single_field_handoff_payload_bytes",
+            )
+        ),
+        "default_kernel_consumer_request_launch_single_field_handoff_passed_to_kernel": (
+            request_launch_summary_source.get(
+                "future_kernel_native_consumer_request_launch_single_field_handoff_passed_to_kernel"
+            )
+        ),
+        "default_kernel_consumer_request_launch_single_field_handoff_changes_kernel_launch_args": (
+            request_launch_summary_source.get(
+                "future_kernel_native_consumer_request_launch_single_field_handoff_changes_kernel_launch_args"
+            )
+        ),
+        "default_kernel_consumer_request_launch_single_field_handoff_current_wna16_arg_compatible": (
+            request_launch_summary_source.get(
+                "future_kernel_native_consumer_request_launch_single_field_handoff_current_wna16_arg_compatible"
+            )
+        ),
+        "default_kernel_consumer_request_launch_single_field_handoff_requires_wna16_arg_reinterpretation": (
+            request_launch_summary_source.get(
+                "future_kernel_native_consumer_request_launch_single_field_handoff_requires_wna16_arg_reinterpretation"
+            )
+        ),
         "default_kernel_consumer_request_launch_all_handle_fields_read": (
             request_launch_all_handle_fields_read
         ),
@@ -8132,6 +8328,70 @@ def run_premap_lab_preflight(
         "default_kernel_consumer_request_launch_ptr_summary_row_metadata_hash_accumulator": (
             request_launch_ptr_summary_source.get(
                 "future_kernel_native_consumer_request_launch_ptr_summary_row_metadata_hash_accumulator"
+            )
+        ),
+        "default_kernel_consumer_request_launch_ptr_single_field_handoff_checked": (
+            request_launch_ptr_summary_source.get(
+                "future_kernel_native_consumer_request_launch_ptr_single_field_handoff_checked"
+            )
+        ),
+        "default_kernel_consumer_request_launch_ptr_single_field_handoff_field_name": (
+            request_launch_ptr_summary_source.get(
+                "future_kernel_native_consumer_request_launch_ptr_single_field_handoff_field_name"
+            )
+        ),
+        "default_kernel_consumer_request_launch_ptr_single_field_handoff_source": (
+            request_launch_ptr_summary_source.get(
+                "future_kernel_native_consumer_request_launch_ptr_single_field_handoff_source"
+            )
+        ),
+        "default_kernel_consumer_request_launch_ptr_single_field_handoff_row_count": (
+            _int_metric(
+                request_launch_ptr_summary_source,
+                "future_kernel_native_consumer_request_launch_ptr_single_field_handoff_row_count",
+            )
+        ),
+        "default_kernel_consumer_request_launch_ptr_single_field_handoff_row_ok_count": (
+            _int_metric(
+                request_launch_ptr_summary_source,
+                "future_kernel_native_consumer_request_launch_ptr_single_field_handoff_row_ok_count",
+            )
+        ),
+        "default_kernel_consumer_request_launch_ptr_single_field_handoff_error_count": (
+            _int_metric(
+                request_launch_ptr_summary_source,
+                "future_kernel_native_consumer_request_launch_ptr_single_field_handoff_error_count",
+            )
+        ),
+        "default_kernel_consumer_request_launch_ptr_single_field_handoff_hash_accumulator": (
+            request_launch_ptr_summary_source.get(
+                "future_kernel_native_consumer_request_launch_ptr_single_field_handoff_hash_accumulator"
+            )
+        ),
+        "default_kernel_consumer_request_launch_ptr_single_field_handoff_payload_bytes": (
+            _int_metric(
+                request_launch_ptr_summary_source,
+                "future_kernel_native_consumer_request_launch_ptr_single_field_handoff_payload_bytes",
+            )
+        ),
+        "default_kernel_consumer_request_launch_ptr_single_field_handoff_passed_to_kernel": (
+            request_launch_ptr_summary_source.get(
+                "future_kernel_native_consumer_request_launch_ptr_single_field_handoff_passed_to_kernel"
+            )
+        ),
+        "default_kernel_consumer_request_launch_ptr_single_field_handoff_changes_kernel_launch_args": (
+            request_launch_ptr_summary_source.get(
+                "future_kernel_native_consumer_request_launch_ptr_single_field_handoff_changes_kernel_launch_args"
+            )
+        ),
+        "default_kernel_consumer_request_launch_ptr_single_field_handoff_current_wna16_arg_compatible": (
+            request_launch_ptr_summary_source.get(
+                "future_kernel_native_consumer_request_launch_ptr_single_field_handoff_current_wna16_arg_compatible"
+            )
+        ),
+        "default_kernel_consumer_request_launch_ptr_single_field_handoff_requires_wna16_arg_reinterpretation": (
+            request_launch_ptr_summary_source.get(
+                "future_kernel_native_consumer_request_launch_ptr_single_field_handoff_requires_wna16_arg_reinterpretation"
             )
         ),
         "default_kernel_consumer_request_launch_ptr_all_handle_fields_read": (
