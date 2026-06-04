@@ -144,6 +144,34 @@ REQUIRED_DEFAULT_GATE_CONTRACT = {
     "single_field_handle_handoff_canary_changes_kernel_launch_args_required": False,
     "single_field_handle_handoff_canary_live_enabled_required": False,
     "single_field_handle_handoff_canary_live_compatible_with_current_wna16_args_required": False,
+    "aux_metadata_single_field_handle_handoff_canary_smoke_required": True,
+    "aux_metadata_single_field_handle_handoff_canary_mode": (
+        "readonly_single_field_handle_handoff_canary"
+    ),
+    "aux_metadata_single_field_handle_handoff_canary_field": "aux_metadata_handle",
+    "aux_metadata_single_field_handle_handoff_canary_source": (
+        "semantic_handle_table"
+    ),
+    "aux_metadata_single_field_handle_handoff_canary_mirror_mode": (
+        "readonly_aux_metadata_handle_mirror"
+    ),
+    "aux_metadata_single_field_handle_handoff_canary_mirror_field": (
+        "aux_metadata_handle"
+    ),
+    "aux_metadata_single_field_handle_handoff_canary_mirror_source": (
+        "semantic_handle_table"
+    ),
+    "aux_metadata_single_field_handle_handoff_canary_kernel_side_typed_consumer_compatible_required": True,
+    "aux_metadata_single_field_handle_handoff_canary_current_wna16_arg_compatible_required": False,
+    "aux_metadata_single_field_handle_handoff_canary_block_reason": (
+        "single_field_handoff_live_disabled"
+    ),
+    "aux_metadata_single_field_handle_handoff_canary_payload_bytes_required": 0,
+    "aux_metadata_single_field_handle_handoff_canary_ready_credit_required": False,
+    "aux_metadata_single_field_handle_handoff_canary_passed_to_kernel_required": False,
+    "aux_metadata_single_field_handle_handoff_canary_changes_kernel_launch_args_required": False,
+    "aux_metadata_single_field_handle_handoff_canary_live_enabled_required": False,
+    "aux_metadata_single_field_handle_handoff_canary_live_compatible_with_current_wna16_args_required": False,
     "native_typed_consumer_bridge_required": True,
     "native_typed_consumer_bridge_payload_bytes_required": 0,
     "native_typed_consumer_bridge_ready_credit_required": False,
@@ -181,6 +209,7 @@ REQUIRED_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
     "strict_kernel_side_typed_consumer_object_128_selfcheck_json",
     "strict_kernel_side_typed_row_consumer_path_128_gate_json",
     "strict_single_field_handle_handoff_canary_128_gate_json",
+    "aux_metadata_single_field_handle_handoff_canary_smoke_json",
     "strict_native_typed_consumer_bridge_128_gate_json",
     "native_typed_consumer_bridge_smoke_json",
     "strict_native_stub_online_invocation_canary_128_gate_json",
@@ -201,7 +230,6 @@ REQUIRED_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
     "future_kernel_native_dispatch_consumer_online_runner_32_128export_json",
 }
 OPTIONAL_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
-    "aux_metadata_single_field_handle_handoff_canary_smoke_json",
     "descriptor_ptr_single_field_handle_handoff_canary_smoke_json",
     "future_kernel_native_consumer_online_artifact_check_16_128export_json",
     "future_kernel_native_consumer_online_runner_16_128export_json",
@@ -1019,7 +1047,7 @@ def _check_metric_equals(
     expected: Any,
 ) -> list[str]:
     actual = metrics.get(key)
-    return [] if actual == expected else [f"{key}_mismatch"]
+    return [] if _strict_scalar_equal(actual, expected) else [f"{key}_mismatch"]
 
 
 def _check_metric_equals_if_present(
@@ -1028,6 +1056,18 @@ def _check_metric_equals_if_present(
     expected: Any,
 ) -> list[str]:
     return [] if key not in metrics else _check_metric_equals(metrics, key, expected)
+
+
+def _strict_scalar_equal(actual: Any, expected: Any) -> bool:
+    if isinstance(expected, bool):
+        return isinstance(actual, bool) and actual is expected
+    if isinstance(expected, int):
+        return (
+            isinstance(actual, int)
+            and not isinstance(actual, bool)
+            and actual == expected
+        )
+    return actual == expected
 
 
 def _check_future_field_mask_summary(
@@ -5715,7 +5755,7 @@ def _check_default_gate_contract(
         }
     for key, expected in REQUIRED_DEFAULT_GATE_CONTRACT.items():
         actual = contract.get(key)
-        if actual != expected:
+        if not _strict_scalar_equal(actual, expected):
             failures.append(f"{key}_mismatch")
     if contract.get("future_kernel_native_dispatch_consumer_full_table_required") is True:
         for key in (
