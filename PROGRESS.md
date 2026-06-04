@@ -2,8 +2,27 @@
 
 ## Progress Version
 
-- Version: `v0.71-endpoint-ptr-lab-gate`
+- Version: `v0.72-request-ptr-native-canary`
 - Updated: 2026-06-04
+- Latest native-stub update: added a direct request-pointer ABI canary,
+  `PremapFutureKernelNativeConsumerRequestPtrV1`, guarded by
+  `MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_PTR_ABI`.
+  Unlike the endpoint-pointer chain, this packet models a future native kernel
+  entry receiving a device-side request pointer that directly references the
+  readonly `kernel_arg_packet` plus a summary sink and duplicated
+  schema/row-count/field-mask metadata.  It remains an independent typed
+  consumer stub, not the current WNA16 fused-MoE argument list.  GPU1 synthetic
+  and real online-prelaunch canaries both pass:
+  `outputs/reports/premap_kernel_consumer/typed_consumer_stub_gpu1_request_ptr_canary.json`
+  validates 64 rows, and
+  `outputs/reports/premap_kernel_consumer/typed_consumer_stub_gpu1_online_prelaunch_input_request_ptr_canary.json`
+  validates the real 174-row exported prelaunch typed table with aux handles
+  present.  In both runs, the request-pointer summary row hash matches the
+  existing kernel-entry summary hash, `summary_error_count=0`,
+  `payload_bytes=0`, `passed_to_kernel=false`,
+  `kernel_arg_pass_allowed=false`, `changes_kernel_launch_args=false`,
+  and `current_wna16_arg_compatible=false`.  This is new standalone canary
+  evidence only; it is not yet promoted into the default lab preflight gate.
 - Latest lab-gate update: promoted the endpoint-pointer ABI stub into the
   default readonly lab preflight as required evidence,
   `native_typed_consumer_stub_endpoint_ptr_canary_json`, now pointing at the

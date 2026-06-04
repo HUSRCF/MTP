@@ -391,6 +391,26 @@ constexpr bool
 constexpr bool
     kPremapFutureKernelNativeConsumerEndpointPtrAbiV1CurrentWna16ArgCompatible =
         false;
+constexpr const char*
+    kPremapFutureKernelNativeConsumerRequestPtrAbiV1Name =
+        "premap_future_kernel_native_consumer_request_ptr_abi_v1";
+constexpr const char*
+    kPremapFutureKernelNativeConsumerRequestPtrAbiV1Mode =
+        "readonly_future_kernel_native_consumer_request_ptr_abi";
+constexpr const char*
+    kPremapFutureKernelNativeConsumerRequestPtrAbiV1Source =
+        "premap_future_kernel_native_consumer_kernel_arg_packet_abi_v1";
+constexpr uint32_t
+    kPremapFutureKernelNativeConsumerRequestPtrAbiV1Version = 1;
+constexpr bool
+    kPremapFutureKernelNativeConsumerRequestPtrAbiV1PayloadDerefAllowed =
+        false;
+constexpr bool
+    kPremapFutureKernelNativeConsumerRequestPtrAbiV1KernelArgPassAllowed =
+        false;
+constexpr bool
+    kPremapFutureKernelNativeConsumerRequestPtrAbiV1CurrentWna16ArgCompatible =
+        false;
 
 constexpr uint32_t kPremapFutureKernelSideConsumerArgsV1ReadonlyFlag = 1u << 0;
 constexpr uint32_t
@@ -747,6 +767,29 @@ struct PremapFutureKernelNativeConsumerEndpointPtrV1 {
   uint32_t summary_struct_size;
   uint32_t pointer_size;
   uint32_t endpoint_id;
+  uint32_t payload_bytes;
+  uint32_t flags;
+};
+
+// Direct request-pointer ABI for a future kernel-side consumer.  Unlike the
+// endpoint chain above, this packet is the shape a future native kernel could
+// receive directly: a pointer to one readonly kernel-arg packet plus an explicit
+// summary sink and duplicated schema/window metadata.  It remains independent
+// from the current WNA16 fused-MoE argument list.
+struct PremapFutureKernelNativeConsumerRequestPtrV1 {
+  const PremapFutureKernelNativeConsumerKernelArgPacketV1* kernel_arg_packet;
+  PremapFutureKernelNativeConsumerKernelEntrySummaryV1* summary;
+  uint64_t expected_schema_hash_hi;
+  uint64_t expected_schema_hash_lo;
+  uint64_t expected_row_order_hash;
+  uint64_t expected_ordered_row_hash;
+  uint32_t abi_version;
+  uint32_t kernel_arg_packet_struct_size;
+  uint32_t summary_struct_size;
+  uint32_t pointer_size;
+  uint32_t row_count;
+  uint32_t field_mask;
+  uint32_t request_id;
   uint32_t payload_bytes;
   uint32_t flags;
 };
@@ -1606,6 +1649,61 @@ premap_typed_consumer_future_native_endpoint_ptr_matches_v1(
       *endpoint_ptr.endpoint;
   return endpoint.endpoint_id == endpoint_ptr.endpoint_id &&
          premap_typed_consumer_future_native_endpoint_matches_v1(endpoint);
+}
+
+__device__ static inline bool
+premap_typed_consumer_future_native_request_ptr_matches_v1(
+    const PremapFutureKernelNativeConsumerRequestPtrV1& request) {
+  if (request.kernel_arg_packet == nullptr || request.summary == nullptr ||
+      request.abi_version !=
+          kPremapFutureKernelNativeConsumerRequestPtrAbiV1Version ||
+      request.kernel_arg_packet_struct_size !=
+          sizeof(PremapFutureKernelNativeConsumerKernelArgPacketV1) ||
+      request.summary_struct_size !=
+          sizeof(PremapFutureKernelNativeConsumerKernelEntrySummaryV1) ||
+      request.pointer_size !=
+          sizeof(PremapFutureKernelNativeConsumerKernelArgPacketV1*) ||
+      request.expected_schema_hash_hi == 0 ||
+      request.expected_schema_hash_lo == 0 || request.row_count == 0 ||
+      request.request_id == 0 || request.payload_bytes != 0 ||
+      (request.field_mask & ~kPremapFutureKernelSideConsumerFieldMaskAll) != 0 ||
+      (request.field_mask & kPremapFutureKernelSideConsumerFieldMaskRequired) !=
+          kPremapFutureKernelSideConsumerFieldMaskRequired ||
+      (request.flags & kPremapFutureKernelSideConsumerArgsV1ReadonlyFlag) == 0 ||
+      (request.flags &
+       kPremapFutureKernelSideConsumerArgsV1KernelArgPassDisabledFlag) == 0 ||
+      (request.flags &
+       kPremapFutureKernelSideConsumerArgsV1PayloadDerefDisabledFlag) == 0 ||
+      request.flags != kPremapFutureKernelSideConsumerArgsV1RequiredFlags ||
+      kPremapFutureKernelNativeConsumerRequestPtrAbiV1PayloadDerefAllowed ||
+      kPremapFutureKernelNativeConsumerRequestPtrAbiV1KernelArgPassAllowed ||
+      kPremapFutureKernelNativeConsumerRequestPtrAbiV1CurrentWna16ArgCompatible) {
+    return false;
+  }
+  const PremapFutureKernelNativeConsumerKernelArgPacketV1 packet =
+      *request.kernel_arg_packet;
+  if (!premap_typed_consumer_future_native_kernel_arg_packet_matches_v1(packet) ||
+      packet.program_view_ptr == nullptr) {
+    return false;
+  }
+  const PremapFutureKernelNativeConsumerProgramViewPtrV1 program_view_ptr =
+      *packet.program_view_ptr;
+  if (program_view_ptr.program_view == nullptr) {
+    return false;
+  }
+  const PremapFutureKernelNativeConsumerProgramViewV1 program_view =
+      *program_view_ptr.program_view;
+  const PremapFutureKernelNativeConsumerViewV1& view = program_view.view;
+  return view.params.typed_schema_hash_hi == request.expected_schema_hash_hi &&
+         view.params.typed_schema_hash_lo == request.expected_schema_hash_lo &&
+         view.params.row_order_hash == request.expected_row_order_hash &&
+         view.params.ordered_row_hash == request.expected_ordered_row_hash &&
+         view.params.row_count == request.row_count &&
+         view.params.field_mask == request.field_mask &&
+         premap_typed_consumer_future_native_program_view_matches_v1(
+             program_view,
+             request.expected_schema_hash_hi,
+             request.expected_schema_hash_lo);
 }
 
 __device__ static inline bool
