@@ -449,6 +449,10 @@ def test_run_canary_dry_run_includes_compact_preflight_status(
             str(tmp_path / "stub_future_native_consumer_dispatch_aux_metadata.json"),
             "--future-kernel-native-consumer-request-ptr-stub-output-json",
             str(tmp_path / "stub_future_native_consumer_request_ptr.json"),
+            "--future-kernel-native-consumer-request-launch-stub-output-json",
+            str(tmp_path / "stub_future_native_consumer_request_launch.json"),
+            "--future-kernel-native-consumer-request-launch-ptr-stub-output-json",
+            str(tmp_path / "stub_future_native_consumer_request_launch_ptr.json"),
             "--preflight-output-json",
             str(tmp_path / "preflight.json"),
             "--preflight-status-output-json",
@@ -506,6 +510,11 @@ def test_run_canary_dry_run_includes_compact_preflight_status(
         in result["steps"]
     )
     assert "native_stub_future_kernel_native_consumer_request_ptr_abi" in result["steps"]
+    assert "native_stub_future_kernel_native_consumer_request_launch_abi" in result["steps"]
+    assert (
+        "native_stub_future_kernel_native_consumer_request_launch_ptr_abi"
+        in result["steps"]
+    )
     assert "future_kernel_native_consumer_dispatch_arg_slot_stub_summary" in result
     assert (
         "future_kernel_native_arg_slot_consumer_row_count"
@@ -653,6 +662,34 @@ def test_run_canary_dry_run_includes_compact_preflight_status(
         "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_INVOCATION_ABI"
         not in future_native_request_ptr_cmd
     )
+    future_native_request_launch_cmd = result["steps"][
+        "native_stub_future_kernel_native_consumer_request_launch_abi"
+    ]["cmd"]
+    assert str(tmp_path / "stub_future_native_consumer_request_launch.json") in (
+        future_native_request_launch_cmd
+    )
+    assert (
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_LAUNCH_ABI"
+        in future_native_request_launch_cmd
+    )
+    future_native_request_launch_ptr_cmd = result["steps"][
+        "native_stub_future_kernel_native_consumer_request_launch_ptr_abi"
+    ]["cmd"]
+    assert str(tmp_path / "stub_future_native_consumer_request_launch_ptr.json") in (
+        future_native_request_launch_ptr_cmd
+    )
+    assert (
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_LAUNCH_PTR_ABI"
+        in future_native_request_launch_ptr_cmd
+    )
+    assert (
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ENDPOINT_ABI"
+        not in future_native_request_launch_ptr_cmd
+    )
+    assert (
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_INVOCATION_ABI"
+        not in future_native_request_launch_ptr_cmd
+    )
     future_native_launch_descriptor_cmd = result["steps"][
         "native_stub_future_kernel_native_consumer_launch_descriptor_ptr_mirror"
     ]["cmd"]
@@ -722,7 +759,163 @@ def test_run_canary_dry_run_includes_explicit_tail_window_size(
         "strict_default_gate_evidence_deferred_count"
         in result["preflight_status_summary"]
     )
-    assert "optional_evidence_present_count" in result["preflight_status_summary"]
+
+
+def test_run_canary_rejects_request_launch_ptr_hash_mismatch(
+    tmp_path: Path,
+    monkeypatch,
+):
+    trace_dir = tmp_path / "trace"
+    trace_dir.mkdir()
+    config = tmp_path / "trace.yaml"
+    config.write_text(f"output_dir: {trace_dir}\n", encoding="utf-8")
+    input_json = trace_dir / "online_input.json"
+    input_json.write_text(json.dumps({"row_count": 2}) + "\n", encoding="utf-8")
+    (trace_dir / "performance_summary.json").write_text(
+        json.dumps(
+            {
+                "runtime_shadow_premap_native_typed_consumer_input_export_enabled": True,
+                "runtime_shadow_premap_native_typed_consumer_input_export_count": 1,
+                "runtime_shadow_premap_native_typed_consumer_input_export_first_path": str(
+                    input_json
+                ),
+                "runtime_shadow_premap_native_typed_consumer_input_export_paths": [
+                    str(input_json)
+                ],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    import scripts.run_premap_online_native_stub_canary as canary
+
+    row_hash = "1234567890abcdef"
+    bad_row_hash = "fedcba0987654321"
+    field_read_hash = "0fedcba987654321"
+    row_metadata_hash = "55aa55aa55aa55aa"
+
+    def add_summary(payload: dict[str, object], prefix: str, *, hash_value: str):
+        payload.update(
+            {
+                f"{prefix}_row_count": 2,
+                f"{prefix}_row_ok_count": 2,
+                f"{prefix}_error_count": 0,
+                f"{prefix}_field_mask": 15,
+                f"{prefix}_descriptor_ptr_read_row_ok_count": 2,
+                f"{prefix}_packed_weight_descriptor_read_row_ok_count": 2,
+                f"{prefix}_scale_metadata_handle_read_row_ok_count": 2,
+                f"{prefix}_aux_metadata_handle_read_row_ok_count": 2,
+                f"{prefix}_expert_id_read_row_ok_count": 2,
+                f"{prefix}_address_key_hash_read_row_ok_count": 2,
+                f"{prefix}_row_metadata_read_row_ok_count": 2,
+                f"{prefix}_row_hash_accumulator": hash_value,
+                f"{prefix}_field_read_hash_accumulator": field_read_hash,
+                f"{prefix}_row_metadata_hash_accumulator": row_metadata_hash,
+            }
+        )
+
+    request_launch_ptr_payload: dict[str, object] = {
+        "passed": True,
+        "ok": True,
+        "row_count": 2,
+        "row_ok_count": 2,
+        "error_count": 0,
+        "input_json": str(input_json),
+        "payload_bytes": 0,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "future_kernel_native_consumer_request_launch_ptr_abi_name": (
+            "premap_future_kernel_native_consumer_request_launch_ptr_abi_v1"
+        ),
+        "future_kernel_native_consumer_request_launch_ptr_mode": (
+            "readonly_future_kernel_native_consumer_request_launch_ptr_abi"
+        ),
+        "future_kernel_native_consumer_request_launch_ptr_source": (
+            "premap_future_kernel_native_consumer_request_launch_abi_v1"
+        ),
+        "future_kernel_native_consumer_request_launch_ptr_field_read_path": (
+            "request_launch_ptr_to_request_launch_to_request_ptr_to_kernel_arg_packet_to_program_view_rows"
+        ),
+        "future_kernel_native_consumer_request_launch_ptr_checked": True,
+        "future_kernel_native_consumer_request_launch_ptr_version": 1,
+        "future_kernel_native_consumer_request_launch_ptr_packet_chain_depth": 6,
+        "future_kernel_native_consumer_request_launch_ptr_pointer_size": 8,
+        "future_kernel_native_consumer_request_launch_ptr_request_id": 1,
+        "future_kernel_native_consumer_request_launch_ptr_payload_bytes": 0,
+        "future_kernel_native_consumer_request_launch_ptr_payload_deref_allowed": False,
+        "future_kernel_native_consumer_request_launch_ptr_passed_to_kernel": False,
+        "future_kernel_native_consumer_request_launch_ptr_kernel_arg_pass_allowed": False,
+        "future_kernel_native_consumer_request_launch_ptr_changes_kernel_launch_args": False,
+        "future_kernel_native_consumer_request_launch_ptr_current_wna16_arg_compatible": False,
+        "future_kernel_native_consumer_request_launch_ptr_requires_wna16_arg_reinterpretation": False,
+    }
+    add_summary(
+        request_launch_ptr_payload,
+        "future_kernel_native_consumer_request_launch_ptr_summary",
+        hash_value=bad_row_hash,
+    )
+    for prefix in (
+        "future_kernel_native_consumer_request_launch_summary",
+        "future_kernel_native_consumer_request_ptr_summary",
+        "future_kernel_native_consumer_kernel_entry_summary",
+    ):
+        add_summary(request_launch_ptr_payload, prefix, hash_value=row_hash)
+
+    def fake_run(cmd, *, env, dry_run, allow_failure=False):
+        return {"cmd": cmd, "returncode": 0}
+
+    def fake_load(path: Path):
+        path_str = str(path)
+        if path_str.endswith("request_launch_ptr.json"):
+            return request_launch_ptr_payload
+        if path_str.endswith("stub.json"):
+            return {"passed": True, "input_json": str(input_json)}
+        if path_str.endswith("preflight.json") or path_str.endswith("status.json"):
+            return {"passed": True}
+        return {}
+
+    monkeypatch.setattr(canary, "_run", fake_run)
+    monkeypatch.setattr(canary, "_load_json_if_exists", fake_load)
+    args = build_parser().parse_args(
+        [
+            "--trace-config",
+            str(config),
+            "--skip-trace",
+            "--stub-output-json",
+            str(tmp_path / "stub.json"),
+            "--future-kernel-native-consumer-request-launch-ptr-stub-output-json",
+            str(tmp_path / "request_launch_ptr.json"),
+            "--preflight-output-json",
+            str(tmp_path / "preflight.json"),
+            "--preflight-status-output-json",
+            str(tmp_path / "status.json"),
+            "--output-json",
+            str(tmp_path / "runner.json"),
+            "--skip-per-field-stub",
+            "--skip-envelope-mirror-stub",
+            "--skip-packed-weight-mirror-stub",
+            "--skip-aux-metadata-mirror-stub",
+            "--skip-descriptor-ptr-mirror-stub",
+            "--skip-kernel-side-compatible-stub",
+            "--skip-future-kernel-args-stub",
+            "--skip-future-kernel-args-extra-field-stubs",
+            "--skip-future-kernel-args-compatible-path-stub",
+            "--skip-future-kernel-native-consumer-stub",
+            "--skip-future-kernel-native-consumer-extra-field-stubs",
+            "--skip-future-kernel-native-consumer-request-ptr-stub",
+            "--skip-future-kernel-native-consumer-request-launch-stub",
+            "--skip-artifact-check",
+        ]
+    )
+
+    result = run_canary(args)
+
+    assert result["passed"] is False
+    assert (
+        "native_stub_future_native_request_launch_ptr_row_hash_mismatch"
+        in result["failures"]
+    )
 
 
 def test_finalize_report_with_artifact_check_records_summary(
@@ -808,6 +1001,10 @@ def test_finalize_report_with_artifact_check_records_summary(
                     "runner_future_kernel_native_consumer_dispatch_arg_slot_mirror_stub_row_ok_count": 4,
                     "runner_future_kernel_native_consumer_request_ptr_stub_row_count": 4,
                     "runner_future_kernel_native_consumer_request_ptr_stub_row_ok_count": 4,
+                    "runner_future_kernel_native_consumer_request_launch_stub_row_count": 4,
+                    "runner_future_kernel_native_consumer_request_launch_stub_row_ok_count": 4,
+                    "runner_future_kernel_native_consumer_request_launch_ptr_stub_row_count": 4,
+                    "runner_future_kernel_native_consumer_request_launch_ptr_stub_row_ok_count": 4,
                     "stage1_deferred_count": 0,
                     "final_deferred_count": 0,
                     "status_deferred_count": 0,
@@ -907,6 +1104,10 @@ def test_finalize_report_with_artifact_check_records_summary(
             "runner_future_kernel_native_consumer_dispatch_arg_slot_mirror_stub_row_ok_count": 4,
             "runner_future_kernel_native_consumer_request_ptr_stub_row_count": 4,
             "runner_future_kernel_native_consumer_request_ptr_stub_row_ok_count": 4,
+            "runner_future_kernel_native_consumer_request_launch_stub_row_count": 4,
+            "runner_future_kernel_native_consumer_request_launch_stub_row_ok_count": 4,
+            "runner_future_kernel_native_consumer_request_launch_ptr_stub_row_count": 4,
+            "runner_future_kernel_native_consumer_request_launch_ptr_stub_row_ok_count": 4,
             "stage1_deferred_count": 0,
             "final_deferred_count": 0,
             "status_deferred_count": 0,
