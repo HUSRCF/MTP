@@ -185,6 +185,7 @@ REQUIRED_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
     "native_typed_consumer_bridge_smoke_json",
     "strict_native_stub_online_invocation_canary_128_gate_json",
     "native_typed_consumer_stub_gpu1_canary_json",
+    "native_typed_consumer_stub_endpoint_ptr_canary_json",
     "native_typed_consumer_stub_online_prelaunch_input_canary_json",
     "native_typed_consumer_online_prelaunch_canary_runner_json",
     "future_kernel_native_dispatch_ptr_standalone_canary_json",
@@ -1222,6 +1223,7 @@ def _validate_required_evidence_payload(
     metrics = evidence.get("metrics")
     known_stub_labels = {
         "native_typed_consumer_stub_gpu1_canary_json",
+        "native_typed_consumer_stub_endpoint_ptr_canary_json",
         "native_typed_consumer_stub_online_prelaunch_input_canary_json",
         "native_typed_consumer_stub_online_prelaunch_input_per_field_canary_json",
     }
@@ -2882,6 +2884,9 @@ def _validate_required_evidence_payload(
             evidence_label
             == "native_typed_consumer_stub_online_prelaunch_input_per_field_canary_json"
         )
+        is_endpoint_ptr_stub = (
+            evidence_label == "native_typed_consumer_stub_endpoint_ptr_canary_json"
+        )
         return [
             f"{evidence_label}:{failure}"
             for failure in _validate_native_typed_consumer_stub_evidence(
@@ -2904,6 +2909,28 @@ def _validate_required_evidence_payload(
                         "MTP_PREMAP_TYPED_CONSUMER_HASH_ACCUMULATOR",
                     )
                     if is_per_field_stub
+                    else (
+                        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ABI",
+                        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ABI",
+                        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_ABI",
+                        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_PTR_ABI",
+                        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ARG_SLOT_ABI",
+                        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_VIEW_ABI",
+                        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_PROGRAM_VIEW_ABI",
+                        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_PROGRAM_VIEW_PTR_ABI",
+                        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ARG_PACKET_ABI",
+                        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ENTRY_ARGS_ABI",
+                        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ENTRY_ARGS_PTR_ABI",
+                        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ENVELOPE_ARGS_ABI",
+                        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ENVELOPE_ARGS_PTR_ABI",
+                        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_LAUNCH_DESCRIPTOR_ABI",
+                        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_LAUNCH_CONTEXT_ABI",
+                        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_INVOCATION_ABI",
+                        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_INVOCATION_ENTRY_ABI",
+                        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ENDPOINT_ABI",
+                        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ENDPOINT_PTR_ABI",
+                    )
+                    if is_endpoint_ptr_stub
                     else None
                 ),
                 required_disabled_macros=(
@@ -2912,6 +2939,7 @@ def _validate_required_evidence_payload(
                     else ()
                 ),
                 require_kernel_side_abi_meta=is_per_field_stub,
+                require_endpoint_ptr_abi_meta=is_endpoint_ptr_stub,
             )
         ]
     if not isinstance(metrics, dict):
@@ -2972,6 +3000,7 @@ def _validate_native_typed_consumer_stub_evidence(
     required_enabled_macros: tuple[str, ...] | None = None,
     required_disabled_macros: tuple[str, ...] = (),
     require_kernel_side_abi_meta: bool = False,
+    require_endpoint_ptr_abi_meta: bool = False,
 ) -> list[str]:
     failures: list[str] = []
     row_count = _int_metric(evidence, "row_count")
@@ -3017,6 +3046,102 @@ def _validate_native_typed_consumer_stub_evidence(
             "premap_typed_consumer_adapter_v1.h"
         ):
             failures.append("native_typed_consumer_stub_adapter_header_mismatch")
+    if require_endpoint_ptr_abi_meta:
+        expected_endpoint_ptr_values: dict[str, Any] = {
+            "future_kernel_native_consumer_endpoint_ptr_abi_name": (
+                "premap_future_kernel_native_consumer_endpoint_ptr_abi_v1"
+            ),
+            "future_kernel_native_consumer_endpoint_ptr_mode": (
+                "readonly_future_kernel_native_consumer_endpoint_ptr_abi"
+            ),
+            "future_kernel_native_consumer_endpoint_ptr_source": (
+                "premap_future_kernel_native_consumer_endpoint_abi_v1"
+            ),
+            "future_kernel_native_consumer_endpoint_ptr_field_read_path": (
+                "endpoint_ptr_to_endpoint_to_by_value_invocation_to_kernel_launch_context_to_kernel_launch_descriptor_to_launch_envelope_args_ptr_to_launch_envelope_args_to_entry_args_ptr_to_kernel_entry_args_to_kernel_arg_packet_to_program_view_rows"
+            ),
+            "future_kernel_native_consumer_endpoint_ptr_checked": True,
+            "future_kernel_native_consumer_endpoint_ptr_version": 1,
+            "future_kernel_native_consumer_endpoint_ptr_packet_chain_depth": 13,
+            "future_kernel_native_consumer_endpoint_ptr_payload_bytes": 0,
+            "future_kernel_native_consumer_endpoint_ptr_payload_deref_allowed": False,
+            "future_kernel_native_consumer_endpoint_ptr_passed_to_kernel": False,
+            "future_kernel_native_consumer_endpoint_ptr_kernel_arg_pass_allowed": False,
+            "future_kernel_native_consumer_endpoint_ptr_changes_kernel_launch_args": False,
+            "future_kernel_native_consumer_endpoint_ptr_current_wna16_arg_compatible": False,
+            "future_kernel_native_consumer_endpoint_ptr_requires_wna16_arg_reinterpretation": False,
+        }
+        for key, expected_value in expected_endpoint_ptr_values.items():
+            if evidence.get(key) != expected_value:
+                failures.append(f"native_typed_consumer_stub_{key}_mismatch")
+        endpoint_ptr_row_count = _int_metric(
+            evidence,
+            "future_kernel_native_consumer_endpoint_ptr_summary_row_count",
+        )
+        endpoint_ptr_row_ok_count = _int_metric(
+            evidence,
+            "future_kernel_native_consumer_endpoint_ptr_summary_row_ok_count",
+        )
+        endpoint_ptr_error_count = _int_metric(
+            evidence,
+            "future_kernel_native_consumer_endpoint_ptr_summary_error_count",
+        )
+        if row_count is not None and endpoint_ptr_row_count != row_count:
+            failures.append(
+                "native_typed_consumer_stub_endpoint_ptr_summary_row_count_mismatch"
+            )
+        if row_count is not None and endpoint_ptr_row_ok_count != row_count:
+            failures.append(
+                "native_typed_consumer_stub_endpoint_ptr_summary_row_ok_count_mismatch"
+            )
+        if endpoint_ptr_error_count != 0:
+            failures.append(
+                "native_typed_consumer_stub_endpoint_ptr_summary_error_count_mismatch"
+            )
+        endpoint_ptr_hash = evidence.get(
+            "future_kernel_native_consumer_endpoint_ptr_summary_row_hash_accumulator"
+        )
+        endpoint_hash = evidence.get(
+            "future_kernel_native_consumer_endpoint_summary_row_hash_accumulator"
+        )
+        for summary_prefix in (
+            "future_kernel_native_consumer_endpoint_summary_",
+            "future_kernel_native_consumer_endpoint_ptr_summary_",
+        ):
+            if _int_metric(evidence, f"{summary_prefix}field_mask") != 7:
+                failures.append(
+                    f"native_typed_consumer_stub_{summary_prefix}field_mask_mismatch"
+                )
+            read_count_expectations = {
+                "descriptor_ptr_read_row_ok_count": row_count,
+                "packed_weight_descriptor_read_row_ok_count": row_count,
+                "scale_metadata_handle_read_row_ok_count": row_count,
+                "aux_metadata_handle_read_row_ok_count": 0,
+                "expert_id_read_row_ok_count": row_count,
+                "address_key_hash_read_row_ok_count": row_count,
+                "row_metadata_read_row_ok_count": row_count,
+            }
+            for suffix, expected_value in read_count_expectations.items():
+                if _int_metric(evidence, f"{summary_prefix}{suffix}") != expected_value:
+                    failures.append(
+                        f"native_typed_consumer_stub_{summary_prefix}{suffix}_mismatch"
+                    )
+        if not isinstance(endpoint_ptr_hash, str) or not endpoint_ptr_hash:
+            failures.append(
+                "native_typed_consumer_stub_endpoint_ptr_summary_row_hash_missing"
+            )
+        if not isinstance(endpoint_hash, str) or not endpoint_hash:
+            failures.append(
+                "native_typed_consumer_stub_endpoint_summary_row_hash_missing"
+            )
+        if (
+            isinstance(endpoint_ptr_hash, str)
+            and isinstance(endpoint_hash, str)
+            and endpoint_ptr_hash != endpoint_hash
+        ):
+            failures.append(
+                "native_typed_consumer_stub_endpoint_ptr_summary_row_hash_mismatch"
+            )
     if expected_input_path is None:
         failures.append("native_typed_consumer_stub_expected_input_json_missing")
     else:

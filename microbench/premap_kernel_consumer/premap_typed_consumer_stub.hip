@@ -8107,8 +8107,47 @@ int main(int argc, char** argv) {
             << (future_native_consumer_endpoint_ptr_checked
                     ? future_native_consumer_endpoint_ptr_summary.row_ok_count
                     : 0);
+  std::cout << ",\"future_kernel_native_consumer_endpoint_ptr_summary_descriptor_ptr_read_row_ok_count\":"
+            << (future_native_consumer_endpoint_ptr_checked
+                    ? future_native_consumer_endpoint_ptr_summary
+                          .descriptor_ptr_read_ok_count
+                    : 0);
+  std::cout << ",\"future_kernel_native_consumer_endpoint_ptr_summary_packed_weight_descriptor_read_row_ok_count\":"
+            << (future_native_consumer_endpoint_ptr_checked
+                    ? future_native_consumer_endpoint_ptr_summary
+                          .packed_weight_descriptor_read_ok_count
+                    : 0);
+  std::cout << ",\"future_kernel_native_consumer_endpoint_ptr_summary_scale_metadata_handle_read_row_ok_count\":"
+            << (future_native_consumer_endpoint_ptr_checked
+                    ? future_native_consumer_endpoint_ptr_summary
+                          .scale_metadata_handle_read_ok_count
+                    : 0);
+  std::cout << ",\"future_kernel_native_consumer_endpoint_ptr_summary_aux_metadata_handle_read_row_ok_count\":"
+            << (future_native_consumer_endpoint_ptr_checked
+                    ? future_native_consumer_endpoint_ptr_summary
+                          .aux_metadata_handle_read_ok_count
+                    : 0);
+  std::cout << ",\"future_kernel_native_consumer_endpoint_ptr_summary_expert_id_read_row_ok_count\":"
+            << (future_native_consumer_endpoint_ptr_checked
+                    ? future_native_consumer_endpoint_ptr_summary
+                          .expert_id_read_ok_count
+                    : 0);
+  std::cout << ",\"future_kernel_native_consumer_endpoint_ptr_summary_address_key_hash_read_row_ok_count\":"
+            << (future_native_consumer_endpoint_ptr_checked
+                    ? future_native_consumer_endpoint_ptr_summary
+                          .address_key_hash_read_ok_count
+                    : 0);
+  std::cout << ",\"future_kernel_native_consumer_endpoint_ptr_summary_row_metadata_read_row_ok_count\":"
+            << (future_native_consumer_endpoint_ptr_checked
+                    ? future_native_consumer_endpoint_ptr_summary
+                          .row_metadata_read_ok_count
+                    : 0);
   std::cout << ",\"future_kernel_native_consumer_endpoint_ptr_summary_error_count\":"
             << future_native_consumer_endpoint_ptr_error_count;
+  std::cout << ",\"future_kernel_native_consumer_endpoint_ptr_summary_field_mask\":"
+            << (future_native_consumer_endpoint_ptr_checked
+                    ? future_native_consumer_endpoint_ptr_summary.field_mask
+                    : 0);
   std::cout << ",\"future_kernel_native_consumer_endpoint_ptr_payload_bytes\":0";
   std::cout << ",\"future_kernel_native_consumer_endpoint_ptr_payload_deref_allowed\":"
             << (kPremapFutureKernelNativeConsumerEndpointPtrAbiV1PayloadDerefAllowed

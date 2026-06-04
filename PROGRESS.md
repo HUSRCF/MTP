@@ -2,8 +2,27 @@
 
 ## Progress Version
 
-- Version: `v0.70-endpoint-ptr-abi-stub`
+- Version: `v0.71-endpoint-ptr-lab-gate`
 - Updated: 2026-06-04
+- Latest lab-gate update: promoted the endpoint-pointer ABI stub into the
+  default readonly lab preflight as required evidence,
+  `native_typed_consumer_stub_endpoint_ptr_canary_json`, now pointing at the
+  bridge-input-bound GPU1 artifact
+  `outputs/reports/premap_kernel_consumer/typed_consumer_stub_gpu1_from_native_bridge_input_endpoint_ptr_canary.json`.
+  This run uses the existing `native_bridge_input_latest.json`, explicitly
+  omits the optional aux pointer because the bridge input carries zero aux
+  handles, and the preflight now explicitly requires `field_mask=7`,
+  descriptor/packed-weight/scale read counts equal to `row_count`, and aux
+  read counts equal to zero on both the endpoint and endpoint-pointer summary
+  paths.  The default summary
+  `outputs/reports/premap_lab_preflight_status_default_endpoint_ptr_abi_summary.json`
+  passes with 19/19 required evidence rows, and
+  `outputs/reports/premap_lab_preflight_status_default_endpoint_ptr_abi_summary.check.json`
+  passes with no failures.  This remains a readonly ABI/lifecycle gate:
+  `payload_bytes=0`, `passed_to_kernel=false`,
+  `kernel_arg_pass_allowed=false`, `changes_kernel_launch_args=false`,
+  `current_wna16_arg_compatible=false`, and
+  `requires_wna16_arg_reinterpretation=false`.
 - Latest native-stub update: added a standalone endpoint-pointer ABI canary,
   `PremapFutureKernelNativeConsumerEndpointPtrV1`, guarded by
   `MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ENDPOINT_PTR_ABI`.
