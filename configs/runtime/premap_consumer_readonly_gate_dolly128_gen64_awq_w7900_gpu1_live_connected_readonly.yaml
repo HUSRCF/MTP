@@ -180,6 +180,8 @@ contract:
   consumer_program_view_required: true
   consumer_program_view_row_assignment_formula: program_id * rows_per_program + lane_id + row_offset
   consumer_program_view_ptr_required: true
+  request_launch_all_handle_fields_required: true
+  request_launch_ptr_all_handle_fields_required: true
   future_kernel_native_arg_slot_online_total_mirror_coverage_required: true
   single_field_handle_handoff_canary_required: true
   single_field_handle_handoff_canary_mode: readonly_single_field_handle_handoff_canary

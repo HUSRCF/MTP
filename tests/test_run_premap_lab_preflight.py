@@ -634,6 +634,8 @@ def _valid_schema_payload() -> dict:
                 "program_id * rows_per_program + lane_id + row_offset"
             ),
             "consumer_program_view_ptr_required": True,
+            "request_launch_all_handle_fields_required": True,
+            "request_launch_ptr_all_handle_fields_required": True,
             "kernel_entry_summary_row_metadata_required": True,
             "kernel_entry_args_row_metadata_required": True,
             "payload_bytes_required": 0,
@@ -3703,6 +3705,8 @@ def _write_gate(
         "  consumer_program_view_required: true\n"
         "  consumer_program_view_row_assignment_formula: program_id * rows_per_program + lane_id + row_offset\n"
         "  consumer_program_view_ptr_required: true\n"
+        "  request_launch_all_handle_fields_required: true\n"
+        "  request_launch_ptr_all_handle_fields_required: true\n"
         "  future_kernel_native_arg_slot_online_total_mirror_coverage_required: true\n"
         "  single_field_handle_handoff_canary_required: true\n"
         "  single_field_handle_handoff_canary_mode: readonly_single_field_handle_handoff_canary\n"
@@ -3981,6 +3985,8 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
             "program_id * rows_per_program + lane_id + row_offset"
         ),
         "consumer_program_view_ptr_required": True,
+        "request_launch_all_handle_fields_required": True,
+        "request_launch_ptr_all_handle_fields_required": True,
         "kernel_entry_summary_row_metadata_required": True,
         "kernel_entry_args_row_metadata_required": True,
         "payload_bytes_required": 0,
@@ -4010,6 +4016,16 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
             "default_kernel_consumer_consumer_program_view_row_assignment_formula_required"
         ]
         == "program_id * rows_per_program + lane_id + row_offset"
+    )
+    assert (
+        summary["default_kernel_consumer_request_launch_all_handle_fields_required"]
+        is True
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_request_launch_ptr_all_handle_fields_required"
+        ]
+        is True
     )
     assert summary["default_kernel_consumer_required_gate_payload_bytes_required"] == 0
     assert (
@@ -5355,6 +5371,41 @@ def test_premap_lab_preflight_rejects_program_view_ptr_strict_row_count_mismatch
     assert result["passed"] is False
     assert (
         "default_kernel_consumer_program_view_ptr_row_count_mismatch"
+        in result["failures"]
+    )
+
+
+def test_premap_lab_preflight_rejects_request_launch_ptr_all_field_read_mismatch(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    request_launch_ptr_path = (
+        tmp_path
+        / "reports/default_gate_native_typed_consumer_stub_online_prelaunch_input_request_launch_ptr_canary.json"
+    )
+    payload = json.loads(request_launch_ptr_path.read_text(encoding="utf-8"))
+    payload[
+        "future_kernel_native_consumer_request_launch_ptr_summary_aux_metadata_handle_read_row_ok_count"
+    ] = 519
+    _write(request_launch_ptr_path, json.dumps(payload) + "\n")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is False
+    assert (
+        "default_kernel_consumer_request_launch_ptr_all_handle_fields_unchecked"
         in result["failures"]
     )
 

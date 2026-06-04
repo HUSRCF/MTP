@@ -122,6 +122,8 @@ REQUIRED_DEFAULT_GATE_CONTRACT = {
         "program_id * rows_per_program + lane_id + row_offset"
     ),
     "consumer_program_view_ptr_required": True,
+    "request_launch_all_handle_fields_required": True,
+    "request_launch_ptr_all_handle_fields_required": True,
     "future_kernel_native_arg_slot_online_total_mirror_coverage_required": True,
     "single_field_handle_handoff_canary_required": True,
     "single_field_handle_handoff_canary_mode": (
@@ -8012,6 +8014,26 @@ def run_premap_lab_preflight(
         failures.append(
             "default_kernel_consumer_program_view_ptr_safety_contract_mismatch"
         )
+    if (
+        not allow_missing_evidence
+        and not defer_online_prelaunch_runner_evidence
+        and required_gate_checks.get("request_launch_all_handle_fields_required")
+        is True
+        and not request_launch_all_handle_fields_read
+    ):
+        failures.append(
+            "default_kernel_consumer_request_launch_all_handle_fields_unchecked"
+        )
+    if (
+        not allow_missing_evidence
+        and not defer_online_prelaunch_runner_evidence
+        and required_gate_checks.get("request_launch_ptr_all_handle_fields_required")
+        is True
+        and not request_launch_ptr_all_handle_fields_read
+    ):
+        failures.append(
+            "default_kernel_consumer_request_launch_ptr_all_handle_fields_unchecked"
+        )
     lab_gate_status_summary = {
         "passed": not failures,
         "default_readonly_gate_path": default_gate_path,
@@ -8069,6 +8091,12 @@ def run_premap_lab_preflight(
         ),
         "default_kernel_consumer_consumer_program_view_row_assignment_formula_required": (
             required_gate_checks.get("consumer_program_view_row_assignment_formula")
+        ),
+        "default_kernel_consumer_request_launch_all_handle_fields_required": (
+            required_gate_checks.get("request_launch_all_handle_fields_required")
+        ),
+        "default_kernel_consumer_request_launch_ptr_all_handle_fields_required": (
+            required_gate_checks.get("request_launch_ptr_all_handle_fields_required")
         ),
         "default_kernel_consumer_required_gate_payload_bytes_required": (
             required_gate_checks.get("payload_bytes_required")
