@@ -659,6 +659,30 @@ This makes the default lab preflight reject a future kernel-entry object that
 only reports the correct layout but does not actually traverse the packet chain
 and read all typed handle fields plus row metadata.
 
+The next request-level ABI layers are also schema-gated:
+
+```text
+future_kernel_native_consumer_request_ptr_field_read_path =
+  request_ptr_to_kernel_arg_packet_to_program_view_rows
+future_kernel_native_consumer_request_ptr_packet_chain_depth = 4
+
+future_kernel_native_consumer_request_launch_field_read_path =
+  request_launch_to_request_ptr_to_kernel_arg_packet_to_program_view_rows
+future_kernel_native_consumer_request_launch_packet_chain_depth = 5
+
+future_kernel_native_consumer_request_launch_ptr_field_read_path =
+  request_launch_ptr_to_request_launch_to_request_ptr_to_kernel_arg_packet_to_program_view_rows
+future_kernel_native_consumer_request_launch_ptr_packet_chain_depth = 6
+```
+
+`request_ptr` packages the kernel-arg packet pointer and expected table hashes.
+`request_launch` adds future launch geometry and row-window metadata.  The
+pointer-backed `request_launch_ptr` mirrors the compact argument object a future
+standalone typed consumer kernel could receive.  All three layers remain
+readonly schema/stub evidence: payload bytes must be zero, kernel argument pass
+is disabled, and the objects are explicitly not compatible with the current
+WNA16 fused-MoE argument list.
+
 ## Next Gates
 
 1. Keep the current readonly dispatch ABI as the default lab preflight

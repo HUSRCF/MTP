@@ -22,6 +22,12 @@ from scripts.check_premap_kernel_consumer_schema import (
     FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ENTRY_ARGS_ABI_LAYOUT_FIELDS,
     FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ARG_PACKET_ABI_LAYOUT_EXPECTED,
     FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ARG_PACKET_ABI_LAYOUT_FIELDS,
+    FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_LAUNCH_ABI_LAYOUT_EXPECTED,
+    FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_LAUNCH_ABI_LAYOUT_FIELDS,
+    FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_LAUNCH_PTR_ABI_LAYOUT_EXPECTED,
+    FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_LAUNCH_PTR_ABI_LAYOUT_FIELDS,
+    FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_PTR_ABI_LAYOUT_EXPECTED,
+    FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_PTR_ABI_LAYOUT_FIELDS,
     FUTURE_KERNEL_NATIVE_CONSUMER_VIEW_ABI_LAYOUT_EXPECTED,
     FUTURE_KERNEL_NATIVE_CONSUMER_VIEW_ABI_LAYOUT_FIELDS,
     FUTURE_KERNEL_NATIVE_CONSUMER_PROGRAM_VIEW_PTR_ABI_LAYOUT_EXPECTED,
@@ -243,6 +249,56 @@ def test_kernel_consumer_schema_accepts_valid_artifact(tmp_path: Path) -> None:
         is False
     )
     assert (
+        result["future_kernel_native_consumer_request_ptr_abi_name"]
+        == "premap_future_kernel_native_consumer_request_ptr_abi_v1"
+    )
+    assert (
+        result["future_kernel_native_consumer_request_ptr_abi_mode"]
+        == "readonly_future_kernel_native_consumer_request_ptr_abi"
+    )
+    assert (
+        result["future_kernel_native_consumer_request_ptr_abi_source"]
+        == "premap_future_kernel_native_consumer_kernel_arg_packet_abi_v1"
+    )
+    assert (
+        result["future_kernel_native_consumer_request_ptr_abi_field_read_path"]
+        == "request_ptr_to_kernel_arg_packet_to_program_view_rows"
+    )
+    assert (
+        result["future_kernel_native_consumer_request_launch_abi_name"]
+        == "premap_future_kernel_native_consumer_request_launch_abi_v1"
+    )
+    assert (
+        result["future_kernel_native_consumer_request_launch_abi_mode"]
+        == "readonly_future_kernel_native_consumer_request_launch_abi"
+    )
+    assert (
+        result["future_kernel_native_consumer_request_launch_abi_source"]
+        == "premap_future_kernel_native_consumer_request_ptr_abi_v1"
+    )
+    assert (
+        result["future_kernel_native_consumer_request_launch_abi_field_read_path"]
+        == "request_launch_to_request_ptr_to_kernel_arg_packet_to_program_view_rows"
+    )
+    assert (
+        result["future_kernel_native_consumer_request_launch_ptr_abi_name"]
+        == "premap_future_kernel_native_consumer_request_launch_ptr_abi_v1"
+    )
+    assert (
+        result["future_kernel_native_consumer_request_launch_ptr_abi_mode"]
+        == "readonly_future_kernel_native_consumer_request_launch_ptr_abi"
+    )
+    assert (
+        result["future_kernel_native_consumer_request_launch_ptr_abi_source"]
+        == "premap_future_kernel_native_consumer_request_launch_abi_v1"
+    )
+    assert (
+        result[
+            "future_kernel_native_consumer_request_launch_ptr_abi_field_read_path"
+        ]
+        == "request_launch_ptr_to_request_launch_to_request_ptr_to_kernel_arg_packet_to_program_view_rows"
+    )
+    assert (
         result["future_kernel_native_consumer_view_abi_layout_fields"]
         == FUTURE_KERNEL_NATIVE_CONSUMER_VIEW_ABI_LAYOUT_FIELDS
     )
@@ -281,6 +337,34 @@ def test_kernel_consumer_schema_accepts_valid_artifact(tmp_path: Path) -> None:
     assert (
         result["future_kernel_native_consumer_kernel_entry_args_abi_layout_expected"]
         == FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ENTRY_ARGS_ABI_LAYOUT_EXPECTED
+    )
+    assert (
+        result["future_kernel_native_consumer_request_ptr_abi_layout_fields"]
+        == FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_PTR_ABI_LAYOUT_FIELDS
+    )
+    assert (
+        result["future_kernel_native_consumer_request_ptr_abi_layout_expected"]
+        == FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_PTR_ABI_LAYOUT_EXPECTED
+    )
+    assert (
+        result["future_kernel_native_consumer_request_launch_abi_layout_fields"]
+        == FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_LAUNCH_ABI_LAYOUT_FIELDS
+    )
+    assert (
+        result["future_kernel_native_consumer_request_launch_abi_layout_expected"]
+        == FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_LAUNCH_ABI_LAYOUT_EXPECTED
+    )
+    assert (
+        result[
+            "future_kernel_native_consumer_request_launch_ptr_abi_layout_fields"
+        ]
+        == FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_LAUNCH_PTR_ABI_LAYOUT_FIELDS
+    )
+    assert (
+        result[
+            "future_kernel_native_consumer_request_launch_ptr_abi_layout_expected"
+        ]
+        == FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_LAUNCH_PTR_ABI_LAYOUT_EXPECTED
     )
     assert result["required_gate_checks"] == EXPECTED_REQUIRED_GATE_CHECKS
 

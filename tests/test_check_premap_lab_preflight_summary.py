@@ -667,6 +667,31 @@ def test_check_premap_lab_preflight_summary_rejects_request_launch_gap() -> None
     )
 
 
+def test_check_premap_lab_preflight_summary_rejects_request_launch_boundary() -> None:
+    summary = _summary()
+    summary["default_kernel_consumer_request_launch_payload_bytes"] = 8
+    summary["default_kernel_consumer_request_launch_passed_to_kernel"] = True
+    summary["default_kernel_consumer_request_launch_kernel_arg_pass_allowed"] = True
+    summary[
+        "default_kernel_consumer_request_launch_changes_kernel_launch_args"
+    ] = True
+    summary[
+        "default_kernel_consumer_request_launch_requires_wna16_arg_reinterpretation"
+    ] = True
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is False
+    assert "request_launch_payload_bytes_mismatch" in result["failures"]
+    assert "request_launch_passed_to_kernel_mismatch" in result["failures"]
+    assert "request_launch_kernel_arg_pass_allowed_mismatch" in result["failures"]
+    assert "request_launch_changes_kernel_launch_args_mismatch" in result["failures"]
+    assert (
+        "request_launch_requires_wna16_arg_reinterpretation_mismatch"
+        in result["failures"]
+    )
+
+
 def test_check_premap_lab_preflight_summary_rejects_request_launch_ptr_boundary() -> None:
     summary = _summary()
     summary["default_kernel_consumer_request_launch_ptr_field_read_path"] = "wrong"

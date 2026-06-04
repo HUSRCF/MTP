@@ -93,6 +93,9 @@ REQUIRED_STEPWISE_DEBUG_MACROS = {
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_PROGRAM_VIEW_ABI",
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_PROGRAM_VIEW_PTR_ABI",
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ARG_PACKET_ABI",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_PTR_ABI",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_LAUNCH_ABI",
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_LAUNCH_PTR_ABI",
 }
 ALLOWED_CURRENT_STATUS = {
     "native_stub_pending",
@@ -285,6 +288,50 @@ FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ENTRY_ARGS_ABI_LAYOUT_FIELDS = [
     "future_kernel_native_consumer_kernel_entry_args_offset_payload_bytes",
     "future_kernel_native_consumer_kernel_entry_args_offset_flags",
 ]
+FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_PTR_ABI_LAYOUT_FIELDS = [
+    "future_kernel_native_consumer_request_ptr_struct_size",
+    "future_kernel_native_consumer_request_ptr_struct_align",
+    "future_kernel_native_consumer_request_ptr_kernel_arg_packet_struct_size",
+    "future_kernel_native_consumer_request_ptr_summary_struct_size",
+    "future_kernel_native_consumer_request_ptr_offset_kernel_arg_packet",
+    "future_kernel_native_consumer_request_ptr_offset_summary",
+    "future_kernel_native_consumer_request_ptr_offset_abi_version",
+    "future_kernel_native_consumer_request_ptr_offset_kernel_arg_packet_struct_size",
+    "future_kernel_native_consumer_request_ptr_offset_summary_struct_size",
+    "future_kernel_native_consumer_request_ptr_offset_payload_bytes",
+    "future_kernel_native_consumer_request_ptr_offset_flags",
+]
+FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_LAUNCH_ABI_LAYOUT_FIELDS = [
+    "future_kernel_native_consumer_request_launch_struct_size",
+    "future_kernel_native_consumer_request_launch_struct_align",
+    "future_kernel_native_consumer_request_launch_request_ptr_struct_size",
+    "future_kernel_native_consumer_request_launch_summary_struct_size",
+    "future_kernel_native_consumer_request_launch_offset_request_ptr",
+    "future_kernel_native_consumer_request_launch_offset_summary",
+    "future_kernel_native_consumer_request_launch_offset_abi_version",
+    "future_kernel_native_consumer_request_launch_offset_request_ptr_struct_size",
+    "future_kernel_native_consumer_request_launch_offset_summary_struct_size",
+    "future_kernel_native_consumer_request_launch_offset_grid_x",
+    "future_kernel_native_consumer_request_launch_offset_block_x",
+    "future_kernel_native_consumer_request_launch_offset_row_offset",
+    "future_kernel_native_consumer_request_launch_offset_row_limit",
+    "future_kernel_native_consumer_request_launch_offset_rows_per_program",
+    "future_kernel_native_consumer_request_launch_offset_payload_bytes",
+    "future_kernel_native_consumer_request_launch_offset_flags",
+]
+FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_LAUNCH_PTR_ABI_LAYOUT_FIELDS = [
+    "future_kernel_native_consumer_request_launch_ptr_struct_size",
+    "future_kernel_native_consumer_request_launch_ptr_struct_align",
+    "future_kernel_native_consumer_request_launch_ptr_request_launch_struct_size",
+    "future_kernel_native_consumer_request_launch_ptr_summary_struct_size",
+    "future_kernel_native_consumer_request_launch_ptr_offset_request_launch",
+    "future_kernel_native_consumer_request_launch_ptr_offset_summary",
+    "future_kernel_native_consumer_request_launch_ptr_offset_abi_version",
+    "future_kernel_native_consumer_request_launch_ptr_offset_request_launch_struct_size",
+    "future_kernel_native_consumer_request_launch_ptr_offset_summary_struct_size",
+    "future_kernel_native_consumer_request_launch_ptr_offset_payload_bytes",
+    "future_kernel_native_consumer_request_launch_ptr_offset_flags",
+]
 FUTURE_KERNEL_CONSUMER_ARGS_LAYOUT_EXPECTED = {
     "future_kernel_consumer_args_struct_size": 160,
     "future_kernel_consumer_args_struct_align": 8,
@@ -454,6 +501,50 @@ FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ENTRY_ARGS_ABI_LAYOUT_EXPECTED = {
     "future_kernel_native_consumer_kernel_entry_args_offset_summary_struct_size": 24,
     "future_kernel_native_consumer_kernel_entry_args_offset_payload_bytes": 28,
     "future_kernel_native_consumer_kernel_entry_args_offset_flags": 32,
+}
+FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_PTR_ABI_LAYOUT_EXPECTED = {
+    "future_kernel_native_consumer_request_ptr_struct_size": 88,
+    "future_kernel_native_consumer_request_ptr_struct_align": 8,
+    "future_kernel_native_consumer_request_ptr_kernel_arg_packet_struct_size": 32,
+    "future_kernel_native_consumer_request_ptr_summary_struct_size": 104,
+    "future_kernel_native_consumer_request_ptr_offset_kernel_arg_packet": 0,
+    "future_kernel_native_consumer_request_ptr_offset_summary": 8,
+    "future_kernel_native_consumer_request_ptr_offset_abi_version": 48,
+    "future_kernel_native_consumer_request_ptr_offset_kernel_arg_packet_struct_size": 52,
+    "future_kernel_native_consumer_request_ptr_offset_summary_struct_size": 56,
+    "future_kernel_native_consumer_request_ptr_offset_payload_bytes": 76,
+    "future_kernel_native_consumer_request_ptr_offset_flags": 80,
+}
+FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_LAUNCH_ABI_LAYOUT_EXPECTED = {
+    "future_kernel_native_consumer_request_launch_struct_size": 112,
+    "future_kernel_native_consumer_request_launch_struct_align": 8,
+    "future_kernel_native_consumer_request_launch_request_ptr_struct_size": 88,
+    "future_kernel_native_consumer_request_launch_summary_struct_size": 104,
+    "future_kernel_native_consumer_request_launch_offset_request_ptr": 0,
+    "future_kernel_native_consumer_request_launch_offset_summary": 8,
+    "future_kernel_native_consumer_request_launch_offset_abi_version": 48,
+    "future_kernel_native_consumer_request_launch_offset_request_ptr_struct_size": 52,
+    "future_kernel_native_consumer_request_launch_offset_summary_struct_size": 56,
+    "future_kernel_native_consumer_request_launch_offset_grid_x": 64,
+    "future_kernel_native_consumer_request_launch_offset_block_x": 68,
+    "future_kernel_native_consumer_request_launch_offset_row_offset": 72,
+    "future_kernel_native_consumer_request_launch_offset_row_limit": 76,
+    "future_kernel_native_consumer_request_launch_offset_rows_per_program": 80,
+    "future_kernel_native_consumer_request_launch_offset_payload_bytes": 104,
+    "future_kernel_native_consumer_request_launch_offset_flags": 108,
+}
+FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_LAUNCH_PTR_ABI_LAYOUT_EXPECTED = {
+    "future_kernel_native_consumer_request_launch_ptr_struct_size": 48,
+    "future_kernel_native_consumer_request_launch_ptr_struct_align": 8,
+    "future_kernel_native_consumer_request_launch_ptr_request_launch_struct_size": 112,
+    "future_kernel_native_consumer_request_launch_ptr_summary_struct_size": 104,
+    "future_kernel_native_consumer_request_launch_ptr_offset_request_launch": 0,
+    "future_kernel_native_consumer_request_launch_ptr_offset_summary": 8,
+    "future_kernel_native_consumer_request_launch_ptr_offset_abi_version": 16,
+    "future_kernel_native_consumer_request_launch_ptr_offset_request_launch_struct_size": 20,
+    "future_kernel_native_consumer_request_launch_ptr_offset_summary_struct_size": 24,
+    "future_kernel_native_consumer_request_launch_ptr_offset_payload_bytes": 36,
+    "future_kernel_native_consumer_request_launch_ptr_offset_flags": 40,
 }
 
 
@@ -794,6 +885,80 @@ def check_kernel_consumer_schema_artifact(path: Path) -> dict[str, Any]:
         "future_kernel_native_consumer_kernel_arg_packet_abi_passed_to_kernel_required": False,
         "future_kernel_native_consumer_kernel_arg_packet_abi_current_wna16_arg_compatible": False,
         "future_kernel_native_consumer_kernel_arg_packet_abi_requires_wna16_arg_reinterpretation": False,
+        "future_kernel_native_consumer_request_ptr_abi_name": (
+            "premap_future_kernel_native_consumer_request_ptr_abi_v1"
+        ),
+        "future_kernel_native_consumer_request_ptr_abi_struct": (
+            "PremapFutureKernelNativeConsumerRequestPtrV1"
+        ),
+        "future_kernel_native_consumer_request_ptr_abi_result_struct": (
+            "PremapFutureKernelNativeConsumerKernelEntrySummaryV1"
+        ),
+        "future_kernel_native_consumer_request_ptr_abi_mode": (
+            "readonly_future_kernel_native_consumer_request_ptr_abi"
+        ),
+        "future_kernel_native_consumer_request_ptr_abi_source": (
+            "premap_future_kernel_native_consumer_kernel_arg_packet_abi_v1"
+        ),
+        "future_kernel_native_consumer_request_ptr_abi_default_enabled": False,
+        "future_kernel_native_consumer_request_ptr_abi_payload_bytes_required": 0,
+        "future_kernel_native_consumer_request_ptr_abi_passed_to_kernel_required": False,
+        "future_kernel_native_consumer_request_ptr_abi_current_wna16_arg_compatible": False,
+        "future_kernel_native_consumer_request_ptr_abi_requires_wna16_arg_reinterpretation": False,
+        "future_kernel_native_consumer_request_ptr_abi_field_read_path": (
+            "request_ptr_to_kernel_arg_packet_to_program_view_rows"
+        ),
+        "future_kernel_native_consumer_request_ptr_abi_packet_chain_depth_required": 4,
+        "future_kernel_native_consumer_request_launch_abi_name": (
+            "premap_future_kernel_native_consumer_request_launch_abi_v1"
+        ),
+        "future_kernel_native_consumer_request_launch_abi_struct": (
+            "PremapFutureKernelNativeConsumerRequestLaunchV1"
+        ),
+        "future_kernel_native_consumer_request_launch_abi_result_struct": (
+            "PremapFutureKernelNativeConsumerKernelEntrySummaryV1"
+        ),
+        "future_kernel_native_consumer_request_launch_abi_mode": (
+            "readonly_future_kernel_native_consumer_request_launch_abi"
+        ),
+        "future_kernel_native_consumer_request_launch_abi_source": (
+            "premap_future_kernel_native_consumer_request_ptr_abi_v1"
+        ),
+        "future_kernel_native_consumer_request_launch_abi_default_enabled": False,
+        "future_kernel_native_consumer_request_launch_abi_payload_bytes_required": 0,
+        "future_kernel_native_consumer_request_launch_abi_passed_to_kernel_required": False,
+        "future_kernel_native_consumer_request_launch_abi_current_wna16_arg_compatible": False,
+        "future_kernel_native_consumer_request_launch_abi_requires_wna16_arg_reinterpretation": False,
+        "future_kernel_native_consumer_request_launch_abi_field_read_path": (
+            "request_launch_to_request_ptr_to_kernel_arg_packet_to_program_view_rows"
+        ),
+        "future_kernel_native_consumer_request_launch_abi_packet_chain_depth_required": 5,
+        "future_kernel_native_consumer_request_launch_abi_launch_geometry_required": True,
+        "future_kernel_native_consumer_request_launch_abi_row_window_required": True,
+        "future_kernel_native_consumer_request_launch_ptr_abi_name": (
+            "premap_future_kernel_native_consumer_request_launch_ptr_abi_v1"
+        ),
+        "future_kernel_native_consumer_request_launch_ptr_abi_struct": (
+            "PremapFutureKernelNativeConsumerRequestLaunchPtrV1"
+        ),
+        "future_kernel_native_consumer_request_launch_ptr_abi_result_struct": (
+            "PremapFutureKernelNativeConsumerKernelEntrySummaryV1"
+        ),
+        "future_kernel_native_consumer_request_launch_ptr_abi_mode": (
+            "readonly_future_kernel_native_consumer_request_launch_ptr_abi"
+        ),
+        "future_kernel_native_consumer_request_launch_ptr_abi_source": (
+            "premap_future_kernel_native_consumer_request_launch_abi_v1"
+        ),
+        "future_kernel_native_consumer_request_launch_ptr_abi_default_enabled": False,
+        "future_kernel_native_consumer_request_launch_ptr_abi_payload_bytes_required": 0,
+        "future_kernel_native_consumer_request_launch_ptr_abi_passed_to_kernel_required": False,
+        "future_kernel_native_consumer_request_launch_ptr_abi_current_wna16_arg_compatible": False,
+        "future_kernel_native_consumer_request_launch_ptr_abi_requires_wna16_arg_reinterpretation": False,
+        "future_kernel_native_consumer_request_launch_ptr_abi_field_read_path": (
+            "request_launch_ptr_to_request_launch_to_request_ptr_to_kernel_arg_packet_to_program_view_rows"
+        ),
+        "future_kernel_native_consumer_request_launch_ptr_abi_packet_chain_depth_required": 6,
     }
     for key, expected in expected_native_abi.items():
         observed = native_abi.get(key)
@@ -904,6 +1069,43 @@ def check_kernel_consumer_schema_artifact(path: Path) -> dict[str, Any]:
             FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ENTRY_ARGS_ABI_LAYOUT_FIELDS
         ),
     )
+    request_ptr_layout_fields = _check_layout_field_contract(
+        native_abi=native_abi,
+        failures=failures,
+        reported_key=(
+            "future_kernel_native_consumer_request_ptr_abi_layout_reported"
+        ),
+        fields_key="future_kernel_native_consumer_request_ptr_abi_layout_fields",
+        expected_fields=(
+            FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_PTR_ABI_LAYOUT_FIELDS
+        ),
+    )
+    request_launch_layout_fields = _check_layout_field_contract(
+        native_abi=native_abi,
+        failures=failures,
+        reported_key=(
+            "future_kernel_native_consumer_request_launch_abi_layout_reported"
+        ),
+        fields_key=(
+            "future_kernel_native_consumer_request_launch_abi_layout_fields"
+        ),
+        expected_fields=(
+            FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_LAUNCH_ABI_LAYOUT_FIELDS
+        ),
+    )
+    request_launch_ptr_layout_fields = _check_layout_field_contract(
+        native_abi=native_abi,
+        failures=failures,
+        reported_key=(
+            "future_kernel_native_consumer_request_launch_ptr_abi_layout_reported"
+        ),
+        fields_key=(
+            "future_kernel_native_consumer_request_launch_ptr_abi_layout_fields"
+        ),
+        expected_fields=(
+            FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_LAUNCH_PTR_ABI_LAYOUT_FIELDS
+        ),
+    )
     native_layout_expected = _check_layout_expected_contract(
         native_abi=native_abi,
         failures=failures,
@@ -978,6 +1180,36 @@ def check_kernel_consumer_schema_artifact(path: Path) -> dict[str, Any]:
         ),
         expected_values=(
             FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ENTRY_ARGS_ABI_LAYOUT_EXPECTED
+        ),
+    )
+    request_ptr_layout_expected = _check_layout_expected_contract(
+        native_abi=native_abi,
+        failures=failures,
+        expected_key=(
+            "future_kernel_native_consumer_request_ptr_abi_layout_expected"
+        ),
+        expected_values=(
+            FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_PTR_ABI_LAYOUT_EXPECTED
+        ),
+    )
+    request_launch_layout_expected = _check_layout_expected_contract(
+        native_abi=native_abi,
+        failures=failures,
+        expected_key=(
+            "future_kernel_native_consumer_request_launch_abi_layout_expected"
+        ),
+        expected_values=(
+            FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_LAUNCH_ABI_LAYOUT_EXPECTED
+        ),
+    )
+    request_launch_ptr_layout_expected = _check_layout_expected_contract(
+        native_abi=native_abi,
+        failures=failures,
+        expected_key=(
+            "future_kernel_native_consumer_request_launch_ptr_abi_layout_expected"
+        ),
+        expected_values=(
+            FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_LAUNCH_PTR_ABI_LAYOUT_EXPECTED
         ),
     )
     future_args_layout_expected = _check_layout_expected_contract(
@@ -1288,6 +1520,100 @@ def check_kernel_consumer_schema_artifact(path: Path) -> dict[str, Any]:
                 "future_kernel_native_consumer_kernel_arg_packet_abi_requires_wna16_arg_reinterpretation"
             )
         ),
+        "future_kernel_native_consumer_request_ptr_abi_name": native_abi.get(
+            "future_kernel_native_consumer_request_ptr_abi_name"
+        ),
+        "future_kernel_native_consumer_request_ptr_abi_struct": native_abi.get(
+            "future_kernel_native_consumer_request_ptr_abi_struct"
+        ),
+        "future_kernel_native_consumer_request_ptr_abi_mode": native_abi.get(
+            "future_kernel_native_consumer_request_ptr_abi_mode"
+        ),
+        "future_kernel_native_consumer_request_ptr_abi_source": native_abi.get(
+            "future_kernel_native_consumer_request_ptr_abi_source"
+        ),
+        "future_kernel_native_consumer_request_ptr_abi_field_read_path": native_abi.get(
+            "future_kernel_native_consumer_request_ptr_abi_field_read_path"
+        ),
+        "future_kernel_native_consumer_request_ptr_abi_packet_chain_depth_required": (
+            native_abi.get(
+                "future_kernel_native_consumer_request_ptr_abi_packet_chain_depth_required"
+            )
+        ),
+        "future_kernel_native_consumer_request_ptr_abi_current_wna16_arg_compatible": (
+            native_abi.get(
+                "future_kernel_native_consumer_request_ptr_abi_current_wna16_arg_compatible"
+            )
+        ),
+        "future_kernel_native_consumer_request_ptr_abi_requires_wna16_arg_reinterpretation": (
+            native_abi.get(
+                "future_kernel_native_consumer_request_ptr_abi_requires_wna16_arg_reinterpretation"
+            )
+        ),
+        "future_kernel_native_consumer_request_launch_abi_name": native_abi.get(
+            "future_kernel_native_consumer_request_launch_abi_name"
+        ),
+        "future_kernel_native_consumer_request_launch_abi_struct": native_abi.get(
+            "future_kernel_native_consumer_request_launch_abi_struct"
+        ),
+        "future_kernel_native_consumer_request_launch_abi_mode": native_abi.get(
+            "future_kernel_native_consumer_request_launch_abi_mode"
+        ),
+        "future_kernel_native_consumer_request_launch_abi_source": native_abi.get(
+            "future_kernel_native_consumer_request_launch_abi_source"
+        ),
+        "future_kernel_native_consumer_request_launch_abi_field_read_path": (
+            native_abi.get(
+                "future_kernel_native_consumer_request_launch_abi_field_read_path"
+            )
+        ),
+        "future_kernel_native_consumer_request_launch_abi_packet_chain_depth_required": (
+            native_abi.get(
+                "future_kernel_native_consumer_request_launch_abi_packet_chain_depth_required"
+            )
+        ),
+        "future_kernel_native_consumer_request_launch_abi_current_wna16_arg_compatible": (
+            native_abi.get(
+                "future_kernel_native_consumer_request_launch_abi_current_wna16_arg_compatible"
+            )
+        ),
+        "future_kernel_native_consumer_request_launch_abi_requires_wna16_arg_reinterpretation": (
+            native_abi.get(
+                "future_kernel_native_consumer_request_launch_abi_requires_wna16_arg_reinterpretation"
+            )
+        ),
+        "future_kernel_native_consumer_request_launch_ptr_abi_name": native_abi.get(
+            "future_kernel_native_consumer_request_launch_ptr_abi_name"
+        ),
+        "future_kernel_native_consumer_request_launch_ptr_abi_struct": native_abi.get(
+            "future_kernel_native_consumer_request_launch_ptr_abi_struct"
+        ),
+        "future_kernel_native_consumer_request_launch_ptr_abi_mode": native_abi.get(
+            "future_kernel_native_consumer_request_launch_ptr_abi_mode"
+        ),
+        "future_kernel_native_consumer_request_launch_ptr_abi_source": native_abi.get(
+            "future_kernel_native_consumer_request_launch_ptr_abi_source"
+        ),
+        "future_kernel_native_consumer_request_launch_ptr_abi_field_read_path": (
+            native_abi.get(
+                "future_kernel_native_consumer_request_launch_ptr_abi_field_read_path"
+            )
+        ),
+        "future_kernel_native_consumer_request_launch_ptr_abi_packet_chain_depth_required": (
+            native_abi.get(
+                "future_kernel_native_consumer_request_launch_ptr_abi_packet_chain_depth_required"
+            )
+        ),
+        "future_kernel_native_consumer_request_launch_ptr_abi_current_wna16_arg_compatible": (
+            native_abi.get(
+                "future_kernel_native_consumer_request_launch_ptr_abi_current_wna16_arg_compatible"
+            )
+        ),
+        "future_kernel_native_consumer_request_launch_ptr_abi_requires_wna16_arg_reinterpretation": (
+            native_abi.get(
+                "future_kernel_native_consumer_request_launch_ptr_abi_requires_wna16_arg_reinterpretation"
+            )
+        ),
         "future_kernel_consumer_args_layout_reported": native_abi.get(
             "future_kernel_consumer_args_layout_reported"
         ),
@@ -1382,6 +1708,39 @@ def check_kernel_consumer_schema_artifact(path: Path) -> dict[str, Any]:
         ),
         "future_kernel_native_consumer_kernel_entry_args_abi_layout_expected": (
             kernel_entry_args_layout_expected
+        ),
+        "future_kernel_native_consumer_request_ptr_abi_layout_reported": (
+            native_abi.get(
+                "future_kernel_native_consumer_request_ptr_abi_layout_reported"
+            )
+        ),
+        "future_kernel_native_consumer_request_ptr_abi_layout_fields": (
+            request_ptr_layout_fields
+        ),
+        "future_kernel_native_consumer_request_ptr_abi_layout_expected": (
+            request_ptr_layout_expected
+        ),
+        "future_kernel_native_consumer_request_launch_abi_layout_reported": (
+            native_abi.get(
+                "future_kernel_native_consumer_request_launch_abi_layout_reported"
+            )
+        ),
+        "future_kernel_native_consumer_request_launch_abi_layout_fields": (
+            request_launch_layout_fields
+        ),
+        "future_kernel_native_consumer_request_launch_abi_layout_expected": (
+            request_launch_layout_expected
+        ),
+        "future_kernel_native_consumer_request_launch_ptr_abi_layout_reported": (
+            native_abi.get(
+                "future_kernel_native_consumer_request_launch_ptr_abi_layout_reported"
+            )
+        ),
+        "future_kernel_native_consumer_request_launch_ptr_abi_layout_fields": (
+            request_launch_ptr_layout_fields
+        ),
+        "future_kernel_native_consumer_request_launch_ptr_abi_layout_expected": (
+            request_launch_ptr_layout_expected
         ),
         "rows": rows,
     }

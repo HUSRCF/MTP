@@ -36,6 +36,12 @@ from scripts.check_premap_kernel_consumer_schema import (
     FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ENTRY_ARGS_ABI_LAYOUT_FIELDS,
     FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ARG_PACKET_ABI_LAYOUT_EXPECTED,
     FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ARG_PACKET_ABI_LAYOUT_FIELDS,
+    FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_LAUNCH_ABI_LAYOUT_EXPECTED,
+    FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_LAUNCH_ABI_LAYOUT_FIELDS,
+    FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_LAUNCH_PTR_ABI_LAYOUT_EXPECTED,
+    FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_LAUNCH_PTR_ABI_LAYOUT_FIELDS,
+    FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_PTR_ABI_LAYOUT_EXPECTED,
+    FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_PTR_ABI_LAYOUT_FIELDS,
     FUTURE_KERNEL_NATIVE_CONSUMER_VIEW_ABI_LAYOUT_EXPECTED,
     FUTURE_KERNEL_NATIVE_CONSUMER_VIEW_ABI_LAYOUT_FIELDS,
     FUTURE_KERNEL_NATIVE_CONSUMER_PROGRAM_VIEW_PTR_ABI_LAYOUT_EXPECTED,
@@ -400,6 +406,80 @@ def _valid_schema_payload() -> dict:
             "future_kernel_native_consumer_kernel_arg_packet_abi_passed_to_kernel_required": False,
             "future_kernel_native_consumer_kernel_arg_packet_abi_current_wna16_arg_compatible": False,
             "future_kernel_native_consumer_kernel_arg_packet_abi_requires_wna16_arg_reinterpretation": False,
+            "future_kernel_native_consumer_request_ptr_abi_name": (
+                "premap_future_kernel_native_consumer_request_ptr_abi_v1"
+            ),
+            "future_kernel_native_consumer_request_ptr_abi_struct": (
+                "PremapFutureKernelNativeConsumerRequestPtrV1"
+            ),
+            "future_kernel_native_consumer_request_ptr_abi_result_struct": (
+                "PremapFutureKernelNativeConsumerKernelEntrySummaryV1"
+            ),
+            "future_kernel_native_consumer_request_ptr_abi_mode": (
+                "readonly_future_kernel_native_consumer_request_ptr_abi"
+            ),
+            "future_kernel_native_consumer_request_ptr_abi_source": (
+                "premap_future_kernel_native_consumer_kernel_arg_packet_abi_v1"
+            ),
+            "future_kernel_native_consumer_request_ptr_abi_default_enabled": False,
+            "future_kernel_native_consumer_request_ptr_abi_payload_bytes_required": 0,
+            "future_kernel_native_consumer_request_ptr_abi_passed_to_kernel_required": False,
+            "future_kernel_native_consumer_request_ptr_abi_current_wna16_arg_compatible": False,
+            "future_kernel_native_consumer_request_ptr_abi_requires_wna16_arg_reinterpretation": False,
+            "future_kernel_native_consumer_request_ptr_abi_field_read_path": (
+                "request_ptr_to_kernel_arg_packet_to_program_view_rows"
+            ),
+            "future_kernel_native_consumer_request_ptr_abi_packet_chain_depth_required": 4,
+            "future_kernel_native_consumer_request_launch_abi_name": (
+                "premap_future_kernel_native_consumer_request_launch_abi_v1"
+            ),
+            "future_kernel_native_consumer_request_launch_abi_struct": (
+                "PremapFutureKernelNativeConsumerRequestLaunchV1"
+            ),
+            "future_kernel_native_consumer_request_launch_abi_result_struct": (
+                "PremapFutureKernelNativeConsumerKernelEntrySummaryV1"
+            ),
+            "future_kernel_native_consumer_request_launch_abi_mode": (
+                "readonly_future_kernel_native_consumer_request_launch_abi"
+            ),
+            "future_kernel_native_consumer_request_launch_abi_source": (
+                "premap_future_kernel_native_consumer_request_ptr_abi_v1"
+            ),
+            "future_kernel_native_consumer_request_launch_abi_default_enabled": False,
+            "future_kernel_native_consumer_request_launch_abi_payload_bytes_required": 0,
+            "future_kernel_native_consumer_request_launch_abi_passed_to_kernel_required": False,
+            "future_kernel_native_consumer_request_launch_abi_current_wna16_arg_compatible": False,
+            "future_kernel_native_consumer_request_launch_abi_requires_wna16_arg_reinterpretation": False,
+            "future_kernel_native_consumer_request_launch_abi_field_read_path": (
+                "request_launch_to_request_ptr_to_kernel_arg_packet_to_program_view_rows"
+            ),
+            "future_kernel_native_consumer_request_launch_abi_packet_chain_depth_required": 5,
+            "future_kernel_native_consumer_request_launch_abi_launch_geometry_required": True,
+            "future_kernel_native_consumer_request_launch_abi_row_window_required": True,
+            "future_kernel_native_consumer_request_launch_ptr_abi_name": (
+                "premap_future_kernel_native_consumer_request_launch_ptr_abi_v1"
+            ),
+            "future_kernel_native_consumer_request_launch_ptr_abi_struct": (
+                "PremapFutureKernelNativeConsumerRequestLaunchPtrV1"
+            ),
+            "future_kernel_native_consumer_request_launch_ptr_abi_result_struct": (
+                "PremapFutureKernelNativeConsumerKernelEntrySummaryV1"
+            ),
+            "future_kernel_native_consumer_request_launch_ptr_abi_mode": (
+                "readonly_future_kernel_native_consumer_request_launch_ptr_abi"
+            ),
+            "future_kernel_native_consumer_request_launch_ptr_abi_source": (
+                "premap_future_kernel_native_consumer_request_launch_abi_v1"
+            ),
+            "future_kernel_native_consumer_request_launch_ptr_abi_default_enabled": False,
+            "future_kernel_native_consumer_request_launch_ptr_abi_payload_bytes_required": 0,
+            "future_kernel_native_consumer_request_launch_ptr_abi_passed_to_kernel_required": False,
+            "future_kernel_native_consumer_request_launch_ptr_abi_current_wna16_arg_compatible": False,
+            "future_kernel_native_consumer_request_launch_ptr_abi_requires_wna16_arg_reinterpretation": False,
+            "future_kernel_native_consumer_request_launch_ptr_abi_field_read_path": (
+                "request_launch_ptr_to_request_launch_to_request_ptr_to_kernel_arg_packet_to_program_view_rows"
+            ),
+            "future_kernel_native_consumer_request_launch_ptr_abi_packet_chain_depth_required": 6,
             "future_kernel_native_consumer_abi_layout_reported": True,
             "future_kernel_native_consumer_abi_layout_fields": list(
                 FUTURE_KERNEL_NATIVE_CONSUMER_ABI_LAYOUT_FIELDS
@@ -469,6 +549,27 @@ def _valid_schema_payload() -> dict:
             ),
             "future_kernel_native_consumer_kernel_entry_args_abi_layout_expected": dict(
                 FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ENTRY_ARGS_ABI_LAYOUT_EXPECTED
+            ),
+            "future_kernel_native_consumer_request_ptr_abi_layout_reported": True,
+            "future_kernel_native_consumer_request_ptr_abi_layout_fields": list(
+                FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_PTR_ABI_LAYOUT_FIELDS
+            ),
+            "future_kernel_native_consumer_request_ptr_abi_layout_expected": dict(
+                FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_PTR_ABI_LAYOUT_EXPECTED
+            ),
+            "future_kernel_native_consumer_request_launch_abi_layout_reported": True,
+            "future_kernel_native_consumer_request_launch_abi_layout_fields": list(
+                FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_LAUNCH_ABI_LAYOUT_FIELDS
+            ),
+            "future_kernel_native_consumer_request_launch_abi_layout_expected": dict(
+                FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_LAUNCH_ABI_LAYOUT_EXPECTED
+            ),
+            "future_kernel_native_consumer_request_launch_ptr_abi_layout_reported": True,
+            "future_kernel_native_consumer_request_launch_ptr_abi_layout_fields": list(
+                FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_LAUNCH_PTR_ABI_LAYOUT_FIELDS
+            ),
+            "future_kernel_native_consumer_request_launch_ptr_abi_layout_expected": dict(
+                FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_LAUNCH_PTR_ABI_LAYOUT_EXPECTED
             ),
             "layout": "struct_of_arrays",
             "row_order": "vllm_prelaunch_sorted_token_ids_order",
@@ -703,6 +804,30 @@ def _valid_schema_payload() -> dict:
                     "name": (
                         "MTP_PREMAP_TYPED_CONSUMER_CHECK_"
                         "FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ARG_PACKET_ABI"
+                    ),
+                    "default": "disabled",
+                    "individually_enableable": True,
+                },
+                {
+                    "name": (
+                        "MTP_PREMAP_TYPED_CONSUMER_CHECK_"
+                        "FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_PTR_ABI"
+                    ),
+                    "default": "disabled",
+                    "individually_enableable": True,
+                },
+                {
+                    "name": (
+                        "MTP_PREMAP_TYPED_CONSUMER_CHECK_"
+                        "FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_LAUNCH_ABI"
+                    ),
+                    "default": "disabled",
+                    "individually_enableable": True,
+                },
+                {
+                    "name": (
+                        "MTP_PREMAP_TYPED_CONSUMER_CHECK_"
+                        "FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_LAUNCH_PTR_ABI"
                     ),
                     "default": "disabled",
                     "individually_enableable": True,
