@@ -16,22 +16,48 @@ def _arg_slot_runner_summary(passed: bool = True) -> dict:
         {
             "require_kernel_launch_context_abi": True,
             "require_kernel_invocation_abi": True,
+            "require_kernel_invocation_entry_abi": True,
+            "require_kernel_endpoint_abi": True,
             "kernel_launch_context_checked": True,
             "kernel_launch_context_all_handle_fields_read": True,
+            "kernel_launch_context_error_count": 0,
             "kernel_launch_context_packet_chain_depth": 10,
             "kernel_launch_context_payload_bytes": 0,
             "kernel_launch_context_passed_to_kernel": False,
             "kernel_launch_context_kernel_arg_pass_allowed": False,
             "kernel_launch_context_changes_kernel_launch_args": False,
             "kernel_launch_context_current_wna16_arg_compatible": False,
+            "kernel_launch_context_requires_wna16_arg_reinterpretation": False,
             "kernel_invocation_checked": True,
             "kernel_invocation_all_handle_fields_read": True,
+            "kernel_invocation_error_count": 0,
             "kernel_invocation_packet_chain_depth": 11,
             "kernel_invocation_payload_bytes": 0,
             "kernel_invocation_passed_to_kernel": False,
             "kernel_invocation_kernel_arg_pass_allowed": False,
             "kernel_invocation_changes_kernel_launch_args": False,
             "kernel_invocation_current_wna16_arg_compatible": False,
+            "kernel_invocation_requires_wna16_arg_reinterpretation": False,
+            "kernel_invocation_entry_checked": True,
+            "kernel_invocation_entry_all_handle_fields_read": True,
+            "kernel_invocation_entry_error_count": 0,
+            "kernel_invocation_entry_packet_chain_depth": 11,
+            "kernel_invocation_entry_payload_bytes": 0,
+            "kernel_invocation_entry_passed_to_kernel": False,
+            "kernel_invocation_entry_kernel_arg_pass_allowed": False,
+            "kernel_invocation_entry_changes_kernel_launch_args": False,
+            "kernel_invocation_entry_current_wna16_arg_compatible": False,
+            "kernel_invocation_entry_requires_wna16_arg_reinterpretation": False,
+            "kernel_endpoint_checked": True,
+            "kernel_endpoint_all_handle_fields_read": True,
+            "kernel_endpoint_error_count": 0,
+            "kernel_endpoint_packet_chain_depth": 12,
+            "kernel_endpoint_payload_bytes": 0,
+            "kernel_endpoint_passed_to_kernel": False,
+            "kernel_endpoint_kernel_arg_pass_allowed": False,
+            "kernel_endpoint_changes_kernel_launch_args": False,
+            "kernel_endpoint_current_wna16_arg_compatible": False,
+            "kernel_endpoint_requires_wna16_arg_reinterpretation": False,
         }
     )
     return payload
@@ -144,6 +170,23 @@ def test_check_closure_artifact_rejects_missing_invocation_abi(tmp_path: Path):
     assert "arg_slot_runner_kernel_invocation_checked_mismatch" in result["failures"]
 
 
+def test_check_closure_artifact_rejects_missing_endpoint_abi(tmp_path: Path):
+    path = tmp_path / "closure.json"
+    payload = _closure_payload()
+    payload["summaries"]["arg_slot_runner"]["require_kernel_endpoint_abi"] = False
+    payload["summaries"]["arg_slot_runner"]["kernel_endpoint_checked"] = False
+    _write_json(path, payload)
+
+    result = check_closure_artifact(path)
+
+    assert result["passed"] is False
+    assert (
+        "arg_slot_runner_require_kernel_endpoint_abi_mismatch"
+        in result["failures"]
+    )
+    assert "arg_slot_runner_kernel_endpoint_checked_mismatch" in result["failures"]
+
+
 def test_check_closure_artifact_rejects_invocation_kernel_boundary_mutation(
     tmp_path: Path,
 ):
@@ -156,6 +199,22 @@ def test_check_closure_artifact_rejects_invocation_kernel_boundary_mutation(
 
     assert result["passed"] is False
     assert "arg_slot_runner_kernel_invocation_passed_to_kernel_mismatch" in result[
+        "failures"
+    ]
+
+
+def test_check_closure_artifact_rejects_endpoint_kernel_boundary_mutation(
+    tmp_path: Path,
+):
+    path = tmp_path / "closure.json"
+    payload = _closure_payload()
+    payload["summaries"]["arg_slot_runner"]["kernel_endpoint_passed_to_kernel"] = True
+    _write_json(path, payload)
+
+    result = check_closure_artifact(path)
+
+    assert result["passed"] is False
+    assert "arg_slot_runner_kernel_endpoint_passed_to_kernel_mismatch" in result[
         "failures"
     ]
 

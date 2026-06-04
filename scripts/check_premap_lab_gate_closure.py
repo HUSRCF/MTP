@@ -37,25 +37,49 @@ REQUIRED_STEPS = (
 )
 
 
-def _arg_slot_invocation_summary_failures(summary: dict[str, Any]) -> list[str]:
+def _arg_slot_endpoint_summary_failures(summary: dict[str, Any]) -> list[str]:
     failures: list[str] = []
     expected = {
         "require_kernel_launch_context_abi": True,
         "require_kernel_invocation_abi": True,
+        "require_kernel_invocation_entry_abi": True,
+        "require_kernel_endpoint_abi": True,
         "kernel_launch_context_checked": True,
         "kernel_launch_context_all_handle_fields_read": True,
+        "kernel_launch_context_error_count": 0,
         "kernel_launch_context_payload_bytes": 0,
         "kernel_launch_context_passed_to_kernel": False,
         "kernel_launch_context_kernel_arg_pass_allowed": False,
         "kernel_launch_context_changes_kernel_launch_args": False,
         "kernel_launch_context_current_wna16_arg_compatible": False,
+        "kernel_launch_context_requires_wna16_arg_reinterpretation": False,
         "kernel_invocation_checked": True,
         "kernel_invocation_all_handle_fields_read": True,
+        "kernel_invocation_error_count": 0,
         "kernel_invocation_payload_bytes": 0,
         "kernel_invocation_passed_to_kernel": False,
         "kernel_invocation_kernel_arg_pass_allowed": False,
         "kernel_invocation_changes_kernel_launch_args": False,
         "kernel_invocation_current_wna16_arg_compatible": False,
+        "kernel_invocation_requires_wna16_arg_reinterpretation": False,
+        "kernel_invocation_entry_checked": True,
+        "kernel_invocation_entry_all_handle_fields_read": True,
+        "kernel_invocation_entry_error_count": 0,
+        "kernel_invocation_entry_payload_bytes": 0,
+        "kernel_invocation_entry_passed_to_kernel": False,
+        "kernel_invocation_entry_kernel_arg_pass_allowed": False,
+        "kernel_invocation_entry_changes_kernel_launch_args": False,
+        "kernel_invocation_entry_current_wna16_arg_compatible": False,
+        "kernel_invocation_entry_requires_wna16_arg_reinterpretation": False,
+        "kernel_endpoint_checked": True,
+        "kernel_endpoint_all_handle_fields_read": True,
+        "kernel_endpoint_error_count": 0,
+        "kernel_endpoint_payload_bytes": 0,
+        "kernel_endpoint_passed_to_kernel": False,
+        "kernel_endpoint_kernel_arg_pass_allowed": False,
+        "kernel_endpoint_changes_kernel_launch_args": False,
+        "kernel_endpoint_current_wna16_arg_compatible": False,
+        "kernel_endpoint_requires_wna16_arg_reinterpretation": False,
     }
     for key, expected_value in expected.items():
         if summary.get(key) != expected_value:
@@ -63,6 +87,8 @@ def _arg_slot_invocation_summary_failures(summary: dict[str, Any]) -> list[str]:
     for key in (
         "kernel_launch_context_packet_chain_depth",
         "kernel_invocation_packet_chain_depth",
+        "kernel_invocation_entry_packet_chain_depth",
+        "kernel_endpoint_packet_chain_depth",
     ):
         value = summary.get(key)
         if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
@@ -163,7 +189,7 @@ def check_closure_artifact(
             failures.append(f"{summary_name}_summary_not_passed")
     arg_slot_summary = summaries.get("arg_slot_runner")
     if isinstance(arg_slot_summary, dict):
-        failures.extend(_arg_slot_invocation_summary_failures(arg_slot_summary))
+        failures.extend(_arg_slot_endpoint_summary_failures(arg_slot_summary))
 
     failures.extend(
         _tail_window_probe_failures(

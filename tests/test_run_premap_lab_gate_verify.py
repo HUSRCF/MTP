@@ -24,22 +24,48 @@ def _passing_lab_gate_statuses() -> dict[str, dict]:
             "tail_window_probe_enabled": False,
             "arg_slot_runner_require_kernel_launch_context_abi": True,
             "arg_slot_runner_require_kernel_invocation_abi": True,
+            "arg_slot_runner_require_kernel_invocation_entry_abi": True,
+            "arg_slot_runner_require_kernel_endpoint_abi": True,
             "arg_slot_runner_kernel_launch_context_checked": True,
             "arg_slot_runner_kernel_launch_context_all_handle_fields_read": True,
+            "arg_slot_runner_kernel_launch_context_error_count": 0,
             "arg_slot_runner_kernel_launch_context_packet_chain_depth": 10,
             "arg_slot_runner_kernel_launch_context_payload_bytes": 0,
             "arg_slot_runner_kernel_launch_context_passed_to_kernel": False,
             "arg_slot_runner_kernel_launch_context_kernel_arg_pass_allowed": False,
             "arg_slot_runner_kernel_launch_context_changes_kernel_launch_args": False,
             "arg_slot_runner_kernel_launch_context_current_wna16_arg_compatible": False,
+            "arg_slot_runner_kernel_launch_context_requires_wna16_arg_reinterpretation": False,
             "arg_slot_runner_kernel_invocation_checked": True,
             "arg_slot_runner_kernel_invocation_all_handle_fields_read": True,
+            "arg_slot_runner_kernel_invocation_error_count": 0,
             "arg_slot_runner_kernel_invocation_packet_chain_depth": 11,
             "arg_slot_runner_kernel_invocation_payload_bytes": 0,
             "arg_slot_runner_kernel_invocation_passed_to_kernel": False,
             "arg_slot_runner_kernel_invocation_kernel_arg_pass_allowed": False,
             "arg_slot_runner_kernel_invocation_changes_kernel_launch_args": False,
             "arg_slot_runner_kernel_invocation_current_wna16_arg_compatible": False,
+            "arg_slot_runner_kernel_invocation_requires_wna16_arg_reinterpretation": False,
+            "arg_slot_runner_kernel_invocation_entry_checked": True,
+            "arg_slot_runner_kernel_invocation_entry_all_handle_fields_read": True,
+            "arg_slot_runner_kernel_invocation_entry_error_count": 0,
+            "arg_slot_runner_kernel_invocation_entry_packet_chain_depth": 11,
+            "arg_slot_runner_kernel_invocation_entry_payload_bytes": 0,
+            "arg_slot_runner_kernel_invocation_entry_passed_to_kernel": False,
+            "arg_slot_runner_kernel_invocation_entry_kernel_arg_pass_allowed": False,
+            "arg_slot_runner_kernel_invocation_entry_changes_kernel_launch_args": False,
+            "arg_slot_runner_kernel_invocation_entry_current_wna16_arg_compatible": False,
+            "arg_slot_runner_kernel_invocation_entry_requires_wna16_arg_reinterpretation": False,
+            "arg_slot_runner_kernel_endpoint_checked": True,
+            "arg_slot_runner_kernel_endpoint_all_handle_fields_read": True,
+            "arg_slot_runner_kernel_endpoint_error_count": 0,
+            "arg_slot_runner_kernel_endpoint_packet_chain_depth": 12,
+            "arg_slot_runner_kernel_endpoint_payload_bytes": 0,
+            "arg_slot_runner_kernel_endpoint_passed_to_kernel": False,
+            "arg_slot_runner_kernel_endpoint_kernel_arg_pass_allowed": False,
+            "arg_slot_runner_kernel_endpoint_changes_kernel_launch_args": False,
+            "arg_slot_runner_kernel_endpoint_current_wna16_arg_compatible": False,
+            "arg_slot_runner_kernel_endpoint_requires_wna16_arg_reinterpretation": False,
         },
         "default_closure_check": {
             "exists": True,
@@ -370,12 +396,33 @@ def test_status_failures_reject_default_closure_without_invocation_abi():
     )
 
 
+def test_status_failures_reject_default_closure_without_endpoint_abi():
+    statuses = _passing_lab_gate_statuses()
+    statuses["default_closure"]["arg_slot_runner_require_kernel_endpoint_abi"] = False
+    statuses["default_closure"]["arg_slot_runner_kernel_endpoint_checked"] = False
+
+    failures = _status_failures(statuses)
+
+    assert (
+        "default_closure_arg_slot_runner_require_kernel_endpoint_abi_mismatch"
+        in failures
+    )
+    assert (
+        "default_closure_arg_slot_runner_kernel_endpoint_checked_mismatch"
+        in failures
+    )
+
+
 def test_status_failures_reject_invalid_default_closure_packet_depth():
     statuses = _passing_lab_gate_statuses()
     statuses["default_closure"][
         "arg_slot_runner_kernel_launch_context_packet_chain_depth"
     ] = False
     statuses["default_closure"]["arg_slot_runner_kernel_invocation_packet_chain_depth"] = 0
+    statuses["default_closure"][
+        "arg_slot_runner_kernel_invocation_entry_packet_chain_depth"
+    ] = None
+    statuses["default_closure"]["arg_slot_runner_kernel_endpoint_packet_chain_depth"] = -1
 
     failures = _status_failures(statuses)
 
@@ -385,6 +432,14 @@ def test_status_failures_reject_invalid_default_closure_packet_depth():
     )
     assert (
         "default_closure_arg_slot_runner_kernel_invocation_packet_chain_depth_invalid"
+        in failures
+    )
+    assert (
+        "default_closure_arg_slot_runner_kernel_invocation_entry_packet_chain_depth_invalid"
+        in failures
+    )
+    assert (
+        "default_closure_arg_slot_runner_kernel_endpoint_packet_chain_depth_invalid"
         in failures
     )
 
@@ -403,9 +458,13 @@ def test_load_status_flattens_default_closure_invocation_summary(tmp_path: Path)
                 "summaries": {
                     "arg_slot_runner": {
                         "require_kernel_invocation_abi": True,
+                        "require_kernel_endpoint_abi": True,
                         "kernel_invocation_checked": True,
                         "kernel_invocation_all_handle_fields_read": True,
                         "kernel_invocation_packet_chain_depth": 11,
+                        "kernel_endpoint_checked": True,
+                        "kernel_endpoint_all_handle_fields_read": True,
+                        "kernel_endpoint_packet_chain_depth": 12,
                     }
                 },
             }
@@ -420,6 +479,10 @@ def test_load_status_flattens_default_closure_invocation_summary(tmp_path: Path)
     assert status["arg_slot_runner_kernel_invocation_checked"] is True
     assert status["arg_slot_runner_kernel_invocation_all_handle_fields_read"] is True
     assert status["arg_slot_runner_kernel_invocation_packet_chain_depth"] == 11
+    assert status["arg_slot_runner_require_kernel_endpoint_abi"] is True
+    assert status["arg_slot_runner_kernel_endpoint_checked"] is True
+    assert status["arg_slot_runner_kernel_endpoint_all_handle_fields_read"] is True
+    assert status["arg_slot_runner_kernel_endpoint_packet_chain_depth"] == 12
 
 
 def test_status_failures_reject_tail_checker_without_tail_requirement():

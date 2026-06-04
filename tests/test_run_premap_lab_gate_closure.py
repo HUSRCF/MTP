@@ -12,19 +12,17 @@ from scripts.run_premap_lab_gate_closure import (
 )
 
 
-def test_run_premap_lab_gate_closure_defaults_use_invocation_artifacts():
+def test_run_premap_lab_gate_closure_defaults_use_endpoint_artifacts():
     args = _build_parser().parse_args([])
 
     assert args.arg_slot_runner_json.name == (
-        "online_merged_future_native_arg_slot_invocation_canary_runner.json"
+        "online_merged_future_native_endpoint_canary_runner.json"
     )
     assert args.arg_slot_stub_json.name == (
-        "typed_consumer_stub_gpu1_online_merged_future_native_arg_slot_"
-        "invocation_canary.json"
+        "typed_consumer_stub_gpu1_online_merged_endpoint_canary.json"
     )
     assert args.arg_slot_merged_json.name == (
-        "online_merged_prelaunch_typed_consumer_input_arg_slot_"
-        "32tables_invocation.json"
+        "online_merged_prelaunch_typed_consumer_input_endpoint_canary.json"
     )
 
 
@@ -79,6 +77,7 @@ def test_run_premap_lab_gate_closure_dry_run_records_canonical_steps(
     arg_slot_cmd = result["steps"]["arg_slot_runner"]["cmd"]
     assert "--require-kernel-launch-context-abi" in arg_slot_cmd
     assert "--require-kernel-invocation-abi" in arg_slot_cmd
+    assert "--require-kernel-endpoint-abi" in arg_slot_cmd
 
 
 def test_runner_recorded_path_failures_reject_explicit_sources():
