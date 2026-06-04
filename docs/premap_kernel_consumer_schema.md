@@ -730,9 +730,28 @@ argument slot compatible with the typed table.
 2. Keep the pointer-backed program-view and kernel-arg packet ABIs as stricter
    standalone native-consumer bridges.  They model future kernel argument
    objects, but remain outside the current WNA16 fused-MoE launch.
-3. Build a real WNA16-adjacent consumer path only by adding an explicit typed
-   ABI slot to a future native consumer or standalone adapter. Do not reinterpret
-   the typed table as the current WNA16 argument list.
-4. Only after that compatible consumer path passes should a single-field live
+3. The WNA16-adjacent typed ABI slot is now required by lab preflight as
+   `future_kernel_wna16_adjacent_typed_slot_canary_json`.  It is an explicit
+   future typed slot sourced from the endpoint-pointer ABI:
+
+   ```text
+   slot_name = premap_wna16_adjacent_typed_consumer_slot_v1
+   mode = readonly_wna16_adjacent_typed_consumer_slot
+   packet_chain_depth = endpoint_ptr_packet_chain_depth + 1
+   payload_bytes = 0
+   passed_to_kernel = false
+   changes_kernel_launch_args = false
+   current_wna16_arg_compatible = false
+   requires_wna16_arg_reinterpretation = false
+   explicit_typed_abi_slot = true
+   reuses_current_wna16_arg_slot = false
+   ```
+
+   This still does not reinterpret the typed table as the current WNA16
+   argument list.
+4. Build the next real consumer path by adding an independent native or
+   standalone adapter that accepts this explicit typed ABI slot as its own
+   future argument object. Keep the current WNA16 fused-MoE launch untouched.
+5. Only after that compatible consumer path passes should a single-field live
    handoff canary be considered, default disabled, starting with metadata/scale
    handles rather than payload pointers.

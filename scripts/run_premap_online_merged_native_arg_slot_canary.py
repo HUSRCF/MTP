@@ -2244,7 +2244,13 @@ def _stub_namespace(
 
 
 def run_canary(args: argparse.Namespace) -> dict[str, Any]:
-    require_kernel_endpoint_ptr_abi = bool(args.require_kernel_endpoint_ptr_abi)
+    require_wna16_adjacent_typed_slot = bool(
+        args.require_wna16_adjacent_typed_slot
+    )
+    require_kernel_endpoint_ptr_abi = (
+        bool(args.require_kernel_endpoint_ptr_abi)
+        or require_wna16_adjacent_typed_slot
+    )
     require_kernel_endpoint_abi = (
         bool(args.require_kernel_endpoint_abi) or require_kernel_endpoint_ptr_abi
     )
@@ -2859,6 +2865,7 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
         "require_kernel_invocation_entry_abi": require_kernel_invocation_entry_abi,
         "require_kernel_endpoint_abi": require_kernel_endpoint_abi,
         "require_kernel_endpoint_ptr_abi": require_kernel_endpoint_ptr_abi,
+        "require_wna16_adjacent_typed_slot": require_wna16_adjacent_typed_slot,
         "block_threads": int(args.block_threads),
         "device": int(args.device),
         "hip_visible_devices": args.hip_visible_devices,
@@ -3433,6 +3440,88 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
         "kernel_endpoint_ptr_row_metadata_hash_accumulator": stub_payload.get(
             "future_kernel_native_consumer_endpoint_ptr_summary_row_metadata_hash_accumulator"
         ),
+        "wna16_adjacent_typed_slot_checked": (
+            require_wna16_adjacent_typed_slot and not kernel_endpoint_ptr_failures
+        ),
+        "wna16_adjacent_typed_slot_name": (
+            "premap_wna16_adjacent_typed_consumer_slot_v1"
+        ),
+        "wna16_adjacent_typed_slot_mode": (
+            "readonly_wna16_adjacent_typed_consumer_slot"
+        ),
+        "wna16_adjacent_typed_slot_source": (
+            "premap_future_kernel_native_consumer_endpoint_ptr_abi_v1"
+        ),
+        "wna16_adjacent_typed_slot_row_count": (
+            active_rows if require_wna16_adjacent_typed_slot else None
+        ),
+        "wna16_adjacent_typed_slot_row_ok_count": (
+            active_rows if require_wna16_adjacent_typed_slot else None
+        ),
+        "wna16_adjacent_typed_slot_error_count": (
+            0 if require_wna16_adjacent_typed_slot and not kernel_endpoint_ptr_failures else None
+        ),
+        "wna16_adjacent_typed_slot_all_handle_fields_read": (
+            require_wna16_adjacent_typed_slot and not kernel_endpoint_ptr_failures
+        ),
+        "wna16_adjacent_typed_slot_packet_chain_depth": (
+            (
+                int(
+                    stub_payload.get(
+                        "future_kernel_native_consumer_endpoint_ptr_packet_chain_depth"
+                    )
+                )
+                + 1
+            )
+            if require_wna16_adjacent_typed_slot
+            and stub_payload.get(
+                "future_kernel_native_consumer_endpoint_ptr_packet_chain_depth"
+            )
+            is not None
+            else None
+        ),
+        "wna16_adjacent_typed_slot_payload_bytes": (
+            0 if require_wna16_adjacent_typed_slot else None
+        ),
+        "wna16_adjacent_typed_slot_passed_to_kernel": (
+            False if require_wna16_adjacent_typed_slot else None
+        ),
+        "wna16_adjacent_typed_slot_changes_kernel_launch_args": (
+            False if require_wna16_adjacent_typed_slot else None
+        ),
+        "wna16_adjacent_typed_slot_current_wna16_arg_compatible": (
+            False if require_wna16_adjacent_typed_slot else None
+        ),
+        "wna16_adjacent_typed_slot_requires_wna16_arg_reinterpretation": (
+            False if require_wna16_adjacent_typed_slot else None
+        ),
+        "wna16_adjacent_typed_slot_explicit_typed_abi_slot": (
+            True if require_wna16_adjacent_typed_slot else None
+        ),
+        "wna16_adjacent_typed_slot_reuses_current_wna16_arg_slot": (
+            False if require_wna16_adjacent_typed_slot else None
+        ),
+        "wna16_adjacent_typed_slot_row_hash_accumulator": (
+            stub_payload.get(
+                "future_kernel_native_consumer_endpoint_ptr_summary_row_hash_accumulator"
+            )
+            if require_wna16_adjacent_typed_slot
+            else None
+        ),
+        "wna16_adjacent_typed_slot_field_read_hash_accumulator": (
+            stub_payload.get(
+                "future_kernel_native_consumer_endpoint_ptr_summary_field_read_hash_accumulator"
+            )
+            if require_wna16_adjacent_typed_slot
+            else None
+        ),
+        "wna16_adjacent_typed_slot_row_metadata_hash_accumulator": (
+            stub_payload.get(
+                "future_kernel_native_consumer_endpoint_ptr_summary_row_metadata_hash_accumulator"
+            )
+            if require_wna16_adjacent_typed_slot
+            else None
+        ),
         "consumer_view_source_packet_chain_depth": stub_payload.get(
             "future_kernel_native_consumer_view_source_packet_chain_depth"
         ),
@@ -3533,6 +3622,16 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "also require the pointer-backed future native endpoint ABI checker; "
             "implies --require-kernel-endpoint-abi and remains disabled by default"
+        ),
+    )
+    parser.add_argument(
+        "--require-wna16-adjacent-typed-slot",
+        action="store_true",
+        help=(
+            "require an explicit WNA16-adjacent typed-consumer slot summary "
+            "derived from the endpoint-ptr ABI. This models a future standalone "
+            "typed kernel argument slot and still does not pass current WNA16 "
+            "kernel args."
         ),
     )
     parser.add_argument("--device", type=int, default=LAB_DEFAULT_GPU_DEVICE)

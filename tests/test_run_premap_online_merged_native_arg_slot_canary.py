@@ -1291,6 +1291,89 @@ def test_online_merged_arg_slot_canary_dry_run_accepts_endpoint_ptr(
     )
 
 
+def test_online_merged_arg_slot_canary_dry_run_accepts_wna16_adjacent_typed_slot(
+    tmp_path: Path,
+):
+    module = _load_module()
+    first = tmp_path / "input0.json"
+    second = tmp_path / "input1.json"
+    runner = tmp_path / "runner.json"
+    stub = tmp_path / "stub.json"
+    _write_input(first, start=0, rows=3, export_index=0)
+    _write_input(second, start=100, rows=4, export_index=1)
+    _write_runner(runner, [first, second])
+
+    args = module.build_parser().parse_args(
+        [
+            "--runner-json",
+            str(runner),
+            "--min-source-count",
+            "2",
+            "--min-total-rows",
+            "7",
+            "--block-threads",
+            "4",
+            "--require-wna16-adjacent-typed-slot",
+            "--merged-output-json",
+            str(tmp_path / "merged.json"),
+            "--stub-output-json",
+            str(stub),
+            "--output-json",
+            str(tmp_path / "report.json"),
+            "--dry-run",
+        ]
+    )
+
+    result = module.run_canary(args)
+    stub_payload = json.loads(stub.read_text(encoding="utf-8"))
+
+    assert result["passed"] is True
+    assert result["require_wna16_adjacent_typed_slot"] is True
+    assert result["require_kernel_endpoint_ptr_abi"] is True
+    assert result["kernel_endpoint_ptr_checked"] is True
+    assert result["wna16_adjacent_typed_slot_checked"] is True
+    assert (
+        result["wna16_adjacent_typed_slot_name"]
+        == "premap_wna16_adjacent_typed_consumer_slot_v1"
+    )
+    assert (
+        result["wna16_adjacent_typed_slot_mode"]
+        == "readonly_wna16_adjacent_typed_consumer_slot"
+    )
+    assert (
+        result["wna16_adjacent_typed_slot_source"]
+        == "premap_future_kernel_native_consumer_endpoint_ptr_abi_v1"
+    )
+    assert result["wna16_adjacent_typed_slot_row_count"] == 7
+    assert result["wna16_adjacent_typed_slot_row_ok_count"] == 7
+    assert result["wna16_adjacent_typed_slot_error_count"] == 0
+    assert result["wna16_adjacent_typed_slot_all_handle_fields_read"] is True
+    assert result["wna16_adjacent_typed_slot_packet_chain_depth"] == 14
+    assert result["wna16_adjacent_typed_slot_payload_bytes"] == 0
+    assert result["wna16_adjacent_typed_slot_passed_to_kernel"] is False
+    assert result["wna16_adjacent_typed_slot_changes_kernel_launch_args"] is False
+    assert result["wna16_adjacent_typed_slot_current_wna16_arg_compatible"] is False
+    assert (
+        result["wna16_adjacent_typed_slot_requires_wna16_arg_reinterpretation"]
+        is False
+    )
+    assert result["wna16_adjacent_typed_slot_explicit_typed_abi_slot"] is True
+    assert result["wna16_adjacent_typed_slot_reuses_current_wna16_arg_slot"] is False
+    assert (
+        result["wna16_adjacent_typed_slot_row_hash_accumulator"]
+        == result["kernel_endpoint_ptr_row_hash_accumulator"]
+    )
+    assert (
+        result["wna16_adjacent_typed_slot_field_read_hash_accumulator"]
+        == result["kernel_endpoint_ptr_field_read_hash_accumulator"]
+    )
+    assert module.ENDPOINT_PTR_MACRO in stub_payload["requested_macros"]
+    assert stub_payload["requested_macros"] == module.arg_slot_macros(
+        "scale_metadata_handle",
+        include_endpoint_ptr=True,
+    )
+
+
 def test_online_merged_arg_slot_canary_mock_real_run_accepts_invocation(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

@@ -264,6 +264,7 @@ REQUIRED_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
     "future_kernel_native_arg_slot_online_merged_packed_weight_mirror_runner_json",
     "future_kernel_native_arg_slot_online_merged_multiprogram_runner_json",
     "future_kernel_native_arg_slot_online_merged_multiprogram_canary_json",
+    "future_kernel_wna16_adjacent_typed_slot_canary_json",
     "future_kernel_native_dispatch_consumer_online_artifact_check_32_128export_json",
     "future_kernel_native_dispatch_consumer_online_runner_32_128export_json",
 }
@@ -1447,6 +1448,7 @@ def _validate_required_evidence_payload(
         "future_kernel_native_arg_slot_multiprogram_canary_json",
         "future_kernel_native_arg_slot_online_merged_multiprogram_runner_json",
         "future_kernel_native_arg_slot_online_merged_multiprogram_canary_json",
+        "future_kernel_wna16_adjacent_typed_slot_canary_json",
         "future_kernel_native_arg_slot_packed_weight_mirror_canary_json",
         *ARG_SLOT_ONLINE_MERGED_MIRROR_RUNNER_LABEL_BY_FIELD.values(),
         *ARG_SLOT_ONLINE_MERGED_MIRROR_STUB_LABEL_BY_FIELD.values(),
@@ -1537,6 +1539,17 @@ def _validate_required_evidence_payload(
                 evidence,
                 root=root,
                 evidence_paths=evidence_paths,
+            )
+        ]
+    if evidence_label == "future_kernel_wna16_adjacent_typed_slot_canary_json":
+        return [
+            f"{evidence_label}:{failure}"
+            for failure in _validate_future_native_arg_slot_online_merged_multiprogram_runner_evidence(
+                evidence,
+                root=root,
+                evidence_paths=evidence_paths,
+                require_wna16_adjacent_typed_slot=True,
+                validate_stub_output=False,
             )
         ]
     for (
@@ -5244,6 +5257,8 @@ def _validate_future_native_arg_slot_online_merged_multiprogram_runner_evidence(
     require_kernel_invocation_entry_abi: bool = True,
     require_kernel_endpoint_abi: bool = True,
     require_kernel_endpoint_ptr_abi: bool = True,
+    require_wna16_adjacent_typed_slot: bool = False,
+    validate_stub_output: bool = True,
 ) -> list[str]:
     failure_prefix = "online_merged_multiprogram_arg_slot_runner"
     failures: list[str] = []
@@ -5302,6 +5317,27 @@ def _validate_future_native_arg_slot_online_merged_multiprogram_runner_evidence(
         and evidence.get("require_kernel_endpoint_ptr_abi") is not True
     ):
         failures.append(f"{failure_prefix}_require_kernel_endpoint_ptr_abi_missing")
+    if require_wna16_adjacent_typed_slot:
+        if evidence.get("require_wna16_adjacent_typed_slot") is not True:
+            failures.append(
+                f"{failure_prefix}_require_wna16_adjacent_typed_slot_missing"
+            )
+        if evidence.get("wna16_adjacent_typed_slot_checked") is not True:
+            failures.append(f"{failure_prefix}_wna16_adjacent_typed_slot_unchecked")
+        if evidence.get("wna16_adjacent_typed_slot_name") != (
+            "premap_wna16_adjacent_typed_consumer_slot_v1"
+        ):
+            failures.append(f"{failure_prefix}_wna16_adjacent_typed_slot_name_mismatch")
+        if evidence.get("wna16_adjacent_typed_slot_mode") != (
+            "readonly_wna16_adjacent_typed_consumer_slot"
+        ):
+            failures.append(f"{failure_prefix}_wna16_adjacent_typed_slot_mode_mismatch")
+        if evidence.get("wna16_adjacent_typed_slot_source") != (
+            "premap_future_kernel_native_consumer_endpoint_ptr_abi_v1"
+        ):
+            failures.append(
+                f"{failure_prefix}_wna16_adjacent_typed_slot_source_mismatch"
+            )
 
     source_count = _int_metric(evidence, "selected_source_count")
     merged_row_count = _int_metric(evidence, "merged_row_count")
@@ -5390,6 +5426,67 @@ def _validate_future_native_arg_slot_online_merged_multiprogram_runner_evidence(
                 expected_rows=dispatch_active_rows,
             )
         )
+    if require_wna16_adjacent_typed_slot:
+        slot_row_count = _int_metric(evidence, "wna16_adjacent_typed_slot_row_count")
+        slot_row_ok_count = _int_metric(
+            evidence, "wna16_adjacent_typed_slot_row_ok_count"
+        )
+        slot_error_count = _int_metric(
+            evidence, "wna16_adjacent_typed_slot_error_count"
+        )
+        slot_payload_bytes = _int_metric(
+            evidence, "wna16_adjacent_typed_slot_payload_bytes"
+        )
+        slot_packet_chain_depth = _int_metric(
+            evidence, "wna16_adjacent_typed_slot_packet_chain_depth"
+        )
+        endpoint_packet_chain_depth = _int_metric(
+            evidence, "kernel_endpoint_ptr_packet_chain_depth"
+        )
+        if dispatch_active_rows is not None and slot_row_count != dispatch_active_rows:
+            failures.append(
+                f"{failure_prefix}_wna16_adjacent_typed_slot_row_count_mismatch"
+            )
+        if dispatch_active_rows is not None and slot_row_ok_count != dispatch_active_rows:
+            failures.append(
+                f"{failure_prefix}_wna16_adjacent_typed_slot_row_ok_count_mismatch"
+            )
+        if slot_error_count != 0:
+            failures.append(
+                f"{failure_prefix}_wna16_adjacent_typed_slot_error_count_mismatch"
+            )
+        if evidence.get("wna16_adjacent_typed_slot_all_handle_fields_read") is not True:
+            failures.append(
+                f"{failure_prefix}_wna16_adjacent_typed_slot_all_fields_unchecked"
+            )
+        if (
+            endpoint_packet_chain_depth is not None
+            and slot_packet_chain_depth != endpoint_packet_chain_depth + 1
+        ):
+            failures.append(
+                f"{failure_prefix}_wna16_adjacent_typed_slot_packet_chain_depth_mismatch"
+            )
+        if slot_payload_bytes != 0:
+            failures.append(
+                f"{failure_prefix}_wna16_adjacent_typed_slot_payload_bytes_mismatch"
+            )
+        for key, expected_value in {
+            "wna16_adjacent_typed_slot_passed_to_kernel": False,
+            "wna16_adjacent_typed_slot_changes_kernel_launch_args": False,
+            "wna16_adjacent_typed_slot_current_wna16_arg_compatible": False,
+            "wna16_adjacent_typed_slot_requires_wna16_arg_reinterpretation": False,
+            "wna16_adjacent_typed_slot_explicit_typed_abi_slot": True,
+            "wna16_adjacent_typed_slot_reuses_current_wna16_arg_slot": False,
+        }.items():
+            if evidence.get(key) is not expected_value:
+                failures.append(f"{failure_prefix}_{key}_mismatch")
+        for key in (
+            "wna16_adjacent_typed_slot_row_hash_accumulator",
+            "wna16_adjacent_typed_slot_field_read_hash_accumulator",
+            "wna16_adjacent_typed_slot_row_metadata_hash_accumulator",
+        ):
+            if _hex64_metric(evidence, key) is None:
+                failures.append(f"{failure_prefix}_{key}_invalid")
 
     stub_summary = evidence.get("stub_summary")
     if not isinstance(stub_summary, dict):
@@ -5482,6 +5579,8 @@ def _validate_future_native_arg_slot_online_merged_multiprogram_runner_evidence(
     stub_output = evidence.get("stub_output_json")
     if not isinstance(stub_output, str) or not stub_output:
         failures.append(f"{failure_prefix}_stub_output_json_missing")
+        return failures
+    if not validate_stub_output:
         return failures
     if evidence_paths is not None and expected_stub_output_label is not None:
         expected_stub_output = evidence_paths.get(expected_stub_output_label)
@@ -6646,6 +6745,18 @@ def run_premap_lab_preflight(
     online_merged_multiprogram_runner_payload = _load_evidence_payload_from_check(
         default_gate_required_evidence_check,
         online_merged_multiprogram_runner_evidence_label,
+        root=root,
+    )
+    wna16_adjacent_typed_slot_evidence_label = (
+        "future_kernel_wna16_adjacent_typed_slot_canary_json"
+    )
+    wna16_adjacent_typed_slot_evidence_row = _find_evidence_row(
+        default_gate_required_evidence_check,
+        wna16_adjacent_typed_slot_evidence_label,
+    )
+    wna16_adjacent_typed_slot_payload = _load_evidence_payload_from_check(
+        default_gate_required_evidence_check,
+        wna16_adjacent_typed_slot_evidence_label,
         root=root,
     )
     arg_slot_standalone_mirror_field_coverage = _arg_slot_mirror_field_coverage(
@@ -9274,6 +9385,120 @@ def run_premap_lab_preflight(
             _hex_metric_text(
                 online_merged_multiprogram_runner_payload,
                 "kernel_endpoint_ptr_row_metadata_hash_accumulator",
+            )
+        ),
+        "default_kernel_consumer_wna16_adjacent_typed_slot_evidence_present": (
+            _evidence_row_passed(wna16_adjacent_typed_slot_evidence_row)
+        ),
+        "default_kernel_consumer_wna16_adjacent_typed_slot_required": (
+            _bool_metric(
+                wna16_adjacent_typed_slot_payload,
+                "require_wna16_adjacent_typed_slot",
+            )
+        ),
+        "default_kernel_consumer_wna16_adjacent_typed_slot_checked": (
+            _bool_metric(
+                wna16_adjacent_typed_slot_payload,
+                "wna16_adjacent_typed_slot_checked",
+            )
+        ),
+        "default_kernel_consumer_wna16_adjacent_typed_slot_name": (
+            wna16_adjacent_typed_slot_payload.get("wna16_adjacent_typed_slot_name")
+        ),
+        "default_kernel_consumer_wna16_adjacent_typed_slot_mode": (
+            wna16_adjacent_typed_slot_payload.get("wna16_adjacent_typed_slot_mode")
+        ),
+        "default_kernel_consumer_wna16_adjacent_typed_slot_source": (
+            wna16_adjacent_typed_slot_payload.get("wna16_adjacent_typed_slot_source")
+        ),
+        "default_kernel_consumer_wna16_adjacent_typed_slot_row_count": (
+            _int_metric(
+                wna16_adjacent_typed_slot_payload,
+                "wna16_adjacent_typed_slot_row_count",
+            )
+        ),
+        "default_kernel_consumer_wna16_adjacent_typed_slot_row_ok_count": (
+            _int_metric(
+                wna16_adjacent_typed_slot_payload,
+                "wna16_adjacent_typed_slot_row_ok_count",
+            )
+        ),
+        "default_kernel_consumer_wna16_adjacent_typed_slot_error_count": (
+            _int_metric(
+                wna16_adjacent_typed_slot_payload,
+                "wna16_adjacent_typed_slot_error_count",
+            )
+        ),
+        "default_kernel_consumer_wna16_adjacent_typed_slot_all_handle_fields_read": (
+            _bool_metric(
+                wna16_adjacent_typed_slot_payload,
+                "wna16_adjacent_typed_slot_all_handle_fields_read",
+            )
+        ),
+        "default_kernel_consumer_wna16_adjacent_typed_slot_packet_chain_depth": (
+            _int_metric(
+                wna16_adjacent_typed_slot_payload,
+                "wna16_adjacent_typed_slot_packet_chain_depth",
+            )
+        ),
+        "default_kernel_consumer_wna16_adjacent_typed_slot_payload_bytes": (
+            _int_metric(
+                wna16_adjacent_typed_slot_payload,
+                "wna16_adjacent_typed_slot_payload_bytes",
+            )
+        ),
+        "default_kernel_consumer_wna16_adjacent_typed_slot_passed_to_kernel": (
+            _bool_metric(
+                wna16_adjacent_typed_slot_payload,
+                "wna16_adjacent_typed_slot_passed_to_kernel",
+            )
+        ),
+        "default_kernel_consumer_wna16_adjacent_typed_slot_changes_kernel_launch_args": (
+            _bool_metric(
+                wna16_adjacent_typed_slot_payload,
+                "wna16_adjacent_typed_slot_changes_kernel_launch_args",
+            )
+        ),
+        "default_kernel_consumer_wna16_adjacent_typed_slot_current_wna16_arg_compatible": (
+            _bool_metric(
+                wna16_adjacent_typed_slot_payload,
+                "wna16_adjacent_typed_slot_current_wna16_arg_compatible",
+            )
+        ),
+        "default_kernel_consumer_wna16_adjacent_typed_slot_requires_wna16_arg_reinterpretation": (
+            _bool_metric(
+                wna16_adjacent_typed_slot_payload,
+                "wna16_adjacent_typed_slot_requires_wna16_arg_reinterpretation",
+            )
+        ),
+        "default_kernel_consumer_wna16_adjacent_typed_slot_explicit_typed_abi_slot": (
+            _bool_metric(
+                wna16_adjacent_typed_slot_payload,
+                "wna16_adjacent_typed_slot_explicit_typed_abi_slot",
+            )
+        ),
+        "default_kernel_consumer_wna16_adjacent_typed_slot_reuses_current_wna16_arg_slot": (
+            _bool_metric(
+                wna16_adjacent_typed_slot_payload,
+                "wna16_adjacent_typed_slot_reuses_current_wna16_arg_slot",
+            )
+        ),
+        "default_kernel_consumer_wna16_adjacent_typed_slot_row_hash_accumulator": (
+            _hex_metric_text(
+                wna16_adjacent_typed_slot_payload,
+                "wna16_adjacent_typed_slot_row_hash_accumulator",
+            )
+        ),
+        "default_kernel_consumer_wna16_adjacent_typed_slot_field_read_hash_accumulator": (
+            _hex_metric_text(
+                wna16_adjacent_typed_slot_payload,
+                "wna16_adjacent_typed_slot_field_read_hash_accumulator",
+            )
+        ),
+        "default_kernel_consumer_wna16_adjacent_typed_slot_row_metadata_hash_accumulator": (
+            _hex_metric_text(
+                wna16_adjacent_typed_slot_payload,
+                "wna16_adjacent_typed_slot_row_metadata_hash_accumulator",
             )
         ),
         "default_kernel_consumer_dispatch_runner_row_hashchain_all_valid": (

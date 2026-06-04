@@ -4017,6 +4017,75 @@ passed = true
 failures = []
 ```
 
+### WNA16-adjacent typed ABI slot is now a required lab preflight gate
+
+Added a required readonly evidence layer for a future WNA16-adjacent typed
+consumer slot:
+
+```text
+evidence label:
+  future_kernel_wna16_adjacent_typed_slot_canary_json
+
+slot name:
+  premap_wna16_adjacent_typed_consumer_slot_v1
+
+mode:
+  readonly_wna16_adjacent_typed_consumer_slot
+
+source:
+  premap_future_kernel_native_consumer_endpoint_ptr_abi_v1
+```
+
+This slot sits one wrapper level beyond the endpoint-pointer ABI and is checked
+as an explicit future typed ABI slot, not as a reinterpretation of the current
+WNA16 fused-MoE argument list.
+
+The safety contract remains:
+
+```text
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+current_wna16_arg_compatible = false
+requires_wna16_arg_reinterpretation = false
+explicit_typed_abi_slot = true
+reuses_current_wna16_arg_slot = false
+```
+
+Lab preflight evidence:
+
+```text
+outputs/reports/premap_kernel_consumer/lab_preflight_wna16_adjacent_typed_slot_required.json
+
+passed = true
+required_evidence = 36 / 36
+wna16_adjacent_typed_slot_row_count = 1841
+wna16_adjacent_typed_slot_row_ok_count = 1841
+wna16_adjacent_typed_slot_error_count = 0
+wna16_adjacent_typed_slot_packet_chain_depth = 14
+```
+
+Verification:
+
+```text
+pytest tests/test_run_premap_online_merged_native_arg_slot_canary.py \
+       tests/test_run_premap_lab_preflight.py -q
+
+156 passed
+
+pytest tests/test_check_premap_lab_preflight_summary.py \
+       tests/test_run_premap_lab_gate_verify.py \
+       tests/test_check_premap_lab_gate_verify.py \
+       tests/test_premap_kernel_consumer_schema.py -q
+
+92 passed
+```
+
+This advances the bridge closer to a future kernel-side typed consumer without
+passing any current WNA16 kernel arguments or moving payload data.  The next
+gate is an independent native/standalone consumer adapter that accepts this
+typed ABI slot as its own future argument object.
+
 ### Premap future kernel entry-args ABI is now a lab-gate requirement
 
 The native typed-consumer path now has a single-argument future kernel-entry
