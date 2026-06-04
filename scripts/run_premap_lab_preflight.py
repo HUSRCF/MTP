@@ -5340,6 +5340,66 @@ def _validate_wna16_adjacent_typed_slot_standalone_evidence(
     return failures
 
 
+def _validate_wna16_adjacent_typed_slot_stub_metrics(
+    evidence: dict[str, Any],
+    *,
+    failure_prefix: str,
+    expected_rows: int | None,
+) -> list[str]:
+    failures: list[str] = []
+    slot_prefix = "future_kernel_native_consumer_wna16_adjacent_typed_slot"
+    expected_values = {
+        f"{slot_prefix}_abi_name": "premap_wna16_adjacent_typed_consumer_slot_v1",
+        f"{slot_prefix}_mode": "readonly_wna16_adjacent_typed_consumer_slot",
+        f"{slot_prefix}_source": (
+            "premap_future_kernel_native_consumer_endpoint_ptr_abi_v1"
+        ),
+        f"{slot_prefix}_checked": True,
+        f"{slot_prefix}_summary_error_count": 0,
+        f"{slot_prefix}_payload_bytes": 0,
+        f"{slot_prefix}_passed_to_kernel": False,
+        f"{slot_prefix}_changes_kernel_launch_args": False,
+        f"{slot_prefix}_current_wna16_arg_compatible": False,
+        f"{slot_prefix}_requires_wna16_arg_reinterpretation": False,
+        f"{slot_prefix}_explicit_typed_abi_slot": True,
+        f"{slot_prefix}_reuses_current_wna16_arg_slot": False,
+    }
+    for key, expected_value in expected_values.items():
+        if evidence.get(key) != expected_value:
+            failures.append(f"{failure_prefix}_{key}_mismatch")
+    if expected_rows is not None:
+        for key in (
+            f"{slot_prefix}_summary_row_count",
+            f"{slot_prefix}_summary_row_ok_count",
+            f"{slot_prefix}_summary_descriptor_ptr_read_row_ok_count",
+            f"{slot_prefix}_summary_packed_weight_descriptor_read_row_ok_count",
+            f"{slot_prefix}_summary_scale_metadata_handle_read_row_ok_count",
+            f"{slot_prefix}_summary_aux_metadata_handle_read_row_ok_count",
+            f"{slot_prefix}_summary_expert_id_read_row_ok_count",
+            f"{slot_prefix}_summary_address_key_hash_read_row_ok_count",
+            f"{slot_prefix}_summary_row_metadata_read_row_ok_count",
+        ):
+            if _int_metric(evidence, key) != expected_rows:
+                failures.append(f"{failure_prefix}_{key}_mismatch")
+    endpoint_chain_depth = _int_metric(
+        evidence,
+        "future_kernel_native_consumer_endpoint_ptr_packet_chain_depth",
+    )
+    slot_chain_depth = _int_metric(evidence, f"{slot_prefix}_packet_chain_depth")
+    if endpoint_chain_depth is not None and slot_chain_depth != endpoint_chain_depth + 1:
+        failures.append(f"{failure_prefix}_{slot_prefix}_packet_chain_depth_mismatch")
+    if _int_metric(evidence, f"{slot_prefix}_summary_field_mask") != 15:
+        failures.append(f"{failure_prefix}_{slot_prefix}_field_mask_mismatch")
+    for key in (
+        f"{slot_prefix}_summary_row_hash_accumulator",
+        f"{slot_prefix}_summary_field_read_hash_accumulator",
+        f"{slot_prefix}_summary_row_metadata_hash_accumulator",
+    ):
+        if _hex64_metric(evidence, key) is None:
+            failures.append(f"{failure_prefix}_{key}_invalid")
+    return failures
+
+
 def _validate_future_native_arg_slot_online_merged_multiprogram_runner_evidence(
     evidence: dict[str, Any],
     *,
@@ -5672,6 +5732,14 @@ def _validate_future_native_arg_slot_online_merged_multiprogram_runner_evidence(
                     compact_summary=True,
                 )
             )
+        if require_wna16_adjacent_typed_slot:
+            failures.extend(
+                _validate_wna16_adjacent_typed_slot_stub_metrics(
+                    stub_summary,
+                    failure_prefix=f"{failure_prefix}_stub_summary",
+                    expected_rows=merged_row_count,
+                )
+            )
 
     stub_output = evidence.get("stub_output_json")
     if not isinstance(stub_output, str) or not stub_output:
@@ -5737,6 +5805,15 @@ def _validate_future_native_arg_slot_online_merged_multiprogram_runner_evidence(
                 stub_payload,
                 other_label="stub_payload",
                 failure_prefix=failure_prefix,
+            )
+        )
+    if require_wna16_adjacent_typed_slot:
+        failures.extend(
+            f"{failure_prefix}_stub:{failure}"
+            for failure in _validate_wna16_adjacent_typed_slot_stub_metrics(
+                stub_payload,
+                failure_prefix="wna16_adjacent_typed_slot",
+                expected_rows=merged_row_count,
             )
         )
     return failures

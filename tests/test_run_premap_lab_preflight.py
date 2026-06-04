@@ -3015,6 +3015,48 @@ def _online_merged_arg_slot_multiprogram_runner_payload(
                 ),
             }
         )
+        stub_summary.update(
+            {
+                "future_kernel_native_consumer_wna16_adjacent_typed_slot_checked": True,
+                "future_kernel_native_consumer_wna16_adjacent_typed_slot_abi_name": (
+                    "premap_wna16_adjacent_typed_consumer_slot_v1"
+                ),
+                "future_kernel_native_consumer_wna16_adjacent_typed_slot_mode": (
+                    "readonly_wna16_adjacent_typed_consumer_slot"
+                ),
+                "future_kernel_native_consumer_wna16_adjacent_typed_slot_source": (
+                    "premap_future_kernel_native_consumer_endpoint_ptr_abi_v1"
+                ),
+                "future_kernel_native_consumer_wna16_adjacent_typed_slot_packet_chain_depth": 14,
+                "future_kernel_native_consumer_wna16_adjacent_typed_slot_summary_row_count": 520,
+                "future_kernel_native_consumer_wna16_adjacent_typed_slot_summary_row_ok_count": 520,
+                "future_kernel_native_consumer_wna16_adjacent_typed_slot_summary_error_count": 0,
+                "future_kernel_native_consumer_wna16_adjacent_typed_slot_summary_field_mask": 15,
+                "future_kernel_native_consumer_wna16_adjacent_typed_slot_summary_descriptor_ptr_read_row_ok_count": 520,
+                "future_kernel_native_consumer_wna16_adjacent_typed_slot_summary_packed_weight_descriptor_read_row_ok_count": 520,
+                "future_kernel_native_consumer_wna16_adjacent_typed_slot_summary_scale_metadata_handle_read_row_ok_count": 520,
+                "future_kernel_native_consumer_wna16_adjacent_typed_slot_summary_aux_metadata_handle_read_row_ok_count": 520,
+                "future_kernel_native_consumer_wna16_adjacent_typed_slot_summary_expert_id_read_row_ok_count": 520,
+                "future_kernel_native_consumer_wna16_adjacent_typed_slot_summary_address_key_hash_read_row_ok_count": 520,
+                "future_kernel_native_consumer_wna16_adjacent_typed_slot_summary_row_metadata_read_row_ok_count": 520,
+                "future_kernel_native_consumer_wna16_adjacent_typed_slot_payload_bytes": 0,
+                "future_kernel_native_consumer_wna16_adjacent_typed_slot_passed_to_kernel": False,
+                "future_kernel_native_consumer_wna16_adjacent_typed_slot_changes_kernel_launch_args": False,
+                "future_kernel_native_consumer_wna16_adjacent_typed_slot_current_wna16_arg_compatible": False,
+                "future_kernel_native_consumer_wna16_adjacent_typed_slot_requires_wna16_arg_reinterpretation": False,
+                "future_kernel_native_consumer_wna16_adjacent_typed_slot_explicit_typed_abi_slot": True,
+                "future_kernel_native_consumer_wna16_adjacent_typed_slot_reuses_current_wna16_arg_slot": False,
+                "future_kernel_native_consumer_wna16_adjacent_typed_slot_summary_row_hash_accumulator": (
+                    "c4b51a0fa5ba88c4"
+                ),
+                "future_kernel_native_consumer_wna16_adjacent_typed_slot_summary_field_read_hash_accumulator": (
+                    "c2e4ae7fa9bc3227"
+                ),
+                "future_kernel_native_consumer_wna16_adjacent_typed_slot_summary_row_metadata_hash_accumulator": (
+                    "1a11b42afa9e8576"
+                ),
+            }
+        )
     stub_summary.update(
         _invocation_entry_metrics(
             prefix="future_kernel_native_consumer_invocation_entry",
