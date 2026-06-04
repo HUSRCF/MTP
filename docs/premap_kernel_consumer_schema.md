@@ -749,9 +749,40 @@ argument slot compatible with the typed table.
 
    This still does not reinterpret the typed table as the current WNA16
    argument list.
-4. Build the next real consumer path by adding an independent native or
-   standalone adapter that accepts this explicit typed ABI slot as its own
-   future argument object. Keep the current WNA16 fused-MoE launch untouched.
-5. Only after that compatible consumer path passes should a single-field live
+4. The standalone HIP/native typed-consumer stub now accepts this explicit
+   WNA16-adjacent typed ABI slot as its own future argument object:
+
+   ```text
+   PremapFutureKernelNativeConsumerWna16AdjacentTypedSlotV1
+   ```
+
+   Standalone evidence:
+
+   ```text
+   outputs/reports/premap_kernel_consumer/standalone_wna16_adjacent_typed_slot_stub.json
+
+   passed = true
+   future_kernel_native_consumer_wna16_adjacent_typed_slot_checked = true
+   row_count = 16
+   row_ok_count = 16
+   error_count = 0
+   ```
+
+   The current WNA16 fused-MoE launch remains untouched.
+5. The standalone WNA16-adjacent typed slot evidence is now promoted into the
+   default lab preflight path as required evidence:
+
+   ```text
+   future_kernel_wna16_adjacent_typed_slot_standalone_canary_json
+     -> outputs/reports/premap_kernel_consumer/standalone_wna16_adjacent_typed_slot_stub.json
+
+   lab preflight required_evidence = 37 / 37 / 37
+   ```
+
+   This promotion still does not pass current WNA16 kernel arguments.
+6. Next, connect the same explicit future typed slot through the online
+   prelaunch bridge/native consumer path, still without passing current WNA16
+   kernel arguments or payload handles.
+7. Only after that compatible consumer path passes should a single-field live
    handoff canary be considered, default disabled, starting with metadata/scale
    handles rather than payload pointers.

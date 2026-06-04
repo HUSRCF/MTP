@@ -265,6 +265,7 @@ REQUIRED_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
     "future_kernel_native_arg_slot_online_merged_multiprogram_runner_json",
     "future_kernel_native_arg_slot_online_merged_multiprogram_canary_json",
     "future_kernel_wna16_adjacent_typed_slot_canary_json",
+    "future_kernel_wna16_adjacent_typed_slot_standalone_canary_json",
     "future_kernel_native_dispatch_consumer_online_artifact_check_32_128export_json",
     "future_kernel_native_dispatch_consumer_online_runner_32_128export_json",
 }
@@ -1449,6 +1450,7 @@ def _validate_required_evidence_payload(
         "future_kernel_native_arg_slot_online_merged_multiprogram_runner_json",
         "future_kernel_native_arg_slot_online_merged_multiprogram_canary_json",
         "future_kernel_wna16_adjacent_typed_slot_canary_json",
+        "future_kernel_wna16_adjacent_typed_slot_standalone_canary_json",
         "future_kernel_native_arg_slot_packed_weight_mirror_canary_json",
         *ARG_SLOT_ONLINE_MERGED_MIRROR_RUNNER_LABEL_BY_FIELD.values(),
         *ARG_SLOT_ONLINE_MERGED_MIRROR_STUB_LABEL_BY_FIELD.values(),
@@ -1550,6 +1552,13 @@ def _validate_required_evidence_payload(
                 evidence_paths=evidence_paths,
                 require_wna16_adjacent_typed_slot=True,
                 validate_stub_output=False,
+            )
+        ]
+    if evidence_label == "future_kernel_wna16_adjacent_typed_slot_standalone_canary_json":
+        return [
+            f"{evidence_label}:{failure}"
+            for failure in _validate_wna16_adjacent_typed_slot_standalone_evidence(
+                evidence
             )
         ]
     for (
@@ -5240,6 +5249,94 @@ def _validate_future_native_arg_slot_online_merged_multiprogram_evidence(
                     failures.append(
                         f"{failure_prefix}_source_context_{idx}_row_count_mismatch"
                     )
+    return failures
+
+
+def _validate_wna16_adjacent_typed_slot_standalone_evidence(
+    evidence: dict[str, Any],
+) -> list[str]:
+    failure_prefix = "standalone_wna16_adjacent_typed_slot"
+    failures: list[str] = []
+    row_count = _int_metric(evidence, "row_count")
+    slot_prefix = "future_kernel_native_consumer_wna16_adjacent_typed_slot"
+    expected_values = {
+        "passed": True,
+        "ok": True,
+        "failures": [],
+        "input_source": "synthetic",
+        "expected_schema_hash": PREMAP_KERNEL_SIDE_TYPED_CONSUMER_SCHEMA_HASH,
+        "payload_bytes": 0,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        f"{slot_prefix}_abi_name": "premap_wna16_adjacent_typed_consumer_slot_v1",
+        f"{slot_prefix}_mode": "readonly_wna16_adjacent_typed_consumer_slot",
+        f"{slot_prefix}_source": (
+            "premap_future_kernel_native_consumer_endpoint_ptr_abi_v1"
+        ),
+        f"{slot_prefix}_checked": True,
+        f"{slot_prefix}_summary_error_count": 0,
+        f"{slot_prefix}_packet_chain_depth": 14,
+        f"{slot_prefix}_payload_bytes": 0,
+        f"{slot_prefix}_payload_deref_allowed": False,
+        f"{slot_prefix}_passed_to_kernel": False,
+        f"{slot_prefix}_kernel_arg_pass_allowed": False,
+        f"{slot_prefix}_changes_kernel_launch_args": False,
+        f"{slot_prefix}_current_wna16_arg_compatible": False,
+        f"{slot_prefix}_requires_wna16_arg_reinterpretation": False,
+        f"{slot_prefix}_explicit_typed_abi_slot": True,
+        f"{slot_prefix}_reuses_current_wna16_arg_slot": False,
+    }
+    for key, expected_value in expected_values.items():
+        if evidence.get(key) != expected_value:
+            failures.append(f"{failure_prefix}_{key}_mismatch")
+    compiled_macros = evidence.get("compiled_macros")
+    if not isinstance(compiled_macros, dict):
+        failures.append(f"{failure_prefix}_compiled_macros_missing")
+    else:
+        for macro in (
+            "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ENDPOINT_PTR_ABI",
+            "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_WNA16_ADJACENT_TYPED_SLOT_ABI",
+        ):
+            if compiled_macros.get(macro) is not True:
+                failures.append(f"{failure_prefix}_{macro}_missing")
+        for macro in (
+            "MTP_PREMAP_TYPED_CONSUMER_ENABLE_PAYLOAD_DEREF",
+            "MTP_PREMAP_TYPED_CONSUMER_ENABLE_KERNEL_ARG_PASS",
+        ):
+            if compiled_macros.get(macro) is True:
+                failures.append(f"{failure_prefix}_{macro}_forbidden")
+    if row_count is None or row_count <= 0:
+        failures.append(f"{failure_prefix}_row_count_invalid")
+    else:
+        for key in (
+            f"{slot_prefix}_summary_row_count",
+            f"{slot_prefix}_summary_row_ok_count",
+            f"{slot_prefix}_summary_descriptor_ptr_read_row_ok_count",
+            f"{slot_prefix}_summary_packed_weight_descriptor_read_row_ok_count",
+            f"{slot_prefix}_summary_scale_metadata_handle_read_row_ok_count",
+            f"{slot_prefix}_summary_aux_metadata_handle_read_row_ok_count",
+            f"{slot_prefix}_summary_expert_id_read_row_ok_count",
+            f"{slot_prefix}_summary_address_key_hash_read_row_ok_count",
+            f"{slot_prefix}_summary_row_metadata_read_row_ok_count",
+        ):
+            if _int_metric(evidence, key) != row_count:
+                failures.append(f"{failure_prefix}_{key}_mismatch")
+    endpoint_chain_depth = _int_metric(
+        evidence,
+        "future_kernel_native_consumer_endpoint_ptr_packet_chain_depth",
+    )
+    slot_chain_depth = _int_metric(evidence, f"{slot_prefix}_packet_chain_depth")
+    if endpoint_chain_depth is not None and slot_chain_depth != endpoint_chain_depth + 1:
+        failures.append(f"{failure_prefix}_packet_chain_depth_mismatch")
+    if _int_metric(evidence, f"{slot_prefix}_summary_field_mask") != 15:
+        failures.append(f"{failure_prefix}_field_mask_mismatch")
+    for key in (
+        f"{slot_prefix}_summary_row_hash_accumulator",
+        f"{slot_prefix}_summary_field_read_hash_accumulator",
+        f"{slot_prefix}_summary_row_metadata_hash_accumulator",
+    ):
+        if _hex64_metric(evidence, key) is None:
+            failures.append(f"{failure_prefix}_{key}_invalid")
     return failures
 
 

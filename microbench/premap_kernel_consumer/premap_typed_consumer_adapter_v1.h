@@ -392,6 +392,32 @@ constexpr bool
     kPremapFutureKernelNativeConsumerEndpointPtrAbiV1CurrentWna16ArgCompatible =
         false;
 constexpr const char*
+    kPremapFutureKernelNativeConsumerWna16AdjacentTypedSlotAbiV1Name =
+        "premap_wna16_adjacent_typed_consumer_slot_v1";
+constexpr const char*
+    kPremapFutureKernelNativeConsumerWna16AdjacentTypedSlotAbiV1Mode =
+        "readonly_wna16_adjacent_typed_consumer_slot";
+constexpr const char*
+    kPremapFutureKernelNativeConsumerWna16AdjacentTypedSlotAbiV1Source =
+        "premap_future_kernel_native_consumer_endpoint_ptr_abi_v1";
+constexpr uint32_t
+    kPremapFutureKernelNativeConsumerWna16AdjacentTypedSlotAbiV1Version = 1;
+constexpr bool
+    kPremapFutureKernelNativeConsumerWna16AdjacentTypedSlotAbiV1PayloadDerefAllowed =
+        false;
+constexpr bool
+    kPremapFutureKernelNativeConsumerWna16AdjacentTypedSlotAbiV1KernelArgPassAllowed =
+        false;
+constexpr bool
+    kPremapFutureKernelNativeConsumerWna16AdjacentTypedSlotAbiV1CurrentWna16ArgCompatible =
+        false;
+constexpr bool
+    kPremapFutureKernelNativeConsumerWna16AdjacentTypedSlotAbiV1RequiresWna16ArgReinterpretation =
+        false;
+constexpr bool
+    kPremapFutureKernelNativeConsumerWna16AdjacentTypedSlotAbiV1ReusesCurrentWna16ArgSlot =
+        false;
+constexpr const char*
     kPremapFutureKernelNativeConsumerRequestPtrAbiV1Name =
         "premap_future_kernel_native_consumer_request_ptr_abi_v1";
 constexpr const char*
@@ -809,6 +835,28 @@ struct PremapFutureKernelNativeConsumerEndpointPtrV1 {
   uint32_t endpoint_id;
   uint32_t payload_bytes;
   uint32_t flags;
+};
+
+// WNA16-adjacent typed slot ABI.  This is deliberately not the current WNA16
+// fused-MoE argument list: it is an explicit future kernel-side slot that
+// carries the endpoint pointer packet under a typed schema envelope.  The slot
+// proves the native consumer can read the future ABI shape without payload
+// dereference, current WNA16 argument reinterpretation, or kernel-arg handoff.
+struct PremapFutureKernelNativeConsumerWna16AdjacentTypedSlotV1 {
+  PremapFutureKernelNativeConsumerEndpointPtrV1 endpoint_ptr;
+  PremapFutureKernelNativeConsumerKernelEntrySummaryV1* summary;
+  uint32_t abi_version;
+  uint32_t endpoint_ptr_struct_size;
+  uint32_t summary_struct_size;
+  uint32_t pointer_size;
+  uint32_t slot_id;
+  uint32_t packet_chain_depth;
+  uint32_t payload_bytes;
+  uint32_t flags;
+  uint32_t current_wna16_arg_compatible;
+  uint32_t requires_wna16_arg_reinterpretation;
+  uint32_t explicit_typed_abi_slot;
+  uint32_t reuses_current_wna16_arg_slot;
 };
 
 // Direct request-pointer ABI for a future kernel-side consumer.  Unlike the
@@ -1734,6 +1782,41 @@ premap_typed_consumer_future_native_endpoint_ptr_matches_v1(
       *endpoint_ptr.endpoint;
   return endpoint.endpoint_id == endpoint_ptr.endpoint_id &&
          premap_typed_consumer_future_native_endpoint_matches_v1(endpoint);
+}
+
+__device__ static inline bool
+premap_typed_consumer_future_native_wna16_adjacent_typed_slot_matches_v1(
+    const PremapFutureKernelNativeConsumerWna16AdjacentTypedSlotV1& slot) {
+  if (slot.summary == nullptr || slot.endpoint_ptr.summary != slot.summary ||
+      slot.abi_version !=
+          kPremapFutureKernelNativeConsumerWna16AdjacentTypedSlotAbiV1Version ||
+      slot.endpoint_ptr_struct_size !=
+          sizeof(PremapFutureKernelNativeConsumerEndpointPtrV1) ||
+      slot.summary_struct_size !=
+          sizeof(PremapFutureKernelNativeConsumerKernelEntrySummaryV1) ||
+      slot.pointer_size !=
+          sizeof(PremapFutureKernelNativeConsumerEndpointPtrV1*) ||
+      slot.slot_id == 0 || slot.packet_chain_depth != 14 ||
+      slot.payload_bytes != 0 ||
+      (slot.flags & kPremapFutureKernelSideConsumerArgsV1ReadonlyFlag) == 0 ||
+      (slot.flags &
+       kPremapFutureKernelSideConsumerArgsV1KernelArgPassDisabledFlag) == 0 ||
+      (slot.flags &
+       kPremapFutureKernelSideConsumerArgsV1PayloadDerefDisabledFlag) == 0 ||
+      slot.flags != kPremapFutureKernelSideConsumerArgsV1RequiredFlags ||
+      slot.current_wna16_arg_compatible != 0 ||
+      slot.requires_wna16_arg_reinterpretation != 0 ||
+      slot.explicit_typed_abi_slot == 0 ||
+      slot.reuses_current_wna16_arg_slot != 0 ||
+      kPremapFutureKernelNativeConsumerWna16AdjacentTypedSlotAbiV1PayloadDerefAllowed ||
+      kPremapFutureKernelNativeConsumerWna16AdjacentTypedSlotAbiV1KernelArgPassAllowed ||
+      kPremapFutureKernelNativeConsumerWna16AdjacentTypedSlotAbiV1CurrentWna16ArgCompatible ||
+      kPremapFutureKernelNativeConsumerWna16AdjacentTypedSlotAbiV1RequiresWna16ArgReinterpretation ||
+      kPremapFutureKernelNativeConsumerWna16AdjacentTypedSlotAbiV1ReusesCurrentWna16ArgSlot) {
+    return false;
+  }
+  return premap_typed_consumer_future_native_endpoint_ptr_matches_v1(
+      slot.endpoint_ptr);
 }
 
 __device__ static inline bool

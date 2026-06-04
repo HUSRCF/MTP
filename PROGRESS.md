@@ -29580,3 +29580,77 @@ python scripts/check_premap_lab_gate_verify.py \
 passed = true
 failures = []
 ```
+
+## WNA16-adjacent typed slot standalone native stub canary
+
+The lab-required WNA16-adjacent typed slot is no longer only an online summary
+contract. The standalone HIP/native typed-consumer stub now accepts an explicit
+future ABI slot:
+
+```text
+PremapFutureKernelNativeConsumerWna16AdjacentTypedSlotV1
+```
+
+This slot is sourced from the endpoint-pointer ABI and is intentionally not the
+current WNA16 fused-MoE argument list. It validates the future native argument
+shape while preserving all current safety boundaries:
+
+```text
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+current_wna16_arg_compatible = false
+requires_wna16_arg_reinterpretation = false
+reuses_current_wna16_arg_slot = false
+```
+
+Standalone canary evidence:
+
+```text
+outputs/reports/premap_kernel_consumer/standalone_wna16_adjacent_typed_slot_stub.json
+
+passed = true
+slot_checked = true
+row_count = 16
+row_ok_count = 16
+error_count = 0
+descriptor_ptr_read_row_ok_count = 16
+packed_weight_descriptor_read_row_ok_count = 16
+scale_metadata_handle_read_row_ok_count = 16
+aux_metadata_handle_read_row_ok_count = 16
+packet_chain_depth = 14
+```
+
+This moves the typed slot one step closer to a real kernel-side consumer ABI:
+the object can be compiled and read by a native HIP stub, but it still remains
+outside the current WNA16 launch and does not pass kernel arguments or payload
+handles to the real fused-MoE kernel.
+
+The standalone WNA16-adjacent typed slot is now part of the default lab
+preflight required evidence set:
+
+```text
+configs/runtime/premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_live_connected_readonly.yaml
+  future_kernel_wna16_adjacent_typed_slot_standalone_canary_json:
+    outputs/reports/premap_kernel_consumer/standalone_wna16_adjacent_typed_slot_stub.json
+```
+
+Preflight evidence:
+
+```text
+outputs/reports/premap_kernel_consumer/lab_preflight_wna16_adjacent_typed_slot_standalone_required.json
+
+passed = true
+failures = []
+required_evidence = 37 / 37 / 37
+optional_evidence = 13 / 13 / 13
+future_kernel_wna16_adjacent_typed_slot_standalone_canary_json:
+  present = true
+  passed = true
+strict_default_gate_evidence_deferred_count = 0
+runtime_gate_evidence_deferred_count = 0
+```
+
+This makes the standalone native ABI/stub evidence a lab gate precondition
+rather than optional diagnostic coverage, while keeping the real WNA16 kernel
+argument list untouched.
