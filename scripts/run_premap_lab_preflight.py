@@ -2525,6 +2525,120 @@ def _validate_required_evidence_payload(
                     f"{prefix}_future_kernel_native_arg_slot_consumer_mirror_row_ok_count_mismatch"
                 )
 
+        def _check_runner_future_kernel_native_request_ptr_summary(
+            summary: Any,
+            prefix: str,
+        ) -> None:
+            _check_runner_stub_summary(summary, prefix)
+            if not isinstance(summary, dict):
+                return
+            expected_values = {
+                "future_kernel_native_consumer_request_ptr_abi_name": (
+                    "premap_future_kernel_native_consumer_request_ptr_abi_v1"
+                ),
+                "future_kernel_native_consumer_request_ptr_mode": (
+                    "readonly_future_kernel_native_consumer_request_ptr_abi"
+                ),
+                "future_kernel_native_consumer_request_ptr_source": (
+                    "premap_future_kernel_native_consumer_kernel_arg_packet_abi_v1"
+                ),
+                "future_kernel_native_consumer_request_ptr_field_read_path": (
+                    "request_ptr_to_kernel_arg_packet_to_program_view_rows"
+                ),
+                "future_kernel_native_consumer_request_ptr_checked": True,
+                "future_kernel_native_consumer_request_ptr_version": 1,
+                "future_kernel_native_consumer_request_ptr_packet_chain_depth": 4,
+                "future_kernel_native_consumer_request_ptr_pointer_size": 8,
+                "future_kernel_native_consumer_request_ptr_payload_bytes": 0,
+                "future_kernel_native_consumer_request_ptr_payload_deref_allowed": False,
+                "future_kernel_native_consumer_request_ptr_passed_to_kernel": False,
+                "future_kernel_native_consumer_request_ptr_kernel_arg_pass_allowed": False,
+                "future_kernel_native_consumer_request_ptr_changes_kernel_launch_args": False,
+                "future_kernel_native_consumer_request_ptr_current_wna16_arg_compatible": False,
+                "future_kernel_native_consumer_request_ptr_requires_wna16_arg_reinterpretation": False,
+            }
+            for key, expected_value in expected_values.items():
+                if summary.get(key) != expected_value:
+                    failures.append(f"{prefix}_{key}_mismatch")
+            if (
+                _int_metric(summary, "future_kernel_native_consumer_request_ptr_request_id")
+                is None
+            ):
+                failures.append(f"{prefix}_request_id_missing")
+            row_count_value = _int_metric(summary, "row_count")
+            read_suffixes = (
+                "descriptor_ptr_read_row_ok_count",
+                "packed_weight_descriptor_read_row_ok_count",
+                "scale_metadata_handle_read_row_ok_count",
+                "aux_metadata_handle_read_row_ok_count",
+                "expert_id_read_row_ok_count",
+                "address_key_hash_read_row_ok_count",
+                "row_metadata_read_row_ok_count",
+            )
+            for summary_prefix in (
+                "future_kernel_native_consumer_request_ptr_summary",
+                "future_kernel_native_consumer_kernel_entry_summary",
+            ):
+                if (
+                    row_count_value is not None
+                    and _int_metric(summary, f"{summary_prefix}_row_count")
+                    != row_count_value
+                ):
+                    failures.append(f"{prefix}_{summary_prefix}_row_count_mismatch")
+                if (
+                    row_count_value is not None
+                    and _int_metric(summary, f"{summary_prefix}_row_ok_count")
+                    != row_count_value
+                ):
+                    failures.append(f"{prefix}_{summary_prefix}_row_ok_count_mismatch")
+                if _int_metric(summary, f"{summary_prefix}_error_count") != 0:
+                    failures.append(f"{prefix}_{summary_prefix}_error_count_mismatch")
+                if _int_metric(summary, f"{summary_prefix}_field_mask") != 15:
+                    failures.append(f"{prefix}_{summary_prefix}_field_mask_mismatch")
+                for suffix in read_suffixes:
+                    if (
+                        row_count_value is not None
+                        and _int_metric(summary, f"{summary_prefix}_{suffix}")
+                        != row_count_value
+                    ):
+                        failures.append(f"{prefix}_{summary_prefix}_{suffix}_mismatch")
+                if _hex64_metric(summary, f"{summary_prefix}_row_hash_accumulator") is None:
+                    failures.append(f"{prefix}_{summary_prefix}_row_hash_missing")
+                if (
+                    _hex64_metric(summary, f"{summary_prefix}_field_read_hash_accumulator")
+                    is None
+                ):
+                    failures.append(f"{prefix}_{summary_prefix}_field_read_hash_missing")
+                if (
+                    _hex64_metric(
+                        summary,
+                        f"{summary_prefix}_row_metadata_hash_accumulator",
+                    )
+                    is None
+                ):
+                    failures.append(
+                        f"{prefix}_{summary_prefix}_row_metadata_hash_missing"
+                    )
+            for suffix, failure_label in (
+                ("row_hash_accumulator", "row_hash"),
+                ("field_read_hash_accumulator", "field_read_hash"),
+                ("row_metadata_hash_accumulator", "row_metadata_hash"),
+            ):
+                request_hash = _hex64_metric(
+                    summary,
+                    f"future_kernel_native_consumer_request_ptr_summary_{suffix}",
+                )
+                kernel_entry_hash = _hex64_metric(
+                    summary,
+                    f"future_kernel_native_consumer_kernel_entry_summary_{suffix}",
+                )
+                if (
+                    request_hash is not None
+                    and kernel_entry_hash is not None
+                    and request_hash != kernel_entry_hash
+                ):
+                    failures.append(f"{prefix}_request_ptr_{failure_label}_mismatch")
+
         for summary_key, expected_field_name in (
             ("descriptor_ptr_mirror_stub_summary", "descriptor_ptr"),
             ("packed_weight_mirror_stub_summary", "packed_weight_descriptor"),
@@ -2616,6 +2730,10 @@ def _validate_required_evidence_payload(
                 f"runner_{summary_key}",
                 expected_field_name=expected_field_name,
             )
+        _check_runner_future_kernel_native_request_ptr_summary(
+            evidence.get("future_kernel_native_consumer_request_ptr_stub_summary"),
+            "runner_future_kernel_native_consumer_request_ptr_stub_summary",
+        )
         extra_summaries = evidence.get("extra_online_input_check_summaries")
         if not isinstance(extra_summaries, list):
             failures.append("runner_extra_online_input_check_summaries_missing")
@@ -2669,6 +2787,9 @@ def _validate_required_evidence_payload(
             ),
             "native_stub_future_kernel_native_consumer_dispatch_aux_metadata_mirror": (
                 "future_kernel_native_dispatch_consumer:aux_metadata_handle"
+            ),
+            "native_stub_future_kernel_native_consumer_request_ptr_abi": (
+                "future_kernel_native_request_ptr"
             ),
         }
         for index, suite in enumerate(extra_summaries[:expected_extra], start=1):
@@ -2735,6 +2856,11 @@ def _validate_required_evidence_payload(
                         summary,
                         label_prefix,
                         expected_field_name=expected_field_name.split(":", 1)[1],
+                    )
+                elif expected_field_name == "future_kernel_native_request_ptr":
+                    _check_runner_future_kernel_native_request_ptr_summary(
+                        summary,
+                        label_prefix,
                     )
                 else:
                     _check_runner_mirror_summary(
@@ -3318,28 +3444,80 @@ def _validate_native_typed_consumer_stub_evidence(
                     "native_typed_consumer_stub_"
                     f"future_kernel_native_consumer_kernel_entry_summary_{suffix}_mismatch"
                 )
-        request_ptr_hash = evidence.get(
-            "future_kernel_native_consumer_request_ptr_summary_row_hash_accumulator"
+        request_ptr_hash = _hex64_metric(
+            evidence,
+            "future_kernel_native_consumer_request_ptr_summary_row_hash_accumulator",
         )
-        kernel_entry_hash = evidence.get(
-            "future_kernel_native_consumer_kernel_entry_summary_row_hash_accumulator"
+        kernel_entry_hash = _hex64_metric(
+            evidence,
+            "future_kernel_native_consumer_kernel_entry_summary_row_hash_accumulator",
         )
-        if not isinstance(request_ptr_hash, str) or not request_ptr_hash:
+        if _hex64_metric(
+            evidence,
+            "future_kernel_native_consumer_request_ptr_summary_row_hash_accumulator",
+        ) is None:
             failures.append(
                 "native_typed_consumer_stub_request_ptr_summary_row_hash_missing"
             )
-        if not isinstance(kernel_entry_hash, str) or not kernel_entry_hash:
+        if _hex64_metric(
+            evidence,
+            "future_kernel_native_consumer_kernel_entry_summary_row_hash_accumulator",
+        ) is None:
             failures.append(
                 "native_typed_consumer_stub_kernel_entry_summary_row_hash_missing"
             )
         if (
-            isinstance(request_ptr_hash, str)
-            and isinstance(kernel_entry_hash, str)
+            request_ptr_hash is not None
+            and kernel_entry_hash is not None
             and request_ptr_hash != kernel_entry_hash
         ):
             failures.append(
                 "native_typed_consumer_stub_request_ptr_summary_row_hash_mismatch"
             )
+        for suffix in (
+            "field_read_hash_accumulator",
+            "row_metadata_hash_accumulator",
+        ):
+            request_ptr_hash = _hex64_metric(
+                evidence,
+                f"future_kernel_native_consumer_request_ptr_summary_{suffix}",
+            )
+            kernel_entry_hash = _hex64_metric(
+                evidence,
+                f"future_kernel_native_consumer_kernel_entry_summary_{suffix}",
+            )
+            failure_suffix = suffix.removesuffix("_accumulator")
+            if (
+                _hex64_metric(
+                    evidence,
+                    f"future_kernel_native_consumer_request_ptr_summary_{suffix}",
+                )
+                is None
+            ):
+                failures.append(
+                    "native_typed_consumer_stub_request_ptr_summary_"
+                    f"{failure_suffix}_missing"
+                )
+            if (
+                _hex64_metric(
+                    evidence,
+                    f"future_kernel_native_consumer_kernel_entry_summary_{suffix}",
+                )
+                is None
+            ):
+                failures.append(
+                    "native_typed_consumer_stub_kernel_entry_summary_"
+                    f"{failure_suffix}_missing"
+                )
+            if (
+                request_ptr_hash is not None
+                and kernel_entry_hash is not None
+                and request_ptr_hash != kernel_entry_hash
+            ):
+                failures.append(
+                    "native_typed_consumer_stub_request_ptr_summary_"
+                    f"{failure_suffix}_mismatch"
+                )
     if expected_input_path is None:
         failures.append("native_typed_consumer_stub_expected_input_json_missing")
     else:

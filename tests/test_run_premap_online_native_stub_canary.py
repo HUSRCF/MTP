@@ -397,6 +397,8 @@ def test_run_canary_dry_run_includes_compact_preflight_status(
             str(tmp_path / "stub_future_native_consumer_dispatch_packed_weight.json"),
             "--future-kernel-native-consumer-dispatch-aux-metadata-stub-output-json",
             str(tmp_path / "stub_future_native_consumer_dispatch_aux_metadata.json"),
+            "--future-kernel-native-consumer-request-ptr-stub-output-json",
+            str(tmp_path / "stub_future_native_consumer_request_ptr.json"),
             "--preflight-output-json",
             str(tmp_path / "preflight.json"),
             "--preflight-status-output-json",
@@ -453,6 +455,7 @@ def test_run_canary_dry_run_includes_compact_preflight_status(
         "native_stub_future_kernel_native_consumer_dispatch_aux_metadata_mirror"
         in result["steps"]
     )
+    assert "native_stub_future_kernel_native_consumer_request_ptr_abi" in result["steps"]
     assert "future_kernel_native_consumer_dispatch_arg_slot_stub_summary" in result
     assert (
         "future_kernel_native_arg_slot_consumer_row_count"
@@ -578,6 +581,28 @@ def test_run_canary_dry_run_includes_compact_preflight_status(
     )
     assert "--dispatch-row-offset" in future_native_dispatch_aux_cmd
     assert "--dispatch-row-limit" in future_native_dispatch_aux_cmd
+    future_native_request_ptr_cmd = result["steps"][
+        "native_stub_future_kernel_native_consumer_request_ptr_abi"
+    ]["cmd"]
+    assert str(tmp_path / "stub_future_native_consumer_request_ptr.json") in (
+        future_native_request_ptr_cmd
+    )
+    assert (
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ARG_PACKET_ABI"
+        in future_native_request_ptr_cmd
+    )
+    assert (
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_PTR_ABI"
+        in future_native_request_ptr_cmd
+    )
+    assert (
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ENDPOINT_ABI"
+        not in future_native_request_ptr_cmd
+    )
+    assert (
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_INVOCATION_ABI"
+        not in future_native_request_ptr_cmd
+    )
     future_native_launch_descriptor_cmd = result["steps"][
         "native_stub_future_kernel_native_consumer_launch_descriptor_ptr_mirror"
     ]["cmd"]
@@ -731,6 +756,8 @@ def test_finalize_report_with_artifact_check_records_summary(
                     "runner_future_kernel_native_consumer_dispatch_arg_slot_stub_row_ok_count": 4,
                     "runner_future_kernel_native_consumer_dispatch_arg_slot_mirror_stub_row_count": 4,
                     "runner_future_kernel_native_consumer_dispatch_arg_slot_mirror_stub_row_ok_count": 4,
+                    "runner_future_kernel_native_consumer_request_ptr_stub_row_count": 4,
+                    "runner_future_kernel_native_consumer_request_ptr_stub_row_ok_count": 4,
                     "stage1_deferred_count": 0,
                     "final_deferred_count": 0,
                     "status_deferred_count": 0,
@@ -828,6 +855,8 @@ def test_finalize_report_with_artifact_check_records_summary(
             "runner_future_kernel_native_consumer_dispatch_arg_slot_stub_row_ok_count": 4,
             "runner_future_kernel_native_consumer_dispatch_arg_slot_mirror_stub_row_count": 4,
             "runner_future_kernel_native_consumer_dispatch_arg_slot_mirror_stub_row_ok_count": 4,
+            "runner_future_kernel_native_consumer_request_ptr_stub_row_count": 4,
+            "runner_future_kernel_native_consumer_request_ptr_stub_row_ok_count": 4,
             "stage1_deferred_count": 0,
             "final_deferred_count": 0,
             "status_deferred_count": 0,

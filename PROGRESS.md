@@ -2,8 +2,27 @@
 
 ## Progress Version
 
-- Version: `v0.73-request-ptr-lab-gate`
+- Version: `v0.74-request-ptr-online-runner-gate`
 - Updated: 2026-06-04
+- Latest online-runner update: promoted the request-pointer ABI from a
+  single-input default evidence row into the 32-input online prelaunch native
+  stub runner.  The refreshed runner
+  `outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_arg_slot_32input_hard_hashchain_preflight_32tables.json`
+  passes with 32 exported online prelaunch inputs, 31/31 extra-input native
+  stub suites passed, and every extra suite now includes
+  `native_stub_future_kernel_native_consumer_request_ptr_abi`.  The main
+  request-pointer path validates 174/174 rows, and the extra-input suites
+  validate the same readonly request-pointer ABI over the remaining exported
+  inputs.  The paired artifact check
+  `outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_artifact_check_arg_slot_32input_hard_hashchain_preflight_32tables.json`
+  passes, and the default lab preflight probe
+  `outputs/reports/premap_lab_preflight_status_request_ptr_runner_probe.json`
+  passes with 21/21 required evidence rows, 19/19 optional rows, zero deferred
+  evidence, 32 merged online sources, and GPU1 provenance.  This closes the
+  request-pointer runner gate under the strict no-defer lab preflight while
+  preserving the safety boundary: `payload_bytes=0`, `passed_to_kernel=false`,
+  `kernel_arg_pass_allowed=false`, `changes_kernel_launch_args=false`, and no
+  current WNA16 fused-MoE kernel-argument compatibility claim.
 - Latest lab-gate update: promoted the real online request-pointer ABI canary
   into the default readonly lab preflight as required evidence,
   `native_typed_consumer_stub_online_prelaunch_input_request_ptr_canary_json`.

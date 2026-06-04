@@ -433,6 +433,66 @@ def _extra_input_summary(row_count: int = 4) -> dict:
             ),
         }
 
+    def future_native_request_ptr_summary() -> dict:
+        row_hash = "abc123"
+        field_read_hash = "def456"
+        row_metadata_hash = "fedcba"
+        return {
+            **stub_summary(),
+            "future_kernel_native_consumer_request_ptr_abi_name": (
+                "premap_future_kernel_native_consumer_request_ptr_abi_v1"
+            ),
+            "future_kernel_native_consumer_request_ptr_mode": (
+                "readonly_future_kernel_native_consumer_request_ptr_abi"
+            ),
+            "future_kernel_native_consumer_request_ptr_source": (
+                "premap_future_kernel_native_consumer_kernel_arg_packet_abi_v1"
+            ),
+            "future_kernel_native_consumer_request_ptr_field_read_path": (
+                "request_ptr_to_kernel_arg_packet_to_program_view_rows"
+            ),
+            "future_kernel_native_consumer_request_ptr_checked": True,
+            "future_kernel_native_consumer_request_ptr_version": 1,
+            "future_kernel_native_consumer_request_ptr_packet_chain_depth": 4,
+            "future_kernel_native_consumer_request_ptr_pointer_size": 8,
+            "future_kernel_native_consumer_request_ptr_request_id": 1,
+            "future_kernel_native_consumer_request_ptr_payload_bytes": 0,
+            "future_kernel_native_consumer_request_ptr_payload_deref_allowed": False,
+            "future_kernel_native_consumer_request_ptr_passed_to_kernel": False,
+            "future_kernel_native_consumer_request_ptr_kernel_arg_pass_allowed": False,
+            "future_kernel_native_consumer_request_ptr_changes_kernel_launch_args": False,
+            "future_kernel_native_consumer_request_ptr_current_wna16_arg_compatible": False,
+            "future_kernel_native_consumer_request_ptr_requires_wna16_arg_reinterpretation": False,
+            "future_kernel_native_consumer_request_ptr_summary_row_count": row_count,
+            "future_kernel_native_consumer_request_ptr_summary_row_ok_count": row_count,
+            "future_kernel_native_consumer_request_ptr_summary_error_count": 0,
+            "future_kernel_native_consumer_request_ptr_summary_field_mask": 15,
+            "future_kernel_native_consumer_request_ptr_summary_descriptor_ptr_read_row_ok_count": row_count,
+            "future_kernel_native_consumer_request_ptr_summary_packed_weight_descriptor_read_row_ok_count": row_count,
+            "future_kernel_native_consumer_request_ptr_summary_scale_metadata_handle_read_row_ok_count": row_count,
+            "future_kernel_native_consumer_request_ptr_summary_aux_metadata_handle_read_row_ok_count": row_count,
+            "future_kernel_native_consumer_request_ptr_summary_expert_id_read_row_ok_count": row_count,
+            "future_kernel_native_consumer_request_ptr_summary_address_key_hash_read_row_ok_count": row_count,
+            "future_kernel_native_consumer_request_ptr_summary_row_metadata_read_row_ok_count": row_count,
+            "future_kernel_native_consumer_request_ptr_summary_row_hash_accumulator": row_hash,
+            "future_kernel_native_consumer_request_ptr_summary_field_read_hash_accumulator": field_read_hash,
+            "future_kernel_native_consumer_request_ptr_summary_row_metadata_hash_accumulator": row_metadata_hash,
+            "future_kernel_native_consumer_kernel_entry_summary_row_count": row_count,
+            "future_kernel_native_consumer_kernel_entry_summary_row_ok_count": row_count,
+            "future_kernel_native_consumer_kernel_entry_summary_error_count": 0,
+            "future_kernel_native_consumer_kernel_entry_summary_field_mask": 15,
+            "future_kernel_native_consumer_kernel_entry_summary_descriptor_ptr_read_row_ok_count": row_count,
+            "future_kernel_native_consumer_kernel_entry_summary_packed_weight_descriptor_read_row_ok_count": row_count,
+            "future_kernel_native_consumer_kernel_entry_summary_scale_metadata_handle_read_row_ok_count": row_count,
+            "future_kernel_native_consumer_kernel_entry_summary_aux_metadata_handle_read_row_ok_count": row_count,
+            "future_kernel_native_consumer_kernel_entry_summary_expert_id_read_row_ok_count": row_count,
+            "future_kernel_native_consumer_kernel_entry_summary_address_key_hash_read_row_ok_count": row_count,
+            "future_kernel_native_consumer_kernel_entry_summary_row_metadata_read_row_ok_count": row_count,
+            "future_kernel_native_consumer_kernel_entry_summary_row_hash_accumulator": row_hash,
+            "future_kernel_native_consumer_kernel_entry_summary_field_read_hash_accumulator": field_read_hash,
+            "future_kernel_native_consumer_kernel_entry_summary_row_metadata_hash_accumulator": row_metadata_hash,
+        }
+
     return {
         "input_index": 1,
         "input_json": "input1.json",
@@ -506,6 +566,9 @@ def _extra_input_summary(row_count: int = 4) -> dict:
             },
             "native_stub_future_kernel_native_consumer_dispatch_aux_metadata_mirror": {
                 "summary": future_native_dispatch_summary("aux_metadata_handle")
+            },
+            "native_stub_future_kernel_native_consumer_request_ptr_abi": {
+                "summary": future_native_request_ptr_summary()
             },
         },
     }
@@ -852,6 +915,73 @@ def _payloads(root: Path) -> tuple[Path, Path, Path]:
             "changes_kernel_launch_args": False,
         }
 
+    def future_native_request_ptr_summary() -> dict[str, object]:
+        row_hash = "abc123"
+        field_read_hash = "def456"
+        row_metadata_hash = "fedcba"
+        return {
+            "passed": True,
+            "ok": True,
+            "row_count": 4,
+            "row_ok_count": 4,
+            "error_count": 0,
+            "payload_bytes": 0,
+            "passed_to_kernel": False,
+            "changes_kernel_launch_args": False,
+            "future_kernel_native_consumer_request_ptr_abi_name": (
+                "premap_future_kernel_native_consumer_request_ptr_abi_v1"
+            ),
+            "future_kernel_native_consumer_request_ptr_mode": (
+                "readonly_future_kernel_native_consumer_request_ptr_abi"
+            ),
+            "future_kernel_native_consumer_request_ptr_source": (
+                "premap_future_kernel_native_consumer_kernel_arg_packet_abi_v1"
+            ),
+            "future_kernel_native_consumer_request_ptr_field_read_path": (
+                "request_ptr_to_kernel_arg_packet_to_program_view_rows"
+            ),
+            "future_kernel_native_consumer_request_ptr_checked": True,
+            "future_kernel_native_consumer_request_ptr_version": 1,
+            "future_kernel_native_consumer_request_ptr_packet_chain_depth": 4,
+            "future_kernel_native_consumer_request_ptr_pointer_size": 8,
+            "future_kernel_native_consumer_request_ptr_request_id": 1,
+            "future_kernel_native_consumer_request_ptr_payload_bytes": 0,
+            "future_kernel_native_consumer_request_ptr_payload_deref_allowed": False,
+            "future_kernel_native_consumer_request_ptr_passed_to_kernel": False,
+            "future_kernel_native_consumer_request_ptr_kernel_arg_pass_allowed": False,
+            "future_kernel_native_consumer_request_ptr_changes_kernel_launch_args": False,
+            "future_kernel_native_consumer_request_ptr_current_wna16_arg_compatible": False,
+            "future_kernel_native_consumer_request_ptr_requires_wna16_arg_reinterpretation": False,
+            "future_kernel_native_consumer_request_ptr_summary_row_count": 4,
+            "future_kernel_native_consumer_request_ptr_summary_row_ok_count": 4,
+            "future_kernel_native_consumer_request_ptr_summary_error_count": 0,
+            "future_kernel_native_consumer_request_ptr_summary_field_mask": 15,
+            "future_kernel_native_consumer_request_ptr_summary_descriptor_ptr_read_row_ok_count": 4,
+            "future_kernel_native_consumer_request_ptr_summary_packed_weight_descriptor_read_row_ok_count": 4,
+            "future_kernel_native_consumer_request_ptr_summary_scale_metadata_handle_read_row_ok_count": 4,
+            "future_kernel_native_consumer_request_ptr_summary_aux_metadata_handle_read_row_ok_count": 4,
+            "future_kernel_native_consumer_request_ptr_summary_expert_id_read_row_ok_count": 4,
+            "future_kernel_native_consumer_request_ptr_summary_address_key_hash_read_row_ok_count": 4,
+            "future_kernel_native_consumer_request_ptr_summary_row_metadata_read_row_ok_count": 4,
+            "future_kernel_native_consumer_request_ptr_summary_row_hash_accumulator": row_hash,
+            "future_kernel_native_consumer_request_ptr_summary_field_read_hash_accumulator": field_read_hash,
+            "future_kernel_native_consumer_request_ptr_summary_row_metadata_hash_accumulator": row_metadata_hash,
+            "future_kernel_native_consumer_kernel_entry_summary_row_count": 4,
+            "future_kernel_native_consumer_kernel_entry_summary_row_ok_count": 4,
+            "future_kernel_native_consumer_kernel_entry_summary_error_count": 0,
+            "future_kernel_native_consumer_kernel_entry_summary_field_mask": 15,
+            "future_kernel_native_consumer_kernel_entry_summary_descriptor_ptr_read_row_ok_count": 4,
+            "future_kernel_native_consumer_kernel_entry_summary_packed_weight_descriptor_read_row_ok_count": 4,
+            "future_kernel_native_consumer_kernel_entry_summary_scale_metadata_handle_read_row_ok_count": 4,
+            "future_kernel_native_consumer_kernel_entry_summary_aux_metadata_handle_read_row_ok_count": 4,
+            "future_kernel_native_consumer_kernel_entry_summary_expert_id_read_row_ok_count": 4,
+            "future_kernel_native_consumer_kernel_entry_summary_address_key_hash_read_row_ok_count": 4,
+            "future_kernel_native_consumer_kernel_entry_summary_row_metadata_read_row_ok_count": 4,
+            "future_kernel_native_consumer_kernel_entry_summary_row_hash_accumulator": row_hash,
+            "future_kernel_native_consumer_kernel_entry_summary_field_read_hash_accumulator": field_read_hash,
+            "future_kernel_native_consumer_kernel_entry_summary_row_metadata_hash_accumulator": row_metadata_hash,
+        }
+
     runner = {
         "passed": True,
         "failures": [],
@@ -1037,6 +1167,9 @@ def _payloads(root: Path) -> tuple[Path, Path, Path]:
         ),
         "future_kernel_native_consumer_dispatch_aux_metadata_stub_summary": (
             future_native_dispatch_summary("aux_metadata_handle")
+        ),
+        "future_kernel_native_consumer_request_ptr_stub_summary": (
+            future_native_request_ptr_summary()
         ),
     }
     _write_json(runner_path, runner)

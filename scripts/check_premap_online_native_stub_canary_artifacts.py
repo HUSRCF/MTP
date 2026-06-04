@@ -1329,6 +1329,101 @@ def _check_future_kernel_native_arg_slot_projection_summary(
     return row_count, row_ok_count
 
 
+def _check_future_kernel_native_request_ptr_summary(
+    stub: Any,
+    *,
+    prefix: str,
+    failures: list[str],
+) -> tuple[int | None, int | None]:
+    row_count, row_ok_count = _check_stub_summary(
+        stub,
+        prefix=prefix,
+        failures=failures,
+    )
+    if not isinstance(stub, dict):
+        stub = {}
+    expected = {
+        "future_kernel_native_consumer_request_ptr_abi_name": (
+            "premap_future_kernel_native_consumer_request_ptr_abi_v1"
+        ),
+        "future_kernel_native_consumer_request_ptr_mode": (
+            "readonly_future_kernel_native_consumer_request_ptr_abi"
+        ),
+        "future_kernel_native_consumer_request_ptr_source": (
+            "premap_future_kernel_native_consumer_kernel_arg_packet_abi_v1"
+        ),
+        "future_kernel_native_consumer_request_ptr_field_read_path": (
+            "request_ptr_to_kernel_arg_packet_to_program_view_rows"
+        ),
+        "future_kernel_native_consumer_request_ptr_checked": True,
+        "future_kernel_native_consumer_request_ptr_version": 1,
+        "future_kernel_native_consumer_request_ptr_packet_chain_depth": 4,
+        "future_kernel_native_consumer_request_ptr_pointer_size": 8,
+        "future_kernel_native_consumer_request_ptr_payload_bytes": 0,
+        "future_kernel_native_consumer_request_ptr_payload_deref_allowed": False,
+        "future_kernel_native_consumer_request_ptr_passed_to_kernel": False,
+        "future_kernel_native_consumer_request_ptr_kernel_arg_pass_allowed": False,
+        "future_kernel_native_consumer_request_ptr_changes_kernel_launch_args": False,
+        "future_kernel_native_consumer_request_ptr_current_wna16_arg_compatible": False,
+        "future_kernel_native_consumer_request_ptr_requires_wna16_arg_reinterpretation": False,
+    }
+    for key, expected_value in expected.items():
+        if stub.get(key) != expected_value:
+            failures.append(f"{prefix}_{key}_mismatch")
+    if _int(stub.get("future_kernel_native_consumer_request_ptr_request_id")) is None:
+        failures.append(f"{prefix}_future_native_request_ptr_request_id_missing")
+    read_suffixes = (
+        "descriptor_ptr_read_row_ok_count",
+        "packed_weight_descriptor_read_row_ok_count",
+        "scale_metadata_handle_read_row_ok_count",
+        "aux_metadata_handle_read_row_ok_count",
+        "expert_id_read_row_ok_count",
+        "address_key_hash_read_row_ok_count",
+        "row_metadata_read_row_ok_count",
+    )
+    for summary_prefix in (
+        "future_kernel_native_consumer_request_ptr_summary",
+        "future_kernel_native_consumer_kernel_entry_summary",
+    ):
+        if _int(stub.get(f"{summary_prefix}_row_count")) != row_count:
+            failures.append(f"{prefix}_{summary_prefix}_row_count_mismatch")
+        if _int(stub.get(f"{summary_prefix}_row_ok_count")) != row_count:
+            failures.append(f"{prefix}_{summary_prefix}_row_ok_count_mismatch")
+        if _int(stub.get(f"{summary_prefix}_error_count")) != 0:
+            failures.append(f"{prefix}_{summary_prefix}_error_count_mismatch")
+        if _int(stub.get(f"{summary_prefix}_field_mask")) != 0xF:
+            failures.append(f"{prefix}_{summary_prefix}_field_mask_mismatch")
+        for suffix in read_suffixes:
+            if _int(stub.get(f"{summary_prefix}_{suffix}")) != row_count:
+                failures.append(f"{prefix}_{summary_prefix}_{suffix}_mismatch")
+        if _hex64(stub.get(f"{summary_prefix}_row_hash_accumulator")) is None:
+            failures.append(f"{prefix}_{summary_prefix}_row_hash_missing_or_invalid")
+        if _hex64(stub.get(f"{summary_prefix}_field_read_hash_accumulator")) is None:
+            failures.append(
+                f"{prefix}_{summary_prefix}_field_read_hash_missing_or_invalid"
+            )
+        if _hex64(stub.get(f"{summary_prefix}_row_metadata_hash_accumulator")) is None:
+            failures.append(
+                f"{prefix}_{summary_prefix}_row_metadata_hash_missing_or_invalid"
+            )
+    for suffix, failure_label in (
+        ("row_hash_accumulator", "row_hash"),
+        ("field_read_hash_accumulator", "field_read_hash"),
+        ("row_metadata_hash_accumulator", "row_metadata_hash"),
+    ):
+        request_hash = _hex64(
+            stub.get(f"future_kernel_native_consumer_request_ptr_summary_{suffix}")
+        )
+        entry_hash = _hex64(
+            stub.get(f"future_kernel_native_consumer_kernel_entry_summary_{suffix}")
+        )
+        if request_hash is not None and entry_hash is not None and request_hash != entry_hash:
+            failures.append(
+                f"{prefix}_future_native_request_ptr_{failure_label}_mismatch"
+            )
+    return row_count, row_ok_count
+
+
 def check_online_native_stub_canary_artifacts(
     *,
     root: Path,
@@ -2139,6 +2234,27 @@ def check_online_native_stub_canary_artifacts(
             expected_field_name="aux_metadata_handle",
             failures=failures,
         )
+    future_kernel_native_consumer_request_ptr_row_count: int | None = None
+    future_kernel_native_consumer_request_ptr_row_ok_count: int | None = None
+    future_kernel_native_consumer_request_ptr_stub = runner.get(
+        "future_kernel_native_consumer_request_ptr_stub_summary"
+    )
+    if (
+        require_all_field_mirror_stubs
+        and future_kernel_native_consumer_request_ptr_stub is None
+    ):
+        failures.append(
+            "runner_future_kernel_native_consumer_request_ptr_stub_summary_required"
+        )
+    if future_kernel_native_consumer_request_ptr_stub is not None:
+        (
+            future_kernel_native_consumer_request_ptr_row_count,
+            future_kernel_native_consumer_request_ptr_row_ok_count,
+        ) = _check_future_kernel_native_request_ptr_summary(
+            future_kernel_native_consumer_request_ptr_stub,
+            prefix="runner_future_kernel_native_consumer_request_ptr_stub",
+            failures=failures,
+        )
     future_kernel_native_consumer_dispatch_arg_slot_row_count: int | None = None
     future_kernel_native_consumer_dispatch_arg_slot_row_ok_count: int | None = None
     future_kernel_native_consumer_dispatch_arg_slot_stub = runner.get(
@@ -2380,6 +2496,10 @@ def check_online_native_stub_canary_artifacts(
                         "future_kernel_native_dispatch_consumer:aux_metadata_handle",
                         False,
                     ),
+                    "native_stub_future_kernel_native_consumer_request_ptr_abi": (
+                        "future_kernel_native_request_ptr",
+                        False,
+                    ),
                 }
             )
         for index, suite in enumerate(extra_summaries[:expected_extra], start=1):
@@ -2451,6 +2571,12 @@ def check_online_native_stub_canary_artifacts(
                         summary,
                         prefix=label_prefix,
                         expected_field_name=dispatch_expected_field,
+                        failures=failures,
+                    )
+                elif expected_field == "future_kernel_native_request_ptr":
+                    _check_future_kernel_native_request_ptr_summary(
+                        summary,
+                        prefix=label_prefix,
                         failures=failures,
                     )
                 else:
@@ -2602,6 +2728,12 @@ def check_online_native_stub_canary_artifacts(
         ),
         "runner_future_kernel_native_consumer_dispatch_aux_metadata_stub_row_ok_count": (
             future_kernel_native_consumer_dispatch_aux_metadata_row_ok_count
+        ),
+        "runner_future_kernel_native_consumer_request_ptr_stub_row_count": (
+            future_kernel_native_consumer_request_ptr_row_count
+        ),
+        "runner_future_kernel_native_consumer_request_ptr_stub_row_ok_count": (
+            future_kernel_native_consumer_request_ptr_row_ok_count
         ),
         "runner_future_kernel_native_consumer_dispatch_arg_slot_stub_row_count": (
             future_kernel_native_consumer_dispatch_arg_slot_row_count

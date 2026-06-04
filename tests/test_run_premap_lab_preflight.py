@@ -1034,9 +1034,9 @@ def _native_stub_endpoint_ptr_evidence_payload(
 
 def _native_stub_request_ptr_evidence_payload(input_json: str) -> dict[str, object]:
     payload = _native_stub_evidence_payload(input_json)
-    row_hash = "request-ptr-row-hash"
-    field_read_hash = "request-ptr-field-read-hash"
-    row_metadata_hash = "request-ptr-row-metadata-hash"
+    row_hash = "1234567890abcdef"
+    field_read_hash = "0fedcba987654321"
+    row_metadata_hash = "55aa55aa55aa55aa"
     payload.update(
         {
             "future_kernel_native_consumer_request_ptr_abi_name": (
@@ -1743,6 +1743,70 @@ def _runner_future_kernel_native_dispatch_consumer_summary(
     payload.update(_RUNNER_DISPATCH_PTR_LAYOUT_SUMMARY)
     payload.update(_RUNNER_ARG_SLOT_LAYOUT_SUMMARY)
     payload.update(_RUNNER_CONSUMER_VIEW_LAYOUT_SUMMARY)
+    return payload
+
+
+def _runner_future_kernel_native_request_ptr_summary() -> dict[str, object]:
+    row_hash = "1234567890abcdef"
+    field_read_hash = "0fedcba987654321"
+    row_metadata_hash = "55aa55aa55aa55aa"
+    payload = _runner_stub_summary()
+    payload.update(
+        {
+            "future_kernel_native_consumer_request_ptr_abi_name": (
+                "premap_future_kernel_native_consumer_request_ptr_abi_v1"
+            ),
+            "future_kernel_native_consumer_request_ptr_mode": (
+                "readonly_future_kernel_native_consumer_request_ptr_abi"
+            ),
+            "future_kernel_native_consumer_request_ptr_source": (
+                "premap_future_kernel_native_consumer_kernel_arg_packet_abi_v1"
+            ),
+            "future_kernel_native_consumer_request_ptr_field_read_path": (
+                "request_ptr_to_kernel_arg_packet_to_program_view_rows"
+            ),
+            "future_kernel_native_consumer_request_ptr_checked": True,
+            "future_kernel_native_consumer_request_ptr_version": 1,
+            "future_kernel_native_consumer_request_ptr_packet_chain_depth": 4,
+            "future_kernel_native_consumer_request_ptr_pointer_size": 8,
+            "future_kernel_native_consumer_request_ptr_request_id": 1,
+            "future_kernel_native_consumer_request_ptr_payload_bytes": 0,
+            "future_kernel_native_consumer_request_ptr_payload_deref_allowed": False,
+            "future_kernel_native_consumer_request_ptr_passed_to_kernel": False,
+            "future_kernel_native_consumer_request_ptr_kernel_arg_pass_allowed": False,
+            "future_kernel_native_consumer_request_ptr_changes_kernel_launch_args": False,
+            "future_kernel_native_consumer_request_ptr_current_wna16_arg_compatible": False,
+            "future_kernel_native_consumer_request_ptr_requires_wna16_arg_reinterpretation": False,
+            "future_kernel_native_consumer_request_ptr_summary_row_count": 2,
+            "future_kernel_native_consumer_request_ptr_summary_row_ok_count": 2,
+            "future_kernel_native_consumer_request_ptr_summary_error_count": 0,
+            "future_kernel_native_consumer_request_ptr_summary_field_mask": 15,
+            "future_kernel_native_consumer_request_ptr_summary_descriptor_ptr_read_row_ok_count": 2,
+            "future_kernel_native_consumer_request_ptr_summary_packed_weight_descriptor_read_row_ok_count": 2,
+            "future_kernel_native_consumer_request_ptr_summary_scale_metadata_handle_read_row_ok_count": 2,
+            "future_kernel_native_consumer_request_ptr_summary_aux_metadata_handle_read_row_ok_count": 2,
+            "future_kernel_native_consumer_request_ptr_summary_expert_id_read_row_ok_count": 2,
+            "future_kernel_native_consumer_request_ptr_summary_address_key_hash_read_row_ok_count": 2,
+            "future_kernel_native_consumer_request_ptr_summary_row_metadata_read_row_ok_count": 2,
+            "future_kernel_native_consumer_request_ptr_summary_row_hash_accumulator": row_hash,
+            "future_kernel_native_consumer_request_ptr_summary_field_read_hash_accumulator": field_read_hash,
+            "future_kernel_native_consumer_request_ptr_summary_row_metadata_hash_accumulator": row_metadata_hash,
+            "future_kernel_native_consumer_kernel_entry_summary_row_count": 2,
+            "future_kernel_native_consumer_kernel_entry_summary_row_ok_count": 2,
+            "future_kernel_native_consumer_kernel_entry_summary_error_count": 0,
+            "future_kernel_native_consumer_kernel_entry_summary_field_mask": 15,
+            "future_kernel_native_consumer_kernel_entry_summary_descriptor_ptr_read_row_ok_count": 2,
+            "future_kernel_native_consumer_kernel_entry_summary_packed_weight_descriptor_read_row_ok_count": 2,
+            "future_kernel_native_consumer_kernel_entry_summary_scale_metadata_handle_read_row_ok_count": 2,
+            "future_kernel_native_consumer_kernel_entry_summary_aux_metadata_handle_read_row_ok_count": 2,
+            "future_kernel_native_consumer_kernel_entry_summary_expert_id_read_row_ok_count": 2,
+            "future_kernel_native_consumer_kernel_entry_summary_address_key_hash_read_row_ok_count": 2,
+            "future_kernel_native_consumer_kernel_entry_summary_row_metadata_read_row_ok_count": 2,
+            "future_kernel_native_consumer_kernel_entry_summary_row_hash_accumulator": row_hash,
+            "future_kernel_native_consumer_kernel_entry_summary_field_read_hash_accumulator": field_read_hash,
+            "future_kernel_native_consumer_kernel_entry_summary_row_metadata_hash_accumulator": row_metadata_hash,
+        }
+    )
     return payload
 
 
@@ -2630,6 +2694,9 @@ def _runner_extra_input_summary(index: int = 1) -> dict[str, object]:
                     "aux_metadata_handle"
                 )
             },
+            "native_stub_future_kernel_native_consumer_request_ptr_abi": {
+                "summary": _runner_future_kernel_native_request_ptr_summary()
+            },
         },
     }
 
@@ -2966,6 +3033,9 @@ def _write_gate(
                         "aux_metadata_handle"
                     )
                 ),
+                "future_kernel_native_consumer_request_ptr_stub_summary": (
+                    _runner_future_kernel_native_request_ptr_summary()
+                ),
                 "preflight_summary": {
                     "passed": True,
                     "failures": [],
@@ -3036,6 +3106,8 @@ def _write_gate(
                 "runner_future_kernel_native_consumer_dispatch_packed_weight_stub_row_ok_count": 2,
                 "runner_future_kernel_native_consumer_dispatch_aux_metadata_stub_row_count": 2,
                 "runner_future_kernel_native_consumer_dispatch_aux_metadata_stub_row_ok_count": 2,
+                "runner_future_kernel_native_consumer_request_ptr_stub_row_count": 2,
+                "runner_future_kernel_native_consumer_request_ptr_stub_row_ok_count": 2,
             }
 
         _write(root / native_online_runner_path, json.dumps(_runner_payload(16)) + "\n")
@@ -6988,7 +7060,7 @@ def test_premap_lab_preflight_rejects_online_request_ptr_hash_mismatch(
     payload = json.loads(request_ptr_path.read_text(encoding="utf-8"))
     payload[
         "future_kernel_native_consumer_request_ptr_summary_row_hash_accumulator"
-    ] = "wrong-request-ptr-hash"
+    ] = "1111111111111111"
     _write(request_ptr_path, json.dumps(payload) + "\n")
     trace_config = _write_trace_config(
         tmp_path,
@@ -7009,6 +7081,78 @@ def test_premap_lab_preflight_rejects_online_request_ptr_hash_mismatch(
     assert (
         "native_typed_consumer_stub_online_prelaunch_input_request_ptr_canary_json:"
         "native_typed_consumer_stub_request_ptr_summary_row_hash_mismatch"
+    ) in result["default_readonly_gate_required_evidence_check"]["failures"]
+
+
+def test_premap_lab_preflight_rejects_online_request_ptr_field_hash_not_hex(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    request_ptr_path = (
+        tmp_path
+        / "reports/default_gate_native_typed_consumer_stub_online_prelaunch_input_request_ptr_canary.json"
+    )
+    payload = json.loads(request_ptr_path.read_text(encoding="utf-8"))
+    payload[
+        "future_kernel_native_consumer_request_ptr_summary_field_read_hash_accumulator"
+    ] = "not-a-hex-hash"
+    _write(request_ptr_path, json.dumps(payload) + "\n")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is False
+    assert "default_readonly_gate_required_evidence_check_failed" in result["failures"]
+    assert (
+        "native_typed_consumer_stub_online_prelaunch_input_request_ptr_canary_json:"
+        "native_typed_consumer_stub_request_ptr_summary_field_read_hash_missing"
+    ) in result["default_readonly_gate_required_evidence_check"]["failures"]
+
+
+def test_premap_lab_preflight_rejects_online_request_ptr_row_metadata_hash_mismatch(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    request_ptr_path = (
+        tmp_path
+        / "reports/default_gate_native_typed_consumer_stub_online_prelaunch_input_request_ptr_canary.json"
+    )
+    payload = json.loads(request_ptr_path.read_text(encoding="utf-8"))
+    payload[
+        "future_kernel_native_consumer_request_ptr_summary_row_metadata_hash_accumulator"
+    ] = "1111111111111111"
+    _write(request_ptr_path, json.dumps(payload) + "\n")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is False
+    assert "default_readonly_gate_required_evidence_check_failed" in result["failures"]
+    assert (
+        "native_typed_consumer_stub_online_prelaunch_input_request_ptr_canary_json:"
+        "native_typed_consumer_stub_request_ptr_summary_row_metadata_hash_mismatch"
     ) in result["default_readonly_gate_required_evidence_check"]["failures"]
 
 
