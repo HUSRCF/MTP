@@ -222,8 +222,10 @@ REQUIRED_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
     "native_typed_consumer_stub_online_prelaunch_input_request_launch_ptr_canary_json",
     "native_typed_consumer_online_prelaunch_canary_runner_json",
     "future_kernel_native_dispatch_ptr_standalone_canary_json",
+    "future_kernel_native_arg_slot_aux_metadata_mirror_canary_json",
     "future_kernel_native_arg_slot_standalone_canary_json",
     "future_kernel_native_arg_slot_multiprogram_canary_json",
+    "future_kernel_native_arg_slot_online_merged_aux_metadata_mirror_runner_json",
     "future_kernel_native_arg_slot_online_merged_multiprogram_runner_json",
     "future_kernel_native_arg_slot_online_merged_multiprogram_canary_json",
     "future_kernel_native_dispatch_consumer_online_artifact_check_32_128export_json",
@@ -235,9 +237,7 @@ OPTIONAL_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
     "future_kernel_native_consumer_online_runner_16_128export_json",
     "future_kernel_native_dispatch_consumer_online_artifact_check_16_128export_json",
     "future_kernel_native_dispatch_consumer_online_runner_16_128export_json",
-    "future_kernel_native_arg_slot_aux_metadata_mirror_canary_json",
     "future_kernel_native_arg_slot_descriptor_ptr_mirror_canary_json",
-    "future_kernel_native_arg_slot_online_merged_aux_metadata_mirror_runner_json",
     "future_kernel_native_arg_slot_online_merged_descriptor_ptr_mirror_runner_json",
     "future_kernel_native_arg_slot_online_merged_packed_weight_mirror_runner_json",
     "future_kernel_native_arg_slot_packed_weight_mirror_canary_json",
@@ -250,23 +250,35 @@ OPTIONAL_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
     "packed_weight_single_field_handle_handoff_canary_smoke_json",
 }
 ARG_SLOT_MIRROR_FIELDS = tuple(PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_COLUMNS)
-ARG_SLOT_OPTIONAL_MIRROR_LABEL_BY_FIELD = {
+ARG_SLOT_REQUIRED_MIRROR_LABEL_BY_FIELD = {
     "aux_metadata_handle": "future_kernel_native_arg_slot_aux_metadata_mirror_canary_json",
+}
+ARG_SLOT_OPTIONAL_MIRROR_LABEL_BY_FIELD = {
     "descriptor_ptr": "future_kernel_native_arg_slot_descriptor_ptr_mirror_canary_json",
     "packed_weight_descriptor": (
         "future_kernel_native_arg_slot_packed_weight_mirror_canary_json"
     ),
 }
-ARG_SLOT_ONLINE_MERGED_OPTIONAL_MIRROR_RUNNER_LABEL_BY_FIELD = {
+ARG_SLOT_MIRROR_LABEL_BY_FIELD = {
+    **ARG_SLOT_REQUIRED_MIRROR_LABEL_BY_FIELD,
+    **ARG_SLOT_OPTIONAL_MIRROR_LABEL_BY_FIELD,
+}
+ARG_SLOT_ONLINE_MERGED_REQUIRED_MIRROR_RUNNER_LABEL_BY_FIELD = {
     "aux_metadata_handle": (
         "future_kernel_native_arg_slot_online_merged_aux_metadata_mirror_runner_json"
     ),
+}
+ARG_SLOT_ONLINE_MERGED_OPTIONAL_MIRROR_RUNNER_LABEL_BY_FIELD = {
     "descriptor_ptr": (
         "future_kernel_native_arg_slot_online_merged_descriptor_ptr_mirror_runner_json"
     ),
     "packed_weight_descriptor": (
         "future_kernel_native_arg_slot_online_merged_packed_weight_mirror_runner_json"
     ),
+}
+ARG_SLOT_ONLINE_MERGED_MIRROR_RUNNER_LABEL_BY_FIELD = {
+    **ARG_SLOT_ONLINE_MERGED_REQUIRED_MIRROR_RUNNER_LABEL_BY_FIELD,
+    **ARG_SLOT_ONLINE_MERGED_OPTIONAL_MIRROR_RUNNER_LABEL_BY_FIELD,
 }
 ARG_SLOT_ONLINE_DIAGNOSTIC_SUMMARY_KEY_BY_FIELD = {
     "aux_metadata_handle": (
@@ -1469,7 +1481,7 @@ def _validate_required_evidence_payload(
     for (
         field,
         label,
-    ) in ARG_SLOT_ONLINE_MERGED_OPTIONAL_MIRROR_RUNNER_LABEL_BY_FIELD.items():
+    ) in ARG_SLOT_ONLINE_MERGED_MIRROR_RUNNER_LABEL_BY_FIELD.items():
         if evidence_label == label:
             return [
                 f"{evidence_label}:{failure}"
@@ -6521,6 +6533,26 @@ def run_premap_lab_preflight(
         set(arg_slot_online_mirror_field_coverage)
         | set(arg_slot_online_diagnostic_mirror_field_coverage)
     )
+    arg_slot_online_merged_required_mirror_field_coverage: list[str] = []
+    arg_slot_online_merged_required_mirror_evidence_labels: list[str] = []
+    for (
+        field,
+        label,
+    ) in ARG_SLOT_ONLINE_MERGED_REQUIRED_MIRROR_RUNNER_LABEL_BY_FIELD.items():
+        row = _find_evidence_row(default_gate_required_evidence_check, label)
+        if not _evidence_row_passed(row):
+            continue
+        payload = _load_evidence_payload_from_check(
+            default_gate_required_evidence_check,
+            label,
+            root=root,
+        )
+        summary = payload.get("stub_summary")
+        if not isinstance(summary, dict):
+            continue
+        if _arg_slot_mirror_field_coverage(summary) == [field]:
+            arg_slot_online_merged_required_mirror_field_coverage.append(field)
+            arg_slot_online_merged_required_mirror_evidence_labels.append(label)
     arg_slot_online_merged_optional_mirror_field_coverage: list[str] = []
     arg_slot_online_merged_optional_mirror_evidence_labels: list[str] = []
     for (
@@ -6556,6 +6588,20 @@ def run_premap_lab_preflight(
     arg_slot_standalone_mirror_field_coverage = _arg_slot_mirror_field_coverage(
         arg_slot_standalone_payload
     )
+    arg_slot_required_mirror_field_coverage: list[str] = []
+    arg_slot_required_mirror_evidence_labels: list[str] = []
+    for field, label in ARG_SLOT_REQUIRED_MIRROR_LABEL_BY_FIELD.items():
+        row = _find_evidence_row(default_gate_required_evidence_check, label)
+        if not _evidence_row_passed(row):
+            continue
+        payload = _load_evidence_payload_from_check(
+            default_gate_required_evidence_check,
+            label,
+            root=root,
+        )
+        if _arg_slot_mirror_field_coverage(payload) == [field]:
+            arg_slot_required_mirror_field_coverage.append(field)
+            arg_slot_required_mirror_evidence_labels.append(label)
     arg_slot_optional_mirror_field_coverage: list[str] = []
     arg_slot_optional_mirror_evidence_labels: list[str] = []
     for field, label in ARG_SLOT_OPTIONAL_MIRROR_LABEL_BY_FIELD.items():
@@ -6572,7 +6618,9 @@ def run_premap_lab_preflight(
             arg_slot_optional_mirror_evidence_labels.append(label)
     arg_slot_total_mirror_field_coverage = sorted(
         set(arg_slot_standalone_mirror_field_coverage)
+        | set(arg_slot_required_mirror_field_coverage)
         | set(arg_slot_optional_mirror_field_coverage)
+        | set(arg_slot_online_merged_required_mirror_field_coverage)
         | set(arg_slot_online_merged_optional_mirror_field_coverage)
     )
     future_kernel_args_runner_summary = dispatch_runner_payload.get(
@@ -9906,11 +9954,23 @@ def run_premap_lab_preflight(
             set(arg_slot_online_total_mirror_field_coverage)
             == set(ARG_SLOT_MIRROR_FIELDS)
         ),
+        "default_kernel_consumer_arg_slot_required_mirror_field_coverage": (
+            sorted(arg_slot_required_mirror_field_coverage)
+        ),
+        "default_kernel_consumer_arg_slot_required_mirror_evidence_labels": (
+            sorted(arg_slot_required_mirror_evidence_labels)
+        ),
         "default_kernel_consumer_arg_slot_optional_mirror_field_coverage": (
             sorted(arg_slot_optional_mirror_field_coverage)
         ),
         "default_kernel_consumer_arg_slot_optional_mirror_evidence_labels": (
             sorted(arg_slot_optional_mirror_evidence_labels)
+        ),
+        "default_kernel_consumer_arg_slot_online_merged_required_mirror_field_coverage": (
+            sorted(arg_slot_online_merged_required_mirror_field_coverage)
+        ),
+        "default_kernel_consumer_arg_slot_online_merged_required_mirror_evidence_labels": (
+            sorted(arg_slot_online_merged_required_mirror_evidence_labels)
         ),
         "default_kernel_consumer_arg_slot_online_merged_optional_mirror_field_coverage": (
             sorted(arg_slot_online_merged_optional_mirror_field_coverage)
