@@ -172,6 +172,30 @@ REQUIRED_DEFAULT_GATE_CONTRACT = {
     "aux_metadata_single_field_handle_handoff_canary_changes_kernel_launch_args_required": False,
     "aux_metadata_single_field_handle_handoff_canary_live_enabled_required": False,
     "aux_metadata_single_field_handle_handoff_canary_live_compatible_with_current_wna16_args_required": False,
+    "descriptor_ptr_single_field_handle_handoff_canary_smoke_required": True,
+    "descriptor_ptr_single_field_handle_handoff_canary_field": "descriptor_ptr",
+    "descriptor_ptr_single_field_handle_handoff_canary_source": (
+        "semantic_handle_table"
+    ),
+    "descriptor_ptr_single_field_handle_handoff_canary_payload_bytes_required": 0,
+    "descriptor_ptr_single_field_handle_handoff_canary_ready_credit_required": False,
+    "descriptor_ptr_single_field_handle_handoff_canary_passed_to_kernel_required": False,
+    "descriptor_ptr_single_field_handle_handoff_canary_changes_kernel_launch_args_required": False,
+    "descriptor_ptr_single_field_handle_handoff_canary_live_enabled_required": False,
+    "descriptor_ptr_single_field_handle_handoff_canary_live_compatible_with_current_wna16_args_required": False,
+    "packed_weight_single_field_handle_handoff_canary_smoke_required": True,
+    "packed_weight_single_field_handle_handoff_canary_field": (
+        "packed_weight_descriptor"
+    ),
+    "packed_weight_single_field_handle_handoff_canary_source": (
+        "semantic_handle_table"
+    ),
+    "packed_weight_single_field_handle_handoff_canary_payload_bytes_required": 0,
+    "packed_weight_single_field_handle_handoff_canary_ready_credit_required": False,
+    "packed_weight_single_field_handle_handoff_canary_passed_to_kernel_required": False,
+    "packed_weight_single_field_handle_handoff_canary_changes_kernel_launch_args_required": False,
+    "packed_weight_single_field_handle_handoff_canary_live_enabled_required": False,
+    "packed_weight_single_field_handle_handoff_canary_live_compatible_with_current_wna16_args_required": False,
     "native_typed_consumer_bridge_required": True,
     "native_typed_consumer_bridge_payload_bytes_required": 0,
     "native_typed_consumer_bridge_ready_credit_required": False,
@@ -210,6 +234,8 @@ REQUIRED_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
     "strict_kernel_side_typed_row_consumer_path_128_gate_json",
     "strict_single_field_handle_handoff_canary_128_gate_json",
     "aux_metadata_single_field_handle_handoff_canary_smoke_json",
+    "descriptor_ptr_single_field_handle_handoff_canary_smoke_json",
+    "packed_weight_single_field_handle_handoff_canary_smoke_json",
     "strict_native_typed_consumer_bridge_128_gate_json",
     "native_typed_consumer_bridge_smoke_json",
     "strict_native_stub_online_invocation_canary_128_gate_json",
@@ -239,7 +265,6 @@ REQUIRED_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
     "future_kernel_native_dispatch_consumer_online_runner_32_128export_json",
 }
 OPTIONAL_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
-    "descriptor_ptr_single_field_handle_handoff_canary_smoke_json",
     "future_kernel_native_consumer_online_artifact_check_16_128export_json",
     "future_kernel_native_consumer_online_runner_16_128export_json",
     "future_kernel_native_dispatch_consumer_online_artifact_check_16_128export_json",
@@ -250,7 +275,6 @@ OPTIONAL_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
     "future_kernel_native_launch_consumer_online_artifact_check_16_128export_json",
     "future_kernel_native_launch_consumer_online_runner_16_128export_json",
     "native_typed_consumer_stub_online_prelaunch_input_per_field_canary_json",
-    "packed_weight_single_field_handle_handoff_canary_smoke_json",
 }
 ARG_SLOT_MIRROR_FIELDS = tuple(PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_COLUMNS)
 ARG_SLOT_REQUIRED_MIRROR_LABEL_BY_FIELD = {
@@ -1312,6 +1336,7 @@ def _validate_single_field_canary_evidence(
         "payload_violation_count",
         "ready_credit_count",
         "passed_to_kernel_count",
+        "changes_kernel_launch_args_count",
         "kernel_arg_violation_count",
         "live_compatible_with_current_wna16_args_count",
     ):

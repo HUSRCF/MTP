@@ -968,6 +968,7 @@ def _lab_evidence_metrics(
         f"{single}payload_violation_count": 0,
         f"{single}ready_credit_count": 0,
         f"{single}passed_to_kernel_count": 0,
+        f"{single}changes_kernel_launch_args_count": 0,
         f"{single}kernel_arg_violation_count": 0,
         f"{single}live_compatible_with_current_wna16_args_count": 0,
         f"{single}kernel_side_typed_consumer_compatible_count": 3,
@@ -3733,6 +3734,24 @@ def _write_gate(
         "  aux_metadata_single_field_handle_handoff_canary_changes_kernel_launch_args_required: false\n"
         "  aux_metadata_single_field_handle_handoff_canary_live_enabled_required: false\n"
         "  aux_metadata_single_field_handle_handoff_canary_live_compatible_with_current_wna16_args_required: false\n"
+        "  descriptor_ptr_single_field_handle_handoff_canary_smoke_required: true\n"
+        "  descriptor_ptr_single_field_handle_handoff_canary_field: descriptor_ptr\n"
+        "  descriptor_ptr_single_field_handle_handoff_canary_source: semantic_handle_table\n"
+        "  descriptor_ptr_single_field_handle_handoff_canary_payload_bytes_required: 0\n"
+        "  descriptor_ptr_single_field_handle_handoff_canary_ready_credit_required: false\n"
+        "  descriptor_ptr_single_field_handle_handoff_canary_passed_to_kernel_required: false\n"
+        "  descriptor_ptr_single_field_handle_handoff_canary_changes_kernel_launch_args_required: false\n"
+        "  descriptor_ptr_single_field_handle_handoff_canary_live_enabled_required: false\n"
+        "  descriptor_ptr_single_field_handle_handoff_canary_live_compatible_with_current_wna16_args_required: false\n"
+        "  packed_weight_single_field_handle_handoff_canary_smoke_required: true\n"
+        "  packed_weight_single_field_handle_handoff_canary_field: packed_weight_descriptor\n"
+        "  packed_weight_single_field_handle_handoff_canary_source: semantic_handle_table\n"
+        "  packed_weight_single_field_handle_handoff_canary_payload_bytes_required: 0\n"
+        "  packed_weight_single_field_handle_handoff_canary_ready_credit_required: false\n"
+        "  packed_weight_single_field_handle_handoff_canary_passed_to_kernel_required: false\n"
+        "  packed_weight_single_field_handle_handoff_canary_changes_kernel_launch_args_required: false\n"
+        "  packed_weight_single_field_handle_handoff_canary_live_enabled_required: false\n"
+        "  packed_weight_single_field_handle_handoff_canary_live_compatible_with_current_wna16_args_required: false\n"
         "  native_typed_consumer_bridge_required: true\n"
         "  native_typed_consumer_bridge_payload_bytes_required: 0\n"
         "  native_typed_consumer_bridge_ready_credit_required: false\n"
@@ -3768,6 +3787,10 @@ def _write_gate(
             f"{single_field_canary_path}\n"
             "  aux_metadata_single_field_handle_handoff_canary_smoke_json: "
             f"{aux_metadata_single_field_canary_path}\n"
+            "  descriptor_ptr_single_field_handle_handoff_canary_smoke_json: "
+            f"{descriptor_ptr_single_field_canary_path}\n"
+            "  packed_weight_single_field_handle_handoff_canary_smoke_json: "
+            f"{packed_weight_single_field_canary_path}\n"
             "  strict_live_connected_readonly_128_gate_json: "
             f"{lab_live_connected_path}\n"
             "  strict_native_typed_consumer_bridge_128_gate_json: "
@@ -3849,12 +3872,8 @@ def _write_gate(
             f"{future_kernel_args_descriptor_ptr_canary_path}\n"
             "  future_kernel_args_packed_weight_mirror_canary_json: "
             f"{future_kernel_args_packed_weight_canary_path}\n"
-            "  descriptor_ptr_single_field_handle_handoff_canary_smoke_json: "
-            f"{descriptor_ptr_single_field_canary_path}\n"
             "  native_typed_consumer_stub_online_prelaunch_input_per_field_canary_json: "
             f"{native_online_per_field_stub_path}\n"
-            "  packed_weight_single_field_handle_handoff_canary_smoke_json: "
-            f"{packed_weight_single_field_canary_path}\n"
             if include_lab_evidence
             else ""
         ),
@@ -3921,7 +3940,7 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert result["passed"] is True
     assert result["failures"] == []
     assert result["runtime_gate_evidence_scan"]["gate_count"] == 3
-    assert result["runtime_gate_evidence_scan"]["evidence_path_count"] == 86
+    assert result["runtime_gate_evidence_scan"]["evidence_path_count"] == 90
     assert result["default_readonly_gate_required_evidence_check"]["passed"] is True
     summary = result["lab_gate_status_summary"]
     assert summary["passed"] is True
@@ -5127,12 +5146,12 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert summary["payload_bytes_required"] == 0
     assert summary["passed_to_kernel_required"] is False
     assert summary["changes_kernel_launch_args_required"] is False
-    assert summary["required_evidence"]["required_count"] == 33
-    assert summary["required_evidence"]["present_count"] == 33
-    assert summary["required_evidence"]["passed_count"] == 33
-    assert summary["optional_evidence"]["required_count"] == 12
-    assert summary["optional_evidence"]["present_count"] == 12
-    assert summary["optional_evidence"]["passed_count"] == 12
+    assert summary["required_evidence"]["required_count"] == 35
+    assert summary["required_evidence"]["present_count"] == 35
+    assert summary["required_evidence"]["passed_count"] == 35
+    assert summary["optional_evidence"]["required_count"] == 10
+    assert summary["optional_evidence"]["present_count"] == 10
+    assert summary["optional_evidence"]["passed_count"] == 10
     assert (
         summary["required_evidence"]["evidence"][
             "future_kernel_native_arg_slot_multiprogram_canary_json"
@@ -5208,7 +5227,7 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
         is True
     )
     assert (
-        summary["optional_evidence"]["evidence"][
+        summary["required_evidence"]["evidence"][
             "packed_weight_single_field_handle_handoff_canary_smoke_json"
         ]["passed"]
         is True
@@ -5244,7 +5263,7 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
         is True
     )
     assert (
-        summary["optional_evidence"]["evidence"][
+        summary["required_evidence"]["evidence"][
             "descriptor_ptr_single_field_handle_handoff_canary_smoke_json"
         ]["passed"]
         is True
@@ -5622,7 +5641,7 @@ def test_premap_lab_preflight_rejects_missing_optional_future_args_coverage(
         "default_kernel_consumer_future_kernel_args_total_mirror_coverage_incomplete"
         in result["failures"]
     )
-    assert summary["required_evidence"]["passed_count"] == 33
+    assert summary["required_evidence"]["passed_count"] == 35
     assert summary["default_optional_evidence_passed"] is True
     assert (
         summary[
@@ -5815,8 +5834,8 @@ def test_premap_lab_preflight_rejects_present_optional_packed_weight_canary_mism
     )
 
     assert result["passed"] is False
-    assert "default_readonly_gate_optional_evidence_check_failed" in result["failures"]
-    failures = result["default_readonly_gate_optional_evidence_check"]["failures"]
+    assert "default_readonly_gate_required_evidence_check_failed" in result["failures"]
+    failures = result["default_readonly_gate_required_evidence_check"]["failures"]
     assert (
         "packed_weight_single_field_handle_handoff_canary_smoke_json:"
         "premap_consumer_descriptor_prep_consumer_shim_"
@@ -7241,6 +7260,45 @@ def test_premap_lab_preflight_rejects_bool_int_required_metric_aliasing(
     ) in failures
 
 
+def test_premap_lab_preflight_rejects_single_field_changes_kernel_launch_args(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    canary_path = (
+        tmp_path
+        / "reports/default_gate_descriptor_ptr_single_field_handle_handoff_canary_smoke.json"
+    )
+    payload = json.loads(canary_path.read_text())
+    metrics = payload["metrics"]
+    metrics[
+        "premap_consumer_descriptor_prep_consumer_shim_"
+        "single_field_handle_handoff_canary_changes_kernel_launch_args_count"
+    ] = 1
+    _write(canary_path, json.dumps(payload) + "\n")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is False
+    failures = result["default_readonly_gate_required_evidence_check"]["failures"]
+    assert (
+        "descriptor_ptr_single_field_handle_handoff_canary_smoke_json:"
+        "premap_consumer_descriptor_prep_consumer_shim_"
+        "single_field_handle_handoff_canary_changes_kernel_launch_args_count_mismatch"
+    ) in failures
+
+
 def test_premap_lab_preflight_rejects_default_gate_with_bad_schema_artifact(
     tmp_path: Path,
 ):
@@ -7482,6 +7540,8 @@ def test_premap_lab_preflight_rejects_default_gate_without_typed_evidence(
         "strict_kernel_side_typed_row_consumer_path_128_gate_json:missing_evidence_path",
         "strict_single_field_handle_handoff_canary_128_gate_json:missing_evidence_path",
         "aux_metadata_single_field_handle_handoff_canary_smoke_json:missing_evidence_path",
+        "descriptor_ptr_single_field_handle_handoff_canary_smoke_json:missing_evidence_path",
+        "packed_weight_single_field_handle_handoff_canary_smoke_json:missing_evidence_path",
         "native_typed_consumer_stub_endpoint_ptr_canary_json:missing_evidence_path",
     }
 
@@ -7523,6 +7583,8 @@ def test_premap_lab_preflight_rejects_failed_typed_evidence(
         "strict_kernel_side_typed_row_consumer_path_128_gate_json:not_passed",
         "strict_single_field_handle_handoff_canary_128_gate_json:not_passed",
         "aux_metadata_single_field_handle_handoff_canary_smoke_json:not_passed",
+        "descriptor_ptr_single_field_handle_handoff_canary_smoke_json:not_passed",
+        "packed_weight_single_field_handle_handoff_canary_smoke_json:not_passed",
     }
 
 
@@ -7562,6 +7624,8 @@ def test_premap_lab_preflight_rejects_typed_evidence_with_failures(
         "strict_kernel_side_typed_row_consumer_path_128_gate_json:failures_not_empty",
         "strict_single_field_handle_handoff_canary_128_gate_json:failures_not_empty",
         "aux_metadata_single_field_handle_handoff_canary_smoke_json:failures_not_empty",
+        "descriptor_ptr_single_field_handle_handoff_canary_smoke_json:failures_not_empty",
+        "packed_weight_single_field_handle_handoff_canary_smoke_json:failures_not_empty",
     }
 
 
@@ -9488,10 +9552,10 @@ def test_premap_lab_preflight_can_defer_self_referential_runner_evidence(
     assert summary["deferred_online_prelaunch_artifact_evidence"] is False
     assert summary["runtime_gate_evidence_deferred_count"] == 10
     assert summary["strict_default_gate_evidence_deferred_count"] == 5
-    assert summary["required_evidence"]["required_count"] == 33
-    assert summary["required_evidence"]["present_count"] == 31
-    assert summary["required_evidence"]["passed_count"] == 31
-    assert summary["optional_evidence"]["passed_count"] == 9
+    assert summary["required_evidence"]["required_count"] == 35
+    assert summary["required_evidence"]["present_count"] == 33
+    assert summary["required_evidence"]["passed_count"] == 33
+    assert summary["optional_evidence"]["passed_count"] == 7
     for label in (
         "future_kernel_native_consumer_online_artifact_check_16_128export_json",
         "future_kernel_native_dispatch_consumer_online_artifact_check_16_128export_json",
@@ -10066,7 +10130,7 @@ def test_premap_lab_preflight_cli_writes_summary(tmp_path: Path):
     assert result["lab_gate_status_summary"]["passed"] is True
     assert (
         result["lab_gate_status_summary"]["required_evidence"]["passed_count"]
-        == 33
+        == 35
     )
 
 
@@ -10102,6 +10166,6 @@ def test_premap_lab_preflight_cli_summary_only_writes_status_block(tmp_path: Pat
     assert exit_code == 0
     assert result["passed"] is True
     assert result["default_readonly_gate_path"] == default_gate
-    assert result["required_evidence"]["passed_count"] == 33
-    assert result["optional_evidence"]["passed_count"] == 12
+    assert result["required_evidence"]["passed_count"] == 35
+    assert result["optional_evidence"]["passed_count"] == 10
     assert "lab_gate_status_summary" not in result

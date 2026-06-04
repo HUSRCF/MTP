@@ -6350,6 +6350,10 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
                         (f"{single_field_prefix}_payload_violation_count", 0),
                         (f"{single_field_prefix}_ready_credit_count", 0),
                         (f"{single_field_prefix}_passed_to_kernel_count", 0),
+                        (
+                            f"{single_field_prefix}_changes_kernel_launch_args_count",
+                            0,
+                        ),
                         (f"{single_field_prefix}_kernel_arg_violation_count", 0),
                         (
                             f"{single_field_prefix}_live_compatible_with_current_wna16_args_count",
@@ -6473,6 +6477,10 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
                         (
                             f"{single_field_prefix}_passed_to_kernel",
                             f"{single_field_prefix}_passed_to_kernel_count",
+                        ),
+                        (
+                            f"{single_field_prefix}_changes_kernel_launch_args",
+                            f"{single_field_prefix}_changes_kernel_launch_args_count",
                         ),
                         (
                             f"{single_field_prefix}_live_compatible_with_current_wna16_args",
