@@ -2,8 +2,28 @@
 
 ## Progress Version
 
-- Version: `v0.74-request-ptr-online-runner-gate`
+- Version: `v0.75-request-launch-lab-preflight-gate`
 - Updated: 2026-06-04
+- Latest lab-gate update: promoted the request-launch ABI into the default
+  readonly lab preflight as required evidence,
+  `native_typed_consumer_stub_online_prelaunch_input_request_launch_canary_json`.
+  The default gate now points at
+  `outputs/reports/premap_kernel_consumer/typed_consumer_stub_gpu1_online_prelaunch_input_request_launch_canary.json`,
+  which validates the exported online prelaunch typed table through
+  `request_launch -> request_ptr -> kernel_arg_packet -> program_view_rows`.
+  The compact summary
+  `outputs/reports/premap_kernel_consumer/lab_preflight_status_request_launch.json`
+  passes with 22/22 required evidence rows and exposes
+  `default_kernel_consumer_request_launch_checked=true`,
+  `default_kernel_consumer_request_launch_device_ordinal=0`,
+  `packet_chain_depth=5`, `summary_row_count=174`,
+  `summary_row_ok_count=174`, and
+  `all_handle_fields_read=true`.  The request-launch path still reports
+  `payload_bytes=0`, `passed_to_kernel=false`,
+  `kernel_arg_pass_allowed=false`, `changes_kernel_launch_args=false`, and
+  `current_wna16_arg_compatible=false`; it is an independent future
+  kernel-side typed consumer gate, not the current WNA16 fused-MoE argument
+  list.
 - Latest online-runner update: promoted the request-pointer ABI from a
   single-input default evidence row into the 32-input online prelaunch native
   stub runner.  The refreshed runner
