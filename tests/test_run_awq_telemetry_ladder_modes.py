@@ -159,6 +159,17 @@ def test_production_like_explicitly_disables_source_timing() -> None:
         assert mode["emit_moe_substage_timing"] is False
         assert mode["decoder_source_timing_mode"] == "off"
         assert mode["moe_source_timing_mode"] == "off"
+        assert mode["emit_premap_summaries"] is False
+        assert mode["emit_premap_address_manager_counters"] is False
+        assert mode["emit_premap_consumer_mapping"] is False
+        assert mode["premap_address_capacity_gate_path"] is None
+        assert mode["premap_consumer_require_readonly_gate"] is False
+        assert mode["premap_consumer_readonly_gate_path"] is None
+        assert mode["premap_descriptor_prep_execution_mode"] == "off"
+        assert mode["premap_kernel_arg_handoff_live_enabled"] is False
+        assert mode["premap_kernel_arg_handoff_live_consumer_connected"] is False
+        assert mode["premap_kernel_arg_handoff_kernel_arg_pass_enabled"] is False
+        assert mode["premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled"] is False
         assert mode["unset_env"] == ["VLLM_DISABLE_SHARED_EXPERTS_STREAM"]
 
 
@@ -269,6 +280,53 @@ def test_premap_live_minimal_identity_envelope_is_production_compatible() -> Non
     assert mode["premap_kernel_arg_handoff_kernel_arg_pass_enabled"] is True
     assert mode["premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled"] is True
     assert mode["premap_kernel_arg_handoff_minimal_identity_envelope_enabled"] is True
+    assert mode["premap_kernel_arg_handoff_single_field_replacement_dry_run_enabled"] is True
+    assert mode["premap_kernel_arg_handoff_single_field_replacement_live_enabled"] is True
+    assert mode["premap_kernel_arg_handoff_single_field_replacement_field"] == "B_scale"
+    assert mode[
+        "premap_kernel_arg_handoff_single_field_replacement_candidate_source"
+    ] == "original_kernel_arg_identity"
+    assert mode["emit_decoder_layer_timing"] is False
+    assert mode["emit_decoder_component_timing"] is False
+    assert mode["emit_moe_substage_timing"] is False
+    assert mode["decoder_source_timing_mode"] == "off"
+    assert mode["moe_source_timing_mode"] == "off"
+    assert mode["emit_wna16_kernel_timing"] is False
+    assert mode["emit_outcomes"] is False
+    assert mode["outcome_logging_mode"] == "off"
+
+    gate_path = root / mode["premap_consumer_readonly_gate_path"]
+    gate = yaml.safe_load(gate_path.read_text())
+    assert gate["gate"]["check"]["allow_single_field_replacement_live"] is True
+
+
+def test_premap_live_producer_identity_envelope_skips_consumer_mapping() -> None:
+    module = _load_module()
+    root = Path(__file__).resolve().parents[1]
+    mode = module.MODES[
+        "premap_single_field_replacement_live_producer_identity_envelope"
+    ]
+
+    assert mode["record_router_topk"] is False
+    assert mode["capture_router_topk"] is False
+    assert mode["emit_premap_summaries"] is False
+    assert mode["emit_premap_address_manager_counters"] is False
+    assert mode["emit_premap_consumer_mapping"] is False
+    assert mode["premap_consumer_mapping_emit_rows"] is False
+    assert mode["premap_consumer_mapping_mode"] == "off"
+    assert mode["premap_consumer_resolve_real_handles"] is False
+    assert mode["premap_consumer_require_readonly_gate"] is True
+    assert mode["premap_kernel_arg_handoff_live_enabled"] is True
+    assert mode["premap_kernel_arg_handoff_live_consumer_connected"] is True
+    assert mode["premap_kernel_arg_handoff_kernel_arg_pass_enabled"] is True
+    assert mode["premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled"] is True
+    assert mode["premap_kernel_arg_handoff_minimal_identity_envelope_enabled"] is True
+    assert (
+        mode[
+            "premap_kernel_arg_handoff_producer_minimal_identity_envelope_enabled"
+        ]
+        is True
+    )
     assert mode["premap_kernel_arg_handoff_single_field_replacement_dry_run_enabled"] is True
     assert mode["premap_kernel_arg_handoff_single_field_replacement_live_enabled"] is True
     assert mode["premap_kernel_arg_handoff_single_field_replacement_field"] == "B_scale"
@@ -585,6 +643,14 @@ def test_production_like_no_packed_recurrent_uses_env_only() -> None:
     assert mode["emit_summaries"] is False
     assert mode["emit_outcomes"] is False
     assert mode["outcome_logging_mode"] == "off"
+    assert mode["emit_premap_summaries"] is False
+    assert mode["emit_premap_address_manager_counters"] is False
+    assert mode["emit_premap_consumer_mapping"] is False
+    assert mode["premap_address_capacity_gate_path"] is None
+    assert mode["premap_consumer_require_readonly_gate"] is False
+    assert mode["premap_consumer_readonly_gate_path"] is None
+    assert mode["premap_descriptor_prep_execution_mode"] == "off"
+    assert mode["premap_kernel_arg_handoff_live_enabled"] is False
     assert mode["env"] == {"VLLM_ENABLE_FLA_PACKED_RECURRENT_DECODE": "0"}
 
 
@@ -604,6 +670,14 @@ def test_production_like_disable_shared_stream_uses_env_only() -> None:
     assert mode["outcome_logging_mode"] == "off"
     assert mode["emit_descriptor_order_summaries"] is False
     assert mode["emit_transition_summaries"] is False
+    assert mode["emit_premap_summaries"] is False
+    assert mode["emit_premap_address_manager_counters"] is False
+    assert mode["emit_premap_consumer_mapping"] is False
+    assert mode["premap_address_capacity_gate_path"] is None
+    assert mode["premap_consumer_require_readonly_gate"] is False
+    assert mode["premap_consumer_readonly_gate_path"] is None
+    assert mode["premap_descriptor_prep_execution_mode"] == "off"
+    assert mode["premap_kernel_arg_handoff_live_enabled"] is False
     assert mode["env"] == {"VLLM_DISABLE_SHARED_EXPERTS_STREAM": "1"}
     assert "unset_env" not in mode
 

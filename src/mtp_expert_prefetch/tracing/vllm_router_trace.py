@@ -2546,6 +2546,9 @@ class VllmRouterRecorder:
     shadow_premap_kernel_arg_handoff_kernel_arg_pass_enabled: bool = False
     shadow_premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled: bool = False
     shadow_premap_kernel_arg_handoff_minimal_identity_envelope_enabled: bool = False
+    shadow_premap_kernel_arg_handoff_producer_minimal_identity_envelope_enabled: (
+        bool
+    ) = False
     shadow_premap_kernel_arg_handoff_single_field_replacement_dry_run_enabled: (
         bool
     ) = False
@@ -4024,6 +4027,84 @@ class VllmRouterRecorder:
         sample_period = max(1, int(self.shadow_premap_consumer_mapping_sample_period))
         self._premap_consumer_mapping_call_count += 1
         return (self._premap_consumer_mapping_call_count - 1) % sample_period == 0
+
+    def _premap_producer_minimal_identity_envelope_wanted(self) -> bool:
+        return (
+            bool(
+                self.shadow_premap_kernel_arg_handoff_producer_minimal_identity_envelope_enabled
+            )
+            and bool(self.shadow_premap_kernel_arg_handoff_minimal_identity_envelope_enabled)
+            and bool(self.shadow_premap_consumer_readonly_gate_required)
+            and self.shadow_premap_consumer_readonly_gate_passed is True
+            and bool(self.shadow_premap_kernel_arg_handoff_live_enabled)
+            and bool(self.shadow_premap_kernel_arg_handoff_live_consumer_connected)
+            and bool(self.shadow_premap_kernel_arg_handoff_kernel_arg_pass_enabled)
+            and bool(
+                self.shadow_premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled
+            )
+            and bool(
+                self.shadow_premap_kernel_arg_handoff_single_field_replacement_dry_run_enabled
+            )
+            and bool(
+                self.shadow_premap_kernel_arg_handoff_single_field_replacement_live_enabled
+            )
+            and str(
+                self.shadow_premap_kernel_arg_handoff_single_field_replacement_candidate_source
+            )
+            == "original_kernel_arg_identity"
+            and str(self.shadow_premap_kernel_arg_handoff_single_field_replacement_field)
+            in _WNA16_KERNEL_ARG_FIELD_NAMES
+        )
+
+    def _install_premap_producer_minimal_identity_envelope(
+        self,
+        *,
+        layer_id: int,
+        block_size: int,
+        available: bool,
+        source: str,
+    ) -> bool:
+        if not self._premap_producer_minimal_identity_envelope_wanted():
+            return False
+        context = get_active_moe_assignment_context()
+        if context is None:
+            return False
+        existing_package = context.get("premap_kernel_arg_live_mutation_package")
+        if isinstance(existing_package, dict) and bool(
+            existing_package.get("producer_minimal_identity_envelope")
+        ):
+            return True
+        field_name = str(
+            self.shadow_premap_kernel_arg_handoff_single_field_replacement_field
+        )
+        envelope_id = "|".join(
+            (
+                "producer_minimal_identity_envelope_v1",
+                str(self.shadow_premap_consumer_readonly_gate_id),
+                str(source),
+                str(int(layer_id)),
+                str(int(block_size)),
+                "available" if bool(available) else "unavailable",
+                field_name,
+            )
+        )
+        context["premap_kernel_arg_live_mutation_package"] = {
+            "layer_id": int(layer_id),
+            "source": "producer_minimal_identity_live_kernel_arg_package",
+            "table_object_hash": envelope_id,
+            "launch_schema_mirror_hash": envelope_id,
+            "adapter_hash": envelope_id,
+            "block_reason": "kernel_arg_handoff_real_kernel_arg_mutation_live",
+            "table_object": None,
+            "launch_args": None,
+            "used": False,
+            "minimal_identity_envelope": True,
+            "producer_minimal_identity_envelope": True,
+        }
+        _increment_premap_kernel_arg_live_mutation_counter(
+            "package_producer_minimal_identity_envelope_count"
+        )
+        return True
 
     def _write_premap_consumer_mapping_from_experts(
         self,
@@ -7642,13 +7723,27 @@ class VllmRouterRecorder:
         checksum evidence allow it.
         """
 
-        sink = self.shadow_outcome_sink
         wants_assertion = str(
             self.shadow_descriptor_order_prelaunch_assertion_mode or "off"
         ).strip().lower() not in {"", "off", "none", "false", "0"}
         wants_reorder = bool(self.shadow_descriptor_order_reorder_mvp_enabled)
         wants_premap_mapping = self._premap_consumer_mapping_wanted()
         wants_descriptor_handle = bool(wants_assertion or wants_reorder)
+        handle_source = "fused_moe_prepare_expert_assignment"
+        block_size = max(1, int(block_size))
+        available = (
+            sorted_token_ids is not None
+            and sorted_token_ids.ndim == 1
+            and expert_ids.ndim == 1
+            and int(sorted_token_ids.numel()) >= block_size
+        )
+        self._install_premap_producer_minimal_identity_envelope(
+            layer_id=int(layer_id),
+            block_size=int(block_size),
+            available=bool(available),
+            source=handle_source,
+        )
+        sink = self.shadow_outcome_sink
         if sink is None or (not wants_descriptor_handle and not wants_premap_mapping):
             return sorted_token_ids, expert_ids, num_tokens_post_padded
         if wants_descriptor_handle and not hasattr(
@@ -7678,14 +7773,6 @@ class VllmRouterRecorder:
         normalized_mode = str(
             self.shadow_descriptor_order_prelaunch_assertion_mode or "off"
         ).strip().lower()
-        handle_source = "fused_moe_prepare_expert_assignment"
-        block_size = max(1, int(block_size))
-        available = (
-            sorted_token_ids is not None
-            and sorted_token_ids.ndim == 1
-            and expert_ids.ndim == 1
-            and int(sorted_token_ids.numel()) >= block_size
-        )
         block_count = 0
         active_experts_cpu: list[int] = []
         expert_order_hash = ""
@@ -9678,6 +9765,7 @@ _PREMAP_KERNEL_ARG_LIVE_MUTATION_COUNTERS: dict[str, int] = {
     "package_cache_hit_count": 0,
     "package_cache_miss_count": 0,
     "package_minimal_identity_envelope_count": 0,
+    "package_producer_minimal_identity_envelope_count": 0,
     "single_field_replacement_dry_run_candidate_count": 0,
     "single_field_replacement_dry_run_parity_ok_count": 0,
     "single_field_replacement_dry_run_parity_mismatch_count": 0,
@@ -15188,6 +15276,18 @@ def _apply_premap_consumer_readonly_gate(
             False,
         )
     )
+    minimal_identity_envelope_enabled = bool(
+        options.get(
+            "premap_kernel_arg_handoff_minimal_identity_envelope_enabled",
+            False,
+        )
+    )
+    producer_minimal_identity_envelope_enabled = bool(
+        options.get(
+            "premap_kernel_arg_handoff_producer_minimal_identity_envelope_enabled",
+            False,
+        )
+    )
     single_field_replacement_candidate_source = str(
         options.get(
             "premap_kernel_arg_handoff_single_field_replacement_candidate_source",
@@ -15327,6 +15427,23 @@ def _apply_premap_consumer_readonly_gate(
         msg = (
             "premap_kernel_arg_handoff_live_consumer_connected=True requires "
             "premap_kernel_arg_handoff_live_enabled=True."
+        )
+        raise ValueError(msg)
+    if producer_minimal_identity_envelope_enabled and (
+        not minimal_identity_envelope_enabled
+        or not live_handoff_enabled
+        or not live_consumer_connected
+        or not kernel_arg_pass_enabled
+        or not real_kernel_arg_mutation_enabled
+        or not single_field_replacement_dry_run_enabled
+        or not single_field_replacement_live_enabled
+        or single_field_replacement_candidate_source != "original_kernel_arg_identity"
+    ):
+        msg = (
+            "premap_kernel_arg_handoff_producer_minimal_identity_envelope_enabled=True "
+            "requires minimal identity envelope, live handoff, connected consumer, "
+            "kernel-arg pass, real mutation, single-field dry/live replacement, and "
+            "candidate_source='original_kernel_arg_identity'."
         )
         raise ValueError(msg)
     if live_handoff_enabled and not require_gate:
@@ -15994,14 +16111,18 @@ def _apply_premap_consumer_readonly_gate(
         )
         raise ValueError(msg)
     if require_gate:
-        if not bool(options.get("emit_premap_consumer_mapping", False)):
+        if (
+            not producer_minimal_identity_envelope_enabled
+            and not bool(options.get("emit_premap_consumer_mapping", False))
+        ):
             msg = (
                 "premap_consumer_require_readonly_gate=True requires "
                 "emit_premap_consumer_mapping=True."
             )
             raise ValueError(msg)
         if (
-            str(options.get("premap_consumer_mapping_mode", "noop_assertion"))
+            not producer_minimal_identity_envelope_enabled
+            and str(options.get("premap_consumer_mapping_mode", "noop_assertion"))
             != "noop_assertion"
         ):
             msg = (
@@ -16009,14 +16130,20 @@ def _apply_premap_consumer_readonly_gate(
                 "premap_consumer_mapping_mode=noop_assertion."
             )
             raise ValueError(msg)
-        if not bool(options.get("premap_consumer_resolve_real_handles", False)):
+        if (
+            not producer_minimal_identity_envelope_enabled
+            and not bool(options.get("premap_consumer_resolve_real_handles", False))
+        ):
             msg = (
                 "premap_consumer_require_readonly_gate=True requires "
                 "premap_consumer_resolve_real_handles=True."
             )
             raise ValueError(msg)
         policy = str(options.get("premap_policy", "premap_only_with_consumer_mapping_noop"))
-        if policy != "premap_only_with_consumer_mapping_noop":
+        if (
+            not producer_minimal_identity_envelope_enabled
+            and policy != "premap_only_with_consumer_mapping_noop"
+        ):
             msg = (
                 "premap_consumer_require_readonly_gate=True requires "
                 "premap_policy=premap_only_with_consumer_mapping_noop."
@@ -16723,6 +16850,12 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                 False,
             )
         ),
+        "runtime_shadow_premap_kernel_arg_handoff_producer_minimal_identity_envelope_enabled": bool(
+            runtime_shadow_options.get(
+                "premap_kernel_arg_handoff_producer_minimal_identity_envelope_enabled",
+                False,
+            )
+        ),
         "runtime_shadow_premap_kernel_arg_handoff_single_field_replacement_dry_run_enabled": bool(
             runtime_shadow_options.get(
                 "premap_kernel_arg_handoff_single_field_replacement_dry_run_enabled",
@@ -17225,6 +17358,12 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                             shadow_premap_kernel_arg_handoff_minimal_identity_envelope_enabled=bool(
                                 runtime_shadow_options.get(
                                     "premap_kernel_arg_handoff_minimal_identity_envelope_enabled",
+                                    False,
+                                )
+                            ),
+                            shadow_premap_kernel_arg_handoff_producer_minimal_identity_envelope_enabled=bool(
+                                runtime_shadow_options.get(
+                                    "premap_kernel_arg_handoff_producer_minimal_identity_envelope_enabled",
                                     False,
                                 )
                             ),

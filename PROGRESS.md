@@ -29808,3 +29808,121 @@ candidate.  A real benchmark should wait until the handoff is moved further
 down into a native/producer-side adapter or until the Python prelaunch path is
 removed from the decode hot path.
 ```
+
+### 2026-06-05: producer-side minimal identity envelope
+
+Goal:
+
+```text
+Move prelaunch live participation below the premap consumer mapping path:
+
+old minimal identity envelope:
+  _write_premap_consumer_mapping_from_experts
+  -> address manager lookup / readonly consume / parity check
+  -> install minimal package
+
+new producer identity envelope:
+  _prepare_expert_assignment / prelaunch producer boundary
+  -> install lab-gate-backed minimal identity package
+  -> WNA16 wrapper consumes package
+
+Still disabled for real WNA16 arg mutation semantics:
+  payload_bytes = 0
+  no ready credit
+  no descriptor-order change
+  original WNA16 args pass through
+```
+
+Code changes:
+
+```text
+src/mtp_expert_prefetch/tracing/vllm_router_trace.py
+  - added producer-side minimal identity envelope flag
+  - installs the live package at the expert-assignment/prelaunch producer boundary
+  - skips premap manager lookup / descriptor table / consumer mapping for this mode
+  - hardened package overwrite semantics: producer mode overwrites non-producer packages
+
+scripts/run_awq_telemetry_ladder.py
+  - added premap_single_field_replacement_live_producer_identity_envelope
+  - production_like now explicitly clears inherited premap summaries, consumer mapping,
+    readonly gate path, capacity gate path, descriptor prep mode, and live handoff flags
+
+tests
+  - added mode contract tests
+  - added readonly gate validation tests for producer identity envelope dependencies
+```
+
+Validation:
+
+```text
+Focused pytest:
+  tests/test_run_awq_telemetry_ladder_modes.py
+  tests/test_vllm_premap_capacity_gate.py
+  107 passed
+
+Full pytest before the final production_like cleanup:
+  1127 passed, 2 warnings
+
+Code review:
+  GPT-5.3-Codex-Spark found no blocker.
+  Follow-up fixes applied:
+    - producer package now overwrites stale/non-producer packages
+    - producer gate validation has explicit negative/positive tests
+```
+
+GPU1 AWQ/Dolly 8-sample gen64 sanity:
+
+```text
+outputs/reports/awq_telemetry_ladder/
+  gpu1_premap_live_producer_identity_envelope_clean_baseline_sanity3_8sample_gen64
+
+production_like:
+  TPOT = 0.065620s
+  generate = 33.597s
+  emit_premap_summaries = false
+  emit_premap_consumer_mapping = false
+  readonly_gate_required = false
+
+premap_single_field_replacement_live_producer_identity_envelope:
+  TPOT = 0.066549s
+  generate = 34.073s
+  overhead = +1.42%
+  producer_minimal_identity_envelope_count = 20,480
+  package_seen/pass_through = 40,960 / 40,960
+  single_field live candidate/replaced/passed_to_kernel = 40,960 / 40,960 / 40,960
+  live payload bytes = 0
+  package missing/layer mismatch/block reason mismatch = 0 / 0 / 0
+  live parity mismatch = 0
+  generated_text hash matches production_like
+```
+
+Important correction:
+
+```text
+Earlier production_like runs on premap-heavy base configs were not clean
+production-like baselines because they inherited:
+  emit_premap_summaries = true
+  emit_premap_consumer_mapping = true
+  readonly gate paths
+
+The ladder now explicitly clears these fields for production_like modes.
+The clean baseline shows that producer-side live participation is close to
+production-like overhead, not a speedup claim.
+```
+
+Current conclusion:
+
+```text
+Producer-side minimal identity envelope reduces live handoff overhead from
+diagnostic-only levels to a low single-digit canary overhead on the 8-sample
+AWQ smoke.
+
+This is still not a real WNA16 payload/descriptor replacement benchmark.
+It is a production-compatible live participation canary showing that the Python
+consumer-mapping path can be removed from the hot path.
+
+Next gate:
+  repeat / 32-sample clean-baseline TPOT validation, then move from identity
+  envelope to a native producer-side typed adapter without passing current
+  WNA16 kernel args.
+```

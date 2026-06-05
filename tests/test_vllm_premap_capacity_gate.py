@@ -276,6 +276,7 @@ def _kernel_arg_handoff_adapter_contract_lines(
     live_enabled: bool,
     consumer_connected_required: bool = False,
     kernel_arg_pass_required: bool = False,
+    real_kernel_arg_mutation_required: bool = False,
 ) -> list[str]:
     integration_block_reason = (
         "kernel_arg_handoff_kernel_arg_pass_disabled"
@@ -287,7 +288,11 @@ def _kernel_arg_handoff_adapter_contract_lines(
     )
     adapter_block_reason = (
         (
-            "kernel_arg_handoff_kernel_arg_pass_live"
+            (
+                "kernel_arg_handoff_real_kernel_arg_mutation_live"
+                if real_kernel_arg_mutation_required
+                else "kernel_arg_handoff_kernel_arg_pass_live"
+            )
             if kernel_arg_pass_required
             else "kernel_arg_handoff_kernel_arg_pass_disabled"
         )
@@ -355,11 +360,17 @@ def _kernel_arg_handoff_adapter_contract_lines(
             f"{_yaml_bool(kernel_arg_pass_required)}",
         ]
     )
+    if real_kernel_arg_mutation_required:
+        lines.append(
+            "  kernel_arg_handoff_live_consumer_adapter_real_kernel_arg_handoff_required: true"
+        )
     return lines
 
 
 def _kernel_arg_handoff_adapter_check_lines(
-    *, allow_kernel_arg_pass: bool = False
+    *,
+    allow_kernel_arg_pass: bool = False,
+    allow_real_kernel_arg_mutation: bool = False,
 ) -> list[str]:
     lines = [
         "    require_kernel_arg_handoff_launch_schema_mirror: true",
@@ -368,6 +379,8 @@ def _kernel_arg_handoff_adapter_check_lines(
     ]
     if allow_kernel_arg_pass:
         lines.append("    allow_kernel_arg_handoff_live_kernel_arg_pass: true")
+    if allow_real_kernel_arg_mutation:
+        lines.append("    allow_kernel_arg_handoff_live_real_kernel_arg_mutation: true")
     return lines
 
 
@@ -627,6 +640,101 @@ def test_apply_premap_consumer_readonly_gate_rejects_kernel_arg_pass_enabled(
             },
             project_root=tmp_path,
         )
+
+
+@pytest.mark.parametrize(
+    "missing_key",
+    [
+        "premap_kernel_arg_handoff_minimal_identity_envelope_enabled",
+        "premap_kernel_arg_handoff_single_field_replacement_live_enabled",
+    ],
+)
+def test_apply_premap_consumer_readonly_gate_rejects_producer_identity_envelope_without_required_flags(
+    tmp_path,
+    missing_key,
+):
+    options = {
+        "enabled": True,
+        "premap_consumer_require_readonly_gate": True,
+        "premap_kernel_arg_handoff_live_enabled": True,
+        "premap_kernel_arg_handoff_live_consumer_connected": True,
+        "premap_kernel_arg_handoff_kernel_arg_pass_enabled": True,
+        "premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled": True,
+        "premap_kernel_arg_handoff_minimal_identity_envelope_enabled": True,
+        "premap_kernel_arg_handoff_producer_minimal_identity_envelope_enabled": True,
+        "premap_kernel_arg_handoff_single_field_replacement_dry_run_enabled": True,
+        "premap_kernel_arg_handoff_single_field_replacement_live_enabled": True,
+        "premap_kernel_arg_handoff_single_field_replacement_candidate_source": (
+            "original_kernel_arg_identity"
+        ),
+    }
+    options.pop(missing_key)
+
+    with pytest.raises(
+        ValueError,
+        match="producer_minimal_identity_envelope_enabled=True",
+    ):
+        _apply_premap_consumer_readonly_gate(options, project_root=tmp_path)
+
+
+def test_apply_premap_consumer_readonly_gate_accepts_producer_identity_envelope_without_mapping(
+    tmp_path,
+):
+    gate = tmp_path / "readonly_gate.yaml"
+    _write_readonly_gate(
+        gate,
+        lab_precondition=True,
+        descriptor_prep_execution_mode="readonly_descriptor_address_object",
+        descriptor_prep_payload_bytes=0,
+        descriptor_prep_kernel_arg_mutation=False,
+        kernel_arg_handoff_live_toggle_required=True,
+        kernel_arg_handoff_live_toggle_enabled_required=True,
+        kernel_arg_handoff_live_toggle_block_reason=(
+            "kernel_arg_handoff_kernel_consumer_not_connected"
+        ),
+        kernel_arg_handoff_live_toggle_live_eligible_required=True,
+        require_kernel_arg_handoff_live_toggle=True,
+        extra_contract_lines=_kernel_arg_handoff_adapter_contract_lines(
+            live_enabled=True,
+            consumer_connected_required=True,
+            kernel_arg_pass_required=True,
+            real_kernel_arg_mutation_required=True,
+        ),
+        extra_check_lines=_kernel_arg_handoff_adapter_check_lines(
+            allow_kernel_arg_pass=True,
+            allow_real_kernel_arg_mutation=True,
+        ),
+    )
+
+    options = _apply_premap_consumer_readonly_gate(
+        {
+            "enabled": True,
+            "emit_premap_consumer_mapping": False,
+            "premap_consumer_require_readonly_gate": True,
+            "premap_consumer_readonly_gate_path": str(gate),
+            "premap_consumer_mapping_mode": "off",
+            "premap_consumer_resolve_real_handles": False,
+            "premap_descriptor_bytes": 4096,
+            "premap_descriptor_prep_execution_mode": (
+                "readonly_descriptor_address_object"
+            ),
+            "premap_kernel_arg_handoff_live_enabled": True,
+            "premap_kernel_arg_handoff_live_consumer_connected": True,
+            "premap_kernel_arg_handoff_kernel_arg_pass_enabled": True,
+            "premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled": True,
+            "premap_kernel_arg_handoff_minimal_identity_envelope_enabled": True,
+            "premap_kernel_arg_handoff_producer_minimal_identity_envelope_enabled": True,
+            "premap_kernel_arg_handoff_single_field_replacement_dry_run_enabled": True,
+            "premap_kernel_arg_handoff_single_field_replacement_live_enabled": True,
+            "premap_kernel_arg_handoff_single_field_replacement_candidate_source": (
+                "original_kernel_arg_identity"
+            ),
+        },
+        project_root=tmp_path,
+    )
+
+    assert options["premap_consumer_readonly_gate_passed"] is True
+    assert options["premap_consumer_readonly_gate_required"] is True
 
 
 def test_apply_premap_consumer_readonly_gate_accepts_kernel_arg_pass_live_gate(
