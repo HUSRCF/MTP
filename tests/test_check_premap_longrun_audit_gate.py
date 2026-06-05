@@ -1041,6 +1041,7 @@ def _add_kernel_arg_handoff_live_consumer_adapter(
     real_kernel_arg_mutation_live: bool = False,
     single_field_replacement_dry_run: bool = False,
     single_field_replacement_live: bool = False,
+    single_field_replacement_allow_signature_mismatch_live: bool = False,
     single_field_replacement_candidate_source: str = "original_kernel_arg_identity",
 ) -> dict:
     aggregate = summary["aggregate"]
@@ -1167,6 +1168,9 @@ def _add_kernel_arg_handoff_live_consumer_adapter(
             "runtime_shadow_premap_kernel_arg_handoff_single_field_replacement_live_enabled"
         ] = bool(single_field_replacement_live)
         aggregate[
+            "runtime_shadow_premap_kernel_arg_handoff_single_field_replacement_allow_signature_mismatch_live"
+        ] = bool(single_field_replacement_allow_signature_mismatch_live)
+        aggregate[
             "runtime_shadow_premap_kernel_arg_handoff_single_field_replacement_candidate_source"
         ] = single_field_replacement_candidate_source
         aggregate[
@@ -1204,16 +1208,46 @@ def _add_kernel_arg_handoff_live_consumer_adapter(
         ] = checked_count if single_field_replacement_live else 0
         aggregate[
             "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_live_replaced_count"
-        ] = checked_count if single_field_replacement_live else 0
+        ] = (
+            0
+            if prepared_source
+            else checked_count
+            if single_field_replacement_live
+            else 0
+        )
         aggregate[
             "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_live_parity_ok_count"
-        ] = checked_count if single_field_replacement_live else 0
+        ] = (
+            0
+            if prepared_source
+            else checked_count
+            if single_field_replacement_live
+            else 0
+        )
         aggregate[
             "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_live_parity_mismatch_count"
+        ] = checked_count if prepared_source and single_field_replacement_live else 0
+        aggregate[
+            "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_live_source_missing_fallback_count"
+        ] = 0
+        aggregate[
+            "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_live_type_mismatch_fallback_count"
+        ] = checked_count if prepared_source and single_field_replacement_live else 0
+        aggregate[
+            "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_live_signature_mismatch_allowed_count"
+        ] = 0
+        aggregate[
+            "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_live_signature_mismatch_blocked_count"
         ] = 0
         aggregate[
             "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_live_passed_to_kernel_count"
-        ] = checked_count if single_field_replacement_live else 0
+        ] = (
+            0
+            if prepared_source
+            else checked_count
+            if single_field_replacement_live
+            else 0
+        )
         aggregate[
             "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_live_payload_bytes"
         ] = 0
@@ -4242,7 +4276,7 @@ def test_premap_longrun_audit_gate_accepts_prepared_table_source_dry_run():
     )
 
 
-def test_premap_longrun_audit_gate_rejects_prepared_table_source_with_live():
+def test_premap_longrun_audit_gate_accepts_prepared_table_source_with_live_fallback():
     result = check_summary(
         _add_kernel_arg_handoff_live_consumer_adapter(
             _add_kernel_arg_handoff_live_noop_integration(
@@ -4261,6 +4295,7 @@ def test_premap_longrun_audit_gate_rejects_prepared_table_source_with_live():
             real_kernel_arg_mutation_live=True,
             single_field_replacement_dry_run=True,
             single_field_replacement_live=True,
+            single_field_replacement_allow_signature_mismatch_live=True,
             single_field_replacement_candidate_source="prepared_handle_table",
         ),
         max_capacity=12,
@@ -4283,12 +4318,121 @@ def test_premap_longrun_audit_gate_rejects_prepared_table_source_with_live():
         allow_incompatible_real_kernel_arg_mutation_canary=True,
         allow_single_field_replacement_live=True,
         allow_single_field_replacement_prepared_table_candidate_source=True,
+        expected_single_field_replacement_allow_signature_mismatch_live=True,
     )
 
-    assert result["passed"] is False
+    assert result["passed"] is True
+    assert result["failures"] == []
     assert (
-        "single_field_replacement_prepared_table_candidate_source_requires_live_disabled"
-        in result["failures"]
+        result["metrics"][
+            "runtime_shadow_premap_kernel_arg_handoff_single_field_replacement_allow_signature_mismatch_live"
+        ]
+        is True
+    )
+    assert (
+        result["metrics"][
+            "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_live_candidate_count"
+        ]
+        == 2
+    )
+    assert (
+        result["metrics"][
+            "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_live_replaced_count"
+        ]
+        == 0
+    )
+    assert (
+        result["metrics"][
+            "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_live_parity_mismatch_count"
+        ]
+        == 2
+    )
+    assert (
+        result["metrics"][
+            "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_live_type_mismatch_fallback_count"
+        ]
+        == 2
+    )
+    assert (
+        result["metrics"][
+            "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_live_passed_to_kernel_count"
+        ]
+        == 0
+    )
+
+
+def test_premap_longrun_audit_gate_accepts_wrapper_only_prepared_table_live_fallback():
+    summary = {
+        "row_count": 1,
+        "event_counts": {"premap_summary": 1},
+        "aggregate": {
+            "premap_summary_payload_bytes": 0,
+            "premap_address_evicted_count": 0,
+            "premap_address_eviction_pressure_mean": 0.0,
+            "premap_address_resident_count_max": 1,
+            "premap_address_reuse_rate_mean": 0.0,
+            "runtime_shadow_premap_kernel_arg_handoff_kernel_arg_pass_enabled": True,
+            "runtime_shadow_premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled": True,
+            "runtime_shadow_premap_kernel_arg_handoff_single_field_replacement_dry_run_enabled": True,
+            "runtime_shadow_premap_kernel_arg_handoff_single_field_replacement_live_enabled": True,
+            "runtime_shadow_premap_kernel_arg_handoff_single_field_replacement_allow_signature_mismatch_live": True,
+            "runtime_shadow_premap_kernel_arg_handoff_single_field_replacement_candidate_source": "prepared_handle_table",
+            "runtime_shadow_premap_kernel_arg_handoff_single_field_replacement_field": "B_scale",
+            "runtime_shadow_premap_kernel_arg_live_mutation_package_seen_count": 2,
+            "runtime_shadow_premap_kernel_arg_live_mutation_package_pass_through_count": 2,
+            "runtime_shadow_premap_kernel_arg_live_mutation_package_missing_count": 0,
+            "runtime_shadow_premap_kernel_arg_live_mutation_package_layer_mismatch_count": 0,
+            "runtime_shadow_premap_kernel_arg_live_mutation_package_block_reason_mismatch_count": 0,
+            "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_dry_run_candidate_count": 2,
+            "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_dry_run_parity_ok_count": 0,
+            "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_dry_run_parity_mismatch_count": 2,
+            "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_dry_run_source_missing_count": 0,
+            "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_dry_run_unsupported_field_count": 0,
+            "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_dry_run_passed_to_kernel_count": 0,
+            "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_dry_run_payload_bytes": 0,
+            "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_candidate_source_original_count": 0,
+            "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_candidate_source_prepared_table_count": 2,
+            "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_candidate_source_prepared_table_hit_count": 2,
+            "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_candidate_source_prepared_table_miss_count": 0,
+            "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_candidate_source_prepared_table_type_compatible_count": 0,
+            "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_candidate_source_prepared_table_type_mismatch_count": 2,
+            "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_live_disabled_count": 0,
+            "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_live_candidate_count": 2,
+            "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_live_replaced_count": 0,
+            "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_live_parity_ok_count": 0,
+            "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_live_parity_mismatch_count": 2,
+            "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_live_source_missing_fallback_count": 0,
+            "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_live_type_mismatch_fallback_count": 2,
+            "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_live_signature_mismatch_allowed_count": 0,
+            "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_live_signature_mismatch_blocked_count": 0,
+            "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_live_passed_to_kernel_count": 0,
+            "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_live_payload_bytes": 0,
+        },
+    }
+
+    result = check_summary(
+        summary,
+        max_capacity=12,
+        min_reuse_rate=0.0,
+        allow_enabled_blocked_live_toggle=True,
+        allow_connected_blocked_consumer_adapter=True,
+        allow_kernel_arg_handoff_live_kernel_arg_pass=True,
+        allow_kernel_arg_handoff_live_real_kernel_arg_mutation=True,
+        allow_incompatible_real_kernel_arg_mutation_canary=True,
+        allow_single_field_replacement_live=True,
+        allow_single_field_replacement_prepared_table_candidate_source=True,
+        allow_single_field_replacement_wrapper_only_canary=True,
+        expected_single_field_replacement_allow_signature_mismatch_live=True,
+    )
+
+    assert result["passed"] is True
+    assert result["failures"] == []
+    assert result["allow_single_field_replacement_wrapper_only_canary"] is True
+    assert (
+        result["metrics"][
+            "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_live_type_mismatch_fallback_count"
+        ]
+        == 2
     )
 
 

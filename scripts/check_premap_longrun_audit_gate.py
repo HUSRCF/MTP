@@ -103,10 +103,20 @@ def _normalize_summary(summary: dict[str, Any]) -> dict[str, Any]:
         }
     aggregate = summary.get("runtime_shadow_aggregate")
     if not isinstance(aggregate, dict):
+        flat_aggregate_prefix = "runtime_shadow_aggregate_"
+        aggregate = {
+            str(key)[len(flat_aggregate_prefix) :]: value
+            for key, value in summary.items()
+            if str(key).startswith(flat_aggregate_prefix)
+        }
+    if not isinstance(aggregate, dict) or not aggregate:
         return summary
     aggregate = dict(aggregate)
     for key, value in summary.items():
-        if str(key).startswith("runtime_shadow_premap_kernel_arg_live_mutation_"):
+        key_str = str(key)
+        if key_str.startswith(
+            "runtime_shadow_premap_kernel_arg_live_mutation_"
+        ) or key_str.startswith("runtime_shadow_premap_kernel_arg_handoff_"):
             aggregate[str(key)] = value
     event_counts = {
         "premap_summary": _as_int(aggregate.get("premap_summary_count")),
@@ -352,6 +362,10 @@ def check_summary(
     allow_incompatible_real_kernel_arg_mutation_canary: bool = False,
     allow_single_field_replacement_live: bool = False,
     allow_single_field_replacement_prepared_table_candidate_source: bool = False,
+    allow_single_field_replacement_wrapper_only_canary: bool = False,
+    expected_single_field_replacement_allow_signature_mismatch_live: (
+        bool | None
+    ) = None,
 ) -> dict[str, Any]:
     raw_kernel_arg_pass_enabled = summary.get(
         "runtime_shadow_premap_kernel_arg_handoff_kernel_arg_pass_enabled"
@@ -371,6 +385,9 @@ def check_summary(
     raw_single_field_replacement_field = summary.get(
         "runtime_shadow_premap_kernel_arg_handoff_single_field_replacement_field"
     )
+    raw_single_field_replacement_allow_signature_mismatch_live = summary.get(
+        "runtime_shadow_premap_kernel_arg_handoff_single_field_replacement_allow_signature_mismatch_live"
+    )
     raw_metrics = summary.get("metrics")
     if isinstance(raw_metrics, dict):
         raw_single_field_replacement_dry_run_enabled = raw_metrics.get(
@@ -388,6 +405,12 @@ def check_summary(
         raw_single_field_replacement_candidate_source = raw_metrics.get(
             "runtime_shadow_premap_kernel_arg_handoff_single_field_replacement_candidate_source",
             raw_single_field_replacement_candidate_source,
+        )
+        raw_single_field_replacement_allow_signature_mismatch_live = (
+            raw_metrics.get(
+                "runtime_shadow_premap_kernel_arg_handoff_single_field_replacement_allow_signature_mismatch_live",
+                raw_single_field_replacement_allow_signature_mismatch_live,
+            )
         )
     summary = _normalize_summary(summary)
     event_counts = {
@@ -410,6 +433,13 @@ def check_summary(
     ):
         failures.append(
             "allow_kernel_arg_handoff_live_real_kernel_arg_mutation_requires_kernel_arg_pass"
+        )
+    if (
+        allow_single_field_replacement_wrapper_only_canary
+        and not allow_single_field_replacement_live
+    ):
+        failures.append(
+            "allow_single_field_replacement_wrapper_only_canary_requires_single_field_live"
         )
     if (
         allow_kernel_arg_handoff_live_real_kernel_arg_mutation
@@ -468,6 +498,23 @@ def check_summary(
         "runtime_shadow_premap_kernel_arg_handoff_single_field_replacement_field",
         raw_single_field_replacement_field,
     )
+    single_field_replacement_allow_signature_mismatch_live = aggregate.get(
+        "runtime_shadow_premap_kernel_arg_handoff_single_field_replacement_allow_signature_mismatch_live",
+        raw_single_field_replacement_allow_signature_mismatch_live,
+    )
+    if expected_single_field_replacement_allow_signature_mismatch_live is not None:
+        observed_allow_signature_mismatch = _as_bool(
+            single_field_replacement_allow_signature_mismatch_live
+        )
+        if (
+            observed_allow_signature_mismatch
+            != expected_single_field_replacement_allow_signature_mismatch_live
+        ):
+            failures.append(
+                "single_field_replacement_allow_signature_mismatch_live_mismatch="
+                f"{observed_allow_signature_mismatch}!="
+                f"{expected_single_field_replacement_allow_signature_mismatch_live}"
+            )
     allowed_single_field_replacement_candidate_sources = {
         "original_kernel_arg_identity",
         "prepared_handle_table",
@@ -493,13 +540,6 @@ def check_summary(
     ):
         failures.append(
             "single_field_replacement_prepared_table_candidate_source_requires_dry_run_enabled"
-        )
-    if (
-        single_field_replacement_candidate_source == "prepared_handle_table"
-        and _as_bool(single_field_replacement_live_enabled)
-    ):
-        failures.append(
-            "single_field_replacement_prepared_table_candidate_source_requires_live_disabled"
         )
     prepared_handle_table_replacement_fields = {"B", "B_scale", "B_zp"}
     if (
@@ -549,7 +589,14 @@ def check_summary(
     )
 
     unknown_events = sorted(set(event_counts) - REQUIRED_EVENT_TYPES)
-    missing_events = sorted(event for event in REQUIRED_EVENT_TYPES if event_counts.get(event, 0) <= 0)
+    required_event_types = (
+        {"premap_summary"}
+        if allow_single_field_replacement_wrapper_only_canary
+        else REQUIRED_EVENT_TYPES
+    )
+    missing_events = sorted(
+        event for event in required_event_types if event_counts.get(event, 0) <= 0
+    )
     if unknown_events:
         failures.append(f"unexpected_event_types={unknown_events}")
     if missing_events:
@@ -557,7 +604,10 @@ def check_summary(
 
     premap_count = _as_int(event_counts.get("premap_summary"))
     consumer_count = _as_int(event_counts.get("premap_consumer_mapping"))
-    if premap_count != consumer_count:
+    if (
+        premap_count != consumer_count
+        and not allow_single_field_replacement_wrapper_only_canary
+    ):
         failures.append(
             f"premap_consumer_count_mismatch={premap_count}!={consumer_count}"
         )
@@ -600,9 +650,10 @@ def check_summary(
                 "premap_consumer_readonly_handle_parity_ok_rate",
             ]
         )
-    for field in required_rate_fields:
-        if _as_float(aggregate.get(field)) != 1.0:
-            failures.append(f"{field}_not_one")
+    if not allow_single_field_replacement_wrapper_only_canary:
+        for field in required_rate_fields:
+            if _as_float(aggregate.get(field)) != 1.0:
+                failures.append(f"{field}_not_one")
 
     if _as_int(
         aggregate.get("premap_consumer_real_descriptor_handle_binding_mismatch_count")
@@ -619,7 +670,10 @@ def check_summary(
             failures.append(f"{field}_nonzero={count}")
     if require_readonly_consumer and not readonly_fields_present:
         failures.append("readonly_consumer_fields_missing")
-    if require_readonly_consumer or readonly_fields_present:
+    if (
+        (require_readonly_consumer or readonly_fields_present)
+        and not allow_single_field_replacement_wrapper_only_canary
+    ):
         if _as_int(aggregate.get("premap_consumer_readonly_lookup_count")) <= 0:
             failures.append("readonly_lookup_count_missing_or_zero")
         if _as_int(aggregate.get("premap_consumer_readonly_evicted_before_consume_count")) != 0:
@@ -6766,7 +6820,10 @@ def check_summary(
     real_handle_hits = _as_int(
         aggregate.get("premap_consumer_real_descriptor_handle_hit_count")
     )
-    if real_handle_hits <= 0:
+    if (
+        real_handle_hits <= 0
+        and not allow_single_field_replacement_wrapper_only_canary
+    ):
         failures.append("real_descriptor_handle_hit_count_missing_or_zero")
     for source in ("packed_weight", "scale_metadata"):
         hit_count = _as_int(
@@ -6775,7 +6832,10 @@ def check_summary(
         miss_count = _as_int(
             aggregate.get(f"premap_consumer_real_descriptor_handle_{source}_miss_count")
         )
-        if hit_count != real_handle_hits:
+        if (
+            hit_count != real_handle_hits
+            and not allow_single_field_replacement_wrapper_only_canary
+        ):
             failures.append(
                 f"real_descriptor_handle_{source}_hit_count_mismatch="
                 f"{hit_count}!={real_handle_hits}"
@@ -6884,6 +6944,26 @@ def check_summary(
             "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_live_parity_mismatch_count"
         )
     )
+    single_field_replacement_live_source_missing_fallback_count = _as_int(
+        aggregate.get(
+            "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_live_source_missing_fallback_count"
+        )
+    )
+    single_field_replacement_live_type_mismatch_fallback_count = _as_int(
+        aggregate.get(
+            "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_live_type_mismatch_fallback_count"
+        )
+    )
+    single_field_replacement_live_signature_mismatch_allowed_count = _as_int(
+        aggregate.get(
+            "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_live_signature_mismatch_allowed_count"
+        )
+    )
+    single_field_replacement_live_signature_mismatch_blocked_count = _as_int(
+        aggregate.get(
+            "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_live_signature_mismatch_blocked_count"
+        )
+    )
     single_field_replacement_live_passed_to_kernel_count = _as_int(
         aggregate.get(
             "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_live_passed_to_kernel_count"
@@ -6944,6 +7024,22 @@ def check_summary(
             (
                 "passed_to_kernel_count",
                 single_field_replacement_live_passed_to_kernel_count,
+            ),
+            (
+                "source_missing_fallback_count",
+                single_field_replacement_live_source_missing_fallback_count,
+            ),
+            (
+                "type_mismatch_fallback_count",
+                single_field_replacement_live_type_mismatch_fallback_count,
+            ),
+            (
+                "signature_mismatch_allowed_count",
+                single_field_replacement_live_signature_mismatch_allowed_count,
+            ),
+            (
+                "signature_mismatch_blocked_count",
+                single_field_replacement_live_signature_mismatch_blocked_count,
             ),
             ("payload_bytes", single_field_replacement_live_payload_bytes),
         ):
@@ -7089,38 +7185,110 @@ def check_summary(
                 failures.append(
                     "single_field_replacement_live_candidate_count_missing_or_zero"
                 )
-            if (
-                single_field_replacement_live_replaced_count
-                != single_field_replacement_live_candidate_count
-            ):
-                failures.append(
-                    "single_field_replacement_live_replaced_count_mismatch="
-                    f"{single_field_replacement_live_replaced_count}!="
-                    f"{single_field_replacement_live_candidate_count}"
-                )
-            if (
-                single_field_replacement_live_parity_ok_count
-                != single_field_replacement_live_candidate_count
-            ):
-                failures.append(
-                    "single_field_replacement_live_parity_ok_count_mismatch="
-                    f"{single_field_replacement_live_parity_ok_count}!="
-                    f"{single_field_replacement_live_candidate_count}"
-                )
-            if (
-                single_field_replacement_live_passed_to_kernel_count
-                != single_field_replacement_live_candidate_count
-            ):
-                failures.append(
-                    "single_field_replacement_live_passed_to_kernel_count_mismatch="
-                    f"{single_field_replacement_live_passed_to_kernel_count}!="
-                    f"{single_field_replacement_live_candidate_count}"
-                )
-            if single_field_replacement_live_parity_mismatch_count != 0:
-                failures.append(
-                    "single_field_replacement_live_parity_mismatch_nonzero="
-                    f"{single_field_replacement_live_parity_mismatch_count}"
-                )
+            if single_field_replacement_candidate_source == "prepared_handle_table":
+                if single_field_replacement_live_replaced_count != 0:
+                    failures.append(
+                        "single_field_replacement_live_prepared_table_replaced_count_nonzero="
+                        f"{single_field_replacement_live_replaced_count}"
+                    )
+                if single_field_replacement_live_parity_ok_count != 0:
+                    failures.append(
+                        "single_field_replacement_live_prepared_table_parity_ok_nonzero="
+                        f"{single_field_replacement_live_parity_ok_count}"
+                    )
+                if single_field_replacement_live_passed_to_kernel_count != 0:
+                    failures.append(
+                        "single_field_replacement_live_prepared_table_passed_to_kernel_nonzero="
+                        f"{single_field_replacement_live_passed_to_kernel_count}"
+                    )
+                if (
+                    single_field_replacement_live_parity_mismatch_count
+                    != single_field_replacement_live_candidate_count
+                ):
+                    failures.append(
+                        "single_field_replacement_live_prepared_table_parity_mismatch_count_mismatch="
+                        f"{single_field_replacement_live_parity_mismatch_count}!="
+                        f"{single_field_replacement_live_candidate_count}"
+                    )
+                if (
+                    single_field_replacement_live_type_mismatch_fallback_count
+                    != single_field_replacement_live_candidate_count
+                ):
+                    failures.append(
+                        "single_field_replacement_live_prepared_table_type_mismatch_fallback_count_mismatch="
+                        f"{single_field_replacement_live_type_mismatch_fallback_count}!="
+                        f"{single_field_replacement_live_candidate_count}"
+                    )
+                if single_field_replacement_live_source_missing_fallback_count != 0:
+                    failures.append(
+                        "single_field_replacement_live_prepared_table_source_missing_fallback_nonzero="
+                        f"{single_field_replacement_live_source_missing_fallback_count}"
+                    )
+                if single_field_replacement_live_signature_mismatch_allowed_count != 0:
+                    failures.append(
+                        "single_field_replacement_live_prepared_table_signature_mismatch_allowed_nonzero="
+                        f"{single_field_replacement_live_signature_mismatch_allowed_count}"
+                    )
+                if single_field_replacement_live_signature_mismatch_blocked_count != 0:
+                    failures.append(
+                        "single_field_replacement_live_prepared_table_signature_mismatch_blocked_nonzero="
+                        f"{single_field_replacement_live_signature_mismatch_blocked_count}"
+                    )
+            else:
+                if (
+                    single_field_replacement_live_replaced_count
+                    != single_field_replacement_live_candidate_count
+                ):
+                    failures.append(
+                        "single_field_replacement_live_replaced_count_mismatch="
+                        f"{single_field_replacement_live_replaced_count}!="
+                        f"{single_field_replacement_live_candidate_count}"
+                    )
+                if (
+                    single_field_replacement_live_parity_ok_count
+                    != single_field_replacement_live_candidate_count
+                ):
+                    failures.append(
+                        "single_field_replacement_live_parity_ok_count_mismatch="
+                        f"{single_field_replacement_live_parity_ok_count}!="
+                        f"{single_field_replacement_live_candidate_count}"
+                    )
+                if (
+                    single_field_replacement_live_passed_to_kernel_count
+                    != single_field_replacement_live_candidate_count
+                ):
+                    failures.append(
+                        "single_field_replacement_live_passed_to_kernel_count_mismatch="
+                        f"{single_field_replacement_live_passed_to_kernel_count}!="
+                        f"{single_field_replacement_live_candidate_count}"
+                    )
+                if single_field_replacement_live_parity_mismatch_count != 0:
+                    failures.append(
+                        "single_field_replacement_live_parity_mismatch_nonzero="
+                        f"{single_field_replacement_live_parity_mismatch_count}"
+                    )
+                for name, count in (
+                    (
+                        "source_missing_fallback",
+                        single_field_replacement_live_source_missing_fallback_count,
+                    ),
+                    (
+                        "type_mismatch_fallback",
+                        single_field_replacement_live_type_mismatch_fallback_count,
+                    ),
+                    (
+                        "signature_mismatch_allowed",
+                        single_field_replacement_live_signature_mismatch_allowed_count,
+                    ),
+                    (
+                        "signature_mismatch_blocked",
+                        single_field_replacement_live_signature_mismatch_blocked_count,
+                    ),
+                ):
+                    if count != 0:
+                        failures.append(
+                            f"single_field_replacement_live_{name}_count_nonzero={count}"
+                        )
             if single_field_replacement_live_payload_bytes != 0:
                 failures.append(
                     "single_field_replacement_live_payload_bytes_nonzero="
@@ -7160,6 +7328,9 @@ def check_summary(
             None
             if single_field_replacement_field is None
             else str(single_field_replacement_field)
+        ),
+        "runtime_shadow_premap_kernel_arg_handoff_single_field_replacement_allow_signature_mismatch_live": _as_bool(
+            single_field_replacement_allow_signature_mismatch_live
         ),
         "runtime_shadow_premap_kernel_arg_live_mutation_package_seen_count": (
             live_mutation_package_seen_count
@@ -7211,6 +7382,18 @@ def check_summary(
         ),
         "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_live_parity_mismatch_count": (
             single_field_replacement_live_parity_mismatch_count
+        ),
+        "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_live_source_missing_fallback_count": (
+            single_field_replacement_live_source_missing_fallback_count
+        ),
+        "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_live_type_mismatch_fallback_count": (
+            single_field_replacement_live_type_mismatch_fallback_count
+        ),
+        "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_live_signature_mismatch_allowed_count": (
+            single_field_replacement_live_signature_mismatch_allowed_count
+        ),
+        "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_live_signature_mismatch_blocked_count": (
+            single_field_replacement_live_signature_mismatch_blocked_count
         ),
         "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_live_passed_to_kernel_count": (
             single_field_replacement_live_passed_to_kernel_count
@@ -9660,6 +9843,15 @@ def check_summary(
         "allow_incompatible_real_kernel_arg_mutation_canary": bool(
             allow_incompatible_real_kernel_arg_mutation_canary
         ),
+        "allow_single_field_replacement_live": bool(
+            allow_single_field_replacement_live
+        ),
+        "allow_single_field_replacement_prepared_table_candidate_source": bool(
+            allow_single_field_replacement_prepared_table_candidate_source
+        ),
+        "allow_single_field_replacement_wrapper_only_canary": bool(
+            allow_single_field_replacement_wrapper_only_canary
+        ),
     }
 
 
@@ -9938,6 +10130,26 @@ def main() -> None:
             "arguments and must not be live-passed."
         ),
     )
+    parser.add_argument(
+        "--allow-single-field-replacement-wrapper-only-canary",
+        action="store_true",
+        help=(
+            "Canary-only mode: validate only the WNA16 wrapper-level "
+            "single-field live/fallback counters. This deliberately does not "
+            "require the full premap consumer mapping/descriptor-prep event "
+            "stream, and must not be used as a lab precondition gate."
+        ),
+    )
+    parser.add_argument(
+        "--expected-single-field-replacement-allow-signature-mismatch-live",
+        choices=("true", "false"),
+        help=(
+            "Optional strict check for the runtime "
+            "single_field_replacement_allow_signature_mismatch_live flag. Use "
+            "this for canary gate artifacts that intentionally exercise the "
+            "signature-mismatch branch while still requiring type-gated fallback."
+        ),
+    )
     parser.add_argument("--output-json", type=Path)
     args = parser.parse_args()
 
@@ -10015,6 +10227,16 @@ def main() -> None:
         ),
         allow_single_field_replacement_prepared_table_candidate_source=(
             args.allow_single_field_replacement_prepared_table_candidate_source
+        ),
+        allow_single_field_replacement_wrapper_only_canary=(
+            args.allow_single_field_replacement_wrapper_only_canary
+        ),
+        expected_single_field_replacement_allow_signature_mismatch_live=(
+            None
+            if args.expected_single_field_replacement_allow_signature_mismatch_live
+            is None
+            else args.expected_single_field_replacement_allow_signature_mismatch_live
+            == "true"
         ),
     )
     payload = json.dumps(result, indent=2, sort_keys=True) + "\n"

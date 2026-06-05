@@ -170,6 +170,12 @@ def test_production_like_explicitly_disables_source_timing() -> None:
         assert mode["premap_kernel_arg_handoff_live_consumer_connected"] is False
         assert mode["premap_kernel_arg_handoff_kernel_arg_pass_enabled"] is False
         assert mode["premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled"] is False
+        assert (
+            mode[
+                "premap_kernel_arg_handoff_single_field_replacement_allow_signature_mismatch_live"
+            ]
+            is False
+        )
         assert mode["unset_env"] == ["VLLM_DISABLE_SHARED_EXPERTS_STREAM"]
 
 
@@ -345,6 +351,53 @@ def test_premap_live_producer_identity_envelope_skips_consumer_mapping() -> None
     gate_path = root / mode["premap_consumer_readonly_gate_path"]
     gate = yaml.safe_load(gate_path.read_text())
     assert gate["gate"]["check"]["allow_single_field_replacement_live"] is True
+
+
+def test_premap_prepared_handle_table_live_canary_is_explicitly_diagnostic() -> None:
+    module = _load_module()
+    root = Path(__file__).resolve().parents[1]
+    mode = module.MODES[
+        "premap_single_field_replacement_live_prepared_handle_table_canary"
+    ]
+
+    assert mode["record_router_topk"] is False
+    assert mode["capture_router_topk"] is True
+    assert mode["emit_premap_summaries"] is True
+    assert mode["emit_premap_consumer_mapping"] is True
+    assert mode["premap_consumer_mapping_emit_rows"] is False
+    assert mode["premap_consumer_resolve_real_handles"] is True
+    assert mode["premap_consumer_require_readonly_gate"] is True
+    assert mode["premap_risky_trace_canary"] is True
+    assert mode["premap_kernel_arg_handoff_live_enabled"] is True
+    assert mode["premap_kernel_arg_handoff_live_consumer_connected"] is True
+    assert mode["premap_kernel_arg_handoff_kernel_arg_pass_enabled"] is True
+    assert mode["premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled"] is True
+    assert mode["premap_kernel_arg_handoff_single_field_replacement_dry_run_enabled"] is True
+    assert mode["premap_kernel_arg_handoff_single_field_replacement_live_enabled"] is True
+    assert (
+        mode[
+            "premap_kernel_arg_handoff_single_field_replacement_allow_signature_mismatch_live"
+        ]
+        is True
+    )
+    assert mode[
+        "premap_kernel_arg_handoff_single_field_replacement_candidate_source"
+    ] == "prepared_handle_table"
+    assert mode["premap_kernel_arg_handoff_single_field_replacement_field"] == "B_scale"
+    assert mode["emit_decoder_layer_timing"] is False
+    assert mode["emit_decoder_component_timing"] is False
+    assert mode["emit_moe_substage_timing"] is False
+    assert mode["emit_outcomes"] is False
+    assert mode["outcome_logging_mode"] == "off"
+
+    gate_path = root / mode["premap_consumer_readonly_gate_path"]
+    gate = yaml.safe_load(gate_path.read_text())
+    assert gate["gate"]["check"][
+        "allow_single_field_replacement_prepared_table_candidate_source"
+    ] is True
+    assert gate["contract"]["single_field_replacement_candidate_source"] == (
+        "prepared_handle_table"
+    )
 
 
 def test_force_shared_aux_modes_clear_disable_shared_stream_env() -> None:

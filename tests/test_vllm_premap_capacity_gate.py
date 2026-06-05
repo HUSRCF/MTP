@@ -642,6 +642,22 @@ def test_apply_premap_consumer_readonly_gate_rejects_kernel_arg_pass_enabled(
         )
 
 
+def test_apply_premap_consumer_readonly_gate_rejects_signature_mismatch_live_without_live(
+    tmp_path,
+):
+    with pytest.raises(
+        ValueError,
+        match="allow_signature_mismatch_live=True",
+    ):
+        _apply_premap_consumer_readonly_gate(
+            {
+                "enabled": True,
+                "premap_kernel_arg_handoff_single_field_replacement_allow_signature_mismatch_live": True,
+            },
+            project_root=tmp_path,
+        )
+
+
 @pytest.mark.parametrize(
     "missing_key",
     [
@@ -729,6 +745,67 @@ def test_apply_premap_consumer_readonly_gate_accepts_producer_identity_envelope_
             "premap_kernel_arg_handoff_single_field_replacement_candidate_source": (
                 "original_kernel_arg_identity"
             ),
+        },
+        project_root=tmp_path,
+    )
+
+    assert options["premap_consumer_readonly_gate_passed"] is True
+    assert options["premap_consumer_readonly_gate_required"] is True
+
+
+def test_apply_premap_consumer_readonly_gate_accepts_prepared_handle_table_live_canary(
+    tmp_path,
+):
+    gate = tmp_path / "readonly_gate.yaml"
+    _write_readonly_gate(
+        gate,
+        lab_precondition=True,
+        descriptor_prep_execution_mode="readonly_descriptor_address_object",
+        descriptor_prep_payload_bytes=0,
+        descriptor_prep_kernel_arg_mutation=False,
+        kernel_arg_handoff_live_toggle_required=True,
+        kernel_arg_handoff_live_toggle_enabled_required=True,
+        kernel_arg_handoff_live_toggle_block_reason=(
+            "kernel_arg_handoff_kernel_consumer_not_connected"
+        ),
+        kernel_arg_handoff_live_toggle_live_eligible_required=True,
+        require_kernel_arg_handoff_live_toggle=True,
+        extra_contract_lines=_kernel_arg_handoff_adapter_contract_lines(
+            live_enabled=True,
+            consumer_connected_required=True,
+            kernel_arg_pass_required=True,
+            real_kernel_arg_mutation_required=True,
+        ),
+        extra_check_lines=_kernel_arg_handoff_adapter_check_lines(
+            allow_kernel_arg_pass=True,
+            allow_real_kernel_arg_mutation=True,
+        ),
+    )
+
+    options = _apply_premap_consumer_readonly_gate(
+        {
+            "enabled": True,
+            "emit_premap_consumer_mapping": True,
+            "premap_consumer_require_readonly_gate": True,
+            "premap_consumer_readonly_gate_path": str(gate),
+            "premap_consumer_mapping_mode": "noop_assertion",
+            "premap_consumer_resolve_real_handles": True,
+            "premap_policy": "premap_only_with_consumer_mapping_noop",
+            "premap_descriptor_bytes": 4096,
+            "premap_descriptor_prep_execution_mode": (
+                "readonly_descriptor_address_object"
+            ),
+            "premap_kernel_arg_handoff_live_enabled": True,
+            "premap_kernel_arg_handoff_live_consumer_connected": True,
+            "premap_kernel_arg_handoff_kernel_arg_pass_enabled": True,
+            "premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled": True,
+            "premap_kernel_arg_handoff_single_field_replacement_dry_run_enabled": True,
+            "premap_kernel_arg_handoff_single_field_replacement_live_enabled": True,
+            "premap_kernel_arg_handoff_single_field_replacement_allow_signature_mismatch_live": True,
+            "premap_kernel_arg_handoff_single_field_replacement_candidate_source": (
+                "prepared_handle_table"
+            ),
+            "premap_kernel_arg_handoff_single_field_replacement_field": "B_scale",
         },
         project_root=tmp_path,
     )

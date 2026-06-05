@@ -1,0 +1,141 @@
+schema_version: 1
+artifact_id: premap_consumer_readonly_dolly128_gen64_awq_w7900_gpu1_prepared_table_live_fallback_canary
+status: passed
+action: premap
+consumer: read_only_descriptor_address_handle
+manager: ControlledPremapAddressManager
+policy: current_router_topk_premap_shadow
+lab_precondition: true
+lab_default: false
+canary: true
+canary_scope: explicit_prepared_table_live_fallback_canary
+contract:
+  payload_bytes_required: 0
+  ready_credit_required: false
+  changes_router_required: false
+  changes_descriptor_order_required: false
+  address_key_scope: layer_expert
+  descriptor_bytes: 4096
+  handle_resolution: read_only
+  handle_signature_scope: runtime_address_level
+  real_descriptor_prep_required: true
+  descriptor_prep_execution_mode: readonly_descriptor_address_object
+  descriptor_prep_payload_bytes_required: 0
+  descriptor_prep_kernel_arg_mutation_required: false
+  kernel_arg_shadow_table_required: true
+  consumer_shim_table_read_required: true
+  consumer_shim_table_consume_required: true
+  consumer_shim_table_consume_handle_field_reads_required: true
+  consumer_shim_table_object_required: true
+  consumer_shim_prep_execution_required: true
+  consumer_shim_prep_execution_handle_field_reads_required: true
+  kernel_arg_handoff_live_toggle_required: true
+  kernel_arg_handoff_live_toggle_mode: readonly_kernel_arg_handoff_live_toggle
+  kernel_arg_handoff_live_toggle_block_reason: kernel_arg_handoff_kernel_consumer_not_connected
+  kernel_arg_handoff_live_toggle_enabled_required: true
+  kernel_arg_handoff_live_toggle_lab_gate_passed_required: true
+  kernel_arg_handoff_live_toggle_attempt_record_ready_required: true
+  kernel_arg_handoff_live_toggle_live_eligible_required: true
+  kernel_arg_handoff_live_toggle_blocked_required: true
+  kernel_arg_handoff_live_toggle_payload_bytes_required: 0
+  kernel_arg_handoff_live_toggle_passed_to_kernel_required: false
+  kernel_arg_handoff_live_toggle_changes_kernel_launch_args_required: false
+  kernel_arg_handoff_launch_schema_mirror_required: true
+  kernel_arg_handoff_launch_schema_mirror_mode: readonly_kernel_arg_handoff_launch_schema_mirror
+  kernel_arg_handoff_launch_schema_mirror_payload_bytes_required: 0
+  kernel_arg_handoff_launch_schema_mirror_passed_to_kernel_required: false
+  kernel_arg_handoff_launch_schema_mirror_changes_kernel_launch_args_required: false
+  kernel_arg_handoff_live_noop_integration_required: true
+  kernel_arg_handoff_live_noop_integration_mode: readonly_kernel_arg_handoff_live_noop_integration
+  kernel_arg_handoff_live_noop_integration_block_reason: kernel_arg_handoff_kernel_arg_pass_disabled
+  kernel_arg_handoff_live_noop_integration_enabled_required: true
+  kernel_arg_handoff_live_noop_integration_lab_gate_passed_required: true
+  kernel_arg_handoff_live_noop_integration_record_ready_required: true
+  kernel_arg_handoff_live_noop_integration_live_toggle_record_ready_required: true
+  kernel_arg_handoff_live_noop_integration_launch_schema_ready_required: true
+  kernel_arg_handoff_live_noop_integration_live_eligible_required: true
+  kernel_arg_handoff_live_noop_integration_consumer_connected_required: true
+  kernel_arg_handoff_live_noop_integration_blocked_required: true
+  kernel_arg_handoff_live_noop_integration_payload_bytes_required: 0
+  kernel_arg_handoff_live_noop_integration_passed_to_kernel_required: false
+  kernel_arg_handoff_live_noop_integration_changes_kernel_launch_args_required: false
+  kernel_arg_handoff_live_consumer_adapter_required: true
+  kernel_arg_handoff_live_consumer_adapter_mode: readonly_kernel_arg_handoff_live_consumer_adapter
+  kernel_arg_handoff_live_consumer_adapter_block_reason: kernel_arg_handoff_real_kernel_arg_mutation_live
+  kernel_arg_handoff_live_consumer_adapter_enabled_required: true
+  kernel_arg_handoff_live_consumer_adapter_lab_gate_passed_required: true
+  kernel_arg_handoff_live_consumer_adapter_record_ready_required: true
+  kernel_arg_handoff_live_consumer_adapter_live_noop_integration_record_ready_required: true
+  kernel_arg_handoff_live_consumer_adapter_live_noop_integration_blocked_required: true
+  kernel_arg_handoff_live_consumer_adapter_live_noop_integration_block_reason: kernel_arg_handoff_kernel_arg_pass_disabled
+  kernel_arg_handoff_live_consumer_adapter_consumer_adapter_present_required: true
+  kernel_arg_handoff_live_consumer_adapter_consumer_connected_required: true
+  kernel_arg_handoff_live_consumer_adapter_live_eligible_required: true
+  kernel_arg_handoff_live_consumer_adapter_blocked_required: false
+  kernel_arg_handoff_live_consumer_adapter_payload_bytes_required: 0
+  kernel_arg_handoff_live_consumer_adapter_passed_to_kernel_required: true
+  kernel_arg_handoff_live_consumer_adapter_changes_kernel_launch_args_required: true
+  kernel_arg_handoff_live_consumer_adapter_real_kernel_arg_handoff_required: true
+  kernel_arg_handoff_real_kernel_arg_mutation_incompatible_canary: true
+  single_field_replacement_live_required: true
+  single_field_replacement_field: B_scale
+  single_field_replacement_candidate_source: prepared_handle_table
+  single_field_replacement_payload_bytes_required: 0
+  single_field_replacement_expected_kernel_arg_type_compatible: false
+  single_field_replacement_expected_parity_ok: false
+  single_field_replacement_expected_parity_mismatch: true
+  single_field_replacement_passed_to_kernel_required: false
+model:
+  config: configs/model/qwen3_6_35b_a3b_awq_4bit.yaml
+  quantization: awq_wna16
+device:
+  name: AMD_Radeon_PRO_W7900_Dual_Slot
+  gpu_index: 1
+source_split:
+  data: configs/data/external_prompt_gate_dolly_128.yaml
+  trace_config: configs/trace/router_mtp_trace_external_prompt_gate_dolly_1_awq_vllm_gpu1_decode_gen16_single_field_replacement_prepared_table_candidate_dry_run_canary.yaml
+  max_samples: 1
+  max_length: 128
+  max_tokens: 16
+gate:
+  passed: true
+  failures: []
+  check:
+    script: scripts/check_premap_longrun_audit_gate.py
+    max_capacity: 12288
+    min_reuse_rate: 0.0
+    require_readonly_consumer: true
+    require_descriptor_prep: true
+    require_real_descriptor_prep: true
+    require_kernel_arg_shadow_table: true
+    require_consumer_shim_table_read: true
+    require_consumer_shim_table_consume: true
+    require_consumer_shim_table_object: true
+    require_consumer_shim_prep_execution: true
+    require_kernel_arg_handoff_attempt: true
+    require_kernel_arg_handoff_live_toggle: true
+    require_kernel_arg_handoff_launch_schema_mirror: true
+    require_kernel_arg_handoff_live_noop_integration: true
+    require_kernel_arg_handoff_live_consumer_adapter: true
+    allow_enabled_blocked_live_toggle: true
+    allow_connected_blocked_consumer_adapter: true
+    allow_kernel_arg_handoff_live_kernel_arg_pass: true
+    allow_kernel_arg_handoff_live_real_kernel_arg_mutation: true
+    allow_incompatible_real_kernel_arg_mutation_canary: true
+    allow_single_field_replacement_live: true
+    allow_single_field_replacement_prepared_table_candidate_source: true
+    expected_single_field_replacement_allow_signature_mismatch_live: true
+  metrics:
+    expected_runtime_shadow_premap_kernel_arg_handoff_single_field_replacement_candidate_source: prepared_handle_table
+    expected_runtime_shadow_premap_kernel_arg_handoff_single_field_replacement_live_enabled: true
+    expected_runtime_shadow_premap_kernel_arg_handoff_single_field_replacement_allow_signature_mismatch_live: true
+    expected_live_replacement_behavior: fallback_unless_current_wna16_arg_type_compatible
+boundary:
+  current_meaning: prepared handle table may be used as a live semantic candidate source, but current WNA16 tensor ABI must still reject non-compatible typed handles.
+  not_claimed:
+  - tensor-compatible prepared-handle kernel arg replacement
+  - payload movement
+  - ready credit
+  - router mutation
+  - descriptor_order execution
+  - endpoint speedup

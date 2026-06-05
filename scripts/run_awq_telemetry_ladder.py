@@ -43,6 +43,7 @@ MODES: dict[str, dict[str, Any]] = {
         "premap_kernel_arg_handoff_live_consumer_connected": False,
         "premap_kernel_arg_handoff_kernel_arg_pass_enabled": False,
         "premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled": False,
+        "premap_kernel_arg_handoff_single_field_replacement_allow_signature_mismatch_live": False,
         "unset_env": ["VLLM_DISABLE_SHARED_EXPERTS_STREAM"],
     },
     "production_like_no_packed_recurrent": {
@@ -70,6 +71,7 @@ MODES: dict[str, dict[str, Any]] = {
         "premap_kernel_arg_handoff_live_consumer_connected": False,
         "premap_kernel_arg_handoff_kernel_arg_pass_enabled": False,
         "premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled": False,
+        "premap_kernel_arg_handoff_single_field_replacement_allow_signature_mismatch_live": False,
         "env": {"VLLM_ENABLE_FLA_PACKED_RECURRENT_DECODE": "0"},
     },
     "production_like_force_shared_aux": {
@@ -98,6 +100,7 @@ MODES: dict[str, dict[str, Any]] = {
         "premap_kernel_arg_handoff_live_consumer_connected": False,
         "premap_kernel_arg_handoff_kernel_arg_pass_enabled": False,
         "premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled": False,
+        "premap_kernel_arg_handoff_single_field_replacement_allow_signature_mismatch_live": False,
         "unset_env": ["VLLM_DISABLE_SHARED_EXPERTS_STREAM"],
     },
     "production_like_disable_shared_stream": {
@@ -125,6 +128,7 @@ MODES: dict[str, dict[str, Any]] = {
         "premap_kernel_arg_handoff_live_consumer_connected": False,
         "premap_kernel_arg_handoff_kernel_arg_pass_enabled": False,
         "premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled": False,
+        "premap_kernel_arg_handoff_single_field_replacement_allow_signature_mismatch_live": False,
         "env": {"VLLM_DISABLE_SHARED_EXPERTS_STREAM": "1"},
     },
     "premap_real_kernel_arg_mutation_observed_canary": {
@@ -402,6 +406,70 @@ MODES: dict[str, dict[str, Any]] = {
         "premap_kernel_arg_handoff_single_field_replacement_candidate_source": (
             "original_kernel_arg_identity"
         ),
+        "emit_decoder_layer_timing": False,
+        "emit_decoder_component_timing": False,
+        "emit_moe_substage_timing": False,
+        "decoder_source_timing_mode": "off",
+        "moe_source_timing_mode": "off",
+        "emit_wna16_kernel_timing": False,
+        "wna16_kernel_timing_mode": "host",
+        "emit_summaries": True,
+        "emit_outcomes": False,
+        "outcome_logging_mode": "off",
+        "emit_descriptor_order_summaries": False,
+        "emit_transition_summaries": False,
+        "unset_env": ["VLLM_DISABLE_SHARED_EXPERTS_STREAM"],
+    },
+    "premap_single_field_replacement_live_prepared_handle_table_canary": {
+        # Explicit semantic-candidate canary.  It builds the real prepared
+        # descriptor/address handle table and attempts a one-field live
+        # replacement from that table.  The current WNA16 ABI expects tensor
+        # launch args, while prepared handles are typed schema identities, so
+        # this mode is expected to fall back unless the field is type-compatible.
+        # It is intentionally diagnostic and default-off.
+        "record_router_topk": False,
+        "capture_router_topk": True,
+        "emit_premap_summaries": True,
+        "emit_premap_address_manager_counters": True,
+        "premap_summary_sample_period": 1_000_000_000,
+        "emit_premap_consumer_mapping": True,
+        "premap_consumer_mapping_emit_rows": False,
+        "premap_consumer_mapping_mode": "noop_assertion",
+        "premap_consumer_mapping_source": "fused_moe_prepare_expert_assignment",
+        "premap_consumer_resolve_real_handles": True,
+        "premap_consumer_mapping_sample_period": 1_000_000_000,
+        "premap_address_capacity_gate_path": (
+            "configs/runtime/"
+            "premap_address_capacity_gate_dolly128_gen64_awq_w7900_gpu1.yaml"
+        ),
+        "premap_consumer_require_readonly_gate": True,
+        "premap_consumer_readonly_gate_path": (
+            "configs/runtime/"
+            "premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_"
+            "prepared_table_live_fallback_canary.yaml"
+        ),
+        "premap_descriptor_prep_execution_mode": (
+            "readonly_descriptor_address_object"
+        ),
+        "premap_risky_trace_canary": True,
+        "premap_risky_trace_canary_scope": (
+            "benchmark_premap_single_field_replacement_live_prepared_handle_table_canary"
+        ),
+        "premap_kernel_arg_handoff_live_enabled": True,
+        "premap_kernel_arg_handoff_live_consumer_connected": True,
+        "premap_kernel_arg_handoff_kernel_arg_pass_enabled": True,
+        "premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled": True,
+        "premap_kernel_arg_handoff_single_field_replacement_dry_run_enabled": True,
+        "premap_kernel_arg_handoff_single_field_replacement_live_enabled": True,
+        "premap_kernel_arg_handoff_single_field_replacement_allow_signature_mismatch_live": True,
+        "premap_kernel_arg_handoff_single_field_replacement_field": "B_scale",
+        "premap_kernel_arg_handoff_single_field_replacement_candidate_source": (
+            "prepared_handle_table"
+        ),
+        "premap_policy": "premap_only_with_consumer_mapping_noop",
+        "premap_source": "current_router_topk_premap_shadow",
+        "premap_descriptor_bytes": 4096,
+        "premap_priority": 2,
         "emit_decoder_layer_timing": False,
         "emit_decoder_component_timing": False,
         "emit_moe_substage_timing": False,

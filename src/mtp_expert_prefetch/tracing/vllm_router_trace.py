@@ -2555,6 +2555,9 @@ class VllmRouterRecorder:
     shadow_premap_kernel_arg_handoff_single_field_replacement_live_enabled: (
         bool
     ) = False
+    shadow_premap_kernel_arg_handoff_single_field_replacement_allow_signature_mismatch_live: (
+        bool
+    ) = False
     shadow_premap_kernel_arg_handoff_single_field_replacement_candidate_source: (
         str
     ) = "original_kernel_arg_identity"
@@ -9778,6 +9781,10 @@ _PREMAP_KERNEL_ARG_LIVE_MUTATION_COUNTERS: dict[str, int] = {
     "single_field_replacement_live_replaced_count": 0,
     "single_field_replacement_live_parity_ok_count": 0,
     "single_field_replacement_live_parity_mismatch_count": 0,
+    "single_field_replacement_live_source_missing_fallback_count": 0,
+    "single_field_replacement_live_type_mismatch_fallback_count": 0,
+    "single_field_replacement_live_signature_mismatch_allowed_count": 0,
+    "single_field_replacement_live_signature_mismatch_blocked_count": 0,
     "single_field_replacement_live_passed_to_kernel_count": 0,
     "single_field_replacement_live_payload_bytes": 0,
     "single_field_replacement_candidate_source_original_count": 0,
@@ -14244,12 +14251,17 @@ def patch_vllm_qwen35_moe_router_trace() -> None:
                         single_field_live_enabled = bool(
                             recorder_for_config.shadow_premap_kernel_arg_handoff_single_field_replacement_live_enabled
                         )
+                        single_field_allow_signature_mismatch_live = bool(
+                            recorder_for_config.shadow_premap_kernel_arg_handoff_single_field_replacement_allow_signature_mismatch_live
+                        )
                         single_field_candidate_source = str(
                             recorder_for_config.shadow_premap_kernel_arg_handoff_single_field_replacement_candidate_source
                         )
                         single_field_replacement_field = str(
                             recorder_for_config.shadow_premap_kernel_arg_handoff_single_field_replacement_field
                         )
+                    else:
+                        single_field_allow_signature_mismatch_live = False
                     identity_fast_path = (
                         single_field_dry_run_enabled
                         and single_field_candidate_source
@@ -14471,10 +14483,12 @@ def patch_vllm_qwen35_moe_router_trace() -> None:
                                     "single_field_replacement_live_candidate_count"
                                 )
                                 live_replacement_allowed = (
-                                    parity_ok
+                                    source_candidate_ready
                                     and type_compatible
-                                    and single_field_candidate_source
-                                    == "original_kernel_arg_identity"
+                                    and (
+                                        parity_ok
+                                        or single_field_allow_signature_mismatch_live
+                                    )
                                 )
                                 if live_replacement_allowed:
                                     kernel_arg_package[field_name] = (
@@ -14485,17 +14499,39 @@ def patch_vllm_qwen35_moe_router_trace() -> None:
                                     ] = field_name
                                     live_mutation_package_meta[
                                         "single_field_live_replacement_status"
-                                    ] = "pass_through_identity_replacement"
+                                    ] = (
+                                        "prepared_handle_table_replacement"
+                                        if single_field_candidate_source
+                                        == "prepared_handle_table"
+                                        else "pass_through_identity_replacement"
+                                    )
                                     _increment_premap_kernel_arg_live_mutation_counter(
                                         "single_field_replacement_live_replaced_count"
                                     )
-                                    _increment_premap_kernel_arg_live_mutation_counter(
-                                        "single_field_replacement_live_parity_ok_count"
-                                    )
+                                    if parity_ok:
+                                        _increment_premap_kernel_arg_live_mutation_counter(
+                                            "single_field_replacement_live_parity_ok_count"
+                                        )
+                                    else:
+                                        _increment_premap_kernel_arg_live_mutation_counter(
+                                            "single_field_replacement_live_signature_mismatch_allowed_count"
+                                        )
                                     _increment_premap_kernel_arg_live_mutation_counter(
                                         "single_field_replacement_live_passed_to_kernel_count"
                                     )
                                 else:
+                                    if not source_candidate_ready:
+                                        _increment_premap_kernel_arg_live_mutation_counter(
+                                            "single_field_replacement_live_source_missing_fallback_count"
+                                        )
+                                    elif not type_compatible:
+                                        _increment_premap_kernel_arg_live_mutation_counter(
+                                            "single_field_replacement_live_type_mismatch_fallback_count"
+                                        )
+                                    elif not parity_ok:
+                                        _increment_premap_kernel_arg_live_mutation_counter(
+                                            "single_field_replacement_live_signature_mismatch_blocked_count"
+                                        )
                                     _increment_premap_kernel_arg_live_mutation_counter(
                                         "single_field_replacement_live_parity_mismatch_count"
                                     )
@@ -15276,6 +15312,12 @@ def _apply_premap_consumer_readonly_gate(
             False,
         )
     )
+    single_field_replacement_allow_signature_mismatch_live = bool(
+        options.get(
+            "premap_kernel_arg_handoff_single_field_replacement_allow_signature_mismatch_live",
+            False,
+        )
+    )
     minimal_identity_envelope_enabled = bool(
         options.get(
             "premap_kernel_arg_handoff_minimal_identity_envelope_enabled",
@@ -15355,14 +15397,12 @@ def _apply_premap_consumer_readonly_gate(
         )
         raise ValueError(msg)
     if (
-        single_field_replacement_live_enabled
-        and single_field_replacement_candidate_source != "original_kernel_arg_identity"
+        single_field_replacement_allow_signature_mismatch_live
+        and not single_field_replacement_live_enabled
     ):
         msg = (
-            "single-field live replacement currently only supports "
-            "candidate_source='original_kernel_arg_identity'. Prepared handle-table "
-            "candidates are dry-run only until semantic kernel-arg compatibility is "
-            "implemented."
+            "premap_kernel_arg_handoff_single_field_replacement_allow_signature_mismatch_live=True "
+            "requires premap_kernel_arg_handoff_single_field_replacement_live_enabled=True."
         )
         raise ValueError(msg)
     allowed_single_field_replacement_fields = {
@@ -15438,12 +15478,14 @@ def _apply_premap_consumer_readonly_gate(
         or not single_field_replacement_dry_run_enabled
         or not single_field_replacement_live_enabled
         or single_field_replacement_candidate_source != "original_kernel_arg_identity"
+        or single_field_replacement_allow_signature_mismatch_live
     ):
         msg = (
             "premap_kernel_arg_handoff_producer_minimal_identity_envelope_enabled=True "
             "requires minimal identity envelope, live handoff, connected consumer, "
             "kernel-arg pass, real mutation, single-field dry/live replacement, and "
-            "candidate_source='original_kernel_arg_identity'."
+            "candidate_source='original_kernel_arg_identity' with signature-mismatch "
+            "live replacement disabled."
         )
         raise ValueError(msg)
     if live_handoff_enabled and not require_gate:
@@ -16868,6 +16910,12 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                 False,
             )
         ),
+        "runtime_shadow_premap_kernel_arg_handoff_single_field_replacement_allow_signature_mismatch_live": bool(
+            runtime_shadow_options.get(
+                "premap_kernel_arg_handoff_single_field_replacement_allow_signature_mismatch_live",
+                False,
+            )
+        ),
         "runtime_shadow_premap_kernel_arg_handoff_single_field_replacement_candidate_source": str(
             runtime_shadow_options.get(
                 "premap_kernel_arg_handoff_single_field_replacement_candidate_source",
@@ -17376,6 +17424,12 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                             shadow_premap_kernel_arg_handoff_single_field_replacement_live_enabled=bool(
                                 runtime_shadow_options.get(
                                     "premap_kernel_arg_handoff_single_field_replacement_live_enabled",
+                                    False,
+                                )
+                            ),
+                            shadow_premap_kernel_arg_handoff_single_field_replacement_allow_signature_mismatch_live=bool(
+                                runtime_shadow_options.get(
+                                    "premap_kernel_arg_handoff_single_field_replacement_allow_signature_mismatch_live",
                                     False,
                                 )
                             ),
