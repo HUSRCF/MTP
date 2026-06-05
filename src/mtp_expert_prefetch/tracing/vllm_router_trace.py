@@ -2545,6 +2545,7 @@ class VllmRouterRecorder:
     shadow_premap_kernel_arg_handoff_live_consumer_connected: bool = False
     shadow_premap_kernel_arg_handoff_kernel_arg_pass_enabled: bool = False
     shadow_premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled: bool = False
+    shadow_premap_kernel_arg_handoff_minimal_identity_envelope_enabled: bool = False
     shadow_premap_kernel_arg_handoff_single_field_replacement_dry_run_enabled: (
         bool
     ) = False
@@ -2671,6 +2672,9 @@ class VllmRouterRecorder:
     )
     _premap_consumer_mapping_call_count: int = field(default=0, repr=False)
     _premap_summary_call_count: int = field(default=0, repr=False)
+    _premap_live_mutation_package_cache: dict[tuple[Any, ...], dict[str, Any]] = (
+        field(default_factory=dict, repr=False)
+    )
     _descriptor_order_prior_rank_tensor_cache: dict[tuple[Any, ...], torch.Tensor] = (
         field(default_factory=dict, repr=False)
     )
@@ -2703,6 +2707,7 @@ class VllmRouterRecorder:
         self._last_descriptor_mapping_by_layer.clear()
         self._last_descriptor_consumer_handle_by_layer.clear()
         self._last_premap_address_mapping_by_layer.clear()
+        self._premap_live_mutation_package_cache.clear()
         self._descriptor_order_prior_rank_tensor_cache.clear()
         self._descriptor_order_direct_placeholder_cache.clear()
         self._decoder_component_aggregate.clear()
@@ -4207,6 +4212,81 @@ class VllmRouterRecorder:
                     for key, value in expected_handle_hash_by_key.items()
                 },
             )
+        readonly_gate_ok = (
+            bool(self.shadow_premap_consumer_readonly_gate_required)
+            and self.shadow_premap_consumer_readonly_gate_passed is True
+        )
+        readonly_lookup_ok = (
+            readonly_consumer_result is not None
+            and int(readonly_consumer_result.lookup_count) > 0
+            and int(readonly_consumer_result.handle_miss_count) == 0
+            and int(readonly_consumer_result.evicted_before_consume_count) == 0
+            and int(readonly_consumer_result.stale_handle_count) == 0
+            and readonly_consumer_result.handle_parity_ok is True
+        )
+        minimal_identity_envelope_ok = (
+            not write_event
+            and bool(
+                self.shadow_premap_kernel_arg_handoff_minimal_identity_envelope_enabled
+            )
+            and readonly_gate_ok
+            and readonly_lookup_ok
+            and bool(parity_ok)
+            and bool(self.shadow_premap_kernel_arg_handoff_live_enabled)
+            and bool(self.shadow_premap_kernel_arg_handoff_live_consumer_connected)
+            and bool(self.shadow_premap_kernel_arg_handoff_kernel_arg_pass_enabled)
+            and bool(
+                self.shadow_premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled
+            )
+            and bool(
+                self.shadow_premap_kernel_arg_handoff_single_field_replacement_dry_run_enabled
+            )
+            and bool(
+                self.shadow_premap_kernel_arg_handoff_single_field_replacement_live_enabled
+            )
+            and str(
+                self.shadow_premap_kernel_arg_handoff_single_field_replacement_candidate_source
+            )
+            == "original_kernel_arg_identity"
+            and str(self.shadow_premap_kernel_arg_handoff_single_field_replacement_field)
+            in _WNA16_KERNEL_ARG_FIELD_NAMES
+        )
+        if minimal_identity_envelope_ok:
+            context = get_active_moe_assignment_context()
+            if context is not None:
+                table_object_hash = hashlib.sha256(
+                    "|".join(
+                        (
+                            "minimal_identity_envelope_v1",
+                            str(self.shadow_premap_consumer_readonly_gate_id),
+                            str(layer_id),
+                            str(consumer_hash),
+                            str(consumer_handle_hash),
+                            str(len(address_keys)),
+                            str(
+                                self.shadow_premap_kernel_arg_handoff_single_field_replacement_field
+                            ),
+                        )
+                    ).encode("utf-8")
+                ).hexdigest()
+                context["premap_kernel_arg_live_mutation_package"] = {
+                    "layer_id": int(layer_id),
+                    "source": (
+                        "prelaunch_minimal_identity_live_kernel_arg_package"
+                    ),
+                    "table_object_hash": table_object_hash,
+                    "launch_schema_mirror_hash": table_object_hash,
+                    "adapter_hash": table_object_hash,
+                    "block_reason": "kernel_arg_handoff_real_kernel_arg_mutation_live",
+                    "table_object": None,
+                    "launch_args": None,
+                    "used": False,
+                    "minimal_identity_envelope": True,
+                }
+                _increment_premap_kernel_arg_live_mutation_counter(
+                    "package_minimal_identity_envelope_count"
+                )
+                return
         descriptor_prep_result = None
         descriptor_consumer_read_result = None
         descriptor_consumer_shim_result = None
@@ -4219,18 +4299,6 @@ class VllmRouterRecorder:
         )
         descriptor_prep_enabled = descriptor_prep_mode is not None
         if descriptor_prep_enabled:
-            readonly_gate_ok = (
-                bool(self.shadow_premap_consumer_readonly_gate_required)
-                and self.shadow_premap_consumer_readonly_gate_passed is True
-            )
-            readonly_lookup_ok = (
-                readonly_consumer_result is not None
-                and int(readonly_consumer_result.lookup_count) > 0
-                and int(readonly_consumer_result.handle_miss_count) == 0
-                and int(readonly_consumer_result.evicted_before_consume_count) == 0
-                and int(readonly_consumer_result.stale_handle_count) == 0
-                and readonly_consumer_result.handle_parity_ok is not False
-            )
             if manager is None:
                 descriptor_prep_blocked_reason = "premap_address_manager_missing"
             elif not readonly_gate_ok:
@@ -4240,6 +4308,50 @@ class VllmRouterRecorder:
             elif not all_hit:
                 descriptor_prep_blocked_reason = "address_miss"
             else:
+                live_package_cache_key = (
+                    "premap_live_mutation_package_v1",
+                    int(layer_id),
+                    str(descriptor_prep_mode),
+                    tuple(str(key) for key in address_keys),
+                    str(consumer_handle_hash),
+                    str(real_handle_hash),
+                    bool(self.shadow_premap_consumer_resolve_real_handles),
+                    bool(self.shadow_premap_kernel_arg_handoff_live_enabled),
+                    bool(
+                        self.shadow_premap_kernel_arg_handoff_live_consumer_connected
+                    ),
+                    bool(
+                        self.shadow_premap_kernel_arg_handoff_kernel_arg_pass_enabled
+                    ),
+                    bool(
+                        self.shadow_premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled
+                    ),
+                    bool(self.shadow_premap_consumer_readonly_gate_passed is True),
+                    str(self.shadow_premap_single_field_handle_handoff_canary_field),
+                )
+                cached_live_package = self._premap_live_mutation_package_cache.get(
+                    live_package_cache_key
+                )
+                if not write_event and isinstance(cached_live_package, dict):
+                    _increment_premap_kernel_arg_live_mutation_counter(
+                        "package_cache_hit_count"
+                    )
+                    context = get_active_moe_assignment_context()
+                    if (
+                        context is not None
+                        and bool(
+                            self.shadow_premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled
+                        )
+                    ):
+                        package = dict(cached_live_package)
+                        package["used"] = False
+                        package["launch_args"] = None
+                        context["premap_kernel_arg_live_mutation_package"] = package
+                    return
+                if not write_event:
+                    _increment_premap_kernel_arg_live_mutation_counter(
+                        "package_cache_miss_count"
+                    )
                 descriptor_prep_result = manager.execute_descriptor_prep_readonly(
                     address_keys,
                     execution_mode=descriptor_prep_mode,
@@ -4342,7 +4454,7 @@ class VllmRouterRecorder:
                                 descriptor_consumer_shim_result.kernel_arg_handoff_live_consumer_adapter_record_ready
                             )
                         ):
-                            context["premap_kernel_arg_live_mutation_package"] = {
+                            package = {
                                 "layer_id": int(layer_id),
                                 "source": (
                                     "prelaunch_consumer_shim_live_kernel_arg_package"
@@ -4367,6 +4479,13 @@ class VllmRouterRecorder:
                                 "launch_args": None,
                                 "used": False,
                             }
+                            context[
+                                "premap_kernel_arg_live_mutation_package"
+                            ] = package
+                            if not write_event:
+                                self._premap_live_mutation_package_cache[
+                                    live_package_cache_key
+                                ] = dict(package)
         lookup_us = (time.perf_counter_ns() - start_ns) / 1000.0
         if write_event and sink is not None:
             sink.write_premap_consumer_mapping(
@@ -9556,6 +9675,9 @@ _PREMAP_KERNEL_ARG_LIVE_MUTATION_COUNTERS: dict[str, int] = {
     "package_missing_count": 0,
     "package_layer_mismatch_count": 0,
     "package_block_reason_mismatch_count": 0,
+    "package_cache_hit_count": 0,
+    "package_cache_miss_count": 0,
+    "package_minimal_identity_envelope_count": 0,
     "single_field_replacement_dry_run_candidate_count": 0,
     "single_field_replacement_dry_run_parity_ok_count": 0,
     "single_field_replacement_dry_run_parity_mismatch_count": 0,
@@ -9789,6 +9911,28 @@ def _kernel_arg_replacement_type_compatible(original: Any, candidate: Any) -> bo
             == tuple(int(dim) for dim in original.shape)
         )
     return type(candidate) is type(original)
+
+
+_WNA16_KERNEL_ARG_FIELD_NAMES = frozenset(
+    {
+        "A",
+        "B",
+        "C",
+        "B_scale",
+        "B_zp",
+        "topk_weights",
+        "sorted_token_ids",
+        "expert_ids",
+        "num_tokens_post_padded",
+        "mul_routed_weight",
+        "top_k",
+        "config",
+        "compute_type",
+        "use_int8_w8a16",
+        "use_int4_w4a16",
+        "block_shape",
+    }
+)
 
 
 def _premap_kernel_arg_live_mutation_counters() -> dict[str, int]:
@@ -14001,6 +14145,117 @@ def patch_vllm_qwen35_moe_router_trace() -> None:
                     == "kernel_arg_handoff_real_kernel_arg_mutation_live"
                 )
                 if use_live_mutation_package:
+                    single_field_dry_run_enabled = False
+                    single_field_live_enabled = False
+                    single_field_candidate_source = "original_kernel_arg_identity"
+                    single_field_replacement_field = "B_scale"
+                    if recorder_for_config is not None:
+                        single_field_dry_run_enabled = bool(
+                            recorder_for_config.shadow_premap_kernel_arg_handoff_single_field_replacement_dry_run_enabled
+                        )
+                        single_field_live_enabled = bool(
+                            recorder_for_config.shadow_premap_kernel_arg_handoff_single_field_replacement_live_enabled
+                        )
+                        single_field_candidate_source = str(
+                            recorder_for_config.shadow_premap_kernel_arg_handoff_single_field_replacement_candidate_source
+                        )
+                        single_field_replacement_field = str(
+                            recorder_for_config.shadow_premap_kernel_arg_handoff_single_field_replacement_field
+                        )
+                    identity_fast_path = (
+                        single_field_dry_run_enabled
+                        and single_field_candidate_source
+                        == "original_kernel_arg_identity"
+                    )
+                    if not single_field_dry_run_enabled or identity_fast_path:
+                        field_name = single_field_replacement_field
+                        supported_identity_field = (
+                            field_name in _WNA16_KERNEL_ARG_FIELD_NAMES
+                        )
+                        if identity_fast_path:
+                            if not live_mutation_package_meta.get(
+                                "table_object_hash"
+                            ):
+                                _increment_premap_kernel_arg_live_mutation_counter(
+                                    "single_field_replacement_dry_run_source_missing_count"
+                                )
+                            elif not supported_identity_field:
+                                _increment_premap_kernel_arg_live_mutation_counter(
+                                    "single_field_replacement_dry_run_unsupported_field_count"
+                                )
+                            else:
+                                _increment_premap_kernel_arg_live_mutation_counter(
+                                    "single_field_replacement_dry_run_candidate_count"
+                                )
+                                _increment_premap_kernel_arg_live_mutation_counter(
+                                    "single_field_replacement_candidate_source_original_count"
+                                )
+                                _increment_premap_kernel_arg_live_mutation_counter(
+                                    "single_field_replacement_dry_run_parity_ok_count"
+                                )
+                                if single_field_live_enabled:
+                                    _increment_premap_kernel_arg_live_mutation_counter(
+                                        "single_field_replacement_live_candidate_count"
+                                    )
+                                    _increment_premap_kernel_arg_live_mutation_counter(
+                                        "single_field_replacement_live_replaced_count"
+                                    )
+                                    _increment_premap_kernel_arg_live_mutation_counter(
+                                        "single_field_replacement_live_parity_ok_count"
+                                    )
+                                    _increment_premap_kernel_arg_live_mutation_counter(
+                                        "single_field_replacement_live_passed_to_kernel_count"
+                                    )
+                                    live_mutation_package_meta[
+                                        "single_field_live_replacement_field"
+                                    ] = field_name
+                                    live_mutation_package_meta[
+                                        "single_field_live_replacement_status"
+                                    ] = (
+                                        "pass_through_identity_replacement_fast"
+                                    )
+                                else:
+                                    _increment_premap_kernel_arg_live_mutation_counter(
+                                        "single_field_replacement_live_disabled_count"
+                                    )
+                        live_mutation_package_meta["used"] = True
+                        live_mutation_package_meta["status"] = (
+                            "pass_through_original_wna16_fast_identity"
+                            if identity_fast_path
+                            else "pass_through_original_wna16_fast"
+                        )
+                        _increment_premap_kernel_arg_live_mutation_counter(
+                            "package_pass_through_count"
+                        )
+                        emit_wna16_launch_part(
+                            part=(
+                                "kernel_arg_live_package_pass_through_fast_identity"
+                                if identity_fast_path
+                                else "kernel_arg_live_package_pass_through_fast"
+                            ),
+                            elapsed_us=(
+                                time.perf_counter_ns() - enqueue_start_ns
+                            )
+                            / 1000.0,
+                        )
+                        return original_invoke_wna16_triton_kernel(
+                            A,
+                            B,
+                            C,
+                            B_scale,
+                            B_zp,
+                            topk_weights,
+                            sorted_token_ids,
+                            expert_ids,
+                            num_tokens_post_padded,
+                            mul_routed_weight,
+                            top_k,
+                            config,
+                            compute_type,
+                            use_int8_w8a16,
+                            use_int4_w4a16,
+                            block_shape,
+                        )
                     # This is the first live handoff mutation boundary: the
                     # original WNA16 kernel receives its launch arguments from a
                     # prelaunch package object.  Values remain pass-through and
@@ -14027,23 +14282,6 @@ def patch_vllm_qwen35_moe_router_trace() -> None:
                         "block_shape": block_shape,
                     }
                     kernel_arg_package = live_mutation_package_meta["launch_args"]
-                    single_field_dry_run_enabled = False
-                    single_field_live_enabled = False
-                    single_field_candidate_source = "original_kernel_arg_identity"
-                    single_field_replacement_field = "B_scale"
-                    if recorder_for_config is not None:
-                        single_field_dry_run_enabled = bool(
-                            recorder_for_config.shadow_premap_kernel_arg_handoff_single_field_replacement_dry_run_enabled
-                        )
-                        single_field_live_enabled = bool(
-                            recorder_for_config.shadow_premap_kernel_arg_handoff_single_field_replacement_live_enabled
-                        )
-                        single_field_candidate_source = str(
-                            recorder_for_config.shadow_premap_kernel_arg_handoff_single_field_replacement_candidate_source
-                        )
-                        single_field_replacement_field = str(
-                            recorder_for_config.shadow_premap_kernel_arg_handoff_single_field_replacement_field
-                        )
                     if single_field_dry_run_enabled:
                         field_name = single_field_replacement_field
                         if not live_mutation_package_meta.get("table_object_hash"):
@@ -16479,6 +16717,12 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                 False,
             )
         ),
+        "runtime_shadow_premap_kernel_arg_handoff_minimal_identity_envelope_enabled": bool(
+            runtime_shadow_options.get(
+                "premap_kernel_arg_handoff_minimal_identity_envelope_enabled",
+                False,
+            )
+        ),
         "runtime_shadow_premap_kernel_arg_handoff_single_field_replacement_dry_run_enabled": bool(
             runtime_shadow_options.get(
                 "premap_kernel_arg_handoff_single_field_replacement_dry_run_enabled",
@@ -16975,6 +17219,12 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                             shadow_premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled=bool(
                                 runtime_shadow_options.get(
                                     "premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled",
+                                    False,
+                                )
+                            ),
+                            shadow_premap_kernel_arg_handoff_minimal_identity_envelope_enabled=bool(
+                                runtime_shadow_options.get(
+                                    "premap_kernel_arg_handoff_minimal_identity_envelope_enabled",
                                     False,
                                 )
                             ),

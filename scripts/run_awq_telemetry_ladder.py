@@ -257,6 +257,69 @@ MODES: dict[str, dict[str, Any]] = {
         "emit_transition_summaries": False,
         "unset_env": ["VLLM_DISABLE_SHARED_EXPERTS_STREAM"],
     },
+    "premap_single_field_replacement_live_minimal_identity_envelope": {
+        # Production-compatible TPOT probe for the identity single-field live
+        # handoff.  This path relies on the strict lab gate artifact for typed
+        # descriptor evidence, but does not rebuild the descriptor table on
+        # every WNA16 launch.  It only installs a minimal live envelope after
+        # the current address/handle readonly parity check passes.
+        "record_router_topk": False,
+        "capture_router_topk": True,
+        "emit_premap_summaries": True,
+        "emit_premap_address_manager_counters": True,
+        "premap_summary_sample_period": 1_000_000_000,
+        "emit_premap_consumer_mapping": True,
+        "premap_consumer_mapping_emit_rows": False,
+        "premap_consumer_mapping_mode": "noop_assertion",
+        "premap_consumer_mapping_source": "fused_moe_prepare_expert_assignment",
+        "premap_consumer_resolve_real_handles": True,
+        "premap_consumer_mapping_sample_period": 1_000_000_000,
+        "premap_address_capacity_gate_path": (
+            "configs/runtime/"
+            "premap_address_capacity_gate_dolly128_gen64_awq_w7900_gpu1.yaml"
+        ),
+        "premap_consumer_require_readonly_gate": True,
+        "premap_consumer_readonly_gate_path": (
+            "configs/runtime/"
+            "premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_"
+            "single_field_replacement_live_canary.yaml"
+        ),
+        "premap_descriptor_prep_execution_mode": (
+            "readonly_descriptor_address_object"
+        ),
+        "premap_risky_trace_canary": True,
+        "premap_risky_trace_canary_scope": (
+            "benchmark_premap_single_field_replacement_live_minimal_identity_envelope"
+        ),
+        "premap_kernel_arg_handoff_live_enabled": True,
+        "premap_kernel_arg_handoff_live_consumer_connected": True,
+        "premap_kernel_arg_handoff_kernel_arg_pass_enabled": True,
+        "premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled": True,
+        "premap_kernel_arg_handoff_minimal_identity_envelope_enabled": True,
+        "premap_kernel_arg_handoff_single_field_replacement_dry_run_enabled": True,
+        "premap_kernel_arg_handoff_single_field_replacement_live_enabled": True,
+        "premap_kernel_arg_handoff_single_field_replacement_field": "B_scale",
+        "premap_kernel_arg_handoff_single_field_replacement_candidate_source": (
+            "original_kernel_arg_identity"
+        ),
+        "premap_policy": "premap_only_with_consumer_mapping_noop",
+        "premap_source": "current_router_topk_premap_shadow",
+        "premap_descriptor_bytes": 4096,
+        "premap_priority": 2,
+        "emit_decoder_layer_timing": False,
+        "emit_decoder_component_timing": False,
+        "emit_moe_substage_timing": False,
+        "decoder_source_timing_mode": "off",
+        "moe_source_timing_mode": "off",
+        "emit_wna16_kernel_timing": False,
+        "wna16_kernel_timing_mode": "host",
+        "emit_summaries": True,
+        "emit_outcomes": False,
+        "outcome_logging_mode": "off",
+        "emit_descriptor_order_summaries": False,
+        "emit_transition_summaries": False,
+        "unset_env": ["VLLM_DISABLE_SHARED_EXPERTS_STREAM"],
+    },
     "diagnostic_light": {
         "record_router_topk": False,
         "emit_decoder_layer_timing": True,

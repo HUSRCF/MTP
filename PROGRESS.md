@@ -29719,3 +29719,92 @@ This upgrades the WNA16-adjacent evidence from a derived online summary plus
 standalone stub into a real online-derived row stream consumed by the native
 typed-slot stub. It still does not pass the typed slot to the current WNA16
 kernel and still does not move payload or grant readiness credit.
+
+## Production-compatible live handoff split
+
+The live handoff path was split into three increasingly lighter execution
+probes:
+
+```text
+1. observed canary:
+   record_topk + full consumer evidence + live package
+
+2. minimal with descriptor table:
+   capture_topk only + no mapping rows + descriptor table/package construction
+
+3. minimal identity envelope:
+   capture_topk only + no mapping rows + lab-gate-backed identity envelope
+   no per-launch descriptor table/shim construction
+```
+
+Code changes:
+
+```text
+src/mtp_expert_prefetch/tracing/vllm_router_trace.py
+  - fast WNA16 identity path avoids materializing launch_args/shadow_package
+  - per-sample live package cache added for no-row paths
+  - minimal identity envelope path added before descriptor-table construction
+  - readonly lookup parity hardened to require handle_parity_ok is True
+
+scripts/run_awq_telemetry_ladder.py
+  - added premap_single_field_replacement_live_minimal_identity_envelope
+```
+
+Validation:
+
+```text
+pytest tests -q:
+  1124 passed, 2 warnings
+
+code review:
+  GPT-5.3-Codex-Spark review found no blocker.
+```
+
+GPU1 AWQ/Dolly 8-sample gen64 sanity:
+
+```text
+outputs/reports/awq_telemetry_ladder/gpu1_premap_live_minimal_identity_envelope_sanity2_8sample_gen64
+
+production_like:
+  TPOT = 0.101418s
+  generate = 51.926s
+
+premap_single_field_replacement_live_minimal_identity_envelope:
+  TPOT = 0.218104s
+  generate = 111.669s
+  overhead = +115.05%
+  package_minimal_identity_envelope_count = 20,480
+  package_seen/pass_through = 40,960 / 40,960
+  single_field live candidate/replaced/parity_ok = 40,960 / 40,960 / 40,960
+  live payload bytes = 0
+  parity mismatch = 0
+  generated_text hash matches production_like
+```
+
+This is a major reduction relative to the heavy live path, but it is still not a
+production benchmark win:
+
+```text
+heavy minimal descriptor-table live path:
+  TPOT ~= 0.389-0.399s
+
+minimal identity envelope:
+  TPOT = 0.218s
+
+production_like:
+  TPOT = 0.101s
+```
+
+Conclusion:
+
+```text
+The WNA16 launch-arg dict/shadow-package construction was not the dominant
+remaining cost.  Removing descriptor-table/shim construction helps, but the
+live path is still dominated by Python-side capture/topk + premap manager
+lookup/envelope participation per prelaunch.
+
+This path remains a correctness/safety canary, not a runtime performance
+candidate.  A real benchmark should wait until the handoff is moved further
+down into a native/producer-side adapter or until the Python prelaunch path is
+removed from the decode hot path.
+```
