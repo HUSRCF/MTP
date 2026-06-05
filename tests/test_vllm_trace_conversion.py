@@ -143,6 +143,54 @@ def test_no_topk_recorder_trace_writer_allows_empty_router_payload(tmp_path):
     assert payload["router_call_meta"] == []
 
 
+def test_capture_only_router_topk_does_not_persist_heavy_payload(tmp_path):
+    recorder = VllmRouterRecorder(
+        top_k=2,
+        shadow_record_router_topk=False,
+        shadow_capture_router_topk=True,
+    )
+    recorder.record(
+        layer_id=3,
+        router_logits=torch.tensor(
+            [
+                [4.0, 1.0, 0.0, -1.0],
+                [0.0, 3.0, 2.0, -2.0],
+            ]
+        ),
+    )
+    assert len(recorder.calls) == 1
+    assert recorder.calls[0].oracle_topk_ids is None
+
+    payload = recorder.to_payload(module_prefix="model.language_model")
+    assert payload["router_topk"] == {}
+    assert payload["router_weights"] == {}
+    assert payload["router_call_meta"] == []
+
+    manifest_path = tmp_path / "manifest.jsonl"
+    request_output = SimpleNamespace(outputs=[SimpleNamespace(text="decoded")])
+    with manifest_path.open("w", encoding="utf-8") as manifest:
+        _write_vllm_sample_trace(
+            manifest=manifest,
+            output_dir=tmp_path,
+            sample_idx=9,
+            record={"id": "sample-9"},
+            input_ids=[1, 2, 3],
+            request_output=request_output,
+            module_prefix="model.language_model",
+            recorder=recorder,
+        )
+
+    row = json.loads(manifest_path.read_text(encoding="utf-8"))
+    sample = torch.load(tmp_path / "sample_000009.pt", weights_only=False)
+    assert row["trace_source"] == "vllm_router_topk_capture_only"
+    assert row["has_vllm_router_logits"] is False
+    assert row["has_vllm_router_topk_capture"] is True
+    assert row["num_router_calls"] == 0
+    assert sample["trace_source"] == "vllm_router_topk_capture_only"
+    assert sample["router_topk"] == {}
+    assert sample["router_call_meta"] == []
+
+
 def test_shared_expert_source_timing_is_separate_from_fused_source_level():
     recorder = VllmRouterRecorder(
         top_k=2,

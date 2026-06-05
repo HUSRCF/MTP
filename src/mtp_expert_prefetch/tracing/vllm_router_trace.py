@@ -2531,6 +2531,7 @@ class VllmRouterRecorder:
     shadow_premap_address_manager_capacity: int | None = None
     shadow_premap_summary_sample_period: int = 1
     shadow_emit_premap_consumer_mapping: bool = False
+    shadow_premap_consumer_mapping_emit_rows: bool = True
     shadow_premap_consumer_mapping_mode: str = "noop_assertion"
     shadow_premap_consumer_mapping_source: str = "fused_moe_prepare_expert_assignment"
     shadow_premap_consumer_resolve_real_handles: bool = False
@@ -2630,6 +2631,7 @@ class VllmRouterRecorder:
     shadow_shared_experts_force_aux_stream: bool = False
     shadow_shared_expert_output_gate_ablation: str = "off"
     shadow_shared_expert_output_gate_postprocess: str = "default"
+    shadow_capture_router_topk: bool | None = None
     shadow_record_router_topk: bool = True
     shadow_outcome_logging_mode: str = "full"
     request_id: str = "vllm"
@@ -2691,6 +2693,10 @@ class VllmRouterRecorder:
         default_factory=dict,
         repr=False,
     )
+
+    def __post_init__(self) -> None:
+        if self.shadow_capture_router_topk is None:
+            self.shadow_capture_router_topk = bool(self.shadow_record_router_topk)
 
     def clear(self) -> None:
         self.calls.clear()
@@ -2844,7 +2850,7 @@ class VllmRouterRecorder:
         return patched
 
     def record(self, *, layer_id: int | None, router_logits: torch.Tensor) -> None:
-        if not self.shadow_record_router_topk:
+        if not self.shadow_capture_router_topk:
             return
         logits = router_logits.detach().float()
         weights = torch.softmax(logits, dim=-1)
@@ -2853,7 +2859,9 @@ class VllmRouterRecorder:
             layer_id=layer_id,
             topk_ids=topk_ids,
             topk_weights=topk_weights,
-            oracle_router_logits=router_logits,
+            oracle_router_logits=(
+                router_logits if self.shadow_record_router_topk else None
+            ),
         )
 
     def record_topk(
@@ -4028,11 +4036,15 @@ class VllmRouterRecorder:
         error: str | None = None,
     ) -> None:
         sink = self.shadow_outcome_sink
-        if sink is None or not self._premap_consumer_mapping_wanted():
+        if not self._premap_consumer_mapping_wanted():
             return
-        if not self._premap_consumer_mapping_sample_wanted():
-            return
-        if not hasattr(sink, "write_premap_consumer_mapping"):
+        emit_row = bool(self.shadow_premap_consumer_mapping_emit_rows)
+        write_event = (
+            emit_row
+            and sink is not None
+            and self._premap_consumer_mapping_sample_wanted()
+        )
+        if emit_row and sink is not None and not hasattr(sink, "write_premap_consumer_mapping"):
             msg = (
                 "shadow_emit_premap_consumer_mapping=True requires a sink with "
                 "write_premap_consumer_mapping(event)."
@@ -4356,27 +4368,28 @@ class VllmRouterRecorder:
                                 "used": False,
                             }
         lookup_us = (time.perf_counter_ns() - start_ns) / 1000.0
-        sink.write_premap_consumer_mapping(
-            ShadowPremapConsumerMappingEvent(
-                event_id=ShadowEventId(
-                    request_id=str(self.request_id),
-                    sequence_id=int(self.sequence_id),
-                    token_index=int(self.shadow_premap_event_token_index),
-                    layer=int(layer_id),
-                ),
-                mapping_mode=str(self.shadow_premap_consumer_mapping_mode),
-                mapping_source=str(self.shadow_premap_consumer_mapping_source),
-                address_namespace=str(self.shadow_premap_address_namespace),
-                readonly_gate_required=bool(
-                    self.shadow_premap_consumer_readonly_gate_required
-                ),
-                readonly_gate_id=self.shadow_premap_consumer_readonly_gate_id,
-                readonly_gate_path=self.shadow_premap_consumer_readonly_gate_path,
-                readonly_gate_passed=self.shadow_premap_consumer_readonly_gate_passed,
-                consumer_expert_count=len(active_experts),
-                consumer_unique_expert_count=len(address_keys),
-                address_hit_count=int(hit_count),
-                address_miss_count=int(miss_count),
+        if write_event and sink is not None:
+            sink.write_premap_consumer_mapping(
+                ShadowPremapConsumerMappingEvent(
+                    event_id=ShadowEventId(
+                        request_id=str(self.request_id),
+                        sequence_id=int(self.sequence_id),
+                        token_index=int(self.shadow_premap_event_token_index),
+                        layer=int(layer_id),
+                    ),
+                    mapping_mode=str(self.shadow_premap_consumer_mapping_mode),
+                    mapping_source=str(self.shadow_premap_consumer_mapping_source),
+                    address_namespace=str(self.shadow_premap_address_namespace),
+                    readonly_gate_required=bool(
+                        self.shadow_premap_consumer_readonly_gate_required
+                    ),
+                    readonly_gate_id=self.shadow_premap_consumer_readonly_gate_id,
+                    readonly_gate_path=self.shadow_premap_consumer_readonly_gate_path,
+                    readonly_gate_passed=self.shadow_premap_consumer_readonly_gate_passed,
+                    consumer_expert_count=len(active_experts),
+                    consumer_unique_expert_count=len(address_keys),
+                    address_hit_count=int(hit_count),
+                    address_miss_count=int(miss_count),
                 address_hit_rate=float(hit_count) / max(1, len(address_keys)),
                 all_hit=bool(all_hit),
                 parity_ok=bool(parity_ok),
@@ -7524,7 +7537,11 @@ class VllmRouterRecorder:
             "write_descriptor_prelaunch_assertion",
         ):
             return sorted_token_ids, expert_ids, num_tokens_post_padded
-        if wants_premap_mapping and not hasattr(sink, "write_premap_consumer_mapping"):
+        if (
+            wants_premap_mapping
+            and bool(self.shadow_premap_consumer_mapping_emit_rows)
+            and not hasattr(sink, "write_premap_consumer_mapping")
+        ):
             msg = (
                 "shadow_emit_premap_consumer_mapping=True requires a sink with "
                 "write_premap_consumer_mapping(event)."
@@ -9449,6 +9466,12 @@ class VllmRouterRecorder:
         module_prefix: str = "model.language_model",
         source: str = "vllm_router_logits_recorder",
     ) -> dict[str, Any]:
+        if not self.shadow_record_router_topk:
+            return {
+                "router_topk": {},
+                "router_weights": {},
+                "router_call_meta": [],
+            }
         router_topk: dict[str, list[Any]] = {}
         router_weights: dict[str, list[Any]] = {}
         router_oracle_topk: dict[str, list[Any]] = {}
@@ -14309,14 +14332,22 @@ def patch_vllm_qwen35_moe_router_trace() -> None:
                 if (
                     recorder is not None
                     and layer_id is not None
-                    and recorder.shadow_record_router_topk
+                    and recorder.shadow_capture_router_topk
                 ):
                     recorder.record_topk(
                         layer_id=layer_id,
                         topk_ids=topk_ids,
                         topk_weights=topk_weights,
-                        oracle_router_logits=router_logits,
-                        router_input_hidden=hidden_states,
+                        oracle_router_logits=(
+                            router_logits
+                            if recorder.shadow_record_router_topk
+                            else None
+                        ),
+                        router_input_hidden=(
+                            hidden_states
+                            if recorder.shadow_record_router_topk
+                            else None
+                        ),
                     )
                 return topk_weights, topk_ids
 
@@ -14404,7 +14435,7 @@ def patch_vllm_qwen35_moe_router_trace() -> None:
             if (
                 recorder is not None
                 and layer_id is not None
-                and recorder.shadow_record_router_topk
+                and recorder.shadow_capture_router_topk
             ):
                 record_start_ns = time.perf_counter_ns()
                 record_status = "ok"
@@ -14412,8 +14443,12 @@ def patch_vllm_qwen35_moe_router_trace() -> None:
                     layer_id=layer_id,
                     topk_ids=topk_ids,
                     topk_weights=topk_weights,
-                    oracle_router_logits=router_logits,
-                    router_input_hidden=hidden_states,
+                    oracle_router_logits=(
+                        router_logits if recorder.shadow_record_router_topk else None
+                    ),
+                    router_input_hidden=(
+                        hidden_states if recorder.shadow_record_router_topk else None
+                    ),
                 )
                 recorder.write_moe_substage_timing(
                     layer_id=int(layer_id),
@@ -14728,19 +14763,32 @@ def _write_vllm_sample_trace(
 
     completion = request_output.outputs[0]
     routed_experts = getattr(completion, "routed_experts", None)
-    has_recorder_trace = recorder is not None and bool(recorder.calls)
+    has_recorder_trace = (
+        recorder is not None
+        and bool(recorder.calls)
+        and bool(recorder.shadow_record_router_topk)
+    )
     has_no_topk_recorder_trace = (
         recorder is not None
         and not recorder.shadow_record_router_topk
-        and not has_recorder_trace
+    )
+    has_topk_capture_only_trace = (
+        recorder is not None
+        and bool(recorder.calls)
+        and bool(recorder.shadow_capture_router_topk)
+        and not bool(recorder.shadow_record_router_topk)
     )
     trace_source = (
         "vllm_router_logits_recorder"
         if has_recorder_trace
         else (
-            "vllm_router_logits_recorder_no_topk"
-            if has_no_topk_recorder_trace
-            else "vllm_return_routed_experts"
+            "vllm_router_topk_capture_only"
+            if has_topk_capture_only_trace
+            else (
+                "vllm_router_logits_recorder_no_topk"
+                if has_no_topk_recorder_trace
+                else "vllm_return_routed_experts"
+            )
         )
     )
 
@@ -14793,6 +14841,11 @@ def _write_vllm_sample_trace(
                 "num_router_calls": _payload_num_router_calls(sample_payload),
                 "has_vllm_routed_experts": "vllm_routed_experts" in sample_payload,
                 "has_vllm_router_logits": has_recorder_trace,
+                "has_vllm_router_topk_capture": bool(
+                    recorder is not None
+                    and bool(recorder.calls)
+                    and bool(recorder.shadow_capture_router_topk)
+                ),
                 "has_native_mtp_router": False,
             },
             ensure_ascii=False,
@@ -16349,6 +16402,9 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
         "runtime_shadow_emit_premap_consumer_mapping": bool(
             runtime_shadow_options.get("emit_premap_consumer_mapping", False)
         ),
+        "runtime_shadow_premap_consumer_mapping_emit_rows": bool(
+            runtime_shadow_options.get("premap_consumer_mapping_emit_rows", True)
+        ),
         "runtime_shadow_premap_consumer_mapping_mode": str(
             runtime_shadow_options.get(
                 "premap_consumer_mapping_mode",
@@ -16683,6 +16739,12 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
         "runtime_shadow_record_router_topk": bool(
             runtime_shadow_options.get("record_router_topk", True)
         ),
+        "runtime_shadow_capture_router_topk": bool(
+            runtime_shadow_options.get(
+                "capture_router_topk",
+                runtime_shadow_options.get("record_router_topk", True),
+            )
+        ),
         "runtime_shadow_patch_missing_vllm_activation_ops": (
             patch_missing_activation_ops
         ),
@@ -16806,6 +16868,12 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                                 runtime_shadow_options.get(
                                     "emit_premap_consumer_mapping",
                                     False,
+                                )
+                            ),
+                            shadow_premap_consumer_mapping_emit_rows=bool(
+                                runtime_shadow_options.get(
+                                    "premap_consumer_mapping_emit_rows",
+                                    True,
                                 )
                             ),
                             shadow_premap_consumer_mapping_mode=str(
@@ -17308,6 +17376,15 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                                 runtime_shadow_options.get(
                                     "shared_expert_output_gate_postprocess",
                                     "default",
+                                )
+                            ),
+                            shadow_capture_router_topk=bool(
+                                runtime_shadow_options.get(
+                                    "capture_router_topk",
+                                    runtime_shadow_options.get(
+                                        "record_router_topk",
+                                        True,
+                                    ),
                                 )
                             ),
                             shadow_record_router_topk=bool(

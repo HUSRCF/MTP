@@ -3435,3 +3435,33 @@ def test_vllm_matrix_topk_transition_is_weighted_and_stable(tmp_path):
     # tie, so expert-id ascending tie-break includes expert 0 for top3.
     assert rows[2]["covered_mass"] == pytest.approx(0.9)
     assert rows[2]["top1_ready"] is True
+
+
+def test_premap_consumer_mapping_emit_rows_false_does_not_require_row_sink():
+    class SinkWithoutPremapRows:
+        pass
+
+    recorder = VllmRouterRecorder(
+        top_k=2,
+        shadow_outcome_sink=SinkWithoutPremapRows(),
+        shadow_emit_premap_consumer_mapping=True,
+        shadow_premap_consumer_mapping_emit_rows=False,
+        shadow_premap_consumer_mapping_mode="noop_assertion",
+        shadow_num_experts=8,
+    )
+
+    sorted_token_ids = torch.arange(8, dtype=torch.int32)
+    expert_ids = torch.tensor([1, 2], dtype=torch.int32)
+    num_tokens_post_padded = torch.tensor([8], dtype=torch.int32)
+
+    out = recorder.maybe_reorder_prepared_expert_assignment(
+        layer_id=0,
+        sorted_token_ids=sorted_token_ids,
+        expert_ids=expert_ids,
+        num_tokens_post_padded=num_tokens_post_padded,
+        block_size=4,
+    )
+
+    assert out[0] is sorted_token_ids
+    assert out[1] is expert_ids
+    assert out[2] is num_tokens_post_padded
