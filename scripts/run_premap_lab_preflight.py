@@ -265,6 +265,7 @@ REQUIRED_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
     "future_kernel_native_arg_slot_online_merged_multiprogram_runner_json",
     "future_kernel_native_arg_slot_online_merged_multiprogram_canary_json",
     "future_kernel_wna16_adjacent_typed_slot_canary_json",
+    "future_kernel_wna16_adjacent_typed_slot_stub_json",
     "future_kernel_wna16_adjacent_typed_slot_standalone_canary_json",
     "future_kernel_native_dispatch_consumer_online_artifact_check_32_128export_json",
     "future_kernel_native_dispatch_consumer_online_runner_32_128export_json",
@@ -1450,6 +1451,7 @@ def _validate_required_evidence_payload(
         "future_kernel_native_arg_slot_online_merged_multiprogram_runner_json",
         "future_kernel_native_arg_slot_online_merged_multiprogram_canary_json",
         "future_kernel_wna16_adjacent_typed_slot_canary_json",
+        "future_kernel_wna16_adjacent_typed_slot_stub_json",
         "future_kernel_wna16_adjacent_typed_slot_standalone_canary_json",
         "future_kernel_native_arg_slot_packed_weight_mirror_canary_json",
         *ARG_SLOT_ONLINE_MERGED_MIRROR_RUNNER_LABEL_BY_FIELD.values(),
@@ -1521,6 +1523,24 @@ def _validate_required_evidence_payload(
                 root=root,
             )
         ]
+    if evidence_label == "future_kernel_wna16_adjacent_typed_slot_stub_json":
+        row_count = _int_metric(evidence, "row_count")
+        failures = [
+            f"{evidence_label}:{failure}"
+            for failure in _validate_future_native_arg_slot_online_merged_multiprogram_evidence(
+                evidence,
+                root=root,
+            )
+        ]
+        failures.extend(
+            f"{evidence_label}:{failure}"
+            for failure in _validate_wna16_adjacent_typed_slot_stub_metrics(
+                evidence,
+                failure_prefix="wna16_adjacent_typed_slot",
+                expected_rows=row_count,
+            )
+        )
+        return failures
     for (
         field,
         label,
@@ -1551,7 +1571,10 @@ def _validate_required_evidence_payload(
                 root=root,
                 evidence_paths=evidence_paths,
                 require_wna16_adjacent_typed_slot=True,
-                validate_stub_output=False,
+                expected_stub_output_label=(
+                    "future_kernel_wna16_adjacent_typed_slot_stub_json"
+                ),
+                validate_stub_output=True,
             )
         ]
     if evidence_label == "future_kernel_wna16_adjacent_typed_slot_standalone_canary_json":
