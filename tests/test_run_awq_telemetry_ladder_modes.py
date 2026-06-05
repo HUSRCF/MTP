@@ -162,6 +162,59 @@ def test_production_like_explicitly_disables_source_timing() -> None:
         assert mode["unset_env"] == ["VLLM_DISABLE_SHARED_EXPERTS_STREAM"]
 
 
+def test_premap_live_benchmark_modes_are_explicit_canaries() -> None:
+    module = _load_module()
+    root = Path(__file__).resolve().parents[1]
+
+    for name in (
+        "premap_real_kernel_arg_mutation_observed_canary",
+        "premap_single_field_replacement_live_observed_canary",
+    ):
+        mode = module.MODES[name]
+        assert mode["record_router_topk"] is True
+        assert mode["emit_premap_summaries"] is True
+        assert mode["emit_premap_consumer_mapping"] is True
+        assert mode["premap_risky_trace_canary"] is True
+        assert mode["premap_consumer_require_readonly_gate"] is True
+        assert mode["premap_descriptor_prep_execution_mode"] == (
+            "readonly_descriptor_address_object"
+        )
+        assert mode["premap_kernel_arg_handoff_live_enabled"] is True
+        assert mode["premap_kernel_arg_handoff_live_consumer_connected"] is True
+        assert mode["premap_kernel_arg_handoff_kernel_arg_pass_enabled"] is True
+        assert mode["premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled"] is True
+        assert mode["emit_decoder_layer_timing"] is False
+        assert mode["emit_decoder_component_timing"] is False
+        assert mode["emit_moe_substage_timing"] is False
+        assert mode["decoder_source_timing_mode"] == "off"
+        assert mode["moe_source_timing_mode"] == "off"
+        assert mode["emit_wna16_kernel_timing"] is False
+        assert mode["emit_outcomes"] is False
+        assert mode["outcome_logging_mode"] == "off"
+        assert mode["unset_env"] == ["VLLM_DISABLE_SHARED_EXPERTS_STREAM"]
+
+    single_field = module.MODES["premap_single_field_replacement_live_observed_canary"]
+    assert single_field["premap_consumer_readonly_gate_path"].endswith(
+        "premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_"
+        "single_field_replacement_live_canary.yaml"
+    )
+    gate_path = root / single_field["premap_consumer_readonly_gate_path"]
+    gate = yaml.safe_load(gate_path.read_text())
+    assert gate["gate"]["check"]["allow_single_field_replacement_live"] is True
+    assert single_field[
+        "premap_kernel_arg_handoff_single_field_replacement_dry_run_enabled"
+    ] is True
+    assert single_field[
+        "premap_kernel_arg_handoff_single_field_replacement_live_enabled"
+    ] is True
+    assert single_field[
+        "premap_kernel_arg_handoff_single_field_replacement_candidate_source"
+    ] == "original_kernel_arg_identity"
+    assert single_field["premap_kernel_arg_handoff_single_field_replacement_field"] == (
+        "B_scale"
+    )
+
+
 def test_force_shared_aux_modes_clear_disable_shared_stream_env() -> None:
     module = _load_module()
 
