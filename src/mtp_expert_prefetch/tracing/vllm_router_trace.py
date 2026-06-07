@@ -2549,6 +2549,9 @@ class VllmRouterRecorder:
     shadow_premap_kernel_arg_handoff_producer_minimal_identity_envelope_enabled: (
         bool
     ) = False
+    shadow_premap_kernel_arg_handoff_producer_future_wna16_typed_slot_envelope_enabled: (
+        bool
+    ) = False
     shadow_premap_kernel_arg_handoff_single_field_replacement_dry_run_enabled: (
         bool
     ) = False
@@ -4036,8 +4039,13 @@ class VllmRouterRecorder:
 
     def _premap_producer_minimal_identity_envelope_wanted(self) -> bool:
         return (
-            bool(
-                self.shadow_premap_kernel_arg_handoff_producer_minimal_identity_envelope_enabled
+            (
+                bool(
+                    self.shadow_premap_kernel_arg_handoff_producer_minimal_identity_envelope_enabled
+                )
+                or bool(
+                    self.shadow_premap_kernel_arg_handoff_producer_future_wna16_typed_slot_envelope_enabled
+                )
             )
             and bool(self.shadow_premap_kernel_arg_handoff_minimal_identity_envelope_enabled)
             and bool(self.shadow_premap_consumer_readonly_gate_required)
@@ -4075,17 +4083,33 @@ class VllmRouterRecorder:
         context = get_active_moe_assignment_context()
         if context is None:
             return False
+        future_typed_slot_envelope = bool(
+            self.shadow_premap_kernel_arg_handoff_producer_future_wna16_typed_slot_envelope_enabled
+        )
+        package_flag = (
+            "producer_future_wna16_typed_slot_envelope"
+            if future_typed_slot_envelope
+            else "producer_minimal_identity_envelope"
+        )
+        envelope_version = (
+            "producer_future_wna16_typed_slot_envelope_v1"
+            if future_typed_slot_envelope
+            else "producer_minimal_identity_envelope_v1"
+        )
+        package_source = (
+            "producer_future_wna16_typed_slot_live_kernel_arg_package"
+            if future_typed_slot_envelope
+            else "producer_minimal_identity_live_kernel_arg_package"
+        )
         existing_package = context.get("premap_kernel_arg_live_mutation_package")
-        if isinstance(existing_package, dict) and bool(
-            existing_package.get("producer_minimal_identity_envelope")
-        ):
+        if isinstance(existing_package, dict) and bool(existing_package.get(package_flag)):
             return True
         field_name = str(
             self.shadow_premap_kernel_arg_handoff_single_field_replacement_field
         )
         envelope_id = "|".join(
             (
-                "producer_minimal_identity_envelope_v1",
+                envelope_version,
                 str(self.shadow_premap_consumer_readonly_gate_id),
                 str(source),
                 str(int(layer_id)),
@@ -4096,7 +4120,7 @@ class VllmRouterRecorder:
         )
         context["premap_kernel_arg_live_mutation_package"] = {
             "layer_id": int(layer_id),
-            "source": "producer_minimal_identity_live_kernel_arg_package",
+            "source": package_source,
             "table_object_hash": envelope_id,
             "launch_schema_mirror_hash": envelope_id,
             "adapter_hash": envelope_id,
@@ -4105,10 +4129,20 @@ class VllmRouterRecorder:
             "launch_args": None,
             "used": False,
             "minimal_identity_envelope": True,
-            "producer_minimal_identity_envelope": True,
+            "producer_minimal_identity_envelope": not future_typed_slot_envelope,
+            "producer_future_wna16_typed_slot_envelope": future_typed_slot_envelope,
+            "future_wna16_typed_slot_schema": (
+                "premap_wna16_side_consumer_variant_execution_v1"
+                if future_typed_slot_envelope
+                else None
+            ),
         }
         _increment_premap_kernel_arg_live_mutation_counter(
-            "package_producer_minimal_identity_envelope_count"
+            (
+                "package_producer_future_wna16_typed_slot_envelope_count"
+                if future_typed_slot_envelope
+                else "package_producer_minimal_identity_envelope_count"
+            )
         )
         return True
 
@@ -10021,6 +10055,7 @@ _PREMAP_KERNEL_ARG_LIVE_MUTATION_COUNTERS: dict[str, int] = {
     "package_cache_miss_count": 0,
     "package_minimal_identity_envelope_count": 0,
     "package_producer_minimal_identity_envelope_count": 0,
+    "package_producer_future_wna16_typed_slot_envelope_count": 0,
     "single_field_replacement_dry_run_candidate_count": 0,
     "single_field_replacement_dry_run_parity_ok_count": 0,
     "single_field_replacement_dry_run_parity_mismatch_count": 0,
@@ -15618,6 +15653,12 @@ def _apply_premap_consumer_readonly_gate(
             False,
         )
     )
+    producer_future_wna16_typed_slot_envelope_enabled = bool(
+        options.get(
+            "premap_kernel_arg_handoff_producer_future_wna16_typed_slot_envelope_enabled",
+            False,
+        )
+    )
     single_field_replacement_candidate_source = str(
         options.get(
             "premap_kernel_arg_handoff_single_field_replacement_candidate_source",
@@ -15788,7 +15829,22 @@ def _apply_premap_consumer_readonly_gate(
             "premap_kernel_arg_handoff_live_enabled=True."
         )
         raise ValueError(msg)
-    if producer_minimal_identity_envelope_enabled and (
+    if (
+        producer_minimal_identity_envelope_enabled
+        and producer_future_wna16_typed_slot_envelope_enabled
+    ):
+        msg = (
+            "Only one producer live handoff envelope can be enabled: "
+            "premap_kernel_arg_handoff_producer_minimal_identity_envelope_enabled "
+            "or "
+            "premap_kernel_arg_handoff_producer_future_wna16_typed_slot_envelope_enabled."
+        )
+        raise ValueError(msg)
+    producer_fast_envelope_enabled = (
+        producer_minimal_identity_envelope_enabled
+        or producer_future_wna16_typed_slot_envelope_enabled
+    )
+    if producer_fast_envelope_enabled and (
         not minimal_identity_envelope_enabled
         or not live_handoff_enabled
         or not live_consumer_connected
@@ -15800,11 +15856,12 @@ def _apply_premap_consumer_readonly_gate(
         or single_field_replacement_allow_signature_mismatch_live
     ):
         msg = (
-            "premap_kernel_arg_handoff_producer_minimal_identity_envelope_enabled=True "
-            "requires minimal identity envelope, live handoff, connected consumer, "
-            "kernel-arg pass, real mutation, single-field dry/live replacement, and "
-            "candidate_source='original_kernel_arg_identity' with signature-mismatch "
-            "live replacement disabled."
+            "producer_minimal_identity_envelope_enabled=True or "
+            "producer_future_wna16_typed_slot_envelope_enabled=True requires "
+            "minimal identity envelope, live handoff, connected consumer, "
+            "kernel-arg pass, real mutation, single-field dry/live replacement, "
+            "and candidate_source='original_kernel_arg_identity' with "
+            "signature-mismatch live replacement disabled."
         )
         raise ValueError(msg)
     if live_handoff_enabled and not require_gate:
@@ -16473,7 +16530,7 @@ def _apply_premap_consumer_readonly_gate(
         raise ValueError(msg)
     if require_gate:
         if (
-            not producer_minimal_identity_envelope_enabled
+            not producer_fast_envelope_enabled
             and not bool(options.get("emit_premap_consumer_mapping", False))
         ):
             msg = (
@@ -16482,7 +16539,7 @@ def _apply_premap_consumer_readonly_gate(
             )
             raise ValueError(msg)
         if (
-            not producer_minimal_identity_envelope_enabled
+            not producer_fast_envelope_enabled
             and str(options.get("premap_consumer_mapping_mode", "noop_assertion"))
             != "noop_assertion"
         ):
@@ -16492,7 +16549,7 @@ def _apply_premap_consumer_readonly_gate(
             )
             raise ValueError(msg)
         if (
-            not producer_minimal_identity_envelope_enabled
+            not producer_fast_envelope_enabled
             and not bool(options.get("premap_consumer_resolve_real_handles", False))
         ):
             msg = (
@@ -16502,7 +16559,7 @@ def _apply_premap_consumer_readonly_gate(
             raise ValueError(msg)
         policy = str(options.get("premap_policy", "premap_only_with_consumer_mapping_noop"))
         if (
-            not producer_minimal_identity_envelope_enabled
+            not producer_fast_envelope_enabled
             and policy != "premap_only_with_consumer_mapping_noop"
         ):
             msg = (
@@ -17229,6 +17286,12 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                 False,
             )
         ),
+        "runtime_shadow_premap_kernel_arg_handoff_producer_future_wna16_typed_slot_envelope_enabled": bool(
+            runtime_shadow_options.get(
+                "premap_kernel_arg_handoff_producer_future_wna16_typed_slot_envelope_enabled",
+                False,
+            )
+        ),
         "runtime_shadow_premap_kernel_arg_handoff_single_field_replacement_dry_run_enabled": bool(
             runtime_shadow_options.get(
                 "premap_kernel_arg_handoff_single_field_replacement_dry_run_enabled",
@@ -17752,6 +17815,12 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                             shadow_premap_kernel_arg_handoff_producer_minimal_identity_envelope_enabled=bool(
                                 runtime_shadow_options.get(
                                     "premap_kernel_arg_handoff_producer_minimal_identity_envelope_enabled",
+                                    False,
+                                )
+                            ),
+                            shadow_premap_kernel_arg_handoff_producer_future_wna16_typed_slot_envelope_enabled=bool(
+                                runtime_shadow_options.get(
+                                    "premap_kernel_arg_handoff_producer_future_wna16_typed_slot_envelope_enabled",
                                     False,
                                 )
                             ),

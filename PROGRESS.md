@@ -31078,3 +31078,83 @@ The remaining cost is the Python WNA16 wrapper/package participation itself.
 Next work should move the producer-side identity package into a native/future
 typed-slot consumer path or otherwise avoid per-launch Python checks.
 ```
+
+### Future WNA16 typed-slot live envelope benchmark
+
+Added a production-compatible benchmark mode:
+
+```text
+premap_live_future_wna16_typed_slot_envelope_counter_off
+```
+
+This mode installs a producer-side live package whose source/metadata is the
+future WNA16 typed-slot consumer envelope:
+
+```text
+producer_future_wna16_typed_slot_live_kernel_arg_package
+future_wna16_typed_slot_schema = premap_wna16_side_consumer_variant_execution_v1
+```
+
+It still preserves the current safety boundary:
+
+```text
+record_topk = false
+runtime_shadow bytes = 0
+live_counter_mode = off
+prepared-table materialization = off
+current WNA16 launch args remain pass-through
+payload transfer = disabled
+```
+
+Evidence:
+
+```text
+outputs/reports/awq_telemetry_ladder/
+  gpu1_dolly8_gen64_premap_future_typed_slot_benchmark_smoke/summary.md
+  gpu1_dolly32_gen64_premap_future_typed_slot_benchmark_repeat3/summary.md
+```
+
+8-sample smoke:
+
+```text
+production_like TPOT:
+  0.065388
+
+producer_identity_envelope_counter_off TPOT:
+  0.068494  (+4.75%)
+
+future_wna16_typed_slot_envelope_counter_off TPOT:
+  0.065687  (+0.46%)
+```
+
+32-sample repeat3:
+
+```text
+production_like TPOT:
+  0.065124 / 0.065134 / 0.062681
+  mean   = 0.064313
+  median = 0.065124
+
+future_wna16_typed_slot_envelope_counter_off TPOT:
+  0.065724 / 0.062164 / 0.066583
+  mean   = 0.064824  (+0.79%)
+  median = 0.065724  (+0.92%)
+```
+
+Interpretation:
+
+```text
+Moving the live handoff envelope toward the future WNA16 typed-slot consumer
+path reduces the endpoint overhead to noise-level / ~1% in the 32-sample
+repeat3 run, without re-enabling heavy telemetry or prepared-table Python
+materialization.
+
+This is still not a payload/prefetch speedup claim.  It is a low-overhead
+integration gate showing that the future typed-slot envelope can participate
+in the vLLM/WNA16 launch path with production-like telemetry disabled.
+
+Next gate:
+wire the independent typed-slot consumer ABI closer to the actual WNA16 kernel
+variant implementation, still without passing the current WNA16 args through a
+typed-table reinterpretation path.
+```
