@@ -253,12 +253,17 @@ def fused_moe_kernel_gptq_awq_indirect(
     group_order_ptr,
     group_offsets_ptr,
     group_source_starts_ptr,
+    typed_slot_descriptor_ptr,
+    typed_slot_packed_weight_descriptor_ptr,
+    typed_slot_scale_metadata_handle_ptr,
+    typed_slot_aux_metadata_handle_ptr,
     N: tl.constexpr,
     K: tl.constexpr,
     EM,
     num_valid_tokens,
     num_groups,
     source_block_count,
+    typed_slot_row_count,
     stride_am,
     stride_ak,
     stride_be,
@@ -288,6 +293,7 @@ def fused_moe_kernel_gptq_awq_indirect(
     INDIRECT_MODE: tl.constexpr,
     SOURCE_BLOCK_IDS_PACKED: tl.constexpr,
     MAX_GROUPS: tl.constexpr,
+    TYPED_SLOT_MODE: tl.constexpr,
 ):
     pid = tl.program_id(axis=0)
     num_pid_m = tl.cdiv(EM, BLOCK_SIZE_M)
@@ -302,6 +308,35 @@ def fused_moe_kernel_gptq_awq_indirect(
     num_tokens_post_padded = tl.load(num_tokens_post_padded_ptr)
     if logical_pid_m * BLOCK_SIZE_M >= num_tokens_post_padded:
         return
+
+    if TYPED_SLOT_MODE:
+        if typed_slot_row_count <= 0:
+            return
+        if pid_n == 0:
+            typed_row = logical_pid_m % typed_slot_row_count
+            descriptor_handle = tl.load(typed_slot_descriptor_ptr + typed_row).to(
+                tl.int64
+            )
+            packed_weight_handle = tl.load(
+                typed_slot_packed_weight_descriptor_ptr + typed_row
+            ).to(tl.int64)
+            scale_metadata_handle = tl.load(
+                typed_slot_scale_metadata_handle_ptr + typed_row
+            ).to(tl.int64)
+            aux_metadata_handle = tl.load(
+                typed_slot_aux_metadata_handle_ptr + typed_row
+            ).to(tl.int64)
+            # The first typed-slot WNA16 variant consumes the independent ABI
+            # slot once per M-block.  It does not reinterpret current WNA16
+            # B/B_scale/B_zp arguments. A zero handle marks an invalid slot.
+            invalid_slot = (
+                (descriptor_handle == 0)
+                | (packed_weight_handle == 0)
+                | (scale_metadata_handle == 0)
+                | (aux_metadata_handle == 0)
+            )
+            if invalid_slot:
+                return
 
     if INDIRECT_MODE == 1:
         if logical_pid_m >= source_block_count:
@@ -1979,12 +2014,17 @@ def invoke_fused_moe_wna16_triton_kernel_indirect(
         group_order,
         group_offsets,
         group_source_starts,
+        source_block_ids,
+        source_block_ids,
+        source_block_ids,
+        source_block_ids,
         B.size(1),
         A.size(1),
         EM,
         num_tokens,
         num_groups,
         int(source_block_ids.numel()) if indirect_flag == 1 else 0,
+        0,
         A.stride(0),
         A.stride(1),
         B.stride(0),
@@ -2009,5 +2049,135 @@ def invoke_fused_moe_wna16_triton_kernel_indirect(
         INDIRECT_MODE=indirect_flag,
         SOURCE_BLOCK_IDS_PACKED=bool(source_block_ids_packed),
         MAX_GROUPS=max(1, int(max_groups)),
+        TYPED_SLOT_MODE=False,
+        **launch_config,
+    )
+
+
+def invoke_fused_moe_wna16_triton_kernel_future_typed_slot_identity(
+    *,
+    fused_moe_impl: Any,
+    typed_slot_descriptor_ptr: torch.Tensor,
+    typed_slot_packed_weight_descriptor: torch.Tensor,
+    typed_slot_scale_metadata_handle: torch.Tensor,
+    typed_slot_aux_metadata_handle: torch.Tensor,
+    A: torch.Tensor,
+    B: torch.Tensor,
+    C: torch.Tensor,
+    B_scale: torch.Tensor | None,
+    B_zp: torch.Tensor | None,
+    topk_weights: torch.Tensor | None,
+    sorted_token_ids: torch.Tensor,
+    expert_ids: torch.Tensor,
+    num_tokens_post_padded: torch.Tensor,
+    mul_routed_weight: bool,
+    top_k: int,
+    config: dict[str, Any],
+    compute_type: tl.dtype,
+    use_int8_w8a16: bool,
+    use_int4_w4a16: bool,
+    block_shape: list[int] | None,
+) -> None:
+    """Run the WNA16 compute kernel with an independent typed-slot ABI.
+
+    The typed-slot table is consumed as a separate future-kernel argument slot.
+    It is deliberately not reinterpreted as the current WNA16 B/B_scale/B_zp
+    launch arguments; those stay on the original path for this canary variant.
+    """
+
+    assert B_scale is not None and B_scale.ndim == 3
+    assert B_zp is None or B_zp.ndim == 3
+    assert block_shape is not None and block_shape[0] == 0
+    typed_tensors = (
+        typed_slot_descriptor_ptr,
+        typed_slot_packed_weight_descriptor,
+        typed_slot_scale_metadata_handle,
+        typed_slot_aux_metadata_handle,
+    )
+    typed_slot_row_count = int(typed_slot_descriptor_ptr.numel())
+    if typed_slot_row_count <= 0:
+        raise ValueError("future typed-slot WNA16 variant requires non-empty typed slots")
+    for tensor in typed_tensors:
+        if tensor is None or not tensor.is_cuda:
+            raise ValueError("future typed-slot WNA16 variant requires CUDA/HIP tensors")
+        if int(tensor.numel()) != typed_slot_row_count:
+            raise ValueError("future typed-slot WNA16 variant requires equal column lengths")
+        if tensor.dtype not in {torch.int64, torch.uint64}:
+            raise ValueError("future typed-slot WNA16 variant requires int64/uint64 columns")
+
+    M = A.size(0)
+    num_tokens = M * top_k
+    EM = sorted_token_ids.size(0)
+    if A.size(0) < config["BLOCK_SIZE_M"]:
+        EM = min(sorted_token_ids.size(0), A.size(0) * top_k * config["BLOCK_SIZE_M"])
+    grid = lambda META: (
+        triton.cdiv(EM, META["BLOCK_SIZE_M"])
+        * triton.cdiv(B.size(1), META["BLOCK_SIZE_N"]),
+    )
+    launch_config = config.copy()
+    launch_config.update(
+        fused_moe_impl.get_moe_wna16_block_config(
+            config=launch_config,
+            use_moe_wna16_cuda=False,
+            num_valid_tokens=num_tokens,
+            size_k=A.size(1),
+            size_n=B.size(1),
+            num_experts=B.size(1),
+            group_size=block_shape[1],
+            real_top_k=top_k,
+            block_size_m=launch_config["BLOCK_SIZE_M"],
+        )
+    )
+
+    fused_moe_kernel_gptq_awq_indirect[grid](
+        A,
+        B,
+        C,
+        B_scale,
+        B_zp,
+        topk_weights,
+        sorted_token_ids,
+        expert_ids,
+        num_tokens_post_padded,
+        typed_slot_descriptor_ptr,
+        typed_slot_descriptor_ptr,
+        typed_slot_descriptor_ptr,
+        typed_slot_descriptor_ptr,
+        typed_slot_descriptor_ptr,
+        typed_slot_packed_weight_descriptor,
+        typed_slot_scale_metadata_handle,
+        typed_slot_aux_metadata_handle,
+        B.size(1),
+        A.size(1),
+        EM,
+        num_tokens,
+        0,
+        0,
+        typed_slot_row_count,
+        A.stride(0),
+        A.stride(1),
+        B.stride(0),
+        B.stride(2),
+        B.stride(1),
+        C.stride(1),
+        C.stride(2),
+        B_scale.stride(0),
+        B_scale.stride(2),
+        B_scale.stride(1),
+        B_zp.stride(0) if B_zp is not None else 0,
+        B_zp.stride(2) if B_zp is not None else 0,
+        B_zp.stride(1) if B_zp is not None else 0,
+        block_k_diviable=A.size(1) % launch_config["BLOCK_SIZE_K"] == 0,
+        group_size=block_shape[1],
+        MUL_ROUTED_WEIGHT=mul_routed_weight,
+        top_k=top_k,
+        compute_type=compute_type,
+        has_zp=B_zp is not None,
+        use_int4_w4a16=use_int4_w4a16,
+        use_int8_w8a16=use_int8_w8a16,
+        INDIRECT_MODE=0,
+        SOURCE_BLOCK_IDS_PACKED=False,
+        MAX_GROUPS=1,
+        TYPED_SLOT_MODE=True,
         **launch_config,
     )

@@ -31158,3 +31158,92 @@ wire the independent typed-slot consumer ABI closer to the actual WNA16 kernel
 variant implementation, still without passing the current WNA16 args through a
 typed-table reinterpretation path.
 ```
+
+### Independent WNA16 typed-slot kernel variant
+
+Implemented the first real WNA16-side typed-slot kernel variant:
+
+```text
+premap_live_future_wna16_typed_slot_kernel_variant_counter_off
+```
+
+This mode is different from the previous typed-slot envelope:
+
+```text
+previous envelope:
+  producer installs a future typed-slot live package
+  current WNA16 kernel receives the original launch args
+
+new kernel variant:
+  producer installs the same future typed-slot live package
+  WNA16 compute still uses the original B/B_scale/B_zp args
+  an independent typed-slot ABI is passed as additional kernel args
+  the kernel reads descriptor / packed-weight / scale / aux handle columns
+```
+
+Safety boundary remains unchanged:
+
+```text
+record_topk = false
+runtime_shadow bytes = 0
+live_counter_mode = off
+payload transfer = disabled
+prepared-table materialization = off
+current B/B_scale/B_zp semantics = unchanged
+typed table is not reinterpreted as an existing WNA16 arg
+```
+
+Evidence:
+
+```text
+outputs/reports/awq_telemetry_ladder/
+  gpu1_dolly8_gen64_premap_future_typed_slot_kernel_variant_benchmark_smoke_v2/summary.md
+  gpu1_dolly32_gen64_premap_future_typed_slot_kernel_variant_benchmark_repeat3/summary.md
+```
+
+8-sample smoke:
+
+```text
+production_like:
+  TPOT = 0.069296
+
+future typed-slot envelope only:
+  TPOT = 0.072002  (+3.91%)
+
+future typed-slot kernel variant:
+  TPOT = 0.077719  (+12.16%)
+```
+
+32-sample repeat3:
+
+```text
+production_like TPOT:
+  0.064349 / 0.068647 / 0.064355
+  mean   = 0.065784
+  median = 0.064355
+
+future typed-slot kernel variant TPOT:
+  0.067418 / 0.069221 / 0.065285
+  mean   = 0.067308  (+2.32%)
+  median = 0.067418  (+4.76%)
+```
+
+Interpretation:
+
+```text
+The independent typed-slot kernel ABI gate passes: the WNA16-side variant can
+receive and read future descriptor/address handle columns without changing the
+existing WNA16 payload args or enabling runtime shadow logging.
+
+This is not a performance win.  The 32-sample repeat3 shows a small but
+measurable overhead, so the current typed-slot variant is a correctness/ABI
+gate, not a deployable optimization.
+```
+
+Next gate:
+
+```text
+replace sentinel typed-slot columns with real prepared descriptor/address table
+columns, then move from ABI-read canary to one-field typed consumer semantics
+without mutating the current WNA16 B/B_scale/B_zp args.
+```

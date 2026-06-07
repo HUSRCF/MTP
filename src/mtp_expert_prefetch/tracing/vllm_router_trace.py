@@ -2552,6 +2552,9 @@ class VllmRouterRecorder:
     shadow_premap_kernel_arg_handoff_producer_future_wna16_typed_slot_envelope_enabled: (
         bool
     ) = False
+    shadow_premap_kernel_arg_handoff_future_wna16_typed_slot_kernel_variant_enabled: (
+        bool
+    ) = False
     shadow_premap_kernel_arg_handoff_single_field_replacement_dry_run_enabled: (
         bool
     ) = False
@@ -10080,8 +10083,11 @@ _PREMAP_KERNEL_ARG_LIVE_MUTATION_COUNTERS: dict[str, int] = {
     "single_field_replacement_candidate_source_prepared_table_miss_count": 0,
     "single_field_replacement_candidate_source_prepared_table_type_compatible_count": 0,
     "single_field_replacement_candidate_source_prepared_table_type_mismatch_count": 0,
+    "future_wna16_typed_slot_kernel_variant_launch_count": 0,
+    "future_wna16_typed_slot_kernel_variant_fallback_count": 0,
 }
 _PREMAP_KERNEL_ARG_LIVE_MUTATION_COUNTER_MODE = "detailed"
+_PREMAP_FUTURE_WNA16_TYPED_SLOT_SENTINELS: dict[str, tuple[torch.Tensor, ...]] = {}
 _ACTIVE_DECODER_COMPONENT_CONTEXT_VAR: contextvars.ContextVar[
     dict[str, Any] | None
 ] = contextvars.ContextVar("mtp_active_decoder_component_context", default=None)
@@ -10273,6 +10279,26 @@ def _increment_premap_kernel_arg_live_mutation_counter(key: str) -> None:
     if key not in _PREMAP_KERNEL_ARG_LIVE_MUTATION_COUNTERS:
         _PREMAP_KERNEL_ARG_LIVE_MUTATION_COUNTERS[key] = 0
     _PREMAP_KERNEL_ARG_LIVE_MUTATION_COUNTERS[key] += 1
+
+
+def _premap_future_wna16_typed_slot_sentinels(
+    device: torch.device,
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    """Return nonzero device-side ABI columns for the future typed-slot canary."""
+
+    key = str(device)
+    cached = _PREMAP_FUTURE_WNA16_TYPED_SLOT_SENTINELS.get(key)
+    if cached is not None:
+        return cached  # type: ignore[return-value]
+    base = torch.arange(1, 17, dtype=torch.int64, device=device)
+    columns = (
+        base + 0x1000,
+        base + 0x2000,
+        base + 0x3000,
+        base + 0x4000,
+    )
+    _PREMAP_FUTURE_WNA16_TYPED_SLOT_SENTINELS[key] = columns
+    return columns
 
 
 def _kernel_arg_value_signature(value: Any) -> str:
@@ -14625,6 +14651,77 @@ def patch_vllm_qwen35_moe_router_trace() -> None:
                                     _increment_premap_kernel_arg_live_mutation_counter(
                                         "single_field_replacement_live_disabled_count"
                                     )
+                        future_typed_slot_kernel_variant_enabled = (
+                            recorder_for_config is not None
+                            and bool(
+                                recorder_for_config.shadow_premap_kernel_arg_handoff_future_wna16_typed_slot_kernel_variant_enabled
+                            )
+                        )
+                        future_typed_slot_package = bool(
+                            live_mutation_package_meta.get(
+                                "producer_future_wna16_typed_slot_envelope",
+                                False,
+                            )
+                        )
+                        if (
+                            future_typed_slot_kernel_variant_enabled
+                            and future_typed_slot_package
+                            and identity_fast_path
+                        ):
+                            from mtp_expert_prefetch.tracing.vllm_wna16_group_plan import (
+                                invoke_fused_moe_wna16_triton_kernel_future_typed_slot_identity,
+                            )
+
+                            (
+                                typed_slot_descriptor_ptr,
+                                typed_slot_packed_weight_descriptor,
+                                typed_slot_scale_metadata_handle,
+                                typed_slot_aux_metadata_handle,
+                            ) = _premap_future_wna16_typed_slot_sentinels(A.device)
+                            live_mutation_package_meta["used"] = True
+                            live_mutation_package_meta["status"] = (
+                                "future_wna16_typed_slot_kernel_variant_identity"
+                            )
+                            live_mutation_package_meta[
+                                "future_wna16_typed_slot_kernel_variant"
+                            ] = True
+                            _increment_premap_kernel_arg_live_mutation_counter(
+                                "future_wna16_typed_slot_kernel_variant_launch_count"
+                            )
+                            emit_wna16_launch_part(
+                                part="kernel_arg_live_future_wna16_typed_slot_kernel_variant",
+                                elapsed_us=(
+                                    time.perf_counter_ns() - enqueue_start_ns
+                                )
+                                / 1000.0,
+                            )
+                            return invoke_fused_moe_wna16_triton_kernel_future_typed_slot_identity(
+                                fused_moe_impl=fused_moe_impl,
+                                typed_slot_descriptor_ptr=typed_slot_descriptor_ptr,
+                                typed_slot_packed_weight_descriptor=typed_slot_packed_weight_descriptor,
+                                typed_slot_scale_metadata_handle=typed_slot_scale_metadata_handle,
+                                typed_slot_aux_metadata_handle=typed_slot_aux_metadata_handle,
+                                A=A,
+                                B=B,
+                                C=C,
+                                B_scale=B_scale,
+                                B_zp=B_zp,
+                                topk_weights=topk_weights,
+                                sorted_token_ids=sorted_token_ids,
+                                expert_ids=expert_ids,
+                                num_tokens_post_padded=num_tokens_post_padded,
+                                mul_routed_weight=mul_routed_weight,
+                                top_k=top_k,
+                                config=config,
+                                compute_type=compute_type,
+                                use_int8_w8a16=use_int8_w8a16,
+                                use_int4_w4a16=use_int4_w4a16,
+                                block_shape=block_shape,
+                            )
+                        if future_typed_slot_kernel_variant_enabled:
+                            _increment_premap_kernel_arg_live_mutation_counter(
+                                "future_wna16_typed_slot_kernel_variant_fallback_count"
+                            )
                         live_mutation_package_meta["used"] = True
                         live_mutation_package_meta["status"] = (
                             "pass_through_original_wna16_fast_identity"
@@ -15659,6 +15756,12 @@ def _apply_premap_consumer_readonly_gate(
             False,
         )
     )
+    future_wna16_typed_slot_kernel_variant_enabled = bool(
+        options.get(
+            "premap_kernel_arg_handoff_future_wna16_typed_slot_kernel_variant_enabled",
+            False,
+        )
+    )
     single_field_replacement_candidate_source = str(
         options.get(
             "premap_kernel_arg_handoff_single_field_replacement_candidate_source",
@@ -15838,6 +15941,16 @@ def _apply_premap_consumer_readonly_gate(
             "premap_kernel_arg_handoff_producer_minimal_identity_envelope_enabled "
             "or "
             "premap_kernel_arg_handoff_producer_future_wna16_typed_slot_envelope_enabled."
+        )
+        raise ValueError(msg)
+    if (
+        future_wna16_typed_slot_kernel_variant_enabled
+        and not producer_future_wna16_typed_slot_envelope_enabled
+    ):
+        msg = (
+            "premap_kernel_arg_handoff_future_wna16_typed_slot_kernel_variant_enabled=True "
+            "requires "
+            "premap_kernel_arg_handoff_producer_future_wna16_typed_slot_envelope_enabled=True."
         )
         raise ValueError(msg)
     producer_fast_envelope_enabled = (
@@ -17292,6 +17405,12 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                 False,
             )
         ),
+        "runtime_shadow_premap_kernel_arg_handoff_future_wna16_typed_slot_kernel_variant_enabled": bool(
+            runtime_shadow_options.get(
+                "premap_kernel_arg_handoff_future_wna16_typed_slot_kernel_variant_enabled",
+                False,
+            )
+        ),
         "runtime_shadow_premap_kernel_arg_handoff_single_field_replacement_dry_run_enabled": bool(
             runtime_shadow_options.get(
                 "premap_kernel_arg_handoff_single_field_replacement_dry_run_enabled",
@@ -17821,6 +17940,12 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                             shadow_premap_kernel_arg_handoff_producer_future_wna16_typed_slot_envelope_enabled=bool(
                                 runtime_shadow_options.get(
                                     "premap_kernel_arg_handoff_producer_future_wna16_typed_slot_envelope_enabled",
+                                    False,
+                                )
+                            ),
+                            shadow_premap_kernel_arg_handoff_future_wna16_typed_slot_kernel_variant_enabled=bool(
+                                runtime_shadow_options.get(
+                                    "premap_kernel_arg_handoff_future_wna16_typed_slot_kernel_variant_enabled",
                                     False,
                                 )
                             ),
