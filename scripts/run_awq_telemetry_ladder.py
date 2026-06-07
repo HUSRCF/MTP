@@ -420,6 +420,62 @@ MODES: dict[str, dict[str, Any]] = {
         "emit_transition_summaries": False,
         "unset_env": ["VLLM_DISABLE_SHARED_EXPERTS_STREAM"],
     },
+    "premap_single_field_replacement_live_producer_identity_envelope_counter_off": {
+        # Benchmark-only lower bound for the producer-side live handoff path.
+        # It keeps the same live identity envelope and WNA16 pass-through
+        # behavior as the production-compatible producer mode, but disables
+        # per-launch diagnostic counters so TPOT measures the participation
+        # path rather than bookkeeping.
+        "record_router_topk": False,
+        "capture_router_topk": False,
+        "emit_premap_summaries": False,
+        "emit_premap_address_manager_counters": False,
+        "emit_premap_consumer_mapping": False,
+        "premap_consumer_mapping_emit_rows": False,
+        "premap_consumer_mapping_mode": "off",
+        "premap_consumer_resolve_real_handles": False,
+        "premap_consumer_require_readonly_gate": True,
+        "premap_consumer_readonly_gate_path": (
+            "configs/runtime/"
+            "premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_"
+            "single_field_replacement_live_canary.yaml"
+        ),
+        "premap_descriptor_prep_execution_mode": (
+            "readonly_descriptor_address_object"
+        ),
+        "premap_risky_trace_canary": True,
+        "premap_risky_trace_canary_scope": (
+            "benchmark_premap_single_field_replacement_live_"
+            "producer_identity_envelope_counter_off"
+        ),
+        "premap_kernel_arg_handoff_live_enabled": True,
+        "premap_kernel_arg_handoff_live_consumer_connected": True,
+        "premap_kernel_arg_handoff_kernel_arg_pass_enabled": True,
+        "premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled": True,
+        "premap_kernel_arg_handoff_minimal_identity_envelope_enabled": True,
+        "premap_kernel_arg_handoff_producer_minimal_identity_envelope_enabled": True,
+        "premap_kernel_arg_handoff_live_counter_mode": "off",
+        "premap_kernel_arg_handoff_single_field_replacement_dry_run_enabled": True,
+        "premap_kernel_arg_handoff_single_field_replacement_live_enabled": True,
+        "premap_kernel_arg_handoff_single_field_replacement_field": "B_scale",
+        "premap_kernel_arg_handoff_single_field_replacement_candidate_source": (
+            "original_kernel_arg_identity"
+        ),
+        "emit_descriptor_layer_timing": False,
+        "emit_decoder_layer_timing": False,
+        "emit_decoder_component_timing": False,
+        "emit_moe_substage_timing": False,
+        "decoder_source_timing_mode": "off",
+        "moe_source_timing_mode": "off",
+        "emit_wna16_kernel_timing": False,
+        "wna16_kernel_timing_mode": "host",
+        "emit_summaries": True,
+        "emit_outcomes": False,
+        "outcome_logging_mode": "off",
+        "emit_descriptor_order_summaries": False,
+        "emit_transition_summaries": False,
+        "unset_env": ["VLLM_DISABLE_SHARED_EXPERTS_STREAM"],
+    },
     "premap_single_field_replacement_live_prepared_handle_table_canary": {
         # Explicit semantic-candidate canary.  It builds the real prepared
         # descriptor/address handle table and attempts a one-field live

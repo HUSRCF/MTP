@@ -31023,3 +31023,58 @@ target and should be attacked by moving from the identity-envelope wrapper into
 a true future WNA16 typed-slot consumer variant, rather than by reopening the
 prepared-table per-launch Python path.
 ```
+
+### Premap live counter-off attribution
+
+Added a benchmark-only live handoff counter mode:
+
+```text
+premap_kernel_arg_handoff_live_counter_mode = detailed | off
+```
+
+Default remains `detailed`; only the benchmark mode below disables per-launch
+bookkeeping counters:
+
+```text
+premap_single_field_replacement_live_producer_identity_envelope_counter_off
+```
+
+Evidence:
+
+```text
+outputs/reports/awq_telemetry_ladder/
+  gpu1_dolly32_gen64_premap_live_producer_identity_counter_off_benchmark/
+    benchmark_summary.md
+```
+
+Result:
+
+```text
+production_like repeat3 mean TPOT:
+  0.063508
+
+producer_identity_envelope repeat3 mean TPOT:
+  0.065826  (+3.65%)
+
+producer_identity_envelope_counter_off single TPOT:
+  0.065593  (+3.28% vs baseline mean)
+```
+
+Safety:
+
+```text
+counter_mode = off
+runtime_shadow size = 0
+emit_descriptor_layer_timing = false
+```
+
+Interpretation:
+
+```text
+Per-launch diagnostic counters are not the main remaining overhead.
+Turning them off reduces the measured overhead only slightly.
+
+The remaining cost is the Python WNA16 wrapper/package participation itself.
+Next work should move the producer-side identity package into a native/future
+typed-slot consumer path or otherwise avoid per-launch Python checks.
+```

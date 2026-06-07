@@ -10046,6 +10046,7 @@ _PREMAP_KERNEL_ARG_LIVE_MUTATION_COUNTERS: dict[str, int] = {
     "single_field_replacement_candidate_source_prepared_table_type_compatible_count": 0,
     "single_field_replacement_candidate_source_prepared_table_type_mismatch_count": 0,
 }
+_PREMAP_KERNEL_ARG_LIVE_MUTATION_COUNTER_MODE = "detailed"
 _ACTIVE_DECODER_COMPONENT_CONTEXT_VAR: contextvars.ContextVar[
     dict[str, Any] | None
 ] = contextvars.ContextVar("mtp_active_decoder_component_context", default=None)
@@ -10213,12 +10214,27 @@ def set_active_vllm_router_recorder(recorder: VllmRouterRecorder | None) -> None
     _ACTIVE_RECORDER = recorder
 
 
+def _set_premap_kernel_arg_live_mutation_counter_mode(mode: str) -> None:
+    global _PREMAP_KERNEL_ARG_LIVE_MUTATION_COUNTER_MODE
+    normalized = str(mode or "detailed").strip().lower()
+    if normalized not in {"detailed", "off"}:
+        msg = (
+            "premap_kernel_arg_handoff_live_counter_mode must be one of "
+            "['detailed', 'off']; got "
+            f"{mode!r}."
+        )
+        raise ValueError(msg)
+    _PREMAP_KERNEL_ARG_LIVE_MUTATION_COUNTER_MODE = normalized
+
+
 def _reset_premap_kernel_arg_live_mutation_counters() -> None:
     for key in _PREMAP_KERNEL_ARG_LIVE_MUTATION_COUNTERS:
         _PREMAP_KERNEL_ARG_LIVE_MUTATION_COUNTERS[key] = 0
 
 
 def _increment_premap_kernel_arg_live_mutation_counter(key: str) -> None:
+    if _PREMAP_KERNEL_ARG_LIVE_MUTATION_COUNTER_MODE == "off":
+        return
     if key not in _PREMAP_KERNEL_ARG_LIVE_MUTATION_COUNTERS:
         _PREMAP_KERNEL_ARG_LIVE_MUTATION_COUNTERS[key] = 0
     _PREMAP_KERNEL_ARG_LIVE_MUTATION_COUNTERS[key] += 1
@@ -16775,6 +16791,15 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
     if not isinstance(decode_workload_trace_options, dict):
         msg = "trace.decode_workload_trace must be a mapping when provided."
         raise TypeError(msg)
+    premap_kernel_arg_live_counter_mode = str(
+        runtime_shadow_options.get(
+            "premap_kernel_arg_handoff_live_counter_mode",
+            "detailed",
+        )
+    )
+    _set_premap_kernel_arg_live_mutation_counter_mode(
+        premap_kernel_arg_live_counter_mode
+    )
     _reset_premap_kernel_arg_live_mutation_counters()
     if bool(runtime_shadow_options.get("enabled", False)) and not use_router_logits_recorder:
         msg = "runtime_shadow.enabled requires use_router_logits_recorder."
@@ -17188,6 +17213,9 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                 "premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled",
                 False,
             )
+        ),
+        "runtime_shadow_premap_kernel_arg_handoff_live_counter_mode": (
+            premap_kernel_arg_live_counter_mode
         ),
         "runtime_shadow_premap_kernel_arg_handoff_minimal_identity_envelope_enabled": bool(
             runtime_shadow_options.get(
