@@ -679,6 +679,94 @@ def test_apply_premap_consumer_readonly_gate_rejects_prepared_materialization_wi
         )
 
 
+def test_apply_premap_consumer_readonly_gate_accepts_producer_native_adapter_materialization(
+    tmp_path,
+):
+    gate = tmp_path / "readonly_gate.yaml"
+    _write_readonly_gate(
+        gate,
+        lab_precondition=True,
+        descriptor_prep_execution_mode="readonly_descriptor_address_object",
+        descriptor_prep_payload_bytes=0,
+        descriptor_prep_kernel_arg_mutation=False,
+        kernel_arg_handoff_live_toggle_required=True,
+        kernel_arg_handoff_live_toggle_enabled_required=True,
+        kernel_arg_handoff_live_toggle_block_reason=(
+            "kernel_arg_handoff_kernel_consumer_not_connected"
+        ),
+        kernel_arg_handoff_live_toggle_live_eligible_required=True,
+        require_kernel_arg_handoff_live_toggle=True,
+        extra_contract_lines=_kernel_arg_handoff_adapter_contract_lines(
+            live_enabled=True,
+            consumer_connected_required=True,
+            kernel_arg_pass_required=True,
+            real_kernel_arg_mutation_required=True,
+        ),
+        extra_check_lines=_kernel_arg_handoff_adapter_check_lines(
+            allow_kernel_arg_pass=True,
+            allow_real_kernel_arg_mutation=True,
+        ),
+    )
+
+    options = _apply_premap_consumer_readonly_gate(
+        {
+            "enabled": True,
+            "emit_premap_consumer_mapping": False,
+            "premap_consumer_require_readonly_gate": True,
+            "premap_consumer_readonly_gate_path": str(gate),
+            "premap_consumer_mapping_mode": "off",
+            "premap_consumer_resolve_real_handles": False,
+            "premap_descriptor_bytes": 4096,
+            "premap_descriptor_prep_execution_mode": (
+                "readonly_descriptor_address_object"
+            ),
+            "premap_kernel_arg_handoff_producer_future_wna16_typed_slot_envelope_enabled": (
+                True
+            ),
+            "premap_kernel_arg_handoff_future_wna16_typed_slot_kernel_variant_enabled": (
+                True
+            ),
+            "premap_kernel_arg_handoff_live_enabled": True,
+            "premap_kernel_arg_handoff_live_consumer_connected": True,
+            "premap_kernel_arg_handoff_kernel_arg_pass_enabled": True,
+            "premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled": True,
+            "premap_kernel_arg_handoff_minimal_identity_envelope_enabled": True,
+            "premap_kernel_arg_handoff_single_field_replacement_dry_run_enabled": True,
+            "premap_kernel_arg_handoff_single_field_replacement_live_enabled": True,
+            "premap_kernel_arg_handoff_single_field_replacement_candidate_source": (
+                "original_kernel_arg_identity"
+            ),
+            "premap_kernel_arg_handoff_prepared_table_materialization_mode": (
+                "producer_native_adapter"
+            ),
+        },
+        project_root=tmp_path,
+    )
+
+    assert (
+        options["premap_kernel_arg_handoff_prepared_table_materialization_mode"]
+        == "producer_native_adapter"
+    )
+
+
+def test_apply_premap_consumer_readonly_gate_rejects_producer_native_adapter_without_future_variant(
+    tmp_path,
+):
+    with pytest.raises(
+        ValueError,
+        match="producer_native_adapter",
+    ):
+        _apply_premap_consumer_readonly_gate(
+            {
+                "enabled": True,
+                "premap_kernel_arg_handoff_prepared_table_materialization_mode": (
+                    "producer_native_adapter"
+                ),
+            },
+            project_root=tmp_path,
+        )
+
+
 @pytest.mark.parametrize(
     "missing_key",
     [

@@ -31329,3 +31329,67 @@ move typed-slot column materialization into a lower-overhead producer/native
 adapter, or wire a future WNA16 kernel variant that consumes persistent typed
 columns without per-launch Python table materialization.
 ```
+
+## 2026-06-07 - Producer/native adapter materialization for WNA16 typed slots
+
+Patch:
+
+```text
+Moved future WNA16 typed-slot column materialization out of the WNA16 launch
+wrapper and into the prelaunch producer/package path.
+
+New mode:
+  premap_kernel_arg_handoff_prepared_table_materialization_mode =
+    producer_native_adapter
+
+The future typed-slot kernel variant now requires the package to already carry
+device columns:
+  descriptor_ptr
+  packed_weight_descriptor
+  scale_metadata_handle
+  aux_metadata_handle
+
+The WNA16 wrapper only reads prepared columns from the package.  It no longer
+calls table_object.to_native_typed_consumer_input_dict() or builds torch tensors
+at launch time.  Missing prepared columns cause fallback and are counted.
+```
+
+Validation:
+
+```text
+env PYTHONPATH=.:src pytest tests -q
+  1158 passed, 2 warnings
+
+GPU1 AWQ/Dolly 8-sample gen64 strict smoke:
+outputs/reports/awq_telemetry_ladder/
+  gpu1_dolly8_gen64_premap_future_typed_slot_producer_materialized_strict_smoke/
+
+returncode = 0
+sample_count = 8
+generate_s = 220.428
+TPOT = 0.430524
+
+future typed-slot variant launch_count = 40960
+future typed-slot variant fallback_count = 0
+package pass-through count = 0
+single-field live passed_to_kernel_count = 40960
+
+producer materialization count = 20082
+producer materialization miss count = 0
+wrapper prepared-columns hit count = 40960
+wrapper materialization blocked count = 0
+```
+
+Interpretation:
+
+```text
+The typed-slot ABI correctness path is preserved, and prepared-table column
+construction is now owned by the producer/native-adapter package rather than
+the WNA16 launch wrapper.
+
+This remains a strict correctness / ABI gate, not a performance win.  TPOT is
+still far slower than production-like baseline because the path still performs
+Python-side producer materialization at high frequency.  The next performance
+gate is a persistent/native adapter that produces reusable typed-slot buffers
+without per-launch Python tensor construction.
+```

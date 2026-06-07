@@ -497,6 +497,10 @@ def test_premap_live_future_wna16_typed_slot_kernel_variant_counter_off_uses_ind
         ]
         is True
     )
+    assert (
+        mode["premap_kernel_arg_handoff_prepared_table_materialization_mode"]
+        == "producer_native_adapter"
+    )
     assert mode["premap_kernel_arg_handoff_live_counter_mode"] == "off"
     assert mode["premap_kernel_arg_handoff_single_field_replacement_dry_run_enabled"] is True
     assert mode["premap_kernel_arg_handoff_single_field_replacement_live_enabled"] is True
@@ -532,6 +536,10 @@ def test_premap_live_future_wna16_typed_slot_kernel_variant_prepared_table_stric
         assert strict[key] == base[key]
     assert strict["premap_kernel_arg_handoff_live_counter_mode"] == "detailed"
     assert base["premap_kernel_arg_handoff_live_counter_mode"] == "off"
+    assert (
+        strict["premap_kernel_arg_handoff_prepared_table_materialization_mode"]
+        == "producer_native_adapter"
+    )
     assert (
         strict["premap_risky_trace_canary_scope"]
         == "benchmark_premap_live_future_wna16_typed_slot_kernel_variant_prepared_table_strict"

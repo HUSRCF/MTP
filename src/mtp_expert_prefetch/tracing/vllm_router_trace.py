@@ -2690,6 +2690,9 @@ class VllmRouterRecorder:
     _premap_live_mutation_package_cache: dict[tuple[Any, ...], dict[str, Any]] = (
         field(default_factory=dict, repr=False)
     )
+    _premap_future_wna16_typed_slot_column_cache: dict[
+        tuple[str, str], tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]
+    ] = field(default_factory=dict, repr=False)
     _descriptor_order_prior_rank_tensor_cache: dict[tuple[Any, ...], torch.Tensor] = (
         field(default_factory=dict, repr=False)
     )
@@ -2723,6 +2726,7 @@ class VllmRouterRecorder:
         self._last_descriptor_consumer_handle_by_layer.clear()
         self._last_premap_address_mapping_by_layer.clear()
         self._premap_live_mutation_package_cache.clear()
+        self._premap_future_wna16_typed_slot_column_cache.clear()
         self._descriptor_order_prior_rank_tensor_cache.clear()
         self._descriptor_order_direct_placeholder_cache.clear()
         self._decoder_component_aggregate.clear()
@@ -4164,6 +4168,7 @@ class VllmRouterRecorder:
         prelaunch_block_size: int | None = None,
         prelaunch_expert_order_hash: str | None = None,
         prelaunch_expert_multiset_hash: str | None = None,
+        typed_slot_device: torch.device | None = None,
         lookup_start_ns: int | None = None,
         error: str | None = None,
     ) -> None:
@@ -4456,6 +4461,12 @@ class VllmRouterRecorder:
                     bool(
                         self.shadow_premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled
                     ),
+                    bool(
+                        self.shadow_premap_kernel_arg_handoff_future_wna16_typed_slot_kernel_variant_enabled
+                    ),
+                    str(
+                        self.shadow_premap_kernel_arg_handoff_prepared_table_materialization_mode
+                    ),
                     bool(self.shadow_premap_consumer_readonly_gate_passed is True),
                     str(self.shadow_premap_single_field_handle_handoff_canary_field),
                 )
@@ -4631,6 +4642,36 @@ class VllmRouterRecorder:
                                     else None
                                 ),
                             }
+                            if bool(
+                                self.shadow_premap_kernel_arg_handoff_future_wna16_typed_slot_kernel_variant_enabled
+                            ):
+                                package[
+                                    "future_wna16_typed_slot_materialization_mode"
+                                ] = str(
+                                    self.shadow_premap_kernel_arg_handoff_prepared_table_materialization_mode
+                                )
+                                if (
+                                    str(
+                                        self.shadow_premap_kernel_arg_handoff_prepared_table_materialization_mode
+                                    )
+                                    == "producer_native_adapter"
+                                    and typed_slot_device is not None
+                                ):
+                                    attached = (
+                                        _premap_attach_future_wna16_typed_slot_columns_to_package(
+                                            package,
+                                            device=typed_slot_device,
+                                            stage="producer_prelaunch_package",
+                                            recorder=self,
+                                        )
+                                    )
+                                    package[
+                                        "future_wna16_typed_slot_materialization_ready"
+                                    ] = bool(attached)
+                                else:
+                                    package[
+                                        "future_wna16_typed_slot_materialization_ready"
+                                    ] = False
                             context[
                                 "premap_kernel_arg_live_mutation_package"
                             ] = package
@@ -8164,6 +8205,7 @@ class VllmRouterRecorder:
                 prelaunch_expert_multiset_hash=hash_ints(
                     sorted(int(value) for value in resolved_for_mapping)
                 ),
+                typed_slot_device=expert_ids.device,
                 lookup_start_ns=mapping_start_ns,
                 error=mapping_error,
             )
@@ -8204,6 +8246,7 @@ class VllmRouterRecorder:
                 prelaunch_expert_multiset_hash=hash_ints(
                     sorted(int(value) for value in resolved_experts_cpu)
                 ),
+                typed_slot_device=expert_ids.device,
             )
             if not wants_descriptor_handle:
                 return sorted_token_ids, expert_ids, num_tokens_post_padded
@@ -10113,6 +10156,11 @@ _PREMAP_KERNEL_ARG_LIVE_MUTATION_COUNTERS: dict[str, int] = {
     "single_field_replacement_candidate_source_prepared_table_type_mismatch_count": 0,
     "future_wna16_typed_slot_kernel_variant_launch_count": 0,
     "future_wna16_typed_slot_kernel_variant_fallback_count": 0,
+    "future_wna16_typed_slot_producer_materialization_count": 0,
+    "future_wna16_typed_slot_producer_materialization_cache_hit_count": 0,
+    "future_wna16_typed_slot_producer_materialization_miss_count": 0,
+    "future_wna16_typed_slot_wrapper_prepared_columns_hit_count": 0,
+    "future_wna16_typed_slot_wrapper_materialization_blocked_count": 0,
 }
 _PREMAP_KERNEL_ARG_LIVE_MUTATION_COUNTER_MODE = "detailed"
 _ACTIVE_DECODER_COMPONENT_CONTEXT_VAR: contextvars.ContextVar[
@@ -10315,49 +10363,111 @@ def _premap_signed_i64_from_u64(value: Any) -> int:
     return raw
 
 
-def _premap_future_wna16_typed_slot_columns_from_package(
+_PREMAP_FUTURE_WNA16_TYPED_SLOT_FIELD_NAMES = (
+    "descriptor_ptr",
+    "packed_weight_descriptor",
+    "scale_metadata_handle",
+    "aux_metadata_handle",
+)
+
+
+def _premap_future_wna16_typed_slot_prepared_columns_from_package(
     package: dict[str, Any],
     *,
     device: torch.device,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor] | None:
-    table_object = package.get("table_object")
-    rows = getattr(table_object, "rows", ())
-    if table_object is None or not rows:
-        return None
     cache_key = str(device)
     cache = package.get("future_wna16_typed_slot_device_columns")
     if isinstance(cache, dict):
         cached = cache.get(cache_key)
         if isinstance(cached, tuple) and len(cached) == 4:
             return cached  # type: ignore[return-value]
-    else:
-        cache = {}
-        package["future_wna16_typed_slot_device_columns"] = cache
+    return None
+
+
+def _premap_attach_future_wna16_typed_slot_columns_to_package(
+    package: dict[str, Any],
+    *,
+    device: torch.device,
+    stage: str,
+    recorder: VllmRouterRecorder | None = None,
+) -> bool:
+    table_object = package.get("table_object")
+    rows = getattr(table_object, "rows", ())
+    if table_object is None or not rows:
+        _increment_premap_kernel_arg_live_mutation_counter(
+            "future_wna16_typed_slot_producer_materialization_miss_count"
+        )
+        return False
     if not hasattr(table_object, "to_native_typed_consumer_input_dict"):
-        return None
+        _increment_premap_kernel_arg_live_mutation_counter(
+            "future_wna16_typed_slot_producer_materialization_miss_count"
+        )
+        return False
+    cache_key = str(device)
+    device_columns = package.get("future_wna16_typed_slot_device_columns")
+    if not isinstance(device_columns, dict):
+        device_columns = {}
+        package["future_wna16_typed_slot_device_columns"] = device_columns
+    cached = device_columns.get(cache_key)
+    if isinstance(cached, tuple) and len(cached) == 4:
+        package["future_wna16_typed_slot_materialization_stage"] = str(stage)
+        _increment_premap_kernel_arg_live_mutation_counter(
+            "future_wna16_typed_slot_producer_materialization_cache_hit_count"
+        )
+        return True
+
+    table_hash = str(getattr(table_object, "object_hash", "") or "")
+    recorder_cache_key = (table_hash, cache_key)
+    if recorder is not None and table_hash:
+        recorder_cached = recorder._premap_future_wna16_typed_slot_column_cache.get(
+            recorder_cache_key
+        )
+        if isinstance(recorder_cached, tuple) and len(recorder_cached) == 4:
+            device_columns[cache_key] = recorder_cached
+            package["future_wna16_typed_slot_row_count"] = int(
+                recorder_cached[0].numel()
+            )
+            package["future_wna16_typed_slot_source"] = (
+                "prepared_descriptor_address_table"
+            )
+            package["future_wna16_typed_slot_table_object_hash"] = table_hash
+            package["future_wna16_typed_slot_materialization_stage"] = str(stage)
+            _increment_premap_kernel_arg_live_mutation_counter(
+                "future_wna16_typed_slot_producer_materialization_cache_hit_count"
+            )
+            return True
+
     native_input = table_object.to_native_typed_consumer_input_dict()
     columns: list[torch.Tensor] = []
-    for field_name in (
-        "descriptor_ptr",
-        "packed_weight_descriptor",
-        "scale_metadata_handle",
-        "aux_metadata_handle",
-    ):
+    for field_name in _PREMAP_FUTURE_WNA16_TYPED_SLOT_FIELD_NAMES:
         raw_values = native_input.get(field_name)
         if not isinstance(raw_values, list) or not raw_values:
-            return None
+            _increment_premap_kernel_arg_live_mutation_counter(
+                "future_wna16_typed_slot_producer_materialization_miss_count"
+            )
+            return False
         values = [_premap_signed_i64_from_u64(value) for value in raw_values]
         columns.append(torch.tensor(values, dtype=torch.int64, device=device))
     result = tuple(columns)
     if len(result) != 4:
-        return None
-    cache[cache_key] = result
+        _increment_premap_kernel_arg_live_mutation_counter(
+            "future_wna16_typed_slot_producer_materialization_miss_count"
+        )
+        return False
+    device_columns[cache_key] = result
+    if recorder is not None and table_hash:
+        recorder._premap_future_wna16_typed_slot_column_cache[recorder_cache_key] = (
+            result  # type: ignore[assignment]
+        )
     package["future_wna16_typed_slot_row_count"] = int(result[0].numel())
     package["future_wna16_typed_slot_source"] = "prepared_descriptor_address_table"
-    package["future_wna16_typed_slot_table_object_hash"] = str(
-        getattr(table_object, "object_hash", "")
+    package["future_wna16_typed_slot_table_object_hash"] = table_hash
+    package["future_wna16_typed_slot_materialization_stage"] = str(stage)
+    _increment_premap_kernel_arg_live_mutation_counter(
+        "future_wna16_typed_slot_producer_materialization_count"
     )
-    return result  # type: ignore[return-value]
+    return True
 
 
 def _kernel_arg_value_signature(value: Any) -> str:
@@ -14728,12 +14838,15 @@ def patch_vllm_qwen35_moe_router_trace() -> None:
                             and identity_fast_path
                         ):
                             typed_slot_columns = (
-                                _premap_future_wna16_typed_slot_columns_from_package(
+                                _premap_future_wna16_typed_slot_prepared_columns_from_package(
                                     live_mutation_package_meta,
                                     device=A.device,
                                 )
                             )
                             if typed_slot_columns is None:
+                                _increment_premap_kernel_arg_live_mutation_counter(
+                                    "future_wna16_typed_slot_wrapper_materialization_blocked_count"
+                                )
                                 _increment_premap_kernel_arg_live_mutation_counter(
                                     "future_wna16_typed_slot_kernel_variant_fallback_count"
                                 )
@@ -14750,6 +14863,9 @@ def patch_vllm_qwen35_moe_router_trace() -> None:
                                     typed_slot_scale_metadata_handle,
                                     typed_slot_aux_metadata_handle,
                                 ) = typed_slot_columns
+                                _increment_premap_kernel_arg_live_mutation_counter(
+                                    "future_wna16_typed_slot_wrapper_prepared_columns_hit_count"
+                                )
                                 from mtp_expert_prefetch.tracing.vllm_wna16_group_plan import (
                                     invoke_fused_moe_wna16_triton_kernel_future_typed_slot_identity,
                                 )
@@ -15899,6 +16015,7 @@ def _apply_premap_consumer_readonly_gate(
     allowed_prepared_table_materialization_modes = {
         "off",
         "original_kernel_arg_alias_after_prepared_handle_check",
+        "producer_native_adapter",
     }
     if (
         prepared_table_materialization_mode
@@ -15912,6 +16029,7 @@ def _apply_premap_consumer_readonly_gate(
         raise ValueError(msg)
     if (
         prepared_table_materialization_mode != "off"
+        and prepared_table_materialization_mode != "producer_native_adapter"
         and single_field_replacement_candidate_source != "prepared_handle_table"
     ):
         msg = (
@@ -15919,6 +16037,16 @@ def _apply_premap_consumer_readonly_gate(
             "can only be enabled when "
             "premap_kernel_arg_handoff_single_field_replacement_candidate_source="
             "'prepared_handle_table'."
+        )
+        raise ValueError(msg)
+    if (
+        prepared_table_materialization_mode == "producer_native_adapter"
+        and not future_wna16_typed_slot_kernel_variant_enabled
+    ):
+        msg = (
+            "premap_kernel_arg_handoff_prepared_table_materialization_mode="
+            "'producer_native_adapter' requires "
+            "premap_kernel_arg_handoff_future_wna16_typed_slot_kernel_variant_enabled=True."
         )
         raise ValueError(msg)
     if (

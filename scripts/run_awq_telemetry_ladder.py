@@ -579,6 +579,9 @@ MODES: dict[str, dict[str, Any]] = {
         "premap_kernel_arg_handoff_future_wna16_typed_slot_kernel_variant_enabled": (
             True
         ),
+        "premap_kernel_arg_handoff_prepared_table_materialization_mode": (
+            "producer_native_adapter"
+        ),
         "premap_kernel_arg_handoff_live_counter_mode": "off",
         "premap_kernel_arg_handoff_single_field_replacement_dry_run_enabled": True,
         "premap_kernel_arg_handoff_single_field_replacement_live_enabled": True,
