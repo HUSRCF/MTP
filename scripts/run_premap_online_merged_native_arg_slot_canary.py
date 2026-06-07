@@ -114,6 +114,21 @@ ENDPOINT_PTR_MACRO = (
 WNA16_ADJACENT_TYPED_SLOT_MACRO = (
     "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_WNA16_ADJACENT_TYPED_SLOT_ABI"
 )
+FUTURE_WNA16_TYPED_SLOT_KERNEL_VARIANT_MACRO = (
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_WNA16_TYPED_SLOT_KERNEL_VARIANT_ABI"
+)
+FUTURE_WNA16_KERNEL_ACCEPT_TYPED_SLOT_MACRO = (
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_WNA16_KERNEL_ACCEPT_TYPED_SLOT_ABI"
+)
+FUTURE_WNA16_KERNEL_SIDE_CONSUMER_EXECUTION_MACRO = (
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_WNA16_KERNEL_SIDE_CONSUMER_EXECUTION_ABI"
+)
+FUTURE_WNA16_SINGLE_FIELD_HANDOFF_CANARY_MACRO = (
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_WNA16_SINGLE_FIELD_HANDOFF_CANARY_ABI"
+)
+WNA16_SIDE_CONSUMER_VARIANT_EXECUTION_MACRO = (
+    "MTP_PREMAP_TYPED_CONSUMER_CHECK_WNA16_SIDE_CONSUMER_VARIANT_EXECUTION_ABI"
+)
 MIRROR_FIELD_MACRO = {
     "descriptor_ptr": "MTP_PREMAP_TYPED_CONSUMER_CHECK_DESCRIPTOR_PTR_MIRROR_FIELD",
     "packed_weight_descriptor": (
@@ -905,6 +920,85 @@ STUB_SUMMARY_KEYS = (
     "future_kernel_native_consumer_wna16_adjacent_typed_slot_summary_row_hash_accumulator",
     "future_kernel_native_consumer_wna16_adjacent_typed_slot_summary_field_read_hash_accumulator",
     "future_kernel_native_consumer_wna16_adjacent_typed_slot_summary_row_metadata_hash_accumulator",
+    "future_wna16_typed_slot_kernel_variant_abi_name",
+    "future_wna16_typed_slot_kernel_variant_checked",
+    "future_wna16_typed_slot_kernel_variant_mode",
+    "future_wna16_typed_slot_kernel_variant_source",
+    "future_wna16_typed_slot_kernel_variant_packet_chain_depth",
+    "future_wna16_typed_slot_kernel_variant_summary_row_count",
+    "future_wna16_typed_slot_kernel_variant_summary_row_ok_count",
+    "future_wna16_typed_slot_kernel_variant_summary_error_count",
+    "future_wna16_typed_slot_kernel_variant_summary_field_mask",
+    "future_wna16_typed_slot_kernel_variant_summary_descriptor_ptr_read_row_ok_count",
+    "future_wna16_typed_slot_kernel_variant_summary_packed_weight_descriptor_read_row_ok_count",
+    "future_wna16_typed_slot_kernel_variant_summary_scale_metadata_handle_read_row_ok_count",
+    "future_wna16_typed_slot_kernel_variant_summary_aux_metadata_handle_read_row_ok_count",
+    "future_wna16_typed_slot_kernel_variant_payload_bytes",
+    "future_wna16_typed_slot_kernel_variant_passed_to_kernel",
+    "future_wna16_typed_slot_kernel_variant_changes_kernel_launch_args",
+    "future_wna16_typed_slot_kernel_variant_current_wna16_arg_compatible",
+    "future_wna16_typed_slot_kernel_variant_requires_wna16_arg_reinterpretation",
+    "future_wna16_typed_slot_kernel_variant_explicit_typed_abi_slot",
+    "future_wna16_typed_slot_kernel_variant_reuses_current_wna16_arg_slot",
+    "future_wna16_typed_slot_kernel_variant_summary_row_hash_accumulator",
+    "future_wna16_typed_slot_kernel_variant_summary_field_read_hash_accumulator",
+    "future_wna16_typed_slot_kernel_variant_summary_row_metadata_hash_accumulator",
+    "future_wna16_kernel_accept_typed_slot_abi_name",
+    "future_wna16_kernel_accept_typed_slot_checked",
+    "future_wna16_kernel_accept_typed_slot_mode",
+    "future_wna16_kernel_accept_typed_slot_source",
+    "future_wna16_kernel_accept_typed_slot_packet_chain_depth",
+    "future_wna16_kernel_accept_typed_slot_summary_row_count",
+    "future_wna16_kernel_accept_typed_slot_summary_row_ok_count",
+    "future_wna16_kernel_accept_typed_slot_summary_error_count",
+    "future_wna16_kernel_accept_typed_slot_summary_field_mask",
+    "future_wna16_kernel_accept_typed_slot_summary_descriptor_ptr_read_row_ok_count",
+    "future_wna16_kernel_accept_typed_slot_summary_packed_weight_descriptor_read_row_ok_count",
+    "future_wna16_kernel_accept_typed_slot_summary_scale_metadata_handle_read_row_ok_count",
+    "future_wna16_kernel_accept_typed_slot_summary_aux_metadata_handle_read_row_ok_count",
+    "future_wna16_kernel_accept_typed_slot_payload_bytes",
+    "future_wna16_kernel_accept_typed_slot_passed_to_kernel",
+    "future_wna16_kernel_accept_typed_slot_changes_kernel_launch_args",
+    "future_wna16_kernel_accept_typed_slot_current_wna16_arg_compatible",
+    "future_wna16_kernel_accept_typed_slot_requires_wna16_arg_reinterpretation",
+    "future_wna16_kernel_accept_typed_slot_explicit_typed_abi_slot",
+    "future_wna16_kernel_accept_typed_slot_reuses_current_wna16_arg_slot",
+    "future_wna16_kernel_accept_typed_slot_summary_row_hash_accumulator",
+    "future_wna16_kernel_accept_typed_slot_summary_field_read_hash_accumulator",
+    "future_wna16_kernel_accept_typed_slot_summary_row_metadata_hash_accumulator",
+    "wna16_side_consumer_variant_execution_abi_name",
+    "wna16_side_consumer_variant_execution_checked",
+    "wna16_side_consumer_variant_execution_mode",
+    "wna16_side_consumer_variant_execution_source",
+    "wna16_side_consumer_variant_execution_packet_chain_depth",
+    "wna16_side_consumer_variant_execution_row_count",
+    "wna16_side_consumer_variant_execution_row_ok_count",
+    "wna16_side_consumer_variant_execution_error_count",
+    "wna16_side_consumer_variant_execution_descriptor_ptr_read_row_count",
+    "wna16_side_consumer_variant_execution_descriptor_ptr_read_row_ok_count",
+    "wna16_side_consumer_variant_execution_descriptor_ptr_read_error_count",
+    "wna16_side_consumer_variant_execution_packed_weight_descriptor_read_row_count",
+    "wna16_side_consumer_variant_execution_packed_weight_descriptor_read_row_ok_count",
+    "wna16_side_consumer_variant_execution_packed_weight_descriptor_read_error_count",
+    "wna16_side_consumer_variant_execution_scale_metadata_handle_read_row_count",
+    "wna16_side_consumer_variant_execution_scale_metadata_handle_read_row_ok_count",
+    "wna16_side_consumer_variant_execution_scale_metadata_handle_read_error_count",
+    "wna16_side_consumer_variant_execution_aux_metadata_handle_read_row_count",
+    "wna16_side_consumer_variant_execution_aux_metadata_handle_read_row_ok_count",
+    "wna16_side_consumer_variant_execution_aux_metadata_handle_read_error_count",
+    "wna16_side_consumer_variant_execution_payload_bytes",
+    "wna16_side_consumer_variant_execution_passed_to_kernel",
+    "wna16_side_consumer_variant_execution_changes_kernel_launch_args",
+    "wna16_side_consumer_variant_execution_current_wna16_arg_compatible",
+    "wna16_side_consumer_variant_execution_requires_wna16_arg_reinterpretation",
+    "wna16_side_consumer_variant_execution_explicit_typed_abi_slot",
+    "wna16_side_consumer_variant_execution_reuses_current_wna16_arg_slot",
+    "wna16_side_consumer_variant_execution_hash_accumulator",
+    "wna16_side_consumer_variant_execution_handle_projection_hash_accumulator",
+    "wna16_side_consumer_variant_execution_descriptor_ptr_read_hash_accumulator",
+    "wna16_side_consumer_variant_execution_packed_weight_descriptor_read_hash_accumulator",
+    "wna16_side_consumer_variant_execution_scale_metadata_handle_read_hash_accumulator",
+    "wna16_side_consumer_variant_execution_aux_metadata_handle_read_hash_accumulator",
 )
 
 
@@ -1895,6 +1989,457 @@ def _wna16_adjacent_typed_slot_dry_run_pairs(*, active_rows: int) -> dict[str, A
     }
 
 
+def _future_wna16_typed_slot_kernel_variant_dry_run_pairs(
+    *,
+    active_rows: int,
+) -> dict[str, Any]:
+    prefix = "future_wna16_typed_slot_kernel_variant"
+    return {
+        f"{prefix}_abi_name": "premap_future_wna16_typed_slot_kernel_variant_v1",
+        f"{prefix}_checked": True,
+        f"{prefix}_mode": "readonly_future_wna16_typed_slot_kernel_variant",
+        f"{prefix}_source": "premap_wna16_adjacent_typed_consumer_slot_v1",
+        f"{prefix}_packet_chain_depth": 15,
+        f"{prefix}_summary_row_count": active_rows,
+        f"{prefix}_summary_row_ok_count": active_rows,
+        f"{prefix}_summary_error_count": 0,
+        f"{prefix}_summary_field_mask": _FUTURE_KERNEL_ALL_FIELD_MASK,
+        f"{prefix}_summary_descriptor_ptr_read_row_ok_count": active_rows,
+        f"{prefix}_summary_packed_weight_descriptor_read_row_ok_count": active_rows,
+        f"{prefix}_summary_scale_metadata_handle_read_row_ok_count": active_rows,
+        f"{prefix}_summary_aux_metadata_handle_read_row_ok_count": active_rows,
+        f"{prefix}_payload_bytes": 0,
+        f"{prefix}_passed_to_kernel": False,
+        f"{prefix}_changes_kernel_launch_args": False,
+        f"{prefix}_current_wna16_arg_compatible": False,
+        f"{prefix}_requires_wna16_arg_reinterpretation": False,
+        f"{prefix}_explicit_typed_abi_slot": True,
+        f"{prefix}_reuses_current_wna16_arg_slot": False,
+        f"{prefix}_summary_row_hash_accumulator": "0000000000000001",
+        f"{prefix}_summary_field_read_hash_accumulator": "0000000000000002",
+        f"{prefix}_summary_row_metadata_hash_accumulator": "0000000000000003",
+    }
+
+
+def _check_future_wna16_typed_slot_kernel_variant(
+    stub: dict[str, Any],
+    *,
+    active_rows: int,
+) -> list[str]:
+    failures: list[str] = []
+    prefix = "future_wna16_typed_slot_kernel_variant"
+    expected = {
+        f"{prefix}_checked": True,
+        f"{prefix}_abi_name": "premap_future_wna16_typed_slot_kernel_variant_v1",
+        f"{prefix}_mode": "readonly_future_wna16_typed_slot_kernel_variant",
+        f"{prefix}_source": "premap_wna16_adjacent_typed_consumer_slot_v1",
+        f"{prefix}_summary_row_count": active_rows,
+        f"{prefix}_summary_row_ok_count": active_rows,
+        f"{prefix}_summary_error_count": 0,
+        f"{prefix}_summary_field_mask": _FUTURE_KERNEL_ALL_FIELD_MASK,
+        f"{prefix}_payload_bytes": 0,
+        f"{prefix}_passed_to_kernel": False,
+        f"{prefix}_changes_kernel_launch_args": False,
+        f"{prefix}_current_wna16_arg_compatible": False,
+        f"{prefix}_requires_wna16_arg_reinterpretation": False,
+        f"{prefix}_explicit_typed_abi_slot": True,
+        f"{prefix}_reuses_current_wna16_arg_slot": False,
+    }
+    for key, expected_value in expected.items():
+        if not _strict_scalar_equal(stub.get(key), expected_value):
+            failures.append(f"{key}_mismatch:{stub.get(key)!r}!={expected_value!r}")
+    adjacent_depth = stub.get(
+        "future_kernel_native_consumer_wna16_adjacent_typed_slot_packet_chain_depth"
+    )
+    variant_depth = stub.get(f"{prefix}_packet_chain_depth")
+    if isinstance(adjacent_depth, int) and variant_depth != adjacent_depth + 1:
+        failures.append(f"{prefix}_packet_chain_depth_mismatch")
+    for key in (
+        "summary_descriptor_ptr_read_row_ok_count",
+        "summary_packed_weight_descriptor_read_row_ok_count",
+        "summary_scale_metadata_handle_read_row_ok_count",
+        "summary_aux_metadata_handle_read_row_ok_count",
+    ):
+        full_key = f"{prefix}_{key}"
+        if stub.get(full_key) != active_rows:
+            failures.append(f"{full_key}_mismatch")
+    for key in (
+        f"{prefix}_summary_row_hash_accumulator",
+        f"{prefix}_summary_field_read_hash_accumulator",
+        f"{prefix}_summary_row_metadata_hash_accumulator",
+    ):
+        if _parse_hex64(stub.get(key)) is None:
+            failures.append(f"{key}_invalid")
+    return failures
+
+
+def _future_wna16_kernel_accept_typed_slot_dry_run_pairs(
+    *,
+    active_rows: int,
+) -> dict[str, Any]:
+    prefix = "future_wna16_kernel_accept_typed_slot"
+    return {
+        f"{prefix}_abi_name": "premap_future_wna16_kernel_accept_typed_slot_v1",
+        f"{prefix}_checked": True,
+        f"{prefix}_mode": "readonly_future_wna16_kernel_accept_typed_slot",
+        f"{prefix}_source": "premap_wna16_adjacent_typed_consumer_slot_v1",
+        f"{prefix}_packet_chain_depth": 15,
+        f"{prefix}_summary_row_count": active_rows,
+        f"{prefix}_summary_row_ok_count": active_rows,
+        f"{prefix}_summary_error_count": 0,
+        f"{prefix}_summary_field_mask": _FUTURE_KERNEL_ALL_FIELD_MASK,
+        f"{prefix}_summary_descriptor_ptr_read_row_ok_count": active_rows,
+        f"{prefix}_summary_packed_weight_descriptor_read_row_ok_count": active_rows,
+        f"{prefix}_summary_scale_metadata_handle_read_row_ok_count": active_rows,
+        f"{prefix}_summary_aux_metadata_handle_read_row_ok_count": active_rows,
+        f"{prefix}_payload_bytes": 0,
+        f"{prefix}_passed_to_kernel": False,
+        f"{prefix}_changes_kernel_launch_args": False,
+        f"{prefix}_current_wna16_arg_compatible": False,
+        f"{prefix}_requires_wna16_arg_reinterpretation": False,
+        f"{prefix}_explicit_typed_abi_slot": True,
+        f"{prefix}_reuses_current_wna16_arg_slot": False,
+        f"{prefix}_summary_row_hash_accumulator": "0000000000000001",
+        f"{prefix}_summary_field_read_hash_accumulator": "0000000000000002",
+        f"{prefix}_summary_row_metadata_hash_accumulator": "0000000000000003",
+    }
+
+
+def _check_future_wna16_kernel_accept_typed_slot(
+    stub: dict[str, Any],
+    *,
+    active_rows: int,
+) -> list[str]:
+    failures: list[str] = []
+    prefix = "future_wna16_kernel_accept_typed_slot"
+    expected = {
+        f"{prefix}_checked": True,
+        f"{prefix}_abi_name": "premap_future_wna16_kernel_accept_typed_slot_v1",
+        f"{prefix}_mode": "readonly_future_wna16_kernel_accept_typed_slot",
+        f"{prefix}_source": "premap_wna16_adjacent_typed_consumer_slot_v1",
+        f"{prefix}_summary_row_count": active_rows,
+        f"{prefix}_summary_row_ok_count": active_rows,
+        f"{prefix}_summary_error_count": 0,
+        f"{prefix}_summary_field_mask": _FUTURE_KERNEL_ALL_FIELD_MASK,
+        f"{prefix}_payload_bytes": 0,
+        f"{prefix}_passed_to_kernel": False,
+        f"{prefix}_changes_kernel_launch_args": False,
+        f"{prefix}_current_wna16_arg_compatible": False,
+        f"{prefix}_requires_wna16_arg_reinterpretation": False,
+        f"{prefix}_explicit_typed_abi_slot": True,
+        f"{prefix}_reuses_current_wna16_arg_slot": False,
+    }
+    for key, expected_value in expected.items():
+        if not _strict_scalar_equal(stub.get(key), expected_value):
+            failures.append(f"{key}_mismatch:{stub.get(key)!r}!={expected_value!r}")
+    adjacent_depth = stub.get(
+        "future_kernel_native_consumer_wna16_adjacent_typed_slot_packet_chain_depth"
+    )
+    accept_depth = stub.get(f"{prefix}_packet_chain_depth")
+    if isinstance(adjacent_depth, int) and accept_depth != adjacent_depth + 1:
+        failures.append(f"{prefix}_packet_chain_depth_mismatch")
+    for key in (
+        "summary_descriptor_ptr_read_row_ok_count",
+        "summary_packed_weight_descriptor_read_row_ok_count",
+        "summary_scale_metadata_handle_read_row_ok_count",
+        "summary_aux_metadata_handle_read_row_ok_count",
+    ):
+        full_key = f"{prefix}_{key}"
+        if stub.get(full_key) != active_rows:
+            failures.append(f"{full_key}_mismatch")
+    for key in (
+        f"{prefix}_summary_row_hash_accumulator",
+        f"{prefix}_summary_field_read_hash_accumulator",
+        f"{prefix}_summary_row_metadata_hash_accumulator",
+    ):
+        if _parse_hex64(stub.get(key)) is None:
+            failures.append(f"{key}_invalid")
+    return failures
+
+
+def _wna16_side_consumer_variant_execution_dry_run_pairs(
+    *,
+    active_rows: int,
+) -> dict[str, Any]:
+    prefix = "wna16_side_consumer_variant_execution"
+    return {
+        f"{prefix}_abi_name": "premap_wna16_side_consumer_variant_execution_v1",
+        f"{prefix}_checked": True,
+        f"{prefix}_mode": "readonly_wna16_side_consumer_variant_execution",
+        f"{prefix}_source": "premap_future_wna16_typed_slot_kernel_variant_v1",
+        f"{prefix}_packet_chain_depth": 16,
+        f"{prefix}_row_count": active_rows,
+        f"{prefix}_row_ok_count": active_rows,
+        f"{prefix}_error_count": 0,
+        f"{prefix}_descriptor_ptr_read_row_count": active_rows,
+        f"{prefix}_descriptor_ptr_read_row_ok_count": active_rows,
+        f"{prefix}_descriptor_ptr_read_error_count": 0,
+        f"{prefix}_packed_weight_descriptor_read_row_count": active_rows,
+        f"{prefix}_packed_weight_descriptor_read_row_ok_count": active_rows,
+        f"{prefix}_packed_weight_descriptor_read_error_count": 0,
+        f"{prefix}_scale_metadata_handle_read_row_count": active_rows,
+        f"{prefix}_scale_metadata_handle_read_row_ok_count": active_rows,
+        f"{prefix}_scale_metadata_handle_read_error_count": 0,
+        f"{prefix}_aux_metadata_handle_read_row_count": active_rows,
+        f"{prefix}_aux_metadata_handle_read_row_ok_count": active_rows,
+        f"{prefix}_aux_metadata_handle_read_error_count": 0,
+        f"{prefix}_payload_bytes": 0,
+        f"{prefix}_passed_to_kernel": False,
+        f"{prefix}_changes_kernel_launch_args": False,
+        f"{prefix}_current_wna16_arg_compatible": False,
+        f"{prefix}_requires_wna16_arg_reinterpretation": False,
+        f"{prefix}_explicit_typed_abi_slot": True,
+        f"{prefix}_reuses_current_wna16_arg_slot": False,
+        f"{prefix}_hash_accumulator": "0000000000000001",
+        f"{prefix}_handle_projection_hash_accumulator": "0000000000000002",
+        f"{prefix}_descriptor_ptr_read_hash_accumulator": "0000000000000003",
+        f"{prefix}_packed_weight_descriptor_read_hash_accumulator": "0000000000000004",
+        f"{prefix}_scale_metadata_handle_read_hash_accumulator": "0000000000000005",
+        f"{prefix}_aux_metadata_handle_read_hash_accumulator": "0000000000000006",
+    }
+
+
+def _future_wna16_kernel_side_consumer_execution_dry_run_pairs(
+    *,
+    active_rows: int,
+) -> dict[str, Any]:
+    prefix = "future_wna16_kernel_side_consumer_execution"
+    return {
+        f"{prefix}_abi_name": "premap_future_wna16_kernel_side_consumer_execution_v1",
+        f"{prefix}_checked": True,
+        f"{prefix}_mode": "readonly_future_wna16_kernel_side_consumer_execution",
+        f"{prefix}_source": "premap_future_wna16_kernel_accept_typed_slot_v1",
+        f"{prefix}_packet_chain_depth": 16,
+        f"{prefix}_row_count": active_rows,
+        f"{prefix}_row_ok_count": active_rows,
+        f"{prefix}_error_count": 0,
+        f"{prefix}_descriptor_ptr_read_row_count": active_rows,
+        f"{prefix}_descriptor_ptr_read_row_ok_count": active_rows,
+        f"{prefix}_descriptor_ptr_read_error_count": 0,
+        f"{prefix}_packed_weight_descriptor_read_row_count": active_rows,
+        f"{prefix}_packed_weight_descriptor_read_row_ok_count": active_rows,
+        f"{prefix}_packed_weight_descriptor_read_error_count": 0,
+        f"{prefix}_scale_metadata_handle_read_row_count": active_rows,
+        f"{prefix}_scale_metadata_handle_read_row_ok_count": active_rows,
+        f"{prefix}_scale_metadata_handle_read_error_count": 0,
+        f"{prefix}_aux_metadata_handle_read_row_count": active_rows,
+        f"{prefix}_aux_metadata_handle_read_row_ok_count": active_rows,
+        f"{prefix}_aux_metadata_handle_read_error_count": 0,
+        f"{prefix}_payload_bytes": 0,
+        f"{prefix}_passed_to_kernel": False,
+        f"{prefix}_changes_kernel_launch_args": False,
+        f"{prefix}_current_wna16_arg_compatible": False,
+        f"{prefix}_requires_wna16_arg_reinterpretation": False,
+        f"{prefix}_explicit_typed_abi_slot": True,
+        f"{prefix}_reuses_current_wna16_arg_slot": False,
+        f"{prefix}_hash_accumulator": "0000000000000001",
+        f"{prefix}_handle_projection_hash_accumulator": "0000000000000002",
+        f"{prefix}_descriptor_ptr_read_hash_accumulator": "0000000000000003",
+        f"{prefix}_packed_weight_descriptor_read_hash_accumulator": "0000000000000004",
+        f"{prefix}_scale_metadata_handle_read_hash_accumulator": "0000000000000005",
+        f"{prefix}_aux_metadata_handle_read_hash_accumulator": "0000000000000006",
+    }
+
+
+def _future_wna16_single_field_handoff_canary_dry_run_pairs(
+    *,
+    active_rows: int,
+    mirror_field: str,
+) -> dict[str, Any]:
+    prefix = "future_wna16_single_field_handoff_canary"
+    field_kind = {
+        "descriptor_ptr": 1,
+        "packed_weight_descriptor": 2,
+        "scale_metadata_handle": 3,
+        "aux_metadata_handle": 4,
+    }[mirror_field]
+    field_mask = 1 << (field_kind - 1)
+    return {
+        f"{prefix}_abi_name": "premap_future_wna16_single_field_handoff_canary_v1",
+        f"{prefix}_checked": True,
+        f"{prefix}_mode": "readonly_future_wna16_single_field_handoff_canary",
+        f"{prefix}_source": "premap_future_wna16_kernel_side_consumer_execution_v1",
+        f"{prefix}_field_read_path": (
+            "future_wna16_single_field_handoff_to_"
+            "future_wna16_kernel_side_execution_to_"
+            "accepted_typed_slot_to_program_view_rows"
+        ),
+        f"{prefix}_field_name": mirror_field,
+        f"{prefix}_field_kind": field_kind,
+        f"{prefix}_field_mask": field_mask,
+        f"{prefix}_row_count": active_rows,
+        f"{prefix}_row_ok_count": active_rows,
+        f"{prefix}_error_count": 0,
+        f"{prefix}_payload_bytes": 0,
+        f"{prefix}_live_enabled": False,
+        f"{prefix}_passed_to_kernel": False,
+        f"{prefix}_changes_kernel_launch_args": False,
+        f"{prefix}_current_wna16_arg_compatible": False,
+        f"{prefix}_requires_wna16_arg_reinterpretation": False,
+        f"{prefix}_explicit_typed_abi_slot": True,
+        f"{prefix}_reuses_current_wna16_arg_slot": False,
+        f"{prefix}_hash_accumulator": "0000000000000007",
+    }
+
+
+def _check_future_wna16_kernel_side_consumer_execution(
+    stub: dict[str, Any],
+    *,
+    active_rows: int,
+) -> list[str]:
+    failures: list[str] = []
+    prefix = "future_wna16_kernel_side_consumer_execution"
+    expected = {
+        f"{prefix}_checked": True,
+        f"{prefix}_abi_name": "premap_future_wna16_kernel_side_consumer_execution_v1",
+        f"{prefix}_mode": "readonly_future_wna16_kernel_side_consumer_execution",
+        f"{prefix}_source": "premap_future_wna16_kernel_accept_typed_slot_v1",
+        f"{prefix}_row_count": active_rows,
+        f"{prefix}_row_ok_count": active_rows,
+        f"{prefix}_error_count": 0,
+        f"{prefix}_payload_bytes": 0,
+        f"{prefix}_passed_to_kernel": False,
+        f"{prefix}_changes_kernel_launch_args": False,
+        f"{prefix}_current_wna16_arg_compatible": False,
+        f"{prefix}_requires_wna16_arg_reinterpretation": False,
+        f"{prefix}_explicit_typed_abi_slot": True,
+        f"{prefix}_reuses_current_wna16_arg_slot": False,
+    }
+    for key, expected_value in expected.items():
+        if not _strict_scalar_equal(stub.get(key), expected_value):
+            failures.append(f"{key}_mismatch:{stub.get(key)!r}!={expected_value!r}")
+    accept_depth = stub.get("future_wna16_kernel_accept_typed_slot_packet_chain_depth")
+    execution_depth = stub.get(f"{prefix}_packet_chain_depth")
+    if isinstance(accept_depth, int) and execution_depth != accept_depth + 1:
+        failures.append(f"{prefix}_packet_chain_depth_mismatch")
+    for key in (
+        "descriptor_ptr_read",
+        "packed_weight_descriptor_read",
+        "scale_metadata_handle_read",
+        "aux_metadata_handle_read",
+    ):
+        row_key = f"{prefix}_{key}_row_count"
+        ok_key = f"{prefix}_{key}_row_ok_count"
+        err_key = f"{prefix}_{key}_error_count"
+        if stub.get(row_key) != active_rows:
+            failures.append(f"{row_key}_mismatch")
+        if stub.get(ok_key) != active_rows:
+            failures.append(f"{ok_key}_mismatch")
+        if stub.get(err_key) != 0:
+            failures.append(f"{err_key}_mismatch")
+    for key in (
+        f"{prefix}_hash_accumulator",
+        f"{prefix}_handle_projection_hash_accumulator",
+        f"{prefix}_descriptor_ptr_read_hash_accumulator",
+        f"{prefix}_packed_weight_descriptor_read_hash_accumulator",
+        f"{prefix}_scale_metadata_handle_read_hash_accumulator",
+        f"{prefix}_aux_metadata_handle_read_hash_accumulator",
+    ):
+        if _parse_hex64(stub.get(key)) is None:
+            failures.append(f"{key}_invalid")
+    return failures
+
+
+def _check_future_wna16_single_field_handoff_canary(
+    stub: dict[str, Any],
+    *,
+    active_rows: int,
+    mirror_field: str,
+) -> list[str]:
+    failures: list[str] = []
+    prefix = "future_wna16_single_field_handoff_canary"
+    field_kind = {
+        "descriptor_ptr": 1,
+        "packed_weight_descriptor": 2,
+        "scale_metadata_handle": 3,
+        "aux_metadata_handle": 4,
+    }[mirror_field]
+    expected = {
+        f"{prefix}_checked": True,
+        f"{prefix}_abi_name": "premap_future_wna16_single_field_handoff_canary_v1",
+        f"{prefix}_mode": "readonly_future_wna16_single_field_handoff_canary",
+        f"{prefix}_source": "premap_future_wna16_kernel_side_consumer_execution_v1",
+        f"{prefix}_field_name": mirror_field,
+        f"{prefix}_field_kind": field_kind,
+        f"{prefix}_field_mask": 1 << (field_kind - 1),
+        f"{prefix}_row_count": active_rows,
+        f"{prefix}_row_ok_count": active_rows,
+        f"{prefix}_error_count": 0,
+        f"{prefix}_payload_bytes": 0,
+        f"{prefix}_live_enabled": False,
+        f"{prefix}_passed_to_kernel": False,
+        f"{prefix}_changes_kernel_launch_args": False,
+        f"{prefix}_current_wna16_arg_compatible": False,
+        f"{prefix}_requires_wna16_arg_reinterpretation": False,
+        f"{prefix}_explicit_typed_abi_slot": True,
+        f"{prefix}_reuses_current_wna16_arg_slot": False,
+    }
+    for key, expected_value in expected.items():
+        if not _strict_scalar_equal(stub.get(key), expected_value):
+            failures.append(f"{key}_mismatch:{stub.get(key)!r}!={expected_value!r}")
+    if _parse_hex64(stub.get(f"{prefix}_hash_accumulator")) is None:
+        failures.append(f"{prefix}_hash_accumulator_invalid")
+    return failures
+
+
+def _check_wna16_side_consumer_variant_execution(
+    stub: dict[str, Any],
+    *,
+    active_rows: int,
+) -> list[str]:
+    failures: list[str] = []
+    prefix = "wna16_side_consumer_variant_execution"
+    expected = {
+        f"{prefix}_checked": True,
+        f"{prefix}_abi_name": "premap_wna16_side_consumer_variant_execution_v1",
+        f"{prefix}_mode": "readonly_wna16_side_consumer_variant_execution",
+        f"{prefix}_source": "premap_future_wna16_typed_slot_kernel_variant_v1",
+        f"{prefix}_row_count": active_rows,
+        f"{prefix}_row_ok_count": active_rows,
+        f"{prefix}_error_count": 0,
+        f"{prefix}_payload_bytes": 0,
+        f"{prefix}_passed_to_kernel": False,
+        f"{prefix}_changes_kernel_launch_args": False,
+        f"{prefix}_current_wna16_arg_compatible": False,
+        f"{prefix}_requires_wna16_arg_reinterpretation": False,
+        f"{prefix}_explicit_typed_abi_slot": True,
+        f"{prefix}_reuses_current_wna16_arg_slot": False,
+    }
+    for key, expected_value in expected.items():
+        if not _strict_scalar_equal(stub.get(key), expected_value):
+            failures.append(f"{key}_mismatch:{stub.get(key)!r}!={expected_value!r}")
+    variant_depth = stub.get("future_wna16_typed_slot_kernel_variant_packet_chain_depth")
+    execution_depth = stub.get(f"{prefix}_packet_chain_depth")
+    if isinstance(variant_depth, int) and execution_depth != variant_depth + 1:
+        failures.append(f"{prefix}_packet_chain_depth_mismatch")
+    for key in (
+        "descriptor_ptr_read",
+        "packed_weight_descriptor_read",
+        "scale_metadata_handle_read",
+        "aux_metadata_handle_read",
+    ):
+        row_key = f"{prefix}_{key}_row_count"
+        ok_key = f"{prefix}_{key}_row_ok_count"
+        err_key = f"{prefix}_{key}_error_count"
+        if stub.get(row_key) != active_rows:
+            failures.append(f"{row_key}_mismatch")
+        if stub.get(ok_key) != active_rows:
+            failures.append(f"{ok_key}_mismatch")
+        if stub.get(err_key) != 0:
+            failures.append(f"{err_key}_mismatch")
+    for key in (
+        f"{prefix}_hash_accumulator",
+        f"{prefix}_handle_projection_hash_accumulator",
+        f"{prefix}_descriptor_ptr_read_hash_accumulator",
+        f"{prefix}_packed_weight_descriptor_read_hash_accumulator",
+        f"{prefix}_scale_metadata_handle_read_hash_accumulator",
+        f"{prefix}_aux_metadata_handle_read_hash_accumulator",
+    ):
+        if _parse_hex64(stub.get(key)) is None:
+            failures.append(f"{key}_invalid")
+    return failures
+
+
 def _check_endpoint_ptr(
     stub: dict[str, Any],
     *,
@@ -1929,12 +2474,27 @@ def arg_slot_macros(
     include_endpoint: bool = False,
     include_endpoint_ptr: bool = False,
     include_wna16_adjacent_typed_slot: bool = False,
+    include_future_wna16_typed_slot_kernel_variant: bool = False,
+    include_future_wna16_kernel_accept_typed_slot: bool = False,
+    include_future_wna16_kernel_side_consumer_execution: bool = False,
+    include_future_wna16_single_field_handoff_canary: bool = False,
+    include_wna16_side_consumer_variant_execution: bool = False,
 ) -> list[str]:
     try:
         mirror_macro = MIRROR_FIELD_MACRO[mirror_field]
     except KeyError as exc:
         raise ValueError(f"unsupported mirror field: {mirror_field}") from exc
     macros = [*ARG_SLOT_BASE_MACROS]
+    if include_wna16_side_consumer_variant_execution:
+        include_future_wna16_typed_slot_kernel_variant = True
+    if include_future_wna16_single_field_handoff_canary:
+        include_future_wna16_kernel_side_consumer_execution = True
+    if include_future_wna16_kernel_side_consumer_execution:
+        include_future_wna16_kernel_accept_typed_slot = True
+    if include_future_wna16_kernel_accept_typed_slot:
+        include_wna16_adjacent_typed_slot = True
+    if include_future_wna16_typed_slot_kernel_variant:
+        include_wna16_adjacent_typed_slot = True
     if include_wna16_adjacent_typed_slot:
         include_endpoint_ptr = True
     if include_endpoint_ptr:
@@ -1969,6 +2529,16 @@ def arg_slot_macros(
         macros.append(ENDPOINT_PTR_MACRO)
     if include_wna16_adjacent_typed_slot:
         macros.append(WNA16_ADJACENT_TYPED_SLOT_MACRO)
+    if include_future_wna16_typed_slot_kernel_variant:
+        macros.append(FUTURE_WNA16_TYPED_SLOT_KERNEL_VARIANT_MACRO)
+    if include_future_wna16_kernel_accept_typed_slot:
+        macros.append(FUTURE_WNA16_KERNEL_ACCEPT_TYPED_SLOT_MACRO)
+    if include_future_wna16_kernel_side_consumer_execution:
+        macros.append(FUTURE_WNA16_KERNEL_SIDE_CONSUMER_EXECUTION_MACRO)
+    if include_future_wna16_single_field_handoff_canary:
+        macros.append(FUTURE_WNA16_SINGLE_FIELD_HANDOFF_CANARY_MACRO)
+    if include_wna16_side_consumer_variant_execution:
+        macros.append(WNA16_SIDE_CONSUMER_VARIANT_EXECUTION_MACRO)
     macros.append(mirror_macro)
     return validate_macros(macros)
 
@@ -2018,6 +2588,11 @@ def _validate_stub(
     require_kernel_endpoint_abi: bool = False,
     require_kernel_endpoint_ptr_abi: bool = False,
     require_wna16_adjacent_typed_slot: bool = False,
+    require_future_wna16_typed_slot_kernel_variant: bool = False,
+    require_future_wna16_kernel_accept_typed_slot: bool = False,
+    require_future_wna16_kernel_side_consumer_execution: bool = False,
+    require_future_wna16_single_field_handoff_canary: bool = False,
+    require_wna16_side_consumer_variant_execution: bool = False,
 ) -> list[str]:
     failures: list[str] = []
     row_count = int(merged_input["_meta"]["row_count"])
@@ -2164,6 +2739,21 @@ def _validate_stub(
         include_endpoint=require_kernel_endpoint_abi,
         include_endpoint_ptr=require_kernel_endpoint_ptr_abi,
         include_wna16_adjacent_typed_slot=require_wna16_adjacent_typed_slot,
+        include_future_wna16_typed_slot_kernel_variant=(
+            require_future_wna16_typed_slot_kernel_variant
+        ),
+        include_future_wna16_kernel_accept_typed_slot=(
+            require_future_wna16_kernel_accept_typed_slot
+        ),
+        include_future_wna16_kernel_side_consumer_execution=(
+            require_future_wna16_kernel_side_consumer_execution
+        ),
+        include_future_wna16_single_field_handoff_canary=(
+            require_future_wna16_single_field_handoff_canary
+        ),
+        include_wna16_side_consumer_variant_execution=(
+            require_wna16_side_consumer_variant_execution
+        ),
     ):
         failures.append("requested_macros_mismatch")
     if require_wna16_adjacent_typed_slot:
@@ -2226,6 +2816,38 @@ def _validate_stub(
         ):
             if _parse_hex64(stub.get(key)) is None:
                 failures.append(f"{key}_invalid")
+    if require_future_wna16_typed_slot_kernel_variant:
+        failures.extend(
+            _check_future_wna16_typed_slot_kernel_variant(
+                stub, active_rows=active_rows
+            )
+        )
+    if require_future_wna16_kernel_accept_typed_slot:
+        failures.extend(
+            _check_future_wna16_kernel_accept_typed_slot(
+                stub, active_rows=active_rows
+            )
+        )
+    if require_future_wna16_kernel_side_consumer_execution:
+        failures.extend(
+            _check_future_wna16_kernel_side_consumer_execution(
+                stub, active_rows=active_rows
+            )
+        )
+    if require_future_wna16_single_field_handoff_canary:
+        failures.extend(
+            _check_future_wna16_single_field_handoff_canary(
+                stub,
+                active_rows=active_rows,
+                mirror_field=mirror_field,
+            )
+        )
+    if require_wna16_side_consumer_variant_execution:
+        failures.extend(
+            _check_wna16_side_consumer_variant_execution(
+                stub, active_rows=active_rows
+            )
+        )
     projection_values: list[int] = []
     for prefix in _HANDLE_PROJECTION_HASH_PREFIXES:
         key = f"{prefix}_handle_projection_hash_accumulator"
@@ -2341,6 +2963,11 @@ def _stub_namespace(
     require_kernel_endpoint_abi: bool,
     require_kernel_endpoint_ptr_abi: bool,
     require_wna16_adjacent_typed_slot: bool,
+    require_future_wna16_typed_slot_kernel_variant: bool,
+    require_future_wna16_kernel_accept_typed_slot: bool,
+    require_future_wna16_kernel_side_consumer_execution: bool,
+    require_future_wna16_single_field_handoff_canary: bool,
+    require_wna16_side_consumer_variant_execution: bool,
 ) -> SimpleNamespace:
     # Bounds are validated after the merged input is materialized; this namespace
     # is filled in run_canary once the row count is known.
@@ -2356,6 +2983,21 @@ def _stub_namespace(
             include_endpoint=require_kernel_endpoint_abi,
             include_endpoint_ptr=require_kernel_endpoint_ptr_abi,
             include_wna16_adjacent_typed_slot=require_wna16_adjacent_typed_slot,
+            include_future_wna16_typed_slot_kernel_variant=(
+                require_future_wna16_typed_slot_kernel_variant
+            ),
+            include_future_wna16_kernel_accept_typed_slot=(
+                require_future_wna16_kernel_accept_typed_slot
+            ),
+            include_future_wna16_kernel_side_consumer_execution=(
+                require_future_wna16_kernel_side_consumer_execution
+            ),
+            include_future_wna16_single_field_handoff_canary=(
+                require_future_wna16_single_field_handoff_canary
+            ),
+            include_wna16_side_consumer_variant_execution=(
+                require_wna16_side_consumer_variant_execution
+            ),
         ),
         offload_arch=args.offload_arch,
         force_build=bool(args.force_build),
@@ -2374,8 +3016,27 @@ def _stub_namespace(
 
 
 def run_canary(args: argparse.Namespace) -> dict[str, Any]:
+    require_future_wna16_single_field_handoff_canary = bool(
+        args.require_future_wna16_single_field_handoff_canary
+    )
+    require_wna16_side_consumer_variant_execution = bool(
+        args.require_wna16_side_consumer_variant_execution
+    )
+    require_future_wna16_typed_slot_kernel_variant = bool(
+        args.require_future_wna16_typed_slot_kernel_variant
+    ) or require_wna16_side_consumer_variant_execution
+    require_future_wna16_kernel_accept_typed_slot = bool(
+        args.require_future_wna16_kernel_accept_typed_slot
+    ) or bool(
+        args.require_future_wna16_kernel_side_consumer_execution
+    ) or require_future_wna16_single_field_handoff_canary
+    require_future_wna16_kernel_side_consumer_execution = bool(
+        args.require_future_wna16_kernel_side_consumer_execution
+    ) or require_future_wna16_single_field_handoff_canary
     require_wna16_adjacent_typed_slot = bool(
         args.require_wna16_adjacent_typed_slot
+    ) or require_future_wna16_typed_slot_kernel_variant or (
+        require_future_wna16_kernel_accept_typed_slot
     )
     require_kernel_endpoint_ptr_abi = (
         bool(args.require_kernel_endpoint_ptr_abi)
@@ -2486,6 +3147,21 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
                 include_endpoint=require_kernel_endpoint_abi,
                 include_endpoint_ptr=require_kernel_endpoint_ptr_abi,
                 include_wna16_adjacent_typed_slot=require_wna16_adjacent_typed_slot,
+                include_future_wna16_typed_slot_kernel_variant=(
+                    require_future_wna16_typed_slot_kernel_variant
+                ),
+                include_future_wna16_kernel_accept_typed_slot=(
+                    require_future_wna16_kernel_accept_typed_slot
+                ),
+                include_future_wna16_kernel_side_consumer_execution=(
+                    require_future_wna16_kernel_side_consumer_execution
+                ),
+                include_future_wna16_single_field_handoff_canary=(
+                    require_future_wna16_single_field_handoff_canary
+                ),
+                include_wna16_side_consumer_variant_execution=(
+                    require_wna16_side_consumer_variant_execution
+                ),
             ),
             "mirror_field": args.mirror_field,
             **_future_field_mask_expectations(),
@@ -2859,6 +3535,37 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
             stub_payload.update(
                 _wna16_adjacent_typed_slot_dry_run_pairs(active_rows=active_rows)
             )
+        if require_future_wna16_typed_slot_kernel_variant:
+            stub_payload.update(
+                _future_wna16_typed_slot_kernel_variant_dry_run_pairs(
+                    active_rows=active_rows
+                )
+            )
+        if require_future_wna16_kernel_accept_typed_slot:
+            stub_payload.update(
+                _future_wna16_kernel_accept_typed_slot_dry_run_pairs(
+                    active_rows=active_rows
+                )
+            )
+        if require_future_wna16_kernel_side_consumer_execution:
+            stub_payload.update(
+                _future_wna16_kernel_side_consumer_execution_dry_run_pairs(
+                    active_rows=active_rows
+                )
+            )
+        if require_future_wna16_single_field_handoff_canary:
+            stub_payload.update(
+                _future_wna16_single_field_handoff_canary_dry_run_pairs(
+                    active_rows=active_rows,
+                    mirror_field=str(args.mirror_field),
+                )
+            )
+        if require_wna16_side_consumer_variant_execution:
+            stub_payload.update(
+                _wna16_side_consumer_variant_execution_dry_run_pairs(
+                    active_rows=active_rows
+                )
+            )
     else:
         stub_payload = run_stub(
             _stub_namespace(
@@ -2879,6 +3586,21 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
                 require_kernel_endpoint_abi=require_kernel_endpoint_abi,
                 require_kernel_endpoint_ptr_abi=require_kernel_endpoint_ptr_abi,
                 require_wna16_adjacent_typed_slot=require_wna16_adjacent_typed_slot,
+                require_future_wna16_typed_slot_kernel_variant=(
+                    require_future_wna16_typed_slot_kernel_variant
+                ),
+                require_future_wna16_kernel_accept_typed_slot=(
+                    require_future_wna16_kernel_accept_typed_slot
+                ),
+                require_future_wna16_kernel_side_consumer_execution=(
+                    require_future_wna16_kernel_side_consumer_execution
+                ),
+                require_future_wna16_single_field_handoff_canary=(
+                    require_future_wna16_single_field_handoff_canary
+                ),
+                require_wna16_side_consumer_variant_execution=(
+                    require_wna16_side_consumer_variant_execution
+                ),
             )
         )
     stub_payload.setdefault("passed", bool(stub_payload.get("ok", False)))
@@ -2907,6 +3629,21 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
         require_kernel_endpoint_abi=require_kernel_endpoint_abi,
         require_kernel_endpoint_ptr_abi=require_kernel_endpoint_ptr_abi,
         require_wna16_adjacent_typed_slot=require_wna16_adjacent_typed_slot,
+        require_future_wna16_typed_slot_kernel_variant=(
+            require_future_wna16_typed_slot_kernel_variant
+        ),
+        require_future_wna16_kernel_accept_typed_slot=(
+            require_future_wna16_kernel_accept_typed_slot
+        ),
+        require_future_wna16_kernel_side_consumer_execution=(
+            require_future_wna16_kernel_side_consumer_execution
+        ),
+        require_future_wna16_single_field_handoff_canary=(
+            require_future_wna16_single_field_handoff_canary
+        ),
+        require_wna16_side_consumer_variant_execution=(
+            require_wna16_side_consumer_variant_execution
+        ),
     )
     launch_envelope_args_failures = (
         _check_launch_envelope_args(
@@ -3003,6 +3740,21 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
         "require_kernel_endpoint_abi": require_kernel_endpoint_abi,
         "require_kernel_endpoint_ptr_abi": require_kernel_endpoint_ptr_abi,
         "require_wna16_adjacent_typed_slot": require_wna16_adjacent_typed_slot,
+        "require_future_wna16_typed_slot_kernel_variant": (
+            require_future_wna16_typed_slot_kernel_variant
+        ),
+        "require_future_wna16_kernel_accept_typed_slot": (
+            require_future_wna16_kernel_accept_typed_slot
+        ),
+        "require_future_wna16_kernel_side_consumer_execution": (
+            require_future_wna16_kernel_side_consumer_execution
+        ),
+        "require_future_wna16_single_field_handoff_canary": (
+            require_future_wna16_single_field_handoff_canary
+        ),
+        "require_wna16_side_consumer_variant_execution": (
+            require_wna16_side_consumer_variant_execution
+        ),
         "block_threads": int(args.block_threads),
         "device": int(args.device),
         "hip_visible_devices": args.hip_visible_devices,
@@ -3719,6 +4471,541 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
             if require_wna16_adjacent_typed_slot
             else None
         ),
+        "future_wna16_typed_slot_kernel_variant_checked": (
+            stub_payload.get("future_wna16_typed_slot_kernel_variant_checked")
+            if require_future_wna16_typed_slot_kernel_variant
+            else None
+        ),
+        "future_wna16_typed_slot_kernel_variant_name": (
+            stub_payload.get("future_wna16_typed_slot_kernel_variant_abi_name")
+            if require_future_wna16_typed_slot_kernel_variant
+            else None
+        ),
+        "future_wna16_typed_slot_kernel_variant_mode": (
+            stub_payload.get("future_wna16_typed_slot_kernel_variant_mode")
+            if require_future_wna16_typed_slot_kernel_variant
+            else None
+        ),
+        "future_wna16_typed_slot_kernel_variant_source": (
+            stub_payload.get("future_wna16_typed_slot_kernel_variant_source")
+            if require_future_wna16_typed_slot_kernel_variant
+            else None
+        ),
+        "future_wna16_typed_slot_kernel_variant_row_count": (
+            stub_payload.get(
+                "future_wna16_typed_slot_kernel_variant_summary_row_count"
+            )
+            if require_future_wna16_typed_slot_kernel_variant
+            else None
+        ),
+        "future_wna16_typed_slot_kernel_variant_row_ok_count": (
+            stub_payload.get(
+                "future_wna16_typed_slot_kernel_variant_summary_row_ok_count"
+            )
+            if require_future_wna16_typed_slot_kernel_variant
+            else None
+        ),
+        "future_wna16_typed_slot_kernel_variant_error_count": (
+            stub_payload.get(
+                "future_wna16_typed_slot_kernel_variant_summary_error_count"
+            )
+            if require_future_wna16_typed_slot_kernel_variant
+            else None
+        ),
+        "future_wna16_typed_slot_kernel_variant_all_handle_fields_read": (
+            require_future_wna16_typed_slot_kernel_variant
+            and not _check_future_wna16_typed_slot_kernel_variant(
+                stub_payload, active_rows=active_rows
+            )
+        ),
+        "future_wna16_typed_slot_kernel_variant_packet_chain_depth": (
+            stub_payload.get("future_wna16_typed_slot_kernel_variant_packet_chain_depth")
+            if require_future_wna16_typed_slot_kernel_variant
+            else None
+        ),
+        "future_wna16_typed_slot_kernel_variant_payload_bytes": (
+            stub_payload.get("future_wna16_typed_slot_kernel_variant_payload_bytes")
+            if require_future_wna16_typed_slot_kernel_variant
+            else None
+        ),
+        "future_wna16_typed_slot_kernel_variant_passed_to_kernel": (
+            stub_payload.get("future_wna16_typed_slot_kernel_variant_passed_to_kernel")
+            if require_future_wna16_typed_slot_kernel_variant
+            else None
+        ),
+        "future_wna16_typed_slot_kernel_variant_changes_kernel_launch_args": (
+            stub_payload.get(
+                "future_wna16_typed_slot_kernel_variant_changes_kernel_launch_args"
+            )
+            if require_future_wna16_typed_slot_kernel_variant
+            else None
+        ),
+        "future_wna16_typed_slot_kernel_variant_current_wna16_arg_compatible": (
+            stub_payload.get(
+                "future_wna16_typed_slot_kernel_variant_current_wna16_arg_compatible"
+            )
+            if require_future_wna16_typed_slot_kernel_variant
+            else None
+        ),
+        "future_wna16_typed_slot_kernel_variant_requires_wna16_arg_reinterpretation": (
+            stub_payload.get(
+                "future_wna16_typed_slot_kernel_variant_requires_wna16_arg_reinterpretation"
+            )
+            if require_future_wna16_typed_slot_kernel_variant
+            else None
+        ),
+        "future_wna16_typed_slot_kernel_variant_explicit_typed_abi_slot": (
+            stub_payload.get(
+                "future_wna16_typed_slot_kernel_variant_explicit_typed_abi_slot"
+            )
+            if require_future_wna16_typed_slot_kernel_variant
+            else None
+        ),
+        "future_wna16_typed_slot_kernel_variant_reuses_current_wna16_arg_slot": (
+            stub_payload.get(
+                "future_wna16_typed_slot_kernel_variant_reuses_current_wna16_arg_slot"
+            )
+            if require_future_wna16_typed_slot_kernel_variant
+            else None
+        ),
+        "future_wna16_typed_slot_kernel_variant_row_hash_accumulator": (
+            stub_payload.get(
+                "future_wna16_typed_slot_kernel_variant_summary_row_hash_accumulator"
+            )
+            if require_future_wna16_typed_slot_kernel_variant
+            else None
+        ),
+        "future_wna16_typed_slot_kernel_variant_field_read_hash_accumulator": (
+            stub_payload.get(
+                "future_wna16_typed_slot_kernel_variant_summary_field_read_hash_accumulator"
+            )
+            if require_future_wna16_typed_slot_kernel_variant
+            else None
+        ),
+        "future_wna16_typed_slot_kernel_variant_row_metadata_hash_accumulator": (
+            stub_payload.get(
+                "future_wna16_typed_slot_kernel_variant_summary_row_metadata_hash_accumulator"
+            )
+            if require_future_wna16_typed_slot_kernel_variant
+            else None
+        ),
+        "future_wna16_kernel_accept_typed_slot_checked": (
+            stub_payload.get("future_wna16_kernel_accept_typed_slot_checked")
+            if require_future_wna16_kernel_accept_typed_slot
+            else None
+        ),
+        "future_wna16_kernel_accept_typed_slot_name": (
+            stub_payload.get("future_wna16_kernel_accept_typed_slot_abi_name")
+            if require_future_wna16_kernel_accept_typed_slot
+            else None
+        ),
+        "future_wna16_kernel_accept_typed_slot_mode": (
+            stub_payload.get("future_wna16_kernel_accept_typed_slot_mode")
+            if require_future_wna16_kernel_accept_typed_slot
+            else None
+        ),
+        "future_wna16_kernel_accept_typed_slot_source": (
+            stub_payload.get("future_wna16_kernel_accept_typed_slot_source")
+            if require_future_wna16_kernel_accept_typed_slot
+            else None
+        ),
+        "future_wna16_kernel_accept_typed_slot_row_count": (
+            stub_payload.get("future_wna16_kernel_accept_typed_slot_summary_row_count")
+            if require_future_wna16_kernel_accept_typed_slot
+            else None
+        ),
+        "future_wna16_kernel_accept_typed_slot_row_ok_count": (
+            stub_payload.get(
+                "future_wna16_kernel_accept_typed_slot_summary_row_ok_count"
+            )
+            if require_future_wna16_kernel_accept_typed_slot
+            else None
+        ),
+        "future_wna16_kernel_accept_typed_slot_error_count": (
+            stub_payload.get(
+                "future_wna16_kernel_accept_typed_slot_summary_error_count"
+            )
+            if require_future_wna16_kernel_accept_typed_slot
+            else None
+        ),
+        "future_wna16_kernel_accept_typed_slot_all_handle_fields_read": (
+            require_future_wna16_kernel_accept_typed_slot
+            and not _check_future_wna16_kernel_accept_typed_slot(
+                stub_payload, active_rows=active_rows
+            )
+        ),
+        "future_wna16_kernel_accept_typed_slot_packet_chain_depth": (
+            stub_payload.get("future_wna16_kernel_accept_typed_slot_packet_chain_depth")
+            if require_future_wna16_kernel_accept_typed_slot
+            else None
+        ),
+        "future_wna16_kernel_accept_typed_slot_payload_bytes": (
+            stub_payload.get("future_wna16_kernel_accept_typed_slot_payload_bytes")
+            if require_future_wna16_kernel_accept_typed_slot
+            else None
+        ),
+        "future_wna16_kernel_accept_typed_slot_passed_to_kernel": (
+            stub_payload.get("future_wna16_kernel_accept_typed_slot_passed_to_kernel")
+            if require_future_wna16_kernel_accept_typed_slot
+            else None
+        ),
+        "future_wna16_kernel_accept_typed_slot_changes_kernel_launch_args": (
+            stub_payload.get(
+                "future_wna16_kernel_accept_typed_slot_changes_kernel_launch_args"
+            )
+            if require_future_wna16_kernel_accept_typed_slot
+            else None
+        ),
+        "future_wna16_kernel_accept_typed_slot_current_wna16_arg_compatible": (
+            stub_payload.get(
+                "future_wna16_kernel_accept_typed_slot_current_wna16_arg_compatible"
+            )
+            if require_future_wna16_kernel_accept_typed_slot
+            else None
+        ),
+        "future_wna16_kernel_accept_typed_slot_requires_wna16_arg_reinterpretation": (
+            stub_payload.get(
+                "future_wna16_kernel_accept_typed_slot_requires_wna16_arg_reinterpretation"
+            )
+            if require_future_wna16_kernel_accept_typed_slot
+            else None
+        ),
+        "future_wna16_kernel_accept_typed_slot_explicit_typed_abi_slot": (
+            stub_payload.get(
+                "future_wna16_kernel_accept_typed_slot_explicit_typed_abi_slot"
+            )
+            if require_future_wna16_kernel_accept_typed_slot
+            else None
+        ),
+        "future_wna16_kernel_accept_typed_slot_reuses_current_wna16_arg_slot": (
+            stub_payload.get(
+                "future_wna16_kernel_accept_typed_slot_reuses_current_wna16_arg_slot"
+            )
+            if require_future_wna16_kernel_accept_typed_slot
+            else None
+        ),
+        "future_wna16_kernel_accept_typed_slot_row_hash_accumulator": (
+            stub_payload.get(
+                "future_wna16_kernel_accept_typed_slot_summary_row_hash_accumulator"
+            )
+            if require_future_wna16_kernel_accept_typed_slot
+            else None
+        ),
+        "future_wna16_kernel_accept_typed_slot_field_read_hash_accumulator": (
+            stub_payload.get(
+                "future_wna16_kernel_accept_typed_slot_summary_field_read_hash_accumulator"
+            )
+            if require_future_wna16_kernel_accept_typed_slot
+            else None
+        ),
+        "future_wna16_kernel_accept_typed_slot_row_metadata_hash_accumulator": (
+            stub_payload.get(
+                "future_wna16_kernel_accept_typed_slot_summary_row_metadata_hash_accumulator"
+            )
+            if require_future_wna16_kernel_accept_typed_slot
+            else None
+        ),
+        "future_wna16_kernel_side_consumer_execution_checked": (
+            stub_payload.get("future_wna16_kernel_side_consumer_execution_checked")
+            if require_future_wna16_kernel_side_consumer_execution
+            else None
+        ),
+        "future_wna16_kernel_side_consumer_execution_name": (
+            stub_payload.get("future_wna16_kernel_side_consumer_execution_abi_name")
+            if require_future_wna16_kernel_side_consumer_execution
+            else None
+        ),
+        "future_wna16_kernel_side_consumer_execution_mode": (
+            stub_payload.get("future_wna16_kernel_side_consumer_execution_mode")
+            if require_future_wna16_kernel_side_consumer_execution
+            else None
+        ),
+        "future_wna16_kernel_side_consumer_execution_source": (
+            stub_payload.get("future_wna16_kernel_side_consumer_execution_source")
+            if require_future_wna16_kernel_side_consumer_execution
+            else None
+        ),
+        "future_wna16_kernel_side_consumer_execution_row_count": (
+            stub_payload.get("future_wna16_kernel_side_consumer_execution_row_count")
+            if require_future_wna16_kernel_side_consumer_execution
+            else None
+        ),
+        "future_wna16_kernel_side_consumer_execution_row_ok_count": (
+            stub_payload.get("future_wna16_kernel_side_consumer_execution_row_ok_count")
+            if require_future_wna16_kernel_side_consumer_execution
+            else None
+        ),
+        "future_wna16_kernel_side_consumer_execution_error_count": (
+            stub_payload.get("future_wna16_kernel_side_consumer_execution_error_count")
+            if require_future_wna16_kernel_side_consumer_execution
+            else None
+        ),
+        "future_wna16_kernel_side_consumer_execution_all_handle_fields_read": (
+            require_future_wna16_kernel_side_consumer_execution
+            and not _check_future_wna16_kernel_side_consumer_execution(
+                stub_payload, active_rows=active_rows
+            )
+        ),
+        "future_wna16_kernel_side_consumer_execution_packet_chain_depth": (
+            stub_payload.get(
+                "future_wna16_kernel_side_consumer_execution_packet_chain_depth"
+            )
+            if require_future_wna16_kernel_side_consumer_execution
+            else None
+        ),
+        "future_wna16_kernel_side_consumer_execution_payload_bytes": (
+            stub_payload.get("future_wna16_kernel_side_consumer_execution_payload_bytes")
+            if require_future_wna16_kernel_side_consumer_execution
+            else None
+        ),
+        "future_wna16_kernel_side_consumer_execution_passed_to_kernel": (
+            stub_payload.get("future_wna16_kernel_side_consumer_execution_passed_to_kernel")
+            if require_future_wna16_kernel_side_consumer_execution
+            else None
+        ),
+        "future_wna16_kernel_side_consumer_execution_changes_kernel_launch_args": (
+            stub_payload.get(
+                "future_wna16_kernel_side_consumer_execution_changes_kernel_launch_args"
+            )
+            if require_future_wna16_kernel_side_consumer_execution
+            else None
+        ),
+        "future_wna16_kernel_side_consumer_execution_current_wna16_arg_compatible": (
+            stub_payload.get(
+                "future_wna16_kernel_side_consumer_execution_current_wna16_arg_compatible"
+            )
+            if require_future_wna16_kernel_side_consumer_execution
+            else None
+        ),
+        "future_wna16_kernel_side_consumer_execution_requires_wna16_arg_reinterpretation": (
+            stub_payload.get(
+                "future_wna16_kernel_side_consumer_execution_requires_wna16_arg_reinterpretation"
+            )
+            if require_future_wna16_kernel_side_consumer_execution
+            else None
+        ),
+        "future_wna16_kernel_side_consumer_execution_reuses_current_wna16_arg_slot": (
+            stub_payload.get(
+                "future_wna16_kernel_side_consumer_execution_reuses_current_wna16_arg_slot"
+            )
+            if require_future_wna16_kernel_side_consumer_execution
+            else None
+        ),
+        "future_wna16_kernel_side_consumer_execution_handle_projection_hash_accumulator": (
+            stub_payload.get(
+                "future_wna16_kernel_side_consumer_execution_handle_projection_hash_accumulator"
+            )
+            if require_future_wna16_kernel_side_consumer_execution
+            else None
+        ),
+        "future_wna16_single_field_handoff_canary_checked": (
+            stub_payload.get("future_wna16_single_field_handoff_canary_checked")
+            if require_future_wna16_single_field_handoff_canary
+            else None
+        ),
+        "future_wna16_single_field_handoff_canary_name": (
+            stub_payload.get("future_wna16_single_field_handoff_canary_abi_name")
+            if require_future_wna16_single_field_handoff_canary
+            else None
+        ),
+        "future_wna16_single_field_handoff_canary_abi_name": (
+            stub_payload.get("future_wna16_single_field_handoff_canary_abi_name")
+            if require_future_wna16_single_field_handoff_canary
+            else None
+        ),
+        "future_wna16_single_field_handoff_canary_mode": (
+            stub_payload.get("future_wna16_single_field_handoff_canary_mode")
+            if require_future_wna16_single_field_handoff_canary
+            else None
+        ),
+        "future_wna16_single_field_handoff_canary_source": (
+            stub_payload.get("future_wna16_single_field_handoff_canary_source")
+            if require_future_wna16_single_field_handoff_canary
+            else None
+        ),
+        "future_wna16_single_field_handoff_canary_field_read_path": (
+            stub_payload.get(
+                "future_wna16_single_field_handoff_canary_field_read_path"
+            )
+            if require_future_wna16_single_field_handoff_canary
+            else None
+        ),
+        "future_wna16_single_field_handoff_canary_field_name": (
+            stub_payload.get("future_wna16_single_field_handoff_canary_field_name")
+            if require_future_wna16_single_field_handoff_canary
+            else None
+        ),
+        "future_wna16_single_field_handoff_canary_field_kind": (
+            stub_payload.get("future_wna16_single_field_handoff_canary_field_kind")
+            if require_future_wna16_single_field_handoff_canary
+            else None
+        ),
+        "future_wna16_single_field_handoff_canary_field_mask": (
+            stub_payload.get("future_wna16_single_field_handoff_canary_field_mask")
+            if require_future_wna16_single_field_handoff_canary
+            else None
+        ),
+        "future_wna16_single_field_handoff_canary_row_count": (
+            stub_payload.get("future_wna16_single_field_handoff_canary_row_count")
+            if require_future_wna16_single_field_handoff_canary
+            else None
+        ),
+        "future_wna16_single_field_handoff_canary_row_ok_count": (
+            stub_payload.get("future_wna16_single_field_handoff_canary_row_ok_count")
+            if require_future_wna16_single_field_handoff_canary
+            else None
+        ),
+        "future_wna16_single_field_handoff_canary_error_count": (
+            stub_payload.get("future_wna16_single_field_handoff_canary_error_count")
+            if require_future_wna16_single_field_handoff_canary
+            else None
+        ),
+        "future_wna16_single_field_handoff_canary_payload_bytes": (
+            stub_payload.get("future_wna16_single_field_handoff_canary_payload_bytes")
+            if require_future_wna16_single_field_handoff_canary
+            else None
+        ),
+        "future_wna16_single_field_handoff_canary_live_enabled": (
+            stub_payload.get("future_wna16_single_field_handoff_canary_live_enabled")
+            if require_future_wna16_single_field_handoff_canary
+            else None
+        ),
+        "future_wna16_single_field_handoff_canary_passed_to_kernel": (
+            stub_payload.get("future_wna16_single_field_handoff_canary_passed_to_kernel")
+            if require_future_wna16_single_field_handoff_canary
+            else None
+        ),
+        "future_wna16_single_field_handoff_canary_changes_kernel_launch_args": (
+            stub_payload.get(
+                "future_wna16_single_field_handoff_canary_changes_kernel_launch_args"
+            )
+            if require_future_wna16_single_field_handoff_canary
+            else None
+        ),
+        "future_wna16_single_field_handoff_canary_current_wna16_arg_compatible": (
+            stub_payload.get(
+                "future_wna16_single_field_handoff_canary_current_wna16_arg_compatible"
+            )
+            if require_future_wna16_single_field_handoff_canary
+            else None
+        ),
+        "future_wna16_single_field_handoff_canary_requires_wna16_arg_reinterpretation": (
+            stub_payload.get(
+                "future_wna16_single_field_handoff_canary_requires_wna16_arg_reinterpretation"
+            )
+            if require_future_wna16_single_field_handoff_canary
+            else None
+        ),
+        "future_wna16_single_field_handoff_canary_explicit_typed_abi_slot": (
+            stub_payload.get(
+                "future_wna16_single_field_handoff_canary_explicit_typed_abi_slot"
+            )
+            if require_future_wna16_single_field_handoff_canary
+            else None
+        ),
+        "future_wna16_single_field_handoff_canary_reuses_current_wna16_arg_slot": (
+            stub_payload.get(
+                "future_wna16_single_field_handoff_canary_reuses_current_wna16_arg_slot"
+            )
+            if require_future_wna16_single_field_handoff_canary
+            else None
+        ),
+        "future_wna16_single_field_handoff_canary_hash_accumulator": (
+            stub_payload.get("future_wna16_single_field_handoff_canary_hash_accumulator")
+            if require_future_wna16_single_field_handoff_canary
+            else None
+        ),
+        "wna16_side_consumer_variant_execution_checked": (
+            stub_payload.get("wna16_side_consumer_variant_execution_checked")
+            if require_wna16_side_consumer_variant_execution
+            else None
+        ),
+        "wna16_side_consumer_variant_execution_name": (
+            stub_payload.get("wna16_side_consumer_variant_execution_abi_name")
+            if require_wna16_side_consumer_variant_execution
+            else None
+        ),
+        "wna16_side_consumer_variant_execution_mode": (
+            stub_payload.get("wna16_side_consumer_variant_execution_mode")
+            if require_wna16_side_consumer_variant_execution
+            else None
+        ),
+        "wna16_side_consumer_variant_execution_source": (
+            stub_payload.get("wna16_side_consumer_variant_execution_source")
+            if require_wna16_side_consumer_variant_execution
+            else None
+        ),
+        "wna16_side_consumer_variant_execution_row_count": (
+            stub_payload.get("wna16_side_consumer_variant_execution_row_count")
+            if require_wna16_side_consumer_variant_execution
+            else None
+        ),
+        "wna16_side_consumer_variant_execution_row_ok_count": (
+            stub_payload.get("wna16_side_consumer_variant_execution_row_ok_count")
+            if require_wna16_side_consumer_variant_execution
+            else None
+        ),
+        "wna16_side_consumer_variant_execution_error_count": (
+            stub_payload.get("wna16_side_consumer_variant_execution_error_count")
+            if require_wna16_side_consumer_variant_execution
+            else None
+        ),
+        "wna16_side_consumer_variant_execution_all_handle_fields_read": (
+            require_wna16_side_consumer_variant_execution
+            and not _check_wna16_side_consumer_variant_execution(
+                stub_payload, active_rows=active_rows
+            )
+        ),
+        "wna16_side_consumer_variant_execution_packet_chain_depth": (
+            stub_payload.get("wna16_side_consumer_variant_execution_packet_chain_depth")
+            if require_wna16_side_consumer_variant_execution
+            else None
+        ),
+        "wna16_side_consumer_variant_execution_payload_bytes": (
+            stub_payload.get("wna16_side_consumer_variant_execution_payload_bytes")
+            if require_wna16_side_consumer_variant_execution
+            else None
+        ),
+        "wna16_side_consumer_variant_execution_passed_to_kernel": (
+            stub_payload.get("wna16_side_consumer_variant_execution_passed_to_kernel")
+            if require_wna16_side_consumer_variant_execution
+            else None
+        ),
+        "wna16_side_consumer_variant_execution_changes_kernel_launch_args": (
+            stub_payload.get(
+                "wna16_side_consumer_variant_execution_changes_kernel_launch_args"
+            )
+            if require_wna16_side_consumer_variant_execution
+            else None
+        ),
+        "wna16_side_consumer_variant_execution_current_wna16_arg_compatible": (
+            stub_payload.get(
+                "wna16_side_consumer_variant_execution_current_wna16_arg_compatible"
+            )
+            if require_wna16_side_consumer_variant_execution
+            else None
+        ),
+        "wna16_side_consumer_variant_execution_requires_wna16_arg_reinterpretation": (
+            stub_payload.get(
+                "wna16_side_consumer_variant_execution_requires_wna16_arg_reinterpretation"
+            )
+            if require_wna16_side_consumer_variant_execution
+            else None
+        ),
+        "wna16_side_consumer_variant_execution_reuses_current_wna16_arg_slot": (
+            stub_payload.get(
+                "wna16_side_consumer_variant_execution_reuses_current_wna16_arg_slot"
+            )
+            if require_wna16_side_consumer_variant_execution
+            else None
+        ),
+        "wna16_side_consumer_variant_execution_handle_projection_hash_accumulator": (
+            stub_payload.get(
+                "wna16_side_consumer_variant_execution_handle_projection_hash_accumulator"
+            )
+            if require_wna16_side_consumer_variant_execution
+            else None
+        ),
         "consumer_view_source_packet_chain_depth": stub_payload.get(
             "future_kernel_native_consumer_view_source_packet_chain_depth"
         ),
@@ -3829,6 +5116,55 @@ def build_parser() -> argparse.ArgumentParser:
             "derived from the endpoint-ptr ABI. This models a future standalone "
             "typed kernel argument slot and still does not pass current WNA16 "
             "kernel args."
+        ),
+    )
+    parser.add_argument(
+        "--require-future-wna16-typed-slot-kernel-variant",
+        action="store_true",
+        help=(
+            "require the next standalone future WNA16 typed-slot kernel "
+            "variant skeleton. This implies --require-wna16-adjacent-typed-slot "
+            "and still does not pass current WNA16 kernel args."
+        ),
+    )
+    parser.add_argument(
+        "--require-future-wna16-kernel-accept-typed-slot",
+        action="store_true",
+        help=(
+            "require the future WNA16 kernel-accepts-typed-slot ABI canary. "
+            "This implies --require-wna16-adjacent-typed-slot and models the "
+            "future kernel-side typed slot as a standalone argument object, "
+            "without passing current WNA16 kernel args or dereferencing payload."
+        ),
+    )
+    parser.add_argument(
+        "--require-future-wna16-kernel-side-consumer-execution",
+        action="store_true",
+        help=(
+            "require the future WNA16 kernel-side typed-slot consumer execution "
+            "canary. This implies --require-future-wna16-kernel-accept-typed-slot, "
+            "uses launch-like grid/block/lane row iteration, and remains "
+            "independent from current WNA16 kernel args and payload dereference."
+        ),
+    )
+    parser.add_argument(
+        "--require-future-wna16-single-field-handoff-canary",
+        action="store_true",
+        help=(
+            "require a future WNA16 single-field handoff canary on top of the "
+            "kernel-side consumer execution path. This validates the selected "
+            "--mirror-field as a typed-slot field mirror, keeps live handoff "
+            "disabled, and still does not pass current WNA16 kernel args."
+        ),
+    )
+    parser.add_argument(
+        "--require-wna16-side-consumer-variant-execution",
+        action="store_true",
+        help=(
+            "require the minimal WNA16-side execution-style typed consumer "
+            "variant. This implies --require-future-wna16-typed-slot-kernel-variant, "
+            "uses grid/block/lane row iteration, and still does not pass current "
+            "WNA16 kernel args or dereference payload."
         ),
     )
     parser.add_argument("--device", type=int, default=LAB_DEFAULT_GPU_DEVICE)

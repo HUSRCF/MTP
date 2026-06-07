@@ -133,6 +133,31 @@
 #error "future native consumer WNA16-adjacent typed slot ABI requires future native consumer endpoint pointer ABI"
 #endif
 
+#if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_WNA16_TYPED_SLOT_KERNEL_VARIANT_ABI) && \
+    !defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_WNA16_ADJACENT_TYPED_SLOT_ABI)
+#error "future WNA16 typed-slot kernel variant ABI requires future native consumer WNA16-adjacent typed slot ABI"
+#endif
+
+#if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_WNA16_KERNEL_ACCEPT_TYPED_SLOT_ABI) && \
+    !defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_WNA16_ADJACENT_TYPED_SLOT_ABI)
+#error "future WNA16 kernel accept-typed-slot ABI requires future native consumer WNA16-adjacent typed slot ABI"
+#endif
+
+#if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_WNA16_KERNEL_SIDE_CONSUMER_EXECUTION_ABI) && \
+    !defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_WNA16_KERNEL_ACCEPT_TYPED_SLOT_ABI)
+#error "future WNA16 kernel-side consumer execution ABI requires future WNA16 kernel accept-typed-slot ABI"
+#endif
+
+#if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_WNA16_SINGLE_FIELD_HANDOFF_CANARY_ABI) && \
+    !defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_WNA16_KERNEL_SIDE_CONSUMER_EXECUTION_ABI)
+#error "future WNA16 single-field handoff canary ABI requires future WNA16 kernel-side consumer execution ABI"
+#endif
+
+#if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_WNA16_SIDE_CONSUMER_VARIANT_EXECUTION_ABI) && \
+    !defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_WNA16_TYPED_SLOT_KERNEL_VARIANT_ABI)
+#error "WNA16-side consumer variant execution ABI requires future WNA16 typed-slot kernel variant ABI"
+#endif
+
 #if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_PTR_ABI) && \
     !defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ARG_PACKET_ABI)
 #error "future native consumer request pointer ABI requires future native consumer kernel-arg packet ABI"
@@ -364,6 +389,66 @@ static_assert(
 static_assert(
     !kPremapFutureKernelNativeConsumerWna16AdjacentTypedSlotAbiV1ReusesCurrentWna16ArgSlot,
     "future native consumer WNA16-adjacent typed slot ABI must not reuse current WNA16 arg slot");
+static_assert(
+    !kPremapFutureWna16TypedSlotKernelVariantAbiV1PayloadDerefAllowed,
+    "future WNA16 typed-slot kernel variant ABI must not allow payload dereference");
+static_assert(
+    !kPremapFutureWna16TypedSlotKernelVariantAbiV1KernelArgPassAllowed,
+    "future WNA16 typed-slot kernel variant ABI must not allow kernel-arg pass");
+static_assert(
+    !kPremapFutureWna16TypedSlotKernelVariantAbiV1CurrentWna16ArgCompatible,
+    "future WNA16 typed-slot kernel variant ABI must not be the current WNA16 arg list");
+static_assert(
+    !kPremapFutureWna16TypedSlotKernelVariantAbiV1RequiresWna16ArgReinterpretation,
+    "future WNA16 typed-slot kernel variant ABI must not require WNA16 arg reinterpretation");
+static_assert(
+    !kPremapFutureWna16TypedSlotKernelVariantAbiV1ReusesCurrentWna16ArgSlot,
+    "future WNA16 typed-slot kernel variant ABI must not reuse current WNA16 arg slot");
+static_assert(
+    !kPremapFutureWna16KernelAcceptTypedSlotAbiV1PayloadDerefAllowed,
+    "future WNA16 accept-typed-slot ABI must not allow payload dereference");
+static_assert(
+    !kPremapFutureWna16KernelAcceptTypedSlotAbiV1KernelArgPassAllowed,
+    "future WNA16 accept-typed-slot ABI must not allow kernel-arg pass");
+static_assert(
+    !kPremapFutureWna16KernelAcceptTypedSlotAbiV1CurrentWna16ArgCompatible,
+    "future WNA16 accept-typed-slot ABI must not be the current WNA16 arg list");
+static_assert(
+    !kPremapFutureWna16KernelAcceptTypedSlotAbiV1RequiresWna16ArgReinterpretation,
+    "future WNA16 accept-typed-slot ABI must not require WNA16 arg reinterpretation");
+static_assert(
+    !kPremapFutureWna16KernelAcceptTypedSlotAbiV1ReusesCurrentWna16ArgSlot,
+    "future WNA16 accept-typed-slot ABI must not reuse current WNA16 arg slot");
+static_assert(
+    !kPremapFutureWna16KernelSideConsumerExecutionAbiV1PayloadDerefAllowed,
+    "future WNA16 kernel-side consumer execution ABI must not allow payload dereference");
+static_assert(
+    !kPremapFutureWna16KernelSideConsumerExecutionAbiV1KernelArgPassAllowed,
+    "future WNA16 kernel-side consumer execution ABI must not allow kernel-arg pass");
+static_assert(
+    !kPremapFutureWna16KernelSideConsumerExecutionAbiV1CurrentWna16ArgCompatible,
+    "future WNA16 kernel-side consumer execution ABI must not be the current WNA16 arg list");
+static_assert(
+    !kPremapFutureWna16KernelSideConsumerExecutionAbiV1RequiresWna16ArgReinterpretation,
+    "future WNA16 kernel-side consumer execution ABI must not require WNA16 arg reinterpretation");
+static_assert(
+    !kPremapFutureWna16KernelSideConsumerExecutionAbiV1ReusesCurrentWna16ArgSlot,
+    "future WNA16 kernel-side consumer execution ABI must not reuse current WNA16 arg slot");
+static_assert(
+    !kPremapWna16SideConsumerVariantExecutionAbiV1PayloadDerefAllowed,
+    "WNA16-side consumer variant execution ABI must not allow payload dereference");
+static_assert(
+    !kPremapWna16SideConsumerVariantExecutionAbiV1KernelArgPassAllowed,
+    "WNA16-side consumer variant execution ABI must not allow kernel-arg pass");
+static_assert(
+    !kPremapWna16SideConsumerVariantExecutionAbiV1CurrentWna16ArgCompatible,
+    "WNA16-side consumer variant execution ABI must not be the current WNA16 arg list");
+static_assert(
+    !kPremapWna16SideConsumerVariantExecutionAbiV1RequiresWna16ArgReinterpretation,
+    "WNA16-side consumer variant execution ABI must not require WNA16 arg reinterpretation");
+static_assert(
+    !kPremapWna16SideConsumerVariantExecutionAbiV1ReusesCurrentWna16ArgSlot,
+    "WNA16-side consumer variant execution ABI must not reuse current WNA16 arg slot");
 static_assert(
     !kPremapFutureKernelNativeConsumerRequestPtrAbiV1PayloadDerefAllowed,
     "future native consumer request pointer ABI must not allow payload dereference");
@@ -1830,6 +1915,386 @@ typed_consumer_future_native_consumer_wna16_adjacent_typed_slot_kernel(
           *entry_args.kernel_arg_packet);
 }
 
+__global__ void typed_consumer_future_wna16_typed_slot_kernel_variant_kernel(
+    PremapFutureWna16TypedSlotKernelVariantV1 variant) {
+  if (blockIdx.x != 0 || threadIdx.x != 0) {
+    return;
+  }
+  if (variant.summary == nullptr) {
+    return;
+  }
+  if (!premap_typed_consumer_future_wna16_typed_slot_kernel_variant_matches_v1(
+          variant)) {
+    PremapFutureKernelNativeConsumerKernelEntrySummaryV1 out{};
+    out.abi_version =
+        kPremapFutureKernelNativeConsumerKernelEntrySummaryAbiV1Version;
+    out.payload_bytes = 0;
+    out.passed_to_kernel = 0;
+    out.changes_kernel_launch_args = 0;
+    out.current_wna16_arg_compatible = 0;
+    out.requires_wna16_arg_reinterpretation = 0;
+    out.error_count = 1;
+    *variant.summary = out;
+    return;
+  }
+  const PremapFutureKernelNativeConsumerEndpointPtrV1 endpoint_ptr =
+      variant.typed_slot.endpoint_ptr;
+  const PremapFutureKernelNativeConsumerEndpointV1 endpoint =
+      *endpoint_ptr.endpoint;
+  const PremapFutureKernelNativeConsumerKernelLaunchContextV1 context =
+      *endpoint.invocation.context;
+  const PremapFutureKernelNativeConsumerKernelLaunchDescriptorV1 descriptor =
+      *context.launch_descriptor;
+  const PremapFutureKernelNativeConsumerLaunchEnvelopeArgsPtrV1 launch_args_ptr =
+      *descriptor.launch_args_ptr;
+  const PremapFutureKernelNativeConsumerLaunchEnvelopeArgsV1 launch_args =
+      *launch_args_ptr.launch_args;
+  const PremapFutureKernelNativeConsumerKernelEntryArgsV1 entry_args =
+      *launch_args.entry_args;
+  *variant.summary =
+      premap_typed_consumer_build_future_native_kernel_entry_summary_v1(
+          *entry_args.kernel_arg_packet);
+}
+
+__global__ void typed_consumer_future_wna16_kernel_accept_typed_slot_kernel(
+    PremapFutureWna16KernelAcceptTypedSlotV1 accept) {
+  if (blockIdx.x != 0 || threadIdx.x != 0) {
+    return;
+  }
+  if (accept.summary == nullptr) {
+    return;
+  }
+  if (!premap_typed_consumer_future_wna16_kernel_accept_typed_slot_matches_v1(
+          accept)) {
+    PremapFutureKernelNativeConsumerKernelEntrySummaryV1 out{};
+    out.abi_version =
+        kPremapFutureKernelNativeConsumerKernelEntrySummaryAbiV1Version;
+    out.payload_bytes = 0;
+    out.passed_to_kernel = 0;
+    out.changes_kernel_launch_args = 0;
+    out.current_wna16_arg_compatible = 0;
+    out.requires_wna16_arg_reinterpretation = 0;
+    out.error_count = 1;
+    *accept.summary = out;
+    return;
+  }
+  const PremapFutureKernelNativeConsumerEndpointPtrV1 endpoint_ptr =
+      accept.typed_slot.endpoint_ptr;
+  const PremapFutureKernelNativeConsumerEndpointV1 endpoint =
+      *endpoint_ptr.endpoint;
+  const PremapFutureKernelNativeConsumerKernelLaunchContextV1 context =
+      *endpoint.invocation.context;
+  const PremapFutureKernelNativeConsumerKernelLaunchDescriptorV1 descriptor =
+      *context.launch_descriptor;
+  const PremapFutureKernelNativeConsumerLaunchEnvelopeArgsPtrV1 launch_args_ptr =
+      *descriptor.launch_args_ptr;
+  const PremapFutureKernelNativeConsumerLaunchEnvelopeArgsV1 launch_args =
+      *launch_args_ptr.launch_args;
+  const PremapFutureKernelNativeConsumerKernelEntryArgsV1 entry_args =
+      *launch_args.entry_args;
+  *accept.summary =
+      premap_typed_consumer_build_future_native_kernel_entry_summary_v1(
+          *entry_args.kernel_arg_packet);
+}
+
+__global__ void typed_consumer_future_wna16_kernel_side_consumer_execution_kernel(
+    PremapFutureWna16KernelSideConsumerExecutionV1 execution,
+    uint32_t* future_wna16_kernel_side_execution_ok,
+    uint64_t* future_wna16_kernel_side_execution_hash,
+    uint64_t* future_wna16_kernel_side_execution_handle_projection_hash,
+    uint32_t* future_wna16_kernel_side_execution_descriptor_ptr_read_ok,
+    uint64_t* future_wna16_kernel_side_execution_descriptor_ptr_read_hash,
+    uint32_t* future_wna16_kernel_side_execution_packed_weight_descriptor_read_ok,
+    uint64_t* future_wna16_kernel_side_execution_packed_weight_descriptor_read_hash,
+    uint32_t* future_wna16_kernel_side_execution_scale_metadata_handle_read_ok,
+    uint64_t* future_wna16_kernel_side_execution_scale_metadata_handle_read_hash,
+    uint32_t* future_wna16_kernel_side_execution_aux_metadata_handle_read_ok,
+    uint64_t* future_wna16_kernel_side_execution_aux_metadata_handle_read_hash,
+    uint32_t* future_wna16_single_field_handoff_ok,
+    uint64_t* future_wna16_single_field_handoff_hash) {
+  const uint32_t program_id = static_cast<uint32_t>(blockIdx.x);
+  const uint32_t lane_id = static_cast<uint32_t>(threadIdx.x);
+  if (!premap_typed_consumer_future_wna16_kernel_side_consumer_execution_matches_v1(
+          execution)) {
+    return;
+  }
+
+  const PremapFutureKernelNativeConsumerEndpointPtrV1 endpoint_ptr =
+      execution.accept.typed_slot.endpoint_ptr;
+  const PremapFutureKernelNativeConsumerEndpointV1 endpoint =
+      *endpoint_ptr.endpoint;
+  const PremapFutureKernelNativeConsumerKernelLaunchContextV1 context =
+      *endpoint.invocation.context;
+  const PremapFutureKernelNativeConsumerKernelLaunchDescriptorV1 descriptor =
+      *context.launch_descriptor;
+  const PremapFutureKernelNativeConsumerLaunchEnvelopeArgsPtrV1 launch_args_ptr =
+      *descriptor.launch_args_ptr;
+  const PremapFutureKernelNativeConsumerLaunchEnvelopeArgsV1 launch_args =
+      *launch_args_ptr.launch_args;
+  const PremapFutureKernelNativeConsumerKernelEntryArgsV1 entry_args =
+      *launch_args.entry_args;
+  const PremapFutureKernelNativeConsumerKernelArgPacketV1 kernel_arg_packet =
+      *entry_args.kernel_arg_packet;
+  const PremapFutureKernelNativeConsumerProgramViewPtrV1 program_view_ptr =
+      *kernel_arg_packet.program_view_ptr;
+  const PremapFutureKernelNativeConsumerProgramViewV1 program_view =
+      *program_view_ptr.program_view;
+  const PremapFutureKernelNativeConsumerViewV1& view = program_view.view;
+  const uint32_t active_rows = view.row_limit - view.row_offset;
+  const uint64_t local_row_index_64 =
+      static_cast<uint64_t>(program_id) *
+          static_cast<uint64_t>(execution.rows_per_program) +
+      static_cast<uint64_t>(lane_id);
+  if (local_row_index_64 >= static_cast<uint64_t>(active_rows) ||
+      local_row_index_64 > 0xffffffffULL) {
+    return;
+  }
+  const uint32_t idx = static_cast<uint32_t>(local_row_index_64);
+  const uint32_t row_index = view.row_offset + idx;
+  const PremapFutureKernelNativeConsumerKernelArgPacketResultV1 result =
+      premap_typed_consumer_future_native_kernel_arg_packet_consume_program_lane_v1(
+          kernel_arg_packet,
+          program_id,
+          lane_id,
+          static_cast<uint32_t>(gridDim.x),
+          static_cast<uint32_t>(blockDim.x),
+          kTypedSchemaHashHi,
+          kTypedSchemaHashLo);
+  future_wna16_kernel_side_execution_ok[idx] = result.ok;
+  future_wna16_kernel_side_execution_hash[idx] =
+      mix64(result.row_hash + 0x16e6000000000001ULL) ^
+      mix64(static_cast<uint64_t>(execution.abi_version) +
+            0x16e6000000000002ULL) ^
+      mix64(static_cast<uint64_t>(execution.grid_x) +
+            0x16e6000000000003ULL) ^
+      mix64(static_cast<uint64_t>(execution.block_x) +
+            0x16e6000000000004ULL) ^
+      mix64(static_cast<uint64_t>(execution.packet_chain_depth) +
+            0x16e6000000000005ULL);
+  future_wna16_kernel_side_execution_handle_projection_hash[idx] =
+      handle_projection_hash(view.params, row_index);
+
+  const PremapKernelSideTypedConsumerRowV1 row =
+      premap_typed_consumer_load_future_native_row_v1(view.params, row_index);
+  const uint32_t field_mask = view.params.field_mask;
+  const uint32_t descriptor_ptr_visible =
+      static_cast<uint32_t>(
+          (field_mask & kPremapFutureKernelSideConsumerFieldMaskDescriptorPtr) !=
+              0 &&
+          row.descriptor_ptr != 0);
+  const uint32_t packed_weight_descriptor_visible =
+      static_cast<uint32_t>(
+          (field_mask &
+           kPremapFutureKernelSideConsumerFieldMaskPackedWeightDescriptor) != 0 &&
+          row.packed_weight_descriptor != 0);
+  const uint32_t scale_metadata_handle_visible =
+      static_cast<uint32_t>(
+          (field_mask &
+           kPremapFutureKernelSideConsumerFieldMaskScaleMetadataHandle) != 0 &&
+          row.scale_metadata_handle != 0);
+  const uint32_t aux_metadata_handle_visible =
+      static_cast<uint32_t>(
+          (field_mask & kPremapFutureKernelSideConsumerFieldMaskAuxMetadataHandle) !=
+              0 &&
+          row.aux_metadata_handle != 0);
+  future_wna16_kernel_side_execution_descriptor_ptr_read_ok[idx] =
+      descriptor_ptr_visible;
+  future_wna16_kernel_side_execution_descriptor_ptr_read_hash[idx] =
+      descriptor_ptr_visible
+          ? (mix64(row.descriptor_ptr + 0x16e6000000000101ULL) ^
+             mix64(row.address_key_hash + static_cast<uint64_t>(row_index)))
+          : 0ULL;
+  future_wna16_kernel_side_execution_packed_weight_descriptor_read_ok[idx] =
+      packed_weight_descriptor_visible;
+  future_wna16_kernel_side_execution_packed_weight_descriptor_read_hash[idx] =
+      packed_weight_descriptor_visible
+          ? (mix64(row.packed_weight_descriptor + 0x16e6000000000102ULL) ^
+             mix64(row.address_key_hash + static_cast<uint64_t>(row_index)))
+          : 0ULL;
+  future_wna16_kernel_side_execution_scale_metadata_handle_read_ok[idx] =
+      scale_metadata_handle_visible;
+  future_wna16_kernel_side_execution_scale_metadata_handle_read_hash[idx] =
+      scale_metadata_handle_visible
+          ? (mix64(row.scale_metadata_handle + 0x16e6000000000103ULL) ^
+             mix64(row.address_key_hash + static_cast<uint64_t>(row_index)))
+          : 0ULL;
+  future_wna16_kernel_side_execution_aux_metadata_handle_read_ok[idx] =
+      aux_metadata_handle_visible;
+  future_wna16_kernel_side_execution_aux_metadata_handle_read_hash[idx] =
+      aux_metadata_handle_visible
+          ? (mix64(row.aux_metadata_handle + 0x16e6000000000104ULL) ^
+             mix64(row.address_key_hash + static_cast<uint64_t>(row_index)))
+          : 0ULL;
+
+#if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_WNA16_SINGLE_FIELD_HANDOFF_CANARY_ABI)
+  PremapFutureWna16SingleFieldHandoffCanaryV1 canary;
+  canary.execution = execution;
+  canary.abi_version =
+      kPremapFutureWna16SingleFieldHandoffCanaryAbiV1Version;
+  canary.execution_struct_size =
+      sizeof(PremapFutureWna16KernelSideConsumerExecutionV1);
+  canary.single_field_mirror_kind = kSingleFieldMirrorKind;
+  canary.field_mask =
+      premap_typed_consumer_future_kernel_field_mask_for_kind_v1(
+          kSingleFieldMirrorKind);
+  canary.live_enabled = 0;
+  canary.payload_bytes = 0;
+  canary.flags = kPremapFutureKernelSideConsumerArgsV1RequiredFlags;
+  canary.current_wna16_arg_compatible = 0;
+  canary.requires_wna16_arg_reinterpretation = 0;
+  canary.explicit_typed_abi_slot = 1;
+  canary.reuses_current_wna16_arg_slot = 0;
+  canary.passed_to_kernel = 0;
+  canary.changes_kernel_launch_args = 0;
+  const uint32_t canary_ok = static_cast<uint32_t>(
+      premap_typed_consumer_future_wna16_single_field_handoff_canary_matches_v1(
+          canary));
+  const uint32_t mirror_ok =
+      canary_ok != 0
+          ? premap_typed_consumer_future_native_single_field_mirror_matches_v1(
+                view.params, row, canary.single_field_mirror_kind)
+          : 0;
+  future_wna16_single_field_handoff_ok[idx] = mirror_ok;
+  future_wna16_single_field_handoff_hash[idx] =
+      mirror_ok != 0
+          ? (premap_typed_consumer_future_kernel_single_field_mirror_hash_v1(
+                 row, canary.single_field_mirror_kind) ^
+             mix64(static_cast<uint64_t>(canary.field_mask) +
+                   0x16e7000000000001ULL) ^
+             mix64(static_cast<uint64_t>(canary.live_enabled) +
+                   0x16e7000000000002ULL))
+          : 0ULL;
+#endif
+}
+
+__global__ void typed_consumer_wna16_side_consumer_variant_execution_kernel(
+    PremapWna16SideConsumerVariantExecutionV1 execution,
+    uint32_t* wna16_side_execution_ok,
+    uint64_t* wna16_side_execution_hash,
+    uint64_t* wna16_side_execution_handle_projection_hash,
+    uint32_t* wna16_side_execution_descriptor_ptr_read_ok,
+    uint64_t* wna16_side_execution_descriptor_ptr_read_hash,
+    uint32_t* wna16_side_execution_packed_weight_descriptor_read_ok,
+    uint64_t* wna16_side_execution_packed_weight_descriptor_read_hash,
+    uint32_t* wna16_side_execution_scale_metadata_handle_read_ok,
+    uint64_t* wna16_side_execution_scale_metadata_handle_read_hash,
+    uint32_t* wna16_side_execution_aux_metadata_handle_read_ok,
+    uint64_t* wna16_side_execution_aux_metadata_handle_read_hash) {
+  const uint32_t program_id = static_cast<uint32_t>(blockIdx.x);
+  const uint32_t lane_id = static_cast<uint32_t>(threadIdx.x);
+  if (!premap_typed_consumer_wna16_side_consumer_variant_execution_matches_v1(
+          execution)) {
+    return;
+  }
+
+  const PremapFutureKernelNativeConsumerEndpointPtrV1 endpoint_ptr =
+      execution.variant.typed_slot.endpoint_ptr;
+  const PremapFutureKernelNativeConsumerEndpointV1 endpoint =
+      *endpoint_ptr.endpoint;
+  const PremapFutureKernelNativeConsumerKernelLaunchContextV1 context =
+      *endpoint.invocation.context;
+  const PremapFutureKernelNativeConsumerKernelLaunchDescriptorV1 descriptor =
+      *context.launch_descriptor;
+  const PremapFutureKernelNativeConsumerLaunchEnvelopeArgsPtrV1 launch_args_ptr =
+      *descriptor.launch_args_ptr;
+  const PremapFutureKernelNativeConsumerLaunchEnvelopeArgsV1 launch_args =
+      *launch_args_ptr.launch_args;
+  const PremapFutureKernelNativeConsumerKernelEntryArgsV1 entry_args =
+      *launch_args.entry_args;
+  const PremapFutureKernelNativeConsumerKernelArgPacketV1 kernel_arg_packet =
+      *entry_args.kernel_arg_packet;
+  const PremapFutureKernelNativeConsumerProgramViewPtrV1 program_view_ptr =
+      *kernel_arg_packet.program_view_ptr;
+  const PremapFutureKernelNativeConsumerProgramViewV1 program_view =
+      *program_view_ptr.program_view;
+  const PremapFutureKernelNativeConsumerViewV1& view = program_view.view;
+  const uint32_t active_rows = view.row_limit - view.row_offset;
+  const uint64_t local_row_index_64 =
+      static_cast<uint64_t>(program_id) *
+          static_cast<uint64_t>(execution.rows_per_program) +
+      static_cast<uint64_t>(lane_id);
+  if (local_row_index_64 >= static_cast<uint64_t>(active_rows) ||
+      local_row_index_64 > 0xffffffffULL) {
+    return;
+  }
+  const uint32_t idx = static_cast<uint32_t>(local_row_index_64);
+  const uint32_t row_index = view.row_offset + idx;
+  const PremapFutureKernelNativeConsumerKernelArgPacketResultV1 result =
+      premap_typed_consumer_future_native_kernel_arg_packet_consume_program_lane_v1(
+          kernel_arg_packet,
+          program_id,
+          lane_id,
+          static_cast<uint32_t>(gridDim.x),
+          static_cast<uint32_t>(blockDim.x),
+          kTypedSchemaHashHi,
+          kTypedSchemaHashLo);
+  wna16_side_execution_ok[idx] = result.ok;
+  wna16_side_execution_hash[idx] =
+      mix64(result.row_hash + 0x16e5000000000001ULL) ^
+      mix64(static_cast<uint64_t>(execution.abi_version) +
+            0x16e5000000000002ULL) ^
+      mix64(static_cast<uint64_t>(execution.grid_x) +
+            0x16e5000000000003ULL) ^
+      mix64(static_cast<uint64_t>(execution.block_x) +
+            0x16e5000000000004ULL) ^
+      mix64(static_cast<uint64_t>(execution.packet_chain_depth) +
+            0x16e5000000000005ULL);
+  wna16_side_execution_handle_projection_hash[idx] =
+      handle_projection_hash(view.params, row_index);
+
+  const PremapKernelSideTypedConsumerRowV1 row =
+      premap_typed_consumer_load_future_native_row_v1(view.params, row_index);
+  const uint32_t field_mask = view.params.field_mask;
+  const uint32_t descriptor_ptr_visible =
+      static_cast<uint32_t>(
+          (field_mask & kPremapFutureKernelSideConsumerFieldMaskDescriptorPtr) !=
+              0 &&
+          row.descriptor_ptr != 0);
+  const uint32_t packed_weight_descriptor_visible =
+      static_cast<uint32_t>(
+          (field_mask &
+           kPremapFutureKernelSideConsumerFieldMaskPackedWeightDescriptor) != 0 &&
+          row.packed_weight_descriptor != 0);
+  const uint32_t scale_metadata_handle_visible =
+      static_cast<uint32_t>(
+          (field_mask &
+           kPremapFutureKernelSideConsumerFieldMaskScaleMetadataHandle) != 0 &&
+          row.scale_metadata_handle != 0);
+  const uint32_t aux_metadata_handle_visible =
+      static_cast<uint32_t>(
+          (field_mask & kPremapFutureKernelSideConsumerFieldMaskAuxMetadataHandle) !=
+              0 &&
+          row.aux_metadata_handle != 0);
+  wna16_side_execution_descriptor_ptr_read_ok[idx] =
+      descriptor_ptr_visible;
+  wna16_side_execution_descriptor_ptr_read_hash[idx] =
+      descriptor_ptr_visible
+          ? (mix64(row.descriptor_ptr + 0x16e5000000000101ULL) ^
+             mix64(row.address_key_hash + static_cast<uint64_t>(row_index)))
+          : 0ULL;
+  wna16_side_execution_packed_weight_descriptor_read_ok[idx] =
+      packed_weight_descriptor_visible;
+  wna16_side_execution_packed_weight_descriptor_read_hash[idx] =
+      packed_weight_descriptor_visible
+          ? (mix64(row.packed_weight_descriptor + 0x16e5000000000102ULL) ^
+             mix64(row.address_key_hash + static_cast<uint64_t>(row_index)))
+          : 0ULL;
+  wna16_side_execution_scale_metadata_handle_read_ok[idx] =
+      scale_metadata_handle_visible;
+  wna16_side_execution_scale_metadata_handle_read_hash[idx] =
+      scale_metadata_handle_visible
+          ? (mix64(row.scale_metadata_handle + 0x16e5000000000103ULL) ^
+             mix64(row.address_key_hash + static_cast<uint64_t>(row_index)))
+          : 0ULL;
+  wna16_side_execution_aux_metadata_handle_read_ok[idx] =
+      aux_metadata_handle_visible;
+  wna16_side_execution_aux_metadata_handle_read_hash[idx] =
+      aux_metadata_handle_visible
+          ? (mix64(row.aux_metadata_handle + 0x16e5000000000104ULL) ^
+             mix64(row.address_key_hash + static_cast<uint64_t>(row_index)))
+          : 0ULL;
+}
+
 __global__ void typed_consumer_future_native_consumer_request_ptr_kernel(
     const PremapFutureKernelNativeConsumerRequestPtrV1* request) {
   if (blockIdx.x != 0 || threadIdx.x != 0 || request == nullptr) {
@@ -2228,6 +2693,30 @@ static std::string macro_json() {
 #else
      << "false";
 #endif
+  os << ",\"MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_WNA16_TYPED_SLOT_KERNEL_VARIANT_ABI\":"
+#if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_WNA16_TYPED_SLOT_KERNEL_VARIANT_ABI)
+     << "true";
+#else
+     << "false";
+#endif
+  os << ",\"MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_WNA16_KERNEL_ACCEPT_TYPED_SLOT_ABI\":"
+#if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_WNA16_KERNEL_ACCEPT_TYPED_SLOT_ABI)
+     << "true";
+#else
+     << "false";
+#endif
+  os << ",\"MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_WNA16_KERNEL_SIDE_CONSUMER_EXECUTION_ABI\":"
+#if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_WNA16_KERNEL_SIDE_CONSUMER_EXECUTION_ABI)
+     << "true";
+#else
+     << "false";
+#endif
+  os << ",\"MTP_PREMAP_TYPED_CONSUMER_CHECK_WNA16_SIDE_CONSUMER_VARIANT_EXECUTION_ABI\":"
+#if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_WNA16_SIDE_CONSUMER_VARIANT_EXECUTION_ABI)
+     << "true";
+#else
+     << "false";
+#endif
   os << ",\"MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_PTR_ABI\":"
 #if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_PTR_ABI)
      << "true";
@@ -2330,6 +2819,29 @@ int main(int argc, char** argv) {
            *d_future_native_consumer_kernel_arg_packet_scale_metadata_handle_read_hash =
                nullptr,
            *d_future_native_consumer_kernel_arg_packet_aux_metadata_handle_read_hash =
+               nullptr,
+           *d_future_wna16_kernel_side_consumer_execution_hash = nullptr,
+           *d_future_wna16_kernel_side_consumer_execution_handle_projection_hash =
+               nullptr,
+           *d_future_wna16_kernel_side_consumer_execution_descriptor_ptr_read_hash =
+               nullptr,
+           *d_future_wna16_kernel_side_consumer_execution_packed_weight_descriptor_read_hash =
+               nullptr,
+           *d_future_wna16_kernel_side_consumer_execution_scale_metadata_handle_read_hash =
+               nullptr,
+           *d_future_wna16_kernel_side_consumer_execution_aux_metadata_handle_read_hash =
+               nullptr,
+           *d_future_wna16_single_field_handoff_hash = nullptr,
+           *d_wna16_side_consumer_variant_execution_hash = nullptr,
+           *d_wna16_side_consumer_variant_execution_handle_projection_hash =
+               nullptr,
+           *d_wna16_side_consumer_variant_execution_descriptor_ptr_read_hash =
+               nullptr,
+           *d_wna16_side_consumer_variant_execution_packed_weight_descriptor_read_hash =
+               nullptr,
+           *d_wna16_side_consumer_variant_execution_scale_metadata_handle_read_hash =
+               nullptr,
+           *d_wna16_side_consumer_variant_execution_aux_metadata_handle_read_hash =
                nullptr;
   PremapFutureKernelNativeConsumerDispatchV1* d_future_native_dispatch_packet =
       nullptr;
@@ -2375,6 +2887,10 @@ int main(int argc, char** argv) {
       d_future_native_consumer_endpoint_ptr_summary = nullptr;
   PremapFutureKernelNativeConsumerKernelEntrySummaryV1*
       d_future_native_consumer_wna16_adjacent_typed_slot_summary = nullptr;
+  PremapFutureKernelNativeConsumerKernelEntrySummaryV1*
+      d_future_wna16_typed_slot_kernel_variant_summary = nullptr;
+  PremapFutureKernelNativeConsumerKernelEntrySummaryV1*
+      d_future_wna16_kernel_accept_typed_slot_summary = nullptr;
   PremapFutureKernelNativeConsumerKernelEntrySummaryV1*
       d_future_native_consumer_request_ptr_summary = nullptr;
   PremapFutureKernelNativeConsumerKernelEntrySummaryV1*
@@ -2425,6 +2941,25 @@ int main(int argc, char** argv) {
            *d_future_native_consumer_kernel_arg_packet_scale_metadata_handle_read_ok =
                nullptr,
            *d_future_native_consumer_kernel_arg_packet_aux_metadata_handle_read_ok =
+               nullptr,
+           *d_future_wna16_kernel_side_consumer_execution_ok = nullptr,
+           *d_future_wna16_kernel_side_consumer_execution_descriptor_ptr_read_ok =
+               nullptr,
+           *d_future_wna16_kernel_side_consumer_execution_packed_weight_descriptor_read_ok =
+               nullptr,
+           *d_future_wna16_kernel_side_consumer_execution_scale_metadata_handle_read_ok =
+               nullptr,
+           *d_future_wna16_kernel_side_consumer_execution_aux_metadata_handle_read_ok =
+               nullptr,
+           *d_future_wna16_single_field_handoff_ok = nullptr,
+           *d_wna16_side_consumer_variant_execution_ok = nullptr,
+           *d_wna16_side_consumer_variant_execution_descriptor_ptr_read_ok =
+               nullptr,
+           *d_wna16_side_consumer_variant_execution_packed_weight_descriptor_read_ok =
+               nullptr,
+           *d_wna16_side_consumer_variant_execution_scale_metadata_handle_read_ok =
+               nullptr,
+           *d_wna16_side_consumer_variant_execution_aux_metadata_handle_read_ok =
                nullptr;
   const size_t u64_bytes = static_cast<size_t>(rows) * sizeof(uint64_t);
   const size_t i32_bytes = static_cast<size_t>(rows) * sizeof(int32_t);
@@ -2685,6 +3220,114 @@ int main(int argc, char** argv) {
           u64_bytes),
       "hipMalloc future_native_consumer_kernel_arg_packet_aux_metadata_handle_read_hash");
   hip_check(
+      hipMalloc(&d_future_wna16_kernel_side_consumer_execution_ok, u32_bytes),
+      "hipMalloc future_wna16_kernel_side_consumer_execution_ok");
+  hip_check(
+      hipMalloc(&d_future_wna16_kernel_side_consumer_execution_hash, u64_bytes),
+      "hipMalloc future_wna16_kernel_side_consumer_execution_hash");
+  hip_check(
+      hipMalloc(
+          &d_future_wna16_kernel_side_consumer_execution_handle_projection_hash,
+          u64_bytes),
+      "hipMalloc future_wna16_kernel_side_consumer_execution_handle_projection_hash");
+  hip_check(
+      hipMalloc(
+          &d_future_wna16_kernel_side_consumer_execution_descriptor_ptr_read_ok,
+          u32_bytes),
+      "hipMalloc future_wna16_kernel_side_consumer_execution_descriptor_ptr_read_ok");
+  hip_check(
+      hipMalloc(
+          &d_future_wna16_kernel_side_consumer_execution_descriptor_ptr_read_hash,
+          u64_bytes),
+      "hipMalloc future_wna16_kernel_side_consumer_execution_descriptor_ptr_read_hash");
+  hip_check(
+      hipMalloc(
+          &d_future_wna16_kernel_side_consumer_execution_packed_weight_descriptor_read_ok,
+          u32_bytes),
+      "hipMalloc future_wna16_kernel_side_consumer_execution_packed_weight_descriptor_read_ok");
+  hip_check(
+      hipMalloc(
+          &d_future_wna16_kernel_side_consumer_execution_packed_weight_descriptor_read_hash,
+          u64_bytes),
+      "hipMalloc future_wna16_kernel_side_consumer_execution_packed_weight_descriptor_read_hash");
+  hip_check(
+      hipMalloc(
+          &d_future_wna16_kernel_side_consumer_execution_scale_metadata_handle_read_ok,
+          u32_bytes),
+      "hipMalloc future_wna16_kernel_side_consumer_execution_scale_metadata_handle_read_ok");
+  hip_check(
+      hipMalloc(
+          &d_future_wna16_kernel_side_consumer_execution_scale_metadata_handle_read_hash,
+          u64_bytes),
+      "hipMalloc future_wna16_kernel_side_consumer_execution_scale_metadata_handle_read_hash");
+  hip_check(
+      hipMalloc(
+          &d_future_wna16_kernel_side_consumer_execution_aux_metadata_handle_read_ok,
+          u32_bytes),
+      "hipMalloc future_wna16_kernel_side_consumer_execution_aux_metadata_handle_read_ok");
+  hip_check(
+      hipMalloc(
+          &d_future_wna16_kernel_side_consumer_execution_aux_metadata_handle_read_hash,
+          u64_bytes),
+      "hipMalloc future_wna16_kernel_side_consumer_execution_aux_metadata_handle_read_hash");
+  hip_check(
+      hipMalloc(&d_future_wna16_single_field_handoff_ok, u32_bytes),
+      "hipMalloc future_wna16_single_field_handoff_ok");
+  hip_check(
+      hipMalloc(&d_future_wna16_single_field_handoff_hash, u64_bytes),
+      "hipMalloc future_wna16_single_field_handoff_hash");
+  hip_check(
+      hipMalloc(&d_wna16_side_consumer_variant_execution_ok, u32_bytes),
+      "hipMalloc wna16_side_consumer_variant_execution_ok");
+  hip_check(
+      hipMalloc(&d_wna16_side_consumer_variant_execution_hash, u64_bytes),
+      "hipMalloc wna16_side_consumer_variant_execution_hash");
+  hip_check(
+      hipMalloc(
+          &d_wna16_side_consumer_variant_execution_handle_projection_hash,
+          u64_bytes),
+      "hipMalloc wna16_side_consumer_variant_execution_handle_projection_hash");
+  hip_check(
+      hipMalloc(
+          &d_wna16_side_consumer_variant_execution_descriptor_ptr_read_ok,
+          u32_bytes),
+      "hipMalloc wna16_side_consumer_variant_execution_descriptor_ptr_read_ok");
+  hip_check(
+      hipMalloc(
+          &d_wna16_side_consumer_variant_execution_descriptor_ptr_read_hash,
+          u64_bytes),
+      "hipMalloc wna16_side_consumer_variant_execution_descriptor_ptr_read_hash");
+  hip_check(
+      hipMalloc(
+          &d_wna16_side_consumer_variant_execution_packed_weight_descriptor_read_ok,
+          u32_bytes),
+      "hipMalloc wna16_side_consumer_variant_execution_packed_weight_descriptor_read_ok");
+  hip_check(
+      hipMalloc(
+          &d_wna16_side_consumer_variant_execution_packed_weight_descriptor_read_hash,
+          u64_bytes),
+      "hipMalloc wna16_side_consumer_variant_execution_packed_weight_descriptor_read_hash");
+  hip_check(
+      hipMalloc(
+          &d_wna16_side_consumer_variant_execution_scale_metadata_handle_read_ok,
+          u32_bytes),
+      "hipMalloc wna16_side_consumer_variant_execution_scale_metadata_handle_read_ok");
+  hip_check(
+      hipMalloc(
+          &d_wna16_side_consumer_variant_execution_scale_metadata_handle_read_hash,
+          u64_bytes),
+      "hipMalloc wna16_side_consumer_variant_execution_scale_metadata_handle_read_hash");
+  hip_check(
+      hipMalloc(
+          &d_wna16_side_consumer_variant_execution_aux_metadata_handle_read_ok,
+          u32_bytes),
+      "hipMalloc wna16_side_consumer_variant_execution_aux_metadata_handle_read_ok");
+  hip_check(
+      hipMalloc(
+          &d_wna16_side_consumer_variant_execution_aux_metadata_handle_read_hash,
+          u64_bytes),
+      "hipMalloc wna16_side_consumer_variant_execution_aux_metadata_handle_read_hash");
+  hip_check(
       hipMalloc(
           &d_future_native_consumer_kernel_entry_summary,
           sizeof(PremapFutureKernelNativeConsumerKernelEntrySummaryV1)),
@@ -2774,6 +3417,16 @@ int main(int argc, char** argv) {
           &d_future_native_consumer_wna16_adjacent_typed_slot_summary,
           sizeof(PremapFutureKernelNativeConsumerKernelEntrySummaryV1)),
       "hipMalloc future_native_consumer_wna16_adjacent_typed_slot_summary");
+  hip_check(
+      hipMalloc(
+          &d_future_wna16_typed_slot_kernel_variant_summary,
+          sizeof(PremapFutureKernelNativeConsumerKernelEntrySummaryV1)),
+      "hipMalloc future_wna16_typed_slot_kernel_variant_summary");
+  hip_check(
+      hipMalloc(
+          &d_future_wna16_kernel_accept_typed_slot_summary,
+          sizeof(PremapFutureKernelNativeConsumerKernelEntrySummaryV1)),
+      "hipMalloc future_wna16_kernel_accept_typed_slot_summary");
   hip_check(
       hipMalloc(
           &d_future_native_consumer_request_ptr_summary,
@@ -3056,6 +3709,132 @@ int main(int argc, char** argv) {
           u64_bytes),
       "memset future_native_consumer_kernel_arg_packet_aux_metadata_handle_read_hash");
   hip_check(
+      hipMemset(d_future_wna16_kernel_side_consumer_execution_ok, 0, u32_bytes),
+      "memset future_wna16_kernel_side_consumer_execution_ok");
+  hip_check(
+      hipMemset(d_future_wna16_kernel_side_consumer_execution_hash, 0, u64_bytes),
+      "memset future_wna16_kernel_side_consumer_execution_hash");
+  hip_check(
+      hipMemset(
+          d_future_wna16_kernel_side_consumer_execution_handle_projection_hash,
+          0,
+          u64_bytes),
+      "memset future_wna16_kernel_side_consumer_execution_handle_projection_hash");
+  hip_check(
+      hipMemset(
+          d_future_wna16_kernel_side_consumer_execution_descriptor_ptr_read_ok,
+          0,
+          u32_bytes),
+      "memset future_wna16_kernel_side_consumer_execution_descriptor_ptr_read_ok");
+  hip_check(
+      hipMemset(
+          d_future_wna16_kernel_side_consumer_execution_descriptor_ptr_read_hash,
+          0,
+          u64_bytes),
+      "memset future_wna16_kernel_side_consumer_execution_descriptor_ptr_read_hash");
+  hip_check(
+      hipMemset(
+          d_future_wna16_kernel_side_consumer_execution_packed_weight_descriptor_read_ok,
+          0,
+          u32_bytes),
+      "memset future_wna16_kernel_side_consumer_execution_packed_weight_descriptor_read_ok");
+  hip_check(
+      hipMemset(
+          d_future_wna16_kernel_side_consumer_execution_packed_weight_descriptor_read_hash,
+          0,
+          u64_bytes),
+      "memset future_wna16_kernel_side_consumer_execution_packed_weight_descriptor_read_hash");
+  hip_check(
+      hipMemset(
+          d_future_wna16_kernel_side_consumer_execution_scale_metadata_handle_read_ok,
+          0,
+          u32_bytes),
+      "memset future_wna16_kernel_side_consumer_execution_scale_metadata_handle_read_ok");
+  hip_check(
+      hipMemset(
+          d_future_wna16_kernel_side_consumer_execution_scale_metadata_handle_read_hash,
+          0,
+          u64_bytes),
+      "memset future_wna16_kernel_side_consumer_execution_scale_metadata_handle_read_hash");
+  hip_check(
+      hipMemset(
+          d_future_wna16_kernel_side_consumer_execution_aux_metadata_handle_read_ok,
+          0,
+          u32_bytes),
+      "memset future_wna16_kernel_side_consumer_execution_aux_metadata_handle_read_ok");
+  hip_check(
+      hipMemset(
+          d_future_wna16_kernel_side_consumer_execution_aux_metadata_handle_read_hash,
+          0,
+          u64_bytes),
+      "memset future_wna16_kernel_side_consumer_execution_aux_metadata_handle_read_hash");
+  hip_check(
+      hipMemset(d_future_wna16_single_field_handoff_ok, 0, u32_bytes),
+      "memset future_wna16_single_field_handoff_ok");
+  hip_check(
+      hipMemset(d_future_wna16_single_field_handoff_hash, 0, u64_bytes),
+      "memset future_wna16_single_field_handoff_hash");
+  hip_check(
+      hipMemset(d_wna16_side_consumer_variant_execution_ok, 0, u32_bytes),
+      "memset wna16_side_consumer_variant_execution_ok");
+  hip_check(
+      hipMemset(d_wna16_side_consumer_variant_execution_hash, 0, u64_bytes),
+      "memset wna16_side_consumer_variant_execution_hash");
+  hip_check(
+      hipMemset(
+          d_wna16_side_consumer_variant_execution_handle_projection_hash,
+          0,
+          u64_bytes),
+      "memset wna16_side_consumer_variant_execution_handle_projection_hash");
+  hip_check(
+      hipMemset(
+          d_wna16_side_consumer_variant_execution_descriptor_ptr_read_ok,
+          0,
+          u32_bytes),
+      "memset wna16_side_consumer_variant_execution_descriptor_ptr_read_ok");
+  hip_check(
+      hipMemset(
+          d_wna16_side_consumer_variant_execution_descriptor_ptr_read_hash,
+          0,
+          u64_bytes),
+      "memset wna16_side_consumer_variant_execution_descriptor_ptr_read_hash");
+  hip_check(
+      hipMemset(
+          d_wna16_side_consumer_variant_execution_packed_weight_descriptor_read_ok,
+          0,
+          u32_bytes),
+      "memset wna16_side_consumer_variant_execution_packed_weight_descriptor_read_ok");
+  hip_check(
+      hipMemset(
+          d_wna16_side_consumer_variant_execution_packed_weight_descriptor_read_hash,
+          0,
+          u64_bytes),
+      "memset wna16_side_consumer_variant_execution_packed_weight_descriptor_read_hash");
+  hip_check(
+      hipMemset(
+          d_wna16_side_consumer_variant_execution_scale_metadata_handle_read_ok,
+          0,
+          u32_bytes),
+      "memset wna16_side_consumer_variant_execution_scale_metadata_handle_read_ok");
+  hip_check(
+      hipMemset(
+          d_wna16_side_consumer_variant_execution_scale_metadata_handle_read_hash,
+          0,
+          u64_bytes),
+      "memset wna16_side_consumer_variant_execution_scale_metadata_handle_read_hash");
+  hip_check(
+      hipMemset(
+          d_wna16_side_consumer_variant_execution_aux_metadata_handle_read_ok,
+          0,
+          u32_bytes),
+      "memset wna16_side_consumer_variant_execution_aux_metadata_handle_read_ok");
+  hip_check(
+      hipMemset(
+          d_wna16_side_consumer_variant_execution_aux_metadata_handle_read_hash,
+          0,
+          u64_bytes),
+      "memset wna16_side_consumer_variant_execution_aux_metadata_handle_read_hash");
+  hip_check(
       hipMemset(
           d_future_native_consumer_kernel_entry_summary,
           0,
@@ -3157,6 +3936,18 @@ int main(int argc, char** argv) {
           0,
           sizeof(PremapFutureKernelNativeConsumerKernelEntrySummaryV1)),
       "memset future_native_consumer_wna16_adjacent_typed_slot_summary");
+  hip_check(
+      hipMemset(
+          d_future_wna16_typed_slot_kernel_variant_summary,
+          0,
+          sizeof(PremapFutureKernelNativeConsumerKernelEntrySummaryV1)),
+      "memset future_wna16_typed_slot_kernel_variant_summary");
+  hip_check(
+      hipMemset(
+          d_future_wna16_kernel_accept_typed_slot_summary,
+          0,
+          sizeof(PremapFutureKernelNativeConsumerKernelEntrySummaryV1)),
+      "memset future_wna16_kernel_accept_typed_slot_summary");
   hip_check(
       hipMemset(
           d_future_native_consumer_request_ptr_summary,
@@ -4282,6 +5073,189 @@ int main(int argc, char** argv) {
   hip_check(
       hipDeviceSynchronize(),
       "future native consumer WNA16-adjacent typed slot sync");
+#if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_WNA16_KERNEL_ACCEPT_TYPED_SLOT_ABI)
+  PremapFutureWna16KernelAcceptTypedSlotV1
+      future_wna16_kernel_accept_typed_slot;
+  future_native_consumer_wna16_adjacent_typed_slot.summary =
+      d_future_wna16_kernel_accept_typed_slot_summary;
+  future_native_consumer_wna16_adjacent_typed_slot.endpoint_ptr.summary =
+      d_future_wna16_kernel_accept_typed_slot_summary;
+  future_wna16_kernel_accept_typed_slot.typed_slot =
+      future_native_consumer_wna16_adjacent_typed_slot;
+  future_wna16_kernel_accept_typed_slot.summary =
+      d_future_wna16_kernel_accept_typed_slot_summary;
+  future_wna16_kernel_accept_typed_slot.abi_version =
+      kPremapFutureWna16KernelAcceptTypedSlotAbiV1Version;
+  future_wna16_kernel_accept_typed_slot.typed_slot_struct_size =
+      sizeof(PremapFutureKernelNativeConsumerWna16AdjacentTypedSlotV1);
+  future_wna16_kernel_accept_typed_slot.summary_struct_size =
+      sizeof(PremapFutureKernelNativeConsumerKernelEntrySummaryV1);
+  future_wna16_kernel_accept_typed_slot.pointer_size =
+      sizeof(PremapFutureKernelNativeConsumerWna16AdjacentTypedSlotV1*);
+  future_wna16_kernel_accept_typed_slot.kernel_variant_id = 1;
+  future_wna16_kernel_accept_typed_slot.packet_chain_depth = 15;
+  future_wna16_kernel_accept_typed_slot.payload_bytes = 0;
+  future_wna16_kernel_accept_typed_slot.flags =
+      kPremapFutureKernelSideConsumerArgsV1RequiredFlags;
+  future_wna16_kernel_accept_typed_slot.current_wna16_arg_compatible = 0;
+  future_wna16_kernel_accept_typed_slot
+      .requires_wna16_arg_reinterpretation = 0;
+  future_wna16_kernel_accept_typed_slot.explicit_typed_abi_slot = 1;
+  future_wna16_kernel_accept_typed_slot.reuses_current_wna16_arg_slot = 0;
+  hipLaunchKernelGGL(
+      typed_consumer_future_wna16_kernel_accept_typed_slot_kernel,
+      dim3(1),
+      dim3(1),
+      0,
+      0,
+      future_wna16_kernel_accept_typed_slot);
+  hip_check(
+      hipGetLastError(),
+      "future WNA16 kernel accept typed slot launch");
+  hip_check(
+      hipDeviceSynchronize(),
+      "future WNA16 kernel accept typed slot sync");
+#if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_WNA16_KERNEL_SIDE_CONSUMER_EXECUTION_ABI)
+  PremapFutureWna16KernelSideConsumerExecutionV1
+      future_wna16_kernel_side_consumer_execution;
+  future_wna16_kernel_side_consumer_execution.accept =
+      future_wna16_kernel_accept_typed_slot;
+  future_wna16_kernel_side_consumer_execution.abi_version =
+      kPremapFutureWna16KernelSideConsumerExecutionAbiV1Version;
+  future_wna16_kernel_side_consumer_execution.accept_struct_size =
+      sizeof(PremapFutureWna16KernelAcceptTypedSlotV1);
+  future_wna16_kernel_side_consumer_execution.row_offset = dispatch_row_offset;
+  future_wna16_kernel_side_consumer_execution.row_limit = dispatch_row_limit;
+  future_wna16_kernel_side_consumer_execution.grid_x = dispatch_blocks;
+  future_wna16_kernel_side_consumer_execution.block_x = threads;
+  future_wna16_kernel_side_consumer_execution.rows_per_program = threads;
+  future_wna16_kernel_side_consumer_execution.packet_chain_depth = 16;
+  future_wna16_kernel_side_consumer_execution.payload_bytes = 0;
+  future_wna16_kernel_side_consumer_execution.flags =
+      kPremapFutureKernelSideConsumerArgsV1RequiredFlags;
+  future_wna16_kernel_side_consumer_execution.current_wna16_arg_compatible = 0;
+  future_wna16_kernel_side_consumer_execution
+      .requires_wna16_arg_reinterpretation = 0;
+  future_wna16_kernel_side_consumer_execution.explicit_typed_abi_slot = 1;
+  future_wna16_kernel_side_consumer_execution.reuses_current_wna16_arg_slot = 0;
+  hipLaunchKernelGGL(
+      typed_consumer_future_wna16_kernel_side_consumer_execution_kernel,
+      dim3(dispatch_blocks),
+      dim3(threads),
+      0,
+      0,
+      future_wna16_kernel_side_consumer_execution,
+      d_future_wna16_kernel_side_consumer_execution_ok,
+      d_future_wna16_kernel_side_consumer_execution_hash,
+      d_future_wna16_kernel_side_consumer_execution_handle_projection_hash,
+      d_future_wna16_kernel_side_consumer_execution_descriptor_ptr_read_ok,
+      d_future_wna16_kernel_side_consumer_execution_descriptor_ptr_read_hash,
+      d_future_wna16_kernel_side_consumer_execution_packed_weight_descriptor_read_ok,
+      d_future_wna16_kernel_side_consumer_execution_packed_weight_descriptor_read_hash,
+      d_future_wna16_kernel_side_consumer_execution_scale_metadata_handle_read_ok,
+      d_future_wna16_kernel_side_consumer_execution_scale_metadata_handle_read_hash,
+      d_future_wna16_kernel_side_consumer_execution_aux_metadata_handle_read_ok,
+      d_future_wna16_kernel_side_consumer_execution_aux_metadata_handle_read_hash,
+      d_future_wna16_single_field_handoff_ok,
+      d_future_wna16_single_field_handoff_hash);
+  hip_check(
+      hipGetLastError(),
+      "future WNA16 kernel-side consumer execution launch");
+  hip_check(
+      hipDeviceSynchronize(),
+      "future WNA16 kernel-side consumer execution sync");
+#endif
+#endif
+#if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_WNA16_TYPED_SLOT_KERNEL_VARIANT_ABI)
+  PremapFutureWna16TypedSlotKernelVariantV1
+      future_wna16_typed_slot_kernel_variant;
+  future_native_consumer_wna16_adjacent_typed_slot.summary =
+      d_future_wna16_typed_slot_kernel_variant_summary;
+  future_native_consumer_wna16_adjacent_typed_slot.endpoint_ptr.summary =
+      d_future_wna16_typed_slot_kernel_variant_summary;
+  future_wna16_typed_slot_kernel_variant.typed_slot =
+      future_native_consumer_wna16_adjacent_typed_slot;
+  future_wna16_typed_slot_kernel_variant.summary =
+      d_future_wna16_typed_slot_kernel_variant_summary;
+  future_wna16_typed_slot_kernel_variant.abi_version =
+      kPremapFutureWna16TypedSlotKernelVariantAbiV1Version;
+  future_wna16_typed_slot_kernel_variant.typed_slot_struct_size =
+      sizeof(PremapFutureKernelNativeConsumerWna16AdjacentTypedSlotV1);
+  future_wna16_typed_slot_kernel_variant.summary_struct_size =
+      sizeof(PremapFutureKernelNativeConsumerKernelEntrySummaryV1);
+  future_wna16_typed_slot_kernel_variant.pointer_size =
+      sizeof(PremapFutureKernelNativeConsumerWna16AdjacentTypedSlotV1*);
+  future_wna16_typed_slot_kernel_variant.variant_id = 1;
+  future_wna16_typed_slot_kernel_variant.packet_chain_depth = 15;
+  future_wna16_typed_slot_kernel_variant.payload_bytes = 0;
+  future_wna16_typed_slot_kernel_variant.flags =
+      kPremapFutureKernelSideConsumerArgsV1RequiredFlags;
+  future_wna16_typed_slot_kernel_variant.current_wna16_arg_compatible = 0;
+  future_wna16_typed_slot_kernel_variant
+      .requires_wna16_arg_reinterpretation = 0;
+  future_wna16_typed_slot_kernel_variant.explicit_typed_abi_slot = 1;
+  future_wna16_typed_slot_kernel_variant.reuses_current_wna16_arg_slot = 0;
+  hipLaunchKernelGGL(
+      typed_consumer_future_wna16_typed_slot_kernel_variant_kernel,
+      dim3(1),
+      dim3(1),
+      0,
+      0,
+      future_wna16_typed_slot_kernel_variant);
+  hip_check(
+      hipGetLastError(),
+      "future WNA16 typed-slot kernel variant launch");
+  hip_check(
+      hipDeviceSynchronize(),
+      "future WNA16 typed-slot kernel variant sync");
+#if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_WNA16_SIDE_CONSUMER_VARIANT_EXECUTION_ABI)
+  PremapWna16SideConsumerVariantExecutionV1
+      wna16_side_consumer_variant_execution;
+  wna16_side_consumer_variant_execution.variant =
+      future_wna16_typed_slot_kernel_variant;
+  wna16_side_consumer_variant_execution.abi_version =
+      kPremapWna16SideConsumerVariantExecutionAbiV1Version;
+  wna16_side_consumer_variant_execution.variant_struct_size =
+      sizeof(PremapFutureWna16TypedSlotKernelVariantV1);
+  wna16_side_consumer_variant_execution.row_offset = dispatch_row_offset;
+  wna16_side_consumer_variant_execution.row_limit = dispatch_row_limit;
+  wna16_side_consumer_variant_execution.grid_x = dispatch_blocks;
+  wna16_side_consumer_variant_execution.block_x = threads;
+  wna16_side_consumer_variant_execution.rows_per_program = threads;
+  wna16_side_consumer_variant_execution.packet_chain_depth = 16;
+  wna16_side_consumer_variant_execution.payload_bytes = 0;
+  wna16_side_consumer_variant_execution.flags =
+      kPremapFutureKernelSideConsumerArgsV1RequiredFlags;
+  wna16_side_consumer_variant_execution.current_wna16_arg_compatible = 0;
+  wna16_side_consumer_variant_execution.requires_wna16_arg_reinterpretation = 0;
+  wna16_side_consumer_variant_execution.explicit_typed_abi_slot = 1;
+  wna16_side_consumer_variant_execution.reuses_current_wna16_arg_slot = 0;
+  hipLaunchKernelGGL(
+      typed_consumer_wna16_side_consumer_variant_execution_kernel,
+      dim3(dispatch_blocks),
+      dim3(threads),
+      0,
+      0,
+      wna16_side_consumer_variant_execution,
+      d_wna16_side_consumer_variant_execution_ok,
+      d_wna16_side_consumer_variant_execution_hash,
+      d_wna16_side_consumer_variant_execution_handle_projection_hash,
+      d_wna16_side_consumer_variant_execution_descriptor_ptr_read_ok,
+      d_wna16_side_consumer_variant_execution_descriptor_ptr_read_hash,
+      d_wna16_side_consumer_variant_execution_packed_weight_descriptor_read_ok,
+      d_wna16_side_consumer_variant_execution_packed_weight_descriptor_read_hash,
+      d_wna16_side_consumer_variant_execution_scale_metadata_handle_read_ok,
+      d_wna16_side_consumer_variant_execution_scale_metadata_handle_read_hash,
+      d_wna16_side_consumer_variant_execution_aux_metadata_handle_read_ok,
+      d_wna16_side_consumer_variant_execution_aux_metadata_handle_read_hash);
+  hip_check(
+      hipGetLastError(),
+      "WNA16-side consumer variant execution launch");
+  hip_check(
+      hipDeviceSynchronize(),
+      "WNA16-side consumer variant execution sync");
+#endif
+#endif
 #endif
 #endif
 #endif
@@ -4396,6 +5370,55 @@ int main(int argc, char** argv) {
   std::vector<uint64_t>
       future_native_consumer_kernel_arg_packet_aux_metadata_handle_read_hashes(
           rows);
+  std::vector<uint32_t> future_wna16_kernel_side_consumer_execution_ok(rows);
+  std::vector<uint64_t> future_wna16_kernel_side_consumer_execution_hashes(rows);
+  std::vector<uint64_t>
+      future_wna16_kernel_side_consumer_execution_handle_projection_hashes(rows);
+  std::vector<uint32_t>
+      future_wna16_kernel_side_consumer_execution_descriptor_ptr_read_ok(rows);
+  std::vector<uint64_t>
+      future_wna16_kernel_side_consumer_execution_descriptor_ptr_read_hashes(rows);
+  std::vector<uint32_t>
+      future_wna16_kernel_side_consumer_execution_packed_weight_descriptor_read_ok(
+          rows);
+  std::vector<uint64_t>
+      future_wna16_kernel_side_consumer_execution_packed_weight_descriptor_read_hashes(
+          rows);
+  std::vector<uint32_t>
+      future_wna16_kernel_side_consumer_execution_scale_metadata_handle_read_ok(
+          rows);
+  std::vector<uint64_t>
+      future_wna16_kernel_side_consumer_execution_scale_metadata_handle_read_hashes(
+          rows);
+  std::vector<uint32_t>
+      future_wna16_kernel_side_consumer_execution_aux_metadata_handle_read_ok(rows);
+  std::vector<uint64_t>
+      future_wna16_kernel_side_consumer_execution_aux_metadata_handle_read_hashes(
+          rows);
+  std::vector<uint32_t> future_wna16_single_field_handoff_ok(rows);
+  std::vector<uint64_t> future_wna16_single_field_handoff_hashes(rows);
+  std::vector<uint32_t> wna16_side_consumer_variant_execution_ok(rows);
+  std::vector<uint64_t> wna16_side_consumer_variant_execution_hashes(rows);
+  std::vector<uint64_t>
+      wna16_side_consumer_variant_execution_handle_projection_hashes(rows);
+  std::vector<uint32_t>
+      wna16_side_consumer_variant_execution_descriptor_ptr_read_ok(rows);
+  std::vector<uint64_t>
+      wna16_side_consumer_variant_execution_descriptor_ptr_read_hashes(rows);
+  std::vector<uint32_t>
+      wna16_side_consumer_variant_execution_packed_weight_descriptor_read_ok(rows);
+  std::vector<uint64_t>
+      wna16_side_consumer_variant_execution_packed_weight_descriptor_read_hashes(
+          rows);
+  std::vector<uint32_t>
+      wna16_side_consumer_variant_execution_scale_metadata_handle_read_ok(rows);
+  std::vector<uint64_t>
+      wna16_side_consumer_variant_execution_scale_metadata_handle_read_hashes(
+          rows);
+  std::vector<uint32_t>
+      wna16_side_consumer_variant_execution_aux_metadata_handle_read_ok(rows);
+  std::vector<uint64_t>
+      wna16_side_consumer_variant_execution_aux_metadata_handle_read_hashes(rows);
   PremapFutureKernelNativeConsumerKernelEntrySummaryV1
       future_native_consumer_kernel_entry_summary{};
   PremapFutureKernelNativeConsumerKernelEntrySummaryV1
@@ -4420,6 +5443,10 @@ int main(int argc, char** argv) {
       future_native_consumer_endpoint_ptr_summary{};
   PremapFutureKernelNativeConsumerKernelEntrySummaryV1
       future_native_consumer_wna16_adjacent_typed_slot_summary{};
+  PremapFutureKernelNativeConsumerKernelEntrySummaryV1
+      future_wna16_typed_slot_kernel_variant_summary{};
+  PremapFutureKernelNativeConsumerKernelEntrySummaryV1
+      future_wna16_kernel_accept_typed_slot_summary{};
   PremapFutureKernelNativeConsumerKernelEntrySummaryV1
       future_native_consumer_request_ptr_summary{};
   PremapFutureKernelNativeConsumerKernelEntrySummaryV1
@@ -4916,6 +5943,185 @@ int main(int argc, char** argv) {
       "copy future_native_consumer_kernel_arg_packet_aux_metadata_handle_read_hash");
   hip_check(
       hipMemcpy(
+          future_wna16_kernel_side_consumer_execution_ok.data(),
+          d_future_wna16_kernel_side_consumer_execution_ok,
+          u32_bytes,
+          hipMemcpyDeviceToHost),
+      "copy future_wna16_kernel_side_consumer_execution_ok");
+  hip_check(
+      hipMemcpy(
+          future_wna16_kernel_side_consumer_execution_hashes.data(),
+          d_future_wna16_kernel_side_consumer_execution_hash,
+          u64_bytes,
+          hipMemcpyDeviceToHost),
+      "copy future_wna16_kernel_side_consumer_execution_hash");
+  hip_check(
+      hipMemcpy(
+          future_wna16_kernel_side_consumer_execution_handle_projection_hashes
+              .data(),
+          d_future_wna16_kernel_side_consumer_execution_handle_projection_hash,
+          u64_bytes,
+          hipMemcpyDeviceToHost),
+      "copy future_wna16_kernel_side_consumer_execution_handle_projection_hash");
+  hip_check(
+      hipMemcpy(
+          future_wna16_kernel_side_consumer_execution_descriptor_ptr_read_ok.data(),
+          d_future_wna16_kernel_side_consumer_execution_descriptor_ptr_read_ok,
+          u32_bytes,
+          hipMemcpyDeviceToHost),
+      "copy future_wna16_kernel_side_consumer_execution_descriptor_ptr_read_ok");
+  hip_check(
+      hipMemcpy(
+          future_wna16_kernel_side_consumer_execution_descriptor_ptr_read_hashes
+              .data(),
+          d_future_wna16_kernel_side_consumer_execution_descriptor_ptr_read_hash,
+          u64_bytes,
+          hipMemcpyDeviceToHost),
+      "copy future_wna16_kernel_side_consumer_execution_descriptor_ptr_read_hash");
+  hip_check(
+      hipMemcpy(
+          future_wna16_kernel_side_consumer_execution_packed_weight_descriptor_read_ok
+              .data(),
+          d_future_wna16_kernel_side_consumer_execution_packed_weight_descriptor_read_ok,
+          u32_bytes,
+          hipMemcpyDeviceToHost),
+      "copy future_wna16_kernel_side_consumer_execution_packed_weight_descriptor_read_ok");
+  hip_check(
+      hipMemcpy(
+          future_wna16_kernel_side_consumer_execution_packed_weight_descriptor_read_hashes
+              .data(),
+          d_future_wna16_kernel_side_consumer_execution_packed_weight_descriptor_read_hash,
+          u64_bytes,
+          hipMemcpyDeviceToHost),
+      "copy future_wna16_kernel_side_consumer_execution_packed_weight_descriptor_read_hash");
+  hip_check(
+      hipMemcpy(
+          future_wna16_kernel_side_consumer_execution_scale_metadata_handle_read_ok
+              .data(),
+          d_future_wna16_kernel_side_consumer_execution_scale_metadata_handle_read_ok,
+          u32_bytes,
+          hipMemcpyDeviceToHost),
+      "copy future_wna16_kernel_side_consumer_execution_scale_metadata_handle_read_ok");
+  hip_check(
+      hipMemcpy(
+          future_wna16_kernel_side_consumer_execution_scale_metadata_handle_read_hashes
+              .data(),
+          d_future_wna16_kernel_side_consumer_execution_scale_metadata_handle_read_hash,
+          u64_bytes,
+          hipMemcpyDeviceToHost),
+      "copy future_wna16_kernel_side_consumer_execution_scale_metadata_handle_read_hash");
+  hip_check(
+      hipMemcpy(
+          future_wna16_kernel_side_consumer_execution_aux_metadata_handle_read_ok
+              .data(),
+          d_future_wna16_kernel_side_consumer_execution_aux_metadata_handle_read_ok,
+          u32_bytes,
+          hipMemcpyDeviceToHost),
+      "copy future_wna16_kernel_side_consumer_execution_aux_metadata_handle_read_ok");
+  hip_check(
+      hipMemcpy(
+          future_wna16_kernel_side_consumer_execution_aux_metadata_handle_read_hashes
+              .data(),
+          d_future_wna16_kernel_side_consumer_execution_aux_metadata_handle_read_hash,
+          u64_bytes,
+          hipMemcpyDeviceToHost),
+      "copy future_wna16_kernel_side_consumer_execution_aux_metadata_handle_read_hash");
+  hip_check(
+      hipMemcpy(
+          future_wna16_single_field_handoff_ok.data(),
+          d_future_wna16_single_field_handoff_ok,
+          u32_bytes,
+          hipMemcpyDeviceToHost),
+      "copy future_wna16_single_field_handoff_ok");
+  hip_check(
+      hipMemcpy(
+          future_wna16_single_field_handoff_hashes.data(),
+          d_future_wna16_single_field_handoff_hash,
+          u64_bytes,
+          hipMemcpyDeviceToHost),
+      "copy future_wna16_single_field_handoff_hash");
+  hip_check(
+      hipMemcpy(
+          wna16_side_consumer_variant_execution_ok.data(),
+          d_wna16_side_consumer_variant_execution_ok,
+          u32_bytes,
+          hipMemcpyDeviceToHost),
+      "copy wna16_side_consumer_variant_execution_ok");
+  hip_check(
+      hipMemcpy(
+          wna16_side_consumer_variant_execution_hashes.data(),
+          d_wna16_side_consumer_variant_execution_hash,
+          u64_bytes,
+          hipMemcpyDeviceToHost),
+      "copy wna16_side_consumer_variant_execution_hash");
+  hip_check(
+      hipMemcpy(
+          wna16_side_consumer_variant_execution_handle_projection_hashes.data(),
+          d_wna16_side_consumer_variant_execution_handle_projection_hash,
+          u64_bytes,
+          hipMemcpyDeviceToHost),
+      "copy wna16_side_consumer_variant_execution_handle_projection_hash");
+  hip_check(
+      hipMemcpy(
+          wna16_side_consumer_variant_execution_descriptor_ptr_read_ok.data(),
+          d_wna16_side_consumer_variant_execution_descriptor_ptr_read_ok,
+          u32_bytes,
+          hipMemcpyDeviceToHost),
+      "copy wna16_side_consumer_variant_execution_descriptor_ptr_read_ok");
+  hip_check(
+      hipMemcpy(
+          wna16_side_consumer_variant_execution_descriptor_ptr_read_hashes.data(),
+          d_wna16_side_consumer_variant_execution_descriptor_ptr_read_hash,
+          u64_bytes,
+          hipMemcpyDeviceToHost),
+      "copy wna16_side_consumer_variant_execution_descriptor_ptr_read_hash");
+  hip_check(
+      hipMemcpy(
+          wna16_side_consumer_variant_execution_packed_weight_descriptor_read_ok
+              .data(),
+          d_wna16_side_consumer_variant_execution_packed_weight_descriptor_read_ok,
+          u32_bytes,
+          hipMemcpyDeviceToHost),
+      "copy wna16_side_consumer_variant_execution_packed_weight_descriptor_read_ok");
+  hip_check(
+      hipMemcpy(
+          wna16_side_consumer_variant_execution_packed_weight_descriptor_read_hashes
+              .data(),
+          d_wna16_side_consumer_variant_execution_packed_weight_descriptor_read_hash,
+          u64_bytes,
+          hipMemcpyDeviceToHost),
+      "copy wna16_side_consumer_variant_execution_packed_weight_descriptor_read_hash");
+  hip_check(
+      hipMemcpy(
+          wna16_side_consumer_variant_execution_scale_metadata_handle_read_ok.data(),
+          d_wna16_side_consumer_variant_execution_scale_metadata_handle_read_ok,
+          u32_bytes,
+          hipMemcpyDeviceToHost),
+      "copy wna16_side_consumer_variant_execution_scale_metadata_handle_read_ok");
+  hip_check(
+      hipMemcpy(
+          wna16_side_consumer_variant_execution_scale_metadata_handle_read_hashes
+              .data(),
+          d_wna16_side_consumer_variant_execution_scale_metadata_handle_read_hash,
+          u64_bytes,
+          hipMemcpyDeviceToHost),
+      "copy wna16_side_consumer_variant_execution_scale_metadata_handle_read_hash");
+  hip_check(
+      hipMemcpy(
+          wna16_side_consumer_variant_execution_aux_metadata_handle_read_ok.data(),
+          d_wna16_side_consumer_variant_execution_aux_metadata_handle_read_ok,
+          u32_bytes,
+          hipMemcpyDeviceToHost),
+      "copy wna16_side_consumer_variant_execution_aux_metadata_handle_read_ok");
+  hip_check(
+      hipMemcpy(
+          wna16_side_consumer_variant_execution_aux_metadata_handle_read_hashes.data(),
+          d_wna16_side_consumer_variant_execution_aux_metadata_handle_read_hash,
+          u64_bytes,
+          hipMemcpyDeviceToHost),
+      "copy wna16_side_consumer_variant_execution_aux_metadata_handle_read_hash");
+  hip_check(
+      hipMemcpy(
           &future_native_consumer_kernel_entry_summary,
           d_future_native_consumer_kernel_entry_summary,
           sizeof(PremapFutureKernelNativeConsumerKernelEntrySummaryV1),
@@ -5000,6 +6206,20 @@ int main(int argc, char** argv) {
       "copy future_native_consumer_wna16_adjacent_typed_slot_summary");
   hip_check(
       hipMemcpy(
+          &future_wna16_typed_slot_kernel_variant_summary,
+          d_future_wna16_typed_slot_kernel_variant_summary,
+          sizeof(PremapFutureKernelNativeConsumerKernelEntrySummaryV1),
+          hipMemcpyDeviceToHost),
+      "copy future_wna16_typed_slot_kernel_variant_summary");
+  hip_check(
+      hipMemcpy(
+          &future_wna16_kernel_accept_typed_slot_summary,
+          d_future_wna16_kernel_accept_typed_slot_summary,
+          sizeof(PremapFutureKernelNativeConsumerKernelEntrySummaryV1),
+          hipMemcpyDeviceToHost),
+      "copy future_wna16_kernel_accept_typed_slot_summary");
+  hip_check(
+      hipMemcpy(
           &future_native_consumer_request_ptr_summary,
           d_future_native_consumer_request_ptr_summary,
           sizeof(PremapFutureKernelNativeConsumerKernelEntrySummaryV1),
@@ -5065,6 +6285,35 @@ int main(int argc, char** argv) {
   uint64_t
       future_native_consumer_kernel_arg_packet_aux_metadata_handle_read_hash_acc =
           0;
+  uint64_t future_wna16_kernel_side_consumer_execution_hash_acc = 0;
+  uint64_t
+      future_wna16_kernel_side_consumer_execution_handle_projection_hash_acc = 0;
+  uint64_t
+      future_wna16_kernel_side_consumer_execution_descriptor_ptr_read_hash_acc =
+          0;
+  uint64_t
+      future_wna16_kernel_side_consumer_execution_packed_weight_descriptor_read_hash_acc =
+          0;
+  uint64_t
+      future_wna16_kernel_side_consumer_execution_scale_metadata_handle_read_hash_acc =
+          0;
+  uint64_t
+      future_wna16_kernel_side_consumer_execution_aux_metadata_handle_read_hash_acc =
+          0;
+  uint64_t future_wna16_single_field_handoff_hash_acc = 0;
+  uint64_t wna16_side_consumer_variant_execution_hash_acc = 0;
+  uint64_t
+      wna16_side_consumer_variant_execution_handle_projection_hash_acc = 0;
+  uint64_t
+      wna16_side_consumer_variant_execution_descriptor_ptr_read_hash_acc = 0;
+  uint64_t
+      wna16_side_consumer_variant_execution_packed_weight_descriptor_read_hash_acc =
+          0;
+  uint64_t
+      wna16_side_consumer_variant_execution_scale_metadata_handle_read_hash_acc =
+          0;
+  uint64_t
+      wna16_side_consumer_variant_execution_aux_metadata_handle_read_hash_acc = 0;
   int ok_count = 0;
   int single_field_mirror_ok_count = 0;
   int kernel_side_consumer_path_ok_count = 0;
@@ -5101,6 +6350,28 @@ int main(int argc, char** argv) {
   int future_native_consumer_kernel_arg_packet_scale_metadata_handle_read_ok_count =
       0;
   int future_native_consumer_kernel_arg_packet_aux_metadata_handle_read_ok_count =
+      0;
+  int future_wna16_kernel_side_consumer_execution_ok_count = 0;
+  int
+      future_wna16_kernel_side_consumer_execution_descriptor_ptr_read_ok_count =
+          0;
+  int
+      future_wna16_kernel_side_consumer_execution_packed_weight_descriptor_read_ok_count =
+          0;
+  int
+      future_wna16_kernel_side_consumer_execution_scale_metadata_handle_read_ok_count =
+          0;
+  int future_wna16_kernel_side_consumer_execution_aux_metadata_handle_read_ok_count =
+      0;
+  int future_wna16_single_field_handoff_ok_count = 0;
+  int wna16_side_consumer_variant_execution_ok_count = 0;
+  int wna16_side_consumer_variant_execution_descriptor_ptr_read_ok_count = 0;
+  int
+      wna16_side_consumer_variant_execution_packed_weight_descriptor_read_ok_count =
+          0;
+  int wna16_side_consumer_variant_execution_scale_metadata_handle_read_ok_count =
+      0;
+  int wna16_side_consumer_variant_execution_aux_metadata_handle_read_ok_count =
       0;
   for (int i = 0; i < rows; ++i) {
     ok_count += ok[i] == 1 ? 1 : 0;
@@ -5315,6 +6586,103 @@ int main(int argc, char** argv) {
     future_native_consumer_kernel_arg_packet_aux_metadata_handle_read_hash_acc ^=
         mix64(
             future_native_consumer_kernel_arg_packet_aux_metadata_handle_read_hashes[i] +
+            static_cast<uint64_t>(i));
+    future_wna16_kernel_side_consumer_execution_ok_count +=
+        future_wna16_kernel_side_consumer_execution_ok[i] == 1 ? 1 : 0;
+    future_wna16_kernel_side_consumer_execution_hash_acc ^=
+        mix64(
+            future_wna16_kernel_side_consumer_execution_hashes[i] +
+            static_cast<uint64_t>(i));
+    future_wna16_kernel_side_consumer_execution_handle_projection_hash_acc ^=
+        mix64(
+            future_wna16_kernel_side_consumer_execution_handle_projection_hashes[i] +
+            static_cast<uint64_t>(i));
+    future_wna16_kernel_side_consumer_execution_descriptor_ptr_read_ok_count +=
+        future_wna16_kernel_side_consumer_execution_descriptor_ptr_read_ok[i] == 1
+            ? 1
+            : 0;
+    future_wna16_kernel_side_consumer_execution_descriptor_ptr_read_hash_acc ^=
+        mix64(
+            future_wna16_kernel_side_consumer_execution_descriptor_ptr_read_hashes[i] +
+            static_cast<uint64_t>(i));
+    future_wna16_kernel_side_consumer_execution_packed_weight_descriptor_read_ok_count +=
+        future_wna16_kernel_side_consumer_execution_packed_weight_descriptor_read_ok[i] ==
+                1
+            ? 1
+            : 0;
+    future_wna16_kernel_side_consumer_execution_packed_weight_descriptor_read_hash_acc ^=
+        mix64(
+            future_wna16_kernel_side_consumer_execution_packed_weight_descriptor_read_hashes
+                [i] +
+            static_cast<uint64_t>(i));
+    future_wna16_kernel_side_consumer_execution_scale_metadata_handle_read_ok_count +=
+        future_wna16_kernel_side_consumer_execution_scale_metadata_handle_read_ok[i] ==
+                1
+            ? 1
+            : 0;
+    future_wna16_kernel_side_consumer_execution_scale_metadata_handle_read_hash_acc ^=
+        mix64(
+            future_wna16_kernel_side_consumer_execution_scale_metadata_handle_read_hashes
+                [i] +
+            static_cast<uint64_t>(i));
+    future_wna16_kernel_side_consumer_execution_aux_metadata_handle_read_ok_count +=
+        future_wna16_kernel_side_consumer_execution_aux_metadata_handle_read_ok[i] == 1
+            ? 1
+            : 0;
+    future_wna16_kernel_side_consumer_execution_aux_metadata_handle_read_hash_acc ^=
+        mix64(
+            future_wna16_kernel_side_consumer_execution_aux_metadata_handle_read_hashes[i] +
+            static_cast<uint64_t>(i));
+    future_wna16_single_field_handoff_ok_count +=
+        future_wna16_single_field_handoff_ok[i] == 1 ? 1 : 0;
+    future_wna16_single_field_handoff_hash_acc ^=
+        mix64(
+            future_wna16_single_field_handoff_hashes[i] +
+            static_cast<uint64_t>(i));
+    wna16_side_consumer_variant_execution_ok_count +=
+        wna16_side_consumer_variant_execution_ok[i] == 1 ? 1 : 0;
+    wna16_side_consumer_variant_execution_hash_acc ^=
+        mix64(
+            wna16_side_consumer_variant_execution_hashes[i] +
+            static_cast<uint64_t>(i));
+    wna16_side_consumer_variant_execution_handle_projection_hash_acc ^=
+        mix64(
+            wna16_side_consumer_variant_execution_handle_projection_hashes[i] +
+            static_cast<uint64_t>(i));
+    wna16_side_consumer_variant_execution_descriptor_ptr_read_ok_count +=
+        wna16_side_consumer_variant_execution_descriptor_ptr_read_ok[i] == 1
+            ? 1
+            : 0;
+    wna16_side_consumer_variant_execution_descriptor_ptr_read_hash_acc ^=
+        mix64(
+            wna16_side_consumer_variant_execution_descriptor_ptr_read_hashes[i] +
+            static_cast<uint64_t>(i));
+    wna16_side_consumer_variant_execution_packed_weight_descriptor_read_ok_count +=
+        wna16_side_consumer_variant_execution_packed_weight_descriptor_read_ok[i] ==
+                1
+            ? 1
+            : 0;
+    wna16_side_consumer_variant_execution_packed_weight_descriptor_read_hash_acc ^=
+        mix64(
+            wna16_side_consumer_variant_execution_packed_weight_descriptor_read_hashes
+                [i] +
+            static_cast<uint64_t>(i));
+    wna16_side_consumer_variant_execution_scale_metadata_handle_read_ok_count +=
+        wna16_side_consumer_variant_execution_scale_metadata_handle_read_ok[i] == 1
+            ? 1
+            : 0;
+    wna16_side_consumer_variant_execution_scale_metadata_handle_read_hash_acc ^=
+        mix64(
+            wna16_side_consumer_variant_execution_scale_metadata_handle_read_hashes
+                [i] +
+            static_cast<uint64_t>(i));
+    wna16_side_consumer_variant_execution_aux_metadata_handle_read_ok_count +=
+        wna16_side_consumer_variant_execution_aux_metadata_handle_read_ok[i] == 1
+            ? 1
+            : 0;
+    wna16_side_consumer_variant_execution_aux_metadata_handle_read_hash_acc ^=
+        mix64(
+            wna16_side_consumer_variant_execution_aux_metadata_handle_read_hashes[i] +
             static_cast<uint64_t>(i));
   }
   const int error_count = rows - ok_count;
@@ -5815,6 +7183,150 @@ int main(int argc, char** argv) {
                 future_native_consumer_wna16_adjacent_typed_slot_summary
                     .error_count)
           : 0;
+  const bool future_wna16_typed_slot_kernel_variant_checked =
+#if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_WNA16_TYPED_SLOT_KERNEL_VARIANT_ABI)
+      true;
+#else
+      false;
+#endif
+  const int future_wna16_typed_slot_kernel_variant_error_count =
+      future_wna16_typed_slot_kernel_variant_checked
+          ? static_cast<int>(
+                future_wna16_typed_slot_kernel_variant_summary.error_count)
+          : 0;
+  const bool future_wna16_kernel_accept_typed_slot_checked =
+#if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_WNA16_KERNEL_ACCEPT_TYPED_SLOT_ABI)
+      true;
+#else
+      false;
+#endif
+  const int future_wna16_kernel_accept_typed_slot_error_count =
+      future_wna16_kernel_accept_typed_slot_checked
+          ? static_cast<int>(
+                future_wna16_kernel_accept_typed_slot_summary.error_count)
+          : 0;
+  const bool future_wna16_kernel_side_consumer_execution_checked =
+#if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_WNA16_KERNEL_SIDE_CONSUMER_EXECUTION_ABI)
+      true;
+#else
+      false;
+#endif
+  const int future_wna16_kernel_side_consumer_execution_row_count =
+      future_wna16_kernel_side_consumer_execution_checked
+          ? future_native_dispatch_active_rows
+          : 0;
+  const int future_wna16_kernel_side_consumer_execution_error_count =
+      future_wna16_kernel_side_consumer_execution_checked
+          ? future_wna16_kernel_side_consumer_execution_row_count -
+                future_wna16_kernel_side_consumer_execution_ok_count
+          : 0;
+  const int
+      future_wna16_kernel_side_consumer_execution_descriptor_ptr_read_row_count =
+          future_wna16_kernel_side_consumer_execution_checked
+              ? future_native_dispatch_active_rows
+              : 0;
+  const int
+      future_wna16_kernel_side_consumer_execution_packed_weight_descriptor_read_row_count =
+          future_wna16_kernel_side_consumer_execution_checked
+              ? future_native_dispatch_active_rows
+              : 0;
+  const int
+      future_wna16_kernel_side_consumer_execution_scale_metadata_handle_read_row_count =
+          future_wna16_kernel_side_consumer_execution_checked
+              ? future_native_dispatch_active_rows
+              : 0;
+  const int
+      future_wna16_kernel_side_consumer_execution_aux_metadata_handle_read_row_count =
+          future_wna16_kernel_side_consumer_execution_checked &&
+                  (future_kernel_consumer_args_field_mask &
+                   kPremapFutureKernelSideConsumerFieldMaskAuxMetadataHandle) != 0
+              ? future_native_dispatch_active_rows
+              : 0;
+  const int
+      future_wna16_kernel_side_consumer_execution_descriptor_ptr_read_error_count =
+          future_wna16_kernel_side_consumer_execution_checked
+              ? future_wna16_kernel_side_consumer_execution_descriptor_ptr_read_row_count -
+                    future_wna16_kernel_side_consumer_execution_descriptor_ptr_read_ok_count
+              : 0;
+  const int
+      future_wna16_kernel_side_consumer_execution_packed_weight_descriptor_read_error_count =
+          future_wna16_kernel_side_consumer_execution_checked
+              ? future_wna16_kernel_side_consumer_execution_packed_weight_descriptor_read_row_count -
+                    future_wna16_kernel_side_consumer_execution_packed_weight_descriptor_read_ok_count
+              : 0;
+  const int
+      future_wna16_kernel_side_consumer_execution_scale_metadata_handle_read_error_count =
+          future_wna16_kernel_side_consumer_execution_checked
+              ? future_wna16_kernel_side_consumer_execution_scale_metadata_handle_read_row_count -
+                    future_wna16_kernel_side_consumer_execution_scale_metadata_handle_read_ok_count
+              : 0;
+  const int
+      future_wna16_kernel_side_consumer_execution_aux_metadata_handle_read_error_count =
+          future_wna16_kernel_side_consumer_execution_checked
+              ? future_wna16_kernel_side_consumer_execution_aux_metadata_handle_read_row_count -
+                    future_wna16_kernel_side_consumer_execution_aux_metadata_handle_read_ok_count
+              : 0;
+  const bool wna16_side_consumer_variant_execution_checked =
+#if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_WNA16_SIDE_CONSUMER_VARIANT_EXECUTION_ABI)
+      true;
+#else
+      false;
+#endif
+  const int wna16_side_consumer_variant_execution_row_count =
+      wna16_side_consumer_variant_execution_checked
+          ? future_native_dispatch_active_rows
+          : 0;
+  const int wna16_side_consumer_variant_execution_error_count =
+      wna16_side_consumer_variant_execution_checked
+          ? wna16_side_consumer_variant_execution_row_count -
+                wna16_side_consumer_variant_execution_ok_count
+          : 0;
+  const int
+      wna16_side_consumer_variant_execution_descriptor_ptr_read_row_count =
+          wna16_side_consumer_variant_execution_checked
+              ? future_native_dispatch_active_rows
+              : 0;
+  const int
+      wna16_side_consumer_variant_execution_packed_weight_descriptor_read_row_count =
+          wna16_side_consumer_variant_execution_checked
+              ? future_native_dispatch_active_rows
+              : 0;
+  const int
+      wna16_side_consumer_variant_execution_scale_metadata_handle_read_row_count =
+          wna16_side_consumer_variant_execution_checked
+              ? future_native_dispatch_active_rows
+              : 0;
+  const int
+      wna16_side_consumer_variant_execution_aux_metadata_handle_read_row_count =
+          wna16_side_consumer_variant_execution_checked &&
+                  (future_kernel_consumer_args_field_mask &
+                   kPremapFutureKernelSideConsumerFieldMaskAuxMetadataHandle) != 0
+              ? future_native_dispatch_active_rows
+              : 0;
+  const int
+      wna16_side_consumer_variant_execution_descriptor_ptr_read_error_count =
+          wna16_side_consumer_variant_execution_checked
+              ? wna16_side_consumer_variant_execution_descriptor_ptr_read_row_count -
+                    wna16_side_consumer_variant_execution_descriptor_ptr_read_ok_count
+              : 0;
+  const int
+      wna16_side_consumer_variant_execution_packed_weight_descriptor_read_error_count =
+          wna16_side_consumer_variant_execution_checked
+              ? wna16_side_consumer_variant_execution_packed_weight_descriptor_read_row_count -
+                    wna16_side_consumer_variant_execution_packed_weight_descriptor_read_ok_count
+              : 0;
+  const int
+      wna16_side_consumer_variant_execution_scale_metadata_handle_read_error_count =
+          wna16_side_consumer_variant_execution_checked
+              ? wna16_side_consumer_variant_execution_scale_metadata_handle_read_row_count -
+                    wna16_side_consumer_variant_execution_scale_metadata_handle_read_ok_count
+              : 0;
+  const int
+      wna16_side_consumer_variant_execution_aux_metadata_handle_read_error_count =
+          wna16_side_consumer_variant_execution_checked
+              ? wna16_side_consumer_variant_execution_aux_metadata_handle_read_row_count -
+                    wna16_side_consumer_variant_execution_aux_metadata_handle_read_ok_count
+              : 0;
   const bool future_native_consumer_request_ptr_checked =
 #if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_REQUEST_PTR_ABI)
       true;
@@ -5890,6 +7402,18 @@ int main(int argc, char** argv) {
       future_native_consumer_endpoint_error_count == 0 &&
       future_native_consumer_endpoint_ptr_error_count == 0 &&
       future_native_consumer_wna16_adjacent_typed_slot_error_count == 0 &&
+      future_wna16_typed_slot_kernel_variant_error_count == 0 &&
+      future_wna16_kernel_accept_typed_slot_error_count == 0 &&
+      future_wna16_kernel_side_consumer_execution_error_count == 0 &&
+      future_wna16_kernel_side_consumer_execution_descriptor_ptr_read_error_count == 0 &&
+      future_wna16_kernel_side_consumer_execution_packed_weight_descriptor_read_error_count == 0 &&
+      future_wna16_kernel_side_consumer_execution_scale_metadata_handle_read_error_count == 0 &&
+      future_wna16_kernel_side_consumer_execution_aux_metadata_handle_read_error_count == 0 &&
+      wna16_side_consumer_variant_execution_error_count == 0 &&
+      wna16_side_consumer_variant_execution_descriptor_ptr_read_error_count == 0 &&
+      wna16_side_consumer_variant_execution_packed_weight_descriptor_read_error_count == 0 &&
+      wna16_side_consumer_variant_execution_scale_metadata_handle_read_error_count == 0 &&
+      wna16_side_consumer_variant_execution_aux_metadata_handle_read_error_count == 0 &&
       future_native_consumer_request_ptr_error_count == 0 &&
       future_native_consumer_request_launch_error_count == 0 &&
       future_native_consumer_request_launch_ptr_error_count == 0;
@@ -6151,6 +7675,92 @@ int main(int argc, char** argv) {
   hip_check(
       hipFree(d_future_native_consumer_wna16_adjacent_typed_slot_summary),
       "hipFree future_native_consumer_wna16_adjacent_typed_slot_summary");
+  hip_check(
+      hipFree(d_future_wna16_typed_slot_kernel_variant_summary),
+      "hipFree future_wna16_typed_slot_kernel_variant_summary");
+  hip_check(
+      hipFree(d_future_wna16_kernel_accept_typed_slot_summary),
+      "hipFree future_wna16_kernel_accept_typed_slot_summary");
+  hip_check(
+      hipFree(d_future_wna16_kernel_side_consumer_execution_ok),
+      "hipFree future_wna16_kernel_side_consumer_execution_ok");
+  hip_check(
+      hipFree(d_future_wna16_kernel_side_consumer_execution_hash),
+      "hipFree future_wna16_kernel_side_consumer_execution_hash");
+  hip_check(
+      hipFree(d_future_wna16_kernel_side_consumer_execution_handle_projection_hash),
+      "hipFree future_wna16_kernel_side_consumer_execution_handle_projection_hash");
+  hip_check(
+      hipFree(d_future_wna16_kernel_side_consumer_execution_descriptor_ptr_read_ok),
+      "hipFree future_wna16_kernel_side_consumer_execution_descriptor_ptr_read_ok");
+  hip_check(
+      hipFree(d_future_wna16_kernel_side_consumer_execution_descriptor_ptr_read_hash),
+      "hipFree future_wna16_kernel_side_consumer_execution_descriptor_ptr_read_hash");
+  hip_check(
+      hipFree(
+          d_future_wna16_kernel_side_consumer_execution_packed_weight_descriptor_read_ok),
+      "hipFree future_wna16_kernel_side_consumer_execution_packed_weight_descriptor_read_ok");
+  hip_check(
+      hipFree(
+          d_future_wna16_kernel_side_consumer_execution_packed_weight_descriptor_read_hash),
+      "hipFree future_wna16_kernel_side_consumer_execution_packed_weight_descriptor_read_hash");
+  hip_check(
+      hipFree(
+          d_future_wna16_kernel_side_consumer_execution_scale_metadata_handle_read_ok),
+      "hipFree future_wna16_kernel_side_consumer_execution_scale_metadata_handle_read_ok");
+  hip_check(
+      hipFree(
+          d_future_wna16_kernel_side_consumer_execution_scale_metadata_handle_read_hash),
+      "hipFree future_wna16_kernel_side_consumer_execution_scale_metadata_handle_read_hash");
+  hip_check(
+      hipFree(d_future_wna16_kernel_side_consumer_execution_aux_metadata_handle_read_ok),
+      "hipFree future_wna16_kernel_side_consumer_execution_aux_metadata_handle_read_ok");
+  hip_check(
+      hipFree(d_future_wna16_kernel_side_consumer_execution_aux_metadata_handle_read_hash),
+      "hipFree future_wna16_kernel_side_consumer_execution_aux_metadata_handle_read_hash");
+  hip_check(
+      hipFree(d_future_wna16_single_field_handoff_ok),
+      "hipFree future_wna16_single_field_handoff_ok");
+  hip_check(
+      hipFree(d_future_wna16_single_field_handoff_hash),
+      "hipFree future_wna16_single_field_handoff_hash");
+  hip_check(
+      hipFree(d_wna16_side_consumer_variant_execution_ok),
+      "hipFree wna16_side_consumer_variant_execution_ok");
+  hip_check(
+      hipFree(d_wna16_side_consumer_variant_execution_hash),
+      "hipFree wna16_side_consumer_variant_execution_hash");
+  hip_check(
+      hipFree(d_wna16_side_consumer_variant_execution_handle_projection_hash),
+      "hipFree wna16_side_consumer_variant_execution_handle_projection_hash");
+  hip_check(
+      hipFree(d_wna16_side_consumer_variant_execution_descriptor_ptr_read_ok),
+      "hipFree wna16_side_consumer_variant_execution_descriptor_ptr_read_ok");
+  hip_check(
+      hipFree(d_wna16_side_consumer_variant_execution_descriptor_ptr_read_hash),
+      "hipFree wna16_side_consumer_variant_execution_descriptor_ptr_read_hash");
+  hip_check(
+      hipFree(
+          d_wna16_side_consumer_variant_execution_packed_weight_descriptor_read_ok),
+      "hipFree wna16_side_consumer_variant_execution_packed_weight_descriptor_read_ok");
+  hip_check(
+      hipFree(
+          d_wna16_side_consumer_variant_execution_packed_weight_descriptor_read_hash),
+      "hipFree wna16_side_consumer_variant_execution_packed_weight_descriptor_read_hash");
+  hip_check(
+      hipFree(
+          d_wna16_side_consumer_variant_execution_scale_metadata_handle_read_ok),
+      "hipFree wna16_side_consumer_variant_execution_scale_metadata_handle_read_ok");
+  hip_check(
+      hipFree(
+          d_wna16_side_consumer_variant_execution_scale_metadata_handle_read_hash),
+      "hipFree wna16_side_consumer_variant_execution_scale_metadata_handle_read_hash");
+  hip_check(
+      hipFree(d_wna16_side_consumer_variant_execution_aux_metadata_handle_read_ok),
+      "hipFree wna16_side_consumer_variant_execution_aux_metadata_handle_read_ok");
+  hip_check(
+      hipFree(d_wna16_side_consumer_variant_execution_aux_metadata_handle_read_hash),
+      "hipFree wna16_side_consumer_variant_execution_aux_metadata_handle_read_hash");
   hip_check(
       hipFree(d_future_native_consumer_request_ptr_summary),
       "hipFree future_native_consumer_request_ptr_summary");
@@ -8892,6 +10502,510 @@ int main(int argc, char** argv) {
             << (future_native_consumer_wna16_adjacent_typed_slot_checked
                     ? future_native_consumer_wna16_adjacent_typed_slot_summary
                           .row_metadata_hash_accumulator
+                    : 0ULL)
+            << std::dec << "\"";
+  std::cout << ",\"future_wna16_typed_slot_kernel_variant_abi_name\":\""
+            << kPremapFutureWna16TypedSlotKernelVariantAbiV1Name << "\"";
+  std::cout << ",\"future_wna16_typed_slot_kernel_variant_mode\":\""
+            << kPremapFutureWna16TypedSlotKernelVariantAbiV1Mode << "\"";
+  std::cout << ",\"future_wna16_typed_slot_kernel_variant_source\":\""
+            << kPremapFutureWna16TypedSlotKernelVariantAbiV1Source << "\"";
+  std::cout << ",\"future_wna16_typed_slot_kernel_variant_field_read_path\":\"future_wna16_typed_slot_variant_to_wna16_adjacent_typed_slot_to_endpoint_ptr_to_endpoint_to_by_value_invocation_to_kernel_launch_context_to_kernel_launch_descriptor_to_launch_envelope_args_ptr_to_launch_envelope_args_to_entry_args_ptr_to_kernel_entry_args_to_kernel_arg_packet_to_program_view_rows\"";
+  std::cout << ",\"future_wna16_typed_slot_kernel_variant_packet_chain_depth\":15";
+  std::cout << ",\"future_wna16_typed_slot_kernel_variant_checked\":"
+            << (future_wna16_typed_slot_kernel_variant_checked ? "true"
+                                                               : "false");
+  std::cout << ",\"future_wna16_typed_slot_kernel_variant_version\":"
+            << kPremapFutureWna16TypedSlotKernelVariantAbiV1Version;
+  std::cout << ",\"future_wna16_typed_slot_kernel_variant_struct_size\":"
+            << sizeof(PremapFutureWna16TypedSlotKernelVariantV1);
+  std::cout << ",\"future_wna16_typed_slot_kernel_variant_struct_align\":"
+            << alignof(PremapFutureWna16TypedSlotKernelVariantV1);
+  std::cout << ",\"future_wna16_typed_slot_kernel_variant_offset_typed_slot\":"
+            << offsetof(PremapFutureWna16TypedSlotKernelVariantV1, typed_slot);
+  std::cout << ",\"future_wna16_typed_slot_kernel_variant_offset_summary\":"
+            << offsetof(PremapFutureWna16TypedSlotKernelVariantV1, summary);
+  std::cout << ",\"future_wna16_typed_slot_kernel_variant_typed_slot_struct_size\":"
+            << sizeof(PremapFutureKernelNativeConsumerWna16AdjacentTypedSlotV1);
+  std::cout << ",\"future_wna16_typed_slot_kernel_variant_summary_struct_size\":"
+            << sizeof(PremapFutureKernelNativeConsumerKernelEntrySummaryV1);
+  std::cout << ",\"future_wna16_typed_slot_kernel_variant_pointer_size\":"
+            << sizeof(PremapFutureKernelNativeConsumerWna16AdjacentTypedSlotV1*);
+  std::cout << ",\"future_wna16_typed_slot_kernel_variant_id\":1";
+  std::cout << ",\"future_wna16_typed_slot_kernel_variant_summary_packet_valid\":"
+            << (future_wna16_typed_slot_kernel_variant_checked
+                    ? future_wna16_typed_slot_kernel_variant_summary.packet_valid
+                    : 0);
+  std::cout << ",\"future_wna16_typed_slot_kernel_variant_summary_row_count\":"
+            << (future_wna16_typed_slot_kernel_variant_checked
+                    ? future_wna16_typed_slot_kernel_variant_summary.row_count
+                    : 0);
+  std::cout << ",\"future_wna16_typed_slot_kernel_variant_summary_row_ok_count\":"
+            << (future_wna16_typed_slot_kernel_variant_checked
+                    ? future_wna16_typed_slot_kernel_variant_summary.row_ok_count
+                    : 0);
+  std::cout << ",\"future_wna16_typed_slot_kernel_variant_summary_descriptor_ptr_read_row_ok_count\":"
+            << (future_wna16_typed_slot_kernel_variant_checked
+                    ? future_wna16_typed_slot_kernel_variant_summary
+                          .descriptor_ptr_read_ok_count
+                    : 0);
+  std::cout << ",\"future_wna16_typed_slot_kernel_variant_summary_packed_weight_descriptor_read_row_ok_count\":"
+            << (future_wna16_typed_slot_kernel_variant_checked
+                    ? future_wna16_typed_slot_kernel_variant_summary
+                          .packed_weight_descriptor_read_ok_count
+                    : 0);
+  std::cout << ",\"future_wna16_typed_slot_kernel_variant_summary_scale_metadata_handle_read_row_ok_count\":"
+            << (future_wna16_typed_slot_kernel_variant_checked
+                    ? future_wna16_typed_slot_kernel_variant_summary
+                          .scale_metadata_handle_read_ok_count
+                    : 0);
+  std::cout << ",\"future_wna16_typed_slot_kernel_variant_summary_aux_metadata_handle_read_row_ok_count\":"
+            << (future_wna16_typed_slot_kernel_variant_checked
+                    ? future_wna16_typed_slot_kernel_variant_summary
+                          .aux_metadata_handle_read_ok_count
+                    : 0);
+  std::cout << ",\"future_wna16_typed_slot_kernel_variant_summary_error_count\":"
+            << future_wna16_typed_slot_kernel_variant_error_count;
+  std::cout << ",\"future_wna16_typed_slot_kernel_variant_summary_field_mask\":"
+            << (future_wna16_typed_slot_kernel_variant_checked
+                    ? future_wna16_typed_slot_kernel_variant_summary.field_mask
+                    : 0);
+  std::cout << ",\"future_wna16_typed_slot_kernel_variant_payload_bytes\":0";
+  std::cout << ",\"future_wna16_typed_slot_kernel_variant_payload_deref_allowed\":false";
+  std::cout << ",\"future_wna16_typed_slot_kernel_variant_passed_to_kernel\":false";
+  std::cout << ",\"future_wna16_typed_slot_kernel_variant_kernel_arg_pass_allowed\":false";
+  std::cout << ",\"future_wna16_typed_slot_kernel_variant_changes_kernel_launch_args\":false";
+  std::cout << ",\"future_wna16_typed_slot_kernel_variant_current_wna16_arg_compatible\":false";
+  std::cout << ",\"future_wna16_typed_slot_kernel_variant_requires_wna16_arg_reinterpretation\":false";
+  std::cout << ",\"future_wna16_typed_slot_kernel_variant_explicit_typed_abi_slot\":true";
+  std::cout << ",\"future_wna16_typed_slot_kernel_variant_reuses_current_wna16_arg_slot\":false";
+  std::cout << ",\"future_wna16_typed_slot_kernel_variant_summary_row_hash_accumulator\":\""
+            << std::hex
+            << (future_wna16_typed_slot_kernel_variant_checked
+                    ? future_wna16_typed_slot_kernel_variant_summary
+                          .row_hash_accumulator
+                    : 0ULL)
+            << std::dec << "\"";
+  std::cout << ",\"future_wna16_typed_slot_kernel_variant_summary_field_read_hash_accumulator\":\""
+            << std::hex
+            << (future_wna16_typed_slot_kernel_variant_checked
+                    ? future_wna16_typed_slot_kernel_variant_summary
+                          .field_read_hash_accumulator
+                    : 0ULL)
+            << std::dec << "\"";
+  std::cout << ",\"future_wna16_typed_slot_kernel_variant_summary_row_metadata_hash_accumulator\":\""
+            << std::hex
+            << (future_wna16_typed_slot_kernel_variant_checked
+                    ? future_wna16_typed_slot_kernel_variant_summary
+                          .row_metadata_hash_accumulator
+                    : 0ULL)
+            << std::dec << "\"";
+  std::cout << ",\"future_wna16_kernel_accept_typed_slot_abi_name\":\""
+            << kPremapFutureWna16KernelAcceptTypedSlotAbiV1Name << "\"";
+  std::cout << ",\"future_wna16_kernel_accept_typed_slot_mode\":\""
+            << kPremapFutureWna16KernelAcceptTypedSlotAbiV1Mode << "\"";
+  std::cout << ",\"future_wna16_kernel_accept_typed_slot_source\":\""
+            << kPremapFutureWna16KernelAcceptTypedSlotAbiV1Source << "\"";
+  std::cout << ",\"future_wna16_kernel_accept_typed_slot_field_read_path\":\"future_wna16_kernel_accept_typed_slot_to_wna16_adjacent_typed_slot_to_endpoint_ptr_to_endpoint_to_by_value_invocation_to_kernel_launch_context_to_kernel_launch_descriptor_to_launch_envelope_args_ptr_to_launch_envelope_args_to_entry_args_ptr_to_kernel_entry_args_to_kernel_arg_packet_to_program_view_rows\"";
+  std::cout << ",\"future_wna16_kernel_accept_typed_slot_packet_chain_depth\":15";
+  std::cout << ",\"future_wna16_kernel_accept_typed_slot_checked\":"
+            << (future_wna16_kernel_accept_typed_slot_checked ? "true"
+                                                              : "false");
+  std::cout << ",\"future_wna16_kernel_accept_typed_slot_version\":"
+            << kPremapFutureWna16KernelAcceptTypedSlotAbiV1Version;
+  std::cout << ",\"future_wna16_kernel_accept_typed_slot_struct_size\":"
+            << sizeof(PremapFutureWna16KernelAcceptTypedSlotV1);
+  std::cout << ",\"future_wna16_kernel_accept_typed_slot_struct_align\":"
+            << alignof(PremapFutureWna16KernelAcceptTypedSlotV1);
+  std::cout << ",\"future_wna16_kernel_accept_typed_slot_offset_typed_slot\":"
+            << offsetof(PremapFutureWna16KernelAcceptTypedSlotV1, typed_slot);
+  std::cout << ",\"future_wna16_kernel_accept_typed_slot_offset_summary\":"
+            << offsetof(PremapFutureWna16KernelAcceptTypedSlotV1, summary);
+  std::cout << ",\"future_wna16_kernel_accept_typed_slot_typed_slot_struct_size\":"
+            << sizeof(PremapFutureKernelNativeConsumerWna16AdjacentTypedSlotV1);
+  std::cout << ",\"future_wna16_kernel_accept_typed_slot_summary_struct_size\":"
+            << sizeof(PremapFutureKernelNativeConsumerKernelEntrySummaryV1);
+  std::cout << ",\"future_wna16_kernel_accept_typed_slot_pointer_size\":"
+            << sizeof(PremapFutureKernelNativeConsumerWna16AdjacentTypedSlotV1*);
+  std::cout << ",\"future_wna16_kernel_accept_typed_slot_kernel_variant_id\":1";
+  std::cout << ",\"future_wna16_kernel_accept_typed_slot_summary_packet_valid\":"
+            << (future_wna16_kernel_accept_typed_slot_checked
+                    ? future_wna16_kernel_accept_typed_slot_summary.packet_valid
+                    : 0);
+  std::cout << ",\"future_wna16_kernel_accept_typed_slot_summary_row_count\":"
+            << (future_wna16_kernel_accept_typed_slot_checked
+                    ? future_wna16_kernel_accept_typed_slot_summary.row_count
+                    : 0);
+  std::cout << ",\"future_wna16_kernel_accept_typed_slot_summary_row_ok_count\":"
+            << (future_wna16_kernel_accept_typed_slot_checked
+                    ? future_wna16_kernel_accept_typed_slot_summary.row_ok_count
+                    : 0);
+  std::cout << ",\"future_wna16_kernel_accept_typed_slot_summary_descriptor_ptr_read_row_ok_count\":"
+            << (future_wna16_kernel_accept_typed_slot_checked
+                    ? future_wna16_kernel_accept_typed_slot_summary
+                          .descriptor_ptr_read_ok_count
+                    : 0);
+  std::cout << ",\"future_wna16_kernel_accept_typed_slot_summary_packed_weight_descriptor_read_row_ok_count\":"
+            << (future_wna16_kernel_accept_typed_slot_checked
+                    ? future_wna16_kernel_accept_typed_slot_summary
+                          .packed_weight_descriptor_read_ok_count
+                    : 0);
+  std::cout << ",\"future_wna16_kernel_accept_typed_slot_summary_scale_metadata_handle_read_row_ok_count\":"
+            << (future_wna16_kernel_accept_typed_slot_checked
+                    ? future_wna16_kernel_accept_typed_slot_summary
+                          .scale_metadata_handle_read_ok_count
+                    : 0);
+  std::cout << ",\"future_wna16_kernel_accept_typed_slot_summary_aux_metadata_handle_read_row_ok_count\":"
+            << (future_wna16_kernel_accept_typed_slot_checked
+                    ? future_wna16_kernel_accept_typed_slot_summary
+                          .aux_metadata_handle_read_ok_count
+                    : 0);
+  std::cout << ",\"future_wna16_kernel_accept_typed_slot_summary_error_count\":"
+            << future_wna16_kernel_accept_typed_slot_error_count;
+  std::cout << ",\"future_wna16_kernel_accept_typed_slot_summary_field_mask\":"
+            << (future_wna16_kernel_accept_typed_slot_checked
+                    ? future_wna16_kernel_accept_typed_slot_summary.field_mask
+                    : 0);
+  std::cout << ",\"future_wna16_kernel_accept_typed_slot_payload_bytes\":0";
+  std::cout << ",\"future_wna16_kernel_accept_typed_slot_payload_deref_allowed\":false";
+  std::cout << ",\"future_wna16_kernel_accept_typed_slot_passed_to_kernel\":false";
+  std::cout << ",\"future_wna16_kernel_accept_typed_slot_kernel_arg_pass_allowed\":false";
+  std::cout << ",\"future_wna16_kernel_accept_typed_slot_changes_kernel_launch_args\":false";
+  std::cout << ",\"future_wna16_kernel_accept_typed_slot_current_wna16_arg_compatible\":false";
+  std::cout << ",\"future_wna16_kernel_accept_typed_slot_requires_wna16_arg_reinterpretation\":false";
+  std::cout << ",\"future_wna16_kernel_accept_typed_slot_explicit_typed_abi_slot\":true";
+  std::cout << ",\"future_wna16_kernel_accept_typed_slot_reuses_current_wna16_arg_slot\":false";
+  std::cout << ",\"future_wna16_kernel_accept_typed_slot_summary_row_hash_accumulator\":\""
+            << std::hex
+            << (future_wna16_kernel_accept_typed_slot_checked
+                    ? future_wna16_kernel_accept_typed_slot_summary
+                          .row_hash_accumulator
+                    : 0ULL)
+            << std::dec << "\"";
+  std::cout << ",\"future_wna16_kernel_accept_typed_slot_summary_field_read_hash_accumulator\":\""
+            << std::hex
+            << (future_wna16_kernel_accept_typed_slot_checked
+                    ? future_wna16_kernel_accept_typed_slot_summary
+                          .field_read_hash_accumulator
+                    : 0ULL)
+            << std::dec << "\"";
+  std::cout << ",\"future_wna16_kernel_accept_typed_slot_summary_row_metadata_hash_accumulator\":\""
+            << std::hex
+            << (future_wna16_kernel_accept_typed_slot_checked
+                    ? future_wna16_kernel_accept_typed_slot_summary
+                          .row_metadata_hash_accumulator
+                    : 0ULL)
+            << std::dec << "\"";
+  std::cout << ",\"future_wna16_kernel_side_consumer_execution_abi_name\":\""
+            << kPremapFutureWna16KernelSideConsumerExecutionAbiV1Name << "\"";
+  std::cout << ",\"future_wna16_kernel_side_consumer_execution_mode\":\""
+            << kPremapFutureWna16KernelSideConsumerExecutionAbiV1Mode << "\"";
+  std::cout << ",\"future_wna16_kernel_side_consumer_execution_source\":\""
+            << kPremapFutureWna16KernelSideConsumerExecutionAbiV1Source << "\"";
+  std::cout << ",\"future_wna16_kernel_side_consumer_execution_field_read_path\":\"future_wna16_kernel_side_execution_accept_typed_slot_to_wna16_adjacent_typed_slot_to_endpoint_ptr_to_endpoint_to_by_value_invocation_to_kernel_launch_context_to_kernel_launch_descriptor_to_launch_envelope_args_ptr_to_launch_envelope_args_to_entry_args_ptr_to_kernel_entry_args_to_kernel_arg_packet_to_program_view_rows\"";
+  std::cout << ",\"future_wna16_kernel_side_consumer_execution_packet_chain_depth\":16";
+  std::cout << ",\"future_wna16_kernel_side_consumer_execution_checked\":"
+            << (future_wna16_kernel_side_consumer_execution_checked ? "true"
+                                                                    : "false");
+  std::cout << ",\"future_wna16_kernel_side_consumer_execution_version\":"
+            << kPremapFutureWna16KernelSideConsumerExecutionAbiV1Version;
+  std::cout << ",\"future_wna16_kernel_side_consumer_execution_struct_size\":"
+            << sizeof(PremapFutureWna16KernelSideConsumerExecutionV1);
+  std::cout << ",\"future_wna16_kernel_side_consumer_execution_struct_align\":"
+            << alignof(PremapFutureWna16KernelSideConsumerExecutionV1);
+  std::cout << ",\"future_wna16_kernel_side_consumer_execution_offset_accept\":"
+            << offsetof(PremapFutureWna16KernelSideConsumerExecutionV1, accept);
+  std::cout << ",\"future_wna16_kernel_side_consumer_execution_offset_row_offset\":"
+            << offsetof(PremapFutureWna16KernelSideConsumerExecutionV1, row_offset);
+  std::cout << ",\"future_wna16_kernel_side_consumer_execution_offset_row_limit\":"
+            << offsetof(PremapFutureWna16KernelSideConsumerExecutionV1, row_limit);
+  std::cout << ",\"future_wna16_kernel_side_consumer_execution_offset_grid_x\":"
+            << offsetof(PremapFutureWna16KernelSideConsumerExecutionV1, grid_x);
+  std::cout << ",\"future_wna16_kernel_side_consumer_execution_offset_block_x\":"
+            << offsetof(PremapFutureWna16KernelSideConsumerExecutionV1, block_x);
+  std::cout << ",\"future_wna16_kernel_side_consumer_execution_offset_rows_per_program\":"
+            << offsetof(
+                   PremapFutureWna16KernelSideConsumerExecutionV1,
+                   rows_per_program);
+  std::cout << ",\"future_wna16_kernel_side_consumer_execution_accept_struct_size\":"
+            << sizeof(PremapFutureWna16KernelAcceptTypedSlotV1);
+  std::cout << ",\"future_wna16_kernel_side_consumer_execution_row_offset\":"
+            << dispatch_row_offset;
+  std::cout << ",\"future_wna16_kernel_side_consumer_execution_row_limit\":"
+            << dispatch_row_limit;
+  std::cout << ",\"future_wna16_kernel_side_consumer_execution_grid_x\":"
+            << dispatch_blocks;
+  std::cout << ",\"future_wna16_kernel_side_consumer_execution_block_x\":"
+            << threads;
+  std::cout << ",\"future_wna16_kernel_side_consumer_execution_rows_per_program\":"
+            << threads;
+  std::cout << ",\"future_wna16_kernel_side_consumer_execution_row_count\":"
+            << future_wna16_kernel_side_consumer_execution_row_count;
+  std::cout << ",\"future_wna16_kernel_side_consumer_execution_row_ok_count\":"
+            << (future_wna16_kernel_side_consumer_execution_checked
+                    ? future_wna16_kernel_side_consumer_execution_ok_count
+                    : 0);
+  std::cout << ",\"future_wna16_kernel_side_consumer_execution_error_count\":"
+            << future_wna16_kernel_side_consumer_execution_error_count;
+  std::cout << ",\"future_wna16_kernel_side_consumer_execution_descriptor_ptr_read_row_count\":"
+            << future_wna16_kernel_side_consumer_execution_descriptor_ptr_read_row_count;
+  std::cout << ",\"future_wna16_kernel_side_consumer_execution_descriptor_ptr_read_row_ok_count\":"
+            << (future_wna16_kernel_side_consumer_execution_checked
+                    ? future_wna16_kernel_side_consumer_execution_descriptor_ptr_read_ok_count
+                    : 0);
+  std::cout << ",\"future_wna16_kernel_side_consumer_execution_descriptor_ptr_read_error_count\":"
+            << future_wna16_kernel_side_consumer_execution_descriptor_ptr_read_error_count;
+  std::cout << ",\"future_wna16_kernel_side_consumer_execution_packed_weight_descriptor_read_row_count\":"
+            << future_wna16_kernel_side_consumer_execution_packed_weight_descriptor_read_row_count;
+  std::cout << ",\"future_wna16_kernel_side_consumer_execution_packed_weight_descriptor_read_row_ok_count\":"
+            << (future_wna16_kernel_side_consumer_execution_checked
+                    ? future_wna16_kernel_side_consumer_execution_packed_weight_descriptor_read_ok_count
+                    : 0);
+  std::cout << ",\"future_wna16_kernel_side_consumer_execution_packed_weight_descriptor_read_error_count\":"
+            << future_wna16_kernel_side_consumer_execution_packed_weight_descriptor_read_error_count;
+  std::cout << ",\"future_wna16_kernel_side_consumer_execution_scale_metadata_handle_read_row_count\":"
+            << future_wna16_kernel_side_consumer_execution_scale_metadata_handle_read_row_count;
+  std::cout << ",\"future_wna16_kernel_side_consumer_execution_scale_metadata_handle_read_row_ok_count\":"
+            << (future_wna16_kernel_side_consumer_execution_checked
+                    ? future_wna16_kernel_side_consumer_execution_scale_metadata_handle_read_ok_count
+                    : 0);
+  std::cout << ",\"future_wna16_kernel_side_consumer_execution_scale_metadata_handle_read_error_count\":"
+            << future_wna16_kernel_side_consumer_execution_scale_metadata_handle_read_error_count;
+  std::cout << ",\"future_wna16_kernel_side_consumer_execution_aux_metadata_handle_read_row_count\":"
+            << future_wna16_kernel_side_consumer_execution_aux_metadata_handle_read_row_count;
+  std::cout << ",\"future_wna16_kernel_side_consumer_execution_aux_metadata_handle_read_row_ok_count\":"
+            << (future_wna16_kernel_side_consumer_execution_checked
+                    ? future_wna16_kernel_side_consumer_execution_aux_metadata_handle_read_ok_count
+                    : 0);
+  std::cout << ",\"future_wna16_kernel_side_consumer_execution_aux_metadata_handle_read_error_count\":"
+            << future_wna16_kernel_side_consumer_execution_aux_metadata_handle_read_error_count;
+  std::cout << ",\"future_wna16_kernel_side_consumer_execution_payload_bytes\":0";
+  std::cout << ",\"future_wna16_kernel_side_consumer_execution_payload_deref_allowed\":false";
+  std::cout << ",\"future_wna16_kernel_side_consumer_execution_passed_to_kernel\":false";
+  std::cout << ",\"future_wna16_kernel_side_consumer_execution_kernel_arg_pass_allowed\":false";
+  std::cout << ",\"future_wna16_kernel_side_consumer_execution_changes_kernel_launch_args\":false";
+  std::cout << ",\"future_wna16_kernel_side_consumer_execution_current_wna16_arg_compatible\":false";
+  std::cout << ",\"future_wna16_kernel_side_consumer_execution_requires_wna16_arg_reinterpretation\":false";
+  std::cout << ",\"future_wna16_kernel_side_consumer_execution_explicit_typed_abi_slot\":true";
+  std::cout << ",\"future_wna16_kernel_side_consumer_execution_reuses_current_wna16_arg_slot\":false";
+  std::cout << ",\"future_wna16_kernel_side_consumer_execution_hash_accumulator\":\""
+            << std::hex
+            << (future_wna16_kernel_side_consumer_execution_checked
+                    ? future_wna16_kernel_side_consumer_execution_hash_acc
+                    : 0ULL)
+            << std::dec << "\"";
+  std::cout << ",\"future_wna16_kernel_side_consumer_execution_handle_projection_hash_accumulator\":\""
+            << std::hex
+            << (future_wna16_kernel_side_consumer_execution_checked
+                    ? future_wna16_kernel_side_consumer_execution_handle_projection_hash_acc
+                    : 0ULL)
+            << std::dec << "\"";
+  std::cout << ",\"future_wna16_kernel_side_consumer_execution_descriptor_ptr_read_hash_accumulator\":\""
+            << std::hex
+            << (future_wna16_kernel_side_consumer_execution_checked
+                    ? future_wna16_kernel_side_consumer_execution_descriptor_ptr_read_hash_acc
+                    : 0ULL)
+            << std::dec << "\"";
+  std::cout << ",\"future_wna16_kernel_side_consumer_execution_packed_weight_descriptor_read_hash_accumulator\":\""
+            << std::hex
+            << (future_wna16_kernel_side_consumer_execution_checked
+                    ? future_wna16_kernel_side_consumer_execution_packed_weight_descriptor_read_hash_acc
+                    : 0ULL)
+            << std::dec << "\"";
+  std::cout << ",\"future_wna16_kernel_side_consumer_execution_scale_metadata_handle_read_hash_accumulator\":\""
+            << std::hex
+            << (future_wna16_kernel_side_consumer_execution_checked
+                    ? future_wna16_kernel_side_consumer_execution_scale_metadata_handle_read_hash_acc
+                    : 0ULL)
+            << std::dec << "\"";
+  std::cout << ",\"future_wna16_kernel_side_consumer_execution_aux_metadata_handle_read_hash_accumulator\":\""
+            << std::hex
+            << (future_wna16_kernel_side_consumer_execution_checked
+                    ? future_wna16_kernel_side_consumer_execution_aux_metadata_handle_read_hash_acc
+                    : 0ULL)
+            << std::dec << "\"";
+  const bool future_wna16_single_field_handoff_checked =
+#if defined(MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_WNA16_SINGLE_FIELD_HANDOFF_CANARY_ABI)
+      future_wna16_kernel_side_consumer_execution_checked;
+#else
+      false;
+#endif
+  const int future_wna16_single_field_handoff_error_count =
+      future_wna16_single_field_handoff_checked
+          ? (rows - future_wna16_single_field_handoff_ok_count)
+          : 0;
+  std::cout << ",\"future_wna16_single_field_handoff_canary_abi_name\":\""
+            << kPremapFutureWna16SingleFieldHandoffCanaryAbiV1Name << "\"";
+  std::cout << ",\"future_wna16_single_field_handoff_canary_mode\":\""
+            << kPremapFutureWna16SingleFieldHandoffCanaryAbiV1Mode << "\"";
+  std::cout << ",\"future_wna16_single_field_handoff_canary_source\":\""
+            << kPremapFutureWna16SingleFieldHandoffCanaryAbiV1Source << "\"";
+  std::cout << ",\"future_wna16_single_field_handoff_canary_field_read_path\":\"future_wna16_single_field_handoff_to_future_wna16_kernel_side_execution_to_accepted_typed_slot_to_program_view_rows\"";
+  std::cout << ",\"future_wna16_single_field_handoff_canary_checked\":"
+            << (future_wna16_single_field_handoff_checked ? "true" : "false");
+  std::cout << ",\"future_wna16_single_field_handoff_canary_version\":"
+            << kPremapFutureWna16SingleFieldHandoffCanaryAbiV1Version;
+  std::cout << ",\"future_wna16_single_field_handoff_canary_struct_size\":"
+            << sizeof(PremapFutureWna16SingleFieldHandoffCanaryV1);
+  std::cout << ",\"future_wna16_single_field_handoff_canary_struct_align\":"
+            << alignof(PremapFutureWna16SingleFieldHandoffCanaryV1);
+  std::cout << ",\"future_wna16_single_field_handoff_canary_execution_struct_size\":"
+            << sizeof(PremapFutureWna16KernelSideConsumerExecutionV1);
+  std::cout << ",\"future_wna16_single_field_handoff_canary_field_name\":\""
+            << kSingleFieldMirrorFieldName << "\"";
+  std::cout << ",\"future_wna16_single_field_handoff_canary_field_kind\":"
+            << kSingleFieldMirrorKind;
+  std::cout << ",\"future_wna16_single_field_handoff_canary_field_mask\":"
+            << premap_typed_consumer_future_kernel_field_mask_for_kind_v1(
+                   kSingleFieldMirrorKind);
+  std::cout << ",\"future_wna16_single_field_handoff_canary_row_count\":"
+            << (future_wna16_single_field_handoff_checked ? rows : 0);
+  std::cout << ",\"future_wna16_single_field_handoff_canary_row_ok_count\":"
+            << (future_wna16_single_field_handoff_checked
+                    ? future_wna16_single_field_handoff_ok_count
+                    : 0);
+  std::cout << ",\"future_wna16_single_field_handoff_canary_error_count\":"
+            << future_wna16_single_field_handoff_error_count;
+  std::cout << ",\"future_wna16_single_field_handoff_canary_payload_bytes\":0";
+  std::cout << ",\"future_wna16_single_field_handoff_canary_live_enabled\":false";
+  std::cout << ",\"future_wna16_single_field_handoff_canary_passed_to_kernel\":false";
+  std::cout << ",\"future_wna16_single_field_handoff_canary_changes_kernel_launch_args\":false";
+  std::cout << ",\"future_wna16_single_field_handoff_canary_current_wna16_arg_compatible\":false";
+  std::cout << ",\"future_wna16_single_field_handoff_canary_requires_wna16_arg_reinterpretation\":false";
+  std::cout << ",\"future_wna16_single_field_handoff_canary_explicit_typed_abi_slot\":true";
+  std::cout << ",\"future_wna16_single_field_handoff_canary_reuses_current_wna16_arg_slot\":false";
+  std::cout << ",\"future_wna16_single_field_handoff_canary_hash_accumulator\":\""
+            << std::hex
+            << (future_wna16_single_field_handoff_checked
+                    ? future_wna16_single_field_handoff_hash_acc
+                    : 0ULL)
+            << std::dec << "\"";
+  std::cout << ",\"wna16_side_consumer_variant_execution_abi_name\":\""
+            << kPremapWna16SideConsumerVariantExecutionAbiV1Name << "\"";
+  std::cout << ",\"wna16_side_consumer_variant_execution_mode\":\""
+            << kPremapWna16SideConsumerVariantExecutionAbiV1Mode << "\"";
+  std::cout << ",\"wna16_side_consumer_variant_execution_source\":\""
+            << kPremapWna16SideConsumerVariantExecutionAbiV1Source << "\"";
+  std::cout << ",\"wna16_side_consumer_variant_execution_field_read_path\":\"wna16_side_execution_variant_to_future_wna16_typed_slot_variant_to_wna16_adjacent_typed_slot_to_endpoint_ptr_to_endpoint_to_by_value_invocation_to_kernel_launch_context_to_kernel_launch_descriptor_to_launch_envelope_args_ptr_to_launch_envelope_args_to_entry_args_ptr_to_kernel_entry_args_to_kernel_arg_packet_to_program_view_rows\"";
+  std::cout << ",\"wna16_side_consumer_variant_execution_packet_chain_depth\":16";
+  std::cout << ",\"wna16_side_consumer_variant_execution_checked\":"
+            << (wna16_side_consumer_variant_execution_checked ? "true"
+                                                              : "false");
+  std::cout << ",\"wna16_side_consumer_variant_execution_version\":"
+            << kPremapWna16SideConsumerVariantExecutionAbiV1Version;
+  std::cout << ",\"wna16_side_consumer_variant_execution_struct_size\":"
+            << sizeof(PremapWna16SideConsumerVariantExecutionV1);
+  std::cout << ",\"wna16_side_consumer_variant_execution_struct_align\":"
+            << alignof(PremapWna16SideConsumerVariantExecutionV1);
+  std::cout << ",\"wna16_side_consumer_variant_execution_offset_variant\":"
+            << offsetof(PremapWna16SideConsumerVariantExecutionV1, variant);
+  std::cout << ",\"wna16_side_consumer_variant_execution_offset_row_offset\":"
+            << offsetof(PremapWna16SideConsumerVariantExecutionV1, row_offset);
+  std::cout << ",\"wna16_side_consumer_variant_execution_offset_row_limit\":"
+            << offsetof(PremapWna16SideConsumerVariantExecutionV1, row_limit);
+  std::cout << ",\"wna16_side_consumer_variant_execution_offset_grid_x\":"
+            << offsetof(PremapWna16SideConsumerVariantExecutionV1, grid_x);
+  std::cout << ",\"wna16_side_consumer_variant_execution_offset_block_x\":"
+            << offsetof(PremapWna16SideConsumerVariantExecutionV1, block_x);
+  std::cout << ",\"wna16_side_consumer_variant_execution_offset_rows_per_program\":"
+            << offsetof(
+                   PremapWna16SideConsumerVariantExecutionV1,
+                   rows_per_program);
+  std::cout << ",\"wna16_side_consumer_variant_execution_variant_struct_size\":"
+            << sizeof(PremapFutureWna16TypedSlotKernelVariantV1);
+  std::cout << ",\"wna16_side_consumer_variant_execution_row_offset\":"
+            << dispatch_row_offset;
+  std::cout << ",\"wna16_side_consumer_variant_execution_row_limit\":"
+            << dispatch_row_limit;
+  std::cout << ",\"wna16_side_consumer_variant_execution_grid_x\":"
+            << dispatch_blocks;
+  std::cout << ",\"wna16_side_consumer_variant_execution_block_x\":"
+            << threads;
+  std::cout << ",\"wna16_side_consumer_variant_execution_rows_per_program\":"
+            << threads;
+  std::cout << ",\"wna16_side_consumer_variant_execution_row_count\":"
+            << wna16_side_consumer_variant_execution_row_count;
+  std::cout << ",\"wna16_side_consumer_variant_execution_row_ok_count\":"
+            << (wna16_side_consumer_variant_execution_checked
+                    ? wna16_side_consumer_variant_execution_ok_count
+                    : 0);
+  std::cout << ",\"wna16_side_consumer_variant_execution_error_count\":"
+            << wna16_side_consumer_variant_execution_error_count;
+  std::cout << ",\"wna16_side_consumer_variant_execution_descriptor_ptr_read_row_count\":"
+            << wna16_side_consumer_variant_execution_descriptor_ptr_read_row_count;
+  std::cout << ",\"wna16_side_consumer_variant_execution_descriptor_ptr_read_row_ok_count\":"
+            << (wna16_side_consumer_variant_execution_checked
+                    ? wna16_side_consumer_variant_execution_descriptor_ptr_read_ok_count
+                    : 0);
+  std::cout << ",\"wna16_side_consumer_variant_execution_descriptor_ptr_read_error_count\":"
+            << wna16_side_consumer_variant_execution_descriptor_ptr_read_error_count;
+  std::cout << ",\"wna16_side_consumer_variant_execution_packed_weight_descriptor_read_row_count\":"
+            << wna16_side_consumer_variant_execution_packed_weight_descriptor_read_row_count;
+  std::cout << ",\"wna16_side_consumer_variant_execution_packed_weight_descriptor_read_row_ok_count\":"
+            << (wna16_side_consumer_variant_execution_checked
+                    ? wna16_side_consumer_variant_execution_packed_weight_descriptor_read_ok_count
+                    : 0);
+  std::cout << ",\"wna16_side_consumer_variant_execution_packed_weight_descriptor_read_error_count\":"
+            << wna16_side_consumer_variant_execution_packed_weight_descriptor_read_error_count;
+  std::cout << ",\"wna16_side_consumer_variant_execution_scale_metadata_handle_read_row_count\":"
+            << wna16_side_consumer_variant_execution_scale_metadata_handle_read_row_count;
+  std::cout << ",\"wna16_side_consumer_variant_execution_scale_metadata_handle_read_row_ok_count\":"
+            << (wna16_side_consumer_variant_execution_checked
+                    ? wna16_side_consumer_variant_execution_scale_metadata_handle_read_ok_count
+                    : 0);
+  std::cout << ",\"wna16_side_consumer_variant_execution_scale_metadata_handle_read_error_count\":"
+            << wna16_side_consumer_variant_execution_scale_metadata_handle_read_error_count;
+  std::cout << ",\"wna16_side_consumer_variant_execution_aux_metadata_handle_read_row_count\":"
+            << wna16_side_consumer_variant_execution_aux_metadata_handle_read_row_count;
+  std::cout << ",\"wna16_side_consumer_variant_execution_aux_metadata_handle_read_row_ok_count\":"
+            << (wna16_side_consumer_variant_execution_checked
+                    ? wna16_side_consumer_variant_execution_aux_metadata_handle_read_ok_count
+                    : 0);
+  std::cout << ",\"wna16_side_consumer_variant_execution_aux_metadata_handle_read_error_count\":"
+            << wna16_side_consumer_variant_execution_aux_metadata_handle_read_error_count;
+  std::cout << ",\"wna16_side_consumer_variant_execution_payload_bytes\":0";
+  std::cout << ",\"wna16_side_consumer_variant_execution_payload_deref_allowed\":false";
+  std::cout << ",\"wna16_side_consumer_variant_execution_passed_to_kernel\":false";
+  std::cout << ",\"wna16_side_consumer_variant_execution_kernel_arg_pass_allowed\":false";
+  std::cout << ",\"wna16_side_consumer_variant_execution_changes_kernel_launch_args\":false";
+  std::cout << ",\"wna16_side_consumer_variant_execution_current_wna16_arg_compatible\":false";
+  std::cout << ",\"wna16_side_consumer_variant_execution_requires_wna16_arg_reinterpretation\":false";
+  std::cout << ",\"wna16_side_consumer_variant_execution_explicit_typed_abi_slot\":true";
+  std::cout << ",\"wna16_side_consumer_variant_execution_reuses_current_wna16_arg_slot\":false";
+  std::cout << ",\"wna16_side_consumer_variant_execution_hash_accumulator\":\""
+            << std::hex
+            << (wna16_side_consumer_variant_execution_checked
+                    ? wna16_side_consumer_variant_execution_hash_acc
+                    : 0ULL)
+            << std::dec << "\"";
+  std::cout << ",\"wna16_side_consumer_variant_execution_handle_projection_hash_accumulator\":\""
+            << std::hex
+            << (wna16_side_consumer_variant_execution_checked
+                    ? wna16_side_consumer_variant_execution_handle_projection_hash_acc
+                    : 0ULL)
+            << std::dec << "\"";
+  std::cout << ",\"wna16_side_consumer_variant_execution_descriptor_ptr_read_hash_accumulator\":\""
+            << std::hex
+            << (wna16_side_consumer_variant_execution_checked
+                    ? wna16_side_consumer_variant_execution_descriptor_ptr_read_hash_acc
+                    : 0ULL)
+            << std::dec << "\"";
+  std::cout << ",\"wna16_side_consumer_variant_execution_packed_weight_descriptor_read_hash_accumulator\":\""
+            << std::hex
+            << (wna16_side_consumer_variant_execution_checked
+                    ? wna16_side_consumer_variant_execution_packed_weight_descriptor_read_hash_acc
+                    : 0ULL)
+            << std::dec << "\"";
+  std::cout << ",\"wna16_side_consumer_variant_execution_scale_metadata_handle_read_hash_accumulator\":\""
+            << std::hex
+            << (wna16_side_consumer_variant_execution_checked
+                    ? wna16_side_consumer_variant_execution_scale_metadata_handle_read_hash_acc
+                    : 0ULL)
+            << std::dec << "\"";
+  std::cout << ",\"wna16_side_consumer_variant_execution_aux_metadata_handle_read_hash_accumulator\":\""
+            << std::hex
+            << (wna16_side_consumer_variant_execution_checked
+                    ? wna16_side_consumer_variant_execution_aux_metadata_handle_read_hash_acc
                     : 0ULL)
             << std::dec << "\"";
   std::cout << ",\"future_kernel_native_consumer_request_ptr_abi_name\":\""

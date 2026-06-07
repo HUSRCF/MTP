@@ -1425,6 +1425,437 @@ def test_online_merged_arg_slot_canary_dry_run_accepts_wna16_adjacent_typed_slot
     )
 
 
+def test_online_merged_arg_slot_canary_dry_run_accepts_future_wna16_variant(
+    tmp_path: Path,
+):
+    module = _load_module()
+    first = tmp_path / "input0.json"
+    second = tmp_path / "input1.json"
+    runner = tmp_path / "runner.json"
+    stub = tmp_path / "stub.json"
+    _write_input(first, start=0, rows=3, export_index=0)
+    _write_input(second, start=100, rows=4, export_index=1)
+    _write_runner(runner, [first, second])
+
+    args = module.build_parser().parse_args(
+        [
+            "--runner-json",
+            str(runner),
+            "--min-source-count",
+            "2",
+            "--min-total-rows",
+            "7",
+            "--block-threads",
+            "4",
+            "--require-future-wna16-typed-slot-kernel-variant",
+            "--merged-output-json",
+            str(tmp_path / "merged.json"),
+            "--stub-output-json",
+            str(stub),
+            "--output-json",
+            str(tmp_path / "report.json"),
+            "--dry-run",
+        ]
+    )
+
+    result = module.run_canary(args)
+    stub_payload = json.loads(stub.read_text(encoding="utf-8"))
+
+    assert result["passed"] is True
+    assert result["require_future_wna16_typed_slot_kernel_variant"] is True
+    assert result["require_wna16_adjacent_typed_slot"] is True
+    assert result["future_wna16_typed_slot_kernel_variant_checked"] is True
+    assert (
+        result["future_wna16_typed_slot_kernel_variant_name"]
+        == "premap_future_wna16_typed_slot_kernel_variant_v1"
+    )
+    assert (
+        result["future_wna16_typed_slot_kernel_variant_mode"]
+        == "readonly_future_wna16_typed_slot_kernel_variant"
+    )
+    assert (
+        result["future_wna16_typed_slot_kernel_variant_source"]
+        == "premap_wna16_adjacent_typed_consumer_slot_v1"
+    )
+    assert result["future_wna16_typed_slot_kernel_variant_row_count"] == 7
+    assert result["future_wna16_typed_slot_kernel_variant_row_ok_count"] == 7
+    assert result["future_wna16_typed_slot_kernel_variant_error_count"] == 0
+    assert (
+        result["future_wna16_typed_slot_kernel_variant_all_handle_fields_read"]
+        is True
+    )
+    assert result["future_wna16_typed_slot_kernel_variant_packet_chain_depth"] == 15
+    assert result["future_wna16_typed_slot_kernel_variant_payload_bytes"] == 0
+    assert result["future_wna16_typed_slot_kernel_variant_passed_to_kernel"] is False
+    assert (
+        result["future_wna16_typed_slot_kernel_variant_changes_kernel_launch_args"]
+        is False
+    )
+    assert (
+        result[
+            "future_wna16_typed_slot_kernel_variant_current_wna16_arg_compatible"
+        ]
+        is False
+    )
+    assert (
+        result[
+            "future_wna16_typed_slot_kernel_variant_requires_wna16_arg_reinterpretation"
+        ]
+        is False
+    )
+    assert (
+        result["future_wna16_typed_slot_kernel_variant_explicit_typed_abi_slot"]
+        is True
+    )
+    assert (
+        result["future_wna16_typed_slot_kernel_variant_reuses_current_wna16_arg_slot"]
+        is False
+    )
+    assert (
+        module.FUTURE_WNA16_TYPED_SLOT_KERNEL_VARIANT_MACRO
+        in stub_payload["requested_macros"]
+    )
+    assert stub_payload["requested_macros"] == module.arg_slot_macros(
+        "scale_metadata_handle",
+        include_future_wna16_typed_slot_kernel_variant=True,
+    )
+    assert (
+        stub_payload["future_wna16_typed_slot_kernel_variant_checked"] is True
+    )
+    assert stub_payload[
+        "future_wna16_typed_slot_kernel_variant_summary_row_count"
+    ] == 7
+    assert stub_payload[
+        "future_wna16_typed_slot_kernel_variant_summary_error_count"
+    ] == 0
+    assert (
+        stub_payload["future_wna16_typed_slot_kernel_variant_passed_to_kernel"]
+        is False
+    )
+
+
+def test_online_merged_arg_slot_canary_dry_run_accepts_future_wna16_accept_slot(
+    tmp_path: Path,
+):
+    module = _load_module()
+    first = tmp_path / "input0.json"
+    second = tmp_path / "input1.json"
+    runner = tmp_path / "runner.json"
+    stub = tmp_path / "stub.json"
+    _write_input(first, start=0, rows=3, export_index=0)
+    _write_input(second, start=100, rows=4, export_index=1)
+    _write_runner(runner, [first, second])
+
+    args = module.build_parser().parse_args(
+        [
+            "--runner-json",
+            str(runner),
+            "--min-source-count",
+            "2",
+            "--min-total-rows",
+            "7",
+            "--block-threads",
+            "4",
+            "--require-future-wna16-kernel-accept-typed-slot",
+            "--merged-output-json",
+            str(tmp_path / "merged.json"),
+            "--stub-output-json",
+            str(stub),
+            "--output-json",
+            str(tmp_path / "report.json"),
+            "--dry-run",
+        ]
+    )
+
+    result = module.run_canary(args)
+    stub_payload = json.loads(stub.read_text(encoding="utf-8"))
+
+    assert result["passed"] is True
+    assert result["require_future_wna16_kernel_accept_typed_slot"] is True
+    assert result["require_wna16_adjacent_typed_slot"] is True
+    assert result["future_wna16_kernel_accept_typed_slot_checked"] is True
+    assert (
+        result["future_wna16_kernel_accept_typed_slot_name"]
+        == "premap_future_wna16_kernel_accept_typed_slot_v1"
+    )
+    assert (
+        result["future_wna16_kernel_accept_typed_slot_mode"]
+        == "readonly_future_wna16_kernel_accept_typed_slot"
+    )
+    assert (
+        result["future_wna16_kernel_accept_typed_slot_source"]
+        == "premap_wna16_adjacent_typed_consumer_slot_v1"
+    )
+    assert result["future_wna16_kernel_accept_typed_slot_row_count"] == 7
+    assert result["future_wna16_kernel_accept_typed_slot_row_ok_count"] == 7
+    assert result["future_wna16_kernel_accept_typed_slot_error_count"] == 0
+    assert result["future_wna16_kernel_accept_typed_slot_all_handle_fields_read"] is True
+    assert result["future_wna16_kernel_accept_typed_slot_packet_chain_depth"] == 15
+    assert result["future_wna16_kernel_accept_typed_slot_payload_bytes"] == 0
+    assert result["future_wna16_kernel_accept_typed_slot_passed_to_kernel"] is False
+    assert (
+        result["future_wna16_kernel_accept_typed_slot_changes_kernel_launch_args"]
+        is False
+    )
+    assert (
+        result["future_wna16_kernel_accept_typed_slot_current_wna16_arg_compatible"]
+        is False
+    )
+    assert (
+        result[
+            "future_wna16_kernel_accept_typed_slot_requires_wna16_arg_reinterpretation"
+        ]
+        is False
+    )
+    assert result["future_wna16_kernel_accept_typed_slot_explicit_typed_abi_slot"] is True
+    assert result["future_wna16_kernel_accept_typed_slot_reuses_current_wna16_arg_slot"] is False
+    assert (
+        module.FUTURE_WNA16_KERNEL_ACCEPT_TYPED_SLOT_MACRO
+        in stub_payload["requested_macros"]
+    )
+    assert stub_payload["requested_macros"] == module.arg_slot_macros(
+        "scale_metadata_handle",
+        include_future_wna16_kernel_accept_typed_slot=True,
+    )
+    assert stub_payload["future_wna16_kernel_accept_typed_slot_checked"] is True
+    assert (
+        stub_payload["future_wna16_kernel_accept_typed_slot_summary_row_count"]
+        == 7
+    )
+    assert (
+        stub_payload["future_wna16_kernel_accept_typed_slot_summary_error_count"]
+        == 0
+    )
+    assert stub_payload["future_wna16_kernel_accept_typed_slot_passed_to_kernel"] is False
+
+
+def test_online_merged_arg_slot_canary_dry_run_accepts_future_wna16_kernel_side_execution(
+    tmp_path: Path,
+):
+    module = _load_module()
+    first = tmp_path / "input0.json"
+    second = tmp_path / "input1.json"
+    runner = tmp_path / "runner.json"
+    stub = tmp_path / "stub.json"
+    _write_input(first, start=0, rows=3, export_index=0)
+    _write_input(second, start=100, rows=4, export_index=1)
+    _write_runner(runner, [first, second])
+
+    args = module.build_parser().parse_args(
+        [
+            "--runner-json",
+            str(runner),
+            "--min-source-count",
+            "2",
+            "--min-total-rows",
+            "7",
+            "--block-threads",
+            "4",
+            "--require-future-wna16-kernel-side-consumer-execution",
+            "--merged-output-json",
+            str(tmp_path / "merged.json"),
+            "--stub-output-json",
+            str(stub),
+            "--output-json",
+            str(tmp_path / "report.json"),
+            "--dry-run",
+        ]
+    )
+
+    result = module.run_canary(args)
+    stub_payload = json.loads(stub.read_text(encoding="utf-8"))
+
+    assert result["passed"] is True
+    assert result["require_future_wna16_kernel_accept_typed_slot"] is True
+    assert result["require_future_wna16_kernel_side_consumer_execution"] is True
+    assert result["future_wna16_kernel_side_consumer_execution_checked"] is True
+    assert (
+        result["future_wna16_kernel_side_consumer_execution_name"]
+        == "premap_future_wna16_kernel_side_consumer_execution_v1"
+    )
+    assert (
+        result["future_wna16_kernel_side_consumer_execution_mode"]
+        == "readonly_future_wna16_kernel_side_consumer_execution"
+    )
+    assert (
+        result["future_wna16_kernel_side_consumer_execution_source"]
+        == "premap_future_wna16_kernel_accept_typed_slot_v1"
+    )
+    assert result["future_wna16_kernel_side_consumer_execution_row_count"] == 7
+    assert result["future_wna16_kernel_side_consumer_execution_row_ok_count"] == 7
+    assert result["future_wna16_kernel_side_consumer_execution_error_count"] == 0
+    assert (
+        result["future_wna16_kernel_side_consumer_execution_all_handle_fields_read"]
+        is True
+    )
+    assert (
+        result["future_wna16_kernel_side_consumer_execution_packet_chain_depth"]
+        == 16
+    )
+    assert result["future_wna16_kernel_side_consumer_execution_payload_bytes"] == 0
+    assert (
+        result["future_wna16_kernel_side_consumer_execution_passed_to_kernel"]
+        is False
+    )
+    assert (
+        result["future_wna16_kernel_side_consumer_execution_changes_kernel_launch_args"]
+        is False
+    )
+    assert (
+        result[
+            "future_wna16_kernel_side_consumer_execution_current_wna16_arg_compatible"
+        ]
+        is False
+    )
+    assert (
+        result[
+            "future_wna16_kernel_side_consumer_execution_requires_wna16_arg_reinterpretation"
+        ]
+        is False
+    )
+    assert (
+        result["future_wna16_kernel_side_consumer_execution_reuses_current_wna16_arg_slot"]
+        is False
+    )
+    assert (
+        module.FUTURE_WNA16_KERNEL_SIDE_CONSUMER_EXECUTION_MACRO
+        in stub_payload["requested_macros"]
+    )
+    assert module.FUTURE_WNA16_KERNEL_ACCEPT_TYPED_SLOT_MACRO in stub_payload[
+        "requested_macros"
+    ]
+    assert stub_payload["requested_macros"] == module.arg_slot_macros(
+        "scale_metadata_handle",
+        include_future_wna16_kernel_side_consumer_execution=True,
+    )
+    assert (
+        stub_payload["future_wna16_kernel_side_consumer_execution_checked"]
+        is True
+    )
+    assert (
+        stub_payload["future_wna16_kernel_side_consumer_execution_row_count"]
+        == 7
+    )
+    assert (
+        stub_payload[
+            "future_wna16_kernel_side_consumer_execution_descriptor_ptr_read_row_ok_count"
+        ]
+        == 7
+    )
+
+
+def test_online_merged_arg_slot_canary_dry_run_accepts_future_wna16_single_field_handoff(
+    tmp_path: Path,
+):
+    module = _load_module()
+    first = tmp_path / "input0.json"
+    second = tmp_path / "input1.json"
+    runner = tmp_path / "runner.json"
+    stub = tmp_path / "stub.json"
+    _write_input(first, start=0, rows=3, export_index=0)
+    _write_input(second, start=100, rows=4, export_index=1)
+    _write_runner(runner, [first, second])
+
+    args = module.build_parser().parse_args(
+        [
+            "--runner-json",
+            str(runner),
+            "--min-source-count",
+            "2",
+            "--min-total-rows",
+            "7",
+            "--block-threads",
+            "4",
+            "--require-future-wna16-single-field-handoff-canary",
+            "--merged-output-json",
+            str(tmp_path / "merged.json"),
+            "--stub-output-json",
+            str(stub),
+            "--output-json",
+            str(tmp_path / "report.json"),
+            "--dry-run",
+        ]
+    )
+
+    result = module.run_canary(args)
+    stub_payload = json.loads(stub.read_text(encoding="utf-8"))
+
+    assert result["passed"] is True
+    assert result["require_future_wna16_kernel_accept_typed_slot"] is True
+    assert result["require_future_wna16_kernel_side_consumer_execution"] is True
+    assert result["require_future_wna16_single_field_handoff_canary"] is True
+    assert result["future_wna16_single_field_handoff_canary_checked"] is True
+    assert (
+        result["future_wna16_single_field_handoff_canary_name"]
+        == "premap_future_wna16_single_field_handoff_canary_v1"
+    )
+    assert (
+        result["future_wna16_single_field_handoff_canary_abi_name"]
+        == "premap_future_wna16_single_field_handoff_canary_v1"
+    )
+    assert (
+        result["future_wna16_single_field_handoff_canary_mode"]
+        == "readonly_future_wna16_single_field_handoff_canary"
+    )
+    assert (
+        result["future_wna16_single_field_handoff_canary_source"]
+        == "premap_future_wna16_kernel_side_consumer_execution_v1"
+    )
+    assert (
+        result["future_wna16_single_field_handoff_canary_field_read_path"]
+        == "future_wna16_single_field_handoff_to_future_wna16_kernel_side_execution_to_accepted_typed_slot_to_program_view_rows"
+    )
+    assert result["future_wna16_single_field_handoff_canary_field_name"] == (
+        "scale_metadata_handle"
+    )
+    assert result["future_wna16_single_field_handoff_canary_field_kind"] == 3
+    assert result["future_wna16_single_field_handoff_canary_field_mask"] == 4
+    assert result["future_wna16_single_field_handoff_canary_row_count"] == 7
+    assert result["future_wna16_single_field_handoff_canary_row_ok_count"] == 7
+    assert result["future_wna16_single_field_handoff_canary_error_count"] == 0
+    assert result["future_wna16_single_field_handoff_canary_payload_bytes"] == 0
+    assert result["future_wna16_single_field_handoff_canary_live_enabled"] is False
+    assert result["future_wna16_single_field_handoff_canary_passed_to_kernel"] is False
+    assert (
+        result[
+            "future_wna16_single_field_handoff_canary_changes_kernel_launch_args"
+        ]
+        is False
+    )
+    assert (
+        result[
+            "future_wna16_single_field_handoff_canary_current_wna16_arg_compatible"
+        ]
+        is False
+    )
+    assert (
+        result[
+            "future_wna16_single_field_handoff_canary_requires_wna16_arg_reinterpretation"
+        ]
+        is False
+    )
+    assert (
+        result["future_wna16_single_field_handoff_canary_explicit_typed_abi_slot"]
+        is True
+    )
+    assert (
+        result["future_wna16_single_field_handoff_canary_reuses_current_wna16_arg_slot"]
+        is False
+    )
+    assert (
+        module.FUTURE_WNA16_SINGLE_FIELD_HANDOFF_CANARY_MACRO
+        in stub_payload["requested_macros"]
+    )
+    assert (
+        module.FUTURE_WNA16_KERNEL_SIDE_CONSUMER_EXECUTION_MACRO
+        in stub_payload["requested_macros"]
+    )
+    assert stub_payload["requested_macros"] == module.arg_slot_macros(
+        "scale_metadata_handle",
+        include_future_wna16_single_field_handoff_canary=True,
+    )
+
+
 def test_online_merged_arg_slot_canary_mock_real_run_accepts_invocation(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -1639,6 +2070,132 @@ def test_online_merged_arg_slot_canary_mock_real_run_accepts_endpoint_ptr(
     )
     assert (
         stub_payload["future_kernel_native_consumer_endpoint_ptr_passed_to_kernel"]
+        is False
+    )
+
+
+def test_online_merged_arg_slot_canary_mock_real_run_accepts_wna16_adjacent_typed_slot(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    module = _load_module()
+    first = tmp_path / "input0.json"
+    second = tmp_path / "input1.json"
+    runner = tmp_path / "runner.json"
+    dry_stub = tmp_path / "stub_dry.json"
+    real_stub = tmp_path / "stub_real.json"
+    _write_input(first, start=0, rows=3, export_index=0)
+    _write_input(second, start=100, rows=4, export_index=1)
+    _write_runner(runner, [first, second])
+
+    dry_args = module.build_parser().parse_args(
+        [
+            "--runner-json",
+            str(runner),
+            "--min-source-count",
+            "2",
+            "--min-total-rows",
+            "7",
+            "--block-threads",
+            "4",
+            "--require-wna16-adjacent-typed-slot",
+            "--merged-output-json",
+            str(tmp_path / "merged_dry.json"),
+            "--stub-output-json",
+            str(dry_stub),
+            "--output-json",
+            str(tmp_path / "report_dry.json"),
+            "--dry-run",
+        ]
+    )
+    dry_result = module.run_canary(dry_args)
+    assert dry_result["passed"] is True
+    dry_stub_payload = json.loads(dry_stub.read_text(encoding="utf-8"))
+    captured: dict[str, object] = {}
+
+    def fake_run_stub(namespace):
+        captured["macro"] = list(namespace.macro)
+        captured["input_json"] = str(namespace.input_json)
+        captured["dispatch_row_offset"] = namespace.dispatch_row_offset
+        captured["dispatch_row_limit"] = namespace.dispatch_row_limit
+        payload = dict(dry_stub_payload)
+        payload.pop("dry_run", None)
+        payload["input_json"] = str(namespace.input_json)
+        payload["requested_macros"] = list(namespace.macro)
+        return payload
+
+    monkeypatch.setattr(module, "run_stub", fake_run_stub)
+    real_args = module.build_parser().parse_args(
+        [
+            "--runner-json",
+            str(runner),
+            "--min-source-count",
+            "2",
+            "--min-total-rows",
+            "7",
+            "--block-threads",
+            "4",
+            "--require-wna16-adjacent-typed-slot",
+            "--merged-output-json",
+            str(tmp_path / "merged_real.json"),
+            "--stub-output-json",
+            str(real_stub),
+            "--output-json",
+            str(tmp_path / "report_real.json"),
+        ]
+    )
+
+    result = module.run_canary(real_args)
+    stub_payload = json.loads(real_stub.read_text(encoding="utf-8"))
+
+    assert result["passed"] is True
+    assert result["require_wna16_adjacent_typed_slot"] is True
+    assert result["require_kernel_endpoint_ptr_abi"] is True
+    assert result["kernel_endpoint_ptr_checked"] is True
+    assert result["kernel_endpoint_ptr_all_handle_fields_read"] is True
+    assert result["wna16_adjacent_typed_slot_checked"] is True
+    assert result["wna16_adjacent_typed_slot_all_handle_fields_read"] is True
+    assert result["wna16_adjacent_typed_slot_packet_chain_depth"] == 14
+    assert result["wna16_adjacent_typed_slot_row_count"] == 7
+    assert result["wna16_adjacent_typed_slot_row_ok_count"] == 7
+    assert result["wna16_adjacent_typed_slot_error_count"] == 0
+    assert result["wna16_adjacent_typed_slot_payload_bytes"] == 0
+    assert result["wna16_adjacent_typed_slot_passed_to_kernel"] is False
+    assert result["wna16_adjacent_typed_slot_changes_kernel_launch_args"] is False
+    assert result["wna16_adjacent_typed_slot_current_wna16_arg_compatible"] is False
+    assert (
+        result["wna16_adjacent_typed_slot_requires_wna16_arg_reinterpretation"]
+        is False
+    )
+    assert result["wna16_adjacent_typed_slot_explicit_typed_abi_slot"] is True
+    assert result["wna16_adjacent_typed_slot_reuses_current_wna16_arg_slot"] is False
+    assert captured["macro"] == module.arg_slot_macros(
+        "scale_metadata_handle",
+        include_wna16_adjacent_typed_slot=True,
+    )
+    assert captured["dispatch_row_offset"] == 0
+    assert captured["dispatch_row_limit"] == 7
+    assert stub_payload["requested_macros"] == captured["macro"]
+    assert module.ENDPOINT_PTR_MACRO in stub_payload["requested_macros"]
+    assert (
+        module.WNA16_ADJACENT_TYPED_SLOT_MACRO in stub_payload["requested_macros"]
+    )
+    assert (
+        stub_payload[
+            "future_kernel_native_consumer_wna16_adjacent_typed_slot_checked"
+        ]
+        is True
+    )
+    assert (
+        stub_payload[
+            "future_kernel_native_consumer_wna16_adjacent_typed_slot_summary_row_count"
+        ]
+        == 7
+    )
+    assert (
+        stub_payload[
+            "future_kernel_native_consumer_wna16_adjacent_typed_slot_passed_to_kernel"
+        ]
         is False
     )
 

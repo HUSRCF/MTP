@@ -2924,6 +2924,170 @@ def _online_merged_arg_slot_multiprogram_canary_payload(
     return payload
 
 
+def _future_wna16_single_field_handoff_all_fields_summary_payload(
+    *,
+    row_count: int = 520,
+    selected_source_count: int = 128,
+) -> dict[str, object]:
+    field_specs = {
+        "descriptor_ptr": (1, 1, "c973e1eb866b06e8"),
+        "packed_weight_descriptor": (2, 2, "a42c4f17c82346d1"),
+        "scale_metadata_handle": (3, 4, "94c3d701dd5a27b3"),
+        "aux_metadata_handle": (4, 8, "c069d5202855935e"),
+    }
+    fields: dict[str, object] = {}
+    for field_name, (field_kind, field_mask, hash_accumulator) in field_specs.items():
+        fields[field_name] = {
+            "artifact": (
+                "reports/online_merged_future_wna16_single_field_handoff_"
+                f"{field_name}_128strict_preflight_runner.json"
+            ),
+            "passed": True,
+            "selected_source_count": selected_source_count,
+            "merged_row_count": row_count,
+            "dispatch_active_rows": row_count,
+            "abi_name": "premap_future_wna16_single_field_handoff_canary_v1",
+            "mode": "readonly_future_wna16_single_field_handoff_canary",
+            "source": "premap_future_wna16_kernel_side_consumer_execution_v1",
+            "field_read_path": (
+                "future_wna16_single_field_handoff_to_"
+                "future_wna16_kernel_side_execution_to_"
+                "accepted_typed_slot_to_program_view_rows"
+            ),
+            "field_name": field_name,
+            "field_kind": field_kind,
+            "field_mask": field_mask,
+            "row_count": row_count,
+            "row_ok_count": row_count,
+            "error_count": 0,
+            "hash_accumulator": hash_accumulator,
+            "payload_bytes": 0,
+            "live_enabled": False,
+            "passed_to_kernel": False,
+            "changes_kernel_launch_args": False,
+            "current_wna16_arg_compatible": False,
+            "requires_wna16_arg_reinterpretation": False,
+            "explicit_typed_abi_slot": True,
+            "reuses_current_wna16_arg_slot": False,
+        }
+    return {
+        "summary_name": "future_wna16_single_field_handoff_all_fields_128strict",
+        "passed": True,
+        "failures": [],
+        "field_count": len(field_specs),
+        "fields": fields,
+        "safety_contract": {
+            "payload_bytes": 0,
+            "live_enabled": False,
+            "passed_to_kernel": False,
+            "changes_kernel_launch_args": False,
+            "current_wna16_arg_compatible": False,
+            "requires_wna16_arg_reinterpretation": False,
+            "explicit_typed_abi_slot": True,
+            "reuses_current_wna16_arg_slot": False,
+        },
+    }
+
+
+def _wna16_side_consumer_variant_execution_runner_payload(
+    input_path: str,
+    stub_path: str,
+    *,
+    row_count: int = 520,
+    selected_source_count: int = 128,
+) -> dict[str, object]:
+    payload = _online_merged_arg_slot_multiprogram_runner_payload(
+        input_path,
+        stub_path,
+        require_wna16_adjacent_typed_slot=True,
+    )
+    stub_summary = payload["stub_summary"]
+    assert isinstance(stub_summary, dict)
+    payload.update(
+        {
+            "selected_source_count": selected_source_count,
+            "merged_row_count": row_count,
+            "merged_expected_program_count": 3,
+            "dispatch_row_limit": row_count,
+            "dispatch_active_rows": row_count,
+            "dispatch_expected_program_count": 3,
+            "require_wna16_side_consumer_variant_execution": True,
+            "future_wna16_typed_slot_kernel_variant_packet_chain_depth": 15,
+            "wna16_side_consumer_variant_execution_checked": True,
+            "wna16_side_consumer_variant_execution_name": (
+                "premap_wna16_side_consumer_variant_execution_v1"
+            ),
+            "wna16_side_consumer_variant_execution_mode": (
+                "readonly_wna16_side_consumer_variant_execution"
+            ),
+            "wna16_side_consumer_variant_execution_source": (
+                "premap_future_wna16_typed_slot_kernel_variant_v1"
+            ),
+            "wna16_side_consumer_variant_execution_row_count": row_count,
+            "wna16_side_consumer_variant_execution_row_ok_count": row_count,
+            "wna16_side_consumer_variant_execution_error_count": 0,
+            "wna16_side_consumer_variant_execution_all_handle_fields_read": True,
+            "wna16_side_consumer_variant_execution_packet_chain_depth": 16,
+            "wna16_side_consumer_variant_execution_payload_bytes": 0,
+            "wna16_side_consumer_variant_execution_passed_to_kernel": False,
+            "wna16_side_consumer_variant_execution_changes_kernel_launch_args": False,
+            "wna16_side_consumer_variant_execution_current_wna16_arg_compatible": False,
+            "wna16_side_consumer_variant_execution_requires_wna16_arg_reinterpretation": False,
+            "wna16_side_consumer_variant_execution_reuses_current_wna16_arg_slot": False,
+            "wna16_side_consumer_variant_execution_handle_projection_hash_accumulator": (
+                "e9a06475ca6a56d0"
+            ),
+        }
+    )
+    stub_summary.update(
+        {
+            "wna16_side_consumer_variant_execution_checked": True,
+            "wna16_side_consumer_variant_execution_abi_name": (
+                "premap_wna16_side_consumer_variant_execution_v1"
+            ),
+            "wna16_side_consumer_variant_execution_mode": (
+                "readonly_wna16_side_consumer_variant_execution"
+            ),
+            "wna16_side_consumer_variant_execution_source": (
+                "premap_future_wna16_typed_slot_kernel_variant_v1"
+            ),
+            "wna16_side_consumer_variant_execution_row_count": row_count,
+            "wna16_side_consumer_variant_execution_row_ok_count": row_count,
+            "wna16_side_consumer_variant_execution_error_count": 0,
+            "wna16_side_consumer_variant_execution_descriptor_ptr_read_row_ok_count": row_count,
+            "wna16_side_consumer_variant_execution_packed_weight_descriptor_read_row_ok_count": row_count,
+            "wna16_side_consumer_variant_execution_scale_metadata_handle_read_row_ok_count": row_count,
+            "wna16_side_consumer_variant_execution_aux_metadata_handle_read_row_ok_count": row_count,
+            "wna16_side_consumer_variant_execution_hash_accumulator": (
+                "4ff003ba01541147"
+            ),
+            "wna16_side_consumer_variant_execution_handle_projection_hash_accumulator": (
+                "e9a06475ca6a56d0"
+            ),
+            "wna16_side_consumer_variant_execution_descriptor_ptr_read_hash_accumulator": (
+                "f21873c80428f9c9"
+            ),
+            "wna16_side_consumer_variant_execution_packed_weight_descriptor_read_hash_accumulator": (
+                "cdd0b1ee1ecc961f"
+            ),
+            "wna16_side_consumer_variant_execution_scale_metadata_handle_read_hash_accumulator": (
+                "f79958eb1fbdf45c"
+            ),
+            "wna16_side_consumer_variant_execution_aux_metadata_handle_read_hash_accumulator": (
+                "47d5c9d76d4decc7"
+            ),
+            "wna16_side_consumer_variant_execution_payload_bytes": 0,
+            "wna16_side_consumer_variant_execution_passed_to_kernel": False,
+            "wna16_side_consumer_variant_execution_changes_kernel_launch_args": False,
+            "wna16_side_consumer_variant_execution_current_wna16_arg_compatible": False,
+            "wna16_side_consumer_variant_execution_requires_wna16_arg_reinterpretation": False,
+            "wna16_side_consumer_variant_execution_reuses_current_wna16_arg_slot": False,
+            "wna16_side_consumer_variant_execution_explicit_typed_abi_slot": True,
+        }
+    )
+    return payload
+
+
 def _online_merged_arg_slot_multiprogram_runner_payload(
     input_path: str,
     stub_path: str,
@@ -3336,6 +3500,12 @@ def _write_gate(
     online_merged_wna16_adjacent_typed_slot_stub_path = (
         f"reports/{name}_typed_consumer_stub_gpu1_online_merged_"
         "wna16_adjacent_slot_native_bridge.json"
+    )
+    future_wna16_single_field_handoff_all_fields_summary_path = (
+        f"reports/{name}_future_wna16_single_field_handoff_all_fields_128strict_summary.json"
+    )
+    wna16_side_consumer_variant_execution_runner_path = (
+        f"reports/{name}_wna16_side_consumer_variant_execution_128strict_runner.json"
     )
     standalone_wna16_adjacent_typed_slot_canary_path = (
         f"reports/{name}_future_native_wna16_adjacent_typed_slot_standalone_canary.json"
@@ -3821,6 +3991,21 @@ def _write_gate(
             )
             + "\n",
         )
+        _write(
+            root / future_wna16_single_field_handoff_all_fields_summary_path,
+            json.dumps(_future_wna16_single_field_handoff_all_fields_summary_payload())
+            + "\n",
+        )
+        _write(
+            root / wna16_side_consumer_variant_execution_runner_path,
+            json.dumps(
+                _wna16_side_consumer_variant_execution_runner_payload(
+                    online_merged_arg_slot_multiprogram_input_path,
+                    online_merged_wna16_adjacent_typed_slot_stub_path,
+                )
+            )
+            + "\n",
+        )
         for mirror_field, runner_path in (
             ("descriptor_ptr", online_merged_arg_slot_descriptor_ptr_runner_path),
             (
@@ -3987,6 +4172,10 @@ def _write_gate(
         "  wna16_adjacent_typed_slot_explicit_typed_abi_slot_required: true\n"
         "  wna16_adjacent_typed_slot_reuses_current_wna16_arg_slot_required: false\n"
         "  future_kernel_native_arg_slot_online_total_mirror_coverage_required: true\n"
+        "  future_wna16_single_field_handoff_all_fields_required: true\n"
+        "  future_wna16_single_field_handoff_all_fields_min_source_count: 128\n"
+        "  wna16_side_consumer_variant_execution_required: true\n"
+        "  wna16_side_consumer_variant_execution_min_source_count: 128\n"
         "  single_field_handle_handoff_canary_required: true\n"
         "  single_field_handle_handoff_canary_mode: readonly_single_field_handle_handoff_canary\n"
         "  single_field_handle_handoff_canary_field: scale_metadata_handle\n"
@@ -4154,6 +4343,10 @@ def _write_gate(
             f"{online_merged_wna16_adjacent_typed_slot_runner_path}\n"
             "  future_kernel_wna16_adjacent_typed_slot_stub_json: "
             f"{online_merged_wna16_adjacent_typed_slot_stub_path}\n"
+            "  future_wna16_single_field_handoff_all_fields_128strict_summary_json: "
+            f"{future_wna16_single_field_handoff_all_fields_summary_path}\n"
+            "  wna16_side_consumer_variant_execution_128strict_runner_json: "
+            f"{wna16_side_consumer_variant_execution_runner_path}\n"
             "  future_kernel_wna16_adjacent_typed_slot_standalone_canary_json: "
             f"{standalone_wna16_adjacent_typed_slot_canary_path}\n"
             "optional_evidence_paths:\n"
@@ -4249,7 +4442,7 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert result["passed"] is True
     assert result["failures"] == []
     assert result["runtime_gate_evidence_scan"]["gate_count"] == 3
-    assert result["runtime_gate_evidence_scan"]["evidence_path_count"] == 96
+    assert result["runtime_gate_evidence_scan"]["evidence_path_count"] == 100
     assert result["default_readonly_gate_required_evidence_check"]["passed"] is True
     summary = result["lab_gate_status_summary"]
     assert summary["passed"] is True
@@ -5468,9 +5661,9 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert summary["payload_bytes_required"] == 0
     assert summary["passed_to_kernel_required"] is False
     assert summary["changes_kernel_launch_args_required"] is False
-    assert summary["required_evidence"]["required_count"] == 38
-    assert summary["required_evidence"]["present_count"] == 38
-    assert summary["required_evidence"]["passed_count"] == 38
+    assert summary["required_evidence"]["required_count"] == 40
+    assert summary["required_evidence"]["present_count"] == 40
+    assert summary["required_evidence"]["passed_count"] == 40
     assert summary["optional_evidence"]["required_count"] == 13
     assert summary["optional_evidence"]["present_count"] == 13
     assert summary["optional_evidence"]["passed_count"] == 13
@@ -5998,7 +6191,7 @@ def test_premap_lab_preflight_rejects_missing_optional_future_args_coverage(
         "default_kernel_consumer_future_kernel_args_total_mirror_coverage_incomplete"
         in result["failures"]
     )
-    assert summary["required_evidence"]["passed_count"] == 38
+    assert summary["required_evidence"]["passed_count"] == 40
     assert summary["default_optional_evidence_passed"] is True
     assert (
         summary[
@@ -6197,6 +6390,41 @@ def test_premap_lab_preflight_rejects_present_optional_packed_weight_canary_mism
         "packed_weight_single_field_handle_handoff_canary_smoke_json:"
         "premap_consumer_descriptor_prep_consumer_shim_"
         "single_field_handle_handoff_canary_field_name_mismatch"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_future_wna16_single_field_all_fields_mismatch(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    summary_path = (
+        tmp_path
+        / "reports/default_gate_future_wna16_single_field_handoff_all_fields_128strict_summary.json"
+    )
+    payload = json.loads(summary_path.read_text(encoding="utf-8"))
+    payload["fields"]["packed_weight_descriptor"]["row_ok_count"] = 519
+    summary_path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is False
+    assert "default_readonly_gate_required_evidence_check_failed" in result["failures"]
+    failures = result["default_readonly_gate_required_evidence_check"]["failures"]
+    assert (
+        "future_wna16_single_field_handoff_all_fields_128strict_summary_json:"
+        "packed_weight_descriptor_row_ok_count_mismatch"
     ) in failures
 
 
@@ -7975,8 +8203,10 @@ def test_premap_lab_preflight_rejects_default_gate_without_typed_evidence(
             "future_kernel_wna16_adjacent_typed_slot_canary_json:missing_evidence_path",
             "future_kernel_wna16_adjacent_typed_slot_stub_json:missing_evidence_path",
             "future_kernel_wna16_adjacent_typed_slot_standalone_canary_json:missing_evidence_path",
-            "strict_live_connected_readonly_128_gate_json:missing_evidence_path",
-        "strict_native_typed_consumer_bridge_128_gate_json:missing_evidence_path",
+            "future_wna16_single_field_handoff_all_fields_128strict_summary_json:missing_evidence_path",
+            "wna16_side_consumer_variant_execution_128strict_runner_json:missing_evidence_path",
+                "strict_live_connected_readonly_128_gate_json:missing_evidence_path",
+            "strict_native_typed_consumer_bridge_128_gate_json:missing_evidence_path",
         "strict_kernel_side_typed_consumer_object_128_gate_json:missing_evidence_path",
         "strict_kernel_side_typed_consumer_object_128_selfcheck_json:missing_evidence_path",
         "strict_kernel_side_typed_row_consumer_path_128_gate_json:missing_evidence_path",
@@ -9994,9 +10224,9 @@ def test_premap_lab_preflight_can_defer_self_referential_runner_evidence(
     assert summary["deferred_online_prelaunch_artifact_evidence"] is False
     assert summary["runtime_gate_evidence_deferred_count"] == 10
     assert summary["strict_default_gate_evidence_deferred_count"] == 5
-    assert summary["required_evidence"]["required_count"] == 38
-    assert summary["required_evidence"]["present_count"] == 36
-    assert summary["required_evidence"]["passed_count"] == 36
+    assert summary["required_evidence"]["required_count"] == 40
+    assert summary["required_evidence"]["present_count"] == 38
+    assert summary["required_evidence"]["passed_count"] == 38
     assert summary["optional_evidence"]["passed_count"] == 13
     for label in (
         "future_kernel_args_compatible_path_16_128export_artifact_check_json",
@@ -10572,7 +10802,7 @@ def test_premap_lab_preflight_cli_writes_summary(tmp_path: Path):
     assert result["lab_gate_status_summary"]["passed"] is True
     assert (
         result["lab_gate_status_summary"]["required_evidence"]["passed_count"]
-        == 38
+        == 40
     )
 
 
@@ -10608,6 +10838,6 @@ def test_premap_lab_preflight_cli_summary_only_writes_status_block(tmp_path: Pat
     assert exit_code == 0
     assert result["passed"] is True
     assert result["default_readonly_gate_path"] == default_gate
-    assert result["required_evidence"]["passed_count"] == 38
+    assert result["required_evidence"]["passed_count"] == 40
     assert result["optional_evidence"]["passed_count"] == 13
     assert "lab_gate_status_summary" not in result

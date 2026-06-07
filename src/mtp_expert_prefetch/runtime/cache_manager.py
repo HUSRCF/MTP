@@ -96,6 +96,17 @@ PREMAP_KERNEL_SIDE_TYPED_CONSUMER_PATH_MODE = "readonly_typed_row_consumer_path"
 PREMAP_KERNEL_SIDE_TYPED_CONSUMER_PATH_SOURCE = (
     "vllm_prelaunch_prepared_handle_table"
 )
+PREMAP_WNA16_ADJACENT_TYPED_SLOT_NAME = (
+    "premap_wna16_adjacent_typed_consumer_slot_v1"
+)
+PREMAP_WNA16_ADJACENT_TYPED_SLOT_MODE = (
+    "readonly_wna16_adjacent_typed_consumer_slot"
+)
+PREMAP_WNA16_ADJACENT_TYPED_SLOT_SOURCE = (
+    "premap_future_kernel_native_consumer_endpoint_ptr_abi_v1"
+)
+PREMAP_WNA16_ADJACENT_TYPED_SLOT_PACKET_CHAIN_DEPTH = 14
+PREMAP_WNA16_ADJACENT_TYPED_SLOT_FIELD_MASK = 15
 
 
 def premap_single_field_handle_handoff_mirror_mode(field_name: str) -> str:
@@ -1990,6 +2001,149 @@ class PremapKernelSideTypedRowConsumerPathCheck:
 
 
 @dataclass(frozen=True)
+class PremapWna16AdjacentTypedSlotCheck:
+    """Readonly online envelope for a future WNA16 typed-slot consumer.
+
+    This is the vLLM-prelaunch producer-side counterpart of the standalone
+    native stub's `PremapFutureKernelNativeConsumerWna16AdjacentTypedSlotV1`.
+    It deliberately describes a future typed ABI slot instead of claiming
+    compatibility with the current WNA16 tensor argument list.
+    """
+
+    name: str
+    mode: str
+    source: str
+    input_hash: str
+    table_object_hash: str
+    schema_hash: str
+    row_count: int
+    row_ok_count: int
+    error_count: int
+    field_mask: int
+    descriptor_ptr_read_row_ok_count: int
+    packed_weight_descriptor_read_row_ok_count: int
+    scale_metadata_handle_read_row_ok_count: int
+    aux_metadata_handle_read_row_ok_count: int
+    expert_id_read_row_ok_count: int
+    address_key_hash_read_row_ok_count: int
+    row_metadata_read_row_ok_count: int
+    row_hash_accumulator: str
+    field_read_hash_accumulator: str
+    row_metadata_hash_accumulator: str
+    failures: tuple[str, ...] = ()
+    packet_chain_depth: int = PREMAP_WNA16_ADJACENT_TYPED_SLOT_PACKET_CHAIN_DEPTH
+    payload_bytes: int = 0
+    passed_to_kernel: bool = False
+    changes_kernel_launch_args: bool = False
+    current_wna16_arg_compatible: bool = False
+    requires_wna16_arg_reinterpretation: bool = False
+    explicit_typed_abi_slot: bool = True
+    reuses_current_wna16_arg_slot: bool = False
+
+    @property
+    def checked(self) -> bool:
+        return self.mode == PREMAP_WNA16_ADJACENT_TYPED_SLOT_MODE
+
+    @property
+    def all_handle_fields_read(self) -> bool:
+        return (
+            int(self.descriptor_ptr_read_row_ok_count) == int(self.row_count)
+            and int(self.packed_weight_descriptor_read_row_ok_count)
+            == int(self.row_count)
+            and int(self.scale_metadata_handle_read_row_ok_count)
+            == int(self.row_count)
+            and int(self.aux_metadata_handle_read_row_ok_count) == int(self.row_count)
+        )
+
+    @property
+    def ready(self) -> bool:
+        return (
+            self.checked
+            and self.name == PREMAP_WNA16_ADJACENT_TYPED_SLOT_NAME
+            and self.source == PREMAP_WNA16_ADJACENT_TYPED_SLOT_SOURCE
+            and bool(self.input_hash)
+            and bool(self.table_object_hash)
+            and self.schema_hash == PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH
+            and int(self.row_count) > 0
+            and int(self.row_ok_count) == int(self.row_count)
+            and int(self.error_count) == 0
+            and int(self.field_mask) == PREMAP_WNA16_ADJACENT_TYPED_SLOT_FIELD_MASK
+            and bool(self.all_handle_fields_read)
+            and int(self.expert_id_read_row_ok_count) == int(self.row_count)
+            and int(self.address_key_hash_read_row_ok_count) == int(self.row_count)
+            and int(self.row_metadata_read_row_ok_count) == int(self.row_count)
+            and int(self.packet_chain_depth)
+            == PREMAP_WNA16_ADJACENT_TYPED_SLOT_PACKET_CHAIN_DEPTH
+            and bool(self.row_hash_accumulator)
+            and bool(self.field_read_hash_accumulator)
+            and bool(self.row_metadata_hash_accumulator)
+            and not self.failures
+            and int(self.payload_bytes) == 0
+            and not bool(self.passed_to_kernel)
+            and not bool(self.changes_kernel_launch_args)
+            and not bool(self.current_wna16_arg_compatible)
+            and not bool(self.requires_wna16_arg_reinterpretation)
+            and bool(self.explicit_typed_abi_slot)
+            and not bool(self.reuses_current_wna16_arg_slot)
+        )
+
+    def as_dict(self) -> dict[str, int | bool | str | tuple[str, ...]]:
+        return {
+            "name": self.name,
+            "mode": self.mode,
+            "source": self.source,
+            "checked": self.checked,
+            "ready": self.ready,
+            "input_hash": self.input_hash,
+            "table_object_hash": self.table_object_hash,
+            "schema_hash": self.schema_hash,
+            "row_count": int(self.row_count),
+            "row_ok_count": int(self.row_ok_count),
+            "error_count": int(self.error_count),
+            "all_handle_fields_read": bool(self.all_handle_fields_read),
+            "packet_chain_depth": int(self.packet_chain_depth),
+            "field_mask": int(self.field_mask),
+            "descriptor_ptr_read_row_ok_count": int(
+                self.descriptor_ptr_read_row_ok_count
+            ),
+            "packed_weight_descriptor_read_row_ok_count": int(
+                self.packed_weight_descriptor_read_row_ok_count
+            ),
+            "scale_metadata_handle_read_row_ok_count": int(
+                self.scale_metadata_handle_read_row_ok_count
+            ),
+            "aux_metadata_handle_read_row_ok_count": int(
+                self.aux_metadata_handle_read_row_ok_count
+            ),
+            "expert_id_read_row_ok_count": int(self.expert_id_read_row_ok_count),
+            "address_key_hash_read_row_ok_count": int(
+                self.address_key_hash_read_row_ok_count
+            ),
+            "row_metadata_read_row_ok_count": int(
+                self.row_metadata_read_row_ok_count
+            ),
+            "row_hash_accumulator": self.row_hash_accumulator,
+            "field_read_hash_accumulator": self.field_read_hash_accumulator,
+            "row_metadata_hash_accumulator": self.row_metadata_hash_accumulator,
+            "failure_count": len(self.failures),
+            "failures": self.failures,
+            "payload_bytes": int(self.payload_bytes),
+            "passed_to_kernel": bool(self.passed_to_kernel),
+            "changes_kernel_launch_args": bool(self.changes_kernel_launch_args),
+            "current_wna16_arg_compatible": bool(
+                self.current_wna16_arg_compatible
+            ),
+            "requires_wna16_arg_reinterpretation": bool(
+                self.requires_wna16_arg_reinterpretation
+            ),
+            "explicit_typed_abi_slot": bool(self.explicit_typed_abi_slot),
+            "reuses_current_wna16_arg_slot": bool(
+                self.reuses_current_wna16_arg_slot
+            ),
+        }
+
+
+@dataclass(frozen=True)
 class PremapDescriptorConsumerShimResult:
     """Explicit no-op consumer shim for prepared descriptor objects.
 
@@ -2383,6 +2537,43 @@ class PremapDescriptorConsumerShimResult:
     kernel_side_typed_row_consumer_path_passed_to_kernel: bool = False
     kernel_side_typed_row_consumer_path_changes_kernel_launch_args: bool = False
     kernel_side_typed_row_consumer_path_current_wna16_arg_compatible: bool = False
+    wna16_adjacent_typed_slot_name: str | None = None
+    wna16_adjacent_typed_slot_mode: str | None = None
+    wna16_adjacent_typed_slot_source: str | None = None
+    wna16_adjacent_typed_slot_checked: bool | None = None
+    wna16_adjacent_typed_slot_ready: bool | None = None
+    wna16_adjacent_typed_slot_input_hash: str | None = None
+    wna16_adjacent_typed_slot_table_object_hash: str | None = None
+    wna16_adjacent_typed_slot_schema_hash: str | None = None
+    wna16_adjacent_typed_slot_row_count: int | None = None
+    wna16_adjacent_typed_slot_row_ok_count: int | None = None
+    wna16_adjacent_typed_slot_error_count: int | None = None
+    wna16_adjacent_typed_slot_all_handle_fields_read: bool | None = None
+    wna16_adjacent_typed_slot_packet_chain_depth: int | None = None
+    wna16_adjacent_typed_slot_field_mask: int | None = None
+    wna16_adjacent_typed_slot_descriptor_ptr_read_row_ok_count: int | None = None
+    wna16_adjacent_typed_slot_packed_weight_descriptor_read_row_ok_count: (
+        int | None
+    ) = None
+    wna16_adjacent_typed_slot_scale_metadata_handle_read_row_ok_count: (
+        int | None
+    ) = None
+    wna16_adjacent_typed_slot_aux_metadata_handle_read_row_ok_count: int | None = None
+    wna16_adjacent_typed_slot_expert_id_read_row_ok_count: int | None = None
+    wna16_adjacent_typed_slot_address_key_hash_read_row_ok_count: int | None = None
+    wna16_adjacent_typed_slot_row_metadata_read_row_ok_count: int | None = None
+    wna16_adjacent_typed_slot_row_hash_accumulator: str | None = None
+    wna16_adjacent_typed_slot_field_read_hash_accumulator: str | None = None
+    wna16_adjacent_typed_slot_row_metadata_hash_accumulator: str | None = None
+    wna16_adjacent_typed_slot_failure_count: int | None = None
+    wna16_adjacent_typed_slot_failures: tuple[str, ...] | None = None
+    wna16_adjacent_typed_slot_payload_bytes: int = 0
+    wna16_adjacent_typed_slot_passed_to_kernel: bool = False
+    wna16_adjacent_typed_slot_changes_kernel_launch_args: bool = False
+    wna16_adjacent_typed_slot_current_wna16_arg_compatible: bool = False
+    wna16_adjacent_typed_slot_requires_wna16_arg_reinterpretation: bool = False
+    wna16_adjacent_typed_slot_explicit_typed_abi_slot: bool = True
+    wna16_adjacent_typed_slot_reuses_current_wna16_arg_slot: bool = False
     handle_table_object_consumed: bool | None = None
     handle_table_object_hash: str | None = None
     handle_table_object_row_count: int | None = None
@@ -3304,6 +3495,180 @@ class ControlledPremapAddressManager:
             current_wna16_arg_compatible=False,
         )
 
+    def build_wna16_adjacent_typed_slot_readonly(
+        self,
+        table_object: PremapKernelArgShadowTableObject,
+    ) -> PremapWna16AdjacentTypedSlotCheck:
+        """Build the online envelope for a future WNA16 typed-slot consumer.
+
+        This mirrors the standalone native stub's WNA16-adjacent typed slot at
+        the vLLM prelaunch boundary.  The current WNA16 kernel is still not
+        called with this object; this only proves that the producer/native
+        adapter can emit the future slot contract directly from the prepared
+        handle table.
+        """
+
+        native_input = table_object.to_native_typed_consumer_input_dict()
+        failures: list[str] = []
+        meta = native_input.get("_meta")
+        if not isinstance(meta, dict):
+            meta = {}
+            failures.append("missing_meta")
+        row_count = int(meta.get("row_count", table_object.row_count) or 0)
+        schema_hash = str(meta.get("schema_hash", table_object.schema_hash) or "")
+        payload_bytes = int(meta.get("payload_bytes", 0) or 0)
+        passed_to_kernel = bool(meta.get("passed_to_kernel", False))
+        changes_kernel_launch_args = bool(
+            meta.get("changes_kernel_launch_args", False)
+        )
+        if row_count != int(table_object.row_count):
+            failures.append("row_count_mismatch")
+        if schema_hash != PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH:
+            failures.append("schema_hash_mismatch")
+        if payload_bytes != 0:
+            failures.append("payload_bytes_nonzero")
+        if passed_to_kernel:
+            failures.append("passed_to_kernel_true")
+        if changes_kernel_launch_args:
+            failures.append("changes_kernel_launch_args_true")
+
+        def as_int_list(field: str, *, required: bool = True) -> list[int]:
+            value = native_input.get(field)
+            if value is None:
+                if required:
+                    failures.append(f"{field}_missing")
+                return []
+            if not isinstance(value, list):
+                failures.append(f"{field}_not_list")
+                return []
+            if len(value) != row_count:
+                failures.append(f"{field}_length_mismatch")
+            out: list[int] = []
+            for item in value:
+                try:
+                    out.append(int(item) & 0xFFFFFFFFFFFFFFFF)
+                except (TypeError, ValueError):
+                    failures.append(f"{field}_non_int")
+                    out.append(0)
+            return out
+
+        descriptor_ptr = as_int_list("descriptor_ptr")
+        packed_weight_descriptor = as_int_list("packed_weight_descriptor")
+        scale_metadata_handle = as_int_list("scale_metadata_handle")
+        aux_metadata_handle = as_int_list("aux_metadata_handle", required=False)
+        if "aux_metadata_handle" not in native_input:
+            aux_metadata_handle = [0 for _ in range(row_count)]
+        expert_id = as_int_list("expert_id")
+        address_key_hash = as_int_list("address_key_hash")
+
+        row_order_hash = _digest_to_u64(str(meta.get("row_order_hash", "")))
+        ordered_row_hash = _digest_to_u64(str(meta.get("ordered_row_hash", "")))
+        row_ok_count = 0
+        descriptor_read_ok = 0
+        packed_read_ok = 0
+        scale_read_ok = 0
+        aux_read_ok = 0
+        expert_read_ok = 0
+        address_read_ok = 0
+        row_metadata_read_ok = 0
+        row_hash_acc = 0
+        field_read_hash_acc = 0
+        row_metadata_hash_acc = 0
+        for row_index in range(row_count):
+            has_descriptor = row_index < len(descriptor_ptr)
+            has_packed = row_index < len(packed_weight_descriptor)
+            has_scale = row_index < len(scale_metadata_handle)
+            has_aux = row_index < len(aux_metadata_handle)
+            has_expert = row_index < len(expert_id)
+            has_address = row_index < len(address_key_hash)
+            descriptor = descriptor_ptr[row_index] if has_descriptor else 0
+            packed = packed_weight_descriptor[row_index] if has_packed else 0
+            scale = scale_metadata_handle[row_index] if has_scale else 0
+            aux = aux_metadata_handle[row_index] if has_aux else 0
+            expert = expert_id[row_index] if has_expert else -1
+            address = address_key_hash[row_index] if has_address else 0
+            descriptor_visible = has_descriptor and descriptor != 0
+            packed_visible = has_packed and packed != 0
+            scale_visible = has_scale and scale != 0
+            aux_read = has_aux
+            expert_valid = has_expert and int(expert) >= 0
+            address_visible = has_address and address != 0
+            row_metadata_ok = expert_valid and address_visible
+            descriptor_read_ok += int(descriptor_visible)
+            packed_read_ok += int(packed_visible)
+            scale_read_ok += int(scale_visible)
+            aux_read_ok += int(aux_read)
+            expert_read_ok += int(expert_valid)
+            address_read_ok += int(address_visible)
+            row_metadata_read_ok += int(row_metadata_ok)
+            row_ok = (
+                descriptor_visible
+                and packed_visible
+                and scale_visible
+                and aux_read
+                and row_metadata_ok
+            )
+            row_ok_count += int(row_ok)
+            row_hash = (
+                _mix64(descriptor)
+                ^ _mix64(packed + 0x1111)
+                ^ _mix64(scale + 0x2222)
+                ^ _mix64(aux + 0x3333)
+                ^ _mix64(address + int(expert))
+                ^ _mix64(row_index)
+                ^ _mix64(row_order_hash)
+                ^ _mix64(ordered_row_hash)
+            )
+            field_hash = (
+                _mix64(PREMAP_WNA16_ADJACENT_TYPED_SLOT_FIELD_MASK)
+                ^ _mix64(int(descriptor_visible))
+                ^ _mix64(int(packed_visible) + 0x10)
+                ^ _mix64(int(scale_visible) + 0x20)
+                ^ _mix64(int(aux_read) + 0x30)
+                ^ _mix64(row_index)
+            )
+            metadata_hash = (
+                _mix64(address)
+                ^ _mix64(int(expert) + 0x4444)
+                ^ _mix64(row_index)
+                ^ _mix64(row_order_hash)
+                ^ _mix64(ordered_row_hash)
+            )
+            row_hash_acc ^= _mix64(row_hash + row_index)
+            field_read_hash_acc ^= _mix64(field_hash + row_index)
+            row_metadata_hash_acc ^= _mix64(metadata_hash + row_index)
+        input_hash = hashlib.sha256(
+            json.dumps(native_input, sort_keys=True, separators=(",", ":")).encode(
+                "utf-8"
+            )
+        ).hexdigest()
+        return PremapWna16AdjacentTypedSlotCheck(
+            name=PREMAP_WNA16_ADJACENT_TYPED_SLOT_NAME,
+            mode=PREMAP_WNA16_ADJACENT_TYPED_SLOT_MODE,
+            source=PREMAP_WNA16_ADJACENT_TYPED_SLOT_SOURCE,
+            input_hash=input_hash,
+            table_object_hash=table_object.object_hash,
+            schema_hash=schema_hash,
+            row_count=row_count,
+            row_ok_count=row_ok_count,
+            error_count=max(0, row_count - row_ok_count),
+            field_mask=PREMAP_WNA16_ADJACENT_TYPED_SLOT_FIELD_MASK,
+            descriptor_ptr_read_row_ok_count=descriptor_read_ok,
+            packed_weight_descriptor_read_row_ok_count=packed_read_ok,
+            scale_metadata_handle_read_row_ok_count=scale_read_ok,
+            aux_metadata_handle_read_row_ok_count=aux_read_ok,
+            expert_id_read_row_ok_count=expert_read_ok,
+            address_key_hash_read_row_ok_count=address_read_ok,
+            row_metadata_read_row_ok_count=row_metadata_read_ok,
+            row_hash_accumulator=f"{row_hash_acc:016x}",
+            field_read_hash_accumulator=f"{field_read_hash_acc:016x}",
+            row_metadata_hash_accumulator=f"{row_metadata_hash_acc:016x}",
+            failures=tuple(failures),
+            payload_bytes=payload_bytes,
+            passed_to_kernel=passed_to_kernel,
+            changes_kernel_launch_args=changes_kernel_launch_args,
+        )
+
     def build_native_stub_online_invocation_canary_readonly(
         self,
         table_object: PremapKernelArgShadowTableObject,
@@ -3501,6 +3866,7 @@ class ControlledPremapAddressManager:
         kernel_side_typed_row_consumer_path: (
             PremapKernelSideTypedRowConsumerPathCheck | None
         ) = None
+        wna16_adjacent_typed_slot: PremapWna16AdjacentTypedSlotCheck | None = None
         prep_dry_run_mode = None
         prep_dry_run_source = None
         prep_dry_run_ok = None
@@ -3723,11 +4089,17 @@ class ControlledPremapAddressManager:
                     table_object
                 )
             )
+            wna16_adjacent_typed_slot = self.build_wna16_adjacent_typed_slot_readonly(
+                table_object
+            )
             table_consume_ok = bool(table_consume_ok) and bool(native_bridge_check.ok)
             table_consume_ok = bool(table_consume_ok) and bool(native_stub_canary.ok)
             table_consume_ok = (
                 bool(table_consume_ok)
                 and bool(kernel_side_typed_row_consumer_path.ready)
+            )
+            table_consume_ok = bool(table_consume_ok) and bool(
+                wna16_adjacent_typed_slot.ready
             )
         elif table_result is not None:
             table_object_consumed = False
@@ -5875,6 +6247,171 @@ class ControlledPremapAddressManager:
             native_stub_online_invocation_changes_kernel_launch_args=(
                 native_stub_canary.changes_kernel_launch_args
                 if native_stub_canary is not None
+                else False
+            ),
+            wna16_adjacent_typed_slot_name=(
+                wna16_adjacent_typed_slot.name
+                if wna16_adjacent_typed_slot is not None
+                else None
+            ),
+            wna16_adjacent_typed_slot_mode=(
+                wna16_adjacent_typed_slot.mode
+                if wna16_adjacent_typed_slot is not None
+                else None
+            ),
+            wna16_adjacent_typed_slot_source=(
+                wna16_adjacent_typed_slot.source
+                if wna16_adjacent_typed_slot is not None
+                else None
+            ),
+            wna16_adjacent_typed_slot_checked=(
+                wna16_adjacent_typed_slot.checked
+                if wna16_adjacent_typed_slot is not None
+                else None
+            ),
+            wna16_adjacent_typed_slot_ready=(
+                wna16_adjacent_typed_slot.ready
+                if wna16_adjacent_typed_slot is not None
+                else None
+            ),
+            wna16_adjacent_typed_slot_input_hash=(
+                wna16_adjacent_typed_slot.input_hash
+                if wna16_adjacent_typed_slot is not None
+                else None
+            ),
+            wna16_adjacent_typed_slot_table_object_hash=(
+                wna16_adjacent_typed_slot.table_object_hash
+                if wna16_adjacent_typed_slot is not None
+                else None
+            ),
+            wna16_adjacent_typed_slot_schema_hash=(
+                wna16_adjacent_typed_slot.schema_hash
+                if wna16_adjacent_typed_slot is not None
+                else None
+            ),
+            wna16_adjacent_typed_slot_row_count=(
+                wna16_adjacent_typed_slot.row_count
+                if wna16_adjacent_typed_slot is not None
+                else None
+            ),
+            wna16_adjacent_typed_slot_row_ok_count=(
+                wna16_adjacent_typed_slot.row_ok_count
+                if wna16_adjacent_typed_slot is not None
+                else None
+            ),
+            wna16_adjacent_typed_slot_error_count=(
+                wna16_adjacent_typed_slot.error_count
+                if wna16_adjacent_typed_slot is not None
+                else None
+            ),
+            wna16_adjacent_typed_slot_all_handle_fields_read=(
+                wna16_adjacent_typed_slot.all_handle_fields_read
+                if wna16_adjacent_typed_slot is not None
+                else None
+            ),
+            wna16_adjacent_typed_slot_packet_chain_depth=(
+                wna16_adjacent_typed_slot.packet_chain_depth
+                if wna16_adjacent_typed_slot is not None
+                else None
+            ),
+            wna16_adjacent_typed_slot_field_mask=(
+                wna16_adjacent_typed_slot.field_mask
+                if wna16_adjacent_typed_slot is not None
+                else None
+            ),
+            wna16_adjacent_typed_slot_descriptor_ptr_read_row_ok_count=(
+                wna16_adjacent_typed_slot.descriptor_ptr_read_row_ok_count
+                if wna16_adjacent_typed_slot is not None
+                else None
+            ),
+            wna16_adjacent_typed_slot_packed_weight_descriptor_read_row_ok_count=(
+                wna16_adjacent_typed_slot.packed_weight_descriptor_read_row_ok_count
+                if wna16_adjacent_typed_slot is not None
+                else None
+            ),
+            wna16_adjacent_typed_slot_scale_metadata_handle_read_row_ok_count=(
+                wna16_adjacent_typed_slot.scale_metadata_handle_read_row_ok_count
+                if wna16_adjacent_typed_slot is not None
+                else None
+            ),
+            wna16_adjacent_typed_slot_aux_metadata_handle_read_row_ok_count=(
+                wna16_adjacent_typed_slot.aux_metadata_handle_read_row_ok_count
+                if wna16_adjacent_typed_slot is not None
+                else None
+            ),
+            wna16_adjacent_typed_slot_expert_id_read_row_ok_count=(
+                wna16_adjacent_typed_slot.expert_id_read_row_ok_count
+                if wna16_adjacent_typed_slot is not None
+                else None
+            ),
+            wna16_adjacent_typed_slot_address_key_hash_read_row_ok_count=(
+                wna16_adjacent_typed_slot.address_key_hash_read_row_ok_count
+                if wna16_adjacent_typed_slot is not None
+                else None
+            ),
+            wna16_adjacent_typed_slot_row_metadata_read_row_ok_count=(
+                wna16_adjacent_typed_slot.row_metadata_read_row_ok_count
+                if wna16_adjacent_typed_slot is not None
+                else None
+            ),
+            wna16_adjacent_typed_slot_row_hash_accumulator=(
+                wna16_adjacent_typed_slot.row_hash_accumulator
+                if wna16_adjacent_typed_slot is not None
+                else None
+            ),
+            wna16_adjacent_typed_slot_field_read_hash_accumulator=(
+                wna16_adjacent_typed_slot.field_read_hash_accumulator
+                if wna16_adjacent_typed_slot is not None
+                else None
+            ),
+            wna16_adjacent_typed_slot_row_metadata_hash_accumulator=(
+                wna16_adjacent_typed_slot.row_metadata_hash_accumulator
+                if wna16_adjacent_typed_slot is not None
+                else None
+            ),
+            wna16_adjacent_typed_slot_failure_count=(
+                len(wna16_adjacent_typed_slot.failures)
+                if wna16_adjacent_typed_slot is not None
+                else None
+            ),
+            wna16_adjacent_typed_slot_failures=(
+                wna16_adjacent_typed_slot.failures
+                if wna16_adjacent_typed_slot is not None
+                else None
+            ),
+            wna16_adjacent_typed_slot_payload_bytes=(
+                wna16_adjacent_typed_slot.payload_bytes
+                if wna16_adjacent_typed_slot is not None
+                else 0
+            ),
+            wna16_adjacent_typed_slot_passed_to_kernel=(
+                wna16_adjacent_typed_slot.passed_to_kernel
+                if wna16_adjacent_typed_slot is not None
+                else False
+            ),
+            wna16_adjacent_typed_slot_changes_kernel_launch_args=(
+                wna16_adjacent_typed_slot.changes_kernel_launch_args
+                if wna16_adjacent_typed_slot is not None
+                else False
+            ),
+            wna16_adjacent_typed_slot_current_wna16_arg_compatible=(
+                wna16_adjacent_typed_slot.current_wna16_arg_compatible
+                if wna16_adjacent_typed_slot is not None
+                else False
+            ),
+            wna16_adjacent_typed_slot_requires_wna16_arg_reinterpretation=(
+                wna16_adjacent_typed_slot.requires_wna16_arg_reinterpretation
+                if wna16_adjacent_typed_slot is not None
+                else False
+            ),
+            wna16_adjacent_typed_slot_explicit_typed_abi_slot=(
+                wna16_adjacent_typed_slot.explicit_typed_abi_slot
+                if wna16_adjacent_typed_slot is not None
+                else True
+            ),
+            wna16_adjacent_typed_slot_reuses_current_wna16_arg_slot=(
+                wna16_adjacent_typed_slot.reuses_current_wna16_arg_slot
+                if wna16_adjacent_typed_slot is not None
                 else False
             ),
             kernel_side_typed_row_consumer_path_mode=(

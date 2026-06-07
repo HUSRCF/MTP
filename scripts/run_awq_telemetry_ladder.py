@@ -1035,6 +1035,23 @@ MODES: dict[str, dict[str, Any]] = {
 }
 
 
+MODES["premap_single_field_replacement_live_prepared_alias_adapter"] = {
+    **MODES["premap_single_field_replacement_live_prepared_handle_table_canary"],
+    # Prepared-handle-table compatibility probe.  The prepared table must
+    # resolve the requested field, but the current WNA16 ABI still receives the
+    # original tensor arg alias.  This isolates the overhead of prepared-table
+    # selection/materialization without pretending that handle tokens are tensor
+    # kernel args.
+    "premap_risky_trace_canary_scope": (
+        "benchmark_premap_single_field_replacement_live_prepared_alias_adapter"
+    ),
+    "premap_kernel_arg_handoff_single_field_replacement_allow_signature_mismatch_live": False,
+    "premap_kernel_arg_handoff_prepared_table_materialization_mode": (
+        "original_kernel_arg_alias_after_prepared_handle_check"
+    ),
+}
+
+
 def _resolve_trace_split(
     *,
     trace: dict[str, Any],

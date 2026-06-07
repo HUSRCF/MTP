@@ -20,6 +20,11 @@ from mtp_expert_prefetch.runtime import (
     PREMAP_KERNEL_SIDE_TYPED_CONSUMER_SCHEMA_FIELDS,
     PREMAP_KERNEL_SIDE_TYPED_CONSUMER_SCHEMA_HASH,
     PREMAP_KERNEL_SIDE_TYPED_CONSUMER_SCHEMA_NAME,
+    PREMAP_WNA16_ADJACENT_TYPED_SLOT_FIELD_MASK,
+    PREMAP_WNA16_ADJACENT_TYPED_SLOT_MODE,
+    PREMAP_WNA16_ADJACENT_TYPED_SLOT_NAME,
+    PREMAP_WNA16_ADJACENT_TYPED_SLOT_PACKET_CHAIN_DEPTH,
+    PREMAP_WNA16_ADJACENT_TYPED_SLOT_SOURCE,
     PremapRealDescriptorHandle,
     PremapKernelArgHandoffMirrorObject,
     PremapKernelSideConsumerSchemaAdapterObject,
@@ -665,6 +670,54 @@ def test_controlled_premap_address_manager_executes_descriptor_prep_readonly():
     assert shim_result.handle_table_consume_stale_row_count == 0
     assert shim_result.handle_table_consume_passed_to_kernel is False
     assert shim_result.handle_table_consume_payload_bytes == 0
+    assert (
+        shim_result.wna16_adjacent_typed_slot_name
+        == PREMAP_WNA16_ADJACENT_TYPED_SLOT_NAME
+    )
+    assert (
+        shim_result.wna16_adjacent_typed_slot_mode
+        == PREMAP_WNA16_ADJACENT_TYPED_SLOT_MODE
+    )
+    assert (
+        shim_result.wna16_adjacent_typed_slot_source
+        == PREMAP_WNA16_ADJACENT_TYPED_SLOT_SOURCE
+    )
+    assert shim_result.wna16_adjacent_typed_slot_checked is True
+    assert shim_result.wna16_adjacent_typed_slot_ready is True
+    assert shim_result.wna16_adjacent_typed_slot_row_count == 2
+    assert shim_result.wna16_adjacent_typed_slot_row_ok_count == 2
+    assert shim_result.wna16_adjacent_typed_slot_error_count == 0
+    assert shim_result.wna16_adjacent_typed_slot_all_handle_fields_read is True
+    assert (
+        shim_result.wna16_adjacent_typed_slot_packet_chain_depth
+        == PREMAP_WNA16_ADJACENT_TYPED_SLOT_PACKET_CHAIN_DEPTH
+    )
+    assert (
+        shim_result.wna16_adjacent_typed_slot_field_mask
+        == PREMAP_WNA16_ADJACENT_TYPED_SLOT_FIELD_MASK
+    )
+    assert shim_result.wna16_adjacent_typed_slot_payload_bytes == 0
+    assert shim_result.wna16_adjacent_typed_slot_passed_to_kernel is False
+    assert (
+        shim_result.wna16_adjacent_typed_slot_changes_kernel_launch_args
+        is False
+    )
+    assert (
+        shim_result.wna16_adjacent_typed_slot_current_wna16_arg_compatible
+        is False
+    )
+    assert (
+        shim_result.wna16_adjacent_typed_slot_requires_wna16_arg_reinterpretation
+        is False
+    )
+    assert (
+        shim_result.wna16_adjacent_typed_slot_explicit_typed_abi_slot
+        is True
+    )
+    assert (
+        shim_result.wna16_adjacent_typed_slot_reuses_current_wna16_arg_slot
+        is False
+    )
     assert (
         shim_result.kernel_arg_handoff_dry_run_mode
         == "readonly_kernel_arg_handoff_dry_run"
@@ -1977,6 +2030,70 @@ def test_controlled_premap_address_manager_descriptor_prep_uses_real_handles():
     assert read_result.stale_object_count == 0
     assert read_result.object_hash == result.consumer_object_hash
     assert read_result.read_ok is True
+
+
+def test_controlled_premap_address_manager_builds_wna16_adjacent_typed_slot():
+    plan = prepare_premap_address_plan(
+        [
+            ExpertPrefetchDescriptor(0, 1, 3, 2, "transition_head", 0.95),
+            ExpertPrefetchDescriptor(0, 1, 7, 4, "mtp_token_extra_head", 0.75),
+        ],
+        descriptor_bytes=64,
+    )
+    manager = ControlledPremapAddressManager(capacity=4)
+    manager.prepare(plan)
+    keys = [record.address_key for record in plan.records]
+    result = manager.execute_descriptor_prep_readonly(keys)
+    read_result = manager.read_descriptor_consumer_objects_readonly(
+        keys,
+        expected_object_hash_by_address_key=result.consumer_object_hash_by_address_key,
+    )
+    _table_result, table_object = manager.build_kernel_arg_shadow_table_object_readonly(
+        keys,
+        read_result=read_result,
+        expected_object_hash_by_address_key=result.consumer_object_hash_by_address_key,
+    )
+
+    slot = manager.build_wna16_adjacent_typed_slot_readonly(table_object)
+    slot_dict = slot.as_dict()
+
+    assert slot.name == PREMAP_WNA16_ADJACENT_TYPED_SLOT_NAME
+    assert slot.mode == PREMAP_WNA16_ADJACENT_TYPED_SLOT_MODE
+    assert slot.source == PREMAP_WNA16_ADJACENT_TYPED_SLOT_SOURCE
+    assert slot.checked is True
+    assert slot.ready is True
+    assert slot.input_hash
+    assert slot.table_object_hash == table_object.object_hash
+    assert slot.schema_hash == PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH
+    assert slot.row_count == 2
+    assert slot.row_ok_count == 2
+    assert slot.error_count == 0
+    assert slot.all_handle_fields_read is True
+    assert slot.packet_chain_depth == PREMAP_WNA16_ADJACENT_TYPED_SLOT_PACKET_CHAIN_DEPTH
+    assert slot.field_mask == PREMAP_WNA16_ADJACENT_TYPED_SLOT_FIELD_MASK
+    assert slot.descriptor_ptr_read_row_ok_count == 2
+    assert slot.packed_weight_descriptor_read_row_ok_count == 2
+    assert slot.scale_metadata_handle_read_row_ok_count == 2
+    assert slot.aux_metadata_handle_read_row_ok_count == 2
+    assert slot.expert_id_read_row_ok_count == 2
+    assert slot.address_key_hash_read_row_ok_count == 2
+    assert slot.row_metadata_read_row_ok_count == 2
+    assert slot.row_hash_accumulator
+    assert slot.field_read_hash_accumulator
+    assert slot.row_metadata_hash_accumulator
+    assert len(slot.failures) == 0
+    assert slot.failures == ()
+    assert slot.payload_bytes == 0
+    assert slot.passed_to_kernel is False
+    assert slot.changes_kernel_launch_args is False
+    assert slot.current_wna16_arg_compatible is False
+    assert slot.requires_wna16_arg_reinterpretation is False
+    assert slot.explicit_typed_abi_slot is True
+    assert slot.reuses_current_wna16_arg_slot is False
+    assert slot_dict["ready"] is True
+    assert slot_dict["failure_count"] == 0
+    assert slot_dict["explicit_typed_abi_slot"] is True
+    assert slot_dict["current_wna16_arg_compatible"] is False
 
 
 def test_controlled_premap_address_manager_descriptor_prep_fails_on_missing_real_handle():

@@ -418,6 +418,130 @@ constexpr bool
     kPremapFutureKernelNativeConsumerWna16AdjacentTypedSlotAbiV1ReusesCurrentWna16ArgSlot =
         false;
 constexpr const char*
+    kPremapFutureWna16TypedSlotKernelVariantAbiV1Name =
+        "premap_future_wna16_typed_slot_kernel_variant_v1";
+constexpr const char*
+    kPremapFutureWna16TypedSlotKernelVariantAbiV1Mode =
+        "readonly_future_wna16_typed_slot_kernel_variant";
+constexpr const char*
+    kPremapFutureWna16TypedSlotKernelVariantAbiV1Source =
+        "premap_wna16_adjacent_typed_consumer_slot_v1";
+constexpr uint32_t kPremapFutureWna16TypedSlotKernelVariantAbiV1Version = 1;
+constexpr bool kPremapFutureWna16TypedSlotKernelVariantAbiV1PayloadDerefAllowed =
+    false;
+constexpr bool kPremapFutureWna16TypedSlotKernelVariantAbiV1KernelArgPassAllowed =
+    false;
+constexpr bool
+    kPremapFutureWna16TypedSlotKernelVariantAbiV1CurrentWna16ArgCompatible =
+        false;
+constexpr bool
+    kPremapFutureWna16TypedSlotKernelVariantAbiV1RequiresWna16ArgReinterpretation =
+        false;
+constexpr bool
+    kPremapFutureWna16TypedSlotKernelVariantAbiV1ReusesCurrentWna16ArgSlot =
+        false;
+constexpr const char*
+    kPremapFutureWna16KernelAcceptTypedSlotAbiV1Name =
+        "premap_future_wna16_kernel_accept_typed_slot_v1";
+constexpr const char*
+    kPremapFutureWna16KernelAcceptTypedSlotAbiV1Mode =
+        "readonly_future_wna16_kernel_accept_typed_slot";
+constexpr const char*
+    kPremapFutureWna16KernelAcceptTypedSlotAbiV1Source =
+        "premap_wna16_adjacent_typed_consumer_slot_v1";
+constexpr uint32_t
+    kPremapFutureWna16KernelAcceptTypedSlotAbiV1Version = 1;
+constexpr bool
+    kPremapFutureWna16KernelAcceptTypedSlotAbiV1PayloadDerefAllowed =
+        false;
+constexpr bool
+    kPremapFutureWna16KernelAcceptTypedSlotAbiV1KernelArgPassAllowed =
+        false;
+constexpr bool
+    kPremapFutureWna16KernelAcceptTypedSlotAbiV1CurrentWna16ArgCompatible =
+        false;
+constexpr bool
+    kPremapFutureWna16KernelAcceptTypedSlotAbiV1RequiresWna16ArgReinterpretation =
+        false;
+constexpr bool
+    kPremapFutureWna16KernelAcceptTypedSlotAbiV1ReusesCurrentWna16ArgSlot =
+        false;
+constexpr const char*
+    kPremapFutureWna16KernelSideConsumerExecutionAbiV1Name =
+        "premap_future_wna16_kernel_side_consumer_execution_v1";
+constexpr const char*
+    kPremapFutureWna16KernelSideConsumerExecutionAbiV1Mode =
+        "readonly_future_wna16_kernel_side_consumer_execution";
+constexpr const char*
+    kPremapFutureWna16KernelSideConsumerExecutionAbiV1Source =
+        "premap_future_wna16_kernel_accept_typed_slot_v1";
+constexpr uint32_t
+    kPremapFutureWna16KernelSideConsumerExecutionAbiV1Version = 1;
+constexpr bool
+    kPremapFutureWna16KernelSideConsumerExecutionAbiV1PayloadDerefAllowed =
+        false;
+constexpr bool
+    kPremapFutureWna16KernelSideConsumerExecutionAbiV1KernelArgPassAllowed =
+        false;
+constexpr bool
+    kPremapFutureWna16KernelSideConsumerExecutionAbiV1CurrentWna16ArgCompatible =
+        false;
+constexpr bool
+    kPremapFutureWna16KernelSideConsumerExecutionAbiV1RequiresWna16ArgReinterpretation =
+        false;
+constexpr bool
+    kPremapFutureWna16KernelSideConsumerExecutionAbiV1ReusesCurrentWna16ArgSlot =
+        false;
+constexpr const char*
+    kPremapFutureWna16SingleFieldHandoffCanaryAbiV1Name =
+        "premap_future_wna16_single_field_handoff_canary_v1";
+constexpr const char*
+    kPremapFutureWna16SingleFieldHandoffCanaryAbiV1Mode =
+        "readonly_future_wna16_single_field_handoff_canary";
+constexpr const char*
+    kPremapFutureWna16SingleFieldHandoffCanaryAbiV1Source =
+        "premap_future_wna16_kernel_side_consumer_execution_v1";
+constexpr uint32_t
+    kPremapFutureWna16SingleFieldHandoffCanaryAbiV1Version = 1;
+constexpr bool
+    kPremapFutureWna16SingleFieldHandoffCanaryAbiV1PayloadDerefAllowed =
+        false;
+constexpr bool
+    kPremapFutureWna16SingleFieldHandoffCanaryAbiV1KernelArgPassAllowed =
+        false;
+constexpr bool
+    kPremapFutureWna16SingleFieldHandoffCanaryAbiV1CurrentWna16ArgCompatible =
+        false;
+constexpr bool
+    kPremapFutureWna16SingleFieldHandoffCanaryAbiV1RequiresWna16ArgReinterpretation =
+        false;
+constexpr bool
+    kPremapFutureWna16SingleFieldHandoffCanaryAbiV1ReusesCurrentWna16ArgSlot =
+        false;
+constexpr const char*
+    kPremapWna16SideConsumerVariantExecutionAbiV1Name =
+        "premap_wna16_side_consumer_variant_execution_v1";
+constexpr const char*
+    kPremapWna16SideConsumerVariantExecutionAbiV1Mode =
+        "readonly_wna16_side_consumer_variant_execution";
+constexpr const char*
+    kPremapWna16SideConsumerVariantExecutionAbiV1Source =
+        "premap_future_wna16_typed_slot_kernel_variant_v1";
+constexpr uint32_t kPremapWna16SideConsumerVariantExecutionAbiV1Version = 1;
+constexpr bool
+    kPremapWna16SideConsumerVariantExecutionAbiV1PayloadDerefAllowed = false;
+constexpr bool
+    kPremapWna16SideConsumerVariantExecutionAbiV1KernelArgPassAllowed = false;
+constexpr bool
+    kPremapWna16SideConsumerVariantExecutionAbiV1CurrentWna16ArgCompatible =
+        false;
+constexpr bool
+    kPremapWna16SideConsumerVariantExecutionAbiV1RequiresWna16ArgReinterpretation =
+        false;
+constexpr bool
+    kPremapWna16SideConsumerVariantExecutionAbiV1ReusesCurrentWna16ArgSlot =
+        false;
+constexpr const char*
     kPremapFutureKernelNativeConsumerRequestPtrAbiV1Name =
         "premap_future_kernel_native_consumer_request_ptr_abi_v1";
 constexpr const char*
@@ -509,6 +633,24 @@ constexpr uint32_t kPremapFutureKernelSideConsumerFieldMaskRequired =
 constexpr uint32_t kPremapFutureKernelSideConsumerFieldMaskAll =
     kPremapFutureKernelSideConsumerFieldMaskRequired |
     kPremapFutureKernelSideConsumerFieldMaskAuxMetadataHandle;
+
+__host__ __device__ static inline uint32_t
+premap_typed_consumer_future_kernel_field_mask_for_kind_v1(
+    uint32_t mirror_kind) {
+  switch (mirror_kind) {
+    case kPremapFutureKernelSideConsumerFieldDescriptorPtr:
+      return kPremapFutureKernelSideConsumerFieldMaskDescriptorPtr;
+    case kPremapFutureKernelSideConsumerFieldPackedWeightDescriptor:
+      return kPremapFutureKernelSideConsumerFieldMaskPackedWeightDescriptor;
+    case kPremapFutureKernelSideConsumerFieldScaleMetadataHandle:
+      return kPremapFutureKernelSideConsumerFieldMaskScaleMetadataHandle;
+    case kPremapFutureKernelSideConsumerFieldAuxMetadataHandle:
+      return kPremapFutureKernelSideConsumerFieldMaskAuxMetadataHandle;
+    case kPremapFutureKernelSideConsumerFieldNone:
+    default:
+      return 0;
+  }
+}
 
 struct PremapKernelSideTypedConsumerLaunchEnvelopeV1 {
   PremapKernelSideTypedConsumerAbiV1 table;
@@ -850,6 +992,117 @@ struct PremapFutureKernelNativeConsumerWna16AdjacentTypedSlotV1 {
   uint32_t summary_struct_size;
   uint32_t pointer_size;
   uint32_t slot_id;
+  uint32_t packet_chain_depth;
+  uint32_t payload_bytes;
+  uint32_t flags;
+  uint32_t current_wna16_arg_compatible;
+  uint32_t requires_wna16_arg_reinterpretation;
+  uint32_t explicit_typed_abi_slot;
+  uint32_t reuses_current_wna16_arg_slot;
+};
+
+// Future WNA16 typed-slot kernel variant ABI.  This wraps the WNA16-adjacent
+// typed slot as the argument shape a future WNA16-side descriptor/address
+// consumer variant would receive.  It deliberately remains a standalone
+// readonly consumer stub: it does not reuse the current WNA16 argument slot,
+// does not reinterpret the current argument list, and does not pass any payload
+// pointer into the existing fused-MoE kernel.
+struct PremapFutureWna16TypedSlotKernelVariantV1 {
+  PremapFutureKernelNativeConsumerWna16AdjacentTypedSlotV1 typed_slot;
+  PremapFutureKernelNativeConsumerKernelEntrySummaryV1* summary;
+  uint32_t abi_version;
+  uint32_t typed_slot_struct_size;
+  uint32_t summary_struct_size;
+  uint32_t pointer_size;
+  uint32_t variant_id;
+  uint32_t packet_chain_depth;
+  uint32_t payload_bytes;
+  uint32_t flags;
+  uint32_t current_wna16_arg_compatible;
+  uint32_t requires_wna16_arg_reinterpretation;
+  uint32_t explicit_typed_abi_slot;
+  uint32_t reuses_current_wna16_arg_slot;
+};
+
+// Direct future-WNA16 kernel envelope.  This is intentionally narrower than
+// the WNA16-side execution wrapper: the future kernel variant accepts the typed
+// descriptor/address slot itself as a first-class ABI object.  It still does
+// not reuse, reinterpret, or pass through the current WNA16 fused-MoE args.
+struct PremapFutureWna16KernelAcceptTypedSlotV1 {
+  PremapFutureKernelNativeConsumerWna16AdjacentTypedSlotV1 typed_slot;
+  PremapFutureKernelNativeConsumerKernelEntrySummaryV1* summary;
+  uint32_t abi_version;
+  uint32_t typed_slot_struct_size;
+  uint32_t summary_struct_size;
+  uint32_t pointer_size;
+  uint32_t kernel_variant_id;
+  uint32_t packet_chain_depth;
+  uint32_t payload_bytes;
+  uint32_t flags;
+  uint32_t current_wna16_arg_compatible;
+  uint32_t requires_wna16_arg_reinterpretation;
+  uint32_t explicit_typed_abi_slot;
+  uint32_t reuses_current_wna16_arg_slot;
+};
+
+// Future WNA16 kernel-side execution consumer.  This is the next boundary after
+// a future WNA16 kernel accepts a typed slot: the standalone native stub reads
+// the accepted typed-slot envelope, applies a launch-like row window, and
+// consumes descriptor/address fields per row.  It remains independent from the
+// current WNA16 fused-MoE kernel argument list.
+struct PremapFutureWna16KernelSideConsumerExecutionV1 {
+  PremapFutureWna16KernelAcceptTypedSlotV1 accept;
+  uint32_t abi_version;
+  uint32_t accept_struct_size;
+  uint32_t row_offset;
+  uint32_t row_limit;
+  uint32_t grid_x;
+  uint32_t block_x;
+  uint32_t rows_per_program;
+  uint32_t packet_chain_depth;
+  uint32_t payload_bytes;
+  uint32_t flags;
+  uint32_t current_wna16_arg_compatible;
+  uint32_t requires_wna16_arg_reinterpretation;
+  uint32_t explicit_typed_abi_slot;
+  uint32_t reuses_current_wna16_arg_slot;
+};
+
+// Single-field handoff canary on top of the future-WNA16 execution envelope.
+// This validates the first one-field bridge a future kernel variant would use
+// before a real payload/kernel-arg handoff is allowed.  It selects exactly one
+// handle field and checks that the future WNA16-side row read mirrors the
+// underlying typed table column.
+struct PremapFutureWna16SingleFieldHandoffCanaryV1 {
+  PremapFutureWna16KernelSideConsumerExecutionV1 execution;
+  uint32_t abi_version;
+  uint32_t execution_struct_size;
+  uint32_t single_field_mirror_kind;
+  uint32_t field_mask;
+  uint32_t live_enabled;
+  uint32_t payload_bytes;
+  uint32_t flags;
+  uint32_t current_wna16_arg_compatible;
+  uint32_t requires_wna16_arg_reinterpretation;
+  uint32_t explicit_typed_abi_slot;
+  uint32_t reuses_current_wna16_arg_slot;
+  uint32_t passed_to_kernel;
+  uint32_t changes_kernel_launch_args;
+};
+
+// Minimal WNA16-side execution-style consumer envelope.  This is the first
+// standalone variant that maps the future WNA16 typed slot onto a grid/block
+// row iteration contract.  It still does not pass, reinterpret, or reuse the
+// current WNA16 fused-MoE kernel argument list.
+struct PremapWna16SideConsumerVariantExecutionV1 {
+  PremapFutureWna16TypedSlotKernelVariantV1 variant;
+  uint32_t abi_version;
+  uint32_t variant_struct_size;
+  uint32_t row_offset;
+  uint32_t row_limit;
+  uint32_t grid_x;
+  uint32_t block_x;
+  uint32_t rows_per_program;
   uint32_t packet_chain_depth;
   uint32_t payload_bytes;
   uint32_t flags;
@@ -1817,6 +2070,240 @@ premap_typed_consumer_future_native_wna16_adjacent_typed_slot_matches_v1(
   }
   return premap_typed_consumer_future_native_endpoint_ptr_matches_v1(
       slot.endpoint_ptr);
+}
+
+__device__ static inline bool
+premap_typed_consumer_future_wna16_typed_slot_kernel_variant_matches_v1(
+    const PremapFutureWna16TypedSlotKernelVariantV1& variant) {
+  if (variant.summary == nullptr ||
+      variant.typed_slot.summary != variant.summary ||
+      variant.typed_slot.endpoint_ptr.summary != variant.summary ||
+      variant.abi_version !=
+          kPremapFutureWna16TypedSlotKernelVariantAbiV1Version ||
+      variant.typed_slot_struct_size !=
+          sizeof(PremapFutureKernelNativeConsumerWna16AdjacentTypedSlotV1) ||
+      variant.summary_struct_size !=
+          sizeof(PremapFutureKernelNativeConsumerKernelEntrySummaryV1) ||
+      variant.pointer_size !=
+          sizeof(PremapFutureKernelNativeConsumerWna16AdjacentTypedSlotV1*) ||
+      variant.variant_id == 0 || variant.packet_chain_depth != 15 ||
+      variant.payload_bytes != 0 ||
+      (variant.flags & kPremapFutureKernelSideConsumerArgsV1ReadonlyFlag) ==
+          0 ||
+      (variant.flags &
+       kPremapFutureKernelSideConsumerArgsV1KernelArgPassDisabledFlag) == 0 ||
+      (variant.flags &
+       kPremapFutureKernelSideConsumerArgsV1PayloadDerefDisabledFlag) == 0 ||
+      variant.flags != kPremapFutureKernelSideConsumerArgsV1RequiredFlags ||
+      variant.current_wna16_arg_compatible != 0 ||
+      variant.requires_wna16_arg_reinterpretation != 0 ||
+      variant.explicit_typed_abi_slot == 0 ||
+      variant.reuses_current_wna16_arg_slot != 0 ||
+      kPremapFutureWna16TypedSlotKernelVariantAbiV1PayloadDerefAllowed ||
+      kPremapFutureWna16TypedSlotKernelVariantAbiV1KernelArgPassAllowed ||
+      kPremapFutureWna16TypedSlotKernelVariantAbiV1CurrentWna16ArgCompatible ||
+      kPremapFutureWna16TypedSlotKernelVariantAbiV1RequiresWna16ArgReinterpretation ||
+      kPremapFutureWna16TypedSlotKernelVariantAbiV1ReusesCurrentWna16ArgSlot) {
+    return false;
+  }
+  return premap_typed_consumer_future_native_wna16_adjacent_typed_slot_matches_v1(
+      variant.typed_slot);
+}
+
+__device__ static inline bool
+premap_typed_consumer_future_wna16_kernel_accept_typed_slot_matches_v1(
+    const PremapFutureWna16KernelAcceptTypedSlotV1& accept) {
+  if (accept.summary == nullptr ||
+      accept.typed_slot.summary != accept.summary ||
+      accept.typed_slot.endpoint_ptr.summary != accept.summary ||
+      accept.abi_version !=
+          kPremapFutureWna16KernelAcceptTypedSlotAbiV1Version ||
+      accept.typed_slot_struct_size !=
+          sizeof(PremapFutureKernelNativeConsumerWna16AdjacentTypedSlotV1) ||
+      accept.summary_struct_size !=
+          sizeof(PremapFutureKernelNativeConsumerKernelEntrySummaryV1) ||
+      accept.pointer_size !=
+          sizeof(PremapFutureKernelNativeConsumerWna16AdjacentTypedSlotV1*) ||
+      accept.kernel_variant_id == 0 || accept.packet_chain_depth != 15 ||
+      accept.payload_bytes != 0 ||
+      (accept.flags & kPremapFutureKernelSideConsumerArgsV1ReadonlyFlag) ==
+          0 ||
+      (accept.flags &
+       kPremapFutureKernelSideConsumerArgsV1KernelArgPassDisabledFlag) == 0 ||
+      (accept.flags &
+       kPremapFutureKernelSideConsumerArgsV1PayloadDerefDisabledFlag) == 0 ||
+      accept.flags != kPremapFutureKernelSideConsumerArgsV1RequiredFlags ||
+      accept.current_wna16_arg_compatible != 0 ||
+      accept.requires_wna16_arg_reinterpretation != 0 ||
+      accept.explicit_typed_abi_slot == 0 ||
+      accept.reuses_current_wna16_arg_slot != 0 ||
+      kPremapFutureWna16KernelAcceptTypedSlotAbiV1PayloadDerefAllowed ||
+      kPremapFutureWna16KernelAcceptTypedSlotAbiV1KernelArgPassAllowed ||
+      kPremapFutureWna16KernelAcceptTypedSlotAbiV1CurrentWna16ArgCompatible ||
+      kPremapFutureWna16KernelAcceptTypedSlotAbiV1RequiresWna16ArgReinterpretation ||
+      kPremapFutureWna16KernelAcceptTypedSlotAbiV1ReusesCurrentWna16ArgSlot) {
+    return false;
+  }
+  return premap_typed_consumer_future_native_wna16_adjacent_typed_slot_matches_v1(
+      accept.typed_slot);
+}
+
+__device__ static inline bool
+premap_typed_consumer_future_wna16_kernel_side_consumer_execution_matches_v1(
+    const PremapFutureWna16KernelSideConsumerExecutionV1& execution) {
+  if (!premap_typed_consumer_future_wna16_kernel_accept_typed_slot_matches_v1(
+          execution.accept) ||
+      execution.abi_version !=
+          kPremapFutureWna16KernelSideConsumerExecutionAbiV1Version ||
+      execution.accept_struct_size !=
+          sizeof(PremapFutureWna16KernelAcceptTypedSlotV1) ||
+      execution.row_offset >= execution.row_limit || execution.grid_x == 0 ||
+      execution.block_x == 0 || execution.rows_per_program != execution.block_x ||
+      execution.packet_chain_depth != 16 || execution.payload_bytes != 0 ||
+      (execution.flags &
+       kPremapFutureKernelSideConsumerArgsV1ReadonlyFlag) == 0 ||
+      (execution.flags &
+       kPremapFutureKernelSideConsumerArgsV1KernelArgPassDisabledFlag) == 0 ||
+      (execution.flags &
+       kPremapFutureKernelSideConsumerArgsV1PayloadDerefDisabledFlag) == 0 ||
+      execution.flags != kPremapFutureKernelSideConsumerArgsV1RequiredFlags ||
+      execution.current_wna16_arg_compatible != 0 ||
+      execution.requires_wna16_arg_reinterpretation != 0 ||
+      execution.explicit_typed_abi_slot == 0 ||
+      execution.reuses_current_wna16_arg_slot != 0 ||
+      kPremapFutureWna16KernelSideConsumerExecutionAbiV1PayloadDerefAllowed ||
+      kPremapFutureWna16KernelSideConsumerExecutionAbiV1KernelArgPassAllowed ||
+      kPremapFutureWna16KernelSideConsumerExecutionAbiV1CurrentWna16ArgCompatible ||
+      kPremapFutureWna16KernelSideConsumerExecutionAbiV1RequiresWna16ArgReinterpretation ||
+      kPremapFutureWna16KernelSideConsumerExecutionAbiV1ReusesCurrentWna16ArgSlot) {
+    return false;
+  }
+  return true;
+}
+
+__device__ static inline bool
+premap_typed_consumer_future_wna16_single_field_handoff_canary_matches_v1(
+    const PremapFutureWna16SingleFieldHandoffCanaryV1& canary) {
+  const uint32_t expected_field_mask =
+      premap_typed_consumer_future_kernel_field_mask_for_kind_v1(
+          canary.single_field_mirror_kind);
+  if (!premap_typed_consumer_future_wna16_kernel_side_consumer_execution_matches_v1(
+          canary.execution) ||
+      canary.abi_version !=
+          kPremapFutureWna16SingleFieldHandoffCanaryAbiV1Version ||
+      canary.execution_struct_size !=
+          sizeof(PremapFutureWna16KernelSideConsumerExecutionV1) ||
+      canary.single_field_mirror_kind ==
+          kPremapFutureKernelSideConsumerFieldNone ||
+      expected_field_mask == 0 || canary.field_mask != expected_field_mask ||
+      canary.live_enabled != 0 || canary.payload_bytes != 0 ||
+      (canary.flags & kPremapFutureKernelSideConsumerArgsV1ReadonlyFlag) == 0 ||
+      (canary.flags &
+       kPremapFutureKernelSideConsumerArgsV1KernelArgPassDisabledFlag) == 0 ||
+      (canary.flags &
+       kPremapFutureKernelSideConsumerArgsV1PayloadDerefDisabledFlag) == 0 ||
+      canary.flags != kPremapFutureKernelSideConsumerArgsV1RequiredFlags ||
+      canary.current_wna16_arg_compatible != 0 ||
+      canary.requires_wna16_arg_reinterpretation != 0 ||
+      canary.explicit_typed_abi_slot == 0 ||
+      canary.reuses_current_wna16_arg_slot != 0 ||
+      canary.passed_to_kernel != 0 ||
+      canary.changes_kernel_launch_args != 0 ||
+      kPremapFutureWna16SingleFieldHandoffCanaryAbiV1PayloadDerefAllowed ||
+      kPremapFutureWna16SingleFieldHandoffCanaryAbiV1KernelArgPassAllowed ||
+      kPremapFutureWna16SingleFieldHandoffCanaryAbiV1CurrentWna16ArgCompatible ||
+      kPremapFutureWna16SingleFieldHandoffCanaryAbiV1RequiresWna16ArgReinterpretation ||
+      kPremapFutureWna16SingleFieldHandoffCanaryAbiV1ReusesCurrentWna16ArgSlot) {
+    return false;
+  }
+  return true;
+}
+
+__device__ static inline bool
+premap_typed_consumer_wna16_side_consumer_variant_execution_matches_v1(
+    const PremapWna16SideConsumerVariantExecutionV1& execution) {
+  if (!premap_typed_consumer_future_wna16_typed_slot_kernel_variant_matches_v1(
+          execution.variant) ||
+      execution.abi_version !=
+          kPremapWna16SideConsumerVariantExecutionAbiV1Version ||
+      execution.variant_struct_size !=
+          sizeof(PremapFutureWna16TypedSlotKernelVariantV1) ||
+      execution.row_offset >= execution.row_limit || execution.grid_x == 0 ||
+      execution.block_x == 0 || execution.rows_per_program != execution.block_x ||
+      execution.packet_chain_depth != 16 || execution.payload_bytes != 0 ||
+      (execution.flags &
+       kPremapFutureKernelSideConsumerArgsV1ReadonlyFlag) == 0 ||
+      (execution.flags &
+       kPremapFutureKernelSideConsumerArgsV1KernelArgPassDisabledFlag) == 0 ||
+      (execution.flags &
+       kPremapFutureKernelSideConsumerArgsV1PayloadDerefDisabledFlag) == 0 ||
+      execution.flags != kPremapFutureKernelSideConsumerArgsV1RequiredFlags ||
+      execution.current_wna16_arg_compatible != 0 ||
+      execution.requires_wna16_arg_reinterpretation != 0 ||
+      execution.explicit_typed_abi_slot == 0 ||
+      execution.reuses_current_wna16_arg_slot != 0 ||
+      kPremapWna16SideConsumerVariantExecutionAbiV1PayloadDerefAllowed ||
+      kPremapWna16SideConsumerVariantExecutionAbiV1KernelArgPassAllowed ||
+      kPremapWna16SideConsumerVariantExecutionAbiV1CurrentWna16ArgCompatible ||
+      kPremapWna16SideConsumerVariantExecutionAbiV1RequiresWna16ArgReinterpretation ||
+      kPremapWna16SideConsumerVariantExecutionAbiV1ReusesCurrentWna16ArgSlot) {
+    return false;
+  }
+
+  const PremapFutureKernelNativeConsumerEndpointPtrV1 endpoint_ptr =
+      execution.variant.typed_slot.endpoint_ptr;
+  if (endpoint_ptr.endpoint == nullptr) {
+    return false;
+  }
+  const PremapFutureKernelNativeConsumerEndpointV1 endpoint =
+      *endpoint_ptr.endpoint;
+  if (endpoint.invocation.context == nullptr) {
+    return false;
+  }
+  const PremapFutureKernelNativeConsumerKernelLaunchContextV1 context =
+      *endpoint.invocation.context;
+  if (context.launch_descriptor == nullptr) {
+    return false;
+  }
+  const PremapFutureKernelNativeConsumerKernelLaunchDescriptorV1 descriptor =
+      *context.launch_descriptor;
+  if (descriptor.launch_args_ptr == nullptr) {
+    return false;
+  }
+  const PremapFutureKernelNativeConsumerLaunchEnvelopeArgsPtrV1 launch_args_ptr =
+      *descriptor.launch_args_ptr;
+  if (launch_args_ptr.launch_args == nullptr) {
+    return false;
+  }
+  const PremapFutureKernelNativeConsumerLaunchEnvelopeArgsV1 launch_args =
+      *launch_args_ptr.launch_args;
+  if (launch_args.entry_args == nullptr) {
+    return false;
+  }
+  const PremapFutureKernelNativeConsumerKernelEntryArgsV1 entry_args =
+      *launch_args.entry_args;
+  if (entry_args.kernel_arg_packet == nullptr) {
+    return false;
+  }
+  const PremapFutureKernelNativeConsumerKernelArgPacketV1 kernel_arg_packet =
+      *entry_args.kernel_arg_packet;
+  if (kernel_arg_packet.program_view_ptr == nullptr) {
+    return false;
+  }
+  const PremapFutureKernelNativeConsumerProgramViewPtrV1 program_view_ptr =
+      *kernel_arg_packet.program_view_ptr;
+  if (program_view_ptr.program_view == nullptr) {
+    return false;
+  }
+  const PremapFutureKernelNativeConsumerProgramViewV1 program_view =
+      *program_view_ptr.program_view;
+  return execution.grid_x == program_view.program_count &&
+         execution.block_x == program_view.view.rows_per_program &&
+         execution.rows_per_program == program_view.view.rows_per_program &&
+         execution.row_offset == program_view.view.row_offset &&
+         execution.row_limit == program_view.view.row_limit &&
+         program_view.view.row_limit <= program_view.view.params.row_count &&
+         program_view.view.row_offset < program_view.view.row_limit;
 }
 
 __device__ static inline bool

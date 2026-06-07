@@ -658,6 +658,27 @@ def test_apply_premap_consumer_readonly_gate_rejects_signature_mismatch_live_wit
         )
 
 
+def test_apply_premap_consumer_readonly_gate_rejects_prepared_materialization_without_prepared_source(
+    tmp_path,
+):
+    with pytest.raises(
+        ValueError,
+        match="can only be enabled",
+    ):
+        _apply_premap_consumer_readonly_gate(
+            {
+                "enabled": True,
+                "premap_kernel_arg_handoff_single_field_replacement_candidate_source": (
+                    "original_kernel_arg_identity"
+                ),
+                "premap_kernel_arg_handoff_prepared_table_materialization_mode": (
+                    "original_kernel_arg_alias_after_prepared_handle_check"
+                ),
+            },
+            project_root=tmp_path,
+        )
+
+
 @pytest.mark.parametrize(
     "missing_key",
     [
@@ -745,12 +766,17 @@ def test_apply_premap_consumer_readonly_gate_accepts_producer_identity_envelope_
             "premap_kernel_arg_handoff_single_field_replacement_candidate_source": (
                 "original_kernel_arg_identity"
             ),
+            "premap_kernel_arg_handoff_prepared_table_materialization_mode": "off",
         },
         project_root=tmp_path,
     )
 
     assert options["premap_consumer_readonly_gate_passed"] is True
     assert options["premap_consumer_readonly_gate_required"] is True
+    assert (
+        options["premap_kernel_arg_handoff_prepared_table_materialization_mode"]
+        == "off"
+    )
 
 
 def test_apply_premap_consumer_readonly_gate_accepts_prepared_handle_table_live_canary(
@@ -805,6 +831,9 @@ def test_apply_premap_consumer_readonly_gate_accepts_prepared_handle_table_live_
             "premap_kernel_arg_handoff_single_field_replacement_candidate_source": (
                 "prepared_handle_table"
             ),
+            "premap_kernel_arg_handoff_prepared_table_materialization_mode": (
+                "original_kernel_arg_alias_after_prepared_handle_check"
+            ),
             "premap_kernel_arg_handoff_single_field_replacement_field": "B_scale",
         },
         project_root=tmp_path,
@@ -812,6 +841,10 @@ def test_apply_premap_consumer_readonly_gate_accepts_prepared_handle_table_live_
 
     assert options["premap_consumer_readonly_gate_passed"] is True
     assert options["premap_consumer_readonly_gate_required"] is True
+    assert (
+        options["premap_kernel_arg_handoff_prepared_table_materialization_mode"]
+        == "original_kernel_arg_alias_after_prepared_handle_check"
+    )
 
 
 def test_apply_premap_consumer_readonly_gate_accepts_kernel_arg_pass_live_gate(

@@ -2562,6 +2562,9 @@ class VllmRouterRecorder:
         str
     ) = "original_kernel_arg_identity"
     shadow_premap_kernel_arg_handoff_single_field_replacement_field: str = "B_scale"
+    shadow_premap_kernel_arg_handoff_prepared_table_materialization_mode: str = (
+        "off"
+    )
     shadow_premap_single_field_handle_handoff_canary_field: str = (
         "scale_metadata_handle"
     )
@@ -7301,6 +7304,255 @@ class VllmRouterRecorder:
                 descriptor_prep_consumer_shim_kernel_side_typed_row_consumer_path_current_wna16_arg_compatible=(
                     bool(
                         descriptor_consumer_shim_result.kernel_side_typed_row_consumer_path_current_wna16_arg_compatible
+                    )
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_wna16_adjacent_typed_slot_name=(
+                    descriptor_consumer_shim_result.wna16_adjacent_typed_slot_name
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_wna16_adjacent_typed_slot_mode=(
+                    descriptor_consumer_shim_result.wna16_adjacent_typed_slot_mode
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_wna16_adjacent_typed_slot_source=(
+                    descriptor_consumer_shim_result.wna16_adjacent_typed_slot_source
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_wna16_adjacent_typed_slot_checked=(
+                    descriptor_consumer_shim_result.wna16_adjacent_typed_slot_checked
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_wna16_adjacent_typed_slot_ready=(
+                    descriptor_consumer_shim_result.wna16_adjacent_typed_slot_ready
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_wna16_adjacent_typed_slot_input_hash=(
+                    descriptor_consumer_shim_result.wna16_adjacent_typed_slot_input_hash
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_wna16_adjacent_typed_slot_table_object_hash=(
+                    descriptor_consumer_shim_result.wna16_adjacent_typed_slot_table_object_hash
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_wna16_adjacent_typed_slot_schema_hash=(
+                    descriptor_consumer_shim_result.wna16_adjacent_typed_slot_schema_hash
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_wna16_adjacent_typed_slot_row_count=(
+                    int(descriptor_consumer_shim_result.wna16_adjacent_typed_slot_row_count)
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.wna16_adjacent_typed_slot_row_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_wna16_adjacent_typed_slot_row_ok_count=(
+                    int(
+                        descriptor_consumer_shim_result.wna16_adjacent_typed_slot_row_ok_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.wna16_adjacent_typed_slot_row_ok_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_wna16_adjacent_typed_slot_error_count=(
+                    int(
+                        descriptor_consumer_shim_result.wna16_adjacent_typed_slot_error_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.wna16_adjacent_typed_slot_error_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_wna16_adjacent_typed_slot_all_handle_fields_read=(
+                    descriptor_consumer_shim_result.wna16_adjacent_typed_slot_all_handle_fields_read
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_wna16_adjacent_typed_slot_packet_chain_depth=(
+                    int(
+                        descriptor_consumer_shim_result.wna16_adjacent_typed_slot_packet_chain_depth
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.wna16_adjacent_typed_slot_packet_chain_depth
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_wna16_adjacent_typed_slot_field_mask=(
+                    int(descriptor_consumer_shim_result.wna16_adjacent_typed_slot_field_mask)
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.wna16_adjacent_typed_slot_field_mask
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_wna16_adjacent_typed_slot_descriptor_ptr_read_row_ok_count=(
+                    int(
+                        descriptor_consumer_shim_result.wna16_adjacent_typed_slot_descriptor_ptr_read_row_ok_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.wna16_adjacent_typed_slot_descriptor_ptr_read_row_ok_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_wna16_adjacent_typed_slot_packed_weight_descriptor_read_row_ok_count=(
+                    int(
+                        descriptor_consumer_shim_result.wna16_adjacent_typed_slot_packed_weight_descriptor_read_row_ok_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.wna16_adjacent_typed_slot_packed_weight_descriptor_read_row_ok_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_wna16_adjacent_typed_slot_scale_metadata_handle_read_row_ok_count=(
+                    int(
+                        descriptor_consumer_shim_result.wna16_adjacent_typed_slot_scale_metadata_handle_read_row_ok_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.wna16_adjacent_typed_slot_scale_metadata_handle_read_row_ok_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_wna16_adjacent_typed_slot_aux_metadata_handle_read_row_ok_count=(
+                    int(
+                        descriptor_consumer_shim_result.wna16_adjacent_typed_slot_aux_metadata_handle_read_row_ok_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.wna16_adjacent_typed_slot_aux_metadata_handle_read_row_ok_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_wna16_adjacent_typed_slot_expert_id_read_row_ok_count=(
+                    int(
+                        descriptor_consumer_shim_result.wna16_adjacent_typed_slot_expert_id_read_row_ok_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.wna16_adjacent_typed_slot_expert_id_read_row_ok_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_wna16_adjacent_typed_slot_address_key_hash_read_row_ok_count=(
+                    int(
+                        descriptor_consumer_shim_result.wna16_adjacent_typed_slot_address_key_hash_read_row_ok_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.wna16_adjacent_typed_slot_address_key_hash_read_row_ok_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_wna16_adjacent_typed_slot_row_metadata_read_row_ok_count=(
+                    int(
+                        descriptor_consumer_shim_result.wna16_adjacent_typed_slot_row_metadata_read_row_ok_count
+                    )
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.wna16_adjacent_typed_slot_row_metadata_read_row_ok_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_wna16_adjacent_typed_slot_row_hash_accumulator=(
+                    descriptor_consumer_shim_result.wna16_adjacent_typed_slot_row_hash_accumulator
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_wna16_adjacent_typed_slot_field_read_hash_accumulator=(
+                    descriptor_consumer_shim_result.wna16_adjacent_typed_slot_field_read_hash_accumulator
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_wna16_adjacent_typed_slot_row_metadata_hash_accumulator=(
+                    descriptor_consumer_shim_result.wna16_adjacent_typed_slot_row_metadata_hash_accumulator
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_wna16_adjacent_typed_slot_failure_count=(
+                    int(descriptor_consumer_shim_result.wna16_adjacent_typed_slot_failure_count)
+                    if (
+                        descriptor_consumer_shim_result is not None
+                        and descriptor_consumer_shim_result.wna16_adjacent_typed_slot_failure_count
+                        is not None
+                    )
+                    else None
+                ),
+                descriptor_prep_consumer_shim_wna16_adjacent_typed_slot_failures=(
+                    descriptor_consumer_shim_result.wna16_adjacent_typed_slot_failures
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_wna16_adjacent_typed_slot_payload_bytes=(
+                    int(descriptor_consumer_shim_result.wna16_adjacent_typed_slot_payload_bytes)
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_wna16_adjacent_typed_slot_passed_to_kernel=(
+                    bool(
+                        descriptor_consumer_shim_result.wna16_adjacent_typed_slot_passed_to_kernel
+                    )
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_wna16_adjacent_typed_slot_changes_kernel_launch_args=(
+                    bool(
+                        descriptor_consumer_shim_result.wna16_adjacent_typed_slot_changes_kernel_launch_args
+                    )
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_wna16_adjacent_typed_slot_current_wna16_arg_compatible=(
+                    bool(
+                        descriptor_consumer_shim_result.wna16_adjacent_typed_slot_current_wna16_arg_compatible
+                    )
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_wna16_adjacent_typed_slot_requires_wna16_arg_reinterpretation=(
+                    bool(
+                        descriptor_consumer_shim_result.wna16_adjacent_typed_slot_requires_wna16_arg_reinterpretation
+                    )
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_wna16_adjacent_typed_slot_explicit_typed_abi_slot=(
+                    bool(
+                        descriptor_consumer_shim_result.wna16_adjacent_typed_slot_explicit_typed_abi_slot
+                    )
+                    if descriptor_consumer_shim_result is not None
+                    else None
+                ),
+                descriptor_prep_consumer_shim_wna16_adjacent_typed_slot_reuses_current_wna16_arg_slot=(
+                    bool(
+                        descriptor_consumer_shim_result.wna16_adjacent_typed_slot_reuses_current_wna16_arg_slot
                     )
                     if descriptor_consumer_shim_result is not None
                     else None
@@ -14244,6 +14496,7 @@ def patch_vllm_qwen35_moe_router_trace() -> None:
                     single_field_live_enabled = False
                     single_field_candidate_source = "original_kernel_arg_identity"
                     single_field_replacement_field = "B_scale"
+                    single_field_prepared_table_materialization_mode = "off"
                     if recorder_for_config is not None:
                         single_field_dry_run_enabled = bool(
                             recorder_for_config.shadow_premap_kernel_arg_handoff_single_field_replacement_dry_run_enabled
@@ -14259,6 +14512,9 @@ def patch_vllm_qwen35_moe_router_trace() -> None:
                         )
                         single_field_replacement_field = str(
                             recorder_for_config.shadow_premap_kernel_arg_handoff_single_field_replacement_field
+                        )
+                        single_field_prepared_table_materialization_mode = str(
+                            recorder_for_config.shadow_premap_kernel_arg_handoff_prepared_table_materialization_mode
                         )
                     else:
                         single_field_allow_signature_mismatch_live = False
@@ -14433,7 +14689,23 @@ def patch_vllm_qwen35_moe_router_trace() -> None:
                                     if values and all(
                                         value is not None for value in values
                                     ):
-                                        replacement_candidate = values
+                                        if (
+                                            single_field_prepared_table_materialization_mode
+                                            == "original_kernel_arg_alias_after_prepared_handle_check"
+                                        ):
+                                            replacement_candidate = original_value
+                                            live_mutation_package_meta[
+                                                "single_field_prepared_table_materialization_mode"
+                                            ] = (
+                                                single_field_prepared_table_materialization_mode
+                                            )
+                                            live_mutation_package_meta[
+                                                "single_field_prepared_table_materialization_status"
+                                            ] = (
+                                                "original_kernel_arg_alias_after_prepared_handle_check"
+                                            )
+                                        else:
+                                            replacement_candidate = values
                                     else:
                                         source_candidate_ready = False
                                 if source_candidate_ready:
@@ -15336,6 +15608,12 @@ def _apply_premap_consumer_readonly_gate(
             "original_kernel_arg_identity",
         )
     )
+    prepared_table_materialization_mode = str(
+        options.get(
+            "premap_kernel_arg_handoff_prepared_table_materialization_mode",
+            "off",
+        )
+    )
     single_field_replacement_field = str(
         options.get(
             "premap_kernel_arg_handoff_single_field_replacement_field",
@@ -15384,6 +15662,31 @@ def _apply_premap_consumer_readonly_gate(
             "premap_kernel_arg_handoff_single_field_replacement_candidate_source "
             f"must be one of {sorted(allowed_single_field_candidate_sources)}; "
             f"got {single_field_replacement_candidate_source!r}."
+        )
+        raise ValueError(msg)
+    allowed_prepared_table_materialization_modes = {
+        "off",
+        "original_kernel_arg_alias_after_prepared_handle_check",
+    }
+    if (
+        prepared_table_materialization_mode
+        not in allowed_prepared_table_materialization_modes
+    ):
+        msg = (
+            "premap_kernel_arg_handoff_prepared_table_materialization_mode "
+            f"must be one of {sorted(allowed_prepared_table_materialization_modes)}; "
+            f"got {prepared_table_materialization_mode!r}."
+        )
+        raise ValueError(msg)
+    if (
+        prepared_table_materialization_mode != "off"
+        and single_field_replacement_candidate_source != "prepared_handle_table"
+    ):
+        msg = (
+            "premap_kernel_arg_handoff_prepared_table_materialization_mode "
+            "can only be enabled when "
+            "premap_kernel_arg_handoff_single_field_replacement_candidate_source="
+            "'prepared_handle_table'."
         )
         raise ValueError(msg)
     if (
@@ -16922,6 +17225,12 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                 "original_kernel_arg_identity",
             )
         ),
+        "runtime_shadow_premap_kernel_arg_handoff_prepared_table_materialization_mode": str(
+            runtime_shadow_options.get(
+                "premap_kernel_arg_handoff_prepared_table_materialization_mode",
+                "off",
+            )
+        ),
         "runtime_shadow_premap_kernel_arg_handoff_single_field_replacement_field": str(
             runtime_shadow_options.get(
                 "premap_kernel_arg_handoff_single_field_replacement_field",
@@ -17437,6 +17746,12 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                                 runtime_shadow_options.get(
                                     "premap_kernel_arg_handoff_single_field_replacement_candidate_source",
                                     "original_kernel_arg_identity",
+                                )
+                            ),
+                            shadow_premap_kernel_arg_handoff_prepared_table_materialization_mode=str(
+                                runtime_shadow_options.get(
+                                    "premap_kernel_arg_handoff_prepared_table_materialization_mode",
+                                    "off",
                                 )
                             ),
                             shadow_premap_kernel_arg_handoff_single_field_replacement_field=str(

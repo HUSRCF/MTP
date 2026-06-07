@@ -3886,3 +3886,100 @@ def test_consumer_shim_consume_source_requires_kernel_row_order_source():
         ]
         == 1
     )
+
+
+def test_premap_wna16_adjacent_typed_slot_event_is_aggregated():
+    event = ShadowPremapConsumerMappingEvent(
+        event_id=ShadowEventId("req", sequence_id=0, token_index=-1, layer=0),
+        mapping_mode="noop_assertion",
+        mapping_source="unit",
+        address_namespace="expert_weight_descriptor",
+        consumer_expert_count=4,
+        consumer_unique_expert_count=4,
+        address_hit_count=4,
+        address_miss_count=0,
+        address_hit_rate=1.0,
+        all_hit=True,
+        parity_ok=True,
+        consumer_key_hash="consumer-key-hash",
+        descriptor_prep_consumer_shim_mode="readonly_prelaunch_consumer_shim",
+        descriptor_prep_consumer_shim_wna16_adjacent_typed_slot_name=(
+            "premap_wna16_adjacent_typed_consumer_slot_v1"
+        ),
+        descriptor_prep_consumer_shim_wna16_adjacent_typed_slot_mode=(
+            "readonly_wna16_adjacent_typed_consumer_slot"
+        ),
+        descriptor_prep_consumer_shim_wna16_adjacent_typed_slot_source=(
+            "premap_future_kernel_native_consumer_endpoint_ptr_abi_v1"
+        ),
+        descriptor_prep_consumer_shim_wna16_adjacent_typed_slot_checked=True,
+        descriptor_prep_consumer_shim_wna16_adjacent_typed_slot_ready=True,
+        descriptor_prep_consumer_shim_wna16_adjacent_typed_slot_input_hash=(
+            "input-hash"
+        ),
+        descriptor_prep_consumer_shim_wna16_adjacent_typed_slot_table_object_hash=(
+            "table-hash"
+        ),
+        descriptor_prep_consumer_shim_wna16_adjacent_typed_slot_schema_hash=(
+            "schema-hash"
+        ),
+        descriptor_prep_consumer_shim_wna16_adjacent_typed_slot_row_count=4,
+        descriptor_prep_consumer_shim_wna16_adjacent_typed_slot_row_ok_count=4,
+        descriptor_prep_consumer_shim_wna16_adjacent_typed_slot_error_count=0,
+        descriptor_prep_consumer_shim_wna16_adjacent_typed_slot_all_handle_fields_read=True,
+        descriptor_prep_consumer_shim_wna16_adjacent_typed_slot_packet_chain_depth=14,
+        descriptor_prep_consumer_shim_wna16_adjacent_typed_slot_field_mask=15,
+        descriptor_prep_consumer_shim_wna16_adjacent_typed_slot_descriptor_ptr_read_row_ok_count=4,
+        descriptor_prep_consumer_shim_wna16_adjacent_typed_slot_packed_weight_descriptor_read_row_ok_count=4,
+        descriptor_prep_consumer_shim_wna16_adjacent_typed_slot_scale_metadata_handle_read_row_ok_count=4,
+        descriptor_prep_consumer_shim_wna16_adjacent_typed_slot_aux_metadata_handle_read_row_ok_count=4,
+        descriptor_prep_consumer_shim_wna16_adjacent_typed_slot_expert_id_read_row_ok_count=4,
+        descriptor_prep_consumer_shim_wna16_adjacent_typed_slot_address_key_hash_read_row_ok_count=4,
+        descriptor_prep_consumer_shim_wna16_adjacent_typed_slot_row_metadata_read_row_ok_count=4,
+        descriptor_prep_consumer_shim_wna16_adjacent_typed_slot_row_hash_accumulator=(
+            "0000000000000001"
+        ),
+        descriptor_prep_consumer_shim_wna16_adjacent_typed_slot_field_read_hash_accumulator=(
+            "0000000000000002"
+        ),
+        descriptor_prep_consumer_shim_wna16_adjacent_typed_slot_row_metadata_hash_accumulator=(
+            "0000000000000003"
+        ),
+        descriptor_prep_consumer_shim_wna16_adjacent_typed_slot_failure_count=0,
+        descriptor_prep_consumer_shim_wna16_adjacent_typed_slot_payload_bytes=0,
+        descriptor_prep_consumer_shim_wna16_adjacent_typed_slot_passed_to_kernel=False,
+        descriptor_prep_consumer_shim_wna16_adjacent_typed_slot_changes_kernel_launch_args=False,
+        descriptor_prep_consumer_shim_wna16_adjacent_typed_slot_current_wna16_arg_compatible=False,
+        descriptor_prep_consumer_shim_wna16_adjacent_typed_slot_requires_wna16_arg_reinterpretation=False,
+        descriptor_prep_consumer_shim_wna16_adjacent_typed_slot_explicit_typed_abi_slot=True,
+        descriptor_prep_consumer_shim_wna16_adjacent_typed_slot_reuses_current_wna16_arg_slot=False,
+    )
+    row = event.as_dict()
+    prefix = "premap_consumer_descriptor_prep_consumer_shim_wna16_adjacent_typed_slot"
+    assert row[f"{prefix}_mode"] == "readonly_wna16_adjacent_typed_consumer_slot"
+    assert row[f"{prefix}_passed_to_kernel"] is False
+
+    aggregate = aggregate_shadow_events([row])
+
+    assert aggregate[f"{prefix}_checked_count"] == 1
+    assert aggregate[f"{prefix}_ready_count"] == 1
+    assert aggregate[f"{prefix}_name"] == "premap_wna16_adjacent_typed_consumer_slot_v1"
+    assert aggregate[f"{prefix}_source"] == (
+        "premap_future_kernel_native_consumer_endpoint_ptr_abi_v1"
+    )
+    assert aggregate[f"{prefix}_row_count"] == 4
+    assert aggregate[f"{prefix}_row_ok_count"] == 4
+    assert aggregate[f"{prefix}_error_count"] == 0
+    assert aggregate[f"{prefix}_all_handle_fields_read_count"] == 1
+    assert aggregate[f"{prefix}_packet_chain_depth"] == 14
+    assert aggregate[f"{prefix}_packet_chain_depth_mismatch_count"] == 0
+    assert aggregate[f"{prefix}_field_mask"] == 15
+    assert aggregate[f"{prefix}_field_mask_mismatch_count"] == 0
+    assert aggregate[f"{prefix}_payload_bytes"] == 0
+    assert aggregate[f"{prefix}_payload_violation_count"] == 0
+    assert aggregate[f"{prefix}_passed_to_kernel_count"] == 0
+    assert aggregate[f"{prefix}_kernel_arg_violation_count"] == 0
+    assert aggregate[f"{prefix}_current_wna16_arg_compatible_count"] == 0
+    assert aggregate[f"{prefix}_requires_wna16_arg_reinterpretation_count"] == 0
+    assert aggregate[f"{prefix}_explicit_typed_abi_slot_count"] == 1
+    assert aggregate[f"{prefix}_reuses_current_wna16_arg_slot_count"] == 0

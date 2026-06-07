@@ -125,6 +125,10 @@ REQUIRED_DEFAULT_GATE_CONTRACT = {
     "request_launch_all_handle_fields_required": True,
     "request_launch_ptr_all_handle_fields_required": True,
     "future_kernel_native_arg_slot_online_total_mirror_coverage_required": True,
+    "future_wna16_single_field_handoff_all_fields_required": True,
+    "future_wna16_single_field_handoff_all_fields_min_source_count": 128,
+    "wna16_side_consumer_variant_execution_required": True,
+    "wna16_side_consumer_variant_execution_min_source_count": 128,
     "single_field_handle_handoff_canary_required": True,
     "single_field_handle_handoff_canary_mode": (
         "readonly_single_field_handle_handoff_canary"
@@ -267,6 +271,8 @@ REQUIRED_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
     "future_kernel_wna16_adjacent_typed_slot_canary_json",
     "future_kernel_wna16_adjacent_typed_slot_stub_json",
     "future_kernel_wna16_adjacent_typed_slot_standalone_canary_json",
+    "future_wna16_single_field_handoff_all_fields_128strict_summary_json",
+    "wna16_side_consumer_variant_execution_128strict_runner_json",
     "future_kernel_native_dispatch_consumer_online_artifact_check_32_128export_json",
     "future_kernel_native_dispatch_consumer_online_runner_32_128export_json",
 }
@@ -399,6 +405,23 @@ _TYPED_ROW_CONSUMER_PATH_METRIC_PREFIX = (
 _FUTURE_KERNEL_REQUIRED_FIELD_MASK = 0x7
 _FUTURE_KERNEL_ALL_FIELD_MASK = 0xF
 _FUTURE_KERNEL_AUX_FIELD_MASK = 0x8
+_FUTURE_WNA16_SINGLE_FIELD_HANDOFF_FIELDS = {
+    "descriptor_ptr": (1, 1),
+    "packed_weight_descriptor": (2, 2),
+    "scale_metadata_handle": (3, 4),
+    "aux_metadata_handle": (4, 8),
+}
+_FUTURE_WNA16_SINGLE_FIELD_HANDOFF_MODE = (
+    "readonly_future_wna16_single_field_handoff_canary"
+)
+_FUTURE_WNA16_SINGLE_FIELD_HANDOFF_SOURCE = (
+    "premap_future_wna16_kernel_side_consumer_execution_v1"
+)
+_FUTURE_WNA16_SINGLE_FIELD_HANDOFF_READ_PATH = (
+    "future_wna16_single_field_handoff_to_"
+    "future_wna16_kernel_side_execution_to_"
+    "accepted_typed_slot_to_program_view_rows"
+)
 _UINT64_MASK = (1 << 64) - 1
 _PROGRAM_ITERATION_HASH_FORMULA = (
     "mix64(grid_x + 0xd15c2001) ^ mix64(block_x + 0xd15c2002) ^ "
@@ -1411,6 +1434,251 @@ def _validate_typed_row_consumer_path_evidence(
     return failures
 
 
+def _validate_future_wna16_single_field_handoff_all_fields_summary(
+    evidence: dict[str, Any],
+) -> list[str]:
+    failures: list[str] = []
+    if evidence.get("passed") is not True:
+        failures.append("summary_not_passed")
+    if evidence.get("failures") not in ([], None):
+        failures.append("summary_failures_not_empty")
+    if evidence.get("summary_name") != (
+        "future_wna16_single_field_handoff_all_fields_128strict"
+    ):
+        failures.append("summary_name_mismatch")
+    if evidence.get("field_count") != len(_FUTURE_WNA16_SINGLE_FIELD_HANDOFF_FIELDS):
+        failures.append("field_count_mismatch")
+
+    safety = evidence.get("safety_contract")
+    if not isinstance(safety, dict):
+        failures.append("safety_contract_missing")
+    else:
+        expected_safety = {
+            "payload_bytes": 0,
+            "live_enabled": False,
+            "passed_to_kernel": False,
+            "changes_kernel_launch_args": False,
+            "current_wna16_arg_compatible": False,
+            "requires_wna16_arg_reinterpretation": False,
+            "explicit_typed_abi_slot": True,
+            "reuses_current_wna16_arg_slot": False,
+        }
+        for key, expected in expected_safety.items():
+            if safety.get(key) != expected:
+                failures.append(f"safety_contract_{key}_mismatch")
+
+    fields = evidence.get("fields")
+    if not isinstance(fields, dict):
+        failures.append("fields_missing")
+        return failures
+
+    min_source_count = int(
+        REQUIRED_DEFAULT_GATE_CONTRACT[
+            "future_wna16_single_field_handoff_all_fields_min_source_count"
+        ]
+    )
+    row_count_ref: int | None = None
+    for field, (expected_kind, expected_mask) in (
+        _FUTURE_WNA16_SINGLE_FIELD_HANDOFF_FIELDS.items()
+    ):
+        record = fields.get(field)
+        if not isinstance(record, dict):
+            failures.append(f"{field}_record_missing")
+            continue
+        if record.get("passed") is not True:
+            failures.append(f"{field}_not_passed")
+        selected_source_count = _int_metric(record, "selected_source_count")
+        if selected_source_count is None or selected_source_count < min_source_count:
+            failures.append(f"{field}_selected_source_count_invalid")
+        if record.get("abi_name") != "premap_future_wna16_single_field_handoff_canary_v1":
+            failures.append(f"{field}_abi_name_mismatch")
+        if record.get("mode") != _FUTURE_WNA16_SINGLE_FIELD_HANDOFF_MODE:
+            failures.append(f"{field}_mode_mismatch")
+        if record.get("source") != _FUTURE_WNA16_SINGLE_FIELD_HANDOFF_SOURCE:
+            failures.append(f"{field}_source_mismatch")
+        if record.get("field_read_path") != _FUTURE_WNA16_SINGLE_FIELD_HANDOFF_READ_PATH:
+            failures.append(f"{field}_field_read_path_mismatch")
+        if record.get("field_name") != field:
+            failures.append(f"{field}_field_name_mismatch")
+        if record.get("field_kind") != expected_kind:
+            failures.append(f"{field}_field_kind_mismatch")
+        if record.get("field_mask") != expected_mask:
+            failures.append(f"{field}_field_mask_mismatch")
+
+        row_count = _int_metric(record, "row_count")
+        row_ok_count = _int_metric(record, "row_ok_count")
+        error_count = _int_metric(record, "error_count")
+        if row_count is None or row_count <= 0:
+            failures.append(f"{field}_row_count_invalid")
+        elif row_count_ref is None:
+            row_count_ref = row_count
+        elif row_count != row_count_ref:
+            failures.append(f"{field}_row_count_mismatch")
+        if row_count is not None and row_ok_count != row_count:
+            failures.append(f"{field}_row_ok_count_mismatch")
+        if error_count != 0:
+            failures.append(f"{field}_error_count_mismatch")
+        if _hex64_metric(record, "hash_accumulator") is None:
+            failures.append(f"{field}_hash_accumulator_invalid")
+
+        expected_record_safety = {
+            "payload_bytes": 0,
+            "live_enabled": False,
+            "passed_to_kernel": False,
+            "changes_kernel_launch_args": False,
+            "current_wna16_arg_compatible": False,
+            "requires_wna16_arg_reinterpretation": False,
+            "explicit_typed_abi_slot": True,
+            "reuses_current_wna16_arg_slot": False,
+        }
+        for key, expected in expected_record_safety.items():
+            if record.get(key) != expected:
+                failures.append(f"{field}_{key}_mismatch")
+    return failures
+
+
+def _validate_wna16_side_consumer_variant_execution_runner(
+    evidence: dict[str, Any],
+) -> list[str]:
+    failures: list[str] = []
+    if evidence.get("passed") is not True:
+        failures.append("runner_not_passed")
+    if evidence.get("failures") != []:
+        failures.append("runner_failures_not_empty")
+    if not _targets_default_lab_gpu1(evidence):
+        failures.append("device_not_gpu1")
+    if evidence.get("require_wna16_side_consumer_variant_execution") is not True:
+        failures.append("require_wna16_side_consumer_variant_execution_missing")
+    if evidence.get("require_wna16_adjacent_typed_slot") is not True:
+        failures.append("require_wna16_adjacent_typed_slot_missing")
+    if evidence.get("not_a_single_vllm_launch_table") is not True:
+        failures.append("single_launch_flag_mismatch")
+    if evidence.get("no_payload") is not True:
+        failures.append("no_payload_flag_mismatch")
+    for key, expected in {
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "current_wna16_arg_compatible": False,
+    }.items():
+        if evidence.get(key) != expected:
+            failures.append(f"{key}_mismatch")
+
+    min_source_count = int(
+        REQUIRED_DEFAULT_GATE_CONTRACT[
+            "wna16_side_consumer_variant_execution_min_source_count"
+        ]
+    )
+    source_count = _int_metric(evidence, "selected_source_count")
+    merged_row_count = _int_metric(evidence, "merged_row_count")
+    dispatch_active_rows = _int_metric(evidence, "dispatch_active_rows")
+    dispatch_row_offset = _int_metric(evidence, "dispatch_row_offset")
+    dispatch_row_limit = _int_metric(evidence, "dispatch_row_limit")
+    block_threads = _int_metric(evidence, "block_threads")
+    dispatch_program_count = _int_metric(evidence, "dispatch_expected_program_count")
+    if source_count is None or source_count < min_source_count:
+        failures.append("selected_source_count_invalid")
+    if merged_row_count is None or merged_row_count <= 0:
+        failures.append("merged_row_count_invalid")
+    if dispatch_row_offset != 0:
+        failures.append("dispatch_row_offset_mismatch")
+    if merged_row_count is not None and dispatch_row_limit != merged_row_count:
+        failures.append("dispatch_row_limit_mismatch")
+    if merged_row_count is not None and dispatch_active_rows != merged_row_count:
+        failures.append("dispatch_active_rows_mismatch")
+    if block_threads is None or block_threads <= 0:
+        failures.append("block_threads_invalid")
+    if (
+        dispatch_active_rows is not None
+        and block_threads is not None
+        and dispatch_program_count is not None
+        and (dispatch_active_rows + block_threads - 1) // block_threads
+        != dispatch_program_count
+    ):
+        failures.append("dispatch_program_count_mismatch")
+
+    prefix = "wna16_side_consumer_variant_execution"
+    expected_top = {
+        f"{prefix}_checked": True,
+        f"{prefix}_name": "premap_wna16_side_consumer_variant_execution_v1",
+        f"{prefix}_mode": "readonly_wna16_side_consumer_variant_execution",
+        f"{prefix}_source": "premap_future_wna16_typed_slot_kernel_variant_v1",
+        f"{prefix}_all_handle_fields_read": True,
+        f"{prefix}_payload_bytes": 0,
+        f"{prefix}_passed_to_kernel": False,
+        f"{prefix}_changes_kernel_launch_args": False,
+        f"{prefix}_current_wna16_arg_compatible": False,
+        f"{prefix}_requires_wna16_arg_reinterpretation": False,
+        f"{prefix}_reuses_current_wna16_arg_slot": False,
+    }
+    for key, expected in expected_top.items():
+        if evidence.get(key) != expected:
+            failures.append(f"{key}_mismatch")
+    row_count = _int_metric(evidence, f"{prefix}_row_count")
+    row_ok_count = _int_metric(evidence, f"{prefix}_row_ok_count")
+    error_count = _int_metric(evidence, f"{prefix}_error_count")
+    if dispatch_active_rows is not None and row_count != dispatch_active_rows:
+        failures.append(f"{prefix}_row_count_mismatch")
+    if dispatch_active_rows is not None and row_ok_count != dispatch_active_rows:
+        failures.append(f"{prefix}_row_ok_count_mismatch")
+    if error_count != 0:
+        failures.append(f"{prefix}_error_count_mismatch")
+    packet_chain_depth = _int_metric(evidence, f"{prefix}_packet_chain_depth")
+    typed_slot_depth = _int_metric(
+        evidence,
+        "future_wna16_typed_slot_kernel_variant_packet_chain_depth",
+    )
+    if typed_slot_depth is not None and packet_chain_depth != typed_slot_depth + 1:
+        failures.append(f"{prefix}_packet_chain_depth_mismatch")
+    if _hex64_metric(evidence, f"{prefix}_handle_projection_hash_accumulator") is None:
+        failures.append(f"{prefix}_handle_projection_hash_invalid")
+
+    stub_summary = evidence.get("stub_summary")
+    if not isinstance(stub_summary, dict):
+        failures.append("stub_summary_missing")
+        return failures
+    for key, expected in {
+        "passed": True,
+        "ok": True,
+        f"{prefix}_checked": True,
+        f"{prefix}_abi_name": "premap_wna16_side_consumer_variant_execution_v1",
+        f"{prefix}_mode": "readonly_wna16_side_consumer_variant_execution",
+        f"{prefix}_source": "premap_future_wna16_typed_slot_kernel_variant_v1",
+        f"{prefix}_payload_bytes": 0,
+        f"{prefix}_passed_to_kernel": False,
+        f"{prefix}_changes_kernel_launch_args": False,
+        f"{prefix}_current_wna16_arg_compatible": False,
+        f"{prefix}_requires_wna16_arg_reinterpretation": False,
+        f"{prefix}_reuses_current_wna16_arg_slot": False,
+        f"{prefix}_explicit_typed_abi_slot": True,
+    }.items():
+        if stub_summary.get(key) != expected:
+            failures.append(f"stub_summary_{key}_mismatch")
+    if dispatch_active_rows is not None:
+        for key in (
+            f"{prefix}_row_count",
+            f"{prefix}_row_ok_count",
+            f"{prefix}_descriptor_ptr_read_row_ok_count",
+            f"{prefix}_packed_weight_descriptor_read_row_ok_count",
+            f"{prefix}_scale_metadata_handle_read_row_ok_count",
+            f"{prefix}_aux_metadata_handle_read_row_ok_count",
+        ):
+            if _int_metric(stub_summary, key) != dispatch_active_rows:
+                failures.append(f"stub_summary_{key}_mismatch")
+    if _int_metric(stub_summary, f"{prefix}_error_count") != 0:
+        failures.append(f"stub_summary_{prefix}_error_count_mismatch")
+    for key in (
+        f"{prefix}_hash_accumulator",
+        f"{prefix}_handle_projection_hash_accumulator",
+        f"{prefix}_descriptor_ptr_read_hash_accumulator",
+        f"{prefix}_packed_weight_descriptor_read_hash_accumulator",
+        f"{prefix}_scale_metadata_handle_read_hash_accumulator",
+        f"{prefix}_aux_metadata_handle_read_hash_accumulator",
+    ):
+        if _hex64_metric(stub_summary, key) is None:
+            failures.append(f"stub_summary_{key}_invalid")
+    return failures
+
+
 def _validate_required_evidence_payload(
     evidence_label: str,
     evidence: dict[str, Any],
@@ -1453,6 +1721,8 @@ def _validate_required_evidence_payload(
         "future_kernel_wna16_adjacent_typed_slot_canary_json",
         "future_kernel_wna16_adjacent_typed_slot_stub_json",
         "future_kernel_wna16_adjacent_typed_slot_standalone_canary_json",
+        "future_wna16_single_field_handoff_all_fields_128strict_summary_json",
+        "wna16_side_consumer_variant_execution_128strict_runner_json",
         "future_kernel_native_arg_slot_packed_weight_mirror_canary_json",
         *ARG_SLOT_ONLINE_MERGED_MIRROR_RUNNER_LABEL_BY_FIELD.values(),
         *ARG_SLOT_ONLINE_MERGED_MIRROR_STUB_LABEL_BY_FIELD.values(),
@@ -1581,6 +1851,23 @@ def _validate_required_evidence_payload(
         return [
             f"{evidence_label}:{failure}"
             for failure in _validate_wna16_adjacent_typed_slot_standalone_evidence(
+                evidence
+            )
+        ]
+    if (
+        evidence_label
+        == "future_wna16_single_field_handoff_all_fields_128strict_summary_json"
+    ):
+        return [
+            f"{evidence_label}:{failure}"
+            for failure in _validate_future_wna16_single_field_handoff_all_fields_summary(
+                evidence
+            )
+        ]
+    if evidence_label == "wna16_side_consumer_variant_execution_128strict_runner_json":
+        return [
+            f"{evidence_label}:{failure}"
+            for failure in _validate_wna16_side_consumer_variant_execution_runner(
                 evidence
             )
         ]

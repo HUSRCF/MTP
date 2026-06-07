@@ -29926,3 +29926,1022 @@ Next gate:
   envelope to a native producer-side typed adapter without passing current
   WNA16 kernel args.
 ```
+
+Prepared-table to current-WNA16 arg adapter canary:
+
+```text
+Patch:
+  Added premap_kernel_arg_handoff_prepared_table_materialization_mode.
+
+Mode:
+  premap_single_field_replacement_live_prepared_alias_adapter
+
+Semantics:
+  candidate_source = prepared_handle_table
+  materialization = original_kernel_arg_alias_after_prepared_handle_check
+  field = B_scale
+  signature mismatch live = false
+
+Boundary:
+  The prepared table must resolve the target field, but the current WNA16 ABI
+  still receives the original tensor arg alias. This does not pretend typed
+  handle tokens are tensor kernel args; it only measures the overhead of
+  prepared-table participation under a current-ABI-compatible adapter.
+```
+
+GPU1 AWQ/Dolly 8-sample gen64 canary:
+
+```text
+outputs/reports/awq_telemetry_ladder/
+  gpu1_premap_prepared_alias_adapter_canary_8sample_gen64
+
+production_like:
+  TPOT = 0.067341s
+  generate = 34.478s
+
+prepared_handle_table fallback canary:
+  TPOT = 0.396259s
+  prepared table hit = 40,960 / 40,960
+  type-compatible = 0
+  type-mismatch = 40,960
+  live replaced/passed_to_kernel = 0 / 0
+
+prepared_alias_adapter:
+  TPOT = 0.394097s
+  prepared table hit = 40,960 / 40,960
+  type-compatible = 40,960
+  type-mismatch = 0
+  dry/live parity mismatch = 0 / 0
+  live replaced/passed_to_kernel = 40,960 / 40,960
+```
+
+Conclusion:
+
+```text
+The adapter proves prepared-table participation can be made current-WNA16-ABI
+compatible, but it does not improve performance. Runtime remains dominated by
+the prepared table / consumer mapping path, not by the type-mismatch fallback.
+
+Therefore, do not continue materializing prepared handles into current WNA16
+tensor args. The next viable path is a real typed-slot kernel-side consumer
+variant.
+```
+
+WNA16-adjacent typed-slot native stub:
+
+```text
+outputs/reports/premap_kernel_consumer/
+  wna16_adjacent_typed_slot_variant_stub_gpu1_rows4096.json
+
+passed = true
+row_count / row_ok_count = 4096 / 4096
+error_count = 0
+wna16_adjacent_typed_slot_checked = true
+wna16_adjacent_typed_slot row_count / row_ok_count = 4096 / 4096
+wna16_adjacent_typed_slot error_count = 0
+payload_bytes = 0
+changes_kernel_launch_args = false
+current_wna16_arg_compatible = false
+```
+
+Interpretation:
+
+```text
+The independent native stub already accepts a WNA16-adjacent typed slot and
+walks the typed handle rows without payload movement or current WNA16 argument
+reinterpretation. This is the correct ABI direction for a future WNA16 variant.
+
+Next gate:
+  connect the online prelaunch producer to this typed-slot consumer shape with a
+  low-overhead producer-side/native adapter, still without passing current WNA16
+  kernel args.
+```
+
+
+### 2026-06-06 - Online WNA16-adjacent typed-slot producer envelope
+
+Implemented the next typed-slot gate in the online prelaunch path.
+
+What changed:
+
+```text
+producer/prelaunch shim now emits a WNA16-adjacent typed-slot envelope:
+  name   = premap_wna16_adjacent_typed_consumer_slot_v1
+  mode   = readonly_wna16_adjacent_typed_consumer_slot
+  source = premap_future_kernel_native_consumer_endpoint_ptr_abi_v1
+
+The envelope is built directly from the prepared handle table native input and
+records row/field read counts, row metadata parity, packet_chain_depth=14,
+field_mask=15, and hash accumulators.
+```
+
+Safety boundary remains unchanged:
+
+```text
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+current_wna16_arg_compatible = false
+requires_wna16_arg_reinterpretation = false
+explicit_typed_abi_slot = true
+reuses_current_wna16_arg_slot = false
+```
+
+This is intentionally not a current WNA16 kernel-arg compatibility claim. It is
+the online producer-side contract for a future WNA16 variant that accepts the
+typed slot directly.
+
+Validation:
+
+```text
+python -m py_compile \
+  src/mtp_expert_prefetch/runtime/cache_manager.py \
+  src/mtp_expert_prefetch/runtime/shadow_log.py \
+  src/mtp_expert_prefetch/tracing/vllm_router_trace.py \
+  tests/test_runtime_shadow_log.py
+
+env PYTHONPATH=src pytest \
+  tests/test_runtime_shadow_log.py::test_premap_wna16_adjacent_typed_slot_event_is_aggregated -q
+  -> 1 passed
+
+env PYTHONPATH=src pytest \
+  tests/test_runtime_shadow_log.py \
+  tests/test_run_awq_telemetry_ladder_modes.py \
+  tests/test_vllm_premap_capacity_gate.py -q
+  -> 127 passed
+
+env PYTHONPATH=.:src pytest tests -q
+  -> 1134 passed, 2 warnings
+```
+
+Next gate:
+
+```text
+Use this online WNA16-adjacent typed-slot envelope as the producer/native
+adapter input for a future WNA16 typed-slot kernel variant. Continue to avoid
+passing it through the current WNA16 tensor-arg ABI.
+```
+
+### 2026-06-06 - Online typed-slot to native stub canary coverage
+
+Added the missing mock-real runner gate for the online WNA16-adjacent typed slot.
+
+The existing dry-run canary already checked:
+
+```text
+online merged prelaunch typed table
+  -> endpoint_ptr ABI chain
+  -> WNA16-adjacent typed-slot summary
+```
+
+The new test also exercises the non-dry-run runner path by mocking the native
+stub return payload.  This verifies that the runner passes the correct macro set
+and dispatch bounds into the independent native typed ABI/stub path:
+
+```text
+required macro chain includes endpoint_ptr + WNA16-adjacent typed slot
+row_count / row_ok_count = 7 / 7
+packet_chain_depth = 14
+all handle fields read = true
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+current_wna16_arg_compatible = false
+requires_wna16_arg_reinterpretation = false
+reuses_current_wna16_arg_slot = false
+```
+
+Boundary remains unchanged: this is still an independent future typed-slot
+consumer canary.  It does not pass anything to the current WNA16 kernel args and
+does not move payload.
+
+Validation:
+
+```text
+env PYTHONPATH=.:src pytest \
+  tests/test_run_premap_online_merged_native_arg_slot_canary.py::test_online_merged_arg_slot_canary_mock_real_run_accepts_wna16_adjacent_typed_slot -q
+  -> 1 passed
+
+env PYTHONPATH=.:src pytest \
+  tests/test_run_premap_online_merged_native_arg_slot_canary.py::test_online_merged_arg_slot_canary_dry_run_accepts_wna16_adjacent_typed_slot -q
+  -> 1 passed
+
+env PYTHONPATH=.:src pytest \
+  tests/test_run_premap_online_merged_native_arg_slot_canary.py -q
+  -> 26 passed
+```
+
+Actual online-derived canary rerun:
+
+```text
+env PYTHONPATH=.:src python \
+  scripts/run_premap_online_merged_native_arg_slot_canary.py \
+  --runner-json outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_arg_slot_32input_hard_hashchain_preflight_32tables.json \
+  --min-source-count 32 \
+  --min-total-rows 1841 \
+  --block-threads 256 \
+  --require-wna16-adjacent-typed-slot \
+  --merged-output-json outputs/reports/premap_kernel_consumer/online_merged_prelaunch_typed_consumer_input_wna16_adjacent_slot_rerun.json \
+  --stub-output-json outputs/reports/premap_kernel_consumer/typed_consumer_stub_gpu1_online_merged_wna16_adjacent_typed_slot_canary_rerun.json \
+  --output-json outputs/reports/premap_kernel_consumer/online_merged_wna16_adjacent_typed_slot_canary_runner_rerun.json
+
+passed = true
+selected_source_count = 32
+row_count / row_ok_count = 1841 / 1841
+dispatch programs = 8
+device = 1
+wna16_adjacent_typed_slot_checked = true
+wna16_adjacent_typed_slot_all_handle_fields_read = true
+wna16_adjacent_typed_slot_packet_chain_depth = 14
+wna16_adjacent_typed_slot_payload_bytes = 0
+wna16_adjacent_typed_slot_passed_to_kernel = false
+wna16_adjacent_typed_slot_changes_kernel_launch_args = false
+wna16_adjacent_typed_slot_current_wna16_arg_compatible = false
+wna16_adjacent_typed_slot_requires_wna16_arg_reinterpretation = false
+```
+
+Note: the first rerun attempt used `HIP_VISIBLE_DEVICES=1` together with
+`--device 1`, which remapped the visible GPU to ordinal 0 and failed with
+`hipSetDevice: invalid device ordinal`.  The successful rerun did not remap
+visible devices and used the runner's device ordinal 1.
+
+The default lab-gate artifact was then refreshed in place:
+
+```text
+outputs/reports/premap_kernel_consumer/
+  online_merged_wna16_adjacent_typed_slot_native_bridge_runner.json
+  typed_consumer_stub_gpu1_online_merged_wna16_adjacent_slot_native_bridge.json
+  online_merged_prelaunch_typed_consumer_input_wna16_adjacent_slot.json
+```
+
+The refreshed artifact now records `device=1` without `HIP_VISIBLE_DEVICES`
+ordinal remapping.
+
+Strict no-defer lab preflight:
+
+```text
+env PYTHONPATH=.:src python \
+  scripts/run_premap_lab_preflight.py \
+  --output-json outputs/reports/premap_kernel_consumer/lab_preflight_wna16_adjacent_typed_slot_required_refreshed.json
+
+passed = true
+strict_default_gate_evidence_passed = true
+default_required_evidence_passed = true
+runtime_gate_evidence_scan_passed = true
+
+default_kernel_consumer_wna16_adjacent_typed_slot_checked = true
+row_count / row_ok_count = 1841 / 1841
+error_count = 0
+packet_chain_depth = 14
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+current_wna16_arg_compatible = false
+requires_wna16_arg_reinterpretation = false
+reuses_current_wna16_arg_slot = false
+```
+
+This promotes the WNA16-adjacent typed-slot bridge from a standalone canary to a
+strict default lab preflight condition while preserving the no-current-WNA16-arg
+boundary.
+
+### Future WNA16 Typed-Slot Kernel Variant Skeleton
+
+Implemented the next native typed consumer layer as an explicit future WNA16
+typed-slot kernel variant skeleton.
+
+This is still not the current AWQ WNA16 fused-MoE kernel argument list.  The
+new ABI wraps the WNA16-adjacent typed slot in a future-kernel-shaped packet:
+
+```text
+PremapFutureWna16TypedSlotKernelVariantV1
+  typed_slot: PremapFutureKernelNativeConsumerWna16AdjacentTypedSlotV1
+  summary:   PremapFutureKernelNativeConsumerKernelEntrySummaryV1*
+  abi/version/size/pointer metadata
+  packet_chain_depth = 15
+  payload_bytes = 0
+  current_wna16_arg_compatible = false
+  requires_wna16_arg_reinterpretation = false
+  reuses_current_wna16_arg_slot = false
+```
+
+The standalone HIP consumer
+`typed_consumer_future_wna16_typed_slot_kernel_variant_kernel` validates the ABI
+envelope and then reads the prepared typed handle table through the existing
+endpoint pointer chain.  It does not pass payload, mutate kernel launch args, or
+reinterpret the current WNA16 argument list.
+
+Focused validation:
+
+```text
+env PYTHONPATH=.:src pytest \
+  tests/test_premap_typed_consumer_stub.py -q
+  -> 60 passed
+
+git diff --check
+  -> passed
+```
+
+GPU1 native skeleton canary:
+
+```text
+env PYTHONPATH=.:src python \
+  scripts/run_premap_typed_consumer_stub.py \
+  --input-json outputs/reports/premap_kernel_consumer/online_merged_prelaunch_typed_consumer_input_wna16_adjacent_slot.json \
+  --rows 16 \
+  --device 1 \
+  --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ABI \
+  --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ABI \
+  --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_ABI \
+  --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_PTR_ABI \
+  --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ARG_SLOT_ABI \
+  --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_VIEW_ABI \
+  --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_PROGRAM_VIEW_ABI \
+  --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_PROGRAM_VIEW_PTR_ABI \
+  --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ARG_PACKET_ABI \
+  --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ENTRY_ARGS_ABI \
+  --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ENTRY_ARGS_PTR_ABI \
+  --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ENVELOPE_ARGS_ABI \
+  --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ENVELOPE_ARGS_PTR_ABI \
+  --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_LAUNCH_DESCRIPTOR_ABI \
+  --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_LAUNCH_CONTEXT_ABI \
+  --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_INVOCATION_ABI \
+  --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_INVOCATION_ENTRY_ABI \
+  --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ENDPOINT_ABI \
+  --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ENDPOINT_PTR_ABI \
+  --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_WNA16_ADJACENT_TYPED_SLOT_ABI \
+  --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_WNA16_TYPED_SLOT_KERNEL_VARIANT_ABI \
+  --output-json outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_stub_gpu1_rows16.json
+
+passed = true
+device = 1
+row_count / row_ok_count = 1841 / 1841
+future_wna16_typed_slot_kernel_variant_checked = true
+future_wna16_typed_slot_kernel_variant_summary_error_count = 0
+future_wna16_typed_slot_kernel_variant_packet_chain_depth = 15
+future_wna16_typed_slot_kernel_variant_summary_row_count = 1841
+future_wna16_typed_slot_kernel_variant_summary_row_ok_count = 1841
+future_wna16_typed_slot_kernel_variant_payload_bytes = 0
+future_wna16_typed_slot_kernel_variant_passed_to_kernel = false
+future_wna16_typed_slot_kernel_variant_changes_kernel_launch_args = false
+future_wna16_typed_slot_kernel_variant_current_wna16_arg_compatible = false
+future_wna16_typed_slot_kernel_variant_requires_wna16_arg_reinterpretation = false
+future_wna16_typed_slot_kernel_variant_reuses_current_wna16_arg_slot = false
+```
+
+This is an ABI/correctness gate only.  It does not provide TPOT evidence because
+the typed slot is consumed by an independent native stub and is not yet on the
+real WNA16 execution path.
+
+Online prelaunch canary integration:
+
+```text
+env PYTHONPATH=.:src python \
+  scripts/run_premap_online_merged_native_arg_slot_canary.py \
+  --runner-json outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_arg_slot_32input_hard_hashchain_preflight_32tables.json \
+  --min-source-count 32 \
+  --min-total-rows 1841 \
+  --block-threads 256 \
+  --require-future-wna16-typed-slot-kernel-variant \
+  --merged-output-json outputs/reports/premap_kernel_consumer/online_merged_prelaunch_typed_consumer_input_future_wna16_typed_slot_variant.json \
+  --stub-output-json outputs/reports/premap_kernel_consumer/typed_consumer_stub_gpu1_online_merged_future_wna16_typed_slot_variant.json \
+  --output-json outputs/reports/premap_kernel_consumer/online_merged_future_wna16_typed_slot_variant_runner.json
+
+passed = true
+selected_source_count = 32
+dispatch_active_rows = 1841
+device = 1
+require_future_wna16_typed_slot_kernel_variant = true
+future_wna16_typed_slot_kernel_variant_checked = true
+future_wna16_typed_slot_kernel_variant_row_count / row_ok_count = 1841 / 1841
+future_wna16_typed_slot_kernel_variant_error_count = 0
+future_wna16_typed_slot_kernel_variant_all_handle_fields_read = true
+future_wna16_typed_slot_kernel_variant_packet_chain_depth = 15
+future_wna16_typed_slot_kernel_variant_payload_bytes = 0
+future_wna16_typed_slot_kernel_variant_passed_to_kernel = false
+future_wna16_typed_slot_kernel_variant_changes_kernel_launch_args = false
+future_wna16_typed_slot_kernel_variant_current_wna16_arg_compatible = false
+future_wna16_typed_slot_kernel_variant_requires_wna16_arg_reinterpretation = false
+future_wna16_typed_slot_kernel_variant_reuses_current_wna16_arg_slot = false
+```
+
+This promotes the future WNA16 typed-slot variant from a standalone stub canary
+to an online-derived prelaunch canary while preserving the no-current-WNA16-arg
+boundary.
+
+### WNA16-side consumer variant execution-style stub
+
+A minimal WNA16-side consumer variant execution path is now integrated as an
+independent typed ABI/stub.  This is closer to a future WNA16 kernel consumer
+than the thread-0 summary-only variant: it launches with the future typed-slot
+packet, uses grid/block/lane row assignment, and reads the descriptor pointer,
+packed-weight descriptor, scale metadata handle, and aux metadata handle fields
+per active row.
+
+It still deliberately preserves the lab safety boundary:
+
+```text
+payload_bytes = 0
+payload_deref_allowed = false
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+current_wna16_arg_compatible = false
+requires_wna16_arg_reinterpretation = false
+reuses_current_wna16_arg_slot = false
+```
+
+GPU1 online-derived canary:
+
+```text
+python scripts/run_premap_typed_consumer_stub.py \
+  --device 1 \
+  --input-json outputs/reports/premap_kernel_consumer/online_merged_prelaunch_typed_consumer_input_future_wna16_typed_slot_variant.json \
+  --block-threads 256 \
+  --force-build \
+  --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ABI \
+  --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ABI \
+  --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_ABI \
+  --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_DISPATCH_PTR_ABI \
+  --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ARG_SLOT_ABI \
+  --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_VIEW_ABI \
+  --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_PROGRAM_VIEW_ABI \
+  --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_PROGRAM_VIEW_PTR_ABI \
+  --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ARG_PACKET_ABI \
+  --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ENTRY_ARGS_ABI \
+  --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_ENTRY_ARGS_PTR_ABI \
+  --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ENVELOPE_ARGS_ABI \
+  --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ENVELOPE_ARGS_PTR_ABI \
+  --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_LAUNCH_DESCRIPTOR_ABI \
+  --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_LAUNCH_CONTEXT_ABI \
+  --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_INVOCATION_ABI \
+  --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_INVOCATION_ENTRY_ABI \
+  --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ENDPOINT_ABI \
+  --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ENDPOINT_PTR_ABI \
+  --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_WNA16_ADJACENT_TYPED_SLOT_ABI \
+  --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_WNA16_TYPED_SLOT_KERNEL_VARIANT_ABI \
+  --macro MTP_PREMAP_TYPED_CONSUMER_CHECK_WNA16_SIDE_CONSUMER_VARIANT_EXECUTION_ABI \
+  --output-json outputs/reports/premap_kernel_consumer/wna16_side_consumer_variant_execution_stub_gpu1_online1841.json
+
+passed = true
+device = 1
+row_count / row_ok_count = 1841 / 1841
+wna16_side_consumer_variant_execution_checked = true
+wna16_side_consumer_variant_execution_row_count / row_ok_count = 1841 / 1841
+wna16_side_consumer_variant_execution_error_count = 0
+descriptor_ptr / packed_weight / scale_metadata / aux_metadata read errors = 0
+```
+
+This is still not TPOT evidence.  It validates that a WNA16-side native consumer
+variant can read the future typed slot per row, but the real fused-MoE WNA16
+kernel has not yet consumed this typed slot and no current WNA16 kernel
+arguments were changed.
+
+Online merged prelaunch gate:
+
+```text
+python scripts/run_premap_online_merged_native_arg_slot_canary.py \
+  --runner-json outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_arg_slot_32input_hard_hashchain_preflight_32tables.json \
+  --min-source-count 32 \
+  --min-total-rows 1841 \
+  --block-threads 256 \
+  --device 1 \
+  --require-wna16-side-consumer-variant-execution \
+  --merged-output-json outputs/reports/premap_kernel_consumer/online_merged_prelaunch_typed_consumer_input_wna16_side_execution_variant.json \
+  --stub-output-json outputs/reports/premap_kernel_consumer/typed_consumer_stub_gpu1_online_merged_wna16_side_execution_variant.json \
+  --output-json outputs/reports/premap_kernel_consumer/online_merged_wna16_side_execution_variant_runner.json
+
+passed = true
+selected_source_count = 32
+dispatch_active_rows = 1841
+wna16_side_consumer_variant_execution_checked = true
+wna16_side_consumer_variant_execution_row_count / row_ok_count = 1841 / 1841
+wna16_side_consumer_variant_execution_error_count = 0
+wna16_side_consumer_variant_execution_all_handle_fields_read = true
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+current_wna16_arg_compatible = false
+```
+
+This promotes the WNA16-side execution-style typed consumer from a standalone
+stub run to an online-derived prelaunch lab gate while keeping the no-payload
+and no-current-WNA16-arg boundary.
+
+## 2026-06-06 - Future WNA16 accept-typed-slot 128-source gate
+
+Added a stricter future WNA16 typed-slot acceptance canary.  This is a
+standalone native ABI path that models the future WNA16 kernel receiving an
+explicit typed slot object:
+
+```text
+PremapFutureWna16KernelAcceptTypedSlotV1
+  -> PremapFutureKernelNativeConsumerWna16AdjacentTypedSlotV1
+  -> endpoint/launch/context chain
+  -> kernel entry summary rows
+```
+
+It is deliberately not the current WNA16 fused-MoE ABI:
+
+```text
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+current_wna16_arg_compatible = false
+requires_wna16_arg_reinterpretation = false
+explicit_typed_abi_slot = true
+reuses_current_wna16_arg_slot = false
+```
+
+Code and test coverage:
+
+```text
+microbench/premap_kernel_consumer/premap_typed_consumer_adapter_v1.h
+microbench/premap_kernel_consumer/premap_typed_consumer_stub.hip
+scripts/run_premap_typed_consumer_stub.py
+scripts/run_premap_online_merged_native_arg_slot_canary.py
+tests/test_premap_typed_consumer_stub.py
+tests/test_run_premap_online_merged_native_arg_slot_canary.py
+```
+
+Validation:
+
+```text
+python -m py_compile \
+  scripts/run_premap_typed_consumer_stub.py \
+  scripts/run_premap_online_merged_native_arg_slot_canary.py \
+  tests/test_premap_typed_consumer_stub.py \
+  tests/test_run_premap_online_merged_native_arg_slot_canary.py
+
+pytest \
+  tests/test_premap_typed_consumer_stub.py \
+  tests/test_run_premap_online_merged_native_arg_slot_canary.py -q
+
+92 passed
+```
+
+128-source online-derived gate:
+
+```text
+trace config:
+  configs/trace/router_mtp_trace_external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_native_input_export_audit_mem70_128tables.yaml
+
+input manifest:
+  outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_arg_slot_128input_hard_hashchain_preflight_128tables_inputs.json
+
+merged input:
+  outputs/reports/premap_kernel_consumer/online_merged_prelaunch_typed_consumer_input_future_wna16_accept_typed_slot_128strict.json
+
+stub evidence:
+  outputs/reports/premap_kernel_consumer/typed_consumer_stub_gpu1_online_merged_future_wna16_accept_typed_slot_128strict.json
+
+runner evidence:
+  outputs/reports/premap_kernel_consumer/online_merged_future_wna16_accept_typed_slot_128strict_preflight_runner.json
+```
+
+Command:
+
+```text
+python scripts/run_premap_online_merged_native_arg_slot_canary.py \
+  --runner-json outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_arg_slot_128input_hard_hashchain_preflight_128tables_inputs.json \
+  --max-inputs 128 \
+  --min-source-count 128 \
+  --min-total-rows 257 \
+  --block-threads 256 \
+  --device 1 \
+  --force-build \
+  --require-future-wna16-kernel-accept-typed-slot \
+  --require-wna16-side-consumer-variant-execution \
+  --merged-output-json outputs/reports/premap_kernel_consumer/online_merged_prelaunch_typed_consumer_input_future_wna16_accept_typed_slot_128strict.json \
+  --stub-output-json outputs/reports/premap_kernel_consumer/typed_consumer_stub_gpu1_online_merged_future_wna16_accept_typed_slot_128strict.json \
+  --output-json outputs/reports/premap_kernel_consumer/online_merged_future_wna16_accept_typed_slot_128strict_preflight_runner.json
+```
+
+Result:
+
+```text
+passed = true
+failures = []
+selected_source_count = 128
+merged_row_count = 3418
+dispatch_active_rows = 3418
+
+future_wna16_kernel_accept_typed_slot_checked = true
+future_wna16_kernel_accept_typed_slot_row_count / row_ok_count = 3418 / 3418
+future_wna16_kernel_accept_typed_slot_error_count = 0
+future_wna16_kernel_accept_typed_slot_all_handle_fields_read = true
+future_wna16_kernel_accept_typed_slot_payload_bytes = 0
+future_wna16_kernel_accept_typed_slot_passed_to_kernel = false
+future_wna16_kernel_accept_typed_slot_current_wna16_arg_compatible = false
+future_wna16_kernel_accept_typed_slot_requires_wna16_arg_reinterpretation = false
+
+wna16_side_consumer_variant_execution_checked = true
+wna16_side_consumer_variant_execution_row_count / row_ok_count = 3418 / 3418
+wna16_side_consumer_variant_execution_error_count = 0
+wna16_side_consumer_variant_execution_passed_to_kernel = false
+```
+
+This raises the typed consumer gate from the earlier 32-source online evidence
+to a 128-source strict preflight and adds a closer future-WNA16 shape: a kernel
+variant that accepts an explicit typed slot object.  It is still not TPOT or
+latency evidence and still does not mutate current WNA16 kernel arguments.
+
+## 2026-06-07 - Future WNA16 kernel-side consumer execution canary
+
+Added the next standalone future-WNA16 typed-slot consumer path:
+
+```text
+PremapFutureWna16KernelSideConsumerExecutionV1
+  -> PremapFutureWna16KernelAcceptTypedSlotV1
+  -> WNA16-adjacent typed slot
+  -> endpoint/launch/context chain
+  -> kernel arg packet / program view rows
+```
+
+Unlike the previous `accept_typed_slot` summary-only gate, this canary launches
+a grid/block/lane native stub and explicitly reads the four typed handle fields
+per active row:
+
+```text
+descriptor_ptr
+packed_weight_descriptor
+scale_metadata_handle
+aux_metadata_handle
+```
+
+The safety contract remains unchanged:
+
+```text
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+current_wna16_arg_compatible = false
+requires_wna16_arg_reinterpretation = false
+explicit_typed_abi_slot = true
+reuses_current_wna16_arg_slot = false
+```
+
+Implementation:
+
+```text
+microbench/premap_kernel_consumer/premap_typed_consumer_adapter_v1.h
+microbench/premap_kernel_consumer/premap_typed_consumer_stub.hip
+scripts/run_premap_typed_consumer_stub.py
+scripts/run_premap_online_merged_native_arg_slot_canary.py
+tests/test_premap_typed_consumer_stub.py
+tests/test_run_premap_online_merged_native_arg_slot_canary.py
+```
+
+Validation:
+
+```text
+env PYTHONPATH=.:src pytest \
+  tests/test_premap_typed_consumer_stub.py \
+  tests/test_run_premap_online_merged_native_arg_slot_canary.py -q
+
+95 passed
+```
+
+128-source online-derived strict canary:
+
+```text
+python scripts/run_premap_online_merged_native_arg_slot_canary.py \
+  --runner-json outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_arg_slot_128input_hard_hashchain_preflight_128tables_inputs.json \
+  --max-inputs 128 \
+  --min-source-count 128 \
+  --min-total-rows 257 \
+  --block-threads 256 \
+  --device 1 \
+  --force-build \
+  --require-future-wna16-kernel-side-consumer-execution \
+  --merged-output-json outputs/reports/premap_kernel_consumer/online_merged_prelaunch_typed_consumer_input_future_wna16_kernel_side_execution_128strict.json \
+  --stub-output-json outputs/reports/premap_kernel_consumer/typed_consumer_stub_gpu1_online_merged_future_wna16_kernel_side_execution_128strict.json \
+  --output-json outputs/reports/premap_kernel_consumer/online_merged_future_wna16_kernel_side_execution_128strict_preflight_runner.json
+```
+
+Result:
+
+```text
+passed = true
+failures = []
+selected_source_count = 128
+merged_row_count = 3418
+dispatch_active_rows = 3418
+
+future_wna16_kernel_side_consumer_execution_checked = true
+future_wna16_kernel_side_consumer_execution_row_count / row_ok_count = 3418 / 3418
+future_wna16_kernel_side_consumer_execution_error_count = 0
+future_wna16_kernel_side_consumer_execution_all_handle_fields_read = true
+future_wna16_kernel_side_consumer_execution_payload_bytes = 0
+future_wna16_kernel_side_consumer_execution_passed_to_kernel = false
+future_wna16_kernel_side_consumer_execution_changes_kernel_launch_args = false
+future_wna16_kernel_side_consumer_execution_current_wna16_arg_compatible = false
+future_wna16_kernel_side_consumer_execution_requires_wna16_arg_reinterpretation = false
+future_wna16_kernel_side_consumer_execution_reuses_current_wna16_arg_slot = false
+```
+
+This is a stronger kernel-side ABI readiness gate than `accept_typed_slot`: it
+proves a future WNA16-shaped native consumer can receive the accepted typed slot
+and iterate rows under launch-like geometry.  It still does not connect to the
+current WNA16 fused-MoE kernel argument list and is not a latency/TPOT claim.
+
+### Future-WNA16 single-field handoff canary
+
+Added a stricter single-field handoff canary on top of the future WNA16
+kernel-side consumer execution path.  The canary validates that one selected
+typed field can be mirrored through the future WNA16-shaped typed slot path and
+read by the native stub without falling back to the current WNA16 kernel
+argument layout.
+
+The first enabled field is:
+
+```text
+scale_metadata_handle
+```
+
+Safety contract:
+
+```text
+live_enabled = false
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+current_wna16_arg_compatible = false
+requires_wna16_arg_reinterpretation = false
+explicit_typed_abi_slot = true
+reuses_current_wna16_arg_slot = false
+```
+
+Implementation:
+
+```text
+microbench/premap_kernel_consumer/premap_typed_consumer_adapter_v1.h
+microbench/premap_kernel_consumer/premap_typed_consumer_stub.hip
+scripts/run_premap_typed_consumer_stub.py
+scripts/run_premap_online_merged_native_arg_slot_canary.py
+tests/test_premap_typed_consumer_stub.py
+tests/test_run_premap_online_merged_native_arg_slot_canary.py
+```
+
+Validation:
+
+```text
+env PYTHONPATH=.:src pytest \
+  tests/test_premap_typed_consumer_stub.py \
+  tests/test_run_premap_online_merged_native_arg_slot_canary.py -q
+
+98 passed
+
+env PYTHONPATH=.:src pytest tests -q
+
+1151 passed
+
+git diff --check
+
+passed
+```
+
+128-source online-derived strict canary:
+
+```text
+python scripts/run_premap_online_merged_native_arg_slot_canary.py \
+  --runner-json outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_arg_slot_128input_hard_hashchain_preflight_128tables_inputs.json \
+  --max-inputs 128 \
+  --min-source-count 128 \
+  --min-total-rows 257 \
+  --block-threads 256 \
+  --device 1 \
+  --force-build \
+  --require-future-wna16-single-field-handoff-canary \
+  --merged-output-json outputs/reports/premap_kernel_consumer/online_merged_prelaunch_typed_consumer_input_future_wna16_single_field_handoff_128strict.json \
+  --stub-output-json outputs/reports/premap_kernel_consumer/typed_consumer_stub_gpu1_online_merged_future_wna16_single_field_handoff_128strict.json \
+  --output-json outputs/reports/premap_kernel_consumer/online_merged_future_wna16_single_field_handoff_128strict_preflight_runner.json
+```
+
+Result:
+
+```text
+passed = true
+failures = []
+selected_source_count = 128
+merged_row_count = 3418
+dispatch_active_rows = 3418
+
+future_wna16_single_field_handoff_canary_checked = true
+future_wna16_single_field_handoff_canary_name = premap_future_wna16_single_field_handoff_canary_v1
+future_wna16_single_field_handoff_canary_field_read_path =
+  future_wna16_single_field_handoff_to_future_wna16_kernel_side_execution_to_accepted_typed_slot_to_program_view_rows
+future_wna16_single_field_handoff_canary_field_name = scale_metadata_handle
+future_wna16_single_field_handoff_canary_field_kind = 3
+future_wna16_single_field_handoff_canary_field_mask = 4
+future_wna16_single_field_handoff_canary_row_count / row_ok_count = 3418 / 3418
+future_wna16_single_field_handoff_canary_error_count = 0
+future_wna16_single_field_handoff_canary_hash_accumulator = 94c3d701dd5a27b3
+```
+
+This is still a readiness/correctness gate, not a performance claim.  The
+current WNA16 fused-MoE kernel args are not modified.
+
+Extended the same canary to all four typed handle fields, one field at a time,
+using the same 128-source online-derived strict input set:
+
+```text
+descriptor_ptr
+packed_weight_descriptor
+scale_metadata_handle
+aux_metadata_handle
+```
+
+Summary artifact:
+
+```text
+outputs/reports/premap_kernel_consumer/online_merged_future_wna16_single_field_handoff_all_fields_128strict_summary.json
+```
+
+Result:
+
+```text
+passed = true
+
+descriptor_ptr:
+  row_ok_count = 3418
+  error_count = 0
+  hash_accumulator = c973e1eb866b06e8
+
+packed_weight_descriptor:
+  row_ok_count = 3418
+  error_count = 0
+  hash_accumulator = a42c4f17c82346d1
+
+scale_metadata_handle:
+  row_ok_count = 3418
+  error_count = 0
+  hash_accumulator = 94c3d701dd5a27b3
+
+aux_metadata_handle:
+  row_ok_count = 3418
+  error_count = 0
+  hash_accumulator = c069d5202855935e
+```
+
+This gives field-by-field evidence that the future WNA16-shaped typed slot can
+carry each handle through the native consumer canary while keeping live handoff,
+payload movement, and current WNA16 kernel argument mutation disabled.
+
+### Four-field single-field handoff required lab gate
+
+Promoted the four-field `future_wna16_single_field_handoff_all_fields`
+evidence from optional readiness evidence into the default lab preflight
+required gate.
+
+Implementation:
+
+```text
+scripts/run_premap_lab_preflight.py
+tests/test_run_premap_lab_preflight.py
+configs/runtime/premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_live_connected_readonly.yaml
+```
+
+The default gate now requires:
+
+```text
+future_wna16_single_field_handoff_all_fields_required = true
+future_wna16_single_field_handoff_all_fields_min_source_count = 128
+future_wna16_single_field_handoff_all_fields_128strict_summary_json =
+  outputs/reports/premap_kernel_consumer/online_merged_future_wna16_single_field_handoff_all_fields_128strict_summary.json
+```
+
+Validation:
+
+```text
+env PYTHONPATH=.:src pytest tests/test_run_premap_lab_preflight.py -q
+
+134 passed
+```
+
+No-defer lab preflight:
+
+```text
+python scripts/run_premap_lab_preflight.py \
+  --summary-only \
+  --default-readonly-gate configs/runtime/premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_live_connected_readonly.yaml \
+  --canary-gate configs/runtime/premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_live_connected_blocked_canary.yaml \
+  --output-json outputs/reports/premap_lab_preflight_status_default_with_future_wna16_single_field_all_fields.json
+```
+
+Result:
+
+```text
+passed = true
+required_evidence present/passed/required = 39 / 39 / 39
+strict_default_gate_evidence_deferred_count = 0
+runtime_gate_evidence_deferred_count = 0
+```
+
+This makes the four typed handle fields a required lab precondition before
+any future WNA16 typed-slot work.  It still does not enable payload movement,
+ready credit, current WNA16 kernel-argument mutation, or TPOT benchmarking.
+
+### WNA16-side typed consumer variant execution strict canary
+
+Ran the stricter WNA16-side execution-style typed consumer variant against the
+same 128-source online-derived merged table.  This is closer to a future WNA16
+kernel-side consumer than the generic future typed-slot skeleton, but it remains
+an independent native stub path and still does not pass current WNA16 kernel
+arguments.
+
+Command:
+
+```text
+python scripts/run_premap_online_merged_native_arg_slot_canary.py \
+  --runner-json outputs/reports/premap_kernel_consumer/online_prelaunch_native_stub_canary_arg_slot_128input_hard_hashchain_preflight_128tables_inputs.json \
+  --max-inputs 128 \
+  --min-source-count 128 \
+  --min-total-rows 257 \
+  --block-threads 256 \
+  --device 1 \
+  --force-build \
+  --require-wna16-side-consumer-variant-execution \
+  --merged-output-json outputs/reports/premap_kernel_consumer/online_merged_wna16_side_consumer_variant_execution_128strict.json \
+  --stub-output-json outputs/reports/premap_kernel_consumer/typed_consumer_stub_gpu1_online_merged_wna16_side_consumer_variant_execution_128strict.json \
+  --output-json outputs/reports/premap_kernel_consumer/online_merged_wna16_side_consumer_variant_execution_128strict_preflight_runner.json
+```
+
+Result:
+
+```text
+passed = true
+failures = []
+selected_source_count = 128
+merged_row_count = 3418
+dispatch_active_rows = 3418
+
+wna16_side_consumer_variant_execution_checked = true
+wna16_side_consumer_variant_execution_row_count / row_ok_count = 3418 / 3418
+wna16_side_consumer_variant_execution_error_count = 0
+wna16_side_consumer_variant_execution_all_handle_fields_read = true
+wna16_side_consumer_variant_execution_payload_bytes = 0
+wna16_side_consumer_variant_execution_passed_to_kernel = false
+wna16_side_consumer_variant_execution_changes_kernel_launch_args = false
+wna16_side_consumer_variant_execution_current_wna16_arg_compatible = false
+wna16_side_consumer_variant_execution_requires_wna16_arg_reinterpretation = false
+wna16_side_consumer_variant_execution_reuses_current_wna16_arg_slot = false
+```
+
+This validates the next independent native ABI/stub step toward a future WNA16
+typed-slot consumer.  It is still not benchmark evidence; the current WNA16
+fused-MoE kernel argument list remains untouched.
+
+### WNA16-side consumer variant promoted to lab preflight
+
+Promoted the 128-source WNA16-side execution-style typed consumer variant into
+the default lab preflight required evidence.
+
+Implementation:
+
+```text
+scripts/run_premap_lab_preflight.py
+tests/test_run_premap_lab_preflight.py
+configs/runtime/premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_live_connected_readonly.yaml
+```
+
+The default gate now requires:
+
+```text
+wna16_side_consumer_variant_execution_required = true
+wna16_side_consumer_variant_execution_min_source_count = 128
+wna16_side_consumer_variant_execution_128strict_runner_json =
+  outputs/reports/premap_kernel_consumer/online_merged_wna16_side_consumer_variant_execution_128strict_preflight_runner.json
+```
+
+Validation:
+
+```text
+env PYTHONPATH=.:src pytest tests/test_run_premap_lab_preflight.py -q
+
+134 passed
+```
+
+No-defer lab preflight:
+
+```text
+python scripts/run_premap_lab_preflight.py \
+  --summary-only \
+  --default-readonly-gate configs/runtime/premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_live_connected_readonly.yaml \
+  --canary-gate configs/runtime/premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_live_connected_blocked_canary.yaml \
+  --output-json outputs/reports/premap_lab_preflight_status_default_with_wna16_side_consumer_variant_execution.json
+```
+
+Result:
+
+```text
+passed = true
+required_evidence present/passed/required = 40 / 40 / 40
+strict_default_gate_evidence_deferred_count = 0
+runtime_gate_evidence_deferred_count = 0
+```
+
+This makes the WNA16-side execution-style typed consumer a required precondition
+for the next stage.  It still only validates a future typed-slot consumer
+variant through an independent native stub and does not pass current WNA16
+kernel arguments or benchmark TPOT.
