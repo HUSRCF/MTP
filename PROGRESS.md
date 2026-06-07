@@ -30945,3 +30945,81 @@ This makes the WNA16-side execution-style typed consumer a required precondition
 for the next stage.  It still only validates a future typed-slot consumer
 variant through an independent native stub and does not pass current WNA16
 kernel arguments or benchmark TPOT.
+
+### Premap live handoff TPOT benchmark
+
+Ran GPU1 Dolly32 / gen64 production-compatible TPOT benchmark for the current
+single-field WNA16 handoff path.
+
+First, fixed the benchmark default so descriptor-layer timing rows are not
+silently emitted when `emit_decoder_layer_timing=false`:
+
+```text
+emit_descriptor_layer_timing default:
+  before: true
+  after: emit_decoder_layer_timing default, otherwise false
+```
+
+The earlier `premap_single_field_replacement_live_minimal` run was not a clean
+runtime candidate: it opened the per-launch prepared-table / consumer path and
+was about 6.7x slower even after descriptor timing rows were disabled.  The
+`minimal_identity_envelope` path reduced this but remained about 3.2x slower.
+
+The lower-overhead path is the producer-side identity envelope:
+
+```text
+premap_single_field_replacement_live_producer_identity_envelope
+```
+
+It installs the minimal live envelope at the producer/prelaunch side and avoids
+the per-launch premap manager lookup / descriptor-table path.
+
+Evidence:
+
+```text
+outputs/reports/awq_telemetry_ladder/
+  gpu1_dolly32_gen64_premap_live_producer_identity_benchmark_repeat3/
+    benchmark_summary.md
+```
+
+Repeat-3 result:
+
+```text
+production_like TPOT:
+  0.062759, 0.064541, 0.063223
+  mean = 0.063508
+  median = 0.063223
+
+producer_identity_envelope TPOT:
+  0.067638, 0.065136, 0.064704
+  mean = 0.065826
+  median = 0.065136
+
+overhead:
+  mean   +3.65%
+  median +3.03%
+```
+
+Safety / telemetry:
+
+```text
+runtime_shadow bytes = 0 for all producer-identity repeats
+emit_descriptor_layer_timing = false
+package_seen = 163,840 / repeat
+producer_minimal_identity_envelope = 81,920 / repeat
+live_replaced = 163,840 / repeat
+passed_to_kernel = 163,840 / repeat
+```
+
+Interpretation:
+
+```text
+Current live handoff is correctness-safe and can participate in the WNA16 launch
+path with low single-digit overhead only when the handoff is pushed to the
+producer/native side.
+
+It is not a performance win yet.  The remaining ~3-4% overhead is the next
+target and should be attacked by moving from the identity-envelope wrapper into
+a true future WNA16 typed-slot consumer variant, rather than by reopening the
+prepared-table per-launch Python path.
+```

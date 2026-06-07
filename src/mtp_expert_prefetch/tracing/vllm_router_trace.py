@@ -17429,7 +17429,10 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
             )
         ),
         "runtime_shadow_emit_descriptor_layer_timing": bool(
-            runtime_shadow_options.get("emit_descriptor_layer_timing", True)
+            runtime_shadow_options.get(
+                "emit_descriptor_layer_timing",
+                runtime_shadow_options.get("emit_decoder_layer_timing", False),
+            )
         ),
         "runtime_shadow_emit_decoder_layer_timing": bool(
             runtime_shadow_options.get("emit_decoder_layer_timing", False)
@@ -18061,7 +18064,10 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                             shadow_emit_descriptor_layer_timing=bool(
                                 runtime_shadow_options.get(
                                     "emit_descriptor_layer_timing",
-                                    True,
+                                    runtime_shadow_options.get(
+                                        "emit_decoder_layer_timing",
+                                        False,
+                                    ),
                                 )
                             ),
                             shadow_emit_decoder_layer_timing=bool(

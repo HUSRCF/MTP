@@ -253,6 +253,7 @@ def test_premap_live_minimal_keeps_capture_without_recording_topk() -> None:
     assert mode["premap_kernel_arg_handoff_single_field_replacement_dry_run_enabled"] is True
     assert mode["premap_kernel_arg_handoff_single_field_replacement_live_enabled"] is True
     assert mode["premap_kernel_arg_handoff_single_field_replacement_field"] == "B_scale"
+    assert mode.get("emit_descriptor_layer_timing", False) is False
     assert mode["emit_decoder_layer_timing"] is False
     assert mode["emit_decoder_component_timing"] is False
     assert mode["emit_moe_substage_timing"] is False
@@ -292,6 +293,7 @@ def test_premap_live_minimal_identity_envelope_is_production_compatible() -> Non
     assert mode[
         "premap_kernel_arg_handoff_single_field_replacement_candidate_source"
     ] == "original_kernel_arg_identity"
+    assert mode.get("emit_descriptor_layer_timing", False) is False
     assert mode["emit_decoder_layer_timing"] is False
     assert mode["emit_decoder_component_timing"] is False
     assert mode["emit_moe_substage_timing"] is False
@@ -339,6 +341,7 @@ def test_premap_live_producer_identity_envelope_skips_consumer_mapping() -> None
     assert mode[
         "premap_kernel_arg_handoff_single_field_replacement_candidate_source"
     ] == "original_kernel_arg_identity"
+    assert mode.get("emit_descriptor_layer_timing", False) is False
     assert mode["emit_decoder_layer_timing"] is False
     assert mode["emit_decoder_component_timing"] is False
     assert mode["emit_moe_substage_timing"] is False
