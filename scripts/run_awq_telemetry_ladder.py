@@ -536,17 +536,25 @@ MODES: dict[str, dict[str, Any]] = {
     "premap_live_future_wna16_typed_slot_kernel_variant_counter_off": {
         # True typed-slot kernel canary: the live package still preserves the
         # original WNA16 compute args, but the launched WNA16 variant receives
-        # an independent future typed-slot ABI and reads it in-kernel.  This is
-        # not a speedup claim; it measures the real variant boundary without
-        # passing a typed table as an existing WNA16 tensor argument.
+        # an independent future typed-slot ABI and reads prepared descriptor /
+        # address table columns in-kernel.  This is not a speedup claim; it
+        # measures the real variant boundary without passing a typed table as
+        # an existing WNA16 tensor argument.
         "record_router_topk": False,
-        "capture_router_topk": False,
-        "emit_premap_summaries": False,
-        "emit_premap_address_manager_counters": False,
-        "emit_premap_consumer_mapping": False,
+        "capture_router_topk": True,
+        "emit_premap_summaries": True,
+        "emit_premap_address_manager_counters": True,
+        "premap_summary_sample_period": 1_000_000_000,
+        "emit_premap_consumer_mapping": True,
         "premap_consumer_mapping_emit_rows": False,
-        "premap_consumer_mapping_mode": "off",
-        "premap_consumer_resolve_real_handles": False,
+        "premap_consumer_mapping_mode": "noop_assertion",
+        "premap_consumer_mapping_source": "fused_moe_prepare_expert_assignment",
+        "premap_consumer_resolve_real_handles": True,
+        "premap_consumer_mapping_sample_period": 1_000_000_000,
+        "premap_address_capacity_gate_path": (
+            "configs/runtime/"
+            "premap_address_capacity_gate_dolly128_gen64_awq_w7900_gpu1.yaml"
+        ),
         "premap_consumer_require_readonly_gate": True,
         "premap_consumer_readonly_gate_path": (
             "configs/runtime/"
@@ -578,6 +586,10 @@ MODES: dict[str, dict[str, Any]] = {
         "premap_kernel_arg_handoff_single_field_replacement_candidate_source": (
             "original_kernel_arg_identity"
         ),
+        "premap_policy": "premap_only_with_consumer_mapping_noop",
+        "premap_source": "current_router_topk_premap_shadow",
+        "premap_descriptor_bytes": 4096,
+        "premap_priority": 2,
         "emit_descriptor_layer_timing": False,
         "emit_decoder_layer_timing": False,
         "emit_decoder_component_timing": False,
@@ -1222,6 +1234,18 @@ MODES["premap_single_field_replacement_live_prepared_alias_adapter"] = {
     "premap_kernel_arg_handoff_prepared_table_materialization_mode": (
         "original_kernel_arg_alias_after_prepared_handle_check"
     ),
+}
+
+
+MODES["premap_live_future_wna16_typed_slot_kernel_variant_prepared_table_strict"] = {
+    **MODES["premap_live_future_wna16_typed_slot_kernel_variant_counter_off"],
+    # Strict gate mode for real prepared-table typed-slot columns.  It keeps the
+    # same kernel path as the counter-off benchmark mode but enables live
+    # mutation counters so performance_summary can prove launch/fallback counts.
+    "premap_risky_trace_canary_scope": (
+        "benchmark_premap_live_future_wna16_typed_slot_kernel_variant_prepared_table_strict"
+    ),
+    "premap_kernel_arg_handoff_live_counter_mode": "detailed",
 }
 
 

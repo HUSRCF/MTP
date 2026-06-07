@@ -31247,3 +31247,85 @@ replace sentinel typed-slot columns with real prepared descriptor/address table
 columns, then move from ABI-read canary to one-field typed consumer semantics
 without mutating the current WNA16 B/B_scale/B_zp args.
 ```
+
+### Prepared-table typed-slot WNA16 kernel gate
+
+Replaced the sentinel typed-slot columns in the WNA16-side typed-slot variant
+with real prepared descriptor/address table columns:
+
+```text
+descriptor_ptr
+packed_weight_descriptor
+scale_metadata_handle
+aux_metadata_handle
+```
+
+The columns are materialized from the prelaunch
+`PremapKernelArgShadowTableObject` and passed as independent future typed-slot
+kernel args.  The current WNA16 compute arguments remain unchanged:
+
+```text
+B / B_scale / B_zp = original WNA16 args
+payload transfer = disabled
+ready credit = disabled
+descriptor order mutation = disabled
+typed table is not reinterpreted as an existing WNA16 arg
+```
+
+New strict mode:
+
+```text
+premap_live_future_wna16_typed_slot_kernel_variant_prepared_table_strict
+```
+
+Evidence:
+
+```text
+outputs/reports/awq_telemetry_ladder/
+  gpu1_dolly8_gen64_premap_future_typed_slot_prepared_table_kernel_variant_strict_smoke_v2/summary.md
+  gpu1_dolly128_gen64_premap_future_typed_slot_prepared_table_kernel_variant_strict_gate/summary.md
+```
+
+8-sample strict smoke:
+
+```text
+returncode = 0
+TPOT = 0.456796
+future typed-slot variant launch_count = 40960
+future typed-slot variant fallback_count = 0
+package pass-through count = 0
+payload bytes = 0
+```
+
+128-sample strict gate:
+
+```text
+returncode = 0
+TPOT = 0.482635
+generate_s = 3953.749
+future typed-slot variant launch_count = 652480
+future typed-slot variant fallback_count = 0
+package pass-through count = 0
+single-field live passed_to_kernel_count = 652480
+payload bytes = 0
+```
+
+Interpretation:
+
+```text
+The prepared descriptor/address table now feeds the independent WNA16-side
+typed-slot kernel variant as real device-side columns.  This validates the
+future kernel ABI boundary at 128 samples.
+
+This is deliberately not a performance claim.  The current path materializes
+prepared-table columns from Python and is extremely slow; it is a strict
+correctness / ABI gate only.
+```
+
+Next gate:
+
+```text
+move typed-slot column materialization into a lower-overhead producer/native
+adapter, or wire a future WNA16 kernel variant that consumes persistent typed
+columns without per-launch Python table materialization.
+```

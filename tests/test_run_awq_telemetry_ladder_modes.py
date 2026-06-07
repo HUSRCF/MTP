@@ -463,11 +463,16 @@ def test_premap_live_future_wna16_typed_slot_kernel_variant_counter_off_uses_ind
     ]
 
     assert mode["record_router_topk"] is False
-    assert mode["capture_router_topk"] is False
-    assert mode["emit_premap_summaries"] is False
-    assert mode["emit_premap_consumer_mapping"] is False
-    assert mode["premap_consumer_mapping_mode"] == "off"
+    assert mode["capture_router_topk"] is True
+    assert mode["emit_premap_summaries"] is True
+    assert mode["emit_premap_address_manager_counters"] is True
+    assert mode["emit_premap_consumer_mapping"] is True
+    assert mode["premap_consumer_mapping_emit_rows"] is False
+    assert mode["premap_consumer_mapping_mode"] == "noop_assertion"
+    assert mode["premap_consumer_mapping_source"] == "fused_moe_prepare_expert_assignment"
+    assert mode["premap_consumer_resolve_real_handles"] is True
     assert mode["premap_consumer_require_readonly_gate"] is True
+    assert mode["premap_descriptor_prep_execution_mode"] == "readonly_descriptor_address_object"
     assert mode["premap_kernel_arg_handoff_live_enabled"] is True
     assert mode["premap_kernel_arg_handoff_live_consumer_connected"] is True
     assert mode["premap_kernel_arg_handoff_kernel_arg_pass_enabled"] is True
@@ -498,15 +503,43 @@ def test_premap_live_future_wna16_typed_slot_kernel_variant_counter_off_uses_ind
     assert mode[
         "premap_kernel_arg_handoff_single_field_replacement_candidate_source"
     ] == "original_kernel_arg_identity"
+    assert mode["premap_policy"] == "premap_only_with_consumer_mapping_noop"
+    assert mode["premap_descriptor_bytes"] == 4096
     assert mode["emit_wna16_kernel_timing"] is False
 
     gate_path = root / mode["premap_consumer_readonly_gate_path"]
     gate = yaml.safe_load(gate_path.read_text())
     assert gate["gate"]["check"]["allow_single_field_replacement_live"] is True
-    assert mode["emit_outcomes"] is False
-    assert mode["outcome_logging_mode"] == "off"
 
-    gate_path = root / mode["premap_consumer_readonly_gate_path"]
+
+def test_premap_live_future_wna16_typed_slot_kernel_variant_prepared_table_strict_enables_counters() -> None:
+    module = _load_module()
+    root = Path(__file__).resolve().parents[1]
+    strict = module.MODES[
+        "premap_live_future_wna16_typed_slot_kernel_variant_prepared_table_strict"
+    ]
+    base = module.MODES[
+        "premap_live_future_wna16_typed_slot_kernel_variant_counter_off"
+    ]
+
+    for key in (
+        "emit_premap_summaries",
+        "emit_premap_address_manager_counters",
+        "emit_premap_consumer_mapping",
+        "premap_consumer_resolve_real_handles",
+        "premap_kernel_arg_handoff_future_wna16_typed_slot_kernel_variant_enabled",
+    ):
+        assert strict[key] == base[key]
+    assert strict["premap_kernel_arg_handoff_live_counter_mode"] == "detailed"
+    assert base["premap_kernel_arg_handoff_live_counter_mode"] == "off"
+    assert (
+        strict["premap_risky_trace_canary_scope"]
+        == "benchmark_premap_live_future_wna16_typed_slot_kernel_variant_prepared_table_strict"
+    )
+    assert strict["emit_outcomes"] is False
+    assert strict["outcome_logging_mode"] == "off"
+
+    gate_path = root / strict["premap_consumer_readonly_gate_path"]
     gate = yaml.safe_load(gate_path.read_text())
     assert gate["gate"]["check"]["allow_single_field_replacement_live"] is True
 

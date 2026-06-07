@@ -4071,6 +4071,9 @@ class VllmRouterRecorder:
             == "original_kernel_arg_identity"
             and str(self.shadow_premap_kernel_arg_handoff_single_field_replacement_field)
             in _WNA16_KERNEL_ARG_FIELD_NAMES
+            and not bool(
+                self.shadow_premap_kernel_arg_handoff_future_wna16_typed_slot_kernel_variant_enabled
+            )
         )
 
     def _install_premap_producer_minimal_identity_envelope(
@@ -4374,6 +4377,9 @@ class VllmRouterRecorder:
             == "original_kernel_arg_identity"
             and str(self.shadow_premap_kernel_arg_handoff_single_field_replacement_field)
             in _WNA16_KERNEL_ARG_FIELD_NAMES
+            and not bool(
+                self.shadow_premap_kernel_arg_handoff_future_wna16_typed_slot_kernel_variant_enabled
+            )
         )
         if minimal_identity_envelope_ok:
             context = get_active_moe_assignment_context()
@@ -4581,7 +4587,11 @@ class VllmRouterRecorder:
                             package = {
                                 "layer_id": int(layer_id),
                                 "source": (
-                                    "prelaunch_consumer_shim_live_kernel_arg_package"
+                                    "prelaunch_future_wna16_typed_slot_live_kernel_arg_package"
+                                    if bool(
+                                        self.shadow_premap_kernel_arg_handoff_future_wna16_typed_slot_kernel_variant_enabled
+                                    )
+                                    else "prelaunch_consumer_shim_live_kernel_arg_package"
                                 ),
                                 "table_object_hash": str(
                                     descriptor_consumer_shim_result.kernel_arg_handoff_live_consumer_adapter_table_object_hash
@@ -4602,6 +4612,24 @@ class VllmRouterRecorder:
                                 "table_object": kernel_arg_shadow_table_object,
                                 "launch_args": None,
                                 "used": False,
+                                "minimal_identity_envelope": True,
+                                "producer_future_wna16_typed_slot_envelope": bool(
+                                    self.shadow_premap_kernel_arg_handoff_future_wna16_typed_slot_kernel_variant_enabled
+                                ),
+                                "future_wna16_typed_slot_schema": (
+                                    "premap_wna16_side_consumer_variant_execution_v1"
+                                    if bool(
+                                        self.shadow_premap_kernel_arg_handoff_future_wna16_typed_slot_kernel_variant_enabled
+                                    )
+                                    else None
+                                ),
+                                "future_wna16_typed_slot_source": (
+                                    "prepared_descriptor_address_table"
+                                    if bool(
+                                        self.shadow_premap_kernel_arg_handoff_future_wna16_typed_slot_kernel_variant_enabled
+                                    )
+                                    else None
+                                ),
                             }
                             context[
                                 "premap_kernel_arg_live_mutation_package"
@@ -10087,7 +10115,6 @@ _PREMAP_KERNEL_ARG_LIVE_MUTATION_COUNTERS: dict[str, int] = {
     "future_wna16_typed_slot_kernel_variant_fallback_count": 0,
 }
 _PREMAP_KERNEL_ARG_LIVE_MUTATION_COUNTER_MODE = "detailed"
-_PREMAP_FUTURE_WNA16_TYPED_SLOT_SENTINELS: dict[str, tuple[torch.Tensor, ...]] = {}
 _ACTIVE_DECODER_COMPONENT_CONTEXT_VAR: contextvars.ContextVar[
     dict[str, Any] | None
 ] = contextvars.ContextVar("mtp_active_decoder_component_context", default=None)
@@ -10281,24 +10308,56 @@ def _increment_premap_kernel_arg_live_mutation_counter(key: str) -> None:
     _PREMAP_KERNEL_ARG_LIVE_MUTATION_COUNTERS[key] += 1
 
 
-def _premap_future_wna16_typed_slot_sentinels(
-    device: torch.device,
-) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
-    """Return nonzero device-side ABI columns for the future typed-slot canary."""
+def _premap_signed_i64_from_u64(value: Any) -> int:
+    raw = int(value) & 0xFFFFFFFFFFFFFFFF
+    if raw >= (1 << 63):
+        return raw - (1 << 64)
+    return raw
 
-    key = str(device)
-    cached = _PREMAP_FUTURE_WNA16_TYPED_SLOT_SENTINELS.get(key)
-    if cached is not None:
-        return cached  # type: ignore[return-value]
-    base = torch.arange(1, 17, dtype=torch.int64, device=device)
-    columns = (
-        base + 0x1000,
-        base + 0x2000,
-        base + 0x3000,
-        base + 0x4000,
+
+def _premap_future_wna16_typed_slot_columns_from_package(
+    package: dict[str, Any],
+    *,
+    device: torch.device,
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor] | None:
+    table_object = package.get("table_object")
+    rows = getattr(table_object, "rows", ())
+    if table_object is None or not rows:
+        return None
+    cache_key = str(device)
+    cache = package.get("future_wna16_typed_slot_device_columns")
+    if isinstance(cache, dict):
+        cached = cache.get(cache_key)
+        if isinstance(cached, tuple) and len(cached) == 4:
+            return cached  # type: ignore[return-value]
+    else:
+        cache = {}
+        package["future_wna16_typed_slot_device_columns"] = cache
+    if not hasattr(table_object, "to_native_typed_consumer_input_dict"):
+        return None
+    native_input = table_object.to_native_typed_consumer_input_dict()
+    columns: list[torch.Tensor] = []
+    for field_name in (
+        "descriptor_ptr",
+        "packed_weight_descriptor",
+        "scale_metadata_handle",
+        "aux_metadata_handle",
+    ):
+        raw_values = native_input.get(field_name)
+        if not isinstance(raw_values, list) or not raw_values:
+            return None
+        values = [_premap_signed_i64_from_u64(value) for value in raw_values]
+        columns.append(torch.tensor(values, dtype=torch.int64, device=device))
+    result = tuple(columns)
+    if len(result) != 4:
+        return None
+    cache[cache_key] = result
+    package["future_wna16_typed_slot_row_count"] = int(result[0].numel())
+    package["future_wna16_typed_slot_source"] = "prepared_descriptor_address_table"
+    package["future_wna16_typed_slot_table_object_hash"] = str(
+        getattr(table_object, "object_hash", "")
     )
-    _PREMAP_FUTURE_WNA16_TYPED_SLOT_SENTINELS[key] = columns
-    return columns
+    return result  # type: ignore[return-value]
 
 
 def _kernel_arg_value_signature(value: Any) -> str:
@@ -14668,60 +14727,73 @@ def patch_vllm_qwen35_moe_router_trace() -> None:
                             and future_typed_slot_package
                             and identity_fast_path
                         ):
-                            from mtp_expert_prefetch.tracing.vllm_wna16_group_plan import (
-                                invoke_fused_moe_wna16_triton_kernel_future_typed_slot_identity,
-                            )
-
-                            (
-                                typed_slot_descriptor_ptr,
-                                typed_slot_packed_weight_descriptor,
-                                typed_slot_scale_metadata_handle,
-                                typed_slot_aux_metadata_handle,
-                            ) = _premap_future_wna16_typed_slot_sentinels(A.device)
-                            live_mutation_package_meta["used"] = True
-                            live_mutation_package_meta["status"] = (
-                                "future_wna16_typed_slot_kernel_variant_identity"
-                            )
-                            live_mutation_package_meta[
-                                "future_wna16_typed_slot_kernel_variant"
-                            ] = True
-                            _increment_premap_kernel_arg_live_mutation_counter(
-                                "future_wna16_typed_slot_kernel_variant_launch_count"
-                            )
-                            emit_wna16_launch_part(
-                                part="kernel_arg_live_future_wna16_typed_slot_kernel_variant",
-                                elapsed_us=(
-                                    time.perf_counter_ns() - enqueue_start_ns
+                            typed_slot_columns = (
+                                _premap_future_wna16_typed_slot_columns_from_package(
+                                    live_mutation_package_meta,
+                                    device=A.device,
                                 )
-                                / 1000.0,
                             )
-                            return invoke_fused_moe_wna16_triton_kernel_future_typed_slot_identity(
-                                fused_moe_impl=fused_moe_impl,
-                                typed_slot_descriptor_ptr=typed_slot_descriptor_ptr,
-                                typed_slot_packed_weight_descriptor=typed_slot_packed_weight_descriptor,
-                                typed_slot_scale_metadata_handle=typed_slot_scale_metadata_handle,
-                                typed_slot_aux_metadata_handle=typed_slot_aux_metadata_handle,
-                                A=A,
-                                B=B,
-                                C=C,
-                                B_scale=B_scale,
-                                B_zp=B_zp,
-                                topk_weights=topk_weights,
-                                sorted_token_ids=sorted_token_ids,
-                                expert_ids=expert_ids,
-                                num_tokens_post_padded=num_tokens_post_padded,
-                                mul_routed_weight=mul_routed_weight,
-                                top_k=top_k,
-                                config=config,
-                                compute_type=compute_type,
-                                use_int8_w8a16=use_int8_w8a16,
-                                use_int4_w4a16=use_int4_w4a16,
-                                block_shape=block_shape,
-                            )
-                        if future_typed_slot_kernel_variant_enabled:
-                            _increment_premap_kernel_arg_live_mutation_counter(
-                                "future_wna16_typed_slot_kernel_variant_fallback_count"
-                            )
+                            if typed_slot_columns is None:
+                                _increment_premap_kernel_arg_live_mutation_counter(
+                                    "future_wna16_typed_slot_kernel_variant_fallback_count"
+                                )
+                                live_mutation_package_meta[
+                                    "future_wna16_typed_slot_kernel_variant"
+                                ] = False
+                                live_mutation_package_meta[
+                                    "future_wna16_typed_slot_kernel_variant_fallback_reason"
+                                ] = "prepared_table_columns_missing"
+                            else:
+                                (
+                                    typed_slot_descriptor_ptr,
+                                    typed_slot_packed_weight_descriptor,
+                                    typed_slot_scale_metadata_handle,
+                                    typed_slot_aux_metadata_handle,
+                                ) = typed_slot_columns
+                                from mtp_expert_prefetch.tracing.vllm_wna16_group_plan import (
+                                    invoke_fused_moe_wna16_triton_kernel_future_typed_slot_identity,
+                                )
+
+                                live_mutation_package_meta["used"] = True
+                                live_mutation_package_meta["status"] = (
+                                    "future_wna16_typed_slot_kernel_variant_prepared_table"
+                                )
+                                live_mutation_package_meta[
+                                    "future_wna16_typed_slot_kernel_variant"
+                                ] = True
+                                _increment_premap_kernel_arg_live_mutation_counter(
+                                    "future_wna16_typed_slot_kernel_variant_launch_count"
+                                )
+                                emit_wna16_launch_part(
+                                    part="kernel_arg_live_future_wna16_typed_slot_kernel_variant_prepared_table",
+                                    elapsed_us=(
+                                        time.perf_counter_ns() - enqueue_start_ns
+                                    )
+                                    / 1000.0,
+                                )
+                                return invoke_fused_moe_wna16_triton_kernel_future_typed_slot_identity(
+                                    fused_moe_impl=fused_moe_impl,
+                                    typed_slot_descriptor_ptr=typed_slot_descriptor_ptr,
+                                    typed_slot_packed_weight_descriptor=typed_slot_packed_weight_descriptor,
+                                    typed_slot_scale_metadata_handle=typed_slot_scale_metadata_handle,
+                                    typed_slot_aux_metadata_handle=typed_slot_aux_metadata_handle,
+                                    A=A,
+                                    B=B,
+                                    C=C,
+                                    B_scale=B_scale,
+                                    B_zp=B_zp,
+                                    topk_weights=topk_weights,
+                                    sorted_token_ids=sorted_token_ids,
+                                    expert_ids=expert_ids,
+                                    num_tokens_post_padded=num_tokens_post_padded,
+                                    mul_routed_weight=mul_routed_weight,
+                                    top_k=top_k,
+                                    config=config,
+                                    compute_type=compute_type,
+                                    use_int8_w8a16=use_int8_w8a16,
+                                    use_int4_w4a16=use_int4_w4a16,
+                                    block_shape=block_shape,
+                                )
                         live_mutation_package_meta["used"] = True
                         live_mutation_package_meta["status"] = (
                             "pass_through_original_wna16_fast_identity"

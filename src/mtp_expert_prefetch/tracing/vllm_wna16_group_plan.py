@@ -333,7 +333,6 @@ def fused_moe_kernel_gptq_awq_indirect(
                 (descriptor_handle == 0)
                 | (packed_weight_handle == 0)
                 | (scale_metadata_handle == 0)
-                | (aux_metadata_handle == 0)
             )
             if invalid_slot:
                 return
