@@ -2705,9 +2705,9 @@ class VllmRouterRecorder:
     _premap_future_wna16_typed_slot_content_cache: OrderedDict[
         tuple[str, int, str], dict[str, Any]
     ] = field(default_factory=OrderedDict, repr=False)
-    _premap_future_wna16_typed_slot_content_seen_counts: dict[
+    _premap_future_wna16_typed_slot_content_seen_counts: OrderedDict[
         tuple[str, int, str], int
-    ] = field(default_factory=dict, repr=False)
+    ] = field(default_factory=OrderedDict, repr=False)
     _descriptor_order_prior_rank_tensor_cache: dict[tuple[Any, ...], torch.Tensor] = (
         field(default_factory=dict, repr=False)
     )
@@ -10221,6 +10221,7 @@ _PREMAP_KERNEL_ARG_LIVE_MUTATION_COUNTERS: dict[str, int] = {
     "future_wna16_typed_slot_content_cache_cold_skip_count": 0,
     "future_wna16_typed_slot_content_cache_row_limit_skip_count": 0,
     "future_wna16_typed_slot_content_cache_eviction_count": 0,
+    "future_wna16_typed_slot_content_cache_seen_eviction_count": 0,
 }
 _PREMAP_KERNEL_ARG_LIVE_MUTATION_COUNTER_MODE = "detailed"
 _ACTIVE_DECODER_COMPONENT_CONTEXT_VAR: contextvars.ContextVar[
@@ -10439,6 +10440,7 @@ _PREMAP_FUTURE_WNA16_TYPED_SLOT_FIELD_NAMES = (
 )
 _PREMAP_FUTURE_WNA16_TYPED_SLOT_BUFFER_RING_SIZE = 4
 _PREMAP_FUTURE_WNA16_TYPED_SLOT_CONTENT_CACHE_MAX_ENTRIES = 4096
+_PREMAP_FUTURE_WNA16_TYPED_SLOT_CONTENT_CACHE_MAX_SEEN_ENTRIES = 16384
 _PREMAP_FUTURE_WNA16_TYPED_SLOT_CONTENT_CACHE_MAX_ROWS = 256
 _PREMAP_FUTURE_WNA16_TYPED_SLOT_CONTENT_CACHE_STORE_AFTER_SEEN = 2
 
@@ -10627,6 +10629,15 @@ def _premap_future_wna16_typed_slot_content_cache_maybe_store(
     seen_counts = recorder._premap_future_wna16_typed_slot_content_seen_counts
     seen = int(seen_counts.get(key, 0) or 0) + 1
     seen_counts[key] = seen
+    seen_counts.move_to_end(key)
+    while (
+        len(seen_counts)
+        > _PREMAP_FUTURE_WNA16_TYPED_SLOT_CONTENT_CACHE_MAX_SEEN_ENTRIES
+    ):
+        seen_counts.popitem(last=False)
+        _increment_premap_kernel_arg_live_mutation_counter(
+            "future_wna16_typed_slot_content_cache_seen_eviction_count"
+        )
     if seen < _PREMAP_FUTURE_WNA16_TYPED_SLOT_CONTENT_CACHE_STORE_AFTER_SEEN:
         _increment_premap_kernel_arg_live_mutation_counter(
             "future_wna16_typed_slot_content_cache_cold_skip_count"
@@ -10654,7 +10665,11 @@ def _premap_future_wna16_typed_slot_content_cache_maybe_store(
         len(cache)
         > _PREMAP_FUTURE_WNA16_TYPED_SLOT_CONTENT_CACHE_MAX_ENTRIES
     ):
-        cache.popitem(last=False)
+        evicted_key, _evicted_entry = cache.popitem(last=False)
+        recorder._premap_future_wna16_typed_slot_content_seen_counts.pop(
+            evicted_key,
+            None,
+        )
         _increment_premap_kernel_arg_live_mutation_counter(
             "future_wna16_typed_slot_content_cache_eviction_count"
         )

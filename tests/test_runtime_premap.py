@@ -34,6 +34,7 @@ from mtp_expert_prefetch.runtime import (
     descriptor_summary,
     prepare_premap_address_plan,
 )
+from mtp_expert_prefetch.tracing import vllm_router_trace
 from mtp_expert_prefetch.tracing.vllm_router_trace import (
     VllmRouterRecorder,
     _premap_attach_future_wna16_typed_slot_columns_to_package,
@@ -2019,6 +2020,65 @@ def test_future_wna16_typed_slot_content_cache_reuses_repeated_tables():
     assert counters["future_wna16_typed_slot_content_cache_hit_row_count"] == 2
     assert counters["future_wna16_typed_slot_fallback_dict_extract_count"] == 0
     assert counters["future_wna16_typed_slot_fallback_tensor_materialization_count"] == 0
+
+
+def test_future_wna16_typed_slot_content_seen_counts_are_bounded(monkeypatch):
+    def build_table(expert_id: int):
+        plan = prepare_premap_address_plan(
+            [
+                ExpertPrefetchDescriptor(
+                    0,
+                    1,
+                    int(expert_id),
+                    2,
+                    "transition_head",
+                    0.95,
+                ),
+            ],
+            descriptor_bytes=64,
+        )
+        manager = ControlledPremapAddressManager(capacity=4)
+        manager.prepare(plan)
+        keys = [record.address_key for record in plan.records]
+        prep_result = manager.execute_descriptor_prep_readonly(keys)
+        read_result = manager.read_descriptor_consumer_objects_readonly(
+            keys,
+            expected_object_hash_by_address_key=(
+                prep_result.consumer_object_hash_by_address_key
+            ),
+        )
+        _table_result, table_object = (
+            manager.build_kernel_arg_shadow_table_object_readonly(
+                keys,
+                read_result=read_result,
+                expected_object_hash_by_address_key=(
+                    prep_result.consumer_object_hash_by_address_key
+                ),
+            )
+        )
+        return table_object
+
+    monkeypatch.setattr(
+        vllm_router_trace,
+        "_PREMAP_FUTURE_WNA16_TYPED_SLOT_CONTENT_CACHE_MAX_SEEN_ENTRIES",
+        1,
+    )
+    _reset_premap_kernel_arg_live_mutation_counters()
+    recorder = VllmRouterRecorder(top_k=8)
+    device = torch.device("cpu")
+    for expert_id in (3, 7, 11):
+        package = {"table_object": build_table(expert_id)}
+        assert _premap_attach_future_wna16_typed_slot_columns_to_package(
+            package,
+            device=device,
+            stage="test",
+            recorder=recorder,
+        )
+
+    counters = _premap_kernel_arg_live_mutation_counters()
+    assert len(recorder._premap_future_wna16_typed_slot_content_seen_counts) == 1
+    assert counters["future_wna16_typed_slot_content_cache_seen_eviction_count"] == 2
+    assert counters["future_wna16_typed_slot_content_cache_cold_skip_count"] == 3
 
 
 def test_kernel_arg_handoff_mirror_hash_covers_slot_table_rows_and_args():
