@@ -31515,3 +31515,81 @@ improves from the previous persistent-adapter TPOT 0.43743s/token to
 per-package host-to-device staging; the next gate is a true native/C++ producer
 or a persistent table-content cache keyed by stable handle/table signatures.
 ```
+
+## 2026-06-08 - Typed-slot table-content cache for repeated prepared tables
+
+Patch:
+
+```text
+Added a recorder/model-lifetime typed-slot table-content cache keyed by
+(device, row_count, table_object_hash).
+
+The cache stores immutable device-column clones for repeated prepared
+descriptor/address tables.  It intentionally survives recorder.clear(), uses a
+bounded LRU, and only stores a table after seeing it twice so one-off tables do
+not allocate persistent cache entries.
+
+The existing persistent buffer adapter remains the cold/miss path.  Package
+caches still strip active device views, so WNA16 wrapper-side consumption only
+uses freshly attached prepared columns or immutable content-cache columns.
+```
+
+Validation:
+
+```text
+env PYTHONPATH=.:src pytest \
+  tests/test_runtime_premap.py \
+  tests/test_run_awq_telemetry_ladder_modes.py \
+  tests/test_vllm_premap_capacity_gate.py -q
+  142 passed
+
+env PYTHONPATH=.:src pytest tests -q
+  1159 passed, 2 warnings
+
+GPU1 AWQ/Dolly 8-sample gen64 strict smoke:
+outputs/reports/awq_telemetry_ladder/
+  gpu1_dolly8_gen64_premap_future_typed_slot_content_cache_strict_smoke/
+
+sample_count = 8
+generate_wall_seconds = 204.306
+TPOT = 0.399035
+
+future typed-slot variant launch_count = 40960
+future typed-slot variant fallback_count = 0
+wrapper prepared-columns hit count = 40960
+wrapper materialization blocked count = 0
+
+producer materialization count = 20480
+persistent buffer alloc count = 1
+persistent buffer reuse count = 20033
+persistent buffer update count = 20034
+native row-fill count = 20034
+native row-fill row count = 186647
+fallback dict extract count = 0
+fallback tensor materialization count = 0
+
+content cache hit count = 446
+content cache hit row count = 3568
+content cache miss count = 20034
+content cache store count = 1149
+content cache store row count = 9192
+content cache cold skip count = 18885
+content cache row-limit skip count = 0
+content cache eviction count = 0
+```
+
+Interpretation:
+
+```text
+Table-content caching is functionally correct and provides a small improvement
+over native row-fill (TPOT 0.41248 -> 0.39904 in this 8-sample strict smoke).
+
+However, the real workload only hits the content cache 446 / 20480 producer
+materializations.  Most prepared tables are unique/cold under the current hash
+granularity, so this does not remove the main overhead.
+
+The next performance step should not keep tuning the cache.  It should move row
+extraction/staging into a lower-level native/C++ producer, or change the
+producer contract so repeated typed rows are generated and retained before the
+per-package Python path.
+```

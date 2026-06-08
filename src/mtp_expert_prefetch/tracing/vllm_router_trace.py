@@ -10,6 +10,7 @@ import json
 import os
 import sys
 import contextvars
+from collections import OrderedDict
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 import time
@@ -2697,6 +2698,16 @@ class VllmRouterRecorder:
         default_factory=dict,
         repr=False,
     )
+    # Recorder/model-lifetime immutable content cache for repeated typed-slot
+    # tables.  This intentionally survives clear(): package caches are per
+    # sample, but identical prepared descriptor/address tables can recur across
+    # decode launches in the same loaded model.
+    _premap_future_wna16_typed_slot_content_cache: OrderedDict[
+        tuple[str, int, str], dict[str, Any]
+    ] = field(default_factory=OrderedDict, repr=False)
+    _premap_future_wna16_typed_slot_content_seen_counts: dict[
+        tuple[str, int, str], int
+    ] = field(default_factory=dict, repr=False)
     _descriptor_order_prior_rank_tensor_cache: dict[tuple[Any, ...], torch.Tensor] = (
         field(default_factory=dict, repr=False)
     )
@@ -10202,6 +10213,14 @@ _PREMAP_KERNEL_ARG_LIVE_MUTATION_COUNTERS: dict[str, int] = {
     "future_wna16_typed_slot_native_row_fill_count": 0,
     "future_wna16_typed_slot_native_row_fill_row_count": 0,
     "future_wna16_typed_slot_fallback_dict_extract_count": 0,
+    "future_wna16_typed_slot_content_cache_hit_count": 0,
+    "future_wna16_typed_slot_content_cache_hit_row_count": 0,
+    "future_wna16_typed_slot_content_cache_miss_count": 0,
+    "future_wna16_typed_slot_content_cache_store_count": 0,
+    "future_wna16_typed_slot_content_cache_store_row_count": 0,
+    "future_wna16_typed_slot_content_cache_cold_skip_count": 0,
+    "future_wna16_typed_slot_content_cache_row_limit_skip_count": 0,
+    "future_wna16_typed_slot_content_cache_eviction_count": 0,
 }
 _PREMAP_KERNEL_ARG_LIVE_MUTATION_COUNTER_MODE = "detailed"
 _ACTIVE_DECODER_COMPONENT_CONTEXT_VAR: contextvars.ContextVar[
@@ -10419,6 +10438,9 @@ _PREMAP_FUTURE_WNA16_TYPED_SLOT_FIELD_NAMES = (
     "aux_metadata_handle",
 )
 _PREMAP_FUTURE_WNA16_TYPED_SLOT_BUFFER_RING_SIZE = 4
+_PREMAP_FUTURE_WNA16_TYPED_SLOT_CONTENT_CACHE_MAX_ENTRIES = 4096
+_PREMAP_FUTURE_WNA16_TYPED_SLOT_CONTENT_CACHE_MAX_ROWS = 256
+_PREMAP_FUTURE_WNA16_TYPED_SLOT_CONTENT_CACHE_STORE_AFTER_SEEN = 2
 
 
 def _premap_future_wna16_typed_slot_prepared_columns_from_package(
@@ -10514,6 +10536,130 @@ def _premap_future_wna16_typed_slot_adapter_slot(
     return slots[slot_index]
 
 
+def _premap_future_wna16_typed_slot_content_cache_key(
+    *,
+    device: torch.device,
+    table_hash: str,
+    row_count: int,
+) -> tuple[str, int, str] | None:
+    normalized_hash = str(table_hash or "").strip()
+    if not normalized_hash:
+        return None
+    normalized_rows = int(row_count)
+    if normalized_rows <= 0:
+        return None
+    return (str(device), normalized_rows, normalized_hash)
+
+
+def _premap_attach_future_wna16_typed_slot_content_cache_hit_to_package(
+    package: dict[str, Any],
+    *,
+    device: torch.device,
+    stage: str,
+    table_hash: str,
+    entry: dict[str, Any],
+) -> bool:
+    columns = entry.get("columns")
+    if not isinstance(columns, tuple) or len(columns) != 4:
+        return False
+    row_count = int(entry.get("row_count", 0) or 0)
+    if row_count <= 0:
+        return False
+    package_device_columns = package.get("future_wna16_typed_slot_device_columns")
+    if not isinstance(package_device_columns, dict):
+        package_device_columns = {}
+        package["future_wna16_typed_slot_device_columns"] = package_device_columns
+    package_device_columns[str(device)] = columns
+    package["future_wna16_typed_slot_row_count"] = int(row_count)
+    package["future_wna16_typed_slot_source"] = "prepared_descriptor_address_table"
+    package["future_wna16_typed_slot_table_object_hash"] = str(table_hash)
+    package["future_wna16_typed_slot_materialization_stage"] = str(stage)
+    package["future_wna16_typed_slot_materialization_adapter"] = (
+        "persistent_content_cache"
+    )
+    package["future_wna16_typed_slot_content_cache_hit"] = True
+    package["future_wna16_typed_slot_buffer_capacity"] = int(row_count)
+    _increment_premap_kernel_arg_live_mutation_counter(
+        "future_wna16_typed_slot_content_cache_hit_count"
+    )
+    _add_premap_kernel_arg_live_mutation_counter(
+        "future_wna16_typed_slot_content_cache_hit_row_count",
+        row_count,
+    )
+    return True
+
+
+def _premap_future_wna16_typed_slot_content_cache_lookup(
+    *,
+    recorder: VllmRouterRecorder,
+    key: tuple[str, int, str] | None,
+) -> dict[str, Any] | None:
+    if key is None:
+        return None
+    cache = recorder._premap_future_wna16_typed_slot_content_cache
+    entry = cache.get(key)
+    if entry is None:
+        _increment_premap_kernel_arg_live_mutation_counter(
+            "future_wna16_typed_slot_content_cache_miss_count"
+        )
+        return None
+    cache.move_to_end(key)
+    return entry
+
+
+def _premap_future_wna16_typed_slot_content_cache_maybe_store(
+    *,
+    recorder: VllmRouterRecorder,
+    key: tuple[str, int, str] | None,
+    active_columns: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
+    row_count: int,
+) -> None:
+    if key is None:
+        return
+    normalized_rows = int(row_count)
+    if normalized_rows <= 0:
+        return
+    if normalized_rows > _PREMAP_FUTURE_WNA16_TYPED_SLOT_CONTENT_CACHE_MAX_ROWS:
+        _increment_premap_kernel_arg_live_mutation_counter(
+            "future_wna16_typed_slot_content_cache_row_limit_skip_count"
+        )
+        return
+    seen_counts = recorder._premap_future_wna16_typed_slot_content_seen_counts
+    seen = int(seen_counts.get(key, 0) or 0) + 1
+    seen_counts[key] = seen
+    if seen < _PREMAP_FUTURE_WNA16_TYPED_SLOT_CONTENT_CACHE_STORE_AFTER_SEEN:
+        _increment_premap_kernel_arg_live_mutation_counter(
+            "future_wna16_typed_slot_content_cache_cold_skip_count"
+        )
+        return
+
+    cache = recorder._premap_future_wna16_typed_slot_content_cache
+    if key in cache:
+        cache.move_to_end(key)
+        return
+    cached_columns = tuple(column.clone() for column in active_columns)
+    cache[key] = {
+        "columns": cached_columns,
+        "row_count": int(normalized_rows),
+    }
+    cache.move_to_end(key)
+    _increment_premap_kernel_arg_live_mutation_counter(
+        "future_wna16_typed_slot_content_cache_store_count"
+    )
+    _add_premap_kernel_arg_live_mutation_counter(
+        "future_wna16_typed_slot_content_cache_store_row_count",
+        normalized_rows,
+    )
+    while (
+        len(cache)
+        > _PREMAP_FUTURE_WNA16_TYPED_SLOT_CONTENT_CACHE_MAX_ENTRIES
+    ):
+        cache.popitem(last=False)
+        _increment_premap_kernel_arg_live_mutation_counter(
+            "future_wna16_typed_slot_content_cache_eviction_count"
+        )
+
+
 def _premap_attach_future_wna16_typed_slot_persistent_buffer_to_package(
     package: dict[str, Any],
     *,
@@ -10529,6 +10675,23 @@ def _premap_attach_future_wna16_typed_slot_persistent_buffer_to_package(
         row_count = len(rows) if rows is not None else 0
     if row_count <= 0:
         return False
+    content_cache_key = _premap_future_wna16_typed_slot_content_cache_key(
+        device=device,
+        table_hash=table_hash,
+        row_count=row_count,
+    )
+    cached_entry = _premap_future_wna16_typed_slot_content_cache_lookup(
+        recorder=recorder,
+        key=content_cache_key,
+    )
+    if cached_entry is not None:
+        return _premap_attach_future_wna16_typed_slot_content_cache_hit_to_package(
+            package,
+            device=device,
+            stage=stage,
+            table_hash=table_hash,
+            entry=cached_entry,
+        )
     slot = _premap_future_wna16_typed_slot_adapter_slot(
         recorder=recorder,
         device=device,
@@ -10596,6 +10759,12 @@ def _premap_attach_future_wna16_typed_slot_persistent_buffer_to_package(
     )
     _increment_premap_kernel_arg_live_mutation_counter(
         "future_wna16_typed_slot_persistent_buffer_view_count"
+    )
+    _premap_future_wna16_typed_slot_content_cache_maybe_store(
+        recorder=recorder,
+        key=content_cache_key,
+        active_columns=active_columns,
+        row_count=row_count,
     )
     return True
 

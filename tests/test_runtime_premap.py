@@ -34,6 +34,12 @@ from mtp_expert_prefetch.runtime import (
     descriptor_summary,
     prepare_premap_address_plan,
 )
+from mtp_expert_prefetch.tracing.vllm_router_trace import (
+    VllmRouterRecorder,
+    _premap_attach_future_wna16_typed_slot_columns_to_package,
+    _premap_kernel_arg_live_mutation_counters,
+    _reset_premap_kernel_arg_live_mutation_counters,
+)
 
 
 def test_build_priority_masks_are_disjoint_and_ordered():
@@ -1946,6 +1952,73 @@ def test_controlled_premap_address_manager_executes_descriptor_prep_readonly():
     assert stale_table_result.payload_bytes == 0
     assert stale_table_result.changes_kernel_launch_args is False
     assert stale_table_result.passed_to_kernel is False
+
+
+def test_future_wna16_typed_slot_content_cache_reuses_repeated_tables():
+    plan = prepare_premap_address_plan(
+        [
+            ExpertPrefetchDescriptor(0, 1, 3, 2, "transition_head", 0.95),
+            ExpertPrefetchDescriptor(0, 1, 7, 4, "mtp_token_extra_head", 0.75),
+        ],
+        descriptor_bytes=64,
+    )
+    manager = ControlledPremapAddressManager(capacity=4)
+    manager.prepare(plan)
+    keys = [record.address_key for record in plan.records]
+    prep_result = manager.execute_descriptor_prep_readonly(keys)
+    read_result = manager.read_descriptor_consumer_objects_readonly(
+        keys,
+        expected_object_hash_by_address_key=prep_result.consumer_object_hash_by_address_key,
+    )
+    _table_result, table_object = manager.build_kernel_arg_shadow_table_object_readonly(
+        keys,
+        read_result=read_result,
+        expected_object_hash_by_address_key=prep_result.consumer_object_hash_by_address_key,
+    )
+
+    _reset_premap_kernel_arg_live_mutation_counters()
+    recorder = VllmRouterRecorder(top_k=8)
+    device = torch.device("cpu")
+    packages: list[dict[str, object]] = []
+    for _ in range(3):
+        package: dict[str, object] = {"table_object": table_object}
+        assert _premap_attach_future_wna16_typed_slot_columns_to_package(
+            package,
+            device=device,
+            stage="test",
+            recorder=recorder,
+        )
+        packages.append(package)
+
+    first_columns = packages[0]["future_wna16_typed_slot_device_columns"][str(device)]
+    third_columns = packages[2]["future_wna16_typed_slot_device_columns"][str(device)]
+    assert isinstance(first_columns, tuple)
+    assert isinstance(third_columns, tuple)
+    assert packages[0]["future_wna16_typed_slot_materialization_adapter"] == (
+        "persistent_native_typed_slot_buffer"
+    )
+    assert packages[1]["future_wna16_typed_slot_materialization_adapter"] == (
+        "persistent_native_typed_slot_buffer"
+    )
+    assert packages[2]["future_wna16_typed_slot_materialization_adapter"] == (
+        "persistent_content_cache"
+    )
+    assert packages[2]["future_wna16_typed_slot_content_cache_hit"] is True
+    assert len(recorder._premap_future_wna16_typed_slot_content_cache) == 1
+    assert all(torch.equal(a, b) for a, b in zip(first_columns, third_columns, strict=True))
+
+    counters = _premap_kernel_arg_live_mutation_counters()
+    assert counters["future_wna16_typed_slot_producer_materialization_count"] == 3
+    assert counters["future_wna16_typed_slot_native_row_fill_count"] == 2
+    assert counters["future_wna16_typed_slot_native_row_fill_row_count"] == 4
+    assert counters["future_wna16_typed_slot_content_cache_miss_count"] == 2
+    assert counters["future_wna16_typed_slot_content_cache_cold_skip_count"] == 1
+    assert counters["future_wna16_typed_slot_content_cache_store_count"] == 1
+    assert counters["future_wna16_typed_slot_content_cache_store_row_count"] == 2
+    assert counters["future_wna16_typed_slot_content_cache_hit_count"] == 1
+    assert counters["future_wna16_typed_slot_content_cache_hit_row_count"] == 2
+    assert counters["future_wna16_typed_slot_fallback_dict_extract_count"] == 0
+    assert counters["future_wna16_typed_slot_fallback_tensor_materialization_count"] == 0
 
 
 def test_kernel_arg_handoff_mirror_hash_covers_slot_table_rows_and_args():
