@@ -2690,9 +2690,13 @@ class VllmRouterRecorder:
     _premap_live_mutation_package_cache: dict[tuple[Any, ...], dict[str, Any]] = (
         field(default_factory=dict, repr=False)
     )
-    _premap_future_wna16_typed_slot_column_cache: dict[
-        tuple[str, str], tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]
-    ] = field(default_factory=dict, repr=False)
+    # Recorder/model-lifetime persistent buffers for the future WNA16 typed-slot
+    # ABI.  clear() resets per-sample/package state, but these buffers are
+    # reusable storage owned by the producer/native-adapter path.
+    _premap_future_wna16_typed_slot_buffer_adapters: dict[str, dict[str, Any]] = field(
+        default_factory=dict,
+        repr=False,
+    )
     _descriptor_order_prior_rank_tensor_cache: dict[tuple[Any, ...], torch.Tensor] = (
         field(default_factory=dict, repr=False)
     )
@@ -2726,7 +2730,6 @@ class VllmRouterRecorder:
         self._last_descriptor_consumer_handle_by_layer.clear()
         self._last_premap_address_mapping_by_layer.clear()
         self._premap_live_mutation_package_cache.clear()
-        self._premap_future_wna16_typed_slot_column_cache.clear()
         self._descriptor_order_prior_rank_tensor_cache.clear()
         self._descriptor_order_direct_placeholder_cache.clear()
         self._decoder_component_aggregate.clear()
@@ -4487,6 +4490,27 @@ class VllmRouterRecorder:
                         package = dict(cached_live_package)
                         package["used"] = False
                         package["launch_args"] = None
+                        if (
+                            bool(
+                                self.shadow_premap_kernel_arg_handoff_future_wna16_typed_slot_kernel_variant_enabled
+                            )
+                            and str(
+                                self.shadow_premap_kernel_arg_handoff_prepared_table_materialization_mode
+                            )
+                            == "producer_native_adapter"
+                            and typed_slot_device is not None
+                        ):
+                            attached = (
+                                _premap_attach_future_wna16_typed_slot_columns_to_package(
+                                    package,
+                                    device=typed_slot_device,
+                                    stage="producer_prelaunch_package_cache_hit",
+                                    recorder=self,
+                                )
+                            )
+                            package[
+                                "future_wna16_typed_slot_materialization_ready"
+                            ] = bool(attached)
                         context["premap_kernel_arg_live_mutation_package"] = package
                     return
                 if not write_event:
@@ -4676,9 +4700,17 @@ class VllmRouterRecorder:
                                 "premap_kernel_arg_live_mutation_package"
                             ] = package
                             if not write_event:
+                                cached_package = dict(package)
+                                cached_package.pop(
+                                    "future_wna16_typed_slot_device_columns",
+                                    None,
+                                )
+                                cached_package[
+                                    "future_wna16_typed_slot_materialization_ready"
+                                ] = False
                                 self._premap_live_mutation_package_cache[
                                     live_package_cache_key
-                                ] = dict(package)
+                                ] = cached_package
         lookup_us = (time.perf_counter_ns() - start_ns) / 1000.0
         if write_event and sink is not None:
             sink.write_premap_consumer_mapping(
@@ -10161,6 +10193,12 @@ _PREMAP_KERNEL_ARG_LIVE_MUTATION_COUNTERS: dict[str, int] = {
     "future_wna16_typed_slot_producer_materialization_miss_count": 0,
     "future_wna16_typed_slot_wrapper_prepared_columns_hit_count": 0,
     "future_wna16_typed_slot_wrapper_materialization_blocked_count": 0,
+    "future_wna16_typed_slot_persistent_buffer_alloc_count": 0,
+    "future_wna16_typed_slot_persistent_buffer_grow_count": 0,
+    "future_wna16_typed_slot_persistent_buffer_reuse_count": 0,
+    "future_wna16_typed_slot_persistent_buffer_update_count": 0,
+    "future_wna16_typed_slot_persistent_buffer_view_count": 0,
+    "future_wna16_typed_slot_fallback_tensor_materialization_count": 0,
 }
 _PREMAP_KERNEL_ARG_LIVE_MUTATION_COUNTER_MODE = "detailed"
 _ACTIVE_DECODER_COMPONENT_CONTEXT_VAR: contextvars.ContextVar[
@@ -10369,6 +10407,7 @@ _PREMAP_FUTURE_WNA16_TYPED_SLOT_FIELD_NAMES = (
     "scale_metadata_handle",
     "aux_metadata_handle",
 )
+_PREMAP_FUTURE_WNA16_TYPED_SLOT_BUFFER_RING_SIZE = 4
 
 
 def _premap_future_wna16_typed_slot_prepared_columns_from_package(
@@ -10383,6 +10422,141 @@ def _premap_future_wna16_typed_slot_prepared_columns_from_package(
         if isinstance(cached, tuple) and len(cached) == 4:
             return cached  # type: ignore[return-value]
     return None
+
+
+def _premap_next_power_of_two(value: int) -> int:
+    return 1 << max(0, int(value) - 1).bit_length()
+
+
+def _premap_future_wna16_typed_slot_values_from_native_input(
+    native_input: dict[str, Any],
+) -> tuple[list[int], list[int], list[int], list[int]] | None:
+    values_by_field: list[list[int]] = []
+    row_count: int | None = None
+    for field_name in _PREMAP_FUTURE_WNA16_TYPED_SLOT_FIELD_NAMES:
+        raw_values = native_input.get(field_name)
+        if not isinstance(raw_values, list) or not raw_values:
+            return None
+        values = [_premap_signed_i64_from_u64(value) for value in raw_values]
+        if row_count is None:
+            row_count = len(values)
+        elif len(values) != int(row_count):
+            return None
+        values_by_field.append(values)
+    if len(values_by_field) != 4:
+        return None
+    return tuple(values_by_field)  # type: ignore[return-value]
+
+
+def _premap_future_wna16_typed_slot_adapter_slot(
+    *,
+    recorder: VllmRouterRecorder,
+    device: torch.device,
+    row_count: int,
+) -> dict[str, Any]:
+    device_key = str(device)
+    adapter = recorder._premap_future_wna16_typed_slot_buffer_adapters.get(device_key)
+    capacity = _premap_next_power_of_two(max(1, int(row_count)))
+    needs_alloc = adapter is None
+    needs_grow = (
+        isinstance(adapter, dict)
+        and int(adapter.get("capacity", 0) or 0) < int(row_count)
+    )
+    if needs_alloc or needs_grow:
+        previous_capacity = (
+            int(adapter.get("capacity", 0) or 0) if isinstance(adapter, dict) else 0
+        )
+        if previous_capacity > 0:
+            capacity = max(capacity, previous_capacity * 2)
+        slots: list[dict[str, Any]] = []
+        for _ in range(_PREMAP_FUTURE_WNA16_TYPED_SLOT_BUFFER_RING_SIZE):
+            device_columns = tuple(
+                torch.empty(capacity, dtype=torch.int64, device=device)
+                for _field_name in _PREMAP_FUTURE_WNA16_TYPED_SLOT_FIELD_NAMES
+            )
+            host_columns = tuple(
+                torch.empty(capacity, dtype=torch.int64)
+                for _field_name in _PREMAP_FUTURE_WNA16_TYPED_SLOT_FIELD_NAMES
+            )
+            slots.append({"device_columns": device_columns, "host_columns": host_columns})
+        adapter = {
+            "device": device_key,
+            "capacity": int(capacity),
+            "slots": slots,
+            "next_slot": 0,
+        }
+        recorder._premap_future_wna16_typed_slot_buffer_adapters[device_key] = adapter
+        _increment_premap_kernel_arg_live_mutation_counter(
+            (
+                "future_wna16_typed_slot_persistent_buffer_alloc_count"
+                if needs_alloc
+                else "future_wna16_typed_slot_persistent_buffer_grow_count"
+            )
+        )
+    else:
+        _increment_premap_kernel_arg_live_mutation_counter(
+            "future_wna16_typed_slot_persistent_buffer_reuse_count"
+        )
+    slots = adapter["slots"]
+    slot_index = int(adapter.get("next_slot", 0) or 0) % len(slots)
+    adapter["next_slot"] = (slot_index + 1) % len(slots)
+    return slots[slot_index]
+
+
+def _premap_attach_future_wna16_typed_slot_persistent_buffer_to_package(
+    package: dict[str, Any],
+    *,
+    device: torch.device,
+    stage: str,
+    recorder: VllmRouterRecorder,
+    native_input: dict[str, Any],
+    table_hash: str,
+) -> bool:
+    values_by_field = _premap_future_wna16_typed_slot_values_from_native_input(
+        native_input
+    )
+    if values_by_field is None:
+        return False
+    row_count = len(values_by_field[0])
+    slot = _premap_future_wna16_typed_slot_adapter_slot(
+        recorder=recorder,
+        device=device,
+        row_count=row_count,
+    )
+    device_columns = slot["device_columns"]
+    host_columns = slot["host_columns"]
+    for host_column, device_column, values in zip(
+        host_columns,
+        device_columns,
+        values_by_field,
+        strict=True,
+    ):
+        for index, value in enumerate(values):
+            host_column[index] = int(value)
+        device_column[:row_count].copy_(host_column[:row_count], non_blocking=False)
+    active_columns = tuple(column[:row_count] for column in device_columns)
+    package_device_columns = package.get("future_wna16_typed_slot_device_columns")
+    if not isinstance(package_device_columns, dict):
+        package_device_columns = {}
+        package["future_wna16_typed_slot_device_columns"] = package_device_columns
+    package_device_columns[str(device)] = active_columns
+    package["future_wna16_typed_slot_row_count"] = int(row_count)
+    package["future_wna16_typed_slot_source"] = "prepared_descriptor_address_table"
+    package["future_wna16_typed_slot_table_object_hash"] = str(table_hash)
+    package["future_wna16_typed_slot_materialization_stage"] = str(stage)
+    package["future_wna16_typed_slot_materialization_adapter"] = (
+        "persistent_native_typed_slot_buffer"
+    )
+    package["future_wna16_typed_slot_buffer_capacity"] = int(
+        slot["device_columns"][0].numel()
+    )
+    _increment_premap_kernel_arg_live_mutation_counter(
+        "future_wna16_typed_slot_persistent_buffer_update_count"
+    )
+    _increment_premap_kernel_arg_live_mutation_counter(
+        "future_wna16_typed_slot_persistent_buffer_view_count"
+    )
+    return True
 
 
 def _premap_attach_future_wna16_typed_slot_columns_to_package(
@@ -10418,36 +10592,36 @@ def _premap_attach_future_wna16_typed_slot_columns_to_package(
         return True
 
     table_hash = str(getattr(table_object, "object_hash", "") or "")
-    recorder_cache_key = (table_hash, cache_key)
-    if recorder is not None and table_hash:
-        recorder_cached = recorder._premap_future_wna16_typed_slot_column_cache.get(
-            recorder_cache_key
+    native_input = table_object.to_native_typed_consumer_input_dict()
+    if recorder is not None:
+        attached = _premap_attach_future_wna16_typed_slot_persistent_buffer_to_package(
+            package,
+            device=device,
+            stage=stage,
+            recorder=recorder,
+            native_input=native_input,
+            table_hash=table_hash,
         )
-        if isinstance(recorder_cached, tuple) and len(recorder_cached) == 4:
-            device_columns[cache_key] = recorder_cached
-            package["future_wna16_typed_slot_row_count"] = int(
-                recorder_cached[0].numel()
-            )
-            package["future_wna16_typed_slot_source"] = (
-                "prepared_descriptor_address_table"
-            )
-            package["future_wna16_typed_slot_table_object_hash"] = table_hash
-            package["future_wna16_typed_slot_materialization_stage"] = str(stage)
+        if attached:
             _increment_premap_kernel_arg_live_mutation_counter(
-                "future_wna16_typed_slot_producer_materialization_cache_hit_count"
+                "future_wna16_typed_slot_producer_materialization_count"
             )
             return True
+        _increment_premap_kernel_arg_live_mutation_counter(
+            "future_wna16_typed_slot_producer_materialization_miss_count"
+        )
+        return False
 
-    native_input = table_object.to_native_typed_consumer_input_dict()
+    values_by_field = _premap_future_wna16_typed_slot_values_from_native_input(
+        native_input
+    )
+    if values_by_field is None:
+        _increment_premap_kernel_arg_live_mutation_counter(
+            "future_wna16_typed_slot_producer_materialization_miss_count"
+        )
+        return False
     columns: list[torch.Tensor] = []
-    for field_name in _PREMAP_FUTURE_WNA16_TYPED_SLOT_FIELD_NAMES:
-        raw_values = native_input.get(field_name)
-        if not isinstance(raw_values, list) or not raw_values:
-            _increment_premap_kernel_arg_live_mutation_counter(
-                "future_wna16_typed_slot_producer_materialization_miss_count"
-            )
-            return False
-        values = [_premap_signed_i64_from_u64(value) for value in raw_values]
+    for values in values_by_field:
         columns.append(torch.tensor(values, dtype=torch.int64, device=device))
     result = tuple(columns)
     if len(result) != 4:
@@ -10456,16 +10630,16 @@ def _premap_attach_future_wna16_typed_slot_columns_to_package(
         )
         return False
     device_columns[cache_key] = result
-    if recorder is not None and table_hash:
-        recorder._premap_future_wna16_typed_slot_column_cache[recorder_cache_key] = (
-            result  # type: ignore[assignment]
-        )
     package["future_wna16_typed_slot_row_count"] = int(result[0].numel())
     package["future_wna16_typed_slot_source"] = "prepared_descriptor_address_table"
     package["future_wna16_typed_slot_table_object_hash"] = table_hash
     package["future_wna16_typed_slot_materialization_stage"] = str(stage)
+    package["future_wna16_typed_slot_materialization_adapter"] = "fallback_torch_tensor"
     _increment_premap_kernel_arg_live_mutation_counter(
         "future_wna16_typed_slot_producer_materialization_count"
+    )
+    _increment_premap_kernel_arg_live_mutation_counter(
+        "future_wna16_typed_slot_fallback_tensor_materialization_count"
     )
     return True
 

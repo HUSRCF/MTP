@@ -31393,3 +31393,65 @@ Python-side producer materialization at high frequency.  The next performance
 gate is a persistent/native adapter that produces reusable typed-slot buffers
 without per-launch Python tensor construction.
 ```
+
+## 2026-06-08 - Persistent typed-slot buffer adapter
+
+Patch:
+
+```text
+Added a recorder/model-lifetime persistent buffer adapter for the future WNA16
+typed-slot ABI.
+
+Instead of constructing four fresh device tensors for each prepared table, the
+producer/native-adapter path now keeps a small ring of reusable typed-slot
+buffers per device:
+  descriptor_ptr
+  packed_weight_descriptor
+  scale_metadata_handle
+  aux_metadata_handle
+
+Each package receives active row views into the persistent buffers.  The live
+package cache explicitly strips these active views so stale ring-buffer views
+cannot be reused after the slot is updated.
+```
+
+Validation:
+
+```text
+env PYTHONPATH=.:src pytest tests -q
+  1158 passed, 2 warnings
+
+GPU1 AWQ/Dolly 8-sample gen64 strict smoke:
+outputs/reports/awq_telemetry_ladder/
+  gpu1_dolly8_gen64_premap_future_typed_slot_persistent_adapter_strict_smoke/
+
+returncode = 0
+sample_count = 8
+generate_s = 223.964
+TPOT = 0.437430
+
+future typed-slot variant launch_count = 40960
+future typed-slot variant fallback_count = 0
+package pass-through count = 0
+wrapper prepared-columns hit count = 40960
+wrapper materialization blocked count = 0
+
+persistent buffer alloc count = 1
+persistent buffer grow count = 0
+persistent buffer reuse count = 20479
+persistent buffer update count = 20480
+fallback tensor materialization count = 0
+```
+
+Interpretation:
+
+```text
+The path no longer allocates new typed-slot device tensors per prepared table.
+The producer/native adapter now reuses persistent device storage and exposes
+active row views to the future WNA16 typed-slot variant.
+
+This is still not a TPOT win.  The remaining overhead comes from high-frequency
+Python-side table extraction, host staging, and per-package device copy.  The
+next step is to move row extraction/staging into a lower-level native producer
+or make the typed-slot table persistent across repeated layer/package patterns.
+```
