@@ -4,6 +4,7 @@ import hashlib
 import json
 from collections import OrderedDict
 from dataclasses import asdict, dataclass, field
+from functools import cached_property
 
 from mtp_expert_prefetch.runtime.premap import PremapAddressRecord, PremapPreparedPlan
 
@@ -516,6 +517,40 @@ class PremapKernelArgShadowTableObject:
             "passed_to_kernel": bool(self.passed_to_kernel),
         }
 
+    @cached_property
+    def native_typed_consumer_columns_u64(
+        self,
+    ) -> tuple[tuple[int, ...], tuple[int, ...], tuple[int, ...], tuple[int, ...]]:
+        """Packed native handle identities for a future typed kernel consumer.
+
+        The table object is immutable for the current dry-run contract, so the
+        string-handle to deterministic-u64 conversion can be cached once per
+        table.  This is the lowest-level producer representation before a real
+        C++/HIP consumer; it still does not dereference payload or mutate launch
+        args.
+        """
+
+        return (
+            tuple(_handle_to_native_u64(row.descriptor_ptr) for row in self.rows),
+            tuple(
+                _handle_to_native_u64(row.packed_weight_descriptor)
+                for row in self.rows
+            ),
+            tuple(_handle_to_native_u64(row.scale_metadata_handle) for row in self.rows),
+            tuple(_handle_to_native_u64(row.aux_metadata_handle) for row in self.rows),
+        )
+
+    @cached_property
+    def native_typed_consumer_columns_i64(
+        self,
+    ) -> tuple[tuple[int, ...], tuple[int, ...], tuple[int, ...], tuple[int, ...]]:
+        """Signed int64 view of the packed native columns for torch staging."""
+
+        return tuple(  # type: ignore[return-value]
+            tuple(_u64_to_signed_i64(value) for value in column)
+            for column in self.native_typed_consumer_columns_u64
+        )
+
     def to_native_typed_consumer_input_dict(self) -> dict[str, object]:
         """Export the table in the JSON shape accepted by the native stub.
 
@@ -525,20 +560,12 @@ class PremapKernelArgShadowTableObject:
         WNA16 launch-argument object.
         """
 
+        native_columns = self.native_typed_consumer_columns_u64
         return {
-            "descriptor_ptr": [
-                _handle_to_native_u64(row.descriptor_ptr) for row in self.rows
-            ],
-            "packed_weight_descriptor": [
-                _handle_to_native_u64(row.packed_weight_descriptor)
-                for row in self.rows
-            ],
-            "scale_metadata_handle": [
-                _handle_to_native_u64(row.scale_metadata_handle) for row in self.rows
-            ],
-            "aux_metadata_handle": [
-                _handle_to_native_u64(row.aux_metadata_handle) for row in self.rows
-            ],
+            "descriptor_ptr": list(native_columns[0]),
+            "packed_weight_descriptor": list(native_columns[1]),
+            "scale_metadata_handle": list(native_columns[2]),
+            "aux_metadata_handle": list(native_columns[3]),
             "expert_id": [
                 _expert_id_from_address_key(row.address_key) for row in self.rows
             ],
@@ -587,21 +614,23 @@ class PremapKernelArgShadowTableObject:
         descriptor_ptr, packed_weight_descriptor, scale_metadata_handle, aux_metadata_handle = (
             columns
         )
-        convert = (
-            (lambda value: _u64_to_signed_i64(_handle_to_native_u64(value)))
+        source_columns = (
+            self.native_typed_consumer_columns_i64
             if bool(signed_i64)
-            else _handle_to_native_u64
+            else self.native_typed_consumer_columns_u64
         )
-        for row_index, row in enumerate(self.rows):
-            dst = base + int(row_index)
-            descriptor_ptr[dst] = convert(row.descriptor_ptr)  # type: ignore[index]
-            packed_weight_descriptor[dst] = convert(  # type: ignore[index]
-                row.packed_weight_descriptor
-            )
-            scale_metadata_handle[dst] = convert(  # type: ignore[index]
-                row.scale_metadata_handle
-            )
-            aux_metadata_handle[dst] = convert(row.aux_metadata_handle)  # type: ignore[index]
+        for output_column, source_values in zip(
+            (
+                descriptor_ptr,
+                packed_weight_descriptor,
+                scale_metadata_handle,
+                aux_metadata_handle,
+            ),
+            source_columns,
+            strict=True,
+        ):
+            for row_index, value in enumerate(source_values):
+                output_column[base + int(row_index)] = int(value)  # type: ignore[index]
         return int(self.row_count)
 
 

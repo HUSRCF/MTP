@@ -31593,3 +31593,77 @@ extraction/staging into a lower-level native/C++ producer, or change the
 producer contract so repeated typed rows are generated and retained before the
 per-package Python path.
 ```
+
+## 2026-06-08 - Packed native columns cached on table objects
+
+Patch:
+
+```text
+Added PremapKernelArgShadowTableObject.native_typed_consumer_columns_u64/i64.
+
+The table object now caches deterministic native handle identities once per
+immutable prepared descriptor/address table.  to_native_typed_consumer_input_dict()
+and copy_native_typed_consumer_columns_to() reuse these packed columns instead
+of re-hashing descriptor_ptr / packed_weight_descriptor / scale_metadata_handle /
+aux_metadata_handle strings on every export/copy.
+
+This is still a Python/table-object producer path, not a C++/HIP producer.  It
+does, however, define the packed integer column representation that a future
+native producer should own directly.
+```
+
+Validation:
+
+```text
+env PYTHONPATH=.:src pytest \
+  tests/test_runtime_premap.py \
+  tests/test_run_awq_telemetry_ladder_modes.py \
+  tests/test_vllm_premap_capacity_gate.py -q
+  142 passed
+
+env PYTHONPATH=.:src pytest tests -q
+  1159 passed, 2 warnings
+
+GPU1 AWQ/Dolly 8-sample gen64 strict smoke:
+outputs/reports/awq_telemetry_ladder/
+  gpu1_dolly8_gen64_premap_future_typed_slot_packed_columns_cache_strict_smoke/
+
+sample_count = 8
+generate_wall_seconds = 195.579
+TPOT = 0.381990
+
+future typed-slot variant launch_count = 40960
+future typed-slot variant fallback_count = 0
+wrapper prepared-columns hit count = 40960
+wrapper materialization blocked count = 0
+
+producer materialization count = 20480
+persistent buffer update count = 20034
+native row-fill count = 20034
+native row-fill row count = 186647
+fallback dict extract count = 0
+fallback tensor materialization count = 0
+
+content cache hit count = 446
+content cache miss count = 20034
+content cache store count = 1149
+content cache cold skip count = 18885
+```
+
+Interpretation:
+
+```text
+Caching packed native columns on the immutable table object provides another
+small strict-path improvement:
+
+  persistent buffer adapter: TPOT 0.43743
+  native row-fill:           TPOT 0.41248
+  table-content cache:       TPOT 0.39904
+  packed table columns:      TPOT 0.38199
+
+The content-cache hit rate remains low, so repeated table reuse is not enough.
+The remaining major overhead is still per-package table creation/copy and
+host-to-device staging.  The next step should be a native/C++ producer or a
+producer contract that constructs packed integer columns directly, instead of
+building semantic string rows first and converting them later.
+```
