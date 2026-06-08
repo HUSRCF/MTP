@@ -392,6 +392,13 @@ def _handle_to_native_u64(value: str | int | None) -> int:
     return parsed if parsed != 0 else 1
 
 
+def _u64_to_signed_i64(value: int) -> int:
+    raw = int(value) & 0xFFFFFFFFFFFFFFFF
+    if raw >= (1 << 63):
+        return raw - (1 << 64)
+    return raw
+
+
 def _mix64(value: int) -> int:
     value = int(value) & 0xFFFFFFFFFFFFFFFF
     value ^= value >> 33
@@ -553,6 +560,49 @@ class PremapKernelArgShadowTableObject:
                 "changes_kernel_launch_args": self.changes_kernel_launch_args,
             },
         }
+
+    def copy_native_typed_consumer_columns_to(
+        self,
+        columns: tuple[object, object, object, object],
+        *,
+        offset: int = 0,
+        signed_i64: bool = False,
+    ) -> int:
+        """Copy typed handle columns directly into preallocated producer buffers.
+
+        This is the hot-path producer form of `to_native_typed_consumer_input_dict`.
+        It avoids building intermediate Python lists/dicts and lets a native or
+        persistent adapter own the destination buffers.  The handles remain
+        deterministic u64 identities; this still does not dereference payload or
+        imply compatibility with the current WNA16 launch args.
+        """
+
+        if len(columns) != len(PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_COLUMNS):
+            msg = (
+                "copy_native_typed_consumer_columns_to expected four columns; "
+                f"got {len(columns)}."
+            )
+            raise ValueError(msg)
+        base = int(offset)
+        descriptor_ptr, packed_weight_descriptor, scale_metadata_handle, aux_metadata_handle = (
+            columns
+        )
+        convert = (
+            (lambda value: _u64_to_signed_i64(_handle_to_native_u64(value)))
+            if bool(signed_i64)
+            else _handle_to_native_u64
+        )
+        for row_index, row in enumerate(self.rows):
+            dst = base + int(row_index)
+            descriptor_ptr[dst] = convert(row.descriptor_ptr)  # type: ignore[index]
+            packed_weight_descriptor[dst] = convert(  # type: ignore[index]
+                row.packed_weight_descriptor
+            )
+            scale_metadata_handle[dst] = convert(  # type: ignore[index]
+                row.scale_metadata_handle
+            )
+            aux_metadata_handle[dst] = convert(row.aux_metadata_handle)  # type: ignore[index]
+        return int(self.row_count)
 
 
 @dataclass(frozen=True)

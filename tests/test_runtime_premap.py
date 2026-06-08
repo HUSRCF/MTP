@@ -540,6 +540,22 @@ def test_controlled_premap_address_manager_executes_descriptor_prep_readonly():
     assert all(isinstance(value, int) for value in native_input["descriptor_ptr"])
     assert all(value != 0 for value in native_input["descriptor_ptr"])
     assert native_input["aux_metadata_handle"] == [0, 0]
+    direct_columns = [[0, 0], [0, 0], [0, 0], [-1, -1]]
+    copied = table_object.copy_native_typed_consumer_columns_to(
+        tuple(direct_columns)
+    )
+    assert copied == 2
+    assert direct_columns[0] == native_input["descriptor_ptr"]
+    assert direct_columns[1] == native_input["packed_weight_descriptor"]
+    assert direct_columns[2] == native_input["scale_metadata_handle"]
+    assert direct_columns[3] == native_input["aux_metadata_handle"]
+    signed_columns = [[0, 0], [0, 0], [0, 0], [0, 0]]
+    signed_copied = table_object.copy_native_typed_consumer_columns_to(
+        tuple(signed_columns),
+        signed_i64=True,
+    )
+    assert signed_copied == 2
+    assert all(-(1 << 63) <= value < (1 << 63) for column in signed_columns for value in column)
     prep_dry_run_result = manager.execute_descriptor_address_prep_dry_run_readonly(
         table_object,
         read_result=read_result,
@@ -2236,6 +2252,12 @@ def test_kernel_arg_shadow_table_native_input_exports_optional_aux_when_present(
     assert native_input["aux_metadata_handle"][0] != native_input["aux_metadata_handle"][1]
     assert native_input["_meta"]["payload_bytes"] == 0
     assert native_input["_meta"]["passed_to_kernel"] is False
+    direct_columns = [[0, 0], [0, 0], [0, 0], [0, 0]]
+    copied = table_object.copy_native_typed_consumer_columns_to(
+        tuple(direct_columns)
+    )
+    assert copied == 2
+    assert direct_columns[3] == native_input["aux_metadata_handle"]
     assert result.execution_ok is True
 
 

@@ -10199,6 +10199,9 @@ _PREMAP_KERNEL_ARG_LIVE_MUTATION_COUNTERS: dict[str, int] = {
     "future_wna16_typed_slot_persistent_buffer_update_count": 0,
     "future_wna16_typed_slot_persistent_buffer_view_count": 0,
     "future_wna16_typed_slot_fallback_tensor_materialization_count": 0,
+    "future_wna16_typed_slot_native_row_fill_count": 0,
+    "future_wna16_typed_slot_native_row_fill_row_count": 0,
+    "future_wna16_typed_slot_fallback_dict_extract_count": 0,
 }
 _PREMAP_KERNEL_ARG_LIVE_MUTATION_COUNTER_MODE = "detailed"
 _ACTIVE_DECODER_COMPONENT_CONTEXT_VAR: contextvars.ContextVar[
@@ -10394,6 +10397,14 @@ def _increment_premap_kernel_arg_live_mutation_counter(key: str) -> None:
     _PREMAP_KERNEL_ARG_LIVE_MUTATION_COUNTERS[key] += 1
 
 
+def _add_premap_kernel_arg_live_mutation_counter(key: str, amount: int) -> None:
+    if _PREMAP_KERNEL_ARG_LIVE_MUTATION_COUNTER_MODE == "off":
+        return
+    if key not in _PREMAP_KERNEL_ARG_LIVE_MUTATION_COUNTERS:
+        _PREMAP_KERNEL_ARG_LIVE_MUTATION_COUNTERS[key] = 0
+    _PREMAP_KERNEL_ARG_LIVE_MUTATION_COUNTERS[key] += int(amount)
+
+
 def _premap_signed_i64_from_u64(value: Any) -> int:
     raw = int(value) & 0xFFFFFFFFFFFFFFFF
     if raw >= (1 << 63):
@@ -10509,15 +10520,15 @@ def _premap_attach_future_wna16_typed_slot_persistent_buffer_to_package(
     device: torch.device,
     stage: str,
     recorder: VllmRouterRecorder,
-    native_input: dict[str, Any],
+    table_object: Any,
     table_hash: str,
 ) -> bool:
-    values_by_field = _premap_future_wna16_typed_slot_values_from_native_input(
-        native_input
-    )
-    if values_by_field is None:
+    row_count = int(getattr(table_object, "row_count", 0) or 0)
+    if row_count <= 0:
+        rows = getattr(table_object, "rows", ())
+        row_count = len(rows) if rows is not None else 0
+    if row_count <= 0:
         return False
-    row_count = len(values_by_field[0])
     slot = _premap_future_wna16_typed_slot_adapter_slot(
         recorder=recorder,
         device=device,
@@ -10525,14 +10536,44 @@ def _premap_attach_future_wna16_typed_slot_persistent_buffer_to_package(
     )
     device_columns = slot["device_columns"]
     host_columns = slot["host_columns"]
-    for host_column, device_column, values in zip(
-        host_columns,
+    if hasattr(table_object, "copy_native_typed_consumer_columns_to"):
+        copied = int(
+            table_object.copy_native_typed_consumer_columns_to(
+                host_columns,
+                signed_i64=True,
+            )
+        )
+        if copied != row_count:
+            return False
+        _increment_premap_kernel_arg_live_mutation_counter(
+            "future_wna16_typed_slot_native_row_fill_count"
+        )
+        _add_premap_kernel_arg_live_mutation_counter(
+            "future_wna16_typed_slot_native_row_fill_row_count",
+            row_count,
+        )
+    else:
+        if not hasattr(table_object, "to_native_typed_consumer_input_dict"):
+            return False
+        _increment_premap_kernel_arg_live_mutation_counter(
+            "future_wna16_typed_slot_fallback_dict_extract_count"
+        )
+        native_input = table_object.to_native_typed_consumer_input_dict()
+        values_by_field = _premap_future_wna16_typed_slot_values_from_native_input(
+            native_input
+        )
+        if values_by_field is None:
+            return False
+        if len(values_by_field[0]) != row_count:
+            return False
+        for host_column, values in zip(host_columns, values_by_field, strict=True):
+            for index, value in enumerate(values):
+                host_column[index] = int(value)
+    for device_column, host_column in zip(
         device_columns,
-        values_by_field,
+        host_columns,
         strict=True,
     ):
-        for index, value in enumerate(values):
-            host_column[index] = int(value)
         device_column[:row_count].copy_(host_column[:row_count], non_blocking=False)
     active_columns = tuple(column[:row_count] for column in device_columns)
     package_device_columns = package.get("future_wna16_typed_slot_device_columns")
@@ -10592,14 +10633,13 @@ def _premap_attach_future_wna16_typed_slot_columns_to_package(
         return True
 
     table_hash = str(getattr(table_object, "object_hash", "") or "")
-    native_input = table_object.to_native_typed_consumer_input_dict()
     if recorder is not None:
         attached = _premap_attach_future_wna16_typed_slot_persistent_buffer_to_package(
             package,
             device=device,
             stage=stage,
             recorder=recorder,
-            native_input=native_input,
+            table_object=table_object,
             table_hash=table_hash,
         )
         if attached:
@@ -10612,6 +10652,7 @@ def _premap_attach_future_wna16_typed_slot_columns_to_package(
         )
         return False
 
+    native_input = table_object.to_native_typed_consumer_input_dict()
     values_by_field = _premap_future_wna16_typed_slot_values_from_native_input(
         native_input
     )

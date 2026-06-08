@@ -31455,3 +31455,63 @@ Python-side table extraction, host staging, and per-package device copy.  The
 next step is to move row extraction/staging into a lower-level native producer
 or make the typed-slot table persistent across repeated layer/package patterns.
 ```
+
+## 2026-06-08 - Native row-fill producer path for typed-slot staging
+
+Patch:
+
+```text
+Added PremapKernelArgShadowTableObject.copy_native_typed_consumer_columns_to().
+
+The persistent typed-slot adapter now uses this direct producer API to fill
+preallocated staging columns, instead of exporting through
+to_native_typed_consumer_input_dict() and building four intermediate Python
+lists.  The API supports signed_i64 output for torch int64 staging tensors,
+preserving the prior u64 handle identity semantics while avoiding overflow.
+```
+
+Validation:
+
+```text
+env PYTHONPATH=.:src pytest \
+  tests/test_runtime_premap.py \
+  tests/test_run_awq_telemetry_ladder_modes.py \
+  tests/test_vllm_premap_capacity_gate.py -q
+  141 passed
+
+GPU1 AWQ/Dolly 8-sample gen64 strict smoke:
+outputs/reports/awq_telemetry_ladder/
+  gpu1_dolly8_gen64_premap_future_typed_slot_native_rowfill_strict_smoke/
+
+returncode = 0
+sample_count = 8
+generate_s = 211.191
+TPOT = 0.412482
+
+future typed-slot variant launch_count = 40960
+future typed-slot variant fallback_count = 0
+wrapper prepared-columns hit count = 40960
+wrapper materialization blocked count = 0
+
+persistent buffer alloc count = 1
+persistent buffer reuse count = 20479
+persistent buffer update count = 20480
+native row-fill count = 20480
+native row-fill row count = 190215
+fallback dict extract count = 0
+fallback tensor materialization count = 0
+```
+
+Interpretation:
+
+```text
+Row extraction now uses the table object's producer API rather than JSON/dict
+export.  This removes the intermediate dict/list path and keeps all typed-slot
+device tensors persistent.
+
+The strict path is still far from a production TPOT path, but the latest smoke
+improves from the previous persistent-adapter TPOT 0.43743s/token to
+0.41248s/token.  Remaining overhead is now mainly Python per-row assignment and
+per-package host-to-device staging; the next gate is a true native/C++ producer
+or a persistent table-content cache keyed by stable handle/table signatures.
+```
