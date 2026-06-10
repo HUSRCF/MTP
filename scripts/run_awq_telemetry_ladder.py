@@ -1282,6 +1282,40 @@ MODES["production_batch_premap_live_future_wna16_typed_slot_envelope_detailed"] 
     "premap_kernel_arg_handoff_live_counter_mode": "detailed",
 }
 
+MODES[
+    "production_batch_premap_live_future_wna16_typed_slot_kernel_variant_counter_off"
+] = {
+    **MODES["premap_live_future_wna16_typed_slot_kernel_variant_counter_off"],
+    # Batch-compatible prepared-table typed-slot canary.  This keeps the true
+    # no-router-recorder production batch envelope, but still enables the
+    # no-row prelaunch consumer mapping path so the future WNA16 typed-slot
+    # identity variant can receive real prepared descriptor/address columns.
+    "runtime_shadow_enabled": False,
+    "trace_overrides": {
+        **_PRODUCTION_BATCH_TRACE_OVERRIDES,
+        "allow_premap_live_config_without_router_recorder": True,
+    },
+    "record_router_topk": False,
+    "capture_router_topk": False,
+    "emit_premap_summaries": False,
+    "emit_premap_consumer_mapping": True,
+    "premap_consumer_mapping_emit_rows": False,
+    "emit_summaries": False,
+    "emit_outcomes": False,
+    "outcome_logging_mode": "off",
+}
+
+
+MODES[
+    "production_batch_premap_live_future_wna16_typed_slot_kernel_variant_detailed"
+] = {
+    **MODES[
+        "production_batch_premap_live_future_wna16_typed_slot_kernel_variant_counter_off"
+    ],
+    # Same batch-compatible prepared-table path, with live counters enabled for
+    # a semantic smoke proving prepared columns were consumed by the variant.
+    "premap_kernel_arg_handoff_live_counter_mode": "detailed",
+}
 
 MODES["premap_single_field_replacement_live_prepared_alias_adapter"] = {
     **MODES["premap_single_field_replacement_live_prepared_handle_table_canary"],
@@ -1297,6 +1331,37 @@ MODES["premap_single_field_replacement_live_prepared_alias_adapter"] = {
     "premap_kernel_arg_handoff_prepared_table_materialization_mode": (
         "original_kernel_arg_alias_after_prepared_handle_check"
     ),
+}
+
+
+MODES["production_batch_premap_live_prepared_alias_adapter_counter_off"] = {
+    **MODES["premap_single_field_replacement_live_prepared_alias_adapter"],
+    # Production-batch prepared-table lower bound.  It constructs and checks the
+    # prepared descriptor/address table from the no-row prelaunch mapping path,
+    # but aliases the original WNA16 tensor argument after the handle check
+    # instead of launching the slow independent typed-slot canary kernel.
+    "runtime_shadow_enabled": False,
+    "trace_overrides": {
+        **_PRODUCTION_BATCH_TRACE_OVERRIDES,
+        "allow_premap_live_config_without_router_recorder": True,
+    },
+    "record_router_topk": False,
+    "capture_router_topk": False,
+    "emit_premap_summaries": False,
+    "emit_premap_consumer_mapping": True,
+    "premap_consumer_mapping_emit_rows": False,
+    "emit_summaries": False,
+    "emit_outcomes": False,
+    "outcome_logging_mode": "off",
+    "premap_kernel_arg_handoff_live_counter_mode": "off",
+}
+
+
+MODES["production_batch_premap_live_prepared_alias_adapter_detailed"] = {
+    **MODES["production_batch_premap_live_prepared_alias_adapter_counter_off"],
+    # Same original-WNA16 prepared-table alias path with counters enabled for
+    # semantic smoke.
+    "premap_kernel_arg_handoff_live_counter_mode": "detailed",
 }
 
 

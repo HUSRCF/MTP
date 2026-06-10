@@ -31706,3 +31706,107 @@ host-to-device staging.  The next step should be a native/C++ producer or a
 producer contract that constructs packed integer columns directly, instead of
 building semantic string rows first and converting them later.
 ```
+
+## 2026-06-11 - Production-batch live handoff and prepared-table boundary
+
+Patch:
+
+```text
+Added production-batch/no-router-recorder live handoff modes to
+scripts/run_awq_telemetry_ladder.py.
+
+The no-recorder live config can now participate in the fused-MoE/WNA16
+prelaunch path without becoming the active router recorder.  Router top-k rows,
+runtime_shadow JSONL, descriptor_order summaries, and heavy timing remain off.
+
+Added a no-row prelaunch mapping path that can prepare descriptor/address state
+from the fused-MoE expert stream even when shadow_outcome_sink is None.  This
+allows production-batch canaries to distinguish three boundaries:
+
+1. pass-through future typed-slot envelope,
+2. prepared descriptor/address table + original WNA16 alias,
+3. prepared descriptor/address table + independent future typed-slot kernel
+   canary.
+```
+
+Validation:
+
+```text
+env PYTHONPATH=.:src pytest tests -q
+  1167 passed, 2 warnings
+
+GPU1 AWQ/Dolly 32-sample gen64, batch32, no router recorder:
+
+outputs/reports/awq_telemetry_ladder/
+  gpu1_production_batch_live_envelope_repeat3_20260611/
+
+production_batch:
+  mean generate_s = 7.283710
+  mean aggregate throughput = 281.18 tok/s
+
+production_batch_premap_live_future_wna16_typed_slot_envelope_counter_off:
+  mean generate_s = 7.230100
+  mean aggregate throughput = 283.26 tok/s
+  mean throughput delta = +0.74%
+
+outputs/reports/awq_telemetry_ladder/
+  gpu1_production_batch_prepared_typed_slot_smoke32_20260611/
+
+production_batch:
+  generate_s = 7.244
+  TPOT = 0.003537
+
+production_batch_premap_live_future_wna16_typed_slot_kernel_variant_counter_off:
+  generate_s = 165.188
+  TPOT = 0.080658
+
+production_batch_premap_live_future_wna16_typed_slot_kernel_variant_detailed:
+  generate_s = 164.019
+  TPOT = 0.080087
+  future_typed_slot_kernel_variant_launch_count = 5120
+  wrapper_prepared_columns_hit_count = 5120
+  producer_materialization_count = 2560
+  native_row_fill_row_count = 302583
+
+outputs/reports/awq_telemetry_ladder/
+  gpu1_production_batch_prepared_alias_smoke32_20260611/
+
+production_batch:
+  generate_s = 7.266
+  TPOT = 0.003548
+
+production_batch_premap_live_prepared_alias_adapter_counter_off:
+  generate_s = 158.451
+  TPOT = 0.077368
+
+production_batch_premap_live_prepared_alias_adapter_detailed:
+  generate_s = 159.730
+  TPOT = 0.077993
+  package_pass_through_count = 5120
+  prepared_table_hit_count = 5120
+  single_field_live_passed_to_kernel_count = 5120
+```
+
+Interpretation:
+
+```text
+The true no-recorder production-batch path is now the only valid TPOT baseline.
+The pass-through future typed-slot envelope can participate in that path and
+shows a small repeat-3 positive signal.
+
+However, any path that builds/consumes the prepared descriptor/address table per
+launch is currently not production-compatible.  Even when the current optimized
+WNA16 kernel receives the original tensor args (prepared-alias adapter), the
+prepared-table path is about 22x slower than production_batch.
+
+Therefore the slowdown is not primarily the independent typed-slot Triton
+canary kernel.  The dominant problem is the Python/D2H prelaunch mapping path:
+expert_ids / num_tokens_post_padded extraction, address-manager lookup,
+real-handle resolution, semantic row construction, and typed-column staging.
+
+Next gate:
+do not benchmark prepared-table paths as runtime candidates until row
+extraction and typed-slot staging move into a producer/native path or are
+cached before per-launch WNA16 invocation.  The only currently production-like
+live evidence is the pass-through envelope.
+```

@@ -2255,6 +2255,60 @@ def test_vllm_router_recorder_premap_summary_can_be_sampled_without_skipping_man
     assert recorder._last_premap_address_mapping_by_layer[3]["prepare_record_count"] == 8
 
 
+def test_vllm_router_recorder_no_sink_prelaunch_premap_reprepares_after_eviction():
+    recorder = VllmRouterRecorder(
+        top_k=2,
+        shadow_outcome_sink=None,
+        shadow_outcome_logging_mode="off",
+        shadow_emit_premap_address_manager_counters=True,
+        shadow_emit_premap_consumer_mapping=True,
+        shadow_premap_consumer_mapping_emit_rows=False,
+        shadow_premap_address_manager_capacity=2,
+        shadow_premap_descriptor_bytes=64,
+        shadow_num_experts=8,
+        request_id="req",
+        sequence_id=5,
+    )
+
+    layer3_keys = recorder._premap_address_keys_for_experts(
+        layer_id=3,
+        expert_ids=[1, 2],
+    )
+    layer4_keys = recorder._premap_address_keys_for_experts(
+        layer_id=4,
+        expert_ids=[3, 4],
+    )
+
+    recorder._write_premap_consumer_mapping_from_experts(
+        layer_id=3,
+        active_experts=[1, 2],
+        prelaunch_boundary_source="fused_moe_prepare_expert_assignment",
+    )
+    manager = recorder._shadow_premap_address_manager
+    assert manager is not None
+    assert manager.prepared_plan_count == 1
+    assert all(manager.contains_address_key(key) for key in layer3_keys)
+
+    recorder._write_premap_consumer_mapping_from_experts(
+        layer_id=4,
+        active_experts=[3, 4],
+        prelaunch_boundary_source="fused_moe_prepare_expert_assignment",
+    )
+    assert manager.prepared_plan_count == 2
+    assert all(manager.contains_address_key(key) for key in layer4_keys)
+    assert not any(manager.contains_address_key(key) for key in layer3_keys)
+
+    recorder._write_premap_consumer_mapping_from_experts(
+        layer_id=3,
+        active_experts=[1, 2],
+        prelaunch_boundary_source="fused_moe_prepare_expert_assignment",
+    )
+    assert manager.prepared_plan_count == 3
+    assert all(manager.contains_address_key(key) for key in layer3_keys)
+    assert recorder._last_premap_address_mapping_by_layer[3]["prepare_plan_count"] == 3
+    assert recorder._last_premap_address_mapping_by_layer[3]["address_key_count"] == 2
+
+
 def test_vllm_router_recorder_premap_summary_can_emit_address_manager_counters():
     sink = _Sink()
     recorder = VllmRouterRecorder(

@@ -3601,6 +3601,99 @@ class VllmRouterRecorder:
         )
         return plan, self._shadow_premap_address_manager.prepare(plan)
 
+    def _ensure_prelaunch_premap_address_mapping_for_experts(
+        self,
+        *,
+        layer_id: int,
+        expert_ids: Iterable[int],
+        source: str,
+    ) -> None:
+        """Prepare address-manager state from the prelaunch expert stream.
+
+        The regular premap path prepares address records from router-topk
+        summary rows, which requires a shadow sink.  Production-batch live
+        handoff intentionally runs without a router recorder or JSONL sink, but
+        the future typed-slot kernel variant still needs a real prepared
+        descriptor/address table.  This path prepares the same address keys
+        directly from the fused-MoE prelaunch expert stream and updates the
+        parity cache used by the readonly consumer.
+        """
+
+        if not self.shadow_emit_premap_address_manager_counters:
+            return
+        valid_experts = sorted(
+            {
+                int(expert_id)
+                for expert_id in expert_ids
+                if 0 <= int(expert_id) < int(self.shadow_num_experts)
+            }
+        )
+        if not valid_experts:
+            return
+        address_keys = self._premap_address_keys_for_experts(
+            layer_id=int(layer_id),
+            expert_ids=valid_experts,
+        )
+        if not address_keys:
+            return
+        address_key_hash = self._hash_premap_address_keys(address_keys)
+        existing = self._last_premap_address_mapping_by_layer.get(int(layer_id), {})
+        if (
+            existing.get("address_key_hash") == address_key_hash
+            and self._shadow_premap_address_manager is not None
+            and all(
+                self._shadow_premap_address_manager.contains_address_key(key)
+                for key in address_keys
+            )
+        ):
+            return
+        descriptors = [
+            ExpertPrefetchDescriptor(
+                sample_idx=int(self.sequence_id),
+                layer_idx=int(layer_id),
+                expert_id=int(expert_id),
+                priority=int(self.shadow_premap_priority),
+                source=str(source),
+                score=1.0,
+            )
+            for expert_id in valid_experts
+        ]
+        _prepared_plan, manager_snapshot = self._update_premap_address_manager(
+            descriptors
+        )
+        if self._shadow_premap_address_manager is None:
+            return
+        handles = [
+            self._shadow_premap_address_manager.resolve_address_key(key)
+            for key in address_keys
+        ]
+        handle_hash_by_address_key = {
+            str(key): str(handle.handle_hash)
+            for key, handle in zip(address_keys, handles, strict=False)
+            if handle is not None
+        }
+        handle_hash = self._hash_premap_address_handles(
+            handle.handle_hash for handle in handles if handle is not None
+        )
+        self._last_premap_address_mapping_by_layer[int(layer_id)] = {
+            "source": str(source),
+            "address_namespace": str(self.shadow_premap_address_namespace),
+            "address_key_hash": address_key_hash,
+            "descriptor_handle_hash": handle_hash,
+            "descriptor_handle_hash_by_address_key": handle_hash_by_address_key,
+            "address_key_count": len(address_keys),
+            "prepare_plan_count": (
+                int(manager_snapshot.prepared_plan_count)
+                if manager_snapshot is not None
+                else None
+            ),
+            "prepare_record_count": (
+                int(manager_snapshot.prepared_record_count)
+                if manager_snapshot is not None
+                else None
+            ),
+        }
+
     def _premap_address_keys_for_experts(
         self,
         *,
@@ -4225,6 +4318,11 @@ class VllmRouterRecorder:
         address_keys = self._premap_address_keys_for_experts(
             layer_id=int(layer_id),
             expert_ids=valid_experts,
+        )
+        self._ensure_prelaunch_premap_address_mapping_for_experts(
+            layer_id=int(layer_id),
+            expert_ids=valid_experts,
+            source=str(prelaunch_boundary_source or self.shadow_premap_source),
         )
         alignment_error: str | None = None
         try:
@@ -8148,7 +8246,9 @@ class VllmRouterRecorder:
             source=handle_source,
         )
         sink = self.shadow_outcome_sink
-        if sink is None or (not wants_descriptor_handle and not wants_premap_mapping):
+        if not wants_descriptor_handle and not wants_premap_mapping:
+            return sorted_token_ids, expert_ids, num_tokens_post_padded
+        if wants_descriptor_handle and sink is None:
             return sorted_token_ids, expert_ids, num_tokens_post_padded
         if wants_descriptor_handle and not hasattr(
             sink,
@@ -8158,7 +8258,10 @@ class VllmRouterRecorder:
         if (
             wants_premap_mapping
             and bool(self.shadow_premap_consumer_mapping_emit_rows)
-            and not hasattr(sink, "write_premap_consumer_mapping")
+            and (
+                sink is None
+                or not hasattr(sink, "write_premap_consumer_mapping")
+            )
         ):
             msg = (
                 "shadow_emit_premap_consumer_mapping=True requires a sink with "
@@ -17610,17 +17713,81 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                 "requires runtime_shadow.premap_kernel_arg_handoff_live_enabled=True."
             )
             raise ValueError(msg)
+        # This is a lightweight config/producer object, not a router recorder:
+        # it intentionally survives for the whole LLM chunk so persistent
+        # typed-slot buffers, content caches, and runtime-address bindings model
+        # the loaded model lifetime.  Per-sample router rows and runtime shadow
+        # JSONL remain disabled because active_router_recorder stays None.
         premap_live_config_without_router_recorder = VllmRouterRecorder(
             top_k=int(model_config["architecture"].get("num_experts_per_tok", 8)),
             shadow_outcome_sink=None,
             shadow_num_experts=int(model_config["architecture"].get("num_experts", 256)),
             shadow_emit_premap_summary=False,
             shadow_emit_transition_premap_summary=False,
-            shadow_emit_premap_address_manager_counters=False,
-            shadow_emit_premap_consumer_mapping=False,
-            shadow_premap_consumer_mapping_emit_rows=False,
-            shadow_premap_consumer_mapping_mode="off",
-            shadow_premap_consumer_resolve_real_handles=False,
+            shadow_premap_policy=str(
+                runtime_shadow_options.get("premap_policy", "premap_only")
+            ),
+            shadow_premap_source=str(
+                runtime_shadow_options.get(
+                    "premap_source",
+                    "current_router_topk_premap_shadow",
+                )
+            ),
+            shadow_transition_premap_source=str(
+                runtime_shadow_options.get(
+                    "transition_premap_source",
+                    "previous_token_transition_premap_shadow",
+                )
+            ),
+            shadow_premap_descriptor_bytes=int(
+                runtime_shadow_options.get("premap_descriptor_bytes", 4_096)
+            ),
+            shadow_emit_premap_address_manager_counters=bool(
+                runtime_shadow_options.get(
+                    "emit_premap_address_manager_counters",
+                    False,
+                )
+            ),
+            shadow_premap_address_manager_capacity=_optional_capacity_option(
+                runtime_shadow_options,
+                "premap_address_manager_capacity",
+            ),
+            shadow_emit_premap_consumer_mapping=bool(
+                runtime_shadow_options.get("emit_premap_consumer_mapping", False)
+            ),
+            shadow_premap_consumer_mapping_emit_rows=bool(
+                runtime_shadow_options.get(
+                    "premap_consumer_mapping_emit_rows",
+                    False,
+                )
+            ),
+            shadow_premap_consumer_mapping_mode=str(
+                runtime_shadow_options.get(
+                    "premap_consumer_mapping_mode",
+                    "noop_assertion",
+                )
+            ),
+            shadow_premap_consumer_mapping_source=str(
+                runtime_shadow_options.get(
+                    "premap_consumer_mapping_source",
+                    "fused_moe_prepare_expert_assignment",
+                )
+            ),
+            shadow_premap_consumer_resolve_real_handles=bool(
+                runtime_shadow_options.get(
+                    "premap_consumer_resolve_real_handles",
+                    False,
+                )
+            ),
+            shadow_premap_consumer_mapping_sample_period=max(
+                1,
+                int(
+                    runtime_shadow_options.get(
+                        "premap_consumer_mapping_sample_period",
+                        1,
+                    )
+                ),
+            ),
             shadow_premap_consumer_readonly_gate_required=bool(
                 runtime_shadow_options.get(
                     "premap_consumer_readonly_gate_required",
@@ -17739,6 +17906,21 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                     "premap_kernel_arg_handoff_prepared_table_materialization_mode",
                     "off",
                 )
+            ),
+            shadow_premap_single_field_handle_handoff_canary_field=str(
+                runtime_shadow_options.get(
+                    "premap_single_field_handle_handoff_canary_field",
+                    "scale_metadata_handle",
+                )
+            ),
+            shadow_premap_address_namespace=str(
+                runtime_shadow_options.get(
+                    "premap_address_namespace",
+                    "expert_weight_descriptor",
+                )
+            ),
+            shadow_premap_priority=int(
+                runtime_shadow_options.get("premap_priority", 2)
             ),
             shadow_capture_router_topk=False,
             shadow_record_router_topk=False,
