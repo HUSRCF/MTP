@@ -17707,10 +17707,14 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
     )
     premap_live_config_without_router_recorder: VllmRouterRecorder | None = None
     if allow_premap_live_config_without_router_recorder and not use_router_logits_recorder:
-        if not bool(runtime_shadow_options.get("premap_kernel_arg_handoff_live_enabled", False)):
+        if not (
+            bool(runtime_shadow_options.get("premap_kernel_arg_handoff_live_enabled", False))
+            or bool(runtime_shadow_options.get("emit_premap_consumer_mapping", False))
+        ):
             msg = (
                 "trace.allow_premap_live_config_without_router_recorder=True "
-                "requires runtime_shadow.premap_kernel_arg_handoff_live_enabled=True."
+                "requires runtime_shadow.premap_kernel_arg_handoff_live_enabled=True "
+                "or runtime_shadow.emit_premap_consumer_mapping=True."
             )
             raise ValueError(msg)
         # This is a lightweight config/producer object, not a router recorder:

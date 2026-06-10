@@ -515,6 +515,34 @@ def test_apply_premap_consumer_readonly_gate_sets_precondition_metadata(tmp_path
     }
 
 
+def test_apply_premap_consumer_readonly_gate_allows_mapping_only_without_lab_gate(
+    tmp_path,
+):
+    raw_options = {
+        "enabled": False,
+        "emit_premap_consumer_mapping": True,
+        "premap_consumer_mapping_emit_rows": False,
+        "premap_consumer_mapping_mode": "noop_assertion",
+        "premap_consumer_resolve_real_handles": False,
+        "premap_consumer_require_readonly_gate": False,
+        "premap_consumer_readonly_gate_path": None,
+        "premap_descriptor_prep_execution_mode": "off",
+        "premap_kernel_arg_handoff_live_enabled": False,
+        "premap_kernel_arg_handoff_live_consumer_connected": False,
+        "premap_kernel_arg_handoff_kernel_arg_pass_enabled": False,
+        "premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled": False,
+    }
+    options = _apply_premap_consumer_readonly_gate(
+        raw_options,
+        project_root=tmp_path,
+    )
+
+    assert options == raw_options
+    assert "premap_consumer_readonly_gate_required" not in options
+    assert "premap_consumer_readonly_gate_passed" not in options
+    assert "premap_consumer_readonly_gate_resolved_path" not in options
+
+
 def test_apply_premap_consumer_readonly_gate_rejects_missing_required_path(tmp_path):
     with pytest.raises(ValueError, match="requires premap_consumer_readonly_gate_path"):
         _apply_premap_consumer_readonly_gate(

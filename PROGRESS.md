@@ -2,7 +2,7 @@
 
 ## Progress Version
 
-- Version: `v0.76-production-batch-baseline`
+- Version: `v0.77-production-batch-mapping-attribution`
 - Updated: 2026-06-11
 - Latest production-like benchmark update: separated the true vLLM batched
   decode path from the router-recorder/shadow audit harness.  The previous
@@ -43,6 +43,24 @@
   `runtime_shadow.enabled=false`.  This is a small production-compatible
   positive signal for the live envelope/pass-through boundary, not yet a claim
   that prepared descriptor/address handles improve WNA16 latency.
+- Latest attribution update: added
+  `production_batch_premap_prelaunch_mapping_only_counter_off`, a no-recorder,
+  no-shadow-row attribution mode that enables only the fused-MoE prelaunch
+  mapping/address-manager path.  It deliberately does not use the readonly lab
+  gate because it disables real-handle resolution, descriptor prep, and live
+  kernel-arg handoff.  The bootstrap blocker from using the
+  `single_field_replacement_live_canary` gate is fixed, and the mode now runs
+  successfully on GPU1 Dolly 32-sample gen64:
+  `outputs/reports/awq_telemetry_ladder/gpu1_production_batch_mapping_only_retry3_20260611/`.
+  Same-environment baseline:
+  `production_batch` generates 2048 requested output tokens in 7.219s
+  (`TPOT=0.003525s`), while mapping-only takes 41.961s
+  (`TPOT=0.020489s`), about 5.81x slower.  This shows the slow prepared-table
+  path is not only due to typed-slot kernel execution or final table staging:
+  re-entering Python prelaunch expert extraction plus address-manager mapping
+  is already far too expensive for production.  Treat this as negative
+  attribution evidence; it is not a runtime candidate and not a lab
+  precondition.
 - Latest lab-gate update: promoted the request-launch ABI into the default
   readonly lab preflight as required evidence,
   `native_typed_consumer_stub_online_prelaunch_input_request_launch_canary_json`.

@@ -645,6 +645,49 @@ def test_production_batch_premap_live_prepared_alias_adapter_detailed_only_enabl
     assert detailed["premap_kernel_arg_handoff_live_counter_mode"] == "detailed"
 
 
+def test_production_batch_premap_prelaunch_mapping_only_is_attribution_only() -> None:
+    module = _load_module()
+    mode = module.MODES["production_batch_premap_prelaunch_mapping_only_counter_off"]
+    trace_overrides = mode["trace_overrides"]
+    vllm_overrides = trace_overrides["vllm_overrides"]
+
+    assert mode["runtime_shadow_enabled"] is False
+    assert trace_overrides["use_router_logits_recorder"] is False
+    assert trace_overrides["capture_router_topk"] is False
+    assert trace_overrides["capture_router_scores"] is False
+    assert trace_overrides["allow_missing_router_trace"] is True
+    assert (
+        trace_overrides["allow_premap_live_config_without_router_recorder"]
+        is True
+    )
+    assert vllm_overrides["use_router_logits_recorder"] is False
+    assert vllm_overrides["enable_return_routed_experts"] is False
+    assert vllm_overrides["max_num_seqs"] == 32
+    assert vllm_overrides["engine_chunk_size"] == 32
+    assert mode["record_router_topk"] is False
+    assert mode["capture_router_topk"] is False
+    assert mode["emit_premap_summaries"] is False
+    assert mode["emit_premap_address_manager_counters"] is True
+    assert mode["emit_premap_consumer_mapping"] is True
+    assert mode["premap_consumer_mapping_emit_rows"] is False
+    assert mode["premap_consumer_resolve_real_handles"] is False
+    assert mode["premap_consumer_require_readonly_gate"] is False
+    assert mode["premap_consumer_readonly_gate_path"] is None
+    assert mode["premap_descriptor_prep_execution_mode"] == "off"
+    assert mode["premap_kernel_arg_handoff_live_enabled"] is False
+    assert mode["premap_kernel_arg_handoff_live_consumer_connected"] is False
+    assert mode["premap_kernel_arg_handoff_kernel_arg_pass_enabled"] is False
+    assert mode["premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled"] is False
+    assert (
+        mode["premap_kernel_arg_handoff_producer_future_wna16_typed_slot_envelope_enabled"]
+        is False
+    )
+    assert (
+        mode["premap_kernel_arg_handoff_future_wna16_typed_slot_kernel_variant_enabled"]
+        is False
+    )
+
+
 def test_premap_live_future_wna16_typed_slot_kernel_variant_counter_off_uses_independent_variant() -> None:
     module = _load_module()
     root = Path(__file__).resolve().parents[1]

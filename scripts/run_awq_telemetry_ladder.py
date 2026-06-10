@@ -1365,6 +1365,50 @@ MODES["production_batch_premap_live_prepared_alias_adapter_detailed"] = {
 }
 
 
+MODES["production_batch_premap_prelaunch_mapping_only_counter_off"] = {
+    **MODES["production_batch"],
+    # Attribution-only lower bound for the prepared-table slowdown.  It enables
+    # the no-row fused-MoE prelaunch mapping path and address-manager prepare,
+    # but disables real-handle resolution, descriptor prep, live package
+    # construction, and all shadow rows.  This isolates CPU expert extraction
+    # plus address-manager staging from the heavier prepared-table path.
+    "runtime_shadow_enabled": False,
+    "trace_overrides": {
+        **_PRODUCTION_BATCH_TRACE_OVERRIDES,
+        "allow_premap_live_config_without_router_recorder": True,
+    },
+    "record_router_topk": False,
+    "capture_router_topk": False,
+    "emit_premap_summaries": False,
+    "emit_premap_address_manager_counters": True,
+    "emit_premap_consumer_mapping": True,
+    "premap_consumer_mapping_emit_rows": False,
+    "premap_consumer_mapping_mode": "noop_assertion",
+    "premap_consumer_resolve_real_handles": False,
+    # This mode is not a lab precondition.  The readonly gates intentionally
+    # require real handles / descriptor-prep / live-toggle evidence, while this
+    # attribution pass measures the cheaper mapping/address-manager lower bound.
+    "premap_consumer_require_readonly_gate": False,
+    "premap_consumer_readonly_gate_path": None,
+    "premap_descriptor_prep_execution_mode": "off",
+    "premap_kernel_arg_handoff_live_enabled": False,
+    "premap_kernel_arg_handoff_live_consumer_connected": False,
+    "premap_kernel_arg_handoff_kernel_arg_pass_enabled": False,
+    "premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled": False,
+    "premap_kernel_arg_handoff_minimal_identity_envelope_enabled": False,
+    "premap_kernel_arg_handoff_producer_future_wna16_typed_slot_envelope_enabled": (
+        False
+    ),
+    "premap_kernel_arg_handoff_future_wna16_typed_slot_kernel_variant_enabled": (
+        False
+    ),
+    "premap_kernel_arg_handoff_live_counter_mode": "off",
+    "emit_summaries": False,
+    "emit_outcomes": False,
+    "outcome_logging_mode": "off",
+}
+
+
 MODES["premap_live_future_wna16_typed_slot_kernel_variant_prepared_table_strict"] = {
     **MODES["premap_live_future_wna16_typed_slot_kernel_variant_counter_off"],
     # Strict gate mode for real prepared-table typed-slot columns.  It keeps the

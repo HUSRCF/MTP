@@ -83,6 +83,34 @@ production_batch_premap_live_prepared_alias_adapter_detailed:
   single_field_live_passed_to_kernel_count = 5120
 ```
 
+Prelaunch mapping/address-manager attribution only:
+
+```text
+output root:
+outputs/reports/awq_telemetry_ladder/
+  gpu1_production_batch_mapping_only_retry3_20260611/
+
+same-environment production_batch baseline:
+  output root:
+  outputs/reports/awq_telemetry_ladder/
+    gpu1_production_batch_baseline_for_mapping_only_20260611/
+  generate_s = 7.219
+  TPOT = 0.003525
+
+production_batch_premap_prelaunch_mapping_only_counter_off:
+  generate_s = 41.961
+  TPOT = 0.020489
+  runtime_shadow.enabled = false
+  router recorder = false
+  consumer mapping rows = false
+  real handles = false
+  descriptor prep = off
+  live kernel-arg handoff = false
+
+slowdown vs same-environment production_batch:
+  5.81x
+```
+
 ## Interpretation
 
 ```text
@@ -100,9 +128,12 @@ cost is before the WNA16 compute kernel:
 - semantic prepared row construction
 - typed-column staging / row fill
 
+The mapping-only attribution run shows that even before real-handle resolution
+or table staging, re-entering Python prelaunch expert extraction and
+address-manager mapping is already not production-compatible.
+
 The next implementation gate is not another WNA16 kernel variant.  The
 prepared-table construction and typed-slot staging must move into a lower-level
-producer/native adapter, or the table content must be produced and retained
-before per-launch WNA16 invocation.
+producer/native adapter that avoids per-launch Python participation, or the
+table content must be produced and retained before per-launch WNA16 invocation.
 ```
-
