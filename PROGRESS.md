@@ -27,6 +27,22 @@
   or premap experiments may use recorder/shadow runs as semantic evidence, but
   TPOT claims must be rerun on a no-recorder batched path or on an explicitly
   decoupled batch-compatible prelaunch hook.
+- Latest no-recorder live-handoff update: added a batch-compatible premap live
+  config path that installs the MoE/WNA16 prelaunch live package without making
+  it the active router recorder.  Router top-k capture, runtime shadow JSONL,
+  and routed-expert return stay disabled, while the WNA16 pass-through
+  typed-slot envelope can participate in the true `llm.generate([...])` batch
+  path.  GPU1 Dolly 32-sample gen64 repeat-3:
+  `production_batch` averages 7.284s / 281.18 tok/s, while
+  `production_batch_premap_live_future_wna16_typed_slot_envelope_counter_off`
+  averages 7.230s / 283.26 tok/s (`+0.74%` mean throughput, `+0.57%` median).
+  A separate detailed-counter no-recorder smoke confirms the package path is
+  real: `package_seen_count=5120`,
+  `package_producer_future_wna16_typed_slot_envelope_count=2560`, and
+  `single_field_replacement_live_passed_to_kernel_count=5120`, still with
+  `runtime_shadow.enabled=false`.  This is a small production-compatible
+  positive signal for the live envelope/pass-through boundary, not yet a claim
+  that prepared descriptor/address handles improve WNA16 latency.
 - Latest lab-gate update: promoted the request-launch ABI into the default
   readonly lab preflight as required evidence,
   `native_typed_consumer_stub_online_prelaunch_input_request_launch_canary_json`.

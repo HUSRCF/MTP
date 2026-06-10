@@ -1251,6 +1251,38 @@ MODES: dict[str, dict[str, Any]] = {
 }
 
 
+_PRODUCTION_BATCH_TRACE_OVERRIDES = dict(MODES["production_batch"]["trace_overrides"])
+_PRODUCTION_BATCH_TRACE_OVERRIDES["vllm_overrides"] = dict(
+    MODES["production_batch"]["trace_overrides"]["vllm_overrides"]
+)
+
+MODES["production_batch_premap_live_future_wna16_typed_slot_envelope_counter_off"] = {
+    **MODES["premap_live_future_wna16_typed_slot_envelope_counter_off"],
+    # Batch-compatible live participation probe.  It installs the MoE/WNA16
+    # prelaunch live config without making it the active router recorder, so
+    # router top-k rows and runtime shadow JSONL stay disabled while the WNA16
+    # pass-through typed-slot envelope can participate in the true batched
+    # vLLM path.
+    "runtime_shadow_enabled": False,
+    "trace_overrides": {
+        **_PRODUCTION_BATCH_TRACE_OVERRIDES,
+        "allow_premap_live_config_without_router_recorder": True,
+    },
+    "emit_summaries": False,
+    "emit_outcomes": False,
+    "outcome_logging_mode": "off",
+}
+
+
+MODES["production_batch_premap_live_future_wna16_typed_slot_envelope_detailed"] = {
+    **MODES["production_batch_premap_live_future_wna16_typed_slot_envelope_counter_off"],
+    # Same no-recorder batched live path, but with live mutation counters on so
+    # performance_summary can prove package construction/consumption.  Use this
+    # for semantic smoke, not final TPOT.
+    "premap_kernel_arg_handoff_live_counter_mode": "detailed",
+}
+
+
 MODES["premap_single_field_replacement_live_prepared_alias_adapter"] = {
     **MODES["premap_single_field_replacement_live_prepared_handle_table_canary"],
     # Prepared-handle-table compatibility probe.  The prepared table must

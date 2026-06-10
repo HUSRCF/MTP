@@ -455,6 +455,58 @@ def test_premap_live_future_wna16_typed_slot_envelope_counter_off_keeps_live_pat
     assert mode["emit_wna16_kernel_timing"] is False
 
 
+def test_production_batch_premap_live_typed_slot_envelope_stays_no_recorder() -> None:
+    module = _load_module()
+    mode = module.MODES[
+        "production_batch_premap_live_future_wna16_typed_slot_envelope_counter_off"
+    ]
+    trace_overrides = mode["trace_overrides"]
+    vllm_overrides = trace_overrides["vllm_overrides"]
+
+    assert mode["runtime_shadow_enabled"] is False
+    assert trace_overrides["use_router_logits_recorder"] is False
+    assert trace_overrides["capture_router_topk"] is False
+    assert trace_overrides["capture_router_scores"] is False
+    assert trace_overrides["allow_missing_router_trace"] is True
+    assert (
+        trace_overrides["allow_premap_live_config_without_router_recorder"]
+        is True
+    )
+    assert vllm_overrides["use_router_logits_recorder"] is False
+    assert vllm_overrides["enable_return_routed_experts"] is False
+    assert vllm_overrides["max_num_seqs"] == 32
+    assert vllm_overrides["engine_chunk_size"] == 32
+    assert vllm_overrides["enforce_eager"] is True
+    assert mode["record_router_topk"] is False
+    assert mode["capture_router_topk"] is False
+    assert mode["emit_premap_consumer_mapping"] is False
+    assert (
+        mode[
+            "premap_kernel_arg_handoff_producer_future_wna16_typed_slot_envelope_enabled"
+        ]
+        is True
+    )
+    assert mode["premap_kernel_arg_handoff_live_counter_mode"] == "off"
+
+
+def test_production_batch_premap_live_typed_slot_envelope_detailed_only_enables_counters() -> None:
+    module = _load_module()
+    detailed = module.MODES[
+        "production_batch_premap_live_future_wna16_typed_slot_envelope_detailed"
+    ]
+    counter_off = module.MODES[
+        "production_batch_premap_live_future_wna16_typed_slot_envelope_counter_off"
+    ]
+
+    assert detailed["runtime_shadow_enabled"] is False
+    assert detailed["trace_overrides"] == counter_off["trace_overrides"]
+    assert detailed["record_router_topk"] is False
+    assert detailed["capture_router_topk"] is False
+    assert detailed["emit_premap_consumer_mapping"] is False
+    assert counter_off["premap_kernel_arg_handoff_live_counter_mode"] == "off"
+    assert detailed["premap_kernel_arg_handoff_live_counter_mode"] == "detailed"
+
+
 def test_premap_live_future_wna16_typed_slot_kernel_variant_counter_off_uses_independent_variant() -> None:
     module = _load_module()
     root = Path(__file__).resolve().parents[1]

@@ -10159,6 +10159,7 @@ class VllmRouterRecorder:
 
 _ACTIVE_RECORDER: VllmRouterRecorder | None = None
 _ACTIVE_RUNTIME_SHADOW_CONTROLLER: RuntimeShadowController | None = None
+_ACTIVE_PREMAP_LIVE_CONFIG: VllmRouterRecorder | None = None
 _ACTIVE_MOE_ASSIGNMENT_CONTEXT_VAR: contextvars.ContextVar[dict[str, Any] | None] = (
     contextvars.ContextVar("mtp_active_moe_assignment_context", default=None)
 )
@@ -10389,6 +10390,15 @@ def get_active_vllm_router_recorder() -> VllmRouterRecorder | None:
 def set_active_vllm_router_recorder(recorder: VllmRouterRecorder | None) -> None:
     global _ACTIVE_RECORDER
     _ACTIVE_RECORDER = recorder
+
+
+def get_active_premap_live_config() -> VllmRouterRecorder | None:
+    return _ACTIVE_PREMAP_LIVE_CONFIG
+
+
+def set_active_premap_live_config(config: VllmRouterRecorder | None) -> None:
+    global _ACTIVE_PREMAP_LIVE_CONFIG
+    _ACTIVE_PREMAP_LIVE_CONFIG = config
 
 
 def _set_premap_kernel_arg_live_mutation_counter_mode(mode: str) -> None:
@@ -13277,7 +13287,10 @@ def patch_vllm_qwen35_moe_router_trace() -> None:
             **extra_kwargs: Any,
         ) -> tuple[torch.Tensor | None, torch.Tensor]:
             recorder = get_active_vllm_router_recorder()
-            if recorder is None and not extra_args and not extra_kwargs:
+            trace_recorder = (
+                recorder if recorder is not None else get_active_premap_live_config()
+            )
+            if trace_recorder is None and not extra_args and not extra_kwargs:
                 return original_apply_quant_method(
                     self,
                     layer,
@@ -13290,7 +13303,7 @@ def patch_vllm_qwen35_moe_router_trace() -> None:
                 extra_kwargs,
             )
             input_ids = passthrough_kwargs.get("input_ids")
-            if recorder is None:
+            if trace_recorder is None:
                 return _call_with_supported_kwargs(
                     original_apply_quant_method,
                     self,
@@ -13310,7 +13323,7 @@ def patch_vllm_qwen35_moe_router_trace() -> None:
             if layer_id is not None:
                 outer_context_token = push_active_moe_assignment_context(
                     {
-                        "recorder": recorder,
+                        "recorder": trace_recorder,
                         "layer_id": int(layer_id),
                         "num_tokens": layer_num_tokens,
                         "phase": layer_phase,
@@ -13326,7 +13339,7 @@ def patch_vllm_qwen35_moe_router_trace() -> None:
             def emit(substage: str, start_ns: int, status: str = "ok") -> None:
                 if layer_id is None:
                     return
-                recorder.write_moe_substage_timing(
+                trace_recorder.write_moe_substage_timing(
                     layer_id=int(layer_id),
                     substage=substage,
                     elapsed_us=(time.perf_counter_ns() - start_ns) / 1000.0,
@@ -13373,7 +13386,7 @@ def patch_vllm_qwen35_moe_router_trace() -> None:
                         **passthrough_kwargs,
                     )
                     if layer_id is not None:
-                        recorder.write_moe_substage_timing(
+                        trace_recorder.write_moe_substage_timing(
                             layer_id=int(layer_id),
                             substage="select_experts",
                             elapsed_us=(
@@ -13387,7 +13400,7 @@ def patch_vllm_qwen35_moe_router_trace() -> None:
                         pre_apply_start_ns = time.perf_counter_ns()
                         pre_apply_status = "ok"
                         try:
-                            recorder.write_prelaunch_descriptor_assertion(
+                            trace_recorder.write_prelaunch_descriptor_assertion(
                                 layer_id=int(layer_id),
                                 topk_ids=topk_ids,
                             )
@@ -13406,7 +13419,7 @@ def patch_vllm_qwen35_moe_router_trace() -> None:
                         if layer_id is not None:
                             assignment_context_token = push_active_moe_assignment_context(
                                 {
-                                    "recorder": recorder,
+                                    "recorder": trace_recorder,
                                     "layer_id": int(layer_id),
                                     "num_tokens": layer_num_tokens,
                                     "phase": layer_phase,
@@ -13434,13 +13447,13 @@ def patch_vllm_qwen35_moe_router_trace() -> None:
                                 assignment_context_token
                             )
                     if layer_id is not None:
-                        recorder.write_descriptor_layer_timing(
+                        trace_recorder.write_descriptor_layer_timing(
                             layer_id=int(layer_id),
                             apply_us=apply_elapsed_us,
                             num_tokens=layer_num_tokens,
                             phase=layer_phase,
                         )
-                        recorder.write_moe_substage_timing(
+                        trace_recorder.write_moe_substage_timing(
                             layer_id=int(layer_id),
                             substage="quant_method_apply",
                             elapsed_us=apply_elapsed_us,
@@ -17586,9 +17599,167 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
     if bool(runtime_shadow_options.get("enabled", False)) and not use_router_logits_recorder:
         msg = "runtime_shadow.enabled requires use_router_logits_recorder."
         raise ValueError(msg)
+    allow_premap_live_config_without_router_recorder = bool(
+        trace_options.get("allow_premap_live_config_without_router_recorder", False)
+    )
+    premap_live_config_without_router_recorder: VllmRouterRecorder | None = None
+    if allow_premap_live_config_without_router_recorder and not use_router_logits_recorder:
+        if not bool(runtime_shadow_options.get("premap_kernel_arg_handoff_live_enabled", False)):
+            msg = (
+                "trace.allow_premap_live_config_without_router_recorder=True "
+                "requires runtime_shadow.premap_kernel_arg_handoff_live_enabled=True."
+            )
+            raise ValueError(msg)
+        premap_live_config_without_router_recorder = VllmRouterRecorder(
+            top_k=int(model_config["architecture"].get("num_experts_per_tok", 8)),
+            shadow_outcome_sink=None,
+            shadow_num_experts=int(model_config["architecture"].get("num_experts", 256)),
+            shadow_emit_premap_summary=False,
+            shadow_emit_transition_premap_summary=False,
+            shadow_emit_premap_address_manager_counters=False,
+            shadow_emit_premap_consumer_mapping=False,
+            shadow_premap_consumer_mapping_emit_rows=False,
+            shadow_premap_consumer_mapping_mode="off",
+            shadow_premap_consumer_resolve_real_handles=False,
+            shadow_premap_consumer_readonly_gate_required=bool(
+                runtime_shadow_options.get(
+                    "premap_consumer_readonly_gate_required",
+                    runtime_shadow_options.get(
+                        "premap_consumer_require_readonly_gate",
+                        False,
+                    ),
+                )
+            ),
+            shadow_premap_consumer_readonly_gate_id=(
+                str(runtime_shadow_options.get("premap_consumer_readonly_gate_id"))
+                if runtime_shadow_options.get("premap_consumer_readonly_gate_id")
+                is not None
+                else None
+            ),
+            shadow_premap_consumer_readonly_gate_path=(
+                str(
+                    runtime_shadow_options.get(
+                        "premap_consumer_readonly_gate_resolved_path"
+                    )
+                )
+                if runtime_shadow_options.get(
+                    "premap_consumer_readonly_gate_resolved_path"
+                )
+                is not None
+                else None
+            ),
+            shadow_premap_consumer_readonly_gate_passed=(
+                None
+                if runtime_shadow_options.get("premap_consumer_readonly_gate_passed")
+                is None
+                else bool(
+                    runtime_shadow_options.get("premap_consumer_readonly_gate_passed")
+                )
+            ),
+            shadow_premap_descriptor_prep_execution_mode=str(
+                runtime_shadow_options.get("premap_descriptor_prep_execution_mode", "off")
+            ),
+            shadow_premap_kernel_arg_handoff_live_enabled=bool(
+                runtime_shadow_options.get("premap_kernel_arg_handoff_live_enabled", False)
+            ),
+            shadow_premap_kernel_arg_handoff_live_consumer_connected=bool(
+                runtime_shadow_options.get(
+                    "premap_kernel_arg_handoff_live_consumer_connected",
+                    False,
+                )
+            ),
+            shadow_premap_kernel_arg_handoff_kernel_arg_pass_enabled=bool(
+                runtime_shadow_options.get(
+                    "premap_kernel_arg_handoff_kernel_arg_pass_enabled",
+                    False,
+                )
+            ),
+            shadow_premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled=bool(
+                runtime_shadow_options.get(
+                    "premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled",
+                    False,
+                )
+            ),
+            shadow_premap_kernel_arg_handoff_minimal_identity_envelope_enabled=bool(
+                runtime_shadow_options.get(
+                    "premap_kernel_arg_handoff_minimal_identity_envelope_enabled",
+                    False,
+                )
+            ),
+            shadow_premap_kernel_arg_handoff_producer_minimal_identity_envelope_enabled=bool(
+                runtime_shadow_options.get(
+                    "premap_kernel_arg_handoff_producer_minimal_identity_envelope_enabled",
+                    False,
+                )
+            ),
+            shadow_premap_kernel_arg_handoff_producer_future_wna16_typed_slot_envelope_enabled=bool(
+                runtime_shadow_options.get(
+                    "premap_kernel_arg_handoff_producer_future_wna16_typed_slot_envelope_enabled",
+                    False,
+                )
+            ),
+            shadow_premap_kernel_arg_handoff_future_wna16_typed_slot_kernel_variant_enabled=bool(
+                runtime_shadow_options.get(
+                    "premap_kernel_arg_handoff_future_wna16_typed_slot_kernel_variant_enabled",
+                    False,
+                )
+            ),
+            shadow_premap_kernel_arg_handoff_single_field_replacement_dry_run_enabled=bool(
+                runtime_shadow_options.get(
+                    "premap_kernel_arg_handoff_single_field_replacement_dry_run_enabled",
+                    False,
+                )
+            ),
+            shadow_premap_kernel_arg_handoff_single_field_replacement_live_enabled=bool(
+                runtime_shadow_options.get(
+                    "premap_kernel_arg_handoff_single_field_replacement_live_enabled",
+                    False,
+                )
+            ),
+            shadow_premap_kernel_arg_handoff_single_field_replacement_allow_signature_mismatch_live=bool(
+                runtime_shadow_options.get(
+                    "premap_kernel_arg_handoff_single_field_replacement_allow_signature_mismatch_live",
+                    False,
+                )
+            ),
+            shadow_premap_kernel_arg_handoff_single_field_replacement_candidate_source=str(
+                runtime_shadow_options.get(
+                    "premap_kernel_arg_handoff_single_field_replacement_candidate_source",
+                    "original_kernel_arg_identity",
+                )
+            ),
+            shadow_premap_kernel_arg_handoff_single_field_replacement_field=str(
+                runtime_shadow_options.get(
+                    "premap_kernel_arg_handoff_single_field_replacement_field",
+                    "B_scale",
+                )
+            ),
+            shadow_premap_kernel_arg_handoff_prepared_table_materialization_mode=str(
+                runtime_shadow_options.get(
+                    "premap_kernel_arg_handoff_prepared_table_materialization_mode",
+                    "off",
+                )
+            ),
+            shadow_capture_router_topk=False,
+            shadow_record_router_topk=False,
+            shadow_emit_descriptor_layer_timing=False,
+            shadow_emit_decoder_layer_timing=False,
+            shadow_emit_decoder_component_timing=False,
+            shadow_emit_moe_substage_timing=False,
+            shadow_emit_engine_timing=False,
+            shadow_emit_wna16_kernel_timing=False,
+            shadow_moe_source_timing_mode="off",
+            shadow_decoder_source_timing_mode="off",
+            shadow_outcome_logging_mode="off",
+            request_id="production_batch_premap_live_config",
+            sequence_id=0,
+        )
     if bool(vllm_options.get("disable_flash_attn_probe", True)):
         _set_text_only_vllm_env()
-    if use_router_logits_recorder and bool(
+    if (
+        use_router_logits_recorder
+        or premap_live_config_without_router_recorder is not None
+    ) and bool(
         vllm_options.get("disable_v1_multiprocessing_for_recorder", True)
     ):
         os.environ.setdefault("VLLM_ENABLE_V1_MULTIPROCESSING", "0")
@@ -17738,7 +17909,7 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
         )
     if "hf_overrides" in vllm_options:
         llm_kwargs["hf_overrides"] = vllm_options["hf_overrides"]
-    if use_router_logits_recorder:
+    if use_router_logits_recorder or premap_live_config_without_router_recorder is not None:
         patch_vllm_qwen35_moe_router_trace()
     if "quantization" in vllm_options:
         llm_kwargs["quantization"] = vllm_options["quantization"]
@@ -18058,6 +18229,12 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                 "premap_kernel_arg_handoff_single_field_replacement_field",
                 "B_scale",
             )
+        ),
+        "runtime_shadow_premap_live_config_without_router_recorder_enabled": bool(
+            premap_live_config_without_router_recorder is not None
+        ),
+        "runtime_shadow_premap_live_config_without_router_recorder_allowed": bool(
+            allow_premap_live_config_without_router_recorder
         ),
         "runtime_shadow_premap_native_typed_consumer_input_export_enabled": (
             runtime_shadow_premap_native_typed_consumer_input_export_enabled
@@ -19101,6 +19278,9 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                             if decode_workload_collector is not None
                             else None
                         )
+                        set_active_premap_live_config(
+                            premap_live_config_without_router_recorder
+                        )
                         generate_start_ns = time.perf_counter_ns()
                         try:
                             outputs = llm.generate(
@@ -19109,6 +19289,7 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                                 use_tqdm=False,
                             )
                         finally:
+                            set_active_premap_live_config(None)
                             if decode_token is not None:
                                 _ACTIVE_DECODE_WORKLOAD_TRACE.reset(decode_token)
                         chunk_generate_elapsed_us = (
@@ -19168,6 +19349,7 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                 finally:
                     set_active_vllm_router_recorder(None)
                     set_active_runtime_shadow_controller(None)
+                    set_active_premap_live_config(None)
                     shutdown = getattr(llm, "shutdown", None)
                     if callable(shutdown):
                         shutdown()
@@ -19177,6 +19359,7 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                         torch.cuda.empty_cache()
     finally:
         set_active_runtime_shadow_controller(None)
+        set_active_premap_live_config(None)
         if runtime_shadow_controller is not None:
             if bool(runtime_shadow_options.get("flush_pending_as_timeouts", True)):
                 runtime_shadow_controller.flush_pending_as_timeouts()
