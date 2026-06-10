@@ -14,10 +14,38 @@ from typing import Any
 import yaml
 
 
-_MODE_RESERVED_KEYS = {"env", "unset_env"}
+_MODE_RESERVED_KEYS = {
+    "env",
+    "unset_env",
+    "trace_overrides",
+    "runtime_shadow_enabled",
+}
 
 
 MODES: dict[str, dict[str, Any]] = {
+    "production_batch": {
+        "runtime_shadow_enabled": False,
+        "decoder_source_timing_mode": "off",
+        "moe_source_timing_mode": "off",
+        "emit_decoder_layer_timing": False,
+        "emit_decoder_component_timing": False,
+        "emit_moe_substage_timing": False,
+        "emit_wna16_kernel_timing": False,
+        "trace_overrides": {
+            "capture_router_topk": False,
+            "capture_router_scores": False,
+            "use_router_logits_recorder": False,
+            "allow_missing_router_trace": True,
+            "vllm_overrides": {
+                "use_router_logits_recorder": False,
+                "enable_return_routed_experts": False,
+                "max_num_seqs": 32,
+                "engine_chunk_size": 32,
+                "enforce_eager": True,
+            },
+        },
+        "unset_env": ["VLLM_DISABLE_SHARED_EXPERTS_STREAM"],
+    },
     "production_like": {
         "record_router_topk": False,
         "emit_decoder_layer_timing": False,
@@ -1387,6 +1415,7 @@ def _write_mode_config(
     )
     _validate_trace_split_metadata(trace=trace, split=split, base_config=base_config)
     trace.update(split)
+    trace.update(dict(MODES[mode].get("trace_overrides", {})))
     shadow = trace.setdefault("runtime_shadow", {})
     shadow.update(
         {
@@ -1395,7 +1424,8 @@ def _write_mode_config(
             if key not in _MODE_RESERVED_KEYS
         }
     )
-    shadow["enabled"] = True
+    shadow_enabled = bool(MODES[mode].get("runtime_shadow_enabled", True))
+    shadow["enabled"] = shadow_enabled
     shadow["output_path"] = str(output_dir / "runtime_shadow.jsonl")
     shadow["overwrite"] = True
     shadow["writer_mode"] = "jsonl_batched"
@@ -1579,15 +1609,19 @@ def main() -> None:
         if exit_code != 0:
             break
 
-    baseline = next(
-        (
-            row
-            for row in results
-            if row["mode"] == "production_like"
-            and row.get("generate_seconds_per_requested_output_token")
-        ),
-        None,
-    )
+    baseline = None
+    for baseline_mode in ("production_like", "production_batch"):
+        baseline = next(
+            (
+                row
+                for row in results
+                if row["mode"] == baseline_mode
+                and row.get("generate_seconds_per_requested_output_token")
+            ),
+            None,
+        )
+        if baseline is not None:
+            break
     if baseline is not None:
         base_tpot = float(baseline["generate_seconds_per_requested_output_token"])
         for row in results:

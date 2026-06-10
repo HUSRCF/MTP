@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from types import SimpleNamespace
 
+import pytest
 import torch
 
 from mtp_expert_prefetch.tracing.vllm_router_trace import (
@@ -141,6 +142,54 @@ def test_no_topk_recorder_trace_writer_allows_empty_router_payload(tmp_path):
     assert payload["trace_source"] == "vllm_router_logits_recorder_no_topk"
     assert payload["router_topk"] == {}
     assert payload["router_call_meta"] == []
+
+
+def test_missing_router_trace_writer_is_strict_by_default(tmp_path):
+    manifest_path = tmp_path / "manifest.jsonl"
+    request_output = SimpleNamespace(outputs=[SimpleNamespace(text="decoded")])
+
+    with manifest_path.open("w", encoding="utf-8") as manifest:
+        with pytest.raises(RuntimeError, match="neither router logits"):
+            _write_vllm_sample_trace(
+                manifest=manifest,
+                output_dir=tmp_path,
+                sample_idx=11,
+                record={"id": "sample-11"},
+                input_ids=[1, 2, 3],
+                request_output=request_output,
+                module_prefix="model.language_model",
+                recorder=None,
+            )
+
+
+def test_missing_router_trace_writer_allows_explicit_production_benchmark_mode(
+    tmp_path,
+):
+    manifest_path = tmp_path / "manifest.jsonl"
+    request_output = SimpleNamespace(outputs=[SimpleNamespace(text="decoded")])
+
+    with manifest_path.open("w", encoding="utf-8") as manifest:
+        _write_vllm_sample_trace(
+            manifest=manifest,
+            output_dir=tmp_path,
+            sample_idx=12,
+            record={"id": "sample-12"},
+            input_ids=[1, 2, 3],
+            request_output=request_output,
+            module_prefix="model.language_model",
+            recorder=None,
+            allow_missing_router_trace=True,
+        )
+
+    row = json.loads(manifest_path.read_text(encoding="utf-8"))
+    payload = torch.load(tmp_path / "sample_000012.pt", weights_only=False)
+    assert row["trace_source"] == "vllm_no_router_trace"
+    assert row["num_router_calls"] == 0
+    assert row["num_router_modules"] == 0
+    assert row["has_vllm_router_logits"] is False
+    assert row["has_vllm_routed_experts"] is False
+    assert payload["trace_source"] == "vllm_no_router_trace"
+    assert "router_topk" not in payload
 
 
 def test_capture_only_router_topk_does_not_persist_heavy_payload(tmp_path):

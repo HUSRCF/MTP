@@ -679,6 +679,50 @@ def test_write_mode_config_does_not_emit_reserved_env_keys(tmp_path: Path) -> No
     assert shadow["record_router_topk"] is False
 
 
+def test_production_batch_write_mode_config_uses_no_recorder_batch_path(
+    tmp_path: Path,
+) -> None:
+    module = _load_module()
+    base = tmp_path / "base.yaml"
+    base.write_text(
+        "model: model.yaml\n"
+        "output_dir: old\n"
+        "trace:\n"
+        "  use_router_logits_recorder: true\n"
+        "  capture_router_topk: true\n"
+        "  capture_router_scores: true\n"
+        "  start_sample: 0\n"
+        "  runtime_shadow:\n"
+        "    enabled: true\n"
+    )
+
+    config_path = module._write_mode_config(
+        base_config=base,
+        output_root=tmp_path / "out",
+        mode="production_batch",
+        repeat=0,
+        max_samples=32,
+        max_tokens=64,
+        start_sample=None,
+    )
+
+    data = yaml.safe_load(config_path.read_text())
+    trace = data["trace"]
+    shadow = trace["runtime_shadow"]
+    overrides = trace["vllm_overrides"]
+
+    assert trace["use_router_logits_recorder"] is False
+    assert trace["capture_router_topk"] is False
+    assert trace["capture_router_scores"] is False
+    assert trace["allow_missing_router_trace"] is True
+    assert shadow["enabled"] is False
+    assert overrides["use_router_logits_recorder"] is False
+    assert overrides["enable_return_routed_experts"] is False
+    assert overrides["max_num_seqs"] == 32
+    assert overrides["engine_chunk_size"] == 32
+    assert overrides["enforce_eager"] is True
+
+
 def test_shared_expert_light_is_moe_only_source_mode() -> None:
     module = _load_module()
     mode = module.MODES["shared_expert_light"]

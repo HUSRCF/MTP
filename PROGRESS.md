@@ -2,8 +2,31 @@
 
 ## Progress Version
 
-- Version: `v0.75-request-launch-lab-preflight-gate`
-- Updated: 2026-06-04
+- Version: `v0.76-production-batch-baseline`
+- Updated: 2026-06-11
+- Latest production-like benchmark update: separated the true vLLM batched
+  decode path from the router-recorder/shadow audit harness.  The previous
+  `production_like` telemetry-ladder mode is low-observability, but it still
+  enters the router recorder branch and calls `llm.generate([prompt])` once per
+  prompt, so it is not a production throughput baseline.  A new explicit
+  `production_batch` mode disables runtime shadow, router logits recording, and
+  routed-expert return, then submits 32 prompts in one vLLM batch with
+  `enforce_eager=true`.
+  On GPU1 W7900, Dolly 32-sample gen64 AWQ decode:
+  `production_batch` records 2048 requested output tokens in 7.265s
+  (`TPOT=0.003548s`, aggregate throughput 281.88 tok/s, 8.81 tok/s/seq at
+  batch32).  The equivalent no-router manual run records 282.38 tok/s, while
+  returning routed experts drops to 255.36 tok/s.  The graph/compile path is
+  not currently profitable: `enforce_eager=false` takes 423.6s in init/compile
+  and only 154.26 tok/s in the measured generation window.
+  The production baseline artifact is
+  `outputs/reports/production_like_vllm/current_no_recorder_batch32/SUMMARY.md`;
+  the scripted `production_batch` summary is
+  `outputs/reports/awq_telemetry_ladder/gpu1_current_production_batch32_20260611/production_batch/repeat_00/performance_summary.json`.
+  This establishes the performance reporting boundary: typed-slot/live-handoff
+  or premap experiments may use recorder/shadow runs as semantic evidence, but
+  TPOT claims must be rerun on a no-recorder batched path or on an explicitly
+  decoupled batch-compatible prelaunch hook.
 - Latest lab-gate update: promoted the request-launch ABI into the default
   readonly lab preflight as required evidence,
   `native_typed_consumer_stub_online_prelaunch_input_request_launch_canary_json`.

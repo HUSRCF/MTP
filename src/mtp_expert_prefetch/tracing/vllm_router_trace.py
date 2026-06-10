@@ -16125,6 +16125,7 @@ def _write_vllm_sample_trace(
     request_output: Any,
     module_prefix: str,
     recorder: VllmRouterRecorder | None,
+    allow_missing_router_trace: bool = False,
 ) -> None:
     if not request_output.outputs:
         msg = f"vLLM returned no output for sample {sample_idx}"
@@ -16175,16 +16176,22 @@ def _write_vllm_sample_trace(
             route_payload["vllm_routed_experts_shape"] = list(routed_tensor.shape)
     else:
         if routed_experts is None:
-            msg = (
-                "vLLM produced neither router logits recorder calls nor `routed_experts`. "
-                "Enable `trace.use_router_logits_recorder: true` with a compatible patch, "
-                "or `enable_return_routed_experts=True` in a compatible vLLM build."
+            if allow_missing_router_trace:
+                trace_source = "vllm_no_router_trace"
+                route_payload = {}
+            else:
+                msg = (
+                    "vLLM produced neither router logits recorder calls nor "
+                    "`routed_experts`. Enable `trace.use_router_logits_recorder: true` "
+                    "with a compatible patch, or `enable_return_routed_experts=True` "
+                    "in a compatible vLLM build."
+                )
+                raise RuntimeError(msg)
+        else:
+            route_payload = _routed_experts_payload(
+                routed_experts=routed_experts,
+                module_prefix=module_prefix,
             )
-            raise RuntimeError(msg)
-        route_payload = _routed_experts_payload(
-            routed_experts=routed_experts,
-            module_prefix=module_prefix,
-        )
 
     sample_payload: dict[str, Any] = {
         "record": record,
@@ -17520,6 +17527,12 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
     model_config = load_yaml(resolve_path(trace_config["model"], base_dir=project_root))
     trace_options = trace_config.get("trace", {})
     vllm_options = model_config.get("vllm", {})
+    trace_vllm_overrides = trace_options.get("vllm_overrides")
+    if trace_vllm_overrides is not None:
+        if not isinstance(trace_vllm_overrides, dict):
+            msg = "trace.vllm_overrides must be a mapping when provided."
+            raise TypeError(msg)
+        vllm_options = {**vllm_options, **trace_vllm_overrides}
 
     model_id = resolve_path(model_config["model_id"], base_dir=project_root)
     output_dir = resolve_path(trace_config["output_dir"], base_dir=project_root)
@@ -19049,6 +19062,9 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                                 request_output=outputs[0],
                                 module_prefix=module_prefix,
                                 recorder=recorder,
+                                allow_missing_router_trace=bool(
+                                    trace_options.get("allow_missing_router_trace", False)
+                                ),
                             )
                             write_elapsed_us = (
                                 time.perf_counter_ns() - write_start_ns
@@ -19139,6 +19155,9 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                                 request_output=request_output,
                                 module_prefix=module_prefix,
                                 recorder=None,
+                                allow_missing_router_trace=bool(
+                                    trace_options.get("allow_missing_router_trace", False)
+                                ),
                             )
                             write_elapsed_us = (
                                 time.perf_counter_ns() - write_start_ns
