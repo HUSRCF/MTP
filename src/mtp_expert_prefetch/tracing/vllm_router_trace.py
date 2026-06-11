@@ -2556,6 +2556,9 @@ class VllmRouterRecorder:
     shadow_premap_kernel_arg_handoff_producer_gpu_assignment_envelope_enabled: (
         bool
     ) = False
+    shadow_premap_kernel_arg_handoff_gpu_assignment_validation_mode: str = (
+        "identity"
+    )
     shadow_premap_kernel_arg_handoff_gpu_assignment_kernel_variant_enabled: (
         bool
     ) = False
@@ -10385,6 +10388,9 @@ _PREMAP_KERNEL_ARG_LIVE_MUTATION_COUNTERS: dict[str, int] = {
     "gpu_assignment_num_tokens_post_padded_identity_ok_count": 0,
     "gpu_assignment_num_tokens_post_padded_identity_mismatch_count": 0,
     "gpu_assignment_num_tokens_post_padded_missing_count": 0,
+    "gpu_assignment_trusted_refs_seen_count": 0,
+    "gpu_assignment_trusted_refs_available_count": 0,
+    "gpu_assignment_trusted_refs_unavailable_count": 0,
     "gpu_assignment_kernel_variant_launch_count": 0,
     "gpu_assignment_kernel_variant_fallback_count": 0,
     "gpu_assignment_kernel_variant_identity_blocked_count": 0,
@@ -15374,56 +15380,86 @@ def patch_vllm_qwen35_moe_router_trace() -> None:
                         _increment_premap_kernel_arg_live_mutation_counter(
                             "gpu_assignment_envelope_seen_count"
                         )
-                        assignment_identity_ok = True
-                        assignment_pairs = (
-                            (
-                                "sorted_token_ids",
+                        gpu_assignment_validation_mode = "identity"
+                        if recorder_for_config is not None:
+                            gpu_assignment_validation_mode = str(
+                                recorder_for_config.shadow_premap_kernel_arg_handoff_gpu_assignment_validation_mode
+                            ).strip().lower()
+                        live_mutation_package_meta[
+                            "producer_gpu_assignment_consumer_validation_mode"
+                        ] = gpu_assignment_validation_mode
+                        if gpu_assignment_validation_mode == "trusted_refs":
+                            _increment_premap_kernel_arg_live_mutation_counter(
+                                "gpu_assignment_trusted_refs_seen_count"
+                            )
+                            gpu_assignment_available = bool(
                                 live_mutation_package_meta.get(
-                                    "producer_gpu_assignment_sorted_token_ids"
-                                ),
-                                sorted_token_ids,
-                            ),
-                            (
-                                "expert_ids",
-                                live_mutation_package_meta.get(
-                                    "producer_gpu_assignment_expert_ids"
-                                ),
-                                expert_ids,
-                            ),
-                            (
-                                "num_tokens_post_padded",
-                                live_mutation_package_meta.get(
-                                    "producer_gpu_assignment_num_tokens_post_padded"
-                                ),
-                                num_tokens_post_padded,
-                            ),
-                        )
-                        for assignment_name, producer_value, launch_value in (
-                            assignment_pairs
-                        ):
-                            counter_prefix = f"gpu_assignment_{assignment_name}"
-                            if producer_value is None and launch_value is None:
-                                _increment_premap_kernel_arg_live_mutation_counter(
-                                    f"{counter_prefix}_identity_ok_count"
+                                    "producer_gpu_assignment_available", False
                                 )
-                            elif producer_value is None:
-                                assignment_identity_ok = False
+                            )
+                            if gpu_assignment_available:
                                 _increment_premap_kernel_arg_live_mutation_counter(
-                                    f"{counter_prefix}_missing_count"
-                                )
-                            elif producer_value is launch_value:
-                                _increment_premap_kernel_arg_live_mutation_counter(
-                                    f"{counter_prefix}_identity_ok_count"
+                                    "gpu_assignment_trusted_refs_available_count"
                                 )
                             else:
-                                assignment_identity_ok = False
                                 _increment_premap_kernel_arg_live_mutation_counter(
-                                    f"{counter_prefix}_identity_mismatch_count"
+                                    "gpu_assignment_trusted_refs_unavailable_count"
                                 )
-                        live_mutation_package_meta[
-                            "producer_gpu_assignment_consumer_identity_ok"
-                        ] = bool(assignment_identity_ok)
-                        gpu_assignment_identity_ok = bool(assignment_identity_ok)
+                            live_mutation_package_meta[
+                                "producer_gpu_assignment_consumer_identity_ok"
+                            ] = None
+                            gpu_assignment_identity_ok = None
+                        else:
+                            assignment_identity_ok = True
+                            assignment_pairs = (
+                                (
+                                    "sorted_token_ids",
+                                    live_mutation_package_meta.get(
+                                        "producer_gpu_assignment_sorted_token_ids"
+                                    ),
+                                    sorted_token_ids,
+                                ),
+                                (
+                                    "expert_ids",
+                                    live_mutation_package_meta.get(
+                                        "producer_gpu_assignment_expert_ids"
+                                    ),
+                                    expert_ids,
+                                ),
+                                (
+                                    "num_tokens_post_padded",
+                                    live_mutation_package_meta.get(
+                                        "producer_gpu_assignment_num_tokens_post_padded"
+                                    ),
+                                    num_tokens_post_padded,
+                                ),
+                            )
+                            for assignment_name, producer_value, launch_value in (
+                                assignment_pairs
+                            ):
+                                counter_prefix = f"gpu_assignment_{assignment_name}"
+                                if producer_value is None and launch_value is None:
+                                    _increment_premap_kernel_arg_live_mutation_counter(
+                                        f"{counter_prefix}_identity_ok_count"
+                                    )
+                                elif producer_value is None:
+                                    assignment_identity_ok = False
+                                    _increment_premap_kernel_arg_live_mutation_counter(
+                                        f"{counter_prefix}_missing_count"
+                                    )
+                                elif producer_value is launch_value:
+                                    _increment_premap_kernel_arg_live_mutation_counter(
+                                        f"{counter_prefix}_identity_ok_count"
+                                    )
+                                else:
+                                    assignment_identity_ok = False
+                                    _increment_premap_kernel_arg_live_mutation_counter(
+                                        f"{counter_prefix}_identity_mismatch_count"
+                                    )
+                            live_mutation_package_meta[
+                                "producer_gpu_assignment_consumer_identity_ok"
+                            ] = bool(assignment_identity_ok)
+                            gpu_assignment_identity_ok = bool(assignment_identity_ok)
                     single_field_dry_run_enabled = False
                     single_field_live_enabled = False
                     single_field_candidate_source = "original_kernel_arg_identity"
@@ -16714,6 +16750,12 @@ def _apply_premap_consumer_readonly_gate(
             False,
         )
     )
+    gpu_assignment_validation_mode = str(
+        options.get(
+            "premap_kernel_arg_handoff_gpu_assignment_validation_mode",
+            "identity",
+        )
+    ).strip().lower()
     gpu_assignment_kernel_variant_enabled = bool(
         options.get(
             "premap_kernel_arg_handoff_gpu_assignment_kernel_variant_enabled",
@@ -16893,6 +16935,14 @@ def _apply_premap_consumer_readonly_gate(
             f"{single_field_handle_handoff_canary_field!r}."
         )
         raise ValueError(msg)
+    allowed_gpu_assignment_validation_modes = {"identity", "trusted_refs"}
+    if gpu_assignment_validation_mode not in allowed_gpu_assignment_validation_modes:
+        msg = (
+            "premap_kernel_arg_handoff_gpu_assignment_validation_mode must be "
+            f"one of {sorted(allowed_gpu_assignment_validation_modes)}; got "
+            f"{gpu_assignment_validation_mode!r}."
+        )
+        raise ValueError(msg)
     if kernel_arg_pass_enabled and (
         not live_handoff_enabled or not live_consumer_connected
     ):
@@ -16947,6 +16997,16 @@ def _apply_premap_consumer_readonly_gate(
             "premap_kernel_arg_handoff_gpu_assignment_kernel_variant_enabled=True "
             "requires "
             "premap_kernel_arg_handoff_producer_gpu_assignment_envelope_enabled=True."
+        )
+        raise ValueError(msg)
+    if (
+        gpu_assignment_kernel_variant_enabled
+        and gpu_assignment_validation_mode != "identity"
+    ):
+        msg = (
+            "premap_kernel_arg_handoff_gpu_assignment_kernel_variant_enabled=True "
+            "requires premap_kernel_arg_handoff_gpu_assignment_validation_mode="
+            "'identity'."
         )
         raise ValueError(msg)
     if (
@@ -18159,6 +18219,12 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                     False,
                 )
             ),
+            shadow_premap_kernel_arg_handoff_gpu_assignment_validation_mode=str(
+                runtime_shadow_options.get(
+                    "premap_kernel_arg_handoff_gpu_assignment_validation_mode",
+                    "identity",
+                )
+            ),
             shadow_premap_kernel_arg_handoff_gpu_assignment_kernel_variant_enabled=bool(
                 runtime_shadow_options.get(
                     "premap_kernel_arg_handoff_gpu_assignment_kernel_variant_enabled",
@@ -18680,6 +18746,12 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
             runtime_shadow_options.get(
                 "premap_kernel_arg_handoff_producer_gpu_assignment_envelope_enabled",
                 False,
+            )
+        ),
+        "runtime_shadow_premap_kernel_arg_handoff_gpu_assignment_validation_mode": str(
+            runtime_shadow_options.get(
+                "premap_kernel_arg_handoff_gpu_assignment_validation_mode",
+                "identity",
             )
         ),
         "runtime_shadow_premap_kernel_arg_handoff_gpu_assignment_kernel_variant_enabled": bool(
@@ -19250,6 +19322,12 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                                 runtime_shadow_options.get(
                                     "premap_kernel_arg_handoff_producer_gpu_assignment_envelope_enabled",
                                     False,
+                                )
+                            ),
+                            shadow_premap_kernel_arg_handoff_gpu_assignment_validation_mode=str(
+                                runtime_shadow_options.get(
+                                    "premap_kernel_arg_handoff_gpu_assignment_validation_mode",
+                                    "identity",
                                 )
                             ),
                             shadow_premap_kernel_arg_handoff_gpu_assignment_kernel_variant_enabled=bool(

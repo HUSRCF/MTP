@@ -544,6 +544,12 @@ def test_production_batch_premap_live_gpu_assignment_envelope_stays_no_recorder_
         ]
         is True
     )
+    assert (
+        mode.get(
+            "premap_kernel_arg_handoff_gpu_assignment_validation_mode", "identity"
+        )
+        == "identity"
+    )
     assert mode["premap_kernel_arg_handoff_prepared_table_materialization_mode"] == "off"
     assert (
         mode.get(
@@ -553,6 +559,59 @@ def test_production_batch_premap_live_gpu_assignment_envelope_stays_no_recorder_
         is False
     )
     assert mode["premap_kernel_arg_handoff_live_counter_mode"] == "off"
+
+
+def test_production_batch_premap_live_gpu_assignment_trusted_refs_only_skips_identity_validation() -> None:
+    module = _load_module()
+    trusted = module.MODES[
+        "production_batch_premap_live_future_wna16_typed_slot_gpu_assignment_envelope_trusted_refs_counter_off"
+    ]
+    base = module.MODES[
+        "production_batch_premap_live_future_wna16_typed_slot_gpu_assignment_envelope_counter_off"
+    ]
+
+    assert trusted["runtime_shadow_enabled"] is False
+    assert trusted["trace_overrides"] == base["trace_overrides"]
+    assert trusted["record_router_topk"] is False
+    assert trusted["capture_router_topk"] is False
+    assert trusted["emit_premap_consumer_mapping"] is False
+    assert (
+        trusted[
+            "premap_kernel_arg_handoff_producer_future_wna16_typed_slot_envelope_enabled"
+        ]
+        is True
+    )
+    assert (
+        trusted[
+            "premap_kernel_arg_handoff_producer_gpu_assignment_envelope_enabled"
+        ]
+        is True
+    )
+    assert (
+        trusted["premap_kernel_arg_handoff_gpu_assignment_validation_mode"]
+        == "trusted_refs"
+    )
+    assert (
+        trusted.get(
+            "premap_kernel_arg_handoff_gpu_assignment_kernel_variant_enabled",
+            False,
+        )
+        is False
+    )
+    assert (
+        trusted.get(
+            "premap_kernel_arg_handoff_future_wna16_typed_slot_kernel_variant_enabled",
+            False,
+        )
+        is False
+    )
+    assert trusted["premap_kernel_arg_handoff_prepared_table_materialization_mode"] == "off"
+    assert trusted["premap_kernel_arg_handoff_live_counter_mode"] == "off"
+
+    comparable_trusted = dict(trusted)
+    comparable_base = dict(base)
+    comparable_trusted.pop("premap_kernel_arg_handoff_gpu_assignment_validation_mode")
+    assert comparable_trusted == comparable_base
 
 
 def test_production_batch_gpu_assignment_kernel_variant_stays_separate_from_prepared_table_variant() -> None:
@@ -588,6 +647,12 @@ def test_production_batch_gpu_assignment_kernel_variant_stays_separate_from_prep
         is True
     )
     assert (
+        mode.get(
+            "premap_kernel_arg_handoff_gpu_assignment_validation_mode", "identity"
+        )
+        == "identity"
+    )
+    assert (
         mode["premap_kernel_arg_handoff_gpu_assignment_kernel_variant_enabled"]
         is True
     )
@@ -611,6 +676,10 @@ def test_production_batch_reuse_llm_modes_only_add_engine_reuse() -> None:
         (
             "production_batch_premap_live_future_wna16_typed_slot_gpu_assignment_envelope_counter_off",
             "production_batch_premap_live_future_wna16_typed_slot_gpu_assignment_envelope_counter_off_reuse_llm",
+        ),
+        (
+            "production_batch_premap_live_future_wna16_typed_slot_gpu_assignment_envelope_trusted_refs_counter_off",
+            "production_batch_premap_live_future_wna16_typed_slot_gpu_assignment_envelope_trusted_refs_counter_off_reuse_llm",
         ),
         (
             "production_batch_premap_live_future_wna16_gpu_assignment_kernel_variant_counter_off",

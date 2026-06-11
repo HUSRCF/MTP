@@ -1309,6 +1309,20 @@ MODES[
 }
 
 MODES[
+    "production_batch_premap_live_future_wna16_typed_slot_gpu_assignment_envelope_trusted_refs_counter_off"
+] = {
+    **MODES[
+        "production_batch_premap_live_future_wna16_typed_slot_gpu_assignment_envelope_counter_off"
+    ],
+    # Benchmark lower bound for the pass-through GPU-assignment envelope: the
+    # producer still attaches the same GPU tensor refs, but the consumer trusts
+    # the prelaunch package contract instead of doing per-launch Python `is`
+    # checks on sorted_token_ids/expert_ids/num_tokens_post_padded.  This mode
+    # is not used by the kernel-variant path.
+    "premap_kernel_arg_handoff_gpu_assignment_validation_mode": "trusted_refs",
+}
+
+MODES[
     "production_batch_premap_live_future_wna16_gpu_assignment_kernel_variant_counter_off"
 ] = {
     **MODES[
@@ -1354,6 +1368,12 @@ MODES[
     "production_batch_premap_live_future_wna16_typed_slot_gpu_assignment_envelope_counter_off_reuse_llm"
 ] = _with_reuse_llm_across_chunks(
     "production_batch_premap_live_future_wna16_typed_slot_gpu_assignment_envelope_counter_off"
+)
+
+MODES[
+    "production_batch_premap_live_future_wna16_typed_slot_gpu_assignment_envelope_trusted_refs_counter_off_reuse_llm"
+] = _with_reuse_llm_across_chunks(
+    "production_batch_premap_live_future_wna16_typed_slot_gpu_assignment_envelope_trusted_refs_counter_off"
 )
 
 MODES[
