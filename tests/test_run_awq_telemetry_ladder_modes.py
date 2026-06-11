@@ -679,6 +679,86 @@ def test_production_batch_premap_live_gpu_assignment_trusted_refs_only_skips_ide
     assert comparable_trusted == comparable_base
 
 
+def test_production_batch_gpu_assignment_envelope_graph_warmup_only_changes_vllm_posture() -> None:
+    module = _load_module()
+    pairs = (
+        (
+            "production_batch_premap_live_future_wna16_typed_slot_gpu_assignment_envelope_counter_off",
+            "production_batch_premap_live_future_wna16_typed_slot_gpu_assignment_envelope_counter_off_graph_warmup",
+            "identity",
+        ),
+        (
+            "production_batch_premap_live_future_wna16_typed_slot_gpu_assignment_envelope_trusted_refs_counter_off",
+            "production_batch_premap_live_future_wna16_typed_slot_gpu_assignment_envelope_trusted_refs_counter_off_graph_warmup",
+            "trusted_refs",
+        ),
+    )
+
+    for base_name, graph_name, validation_mode in pairs:
+        base = module.MODES[base_name]
+        graph = module.MODES[graph_name]
+        base_trace = base["trace_overrides"]
+        graph_trace = graph["trace_overrides"]
+        base_vllm = base_trace["vllm_overrides"]
+        graph_vllm = graph_trace["vllm_overrides"]
+
+        assert graph["runtime_shadow_enabled"] is False
+        assert graph_trace["use_router_logits_recorder"] is False
+        assert graph_trace["capture_router_topk"] is False
+        assert graph_trace["capture_router_scores"] is False
+        assert graph_trace["allow_missing_router_trace"] is True
+        assert (
+            graph_trace["allow_premap_live_config_without_router_recorder"]
+            is True
+        )
+        assert graph_vllm["use_router_logits_recorder"] is False
+        assert graph_vllm["enable_return_routed_experts"] is False
+        assert graph_vllm["enforce_eager"] is False
+        assert graph_vllm["warmup_prompt_count"] == 32
+        assert graph_vllm["warmup_max_tokens"] == 16
+        assert graph["record_router_topk"] is False
+        assert graph["capture_router_topk"] is False
+        assert graph["emit_premap_consumer_mapping"] is False
+        assert graph["premap_consumer_mapping_emit_rows"] is False
+        assert graph["premap_consumer_mapping_mode"] == "off"
+        assert graph["premap_consumer_resolve_real_handles"] is False
+        assert (
+            graph[
+                "premap_kernel_arg_handoff_producer_future_wna16_typed_slot_envelope_enabled"
+            ]
+            is True
+        )
+        assert (
+            graph[
+                "premap_kernel_arg_handoff_producer_gpu_assignment_envelope_enabled"
+            ]
+            is True
+        )
+        assert (
+            graph.get(
+                "premap_kernel_arg_handoff_gpu_assignment_validation_mode",
+                "identity",
+            )
+            == validation_mode
+        )
+        assert graph["premap_kernel_arg_handoff_prepared_table_materialization_mode"] == "off"
+        assert graph["premap_kernel_arg_handoff_live_counter_mode"] == "off"
+
+        comparable_base_vllm = dict(base_vllm)
+        comparable_graph_vllm = dict(graph_vllm)
+        comparable_base_vllm.pop("enforce_eager")
+        comparable_graph_vllm.pop("enforce_eager")
+        comparable_graph_vllm.pop("warmup_prompt_count")
+        comparable_graph_vllm.pop("warmup_max_tokens")
+        assert comparable_graph_vllm == comparable_base_vllm
+
+        comparable_base = dict(base)
+        comparable_graph = dict(graph)
+        comparable_base.pop("trace_overrides")
+        comparable_graph.pop("trace_overrides")
+        assert comparable_graph == comparable_base
+
+
 def test_production_batch_premap_live_gpu_assignment_trusted_refs_detailed_only_enables_counters() -> None:
     module = _load_module()
     detailed = module.MODES[
@@ -885,6 +965,14 @@ def test_production_batch_reuse_llm_modes_only_add_engine_reuse() -> None:
         (
             "production_batch_premap_live_future_wna16_typed_slot_gpu_assignment_envelope_trusted_refs_detailed",
             "production_batch_premap_live_future_wna16_typed_slot_gpu_assignment_envelope_trusted_refs_detailed_reuse_llm",
+        ),
+        (
+            "production_batch_premap_live_future_wna16_typed_slot_gpu_assignment_envelope_counter_off_graph_warmup",
+            "production_batch_premap_live_future_wna16_typed_slot_gpu_assignment_envelope_counter_off_graph_warmup_reuse_llm",
+        ),
+        (
+            "production_batch_premap_live_future_wna16_typed_slot_gpu_assignment_envelope_trusted_refs_counter_off_graph_warmup",
+            "production_batch_premap_live_future_wna16_typed_slot_gpu_assignment_envelope_trusted_refs_counter_off_graph_warmup_reuse_llm",
         ),
         (
             "production_batch_premap_live_future_wna16_gpu_assignment_kernel_variant_counter_off",

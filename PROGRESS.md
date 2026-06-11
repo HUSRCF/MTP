@@ -33000,3 +33000,94 @@ Future production-like TPOT comparisons should use a fixed warmup posture and
 report the warmup fields alongside generate_s/TPOT.  In particular, compare
 future runs with the same `warmup_prompt_count` and `warmup_max_tokens`.
 ```
+
+### 2026-06-11 - Graph+warmup typed-slot envelope A/B
+
+Added graph+warmup posture variants for the production-batch future WNA16
+typed-slot GPU-assignment envelope modes:
+
+```text
+production_batch_premap_live_future_wna16_typed_slot_gpu_assignment_envelope_counter_off_graph_warmup
+production_batch_premap_live_future_wna16_typed_slot_gpu_assignment_envelope_counter_off_graph_warmup_reuse_llm
+production_batch_premap_live_future_wna16_typed_slot_gpu_assignment_envelope_trusted_refs_counter_off_graph_warmup
+production_batch_premap_live_future_wna16_typed_slot_gpu_assignment_envelope_trusted_refs_counter_off_graph_warmup_reuse_llm
+```
+
+These modes preserve the production-batch/no-recorder/no-shadow envelope and
+only add the same benchmark posture as the graph+warmup baseline:
+
+```text
+vllm.enforce_eager = false
+vllm.warmup_prompt_count = 32
+vllm.warmup_max_tokens = 16
+```
+
+Validation:
+
+```text
+python -m py_compile scripts/run_awq_telemetry_ladder.py
+pytest tests/test_run_awq_telemetry_ladder_modes.py -q
+  63 passed
+git diff --check
+  clean
+```
+
+GPU1 AWQ/Dolly 32-sample gen64 repeat-3:
+
+```text
+artifact:
+  outputs/reports/awq_telemetry_ladder/
+    gpu1_graph_warmup_envelope_repeat3_gen64_20260611/
+
+production_batch_graph_warmup_reuse_llm:
+  generate_s = 6.590969 / 6.631076 / 6.654242
+  mean_generate_s = 6.625429
+  mean_TPOT = 0.003235073
+  throughput = 309.112 tok/s
+
+production_batch_premap_live_future_wna16_typed_slot_gpu_assignment_envelope_counter_off_graph_warmup_reuse_llm:
+  generate_s = 6.584999 / 6.639754 / 6.666642
+  mean_generate_s = 6.630465
+  mean_TPOT = 0.003237532
+  throughput = 308.877 tok/s
+  vs graph+warmup baseline:
+    generate_s = +0.076%
+    throughput = -0.076%
+
+production_batch_premap_live_future_wna16_typed_slot_gpu_assignment_envelope_trusted_refs_counter_off_graph_warmup_reuse_llm:
+  generate_s = 6.690270 / 6.721204 / 6.735111
+  mean_generate_s = 6.715528
+  mean_TPOT = 0.003279066
+  throughput = 304.965 tok/s
+  vs graph+warmup baseline:
+    generate_s = +1.360%
+    throughput = -1.342%
+```
+
+Runtime posture metadata:
+
+```text
+warmup_status = ok
+warmup_scope = per_engine_init
+warmup_prompt_count_effective = 32
+warmup_max_tokens = 16
+runtime_shadow.jsonl = absent
+```
+
+Interpretation:
+
+```text
+Under the current production-like graph+warmup posture, the identity-gated
+future typed-slot GPU-assignment envelope is overhead-neutral in this repeat-3
+run (+0.076% generate / -0.076% throughput).  This observed configuration
+supports treating the identity-gated ABI attachment as an overhead-neutral
+production-like integration candidate for further testing, but it is not a
+speedup claim.
+
+The trusted_refs validation path is still slightly slower (-1.34% throughput)
+and should remain diagnostic/lower-bound only, not the default benchmark mode.
+
+These counter-off modes intentionally suppress package/detail counters, so this
+A/B is a TPOT/posture check.  Correctness and coverage evidence for the
+typed-slot envelope remains tied to the stricter detailed/lab-gate runs.
+```

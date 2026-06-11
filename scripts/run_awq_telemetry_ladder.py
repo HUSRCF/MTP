@@ -1472,6 +1472,18 @@ def _with_reuse_llm_across_chunks(base_mode: str) -> dict[str, Any]:
     return mode
 
 
+def _with_graph_warmup_posture(base_mode: str) -> dict[str, Any]:
+    mode = dict(MODES[base_mode])
+    trace_overrides = dict(mode["trace_overrides"])
+    vllm_overrides = dict(trace_overrides["vllm_overrides"])
+    vllm_overrides["enforce_eager"] = False
+    vllm_overrides["warmup_prompt_count"] = 32
+    vllm_overrides["warmup_max_tokens"] = 16
+    trace_overrides["vllm_overrides"] = vllm_overrides
+    mode["trace_overrides"] = trace_overrides
+    return mode
+
+
 MODES["production_batch_reuse_llm"] = _with_reuse_llm_across_chunks(
     "production_batch"
 )
@@ -1486,6 +1498,30 @@ MODES["production_batch_warmup_reuse_llm"] = _with_reuse_llm_across_chunks(
 
 MODES["production_batch_graph_warmup_reuse_llm"] = _with_reuse_llm_across_chunks(
     "production_batch_graph_warmup"
+)
+
+MODES[
+    "production_batch_premap_live_future_wna16_typed_slot_gpu_assignment_envelope_counter_off_graph_warmup"
+] = _with_graph_warmup_posture(
+    "production_batch_premap_live_future_wna16_typed_slot_gpu_assignment_envelope_counter_off"
+)
+
+MODES[
+    "production_batch_premap_live_future_wna16_typed_slot_gpu_assignment_envelope_counter_off_graph_warmup_reuse_llm"
+] = _with_reuse_llm_across_chunks(
+    "production_batch_premap_live_future_wna16_typed_slot_gpu_assignment_envelope_counter_off_graph_warmup"
+)
+
+MODES[
+    "production_batch_premap_live_future_wna16_typed_slot_gpu_assignment_envelope_trusted_refs_counter_off_graph_warmup"
+] = _with_graph_warmup_posture(
+    "production_batch_premap_live_future_wna16_typed_slot_gpu_assignment_envelope_trusted_refs_counter_off"
+)
+
+MODES[
+    "production_batch_premap_live_future_wna16_typed_slot_gpu_assignment_envelope_trusted_refs_counter_off_graph_warmup_reuse_llm"
+] = _with_reuse_llm_across_chunks(
+    "production_batch_premap_live_future_wna16_typed_slot_gpu_assignment_envelope_trusted_refs_counter_off_graph_warmup"
 )
 
 MODES[
