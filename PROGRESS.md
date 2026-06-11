@@ -33524,3 +33524,36 @@ now.  Keep it as an ABI/correctness canary only.  The production-like direction
 remains the pass-through typed-slot envelope / producer-native adapter boundary,
 not a standalone replacement Triton kernel.
 ```
+
+Same-posture pass-through envelope sanity check:
+
+```text
+artifact:
+  outputs/reports/awq_telemetry_ladder/
+    gpu1_passthrough_envelope_smoke32_gen64_20260612/
+
+production_batch_graph_warmup_reuse_llm:
+  returncode = 0
+  sample_count = 32
+  generate_s = 6.628482
+  TPOT = 0.003236564
+
+production_batch_premap_live_future_wna16_typed_slot_gpu_assignment_envelope_counter_off_graph_warmup_reuse_llm:
+  returncode = 0
+  sample_count = 32
+  generate_s = 6.584004
+  TPOT = 0.003214846
+  vs graph+warmup baseline:
+    generate_s = -0.67%
+    TPOT = -0.67%
+```
+
+Interpretation:
+
+```text
+This single 32-sample check is not a speedup claim, but it reinforces the
+repeat-3 heldout128 conclusion: the pass-through typed-slot / GPU-assignment
+envelope is a low-overhead production-like attachment boundary, while the
+standalone typed-slot kernel variants are currently ABI/correctness canaries
+only.
+```
