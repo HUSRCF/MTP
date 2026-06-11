@@ -32707,3 +32707,63 @@ This is useful backend evidence, not a prefetch/premap claim.  The remaining
 baseline opportunities are the missing W7900 AWQ MoE tuned config and ROCm
 paged-attention fallback, not direct_topk or graph-mode tuning.
 ```
+
+## 2026-06-11 - ROCm paged-attention fallback diagnosis
+
+Static source check after the graph/eager A/B:
+
+```text
+vLLM ROCm attention backend:
+  vllm/v1/attention/backends/rocm_attn.py
+
+The native ROCm paged-attention C++ kernel is documented as supporting only
+a narrow native LDS-friendly block-size envelope, commonly around 16/32 block
+sizes, while the ROCm backend advertises MultipleOf(16) support and falls back
+to the Triton path for non-standard block/layout cases.
+```
+
+The current AWQ/GDN hybrid model logs:
+
+```text
+Setting attention block size to 1056 tokens to ensure that attention page size
+is >= mamba page size.
+
+Cannot use ROCm custom paged attention kernel, falling back to Triton
+implementation.
+```
+
+The relevant vLLM platform logic:
+
+```text
+vllm/platforms/interface.py
+
+For hybrid attention/mamba models, vLLM aligns attention page size with the
+mamba page size.  Without prefix caching, it chooses the minimum attention block
+size satisfying both the backend block alignment and the mamba page-size
+compatibility.  For this observed model/configuration, that produces
+block_size=1056.
+```
+
+Interpretation:
+
+```text
+The ROCm paged-attention fallback is primarily a model/layout constraint, not a
+missing environment variable.  The hybrid Mamba/GDN page-size alignment inflates
+the attention block size far beyond the native ROCm paged-attention kernel's
+normal 16/32 block-size envelope, so vLLM routes decode attention to its Triton
+fallback path.
+
+This is consistent with part of the low GPU utilization / backend ceiling seen
+in production-like decode.  It is not fixed by simply enabling graph mode or
+setting a flash-attention environment variable.  A performance-capable path
+would likely need either:
+  1. a native attention/kernel path that can consume the 1056-token hybrid page
+     layout efficiently; or
+  2. a safe vLLM/cache-layout change that decouples attention's physical kernel
+     block size from the hybrid mamba page-size envelope.
+
+Do not silently patch site-packages or force a smaller block size for benchmark
+claims unless cache semantic parity is validated first; that risks breaking the
+hybrid cache contract.  Treat this as a backend architecture constraint and a
+future kernel/layout optimization target.
+```
