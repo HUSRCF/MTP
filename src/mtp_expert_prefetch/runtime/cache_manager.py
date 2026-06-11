@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from collections import OrderedDict
+from collections import OrderedDict, deque
 from dataclasses import asdict, dataclass, field
 from functools import cached_property
 
@@ -230,6 +230,295 @@ class ControlledExpertCacheManager:
             _, old = self._cache.popitem(last=False)
             if old.prefetched and not old.used:
                 self.evicted_before_use_count += 1
+
+
+@dataclass(frozen=True)
+class ReadyTimeCacheManagerSnapshot(CacheManagerSnapshot):
+    """Snapshot for ready-before-demand payload cache accounting."""
+
+    ready_late_miss_count: int
+    late_completion_unused_count: int
+    queue_batch_count: int
+    queue_service_us: float
+    queue_total_span_us: float
+    queue_wait_us: float
+    queue_max_delay_us: float
+    queue_event_interval_us: float
+    queue_deadline_us: float
+    queue_batch_size: int
+
+
+class ReadyTimeExpertCacheManager:
+    """Bounded expert-payload cache with ready-before-demand semantics.
+
+    This is the runtime primitive for the controlled payload/cache-manager path.
+    A prefetched expert is a demand hit only after its virtual transfer
+    completion time is no later than the demand deadline.  The class does not
+    move payload bytes; it accounts for service time, batching, and late
+    completion so the online path can graduate beyond resident-only accounting
+    before any real DMA/cache-manager integration.
+    """
+
+    def __init__(
+        self,
+        *,
+        capacity: int,
+        service_us_per_issue: float = 0.0,
+        service_us_per_batch: float = 0.0,
+        queue_batch_size: int = 1,
+        queue_deadline_us: float = 0.0,
+    ) -> None:
+        self.capacity = int(capacity)
+        self.service_us_per_issue = max(0.0, float(service_us_per_issue))
+        self.service_us_per_batch = max(0.0, float(service_us_per_batch))
+        self.queue_batch_size = max(1, int(queue_batch_size) or 1)
+        self.queue_deadline_us = max(0.0, float(queue_deadline_us))
+
+        self._cache: OrderedDict[tuple[int, int], CacheManagerEntry] = OrderedDict()
+        self._pending_keys: list[tuple[int, int]] = []
+        self._pending_first_arrival_us: float | None = None
+        self._completions: deque[tuple[float, list[tuple[int, int]]]] = deque()
+        self._inflight: set[tuple[int, int]] = set()
+        self._server_available_us = 0.0
+        self._last_completion_us = 0.0
+        self._last_arrival_us = 0.0
+
+        self.issued_fetch_count = 0
+        self.used_fetch_count = 0
+        self.demand_count = 0
+        self.demand_hit_count = 0
+        self.demand_miss_count = 0
+        self.evicted_before_use_count = 0
+        self.ready_late_miss_count = 0
+        self.late_completion_unused_count = 0
+        self.queue_batch_count = 0
+        self.queue_service_us = 0.0
+        self.queue_wait_us = 0.0
+        self.queue_max_delay_us = 0.0
+
+    def issue_prefetch(
+        self,
+        layer_idx: int,
+        expert_idx: int,
+        *,
+        arrival_us: float,
+    ) -> bool:
+        """Issue one virtual payload transfer unless resident or in flight."""
+
+        key = (int(layer_idx), int(expert_idx))
+        self.advance_to(arrival_us)
+        if key in self._cache:
+            self._cache.move_to_end(key)
+            return False
+        if key in self._inflight:
+            return False
+        self.issued_fetch_count += 1
+        self._inflight.add(key)
+        if not self._pending_keys:
+            self._pending_first_arrival_us = float(arrival_us)
+        self._pending_keys.append(key)
+        self._flush_full_batches(ready_us=float(arrival_us))
+        return True
+
+    def issue_prefetches(
+        self,
+        layer_idx: int,
+        expert_indices: list[int] | tuple[int, ...],
+        *,
+        arrival_us: float,
+    ) -> int:
+        """Issue a token/layer burst and return the number of new transfers."""
+
+        issued = 0
+        for expert_idx in expert_indices:
+            if self.issue_prefetch(
+                int(layer_idx),
+                int(expert_idx),
+                arrival_us=float(arrival_us),
+            ):
+                issued += 1
+        return issued
+
+    def demand(
+        self,
+        layer_idx: int,
+        expert_idx: int,
+        *,
+        arrival_us: float,
+    ) -> bool:
+        """Demand one expert and require completion by arrival + deadline."""
+
+        demand_deadline_us = float(arrival_us) + self.queue_deadline_us
+        self._flush_due_pending(demand_deadline_us)
+        self._drain_ready(demand_deadline_us)
+        self.demand_count += 1
+        key = (int(layer_idx), int(expert_idx))
+        entry = self._cache.get(key)
+        if entry is not None:
+            self.demand_hit_count += 1
+            if entry.prefetched and not entry.used:
+                self.used_fetch_count += 1
+            entry.used = True
+            self._cache.move_to_end(key)
+            return True
+        if key in self._inflight:
+            self.ready_late_miss_count += 1
+        self.demand_miss_count += 1
+        self._insert(key, CacheManagerEntry(prefetched=False, used=True))
+        return False
+
+    def advance_to(self, arrival_us: float) -> None:
+        """Advance virtual time and materialize transfers ready by arrival."""
+
+        arrival = max(0.0, float(arrival_us))
+        self._last_arrival_us = max(self._last_arrival_us, arrival)
+        self._flush_due_pending(arrival)
+        self._drain_ready(arrival)
+
+    def finish(self) -> None:
+        """Flush outstanding virtual transfers for final accounting."""
+
+        if self._pending_keys and self._pending_first_arrival_us is not None:
+            first_arrival_us = self._pending_first_arrival_us
+            ready_us = (
+                first_arrival_us + self.queue_deadline_us
+                if self.queue_deadline_us > 0.0
+                else self._last_arrival_us
+            )
+            keys = list(self._pending_keys)
+            self._pending_keys.clear()
+            self._pending_first_arrival_us = None
+            self._flush_pending(
+                keys,
+                ready_us=ready_us,
+                first_arrival_us=first_arrival_us,
+            )
+        self._drain_ready(float("inf"))
+
+    def snapshot(self) -> ReadyTimeCacheManagerSnapshot:
+        resident_unused_fetch_count = sum(
+            1 for entry in self._cache.values() if entry.prefetched and not entry.used
+        )
+        unused_fetch_count = (
+            resident_unused_fetch_count + self.late_completion_unused_count
+        )
+        return ReadyTimeCacheManagerSnapshot(
+            capacity=self.capacity,
+            resident_count=len(self._cache),
+            issued_fetch_count=self.issued_fetch_count,
+            used_fetch_count=self.used_fetch_count,
+            unused_fetch_count=unused_fetch_count,
+            demand_count=self.demand_count,
+            demand_hit_count=self.demand_hit_count,
+            demand_miss_count=self.demand_miss_count,
+            evicted_before_use_count=self.evicted_before_use_count,
+            ready_late_miss_count=self.ready_late_miss_count,
+            late_completion_unused_count=self.late_completion_unused_count,
+            queue_batch_count=self.queue_batch_count,
+            queue_service_us=float(self.queue_service_us),
+            queue_total_span_us=(
+                float(max(0.0, self._last_completion_us))
+                if self.issued_fetch_count
+                else 0.0
+            ),
+            queue_wait_us=float(self.queue_wait_us),
+            queue_max_delay_us=float(self.queue_max_delay_us),
+            queue_event_interval_us=0.0,
+            queue_deadline_us=float(self.queue_deadline_us),
+            queue_batch_size=int(self.queue_batch_size),
+        )
+
+    def _insert(
+        self,
+        key: tuple[int, int],
+        entry: CacheManagerEntry,
+    ) -> None:
+        if self.capacity <= 0:
+            if entry.prefetched and not entry.used:
+                self.evicted_before_use_count += 1
+            return
+        self._cache[key] = entry
+        self._cache.move_to_end(key)
+        while len(self._cache) > self.capacity:
+            _, old = self._cache.popitem(last=False)
+            if old.prefetched and not old.used:
+                self.evicted_before_use_count += 1
+
+    def _batch_service_us(self, count: int) -> float:
+        return self.service_us_per_batch + self.service_us_per_issue * float(count)
+
+    def _flush_pending(
+        self,
+        keys: list[tuple[int, int]],
+        *,
+        ready_us: float,
+        first_arrival_us: float,
+    ) -> None:
+        if not keys:
+            return
+        service_us = self._batch_service_us(len(keys))
+        start_us = max(self._server_available_us, float(ready_us))
+        wait_us = max(0.0, start_us - float(ready_us))
+        completion_us = start_us + service_us
+        self.queue_batch_count += 1
+        self.queue_service_us += service_us
+        self.queue_wait_us += wait_us
+        self.queue_max_delay_us = max(
+            self.queue_max_delay_us,
+            completion_us - float(first_arrival_us),
+        )
+        self._server_available_us = completion_us
+        self._last_completion_us = completion_us
+        self._completions.append((completion_us, list(keys)))
+
+    def _flush_full_batches(self, *, ready_us: float) -> None:
+        while len(self._pending_keys) >= self.queue_batch_size:
+            first_arrival_us = (
+                float(ready_us)
+                if self._pending_first_arrival_us is None
+                else self._pending_first_arrival_us
+            )
+            keys = self._pending_keys[: self.queue_batch_size]
+            del self._pending_keys[: self.queue_batch_size]
+            self._flush_pending(
+                keys,
+                ready_us=float(ready_us),
+                first_arrival_us=first_arrival_us,
+            )
+            self._pending_first_arrival_us = (
+                float(ready_us) if self._pending_keys else None
+            )
+
+    def _flush_due_pending(self, arrival_us: float) -> None:
+        if (
+            self._pending_keys
+            and self._pending_first_arrival_us is not None
+            and self.queue_deadline_us > 0.0
+            and float(arrival_us)
+            >= self._pending_first_arrival_us + self.queue_deadline_us
+        ):
+            first_arrival_us = self._pending_first_arrival_us
+            keys = list(self._pending_keys)
+            self._pending_keys.clear()
+            self._pending_first_arrival_us = None
+            self._flush_pending(
+                keys,
+                ready_us=first_arrival_us + self.queue_deadline_us,
+                first_arrival_us=first_arrival_us,
+            )
+
+    def _drain_ready(self, ready_time_us: float) -> None:
+        while self._completions and self._completions[0][0] <= ready_time_us:
+            _, keys = self._completions.popleft()
+            for key in keys:
+                self._inflight.discard(key)
+                entry = self._cache.get(key)
+                if entry is not None:
+                    if not entry.prefetched:
+                        self.late_completion_unused_count += 1
+                    self._cache.move_to_end(key)
+                    continue
+                self._insert(key, CacheManagerEntry(prefetched=True, used=False))
 
 
 @dataclass(frozen=True)
