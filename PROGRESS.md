@@ -33557,3 +33557,55 @@ envelope is a low-overhead production-like attachment boundary, while the
 standalone typed-slot kernel variants are currently ABI/correctness canaries
 only.
 ```
+
+## 2026-06-12: Premap payload-cache manager runtime smoke
+
+Added a real vLLM online smoke for the accounting-only payload/cache-manager
+runtime path:
+
+```text
+config:
+  configs/trace/router_mtp_trace_external_prompt_gate_dolly_8_awq_vllm_gpu1_decode_gen4_premap_payload_cache_shadow_smoke.yaml
+
+artifact:
+  data/traces/external_prompt_gate_dolly_8_awq_vllm_gpu1_decode_gen4_premap_payload_cache_shadow_smoke/
+```
+
+GPU1 Dolly8 / gen4 result:
+
+```text
+runtime_shadow rows:
+  premap_summary = 24,880
+  premap_payload_cache_manager = 1,280
+  premap_consumer_mapping = 0
+
+performance_summary flattened fields:
+  runtime_shadow_aggregate_premap_payload_cache_manager_count = 26,160
+  runtime_shadow_aggregate_premap_payload_cache_issued_fetch_count = 33,445
+  runtime_shadow_aggregate_premap_payload_cache_used_fetch_count = 33,445
+  runtime_shadow_aggregate_premap_payload_cache_demand_count = 41,327
+  runtime_shadow_aggregate_premap_payload_cache_demand_hit_count = 33,445
+  runtime_shadow_aggregate_premap_payload_cache_demand_miss_count = 7,882
+  runtime_shadow_aggregate_premap_payload_cache_resident_count_max = 256
+  runtime_shadow_aggregate_premap_payload_cache_unused_fetch_count_max = 219
+  runtime_shadow_aggregate_premap_payload_cache_demand_hit_rate_mean = 0.8500
+  runtime_shadow_aggregate_premap_payload_cache_used_fetch_rate_mean = 0.9820
+```
+
+Interpretation:
+
+```text
+The payload/cache-manager runtime accounting path is now connected to the real
+vLLM prelaunch consumer boundary.  It can issue from the future-token
+transition premap stream and demand from fused-MoE prepare-expert-assignment
+without enabling payload movement, ready credit, descriptor-order execution, or
+kernel-argument mutation.
+
+The smoke intentionally keeps emit_premap_consumer_mapping=false.  The observed
+premap_consumer_mapping_count=0 and nonzero premap_payload_cache_manager rows
+confirm that payload-cache-only consumer accounting does not pollute the
+consumer-mapping gate.
+
+This is not a payload-transfer or endpoint-speedup claim.  It is the first real
+online runtime accounting gate for the future payload/cache-manager path.
+```
