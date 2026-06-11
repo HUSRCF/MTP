@@ -100,9 +100,15 @@
   `gpu_assignment_kernel_variant_fallback_count=0`,
   `gpu_assignment_kernel_variant_identity_blocked_count=0`, and all assignment
   tensor identity mismatch counters are zero.  `package_pass_through_count=0`
-  confirms the independent kernel path executed.  Generate time is 8.897s,
-  slower than the production-batch baseline/envelope path, so this is a
-  kernel-side consumption semantics gate, not a performance candidate yet.
+  confirms the independent kernel path executed.  The detailed-counter smoke
+  takes 8.897s, so detailed counters remain diagnostic-only.  The counter-off
+  repeat-3 run is production-compatible: 7.165s / 7.189s / 7.210s
+  (`mean=7.188s`, aggregate throughput 284.91 tok/s), compared with the
+  same-config `production_batch` baseline at 7.283s / 281.20 tok/s and the
+  pass-through GPU assignment envelope at 7.138s / 286.93 tok/s.  This makes
+  the assignment consumer variant a valid kernel-side consumption gate with a
+  small positive signal in this run, but it is still not the final performance
+  optimization target.
 - Latest lab-gate update: promoted the request-launch ABI into the default
   readonly lab preflight as required evidence,
   `native_typed_consumer_stub_online_prelaunch_input_request_launch_canary_json`.
