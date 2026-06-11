@@ -2,8 +2,28 @@
 
 ## Progress Version
 
-- Version: `v0.79-w7900-moe-config-overlay`
+- Version: `v0.80-strict-native-arg-slot-gate`
 - Updated: 2026-06-11
+- Latest strict lab-gate update: refreshed the canonical premap lab gate with
+  the future native arg-slot all-field window sweep enabled as a strict
+  preflight condition.  The default `run_premap_lab_gate_verify.py` path now
+  passes with `device=0` under `HIP_VISIBLE_DEVICES=1`: closure, tail-window
+  closure, row-window sweep, and all-field window sweep all return code 0 with
+  no failures.  The all-field checker validates the same aggregate set of 1841
+  online-derived rows across `descriptor_ptr`,
+  `packed_weight_descriptor`, `scale_metadata_handle`, and
+  `aux_metadata_handle`, with `window_size=512`, program-view pointer ABI,
+  kernel-arg packet ABI, kernel-entry args ABI, and kernel-entry args pointer
+  ABI all required.  The no-op safety boundary remains intact:
+  `payload_bytes=0`, `passed_to_kernel=false`, and
+  `changes_kernel_launch_args=false`.  This upgrades the typed consumer bridge
+  from individual canaries to a canonical lab preflight for a future
+  kernel-side typed-slot consumer; it still does not pass current WNA16 kernel
+  args and is not a runtime performance claim.  Artifacts:
+  `outputs/reports/premap_lab_gate_verify_strict_20260611.json`,
+  `outputs/reports/premap_kernel_consumer/online_merged_future_native_arg_slot_all_field_window_sweep_runner.json`,
+  and
+  `outputs/reports/premap_kernel_consumer/online_merged_future_native_arg_slot_all_field_window_sweep_check.json`.
 - Latest W7900 MoE config-overlay update: added a repo-local
   `VLLM_TUNED_CONFIG_FOLDER` overlay for the vLLM AWQ/WNA16 MoE warning
   `E=256,N=512,dtype=int4_w4a16` on W7900, without mutating the conda
