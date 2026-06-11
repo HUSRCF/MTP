@@ -23,6 +23,16 @@
   path, not a broad static JSON override.  Artifacts:
   `configs/vllm_moe_tuning/w7900_awq_int4_m_only_v1/` and
   `outputs/reports/awq_telemetry_ladder/gpu1_moe_config_m_only_nomatrix_repeat3_heldout128_gen64_20260611/summary.md`.
+  A follow-up temporary default-mirror smoke that only explicitly mirrors
+  vLLM's WNA16 default M-side rule (`BLOCK_SIZE_M/GROUP_SIZE_M/SPLIT_K`, no
+  `num_warps/num_stages`) is essentially neutral on the same GPU1 32-sample
+  gen64 path: overlay 7.206s vs no-overlay default 7.222s (`+0.22%`
+  throughput, single run).  This supports the narrower diagnosis that the
+  copied tuned-config values were the problem, but it still does not create a
+  deployable tuned-config win.  Artifacts:
+  `outputs/reports/awq_telemetry_ladder/gpu1_moe_config_default_mirror_tmp_32sample_gen64_20260611/summary.md`
+  and
+  `outputs/reports/awq_telemetry_ladder/gpu1_moe_config_default_mirror_baseline_tmp_32sample_gen64_20260611/summary.md`.
 - Latest trusted-refs lower-bound update: added an explicit
   `premap_kernel_arg_handoff_gpu_assignment_validation_mode` with
   `identity` as the default and `trusted_refs` as a pass-through envelope-only
