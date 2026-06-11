@@ -2,7 +2,7 @@
 
 ## Progress Version
 
-- Version: `v0.77-production-batch-mapping-attribution`
+- Version: `v0.78-gpu-assignment-envelope`
 - Updated: 2026-06-11
 - Latest production-like benchmark update: separated the true vLLM batched
   decode path from the router-recorder/shadow audit harness.  The previous
@@ -61,6 +61,29 @@
   is already far too expensive for production.  Treat this as negative
   attribution evidence; it is not a runtime candidate and not a lab
   precondition.
+- Latest native-assignment update: added a production-batch future typed-slot
+  GPU assignment envelope,
+  `production_batch_premap_live_future_wna16_typed_slot_gpu_assignment_envelope_counter_off`.
+  This keeps the no-recorder/no-shadow-row batched vLLM path, does not enable
+  prelaunch consumer mapping or prepared-table materialization, and attaches
+  only the GPU-side `sorted_token_ids`, `expert_ids`, and
+  `num_tokens_post_padded` tensor references to the producer live package.
+  The WNA16 prelaunch wrapper verifies Python object identity against the
+  actual launch tensors and still passes through the original WNA16 arguments.
+  A GPU1 Dolly 32-sample gen64 detailed smoke passes with
+  `package_producer_gpu_assignment_envelope_count=2560`,
+  `gpu_assignment_envelope_seen_count=5120`, all three assignment tensors
+  present, and zero identity mismatches.  The counter-off repeat-3 production
+  batch run finishes at 7.104s / 7.145s / 7.164s
+  (`mean=7.138s`, aggregate throughput 286.93 tok/s).  A same-config
+  `production_batch` repeat-3 baseline finishes at 7.341s / 7.243s / 7.265s
+  (`mean=7.283s`, aggregate throughput 281.21 tok/s), so the assignment
+  envelope is production-compatible and shows a small positive signal in this
+  run.  Treat it as a boundary/feasibility result, not yet a standalone
+  benchmark claim.  This is the correct next boundary
+  after the mapping-only negative result: future native/kernel-side assignment
+  consumption should use GPU-side assignment handles directly, not Python
+  prelaunch expert extraction or address-manager mapping.
 - Latest lab-gate update: promoted the request-launch ABI into the default
   readonly lab preflight as required evidence,
   `native_typed_consumer_stub_online_prelaunch_input_request_launch_canary_json`.

@@ -2553,6 +2553,9 @@ class VllmRouterRecorder:
     shadow_premap_kernel_arg_handoff_producer_future_wna16_typed_slot_envelope_enabled: (
         bool
     ) = False
+    shadow_premap_kernel_arg_handoff_producer_gpu_assignment_envelope_enabled: (
+        bool
+    ) = False
     shadow_premap_kernel_arg_handoff_future_wna16_typed_slot_kernel_variant_enabled: (
         bool
     ) = False
@@ -4194,6 +4197,9 @@ class VllmRouterRecorder:
         block_size: int,
         available: bool,
         source: str,
+        sorted_token_ids: torch.Tensor | None = None,
+        expert_ids: torch.Tensor | None = None,
+        num_tokens_post_padded: torch.Tensor | None = None,
     ) -> bool:
         if not self._premap_producer_minimal_identity_envelope_wanted():
             return False
@@ -4220,6 +4226,14 @@ class VllmRouterRecorder:
         )
         existing_package = context.get("premap_kernel_arg_live_mutation_package")
         if isinstance(existing_package, dict) and bool(existing_package.get(package_flag)):
+            self._attach_premap_producer_gpu_assignment_envelope(
+                existing_package,
+                source=source,
+                available=available,
+                sorted_token_ids=sorted_token_ids,
+                expert_ids=expert_ids,
+                num_tokens_post_padded=num_tokens_post_padded,
+            )
             return True
         field_name = str(
             self.shadow_premap_kernel_arg_handoff_single_field_replacement_field
@@ -4235,7 +4249,7 @@ class VllmRouterRecorder:
                 field_name,
             )
         )
-        context["premap_kernel_arg_live_mutation_package"] = {
+        package = {
             "layer_id": int(layer_id),
             "source": package_source,
             "table_object_hash": envelope_id,
@@ -4254,6 +4268,15 @@ class VllmRouterRecorder:
                 else None
             ),
         }
+        self._attach_premap_producer_gpu_assignment_envelope(
+            package,
+            source=source,
+            available=available,
+            sorted_token_ids=sorted_token_ids,
+            expert_ids=expert_ids,
+            num_tokens_post_padded=num_tokens_post_padded,
+        )
+        context["premap_kernel_arg_live_mutation_package"] = package
         _increment_premap_kernel_arg_live_mutation_counter(
             (
                 "package_producer_future_wna16_typed_slot_envelope_count"
@@ -4262,6 +4285,71 @@ class VllmRouterRecorder:
             )
         )
         return True
+
+    def _attach_premap_producer_gpu_assignment_envelope(
+        self,
+        package: dict[str, Any],
+        *,
+        source: str,
+        available: bool,
+        sorted_token_ids: torch.Tensor | None,
+        expert_ids: torch.Tensor | None,
+        num_tokens_post_padded: torch.Tensor | None,
+    ) -> None:
+        if not bool(
+            self.shadow_premap_kernel_arg_handoff_producer_gpu_assignment_envelope_enabled
+        ):
+            return
+        if not bool(package.get("producer_future_wna16_typed_slot_envelope", False)):
+            return
+        if bool(package.get("producer_gpu_assignment_envelope", False)):
+            return
+
+        def tensor_meta(tensor: torch.Tensor | None) -> dict[str, Any] | None:
+            if tensor is None:
+                return None
+            return {
+                "device": str(tensor.device),
+                "dtype": str(tensor.dtype),
+                "ndim": int(tensor.ndim),
+                "shape": tuple(int(value) for value in tensor.shape),
+                "numel": int(tensor.numel()),
+                "is_cuda": bool(tensor.is_cuda),
+            }
+
+        package["producer_gpu_assignment_envelope"] = True
+        package["producer_gpu_assignment_schema"] = (
+            "wna16_gpu_assignment_refs_v1"
+        )
+        package["producer_gpu_assignment_source"] = str(source)
+        package["producer_gpu_assignment_available"] = bool(available)
+        package["producer_gpu_assignment_sorted_token_ids"] = sorted_token_ids
+        package["producer_gpu_assignment_expert_ids"] = expert_ids
+        package["producer_gpu_assignment_num_tokens_post_padded"] = (
+            num_tokens_post_padded
+        )
+        package["producer_gpu_assignment_sorted_token_ids_meta"] = tensor_meta(
+            sorted_token_ids
+        )
+        package["producer_gpu_assignment_expert_ids_meta"] = tensor_meta(expert_ids)
+        package["producer_gpu_assignment_num_tokens_post_padded_meta"] = tensor_meta(
+            num_tokens_post_padded
+        )
+        _increment_premap_kernel_arg_live_mutation_counter(
+            "package_producer_gpu_assignment_envelope_count"
+        )
+        if sorted_token_ids is not None:
+            _increment_premap_kernel_arg_live_mutation_counter(
+                "gpu_assignment_sorted_token_ids_attached_count"
+            )
+        if expert_ids is not None:
+            _increment_premap_kernel_arg_live_mutation_counter(
+                "gpu_assignment_expert_ids_attached_count"
+            )
+        if num_tokens_post_padded is not None:
+            _increment_premap_kernel_arg_live_mutation_counter(
+                "gpu_assignment_num_tokens_post_padded_attached_count"
+            )
 
     def _write_premap_consumer_mapping_from_experts(
         self,
@@ -8244,6 +8332,9 @@ class VllmRouterRecorder:
             block_size=int(block_size),
             available=bool(available),
             source=handle_source,
+            sorted_token_ids=sorted_token_ids,
+            expert_ids=expert_ids,
+            num_tokens_post_padded=num_tokens_post_padded,
         )
         sink = self.shadow_outcome_sink
         if not wants_descriptor_handle and not wants_premap_mapping:
@@ -10277,6 +10368,20 @@ _PREMAP_KERNEL_ARG_LIVE_MUTATION_COUNTERS: dict[str, int] = {
     "package_minimal_identity_envelope_count": 0,
     "package_producer_minimal_identity_envelope_count": 0,
     "package_producer_future_wna16_typed_slot_envelope_count": 0,
+    "package_producer_gpu_assignment_envelope_count": 0,
+    "gpu_assignment_envelope_seen_count": 0,
+    "gpu_assignment_sorted_token_ids_attached_count": 0,
+    "gpu_assignment_sorted_token_ids_identity_ok_count": 0,
+    "gpu_assignment_sorted_token_ids_identity_mismatch_count": 0,
+    "gpu_assignment_sorted_token_ids_missing_count": 0,
+    "gpu_assignment_expert_ids_attached_count": 0,
+    "gpu_assignment_expert_ids_identity_ok_count": 0,
+    "gpu_assignment_expert_ids_identity_mismatch_count": 0,
+    "gpu_assignment_expert_ids_missing_count": 0,
+    "gpu_assignment_num_tokens_post_padded_attached_count": 0,
+    "gpu_assignment_num_tokens_post_padded_identity_ok_count": 0,
+    "gpu_assignment_num_tokens_post_padded_identity_mismatch_count": 0,
+    "gpu_assignment_num_tokens_post_padded_missing_count": 0,
     "single_field_replacement_dry_run_candidate_count": 0,
     "single_field_replacement_dry_run_parity_ok_count": 0,
     "single_field_replacement_dry_run_parity_mismatch_count": 0,
@@ -15253,6 +15358,64 @@ def patch_vllm_qwen35_moe_router_trace() -> None:
                     == "kernel_arg_handoff_real_kernel_arg_mutation_live"
                 )
                 if use_live_mutation_package:
+                    if bool(
+                        live_mutation_package_meta.get(
+                            "producer_gpu_assignment_envelope",
+                            False,
+                        )
+                    ):
+                        _increment_premap_kernel_arg_live_mutation_counter(
+                            "gpu_assignment_envelope_seen_count"
+                        )
+                        assignment_identity_ok = True
+                        assignment_pairs = (
+                            (
+                                "sorted_token_ids",
+                                live_mutation_package_meta.get(
+                                    "producer_gpu_assignment_sorted_token_ids"
+                                ),
+                                sorted_token_ids,
+                            ),
+                            (
+                                "expert_ids",
+                                live_mutation_package_meta.get(
+                                    "producer_gpu_assignment_expert_ids"
+                                ),
+                                expert_ids,
+                            ),
+                            (
+                                "num_tokens_post_padded",
+                                live_mutation_package_meta.get(
+                                    "producer_gpu_assignment_num_tokens_post_padded"
+                                ),
+                                num_tokens_post_padded,
+                            ),
+                        )
+                        for assignment_name, producer_value, launch_value in (
+                            assignment_pairs
+                        ):
+                            counter_prefix = f"gpu_assignment_{assignment_name}"
+                            if producer_value is None and launch_value is None:
+                                _increment_premap_kernel_arg_live_mutation_counter(
+                                    f"{counter_prefix}_identity_ok_count"
+                                )
+                            elif producer_value is None:
+                                assignment_identity_ok = False
+                                _increment_premap_kernel_arg_live_mutation_counter(
+                                    f"{counter_prefix}_missing_count"
+                                )
+                            elif producer_value is launch_value:
+                                _increment_premap_kernel_arg_live_mutation_counter(
+                                    f"{counter_prefix}_identity_ok_count"
+                                )
+                            else:
+                                assignment_identity_ok = False
+                                _increment_premap_kernel_arg_live_mutation_counter(
+                                    f"{counter_prefix}_identity_mismatch_count"
+                                )
+                        live_mutation_package_meta[
+                            "producer_gpu_assignment_consumer_identity_ok"
+                        ] = bool(assignment_identity_ok)
                     single_field_dry_run_enabled = False
                     single_field_live_enabled = False
                     single_field_candidate_source = "original_kernel_arg_identity"
@@ -16466,6 +16629,12 @@ def _apply_premap_consumer_readonly_gate(
             False,
         )
     )
+    producer_gpu_assignment_envelope_enabled = bool(
+        options.get(
+            "premap_kernel_arg_handoff_producer_gpu_assignment_envelope_enabled",
+            False,
+        )
+    )
     future_wna16_typed_slot_kernel_variant_enabled = bool(
         options.get(
             "premap_kernel_arg_handoff_future_wna16_typed_slot_kernel_variant_enabled",
@@ -16671,6 +16840,16 @@ def _apply_premap_consumer_readonly_gate(
     ):
         msg = (
             "premap_kernel_arg_handoff_future_wna16_typed_slot_kernel_variant_enabled=True "
+            "requires "
+            "premap_kernel_arg_handoff_producer_future_wna16_typed_slot_envelope_enabled=True."
+        )
+        raise ValueError(msg)
+    if (
+        producer_gpu_assignment_envelope_enabled
+        and not producer_future_wna16_typed_slot_envelope_enabled
+    ):
+        msg = (
+            "premap_kernel_arg_handoff_producer_gpu_assignment_envelope_enabled=True "
             "requires "
             "premap_kernel_arg_handoff_producer_future_wna16_typed_slot_envelope_enabled=True."
         )
@@ -17869,6 +18048,12 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                     False,
                 )
             ),
+            shadow_premap_kernel_arg_handoff_producer_gpu_assignment_envelope_enabled=bool(
+                runtime_shadow_options.get(
+                    "premap_kernel_arg_handoff_producer_gpu_assignment_envelope_enabled",
+                    False,
+                )
+            ),
             shadow_premap_kernel_arg_handoff_future_wna16_typed_slot_kernel_variant_enabled=bool(
                 runtime_shadow_options.get(
                     "premap_kernel_arg_handoff_future_wna16_typed_slot_kernel_variant_enabled",
@@ -18371,6 +18556,12 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
         "runtime_shadow_premap_kernel_arg_handoff_producer_future_wna16_typed_slot_envelope_enabled": bool(
             runtime_shadow_options.get(
                 "premap_kernel_arg_handoff_producer_future_wna16_typed_slot_envelope_enabled",
+                False,
+            )
+        ),
+        "runtime_shadow_premap_kernel_arg_handoff_producer_gpu_assignment_envelope_enabled": bool(
+            runtime_shadow_options.get(
+                "premap_kernel_arg_handoff_producer_gpu_assignment_envelope_enabled",
                 False,
             )
         ),
@@ -18915,6 +19106,12 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                             shadow_premap_kernel_arg_handoff_producer_future_wna16_typed_slot_envelope_enabled=bool(
                                 runtime_shadow_options.get(
                                     "premap_kernel_arg_handoff_producer_future_wna16_typed_slot_envelope_enabled",
+                                    False,
+                                )
+                            ),
+                            shadow_premap_kernel_arg_handoff_producer_gpu_assignment_envelope_enabled=bool(
+                                runtime_shadow_options.get(
+                                    "premap_kernel_arg_handoff_producer_gpu_assignment_envelope_enabled",
                                     False,
                                 )
                             ),

@@ -795,6 +795,22 @@ def test_apply_premap_consumer_readonly_gate_rejects_producer_native_adapter_wit
         )
 
 
+def test_apply_premap_consumer_readonly_gate_rejects_gpu_assignment_envelope_without_future_envelope(
+    tmp_path,
+):
+    with pytest.raises(
+        ValueError,
+        match="producer_gpu_assignment_envelope_enabled=True",
+    ):
+        _apply_premap_consumer_readonly_gate(
+            {
+                "enabled": True,
+                "premap_kernel_arg_handoff_producer_gpu_assignment_envelope_enabled": True,
+            },
+            project_root=tmp_path,
+        )
+
+
 @pytest.mark.parametrize(
     "missing_key",
     [

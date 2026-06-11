@@ -1283,6 +1283,32 @@ MODES["production_batch_premap_live_future_wna16_typed_slot_envelope_detailed"] 
 }
 
 MODES[
+    "production_batch_premap_live_future_wna16_typed_slot_gpu_assignment_envelope_counter_off"
+] = {
+    **MODES["production_batch_premap_live_future_wna16_typed_slot_envelope_counter_off"],
+    # Native-assignment handoff lower bound: the prelaunch producer attaches the
+    # GPU-side sorted_token_ids/expert_ids/num_tokens_post_padded tensor refs to
+    # the future typed-slot package.  The WNA16 wrapper only verifies that the
+    # package sees the same launch tensors; no CPU extraction, address-manager
+    # mapping, prepared table, payload movement, or kernel-arg replacement is
+    # enabled.
+    "premap_kernel_arg_handoff_producer_gpu_assignment_envelope_enabled": True,
+    "premap_kernel_arg_handoff_prepared_table_materialization_mode": "off",
+    "premap_kernel_arg_handoff_future_wna16_typed_slot_kernel_variant_enabled": (
+        False
+    ),
+}
+
+MODES[
+    "production_batch_premap_live_future_wna16_typed_slot_gpu_assignment_envelope_detailed"
+] = {
+    **MODES[
+        "production_batch_premap_live_future_wna16_typed_slot_gpu_assignment_envelope_counter_off"
+    ],
+    "premap_kernel_arg_handoff_live_counter_mode": "detailed",
+}
+
+MODES[
     "production_batch_premap_live_future_wna16_typed_slot_kernel_variant_counter_off"
 ] = {
     **MODES["premap_live_future_wna16_typed_slot_kernel_variant_counter_off"],
