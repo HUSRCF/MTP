@@ -205,6 +205,24 @@
   the assignment consumer variant a valid kernel-side consumption gate with a
   small positive signal in this run, but it is still not the final performance
   optimization target.
+- Latest production-compatible repeat check: reran the GPU1 Dolly32 / gen64
+  no-recorder, no-shadow-row reuse-LLM benchmark for the independent
+  GPU-assignment WNA16 consumer variant.  The baseline
+  `production_batch_reuse_llm` finishes at 7.199s / 7.218s / 7.241s
+  (`mean=7.2194s`, `TPOT=0.003525s`, aggregate throughput 283.68 tok/s).
+  `production_batch_premap_live_future_wna16_gpu_assignment_kernel_variant_counter_off_reuse_llm`
+  finishes at 7.160s / 7.184s / 7.203s (`mean=7.1824s`,
+  `TPOT=0.003507s`, aggregate throughput 285.14 tok/s), a small but
+  repeat-consistent +0.51% throughput signal.  The compared modes share the
+  same 32-sample split, gen64 token budget, reuse-LLM setting, and
+  no-recorder/no-shadow-row telemetry boundary; the consumer variant is the
+  intended difference.  The artifact is
+  `outputs/reports/awq_telemetry_ladder/gpu1_assignment_kernel_variant_repeat3_current_20260611/`.
+  This confirms that the independent GPU-assignment consumer path remains
+  production-compatible under the current code.  The claim boundary is
+  unchanged: this is a narrow identity-assignment kernel-side consumer result,
+  not evidence that prepared descriptor/address tables or payload prefetch
+  improve endpoint latency.
 - Latest lab-gate update: promoted the request-launch ABI into the default
   readonly lab preflight as required evidence,
   `native_typed_consumer_stub_online_prelaunch_input_request_launch_canary_json`.
