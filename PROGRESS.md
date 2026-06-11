@@ -2,8 +2,29 @@
 
 ## Progress Version
 
-- Version: `v0.80-strict-native-arg-slot-gate`
+- Version: `v0.81-wna16-side-consumer-lab-gate`
 - Updated: 2026-06-11
+- Latest WNA16-side consumer gate update: promoted the independent
+  WNA16-side typed consumer variant execution canary into the canonical
+  `run_premap_lab_gate_verify.py` path.  The lab verify runner now includes a
+  required `wna16_side_consumer_variant` step that re-materializes the
+  online-derived typed rows, runs the native typed-consumer stub with
+  `--require-wna16-side-consumer-variant-execution`, and verifies 1841 rows
+  with all four handle fields read:
+  `descriptor_ptr`, `packed_weight_descriptor`, `scale_metadata_handle`, and
+  `aux_metadata_handle`.  The strict checker now rejects missing WNA16-side
+  execution coverage, row-count mismatches, handle-read failures, nonzero
+  errors, payload bytes, kernel-arg pass, launch-arg mutation, current-WNA16
+  arg compatibility, reinterpretation, or reuse of the current WNA16 arg slot.
+  A strict GPU1-visible run on `device=0` passes with no failures.  This is a
+  stronger preflight for a future independent typed-slot WNA16 consumer path;
+  it still does not pass current WNA16 kernel args and is not a performance
+  claim.  Artifacts:
+  `outputs/reports/premap_lab_gate_verify_strict_wna16_side_20260611.json`,
+  `outputs/reports/premap_lab_gate_verify_strict_wna16_side_20260611.check.json`,
+  `outputs/reports/premap_kernel_consumer/online_merged_wna16_side_consumer_variant_execution_lab_gate_runner.json`,
+  and
+  `outputs/reports/premap_kernel_consumer/typed_consumer_stub_gpu1_online_merged_wna16_side_consumer_variant_execution_lab_gate.json`.
 - Latest strict lab-gate update: refreshed the canonical premap lab gate with
   the future native arg-slot all-field window sweep enabled as a strict
   preflight condition.  The default `run_premap_lab_gate_verify.py` path now

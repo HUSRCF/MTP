@@ -158,6 +158,29 @@ def _passing_lab_gate_statuses() -> dict[str, dict]:
                 "aux_metadata_handle",
             ],
         },
+        "wna16_side_consumer_variant": {
+            "exists": True,
+            "passed": True,
+            "failures": [],
+            "payload_bytes": 0,
+            "passed_to_kernel": False,
+            "changes_kernel_launch_args": False,
+            "require_wna16_side_consumer_variant_execution": True,
+            "wna16_side_consumer_variant_execution_checked": True,
+            "wna16_side_consumer_variant_execution_all_handle_fields_read": True,
+            "wna16_side_consumer_variant_execution_row_count": 1841,
+            "wna16_side_consumer_variant_execution_row_ok_count": 1841,
+            "wna16_side_consumer_variant_execution_error_count": 0,
+            "wna16_side_consumer_variant_execution_payload_bytes": 0,
+            "wna16_side_consumer_variant_execution_passed_to_kernel": False,
+            "wna16_side_consumer_variant_execution_changes_kernel_launch_args": False,
+            "wna16_side_consumer_variant_execution_current_wna16_arg_compatible": False,
+            "wna16_side_consumer_variant_execution_requires_wna16_arg_reinterpretation": False,
+            "wna16_side_consumer_variant_execution_reuses_current_wna16_arg_slot": False,
+            "wna16_side_consumer_variant_execution_handle_projection_hash_accumulator": (
+                "9748c8c92c02281b"
+            ),
+        },
     }
 
 
@@ -181,6 +204,12 @@ def test_run_premap_lab_gate_verify_dry_run_records_all_steps(tmp_path: Path):
             str(tmp_path / "all_field_window_sweep.json"),
             "--all-field-window-sweep-check-json",
             str(tmp_path / "all_field_window_sweep.check.json"),
+            "--wna16-side-variant-json",
+            str(tmp_path / "wna16_side_variant.json"),
+            "--wna16-side-variant-stub-json",
+            str(tmp_path / "wna16_side_variant.stub.json"),
+            "--wna16-side-variant-merged-json",
+            str(tmp_path / "wna16_side_variant.merged.json"),
             "--tail-window-size",
             "8",
         ]
@@ -203,6 +232,7 @@ def test_run_premap_lab_gate_verify_dry_run_records_all_steps(tmp_path: Path):
         "window_sweep_check",
         "all_field_window_sweep",
         "all_field_window_sweep_check",
+        "wna16_side_consumer_variant",
     ]
     tail_cmd = result["steps"]["tail_window_closure_check"]["cmd"]
     assert "--require-tail-window-probe" in tail_cmd
@@ -244,6 +274,26 @@ def test_run_premap_lab_gate_verify_dry_run_records_all_steps(tmp_path: Path):
     assert "--require-child-kernel-arg-packet-abi" in all_field_check_cmd
     assert "--require-child-kernel-entry-args-abi" in all_field_check_cmd
     assert "--require-child-kernel-entry-args-ptr-abi" in all_field_check_cmd
+    wna16_side_cmd = result["steps"]["wna16_side_consumer_variant"]["cmd"]
+    assert "scripts/run_premap_online_merged_native_arg_slot_canary.py" in (
+        wna16_side_cmd
+    )
+    assert "--require-wna16-side-consumer-variant-execution" in wna16_side_cmd
+    assert "--min-total-rows" in wna16_side_cmd
+    assert "1024" in wna16_side_cmd
+    assert "--block-threads" in wna16_side_cmd
+    assert "256" in wna16_side_cmd
+
+
+def test_status_failures_reject_wna16_side_variant_without_execution_gate():
+    statuses = _passing_lab_gate_statuses()
+    statuses["wna16_side_consumer_variant"][
+        "require_wna16_side_consumer_variant_execution"
+    ] = False
+
+    failures = _status_failures(statuses)
+
+    assert failures == ["wna16_side_variant_did_not_require_execution"]
 
 
 def test_status_failures_precisely_reject_window_checker_without_entry_args_ptr_gate():

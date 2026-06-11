@@ -35,12 +35,14 @@ REQUIRED_STEPS = (
     "window_sweep_check",
     "all_field_window_sweep",
     "all_field_window_sweep_check",
+    "wna16_side_consumer_variant",
 )
 SAFETY_STATUS_NAMES = (
     "default_closure",
     "tail_window_closure",
     "window_sweep",
     "all_field_window_sweep",
+    "wna16_side_consumer_variant",
 )
 
 def _load_json(path: Path) -> dict[str, Any]:
@@ -243,6 +245,66 @@ def check_lab_gate_verify_artifact(
         "aux_metadata_handle",
     ]:
         failures.append("all_field_window_sweep_check_fields_checked_mismatch")
+    wna16_status = statuses.get("wna16_side_consumer_variant", {})
+    row_count = wna16_status.get("wna16_side_consumer_variant_execution_row_count")
+    row_ok_count = wna16_status.get(
+        "wna16_side_consumer_variant_execution_row_ok_count"
+    )
+    if wna16_status.get("require_wna16_side_consumer_variant_execution") is not True:
+        failures.append("wna16_side_variant_did_not_require_execution")
+    if wna16_status.get("wna16_side_consumer_variant_execution_checked") is not True:
+        failures.append("wna16_side_variant_not_checked")
+    if (
+        wna16_status.get("wna16_side_consumer_variant_execution_all_handle_fields_read")
+        is not True
+    ):
+        failures.append("wna16_side_variant_did_not_read_all_handle_fields")
+    if not isinstance(row_count, int) or isinstance(row_count, bool) or row_count < 1024:
+        failures.append("wna16_side_variant_row_count_too_small")
+    if row_ok_count != row_count:
+        failures.append("wna16_side_variant_row_ok_count_mismatch")
+    if wna16_status.get("wna16_side_consumer_variant_execution_error_count") != 0:
+        failures.append("wna16_side_variant_error_count_mismatch")
+    if wna16_status.get("wna16_side_consumer_variant_execution_payload_bytes") != 0:
+        failures.append("wna16_side_variant_payload_bytes_mismatch")
+    if (
+        wna16_status.get("wna16_side_consumer_variant_execution_passed_to_kernel")
+        is not False
+    ):
+        failures.append("wna16_side_variant_passed_to_kernel_mismatch")
+    if (
+        wna16_status.get(
+            "wna16_side_consumer_variant_execution_changes_kernel_launch_args"
+        )
+        is not False
+    ):
+        failures.append("wna16_side_variant_changes_kernel_launch_args_mismatch")
+    if (
+        wna16_status.get(
+            "wna16_side_consumer_variant_execution_current_wna16_arg_compatible"
+        )
+        is not False
+    ):
+        failures.append("wna16_side_variant_current_wna16_arg_compatible_mismatch")
+    if (
+        wna16_status.get(
+            "wna16_side_consumer_variant_execution_requires_wna16_arg_reinterpretation"
+        )
+        is not False
+    ):
+        failures.append("wna16_side_variant_requires_reinterpretation_mismatch")
+    if (
+        wna16_status.get(
+            "wna16_side_consumer_variant_execution_reuses_current_wna16_arg_slot"
+        )
+        is not False
+    ):
+        failures.append("wna16_side_variant_reuses_current_wna16_arg_slot_mismatch")
+    hash_value = wna16_status.get(
+        "wna16_side_consumer_variant_execution_handle_projection_hash_accumulator"
+    )
+    if not isinstance(hash_value, str) or not hash_value:
+        failures.append("wna16_side_variant_handle_projection_hash_missing")
 
     return {
         "passed": not failures,

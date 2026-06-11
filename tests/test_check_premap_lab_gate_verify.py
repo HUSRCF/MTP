@@ -22,12 +22,41 @@ def _status_payload(name: str) -> dict[str, object]:
         "tail_window_closure",
         "window_sweep",
         "all_field_window_sweep",
+        "wna16_side_consumer_variant",
     }:
         payload.update(
             {
                 "payload_bytes": 0,
                 "passed_to_kernel": False,
                 "changes_kernel_launch_args": False,
+            }
+        )
+    if name == "wna16_side_consumer_variant":
+        payload.update(
+            {
+                "require_wna16_side_consumer_variant_execution": True,
+                "wna16_side_consumer_variant_execution_checked": True,
+                "wna16_side_consumer_variant_execution_all_handle_fields_read": True,
+                "wna16_side_consumer_variant_execution_row_count": 1841,
+                "wna16_side_consumer_variant_execution_row_ok_count": 1841,
+                "wna16_side_consumer_variant_execution_error_count": 0,
+                "wna16_side_consumer_variant_execution_payload_bytes": 0,
+                "wna16_side_consumer_variant_execution_passed_to_kernel": False,
+                "wna16_side_consumer_variant_execution_changes_kernel_launch_args": (
+                    False
+                ),
+                "wna16_side_consumer_variant_execution_current_wna16_arg_compatible": (
+                    False
+                ),
+                "wna16_side_consumer_variant_execution_requires_wna16_arg_reinterpretation": (
+                    False
+                ),
+                "wna16_side_consumer_variant_execution_reuses_current_wna16_arg_slot": (
+                    False
+                ),
+                "wna16_side_consumer_variant_execution_handle_projection_hash_accumulator": (
+                    "9748c8c92c02281b"
+                ),
             }
         )
     if name == "default_closure":
@@ -186,6 +215,24 @@ def test_lab_gate_verify_check_rejects_kernel_boundary_mutation(tmp_path: Path):
 
     assert result["passed"] is False
     assert "window_sweep_passed_to_kernel_mismatch" in result["failures"]
+
+
+def test_lab_gate_verify_check_rejects_wna16_side_variant_missing_gate(
+    tmp_path: Path,
+):
+    path = tmp_path / "verify.json"
+    payload = _write_verify(path)
+    statuses = payload["statuses"]
+    assert isinstance(statuses, dict)
+    wna16_status = statuses["wna16_side_consumer_variant"]
+    assert isinstance(wna16_status, dict)
+    wna16_status["require_wna16_side_consumer_variant_execution"] = False
+    path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+
+    result = check_lab_gate_verify_artifact(path)
+
+    assert result["passed"] is False
+    assert "wna16_side_variant_did_not_require_execution" in result["failures"]
 
 
 def test_lab_gate_verify_check_rejects_default_closure_without_invocation_abi(

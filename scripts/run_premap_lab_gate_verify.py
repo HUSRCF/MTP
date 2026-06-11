@@ -58,6 +58,27 @@ DEFAULT_ALL_FIELD_WINDOW_SWEEP_CHECK_JSON = (
     / "premap_kernel_consumer"
     / "online_merged_future_native_arg_slot_all_field_window_sweep_check.json"
 )
+DEFAULT_WNA16_SIDE_VARIANT_JSON = (
+    REPO_ROOT
+    / "outputs"
+    / "reports"
+    / "premap_kernel_consumer"
+    / "online_merged_wna16_side_consumer_variant_execution_lab_gate_runner.json"
+)
+DEFAULT_WNA16_SIDE_VARIANT_STUB_JSON = (
+    REPO_ROOT
+    / "outputs"
+    / "reports"
+    / "premap_kernel_consumer"
+    / "typed_consumer_stub_gpu1_online_merged_wna16_side_consumer_variant_execution_lab_gate.json"
+)
+DEFAULT_WNA16_SIDE_VARIANT_MERGED_JSON = (
+    REPO_ROOT
+    / "outputs"
+    / "reports"
+    / "premap_kernel_consumer"
+    / "online_merged_prelaunch_typed_consumer_input_wna16_side_consumer_variant_execution_lab_gate.json"
+)
 DEFAULT_VERIFY_JSON = (
     REPO_ROOT / "outputs" / "reports" / "premap_lab_gate_verify.json"
 )
@@ -281,6 +302,49 @@ def _load_status(path: Path) -> dict[str, Any]:
         "require_child_checks": payload.get("require_child_checks"),
         "mirror_fields_checked": payload.get("mirror_fields_checked"),
         "windows_checked": payload.get("windows_checked"),
+        "require_wna16_side_consumer_variant_execution": payload.get(
+            "require_wna16_side_consumer_variant_execution"
+        ),
+        "wna16_side_consumer_variant_execution_checked": payload.get(
+            "wna16_side_consumer_variant_execution_checked"
+        ),
+        "wna16_side_consumer_variant_execution_all_handle_fields_read": payload.get(
+            "wna16_side_consumer_variant_execution_all_handle_fields_read"
+        ),
+        "wna16_side_consumer_variant_execution_row_count": payload.get(
+            "wna16_side_consumer_variant_execution_row_count"
+        ),
+        "wna16_side_consumer_variant_execution_row_ok_count": payload.get(
+            "wna16_side_consumer_variant_execution_row_ok_count"
+        ),
+        "wna16_side_consumer_variant_execution_error_count": payload.get(
+            "wna16_side_consumer_variant_execution_error_count"
+        ),
+        "wna16_side_consumer_variant_execution_payload_bytes": payload.get(
+            "wna16_side_consumer_variant_execution_payload_bytes"
+        ),
+        "wna16_side_consumer_variant_execution_passed_to_kernel": payload.get(
+            "wna16_side_consumer_variant_execution_passed_to_kernel"
+        ),
+        "wna16_side_consumer_variant_execution_changes_kernel_launch_args": (
+            payload.get("wna16_side_consumer_variant_execution_changes_kernel_launch_args")
+        ),
+        "wna16_side_consumer_variant_execution_current_wna16_arg_compatible": (
+            payload.get("wna16_side_consumer_variant_execution_current_wna16_arg_compatible")
+        ),
+        "wna16_side_consumer_variant_execution_requires_wna16_arg_reinterpretation": (
+            payload.get(
+                "wna16_side_consumer_variant_execution_requires_wna16_arg_reinterpretation"
+            )
+        ),
+        "wna16_side_consumer_variant_execution_reuses_current_wna16_arg_slot": (
+            payload.get("wna16_side_consumer_variant_execution_reuses_current_wna16_arg_slot")
+        ),
+        "wna16_side_consumer_variant_execution_handle_projection_hash_accumulator": (
+            payload.get(
+                "wna16_side_consumer_variant_execution_handle_projection_hash_accumulator"
+            )
+        ),
     }
     summaries = payload.get("summaries")
     if isinstance(summaries, dict):
@@ -288,6 +352,14 @@ def _load_status(path: Path) -> dict[str, Any]:
         if isinstance(arg_slot_runner, dict):
             for field in ARG_SLOT_INVOCATION_STATUS_FIELDS:
                 status[f"arg_slot_runner_{field}"] = arg_slot_runner.get(field)
+    if (
+        status.get("payload_bytes") is None
+        and status.get("wna16_side_consumer_variant_execution_payload_bytes")
+        is not None
+    ):
+        status["payload_bytes"] = status[
+            "wna16_side_consumer_variant_execution_payload_bytes"
+        ]
     return status
 
 
@@ -430,6 +502,67 @@ def _status_failures(statuses: dict[str, dict[str, Any]]) -> list[str]:
         "aux_metadata_handle",
     ]:
         failures.append("all_field_window_sweep_check_fields_checked_mismatch")
+    wna16_status = statuses.get("wna16_side_consumer_variant")
+    if isinstance(wna16_status, dict):
+        row_count = wna16_status.get("wna16_side_consumer_variant_execution_row_count")
+        row_ok_count = wna16_status.get(
+            "wna16_side_consumer_variant_execution_row_ok_count"
+        )
+        if wna16_status.get("require_wna16_side_consumer_variant_execution") is not True:
+            failures.append("wna16_side_variant_did_not_require_execution")
+        if wna16_status.get("wna16_side_consumer_variant_execution_checked") is not True:
+            failures.append("wna16_side_variant_not_checked")
+        if (
+            wna16_status.get("wna16_side_consumer_variant_execution_all_handle_fields_read")
+            is not True
+        ):
+            failures.append("wna16_side_variant_did_not_read_all_handle_fields")
+        if not isinstance(row_count, int) or isinstance(row_count, bool) or row_count < 1024:
+            failures.append("wna16_side_variant_row_count_too_small")
+        if row_ok_count != row_count:
+            failures.append("wna16_side_variant_row_ok_count_mismatch")
+        if wna16_status.get("wna16_side_consumer_variant_execution_error_count") != 0:
+            failures.append("wna16_side_variant_error_count_mismatch")
+        if wna16_status.get("wna16_side_consumer_variant_execution_payload_bytes") != 0:
+            failures.append("wna16_side_variant_payload_bytes_mismatch")
+        if (
+            wna16_status.get("wna16_side_consumer_variant_execution_passed_to_kernel")
+            is not False
+        ):
+            failures.append("wna16_side_variant_passed_to_kernel_mismatch")
+        if (
+            wna16_status.get(
+                "wna16_side_consumer_variant_execution_changes_kernel_launch_args"
+            )
+            is not False
+        ):
+            failures.append("wna16_side_variant_changes_kernel_launch_args_mismatch")
+        if (
+            wna16_status.get(
+                "wna16_side_consumer_variant_execution_current_wna16_arg_compatible"
+            )
+            is not False
+        ):
+            failures.append("wna16_side_variant_current_wna16_arg_compatible_mismatch")
+        if (
+            wna16_status.get(
+                "wna16_side_consumer_variant_execution_requires_wna16_arg_reinterpretation"
+            )
+            is not False
+        ):
+            failures.append("wna16_side_variant_requires_reinterpretation_mismatch")
+        if (
+            wna16_status.get(
+                "wna16_side_consumer_variant_execution_reuses_current_wna16_arg_slot"
+            )
+            is not False
+        ):
+            failures.append("wna16_side_variant_reuses_current_wna16_arg_slot_mismatch")
+        hash_value = wna16_status.get(
+            "wna16_side_consumer_variant_execution_handle_projection_hash_accumulator"
+        )
+        if not isinstance(hash_value, str) or not hash_value:
+            failures.append("wna16_side_variant_handle_projection_hash_missing")
     return failures
 
 
@@ -444,6 +577,9 @@ def run_verify(args: argparse.Namespace) -> dict[str, Any]:
     all_field_window_sweep_check_json = _resolve(
         args.all_field_window_sweep_check_json
     )
+    wna16_side_variant_json = _resolve(args.wna16_side_variant_json)
+    wna16_side_variant_stub_json = _resolve(args.wna16_side_variant_stub_json)
+    wna16_side_variant_merged_json = _resolve(args.wna16_side_variant_merged_json)
     device_args = _optional_device_args(args)
 
     steps = {
@@ -558,6 +694,29 @@ def run_verify(args: argparse.Namespace) -> dict[str, Any]:
             ],
             dry_run=bool(args.dry_run),
         ),
+        "wna16_side_consumer_variant": _run_step(
+            [
+                sys.executable,
+                "scripts/run_premap_online_merged_native_arg_slot_canary.py",
+                "--require-wna16-side-consumer-variant-execution",
+                "--max-inputs",
+                "32",
+                "--min-source-count",
+                "32",
+                "--min-total-rows",
+                "1024",
+                "--block-threads",
+                "256",
+                "--output-json",
+                str(wna16_side_variant_json),
+                "--stub-output-json",
+                str(wna16_side_variant_stub_json),
+                "--merged-output-json",
+                str(wna16_side_variant_merged_json),
+                *device_args,
+            ],
+            dry_run=bool(args.dry_run),
+        ),
     }
     step_failures = [
         name
@@ -575,6 +734,7 @@ def run_verify(args: argparse.Namespace) -> dict[str, Any]:
         "all_field_window_sweep_check": _load_status(
             all_field_window_sweep_check_json
         ),
+        "wna16_side_consumer_variant": _load_status(wna16_side_variant_json),
     }
     status_failures = [] if args.dry_run else _status_failures(statuses)
     failures = step_failures + status_failures
@@ -595,6 +755,9 @@ def run_verify(args: argparse.Namespace) -> dict[str, Any]:
             "all_field_window_sweep_check_json": str(
                 all_field_window_sweep_check_json
             ),
+            "wna16_side_variant_json": str(wna16_side_variant_json),
+            "wna16_side_variant_stub_json": str(wna16_side_variant_stub_json),
+            "wna16_side_variant_merged_json": str(wna16_side_variant_merged_json),
         },
         "steps": steps,
         "statuses": statuses,
@@ -643,6 +806,21 @@ def _build_parser() -> argparse.ArgumentParser:
         "--all-field-window-sweep-check-json",
         type=Path,
         default=DEFAULT_ALL_FIELD_WINDOW_SWEEP_CHECK_JSON,
+    )
+    parser.add_argument(
+        "--wna16-side-variant-json",
+        type=Path,
+        default=DEFAULT_WNA16_SIDE_VARIANT_JSON,
+    )
+    parser.add_argument(
+        "--wna16-side-variant-stub-json",
+        type=Path,
+        default=DEFAULT_WNA16_SIDE_VARIANT_STUB_JSON,
+    )
+    parser.add_argument(
+        "--wna16-side-variant-merged-json",
+        type=Path,
+        default=DEFAULT_WNA16_SIDE_VARIANT_MERGED_JSON,
     )
     parser.add_argument("--output-json", type=Path, default=DEFAULT_VERIFY_JSON)
     parser.add_argument("--device", type=int)
