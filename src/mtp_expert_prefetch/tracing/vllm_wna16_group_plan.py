@@ -487,6 +487,211 @@ def fused_moe_kernel_gptq_awq_indirect(
 
 
 @triton.jit
+def fused_moe_kernel_gptq_awq_typed_slot_slim(
+    a_ptr,
+    b_ptr,
+    c_ptr,
+    b_scale_ptr,
+    b_zp_ptr,
+    topk_weights_ptr,
+    sorted_token_ids_ptr,
+    expert_ids_ptr,
+    num_tokens_post_padded_ptr,
+    typed_slot_descriptor_ptr,
+    typed_slot_packed_weight_descriptor_ptr,
+    typed_slot_scale_metadata_handle_ptr,
+    typed_slot_aux_metadata_handle_ptr,
+    N: tl.constexpr,
+    K: tl.constexpr,
+    EM,
+    num_valid_tokens,
+    typed_slot_row_count,
+    stride_am,
+    stride_ak,
+    stride_be,
+    stride_bk,
+    stride_bn,
+    stride_cm,
+    stride_cn,
+    stride_bse,
+    stride_bsk,
+    stride_bsn,
+    stride_bze,
+    stride_bzk,
+    stride_bzn,
+    block_k_diviable: tl.constexpr,
+    group_size: tl.constexpr,
+    BLOCK_SIZE_M: tl.constexpr,
+    BLOCK_SIZE_N: tl.constexpr,
+    BLOCK_SIZE_K: tl.constexpr,
+    GROUP_SIZE_M: tl.constexpr,
+    SPLIT_K: tl.constexpr,
+    MUL_ROUTED_WEIGHT: tl.constexpr,
+    top_k: tl.constexpr,
+    compute_type: tl.constexpr,
+    has_zp: tl.constexpr,
+    use_int4_w4a16: tl.constexpr,
+    use_int8_w8a16: tl.constexpr,
+):
+    pid = tl.program_id(axis=0)
+    num_pid_m = tl.cdiv(EM, BLOCK_SIZE_M)
+    num_pid_n = tl.cdiv(N, BLOCK_SIZE_N)
+    num_pid_in_group = GROUP_SIZE_M * num_pid_n
+    group_id = pid // num_pid_in_group
+    first_pid_m = group_id * GROUP_SIZE_M
+    group_size_m = min(num_pid_m - first_pid_m, GROUP_SIZE_M)
+    pid_m = first_pid_m + ((pid % num_pid_in_group) % group_size_m)
+    pid_n = (pid % num_pid_in_group) // group_size_m
+
+    num_tokens_post_padded = tl.load(num_tokens_post_padded_ptr)
+    if pid_m * BLOCK_SIZE_M >= num_tokens_post_padded:
+        return
+
+    if typed_slot_row_count <= 0:
+        return
+    if pid_n == 0:
+        typed_row = pid_m % typed_slot_row_count
+        descriptor_handle = tl.load(typed_slot_descriptor_ptr + typed_row).to(tl.int64)
+        packed_weight_handle = tl.load(
+            typed_slot_packed_weight_descriptor_ptr + typed_row
+        ).to(tl.int64)
+        scale_metadata_handle = tl.load(
+            typed_slot_scale_metadata_handle_ptr + typed_row
+        ).to(tl.int64)
+        aux_metadata_handle = tl.load(
+            typed_slot_aux_metadata_handle_ptr + typed_row,
+            volatile=True,
+        ).to(tl.int64)
+        invalid_slot = (
+            (descriptor_handle == 0)
+            | (packed_weight_handle == 0)
+            | (scale_metadata_handle == 0)
+        )
+        if invalid_slot:
+            return
+
+    offs_token_id = pid_m * BLOCK_SIZE_M + tl.arange(0, BLOCK_SIZE_M).to(tl.int64)
+    offs_token = tl.load(sorted_token_ids_ptr + offs_token_id).to(tl.int64)
+    token_mask = offs_token < num_valid_tokens
+
+    off_experts = tl.load(expert_ids_ptr + pid_m).to(tl.int64)
+    if off_experts == -1:
+        _write_zeros_to_output(
+            c_ptr,
+            stride_cm,
+            stride_cn,
+            pid_n,
+            N,
+            offs_token,
+            token_mask,
+            BLOCK_SIZE_M,
+            BLOCK_SIZE_N,
+            compute_type,
+        )
+        return
+
+    offs_bn = (pid_n * BLOCK_SIZE_N + tl.arange(0, BLOCK_SIZE_N).to(tl.int64)) % N
+    offs_k = tl.arange(0, BLOCK_SIZE_K)
+    a_ptrs = a_ptr + (
+        offs_token[:, None] // top_k * stride_am + offs_k[None, :] * stride_ak
+    )
+
+    if use_int4_w4a16:
+        b_ptrs = (
+            b_ptr
+            + off_experts * stride_be
+            + (offs_k[:, None] // 2) * stride_bk
+            + offs_bn[None, :] * stride_bn
+        )
+        b_shifter = (offs_k[:, None] % 2) * 4
+    elif use_int8_w8a16:
+        b_ptrs = (
+            b_ptr
+            + off_experts * stride_be
+            + offs_k[:, None] * stride_bk
+            + offs_bn[None, :] * stride_bn
+        )
+
+    if not has_zp and use_int4_w4a16:
+        b_zp_num = 8
+    if not has_zp and use_int8_w8a16:
+        b_zp_num = 128
+    elif has_zp and use_int4_w4a16:
+        b_zp_shifter = (offs_bn[None, :] % 2) * 4
+
+    accumulator = tl.zeros((BLOCK_SIZE_M, BLOCK_SIZE_N), dtype=tl.float32)
+    for k in range(0, tl.cdiv(K, BLOCK_SIZE_K)):
+        if not block_k_diviable:
+            k_mask = offs_k[:, None] < K - k * BLOCK_SIZE_K
+            k_other = 0.0
+        else:
+            k_mask = None
+            k_other = None
+
+        a = tl.load(
+            a_ptrs,
+            mask=token_mask[:, None] & (offs_k[None, :] < K - k * BLOCK_SIZE_K),
+            other=0.0,
+        )
+        b = tl.load(b_ptrs)
+        if use_int4_w4a16:
+            b = (b >> b_shifter) & 0xF
+
+        b_scale_ptrs = (
+            b_scale_ptr
+            + off_experts * stride_bse
+            + offs_bn[None, :] * stride_bsn
+            + ((offs_k[:, None] + BLOCK_SIZE_K * k) // group_size) * stride_bsk
+        )
+        b_scale = tl.load(b_scale_ptrs, mask=k_mask, other=k_other)
+        b_scale = b_scale.to(tl.float32)
+
+        if has_zp and use_int4_w4a16:
+            offs_k_true = (offs_k[:, None] + BLOCK_SIZE_K * k) // group_size
+            b_zp_ptrs = (
+                b_zp_ptr
+                + off_experts * stride_bze
+                + (offs_bn[None, :] // 2) * stride_bzn
+                + offs_k_true * stride_bzk
+            )
+            b_zp = tl.load(b_zp_ptrs, mask=k_mask, other=k_other)
+            b_zp = (b_zp >> b_zp_shifter) & 0xF
+            b_zp = b_zp.to(tl.float32)
+        elif has_zp and use_int8_w8a16:
+            offs_k_true = (offs_k[:, None] + BLOCK_SIZE_K * k) // group_size
+            b_zp_ptrs = (
+                b_zp_ptr
+                + off_experts * stride_bze
+                + offs_bn[None, :] * stride_bzn
+                + offs_k_true * stride_bzk
+            )
+            b_zp = tl.load(b_zp_ptrs, mask=k_mask, other=k_other)
+            b_zp = b_zp.to(tl.float32)
+
+        if has_zp:
+            b = ((b.to(tl.float32) - b_zp) * b_scale).to(compute_type)
+        else:
+            b = ((b.to(tl.float32) - b_zp_num) * b_scale).to(compute_type)
+        accumulator = tl.dot(a, b, acc=accumulator)
+
+        a_ptrs += BLOCK_SIZE_K * stride_ak
+        if use_int4_w4a16:
+            b_ptrs += (BLOCK_SIZE_K // 2) * stride_bk
+        else:
+            b_ptrs += BLOCK_SIZE_K * stride_bk
+
+    if MUL_ROUTED_WEIGHT:
+        moe_weight = tl.load(topk_weights_ptr + offs_token, mask=token_mask, other=0)
+        accumulator = accumulator * moe_weight[:, None]
+
+    accumulator = accumulator.to(compute_type)
+    offs_cn = pid_n * BLOCK_SIZE_N + tl.arange(0, BLOCK_SIZE_N)
+    c_ptrs = c_ptr + stride_cm * offs_token[:, None] + stride_cn * offs_cn[None, :]
+    c_mask = token_mask[:, None] & (offs_cn[None, :] < N)
+    tl.store(c_ptrs, accumulator, mask=c_mask)
+
+
+@triton.jit
 def fused_moe_kernel_gptq_awq_source_block_ids(
     a_ptr,
     b_ptr,
@@ -2241,5 +2446,133 @@ def invoke_fused_moe_wna16_triton_kernel_future_typed_slot_identity(
         SOURCE_BLOCK_IDS_PACKED=False,
         MAX_GROUPS=1,
         TYPED_SLOT_MODE=True,
+        **launch_config,
+    )
+
+
+def invoke_fused_moe_wna16_triton_kernel_future_typed_slot_identity_slim(
+    *,
+    fused_moe_impl: Any,
+    typed_slot_descriptor_ptr: torch.Tensor,
+    typed_slot_packed_weight_descriptor: torch.Tensor,
+    typed_slot_scale_metadata_handle: torch.Tensor,
+    typed_slot_aux_metadata_handle: torch.Tensor,
+    A: torch.Tensor,
+    B: torch.Tensor,
+    C: torch.Tensor,
+    B_scale: torch.Tensor | None,
+    B_zp: torch.Tensor | None,
+    topk_weights: torch.Tensor | None,
+    sorted_token_ids: torch.Tensor,
+    expert_ids: torch.Tensor,
+    num_tokens_post_padded: torch.Tensor,
+    mul_routed_weight: bool,
+    top_k: int,
+    config: dict[str, Any],
+    compute_type: tl.dtype,
+    use_int8_w8a16: bool,
+    use_int4_w4a16: bool,
+    block_shape: list[int] | None,
+) -> None:
+    """Run an identity WNA16 kernel with a slim future typed-slot ABI.
+
+    Unlike ``invoke_fused_moe_wna16_triton_kernel_future_typed_slot_identity``,
+    this path does not reuse the generalized indirect/group-plan kernel.  It
+    keeps the original vLLM identity block traversal and only adds four
+    prepared descriptor/address columns as a future kernel-side consumer slot.
+    """
+
+    assert B_scale is not None and B_scale.ndim == 3
+    assert B_zp is None or B_zp.ndim == 3
+    assert block_shape is not None and block_shape[0] == 0
+    typed_tensors = (
+        typed_slot_descriptor_ptr,
+        typed_slot_packed_weight_descriptor,
+        typed_slot_scale_metadata_handle,
+        typed_slot_aux_metadata_handle,
+    )
+    typed_slot_row_count = int(typed_slot_descriptor_ptr.numel())
+    if typed_slot_row_count <= 0:
+        raise ValueError(
+            "future typed-slot slim WNA16 variant requires non-empty typed slots"
+        )
+    for tensor in typed_tensors:
+        if tensor is None or not tensor.is_cuda:
+            raise ValueError(
+                "future typed-slot slim WNA16 variant requires CUDA/HIP tensors"
+            )
+        if int(tensor.numel()) != typed_slot_row_count:
+            raise ValueError(
+                "future typed-slot slim WNA16 variant requires equal column lengths"
+            )
+        if tensor.dtype not in {torch.int64, torch.uint64}:
+            raise ValueError(
+                "future typed-slot slim WNA16 variant requires int64/uint64 columns"
+            )
+
+    M = A.size(0)
+    num_tokens = M * top_k
+    EM = sorted_token_ids.size(0)
+    if A.size(0) < config["BLOCK_SIZE_M"]:
+        EM = min(sorted_token_ids.size(0), A.size(0) * top_k * config["BLOCK_SIZE_M"])
+    grid = lambda META: (
+        triton.cdiv(EM, META["BLOCK_SIZE_M"])
+        * triton.cdiv(B.size(1), META["BLOCK_SIZE_N"]),
+    )
+    launch_config = config.copy()
+    launch_config.update(
+        fused_moe_impl.get_moe_wna16_block_config(
+            config=launch_config,
+            use_moe_wna16_cuda=False,
+            num_valid_tokens=num_tokens,
+            size_k=A.size(1),
+            size_n=B.size(1),
+            num_experts=B.size(1),
+            group_size=block_shape[1],
+            real_top_k=top_k,
+            block_size_m=launch_config["BLOCK_SIZE_M"],
+        )
+    )
+
+    fused_moe_kernel_gptq_awq_typed_slot_slim[grid](
+        A,
+        B,
+        C,
+        B_scale,
+        B_zp,
+        topk_weights,
+        sorted_token_ids,
+        expert_ids,
+        num_tokens_post_padded,
+        typed_slot_descriptor_ptr,
+        typed_slot_packed_weight_descriptor,
+        typed_slot_scale_metadata_handle,
+        typed_slot_aux_metadata_handle,
+        B.size(1),
+        A.size(1),
+        EM,
+        num_tokens,
+        typed_slot_row_count,
+        A.stride(0),
+        A.stride(1),
+        B.stride(0),
+        B.stride(2),
+        B.stride(1),
+        C.stride(1),
+        C.stride(2),
+        B_scale.stride(0),
+        B_scale.stride(2),
+        B_scale.stride(1),
+        B_zp.stride(0) if B_zp is not None else 0,
+        B_zp.stride(2) if B_zp is not None else 0,
+        B_zp.stride(1) if B_zp is not None else 0,
+        block_k_diviable=A.size(1) % launch_config["BLOCK_SIZE_K"] == 0,
+        group_size=block_shape[1],
+        MUL_ROUTED_WEIGHT=mul_routed_weight,
+        top_k=top_k,
+        compute_type=compute_type,
+        has_zp=B_zp is not None,
+        use_int4_w4a16=use_int4_w4a16,
+        use_int8_w8a16=use_int8_w8a16,
         **launch_config,
     )

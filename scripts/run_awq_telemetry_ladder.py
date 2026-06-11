@@ -1616,6 +1616,39 @@ MODES[
     "outcome_logging_mode": "off",
 }
 
+MODES[
+    "production_batch_premap_live_future_wna16_typed_slot_slim_kernel_variant_counter_off"
+] = {
+    **MODES[
+        "production_batch_premap_live_future_wna16_typed_slot_kernel_variant_counter_off"
+    ],
+    # Same prepared-table typed-slot canary, but the launched kernel is the
+    # slim identity-traversal variant rather than the generalized indirect /
+    # group-plan kernel.  This isolates whether the generic variant shape is the
+    # source of the independent-kernel overhead.
+    "premap_risky_trace_canary_scope": (
+        "benchmark_premap_live_future_wna16_typed_slot_slim_kernel_variant_counter_off"
+    ),
+    "premap_kernel_arg_handoff_future_wna16_typed_slot_kernel_variant_enabled": (
+        False
+    ),
+    "premap_kernel_arg_handoff_future_wna16_typed_slot_slim_kernel_variant_enabled": (
+        True
+    ),
+}
+
+MODES[
+    "production_batch_premap_live_future_wna16_typed_slot_slim_kernel_variant_counter_off_graph_warmup"
+] = _with_graph_warmup_posture(
+    "production_batch_premap_live_future_wna16_typed_slot_slim_kernel_variant_counter_off"
+)
+
+MODES[
+    "production_batch_premap_live_future_wna16_typed_slot_slim_kernel_variant_counter_off_graph_warmup_reuse_llm"
+] = _with_reuse_llm_across_chunks(
+    "production_batch_premap_live_future_wna16_typed_slot_slim_kernel_variant_counter_off_graph_warmup"
+)
+
 
 MODES[
     "production_batch_premap_live_future_wna16_typed_slot_kernel_variant_detailed"

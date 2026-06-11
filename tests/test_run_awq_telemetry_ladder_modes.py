@@ -1105,6 +1105,96 @@ def test_production_batch_premap_live_typed_slot_kernel_variant_uses_no_recorder
     assert mode["premap_kernel_arg_handoff_live_counter_mode"] == "off"
 
 
+def test_production_batch_premap_live_typed_slot_slim_kernel_variant_uses_no_recorder_prepared_table() -> None:
+    module = _load_module()
+    mode = module.MODES[
+        "production_batch_premap_live_future_wna16_typed_slot_slim_kernel_variant_counter_off"
+    ]
+    generic = module.MODES[
+        "production_batch_premap_live_future_wna16_typed_slot_kernel_variant_counter_off"
+    ]
+    trace_overrides = mode["trace_overrides"]
+    vllm_overrides = trace_overrides["vllm_overrides"]
+
+    assert mode["runtime_shadow_enabled"] is False
+    assert trace_overrides == generic["trace_overrides"]
+    assert vllm_overrides["use_router_logits_recorder"] is False
+    assert vllm_overrides["enable_return_routed_experts"] is False
+    assert vllm_overrides["max_num_seqs"] == 32
+    assert vllm_overrides["engine_chunk_size"] == 32
+    assert mode["record_router_topk"] is False
+    assert mode["capture_router_topk"] is False
+    assert mode["emit_premap_summaries"] is False
+    assert mode["emit_premap_consumer_mapping"] is True
+    assert mode["premap_consumer_mapping_emit_rows"] is False
+    assert mode["premap_consumer_resolve_real_handles"] is True
+    assert (
+        mode[
+            "premap_kernel_arg_handoff_producer_future_wna16_typed_slot_envelope_enabled"
+        ]
+        is True
+    )
+    assert (
+        mode[
+            "premap_kernel_arg_handoff_future_wna16_typed_slot_kernel_variant_enabled"
+        ]
+        is False
+    )
+    assert (
+        mode[
+            "premap_kernel_arg_handoff_future_wna16_typed_slot_slim_kernel_variant_enabled"
+        ]
+        is True
+    )
+    assert (
+        mode["premap_kernel_arg_handoff_prepared_table_materialization_mode"]
+        == "producer_native_adapter"
+    )
+    assert mode["premap_kernel_arg_handoff_live_counter_mode"] == "off"
+
+
+def test_production_batch_premap_live_typed_slot_slim_kernel_variant_graph_reuse_modes() -> None:
+    module = _load_module()
+    base = module.MODES[
+        "production_batch_premap_live_future_wna16_typed_slot_slim_kernel_variant_counter_off"
+    ]
+    graph = module.MODES[
+        "production_batch_premap_live_future_wna16_typed_slot_slim_kernel_variant_counter_off_graph_warmup"
+    ]
+    reuse = module.MODES[
+        "production_batch_premap_live_future_wna16_typed_slot_slim_kernel_variant_counter_off_graph_warmup_reuse_llm"
+    ]
+
+    base_vllm = base["trace_overrides"]["vllm_overrides"]
+    graph_vllm = graph["trace_overrides"]["vllm_overrides"]
+    reuse_vllm = reuse["trace_overrides"]["vllm_overrides"]
+
+    assert graph["runtime_shadow_enabled"] is False
+    assert graph["record_router_topk"] is False
+    assert graph["capture_router_topk"] is False
+    assert (
+        graph[
+            "premap_kernel_arg_handoff_future_wna16_typed_slot_kernel_variant_enabled"
+        ]
+        is False
+    )
+    assert (
+        graph[
+            "premap_kernel_arg_handoff_future_wna16_typed_slot_slim_kernel_variant_enabled"
+        ]
+        is True
+    )
+    assert graph_vllm["enforce_eager"] is False
+    assert graph_vllm["warmup_prompt_count"] == 32
+    assert graph_vllm["warmup_max_tokens"] == 16
+    assert not bool(base_vllm.get("reuse_llm_across_chunks", False))
+    assert reuse_vllm["reuse_llm_across_chunks"] is True
+    comparable_graph = dict(graph_vllm)
+    comparable_reuse = dict(reuse_vllm)
+    comparable_reuse.pop("reuse_llm_across_chunks")
+    assert comparable_reuse == comparable_graph
+
+
 def test_production_batch_premap_live_typed_slot_kernel_variant_detailed_only_enables_counters() -> None:
     module = _load_module()
     detailed = module.MODES[
