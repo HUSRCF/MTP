@@ -33386,3 +33386,61 @@ pass-through envelope as the current low-overhead integration boundary.  The
 independent GPU-assignment kernel variant remains a correctness/ABI canary, not
 the performance path.
 ```
+
+Heldout128 graph+warmup envelope repeat-3:
+
+```text
+artifact:
+  outputs/reports/awq_telemetry_ladder/
+    gpu1_graph_warmup_envelope_heldout128_repeat3_gen64_20260612/
+
+production_batch_graph_warmup_reuse_llm:
+  returncode = 0 / 0 / 0
+  sample_count = 128 / 128 / 128
+  generate_s = 27.379385 / 27.697930 / 28.015933
+  mean_generate_s = 27.697749
+  mean_TPOT = 0.003381073
+  mean_throughput = 295.790 tok/s
+
+production_batch_premap_live_future_wna16_typed_slot_gpu_assignment_envelope_counter_off_graph_warmup_reuse_llm:
+  returncode = 0 / 0 / 0
+  sample_count = 128 / 128 / 128
+  generate_s = 27.709962 / 27.694498 / 27.779331
+  mean_generate_s = 27.727930
+  mean_TPOT = 0.003384757
+  mean_throughput = 295.443 tok/s
+  vs graph+warmup baseline:
+    generate_s = +0.109%
+    throughput = -0.117%
+```
+
+Posture:
+
+```text
+runtime_shadow.jsonl = absent for all repeats
+warmup_status = ok for all repeats
+warmup_prompt_count_effective = 32 for all repeats
+gpu_assignment_envelope_enabled:
+  baseline = false
+  identity-gated envelope = true
+gpu_assignment_kernel_variant_enabled:
+  baseline = false
+  identity-gated envelope = false
+trust_producer_refs:
+  baseline = false
+  identity-gated envelope = false
+```
+
+Repeat-3 interpretation:
+
+```text
+The pass-through identity-gated GPU-assignment envelope remains overhead-neutral
+on the full Dolly heldout128 / gen64 split under graph+warmup.  The repeat-3
+mean delta is only +0.109% generate / -0.117% throughput, below the
+working/noise threshold used for these benchmark notes.
+
+This strengthens the integration boundary conclusion:
+  keep the pass-through envelope as the low-overhead production-like ABI
+  attachment point, and do not use the independent GPU-assignment kernel variant
+  as the performance path.
+```
