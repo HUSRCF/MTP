@@ -32010,3 +32010,89 @@ split or a second GPU, then decide whether to promote it from a canary to an
 experimental runtime candidate.  Prepared descriptor/address table handoff
 remains diagnostic until row extraction/staging moves below Python.
 ```
+
+## 2026-06-11 - Heldout128 GPU-assignment kernel variant check
+
+Experiment:
+
+```text
+GPU1 AWQ/Dolly heldout128 gen64, batch32, no router recorder.
+
+The direct 128-sample run succeeded for production_batch:
+
+outputs/reports/awq_telemetry_ladder/
+  gpu1_gpu_assignment_kernel_variant_heldout128_gen64_20260611/
+
+production_batch:
+  generate_s = 29.9651
+  tokens = 8192
+  throughput = 273.38 tok/s
+
+The direct 128-sample candidate run returned code 1 after the first 32-sample
+chunk.  The log shows a second in-process vLLM initialization failed because
+GPU memory was still held:
+
+  Free memory on device cuda:0 (1.06/44.98 GiB) on startup is less than desired
+  GPU memory utilization (0.98, 44.08 GiB).
+
+This is a runner/lifecycle limitation for this mode, not evidence of a kernel
+numerical failure.
+```
+
+Chunked apples-to-apples comparison:
+
+```text
+To avoid the repeated in-process vLLM initialization issue, both baseline and
+candidate were run as four independent 32-sample chunks:
+
+outputs/reports/awq_telemetry_ladder/
+  gpu1_gpu_assignment_baseline_heldout128_gen64_chunked_20260611/
+  gpu1_gpu_assignment_kernel_variant_heldout128_gen64_chunked_20260611/
+
+artifact:
+  outputs/reports/awq_telemetry_ladder/
+    gpu1_gpu_assignment_kernel_variant_heldout128_gen64_chunked_20260611/
+      heldout128_gen64_chunked_apples_to_apples_summary.json
+
+baseline chunked:
+  chunk 000..031 = 7.3064s
+  chunk 032..063 = 7.7136s
+  chunk 064..095 = 7.4817s
+  chunk 096..127 = 7.6613s
+  total = 30.1629s
+  throughput = 271.59 tok/s
+
+gpu-assignment kernel variant chunked:
+  chunk 000..031 = 7.2176s
+  chunk 032..063 = 8.2938s
+  chunk 064..095 = 7.3818s
+  chunk 096..127 = 7.5640s
+  total = 30.4572s
+  throughput = 268.97 tok/s
+
+total delta:
+  variant vs baseline generate_s = +0.2943s / +0.98%
+  throughput delta = -0.97%
+```
+
+Interpretation:
+
+```text
+The GPU-assignment kernel variant remains a valid short-output/gen1
+identity-launching ABI canary, but the heldout128 gen64 chunked comparison does
+not support promoting it as a performance-positive runtime candidate.
+
+The earlier 32-sample and gen1 positive signals were useful for proving that
+the assignment consumer path is wired and can launch safely.  They are not
+stable enough to claim endpoint/runtime speedup.  The current status is:
+
+  correctness / ABI path: passed canary
+  gen1 short-output parity: passed
+  heldout128 gen64 performance: neutral to slightly negative
+
+Next gate:
+do not keep tuning this identity kernel variant for a performance claim unless
+the consumer work is lowered further into the native producer/kernel path or a
+new WNA16-side variant removes the remaining overhead.  For now, treat it as a
+safe ABI bridge and keep production performance claims on hold.
+```
