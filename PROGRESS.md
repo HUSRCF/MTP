@@ -32096,3 +32096,70 @@ the consumer work is lowered further into the native producer/kernel path or a
 new WNA16-side variant removes the remaining overhead.  For now, treat it as a
 safe ABI bridge and keep production performance claims on hold.
 ```
+
+## 2026-06-11 - Heldout128 GPU-assignment envelope check
+
+Experiment:
+
+```text
+GPU1 AWQ/Dolly heldout128 gen64, chunked 4x32, batch32, no router recorder.
+
+This check compares three paths under the same independent chunk process
+protocol:
+
+1. production_batch baseline
+2. pass-through GPU-assignment envelope
+3. independent GPU-assignment identity kernel variant
+
+artifact:
+  outputs/reports/awq_telemetry_ladder/
+    gpu1_gpu_assignment_envelope_heldout128_gen64_chunked_20260611/
+      heldout128_gen64_chunked_envelope_vs_baseline_vs_kernel_variant_summary.json
+```
+
+Results:
+
+```text
+baseline chunked:
+  chunk 000..031 = 7.3064s
+  chunk 032..063 = 7.7136s
+  chunk 064..095 = 7.4817s
+  chunk 096..127 = 7.6613s
+  total = 30.1629s
+  throughput = 271.59 tok/s
+
+pass-through GPU-assignment envelope chunked:
+  chunk 000..031 = 7.1253s
+  chunk 032..063 = 7.5056s
+  chunk 064..095 = 7.2849s
+  chunk 096..127 = 7.4553s
+  total = 29.3710s
+  throughput = 278.91 tok/s
+  delta vs baseline = -2.63% generate_s / +2.70% throughput
+
+independent GPU-assignment identity kernel variant chunked:
+  total = 30.4572s
+  throughput = 268.97 tok/s
+  delta vs baseline = +0.98% generate_s / -0.97% throughput
+```
+
+Interpretation:
+
+```text
+The pass-through GPU-assignment envelope is a viable production-like ABI
+attachment base: it attaches live GPU assignment tensor references while leaving
+the original WNA16 launch unchanged, and it is not overhead-heavy in this
+heldout128 chunked check.
+
+This is not a kernel-side speedup claim because the envelope path does not
+change the WNA16 consumer.  It only shows that carrying live GPU assignment
+references in the producer package is not the bottleneck.
+
+This is a single GPU1 / AWQ-Dolly / 4x32 chunk observation, not cross-device or
+cross-dataset stable performance evidence.
+
+The independent identity kernel variant still does not justify a performance
+claim.  The next implementation work should start from the envelope path and
+move the actual consumer work lower into a native producer/kernel-side path,
+instead of continuing to tune the current identity wrapper.
+```
