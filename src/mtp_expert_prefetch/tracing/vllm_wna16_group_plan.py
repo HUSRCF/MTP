@@ -1954,6 +1954,13 @@ def invoke_fused_moe_wna16_triton_kernel_indirect(
         group_source_starts = source_block_ids
         indirect_flag = 1
         num_groups = 0
+    elif normalized_mode in {"identity", "gpu_assignment_identity"}:
+        source_block_ids = expert_ids
+        group_order = expert_ids
+        group_offsets = expert_ids
+        group_source_starts = expert_ids
+        indirect_flag = 0
+        num_groups = 0
     elif normalized_mode == "group_plan":
         if group_order is None or group_offsets is None or group_source_starts is None:
             raise ValueError("group_plan mode requires group_order/offsets/starts")
@@ -2050,6 +2057,62 @@ def invoke_fused_moe_wna16_triton_kernel_indirect(
         MAX_GROUPS=max(1, int(max_groups)),
         TYPED_SLOT_MODE=False,
         **launch_config,
+    )
+
+
+def invoke_fused_moe_wna16_triton_kernel_gpu_assignment_identity(
+    *,
+    fused_moe_impl: Any,
+    A: torch.Tensor,
+    B: torch.Tensor,
+    C: torch.Tensor,
+    B_scale: torch.Tensor | None,
+    B_zp: torch.Tensor | None,
+    topk_weights: torch.Tensor | None,
+    sorted_token_ids: torch.Tensor,
+    expert_ids: torch.Tensor,
+    num_tokens_post_padded: torch.Tensor,
+    mul_routed_weight: bool,
+    top_k: int,
+    config: dict[str, Any],
+    compute_type: tl.dtype,
+    use_int8_w8a16: bool,
+    use_int4_w4a16: bool,
+    block_shape: list[int] | None,
+) -> None:
+    """Run the future WNA16 path by consuming GPU-side assignment tensors.
+
+    This canary does not require descriptor/address prepared-table columns.
+    It launches the independent WNA16/Triton consumer with identity block order,
+    so the kernel reads ``num_tokens_post_padded`` and ``expert_ids`` directly
+    from the same GPU tensors used by the current vLLM launch.
+    """
+
+    invoke_fused_moe_wna16_triton_kernel_indirect(
+        fused_moe_impl=fused_moe_impl,
+        indirect_mode="gpu_assignment_identity",
+        source_block_ids=None,
+        group_order=None,
+        group_offsets=None,
+        group_source_starts=None,
+        max_groups=1,
+        source_block_ids_packed=False,
+        A=A,
+        B=B,
+        C=C,
+        B_scale=B_scale,
+        B_zp=B_zp,
+        topk_weights=topk_weights,
+        sorted_token_ids=sorted_token_ids,
+        expert_ids=expert_ids,
+        num_tokens_post_padded=num_tokens_post_padded,
+        mul_routed_weight=mul_routed_weight,
+        top_k=top_k,
+        config=config,
+        compute_type=compute_type,
+        use_int8_w8a16=use_int8_w8a16,
+        use_int4_w4a16=use_int4_w4a16,
+        block_shape=block_shape,
     )
 
 

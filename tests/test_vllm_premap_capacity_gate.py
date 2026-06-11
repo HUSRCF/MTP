@@ -811,6 +811,41 @@ def test_apply_premap_consumer_readonly_gate_rejects_gpu_assignment_envelope_wit
         )
 
 
+def test_apply_premap_consumer_readonly_gate_rejects_gpu_assignment_kernel_variant_without_assignment_envelope(
+    tmp_path,
+):
+    with pytest.raises(
+        ValueError,
+        match="gpu_assignment_kernel_variant_enabled=True",
+    ):
+        _apply_premap_consumer_readonly_gate(
+            {
+                "enabled": True,
+                "premap_kernel_arg_handoff_gpu_assignment_kernel_variant_enabled": True,
+            },
+            project_root=tmp_path,
+        )
+
+
+def test_apply_premap_consumer_readonly_gate_rejects_gpu_assignment_kernel_variant_with_prepared_table_variant(
+    tmp_path,
+):
+    with pytest.raises(
+        ValueError,
+        match="mutually exclusive",
+    ):
+        _apply_premap_consumer_readonly_gate(
+            {
+                "enabled": True,
+                "premap_kernel_arg_handoff_producer_future_wna16_typed_slot_envelope_enabled": True,
+                "premap_kernel_arg_handoff_producer_gpu_assignment_envelope_enabled": True,
+                "premap_kernel_arg_handoff_gpu_assignment_kernel_variant_enabled": True,
+                "premap_kernel_arg_handoff_future_wna16_typed_slot_kernel_variant_enabled": True,
+            },
+            project_root=tmp_path,
+        )
+
+
 @pytest.mark.parametrize(
     "missing_key",
     [

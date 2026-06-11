@@ -2556,6 +2556,9 @@ class VllmRouterRecorder:
     shadow_premap_kernel_arg_handoff_producer_gpu_assignment_envelope_enabled: (
         bool
     ) = False
+    shadow_premap_kernel_arg_handoff_gpu_assignment_kernel_variant_enabled: (
+        bool
+    ) = False
     shadow_premap_kernel_arg_handoff_future_wna16_typed_slot_kernel_variant_enabled: (
         bool
     ) = False
@@ -10382,6 +10385,9 @@ _PREMAP_KERNEL_ARG_LIVE_MUTATION_COUNTERS: dict[str, int] = {
     "gpu_assignment_num_tokens_post_padded_identity_ok_count": 0,
     "gpu_assignment_num_tokens_post_padded_identity_mismatch_count": 0,
     "gpu_assignment_num_tokens_post_padded_missing_count": 0,
+    "gpu_assignment_kernel_variant_launch_count": 0,
+    "gpu_assignment_kernel_variant_fallback_count": 0,
+    "gpu_assignment_kernel_variant_identity_blocked_count": 0,
     "single_field_replacement_dry_run_candidate_count": 0,
     "single_field_replacement_dry_run_parity_ok_count": 0,
     "single_field_replacement_dry_run_parity_mismatch_count": 0,
@@ -15358,6 +15364,7 @@ def patch_vllm_qwen35_moe_router_trace() -> None:
                     == "kernel_arg_handoff_real_kernel_arg_mutation_live"
                 )
                 if use_live_mutation_package:
+                    gpu_assignment_identity_ok: bool | None = None
                     if bool(
                         live_mutation_package_meta.get(
                             "producer_gpu_assignment_envelope",
@@ -15416,6 +15423,7 @@ def patch_vllm_qwen35_moe_router_trace() -> None:
                         live_mutation_package_meta[
                             "producer_gpu_assignment_consumer_identity_ok"
                         ] = bool(assignment_identity_ok)
+                        gpu_assignment_identity_ok = bool(assignment_identity_ok)
                     single_field_dry_run_enabled = False
                     single_field_live_enabled = False
                     single_field_candidate_source = "original_kernel_arg_identity"
@@ -15510,6 +15518,77 @@ def patch_vllm_qwen35_moe_router_trace() -> None:
                                 False,
                             )
                         )
+                        gpu_assignment_kernel_variant_enabled = bool(
+                            recorder_for_config.shadow_premap_kernel_arg_handoff_gpu_assignment_kernel_variant_enabled
+                        )
+                        if (
+                            gpu_assignment_kernel_variant_enabled
+                            and future_typed_slot_package
+                            and identity_fast_path
+                        ):
+                            if gpu_assignment_identity_ok is not True:
+                                _increment_premap_kernel_arg_live_mutation_counter(
+                                    "gpu_assignment_kernel_variant_identity_blocked_count"
+                                )
+                                live_mutation_package_meta[
+                                    "gpu_assignment_kernel_variant"
+                                ] = False
+                                live_mutation_package_meta[
+                                    "gpu_assignment_kernel_variant_fallback_reason"
+                                ] = "assignment_identity_mismatch"
+                            else:
+                                try:
+                                    from mtp_expert_prefetch.tracing.vllm_wna16_group_plan import (
+                                        invoke_fused_moe_wna16_triton_kernel_gpu_assignment_identity,
+                                    )
+
+                                    live_mutation_package_meta["used"] = True
+                                    live_mutation_package_meta["status"] = (
+                                        "future_wna16_gpu_assignment_kernel_variant"
+                                    )
+                                    live_mutation_package_meta[
+                                        "gpu_assignment_kernel_variant"
+                                    ] = True
+                                    _increment_premap_kernel_arg_live_mutation_counter(
+                                        "gpu_assignment_kernel_variant_launch_count"
+                                    )
+                                    emit_wna16_launch_part(
+                                        part="kernel_arg_live_future_wna16_gpu_assignment_kernel_variant",
+                                        elapsed_us=(
+                                            time.perf_counter_ns()
+                                            - enqueue_start_ns
+                                        )
+                                        / 1000.0,
+                                    )
+                                    return invoke_fused_moe_wna16_triton_kernel_gpu_assignment_identity(
+                                        fused_moe_impl=fused_moe_impl,
+                                        A=A,
+                                        B=B,
+                                        C=C,
+                                        B_scale=B_scale,
+                                        B_zp=B_zp,
+                                        topk_weights=topk_weights,
+                                        sorted_token_ids=sorted_token_ids,
+                                        expert_ids=expert_ids,
+                                        num_tokens_post_padded=num_tokens_post_padded,
+                                        mul_routed_weight=mul_routed_weight,
+                                        top_k=top_k,
+                                        config=config,
+                                        compute_type=compute_type,
+                                        use_int8_w8a16=use_int8_w8a16,
+                                        use_int4_w4a16=use_int4_w4a16,
+                                        block_shape=block_shape,
+                                    )
+                                except Exception as exc:
+                                    _increment_premap_kernel_arg_live_mutation_counter(
+                                        "gpu_assignment_kernel_variant_fallback_count"
+                                    )
+                                    live_mutation_package_meta[
+                                        "gpu_assignment_kernel_variant"
+                                    ] = False
+                                    live_mutation_package_meta[
+                                        "gpu_assignment_kernel_variant_fallback_reason"
+                                    ] = f"{type(exc).__name__}: {exc}"
                         if (
                             future_typed_slot_kernel_variant_enabled
                             and future_typed_slot_package
@@ -16635,6 +16714,12 @@ def _apply_premap_consumer_readonly_gate(
             False,
         )
     )
+    gpu_assignment_kernel_variant_enabled = bool(
+        options.get(
+            "premap_kernel_arg_handoff_gpu_assignment_kernel_variant_enabled",
+            False,
+        )
+    )
     future_wna16_typed_slot_kernel_variant_enabled = bool(
         options.get(
             "premap_kernel_arg_handoff_future_wna16_typed_slot_kernel_variant_enabled",
@@ -16852,6 +16937,26 @@ def _apply_premap_consumer_readonly_gate(
             "premap_kernel_arg_handoff_producer_gpu_assignment_envelope_enabled=True "
             "requires "
             "premap_kernel_arg_handoff_producer_future_wna16_typed_slot_envelope_enabled=True."
+        )
+        raise ValueError(msg)
+    if (
+        gpu_assignment_kernel_variant_enabled
+        and not producer_gpu_assignment_envelope_enabled
+    ):
+        msg = (
+            "premap_kernel_arg_handoff_gpu_assignment_kernel_variant_enabled=True "
+            "requires "
+            "premap_kernel_arg_handoff_producer_gpu_assignment_envelope_enabled=True."
+        )
+        raise ValueError(msg)
+    if (
+        gpu_assignment_kernel_variant_enabled
+        and future_wna16_typed_slot_kernel_variant_enabled
+    ):
+        msg = (
+            "premap_kernel_arg_handoff_gpu_assignment_kernel_variant_enabled=True "
+            "is mutually exclusive with "
+            "premap_kernel_arg_handoff_future_wna16_typed_slot_kernel_variant_enabled=True."
         )
         raise ValueError(msg)
     producer_fast_envelope_enabled = (
@@ -18054,6 +18159,12 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                     False,
                 )
             ),
+            shadow_premap_kernel_arg_handoff_gpu_assignment_kernel_variant_enabled=bool(
+                runtime_shadow_options.get(
+                    "premap_kernel_arg_handoff_gpu_assignment_kernel_variant_enabled",
+                    False,
+                )
+            ),
             shadow_premap_kernel_arg_handoff_future_wna16_typed_slot_kernel_variant_enabled=bool(
                 runtime_shadow_options.get(
                     "premap_kernel_arg_handoff_future_wna16_typed_slot_kernel_variant_enabled",
@@ -18562,6 +18673,12 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
         "runtime_shadow_premap_kernel_arg_handoff_producer_gpu_assignment_envelope_enabled": bool(
             runtime_shadow_options.get(
                 "premap_kernel_arg_handoff_producer_gpu_assignment_envelope_enabled",
+                False,
+            )
+        ),
+        "runtime_shadow_premap_kernel_arg_handoff_gpu_assignment_kernel_variant_enabled": bool(
+            runtime_shadow_options.get(
+                "premap_kernel_arg_handoff_gpu_assignment_kernel_variant_enabled",
                 False,
             )
         ),
@@ -19112,6 +19229,12 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                             shadow_premap_kernel_arg_handoff_producer_gpu_assignment_envelope_enabled=bool(
                                 runtime_shadow_options.get(
                                     "premap_kernel_arg_handoff_producer_gpu_assignment_envelope_enabled",
+                                    False,
+                                )
+                            ),
+                            shadow_premap_kernel_arg_handoff_gpu_assignment_kernel_variant_enabled=bool(
+                                runtime_shadow_options.get(
+                                    "premap_kernel_arg_handoff_gpu_assignment_kernel_variant_enabled",
                                     False,
                                 )
                             ),

@@ -1309,6 +1309,33 @@ MODES[
 }
 
 MODES[
+    "production_batch_premap_live_future_wna16_gpu_assignment_kernel_variant_counter_off"
+] = {
+    **MODES[
+        "production_batch_premap_live_future_wna16_typed_slot_gpu_assignment_envelope_counter_off"
+    ],
+    # More real kernel-side assignment consumption: the future WNA16/Triton
+    # consumer path directly reads the same GPU-side expert_ids and
+    # num_tokens_post_padded tensors, with identity block order.  It remains
+    # separate from the prepared-table typed-slot variant and does not reinterpret
+    # current WNA16 B/B_scale/B_zp args.
+    "premap_kernel_arg_handoff_gpu_assignment_kernel_variant_enabled": True,
+    "premap_kernel_arg_handoff_future_wna16_typed_slot_kernel_variant_enabled": (
+        False
+    ),
+    "premap_kernel_arg_handoff_prepared_table_materialization_mode": "off",
+}
+
+MODES[
+    "production_batch_premap_live_future_wna16_gpu_assignment_kernel_variant_detailed"
+] = {
+    **MODES[
+        "production_batch_premap_live_future_wna16_gpu_assignment_kernel_variant_counter_off"
+    ],
+    "premap_kernel_arg_handoff_live_counter_mode": "detailed",
+}
+
+MODES[
     "production_batch_premap_live_future_wna16_typed_slot_kernel_variant_counter_off"
 ] = {
     **MODES["premap_live_future_wna16_typed_slot_kernel_variant_counter_off"],

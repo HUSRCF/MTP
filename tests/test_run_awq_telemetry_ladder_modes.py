@@ -555,6 +555,52 @@ def test_production_batch_premap_live_gpu_assignment_envelope_stays_no_recorder_
     assert mode["premap_kernel_arg_handoff_live_counter_mode"] == "off"
 
 
+def test_production_batch_gpu_assignment_kernel_variant_stays_separate_from_prepared_table_variant() -> None:
+    module = _load_module()
+    mode = module.MODES[
+        "production_batch_premap_live_future_wna16_gpu_assignment_kernel_variant_counter_off"
+    ]
+    trace_overrides = mode["trace_overrides"]
+    vllm_overrides = trace_overrides["vllm_overrides"]
+
+    assert mode["runtime_shadow_enabled"] is False
+    assert trace_overrides["use_router_logits_recorder"] is False
+    assert trace_overrides["capture_router_topk"] is False
+    assert (
+        trace_overrides["allow_premap_live_config_without_router_recorder"]
+        is True
+    )
+    assert vllm_overrides["use_router_logits_recorder"] is False
+    assert vllm_overrides["enable_return_routed_experts"] is False
+    assert mode["emit_premap_consumer_mapping"] is False
+    assert mode["premap_consumer_mapping_mode"] == "off"
+    assert mode["premap_consumer_resolve_real_handles"] is False
+    assert (
+        mode[
+            "premap_kernel_arg_handoff_producer_future_wna16_typed_slot_envelope_enabled"
+        ]
+        is True
+    )
+    assert (
+        mode[
+            "premap_kernel_arg_handoff_producer_gpu_assignment_envelope_enabled"
+        ]
+        is True
+    )
+    assert (
+        mode["premap_kernel_arg_handoff_gpu_assignment_kernel_variant_enabled"]
+        is True
+    )
+    assert (
+        mode[
+            "premap_kernel_arg_handoff_future_wna16_typed_slot_kernel_variant_enabled"
+        ]
+        is False
+    )
+    assert mode["premap_kernel_arg_handoff_prepared_table_materialization_mode"] == "off"
+    assert mode["premap_kernel_arg_handoff_live_counter_mode"] == "off"
+
+
 def test_production_batch_premap_live_typed_slot_kernel_variant_uses_no_recorder_prepared_table() -> None:
     module = _load_module()
     mode = module.MODES[

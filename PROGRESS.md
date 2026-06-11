@@ -84,6 +84,25 @@
   after the mapping-only negative result: future native/kernel-side assignment
   consumption should use GPU-side assignment handles directly, not Python
   prelaunch expert extraction or address-manager mapping.
+- Latest kernel-side assignment canary: added an independent future WNA16
+  assignment-consumer variant,
+  `production_batch_premap_live_future_wna16_gpu_assignment_kernel_variant_*`.
+  Unlike the prepared-table typed-slot variant, this path does not consume
+  descriptor/address table columns and does not reinterpret current
+  `B/B_scale/B_zp` args.  It launches the project WNA16/Triton consumer with
+  identity block order and directly reads the GPU-side
+  `sorted_token_ids`, `expert_ids`, and `num_tokens_post_padded` tensors from
+  the live prelaunch package.  The mode is explicitly mutually exclusive with
+  `premap_kernel_arg_handoff_future_wna16_typed_slot_kernel_variant_enabled`,
+  so a blocked assignment variant cannot silently fall through into the
+  prepared-table variant.  GPU1 Dolly 32-sample gen64 detailed smoke:
+  `gpu_assignment_kernel_variant_launch_count=5120`,
+  `gpu_assignment_kernel_variant_fallback_count=0`,
+  `gpu_assignment_kernel_variant_identity_blocked_count=0`, and all assignment
+  tensor identity mismatch counters are zero.  `package_pass_through_count=0`
+  confirms the independent kernel path executed.  Generate time is 8.897s,
+  slower than the production-batch baseline/envelope path, so this is a
+  kernel-side consumption semantics gate, not a performance candidate yet.
 - Latest lab-gate update: promoted the request-launch ABI into the default
   readonly lab preflight as required evidence,
   `native_typed_consumer_stub_online_prelaunch_input_request_launch_canary_json`.
