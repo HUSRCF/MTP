@@ -33091,3 +33091,71 @@ These counter-off modes intentionally suppress package/detail counters, so this
 A/B is a TPOT/posture check.  Correctness and coverage evidence for the
 typed-slot envelope remains tied to the stricter detailed/lab-gate runs.
 ```
+
+### 2026-06-11 - Graph+warmup GPU-assignment kernel-variant canary
+
+Added graph+warmup posture variants for the production-batch GPU-assignment
+kernel-variant path:
+
+```text
+production_batch_premap_live_future_wna16_gpu_assignment_kernel_variant_counter_off_graph_warmup
+production_batch_premap_live_future_wna16_gpu_assignment_kernel_variant_counter_off_graph_warmup_reuse_llm
+```
+
+These clone the existing `gpu_assignment_kernel_variant_counter_off` mode and
+only add the same benchmark posture used by the graph+warmup baseline:
+
+```text
+vllm.enforce_eager = false
+vllm.warmup_prompt_count = 32
+vllm.warmup_max_tokens = 16
+```
+
+Validation:
+
+```text
+python -m py_compile scripts/run_awq_telemetry_ladder.py
+pytest tests/test_run_awq_telemetry_ladder_modes.py -q
+  63 passed
+git diff --check
+  clean
+```
+
+GPU1 AWQ/Dolly 32-sample gen64 repeat-1 canary:
+
+```text
+artifact:
+  outputs/reports/awq_telemetry_ladder/
+    gpu1_kernel_variant_graph_warmup_ab_smoke32_gen64_20260611/
+
+production_batch_graph_warmup_reuse_llm:
+  generate_s = 6.643038
+  TPOT = 0.003243671
+
+production_batch_premap_live_future_wna16_gpu_assignment_kernel_variant_counter_off_graph_warmup_reuse_llm:
+  generate_s = 7.208256
+  TPOT = 0.003519656
+
+delta:
+  generate_s = +8.508%
+  throughput = -7.841%
+```
+
+Interpretation:
+
+```text
+The graph+warmup kernel-variant mode executes under the same production-like
+posture, but this canary is clearly slower than the graph+warmup baseline.  Do
+not expand it to repeat-3 or promote it as a benchmark candidate in this form.
+
+This separates two facts:
+1. the identity-gated GPU-assignment envelope can be nearly overhead-neutral
+   under graph+warmup; and
+2. the current GPU-assignment kernel-variant path still carries enough runtime
+   cost to lose TPOT even after graph+warmup.
+
+Next optimization should target the kernel-variant path's live participation
+cost or move more work into a native producer/consumer boundary.  The current
+kernel-variant path remains correctness/ABI evidence under this posture and run
+size, not performance evidence.
+```

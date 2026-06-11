@@ -692,6 +692,11 @@ def test_production_batch_gpu_assignment_envelope_graph_warmup_only_changes_vllm
             "production_batch_premap_live_future_wna16_typed_slot_gpu_assignment_envelope_trusted_refs_counter_off_graph_warmup",
             "trusted_refs",
         ),
+        (
+            "production_batch_premap_live_future_wna16_gpu_assignment_kernel_variant_counter_off",
+            "production_batch_premap_live_future_wna16_gpu_assignment_kernel_variant_counter_off_graph_warmup",
+            "identity",
+        ),
     )
 
     for base_name, graph_name, validation_mode in pairs:
@@ -977,6 +982,10 @@ def test_production_batch_reuse_llm_modes_only_add_engine_reuse() -> None:
         (
             "production_batch_premap_live_future_wna16_gpu_assignment_kernel_variant_counter_off",
             "production_batch_premap_live_future_wna16_gpu_assignment_kernel_variant_counter_off_reuse_llm",
+        ),
+        (
+            "production_batch_premap_live_future_wna16_gpu_assignment_kernel_variant_counter_off_graph_warmup",
+            "production_batch_premap_live_future_wna16_gpu_assignment_kernel_variant_counter_off_graph_warmup_reuse_llm",
         ),
         (
             "production_batch_descriptor_order_direct_topk_identity_counter_off",

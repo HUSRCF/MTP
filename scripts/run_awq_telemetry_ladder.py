@@ -1525,6 +1525,18 @@ MODES[
 )
 
 MODES[
+    "production_batch_premap_live_future_wna16_gpu_assignment_kernel_variant_counter_off_graph_warmup"
+] = _with_graph_warmup_posture(
+    "production_batch_premap_live_future_wna16_gpu_assignment_kernel_variant_counter_off"
+)
+
+MODES[
+    "production_batch_premap_live_future_wna16_gpu_assignment_kernel_variant_counter_off_graph_warmup_reuse_llm"
+] = _with_reuse_llm_across_chunks(
+    "production_batch_premap_live_future_wna16_gpu_assignment_kernel_variant_counter_off_graph_warmup"
+)
+
+MODES[
     "production_batch_premap_live_future_wna16_typed_slot_gpu_assignment_envelope_counter_off_reuse_llm"
 ] = _with_reuse_llm_across_chunks(
     "production_batch_premap_live_future_wna16_typed_slot_gpu_assignment_envelope_counter_off"
