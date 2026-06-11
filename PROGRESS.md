@@ -31876,3 +31876,137 @@ extraction and typed-slot staging move into a producer/native path or are
 cached before per-launch WNA16 invocation.  The only currently production-like
 live evidence is the pass-through envelope.
 ```
+
+## 2026-06-11 - GPU-assignment future WNA16 consumer correctness gate
+
+Patch:
+
+```text
+Added two production-batch GPU-assignment paths that directly use the existing
+GPU-side expert assignment tensors:
+
+  sorted_token_ids
+  expert_ids
+  num_tokens_post_padded
+
+A. GPU-assignment envelope:
+   attaches the live GPU tensor references to the producer package and passes
+   the original WNA16 launch through unchanged.
+
+B. GPU-assignment kernel variant:
+   routes the current launch through the independent identity consumer canary
+   that accepts the same GPU assignment tensors.
+
+Both paths are separate from the prepared descriptor/address table.  They do not
+materialize typed semantic rows, do not perform payload movement, and do not
+reuse the prepared-table future typed-slot kernel variant.
+```
+
+Validation:
+
+```text
+env PYTHONPATH=.:src pytest \
+  tests/test_run_awq_telemetry_ladder_modes.py \
+  tests/test_vllm_premap_capacity_gate.py \
+  tests/test_vllm_engine_kwargs.py -q
+  133 passed
+
+GPU1 AWQ/Dolly 32-sample gen64, batch32, no router recorder:
+
+outputs/reports/awq_telemetry_ladder/
+  gpu1_production_batch_baseline_repeat3_for_assignment_envelope_20260611/
+
+production_batch:
+  mean generate_s = 7.2830
+  repeat range = 7.243 - 7.341
+  aggregate throughput = 281.20 tok/s
+
+outputs/reports/awq_telemetry_ladder/
+  gpu1_production_batch_gpu_assignment_envelope_counter_off_20260611/
+
+production_batch_premap_live_future_wna16_typed_slot_gpu_assignment_envelope_counter_off:
+  mean generate_s = 7.1377
+  repeat range = 7.104 - 7.164
+  aggregate throughput = 286.93 tok/s
+  interpretation = pass-through envelope boundary
+
+outputs/reports/awq_telemetry_ladder/
+  gpu1_production_batch_gpu_assignment_kernel_variant_counter_off_repeat3_20260611/
+
+production_batch_premap_live_future_wna16_gpu_assignment_kernel_variant_counter_off:
+  mean generate_s = 7.1881
+  repeat range = 7.165 - 7.210
+  aggregate throughput = 284.91 tok/s
+  interpretation = independent GPU-assignment identity kernel consumer canary
+```
+
+Short-output correctness gate:
+
+```text
+GPU1 AWQ/Dolly 32-sample gen1, batch32, no router recorder:
+
+outputs/reports/awq_telemetry_ladder/
+  gpu1_assignment_kernel_variant_gen1_correctness_20260611/
+
+production_batch:
+  repeat generate_s = 0.8438 / 0.8742 / 0.8575
+  mean generate_s = 0.8585
+
+production_batch_premap_live_future_wna16_gpu_assignment_kernel_variant_counter_off:
+  repeat generate_s = 0.7348 / 0.7321 / 0.7239
+  mean generate_s = 0.7303
+  repeat range = 0.7239 - 0.7348
+  speedup vs production_batch mean generate_s = 1.176x
+
+generated_text parity:
+  baseline repeat-to-repeat: 32/32 exact for all pairs
+  baseline vs variant:      32/32 exact for all 3x3 repeat pairs
+
+artifact:
+  outputs/reports/awq_telemetry_ladder/
+    gpu1_assignment_kernel_variant_gen1_correctness_20260611/
+      generated_text_parity_gen1_repeat3.json
+
+Detailed counter canary:
+
+outputs/reports/awq_telemetry_ladder/
+  gpu1_assignment_kernel_variant_gen1_detailed_counter_check_20260611/
+
+production_batch_premap_live_future_wna16_gpu_assignment_kernel_variant_detailed:
+  gpu_assignment_kernel_variant_launch_count = 80
+  gpu_assignment_kernel_variant_fallback_count = 0
+  gpu_assignment_kernel_variant_identity_blocked_count = 0
+  sorted_token_ids identity mismatch = 0
+  expert_ids identity mismatch = 0
+  num_tokens_post_padded identity mismatch = 0
+```
+
+Interpretation:
+
+```text
+The future WNA16 GPU-assignment kernel variant passes the short-output canary
+under the tested constraints:
+
+  GPU1, AWQ/Dolly, batch32, max_tokens=1, no router recorder, counter_off.
+
+The production-batch repeat-3 data also shows a small positive signal for both
+the pass-through GPU-assignment envelope and the independent GPU-assignment
+identity kernel consumer canary against the no-recorder production_batch
+baseline.  The two candidate paths use their counter_off variants for the
+performance comparison.
+
+This is still not a general endpoint-speedup claim.  Long gen64 generated-text
+parity is not a reliable gate on this ROCm/vLLM path because baseline repeats
+can diverge in generated text.  The stronger evidence is:
+
+1. gen1 exact parity is stable across baseline repeats and baseline-vs-variant,
+2. the detailed canary confirms real variant launches with zero fallback,
+3. the path consumes existing GPU assignment tensors and avoids the known-slow
+   prepared descriptor/address table materialization path.
+
+Next gate:
+repeat the production-batch GPU-assignment kernel variant on a larger heldout
+split or a second GPU, then decide whether to promote it from a canary to an
+experimental runtime candidate.  Prepared descriptor/address table handoff
+remains diagnostic until row extraction/staging moves below Python.
+```
