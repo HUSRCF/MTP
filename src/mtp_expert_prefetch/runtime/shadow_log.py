@@ -592,6 +592,19 @@ class ShadowPremapSummaryEvent:
     premap_address_eviction_pressure: float | None = None
     premap_address_resident_descriptor_bytes: int | None = None
     premap_address_prepared_descriptor_actual_bytes: int | None = None
+    premap_payload_cache_manager_id: str | None = None
+    premap_payload_cache_manager_capacity: int | None = None
+    premap_payload_cache_resident_count: int | None = None
+    premap_payload_cache_issued_fetch_count: int | None = None
+    premap_payload_cache_used_fetch_count: int | None = None
+    premap_payload_cache_unused_fetch_count: int | None = None
+    premap_payload_cache_demand_count: int | None = None
+    premap_payload_cache_demand_hit_count: int | None = None
+    premap_payload_cache_demand_miss_count: int | None = None
+    premap_payload_cache_evicted_before_use_count: int | None = None
+    premap_payload_cache_demand_hit_rate: float | None = None
+    premap_payload_cache_used_fetch_rate: float | None = None
+    premap_payload_cache_eviction_pressure: float | None = None
 
     def as_dict(self) -> dict[str, Any]:
         payload = {
@@ -661,6 +674,71 @@ class ShadowPremapSummaryEvent:
             "premap_address_prepared_descriptor_actual_bytes",
             self.premap_address_prepared_descriptor_actual_bytes,
         )
+        _put_optional(
+            payload,
+            "premap_payload_cache_manager_id",
+            self.premap_payload_cache_manager_id,
+        )
+        _put_optional(
+            payload,
+            "premap_payload_cache_manager_capacity",
+            self.premap_payload_cache_manager_capacity,
+        )
+        _put_optional(
+            payload,
+            "premap_payload_cache_resident_count",
+            self.premap_payload_cache_resident_count,
+        )
+        _put_optional(
+            payload,
+            "premap_payload_cache_issued_fetch_count",
+            self.premap_payload_cache_issued_fetch_count,
+        )
+        _put_optional(
+            payload,
+            "premap_payload_cache_used_fetch_count",
+            self.premap_payload_cache_used_fetch_count,
+        )
+        _put_optional(
+            payload,
+            "premap_payload_cache_unused_fetch_count",
+            self.premap_payload_cache_unused_fetch_count,
+        )
+        _put_optional(
+            payload,
+            "premap_payload_cache_demand_count",
+            self.premap_payload_cache_demand_count,
+        )
+        _put_optional(
+            payload,
+            "premap_payload_cache_demand_hit_count",
+            self.premap_payload_cache_demand_hit_count,
+        )
+        _put_optional(
+            payload,
+            "premap_payload_cache_demand_miss_count",
+            self.premap_payload_cache_demand_miss_count,
+        )
+        _put_optional(
+            payload,
+            "premap_payload_cache_evicted_before_use_count",
+            self.premap_payload_cache_evicted_before_use_count,
+        )
+        _put_optional(
+            payload,
+            "premap_payload_cache_demand_hit_rate",
+            self.premap_payload_cache_demand_hit_rate,
+        )
+        _put_optional(
+            payload,
+            "premap_payload_cache_used_fetch_rate",
+            self.premap_payload_cache_used_fetch_rate,
+        )
+        _put_optional(
+            payload,
+            "premap_payload_cache_eviction_pressure",
+            self.premap_payload_cache_eviction_pressure,
+        )
         return payload
 
 
@@ -727,6 +805,19 @@ class ShadowPremapConsumerMappingEvent:
     readonly_consumer_evicted_before_consume_count: int | None = None
     readonly_consumer_stale_handle_count: int | None = None
     readonly_consumer_handle_parity_ok: bool | None = None
+    premap_payload_cache_manager_id: str | None = None
+    premap_payload_cache_manager_capacity: int | None = None
+    premap_payload_cache_resident_count: int | None = None
+    premap_payload_cache_issued_fetch_count: int | None = None
+    premap_payload_cache_used_fetch_count: int | None = None
+    premap_payload_cache_unused_fetch_count: int | None = None
+    premap_payload_cache_demand_count: int | None = None
+    premap_payload_cache_demand_hit_count: int | None = None
+    premap_payload_cache_demand_miss_count: int | None = None
+    premap_payload_cache_evicted_before_use_count: int | None = None
+    premap_payload_cache_demand_hit_rate: float | None = None
+    premap_payload_cache_used_fetch_rate: float | None = None
+    premap_payload_cache_eviction_pressure: float | None = None
     descriptor_prep_execution_mode: str | None = None
     descriptor_prep_lookup_count: int | None = None
     descriptor_prep_handle_count: int | None = None
@@ -4271,8 +4362,201 @@ class ShadowPremapConsumerMappingEvent:
             "premap_consumer_resident_address_count",
             self.resident_address_count,
         )
+        _put_optional(
+            payload,
+            "premap_payload_cache_manager_id",
+            self.premap_payload_cache_manager_id,
+        )
+        _put_optional(
+            payload,
+            "premap_payload_cache_manager_capacity",
+            self.premap_payload_cache_manager_capacity,
+        )
+        _put_optional(
+            payload,
+            "premap_payload_cache_resident_count",
+            self.premap_payload_cache_resident_count,
+        )
+        _put_optional(
+            payload,
+            "premap_payload_cache_issued_fetch_count",
+            self.premap_payload_cache_issued_fetch_count,
+        )
+        _put_optional(
+            payload,
+            "premap_payload_cache_used_fetch_count",
+            self.premap_payload_cache_used_fetch_count,
+        )
+        _put_optional(
+            payload,
+            "premap_payload_cache_unused_fetch_count",
+            self.premap_payload_cache_unused_fetch_count,
+        )
+        _put_optional(
+            payload,
+            "premap_payload_cache_demand_count",
+            self.premap_payload_cache_demand_count,
+        )
+        _put_optional(
+            payload,
+            "premap_payload_cache_demand_hit_count",
+            self.premap_payload_cache_demand_hit_count,
+        )
+        _put_optional(
+            payload,
+            "premap_payload_cache_demand_miss_count",
+            self.premap_payload_cache_demand_miss_count,
+        )
+        _put_optional(
+            payload,
+            "premap_payload_cache_evicted_before_use_count",
+            self.premap_payload_cache_evicted_before_use_count,
+        )
+        _put_optional(
+            payload,
+            "premap_payload_cache_demand_hit_rate",
+            self.premap_payload_cache_demand_hit_rate,
+        )
+        _put_optional(
+            payload,
+            "premap_payload_cache_used_fetch_rate",
+            self.premap_payload_cache_used_fetch_rate,
+        )
+        _put_optional(
+            payload,
+            "premap_payload_cache_eviction_pressure",
+            self.premap_payload_cache_eviction_pressure,
+        )
         _put_optional(payload, "premap_consumer_lookup_us", self.lookup_us)
         _put_optional(payload, "premap_consumer_error", self.error)
+        return payload
+
+
+@dataclass(frozen=True)
+class ShadowPremapPayloadCacheManagerEvent:
+    """Accounting-only payload cache-manager runtime snapshot.
+
+    This event records the controlled expert-payload cache manager's issue and
+    demand counters. It is intentionally not a payload transfer event: it grants
+    no ready credit, moves no expert weights, and does not alter router,
+    descriptor order, or kernel arguments.
+    """
+
+    event_id: ShadowEventId
+    cache_mode: str
+    source: str
+    consumer_expert_count: int
+    consumer_unique_expert_count: int
+    premap_payload_cache_manager_id: str | None = None
+    premap_payload_cache_manager_capacity: int | None = None
+    premap_payload_cache_resident_count: int | None = None
+    premap_payload_cache_issued_fetch_count: int | None = None
+    premap_payload_cache_used_fetch_count: int | None = None
+    premap_payload_cache_unused_fetch_count: int | None = None
+    premap_payload_cache_demand_count: int | None = None
+    premap_payload_cache_demand_hit_count: int | None = None
+    premap_payload_cache_demand_miss_count: int | None = None
+    premap_payload_cache_evicted_before_use_count: int | None = None
+    premap_payload_cache_demand_hit_rate: float | None = None
+    premap_payload_cache_used_fetch_rate: float | None = None
+    premap_payload_cache_eviction_pressure: float | None = None
+    payload_bytes: int = 0
+    ready_credit: bool = False
+    changes_router: bool = False
+    changes_descriptor_order: bool = False
+    changes_kernel_launch_args: bool = False
+    passed_to_kernel: bool = False
+
+    def as_dict(self) -> dict[str, Any]:
+        payload = {
+            "event_type": "premap_payload_cache_manager",
+            **self.event_id.as_dict(),
+            "policy_mode": "premap_payload_cache_accounting",
+            "optimization_goal": "payload_cache_manager_runtime",
+            "premap_payload_cache_mode": str(self.cache_mode),
+            "premap_payload_cache_source": str(self.source),
+            "premap_payload_cache_consumer_expert_count": int(
+                self.consumer_expert_count
+            ),
+            "premap_payload_cache_consumer_unique_expert_count": int(
+                self.consumer_unique_expert_count
+            ),
+            "premap_payload_cache_payload_bytes": int(self.payload_bytes),
+            "premap_payload_cache_ready_credit": bool(self.ready_credit),
+            "premap_payload_cache_changes_router": bool(self.changes_router),
+            "premap_payload_cache_changes_descriptor_order": bool(
+                self.changes_descriptor_order
+            ),
+            "premap_payload_cache_changes_kernel_launch_args": bool(
+                self.changes_kernel_launch_args
+            ),
+            "premap_payload_cache_passed_to_kernel": bool(self.passed_to_kernel),
+        }
+        _put_optional(
+            payload,
+            "premap_payload_cache_manager_id",
+            self.premap_payload_cache_manager_id,
+        )
+        _put_optional(
+            payload,
+            "premap_payload_cache_manager_capacity",
+            self.premap_payload_cache_manager_capacity,
+        )
+        _put_optional(
+            payload,
+            "premap_payload_cache_resident_count",
+            self.premap_payload_cache_resident_count,
+        )
+        _put_optional(
+            payload,
+            "premap_payload_cache_issued_fetch_count",
+            self.premap_payload_cache_issued_fetch_count,
+        )
+        _put_optional(
+            payload,
+            "premap_payload_cache_used_fetch_count",
+            self.premap_payload_cache_used_fetch_count,
+        )
+        _put_optional(
+            payload,
+            "premap_payload_cache_unused_fetch_count",
+            self.premap_payload_cache_unused_fetch_count,
+        )
+        _put_optional(
+            payload,
+            "premap_payload_cache_demand_count",
+            self.premap_payload_cache_demand_count,
+        )
+        _put_optional(
+            payload,
+            "premap_payload_cache_demand_hit_count",
+            self.premap_payload_cache_demand_hit_count,
+        )
+        _put_optional(
+            payload,
+            "premap_payload_cache_demand_miss_count",
+            self.premap_payload_cache_demand_miss_count,
+        )
+        _put_optional(
+            payload,
+            "premap_payload_cache_evicted_before_use_count",
+            self.premap_payload_cache_evicted_before_use_count,
+        )
+        _put_optional(
+            payload,
+            "premap_payload_cache_demand_hit_rate",
+            self.premap_payload_cache_demand_hit_rate,
+        )
+        _put_optional(
+            payload,
+            "premap_payload_cache_used_fetch_rate",
+            self.premap_payload_cache_used_fetch_rate,
+        )
+        _put_optional(
+            payload,
+            "premap_payload_cache_eviction_pressure",
+            self.premap_payload_cache_eviction_pressure,
+        )
         return payload
 
 
@@ -4427,6 +4711,24 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
         "_premap_address_new_count_prev": None,
         "_premap_address_reused_count_prev": None,
         "_premap_address_evicted_count_prev": None,
+        "premap_payload_cache_manager_count": 0,
+        "premap_payload_cache_resident_count_max": 0,
+        "premap_payload_cache_unused_fetch_count_max": 0,
+        "premap_payload_cache_issued_fetch_count": 0,
+        "premap_payload_cache_used_fetch_count": 0,
+        "premap_payload_cache_demand_count": 0,
+        "premap_payload_cache_demand_hit_count": 0,
+        "premap_payload_cache_demand_miss_count": 0,
+        "premap_payload_cache_evicted_before_use_count": 0,
+        "premap_payload_cache_demand_hit_rate_sum": 0.0,
+        "premap_payload_cache_used_fetch_rate_sum": 0.0,
+        "premap_payload_cache_eviction_pressure_sum": 0.0,
+        "_premap_payload_cache_issued_fetch_count_prev_by_manager": {},
+        "_premap_payload_cache_used_fetch_count_prev_by_manager": {},
+        "_premap_payload_cache_demand_count_prev_by_manager": {},
+        "_premap_payload_cache_demand_hit_count_prev_by_manager": {},
+        "_premap_payload_cache_demand_miss_count_prev_by_manager": {},
+        "_premap_payload_cache_evicted_before_use_count_prev_by_manager": {},
         "premap_consumer_mapping_count": 0,
         "premap_consumer_address_hit_count": 0,
         "premap_consumer_address_miss_count": 0,
@@ -4996,6 +5298,42 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
     }
     for event in events:
         event_type = event.get("event_type")
+        if "premap_payload_cache_resident_count" in event:
+            totals["premap_payload_cache_manager_count"] += 1
+            manager_id = str(
+                event.get("premap_payload_cache_manager_id") or "__global__"
+            )
+            for key in (
+                "premap_payload_cache_issued_fetch_count",
+                "premap_payload_cache_used_fetch_count",
+                "premap_payload_cache_demand_count",
+                "premap_payload_cache_demand_hit_count",
+                "premap_payload_cache_demand_miss_count",
+                "premap_payload_cache_evicted_before_use_count",
+            ):
+                _accumulate_monotonic_snapshot_delta(
+                    totals,
+                    key,
+                    int(event.get(key, 0) or 0),
+                    stream_key=manager_id,
+                )
+            totals["premap_payload_cache_resident_count_max"] = max(
+                int(totals["premap_payload_cache_resident_count_max"]),
+                int(event.get("premap_payload_cache_resident_count", 0) or 0),
+            )
+            totals["premap_payload_cache_unused_fetch_count_max"] = max(
+                int(totals["premap_payload_cache_unused_fetch_count_max"]),
+                int(event.get("premap_payload_cache_unused_fetch_count", 0) or 0),
+            )
+            totals["premap_payload_cache_demand_hit_rate_sum"] += float(
+                event.get("premap_payload_cache_demand_hit_rate", 0.0) or 0.0
+            )
+            totals["premap_payload_cache_used_fetch_rate_sum"] += float(
+                event.get("premap_payload_cache_used_fetch_rate", 0.0) or 0.0
+            )
+            totals["premap_payload_cache_eviction_pressure_sum"] += float(
+                event.get("premap_payload_cache_eviction_pressure", 0.0) or 0.0
+            )
         if event_type == "summary":
             totals["summary_count"] += 1
             for key in (
@@ -9169,6 +9507,21 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
     totals["premap_address_eviction_pressure_mean"] = (
         totals["premap_address_eviction_pressure_sum"] / premap_address_manager_count
     )
+    premap_payload_cache_manager_count = max(
+        1, int(totals["premap_payload_cache_manager_count"])
+    )
+    totals["premap_payload_cache_demand_hit_rate_mean"] = (
+        totals["premap_payload_cache_demand_hit_rate_sum"]
+        / premap_payload_cache_manager_count
+    )
+    totals["premap_payload_cache_used_fetch_rate_mean"] = (
+        totals["premap_payload_cache_used_fetch_rate_sum"]
+        / premap_payload_cache_manager_count
+    )
+    totals["premap_payload_cache_eviction_pressure_mean"] = (
+        totals["premap_payload_cache_eviction_pressure_sum"]
+        / premap_payload_cache_manager_count
+    )
     premap_consumer_mapping_count = max(
         1, int(totals["premap_consumer_mapping_count"])
     )
@@ -9512,6 +9865,12 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
         "_premap_address_new_count_prev",
         "_premap_address_reused_count_prev",
         "_premap_address_evicted_count_prev",
+        "_premap_payload_cache_issued_fetch_count_prev_by_manager",
+        "_premap_payload_cache_used_fetch_count_prev_by_manager",
+        "_premap_payload_cache_demand_count_prev_by_manager",
+        "_premap_payload_cache_demand_hit_count_prev_by_manager",
+        "_premap_payload_cache_demand_miss_count_prev_by_manager",
+        "_premap_payload_cache_evicted_before_use_count_prev_by_manager",
     ):
         totals.pop(key, None)
     return totals
@@ -9521,9 +9880,16 @@ def _accumulate_monotonic_snapshot_delta(
     totals: dict[str, Any],
     key: str,
     current: int,
+    *,
+    stream_key: str | None = None,
 ) -> None:
-    prev_key = f"_{key}_prev"
-    previous = totals.get(prev_key)
+    if stream_key is None:
+        prev_key = f"_{key}_prev"
+        previous = totals.get(prev_key)
+    else:
+        prev_key = f"_{key}_prev_by_manager"
+        previous_by_stream = totals.setdefault(prev_key, {})
+        previous = previous_by_stream.get(str(stream_key))
     if previous is None:
         delta = int(current)
     elif int(current) >= int(previous):
@@ -9532,7 +9898,10 @@ def _accumulate_monotonic_snapshot_delta(
         # A lower snapshot means a new manager/request stream started.
         delta = int(current)
     totals[key] += delta
-    totals[prev_key] = int(current)
+    if stream_key is None:
+        totals[prev_key] = int(current)
+    else:
+        previous_by_stream[str(stream_key)] = int(current)
 
 
 def _accumulate_group_plan_totals(totals: dict[str, Any], event: dict[str, Any]) -> None:

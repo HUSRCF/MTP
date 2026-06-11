@@ -32,6 +32,8 @@ from mtp_expert_prefetch.runtime.descriptor_order_gate import (
     load_descriptor_order_consumer_evidence,
 )
 from mtp_expert_prefetch.runtime.cache_manager import (
+    CacheManagerSnapshot,
+    ControlledExpertCacheManager,
     ControlledPremapAddressManager,
     PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_COLUMNS,
     PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH,
@@ -57,6 +59,7 @@ from mtp_expert_prefetch.runtime.shadow_log import (
     ShadowOutcomeEvent,
     ShadowPolicyConfig,
     ShadowPremapConsumerMappingEvent,
+    ShadowPremapPayloadCacheManagerEvent,
     ShadowSummaryEvent,
     aggregate_shadow_events,
     read_shadow_jsonl,
@@ -1413,6 +1416,18 @@ RUNTIME_SHADOW_AGGREGATE_PERFORMANCE_KEYS = (
     "premap_address_evicted_count",
     "premap_address_reuse_rate_mean",
     "premap_address_eviction_pressure_mean",
+    "premap_payload_cache_manager_count",
+    "premap_payload_cache_resident_count_max",
+    "premap_payload_cache_unused_fetch_count_max",
+    "premap_payload_cache_issued_fetch_count",
+    "premap_payload_cache_used_fetch_count",
+    "premap_payload_cache_demand_count",
+    "premap_payload_cache_demand_hit_count",
+    "premap_payload_cache_demand_miss_count",
+    "premap_payload_cache_evicted_before_use_count",
+    "premap_payload_cache_demand_hit_rate_mean",
+    "premap_payload_cache_used_fetch_rate_mean",
+    "premap_payload_cache_eviction_pressure_mean",
     "premap_consumer_mapping_count",
     "premap_consumer_address_hit_rate",
     "premap_consumer_descriptor_handle_hit_rate",
@@ -2530,6 +2545,13 @@ class VllmRouterRecorder:
     shadow_premap_descriptor_bytes: int = 4_096
     shadow_emit_premap_address_manager_counters: bool = False
     shadow_premap_address_manager_capacity: int | None = None
+    shadow_emit_premap_payload_cache_manager_counters: bool = False
+    shadow_premap_payload_cache_manager_capacity: int | None = None
+    shadow_premap_payload_cache_manager_issue_sources: tuple[str, ...] = (
+        "previous_token_transition_premap_shadow",
+    )
+    shadow_premap_payload_cache_manager_demand_on_consumer: bool = True
+    shadow_premap_payload_cache_manager_emit_consumer_rows: bool = True
     shadow_premap_summary_sample_period: int = 1
     shadow_emit_premap_consumer_mapping: bool = False
     shadow_premap_consumer_mapping_emit_rows: bool = True
@@ -2630,6 +2652,11 @@ class VllmRouterRecorder:
     shadow_descriptor_order_groups_per_cta: int = 8
     shadow_descriptor_order_tile_elems: int = 1024
     _shadow_premap_address_manager: ControlledPremapAddressManager | None = field(
+        default=None,
+        init=False,
+        repr=False,
+    )
+    _shadow_premap_payload_cache_manager: ControlledExpertCacheManager | None = field(
         default=None,
         init=False,
         repr=False,
@@ -3437,6 +3464,10 @@ class VllmRouterRecorder:
         candidate_construction_us = (time.perf_counter_ns() - build_start_ns) / 1000.0
         manager_start_ns = time.perf_counter_ns()
         prepared_plan, manager_snapshot = self._update_premap_address_manager(descriptors)
+        payload_cache_snapshot = self._issue_premap_payload_cache_from_descriptors(
+            descriptors,
+            source=str(self.shadow_premap_source),
+        )
         manager_update_us = (time.perf_counter_ns() - manager_start_ns) / 1000.0
         address_keys = self._premap_address_keys_for_experts(
             layer_id=int(layer_id),
@@ -3494,6 +3525,12 @@ class VllmRouterRecorder:
             premap_build_us=candidate_construction_us,
             premap_prepared_plan=prepared_plan,
             premap_address_manager_snapshot=manager_snapshot,
+            premap_payload_cache_manager_snapshot=payload_cache_snapshot,
+            premap_payload_cache_manager_id=(
+                self._premap_payload_cache_manager_id()
+                if payload_cache_snapshot is not None
+                else None
+            ),
             decision_us=decision_us,
             candidate_construction_us=candidate_construction_us,
             counter_update_us=(
@@ -3559,6 +3596,10 @@ class VllmRouterRecorder:
                 prepared_plan, manager_snapshot = self._update_premap_address_manager(
                     descriptors
                 )
+                payload_cache_snapshot = self._issue_premap_payload_cache_from_descriptors(
+                    descriptors,
+                    source=str(self.shadow_transition_premap_source),
+                )
                 manager_update_us = (
                     time.perf_counter_ns() - manager_start_ns
                 ) / 1000.0
@@ -3567,6 +3608,7 @@ class VllmRouterRecorder:
                 descriptors = []
                 prepared_plan = None
                 manager_snapshot = None
+                payload_cache_snapshot = None
                 manager_update_us = 0.0
                 error = f"{type(exc).__name__}: {exc}"
                 candidate_construction_us = (
@@ -3589,6 +3631,12 @@ class VllmRouterRecorder:
                 premap_build_us=candidate_construction_us,
                 premap_prepared_plan=prepared_plan,
                 premap_address_manager_snapshot=manager_snapshot,
+                premap_payload_cache_manager_snapshot=payload_cache_snapshot,
+                premap_payload_cache_manager_id=(
+                    self._premap_payload_cache_manager_id()
+                    if payload_cache_snapshot is not None
+                    else None
+                ),
                 decision_us=decision_us,
                 candidate_construction_us=candidate_construction_us,
                 counter_update_us=(
@@ -3615,6 +3663,87 @@ class VllmRouterRecorder:
             address_namespace=str(self.shadow_premap_address_namespace),
         )
         return plan, self._shadow_premap_address_manager.prepare(plan)
+
+    def _resolved_premap_payload_cache_capacity(self) -> int:
+        capacity = self.shadow_premap_payload_cache_manager_capacity
+        if capacity is None:
+            capacity = self.shadow_premap_address_manager_capacity
+        if capacity is None:
+            capacity = int(self.shadow_num_experts)
+        return int(capacity)
+
+    def _ensure_premap_payload_cache_manager(
+        self,
+    ) -> ControlledExpertCacheManager | None:
+        if not bool(self.shadow_emit_premap_payload_cache_manager_counters):
+            return None
+        if self._shadow_premap_payload_cache_manager is None:
+            self._shadow_premap_payload_cache_manager = ControlledExpertCacheManager(
+                capacity=self._resolved_premap_payload_cache_capacity(),
+            )
+        return self._shadow_premap_payload_cache_manager
+
+    def _premap_payload_cache_manager_id(self) -> str | None:
+        manager = self._shadow_premap_payload_cache_manager
+        if manager is None:
+            return None
+        return f"controlled_expert_payload_cache:{id(manager)}"
+
+    def _premap_payload_cache_issue_source_allowed(self, source: str | None) -> bool:
+        raw_sources = self.shadow_premap_payload_cache_manager_issue_sources
+        if isinstance(raw_sources, str):
+            allowed = {item.strip() for item in raw_sources.split(",") if item.strip()}
+        else:
+            allowed = {str(item) for item in raw_sources if str(item)}
+        if not allowed:
+            return False
+        return str(source or "") in allowed
+
+    def _issue_premap_payload_cache_from_descriptors(
+        self,
+        descriptors: list[ExpertPrefetchDescriptor],
+        *,
+        source: str | None,
+    ) -> CacheManagerSnapshot | None:
+        if not self._premap_payload_cache_issue_source_allowed(source):
+            return None
+        manager = self._ensure_premap_payload_cache_manager()
+        if manager is None:
+            return None
+        seen: set[tuple[int, int]] = set()
+        for descriptor in descriptors:
+            layer_idx = int(descriptor.layer_idx)
+            expert_id = int(descriptor.expert_id)
+            if expert_id < 0 or expert_id >= int(self.shadow_num_experts):
+                continue
+            key = (layer_idx, expert_id)
+            if key in seen:
+                continue
+            seen.add(key)
+            manager.issue_prefetch(layer_idx, expert_id)
+        return manager.snapshot()
+
+    def _demand_premap_payload_cache_from_experts(
+        self,
+        *,
+        layer_id: int,
+        expert_ids: Iterable[int],
+    ) -> CacheManagerSnapshot | None:
+        if not bool(self.shadow_premap_payload_cache_manager_demand_on_consumer):
+            return None
+        manager = self._ensure_premap_payload_cache_manager()
+        if manager is None:
+            return None
+        valid_experts = sorted(
+            {
+                int(expert_id)
+                for expert_id in expert_ids
+                if 0 <= int(expert_id) < int(self.shadow_num_experts)
+            }
+        )
+        for expert_id in valid_experts:
+            manager.demand(int(layer_id), int(expert_id))
+        return manager.snapshot()
 
     def _ensure_prelaunch_premap_address_mapping_for_experts(
         self,
@@ -4383,17 +4512,32 @@ class VllmRouterRecorder:
         error: str | None = None,
     ) -> None:
         sink = self.shadow_outcome_sink
-        if not self._premap_consumer_mapping_wanted():
+        mapping_wanted = self._premap_consumer_mapping_wanted()
+        payload_cache_wanted = bool(
+            self.shadow_emit_premap_payload_cache_manager_counters
+        )
+        if not mapping_wanted and not payload_cache_wanted:
             return
-        emit_row = bool(self.shadow_premap_consumer_mapping_emit_rows)
+        emit_row = bool(
+            (mapping_wanted and self.shadow_premap_consumer_mapping_emit_rows)
+            or (
+                payload_cache_wanted
+                and self.shadow_premap_payload_cache_manager_emit_consumer_rows
+            )
+        )
         write_event = (
             emit_row
             and sink is not None
             and self._premap_consumer_mapping_sample_wanted()
         )
-        if emit_row and sink is not None and not hasattr(sink, "write_premap_consumer_mapping"):
+        if (
+            emit_row
+            and mapping_wanted
+            and sink is not None
+            and not hasattr(sink, "write_premap_consumer_mapping")
+        ):
             msg = (
-                "shadow_emit_premap_consumer_mapping=True requires a sink with "
+                "premap consumer/payload-cache rows require a sink with "
                 "write_premap_consumer_mapping(event)."
             )
             raise TypeError(msg)
@@ -4405,6 +4549,104 @@ class VllmRouterRecorder:
                 if 0 <= int(expert_id) < int(self.shadow_num_experts)
             }
         )
+        payload_cache_snapshot = self._demand_premap_payload_cache_from_experts(
+            layer_id=int(layer_id),
+            expert_ids=valid_experts,
+        )
+        if not mapping_wanted:
+            if write_event and sink is not None:
+                if not hasattr(sink, "write_premap_payload_cache_manager"):
+                    msg = (
+                        "premap payload-cache rows require a sink with "
+                        "write_premap_payload_cache_manager(event)."
+                    )
+                    raise TypeError(msg)
+                sink.write_premap_payload_cache_manager(
+                    ShadowPremapPayloadCacheManagerEvent(
+                        event_id=ShadowEventId(
+                            request_id=str(self.request_id),
+                            sequence_id=int(self.sequence_id),
+                            token_index=int(self.shadow_premap_event_token_index),
+                            layer=int(layer_id),
+                        ),
+                        cache_mode="accounting_only",
+                        source=str(
+                            prelaunch_boundary_source
+                            or "fused_moe_prepare_expert_assignment"
+                        ),
+                        consumer_expert_count=len(active_experts),
+                        consumer_unique_expert_count=len(valid_experts),
+                        premap_payload_cache_manager_id=(
+                            self._premap_payload_cache_manager_id()
+                            if payload_cache_snapshot is not None
+                            else None
+                        ),
+                        premap_payload_cache_manager_capacity=(
+                            int(payload_cache_snapshot.capacity)
+                            if payload_cache_snapshot is not None
+                            else None
+                        ),
+                        premap_payload_cache_resident_count=(
+                            int(payload_cache_snapshot.resident_count)
+                            if payload_cache_snapshot is not None
+                            else None
+                        ),
+                        premap_payload_cache_issued_fetch_count=(
+                            int(payload_cache_snapshot.issued_fetch_count)
+                            if payload_cache_snapshot is not None
+                            else None
+                        ),
+                        premap_payload_cache_used_fetch_count=(
+                            int(payload_cache_snapshot.used_fetch_count)
+                            if payload_cache_snapshot is not None
+                            else None
+                        ),
+                        premap_payload_cache_unused_fetch_count=(
+                            int(payload_cache_snapshot.unused_fetch_count)
+                            if payload_cache_snapshot is not None
+                            else None
+                        ),
+                        premap_payload_cache_demand_count=(
+                            int(payload_cache_snapshot.demand_count)
+                            if payload_cache_snapshot is not None
+                            else None
+                        ),
+                        premap_payload_cache_demand_hit_count=(
+                            int(payload_cache_snapshot.demand_hit_count)
+                            if payload_cache_snapshot is not None
+                            else None
+                        ),
+                        premap_payload_cache_demand_miss_count=(
+                            int(payload_cache_snapshot.demand_miss_count)
+                            if payload_cache_snapshot is not None
+                            else None
+                        ),
+                        premap_payload_cache_evicted_before_use_count=(
+                            int(payload_cache_snapshot.evicted_before_use_count)
+                            if payload_cache_snapshot is not None
+                            else None
+                        ),
+                        premap_payload_cache_demand_hit_rate=(
+                            float(payload_cache_snapshot.demand_hit_count)
+                            / float(max(1, payload_cache_snapshot.demand_count))
+                            if payload_cache_snapshot is not None
+                            else None
+                        ),
+                        premap_payload_cache_used_fetch_rate=(
+                            float(payload_cache_snapshot.used_fetch_count)
+                            / float(max(1, payload_cache_snapshot.issued_fetch_count))
+                            if payload_cache_snapshot is not None
+                            else None
+                        ),
+                        premap_payload_cache_eviction_pressure=(
+                            float(payload_cache_snapshot.evicted_before_use_count)
+                            / float(max(1, payload_cache_snapshot.issued_fetch_count))
+                            if payload_cache_snapshot is not None
+                            else None
+                        ),
+                    )
+                )
+            return
         prelaunch_boundary_aligned = None
         if prelaunch_boundary_source is not None:
             prelaunch_boundary_aligned = (
@@ -5042,6 +5284,74 @@ class VllmRouterRecorder:
                 readonly_consumer_handle_parity_ok=(
                     readonly_consumer_result.handle_parity_ok
                     if readonly_consumer_result is not None
+                    else None
+                ),
+                premap_payload_cache_manager_id=(
+                    self._premap_payload_cache_manager_id()
+                    if payload_cache_snapshot is not None
+                    else None
+                ),
+                premap_payload_cache_manager_capacity=(
+                    int(payload_cache_snapshot.capacity)
+                    if payload_cache_snapshot is not None
+                    else None
+                ),
+                premap_payload_cache_resident_count=(
+                    int(payload_cache_snapshot.resident_count)
+                    if payload_cache_snapshot is not None
+                    else None
+                ),
+                premap_payload_cache_issued_fetch_count=(
+                    int(payload_cache_snapshot.issued_fetch_count)
+                    if payload_cache_snapshot is not None
+                    else None
+                ),
+                premap_payload_cache_used_fetch_count=(
+                    int(payload_cache_snapshot.used_fetch_count)
+                    if payload_cache_snapshot is not None
+                    else None
+                ),
+                premap_payload_cache_unused_fetch_count=(
+                    int(payload_cache_snapshot.unused_fetch_count)
+                    if payload_cache_snapshot is not None
+                    else None
+                ),
+                premap_payload_cache_demand_count=(
+                    int(payload_cache_snapshot.demand_count)
+                    if payload_cache_snapshot is not None
+                    else None
+                ),
+                premap_payload_cache_demand_hit_count=(
+                    int(payload_cache_snapshot.demand_hit_count)
+                    if payload_cache_snapshot is not None
+                    else None
+                ),
+                premap_payload_cache_demand_miss_count=(
+                    int(payload_cache_snapshot.demand_miss_count)
+                    if payload_cache_snapshot is not None
+                    else None
+                ),
+                premap_payload_cache_evicted_before_use_count=(
+                    int(payload_cache_snapshot.evicted_before_use_count)
+                    if payload_cache_snapshot is not None
+                    else None
+                ),
+                premap_payload_cache_demand_hit_rate=(
+                    float(payload_cache_snapshot.demand_hit_count)
+                    / float(max(1, payload_cache_snapshot.demand_count))
+                    if payload_cache_snapshot is not None
+                    else None
+                ),
+                premap_payload_cache_used_fetch_rate=(
+                    float(payload_cache_snapshot.used_fetch_count)
+                    / float(max(1, payload_cache_snapshot.issued_fetch_count))
+                    if payload_cache_snapshot is not None
+                    else None
+                ),
+                premap_payload_cache_eviction_pressure=(
+                    float(payload_cache_snapshot.evicted_before_use_count)
+                    / float(max(1, payload_cache_snapshot.issued_fetch_count))
+                    if payload_cache_snapshot is not None
                     else None
                 ),
                 descriptor_prep_execution_mode=(
@@ -8353,6 +8663,12 @@ class VllmRouterRecorder:
         ).strip().lower() not in {"", "off", "none", "false", "0"}
         wants_reorder = bool(self.shadow_descriptor_order_reorder_mvp_enabled)
         wants_premap_mapping = self._premap_consumer_mapping_wanted()
+        wants_premap_payload_cache = bool(
+            self.shadow_emit_premap_payload_cache_manager_counters
+        )
+        wants_premap_runtime_consumer = bool(
+            wants_premap_mapping or wants_premap_payload_cache
+        )
         wants_descriptor_handle = bool(wants_assertion or wants_reorder)
         handle_source = "fused_moe_prepare_expert_assignment"
         block_size = max(1, int(block_size))
@@ -8372,7 +8688,7 @@ class VllmRouterRecorder:
             num_tokens_post_padded=num_tokens_post_padded,
         )
         sink = self.shadow_outcome_sink
-        if not wants_descriptor_handle and not wants_premap_mapping:
+        if not wants_descriptor_handle and not wants_premap_runtime_consumer:
             return sorted_token_ids, expert_ids, num_tokens_post_padded
         if wants_descriptor_handle and sink is None:
             return sorted_token_ids, expert_ids, num_tokens_post_padded
@@ -8437,7 +8753,7 @@ class VllmRouterRecorder:
         }
         context = get_active_moe_assignment_context()
         consumer_layer = context.get("routed_layer") if context is not None else None
-        if wants_premap_mapping and not wants_descriptor_handle:
+        if wants_premap_runtime_consumer and not wants_descriptor_handle:
             mapping_start_ns = time.perf_counter_ns()
             mapping_error = None
             try:
@@ -18089,6 +18405,20 @@ def _int_tuple_option(
     return tuple(int(item) for item in raw) or default
 
 
+def _str_tuple_option(
+    options: dict[str, Any],
+    key: str,
+    default: tuple[str, ...],
+) -> tuple[str, ...]:
+    raw = options.get(key)
+    if raw is None:
+        return default
+    if isinstance(raw, str):
+        values = [item.strip() for item in raw.split(",") if item.strip()]
+        return tuple(values)
+    return tuple(str(item) for item in raw if str(item))
+
+
 def _optional_capacity_option(options: dict[str, Any], key: str) -> int | None:
     raw = options.get(key)
     if raw is None:
@@ -18253,6 +18583,33 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
             shadow_premap_address_manager_capacity=_optional_capacity_option(
                 runtime_shadow_options,
                 "premap_address_manager_capacity",
+            ),
+            shadow_emit_premap_payload_cache_manager_counters=bool(
+                runtime_shadow_options.get(
+                    "emit_premap_payload_cache_manager_counters",
+                    False,
+                )
+            ),
+            shadow_premap_payload_cache_manager_capacity=_optional_capacity_option(
+                runtime_shadow_options,
+                "premap_payload_cache_manager_capacity",
+            ),
+            shadow_premap_payload_cache_manager_issue_sources=_str_tuple_option(
+                runtime_shadow_options,
+                "premap_payload_cache_manager_issue_sources",
+                ("previous_token_transition_premap_shadow",),
+            ),
+            shadow_premap_payload_cache_manager_demand_on_consumer=bool(
+                runtime_shadow_options.get(
+                    "premap_payload_cache_manager_demand_on_consumer",
+                    True,
+                )
+            ),
+            shadow_premap_payload_cache_manager_emit_consumer_rows=bool(
+                runtime_shadow_options.get(
+                    "premap_payload_cache_manager_emit_consumer_rows",
+                    True,
+                )
             ),
             shadow_emit_premap_consumer_mapping=bool(
                 runtime_shadow_options.get("emit_premap_consumer_mapping", False)
@@ -18840,6 +19197,35 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
         "runtime_shadow_premap_address_capacity_gate_evidence_paths": (
             runtime_shadow_options.get("premap_address_capacity_gate_evidence_paths")
         ),
+        "runtime_shadow_emit_premap_payload_cache_manager_counters": bool(
+            runtime_shadow_options.get(
+                "emit_premap_payload_cache_manager_counters",
+                False,
+            )
+        ),
+        "runtime_shadow_premap_payload_cache_manager_capacity": _optional_capacity_option(
+            runtime_shadow_options,
+            "premap_payload_cache_manager_capacity",
+        ),
+        "runtime_shadow_premap_payload_cache_manager_issue_sources": list(
+            _str_tuple_option(
+                runtime_shadow_options,
+                "premap_payload_cache_manager_issue_sources",
+                ("previous_token_transition_premap_shadow",),
+            )
+        ),
+        "runtime_shadow_premap_payload_cache_manager_demand_on_consumer": bool(
+            runtime_shadow_options.get(
+                "premap_payload_cache_manager_demand_on_consumer",
+                True,
+            )
+        ),
+        "runtime_shadow_premap_payload_cache_manager_emit_consumer_rows": bool(
+            runtime_shadow_options.get(
+                "premap_payload_cache_manager_emit_consumer_rows",
+                True,
+            )
+        ),
         "runtime_shadow_premap_summary_sample_period": int(
             runtime_shadow_options.get(
                 "premap_summary_sample_period",
@@ -19426,6 +19812,33 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                             shadow_premap_address_manager_capacity=_optional_capacity_option(
                                 runtime_shadow_options,
                                 "premap_address_manager_capacity",
+                            ),
+                            shadow_emit_premap_payload_cache_manager_counters=bool(
+                                runtime_shadow_options.get(
+                                    "emit_premap_payload_cache_manager_counters",
+                                    False,
+                                )
+                            ),
+                            shadow_premap_payload_cache_manager_capacity=_optional_capacity_option(
+                                runtime_shadow_options,
+                                "premap_payload_cache_manager_capacity",
+                            ),
+                            shadow_premap_payload_cache_manager_issue_sources=_str_tuple_option(
+                                runtime_shadow_options,
+                                "premap_payload_cache_manager_issue_sources",
+                                ("previous_token_transition_premap_shadow",),
+                            ),
+                            shadow_premap_payload_cache_manager_demand_on_consumer=bool(
+                                runtime_shadow_options.get(
+                                    "premap_payload_cache_manager_demand_on_consumer",
+                                    True,
+                                )
+                            ),
+                            shadow_premap_payload_cache_manager_emit_consumer_rows=bool(
+                                runtime_shadow_options.get(
+                                    "premap_payload_cache_manager_emit_consumer_rows",
+                                    True,
+                                )
                             ),
                             shadow_premap_summary_sample_period=max(
                                 1,

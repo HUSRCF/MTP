@@ -5,7 +5,10 @@ from pathlib import Path
 from typing import Any
 
 from mtp_expert_prefetch.runtime.admission import AdmissionDecisionMasks
-from mtp_expert_prefetch.runtime.cache_manager import PremapAddressManagerSnapshot
+from mtp_expert_prefetch.runtime.cache_manager import (
+    CacheManagerSnapshot,
+    PremapAddressManagerSnapshot,
+)
 from mtp_expert_prefetch.runtime.descriptor_order import DescriptorOrderReport
 from mtp_expert_prefetch.runtime.premap import (
     ExpertPrefetchDescriptor,
@@ -20,6 +23,7 @@ from mtp_expert_prefetch.runtime.shadow_log import (
     ShadowOutcomeEvent,
     ShadowPolicyConfig,
     ShadowPremapConsumerMappingEvent,
+    ShadowPremapPayloadCacheManagerEvent,
     ShadowPremapSummaryEvent,
     ShadowSummaryEvent,
     aggregate_shadow_events,
@@ -173,6 +177,12 @@ class OnlineShadowLogger:
     ) -> None:
         self.write_event(event)
 
+    def write_premap_payload_cache_manager(
+        self,
+        event: ShadowPremapPayloadCacheManagerEvent,
+    ) -> None:
+        self.write_event(event)
+
     def write_premap_summary_from_descriptors(
         self,
         *,
@@ -185,6 +195,8 @@ class OnlineShadowLogger:
         premap_build_us: float | None = None,
         premap_prepared_plan: PremapPreparedPlan | None = None,
         premap_address_manager_snapshot: PremapAddressManagerSnapshot | None = None,
+        premap_payload_cache_manager_snapshot: CacheManagerSnapshot | None = None,
+        premap_payload_cache_manager_id: str | None = None,
         decision_us: float | None = None,
         candidate_construction_us: float | None = None,
         counter_update_us: float | None = None,
@@ -201,6 +213,8 @@ class OnlineShadowLogger:
             premap_build_us=premap_build_us,
             premap_prepared_plan=premap_prepared_plan,
             premap_address_manager_snapshot=premap_address_manager_snapshot,
+            premap_payload_cache_manager_snapshot=premap_payload_cache_manager_snapshot,
+            premap_payload_cache_manager_id=premap_payload_cache_manager_id,
             decision_us=decision_us,
             candidate_construction_us=candidate_construction_us,
             counter_update_us=counter_update_us,
@@ -224,6 +238,7 @@ class OnlineShadowLogger:
             | ShadowDescriptorPrelaunchAssertEvent
             | ShadowPremapSummaryEvent
             | ShadowPremapConsumerMappingEvent
+            | ShadowPremapPayloadCacheManagerEvent
             | ShadowOutcomeEvent
             | ShadowOutcomeAggregateEvent
             | dict[str, Any]
@@ -442,6 +457,8 @@ def build_premap_shadow_summary(
     premap_build_us: float | None = None,
     premap_prepared_plan: PremapPreparedPlan | None = None,
     premap_address_manager_snapshot: PremapAddressManagerSnapshot | None = None,
+    premap_payload_cache_manager_snapshot: CacheManagerSnapshot | None = None,
+    premap_payload_cache_manager_id: str | None = None,
     decision_us: float | None = None,
     candidate_construction_us: float | None = None,
     counter_update_us: float | None = None,
@@ -521,6 +538,70 @@ def build_premap_shadow_summary(
         premap_address_prepared_descriptor_actual_bytes=(
             premap_address_manager_snapshot.prepared_descriptor_actual_bytes
             if premap_address_manager_snapshot is not None
+            else None
+        ),
+        premap_payload_cache_manager_id=premap_payload_cache_manager_id,
+        premap_payload_cache_manager_capacity=(
+            premap_payload_cache_manager_snapshot.capacity
+            if premap_payload_cache_manager_snapshot is not None
+            else None
+        ),
+        premap_payload_cache_resident_count=(
+            premap_payload_cache_manager_snapshot.resident_count
+            if premap_payload_cache_manager_snapshot is not None
+            else None
+        ),
+        premap_payload_cache_issued_fetch_count=(
+            premap_payload_cache_manager_snapshot.issued_fetch_count
+            if premap_payload_cache_manager_snapshot is not None
+            else None
+        ),
+        premap_payload_cache_used_fetch_count=(
+            premap_payload_cache_manager_snapshot.used_fetch_count
+            if premap_payload_cache_manager_snapshot is not None
+            else None
+        ),
+        premap_payload_cache_unused_fetch_count=(
+            premap_payload_cache_manager_snapshot.unused_fetch_count
+            if premap_payload_cache_manager_snapshot is not None
+            else None
+        ),
+        premap_payload_cache_demand_count=(
+            premap_payload_cache_manager_snapshot.demand_count
+            if premap_payload_cache_manager_snapshot is not None
+            else None
+        ),
+        premap_payload_cache_demand_hit_count=(
+            premap_payload_cache_manager_snapshot.demand_hit_count
+            if premap_payload_cache_manager_snapshot is not None
+            else None
+        ),
+        premap_payload_cache_demand_miss_count=(
+            premap_payload_cache_manager_snapshot.demand_miss_count
+            if premap_payload_cache_manager_snapshot is not None
+            else None
+        ),
+        premap_payload_cache_evicted_before_use_count=(
+            premap_payload_cache_manager_snapshot.evicted_before_use_count
+            if premap_payload_cache_manager_snapshot is not None
+            else None
+        ),
+        premap_payload_cache_demand_hit_rate=(
+            float(premap_payload_cache_manager_snapshot.demand_hit_count)
+            / float(max(1, premap_payload_cache_manager_snapshot.demand_count))
+            if premap_payload_cache_manager_snapshot is not None
+            else None
+        ),
+        premap_payload_cache_used_fetch_rate=(
+            float(premap_payload_cache_manager_snapshot.used_fetch_count)
+            / float(max(1, premap_payload_cache_manager_snapshot.issued_fetch_count))
+            if premap_payload_cache_manager_snapshot is not None
+            else None
+        ),
+        premap_payload_cache_eviction_pressure=(
+            float(premap_payload_cache_manager_snapshot.evicted_before_use_count)
+            / float(max(1, premap_payload_cache_manager_snapshot.issued_fetch_count))
+            if premap_payload_cache_manager_snapshot is not None
             else None
         ),
         decision_us=decision_us,

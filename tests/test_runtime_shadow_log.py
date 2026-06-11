@@ -23,6 +23,7 @@ from mtp_expert_prefetch.runtime.shadow_log import (
     ShadowOutcomeEvent,
     ShadowPolicyConfig,
     ShadowPremapConsumerMappingEvent,
+    ShadowPremapPayloadCacheManagerEvent,
     ShadowPremapSummaryEvent,
     ShadowSummaryEvent,
     aggregate_shadow_events,
@@ -3617,6 +3618,135 @@ def test_shadow_log_aggregates_premap_address_manager_snapshot_deltas(tmp_path):
     assert aggregate["premap_address_prepared_descriptor_actual_bytes_max"] == 256
     assert aggregate["premap_address_reuse_rate_mean"] == (0.25 / 3)
     assert aggregate["premap_summary_payload_bytes"] == 0
+
+
+def test_shadow_log_aggregates_premap_payload_cache_manager_snapshot_deltas(tmp_path):
+    issue = ShadowPremapSummaryEvent(
+        event_id=ShadowEventId("req", sequence_id=0, token_index=-1, layer=0),
+        premap_policy="premap_only",
+        premap_descriptor_count=2,
+        premap_unique_experts=2,
+        premap_unique_layers=1,
+        premap_unique_sample_layers=1,
+        premap_actual_bytes=128,
+        premap_descriptor_hash="desc-1",
+        premap_address_hash="addr-1",
+        premap_payload_cache_manager_capacity=4,
+        premap_payload_cache_resident_count=2,
+        premap_payload_cache_issued_fetch_count=2,
+        premap_payload_cache_used_fetch_count=0,
+        premap_payload_cache_unused_fetch_count=2,
+        premap_payload_cache_demand_count=0,
+        premap_payload_cache_demand_hit_count=0,
+        premap_payload_cache_demand_miss_count=0,
+        premap_payload_cache_evicted_before_use_count=0,
+        premap_payload_cache_demand_hit_rate=0.0,
+        premap_payload_cache_used_fetch_rate=0.0,
+        premap_payload_cache_eviction_pressure=0.0,
+    )
+    consume = ShadowPremapConsumerMappingEvent(
+        event_id=ShadowEventId("req", sequence_id=0, token_index=-1, layer=0),
+        mapping_mode="noop_assertion",
+        mapping_source="fused_moe_prepare_expert_assignment",
+        address_namespace="expert_weight_descriptor",
+        consumer_expert_count=2,
+        consumer_unique_expert_count=2,
+        address_hit_count=2,
+        address_miss_count=0,
+        address_hit_rate=1.0,
+        all_hit=True,
+        parity_ok=True,
+        consumer_key_hash="keys",
+        premap_payload_cache_manager_capacity=4,
+        premap_payload_cache_resident_count=2,
+        premap_payload_cache_issued_fetch_count=2,
+        premap_payload_cache_used_fetch_count=2,
+        premap_payload_cache_unused_fetch_count=0,
+        premap_payload_cache_demand_count=2,
+        premap_payload_cache_demand_hit_count=2,
+        premap_payload_cache_demand_miss_count=0,
+        premap_payload_cache_evicted_before_use_count=0,
+        premap_payload_cache_demand_hit_rate=1.0,
+        premap_payload_cache_used_fetch_rate=1.0,
+        premap_payload_cache_eviction_pressure=0.0,
+    )
+    reset = ShadowPremapSummaryEvent(
+        event_id=ShadowEventId("req2", sequence_id=1, token_index=-1, layer=0),
+        premap_policy="premap_only",
+        premap_descriptor_count=1,
+        premap_unique_experts=1,
+        premap_unique_layers=1,
+        premap_unique_sample_layers=1,
+        premap_actual_bytes=64,
+        premap_descriptor_hash="desc-2",
+        premap_address_hash="addr-2",
+        premap_payload_cache_manager_capacity=4,
+        premap_payload_cache_resident_count=1,
+        premap_payload_cache_issued_fetch_count=1,
+        premap_payload_cache_used_fetch_count=0,
+        premap_payload_cache_unused_fetch_count=1,
+        premap_payload_cache_demand_count=0,
+        premap_payload_cache_demand_hit_count=0,
+        premap_payload_cache_demand_miss_count=0,
+        premap_payload_cache_evicted_before_use_count=0,
+        premap_payload_cache_demand_hit_rate=0.0,
+        premap_payload_cache_used_fetch_rate=0.0,
+        premap_payload_cache_eviction_pressure=0.0,
+    )
+
+    output = write_shadow_jsonl(
+        [issue, consume, reset],
+        tmp_path / "premap_payload_cache_mgr.jsonl",
+    )
+    aggregate = aggregate_shadow_events(read_shadow_jsonl(output))
+
+    assert aggregate["premap_payload_cache_manager_count"] == 3
+    assert aggregate["premap_payload_cache_issued_fetch_count"] == 3
+    assert aggregate["premap_payload_cache_used_fetch_count"] == 2
+    assert aggregate["premap_payload_cache_demand_count"] == 2
+    assert aggregate["premap_payload_cache_demand_hit_count"] == 2
+    assert aggregate["premap_payload_cache_demand_miss_count"] == 0
+    assert aggregate["premap_payload_cache_evicted_before_use_count"] == 0
+    assert aggregate["premap_payload_cache_resident_count_max"] == 2
+    assert aggregate["premap_payload_cache_unused_fetch_count_max"] == 2
+    assert aggregate["premap_payload_cache_demand_hit_rate_mean"] == (1.0 / 3)
+    assert aggregate["premap_payload_cache_used_fetch_rate_mean"] == (1.0 / 3)
+
+
+def test_shadow_log_aggregates_payload_cache_only_event_without_mapping_count(tmp_path):
+    event = ShadowPremapPayloadCacheManagerEvent(
+        event_id=ShadowEventId("req", sequence_id=0, token_index=-1, layer=0),
+        cache_mode="accounting_only",
+        source="fused_moe_prepare_expert_assignment",
+        consumer_expert_count=4,
+        consumer_unique_expert_count=2,
+        premap_payload_cache_manager_id="mgr-1",
+        premap_payload_cache_manager_capacity=8,
+        premap_payload_cache_resident_count=2,
+        premap_payload_cache_issued_fetch_count=0,
+        premap_payload_cache_used_fetch_count=0,
+        premap_payload_cache_unused_fetch_count=0,
+        premap_payload_cache_demand_count=2,
+        premap_payload_cache_demand_hit_count=0,
+        premap_payload_cache_demand_miss_count=2,
+        premap_payload_cache_evicted_before_use_count=0,
+        premap_payload_cache_demand_hit_rate=0.0,
+        premap_payload_cache_used_fetch_rate=0.0,
+        premap_payload_cache_eviction_pressure=0.0,
+    )
+
+    output = write_shadow_jsonl([event], tmp_path / "premap_payload_only.jsonl")
+    rows = read_shadow_jsonl(output)
+    aggregate = aggregate_shadow_events(rows)
+
+    assert rows[0]["event_type"] == "premap_payload_cache_manager"
+    assert rows[0]["premap_payload_cache_payload_bytes"] == 0
+    assert rows[0]["premap_payload_cache_ready_credit"] is False
+    assert rows[0]["premap_payload_cache_changes_kernel_launch_args"] is False
+    assert aggregate["premap_payload_cache_manager_count"] == 1
+    assert aggregate["premap_payload_cache_demand_count"] == 2
+    assert aggregate["premap_payload_cache_demand_miss_count"] == 2
+    assert aggregate["premap_consumer_mapping_count"] == 0
 
 
 def test_shadow_log_descriptor_summary_min_does_not_dilute_full_metrics(tmp_path):

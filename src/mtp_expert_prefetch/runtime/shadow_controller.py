@@ -23,6 +23,7 @@ from mtp_expert_prefetch.runtime.shadow_log import (
     ShadowOutcomeEvent,
     ShadowPolicyConfig,
     ShadowPremapConsumerMappingEvent,
+    ShadowPremapPayloadCacheManagerEvent,
     ShadowPremapSummaryEvent,
     ShadowSummaryEvent,
 )
@@ -297,6 +298,18 @@ class RuntimeShadowController:
             self.stats.written_summary_count += 1
         else:
             self.stats.suppressed_premap_consumer_mapping_count += 1
+            self.stats.suppressed_summary_count += 1
+
+    def write_premap_payload_cache_manager(
+        self,
+        event: ShadowPremapPayloadCacheManagerEvent,
+    ) -> None:
+        """Write an accounting-only payload cache-manager runtime snapshot."""
+
+        if self.emit_summaries:
+            self.logger.write_premap_payload_cache_manager(event)
+            self.stats.written_summary_count += 1
+        else:
             self.stats.suppressed_summary_count += 1
 
     def write_descriptor_prelaunch_assertion(
