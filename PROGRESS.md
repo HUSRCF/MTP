@@ -33330,3 +33330,59 @@ need to modify the native vLLM WNA16 kernel ABI directly or provide a
 specialized kernel that matches the baseline kernel's instruction/launch
 profile more closely.
 ```
+
+Heldout128 graph+warmup envelope follow-up:
+
+```text
+artifact:
+  outputs/reports/awq_telemetry_ladder/
+    gpu1_graph_warmup_envelope_heldout128_gen64_20260612/
+
+production_batch_graph_warmup_reuse_llm:
+  returncode = 0
+  sample_count = 128
+  generate_s = 27.585706
+  TPOT = 0.003367396
+  throughput = 296.965 tok/s
+
+production_batch_premap_live_future_wna16_typed_slot_gpu_assignment_envelope_counter_off_graph_warmup_reuse_llm:
+  returncode = 0
+  sample_count = 128
+  generate_s = 27.525722
+  TPOT = 0.003360074
+  throughput = 297.613 tok/s
+  vs graph+warmup baseline:
+    generate_s = -0.217%
+    throughput = +0.218%
+```
+
+Posture:
+
+```text
+runtime_shadow.jsonl = absent
+warmup_status = ok
+warmup_prompt_count_effective = 32
+gpu_assignment_envelope_enabled:
+  baseline = false
+  identity-gated envelope = true
+gpu_assignment_kernel_variant_enabled:
+  baseline = false
+  identity-gated envelope = false
+trust_producer_refs:
+  baseline = false
+  identity-gated envelope = false
+```
+
+Interpretation:
+
+```text
+The identity-gated pass-through GPU-assignment envelope is overhead-neutral in
+this single Dolly heldout128 / gen64 observation under the same production-like
+graph+warmup posture.  The small positive delta is below the noise threshold and
+should not be claimed as a speedup.
+
+Together with the repeat-3 32-sample graph+warmup evidence, this supports the
+pass-through envelope as the current low-overhead integration boundary.  The
+independent GPU-assignment kernel variant remains a correctness/ABI canary, not
+the performance path.
+```
