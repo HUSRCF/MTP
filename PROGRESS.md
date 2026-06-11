@@ -223,6 +223,23 @@
   unchanged: this is a narrow identity-assignment kernel-side consumer result,
   not evidence that prepared descriptor/address tables or payload prefetch
   improve endpoint latency.
+- Follow-up envelope control: reran the same GPU1 Dolly32 / gen64
+  no-recorder, no-shadow-row reuse-LLM benchmark for the pass-through
+  GPU-assignment envelope without the independent kernel consumer.  In
+  `outputs/reports/awq_telemetry_ladder/gpu1_assignment_envelope_repeat3_current_20260611/`,
+  `production_batch_reuse_llm` finishes at 7.225s / 7.259s / 7.258s
+  (`mean=7.2473s`, `TPOT=0.003539s`, aggregate throughput 282.59 tok/s).
+  `production_batch_premap_live_future_wna16_typed_slot_gpu_assignment_envelope_counter_off_reuse_llm`
+  finishes at 7.187s / 7.223s / 7.226s (`mean=7.2117s`,
+  `TPOT=0.003521s`, aggregate throughput 283.98 tok/s), about +0.49%
+  throughput.  Because this pass-through envelope result has a similar
+  magnitude to the independent identity-kernel result (~0.49% vs ~0.51%), the
+  current evidence should be read as a small production-compatible
+  live-boundary signal, not as proof that the independent identity WNA16
+  consumer is the source of the speedup.  Any future performance claim needs a
+  consumer that uses the typed slot for non-identity work, or a specialized
+  kernel that removes current wrapper/ABI overhead while preserving output
+  parity.
 - Latest lab-gate update: promoted the request-launch ABI into the default
   readonly lab preflight as required evidence,
   `native_typed_consumer_stub_online_prelaunch_input_request_launch_canary_json`.
