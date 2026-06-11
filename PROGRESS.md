@@ -33261,3 +33261,72 @@ should target the independent kernel variant itself, launch/config overhead, or
 move toward a real native producer/consumer boundary if the kernel variant is to
 be kept as a performance path.
 ```
+
+GPU1 AWQ/Dolly 32-sample gen64 repeat-3 follow-up:
+
+```text
+artifact:
+  outputs/reports/awq_telemetry_ladder/
+    gpu1_kernel_variant_trust_refs_graph_warmup_repeat3_gen64_20260612/
+
+production_batch_graph_warmup_reuse_llm:
+  generate_s = 6.584555 / 6.611267 / 6.642792
+  mean_generate_s = 6.612871
+  mean_TPOT = 0.003228941
+  throughput = 309.699 tok/s
+
+production_batch_premap_live_future_wna16_gpu_assignment_kernel_variant_counter_off_graph_warmup_reuse_llm:
+  generate_s = 6.602366 / 6.637628 / 6.651109
+  mean_generate_s = 6.630367
+  mean_TPOT = 0.003237484
+  throughput = 308.882 tok/s
+  vs graph+warmup baseline:
+    generate_s = +0.265%
+    throughput = -0.264%
+
+production_batch_premap_live_future_wna16_gpu_assignment_kernel_variant_trust_producer_refs_counter_off_graph_warmup_reuse_llm:
+  generate_s = 6.698913 / 6.731218 / 6.751821
+  mean_generate_s = 6.727318
+  mean_TPOT = 0.003284823
+  throughput = 304.430 tok/s
+  vs graph+warmup baseline:
+    generate_s = +1.731%
+    throughput = -1.701%
+```
+
+Posture:
+
+```text
+runtime_shadow.jsonl = absent for all repeats
+warmup_status = ok for all repeats
+warmup_prompt_count_effective = 32 for all repeats
+gpu_assignment_kernel_variant_enabled:
+  baseline = false
+  identity kernel variant = true
+  trust-producer-refs kernel variant = true
+gpu_assignment_kernel_variant_trust_producer_refs:
+  baseline = false
+  identity kernel variant = false
+  trust-producer-refs kernel variant = true
+```
+
+Repeat-3 interpretation:
+
+```text
+The identity-validated GPU-assignment kernel variant is effectively neutral to
+slightly negative under graph+warmup (-0.26% throughput), and the
+trust-producer-refs variant is clearly worse (-1.70% throughput).
+
+Under this graph+warmup 32-sample gen64 posture, this rules out the per-launch
+assignment identity loop as a meaningful optimization target.  The current
+independent GPU-assignment kernel variant should not be promoted as a
+performance path.  It remains useful as correctness/ABI evidence for native
+assignment consumption.
+
+For benchmark work, the viable production-like path is currently the
+graph+warmup baseline plus the identity-gated GPU-assignment envelope, not the
+independent GPU-assignment kernel variant.  A real performance attempt would
+need to modify the native vLLM WNA16 kernel ABI directly or provide a
+specialized kernel that matches the baseline kernel's instruction/launch
+profile more closely.
+```
