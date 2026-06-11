@@ -32242,3 +32242,54 @@ The next performance work should start from the envelope path and move useful
 consumer work into a native producer/kernel-side implementation.  The current
 identity wrapper should not be treated as a runtime speedup path.
 ```
+
+## 2026-06-11 - Reuse-LLM repeat-3 envelope stability
+
+Experiment:
+
+```text
+GPU1 AWQ/Dolly heldout128 gen64, reuse_llm_across_chunks, repeat=3,
+batch32, no router recorder.
+
+Compared:
+  production_batch_reuse_llm
+  production_batch_premap_live_future_wna16_typed_slot_gpu_assignment_envelope_counter_off_reuse_llm
+
+artifact:
+  outputs/reports/awq_telemetry_ladder/
+    gpu1_reuse_llm_baseline_vs_envelope_repeat3_heldout128_gen64_20260611/
+      reuse_llm_baseline_vs_envelope_repeat3_summary.json
+```
+
+Results:
+
+```text
+production_batch_reuse_llm:
+  generate_s = 29.4038 / 29.7003 / 29.9671
+  mean generate_s = 29.6904
+  mean throughput = 275.93 tok/s
+
+gpu-assignment envelope reuse_llm:
+  generate_s = 29.5846 / 29.6362 / 29.6397
+  mean generate_s = 29.6202
+  mean throughput = 276.57 tok/s
+
+mean delta:
+  envelope vs baseline generate_s = -0.236%
+  envelope vs baseline throughput = +0.231%
+```
+
+Interpretation:
+
+```text
+The pass-through GPU-assignment envelope is overhead-neutral under the
+repeat-3 reuse_llm heldout128 benchmark.  The mean difference is below 0.5% and
+should not be claimed as a speedup.
+
+This strengthens the boundary:
+
+  safe to carry GPU assignment references in the production-batch package;
+  not enough to claim runtime acceleration;
+  real performance work must move beyond the envelope into native producer or
+  kernel-side useful consumption.
+```
