@@ -2,8 +2,27 @@
 
 ## Progress Version
 
-- Version: `v0.78-gpu-assignment-envelope`
+- Version: `v0.79-w7900-moe-config-overlay`
 - Updated: 2026-06-11
+- Latest W7900 MoE config-overlay update: added a repo-local
+  `VLLM_TUNED_CONFIG_FOLDER` overlay for the vLLM AWQ/WNA16 MoE warning
+  `E=256,N=512,dtype=int4_w4a16` on W7900, without mutating the conda
+  site-packages tree.  The overlay provides both observed device-name aliases,
+  `AMD_Radeon_PRO_W7900_Dual_Slot_` and `AMD_Radeon_PRO_W7900`, and
+  intentionally only sets `BLOCK_SIZE_M`, `GROUP_SIZE_M`, `SPLIT_K`,
+  `num_warps`, and `num_stages`; it does not override vLLM's dynamic
+  `BLOCK_SIZE_N` / `BLOCK_SIZE_K` choices and does not use
+  `matrix_instr_nonkdim`.  A GPU1 AWQ/Dolly heldout128 gen64 repeat-3
+  reuse-LLM run confirms the overlay is loaded, but it is not faster:
+  31.316s / 28.747s / 29.641s (`mean=29.9011s`, 273.97 tok/s), compared with
+  the latest same-path production-batch reuse baseline at `mean=29.5246s`,
+  277.46 tok/s.  Conclusion: this copied M-only config is useful as a
+  non-invasive reproduction/negative-evidence artifact, but it is not a
+  production default or a benchmark claim.  Further WNA16 performance work
+  should use W1/W2-separated autotune or a real native/kernel-side consumer
+  path, not a broad static JSON override.  Artifacts:
+  `configs/vllm_moe_tuning/w7900_awq_int4_m_only_v1/` and
+  `outputs/reports/awq_telemetry_ladder/gpu1_moe_config_m_only_nomatrix_repeat3_heldout128_gen64_20260611/summary.md`.
 - Latest trusted-refs lower-bound update: added an explicit
   `premap_kernel_arg_handoff_gpu_assignment_validation_mode` with
   `identity` as the default and `trusted_refs` as a pass-through envelope-only
