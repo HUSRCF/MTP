@@ -33444,3 +33444,83 @@ This strengthens the integration boundary conclusion:
   attachment point, and do not use the independent GPU-assignment kernel variant
   as the performance path.
 ```
+
+Slim future typed-slot WNA16 variant check:
+
+```text
+commit:
+  c45d5e3 Add slim typed slot WNA16 variant
+
+validation:
+  /home/husrcf/anaconda3/envs/TRY/bin/python -m py_compile \
+    src/mtp_expert_prefetch/tracing/vllm_wna16_group_plan.py \
+    src/mtp_expert_prefetch/tracing/vllm_router_trace.py \
+    scripts/run_awq_telemetry_ladder.py
+  /home/husrcf/anaconda3/envs/TRY/bin/python -m pytest tests -q
+    1195 passed, 2 warnings
+
+review:
+  Cicero found no blocker.
+  The final aux typed-slot read uses tl.load(..., volatile=True), so aux remains
+  a future-ABI read-set canary without adding current WNA16 value semantics.
+```
+
+GPU1 Dolly32 / gen64 graph+warmup smoke:
+
+```text
+artifact:
+  outputs/reports/awq_telemetry_ladder/
+    gpu1_slim_typed_slot_graph_warmup_smoke32_gen64_20260612/
+
+production_batch_graph_warmup_reuse_llm:
+  returncode = 0
+  sample_count = 32
+  generate_s = 6.593935
+  TPOT = 0.003219695
+
+production_batch_premap_live_future_wna16_typed_slot_slim_kernel_variant_counter_off_graph_warmup_reuse_llm:
+  returncode = 0
+  sample_count = 32
+  generate_s = 22.151134
+  TPOT = 0.010815984
+  vs graph+warmup baseline:
+    generate_s = +235.94%
+    TPOT = +235.94%
+```
+
+GPU1 Dolly32 / gen64 graph+warmup rerun:
+
+```text
+artifact:
+  outputs/reports/awq_telemetry_ladder/
+    gpu1_slim_typed_slot_graph_warmup_smoke32_gen64_rerun_20260612/
+
+production_batch_graph_warmup_reuse_llm:
+  returncode = 0
+  sample_count = 32
+  generate_s = 6.642444
+  TPOT = 0.003243381
+
+production_batch_premap_live_future_wna16_typed_slot_slim_kernel_variant_counter_off_graph_warmup_reuse_llm:
+  returncode = 0
+  sample_count = 32
+  generate_s = 20.861160
+  TPOT = 0.010186113
+  vs graph+warmup baseline:
+    generate_s = +214.06%
+    TPOT = +214.06%
+```
+
+Interpretation:
+
+```text
+The slim typed-slot WNA16 variant is functionally runnable but strongly
+performance-negative.  The first run includes a visible Triton JIT event for
+fused_moe_kernel_gptq_awq_typed_slot_slim, but the rerun remains ~3.1x slower,
+so this is not just first-use compilation noise.
+
+This closes the independent typed-slot kernel-variant performance branch for
+now.  Keep it as an ABI/correctness canary only.  The production-like direction
+remains the pass-through typed-slot envelope / producer-native adapter boundary,
+not a standalone replacement Triton kernel.
+```
