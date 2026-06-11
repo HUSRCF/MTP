@@ -693,6 +693,115 @@ def test_production_batch_gpu_assignment_kernel_variant_stays_separate_from_prep
     assert mode["premap_kernel_arg_handoff_live_counter_mode"] == "off"
 
 
+def test_production_batch_direct_topk_identity_uses_no_recorder_no_premap_package() -> None:
+    module = _load_module()
+    root = Path(__file__).resolve().parents[1]
+    mode = module.MODES[
+        "production_batch_descriptor_order_direct_topk_identity_counter_off"
+    ]
+    trace_overrides = mode["trace_overrides"]
+    vllm_overrides = trace_overrides["vllm_overrides"]
+
+    assert mode["runtime_shadow_enabled"] is False
+    assert trace_overrides["use_router_logits_recorder"] is False
+    assert trace_overrides["capture_router_topk"] is False
+    assert trace_overrides["capture_router_scores"] is False
+    assert (
+        trace_overrides["allow_premap_live_config_without_router_recorder"]
+        is True
+    )
+    assert vllm_overrides["use_router_logits_recorder"] is False
+    assert vllm_overrides["enable_return_routed_experts"] is False
+    assert mode["record_router_topk"] is False
+    assert mode["capture_router_topk"] is False
+    assert mode["emit_summaries"] is False
+    assert mode["emit_outcomes"] is False
+    assert mode["emit_premap_summaries"] is False
+    assert mode["emit_premap_address_manager_counters"] is False
+    assert mode["emit_premap_consumer_mapping"] is True
+    assert mode["premap_consumer_mapping_emit_rows"] is False
+    assert mode["premap_consumer_mapping_mode"] == "noop_assertion"
+    assert mode["premap_consumer_resolve_real_handles"] is False
+    assert mode["premap_consumer_require_readonly_gate"] is False
+    assert "premap_consumer_readonly_gate_path" not in mode
+    assert mode["premap_descriptor_prep_execution_mode"] == "off"
+    assert mode["premap_kernel_arg_handoff_live_enabled"] is False
+    assert mode["premap_kernel_arg_handoff_live_consumer_connected"] is False
+    assert mode["premap_kernel_arg_handoff_kernel_arg_pass_enabled"] is False
+    assert mode["premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled"] is False
+    assert mode["premap_kernel_arg_handoff_minimal_identity_envelope_enabled"] is False
+    assert (
+        mode[
+            "premap_kernel_arg_handoff_producer_future_wna16_typed_slot_envelope_enabled"
+        ]
+        is False
+    )
+    assert (
+        mode[
+            "premap_kernel_arg_handoff_producer_gpu_assignment_envelope_enabled"
+        ]
+        is False
+    )
+    assert (
+        mode["premap_kernel_arg_handoff_gpu_assignment_kernel_variant_enabled"]
+        is False
+    )
+    assert (
+        mode[
+            "premap_kernel_arg_handoff_future_wna16_typed_slot_kernel_variant_enabled"
+        ]
+        is False
+    )
+    assert mode["descriptor_order_reorder_mvp_enabled"] is True
+    assert mode["descriptor_order_reorder_mvp_apply_mode"] == "apply"
+    assert (
+        mode["descriptor_order_reorder_mvp_attribution_mode"]
+        == "direct_topk_identity_kernel"
+    )
+    assert mode["descriptor_order_reorder_mvp_require_profitable"] is False
+    assert mode["descriptor_order_emit_consumer_handle_events"] is False
+    assert mode["emit_descriptor_order_summaries"] is False
+
+
+def test_production_batch_direct_topk_identity_readonly_gate_preflight() -> None:
+    module = _load_module()
+    root = Path(__file__).resolve().parents[1]
+    from mtp_expert_prefetch.tracing.vllm_router_trace import (
+        _apply_premap_consumer_readonly_gate,
+        _runtime_shadow_options,
+    )
+
+    mode = module.MODES[
+        "production_batch_descriptor_order_direct_topk_identity_counter_off"
+    ]
+    runtime_options = {
+        key: value
+        for key, value in mode.items()
+        if key not in module._MODE_RESERVED_KEYS
+    }
+    trace_options = dict(mode["trace_overrides"])
+    trace_options["runtime_shadow"] = {
+        **runtime_options,
+        "enabled": bool(mode["runtime_shadow_enabled"]),
+    }
+    vllm_options = dict(trace_options["vllm_overrides"])
+
+    merged = _runtime_shadow_options(trace_options, vllm_options)
+    updated = _apply_premap_consumer_readonly_gate(
+        merged,
+        project_root=root,
+    )
+
+    assert updated["premap_consumer_require_readonly_gate"] is False
+    assert updated.get("premap_consumer_readonly_gate_path") is None
+    assert updated["premap_kernel_arg_handoff_live_enabled"] is False
+    assert updated["premap_descriptor_prep_execution_mode"] == "off"
+    assert updated["emit_premap_consumer_mapping"] is True
+    assert updated["premap_consumer_mapping_emit_rows"] is False
+    assert updated["premap_consumer_mapping_mode"] == "noop_assertion"
+    assert updated["premap_consumer_resolve_real_handles"] is False
+
+
 def test_production_batch_reuse_llm_modes_only_add_engine_reuse() -> None:
     module = _load_module()
     pairs = (
@@ -715,6 +824,10 @@ def test_production_batch_reuse_llm_modes_only_add_engine_reuse() -> None:
         (
             "production_batch_premap_live_future_wna16_gpu_assignment_kernel_variant_counter_off",
             "production_batch_premap_live_future_wna16_gpu_assignment_kernel_variant_counter_off_reuse_llm",
+        ),
+        (
+            "production_batch_descriptor_order_direct_topk_identity_counter_off",
+            "production_batch_descriptor_order_direct_topk_identity_counter_off_reuse_llm",
         ),
     )
 

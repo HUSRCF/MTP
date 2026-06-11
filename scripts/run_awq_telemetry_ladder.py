@@ -1360,6 +1360,67 @@ MODES[
     "premap_kernel_arg_handoff_live_counter_mode": "detailed",
 }
 
+MODES["production_batch_descriptor_order_direct_topk_identity_counter_off"] = {
+    **MODES["production_batch"],
+    # Production-batch direct-topk identity probe.  It uses the lightweight
+    # no-recorder config only as a descriptor-order control object, then lets
+    # _prepare_expert_assignment install a direct_topk_identity kernel plan from
+    # the in-flight topk_ids.  It does not construct a premap package, prepared
+    # table, payload transfer, readonly gate, live handoff, or current-WNA16 arg
+    # mutation.
+    "runtime_shadow_enabled": False,
+    "trace_overrides": {
+        **_PRODUCTION_BATCH_TRACE_OVERRIDES,
+        "allow_premap_live_config_without_router_recorder": True,
+    },
+    "record_router_topk": False,
+    "capture_router_topk": False,
+    "emit_premap_summaries": False,
+    "emit_premap_address_manager_counters": False,
+    # Keep this enabled only to allow a lightweight active config without the
+    # router logits recorder.  Rows are disabled below, so no mapping telemetry
+    # or premap package is emitted on the hot path.
+    "emit_premap_consumer_mapping": True,
+    "premap_consumer_mapping_emit_rows": False,
+    "premap_consumer_mapping_mode": "noop_assertion",
+    "premap_consumer_resolve_real_handles": False,
+    "premap_consumer_require_readonly_gate": False,
+    "premap_descriptor_prep_execution_mode": "off",
+    "premap_kernel_arg_handoff_live_enabled": False,
+    "premap_kernel_arg_handoff_live_consumer_connected": False,
+    "premap_kernel_arg_handoff_kernel_arg_pass_enabled": False,
+    "premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled": False,
+    "premap_kernel_arg_handoff_minimal_identity_envelope_enabled": False,
+    "premap_kernel_arg_handoff_producer_future_wna16_typed_slot_envelope_enabled": (
+        False
+    ),
+    "premap_kernel_arg_handoff_producer_gpu_assignment_envelope_enabled": False,
+    "premap_kernel_arg_handoff_gpu_assignment_kernel_variant_enabled": False,
+    "premap_kernel_arg_handoff_future_wna16_typed_slot_kernel_variant_enabled": (
+        False
+    ),
+    "premap_kernel_arg_handoff_live_counter_mode": "off",
+    "descriptor_order_reorder_mvp_enabled": True,
+    "descriptor_order_reorder_mvp_apply_mode": "apply",
+    "descriptor_order_reorder_mvp_attribution_mode": "direct_topk_identity_kernel",
+    "descriptor_order_reorder_mvp_require_profitable": False,
+    "descriptor_order_emit_consumer_handle_events": False,
+    "emit_descriptor_layer_timing": False,
+    "emit_decoder_layer_timing": False,
+    "emit_decoder_component_timing": False,
+    "emit_moe_substage_timing": False,
+    "decoder_source_timing_mode": "off",
+    "moe_source_timing_mode": "off",
+    "emit_wna16_kernel_timing": False,
+    "wna16_kernel_timing_mode": "host",
+    "emit_summaries": False,
+    "emit_outcomes": False,
+    "outcome_logging_mode": "off",
+    "emit_descriptor_order_summaries": False,
+    "emit_transition_summaries": False,
+    "unset_env": ["VLLM_DISABLE_SHARED_EXPERTS_STREAM"],
+}
+
 
 def _with_reuse_llm_across_chunks(base_mode: str) -> dict[str, Any]:
     mode = dict(MODES[base_mode])
@@ -1397,6 +1458,12 @@ MODES[
     "production_batch_premap_live_future_wna16_gpu_assignment_kernel_variant_counter_off_reuse_llm"
 ] = _with_reuse_llm_across_chunks(
     "production_batch_premap_live_future_wna16_gpu_assignment_kernel_variant_counter_off"
+)
+
+MODES[
+    "production_batch_descriptor_order_direct_topk_identity_counter_off_reuse_llm"
+] = _with_reuse_llm_across_chunks(
+    "production_batch_descriptor_order_direct_topk_identity_counter_off"
 )
 
 MODES[

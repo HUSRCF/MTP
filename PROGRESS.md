@@ -32440,3 +32440,105 @@ This strengthens the boundary:
   real performance work must move beyond the envelope into native producer or
   kernel-side useful consumption.
 ```
+
+## 2026-06-11 - Direct-topk identity production-compatible smoke
+
+Added ladder modes:
+
+```text
+production_batch_descriptor_order_direct_topk_identity_counter_off
+production_batch_descriptor_order_direct_topk_identity_counter_off_reuse_llm
+```
+
+Purpose:
+
+```text
+Exercise the direct_topk_identity_kernel descriptor-order control path under a
+production-batch, no-router-recorder, no-runtime-shadow-row configuration.
+
+This mode intentionally avoids:
+  readonly gate reuse
+  descriptor-prep execution
+  prepared table construction
+  payload transfer
+  kernel-arg pass
+  real WNA16 arg mutation
+  premap consumer rows
+```
+
+Implementation boundary:
+
+```text
+emit_premap_consumer_mapping = true
+premap_consumer_mapping_emit_rows = false
+premap_consumer_mapping_mode = noop_assertion
+premap_kernel_arg_handoff_live_enabled = false
+premap_consumer_require_readonly_gate = false
+
+The mapping flag is only used to construct the lightweight active config when
+the router logits recorder is disabled.  It does not emit mapping rows or build
+a premap package.
+```
+
+Validation:
+
+```text
+python -m py_compile scripts/run_awq_telemetry_ladder.py
+
+pytest tests/test_run_awq_telemetry_ladder_modes.py -q
+  60 passed
+
+git diff --check
+  clean
+```
+
+The test coverage now includes a half-integration preflight:
+
+```text
+_runtime_shadow_options(trace_options, vllm_options)
+  -> _apply_premap_consumer_readonly_gate(...)
+```
+
+GPU1 AWQ/Dolly 32-sample gen16 smoke:
+
+```text
+artifact:
+  outputs/reports/awq_telemetry_ladder/
+    gpu1_direct_topk_identity_smoke32_gen16_20260611/
+
+mode:
+  production_batch_descriptor_order_direct_topk_identity_counter_off_reuse_llm
+
+returncode = 0
+generate_s = 2.8931
+requested_output_token_count = 512
+TPOT = 0.0056506
+runtime_shadow.jsonl = absent
+
+performance_summary confirms:
+  runtime_shadow_enabled = false
+  record_router_topk = false
+  emit_premap_consumer_mapping = true
+  premap_consumer_mapping_emit_rows = false
+  premap_consumer_readonly_gate_required = false
+  premap_kernel_arg_handoff_live_enabled = false
+  premap_kernel_arg_handoff_kernel_arg_pass_enabled = false
+  premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled = false
+  premap_descriptor_prep_execution_mode = off
+```
+
+This is a single smoke/control run used to verify path validity.  It is not a
+throughput-significance or variance benchmark.
+
+Interpretation:
+
+```text
+The direct_topk_identity control path now has a production-compatible smoke
+entrypoint: no recorder, no runtime shadow rows, no readonly gate, no premap
+payload, and no WNA16 arg mutation.
+
+This is a path-validity/control result, not a performance claim.  Prior
+heldout128 evidence from the earlier 128-sample benchmark remains the performance
+reference for this branch and shows that the independent identity kernel variant
+is not reliably performance-positive.
+```
