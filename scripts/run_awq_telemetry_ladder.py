@@ -1392,6 +1392,21 @@ MODES[
 }
 
 MODES[
+    "production_batch_premap_live_future_wna16_gpu_assignment_kernel_variant_trust_producer_refs_counter_off"
+] = {
+    **MODES[
+        "production_batch_premap_live_future_wna16_gpu_assignment_kernel_variant_counter_off"
+    ],
+    # Attribution-only lower bound for the kernel-variant path.  The producer
+    # envelope still has to exist, but the WNA16 wrapper trusts that envelope
+    # instead of running per-launch Python `is` checks over the three assignment
+    # tensors.  Use the identity-validated mode for correctness evidence.
+    "premap_kernel_arg_handoff_gpu_assignment_kernel_variant_trust_producer_refs": (
+        True
+    ),
+}
+
+MODES[
     "production_batch_premap_live_future_wna16_gpu_assignment_kernel_variant_detailed"
 ] = {
     **MODES[
@@ -1534,6 +1549,18 @@ MODES[
     "production_batch_premap_live_future_wna16_gpu_assignment_kernel_variant_counter_off_graph_warmup_reuse_llm"
 ] = _with_reuse_llm_across_chunks(
     "production_batch_premap_live_future_wna16_gpu_assignment_kernel_variant_counter_off_graph_warmup"
+)
+
+MODES[
+    "production_batch_premap_live_future_wna16_gpu_assignment_kernel_variant_trust_producer_refs_counter_off_graph_warmup"
+] = _with_graph_warmup_posture(
+    "production_batch_premap_live_future_wna16_gpu_assignment_kernel_variant_trust_producer_refs_counter_off"
+)
+
+MODES[
+    "production_batch_premap_live_future_wna16_gpu_assignment_kernel_variant_trust_producer_refs_counter_off_graph_warmup_reuse_llm"
+] = _with_reuse_llm_across_chunks(
+    "production_batch_premap_live_future_wna16_gpu_assignment_kernel_variant_trust_producer_refs_counter_off_graph_warmup"
 )
 
 MODES[

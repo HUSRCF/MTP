@@ -2562,6 +2562,9 @@ class VllmRouterRecorder:
     shadow_premap_kernel_arg_handoff_gpu_assignment_kernel_variant_enabled: (
         bool
     ) = False
+    shadow_premap_kernel_arg_handoff_gpu_assignment_kernel_variant_trust_producer_refs: (
+        bool
+    ) = False
     shadow_premap_kernel_arg_handoff_future_wna16_typed_slot_kernel_variant_enabled: (
         bool
     ) = False
@@ -15410,56 +15413,72 @@ def patch_vllm_qwen35_moe_router_trace() -> None:
                             ] = None
                             gpu_assignment_identity_ok = None
                         else:
-                            assignment_identity_ok = True
-                            assignment_pairs = (
-                                (
-                                    "sorted_token_ids",
-                                    live_mutation_package_meta.get(
-                                        "producer_gpu_assignment_sorted_token_ids"
-                                    ),
-                                    sorted_token_ids,
-                                ),
-                                (
-                                    "expert_ids",
-                                    live_mutation_package_meta.get(
-                                        "producer_gpu_assignment_expert_ids"
-                                    ),
-                                    expert_ids,
-                                ),
-                                (
-                                    "num_tokens_post_padded",
-                                    live_mutation_package_meta.get(
-                                        "producer_gpu_assignment_num_tokens_post_padded"
-                                    ),
-                                    num_tokens_post_padded,
-                                ),
+                            trust_producer_refs = (
+                                recorder_for_config is not None
+                                and bool(
+                                    recorder_for_config
+                                    .shadow_premap_kernel_arg_handoff_gpu_assignment_kernel_variant_trust_producer_refs
+                                )
                             )
-                            for assignment_name, producer_value, launch_value in (
-                                assignment_pairs
-                            ):
-                                counter_prefix = f"gpu_assignment_{assignment_name}"
-                                if producer_value is None and launch_value is None:
-                                    _increment_premap_kernel_arg_live_mutation_counter(
-                                        f"{counter_prefix}_identity_ok_count"
-                                    )
-                                elif producer_value is None:
-                                    assignment_identity_ok = False
-                                    _increment_premap_kernel_arg_live_mutation_counter(
-                                        f"{counter_prefix}_missing_count"
-                                    )
-                                elif producer_value is launch_value:
-                                    _increment_premap_kernel_arg_live_mutation_counter(
-                                        f"{counter_prefix}_identity_ok_count"
-                                    )
-                                else:
-                                    assignment_identity_ok = False
-                                    _increment_premap_kernel_arg_live_mutation_counter(
-                                        f"{counter_prefix}_identity_mismatch_count"
-                                    )
-                            live_mutation_package_meta[
-                                "producer_gpu_assignment_consumer_identity_ok"
-                            ] = bool(assignment_identity_ok)
-                            gpu_assignment_identity_ok = bool(assignment_identity_ok)
+                            if trust_producer_refs:
+                                live_mutation_package_meta[
+                                    "producer_gpu_assignment_consumer_identity_ok"
+                                ] = True
+                                live_mutation_package_meta[
+                                    "producer_gpu_assignment_consumer_trust_producer_refs"
+                                ] = True
+                                gpu_assignment_identity_ok = True
+                            else:
+                                assignment_identity_ok = True
+                                assignment_pairs = (
+                                    (
+                                        "sorted_token_ids",
+                                        live_mutation_package_meta.get(
+                                            "producer_gpu_assignment_sorted_token_ids"
+                                        ),
+                                        sorted_token_ids,
+                                    ),
+                                    (
+                                        "expert_ids",
+                                        live_mutation_package_meta.get(
+                                            "producer_gpu_assignment_expert_ids"
+                                        ),
+                                        expert_ids,
+                                    ),
+                                    (
+                                        "num_tokens_post_padded",
+                                        live_mutation_package_meta.get(
+                                            "producer_gpu_assignment_num_tokens_post_padded"
+                                        ),
+                                        num_tokens_post_padded,
+                                    ),
+                                )
+                                for assignment_name, producer_value, launch_value in (
+                                    assignment_pairs
+                                ):
+                                    counter_prefix = f"gpu_assignment_{assignment_name}"
+                                    if producer_value is None and launch_value is None:
+                                        _increment_premap_kernel_arg_live_mutation_counter(
+                                            f"{counter_prefix}_identity_ok_count"
+                                        )
+                                    elif producer_value is None:
+                                        assignment_identity_ok = False
+                                        _increment_premap_kernel_arg_live_mutation_counter(
+                                            f"{counter_prefix}_missing_count"
+                                        )
+                                    elif producer_value is launch_value:
+                                        _increment_premap_kernel_arg_live_mutation_counter(
+                                            f"{counter_prefix}_identity_ok_count"
+                                        )
+                                    else:
+                                        assignment_identity_ok = False
+                                        _increment_premap_kernel_arg_live_mutation_counter(
+                                            f"{counter_prefix}_identity_mismatch_count"
+                                        )
+                                live_mutation_package_meta[
+                                    "producer_gpu_assignment_consumer_identity_ok"
+                                ] = bool(assignment_identity_ok)
+                                gpu_assignment_identity_ok = bool(assignment_identity_ok)
                     single_field_dry_run_enabled = False
                     single_field_live_enabled = False
                     single_field_candidate_source = "original_kernel_arg_identity"
@@ -16762,6 +16781,12 @@ def _apply_premap_consumer_readonly_gate(
             False,
         )
     )
+    gpu_assignment_kernel_variant_trust_producer_refs = bool(
+        options.get(
+            "premap_kernel_arg_handoff_gpu_assignment_kernel_variant_trust_producer_refs",
+            False,
+        )
+    )
     future_wna16_typed_slot_kernel_variant_enabled = bool(
         options.get(
             "premap_kernel_arg_handoff_future_wna16_typed_slot_kernel_variant_enabled",
@@ -17007,6 +17032,16 @@ def _apply_premap_consumer_readonly_gate(
             "premap_kernel_arg_handoff_gpu_assignment_kernel_variant_enabled=True "
             "requires premap_kernel_arg_handoff_gpu_assignment_validation_mode="
             "'identity'."
+        )
+        raise ValueError(msg)
+    if (
+        gpu_assignment_kernel_variant_trust_producer_refs
+        and not gpu_assignment_kernel_variant_enabled
+    ):
+        msg = (
+            "premap_kernel_arg_handoff_gpu_assignment_kernel_variant_trust_producer_refs=True "
+            "requires "
+            "premap_kernel_arg_handoff_gpu_assignment_kernel_variant_enabled=True."
         )
         raise ValueError(msg)
     if (
@@ -18231,6 +18266,12 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                     False,
                 )
             ),
+            shadow_premap_kernel_arg_handoff_gpu_assignment_kernel_variant_trust_producer_refs=bool(
+                runtime_shadow_options.get(
+                    "premap_kernel_arg_handoff_gpu_assignment_kernel_variant_trust_producer_refs",
+                    False,
+                )
+            ),
             shadow_premap_kernel_arg_handoff_future_wna16_typed_slot_kernel_variant_enabled=bool(
                 runtime_shadow_options.get(
                     "premap_kernel_arg_handoff_future_wna16_typed_slot_kernel_variant_enabled",
@@ -18796,6 +18837,12 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
         "runtime_shadow_premap_kernel_arg_handoff_gpu_assignment_kernel_variant_enabled": bool(
             runtime_shadow_options.get(
                 "premap_kernel_arg_handoff_gpu_assignment_kernel_variant_enabled",
+                False,
+            )
+        ),
+        "runtime_shadow_premap_kernel_arg_handoff_gpu_assignment_kernel_variant_trust_producer_refs": bool(
+            runtime_shadow_options.get(
+                "premap_kernel_arg_handoff_gpu_assignment_kernel_variant_trust_producer_refs",
                 False,
             )
         ),
@@ -19405,6 +19452,12 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                             shadow_premap_kernel_arg_handoff_gpu_assignment_kernel_variant_enabled=bool(
                                 runtime_shadow_options.get(
                                     "premap_kernel_arg_handoff_gpu_assignment_kernel_variant_enabled",
+                                    False,
+                                )
+                            ),
+                            shadow_premap_kernel_arg_handoff_gpu_assignment_kernel_variant_trust_producer_refs=bool(
+                                runtime_shadow_options.get(
+                                    "premap_kernel_arg_handoff_gpu_assignment_kernel_variant_trust_producer_refs",
                                     False,
                                 )
                             ),

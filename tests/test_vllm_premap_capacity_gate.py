@@ -865,6 +865,22 @@ def test_apply_premap_consumer_readonly_gate_rejects_gpu_assignment_kernel_varia
         )
 
 
+def test_apply_premap_consumer_readonly_gate_rejects_gpu_assignment_kernel_variant_trust_refs_without_variant(
+    tmp_path,
+):
+    with pytest.raises(
+        ValueError,
+        match="gpu_assignment_kernel_variant_trust_producer_refs=True",
+    ):
+        _apply_premap_consumer_readonly_gate(
+            {
+                "enabled": True,
+                "premap_kernel_arg_handoff_gpu_assignment_kernel_variant_trust_producer_refs": True,
+            },
+            project_root=tmp_path,
+        )
+
+
 @pytest.mark.parametrize(
     "missing_key",
     [

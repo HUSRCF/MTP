@@ -33159,3 +33159,105 @@ cost or move more work into a native producer/consumer boundary.  The current
 kernel-variant path remains correctness/ABI evidence under this posture and run
 size, not performance evidence.
 ```
+
+### 2026-06-11 - GPU-assignment kernel-variant trust-producer-refs attribution
+
+Added an attribution-only lower-bound mode for the GPU-assignment
+kernel-variant path:
+
+```text
+production_batch_premap_live_future_wna16_gpu_assignment_kernel_variant_trust_producer_refs_counter_off
+production_batch_premap_live_future_wna16_gpu_assignment_kernel_variant_trust_producer_refs_counter_off_graph_warmup
+production_batch_premap_live_future_wna16_gpu_assignment_kernel_variant_trust_producer_refs_counter_off_graph_warmup_reuse_llm
+```
+
+This mode keeps the same production-batch/no-recorder/no-shadow envelope and
+the same independent GPU-assignment kernel variant, but sets:
+
+```text
+premap_kernel_arg_handoff_gpu_assignment_kernel_variant_trust_producer_refs = true
+```
+
+That flag is default-off and is rejected unless
+`premap_kernel_arg_handoff_gpu_assignment_kernel_variant_enabled=true`.  It is
+not a correctness gate.  It only skips the per-launch Python identity loop over:
+
+```text
+producer_gpu_assignment_sorted_token_ids
+producer_gpu_assignment_expert_ids
+producer_gpu_assignment_num_tokens_post_padded
+```
+
+Validation:
+
+```text
+python -m py_compile \
+  src/mtp_expert_prefetch/tracing/vllm_router_trace.py \
+  scripts/run_awq_telemetry_ladder.py
+
+pytest \
+  tests/test_run_awq_telemetry_ladder_modes.py \
+  tests/test_vllm_premap_capacity_gate.py -q
+  142 passed
+
+git diff --check
+  clean
+```
+
+GPU1 AWQ/Dolly 32-sample gen64 repeat-1 canary:
+
+```text
+artifact:
+  outputs/reports/awq_telemetry_ladder/
+    gpu1_kernel_variant_trust_refs_graph_warmup_ab_smoke32_gen64_20260611/
+
+production_batch_graph_warmup_reuse_llm:
+  generate_s = 6.586031
+  TPOT = 0.003215835
+
+production_batch_premap_live_future_wna16_gpu_assignment_kernel_variant_counter_off_graph_warmup_reuse_llm:
+  generate_s = 6.550852
+  TPOT = 0.003198658
+  vs baseline:
+    generate_s = -0.534%
+    throughput = +0.537%
+
+production_batch_premap_live_future_wna16_gpu_assignment_kernel_variant_trust_producer_refs_counter_off_graph_warmup_reuse_llm:
+  generate_s = 6.592805
+  TPOT = 0.003219143
+  vs baseline:
+    generate_s = +0.103%
+    throughput = -0.103%
+```
+
+Artifact posture check:
+
+```text
+runtime_shadow.jsonl = absent
+warmup_status = ok
+warmup_prompt_count_effective = 32
+runtime_shadow_premap_kernel_arg_handoff_gpu_assignment_kernel_variant_enabled:
+  baseline = false
+  identity kernel variant = true
+  trust-producer-refs kernel variant = true
+runtime_shadow_premap_kernel_arg_handoff_gpu_assignment_kernel_variant_trust_producer_refs:
+  baseline = false
+  identity kernel variant = false
+  trust-producer-refs kernel variant = true
+```
+
+Interpretation:
+
+```text
+Skipping the three-field Python identity loop does not improve this canary.
+The trust-producer-refs variant is not faster than the identity-validated
+kernel variant. It is slightly slower than the graph+warmup baseline in this
+single repeat (+0.103% generate / -0.103% throughput), which is within the small
+single-run noise range but not positive.
+
+Therefore, the main remaining cost is not the producer assignment identity
+check.  Further optimization should not spend effort on this Python loop; it
+should target the independent kernel variant itself, launch/config overhead, or
+move toward a real native producer/consumer boundary if the kernel variant is to
+be kept as a performance path.
+```

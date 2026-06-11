@@ -697,6 +697,11 @@ def test_production_batch_gpu_assignment_envelope_graph_warmup_only_changes_vllm
             "production_batch_premap_live_future_wna16_gpu_assignment_kernel_variant_counter_off_graph_warmup",
             "identity",
         ),
+        (
+            "production_batch_premap_live_future_wna16_gpu_assignment_kernel_variant_trust_producer_refs_counter_off",
+            "production_batch_premap_live_future_wna16_gpu_assignment_kernel_variant_trust_producer_refs_counter_off_graph_warmup",
+            "identity",
+        ),
     )
 
     for base_name, graph_name, validation_mode in pairs:
@@ -796,6 +801,9 @@ def test_production_batch_gpu_assignment_kernel_variant_stays_separate_from_prep
     mode = module.MODES[
         "production_batch_premap_live_future_wna16_gpu_assignment_kernel_variant_counter_off"
     ]
+    trust_mode = module.MODES[
+        "production_batch_premap_live_future_wna16_gpu_assignment_kernel_variant_trust_producer_refs_counter_off"
+    ]
     trace_overrides = mode["trace_overrides"]
     vllm_overrides = trace_overrides["vllm_overrides"]
 
@@ -841,6 +849,19 @@ def test_production_batch_gpu_assignment_kernel_variant_stays_separate_from_prep
     )
     assert mode["premap_kernel_arg_handoff_prepared_table_materialization_mode"] == "off"
     assert mode["premap_kernel_arg_handoff_live_counter_mode"] == "off"
+
+    assert (
+        trust_mode[
+            "premap_kernel_arg_handoff_gpu_assignment_kernel_variant_trust_producer_refs"
+        ]
+        is True
+    )
+    comparable_trust = dict(trust_mode)
+    comparable_base = dict(mode)
+    comparable_trust.pop(
+        "premap_kernel_arg_handoff_gpu_assignment_kernel_variant_trust_producer_refs"
+    )
+    assert comparable_trust == comparable_base
 
 
 def test_production_batch_direct_topk_identity_uses_no_recorder_no_premap_package() -> None:
@@ -986,6 +1007,10 @@ def test_production_batch_reuse_llm_modes_only_add_engine_reuse() -> None:
         (
             "production_batch_premap_live_future_wna16_gpu_assignment_kernel_variant_counter_off_graph_warmup",
             "production_batch_premap_live_future_wna16_gpu_assignment_kernel_variant_counter_off_graph_warmup_reuse_llm",
+        ),
+        (
+            "production_batch_premap_live_future_wna16_gpu_assignment_kernel_variant_trust_producer_refs_counter_off_graph_warmup",
+            "production_batch_premap_live_future_wna16_gpu_assignment_kernel_variant_trust_producer_refs_counter_off_graph_warmup_reuse_llm",
         ),
         (
             "production_batch_descriptor_order_direct_topk_identity_counter_off",
