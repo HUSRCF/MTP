@@ -601,6 +601,47 @@ def test_production_batch_gpu_assignment_kernel_variant_stays_separate_from_prep
     assert mode["premap_kernel_arg_handoff_live_counter_mode"] == "off"
 
 
+def test_production_batch_reuse_llm_modes_only_add_engine_reuse() -> None:
+    module = _load_module()
+    pairs = (
+        (
+            "production_batch",
+            "production_batch_reuse_llm",
+        ),
+        (
+            "production_batch_premap_live_future_wna16_typed_slot_gpu_assignment_envelope_counter_off",
+            "production_batch_premap_live_future_wna16_typed_slot_gpu_assignment_envelope_counter_off_reuse_llm",
+        ),
+        (
+            "production_batch_premap_live_future_wna16_gpu_assignment_kernel_variant_counter_off",
+            "production_batch_premap_live_future_wna16_gpu_assignment_kernel_variant_counter_off_reuse_llm",
+        ),
+    )
+
+    for base_name, reuse_name in pairs:
+        base = module.MODES[base_name]
+        reuse = module.MODES[reuse_name]
+        base_trace = base["trace_overrides"]
+        reuse_trace = reuse["trace_overrides"]
+        base_vllm = base_trace["vllm_overrides"]
+        reuse_vllm = reuse_trace["vllm_overrides"]
+
+        assert reuse["runtime_shadow_enabled"] is base["runtime_shadow_enabled"]
+        assert reuse_trace["use_router_logits_recorder"] is False
+        assert reuse_trace["capture_router_topk"] is False
+        assert reuse_trace["capture_router_scores"] is False
+        assert reuse_vllm["use_router_logits_recorder"] is False
+        assert reuse_vllm["enable_return_routed_experts"] is False
+        assert reuse_vllm["engine_chunk_size"] == base_vllm["engine_chunk_size"] == 32
+        assert not bool(base_vllm.get("reuse_llm_across_chunks", False))
+        assert reuse_vllm["reuse_llm_across_chunks"] is True
+
+        comparable_base = dict(base_vllm)
+        comparable_reuse = dict(reuse_vllm)
+        comparable_reuse.pop("reuse_llm_across_chunks")
+        assert comparable_reuse == comparable_base
+
+
 def test_production_batch_premap_live_typed_slot_kernel_variant_uses_no_recorder_prepared_table() -> None:
     module = _load_module()
     mode = module.MODES[

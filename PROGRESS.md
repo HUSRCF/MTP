@@ -32163,3 +32163,82 @@ claim.  The next implementation work should start from the envelope path and
 move the actual consumer work lower into a native producer/kernel-side path,
 instead of continuing to tune the current identity wrapper.
 ```
+
+## 2026-06-11 - Reuse-LLM production-batch runner path
+
+Patch:
+
+```text
+Added vllm_overrides.reuse_llm_across_chunks.
+
+Default behavior is unchanged.  When enabled, the trace runner initializes one
+vLLM LLM instance and reuses it across all engine chunks, then shuts it down at
+the end of the run.  The option is rejected when router recorder mode is active
+to avoid mixing persistent model lifetime with per-sample recorder state.
+
+Added ladder modes:
+
+  production_batch_reuse_llm
+  production_batch_premap_live_future_wna16_typed_slot_gpu_assignment_envelope_counter_off_reuse_llm
+  production_batch_premap_live_future_wna16_gpu_assignment_kernel_variant_counter_off_reuse_llm
+
+The new modes only add reuse_llm_across_chunks=True to the existing no-recorder
+production-batch modes.
+```
+
+Validation:
+
+```text
+python -m py_compile \
+  src/mtp_expert_prefetch/tracing/vllm_router_trace.py \
+  scripts/run_awq_telemetry_ladder.py
+
+pytest tests/test_run_awq_telemetry_ladder_modes.py \
+       tests/test_vllm_engine_kwargs.py -q
+  57 passed
+```
+
+GPU1 AWQ/Dolly heldout128 gen64, no router recorder:
+
+```text
+artifact:
+  outputs/reports/awq_telemetry_ladder/
+    gpu1_reuse_llm_assignment_heldout128_gen64_summary_20260611.json
+
+production_batch_reuse_llm:
+  chunk_count = 4
+  vllm_reuse_llm_across_chunks = true
+  generate_s = 29.2191
+  throughput = 280.36 tok/s
+
+gpu-assignment envelope reuse_llm:
+  chunk_count = 4
+  vllm_reuse_llm_across_chunks = true
+  generate_s = 29.0660
+  throughput = 281.84 tok/s
+  delta vs reuse baseline = -0.52% generate_s / +0.53% throughput
+
+gpu-assignment identity kernel variant reuse_llm:
+  chunk_count = 4
+  vllm_reuse_llm_across_chunks = true
+  generate_s = 29.3283
+  throughput = 279.32 tok/s
+  delta vs reuse baseline = +0.37% generate_s / -0.37% throughput
+```
+
+Interpretation:
+
+```text
+reuse_llm_across_chunks fixes the direct heldout128 runner/lifecycle problem:
+all three 128-sample runs in this GPU1 / AWQ-Dolly / heldout128 gen64 check
+complete without the second-init VRAM failure.
+
+The performance interpretation is unchanged:
+
+  pass-through GPU-assignment envelope: production-like ABI attachment base
+  identity kernel variant: correctness/ABI canary, not performance-positive
+
+The next performance work should start from the envelope path and move useful
+consumer work into a native producer/kernel-side implementation.  The current
+identity wrapper should not be treated as a runtime speedup path.
+```

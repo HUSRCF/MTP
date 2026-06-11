@@ -1335,6 +1335,33 @@ MODES[
     "premap_kernel_arg_handoff_live_counter_mode": "detailed",
 }
 
+
+def _with_reuse_llm_across_chunks(base_mode: str) -> dict[str, Any]:
+    mode = dict(MODES[base_mode])
+    trace_overrides = dict(mode["trace_overrides"])
+    vllm_overrides = dict(trace_overrides["vllm_overrides"])
+    vllm_overrides["reuse_llm_across_chunks"] = True
+    trace_overrides["vllm_overrides"] = vllm_overrides
+    mode["trace_overrides"] = trace_overrides
+    return mode
+
+
+MODES["production_batch_reuse_llm"] = _with_reuse_llm_across_chunks(
+    "production_batch"
+)
+
+MODES[
+    "production_batch_premap_live_future_wna16_typed_slot_gpu_assignment_envelope_counter_off_reuse_llm"
+] = _with_reuse_llm_across_chunks(
+    "production_batch_premap_live_future_wna16_typed_slot_gpu_assignment_envelope_counter_off"
+)
+
+MODES[
+    "production_batch_premap_live_future_wna16_gpu_assignment_kernel_variant_counter_off_reuse_llm"
+] = _with_reuse_llm_across_chunks(
+    "production_batch_premap_live_future_wna16_gpu_assignment_kernel_variant_counter_off"
+)
+
 MODES[
     "production_batch_premap_live_future_wna16_typed_slot_kernel_variant_counter_off"
 ] = {

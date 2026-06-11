@@ -18444,6 +18444,10 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
     if engine_chunk_size <= 0:
         msg = f"engine_chunk_size must be positive, got {engine_chunk_size}"
         raise ValueError(msg)
+    reuse_llm_across_chunks = bool(vllm_options.get("reuse_llm_across_chunks", False))
+    if reuse_llm_across_chunks and use_router_logits_recorder:
+        msg = "vllm.reuse_llm_across_chunks is only supported without router recorder."
+        raise ValueError(msg)
 
     runtime_shadow_controller = _build_runtime_shadow_controller(
         options=runtime_shadow_options,
@@ -18526,6 +18530,8 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
         "trace_write_wall_seconds": 0.0,
         "sample_timing_path": sample_timing_path.name,
         "chunk_count": 0,
+        "vllm_engine_chunk_size": int(engine_chunk_size),
+        "vllm_reuse_llm_across_chunks": bool(reuse_llm_across_chunks),
         "runtime_shadow_enabled": bool(runtime_shadow_options.get("enabled", False)),
         "runtime_shadow_emit_descriptor_order_summaries": bool(
             runtime_shadow_options.get("emit_descriptor_order_summaries", False)
@@ -18999,6 +19005,16 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
             else None
         ),
     }
+    def _shutdown_llm_engine(llm_obj: Any) -> None:
+        shutdown = getattr(llm_obj, "shutdown", None)
+        if callable(shutdown):
+            shutdown()
+        del llm_obj
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
+    persistent_llm: Any | None = None
     try:
         with manifest_path.open("w", encoding="utf-8") as manifest, sample_timing_path.open(
             "w",
@@ -19007,11 +19023,15 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
             for chunk_start in range(0, len(prepared_records), engine_chunk_size):
                 chunk = prepared_records[chunk_start : chunk_start + engine_chunk_size]
                 performance["chunk_count"] += 1
-                llm_init_start_ns = time.perf_counter_ns()
-                llm = LLM(**llm_kwargs)
-                performance["llm_init_wall_seconds"] += (
-                    time.perf_counter_ns() - llm_init_start_ns
-                ) / 1_000_000_000.0
+                llm = persistent_llm
+                if llm is None:
+                    llm_init_start_ns = time.perf_counter_ns()
+                    llm = LLM(**llm_kwargs)
+                    performance["llm_init_wall_seconds"] += (
+                        time.perf_counter_ns() - llm_init_start_ns
+                    ) / 1_000_000_000.0
+                    if reuse_llm_across_chunks:
+                        persistent_llm = llm
                 try:
                     if use_router_logits_recorder:
                         recorder = VllmRouterRecorder(
@@ -19856,14 +19876,12 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                     set_active_vllm_router_recorder(None)
                     set_active_runtime_shadow_controller(None)
                     set_active_premap_live_config(None)
-                    shutdown = getattr(llm, "shutdown", None)
-                    if callable(shutdown):
-                        shutdown()
-                    del llm
-                    gc.collect()
-                    if torch.cuda.is_available():
-                        torch.cuda.empty_cache()
+                    if not reuse_llm_across_chunks:
+                        _shutdown_llm_engine(llm)
     finally:
+        if persistent_llm is not None:
+            _shutdown_llm_engine(persistent_llm)
+            persistent_llm = None
         set_active_runtime_shadow_controller(None)
         set_active_premap_live_config(None)
         if runtime_shadow_controller is not None:
