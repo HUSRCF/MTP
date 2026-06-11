@@ -32542,3 +32542,62 @@ heldout128 evidence from the earlier 128-sample benchmark remains the performanc
 reference for this branch and shows that the independent identity kernel variant
 is not reliably performance-positive.
 ```
+
+## 2026-06-11 - Direct-topk identity production A/B is negative
+
+Experiment:
+
+```text
+GPU1 AWQ/Dolly 32-sample gen64, repeat=3, reuse_llm_across_chunks,
+no router recorder, no runtime shadow rows.
+
+Compared:
+  production_batch_reuse_llm
+  production_batch_descriptor_order_direct_topk_identity_counter_off_reuse_llm
+
+artifact:
+  outputs/reports/awq_telemetry_ladder/
+    gpu1_direct_topk_identity_vs_baseline_repeat3_gen64_20260611/
+```
+
+Results:
+
+```text
+production_batch_reuse_llm:
+  generate_s = 7.2379 / 7.2527 / 7.2586
+  mean_generate_s = 7.2497
+  mean_TPOT = 0.003539914
+  throughput = 282.49 tok/s
+
+direct_topk_identity production-compatible path:
+  generate_s = 10.7753 / 11.0837 / 11.0071
+  mean_generate_s = 10.9554
+  mean_TPOT = 0.005349321
+  throughput = 186.94 tok/s
+
+delta:
+  generate_s = +51.11%
+  throughput = -33.82%
+```
+
+Interpretation:
+
+```text
+The cleaned-up direct_topk_identity path is valid and does not rely on heavy
+shadow logging, but it is performance-negative in this GPU1 32-sample gen64
+repeat-3 production-batch A/B.  The +51.11% generate-time regression and -33.82%
+throughput regression are throughput-negative, not a path-correctness failure.
+
+This confirms that direct_topk_identity / independent identity kernel should be
+kept only as an ABI/path-validity canary for this branch.  It should not be
+treated as the current runtime optimization candidate.
+
+Next performance work should not continue tuning this direct_topk path.  The
+viable branches are:
+  1. keep typed-slot / premap consumer work as correctness and future-kernel ABI
+     preparation;
+  2. move useful consumption into a real native producer or future WNA16 kernel
+     variant;
+  3. separately improve the baseline vLLM backend configuration, since logs still
+     show default MoE config and Triton paged-attention fallback.
+```
