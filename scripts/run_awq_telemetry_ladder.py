@@ -1323,6 +1323,17 @@ MODES[
 }
 
 MODES[
+    "production_batch_premap_live_future_wna16_typed_slot_gpu_assignment_envelope_trusted_refs_detailed"
+] = {
+    **MODES[
+        "production_batch_premap_live_future_wna16_typed_slot_gpu_assignment_envelope_trusted_refs_counter_off"
+    ],
+    # Semantic smoke for the trusted-refs lower-bound mode.  Use this to prove
+    # the trusted branch is consumed; use the counter_off variants for TPOT.
+    "premap_kernel_arg_handoff_live_counter_mode": "detailed",
+}
+
+MODES[
     "production_batch_premap_live_future_wna16_gpu_assignment_kernel_variant_counter_off"
 ] = {
     **MODES[
@@ -1374,6 +1385,12 @@ MODES[
     "production_batch_premap_live_future_wna16_typed_slot_gpu_assignment_envelope_trusted_refs_counter_off_reuse_llm"
 ] = _with_reuse_llm_across_chunks(
     "production_batch_premap_live_future_wna16_typed_slot_gpu_assignment_envelope_trusted_refs_counter_off"
+)
+
+MODES[
+    "production_batch_premap_live_future_wna16_typed_slot_gpu_assignment_envelope_trusted_refs_detailed_reuse_llm"
+] = _with_reuse_llm_across_chunks(
+    "production_batch_premap_live_future_wna16_typed_slot_gpu_assignment_envelope_trusted_refs_detailed"
 )
 
 MODES[

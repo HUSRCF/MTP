@@ -4,6 +4,32 @@
 
 - Version: `v0.78-gpu-assignment-envelope`
 - Updated: 2026-06-11
+- Latest trusted-refs lower-bound update: added an explicit
+  `premap_kernel_arg_handoff_gpu_assignment_validation_mode` with
+  `identity` as the default and `trusted_refs` as a pass-through envelope-only
+  benchmark lower bound.  The execution-style
+  `gpu_assignment_kernel_variant` still requires `identity`, so trusted refs
+  cannot be used to skip assignment validation before launching the independent
+  future WNA16 consumer variant.  A GPU1 AWQ/Dolly heldout128 gen64 repeat-3
+  reuse-LLM run compares:
+  `production_batch_reuse_llm` = 29.237s / 29.517s / 29.819s
+  (`mean=29.5246s`, 277.46 tok/s),
+  identity GPU-assignment envelope = 29.531s / 29.619s / 29.602s
+  (`mean=29.5840s`, `-0.20%` throughput vs baseline), and
+  trusted-refs envelope = 29.707s / 29.580s / 29.763s
+  (`mean=29.6835s`, `-0.54%` throughput vs baseline).  The detailed gen1
+  reuse smoke confirms the trusted branch is real:
+  `package_seen_count=320`, `gpu_assignment_envelope_seen_count=320`,
+  `gpu_assignment_trusted_refs_seen_count=320`,
+  `gpu_assignment_trusted_refs_available_count=320`, and the identity-ok
+  counters stay at zero.  Conclusion: the per-launch Python identity checks are
+  not the visible bottleneck; skipping them does not improve TPOT.  Keep
+  `identity` as the semantic gate, keep `trusted_refs` only as an attribution
+  lower-bound mode, and move further performance work below Python into a
+  native producer/kernel-side useful consumer.  Artifacts:
+  `outputs/reports/awq_telemetry_ladder/gpu1_reuse_llm_trusted_refs_repeat3_heldout128_gen64_20260611/summary.md`
+  and
+  `outputs/reports/awq_telemetry_ladder/gpu1_trusted_refs_detailed_reuse_gen1_20260611/production_batch_premap_live_future_wna16_typed_slot_gpu_assignment_envelope_trusted_refs_detailed_reuse_llm/repeat_00/performance_summary.json`.
 - Latest production-like benchmark update: separated the true vLLM batched
   decode path from the router-recorder/shadow audit harness.  The previous
   `production_like` telemetry-ladder mode is low-observability, but it still

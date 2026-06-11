@@ -614,6 +614,33 @@ def test_production_batch_premap_live_gpu_assignment_trusted_refs_only_skips_ide
     assert comparable_trusted == comparable_base
 
 
+def test_production_batch_premap_live_gpu_assignment_trusted_refs_detailed_only_enables_counters() -> None:
+    module = _load_module()
+    detailed = module.MODES[
+        "production_batch_premap_live_future_wna16_typed_slot_gpu_assignment_envelope_trusted_refs_detailed"
+    ]
+    counter_off = module.MODES[
+        "production_batch_premap_live_future_wna16_typed_slot_gpu_assignment_envelope_trusted_refs_counter_off"
+    ]
+
+    assert detailed["runtime_shadow_enabled"] is False
+    assert detailed["trace_overrides"] == counter_off["trace_overrides"]
+    assert detailed["record_router_topk"] is False
+    assert detailed["capture_router_topk"] is False
+    assert detailed["emit_premap_consumer_mapping"] is False
+    assert (
+        detailed["premap_kernel_arg_handoff_gpu_assignment_validation_mode"]
+        == "trusted_refs"
+    )
+    assert counter_off["premap_kernel_arg_handoff_live_counter_mode"] == "off"
+    assert detailed["premap_kernel_arg_handoff_live_counter_mode"] == "detailed"
+
+    comparable_detailed = dict(detailed)
+    comparable_counter_off = dict(counter_off)
+    comparable_detailed["premap_kernel_arg_handoff_live_counter_mode"] = "off"
+    assert comparable_detailed == comparable_counter_off
+
+
 def test_production_batch_gpu_assignment_kernel_variant_stays_separate_from_prepared_table_variant() -> None:
     module = _load_module()
     mode = module.MODES[
@@ -680,6 +707,10 @@ def test_production_batch_reuse_llm_modes_only_add_engine_reuse() -> None:
         (
             "production_batch_premap_live_future_wna16_typed_slot_gpu_assignment_envelope_trusted_refs_counter_off",
             "production_batch_premap_live_future_wna16_typed_slot_gpu_assignment_envelope_trusted_refs_counter_off_reuse_llm",
+        ),
+        (
+            "production_batch_premap_live_future_wna16_typed_slot_gpu_assignment_envelope_trusted_refs_detailed",
+            "production_batch_premap_live_future_wna16_typed_slot_gpu_assignment_envelope_trusted_refs_detailed_reuse_llm",
         ),
         (
             "production_batch_premap_live_future_wna16_gpu_assignment_kernel_variant_counter_off",
