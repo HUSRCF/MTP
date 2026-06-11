@@ -240,6 +240,22 @@
   consumer that uses the typed slot for non-identity work, or a specialized
   kernel that removes current wrapper/ABI overhead while preserving output
   parity.
+- Heldout128 scale check: ran the same production-compatible no-recorder,
+  no-shadow-row reuse-LLM comparison on the full Dolly heldout128 / gen64 split.
+  Artifact:
+  `outputs/reports/awq_telemetry_ladder/gpu1_assignment_envelope_kernel_variant_heldout128_current_20260611/`.
+  Baseline `production_batch_reuse_llm` takes 29.479s
+  (`TPOT=0.003598s`, 277.89 tok/s).  The pass-through GPU-assignment envelope
+  takes 29.431s (`TPOT=0.003593s`, 278.35 tok/s), a marginal +0.16%
+  throughput signal.  The independent GPU-assignment identity kernel variant
+  takes 29.653s (`TPOT=0.003620s`, 276.26 tok/s), a -0.59% throughput
+  regression versus baseline.  This scale check tightens the conclusion from
+  the 32-sample repeat: the pass-through envelope remains low-overhead in this
+  observation, but the independent identity-kernel consumer is not
+  performance-positive in this heldout128 run.  Keep it as an ABI/correctness
+  gate; do not use it as a TPOT optimization claim unless a future typed-slot
+  consumer performs non-identity work or a specialized kernel removes the
+  current wrapper/ABI overhead and passes parity.
 - Latest lab-gate update: promoted the request-launch ABI into the default
   readonly lab preflight as required evidence,
   `native_typed_consumer_stub_online_prelaunch_input_request_launch_canary_json`.
