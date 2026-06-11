@@ -32601,3 +32601,109 @@ viable branches are:
   3. separately improve the baseline vLLM backend configuration, since logs still
      show default MoE config and Triton paged-attention fallback.
 ```
+
+## 2026-06-11 - vLLM graph/compile production-batch A/B is neutral
+
+Added ladder modes:
+
+```text
+production_batch_graph
+production_batch_graph_reuse_llm
+```
+
+Purpose:
+
+```text
+Run the same no-recorder production-batch path with vLLM graph/compile enabled
+instead of the existing eager production-batch baseline.
+```
+
+Implementation boundary:
+
+```text
+production_batch:
+  vllm_overrides.enforce_eager = true
+
+production_batch_graph:
+  vllm_overrides.enforce_eager = false
+
+All other production-batch no-recorder semantics are kept identical:
+  runtime_shadow_enabled = false
+  use_router_logits_recorder = false
+  capture_router_topk = false
+  capture_router_scores = false
+  enable_return_routed_experts = false
+  max_num_seqs = 32
+  engine_chunk_size = 32
+```
+
+Validation:
+
+```text
+python -m py_compile scripts/run_awq_telemetry_ladder.py
+
+pytest tests/test_run_awq_telemetry_ladder_modes.py -q
+  61 passed
+
+git diff --check
+  clean
+```
+
+GPU1 AWQ/Dolly 32-sample gen64 repeat-3:
+
+```text
+artifact:
+  outputs/reports/awq_telemetry_ladder/
+    gpu1_graph_vs_eager_repeat3_gen64_20260611/
+
+production_batch_reuse_llm:
+  generate_s = 7.249831 / 7.283571 / 7.302591
+  mean_generate_s = 7.278664
+  mean_TPOT = 0.003554035
+  throughput = 281.37 tok/s
+
+production_batch_graph_reuse_llm:
+  generate_s = 7.298832 / 7.343116 / 7.129823
+  mean_generate_s = 7.257257
+  mean_TPOT = 0.003543583
+  throughput = 282.20 tok/s
+
+delta:
+  generate_s = -0.294%
+  throughput = +0.295%
+```
+
+Runtime log check:
+
+```text
+production_batch_reuse_llm:
+  enforce_eager = true
+  CompilationMode.NONE
+  CUDAGraphMode.NONE
+
+production_batch_graph_reuse_llm:
+  enforce_eager = false
+  CompilationMode.VLLM_COMPILE
+  CUDAGraphMode.FULL_AND_PIECEWISE
+  graph capture completed
+```
+
+The graph run still reports:
+
+```text
+Using default MoE config. Performance might be sub-optimal.
+Cannot use ROCm custom paged attention kernel, falling back to Triton implementation.
+```
+
+Interpretation:
+
+```text
+The graph/compile path is now a valid production-batch A/B mode and is confirmed
+to enable vLLM compile/CUDAGraph, but it is performance-neutral in this repeat-3
+GPU1 AWQ/Dolly run.  The +0.295% throughput difference is below the threshold
+for a runtime speedup claim.
+
+This is useful backend evidence, not a prefetch/premap claim.  The remaining
+baseline opportunities are the missing W7900 AWQ MoE tuned config and ROCm
+paged-attention fallback, not direct_topk or graph-mode tuning.
+```

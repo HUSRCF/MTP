@@ -489,6 +489,38 @@ def test_production_batch_premap_live_typed_slot_envelope_stays_no_recorder() ->
     assert mode["premap_kernel_arg_handoff_live_counter_mode"] == "off"
 
 
+def test_production_batch_graph_only_disables_enforce_eager() -> None:
+    module = _load_module()
+    eager = module.MODES["production_batch"]
+    graph = module.MODES["production_batch_graph"]
+
+    eager_trace = eager["trace_overrides"]
+    graph_trace = graph["trace_overrides"]
+    eager_vllm = eager_trace["vllm_overrides"]
+    graph_vllm = graph_trace["vllm_overrides"]
+
+    assert graph["runtime_shadow_enabled"] is False
+    assert graph.get("record_router_topk", False) is False
+    assert graph.get("emit_summaries", False) is False
+    assert graph.get("emit_outcomes", False) is False
+    assert graph_trace["use_router_logits_recorder"] is False
+    assert graph_trace["capture_router_topk"] is False
+    assert graph_trace["capture_router_scores"] is False
+    assert graph_trace["allow_missing_router_trace"] is True
+    assert graph_vllm["use_router_logits_recorder"] is False
+    assert graph_vllm["enable_return_routed_experts"] is False
+    assert graph_vllm["max_num_seqs"] == 32
+    assert graph_vllm["engine_chunk_size"] == 32
+    assert eager_vllm["enforce_eager"] is True
+    assert graph_vllm["enforce_eager"] is False
+
+    comparable_eager = dict(eager_vllm)
+    comparable_graph = dict(graph_vllm)
+    comparable_eager.pop("enforce_eager")
+    comparable_graph.pop("enforce_eager")
+    assert comparable_graph == comparable_eager
+
+
 def test_production_batch_premap_live_typed_slot_envelope_detailed_only_enables_counters() -> None:
     module = _load_module()
     detailed = module.MODES[
@@ -829,6 +861,10 @@ def test_production_batch_reuse_llm_modes_only_add_engine_reuse() -> None:
             "production_batch_descriptor_order_direct_topk_identity_counter_off",
             "production_batch_descriptor_order_direct_topk_identity_counter_off_reuse_llm",
         ),
+        (
+            "production_batch_graph",
+            "production_batch_graph_reuse_llm",
+        ),
     )
 
     for base_name, reuse_name in pairs:
@@ -853,6 +889,8 @@ def test_production_batch_reuse_llm_modes_only_add_engine_reuse() -> None:
         comparable_reuse = dict(reuse_vllm)
         comparable_reuse.pop("reuse_llm_across_chunks")
         assert comparable_reuse == comparable_base
+        if base_name == "production_batch_graph":
+            assert reuse_vllm["enforce_eager"] is False
 
 
 def test_production_batch_premap_live_typed_slot_kernel_variant_uses_no_recorder_prepared_table() -> None:

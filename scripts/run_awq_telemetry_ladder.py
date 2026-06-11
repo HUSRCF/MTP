@@ -1255,6 +1255,16 @@ _PRODUCTION_BATCH_TRACE_OVERRIDES = dict(MODES["production_batch"]["trace_overri
 _PRODUCTION_BATCH_TRACE_OVERRIDES["vllm_overrides"] = dict(
     MODES["production_batch"]["trace_overrides"]["vllm_overrides"]
 )
+_PRODUCTION_BATCH_GRAPH_TRACE_OVERRIDES = dict(_PRODUCTION_BATCH_TRACE_OVERRIDES)
+_PRODUCTION_BATCH_GRAPH_TRACE_OVERRIDES["vllm_overrides"] = dict(
+    _PRODUCTION_BATCH_TRACE_OVERRIDES["vllm_overrides"]
+)
+_PRODUCTION_BATCH_GRAPH_TRACE_OVERRIDES["vllm_overrides"]["enforce_eager"] = False
+
+MODES["production_batch_graph"] = {
+    **MODES["production_batch"],
+    "trace_overrides": _PRODUCTION_BATCH_GRAPH_TRACE_OVERRIDES,
+}
 
 MODES["production_batch_premap_live_future_wna16_typed_slot_envelope_counter_off"] = {
     **MODES["premap_live_future_wna16_typed_slot_envelope_counter_off"],
@@ -1434,6 +1444,10 @@ def _with_reuse_llm_across_chunks(base_mode: str) -> dict[str, Any]:
 
 MODES["production_batch_reuse_llm"] = _with_reuse_llm_across_chunks(
     "production_batch"
+)
+
+MODES["production_batch_graph_reuse_llm"] = _with_reuse_llm_across_chunks(
+    "production_batch_graph"
 )
 
 MODES[
