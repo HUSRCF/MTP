@@ -32767,3 +32767,236 @@ claims unless cache semantic parity is validated first; that risks breaking the
 hybrid cache contract.  Treat this as a backend architecture constraint and a
 future kernel/layout optimization target.
 ```
+
+## 2026-06-11 - Production-batch warmup isolates cold-start/JIT cost
+
+Added trace/runtime options:
+
+```text
+vllm.warmup_prompt_count
+vllm.warmup_max_tokens
+```
+
+Default behavior:
+
+```text
+warmup_prompt_count = 0
+```
+
+so existing runs are unchanged.
+
+When enabled, warmup runs immediately after a new `LLM(...)` engine is
+constructed and before measured generation:
+
+```text
+scope = per_engine_init
+warmup prompts = first min(configured, prepared_records, engine_chunk_size)
+warmup max_tokens = configured warmup_max_tokens
+```
+
+Warmup is intentionally not counted in:
+
+```text
+generate_wall_seconds
+requested_output_token_count
+manifest rows
+sample_timing measured rows
+runtime_shadow rows
+```
+
+It is recorded separately in `performance_summary.json`:
+
+```text
+vllm_warmup_prompt_count_configured
+vllm_warmup_prompt_count_effective
+vllm_warmup_scope
+vllm_warmup_max_tokens
+vllm_warmup_wall_seconds
+vllm_warmup_requested_output_token_count
+vllm_warmup_status
+```
+
+Added ladder modes:
+
+```text
+production_batch_warmup
+production_batch_warmup_reuse_llm
+production_batch_graph_warmup
+production_batch_graph_warmup_reuse_llm
+```
+
+These keep the production-batch no-recorder/no-runtime-shadow posture and only
+add:
+
+```text
+warmup_prompt_count = 32
+warmup_max_tokens = 16
+```
+
+Validation:
+
+```text
+python -m py_compile \
+  scripts/run_awq_telemetry_ladder.py \
+  src/mtp_expert_prefetch/tracing/vllm_router_trace.py
+
+pytest tests/test_run_awq_telemetry_ladder_modes.py -q
+  62 passed
+
+git diff --check
+  clean
+```
+
+GPU1 smoke:
+
+```text
+artifact:
+  outputs/reports/awq_telemetry_ladder/
+    gpu1_warmup_smoke1_gen16_20260611/
+
+mode:
+  production_batch_warmup_reuse_llm
+
+sample_count = 1
+requested_output_token_count = 16
+generate_s = 0.8602
+warmup_status = ok
+warmup_scope = per_engine_init
+warmup_prompt_count_effective = 1
+warmup_max_tokens = 16
+warmup_wall_s = 1.2228
+sample_timing rows = 1
+manifest rows = 1
+runtime_shadow.jsonl = absent
+```
+
+GPU1 AWQ/Dolly 32-sample gen64 repeat-3:
+
+```text
+artifact:
+  outputs/reports/awq_telemetry_ladder/
+    gpu1_warmup_vs_cold_repeat3_gen64_20260611/
+
+production_batch_reuse_llm:
+  generate_s = 7.223654 / 7.316898 / 7.248489
+  mean_generate_s = 7.263014
+  mean_TPOT = 0.003546393
+  throughput = 281.98 tok/s
+
+production_batch_warmup_reuse_llm:
+  generate_s = 7.128579 / 7.119243 / 7.139656
+  mean_generate_s = 7.129159
+  mean_TPOT = 0.003481035
+  throughput = 287.27 tok/s
+
+delta:
+  generate_s = -1.843%
+  throughput = +1.878%
+```
+
+Warmup metadata for all three repeats:
+
+```text
+warmup_prompt_count_configured = 32
+warmup_prompt_count_effective = 32
+warmup_scope = per_engine_init
+warmup_max_tokens = 16
+warmup_requested_output_token_count = 512
+warmup_status = ok
+warmup_wall_s ~= 2.21
+sample_timing rows = 1 measured-run chunk row, no extra warmup row
+manifest rows = 32 measured-run sample rows, no extra warmup rows
+runtime_shadow.jsonl = absent
+```
+
+GPU1 AWQ/Dolly graph+warmup repeat-3:
+
+```text
+artifact:
+  outputs/reports/awq_telemetry_ladder/
+    gpu1_graph_warmup_repeat3_gen64_20260611/
+
+production_batch_graph_warmup_reuse_llm:
+  generate_s = 6.630920 / 6.669593 / 6.703008
+  mean_generate_s = 6.667841
+  mean_TPOT = 0.003255782
+  throughput = 307.15 tok/s
+```
+
+Graph+warmup metadata:
+
+```text
+warmup_prompt_count_configured = 32
+warmup_prompt_count_effective = 32
+warmup_scope = per_engine_init
+warmup_max_tokens = 16
+warmup_requested_output_token_count = 512
+warmup_status = ok
+warmup_wall_s ~= 2.08-2.29
+sample_timing rows = 1 measured-run chunk row, no extra warmup row
+manifest rows = 32 measured-run sample rows, no extra warmup rows
+runtime_shadow.jsonl = absent
+```
+
+Runtime log check:
+
+```text
+production_batch_graph_warmup_reuse_llm:
+  enforce_eager = false
+  CompilationMode.VLLM_COMPILE
+  CUDAGraphMode.FULL_AND_PIECEWISE
+  graph capture completed
+  ROCm custom paged attention still falls back to Triton
+  W7900 AWQ MoE config is still missing, so default MoE config is used
+```
+
+Four-way summary:
+
+```text
+Note:
+  graph cold values are from the prior graph/eager A/B artifact
+  gpu1_graph_vs_eager_repeat3_gen64_20260611/ under the same host/model/token
+  settings.
+
+eager cold:
+  mean_generate_s = 7.263014
+  throughput = 281.98 tok/s
+
+eager warmup:
+  mean_generate_s = 7.129159
+  throughput = 287.27 tok/s
+  vs eager cold: -1.843% generate / +1.878% throughput
+
+graph cold:
+  mean_generate_s = 7.257257
+  throughput = 282.20 tok/s
+
+graph warmup:
+  mean_generate_s = 6.667841
+  throughput = 307.15 tok/s
+  vs graph cold: -8.122% generate / +8.840% throughput
+  vs eager warmup: -6.471% generate / +6.919% throughput
+  vs eager cold: -8.195% generate / +8.926% throughput
+```
+
+Interpretation:
+
+```text
+The prior production-batch baseline included first measured decode JIT/cold-start
+effects.  The explicit per-engine warmup path separates this cost from measured
+generate_wall_seconds without enabling recorder/shadow telemetry.
+
+For GPU1 AWQ/Dolly 32-sample gen64, warmup improves the eager production-batch
+measured throughput by about +1.9%.  Combining warmup with the real vLLM graph
+path improves the measured production-batch throughput by about +6.9% over
+eager+warmup and about +8.9% over the eager cold baseline.
+
+This should be treated as benchmark hygiene plus backend posture selection, not
+a prefetch, typed-slot, descriptor-order, or kernel-side optimization claim.
+It is throughput-significance evidence for the benchmark posture only, not a
+prefetch-semantics speedup proof.
+
+Future production-like TPOT comparisons should use a fixed warmup posture and
+report the warmup fields alongside generate_s/TPOT.  In particular, compare
+future runs with the same `warmup_prompt_count` and `warmup_max_tokens`.
+```

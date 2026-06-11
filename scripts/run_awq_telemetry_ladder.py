@@ -1266,6 +1266,36 @@ MODES["production_batch_graph"] = {
     "trace_overrides": _PRODUCTION_BATCH_GRAPH_TRACE_OVERRIDES,
 }
 
+_PRODUCTION_BATCH_WARMUP_TRACE_OVERRIDES = dict(_PRODUCTION_BATCH_TRACE_OVERRIDES)
+_PRODUCTION_BATCH_WARMUP_TRACE_OVERRIDES["vllm_overrides"] = dict(
+    _PRODUCTION_BATCH_TRACE_OVERRIDES["vllm_overrides"]
+)
+_PRODUCTION_BATCH_WARMUP_TRACE_OVERRIDES["vllm_overrides"]["warmup_prompt_count"] = 32
+_PRODUCTION_BATCH_WARMUP_TRACE_OVERRIDES["vllm_overrides"]["warmup_max_tokens"] = 16
+
+MODES["production_batch_warmup"] = {
+    **MODES["production_batch"],
+    "trace_overrides": _PRODUCTION_BATCH_WARMUP_TRACE_OVERRIDES,
+}
+
+_PRODUCTION_BATCH_GRAPH_WARMUP_TRACE_OVERRIDES = dict(
+    _PRODUCTION_BATCH_GRAPH_TRACE_OVERRIDES
+)
+_PRODUCTION_BATCH_GRAPH_WARMUP_TRACE_OVERRIDES["vllm_overrides"] = dict(
+    _PRODUCTION_BATCH_GRAPH_TRACE_OVERRIDES["vllm_overrides"]
+)
+_PRODUCTION_BATCH_GRAPH_WARMUP_TRACE_OVERRIDES["vllm_overrides"][
+    "warmup_prompt_count"
+] = 32
+_PRODUCTION_BATCH_GRAPH_WARMUP_TRACE_OVERRIDES["vllm_overrides"][
+    "warmup_max_tokens"
+] = 16
+
+MODES["production_batch_graph_warmup"] = {
+    **MODES["production_batch_graph"],
+    "trace_overrides": _PRODUCTION_BATCH_GRAPH_WARMUP_TRACE_OVERRIDES,
+}
+
 MODES["production_batch_premap_live_future_wna16_typed_slot_envelope_counter_off"] = {
     **MODES["premap_live_future_wna16_typed_slot_envelope_counter_off"],
     # Batch-compatible live participation probe.  It installs the MoE/WNA16
@@ -1448,6 +1478,14 @@ MODES["production_batch_reuse_llm"] = _with_reuse_llm_across_chunks(
 
 MODES["production_batch_graph_reuse_llm"] = _with_reuse_llm_across_chunks(
     "production_batch_graph"
+)
+
+MODES["production_batch_warmup_reuse_llm"] = _with_reuse_llm_across_chunks(
+    "production_batch_warmup"
+)
+
+MODES["production_batch_graph_warmup_reuse_llm"] = _with_reuse_llm_across_chunks(
+    "production_batch_graph_warmup"
 )
 
 MODES[

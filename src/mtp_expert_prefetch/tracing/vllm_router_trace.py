@@ -18479,6 +18479,22 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
     llm_kwargs = _filter_vllm_engine_kwargs(llm_kwargs)
 
     sampling = SamplingParams(max_tokens=max_tokens, temperature=0.0)
+    warmup_prompt_count_configured = int(vllm_options.get("warmup_prompt_count", 0))
+    warmup_max_tokens = int(vllm_options.get("warmup_max_tokens", max_tokens))
+    if warmup_prompt_count_configured < 0:
+        msg = (
+            "vllm.warmup_prompt_count must be non-negative, got "
+            f"{warmup_prompt_count_configured}"
+        )
+        raise ValueError(msg)
+    if warmup_prompt_count_configured > 0 and warmup_max_tokens <= 0:
+        msg = f"vllm.warmup_max_tokens must be positive, got {warmup_max_tokens}"
+        raise ValueError(msg)
+    warmup_sampling = (
+        SamplingParams(max_tokens=warmup_max_tokens, temperature=0.0)
+        if warmup_prompt_count_configured > 0
+        else None
+    )
     module_prefix = str(
         trace_options.get("router_module_prefix", "model.language_model")
     )
@@ -18514,6 +18530,11 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
     if reuse_llm_across_chunks and use_router_logits_recorder:
         msg = "vllm.reuse_llm_across_chunks is only supported without router recorder."
         raise ValueError(msg)
+    warmup_prompt_count_effective = min(
+        warmup_prompt_count_configured,
+        len(prepared_records),
+        engine_chunk_size,
+    )
 
     runtime_shadow_controller = _build_runtime_shadow_controller(
         options=runtime_shadow_options,
@@ -18594,6 +18615,24 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
         "llm_init_wall_seconds": 0.0,
         "generate_wall_seconds": 0.0,
         "trace_write_wall_seconds": 0.0,
+        "vllm_warmup_prompt_count_configured": int(
+            warmup_prompt_count_configured
+        ),
+        "vllm_warmup_prompt_count_effective": int(warmup_prompt_count_effective),
+        "vllm_warmup_scope": "per_engine_init"
+        if warmup_prompt_count_effective > 0
+        else "disabled",
+        "vllm_warmup_max_tokens": int(warmup_max_tokens)
+        if warmup_prompt_count_effective > 0
+        else 0,
+        "vllm_warmup_wall_seconds": 0.0,
+        "vllm_warmup_requested_output_token_count": int(
+            warmup_prompt_count_effective
+            * (warmup_max_tokens if warmup_prompt_count_effective > 0 else 0)
+        ),
+        "vllm_warmup_status": "disabled"
+        if warmup_prompt_count_effective <= 0
+        else "pending",
         "sample_timing_path": sample_timing_path.name,
         "chunk_count": 0,
         "vllm_engine_chunk_size": int(engine_chunk_size),
@@ -19102,6 +19141,39 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                     performance["llm_init_wall_seconds"] += (
                         time.perf_counter_ns() - llm_init_start_ns
                     ) / 1_000_000_000.0
+                    if warmup_prompt_count_effective > 0:
+                        # Warm up each newly constructed engine before measured
+                        # generation.  This removes per-engine JIT/cold-start
+                        # cost from generate_wall_seconds without adding
+                        # manifest or sample_timing rows.
+                        assert warmup_sampling is not None
+                        warmup_records = prepared_records[:warmup_prompt_count_effective]
+                        warmup_start_ns = time.perf_counter_ns()
+                        warmup_status = "ok"
+                        try:
+                            warmup_outputs = llm.generate(
+                                [
+                                    prompt
+                                    for _sample_idx, _record, _input_ids, prompt in warmup_records
+                                ],
+                                warmup_sampling,
+                                use_tqdm=False,
+                            )
+                        except Exception as exc:
+                            warmup_status = f"error:{type(exc).__name__}"
+                            raise
+                        finally:
+                            performance["vllm_warmup_wall_seconds"] += (
+                                time.perf_counter_ns() - warmup_start_ns
+                            ) / 1_000_000_000.0
+                            performance["vllm_warmup_status"] = warmup_status
+                        if len(warmup_outputs) != len(warmup_records):
+                            msg = (
+                                "vLLM warmup returned "
+                                f"{len(warmup_outputs)} outputs for "
+                                f"{len(warmup_records)} prompts."
+                            )
+                            raise RuntimeError(msg)
                     if reuse_llm_across_chunks:
                         persistent_llm = llm
                 try:

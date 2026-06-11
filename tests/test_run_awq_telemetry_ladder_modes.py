@@ -521,6 +521,39 @@ def test_production_batch_graph_only_disables_enforce_eager() -> None:
     assert comparable_graph == comparable_eager
 
 
+def test_production_batch_warmup_only_adds_warmup_overrides() -> None:
+    module = _load_module()
+    base = module.MODES["production_batch"]
+    warmup = module.MODES["production_batch_warmup"]
+    graph = module.MODES["production_batch_graph"]
+    graph_warmup = module.MODES["production_batch_graph_warmup"]
+
+    for base_mode, warmup_mode, enforce_eager in (
+        (base, warmup, True),
+        (graph, graph_warmup, False),
+    ):
+        base_trace = base_mode["trace_overrides"]
+        warmup_trace = warmup_mode["trace_overrides"]
+        base_vllm = base_trace["vllm_overrides"]
+        warmup_vllm = warmup_trace["vllm_overrides"]
+
+        assert warmup_mode["runtime_shadow_enabled"] is False
+        assert warmup_trace["use_router_logits_recorder"] is False
+        assert warmup_trace["capture_router_topk"] is False
+        assert warmup_trace["capture_router_scores"] is False
+        assert warmup_vllm["use_router_logits_recorder"] is False
+        assert warmup_vllm["enable_return_routed_experts"] is False
+        assert warmup_vllm["enforce_eager"] is enforce_eager
+        assert warmup_vllm["warmup_prompt_count"] == 32
+        assert warmup_vllm["warmup_max_tokens"] == 16
+
+        comparable_base = dict(base_vllm)
+        comparable_warmup = dict(warmup_vllm)
+        comparable_warmup.pop("warmup_prompt_count")
+        comparable_warmup.pop("warmup_max_tokens")
+        assert comparable_warmup == comparable_base
+
+
 def test_production_batch_premap_live_typed_slot_envelope_detailed_only_enables_counters() -> None:
     module = _load_module()
     detailed = module.MODES[
@@ -864,6 +897,14 @@ def test_production_batch_reuse_llm_modes_only_add_engine_reuse() -> None:
         (
             "production_batch_graph",
             "production_batch_graph_reuse_llm",
+        ),
+        (
+            "production_batch_warmup",
+            "production_batch_warmup_reuse_llm",
+        ),
+        (
+            "production_batch_graph_warmup",
+            "production_batch_graph_warmup_reuse_llm",
         ),
     )
 
