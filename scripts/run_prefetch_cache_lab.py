@@ -89,6 +89,15 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         help="Optional replay-derived envelope gate for MTP full_fetch extras.",
     )
+    parser.add_argument(
+        "--ready-time-payload-cache-gate-report",
+        type=Path,
+        help=(
+            "Optional ready-time payload-cache checker report. When present, "
+            "its allow_full_fetch decision is used as a higher-priority gate "
+            "before replay-derived full_fetch admission."
+        ),
+    )
     parser.add_argument("--cache-capacity", type=int, default=2048)
     parser.add_argument("--bandwidth-gbps", type=float, default=6.589)
     parser.add_argument("--expert-bytes", type=int, default=1_650_000)
@@ -299,6 +308,7 @@ def main() -> None:
     gate_decision = build_cache_lab_gate_decision(
         args.cache_lab_gate_config,
         config=config,
+        ready_time_gate_report=args.ready_time_payload_cache_gate_report,
     )
 
     policies, stress_shutdown_counts = build_policy_masks(
@@ -425,11 +435,15 @@ def build_cache_lab_gate_decision(
     path: Path | None,
     *,
     config: CacheLabConfig,
+    ready_time_gate_report: Path | None = None,
 ):
     if path is None:
         return None
     payload = load_yaml(path)
     gate_config = CacheLabGateConfig(**payload)
+    ready_time_allow = _load_ready_time_payload_cache_gate_allow(
+        ready_time_gate_report
+    )
     return select_cache_lab_prefetch_gate(
         CacheLabRuntimeSignals(
             payload_capacity=int(config.cache_capacity),
@@ -437,9 +451,25 @@ def build_cache_lab_gate_decision(
             manager_us_per_issue=float(config.manager_us_per_issue),
             bandwidth_gbps=float(config.bandwidth_gbps),
             stress_fallback_active=bool(config.stress_fallback),
+            ready_time_allow_full_fetch=ready_time_allow,
         ),
         config=gate_config,
     )
+
+
+def _load_ready_time_payload_cache_gate_allow(path: Path | None) -> bool | None:
+    if path is None:
+        return None
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        return False
+    if not isinstance(payload, dict):
+        return False
+    if payload.get("passed") is not True:
+        return False
+    allow_full_fetch = payload.get("allow_full_fetch")
+    return allow_full_fetch if isinstance(allow_full_fetch, bool) else False
 
 
 def load_measured_copy_envelope(

@@ -635,6 +635,126 @@ def test_build_cache_lab_gate_decision_reads_replay_contract(tmp_path) -> None:
     assert decision.reason == "payload_capacity_below_gate"
 
 
+def test_build_cache_lab_gate_decision_applies_ready_time_block_report(tmp_path) -> None:
+    gate = tmp_path / "gate.yaml"
+    gate.write_text(
+        "\n".join(
+            [
+                "min_payload_capacity: 10240",
+                "min_overlap_factor: 0.5",
+                "max_manager_us_per_issue: 50.0",
+                "min_bandwidth_gbps: 3.0",
+                "max_bandwidth_gbps: 12.0",
+                "require_stress_fallback_clear: true",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    report = tmp_path / "ready_time_gate.json"
+    report.write_text(
+        json.dumps({"passed": True, "allow_full_fetch": False}),
+        encoding="utf-8",
+    )
+
+    decision = build_cache_lab_gate_decision(
+        gate,
+        config=_config(
+            cache_capacity=10240,
+            overlap_factor=0.8,
+            manager_us_per_issue=0.0,
+            bandwidth_gbps=6.589,
+        ),
+        ready_time_gate_report=report,
+    )
+
+    assert decision is not None
+    assert decision.allow_full_fetch_mtp is False
+    assert decision.reason == "ready_time_payload_cache_gate_blocked"
+    assert decision.ready_time_allow_full_fetch is False
+
+
+def test_build_cache_lab_gate_decision_blocks_invalid_ready_time_report(tmp_path) -> None:
+    gate = tmp_path / "gate.yaml"
+    gate.write_text(
+        "\n".join(
+            [
+                "min_payload_capacity: 10240",
+                "min_overlap_factor: 0.5",
+                "max_manager_us_per_issue: 50.0",
+                "min_bandwidth_gbps: 3.0",
+                "max_bandwidth_gbps: 12.0",
+                "require_stress_fallback_clear: true",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    report = tmp_path / "ready_time_gate.json"
+    report.write_text(
+        json.dumps({"passed": False, "allow_full_fetch": True}),
+        encoding="utf-8",
+    )
+
+    decision = build_cache_lab_gate_decision(
+        gate,
+        config=_config(
+            cache_capacity=10240,
+            overlap_factor=0.8,
+            manager_us_per_issue=0.0,
+            bandwidth_gbps=6.589,
+        ),
+        ready_time_gate_report=report,
+    )
+
+    assert decision is not None
+    assert decision.allow_full_fetch_mtp is False
+    assert decision.reason == "ready_time_payload_cache_gate_blocked"
+
+
+def test_build_cache_lab_gate_decision_blocks_malformed_ready_time_report(tmp_path) -> None:
+    gate = tmp_path / "gate.yaml"
+    gate.write_text(
+        "\n".join(
+            [
+                "min_payload_capacity: 10240",
+                "min_overlap_factor: 0.5",
+                "max_manager_us_per_issue: 50.0",
+                "min_bandwidth_gbps: 3.0",
+                "max_bandwidth_gbps: 12.0",
+                "require_stress_fallback_clear: true",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    reports = []
+    for name, payload in (
+        ("bad_json", "{"),
+        ("list", "[]"),
+        ("non_bool_allow", json.dumps({"passed": True, "allow_full_fetch": "yes"})),
+    ):
+        report = tmp_path / f"{name}.json"
+        report.write_text(payload, encoding="utf-8")
+        reports.append(report)
+
+    for report in reports:
+        decision = build_cache_lab_gate_decision(
+            gate,
+            config=_config(
+                cache_capacity=10240,
+                overlap_factor=0.8,
+                manager_us_per_issue=0.0,
+                bandwidth_gbps=6.589,
+            ),
+            ready_time_gate_report=report,
+        )
+
+        assert decision is not None
+        assert decision.allow_full_fetch_mtp is False
+        assert decision.reason == "ready_time_payload_cache_gate_blocked"
+
+
 def test_apply_cache_lab_gate_collapses_gated_policies() -> None:
     transition = torch.tensor([[[[True, False, False]]]])
     utility = torch.tensor([[[[True, True, False]]]])
@@ -658,6 +778,7 @@ def test_apply_cache_lab_gate_collapses_gated_policies() -> None:
             manager_us_per_issue=0.0,
             bandwidth_gbps=6.589,
             stress_fallback_active=False,
+            ready_time_allow_full_fetch=None,
         ),
         config=_config(transition_topk=1),
     )

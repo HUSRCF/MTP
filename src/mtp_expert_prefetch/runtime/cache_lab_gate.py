@@ -30,8 +30,9 @@ class CacheLabRuntimeSignals:
     manager_us_per_issue: float
     bandwidth_gbps: float
     stress_fallback_active: bool = False
+    ready_time_allow_full_fetch: bool | None = None
 
-    def as_dict(self) -> dict[str, bool | float | int]:
+    def as_dict(self) -> dict[str, bool | float | int | None]:
         return asdict(self)
 
 
@@ -44,8 +45,9 @@ class CacheLabGateDecision:
     manager_us_per_issue: float
     bandwidth_gbps: float
     stress_fallback_active: bool
+    ready_time_allow_full_fetch: bool | None = None
 
-    def as_dict(self) -> dict[str, bool | float | int | str]:
+    def as_dict(self) -> dict[str, bool | float | int | str | None]:
         return asdict(self)
 
 
@@ -70,6 +72,7 @@ def select_cache_lab_prefetch_gate(
         manager_us_per_issue=float(signals.manager_us_per_issue),
         bandwidth_gbps=float(signals.bandwidth_gbps),
         stress_fallback_active=bool(signals.stress_fallback_active),
+        ready_time_allow_full_fetch=signals.ready_time_allow_full_fetch,
     )
 
 
@@ -77,6 +80,8 @@ def _gate_reason(
     signals: CacheLabRuntimeSignals,
     config: CacheLabGateConfig,
 ) -> str:
+    if signals.ready_time_allow_full_fetch is False:
+        return "ready_time_payload_cache_gate_blocked"
     if (
         bool(config.require_stress_fallback_clear)
         and bool(signals.stress_fallback_active)

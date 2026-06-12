@@ -33787,3 +33787,22 @@ fetch for this measured-copy envelope.  The checker accepts both raw
 `performance_summary.json` summaries and its own normalized `metrics` report
 format, so the gate artifact can be reused as downstream evidence without
 format drift.
+
+The bounded-cache replay gate now accepts this ready-time checker report as a
+higher-priority runtime signal:
+
+```text
+CacheLabRuntimeSignals.ready_time_allow_full_fetch = false
+  -> reason = ready_time_payload_cache_gate_blocked
+  -> collapse MTP full_fetch policies back to transition baseline
+
+ready_time_allow_full_fetch = true
+  -> still must pass the replay-derived capacity / overlap / manager / bandwidth gate
+
+ready_time_allow_full_fetch = none
+  -> preserves the historical replay-only gate behavior
+```
+
+This keeps the old replay-positive envelope as controlled evidence while
+preventing it from overriding measured-copy ready-before-demand negative
+evidence.
