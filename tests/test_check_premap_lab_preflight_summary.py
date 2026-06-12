@@ -423,6 +423,23 @@ def _summary() -> dict[str, object]:
         "strict_default_gate_evidence_deferred_count": 0,
         "default_kernel_consumer_dispatch_runner_final_runtime_gate_evidence_deferred_count": 0,
         "default_kernel_consumer_dispatch_runner_final_strict_default_gate_evidence_deferred_count": 0,
+        "prefetch_lab_default_gate_passed": True,
+        "prefetch_lab_default_gate_decision_status": "passed",
+        "prefetch_lab_default_gate_failures": [],
+        "prefetch_lab_default_full_fetch_decision": (
+            "blocked_by_ready_time_measured_copy"
+        ),
+        "prefetch_lab_default_full_fetch_passed": True,
+        "prefetch_lab_default_full_fetch_failures": [],
+        "prefetch_lab_default_metadata_decision": "shadow_only",
+        "prefetch_lab_default_metadata_passed": True,
+        "prefetch_lab_default_metadata_failures": [],
+        "prefetch_lab_default_premap_decision": "lab_enabled_descriptor_prep_only",
+        "prefetch_lab_default_premap_passed": True,
+        "prefetch_lab_default_premap_failures": [],
+        "prefetch_lab_default_premap_positive_count": 4,
+        "prefetch_lab_default_premap_recommended_capacity_entries": 12288,
+        "prefetch_lab_default_premap_no_eviction_capacity_entries": 12288,
         "payload_bytes_required": 0,
         "passed_to_kernel_required": False,
         "changes_kernel_launch_args_required": False,
@@ -513,6 +530,67 @@ def test_check_premap_lab_preflight_summary_rejects_defer_and_kernel_mutation() 
     assert "strict_default_gate_evidence_deferred_count_not_zero" in result["failures"]
     assert (
         "default_kernel_consumer_online_merged_multiprogram_passed_to_kernel_mismatch"
+        in result["failures"]
+    )
+
+
+def test_check_premap_lab_preflight_summary_rejects_prefetch_gate_failure() -> None:
+    summary = _summary()
+    summary["prefetch_lab_default_gate_passed"] = False
+    summary["prefetch_lab_default_gate_decision_status"] = "failed"
+    summary["prefetch_lab_default_gate_failures"] = [
+        "full_fetch:ready_time_gate_report_allows_full_fetch"
+    ]
+    summary["prefetch_lab_default_full_fetch_passed"] = False
+    summary["prefetch_lab_default_full_fetch_failures"] = [
+        "ready_time_gate_report_allows_full_fetch"
+    ]
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is False
+    assert "prefetch_lab_default_gate_passed_mismatch" in result["failures"]
+    assert "prefetch_lab_default_gate_decision_status_mismatch" in result["failures"]
+    assert "prefetch_lab_default_gate_failures_not_empty" in result["failures"]
+    assert "prefetch_lab_default_full_fetch_passed_mismatch" in result["failures"]
+    assert "prefetch_lab_default_full_fetch_failures_not_empty" in result["failures"]
+
+
+def test_check_premap_lab_preflight_summary_rejects_prefetch_capacity_gap() -> None:
+    summary = _summary()
+    summary["prefetch_lab_default_premap_recommended_capacity_entries"] = 8192
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is False
+    assert (
+        "prefetch_lab_default_premap_recommended_capacity_entries_below_min"
+        in result["failures"]
+    )
+
+
+def test_check_premap_lab_preflight_summary_accepts_larger_prefetch_capacity() -> None:
+    summary = _summary()
+    summary["prefetch_lab_default_premap_positive_count"] = 8
+    summary["prefetch_lab_default_premap_recommended_capacity_entries"] = 16384
+    summary["prefetch_lab_default_premap_no_eviction_capacity_entries"] = 16384
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is True
+    assert result["failures"] == []
+
+
+def test_check_premap_lab_preflight_summary_rejects_no_eviction_above_recommended() -> None:
+    summary = _summary()
+    summary["prefetch_lab_default_premap_recommended_capacity_entries"] = 12288
+    summary["prefetch_lab_default_premap_no_eviction_capacity_entries"] = 16384
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is False
+    assert (
+        "prefetch_lab_default_premap_no_eviction_capacity_above_recommended"
         in result["failures"]
     )
 

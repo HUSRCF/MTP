@@ -296,6 +296,18 @@ def check_premap_lab_preflight_summary(
     for key, expected in {
         "passed": True,
         "default_contract_passed": True,
+        "prefetch_lab_default_gate_passed": True,
+        "prefetch_lab_default_gate_decision_status": "passed",
+        "prefetch_lab_default_full_fetch_decision": (
+            "blocked_by_ready_time_measured_copy"
+        ),
+        "prefetch_lab_default_full_fetch_passed": True,
+        "prefetch_lab_default_metadata_decision": "shadow_only",
+        "prefetch_lab_default_metadata_passed": True,
+        "prefetch_lab_default_premap_decision": (
+            "lab_enabled_descriptor_prep_only"
+        ),
+        "prefetch_lab_default_premap_passed": True,
         "default_required_evidence_passed": True,
         "default_optional_evidence_passed": True,
         "default_kernel_consumer_schema_passed": True,
@@ -364,6 +376,45 @@ def check_premap_lab_preflight_summary(
     }.items():
         if summary.get(key) != expected:
             failures.append(f"{key}_mismatch")
+
+    for key in (
+        "prefetch_lab_default_gate_failures",
+        "prefetch_lab_default_full_fetch_failures",
+        "prefetch_lab_default_metadata_failures",
+        "prefetch_lab_default_premap_failures",
+    ):
+        if summary.get(key) != []:
+            failures.append(f"{key}_not_empty")
+    premap_positive = _int_metric(
+        summary,
+        "prefetch_lab_default_premap_positive_count",
+    )
+    recommended_capacity = _int_metric(
+        summary,
+        "prefetch_lab_default_premap_recommended_capacity_entries",
+    )
+    no_eviction_capacity = _int_metric(
+        summary,
+        "prefetch_lab_default_premap_no_eviction_capacity_entries",
+    )
+    if premap_positive is None or premap_positive < 4:
+        failures.append("prefetch_lab_default_premap_positive_count_below_min")
+    if recommended_capacity is None or recommended_capacity < 12288:
+        failures.append(
+            "prefetch_lab_default_premap_recommended_capacity_entries_below_min"
+        )
+    if no_eviction_capacity is None or no_eviction_capacity < 12288:
+        failures.append(
+            "prefetch_lab_default_premap_no_eviction_capacity_entries_below_min"
+        )
+    if (
+        recommended_capacity is not None
+        and no_eviction_capacity is not None
+        and no_eviction_capacity > recommended_capacity
+    ):
+        failures.append(
+            "prefetch_lab_default_premap_no_eviction_capacity_above_recommended"
+        )
 
     for key in (
         "runtime_gate_evidence_deferred_count",

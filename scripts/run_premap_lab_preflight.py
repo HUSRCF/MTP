@@ -33,6 +33,7 @@ from scripts.check_premap_kernel_consumer_schema import (
     check_kernel_consumer_schema_artifact,
 )
 from scripts.check_gate_evidence_paths import check_gate_evidence_paths
+from scripts.check_prefetch_lab_default_gate import check_prefetch_lab_default_gate
 from scripts.check_runtime_gate_evidence_paths import scan_runtime_gate_evidence_paths
 from mtp_expert_prefetch.runtime.cache_manager import (
     PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_COLUMNS,
@@ -58,6 +59,9 @@ DEFAULT_KERNEL_CONSUMER_SCHEMA_ARTIFACT = (
 DEFAULT_CANARY_GATE = (
     "configs/runtime/"
     "premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_live_connected_blocked_canary.yaml"
+)
+DEFAULT_PREFETCH_LAB_DEFAULT_GATE = (
+    "configs/runtime/prefetch_lab_default_gate_gpu1.yaml"
 )
 RISKY_CANARY_GATES = [
     DEFAULT_CANARY_GATE,
@@ -6921,6 +6925,7 @@ def run_premap_lab_preflight(
     trace_configs: list[str] | None = None,
     default_readonly_gate: str = DEFAULT_READONLY_GATE,
     canary_gate: str = DEFAULT_CANARY_GATE,
+    prefetch_lab_default_gate: str = DEFAULT_PREFETCH_LAB_DEFAULT_GATE,
     risky_canary_gates: list[str] | None = None,
     allow_missing_evidence: bool = False,
     defer_online_prelaunch_runner_evidence: bool = False,
@@ -6967,6 +6972,19 @@ def run_premap_lab_preflight(
         default_readonly_gate,
         root=root,
     )
+    try:
+        prefetch_lab_default_gate_check = check_prefetch_lab_default_gate(
+            _path_for_label(prefetch_lab_default_gate, root),
+            root=root,
+        )
+    except (OSError, ValueError, yaml.YAMLError) as exc:
+        prefetch_lab_default_gate_check = {
+            "passed": False,
+            "failures": [f"{type(exc).__name__}:{exc}"],
+            "gate_id": None,
+            "decisions": {},
+            "sections": {},
+        }
     deferred_evidence_labels: set[str] = set()
     if defer_online_prelaunch_runner_evidence:
         deferred_evidence_labels.update(ONLINE_PRELAUNCH_RUNNER_EVIDENCE_LABELS)
@@ -7050,6 +7068,8 @@ def run_premap_lab_preflight(
         failures.append("default_readonly_gate_contract_check_failed")
     if not default_kernel_consumer_schema_check.get("passed", False):
         failures.append("default_kernel_consumer_schema_check_failed")
+    if not prefetch_lab_default_gate_check.get("passed", False):
+        failures.append("prefetch_lab_default_gate_check_failed")
     if not default_gate_required_evidence_check.get("passed", False):
         failures.append("default_readonly_gate_required_evidence_check_failed")
     if not default_gate_optional_evidence_check.get("passed", False):
@@ -8632,6 +8652,25 @@ def run_premap_lab_preflight(
         failures.append(
             "default_kernel_consumer_request_launch_ptr_all_handle_fields_unchecked"
         )
+    prefetch_lab_default_decisions = (
+        prefetch_lab_default_gate_check.get("decisions") or {}
+    )
+    prefetch_lab_default_sections = (
+        prefetch_lab_default_gate_check.get("sections") or {}
+    )
+    prefetch_lab_default_full_fetch = (
+        prefetch_lab_default_sections.get("full_fetch") or {}
+    )
+    prefetch_lab_default_metadata = (
+        prefetch_lab_default_sections.get("metadata") or {}
+    )
+    prefetch_lab_default_premap = (
+        prefetch_lab_default_sections.get("premap") or {}
+    )
+    prefetch_lab_default_passed = bool(
+        prefetch_lab_default_gate_check.get("passed", False)
+    )
+
     lab_gate_status_summary = {
         "passed": not failures,
         "default_readonly_gate_path": default_gate_path,
@@ -8649,6 +8688,55 @@ def run_premap_lab_preflight(
         ),
         "default_kernel_consumer_schema_passed": bool(
             default_kernel_consumer_schema_check.get("passed", False)
+        ),
+        "prefetch_lab_default_gate_passed": prefetch_lab_default_passed,
+        "prefetch_lab_default_gate_decision_status": (
+            "passed" if prefetch_lab_default_passed else "failed"
+        ),
+        "prefetch_lab_default_gate_failures": list(
+            prefetch_lab_default_gate_check.get("failures") or []
+        ),
+        "prefetch_lab_default_gate_id": (
+            prefetch_lab_default_gate_check.get("gate_id")
+        ),
+        "prefetch_lab_default_full_fetch_decision": (
+            prefetch_lab_default_decisions.get("full_fetch")
+        ),
+        "prefetch_lab_default_full_fetch_passed": (
+            not bool(prefetch_lab_default_full_fetch.get("failures"))
+        ),
+        "prefetch_lab_default_full_fetch_failures": list(
+            prefetch_lab_default_full_fetch.get("failures") or []
+        ),
+        "prefetch_lab_default_metadata_decision": (
+            prefetch_lab_default_decisions.get("metadata")
+        ),
+        "prefetch_lab_default_metadata_passed": (
+            not bool(prefetch_lab_default_metadata.get("failures"))
+        ),
+        "prefetch_lab_default_metadata_failures": list(
+            prefetch_lab_default_metadata.get("failures") or []
+        ),
+        "prefetch_lab_default_premap_decision": (
+            prefetch_lab_default_decisions.get("premap")
+        ),
+        "prefetch_lab_default_premap_passed": (
+            not bool(prefetch_lab_default_premap.get("failures"))
+        ),
+        "prefetch_lab_default_premap_failures": list(
+            prefetch_lab_default_premap.get("failures") or []
+        ),
+        "prefetch_lab_default_premap_positive_count": _int_metric(
+            prefetch_lab_default_premap,
+            "premap_positive_count",
+        ),
+        "prefetch_lab_default_premap_recommended_capacity_entries": _int_metric(
+            prefetch_lab_default_premap,
+            "recommended_capacity_entries",
+        ),
+        "prefetch_lab_default_premap_no_eviction_capacity_entries": _int_metric(
+            prefetch_lab_default_premap,
+            "no_eviction_capacity_entries",
         ),
         "default_kernel_consumer_schema_name": (
             schema_summary.get("schema_name")
@@ -11012,6 +11100,7 @@ def run_premap_lab_preflight(
         "default_kernel_consumer_schema_check": (
             default_kernel_consumer_schema_check
         ),
+        "prefetch_lab_default_gate_check": prefetch_lab_default_gate_check,
         "default_readonly_gate_required_evidence_check": (
             default_gate_required_evidence_check
         ),
@@ -11034,6 +11123,15 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--trace-config", action="append", dest="trace_configs")
     parser.add_argument("--default-readonly-gate", default=DEFAULT_READONLY_GATE)
     parser.add_argument("--canary-gate", default=DEFAULT_CANARY_GATE)
+    parser.add_argument(
+        "--prefetch-lab-default-gate",
+        default=DEFAULT_PREFETCH_LAB_DEFAULT_GATE,
+        help=(
+            "Default prefetch/premap lab gate. This preflight requires full "
+            "payload fetch to remain blocked by ready-time evidence while "
+            "premap descriptor/address prep may be lab-enabled."
+        ),
+    )
     parser.add_argument(
         "--allow-missing-evidence",
         action="store_true",
@@ -11106,6 +11204,7 @@ def main(argv: list[str] | None = None) -> int:
         trace_configs=args.trace_configs,
         default_readonly_gate=args.default_readonly_gate,
         canary_gate=args.canary_gate,
+        prefetch_lab_default_gate=args.prefetch_lab_default_gate,
         allow_missing_evidence=args.allow_missing_evidence,
         defer_online_prelaunch_runner_evidence=(
             args.defer_online_prelaunch_runner_evidence

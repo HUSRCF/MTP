@@ -3406,6 +3406,71 @@ def _runner_extra_input_summary(index: int = 1) -> dict[str, object]:
     }
 
 
+def _write_prefetch_lab_default_gate(root: Path) -> str:
+    ready_time_report = (
+        "outputs/reports/prefetch_cache_manager/"
+        "measured_ready_time_gate_gpu1_dolly8_gen4.json"
+    )
+    metadata_premap_summary = (
+        "outputs/reports/prefetch_action_replay/"
+        "metadata_premap_gate_summary.json"
+    )
+    capacity_gate = (
+        "configs/runtime/"
+        "premap_address_capacity_gate_dolly128_gen64_awq_w7900_gpu1.yaml"
+    )
+    gate_path = "configs/runtime/prefetch_lab_default_gate_gpu1.yaml"
+    _write(
+        root / ready_time_report,
+        json.dumps(
+            {
+                "passed": True,
+                "allow_full_fetch": False,
+                "decision": "block_full_fetch",
+            },
+            sort_keys=True,
+        )
+        + "\n",
+    )
+    _write(
+        root / metadata_premap_summary,
+        json.dumps(
+            {
+                "metadata_positive_count": 0,
+                "premap_positive_count": 4,
+            },
+            sort_keys=True,
+        )
+        + "\n",
+    )
+    _write(
+        root / capacity_gate,
+        "schema_version: 1\n"
+        "capacity_gate:\n"
+        "  recommended_capacity_entries: 12288\n"
+        "  no_eviction_capacity_entries: 12288\n",
+    )
+    _write(
+        root / gate_path,
+        "schema_version: 1\n"
+        "gate_id: prefetch_lab_default_gpu1_test\n"
+        "full_fetch:\n"
+        "  default_enabled: false\n"
+        f"  ready_time_gate_report: {ready_time_report}\n"
+        "metadata:\n"
+        "  default_enabled: false\n"
+        f"  summary: {metadata_premap_summary}\n"
+        "  max_default_positive_count: 0\n"
+        "premap:\n"
+        "  default_enabled: true\n"
+        f"  summary: {metadata_premap_summary}\n"
+        "  min_positive_count: 4\n"
+        f"  capacity_gate: {capacity_gate}\n"
+        "  min_capacity_entries: 12288\n",
+    )
+    return gate_path
+
+
 def _write_gate(
     root: Path,
     name: str,
@@ -3420,6 +3485,7 @@ def _write_gate(
     include_schema_artifact: bool = True,
     live_connected_readonly: bool = True,
 ) -> str:
+    _write_prefetch_lab_default_gate(root)
     schema_path = _write_valid_schema(root)
     evidence_path = f"reports/{evidence_json}"
     _write(root / evidence_path, '{"passed": true}\n')
@@ -4441,7 +4507,7 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
 
     assert result["passed"] is True
     assert result["failures"] == []
-    assert result["runtime_gate_evidence_scan"]["gate_count"] == 3
+    assert result["runtime_gate_evidence_scan"]["gate_count"] == 5
     assert result["runtime_gate_evidence_scan"]["evidence_path_count"] == 100
     assert result["default_readonly_gate_required_evidence_check"]["passed"] is True
     summary = result["lab_gate_status_summary"]
@@ -4454,6 +4520,34 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
         (tmp_path / canary_gate).read_bytes()
     ).hexdigest()
     assert summary["default_contract_passed"] is True
+    assert summary["prefetch_lab_default_gate_passed"] is True
+    assert summary["prefetch_lab_default_gate_decision_status"] == "passed"
+    assert summary["prefetch_lab_default_gate_failures"] == []
+    assert summary["prefetch_lab_default_gate_id"] == "prefetch_lab_default_gpu1_test"
+    assert (
+        summary["prefetch_lab_default_full_fetch_decision"]
+        == "blocked_by_ready_time_measured_copy"
+    )
+    assert summary["prefetch_lab_default_full_fetch_passed"] is True
+    assert summary["prefetch_lab_default_full_fetch_failures"] == []
+    assert summary["prefetch_lab_default_metadata_decision"] == "shadow_only"
+    assert summary["prefetch_lab_default_metadata_passed"] is True
+    assert summary["prefetch_lab_default_metadata_failures"] == []
+    assert (
+        summary["prefetch_lab_default_premap_decision"]
+        == "lab_enabled_descriptor_prep_only"
+    )
+    assert summary["prefetch_lab_default_premap_passed"] is True
+    assert summary["prefetch_lab_default_premap_failures"] == []
+    assert summary["prefetch_lab_default_premap_positive_count"] == 4
+    assert (
+        summary["prefetch_lab_default_premap_recommended_capacity_entries"]
+        == 12288
+    )
+    assert (
+        summary["prefetch_lab_default_premap_no_eviction_capacity_entries"]
+        == 12288
+    )
     assert (
         summary["default_kernel_consumer_schema_name"]
         == "fused_moe_awq_wna16_kernel_side_typed_consumer_object_v1"
@@ -5791,6 +5885,70 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     )
     assert result["trace_config_checks"][0]["passed"] is True
     assert result["trace_config_checks"][0]["readonly_gate_path_label"] == default_gate
+
+
+def test_premap_lab_preflight_requires_prefetch_lab_default_gate(
+    tmp_path: Path,
+) -> None:
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+    ready_report = (
+        tmp_path
+        / "outputs/reports/prefetch_cache_manager/"
+        "measured_ready_time_gate_gpu1_dolly8_gen4.json"
+    )
+    ready_report.write_text(
+        json.dumps(
+            {
+                "passed": True,
+                "allow_full_fetch": True,
+            },
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is False
+    assert "prefetch_lab_default_gate_check_failed" in result["failures"]
+    check = result["prefetch_lab_default_gate_check"]
+    assert check["passed"] is False
+    assert (
+        "full_fetch:ready_time_gate_report_allows_full_fetch"
+        in check["failures"]
+    )
+    summary = result["lab_gate_status_summary"]
+    assert summary["prefetch_lab_default_gate_passed"] is False
+    assert summary["prefetch_lab_default_gate_decision_status"] == "failed"
+    assert (
+        "full_fetch:ready_time_gate_report_allows_full_fetch"
+        in summary["prefetch_lab_default_gate_failures"]
+    )
+    assert summary["prefetch_lab_default_full_fetch_passed"] is False
+    assert summary["prefetch_lab_default_full_fetch_failures"] == [
+        "ready_time_gate_report_allows_full_fetch"
+    ]
+    assert summary["prefetch_lab_default_metadata_passed"] is True
+    assert summary["prefetch_lab_default_metadata_failures"] == []
+    assert summary["prefetch_lab_default_premap_passed"] is True
+    assert summary["prefetch_lab_default_premap_failures"] == []
+    assert (
+        summary["prefetch_lab_default_full_fetch_decision"]
+        == "blocked_by_ready_time_measured_copy"
+    )
 
 
 def test_premap_lab_preflight_accepts_program_view_ptr_strict_requirement(
@@ -10841,3 +10999,63 @@ def test_premap_lab_preflight_cli_summary_only_writes_status_block(tmp_path: Pat
     assert result["required_evidence"]["passed_count"] == 40
     assert result["optional_evidence"]["passed_count"] == 13
     assert "lab_gate_status_summary" not in result
+
+
+def test_premap_lab_preflight_cli_summary_only_reports_prefetch_gate_failure(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+    ready_report = (
+        tmp_path
+        / "outputs/reports/prefetch_cache_manager/"
+        "measured_ready_time_gate_gpu1_dolly8_gen4.json"
+    )
+    ready_report.write_text(
+        json.dumps(
+            {
+                "passed": True,
+                "allow_full_fetch": True,
+            },
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    output = tmp_path / "preflight_status_failed.json"
+
+    exit_code = main(
+        [
+            "--root",
+            str(tmp_path),
+            "--runtime-pattern",
+            "configs/runtime/*.yaml",
+            "--trace-config",
+            trace_config,
+            "--default-readonly-gate",
+            default_gate,
+            "--canary-gate",
+            canary_gate,
+            "--summary-only",
+            "--output-json",
+            str(output),
+        ]
+    )
+
+    result = json.loads(output.read_text(encoding="utf-8"))
+    assert exit_code == 1
+    assert result["passed"] is False
+    assert result["prefetch_lab_default_gate_passed"] is False
+    assert result["prefetch_lab_default_gate_decision_status"] == "failed"
+    assert (
+        "full_fetch:ready_time_gate_report_allows_full_fetch"
+        in result["prefetch_lab_default_gate_failures"]
+    )
+    assert result["prefetch_lab_default_full_fetch_failures"] == [
+        "ready_time_gate_report_allows_full_fetch"
+    ]

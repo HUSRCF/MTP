@@ -4,6 +4,53 @@
 
 - Version: `v0.81-wna16-side-consumer-lab-gate`
 - Updated: 2026-06-11
+- Latest prefetch lab-default gate update: the premap lab preflight now treats
+  the prefetch lab-default gate as a required precondition instead of an
+  external side artifact.  `run_premap_lab_preflight.py` checks
+  `configs/runtime/prefetch_lab_default_gate_gpu1.yaml` by default and flattens
+  the decision into `lab_gate_status_summary`: full-fetch must remain blocked by
+  the measured-copy ready-time gate, metadata must remain `shadow_only`, and
+  premap must remain `lab_enabled_descriptor_prep_only` with at least four
+  positive premap entries and a minimum no-eviction/recommended capacity of
+  12288 entries.  The compact summary checker now enforces the same contract,
+  while allowing larger legal capacity artifacts.  Validation:
+  `tests/test_check_premap_lab_preflight_summary.py`,
+  `tests/test_run_premap_lab_preflight.py`, and
+  `tests/test_check_prefetch_lab_default_gate.py` pass together
+  (`169 passed`).  A full `pytest tests -q` attempt was interrupted because the
+  ROCm stack entered `amddrm_sched_entity_flush` while another GPU workload was
+  active; targeted tests and Codex review found no blocker.  The change is in
+  the current local `Require prefetch default gate in lab preflight` commit,
+  pending remote push approval.
+- Latest production-batch retry on GPU1: reran the current 32-sample Dolly
+  gen64 no-recorder/no-shadow-row `reuse_llm` comparison after the earlier
+  ROCm/DRM stall cleared.  Artifact:
+  `outputs/reports/awq_telemetry_ladder/gpu1_current_progress_repeat3_gen64_20260612/`.
+  Baseline `production_batch_reuse_llm` takes
+  `7.1566 / 7.1705 / 7.1836s` (`mean=7.1702s`, `285.63 tok/s`).  The
+  GPU-assignment envelope path takes `7.1170 / 7.0878 / 7.1040s`
+  (`mean=7.1029s`, `288.33 tok/s`, `+0.95%` vs baseline).  The independent
+  assignment kernel variant takes `7.1308 / 7.1460 / 7.1571s`
+  (`mean=7.1446s`, `286.65 tok/s`, `+0.36%` vs baseline).  This is a
+  single-scenario directional signal rather than a statistically strong
+  performance claim.  It still reinforces the current boundary: the
+  low-overhead assignment envelope is the more promising production-compatible
+  path in this observation, while the identity kernel variant should remain an
+  ABI/correctness gate until it performs non-identity useful work or removes
+  enough wrapper/launch overhead to beat the envelope consistently.
+  A follow-up heldout128/gen64 single-run comparison in the same artifact family
+  completes after rerunning only the envelope leg:
+  baseline `production_batch_reuse_llm` is `29.4506s` (`278.16 tok/s`), while
+  the envelope path is `28.0455s` (`292.10 tok/s`, `+5.01%` throughput,
+  `-4.77%` generate wall time).  The concrete summary files are
+  `outputs/reports/awq_telemetry_ladder/gpu1_current_progress_heldout128_envelope_gen64_20260613/production_batch_reuse_llm/repeat_00/performance_summary.json`
+  and
+  `outputs/reports/awq_telemetry_ladder/gpu1_current_progress_heldout128_envelope_gen64_20260613/production_batch_premap_live_future_wna16_typed_slot_gpu_assignment_envelope_counter_off_reuse_llm/repeat_00/performance_summary.json`.
+  This point estimate is only a useful trigger for repeat validation, not an
+  effect-size conclusion, a formal claim, or a paired A/B result: the two legs
+  ran as separate vLLM processes, the runtime context is not fully identical
+  (`llm_init_wall_seconds` differs substantially), and GPU0 was concurrently
+  running an unrelated training job.
 - Latest WNA16-side consumer gate update: promoted the independent
   WNA16-side typed consumer variant execution canary into the canonical
   `run_premap_lab_gate_verify.py` path.  The lab verify runner now includes a
