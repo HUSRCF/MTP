@@ -33839,3 +33839,33 @@ over the older replay-derived allow envelope in the cache-lab runner.
 `stress_shutdown_count` is a legacy field name here; in this validation run it
 means the count of plus-policy extra payloads collapsed by the gate, not stress
 mode (`stress_fallback = false`).
+
+Follow-up measured-copy ready-time sweep:
+
+```text
+input:
+  outputs/reports/prefetch_shadow_dolly_128_mtp_extra_smoke_sample1/event_stall_tensor_cache_dolly128_smoke_sample1.pt
+
+output:
+  outputs/reports/prefetch_action_replay/measured_copy_ready_sweep_dolly_sample1_keypoints_v1/sweep.json
+  outputs/reports/prefetch_action_replay/measured_copy_ready_sweep_dolly_sample1_keypoints_v1/summary.md
+
+grid:
+  max_inflight = 16 / 64
+  deadline_us = 1,000 / 15,000 / 100,000
+  measured_copy = GPU1 H2D p95, 8 experts, pinned
+  copy_scale = 1.0
+
+result:
+  first_positive = {}
+  first_positive_mtp_extra_issued = {}
+  best MTP-extra issued cells = -1.833ms vs transition
+```
+
+This is a smoke-sized ready-time accounting check, not a full-distribution
+claim and not an endpoint TPOT/e2e performance claim.  It does show that simply
+increasing deadline/slack within this measured-copy envelope does not
+immediately recover a positive MTP-extra candidate policy cell.
+The 128-sample tensor cache is much larger (about 1.4GB) and should be run as a
+separate offline sweep if we need full-distribution sensitivity; it should not
+block the current runtime gate decision.
