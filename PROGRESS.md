@@ -33759,3 +33759,31 @@ near-term runtime path should keep focusing on premap/metadata/descriptor prep
 or on a real cache/offload manager that can demonstrate earlier issue time and
 lower queue pressure.
 ```
+
+Added a checker for this gate:
+
+```text
+script:
+  scripts/check_premap_payload_cache_ready_time_gate.py
+
+gate config:
+  configs/runtime/premap_payload_cache_ready_time_gate_gpu1_measured_copy.yaml
+
+checker report:
+  outputs/reports/prefetch_cache_manager/measured_ready_time_gate_gpu1_dolly8_gen4.json
+
+checker result:
+  passed = true
+  allow_full_fetch = false
+  decision_reason = ready_before_demand_threshold_not_met
+  demand_hit_rate = 0.0
+  ready_late_miss_rate = 0.992910204
+  threshold_min_demand_hit_rate = 0.10
+  threshold_max_ready_late_miss_rate = 0.20
+```
+
+This means the evidence is valid, but the gate explicitly blocks full-payload
+fetch for this measured-copy envelope.  The checker accepts both raw
+`performance_summary.json` summaries and its own normalized `metrics` report
+format, so the gate artifact can be reused as downstream evidence without
+format drift.
