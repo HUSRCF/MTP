@@ -33806,3 +33806,36 @@ ready_time_allow_full_fetch = none
 This keeps the old replay-positive envelope as controlled evidence while
 preventing it from overriding measured-copy ready-before-demand negative
 evidence.
+
+Validation run:
+
+```text
+input:
+  outputs/reports/prefetch_shadow_dolly_128_prefix127_mtp_extra/event_stall_tensor_cache_dolly128_prefix127.pt
+
+output:
+  outputs/reports/prefetch_action_replay/dolly128_prefix127_cache_lab_ready_time_block_validation.json
+  outputs/reports/prefetch_action_replay/dolly128_prefix127_cache_lab_ready_time_block_validation.md
+
+gate decision:
+  allow_full_fetch_mtp = false
+  reason = ready_time_payload_cache_gate_blocked
+  ready_time_allow_full_fetch = false
+
+collapsed policies:
+  transition_top32_plus_score_keep50:
+    issued_fetch_count = 4,078
+    stress_shutdown_count = 488,621
+    net_saved_ms_vs_transition = 0.0
+
+  transition_top32_plus_utility_keep50:
+    issued_fetch_count = 4,078
+    stress_shutdown_count = 516,641
+    net_saved_ms_vs_transition = 0.0
+```
+
+This confirms that measured-copy ready-time negative evidence takes precedence
+over the older replay-derived allow envelope in the cache-lab runner.
+`stress_shutdown_count` is a legacy field name here; in this validation run it
+means the count of plus-policy extra payloads collapsed by the gate, not stress
+mode (`stress_fallback = false`).
