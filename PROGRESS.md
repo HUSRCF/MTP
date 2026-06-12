@@ -33679,3 +33679,83 @@ This remains accounting-only: payload_bytes=0, ready credit is disabled, kernel
 arguments are unchanged, and descriptor-order execution remains off.  It is not
 an endpoint TPOT or payload-transfer claim.
 ```
+
+## 2026-06-12: Measured-copy ready-time payload-cache smoke
+
+Connected the online ready-time payload-cache manager to the existing measured
+H2D copy envelope schema used by cache-lab replay.
+
+```text
+transfer envelope:
+  configs/runtime/premap_payload_cache_gpu1_h2d_smoke_measured_copy.json
+
+online config:
+  configs/trace/router_mtp_trace_external_prompt_gate_dolly_8_awq_vllm_gpu1_decode_gen4_premap_payload_cache_measured_ready_time_smoke.yaml
+
+artifact:
+  data/traces/external_prompt_gate_dolly_8_awq_vllm_gpu1_decode_gen4_premap_payload_cache_measured_ready_time_smoke/
+```
+
+GPU1 H2D transfer smoke:
+
+```text
+expert_bytes = 1,650,000
+selected row = pinned H2D, 8 experts
+p95_ms = 14.661311949
+p95_gbps = 0.900328705
+derived service_us_per_issue = 1,832.663994
+derived queue_batch_size = 8
+```
+
+GPU1 Dolly8 / gen4 online result:
+
+```text
+runtime_shadow rows:
+  total = 26,160
+  premap_summary = 24,880
+  premap_payload_cache_manager = 1,280
+  premap_consumer_mapping = 0
+
+ready-time measured-copy config:
+  mode = ready_time
+  capacity = 256
+  measured_copy_stat = p95
+  measured_copy_selected_experts = 8
+  measured_copy_us_per_batch = 14,661.311949
+  measured_copy_us_per_issue = 1,832.663994
+  measured_copy_effective_gbps = 0.900328705
+  queue_batch_size = 8
+  queue_deadline_us = 1,000.0
+
+performance_summary flattened fields:
+  runtime_shadow_aggregate_premap_payload_cache_manager_count = 26,160
+  runtime_shadow_aggregate_premap_payload_cache_issued_fetch_count = 8,476
+  runtime_shadow_aggregate_premap_payload_cache_used_fetch_count = 0
+  runtime_shadow_aggregate_premap_payload_cache_demand_count = 41,327
+  runtime_shadow_aggregate_premap_payload_cache_demand_hit_count = 0
+  runtime_shadow_aggregate_premap_payload_cache_demand_miss_count = 41,327
+  runtime_shadow_aggregate_premap_payload_cache_ready_late_miss_count = 41,034
+  runtime_shadow_aggregate_premap_payload_cache_queue_batch_count = 1,202
+  runtime_shadow_aggregate_premap_payload_cache_queue_service_us = 15,533,660.010
+  runtime_shadow_aggregate_premap_payload_cache_queue_wait_us = 9,920,464,811.720
+  runtime_shadow_aggregate_premap_payload_cache_queue_max_delay_us_max = 15,507,755.010
+  runtime_shadow_aggregate_premap_payload_cache_queue_deadline_us_max = 1,000.0
+  runtime_shadow_aggregate_premap_payload_cache_queue_batch_size_max = 8
+```
+
+Interpretation:
+
+```text
+The online ready-time path now consumes a measured H2D copy envelope instead of
+only hand-written service constants.
+
+Under this conservative W7900 pinned-H2D smoke envelope, full payload
+ready-before-demand is negative: no demanded payload is ready by the 1ms
+deadline, and most resident candidates become ready-late misses.
+
+This is useful negative evidence for the runtime gate: full_fetch should remain
+disabled by default unless a faster copy/overlap envelope is measured.  The
+near-term runtime path should keep focusing on premap/metadata/descriptor prep
+or on a real cache/offload manager that can demonstrate earlier issue time and
+lower queue pressure.
+```

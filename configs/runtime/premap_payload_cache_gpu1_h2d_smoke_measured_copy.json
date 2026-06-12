@@ -1,0 +1,76 @@
+{
+  "ok": true,
+  "device": "cuda",
+  "torch_version": "2.12.0+rocm7.2",
+  "device_name": "AMD Radeon PRO W7900 Dual Slot ",
+  "expert_bytes": 1650000,
+  "batch_experts": [
+    1,
+    4,
+    8
+  ],
+  "warmup": 3,
+  "repeats": 12,
+  "rows": [
+    {
+      "direction": "h2d",
+      "pinned": true,
+      "experts": 1,
+      "expert_bytes": 1650000,
+      "total_bytes": 1650000,
+      "mean_ms": 1.845186833331051,
+      "p50_ms": 1.8418984991512843,
+      "p90_ms": 1.8477685000107158,
+      "p95_ms": 1.859725449776306,
+      "min_ms": 1.8410270004096674,
+      "max_ms": 1.873970999440644,
+      "mean_gbps": 0.8942183903520019,
+      "p50_gbps": 0.8958148349435607,
+      "p90_gbps": 0.8929690055818308,
+      "p95_gbps": 0.8872277357921124
+    },
+    {
+      "direction": "h2d",
+      "pinned": true,
+      "experts": 4,
+      "expert_bytes": 1650000,
+      "total_bytes": 6600000,
+      "mean_ms": 7.319228250101635,
+      "p50_ms": 7.3191265009882045,
+      "p90_ms": 7.31963500038546,
+      "p95_ms": 7.320010400144383,
+      "min_ms": 7.318780999412411,
+      "max_ms": 7.320423999772174,
+      "mean_gbps": 0.9017344144047361,
+      "p50_gbps": 0.9017469501461534,
+      "p90_gbps": 0.9016843052491602,
+      "p95_gbps": 0.9016380632286832
+    },
+    {
+      "direction": "h2d",
+      "pinned": true,
+      "experts": 8,
+      "expert_bytes": 1650000,
+      "total_bytes": 13200000,
+      "mean_ms": 14.629265916634418,
+      "p50_ms": 14.621494500715926,
+      "p90_ms": 14.645154899335466,
+      "p95_ms": 14.661311949203082,
+      "min_ms": 14.62101899960544,
+      "max_ms": 14.678510999146965,
+      "mean_gbps": 0.9023009134717245,
+      "p50_gbps": 0.9027804920593908,
+      "p90_gbps": 0.9013219792300701,
+      "p95_gbps": 0.9003287049435905
+    }
+  ],
+  "recommendation": {
+    "conservative_h2d_gbps": 0.8872277357921124,
+    "large_batch_p50_h2d_gbps": 0.9027804920593908
+  },
+  "notes": {
+    "h2d": "CPU->GPU transfer, closest to expert offload load into VRAM.",
+    "payload": "uint8 contiguous payload; it measures transfer envelope, not dequant/materialization.",
+    "use_for_stall_proxy": "Use conservative_h2d_gbps as --bandwidth-gbps in event/ready simulators."
+  }
+}

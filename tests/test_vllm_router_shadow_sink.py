@@ -25,6 +25,7 @@ from mtp_expert_prefetch.tracing.vllm_router_trace import VllmRouterRecorder
 from mtp_expert_prefetch.tracing.vllm_router_trace import (
     SharedExpertFusedGateUnsupportedError,
     _add_runtime_shadow_aggregate_to_performance,
+    _apply_premap_payload_cache_measured_copy_envelope,
     _shared_expert_fused_gate_fallbackable,
     _run_shared_expert_output_gate_default_postprocess,
     _shared_expert_custom_gate_enabled,
@@ -93,6 +94,145 @@ def test_premap_payload_cache_manager_id_keeps_resident_legacy_format():
     assert ready_time_manager_id == (
         f"controlled_expert_payload_cache:ready_time:{id(ready_time_manager)}"
     )
+
+
+def test_premap_payload_cache_measured_copy_envelope_overrides_ready_time_options(
+    tmp_path,
+):
+    measured_copy = tmp_path / "measured_copy.json"
+    measured_copy.write_text(
+        json.dumps(
+            {
+                "rows": [
+                    {
+                        "direction": "h2d",
+                        "pinned": False,
+                        "experts": 4,
+                        "p95_ms": 0.4,
+                        "p95_gbps": 9.0,
+                    },
+                    {
+                        "direction": "h2d",
+                        "pinned": True,
+                        "experts": 8,
+                        "p95_ms": 0.8,
+                        "p95_gbps": 12.5,
+                    },
+                    {
+                        "direction": "d2h",
+                        "pinned": True,
+                        "experts": 8,
+                        "p95_ms": 0.1,
+                        "p95_gbps": 99.0,
+                    },
+                ]
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    options = {
+        "premap_payload_cache_manager_measured_copy_json": str(measured_copy),
+        "premap_payload_cache_manager_measured_copy_stat": "p95",
+        "premap_payload_cache_manager_measured_copy_experts": 6,
+        "premap_payload_cache_manager_measured_copy_pinned": "true",
+        "premap_payload_cache_manager_service_us_per_issue": 999.0,
+        "premap_payload_cache_manager_queue_batch_size": 1,
+    }
+
+    resolved = _apply_premap_payload_cache_measured_copy_envelope(
+        options,
+        project_root=tmp_path,
+    )
+
+    assert resolved["premap_payload_cache_manager_service_us_per_issue"] == 100.0
+    assert resolved["premap_payload_cache_manager_service_us_per_batch"] == 0.0
+    assert resolved["premap_payload_cache_manager_queue_batch_size"] == 8
+    assert resolved["premap_payload_cache_manager_measured_copy_selected_experts"] == 8
+    assert resolved["premap_payload_cache_manager_measured_copy_requested_experts"] == 6
+    assert resolved["premap_payload_cache_manager_measured_copy_pinned"] is True
+    assert resolved["premap_payload_cache_manager_measured_copy_us_per_batch"] == 800.0
+    assert resolved["premap_payload_cache_manager_measured_copy_us_per_issue"] == 100.0
+    assert (
+        resolved["premap_payload_cache_manager_measured_copy_effective_gbps"] == 12.5
+    )
+
+
+def test_premap_payload_cache_measured_copy_envelope_is_noop_without_path(tmp_path):
+    options = {"premap_payload_cache_manager_service_us_per_issue": 7.0}
+
+    resolved = _apply_premap_payload_cache_measured_copy_envelope(
+        options,
+        project_root=tmp_path,
+    )
+
+    assert resolved is options
+    assert resolved["premap_payload_cache_manager_service_us_per_issue"] == 7.0
+
+
+def test_premap_payload_cache_measured_copy_envelope_allows_any_pinned(tmp_path):
+    measured_copy = tmp_path / "measured_copy_any.json"
+    measured_copy.write_text(
+        json.dumps(
+            {
+                "rows": [
+                    {
+                        "direction": "h2d",
+                        "pinned": False,
+                        "experts": 4,
+                        "p50_ms": 0.2,
+                        "p50_gbps": 10.0,
+                    },
+                    {
+                        "direction": "h2d",
+                        "pinned": True,
+                        "experts": 16,
+                        "p50_ms": 2.0,
+                        "p50_gbps": 8.0,
+                    },
+                ]
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    resolved = _apply_premap_payload_cache_measured_copy_envelope(
+        {
+            "premap_payload_cache_manager_measured_copy_json": str(measured_copy),
+            "premap_payload_cache_manager_measured_copy_stat": "p50",
+            "premap_payload_cache_manager_measured_copy_experts": 5,
+            "premap_payload_cache_manager_measured_copy_pinned": "any",
+        },
+        project_root=tmp_path,
+    )
+
+    assert resolved["premap_payload_cache_manager_measured_copy_selected_experts"] == 4
+    assert resolved["premap_payload_cache_manager_measured_copy_pinned"] is False
+    assert resolved["premap_payload_cache_manager_service_us_per_issue"] == 50.0
+
+
+def test_premap_payload_cache_measured_copy_envelope_reports_bad_input(tmp_path):
+    no_h2d = tmp_path / "no_h2d.json"
+    no_h2d.write_text(json.dumps({"rows": [{"direction": "d2h"}]}), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="No matching H2D"):
+        _apply_premap_payload_cache_measured_copy_envelope(
+            {"premap_payload_cache_manager_measured_copy_json": str(no_h2d)},
+            project_root=tmp_path,
+        )
+
+    missing_stat = tmp_path / "missing_stat.json"
+    missing_stat.write_text(
+        json.dumps({"rows": [{"direction": "h2d", "pinned": True, "experts": 1}]}),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(KeyError, match="p95_ms"):
+        _apply_premap_payload_cache_measured_copy_envelope(
+            {"premap_payload_cache_manager_measured_copy_json": str(missing_stat)},
+            project_root=tmp_path,
+        )
 
 
 def test_runtime_shadow_aggregate_fields_are_flattened_to_performance_summary():

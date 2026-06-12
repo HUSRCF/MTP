@@ -18440,6 +18440,86 @@ def _load_runtime_shadow_descriptor_order_gate(
     return DescriptorOrderRuntimeGate.from_config(path, base_dir=project_root)
 
 
+def _apply_premap_payload_cache_measured_copy_envelope(
+    options: dict[str, Any],
+    *,
+    project_root: Path,
+) -> dict[str, Any]:
+    raw_path = options.get("premap_payload_cache_manager_measured_copy_json")
+    if raw_path is None:
+        return options
+    path = resolve_path(raw_path, base_dir=project_root)
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    stat = str(
+        options.get(
+            "premap_payload_cache_manager_measured_copy_stat",
+            "p95",
+        )
+    )
+    requested_experts = int(
+        options.get(
+            "premap_payload_cache_manager_measured_copy_experts",
+            1,
+        )
+    )
+    pinned_mode = str(
+        options.get(
+            "premap_payload_cache_manager_measured_copy_pinned",
+            "true",
+        )
+    )
+    rows = [
+        row
+        for row in payload.get("rows", [])
+        if isinstance(row, dict) and row.get("direction") == "h2d"
+    ]
+    if pinned_mode != "any":
+        want_pinned = pinned_mode == "true"
+        rows = [row for row in rows if bool(row.get("pinned")) is want_pinned]
+    if not rows:
+        msg = f"No matching H2D measured-copy rows in {path}."
+        raise ValueError(msg)
+    selected = min(
+        rows,
+        key=lambda row: abs(int(row.get("experts", 0)) - int(requested_experts)),
+    )
+    selected_experts = max(1, int(selected.get("experts") or 1))
+    stat_key = f"{stat}_ms"
+    gbps_key = f"{stat}_gbps"
+    if stat_key not in selected:
+        msg = f"Measured-copy row lacks {stat_key!r}: {path}"
+        raise KeyError(msg)
+    copy_us_per_batch = float(selected[stat_key]) * 1000.0
+    copy_us_per_issue = copy_us_per_batch / float(selected_experts)
+    merged = dict(options)
+    # A measured copy envelope is a calibration source, so it intentionally
+    # takes precedence over manually supplied ready-time service/batch values.
+    merged["premap_payload_cache_manager_service_us_per_issue"] = copy_us_per_issue
+    merged["premap_payload_cache_manager_service_us_per_batch"] = 0.0
+    merged["premap_payload_cache_manager_queue_batch_size"] = selected_experts
+    merged["premap_payload_cache_manager_measured_copy_resolved_path"] = str(path)
+    merged["premap_payload_cache_manager_measured_copy_stat"] = stat
+    merged["premap_payload_cache_manager_measured_copy_requested_experts"] = (
+        requested_experts
+    )
+    merged["premap_payload_cache_manager_measured_copy_selected_experts"] = (
+        selected_experts
+    )
+    merged["premap_payload_cache_manager_measured_copy_pinned"] = bool(
+        selected.get("pinned")
+    )
+    merged["premap_payload_cache_manager_measured_copy_us_per_batch"] = (
+        copy_us_per_batch
+    )
+    merged["premap_payload_cache_manager_measured_copy_us_per_issue"] = (
+        copy_us_per_issue
+    )
+    merged["premap_payload_cache_manager_measured_copy_effective_gbps"] = float(
+        selected.get(gbps_key, 0.0) or 0.0
+    )
+    return merged
+
+
 def _load_runtime_shadow_descriptor_order_evidence(
     *,
     options: dict[str, Any],
@@ -18642,6 +18722,10 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
         project_root=project_root,
     )
     runtime_shadow_options = _apply_premap_consumer_readonly_gate(
+        runtime_shadow_options,
+        project_root=project_root,
+    )
+    runtime_shadow_options = _apply_premap_payload_cache_measured_copy_envelope(
         runtime_shadow_options,
         project_root=project_root,
     )
@@ -19424,6 +19508,44 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
             runtime_shadow_options.get(
                 "premap_payload_cache_manager_event_interval_us",
                 0.0,
+            )
+        ),
+        "runtime_shadow_premap_payload_cache_manager_measured_copy_path": (
+            runtime_shadow_options.get(
+                "premap_payload_cache_manager_measured_copy_resolved_path"
+            )
+        ),
+        "runtime_shadow_premap_payload_cache_manager_measured_copy_stat": (
+            runtime_shadow_options.get("premap_payload_cache_manager_measured_copy_stat")
+        ),
+        "runtime_shadow_premap_payload_cache_manager_measured_copy_requested_experts": (
+            runtime_shadow_options.get(
+                "premap_payload_cache_manager_measured_copy_requested_experts"
+            )
+        ),
+        "runtime_shadow_premap_payload_cache_manager_measured_copy_selected_experts": (
+            runtime_shadow_options.get(
+                "premap_payload_cache_manager_measured_copy_selected_experts"
+            )
+        ),
+        "runtime_shadow_premap_payload_cache_manager_measured_copy_pinned": (
+            runtime_shadow_options.get(
+                "premap_payload_cache_manager_measured_copy_pinned"
+            )
+        ),
+        "runtime_shadow_premap_payload_cache_manager_measured_copy_us_per_batch": (
+            runtime_shadow_options.get(
+                "premap_payload_cache_manager_measured_copy_us_per_batch"
+            )
+        ),
+        "runtime_shadow_premap_payload_cache_manager_measured_copy_us_per_issue": (
+            runtime_shadow_options.get(
+                "premap_payload_cache_manager_measured_copy_us_per_issue"
+            )
+        ),
+        "runtime_shadow_premap_payload_cache_manager_measured_copy_effective_gbps": (
+            runtime_shadow_options.get(
+                "premap_payload_cache_manager_measured_copy_effective_gbps"
             )
         ),
         "runtime_shadow_premap_payload_cache_manager_demand_on_consumer": bool(

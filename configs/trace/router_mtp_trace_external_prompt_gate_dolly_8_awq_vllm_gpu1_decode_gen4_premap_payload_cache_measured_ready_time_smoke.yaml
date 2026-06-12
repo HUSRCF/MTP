@@ -1,0 +1,70 @@
+model: configs/model/qwen3_6_35b_a3b_awq_4bit.yaml
+data: configs/data/external_prompt_gate_dolly_128.yaml
+output_dir: data/traces/external_prompt_gate_dolly_8_awq_vllm_gpu1_decode_gen4_premap_payload_cache_measured_ready_time_smoke
+
+trace:
+  capture_router_topk: true
+  capture_router_scores: true
+  use_router_logits_recorder: true
+  capture_hidden_states: none
+  capture_native_mtp_router: false
+  future_window: 4
+  split_id: external_prompt_gate_dolly_8_awq_vllm_gpu1_decode_gen4_premap_payload_cache_measured_ready_time_smoke
+  expected_sample_start: 0
+  expected_sample_end: 7
+  start_sample: 0
+  max_samples: 8
+  max_length: 128
+  max_tokens: 4
+  router_module_prefix: model.language_model
+  runtime_shadow:
+    enabled: true
+    output_path: data/traces/external_prompt_gate_dolly_8_awq_vllm_gpu1_decode_gen4_premap_payload_cache_measured_ready_time_smoke/runtime_shadow.jsonl
+    overwrite: true
+    flush_every: 100000
+    writer_mode: jsonl_batched
+    max_pending: 10000
+    record_router_topk: true
+    emit_transition_summaries: false
+    emit_descriptor_order_summaries: false
+    emit_premap_summaries: false
+    emit_transition_premap_summaries: true
+    emit_premap_address_manager_counters: true
+    emit_premap_payload_cache_manager_counters: true
+    premap_payload_cache_manager_capacity: 256
+    premap_payload_cache_manager_mode: ready_time
+    premap_payload_cache_manager_measured_copy_json: configs/runtime/premap_payload_cache_gpu1_h2d_smoke_measured_copy.json
+    premap_payload_cache_manager_measured_copy_stat: p95
+    premap_payload_cache_manager_measured_copy_experts: 8
+    premap_payload_cache_manager_measured_copy_pinned: "true"
+    premap_payload_cache_manager_queue_deadline_us: 1000.0
+    premap_payload_cache_manager_event_interval_us: 1.0
+    premap_payload_cache_manager_issue_sources:
+      - previous_token_transition_premap_shadow
+    premap_payload_cache_manager_demand_on_consumer: true
+    premap_payload_cache_manager_emit_consumer_rows: true
+    emit_premap_consumer_mapping: false
+    premap_consumer_mapping_mode: noop_assertion
+    premap_consumer_mapping_source: fused_moe_prepare_expert_assignment
+    premap_consumer_mapping_sample_period: 1
+    transition_summary_mode: previous_topk
+    premap_policy: transition_premap_payload_cache_shadow
+    transition_premap_source: previous_token_transition_premap_shadow
+    premap_descriptor_bytes: 4096
+    transition_premap_priority: 3
+    emit_summaries: true
+    emit_outcomes: false
+    outcome_logging_mode: "off"
+    emit_decoder_layer_timing: false
+    emit_descriptor_layer_timing: false
+    emit_decoder_component_timing: false
+    emit_moe_substage_timing: false
+    emit_engine_timing: false
+    emit_wna16_kernel_timing: false
+    decoder_source_timing_mode: "off"
+    moe_source_timing_mode: "off"
+    descriptor_order_reorder_mvp_enabled: false
+    request_id_prefix: sample_
+    sequence_id: 0
+    token_offset: 0
+    flush_pending_as_timeouts: true
