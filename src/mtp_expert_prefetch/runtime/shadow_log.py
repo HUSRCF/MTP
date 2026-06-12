@@ -602,6 +602,15 @@ class ShadowPremapSummaryEvent:
     premap_payload_cache_demand_hit_count: int | None = None
     premap_payload_cache_demand_miss_count: int | None = None
     premap_payload_cache_evicted_before_use_count: int | None = None
+    premap_payload_cache_ready_late_miss_count: int | None = None
+    premap_payload_cache_late_completion_unused_count: int | None = None
+    premap_payload_cache_queue_batch_count: int | None = None
+    premap_payload_cache_queue_service_us: float | None = None
+    premap_payload_cache_queue_wait_us: float | None = None
+    premap_payload_cache_queue_max_delay_us: float | None = None
+    premap_payload_cache_queue_total_span_us: float | None = None
+    premap_payload_cache_queue_deadline_us: float | None = None
+    premap_payload_cache_queue_batch_size: int | None = None
     premap_payload_cache_demand_hit_rate: float | None = None
     premap_payload_cache_used_fetch_rate: float | None = None
     premap_payload_cache_eviction_pressure: float | None = None
@@ -726,6 +735,51 @@ class ShadowPremapSummaryEvent:
         )
         _put_optional(
             payload,
+            "premap_payload_cache_ready_late_miss_count",
+            self.premap_payload_cache_ready_late_miss_count,
+        )
+        _put_optional(
+            payload,
+            "premap_payload_cache_late_completion_unused_count",
+            self.premap_payload_cache_late_completion_unused_count,
+        )
+        _put_optional(
+            payload,
+            "premap_payload_cache_queue_batch_count",
+            self.premap_payload_cache_queue_batch_count,
+        )
+        _put_optional(
+            payload,
+            "premap_payload_cache_queue_service_us",
+            self.premap_payload_cache_queue_service_us,
+        )
+        _put_optional(
+            payload,
+            "premap_payload_cache_queue_wait_us",
+            self.premap_payload_cache_queue_wait_us,
+        )
+        _put_optional(
+            payload,
+            "premap_payload_cache_queue_max_delay_us",
+            self.premap_payload_cache_queue_max_delay_us,
+        )
+        _put_optional(
+            payload,
+            "premap_payload_cache_queue_total_span_us",
+            self.premap_payload_cache_queue_total_span_us,
+        )
+        _put_optional(
+            payload,
+            "premap_payload_cache_queue_deadline_us",
+            self.premap_payload_cache_queue_deadline_us,
+        )
+        _put_optional(
+            payload,
+            "premap_payload_cache_queue_batch_size",
+            self.premap_payload_cache_queue_batch_size,
+        )
+        _put_optional(
+            payload,
             "premap_payload_cache_demand_hit_rate",
             self.premap_payload_cache_demand_hit_rate,
         )
@@ -815,6 +869,15 @@ class ShadowPremapConsumerMappingEvent:
     premap_payload_cache_demand_hit_count: int | None = None
     premap_payload_cache_demand_miss_count: int | None = None
     premap_payload_cache_evicted_before_use_count: int | None = None
+    premap_payload_cache_ready_late_miss_count: int | None = None
+    premap_payload_cache_late_completion_unused_count: int | None = None
+    premap_payload_cache_queue_batch_count: int | None = None
+    premap_payload_cache_queue_service_us: float | None = None
+    premap_payload_cache_queue_wait_us: float | None = None
+    premap_payload_cache_queue_max_delay_us: float | None = None
+    premap_payload_cache_queue_total_span_us: float | None = None
+    premap_payload_cache_queue_deadline_us: float | None = None
+    premap_payload_cache_queue_batch_size: int | None = None
     premap_payload_cache_demand_hit_rate: float | None = None
     premap_payload_cache_used_fetch_rate: float | None = None
     premap_payload_cache_eviction_pressure: float | None = None
@@ -4414,6 +4477,51 @@ class ShadowPremapConsumerMappingEvent:
         )
         _put_optional(
             payload,
+            "premap_payload_cache_ready_late_miss_count",
+            self.premap_payload_cache_ready_late_miss_count,
+        )
+        _put_optional(
+            payload,
+            "premap_payload_cache_late_completion_unused_count",
+            self.premap_payload_cache_late_completion_unused_count,
+        )
+        _put_optional(
+            payload,
+            "premap_payload_cache_queue_batch_count",
+            self.premap_payload_cache_queue_batch_count,
+        )
+        _put_optional(
+            payload,
+            "premap_payload_cache_queue_service_us",
+            self.premap_payload_cache_queue_service_us,
+        )
+        _put_optional(
+            payload,
+            "premap_payload_cache_queue_wait_us",
+            self.premap_payload_cache_queue_wait_us,
+        )
+        _put_optional(
+            payload,
+            "premap_payload_cache_queue_max_delay_us",
+            self.premap_payload_cache_queue_max_delay_us,
+        )
+        _put_optional(
+            payload,
+            "premap_payload_cache_queue_total_span_us",
+            self.premap_payload_cache_queue_total_span_us,
+        )
+        _put_optional(
+            payload,
+            "premap_payload_cache_queue_deadline_us",
+            self.premap_payload_cache_queue_deadline_us,
+        )
+        _put_optional(
+            payload,
+            "premap_payload_cache_queue_batch_size",
+            self.premap_payload_cache_queue_batch_size,
+        )
+        _put_optional(
+            payload,
             "premap_payload_cache_demand_hit_rate",
             self.premap_payload_cache_demand_hit_rate,
         )
@@ -4457,6 +4565,15 @@ class ShadowPremapPayloadCacheManagerEvent:
     premap_payload_cache_demand_hit_count: int | None = None
     premap_payload_cache_demand_miss_count: int | None = None
     premap_payload_cache_evicted_before_use_count: int | None = None
+    premap_payload_cache_ready_late_miss_count: int | None = None
+    premap_payload_cache_late_completion_unused_count: int | None = None
+    premap_payload_cache_queue_batch_count: int | None = None
+    premap_payload_cache_queue_service_us: float | None = None
+    premap_payload_cache_queue_wait_us: float | None = None
+    premap_payload_cache_queue_max_delay_us: float | None = None
+    premap_payload_cache_queue_total_span_us: float | None = None
+    premap_payload_cache_queue_deadline_us: float | None = None
+    premap_payload_cache_queue_batch_size: int | None = None
     premap_payload_cache_demand_hit_rate: float | None = None
     premap_payload_cache_used_fetch_rate: float | None = None
     premap_payload_cache_eviction_pressure: float | None = None
@@ -4541,6 +4658,51 @@ class ShadowPremapPayloadCacheManagerEvent:
             payload,
             "premap_payload_cache_evicted_before_use_count",
             self.premap_payload_cache_evicted_before_use_count,
+        )
+        _put_optional(
+            payload,
+            "premap_payload_cache_ready_late_miss_count",
+            self.premap_payload_cache_ready_late_miss_count,
+        )
+        _put_optional(
+            payload,
+            "premap_payload_cache_late_completion_unused_count",
+            self.premap_payload_cache_late_completion_unused_count,
+        )
+        _put_optional(
+            payload,
+            "premap_payload_cache_queue_batch_count",
+            self.premap_payload_cache_queue_batch_count,
+        )
+        _put_optional(
+            payload,
+            "premap_payload_cache_queue_service_us",
+            self.premap_payload_cache_queue_service_us,
+        )
+        _put_optional(
+            payload,
+            "premap_payload_cache_queue_wait_us",
+            self.premap_payload_cache_queue_wait_us,
+        )
+        _put_optional(
+            payload,
+            "premap_payload_cache_queue_max_delay_us",
+            self.premap_payload_cache_queue_max_delay_us,
+        )
+        _put_optional(
+            payload,
+            "premap_payload_cache_queue_total_span_us",
+            self.premap_payload_cache_queue_total_span_us,
+        )
+        _put_optional(
+            payload,
+            "premap_payload_cache_queue_deadline_us",
+            self.premap_payload_cache_queue_deadline_us,
+        )
+        _put_optional(
+            payload,
+            "premap_payload_cache_queue_batch_size",
+            self.premap_payload_cache_queue_batch_size,
         )
         _put_optional(
             payload,
@@ -4720,6 +4882,15 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
         "premap_payload_cache_demand_hit_count": 0,
         "premap_payload_cache_demand_miss_count": 0,
         "premap_payload_cache_evicted_before_use_count": 0,
+        "premap_payload_cache_ready_late_miss_count": 0,
+        "premap_payload_cache_late_completion_unused_count": 0,
+        "premap_payload_cache_queue_batch_count": 0,
+        "premap_payload_cache_queue_service_us": 0.0,
+        "premap_payload_cache_queue_wait_us": 0.0,
+        "premap_payload_cache_queue_max_delay_us_max": 0.0,
+        "premap_payload_cache_queue_total_span_us_max": 0.0,
+        "premap_payload_cache_queue_deadline_us_max": 0.0,
+        "premap_payload_cache_queue_batch_size_max": 0,
         "premap_payload_cache_demand_hit_rate_sum": 0.0,
         "premap_payload_cache_used_fetch_rate_sum": 0.0,
         "premap_payload_cache_eviction_pressure_sum": 0.0,
@@ -4729,6 +4900,11 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
         "_premap_payload_cache_demand_hit_count_prev_by_manager": {},
         "_premap_payload_cache_demand_miss_count_prev_by_manager": {},
         "_premap_payload_cache_evicted_before_use_count_prev_by_manager": {},
+        "_premap_payload_cache_ready_late_miss_count_prev_by_manager": {},
+        "_premap_payload_cache_late_completion_unused_count_prev_by_manager": {},
+        "_premap_payload_cache_queue_batch_count_prev_by_manager": {},
+        "_premap_payload_cache_queue_service_us_prev_by_manager": {},
+        "_premap_payload_cache_queue_wait_us_prev_by_manager": {},
         "premap_consumer_mapping_count": 0,
         "premap_consumer_address_hit_count": 0,
         "premap_consumer_address_miss_count": 0,
@@ -5310,11 +5486,24 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
                 "premap_payload_cache_demand_hit_count",
                 "premap_payload_cache_demand_miss_count",
                 "premap_payload_cache_evicted_before_use_count",
+                "premap_payload_cache_ready_late_miss_count",
+                "premap_payload_cache_late_completion_unused_count",
+                "premap_payload_cache_queue_batch_count",
             ):
                 _accumulate_monotonic_snapshot_delta(
                     totals,
                     key,
                     int(event.get(key, 0) or 0),
+                    stream_key=manager_id,
+                )
+            for key in (
+                "premap_payload_cache_queue_service_us",
+                "premap_payload_cache_queue_wait_us",
+            ):
+                _accumulate_monotonic_snapshot_float_delta(
+                    totals,
+                    key,
+                    float(event.get(key, 0.0) or 0.0),
                     stream_key=manager_id,
                 )
             totals["premap_payload_cache_resident_count_max"] = max(
@@ -5324,6 +5513,22 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
             totals["premap_payload_cache_unused_fetch_count_max"] = max(
                 int(totals["premap_payload_cache_unused_fetch_count_max"]),
                 int(event.get("premap_payload_cache_unused_fetch_count", 0) or 0),
+            )
+            totals["premap_payload_cache_queue_max_delay_us_max"] = max(
+                float(totals["premap_payload_cache_queue_max_delay_us_max"]),
+                float(event.get("premap_payload_cache_queue_max_delay_us", 0.0) or 0.0),
+            )
+            totals["premap_payload_cache_queue_total_span_us_max"] = max(
+                float(totals["premap_payload_cache_queue_total_span_us_max"]),
+                float(event.get("premap_payload_cache_queue_total_span_us", 0.0) or 0.0),
+            )
+            totals["premap_payload_cache_queue_deadline_us_max"] = max(
+                float(totals["premap_payload_cache_queue_deadline_us_max"]),
+                float(event.get("premap_payload_cache_queue_deadline_us", 0.0) or 0.0),
+            )
+            totals["premap_payload_cache_queue_batch_size_max"] = max(
+                int(totals["premap_payload_cache_queue_batch_size_max"]),
+                int(event.get("premap_payload_cache_queue_batch_size", 0) or 0),
             )
             totals["premap_payload_cache_demand_hit_rate_sum"] += float(
                 event.get("premap_payload_cache_demand_hit_rate", 0.0) or 0.0
@@ -9871,6 +10076,11 @@ def aggregate_shadow_events(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
         "_premap_payload_cache_demand_hit_count_prev_by_manager",
         "_premap_payload_cache_demand_miss_count_prev_by_manager",
         "_premap_payload_cache_evicted_before_use_count_prev_by_manager",
+        "_premap_payload_cache_ready_late_miss_count_prev_by_manager",
+        "_premap_payload_cache_late_completion_unused_count_prev_by_manager",
+        "_premap_payload_cache_queue_batch_count_prev_by_manager",
+        "_premap_payload_cache_queue_service_us_prev_by_manager",
+        "_premap_payload_cache_queue_wait_us_prev_by_manager",
     ):
         totals.pop(key, None)
     return totals
@@ -9902,6 +10112,34 @@ def _accumulate_monotonic_snapshot_delta(
         totals[prev_key] = int(current)
     else:
         previous_by_stream[str(stream_key)] = int(current)
+
+
+def _accumulate_monotonic_snapshot_float_delta(
+    totals: dict[str, Any],
+    key: str,
+    current: float,
+    *,
+    stream_key: str | None = None,
+) -> None:
+    if stream_key is None:
+        prev_key = f"_{key}_prev"
+        previous = totals.get(prev_key)
+    else:
+        prev_key = f"_{key}_prev_by_manager"
+        previous_by_stream = totals.setdefault(prev_key, {})
+        previous = previous_by_stream.get(str(stream_key))
+    current_value = float(current)
+    if previous is None:
+        delta = current_value
+    elif current_value >= float(previous):
+        delta = current_value - float(previous)
+    else:
+        delta = current_value
+    totals[key] += delta
+    if stream_key is None:
+        totals[prev_key] = current_value
+    else:
+        previous_by_stream[str(stream_key)] = current_value
 
 
 def _accumulate_group_plan_totals(totals: dict[str, Any], event: dict[str, Any]) -> None:

@@ -3749,6 +3749,131 @@ def test_shadow_log_aggregates_payload_cache_only_event_without_mapping_count(tm
     assert aggregate["premap_consumer_mapping_count"] == 0
 
 
+def test_shadow_log_aggregates_ready_time_payload_cache_fields(tmp_path):
+    first = ShadowPremapPayloadCacheManagerEvent(
+        event_id=ShadowEventId("req", sequence_id=0, token_index=-1, layer=0),
+        cache_mode="ready_time_accounting_only",
+        source="fused_moe_prepare_expert_assignment",
+        consumer_expert_count=1,
+        consumer_unique_expert_count=1,
+        premap_payload_cache_manager_id="mgr-ready",
+        premap_payload_cache_manager_capacity=8,
+        premap_payload_cache_resident_count=1,
+        premap_payload_cache_issued_fetch_count=1,
+        premap_payload_cache_used_fetch_count=0,
+        premap_payload_cache_unused_fetch_count=1,
+        premap_payload_cache_demand_count=0,
+        premap_payload_cache_demand_hit_count=0,
+        premap_payload_cache_demand_miss_count=0,
+        premap_payload_cache_evicted_before_use_count=0,
+        premap_payload_cache_ready_late_miss_count=0,
+        premap_payload_cache_late_completion_unused_count=0,
+        premap_payload_cache_queue_batch_count=1,
+        premap_payload_cache_queue_service_us=5.0,
+        premap_payload_cache_queue_wait_us=0.0,
+        premap_payload_cache_queue_max_delay_us=5.0,
+        premap_payload_cache_queue_total_span_us=5.0,
+        premap_payload_cache_queue_deadline_us=4.0,
+        premap_payload_cache_queue_batch_size=1,
+        premap_payload_cache_demand_hit_rate=0.0,
+        premap_payload_cache_used_fetch_rate=0.0,
+        premap_payload_cache_eviction_pressure=0.0,
+    )
+    second = ShadowPremapPayloadCacheManagerEvent(
+        event_id=ShadowEventId("req", sequence_id=0, token_index=-1, layer=1),
+        cache_mode="ready_time_accounting_only",
+        source="fused_moe_prepare_expert_assignment",
+        consumer_expert_count=1,
+        consumer_unique_expert_count=1,
+        premap_payload_cache_manager_id="mgr-ready",
+        premap_payload_cache_manager_capacity=8,
+        premap_payload_cache_resident_count=1,
+        premap_payload_cache_issued_fetch_count=1,
+        premap_payload_cache_used_fetch_count=0,
+        premap_payload_cache_unused_fetch_count=1,
+        premap_payload_cache_demand_count=1,
+        premap_payload_cache_demand_hit_count=0,
+        premap_payload_cache_demand_miss_count=1,
+        premap_payload_cache_evicted_before_use_count=0,
+        premap_payload_cache_ready_late_miss_count=1,
+        premap_payload_cache_late_completion_unused_count=1,
+        premap_payload_cache_queue_batch_count=2,
+        premap_payload_cache_queue_service_us=8.0,
+        premap_payload_cache_queue_wait_us=2.0,
+        premap_payload_cache_queue_max_delay_us=7.0,
+        premap_payload_cache_queue_total_span_us=9.0,
+        premap_payload_cache_queue_deadline_us=4.0,
+        premap_payload_cache_queue_batch_size=1,
+        premap_payload_cache_demand_hit_rate=0.0,
+        premap_payload_cache_used_fetch_rate=0.0,
+        premap_payload_cache_eviction_pressure=0.0,
+    )
+
+    output = write_shadow_jsonl([first, second], tmp_path / "ready_time.jsonl")
+    rows = read_shadow_jsonl(output)
+    aggregate = aggregate_shadow_events(rows)
+
+    assert rows[0]["premap_payload_cache_queue_service_us"] == 5.0
+    assert rows[1]["premap_payload_cache_ready_late_miss_count"] == 1
+    assert aggregate["premap_payload_cache_ready_late_miss_count"] == 1
+    assert aggregate["premap_payload_cache_late_completion_unused_count"] == 1
+    assert aggregate["premap_payload_cache_queue_batch_count"] == 2
+    assert aggregate["premap_payload_cache_queue_service_us"] == 8.0
+    assert aggregate["premap_payload_cache_queue_wait_us"] == 2.0
+    assert aggregate["premap_payload_cache_queue_max_delay_us_max"] == 7.0
+    assert aggregate["premap_payload_cache_queue_total_span_us_max"] == 9.0
+    assert aggregate["premap_payload_cache_queue_deadline_us_max"] == 4.0
+    assert aggregate["premap_payload_cache_queue_batch_size_max"] == 1
+
+
+def test_shadow_log_ready_time_payload_cache_deltas_are_per_manager(tmp_path):
+    events = [
+        ShadowPremapPayloadCacheManagerEvent(
+            event_id=ShadowEventId("req", sequence_id=0, token_index=-1, layer=0),
+            cache_mode="ready_time_accounting_only",
+            source="manager-a",
+            consumer_expert_count=1,
+            consumer_unique_expert_count=1,
+            premap_payload_cache_manager_id="mgr-a",
+            premap_payload_cache_resident_count=0,
+            premap_payload_cache_queue_batch_count=1,
+            premap_payload_cache_queue_service_us=5.0,
+            premap_payload_cache_queue_wait_us=1.0,
+        ),
+        ShadowPremapPayloadCacheManagerEvent(
+            event_id=ShadowEventId("req", sequence_id=0, token_index=-1, layer=1),
+            cache_mode="ready_time_accounting_only",
+            source="manager-b",
+            consumer_expert_count=1,
+            consumer_unique_expert_count=1,
+            premap_payload_cache_manager_id="mgr-b",
+            premap_payload_cache_resident_count=0,
+            premap_payload_cache_queue_batch_count=1,
+            premap_payload_cache_queue_service_us=3.0,
+            premap_payload_cache_queue_wait_us=2.0,
+        ),
+        ShadowPremapPayloadCacheManagerEvent(
+            event_id=ShadowEventId("req", sequence_id=0, token_index=-1, layer=2),
+            cache_mode="ready_time_accounting_only",
+            source="manager-a",
+            consumer_expert_count=1,
+            consumer_unique_expert_count=1,
+            premap_payload_cache_manager_id="mgr-a",
+            premap_payload_cache_resident_count=0,
+            premap_payload_cache_queue_batch_count=2,
+            premap_payload_cache_queue_service_us=8.0,
+            premap_payload_cache_queue_wait_us=4.0,
+        ),
+    ]
+
+    output = write_shadow_jsonl(events, tmp_path / "ready_time_multi_manager.jsonl")
+    aggregate = aggregate_shadow_events(read_shadow_jsonl(output))
+
+    assert aggregate["premap_payload_cache_queue_batch_count"] == 3
+    assert aggregate["premap_payload_cache_queue_service_us"] == 11.0
+    assert aggregate["premap_payload_cache_queue_wait_us"] == 6.0
+
+
 def test_shadow_log_descriptor_summary_min_does_not_dilute_full_metrics(tmp_path):
     event_id = ShadowEventId("req", sequence_id=0, token_index=-1, layer=3)
     policy = ShadowPolicyConfig(

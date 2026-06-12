@@ -586,6 +586,87 @@ def build_premap_shadow_summary(
             if premap_payload_cache_manager_snapshot is not None
             else None
         ),
+        premap_payload_cache_ready_late_miss_count=(
+            getattr(
+                premap_payload_cache_manager_snapshot,
+                "ready_late_miss_count",
+                None,
+            )
+            if premap_payload_cache_manager_snapshot is not None
+            else None
+        ),
+        premap_payload_cache_late_completion_unused_count=(
+            getattr(
+                premap_payload_cache_manager_snapshot,
+                "late_completion_unused_count",
+                None,
+            )
+            if premap_payload_cache_manager_snapshot is not None
+            else None
+        ),
+        premap_payload_cache_queue_batch_count=(
+            getattr(
+                premap_payload_cache_manager_snapshot,
+                "queue_batch_count",
+                None,
+            )
+            if premap_payload_cache_manager_snapshot is not None
+            else None
+        ),
+        premap_payload_cache_queue_service_us=(
+            getattr(
+                premap_payload_cache_manager_snapshot,
+                "queue_service_us",
+                None,
+            )
+            if premap_payload_cache_manager_snapshot is not None
+            else None
+        ),
+        premap_payload_cache_queue_wait_us=(
+            getattr(
+                premap_payload_cache_manager_snapshot,
+                "queue_wait_us",
+                None,
+            )
+            if premap_payload_cache_manager_snapshot is not None
+            else None
+        ),
+        premap_payload_cache_queue_max_delay_us=(
+            getattr(
+                premap_payload_cache_manager_snapshot,
+                "queue_max_delay_us",
+                None,
+            )
+            if premap_payload_cache_manager_snapshot is not None
+            else None
+        ),
+        premap_payload_cache_queue_total_span_us=(
+            getattr(
+                premap_payload_cache_manager_snapshot,
+                "queue_total_span_us",
+                None,
+            )
+            if premap_payload_cache_manager_snapshot is not None
+            else None
+        ),
+        premap_payload_cache_queue_deadline_us=(
+            getattr(
+                premap_payload_cache_manager_snapshot,
+                "queue_deadline_us",
+                None,
+            )
+            if premap_payload_cache_manager_snapshot is not None
+            else None
+        ),
+        premap_payload_cache_queue_batch_size=(
+            getattr(
+                premap_payload_cache_manager_snapshot,
+                "queue_batch_size",
+                None,
+            )
+            if premap_payload_cache_manager_snapshot is not None
+            else None
+        ),
         premap_payload_cache_demand_hit_rate=(
             float(premap_payload_cache_manager_snapshot.demand_hit_count)
             / float(max(1, premap_payload_cache_manager_snapshot.demand_count))

@@ -33609,3 +33609,73 @@ consumer-mapping gate.
 This is not a payload-transfer or endpoint-speedup claim.  It is the first real
 online runtime accounting gate for the future payload/cache-manager path.
 ```
+
+## 2026-06-12: Ready-time payload-cache manager smoke
+
+Extended the payload/cache-manager shadow path with a ready-time accounting
+mode:
+
+```text
+manager:
+  ReadyTimeExpertCacheManager
+
+config:
+  configs/trace/router_mtp_trace_external_prompt_gate_dolly_8_awq_vllm_gpu1_decode_gen4_premap_payload_cache_ready_time_smoke.yaml
+
+artifact:
+  data/traces/external_prompt_gate_dolly_8_awq_vllm_gpu1_decode_gen4_premap_payload_cache_ready_time_smoke/
+```
+
+The manager keeps the existing resident-cache accounting contract, and adds a
+virtual service-time / queue / deadline model.  Demand only counts as a hit if
+the prefetch completion time is within the demand deadline.
+
+GPU1 Dolly8 / gen4 smoke:
+
+```text
+runtime_shadow rows:
+  total = 26,160
+  premap_summary = 24,880
+  premap_payload_cache_manager = 1,280
+  premap_consumer_mapping = 0
+
+ready-time config:
+  mode = ready_time
+  capacity = 256
+  service_us_per_issue = 5.0
+  service_us_per_batch = 0.0
+  queue_batch_size = 1
+  queue_deadline_us = 1.0
+  event_interval_us = 1.0
+
+performance_summary flattened fields:
+  runtime_shadow_aggregate_premap_payload_cache_manager_count = 26,160
+  runtime_shadow_aggregate_premap_payload_cache_issued_fetch_count = 13,039
+  runtime_shadow_aggregate_premap_payload_cache_used_fetch_count = 200
+  runtime_shadow_aggregate_premap_payload_cache_demand_count = 41,327
+  runtime_shadow_aggregate_premap_payload_cache_demand_hit_count = 201
+  runtime_shadow_aggregate_premap_payload_cache_demand_miss_count = 41,126
+  runtime_shadow_aggregate_premap_payload_cache_ready_late_miss_count = 40,350
+  runtime_shadow_aggregate_premap_payload_cache_late_completion_unused_count = 178
+  runtime_shadow_aggregate_premap_payload_cache_queue_batch_count = 13,039
+  runtime_shadow_aggregate_premap_payload_cache_queue_service_us = 65,195.0
+  runtime_shadow_aggregate_premap_payload_cache_queue_wait_us = 303,124,451.0
+  runtime_shadow_aggregate_premap_payload_cache_queue_max_delay_us_max = 39,197.0
+  runtime_shadow_aggregate_premap_payload_cache_queue_total_span_us_max = 65,195.0
+  runtime_shadow_aggregate_premap_payload_cache_queue_deadline_us_max = 1.0
+  runtime_shadow_aggregate_premap_payload_cache_queue_batch_size_max = 1
+```
+
+Interpretation:
+
+```text
+The runtime path now distinguishes resident hits from ready-before-demand hits.
+With the intentionally tight service/deadline envelope, most resident candidates
+are counted as ready-late misses, which verifies the deadline-sensitive
+accounting and queue fields are connected through runtime_shadow and
+performance_summary.
+
+This remains accounting-only: payload_bytes=0, ready credit is disabled, kernel
+arguments are unchanged, and descriptor-order execution remains off.  It is not
+an endpoint TPOT or payload-transfer claim.
+```

@@ -68,6 +68,33 @@ class _OutcomeOnlySink:
         self.events.append(event)
 
 
+def test_premap_payload_cache_manager_id_keeps_resident_legacy_format():
+    resident = VllmRouterRecorder(
+        top_k=2,
+        shadow_emit_premap_payload_cache_manager_counters=True,
+    )
+    resident_manager = resident._ensure_premap_payload_cache_manager()
+    resident_manager_id = resident._premap_payload_cache_manager_id()
+
+    assert resident_manager is not None
+    assert resident_manager_id == f"controlled_expert_payload_cache:{id(resident_manager)}"
+    assert ":resident:" not in str(resident_manager_id)
+
+    ready_time = VllmRouterRecorder(
+        top_k=2,
+        shadow_emit_premap_payload_cache_manager_counters=True,
+        shadow_premap_payload_cache_manager_mode="ready_time",
+        shadow_premap_payload_cache_manager_service_us_per_issue=1.0,
+    )
+    ready_time_manager = ready_time._ensure_premap_payload_cache_manager()
+    ready_time_manager_id = ready_time._premap_payload_cache_manager_id()
+
+    assert ready_time_manager is not None
+    assert ready_time_manager_id == (
+        f"controlled_expert_payload_cache:ready_time:{id(ready_time_manager)}"
+    )
+
+
 def test_runtime_shadow_aggregate_fields_are_flattened_to_performance_summary():
     aggregate = {
         "premap_consumer_mapping_count": 3,

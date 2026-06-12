@@ -35,6 +35,7 @@ from mtp_expert_prefetch.runtime.cache_manager import (
     CacheManagerSnapshot,
     ControlledExpertCacheManager,
     ControlledPremapAddressManager,
+    ReadyTimeExpertCacheManager,
     PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_COLUMNS,
     PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH,
     PREMAP_KERNEL_ARG_SEMANTIC_HANDLE_SCHEMA_FIELDS,
@@ -1425,6 +1426,15 @@ RUNTIME_SHADOW_AGGREGATE_PERFORMANCE_KEYS = (
     "premap_payload_cache_demand_hit_count",
     "premap_payload_cache_demand_miss_count",
     "premap_payload_cache_evicted_before_use_count",
+    "premap_payload_cache_ready_late_miss_count",
+    "premap_payload_cache_late_completion_unused_count",
+    "premap_payload_cache_queue_batch_count",
+    "premap_payload_cache_queue_service_us",
+    "premap_payload_cache_queue_wait_us",
+    "premap_payload_cache_queue_max_delay_us_max",
+    "premap_payload_cache_queue_total_span_us_max",
+    "premap_payload_cache_queue_deadline_us_max",
+    "premap_payload_cache_queue_batch_size_max",
     "premap_payload_cache_demand_hit_rate_mean",
     "premap_payload_cache_used_fetch_rate_mean",
     "premap_payload_cache_eviction_pressure_mean",
@@ -2550,6 +2560,12 @@ class VllmRouterRecorder:
     shadow_premap_payload_cache_manager_issue_sources: tuple[str, ...] = (
         "previous_token_transition_premap_shadow",
     )
+    shadow_premap_payload_cache_manager_mode: str = "resident"
+    shadow_premap_payload_cache_manager_service_us_per_issue: float = 0.0
+    shadow_premap_payload_cache_manager_service_us_per_batch: float = 0.0
+    shadow_premap_payload_cache_manager_queue_batch_size: int = 1
+    shadow_premap_payload_cache_manager_queue_deadline_us: float = 0.0
+    shadow_premap_payload_cache_manager_event_interval_us: float = 0.0
     shadow_premap_payload_cache_manager_demand_on_consumer: bool = True
     shadow_premap_payload_cache_manager_emit_consumer_rows: bool = True
     shadow_premap_summary_sample_period: int = 1
@@ -2656,8 +2672,11 @@ class VllmRouterRecorder:
         init=False,
         repr=False,
     )
-    _shadow_premap_payload_cache_manager: ControlledExpertCacheManager | None = field(
-        default=None,
+    _shadow_premap_payload_cache_manager: (
+        ControlledExpertCacheManager | ReadyTimeExpertCacheManager | None
+    ) = field(default=None, init=False, repr=False)
+    _shadow_premap_payload_cache_event_index: int = field(
+        default=0,
         init=False,
         repr=False,
     )
@@ -3674,20 +3693,110 @@ class VllmRouterRecorder:
 
     def _ensure_premap_payload_cache_manager(
         self,
-    ) -> ControlledExpertCacheManager | None:
+    ) -> ControlledExpertCacheManager | ReadyTimeExpertCacheManager | None:
         if not bool(self.shadow_emit_premap_payload_cache_manager_counters):
             return None
         if self._shadow_premap_payload_cache_manager is None:
-            self._shadow_premap_payload_cache_manager = ControlledExpertCacheManager(
-                capacity=self._resolved_premap_payload_cache_capacity(),
-            )
+            mode = str(self.shadow_premap_payload_cache_manager_mode)
+            if mode == "ready_time":
+                self._shadow_premap_payload_cache_manager = (
+                    ReadyTimeExpertCacheManager(
+                        capacity=self._resolved_premap_payload_cache_capacity(),
+                        service_us_per_issue=float(
+                            self.shadow_premap_payload_cache_manager_service_us_per_issue
+                        ),
+                        service_us_per_batch=float(
+                            self.shadow_premap_payload_cache_manager_service_us_per_batch
+                        ),
+                        queue_batch_size=max(
+                            1,
+                            int(
+                                self.shadow_premap_payload_cache_manager_queue_batch_size
+                            ),
+                        ),
+                        queue_deadline_us=float(
+                            self.shadow_premap_payload_cache_manager_queue_deadline_us
+                        ),
+                    )
+                )
+            else:
+                self._shadow_premap_payload_cache_manager = (
+                    ControlledExpertCacheManager(
+                        capacity=self._resolved_premap_payload_cache_capacity(),
+                    )
+                )
         return self._shadow_premap_payload_cache_manager
 
     def _premap_payload_cache_manager_id(self) -> str | None:
         manager = self._shadow_premap_payload_cache_manager
         if manager is None:
             return None
-        return f"controlled_expert_payload_cache:{id(manager)}"
+        mode = str(self.shadow_premap_payload_cache_manager_mode)
+        if mode == "resident":
+            return f"controlled_expert_payload_cache:{id(manager)}"
+        return f"controlled_expert_payload_cache:{mode}:{id(manager)}"
+
+    def _next_premap_payload_cache_arrival_us(self) -> float:
+        index = int(self._shadow_premap_payload_cache_event_index)
+        self._shadow_premap_payload_cache_event_index = index + 1
+        return float(index) * max(
+            0.0,
+            float(self.shadow_premap_payload_cache_manager_event_interval_us),
+        )
+
+    def _premap_payload_cache_ready_time_kwargs(
+        self,
+        snapshot: CacheManagerSnapshot | None,
+    ) -> dict[str, int | float | None]:
+        if snapshot is None:
+            return {}
+        return {
+            "premap_payload_cache_ready_late_miss_count": getattr(
+                snapshot,
+                "ready_late_miss_count",
+                None,
+            ),
+            "premap_payload_cache_late_completion_unused_count": getattr(
+                snapshot,
+                "late_completion_unused_count",
+                None,
+            ),
+            "premap_payload_cache_queue_batch_count": getattr(
+                snapshot,
+                "queue_batch_count",
+                None,
+            ),
+            "premap_payload_cache_queue_service_us": getattr(
+                snapshot,
+                "queue_service_us",
+                None,
+            ),
+            "premap_payload_cache_queue_wait_us": getattr(
+                snapshot,
+                "queue_wait_us",
+                None,
+            ),
+            "premap_payload_cache_queue_max_delay_us": getattr(
+                snapshot,
+                "queue_max_delay_us",
+                None,
+            ),
+            "premap_payload_cache_queue_total_span_us": getattr(
+                snapshot,
+                "queue_total_span_us",
+                None,
+            ),
+            "premap_payload_cache_queue_deadline_us": getattr(
+                snapshot,
+                "queue_deadline_us",
+                None,
+            ),
+            "premap_payload_cache_queue_batch_size": getattr(
+                snapshot,
+                "queue_batch_size",
+                None,
+            ),
+        }
 
     def _premap_payload_cache_issue_source_allowed(self, source: str | None) -> bool:
         raw_sources = self.shadow_premap_payload_cache_manager_issue_sources
@@ -3711,6 +3820,7 @@ class VllmRouterRecorder:
         if manager is None:
             return None
         seen: set[tuple[int, int]] = set()
+        keys: list[tuple[int, int]] = []
         for descriptor in descriptors:
             layer_idx = int(descriptor.layer_idx)
             expert_id = int(descriptor.expert_id)
@@ -3720,7 +3830,20 @@ class VllmRouterRecorder:
             if key in seen:
                 continue
             seen.add(key)
-            manager.issue_prefetch(layer_idx, expert_id)
+            keys.append(key)
+        if not keys:
+            return manager.snapshot()
+        if isinstance(manager, ReadyTimeExpertCacheManager):
+            arrival_us = self._next_premap_payload_cache_arrival_us()
+            for layer_idx, expert_id in keys:
+                manager.issue_prefetch(
+                    layer_idx,
+                    expert_id,
+                    arrival_us=arrival_us,
+                )
+        else:
+            for layer_idx, expert_id in keys:
+                manager.issue_prefetch(layer_idx, expert_id)
         return manager.snapshot()
 
     def _demand_premap_payload_cache_from_experts(
@@ -3741,8 +3864,15 @@ class VllmRouterRecorder:
                 if 0 <= int(expert_id) < int(self.shadow_num_experts)
             }
         )
-        for expert_id in valid_experts:
-            manager.demand(int(layer_id), int(expert_id))
+        if not valid_experts:
+            return manager.snapshot()
+        if isinstance(manager, ReadyTimeExpertCacheManager):
+            arrival_us = self._next_premap_payload_cache_arrival_us()
+            for expert_id in valid_experts:
+                manager.demand(int(layer_id), int(expert_id), arrival_us=arrival_us)
+        else:
+            for expert_id in valid_experts:
+                manager.demand(int(layer_id), int(expert_id))
         return manager.snapshot()
 
     def _ensure_prelaunch_premap_address_mapping_for_experts(
@@ -4626,6 +4756,9 @@ class VllmRouterRecorder:
                             if payload_cache_snapshot is not None
                             else None
                         ),
+                        **self._premap_payload_cache_ready_time_kwargs(
+                            payload_cache_snapshot
+                        ),
                         premap_payload_cache_demand_hit_rate=(
                             float(payload_cache_snapshot.demand_hit_count)
                             / float(max(1, payload_cache_snapshot.demand_count))
@@ -5336,6 +5469,7 @@ class VllmRouterRecorder:
                     if payload_cache_snapshot is not None
                     else None
                 ),
+                **self._premap_payload_cache_ready_time_kwargs(payload_cache_snapshot),
                 premap_payload_cache_demand_hit_rate=(
                     float(payload_cache_snapshot.demand_hit_count)
                     / float(max(1, payload_cache_snapshot.demand_count))
@@ -18599,6 +18733,45 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                 "premap_payload_cache_manager_issue_sources",
                 ("previous_token_transition_premap_shadow",),
             ),
+            shadow_premap_payload_cache_manager_mode=str(
+                runtime_shadow_options.get(
+                    "premap_payload_cache_manager_mode",
+                    "resident",
+                )
+            ),
+            shadow_premap_payload_cache_manager_service_us_per_issue=float(
+                runtime_shadow_options.get(
+                    "premap_payload_cache_manager_service_us_per_issue",
+                    0.0,
+                )
+            ),
+            shadow_premap_payload_cache_manager_service_us_per_batch=float(
+                runtime_shadow_options.get(
+                    "premap_payload_cache_manager_service_us_per_batch",
+                    0.0,
+                )
+            ),
+            shadow_premap_payload_cache_manager_queue_batch_size=max(
+                1,
+                int(
+                    runtime_shadow_options.get(
+                        "premap_payload_cache_manager_queue_batch_size",
+                        1,
+                    )
+                ),
+            ),
+            shadow_premap_payload_cache_manager_queue_deadline_us=float(
+                runtime_shadow_options.get(
+                    "premap_payload_cache_manager_queue_deadline_us",
+                    0.0,
+                )
+            ),
+            shadow_premap_payload_cache_manager_event_interval_us=float(
+                runtime_shadow_options.get(
+                    "premap_payload_cache_manager_event_interval_us",
+                    0.0,
+                )
+            ),
             shadow_premap_payload_cache_manager_demand_on_consumer=bool(
                 runtime_shadow_options.get(
                     "premap_payload_cache_manager_demand_on_consumer",
@@ -19214,6 +19387,45 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                 ("previous_token_transition_premap_shadow",),
             )
         ),
+        "runtime_shadow_premap_payload_cache_manager_mode": str(
+            runtime_shadow_options.get(
+                "premap_payload_cache_manager_mode",
+                "resident",
+            )
+        ),
+        "runtime_shadow_premap_payload_cache_manager_service_us_per_issue": float(
+            runtime_shadow_options.get(
+                "premap_payload_cache_manager_service_us_per_issue",
+                0.0,
+            )
+        ),
+        "runtime_shadow_premap_payload_cache_manager_service_us_per_batch": float(
+            runtime_shadow_options.get(
+                "premap_payload_cache_manager_service_us_per_batch",
+                0.0,
+            )
+        ),
+        "runtime_shadow_premap_payload_cache_manager_queue_batch_size": max(
+            1,
+            int(
+                runtime_shadow_options.get(
+                    "premap_payload_cache_manager_queue_batch_size",
+                    1,
+                )
+            ),
+        ),
+        "runtime_shadow_premap_payload_cache_manager_queue_deadline_us": float(
+            runtime_shadow_options.get(
+                "premap_payload_cache_manager_queue_deadline_us",
+                0.0,
+            )
+        ),
+        "runtime_shadow_premap_payload_cache_manager_event_interval_us": float(
+            runtime_shadow_options.get(
+                "premap_payload_cache_manager_event_interval_us",
+                0.0,
+            )
+        ),
         "runtime_shadow_premap_payload_cache_manager_demand_on_consumer": bool(
             runtime_shadow_options.get(
                 "premap_payload_cache_manager_demand_on_consumer",
@@ -19827,6 +20039,45 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                                 runtime_shadow_options,
                                 "premap_payload_cache_manager_issue_sources",
                                 ("previous_token_transition_premap_shadow",),
+                            ),
+                            shadow_premap_payload_cache_manager_mode=str(
+                                runtime_shadow_options.get(
+                                    "premap_payload_cache_manager_mode",
+                                    "resident",
+                                )
+                            ),
+                            shadow_premap_payload_cache_manager_service_us_per_issue=float(
+                                runtime_shadow_options.get(
+                                    "premap_payload_cache_manager_service_us_per_issue",
+                                    0.0,
+                                )
+                            ),
+                            shadow_premap_payload_cache_manager_service_us_per_batch=float(
+                                runtime_shadow_options.get(
+                                    "premap_payload_cache_manager_service_us_per_batch",
+                                    0.0,
+                                )
+                            ),
+                            shadow_premap_payload_cache_manager_queue_batch_size=max(
+                                1,
+                                int(
+                                    runtime_shadow_options.get(
+                                        "premap_payload_cache_manager_queue_batch_size",
+                                        1,
+                                    )
+                                ),
+                            ),
+                            shadow_premap_payload_cache_manager_queue_deadline_us=float(
+                                runtime_shadow_options.get(
+                                    "premap_payload_cache_manager_queue_deadline_us",
+                                    0.0,
+                                )
+                            ),
+                            shadow_premap_payload_cache_manager_event_interval_us=float(
+                                runtime_shadow_options.get(
+                                    "premap_payload_cache_manager_event_interval_us",
+                                    0.0,
+                                )
                             ),
                             shadow_premap_payload_cache_manager_demand_on_consumer=bool(
                                 runtime_shadow_options.get(
