@@ -1,0 +1,27 @@
+schema_version: 1
+gate_id: prefetch_lab_default_gpu1_measured_copy_premap_descriptor_prep
+boundary: >
+  Lab default preflight only. Full payload fetch is blocked by measured-copy
+  ready-time evidence; metadata remains shadow-only; premap is lab-enabled only
+  as descriptor/address prep with payload/kernel args/ready credit disabled.
+
+full_fetch:
+  default_enabled: false
+  ready_time_gate_report: outputs/reports/prefetch_cache_manager/measured_ready_time_gate_gpu1_dolly8_gen4.json
+
+metadata:
+  default_enabled: false
+  summary: outputs/reports/prefetch_action_replay/metadata_premap_gate_summary.json
+  max_default_positive_count: 0
+
+premap:
+  default_enabled: true
+  summary: outputs/reports/prefetch_action_replay/metadata_premap_gate_summary.json
+  min_positive_count: 4
+  capacity_gate: configs/runtime/premap_address_capacity_gate_dolly128_gen64_awq_w7900_gpu1.yaml
+  min_capacity_entries: 12288
+
+evidence_paths:
+  full_fetch_ready_time_gate_report: outputs/reports/prefetch_cache_manager/measured_ready_time_gate_gpu1_dolly8_gen4.json
+  metadata_premap_gate_summary: outputs/reports/prefetch_action_replay/metadata_premap_gate_summary.json
+  premap_capacity_gate: configs/runtime/premap_address_capacity_gate_dolly128_gen64_awq_w7900_gpu1.yaml

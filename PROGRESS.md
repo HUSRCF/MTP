@@ -33869,3 +33869,30 @@ immediately recover a positive MTP-extra candidate policy cell.
 The 128-sample tensor cache is much larger (about 1.4GB) and should be run as a
 separate offline sweep if we need full-distribution sensitivity; it should not
 block the current runtime gate decision.
+
+Added a default lab preflight gate that encodes the current evidence hierarchy:
+
+```text
+script:
+  scripts/check_prefetch_lab_default_gate.py
+
+gate config:
+  configs/runtime/prefetch_lab_default_gate_gpu1.yaml
+
+gate report:
+  outputs/reports/prefetch_action_replay/prefetch_lab_default_gate_gpu1.json
+
+result:
+  passed = true
+  full_fetch = blocked_by_ready_time_measured_copy
+  metadata = shadow_only
+  premap = lab_enabled_descriptor_prep_only
+  premap_positive_count = 4
+  premap_capacity_entries = 12,288
+  premap_no_eviction_capacity_entries = 12,288
+```
+
+This is a lab preflight gate, not a runtime speed claim.  It means the next
+safe lab default should keep full payload fetch disabled, keep metadata in
+shadow/diagnostic mode, and allow only premap descriptor/address preparation
+under the existing no-payload/no-ready/no-kernel-arg contract.
