@@ -2,8 +2,33 @@
 
 ## Progress Version
 
-- Version: `v0.89-ready-time-direct-snapshot-gate`
+- Version: `v0.90-ready-time-detail-preflight`
 - Updated: 2026-06-14
+- Latest ready-time lab preflight detail gate: the default lab preflight now
+  flattens the measured-copy ready-time checker details into the compact status
+  artifact, and the compact checker requires those fields for the current lab
+  default contract.  The new status artifact
+  `outputs/reports/premap_lab_preflight_status_v090_ready_time_detail_gate.json`
+  passes `scripts/check_premap_lab_preflight_summary.py` and directly reports
+  `prefetch_lab_default_ready_time_decision_reason=full_fetch_threshold_not_met`,
+  `prefetch_lab_default_ready_time_threshold_failures=["used_per_issued_fetch_below_threshold"]`,
+  `prefetch_lab_default_ready_time_issued_fetch_count=12`,
+  `prefetch_lab_default_ready_time_used_fetch_count=0`, and
+  `prefetch_lab_default_ready_time_used_per_issued_fetch=0.0`.  This makes the
+  full_fetch block reason machine-readable from the lab preflight artifact
+  itself: the default lab path remains `full_fetch=blocked_by_ready_time_measured_copy`
+  and `premap=lab_enabled_descriptor_prep_only`.
+- Latest direct snapshot runtime-candidate guard: the direct no-row
+  payload-cache manager snapshot now exports
+  `runtime_shadow_premap_payload_cache_direct_used_per_issued_fetch`,
+  `runtime_shadow_premap_payload_cache_direct_ready_late_miss_rate`, and the
+  conservative
+  `runtime_shadow_premap_payload_cache_direct_full_fetch_ready_time_gate_candidate`
+  reason pair.  Non-`ready_time` managers, no-issued snapshots, all-ready-late
+  snapshots, and issued-but-unused snapshots are not full_fetch gate candidates;
+  only ready-time snapshots with timely used prefetches are marked as requiring
+  the external ready-time gate.  This is a reporting guard only and does not
+  enable payload movement, ready credit, or kernel argument changes.
 - Latest ready-time payload-cache production-batch gate: the ready-time
   payload-cache checker now accepts the no-row direct manager snapshot fields
   emitted by production-batch live probes

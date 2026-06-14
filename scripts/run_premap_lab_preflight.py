@@ -502,6 +502,15 @@ def _int_metric(metrics: dict[str, Any], key: str) -> int | None:
     return value if isinstance(value, int) and not isinstance(value, bool) else None
 
 
+def _float_metric(metrics: dict[str, Any], key: str) -> float | None:
+    value = metrics.get(key)
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    return None
+
+
 def _bool_metric(metrics: dict[str, Any], key: str) -> bool | None:
     value = metrics.get(key)
     return value if isinstance(value, bool) else None
@@ -9192,6 +9201,38 @@ def run_premap_lab_preflight(
         ),
         "prefetch_lab_default_full_fetch_failures": list(
             prefetch_lab_default_full_fetch.get("failures") or []
+        ),
+        "prefetch_lab_default_ready_time_report_passed": bool(
+            prefetch_lab_default_full_fetch.get("ready_time_report_passed", False)
+        ),
+        "prefetch_lab_default_ready_time_allow_full_fetch": bool(
+            prefetch_lab_default_full_fetch.get("ready_time_allow_full_fetch", False)
+        ),
+        "prefetch_lab_default_ready_time_decision_reason": (
+            prefetch_lab_default_full_fetch.get("ready_time_decision_reason")
+        ),
+        "prefetch_lab_default_ready_time_threshold_failures": list(
+            prefetch_lab_default_full_fetch.get("ready_time_threshold_failures") or []
+        ),
+        "prefetch_lab_default_ready_time_demand_hit_rate": _float_metric(
+            prefetch_lab_default_full_fetch,
+            "ready_time_demand_hit_rate",
+        ),
+        "prefetch_lab_default_ready_time_ready_late_miss_rate": _float_metric(
+            prefetch_lab_default_full_fetch,
+            "ready_time_ready_late_miss_rate",
+        ),
+        "prefetch_lab_default_ready_time_used_per_issued_fetch": _float_metric(
+            prefetch_lab_default_full_fetch,
+            "ready_time_used_per_issued_fetch",
+        ),
+        "prefetch_lab_default_ready_time_issued_fetch_count": _int_metric(
+            prefetch_lab_default_full_fetch,
+            "ready_time_issued_fetch_count",
+        ),
+        "prefetch_lab_default_ready_time_used_fetch_count": _int_metric(
+            prefetch_lab_default_full_fetch,
+            "ready_time_used_fetch_count",
         ),
         "prefetch_lab_default_metadata_decision": (
             prefetch_lab_default_decisions.get("metadata")

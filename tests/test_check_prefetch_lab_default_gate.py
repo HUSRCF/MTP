@@ -90,6 +90,43 @@ def test_prefetch_lab_default_gate_rejects_full_fetch_allow_report(tmp_path: Pat
     assert "full_fetch:ready_time_gate_report_allows_full_fetch" in result["failures"]
 
 
+def test_prefetch_lab_default_gate_sanitizes_malformed_ready_time_diagnostics(
+    tmp_path: Path,
+):
+    config = _write_fixture(tmp_path)
+    payload = yaml.safe_load(config.read_text(encoding="utf-8"))
+    ready = Path(payload["full_fetch"]["ready_time_gate_report"])
+    ready.write_text(
+        json.dumps(
+            {
+                "passed": True,
+                "allow_full_fetch": False,
+                "decision_reason": "full_fetch_threshold_not_met",
+                "threshold_failures": "not-a-list",
+                "metrics": {
+                    "demand_hit_rate": True,
+                    "ready_late_miss_rate": False,
+                    "used_per_issued_fetch": "0.0",
+                    "issued_fetch_count": True,
+                    "used_fetch_count": 0,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = check_prefetch_lab_default_gate(config, root=tmp_path)
+    full_fetch = result["sections"]["full_fetch"]
+
+    assert result["passed"] is True
+    assert full_fetch["ready_time_threshold_failures"] == []
+    assert full_fetch["ready_time_demand_hit_rate"] is None
+    assert full_fetch["ready_time_ready_late_miss_rate"] is None
+    assert full_fetch["ready_time_used_per_issued_fetch"] == 0.0
+    assert full_fetch["ready_time_issued_fetch_count"] is None
+    assert full_fetch["ready_time_used_fetch_count"] == 0
+
+
 def test_prefetch_lab_default_gate_rejects_under_capacity_premap(tmp_path: Path):
     config = _write_fixture(tmp_path)
     payload = yaml.safe_load(config.read_text(encoding="utf-8"))

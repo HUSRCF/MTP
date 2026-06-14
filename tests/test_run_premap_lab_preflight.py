@@ -3525,7 +3525,16 @@ def _write_prefetch_lab_default_gate(root: Path) -> str:
             {
                 "passed": True,
                 "allow_full_fetch": False,
+                "decision_reason": "full_fetch_threshold_not_met",
                 "decision": "block_full_fetch",
+                "threshold_failures": ["used_per_issued_fetch_below_threshold"],
+                "metrics": {
+                    "demand_hit_rate": 0.9672,
+                    "ready_late_miss_rate": 0.000036,
+                    "issued_fetch_count": 12,
+                    "used_fetch_count": 0,
+                    "used_per_issued_fetch": 0.0,
+                },
             },
             sort_keys=True,
         )
@@ -4650,6 +4659,23 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     )
     assert summary["prefetch_lab_default_full_fetch_passed"] is True
     assert summary["prefetch_lab_default_full_fetch_failures"] == []
+    assert summary["prefetch_lab_default_ready_time_report_passed"] is True
+    assert summary["prefetch_lab_default_ready_time_allow_full_fetch"] is False
+    assert (
+        summary["prefetch_lab_default_ready_time_decision_reason"]
+        == "full_fetch_threshold_not_met"
+    )
+    assert summary["prefetch_lab_default_ready_time_threshold_failures"] == [
+        "used_per_issued_fetch_below_threshold"
+    ]
+    assert summary["prefetch_lab_default_ready_time_demand_hit_rate"] == 0.9672
+    assert (
+        summary["prefetch_lab_default_ready_time_ready_late_miss_rate"]
+        == 0.000036
+    )
+    assert summary["prefetch_lab_default_ready_time_issued_fetch_count"] == 12
+    assert summary["prefetch_lab_default_ready_time_used_fetch_count"] == 0
+    assert summary["prefetch_lab_default_ready_time_used_per_issued_fetch"] == 0.0
     assert summary["prefetch_lab_default_metadata_decision"] == "shadow_only"
     assert summary["prefetch_lab_default_metadata_passed"] is True
     assert summary["prefetch_lab_default_metadata_failures"] == []

@@ -66,6 +66,8 @@ def _check_full_fetch(section: dict[str, Any], *, root: Path) -> dict[str, Any]:
     allow = (
         bool(report.get("allow_full_fetch", False)) if isinstance(report, dict) else False
     )
+    metrics = report.get("metrics") if isinstance(report, dict) else None
+    metrics = metrics if isinstance(metrics, dict) else {}
     if not passed:
         failures.append("ready_time_gate_report_not_passed")
     if allow:
@@ -79,6 +81,26 @@ def _check_full_fetch(section: dict[str, Any], *, root: Path) -> dict[str, Any]:
         "ready_time_gate_report": str(report_path),
         "ready_time_report_passed": passed,
         "ready_time_allow_full_fetch": allow,
+        "ready_time_decision_reason": (
+            report.get("decision_reason") if isinstance(report, dict) else None
+        ),
+        "ready_time_threshold_failures": _string_list(
+            report.get("threshold_failures") if isinstance(report, dict) else None
+        ),
+        "ready_time_demand_hit_rate": _optional_float(metrics, "demand_hit_rate"),
+        "ready_time_ready_late_miss_rate": _optional_float(
+            metrics,
+            "ready_late_miss_rate",
+        ),
+        "ready_time_used_per_issued_fetch": _optional_float(
+            metrics,
+            "used_per_issued_fetch",
+        ),
+        "ready_time_issued_fetch_count": _optional_int(
+            metrics,
+            "issued_fetch_count",
+        ),
+        "ready_time_used_fetch_count": _optional_int(metrics, "used_fetch_count"),
     }
 
 
@@ -192,6 +214,36 @@ def _load_yaml_or_failure(
         failures.append(f"{label}_not_object")
         return {}
     return payload
+
+
+def _optional_float(payload: dict[str, Any], key: str) -> float | None:
+    value = payload.get(key)
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _optional_int(payload: dict[str, Any], key: str) -> int | None:
+    value = payload.get(key)
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _string_list(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [item for item in value if isinstance(item, str)]
 
 
 def _build_parser() -> argparse.ArgumentParser:

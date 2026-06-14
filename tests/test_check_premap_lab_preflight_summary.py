@@ -431,6 +431,19 @@ def _summary() -> dict[str, object]:
         ),
         "prefetch_lab_default_full_fetch_passed": True,
         "prefetch_lab_default_full_fetch_failures": [],
+        "prefetch_lab_default_ready_time_report_passed": True,
+        "prefetch_lab_default_ready_time_allow_full_fetch": False,
+        "prefetch_lab_default_ready_time_decision_reason": (
+            "full_fetch_threshold_not_met"
+        ),
+        "prefetch_lab_default_ready_time_threshold_failures": [
+            "used_per_issued_fetch_below_threshold"
+        ],
+        "prefetch_lab_default_ready_time_demand_hit_rate": 0.9672,
+        "prefetch_lab_default_ready_time_ready_late_miss_rate": 0.000036,
+        "prefetch_lab_default_ready_time_used_per_issued_fetch": 0.0,
+        "prefetch_lab_default_ready_time_issued_fetch_count": 12,
+        "prefetch_lab_default_ready_time_used_fetch_count": 0,
         "prefetch_lab_default_metadata_decision": "shadow_only",
         "prefetch_lab_default_metadata_passed": True,
         "prefetch_lab_default_metadata_failures": [],
@@ -554,6 +567,19 @@ def test_check_premap_lab_preflight_summary_rejects_prefetch_gate_failure() -> N
     assert "prefetch_lab_default_gate_failures_not_empty" in result["failures"]
     assert "prefetch_lab_default_full_fetch_passed_mismatch" in result["failures"]
     assert "prefetch_lab_default_full_fetch_failures_not_empty" in result["failures"]
+
+
+def test_check_premap_lab_preflight_summary_rejects_missing_ready_time_detail() -> None:
+    summary = _summary()
+    del summary["prefetch_lab_default_ready_time_used_per_issued_fetch"]
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is False
+    assert (
+        "prefetch_lab_default_ready_time_used_per_issued_fetch_mismatch"
+        in result["failures"]
+    )
 
 
 def test_check_premap_lab_preflight_summary_rejects_prefetch_capacity_gap() -> None:

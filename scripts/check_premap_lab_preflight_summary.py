@@ -77,6 +77,15 @@ def _int_metric(summary: dict[str, Any], key: str) -> int | None:
     return value if isinstance(value, int) and not isinstance(value, bool) else None
 
 
+def _float_metric(summary: dict[str, Any], key: str) -> float | None:
+    value = summary.get(key)
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    return None
+
+
 def _check_kernel_consumer_handle_summary(
     summary: dict[str, Any],
     failures: list[str],
@@ -302,6 +311,14 @@ def check_premap_lab_preflight_summary(
             "blocked_by_ready_time_measured_copy"
         ),
         "prefetch_lab_default_full_fetch_passed": True,
+        "prefetch_lab_default_ready_time_report_passed": True,
+        "prefetch_lab_default_ready_time_allow_full_fetch": False,
+        "prefetch_lab_default_ready_time_decision_reason": (
+            "full_fetch_threshold_not_met"
+        ),
+        "prefetch_lab_default_ready_time_threshold_failures": [
+            "used_per_issued_fetch_below_threshold"
+        ],
         "prefetch_lab_default_metadata_decision": "shadow_only",
         "prefetch_lab_default_metadata_passed": True,
         "prefetch_lab_default_premap_decision": (
@@ -414,6 +431,40 @@ def check_premap_lab_preflight_summary(
     ):
         failures.append(
             "prefetch_lab_default_premap_no_eviction_capacity_above_recommended"
+        )
+    ready_time_issued = _int_metric(
+        summary,
+        "prefetch_lab_default_ready_time_issued_fetch_count",
+    )
+    ready_time_used = _int_metric(
+        summary,
+        "prefetch_lab_default_ready_time_used_fetch_count",
+    )
+    ready_time_used_per_issued = _float_metric(
+        summary,
+        "prefetch_lab_default_ready_time_used_per_issued_fetch",
+    )
+    ready_time_demand_hit = _float_metric(
+        summary,
+        "prefetch_lab_default_ready_time_demand_hit_rate",
+    )
+    ready_time_late_miss = _float_metric(
+        summary,
+        "prefetch_lab_default_ready_time_ready_late_miss_rate",
+    )
+    if ready_time_issued is None or ready_time_issued <= 0:
+        failures.append("prefetch_lab_default_ready_time_issued_fetch_count_invalid")
+    if ready_time_used != 0:
+        failures.append("prefetch_lab_default_ready_time_used_fetch_count_mismatch")
+    if ready_time_used_per_issued != 0.0:
+        failures.append(
+            "prefetch_lab_default_ready_time_used_per_issued_fetch_mismatch"
+        )
+    if ready_time_demand_hit is None or not (0.0 <= ready_time_demand_hit <= 1.0):
+        failures.append("prefetch_lab_default_ready_time_demand_hit_rate_invalid")
+    if ready_time_late_miss is None or not (0.0 <= ready_time_late_miss <= 1.0):
+        failures.append(
+            "prefetch_lab_default_ready_time_ready_late_miss_rate_invalid"
         )
 
     for key in (
