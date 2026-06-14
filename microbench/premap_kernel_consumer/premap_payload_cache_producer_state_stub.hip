@@ -32,6 +32,8 @@ struct ProducerTransitionStateResult {
   uint32_t current_valid_count;
   uint32_t overlap_count;
   uint32_t issue_candidate_count;
+  int32_t issue_candidate_first_expert;
+  int32_t issue_candidate_last_expert;
   uint32_t previous_nonempty;
   uint32_t current_nonempty;
   uint32_t transition_topk_count;
@@ -78,6 +80,8 @@ __global__ void producer_transition_state_kernel(
   result.previous_nonempty = packet.previous_count > 0 ? 1 : 0;
   result.current_nonempty = packet.current_count > 0 ? 1 : 0;
   result.state_hash = packet.state_hash;
+  result.issue_candidate_first_expert = -1;
+  result.issue_candidate_last_expert = -1;
 
   if (packet.previous_expert_id == nullptr && packet.previous_count != 0) {
     result.error_count += 1;
@@ -111,6 +115,10 @@ __global__ void producer_transition_state_kernel(
     if (expert >= 0) {
       result.previous_valid_count += 1;
       if (issue_selected_count < issue_limit) {
+        if (issue_selected_count == 0) {
+          result.issue_candidate_first_expert = expert;
+        }
+        result.issue_candidate_last_expert = expert;
         result.issue_candidate_hash =
             issue_hash_mix(result.issue_candidate_hash, static_cast<uint32_t>(expert));
         issue_selected_count += 1;
@@ -372,6 +380,10 @@ int main(int argc, char** argv) {
   std::cout << ",\"current_valid_count\":" << result.current_valid_count;
   std::cout << ",\"overlap_count\":" << result.overlap_count;
   std::cout << ",\"issue_candidate_count\":" << result.issue_candidate_count;
+  std::cout << ",\"issue_candidate_first_expert\":"
+            << result.issue_candidate_first_expert;
+  std::cout << ",\"issue_candidate_last_expert\":"
+            << result.issue_candidate_last_expert;
   std::cout << ",\"issue_candidate_hash\":\"" << std::hex << std::setfill('0')
             << std::setw(16) << result.issue_candidate_hash << std::dec
             << std::setfill(' ') << "\"";

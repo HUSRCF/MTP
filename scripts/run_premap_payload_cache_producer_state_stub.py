@@ -126,6 +126,21 @@ def _issue_candidate_hash(
     return value
 
 
+def _issue_candidate_bounds(
+    previous_experts: tuple[int, ...],
+    transition_topk_count: int,
+) -> tuple[int, int, int]:
+    limit = (
+        len(previous_experts)
+        if int(transition_topk_count) == 0
+        else min(len(previous_experts), int(transition_topk_count))
+    )
+    selected = previous_experts[:limit]
+    if not selected:
+        return 0, -1, -1
+    return len(selected), int(selected[0]), int(selected[-1])
+
+
 def _load_packet_json(path: Path) -> PremapPayloadCacheProducerTransitionStatePacket:
     payload = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(payload, dict):
@@ -273,11 +288,19 @@ def run_stub(args: argparse.Namespace) -> dict[str, Any]:
             previous_experts or (),
             transition_topk_count,
         )
+        (
+            expected_issue_count,
+            expected_issue_first,
+            expected_issue_last,
+        ) = _issue_candidate_bounds(previous_experts or (), transition_topk_count)
         payload["packet_json"] = str(packet_json)
         payload["packet_ready"] = bool(packet.ready)
         payload["packet_state_hash"] = str(packet.state_hash)
         payload["packet_state_hash_u64"] = f"{_packet_state_hash_u64(packet):016x}"
         payload["packet_layer_id"] = int(packet.layer_id)
+        payload["expected_issue_candidate_count"] = int(expected_issue_count)
+        payload["expected_issue_candidate_first_expert"] = int(expected_issue_first)
+        payload["expected_issue_candidate_last_expert"] = int(expected_issue_last)
         payload["expected_issue_candidate_hash"] = f"{expected_issue_hash:016x}"
         payload["input_source"] = "semantic_packet_json"
     else:

@@ -59,6 +59,8 @@ def test_payload_cache_producer_state_stub_preserves_readonly_contract():
     assert "--layer-id" in source
     assert "--state-hash" in source
     assert '\\"layer_id\\":' in source
+    assert '\\"issue_candidate_first_expert\\":' in source
+    assert '\\"issue_candidate_last_expert\\":' in source
     assert '\\"issue_candidate_hash\\":' in source
     assert '\\"payload_bytes\\":0' in source
     assert '\\"ready_credit\\":false' in source
@@ -83,6 +85,9 @@ def test_payload_cache_producer_state_issue_candidate_hash_topk_semantics():
     assert module._issue_candidate_hash((2, 7, 9), 0) == 0x733CF4903B9B8F3A
     assert module._issue_candidate_hash((2, 7, 9), 2) == 0xEA95D41875D6802C
     assert module._issue_candidate_hash((2, 7, 9), 3) == 0x733CF4903B9B8F3A
+    assert module._issue_candidate_bounds((2, 7, 9), 0) == (3, 2, 9)
+    assert module._issue_candidate_bounds((2, 7, 9), 2) == (2, 2, 7)
+    assert module._issue_candidate_bounds((), 8) == (0, -1, -1)
 
 
 def test_payload_cache_producer_state_stub_returns_structured_failure(monkeypatch, tmp_path: Path):
@@ -207,6 +212,9 @@ def test_payload_cache_producer_state_stub_accepts_semantic_packet_json(
     assert payload["requested_layer_id"] == 1
     assert payload["requested_state_hash"] == packet.state_hash[:16]
     assert payload["packet_state_hash_u64"] == packet.state_hash[:16]
+    assert payload["expected_issue_candidate_count"] == 2
+    assert payload["expected_issue_candidate_first_expert"] == 2
+    assert payload["expected_issue_candidate_last_expert"] == 7
     assert payload["expected_issue_candidate_hash"] == (
         f"{module._issue_candidate_hash((2, 7), 4):016x}"
     )
