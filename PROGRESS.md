@@ -34253,6 +34253,8 @@ output:
     premap_payload_cache_producer_state_native_canary_20260614_clean.json
     premap_payload_cache_producer_state_native_canary_20260614_validated.json
     premap_payload_cache_producer_state_native_canary_20260614_final.json
+    premap_payload_cache_producer_state_packet_20260614.json
+    premap_payload_cache_producer_state_native_canary_packet_json_20260614.json
 
 result:
   passed = true
@@ -34266,10 +34268,23 @@ result:
   passed_to_kernel = false
   changes_kernel_launch_args = false
   current_wna16_arg_compatible = false
+
+packet-json canary:
+  input_source = semantic_packet_json
+  packet_ready = true
+  previous_count = 2
+  current_count = 2
+  overlap_count = 1
+  issue_candidate_count = 2
+  payload_bytes = 0
+  passed_to_kernel = false
 ```
 
 This moves the producer transition-state ABI one step past static guards: a
 standalone native kernel now reads the previous/current expert arrays through
 `PremapPayloadCacheProducerTransitionStateAbiV1` and produces transition
-summary fields.  It remains a standalone native canary, not a current WNA16
-kernel-arg path and not a payload/cache residency implementation.
+summary fields.  A second canary feeds the native stub from
+`PremapPayloadCacheProducerTransitionStatePacket.as_dict()`, proving that the
+semantic packet can drive the native ABI with canonicalized expert arrays.  It
+remains a standalone native canary, not a current WNA16 kernel-arg path and not
+a payload/cache residency implementation.

@@ -13,6 +13,15 @@ import sys
 from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+SRC_ROOT = REPO_ROOT / "src"
+for _path in (REPO_ROOT, SRC_ROOT):
+    if str(_path) not in sys.path:
+        sys.path.insert(0, str(_path))
+
+from mtp_expert_prefetch.runtime import (  # noqa: E402
+    PremapPayloadCacheProducerTransitionStatePacket,
+)
+
 SRC = (
     REPO_ROOT
     / "microbench"
@@ -91,6 +100,41 @@ def _validate_count(value: int, name: str) -> int:
     return parsed
 
 
+def _experts_arg(values: tuple[int, ...]) -> str:
+    return ",".join(str(int(value)) for value in values)
+
+
+def _load_packet_json(path: Path) -> PremapPayloadCacheProducerTransitionStatePacket:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"producer transition-state packet JSON must be an object: {path}")
+    packet = PremapPayloadCacheProducerTransitionStatePacket(
+        layer_id=int(payload.get("layer_id", 0)),
+        previous_experts=tuple(int(value) for value in payload.get("previous_experts", [])),
+        current_experts=tuple(int(value) for value in payload.get("current_experts", [])),
+        state_owner=str(payload.get("state_owner", "producer")),
+        issue_source=str(
+            payload.get("issue_source", "prelaunch_observed_transition_premap_shadow")
+        ),
+        transition_summary_mode=str(payload.get("transition_summary_mode", "matrix_topk")),
+        transition_topk_count=int(payload.get("transition_topk_count", 0)),
+        max_num_experts=(
+            None
+            if payload.get("max_num_experts") is None
+            else int(payload["max_num_experts"])
+        ),
+        schema_name=str(payload.get("schema_name", "")),
+        schema_hash=str(payload.get("schema_hash", "")),
+        payload_bytes=int(payload.get("payload_bytes", 0)),
+        ready_credit=bool(payload.get("ready_credit", False)),
+        passed_to_kernel=bool(payload.get("passed_to_kernel", False)),
+        changes_kernel_launch_args=bool(payload.get("changes_kernel_launch_args", False)),
+    )
+    if not packet.ready:
+        raise ValueError(f"producer transition-state packet is not ready: {path}")
+    return packet
+
+
 def build(*, offload_arch: str, force: bool) -> Path:
     BUILD_DIR.mkdir(parents=True, exist_ok=True)
     binary = BUILD_DIR / f"premap_payload_cache_producer_state_stub_{_build_key(offload_arch)}"
@@ -107,12 +151,23 @@ def build(*, offload_arch: str, force: bool) -> Path:
 
 def run_stub(args: argparse.Namespace) -> dict[str, Any]:
     binary = build(offload_arch=args.offload_arch, force=args.force_build)
-    previous_count = _validate_count(args.previous_count, "previous-count")
-    current_count = _validate_count(args.current_count, "current-count")
-    transition_topk_count = _validate_count(
-        args.transition_topk_count,
-        "transition-topk-count",
-    )
+    packet_json = getattr(args, "packet_json", None)
+    packet = _load_packet_json(packet_json) if packet_json is not None else None
+    previous_experts: tuple[int, ...] | None = None
+    current_experts: tuple[int, ...] | None = None
+    if packet is None:
+        previous_count = _validate_count(args.previous_count, "previous-count")
+        current_count = _validate_count(args.current_count, "current-count")
+        transition_topk_count = _validate_count(
+            args.transition_topk_count,
+            "transition-topk-count",
+        )
+    else:
+        previous_experts = packet.native_previous_experts_i32
+        current_experts = packet.native_current_experts_i32
+        previous_count = len(previous_experts)
+        current_count = len(current_experts)
+        transition_topk_count = int(packet.transition_topk_count)
     current_offset = _validate_count(args.current_offset, "current-offset")
     cmd = [
         str(binary),
@@ -127,6 +182,10 @@ def run_stub(args: argparse.Namespace) -> dict[str, Any]:
         "--current-offset",
         str(current_offset),
     ]
+    if previous_experts is not None:
+        cmd.extend(["--previous-experts", _experts_arg(previous_experts)])
+    if current_experts is not None:
+        cmd.extend(["--current-experts", _experts_arg(current_experts)])
     env = os.environ.copy()
     if args.hip_visible_devices is not None:
         env["HIP_VISIBLE_DEVICES"] = str(args.hip_visible_devices)
@@ -157,6 +216,13 @@ def run_stub(args: argparse.Namespace) -> dict[str, Any]:
     payload["requested_current_count"] = int(current_count)
     payload["requested_transition_topk_count"] = int(transition_topk_count)
     payload["requested_current_offset"] = int(current_offset)
+    if packet is not None:
+        payload["packet_json"] = str(packet_json)
+        payload["packet_ready"] = bool(packet.ready)
+        payload["packet_state_hash"] = str(packet.state_hash)
+        payload["input_source"] = "semantic_packet_json"
+    else:
+        payload["input_source"] = "synthetic"
     if result.stderr:
         payload["stderr"] = result.stderr
     return payload
@@ -169,6 +235,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--current-count", type=int, default=8)
     parser.add_argument("--transition-topk-count", type=int, default=8)
     parser.add_argument("--current-offset", type=int, default=4)
+    parser.add_argument("--packet-json", type=Path)
     parser.add_argument("--offload-arch", default="gfx1100")
     parser.add_argument("--hip-visible-devices")
     parser.add_argument("--force-build", action="store_true")

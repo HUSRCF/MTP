@@ -7,6 +7,10 @@ import subprocess
 
 import pytest
 
+from mtp_expert_prefetch.runtime import (
+    PremapPayloadCacheProducerTransitionStatePacket,
+)
+
 
 def _load_module():
     path = (
@@ -135,3 +139,56 @@ def test_payload_cache_producer_state_stub_returns_structured_root_type_failure(
     assert payload["native_returncode"] == 0
     assert payload["failures"] == ["native_json_root_type_error"]
     assert payload["native_json_root_type"] == "list"
+
+
+def test_payload_cache_producer_state_stub_accepts_semantic_packet_json(
+    monkeypatch,
+    tmp_path: Path,
+):
+    module = _load_module()
+    packet = PremapPayloadCacheProducerTransitionStatePacket(
+        layer_id=1,
+        previous_experts=(7, 2, 7),
+        current_experts=(4, 2),
+        state_owner="producer",
+        transition_topk_count=4,
+        max_num_experts=8,
+    )
+    packet_json = tmp_path / "packet.json"
+    packet_json.write_text(module.json.dumps(packet.as_dict()), encoding="utf-8")
+
+    monkeypatch.setattr(module, "build", lambda **_: tmp_path / "stub")
+    captured: dict[str, list[str]] = {}
+
+    def fake_run_cmd(cmd, **_kwargs):
+        captured["cmd"] = list(cmd)
+        return subprocess.CompletedProcess(
+            args=cmd,
+            returncode=0,
+            stdout='{"ok":true,"passed":true}',
+            stderr="",
+        )
+
+    monkeypatch.setattr(module, "run_cmd", fake_run_cmd)
+    payload = module.run_stub(
+        argparse.Namespace(
+            device=0,
+            previous_count=1,
+            current_count=1,
+            transition_topk_count=1,
+            current_offset=0,
+            packet_json=packet_json,
+            offload_arch="gfx1100",
+            force_build=False,
+            hip_visible_devices=None,
+        )
+    )
+
+    assert payload["input_source"] == "semantic_packet_json"
+    assert payload["packet_ready"] is True
+    assert payload["requested_previous_count"] == 2
+    assert payload["requested_current_count"] == 2
+    assert "--previous-experts" in captured["cmd"]
+    assert "2,7" in captured["cmd"]
+    assert "--current-experts" in captured["cmd"]
+    assert "2,4" in captured["cmd"]

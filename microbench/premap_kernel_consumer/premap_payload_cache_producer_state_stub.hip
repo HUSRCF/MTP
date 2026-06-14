@@ -124,6 +124,8 @@ struct Args {
   uint32_t current_count = 8;
   uint32_t transition_topk_count = 8;
   uint32_t current_offset = 4;
+  std::vector<int32_t> previous_experts;
+  std::vector<int32_t> current_experts;
 };
 
 static uint32_t parse_bounded_u32(const char* raw, const char* name) {
@@ -145,6 +147,30 @@ static uint32_t parse_bounded_u32(const char* raw, const char* name) {
     std::exit(2);
   }
   return static_cast<uint32_t>(value);
+}
+
+static std::vector<int32_t> parse_expert_csv(const char* raw, const char* name) {
+  std::vector<int32_t> values;
+  const std::string text(raw == nullptr ? "" : raw);
+  if (text.empty()) {
+    return values;
+  }
+  std::stringstream stream(text);
+  std::string item;
+  while (std::getline(stream, item, ',')) {
+    if (item.empty() || item[0] == '-') {
+      std::cerr << name << " entries must be non-negative integers\n";
+      std::exit(2);
+    }
+    char* end = nullptr;
+    const unsigned long value = std::strtoul(item.c_str(), &end, 10);
+    if (end == item.c_str() || *end != '\0' || value > 65536UL) {
+      std::cerr << name << " contains an invalid expert id\n";
+      std::exit(2);
+    }
+    values.push_back(static_cast<int32_t>(value));
+  }
+  return values;
 }
 
 static Args parse_args(int argc, char** argv) {
@@ -173,6 +199,12 @@ static Args parse_args(int argc, char** argv) {
     } else if (key == "--current-offset") {
       args.current_offset =
           parse_bounded_u32(require_value("--current-offset"), "--current-offset");
+    } else if (key == "--previous-experts") {
+      args.previous_experts =
+          parse_expert_csv(require_value("--previous-experts"), "--previous-experts");
+    } else if (key == "--current-experts") {
+      args.current_experts =
+          parse_expert_csv(require_value("--current-experts"), "--current-experts");
     } else {
       std::cerr << "unknown argument: " << key << "\n";
       std::exit(2);
@@ -185,13 +217,19 @@ int main(int argc, char** argv) {
   const Args args = parse_args(argc, argv);
   hip_check(hipSetDevice(args.device), "hipSetDevice");
 
-  std::vector<int32_t> previous(args.previous_count);
-  std::vector<int32_t> current(args.current_count);
-  for (uint32_t i = 0; i < args.previous_count; ++i) {
-    previous[i] = static_cast<int32_t>(i);
+  std::vector<int32_t> previous = args.previous_experts;
+  std::vector<int32_t> current = args.current_experts;
+  if (previous.empty()) {
+    previous.resize(args.previous_count);
+    for (uint32_t i = 0; i < args.previous_count; ++i) {
+      previous[i] = static_cast<int32_t>(i);
+    }
   }
-  for (uint32_t i = 0; i < args.current_count; ++i) {
-    current[i] = static_cast<int32_t>(i + args.current_offset);
+  if (current.empty()) {
+    current.resize(args.current_count);
+    for (uint32_t i = 0; i < args.current_count; ++i) {
+      current[i] = static_cast<int32_t>(i + args.current_offset);
+    }
   }
 
   int32_t* d_previous = nullptr;
@@ -232,8 +270,8 @@ int main(int argc, char** argv) {
   packet.previous_expert_id = d_previous;
   packet.current_expert_id = d_current;
   packet.state_hash = 0x8a45d2c91fe01237ULL;
-  packet.previous_count = args.previous_count;
-  packet.current_count = args.current_count;
+  packet.previous_count = static_cast<uint32_t>(previous.size());
+  packet.current_count = static_cast<uint32_t>(current.size());
   packet.layer_id = 0;
   packet.transition_topk_count = args.transition_topk_count;
 
@@ -263,8 +301,8 @@ int main(int argc, char** argv) {
 
   const bool ok = result.checked == 1 && result.ready == 1 &&
                   result.error_count == 0 &&
-                  result.previous_count == args.previous_count &&
-                  result.current_count == args.current_count;
+                  result.previous_count == previous.size() &&
+                  result.current_count == current.size();
   std::cout << "{";
   std::cout << "\"ok\":" << (ok ? "true" : "false");
   std::cout << ",\"passed\":" << (ok ? "true" : "false");
