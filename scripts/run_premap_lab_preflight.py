@@ -5188,6 +5188,10 @@ def _validate_payload_cache_producer_state_native_canary_evidence(
         "packet_ready": True,
         "native_stub_invoked": True,
         "native_returncode": 0,
+        "online_export_source": (
+            "runtime_shadow_premap_payload_cache_producer_state_packet_export"
+        ),
+        "online_configured_export_enabled": True,
         "payload_bytes": 0,
         "ready_credit": False,
         "passed_to_kernel": False,
@@ -5215,6 +5219,12 @@ def _validate_payload_cache_producer_state_native_canary_evidence(
         "requested_transition_topk_count",
     )
     requested_current_offset = _int_metric(evidence, "requested_current_offset")
+    online_packet_export_count = _int_metric(evidence, "online_packet_export_count")
+    online_configured_export_count = _int_metric(
+        evidence,
+        "online_configured_export_count",
+    )
+    selected_packet_index = _int_metric(evidence, "selected_packet_index")
 
     for key, value in (
         ("previous_count", previous_count),
@@ -5230,9 +5240,25 @@ def _validate_payload_cache_producer_state_native_canary_evidence(
         ("requested_current_count", requested_current_count),
         ("requested_transition_topk_count", requested_transition_topk_count),
         ("requested_current_offset", requested_current_offset),
+        ("online_packet_export_count", online_packet_export_count),
+        ("online_configured_export_count", online_configured_export_count),
+        ("selected_packet_index", selected_packet_index),
     ):
         if value is None or value < 0:
             failures.append(f"{failure_prefix}_{key}_invalid")
+    if online_packet_export_count is not None and online_packet_export_count <= 0:
+        failures.append(f"{failure_prefix}_online_packet_export_count_empty")
+    if (
+        online_configured_export_count is not None
+        and online_configured_export_count <= 0
+    ):
+        failures.append(f"{failure_prefix}_online_configured_export_count_empty")
+    if (
+        selected_packet_index is not None
+        and online_packet_export_count is not None
+        and selected_packet_index >= online_packet_export_count
+    ):
+        failures.append(f"{failure_prefix}_selected_packet_index_out_of_range")
 
     if (
         previous_count is not None
@@ -5308,6 +5334,49 @@ def _validate_payload_cache_producer_state_native_canary_evidence(
     packet_json = evidence.get("packet_json")
     if not isinstance(packet_json, str) or not packet_json:
         failures.append(f"{failure_prefix}_packet_json_missing")
+    selected_packet_json = evidence.get("selected_packet_json")
+    if not isinstance(selected_packet_json, str) or not selected_packet_json:
+        failures.append(f"{failure_prefix}_selected_packet_json_missing")
+    elif (
+        isinstance(packet_json, str)
+        and packet_json
+        and selected_packet_json != packet_json
+    ):
+        failures.append(f"{failure_prefix}_selected_packet_json_mismatch")
+    online_paths = evidence.get("online_packet_export_paths")
+    if not isinstance(online_paths, list) or not online_paths:
+        failures.append(f"{failure_prefix}_online_packet_export_paths_missing")
+    else:
+        online_path_strings = {str(path) for path in online_paths}
+        if (
+            online_packet_export_count is not None
+            and online_packet_export_count != len(online_paths)
+        ):
+            failures.append(f"{failure_prefix}_online_packet_export_paths_count_mismatch")
+        if (
+            online_configured_export_count is not None
+            and online_configured_export_count != len(online_paths)
+        ):
+            failures.append(
+                f"{failure_prefix}_online_configured_export_paths_count_mismatch"
+            )
+        if (
+            selected_packet_index is not None
+            and selected_packet_index >= len(online_paths)
+        ):
+            failures.append(
+                f"{failure_prefix}_selected_packet_index_paths_out_of_range"
+            )
+        elif (
+            isinstance(packet_json, str)
+            and packet_json
+            and selected_packet_index is not None
+            and selected_packet_index >= 0
+            and str(online_paths[selected_packet_index]) != packet_json
+        ):
+            failures.append(f"{failure_prefix}_selected_packet_index_path_mismatch")
+        if isinstance(packet_json, str) and packet_json not in online_path_strings:
+            failures.append(f"{failure_prefix}_packet_json_not_in_online_paths")
     return failures
 
 

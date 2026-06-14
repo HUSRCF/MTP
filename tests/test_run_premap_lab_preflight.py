@@ -2290,6 +2290,15 @@ def _payload_cache_producer_state_native_canary_payload() -> dict[str, object]:
         "native_returncode": 0,
         "native_stub_invoked": True,
         "ok": True,
+        "online_configured_export_count": 1,
+        "online_configured_export_enabled": True,
+        "online_export_source": (
+            "runtime_shadow_premap_payload_cache_producer_state_packet_export"
+        ),
+        "online_packet_export_count": 1,
+        "online_packet_export_paths": [
+            "reports/premap_payload_cache_producer_state_packet.json",
+        ],
         "overlap_count": 1,
         "packet_json": "reports/premap_payload_cache_producer_state_packet.json",
         "packet_ready": True,
@@ -2308,6 +2317,10 @@ def _payload_cache_producer_state_native_canary_payload() -> dict[str, object]:
         "requested_current_offset": 4,
         "requested_previous_count": 2,
         "requested_transition_topk_count": 4,
+        "selected_packet_index": 0,
+        "selected_packet_json": (
+            "reports/premap_payload_cache_producer_state_packet.json"
+        ),
         "state_hash": "8a45d2c91fe01237",
         "transition_topk_count": 4,
     }
@@ -10229,6 +10242,304 @@ def test_premap_lab_preflight_rejects_payload_cache_producer_state_missing_curre
     assert (
         "payload_cache_producer_state_native_canary_json:"
         "payload_cache_producer_state_native_canary_requested_current_offset_invalid"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_payload_cache_producer_state_disabled_online_export(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    producer_state_path = (
+        tmp_path / "reports/default_gate_payload_cache_producer_state_native_canary.json"
+    )
+    payload = json.loads(producer_state_path.read_text())
+    payload["online_configured_export_enabled"] = False
+    _write(producer_state_path, json.dumps(payload) + "\n")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is False
+    failures = result["default_readonly_gate_required_evidence_check"]["failures"]
+    assert (
+        "payload_cache_producer_state_native_canary_json:"
+        "payload_cache_producer_state_native_canary_"
+        "online_configured_export_enabled_mismatch"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_payload_cache_producer_state_online_source_mismatch(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    producer_state_path = (
+        tmp_path / "reports/default_gate_payload_cache_producer_state_native_canary.json"
+    )
+    payload = json.loads(producer_state_path.read_text())
+    payload["online_export_source"] = "manual_packet_json"
+    _write(producer_state_path, json.dumps(payload) + "\n")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is False
+    failures = result["default_readonly_gate_required_evidence_check"]["failures"]
+    assert (
+        "payload_cache_producer_state_native_canary_json:"
+        "payload_cache_producer_state_native_canary_online_export_source_mismatch"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_payload_cache_producer_state_empty_online_export(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    producer_state_path = (
+        tmp_path / "reports/default_gate_payload_cache_producer_state_native_canary.json"
+    )
+    payload = json.loads(producer_state_path.read_text())
+    payload["online_packet_export_count"] = 0
+    payload["online_configured_export_count"] = 0
+    payload["online_packet_export_paths"] = []
+    _write(producer_state_path, json.dumps(payload) + "\n")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is False
+    failures = result["default_readonly_gate_required_evidence_check"]["failures"]
+    assert (
+        "payload_cache_producer_state_native_canary_json:"
+        "payload_cache_producer_state_native_canary_online_packet_export_count_empty"
+    ) in failures
+    assert (
+        "payload_cache_producer_state_native_canary_json:"
+        "payload_cache_producer_state_native_canary_online_configured_export_count_empty"
+    ) in failures
+    assert (
+        "payload_cache_producer_state_native_canary_json:"
+        "payload_cache_producer_state_native_canary_online_packet_export_paths_missing"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_payload_cache_producer_state_export_path_count_mismatch(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    producer_state_path = (
+        tmp_path / "reports/default_gate_payload_cache_producer_state_native_canary.json"
+    )
+    payload = json.loads(producer_state_path.read_text())
+    payload["online_packet_export_count"] = 2
+    payload["online_configured_export_count"] = 2
+    payload["online_packet_export_paths"] = [
+        "reports/premap_payload_cache_producer_state_packet.json",
+    ]
+    _write(producer_state_path, json.dumps(payload) + "\n")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is False
+    failures = result["default_readonly_gate_required_evidence_check"]["failures"]
+    assert (
+        "payload_cache_producer_state_native_canary_json:"
+        "payload_cache_producer_state_native_canary_"
+        "online_packet_export_paths_count_mismatch"
+    ) in failures
+    assert (
+        "payload_cache_producer_state_native_canary_json:"
+        "payload_cache_producer_state_native_canary_"
+        "online_configured_export_paths_count_mismatch"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_payload_cache_producer_state_packet_not_exported(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    producer_state_path = (
+        tmp_path / "reports/default_gate_payload_cache_producer_state_native_canary.json"
+    )
+    payload = json.loads(producer_state_path.read_text())
+    payload["packet_json"] = "reports/manual_packet.json"
+    payload["selected_packet_json"] = "reports/manual_packet.json"
+    _write(producer_state_path, json.dumps(payload) + "\n")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is False
+    failures = result["default_readonly_gate_required_evidence_check"]["failures"]
+    assert (
+        "payload_cache_producer_state_native_canary_json:"
+        "payload_cache_producer_state_native_canary_packet_json_not_in_online_paths"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_payload_cache_producer_state_selected_packet_mismatch(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    producer_state_path = (
+        tmp_path / "reports/default_gate_payload_cache_producer_state_native_canary.json"
+    )
+    payload = json.loads(producer_state_path.read_text())
+    payload["selected_packet_json"] = "reports/other_packet.json"
+    payload["online_packet_export_paths"] = [
+        "reports/premap_payload_cache_producer_state_packet.json",
+        "reports/other_packet.json",
+    ]
+    _write(producer_state_path, json.dumps(payload) + "\n")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is False
+    failures = result["default_readonly_gate_required_evidence_check"]["failures"]
+    assert (
+        "payload_cache_producer_state_native_canary_json:"
+        "payload_cache_producer_state_native_canary_selected_packet_json_mismatch"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_payload_cache_producer_state_selected_packet_oob(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    producer_state_path = (
+        tmp_path / "reports/default_gate_payload_cache_producer_state_native_canary.json"
+    )
+    payload = json.loads(producer_state_path.read_text())
+    payload["online_packet_export_count"] = 1
+    payload["selected_packet_index"] = 1
+    _write(producer_state_path, json.dumps(payload) + "\n")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is False
+    failures = result["default_readonly_gate_required_evidence_check"]["failures"]
+    assert (
+        "payload_cache_producer_state_native_canary_json:"
+        "payload_cache_producer_state_native_canary_selected_packet_index_out_of_range"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_payload_cache_producer_state_selected_index_path_mismatch(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    producer_state_path = (
+        tmp_path / "reports/default_gate_payload_cache_producer_state_native_canary.json"
+    )
+    payload = json.loads(producer_state_path.read_text())
+    payload["online_packet_export_count"] = 2
+    payload["online_configured_export_count"] = 2
+    payload["online_packet_export_paths"] = [
+        "reports/other_packet.json",
+        "reports/premap_payload_cache_producer_state_packet.json",
+    ]
+    payload["selected_packet_index"] = 0
+    _write(producer_state_path, json.dumps(payload) + "\n")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is False
+    failures = result["default_readonly_gate_required_evidence_check"]["failures"]
+    assert (
+        "payload_cache_producer_state_native_canary_json:"
+        "payload_cache_producer_state_native_canary_"
+        "selected_packet_index_path_mismatch"
     ) in failures
 
 
