@@ -295,6 +295,7 @@ OPTIONAL_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
     "future_kernel_native_consumer_packed_weight_mirror_canary_json",
     "future_kernel_native_consumer_scale_mirror_canary_json",
     "native_typed_consumer_stub_online_prelaunch_input_per_field_canary_json",
+    "payload_cache_producer_state_nonempty_issue_stub_json",
 }
 ARG_SLOT_MIRROR_FIELDS = tuple(PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_COLUMNS)
 ARG_SLOT_REQUIRED_MIRROR_LABEL_BY_FIELD = {
@@ -1729,6 +1730,7 @@ def _validate_required_evidence_payload(
         "future_wna16_single_field_handoff_all_fields_128strict_summary_json",
         "wna16_side_consumer_variant_execution_128strict_runner_json",
         "payload_cache_producer_state_native_canary_json",
+        "payload_cache_producer_state_nonempty_issue_stub_json",
         "future_kernel_native_arg_slot_packed_weight_mirror_canary_json",
         *ARG_SLOT_ONLINE_MERGED_MIRROR_RUNNER_LABEL_BY_FIELD.values(),
         *ARG_SLOT_ONLINE_MERGED_MIRROR_STUB_LABEL_BY_FIELD.values(),
@@ -1882,6 +1884,16 @@ def _validate_required_evidence_payload(
             f"{evidence_label}:{failure}"
             for failure in _validate_payload_cache_producer_state_native_canary_evidence(
                 evidence
+            )
+        ]
+    if evidence_label == "payload_cache_producer_state_nonempty_issue_stub_json":
+        return [
+            f"{evidence_label}:{failure}"
+            for failure in _validate_payload_cache_producer_state_native_canary_evidence(
+                evidence,
+                failure_prefix="payload_cache_producer_state_nonempty_issue_stub",
+                require_online_export=False,
+                require_nonempty_issue=True,
             )
         ]
     for (
@@ -5172,8 +5184,11 @@ def _validate_future_native_dispatch_ptr_standalone_evidence(
 
 def _validate_payload_cache_producer_state_native_canary_evidence(
     evidence: dict[str, Any],
+    *,
+    failure_prefix: str = "payload_cache_producer_state_native_canary",
+    require_online_export: bool = True,
+    require_nonempty_issue: bool = False,
 ) -> list[str]:
-    failure_prefix = "payload_cache_producer_state_native_canary"
     failures: list[str] = []
     expected_values = {
         "ok": True,
@@ -5188,10 +5203,6 @@ def _validate_payload_cache_producer_state_native_canary_evidence(
         "packet_ready": True,
         "native_stub_invoked": True,
         "native_returncode": 0,
-        "online_export_source": (
-            "runtime_shadow_premap_payload_cache_producer_state_packet_export"
-        ),
-        "online_configured_export_enabled": True,
         "payload_bytes": 0,
         "ready_credit": False,
         "passed_to_kernel": False,
@@ -5199,6 +5210,15 @@ def _validate_payload_cache_producer_state_native_canary_evidence(
         "current_wna16_arg_compatible": False,
         "error_count": 0,
     }
+    if require_online_export:
+        expected_values.update(
+            {
+                "online_export_source": (
+                    "runtime_shadow_premap_payload_cache_producer_state_packet_export"
+                ),
+                "online_configured_export_enabled": True,
+            }
+        )
     for key, expected_value in expected_values.items():
         if evidence.get(key) != expected_value:
             failures.append(f"{failure_prefix}_{key}_mismatch")
@@ -5222,12 +5242,21 @@ def _validate_payload_cache_producer_state_native_canary_evidence(
     layer_id = _int_metric(evidence, "layer_id")
     requested_layer_id = _int_metric(evidence, "requested_layer_id")
     packet_layer_id = _int_metric(evidence, "packet_layer_id")
-    online_packet_export_count = _int_metric(evidence, "online_packet_export_count")
-    online_configured_export_count = _int_metric(
-        evidence,
-        "online_configured_export_count",
+    online_packet_export_count = (
+        _int_metric(evidence, "online_packet_export_count")
+        if require_online_export
+        else None
     )
-    selected_packet_index = _int_metric(evidence, "selected_packet_index")
+    online_configured_export_count = (
+        _int_metric(evidence, "online_configured_export_count")
+        if require_online_export
+        else None
+    )
+    selected_packet_index = (
+        _int_metric(evidence, "selected_packet_index")
+        if require_online_export
+        else None
+    )
 
     for key, value in (
         ("previous_count", previous_count),
@@ -5246,25 +5275,30 @@ def _validate_payload_cache_producer_state_native_canary_evidence(
         ("layer_id", layer_id),
         ("requested_layer_id", requested_layer_id),
         ("packet_layer_id", packet_layer_id),
-        ("online_packet_export_count", online_packet_export_count),
-        ("online_configured_export_count", online_configured_export_count),
-        ("selected_packet_index", selected_packet_index),
     ):
         if value is None or value < 0:
             failures.append(f"{failure_prefix}_{key}_invalid")
-    if online_packet_export_count is not None and online_packet_export_count <= 0:
-        failures.append(f"{failure_prefix}_online_packet_export_count_empty")
-    if (
-        online_configured_export_count is not None
-        and online_configured_export_count <= 0
-    ):
-        failures.append(f"{failure_prefix}_online_configured_export_count_empty")
-    if (
-        selected_packet_index is not None
-        and online_packet_export_count is not None
-        and selected_packet_index >= online_packet_export_count
-    ):
-        failures.append(f"{failure_prefix}_selected_packet_index_out_of_range")
+    if require_online_export:
+        for key, value in (
+            ("online_packet_export_count", online_packet_export_count),
+            ("online_configured_export_count", online_configured_export_count),
+            ("selected_packet_index", selected_packet_index),
+        ):
+            if value is None or value < 0:
+                failures.append(f"{failure_prefix}_{key}_invalid")
+        if online_packet_export_count is not None and online_packet_export_count <= 0:
+            failures.append(f"{failure_prefix}_online_packet_export_count_empty")
+        if (
+            online_configured_export_count is not None
+            and online_configured_export_count <= 0
+        ):
+            failures.append(f"{failure_prefix}_online_configured_export_count_empty")
+        if (
+            selected_packet_index is not None
+            and online_packet_export_count is not None
+            and selected_packet_index >= online_packet_export_count
+        ):
+            failures.append(f"{failure_prefix}_selected_packet_index_out_of_range")
 
     if (
         previous_count is not None
@@ -5310,6 +5344,11 @@ def _validate_payload_cache_producer_state_native_canary_evidence(
         and issue_candidate_count > transition_topk_count
     ):
         failures.append(f"{failure_prefix}_issue_candidate_count_over_topk")
+    if require_nonempty_issue:
+        if previous_count is not None and previous_count <= 0:
+            failures.append(f"{failure_prefix}_previous_count_empty")
+        if issue_candidate_count is not None and issue_candidate_count <= 0:
+            failures.append(f"{failure_prefix}_issue_candidate_count_empty")
     issue_candidate_hash = _hex64_metric(evidence, "issue_candidate_hash")
     expected_issue_candidate_hash = _hex64_metric(
         evidence,
@@ -5377,49 +5416,52 @@ def _validate_payload_cache_producer_state_native_canary_evidence(
     packet_json = evidence.get("packet_json")
     if not isinstance(packet_json, str) or not packet_json:
         failures.append(f"{failure_prefix}_packet_json_missing")
-    selected_packet_json = evidence.get("selected_packet_json")
-    if not isinstance(selected_packet_json, str) or not selected_packet_json:
-        failures.append(f"{failure_prefix}_selected_packet_json_missing")
-    elif (
-        isinstance(packet_json, str)
-        and packet_json
-        and selected_packet_json != packet_json
-    ):
-        failures.append(f"{failure_prefix}_selected_packet_json_mismatch")
-    online_paths = evidence.get("online_packet_export_paths")
-    if not isinstance(online_paths, list) or not online_paths:
-        failures.append(f"{failure_prefix}_online_packet_export_paths_missing")
-    else:
-        online_path_strings = {str(path) for path in online_paths}
-        if (
-            online_packet_export_count is not None
-            and online_packet_export_count != len(online_paths)
-        ):
-            failures.append(f"{failure_prefix}_online_packet_export_paths_count_mismatch")
-        if (
-            online_configured_export_count is not None
-            and online_configured_export_count != len(online_paths)
-        ):
-            failures.append(
-                f"{failure_prefix}_online_configured_export_paths_count_mismatch"
-            )
-        if (
-            selected_packet_index is not None
-            and selected_packet_index >= len(online_paths)
-        ):
-            failures.append(
-                f"{failure_prefix}_selected_packet_index_paths_out_of_range"
-            )
+    if require_online_export:
+        selected_packet_json = evidence.get("selected_packet_json")
+        if not isinstance(selected_packet_json, str) or not selected_packet_json:
+            failures.append(f"{failure_prefix}_selected_packet_json_missing")
         elif (
             isinstance(packet_json, str)
             and packet_json
-            and selected_packet_index is not None
-            and selected_packet_index >= 0
-            and str(online_paths[selected_packet_index]) != packet_json
+            and selected_packet_json != packet_json
         ):
-            failures.append(f"{failure_prefix}_selected_packet_index_path_mismatch")
-        if isinstance(packet_json, str) and packet_json not in online_path_strings:
-            failures.append(f"{failure_prefix}_packet_json_not_in_online_paths")
+            failures.append(f"{failure_prefix}_selected_packet_json_mismatch")
+        online_paths = evidence.get("online_packet_export_paths")
+        if not isinstance(online_paths, list) or not online_paths:
+            failures.append(f"{failure_prefix}_online_packet_export_paths_missing")
+        else:
+            online_path_strings = {str(path) for path in online_paths}
+            if (
+                online_packet_export_count is not None
+                and online_packet_export_count != len(online_paths)
+            ):
+                failures.append(
+                    f"{failure_prefix}_online_packet_export_paths_count_mismatch"
+                )
+            if (
+                online_configured_export_count is not None
+                and online_configured_export_count != len(online_paths)
+            ):
+                failures.append(
+                    f"{failure_prefix}_online_configured_export_paths_count_mismatch"
+                )
+            if (
+                selected_packet_index is not None
+                and selected_packet_index >= len(online_paths)
+            ):
+                failures.append(
+                    f"{failure_prefix}_selected_packet_index_paths_out_of_range"
+                )
+            elif (
+                isinstance(packet_json, str)
+                and packet_json
+                and selected_packet_index is not None
+                and selected_packet_index >= 0
+                and str(online_paths[selected_packet_index]) != packet_json
+            ):
+                failures.append(f"{failure_prefix}_selected_packet_index_path_mismatch")
+            if isinstance(packet_json, str) and packet_json not in online_path_strings:
+                failures.append(f"{failure_prefix}_packet_json_not_in_online_paths")
     return failures
 
 

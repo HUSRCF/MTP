@@ -2,8 +2,22 @@
 
 ## Progress Version
 
-- Version: `v0.82-online-producer-state-packet-canary`
+- Version: `v0.83-nonempty-producer-state-issue-evidence`
 - Updated: 2026-06-14
+- Latest nonempty producer-state issue evidence: the lab preflight now knows an
+  optional `payload_cache_producer_state_nonempty_issue_stub_json` evidence
+  label.  It reuses the readonly native producer-state canary checks but does
+  not require a `performance_summary.json` online-export wrapper, and it
+  additionally requires `previous_count > 0` and `issue_candidate_count > 0`.
+  The current optional artifact is generated from the existing Dolly128/gen64
+  packet-export audit, packet 0001, and reports `previous_count=8`,
+  `issue_candidate_count=8`, and matching native/Python issue hashes
+  `f3f1208c1026d557`.  This strengthens the native issue-prefix evidence beyond
+  the default empty-prefix smoke while keeping it diagnostic/optional: the
+  required lab gate still uses the real online provenance canary below, and the
+  safety boundary remains unchanged (`payload_bytes=0`, `ready_credit=false`,
+  `passed_to_kernel=false`, `changes_kernel_launch_args=false`, and current
+  WNA16 arg compatibility remains false).
 - Latest producer-state native issue gate: the readonly native producer-state
   stub now computes a deterministic `issue_candidate_hash` over the native
   previous-expert issue prefix (`topk == 0` means uncapped; otherwise

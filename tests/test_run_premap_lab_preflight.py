@@ -19,6 +19,9 @@ from mtp_expert_prefetch.runtime.cache_manager import (
 )
 from scripts.run_premap_lab_preflight import main, run_premap_lab_preflight
 from scripts.run_premap_lab_preflight import _program_iteration_hash
+from scripts.run_premap_lab_preflight import (
+    _validate_payload_cache_producer_state_native_canary_evidence,
+)
 from scripts.check_premap_kernel_consumer_schema import (
     FUTURE_KERNEL_CONSUMER_ARGS_LAYOUT_EXPECTED,
     FUTURE_KERNEL_CONSUMER_ARGS_LAYOUT_FIELDS,
@@ -2331,6 +2334,21 @@ def _payload_cache_producer_state_native_canary_payload() -> dict[str, object]:
     }
 
 
+def _payload_cache_producer_state_nonempty_issue_stub_payload() -> dict[str, object]:
+    payload = dict(_payload_cache_producer_state_native_canary_payload())
+    for key in (
+        "online_configured_export_count",
+        "online_configured_export_enabled",
+        "online_export_source",
+        "online_packet_export_count",
+        "online_packet_export_paths",
+        "selected_packet_index",
+        "selected_packet_json",
+    ):
+        payload.pop(key, None)
+    return payload
+
+
 def _kernel_launch_context_metrics(
     *,
     prefix: str,
@@ -3635,6 +3653,9 @@ def _write_gate(
     payload_cache_producer_state_native_canary_path = (
         f"reports/{name}_payload_cache_producer_state_native_canary.json"
     )
+    payload_cache_producer_state_nonempty_issue_stub_path = (
+        f"reports/{name}_payload_cache_producer_state_nonempty_issue_stub.json"
+    )
     standalone_wna16_adjacent_typed_slot_canary_path = (
         f"reports/{name}_future_native_wna16_adjacent_typed_slot_standalone_canary.json"
     )
@@ -4138,6 +4159,11 @@ def _write_gate(
             root / payload_cache_producer_state_native_canary_path,
             json.dumps(_payload_cache_producer_state_native_canary_payload()) + "\n",
         )
+        _write(
+            root / payload_cache_producer_state_nonempty_issue_stub_path,
+            json.dumps(_payload_cache_producer_state_nonempty_issue_stub_payload())
+            + "\n",
+        )
         for mirror_field, runner_path in (
             ("descriptor_ptr", online_merged_arg_slot_descriptor_ptr_runner_path),
             (
@@ -4510,6 +4536,8 @@ def _write_gate(
             f"{future_kernel_native_consumer_scale_canary_path}\n"
             "  native_typed_consumer_stub_online_prelaunch_input_per_field_canary_json: "
             f"{native_online_per_field_stub_path}\n"
+            "  payload_cache_producer_state_nonempty_issue_stub_json: "
+            f"{payload_cache_producer_state_nonempty_issue_stub_path}\n"
             if include_lab_evidence
             else ""
         ),
@@ -5826,9 +5854,9 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert summary["required_evidence"]["required_count"] == 41
     assert summary["required_evidence"]["present_count"] == 41
     assert summary["required_evidence"]["passed_count"] == 41
-    assert summary["optional_evidence"]["required_count"] == 13
-    assert summary["optional_evidence"]["present_count"] == 13
-    assert summary["optional_evidence"]["passed_count"] == 13
+    assert summary["optional_evidence"]["required_count"] == 14
+    assert summary["optional_evidence"]["present_count"] == 14
+    assert summary["optional_evidence"]["passed_count"] == 14
     assert (
         summary["required_evidence"]["evidence"][
             "future_kernel_native_arg_slot_multiprogram_canary_json"
@@ -5838,6 +5866,12 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert (
         summary["optional_evidence"]["evidence"][
             "native_typed_consumer_stub_online_prelaunch_input_per_field_canary_json"
+        ]["passed"]
+        is True
+    )
+    assert (
+        summary["optional_evidence"]["evidence"][
+            "payload_cache_producer_state_nonempty_issue_stub_json"
         ]["passed"]
         is True
     )
@@ -10353,6 +10387,41 @@ def test_premap_lab_preflight_rejects_payload_cache_producer_state_issue_hash_mi
     ) in failures
 
 
+def test_premap_lab_preflight_accepts_payload_cache_producer_state_nonempty_issue_stub():
+    failures = _validate_payload_cache_producer_state_native_canary_evidence(
+        _payload_cache_producer_state_nonempty_issue_stub_payload(),
+        failure_prefix="payload_cache_producer_state_nonempty_issue_stub",
+        require_online_export=False,
+        require_nonempty_issue=True,
+    )
+
+    assert failures == []
+
+
+def test_premap_lab_preflight_rejects_payload_cache_producer_state_empty_issue_stub():
+    payload = _payload_cache_producer_state_nonempty_issue_stub_payload()
+    payload["previous_count"] = 0
+    payload["previous_valid_count"] = 0
+    payload["previous_nonempty"] = 0
+    payload["issue_candidate_count"] = 0
+
+    failures = _validate_payload_cache_producer_state_native_canary_evidence(
+        payload,
+        failure_prefix="payload_cache_producer_state_nonempty_issue_stub",
+        require_online_export=False,
+        require_nonempty_issue=True,
+    )
+
+    assert (
+        "payload_cache_producer_state_nonempty_issue_stub_previous_count_empty"
+        in failures
+    )
+    assert (
+        "payload_cache_producer_state_nonempty_issue_stub_issue_candidate_count_empty"
+        in failures
+    )
+
+
 def test_premap_lab_preflight_rejects_payload_cache_producer_state_disabled_online_export(
     tmp_path: Path,
 ):
@@ -11031,7 +11100,7 @@ def test_premap_lab_preflight_can_defer_self_referential_runner_evidence(
     assert summary["required_evidence"]["required_count"] == 41
     assert summary["required_evidence"]["present_count"] == 39
     assert summary["required_evidence"]["passed_count"] == 39
-    assert summary["optional_evidence"]["passed_count"] == 13
+    assert summary["optional_evidence"]["passed_count"] == 14
     for label in (
         "future_kernel_args_compatible_path_16_128export_artifact_check_json",
         "future_kernel_args_field_refresh_16_128export_artifact_check_json",
@@ -11643,7 +11712,7 @@ def test_premap_lab_preflight_cli_summary_only_writes_status_block(tmp_path: Pat
     assert result["passed"] is True
     assert result["default_readonly_gate_path"] == default_gate
     assert result["required_evidence"]["passed_count"] == 41
-    assert result["optional_evidence"]["passed_count"] == 13
+    assert result["optional_evidence"]["passed_count"] == 14
     assert "lab_gate_status_summary" not in result
 
 
