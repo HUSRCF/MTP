@@ -93,6 +93,51 @@ def _select_nonempty_issue_packet(paths: list[Path]) -> tuple[int, Path] | None:
     return None
 
 
+def _select_nonempty_issue_packet_from_summary(
+    performance: dict[str, Any],
+    *,
+    paths: list[Path],
+    base_dir: Path,
+) -> tuple[int, Path] | None:
+    prefix = "runtime_shadow_premap_payload_cache_producer_state_packet_export_"
+    if f"{prefix}nonempty_issue_count" not in performance:
+        return None
+    try:
+        nonempty_count = int(performance.get(f"{prefix}nonempty_issue_count") or 0)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("producer-state nonempty issue summary count is invalid") from exc
+    try:
+        scan_error_count = int(performance.get(f"{prefix}scan_error_count") or 0)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("producer-state packet export scan error count is invalid") from exc
+    if scan_error_count > 0:
+        raise ValueError(
+            "producer-state packet export scan had errors; nonempty issue "
+            "summary is incomplete"
+        )
+    if nonempty_count <= 0:
+        return None
+    try:
+        selected_index = int(
+            performance.get(f"{prefix}first_nonempty_issue_index")
+        )
+    except (TypeError, ValueError) as exc:
+        raise ValueError("producer-state first nonempty issue index is invalid") from exc
+    if selected_index < 0:
+        raise ValueError("producer-state first nonempty issue index is negative")
+    selected_path = _resolve_path(
+        performance.get(f"{prefix}first_nonempty_issue_path"),
+        base_dir=base_dir,
+    )
+    if selected_path is None:
+        raise ValueError("producer-state first nonempty issue path is missing")
+    if selected_index < len(paths) and paths[selected_index] == selected_path:
+        return selected_index, selected_path
+    if selected_path in paths:
+        return paths.index(selected_path), selected_path
+    raise ValueError("producer-state first nonempty issue path is not exported")
+
+
 def select_packet_json(
     *,
     performance_summary: Path | None,
@@ -143,7 +188,18 @@ def select_packet_json(
             "performance summary does not contain producer-state packet export paths"
         )
     if prefer_nonempty_issue or require_nonempty_issue:
-        selected = _select_nonempty_issue_packet(paths)
+        selected = _select_nonempty_issue_packet_from_summary(
+            performance,
+            paths=paths,
+            base_dir=performance_summary.parent,
+        )
+        selection_mode = "summary_first_nonempty_issue"
+        if selected is None and (
+            "runtime_shadow_premap_payload_cache_producer_state_packet_export_nonempty_issue_count"
+            not in performance
+        ):
+            selected = _select_nonempty_issue_packet(paths)
+            selection_mode = "first_nonempty_issue"
         if selected is not None:
             selected_index, selected_path = selected
             return (
@@ -151,7 +207,7 @@ def select_packet_json(
                 performance,
                 paths,
                 selected_index,
-                "first_nonempty_issue",
+                selection_mode,
             )
         if require_nonempty_issue:
             raise ValueError(
