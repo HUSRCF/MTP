@@ -7,7 +7,7 @@ boundary: >
 
 full_fetch:
   default_enabled: false
-  ready_time_gate_report: outputs/reports/prefetch_cache_manager/measured_ready_time_gate_gpu1_dolly8_gen4.json
+  ready_time_gate_report: outputs/reports/prefetch_cache_manager/measured_ready_time_gate_gpu1_dolly32_gen64_production_batch_producer_v089.json
 
 metadata:
   default_enabled: false
@@ -22,6 +22,6 @@ premap:
   min_capacity_entries: 12288
 
 evidence_paths:
-  full_fetch_ready_time_gate_report: outputs/reports/prefetch_cache_manager/measured_ready_time_gate_gpu1_dolly8_gen4.json
+  full_fetch_ready_time_gate_report: outputs/reports/prefetch_cache_manager/measured_ready_time_gate_gpu1_dolly32_gen64_production_batch_producer_v089.json
   metadata_premap_gate_summary: outputs/reports/prefetch_action_replay/metadata_premap_gate_summary.json
   premap_capacity_gate: configs/runtime/premap_address_capacity_gate_dolly128_gen64_awq_w7900_gpu1.yaml

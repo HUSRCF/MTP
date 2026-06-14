@@ -1,6 +1,8 @@
 schema_version: 1
-gate_id: premap_payload_cache_ready_time_gpu1_measured_copy_dolly8_gen4_block
-boundary: ready-time payload-cache accounting only; not endpoint TPOT
+gate_id: premap_payload_cache_ready_time_gpu1_measured_copy_dolly32_gen64_production_batch_block
+boundary: >
+  ready-time payload-cache accounting only; not endpoint TPOT and not a real
+  payload-transfer runtime claim
 decision: block_full_fetch
 
 checker:
@@ -8,6 +10,7 @@ checker:
   expect: block
   min_demand_hit_rate: 0.10
   max_ready_late_miss_rate: 0.20
+  min_used_per_issued_fetch: 0.10
   require_measured_copy: true
 
 measured_copy:
@@ -20,5 +23,7 @@ measured_copy:
 
 evidence_paths:
   measured_copy_envelope: configs/runtime/premap_payload_cache_gpu1_h2d_smoke_measured_copy.json
-  online_performance_summary: data/traces/external_prompt_gate_dolly_8_awq_vllm_gpu1_decode_gen4_premap_payload_cache_measured_ready_time_smoke/performance_summary.json
-  checker_report: outputs/reports/prefetch_cache_manager/measured_ready_time_gate_gpu1_dolly8_gen4.json
+  online_performance_summary: outputs/reports/awq_telemetry_ladder/gpu1_payload_cache_ready_time_v088_smoke32_gen64/production_batch_premap_payload_cache_ready_time_producer_counter_off_reuse_llm/repeat_00/performance_summary.json
+  checker_report: outputs/reports/prefetch_cache_manager/measured_ready_time_gate_gpu1_dolly32_gen64_production_batch_producer_v089.json
+  supporting_consumer_checker_report: outputs/reports/awq_telemetry_ladder/gpu1_payload_cache_ready_time_v088_smoke32_gen64/production_batch_premap_payload_cache_ready_time_counter_off_reuse_llm/repeat_00/ready_time_gate_check.json
+  telemetry_ladder_summary: outputs/reports/awq_telemetry_ladder/gpu1_payload_cache_ready_time_v088_smoke32_gen64/summary.md
