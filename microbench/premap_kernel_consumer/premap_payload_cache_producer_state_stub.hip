@@ -170,6 +170,11 @@ static std::vector<int32_t> parse_expert_csv(const char* raw, const char* name) 
     }
     values.push_back(static_cast<int32_t>(value));
   }
+  constexpr size_t kMaxCsvCount = 65536UL;
+  if (values.size() > kMaxCsvCount) {
+    std::cerr << name << " exceeds the native canary safety bound\n";
+    std::exit(2);
+  }
   return values;
 }
 

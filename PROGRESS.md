@@ -34255,6 +34255,7 @@ output:
     premap_payload_cache_producer_state_native_canary_20260614_final.json
     premap_payload_cache_producer_state_packet_20260614.json
     premap_payload_cache_producer_state_native_canary_packet_json_20260614.json
+    premap_payload_cache_producer_state_native_canary_packet_json_20260614_hardened.json
 
 result:
   passed = true

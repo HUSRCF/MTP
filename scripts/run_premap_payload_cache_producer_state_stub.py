@@ -135,6 +135,16 @@ def _load_packet_json(path: Path) -> PremapPayloadCacheProducerTransitionStatePa
     return packet
 
 
+def _packet_json_error_payload(path: Path, exc: Exception) -> dict[str, Any]:
+    return {
+        "ok": False,
+        "passed": False,
+        "failures": ["packet_json_error"],
+        "packet_json": str(path),
+        "packet_json_error": str(exc),
+    }
+
+
 def build(*, offload_arch: str, force: bool) -> Path:
     BUILD_DIR.mkdir(parents=True, exist_ok=True)
     binary = BUILD_DIR / f"premap_payload_cache_producer_state_stub_{_build_key(offload_arch)}"
@@ -152,7 +162,16 @@ def build(*, offload_arch: str, force: bool) -> Path:
 def run_stub(args: argparse.Namespace) -> dict[str, Any]:
     binary = build(offload_arch=args.offload_arch, force=args.force_build)
     packet_json = getattr(args, "packet_json", None)
-    packet = _load_packet_json(packet_json) if packet_json is not None else None
+    try:
+        packet = _load_packet_json(packet_json) if packet_json is not None else None
+    except (OSError, ValueError, TypeError, json.JSONDecodeError) as exc:
+        payload = _packet_json_error_payload(packet_json, exc)
+        payload["native_returncode"] = None
+        payload["binary"] = str(binary)
+        payload["source"] = str(SRC)
+        payload["abi_header"] = str(ABI_HEADER)
+        payload["offload_arch"] = str(args.offload_arch)
+        return payload
     previous_experts: tuple[int, ...] | None = None
     current_experts: tuple[int, ...] | None = None
     if packet is None:
@@ -206,6 +225,7 @@ def run_stub(args: argparse.Namespace) -> dict[str, Any]:
             "passed": False,
             "failures": ["native_json_root_type_error"],
             "native_json_root_type": type(payload).__name__,
+            "native_stdout": result.stdout,
         }
     payload["native_returncode"] = int(result.returncode)
     payload["binary"] = str(binary)

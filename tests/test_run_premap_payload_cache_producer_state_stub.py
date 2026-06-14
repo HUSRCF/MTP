@@ -53,6 +53,7 @@ def test_payload_cache_producer_state_stub_preserves_readonly_contract():
     assert "kPremapPayloadCacheProducerTransitionStateAbiV1CurrentWna16ArgCompatible" in source
     assert "parse_bounded_u32" in source
     assert "kMaxCount = 65536UL" in source
+    assert "kMaxCsvCount = 65536UL" in source
     assert '\\"payload_bytes\\":0' in source
     assert '\\"ready_credit\\":false' in source
     assert '\\"passed_to_kernel\\":false' in source
@@ -139,6 +140,7 @@ def test_payload_cache_producer_state_stub_returns_structured_root_type_failure(
     assert payload["native_returncode"] == 0
     assert payload["failures"] == ["native_json_root_type_error"]
     assert payload["native_json_root_type"] == "list"
+    assert payload["native_stdout"] == "[1, 2, 3]"
 
 
 def test_payload_cache_producer_state_stub_accepts_semantic_packet_json(
@@ -192,3 +194,33 @@ def test_payload_cache_producer_state_stub_accepts_semantic_packet_json(
     assert "2,7" in captured["cmd"]
     assert "--current-experts" in captured["cmd"]
     assert "2,4" in captured["cmd"]
+
+
+def test_payload_cache_producer_state_stub_returns_structured_packet_json_failure(
+    monkeypatch,
+    tmp_path: Path,
+):
+    module = _load_module()
+    packet_json = tmp_path / "bad_packet.json"
+    packet_json.write_text('{"ready": false}', encoding="utf-8")
+
+    monkeypatch.setattr(module, "build", lambda **_: tmp_path / "stub")
+    payload = module.run_stub(
+        argparse.Namespace(
+            device=0,
+            previous_count=1,
+            current_count=1,
+            transition_topk_count=1,
+            current_offset=0,
+            packet_json=packet_json,
+            offload_arch="gfx1100",
+            force_build=False,
+            hip_visible_devices=None,
+        )
+    )
+
+    assert payload["ok"] is False
+    assert payload["passed"] is False
+    assert payload["native_returncode"] is None
+    assert payload["failures"] == ["packet_json_error"]
+    assert payload["packet_json"] == str(packet_json)
