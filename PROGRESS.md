@@ -34153,3 +34153,50 @@ runtime path must move transition state and payload/cache-manager issue logic
 down into a producer/native adapter or graph-compatible consumer boundary.  The
 graph-warmup baseline remains the correct benchmark posture; eager payload-cache
 numbers are attribution evidence only, not performance claims.
+
+Producer-owner transition-state diagnostic:
+
+```text
+code:
+  premap_payload_cache_transition_state_owner = producer
+
+outputs:
+  graph:
+    outputs/reports/awq_telemetry_ladder/
+      gpu1_graph_warmup_payload_cache_producer_probe8_gen4_20260614_owner_test/
+  eager:
+    outputs/reports/awq_telemetry_ladder/
+      gpu1_eager_payload_cache_producer_probe8_gen4_20260614_owner_test/
+
+graph_warmup producer owner:
+  TPOT = 0.01344s
+  transition_state_owner = producer
+  transition_producer_update_count = 40
+  transition_consumer_update_count = 0
+  transition_issue_attempt_count = 40
+  transition_issue_previous_nonempty_count = 0
+  transition_issue_descriptor_count = 0
+  issued_fetch_count = 0
+  demand_hit_rate = 0.0
+
+eager producer owner:
+  TPOT = 0.03055s
+  transition_state_owner = producer
+  transition_producer_update_count = 160
+  transition_consumer_update_count = 0
+  transition_issue_attempt_count = 160
+  transition_issue_previous_nonempty_count = 120
+  transition_issue_descriptor_count = 960
+  issued_fetch_count = 26
+  demand_hit_rate = 0.3380
+```
+
+This verifies that transition state / issue / demand accounting can be moved
+from the prelaunch consumer hook into the producer assignment boundary without
+changing payload residency, ready credit, descriptor order, or kernel
+arguments.  It also confirms the remaining graph-warmup limitation: the Python
+producer boundary is still one-shot per layer under graph capture, so it cannot
+maintain previous-token transition state.  The next useful prefetch path must
+move this state into a native/producer adapter or an inside-graph execution
+boundary; the current producer-owner mode is a diagnostic gate, not a TPOT
+speedup claim.

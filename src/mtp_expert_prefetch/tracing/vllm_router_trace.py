@@ -2013,6 +2013,15 @@ def _add_premap_payload_cache_manager_snapshot_to_performance(
     performance[f"{prefix}transition_issue_last_error"] = (
         recorder._premap_payload_cache_transition_issue_last_error
     )
+    performance[f"{prefix}transition_state_owner"] = str(
+        recorder.shadow_premap_payload_cache_transition_state_owner
+    )
+    performance[f"{prefix}transition_consumer_update_count"] = int(
+        recorder._premap_payload_cache_transition_consumer_update_count
+    )
+    performance[f"{prefix}transition_producer_update_count"] = int(
+        recorder._premap_payload_cache_transition_producer_update_count
+    )
     ready_time_fields = (
         "ready_late_miss_count",
         "late_completion_unused_count",
@@ -2648,6 +2657,7 @@ class VllmRouterRecorder:
         "previous_token_transition_premap_shadow",
     )
     shadow_premap_payload_cache_transition_issue_strict: bool = False
+    shadow_premap_payload_cache_transition_state_owner: str = "consumer"
     shadow_premap_payload_cache_manager_mode: str = "resident"
     shadow_premap_payload_cache_manager_service_us_per_issue: float = 0.0
     shadow_premap_payload_cache_manager_service_us_per_batch: float = 0.0
@@ -2796,6 +2806,16 @@ class VllmRouterRecorder:
         init=False,
         repr=False,
     )
+    _premap_payload_cache_transition_consumer_update_count: int = field(
+        default=0,
+        init=False,
+        repr=False,
+    )
+    _premap_payload_cache_transition_producer_update_count: int = field(
+        default=0,
+        init=False,
+        repr=False,
+    )
     shadow_descriptor_order_device: int | None = None
     shadow_descriptor_order_runtime_gate: DescriptorOrderRuntimeGate | None = None
     shadow_descriptor_order_evidence: (
@@ -2911,6 +2931,27 @@ class VllmRouterRecorder:
     def __post_init__(self) -> None:
         if self.shadow_capture_router_topk is None:
             self.shadow_capture_router_topk = bool(self.shadow_record_router_topk)
+        owner = str(
+            self.shadow_premap_payload_cache_transition_state_owner or "consumer"
+        ).strip().lower()
+        allowed_owners = {
+            "all",
+            "both",
+            "consumer",
+            "native",
+            "prelaunch_consumer",
+            "producer",
+            "producer_native",
+            "producer_native_adapter",
+        }
+        if owner not in allowed_owners:
+            msg = (
+                "shadow_premap_payload_cache_transition_state_owner must be one of "
+                f"{sorted(allowed_owners)}, got "
+                f"{self.shadow_premap_payload_cache_transition_state_owner!r}."
+            )
+            raise ValueError(msg)
+        self.shadow_premap_payload_cache_transition_state_owner = owner
 
     def clear(self) -> None:
         self.calls.clear()
@@ -2930,6 +2971,8 @@ class VllmRouterRecorder:
         self._premap_payload_cache_transition_issue_descriptor_count = 0
         self._premap_payload_cache_transition_issue_error_count = 0
         self._premap_payload_cache_transition_issue_last_error = None
+        self._premap_payload_cache_transition_consumer_update_count = 0
+        self._premap_payload_cache_transition_producer_update_count = 0
 
     def _maybe_export_native_typed_consumer_input(
         self,
@@ -3930,6 +3973,69 @@ class VllmRouterRecorder:
             return False
         return str(source or "") in allowed
 
+    def _premap_payload_cache_transition_state_owner_allows(
+        self,
+        owner: str,
+    ) -> bool:
+        mode = str(
+            self.shadow_premap_payload_cache_transition_state_owner or "consumer"
+        ).strip().lower()
+        normalized_owner = str(owner or "").strip().lower()
+        if mode in {"all", "both"}:
+            return normalized_owner in {"consumer", "producer"}
+        if normalized_owner == "consumer":
+            return mode in {"consumer", "prelaunch_consumer"}
+        if normalized_owner == "producer":
+            return mode in {
+                "producer",
+                "native",
+                "producer_native",
+                "producer_native_adapter",
+            }
+        return False
+
+    def _apply_premap_payload_cache_transition_and_demand(
+        self,
+        *,
+        layer_id: int,
+        active_experts: Iterable[int],
+        owner: str,
+    ) -> CacheManagerSnapshot | None:
+        if not bool(self.shadow_emit_premap_payload_cache_manager_counters):
+            return None
+        if not self._premap_payload_cache_transition_state_owner_allows(owner):
+            return None
+        normalized_owner = str(owner or "").strip().lower()
+        if normalized_owner == "producer":
+            self._premap_payload_cache_transition_producer_update_count += 1
+        elif normalized_owner == "consumer":
+            self._premap_payload_cache_transition_consumer_update_count += 1
+        valid_experts = sorted(
+            {
+                int(expert_id)
+                for expert_id in active_experts
+                if 0 <= int(expert_id) < int(self.shadow_num_experts)
+            }
+        )
+        previous_experts = self._premap_payload_cache_last_active_experts_by_layer.get(
+            int(layer_id),
+            (),
+        )
+        snapshot = self._issue_premap_payload_cache_from_prelaunch_observed_transition(
+            layer_id=int(layer_id),
+            previous_experts=previous_experts,
+        )
+        demand_snapshot = self._demand_premap_payload_cache_from_experts(
+            layer_id=int(layer_id),
+            expert_ids=valid_experts,
+        )
+        if demand_snapshot is not None:
+            snapshot = demand_snapshot
+        self._premap_payload_cache_last_active_experts_by_layer[int(layer_id)] = tuple(
+            int(value) for value in valid_experts
+        )
+        return snapshot
+
     def _issue_premap_payload_cache_from_descriptors(
         self,
         descriptors: list[ExpertPrefetchDescriptor],
@@ -4853,23 +4959,11 @@ class VllmRouterRecorder:
                 if 0 <= int(expert_id) < int(self.shadow_num_experts)
             }
         )
-        if payload_cache_wanted:
-            previous_experts = self._premap_payload_cache_last_active_experts_by_layer.get(
-                int(layer_id),
-                (),
-            )
-            self._issue_premap_payload_cache_from_prelaunch_observed_transition(
-                layer_id=int(layer_id),
-                previous_experts=previous_experts,
-            )
-        payload_cache_snapshot = self._demand_premap_payload_cache_from_experts(
+        payload_cache_snapshot = self._apply_premap_payload_cache_transition_and_demand(
             layer_id=int(layer_id),
-            expert_ids=valid_experts,
+            active_experts=valid_experts,
+            owner="consumer",
         )
-        if payload_cache_wanted:
-            self._premap_payload_cache_last_active_experts_by_layer[int(layer_id)] = (
-                tuple(int(value) for value in valid_experts)
-            )
         if not mapping_wanted:
             if write_event and sink is not None:
                 if not hasattr(sink, "write_premap_payload_cache_manager"):
@@ -9015,6 +9109,42 @@ class VllmRouterRecorder:
             expert_ids=expert_ids,
             num_tokens_post_padded=num_tokens_post_padded,
         )
+        if (
+            wants_premap_payload_cache
+            and self._premap_payload_cache_transition_state_owner_allows("producer")
+        ):
+            producer_active_experts: list[int] = []
+            producer_handle_extracted = False
+            try:
+                if available:
+                    padded_count_for_payload = int(
+                        num_tokens_post_padded.detach().cpu().view(-1)[0].item()
+                    )
+                    block_count_for_payload = min(
+                        int(expert_ids.numel()),
+                        max(
+                            0,
+                            (padded_count_for_payload + block_size - 1)
+                            // block_size,
+                        ),
+                    )
+                    producer_active_experts = (
+                        expert_ids[:block_count_for_payload]
+                        .detach()
+                        .cpu()
+                        .to(torch.long)
+                        .tolist()
+                    )
+                    producer_handle_extracted = True
+            except Exception:
+                producer_active_experts = []
+                producer_handle_extracted = False
+            if producer_handle_extracted:
+                self._apply_premap_payload_cache_transition_and_demand(
+                    layer_id=int(layer_id),
+                    active_experts=producer_active_experts,
+                    owner="producer",
+                )
         sink = self.shadow_outcome_sink
         if not wants_descriptor_handle and not wants_premap_runtime_consumer:
             return sorted_token_ids, expert_ids, num_tokens_post_padded
@@ -19245,6 +19375,12 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                     False,
                 )
             ),
+            shadow_premap_payload_cache_transition_state_owner=str(
+                runtime_shadow_options.get(
+                    "premap_payload_cache_transition_state_owner",
+                    "consumer",
+                )
+            ),
             shadow_emit_premap_consumer_mapping=bool(
                 runtime_shadow_options.get("emit_premap_consumer_mapping", False)
             ),
@@ -20041,6 +20177,12 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                 False,
             )
         ),
+        "runtime_shadow_premap_payload_cache_transition_state_owner": str(
+            runtime_shadow_options.get(
+                "premap_payload_cache_transition_state_owner",
+                "consumer",
+            )
+        ),
         "runtime_shadow_premap_summary_sample_period": int(
             runtime_shadow_options.get(
                 "premap_summary_sample_period",
@@ -20698,6 +20840,12 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                                 runtime_shadow_options.get(
                                     "premap_payload_cache_transition_issue_strict",
                                     False,
+                                )
+                            ),
+                            shadow_premap_payload_cache_transition_state_owner=str(
+                                runtime_shadow_options.get(
+                                    "premap_payload_cache_transition_state_owner",
+                                    "consumer",
                                 )
                             ),
                             shadow_premap_summary_sample_period=max(

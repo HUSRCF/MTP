@@ -428,6 +428,161 @@ def test_premap_payload_cache_prelaunch_observed_transition_issues_before_next_d
     assert recorder._premap_payload_cache_transition_issue_descriptor_count == 1
     assert recorder._premap_payload_cache_transition_issue_error_count == 0
     assert recorder._premap_payload_cache_transition_issue_last_error is None
+    assert recorder._premap_payload_cache_transition_consumer_update_count == 2
+    assert recorder._premap_payload_cache_transition_producer_update_count == 0
+
+
+def test_premap_payload_cache_producer_transition_owner_issues_before_next_demand():
+    transition = torch.zeros((1, 1, 4, 4), dtype=torch.float32)
+    transition[0, 0, 1, 2] = 1.0
+    recorder = VllmRouterRecorder(
+        top_k=2,
+        shadow_outcome_sink=None,
+        shadow_num_experts=4,
+        shadow_emit_premap_payload_cache_manager_counters=True,
+        shadow_premap_payload_cache_manager_capacity=4,
+        shadow_premap_payload_cache_manager_issue_sources=(
+            "prelaunch_observed_transition_premap_shadow",
+        ),
+        shadow_premap_payload_cache_transition_state_owner="producer",
+        shadow_transition_premap_source=(
+            "prelaunch_observed_transition_premap_shadow"
+        ),
+        shadow_transition_summary_mode="matrix_topk",
+        shadow_transition_topk_count=1,
+        shadow_transition_matrix=transition,
+    )
+
+    recorder.maybe_reorder_prepared_expert_assignment(
+        layer_id=0,
+        sorted_token_ids=torch.tensor([0], dtype=torch.long),
+        expert_ids=torch.tensor([1], dtype=torch.long),
+        num_tokens_post_padded=torch.tensor([1], dtype=torch.long),
+        block_size=1,
+    )
+    manager = recorder._ensure_premap_payload_cache_manager()
+    assert manager is not None
+    first = manager.snapshot()
+    assert first.issued_fetch_count == 0
+    assert first.demand_count == 1
+    assert first.demand_hit_count == 0
+
+    recorder.maybe_reorder_prepared_expert_assignment(
+        layer_id=0,
+        sorted_token_ids=torch.tensor([0], dtype=torch.long),
+        expert_ids=torch.tensor([2], dtype=torch.long),
+        num_tokens_post_padded=torch.tensor([1], dtype=torch.long),
+        block_size=1,
+    )
+    second = manager.snapshot()
+    assert second.issued_fetch_count == 1
+    assert second.demand_count == 2
+    assert second.demand_hit_count == 1
+    assert second.used_fetch_count == 1
+    assert recorder._premap_payload_cache_transition_issue_attempt_count == 2
+    assert recorder._premap_payload_cache_transition_issue_previous_nonempty_count == 1
+    assert recorder._premap_payload_cache_transition_issue_descriptor_count == 1
+    assert recorder._premap_payload_cache_transition_issue_error_count == 0
+    assert recorder._premap_payload_cache_transition_consumer_update_count == 0
+    assert recorder._premap_payload_cache_transition_producer_update_count == 2
+
+
+def test_premap_payload_cache_producer_transition_owner_skips_consumer_updates():
+    transition = torch.zeros((1, 1, 4, 4), dtype=torch.float32)
+    transition[0, 0, 1, 2] = 1.0
+    recorder = VllmRouterRecorder(
+        top_k=2,
+        shadow_outcome_sink=None,
+        shadow_num_experts=4,
+        shadow_emit_premap_payload_cache_manager_counters=True,
+        shadow_premap_payload_cache_manager_capacity=4,
+        shadow_premap_payload_cache_manager_issue_sources=(
+            "prelaunch_observed_transition_premap_shadow",
+        ),
+        shadow_premap_payload_cache_transition_state_owner="producer",
+        shadow_transition_premap_source=(
+            "prelaunch_observed_transition_premap_shadow"
+        ),
+        shadow_transition_summary_mode="matrix_topk",
+        shadow_transition_topk_count=1,
+        shadow_transition_matrix=transition,
+    )
+
+    recorder._write_premap_consumer_mapping_from_experts(
+        layer_id=0,
+        active_experts=[1],
+    )
+    recorder._write_premap_consumer_mapping_from_experts(
+        layer_id=0,
+        active_experts=[2],
+    )
+
+    assert recorder._shadow_premap_payload_cache_manager is None
+    assert recorder._premap_payload_cache_last_active_experts_by_layer == {}
+    assert recorder._premap_payload_cache_transition_issue_attempt_count == 0
+    assert recorder._premap_payload_cache_transition_consumer_update_count == 0
+    assert recorder._premap_payload_cache_transition_producer_update_count == 0
+
+
+def test_premap_payload_cache_producer_transition_owner_skips_unavailable_handle():
+    recorder = VllmRouterRecorder(
+        top_k=2,
+        shadow_outcome_sink=None,
+        shadow_num_experts=4,
+        shadow_emit_premap_payload_cache_manager_counters=True,
+        shadow_premap_payload_cache_manager_capacity=4,
+        shadow_premap_payload_cache_transition_state_owner="producer",
+    )
+
+    recorder.maybe_reorder_prepared_expert_assignment(
+        layer_id=0,
+        sorted_token_ids=None,
+        expert_ids=torch.tensor([1], dtype=torch.long),
+        num_tokens_post_padded=torch.tensor([1], dtype=torch.long),
+        block_size=1,
+    )
+
+    assert recorder._shadow_premap_payload_cache_manager is None
+    assert recorder._premap_payload_cache_last_active_experts_by_layer == {}
+    assert recorder._premap_payload_cache_transition_issue_attempt_count == 0
+    assert recorder._premap_payload_cache_transition_consumer_update_count == 0
+    assert recorder._premap_payload_cache_transition_producer_update_count == 0
+
+
+def test_premap_payload_cache_producer_transition_owner_clears_valid_empty_handle():
+    recorder = VllmRouterRecorder(
+        top_k=2,
+        shadow_outcome_sink=None,
+        shadow_num_experts=4,
+        shadow_emit_premap_payload_cache_manager_counters=True,
+        shadow_premap_payload_cache_manager_capacity=4,
+        shadow_premap_payload_cache_transition_state_owner="producer",
+    )
+    recorder._premap_payload_cache_last_active_experts_by_layer[0] = (1,)
+
+    recorder.maybe_reorder_prepared_expert_assignment(
+        layer_id=0,
+        sorted_token_ids=torch.tensor([0], dtype=torch.long),
+        expert_ids=torch.tensor([1], dtype=torch.long),
+        num_tokens_post_padded=torch.tensor([0], dtype=torch.long),
+        block_size=1,
+    )
+
+    assert recorder._shadow_premap_payload_cache_manager is not None
+    assert recorder._premap_payload_cache_last_active_experts_by_layer[0] == ()
+    assert recorder._premap_payload_cache_transition_consumer_update_count == 0
+    assert recorder._premap_payload_cache_transition_producer_update_count == 1
+
+
+def test_premap_payload_cache_transition_state_owner_rejects_invalid_value():
+    with pytest.raises(
+        ValueError,
+        match="shadow_premap_payload_cache_transition_state_owner must be one of",
+    ):
+        VllmRouterRecorder(
+            top_k=2,
+            shadow_premap_payload_cache_transition_state_owner="prodducer",
+        )
 
 
 def test_premap_payload_cache_transition_state_clear_is_sample_scoped():
@@ -468,6 +623,8 @@ def test_premap_payload_cache_transition_state_clear_is_sample_scoped():
     assert recorder._premap_payload_cache_transition_issue_descriptor_count == 0
     assert recorder._premap_payload_cache_transition_issue_error_count == 0
     assert recorder._premap_payload_cache_transition_issue_last_error is None
+    assert recorder._premap_payload_cache_transition_consumer_update_count == 0
+    assert recorder._premap_payload_cache_transition_producer_update_count == 0
 
 
 def test_premap_payload_cache_transition_disallowed_source_does_not_count_attempt():

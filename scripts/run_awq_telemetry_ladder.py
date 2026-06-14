@@ -1398,6 +1398,22 @@ MODES["production_batch_premap_payload_cache_ready_time_counter_off"] = {
     "outcome_logging_mode": "off",
 }
 
+MODES[
+    "production_batch_premap_payload_cache_ready_time_graph_warmup_producer_counter_off"
+] = {
+    **MODES["production_batch_premap_payload_cache_ready_time_graph_warmup_counter_off"],
+    # Keep the same no-router/accounting-only envelope, but move transition
+    # state and issue/demand updates to the producer assignment boundary.
+    "premap_payload_cache_transition_state_owner": "producer",
+}
+
+MODES[
+    "production_batch_premap_payload_cache_ready_time_producer_counter_off"
+] = {
+    **MODES["production_batch_premap_payload_cache_ready_time_counter_off"],
+    "premap_payload_cache_transition_state_owner": "producer",
+}
+
 MODES["production_batch_premap_live_future_wna16_typed_slot_envelope_counter_off"] = {
     **MODES["premap_live_future_wna16_typed_slot_envelope_counter_off"],
     # Batch-compatible live participation probe.  It installs the MoE/WNA16
@@ -1635,9 +1651,21 @@ MODES[
 )
 
 MODES[
+    "production_batch_premap_payload_cache_ready_time_graph_warmup_producer_counter_off_reuse_llm"
+] = _with_reuse_llm_across_chunks(
+    "production_batch_premap_payload_cache_ready_time_graph_warmup_producer_counter_off"
+)
+
+MODES[
     "production_batch_premap_payload_cache_ready_time_counter_off_reuse_llm"
 ] = _with_reuse_llm_across_chunks(
     "production_batch_premap_payload_cache_ready_time_counter_off"
+)
+
+MODES[
+    "production_batch_premap_payload_cache_ready_time_producer_counter_off_reuse_llm"
+] = _with_reuse_llm_across_chunks(
+    "production_batch_premap_payload_cache_ready_time_producer_counter_off"
 )
 
 MODES[

@@ -594,6 +594,9 @@ def test_production_batch_payload_cache_ready_time_graph_warmup_is_accounting_on
     ]
     assert mode["premap_payload_cache_manager_demand_on_consumer"] is True
     assert mode["premap_payload_cache_manager_emit_consumer_rows"] is False
+    assert mode.get("premap_payload_cache_transition_state_owner", "consumer") == (
+        "consumer"
+    )
     assert mode["emit_premap_consumer_mapping"] is False
     assert mode["premap_consumer_mapping_emit_rows"] is False
     assert mode["premap_kernel_arg_handoff_live_enabled"] is False
@@ -646,6 +649,9 @@ def test_production_batch_payload_cache_ready_time_eager_counter_off_is_accounti
     ]
     assert mode["premap_payload_cache_manager_demand_on_consumer"] is True
     assert mode["premap_payload_cache_manager_emit_consumer_rows"] is False
+    assert mode.get("premap_payload_cache_transition_state_owner", "consumer") == (
+        "consumer"
+    )
     assert mode["emit_premap_consumer_mapping"] is False
     assert mode["premap_consumer_mapping_emit_rows"] is False
     assert mode["premap_kernel_arg_handoff_live_enabled"] is False
@@ -659,6 +665,43 @@ def test_production_batch_payload_cache_ready_time_eager_counter_off_is_accounti
     assert mode["descriptor_order_reorder_mvp_enabled"] is False
     assert mode["emit_outcomes"] is False
     assert mode["outcome_logging_mode"] == "off"
+
+
+def test_production_batch_payload_cache_ready_time_producer_modes_are_accounting_only() -> None:
+    module = _load_module()
+    pairs = (
+        (
+            "production_batch_premap_payload_cache_ready_time_graph_warmup_counter_off",
+            "production_batch_premap_payload_cache_ready_time_graph_warmup_producer_counter_off",
+        ),
+        (
+            "production_batch_premap_payload_cache_ready_time_counter_off",
+            "production_batch_premap_payload_cache_ready_time_producer_counter_off",
+        ),
+    )
+
+    for base_name, producer_name in pairs:
+        base = module.MODES[base_name]
+        producer = module.MODES[producer_name]
+        comparable = dict(producer)
+        comparable.pop("premap_payload_cache_transition_state_owner")
+        assert comparable == base
+        assert producer["premap_payload_cache_transition_state_owner"] == "producer"
+        assert producer["runtime_shadow_enabled"] is False
+        assert producer["record_router_topk"] is False
+        assert producer["capture_router_topk"] is False
+        assert producer["emit_premap_payload_cache_manager_counters"] is True
+        assert producer["premap_payload_cache_manager_emit_consumer_rows"] is False
+        assert producer["emit_premap_consumer_mapping"] is False
+        assert producer["premap_kernel_arg_handoff_kernel_arg_pass_enabled"] is False
+        assert (
+            producer[
+                "premap_kernel_arg_handoff_future_wna16_typed_slot_kernel_variant_enabled"
+            ]
+            is False
+        )
+        assert producer["descriptor_order_reorder_mvp_enabled"] is False
+        assert producer["outcome_logging_mode"] == "off"
 
 
 def test_production_batch_premap_live_typed_slot_envelope_detailed_only_enables_counters() -> None:
@@ -1207,8 +1250,16 @@ def test_production_batch_reuse_llm_modes_only_add_engine_reuse() -> None:
             "production_batch_premap_payload_cache_ready_time_graph_warmup_counter_off_reuse_llm",
         ),
         (
+            "production_batch_premap_payload_cache_ready_time_graph_warmup_producer_counter_off",
+            "production_batch_premap_payload_cache_ready_time_graph_warmup_producer_counter_off_reuse_llm",
+        ),
+        (
             "production_batch_premap_payload_cache_ready_time_counter_off",
             "production_batch_premap_payload_cache_ready_time_counter_off_reuse_llm",
+        ),
+        (
+            "production_batch_premap_payload_cache_ready_time_producer_counter_off",
+            "production_batch_premap_payload_cache_ready_time_producer_counter_off_reuse_llm",
         ),
     )
 
