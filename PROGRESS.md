@@ -2,8 +2,23 @@
 
 ## Progress Version
 
-- Version: `v0.90-ready-time-detail-preflight`
+- Version: `v0.91-typed-noop-stage-preflight`
 - Updated: 2026-06-14
+- Latest typed-consumer stage gate: the lab preflight compact status now
+  reports a machine-readable native typed consumer stage.  The refreshed
+  artifact
+  `outputs/reports/premap_lab_preflight_status_v091_typed_noop_stage.json`
+  passes `scripts/check_premap_lab_preflight_summary.py` and reports
+  `default_kernel_consumer_typed_noop_ready=true`,
+  `default_kernel_consumer_wna16_benchmark_ready=false`, and
+  `default_kernel_consumer_next_runtime_stage=implement_wna16_typed_slot_kernel_variant`.
+  The high-level `typed_noop_ready` predicate requires schema evidence,
+  online merged evidence, all handle fields checked through the entry/endpoint
+  launch path, `payload_bytes=0`, `passed_to_kernel=false`, and no kernel launch
+  argument changes on the checked paths.  This makes the current boundary
+  explicit: the native typed object/prelaunch consumer path is ready as a
+  no-op safety gate, but real WNA16 benchmark work still requires a true
+  typed-slot kernel variant rather than reinterpreting existing WNA16 args.
 - Latest ready-time lab preflight detail gate: the default lab preflight now
   flattens the measured-copy ready-time checker details into the compact status
   artifact, and the compact checker requires those fields for the current lab

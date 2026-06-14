@@ -387,6 +387,11 @@ def check_premap_lab_preflight_summary(
         "default_kernel_consumer_kernel_endpoint_ptr_changes_kernel_launch_args": False,
         "default_kernel_consumer_kernel_endpoint_ptr_current_wna16_arg_compatible": False,
         "default_kernel_consumer_kernel_endpoint_ptr_requires_wna16_arg_reinterpretation": False,
+        "default_kernel_consumer_typed_noop_ready": True,
+        "default_kernel_consumer_wna16_benchmark_ready": False,
+        "default_kernel_consumer_next_runtime_stage": (
+            "implement_wna16_typed_slot_kernel_variant"
+        ),
         "payload_bytes_required": 0,
         "passed_to_kernel_required": False,
         "changes_kernel_launch_args_required": False,

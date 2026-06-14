@@ -453,6 +453,11 @@ def _summary() -> dict[str, object]:
         "prefetch_lab_default_premap_positive_count": 4,
         "prefetch_lab_default_premap_recommended_capacity_entries": 12288,
         "prefetch_lab_default_premap_no_eviction_capacity_entries": 12288,
+        "default_kernel_consumer_typed_noop_ready": True,
+        "default_kernel_consumer_wna16_benchmark_ready": False,
+        "default_kernel_consumer_next_runtime_stage": (
+            "implement_wna16_typed_slot_kernel_variant"
+        ),
         "payload_bytes_required": 0,
         "passed_to_kernel_required": False,
         "changes_kernel_launch_args_required": False,

@@ -11616,6 +11616,108 @@ def run_premap_lab_preflight(
             consumer_prefix="future_kernel_native_consumer_request_launch_ptr",
         )
     )
+    typed_noop_ready = (
+        bool(lab_gate_status_summary.get("default_kernel_consumer_schema_passed"))
+        and bool(
+            lab_gate_status_summary.get(
+                "default_kernel_consumer_online_merged_multiprogram_evidence_passed"
+            )
+        )
+        and bool(
+            lab_gate_status_summary.get(
+                "default_kernel_consumer_online_merged_multiprogram_all_handle_fields_checked"
+            )
+        )
+        and bool(
+            lab_gate_status_summary.get(
+                "default_kernel_consumer_kernel_entry_args_checked"
+            )
+        )
+        and bool(
+            lab_gate_status_summary.get(
+                "default_kernel_consumer_kernel_endpoint_ptr_checked"
+            )
+        )
+        and bool(
+            lab_gate_status_summary.get(
+                "default_kernel_consumer_request_launch_ptr_all_handle_fields_read"
+            )
+        )
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_kernel_entry_args_payload_bytes"
+        )
+        == 0
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_kernel_entry_args_passed_to_kernel"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_kernel_entry_args_changes_kernel_launch_args"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_kernel_endpoint_ptr_payload_bytes"
+        )
+        == 0
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_kernel_endpoint_ptr_passed_to_kernel"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_kernel_endpoint_ptr_changes_kernel_launch_args"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_request_launch_ptr_payload_bytes"
+        )
+        == 0
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_request_launch_ptr_passed_to_kernel"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_request_launch_ptr_changes_kernel_launch_args"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_online_merged_multiprogram_no_payload"
+        )
+        is True
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_online_merged_multiprogram_passed_to_kernel"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_online_merged_multiprogram_changes_kernel_launch_args"
+        )
+        is False
+    )
+    wna16_benchmark_ready = (
+        typed_noop_ready
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_online_merged_multiprogram_current_wna16_arg_compatible"
+        )
+        is True
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_kernel_endpoint_ptr_current_wna16_arg_compatible"
+        )
+        is True
+    )
+    if wna16_benchmark_ready:
+        next_runtime_stage = "run_wna16_typed_slot_benchmark"
+    elif typed_noop_ready:
+        next_runtime_stage = "implement_wna16_typed_slot_kernel_variant"
+    else:
+        next_runtime_stage = "fix_typed_noop_consumer_gate"
+    lab_gate_status_summary["default_kernel_consumer_typed_noop_ready"] = (
+        typed_noop_ready
+    )
+    lab_gate_status_summary["default_kernel_consumer_wna16_benchmark_ready"] = (
+        wna16_benchmark_ready
+    )
+    lab_gate_status_summary["default_kernel_consumer_next_runtime_stage"] = (
+        next_runtime_stage
+    )
 
     return {
         "passed": not failures,
