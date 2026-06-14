@@ -2272,6 +2272,47 @@ def _standalone_wna16_adjacent_typed_slot_canary_payload() -> dict[str, object]:
     return payload
 
 
+def _payload_cache_producer_state_native_canary_payload() -> dict[str, object]:
+    return {
+        "abi_field_count": 9,
+        "abi_name": "premap_payload_cache_producer_transition_state_abi_v1",
+        "changes_kernel_launch_args": False,
+        "checked": True,
+        "current_count": 2,
+        "current_nonempty": 1,
+        "current_valid_count": 2,
+        "current_wna16_arg_compatible": False,
+        "error_count": 0,
+        "failures": [],
+        "input_source": "semantic_packet_json",
+        "issue_candidate_count": 2,
+        "mode": "readonly_payload_cache_producer_transition_state_native_canary",
+        "native_returncode": 0,
+        "native_stub_invoked": True,
+        "ok": True,
+        "overlap_count": 1,
+        "packet_json": "reports/premap_payload_cache_producer_state_packet.json",
+        "packet_ready": True,
+        "packet_state_hash": (
+            "3ec369d6571e4ec9720415f232deb5aba64bb29206f84f7bad190d4420bff902"
+        ),
+        "passed": True,
+        "passed_to_kernel": False,
+        "payload_bytes": 0,
+        "previous_count": 2,
+        "previous_nonempty": 1,
+        "previous_valid_count": 2,
+        "ready": True,
+        "ready_credit": False,
+        "requested_current_count": 2,
+        "requested_current_offset": 4,
+        "requested_previous_count": 2,
+        "requested_transition_topk_count": 4,
+        "state_hash": "8a45d2c91fe01237",
+        "transition_topk_count": 4,
+    }
+
+
 def _kernel_launch_context_metrics(
     *,
     prefix: str,
@@ -3573,6 +3614,9 @@ def _write_gate(
     wna16_side_consumer_variant_execution_runner_path = (
         f"reports/{name}_wna16_side_consumer_variant_execution_128strict_runner.json"
     )
+    payload_cache_producer_state_native_canary_path = (
+        f"reports/{name}_payload_cache_producer_state_native_canary.json"
+    )
     standalone_wna16_adjacent_typed_slot_canary_path = (
         f"reports/{name}_future_native_wna16_adjacent_typed_slot_standalone_canary.json"
     )
@@ -4072,6 +4116,10 @@ def _write_gate(
             )
             + "\n",
         )
+        _write(
+            root / payload_cache_producer_state_native_canary_path,
+            json.dumps(_payload_cache_producer_state_native_canary_payload()) + "\n",
+        )
         for mirror_field, runner_path in (
             ("descriptor_ptr", online_merged_arg_slot_descriptor_ptr_runner_path),
             (
@@ -4413,6 +4461,8 @@ def _write_gate(
             f"{future_wna16_single_field_handoff_all_fields_summary_path}\n"
             "  wna16_side_consumer_variant_execution_128strict_runner_json: "
             f"{wna16_side_consumer_variant_execution_runner_path}\n"
+            "  payload_cache_producer_state_native_canary_json: "
+            f"{payload_cache_producer_state_native_canary_path}\n"
             "  future_kernel_wna16_adjacent_typed_slot_standalone_canary_json: "
             f"{standalone_wna16_adjacent_typed_slot_canary_path}\n"
             "optional_evidence_paths:\n"
@@ -4508,7 +4558,7 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert result["passed"] is True
     assert result["failures"] == []
     assert result["runtime_gate_evidence_scan"]["gate_count"] == 5
-    assert result["runtime_gate_evidence_scan"]["evidence_path_count"] == 100
+    assert result["runtime_gate_evidence_scan"]["evidence_path_count"] == 102
     assert result["default_readonly_gate_required_evidence_check"]["passed"] is True
     summary = result["lab_gate_status_summary"]
     assert summary["passed"] is True
@@ -5755,9 +5805,9 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert summary["payload_bytes_required"] == 0
     assert summary["passed_to_kernel_required"] is False
     assert summary["changes_kernel_launch_args_required"] is False
-    assert summary["required_evidence"]["required_count"] == 40
-    assert summary["required_evidence"]["present_count"] == 40
-    assert summary["required_evidence"]["passed_count"] == 40
+    assert summary["required_evidence"]["required_count"] == 41
+    assert summary["required_evidence"]["present_count"] == 41
+    assert summary["required_evidence"]["passed_count"] == 41
     assert summary["optional_evidence"]["required_count"] == 13
     assert summary["optional_evidence"]["present_count"] == 13
     assert summary["optional_evidence"]["passed_count"] == 13
@@ -6349,7 +6399,7 @@ def test_premap_lab_preflight_rejects_missing_optional_future_args_coverage(
         "default_kernel_consumer_future_kernel_args_total_mirror_coverage_incomplete"
         in result["failures"]
     )
-    assert summary["required_evidence"]["passed_count"] == 40
+    assert summary["required_evidence"]["passed_count"] == 41
     assert summary["default_optional_evidence_passed"] is True
     assert (
         summary[
@@ -8363,6 +8413,7 @@ def test_premap_lab_preflight_rejects_default_gate_without_typed_evidence(
             "future_kernel_wna16_adjacent_typed_slot_standalone_canary_json:missing_evidence_path",
             "future_wna16_single_field_handoff_all_fields_128strict_summary_json:missing_evidence_path",
             "wna16_side_consumer_variant_execution_128strict_runner_json:missing_evidence_path",
+            "payload_cache_producer_state_native_canary_json:missing_evidence_path",
                 "strict_live_connected_readonly_128_gate_json:missing_evidence_path",
             "strict_native_typed_consumer_bridge_128_gate_json:missing_evidence_path",
         "strict_kernel_side_typed_consumer_object_128_gate_json:missing_evidence_path",
@@ -10036,6 +10087,182 @@ def test_premap_lab_preflight_rejects_standalone_dispatch_ptr_unsafe_macro(
     ) in failures
 
 
+def test_premap_lab_preflight_rejects_payload_cache_producer_state_payload_mutation(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    producer_state_path = (
+        tmp_path / "reports/default_gate_payload_cache_producer_state_native_canary.json"
+    )
+    payload = json.loads(producer_state_path.read_text())
+    payload["payload_bytes"] = 8
+    payload["passed_to_kernel"] = True
+    _write(producer_state_path, json.dumps(payload) + "\n")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is False
+    failures = result["default_readonly_gate_required_evidence_check"]["failures"]
+    assert (
+        "payload_cache_producer_state_native_canary_json:"
+        "payload_cache_producer_state_native_canary_payload_bytes_mismatch"
+    ) in failures
+    assert (
+        "payload_cache_producer_state_native_canary_json:"
+        "payload_cache_producer_state_native_canary_passed_to_kernel_mismatch"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_payload_cache_producer_state_wna16_compat(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    producer_state_path = (
+        tmp_path / "reports/default_gate_payload_cache_producer_state_native_canary.json"
+    )
+    payload = json.loads(producer_state_path.read_text())
+    payload["current_wna16_arg_compatible"] = True
+    _write(producer_state_path, json.dumps(payload) + "\n")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is False
+    failures = result["default_readonly_gate_required_evidence_check"]["failures"]
+    assert (
+        "payload_cache_producer_state_native_canary_json:"
+        "payload_cache_producer_state_native_canary_"
+        "current_wna16_arg_compatible_mismatch"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_payload_cache_producer_state_missing_requested_counts(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    producer_state_path = (
+        tmp_path / "reports/default_gate_payload_cache_producer_state_native_canary.json"
+    )
+    payload = json.loads(producer_state_path.read_text())
+    payload.pop("requested_previous_count")
+    payload.pop("requested_current_count")
+    payload.pop("requested_transition_topk_count")
+    _write(producer_state_path, json.dumps(payload) + "\n")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is False
+    failures = result["default_readonly_gate_required_evidence_check"]["failures"]
+    for field in (
+        "requested_previous_count",
+        "requested_current_count",
+        "requested_transition_topk_count",
+    ):
+        assert (
+            "payload_cache_producer_state_native_canary_json:"
+            f"payload_cache_producer_state_native_canary_{field}_invalid"
+        ) in failures
+
+
+def test_premap_lab_preflight_rejects_payload_cache_producer_state_missing_current_offset(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    producer_state_path = (
+        tmp_path / "reports/default_gate_payload_cache_producer_state_native_canary.json"
+    )
+    payload = json.loads(producer_state_path.read_text())
+    payload.pop("requested_current_offset")
+    _write(producer_state_path, json.dumps(payload) + "\n")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is False
+    failures = result["default_readonly_gate_required_evidence_check"]["failures"]
+    assert (
+        "payload_cache_producer_state_native_canary_json:"
+        "payload_cache_producer_state_native_canary_requested_current_offset_invalid"
+    ) in failures
+
+
+def test_premap_lab_preflight_accepts_payload_cache_producer_state_uncapped_topk(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    producer_state_path = (
+        tmp_path / "reports/default_gate_payload_cache_producer_state_native_canary.json"
+    )
+    payload = json.loads(producer_state_path.read_text())
+    payload["transition_topk_count"] = 0
+    payload["requested_transition_topk_count"] = 0
+    payload["issue_candidate_count"] = payload["previous_count"]
+    _write(producer_state_path, json.dumps(payload) + "\n")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is True
+    assert result["default_readonly_gate_required_evidence_check"]["passed"] is True
+
+
 def test_premap_lab_preflight_rejects_standalone_arg_slot_row_mismatch(
     tmp_path: Path,
 ):
@@ -10382,9 +10609,9 @@ def test_premap_lab_preflight_can_defer_self_referential_runner_evidence(
     assert summary["deferred_online_prelaunch_artifact_evidence"] is False
     assert summary["runtime_gate_evidence_deferred_count"] == 10
     assert summary["strict_default_gate_evidence_deferred_count"] == 5
-    assert summary["required_evidence"]["required_count"] == 40
-    assert summary["required_evidence"]["present_count"] == 38
-    assert summary["required_evidence"]["passed_count"] == 38
+    assert summary["required_evidence"]["required_count"] == 41
+    assert summary["required_evidence"]["present_count"] == 39
+    assert summary["required_evidence"]["passed_count"] == 39
     assert summary["optional_evidence"]["passed_count"] == 13
     for label in (
         "future_kernel_args_compatible_path_16_128export_artifact_check_json",
@@ -10960,7 +11187,7 @@ def test_premap_lab_preflight_cli_writes_summary(tmp_path: Path):
     assert result["lab_gate_status_summary"]["passed"] is True
     assert (
         result["lab_gate_status_summary"]["required_evidence"]["passed_count"]
-        == 40
+        == 41
     )
 
 
@@ -10996,7 +11223,7 @@ def test_premap_lab_preflight_cli_summary_only_writes_status_block(tmp_path: Pat
     assert exit_code == 0
     assert result["passed"] is True
     assert result["default_readonly_gate_path"] == default_gate
-    assert result["required_evidence"]["passed_count"] == 40
+    assert result["required_evidence"]["passed_count"] == 41
     assert result["optional_evidence"]["passed_count"] == 13
     assert "lab_gate_status_summary" not in result
 

@@ -277,6 +277,7 @@ REQUIRED_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
     "future_kernel_wna16_adjacent_typed_slot_standalone_canary_json",
     "future_wna16_single_field_handoff_all_fields_128strict_summary_json",
     "wna16_side_consumer_variant_execution_128strict_runner_json",
+    "payload_cache_producer_state_native_canary_json",
     "future_kernel_native_dispatch_consumer_online_artifact_check_32_128export_json",
     "future_kernel_native_dispatch_consumer_online_runner_32_128export_json",
 }
@@ -1727,6 +1728,7 @@ def _validate_required_evidence_payload(
         "future_kernel_wna16_adjacent_typed_slot_standalone_canary_json",
         "future_wna16_single_field_handoff_all_fields_128strict_summary_json",
         "wna16_side_consumer_variant_execution_128strict_runner_json",
+        "payload_cache_producer_state_native_canary_json",
         "future_kernel_native_arg_slot_packed_weight_mirror_canary_json",
         *ARG_SLOT_ONLINE_MERGED_MIRROR_RUNNER_LABEL_BY_FIELD.values(),
         *ARG_SLOT_ONLINE_MERGED_MIRROR_STUB_LABEL_BY_FIELD.values(),
@@ -1872,6 +1874,13 @@ def _validate_required_evidence_payload(
         return [
             f"{evidence_label}:{failure}"
             for failure in _validate_wna16_side_consumer_variant_execution_runner(
+                evidence
+            )
+        ]
+    if evidence_label == "payload_cache_producer_state_native_canary_json":
+        return [
+            f"{evidence_label}:{failure}"
+            for failure in _validate_payload_cache_producer_state_native_canary_evidence(
                 evidence
             )
         ]
@@ -5158,6 +5167,147 @@ def _validate_future_native_dispatch_ptr_standalone_evidence(
     ):
         if macros.get(forbidden):
             failures.append(f"{failure_prefix}_{forbidden}_enabled")
+    return failures
+
+
+def _validate_payload_cache_producer_state_native_canary_evidence(
+    evidence: dict[str, Any],
+) -> list[str]:
+    failure_prefix = "payload_cache_producer_state_native_canary"
+    failures: list[str] = []
+    expected_values = {
+        "ok": True,
+        "passed": True,
+        "failures": [],
+        "mode": "readonly_payload_cache_producer_transition_state_native_canary",
+        "abi_name": "premap_payload_cache_producer_transition_state_abi_v1",
+        "abi_field_count": 9,
+        "checked": True,
+        "ready": True,
+        "input_source": "semantic_packet_json",
+        "packet_ready": True,
+        "native_stub_invoked": True,
+        "native_returncode": 0,
+        "payload_bytes": 0,
+        "ready_credit": False,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "current_wna16_arg_compatible": False,
+        "error_count": 0,
+    }
+    for key, expected_value in expected_values.items():
+        if evidence.get(key) != expected_value:
+            failures.append(f"{failure_prefix}_{key}_mismatch")
+
+    previous_count = _int_metric(evidence, "previous_count")
+    current_count = _int_metric(evidence, "current_count")
+    previous_valid_count = _int_metric(evidence, "previous_valid_count")
+    current_valid_count = _int_metric(evidence, "current_valid_count")
+    previous_nonempty = _int_metric(evidence, "previous_nonempty")
+    current_nonempty = _int_metric(evidence, "current_nonempty")
+    overlap_count = _int_metric(evidence, "overlap_count")
+    issue_candidate_count = _int_metric(evidence, "issue_candidate_count")
+    transition_topk_count = _int_metric(evidence, "transition_topk_count")
+    requested_previous_count = _int_metric(evidence, "requested_previous_count")
+    requested_current_count = _int_metric(evidence, "requested_current_count")
+    requested_transition_topk_count = _int_metric(
+        evidence,
+        "requested_transition_topk_count",
+    )
+    requested_current_offset = _int_metric(evidence, "requested_current_offset")
+
+    for key, value in (
+        ("previous_count", previous_count),
+        ("current_count", current_count),
+        ("previous_valid_count", previous_valid_count),
+        ("current_valid_count", current_valid_count),
+        ("previous_nonempty", previous_nonempty),
+        ("current_nonempty", current_nonempty),
+        ("overlap_count", overlap_count),
+        ("issue_candidate_count", issue_candidate_count),
+        ("transition_topk_count", transition_topk_count),
+        ("requested_previous_count", requested_previous_count),
+        ("requested_current_count", requested_current_count),
+        ("requested_transition_topk_count", requested_transition_topk_count),
+        ("requested_current_offset", requested_current_offset),
+    ):
+        if value is None or value < 0:
+            failures.append(f"{failure_prefix}_{key}_invalid")
+
+    if (
+        previous_count is not None
+        and previous_valid_count is not None
+        and previous_valid_count != previous_count
+    ):
+        failures.append(f"{failure_prefix}_previous_valid_count_mismatch")
+    if (
+        current_count is not None
+        and current_valid_count is not None
+        and current_valid_count != current_count
+    ):
+        failures.append(f"{failure_prefix}_current_valid_count_mismatch")
+    if (
+        previous_nonempty is not None
+        and previous_count is not None
+        and previous_nonempty > previous_count
+    ):
+        failures.append(f"{failure_prefix}_previous_nonempty_overflow")
+    if (
+        current_nonempty is not None
+        and current_count is not None
+        and current_nonempty > current_count
+    ):
+        failures.append(f"{failure_prefix}_current_nonempty_overflow")
+    if (
+        overlap_count is not None
+        and previous_count is not None
+        and current_count is not None
+        and overlap_count > min(previous_count, current_count)
+    ):
+        failures.append(f"{failure_prefix}_overlap_count_overflow")
+    if (
+        issue_candidate_count is not None
+        and previous_count is not None
+        and issue_candidate_count > previous_count
+    ):
+        failures.append(f"{failure_prefix}_issue_candidate_count_overflow")
+    if (
+        issue_candidate_count is not None
+        and transition_topk_count is not None
+        and transition_topk_count > 0
+        and issue_candidate_count > transition_topk_count
+    ):
+        failures.append(f"{failure_prefix}_issue_candidate_count_over_topk")
+    if (
+        requested_previous_count is not None
+        and previous_count is not None
+        and requested_previous_count != previous_count
+    ):
+        failures.append(f"{failure_prefix}_requested_previous_count_mismatch")
+    if (
+        requested_current_count is not None
+        and current_count is not None
+        and requested_current_count != current_count
+    ):
+        failures.append(f"{failure_prefix}_requested_current_count_mismatch")
+    if (
+        requested_transition_topk_count is not None
+        and transition_topk_count is not None
+        and requested_transition_topk_count != transition_topk_count
+    ):
+        failures.append(f"{failure_prefix}_requested_transition_topk_count_mismatch")
+    if _hex64_metric(evidence, "state_hash") is None:
+        failures.append(f"{failure_prefix}_state_hash_invalid")
+    packet_state_hash = evidence.get("packet_state_hash")
+    if (
+        not isinstance(packet_state_hash, str)
+        or len(packet_state_hash) != 64
+        or any(char not in "0123456789abcdefABCDEF" for char in packet_state_hash)
+    ):
+        failures.append(f"{failure_prefix}_packet_state_hash_invalid")
+    packet_json = evidence.get("packet_json")
+    if not isinstance(packet_json, str) or not packet_json:
+        failures.append(f"{failure_prefix}_packet_json_missing")
     return failures
 
 
