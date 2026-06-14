@@ -2254,7 +2254,17 @@ def main() -> None:
             break
 
     baseline = None
-    for baseline_mode in ("production_like", "production_batch"):
+    for baseline_mode in (
+        "production_like",
+        "production_batch",
+        "production_batch_reuse_llm",
+        "production_batch_graph",
+        "production_batch_graph_reuse_llm",
+        "production_batch_warmup",
+        "production_batch_warmup_reuse_llm",
+        "production_batch_graph_warmup",
+        "production_batch_graph_warmup_reuse_llm",
+    ):
         baseline = next(
             (
                 row
@@ -2271,10 +2281,16 @@ def main() -> None:
         for row in results:
             tpot = row.get("generate_seconds_per_requested_output_token")
             if tpot:
-                row["tpot_overhead_vs_production_like"] = float(tpot) / base_tpot - 1.0
+                overhead = float(tpot) / base_tpot - 1.0
+                row["tpot_overhead_baseline_mode"] = str(baseline["mode"])
+                row["tpot_overhead_vs_baseline"] = overhead
+                row["tpot_overhead_vs_production_like"] = overhead
 
     (args.output_root / "results.json").write_text(
         json.dumps(results, indent=2) + "\n"
+    )
+    baseline_label = (
+        str(baseline["mode"]) if baseline is not None else "no_valid_baseline"
     )
     lines = [
         "# AWQ/vLLM Telemetry Ladder",
@@ -2283,13 +2299,14 @@ def main() -> None:
         f"max_samples: `{effective_split['max_samples']}`",
         f"max_tokens: `{effective_split['max_tokens']}`",
         f"start_sample: `{effective_split['start_sample']}`",
+        f"overhead_baseline_mode: `{baseline_label}`",
         "",
-        "| mode | repeat | TPOT | overhead_vs_production_like | generate_s | returncode |",
+        "| mode | repeat | TPOT | overhead_vs_baseline | generate_s | returncode |",
         "|---|---:|---:|---:|---:|---:|",
     ]
     for row in results:
         tpot = row.get("generate_seconds_per_requested_output_token")
-        overhead = row.get("tpot_overhead_vs_production_like")
+        overhead = row.get("tpot_overhead_vs_baseline")
         generate = row.get("generate_wall_seconds")
         lines.append(
             "| {mode} | {repeat} | {tpot} | {overhead} | {generate} | {returncode} |".format(
