@@ -25,7 +25,17 @@
   `allow_full_fetch=false` with
   `threshold_failures=["used_per_issued_fetch_below_threshold"]`.  The current
   production-batch payload/cache manager path is therefore accounting evidence
-  only and remains disabled as a runtime full_fetch candidate.
+  only and remains disabled as a runtime full_fetch candidate.  The default
+  lab gate config now points at this v0.89 report, and the refreshed preflight
+  status passes:
+  `outputs/reports/premap_lab_preflight_status_v089_ready_time_prod_batch_gate.json`
+  reports `passed=true`, `default_contract_passed=true`,
+  `prefetch_lab_default_full_fetch_decision=blocked_by_ready_time_measured_copy`,
+  and `prefetch_lab_default_premap_decision=lab_enabled_descriptor_prep_only`.
+  Existing event-queue ready-time sweeps remain consistent with this boundary:
+  positive cells are same-issued transition-baseline cells, while
+  MTP-extra-issued full_fetch cells remain non-positive under measured-copy
+  ready-before-demand semantics.
 - Latest direct native stub packet-json gate: the strict producer-state issue
   packet contract now applies to the direct native producer-state stub as well
   as the online canary selector.  `run_premap_payload_cache_producer_state_stub.py
