@@ -22,6 +22,7 @@ def check_summary(
     require_measured_copy: bool = True,
     min_demand_hit_rate: float = 0.10,
     max_ready_late_miss_rate: float = 0.20,
+    min_used_per_issued_fetch: float = 0.10,
     min_manager_rows: int = 1,
     min_demand_count: int = 1,
 ) -> dict[str, Any]:
@@ -36,41 +37,83 @@ def check_summary(
     if mode != "ready_time":
         failures.append(f"mode_not_ready_time:{mode or '<missing>'}")
 
+    direct_snapshot_present = bool(
+        metrics.get("runtime_shadow_premap_payload_cache_direct_snapshot_present")
+    )
+    if direct_snapshot_present:
+        _validate_direct_snapshot(metrics, failures)
+
     manager_count = _as_int(
-        metrics.get("runtime_shadow_aggregate_premap_payload_cache_manager_count")
-        or metrics.get("premap_payload_cache_manager_count")
+        _first_present(
+            metrics.get("runtime_shadow_aggregate_premap_payload_cache_manager_count"),
+            metrics.get("premap_payload_cache_manager_count"),
+            1 if direct_snapshot_present else None,
+        )
     )
     demand_count = _as_int(
-        metrics.get("runtime_shadow_aggregate_premap_payload_cache_demand_count")
-        or metrics.get("premap_payload_cache_demand_count")
+        _first_present(
+            metrics.get("runtime_shadow_aggregate_premap_payload_cache_demand_count"),
+            metrics.get("premap_payload_cache_demand_count"),
+            metrics.get("runtime_shadow_premap_payload_cache_direct_demand_count"),
+        )
     )
     demand_hit_count = _as_int(
-        metrics.get("runtime_shadow_aggregate_premap_payload_cache_demand_hit_count")
-        or metrics.get("premap_payload_cache_demand_hit_count")
+        _first_present(
+            metrics.get(
+                "runtime_shadow_aggregate_premap_payload_cache_demand_hit_count"
+            ),
+            metrics.get("premap_payload_cache_demand_hit_count"),
+            metrics.get("runtime_shadow_premap_payload_cache_direct_demand_hit_count"),
+        )
     )
     ready_late_miss_count = _as_int(
-        metrics.get(
-            "runtime_shadow_aggregate_premap_payload_cache_ready_late_miss_count"
+        _first_present(
+            metrics.get(
+                "runtime_shadow_aggregate_premap_payload_cache_ready_late_miss_count"
+            ),
+            metrics.get("premap_payload_cache_ready_late_miss_count"),
+            metrics.get(
+                "runtime_shadow_premap_payload_cache_direct_ready_late_miss_count"
+            ),
         )
-        or metrics.get("premap_payload_cache_ready_late_miss_count")
     )
     issued_fetch_count = _as_int(
-        metrics.get("runtime_shadow_aggregate_premap_payload_cache_issued_fetch_count")
-        or metrics.get("premap_payload_cache_issued_fetch_count")
+        _first_present(
+            metrics.get(
+                "runtime_shadow_aggregate_premap_payload_cache_issued_fetch_count"
+            ),
+            metrics.get("premap_payload_cache_issued_fetch_count"),
+            metrics.get(
+                "runtime_shadow_premap_payload_cache_direct_issued_fetch_count"
+            ),
+        )
     )
     used_fetch_count = _as_int(
-        metrics.get("runtime_shadow_aggregate_premap_payload_cache_used_fetch_count")
-        or metrics.get("premap_payload_cache_used_fetch_count")
+        _first_present(
+            metrics.get("runtime_shadow_aggregate_premap_payload_cache_used_fetch_count"),
+            metrics.get("premap_payload_cache_used_fetch_count"),
+            metrics.get("runtime_shadow_premap_payload_cache_direct_used_fetch_count"),
+        )
     )
     queue_batch_size = _as_int(
-        metrics.get("runtime_shadow_premap_payload_cache_manager_queue_batch_size")
-        or metrics.get("runtime_shadow_aggregate_premap_payload_cache_queue_batch_size_max")
-        or metrics.get("premap_payload_cache_queue_batch_size_max")
+        _first_present(
+            metrics.get("runtime_shadow_premap_payload_cache_manager_queue_batch_size"),
+            metrics.get(
+                "runtime_shadow_aggregate_premap_payload_cache_queue_batch_size_max"
+            ),
+            metrics.get("premap_payload_cache_queue_batch_size_max"),
+            metrics.get("runtime_shadow_premap_payload_cache_direct_queue_batch_size"),
+        )
     )
     queue_deadline_us = _as_float(
-        metrics.get("runtime_shadow_premap_payload_cache_manager_queue_deadline_us")
-        or metrics.get("runtime_shadow_aggregate_premap_payload_cache_queue_deadline_us_max")
-        or metrics.get("premap_payload_cache_queue_deadline_us_max")
+        _first_present(
+            metrics.get("runtime_shadow_premap_payload_cache_manager_queue_deadline_us"),
+            metrics.get(
+                "runtime_shadow_aggregate_premap_payload_cache_queue_deadline_us_max"
+            ),
+            metrics.get("premap_payload_cache_queue_deadline_us_max"),
+            metrics.get("runtime_shadow_premap_payload_cache_direct_queue_deadline_us"),
+        )
     )
     measured_copy_path = metrics.get(
         "runtime_shadow_premap_payload_cache_manager_measured_copy_path"
@@ -126,15 +169,19 @@ def check_summary(
         not failures
         and demand_hit_rate >= float(min_demand_hit_rate)
         and ready_late_miss_rate <= float(max_ready_late_miss_rate)
+        and used_per_issued_fetch >= float(min_used_per_issued_fetch)
     )
+    threshold_failures: list[str] = []
+    if not failures and demand_hit_rate < float(min_demand_hit_rate):
+        threshold_failures.append("demand_hit_rate_below_threshold")
+    if not failures and ready_late_miss_rate > float(max_ready_late_miss_rate):
+        threshold_failures.append("ready_late_miss_rate_above_threshold")
+    if not failures and used_per_issued_fetch < float(min_used_per_issued_fetch):
+        threshold_failures.append("used_per_issued_fetch_below_threshold")
     decision_reason = (
         "allow"
         if allow_full_fetch
-        else (
-            "invalid_evidence"
-            if failures
-            else "ready_before_demand_threshold_not_met"
-        )
+        else ("invalid_evidence" if failures else "full_fetch_threshold_not_met")
     )
 
     return {
@@ -142,6 +189,7 @@ def check_summary(
         "failures": failures,
         "allow_full_fetch": allow_full_fetch,
         "decision_reason": decision_reason,
+        "threshold_failures": threshold_failures,
         "boundary": (
             "ready-time payload-cache accounting gate only; not endpoint TPOT "
             "and not a real payload-transfer runtime claim"
@@ -164,6 +212,11 @@ def check_summary(
             "measured_copy_us_per_issue": measured_copy_us_per_issue,
             "min_demand_hit_rate": float(min_demand_hit_rate),
             "max_ready_late_miss_rate": float(max_ready_late_miss_rate),
+            "min_used_per_issued_fetch": float(min_used_per_issued_fetch),
+            "direct_snapshot_present": direct_snapshot_present,
+            "direct_manager_mode": metrics.get(
+                "runtime_shadow_premap_payload_cache_direct_manager_mode"
+            ),
         },
     }
 
@@ -224,6 +277,28 @@ def _with_gate_metric_aliases(metrics: dict[str, Any]) -> dict[str, Any]:
     return normalized
 
 
+def _validate_direct_snapshot(metrics: dict[str, Any], failures: list[str]) -> None:
+    direct_mode = str(
+        metrics.get("runtime_shadow_premap_payload_cache_direct_manager_mode") or ""
+    )
+    if direct_mode != "ready_time":
+        failures.append(
+            f"direct_snapshot_mode_not_ready_time:{direct_mode or '<missing>'}"
+        )
+    required_fields = (
+        "runtime_shadow_premap_payload_cache_direct_demand_count",
+        "runtime_shadow_premap_payload_cache_direct_demand_hit_count",
+        "runtime_shadow_premap_payload_cache_direct_ready_late_miss_count",
+        "runtime_shadow_premap_payload_cache_direct_issued_fetch_count",
+        "runtime_shadow_premap_payload_cache_direct_used_fetch_count",
+        "runtime_shadow_premap_payload_cache_direct_queue_batch_size",
+        "runtime_shadow_premap_payload_cache_direct_queue_deadline_us",
+    )
+    for field in required_fields:
+        if metrics.get(field) is None:
+            failures.append(f"direct_snapshot_field_missing:{field}")
+
+
 def _as_int(value: Any, default: int = 0) -> int:
     if value is None:
         return default
@@ -234,6 +309,13 @@ def _as_float(value: Any, default: float = 0.0) -> float:
     if value is None:
         return default
     return float(value)
+
+
+def _first_present(*values: Any) -> Any:
+    for value in values:
+        if value is not None:
+            return value
+    return None
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -249,6 +331,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--min-demand-hit-rate", type=float, default=0.10)
     parser.add_argument("--max-ready-late-miss-rate", type=float, default=0.20)
+    parser.add_argument("--min-used-per-issued-fetch", type=float, default=0.10)
     parser.add_argument("--min-manager-rows", type=int, default=1)
     parser.add_argument("--min-demand-count", type=int, default=1)
     parser.add_argument("--allow-unmeasured-copy", action="store_true")
@@ -264,6 +347,7 @@ def main(argv: list[str] | None = None) -> int:
         require_measured_copy=not bool(args.allow_unmeasured_copy),
         min_demand_hit_rate=float(args.min_demand_hit_rate),
         max_ready_late_miss_rate=float(args.max_ready_late_miss_rate),
+        min_used_per_issued_fetch=float(args.min_used_per_issued_fetch),
         min_manager_rows=int(args.min_manager_rows),
         min_demand_count=int(args.min_demand_count),
     )

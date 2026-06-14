@@ -32,7 +32,7 @@ def test_ready_time_payload_cache_gate_blocks_valid_negative_evidence(tmp_path: 
 
     assert result["passed"] is True
     assert result["allow_full_fetch"] is False
-    assert result["decision_reason"] == "ready_before_demand_threshold_not_met"
+    assert result["decision_reason"] == "full_fetch_threshold_not_met"
     assert result["metrics"]["demand_hit_rate"] == 0.0
     assert result["metrics"]["ready_late_miss_rate"] == 0.9
 
@@ -84,6 +84,125 @@ def test_ready_time_payload_cache_gate_accepts_metrics_report_input(tmp_path: Pa
     assert result["allow_full_fetch"] is False
     assert result["metrics"]["demand_count"] == 100
     assert result["metrics"]["measured_copy_us_per_issue"] == 100.0
+
+
+def test_ready_time_payload_cache_gate_accepts_direct_snapshot_input(tmp_path: Path):
+    result = check_summary(
+        _summary(
+            tmp_path,
+            runtime_shadow_aggregate_premap_payload_cache_manager_count=None,
+            runtime_shadow_aggregate_premap_payload_cache_issued_fetch_count=None,
+            runtime_shadow_aggregate_premap_payload_cache_used_fetch_count=None,
+            runtime_shadow_aggregate_premap_payload_cache_demand_count=None,
+            runtime_shadow_aggregate_premap_payload_cache_demand_hit_count=None,
+            runtime_shadow_aggregate_premap_payload_cache_ready_late_miss_count=None,
+            runtime_shadow_premap_payload_cache_direct_snapshot_present=True,
+            runtime_shadow_premap_payload_cache_direct_manager_mode="ready_time",
+            runtime_shadow_premap_payload_cache_direct_demand_count=100,
+            runtime_shadow_premap_payload_cache_direct_demand_hit_count=25,
+            runtime_shadow_premap_payload_cache_direct_ready_late_miss_count=30,
+            runtime_shadow_premap_payload_cache_direct_issued_fetch_count=8,
+            runtime_shadow_premap_payload_cache_direct_used_fetch_count=2,
+            runtime_shadow_premap_payload_cache_direct_queue_batch_size=8,
+            runtime_shadow_premap_payload_cache_direct_queue_deadline_us=1000.0,
+        ),
+        root=tmp_path,
+    )
+
+    assert result["passed"] is True
+    assert result["allow_full_fetch"] is False
+    assert result["decision_reason"] == "full_fetch_threshold_not_met"
+    assert result["metrics"]["manager_count"] == 1
+    assert result["metrics"]["demand_count"] == 100
+    assert result["metrics"]["demand_hit_count"] == 25
+    assert result["metrics"]["ready_late_miss_count"] == 30
+    assert result["metrics"]["used_per_issued_fetch"] == 0.25
+
+
+def test_ready_time_payload_cache_gate_rejects_incomplete_direct_snapshot(
+    tmp_path: Path,
+):
+    result = check_summary(
+        _summary(
+            tmp_path,
+            runtime_shadow_aggregate_premap_payload_cache_manager_count=None,
+            runtime_shadow_aggregate_premap_payload_cache_issued_fetch_count=None,
+            runtime_shadow_aggregate_premap_payload_cache_used_fetch_count=None,
+            runtime_shadow_aggregate_premap_payload_cache_demand_count=None,
+            runtime_shadow_aggregate_premap_payload_cache_demand_hit_count=None,
+            runtime_shadow_aggregate_premap_payload_cache_ready_late_miss_count=None,
+            runtime_shadow_premap_payload_cache_direct_snapshot_present=True,
+            runtime_shadow_premap_payload_cache_direct_manager_mode="resident",
+            runtime_shadow_premap_payload_cache_direct_demand_count=100,
+            runtime_shadow_premap_payload_cache_direct_demand_hit_count=25,
+            runtime_shadow_premap_payload_cache_direct_issued_fetch_count=8,
+            runtime_shadow_premap_payload_cache_direct_used_fetch_count=2,
+            runtime_shadow_premap_payload_cache_direct_queue_batch_size=8,
+            runtime_shadow_premap_payload_cache_direct_queue_deadline_us=1000.0,
+        ),
+        root=tmp_path,
+    )
+
+    assert result["passed"] is False
+    assert result["allow_full_fetch"] is False
+    assert result["decision_reason"] == "invalid_evidence"
+    assert "direct_snapshot_mode_not_ready_time:resident" in result["failures"]
+    assert (
+        "direct_snapshot_field_missing:"
+        "runtime_shadow_premap_payload_cache_direct_ready_late_miss_count"
+    ) in result["failures"]
+
+
+def test_ready_time_payload_cache_gate_preserves_explicit_zero_priority(
+    tmp_path: Path,
+):
+    result = check_summary(
+        _summary(
+            tmp_path,
+            runtime_shadow_aggregate_premap_payload_cache_demand_hit_count=95,
+            runtime_shadow_aggregate_premap_payload_cache_ready_late_miss_count=1,
+            runtime_shadow_aggregate_premap_payload_cache_issued_fetch_count=8,
+            runtime_shadow_aggregate_premap_payload_cache_used_fetch_count=0,
+            runtime_shadow_premap_payload_cache_direct_snapshot_present=True,
+            runtime_shadow_premap_payload_cache_direct_manager_mode="ready_time",
+            runtime_shadow_premap_payload_cache_direct_demand_count=100,
+            runtime_shadow_premap_payload_cache_direct_demand_hit_count=95,
+            runtime_shadow_premap_payload_cache_direct_ready_late_miss_count=1,
+            runtime_shadow_premap_payload_cache_direct_issued_fetch_count=8,
+            runtime_shadow_premap_payload_cache_direct_used_fetch_count=8,
+            runtime_shadow_premap_payload_cache_direct_queue_batch_size=8,
+            runtime_shadow_premap_payload_cache_direct_queue_deadline_us=1000.0,
+        ),
+        root=tmp_path,
+    )
+
+    assert result["passed"] is True
+    assert result["allow_full_fetch"] is False
+    assert result["metrics"]["used_fetch_count"] == 0
+    assert result["metrics"]["used_per_issued_fetch"] == 0.0
+    assert result["threshold_failures"] == [
+        "used_per_issued_fetch_below_threshold"
+    ]
+
+
+def test_ready_time_payload_cache_gate_blocks_unused_prefetches(tmp_path: Path):
+    result = check_summary(
+        _summary(
+            tmp_path,
+            runtime_shadow_aggregate_premap_payload_cache_demand_hit_count=95,
+            runtime_shadow_aggregate_premap_payload_cache_ready_late_miss_count=1,
+            runtime_shadow_aggregate_premap_payload_cache_issued_fetch_count=8,
+            runtime_shadow_aggregate_premap_payload_cache_used_fetch_count=0,
+        ),
+        root=tmp_path,
+    )
+
+    assert result["passed"] is True
+    assert result["allow_full_fetch"] is False
+    assert result["decision_reason"] == "full_fetch_threshold_not_met"
+    assert result["metrics"]["demand_hit_rate"] == 0.95
+    assert result["metrics"]["ready_late_miss_rate"] == 0.01
+    assert result["metrics"]["used_per_issued_fetch"] == 0.0
 
 
 def test_ready_time_payload_cache_gate_reports_invalid_evidence(tmp_path: Path):

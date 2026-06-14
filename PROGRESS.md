@@ -2,8 +2,30 @@
 
 ## Progress Version
 
-- Version: `v0.88-direct-stub-issue-packet-gate`
+- Version: `v0.89-ready-time-direct-snapshot-gate`
 - Updated: 2026-06-14
+- Latest ready-time payload-cache production-batch gate: the ready-time
+  payload-cache checker now accepts the no-row direct manager snapshot fields
+  emitted by production-batch live probes
+  (`runtime_shadow_premap_payload_cache_direct_*`) in addition to aggregate
+  JSONL counters.  The checker now treats `snapshot_present=true` as one
+  manager snapshot only when the direct snapshot is self-consistent
+  (`direct_manager_mode=ready_time` and required demand/hit/late/issued/used
+  queue fields are present), preserves explicit zero counts with
+  first-non-`None` field selection, and requires issued prefetches to be used
+  (`used_fetch_count / issued_fetch_count >= 0.10`) before allowing full_fetch.
+  This prevents resident cache hits from being mistaken for useful prefetch
+  evidence.  GPU1 Dolly32/gen64 production-batch evidence under
+  `outputs/reports/awq_telemetry_ladder/gpu1_payload_cache_ready_time_v088_smoke32_gen64`
+  is valid but blocked: baseline TPOT is `0.003520s`, consumer-owner
+  ready-time TPOT is `0.006286s`, and producer-owner ready-time TPOT is
+  `0.008820s`.  Both ready-time paths report `demand_count=302583`,
+  `demand_hit_rate=0.9672`, `issued_fetch_count=12`, `used_fetch_count=0`,
+  `ready_late_miss_count=11`, and checker decision
+  `allow_full_fetch=false` with
+  `threshold_failures=["used_per_issued_fetch_below_threshold"]`.  The current
+  production-batch payload/cache manager path is therefore accounting evidence
+  only and remains disabled as a runtime full_fetch candidate.
 - Latest direct native stub packet-json gate: the strict producer-state issue
   packet contract now applies to the direct native producer-state stub as well
   as the online canary selector.  `run_premap_payload_cache_producer_state_stub.py
