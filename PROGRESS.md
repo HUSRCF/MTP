@@ -25,7 +25,15 @@
   `tests/test_run_premap_payload_cache_producer_state_stub.py`, and
   `tests/test_run_premap_payload_cache_producer_state_online_canary.py` pass
   together (`88 passed`); full `pytest tests -q` passes with `1274 passed`,
-  with only the existing SWIG deprecation warnings.
+  with only the existing SWIG deprecation warnings.  A local runner smoke, not
+  a vLLM long-run or lab-default gate artifact, also passes by generating a
+  temporary semantic packet/performance summary pair and running the online
+  canary runner into the native HIP stub:
+  `outputs/reports/premap_kernel_consumer/payload_cache_producer_state_online_canary_smoke_20260614.json`
+  reports `ok=true`, `passed=true`, `native_returncode=0`,
+  `input_source=semantic_packet_json`, `online_configured_export_enabled=true`,
+  `payload_bytes=0`, `ready_credit=false`, `passed_to_kernel=false`,
+  `changes_kernel_launch_args=false`, and `current_wna16_arg_compatible=false`.
 - Latest prefetch lab-default gate update: the premap lab preflight now treats
   the prefetch lab-default gate as a required precondition instead of an
   external side artifact.  `run_premap_lab_preflight.py` checks
