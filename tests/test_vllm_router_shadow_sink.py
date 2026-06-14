@@ -10,6 +10,7 @@ from mtp_expert_prefetch.runtime import (
     DescriptorOrderRuntimeGate,
     OnlineShadowLogger,
     PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH,
+    PremapPayloadCacheProducerTransitionStatePacket,
     RuntimeShadowController,
     TileRequest,
     build_layer_tile_prior,
@@ -450,9 +451,12 @@ def test_premap_payload_cache_prelaunch_observed_transition_issues_before_next_d
     assert recorder._premap_payload_cache_transition_producer_update_count == 0
 
 
-def test_premap_payload_cache_producer_transition_owner_issues_before_next_demand():
+def test_premap_payload_cache_producer_transition_owner_issues_before_next_demand(
+    tmp_path: Path,
+):
     transition = torch.zeros((1, 1, 4, 4), dtype=torch.float32)
     transition[0, 0, 1, 2] = 1.0
+    export_path_list: list[str] = []
     recorder = VllmRouterRecorder(
         top_k=2,
         shadow_outcome_sink=None,
@@ -469,7 +473,16 @@ def test_premap_payload_cache_producer_transition_owner_issues_before_next_deman
         shadow_transition_summary_mode="matrix_topk",
         shadow_transition_topk_count=1,
         shadow_transition_matrix=transition,
+        shadow_premap_payload_cache_producer_state_packet_export_enabled=True,
+        shadow_premap_payload_cache_producer_state_packet_export_dir=str(tmp_path),
+        shadow_premap_payload_cache_producer_state_packet_export_max_packets=2,
+        shadow_premap_payload_cache_producer_state_packet_export_paths=(
+            export_path_list
+        ),
     )
+    recorder.request_id = "producer/sample"
+    recorder.sequence_id = 7
+    recorder.shadow_premap_event_token_index = 11
 
     recorder.maybe_reorder_prepared_expert_assignment(
         layer_id=0,
@@ -508,6 +521,29 @@ def test_premap_payload_cache_producer_transition_owner_issues_before_next_deman
     assert recorder._premap_payload_cache_transition_native_packet_last_hash is not None
     assert recorder._premap_payload_cache_transition_native_packet_last_previous_count == 1
     assert recorder._premap_payload_cache_transition_native_packet_last_current_count == 1
+    export_paths = sorted(
+        tmp_path.glob("premap_payload_cache_producer_state_packet_*.json")
+    )
+    assert len(export_paths) == 2
+    assert "producer_sample" in export_paths[0].name
+    first_payload = json.loads(export_paths[0].read_text(encoding="utf-8"))
+    second_payload = json.loads(export_paths[1].read_text(encoding="utf-8"))
+    assert first_payload["previous_experts"] == []
+    assert first_payload["current_experts"] == [1]
+    assert second_payload["previous_experts"] == [1]
+    assert second_payload["current_experts"] == [2]
+    assert second_payload["ready"] is True
+    assert second_payload["payload_bytes"] == 0
+    assert second_payload["ready_credit"] is False
+    assert second_payload["passed_to_kernel"] is False
+    assert second_payload["changes_kernel_launch_args"] is False
+    assert second_payload["_export_context"]["source"] == (
+        "vllm_prelaunch_payload_cache_producer_transition_state_packet"
+    )
+    assert second_payload["_export_context"]["layer_id"] == 0
+    assert second_payload["_export_context"]["token_index"] == 11
+    assert recorder._premap_payload_cache_producer_state_packet_export_count == 2
+    assert export_path_list == [str(path) for path in export_paths]
 
 
 def test_premap_payload_cache_producer_transition_owner_skips_consumer_updates():
@@ -1284,6 +1320,71 @@ def test_premap_native_typed_consumer_input_export_respects_stride(tmp_path: Pat
     assert "layer10" in first.name
     assert "layer12" in third.name
     assert len(list(tmp_path.glob("premap_native_typed_consumer_input_*.json"))) == 2
+
+
+def test_premap_payload_cache_producer_state_packet_export_respects_stride(
+    tmp_path: Path,
+):
+    packet = PremapPayloadCacheProducerTransitionStatePacket(
+        layer_id=4,
+        previous_experts=(1,),
+        current_experts=(2,),
+        state_owner="producer",
+        issue_source="prelaunch_observed_transition_premap_shadow",
+        transition_summary_mode="matrix_topk",
+        transition_topk_count=8,
+        max_num_experts=16,
+    )
+    assert packet.ready
+    recorder = VllmRouterRecorder(
+        top_k=8,
+        shadow_num_experts=16,
+        shadow_premap_payload_cache_producer_state_packet_export_enabled=True,
+        shadow_premap_payload_cache_producer_state_packet_export_dir=str(tmp_path),
+        shadow_premap_payload_cache_producer_state_packet_export_max_packets=2,
+        shadow_premap_payload_cache_producer_state_packet_export_stride=2,
+        shadow_premap_payload_cache_producer_state_packet_export_paths=[],
+    )
+    recorder.request_id = "packet"
+    recorder.sequence_id = 3
+    recorder.shadow_premap_event_token_index = 5
+
+    first = recorder._maybe_export_premap_payload_cache_producer_state_packet(
+        packet,
+        layer_id=4,
+    )
+    second = recorder._maybe_export_premap_payload_cache_producer_state_packet(
+        packet,
+        layer_id=5,
+    )
+    third = recorder._maybe_export_premap_payload_cache_producer_state_packet(
+        packet,
+        layer_id=6,
+    )
+    fourth = recorder._maybe_export_premap_payload_cache_producer_state_packet(
+        packet,
+        layer_id=7,
+    )
+
+    assert first is not None
+    assert second is None
+    assert third is not None
+    assert fourth is None
+    assert "layer4" in first.name
+    assert "layer6" in third.name
+    payload = json.loads(first.read_text(encoding="utf-8"))
+    assert payload["previous_experts"] == [1]
+    assert payload["current_experts"] == [2]
+    assert payload["native_abi_field_count"] > 0
+    assert payload["payload_bytes"] == 0
+    assert payload["ready_credit"] is False
+    assert payload["passed_to_kernel"] is False
+    assert payload["changes_kernel_launch_args"] is False
+    assert payload["_export_context"]["state_hash"] == packet.state_hash
+    assert (
+        len(list(tmp_path.glob("premap_payload_cache_producer_state_packet_*.json")))
+        == 2
+    )
 
 
 class _ExpertGate(torch.nn.Module):

@@ -2038,6 +2038,18 @@ def _add_premap_payload_cache_manager_snapshot_to_performance(
     performance[f"{prefix}transition_native_packet_last_current_count"] = int(
         recorder._premap_payload_cache_transition_native_packet_last_current_count
     )
+    performance[f"{prefix}transition_native_packet_export_count"] = int(
+        recorder._premap_payload_cache_producer_state_packet_export_count
+    )
+    export_paths = (
+        recorder.shadow_premap_payload_cache_producer_state_packet_export_paths or []
+    )
+    performance[f"{prefix}transition_native_packet_export_path_count"] = int(
+        len(export_paths)
+    )
+    performance[f"{prefix}transition_native_packet_export_first_path"] = (
+        str(export_paths[0]) if export_paths else None
+    )
     ready_time_fields = (
         "ready_late_miss_count",
         "late_completion_unused_count",
@@ -2751,6 +2763,16 @@ class VllmRouterRecorder:
     shadow_premap_native_typed_consumer_input_export_max_rows: int = 4096
     shadow_premap_native_typed_consumer_input_export_stride: int = 1
     shadow_premap_native_typed_consumer_input_export_paths: list[str] | None = None
+    shadow_premap_payload_cache_producer_state_packet_export_enabled: bool = False
+    shadow_premap_payload_cache_producer_state_packet_export_dir: str | None = None
+    shadow_premap_payload_cache_producer_state_packet_export_prefix: str = (
+        "premap_payload_cache_producer_state_packet"
+    )
+    shadow_premap_payload_cache_producer_state_packet_export_max_packets: int = 0
+    shadow_premap_payload_cache_producer_state_packet_export_stride: int = 1
+    shadow_premap_payload_cache_producer_state_packet_export_paths: (
+        list[str] | None
+    ) = None
     shadow_premap_address_namespace: str = "expert_weight_descriptor"
     shadow_premap_priority: int = 2
     shadow_transition_premap_priority: int = 3
@@ -2924,6 +2946,16 @@ class VllmRouterRecorder:
         init=False,
         repr=False,
     )
+    _premap_payload_cache_producer_state_packet_export_count: int = field(
+        default=0,
+        init=False,
+        repr=False,
+    )
+    _premap_payload_cache_producer_state_packet_export_seen_count: int = field(
+        default=0,
+        init=False,
+        repr=False,
+    )
     _premap_consumer_mapping_call_count: int = field(default=0, repr=False)
     _premap_summary_call_count: int = field(default=0, repr=False)
     _premap_live_mutation_package_cache: dict[tuple[Any, ...], dict[str, Any]] = (
@@ -3019,6 +3051,100 @@ class VllmRouterRecorder:
         self._premap_payload_cache_transition_native_packet_last_hash = None
         self._premap_payload_cache_transition_native_packet_last_previous_count = 0
         self._premap_payload_cache_transition_native_packet_last_current_count = 0
+
+    def _maybe_export_premap_payload_cache_producer_state_packet(
+        self,
+        packet: PremapPayloadCacheProducerTransitionStatePacket | None,
+        *,
+        layer_id: int,
+    ) -> Path | None:
+        if not bool(
+            self.shadow_premap_payload_cache_producer_state_packet_export_enabled
+        ):
+            return None
+        if packet is None or not bool(packet.ready):
+            return None
+        max_packets = int(
+            self.shadow_premap_payload_cache_producer_state_packet_export_max_packets
+        )
+        if max_packets <= 0:
+            return None
+        if self._premap_payload_cache_producer_state_packet_export_count >= max_packets:
+            return None
+        stride = int(
+            self.shadow_premap_payload_cache_producer_state_packet_export_stride
+        )
+        if stride <= 0:
+            stride = 1
+        candidate_index = int(
+            self._premap_payload_cache_producer_state_packet_export_seen_count
+        )
+        self._premap_payload_cache_producer_state_packet_export_seen_count += 1
+        if candidate_index % stride != 0:
+            return None
+        export_dir_raw = (
+            self.shadow_premap_payload_cache_producer_state_packet_export_dir
+        )
+        if not export_dir_raw:
+            return None
+        export_dir = Path(export_dir_raw)
+        export_dir.mkdir(parents=True, exist_ok=True)
+        prefix = str(
+            self.shadow_premap_payload_cache_producer_state_packet_export_prefix
+            or "premap_payload_cache_producer_state_packet"
+        )
+        safe_request = "".join(
+            ch if ch.isalnum() or ch in {"-", "_"} else "_"
+            for ch in str(self.request_id)
+        )[:80]
+        export_idx = int(
+            self._premap_payload_cache_producer_state_packet_export_count
+        )
+        path = export_dir / (
+            f"{prefix}_{export_idx:04d}_{safe_request}"
+            f"_seq{int(self.sequence_id)}"
+            f"_tok{int(self.shadow_premap_event_token_index)}"
+            f"_layer{int(layer_id)}.json"
+        )
+        payload = packet.as_dict()
+        payload["_export_context"] = {
+            "source": "vllm_prelaunch_payload_cache_producer_transition_state_packet",
+            "request_id": str(self.request_id),
+            "sequence_id": int(self.sequence_id),
+            "token_index": int(self.shadow_premap_event_token_index),
+            "layer_id": int(layer_id),
+            "export_index": export_idx,
+            "ready": bool(packet.ready),
+            "state_hash": str(packet.state_hash),
+            "state_owner": str(packet.state_owner),
+            "issue_source": str(packet.issue_source),
+            "transition_summary_mode": str(packet.transition_summary_mode),
+            "transition_topk_count": int(packet.transition_topk_count),
+            "previous_expert_count": int(packet.previous_expert_count),
+            "current_expert_count": int(packet.current_expert_count),
+            "max_num_experts": (
+                None
+                if packet.max_num_experts is None
+                else int(packet.max_num_experts)
+            ),
+            "payload_bytes": int(packet.payload_bytes),
+            "ready_credit": bool(packet.ready_credit),
+            "passed_to_kernel": bool(packet.passed_to_kernel),
+            "changes_kernel_launch_args": bool(packet.changes_kernel_launch_args),
+        }
+        path.write_text(
+            json.dumps(payload, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        self._premap_payload_cache_producer_state_packet_export_count += 1
+        if (
+            self.shadow_premap_payload_cache_producer_state_packet_export_paths
+            is not None
+        ):
+            self.shadow_premap_payload_cache_producer_state_packet_export_paths.append(
+                str(path)
+            )
+        return path
 
     def _maybe_export_native_typed_consumer_input(
         self,
@@ -4102,6 +4228,10 @@ class VllmRouterRecorder:
             )
             self._premap_payload_cache_transition_native_packet_last_current_count = (
                 int(packet.current_expert_count)
+            )
+            self._maybe_export_premap_payload_cache_producer_state_packet(
+                packet,
+                layer_id=int(layer_id),
             )
         snapshot = self._issue_premap_payload_cache_from_prelaunch_observed_transition(
             layer_id=int(layer_id),
@@ -20074,6 +20204,35 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
         )
     )
     runtime_shadow_premap_native_typed_consumer_input_export_paths: list[str] = []
+    runtime_shadow_premap_payload_cache_producer_state_packet_export_enabled = bool(
+        runtime_shadow_options.get(
+            "premap_payload_cache_producer_state_packet_export_enabled",
+            False,
+        )
+    )
+    raw_producer_packet_export_dir = runtime_shadow_options.get(
+        "premap_payload_cache_producer_state_packet_export_dir"
+    )
+    runtime_shadow_premap_payload_cache_producer_state_packet_export_dir = (
+        resolve_path(raw_producer_packet_export_dir, base_dir=project_root)
+        if raw_producer_packet_export_dir is not None
+        else output_dir / "premap_payload_cache_producer_state_packets"
+    )
+    runtime_shadow_premap_payload_cache_producer_state_packet_export_prefix = str(
+        runtime_shadow_options.get(
+            "premap_payload_cache_producer_state_packet_export_prefix",
+            "premap_payload_cache_producer_state_packet",
+        )
+    )
+    runtime_shadow_premap_payload_cache_producer_state_packet_export_stride = int(
+        runtime_shadow_options.get(
+            "premap_payload_cache_producer_state_packet_export_stride",
+            1,
+        )
+    )
+    runtime_shadow_premap_payload_cache_producer_state_packet_export_paths: list[
+        str
+    ] = []
     manifest_path = output_dir / "manifest.jsonl"
     sample_timing_path = output_dir / "sample_timing.jsonl"
     performance = {
@@ -20472,6 +20631,24 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
             runtime_shadow_options.get(
                 "premap_native_typed_consumer_input_export_max_rows",
                 4096,
+            )
+        ),
+        "runtime_shadow_premap_payload_cache_producer_state_packet_export_enabled": (
+            runtime_shadow_premap_payload_cache_producer_state_packet_export_enabled
+        ),
+        "runtime_shadow_premap_payload_cache_producer_state_packet_export_dir": str(
+            runtime_shadow_premap_payload_cache_producer_state_packet_export_dir
+        ),
+        "runtime_shadow_premap_payload_cache_producer_state_packet_export_prefix": (
+            runtime_shadow_premap_payload_cache_producer_state_packet_export_prefix
+        ),
+        "runtime_shadow_premap_payload_cache_producer_state_packet_export_stride": int(
+            runtime_shadow_premap_payload_cache_producer_state_packet_export_stride
+        ),
+        "runtime_shadow_premap_payload_cache_producer_state_packet_export_max_packets": int(
+            runtime_shadow_options.get(
+                "premap_payload_cache_producer_state_packet_export_max_packets",
+                0,
             )
         ),
         "runtime_shadow_transition_premap_source": str(
@@ -21178,6 +21355,29 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                             shadow_premap_native_typed_consumer_input_export_paths=(
                                 runtime_shadow_premap_native_typed_consumer_input_export_paths
                             ),
+                            shadow_premap_payload_cache_producer_state_packet_export_enabled=(
+                                runtime_shadow_premap_payload_cache_producer_state_packet_export_enabled
+                            ),
+                            shadow_premap_payload_cache_producer_state_packet_export_dir=(
+                                str(
+                                    runtime_shadow_premap_payload_cache_producer_state_packet_export_dir
+                                )
+                            ),
+                            shadow_premap_payload_cache_producer_state_packet_export_prefix=(
+                                runtime_shadow_premap_payload_cache_producer_state_packet_export_prefix
+                            ),
+                            shadow_premap_payload_cache_producer_state_packet_export_stride=int(
+                                runtime_shadow_premap_payload_cache_producer_state_packet_export_stride
+                            ),
+                            shadow_premap_payload_cache_producer_state_packet_export_max_packets=int(
+                                runtime_shadow_options.get(
+                                    "premap_payload_cache_producer_state_packet_export_max_packets",
+                                    0,
+                                )
+                            ),
+                            shadow_premap_payload_cache_producer_state_packet_export_paths=(
+                                runtime_shadow_premap_payload_cache_producer_state_packet_export_paths
+                            ),
                             shadow_premap_address_namespace=str(
                                 runtime_shadow_options.get(
                                     "premap_address_namespace",
@@ -21786,6 +21986,24 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
         performance[
             "runtime_shadow_premap_native_typed_consumer_input_export_first_path"
         ] = (str(export_paths[0]) if export_paths else None)
+    if runtime_shadow_premap_payload_cache_producer_state_packet_export_enabled:
+        producer_packet_export_paths = [
+            Path(path)
+            for path in runtime_shadow_premap_payload_cache_producer_state_packet_export_paths
+        ]
+        performance[
+            "runtime_shadow_premap_payload_cache_producer_state_packet_export_count"
+        ] = len(producer_packet_export_paths)
+        performance[
+            "runtime_shadow_premap_payload_cache_producer_state_packet_export_paths"
+        ] = [str(path) for path in producer_packet_export_paths]
+        performance[
+            "runtime_shadow_premap_payload_cache_producer_state_packet_export_first_path"
+        ] = (
+            str(producer_packet_export_paths[0])
+            if producer_packet_export_paths
+            else None
+        )
     performance_path = output_dir / "performance_summary.json"
     performance_path.write_text(
         json.dumps(performance, indent=2, sort_keys=True) + "\n",
