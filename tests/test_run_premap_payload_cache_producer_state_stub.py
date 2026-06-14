@@ -53,11 +53,13 @@ def test_payload_cache_producer_state_stub_preserves_readonly_contract():
     assert "kPremapPayloadCacheProducerTransitionStateAbiV1CurrentWna16ArgCompatible" in source
     assert "parse_bounded_u32" in source
     assert "parse_u64" in source
+    assert "issue_hash_mix" in source
     assert "kMaxCount = 65536UL" in source
     assert "kMaxCsvCount = 65536UL" in source
     assert "--layer-id" in source
     assert "--state-hash" in source
     assert '\\"layer_id\\":' in source
+    assert '\\"issue_candidate_hash\\":' in source
     assert '\\"payload_bytes\\":0' in source
     assert '\\"ready_credit\\":false' in source
     assert '\\"passed_to_kernel\\":false' in source
@@ -73,6 +75,14 @@ def test_payload_cache_producer_state_stub_rejects_invalid_counts():
         module._validate_count(-1, "previous-count")
     with pytest.raises(ValueError, match="safety bound"):
         module._validate_count(module.MAX_NATIVE_CANARY_COUNT + 1, "previous-count")
+
+
+def test_payload_cache_producer_state_issue_candidate_hash_topk_semantics():
+    module = _load_module()
+
+    assert module._issue_candidate_hash((2, 7, 9), 0) == 0x733CF4903B9B8F3A
+    assert module._issue_candidate_hash((2, 7, 9), 2) == 0xEA95D41875D6802C
+    assert module._issue_candidate_hash((2, 7, 9), 3) == 0x733CF4903B9B8F3A
 
 
 def test_payload_cache_producer_state_stub_returns_structured_failure(monkeypatch, tmp_path: Path):
@@ -197,6 +207,9 @@ def test_payload_cache_producer_state_stub_accepts_semantic_packet_json(
     assert payload["requested_layer_id"] == 1
     assert payload["requested_state_hash"] == packet.state_hash[:16]
     assert payload["packet_state_hash_u64"] == packet.state_hash[:16]
+    assert payload["expected_issue_candidate_hash"] == (
+        f"{module._issue_candidate_hash((2, 7), 4):016x}"
+    )
     assert "--layer-id" in captured["cmd"]
     assert "1" in captured["cmd"]
     assert "--state-hash" in captured["cmd"]

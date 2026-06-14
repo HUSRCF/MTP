@@ -108,6 +108,24 @@ def _packet_state_hash_u64(packet: PremapPayloadCacheProducerTransitionStatePack
     return int(str(packet.state_hash)[:16], 16) & 0xFFFFFFFFFFFFFFFF
 
 
+def _issue_candidate_hash(
+    previous_experts: tuple[int, ...],
+    transition_topk_count: int,
+) -> int:
+    limit = (
+        len(previous_experts)
+        if int(transition_topk_count) == 0
+        else min(len(previous_experts), int(transition_topk_count))
+    )
+    value = 0xCBF29CE484222325
+    for expert_id in previous_experts[:limit]:
+        value ^= int(expert_id) & 0xFFFFFFFF
+        value = (value * 0x100000001B3) & 0xFFFFFFFFFFFFFFFF
+    value ^= limit & 0xFFFFFFFF
+    value = (value * 0x100000001B3) & 0xFFFFFFFFFFFFFFFF
+    return value
+
+
 def _load_packet_json(path: Path) -> PremapPayloadCacheProducerTransitionStatePacket:
     payload = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(payload, dict):
@@ -251,11 +269,16 @@ def run_stub(args: argparse.Namespace) -> dict[str, Any]:
     payload["requested_layer_id"] = int(layer_id)
     payload["requested_state_hash"] = f"{int(state_hash_u64):016x}"
     if packet is not None:
+        expected_issue_hash = _issue_candidate_hash(
+            previous_experts or (),
+            transition_topk_count,
+        )
         payload["packet_json"] = str(packet_json)
         payload["packet_ready"] = bool(packet.ready)
         payload["packet_state_hash"] = str(packet.state_hash)
         payload["packet_state_hash_u64"] = f"{_packet_state_hash_u64(packet):016x}"
         payload["packet_layer_id"] = int(packet.layer_id)
+        payload["expected_issue_candidate_hash"] = f"{expected_issue_hash:016x}"
         payload["input_source"] = "semantic_packet_json"
     else:
         payload["input_source"] = "synthetic"

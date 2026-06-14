@@ -2286,6 +2286,7 @@ def _payload_cache_producer_state_native_canary_payload() -> dict[str, object]:
         "failures": [],
         "input_source": "semantic_packet_json",
         "issue_candidate_count": 2,
+        "issue_candidate_hash": "d949aa186c0c4928",
         "layer_id": 0,
         "mode": "readonly_payload_cache_producer_transition_state_native_canary",
         "native_returncode": 0,
@@ -2320,6 +2321,7 @@ def _payload_cache_producer_state_native_canary_payload() -> dict[str, object]:
         "requested_layer_id": 0,
         "requested_previous_count": 2,
         "requested_transition_topk_count": 4,
+        "expected_issue_candidate_hash": "d949aa186c0c4928",
         "selected_packet_index": 0,
         "selected_packet_json": (
             "reports/premap_payload_cache_producer_state_packet.json"
@@ -10315,6 +10317,39 @@ def test_premap_lab_preflight_rejects_payload_cache_producer_state_layer_mismatc
     assert (
         "payload_cache_producer_state_native_canary_json:"
         "payload_cache_producer_state_native_canary_layer_id_packet_mismatch"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_payload_cache_producer_state_issue_hash_mismatch(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    producer_state_path = (
+        tmp_path / "reports/default_gate_payload_cache_producer_state_native_canary.json"
+    )
+    payload = json.loads(producer_state_path.read_text())
+    payload["issue_candidate_hash"] = "0000000000000001"
+    _write(producer_state_path, json.dumps(payload) + "\n")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is False
+    failures = result["default_readonly_gate_required_evidence_check"]["failures"]
+    assert (
+        "payload_cache_producer_state_native_canary_json:"
+        "payload_cache_producer_state_native_canary_issue_candidate_hash_mismatch"
     ) in failures
 
 

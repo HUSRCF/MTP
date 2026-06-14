@@ -38,6 +38,7 @@ struct ProducerTransitionStateResult {
   uint32_t layer_id;
   uint32_t error_count;
   uint64_t state_hash;
+  uint64_t issue_candidate_hash;
 };
 
 static void hip_check(hipError_t err, const char* label) {
@@ -54,6 +55,12 @@ __device__ bool contains_i32(const int32_t* values, uint32_t count, int32_t need
     }
   }
   return false;
+}
+
+__device__ uint64_t issue_hash_mix(uint64_t value, uint32_t expert_id) {
+  value ^= static_cast<uint64_t>(expert_id);
+  value *= 0x100000001b3ULL;
+  return value;
 }
 
 __global__ void producer_transition_state_kernel(
@@ -89,13 +96,25 @@ __global__ void producer_transition_state_kernel(
       packet.previous_expert_id == nullptr ? 0 : packet.previous_count;
   const uint32_t current_count =
       packet.current_expert_id == nullptr ? 0 : packet.current_count;
+  const uint32_t topk = packet.transition_topk_count;
 
   // The semantic producer packet canonicalizes expert ids before this native
   // boundary.  This canary therefore treats previous/current arrays as set-like
   // rows and reports raw-count overlap for the canonicalized input contract.
+  const uint32_t issue_limit =
+      topk == 0 ? previous_count
+                : (previous_count < topk ? previous_count : topk);
+  result.issue_candidate_hash = 0xcbf29ce484222325ULL;
+  uint32_t issue_selected_count = 0;
   for (uint32_t i = 0; i < previous_count; ++i) {
-    if (packet.previous_expert_id[i] >= 0) {
+    const int32_t expert = packet.previous_expert_id[i];
+    if (expert >= 0) {
       result.previous_valid_count += 1;
+      if (issue_selected_count < issue_limit) {
+        result.issue_candidate_hash =
+            issue_hash_mix(result.issue_candidate_hash, static_cast<uint32_t>(expert));
+        issue_selected_count += 1;
+      }
     } else {
       result.error_count += 1;
     }
@@ -112,12 +131,9 @@ __global__ void producer_transition_state_kernel(
     }
   }
 
-  const uint32_t topk = packet.transition_topk_count;
-  result.issue_candidate_count =
-      topk == 0 ? result.previous_valid_count
-                : (result.previous_valid_count < topk
-                       ? result.previous_valid_count
-                       : topk);
+  result.issue_candidate_count = issue_selected_count;
+  result.issue_candidate_hash =
+      issue_hash_mix(result.issue_candidate_hash, issue_selected_count);
   result.ready = result.error_count == 0 ? 1 : 0;
   *out = result;
 }
@@ -356,6 +372,9 @@ int main(int argc, char** argv) {
   std::cout << ",\"current_valid_count\":" << result.current_valid_count;
   std::cout << ",\"overlap_count\":" << result.overlap_count;
   std::cout << ",\"issue_candidate_count\":" << result.issue_candidate_count;
+  std::cout << ",\"issue_candidate_hash\":\"" << std::hex << std::setfill('0')
+            << std::setw(16) << result.issue_candidate_hash << std::dec
+            << std::setfill(' ') << "\"";
   std::cout << ",\"previous_nonempty\":" << result.previous_nonempty;
   std::cout << ",\"current_nonempty\":" << result.current_nonempty;
   std::cout << ",\"transition_topk_count\":" << result.transition_topk_count;

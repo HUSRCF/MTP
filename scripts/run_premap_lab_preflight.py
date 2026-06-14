@@ -5310,6 +5310,21 @@ def _validate_payload_cache_producer_state_native_canary_evidence(
         and issue_candidate_count > transition_topk_count
     ):
         failures.append(f"{failure_prefix}_issue_candidate_count_over_topk")
+    issue_candidate_hash = _hex64_metric(evidence, "issue_candidate_hash")
+    expected_issue_candidate_hash = _hex64_metric(
+        evidence,
+        "expected_issue_candidate_hash",
+    )
+    if issue_candidate_hash is None:
+        failures.append(f"{failure_prefix}_issue_candidate_hash_invalid")
+    if expected_issue_candidate_hash is None:
+        failures.append(f"{failure_prefix}_expected_issue_candidate_hash_invalid")
+    if (
+        issue_candidate_hash is not None
+        and expected_issue_candidate_hash is not None
+        and issue_candidate_hash != expected_issue_candidate_hash
+    ):
+        failures.append(f"{failure_prefix}_issue_candidate_hash_mismatch")
     if (
         requested_previous_count is not None
         and previous_count is not None

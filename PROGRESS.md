@@ -4,6 +4,25 @@
 
 - Version: `v0.82-online-producer-state-packet-canary`
 - Updated: 2026-06-14
+- Latest producer-state native issue gate: the readonly native producer-state
+  stub now computes a deterministic `issue_candidate_hash` over the native
+  previous-expert issue prefix (`topk == 0` means uncapped; otherwise
+  `min(previous_count, topk)`).  The Python runner computes the same
+  `expected_issue_candidate_hash` from the semantic packet, and lab preflight
+  requires the native and expected hashes to match.  This moves the canary one
+  step beyond identity echo: the native side now validates the selected
+  previous-token transition issue prefix while still carrying only expert-id
+  metadata.  The refreshed real online canary artifact reports
+  `issue_candidate_hash=af63bd4c8601b7df` matching
+  `expected_issue_candidate_hash=af63bd4c8601b7df`; the selected online packet
+  has no previous experts, so this is the empty issue-prefix hash.  Safety
+  remains unchanged: no payload bytes, no ready credit, no current WNA16 kernel
+  arg compatibility, no kernel-arg pass, and no launch-arg change.  Validation:
+  producer-state stub tests pass (`8 passed`), preflight tests pass (`152 passed`), default strict
+  preflight passes with zero failures, and full `pytest tests -q` passes
+  (`1286 passed`, only existing SWIG deprecation warnings).  Codex review
+  confirmed the stale-artifact and top-k truncation coverage issues are
+  resolved.
 - Latest producer-state native identity gate: the readonly native producer-state
   stub now consumes the online semantic packet identity directly.  In
   `packet_json` mode the runner passes `packet.layer_id` and the first 64 bits
