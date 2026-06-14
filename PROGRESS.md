@@ -2,8 +2,28 @@
 
 ## Progress Version
 
-- Version: `v0.85-summary-first-nonempty-issue-gate`
+- Version: `v0.86-native-issue-prefix-bounds-gate`
 - Updated: 2026-06-14
+- Latest native issue-prefix bounds gate: the readonly producer-state native
+  canary now reports the issue-prefix boundary it actually read on the native
+  side: `issue_candidate_first_expert` and
+  `issue_candidate_last_expert`.  The Python runner records matching
+  `expected_issue_candidate_count`, `expected_issue_candidate_first_expert`,
+  and `expected_issue_candidate_last_expert` from the semantic packet.  Lab
+  preflight now requires native and expected issue-prefix counts and bounds to
+  match; an empty issue prefix must report `count=0` and `first/last=-1`, while
+  nonempty issue-prefix evidence must report nonnegative first/last experts.
+  The three required producer-state artifacts were refreshed under the same
+  readonly/no-payload boundary.  The summary-first nonempty online canary and
+  independent nonempty native stub both report `issue_candidate_count=8`,
+  `issue_candidate_first_expert=26`, `issue_candidate_last_expert=232`, and
+  matching hash `f3f1208c1026d557`; the baseline online canary reports the
+  legal empty-prefix boundary `count=0, first=-1, last=-1`.  Strict default lab
+  preflight passes with 43 required evidence rows and zero failures:
+  `outputs/reports/premap_lab_preflight_default_issue_bounds_required_strict_20260614.json`.
+  Safety remains unchanged: `payload_bytes=0`, `ready_credit=false`,
+  `passed_to_kernel=false`, `changes_kernel_launch_args=false`, and
+  `current_wna16_arg_compatible=false`.
 - Latest summary-first nonempty issue gate: the default readonly lab gate now
   requires a real Dolly4/gen64 online canary artifact generated from
   `performance_summary.json`'s producer-state packet-export summary fields

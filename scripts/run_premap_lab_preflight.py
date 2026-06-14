@@ -5247,6 +5247,26 @@ def _validate_payload_cache_producer_state_native_canary_evidence(
     current_nonempty = _int_metric(evidence, "current_nonempty")
     overlap_count = _int_metric(evidence, "overlap_count")
     issue_candidate_count = _int_metric(evidence, "issue_candidate_count")
+    issue_candidate_first_expert = _int_metric(
+        evidence,
+        "issue_candidate_first_expert",
+    )
+    issue_candidate_last_expert = _int_metric(
+        evidence,
+        "issue_candidate_last_expert",
+    )
+    expected_issue_candidate_count = _int_metric(
+        evidence,
+        "expected_issue_candidate_count",
+    )
+    expected_issue_candidate_first_expert = _int_metric(
+        evidence,
+        "expected_issue_candidate_first_expert",
+    )
+    expected_issue_candidate_last_expert = _int_metric(
+        evidence,
+        "expected_issue_candidate_last_expert",
+    )
     transition_topk_count = _int_metric(evidence, "transition_topk_count")
     requested_previous_count = _int_metric(evidence, "requested_previous_count")
     requested_current_count = _int_metric(evidence, "requested_current_count")
@@ -5303,6 +5323,7 @@ def _validate_payload_cache_producer_state_native_canary_evidence(
         ("current_nonempty", current_nonempty),
         ("overlap_count", overlap_count),
         ("issue_candidate_count", issue_candidate_count),
+        ("expected_issue_candidate_count", expected_issue_candidate_count),
         ("transition_topk_count", transition_topk_count),
         ("requested_previous_count", requested_previous_count),
         ("requested_current_count", requested_current_count),
@@ -5436,6 +5457,47 @@ def _validate_payload_cache_producer_state_native_canary_evidence(
         and issue_candidate_count > transition_topk_count
     ):
         failures.append(f"{failure_prefix}_issue_candidate_count_over_topk")
+    if (
+        issue_candidate_count is not None
+        and expected_issue_candidate_count is not None
+        and issue_candidate_count != expected_issue_candidate_count
+    ):
+        failures.append(f"{failure_prefix}_issue_candidate_count_mismatch")
+    issue_prefix_bound_metrics = (
+        ("issue_candidate_first_expert", issue_candidate_first_expert),
+        ("issue_candidate_last_expert", issue_candidate_last_expert),
+        (
+            "expected_issue_candidate_first_expert",
+            expected_issue_candidate_first_expert,
+        ),
+        (
+            "expected_issue_candidate_last_expert",
+            expected_issue_candidate_last_expert,
+        ),
+    )
+    for key, value in issue_prefix_bound_metrics:
+        if value is None:
+            failures.append(f"{failure_prefix}_{key}_invalid")
+    if issue_candidate_count is not None and issue_candidate_count <= 0:
+        for key, value in issue_prefix_bound_metrics:
+            if value is not None and value != -1:
+                failures.append(f"{failure_prefix}_{key}_nonempty_for_empty_issue")
+    elif issue_candidate_count is not None:
+        for key, value in issue_prefix_bound_metrics:
+            if value is not None and value < 0:
+                failures.append(f"{failure_prefix}_{key}_negative_for_nonempty_issue")
+    if (
+        issue_candidate_first_expert is not None
+        and expected_issue_candidate_first_expert is not None
+        and issue_candidate_first_expert != expected_issue_candidate_first_expert
+    ):
+        failures.append(f"{failure_prefix}_issue_candidate_first_expert_mismatch")
+    if (
+        issue_candidate_last_expert is not None
+        and expected_issue_candidate_last_expert is not None
+        and issue_candidate_last_expert != expected_issue_candidate_last_expert
+    ):
+        failures.append(f"{failure_prefix}_issue_candidate_last_expert_mismatch")
     if require_nonempty_issue:
         if previous_count is not None and previous_count <= 0:
             failures.append(f"{failure_prefix}_previous_count_empty")

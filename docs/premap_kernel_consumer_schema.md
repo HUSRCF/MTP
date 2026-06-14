@@ -781,8 +781,15 @@ argument slot compatible with the typed table.
 
    The required lab surface now also includes the online summary-first
    producer-state nonempty issue canary and the independent native nonempty
-   issue-prefix stub.  This promotion still does not pass current WNA16 kernel
-   arguments.
+   issue-prefix stub.  These producer-state evidence rows must expose both the
+   native issue-prefix summary and the semantic-packet expectation:
+   `issue_candidate_count`, `issue_candidate_first_expert`,
+   `issue_candidate_last_expert`, `expected_issue_candidate_count`,
+   `expected_issue_candidate_first_expert`, and
+   `expected_issue_candidate_last_expert`.  Empty issue prefixes use
+   `count=0` and `first/last=-1`; nonempty issue prefixes must match the
+   expected count and bounds exactly.  This promotion still does not pass
+   current WNA16 kernel arguments.
 6. The online prelaunch bridge now connects the same explicit future typed slot
    through the native consumer path.  The runner requires the actual native
    stub macro:

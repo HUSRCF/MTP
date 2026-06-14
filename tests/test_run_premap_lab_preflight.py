@@ -2290,7 +2290,9 @@ def _payload_cache_producer_state_native_canary_payload() -> dict[str, object]:
         "failures": [],
         "input_source": "semantic_packet_json",
         "issue_candidate_count": 2,
+        "issue_candidate_first_expert": 0,
         "issue_candidate_hash": "d949aa186c0c4928",
+        "issue_candidate_last_expert": 1,
         "layer_id": 0,
         "mode": "readonly_payload_cache_producer_transition_state_native_canary",
         "native_returncode": 0,
@@ -2333,7 +2335,10 @@ def _payload_cache_producer_state_native_canary_payload() -> dict[str, object]:
         "requested_layer_id": 0,
         "requested_previous_count": 2,
         "requested_transition_topk_count": 4,
+        "expected_issue_candidate_count": 2,
+        "expected_issue_candidate_first_expert": 0,
         "expected_issue_candidate_hash": "d949aa186c0c4928",
+        "expected_issue_candidate_last_expert": 1,
         "selected_packet_index": 0,
         "selected_packet_json": (
             "reports/premap_payload_cache_producer_state_packet.json"
@@ -10489,6 +10494,54 @@ def test_premap_lab_preflight_rejects_online_nonempty_issue_summary_hash_mismatc
         "payload_cache_producer_state_online_nonempty_issue_canary_"
         "online_packet_export_first_nonempty_issue_hash_mismatch"
     ) in failures
+
+
+def test_premap_lab_preflight_rejects_payload_cache_producer_state_issue_bounds_mismatch():
+    payload = _payload_cache_producer_state_native_canary_payload()
+    payload["issue_candidate_last_expert"] = 7
+
+    failures = _validate_payload_cache_producer_state_native_canary_evidence(
+        payload,
+        failure_prefix="payload_cache_producer_state_online_nonempty_issue_canary",
+        require_online_export=True,
+        require_nonempty_issue=True,
+        require_summary_first_nonempty_issue=True,
+    )
+
+    assert (
+        "payload_cache_producer_state_online_nonempty_issue_canary_"
+        "issue_candidate_last_expert_mismatch"
+    ) in failures
+
+
+def test_premap_lab_preflight_accepts_payload_cache_producer_state_empty_issue_bounds():
+    payload = _payload_cache_producer_state_nonempty_issue_stub_payload()
+    payload.update(
+        {
+            "previous_count": 0,
+            "previous_valid_count": 0,
+            "previous_nonempty": 0,
+            "overlap_count": 0,
+            "issue_candidate_count": 0,
+            "issue_candidate_first_expert": -1,
+            "issue_candidate_last_expert": -1,
+            "expected_issue_candidate_count": 0,
+            "expected_issue_candidate_first_expert": -1,
+            "expected_issue_candidate_last_expert": -1,
+            "issue_candidate_hash": "af63bd4c8601b7df",
+            "expected_issue_candidate_hash": "af63bd4c8601b7df",
+            "requested_previous_count": 0,
+        }
+    )
+
+    failures = _validate_payload_cache_producer_state_native_canary_evidence(
+        payload,
+        failure_prefix="payload_cache_producer_state_native_canary",
+        require_online_export=False,
+        require_nonempty_issue=False,
+    )
+
+    assert failures == []
 
 
 def test_premap_lab_preflight_rejects_payload_cache_producer_state_online_nonempty_without_export():
