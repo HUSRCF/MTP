@@ -295,6 +295,7 @@ OPTIONAL_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
     "future_kernel_native_consumer_packed_weight_mirror_canary_json",
     "future_kernel_native_consumer_scale_mirror_canary_json",
     "native_typed_consumer_stub_online_prelaunch_input_per_field_canary_json",
+    "payload_cache_producer_state_online_nonempty_issue_canary_json",
     "payload_cache_producer_state_nonempty_issue_stub_json",
 }
 ARG_SLOT_MIRROR_FIELDS = tuple(PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_COLUMNS)
@@ -1731,6 +1732,7 @@ def _validate_required_evidence_payload(
         "wna16_side_consumer_variant_execution_128strict_runner_json",
         "payload_cache_producer_state_native_canary_json",
         "payload_cache_producer_state_nonempty_issue_stub_json",
+        "payload_cache_producer_state_online_nonempty_issue_canary_json",
         "future_kernel_native_arg_slot_packed_weight_mirror_canary_json",
         *ARG_SLOT_ONLINE_MERGED_MIRROR_RUNNER_LABEL_BY_FIELD.values(),
         *ARG_SLOT_ONLINE_MERGED_MIRROR_STUB_LABEL_BY_FIELD.values(),
@@ -1893,6 +1895,18 @@ def _validate_required_evidence_payload(
                 evidence,
                 failure_prefix="payload_cache_producer_state_nonempty_issue_stub",
                 require_online_export=False,
+                require_nonempty_issue=True,
+            )
+        ]
+    if evidence_label == "payload_cache_producer_state_online_nonempty_issue_canary_json":
+        return [
+            f"{evidence_label}:{failure}"
+            for failure in _validate_payload_cache_producer_state_native_canary_evidence(
+                evidence,
+                failure_prefix=(
+                    "payload_cache_producer_state_online_nonempty_issue_canary"
+                ),
+                require_online_export=True,
                 require_nonempty_issue=True,
             )
         ]
