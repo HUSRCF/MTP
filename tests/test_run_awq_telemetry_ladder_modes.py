@@ -554,6 +554,113 @@ def test_production_batch_warmup_only_adds_warmup_overrides() -> None:
         assert comparable_warmup == comparable_base
 
 
+def test_production_batch_payload_cache_ready_time_graph_warmup_is_accounting_only() -> None:
+    module = _load_module()
+    mode = module.MODES[
+        "production_batch_premap_payload_cache_ready_time_graph_warmup_counter_off"
+    ]
+    graph_warmup = module.MODES["production_batch_graph_warmup"]
+    trace_overrides = mode["trace_overrides"]
+    vllm_overrides = trace_overrides["vllm_overrides"]
+    graph_vllm = graph_warmup["trace_overrides"]["vllm_overrides"]
+
+    assert mode["runtime_shadow_enabled"] is False
+    assert trace_overrides["allow_premap_live_config_without_router_recorder"] is True
+    assert trace_overrides["use_router_logits_recorder"] is False
+    assert trace_overrides["capture_router_topk"] is False
+    assert trace_overrides["capture_router_scores"] is False
+    assert vllm_overrides["enforce_eager"] is False
+    assert vllm_overrides["warmup_prompt_count"] == 32
+    assert vllm_overrides["warmup_max_tokens"] == 16
+    assert vllm_overrides["engine_chunk_size"] == graph_vllm["engine_chunk_size"] == 32
+
+    assert mode["record_router_topk"] is False
+    assert mode["capture_router_topk"] is False
+    assert mode["emit_premap_summaries"] is False
+    assert mode["emit_premap_address_manager_counters"] is False
+    assert mode["emit_premap_payload_cache_manager_counters"] is True
+    assert mode["premap_payload_cache_manager_mode"] == "ready_time"
+    assert mode["premap_payload_cache_manager_capacity"] == 12_288
+    assert mode["transition_summary_mode"] == "matrix_topk"
+    assert mode["transition_topk_count"] == 8
+    assert mode["transition_matrix_path"] == (
+        "outputs/artifacts/transition_matrix_512sample_calibrated.pt"
+    )
+    assert mode["transition_premap_source"] == (
+        "prelaunch_observed_transition_premap_shadow"
+    )
+    assert mode["premap_payload_cache_manager_issue_sources"] == [
+        "prelaunch_observed_transition_premap_shadow"
+    ]
+    assert mode["premap_payload_cache_manager_demand_on_consumer"] is True
+    assert mode["premap_payload_cache_manager_emit_consumer_rows"] is False
+    assert mode["emit_premap_consumer_mapping"] is False
+    assert mode["premap_consumer_mapping_emit_rows"] is False
+    assert mode["premap_kernel_arg_handoff_live_enabled"] is False
+    assert mode["premap_kernel_arg_handoff_live_consumer_connected"] is False
+    assert mode["premap_kernel_arg_handoff_kernel_arg_pass_enabled"] is False
+    assert mode["premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled"] is False
+    assert (
+        mode["premap_kernel_arg_handoff_future_wna16_typed_slot_kernel_variant_enabled"]
+        is False
+    )
+    assert mode["descriptor_order_reorder_mvp_enabled"] is False
+    assert mode["emit_outcomes"] is False
+    assert mode["outcome_logging_mode"] == "off"
+
+
+def test_production_batch_payload_cache_ready_time_eager_counter_off_is_accounting_only() -> None:
+    module = _load_module()
+    mode = module.MODES[
+        "production_batch_premap_payload_cache_ready_time_counter_off"
+    ]
+    production_batch = module.MODES["production_batch"]
+    trace_overrides = mode["trace_overrides"]
+    vllm_overrides = trace_overrides["vllm_overrides"]
+    base_vllm = production_batch["trace_overrides"]["vllm_overrides"]
+
+    assert mode["runtime_shadow_enabled"] is False
+    assert trace_overrides["allow_premap_live_config_without_router_recorder"] is True
+    assert trace_overrides["use_router_logits_recorder"] is False
+    assert trace_overrides["capture_router_topk"] is False
+    assert trace_overrides["capture_router_scores"] is False
+    assert vllm_overrides == base_vllm
+
+    assert mode["record_router_topk"] is False
+    assert mode["capture_router_topk"] is False
+    assert mode["emit_premap_summaries"] is False
+    assert mode["emit_premap_address_manager_counters"] is False
+    assert mode["emit_premap_payload_cache_manager_counters"] is True
+    assert mode["premap_payload_cache_manager_mode"] == "ready_time"
+    assert mode["premap_payload_cache_manager_capacity"] == 12_288
+    assert mode["transition_summary_mode"] == "matrix_topk"
+    assert mode["transition_topk_count"] == 8
+    assert mode["transition_matrix_path"] == (
+        "outputs/artifacts/transition_matrix_512sample_calibrated.pt"
+    )
+    assert mode["transition_premap_source"] == (
+        "prelaunch_observed_transition_premap_shadow"
+    )
+    assert mode["premap_payload_cache_manager_issue_sources"] == [
+        "prelaunch_observed_transition_premap_shadow"
+    ]
+    assert mode["premap_payload_cache_manager_demand_on_consumer"] is True
+    assert mode["premap_payload_cache_manager_emit_consumer_rows"] is False
+    assert mode["emit_premap_consumer_mapping"] is False
+    assert mode["premap_consumer_mapping_emit_rows"] is False
+    assert mode["premap_kernel_arg_handoff_live_enabled"] is False
+    assert mode["premap_kernel_arg_handoff_live_consumer_connected"] is False
+    assert mode["premap_kernel_arg_handoff_kernel_arg_pass_enabled"] is False
+    assert mode["premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled"] is False
+    assert (
+        mode["premap_kernel_arg_handoff_future_wna16_typed_slot_kernel_variant_enabled"]
+        is False
+    )
+    assert mode["descriptor_order_reorder_mvp_enabled"] is False
+    assert mode["emit_outcomes"] is False
+    assert mode["outcome_logging_mode"] == "off"
+
+
 def test_production_batch_premap_live_typed_slot_envelope_detailed_only_enables_counters() -> None:
     module = _load_module()
     detailed = module.MODES[
@@ -934,6 +1041,69 @@ def test_production_batch_direct_topk_identity_uses_no_recorder_no_premap_packag
     assert mode["emit_descriptor_order_summaries"] is False
 
 
+def test_production_batch_source_block_ids_kernel_uses_non_identity_descriptor_order_only() -> None:
+    module = _load_module()
+    mode = module.MODES[
+        "production_batch_descriptor_order_source_block_ids_kernel_counter_off"
+    ]
+    identity = module.MODES[
+        "production_batch_descriptor_order_direct_topk_identity_counter_off"
+    ]
+
+    assert mode["runtime_shadow_enabled"] is False
+    assert mode["trace_overrides"] == identity["trace_overrides"]
+    assert mode["record_router_topk"] is False
+    assert mode["capture_router_topk"] is False
+    assert mode["emit_summaries"] is False
+    assert mode["emit_outcomes"] is False
+    assert mode["emit_premap_summaries"] is False
+    assert mode["emit_premap_address_manager_counters"] is False
+    assert mode["emit_premap_consumer_mapping"] is True
+    assert mode["premap_consumer_mapping_emit_rows"] is False
+    assert mode["premap_consumer_mapping_mode"] == "noop_assertion"
+    assert mode["premap_consumer_resolve_real_handles"] is False
+    assert mode["premap_descriptor_prep_execution_mode"] == "off"
+    assert mode["premap_kernel_arg_handoff_live_enabled"] is False
+    assert mode["premap_kernel_arg_handoff_kernel_arg_pass_enabled"] is False
+    assert mode["premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled"] is False
+    assert (
+        mode[
+            "premap_kernel_arg_handoff_producer_future_wna16_typed_slot_envelope_enabled"
+        ]
+        is False
+    )
+    assert (
+        mode[
+            "premap_kernel_arg_handoff_producer_gpu_assignment_envelope_enabled"
+        ]
+        is False
+    )
+    assert (
+        mode["premap_kernel_arg_handoff_gpu_assignment_kernel_variant_enabled"]
+        is False
+    )
+    assert (
+        mode[
+            "premap_kernel_arg_handoff_future_wna16_typed_slot_kernel_variant_enabled"
+        ]
+        is False
+    )
+    assert mode["descriptor_order_reorder_mvp_enabled"] is True
+    assert mode["descriptor_order_reorder_mvp_apply_mode"] == "apply"
+    assert (
+        mode["descriptor_order_reorder_mvp_attribution_mode"]
+        == "source_block_ids_kernel"
+    )
+    assert mode["descriptor_order_reorder_mvp_require_profitable"] is False
+
+    comparable_mode = dict(mode)
+    comparable_identity = dict(identity)
+    comparable_mode["descriptor_order_reorder_mvp_attribution_mode"] = (
+        comparable_identity["descriptor_order_reorder_mvp_attribution_mode"]
+    )
+    assert comparable_mode == comparable_identity
+
+
 def test_production_batch_direct_topk_identity_readonly_gate_preflight() -> None:
     module = _load_module()
     root = Path(__file__).resolve().parents[1]
@@ -1017,6 +1187,10 @@ def test_production_batch_reuse_llm_modes_only_add_engine_reuse() -> None:
             "production_batch_descriptor_order_direct_topk_identity_counter_off_reuse_llm",
         ),
         (
+            "production_batch_descriptor_order_source_block_ids_kernel_counter_off",
+            "production_batch_descriptor_order_source_block_ids_kernel_counter_off_reuse_llm",
+        ),
+        (
             "production_batch_graph",
             "production_batch_graph_reuse_llm",
         ),
@@ -1027,6 +1201,14 @@ def test_production_batch_reuse_llm_modes_only_add_engine_reuse() -> None:
         (
             "production_batch_graph_warmup",
             "production_batch_graph_warmup_reuse_llm",
+        ),
+        (
+            "production_batch_premap_payload_cache_ready_time_graph_warmup_counter_off",
+            "production_batch_premap_payload_cache_ready_time_graph_warmup_counter_off_reuse_llm",
+        ),
+        (
+            "production_batch_premap_payload_cache_ready_time_counter_off",
+            "production_batch_premap_payload_cache_ready_time_counter_off_reuse_llm",
         ),
     )
 

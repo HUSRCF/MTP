@@ -24,8 +24,10 @@ from mtp_expert_prefetch.runtime.shadow_log import (
 from mtp_expert_prefetch.tracing.vllm_router_trace import VllmRouterRecorder
 from mtp_expert_prefetch.tracing.vllm_router_trace import (
     SharedExpertFusedGateUnsupportedError,
+    _add_premap_payload_cache_manager_snapshot_to_performance,
     _add_runtime_shadow_aggregate_to_performance,
     _apply_premap_payload_cache_measured_copy_envelope,
+    _load_runtime_shadow_transition_matrix,
     _shared_expert_fused_gate_fallbackable,
     _run_shared_expert_output_gate_default_postprocess,
     _shared_expert_custom_gate_enabled,
@@ -233,6 +235,335 @@ def test_premap_payload_cache_measured_copy_envelope_reports_bad_input(tmp_path)
             {"premap_payload_cache_manager_measured_copy_json": str(missing_stat)},
             project_root=tmp_path,
         )
+
+
+def test_runtime_shadow_transition_matrix_loader_reports_missing_path(tmp_path):
+    with pytest.raises(FileNotFoundError, match="transition_matrix_path does not exist"):
+        _load_runtime_shadow_transition_matrix(
+            options={
+                "transition_summary_mode": "matrix_topk",
+                "transition_matrix_path": "missing_transition.pt",
+            },
+            project_root=tmp_path,
+        )
+
+
+def test_runtime_shadow_transition_matrix_loader_skips_path_for_previous_topk(tmp_path):
+    assert (
+        _load_runtime_shadow_transition_matrix(
+            options={
+                "transition_summary_mode": "previous_topk",
+                "transition_matrix_path": "missing_transition.pt",
+            },
+            project_root=tmp_path,
+        )
+        is None
+    )
+
+
+def test_premap_payload_cache_manager_snapshot_flattens_without_jsonl_rows():
+    recorder = VllmRouterRecorder(
+        top_k=2,
+        shadow_outcome_sink=None,
+        shadow_num_experts=4,
+        shadow_emit_premap_payload_cache_manager_counters=True,
+        shadow_premap_payload_cache_manager_capacity=4,
+    )
+    manager = recorder._ensure_premap_payload_cache_manager()
+    assert manager is not None
+    manager.issue_prefetch(0, 1)
+    manager.demand(0, 1)
+    manager.demand(0, 2)
+
+    performance = {}
+    _add_premap_payload_cache_manager_snapshot_to_performance(
+        performance,
+        recorder,
+        source="unit_test",
+    )
+
+    assert performance["runtime_shadow_premap_payload_cache_direct_snapshot_present"]
+    assert performance["runtime_shadow_premap_payload_cache_direct_snapshot_source"] == (
+        "unit_test"
+    )
+    assert performance["runtime_shadow_premap_payload_cache_direct_capacity"] == 4
+    assert performance["runtime_shadow_premap_payload_cache_direct_issued_fetch_count"] == 1
+    assert performance["runtime_shadow_premap_payload_cache_direct_used_fetch_count"] == 1
+    assert performance["runtime_shadow_premap_payload_cache_direct_demand_count"] == 2
+    assert performance["runtime_shadow_premap_payload_cache_direct_demand_hit_count"] == 1
+    assert performance["runtime_shadow_premap_payload_cache_direct_demand_miss_count"] == 1
+    assert performance["runtime_shadow_premap_payload_cache_direct_demand_hit_rate"] == 0.5
+    assert (
+        performance[
+            "runtime_shadow_premap_payload_cache_direct_transition_issue_attempt_count"
+        ]
+        == 0
+    )
+    assert (
+        performance[
+            "runtime_shadow_premap_payload_cache_direct_transition_issue_error_count"
+        ]
+        == 0
+    )
+    assert (
+        performance[
+            "runtime_shadow_premap_payload_cache_direct_transition_issue_last_error"
+        ]
+        is None
+    )
+
+
+def test_premap_payload_cache_manager_snapshot_reports_missing_enabled_manager():
+    recorder = VllmRouterRecorder(
+        top_k=2,
+        shadow_outcome_sink=None,
+        shadow_num_experts=4,
+        shadow_emit_premap_payload_cache_manager_counters=True,
+    )
+
+    performance = {}
+    _add_premap_payload_cache_manager_snapshot_to_performance(
+        performance,
+        recorder,
+        source="unit_test_missing",
+    )
+
+    assert (
+        performance["runtime_shadow_premap_payload_cache_direct_snapshot_present"]
+        is False
+    )
+    assert performance["runtime_shadow_premap_payload_cache_direct_snapshot_source"] == (
+        "unit_test_missing"
+    )
+    assert "runtime_shadow_premap_payload_cache_direct_demand_count" not in performance
+
+
+def test_premap_payload_cache_manager_snapshot_flattens_ready_time_fields():
+    recorder = VllmRouterRecorder(
+        top_k=2,
+        shadow_outcome_sink=None,
+        shadow_num_experts=4,
+        shadow_emit_premap_payload_cache_manager_counters=True,
+        shadow_premap_payload_cache_manager_capacity=4,
+        shadow_premap_payload_cache_manager_mode="ready_time",
+        shadow_premap_payload_cache_manager_service_us_per_issue=5.0,
+        shadow_premap_payload_cache_manager_queue_batch_size=2,
+        shadow_premap_payload_cache_manager_queue_deadline_us=10.0,
+    )
+    manager = recorder._ensure_premap_payload_cache_manager()
+    assert manager is not None
+    manager.issue_prefetch(0, 1, arrival_us=0.0)
+    manager.issue_prefetch(0, 2, arrival_us=1.0)
+    manager.demand(0, 1, arrival_us=20.0)
+
+    performance = {}
+    _add_premap_payload_cache_manager_snapshot_to_performance(
+        performance,
+        recorder,
+        source="unit_test_ready_time",
+    )
+
+    assert performance["runtime_shadow_premap_payload_cache_direct_manager_mode"] == (
+        "ready_time"
+    )
+    assert performance["runtime_shadow_premap_payload_cache_direct_queue_batch_size"] == 2
+    assert performance["runtime_shadow_premap_payload_cache_direct_queue_deadline_us"] == (
+        10.0
+    )
+    assert performance["runtime_shadow_premap_payload_cache_direct_queue_batch_count"] >= 1
+    assert (
+        performance["runtime_shadow_premap_payload_cache_direct_queue_service_us"]
+        >= 10.0
+    )
+    assert (
+        performance[
+            "runtime_shadow_premap_payload_cache_direct_late_completion_unused_count"
+        ]
+        >= 0
+    )
+
+
+def test_premap_payload_cache_prelaunch_observed_transition_issues_before_next_demand():
+    transition = torch.zeros((1, 1, 4, 4), dtype=torch.float32)
+    transition[0, 0, 1, 2] = 1.0
+    recorder = VllmRouterRecorder(
+        top_k=2,
+        shadow_outcome_sink=None,
+        shadow_num_experts=4,
+        shadow_emit_premap_payload_cache_manager_counters=True,
+        shadow_premap_payload_cache_manager_capacity=4,
+        shadow_premap_payload_cache_manager_issue_sources=(
+            "prelaunch_observed_transition_premap_shadow",
+        ),
+        shadow_transition_premap_source=(
+            "prelaunch_observed_transition_premap_shadow"
+        ),
+        shadow_transition_summary_mode="matrix_topk",
+        shadow_transition_topk_count=1,
+        shadow_transition_matrix=transition,
+    )
+
+    recorder._write_premap_consumer_mapping_from_experts(
+        layer_id=0,
+        active_experts=[1],
+    )
+    manager = recorder._ensure_premap_payload_cache_manager()
+    assert manager is not None
+    first = manager.snapshot()
+    assert first.issued_fetch_count == 0
+    assert first.demand_count == 1
+    assert first.demand_hit_count == 0
+
+    recorder._write_premap_consumer_mapping_from_experts(
+        layer_id=0,
+        active_experts=[2],
+    )
+    second = manager.snapshot()
+    assert second.issued_fetch_count == 1
+    assert second.demand_count == 2
+    assert second.demand_hit_count == 1
+    assert second.used_fetch_count == 1
+    assert recorder._premap_payload_cache_transition_issue_attempt_count == 2
+    assert recorder._premap_payload_cache_transition_issue_previous_nonempty_count == 1
+    assert recorder._premap_payload_cache_transition_issue_descriptor_count == 1
+    assert recorder._premap_payload_cache_transition_issue_error_count == 0
+    assert recorder._premap_payload_cache_transition_issue_last_error is None
+
+
+def test_premap_payload_cache_transition_state_clear_is_sample_scoped():
+    transition = torch.zeros((1, 1, 4, 4), dtype=torch.float32)
+    transition[0, 0, 1, 2] = 1.0
+    recorder = VllmRouterRecorder(
+        top_k=2,
+        shadow_outcome_sink=None,
+        shadow_num_experts=4,
+        shadow_emit_premap_payload_cache_manager_counters=True,
+        shadow_premap_payload_cache_manager_capacity=4,
+        shadow_premap_payload_cache_manager_issue_sources=(
+            "prelaunch_observed_transition_premap_shadow",
+        ),
+        shadow_transition_premap_source=(
+            "prelaunch_observed_transition_premap_shadow"
+        ),
+        shadow_transition_summary_mode="matrix_topk",
+        shadow_transition_topk_count=1,
+        shadow_transition_matrix=transition,
+    )
+
+    recorder._write_premap_consumer_mapping_from_experts(
+        layer_id=0,
+        active_experts=[1],
+    )
+    recorder._write_premap_consumer_mapping_from_experts(
+        layer_id=0,
+        active_experts=[2],
+    )
+    recorder._premap_payload_cache_transition_issue_last_error = "old_error"
+
+    recorder.clear()
+
+    assert recorder._premap_payload_cache_last_active_experts_by_layer == {}
+    assert recorder._premap_payload_cache_transition_issue_attempt_count == 0
+    assert recorder._premap_payload_cache_transition_issue_previous_nonempty_count == 0
+    assert recorder._premap_payload_cache_transition_issue_descriptor_count == 0
+    assert recorder._premap_payload_cache_transition_issue_error_count == 0
+    assert recorder._premap_payload_cache_transition_issue_last_error is None
+
+
+def test_premap_payload_cache_transition_disallowed_source_does_not_count_attempt():
+    recorder = VllmRouterRecorder(
+        top_k=2,
+        shadow_outcome_sink=None,
+        shadow_num_experts=4,
+        shadow_emit_premap_payload_cache_manager_counters=True,
+        shadow_premap_payload_cache_manager_capacity=4,
+        shadow_premap_payload_cache_manager_issue_sources=("other_source",),
+        shadow_transition_premap_source=(
+            "prelaunch_observed_transition_premap_shadow"
+        ),
+        shadow_transition_summary_mode="previous_topk",
+    )
+
+    snapshot = recorder._issue_premap_payload_cache_from_prelaunch_observed_transition(
+        layer_id=0,
+        previous_experts=[1],
+    )
+
+    assert snapshot is None
+    assert recorder._premap_payload_cache_transition_issue_attempt_count == 0
+    assert recorder._premap_payload_cache_transition_issue_previous_nonempty_count == 0
+    assert recorder._premap_payload_cache_transition_issue_descriptor_count == 0
+    assert recorder._premap_payload_cache_transition_issue_error_count == 0
+    assert recorder._premap_payload_cache_transition_issue_last_error is None
+
+
+def test_premap_payload_cache_transition_issue_error_is_recorded():
+    recorder = VllmRouterRecorder(
+        top_k=2,
+        shadow_outcome_sink=None,
+        shadow_num_experts=4,
+        shadow_emit_premap_payload_cache_manager_counters=True,
+        shadow_premap_payload_cache_manager_capacity=4,
+        shadow_premap_payload_cache_manager_issue_sources=(
+            "prelaunch_observed_transition_premap_shadow",
+        ),
+        shadow_transition_premap_source=(
+            "prelaunch_observed_transition_premap_shadow"
+        ),
+        shadow_transition_summary_mode="matrix_topk",
+        shadow_transition_matrix=None,
+    )
+
+    snapshot = recorder._issue_premap_payload_cache_from_prelaunch_observed_transition(
+        layer_id=0,
+        previous_experts=[1],
+    )
+
+    assert snapshot is not None
+    assert snapshot.demand_count == 0
+    assert snapshot.issued_fetch_count == 0
+    assert recorder._premap_payload_cache_transition_issue_attempt_count == 1
+    assert recorder._premap_payload_cache_transition_issue_previous_nonempty_count == 1
+    assert recorder._premap_payload_cache_transition_issue_descriptor_count == 0
+    assert recorder._premap_payload_cache_transition_issue_error_count == 1
+    assert recorder._premap_payload_cache_transition_issue_last_error is not None
+    assert "matrix_topk transition summary requires shadow_transition_matrix" in (
+        recorder._premap_payload_cache_transition_issue_last_error
+    )
+
+
+def test_premap_payload_cache_transition_issue_strict_reraises_config_error():
+    recorder = VllmRouterRecorder(
+        top_k=2,
+        shadow_outcome_sink=None,
+        shadow_num_experts=4,
+        shadow_emit_premap_payload_cache_manager_counters=True,
+        shadow_premap_payload_cache_manager_capacity=4,
+        shadow_premap_payload_cache_manager_issue_sources=(
+            "prelaunch_observed_transition_premap_shadow",
+        ),
+        shadow_premap_payload_cache_transition_issue_strict=True,
+        shadow_transition_premap_source=(
+            "prelaunch_observed_transition_premap_shadow"
+        ),
+        shadow_transition_summary_mode="matrix_topk",
+        shadow_transition_matrix=None,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="matrix_topk transition summary requires shadow_transition_matrix",
+    ):
+        recorder._issue_premap_payload_cache_from_prelaunch_observed_transition(
+            layer_id=0,
+            previous_experts=[1],
+        )
+
+    assert recorder._premap_payload_cache_transition_issue_attempt_count == 1
+    assert recorder._premap_payload_cache_transition_issue_previous_nonempty_count == 1
+    assert recorder._premap_payload_cache_transition_issue_descriptor_count == 0
+    assert recorder._premap_payload_cache_transition_issue_error_count == 1
+    assert recorder._premap_payload_cache_transition_issue_last_error is not None
 
 
 def test_runtime_shadow_aggregate_fields_are_flattened_to_performance_summary():

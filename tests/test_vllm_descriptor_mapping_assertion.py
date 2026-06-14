@@ -9,7 +9,10 @@ from mtp_expert_prefetch.runtime.descriptor_order_gate import (
 )
 from mtp_expert_prefetch.tracing.vllm_router_trace import (
     VllmRouterRecorder,
+    _descriptor_order_native_consumer_counters,
+    _increment_descriptor_order_native_consumer_counter,
     _load_runtime_shadow_descriptor_order_layer_allowlist,
+    _reset_descriptor_order_native_consumer_counters,
     get_active_moe_assignment_context,
     set_active_moe_assignment_context,
 )
@@ -96,6 +99,25 @@ def test_vllm_recorder_suppresses_engine_substage_timing_by_default() -> None:
     )
 
     assert sink.timing_events == []
+
+
+def test_descriptor_order_native_consumer_reset_clears_dynamic_skip_counters() -> None:
+    _reset_descriptor_order_native_consumer_counters()
+    _increment_descriptor_order_native_consumer_counter(
+        "source_block_plan_skip_launch_error_count"
+    )
+    _increment_descriptor_order_native_consumer_counter(
+        "source_block_kernel_launch_attempt_count"
+    )
+
+    before = _descriptor_order_native_consumer_counters()
+    assert before["source_block_plan_skip_launch_error_count"] == 1
+    assert before["source_block_kernel_launch_attempt_count"] == 1
+
+    _reset_descriptor_order_native_consumer_counters()
+    after = _descriptor_order_native_consumer_counters()
+    assert "source_block_plan_skip_launch_error_count" not in after
+    assert after["source_block_kernel_launch_attempt_count"] == 0
 
 
 def test_descriptor_order_layer_allowlist_artifact_rejects_mismatch(tmp_path) -> None:

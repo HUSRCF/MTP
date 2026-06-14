@@ -8,6 +8,7 @@ import importlib
 import inspect
 import json
 import os
+import re
 import sys
 import contextvars
 from collections import OrderedDict
@@ -1947,6 +1948,92 @@ def _add_runtime_shadow_aggregate_to_performance(
             performance[f"runtime_shadow_aggregate_{key}"] = aggregate[key]
 
 
+def _add_premap_payload_cache_manager_snapshot_to_performance(
+    performance: dict[str, Any],
+    recorder: VllmRouterRecorder | None,
+    *,
+    source: str,
+) -> None:
+    """Flatten the live payload-cache manager state without JSONL rows.
+
+    This is intentionally separate from ``runtime_shadow_aggregate_*``: the
+    aggregate path summarizes emitted events, while this path snapshots the
+    in-memory manager used by no-router production-batch live probes.
+    """
+
+    prefix = "runtime_shadow_premap_payload_cache_direct_"
+    if recorder is None:
+        return
+    manager = recorder._shadow_premap_payload_cache_manager
+    if manager is None:
+        if bool(recorder.shadow_emit_premap_payload_cache_manager_counters):
+            performance[f"{prefix}snapshot_present"] = False
+            performance[f"{prefix}snapshot_source"] = str(source)
+        return
+    if hasattr(manager, "finish"):
+        manager.finish()
+    snapshot = manager.snapshot()
+    performance[f"{prefix}snapshot_present"] = True
+    performance[f"{prefix}snapshot_source"] = str(source)
+    performance[f"{prefix}manager_mode"] = str(
+        recorder.shadow_premap_payload_cache_manager_mode
+    )
+    performance[f"{prefix}capacity"] = int(snapshot.capacity)
+    performance[f"{prefix}resident_count"] = int(snapshot.resident_count)
+    performance[f"{prefix}issued_fetch_count"] = int(snapshot.issued_fetch_count)
+    performance[f"{prefix}used_fetch_count"] = int(snapshot.used_fetch_count)
+    performance[f"{prefix}unused_fetch_count"] = int(snapshot.unused_fetch_count)
+    performance[f"{prefix}demand_count"] = int(snapshot.demand_count)
+    performance[f"{prefix}demand_hit_count"] = int(snapshot.demand_hit_count)
+    performance[f"{prefix}demand_miss_count"] = int(snapshot.demand_miss_count)
+    performance[f"{prefix}evicted_before_use_count"] = int(
+        snapshot.evicted_before_use_count
+    )
+    performance[f"{prefix}demand_hit_rate"] = float(snapshot.demand_hit_count) / float(
+        max(1, snapshot.demand_count)
+    )
+    performance[f"{prefix}used_fetch_rate"] = float(snapshot.used_fetch_count) / float(
+        max(1, snapshot.issued_fetch_count)
+    )
+    performance[f"{prefix}eviction_pressure"] = float(
+        snapshot.evicted_before_use_count
+    ) / float(max(1, snapshot.issued_fetch_count))
+    performance[f"{prefix}transition_issue_attempt_count"] = int(
+        recorder._premap_payload_cache_transition_issue_attempt_count
+    )
+    performance[f"{prefix}transition_issue_previous_nonempty_count"] = int(
+        recorder._premap_payload_cache_transition_issue_previous_nonempty_count
+    )
+    performance[f"{prefix}transition_issue_descriptor_count"] = int(
+        recorder._premap_payload_cache_transition_issue_descriptor_count
+    )
+    performance[f"{prefix}transition_issue_error_count"] = int(
+        recorder._premap_payload_cache_transition_issue_error_count
+    )
+    performance[f"{prefix}transition_issue_last_error"] = (
+        recorder._premap_payload_cache_transition_issue_last_error
+    )
+    ready_time_fields = (
+        "ready_late_miss_count",
+        "late_completion_unused_count",
+        "queue_batch_count",
+        "queue_service_us",
+        "queue_total_span_us",
+        "queue_wait_us",
+        "queue_max_delay_us",
+        "queue_event_interval_us",
+        "queue_deadline_us",
+        "queue_batch_size",
+    )
+    for field_name in ready_time_fields:
+        value = getattr(snapshot, field_name, None)
+        if value is None:
+            continue
+        performance[f"{prefix}{field_name}"] = (
+            float(value) if isinstance(value, float) else int(value)
+        )
+
+
 _ATTENTION_HANDOFF_COMPONENT_INDEX = {
     name: idx for idx, name in enumerate(_ATTENTION_HANDOFF_COMPONENTS)
 }
@@ -2560,6 +2647,7 @@ class VllmRouterRecorder:
     shadow_premap_payload_cache_manager_issue_sources: tuple[str, ...] = (
         "previous_token_transition_premap_shadow",
     )
+    shadow_premap_payload_cache_transition_issue_strict: bool = False
     shadow_premap_payload_cache_manager_mode: str = "resident"
     shadow_premap_payload_cache_manager_service_us_per_issue: float = 0.0
     shadow_premap_payload_cache_manager_service_us_per_batch: float = 0.0
@@ -2677,6 +2765,34 @@ class VllmRouterRecorder:
     ) = field(default=None, init=False, repr=False)
     _shadow_premap_payload_cache_event_index: int = field(
         default=0,
+        init=False,
+        repr=False,
+    )
+    _premap_payload_cache_last_active_experts_by_layer: dict[int, tuple[int, ...]] = (
+        field(default_factory=dict, init=False, repr=False)
+    )
+    _premap_payload_cache_transition_issue_attempt_count: int = field(
+        default=0,
+        init=False,
+        repr=False,
+    )
+    _premap_payload_cache_transition_issue_previous_nonempty_count: int = field(
+        default=0,
+        init=False,
+        repr=False,
+    )
+    _premap_payload_cache_transition_issue_descriptor_count: int = field(
+        default=0,
+        init=False,
+        repr=False,
+    )
+    _premap_payload_cache_transition_issue_error_count: int = field(
+        default=0,
+        init=False,
+        repr=False,
+    )
+    _premap_payload_cache_transition_issue_last_error: str | None = field(
+        default=None,
         init=False,
         repr=False,
     )
@@ -2808,6 +2924,12 @@ class VllmRouterRecorder:
         self._decoder_component_counter_aggregate.clear()
         self._moe_substage_aggregate.clear()
         self._moe_substage_sample_counters.clear()
+        self._premap_payload_cache_last_active_experts_by_layer.clear()
+        self._premap_payload_cache_transition_issue_attempt_count = 0
+        self._premap_payload_cache_transition_issue_previous_nonempty_count = 0
+        self._premap_payload_cache_transition_issue_descriptor_count = 0
+        self._premap_payload_cache_transition_issue_error_count = 0
+        self._premap_payload_cache_transition_issue_last_error = None
 
     def _maybe_export_native_typed_consumer_input(
         self,
@@ -3875,6 +3997,58 @@ class VllmRouterRecorder:
                 manager.demand(int(layer_id), int(expert_id))
         return manager.snapshot()
 
+    def _issue_premap_payload_cache_from_prelaunch_observed_transition(
+        self,
+        *,
+        layer_id: int,
+        previous_experts: Iterable[int],
+    ) -> CacheManagerSnapshot | None:
+        source = str(self.shadow_transition_premap_source)
+        if not self._premap_payload_cache_issue_source_allowed(source):
+            return None
+        self._premap_payload_cache_transition_issue_attempt_count += 1
+        previous = sorted(
+            {
+                int(expert_id)
+                for expert_id in previous_experts
+                if 0 <= int(expert_id) < int(self.shadow_num_experts)
+            }
+        )
+        if not previous:
+            return None
+        self._premap_payload_cache_transition_issue_previous_nonempty_count += 1
+        try:
+            previous_ids = torch.tensor(previous, dtype=torch.long)
+            previous_weights = torch.ones(len(previous), dtype=torch.float32)
+            mask, _transition_count = self._transition_summary_base_mask(
+                layer_id=int(layer_id),
+                previous_topk_ids=previous_ids,
+                previous_topk_weights=previous_weights,
+                mode=str(self.shadow_transition_summary_mode),
+            )
+            descriptors = self._premap_descriptors_from_mask(
+                layer_id=int(layer_id),
+                mask=mask,
+                priority=int(self.shadow_transition_premap_priority),
+                source=source,
+            )
+            self._premap_payload_cache_transition_issue_descriptor_count += int(
+                len(descriptors)
+            )
+            return self._issue_premap_payload_cache_from_descriptors(
+                descriptors,
+                source=source,
+            )
+        except Exception as exc:
+            self._premap_payload_cache_transition_issue_error_count += 1
+            self._premap_payload_cache_transition_issue_last_error = (
+                f"{type(exc).__name__}: {exc}"
+            )
+            if bool(self.shadow_premap_payload_cache_transition_issue_strict):
+                raise
+            manager = self._ensure_premap_payload_cache_manager()
+            return manager.snapshot() if manager is not None else None
+
     def _ensure_prelaunch_premap_address_mapping_for_experts(
         self,
         *,
@@ -4679,10 +4853,23 @@ class VllmRouterRecorder:
                 if 0 <= int(expert_id) < int(self.shadow_num_experts)
             }
         )
+        if payload_cache_wanted:
+            previous_experts = self._premap_payload_cache_last_active_experts_by_layer.get(
+                int(layer_id),
+                (),
+            )
+            self._issue_premap_payload_cache_from_prelaunch_observed_transition(
+                layer_id=int(layer_id),
+                previous_experts=previous_experts,
+            )
         payload_cache_snapshot = self._demand_premap_payload_cache_from_experts(
             layer_id=int(layer_id),
             expert_ids=valid_experts,
         )
+        if payload_cache_wanted:
+            self._premap_payload_cache_last_active_experts_by_layer[int(layer_id)] = (
+                tuple(int(value) for value in valid_experts)
+            )
         if not mapping_wanted:
             if write_event and sink is not None:
                 if not hasattr(sink, "write_premap_payload_cache_manager"):
@@ -8796,6 +8983,13 @@ class VllmRouterRecorder:
             self.shadow_descriptor_order_prelaunch_assertion_mode or "off"
         ).strip().lower() not in {"", "off", "none", "false", "0"}
         wants_reorder = bool(self.shadow_descriptor_order_reorder_mvp_enabled)
+        _increment_descriptor_order_native_consumer_counter(
+            "maybe_reorder_entry_count"
+        )
+        if wants_reorder:
+            _increment_descriptor_order_native_consumer_counter(
+                "maybe_reorder_wants_reorder_count"
+            )
         wants_premap_mapping = self._premap_consumer_mapping_wanted()
         wants_premap_payload_cache = bool(
             self.shadow_emit_premap_payload_cache_manager_counters
@@ -8824,11 +9018,17 @@ class VllmRouterRecorder:
         sink = self.shadow_outcome_sink
         if not wants_descriptor_handle and not wants_premap_runtime_consumer:
             return sorted_token_ids, expert_ids, num_tokens_post_padded
-        if wants_descriptor_handle and sink is None:
-            return sorted_token_ids, expert_ids, num_tokens_post_padded
-        if wants_descriptor_handle and not hasattr(
-            sink,
-            "write_descriptor_prelaunch_assertion",
+        needs_descriptor_handle_sink = bool(
+            wants_assertion or self.shadow_descriptor_order_emit_consumer_handle_events
+        )
+        descriptor_handle_sink_available = bool(
+            sink is not None and hasattr(sink, "write_descriptor_prelaunch_assertion")
+        )
+        if (
+            needs_descriptor_handle_sink
+            and not descriptor_handle_sink_available
+            and not wants_reorder
+            and not wants_premap_runtime_consumer
         ):
             return sorted_token_ids, expert_ids, num_tokens_post_padded
         if (
@@ -8880,6 +9080,10 @@ class VllmRouterRecorder:
         attribution_mode = str(
             self.shadow_descriptor_order_reorder_mvp_attribution_mode or "full"
         ).strip().lower()
+        if "source_block" in attribution_mode:
+            _increment_descriptor_order_native_consumer_counter(
+                "maybe_reorder_source_block_attribution_count"
+            )
         decision: dict[str, Any] = {
             "reorder_mvp_requested": wants_reorder,
             "reorder_mvp_selected_policy": "no_order",
@@ -9159,10 +9363,26 @@ class VllmRouterRecorder:
                         )
                     else:
                         use_packed_source_blocks = "packed" in attribution_mode
+                        permutation_seq = tuple(int(source_idx) for source_idx in permutation)
+                        _increment_descriptor_order_native_consumer_counter(
+                            "source_block_plan_build_count"
+                        )
+                        _add_descriptor_order_native_consumer_counter(
+                            "source_block_plan_block_count",
+                            int(len(permutation_seq)),
+                        )
+                        if permutation_seq == tuple(range(int(block_count))):
+                            _increment_descriptor_order_native_consumer_counter(
+                                "source_block_plan_identity_count"
+                            )
+                        else:
+                            _increment_descriptor_order_native_consumer_counter(
+                                "source_block_plan_non_identity_count"
+                            )
                         indirect_plan: dict[str, Any] = {
                             "variant": "source_block_ids",
                             "source_block_ids": torch.tensor(
-                                permutation,
+                                permutation_seq,
                                 dtype=torch.int32,
                                 device=expert_ids.device,
                             ),
@@ -9173,7 +9393,7 @@ class VllmRouterRecorder:
                         }
                         if use_packed_source_blocks:
                             packed_source_block_ids: list[int] = []
-                            for source_idx in permutation:
+                            for source_idx in permutation_seq:
                                 source_i = int(source_idx)
                                 expert_i = int(active_experts_cpu[source_i])
                                 packed_expert = (
@@ -9308,6 +9528,18 @@ class VllmRouterRecorder:
                     decision["reorder_mvp_fallback_reason"] = (
                         f"unknown_attribution_mode:{attribution_mode}"
                     )
+            if "source_block" in attribution_mode:
+                if bool(decision.get("reorder_mvp_applied", False)):
+                    _increment_descriptor_order_native_consumer_counter(
+                        "source_block_plan_applied_count"
+                    )
+                else:
+                    reason_token = _descriptor_order_counter_key_token(
+                        decision.get("reorder_mvp_fallback_reason") or "not_applied"
+                    )
+                    _increment_descriptor_order_native_consumer_counter(
+                        f"source_block_plan_skip_{reason_token}_count"
+                    )
         except Exception as exc:
             if fallback_reason is None:
                 fallback_reason = f"{type(exc).__name__}: {exc}"
@@ -9369,7 +9601,11 @@ class VllmRouterRecorder:
             consumer_handle_index_select_us=index_select_us,
             **decision,
         )
-        if bool(self.shadow_descriptor_order_emit_consumer_handle_events):
+        if (
+            bool(self.shadow_descriptor_order_emit_consumer_handle_events)
+            and sink is not None
+            and hasattr(sink, "write_descriptor_prelaunch_assertion")
+        ):
             sink.write_descriptor_prelaunch_assertion(event)
         self._last_descriptor_consumer_handle_by_layer[int(layer_id)] = {
             "source": handle_source,
@@ -10926,6 +11162,28 @@ _PREMAP_KERNEL_ARG_LIVE_MUTATION_COUNTERS: dict[str, int] = {
     "future_wna16_typed_slot_content_cache_seen_eviction_count": 0,
 }
 _PREMAP_KERNEL_ARG_LIVE_MUTATION_COUNTER_MODE = "detailed"
+_DESCRIPTOR_ORDER_NATIVE_CONSUMER_COUNTERS: dict[str, int] = {
+    "context_fallback_moe_forward_count": 0,
+    "context_fallback_fused_moe_forward_count": 0,
+    "context_fallback_moe_runner_forward_count": 0,
+    "prepare_assignment_hook_entry_count": 0,
+    "prepare_assignment_reorder_hook_count": 0,
+    "maybe_reorder_entry_count": 0,
+    "maybe_reorder_wants_reorder_count": 0,
+    "maybe_reorder_source_block_attribution_count": 0,
+    "source_block_plan_applied_count": 0,
+    "source_block_plan_build_count": 0,
+    "source_block_plan_identity_count": 0,
+    "source_block_plan_non_identity_count": 0,
+    "source_block_plan_block_count": 0,
+    "source_block_kernel_launch_attempt_count": 0,
+    "source_block_kernel_launch_success_count": 0,
+    "source_block_kernel_fallback_count": 0,
+    "source_block_kernel_launch_success_block_count": 0,
+}
+_DESCRIPTOR_ORDER_NATIVE_CONSUMER_STATIC_COUNTER_KEYS = tuple(
+    _DESCRIPTOR_ORDER_NATIVE_CONSUMER_COUNTERS
+)
 _ACTIVE_DECODER_COMPONENT_CONTEXT_VAR: contextvars.ContextVar[
     dict[str, Any] | None
 ] = contextvars.ContextVar("mtp_active_decoder_component_context", default=None)
@@ -11120,6 +11378,14 @@ def _reset_premap_kernel_arg_live_mutation_counters() -> None:
         _PREMAP_KERNEL_ARG_LIVE_MUTATION_COUNTERS[key] = 0
 
 
+def _reset_descriptor_order_native_consumer_counters() -> None:
+    for key in list(_DESCRIPTOR_ORDER_NATIVE_CONSUMER_COUNTERS):
+        if key not in _DESCRIPTOR_ORDER_NATIVE_CONSUMER_STATIC_COUNTER_KEYS:
+            del _DESCRIPTOR_ORDER_NATIVE_CONSUMER_COUNTERS[key]
+    for key in _DESCRIPTOR_ORDER_NATIVE_CONSUMER_STATIC_COUNTER_KEYS:
+        _DESCRIPTOR_ORDER_NATIVE_CONSUMER_COUNTERS[key] = 0
+
+
 def _increment_premap_kernel_arg_live_mutation_counter(key: str) -> None:
     if _PREMAP_KERNEL_ARG_LIVE_MUTATION_COUNTER_MODE == "off":
         return
@@ -11134,6 +11400,41 @@ def _add_premap_kernel_arg_live_mutation_counter(key: str, amount: int) -> None:
     if key not in _PREMAP_KERNEL_ARG_LIVE_MUTATION_COUNTERS:
         _PREMAP_KERNEL_ARG_LIVE_MUTATION_COUNTERS[key] = 0
     _PREMAP_KERNEL_ARG_LIVE_MUTATION_COUNTERS[key] += int(amount)
+
+
+def _increment_descriptor_order_native_consumer_counter(key: str) -> None:
+    if key not in _DESCRIPTOR_ORDER_NATIVE_CONSUMER_COUNTERS:
+        _DESCRIPTOR_ORDER_NATIVE_CONSUMER_COUNTERS[key] = 0
+    _DESCRIPTOR_ORDER_NATIVE_CONSUMER_COUNTERS[key] += 1
+
+
+def _add_descriptor_order_native_consumer_counter(key: str, amount: int) -> None:
+    if key not in _DESCRIPTOR_ORDER_NATIVE_CONSUMER_COUNTERS:
+        _DESCRIPTOR_ORDER_NATIVE_CONSUMER_COUNTERS[key] = 0
+    _DESCRIPTOR_ORDER_NATIVE_CONSUMER_COUNTERS[key] += int(amount)
+
+
+def _descriptor_order_counter_key_token(value: Any) -> str:
+    token = str(value or "unknown").strip().lower()
+    token = re.sub(r"[^a-z0-9]+", "_", token).strip("_")
+    token = token or "unknown"
+    allowed = {
+        "not_applied",
+        "not_profitable",
+        "gate_blocked",
+        "missing_prior",
+        "missing_context",
+        "missing_source_block_ids",
+        "kernel_variant_launch_error",
+        "unsupported_attribution_mode",
+        "unknown_attribution_mode",
+    }
+    for prefix in ("unknown_attribution_mode", "kernel_variant_launch_error"):
+        if token.startswith(prefix):
+            return prefix
+    if token in allowed:
+        return token
+    return "other"
 
 
 def _premap_signed_i64_from_u64(value: Any) -> int:
@@ -11640,6 +11941,10 @@ _WNA16_KERNEL_ARG_FIELD_NAMES = frozenset(
 
 def _premap_kernel_arg_live_mutation_counters() -> dict[str, int]:
     return dict(_PREMAP_KERNEL_ARG_LIVE_MUTATION_COUNTERS)
+
+
+def _descriptor_order_native_consumer_counters() -> dict[str, int]:
+    return dict(_DESCRIPTOR_ORDER_NATIVE_CONSUMER_COUNTERS)
 
 
 def get_active_runtime_shadow_controller() -> RuntimeShadowController | None:
@@ -12949,6 +13254,12 @@ def patch_vllm_qwen35_moe_router_trace() -> None:
     def moe_forward_with_trace(self, hidden_states: torch.Tensor) -> torch.Tensor:
         recorder = get_active_vllm_router_recorder()
         if recorder is None:
+            recorder = get_active_premap_live_config()
+            if recorder is not None:
+                _increment_descriptor_order_native_consumer_counter(
+                    "context_fallback_moe_forward_count"
+                )
+        if recorder is None:
             return original_moe_forward(self, hidden_states)
 
         orig_shape = hidden_states.shape
@@ -13028,11 +13339,23 @@ def patch_vllm_qwen35_moe_router_trace() -> None:
             router_logits: torch.Tensor,
         ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
             recorder = get_active_vllm_router_recorder()
+            if recorder is None:
+                recorder = get_active_premap_live_config()
+                if recorder is not None:
+                    _increment_descriptor_order_native_consumer_counter(
+                        "context_fallback_fused_moe_forward_count"
+                    )
             gate = getattr(self, "gate", None)
             layer_id = getattr(self, "_mtp_trace_layer_id", None)
             num_tokens = int(hidden_states.shape[0]) if hidden_states.ndim > 0 else None
             phase = _phase_from_num_tokens(num_tokens)
-            if recorder is not None and gate is not None and layer_id is not None:
+            should_trace_duplicate_gate = (
+                recorder is not None
+                and gate is not None
+                and layer_id is not None
+                and bool(recorder.shadow_capture_router_topk)
+            )
+            if should_trace_duplicate_gate:
                 gate_start_ns = time.perf_counter_ns()
                 trace_router_logits, _ = gate(hidden_states)
                 recorder.write_moe_substage_timing(
@@ -13151,6 +13474,12 @@ def patch_vllm_qwen35_moe_router_trace() -> None:
             **extra_kwargs: Any,
         ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
             recorder = get_active_vllm_router_recorder()
+            if recorder is None:
+                recorder = get_active_premap_live_config()
+                if recorder is not None:
+                    _increment_descriptor_order_native_consumer_counter(
+                        "context_fallback_moe_runner_forward_count"
+                    )
             layer_id = getattr(layer, "_mtp_trace_layer_id", None)
             if recorder is None or layer_id is None:
                 return original_forward_impl(
@@ -15130,6 +15459,9 @@ def patch_vllm_qwen35_moe_router_trace() -> None:
             stage_status = "ok"
             try:
                 if recorder is not None and layer_id is not None:
+                    _increment_descriptor_order_native_consumer_counter(
+                        "prepare_assignment_hook_entry_count"
+                    )
                     fused_prepared = (
                         recorder.maybe_prepare_decode_expert_assignment_layer_prior(
                             layer_id=int(layer_id),
@@ -15167,6 +15499,9 @@ def patch_vllm_qwen35_moe_router_trace() -> None:
                     stage_status = "original"
                     return sorted_token_ids, expert_ids, num_tokens_post_padded
                 stage_status = "original_with_reorder_hook"
+                _increment_descriptor_order_native_consumer_counter(
+                    "prepare_assignment_reorder_hook_count"
+                )
                 return recorder.maybe_reorder_prepared_expert_assignment(
                     layer_id=int(layer_id),
                     sorted_token_ids=sorted_token_ids,
@@ -15617,6 +15952,10 @@ def patch_vllm_qwen35_moe_router_trace() -> None:
                     is_packed_source_block = bool(
                         plan.get("source_block_ids_packed")
                     )
+                    if variant == "source_block_ids":
+                        _increment_descriptor_order_native_consumer_counter(
+                            "source_block_kernel_launch_attempt_count"
+                        )
                     if variant == "direct_topk_identity":
                         from mtp_expert_prefetch.tracing.vllm_wna16_group_plan import (
                             invoke_fused_moe_wna16_triton_kernel_direct_topk_identity,
@@ -15761,11 +16100,23 @@ def patch_vllm_qwen35_moe_router_trace() -> None:
                             use_int4_w4a16=use_int4_w4a16,
                             block_shape=block_shape,
                         )
+                    if variant == "source_block_ids":
+                        _increment_descriptor_order_native_consumer_counter(
+                            "source_block_kernel_launch_success_count"
+                        )
+                        _add_descriptor_order_native_consumer_counter(
+                            "source_block_kernel_launch_success_block_count",
+                            int((plan.get("source_block_count") or 0)),
+                        )
                     plan["launch_used_count"] = int(plan.get("launch_used_count") or 0) + 1
                     return
                 except Exception as exc:  # pragma: no cover - runtime fallback path
                     error = f"{type(exc).__name__}: {exc}"
                     plan["launch_error"] = error
+                    if str(plan.get("variant") or "").strip().lower() == "source_block_ids":
+                        _increment_descriptor_order_native_consumer_counter(
+                            "source_block_kernel_fallback_count"
+                        )
                     recorder = context.get("recorder") if context is not None else None
                     layer_id = context.get("layer_id") if context is not None else None
                     if recorder is not None and layer_id is not None:
@@ -18404,7 +18755,13 @@ def _load_runtime_shadow_transition_matrix(
     raw_path = options.get("transition_matrix_path")
     if raw_path is None:
         return None
+    mode = str(options.get("transition_summary_mode", "previous_topk"))
+    if mode != "matrix_topk":
+        return None
     path = resolve_path(raw_path, base_dir=project_root)
+    if not path.exists():
+        msg = f"transition_matrix_path does not exist: {path}"
+        raise FileNotFoundError(msg)
     payload = torch.load(path, map_location="cpu")
     key = str(options.get("transition_matrix_key", "transition_matrix"))
     if isinstance(payload, dict):
@@ -18412,6 +18769,12 @@ def _load_runtime_shadow_transition_matrix(
             payload = payload[key]
         elif "transition" in payload:
             payload = payload["transition"]
+        else:
+            msg = (
+                f"transition matrix artifact {path} does not contain key {key!r} "
+                "or fallback key 'transition'."
+            )
+            raise KeyError(msg)
     return torch.as_tensor(payload, dtype=torch.float32)
 
 
@@ -18745,6 +19108,7 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
         premap_kernel_arg_live_counter_mode
     )
     _reset_premap_kernel_arg_live_mutation_counters()
+    _reset_descriptor_order_native_consumer_counters()
     if bool(runtime_shadow_options.get("enabled", False)) and not use_router_logits_recorder:
         msg = "runtime_shadow.enabled requires use_router_logits_recorder."
         raise ValueError(msg)
@@ -18756,11 +19120,18 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
         if not (
             bool(runtime_shadow_options.get("premap_kernel_arg_handoff_live_enabled", False))
             or bool(runtime_shadow_options.get("emit_premap_consumer_mapping", False))
+            or bool(
+                runtime_shadow_options.get(
+                    "emit_premap_payload_cache_manager_counters",
+                    False,
+                )
+            )
         ):
             msg = (
                 "trace.allow_premap_live_config_without_router_recorder=True "
                 "requires runtime_shadow.premap_kernel_arg_handoff_live_enabled=True "
-                "or runtime_shadow.emit_premap_consumer_mapping=True."
+                "or runtime_shadow.emit_premap_consumer_mapping=True "
+                "or runtime_shadow.emit_premap_payload_cache_manager_counters=True."
             )
             raise ValueError(msg)
         # This is a lightweight config/producer object, not a router recorder:
@@ -18866,6 +19237,12 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                 runtime_shadow_options.get(
                     "premap_payload_cache_manager_emit_consumer_rows",
                     True,
+                )
+            ),
+            shadow_premap_payload_cache_transition_issue_strict=bool(
+                runtime_shadow_options.get(
+                    "premap_payload_cache_transition_issue_strict",
+                    False,
                 )
             ),
             shadow_emit_premap_consumer_mapping=bool(
@@ -19354,6 +19731,104 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
         options=runtime_shadow_options,
         project_root=project_root,
     )
+    if premap_live_config_without_router_recorder is not None:
+        premap_live_config_without_router_recorder.shadow_transition_topk_count = int(
+            runtime_shadow_options.get(
+                "transition_topk_count",
+                model_config["architecture"].get("num_experts_per_tok", 8),
+            )
+        )
+        premap_live_config_without_router_recorder.shadow_transition_summary_mode = str(
+            runtime_shadow_options.get(
+                "transition_summary_mode",
+                "previous_topk",
+            )
+        )
+        premap_live_config_without_router_recorder.shadow_transition_matrix = (
+            runtime_shadow_transition_matrix
+        )
+        premap_live_config_without_router_recorder.shadow_descriptor_order_prior = (
+            runtime_shadow_descriptor_order_prior
+        )
+        premap_live_config_without_router_recorder.shadow_descriptor_order_prior_id = (
+            str(runtime_shadow_options.get("descriptor_order_prior_id") or "")
+        )
+        premap_live_config_without_router_recorder.shadow_descriptor_order_prior_hash = (
+            str(runtime_shadow_descriptor_order_prior_hash)
+            if runtime_shadow_descriptor_order_prior_hash is not None
+            else None
+        )
+        premap_live_config_without_router_recorder.shadow_descriptor_order_execution_mode = str(
+            runtime_shadow_options.get(
+                "descriptor_order_execution_mode",
+                "two_level_group_plan",
+            )
+        )
+        premap_live_config_without_router_recorder.shadow_descriptor_order_reorder_mvp_enabled = bool(
+            runtime_shadow_options.get("descriptor_order_reorder_mvp_enabled", False)
+        )
+        premap_live_config_without_router_recorder.shadow_descriptor_order_reorder_mvp_apply_mode = str(
+            runtime_shadow_options.get(
+                "descriptor_order_reorder_mvp_apply_mode",
+                "dry_run",
+            )
+        )
+        premap_live_config_without_router_recorder.shadow_descriptor_order_reorder_mvp_attribution_mode = str(
+            runtime_shadow_options.get(
+                "descriptor_order_reorder_mvp_attribution_mode",
+                "full",
+            )
+        )
+        premap_live_config_without_router_recorder.shadow_descriptor_order_reorder_mvp_require_profitable = bool(
+            runtime_shadow_options.get(
+                "descriptor_order_reorder_mvp_require_profitable",
+                True,
+            )
+        )
+        premap_live_config_without_router_recorder.shadow_descriptor_order_reorder_mvp_layer_allowlist = (
+            runtime_shadow_descriptor_order_layer_allowlist
+        )
+        premap_live_config_without_router_recorder.shadow_descriptor_order_groups_per_cta = int(
+            runtime_shadow_options.get("descriptor_order_groups_per_cta", 8)
+        )
+        premap_live_config_without_router_recorder.shadow_descriptor_order_tile_elems = int(
+            runtime_shadow_options.get("descriptor_order_tile_elems", 1024)
+        )
+        premap_live_config_without_router_recorder.shadow_descriptor_order_device = (
+            int(runtime_shadow_options["descriptor_order_device"])
+            if runtime_shadow_options.get("descriptor_order_device") is not None
+            else None
+        )
+        premap_live_config_without_router_recorder.shadow_descriptor_order_runtime_gate = (
+            runtime_shadow_descriptor_order_gate
+        )
+        premap_live_config_without_router_recorder.shadow_descriptor_order_evidence = (
+            runtime_shadow_descriptor_order_evidence
+        )
+        premap_live_config_without_router_recorder.shadow_descriptor_order_evidence_cache_flush_elems = int(
+            runtime_shadow_options.get(
+                "descriptor_order_evidence_cache_flush_elems",
+                0,
+            )
+        )
+        premap_live_config_without_router_recorder.shadow_descriptor_order_same_multiset_evidence = (
+            bool(runtime_shadow_options["descriptor_order_same_multiset_evidence"])
+            if runtime_shadow_options.get("descriptor_order_same_multiset_evidence")
+            is not None
+            else None
+        )
+        premap_live_config_without_router_recorder.shadow_descriptor_order_checksum_delta_evidence = (
+            float(runtime_shadow_options["descriptor_order_checksum_delta_evidence"])
+            if runtime_shadow_options.get("descriptor_order_checksum_delta_evidence")
+            is not None
+            else None
+        )
+        premap_live_config_without_router_recorder.shadow_descriptor_order_emit_consumer_handle_events = bool(
+            runtime_shadow_options.get(
+                "descriptor_order_emit_consumer_handle_events",
+                False,
+            )
+        )
     runtime_shadow_premap_native_typed_consumer_input_export_enabled = bool(
         runtime_shadow_options.get(
             "premap_native_typed_consumer_input_export_enabled",
@@ -19558,6 +20033,12 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
             runtime_shadow_options.get(
                 "premap_payload_cache_manager_emit_consumer_rows",
                 True,
+            )
+        ),
+        "runtime_shadow_premap_payload_cache_transition_issue_strict": bool(
+            runtime_shadow_options.get(
+                "premap_payload_cache_transition_issue_strict",
+                False,
             )
         ),
         "runtime_shadow_premap_summary_sample_period": int(
@@ -20211,6 +20692,12 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                                 runtime_shadow_options.get(
                                     "premap_payload_cache_manager_emit_consumer_rows",
                                     True,
+                                )
+                            ),
+                            shadow_premap_payload_cache_transition_issue_strict=bool(
+                                runtime_shadow_options.get(
+                                    "premap_payload_cache_transition_issue_strict",
+                                    False,
                                 )
                             ),
                             shadow_premap_summary_sample_period=max(
@@ -21042,8 +21529,17 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
         )
     if decode_workload_collector is not None:
         performance["decode_workload_trace"] = decode_workload_collector.stats()
+    _add_premap_payload_cache_manager_snapshot_to_performance(
+        performance,
+        premap_live_config_without_router_recorder,
+        source="premap_live_config_without_router_recorder",
+    )
     for key, value in _premap_kernel_arg_live_mutation_counters().items():
         performance[f"runtime_shadow_premap_kernel_arg_live_mutation_{key}"] = (
+            int(value)
+        )
+    for key, value in _descriptor_order_native_consumer_counters().items():
+        performance[f"runtime_shadow_descriptor_order_native_consumer_{key}"] = (
             int(value)
         )
     if runtime_shadow_premap_native_typed_consumer_input_export_enabled:

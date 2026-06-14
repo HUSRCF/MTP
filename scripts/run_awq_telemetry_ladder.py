@@ -1296,6 +1296,108 @@ MODES["production_batch_graph_warmup"] = {
     "trace_overrides": _PRODUCTION_BATCH_GRAPH_WARMUP_TRACE_OVERRIDES,
 }
 
+MODES["production_batch_premap_payload_cache_ready_time_graph_warmup_counter_off"] = {
+    **MODES["production_batch_graph_warmup"],
+    # Production-posture payload/cache-manager accounting probe.  It keeps
+    # router rows, runtime shadow JSONL, typed-slot handoff, descriptor-order
+    # execution, payload movement, and kernel-arg mutation disabled.  The
+    # no-router prelaunch consumer only drives the ready-time cache manager's
+    # demand stream; performance_summary receives the direct manager snapshot.
+    "runtime_shadow_enabled": False,
+    "trace_overrides": {
+        **_PRODUCTION_BATCH_GRAPH_WARMUP_TRACE_OVERRIDES,
+        "allow_premap_live_config_without_router_recorder": True,
+    },
+    "record_router_topk": False,
+    "capture_router_topk": False,
+    "emit_premap_summaries": False,
+    "emit_premap_address_manager_counters": False,
+    "emit_premap_payload_cache_manager_counters": True,
+    "premap_payload_cache_manager_capacity": 12_288,
+    "premap_payload_cache_manager_mode": "ready_time",
+    "premap_payload_cache_manager_measured_copy_json": (
+        "configs/runtime/premap_payload_cache_gpu1_h2d_smoke_measured_copy.json"
+    ),
+    "premap_payload_cache_manager_measured_copy_stat": "p95",
+    "premap_payload_cache_manager_measured_copy_experts": 8,
+    "premap_payload_cache_manager_measured_copy_pinned": "true",
+    "premap_payload_cache_manager_queue_deadline_us": 1_000.0,
+    "premap_payload_cache_manager_event_interval_us": 1.0,
+    "transition_summary_mode": "matrix_topk",
+    "transition_topk_count": 8,
+    "transition_matrix_path": "outputs/artifacts/transition_matrix_512sample_calibrated.pt",
+    "transition_premap_source": "prelaunch_observed_transition_premap_shadow",
+    "premap_payload_cache_manager_issue_sources": [
+        "prelaunch_observed_transition_premap_shadow",
+    ],
+    "premap_payload_cache_manager_demand_on_consumer": True,
+    "premap_payload_cache_manager_emit_consumer_rows": False,
+    "emit_premap_consumer_mapping": False,
+    "premap_consumer_mapping_emit_rows": False,
+    "premap_kernel_arg_handoff_live_enabled": False,
+    "premap_kernel_arg_handoff_live_consumer_connected": False,
+    "premap_kernel_arg_handoff_kernel_arg_pass_enabled": False,
+    "premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled": False,
+    "premap_kernel_arg_handoff_future_wna16_typed_slot_kernel_variant_enabled": (
+        False
+    ),
+    "descriptor_order_reorder_mvp_enabled": False,
+    "emit_summaries": False,
+    "emit_outcomes": False,
+    "outcome_logging_mode": "off",
+}
+
+MODES["production_batch_premap_payload_cache_ready_time_counter_off"] = {
+    **MODES["production_batch"],
+    # Diagnostic counterpart to the graph-warmup payload/cache-manager probe.
+    # It keeps the same no-router accounting contract, but avoids CUDA graph
+    # capture so Python prelaunch hooks can observe whether a per-token
+    # transition issue stream exists at all.  Use this for attribution only,
+    # not as a production TPOT candidate.
+    "runtime_shadow_enabled": False,
+    "trace_overrides": {
+        **_PRODUCTION_BATCH_TRACE_OVERRIDES,
+        "allow_premap_live_config_without_router_recorder": True,
+    },
+    "record_router_topk": False,
+    "capture_router_topk": False,
+    "emit_premap_summaries": False,
+    "emit_premap_address_manager_counters": False,
+    "emit_premap_payload_cache_manager_counters": True,
+    "premap_payload_cache_manager_capacity": 12_288,
+    "premap_payload_cache_manager_mode": "ready_time",
+    "premap_payload_cache_manager_measured_copy_json": (
+        "configs/runtime/premap_payload_cache_gpu1_h2d_smoke_measured_copy.json"
+    ),
+    "premap_payload_cache_manager_measured_copy_stat": "p95",
+    "premap_payload_cache_manager_measured_copy_experts": 8,
+    "premap_payload_cache_manager_measured_copy_pinned": "true",
+    "premap_payload_cache_manager_queue_deadline_us": 1_000.0,
+    "premap_payload_cache_manager_event_interval_us": 1.0,
+    "transition_summary_mode": "matrix_topk",
+    "transition_topk_count": 8,
+    "transition_matrix_path": "outputs/artifacts/transition_matrix_512sample_calibrated.pt",
+    "transition_premap_source": "prelaunch_observed_transition_premap_shadow",
+    "premap_payload_cache_manager_issue_sources": [
+        "prelaunch_observed_transition_premap_shadow",
+    ],
+    "premap_payload_cache_manager_demand_on_consumer": True,
+    "premap_payload_cache_manager_emit_consumer_rows": False,
+    "emit_premap_consumer_mapping": False,
+    "premap_consumer_mapping_emit_rows": False,
+    "premap_kernel_arg_handoff_live_enabled": False,
+    "premap_kernel_arg_handoff_live_consumer_connected": False,
+    "premap_kernel_arg_handoff_kernel_arg_pass_enabled": False,
+    "premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled": False,
+    "premap_kernel_arg_handoff_future_wna16_typed_slot_kernel_variant_enabled": (
+        False
+    ),
+    "descriptor_order_reorder_mvp_enabled": False,
+    "emit_summaries": False,
+    "emit_outcomes": False,
+    "outcome_logging_mode": "off",
+}
+
 MODES["production_batch_premap_live_future_wna16_typed_slot_envelope_counter_off"] = {
     **MODES["premap_live_future_wna16_typed_slot_envelope_counter_off"],
     # Batch-compatible live participation probe.  It installs the MoE/WNA16
@@ -1476,6 +1578,17 @@ MODES["production_batch_descriptor_order_direct_topk_identity_counter_off"] = {
     "unset_env": ["VLLM_DISABLE_SHARED_EXPERTS_STREAM"],
 }
 
+MODES["production_batch_descriptor_order_source_block_ids_kernel_counter_off"] = {
+    **MODES["production_batch_descriptor_order_direct_topk_identity_counter_off"],
+    # Non-identity native consumer canary.  Unlike direct_topk_identity, this
+    # asks the existing layer-prior descriptor-order path to build a
+    # source_block_ids plan and lets the WNA16-side consumer read blocks through
+    # that native mapping.  Premap, payload, typed-slot, and current WNA16 arg
+    # mutation remain disabled; this mode isolates the useful visitation-order
+    # consumer path.
+    "descriptor_order_reorder_mvp_attribution_mode": "source_block_ids_kernel",
+}
+
 
 def _with_reuse_llm_across_chunks(base_mode: str) -> dict[str, Any]:
     mode = dict(MODES[base_mode])
@@ -1513,6 +1626,18 @@ MODES["production_batch_warmup_reuse_llm"] = _with_reuse_llm_across_chunks(
 
 MODES["production_batch_graph_warmup_reuse_llm"] = _with_reuse_llm_across_chunks(
     "production_batch_graph_warmup"
+)
+
+MODES[
+    "production_batch_premap_payload_cache_ready_time_graph_warmup_counter_off_reuse_llm"
+] = _with_reuse_llm_across_chunks(
+    "production_batch_premap_payload_cache_ready_time_graph_warmup_counter_off"
+)
+
+MODES[
+    "production_batch_premap_payload_cache_ready_time_counter_off_reuse_llm"
+] = _with_reuse_llm_across_chunks(
+    "production_batch_premap_payload_cache_ready_time_counter_off"
 )
 
 MODES[
@@ -1591,6 +1716,12 @@ MODES[
     "production_batch_descriptor_order_direct_topk_identity_counter_off_reuse_llm"
 ] = _with_reuse_llm_across_chunks(
     "production_batch_descriptor_order_direct_topk_identity_counter_off"
+)
+
+MODES[
+    "production_batch_descriptor_order_source_block_ids_kernel_counter_off_reuse_llm"
+] = _with_reuse_llm_across_chunks(
+    "production_batch_descriptor_order_source_block_ids_kernel_counter_off"
 )
 
 MODES[

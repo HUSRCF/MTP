@@ -38,19 +38,15 @@
   path in this observation, while the identity kernel variant should remain an
   ABI/correctness gate until it performs non-identity useful work or removes
   enough wrapper/launch overhead to beat the envelope consistently.
-  A follow-up heldout128/gen64 single-run comparison in the same artifact family
-  completes after rerunning only the envelope leg:
-  baseline `production_batch_reuse_llm` is `29.4506s` (`278.16 tok/s`), while
-  the envelope path is `28.0455s` (`292.10 tok/s`, `+5.01%` throughput,
-  `-4.77%` generate wall time).  The concrete summary files are
-  `outputs/reports/awq_telemetry_ladder/gpu1_current_progress_heldout128_envelope_gen64_20260613/production_batch_reuse_llm/repeat_00/performance_summary.json`
-  and
-  `outputs/reports/awq_telemetry_ladder/gpu1_current_progress_heldout128_envelope_gen64_20260613/production_batch_premap_live_future_wna16_typed_slot_gpu_assignment_envelope_counter_off_reuse_llm/repeat_00/performance_summary.json`.
-  This point estimate is only a useful trigger for repeat validation, not an
-  effect-size conclusion, a formal claim, or a paired A/B result: the two legs
-  ran as separate vLLM processes, the runtime context is not fully identical
-  (`llm_init_wall_seconds` differs substantially), and GPU0 was concurrently
-  running an unrelated training job.
+  A clean paired heldout128/gen64 repeat-3 rerun on GPU1 replaces the earlier
+  non-paired heldout128 point estimate as the current scale check.  Artifact:
+  `outputs/reports/awq_telemetry_ladder/gpu1_clean_heldout128_envelope_repeat3_gen64_20260614/`.
+  Baseline `production_batch_reuse_llm` takes
+  `28.8139 / 28.9581 / 29.2407s` (`mean=29.0042s`, `282.45 tok/s`).  The
+  envelope path takes `28.7495 / 28.9471 / 28.8748s`
+  (`mean=28.8571s`, `283.88 tok/s`, `+0.51%` throughput).  This remains
+  consistent with a low-overhead live-boundary signal, but the effect size is
+  small and should not be treated as a standalone performance claim.
 - Latest WNA16-side consumer gate update: promoted the independent
   WNA16-side typed consumer variant execution canary into the canonical
   `run_premap_lab_gate_verify.py` path.  The lab verify runner now includes a
@@ -33943,3 +33939,217 @@ This is a lab preflight gate, not a runtime speed claim.  It means the next
 safe lab default should keep full payload fetch disabled, keep metadata in
 shadow/diagnostic mode, and allow only premap descriptor/address preparation
 under the existing no-payload/no-ready/no-kernel-arg contract.
+
+### Descriptor-order source-block native consumer canary
+
+Added a production-batch `source_block_ids_kernel` mode to test a non-identity
+descriptor-order native consumer without enabling premap payloads, typed-slot
+handoff, or current WNA16 argument mutation.
+
+```text
+mode:
+  production_batch_descriptor_order_source_block_ids_kernel_counter_off_reuse_llm
+
+canary:
+  outputs/reports/awq_telemetry_ladder/
+    gpu1_source_block_non_identity_canary_gen4_descordersync_20260614/
+
+result:
+  maybe_reorder_wants_reorder_count = 160
+  source_block_plan_build_count = 160
+  source_block_plan_non_identity_count = 160
+  source_block_kernel_launch_success_count = 320
+  source_block_kernel_fallback_count = 0
+```
+
+This confirms that the no-router production-batch path now reaches a real
+non-identity source-block WNA16-side consumer.  The earlier failure mode was
+that the lightweight no-router config was created before descriptor-order
+prior/gate/evidence fields were loaded, so `wants_reorder` stayed false.
+
+Paired 8-sample/gen8 post-fix run:
+
+```text
+output:
+  outputs/reports/awq_telemetry_ladder/
+    gpu1_source_block_non_identity_paired8_gen8_post_gatefix_20260614/
+
+baseline production_batch_reuse_llm:
+  generate = 0.9366s
+  speed = 68.33 tok/s
+
+source_block_ids_kernel:
+  generate = 1.2281s
+  speed = 52.11 tok/s
+  ratio = 0.763x baseline
+  non_identity_plans = 320
+  launches = 640
+  fallback = 0
+```
+
+Conclusion: the source-block consumer is semantically live but performance
+negative in the current WNA16 path.  It should be kept as negative/correctness
+evidence rather than promoted as an optimization candidate.  The next useful
+consumer path should avoid per-block indirect lookup on the WNA16 hot path and
+instead move ordering/materialization into a producer/native adapter or a
+future kernel ABI that consumes the prepared layout directly.
+
+Short native candidate matrix:
+
+```text
+output:
+  outputs/reports/awq_telemetry_ladder/
+    gpu1_native_candidate_short_matrix8_gen8_20260614/
+
+baseline production_batch_reuse_llm:
+  generate = 0.9426s
+  speed = 67.90 tok/s
+
+typed-slot + gpu-assignment envelope:
+  generate = 0.8341s
+  speed = 76.73 tok/s
+
+gpu-assignment kernel variant:
+  generate = 1.3204s
+  speed = 48.47 tok/s
+```
+
+The envelope path can still be used as a low-overhead live-boundary signal, but
+the current GPU-assignment kernel variant is not a benchmark candidate.  It
+should not be advertised as a runtime speedup unless a larger paired repeat
+confirms endpoint gains under a production-like mode.
+
+Paired 32-sample/gen64 repeat-3 check:
+
+```text
+output:
+  outputs/reports/awq_telemetry_ladder/
+    gpu1_envelope_paired32_repeat3_gen64_20260614/
+
+production_batch_reuse_llm:
+  seconds = 7.1467 / 7.1833 / 7.1897
+  mean = 285.51 tok/s
+
+typed-slot + gpu-assignment envelope:
+  seconds = 7.0797 / 7.1002 / 7.1302
+  mean = 288.32 tok/s
+  ratio = 1.0098x baseline
+```
+
+This matches the earlier heldout128 paired repeat direction (`+0.51%`) but is
+still only a low-single-digit live-boundary signal.  It should be reported as
+production-compatible overhead/safety evidence, not as a strong runtime
+optimization result.  The actual kernel-side variants remain slower in the
+current implementation.
+
+Production posture probe:
+
+```text
+output:
+  outputs/reports/awq_telemetry_ladder/
+    gpu1_graph_warmup_probe8_gen64_20260614/
+
+production_batch_reuse_llm:
+  generate = 4.7383s
+  speed = 108.1 tok/s
+
+production_batch_graph_warmup_reuse_llm:
+  generate = 4.1726s
+  speed = 122.7 tok/s
+  ratio = 1.136x baseline
+```
+
+This is currently the largest real endpoint signal.  It indicates that the
+production-like benchmark posture (`enforce_eager=False` plus warmup) matters
+more than descriptor-order/source-block tweaks in the current AWQ/vLLM setup.
+Next checks should compare graph-warmup baseline against graph-warmup typed-slot
+envelope before making any premap/prefetch performance claim.
+
+Graph-warmup envelope probe:
+
+```text
+output:
+  outputs/reports/awq_telemetry_ladder/
+    gpu1_graph_warmup_envelope_probe8_gen64_20260614/
+
+production_batch_graph_warmup_reuse_llm:
+  generate = 4.1260s
+  speed = 124.1 tok/s
+
+graph_warmup + typed-slot/gpu-assignment envelope:
+  generate = 4.0930s
+  speed = 125.1 tok/s
+  ratio = 1.008x graph_warmup baseline
+```
+
+The envelope can coexist with graph-warmup and remains approximately neutral to
+slightly positive, but the effect is still small.  The benchmark baseline should
+therefore move to graph-warmup before evaluating any premap/prefetch path.
+
+Graph-warmup 32-sample/gen64 paired repeat-3:
+
+```text
+output:
+  outputs/reports/awq_telemetry_ladder/
+    gpu1_graph_warmup_envelope_paired32_repeat3_gen64_20260614/
+
+production_batch_graph_warmup_reuse_llm:
+  seconds = 6.4490 / 6.4910 / 6.4844
+  mean = 316.31 tok/s
+
+graph_warmup + typed-slot/gpu-assignment envelope:
+  seconds = 6.4341 / 6.4616 / 6.4828
+  mean = 317.05 tok/s
+  ratio = 1.0024x graph_warmup baseline
+```
+
+This makes the boundary clear: graph-warmup is the production-like baseline and
+the typed-slot/gpu-assignment envelope is effectively neutral at this scale.
+It remains useful as a low-overhead live participation boundary, but not as a
+standalone speedup.  Future premap/payload/cache-manager work should be judged
+against the graph-warmup baseline.
+
+Payload-cache manager graph/eager diagnostic:
+
+```text
+outputs:
+  graph:
+    outputs/reports/awq_telemetry_ladder/
+      gpu1_graph_warmup_payload_cache_matrix_probe8_gen4_diag_20260614_145352/
+  eager:
+    outputs/reports/awq_telemetry_ladder/
+      gpu1_eager_payload_cache_matrix_probe8_gen4_diag_20260614/
+
+graph_warmup + no-router payload/cache manager:
+  TPOT = 0.01320s
+  demand_count = 8486
+  transition_issue_attempt_count = 40
+  transition_issue_previous_nonempty_count = 0
+  transition_issue_descriptor_count = 0
+  issued_fetch_count = 0
+  demand_hit_rate = 0.0
+
+eager diagnostic + same no-router payload/cache manager:
+  TPOT = 0.03346s
+  demand_count = 12875
+  transition_issue_attempt_count = 160
+  transition_issue_previous_nonempty_count = 120
+  transition_issue_descriptor_count = 960
+  issued_fetch_count = 26
+  demand_hit_rate = 0.3380
+```
+
+This isolates the payload/cache-manager boundary:
+
+```text
+matrix_topk transition issue logic works in the eager Python prelaunch stream,
+but graph-warmup only exposes a one-shot per-layer prelaunch observation to the
+Python hook, so there is no previous-token expert state and no prefetch issue.
+```
+
+Therefore the current Python prelaunch hook is useful for diagnostics but is not
+a production-compatible prefetch issue path under graph-warmup.  A useful
+runtime path must move transition state and payload/cache-manager issue logic
+down into a producer/native adapter or graph-compatible consumer boundary.  The
+graph-warmup baseline remains the correct benchmark posture; eager payload-cache
+numbers are attribution evidence only, not performance claims.
