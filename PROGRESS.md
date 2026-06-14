@@ -34200,3 +34200,42 @@ maintain previous-token transition state.  The next useful prefetch path must
 move this state into a native/producer adapter or an inside-graph execution
 boundary; the current producer-owner mode is a diagnostic gate, not a TPOT
 speedup claim.
+
+Producer transition-state native packet / ABI:
+
+```text
+code:
+  PremapPayloadCacheProducerTransitionStatePacket
+    semantic schema: premap_payload_cache_producer_transition_state_v2
+  PremapPayloadCacheProducerTransitionStateAbiV1
+    native fixed subset ABI: premap_payload_cache_producer_transition_state_abi_v1
+
+native stub smoke:
+  output:
+    outputs/reports/premap_native_stub_transition_state_abi_smoke_20260614.json
+    outputs/reports/premap_native_stub_transition_state_abi_smoke_20260614_max_experts.json
+  macros:
+    MTP_PREMAP_TYPED_CONSUMER_CHECK_SCHEMA
+    MTP_PREMAP_TYPED_CONSUMER_CHECK_ROW_ITERATION
+    MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ABI
+  result:
+    passed = true
+    native_returncode = 0
+    row_count = 4
+    row_ok_count = 4
+    payload_bytes = 0
+    passed_to_kernel = false
+    changes_kernel_launch_args = false
+```
+
+This adds a native-friendly producer transition-state packet for the payload
+cache path.  The packet records previous/current expert ids and the transition
+issue contract in a fixed schema that a future native/inside-graph adapter can
+retain across decode steps.  The semantic packet also carries
+`max_num_experts` as a readiness guard, so invalid negative or out-of-range
+expert ids cannot be marked ready even if a future producer adapter constructs
+the packet directly.  It remains readonly and accounting-only: no payload
+movement, no ready credit, no descriptor-order changes, and no current WNA16
+kernel-argument compatibility claim.  The HIP stub still compiles and runs with
+the added ABI guards, so the next step can be an online native producer-state
+adapter/canary rather than another Python prelaunch hook.

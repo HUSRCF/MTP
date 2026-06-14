@@ -45,6 +45,7 @@ from mtp_expert_prefetch.runtime.cache_manager import (
     PREMAP_KERNEL_SIDE_CONSUMER_SCHEMA_FIELDS,
     PREMAP_KERNEL_SIDE_CONSUMER_SCHEMA_HASH,
     PREMAP_KERNEL_SIDE_CONSUMER_SCHEMA_NAME,
+    PremapPayloadCacheProducerTransitionStatePacket,
     PremapRealDescriptorHandle,
 )
 from mtp_expert_prefetch.runtime.online_shadow import OnlineShadowLogger
@@ -2022,6 +2023,21 @@ def _add_premap_payload_cache_manager_snapshot_to_performance(
     performance[f"{prefix}transition_producer_update_count"] = int(
         recorder._premap_payload_cache_transition_producer_update_count
     )
+    performance[f"{prefix}transition_native_packet_count"] = int(
+        recorder._premap_payload_cache_transition_native_packet_count
+    )
+    performance[f"{prefix}transition_native_packet_ready_count"] = int(
+        recorder._premap_payload_cache_transition_native_packet_ready_count
+    )
+    performance[f"{prefix}transition_native_packet_last_hash"] = (
+        recorder._premap_payload_cache_transition_native_packet_last_hash
+    )
+    performance[f"{prefix}transition_native_packet_last_previous_count"] = int(
+        recorder._premap_payload_cache_transition_native_packet_last_previous_count
+    )
+    performance[f"{prefix}transition_native_packet_last_current_count"] = int(
+        recorder._premap_payload_cache_transition_native_packet_last_current_count
+    )
     ready_time_fields = (
         "ready_late_miss_count",
         "late_completion_unused_count",
@@ -2816,6 +2832,31 @@ class VllmRouterRecorder:
         init=False,
         repr=False,
     )
+    _premap_payload_cache_transition_native_packet_count: int = field(
+        default=0,
+        init=False,
+        repr=False,
+    )
+    _premap_payload_cache_transition_native_packet_ready_count: int = field(
+        default=0,
+        init=False,
+        repr=False,
+    )
+    _premap_payload_cache_transition_native_packet_last_hash: str | None = field(
+        default=None,
+        init=False,
+        repr=False,
+    )
+    _premap_payload_cache_transition_native_packet_last_previous_count: int = field(
+        default=0,
+        init=False,
+        repr=False,
+    )
+    _premap_payload_cache_transition_native_packet_last_current_count: int = field(
+        default=0,
+        init=False,
+        repr=False,
+    )
     shadow_descriptor_order_device: int | None = None
     shadow_descriptor_order_runtime_gate: DescriptorOrderRuntimeGate | None = None
     shadow_descriptor_order_evidence: (
@@ -2973,6 +3014,11 @@ class VllmRouterRecorder:
         self._premap_payload_cache_transition_issue_last_error = None
         self._premap_payload_cache_transition_consumer_update_count = 0
         self._premap_payload_cache_transition_producer_update_count = 0
+        self._premap_payload_cache_transition_native_packet_count = 0
+        self._premap_payload_cache_transition_native_packet_ready_count = 0
+        self._premap_payload_cache_transition_native_packet_last_hash = None
+        self._premap_payload_cache_transition_native_packet_last_previous_count = 0
+        self._premap_payload_cache_transition_native_packet_last_current_count = 0
 
     def _maybe_export_native_typed_consumer_input(
         self,
@@ -4021,6 +4067,42 @@ class VllmRouterRecorder:
             int(layer_id),
             (),
         )
+        if normalized_owner == "producer":
+            configured_owner = str(
+                self.shadow_premap_payload_cache_transition_state_owner
+                or "producer"
+            ).strip().lower()
+            packet_owner = (
+                "producer"
+                if configured_owner in {"all", "both"}
+                else configured_owner
+            )
+            packet = PremapPayloadCacheProducerTransitionStatePacket(
+                layer_id=int(layer_id),
+                previous_experts=tuple(int(value) for value in previous_experts),
+                current_experts=tuple(int(value) for value in valid_experts),
+                state_owner=packet_owner,
+                issue_source=str(self.shadow_transition_premap_source),
+                transition_summary_mode=str(self.shadow_transition_summary_mode),
+                transition_topk_count=int(
+                    self.shadow_transition_topk_count
+                    if self.shadow_transition_topk_count is not None
+                    else 0
+                ),
+                max_num_experts=int(self.shadow_num_experts),
+            )
+            self._premap_payload_cache_transition_native_packet_count += 1
+            if bool(packet.ready):
+                self._premap_payload_cache_transition_native_packet_ready_count += 1
+            self._premap_payload_cache_transition_native_packet_last_hash = (
+                packet.state_hash
+            )
+            self._premap_payload_cache_transition_native_packet_last_previous_count = (
+                int(packet.previous_expert_count)
+            )
+            self._premap_payload_cache_transition_native_packet_last_current_count = (
+                int(packet.current_expert_count)
+            )
         snapshot = self._issue_premap_payload_cache_from_prelaunch_observed_transition(
             layer_id=int(layer_id),
             previous_experts=previous_experts,

@@ -108,6 +108,47 @@ PREMAP_WNA16_ADJACENT_TYPED_SLOT_SOURCE = (
 )
 PREMAP_WNA16_ADJACENT_TYPED_SLOT_PACKET_CHAIN_DEPTH = 14
 PREMAP_WNA16_ADJACENT_TYPED_SLOT_FIELD_MASK = 15
+PREMAP_PAYLOAD_CACHE_PRODUCER_TRANSITION_STATE_SCHEMA_NAME = (
+    "premap_payload_cache_producer_transition_state_v2"
+)
+PREMAP_PAYLOAD_CACHE_PRODUCER_TRANSITION_STATE_SCHEMA_FIELDS = (
+    "layer_id",
+    "state_owner",
+    "issue_source",
+    "transition_summary_mode",
+    "transition_topk_count",
+    "max_num_experts",
+    "previous_experts",
+    "current_experts",
+    "payload_bytes",
+    "ready_credit",
+    "passed_to_kernel",
+    "changes_kernel_launch_args",
+)
+PREMAP_PAYLOAD_CACHE_PRODUCER_TRANSITION_STATE_SCHEMA_HASH = hashlib.sha256(
+    "|".join(PREMAP_PAYLOAD_CACHE_PRODUCER_TRANSITION_STATE_SCHEMA_FIELDS).encode(
+        "utf-8"
+    )
+).hexdigest()
+PREMAP_PAYLOAD_CACHE_PRODUCER_TRANSITION_STATE_NATIVE_ABI_NAME = (
+    "premap_payload_cache_producer_transition_state_abi_v1"
+)
+PREMAP_PAYLOAD_CACHE_PRODUCER_TRANSITION_STATE_NATIVE_ABI_FIELDS = (
+    "schema_hash_hi",
+    "schema_hash_lo",
+    "previous_expert_id",
+    "current_expert_id",
+    "state_hash",
+    "previous_count",
+    "current_count",
+    "layer_id",
+    "transition_topk_count",
+)
+PREMAP_PAYLOAD_CACHE_PRODUCER_TRANSITION_STATE_NATIVE_ABI_HASH = hashlib.sha256(
+    "|".join(
+        PREMAP_PAYLOAD_CACHE_PRODUCER_TRANSITION_STATE_NATIVE_ABI_FIELDS
+    ).encode("utf-8")
+).hexdigest()
 
 
 def premap_single_field_handle_handoff_mirror_mode(field_name: str) -> str:
@@ -716,6 +757,166 @@ def _expert_id_from_address_key(address_key: str) -> int:
         return int(text.rsplit(marker, 1)[1])
     except ValueError:
         return -1
+
+
+def _canonical_expert_tuple(values: tuple[int, ...] | list[int]) -> tuple[int, ...]:
+    return tuple(sorted({int(value) for value in values if int(value) >= 0}))
+
+
+@dataclass(frozen=True)
+class PremapPayloadCacheProducerTransitionStatePacket:
+    """Readonly packet for native/inside-graph payload-cache transition state.
+
+    The packet is the producer-side state object a future native adapter can
+    retain across decode steps.  It carries previous/current expert sets and
+    the transition issue contract, but it never moves payload, marks ready
+    residency, or mutates kernel launch arguments.
+    """
+
+    layer_id: int
+    previous_experts: tuple[int, ...]
+    current_experts: tuple[int, ...]
+    state_owner: str = "producer_native_adapter"
+    issue_source: str = "prelaunch_observed_transition_premap_shadow"
+    transition_summary_mode: str = "matrix_topk"
+    transition_topk_count: int = 0
+    max_num_experts: int | None = None
+    schema_name: str = PREMAP_PAYLOAD_CACHE_PRODUCER_TRANSITION_STATE_SCHEMA_NAME
+    schema_hash: str = PREMAP_PAYLOAD_CACHE_PRODUCER_TRANSITION_STATE_SCHEMA_HASH
+    payload_bytes: int = 0
+    ready_credit: bool = False
+    passed_to_kernel: bool = False
+    changes_kernel_launch_args: bool = False
+
+    @property
+    def previous_experts_canonical(self) -> tuple[int, ...]:
+        return _canonical_expert_tuple(list(self.previous_experts))
+
+    @property
+    def current_experts_canonical(self) -> tuple[int, ...]:
+        return _canonical_expert_tuple(list(self.current_experts))
+
+    @property
+    def previous_expert_count(self) -> int:
+        return len(self.previous_experts_canonical)
+
+    @property
+    def current_expert_count(self) -> int:
+        return len(self.current_experts_canonical)
+
+    @property
+    def native_previous_experts_i32(self) -> tuple[int, ...]:
+        return tuple(int(value) for value in self.previous_experts_canonical)
+
+    @property
+    def native_current_experts_i32(self) -> tuple[int, ...]:
+        return tuple(int(value) for value in self.current_experts_canonical)
+
+    @property
+    def expert_ids_in_range(self) -> bool:
+        try:
+            expert_ids = tuple(
+                int(value)
+                for values in (self.previous_experts, self.current_experts)
+                for value in values
+            )
+            if any(value < 0 for value in expert_ids):
+                return False
+            if self.max_num_experts is None:
+                return True
+            max_num_experts = int(self.max_num_experts)
+            if max_num_experts <= 0:
+                return False
+            return all(value < max_num_experts for value in expert_ids)
+        except (TypeError, ValueError):
+            return False
+
+    @property
+    def state_hash(self) -> str:
+        payload = json.dumps(
+            {
+                "layer_id": int(self.layer_id),
+                "state_owner": str(self.state_owner),
+                "issue_source": str(self.issue_source),
+                "transition_summary_mode": str(self.transition_summary_mode),
+                "transition_topk_count": int(self.transition_topk_count),
+                "max_num_experts": (
+                    None
+                    if self.max_num_experts is None
+                    else int(self.max_num_experts)
+                ),
+                "previous_experts": list(self.previous_experts_canonical),
+                "current_experts": list(self.current_experts_canonical),
+                "schema_hash": str(self.schema_hash),
+                "payload_bytes": int(self.payload_bytes),
+                "ready_credit": bool(self.ready_credit),
+                "passed_to_kernel": bool(self.passed_to_kernel),
+                "changes_kernel_launch_args": bool(self.changes_kernel_launch_args),
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+        return hashlib.sha256(payload).hexdigest()
+
+    @property
+    def ready(self) -> bool:
+        return (
+            str(self.schema_name)
+            == PREMAP_PAYLOAD_CACHE_PRODUCER_TRANSITION_STATE_SCHEMA_NAME
+            and str(self.schema_hash)
+            == PREMAP_PAYLOAD_CACHE_PRODUCER_TRANSITION_STATE_SCHEMA_HASH
+            and str(self.state_owner)
+            in {"producer", "native", "producer_native", "producer_native_adapter"}
+            and str(self.issue_source)
+            in {
+                "prelaunch_observed_transition_premap_shadow",
+                "previous_token_transition_premap_shadow",
+            }
+            and str(self.transition_summary_mode)
+            in {"matrix_topk", "previous_topk"}
+            and int(self.layer_id) >= 0
+            and int(self.transition_topk_count) >= 0
+            and bool(self.expert_ids_in_range)
+            and int(self.payload_bytes) == 0
+            and not bool(self.ready_credit)
+            and not bool(self.passed_to_kernel)
+            and not bool(self.changes_kernel_launch_args)
+        )
+
+    def as_dict(self) -> dict[str, int | bool | str | list[int] | None]:
+        return {
+            "schema_name": str(self.schema_name),
+            "schema_hash": str(self.schema_hash),
+            "native_abi_name": (
+                PREMAP_PAYLOAD_CACHE_PRODUCER_TRANSITION_STATE_NATIVE_ABI_NAME
+            ),
+            "native_abi_hash": (
+                PREMAP_PAYLOAD_CACHE_PRODUCER_TRANSITION_STATE_NATIVE_ABI_HASH
+            ),
+            "native_abi_field_count": len(
+                PREMAP_PAYLOAD_CACHE_PRODUCER_TRANSITION_STATE_NATIVE_ABI_FIELDS
+            ),
+            "ready": bool(self.ready),
+            "state_hash": str(self.state_hash),
+            "layer_id": int(self.layer_id),
+            "state_owner": str(self.state_owner),
+            "issue_source": str(self.issue_source),
+            "transition_summary_mode": str(self.transition_summary_mode),
+            "transition_topk_count": int(self.transition_topk_count),
+            "max_num_experts": (
+                None
+                if self.max_num_experts is None
+                else int(self.max_num_experts)
+            ),
+            "previous_experts": list(self.previous_experts_canonical),
+            "current_experts": list(self.current_experts_canonical),
+            "previous_expert_count": int(self.previous_expert_count),
+            "current_expert_count": int(self.current_expert_count),
+            "payload_bytes": int(self.payload_bytes),
+            "ready_credit": bool(self.ready_credit),
+            "passed_to_kernel": bool(self.passed_to_kernel),
+            "changes_kernel_launch_args": bool(self.changes_kernel_launch_args),
+        }
 
 
 @dataclass(frozen=True)

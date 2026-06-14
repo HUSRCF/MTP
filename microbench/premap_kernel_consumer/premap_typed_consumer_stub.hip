@@ -194,6 +194,15 @@ static_assert(!kPremapKernelSideTypedConsumerAbiV1KernelArgPassAllowed,
               "readonly typed consumer ABI must not allow kernel-arg pass");
 static_assert(kPremapKernelSideTypedConsumerAbiV1HandleColumnCount == 4,
               "typed consumer ABI v1 must expose four handle columns");
+static_assert(!kPremapPayloadCacheProducerTransitionStateAbiV1PayloadBytesAllowed,
+              "producer transition-state ABI must not allow payload bytes");
+static_assert(kPremapPayloadCacheProducerTransitionStateAbiV1FieldCount == 9,
+              "producer transition-state ABI v1 field count changed");
+static_assert(!kPremapPayloadCacheProducerTransitionStateAbiV1KernelArgPassAllowed,
+              "producer transition-state ABI must not allow kernel-arg pass");
+static_assert(
+    !kPremapPayloadCacheProducerTransitionStateAbiV1CurrentWna16ArgCompatible,
+    "producer transition-state ABI must not be the current WNA16 arg list");
 static_assert(!kPremapKernelSideTypedConsumerAdapterV1PayloadDerefAllowed,
               "readonly typed consumer adapter must not allow payload dereference");
 static_assert(!kPremapKernelSideTypedConsumerAdapterV1KernelArgPassAllowed,

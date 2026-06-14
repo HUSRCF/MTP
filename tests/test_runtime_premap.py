@@ -20,6 +20,12 @@ from mtp_expert_prefetch.runtime import (
     PREMAP_KERNEL_SIDE_TYPED_CONSUMER_SCHEMA_FIELDS,
     PREMAP_KERNEL_SIDE_TYPED_CONSUMER_SCHEMA_HASH,
     PREMAP_KERNEL_SIDE_TYPED_CONSUMER_SCHEMA_NAME,
+    PREMAP_PAYLOAD_CACHE_PRODUCER_TRANSITION_STATE_SCHEMA_HASH,
+    PREMAP_PAYLOAD_CACHE_PRODUCER_TRANSITION_STATE_SCHEMA_NAME,
+    PREMAP_PAYLOAD_CACHE_PRODUCER_TRANSITION_STATE_NATIVE_ABI_FIELDS,
+    PREMAP_PAYLOAD_CACHE_PRODUCER_TRANSITION_STATE_NATIVE_ABI_HASH,
+    PREMAP_PAYLOAD_CACHE_PRODUCER_TRANSITION_STATE_NATIVE_ABI_NAME,
+    PREMAP_PAYLOAD_CACHE_PRODUCER_TRANSITION_STATE_SCHEMA_FIELDS,
     PREMAP_WNA16_ADJACENT_TYPED_SLOT_FIELD_MASK,
     PREMAP_WNA16_ADJACENT_TYPED_SLOT_MODE,
     PREMAP_WNA16_ADJACENT_TYPED_SLOT_NAME,
@@ -29,6 +35,7 @@ from mtp_expert_prefetch.runtime import (
     PremapKernelArgHandoffMirrorObject,
     PremapKernelSideConsumerSchemaAdapterObject,
     PremapKernelSideTypedConsumerObject,
+    PremapPayloadCacheProducerTransitionStatePacket,
     build_premap_descriptors,
     build_priority_masks,
     descriptor_summary,
@@ -147,6 +154,102 @@ def test_prepare_premap_address_plan_builds_zero_payload_address_handles():
 def test_prepare_premap_address_plan_rejects_negative_descriptor_bytes():
     with pytest.raises(ValueError, match="descriptor_bytes"):
         prepare_premap_address_plan([], descriptor_bytes=-1)
+
+
+def test_payload_cache_producer_transition_state_packet_is_readonly_native_contract():
+    packet = PremapPayloadCacheProducerTransitionStatePacket(
+        layer_id=3,
+        previous_experts=(7, 2, 7),
+        current_experts=(4, 2, 4),
+        issue_source="prelaunch_observed_transition_premap_shadow",
+        transition_summary_mode="matrix_topk",
+        transition_topk_count=8,
+        max_num_experts=16,
+    )
+
+    assert packet.schema_name == PREMAP_PAYLOAD_CACHE_PRODUCER_TRANSITION_STATE_SCHEMA_NAME
+    assert packet.schema_hash == PREMAP_PAYLOAD_CACHE_PRODUCER_TRANSITION_STATE_SCHEMA_HASH
+    assert "max_num_experts" in PREMAP_PAYLOAD_CACHE_PRODUCER_TRANSITION_STATE_SCHEMA_FIELDS
+    assert packet.ready is True
+    assert packet.expert_ids_in_range is True
+    assert packet.previous_experts_canonical == (2, 7)
+    assert packet.current_experts_canonical == (2, 4)
+    assert packet.native_previous_experts_i32 == (2, 7)
+    assert packet.native_current_experts_i32 == (2, 4)
+    assert packet.payload_bytes == 0
+    assert packet.ready_credit is False
+    assert packet.passed_to_kernel is False
+    assert packet.changes_kernel_launch_args is False
+    assert len(packet.state_hash) == 64
+    payload = packet.as_dict()
+    assert payload["ready"] is True
+    assert payload["native_abi_name"] == (
+        PREMAP_PAYLOAD_CACHE_PRODUCER_TRANSITION_STATE_NATIVE_ABI_NAME
+    )
+    assert payload["native_abi_hash"] == (
+        PREMAP_PAYLOAD_CACHE_PRODUCER_TRANSITION_STATE_NATIVE_ABI_HASH
+    )
+    assert payload["native_abi_field_count"] == len(
+        PREMAP_PAYLOAD_CACHE_PRODUCER_TRANSITION_STATE_NATIVE_ABI_FIELDS
+    )
+    assert payload["max_num_experts"] == 16
+    assert payload["previous_expert_count"] == 2
+    assert payload["current_expert_count"] == 2
+
+
+def test_payload_cache_producer_transition_state_packet_rejects_invalid_contract():
+    base = PremapPayloadCacheProducerTransitionStatePacket(
+        layer_id=0,
+        previous_experts=(1,),
+        current_experts=(2,),
+    )
+    payload_packet = PremapPayloadCacheProducerTransitionStatePacket(
+        layer_id=0,
+        previous_experts=(1,),
+        current_experts=(2,),
+        payload_bytes=1,
+    )
+    kernel_packet = PremapPayloadCacheProducerTransitionStatePacket(
+        layer_id=0,
+        previous_experts=(1,),
+        current_experts=(2,),
+        passed_to_kernel=True,
+    )
+    source_packet = PremapPayloadCacheProducerTransitionStatePacket(
+        layer_id=0,
+        previous_experts=(1,),
+        current_experts=(2,),
+        issue_source="bad_source",
+    )
+    mode_packet = PremapPayloadCacheProducerTransitionStatePacket(
+        layer_id=0,
+        previous_experts=(1,),
+        current_experts=(2,),
+        transition_summary_mode="bad_mode",
+    )
+    out_of_range_packet = PremapPayloadCacheProducerTransitionStatePacket(
+        layer_id=0,
+        previous_experts=(1,),
+        current_experts=(8,),
+        max_num_experts=8,
+    )
+    negative_expert_packet = PremapPayloadCacheProducerTransitionStatePacket(
+        layer_id=0,
+        previous_experts=(-1,),
+        current_experts=(2,),
+        max_num_experts=8,
+    )
+
+    assert payload_packet.ready is False
+    assert kernel_packet.ready is False
+    assert source_packet.ready is False
+    assert mode_packet.ready is False
+    assert out_of_range_packet.ready is False
+    assert out_of_range_packet.expert_ids_in_range is False
+    assert negative_expert_packet.ready is False
+    assert negative_expert_packet.expert_ids_in_range is False
+    assert payload_packet.state_hash != base.state_hash
+    assert kernel_packet.state_hash != base.state_hash
 
 
 def test_premap_address_hash_changes_with_plan_semantics_but_key_reuses_address():

@@ -311,6 +311,24 @@ def test_premap_payload_cache_manager_snapshot_flattens_without_jsonl_rows():
         ]
         is None
     )
+    assert (
+        performance[
+            "runtime_shadow_premap_payload_cache_direct_transition_native_packet_count"
+        ]
+        == 0
+    )
+    assert (
+        performance[
+            "runtime_shadow_premap_payload_cache_direct_transition_native_packet_ready_count"
+        ]
+        == 0
+    )
+    assert (
+        performance[
+            "runtime_shadow_premap_payload_cache_direct_transition_native_packet_last_hash"
+        ]
+        is None
+    )
 
 
 def test_premap_payload_cache_manager_snapshot_reports_missing_enabled_manager():
@@ -485,6 +503,11 @@ def test_premap_payload_cache_producer_transition_owner_issues_before_next_deman
     assert recorder._premap_payload_cache_transition_issue_error_count == 0
     assert recorder._premap_payload_cache_transition_consumer_update_count == 0
     assert recorder._premap_payload_cache_transition_producer_update_count == 2
+    assert recorder._premap_payload_cache_transition_native_packet_count == 2
+    assert recorder._premap_payload_cache_transition_native_packet_ready_count == 2
+    assert recorder._premap_payload_cache_transition_native_packet_last_hash is not None
+    assert recorder._premap_payload_cache_transition_native_packet_last_previous_count == 1
+    assert recorder._premap_payload_cache_transition_native_packet_last_current_count == 1
 
 
 def test_premap_payload_cache_producer_transition_owner_skips_consumer_updates():
@@ -522,6 +545,7 @@ def test_premap_payload_cache_producer_transition_owner_skips_consumer_updates()
     assert recorder._premap_payload_cache_transition_issue_attempt_count == 0
     assert recorder._premap_payload_cache_transition_consumer_update_count == 0
     assert recorder._premap_payload_cache_transition_producer_update_count == 0
+    assert recorder._premap_payload_cache_transition_native_packet_count == 0
 
 
 def test_premap_payload_cache_producer_transition_owner_skips_unavailable_handle():
@@ -572,6 +596,10 @@ def test_premap_payload_cache_producer_transition_owner_clears_valid_empty_handl
     assert recorder._premap_payload_cache_last_active_experts_by_layer[0] == ()
     assert recorder._premap_payload_cache_transition_consumer_update_count == 0
     assert recorder._premap_payload_cache_transition_producer_update_count == 1
+    assert recorder._premap_payload_cache_transition_native_packet_count == 1
+    assert recorder._premap_payload_cache_transition_native_packet_ready_count == 1
+    assert recorder._premap_payload_cache_transition_native_packet_last_previous_count == 1
+    assert recorder._premap_payload_cache_transition_native_packet_last_current_count == 0
 
 
 def test_premap_payload_cache_transition_state_owner_rejects_invalid_value():
@@ -625,6 +653,9 @@ def test_premap_payload_cache_transition_state_clear_is_sample_scoped():
     assert recorder._premap_payload_cache_transition_issue_last_error is None
     assert recorder._premap_payload_cache_transition_consumer_update_count == 0
     assert recorder._premap_payload_cache_transition_producer_update_count == 0
+    assert recorder._premap_payload_cache_transition_native_packet_count == 0
+    assert recorder._premap_payload_cache_transition_native_packet_ready_count == 0
+    assert recorder._premap_payload_cache_transition_native_packet_last_hash is None
 
 
 def test_premap_payload_cache_transition_disallowed_source_does_not_count_attempt():

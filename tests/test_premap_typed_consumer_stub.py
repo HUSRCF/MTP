@@ -57,6 +57,18 @@ def test_typed_consumer_stub_uses_kernel_side_abi_header():
     assert '#include "premap_typed_consumer_abi_v1.h"' in source
     assert '#include "premap_typed_consumer_adapter_v1.h"' in source
     assert "PremapKernelSideTypedConsumerAbiV1 table" in source
+    assert "PremapPayloadCacheProducerTransitionStateAbiV1" in header
+    assert "kPremapPayloadCacheProducerTransitionStateAbiV1Name" in header
+    assert "kPremapPayloadCacheProducerTransitionStateAbiV1FieldCount" in header
+    assert "kPremapPayloadCacheProducerTransitionStateAbiV1FieldCount == 9" in source
+    assert (
+        "kPremapPayloadCacheProducerTransitionStateAbiV1PayloadBytesAllowed"
+        in source
+    )
+    assert (
+        "kPremapPayloadCacheProducerTransitionStateAbiV1KernelArgPassAllowed"
+        in source
+    )
     assert "struct PremapKernelSideTypedConsumerAbiV1" in header
     assert "struct PremapKernelSideTypedConsumerRowV1" in adapter
     assert "struct PremapKernelSideTypedConsumerLaunchEnvelopeV1" in adapter
