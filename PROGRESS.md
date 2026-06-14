@@ -34239,3 +34239,37 @@ movement, no ready credit, no descriptor-order changes, and no current WNA16
 kernel-argument compatibility claim.  The HIP stub still compiles and runs with
 the added ABI guards, so the next step can be an online native producer-state
 adapter/canary rather than another Python prelaunch hook.
+
+Producer transition-state native canary:
+
+```text
+code:
+  microbench/premap_kernel_consumer/
+    premap_payload_cache_producer_state_stub.hip
+  scripts/run_premap_payload_cache_producer_state_stub.py
+
+output:
+  outputs/reports/
+    premap_payload_cache_producer_state_native_canary_20260614_clean.json
+    premap_payload_cache_producer_state_native_canary_20260614_validated.json
+    premap_payload_cache_producer_state_native_canary_20260614_final.json
+
+result:
+  passed = true
+  native_returncode = 0
+  previous_count = 8
+  current_count = 8
+  overlap_count = 4
+  issue_candidate_count = 4
+  payload_bytes = 0
+  ready_credit = false
+  passed_to_kernel = false
+  changes_kernel_launch_args = false
+  current_wna16_arg_compatible = false
+```
+
+This moves the producer transition-state ABI one step past static guards: a
+standalone native kernel now reads the previous/current expert arrays through
+`PremapPayloadCacheProducerTransitionStateAbiV1` and produces transition
+summary fields.  It remains a standalone native canary, not a current WNA16
+kernel-arg path and not a payload/cache residency implementation.
