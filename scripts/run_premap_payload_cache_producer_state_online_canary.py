@@ -275,19 +275,33 @@ def run_online_canary(args: argparse.Namespace) -> dict[str, Any]:
     payload["selected_packet_json"] = str(selected_packet)
     payload["selected_packet_selection_mode"] = str(selection_mode)
     if performance is not None:
+        export_prefix = (
+            "runtime_shadow_premap_payload_cache_producer_state_packet_export_"
+        )
         payload["online_configured_export_enabled"] = bool(
             performance.get(
-                "runtime_shadow_premap_payload_cache_producer_state_packet_export_enabled",
+                f"{export_prefix}enabled",
                 False,
             )
         )
         payload["online_configured_export_count"] = int(
             performance.get(
-                "runtime_shadow_premap_payload_cache_producer_state_packet_export_count",
+                f"{export_prefix}count",
                 0,
             )
             or 0
         )
+        for summary_key in (
+            "nonempty_issue_count",
+            "first_nonempty_issue_index",
+            "first_nonempty_issue_path",
+            "first_nonempty_issue_count",
+            "first_nonempty_issue_hash",
+            "scan_error_count",
+        ):
+            raw_key = f"{export_prefix}{summary_key}"
+            if raw_key in performance:
+                payload[f"online_packet_export_{summary_key}"] = performance[raw_key]
     return payload
 
 

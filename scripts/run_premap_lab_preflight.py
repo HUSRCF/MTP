@@ -1908,6 +1908,7 @@ def _validate_required_evidence_payload(
                 ),
                 require_online_export=True,
                 require_nonempty_issue=True,
+                require_summary_first_nonempty_issue=True,
             )
         ]
     for (
@@ -5202,6 +5203,7 @@ def _validate_payload_cache_producer_state_native_canary_evidence(
     failure_prefix: str = "payload_cache_producer_state_native_canary",
     require_online_export: bool = True,
     require_nonempty_issue: bool = False,
+    require_summary_first_nonempty_issue: bool = False,
 ) -> list[str]:
     failures: list[str] = []
     expected_values = {
@@ -5271,6 +5273,26 @@ def _validate_payload_cache_producer_state_native_canary_evidence(
         if require_online_export
         else None
     )
+    online_packet_export_nonempty_issue_count = (
+        _int_metric(evidence, "online_packet_export_nonempty_issue_count")
+        if require_summary_first_nonempty_issue
+        else None
+    )
+    online_packet_export_first_nonempty_issue_index = (
+        _int_metric(evidence, "online_packet_export_first_nonempty_issue_index")
+        if require_summary_first_nonempty_issue
+        else None
+    )
+    online_packet_export_first_nonempty_issue_count = (
+        _int_metric(evidence, "online_packet_export_first_nonempty_issue_count")
+        if require_summary_first_nonempty_issue
+        else None
+    )
+    online_packet_export_scan_error_count = (
+        _int_metric(evidence, "online_packet_export_scan_error_count")
+        if require_summary_first_nonempty_issue
+        else None
+    )
 
     for key, value in (
         ("previous_count", previous_count),
@@ -5313,6 +5335,62 @@ def _validate_payload_cache_producer_state_native_canary_evidence(
             and selected_packet_index >= online_packet_export_count
         ):
             failures.append(f"{failure_prefix}_selected_packet_index_out_of_range")
+    if require_summary_first_nonempty_issue:
+        if evidence.get("selected_packet_selection_mode") != (
+            "summary_first_nonempty_issue"
+        ):
+            failures.append(f"{failure_prefix}_selected_packet_selection_mode_mismatch")
+        for key, value in (
+            (
+                "online_packet_export_nonempty_issue_count",
+                online_packet_export_nonempty_issue_count,
+            ),
+            (
+                "online_packet_export_first_nonempty_issue_index",
+                online_packet_export_first_nonempty_issue_index,
+            ),
+            (
+                "online_packet_export_first_nonempty_issue_count",
+                online_packet_export_first_nonempty_issue_count,
+            ),
+            (
+                "online_packet_export_scan_error_count",
+                online_packet_export_scan_error_count,
+            ),
+        ):
+            if value is None or value < 0:
+                failures.append(f"{failure_prefix}_{key}_invalid")
+        if (
+            online_packet_export_nonempty_issue_count is not None
+            and online_packet_export_nonempty_issue_count <= 0
+        ):
+            failures.append(
+                f"{failure_prefix}_online_packet_export_nonempty_issue_count_empty"
+            )
+        if (
+            online_packet_export_scan_error_count is not None
+            and online_packet_export_scan_error_count != 0
+        ):
+            failures.append(
+                f"{failure_prefix}_online_packet_export_scan_error_count_nonzero"
+            )
+        if (
+            online_packet_export_first_nonempty_issue_index is not None
+            and selected_packet_index is not None
+            and online_packet_export_first_nonempty_issue_index != selected_packet_index
+        ):
+            failures.append(
+                f"{failure_prefix}_online_packet_export_first_nonempty_issue_index_mismatch"
+            )
+        if (
+            online_packet_export_first_nonempty_issue_count is not None
+            and issue_candidate_count is not None
+            and online_packet_export_first_nonempty_issue_count
+            != issue_candidate_count
+        ):
+            failures.append(
+                f"{failure_prefix}_online_packet_export_first_nonempty_issue_count_mismatch"
+            )
 
     if (
         previous_count is not None
@@ -5476,6 +5554,33 @@ def _validate_payload_cache_producer_state_native_canary_evidence(
                 failures.append(f"{failure_prefix}_selected_packet_index_path_mismatch")
             if isinstance(packet_json, str) and packet_json not in online_path_strings:
                 failures.append(f"{failure_prefix}_packet_json_not_in_online_paths")
+    if require_summary_first_nonempty_issue:
+        first_nonempty_path = evidence.get(
+            "online_packet_export_first_nonempty_issue_path"
+        )
+        if not isinstance(first_nonempty_path, str) or not first_nonempty_path:
+            failures.append(
+                f"{failure_prefix}_online_packet_export_first_nonempty_issue_path_missing"
+            )
+        elif isinstance(packet_json, str) and packet_json and first_nonempty_path != packet_json:
+            failures.append(
+                f"{failure_prefix}_online_packet_export_first_nonempty_issue_path_mismatch"
+            )
+        first_nonempty_hash = _hex64_metric(
+            evidence,
+            "online_packet_export_first_nonempty_issue_hash",
+        )
+        if first_nonempty_hash is None:
+            failures.append(
+                f"{failure_prefix}_online_packet_export_first_nonempty_issue_hash_invalid"
+            )
+        elif (
+            issue_candidate_hash is not None
+            and first_nonempty_hash != issue_candidate_hash
+        ):
+            failures.append(
+                f"{failure_prefix}_online_packet_export_first_nonempty_issue_hash_mismatch"
+            )
     return failures
 
 

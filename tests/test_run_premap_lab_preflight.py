@@ -2301,10 +2301,18 @@ def _payload_cache_producer_state_native_canary_payload() -> dict[str, object]:
         "online_export_source": (
             "runtime_shadow_premap_payload_cache_producer_state_packet_export"
         ),
+        "online_packet_export_first_nonempty_issue_count": 2,
+        "online_packet_export_first_nonempty_issue_hash": "d949aa186c0c4928",
+        "online_packet_export_first_nonempty_issue_index": 0,
+        "online_packet_export_first_nonempty_issue_path": (
+            "reports/premap_payload_cache_producer_state_packet.json"
+        ),
+        "online_packet_export_nonempty_issue_count": 1,
         "online_packet_export_count": 1,
         "online_packet_export_paths": [
             "reports/premap_payload_cache_producer_state_packet.json",
         ],
+        "online_packet_export_scan_error_count": 0,
         "overlap_count": 1,
         "packet_json": "reports/premap_payload_cache_producer_state_packet.json",
         "packet_layer_id": 0,
@@ -2330,6 +2338,7 @@ def _payload_cache_producer_state_native_canary_payload() -> dict[str, object]:
         "selected_packet_json": (
             "reports/premap_payload_cache_producer_state_packet.json"
         ),
+        "selected_packet_selection_mode": "summary_first_nonempty_issue",
         "state_hash": "3ec369d6571e4ec9",
         "transition_topk_count": 4,
     }
@@ -2343,8 +2352,15 @@ def _payload_cache_producer_state_nonempty_issue_stub_payload() -> dict[str, obj
         "online_export_source",
         "online_packet_export_count",
         "online_packet_export_paths",
+        "online_packet_export_first_nonempty_issue_count",
+        "online_packet_export_first_nonempty_issue_hash",
+        "online_packet_export_first_nonempty_issue_index",
+        "online_packet_export_first_nonempty_issue_path",
+        "online_packet_export_nonempty_issue_count",
+        "online_packet_export_scan_error_count",
         "selected_packet_index",
         "selected_packet_json",
+        "selected_packet_selection_mode",
     ):
         payload.pop(key, None)
     return payload
@@ -10413,9 +10429,64 @@ def test_premap_lab_preflight_accepts_payload_cache_producer_state_online_nonemp
         failure_prefix="payload_cache_producer_state_online_nonempty_issue_canary",
         require_online_export=True,
         require_nonempty_issue=True,
+        require_summary_first_nonempty_issue=True,
     )
 
     assert failures == []
+
+
+def test_premap_lab_preflight_rejects_online_nonempty_issue_without_summary_first_mode():
+    payload = _payload_cache_producer_state_native_canary_payload()
+    payload["selected_packet_selection_mode"] = "first_nonempty_issue"
+
+    failures = _validate_payload_cache_producer_state_native_canary_evidence(
+        payload,
+        failure_prefix="payload_cache_producer_state_online_nonempty_issue_canary",
+        require_online_export=True,
+        require_nonempty_issue=True,
+        require_summary_first_nonempty_issue=True,
+    )
+
+    assert (
+        "payload_cache_producer_state_online_nonempty_issue_canary_"
+        "selected_packet_selection_mode_mismatch"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_online_nonempty_issue_scan_errors():
+    payload = _payload_cache_producer_state_native_canary_payload()
+    payload["online_packet_export_scan_error_count"] = 1
+
+    failures = _validate_payload_cache_producer_state_native_canary_evidence(
+        payload,
+        failure_prefix="payload_cache_producer_state_online_nonempty_issue_canary",
+        require_online_export=True,
+        require_nonempty_issue=True,
+        require_summary_first_nonempty_issue=True,
+    )
+
+    assert (
+        "payload_cache_producer_state_online_nonempty_issue_canary_"
+        "online_packet_export_scan_error_count_nonzero"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_online_nonempty_issue_summary_hash_mismatch():
+    payload = _payload_cache_producer_state_native_canary_payload()
+    payload["online_packet_export_first_nonempty_issue_hash"] = "0000000000000000"
+
+    failures = _validate_payload_cache_producer_state_native_canary_evidence(
+        payload,
+        failure_prefix="payload_cache_producer_state_online_nonempty_issue_canary",
+        require_online_export=True,
+        require_nonempty_issue=True,
+        require_summary_first_nonempty_issue=True,
+    )
+
+    assert (
+        "payload_cache_producer_state_online_nonempty_issue_canary_"
+        "online_packet_export_first_nonempty_issue_hash_mismatch"
+    ) in failures
 
 
 def test_premap_lab_preflight_rejects_payload_cache_producer_state_online_nonempty_without_export():
@@ -10424,6 +10495,7 @@ def test_premap_lab_preflight_rejects_payload_cache_producer_state_online_nonemp
         failure_prefix="payload_cache_producer_state_online_nonempty_issue_canary",
         require_online_export=True,
         require_nonempty_issue=True,
+        require_summary_first_nonempty_issue=True,
     )
 
     assert (

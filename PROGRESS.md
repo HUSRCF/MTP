@@ -2,8 +2,23 @@
 
 ## Progress Version
 
-- Version: `v0.84-online-nonempty-issue-selection`
+- Version: `v0.85-summary-first-nonempty-issue-gate`
 - Updated: 2026-06-14
+- Latest summary-first nonempty issue gate: the default readonly lab gate now
+  points at a real Dolly4/gen64 online canary artifact generated from
+  `performance_summary.json`'s producer-state packet-export summary fields
+  instead of re-scanning packet JSON to find the first nonempty issue packet.
+  The selected packet is index 1, with
+  `selected_packet_selection_mode=summary_first_nonempty_issue`,
+  `previous_count=8`, `issue_candidate_count=8`, and matching native/Python
+  issue hashes `f3f1208c1026d557`.  Summary evidence is trusted only when
+  `runtime_shadow_premap_payload_cache_producer_state_packet_export_scan_error_count=0`;
+  a nonzero scan-error count now fails explicitly rather than falling back to a
+  packet scan or ordinary `packet_index` selection.  This keeps the nonempty
+  producer-state issue evidence tied to the online runtime summary while
+  preserving the safety boundary: `payload_bytes=0`, `ready_credit=false`,
+  `passed_to_kernel=false`, `changes_kernel_launch_args=false`, and
+  `current_wna16_arg_compatible=false`.
 - Latest online nonempty issue selection: the producer-state online canary
   runner now supports `--prefer-nonempty-issue` and `--require-nonempty-issue`.
   When enabled, it scans the `performance_summary.json` packet-export path list
