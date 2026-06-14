@@ -67,14 +67,42 @@ def _packet_paths_from_performance(
     return paths
 
 
+def _packet_issue_candidate_count(path: Path) -> int:
+    payload = _load_json_object(path, label="producer-state packet")
+    previous = payload.get("previous_experts", [])
+    if not isinstance(previous, list):
+        return 0
+    try:
+        previous_count = len(previous)
+        topk = int(payload.get("transition_topk_count", 0) or 0)
+    except (TypeError, ValueError):
+        return 0
+    if previous_count <= 0:
+        return 0
+    if topk <= 0:
+        return previous_count
+    return min(previous_count, topk)
+
+
+def _select_nonempty_issue_packet(paths: list[Path]) -> tuple[int, Path] | None:
+    for index, path in enumerate(paths):
+        if not path.exists():
+            raise ValueError(f"producer-state packet export path missing: {path}")
+        if _packet_issue_candidate_count(path) > 0:
+            return index, path
+    return None
+
+
 def select_packet_json(
     *,
     performance_summary: Path | None,
     packet_json: Path | None,
     packet_index: int,
-) -> tuple[Path, dict[str, Any] | None, list[Path]]:
+    prefer_nonempty_issue: bool = False,
+    require_nonempty_issue: bool = False,
+) -> tuple[Path, dict[str, Any] | None, list[Path], int, str]:
     if packet_json is not None:
-        return packet_json, None, [packet_json]
+        return packet_json, None, [packet_json], 0, "explicit_packet_json"
     if performance_summary is None:
         raise ValueError("--performance-summary or --packet-json is required")
     performance = _load_json_object(performance_summary, label="performance summary")
@@ -102,18 +130,42 @@ def select_packet_json(
         raise ValueError(
             "performance summary does not contain producer-state packet export paths"
         )
+    if prefer_nonempty_issue or require_nonempty_issue:
+        selected = _select_nonempty_issue_packet(paths)
+        if selected is not None:
+            selected_index, selected_path = selected
+            return (
+                selected_path,
+                performance,
+                paths,
+                selected_index,
+                "first_nonempty_issue",
+            )
+        if require_nonempty_issue:
+            raise ValueError(
+                "performance summary does not contain a nonempty producer-state "
+                "issue packet"
+            )
     if packet_index < 0 or packet_index >= len(paths):
         raise ValueError(
             f"--packet-index {packet_index} is out of range for {len(paths)} paths"
         )
-    return paths[packet_index], performance, paths
+    return paths[packet_index], performance, paths, packet_index, "packet_index"
 
 
 def run_online_canary(args: argparse.Namespace) -> dict[str, Any]:
-    selected_packet, performance, paths = select_packet_json(
+    (
+        selected_packet,
+        performance,
+        paths,
+        selected_packet_index,
+        selection_mode,
+    ) = select_packet_json(
         performance_summary=args.performance_summary,
         packet_json=args.packet_json,
         packet_index=int(args.packet_index),
+        prefer_nonempty_issue=bool(getattr(args, "prefer_nonempty_issue", False)),
+        require_nonempty_issue=bool(getattr(args, "require_nonempty_issue", False)),
     )
     if not selected_packet.exists():
         return {
@@ -151,8 +203,9 @@ def run_online_canary(args: argparse.Namespace) -> dict[str, Any]:
     )
     payload["online_packet_export_count"] = int(len(paths))
     payload["online_packet_export_paths"] = [str(path) for path in paths]
-    payload["selected_packet_index"] = int(args.packet_index)
+    payload["selected_packet_index"] = int(selected_packet_index)
     payload["selected_packet_json"] = str(selected_packet)
+    payload["selected_packet_selection_mode"] = str(selection_mode)
     if performance is not None:
         payload["online_configured_export_enabled"] = bool(
             performance.get(
@@ -175,6 +228,16 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--performance-summary", type=Path)
     parser.add_argument("--packet-json", type=Path)
     parser.add_argument("--packet-index", type=int, default=0)
+    parser.add_argument(
+        "--prefer-nonempty-issue",
+        action="store_true",
+        help="Select the first exported packet with a nonempty previous-expert issue prefix.",
+    )
+    parser.add_argument(
+        "--require-nonempty-issue",
+        action="store_true",
+        help="Fail if no exported packet has a nonempty previous-expert issue prefix.",
+    )
     parser.add_argument("--device", type=int, default=0)
     parser.add_argument("--current-offset", type=int, default=0)
     parser.add_argument("--offload-arch", default="gfx1100")

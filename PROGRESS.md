@@ -2,8 +2,20 @@
 
 ## Progress Version
 
-- Version: `v0.83-nonempty-producer-state-issue-evidence`
+- Version: `v0.84-online-nonempty-issue-selection`
 - Updated: 2026-06-14
+- Latest online nonempty issue selection: the producer-state online canary
+  runner now supports `--prefer-nonempty-issue` and `--require-nonempty-issue`.
+  When enabled, it scans the `performance_summary.json` packet-export path list
+  and selects the first packet whose previous-expert issue prefix is nonempty;
+  missing packet paths now fail instead of being silently skipped, preserving
+  provenance integrity for partially broken export lists.  A GPU1 validation on
+  the existing Dolly128/gen64 32-packet export audit selected packet index 1
+  with `previous_count=8`, `issue_candidate_count=8`,
+  `selected_packet_selection_mode=first_nonempty_issue`, and matching
+  `issue_candidate_hash=expected_issue_candidate_hash=f3f1208c1026d557`.  This
+  is still readonly evidence only: no payload bytes, no ready credit, no kernel
+  arg pass/change, and no current WNA16 arg compatibility.
 - Latest nonempty producer-state issue evidence: the lab preflight now knows an
   optional `payload_cache_producer_state_nonempty_issue_stub_json` evidence
   label.  It reuses the readonly native producer-state canary checks but does

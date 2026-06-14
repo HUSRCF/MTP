@@ -95,6 +95,179 @@ def test_online_canary_selects_packet_from_performance_summary(
     assert fake.args.packet_json == packet1
 
 
+def test_online_canary_prefers_nonempty_issue_packet(
+    monkeypatch,
+    tmp_path: Path,
+):
+    module = _load_module()
+    packets_dir = tmp_path / "packets"
+    packets_dir.mkdir()
+    packet0 = packets_dir / "packet0.json"
+    packet1 = packets_dir / "packet1.json"
+    packet0.write_text(
+        json.dumps(
+            {
+                "ready": True,
+                "previous_experts": [],
+                "transition_topk_count": 8,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    packet1.write_text(
+        json.dumps(
+            {
+                "ready": True,
+                "previous_experts": [3, 5],
+                "transition_topk_count": 1,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    performance_summary = tmp_path / "performance_summary.json"
+    performance_summary.write_text(
+        json.dumps(
+            {
+                "runtime_shadow_premap_payload_cache_producer_state_packet_export_enabled": True,
+                "runtime_shadow_premap_payload_cache_producer_state_packet_export_count": 2,
+                "runtime_shadow_premap_payload_cache_producer_state_packet_export_paths": [
+                    str(packet0.relative_to(tmp_path)),
+                    str(packet1.relative_to(tmp_path)),
+                ],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    fake = _FakeStubRunner()
+    monkeypatch.setattr(module, "_load_stub_runner", lambda: fake)
+
+    payload = module.run_online_canary(
+        argparse.Namespace(
+            performance_summary=performance_summary,
+            packet_json=None,
+            packet_index=0,
+            prefer_nonempty_issue=True,
+            require_nonempty_issue=True,
+            device=0,
+            current_offset=0,
+            offload_arch="gfx1100",
+            force_build=False,
+            hip_visible_devices=None,
+        )
+    )
+
+    assert payload["ok"] is True
+    assert payload["selected_packet_index"] == 1
+    assert payload["selected_packet_json"] == str(packet1)
+    assert payload["selected_packet_selection_mode"] == "first_nonempty_issue"
+    assert fake.args.packet_json == packet1
+
+
+def test_online_canary_requires_nonempty_issue_packet(tmp_path: Path):
+    module = _load_module()
+    packet = tmp_path / "packet.json"
+    packet.write_text(
+        json.dumps(
+            {
+                "ready": True,
+                "previous_experts": [],
+                "transition_topk_count": 8,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    performance_summary = tmp_path / "performance_summary.json"
+    performance_summary.write_text(
+        json.dumps(
+            {
+                "runtime_shadow_premap_payload_cache_producer_state_packet_export_enabled": True,
+                "runtime_shadow_premap_payload_cache_producer_state_packet_export_count": 1,
+                "runtime_shadow_premap_payload_cache_producer_state_packet_export_paths": [
+                    str(packet.relative_to(tmp_path)),
+                ],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    try:
+        module.run_online_canary(
+            argparse.Namespace(
+                performance_summary=performance_summary,
+                packet_json=None,
+                packet_index=0,
+                prefer_nonempty_issue=False,
+                require_nonempty_issue=True,
+                device=0,
+                current_offset=0,
+                offload_arch="gfx1100",
+                force_build=False,
+                hip_visible_devices=None,
+            )
+        )
+    except ValueError as exc:
+        assert "does not contain a nonempty producer-state issue packet" in str(exc)
+    else:
+        raise AssertionError("expected missing nonempty issue packet to raise ValueError")
+
+
+def test_online_canary_nonempty_selection_rejects_missing_packet_path(tmp_path: Path):
+    module = _load_module()
+    missing = tmp_path / "missing.json"
+    packet = tmp_path / "packet.json"
+    packet.write_text(
+        json.dumps(
+            {
+                "ready": True,
+                "previous_experts": [3],
+                "transition_topk_count": 8,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    performance_summary = tmp_path / "performance_summary.json"
+    performance_summary.write_text(
+        json.dumps(
+            {
+                "runtime_shadow_premap_payload_cache_producer_state_packet_export_enabled": True,
+                "runtime_shadow_premap_payload_cache_producer_state_packet_export_count": 2,
+                "runtime_shadow_premap_payload_cache_producer_state_packet_export_paths": [
+                    str(missing.relative_to(tmp_path)),
+                    str(packet.relative_to(tmp_path)),
+                ],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    try:
+        module.run_online_canary(
+            argparse.Namespace(
+                performance_summary=performance_summary,
+                packet_json=None,
+                packet_index=0,
+                prefer_nonempty_issue=True,
+                require_nonempty_issue=True,
+                device=0,
+                current_offset=0,
+                offload_arch="gfx1100",
+                force_build=False,
+                hip_visible_devices=None,
+            )
+        )
+    except ValueError as exc:
+        assert "producer-state packet export path missing" in str(exc)
+    else:
+        raise AssertionError("expected missing packet path to raise ValueError")
+
+
 def test_online_canary_accepts_explicit_packet_json(monkeypatch, tmp_path: Path):
     module = _load_module()
     packet = tmp_path / "packet.json"
