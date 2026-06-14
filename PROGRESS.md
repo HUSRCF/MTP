@@ -4,6 +4,24 @@
 
 - Version: `v0.82-online-producer-state-packet-canary`
 - Updated: 2026-06-14
+- Latest producer-state lab-preflight tightening: the required
+  `payload_cache_producer_state_native_canary_json` evidence is now accepted
+  only when it is traceable to the real online
+  `runtime_shadow_premap_payload_cache_producer_state_packet_export` path.  The
+  preflight checker requires `online_export_source` to match the runtime-shadow
+  export source, export to be enabled, nonzero configured/exported packet
+  counts, a nonempty export path list, count/path self-consistency, and
+  `selected_packet_index -> export path -> packet_json` plus
+  `selected_packet_json == packet_json` agreement.
+  This prevents a standalone/manual packet from satisfying the lab gate while
+  preserving the no-op safety boundary: payload bytes remain zero, ready credit
+  remains false, kernel launch args are still not passed or changed, and current
+  WNA16 kernel args are still not compatible or consumed.  Validation:
+  `tests/test_run_premap_lab_preflight.py` passes (`149 passed`),
+  `tests/test_run_premap_payload_cache_producer_state_online_canary.py` and
+  `tests/test_vllm_router_shadow_sink.py` pass together (`87 passed`), and full
+  `pytest tests -q` passes (`1282 passed`, only existing SWIG deprecation
+  warnings).  Codex review found no remaining blocker/high/medium findings.
 - Latest producer-state native canary plumbing: online vLLM shadow can now
   export ready producer transition-state packets as JSON artifacts, and
   `scripts/run_premap_payload_cache_producer_state_online_canary.py` can turn
