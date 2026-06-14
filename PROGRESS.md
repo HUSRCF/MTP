@@ -34,6 +34,19 @@
   `input_source=semantic_packet_json`, `online_configured_export_enabled=true`,
   `payload_bytes=0`, `ready_credit=false`, `passed_to_kernel=false`,
   `changes_kernel_launch_args=false`, and `current_wna16_arg_compatible=false`.
+  A real vLLM 1-sample/gen4 smoke now also passes with the repo-local config
+  `configs/trace/router_mtp_trace_external_prompt_gate_dolly_1_awq_vllm_gpu1_decode_gen4_producer_state_packet_export_smoke.yaml`.
+  The run summary at
+  `data/traces/external_prompt_gate_dolly_1_awq_vllm_gpu1_decode_gen4_producer_state_packet_export_smoke/performance_summary.json`
+  reports producer-state packet export enabled with `export_count=8`, and the
+  native online canary artifact
+  `outputs/reports/premap_kernel_consumer/payload_cache_producer_state_online_canary_dolly1_gen4_real_smoke_20260614.json`
+  reports `ok=true`, `passed=true`, `native_returncode=0`,
+  `input_source=semantic_packet_json`, `online_packet_export_count=8`,
+  `packet_ready=true`, `payload_bytes=0`, `ready_credit=false`,
+  `passed_to_kernel=false`, `changes_kernel_launch_args=false`, and
+  `current_wna16_arg_compatible=false`.  This is still a smoke gate, not a
+  128-sample lab-default preflight or endpoint benchmark.
 - Latest prefetch lab-default gate update: the premap lab preflight now treats
   the prefetch lab-default gate as a required precondition instead of an
   external side artifact.  `run_premap_lab_preflight.py` checks
