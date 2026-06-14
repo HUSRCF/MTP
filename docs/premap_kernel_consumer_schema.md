@@ -776,10 +776,13 @@ argument slot compatible with the typed table.
    future_kernel_wna16_adjacent_typed_slot_standalone_canary_json
      -> outputs/reports/premap_kernel_consumer/standalone_wna16_adjacent_typed_slot_stub.json
 
-   lab preflight required_evidence = 37 / 37 / 37
+   lab preflight required_evidence = 43 / 43 / 43
    ```
 
-   This promotion still does not pass current WNA16 kernel arguments.
+   The required lab surface now also includes the online summary-first
+   producer-state nonempty issue canary and the independent native nonempty
+   issue-prefix stub.  This promotion still does not pass current WNA16 kernel
+   arguments.
 6. The online prelaunch bridge now connects the same explicit future typed slot
    through the native consumer path.  The runner requires the actual native
    stub macro:

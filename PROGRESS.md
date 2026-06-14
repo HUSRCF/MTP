@@ -4506,18 +4506,22 @@ explicit_typed_abi_slot = true
 reuses_current_wna16_arg_slot = false
 ```
 
-Lab preflight evidence:
+Historical lab preflight evidence from the first WNA16-adjacent promotion:
 
 ```text
 outputs/reports/premap_kernel_consumer/lab_preflight_wna16_adjacent_typed_slot_required.json
 
 passed = true
-required_evidence = 36 / 36
+historical_required_evidence_at_generation = 36 / 36
 wna16_adjacent_typed_slot_row_count = 1841
 wna16_adjacent_typed_slot_row_ok_count = 1841
 wna16_adjacent_typed_slot_error_count = 0
 wna16_adjacent_typed_slot_packet_chain_depth = 14
 ```
+
+This artifact predates the current producer-state nonempty issue requirements.
+The current default lab gate is stricter and reports `required_evidence =
+43 / 43 / 43`.
 
 Verification:
 
@@ -30107,7 +30111,10 @@ runtime_gate_evidence_deferred_count = 0
 
 This makes the standalone native ABI/stub evidence a lab gate precondition
 rather than optional diagnostic coverage, while keeping the real WNA16 kernel
-argument list untouched.
+argument list untouched.  The original standalone-promotion artifact reported
+37 required checks at the time it was generated; the current lab gate has since
+been refreshed to 43 required checks by adding required producer-state nonempty
+issue evidence.
 
 ## WNA16-adjacent typed slot online native bridge gate
 
@@ -30173,6 +30180,9 @@ This upgrades the WNA16-adjacent evidence from a derived online summary plus
 standalone stub into a real online-derived row stream consumed by the native
 typed-slot stub. It still does not pass the typed slot to the current WNA16
 kernel and still does not move payload or grant readiness credit.
+The original online-bridge artifact reported 37 required checks at the time it
+was generated; the current lab gate has since been refreshed to 43 required
+checks by adding required producer-state nonempty issue evidence.
 
 ## Production-compatible live handoff split
 
