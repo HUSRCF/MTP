@@ -2,8 +2,25 @@
 
 ## Progress Version
 
-- Version: `v0.87-self-described-issue-packet-gate`
+- Version: `v0.88-direct-stub-issue-packet-gate`
 - Updated: 2026-06-14
+- Latest direct native stub packet-json gate: the strict producer-state issue
+  packet contract now applies to the direct native producer-state stub as well
+  as the online canary selector.  `run_premap_payload_cache_producer_state_stub.py
+  --packet-json` rejects malformed JSON before native command construction:
+  `previous_experts` and `current_experts` must be JSON `list[int]` values,
+  negative experts are no longer silently sanitized, and any
+  `issue_candidate_` field triggers the complete self-description check.  The
+  self-description is validated against the canonical
+  `packet.native_previous_experts_i32` order that the native stub will actually
+  receive, so raw-order or duplicate-expert packet JSON cannot validate against
+  a different issue prefix than the one passed to native code.  Focused
+  validation passes with 320 tests across the direct stub, runtime packet,
+  router scanner, online canary, and lab-preflight suites; full `pytest tests
+  -q` passes with 1332 tests and only existing SWIG deprecation warnings.
+  Safety remains unchanged: `payload_bytes=0`, `ready_credit=false`,
+  `passed_to_kernel=false`, `changes_kernel_launch_args=false`, and
+  `current_wna16_arg_compatible=false`.
 - Latest self-described producer issue packet gate: producer-state packet
   exports now carry a complete issue-prefix self-description:
   `issue_candidate_experts`, `issue_candidate_count`,
