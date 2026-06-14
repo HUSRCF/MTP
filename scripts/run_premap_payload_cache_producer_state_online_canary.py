@@ -102,7 +102,19 @@ def select_packet_json(
     require_nonempty_issue: bool = False,
 ) -> tuple[Path, dict[str, Any] | None, list[Path], int, str]:
     if packet_json is not None:
-        return packet_json, None, [packet_json], 0, "explicit_packet_json"
+        selection_mode = "explicit_packet_json"
+        if (
+            packet_json.exists()
+            and (prefer_nonempty_issue or require_nonempty_issue)
+        ):
+            if _packet_issue_candidate_count(packet_json) > 0:
+                selection_mode = "explicit_packet_json_nonempty_issue"
+            elif require_nonempty_issue:
+                raise ValueError(
+                    "explicit producer-state packet does not contain a nonempty "
+                    "issue prefix"
+                )
+        return packet_json, None, [packet_json], 0, selection_mode
     if performance_summary is None:
         raise ValueError("--performance-summary or --packet-json is required")
     performance = _load_json_object(performance_summary, label="performance summary")

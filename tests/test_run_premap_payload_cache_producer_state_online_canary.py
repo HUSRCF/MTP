@@ -295,6 +295,85 @@ def test_online_canary_accepts_explicit_packet_json(monkeypatch, tmp_path: Path)
     assert fake.args.packet_json == packet
 
 
+def test_online_canary_accepts_explicit_nonempty_issue_packet_json(
+    monkeypatch,
+    tmp_path: Path,
+):
+    module = _load_module()
+    packet = tmp_path / "packet.json"
+    packet.write_text(
+        json.dumps(
+            {
+                "ready": True,
+                "previous_experts": [1, 7],
+                "transition_topk_count": 1,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    fake = _FakeStubRunner()
+    monkeypatch.setattr(module, "_load_stub_runner", lambda: fake)
+
+    payload = module.run_online_canary(
+        argparse.Namespace(
+            performance_summary=None,
+            packet_json=packet,
+            packet_index=0,
+            prefer_nonempty_issue=False,
+            require_nonempty_issue=True,
+            device=0,
+            current_offset=0,
+            offload_arch="gfx1100",
+            force_build=False,
+            hip_visible_devices=None,
+        )
+    )
+
+    assert payload["ok"] is True
+    assert payload["selected_packet_json"] == str(packet)
+    assert payload["selected_packet_selection_mode"] == (
+        "explicit_packet_json_nonempty_issue"
+    )
+    assert fake.args.packet_json == packet
+
+
+def test_online_canary_rejects_explicit_empty_issue_packet_json(tmp_path: Path):
+    module = _load_module()
+    packet = tmp_path / "packet.json"
+    packet.write_text(
+        json.dumps(
+            {
+                "ready": True,
+                "previous_experts": [],
+                "transition_topk_count": 8,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    try:
+        module.run_online_canary(
+            argparse.Namespace(
+                performance_summary=None,
+                packet_json=packet,
+                packet_index=0,
+                prefer_nonempty_issue=False,
+                require_nonempty_issue=True,
+                device=0,
+                current_offset=0,
+                offload_arch="gfx1100",
+                force_build=False,
+                hip_visible_devices=None,
+            )
+        )
+    except ValueError as exc:
+        assert "does not contain a nonempty issue prefix" in str(exc)
+    else:
+        raise AssertionError("expected empty explicit issue packet to raise ValueError")
+
+
 def test_online_canary_reports_missing_packet(tmp_path: Path):
     module = _load_module()
     missing = tmp_path / "missing.json"
