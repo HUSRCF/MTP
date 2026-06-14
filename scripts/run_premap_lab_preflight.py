@@ -278,6 +278,8 @@ REQUIRED_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
     "future_wna16_single_field_handoff_all_fields_128strict_summary_json",
     "wna16_side_consumer_variant_execution_128strict_runner_json",
     "payload_cache_producer_state_native_canary_json",
+    "payload_cache_producer_state_online_nonempty_issue_canary_json",
+    "payload_cache_producer_state_nonempty_issue_stub_json",
     "future_kernel_native_dispatch_consumer_online_artifact_check_32_128export_json",
     "future_kernel_native_dispatch_consumer_online_runner_32_128export_json",
 }
@@ -295,8 +297,6 @@ OPTIONAL_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
     "future_kernel_native_consumer_packed_weight_mirror_canary_json",
     "future_kernel_native_consumer_scale_mirror_canary_json",
     "native_typed_consumer_stub_online_prelaunch_input_per_field_canary_json",
-    "payload_cache_producer_state_online_nonempty_issue_canary_json",
-    "payload_cache_producer_state_nonempty_issue_stub_json",
 }
 ARG_SLOT_MIRROR_FIELDS = tuple(PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_COLUMNS)
 ARG_SLOT_REQUIRED_MIRROR_LABEL_BY_FIELD = {

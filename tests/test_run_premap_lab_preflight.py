@@ -4524,6 +4524,10 @@ def _write_gate(
             f"{wna16_side_consumer_variant_execution_runner_path}\n"
             "  payload_cache_producer_state_native_canary_json: "
             f"{payload_cache_producer_state_native_canary_path}\n"
+            "  payload_cache_producer_state_online_nonempty_issue_canary_json: "
+            f"{payload_cache_producer_state_native_canary_path}\n"
+            "  payload_cache_producer_state_nonempty_issue_stub_json: "
+            f"{payload_cache_producer_state_nonempty_issue_stub_path}\n"
             "  future_kernel_wna16_adjacent_typed_slot_standalone_canary_json: "
             f"{standalone_wna16_adjacent_typed_slot_canary_path}\n"
             "optional_evidence_paths:\n"
@@ -4553,10 +4557,6 @@ def _write_gate(
             f"{future_kernel_native_consumer_scale_canary_path}\n"
             "  native_typed_consumer_stub_online_prelaunch_input_per_field_canary_json: "
             f"{native_online_per_field_stub_path}\n"
-            "  payload_cache_producer_state_online_nonempty_issue_canary_json: "
-            f"{payload_cache_producer_state_native_canary_path}\n"
-            "  payload_cache_producer_state_nonempty_issue_stub_json: "
-            f"{payload_cache_producer_state_nonempty_issue_stub_path}\n"
             if include_lab_evidence
             else ""
         ),
@@ -4623,7 +4623,7 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert result["passed"] is True
     assert result["failures"] == []
     assert result["runtime_gate_evidence_scan"]["gate_count"] == 5
-    assert result["runtime_gate_evidence_scan"]["evidence_path_count"] == 102
+    assert result["runtime_gate_evidence_scan"]["evidence_path_count"] == 106
     assert result["default_readonly_gate_required_evidence_check"]["passed"] is True
     summary = result["lab_gate_status_summary"]
     assert summary["passed"] is True
@@ -5870,12 +5870,12 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert summary["payload_bytes_required"] == 0
     assert summary["passed_to_kernel_required"] is False
     assert summary["changes_kernel_launch_args_required"] is False
-    assert summary["required_evidence"]["required_count"] == 41
-    assert summary["required_evidence"]["present_count"] == 41
-    assert summary["required_evidence"]["passed_count"] == 41
-    assert summary["optional_evidence"]["required_count"] == 15
-    assert summary["optional_evidence"]["present_count"] == 15
-    assert summary["optional_evidence"]["passed_count"] == 15
+    assert summary["required_evidence"]["required_count"] == 43
+    assert summary["required_evidence"]["present_count"] == 43
+    assert summary["required_evidence"]["passed_count"] == 43
+    assert summary["optional_evidence"]["required_count"] == 13
+    assert summary["optional_evidence"]["present_count"] == 13
+    assert summary["optional_evidence"]["passed_count"] == 13
     assert (
         summary["required_evidence"]["evidence"][
             "future_kernel_native_arg_slot_multiprogram_canary_json"
@@ -5889,13 +5889,13 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
         is True
     )
     assert (
-        summary["optional_evidence"]["evidence"][
+        summary["required_evidence"]["evidence"][
             "payload_cache_producer_state_online_nonempty_issue_canary_json"
         ]["passed"]
         is True
     )
     assert (
-        summary["optional_evidence"]["evidence"][
+        summary["required_evidence"]["evidence"][
             "payload_cache_producer_state_nonempty_issue_stub_json"
         ]["passed"]
         is True
@@ -6476,7 +6476,7 @@ def test_premap_lab_preflight_rejects_missing_optional_future_args_coverage(
         "default_kernel_consumer_future_kernel_args_total_mirror_coverage_incomplete"
         in result["failures"]
     )
-    assert summary["required_evidence"]["passed_count"] == 41
+    assert summary["required_evidence"]["passed_count"] == 43
     assert summary["default_optional_evidence_passed"] is True
     assert (
         summary[
@@ -8489,9 +8489,11 @@ def test_premap_lab_preflight_rejects_default_gate_without_typed_evidence(
             "future_kernel_wna16_adjacent_typed_slot_stub_json:missing_evidence_path",
             "future_kernel_wna16_adjacent_typed_slot_standalone_canary_json:missing_evidence_path",
             "future_wna16_single_field_handoff_all_fields_128strict_summary_json:missing_evidence_path",
-            "wna16_side_consumer_variant_execution_128strict_runner_json:missing_evidence_path",
-            "payload_cache_producer_state_native_canary_json:missing_evidence_path",
-                "strict_live_connected_readonly_128_gate_json:missing_evidence_path",
+                "wna16_side_consumer_variant_execution_128strict_runner_json:missing_evidence_path",
+                "payload_cache_producer_state_native_canary_json:missing_evidence_path",
+                "payload_cache_producer_state_online_nonempty_issue_canary_json:missing_evidence_path",
+                "payload_cache_producer_state_nonempty_issue_stub_json:missing_evidence_path",
+                    "strict_live_connected_readonly_128_gate_json:missing_evidence_path",
             "strict_native_typed_consumer_bridge_128_gate_json:missing_evidence_path",
         "strict_kernel_side_typed_consumer_object_128_gate_json:missing_evidence_path",
         "strict_kernel_side_typed_consumer_object_128_selfcheck_json:missing_evidence_path",
@@ -11225,10 +11227,10 @@ def test_premap_lab_preflight_can_defer_self_referential_runner_evidence(
     assert summary["deferred_online_prelaunch_artifact_evidence"] is False
     assert summary["runtime_gate_evidence_deferred_count"] == 10
     assert summary["strict_default_gate_evidence_deferred_count"] == 5
-    assert summary["required_evidence"]["required_count"] == 41
-    assert summary["required_evidence"]["present_count"] == 39
-    assert summary["required_evidence"]["passed_count"] == 39
-    assert summary["optional_evidence"]["passed_count"] == 15
+    assert summary["required_evidence"]["required_count"] == 43
+    assert summary["required_evidence"]["present_count"] == 41
+    assert summary["required_evidence"]["passed_count"] == 41
+    assert summary["optional_evidence"]["passed_count"] == 13
     for label in (
         "future_kernel_args_compatible_path_16_128export_artifact_check_json",
         "future_kernel_args_field_refresh_16_128export_artifact_check_json",
@@ -11803,7 +11805,7 @@ def test_premap_lab_preflight_cli_writes_summary(tmp_path: Path):
     assert result["lab_gate_status_summary"]["passed"] is True
     assert (
         result["lab_gate_status_summary"]["required_evidence"]["passed_count"]
-        == 41
+        == 43
     )
 
 
@@ -11839,8 +11841,8 @@ def test_premap_lab_preflight_cli_summary_only_writes_status_block(tmp_path: Pat
     assert exit_code == 0
     assert result["passed"] is True
     assert result["default_readonly_gate_path"] == default_gate
-    assert result["required_evidence"]["passed_count"] == 41
-    assert result["optional_evidence"]["passed_count"] == 15
+    assert result["required_evidence"]["passed_count"] == 43
+    assert result["optional_evidence"]["passed_count"] == 13
     assert "lab_gate_status_summary" not in result
 
 

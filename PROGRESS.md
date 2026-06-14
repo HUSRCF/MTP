@@ -5,7 +5,7 @@
 - Version: `v0.85-summary-first-nonempty-issue-gate`
 - Updated: 2026-06-14
 - Latest summary-first nonempty issue gate: the default readonly lab gate now
-  points at a real Dolly4/gen64 online canary artifact generated from
+  requires a real Dolly4/gen64 online canary artifact generated from
   `performance_summary.json`'s producer-state packet-export summary fields
   instead of re-scanning packet JSON to find the first nonempty issue packet.
   The selected packet is index 1, with
@@ -15,10 +15,12 @@
   `runtime_shadow_premap_payload_cache_producer_state_packet_export_scan_error_count=0`;
   a nonzero scan-error count now fails explicitly rather than falling back to a
   packet scan or ordinary `packet_index` selection.  This keeps the nonempty
-  producer-state issue evidence tied to the online runtime summary while
-  preserving the safety boundary: `payload_bytes=0`, `ready_credit=false`,
-  `passed_to_kernel=false`, `changes_kernel_launch_args=false`, and
-  `current_wna16_arg_compatible=false`.
+  producer-state issue evidence tied to the online runtime summary.  The
+  independent nonempty issue stub artifact remains a separate required
+  evidence slot, so the lab preflight now checks both the online-summary
+  provenance path and the standalone native issue-prefix path.  Safety remains
+  unchanged: `payload_bytes=0`, `ready_credit=false`, `passed_to_kernel=false`,
+  `changes_kernel_launch_args=false`, and `current_wna16_arg_compatible=false`.
 - Latest online nonempty issue selection: the producer-state online canary
   runner now supports `--prefer-nonempty-issue` and `--require-nonempty-issue`.
   When enabled, it scans the `performance_summary.json` packet-export path list
@@ -31,22 +33,23 @@
   with `previous_count=8`, `issue_candidate_count=8`,
   `selected_packet_selection_mode=first_nonempty_issue`, and matching
   `issue_candidate_hash=expected_issue_candidate_hash=f3f1208c1026d557`.  The
-  default optional evidence path now points at this real-summary canary artifact
-  instead of the earlier direct `--packet-json` diagnostic artifact.  This is
+  earlier optional evidence path pointed at this real-summary canary artifact
+  instead of the earlier direct `--packet-json` diagnostic artifact.  This path
+  has since been superseded by the required summary-first gate above.  It is
   still readonly evidence only: no payload bytes, no ready credit, no kernel arg
   pass/change, and no current WNA16 arg compatibility.
 - Latest nonempty producer-state issue evidence: the lab preflight now knows an
-  optional `payload_cache_producer_state_nonempty_issue_stub_json` evidence
+  independent `payload_cache_producer_state_nonempty_issue_stub_json` evidence
   label.  It reuses the readonly native producer-state canary checks but does
   not require a `performance_summary.json` online-export wrapper, and it
   additionally requires `previous_count > 0` and `issue_candidate_count > 0`.
-  The current optional artifact is generated from the existing Dolly128/gen64
+  The current required artifact is generated from the existing Dolly128/gen64
   packet-export audit, packet 0001, and reports `previous_count=8`,
   `issue_candidate_count=8`, and matching native/Python issue hashes
   `f3f1208c1026d557`.  This strengthens the native issue-prefix evidence beyond
-  the default empty-prefix smoke while keeping it diagnostic/optional: the
-  required lab gate still uses the real online provenance canary below, and the
-  safety boundary remains unchanged (`payload_bytes=0`, `ready_credit=false`,
+  the default empty-prefix smoke; together with the online-summary provenance
+  canary above it is now part of the required lab gate.  The safety boundary
+  remains unchanged (`payload_bytes=0`, `ready_credit=false`,
   `passed_to_kernel=false`, `changes_kernel_launch_args=false`, and current
   WNA16 arg compatibility remains false).
 - Latest producer-state native issue gate: the readonly native producer-state
