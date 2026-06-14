@@ -104,11 +104,86 @@ _PREMAP_DESCRIPTOR_PREP_EXECUTION_MODES = frozenset(
     {"readonly_descriptor_address_object"}
 )
 
+_PREMAP_PAYLOAD_CACHE_ISSUE_FNV_OFFSET = 0xCBF29CE484222325
+_PREMAP_PAYLOAD_CACHE_ISSUE_FNV_PRIME = 0x100000001B3
+_UINT64_MASK = 0xFFFFFFFFFFFFFFFF
+
 
 _ACTIVE_DECODE_WORKLOAD_TRACE: contextvars.ContextVar[
     "DecodeWorkloadTraceCollector | None"
 ] = contextvars.ContextVar("mtp_active_decode_workload_trace", default=None)
 _DECODE_WORKLOAD_TRACE_PATCHED: set[str] = set()
+
+
+def _premap_payload_cache_issue_hash(expert_ids: Iterable[int]) -> str:
+    value = _PREMAP_PAYLOAD_CACHE_ISSUE_FNV_OFFSET
+    count = 0
+    for expert_id in expert_ids:
+        value ^= int(expert_id) & 0xFFFFFFFF
+        value = (value * _PREMAP_PAYLOAD_CACHE_ISSUE_FNV_PRIME) & _UINT64_MASK
+        count += 1
+    value ^= count & 0xFFFFFFFF
+    value = (value * _PREMAP_PAYLOAD_CACHE_ISSUE_FNV_PRIME) & _UINT64_MASK
+    return f"{value:016x}"
+
+
+def _premap_payload_cache_issue_experts(
+    packet: PremapPayloadCacheProducerTransitionStatePacket,
+) -> tuple[int, ...]:
+    previous = tuple(
+        int(expert_id)
+        for expert_id in packet.native_previous_experts_i32
+        if int(expert_id) >= 0
+    )
+    topk = int(packet.transition_topk_count)
+    limit = len(previous) if topk == 0 else min(len(previous), topk)
+    return previous[:limit]
+
+
+def _premap_payload_cache_export_nonempty_issue_summary(
+    paths: Iterable[Path],
+) -> dict[str, int | str | None]:
+    summary: dict[str, int | str | None] = {
+        "nonempty_issue_count": 0,
+        "first_nonempty_issue_index": -1,
+        "first_nonempty_issue_path": None,
+        "first_nonempty_issue_count": 0,
+        "first_nonempty_issue_hash": None,
+        "scan_error_count": 0,
+    }
+    for index, path in enumerate(paths):
+        try:
+            payload = json.loads(Path(path).read_text(encoding="utf-8"))
+        except (OSError, TypeError, json.JSONDecodeError):
+            summary["scan_error_count"] = int(summary["scan_error_count"] or 0) + 1
+            continue
+        if not isinstance(payload, dict):
+            summary["scan_error_count"] = int(summary["scan_error_count"] or 0) + 1
+            continue
+        try:
+            previous = tuple(
+                int(expert_id)
+                for expert_id in payload.get("previous_experts", [])
+                if int(expert_id) >= 0
+            )
+            topk = int(payload.get("transition_topk_count", 0) or 0)
+        except (TypeError, ValueError):
+            summary["scan_error_count"] = int(summary["scan_error_count"] or 0) + 1
+            continue
+        limit = len(previous) if topk == 0 else min(len(previous), topk)
+        issue_experts = previous[:limit]
+        issue_count = int(len(issue_experts))
+        if issue_count <= 0:
+            continue
+        summary["nonempty_issue_count"] = int(summary["nonempty_issue_count"] or 0) + 1
+        if int(summary["first_nonempty_issue_index"]) < 0:
+            summary["first_nonempty_issue_index"] = int(index)
+            summary["first_nonempty_issue_path"] = str(path)
+            summary["first_nonempty_issue_count"] = issue_count
+            summary["first_nonempty_issue_hash"] = _premap_payload_cache_issue_hash(
+                issue_experts
+            )
+    return summary
 
 
 def _dtype_name(dtype: Any) -> str:
@@ -2050,6 +2125,29 @@ def _add_premap_payload_cache_manager_snapshot_to_performance(
     performance[f"{prefix}transition_native_packet_export_first_path"] = (
         str(export_paths[0]) if export_paths else None
     )
+    performance[f"{prefix}transition_native_packet_export_nonempty_issue_count"] = int(
+        recorder._premap_payload_cache_producer_state_packet_export_nonempty_issue_count
+    )
+    performance[
+        f"{prefix}transition_native_packet_export_first_nonempty_issue_index"
+    ] = int(
+        recorder._premap_payload_cache_producer_state_packet_export_first_nonempty_issue_index
+    )
+    performance[
+        f"{prefix}transition_native_packet_export_first_nonempty_issue_path"
+    ] = (
+        recorder._premap_payload_cache_producer_state_packet_export_first_nonempty_issue_path
+    )
+    performance[
+        f"{prefix}transition_native_packet_export_first_nonempty_issue_count"
+    ] = int(
+        recorder._premap_payload_cache_producer_state_packet_export_first_nonempty_issue_count
+    )
+    performance[
+        f"{prefix}transition_native_packet_export_first_nonempty_issue_hash"
+    ] = (
+        recorder._premap_payload_cache_producer_state_packet_export_first_nonempty_issue_hash
+    )
     ready_time_fields = (
         "ready_late_miss_count",
         "late_completion_unused_count",
@@ -2956,6 +3054,23 @@ class VllmRouterRecorder:
         init=False,
         repr=False,
     )
+    _premap_payload_cache_producer_state_packet_export_nonempty_issue_count: int = field(
+        default=0,
+        init=False,
+        repr=False,
+    )
+    _premap_payload_cache_producer_state_packet_export_first_nonempty_issue_index: int = (
+        field(default=-1, init=False, repr=False)
+    )
+    _premap_payload_cache_producer_state_packet_export_first_nonempty_issue_path: (
+        str | None
+    ) = field(default=None, init=False, repr=False)
+    _premap_payload_cache_producer_state_packet_export_first_nonempty_issue_count: int = (
+        field(default=0, init=False, repr=False)
+    )
+    _premap_payload_cache_producer_state_packet_export_first_nonempty_issue_hash: (
+        str | None
+    ) = field(default=None, init=False, repr=False)
     _premap_consumer_mapping_call_count: int = field(default=0, repr=False)
     _premap_summary_call_count: int = field(default=0, repr=False)
     _premap_live_mutation_package_cache: dict[tuple[Any, ...], dict[str, Any]] = (
@@ -3107,6 +3222,9 @@ class VllmRouterRecorder:
             f"_layer{int(layer_id)}.json"
         )
         payload = packet.as_dict()
+        issue_experts = _premap_payload_cache_issue_experts(packet)
+        issue_count = int(len(issue_experts))
+        issue_hash = _premap_payload_cache_issue_hash(issue_experts)
         payload["_export_context"] = {
             "source": "vllm_prelaunch_payload_cache_producer_transition_state_packet",
             "request_id": str(self.request_id),
@@ -3122,6 +3240,8 @@ class VllmRouterRecorder:
             "transition_topk_count": int(packet.transition_topk_count),
             "previous_expert_count": int(packet.previous_expert_count),
             "current_expert_count": int(packet.current_expert_count),
+            "issue_candidate_count": issue_count,
+            "issue_candidate_hash": issue_hash,
             "max_num_experts": (
                 None
                 if packet.max_num_experts is None
@@ -3136,6 +3256,26 @@ class VllmRouterRecorder:
             json.dumps(payload, indent=2, sort_keys=True) + "\n",
             encoding="utf-8",
         )
+        if issue_count > 0:
+            self._premap_payload_cache_producer_state_packet_export_nonempty_issue_count += (
+                1
+            )
+            if (
+                self._premap_payload_cache_producer_state_packet_export_first_nonempty_issue_index
+                < 0
+            ):
+                self._premap_payload_cache_producer_state_packet_export_first_nonempty_issue_index = (
+                    export_idx
+                )
+                self._premap_payload_cache_producer_state_packet_export_first_nonempty_issue_path = str(
+                    path
+                )
+                self._premap_payload_cache_producer_state_packet_export_first_nonempty_issue_count = (
+                    issue_count
+                )
+                self._premap_payload_cache_producer_state_packet_export_first_nonempty_issue_hash = (
+                    issue_hash
+                )
         self._premap_payload_cache_producer_state_packet_export_count += 1
         if (
             self.shadow_premap_payload_cache_producer_state_packet_export_paths
@@ -22004,6 +22144,16 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
             if producer_packet_export_paths
             else None
         )
+        nonempty_issue_summary = (
+            _premap_payload_cache_export_nonempty_issue_summary(
+                producer_packet_export_paths
+            )
+        )
+        for key, value in nonempty_issue_summary.items():
+            performance[
+                "runtime_shadow_premap_payload_cache_producer_state_packet_export_"
+                f"{key}"
+            ] = value
     performance_path = output_dir / "performance_summary.json"
     performance_path.write_text(
         json.dumps(performance, indent=2, sort_keys=True) + "\n",

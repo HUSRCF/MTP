@@ -28,6 +28,7 @@ from mtp_expert_prefetch.tracing.vllm_router_trace import (
     _add_premap_payload_cache_manager_snapshot_to_performance,
     _add_runtime_shadow_aggregate_to_performance,
     _apply_premap_payload_cache_measured_copy_envelope,
+    _premap_payload_cache_export_nonempty_issue_summary,
     _load_runtime_shadow_transition_matrix,
     _shared_expert_fused_gate_fallbackable,
     _run_shared_expert_output_gate_default_postprocess,
@@ -1380,11 +1381,109 @@ def test_premap_payload_cache_producer_state_packet_export_respects_stride(
     assert payload["ready_credit"] is False
     assert payload["passed_to_kernel"] is False
     assert payload["changes_kernel_launch_args"] is False
+    assert payload["_export_context"]["issue_candidate_count"] == 1
+    assert payload["_export_context"]["issue_candidate_hash"] == "082f2307b4e88e77"
     assert payload["_export_context"]["state_hash"] == packet.state_hash
+    assert (
+        recorder._premap_payload_cache_producer_state_packet_export_nonempty_issue_count
+        == 2
+    )
+    assert (
+        recorder._premap_payload_cache_producer_state_packet_export_first_nonempty_issue_index
+        == 0
+    )
+    assert (
+        recorder._premap_payload_cache_producer_state_packet_export_first_nonempty_issue_path
+        == str(first)
+    )
+    assert (
+        recorder._premap_payload_cache_producer_state_packet_export_first_nonempty_issue_count
+        == 1
+    )
+    assert (
+        recorder._premap_payload_cache_producer_state_packet_export_first_nonempty_issue_hash
+        == "082f2307b4e88e77"
+    )
     assert (
         len(list(tmp_path.glob("premap_payload_cache_producer_state_packet_*.json")))
         == 2
     )
+
+
+def test_premap_payload_cache_export_nonempty_issue_summary(tmp_path: Path):
+    empty = tmp_path / "empty.json"
+    nonempty = tmp_path / "nonempty.json"
+    bad = tmp_path / "bad.json"
+    empty.write_text(
+        json.dumps(
+            {
+                "previous_experts": [],
+                "transition_topk_count": 8,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    nonempty.write_text(
+        json.dumps(
+            {
+                "previous_experts": [1, 3],
+                "transition_topk_count": 1,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    bad.write_text("not json\n", encoding="utf-8")
+
+    summary = _premap_payload_cache_export_nonempty_issue_summary(
+        [empty, nonempty, bad]
+    )
+
+    assert summary == {
+        "nonempty_issue_count": 1,
+        "first_nonempty_issue_index": 1,
+        "first_nonempty_issue_path": str(nonempty),
+        "first_nonempty_issue_count": 1,
+        "first_nonempty_issue_hash": "082f2307b4e88e77",
+        "scan_error_count": 1,
+    }
+
+
+def test_premap_payload_cache_export_nonempty_issue_summary_keeps_first_index_zero(
+    tmp_path: Path,
+):
+    first = tmp_path / "first.json"
+    second = tmp_path / "second.json"
+    first.write_text(
+        json.dumps(
+            {
+                "previous_experts": [2],
+                "transition_topk_count": 1,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    second.write_text(
+        json.dumps(
+            {
+                "previous_experts": [1],
+                "transition_topk_count": 1,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    summary = _premap_payload_cache_export_nonempty_issue_summary([first, second])
+
+    assert summary["nonempty_issue_count"] == 2
+    assert summary["first_nonempty_issue_index"] == 0
+    assert summary["first_nonempty_issue_path"] == str(first)
+    assert summary["first_nonempty_issue_count"] == 1
+    assert summary["first_nonempty_issue_hash"] == "08395307b4f1348c"
+    assert summary["scan_error_count"] == 0
 
 
 class _ExpertGate(torch.nn.Module):
