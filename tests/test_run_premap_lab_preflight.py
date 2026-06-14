@@ -2286,6 +2286,7 @@ def _payload_cache_producer_state_native_canary_payload() -> dict[str, object]:
         "failures": [],
         "input_source": "semantic_packet_json",
         "issue_candidate_count": 2,
+        "layer_id": 0,
         "mode": "readonly_payload_cache_producer_transition_state_native_canary",
         "native_returncode": 0,
         "native_stub_invoked": True,
@@ -2301,6 +2302,7 @@ def _payload_cache_producer_state_native_canary_payload() -> dict[str, object]:
         ],
         "overlap_count": 1,
         "packet_json": "reports/premap_payload_cache_producer_state_packet.json",
+        "packet_layer_id": 0,
         "packet_ready": True,
         "packet_state_hash": (
             "3ec369d6571e4ec9720415f232deb5aba64bb29206f84f7bad190d4420bff902"
@@ -2315,13 +2317,14 @@ def _payload_cache_producer_state_native_canary_payload() -> dict[str, object]:
         "ready_credit": False,
         "requested_current_count": 2,
         "requested_current_offset": 4,
+        "requested_layer_id": 0,
         "requested_previous_count": 2,
         "requested_transition_topk_count": 4,
         "selected_packet_index": 0,
         "selected_packet_json": (
             "reports/premap_payload_cache_producer_state_packet.json"
         ),
-        "state_hash": "8a45d2c91fe01237",
+        "state_hash": "3ec369d6571e4ec9",
         "transition_topk_count": 4,
     }
 
@@ -10242,6 +10245,76 @@ def test_premap_lab_preflight_rejects_payload_cache_producer_state_missing_curre
     assert (
         "payload_cache_producer_state_native_canary_json:"
         "payload_cache_producer_state_native_canary_requested_current_offset_invalid"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_payload_cache_producer_state_hash_mismatch(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    producer_state_path = (
+        tmp_path / "reports/default_gate_payload_cache_producer_state_native_canary.json"
+    )
+    payload = json.loads(producer_state_path.read_text())
+    payload["state_hash"] = "8a45d2c91fe01237"
+    _write(producer_state_path, json.dumps(payload) + "\n")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is False
+    failures = result["default_readonly_gate_required_evidence_check"]["failures"]
+    assert (
+        "payload_cache_producer_state_native_canary_json:"
+        "payload_cache_producer_state_native_canary_state_hash_packet_mismatch"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_payload_cache_producer_state_layer_mismatch(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    producer_state_path = (
+        tmp_path / "reports/default_gate_payload_cache_producer_state_native_canary.json"
+    )
+    payload = json.loads(producer_state_path.read_text())
+    payload["packet_layer_id"] = 1
+    _write(producer_state_path, json.dumps(payload) + "\n")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is False
+    failures = result["default_readonly_gate_required_evidence_check"]["failures"]
+    assert (
+        "payload_cache_producer_state_native_canary_json:"
+        "payload_cache_producer_state_native_canary_packet_layer_id_mismatch"
+    ) in failures
+    assert (
+        "payload_cache_producer_state_native_canary_json:"
+        "payload_cache_producer_state_native_canary_layer_id_packet_mismatch"
     ) in failures
 
 

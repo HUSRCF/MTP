@@ -1,8 +1,10 @@
 #include <hip/hip_runtime.h>
 
 #include <algorithm>
+#include <cerrno>
 #include <cstdint>
 #include <cstdlib>
+#include <iomanip>
 #include <iostream>
 #include <limits>
 #include <sstream>
@@ -33,6 +35,7 @@ struct ProducerTransitionStateResult {
   uint32_t previous_nonempty;
   uint32_t current_nonempty;
   uint32_t transition_topk_count;
+  uint32_t layer_id;
   uint32_t error_count;
   uint64_t state_hash;
 };
@@ -63,6 +66,7 @@ __global__ void producer_transition_state_kernel(
   result.checked = 1;
   result.previous_count = packet.previous_count;
   result.current_count = packet.current_count;
+  result.layer_id = packet.layer_id;
   result.transition_topk_count = packet.transition_topk_count;
   result.previous_nonempty = packet.previous_count > 0 ? 1 : 0;
   result.current_nonempty = packet.current_count > 0 ? 1 : 0;
@@ -124,6 +128,8 @@ struct Args {
   uint32_t current_count = 8;
   uint32_t transition_topk_count = 8;
   uint32_t current_offset = 4;
+  uint32_t layer_id = 0;
+  uint64_t state_hash = 0x8a45d2c91fe01237ULL;
   std::vector<int32_t> previous_experts;
   std::vector<int32_t> current_experts;
 };
@@ -147,6 +153,26 @@ static uint32_t parse_bounded_u32(const char* raw, const char* name) {
     std::exit(2);
   }
   return static_cast<uint32_t>(value);
+}
+
+static uint64_t parse_u64(const char* raw, const char* name) {
+  const std::string text(raw == nullptr ? "" : raw);
+  if (text.empty() || text[0] == '-') {
+    std::cerr << name << " must be a non-negative integer\n";
+    std::exit(2);
+  }
+  char* end = nullptr;
+  const int base =
+      text.size() > 2 && text[0] == '0' && (text[1] == 'x' || text[1] == 'X')
+          ? 16
+          : 10;
+  errno = 0;
+  const unsigned long long value = std::strtoull(text.c_str(), &end, base);
+  if (end == text.c_str() || *end != '\0' || errno == ERANGE) {
+    std::cerr << name << " must be an unsigned 64-bit integer\n";
+    std::exit(2);
+  }
+  return static_cast<uint64_t>(value);
 }
 
 static std::vector<int32_t> parse_expert_csv(const char* raw, const char* name) {
@@ -191,6 +217,10 @@ static Args parse_args(int argc, char** argv) {
     };
     if (key == "--device") {
       args.device = std::atoi(require_value("--device"));
+    } else if (key == "--layer-id") {
+      args.layer_id = parse_bounded_u32(require_value("--layer-id"), "--layer-id");
+    } else if (key == "--state-hash") {
+      args.state_hash = parse_u64(require_value("--state-hash"), "--state-hash");
     } else if (key == "--previous-count") {
       args.previous_count =
           parse_bounded_u32(require_value("--previous-count"), "--previous-count");
@@ -274,10 +304,10 @@ int main(int argc, char** argv) {
   packet.schema_hash_lo = 0x3a2a914cefc1d579ULL;
   packet.previous_expert_id = d_previous;
   packet.current_expert_id = d_current;
-  packet.state_hash = 0x8a45d2c91fe01237ULL;
+  packet.state_hash = args.state_hash;
   packet.previous_count = static_cast<uint32_t>(previous.size());
   packet.current_count = static_cast<uint32_t>(current.size());
-  packet.layer_id = 0;
+  packet.layer_id = args.layer_id;
   packet.transition_topk_count = args.transition_topk_count;
 
   hipLaunchKernelGGL(
@@ -307,7 +337,9 @@ int main(int argc, char** argv) {
   const bool ok = result.checked == 1 && result.ready == 1 &&
                   result.error_count == 0 &&
                   result.previous_count == previous.size() &&
-                  result.current_count == current.size();
+                  result.current_count == current.size() &&
+                  result.layer_id == args.layer_id &&
+                  result.state_hash == args.state_hash;
   std::cout << "{";
   std::cout << "\"ok\":" << (ok ? "true" : "false");
   std::cout << ",\"passed\":" << (ok ? "true" : "false");
@@ -327,9 +359,11 @@ int main(int argc, char** argv) {
   std::cout << ",\"previous_nonempty\":" << result.previous_nonempty;
   std::cout << ",\"current_nonempty\":" << result.current_nonempty;
   std::cout << ",\"transition_topk_count\":" << result.transition_topk_count;
+  std::cout << ",\"layer_id\":" << result.layer_id;
   std::cout << ",\"error_count\":" << result.error_count;
-  std::cout << ",\"state_hash\":\"" << std::hex << result.state_hash << std::dec
-            << "\"";
+  std::cout << ",\"state_hash\":\"" << std::hex << std::setfill('0')
+            << std::setw(16) << result.state_hash << std::dec
+            << std::setfill(' ') << "\"";
   std::cout << ",\"payload_bytes\":0";
   std::cout << ",\"ready_credit\":false";
   std::cout << ",\"passed_to_kernel\":false";

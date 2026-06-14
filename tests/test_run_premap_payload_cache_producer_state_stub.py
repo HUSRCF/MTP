@@ -52,8 +52,12 @@ def test_payload_cache_producer_state_stub_preserves_readonly_contract():
     assert "kPremapPayloadCacheProducerTransitionStateAbiV1KernelArgPassAllowed" in source
     assert "kPremapPayloadCacheProducerTransitionStateAbiV1CurrentWna16ArgCompatible" in source
     assert "parse_bounded_u32" in source
+    assert "parse_u64" in source
     assert "kMaxCount = 65536UL" in source
     assert "kMaxCsvCount = 65536UL" in source
+    assert "--layer-id" in source
+    assert "--state-hash" in source
+    assert '\\"layer_id\\":' in source
     assert '\\"payload_bytes\\":0' in source
     assert '\\"ready_credit\\":false' in source
     assert '\\"passed_to_kernel\\":false' in source
@@ -190,6 +194,13 @@ def test_payload_cache_producer_state_stub_accepts_semantic_packet_json(
     assert payload["packet_ready"] is True
     assert payload["requested_previous_count"] == 2
     assert payload["requested_current_count"] == 2
+    assert payload["requested_layer_id"] == 1
+    assert payload["requested_state_hash"] == packet.state_hash[:16]
+    assert payload["packet_state_hash_u64"] == packet.state_hash[:16]
+    assert "--layer-id" in captured["cmd"]
+    assert "1" in captured["cmd"]
+    assert "--state-hash" in captured["cmd"]
+    assert str(int(packet.state_hash[:16], 16)) in captured["cmd"]
     assert "--previous-experts" in captured["cmd"]
     assert "2,7" in captured["cmd"]
     assert "--current-experts" in captured["cmd"]

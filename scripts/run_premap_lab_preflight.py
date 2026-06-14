@@ -5219,6 +5219,9 @@ def _validate_payload_cache_producer_state_native_canary_evidence(
         "requested_transition_topk_count",
     )
     requested_current_offset = _int_metric(evidence, "requested_current_offset")
+    layer_id = _int_metric(evidence, "layer_id")
+    requested_layer_id = _int_metric(evidence, "requested_layer_id")
+    packet_layer_id = _int_metric(evidence, "packet_layer_id")
     online_packet_export_count = _int_metric(evidence, "online_packet_export_count")
     online_configured_export_count = _int_metric(
         evidence,
@@ -5240,6 +5243,9 @@ def _validate_payload_cache_producer_state_native_canary_evidence(
         ("requested_current_count", requested_current_count),
         ("requested_transition_topk_count", requested_transition_topk_count),
         ("requested_current_offset", requested_current_offset),
+        ("layer_id", layer_id),
+        ("requested_layer_id", requested_layer_id),
+        ("packet_layer_id", packet_layer_id),
         ("online_packet_export_count", online_packet_export_count),
         ("online_configured_export_count", online_configured_export_count),
         ("selected_packet_index", selected_packet_index),
@@ -5322,15 +5328,37 @@ def _validate_payload_cache_producer_state_native_canary_evidence(
         and requested_transition_topk_count != transition_topk_count
     ):
         failures.append(f"{failure_prefix}_requested_transition_topk_count_mismatch")
-    if _hex64_metric(evidence, "state_hash") is None:
+    if (
+        layer_id is not None
+        and requested_layer_id is not None
+        and layer_id != requested_layer_id
+    ):
+        failures.append(f"{failure_prefix}_requested_layer_id_mismatch")
+    if (
+        packet_layer_id is not None
+        and requested_layer_id is not None
+        and packet_layer_id != requested_layer_id
+    ):
+        failures.append(f"{failure_prefix}_packet_layer_id_mismatch")
+    if (
+        packet_layer_id is not None
+        and layer_id is not None
+        and packet_layer_id != layer_id
+    ):
+        failures.append(f"{failure_prefix}_layer_id_packet_mismatch")
+    state_hash = _hex64_metric(evidence, "state_hash")
+    if state_hash is None:
         failures.append(f"{failure_prefix}_state_hash_invalid")
     packet_state_hash = evidence.get("packet_state_hash")
+    packet_state_hash_valid = isinstance(packet_state_hash, str) and (
+        len(packet_state_hash) == 64
+    ) and all(char in "0123456789abcdefABCDEF" for char in packet_state_hash)
     if (
-        not isinstance(packet_state_hash, str)
-        or len(packet_state_hash) != 64
-        or any(char not in "0123456789abcdefABCDEF" for char in packet_state_hash)
+        not packet_state_hash_valid
     ):
         failures.append(f"{failure_prefix}_packet_state_hash_invalid")
+    elif state_hash is not None and state_hash != int(packet_state_hash[:16], 16):
+        failures.append(f"{failure_prefix}_state_hash_packet_mismatch")
     packet_json = evidence.get("packet_json")
     if not isinstance(packet_json, str) or not packet_json:
         failures.append(f"{failure_prefix}_packet_json_missing")

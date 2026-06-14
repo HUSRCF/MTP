@@ -104,6 +104,10 @@ def _experts_arg(values: tuple[int, ...]) -> str:
     return ",".join(str(int(value)) for value in values)
 
 
+def _packet_state_hash_u64(packet: PremapPayloadCacheProducerTransitionStatePacket) -> int:
+    return int(str(packet.state_hash)[:16], 16) & 0xFFFFFFFFFFFFFFFF
+
+
 def _load_packet_json(path: Path) -> PremapPayloadCacheProducerTransitionStatePacket:
     payload = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(payload, dict):
@@ -174,6 +178,8 @@ def run_stub(args: argparse.Namespace) -> dict[str, Any]:
         return payload
     previous_experts: tuple[int, ...] | None = None
     current_experts: tuple[int, ...] | None = None
+    layer_id = _validate_count(getattr(args, "layer_id", 0), "layer-id")
+    state_hash_u64 = int(getattr(args, "state_hash", 0x8A45D2C91FE01237))
     if packet is None:
         previous_count = _validate_count(args.previous_count, "previous-count")
         current_count = _validate_count(args.current_count, "current-count")
@@ -187,11 +193,17 @@ def run_stub(args: argparse.Namespace) -> dict[str, Any]:
         previous_count = len(previous_experts)
         current_count = len(current_experts)
         transition_topk_count = int(packet.transition_topk_count)
+        layer_id = _validate_count(packet.layer_id, "layer-id")
+        state_hash_u64 = _packet_state_hash_u64(packet)
     current_offset = _validate_count(args.current_offset, "current-offset")
     cmd = [
         str(binary),
         "--device",
         str(args.device),
+        "--layer-id",
+        str(layer_id),
+        "--state-hash",
+        str(state_hash_u64),
         "--previous-count",
         str(previous_count),
         "--current-count",
@@ -236,10 +248,14 @@ def run_stub(args: argparse.Namespace) -> dict[str, Any]:
     payload["requested_current_count"] = int(current_count)
     payload["requested_transition_topk_count"] = int(transition_topk_count)
     payload["requested_current_offset"] = int(current_offset)
+    payload["requested_layer_id"] = int(layer_id)
+    payload["requested_state_hash"] = f"{int(state_hash_u64):016x}"
     if packet is not None:
         payload["packet_json"] = str(packet_json)
         payload["packet_ready"] = bool(packet.ready)
         payload["packet_state_hash"] = str(packet.state_hash)
+        payload["packet_state_hash_u64"] = f"{_packet_state_hash_u64(packet):016x}"
+        payload["packet_layer_id"] = int(packet.layer_id)
         payload["input_source"] = "semantic_packet_json"
     else:
         payload["input_source"] = "synthetic"
@@ -251,6 +267,8 @@ def run_stub(args: argparse.Namespace) -> dict[str, Any]:
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--device", type=int, default=0)
+    parser.add_argument("--layer-id", type=int, default=0)
+    parser.add_argument("--state-hash", type=int, default=0x8A45D2C91FE01237)
     parser.add_argument("--previous-count", type=int, default=8)
     parser.add_argument("--current-count", type=int, default=8)
     parser.add_argument("--transition-topk-count", type=int, default=8)

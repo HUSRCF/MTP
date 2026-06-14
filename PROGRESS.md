@@ -4,6 +4,29 @@
 
 - Version: `v0.82-online-producer-state-packet-canary`
 - Updated: 2026-06-14
+- Latest producer-state native identity gate: the readonly native producer-state
+  stub now consumes the online semantic packet identity directly.  In
+  `packet_json` mode the runner passes `packet.layer_id` and the first 64 bits
+  of `packet.state_hash` into the HIP ABI (`--layer-id`, `--state-hash`) instead
+  of relying on a hard-coded native state value.  The native result echoes
+  `layer_id` and `state_hash`, and the lab preflight now requires
+  `state_hash == packet_state_hash[:16]` plus
+  `layer_id == requested_layer_id == packet_layer_id`.  This upgrades the
+  producer-state canary from a structural previous/current expert-id check to a
+  real online packet-derived identity check while keeping the safety boundary
+  closed:
+  `payload_bytes=0`, `ready_credit=false`, `passed_to_kernel=false`,
+  `changes_kernel_launch_args=false`, and
+  `current_wna16_arg_compatible=false`.  The default online canary artifact was
+  refreshed and reports native `state_hash=fc4bfd2e271ccc68` matching
+  `packet_state_hash=fc4bfd2e271ccc68...`.  A strict default preflight with this
+  refreshed identity artifact passes:
+  `outputs/reports/premap_lab_preflight_default_online_producer_state_identity_strict_20260614.json`.
+  Validation: targeted producer-state stub and preflight tests pass
+  (`7 passed`, `151 passed`), runner/sink tests pass together (`87 passed`),
+  and full `pytest tests -q` passes (`1284 passed`, only existing SWIG
+  deprecation warnings).  Codex review found no remaining blocker/high/medium
+  findings.
 - Latest producer-state lab-preflight tightening: the required
   `payload_cache_producer_state_native_canary_json` evidence is now accepted
   only when it is traceable to the real online
