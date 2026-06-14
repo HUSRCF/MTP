@@ -2148,9 +2148,33 @@ def _add_premap_payload_cache_manager_snapshot_to_performance(
     performance[f"{prefix}used_fetch_rate"] = float(snapshot.used_fetch_count) / float(
         max(1, snapshot.issued_fetch_count)
     )
+    performance[f"{prefix}used_per_issued_fetch"] = float(
+        snapshot.used_fetch_count
+    ) / float(max(1, snapshot.issued_fetch_count))
     performance[f"{prefix}eviction_pressure"] = float(
         snapshot.evicted_before_use_count
     ) / float(max(1, snapshot.issued_fetch_count))
+    ready_late_miss_count = int(getattr(snapshot, "ready_late_miss_count", 0) or 0)
+    performance[f"{prefix}ready_late_miss_rate"] = float(ready_late_miss_count) / float(
+        max(1, snapshot.demand_count)
+    )
+    manager_mode = str(recorder.shadow_premap_payload_cache_manager_mode)
+    if manager_mode != "ready_time":
+        full_fetch_gate_candidate_reason = f"not_ready_time_manager:{manager_mode}"
+    elif snapshot.issued_fetch_count <= 0:
+        full_fetch_gate_candidate_reason = "no_issued_fetch"
+    elif ready_late_miss_count >= snapshot.demand_count and snapshot.demand_count > 0:
+        full_fetch_gate_candidate_reason = "all_demands_ready_late"
+    elif snapshot.used_fetch_count <= 0:
+        full_fetch_gate_candidate_reason = "no_used_fetch"
+    else:
+        full_fetch_gate_candidate_reason = "candidate_requires_ready_time_gate"
+    performance[f"{prefix}full_fetch_ready_time_gate_candidate"] = (
+        full_fetch_gate_candidate_reason == "candidate_requires_ready_time_gate"
+    )
+    performance[f"{prefix}full_fetch_ready_time_gate_candidate_reason"] = (
+        full_fetch_gate_candidate_reason
+    )
     performance[f"{prefix}transition_issue_attempt_count"] = int(
         recorder._premap_payload_cache_transition_issue_attempt_count
     )

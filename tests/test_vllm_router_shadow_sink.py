@@ -296,6 +296,22 @@ def test_premap_payload_cache_manager_snapshot_flattens_without_jsonl_rows():
     assert performance["runtime_shadow_premap_payload_cache_direct_demand_miss_count"] == 1
     assert performance["runtime_shadow_premap_payload_cache_direct_demand_hit_rate"] == 0.5
     assert (
+        performance["runtime_shadow_premap_payload_cache_direct_used_per_issued_fetch"]
+        == 1.0
+    )
+    assert (
+        performance["runtime_shadow_premap_payload_cache_direct_ready_late_miss_rate"]
+        == 0.0
+    )
+    assert not performance[
+        "runtime_shadow_premap_payload_cache_direct_full_fetch_ready_time_gate_candidate"
+    ]
+    assert (
+        performance[
+            "runtime_shadow_premap_payload_cache_direct_full_fetch_ready_time_gate_candidate_reason"
+        ].startswith("not_ready_time_manager:")
+    )
+    assert (
         performance[
             "runtime_shadow_premap_payload_cache_direct_transition_issue_attempt_count"
         ]
@@ -358,6 +374,127 @@ def test_premap_payload_cache_manager_snapshot_reports_missing_enabled_manager()
     assert "runtime_shadow_premap_payload_cache_direct_demand_count" not in performance
 
 
+def test_premap_payload_cache_manager_snapshot_marks_unused_fetch_not_candidate():
+    recorder = VllmRouterRecorder(
+        top_k=2,
+        shadow_outcome_sink=None,
+        shadow_num_experts=4,
+        shadow_emit_premap_payload_cache_manager_counters=True,
+        shadow_premap_payload_cache_manager_capacity=4,
+        shadow_premap_payload_cache_manager_mode="ready_time",
+    )
+    manager = recorder._ensure_premap_payload_cache_manager()
+    assert manager is not None
+    manager.issue_prefetch(0, 1, arrival_us=0.0)
+    manager.demand(0, 2, arrival_us=1.0)
+
+    performance = {}
+    _add_premap_payload_cache_manager_snapshot_to_performance(
+        performance,
+        recorder,
+        source="unit_test_unused_fetch",
+    )
+
+    assert (
+        performance["runtime_shadow_premap_payload_cache_direct_issued_fetch_count"]
+        == 1
+    )
+    assert performance["runtime_shadow_premap_payload_cache_direct_used_fetch_count"] == 0
+    assert (
+        performance["runtime_shadow_premap_payload_cache_direct_used_per_issued_fetch"]
+        == 0.0
+    )
+    assert not performance[
+        "runtime_shadow_premap_payload_cache_direct_full_fetch_ready_time_gate_candidate"
+    ]
+    assert (
+        performance[
+            "runtime_shadow_premap_payload_cache_direct_full_fetch_ready_time_gate_candidate_reason"
+        ]
+        == "no_used_fetch"
+    )
+
+
+def test_premap_payload_cache_manager_snapshot_marks_no_issue_not_candidate():
+    recorder = VllmRouterRecorder(
+        top_k=2,
+        shadow_outcome_sink=None,
+        shadow_num_experts=4,
+        shadow_emit_premap_payload_cache_manager_counters=True,
+        shadow_premap_payload_cache_manager_capacity=4,
+        shadow_premap_payload_cache_manager_mode="ready_time",
+    )
+    manager = recorder._ensure_premap_payload_cache_manager()
+    assert manager is not None
+    manager.demand(0, 2, arrival_us=1.0)
+
+    performance = {}
+    _add_premap_payload_cache_manager_snapshot_to_performance(
+        performance,
+        recorder,
+        source="unit_test_no_issue",
+    )
+
+    assert (
+        performance["runtime_shadow_premap_payload_cache_direct_issued_fetch_count"]
+        == 0
+    )
+    assert not performance[
+        "runtime_shadow_premap_payload_cache_direct_full_fetch_ready_time_gate_candidate"
+    ]
+    assert (
+        performance[
+            "runtime_shadow_premap_payload_cache_direct_full_fetch_ready_time_gate_candidate_reason"
+        ]
+        == "no_issued_fetch"
+    )
+
+
+def test_premap_payload_cache_manager_snapshot_marks_all_late_not_candidate():
+    recorder = VllmRouterRecorder(
+        top_k=2,
+        shadow_outcome_sink=None,
+        shadow_num_experts=4,
+        shadow_emit_premap_payload_cache_manager_counters=True,
+        shadow_premap_payload_cache_manager_capacity=4,
+        shadow_premap_payload_cache_manager_mode="ready_time",
+        shadow_premap_payload_cache_manager_service_us_per_issue=10.0,
+        shadow_premap_payload_cache_manager_queue_batch_size=1,
+        shadow_premap_payload_cache_manager_queue_deadline_us=1.0,
+    )
+    manager = recorder._ensure_premap_payload_cache_manager()
+    assert manager is not None
+    manager.issue_prefetch(0, 1, arrival_us=0.0)
+    manager.demand(0, 1, arrival_us=1.0)
+
+    performance = {}
+    _add_premap_payload_cache_manager_snapshot_to_performance(
+        performance,
+        recorder,
+        source="unit_test_all_late",
+    )
+
+    assert (
+        performance[
+            "runtime_shadow_premap_payload_cache_direct_ready_late_miss_count"
+        ]
+        == 1
+    )
+    assert (
+        performance["runtime_shadow_premap_payload_cache_direct_ready_late_miss_rate"]
+        == 1.0
+    )
+    assert not performance[
+        "runtime_shadow_premap_payload_cache_direct_full_fetch_ready_time_gate_candidate"
+    ]
+    assert (
+        performance[
+            "runtime_shadow_premap_payload_cache_direct_full_fetch_ready_time_gate_candidate_reason"
+        ]
+        == "all_demands_ready_late"
+    )
+
+
 def test_premap_payload_cache_manager_snapshot_flattens_ready_time_fields():
     recorder = VllmRouterRecorder(
         top_k=2,
@@ -400,6 +537,15 @@ def test_premap_payload_cache_manager_snapshot_flattens_ready_time_fields():
             "runtime_shadow_premap_payload_cache_direct_late_completion_unused_count"
         ]
         >= 0
+    )
+    assert performance[
+        "runtime_shadow_premap_payload_cache_direct_full_fetch_ready_time_gate_candidate"
+    ]
+    assert (
+        performance[
+            "runtime_shadow_premap_payload_cache_direct_full_fetch_ready_time_gate_candidate_reason"
+        ]
+        == "candidate_requires_ready_time_gate"
     )
 
 
