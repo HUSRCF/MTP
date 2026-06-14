@@ -2,8 +2,30 @@
 
 ## Progress Version
 
-- Version: `v0.81-wna16-side-consumer-lab-gate`
-- Updated: 2026-06-11
+- Version: `v0.82-online-producer-state-packet-canary`
+- Updated: 2026-06-14
+- Latest producer-state native canary plumbing: online vLLM shadow can now
+  export ready producer transition-state packets as JSON artifacts, and
+  `scripts/run_premap_payload_cache_producer_state_online_canary.py` can turn
+  those online packet artifacts into the existing native producer-state stub
+  evidence.  The new runtime-shadow knobs are
+  `premap_payload_cache_producer_state_packet_export_enabled`,
+  `premap_payload_cache_producer_state_packet_export_dir`,
+  `premap_payload_cache_producer_state_packet_export_prefix`,
+  `premap_payload_cache_producer_state_packet_export_max_packets`, and
+  `premap_payload_cache_producer_state_packet_export_stride`; the run summary
+  records `runtime_shadow_premap_payload_cache_producer_state_packet_export_*`
+  count/path fields.  The online canary runner rejects performance summaries
+  where export was not enabled or configured count is zero, then feeds the
+  selected packet to the readonly native producer-state stub.  This is an
+  evidence-chain upgrade only: payload bytes remain zero, ready credit remains
+  false, kernel launch args are still not passed or changed, and current WNA16
+  kernel args are still not consumed, passed, or mutated.  Validation:
+  `tests/test_vllm_router_shadow_sink.py`,
+  `tests/test_run_premap_payload_cache_producer_state_stub.py`, and
+  `tests/test_run_premap_payload_cache_producer_state_online_canary.py` pass
+  together (`88 passed`); full `pytest tests -q` passes with `1274 passed`,
+  with only the existing SWIG deprecation warnings.
 - Latest prefetch lab-default gate update: the premap lab preflight now treats
   the prefetch lab-default gate as a required precondition instead of an
   external side artifact.  `run_premap_lab_preflight.py` checks
