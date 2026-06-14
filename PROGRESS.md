@@ -22,6 +22,14 @@
   `tests/test_vllm_router_shadow_sink.py` pass together (`87 passed`), and full
   `pytest tests -q` passes (`1282 passed`, only existing SWIG deprecation
   warnings).  Codex review found no remaining blocker/high/medium findings.
+  The default readonly lab gate now references the real runtime-shadow online
+  canary artifact
+  `outputs/reports/premap_kernel_consumer/payload_cache_producer_state_online_canary_dolly1_gen4_real_smoke_20260614.json`
+  for this canary evidence slot; this is provenance/safety evidence for the
+  producer-state native canary, not 128-sample scale evidence or endpoint
+  performance evidence.  A strict no-defer default preflight with this path
+  passes:
+  `outputs/reports/premap_lab_preflight_default_online_provenance_strict_after_path_20260614.json`.
 - Latest producer-state native canary plumbing: online vLLM shadow can now
   export ready producer transition-state packets as JSON artifacts, and
   `scripts/run_premap_payload_cache_producer_state_online_canary.py` can turn
