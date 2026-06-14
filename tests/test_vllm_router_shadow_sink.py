@@ -1381,7 +1381,13 @@ def test_premap_payload_cache_producer_state_packet_export_respects_stride(
     assert payload["ready_credit"] is False
     assert payload["passed_to_kernel"] is False
     assert payload["changes_kernel_launch_args"] is False
+    assert payload["issue_candidate_count"] == 1
+    assert payload["issue_candidate_first_expert"] == 1
+    assert payload["issue_candidate_last_expert"] == 1
+    assert payload["issue_candidate_hash"] == "082f2307b4e88e77"
     assert payload["_export_context"]["issue_candidate_count"] == 1
+    assert payload["_export_context"]["issue_candidate_first_expert"] == 1
+    assert payload["_export_context"]["issue_candidate_last_expert"] == 1
     assert payload["_export_context"]["issue_candidate_hash"] == "082f2307b4e88e77"
     assert payload["_export_context"]["state_hash"] == packet.state_hash
     assert (
@@ -1484,6 +1490,272 @@ def test_premap_payload_cache_export_nonempty_issue_summary_keeps_first_index_ze
     assert summary["first_nonempty_issue_count"] == 1
     assert summary["first_nonempty_issue_hash"] == "08395307b4f1348c"
     assert summary["scan_error_count"] == 0
+
+
+def test_premap_payload_cache_export_nonempty_issue_summary_rejects_malformed_self_described_issue(
+    tmp_path: Path,
+):
+    malformed = tmp_path / "malformed.json"
+    valid = tmp_path / "valid.json"
+    malformed.write_text(
+        json.dumps(
+            {
+                "previous_experts": [],
+                "transition_topk_count": 8,
+                "issue_candidate_count": 1,
+                "issue_candidate_hash": "082f2307b4e88e77",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    valid.write_text(
+        json.dumps(
+            {
+                "previous_experts": [1],
+                "transition_topk_count": 1,
+                "issue_candidate_experts": [1],
+                "issue_candidate_count": 1,
+                "issue_candidate_first_expert": 1,
+                "issue_candidate_last_expert": 1,
+                "issue_candidate_hash": "082f2307b4e88e77",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    summary = _premap_payload_cache_export_nonempty_issue_summary(
+        [malformed, valid]
+    )
+
+    assert summary["scan_error_count"] == 1
+    assert summary["nonempty_issue_count"] == 1
+    assert summary["first_nonempty_issue_index"] == 1
+    assert summary["first_nonempty_issue_path"] == str(valid)
+    assert summary["first_nonempty_issue_hash"] == "082f2307b4e88e77"
+
+
+def test_premap_payload_cache_export_nonempty_issue_summary_rejects_negative_topk(
+    tmp_path: Path,
+):
+    malformed = tmp_path / "malformed_negative_topk.json"
+    malformed.write_text(
+        json.dumps(
+            {
+                "previous_experts": [1, 2],
+                "transition_topk_count": -1,
+                "issue_candidate_count": 1,
+                "issue_candidate_hash": "082f2307b4e88e77",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    summary = _premap_payload_cache_export_nonempty_issue_summary([malformed])
+
+    assert summary["scan_error_count"] == 1
+    assert summary["nonempty_issue_count"] == 0
+    assert summary["first_nonempty_issue_index"] == -1
+    assert summary["first_nonempty_issue_path"] is None
+
+
+def test_premap_payload_cache_export_nonempty_issue_summary_rejects_nonlist_previous_experts(
+    tmp_path: Path,
+):
+    malformed = tmp_path / "malformed_nonlist_previous.json"
+    malformed.write_text(
+        json.dumps(
+            {
+                "previous_experts": "12",
+                "transition_topk_count": 1,
+                "issue_candidate_count": 1,
+                "issue_candidate_hash": "082f2307b4e88e77",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    summary = _premap_payload_cache_export_nonempty_issue_summary([malformed])
+
+    assert summary["scan_error_count"] == 1
+    assert summary["nonempty_issue_count"] == 0
+    assert summary["first_nonempty_issue_index"] == -1
+    assert summary["first_nonempty_issue_path"] is None
+
+
+def test_premap_payload_cache_export_nonempty_issue_summary_rejects_negative_previous_experts(
+    tmp_path: Path,
+):
+    malformed = tmp_path / "malformed_negative_previous.json"
+    malformed.write_text(
+        json.dumps(
+            {
+                "previous_experts": [-1, 5],
+                "transition_topk_count": 1,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    summary = _premap_payload_cache_export_nonempty_issue_summary([malformed])
+
+    assert summary["scan_error_count"] == 1
+    assert summary["nonempty_issue_count"] == 0
+    assert summary["first_nonempty_issue_index"] == -1
+    assert summary["first_nonempty_issue_path"] is None
+
+
+def test_premap_payload_cache_export_nonempty_issue_summary_rejects_bad_issue_bounds(
+    tmp_path: Path,
+):
+    malformed = tmp_path / "malformed_bad_bounds.json"
+    malformed.write_text(
+        json.dumps(
+            {
+                "previous_experts": [1, 2],
+                "transition_topk_count": 1,
+                "issue_candidate_experts": [1],
+                "issue_candidate_count": 1,
+                "issue_candidate_first_expert": 2,
+                "issue_candidate_last_expert": 1,
+                "issue_candidate_hash": "082f2307b4e88e77",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    summary = _premap_payload_cache_export_nonempty_issue_summary([malformed])
+
+    assert summary["scan_error_count"] == 1
+    assert summary["nonempty_issue_count"] == 0
+
+
+def test_premap_payload_cache_export_nonempty_issue_summary_rejects_bad_issue_expert_list(
+    tmp_path: Path,
+):
+    malformed = tmp_path / "malformed_bad_issue_list.json"
+    malformed.write_text(
+        json.dumps(
+            {
+                "previous_experts": [1, 2],
+                "transition_topk_count": 1,
+                "issue_candidate_experts": [2],
+                "issue_candidate_count": 1,
+                "issue_candidate_first_expert": 1,
+                "issue_candidate_last_expert": 1,
+                "issue_candidate_hash": "082f2307b4e88e77",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    summary = _premap_payload_cache_export_nonempty_issue_summary([malformed])
+
+    assert summary["scan_error_count"] == 1
+    assert summary["nonempty_issue_count"] == 0
+
+
+def test_premap_payload_cache_export_nonempty_issue_summary_rejects_null_issue_expert_list(
+    tmp_path: Path,
+):
+    malformed = tmp_path / "malformed_null_issue_list.json"
+    malformed.write_text(
+        json.dumps(
+            {
+                "previous_experts": [1],
+                "transition_topk_count": 1,
+                "issue_candidate_experts": None,
+                "issue_candidate_count": 1,
+                "issue_candidate_first_expert": 1,
+                "issue_candidate_last_expert": 1,
+                "issue_candidate_hash": "082f2307b4e88e77",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    summary = _premap_payload_cache_export_nonempty_issue_summary([malformed])
+
+    assert summary["scan_error_count"] == 1
+    assert summary["nonempty_issue_count"] == 0
+
+
+def test_premap_payload_cache_export_nonempty_issue_summary_rejects_unknown_issue_prefix(
+    tmp_path: Path,
+):
+    malformed = tmp_path / "malformed_unknown_issue_prefix.json"
+    malformed.write_text(
+        json.dumps(
+            {
+                "previous_experts": [1],
+                "transition_topk_count": 1,
+                "issue_candidate_debug": True,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    summary = _premap_payload_cache_export_nonempty_issue_summary([malformed])
+
+    assert summary["scan_error_count"] == 1
+    assert summary["nonempty_issue_count"] == 0
+
+
+def test_premap_payload_cache_export_nonempty_issue_summary_rejects_numeric_issue_hash(
+    tmp_path: Path,
+):
+    malformed = tmp_path / "malformed_numeric_issue_hash.json"
+    malformed.write_text(
+        json.dumps(
+            {
+                "previous_experts": [11, 0],
+                "transition_topk_count": 2,
+                "issue_candidate_experts": [11, 0],
+                "issue_candidate_count": 2,
+                "issue_candidate_first_expert": 11,
+                "issue_candidate_last_expert": 0,
+                "issue_candidate_hash": 2742631898372054,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    summary = _premap_payload_cache_export_nonempty_issue_summary([malformed])
+
+    assert summary["scan_error_count"] == 1
+    assert summary["nonempty_issue_count"] == 0
+
+
+def test_premap_payload_cache_export_nonempty_issue_summary_rejects_partial_issue_fields(
+    tmp_path: Path,
+):
+    malformed = tmp_path / "malformed_partial_issue_fields.json"
+    malformed.write_text(
+        json.dumps(
+            {
+                "previous_experts": [1],
+                "transition_topk_count": 1,
+                "issue_candidate_count": 1,
+                "issue_candidate_hash": "082f2307b4e88e77",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    summary = _premap_payload_cache_export_nonempty_issue_summary([malformed])
+
+    assert summary["scan_error_count"] == 1
+    assert summary["nonempty_issue_count"] == 0
 
 
 class _ExpertGate(torch.nn.Module):

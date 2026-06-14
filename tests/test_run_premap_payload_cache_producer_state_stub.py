@@ -228,6 +228,304 @@ def test_payload_cache_producer_state_stub_accepts_semantic_packet_json(
     assert "2,4" in captured["cmd"]
 
 
+def test_payload_cache_producer_state_stub_rejects_malformed_issue_self_description(
+    monkeypatch,
+    tmp_path: Path,
+):
+    module = _load_module()
+    packet_json = tmp_path / "bad_issue_packet.json"
+    packet_json.write_text(
+        module.json.dumps(
+            {
+                "ready": True,
+                "previous_experts": [11, 0],
+                "transition_topk_count": 2,
+                "issue_candidate_experts": [11, 0],
+                "issue_candidate_count": 2,
+                "issue_candidate_first_expert": 11,
+                "issue_candidate_last_expert": 0,
+                "issue_candidate_hash": 2742631898372054,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(module, "build", lambda **_: tmp_path / "stub")
+    payload = module.run_stub(
+        argparse.Namespace(
+            device=0,
+            previous_count=1,
+            current_count=1,
+            transition_topk_count=1,
+            current_offset=0,
+            packet_json=packet_json,
+            offload_arch="gfx1100",
+            force_build=False,
+            hip_visible_devices=None,
+        )
+    )
+
+    assert payload["ok"] is False
+    assert payload["passed"] is False
+    assert payload["native_returncode"] is None
+    assert payload["failures"] == ["packet_json_error"]
+    assert "issue_candidate_hash mismatch" in payload["packet_json_error"]
+
+
+def test_payload_cache_producer_state_stub_rejects_nonlist_previous_experts(
+    monkeypatch,
+    tmp_path: Path,
+):
+    module = _load_module()
+    packet_json = tmp_path / "bad_previous_packet.json"
+    packet_json.write_text(
+        module.json.dumps(
+            {
+                "ready": True,
+                "previous_experts": "12",
+                "transition_topk_count": 1,
+                "issue_candidate_experts": [1],
+                "issue_candidate_count": 1,
+                "issue_candidate_first_expert": 1,
+                "issue_candidate_last_expert": 1,
+                "issue_candidate_hash": "082f2307b4e88e77",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(module, "build", lambda **_: tmp_path / "stub")
+    payload = module.run_stub(
+        argparse.Namespace(
+            device=0,
+            previous_count=1,
+            current_count=1,
+            transition_topk_count=1,
+            current_offset=0,
+            packet_json=packet_json,
+            offload_arch="gfx1100",
+            force_build=False,
+            hip_visible_devices=None,
+        )
+    )
+
+    assert payload["ok"] is False
+    assert payload["passed"] is False
+    assert payload["native_returncode"] is None
+    assert payload["failures"] == ["packet_json_error"]
+    assert "previous_experts must be a list" in payload["packet_json_error"]
+
+
+def test_payload_cache_producer_state_stub_rejects_nonlist_current_experts(
+    monkeypatch,
+    tmp_path: Path,
+):
+    module = _load_module()
+    packet_json = tmp_path / "bad_current_packet.json"
+    packet_json.write_text(
+        module.json.dumps(
+            {
+                "ready": True,
+                "previous_experts": [1],
+                "current_experts": "34",
+                "transition_topk_count": 1,
+                "issue_candidate_experts": [1],
+                "issue_candidate_count": 1,
+                "issue_candidate_first_expert": 1,
+                "issue_candidate_last_expert": 1,
+                "issue_candidate_hash": "082f2307b4e88e77",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(module, "build", lambda **_: tmp_path / "stub")
+    payload = module.run_stub(
+        argparse.Namespace(
+            device=0,
+            previous_count=1,
+            current_count=1,
+            transition_topk_count=1,
+            current_offset=0,
+            packet_json=packet_json,
+            offload_arch="gfx1100",
+            force_build=False,
+            hip_visible_devices=None,
+        )
+    )
+
+    assert payload["ok"] is False
+    assert payload["passed"] is False
+    assert payload["native_returncode"] is None
+    assert payload["failures"] == ["packet_json_error"]
+    assert "current_experts must be a list" in payload["packet_json_error"]
+
+
+def test_payload_cache_producer_state_stub_rejects_nonint_previous_experts(
+    monkeypatch,
+    tmp_path: Path,
+):
+    module = _load_module()
+    packet_json = tmp_path / "bad_previous_element_packet.json"
+    packet_json.write_text(
+        module.json.dumps(
+            {
+                "ready": True,
+                "previous_experts": ["1"],
+                "current_experts": [2],
+                "transition_topk_count": 1,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(module, "build", lambda **_: tmp_path / "stub")
+    payload = module.run_stub(
+        argparse.Namespace(
+            device=0,
+            previous_count=1,
+            current_count=1,
+            transition_topk_count=1,
+            current_offset=0,
+            packet_json=packet_json,
+            offload_arch="gfx1100",
+            force_build=False,
+            hip_visible_devices=None,
+        )
+    )
+
+    assert payload["ok"] is False
+    assert payload["passed"] is False
+    assert payload["native_returncode"] is None
+    assert payload["failures"] == ["packet_json_error"]
+    assert "previous_experts must contain ints" in payload["packet_json_error"]
+
+
+def test_payload_cache_producer_state_stub_rejects_nonint_current_experts(
+    monkeypatch,
+    tmp_path: Path,
+):
+    module = _load_module()
+    packet_json = tmp_path / "bad_current_element_packet.json"
+    packet_json.write_text(
+        module.json.dumps(
+            {
+                "ready": True,
+                "previous_experts": [1],
+                "current_experts": [True],
+                "transition_topk_count": 1,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(module, "build", lambda **_: tmp_path / "stub")
+    payload = module.run_stub(
+        argparse.Namespace(
+            device=0,
+            previous_count=1,
+            current_count=1,
+            transition_topk_count=1,
+            current_offset=0,
+            packet_json=packet_json,
+            offload_arch="gfx1100",
+            force_build=False,
+            hip_visible_devices=None,
+        )
+    )
+
+    assert payload["ok"] is False
+    assert payload["passed"] is False
+    assert payload["native_returncode"] is None
+    assert payload["failures"] == ["packet_json_error"]
+    assert "current_experts must contain ints" in payload["packet_json_error"]
+
+
+def test_payload_cache_producer_state_stub_validates_issue_after_canonicalization(
+    monkeypatch,
+    tmp_path: Path,
+):
+    module = _load_module()
+    packet_json = tmp_path / "raw_order_issue_packet.json"
+    packet_json.write_text(
+        module.json.dumps(
+            {
+                "ready": True,
+                "previous_experts": [7, 2, 7],
+                "current_experts": [4],
+                "transition_topk_count": 2,
+                "issue_candidate_experts": [7, 2],
+                "issue_candidate_count": 2,
+                "issue_candidate_first_expert": 7,
+                "issue_candidate_last_expert": 2,
+                "issue_candidate_hash": "bf49d7185d5170ca",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(module, "build", lambda **_: tmp_path / "stub")
+    payload = module.run_stub(
+        argparse.Namespace(
+            device=0,
+            previous_count=1,
+            current_count=1,
+            transition_topk_count=1,
+            current_offset=0,
+            packet_json=packet_json,
+            offload_arch="gfx1100",
+            force_build=False,
+            hip_visible_devices=None,
+        )
+    )
+
+    assert payload["ok"] is False
+    assert payload["passed"] is False
+    assert payload["native_returncode"] is None
+    assert payload["failures"] == ["packet_json_error"]
+    assert "issue_candidate_hash mismatch" in payload["packet_json_error"]
+
+
+def test_payload_cache_producer_state_stub_rejects_negative_expert_without_sanitizing(
+    monkeypatch,
+    tmp_path: Path,
+):
+    module = _load_module()
+    packet_json = tmp_path / "negative_expert_packet.json"
+    packet_json.write_text(
+        module.json.dumps(
+            {
+                "ready": True,
+                "previous_experts": [-1, 5],
+                "current_experts": [5],
+                "transition_topk_count": 1,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(module, "build", lambda **_: tmp_path / "stub")
+    payload = module.run_stub(
+        argparse.Namespace(
+            device=0,
+            previous_count=1,
+            current_count=1,
+            transition_topk_count=1,
+            current_offset=0,
+            packet_json=packet_json,
+            offload_arch="gfx1100",
+            force_build=False,
+            hip_visible_devices=None,
+        )
+    )
+
+    assert payload["ok"] is False
+    assert payload["passed"] is False
+    assert payload["native_returncode"] is None
+    assert payload["failures"] == ["packet_json_error"]
+    assert "not ready" in payload["packet_json_error"]
+
+
 def test_payload_cache_producer_state_stub_returns_structured_packet_json_failure(
     monkeypatch,
     tmp_path: Path,

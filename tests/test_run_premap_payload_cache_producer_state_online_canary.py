@@ -166,6 +166,171 @@ def test_online_canary_prefers_nonempty_issue_packet(
     assert fake.args.packet_json == packet1
 
 
+def test_online_canary_fallback_selector_ignores_negative_topk_packet(
+    tmp_path: Path,
+):
+    module = _load_module()
+    packet = tmp_path / "packet.json"
+    packet.write_text(
+        json.dumps(
+            {
+                "ready": True,
+                "previous_experts": [3, 5],
+                "transition_topk_count": -1,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    assert module._packet_issue_candidate_count(packet) == 0
+    assert module._select_nonempty_issue_packet([packet]) is None
+
+
+def test_online_canary_fallback_selector_ignores_negative_previous_experts(
+    tmp_path: Path,
+):
+    module = _load_module()
+    packet = tmp_path / "packet.json"
+    packet.write_text(
+        json.dumps(
+            {
+                "ready": True,
+                "previous_experts": [-1, 5],
+                "transition_topk_count": 1,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    assert module._packet_issue_candidate_count(packet) == 0
+    assert module._select_nonempty_issue_packet([packet]) is None
+
+
+def test_online_canary_fallback_selector_ignores_self_described_issue_mismatch(
+    tmp_path: Path,
+):
+    module = _load_module()
+    packet = tmp_path / "packet.json"
+    packet.write_text(
+        json.dumps(
+            {
+                "ready": True,
+                "previous_experts": [3, 5],
+                "transition_topk_count": 1,
+                "issue_candidate_experts": [5],
+                "issue_candidate_count": 1,
+                "issue_candidate_first_expert": 5,
+                "issue_candidate_last_expert": 5,
+                "issue_candidate_hash": "083a5007b4f20f1b",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    assert module._packet_issue_candidate_count(packet) == 0
+    assert module._select_nonempty_issue_packet([packet]) is None
+
+
+def test_online_canary_fallback_selector_ignores_null_self_described_issue_list(
+    tmp_path: Path,
+):
+    module = _load_module()
+    packet = tmp_path / "packet.json"
+    packet.write_text(
+        json.dumps(
+            {
+                "ready": True,
+                "previous_experts": [3],
+                "transition_topk_count": 1,
+                "issue_candidate_experts": None,
+                "issue_candidate_count": 1,
+                "issue_candidate_first_expert": 3,
+                "issue_candidate_last_expert": 3,
+                "issue_candidate_hash": "083a5007b4f20f1b",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    assert module._packet_issue_candidate_count(packet) == 0
+    assert module._select_nonempty_issue_packet([packet]) is None
+
+
+def test_online_canary_fallback_selector_ignores_unknown_issue_prefix(
+    tmp_path: Path,
+):
+    module = _load_module()
+    packet = tmp_path / "packet.json"
+    packet.write_text(
+        json.dumps(
+            {
+                "ready": True,
+                "previous_experts": [3],
+                "transition_topk_count": 1,
+                "issue_candidate_debug": True,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    assert module._packet_issue_candidate_count(packet) == 0
+    assert module._select_nonempty_issue_packet([packet]) is None
+
+
+def test_online_canary_fallback_selector_ignores_numeric_issue_hash(
+    tmp_path: Path,
+):
+    module = _load_module()
+    packet = tmp_path / "packet.json"
+    packet.write_text(
+        json.dumps(
+            {
+                "ready": True,
+                "previous_experts": [11, 0],
+                "transition_topk_count": 2,
+                "issue_candidate_experts": [11, 0],
+                "issue_candidate_count": 2,
+                "issue_candidate_first_expert": 11,
+                "issue_candidate_last_expert": 0,
+                "issue_candidate_hash": 2742631898372054,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    assert module._packet_issue_candidate_count(packet) == 0
+    assert module._select_nonempty_issue_packet([packet]) is None
+
+
+def test_online_canary_fallback_selector_ignores_partial_self_described_issue_fields(
+    tmp_path: Path,
+):
+    module = _load_module()
+    packet = tmp_path / "packet.json"
+    packet.write_text(
+        json.dumps(
+            {
+                "ready": True,
+                "previous_experts": [3],
+                "transition_topk_count": 1,
+                "issue_candidate_count": 1,
+                "issue_candidate_hash": "083a5007b4f20f1b",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    assert module._packet_issue_candidate_count(packet) == 0
+    assert module._select_nonempty_issue_packet([packet]) is None
+
+
 def test_online_canary_prefers_summary_nonempty_issue_packet(
     monkeypatch,
     tmp_path: Path,
@@ -484,6 +649,94 @@ def test_online_canary_accepts_explicit_packet_json(monkeypatch, tmp_path: Path)
     assert payload["online_performance_summary"] is None
     assert payload["online_packet_export_paths"] == [str(packet)]
     assert fake.args.packet_json == packet
+
+
+def test_online_canary_rejects_malformed_explicit_packet_json(tmp_path: Path):
+    module = _load_module()
+    packet = tmp_path / "packet.json"
+    packet.write_text(
+        json.dumps(
+            {
+                "ready": True,
+                "previous_experts": [11, 0],
+                "transition_topk_count": 2,
+                "issue_candidate_experts": [11, 0],
+                "issue_candidate_count": 2,
+                "issue_candidate_first_expert": 11,
+                "issue_candidate_last_expert": 0,
+                "issue_candidate_hash": 2742631898372054,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    try:
+        module.run_online_canary(
+            argparse.Namespace(
+                performance_summary=None,
+                packet_json=packet,
+                packet_index=0,
+                device=0,
+                current_offset=0,
+                offload_arch="gfx1100",
+                force_build=False,
+                hip_visible_devices=None,
+            )
+        )
+    except ValueError as exc:
+        assert "selected producer-state packet issue self-description is invalid" in str(exc)
+    else:
+        raise AssertionError("expected malformed explicit packet to raise ValueError")
+
+
+def test_online_canary_rejects_malformed_default_packet_index(tmp_path: Path):
+    module = _load_module()
+    packet = tmp_path / "packet.json"
+    packet.write_text(
+        json.dumps(
+            {
+                "ready": True,
+                "previous_experts": [3],
+                "transition_topk_count": 1,
+                "issue_candidate_debug": True,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    performance_summary = tmp_path / "performance_summary.json"
+    performance_summary.write_text(
+        json.dumps(
+            {
+                "runtime_shadow_premap_payload_cache_producer_state_packet_export_enabled": True,
+                "runtime_shadow_premap_payload_cache_producer_state_packet_export_count": 1,
+                "runtime_shadow_premap_payload_cache_producer_state_packet_export_paths": [
+                    str(packet)
+                ],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    try:
+        module.run_online_canary(
+            argparse.Namespace(
+                performance_summary=performance_summary,
+                packet_json=None,
+                packet_index=0,
+                device=0,
+                current_offset=0,
+                offload_arch="gfx1100",
+                force_build=False,
+                hip_visible_devices=None,
+            )
+        )
+    except ValueError as exc:
+        assert "selected producer-state packet issue self-description is invalid" in str(exc)
+    else:
+        raise AssertionError("expected malformed selected packet to raise ValueError")
 
 
 def test_online_canary_accepts_explicit_nonempty_issue_packet_json(

@@ -195,6 +195,11 @@ def test_payload_cache_producer_transition_state_packet_is_readonly_native_contr
     assert payload["max_num_experts"] == 16
     assert payload["previous_expert_count"] == 2
     assert payload["current_expert_count"] == 2
+    assert payload["issue_candidate_experts"] == [2, 7]
+    assert payload["issue_candidate_count"] == 2
+    assert payload["issue_candidate_first_expert"] == 2
+    assert payload["issue_candidate_last_expert"] == 7
+    assert payload["issue_candidate_hash"] == "ea95d41875d6802c"
 
 
 def test_payload_cache_producer_transition_state_packet_rejects_invalid_contract():

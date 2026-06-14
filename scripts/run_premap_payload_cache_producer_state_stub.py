@@ -141,20 +141,85 @@ def _issue_candidate_bounds(
     return len(selected), int(selected[0]), int(selected[-1])
 
 
+def _validate_issue_self_description(
+    payload: dict[str, Any],
+    *,
+    previous_experts: tuple[int, ...],
+    transition_topk_count: int,
+) -> None:
+    self_described_keys = {
+        "issue_candidate_count",
+        "issue_candidate_hash",
+        "issue_candidate_experts",
+        "issue_candidate_first_expert",
+        "issue_candidate_last_expert",
+    }
+    present_self_described_keys = {
+        key for key in payload if str(key).startswith("issue_candidate_")
+    }
+    if not present_self_described_keys:
+        return
+    if present_self_described_keys != self_described_keys:
+        raise ValueError("producer-state issue_candidate self-description is partial")
+    expected_count, expected_first, expected_last = _issue_candidate_bounds(
+        previous_experts,
+        transition_topk_count,
+    )
+    expected_hash = f"{_issue_candidate_hash(previous_experts, transition_topk_count):016x}"
+    raw_count = payload.get("issue_candidate_count")
+    if type(raw_count) is not int or raw_count != expected_count:
+        raise ValueError("producer-state issue_candidate_count mismatch")
+    raw_hash = payload.get("issue_candidate_hash")
+    if not isinstance(raw_hash, str) or raw_hash != expected_hash:
+        raise ValueError("producer-state issue_candidate_hash mismatch")
+    raw_experts = payload.get("issue_candidate_experts")
+    if not isinstance(raw_experts, list):
+        raise ValueError("producer-state issue_candidate_experts must be a list")
+    limit = (
+        len(previous_experts)
+        if int(transition_topk_count) == 0
+        else min(len(previous_experts), int(transition_topk_count))
+    )
+    expected_experts = previous_experts[:limit]
+    if any(type(value) is not int for value in raw_experts) or tuple(raw_experts) != expected_experts:
+        raise ValueError("producer-state issue_candidate_experts mismatch")
+    raw_first = payload.get("issue_candidate_first_expert")
+    raw_last = payload.get("issue_candidate_last_expert")
+    if type(raw_first) is not int or raw_first != expected_first:
+        raise ValueError("producer-state issue_candidate_first_expert mismatch")
+    if type(raw_last) is not int or raw_last != expected_last:
+        raise ValueError("producer-state issue_candidate_last_expert mismatch")
+
+
 def _load_packet_json(path: Path) -> PremapPayloadCacheProducerTransitionStatePacket:
     payload = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(payload, dict):
         raise ValueError(f"producer transition-state packet JSON must be an object: {path}")
+    previous_raw = payload.get("previous_experts", [])
+    current_raw = payload.get("current_experts", [])
+    if not isinstance(previous_raw, list):
+        raise ValueError("producer-state previous_experts must be a list")
+    if not isinstance(current_raw, list):
+        raise ValueError("producer-state current_experts must be a list")
+    if any(type(value) is not int for value in previous_raw):
+        raise ValueError("producer-state previous_experts must contain ints")
+    if any(type(value) is not int for value in current_raw):
+        raise ValueError("producer-state current_experts must contain ints")
+    previous_experts = tuple(int(value) for value in previous_raw)
+    current_experts = tuple(int(value) for value in current_raw)
+    transition_topk_count = int(payload.get("transition_topk_count", 0))
+    if transition_topk_count < 0:
+        raise ValueError("producer-state transition_topk_count must be non-negative")
     packet = PremapPayloadCacheProducerTransitionStatePacket(
         layer_id=int(payload.get("layer_id", 0)),
-        previous_experts=tuple(int(value) for value in payload.get("previous_experts", [])),
-        current_experts=tuple(int(value) for value in payload.get("current_experts", [])),
+        previous_experts=previous_experts,
+        current_experts=current_experts,
         state_owner=str(payload.get("state_owner", "producer")),
         issue_source=str(
             payload.get("issue_source", "prelaunch_observed_transition_premap_shadow")
         ),
         transition_summary_mode=str(payload.get("transition_summary_mode", "matrix_topk")),
-        transition_topk_count=int(payload.get("transition_topk_count", 0)),
+        transition_topk_count=transition_topk_count,
         max_num_experts=(
             None
             if payload.get("max_num_experts") is None
@@ -166,6 +231,11 @@ def _load_packet_json(path: Path) -> PremapPayloadCacheProducerTransitionStatePa
         ready_credit=bool(payload.get("ready_credit", False)),
         passed_to_kernel=bool(payload.get("passed_to_kernel", False)),
         changes_kernel_launch_args=bool(payload.get("changes_kernel_launch_args", False)),
+    )
+    _validate_issue_self_description(
+        payload,
+        previous_experts=packet.native_previous_experts_i32,
+        transition_topk_count=packet.transition_topk_count,
     )
     if not packet.ready:
         raise ValueError(f"producer transition-state packet is not ready: {path}")

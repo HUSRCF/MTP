@@ -149,6 +149,9 @@ PREMAP_PAYLOAD_CACHE_PRODUCER_TRANSITION_STATE_NATIVE_ABI_HASH = hashlib.sha256(
         PREMAP_PAYLOAD_CACHE_PRODUCER_TRANSITION_STATE_NATIVE_ABI_FIELDS
     ).encode("utf-8")
 ).hexdigest()
+_PREMAP_PAYLOAD_CACHE_ISSUE_FNV_OFFSET = 0xCBF29CE484222325
+_PREMAP_PAYLOAD_CACHE_ISSUE_FNV_PRIME = 0x100000001B3
+_UINT64_MASK = 0xFFFFFFFFFFFFFFFF
 
 
 def premap_single_field_handle_handoff_mirror_mode(field_name: str) -> str:
@@ -813,6 +816,45 @@ class PremapPayloadCacheProducerTransitionStatePacket:
         return tuple(int(value) for value in self.current_experts_canonical)
 
     @property
+    def issue_candidate_experts(self) -> tuple[int, ...]:
+        previous = tuple(
+            int(expert_id)
+            for expert_id in self.native_previous_experts_i32
+            if int(expert_id) >= 0
+        )
+        topk = int(self.transition_topk_count)
+        limit = len(previous) if topk == 0 else min(len(previous), topk)
+        return previous[:limit]
+
+    @property
+    def issue_candidate_count(self) -> int:
+        return len(self.issue_candidate_experts)
+
+    @property
+    def issue_candidate_first_expert(self) -> int:
+        issue_experts = self.issue_candidate_experts
+        return int(issue_experts[0]) if issue_experts else -1
+
+    @property
+    def issue_candidate_last_expert(self) -> int:
+        issue_experts = self.issue_candidate_experts
+        return int(issue_experts[-1]) if issue_experts else -1
+
+    @property
+    def issue_candidate_hash(self) -> str:
+        value = _PREMAP_PAYLOAD_CACHE_ISSUE_FNV_OFFSET
+        count = 0
+        for expert_id in self.issue_candidate_experts:
+            value ^= int(expert_id) & 0xFFFFFFFF
+            value = (
+                value * _PREMAP_PAYLOAD_CACHE_ISSUE_FNV_PRIME
+            ) & _UINT64_MASK
+            count += 1
+        value ^= count & 0xFFFFFFFF
+        value = (value * _PREMAP_PAYLOAD_CACHE_ISSUE_FNV_PRIME) & _UINT64_MASK
+        return f"{value:016x}"
+
+    @property
     def expert_ids_in_range(self) -> bool:
         try:
             expert_ids = tuple(
@@ -912,6 +954,11 @@ class PremapPayloadCacheProducerTransitionStatePacket:
             "current_experts": list(self.current_experts_canonical),
             "previous_expert_count": int(self.previous_expert_count),
             "current_expert_count": int(self.current_expert_count),
+            "issue_candidate_experts": list(self.issue_candidate_experts),
+            "issue_candidate_count": int(self.issue_candidate_count),
+            "issue_candidate_first_expert": int(self.issue_candidate_first_expert),
+            "issue_candidate_last_expert": int(self.issue_candidate_last_expert),
+            "issue_candidate_hash": str(self.issue_candidate_hash),
             "payload_bytes": int(self.payload_bytes),
             "ready_credit": bool(self.ready_credit),
             "passed_to_kernel": bool(self.passed_to_kernel),

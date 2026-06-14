@@ -2,8 +2,27 @@
 
 ## Progress Version
 
-- Version: `v0.86-native-issue-prefix-bounds-gate`
+- Version: `v0.87-self-described-issue-packet-gate`
 - Updated: 2026-06-14
+- Latest self-described producer issue packet gate: producer-state packet
+  exports now carry a complete issue-prefix self-description:
+  `issue_candidate_experts`, `issue_candidate_count`,
+  `issue_candidate_first_expert`, `issue_candidate_last_expert`, and
+  `issue_candidate_hash`.  The runtime scanner and online canary selector keep
+  legacy compatibility only for packets with no `issue_candidate_*` fields at
+  all; any `issue_candidate_` key now triggers strict validation and rejects
+  partial, misspelled/unknown, null, non-list, non-string-hash, non-int bound,
+  mismatch, negative-topk, or non-list-previous packet evidence.  The final
+  selected packet is validated before native stub invocation, so explicit
+  `--packet-json`, default `packet_index`, summary-first nonempty, and fallback
+  first-nonempty paths all share the same contract.  Focused validation passes
+  with 303 tests:
+  `tests/test_runtime_premap.py`,
+  `tests/test_vllm_router_shadow_sink.py`,
+  `tests/test_run_premap_payload_cache_producer_state_online_canary.py`, and
+  `tests/test_run_premap_lab_preflight.py`.  Safety remains unchanged:
+  `payload_bytes=0`, `ready_credit=false`, `passed_to_kernel=false`,
+  `changes_kernel_launch_args=false`, and `current_wna16_arg_compatible=false`.
 - Latest native issue-prefix bounds gate: the readonly producer-state native
   canary now reports the issue-prefix boundary it actually read on the native
   side: `issue_candidate_first_expert` and

@@ -69,19 +69,75 @@ def _packet_paths_from_performance(
 
 def _packet_issue_candidate_count(path: Path) -> int:
     payload = _load_json_object(path, label="producer-state packet")
-    previous = payload.get("previous_experts", [])
-    if not isinstance(previous, list):
-        return 0
     try:
-        previous_count = len(previous)
-        topk = int(payload.get("transition_topk_count", 0) or 0)
+        return int(_packet_issue_summary(payload)[0])
     except (TypeError, ValueError):
         return 0
-    if previous_count <= 0:
-        return 0
-    if topk <= 0:
-        return previous_count
-    return min(previous_count, topk)
+
+
+def _issue_candidate_hash(issue_experts: tuple[int, ...]) -> str:
+    value = 0xCBF29CE484222325
+    count = 0
+    for expert_id in issue_experts:
+        value ^= int(expert_id) & 0xFFFFFFFF
+        value = (value * 0x100000001B3) & 0xFFFFFFFFFFFFFFFF
+        count += 1
+    value ^= count & 0xFFFFFFFF
+    value = (value * 0x100000001B3) & 0xFFFFFFFFFFFFFFFF
+    return f"{value:016x}"
+
+
+def _packet_issue_summary(payload: dict[str, Any]) -> tuple[int, tuple[int, ...], str]:
+    previous_raw = payload.get("previous_experts", [])
+    if not isinstance(previous_raw, list):
+        raise ValueError("producer-state previous_experts must be a list")
+    if any(type(value) is not int for value in previous_raw):
+        raise ValueError("producer-state previous_experts must contain ints")
+    if any(int(value) < 0 for value in previous_raw):
+        raise ValueError("producer-state previous_experts must be non-negative")
+    previous = tuple(int(value) for value in previous_raw)
+    topk = int(payload.get("transition_topk_count", 0) or 0)
+    if topk < 0:
+        raise ValueError("producer-state transition_topk_count must be non-negative")
+    limit = len(previous) if topk == 0 else min(len(previous), topk)
+    issue_experts = previous[:limit]
+    issue_count = len(issue_experts)
+    issue_hash = _issue_candidate_hash(issue_experts)
+    self_described_keys = {
+        "issue_candidate_count",
+        "issue_candidate_hash",
+        "issue_candidate_experts",
+        "issue_candidate_first_expert",
+        "issue_candidate_last_expert",
+    }
+    present_self_described_keys = {
+        key for key in payload if str(key).startswith("issue_candidate_")
+    }
+    if present_self_described_keys:
+        if present_self_described_keys != self_described_keys:
+            raise ValueError("producer-state issue_candidate self-description is partial")
+        raw_count = payload.get("issue_candidate_count")
+        if type(raw_count) is not int or raw_count != issue_count:
+            raise ValueError("producer-state issue_candidate_count mismatch")
+        raw_hash = payload.get("issue_candidate_hash")
+        if not isinstance(raw_hash, str) or raw_hash != issue_hash:
+            raise ValueError("producer-state issue_candidate_hash mismatch")
+        raw_experts = payload.get("issue_candidate_experts")
+        if not isinstance(raw_experts, list):
+            raise ValueError("producer-state issue_candidate_experts must be a list")
+        if any(type(value) is not int for value in raw_experts):
+            raise ValueError("producer-state issue_candidate_experts must be ints")
+        if tuple(int(value) for value in raw_experts) != issue_experts:
+            raise ValueError("producer-state issue_candidate_experts mismatch")
+        expected_first = int(issue_experts[0]) if issue_experts else -1
+        expected_last = int(issue_experts[-1]) if issue_experts else -1
+        raw_first = payload.get("issue_candidate_first_expert")
+        raw_last = payload.get("issue_candidate_last_expert")
+        if type(raw_first) is not int or raw_first != expected_first:
+            raise ValueError("producer-state issue_candidate_first_expert mismatch")
+        if type(raw_last) is not int or raw_last != expected_last:
+            raise ValueError("producer-state issue_candidate_last_expert mismatch")
+    return issue_count, issue_experts, issue_hash
 
 
 def _select_nonempty_issue_packet(paths: list[Path]) -> tuple[int, Path] | None:
@@ -91,6 +147,16 @@ def _select_nonempty_issue_packet(paths: list[Path]) -> tuple[int, Path] | None:
         if _packet_issue_candidate_count(path) > 0:
             return index, path
     return None
+
+
+def _validate_selected_packet_issue_contract(path: Path) -> tuple[int, tuple[int, ...], str]:
+    payload = _load_json_object(path, label="selected producer-state packet")
+    try:
+        return _packet_issue_summary(payload)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            "selected producer-state packet issue self-description is invalid"
+        ) from exc
 
 
 def _select_nonempty_issue_packet_from_summary(
@@ -247,6 +313,7 @@ def run_online_canary(args: argparse.Namespace) -> dict[str, Any]:
                 else str(args.performance_summary)
             ),
         }
+    _validate_selected_packet_issue_contract(selected_packet)
     stub_runner = _load_stub_runner()
     payload = stub_runner.run_stub(
         argparse.Namespace(

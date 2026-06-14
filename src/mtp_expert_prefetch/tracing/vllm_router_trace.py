@@ -161,28 +161,105 @@ def _premap_payload_cache_export_nonempty_issue_summary(
             summary["scan_error_count"] = int(summary["scan_error_count"] or 0) + 1
             continue
         try:
-            previous = tuple(
-                int(expert_id)
-                for expert_id in payload.get("previous_experts", [])
-                if int(expert_id) >= 0
-            )
+            previous_raw = payload.get("previous_experts", [])
+            if not isinstance(previous_raw, list):
+                summary["scan_error_count"] = (
+                    int(summary["scan_error_count"] or 0) + 1
+                )
+                continue
+            if any(type(expert_id) is not int for expert_id in previous_raw) or any(
+                int(expert_id) < 0 for expert_id in previous_raw
+            ):
+                summary["scan_error_count"] = (
+                    int(summary["scan_error_count"] or 0) + 1
+                )
+                continue
+            previous = tuple(int(expert_id) for expert_id in previous_raw)
             topk = int(payload.get("transition_topk_count", 0) or 0)
+            if topk < 0:
+                summary["scan_error_count"] = (
+                    int(summary["scan_error_count"] or 0) + 1
+                )
+                continue
+            limit = len(previous) if topk == 0 else min(len(previous), topk)
+            issue_experts = previous[:limit]
+            computed_issue_count = int(len(issue_experts))
+            computed_issue_hash = _premap_payload_cache_issue_hash(issue_experts)
+            self_described_issue_keys = {
+                "issue_candidate_count",
+                "issue_candidate_hash",
+                "issue_candidate_experts",
+                "issue_candidate_first_expert",
+                "issue_candidate_last_expert",
+            }
+            present_self_described_issue_keys = {
+                key for key in payload if str(key).startswith("issue_candidate_")
+            }
+            if present_self_described_issue_keys:
+                if present_self_described_issue_keys != self_described_issue_keys:
+                    summary["scan_error_count"] = (
+                        int(summary["scan_error_count"] or 0) + 1
+                    )
+                    continue
+                raw_issue_count = payload.get("issue_candidate_count")
+                if type(raw_issue_count) is not int:
+                    summary["scan_error_count"] = (
+                        int(summary["scan_error_count"] or 0) + 1
+                    )
+                    continue
+                issue_count = int(raw_issue_count)
+                raw_hash = payload.get("issue_candidate_hash")
+                issue_hash = raw_hash if isinstance(raw_hash, str) else None
+                if (
+                    issue_count != computed_issue_count
+                    or issue_hash != computed_issue_hash
+                ):
+                    summary["scan_error_count"] = (
+                        int(summary["scan_error_count"] or 0) + 1
+                    )
+                    continue
+                raw_issue_experts = payload.get("issue_candidate_experts")
+                if (
+                    not isinstance(raw_issue_experts, list)
+                    or any(type(expert_id) is not int for expert_id in raw_issue_experts)
+                    or tuple(int(expert_id) for expert_id in raw_issue_experts)
+                    != issue_experts
+                ):
+                    summary["scan_error_count"] = (
+                        int(summary["scan_error_count"] or 0) + 1
+                    )
+                    continue
+                expected_first = int(issue_experts[0]) if issue_experts else -1
+                expected_last = int(issue_experts[-1]) if issue_experts else -1
+                raw_first = payload.get("issue_candidate_first_expert")
+                raw_last = payload.get("issue_candidate_last_expert")
+                if (
+                    type(raw_first) is not int
+                    or raw_first != expected_first
+                    or type(raw_last) is not int
+                    or raw_last != expected_last
+                ):
+                    summary["scan_error_count"] = (
+                        int(summary["scan_error_count"] or 0) + 1
+                    )
+                    continue
+            else:
+                issue_count = computed_issue_count
+                issue_hash = computed_issue_hash
         except (TypeError, ValueError):
             summary["scan_error_count"] = int(summary["scan_error_count"] or 0) + 1
             continue
-        limit = len(previous) if topk == 0 else min(len(previous), topk)
-        issue_experts = previous[:limit]
-        issue_count = int(len(issue_experts))
         if issue_count <= 0:
+            continue
+        if not isinstance(issue_hash, str) or not issue_hash:
+            summary["scan_error_count"] = int(summary["scan_error_count"] or 0) + 1
             continue
         summary["nonempty_issue_count"] = int(summary["nonempty_issue_count"] or 0) + 1
         if int(summary["first_nonempty_issue_index"]) < 0:
             summary["first_nonempty_issue_index"] = int(index)
             summary["first_nonempty_issue_path"] = str(path)
             summary["first_nonempty_issue_count"] = issue_count
-            summary["first_nonempty_issue_hash"] = _premap_payload_cache_issue_hash(
-                issue_experts
-            )
+            summary["first_nonempty_issue_hash"] = issue_hash
     return summary
 
 
@@ -3222,9 +3299,8 @@ class VllmRouterRecorder:
             f"_layer{int(layer_id)}.json"
         )
         payload = packet.as_dict()
-        issue_experts = _premap_payload_cache_issue_experts(packet)
-        issue_count = int(len(issue_experts))
-        issue_hash = _premap_payload_cache_issue_hash(issue_experts)
+        issue_count = int(packet.issue_candidate_count)
+        issue_hash = str(packet.issue_candidate_hash)
         payload["_export_context"] = {
             "source": "vllm_prelaunch_payload_cache_producer_transition_state_packet",
             "request_id": str(self.request_id),
@@ -3241,6 +3317,8 @@ class VllmRouterRecorder:
             "previous_expert_count": int(packet.previous_expert_count),
             "current_expert_count": int(packet.current_expert_count),
             "issue_candidate_count": issue_count,
+            "issue_candidate_first_expert": int(packet.issue_candidate_first_expert),
+            "issue_candidate_last_expert": int(packet.issue_candidate_last_expert),
             "issue_candidate_hash": issue_hash,
             "max_num_experts": (
                 None
