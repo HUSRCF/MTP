@@ -44,6 +44,31 @@ SAFETY_STATUS_NAMES = (
     "all_field_window_sweep",
     "wna16_side_consumer_variant",
 )
+WNA16_SIDE_VARIANT_FIELDS = (
+    "descriptor_ptr",
+    "packed_weight_descriptor",
+    "scale_metadata_handle",
+    "aux_metadata_handle",
+)
+WNA16_SIDE_VARIANT_HASH_FIELDS = (
+    "hash_accumulator",
+    "handle_projection_hash_accumulator",
+    "descriptor_ptr_read_hash_accumulator",
+    "packed_weight_descriptor_read_hash_accumulator",
+    "scale_metadata_handle_read_hash_accumulator",
+    "aux_metadata_handle_read_hash_accumulator",
+)
+
+
+def _is_hex_u64(value: Any) -> bool:
+    if not isinstance(value, str) or not value or len(value) > 16:
+        return False
+    try:
+        parsed = int(value, 16)
+    except ValueError:
+        return False
+    return 0 <= parsed <= 0xFFFFFFFFFFFFFFFF
+
 
 def _load_json(path: Path) -> dict[str, Any]:
     payload = json.loads(path.read_text(encoding="utf-8"))
@@ -300,11 +325,34 @@ def check_lab_gate_verify_artifact(
         is not False
     ):
         failures.append("wna16_side_variant_reuses_current_wna16_arg_slot_mismatch")
-    hash_value = wna16_status.get(
-        "wna16_side_consumer_variant_execution_handle_projection_hash_accumulator"
-    )
-    if not isinstance(hash_value, str) or not hash_value:
-        failures.append("wna16_side_variant_handle_projection_hash_missing")
+    if (
+        wna16_status.get(
+            "wna16_side_consumer_variant_execution_explicit_typed_abi_slot"
+        )
+        is not True
+    ):
+        failures.append("wna16_side_variant_explicit_typed_abi_slot_mismatch")
+    for field in WNA16_SIDE_VARIANT_FIELDS:
+        if (
+            wna16_status.get(
+                f"wna16_side_consumer_variant_execution_{field}_read_row_ok_count"
+            )
+            != row_count
+        ):
+            failures.append(
+                f"wna16_side_variant_{field}_read_row_ok_count_mismatch"
+            )
+        read_error_count = wna16_status.get(
+            f"wna16_side_consumer_variant_execution_{field}_read_error_count"
+        )
+        if read_error_count not in (0, None):
+            failures.append(f"wna16_side_variant_{field}_read_error_count_mismatch")
+    for suffix in WNA16_SIDE_VARIANT_HASH_FIELDS:
+        hash_value = wna16_status.get(
+            f"wna16_side_consumer_variant_execution_{suffix}"
+        )
+        if not _is_hex_u64(hash_value):
+            failures.append(f"wna16_side_variant_{suffix}_invalid")
 
     return {
         "passed": not failures,

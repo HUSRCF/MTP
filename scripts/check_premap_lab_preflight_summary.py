@@ -31,6 +31,7 @@ REQUIRED_SHA_FIELDS = [
     "default_kernel_consumer_online_merged_multiprogram_evidence_sha256",
     "default_kernel_consumer_dispatch_ptr_standalone_evidence_sha256",
     "default_kernel_consumer_arg_slot_standalone_evidence_sha256",
+    "default_kernel_consumer_wna16_side_variant_evidence_sha256",
 ]
 REQUIRED_LAYOUT_CHECKS = {
     "default_kernel_consumer_kernel_arg_packet_layout_reported": True,
@@ -387,10 +388,36 @@ def check_premap_lab_preflight_summary(
         "default_kernel_consumer_kernel_endpoint_ptr_changes_kernel_launch_args": False,
         "default_kernel_consumer_kernel_endpoint_ptr_current_wna16_arg_compatible": False,
         "default_kernel_consumer_kernel_endpoint_ptr_requires_wna16_arg_reinterpretation": False,
+        "default_kernel_consumer_wna16_side_variant_evidence_label": (
+            "wna16_side_consumer_variant_execution_128strict_runner_json"
+        ),
+        "default_kernel_consumer_wna16_side_variant_evidence_passed": True,
+        "default_kernel_consumer_wna16_side_variant_required": True,
+        "default_kernel_consumer_wna16_side_variant_checked": True,
+        "default_kernel_consumer_wna16_side_variant_name": (
+            "premap_wna16_side_consumer_variant_execution_v1"
+        ),
+        "default_kernel_consumer_wna16_side_variant_mode": (
+            "readonly_wna16_side_consumer_variant_execution"
+        ),
+        "default_kernel_consumer_wna16_side_variant_source": (
+            "premap_future_wna16_typed_slot_kernel_variant_v1"
+        ),
+        "default_kernel_consumer_wna16_side_variant_all_handle_fields_read": True,
+        "default_kernel_consumer_wna16_side_variant_error_count": 0,
+        "default_kernel_consumer_wna16_side_variant_packet_chain_depth": 16,
+        "default_kernel_consumer_wna16_side_variant_payload_bytes": 0,
+        "default_kernel_consumer_wna16_side_variant_passed_to_kernel": False,
+        "default_kernel_consumer_wna16_side_variant_changes_kernel_launch_args": False,
+        "default_kernel_consumer_wna16_side_variant_current_wna16_arg_compatible": False,
+        "default_kernel_consumer_wna16_side_variant_requires_wna16_arg_reinterpretation": False,
+        "default_kernel_consumer_wna16_side_variant_explicit_typed_abi_slot": True,
+        "default_kernel_consumer_wna16_side_variant_reuses_current_wna16_arg_slot": False,
         "default_kernel_consumer_typed_noop_ready": True,
         "default_kernel_consumer_wna16_benchmark_ready": False,
+        "default_kernel_consumer_wna16_side_variant_ready": True,
         "default_kernel_consumer_next_runtime_stage": (
-            "implement_wna16_typed_slot_kernel_variant"
+            "implement_real_wna16_typed_slot_kernel_variant"
         ),
         "payload_bytes_required": 0,
         "passed_to_kernel_required": False,
@@ -534,6 +561,52 @@ def check_premap_lab_preflight_summary(
         != "scale_metadata_handle"
     ):
         failures.append("online_merged_mirror_field_mismatch")
+    wna16_side_evidence_path = summary.get(
+        "default_kernel_consumer_wna16_side_variant_evidence_path"
+    )
+    if not isinstance(wna16_side_evidence_path, str) or not wna16_side_evidence_path:
+        failures.append("wna16_side_variant_evidence_path_missing")
+    wna16_side_source_count = _int_metric(
+        summary,
+        "default_kernel_consumer_wna16_side_variant_source_count",
+    )
+    wna16_side_row_count = _int_metric(
+        summary,
+        "default_kernel_consumer_wna16_side_variant_row_count",
+    )
+    wna16_side_row_ok_count = _int_metric(
+        summary,
+        "default_kernel_consumer_wna16_side_variant_row_ok_count",
+    )
+    if wna16_side_source_count is None or wna16_side_source_count < 128:
+        failures.append("wna16_side_variant_source_count_invalid")
+    if wna16_side_row_count is None or wna16_side_row_count <= 0:
+        failures.append("wna16_side_variant_row_count_invalid")
+    if wna16_side_row_count is not None and wna16_side_row_ok_count != wna16_side_row_count:
+        failures.append("wna16_side_variant_row_ok_count_mismatch")
+    if (
+        row_count is not None
+        and wna16_side_row_count is not None
+        and wna16_side_row_count < row_count
+    ):
+        failures.append("wna16_side_variant_row_count_below_online_merged")
+    for field in REQUIRED_ROW_FIELDS:
+        key = f"default_kernel_consumer_wna16_side_variant_{field}_read_row_ok_count"
+        if (
+            wna16_side_row_count is not None
+            and _int_metric(summary, key) != wna16_side_row_count
+        ):
+            failures.append(f"wna16_side_variant_{field}_read_row_ok_count_mismatch")
+    for key in (
+        "default_kernel_consumer_wna16_side_variant_hash_accumulator",
+        "default_kernel_consumer_wna16_side_variant_handle_projection_hash_accumulator",
+        "default_kernel_consumer_wna16_side_variant_descriptor_ptr_read_hash_accumulator",
+        "default_kernel_consumer_wna16_side_variant_packed_weight_descriptor_read_hash_accumulator",
+        "default_kernel_consumer_wna16_side_variant_scale_metadata_handle_read_hash_accumulator",
+        "default_kernel_consumer_wna16_side_variant_aux_metadata_handle_read_hash_accumulator",
+    ):
+        if not _is_hex_u64(summary.get(key)):
+            failures.append(f"{key}_invalid")
 
     if summary.get("default_kernel_consumer_arg_slot_field_read_field_names") != REQUIRED_ROW_FIELDS:
         failures.append("arg_slot_field_read_field_names_mismatch")

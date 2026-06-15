@@ -453,10 +453,66 @@ def _summary() -> dict[str, object]:
         "prefetch_lab_default_premap_positive_count": 4,
         "prefetch_lab_default_premap_recommended_capacity_entries": 12288,
         "prefetch_lab_default_premap_no_eviction_capacity_entries": 12288,
+        "default_kernel_consumer_wna16_side_variant_evidence_label": (
+            "wna16_side_consumer_variant_execution_128strict_runner_json"
+        ),
+        "default_kernel_consumer_wna16_side_variant_evidence_path": (
+            "outputs/reports/premap_kernel_consumer/"
+            "online_merged_wna16_side_consumer_variant_execution_lab_gate_runner.json"
+        ),
+        "default_kernel_consumer_wna16_side_variant_evidence_sha256": HEX,
+        "default_kernel_consumer_wna16_side_variant_evidence_passed": True,
+        "default_kernel_consumer_wna16_side_variant_required": True,
+        "default_kernel_consumer_wna16_side_variant_checked": True,
+        "default_kernel_consumer_wna16_side_variant_name": (
+            "premap_wna16_side_consumer_variant_execution_v1"
+        ),
+        "default_kernel_consumer_wna16_side_variant_mode": (
+            "readonly_wna16_side_consumer_variant_execution"
+        ),
+        "default_kernel_consumer_wna16_side_variant_source": (
+            "premap_future_wna16_typed_slot_kernel_variant_v1"
+        ),
+        "default_kernel_consumer_wna16_side_variant_source_count": 128,
+        "default_kernel_consumer_wna16_side_variant_row_count": 1841,
+        "default_kernel_consumer_wna16_side_variant_row_ok_count": 1841,
+        "default_kernel_consumer_wna16_side_variant_error_count": 0,
+        "default_kernel_consumer_wna16_side_variant_all_handle_fields_read": True,
+        "default_kernel_consumer_wna16_side_variant_packet_chain_depth": 16,
+        "default_kernel_consumer_wna16_side_variant_payload_bytes": 0,
+        "default_kernel_consumer_wna16_side_variant_passed_to_kernel": False,
+        "default_kernel_consumer_wna16_side_variant_changes_kernel_launch_args": False,
+        "default_kernel_consumer_wna16_side_variant_current_wna16_arg_compatible": False,
+        "default_kernel_consumer_wna16_side_variant_requires_wna16_arg_reinterpretation": False,
+        "default_kernel_consumer_wna16_side_variant_explicit_typed_abi_slot": True,
+        "default_kernel_consumer_wna16_side_variant_reuses_current_wna16_arg_slot": False,
+        "default_kernel_consumer_wna16_side_variant_descriptor_ptr_read_row_ok_count": 1841,
+        "default_kernel_consumer_wna16_side_variant_packed_weight_descriptor_read_row_ok_count": 1841,
+        "default_kernel_consumer_wna16_side_variant_scale_metadata_handle_read_row_ok_count": 1841,
+        "default_kernel_consumer_wna16_side_variant_aux_metadata_handle_read_row_ok_count": 1841,
+        "default_kernel_consumer_wna16_side_variant_hash_accumulator": (
+            "1112131415161718"
+        ),
+        "default_kernel_consumer_wna16_side_variant_handle_projection_hash_accumulator": (
+            "2122232425262728"
+        ),
+        "default_kernel_consumer_wna16_side_variant_descriptor_ptr_read_hash_accumulator": (
+            "3132333435363738"
+        ),
+        "default_kernel_consumer_wna16_side_variant_packed_weight_descriptor_read_hash_accumulator": (
+            "4142434445464748"
+        ),
+        "default_kernel_consumer_wna16_side_variant_scale_metadata_handle_read_hash_accumulator": (
+            "5152535455565758"
+        ),
+        "default_kernel_consumer_wna16_side_variant_aux_metadata_handle_read_hash_accumulator": (
+            "6162636465666768"
+        ),
         "default_kernel_consumer_typed_noop_ready": True,
         "default_kernel_consumer_wna16_benchmark_ready": False,
+        "default_kernel_consumer_wna16_side_variant_ready": True,
         "default_kernel_consumer_next_runtime_stage": (
-            "implement_wna16_typed_slot_kernel_variant"
+            "implement_real_wna16_typed_slot_kernel_variant"
         ),
         "payload_bytes_required": 0,
         "passed_to_kernel_required": False,
@@ -494,6 +550,50 @@ def test_check_premap_lab_preflight_summary_accepts_valid_summary() -> None:
     assert result["online_merged_device"] == 1
     assert result["expected_online_merged_device"] == 1
     assert result["online_merged_mirror_field"] == "scale_metadata_handle"
+
+
+def test_check_premap_lab_preflight_summary_accepts_wna16_side_superset_rows() -> None:
+    summary = _summary()
+    online_rows = summary["default_kernel_consumer_online_merged_multiprogram_row_count"]
+    wna16_rows = online_rows + 1577
+    summary["default_kernel_consumer_wna16_side_variant_row_count"] = wna16_rows
+    summary["default_kernel_consumer_wna16_side_variant_row_ok_count"] = wna16_rows
+    for field in (
+        "descriptor_ptr",
+        "packed_weight_descriptor",
+        "scale_metadata_handle",
+        "aux_metadata_handle",
+    ):
+        summary[
+            f"default_kernel_consumer_wna16_side_variant_{field}_read_row_ok_count"
+        ] = wna16_rows
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is True
+    assert result["failures"] == []
+
+
+def test_check_premap_lab_preflight_summary_rejects_wna16_side_subset_rows() -> None:
+    summary = _summary()
+    online_rows = summary["default_kernel_consumer_online_merged_multiprogram_row_count"]
+    wna16_rows = online_rows - 1
+    summary["default_kernel_consumer_wna16_side_variant_row_count"] = wna16_rows
+    summary["default_kernel_consumer_wna16_side_variant_row_ok_count"] = wna16_rows
+    for field in (
+        "descriptor_ptr",
+        "packed_weight_descriptor",
+        "scale_metadata_handle",
+        "aux_metadata_handle",
+    ):
+        summary[
+            f"default_kernel_consumer_wna16_side_variant_{field}_read_row_ok_count"
+        ] = wna16_rows
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is False
+    assert "wna16_side_variant_row_count_below_online_merged" in result["failures"]
 
 
 def test_check_premap_lab_preflight_summary_accepts_visible_device_zero() -> None:

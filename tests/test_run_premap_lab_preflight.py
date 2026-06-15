@@ -4694,6 +4694,45 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
         summary["prefetch_lab_default_premap_no_eviction_capacity_entries"]
         == 12288
     )
+    assert summary["default_kernel_consumer_wna16_side_variant_evidence_passed"] is True
+    assert summary["default_kernel_consumer_wna16_side_variant_required"] is True
+    assert summary["default_kernel_consumer_wna16_side_variant_checked"] is True
+    assert summary["default_kernel_consumer_wna16_side_variant_source_count"] == 128
+    assert summary["default_kernel_consumer_wna16_side_variant_row_count"] == 520
+    assert summary["default_kernel_consumer_wna16_side_variant_row_ok_count"] == 520
+    assert summary["default_kernel_consumer_wna16_side_variant_error_count"] == 0
+    assert (
+        summary["default_kernel_consumer_wna16_side_variant_all_handle_fields_read"]
+        is True
+    )
+    assert summary["default_kernel_consumer_wna16_side_variant_payload_bytes"] == 0
+    assert summary["default_kernel_consumer_wna16_side_variant_passed_to_kernel"] is False
+    assert (
+        summary["default_kernel_consumer_wna16_side_variant_changes_kernel_launch_args"]
+        is False
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_wna16_side_variant_current_wna16_arg_compatible"
+        ]
+        is False
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_wna16_side_variant_requires_wna16_arg_reinterpretation"
+        ]
+        is False
+    )
+    assert (
+        summary["default_kernel_consumer_wna16_side_variant_reuses_current_wna16_arg_slot"]
+        is False
+    )
+    assert summary["default_kernel_consumer_wna16_side_variant_ready"] is True
+    assert summary["default_kernel_consumer_wna16_benchmark_ready"] is False
+    assert (
+        summary["default_kernel_consumer_next_runtime_stage"]
+        == "implement_real_wna16_typed_slot_kernel_variant"
+    )
     assert (
         summary["default_kernel_consumer_schema_name"]
         == "fused_moe_awq_wna16_kernel_side_typed_consumer_object_v1"
@@ -8535,6 +8574,51 @@ def test_premap_lab_preflight_rejects_default_gate_without_typed_evidence(
         "packed_weight_single_field_handle_handoff_canary_smoke_json:missing_evidence_path",
         "native_typed_consumer_stub_endpoint_ptr_canary_json:missing_evidence_path",
     }
+
+
+def test_premap_lab_preflight_blocks_wna16_side_variant_when_reusing_current_arg_slot(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+    wna16_runner = (
+        tmp_path
+        / "reports/default_gate_wna16_side_consumer_variant_execution_128strict_runner.json"
+    )
+    payload = json.loads(wna16_runner.read_text(encoding="utf-8"))
+    payload["wna16_side_consumer_variant_execution_reuses_current_wna16_arg_slot"] = (
+        True
+    )
+    stub_summary = payload["stub_summary"]
+    assert isinstance(stub_summary, dict)
+    stub_summary[
+        "wna16_side_consumer_variant_execution_reuses_current_wna16_arg_slot"
+    ] = True
+    wna16_runner.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    summary = result["lab_gate_status_summary"]
+    assert result["passed"] is False
+    assert "default_readonly_gate_required_evidence_check_failed" in result["failures"]
+    assert summary["default_kernel_consumer_typed_noop_ready"] is True
+    assert summary["default_kernel_consumer_wna16_side_variant_ready"] is False
+    assert summary["default_kernel_consumer_wna16_benchmark_ready"] is False
+    assert (
+        summary["default_kernel_consumer_next_runtime_stage"]
+        == "implement_wna16_typed_slot_kernel_variant"
+    )
 
 
 def test_premap_lab_preflight_rejects_failed_typed_evidence(

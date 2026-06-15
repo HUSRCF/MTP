@@ -82,6 +82,20 @@ DEFAULT_WNA16_SIDE_VARIANT_MERGED_JSON = (
 DEFAULT_VERIFY_JSON = (
     REPO_ROOT / "outputs" / "reports" / "premap_lab_gate_verify.json"
 )
+WNA16_SIDE_VARIANT_FIELDS = (
+    "descriptor_ptr",
+    "packed_weight_descriptor",
+    "scale_metadata_handle",
+    "aux_metadata_handle",
+)
+WNA16_SIDE_VARIANT_HASH_FIELDS = (
+    "hash_accumulator",
+    "handle_projection_hash_accumulator",
+    "descriptor_ptr_read_hash_accumulator",
+    "packed_weight_descriptor_read_hash_accumulator",
+    "scale_metadata_handle_read_hash_accumulator",
+    "aux_metadata_handle_read_hash_accumulator",
+)
 
 ARG_SLOT_INVOCATION_STATUS_FIELDS = (
     "require_kernel_launch_context_abi",
@@ -204,6 +218,16 @@ ARG_SLOT_INVOCATION_POSITIVE_INT_FIELDS = (
 def _resolve(path: str | Path) -> Path:
     candidate = Path(path)
     return candidate if candidate.is_absolute() else REPO_ROOT / candidate
+
+
+def _is_hex_u64(value: Any) -> bool:
+    if not isinstance(value, str) or not value or len(value) > 16:
+        return False
+    try:
+        parsed = int(value, 16)
+    except ValueError:
+        return False
+    return 0 <= parsed <= 0xFFFFFFFFFFFFFFFF
 
 
 def _subprocess_env() -> dict[str, str]:
@@ -340,12 +364,55 @@ def _load_status(path: Path) -> dict[str, Any]:
         "wna16_side_consumer_variant_execution_reuses_current_wna16_arg_slot": (
             payload.get("wna16_side_consumer_variant_execution_reuses_current_wna16_arg_slot")
         ),
+        "wna16_side_consumer_variant_execution_explicit_typed_abi_slot": (
+            payload.get(
+                "wna16_side_consumer_variant_execution_explicit_typed_abi_slot"
+            )
+        ),
         "wna16_side_consumer_variant_execution_handle_projection_hash_accumulator": (
             payload.get(
                 "wna16_side_consumer_variant_execution_handle_projection_hash_accumulator"
             )
         ),
     }
+    for field in WNA16_SIDE_VARIANT_FIELDS:
+        for suffix in (
+            "read_row_count",
+            "read_row_ok_count",
+            "read_error_count",
+        ):
+            key = f"wna16_side_consumer_variant_execution_{field}_{suffix}"
+            status[key] = payload.get(key)
+    for suffix in WNA16_SIDE_VARIANT_HASH_FIELDS:
+        key = f"wna16_side_consumer_variant_execution_{suffix}"
+        status[key] = payload.get(key)
+    stub_summary = payload.get("stub_summary")
+    if isinstance(stub_summary, dict):
+        status["stub_summary"] = stub_summary
+        for field in WNA16_SIDE_VARIANT_FIELDS:
+            for suffix in (
+                "read_row_count",
+                "read_row_ok_count",
+                "read_error_count",
+            ):
+                key = f"wna16_side_consumer_variant_execution_{field}_{suffix}"
+                if status.get(key) is None:
+                    status[key] = stub_summary.get(key)
+        for suffix in WNA16_SIDE_VARIANT_HASH_FIELDS:
+            key = f"wna16_side_consumer_variant_execution_{suffix}"
+            if status.get(key) is None:
+                status[key] = stub_summary.get(key)
+        if (
+            status.get(
+                "wna16_side_consumer_variant_execution_explicit_typed_abi_slot"
+            )
+            is None
+        ):
+            status["wna16_side_consumer_variant_execution_explicit_typed_abi_slot"] = (
+                stub_summary.get(
+                    "wna16_side_consumer_variant_execution_explicit_typed_abi_slot"
+                )
+            )
     summaries = payload.get("summaries")
     if isinstance(summaries, dict):
         arg_slot_runner = summaries.get("arg_slot_runner")
@@ -558,11 +625,47 @@ def _status_failures(statuses: dict[str, dict[str, Any]]) -> list[str]:
             is not False
         ):
             failures.append("wna16_side_variant_reuses_current_wna16_arg_slot_mismatch")
-        hash_value = wna16_status.get(
-            "wna16_side_consumer_variant_execution_handle_projection_hash_accumulator"
-        )
-        if not isinstance(hash_value, str) or not hash_value:
-            failures.append("wna16_side_variant_handle_projection_hash_missing")
+        if (
+            wna16_status.get(
+                "wna16_side_consumer_variant_execution_explicit_typed_abi_slot"
+            )
+            is not True
+        ):
+            failures.append("wna16_side_variant_explicit_typed_abi_slot_mismatch")
+        for field in WNA16_SIDE_VARIANT_FIELDS:
+            if (
+                wna16_status.get(
+                    f"wna16_side_consumer_variant_execution_{field}_read_row_count"
+                )
+                != row_count
+            ):
+                failures.append(
+                    f"wna16_side_variant_{field}_read_row_count_mismatch"
+                )
+            if (
+                wna16_status.get(
+                    f"wna16_side_consumer_variant_execution_{field}_read_row_ok_count"
+                )
+                != row_count
+            ):
+                failures.append(
+                    f"wna16_side_variant_{field}_read_row_ok_count_mismatch"
+                )
+            if (
+                wna16_status.get(
+                    f"wna16_side_consumer_variant_execution_{field}_read_error_count"
+                )
+                != 0
+            ):
+                failures.append(
+                    f"wna16_side_variant_{field}_read_error_count_mismatch"
+                )
+        for suffix in WNA16_SIDE_VARIANT_HASH_FIELDS:
+            hash_value = wna16_status.get(
+                f"wna16_side_consumer_variant_execution_{suffix}"
+            )
+            if not _is_hex_u64(hash_value):
+                failures.append(f"wna16_side_variant_{suffix}_invalid")
     return failures
 
 

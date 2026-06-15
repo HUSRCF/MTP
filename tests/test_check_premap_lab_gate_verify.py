@@ -54,8 +54,36 @@ def _status_payload(name: str) -> dict[str, object]:
                 "wna16_side_consumer_variant_execution_reuses_current_wna16_arg_slot": (
                     False
                 ),
+                "wna16_side_consumer_variant_execution_explicit_typed_abi_slot": True,
+                "wna16_side_consumer_variant_execution_descriptor_ptr_read_row_count": 1841,
+                "wna16_side_consumer_variant_execution_descriptor_ptr_read_row_ok_count": 1841,
+                "wna16_side_consumer_variant_execution_descriptor_ptr_read_error_count": 0,
+                "wna16_side_consumer_variant_execution_packed_weight_descriptor_read_row_count": 1841,
+                "wna16_side_consumer_variant_execution_packed_weight_descriptor_read_row_ok_count": 1841,
+                "wna16_side_consumer_variant_execution_packed_weight_descriptor_read_error_count": 0,
+                "wna16_side_consumer_variant_execution_scale_metadata_handle_read_row_count": 1841,
+                "wna16_side_consumer_variant_execution_scale_metadata_handle_read_row_ok_count": 1841,
+                "wna16_side_consumer_variant_execution_scale_metadata_handle_read_error_count": 0,
+                "wna16_side_consumer_variant_execution_aux_metadata_handle_read_row_count": 1841,
+                "wna16_side_consumer_variant_execution_aux_metadata_handle_read_row_ok_count": 1841,
+                "wna16_side_consumer_variant_execution_aux_metadata_handle_read_error_count": 0,
+                "wna16_side_consumer_variant_execution_hash_accumulator": (
+                    "1112131415161718"
+                ),
                 "wna16_side_consumer_variant_execution_handle_projection_hash_accumulator": (
                     "9748c8c92c02281b"
+                ),
+                "wna16_side_consumer_variant_execution_descriptor_ptr_read_hash_accumulator": (
+                    "3132333435363738"
+                ),
+                "wna16_side_consumer_variant_execution_packed_weight_descriptor_read_hash_accumulator": (
+                    "4142434445464748"
+                ),
+                "wna16_side_consumer_variant_execution_scale_metadata_handle_read_hash_accumulator": (
+                    "5152535455565758"
+                ),
+                "wna16_side_consumer_variant_execution_aux_metadata_handle_read_hash_accumulator": (
+                    "6162636465666768"
                 ),
             }
         )
@@ -233,6 +261,36 @@ def test_lab_gate_verify_check_rejects_wna16_side_variant_missing_gate(
 
     assert result["passed"] is False
     assert "wna16_side_variant_did_not_require_execution" in result["failures"]
+
+
+def test_lab_gate_verify_check_rejects_wna16_side_variant_bad_stub_field(
+    tmp_path: Path,
+):
+    path = tmp_path / "verify.json"
+    payload = _write_verify(path)
+    statuses = payload["statuses"]
+    assert isinstance(statuses, dict)
+    wna16_status = statuses["wna16_side_consumer_variant"]
+    assert isinstance(wna16_status, dict)
+    wna16_status[
+        "wna16_side_consumer_variant_execution_scale_metadata_handle_read_row_ok_count"
+    ] = 7
+    wna16_status[
+        "wna16_side_consumer_variant_execution_aux_metadata_handle_read_hash_accumulator"
+    ] = "not_hex"
+    path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+
+    result = check_lab_gate_verify_artifact(path)
+
+    assert result["passed"] is False
+    assert (
+        "wna16_side_variant_scale_metadata_handle_read_row_ok_count_mismatch"
+        in result["failures"]
+    )
+    assert (
+        "wna16_side_variant_aux_metadata_handle_read_hash_accumulator_invalid"
+        in result["failures"]
+    )
 
 
 def test_lab_gate_verify_check_rejects_default_closure_without_invocation_abi(

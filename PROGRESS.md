@@ -2,8 +2,38 @@
 
 ## Progress Version
 
-- Version: `v0.91-typed-noop-stage-preflight`
+- Version: `v0.92-wna16-side-variant-preflight`
 - Updated: 2026-06-14
+- Latest WNA16-side typed-slot variant preflight gate: the compact lab
+  preflight now promotes the independent WNA16-side typed ABI/stub evidence
+  from optional diagnostic coverage into a required default lab gate.  The
+  refreshed artifact
+  `outputs/reports/premap_lab_preflight_status_v092_wna16_side_variant_gate.json`
+  passes `scripts/check_premap_lab_preflight_summary.py` with
+  `--expected-online-merged-device 0`; the artifact records
+  `default_kernel_consumer_online_merged_multiprogram_hip_visible_devices=1`,
+  so device `0` is the visible-device index for physical GPU1.  The status
+  reports `default_kernel_consumer_wna16_side_variant_ready=true`,
+  `default_kernel_consumer_wna16_benchmark_ready=false`, and
+  `default_kernel_consumer_next_runtime_stage=implement_real_wna16_typed_slot_kernel_variant`.
+  The required WNA16-side evidence uses
+  `wna16_side_consumer_variant_execution_128strict_runner_json`, covers
+  128 sources and 3418 rows, reads all four typed fields
+  (`descriptor_ptr`, `packed_weight_descriptor`, `scale_metadata_handle`, and
+  `aux_metadata_handle`), records valid per-field hash accumulators, and keeps
+  `payload_bytes=0`, `passed_to_kernel=false`,
+  `changes_kernel_launch_args=false`,
+  `current_wna16_arg_compatible=false`,
+  `requires_wna16_arg_reinterpretation=false`, and
+  `reuses_current_wna16_arg_slot=false`.
+  The compact checker treats this as coverage evidence: the WNA16-side row
+  count must be at least the default online-merged row count rather than
+  exactly equal, because the 128-strict artifact may cover a larger source set
+  than the default 32-input online view.  The next hardening item is to add an
+  explicit source-manifest or row-coverage digest so the compact gate can prove
+  subset/prefix provenance, not only label/source/row-count coverage.  This is
+  still a preflight gate for a future typed-slot kernel variant, not a WNA16
+  benchmark or current-kernel-arg handoff claim.
 - Latest typed-consumer stage gate: the lab preflight compact status now
   reports a machine-readable native typed consumer stage.  The refreshed
   artifact
