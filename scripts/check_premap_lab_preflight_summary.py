@@ -414,11 +414,7 @@ def check_premap_lab_preflight_summary(
         "default_kernel_consumer_wna16_side_variant_explicit_typed_abi_slot": True,
         "default_kernel_consumer_wna16_side_variant_reuses_current_wna16_arg_slot": False,
         "default_kernel_consumer_typed_noop_ready": True,
-        "default_kernel_consumer_wna16_benchmark_ready": False,
-        "default_kernel_consumer_wna16_side_variant_ready": True,
-        "default_kernel_consumer_next_runtime_stage": (
-            "implement_real_wna16_typed_slot_kernel_variant"
-        ),
+        "default_kernel_consumer_wna16_side_variant_base_ready": True,
         "payload_bytes_required": 0,
         "passed_to_kernel_required": False,
         "changes_kernel_launch_args_required": False,
@@ -570,6 +566,41 @@ def check_premap_lab_preflight_summary(
         summary,
         "default_kernel_consumer_wna16_side_variant_source_count",
     )
+    online_source_context_count = _int_metric(
+        summary,
+        "default_kernel_consumer_online_merged_multiprogram_source_context_count",
+    )
+    online_source_identity_count = _int_metric(
+        summary,
+        "default_kernel_consumer_online_merged_multiprogram_source_identity_count",
+    )
+    online_source_context_matches_source_count = summary.get(
+        "default_kernel_consumer_online_merged_multiprogram_source_context_matches_source_count"
+    )
+    online_source_identity_coverage = summary.get(
+        "default_kernel_consumer_online_merged_multiprogram_source_identity_coverage"
+    )
+    wna16_side_source_context_count = _int_metric(
+        summary,
+        "default_kernel_consumer_wna16_side_variant_source_context_count",
+    )
+    wna16_side_source_identity_count = _int_metric(
+        summary,
+        "default_kernel_consumer_wna16_side_variant_source_identity_count",
+    )
+    wna16_side_source_context_matches_source_count = summary.get(
+        "default_kernel_consumer_wna16_side_variant_source_context_matches_source_count"
+    )
+    wna16_side_source_identity_coverage = summary.get(
+        "default_kernel_consumer_wna16_side_variant_source_identity_coverage"
+    )
+    wna16_side_missing_source_identity_count = _int_metric(
+        summary,
+        "default_kernel_consumer_wna16_side_variant_online_source_identity_missing_count",
+    )
+    wna16_side_source_identity_subset = summary.get(
+        "default_kernel_consumer_wna16_side_variant_online_source_identity_subset"
+    )
     wna16_side_row_count = _int_metric(
         summary,
         "default_kernel_consumer_wna16_side_variant_row_count",
@@ -580,6 +611,84 @@ def check_premap_lab_preflight_summary(
     )
     if wna16_side_source_count is None or wna16_side_source_count < 128:
         failures.append("wna16_side_variant_source_count_invalid")
+    if online_source_context_count is None or online_source_context_count <= 0:
+        failures.append("online_merged_source_context_count_invalid")
+    if online_source_identity_count is None or online_source_identity_count <= 0:
+        failures.append("online_merged_source_identity_count_invalid")
+    if (
+        source_count is not None
+        and online_source_context_count is not None
+        and online_source_context_count != source_count
+    ):
+        failures.append("online_merged_source_context_count_mismatch")
+    if online_source_context_matches_source_count is not True:
+        failures.append("online_merged_source_context_matches_source_count_mismatch")
+    if (
+        online_source_context_count is not None
+        and online_source_identity_count is not None
+        and online_source_identity_count != online_source_context_count
+    ):
+        failures.append("online_merged_source_identity_count_mismatch")
+    if online_source_identity_coverage is not True:
+        failures.append("online_merged_source_identity_coverage_mismatch")
+    if wna16_side_source_context_count is None or wna16_side_source_context_count <= 0:
+        failures.append("wna16_side_variant_source_context_count_invalid")
+    if (
+        wna16_side_source_count is not None
+        and wna16_side_source_context_count is not None
+        and wna16_side_source_context_count != wna16_side_source_count
+    ):
+        failures.append("wna16_side_variant_source_context_count_mismatch")
+    if wna16_side_source_context_matches_source_count is not True:
+        failures.append("wna16_side_variant_source_context_matches_source_count_mismatch")
+    if (
+        wna16_side_source_identity_count is None
+        or wna16_side_source_identity_count <= 0
+    ):
+        failures.append("wna16_side_variant_source_identity_count_invalid")
+    if (
+        wna16_side_source_context_count is not None
+        and wna16_side_source_identity_count is not None
+        and wna16_side_source_identity_count != wna16_side_source_context_count
+    ):
+        failures.append("wna16_side_variant_source_identity_count_mismatch")
+    if wna16_side_source_identity_coverage is not True:
+        failures.append("wna16_side_variant_source_identity_coverage_mismatch")
+    for key in (
+        "default_kernel_consumer_online_merged_multiprogram_source_identity_digest",
+        "default_kernel_consumer_wna16_side_variant_source_identity_digest",
+    ):
+        if not _is_hex64(summary.get(key)):
+            failures.append(f"{key}_invalid")
+    if wna16_side_source_identity_subset is True:
+        if wna16_side_missing_source_identity_count != 0:
+            failures.append("wna16_side_variant_source_identity_missing_count_mismatch")
+        if summary.get("default_kernel_consumer_wna16_side_variant_ready") is not True:
+            failures.append("wna16_side_variant_ready_mismatch")
+        expected_stage = (
+            "run_wna16_typed_slot_benchmark"
+            if summary.get("default_kernel_consumer_wna16_benchmark_ready") is True
+            else "implement_real_wna16_typed_slot_kernel_variant"
+        )
+        if summary.get("default_kernel_consumer_next_runtime_stage") != expected_stage:
+            failures.append("wna16_side_variant_next_stage_mismatch")
+    elif wna16_side_source_identity_subset is False:
+        if (
+            wna16_side_missing_source_identity_count is None
+            or wna16_side_missing_source_identity_count <= 0
+        ):
+            failures.append("wna16_side_variant_source_identity_missing_count_invalid")
+        if summary.get("default_kernel_consumer_wna16_side_variant_ready") is not False:
+            failures.append("wna16_side_variant_ready_mismatch")
+        if summary.get("default_kernel_consumer_wna16_benchmark_ready") is not False:
+            failures.append("wna16_side_variant_benchmark_ready_mismatch")
+        if (
+            summary.get("default_kernel_consumer_next_runtime_stage")
+            != "refresh_wna16_side_variant_source_provenance"
+        ):
+            failures.append("wna16_side_variant_next_stage_mismatch")
+    else:
+        failures.append("wna16_side_variant_source_identity_subset_invalid")
     if wna16_side_row_count is None or wna16_side_row_count <= 0:
         failures.append("wna16_side_variant_row_count_invalid")
     if wna16_side_row_count is not None and wna16_side_row_ok_count != wna16_side_row_count:

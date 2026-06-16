@@ -7276,6 +7276,137 @@ def _load_evidence_payload_from_check(
     return payload if isinstance(payload, dict) else {}
 
 
+def _load_json_object_path(raw_path: Any, *, root: Path) -> dict[str, Any]:
+    if not isinstance(raw_path, str) or not raw_path:
+        return {}
+    path = _path_for_label(raw_path, root)
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def _source_context_identity(
+    context: dict[str, Any],
+    *,
+    row_span_by_source_index: dict[int, dict[str, Any]],
+) -> str | None:
+    request_id = context.get("request_id")
+    sequence_id = context.get("sequence_id")
+    token_index = context.get("token_index")
+    layer_id = context.get("layer_id")
+    row_count = context.get("row_count")
+    if not isinstance(request_id, str) or not request_id:
+        return None
+    if sequence_id is None:
+        return None
+    source_index = context.get("source_index")
+    try:
+        source_index_int = int(source_index)
+    except (TypeError, ValueError):
+        return None
+    row_span = row_span_by_source_index.get(source_index_int, {})
+    source_schema_hash = row_span.get("source_schema_hash")
+    source_table_object_hash = row_span.get("source_table_object_hash")
+    if not isinstance(source_schema_hash, str) or not source_schema_hash:
+        return None
+    if not isinstance(source_table_object_hash, str) or not source_table_object_hash:
+        return None
+    try:
+        return json.dumps(
+            [
+                str(request_id),
+                str(sequence_id),
+                int(token_index),
+                int(layer_id),
+                int(row_count),
+                source_schema_hash,
+                source_table_object_hash,
+            ],
+            separators=(",", ":"),
+        )
+    except (TypeError, ValueError):
+        return None
+
+
+def _source_context_identities_from_merged_output(
+    payload: dict[str, Any],
+    *,
+    root: Path,
+) -> list[str]:
+    merged = _load_json_object_path(payload.get("merged_output_json"), root=root)
+    merge_context = merged.get("_merge_context")
+    if not isinstance(merge_context, dict):
+        return []
+    raw_contexts = merge_context.get("source_contexts")
+    if not isinstance(raw_contexts, list):
+        return []
+    raw_row_spans = merge_context.get("row_spans")
+    row_span_by_source_index: dict[int, dict[str, Any]] = {}
+    if isinstance(raw_row_spans, list):
+        for row_span in raw_row_spans:
+            if not isinstance(row_span, dict):
+                continue
+            try:
+                source_index = int(row_span.get("source_index"))
+            except (TypeError, ValueError):
+                continue
+            row_span_by_source_index[source_index] = row_span
+    identities: list[str] = []
+    for context in raw_contexts:
+        if not isinstance(context, dict):
+            continue
+        identity = _source_context_identity(
+            context,
+            row_span_by_source_index=row_span_by_source_index,
+        )
+        if identity is not None:
+            identities.append(identity)
+    return identities
+
+
+def _source_context_count_from_merged_output(
+    payload: dict[str, Any],
+    *,
+    root: Path,
+) -> int | None:
+    merged = _load_json_object_path(payload.get("merged_output_json"), root=root)
+    merge_context = merged.get("_merge_context")
+    if not isinstance(merge_context, dict):
+        return None
+    raw_contexts = merge_context.get("source_contexts")
+    if not isinstance(raw_contexts, list):
+        return None
+    return len([context for context in raw_contexts if isinstance(context, dict)])
+
+
+def _source_identity_digest(identities: list[str]) -> str | None:
+    if not identities:
+        return None
+    data = json.dumps(identities, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(data).hexdigest()
+
+
+def _source_identity_subset(
+    child: list[str],
+    parent: list[str],
+) -> tuple[bool | None, int | None]:
+    if not child or not parent:
+        return None, None
+    remaining: dict[str, int] = {}
+    for identity in parent:
+        remaining[identity] = remaining.get(identity, 0) + 1
+    missing = 0
+    for identity in child:
+        count = remaining.get(identity, 0)
+        if count <= 0:
+            missing += 1
+        else:
+            remaining[identity] = count - 1
+    return missing == 0, missing
+
+
 def _check_risky_canary_gate_metadata(
     gate_path: str,
     *,
@@ -7772,6 +7903,37 @@ def run_premap_lab_preflight(
     wna16_side_variant_stub_summary = wna16_side_variant_payload.get("stub_summary")
     if not isinstance(wna16_side_variant_stub_summary, dict):
         wna16_side_variant_stub_summary = {}
+    online_merged_multiprogram_source_context_count = (
+        _source_context_count_from_merged_output(
+            online_merged_multiprogram_runner_payload,
+            root=root,
+        )
+    )
+    wna16_side_variant_source_context_count = (
+        _source_context_count_from_merged_output(
+            wna16_side_variant_payload,
+            root=root,
+        )
+    )
+    online_merged_multiprogram_source_identities = (
+        _source_context_identities_from_merged_output(
+            online_merged_multiprogram_runner_payload,
+            root=root,
+        )
+    )
+    wna16_side_variant_source_identities = (
+        _source_context_identities_from_merged_output(
+            wna16_side_variant_payload,
+            root=root,
+        )
+    )
+    (
+        wna16_side_variant_source_identity_subset,
+        wna16_side_variant_source_identity_missing_count,
+    ) = _source_identity_subset(
+        online_merged_multiprogram_source_identities,
+        wna16_side_variant_source_identities,
+    )
     arg_slot_standalone_mirror_field_coverage = _arg_slot_mirror_field_coverage(
         arg_slot_standalone_payload
     )
@@ -10136,6 +10298,27 @@ def run_premap_lab_preflight(
                 "selected_source_count",
             )
         ),
+        "default_kernel_consumer_online_merged_multiprogram_source_context_count": (
+            online_merged_multiprogram_source_context_count
+        ),
+        "default_kernel_consumer_online_merged_multiprogram_source_context_matches_source_count": (
+            online_merged_multiprogram_source_context_count is not None
+            and online_merged_multiprogram_source_context_count
+            == _int_metric(
+                online_merged_multiprogram_runner_payload, "selected_source_count"
+            )
+        ),
+        "default_kernel_consumer_online_merged_multiprogram_source_identity_count": (
+            len(online_merged_multiprogram_source_identities)
+        ),
+        "default_kernel_consumer_online_merged_multiprogram_source_identity_coverage": (
+            online_merged_multiprogram_source_context_count is not None
+            and len(online_merged_multiprogram_source_identities)
+            == online_merged_multiprogram_source_context_count
+        ),
+        "default_kernel_consumer_online_merged_multiprogram_source_identity_digest": (
+            _source_identity_digest(online_merged_multiprogram_source_identities)
+        ),
         "default_kernel_consumer_online_merged_multiprogram_row_count": (
             _int_metric(
                 online_merged_multiprogram_runner_payload,
@@ -10655,6 +10838,31 @@ def run_premap_lab_preflight(
         ),
         "default_kernel_consumer_wna16_side_variant_source_count": (
             _int_metric(wna16_side_variant_payload, "selected_source_count")
+        ),
+        "default_kernel_consumer_wna16_side_variant_source_context_count": (
+            wna16_side_variant_source_context_count
+        ),
+        "default_kernel_consumer_wna16_side_variant_source_context_matches_source_count": (
+            wna16_side_variant_source_context_count is not None
+            and wna16_side_variant_source_context_count
+            == _int_metric(wna16_side_variant_payload, "selected_source_count")
+        ),
+        "default_kernel_consumer_wna16_side_variant_source_identity_count": (
+            len(wna16_side_variant_source_identities)
+        ),
+        "default_kernel_consumer_wna16_side_variant_source_identity_coverage": (
+            wna16_side_variant_source_context_count is not None
+            and len(wna16_side_variant_source_identities)
+            == wna16_side_variant_source_context_count
+        ),
+        "default_kernel_consumer_wna16_side_variant_source_identity_digest": (
+            _source_identity_digest(wna16_side_variant_source_identities)
+        ),
+        "default_kernel_consumer_wna16_side_variant_online_source_identity_subset": (
+            wna16_side_variant_source_identity_subset
+        ),
+        "default_kernel_consumer_wna16_side_variant_online_source_identity_missing_count": (
+            wna16_side_variant_source_identity_missing_count
         ),
         "default_kernel_consumer_wna16_side_variant_row_count": (
             _int_metric(
@@ -11919,7 +12127,7 @@ def run_premap_lab_preflight(
             "default_kernel_consumer_wna16_side_variant_aux_metadata_handle_read_hash_accumulator",
         )
     )
-    wna16_side_variant_ready = (
+    wna16_side_variant_base_ready = (
         typed_noop_ready
         and lab_gate_status_summary.get(
             "default_kernel_consumer_wna16_side_variant_evidence_passed"
@@ -11982,8 +12190,35 @@ def run_premap_lab_preflight(
         )
         is False
     )
+    wna16_side_variant_ready = (
+        wna16_side_variant_base_ready
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_online_merged_multiprogram_source_context_matches_source_count"
+        )
+        is True
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_online_merged_multiprogram_source_identity_coverage"
+        )
+        is True
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_wna16_side_variant_source_context_matches_source_count"
+        )
+        is True
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_wna16_side_variant_source_identity_coverage"
+        )
+        is True
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_wna16_side_variant_online_source_identity_subset"
+        )
+        is True
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_wna16_side_variant_online_source_identity_missing_count"
+        )
+        == 0
+    )
     wna16_benchmark_ready = (
-        typed_noop_ready
+        wna16_side_variant_ready
         and lab_gate_status_summary.get(
             "default_kernel_consumer_online_merged_multiprogram_current_wna16_arg_compatible"
         )
@@ -11997,6 +12232,8 @@ def run_premap_lab_preflight(
         next_runtime_stage = "run_wna16_typed_slot_benchmark"
     elif wna16_side_variant_ready:
         next_runtime_stage = "implement_real_wna16_typed_slot_kernel_variant"
+    elif wna16_side_variant_base_ready:
+        next_runtime_stage = "refresh_wna16_side_variant_source_provenance"
     elif typed_noop_ready:
         next_runtime_stage = "implement_wna16_typed_slot_kernel_variant"
     else:
@@ -12010,6 +12247,9 @@ def run_premap_lab_preflight(
     lab_gate_status_summary[
         "default_kernel_consumer_wna16_side_variant_ready"
     ] = wna16_side_variant_ready
+    lab_gate_status_summary[
+        "default_kernel_consumer_wna16_side_variant_base_ready"
+    ] = wna16_side_variant_base_ready
     lab_gate_status_summary["default_kernel_consumer_next_runtime_stage"] = (
         next_runtime_stage
     )

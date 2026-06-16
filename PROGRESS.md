@@ -2,38 +2,52 @@
 
 ## Progress Version
 
-- Version: `v0.92-wna16-side-variant-preflight`
-- Updated: 2026-06-14
-- Latest WNA16-side typed-slot variant preflight gate: the compact lab
-  preflight now promotes the independent WNA16-side typed ABI/stub evidence
-  from optional diagnostic coverage into a required default lab gate.  The
-  refreshed artifact
-  `outputs/reports/premap_lab_preflight_status_v092_wna16_side_variant_gate.json`
-  passes `scripts/check_premap_lab_preflight_summary.py` with
-  `--expected-online-merged-device 0`; the artifact records
-  `default_kernel_consumer_online_merged_multiprogram_hip_visible_devices=1`,
-  so device `0` is the visible-device index for physical GPU1.  The status
-  reports `default_kernel_consumer_wna16_side_variant_ready=true`,
-  `default_kernel_consumer_wna16_benchmark_ready=false`, and
-  `default_kernel_consumer_next_runtime_stage=implement_real_wna16_typed_slot_kernel_variant`.
-  The required WNA16-side evidence uses
-  `wna16_side_consumer_variant_execution_128strict_runner_json`, covers
-  128 sources and 3418 rows, reads all four typed fields
+- Version: `v0.93-wna16-source-provenance-preflight`
+- Updated: 2026-06-16
+- Latest WNA16-side typed-slot provenance gate: the compact lab preflight now
+  separates WNA16-side structural readiness from source-provenance readiness.
+  `default_kernel_consumer_wna16_side_variant_base_ready=true` means the
+  independent WNA16-side typed ABI/stub evidence still passes the safety and
+  structure checks: 128 sources, 3418 rows, all four typed fields read
   (`descriptor_ptr`, `packed_weight_descriptor`, `scale_metadata_handle`, and
-  `aux_metadata_handle`), records valid per-field hash accumulators, and keeps
-  `payload_bytes=0`, `passed_to_kernel=false`,
-  `changes_kernel_launch_args=false`,
+  `aux_metadata_handle`), valid field/hash evidence, `payload_bytes=0`,
+  `passed_to_kernel=false`, `changes_kernel_launch_args=false`,
   `current_wna16_arg_compatible=false`,
   `requires_wna16_arg_reinterpretation=false`, and
-  `reuses_current_wna16_arg_slot=false`.
-  The compact checker treats this as coverage evidence: the WNA16-side row
-  count must be at least the default online-merged row count rather than
-  exactly equal, because the 128-strict artifact may cover a larger source set
-  than the default 32-input online view.  The next hardening item is to add an
-  explicit source-manifest or row-coverage digest so the compact gate can prove
-  subset/prefix provenance, not only label/source/row-count coverage.  This is
-  still a preflight gate for a future typed-slot kernel variant, not a WNA16
-  benchmark or current-kernel-arg handoff claim.
+  `reuses_current_wna16_arg_slot=false`.  The final
+  `default_kernel_consumer_wna16_side_variant_ready` predicate now additionally
+  requires the WNA16-side source identities to be a multiset subset of the
+  default online-merged source identities.  A source identity includes
+  `request_id`, opaque `sequence_id`, `token_index`, `layer_id`, `row_count`,
+  `source_schema_hash`, and `source_table_object_hash`; missing `sequence_id`
+  or missing table/schema hash makes the context unprovable rather than
+  silently reusable.  Final readiness also requires identity coverage to match
+  source context coverage and source context count to match the reported
+  selected source count, so two artifacts cannot pass by dropping the same
+  unprovable source from both sides.
+
+  The refreshed artifact
+  `outputs/reports/premap_lab_preflight_status_v093_wna16_source_provenance_gate.json`
+  passes `scripts/check_premap_lab_preflight_summary.py` with
+  `--min-source-count 32 --expected-online-merged-device 0`.  It reports
+  `default_contract_passed=true`,
+  `default_kernel_consumer_typed_noop_ready=true`,
+  `default_kernel_consumer_wna16_side_variant_base_ready=true`, but
+  `default_kernel_consumer_wna16_side_variant_ready=false` and
+  `default_kernel_consumer_wna16_benchmark_ready=false`.  The online merged
+  view has 32 source contexts, 32 source identities, and 1841 rows; the current
+  WNA16-side artifact has 128 source contexts, 128 source identities, and 3418
+  rows.  Both artifacts have complete identity coverage, but the WNA16-side
+  source family is not proven to cover the default online-merged source family:
+  `default_kernel_consumer_wna16_side_variant_online_source_identity_subset=false`
+  with `missing_count=32`.  Therefore
+  `default_kernel_consumer_next_runtime_stage=refresh_wna16_side_variant_source_provenance`.
+  This intentionally corrects the v0.92 row-count-only promotion: the current
+  evidence remains valid no-op/ABI coverage, but it is no longer sufficient to
+  enter the real WNA16 typed-slot benchmark path until a same-source WNA16-side
+  128-strict artifact or equivalent source-manifest/row-coverage digest is
+  produced.
+
 - Latest typed-consumer stage gate: the lab preflight compact status now
   reports a machine-readable native typed consumer stage.  The refreshed
   artifact

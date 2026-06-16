@@ -20,6 +20,8 @@ from mtp_expert_prefetch.runtime.cache_manager import (
 from scripts.run_premap_lab_preflight import main, run_premap_lab_preflight
 from scripts.run_premap_lab_preflight import _program_iteration_hash
 from scripts.run_premap_lab_preflight import (
+    _source_context_identities_from_merged_output,
+    _source_identity_subset,
     _validate_required_evidence_payload,
     _validate_payload_cache_producer_state_native_canary_evidence,
 )
@@ -3010,6 +3012,39 @@ def _online_merged_arg_slot_multiprogram_input_payload() -> dict[str, object]:
     }
 
 
+def _wna16_side_arg_slot_multiprogram_input_payload() -> dict[str, object]:
+    payload = _online_merged_arg_slot_multiprogram_input_payload()
+    merge_context = payload["_merge_context"]
+    row_spans = merge_context["row_spans"]
+    source_contexts = merge_context["source_contexts"]
+    row_count = merge_context["row_count"]
+    for idx in range(len(source_contexts), 128):
+        row_spans.append(
+            {
+                "source_index": idx,
+                "path": f"reports/wna16_extra_input_{idx:04d}.json",
+                "row_start": row_count,
+                "row_count": 0,
+                "row_end": row_count,
+                "source_table_object_hash": f"table-{idx}",
+                "source_schema_hash": PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH,
+            }
+        )
+        source_contexts.append(
+            {
+                "source_index": idx,
+                "export_index": idx,
+                "layer_id": idx % 40,
+                "request_id": f"req-extra-{idx}",
+                "sequence_id": "seq0",
+                "token_index": -1,
+                "row_count": 0,
+            }
+        )
+    merge_context["source_count"] = 128
+    return payload
+
+
 def _online_merged_arg_slot_multiprogram_canary_payload(
     input_path: str,
     *,
@@ -3021,6 +3056,75 @@ def _online_merged_arg_slot_multiprogram_canary_payload(
     payload["input_json"] = input_path
     payload["input_source"] = "binary_prefix"
     return payload
+
+
+def test_source_context_identity_uses_opaque_sequence_and_table_hash(tmp_path: Path):
+    payload = _online_merged_arg_slot_multiprogram_input_payload()
+    child_path = tmp_path / "child.json"
+    parent_path = tmp_path / "parent.json"
+    child_path.write_text(json.dumps(payload), encoding="utf-8")
+    parent_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    child = _source_context_identities_from_merged_output(
+        {"merged_output_json": str(child_path)},
+        root=tmp_path,
+    )
+    parent = _source_context_identities_from_merged_output(
+        {"merged_output_json": str(parent_path)},
+        root=tmp_path,
+    )
+    subset, missing_count = _source_identity_subset(child, parent)
+
+    assert len(child) == 32
+    assert subset is True
+    assert missing_count == 0
+    assert "seq0" in child[0]
+    assert "table-0" in child[0]
+    assert PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH in child[0]
+    assert child[0].startswith("[")
+
+
+def test_source_context_identity_requires_sequence_id(tmp_path: Path):
+    payload = _online_merged_arg_slot_multiprogram_input_payload()
+    payload["_merge_context"]["source_contexts"][0].pop("sequence_id")
+    path = tmp_path / "missing_sequence.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    identities = _source_context_identities_from_merged_output(
+        {"merged_output_json": str(path)},
+        root=tmp_path,
+    )
+
+    assert len(identities) == 31
+
+
+def test_source_context_identity_rejects_same_context_with_different_table_hash(
+    tmp_path: Path,
+):
+    child_payload = _online_merged_arg_slot_multiprogram_input_payload()
+    parent_payload = _online_merged_arg_slot_multiprogram_input_payload()
+    parent_payload["_merge_context"]["row_spans"][0][
+        "source_table_object_hash"
+    ] = "different-table"
+    child_path = tmp_path / "child.json"
+    parent_path = tmp_path / "parent.json"
+    child_path.write_text(json.dumps(child_payload), encoding="utf-8")
+    parent_path.write_text(json.dumps(parent_payload), encoding="utf-8")
+
+    child = _source_context_identities_from_merged_output(
+        {"merged_output_json": str(child_path)},
+        root=tmp_path,
+    )
+    parent = _source_context_identities_from_merged_output(
+        {"merged_output_json": str(parent_path)},
+        root=tmp_path,
+    )
+    subset, missing_count = _source_identity_subset(child, parent)
+
+    assert len(child) == 32
+    assert len(parent) == 32
+    assert subset is False
+    assert missing_count == 1
 
 
 def _future_wna16_single_field_handoff_all_fields_summary_payload(
@@ -3678,6 +3782,12 @@ def _write_gate(
     future_wna16_single_field_handoff_all_fields_summary_path = (
         f"reports/{name}_future_wna16_single_field_handoff_all_fields_128strict_summary.json"
     )
+    wna16_side_consumer_variant_execution_input_path = (
+        f"reports/{name}_wna16_side_consumer_variant_execution_input.json"
+    )
+    wna16_side_consumer_variant_execution_stub_path = (
+        f"reports/{name}_wna16_side_consumer_variant_execution_stub.json"
+    )
     wna16_side_consumer_variant_execution_runner_path = (
         f"reports/{name}_wna16_side_consumer_variant_execution_128strict_runner.json"
     )
@@ -4177,11 +4287,24 @@ def _write_gate(
             + "\n",
         )
         _write(
+            root / wna16_side_consumer_variant_execution_input_path,
+            json.dumps(_wna16_side_arg_slot_multiprogram_input_payload()) + "\n",
+        )
+        _write(
+            root / wna16_side_consumer_variant_execution_stub_path,
+            json.dumps(
+                _online_merged_arg_slot_multiprogram_canary_payload(
+                    wna16_side_consumer_variant_execution_input_path
+                )
+            )
+            + "\n",
+        )
+        _write(
             root / wna16_side_consumer_variant_execution_runner_path,
             json.dumps(
                 _wna16_side_consumer_variant_execution_runner_payload(
-                    online_merged_arg_slot_multiprogram_input_path,
-                    online_merged_wna16_adjacent_typed_slot_stub_path,
+                    wna16_side_consumer_variant_execution_input_path,
+                    wna16_side_consumer_variant_execution_stub_path,
                 )
             )
             + "\n",
@@ -4727,6 +4850,7 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
         summary["default_kernel_consumer_wna16_side_variant_reuses_current_wna16_arg_slot"]
         is False
     )
+    assert summary["default_kernel_consumer_wna16_side_variant_base_ready"] is True
     assert summary["default_kernel_consumer_wna16_side_variant_ready"] is True
     assert summary["default_kernel_consumer_wna16_benchmark_ready"] is False
     assert (
@@ -6082,6 +6206,118 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     )
     assert result["trace_config_checks"][0]["passed"] is True
     assert result["trace_config_checks"][0]["readonly_gate_path_label"] == default_gate
+
+
+def test_premap_lab_preflight_downgrades_wna16_ready_on_source_mismatch(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    mismatched_input_path = (
+        tmp_path / "reports/default_gate_wna16_source_mismatch_input.json"
+    )
+    mismatched_payload = _online_merged_arg_slot_multiprogram_input_payload()
+    mismatched_payload["_merge_context"]["row_spans"][0][
+        "source_table_object_hash"
+    ] = "different-table"
+    mismatched_input_path.write_text(
+        json.dumps(mismatched_payload) + "\n",
+        encoding="utf-8",
+    )
+    runner_path = (
+        tmp_path
+        / "reports/default_gate_wna16_side_consumer_variant_execution_128strict_runner.json"
+    )
+    runner_payload = json.loads(runner_path.read_text(encoding="utf-8"))
+    runner_payload["merged_output_json"] = (
+        "reports/default_gate_wna16_source_mismatch_input.json"
+    )
+    runner_path.write_text(json.dumps(runner_payload) + "\n", encoding="utf-8")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is True
+    summary = result["lab_gate_status_summary"]
+    assert summary["default_kernel_consumer_wna16_side_variant_base_ready"] is True
+    assert summary["default_kernel_consumer_wna16_side_variant_ready"] is False
+    assert (
+        summary[
+            "default_kernel_consumer_wna16_side_variant_online_source_identity_subset"
+        ]
+        is False
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_wna16_side_variant_online_source_identity_missing_count"
+        ]
+        == 1
+    )
+    assert (
+        summary["default_kernel_consumer_next_runtime_stage"]
+        == "refresh_wna16_side_variant_source_provenance"
+    )
+
+
+def test_premap_lab_preflight_downgrades_wna16_ready_on_unprovable_source(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    online_input_path = (
+        tmp_path / "reports/default_gate_online_merged_arg_slot_multiprogram_input.json"
+    )
+    online_payload = json.loads(online_input_path.read_text(encoding="utf-8"))
+    online_payload["_merge_context"]["source_contexts"][0].pop("sequence_id")
+    online_input_path.write_text(json.dumps(online_payload) + "\n", encoding="utf-8")
+    wna16_input_path = (
+        tmp_path / "reports/default_gate_wna16_side_consumer_variant_execution_input.json"
+    )
+    wna16_payload = json.loads(wna16_input_path.read_text(encoding="utf-8"))
+    wna16_payload["_merge_context"]["source_contexts"][0].pop("sequence_id")
+    wna16_input_path.write_text(json.dumps(wna16_payload) + "\n", encoding="utf-8")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is True
+    summary = result["lab_gate_status_summary"]
+    assert summary["default_kernel_consumer_wna16_side_variant_base_ready"] is True
+    assert summary["default_kernel_consumer_wna16_side_variant_ready"] is False
+    assert (
+        summary[
+            "default_kernel_consumer_online_merged_multiprogram_source_identity_coverage"
+        ]
+        is False
+    )
+    assert (
+        summary["default_kernel_consumer_wna16_side_variant_source_identity_coverage"]
+        is False
+    )
+    assert (
+        summary["default_kernel_consumer_next_runtime_stage"]
+        == "refresh_wna16_side_variant_source_provenance"
+    )
 
 
 def test_premap_lab_preflight_requires_prefetch_lab_default_gate(

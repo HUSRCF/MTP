@@ -73,6 +73,11 @@ def _summary() -> dict[str, object]:
         "default_kernel_consumer_arg_slot_requires_wna16_arg_reinterpretation": False,
         "default_kernel_consumer_online_merged_multiprogram_evidence_passed": True,
         "default_kernel_consumer_online_merged_multiprogram_source_count": 32,
+        "default_kernel_consumer_online_merged_multiprogram_source_context_count": 32,
+        "default_kernel_consumer_online_merged_multiprogram_source_context_matches_source_count": True,
+        "default_kernel_consumer_online_merged_multiprogram_source_identity_count": 32,
+        "default_kernel_consumer_online_merged_multiprogram_source_identity_coverage": True,
+        "default_kernel_consumer_online_merged_multiprogram_source_identity_digest": HEX,
         "default_kernel_consumer_online_merged_multiprogram_row_count": 1841,
         "default_kernel_consumer_online_merged_multiprogram_dispatch_row_offset": 0,
         "default_kernel_consumer_online_merged_multiprogram_dispatch_row_limit": 1841,
@@ -474,6 +479,13 @@ def _summary() -> dict[str, object]:
             "premap_future_wna16_typed_slot_kernel_variant_v1"
         ),
         "default_kernel_consumer_wna16_side_variant_source_count": 128,
+        "default_kernel_consumer_wna16_side_variant_source_context_count": 128,
+        "default_kernel_consumer_wna16_side_variant_source_context_matches_source_count": True,
+        "default_kernel_consumer_wna16_side_variant_source_identity_count": 128,
+        "default_kernel_consumer_wna16_side_variant_source_identity_coverage": True,
+        "default_kernel_consumer_wna16_side_variant_source_identity_digest": HEX,
+        "default_kernel_consumer_wna16_side_variant_online_source_identity_subset": False,
+        "default_kernel_consumer_wna16_side_variant_online_source_identity_missing_count": 28,
         "default_kernel_consumer_wna16_side_variant_row_count": 1841,
         "default_kernel_consumer_wna16_side_variant_row_ok_count": 1841,
         "default_kernel_consumer_wna16_side_variant_error_count": 0,
@@ -510,9 +522,10 @@ def _summary() -> dict[str, object]:
         ),
         "default_kernel_consumer_typed_noop_ready": True,
         "default_kernel_consumer_wna16_benchmark_ready": False,
-        "default_kernel_consumer_wna16_side_variant_ready": True,
+        "default_kernel_consumer_wna16_side_variant_base_ready": True,
+        "default_kernel_consumer_wna16_side_variant_ready": False,
         "default_kernel_consumer_next_runtime_stage": (
-            "implement_real_wna16_typed_slot_kernel_variant"
+            "refresh_wna16_side_variant_source_provenance"
         ),
         "payload_bytes_required": 0,
         "passed_to_kernel_required": False,
@@ -550,6 +563,61 @@ def test_check_premap_lab_preflight_summary_accepts_valid_summary() -> None:
     assert result["online_merged_device"] == 1
     assert result["expected_online_merged_device"] == 1
     assert result["online_merged_mirror_field"] == "scale_metadata_handle"
+
+
+def test_check_premap_lab_preflight_summary_accepts_wna16_side_same_source_gate() -> None:
+    summary = _summary()
+    summary[
+        "default_kernel_consumer_wna16_side_variant_online_source_identity_subset"
+    ] = True
+    summary[
+        "default_kernel_consumer_wna16_side_variant_online_source_identity_missing_count"
+    ] = 0
+    summary["default_kernel_consumer_wna16_side_variant_ready"] = True
+    summary["default_kernel_consumer_next_runtime_stage"] = (
+        "implement_real_wna16_typed_slot_kernel_variant"
+    )
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is True
+    assert result["failures"] == []
+
+
+def test_check_premap_lab_preflight_summary_accepts_wna16_benchmark_stage() -> None:
+    summary = _summary()
+    summary[
+        "default_kernel_consumer_wna16_side_variant_online_source_identity_subset"
+    ] = True
+    summary[
+        "default_kernel_consumer_wna16_side_variant_online_source_identity_missing_count"
+    ] = 0
+    summary["default_kernel_consumer_wna16_side_variant_ready"] = True
+    summary["default_kernel_consumer_wna16_benchmark_ready"] = True
+    summary["default_kernel_consumer_next_runtime_stage"] = (
+        "run_wna16_typed_slot_benchmark"
+    )
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is True
+    assert result["failures"] == []
+
+
+def test_check_premap_lab_preflight_summary_rejects_wrong_wna16_source_stage() -> None:
+    summary = _summary()
+    summary["default_kernel_consumer_wna16_side_variant_ready"] = True
+    summary["default_kernel_consumer_wna16_benchmark_ready"] = True
+    summary["default_kernel_consumer_next_runtime_stage"] = (
+        "implement_real_wna16_typed_slot_kernel_variant"
+    )
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is False
+    assert "wna16_side_variant_ready_mismatch" in result["failures"]
+    assert "wna16_side_variant_benchmark_ready_mismatch" in result["failures"]
+    assert "wna16_side_variant_next_stage_mismatch" in result["failures"]
 
 
 def test_check_premap_lab_preflight_summary_accepts_wna16_side_superset_rows() -> None:
