@@ -2,8 +2,29 @@
 
 ## Progress Version
 
-- Version: `v0.95-wna16-kernel-side-execution-preflight`
+- Version: `v0.96-wna16-typed-slot-benchmark-harness`
 - Updated: 2026-06-16
+- Latest WNA16 typed-slot benchmark harness gate: the new harness
+  `scripts/run_wna16_typed_slot_benchmark_harness.py` consumes the v0.95
+  compact lab preflight artifact plus the same-source 128-strict future WNA16
+  typed-slot consumer runner artifact, then writes
+  `outputs/reports/premap_kernel_consumer/wna16_typed_slot_benchmark_harness_v1.json`.
+  The artifact passes with `benchmark_harness_ready=true`, `source_count=128`,
+  `row_count=5345`, and all four future typed-slot handle fields
+  (`descriptor_ptr`, `packed_weight_descriptor`, `scale_metadata_handle`, and
+  `aux_metadata_handle`) carrying row-ok counts and read hashes.
+
+  This remains a no-mutation benchmark harness precondition, not a latency
+  benchmark.  The harness keeps `measures_latency=false`,
+  `wna16_benchmark_ready=false`, `current_wna16_arg_pass=false`,
+  `payload_bytes=0`, `payload_deref_allowed=false`,
+  `kernel_arg_pass_allowed=false`, `passed_to_kernel=false`,
+  `changes_kernel_launch_args=false`, `current_wna16_arg_compatible=false`, and
+  `requires_wna16_arg_reinterpretation=false`.  The next runtime stage is
+  `implement_future_wna16_typed_slot_kernel_variant_entrypoint`, meaning the
+  next code path should add a separate typed-slot kernel-variant benchmark
+  entrypoint rather than reinterpreting the current WNA16 fused-MoE arguments.
+
 - Latest WNA16 kernel-side typed-slot execution gate: the compact lab preflight
   now requires the same-source WNA16-side typed-slot artifact to carry a
   future kernel-side consumer execution proof, still under the no-launch-mutation

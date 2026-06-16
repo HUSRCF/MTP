@@ -1,0 +1,397 @@
+from __future__ import annotations
+
+import importlib.util
+import json
+from pathlib import Path
+
+
+HANDLE_FIELDS = [
+    "descriptor_ptr",
+    "packed_weight_descriptor",
+    "scale_metadata_handle",
+    "aux_metadata_handle",
+]
+
+
+def _load_module():
+    path = (
+        Path(__file__).resolve().parents[1]
+        / "scripts"
+        / "run_wna16_typed_slot_benchmark_harness.py"
+    )
+    spec = importlib.util.spec_from_file_location(
+        "run_wna16_typed_slot_benchmark_harness",
+        path,
+    )
+    assert spec is not None
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+    return module
+
+
+def _write_json(path: Path, payload: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+
+
+def _preflight_payload(*, row_count: int = 257) -> dict:
+    prefix = "default_kernel_consumer_wna16_kernel_side_execution"
+    payload = {
+        "passed": True,
+        "default_kernel_consumer_wna16_kernel_side_execution_ready": True,
+        "default_kernel_consumer_wna16_benchmark_ready": False,
+        "default_kernel_consumer_wna16_benchmark_prerequisites_ready": False,
+        "default_kernel_consumer_next_runtime_stage": (
+            "implement_wna16_typed_slot_benchmark_harness"
+        ),
+        f"{prefix}_required": True,
+        f"{prefix}_checked": True,
+        f"{prefix}_name": "premap_future_wna16_kernel_side_consumer_execution_v1",
+        f"{prefix}_mode": "readonly_future_wna16_kernel_side_consumer_execution",
+        f"{prefix}_source": "premap_future_wna16_kernel_accept_typed_slot_v1",
+        f"{prefix}_packet_chain_depth": 16,
+        f"{prefix}_all_handle_fields_read": True,
+        f"{prefix}_row_count": row_count,
+        f"{prefix}_row_ok_count": row_count,
+        f"{prefix}_error_count": 0,
+        f"{prefix}_payload_bytes": 0,
+        f"{prefix}_payload_deref_allowed": False,
+        f"{prefix}_kernel_arg_pass_allowed": False,
+        f"{prefix}_passed_to_kernel": False,
+        f"{prefix}_changes_kernel_launch_args": False,
+        f"{prefix}_current_wna16_arg_compatible": False,
+        f"{prefix}_requires_wna16_arg_reinterpretation": False,
+        f"{prefix}_explicit_typed_abi_slot": True,
+        f"{prefix}_reuses_current_wna16_arg_slot": False,
+        f"{prefix}_hash_accumulator": "1112131415161718",
+        f"{prefix}_handle_projection_hash_accumulator": "2122232425262728",
+        f"{prefix}_descriptor_ptr_read_hash_accumulator": "3132333435363738",
+        f"{prefix}_packed_weight_descriptor_read_hash_accumulator": "4142434445464748",
+        f"{prefix}_scale_metadata_handle_read_hash_accumulator": "5152535455565758",
+        f"{prefix}_aux_metadata_handle_read_hash_accumulator": "6162636465666768",
+    }
+    for field in HANDLE_FIELDS:
+        payload[f"{prefix}_{field}_read_row_ok_count"] = row_count
+    return payload
+
+
+def _runner_payload(*, row_count: int = 257, source_count: int = 128) -> dict:
+    prefix = "future_wna16_kernel_side_consumer_execution"
+    payload = {
+        "passed": True,
+        "selected_source_count": source_count,
+        "merged_row_count": row_count,
+        f"{prefix}_checked": True,
+        f"{prefix}_abi_name": "premap_future_wna16_kernel_side_consumer_execution_v1",
+        f"{prefix}_mode": "readonly_future_wna16_kernel_side_consumer_execution",
+        f"{prefix}_source": "premap_future_wna16_kernel_accept_typed_slot_v1",
+        f"{prefix}_packet_chain_depth": 16,
+        f"{prefix}_all_handle_fields_read": True,
+        f"{prefix}_row_count": row_count,
+        f"{prefix}_row_ok_count": row_count,
+        f"{prefix}_error_count": 0,
+        f"{prefix}_payload_bytes": 0,
+        f"{prefix}_payload_deref_allowed": False,
+        f"{prefix}_kernel_arg_pass_allowed": False,
+        f"{prefix}_passed_to_kernel": False,
+        f"{prefix}_changes_kernel_launch_args": False,
+        f"{prefix}_current_wna16_arg_compatible": False,
+        f"{prefix}_requires_wna16_arg_reinterpretation": False,
+        f"{prefix}_explicit_typed_abi_slot": True,
+        f"{prefix}_reuses_current_wna16_arg_slot": False,
+        f"{prefix}_hash_accumulator": "1112131415161718",
+        f"{prefix}_handle_projection_hash_accumulator": "2122232425262728",
+        f"{prefix}_descriptor_ptr_read_hash_accumulator": "3132333435363738",
+        f"{prefix}_packed_weight_descriptor_read_hash_accumulator": "4142434445464748",
+        f"{prefix}_scale_metadata_handle_read_hash_accumulator": "5152535455565758",
+        f"{prefix}_aux_metadata_handle_read_hash_accumulator": "6162636465666768",
+    }
+    for field in HANDLE_FIELDS:
+        payload[f"{prefix}_{field}_read_row_ok_count"] = row_count
+    return payload
+
+
+def _runner_payload_real_like(*, row_count: int = 257, source_count: int = 128) -> dict:
+    prefix = "future_wna16_kernel_side_consumer_execution"
+    full = _runner_payload(row_count=row_count, source_count=source_count)
+    stub_summary = {}
+    top = {
+        "passed": full["passed"],
+        "selected_source_count": full["selected_source_count"],
+        "merged_row_count": full["merged_row_count"],
+        f"{prefix}_checked": full[f"{prefix}_checked"],
+        f"{prefix}_name": full[f"{prefix}_abi_name"],
+        f"{prefix}_mode": full[f"{prefix}_mode"],
+        f"{prefix}_source": full[f"{prefix}_source"],
+        f"{prefix}_packet_chain_depth": full[f"{prefix}_packet_chain_depth"],
+        f"{prefix}_all_handle_fields_read": full[
+            f"{prefix}_all_handle_fields_read"
+        ],
+        f"{prefix}_row_count": full[f"{prefix}_row_count"],
+        f"{prefix}_row_ok_count": full[f"{prefix}_row_ok_count"],
+        f"{prefix}_error_count": full[f"{prefix}_error_count"],
+        f"{prefix}_payload_bytes": full[f"{prefix}_payload_bytes"],
+        f"{prefix}_payload_deref_allowed": full[
+            f"{prefix}_payload_deref_allowed"
+        ],
+        f"{prefix}_kernel_arg_pass_allowed": full[
+            f"{prefix}_kernel_arg_pass_allowed"
+        ],
+        f"{prefix}_passed_to_kernel": full[f"{prefix}_passed_to_kernel"],
+        f"{prefix}_changes_kernel_launch_args": full[
+            f"{prefix}_changes_kernel_launch_args"
+        ],
+        f"{prefix}_current_wna16_arg_compatible": full[
+            f"{prefix}_current_wna16_arg_compatible"
+        ],
+        f"{prefix}_requires_wna16_arg_reinterpretation": full[
+            f"{prefix}_requires_wna16_arg_reinterpretation"
+        ],
+        f"{prefix}_explicit_typed_abi_slot": full[
+            f"{prefix}_explicit_typed_abi_slot"
+        ],
+        f"{prefix}_reuses_current_wna16_arg_slot": full[
+            f"{prefix}_reuses_current_wna16_arg_slot"
+        ],
+        f"{prefix}_handle_projection_hash_accumulator": full[
+            f"{prefix}_handle_projection_hash_accumulator"
+        ],
+    }
+    for key, value in full.items():
+        if key.startswith(prefix):
+            stub_summary[key] = value
+    top["stub_summary"] = stub_summary
+    return top
+
+
+def test_wna16_typed_slot_benchmark_harness_accepts_strict_artifacts(tmp_path: Path):
+    module = _load_module()
+    preflight = tmp_path / "preflight.json"
+    check = tmp_path / "preflight.check.json"
+    runner = tmp_path / "runner.json"
+    output = tmp_path / "out.json"
+    _write_json(preflight, _preflight_payload())
+    _write_json(check, {"passed": True})
+    _write_json(runner, _runner_payload())
+
+    args = module.build_parser().parse_args(
+        [
+            "--preflight-json",
+            str(preflight),
+            "--preflight-check-json",
+            str(check),
+            "--runner-json",
+            str(runner),
+            "--output-json",
+            str(output),
+            "--require-preflight-check",
+        ]
+    )
+    result = module.run_harness(args)
+
+    assert result["passed"] is True
+    assert result["benchmark_harness_ready"] is True
+    assert result["wna16_benchmark_ready"] is False
+    assert result["current_wna16_arg_pass"] is False
+    assert result["kernel_arg_pass_allowed"] is False
+    assert result["payload_deref_allowed"] is False
+    assert result["row_count"] == 257
+    assert result["field_read_row_ok_counts"]["scale_metadata_handle"] == 257
+    assert result["next_runtime_stage"] == (
+        "implement_future_wna16_typed_slot_kernel_variant_entrypoint"
+    )
+    assert json.loads(output.read_text(encoding="utf-8"))["passed"] is True
+
+
+def test_wna16_typed_slot_benchmark_harness_accepts_real_like_stub_summary(
+    tmp_path: Path,
+):
+    module = _load_module()
+    preflight = tmp_path / "preflight.json"
+    runner = tmp_path / "runner.json"
+    _write_json(preflight, _preflight_payload())
+    _write_json(runner, _runner_payload_real_like())
+
+    args = module.build_parser().parse_args(
+        [
+            "--preflight-json",
+            str(preflight),
+            "--runner-json",
+            str(runner),
+            "--output-json",
+            str(tmp_path / "out.json"),
+        ]
+    )
+    result = module.run_harness(args)
+
+    assert result["passed"] is True
+    assert result["field_read_hashes"]["descriptor_ptr"] == "3132333435363738"
+
+
+def test_wna16_typed_slot_benchmark_harness_rejects_benchmark_ready(
+    tmp_path: Path,
+):
+    module = _load_module()
+    preflight = tmp_path / "preflight.json"
+    runner = tmp_path / "runner.json"
+    payload = _preflight_payload()
+    payload["default_kernel_consumer_wna16_benchmark_ready"] = True
+    _write_json(preflight, payload)
+    _write_json(runner, _runner_payload())
+
+    args = module.build_parser().parse_args(
+        [
+            "--preflight-json",
+            str(preflight),
+            "--runner-json",
+            str(runner),
+            "--output-json",
+            str(tmp_path / "out.json"),
+        ]
+    )
+    result = module.run_harness(args)
+
+    assert result["passed"] is False
+    assert any("default_kernel_consumer_wna16_benchmark_ready" in item for item in result["failures"])
+
+
+def test_wna16_typed_slot_benchmark_harness_rejects_runner_safety_open(
+    tmp_path: Path,
+):
+    module = _load_module()
+    preflight = tmp_path / "preflight.json"
+    runner = tmp_path / "runner.json"
+    runner_payload = _runner_payload()
+    runner_payload[
+        "future_wna16_kernel_side_consumer_execution_kernel_arg_pass_allowed"
+    ] = True
+    _write_json(preflight, _preflight_payload())
+    _write_json(runner, runner_payload)
+
+    args = module.build_parser().parse_args(
+        [
+            "--preflight-json",
+            str(preflight),
+            "--runner-json",
+            str(runner),
+            "--output-json",
+            str(tmp_path / "out.json"),
+        ]
+    )
+    result = module.run_harness(args)
+
+    assert result["passed"] is False
+    assert any("kernel_arg_pass_allowed" in item for item in result["failures"])
+
+
+def test_wna16_typed_slot_benchmark_harness_rejects_stub_summary_safety_conflict(
+    tmp_path: Path,
+):
+    module = _load_module()
+    preflight = tmp_path / "preflight.json"
+    runner = tmp_path / "runner.json"
+    runner_payload = _runner_payload_real_like()
+    runner_payload["stub_summary"][
+        "future_wna16_kernel_side_consumer_execution_kernel_arg_pass_allowed"
+    ] = True
+    _write_json(preflight, _preflight_payload())
+    _write_json(runner, runner_payload)
+
+    args = module.build_parser().parse_args(
+        [
+            "--preflight-json",
+            str(preflight),
+            "--runner-json",
+            str(runner),
+            "--output-json",
+            str(tmp_path / "out.json"),
+        ]
+    )
+    result = module.run_harness(args)
+
+    assert result["passed"] is False
+    assert any("duplicate_mismatch" in item for item in result["failures"])
+
+
+def test_wna16_typed_slot_benchmark_harness_rejects_row_mismatch(
+    tmp_path: Path,
+):
+    module = _load_module()
+    preflight = tmp_path / "preflight.json"
+    runner = tmp_path / "runner.json"
+    _write_json(preflight, _preflight_payload(row_count=257))
+    _write_json(runner, _runner_payload(row_count=258))
+
+    args = module.build_parser().parse_args(
+        [
+            "--preflight-json",
+            str(preflight),
+            "--runner-json",
+            str(runner),
+            "--output-json",
+            str(tmp_path / "out.json"),
+        ]
+    )
+    result = module.run_harness(args)
+
+    assert result["passed"] is False
+    assert "runner_preflight_row_count_mismatch" in result["failures"]
+
+
+def test_wna16_typed_slot_benchmark_harness_rejects_cross_hash_mismatch(
+    tmp_path: Path,
+):
+    module = _load_module()
+    preflight = tmp_path / "preflight.json"
+    runner = tmp_path / "runner.json"
+    runner_payload = _runner_payload()
+    runner_payload[
+        "future_wna16_kernel_side_consumer_execution_scale_metadata_handle_read_hash_accumulator"
+    ] = "aaaaaaaaaaaaaaaa"
+    _write_json(preflight, _preflight_payload())
+    _write_json(runner, runner_payload)
+
+    args = module.build_parser().parse_args(
+        [
+            "--preflight-json",
+            str(preflight),
+            "--runner-json",
+            str(runner),
+            "--output-json",
+            str(tmp_path / "out.json"),
+        ]
+    )
+    result = module.run_harness(args)
+
+    assert result["passed"] is False
+    assert any("scale_metadata_handle_read_hash_accumulator_mismatch" in item for item in result["failures"])
+
+
+def test_wna16_typed_slot_benchmark_harness_rejects_weak_hash(
+    tmp_path: Path,
+):
+    module = _load_module()
+    preflight = tmp_path / "preflight.json"
+    runner = tmp_path / "runner.json"
+    runner_payload = _runner_payload()
+    runner_payload[
+        "future_wna16_kernel_side_consumer_execution_hash_accumulator"
+    ] = "0"
+    _write_json(preflight, _preflight_payload())
+    _write_json(runner, runner_payload)
+
+    args = module.build_parser().parse_args(
+        [
+            "--preflight-json",
+            str(preflight),
+            "--runner-json",
+            str(runner),
+            "--output-json",
+            str(tmp_path / "out.json"),
+        ]
+    )
+    result = module.run_harness(args)
+
+    assert result["passed"] is False
+    assert any("hash_accumulator_invalid" in item for item in result["failures"])
