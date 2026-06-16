@@ -10996,6 +10996,177 @@ def run_premap_lab_preflight(
                 "wna16_side_consumer_variant_execution_aux_metadata_handle_read_hash_accumulator",
             )
         ),
+        "default_kernel_consumer_wna16_kernel_side_execution_required": (
+            _bool_metric(
+                wna16_side_variant_payload,
+                "require_future_wna16_kernel_side_consumer_execution",
+            )
+        ),
+        "default_kernel_consumer_wna16_kernel_side_execution_checked": (
+            _bool_metric(
+                wna16_side_variant_payload,
+                "future_wna16_kernel_side_consumer_execution_checked",
+            )
+        ),
+        "default_kernel_consumer_wna16_kernel_side_execution_name": (
+            wna16_side_variant_payload.get(
+                "future_wna16_kernel_side_consumer_execution_name"
+            )
+        ),
+        "default_kernel_consumer_wna16_kernel_side_execution_mode": (
+            wna16_side_variant_payload.get(
+                "future_wna16_kernel_side_consumer_execution_mode"
+            )
+        ),
+        "default_kernel_consumer_wna16_kernel_side_execution_source": (
+            wna16_side_variant_payload.get(
+                "future_wna16_kernel_side_consumer_execution_source"
+            )
+        ),
+        "default_kernel_consumer_wna16_kernel_side_execution_row_count": (
+            _int_metric(
+                wna16_side_variant_payload,
+                "future_wna16_kernel_side_consumer_execution_row_count",
+            )
+        ),
+        "default_kernel_consumer_wna16_kernel_side_execution_row_ok_count": (
+            _int_metric(
+                wna16_side_variant_payload,
+                "future_wna16_kernel_side_consumer_execution_row_ok_count",
+            )
+        ),
+        "default_kernel_consumer_wna16_kernel_side_execution_error_count": (
+            _int_metric(
+                wna16_side_variant_payload,
+                "future_wna16_kernel_side_consumer_execution_error_count",
+            )
+        ),
+        "default_kernel_consumer_wna16_kernel_side_execution_all_handle_fields_read": (
+            _bool_metric(
+                wna16_side_variant_payload,
+                "future_wna16_kernel_side_consumer_execution_all_handle_fields_read",
+            )
+        ),
+        "default_kernel_consumer_wna16_kernel_side_execution_packet_chain_depth": (
+            _int_metric(
+                wna16_side_variant_payload,
+                "future_wna16_kernel_side_consumer_execution_packet_chain_depth",
+            )
+        ),
+        "default_kernel_consumer_wna16_kernel_side_execution_payload_bytes": (
+            _int_metric(
+                wna16_side_variant_payload,
+                "future_wna16_kernel_side_consumer_execution_payload_bytes",
+            )
+        ),
+        "default_kernel_consumer_wna16_kernel_side_execution_payload_deref_allowed": (
+            _bool_metric(
+                wna16_side_variant_payload,
+                "future_wna16_kernel_side_consumer_execution_payload_deref_allowed",
+            )
+        ),
+        "default_kernel_consumer_wna16_kernel_side_execution_kernel_arg_pass_allowed": (
+            _bool_metric(
+                wna16_side_variant_payload,
+                "future_wna16_kernel_side_consumer_execution_kernel_arg_pass_allowed",
+            )
+        ),
+        "default_kernel_consumer_wna16_kernel_side_execution_passed_to_kernel": (
+            _bool_metric(
+                wna16_side_variant_payload,
+                "future_wna16_kernel_side_consumer_execution_passed_to_kernel",
+            )
+        ),
+        "default_kernel_consumer_wna16_kernel_side_execution_changes_kernel_launch_args": (
+            _bool_metric(
+                wna16_side_variant_payload,
+                "future_wna16_kernel_side_consumer_execution_changes_kernel_launch_args",
+            )
+        ),
+        "default_kernel_consumer_wna16_kernel_side_execution_current_wna16_arg_compatible": (
+            _bool_metric(
+                wna16_side_variant_payload,
+                "future_wna16_kernel_side_consumer_execution_current_wna16_arg_compatible",
+            )
+        ),
+        "default_kernel_consumer_wna16_kernel_side_execution_requires_wna16_arg_reinterpretation": (
+            _bool_metric(
+                wna16_side_variant_payload,
+                "future_wna16_kernel_side_consumer_execution_requires_wna16_arg_reinterpretation",
+            )
+        ),
+        "default_kernel_consumer_wna16_kernel_side_execution_explicit_typed_abi_slot": (
+            _bool_metric(
+                wna16_side_variant_payload,
+                "future_wna16_kernel_side_consumer_execution_explicit_typed_abi_slot",
+            )
+        ),
+        "default_kernel_consumer_wna16_kernel_side_execution_reuses_current_wna16_arg_slot": (
+            _bool_metric(
+                wna16_side_variant_payload,
+                "future_wna16_kernel_side_consumer_execution_reuses_current_wna16_arg_slot",
+            )
+        ),
+        "default_kernel_consumer_wna16_kernel_side_execution_descriptor_ptr_read_row_ok_count": (
+            _int_metric(
+                wna16_side_variant_stub_summary,
+                "future_wna16_kernel_side_consumer_execution_descriptor_ptr_read_row_ok_count",
+            )
+        ),
+        "default_kernel_consumer_wna16_kernel_side_execution_packed_weight_descriptor_read_row_ok_count": (
+            _int_metric(
+                wna16_side_variant_stub_summary,
+                "future_wna16_kernel_side_consumer_execution_packed_weight_descriptor_read_row_ok_count",
+            )
+        ),
+        "default_kernel_consumer_wna16_kernel_side_execution_scale_metadata_handle_read_row_ok_count": (
+            _int_metric(
+                wna16_side_variant_stub_summary,
+                "future_wna16_kernel_side_consumer_execution_scale_metadata_handle_read_row_ok_count",
+            )
+        ),
+        "default_kernel_consumer_wna16_kernel_side_execution_aux_metadata_handle_read_row_ok_count": (
+            _int_metric(
+                wna16_side_variant_stub_summary,
+                "future_wna16_kernel_side_consumer_execution_aux_metadata_handle_read_row_ok_count",
+            )
+        ),
+        "default_kernel_consumer_wna16_kernel_side_execution_hash_accumulator": (
+            _hex_metric_text(
+                wna16_side_variant_stub_summary,
+                "future_wna16_kernel_side_consumer_execution_hash_accumulator",
+            )
+        ),
+        "default_kernel_consumer_wna16_kernel_side_execution_handle_projection_hash_accumulator": (
+            _hex_metric_text(
+                wna16_side_variant_stub_summary,
+                "future_wna16_kernel_side_consumer_execution_handle_projection_hash_accumulator",
+            )
+        ),
+        "default_kernel_consumer_wna16_kernel_side_execution_descriptor_ptr_read_hash_accumulator": (
+            _hex_metric_text(
+                wna16_side_variant_stub_summary,
+                "future_wna16_kernel_side_consumer_execution_descriptor_ptr_read_hash_accumulator",
+            )
+        ),
+        "default_kernel_consumer_wna16_kernel_side_execution_packed_weight_descriptor_read_hash_accumulator": (
+            _hex_metric_text(
+                wna16_side_variant_stub_summary,
+                "future_wna16_kernel_side_consumer_execution_packed_weight_descriptor_read_hash_accumulator",
+            )
+        ),
+        "default_kernel_consumer_wna16_kernel_side_execution_scale_metadata_handle_read_hash_accumulator": (
+            _hex_metric_text(
+                wna16_side_variant_stub_summary,
+                "future_wna16_kernel_side_consumer_execution_scale_metadata_handle_read_hash_accumulator",
+            )
+        ),
+        "default_kernel_consumer_wna16_kernel_side_execution_aux_metadata_handle_read_hash_accumulator": (
+            _hex_metric_text(
+                wna16_side_variant_stub_summary,
+                "future_wna16_kernel_side_consumer_execution_aux_metadata_handle_read_hash_accumulator",
+            )
+        ),
         "default_kernel_consumer_dispatch_runner_row_hashchain_all_valid": (
             row_hashchain_all_valid
         ),
@@ -12127,6 +12298,36 @@ def run_premap_lab_preflight(
             "default_kernel_consumer_wna16_side_variant_aux_metadata_handle_read_hash_accumulator",
         )
     )
+    wna16_kernel_side_execution_row_count = _int_metric(
+        lab_gate_status_summary,
+        "default_kernel_consumer_wna16_kernel_side_execution_row_count",
+    )
+    wna16_kernel_side_execution_row_ok_count = _int_metric(
+        lab_gate_status_summary,
+        "default_kernel_consumer_wna16_kernel_side_execution_row_ok_count",
+    )
+    wna16_kernel_side_execution_fields_read = (
+        wna16_kernel_side_execution_row_count is not None
+        and all(
+            _int_metric(
+                lab_gate_status_summary,
+                f"default_kernel_consumer_wna16_kernel_side_execution_{field_name}_read_row_ok_count",
+            )
+            == wna16_kernel_side_execution_row_count
+            for field_name in ARG_SLOT_MIRROR_FIELDS
+        )
+    )
+    wna16_kernel_side_execution_hashes_valid = all(
+        _hex64_metric(lab_gate_status_summary, key) is not None
+        for key in (
+            "default_kernel_consumer_wna16_kernel_side_execution_hash_accumulator",
+            "default_kernel_consumer_wna16_kernel_side_execution_handle_projection_hash_accumulator",
+            "default_kernel_consumer_wna16_kernel_side_execution_descriptor_ptr_read_hash_accumulator",
+            "default_kernel_consumer_wna16_kernel_side_execution_packed_weight_descriptor_read_hash_accumulator",
+            "default_kernel_consumer_wna16_kernel_side_execution_scale_metadata_handle_read_hash_accumulator",
+            "default_kernel_consumer_wna16_kernel_side_execution_aux_metadata_handle_read_hash_accumulator",
+        )
+    )
     wna16_side_variant_base_ready = (
         typed_noop_ready
         and lab_gate_status_summary.get(
@@ -12217,8 +12418,73 @@ def run_premap_lab_preflight(
         )
         == 0
     )
-    wna16_benchmark_ready = (
+    wna16_kernel_side_execution_ready = (
         wna16_side_variant_ready
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_wna16_kernel_side_execution_required"
+        )
+        is True
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_wna16_kernel_side_execution_checked"
+        )
+        is True
+        and wna16_kernel_side_execution_row_count is not None
+        and wna16_kernel_side_execution_row_count > 0
+        and wna16_kernel_side_execution_row_ok_count
+        == wna16_kernel_side_execution_row_count
+        and (
+            online_merged_row_count is None
+            or wna16_kernel_side_execution_row_count >= online_merged_row_count
+        )
+        and wna16_kernel_side_execution_fields_read
+        and wna16_kernel_side_execution_hashes_valid
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_wna16_kernel_side_execution_all_handle_fields_read"
+        )
+        is True
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_wna16_kernel_side_execution_error_count"
+        )
+        == 0
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_wna16_kernel_side_execution_payload_bytes"
+        )
+        == 0
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_wna16_kernel_side_execution_payload_deref_allowed"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_wna16_kernel_side_execution_kernel_arg_pass_allowed"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_wna16_kernel_side_execution_passed_to_kernel"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_wna16_kernel_side_execution_changes_kernel_launch_args"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_wna16_kernel_side_execution_current_wna16_arg_compatible"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_wna16_kernel_side_execution_requires_wna16_arg_reinterpretation"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_wna16_kernel_side_execution_explicit_typed_abi_slot"
+        )
+        is True
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_wna16_kernel_side_execution_reuses_current_wna16_arg_slot"
+        )
+        is False
+    )
+    wna16_benchmark_prerequisites_ready = (
+        wna16_kernel_side_execution_ready
         and lab_gate_status_summary.get(
             "default_kernel_consumer_online_merged_multiprogram_current_wna16_arg_compatible"
         )
@@ -12228,8 +12494,12 @@ def run_premap_lab_preflight(
         )
         is True
     )
-    if wna16_benchmark_ready:
-        next_runtime_stage = "run_wna16_typed_slot_benchmark"
+    # Current lab preflight is still a no-launch-mutation gate. A future gate may
+    # relax the current-WNA16-arg compatibility contract; until then, do not
+    # advertise benchmark readiness from this checker-compatible preflight.
+    wna16_benchmark_ready = False
+    if wna16_kernel_side_execution_ready:
+        next_runtime_stage = "implement_wna16_typed_slot_benchmark_harness"
     elif wna16_side_variant_ready:
         next_runtime_stage = "implement_real_wna16_typed_slot_kernel_variant"
     elif wna16_side_variant_base_ready:
@@ -12244,6 +12514,12 @@ def run_premap_lab_preflight(
     lab_gate_status_summary["default_kernel_consumer_wna16_benchmark_ready"] = (
         wna16_benchmark_ready
     )
+    lab_gate_status_summary[
+        "default_kernel_consumer_wna16_benchmark_prerequisites_ready"
+    ] = wna16_benchmark_prerequisites_ready
+    lab_gate_status_summary[
+        "default_kernel_consumer_wna16_kernel_side_execution_ready"
+    ] = wna16_kernel_side_execution_ready
     lab_gate_status_summary[
         "default_kernel_consumer_wna16_side_variant_ready"
     ] = wna16_side_variant_ready

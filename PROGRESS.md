@@ -2,8 +2,41 @@
 
 ## Progress Version
 
-- Version: `v0.93-wna16-source-provenance-preflight`
+- Version: `v0.95-wna16-kernel-side-execution-preflight`
 - Updated: 2026-06-16
+- Latest WNA16 kernel-side typed-slot execution gate: the compact lab preflight
+  now requires the same-source WNA16-side typed-slot artifact to carry a
+  future kernel-side consumer execution proof, still under the no-launch-mutation
+  boundary.  The refreshed artifact
+  `outputs/reports/premap_lab_preflight_status_v095_wna16_kernel_side_execution_gate.json`
+  passes `scripts/check_premap_lab_preflight_summary.py` with
+  `--min-source-count 32 --expected-online-merged-device 0`.  It reports
+  `default_contract_passed=true`,
+  `default_required_evidence_passed=true`,
+  `default_optional_evidence_passed=true`,
+  `default_kernel_consumer_wna16_side_variant_ready=true`, and
+  `default_kernel_consumer_wna16_kernel_side_execution_ready=true`.  The
+  kernel-side execution evidence covers 128 same-source inputs and 5345 typed
+  rows; all rows read `descriptor_ptr`, `packed_weight_descriptor`,
+  `scale_metadata_handle`, and `aux_metadata_handle` through the independent
+  future WNA16 typed-slot consumer path.  The safety envelope remains closed:
+  `payload_bytes=0`, `payload_deref_allowed=false`,
+  `kernel_arg_pass_allowed=false`, `passed_to_kernel=false`,
+  `changes_kernel_launch_args=false`, `current_wna16_arg_compatible=false`,
+  `requires_wna16_arg_reinterpretation=false`,
+  `explicit_typed_abi_slot=true`, and `reuses_current_wna16_arg_slot=false`.
+
+  This gate intentionally does not claim benchmark readiness.  The checker now
+  rejects both `default_kernel_consumer_wna16_benchmark_ready=true` and the
+  diagnostic `default_kernel_consumer_wna16_benchmark_prerequisites_ready=true`
+  under the current no-launch-mutation contract.  Therefore the current next
+  stage is
+  `default_kernel_consumer_next_runtime_stage=implement_wna16_typed_slot_benchmark_harness`,
+  not `run_wna16_typed_slot_benchmark`.  This keeps the lab default gate aligned
+  with the real boundary: future WNA16 kernel-side consumption is proven through
+  an independent typed ABI/stub, but the current WNA16 fused-MoE kernel arguments
+  are still not modified.
+
 - Latest WNA16-side typed-slot provenance gate: the compact lab preflight now
   separates WNA16-side structural readiness from source-provenance readiness.
   `default_kernel_consumer_wna16_side_variant_base_ready=true` means the

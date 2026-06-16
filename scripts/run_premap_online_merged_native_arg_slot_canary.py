@@ -966,6 +966,41 @@ STUB_SUMMARY_KEYS = (
     "future_wna16_kernel_accept_typed_slot_summary_row_hash_accumulator",
     "future_wna16_kernel_accept_typed_slot_summary_field_read_hash_accumulator",
     "future_wna16_kernel_accept_typed_slot_summary_row_metadata_hash_accumulator",
+    "future_wna16_kernel_side_consumer_execution_abi_name",
+    "future_wna16_kernel_side_consumer_execution_checked",
+    "future_wna16_kernel_side_consumer_execution_mode",
+    "future_wna16_kernel_side_consumer_execution_source",
+    "future_wna16_kernel_side_consumer_execution_packet_chain_depth",
+    "future_wna16_kernel_side_consumer_execution_row_count",
+    "future_wna16_kernel_side_consumer_execution_row_ok_count",
+    "future_wna16_kernel_side_consumer_execution_error_count",
+    "future_wna16_kernel_side_consumer_execution_descriptor_ptr_read_row_count",
+    "future_wna16_kernel_side_consumer_execution_descriptor_ptr_read_row_ok_count",
+    "future_wna16_kernel_side_consumer_execution_descriptor_ptr_read_error_count",
+    "future_wna16_kernel_side_consumer_execution_packed_weight_descriptor_read_row_count",
+    "future_wna16_kernel_side_consumer_execution_packed_weight_descriptor_read_row_ok_count",
+    "future_wna16_kernel_side_consumer_execution_packed_weight_descriptor_read_error_count",
+    "future_wna16_kernel_side_consumer_execution_scale_metadata_handle_read_row_count",
+    "future_wna16_kernel_side_consumer_execution_scale_metadata_handle_read_row_ok_count",
+    "future_wna16_kernel_side_consumer_execution_scale_metadata_handle_read_error_count",
+    "future_wna16_kernel_side_consumer_execution_aux_metadata_handle_read_row_count",
+    "future_wna16_kernel_side_consumer_execution_aux_metadata_handle_read_row_ok_count",
+    "future_wna16_kernel_side_consumer_execution_aux_metadata_handle_read_error_count",
+    "future_wna16_kernel_side_consumer_execution_payload_bytes",
+    "future_wna16_kernel_side_consumer_execution_payload_deref_allowed",
+    "future_wna16_kernel_side_consumer_execution_kernel_arg_pass_allowed",
+    "future_wna16_kernel_side_consumer_execution_passed_to_kernel",
+    "future_wna16_kernel_side_consumer_execution_changes_kernel_launch_args",
+    "future_wna16_kernel_side_consumer_execution_current_wna16_arg_compatible",
+    "future_wna16_kernel_side_consumer_execution_requires_wna16_arg_reinterpretation",
+    "future_wna16_kernel_side_consumer_execution_explicit_typed_abi_slot",
+    "future_wna16_kernel_side_consumer_execution_reuses_current_wna16_arg_slot",
+    "future_wna16_kernel_side_consumer_execution_hash_accumulator",
+    "future_wna16_kernel_side_consumer_execution_handle_projection_hash_accumulator",
+    "future_wna16_kernel_side_consumer_execution_descriptor_ptr_read_hash_accumulator",
+    "future_wna16_kernel_side_consumer_execution_packed_weight_descriptor_read_hash_accumulator",
+    "future_wna16_kernel_side_consumer_execution_scale_metadata_handle_read_hash_accumulator",
+    "future_wna16_kernel_side_consumer_execution_aux_metadata_handle_read_hash_accumulator",
     "wna16_side_consumer_variant_execution_abi_name",
     "wna16_side_consumer_variant_execution_checked",
     "wna16_side_consumer_variant_execution_mode",
@@ -4758,6 +4793,20 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
             if require_future_wna16_kernel_side_consumer_execution
             else None
         ),
+        "future_wna16_kernel_side_consumer_execution_payload_deref_allowed": (
+            stub_payload.get(
+                "future_wna16_kernel_side_consumer_execution_payload_deref_allowed"
+            )
+            if require_future_wna16_kernel_side_consumer_execution
+            else None
+        ),
+        "future_wna16_kernel_side_consumer_execution_kernel_arg_pass_allowed": (
+            stub_payload.get(
+                "future_wna16_kernel_side_consumer_execution_kernel_arg_pass_allowed"
+            )
+            if require_future_wna16_kernel_side_consumer_execution
+            else None
+        ),
         "future_wna16_kernel_side_consumer_execution_passed_to_kernel": (
             stub_payload.get("future_wna16_kernel_side_consumer_execution_passed_to_kernel")
             if require_future_wna16_kernel_side_consumer_execution
@@ -4780,6 +4829,13 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
         "future_wna16_kernel_side_consumer_execution_requires_wna16_arg_reinterpretation": (
             stub_payload.get(
                 "future_wna16_kernel_side_consumer_execution_requires_wna16_arg_reinterpretation"
+            )
+            if require_future_wna16_kernel_side_consumer_execution
+            else None
+        ),
+        "future_wna16_kernel_side_consumer_execution_explicit_typed_abi_slot": (
+            stub_payload.get(
+                "future_wna16_kernel_side_consumer_execution_explicit_typed_abi_slot"
             )
             if require_future_wna16_kernel_side_consumer_execution
             else None

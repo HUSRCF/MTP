@@ -609,6 +609,17 @@ def check_premap_lab_preflight_summary(
         summary,
         "default_kernel_consumer_wna16_side_variant_row_ok_count",
     )
+    wna16_kernel_side_execution_ready = summary.get(
+        "default_kernel_consumer_wna16_kernel_side_execution_ready"
+    )
+    wna16_kernel_side_execution_row_count = _int_metric(
+        summary,
+        "default_kernel_consumer_wna16_kernel_side_execution_row_count",
+    )
+    wna16_kernel_side_execution_row_ok_count = _int_metric(
+        summary,
+        "default_kernel_consumer_wna16_kernel_side_execution_row_ok_count",
+    )
     if wna16_side_source_count is None or wna16_side_source_count < 128:
         failures.append("wna16_side_variant_source_count_invalid")
     if online_source_context_count is None or online_source_context_count <= 0:
@@ -665,9 +676,79 @@ def check_premap_lab_preflight_summary(
             failures.append("wna16_side_variant_source_identity_missing_count_mismatch")
         if summary.get("default_kernel_consumer_wna16_side_variant_ready") is not True:
             failures.append("wna16_side_variant_ready_mismatch")
+        if wna16_kernel_side_execution_ready is True:
+            if (
+                wna16_kernel_side_execution_row_count is None
+                or wna16_kernel_side_execution_row_count <= 0
+            ):
+                failures.append("wna16_kernel_side_execution_row_count_invalid")
+            if (
+                wna16_kernel_side_execution_row_count is not None
+                and wna16_kernel_side_execution_row_ok_count
+                != wna16_kernel_side_execution_row_count
+            ):
+                failures.append("wna16_kernel_side_execution_row_ok_count_mismatch")
+            if (
+                row_count is not None
+                and wna16_kernel_side_execution_row_count is not None
+                and wna16_kernel_side_execution_row_count < row_count
+            ):
+                failures.append("wna16_kernel_side_execution_row_count_below_online_merged")
+            expected_kernel_side = {
+                "default_kernel_consumer_wna16_kernel_side_execution_required": True,
+                "default_kernel_consumer_wna16_kernel_side_execution_checked": True,
+                "default_kernel_consumer_wna16_kernel_side_execution_all_handle_fields_read": True,
+                "default_kernel_consumer_wna16_kernel_side_execution_error_count": 0,
+                "default_kernel_consumer_wna16_kernel_side_execution_payload_bytes": 0,
+                "default_kernel_consumer_wna16_kernel_side_execution_payload_deref_allowed": False,
+                "default_kernel_consumer_wna16_kernel_side_execution_kernel_arg_pass_allowed": False,
+                "default_kernel_consumer_wna16_kernel_side_execution_passed_to_kernel": False,
+                "default_kernel_consumer_wna16_kernel_side_execution_changes_kernel_launch_args": False,
+                "default_kernel_consumer_wna16_kernel_side_execution_current_wna16_arg_compatible": False,
+                "default_kernel_consumer_wna16_kernel_side_execution_requires_wna16_arg_reinterpretation": False,
+                "default_kernel_consumer_wna16_kernel_side_execution_explicit_typed_abi_slot": True,
+                "default_kernel_consumer_wna16_kernel_side_execution_reuses_current_wna16_arg_slot": False,
+            }
+            for key, expected_value in expected_kernel_side.items():
+                if summary.get(key) != expected_value:
+                    failures.append(f"{key}_mismatch")
+            for field in REQUIRED_ROW_FIELDS:
+                key = (
+                    "default_kernel_consumer_wna16_kernel_side_execution_"
+                    f"{field}_read_row_ok_count"
+                )
+                if (
+                    wna16_kernel_side_execution_row_count is not None
+                    and _int_metric(summary, key)
+                    != wna16_kernel_side_execution_row_count
+                ):
+                    failures.append(
+                        f"wna16_kernel_side_execution_{field}_read_row_ok_count_mismatch"
+                    )
+            for key in (
+                "default_kernel_consumer_wna16_kernel_side_execution_hash_accumulator",
+                "default_kernel_consumer_wna16_kernel_side_execution_handle_projection_hash_accumulator",
+                "default_kernel_consumer_wna16_kernel_side_execution_descriptor_ptr_read_hash_accumulator",
+                "default_kernel_consumer_wna16_kernel_side_execution_packed_weight_descriptor_read_hash_accumulator",
+                "default_kernel_consumer_wna16_kernel_side_execution_scale_metadata_handle_read_hash_accumulator",
+                "default_kernel_consumer_wna16_kernel_side_execution_aux_metadata_handle_read_hash_accumulator",
+            ):
+                if not _is_hex_u64(summary.get(key)):
+                    failures.append(f"{key}_invalid")
+        elif wna16_kernel_side_execution_ready not in (False, None):
+            failures.append("wna16_kernel_side_execution_ready_invalid")
+        wna16_benchmark_ready = (
+            summary.get("default_kernel_consumer_wna16_benchmark_ready") is True
+        )
+        if summary.get(
+            "default_kernel_consumer_wna16_benchmark_prerequisites_ready"
+        ) is True:
+            failures.append("wna16_benchmark_prerequisites_ready_not_allowed")
+        if wna16_benchmark_ready:
+            failures.append("wna16_benchmark_ready_not_allowed_in_no_mutation_gate")
         expected_stage = (
-            "run_wna16_typed_slot_benchmark"
-            if summary.get("default_kernel_consumer_wna16_benchmark_ready") is True
+            "implement_wna16_typed_slot_benchmark_harness"
+            if wna16_kernel_side_execution_ready is True
             else "implement_real_wna16_typed_slot_kernel_variant"
         )
         if summary.get("default_kernel_consumer_next_runtime_stage") != expected_stage:
@@ -682,6 +763,10 @@ def check_premap_lab_preflight_summary(
             failures.append("wna16_side_variant_ready_mismatch")
         if summary.get("default_kernel_consumer_wna16_benchmark_ready") is not False:
             failures.append("wna16_side_variant_benchmark_ready_mismatch")
+        if wna16_kernel_side_execution_ready is True:
+            failures.append("wna16_kernel_side_execution_ready_without_source_subset")
+        elif wna16_kernel_side_execution_ready not in (False, None):
+            failures.append("wna16_kernel_side_execution_ready_invalid")
         if (
             summary.get("default_kernel_consumer_next_runtime_stage")
             != "refresh_wna16_side_variant_source_provenance"
