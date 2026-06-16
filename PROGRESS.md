@@ -2,8 +2,31 @@
 
 ## Progress Version
 
-- Version: `v0.97-future-wna16-typed-slot-entrypoint`
+- Version: `v0.98-future-wna16-typed-slot-timing-stub`
 - Updated: 2026-06-16
+- Latest future WNA16 typed-slot timing-stub gate: the new script
+  `scripts/run_future_wna16_typed_slot_kernel_timing_stub.py` consumes
+  `outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_entrypoint_v1.json`
+  and writes
+  `outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_timing_stub_v1.json`.
+  By default this is a readiness check only.  With `--run-native-stub`, it
+  reuses the independent online-merged typed consumer canary path and writes
+  `outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_timing_stub_v1_native_run.json`.
+  The current GPU1 native-stub canary passes with `source_count=128`,
+  `row_count=5345`, `native_stub_executed=true`, `native_stub_passed=true`, and
+  `native_stub_host_wall_ms=598.144099`.
+
+  This is still not a vLLM TPOT result and not a current WNA16 fused-MoE
+  kernel-argument handoff.  The artifact keeps `measures_vllm_latency=false`,
+  `measures_tpot=false`, `wna16_benchmark_ready=false`,
+  `uses_current_wna16_args=false`, `passes_current_wna16_args=false`,
+  `payload_bytes=0`, `payload_deref_allowed=false`,
+  `kernel_arg_pass_allowed=false`, `passed_to_kernel=false`, and
+  `changes_kernel_launch_args=false`.  The next runtime stage is
+  `implement_future_wna16_typed_slot_kernel_variant_benchmark`: a separate
+  typed-slot kernel-variant benchmark path, still distinct from the current
+  WNA16 fused-MoE argument list.
+
 - Latest future WNA16 typed-slot entrypoint gate: the new script
   `scripts/run_future_wna16_typed_slot_kernel_variant_entrypoint.py` consumes
   `outputs/reports/premap_kernel_consumer/wna16_typed_slot_benchmark_harness_v1.json`
