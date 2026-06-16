@@ -34630,3 +34630,68 @@ summary fields.  A second canary feeds the native stub from
 semantic packet can drive the native ABI with canonicalized expert arrays.  It
 remains a standalone native canary, not a current WNA16 kernel-arg path and not
 a payload/cache residency implementation.
+
+### 2026-06-16 - v0.94 same-source WNA16-side provenance gate
+
+The WNA16-side typed-slot consumer variant evidence was refreshed with same-source
+coverage for the default online merged prelaunch evidence.
+
+Artifacts:
+
+```text
+outputs/reports/premap_kernel_consumer/
+  online_merged_wna16_side_consumer_variant_execution_same_source_128strict_preflight_runner.json
+  online_merged_wna16_side_consumer_variant_execution_same_source_128strict.json
+  typed_consumer_stub_gpu1_online_merged_wna16_side_consumer_variant_execution_same_source_128strict.json
+
+outputs/reports/
+  premap_lab_preflight_status_v094_same_source_wna16_gate.json
+```
+
+Gate result:
+
+```text
+passed = true
+default_contract_passed = true
+default_required_evidence_passed = true
+default_optional_evidence_passed = true
+wna16_side_variant_source_context_count = 128
+wna16_side_variant_source_identity_count = 128
+wna16_side_variant_online_source_identity_subset = true
+wna16_side_variant_online_source_identity_missing_count = 0
+wna16_side_variant_base_ready = true
+wna16_side_variant_ready = true
+wna16_benchmark_ready = false
+next_runtime_stage = implement_real_wna16_typed_slot_kernel_variant
+```
+
+Safety boundary remains unchanged:
+
+```text
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+current_wna16_arg_compatible = false
+```
+
+This fixes the v0.93 source-family mismatch without promoting the path to a
+benchmark claim.  The gate now proves that the WNA16-side typed-slot consumer
+variant covers the same default online source identities, but benchmark remains
+blocked until a real WNA16 typed-slot kernel variant exists.
+
+Validation:
+
+```text
+python scripts/check_premap_lab_preflight_summary.py \
+  outputs/reports/premap_lab_preflight_status_v094_same_source_wna16_gate.json \
+  --min-source-count 32 \
+  --expected-online-merged-device 0
+# passed = true
+
+python -m pytest \
+  tests/test_check_premap_lab_preflight_summary.py \
+  tests/test_run_premap_lab_preflight.py \
+  tests/test_check_premap_lab_gate_verify.py \
+  tests/test_run_premap_lab_gate_verify.py -q
+# 256 passed
+```
