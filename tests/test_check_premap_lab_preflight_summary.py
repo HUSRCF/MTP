@@ -60,6 +60,16 @@ def _enable_wna16_kernel_side_execution_ready(
             "default_kernel_consumer_wna16_kernel_side_execution_ready": True,
             "default_kernel_consumer_wna16_kernel_side_execution_required": True,
             "default_kernel_consumer_wna16_kernel_side_execution_checked": True,
+            "default_kernel_consumer_wna16_kernel_side_execution_name": (
+                "premap_future_wna16_kernel_side_consumer_execution_v1"
+            ),
+            "default_kernel_consumer_wna16_kernel_side_execution_mode": (
+                "readonly_future_wna16_kernel_side_consumer_execution"
+            ),
+            "default_kernel_consumer_wna16_kernel_side_execution_source": (
+                "premap_future_wna16_kernel_accept_typed_slot_v1"
+            ),
+            "default_kernel_consumer_wna16_kernel_side_execution_packet_chain_depth": 16,
             "default_kernel_consumer_wna16_kernel_side_execution_all_handle_fields_read": True,
             "default_kernel_consumer_wna16_kernel_side_execution_row_count": row_count,
             "default_kernel_consumer_wna16_kernel_side_execution_row_ok_count": row_count,
@@ -724,6 +734,44 @@ def test_check_premap_lab_preflight_summary_rejects_wna16_benchmark_prerequisite
 
     assert result["passed"] is False
     assert "wna16_benchmark_prerequisites_ready_not_allowed" in result["failures"]
+
+
+def test_check_premap_lab_preflight_summary_rejects_wna16_benchmark_prerequisites_true_without_same_source() -> None:
+    summary = _summary()
+    summary["default_kernel_consumer_wna16_benchmark_prerequisites_ready"] = True
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is False
+    assert "wna16_benchmark_prerequisites_ready_not_allowed" in result["failures"]
+
+
+def test_check_premap_lab_preflight_summary_rejects_wna16_kernel_side_wrong_path_identity() -> None:
+    summary = _summary()
+    summary[
+        "default_kernel_consumer_wna16_side_variant_online_source_identity_subset"
+    ] = True
+    summary[
+        "default_kernel_consumer_wna16_side_variant_online_source_identity_missing_count"
+    ] = 0
+    summary["default_kernel_consumer_wna16_side_variant_ready"] = True
+    _enable_wna16_kernel_side_execution_ready(summary)
+    summary["default_kernel_consumer_next_runtime_stage"] = (
+        "implement_wna16_typed_slot_benchmark_harness"
+    )
+    summary["default_kernel_consumer_wna16_kernel_side_execution_name"] = "wrong"
+    summary["default_kernel_consumer_wna16_kernel_side_execution_mode"] = "wrong"
+    summary["default_kernel_consumer_wna16_kernel_side_execution_source"] = "wrong"
+    summary["default_kernel_consumer_wna16_kernel_side_execution_packet_chain_depth"] = 15
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is False
+    for field in ("name", "mode", "source", "packet_chain_depth"):
+        assert (
+            f"default_kernel_consumer_wna16_kernel_side_execution_{field}_mismatch"
+            in result["failures"]
+        )
 
 
 def test_check_premap_lab_preflight_summary_rejects_wna16_kernel_side_open_payload_or_kernel_arg() -> None:

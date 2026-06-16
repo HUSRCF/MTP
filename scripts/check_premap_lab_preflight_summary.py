@@ -665,6 +665,10 @@ def check_premap_lab_preflight_summary(
         failures.append("wna16_side_variant_source_identity_count_mismatch")
     if wna16_side_source_identity_coverage is not True:
         failures.append("wna16_side_variant_source_identity_coverage_mismatch")
+    if summary.get(
+        "default_kernel_consumer_wna16_benchmark_prerequisites_ready"
+    ) is True:
+        failures.append("wna16_benchmark_prerequisites_ready_not_allowed")
     for key in (
         "default_kernel_consumer_online_merged_multiprogram_source_identity_digest",
         "default_kernel_consumer_wna16_side_variant_source_identity_digest",
@@ -697,6 +701,16 @@ def check_premap_lab_preflight_summary(
             expected_kernel_side = {
                 "default_kernel_consumer_wna16_kernel_side_execution_required": True,
                 "default_kernel_consumer_wna16_kernel_side_execution_checked": True,
+                "default_kernel_consumer_wna16_kernel_side_execution_name": (
+                    "premap_future_wna16_kernel_side_consumer_execution_v1"
+                ),
+                "default_kernel_consumer_wna16_kernel_side_execution_mode": (
+                    "readonly_future_wna16_kernel_side_consumer_execution"
+                ),
+                "default_kernel_consumer_wna16_kernel_side_execution_source": (
+                    "premap_future_wna16_kernel_accept_typed_slot_v1"
+                ),
+                "default_kernel_consumer_wna16_kernel_side_execution_packet_chain_depth": 16,
                 "default_kernel_consumer_wna16_kernel_side_execution_all_handle_fields_read": True,
                 "default_kernel_consumer_wna16_kernel_side_execution_error_count": 0,
                 "default_kernel_consumer_wna16_kernel_side_execution_payload_bytes": 0,
@@ -740,10 +754,6 @@ def check_premap_lab_preflight_summary(
         wna16_benchmark_ready = (
             summary.get("default_kernel_consumer_wna16_benchmark_ready") is True
         )
-        if summary.get(
-            "default_kernel_consumer_wna16_benchmark_prerequisites_ready"
-        ) is True:
-            failures.append("wna16_benchmark_prerequisites_ready_not_allowed")
         if wna16_benchmark_ready:
             failures.append("wna16_benchmark_ready_not_allowed_in_no_mutation_gate")
         expected_stage = (
