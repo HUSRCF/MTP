@@ -2,8 +2,28 @@
 
 ## Progress Version
 
-- Version: `v0.96-wna16-typed-slot-benchmark-harness`
+- Version: `v0.97-future-wna16-typed-slot-entrypoint`
 - Updated: 2026-06-16
+- Latest future WNA16 typed-slot entrypoint gate: the new script
+  `scripts/run_future_wna16_typed_slot_kernel_variant_entrypoint.py` consumes
+  `outputs/reports/premap_kernel_consumer/wna16_typed_slot_benchmark_harness_v1.json`
+  and writes
+  `outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_entrypoint_v1.json`.
+  The artifact passes with `typed_slot_entrypoint_ready=true`,
+  `entrypoint_accepts_typed_slot=true`, `source_count=128`, `row_count=5345`,
+  and all four typed handle fields carrying row-ok counts and read hashes.
+
+  This still does not touch the current WNA16 fused-MoE launch ABI:
+  `uses_current_wna16_args=false`, `passes_current_wna16_args=false`,
+  `wna16_benchmark_ready=false`, `measures_latency=false`, `payload_bytes=0`,
+  `payload_deref_allowed=false`, `kernel_arg_pass_allowed=false`,
+  `passed_to_kernel=false`, `changes_kernel_launch_args=false`,
+  `current_wna16_arg_compatible=false`, and
+  `requires_wna16_arg_reinterpretation=false`.  The next runtime stage is
+  `implement_future_wna16_typed_slot_kernel_timing_stub`, which should be a
+  separate typed-slot kernel timing stub rather than reusing or reinterpreting
+  the existing WNA16 arguments.
+
 - Latest WNA16 typed-slot benchmark harness gate: the new harness
   `scripts/run_wna16_typed_slot_benchmark_harness.py` consumes the v0.95
   compact lab preflight artifact plus the same-source 128-strict future WNA16
