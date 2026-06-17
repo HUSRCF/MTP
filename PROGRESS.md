@@ -35299,3 +35299,98 @@ Run the explicit native-stub path from the four-field timing-stub entrypoint,
 then use that artifact as the seed for the independent typed-slot benchmark
 wrapper.  Do not route through current WNA16 fused-MoE args.
 ```
+
+### 2026-06-17 - Four-field typed-slot benchmark-wrapper gate passed
+
+The independent future WNA16 typed-slot benchmark wrapper now consumes the
+four-field native timing-stub artifact by default.  This benchmark remains
+scoped to the independent native typed-slot stub host-wall path; it is not a
+current WNA16 fused-MoE benchmark and does not measure vLLM TPOT.
+
+Artifacts:
+
+```text
+outputs/reports/premap_kernel_consumer/
+  future_wna16_typed_slot_kernel_timing_stub_four_field_native_run_v1.json
+  future_wna16_typed_slot_kernel_variant_benchmark_four_field_v1.json
+  future_wna16_typed_slot_kernel_variant_benchmark_four_field_repeat3_v1.json
+  future_wna16_typed_slot_kernel_variant_benchmark_four_field_repeats_v1/
+```
+
+Gate result:
+
+```text
+typed_slot_variant_benchmark_ready = true
+future_wna16_variant_benchmark_ready = true
+independent_kernel_variant_benchmark = true
+source_count = 128
+row_count = 5345
+field_read_row_ok_counts = 5345 for all four fields
+fourth_field_handoff_ready = true
+fourth_field_handoff_source_count = 128
+fourth_field_handoff_row_count = 5345
+fourth_field_handoff_field_read_hash = 6e08db27babecb6a
+repeat_count_requested = 3
+repeat_count_measured = 3
+native_stub_host_wall_ms median = 332.811345
+benchmark_outer_wall_ms median = 334.351819
+wna16_benchmark_ready = false
+benchmark_is_current_wna16_fused_moe = false
+uses_current_wna16_args = false
+passes_current_wna16_args = false
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+measures_tpot = false
+measures_vllm_latency = false
+```
+
+The wrapper now rejects:
+
+```text
+non-native timing-stub seed
+current WNA16 arg pass
+extra typed-slot fields
+fourth-field source-count mismatch
+missing fourth-field row count
+fourth-field descriptor hash mismatch
+repeat drift in row/hash/fourth-field fields
+```
+
+Validation:
+
+```text
+conda run -n TRY python -m pytest \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_benchmark.py -q
+# 17 passed
+
+conda run -n TRY python -m pytest \
+  tests/test_run_future_wna16_typed_slot_kernel_timing_stub.py \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_benchmark.py -q
+# 28 passed
+
+conda run -n TRY python scripts/run_future_wna16_typed_slot_kernel_variant_benchmark.py \
+  --timing-stub-json outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_timing_stub_four_field_native_run_v1.json \
+  --output-json outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_benchmark_four_field_v1.json \
+  --repeat-count 0 \
+  --require-pass
+# passed = true
+
+conda run -n TRY python scripts/run_future_wna16_typed_slot_kernel_variant_benchmark.py \
+  --timing-stub-json outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_timing_stub_four_field_native_run_v1.json \
+  --output-json outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_benchmark_four_field_repeat3_v1.json \
+  --repeat-output-dir outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_benchmark_four_field_repeats_v1 \
+  --repeat-count 3 \
+  --require-pass \
+  --device 1 \
+  --offload-arch gfx1100
+# passed = true
+```
+
+Next gate:
+
+```text
+Move from benchmark-wrapper evidence into payloadless execution for the future
+typed-slot kernel variant.  Keep the path independent from current WNA16 fused
+MoE args until a real compatible kernel entry exists.
+```

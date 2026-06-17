@@ -31,7 +31,7 @@ DEFAULT_TIMING_STUB_JSON = (
     / "outputs"
     / "reports"
     / "premap_kernel_consumer"
-    / "future_wna16_typed_slot_kernel_timing_stub_v1_native_run.json"
+    / "future_wna16_typed_slot_kernel_timing_stub_four_field_native_run_v1.json"
 )
 DEFAULT_OUTPUT_JSON = (
     REPO_ROOT
@@ -84,6 +84,7 @@ EXPECTED_TIMING_STUB_FLAGS: dict[str, Any] = {
     "passed_to_kernel": False,
     "changes_kernel_launch_args": False,
     "next_runtime_stage": "implement_future_wna16_typed_slot_kernel_variant_benchmark",
+    "fourth_field_handoff_ready": True,
 }
 
 
@@ -109,6 +110,13 @@ def _write_json(path: Path, payload: dict[str, Any]) -> None:
 
 def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _sha256_or_failure(path: Path, *, label: str) -> tuple[str | None, str | None]:
+    try:
+        return _sha256(path), None
+    except OSError as exc:
+        return None, f"{label}_sha256_error:{exc.__class__.__name__}:{exc}"
 
 
 def _int_metric(payload: dict[str, Any], key: str) -> int | None:
@@ -189,9 +197,29 @@ def _check_timing_stub(
     for key in (
         "row_hash_accumulator",
         "handle_projection_hash_accumulator",
+        "fourth_field_handoff_field_read_hash",
+        "fourth_field_handoff_runner_hash",
     ):
         if not _is_hex_u64(timing_stub.get(key)):
             failures.append(f"timing_stub_{key}_invalid")
+    fourth_source_count = _int_metric(timing_stub, "fourth_field_handoff_source_count")
+    if fourth_source_count is None:
+        failures.append("timing_stub_fourth_field_handoff_source_count_invalid")
+    elif source_count is not None and fourth_source_count != source_count:
+        failures.append("timing_stub_fourth_field_handoff_source_count_mismatch")
+    fourth_row_count = _int_metric(timing_stub, "fourth_field_handoff_row_count")
+    fourth_row_ok_count = _int_metric(timing_stub, "fourth_field_handoff_row_ok_count")
+    if fourth_row_count is None:
+        failures.append("timing_stub_fourth_field_handoff_row_count_invalid")
+    elif row_count is not None and fourth_row_count != row_count:
+        failures.append("timing_stub_fourth_field_handoff_row_count_mismatch")
+    if fourth_row_ok_count is None:
+        failures.append("timing_stub_fourth_field_handoff_row_ok_count_invalid")
+    elif fourth_row_count is not None and fourth_row_ok_count != fourth_row_count:
+        failures.append("timing_stub_fourth_field_handoff_row_ok_count_mismatch")
+    descriptor_hash = field_hashes.get("descriptor_ptr")
+    if timing_stub.get("fourth_field_handoff_field_read_hash") != descriptor_hash:
+        failures.append("timing_stub_fourth_field_handoff_descriptor_hash_mismatch")
     if _numeric_ms(timing_stub, "native_stub_host_wall_ms") is None:
         failures.append("timing_stub_native_stub_host_wall_ms_invalid")
     return failures
@@ -212,7 +240,13 @@ def _repeat_seed_artifact_failures(seed: dict[str, Any]) -> list[str]:
         if not artifact_path.exists():
             failures.append(f"seed_{label}_json_not_found")
             continue
-        actual_sha = _sha256(artifact_path)
+        actual_sha, sha_failure = _sha256_or_failure(
+            artifact_path,
+            label=f"seed_{label}",
+        )
+        if sha_failure is not None:
+            failures.append(sha_failure)
+            continue
         if actual_sha != sha_value:
             failures.append(f"seed_{label}_sha256_mismatch")
     return failures
@@ -330,6 +364,12 @@ def _repeat_contract_failures(
         "field_read_hashes",
         "row_hash_accumulator",
         "handle_projection_hash_accumulator",
+        "fourth_field_handoff_ready",
+        "fourth_field_handoff_source_count",
+        "fourth_field_handoff_row_count",
+        "fourth_field_handoff_row_ok_count",
+        "fourth_field_handoff_field_read_hash",
+        "fourth_field_handoff_runner_hash",
     ):
         if repeat_report.get(key) != seed.get(key):
             failures.append(f"{key}_mismatch")
@@ -351,12 +391,11 @@ def run_benchmark(args: argparse.Namespace) -> dict[str, Any]:
     native_stub_wall_ms: list[float] = []
     outer_wall_ms: list[float] = []
 
-    if args.repeat_count > 0:
-        failures.extend(_repeat_seed_artifact_failures(timing_stub))
+    failures.extend(_repeat_seed_artifact_failures(timing_stub))
     seed_contract_ok = not failures
     if args.repeat_count < 0:
         failures.append("repeat_count_negative")
-    if args.repeat_count == 0:
+    if args.repeat_count == 0 and seed_contract_ok:
         source_ms = _numeric_ms(timing_stub, "native_stub_host_wall_ms")
         if source_ms is not None:
             native_stub_wall_ms.append(source_ms)
@@ -393,7 +432,14 @@ def run_benchmark(args: argparse.Namespace) -> dict[str, Any]:
         )
         repeat_output_jsons.append(str(repeat_output))
         if repeat_output.exists():
-            repeat_output_sha256s.append(_sha256(repeat_output))
+            repeat_sha, repeat_sha_failure = _sha256_or_failure(
+                repeat_output,
+                label=f"repeat_{index}_output",
+            )
+            if repeat_sha_failure is None and repeat_sha is not None:
+                repeat_output_sha256s.append(repeat_sha)
+            elif repeat_sha_failure is not None:
+                failures.append(repeat_sha_failure)
         repeat_ms = _numeric_ms(repeat_report, "native_stub_host_wall_ms")
         if repeat_ms is None:
             failures.append(f"repeat_{index}:native_stub_host_wall_ms_invalid")
@@ -428,6 +474,22 @@ def run_benchmark(args: argparse.Namespace) -> dict[str, Any]:
         "row_hash_accumulator": timing_stub.get("row_hash_accumulator"),
         "handle_projection_hash_accumulator": timing_stub.get(
             "handle_projection_hash_accumulator"
+        ),
+        "fourth_field_handoff_ready": timing_stub.get("fourth_field_handoff_ready"),
+        "fourth_field_handoff_source_count": timing_stub.get(
+            "fourth_field_handoff_source_count"
+        ),
+        "fourth_field_handoff_row_count": timing_stub.get(
+            "fourth_field_handoff_row_count"
+        ),
+        "fourth_field_handoff_row_ok_count": timing_stub.get(
+            "fourth_field_handoff_row_ok_count"
+        ),
+        "fourth_field_handoff_field_read_hash": timing_stub.get(
+            "fourth_field_handoff_field_read_hash"
+        ),
+        "fourth_field_handoff_runner_hash": timing_stub.get(
+            "fourth_field_handoff_runner_hash"
         ),
         "repeat_count_requested": int(args.repeat_count),
         "repeat_count_measured": len(native_stub_wall_ms),
