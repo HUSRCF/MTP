@@ -35222,8 +35222,8 @@ Gate result:
 
 ```text
 timing_stub_ready = true
-native_stub_requested = false
-native_stub_executed = false
+native_stub_requested = false for no-native gate
+native_stub_executed = false for no-native gate
 source_count = 128
 row_count = 5345
 field_read_row_ok_counts = 5345 for all four fields
@@ -35236,6 +35236,25 @@ uses_current_wna16_args = false
 passes_current_wna16_args = false
 payload_bytes = 0
 passed_to_kernel = false
+changes_kernel_launch_args = false
+measures_tpot = false
+measures_vllm_latency = false
+```
+
+Native-stub canary:
+
+```text
+output = outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_timing_stub_four_field_native_run_v1.json
+native_stub_requested = true
+native_stub_executed = true
+native_stub_passed = true
+native_stub_selected_source_count = 128
+native_stub_merged_row_count = 5345
+native_stub_dispatch_active_rows = 5345
+native_stub_host_wall_ms = 332.449374
+payload_bytes = 0
+passed_to_kernel = false
+passes_current_wna16_args = false
 changes_kernel_launch_args = false
 measures_tpot = false
 measures_vllm_latency = false
@@ -35257,6 +35276,19 @@ conda run -n TRY python scripts/run_future_wna16_typed_slot_kernel_timing_stub.p
   --entrypoint-json outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_entrypoint_four_field_v1.json \
   --output-json outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_timing_stub_four_field_v1.json \
   --require-pass
+# passed = true
+
+conda run -n TRY python scripts/run_future_wna16_typed_slot_kernel_timing_stub.py \
+  --entrypoint-json outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_entrypoint_four_field_v1.json \
+  --output-json outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_timing_stub_four_field_native_run_v1.json \
+  --canary-output-json outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_timing_stub_four_field_canary_runner_v1.json \
+  --source-manifest-json outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_timing_stub_four_field_source_manifest_v1.json \
+  --merged-output-json outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_timing_stub_four_field_merged_input_v1.json \
+  --stub-output-json outputs/reports/premap_kernel_consumer/typed_consumer_stub_gpu1_future_wna16_typed_slot_kernel_timing_stub_four_field_v1.json \
+  --run-native-stub \
+  --require-pass \
+  --device 1 \
+  --offload-arch gfx1100
 # passed = true
 ```
 
