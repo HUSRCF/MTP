@@ -2,8 +2,38 @@
 
 ## Progress Version
 
-- Version: `v0.99-future-wna16-typed-slot-kernel-variant-benchmark`
+- Version: `v1.00-future-wna16-typed-slot-payloadless-execution`
 - Updated: 2026-06-16
+- Latest future WNA16 typed-slot payloadless execution gate: the new script
+  `scripts/run_future_wna16_typed_slot_kernel_variant_payloadless_execution.py`
+  consumes
+  `outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_benchmark_v1_repeat3.json`
+  and writes
+  `outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_payloadless_execution_v1.json`.
+  With `--run-native-execution --require-native-execution` and an explicit
+  `--output-json outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_payloadless_execution_v1_native_run.json`,
+  it writes the native-run artifact and refreshes the native canary artifacts under
+  `outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_payloadless_execution/`.
+
+  The GPU1 native payloadless execution gate passes with `source_count=128`,
+  `row_count=5345`, all four handle fields read, and
+  `payloadless_execution_native_host_wall_ms=334.261804`.  It requires the
+  previous repeat-3 benchmark gate (`repeat_count_measured=3`,
+  median `native_stub_host_wall_ms=322.519211`) before running the native
+  payloadless canary, and it verifies the per-repeat timing-stub artifacts by
+  path, sha256, row/hash contract, and no-payload/no-current-WNA16 safety
+  fields.
+
+  This still remains an independent typed-slot native path, not a current WNA16
+  fused-MoE argument handoff and not a vLLM TPOT result.  The artifact keeps
+  `measures_vllm_latency=false`, `measures_tpot=false`,
+  `wna16_benchmark_ready=false`, `uses_current_wna16_args=false`,
+  `passes_current_wna16_args=false`, `payload_bytes=0`,
+  `payload_deref_allowed=false`, `kernel_arg_pass_allowed=false`,
+  `passed_to_kernel=false`, and `changes_kernel_launch_args=false`.  The next
+  runtime stage is
+  `implement_future_wna16_typed_slot_kernel_variant_one_field_handoff_canary`.
+
 - Latest future WNA16 typed-slot kernel-variant benchmark gate: the new script
   `scripts/run_future_wna16_typed_slot_kernel_variant_benchmark.py` consumes
   `outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_timing_stub_v1_native_run.json`
