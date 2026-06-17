@@ -1,0 +1,431 @@
+from __future__ import annotations
+
+import importlib.util
+import hashlib
+import json
+from pathlib import Path
+
+
+HANDLE_FIELDS = [
+    "descriptor_ptr",
+    "packed_weight_descriptor",
+    "scale_metadata_handle",
+    "aux_metadata_handle",
+]
+
+
+def _load_module():
+    path = (
+        Path(__file__).resolve().parents[1]
+        / "scripts"
+        / "run_future_wna16_typed_slot_kernel_variant_benchmark.py"
+    )
+    spec = importlib.util.spec_from_file_location(
+        "run_future_wna16_typed_slot_kernel_variant_benchmark",
+        path,
+    )
+    assert spec is not None
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+    return module
+
+
+def _write_json(path: Path, payload: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+
+
+def _sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _timing_stub_payload(
+    *,
+    row_count: int = 257,
+    source_count: int = 128,
+    host_wall_ms: float = 12.5,
+) -> dict:
+    return {
+        "schema_version": 1,
+        "artifact_kind": "future_wna16_typed_slot_kernel_timing_stub",
+        "timing_stub_name": "premap_future_wna16_typed_slot_kernel_timing_stub_v1",
+        "timing_stub_mode": "independent_future_wna16_typed_slot_native_stub_timing",
+        "timing_stub_source": "premap_future_wna16_typed_slot_kernel_variant_entrypoint_v1",
+        "passed": True,
+        "failures": [],
+        "entrypoint_json": "entrypoint.json",
+        "entrypoint_sha256": "a" * 64,
+        "runner_json": "runner.json",
+        "runner_sha256": "b" * 64,
+        "source_count": source_count,
+        "row_count": row_count,
+        "row_ok_count": row_count,
+        "field_names": list(HANDLE_FIELDS),
+        "field_read_row_ok_counts": {field: row_count for field in HANDLE_FIELDS},
+        "field_read_hashes": {
+            "descriptor_ptr": "3132333435363738",
+            "packed_weight_descriptor": "4142434445464748",
+            "scale_metadata_handle": "5152535455565758",
+            "aux_metadata_handle": "6162636465666768",
+        },
+        "row_hash_accumulator": "1112131415161718",
+        "handle_projection_hash_accumulator": "2122232425262728",
+        "timing_stub_ready": True,
+        "native_stub_requested": True,
+        "native_stub_executed": True,
+        "native_stub_host_wall_ms": host_wall_ms,
+        "native_stub_passed": True,
+        "measures_native_stub_host_wall_time": True,
+        "measures_vllm_latency": False,
+        "measures_tpot": False,
+        "wna16_benchmark_ready": False,
+        "uses_current_wna16_args": False,
+        "passes_current_wna16_args": False,
+        "current_wna16_arg_compatible": False,
+        "requires_wna16_arg_reinterpretation": False,
+        "payload_bytes": 0,
+        "payload_deref_allowed": False,
+        "kernel_arg_pass_allowed": False,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "next_runtime_stage": "implement_future_wna16_typed_slot_kernel_variant_benchmark",
+    }
+
+
+def test_future_wna16_typed_slot_variant_benchmark_accepts_timing_stub(
+    tmp_path: Path,
+):
+    module = _load_module()
+    timing_stub = tmp_path / "timing_stub.json"
+    output = tmp_path / "benchmark.json"
+    _write_json(timing_stub, _timing_stub_payload(host_wall_ms=17.0))
+
+    args = module.build_parser().parse_args(
+        [
+            "--timing-stub-json",
+            str(timing_stub),
+            "--output-json",
+            str(output),
+            "--repeat-count",
+            "0",
+        ]
+    )
+    result = module.run_benchmark(args)
+
+    assert result["passed"] is True
+    assert result["typed_slot_variant_benchmark_ready"] is True
+    assert result["future_wna16_variant_benchmark_ready"] is True
+    assert result["wna16_benchmark_ready"] is False
+    assert result["measures_tpot"] is False
+    assert result["measures_vllm_latency"] is False
+    assert result["uses_current_wna16_args"] is False
+    assert result["passes_current_wna16_args"] is False
+    assert result["payload_bytes"] == 0
+    assert result["payload_deref_allowed"] is False
+    assert result["kernel_arg_pass_allowed"] is False
+    assert result["passed_to_kernel"] is False
+    assert result["changes_kernel_launch_args"] is False
+    assert result["native_stub_host_wall_ms_stats"]["median_ms"] == 17.0
+    assert json.loads(output.read_text(encoding="utf-8"))["passed"] is True
+
+
+def test_future_wna16_typed_slot_variant_benchmark_rejects_non_native_stub(
+    tmp_path: Path,
+):
+    module = _load_module()
+    timing_stub = tmp_path / "timing_stub.json"
+    payload = _timing_stub_payload()
+    payload["native_stub_executed"] = False
+    _write_json(timing_stub, payload)
+
+    args = module.build_parser().parse_args(
+        [
+            "--timing-stub-json",
+            str(timing_stub),
+            "--output-json",
+            str(tmp_path / "benchmark.json"),
+            "--repeat-count",
+            "0",
+        ]
+    )
+    result = module.run_benchmark(args)
+
+    assert result["passed"] is False
+    assert any("native_stub_executed" in item for item in result["failures"])
+
+
+def test_future_wna16_typed_slot_variant_benchmark_rejects_current_arg_pass(
+    tmp_path: Path,
+):
+    module = _load_module()
+    timing_stub = tmp_path / "timing_stub.json"
+    payload = _timing_stub_payload()
+    payload["passes_current_wna16_args"] = True
+    _write_json(timing_stub, payload)
+
+    args = module.build_parser().parse_args(
+        [
+            "--timing-stub-json",
+            str(timing_stub),
+            "--output-json",
+            str(tmp_path / "benchmark.json"),
+        ]
+    )
+    result = module.run_benchmark(args)
+
+    assert result["passed"] is False
+    assert any("passes_current_wna16_args" in item for item in result["failures"])
+
+
+def test_future_wna16_typed_slot_variant_benchmark_skips_repeats_on_bad_seed(
+    tmp_path: Path,
+    monkeypatch,
+):
+    module = _load_module()
+    timing_stub = tmp_path / "timing_stub.json"
+    payload = _timing_stub_payload()
+    payload["passes_current_wna16_args"] = True
+    _write_json(timing_stub, payload)
+
+    def fail_if_called(args):
+        raise AssertionError("repeat runner must not run for invalid seed")
+
+    monkeypatch.setattr(module.timing_runner, "run_timing_stub", fail_if_called)
+    args = module.build_parser().parse_args(
+        [
+            "--timing-stub-json",
+            str(timing_stub),
+            "--output-json",
+            str(tmp_path / "benchmark.json"),
+            "--repeat-count",
+            "1",
+        ]
+    )
+    result = module.run_benchmark(args)
+
+    assert result["passed"] is False
+    assert "repeat_skipped_due_to_seed_contract_failure" in result["failures"]
+    assert result["repeat_count_measured"] == 0
+    assert result["measures_native_stub_host_wall_time"] is False
+
+
+def test_future_wna16_typed_slot_variant_benchmark_rejects_extra_field(
+    tmp_path: Path,
+):
+    module = _load_module()
+    timing_stub = tmp_path / "timing_stub.json"
+    payload = _timing_stub_payload()
+    payload["field_read_hashes"]["unexpected"] = "7172737475767778"
+    _write_json(timing_stub, payload)
+
+    args = module.build_parser().parse_args(
+        [
+            "--timing-stub-json",
+            str(timing_stub),
+            "--output-json",
+            str(tmp_path / "benchmark.json"),
+        ]
+    )
+    result = module.run_benchmark(args)
+
+    assert result["passed"] is False
+    assert "timing_stub_field_read_hashes_keys_mismatch" in result["failures"]
+
+
+def test_future_wna16_typed_slot_variant_benchmark_runs_fake_repeats(
+    tmp_path: Path,
+    monkeypatch,
+):
+    module = _load_module()
+    entrypoint = tmp_path / "entrypoint.json"
+    runner = tmp_path / "runner.json"
+    timing_stub = tmp_path / "timing_stub.json"
+    payload = _timing_stub_payload()
+    payload["entrypoint_json"] = str(entrypoint)
+    payload["runner_json"] = str(runner)
+    _write_json(entrypoint, {"ok": True})
+    _write_json(runner, {"online_prelaunch_input_jsons": [str(tmp_path / "input.json")]})
+    payload["entrypoint_sha256"] = _sha256(entrypoint)
+    payload["runner_sha256"] = _sha256(runner)
+    _write_json(timing_stub, payload)
+    values = [10.0, 20.0, 30.0]
+
+    def fake_run_timing_stub(args):
+        report = _timing_stub_payload(host_wall_ms=values.pop(0))
+        report["entrypoint_json"] = str(entrypoint)
+        report["runner_json"] = str(runner)
+        report["entrypoint_sha256"] = _sha256(entrypoint)
+        report["runner_sha256"] = _sha256(runner)
+        _write_json(Path(args.output_json), report)
+        return report
+
+    monkeypatch.setattr(module.timing_runner, "run_timing_stub", fake_run_timing_stub)
+    args = module.build_parser().parse_args(
+        [
+            "--timing-stub-json",
+            str(timing_stub),
+            "--output-json",
+            str(tmp_path / "benchmark.json"),
+            "--repeat-output-dir",
+            str(tmp_path / "repeats"),
+            "--repeat-count",
+            "3",
+        ]
+    )
+    result = module.run_benchmark(args)
+
+    assert result["passed"] is True
+    assert result["repeat_count_requested"] == 3
+    assert result["repeat_count_measured"] == 3
+    assert result["native_stub_host_wall_ms_stats"]["median_ms"] == 20.0
+    assert result["native_stub_host_wall_ms_stats"]["mean_ms"] == 20.0
+    assert result["benchmark_outer_wall_ms_stats"]["count"] == 3
+
+
+def test_future_wna16_typed_slot_variant_benchmark_rejects_repeat_drift(
+    tmp_path: Path,
+    monkeypatch,
+):
+    module = _load_module()
+    entrypoint = tmp_path / "entrypoint.json"
+    runner = tmp_path / "runner.json"
+    timing_stub = tmp_path / "timing_stub.json"
+    payload = _timing_stub_payload()
+    payload["entrypoint_json"] = str(entrypoint)
+    payload["runner_json"] = str(runner)
+    _write_json(entrypoint, {"ok": True})
+    _write_json(runner, {"online_prelaunch_input_jsons": [str(tmp_path / "input.json")]})
+    payload["entrypoint_sha256"] = _sha256(entrypoint)
+    payload["runner_sha256"] = _sha256(runner)
+    _write_json(timing_stub, payload)
+
+    def fake_run_timing_stub(args):
+        report = _timing_stub_payload(host_wall_ms=20.0)
+        report["entrypoint_json"] = str(entrypoint)
+        report["runner_json"] = str(runner)
+        report["entrypoint_sha256"] = _sha256(entrypoint)
+        report["runner_sha256"] = _sha256(runner)
+        report["row_hash_accumulator"] = "8182838485868788"
+        _write_json(Path(args.output_json), report)
+        return report
+
+    monkeypatch.setattr(module.timing_runner, "run_timing_stub", fake_run_timing_stub)
+    args = module.build_parser().parse_args(
+        [
+            "--timing-stub-json",
+            str(timing_stub),
+            "--output-json",
+            str(tmp_path / "benchmark.json"),
+            "--repeat-output-dir",
+            str(tmp_path / "repeats"),
+            "--repeat-count",
+            "1",
+        ]
+    )
+    result = module.run_benchmark(args)
+
+    assert result["passed"] is False
+    assert "repeat_0:row_hash_accumulator_mismatch" in result["failures"]
+    assert result["repeat_count_measured"] == 0
+
+
+def test_future_wna16_typed_slot_variant_benchmark_catches_repeat_exception(
+    tmp_path: Path,
+    monkeypatch,
+):
+    module = _load_module()
+    entrypoint = tmp_path / "entrypoint.json"
+    runner = tmp_path / "runner.json"
+    timing_stub = tmp_path / "timing_stub.json"
+    payload = _timing_stub_payload()
+    payload["entrypoint_json"] = str(entrypoint)
+    payload["runner_json"] = str(runner)
+    _write_json(entrypoint, {"ok": True})
+    _write_json(runner, {"online_prelaunch_input_jsons": [str(tmp_path / "input.json")]})
+    payload["entrypoint_sha256"] = _sha256(entrypoint)
+    payload["runner_sha256"] = _sha256(runner)
+    _write_json(timing_stub, payload)
+
+    def fake_run_timing_stub(args):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(module.timing_runner, "run_timing_stub", fake_run_timing_stub)
+    output = tmp_path / "benchmark.json"
+    args = module.build_parser().parse_args(
+        [
+            "--timing-stub-json",
+            str(timing_stub),
+            "--output-json",
+            str(output),
+            "--repeat-count",
+            "1",
+        ]
+    )
+    result = module.run_benchmark(args)
+
+    assert result["passed"] is False
+    assert any("repeat_0:exception:RuntimeError:boom" in item for item in result["failures"])
+    assert json.loads(output.read_text(encoding="utf-8"))["passed"] is False
+
+
+def test_future_wna16_typed_slot_variant_benchmark_skips_repeat_on_seed_sha_mismatch(
+    tmp_path: Path,
+    monkeypatch,
+):
+    module = _load_module()
+    entrypoint = tmp_path / "entrypoint.json"
+    runner = tmp_path / "runner.json"
+    timing_stub = tmp_path / "timing_stub.json"
+    payload = _timing_stub_payload()
+    payload["entrypoint_json"] = str(entrypoint)
+    payload["runner_json"] = str(runner)
+    _write_json(entrypoint, {"ok": True})
+    _write_json(runner, {"online_prelaunch_input_jsons": [str(tmp_path / "input.json")]})
+    payload["entrypoint_sha256"] = "0" * 64
+    payload["runner_sha256"] = _sha256(runner)
+    _write_json(timing_stub, payload)
+
+    def fail_if_called(args):
+        raise AssertionError("repeat runner must not run for mismatched seed sha")
+
+    monkeypatch.setattr(module.timing_runner, "run_timing_stub", fail_if_called)
+    args = module.build_parser().parse_args(
+        [
+            "--timing-stub-json",
+            str(timing_stub),
+            "--output-json",
+            str(tmp_path / "benchmark.json"),
+            "--repeat-count",
+            "1",
+        ]
+    )
+    result = module.run_benchmark(args)
+
+    assert result["passed"] is False
+    assert "seed_entrypoint_sha256_mismatch" in result["failures"]
+    assert "repeat_skipped_due_to_seed_contract_failure" in result["failures"]
+    assert result["repeat_count_measured"] == 0
+
+
+def test_future_wna16_typed_slot_variant_benchmark_rejects_negative_repeat(
+    tmp_path: Path,
+):
+    module = _load_module()
+    timing_stub = tmp_path / "timing_stub.json"
+    _write_json(timing_stub, _timing_stub_payload())
+
+    args = module.build_parser().parse_args(
+        [
+            "--timing-stub-json",
+            str(timing_stub),
+            "--output-json",
+            str(tmp_path / "benchmark.json"),
+            "--repeat-count",
+            "-1",
+        ]
+    )
+    result = module.run_benchmark(args)
+
+    assert result["passed"] is False
+    assert "repeat_count_negative" in result["failures"]

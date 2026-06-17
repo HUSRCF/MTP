@@ -2,8 +2,35 @@
 
 ## Progress Version
 
-- Version: `v0.98-future-wna16-typed-slot-timing-stub`
+- Version: `v0.99-future-wna16-typed-slot-kernel-variant-benchmark`
 - Updated: 2026-06-16
+- Latest future WNA16 typed-slot kernel-variant benchmark gate: the new script
+  `scripts/run_future_wna16_typed_slot_kernel_variant_benchmark.py` consumes
+  `outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_timing_stub_v1_native_run.json`
+  and writes
+  `outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_benchmark_v1.json`.
+  A repeat-3 GPU1 run also writes
+  `outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_benchmark_v1_repeat3.json`
+  plus per-repeat timing-stub artifacts under
+  `outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_benchmark_repeats/`.
+  The refreshed repeat-3 gate passes with `source_count=128`,
+  `row_count=5345`, `repeat_count_measured=3`, `native_stub_host_wall_ms`
+  values `[320.76937, 322.519211, 336.899171]`, and median
+  `native_stub_host_wall_ms=322.519211`.
+
+  This is a benchmark for the independent future typed-slot native stub path
+  only.  It is still not a vLLM TPOT result and not a current WNA16 fused-MoE
+  kernel-argument handoff.  The artifact keeps
+  `benchmark_is_current_wna16_fused_moe=false`, `measures_vllm_latency=false`,
+  `measures_tpot=false`, `wna16_benchmark_ready=false`,
+  `uses_current_wna16_args=false`, `passes_current_wna16_args=false`,
+  `payload_bytes=0`, `payload_deref_allowed=false`,
+  `kernel_arg_pass_allowed=false`, `passed_to_kernel=false`, and
+  `changes_kernel_launch_args=false`.  The next runtime stage is
+  `implement_future_wna16_typed_slot_kernel_variant_payloadless_execution`: a
+  payloadless typed-slot execution path that remains separate from the current
+  WNA16 fused-MoE argument list.
+
 - Latest future WNA16 typed-slot timing-stub gate: the new script
   `scripts/run_future_wna16_typed_slot_kernel_timing_stub.py` consumes
   `outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_entrypoint_v1.json`
