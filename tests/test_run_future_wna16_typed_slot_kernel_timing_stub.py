@@ -70,6 +70,12 @@ def _entrypoint_payload(*, row_count: int = 257, source_count: int = 128) -> dic
         },
         "row_hash_accumulator": "1112131415161718",
         "handle_projection_hash_accumulator": "2122232425262728",
+        "fourth_field_handoff_ready": True,
+        "fourth_field_handoff_source_count": source_count,
+        "fourth_field_handoff_row_count": row_count,
+        "fourth_field_handoff_row_ok_count": row_count,
+        "fourth_field_handoff_field_read_hash": "3132333435363738",
+        "fourth_field_handoff_runner_hash": "8182838485868788",
     }
 
 
@@ -133,7 +139,22 @@ def test_future_wna16_typed_slot_timing_stub_accepts_entrypoint(tmp_path: Path):
     assert result["measures_tpot"] is False
     assert result["wna16_benchmark_ready"] is False
     assert result["uses_current_wna16_args"] is False
+    assert result["fourth_field_handoff_ready"] is True
+    assert result["fourth_field_handoff_source_count"] == 128
+    assert result["fourth_field_handoff_row_count"] == 257
+    assert result["fourth_field_handoff_row_ok_count"] == 257
+    assert result["fourth_field_handoff_field_read_hash"] == "3132333435363738"
+    assert result["fourth_field_handoff_runner_hash"] == "8182838485868788"
     assert json.loads(output.read_text(encoding="utf-8"))["passed"] is True
+
+
+def test_future_wna16_typed_slot_timing_stub_defaults_to_four_field_entrypoint():
+    module = _load_module()
+
+    default_path = Path(module.build_parser().parse_args([]).entrypoint_json)
+
+    assert default_path.name == "future_wna16_typed_slot_kernel_variant_entrypoint_four_field_v1.json"
+    assert "premap_kernel_consumer" in default_path.parts
 
 
 def test_future_wna16_typed_slot_timing_stub_rejects_entrypoint_not_ready(
@@ -180,6 +201,127 @@ def test_future_wna16_typed_slot_timing_stub_rejects_current_arg_pass(
 
     assert result["passed"] is False
     assert any("passes_current_wna16_args" in item for item in result["failures"])
+
+
+def test_future_wna16_typed_slot_timing_stub_rejects_fourth_source_mismatch(
+    tmp_path: Path,
+):
+    module = _load_module()
+    entrypoint = tmp_path / "entrypoint.json"
+    payload = _entrypoint_payload()
+    payload["fourth_field_handoff_source_count"] = 129
+    _write_json(entrypoint, payload)
+
+    args = module.build_parser().parse_args(
+        [
+            "--entrypoint-json",
+            str(entrypoint),
+            "--output-json",
+            str(tmp_path / "timing.json"),
+        ]
+    )
+    result = module.run_timing_stub(args)
+
+    assert result["passed"] is False
+    assert "entrypoint_fourth_field_handoff_source_count_mismatch" in result["failures"]
+
+
+def test_future_wna16_typed_slot_timing_stub_rejects_missing_fourth_row(
+    tmp_path: Path,
+):
+    module = _load_module()
+    entrypoint = tmp_path / "entrypoint.json"
+    payload = _entrypoint_payload()
+    del payload["fourth_field_handoff_row_count"]
+    _write_json(entrypoint, payload)
+
+    args = module.build_parser().parse_args(
+        [
+            "--entrypoint-json",
+            str(entrypoint),
+            "--output-json",
+            str(tmp_path / "timing.json"),
+        ]
+    )
+    result = module.run_timing_stub(args)
+
+    assert result["passed"] is False
+    assert "entrypoint_fourth_field_handoff_row_count_invalid" in result["failures"]
+
+
+def test_future_wna16_typed_slot_timing_stub_rejects_fourth_hash_mismatch(
+    tmp_path: Path,
+):
+    module = _load_module()
+    entrypoint = tmp_path / "entrypoint.json"
+    payload = _entrypoint_payload()
+    payload["fourth_field_handoff_field_read_hash"] = "7172737475767778"
+    _write_json(entrypoint, payload)
+
+    args = module.build_parser().parse_args(
+        [
+            "--entrypoint-json",
+            str(entrypoint),
+            "--output-json",
+            str(tmp_path / "timing.json"),
+        ]
+    )
+    result = module.run_timing_stub(args)
+
+    assert result["passed"] is False
+    assert "entrypoint_fourth_field_handoff_descriptor_hash_mismatch" in result[
+        "failures"
+    ]
+
+
+def test_future_wna16_typed_slot_timing_stub_rejects_fourth_row_ok_mismatch(
+    tmp_path: Path,
+):
+    module = _load_module()
+    entrypoint = tmp_path / "entrypoint.json"
+    payload = _entrypoint_payload()
+    payload["fourth_field_handoff_row_ok_count"] = 256
+    _write_json(entrypoint, payload)
+
+    args = module.build_parser().parse_args(
+        [
+            "--entrypoint-json",
+            str(entrypoint),
+            "--output-json",
+            str(tmp_path / "timing.json"),
+        ]
+    )
+    result = module.run_timing_stub(args)
+
+    assert result["passed"] is False
+    assert "entrypoint_fourth_field_handoff_row_ok_count_mismatch" in result[
+        "failures"
+    ]
+
+
+def test_future_wna16_typed_slot_timing_stub_rejects_bad_runner_hash(
+    tmp_path: Path,
+):
+    module = _load_module()
+    entrypoint = tmp_path / "entrypoint.json"
+    payload = _entrypoint_payload()
+    payload["fourth_field_handoff_runner_hash"] = "0"
+    _write_json(entrypoint, payload)
+
+    args = module.build_parser().parse_args(
+        [
+            "--entrypoint-json",
+            str(entrypoint),
+            "--output-json",
+            str(tmp_path / "timing.json"),
+        ]
+    )
+    result = module.run_timing_stub(args)
+
+    assert result["passed"] is False
+    assert "entrypoint_fourth_field_handoff_runner_hash_invalid" in result[
+        "failures"
+    ]
 
 
 def test_future_wna16_typed_slot_timing_stub_runs_fake_native_canary(

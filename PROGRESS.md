@@ -35201,3 +35201,69 @@ Propagate the four-field entrypoint into the independent native timing-stub /
 consumer path.  Keep payload/kernel args/current WNA16 arg reinterpretation
 closed.
 ```
+
+### 2026-06-17 - Four-field typed-slot timing-stub gate passed
+
+The independent future WNA16 typed-slot timing-stub gate now consumes the
+four-field entrypoint artifact by default.  The gate remains a no-native /
+no-latency readiness artifact unless `--run-native-stub` is explicitly enabled,
+but it now carries the fourth-field `descriptor_ptr` handoff envelope forward
+into the next consumer stage.
+
+Artifacts:
+
+```text
+outputs/reports/premap_kernel_consumer/
+  future_wna16_typed_slot_kernel_variant_entrypoint_four_field_v1.json
+  future_wna16_typed_slot_kernel_timing_stub_four_field_v1.json
+```
+
+Gate result:
+
+```text
+timing_stub_ready = true
+native_stub_requested = false
+native_stub_executed = false
+source_count = 128
+row_count = 5345
+field_read_row_ok_counts = 5345 for all four fields
+fourth_field_handoff_ready = true
+fourth_field_handoff_source_count = 128
+fourth_field_handoff_row_count = 5345
+fourth_field_handoff_field_read_hash = 6e08db27babecb6a
+field_read_hashes.descriptor_ptr = 6e08db27babecb6a
+uses_current_wna16_args = false
+passes_current_wna16_args = false
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+measures_tpot = false
+measures_vllm_latency = false
+```
+
+Validation:
+
+```text
+conda run -n TRY python -m pytest \
+  tests/test_run_future_wna16_typed_slot_kernel_timing_stub.py -q
+# 11 passed
+
+conda run -n TRY python -m pytest \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_entrypoint.py \
+  tests/test_run_future_wna16_typed_slot_kernel_timing_stub.py -q
+# 24 passed
+
+conda run -n TRY python scripts/run_future_wna16_typed_slot_kernel_timing_stub.py \
+  --entrypoint-json outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_entrypoint_four_field_v1.json \
+  --output-json outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_timing_stub_four_field_v1.json \
+  --require-pass
+# passed = true
+```
+
+Next gate:
+
+```text
+Run the explicit native-stub path from the four-field timing-stub entrypoint,
+then use that artifact as the seed for the independent typed-slot benchmark
+wrapper.  Do not route through current WNA16 fused-MoE args.
+```

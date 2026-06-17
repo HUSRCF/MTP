@@ -31,7 +31,7 @@ DEFAULT_ENTRYPOINT_JSON = (
     / "outputs"
     / "reports"
     / "premap_kernel_consumer"
-    / "future_wna16_typed_slot_kernel_variant_entrypoint_v1.json"
+    / "future_wna16_typed_slot_kernel_variant_entrypoint_four_field_v1.json"
 )
 DEFAULT_OUTPUT_JSON = (
     REPO_ROOT
@@ -100,6 +100,7 @@ EXPECTED_ENTRYPOINT_FLAGS: dict[str, Any] = {
     "measures_latency": False,
     "wna16_benchmark_ready": False,
     "next_runtime_stage": "implement_future_wna16_typed_slot_kernel_timing_stub",
+    "fourth_field_handoff_ready": True,
 }
 
 
@@ -186,9 +187,29 @@ def _check_entrypoint(
     for key in (
         "row_hash_accumulator",
         "handle_projection_hash_accumulator",
+        "fourth_field_handoff_field_read_hash",
+        "fourth_field_handoff_runner_hash",
     ):
         if not _is_hex_u64(entrypoint.get(key)):
             failures.append(f"entrypoint_{key}_invalid")
+    fourth_source_count = _int_metric(entrypoint, "fourth_field_handoff_source_count")
+    if fourth_source_count is None:
+        failures.append("entrypoint_fourth_field_handoff_source_count_invalid")
+    elif source_count is not None and fourth_source_count != source_count:
+        failures.append("entrypoint_fourth_field_handoff_source_count_mismatch")
+    fourth_row_count = _int_metric(entrypoint, "fourth_field_handoff_row_count")
+    fourth_row_ok_count = _int_metric(entrypoint, "fourth_field_handoff_row_ok_count")
+    if fourth_row_count is None:
+        failures.append("entrypoint_fourth_field_handoff_row_count_invalid")
+    elif row_count is not None and fourth_row_count != row_count:
+        failures.append("entrypoint_fourth_field_handoff_row_count_mismatch")
+    if fourth_row_ok_count is None:
+        failures.append("entrypoint_fourth_field_handoff_row_ok_count_invalid")
+    elif fourth_row_count is not None and fourth_row_ok_count != fourth_row_count:
+        failures.append("entrypoint_fourth_field_handoff_row_ok_count_mismatch")
+    descriptor_hash = field_hashes.get("descriptor_ptr")
+    if entrypoint.get("fourth_field_handoff_field_read_hash") != descriptor_hash:
+        failures.append("entrypoint_fourth_field_handoff_descriptor_hash_mismatch")
     return failures
 
 
@@ -377,6 +398,22 @@ def run_timing_stub(args: argparse.Namespace) -> dict[str, Any]:
         "row_hash_accumulator": entrypoint.get("row_hash_accumulator"),
         "handle_projection_hash_accumulator": entrypoint.get(
             "handle_projection_hash_accumulator"
+        ),
+        "fourth_field_handoff_ready": entrypoint.get("fourth_field_handoff_ready"),
+        "fourth_field_handoff_source_count": entrypoint.get(
+            "fourth_field_handoff_source_count"
+        ),
+        "fourth_field_handoff_row_count": entrypoint.get(
+            "fourth_field_handoff_row_count"
+        ),
+        "fourth_field_handoff_row_ok_count": entrypoint.get(
+            "fourth_field_handoff_row_ok_count"
+        ),
+        "fourth_field_handoff_field_read_hash": entrypoint.get(
+            "fourth_field_handoff_field_read_hash"
+        ),
+        "fourth_field_handoff_runner_hash": entrypoint.get(
+            "fourth_field_handoff_runner_hash"
         ),
         "timing_stub_ready": passed,
         "native_stub_requested": bool(args.run_native_stub),
