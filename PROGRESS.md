@@ -35130,3 +35130,74 @@ Continue the independent future WNA16 typed-slot consumer path using the
 all-four-field ABI evidence.  Do not reinterpret or reuse current WNA16 fused-MoE
 kernel args until a compatible typed-slot kernel variant exists.
 ```
+
+### 2026-06-17 - Four-field typed-slot entrypoint gate passed
+
+The no-mutation future WNA16 typed-slot kernel-variant entrypoint now consumes
+the strict four-field benchmark harness artifact instead of the older v1 harness.
+It carries the fourth-field `descriptor_ptr` evidence forward and requires the
+fourth-field source/row/hash envelope to match the all-field typed-slot map.
+
+Artifacts:
+
+```text
+outputs/reports/premap_kernel_consumer/
+  wna16_typed_slot_benchmark_harness_four_field_preflight_v2.json
+  future_wna16_typed_slot_kernel_variant_entrypoint_four_field_v1.json
+```
+
+Gate result:
+
+```text
+typed_slot_entrypoint_ready = true
+entrypoint_accepts_typed_slot = true
+source_count = 128
+row_count = 5345
+field_read_row_ok_counts = 5345 for all four fields
+fourth_field_handoff_ready = true
+fourth_field_handoff_source_count = 128
+fourth_field_handoff_row_count = 5345
+fourth_field_handoff_field_read_hash = 6e08db27babecb6a
+field_read_hashes.descriptor_ptr = 6e08db27babecb6a
+wna16_benchmark_ready = false
+uses_current_wna16_args = false
+passes_current_wna16_args = false
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+```
+
+The entrypoint now rejects:
+
+```text
+fourth-field source-count mismatch
+missing / non-int fourth-field source count
+fourth-field row-count mismatch
+missing / non-int fourth-field row count
+missing / non-int fourth-field row-ok count
+fourth-field descriptor hash mismatch
+extra field maps beyond the four typed-slot handles
+current WNA16 arg pass
+```
+
+Validation:
+
+```text
+conda run -n TRY python -m pytest \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_entrypoint.py -q
+# 13 passed
+
+conda run -n TRY python scripts/run_future_wna16_typed_slot_kernel_variant_entrypoint.py \
+  --harness-json outputs/reports/premap_kernel_consumer/wna16_typed_slot_benchmark_harness_four_field_preflight_v2.json \
+  --output-json outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_entrypoint_four_field_v1.json \
+  --require-pass
+# passed = true
+```
+
+Next gate:
+
+```text
+Propagate the four-field entrypoint into the independent native timing-stub /
+consumer path.  Keep payload/kernel args/current WNA16 arg reinterpretation
+closed.
+```

@@ -27,7 +27,7 @@ DEFAULT_HARNESS_JSON = (
     / "outputs"
     / "reports"
     / "premap_kernel_consumer"
-    / "wna16_typed_slot_benchmark_harness_v1.json"
+    / "wna16_typed_slot_benchmark_harness_four_field_preflight_v2.json"
 )
 DEFAULT_OUTPUT_JSON = (
     REPO_ROOT
@@ -70,6 +70,7 @@ EXPECTED_HARNESS_FLAGS: dict[str, Any] = {
     "next_runtime_stage": (
         "implement_future_wna16_typed_slot_kernel_variant_entrypoint"
     ),
+    "fourth_field_handoff_ready": True,
 }
 
 
@@ -155,9 +156,29 @@ def _check_harness(
     for key in (
         "row_hash_accumulator",
         "handle_projection_hash_accumulator",
+        "fourth_field_handoff_field_read_hash",
+        "fourth_field_handoff_runner_hash",
     ):
         if not _is_hex_u64(harness.get(key)):
             failures.append(f"harness_{key}_invalid")
+    fourth_source_count = _int_metric(harness, "fourth_field_handoff_source_count")
+    if fourth_source_count is None:
+        failures.append("harness_fourth_field_handoff_source_count_invalid")
+    elif source_count is not None and fourth_source_count != source_count:
+        failures.append("harness_fourth_field_handoff_source_count_mismatch")
+    fourth_row_count = _int_metric(harness, "fourth_field_handoff_row_count")
+    fourth_row_ok_count = _int_metric(harness, "fourth_field_handoff_row_ok_count")
+    if fourth_row_count is None:
+        failures.append("harness_fourth_field_handoff_row_count_invalid")
+    elif row_count is not None and fourth_row_count != row_count:
+        failures.append("harness_fourth_field_handoff_row_count_mismatch")
+    if fourth_row_ok_count is None:
+        failures.append("harness_fourth_field_handoff_row_ok_count_invalid")
+    elif fourth_row_count is not None and fourth_row_ok_count != fourth_row_count:
+        failures.append("harness_fourth_field_handoff_row_ok_count_mismatch")
+    descriptor_hash = field_hashes.get("descriptor_ptr")
+    if harness.get("fourth_field_handoff_field_read_hash") != descriptor_hash:
+        failures.append("harness_fourth_field_handoff_descriptor_hash_mismatch")
     return failures
 
 
@@ -190,6 +211,22 @@ def run_entrypoint(args: argparse.Namespace) -> dict[str, Any]:
         "row_hash_accumulator": harness.get("row_hash_accumulator"),
         "handle_projection_hash_accumulator": harness.get(
             "handle_projection_hash_accumulator"
+        ),
+        "fourth_field_handoff_ready": harness.get("fourth_field_handoff_ready"),
+        "fourth_field_handoff_source_count": harness.get(
+            "fourth_field_handoff_source_count"
+        ),
+        "fourth_field_handoff_row_count": harness.get(
+            "fourth_field_handoff_row_count"
+        ),
+        "fourth_field_handoff_row_ok_count": harness.get(
+            "fourth_field_handoff_row_ok_count"
+        ),
+        "fourth_field_handoff_field_read_hash": harness.get(
+            "fourth_field_handoff_field_read_hash"
+        ),
+        "fourth_field_handoff_runner_hash": harness.get(
+            "fourth_field_handoff_runner_hash"
         ),
         "typed_slot_entrypoint_ready": passed,
         "entrypoint_accepts_typed_slot": passed,

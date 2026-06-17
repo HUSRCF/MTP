@@ -72,6 +72,12 @@ def _harness_payload(*, row_count: int = 257, source_count: int = 128) -> dict:
         },
         "row_hash_accumulator": "1112131415161718",
         "handle_projection_hash_accumulator": "2122232425262728",
+        "fourth_field_handoff_ready": True,
+        "fourth_field_handoff_source_count": source_count,
+        "fourth_field_handoff_row_count": row_count,
+        "fourth_field_handoff_row_ok_count": row_count,
+        "fourth_field_handoff_field_read_hash": "3132333435363738",
+        "fourth_field_handoff_runner_hash": "8182838485868788",
     }
 
 
@@ -99,10 +105,23 @@ def test_future_wna16_typed_slot_entrypoint_accepts_harness(tmp_path: Path):
     assert result["wna16_benchmark_ready"] is False
     assert result["measures_latency"] is False
     assert result["row_count"] == 257
+    assert result["fourth_field_handoff_ready"] is True
+    assert result["fourth_field_handoff_source_count"] == 128
+    assert result["fourth_field_handoff_row_count"] == 257
+    assert result["fourth_field_handoff_field_read_hash"] == "3132333435363738"
     assert result["next_runtime_stage"] == (
         "implement_future_wna16_typed_slot_kernel_timing_stub"
     )
     assert json.loads(output.read_text(encoding="utf-8"))["passed"] is True
+
+
+def test_future_wna16_typed_slot_entrypoint_defaults_to_four_field_harness():
+    module = _load_module()
+
+    default_path = Path(module.build_parser().parse_args([]).harness_json)
+
+    assert default_path.name == "wna16_typed_slot_benchmark_harness_four_field_preflight_v2.json"
+    assert "premap_kernel_consumer" in default_path.parts
 
 
 def test_future_wna16_typed_slot_entrypoint_rejects_harness_not_ready(
@@ -222,5 +241,146 @@ def test_future_wna16_typed_slot_entrypoint_rejects_field_count_mismatch(
 
     assert result["passed"] is False
     assert "harness_aux_metadata_handle_read_row_ok_count_mismatch" in result[
+        "failures"
+    ]
+
+
+def test_future_wna16_typed_slot_entrypoint_rejects_fourth_source_mismatch(
+    tmp_path: Path,
+):
+    module = _load_module()
+    harness = tmp_path / "harness.json"
+    payload = _harness_payload()
+    payload["fourth_field_handoff_source_count"] = 129
+    _write_json(harness, payload)
+
+    args = module.build_parser().parse_args(
+        [
+            "--harness-json",
+            str(harness),
+            "--output-json",
+            str(tmp_path / "entrypoint.json"),
+        ]
+    )
+    result = module.run_entrypoint(args)
+
+    assert result["passed"] is False
+    assert "harness_fourth_field_handoff_source_count_mismatch" in result["failures"]
+
+
+def test_future_wna16_typed_slot_entrypoint_rejects_missing_fourth_source(
+    tmp_path: Path,
+):
+    module = _load_module()
+    harness = tmp_path / "harness.json"
+    payload = _harness_payload()
+    del payload["fourth_field_handoff_source_count"]
+    _write_json(harness, payload)
+
+    args = module.build_parser().parse_args(
+        [
+            "--harness-json",
+            str(harness),
+            "--output-json",
+            str(tmp_path / "entrypoint.json"),
+        ]
+    )
+    result = module.run_entrypoint(args)
+
+    assert result["passed"] is False
+    assert "harness_fourth_field_handoff_source_count_invalid" in result["failures"]
+
+
+def test_future_wna16_typed_slot_entrypoint_rejects_fourth_row_mismatch(
+    tmp_path: Path,
+):
+    module = _load_module()
+    harness = tmp_path / "harness.json"
+    payload = _harness_payload()
+    payload["fourth_field_handoff_row_count"] = 256
+    payload["fourth_field_handoff_row_ok_count"] = 256
+    _write_json(harness, payload)
+
+    args = module.build_parser().parse_args(
+        [
+            "--harness-json",
+            str(harness),
+            "--output-json",
+            str(tmp_path / "entrypoint.json"),
+        ]
+    )
+    result = module.run_entrypoint(args)
+
+    assert result["passed"] is False
+    assert "harness_fourth_field_handoff_row_count_mismatch" in result["failures"]
+
+
+def test_future_wna16_typed_slot_entrypoint_rejects_invalid_fourth_row_type(
+    tmp_path: Path,
+):
+    module = _load_module()
+    harness = tmp_path / "harness.json"
+    payload = _harness_payload()
+    payload["fourth_field_handoff_row_count"] = "257"
+    _write_json(harness, payload)
+
+    args = module.build_parser().parse_args(
+        [
+            "--harness-json",
+            str(harness),
+            "--output-json",
+            str(tmp_path / "entrypoint.json"),
+        ]
+    )
+    result = module.run_entrypoint(args)
+
+    assert result["passed"] is False
+    assert "harness_fourth_field_handoff_row_count_invalid" in result["failures"]
+
+
+def test_future_wna16_typed_slot_entrypoint_rejects_missing_fourth_row_ok(
+    tmp_path: Path,
+):
+    module = _load_module()
+    harness = tmp_path / "harness.json"
+    payload = _harness_payload()
+    del payload["fourth_field_handoff_row_ok_count"]
+    _write_json(harness, payload)
+
+    args = module.build_parser().parse_args(
+        [
+            "--harness-json",
+            str(harness),
+            "--output-json",
+            str(tmp_path / "entrypoint.json"),
+        ]
+    )
+    result = module.run_entrypoint(args)
+
+    assert result["passed"] is False
+    assert "harness_fourth_field_handoff_row_ok_count_invalid" in result["failures"]
+
+
+def test_future_wna16_typed_slot_entrypoint_rejects_fourth_hash_mismatch(
+    tmp_path: Path,
+):
+    module = _load_module()
+    harness = tmp_path / "harness.json"
+    payload = _harness_payload()
+    payload["fourth_field_handoff_field_read_hash"] = "7172737475767778"
+    _write_json(harness, payload)
+
+    args = module.build_parser().parse_args(
+        [
+            "--harness-json",
+            str(harness),
+            "--output-json",
+            str(tmp_path / "entrypoint.json"),
+        ]
+    )
+    result = module.run_entrypoint(args)
+
+    assert result["passed"] is False
+    assert "harness_fourth_field_handoff_descriptor_hash_mismatch" in result[
         "failures"
     ]
