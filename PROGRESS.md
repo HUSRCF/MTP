@@ -35050,6 +35050,83 @@ python -m pytest \
   tests/test_check_premap_lab_preflight_summary.py \
   tests/test_run_premap_lab_preflight.py \
   tests/test_check_premap_lab_gate_verify.py \
-  tests/test_run_premap_lab_gate_verify.py -q
+tests/test_run_premap_lab_gate_verify.py -q
 # 256 passed
+```
+
+### 2026-06-17 - Four-field typed-slot harness gate tightened
+
+The strict lab preflight now treats the four-field WNA16 typed-slot readonly/native
+gate as a required prerequisite for the future typed-slot benchmark harness.
+The benchmark harness is still payloadless and does not pass current WNA16 kernel
+arguments, but it now requires the fourth-field `descriptor_ptr` handoff evidence
+to be cross-bound to the WNA16-side typed consumer evidence.
+
+Artifacts:
+
+```text
+outputs/reports/premap_kernel_consumer/
+  premap_lab_preflight_four_field_required_gate_check.json
+  premap_lab_preflight_four_field_required_gate_check.check.json
+  online_merged_wna16_real_typed_slot_consumer_same_source_128strict_preflight_runner.json
+  wna16_typed_slot_benchmark_harness_four_field_preflight_v2.json
+```
+
+Gate result:
+
+```text
+benchmark_harness_ready = true
+preflight_check_required = true
+source_count = 128
+row_count = 5345
+field_read_row_ok_counts = 5345 for all four fields
+descriptor_ptr hash = 6e08db27babecb6a
+packed_weight_descriptor hash = c5ca7b791f2fef98
+fourth_field_handoff_ready = true
+wna16_benchmark_ready = false
+current_wna16_arg_pass = false
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+```
+
+The harness now rejects:
+
+```text
+fourth-field row-count mismatch
+fourth-field descriptor/packed hash mismatch
+runner source-count mismatch against fourth-field preflight source count
+unbound preflight-check artifacts missing checked path/SHA
+preflight-check JSON target mismatch
+preflight-check SHA mismatch
+```
+
+This closes the main review gap from the first all-four-field harness version:
+the fourth-field canary is no longer accepted as optional diagnostic evidence or
+as a disconnected summary field.  It must point at the same checked preflight
+artifact and match the same row/hash envelope as the online WNA16-side typed
+consumer runner.  The companion preflight-check artifact is also bound to the
+current preflight JSON path and SHA; a stale or unbound check file is rejected.
+
+Validation:
+
+```text
+conda run -n TRY python -m pytest \
+  tests/test_run_premap_lab_preflight.py \
+  tests/test_run_wna16_typed_slot_benchmark_harness.py -q
+# 185 passed
+
+conda run -n TRY python scripts/run_wna16_typed_slot_benchmark_harness.py \
+  --output-json outputs/reports/premap_kernel_consumer/wna16_typed_slot_benchmark_harness_four_field_preflight_v2.json \
+  --require-preflight-check \
+  --require-pass
+# passed = true
+```
+
+Next gate:
+
+```text
+Continue the independent future WNA16 typed-slot consumer path using the
+all-four-field ABI evidence.  Do not reinterpret or reuse current WNA16 fused-MoE
+kernel args until a compatible typed-slot kernel variant exists.
 ```

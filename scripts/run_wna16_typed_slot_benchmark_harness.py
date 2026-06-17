@@ -33,13 +33,15 @@ DEFAULT_PREFLIGHT_JSON = (
     REPO_ROOT
     / "outputs"
     / "reports"
-    / "premap_lab_preflight_status_v095_wna16_kernel_side_execution_gate.json"
+    / "premap_kernel_consumer"
+    / "premap_lab_preflight_four_field_required_gate_check.json"
 )
 DEFAULT_PREFLIGHT_CHECK_JSON = (
     REPO_ROOT
     / "outputs"
     / "reports"
-    / "premap_lab_preflight_status_v095_wna16_kernel_side_execution_gate.check.json"
+    / "premap_kernel_consumer"
+    / "premap_lab_preflight_four_field_required_gate_check.check.json"
 )
 DEFAULT_RUNNER_JSON = (
     REPO_ROOT
@@ -63,6 +65,9 @@ NEXT_RUNTIME_STAGE = "implement_future_wna16_typed_slot_kernel_variant_entrypoin
 WNA16_EXECUTION_PREFIX = "future_wna16_kernel_side_consumer_execution"
 PREFLIGHT_EXECUTION_PREFIX = (
     "default_kernel_consumer_wna16_kernel_side_execution"
+)
+PREFLIGHT_FOURTH_FIELD_PREFIX = (
+    "default_kernel_consumer_future_wna16_fourth_field_handoff"
 )
 HANDLE_FIELDS = (
     "descriptor_ptr",
@@ -96,10 +101,41 @@ EXPECTED_RUNNER_FLAGS: dict[str, Any] = {
 }
 EXPECTED_PREFLIGHT_FLAGS: dict[str, Any] = {
     "passed": True,
+    f"{PREFLIGHT_FOURTH_FIELD_PREFIX}_ready": True,
     "default_kernel_consumer_wna16_kernel_side_execution_ready": True,
     "default_kernel_consumer_wna16_benchmark_ready": False,
     "default_kernel_consumer_next_runtime_stage": EXPECTED_PREFLIGHT_STAGE,
     "default_kernel_consumer_wna16_benchmark_prerequisites_ready": False,
+}
+EXPECTED_PREFLIGHT_FOURTH_FIELD_FLAGS: dict[str, Any] = {
+    f"{PREFLIGHT_FOURTH_FIELD_PREFIX}_evidence_passed": True,
+    f"{PREFLIGHT_FOURTH_FIELD_PREFIX}_first_field": "scale_metadata_handle",
+    f"{PREFLIGHT_FOURTH_FIELD_PREFIX}_second_field": "aux_metadata_handle",
+    f"{PREFLIGHT_FOURTH_FIELD_PREFIX}_third_field": "packed_weight_descriptor",
+    f"{PREFLIGHT_FOURTH_FIELD_PREFIX}_fourth_field": "descriptor_ptr",
+    f"{PREFLIGHT_FOURTH_FIELD_PREFIX}_fourth_field_kind": 1,
+    f"{PREFLIGHT_FOURTH_FIELD_PREFIX}_fourth_field_mask": 1,
+    f"{PREFLIGHT_FOURTH_FIELD_PREFIX}_previous_gate_ready": True,
+    f"{PREFLIGHT_FOURTH_FIELD_PREFIX}_native_requested": True,
+    f"{PREFLIGHT_FOURTH_FIELD_PREFIX}_native_executed": True,
+    f"{PREFLIGHT_FOURTH_FIELD_PREFIX}_native_passed": True,
+    f"{PREFLIGHT_FOURTH_FIELD_PREFIX}_live_enabled": False,
+    f"{PREFLIGHT_FOURTH_FIELD_PREFIX}_block_reason": (
+        "fourth_field_handoff_live_disabled"
+    ),
+    f"{PREFLIGHT_FOURTH_FIELD_PREFIX}_payload_bytes": 0,
+    f"{PREFLIGHT_FOURTH_FIELD_PREFIX}_expected_payload_bytes": 0,
+    f"{PREFLIGHT_FOURTH_FIELD_PREFIX}_payload_deref_allowed": False,
+    f"{PREFLIGHT_FOURTH_FIELD_PREFIX}_kernel_arg_pass_allowed": False,
+    f"{PREFLIGHT_FOURTH_FIELD_PREFIX}_passed_to_kernel": False,
+    f"{PREFLIGHT_FOURTH_FIELD_PREFIX}_changes_kernel_launch_args": False,
+    f"{PREFLIGHT_FOURTH_FIELD_PREFIX}_current_wna16_arg_compatible": False,
+    f"{PREFLIGHT_FOURTH_FIELD_PREFIX}_requires_wna16_arg_reinterpretation": False,
+    f"{PREFLIGHT_FOURTH_FIELD_PREFIX}_uses_current_wna16_args": False,
+    f"{PREFLIGHT_FOURTH_FIELD_PREFIX}_passes_current_wna16_args": False,
+    f"{PREFLIGHT_FOURTH_FIELD_PREFIX}_measures_tpot": False,
+    f"{PREFLIGHT_FOURTH_FIELD_PREFIX}_measures_vllm_latency": False,
+    f"{PREFLIGHT_FOURTH_FIELD_PREFIX}_wna16_benchmark_ready": False,
 }
 EXPECTED_PREFLIGHT_EXECUTION_FLAGS: dict[str, Any] = {
     f"{PREFLIGHT_EXECUTION_PREFIX}_required": True,
@@ -203,7 +239,16 @@ def _summary_payload(preflight: dict[str, Any]) -> dict[str, Any]:
     nested = preflight.get("lab_gate_status_summary")
     if isinstance(nested, dict):
         merged = dict(nested)
-        merged.update({key: value for key, value in preflight.items() if key != "lab_gate_status_summary"})
+        conflicts: list[str] = []
+        for key, value in preflight.items():
+            if key == "lab_gate_status_summary":
+                continue
+            if key in merged and merged[key] != value:
+                conflicts.append(key)
+                continue
+            merged[key] = value
+        if conflicts:
+            merged["__lab_gate_status_summary_conflicts__"] = conflicts
         return merged
     return preflight
 
@@ -235,12 +280,57 @@ def _require_runner_equal(
 def _check_preflight(
     preflight: dict[str, Any],
     *,
+    min_source_count: int,
     min_row_count: int,
 ) -> tuple[dict[str, Any], list[str]]:
     failures: list[str] = []
     summary = _summary_payload(preflight)
+    conflicts = summary.get("__lab_gate_status_summary_conflicts__")
+    if isinstance(conflicts, list) and conflicts:
+        failures.append(
+            "preflight_summary_top_level_conflict:" + ",".join(map(str, conflicts))
+        )
     for key, expected in EXPECTED_PREFLIGHT_FLAGS.items():
         _require_equal(summary, failures, key=key, expected=expected, label="preflight")
+    for key, expected in EXPECTED_PREFLIGHT_FOURTH_FIELD_FLAGS.items():
+        _require_equal(summary, failures, key=key, expected=expected, label="preflight")
+    source_count = _int_metric(summary, f"{PREFLIGHT_FOURTH_FIELD_PREFIX}_source_count")
+    previous_source_count = _int_metric(
+        summary,
+        f"{PREFLIGHT_FOURTH_FIELD_PREFIX}_previous_source_count",
+    )
+    if source_count is None or source_count < min_source_count:
+        failures.append("preflight_fourth_field_handoff_source_count_invalid")
+    if previous_source_count is None or previous_source_count < min_source_count:
+        failures.append("preflight_fourth_field_handoff_previous_source_count_invalid")
+    fourth_row_count = _int_metric(summary, f"{PREFLIGHT_FOURTH_FIELD_PREFIX}_row_count")
+    fourth_row_ok_count = _int_metric(
+        summary,
+        f"{PREFLIGHT_FOURTH_FIELD_PREFIX}_row_ok_count",
+    )
+    if fourth_row_count is None or fourth_row_count < min_row_count:
+        failures.append("preflight_fourth_field_handoff_row_count_invalid")
+    elif fourth_row_ok_count != fourth_row_count:
+        failures.append("preflight_fourth_field_handoff_row_ok_count_mismatch")
+    for suffix in (
+        "field_read_row_ok_count",
+        "runner_row_count",
+        "runner_row_ok_count",
+    ):
+        if (
+            fourth_row_count is not None
+            and _int_metric(summary, f"{PREFLIGHT_FOURTH_FIELD_PREFIX}_{suffix}")
+            != fourth_row_count
+        ):
+            failures.append(f"preflight_fourth_field_handoff_{suffix}_mismatch")
+    for suffix in (
+        "field_read_hash",
+        "runner_hash",
+        "third_field_read_hash",
+        "third_field_native_hash",
+    ):
+        if not _is_hex_u64(summary.get(f"{PREFLIGHT_FOURTH_FIELD_PREFIX}_{suffix}")):
+            failures.append(f"preflight_fourth_field_handoff_{suffix}_invalid")
     for key, expected in EXPECTED_PREFLIGHT_EXECUTION_FLAGS.items():
         _require_equal(summary, failures, key=key, expected=expected, label="preflight")
     row_count = _int_metric(summary, f"{PREFLIGHT_EXECUTION_PREFIX}_row_count")
@@ -263,6 +353,28 @@ def _check_preflight(
     ):
         if not _is_hex_u64(summary.get(key)):
             failures.append(f"preflight_{key}_invalid")
+    descriptor_hash = summary.get(
+        f"{PREFLIGHT_EXECUTION_PREFIX}_descriptor_ptr_read_hash_accumulator"
+    )
+    packed_hash = summary.get(
+        f"{PREFLIGHT_EXECUTION_PREFIX}_packed_weight_descriptor_read_hash_accumulator"
+    )
+    fourth_descriptor_hash = summary.get(
+        f"{PREFLIGHT_FOURTH_FIELD_PREFIX}_field_read_hash"
+    )
+    fourth_packed_hash = summary.get(
+        f"{PREFLIGHT_FOURTH_FIELD_PREFIX}_third_field_read_hash"
+    )
+    if (
+        fourth_row_count is not None
+        and row_count is not None
+        and fourth_row_count != row_count
+    ):
+        failures.append("preflight_fourth_field_handoff_wna16_row_count_mismatch")
+    if fourth_descriptor_hash != descriptor_hash:
+        failures.append("preflight_fourth_field_handoff_descriptor_hash_mismatch")
+    if fourth_packed_hash != packed_hash:
+        failures.append("preflight_fourth_field_handoff_packed_weight_hash_mismatch")
     return summary, failures
 
 
@@ -312,12 +424,35 @@ def _check_runner_cross_hashes(
 def _check_preflight_check(
     payload: dict[str, Any],
     failures: list[str],
+    *,
+    preflight_path: Path,
+    preflight_sha256: str,
 ) -> None:
     if payload.get("passed") is not True:
         failures.append("preflight_check_not_passed")
     result = payload.get("result")
     if isinstance(result, dict) and result.get("passed") is not True:
         failures.append("preflight_check_result_not_passed")
+    checked_json = payload.get("checked_preflight_json") or payload.get(
+        "preflight_json"
+    )
+    if checked_json is None:
+        failures.append("preflight_check_json_target_missing")
+    else:
+        try:
+            checked_path = _resolve(str(checked_json)).resolve()
+        except OSError:
+            failures.append("preflight_check_json_target_unresolvable")
+        else:
+            if checked_path != preflight_path.resolve():
+                failures.append("preflight_check_json_target_mismatch")
+    checked_sha = payload.get("checked_preflight_sha256") or payload.get(
+        "preflight_sha256"
+    )
+    if checked_sha is None:
+        failures.append("preflight_check_sha256_missing")
+    elif checked_sha != preflight_sha256:
+        failures.append("preflight_check_sha256_mismatch")
 
 
 def _check_runner(
@@ -334,6 +469,16 @@ def _check_runner(
     source_count = _int_metric(runner, "selected_source_count")
     if source_count is None or source_count < min_source_count:
         failures.append("runner_selected_source_count_invalid")
+    preflight_source_count = _int_metric(
+        preflight_summary,
+        f"{PREFLIGHT_FOURTH_FIELD_PREFIX}_source_count",
+    )
+    if (
+        source_count is not None
+        and preflight_source_count is not None
+        and source_count != preflight_source_count
+    ):
+        failures.append("runner_fourth_field_handoff_source_count_mismatch")
     row_count = _int_metric(runner, "merged_row_count")
     if row_count is None or row_count < min_row_count:
         failures.append("runner_merged_row_count_invalid")
@@ -343,6 +488,16 @@ def _check_runner(
         and row_count != preflight_row_count
     ):
         failures.append("runner_preflight_row_count_mismatch")
+    fourth_row_count = _int_metric(
+        preflight_summary,
+        f"{PREFLIGHT_FOURTH_FIELD_PREFIX}_row_count",
+    )
+    if (
+        fourth_row_count is not None
+        and row_count is not None
+        and row_count != fourth_row_count
+    ):
+        failures.append("runner_fourth_field_handoff_row_count_mismatch")
     execution_row_count = _runner_int_metric(
         runner,
         f"{WNA16_EXECUTION_PREFIX}_row_count",
@@ -377,6 +532,24 @@ def _check_runner(
         if not _is_hex_u64(_runner_value(runner, key)):
             failures.append(f"runner_{key}_invalid")
     _check_runner_cross_hashes(runner, preflight_summary, failures)
+    fourth_descriptor_hash = preflight_summary.get(
+        f"{PREFLIGHT_FOURTH_FIELD_PREFIX}_field_read_hash"
+    )
+    fourth_packed_hash = preflight_summary.get(
+        f"{PREFLIGHT_FOURTH_FIELD_PREFIX}_third_field_read_hash"
+    )
+    runner_descriptor_hash = _runner_value(
+        runner,
+        f"{WNA16_EXECUTION_PREFIX}_descriptor_ptr_read_hash_accumulator",
+    )
+    runner_packed_hash = _runner_value(
+        runner,
+        f"{WNA16_EXECUTION_PREFIX}_packed_weight_descriptor_read_hash_accumulator",
+    )
+    if fourth_descriptor_hash != runner_descriptor_hash:
+        failures.append("runner_fourth_field_handoff_descriptor_hash_mismatch")
+    if fourth_packed_hash != runner_packed_hash:
+        failures.append("runner_fourth_field_handoff_packed_weight_hash_mismatch")
     return row_count, failures
 
 
@@ -388,9 +561,11 @@ def run_harness(args: argparse.Namespace) -> dict[str, Any]:
 
     preflight = _load_json(preflight_path)
     runner = _load_json(runner_path)
+    preflight_sha256 = _sha256(preflight_path)
     failures: list[str] = []
     preflight_summary, preflight_failures = _check_preflight(
         preflight,
+        min_source_count=args.min_source_count,
         min_row_count=args.min_row_count,
     )
     failures.extend(preflight_failures)
@@ -402,7 +577,12 @@ def run_harness(args: argparse.Namespace) -> dict[str, Any]:
         if not preflight_check_path.exists():
             failures.append("preflight_check_json_missing")
         else:
-            _check_preflight_check(_load_json(preflight_check_path), failures)
+            _check_preflight_check(
+                _load_json(preflight_check_path),
+                failures,
+                preflight_path=preflight_path,
+                preflight_sha256=preflight_sha256,
+            )
     row_count, runner_failures = _check_runner(
         runner,
         preflight_summary=preflight_summary,
@@ -435,7 +615,7 @@ def run_harness(args: argparse.Namespace) -> dict[str, Any]:
         "passed": passed,
         "failures": failures,
         "preflight_json": str(preflight_path),
-        "preflight_sha256": _sha256(preflight_path),
+        "preflight_sha256": preflight_sha256,
         "preflight_check_json": str(preflight_check_path),
         "preflight_check_required": bool(args.require_preflight_check),
         "preflight_check_sha256": (
@@ -454,6 +634,24 @@ def run_harness(args: argparse.Namespace) -> dict[str, Any]:
         "field_names": list(HANDLE_FIELDS),
         "field_read_row_ok_counts": field_read_row_ok_counts,
         "field_read_hashes": field_read_hashes,
+        "fourth_field_handoff_ready": preflight_summary.get(
+            f"{PREFLIGHT_FOURTH_FIELD_PREFIX}_ready"
+        ),
+        "fourth_field_handoff_source_count": preflight_summary.get(
+            f"{PREFLIGHT_FOURTH_FIELD_PREFIX}_source_count"
+        ),
+        "fourth_field_handoff_row_count": preflight_summary.get(
+            f"{PREFLIGHT_FOURTH_FIELD_PREFIX}_row_count"
+        ),
+        "fourth_field_handoff_row_ok_count": preflight_summary.get(
+            f"{PREFLIGHT_FOURTH_FIELD_PREFIX}_row_ok_count"
+        ),
+        "fourth_field_handoff_field_read_hash": preflight_summary.get(
+            f"{PREFLIGHT_FOURTH_FIELD_PREFIX}_field_read_hash"
+        ),
+        "fourth_field_handoff_runner_hash": preflight_summary.get(
+            f"{PREFLIGHT_FOURTH_FIELD_PREFIX}_runner_hash"
+        ),
         "row_hash_accumulator": _runner_value(
             runner,
             f"{WNA16_EXECUTION_PREFIX}_hash_accumulator"

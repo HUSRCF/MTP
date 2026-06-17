@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import json
 from pathlib import Path
@@ -35,10 +36,53 @@ def _write_json(path: Path, payload: dict) -> None:
     path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
 
 
+def _sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
 def _preflight_payload(*, row_count: int = 257) -> dict:
     prefix = "default_kernel_consumer_wna16_kernel_side_execution"
+    fourth_prefix = "default_kernel_consumer_future_wna16_fourth_field_handoff"
     payload = {
         "passed": True,
+        f"{fourth_prefix}_ready": True,
+        f"{fourth_prefix}_evidence_passed": True,
+        f"{fourth_prefix}_first_field": "scale_metadata_handle",
+        f"{fourth_prefix}_second_field": "aux_metadata_handle",
+        f"{fourth_prefix}_third_field": "packed_weight_descriptor",
+        f"{fourth_prefix}_fourth_field": "descriptor_ptr",
+        f"{fourth_prefix}_fourth_field_kind": 1,
+        f"{fourth_prefix}_fourth_field_mask": 1,
+        f"{fourth_prefix}_previous_gate_ready": True,
+        f"{fourth_prefix}_native_requested": True,
+        f"{fourth_prefix}_native_executed": True,
+        f"{fourth_prefix}_native_passed": True,
+        f"{fourth_prefix}_live_enabled": False,
+        f"{fourth_prefix}_block_reason": "fourth_field_handoff_live_disabled",
+        f"{fourth_prefix}_source_count": 128,
+        f"{fourth_prefix}_previous_source_count": 128,
+        f"{fourth_prefix}_row_count": row_count,
+        f"{fourth_prefix}_row_ok_count": row_count,
+        f"{fourth_prefix}_field_read_row_ok_count": row_count,
+        f"{fourth_prefix}_runner_row_count": row_count,
+        f"{fourth_prefix}_runner_row_ok_count": row_count,
+        f"{fourth_prefix}_field_read_hash": "3132333435363738",
+        f"{fourth_prefix}_runner_hash": "8182838485868788",
+        f"{fourth_prefix}_third_field_read_hash": "4142434445464748",
+        f"{fourth_prefix}_third_field_native_hash": "a1a2a3a4a5a6a7a8",
+        f"{fourth_prefix}_payload_bytes": 0,
+        f"{fourth_prefix}_expected_payload_bytes": 0,
+        f"{fourth_prefix}_payload_deref_allowed": False,
+        f"{fourth_prefix}_kernel_arg_pass_allowed": False,
+        f"{fourth_prefix}_passed_to_kernel": False,
+        f"{fourth_prefix}_changes_kernel_launch_args": False,
+        f"{fourth_prefix}_current_wna16_arg_compatible": False,
+        f"{fourth_prefix}_requires_wna16_arg_reinterpretation": False,
+        f"{fourth_prefix}_uses_current_wna16_args": False,
+        f"{fourth_prefix}_passes_current_wna16_args": False,
+        f"{fourth_prefix}_measures_tpot": False,
+        f"{fourth_prefix}_measures_vllm_latency": False,
+        f"{fourth_prefix}_wna16_benchmark_ready": False,
         "default_kernel_consumer_wna16_kernel_side_execution_ready": True,
         "default_kernel_consumer_wna16_benchmark_ready": False,
         "default_kernel_consumer_wna16_benchmark_prerequisites_ready": False,
@@ -172,7 +216,15 @@ def test_wna16_typed_slot_benchmark_harness_accepts_strict_artifacts(tmp_path: P
     runner = tmp_path / "runner.json"
     output = tmp_path / "out.json"
     _write_json(preflight, _preflight_payload())
-    _write_json(check, {"passed": True})
+    _write_json(
+        check,
+        {
+            "passed": True,
+            "result": {"passed": True},
+            "checked_preflight_json": str(preflight),
+            "checked_preflight_sha256": _sha256(preflight),
+        },
+    )
     _write_json(runner, _runner_payload())
 
     args = module.build_parser().parse_args(
@@ -198,6 +250,12 @@ def test_wna16_typed_slot_benchmark_harness_accepts_strict_artifacts(tmp_path: P
     assert result["payload_deref_allowed"] is False
     assert result["row_count"] == 257
     assert result["field_read_row_ok_counts"]["scale_metadata_handle"] == 257
+    assert result["fourth_field_handoff_ready"] is True
+    assert result["fourth_field_handoff_source_count"] == 128
+    assert result["fourth_field_handoff_row_count"] == 257
+    assert result["fourth_field_handoff_row_ok_count"] == 257
+    assert result["fourth_field_handoff_field_read_hash"] == "3132333435363738"
+    assert result["fourth_field_handoff_runner_hash"] == "8182838485868788"
     assert result["next_runtime_stage"] == (
         "implement_future_wna16_typed_slot_kernel_variant_entrypoint"
     )
@@ -254,6 +312,264 @@ def test_wna16_typed_slot_benchmark_harness_rejects_benchmark_ready(
 
     assert result["passed"] is False
     assert any("default_kernel_consumer_wna16_benchmark_ready" in item for item in result["failures"])
+
+
+def test_wna16_typed_slot_benchmark_harness_rejects_nested_summary_conflict(
+    tmp_path: Path,
+):
+    module = _load_module()
+    preflight = tmp_path / "preflight.json"
+    runner = tmp_path / "runner.json"
+    payload = _preflight_payload()
+    nested = dict(payload)
+    nested["default_kernel_consumer_wna16_benchmark_ready"] = True
+    payload["lab_gate_status_summary"] = nested
+    _write_json(preflight, payload)
+    _write_json(runner, _runner_payload())
+
+    args = module.build_parser().parse_args(
+        [
+            "--preflight-json",
+            str(preflight),
+            "--runner-json",
+            str(runner),
+            "--output-json",
+            str(tmp_path / "out.json"),
+        ]
+    )
+    result = module.run_harness(args)
+
+    assert result["passed"] is False
+    assert any(
+        item.startswith("preflight_summary_top_level_conflict:")
+        for item in result["failures"]
+    )
+
+
+def test_wna16_typed_slot_benchmark_harness_rejects_missing_fourth_field_ready(
+    tmp_path: Path,
+):
+    module = _load_module()
+    preflight = tmp_path / "preflight.json"
+    runner = tmp_path / "runner.json"
+    payload = _preflight_payload()
+    payload["default_kernel_consumer_future_wna16_fourth_field_handoff_ready"] = False
+    _write_json(preflight, payload)
+    _write_json(runner, _runner_payload())
+
+    args = module.build_parser().parse_args(
+        [
+            "--preflight-json",
+            str(preflight),
+            "--runner-json",
+            str(runner),
+            "--output-json",
+            str(tmp_path / "out.json"),
+        ]
+    )
+    result = module.run_harness(args)
+
+    assert result["passed"] is False
+    assert any("fourth_field_handoff_ready" in item for item in result["failures"])
+
+
+def test_wna16_typed_slot_benchmark_harness_rejects_fourth_field_row_mismatch(
+    tmp_path: Path,
+):
+    module = _load_module()
+    preflight = tmp_path / "preflight.json"
+    runner = tmp_path / "runner.json"
+    payload = _preflight_payload(row_count=257)
+    fourth_prefix = "default_kernel_consumer_future_wna16_fourth_field_handoff"
+    for suffix in (
+        "row_count",
+        "row_ok_count",
+        "field_read_row_ok_count",
+        "runner_row_count",
+        "runner_row_ok_count",
+    ):
+        payload[f"{fourth_prefix}_{suffix}"] = 258
+    _write_json(preflight, payload)
+    _write_json(runner, _runner_payload())
+
+    args = module.build_parser().parse_args(
+        [
+            "--preflight-json",
+            str(preflight),
+            "--runner-json",
+            str(runner),
+            "--output-json",
+            str(tmp_path / "out.json"),
+        ]
+    )
+    result = module.run_harness(args)
+
+    assert result["passed"] is False
+    assert "preflight_fourth_field_handoff_wna16_row_count_mismatch" in result["failures"]
+
+
+def test_wna16_typed_slot_benchmark_harness_rejects_fourth_field_hash_mismatch(
+    tmp_path: Path,
+):
+    module = _load_module()
+    preflight = tmp_path / "preflight.json"
+    runner = tmp_path / "runner.json"
+    payload = _preflight_payload()
+    payload[
+        "default_kernel_consumer_future_wna16_fourth_field_handoff_field_read_hash"
+    ] = "7172737475767778"
+    _write_json(preflight, payload)
+    _write_json(runner, _runner_payload())
+
+    args = module.build_parser().parse_args(
+        [
+            "--preflight-json",
+            str(preflight),
+            "--runner-json",
+            str(runner),
+            "--output-json",
+            str(tmp_path / "out.json"),
+        ]
+    )
+    result = module.run_harness(args)
+
+    assert result["passed"] is False
+    assert "preflight_fourth_field_handoff_descriptor_hash_mismatch" in result["failures"]
+    assert "runner_fourth_field_handoff_descriptor_hash_mismatch" in result["failures"]
+
+
+def test_wna16_typed_slot_benchmark_harness_rejects_preflight_check_sha_mismatch(
+    tmp_path: Path,
+):
+    module = _load_module()
+    preflight = tmp_path / "preflight.json"
+    check = tmp_path / "preflight.check.json"
+    runner = tmp_path / "runner.json"
+    _write_json(preflight, _preflight_payload())
+    _write_json(
+        check,
+        {
+            "passed": True,
+            "result": {"passed": True},
+            "checked_preflight_json": str(preflight),
+            "checked_preflight_sha256": "0" * 64,
+        },
+    )
+    _write_json(runner, _runner_payload())
+
+    args = module.build_parser().parse_args(
+        [
+            "--preflight-json",
+            str(preflight),
+            "--preflight-check-json",
+            str(check),
+            "--runner-json",
+            str(runner),
+            "--output-json",
+            str(tmp_path / "out.json"),
+            "--require-preflight-check",
+        ]
+    )
+    result = module.run_harness(args)
+
+    assert result["passed"] is False
+    assert "preflight_check_sha256_mismatch" in result["failures"]
+
+
+def test_wna16_typed_slot_benchmark_harness_rejects_unbound_preflight_check(
+    tmp_path: Path,
+):
+    module = _load_module()
+    preflight = tmp_path / "preflight.json"
+    check = tmp_path / "preflight.check.json"
+    runner = tmp_path / "runner.json"
+    _write_json(preflight, _preflight_payload())
+    _write_json(check, {"passed": True, "result": {"passed": True}})
+    _write_json(runner, _runner_payload())
+
+    args = module.build_parser().parse_args(
+        [
+            "--preflight-json",
+            str(preflight),
+            "--preflight-check-json",
+            str(check),
+            "--runner-json",
+            str(runner),
+            "--output-json",
+            str(tmp_path / "out.json"),
+            "--require-preflight-check",
+        ]
+    )
+    result = module.run_harness(args)
+
+    assert result["passed"] is False
+    assert "preflight_check_json_target_missing" in result["failures"]
+    assert "preflight_check_sha256_missing" in result["failures"]
+
+
+def test_wna16_typed_slot_benchmark_harness_rejects_preflight_check_target_mismatch(
+    tmp_path: Path,
+):
+    module = _load_module()
+    preflight = tmp_path / "preflight.json"
+    other_preflight = tmp_path / "other_preflight.json"
+    check = tmp_path / "preflight.check.json"
+    runner = tmp_path / "runner.json"
+    _write_json(preflight, _preflight_payload())
+    _write_json(other_preflight, _preflight_payload())
+    _write_json(
+        check,
+        {
+            "passed": True,
+            "result": {"passed": True},
+            "checked_preflight_json": str(other_preflight),
+            "checked_preflight_sha256": _sha256(preflight),
+        },
+    )
+    _write_json(runner, _runner_payload())
+
+    args = module.build_parser().parse_args(
+        [
+            "--preflight-json",
+            str(preflight),
+            "--preflight-check-json",
+            str(check),
+            "--runner-json",
+            str(runner),
+            "--output-json",
+            str(tmp_path / "out.json"),
+            "--require-preflight-check",
+        ]
+    )
+    result = module.run_harness(args)
+
+    assert result["passed"] is False
+    assert "preflight_check_json_target_mismatch" in result["failures"]
+
+
+def test_wna16_typed_slot_benchmark_harness_rejects_source_count_mismatch(
+    tmp_path: Path,
+):
+    module = _load_module()
+    preflight = tmp_path / "preflight.json"
+    runner = tmp_path / "runner.json"
+    _write_json(preflight, _preflight_payload())
+    _write_json(runner, _runner_payload(source_count=129))
+
+    args = module.build_parser().parse_args(
+        [
+            "--preflight-json",
+            str(preflight),
+            "--runner-json",
+            str(runner),
+            "--output-json",
+            str(tmp_path / "out.json"),
+        ]
+    )
+    result = module.run_harness(args)
+
+    assert result["passed"] is False
+    assert "runner_fourth_field_handoff_source_count_mismatch" in result["failures"]
 
 
 def test_wna16_typed_slot_benchmark_harness_rejects_runner_safety_open(
