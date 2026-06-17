@@ -501,6 +501,52 @@ def test_future_wna16_typed_slot_variant_benchmark_rejects_repeat_drift(
     assert result["repeat_count_measured"] == 0
 
 
+def test_future_wna16_typed_slot_variant_benchmark_rejects_missing_repeat_output(
+    tmp_path: Path,
+    monkeypatch,
+):
+    module = _load_module()
+    entrypoint = tmp_path / "entrypoint.json"
+    runner = tmp_path / "runner.json"
+    timing_stub = tmp_path / "timing_stub.json"
+    payload = _timing_stub_payload()
+    _write_json(entrypoint, {"ok": True})
+    _write_json(runner, {"online_prelaunch_input_jsons": [str(tmp_path / "input.json")]})
+    payload["entrypoint_json"] = str(entrypoint)
+    payload["runner_json"] = str(runner)
+    payload["entrypoint_sha256"] = _sha256(entrypoint)
+    payload["runner_sha256"] = _sha256(runner)
+    _write_json(timing_stub, payload)
+
+    def fake_run_timing_stub(args):
+        report = _timing_stub_payload(host_wall_ms=20.0)
+        report["entrypoint_json"] = str(entrypoint)
+        report["runner_json"] = str(runner)
+        report["entrypoint_sha256"] = _sha256(entrypoint)
+        report["runner_sha256"] = _sha256(runner)
+        return report
+
+    monkeypatch.setattr(module.timing_runner, "run_timing_stub", fake_run_timing_stub)
+    args = module.build_parser().parse_args(
+        [
+            "--timing-stub-json",
+            str(timing_stub),
+            "--output-json",
+            str(tmp_path / "benchmark.json"),
+            "--repeat-output-dir",
+            str(tmp_path / "repeats"),
+            "--repeat-count",
+            "1",
+        ]
+    )
+    result = module.run_benchmark(args)
+
+    assert result["passed"] is False
+    assert "repeat_0:output_json_missing" in result["failures"]
+    assert result["repeat_count_measured"] == 0
+    assert result["native_stub_host_wall_ms_stats"]["count"] == 0
+
+
 def test_future_wna16_typed_slot_variant_benchmark_rejects_repeat_fourth_drift(
     tmp_path: Path,
     monkeypatch,

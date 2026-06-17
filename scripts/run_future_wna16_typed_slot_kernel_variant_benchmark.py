@@ -431,21 +431,25 @@ def run_benchmark(args: argparse.Namespace) -> dict[str, Any]:
             f"timing_stub_repeat_{index:03d}.json"
         )
         repeat_output_jsons.append(str(repeat_output))
-        if repeat_output.exists():
+        repeat_output_valid = False
+        if not repeat_output.exists():
+            failures.append(f"repeat_{index}:output_json_missing")
+        else:
             repeat_sha, repeat_sha_failure = _sha256_or_failure(
                 repeat_output,
                 label=f"repeat_{index}_output",
             )
             if repeat_sha_failure is None and repeat_sha is not None:
                 repeat_output_sha256s.append(repeat_sha)
+                repeat_output_valid = True
             elif repeat_sha_failure is not None:
                 failures.append(repeat_sha_failure)
         repeat_ms = _numeric_ms(repeat_report, "native_stub_host_wall_ms")
         if repeat_ms is None:
             failures.append(f"repeat_{index}:native_stub_host_wall_ms_invalid")
-        elif not repeat_failures:
+        elif not repeat_failures and repeat_output_valid:
             native_stub_wall_ms.append(repeat_ms)
-        if not repeat_failures and repeat_ms is not None:
+        if not repeat_failures and repeat_ms is not None and repeat_output_valid:
             outer_wall_ms.append(repeat_outer_ms)
 
     expected_measurements = 1 if args.repeat_count == 0 else max(0, args.repeat_count)

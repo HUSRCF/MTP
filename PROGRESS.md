@@ -35332,8 +35332,8 @@ fourth_field_handoff_row_count = 5345
 fourth_field_handoff_field_read_hash = 6e08db27babecb6a
 repeat_count_requested = 3
 repeat_count_measured = 3
-native_stub_host_wall_ms median = 332.811345
-benchmark_outer_wall_ms median = 334.351819
+native_stub_host_wall_ms median = 334.677379
+benchmark_outer_wall_ms median = 336.246874
 wna16_benchmark_ready = false
 benchmark_is_current_wna16_fused_moe = false
 uses_current_wna16_args = false
@@ -35348,6 +35348,10 @@ measures_vllm_latency = false
 The wrapper now rejects:
 
 ```text
+untrusted timing-stub seed even when repeat-count = 0
+seed artifact path/SHA mismatch
+seed artifact SHA read failure as structured failure
+missing repeat output JSON
 non-native timing-stub seed
 current WNA16 arg pass
 extra typed-slot fields
@@ -35362,12 +35366,12 @@ Validation:
 ```text
 conda run -n TRY python -m pytest \
   tests/test_run_future_wna16_typed_slot_kernel_variant_benchmark.py -q
-# 17 passed
+# 18 passed
 
 conda run -n TRY python -m pytest \
   tests/test_run_future_wna16_typed_slot_kernel_timing_stub.py \
   tests/test_run_future_wna16_typed_slot_kernel_variant_benchmark.py -q
-# 28 passed
+# 29 passed
 
 conda run -n TRY python scripts/run_future_wna16_typed_slot_kernel_variant_benchmark.py \
   --timing-stub-json outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_timing_stub_four_field_native_run_v1.json \
