@@ -131,6 +131,9 @@ REQUIRED_DEFAULT_GATE_CONTRACT = {
     "future_kernel_native_arg_slot_online_total_mirror_coverage_required": True,
     "future_wna16_single_field_handoff_all_fields_required": True,
     "future_wna16_single_field_handoff_all_fields_min_source_count": 128,
+    "future_wna16_typed_slot_fourth_field_handoff_canary_required": True,
+    "future_wna16_typed_slot_fourth_field_handoff_canary_field": "descriptor_ptr",
+    "future_wna16_typed_slot_fourth_field_handoff_canary_min_source_count": 128,
     "wna16_side_consumer_variant_execution_required": True,
     "wna16_side_consumer_variant_execution_min_source_count": 128,
     "single_field_handle_handoff_canary_required": True,
@@ -276,6 +279,7 @@ REQUIRED_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
     "future_kernel_wna16_adjacent_typed_slot_stub_json",
     "future_kernel_wna16_adjacent_typed_slot_standalone_canary_json",
     "future_wna16_single_field_handoff_all_fields_128strict_summary_json",
+    "future_wna16_typed_slot_fourth_field_handoff_canary_json",
     "wna16_side_consumer_variant_execution_128strict_runner_json",
     "payload_cache_producer_state_native_canary_json",
     "payload_cache_producer_state_online_nonempty_issue_canary_json",
@@ -591,6 +595,17 @@ def _hex64_metric(metrics: dict[str, Any], key: str) -> int | None:
     except ValueError:
         return None
     return parsed if 0 <= parsed <= _UINT64_MASK else None
+
+
+def _sha256_hex_metric(metrics: dict[str, Any], key: str) -> str | None:
+    value = metrics.get(key)
+    if not isinstance(value, str) or len(value) != 64:
+        return None
+    try:
+        int(value, 16)
+    except ValueError:
+        return None
+    return value
 
 
 def _validate_kernel_launch_context_runner_metrics(
@@ -1553,6 +1568,156 @@ def _validate_future_wna16_single_field_handoff_all_fields_summary(
     return failures
 
 
+def _validate_future_wna16_typed_slot_fourth_field_handoff_canary(
+    evidence: dict[str, Any],
+) -> list[str]:
+    failures: list[str] = []
+    if evidence.get("passed") is not True:
+        failures.append("canary_not_passed")
+    if evidence.get("failures") not in ([], None):
+        failures.append("canary_failures_not_empty")
+    if not _targets_default_lab_gpu1(evidence):
+        failures.append("device_not_gpu1")
+
+    expected_values = {
+        "artifact_kind": (
+            "future_wna16_typed_slot_kernel_variant_fourth_field_handoff_canary"
+        ),
+        "fourth_field_handoff_canary_name": (
+            "premap_future_wna16_typed_slot_fourth_field_handoff_canary_v1"
+        ),
+        "fourth_field_handoff_canary_mode": (
+            "readonly_future_wna16_typed_slot_fourth_field_handoff_canary"
+        ),
+        "fourth_field_handoff_canary_source": (
+            "premap_future_wna16_typed_slot_third_field_handoff_canary_v1"
+        ),
+        "fourth_field_handoff_scope": (
+            "independent_future_wna16_typed_slot_fourth_field_handoff_canary"
+        ),
+        "first_field_name": "scale_metadata_handle",
+        "second_field_name": "aux_metadata_handle",
+        "third_field_name": "packed_weight_descriptor",
+        "fourth_field_name": (
+            REQUIRED_DEFAULT_GATE_CONTRACT[
+                "future_wna16_typed_slot_fourth_field_handoff_canary_field"
+            ]
+        ),
+        "fourth_field_kind": 1,
+        "fourth_field_mask": 1,
+        "fourth_field_handoff_block_reason": "fourth_field_handoff_live_disabled",
+        "next_runtime_stage": (
+            "promote_future_wna16_typed_slot_all_four_field_handoff_gate_to_lab_preflight"
+        ),
+    }
+    for key, expected in expected_values.items():
+        failures.extend(_check_metric_equals(evidence, key, expected))
+
+    expected_bools = {
+        "previous_field_gate_ready": True,
+        "fourth_field_handoff_canary_native_requested": True,
+        "fourth_field_handoff_canary_native_executed": True,
+        "fourth_field_handoff_canary_native_passed": True,
+        "fourth_field_handoff_live_enabled": False,
+        "measures_vllm_latency": False,
+        "measures_tpot": False,
+        "wna16_benchmark_ready": False,
+        "uses_current_wna16_args": False,
+        "passes_current_wna16_args": False,
+        "current_wna16_arg_compatible": False,
+        "requires_wna16_arg_reinterpretation": False,
+        "payload_deref_allowed": False,
+        "kernel_arg_pass_allowed": False,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "expected_measures_vllm_latency": False,
+        "expected_measures_tpot": False,
+        "expected_wna16_benchmark_ready": False,
+        "expected_uses_current_wna16_args": False,
+        "expected_passes_current_wna16_args": False,
+        "expected_current_wna16_arg_compatible": False,
+        "expected_requires_wna16_arg_reinterpretation": False,
+        "expected_payload_deref_allowed": False,
+        "expected_kernel_arg_pass_allowed": False,
+        "expected_passed_to_kernel": False,
+        "expected_changes_kernel_launch_args": False,
+    }
+    for key, expected in expected_bools.items():
+        failures.extend(_check_metric_equals(evidence, key, expected))
+
+    expected_zero_values = {
+        "payload_bytes": 0,
+        "expected_payload_bytes": 0,
+    }
+    for key, expected in expected_zero_values.items():
+        failures.extend(_check_metric_equals(evidence, key, expected))
+
+    min_source_count = int(
+        REQUIRED_DEFAULT_GATE_CONTRACT[
+            "future_wna16_typed_slot_fourth_field_handoff_canary_min_source_count"
+        ]
+    )
+    source_count = _int_metric(evidence, "source_count")
+    previous_source_count = _int_metric(evidence, "previous_field_input_json_count")
+    max_inputs = _int_metric(evidence, "max_inputs")
+    row_count = _int_metric(evidence, "row_count")
+    row_ok_count = _int_metric(evidence, "row_ok_count")
+    field_read_row_ok = _int_metric(
+        evidence,
+        "fourth_field_handoff_field_read_row_ok_count",
+    )
+    runner_row_count = _int_metric(
+        evidence,
+        "fourth_field_handoff_canary_runner_row_count",
+    )
+    runner_row_ok = _int_metric(
+        evidence,
+        "fourth_field_handoff_canary_runner_row_ok_count",
+    )
+    if source_count is None or source_count < min_source_count:
+        failures.append("source_count_invalid")
+    if previous_source_count is None or previous_source_count < min_source_count:
+        failures.append("previous_field_input_json_count_invalid")
+    if source_count is not None and max_inputs != source_count:
+        failures.append("max_inputs_mismatch")
+    if row_count is None or row_count <= 0:
+        failures.append("row_count_invalid")
+    else:
+        for key, value in {
+            "row_ok_count": row_ok_count,
+            "fourth_field_handoff_field_read_row_ok_count": field_read_row_ok,
+            "fourth_field_handoff_canary_runner_row_count": runner_row_count,
+            "fourth_field_handoff_canary_runner_row_ok_count": runner_row_ok,
+        }.items():
+            if value != row_count:
+                failures.append(f"{key}_mismatch")
+
+    for key in (
+        "fourth_field_handoff_field_read_hash",
+        "fourth_field_handoff_canary_runner_hash",
+        "third_field_read_hash",
+        "third_field_native_hash",
+    ):
+        if _hex64_metric(evidence, key) is None:
+            failures.append(f"{key}_invalid")
+    for key in (
+        "fourth_field_underlying_sha256",
+        "payloadless_execution_sha256",
+        "previous_field_sha256",
+    ):
+        if _sha256_hex_metric(evidence, key) is None:
+            failures.append(f"{key}_invalid")
+    for key in (
+        "fourth_field_underlying_json",
+        "payloadless_execution_json",
+        "previous_field_json",
+    ):
+        value = evidence.get(key)
+        if not isinstance(value, str) or not value:
+            failures.append(f"{key}_missing")
+    return failures
+
+
 def _validate_wna16_side_consumer_variant_execution_runner(
     evidence: dict[str, Any],
 ) -> list[str]:
@@ -1738,6 +1903,7 @@ def _validate_required_evidence_payload(
         "future_kernel_wna16_adjacent_typed_slot_stub_json",
         "future_kernel_wna16_adjacent_typed_slot_standalone_canary_json",
         "future_wna16_single_field_handoff_all_fields_128strict_summary_json",
+        "future_wna16_typed_slot_fourth_field_handoff_canary_json",
         "wna16_side_consumer_variant_execution_128strict_runner_json",
         "payload_cache_producer_state_native_canary_json",
         "payload_cache_producer_state_nonempty_issue_stub_json",
@@ -1880,6 +2046,13 @@ def _validate_required_evidence_payload(
         return [
             f"{evidence_label}:{failure}"
             for failure in _validate_future_wna16_single_field_handoff_all_fields_summary(
+                evidence
+            )
+        ]
+    if evidence_label == "future_wna16_typed_slot_fourth_field_handoff_canary_json":
+        return [
+            f"{evidence_label}:{failure}"
+            for failure in _validate_future_wna16_typed_slot_fourth_field_handoff_canary(
                 evidence
             )
         ]
@@ -7900,6 +8073,18 @@ def run_premap_lab_preflight(
         wna16_side_variant_evidence_label,
         root=root,
     )
+    fourth_field_handoff_evidence_label = (
+        "future_wna16_typed_slot_fourth_field_handoff_canary_json"
+    )
+    fourth_field_handoff_evidence_row = _find_evidence_row(
+        default_gate_required_evidence_check,
+        fourth_field_handoff_evidence_label,
+    )
+    fourth_field_handoff_payload = _load_evidence_payload_from_check(
+        default_gate_required_evidence_check,
+        fourth_field_handoff_evidence_label,
+        root=root,
+    )
     wna16_side_variant_stub_summary = wna16_side_variant_payload.get("stub_summary")
     if not isinstance(wna16_side_variant_stub_summary, dict):
         wna16_side_variant_stub_summary = {}
@@ -10797,6 +10982,165 @@ def run_premap_lab_preflight(
                 "wna16_adjacent_typed_slot_row_metadata_hash_accumulator",
             )
         ),
+        "default_kernel_consumer_future_wna16_fourth_field_handoff_evidence_label": (
+            fourth_field_handoff_evidence_label
+        ),
+        "default_kernel_consumer_future_wna16_fourth_field_handoff_evidence_path": (
+            fourth_field_handoff_evidence_row.get("path")
+        ),
+        "default_kernel_consumer_future_wna16_fourth_field_handoff_evidence_sha256": (
+            _evidence_row_sha256(fourth_field_handoff_evidence_row)
+        ),
+        "default_kernel_consumer_future_wna16_fourth_field_handoff_evidence_passed": (
+            _evidence_row_passed(fourth_field_handoff_evidence_row)
+        ),
+        "default_kernel_consumer_future_wna16_fourth_field_handoff_artifact_kind": (
+            fourth_field_handoff_payload.get("artifact_kind")
+        ),
+        "default_kernel_consumer_future_wna16_fourth_field_handoff_name": (
+            fourth_field_handoff_payload.get("fourth_field_handoff_canary_name")
+        ),
+        "default_kernel_consumer_future_wna16_fourth_field_handoff_mode": (
+            fourth_field_handoff_payload.get("fourth_field_handoff_canary_mode")
+        ),
+        "default_kernel_consumer_future_wna16_fourth_field_handoff_source": (
+            fourth_field_handoff_payload.get("fourth_field_handoff_canary_source")
+        ),
+        "default_kernel_consumer_future_wna16_fourth_field_handoff_first_field": (
+            fourth_field_handoff_payload.get("first_field_name")
+        ),
+        "default_kernel_consumer_future_wna16_fourth_field_handoff_second_field": (
+            fourth_field_handoff_payload.get("second_field_name")
+        ),
+        "default_kernel_consumer_future_wna16_fourth_field_handoff_third_field": (
+            fourth_field_handoff_payload.get("third_field_name")
+        ),
+        "default_kernel_consumer_future_wna16_fourth_field_handoff_fourth_field": (
+            fourth_field_handoff_payload.get("fourth_field_name")
+        ),
+        "default_kernel_consumer_future_wna16_fourth_field_handoff_fourth_field_kind": (
+            _int_metric(fourth_field_handoff_payload, "fourth_field_kind")
+        ),
+        "default_kernel_consumer_future_wna16_fourth_field_handoff_fourth_field_mask": (
+            _int_metric(fourth_field_handoff_payload, "fourth_field_mask")
+        ),
+        "default_kernel_consumer_future_wna16_fourth_field_handoff_source_count": (
+            _int_metric(fourth_field_handoff_payload, "source_count")
+        ),
+        "default_kernel_consumer_future_wna16_fourth_field_handoff_previous_source_count": (
+            _int_metric(fourth_field_handoff_payload, "previous_field_input_json_count")
+        ),
+        "default_kernel_consumer_future_wna16_fourth_field_handoff_row_count": (
+            _int_metric(fourth_field_handoff_payload, "row_count")
+        ),
+        "default_kernel_consumer_future_wna16_fourth_field_handoff_row_ok_count": (
+            _int_metric(fourth_field_handoff_payload, "row_ok_count")
+        ),
+        "default_kernel_consumer_future_wna16_fourth_field_handoff_field_read_row_ok_count": (
+            _int_metric(
+                fourth_field_handoff_payload,
+                "fourth_field_handoff_field_read_row_ok_count",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_fourth_field_handoff_runner_row_count": (
+            _int_metric(
+                fourth_field_handoff_payload,
+                "fourth_field_handoff_canary_runner_row_count",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_fourth_field_handoff_runner_row_ok_count": (
+            _int_metric(
+                fourth_field_handoff_payload,
+                "fourth_field_handoff_canary_runner_row_ok_count",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_fourth_field_handoff_field_read_hash": (
+            _hex_metric_text(
+                fourth_field_handoff_payload,
+                "fourth_field_handoff_field_read_hash",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_fourth_field_handoff_runner_hash": (
+            _hex_metric_text(
+                fourth_field_handoff_payload,
+                "fourth_field_handoff_canary_runner_hash",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_fourth_field_handoff_third_field_read_hash": (
+            _hex_metric_text(fourth_field_handoff_payload, "third_field_read_hash")
+        ),
+        "default_kernel_consumer_future_wna16_fourth_field_handoff_third_field_native_hash": (
+            _hex_metric_text(fourth_field_handoff_payload, "third_field_native_hash")
+        ),
+        "default_kernel_consumer_future_wna16_fourth_field_handoff_previous_gate_ready": (
+            _bool_metric(fourth_field_handoff_payload, "previous_field_gate_ready")
+        ),
+        "default_kernel_consumer_future_wna16_fourth_field_handoff_native_requested": (
+            _bool_metric(
+                fourth_field_handoff_payload,
+                "fourth_field_handoff_canary_native_requested",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_fourth_field_handoff_native_executed": (
+            _bool_metric(
+                fourth_field_handoff_payload,
+                "fourth_field_handoff_canary_native_executed",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_fourth_field_handoff_native_passed": (
+            _bool_metric(
+                fourth_field_handoff_payload,
+                "fourth_field_handoff_canary_native_passed",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_fourth_field_handoff_live_enabled": (
+            _bool_metric(fourth_field_handoff_payload, "fourth_field_handoff_live_enabled")
+        ),
+        "default_kernel_consumer_future_wna16_fourth_field_handoff_block_reason": (
+            fourth_field_handoff_payload.get("fourth_field_handoff_block_reason")
+        ),
+        "default_kernel_consumer_future_wna16_fourth_field_handoff_payload_bytes": (
+            _int_metric(fourth_field_handoff_payload, "payload_bytes")
+        ),
+        "default_kernel_consumer_future_wna16_fourth_field_handoff_expected_payload_bytes": (
+            _int_metric(fourth_field_handoff_payload, "expected_payload_bytes")
+        ),
+        "default_kernel_consumer_future_wna16_fourth_field_handoff_payload_deref_allowed": (
+            _bool_metric(fourth_field_handoff_payload, "payload_deref_allowed")
+        ),
+        "default_kernel_consumer_future_wna16_fourth_field_handoff_kernel_arg_pass_allowed": (
+            _bool_metric(fourth_field_handoff_payload, "kernel_arg_pass_allowed")
+        ),
+        "default_kernel_consumer_future_wna16_fourth_field_handoff_passed_to_kernel": (
+            _bool_metric(fourth_field_handoff_payload, "passed_to_kernel")
+        ),
+        "default_kernel_consumer_future_wna16_fourth_field_handoff_changes_kernel_launch_args": (
+            _bool_metric(fourth_field_handoff_payload, "changes_kernel_launch_args")
+        ),
+        "default_kernel_consumer_future_wna16_fourth_field_handoff_current_wna16_arg_compatible": (
+            _bool_metric(fourth_field_handoff_payload, "current_wna16_arg_compatible")
+        ),
+        "default_kernel_consumer_future_wna16_fourth_field_handoff_requires_wna16_arg_reinterpretation": (
+            _bool_metric(
+                fourth_field_handoff_payload,
+                "requires_wna16_arg_reinterpretation",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_fourth_field_handoff_uses_current_wna16_args": (
+            _bool_metric(fourth_field_handoff_payload, "uses_current_wna16_args")
+        ),
+        "default_kernel_consumer_future_wna16_fourth_field_handoff_passes_current_wna16_args": (
+            _bool_metric(fourth_field_handoff_payload, "passes_current_wna16_args")
+        ),
+        "default_kernel_consumer_future_wna16_fourth_field_handoff_measures_tpot": (
+            _bool_metric(fourth_field_handoff_payload, "measures_tpot")
+        ),
+        "default_kernel_consumer_future_wna16_fourth_field_handoff_measures_vllm_latency": (
+            _bool_metric(fourth_field_handoff_payload, "measures_vllm_latency")
+        ),
+        "default_kernel_consumer_future_wna16_fourth_field_handoff_wna16_benchmark_ready": (
+            _bool_metric(fourth_field_handoff_payload, "wna16_benchmark_ready")
+        ),
         "default_kernel_consumer_wna16_side_variant_evidence_label": (
             wna16_side_variant_evidence_label
         ),
@@ -12328,8 +12672,122 @@ def run_premap_lab_preflight(
             "default_kernel_consumer_wna16_kernel_side_execution_aux_metadata_handle_read_hash_accumulator",
         )
     )
+    fourth_field_handoff_source_count = _int_metric(
+        lab_gate_status_summary,
+        "default_kernel_consumer_future_wna16_fourth_field_handoff_source_count",
+    )
+    fourth_field_handoff_previous_source_count = _int_metric(
+        lab_gate_status_summary,
+        "default_kernel_consumer_future_wna16_fourth_field_handoff_previous_source_count",
+    )
+    fourth_field_handoff_row_count = _int_metric(
+        lab_gate_status_summary,
+        "default_kernel_consumer_future_wna16_fourth_field_handoff_row_count",
+    )
+    fourth_field_handoff_ready = (
+        lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_fourth_field_handoff_evidence_passed"
+        )
+        is True
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_fourth_field_handoff_previous_gate_ready"
+        )
+        is True
+        and fourth_field_handoff_source_count is not None
+        and fourth_field_handoff_source_count
+        >= int(
+            REQUIRED_DEFAULT_GATE_CONTRACT[
+                "future_wna16_typed_slot_fourth_field_handoff_canary_min_source_count"
+            ]
+        )
+        and fourth_field_handoff_previous_source_count is not None
+        and fourth_field_handoff_previous_source_count
+        >= int(
+            REQUIRED_DEFAULT_GATE_CONTRACT[
+                "future_wna16_typed_slot_fourth_field_handoff_canary_min_source_count"
+            ]
+        )
+        and fourth_field_handoff_row_count is not None
+        and fourth_field_handoff_row_count > 0
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_fourth_field_handoff_row_ok_count"
+        )
+        == fourth_field_handoff_row_count
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_fourth_field_handoff_field_read_row_ok_count"
+        )
+        == fourth_field_handoff_row_count
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_fourth_field_handoff_runner_row_count"
+        )
+        == fourth_field_handoff_row_count
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_fourth_field_handoff_runner_row_ok_count"
+        )
+        == fourth_field_handoff_row_count
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_fourth_field_handoff_fourth_field"
+        )
+        == REQUIRED_DEFAULT_GATE_CONTRACT[
+            "future_wna16_typed_slot_fourth_field_handoff_canary_field"
+        ]
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_fourth_field_handoff_native_requested"
+        )
+        is True
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_fourth_field_handoff_native_executed"
+        )
+        is True
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_fourth_field_handoff_native_passed"
+        )
+        is True
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_fourth_field_handoff_payload_bytes"
+        )
+        == 0
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_fourth_field_handoff_expected_payload_bytes"
+        )
+        == 0
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_fourth_field_handoff_payload_deref_allowed"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_fourth_field_handoff_kernel_arg_pass_allowed"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_fourth_field_handoff_passed_to_kernel"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_fourth_field_handoff_changes_kernel_launch_args"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_fourth_field_handoff_current_wna16_arg_compatible"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_fourth_field_handoff_requires_wna16_arg_reinterpretation"
+        )
+        is False
+        and all(
+            _hex64_metric(lab_gate_status_summary, key) is not None
+            for key in (
+                "default_kernel_consumer_future_wna16_fourth_field_handoff_field_read_hash",
+                "default_kernel_consumer_future_wna16_fourth_field_handoff_runner_hash",
+                "default_kernel_consumer_future_wna16_fourth_field_handoff_third_field_read_hash",
+                "default_kernel_consumer_future_wna16_fourth_field_handoff_third_field_native_hash",
+            )
+        )
+    )
     wna16_side_variant_base_ready = (
         typed_noop_ready
+        and fourth_field_handoff_ready
         and lab_gate_status_summary.get(
             "default_kernel_consumer_wna16_side_variant_evidence_passed"
         )
@@ -12511,6 +12969,9 @@ def run_premap_lab_preflight(
     lab_gate_status_summary["default_kernel_consumer_typed_noop_ready"] = (
         typed_noop_ready
     )
+    lab_gate_status_summary[
+        "default_kernel_consumer_future_wna16_fourth_field_handoff_ready"
+    ] = fourth_field_handoff_ready
     lab_gate_status_summary["default_kernel_consumer_wna16_benchmark_ready"] = (
         wna16_benchmark_ready
     )

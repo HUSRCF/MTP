@@ -2,9 +2,86 @@
 
 ## Progress Version
 
-- Version: `v1.04-future-wna16-typed-slot-fourth-field-handoff-canary`
+- Version: `v1.05-four-field-wna16-typed-slot-strict-preflight-gate`
 - Updated: 2026-06-17
-- Latest future WNA16 typed-slot fourth-field handoff canary gate: the new
+- Latest strict lab preflight gate: the four-field future WNA16 typed-slot
+  handoff chain is now required by the default readonly lab gate via evidence
+  label
+  `future_wna16_typed_slot_fourth_field_handoff_canary_json`.  The default gate
+  file
+  `configs/runtime/premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_live_connected_readonly.yaml`
+  now requires the fourth field `descriptor_ptr` and points to
+  `outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_fourth_field_handoff_canary_v1.json`.
+
+  The required chain is:
+
+  ```text
+  scale_metadata_handle
+  -> aux_metadata_handle
+  -> packed_weight_descriptor
+  -> descriptor_ptr
+  ```
+
+  The preflight checker now validates the chained artifact itself, including
+  `expected_*` safety declarations, native runner execution, row parity,
+  field-read hashes, sha256 reference-field format, and the
+  no-payload/no-kernel-arg boundary.  It also exposes compact summary fields under
+  `default_kernel_consumer_future_wna16_fourth_field_handoff_*`, including
+  `default_kernel_consumer_future_wna16_fourth_field_handoff_ready`.  The
+  WNA16-side typed-slot ready path now depends on this all-four-field gate.
+
+  Latest strict preflight artifact:
+
+  ```text
+  outputs/reports/premap_kernel_consumer/premap_lab_preflight_four_field_required_gate_check.json
+  ```
+
+  Latest strict preflight result:
+
+  ```text
+  passed = true
+  default_required_evidence_passed = true
+  required_evidence_count = 44
+  default_kernel_consumer_future_wna16_fourth_field_handoff_ready = true
+  default_kernel_consumer_future_wna16_fourth_field_handoff_fourth_field = descriptor_ptr
+  default_kernel_consumer_future_wna16_fourth_field_handoff_source_count = 128
+  default_kernel_consumer_future_wna16_fourth_field_handoff_row_count = 5345
+  default_kernel_consumer_future_wna16_fourth_field_handoff_row_ok_count = 5345
+  default_kernel_consumer_future_wna16_fourth_field_handoff_field_read_hash = 6e08db27babecb6a
+  wna16_side_variant_ready = true
+  wna16_kernel_side_execution_ready = true
+  next_runtime_stage = implement_wna16_typed_slot_benchmark_harness
+  ```
+
+  Safety boundary remains unchanged:
+
+  ```text
+  payload_bytes = 0
+  expected_payload_bytes = 0
+  payload_deref_allowed = false
+  kernel_arg_pass_allowed = false
+  passed_to_kernel = false
+  changes_kernel_launch_args = false
+  uses_current_wna16_args = false
+  passes_current_wna16_args = false
+  current_wna16_arg_compatible = false
+  requires_wna16_arg_reinterpretation = false
+  measures_tpot = false
+  measures_vllm_latency = false
+  ```
+
+  Validation:
+
+  ```text
+  conda run -n TRY python -m pytest tests/test_run_premap_lab_preflight.py -q
+  # 170 passed
+
+  conda run -n TRY python scripts/run_premap_lab_preflight.py \
+    --output-json outputs/reports/premap_kernel_consumer/premap_lab_preflight_four_field_required_gate_check.json
+  # passed = true
+  ```
+
+- Previous future WNA16 typed-slot fourth-field handoff canary gate: the new
   script
   `scripts/run_future_wna16_typed_slot_kernel_variant_fourth_field_handoff_canary.py`
   consumes

@@ -3192,6 +3192,103 @@ def _future_wna16_single_field_handoff_all_fields_summary_payload(
     }
 
 
+def _future_wna16_typed_slot_fourth_field_handoff_canary_payload(
+    *,
+    row_count: int = 520,
+    source_count: int = 128,
+) -> dict[str, object]:
+    return {
+        "artifact_kind": (
+            "future_wna16_typed_slot_kernel_variant_fourth_field_handoff_canary"
+        ),
+        "schema_version": 1,
+        "passed": True,
+        "failures": [],
+        "device": 1,
+        "source_count": source_count,
+        "max_inputs": source_count,
+        "previous_field_input_json_count": source_count,
+        "row_count": row_count,
+        "row_ok_count": row_count,
+        "first_field_name": "scale_metadata_handle",
+        "second_field_name": "aux_metadata_handle",
+        "third_field_name": "packed_weight_descriptor",
+        "fourth_field_name": "descriptor_ptr",
+        "fourth_field_kind": 1,
+        "fourth_field_mask": 1,
+        "previous_field_gate_ready": True,
+        "fourth_field_handoff_canary_name": (
+            "premap_future_wna16_typed_slot_fourth_field_handoff_canary_v1"
+        ),
+        "fourth_field_handoff_canary_mode": (
+            "readonly_future_wna16_typed_slot_fourth_field_handoff_canary"
+        ),
+        "fourth_field_handoff_canary_source": (
+            "premap_future_wna16_typed_slot_third_field_handoff_canary_v1"
+        ),
+        "fourth_field_handoff_scope": (
+            "independent_future_wna16_typed_slot_fourth_field_handoff_canary"
+        ),
+        "fourth_field_handoff_block_reason": "fourth_field_handoff_live_disabled",
+        "fourth_field_handoff_live_enabled": False,
+        "fourth_field_handoff_field_read_row_ok_count": row_count,
+        "fourth_field_handoff_field_read_hash": "6e08db27babecb6a",
+        "fourth_field_handoff_canary_runner_hash": "ba2e219a8ff9ccfe",
+        "fourth_field_handoff_canary_runner_row_count": row_count,
+        "fourth_field_handoff_canary_runner_row_ok_count": row_count,
+        "fourth_field_handoff_canary_native_requested": True,
+        "fourth_field_handoff_canary_native_executed": True,
+        "fourth_field_handoff_canary_native_passed": True,
+        "third_field_read_hash": "c5ca7b791f2fef98",
+        "third_field_native_hash": "ca4ed3ab740d3ae6",
+        "fourth_field_underlying_json": (
+            "/home/husrcf/Code/ProtBind/MTP/outputs/reports/"
+            "premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_"
+            "fourth_field_handoff_canary/fourth_field_native_canary_runner.json"
+        ),
+        "fourth_field_underlying_sha256": "1" * 64,
+        "payloadless_execution_json": (
+            "/home/husrcf/Code/ProtBind/MTP/outputs/reports/"
+            "premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_"
+            "payloadless_execution_v1_native_run.json"
+        ),
+        "payloadless_execution_sha256": "2" * 64,
+        "previous_field_json": (
+            "/home/husrcf/Code/ProtBind/MTP/outputs/reports/"
+            "premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_"
+            "third_field_handoff_canary_v1.json"
+        ),
+        "previous_field_sha256": "3" * 64,
+        "payload_bytes": 0,
+        "expected_payload_bytes": 0,
+        "payload_deref_allowed": False,
+        "kernel_arg_pass_allowed": False,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "current_wna16_arg_compatible": False,
+        "requires_wna16_arg_reinterpretation": False,
+        "uses_current_wna16_args": False,
+        "passes_current_wna16_args": False,
+        "measures_vllm_latency": False,
+        "measures_tpot": False,
+        "wna16_benchmark_ready": False,
+        "expected_measures_vllm_latency": False,
+        "expected_measures_tpot": False,
+        "expected_wna16_benchmark_ready": False,
+        "expected_uses_current_wna16_args": False,
+        "expected_passes_current_wna16_args": False,
+        "expected_current_wna16_arg_compatible": False,
+        "expected_requires_wna16_arg_reinterpretation": False,
+        "expected_payload_deref_allowed": False,
+        "expected_kernel_arg_pass_allowed": False,
+        "expected_passed_to_kernel": False,
+        "expected_changes_kernel_launch_args": False,
+        "next_runtime_stage": (
+            "promote_future_wna16_typed_slot_all_four_field_handoff_gate_to_lab_preflight"
+        ),
+    }
+
+
 def _wna16_side_consumer_variant_execution_runner_payload(
     input_path: str,
     stub_path: str,
@@ -3782,6 +3879,9 @@ def _write_gate(
     future_wna16_single_field_handoff_all_fields_summary_path = (
         f"reports/{name}_future_wna16_single_field_handoff_all_fields_128strict_summary.json"
     )
+    future_wna16_typed_slot_fourth_field_handoff_canary_path = (
+        f"reports/{name}_future_wna16_typed_slot_fourth_field_handoff_canary.json"
+    )
     wna16_side_consumer_variant_execution_input_path = (
         f"reports/{name}_wna16_side_consumer_variant_execution_input.json"
     )
@@ -4287,6 +4387,13 @@ def _write_gate(
             + "\n",
         )
         _write(
+            root / future_wna16_typed_slot_fourth_field_handoff_canary_path,
+            json.dumps(
+                _future_wna16_typed_slot_fourth_field_handoff_canary_payload()
+            )
+            + "\n",
+        )
+        _write(
             root / wna16_side_consumer_variant_execution_input_path,
             json.dumps(_wna16_side_arg_slot_multiprogram_input_payload()) + "\n",
         )
@@ -4486,6 +4593,9 @@ def _write_gate(
         "  future_kernel_native_arg_slot_online_total_mirror_coverage_required: true\n"
         "  future_wna16_single_field_handoff_all_fields_required: true\n"
         "  future_wna16_single_field_handoff_all_fields_min_source_count: 128\n"
+        "  future_wna16_typed_slot_fourth_field_handoff_canary_required: true\n"
+        "  future_wna16_typed_slot_fourth_field_handoff_canary_field: descriptor_ptr\n"
+        "  future_wna16_typed_slot_fourth_field_handoff_canary_min_source_count: 128\n"
         "  wna16_side_consumer_variant_execution_required: true\n"
         "  wna16_side_consumer_variant_execution_min_source_count: 128\n"
         "  single_field_handle_handoff_canary_required: true\n"
@@ -4657,6 +4767,8 @@ def _write_gate(
             f"{online_merged_wna16_adjacent_typed_slot_stub_path}\n"
             "  future_wna16_single_field_handoff_all_fields_128strict_summary_json: "
             f"{future_wna16_single_field_handoff_all_fields_summary_path}\n"
+            "  future_wna16_typed_slot_fourth_field_handoff_canary_json: "
+            f"{future_wna16_typed_slot_fourth_field_handoff_canary_path}\n"
             "  wna16_side_consumer_variant_execution_128strict_runner_json: "
             f"{wna16_side_consumer_variant_execution_runner_path}\n"
             "  payload_cache_producer_state_native_canary_json: "
@@ -4760,7 +4872,7 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert result["passed"] is True
     assert result["failures"] == []
     assert result["runtime_gate_evidence_scan"]["gate_count"] == 5
-    assert result["runtime_gate_evidence_scan"]["evidence_path_count"] == 106
+    assert result["runtime_gate_evidence_scan"]["evidence_path_count"] == 108
     assert result["default_readonly_gate_required_evidence_check"]["passed"] is True
     summary = result["lab_gate_status_summary"]
     assert summary["passed"] is True
@@ -4818,6 +4930,134 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
         == 12288
     )
     assert summary["default_kernel_consumer_wna16_side_variant_evidence_passed"] is True
+    assert (
+        summary[
+            "default_kernel_consumer_future_wna16_fourth_field_handoff_evidence_passed"
+        ]
+        is True
+    )
+    assert (
+        summary["default_kernel_consumer_future_wna16_fourth_field_handoff_ready"]
+        is True
+    )
+    assert (
+        summary["default_kernel_consumer_future_wna16_fourth_field_handoff_first_field"]
+        == "scale_metadata_handle"
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_future_wna16_fourth_field_handoff_second_field"
+        ]
+        == "aux_metadata_handle"
+    )
+    assert (
+        summary["default_kernel_consumer_future_wna16_fourth_field_handoff_third_field"]
+        == "packed_weight_descriptor"
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_future_wna16_fourth_field_handoff_fourth_field"
+        ]
+        == "descriptor_ptr"
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_future_wna16_fourth_field_handoff_source_count"
+        ]
+        == 128
+    )
+    fourth_field_row_count = summary[
+        "default_kernel_consumer_future_wna16_fourth_field_handoff_row_count"
+    ]
+    assert fourth_field_row_count == 520
+    assert (
+        summary[
+            "default_kernel_consumer_future_wna16_fourth_field_handoff_row_ok_count"
+        ]
+        == fourth_field_row_count
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_future_wna16_fourth_field_handoff_field_read_row_ok_count"
+        ]
+        == fourth_field_row_count
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_future_wna16_fourth_field_handoff_runner_row_count"
+        ]
+        == fourth_field_row_count
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_future_wna16_fourth_field_handoff_runner_row_ok_count"
+        ]
+        == fourth_field_row_count
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_future_wna16_fourth_field_handoff_field_read_hash"
+        ]
+        == "6e08db27babecb6a"
+    )
+    assert (
+        summary["default_kernel_consumer_future_wna16_fourth_field_handoff_runner_hash"]
+        == "ba2e219a8ff9ccfe"
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_future_wna16_fourth_field_handoff_payload_bytes"
+        ]
+        == 0
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_future_wna16_fourth_field_handoff_expected_payload_bytes"
+        ]
+        == 0
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_future_wna16_fourth_field_handoff_kernel_arg_pass_allowed"
+        ]
+        is False
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_future_wna16_fourth_field_handoff_passed_to_kernel"
+        ]
+        is False
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_future_wna16_fourth_field_handoff_changes_kernel_launch_args"
+        ]
+        is False
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_future_wna16_fourth_field_handoff_current_wna16_arg_compatible"
+        ]
+        is False
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_future_wna16_fourth_field_handoff_measures_tpot"
+        ]
+        is False
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_future_wna16_fourth_field_handoff_measures_vllm_latency"
+        ]
+        is False
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_future_wna16_fourth_field_handoff_wna16_benchmark_ready"
+        ]
+        is False
+    )
     assert summary["default_kernel_consumer_wna16_side_variant_required"] is True
     assert summary["default_kernel_consumer_wna16_side_variant_checked"] is True
     assert summary["default_kernel_consumer_wna16_side_variant_source_count"] == 128
@@ -6064,9 +6304,9 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert summary["payload_bytes_required"] == 0
     assert summary["passed_to_kernel_required"] is False
     assert summary["changes_kernel_launch_args_required"] is False
-    assert summary["required_evidence"]["required_count"] == 43
-    assert summary["required_evidence"]["present_count"] == 43
-    assert summary["required_evidence"]["passed_count"] == 43
+    assert summary["required_evidence"]["required_count"] == 44
+    assert summary["required_evidence"]["present_count"] == 44
+    assert summary["required_evidence"]["passed_count"] == 44
     assert summary["optional_evidence"]["required_count"] == 13
     assert summary["optional_evidence"]["present_count"] == 13
     assert summary["optional_evidence"]["passed_count"] == 13
@@ -6782,7 +7022,7 @@ def test_premap_lab_preflight_rejects_missing_optional_future_args_coverage(
         "default_kernel_consumer_future_kernel_args_total_mirror_coverage_incomplete"
         in result["failures"]
     )
-    assert summary["required_evidence"]["passed_count"] == 43
+    assert summary["required_evidence"]["passed_count"] == 44
     assert summary["default_optional_evidence_passed"] is True
     assert (
         summary[
@@ -7016,6 +7256,76 @@ def test_premap_lab_preflight_rejects_future_wna16_single_field_all_fields_misma
     assert (
         "future_wna16_single_field_handoff_all_fields_128strict_summary_json:"
         "packed_weight_descriptor_row_ok_count_mismatch"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_future_wna16_fourth_field_mismatch(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    canary_path = (
+        tmp_path
+        / "reports/default_gate_future_wna16_typed_slot_fourth_field_handoff_canary.json"
+    )
+    payload = json.loads(canary_path.read_text(encoding="utf-8"))
+    payload["fourth_field_name"] = "scale_metadata_handle"
+    canary_path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is False
+    assert "default_readonly_gate_required_evidence_check_failed" in result["failures"]
+    failures = result["default_readonly_gate_required_evidence_check"]["failures"]
+    assert (
+        "future_wna16_typed_slot_fourth_field_handoff_canary_json:"
+        "fourth_field_name_mismatch"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_future_wna16_fourth_field_expected_unsafe_flag(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    canary_path = (
+        tmp_path
+        / "reports/default_gate_future_wna16_typed_slot_fourth_field_handoff_canary.json"
+    )
+    payload = json.loads(canary_path.read_text(encoding="utf-8"))
+    payload["expected_kernel_arg_pass_allowed"] = True
+    canary_path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is False
+    assert "default_readonly_gate_required_evidence_check_failed" in result["failures"]
+    failures = result["default_readonly_gate_required_evidence_check"]["failures"]
+    assert (
+        "future_wna16_typed_slot_fourth_field_handoff_canary_json:"
+        "expected_kernel_arg_pass_allowed_mismatch"
     ) in failures
 
 
@@ -8795,6 +9105,7 @@ def test_premap_lab_preflight_rejects_default_gate_without_typed_evidence(
             "future_kernel_wna16_adjacent_typed_slot_stub_json:missing_evidence_path",
             "future_kernel_wna16_adjacent_typed_slot_standalone_canary_json:missing_evidence_path",
             "future_wna16_single_field_handoff_all_fields_128strict_summary_json:missing_evidence_path",
+            "future_wna16_typed_slot_fourth_field_handoff_canary_json:missing_evidence_path",
                 "wna16_side_consumer_variant_execution_128strict_runner_json:missing_evidence_path",
                 "payload_cache_producer_state_native_canary_json:missing_evidence_path",
                 "payload_cache_producer_state_online_nonempty_issue_canary_json:missing_evidence_path",
@@ -11626,9 +11937,9 @@ def test_premap_lab_preflight_can_defer_self_referential_runner_evidence(
     assert summary["deferred_online_prelaunch_artifact_evidence"] is False
     assert summary["runtime_gate_evidence_deferred_count"] == 10
     assert summary["strict_default_gate_evidence_deferred_count"] == 5
-    assert summary["required_evidence"]["required_count"] == 43
-    assert summary["required_evidence"]["present_count"] == 41
-    assert summary["required_evidence"]["passed_count"] == 41
+    assert summary["required_evidence"]["required_count"] == 44
+    assert summary["required_evidence"]["present_count"] == 42
+    assert summary["required_evidence"]["passed_count"] == 42
     assert summary["optional_evidence"]["passed_count"] == 13
     for label in (
         "future_kernel_args_compatible_path_16_128export_artifact_check_json",
@@ -12204,7 +12515,7 @@ def test_premap_lab_preflight_cli_writes_summary(tmp_path: Path):
     assert result["lab_gate_status_summary"]["passed"] is True
     assert (
         result["lab_gate_status_summary"]["required_evidence"]["passed_count"]
-        == 43
+        == 44
     )
 
 
@@ -12240,7 +12551,7 @@ def test_premap_lab_preflight_cli_summary_only_writes_status_block(tmp_path: Pat
     assert exit_code == 0
     assert result["passed"] is True
     assert result["default_readonly_gate_path"] == default_gate
-    assert result["required_evidence"]["passed_count"] == 43
+    assert result["required_evidence"]["passed_count"] == 44
     assert result["optional_evidence"]["passed_count"] == 13
     assert "lab_gate_status_summary" not in result
 
