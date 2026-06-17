@@ -2,9 +2,43 @@
 
 ## Progress Version
 
-- Version: `v1.01-future-wna16-typed-slot-one-field-handoff-canary`
-- Updated: 2026-06-16
-- Latest future WNA16 typed-slot one-field handoff canary gate: the new script
+- Version: `v1.02-future-wna16-typed-slot-second-field-handoff-canary`
+- Updated: 2026-06-17
+- Latest future WNA16 typed-slot second-field handoff canary gate: the new
+  script
+  `scripts/run_future_wna16_typed_slot_kernel_variant_second_field_handoff_canary.py`
+  consumes
+  `outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_one_field_handoff_canary_v1.json`
+  and writes
+  `outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_second_field_handoff_canary_v1.json`.
+  It first validates the first-field `scale_metadata_handle` summary, then
+  verifies the raw native canary runner referenced by that summary via
+  `canary_runner_json` / `canary_runner_sha256`, reuses the same `input_jsons`,
+  and runs the independent future typed-slot native path again for the second
+  metadata-only field `aux_metadata_handle`.
+
+  The GPU1 second-field canary passes with `source_count=128`,
+  `row_count=5345`, `second_field_handoff_field_read_row_ok_count=5345`,
+  payloadless selected-field hash `a04665434ccddb4b`, native second-field
+  handoff hash `ac3f9aa4b6ace430`, and underlying native runner sha256
+  `7bf6c8089451fe92760fc3c2d366d146ce5d9334a1e6ac95e7600d852094bd87`.  This is
+  still full-row coverage over the same online input set:
+  `first_field_input_json_count=128` and `row_count=5345`.
+
+  This remains a readonly independent future typed-slot canary.  It keeps
+  `second_field_handoff_live_enabled=false`,
+  `second_field_handoff_block_reason=second_field_handoff_live_disabled`,
+  `measures_vllm_latency=false`, `measures_tpot=false`,
+  `wna16_benchmark_ready=false`, `uses_current_wna16_args=false`,
+  `passes_current_wna16_args=false`,
+  `current_wna16_arg_compatible=false`,
+  `requires_wna16_arg_reinterpretation=false`, `payload_bytes=0`,
+  `payload_deref_allowed=false`, `kernel_arg_pass_allowed=false`,
+  `passed_to_kernel=false`, and `changes_kernel_launch_args=false`.  The next
+  runtime stage is
+  `implement_future_wna16_typed_slot_kernel_variant_third_field_handoff_canary`.
+
+- Previous future WNA16 typed-slot one-field handoff canary gate: the script
   `scripts/run_future_wna16_typed_slot_kernel_variant_one_field_handoff_canary.py`
   consumes
   `outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_payloadless_execution_v1_native_run.json`
