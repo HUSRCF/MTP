@@ -2,9 +2,41 @@
 
 ## Progress Version
 
-- Version: `v1.03-future-wna16-typed-slot-third-field-handoff-canary`
+- Version: `v1.04-future-wna16-typed-slot-fourth-field-handoff-canary`
 - Updated: 2026-06-17
-- Latest future WNA16 typed-slot third-field handoff canary gate: the new
+- Latest future WNA16 typed-slot fourth-field handoff canary gate: the new
+  script
+  `scripts/run_future_wna16_typed_slot_kernel_variant_fourth_field_handoff_canary.py`
+  consumes
+  `outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_third_field_handoff_canary_v1.json`
+  and writes
+  `outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_fourth_field_handoff_canary_v1.json`.
+  It validates the previous `packed_weight_descriptor` gate, verifies the
+  persisted previous native runner and payloadless all-field artifact, requires
+  all referenced `input_jsons` to exist, and runs the independent future
+  typed-slot native path for the fourth field `descriptor_ptr`.
+
+  The GPU1 fourth-field canary passes with `source_count=128`,
+  `row_count=5345`, `fourth_field_handoff_field_read_row_ok_count=5345`,
+  payloadless selected-field hash `6e08db27babecb6a`, native fourth-field
+  handoff hash `ba2e219a8ff9ccfe`, and underlying native runner sha256
+  `1ddebaff8a80fb97b14ff5a60d14c243b20fc290d374bb20cdd4f78a14ad2015`.  The
+  warm rerun has `fourth_field_handoff_canary_outer_wall_ms=329.243861`.
+
+  This remains a readonly independent future typed-slot canary.  It keeps
+  `fourth_field_handoff_live_enabled=false`,
+  `fourth_field_handoff_block_reason=fourth_field_handoff_live_disabled`,
+  `measures_vllm_latency=false`, `measures_tpot=false`,
+  `wna16_benchmark_ready=false`, `uses_current_wna16_args=false`,
+  `passes_current_wna16_args=false`,
+  `current_wna16_arg_compatible=false`,
+  `requires_wna16_arg_reinterpretation=false`, `payload_bytes=0`,
+  `payload_deref_allowed=false`, `kernel_arg_pass_allowed=false`,
+  `passed_to_kernel=false`, and `changes_kernel_launch_args=false`.  The next
+  runtime stage is
+  `promote_future_wna16_typed_slot_all_four_field_handoff_gate_to_lab_preflight`.
+
+- Previous future WNA16 typed-slot third-field handoff canary gate: the
   script
   `scripts/run_future_wna16_typed_slot_kernel_variant_third_field_handoff_canary.py`
   consumes
