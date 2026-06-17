@@ -195,6 +195,9 @@ def test_payloadless_execution_accepts_benchmark_without_native_run(tmp_path: Pa
     assert result["passed"] is True
     assert result["payloadless_execution_gate_ready"] is True
     assert result["payloadless_execution_native_executed"] is False
+    assert result["payloadless_execution_timing_stub_sha256"] is None
+    assert result["payloadless_execution_runner_json"] is None
+    assert result["payloadless_execution_runner_sha256"] is None
     assert result["uses_current_wna16_args"] is False
     assert result["passes_current_wna16_args"] is False
     assert result["payload_bytes"] == 0

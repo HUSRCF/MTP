@@ -541,6 +541,19 @@ def run_payloadless_execution(args: argparse.Namespace) -> dict[str, Any]:
             failures.append(
                 f"benchmark_json_sha256_failed:{exc.__class__.__name__}:{exc}"
             )
+    execution_output_dir = _resolve(args.execution_output_dir)
+    timing_stub_json_path = execution_output_dir / "payloadless_execution_timing_stub.json"
+    canary_json_path = execution_output_dir / "payloadless_execution_canary.json"
+    timing_stub_sha256: str | None = None
+    if execution_report is not None and timing_stub_json_path.exists():
+        try:
+            timing_stub_sha256 = _sha256(timing_stub_json_path)
+        except Exception as exc:
+            failures.append(
+                f"payloadless_timing_stub_sha256_failed:"
+                f"{exc.__class__.__name__}:{exc}"
+            )
+            passed = False
     passed = not failures
     report: dict[str, Any] = {
         "schema_version": 1,
@@ -580,10 +593,17 @@ def run_payloadless_execution(args: argparse.Namespace) -> dict[str, Any]:
         ),
         "payloadless_execution_outer_wall_ms": execution_outer_wall_ms,
         "payloadless_execution_timing_stub_json": str(
-            _resolve(args.execution_output_dir) / "payloadless_execution_timing_stub.json"
+            timing_stub_json_path
+        ),
+        "payloadless_execution_timing_stub_sha256": timing_stub_sha256,
+        "payloadless_execution_runner_json": (
+            execution_report.get("runner_json") if execution_report else None
+        ),
+        "payloadless_execution_runner_sha256": (
+            execution_report.get("runner_sha256") if execution_report else None
         ),
         "payloadless_execution_canary_json": str(
-            _resolve(args.execution_output_dir) / "payloadless_execution_canary.json"
+            canary_json_path
         ),
         "payloadless_execution_scope": (
             "independent_native_typed_slot_payloadless_execution"

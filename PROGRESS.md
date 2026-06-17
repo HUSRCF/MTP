@@ -2,8 +2,37 @@
 
 ## Progress Version
 
-- Version: `v1.00-future-wna16-typed-slot-payloadless-execution`
+- Version: `v1.01-future-wna16-typed-slot-one-field-handoff-canary`
 - Updated: 2026-06-16
+- Latest future WNA16 typed-slot one-field handoff canary gate: the new script
+  `scripts/run_future_wna16_typed_slot_kernel_variant_one_field_handoff_canary.py`
+  consumes
+  `outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_payloadless_execution_v1_native_run.json`
+  and writes
+  `outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_one_field_handoff_canary_v1.json`.
+  It requires the payloadless native execution gate, derives the online input
+  rows from the payloadless timing-stub provenance, and rejects runner/input
+  overrides, dry-run mode, partial dispatch coverage, native opt-out, and any
+  unsafe native top-level flag.
+
+  The GPU1 canary passes with `source_count=128`, `row_count=5345`, selected
+  field `scale_metadata_handle`, `one_field_handoff_field_read_row_ok_count=5345`,
+  payloadless selected-field hash `564bfdbd0fc6aecb`, native one-field
+  handoff hash `aaabe281160d022`, and
+  `one_field_handoff_canary_outer_wall_ms=325.506985`.  The canary is full-row coverage:
+  `dispatch_active_rows == payloadless_row_count == 5345`.
+
+  This is still a readonly independent future typed-slot canary.  It keeps
+  `one_field_handoff_live_enabled=false`,
+  `one_field_handoff_block_reason=one_field_handoff_live_disabled`,
+  `measures_vllm_latency=false`, `measures_tpot=false`,
+  `wna16_benchmark_ready=false`, `uses_current_wna16_args=false`,
+  `passes_current_wna16_args=false`, `payload_bytes=0`,
+  `payload_deref_allowed=false`, `kernel_arg_pass_allowed=false`,
+  `passed_to_kernel=false`, and `changes_kernel_launch_args=false`.  The next
+  runtime stage is
+  `implement_future_wna16_typed_slot_kernel_variant_second_field_handoff_canary`.
+
 - Latest future WNA16 typed-slot payloadless execution gate: the new script
   `scripts/run_future_wna16_typed_slot_kernel_variant_payloadless_execution.py`
   consumes
@@ -17,7 +46,7 @@
 
   The GPU1 native payloadless execution gate passes with `source_count=128`,
   `row_count=5345`, all four handle fields read, and
-  `payloadless_execution_native_host_wall_ms=334.261804`.  It requires the
+  `payloadless_execution_native_host_wall_ms=335.194129`.  It requires the
   previous repeat-3 benchmark gate (`repeat_count_measured=3`,
   median `native_stub_host_wall_ms=322.519211`) before running the native
   payloadless canary, and it verifies the per-repeat timing-stub artifacts by
