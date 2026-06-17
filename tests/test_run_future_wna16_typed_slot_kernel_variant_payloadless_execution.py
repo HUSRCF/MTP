@@ -129,6 +129,7 @@ def _benchmark_payload(
         "kernel_arg_pass_allowed": False,
         "passed_to_kernel": False,
         "changes_kernel_launch_args": False,
+        "fourth_field_handoff_ready": True,
         "next_runtime_stage": "implement_future_wna16_typed_slot_kernel_variant_payloadless_execution",
         "source_count": source_count,
         "row_count": row_count,
@@ -143,6 +144,11 @@ def _benchmark_payload(
         },
         "row_hash_accumulator": "1112131415161718",
         "handle_projection_hash_accumulator": "2122232425262728",
+        "fourth_field_handoff_source_count": source_count,
+        "fourth_field_handoff_row_count": row_count,
+        "fourth_field_handoff_row_ok_count": row_count,
+        "fourth_field_handoff_field_read_hash": "3132333435363738",
+        "fourth_field_handoff_runner_hash": "7172737475767778",
         "repeat_count_measured": repeat_count,
         "repeat_output_jsons": repeat_output_jsons,
         "repeat_output_sha256s": repeat_output_sha256s,
@@ -342,6 +348,143 @@ def test_payloadless_execution_rejects_benchmark_seed_hash_drift(tmp_path: Path)
 
     assert result["passed"] is False
     assert "benchmark_seed_row_hash_accumulator_mismatch" in result["failures"]
+
+
+def test_payloadless_execution_rejects_missing_fourth_field_handoff(
+    tmp_path: Path,
+):
+    module = _load_module()
+    _, _, timing_stub, _ = _write_seed_artifacts(tmp_path)
+    benchmark = tmp_path / "benchmark.json"
+    payload = _benchmark_payload(timing_stub)
+    payload.pop("fourth_field_handoff_ready")
+    payload.pop("fourth_field_handoff_source_count")
+    _write_json(benchmark, payload)
+
+    args = module.build_parser().parse_args(
+        [
+            "--benchmark-json",
+            str(benchmark),
+            "--output-json",
+            str(tmp_path / "payloadless.json"),
+        ]
+    )
+    result = module.run_payloadless_execution(args)
+
+    assert result["passed"] is False
+    assert any("fourth_field_handoff_ready" in item for item in result["failures"])
+    assert "benchmark_fourth_field_handoff_source_count_invalid" in result["failures"]
+
+
+def test_payloadless_execution_rejects_fourth_descriptor_hash_drift(
+    tmp_path: Path,
+):
+    module = _load_module()
+    _, _, timing_stub, _ = _write_seed_artifacts(tmp_path)
+    benchmark = tmp_path / "benchmark.json"
+    payload = _benchmark_payload(timing_stub)
+    payload["fourth_field_handoff_field_read_hash"] = "7172737475767778"
+    _write_json(benchmark, payload)
+
+    args = module.build_parser().parse_args(
+        [
+            "--benchmark-json",
+            str(benchmark),
+            "--output-json",
+            str(tmp_path / "payloadless.json"),
+        ]
+    )
+    result = module.run_payloadless_execution(args)
+
+    assert result["passed"] is False
+    assert "benchmark_fourth_field_handoff_descriptor_hash_mismatch" in result[
+        "failures"
+    ]
+
+
+def test_payloadless_execution_rejects_fourth_row_count_mismatch(tmp_path: Path):
+    module = _load_module()
+    _, _, timing_stub, _ = _write_seed_artifacts(tmp_path)
+    benchmark = tmp_path / "benchmark.json"
+    payload = _benchmark_payload(timing_stub)
+    payload["fourth_field_handoff_row_count"] = payload["row_count"] - 1
+    payload["fourth_field_handoff_row_ok_count"] = payload["row_count"] - 1
+    _write_json(benchmark, payload)
+
+    args = module.build_parser().parse_args(
+        [
+            "--benchmark-json",
+            str(benchmark),
+            "--output-json",
+            str(tmp_path / "payloadless.json"),
+        ]
+    )
+    result = module.run_payloadless_execution(args)
+
+    assert result["passed"] is False
+    assert "benchmark_fourth_field_handoff_row_count_mismatch" in result["failures"]
+
+
+def test_payloadless_execution_rejects_fourth_row_ok_mismatch(tmp_path: Path):
+    module = _load_module()
+    _, _, timing_stub, _ = _write_seed_artifacts(tmp_path)
+    benchmark = tmp_path / "benchmark.json"
+    payload = _benchmark_payload(timing_stub)
+    payload["fourth_field_handoff_row_ok_count"] = payload["row_count"] - 1
+    _write_json(benchmark, payload)
+
+    args = module.build_parser().parse_args(
+        [
+            "--benchmark-json",
+            str(benchmark),
+            "--output-json",
+            str(tmp_path / "payloadless.json"),
+        ]
+    )
+    result = module.run_payloadless_execution(args)
+
+    assert result["passed"] is False
+    assert "benchmark_fourth_field_handoff_row_ok_count_mismatch" in result[
+        "failures"
+    ]
+
+
+def test_payloadless_execution_rejects_fourth_runner_hash_invalid(tmp_path: Path):
+    module = _load_module()
+    _, _, timing_stub, _ = _write_seed_artifacts(tmp_path)
+    benchmark = tmp_path / "benchmark.json"
+    payload = _benchmark_payload(timing_stub)
+    payload["fourth_field_handoff_runner_hash"] = "not-hex"
+    _write_json(benchmark, payload)
+
+    args = module.build_parser().parse_args(
+        [
+            "--benchmark-json",
+            str(benchmark),
+            "--output-json",
+            str(tmp_path / "payloadless.json"),
+        ]
+    )
+    result = module.run_payloadless_execution(args)
+
+    assert result["passed"] is False
+    assert "benchmark_fourth_field_handoff_runner_hash_invalid" in result["failures"]
+
+
+def test_payloadless_execution_defaults_to_four_field_repeat3_benchmark():
+    module = _load_module()
+    default_path = Path(module.DEFAULT_BENCHMARK_JSON)
+
+    assert (
+        "future_wna16_typed_slot_kernel_variant_benchmark_four_field_repeat3_v1.json"
+        in str(default_path)
+    )
+    if default_path.exists():
+        payload = json.loads(default_path.read_text(encoding="utf-8"))
+        assert payload["fourth_field_handoff_ready"] is True
+        assert payload["field_read_hashes"]["descriptor_ptr"] == payload[
+            "fourth_field_handoff_field_read_hash"
+        ]
 
 
 def test_payloadless_execution_runs_fake_native_execution(tmp_path: Path, monkeypatch):

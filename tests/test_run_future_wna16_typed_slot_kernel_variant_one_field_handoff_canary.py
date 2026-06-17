@@ -93,6 +93,12 @@ def _payloadless_payload(
         },
         "row_hash_accumulator": "1112131415161718",
         "handle_projection_hash_accumulator": "2122232425262728",
+        "fourth_field_handoff_ready": True,
+        "fourth_field_handoff_source_count": source_count,
+        "fourth_field_handoff_row_count": row_count,
+        "fourth_field_handoff_row_ok_count": row_count,
+        "fourth_field_handoff_field_read_hash": "3132333435363738",
+        "fourth_field_handoff_runner_hash": "7172737475767778",
     }
     if timing_stub_json is not None:
         payload["payloadless_execution_timing_stub_json"] = timing_stub_json
@@ -477,6 +483,117 @@ def test_one_field_handoff_canary_rejects_incomplete_selected_field(tmp_path: Pa
 
     assert result["passed"] is False
     assert any("scale_metadata_handle" in item for item in result["failures"])
+
+
+def test_one_field_handoff_canary_rejects_missing_fourth_payloadless_envelope(
+    tmp_path: Path,
+):
+    module = _load_module()
+    payloadless = tmp_path / "payloadless.json"
+    payload = _payloadless_payload()
+    payload.pop("fourth_field_handoff_ready")
+    payload.pop("fourth_field_handoff_source_count")
+    _write_json(payloadless, payload)
+
+    args = module.build_parser().parse_args(
+        [
+            "--payloadless-json",
+            str(payloadless),
+            "--output-json",
+            str(tmp_path / "one_field.json"),
+        ]
+    )
+    result = module.run_one_field_handoff_canary(args)
+
+    assert result["passed"] is False
+    assert any("fourth_field_handoff_ready" in item for item in result["failures"])
+    assert "payloadless_fourth_field_handoff_source_count_invalid" in result[
+        "failures"
+    ]
+
+
+def test_one_field_handoff_canary_rejects_payloadless_fourth_hash_drift(
+    tmp_path: Path,
+):
+    module = _load_module()
+    payloadless = tmp_path / "payloadless.json"
+    payload = _payloadless_payload()
+    payload["fourth_field_handoff_field_read_hash"] = "7172737475767778"
+    _write_json(payloadless, payload)
+
+    args = module.build_parser().parse_args(
+        [
+            "--payloadless-json",
+            str(payloadless),
+            "--output-json",
+            str(tmp_path / "one_field.json"),
+        ]
+    )
+    result = module.run_one_field_handoff_canary(args)
+
+    assert result["passed"] is False
+    assert "payloadless_fourth_field_handoff_descriptor_hash_mismatch" in result[
+        "failures"
+    ]
+
+
+def test_one_field_handoff_canary_rejects_short_payloadless_hash(
+    tmp_path: Path,
+):
+    module = _load_module()
+    payloadless = tmp_path / "payloadless.json"
+    payload = _payloadless_payload()
+    payload["field_read_hashes"]["scale_metadata_handle"] = "abc"
+    _write_json(payloadless, payload)
+
+    args = module.build_parser().parse_args(
+        [
+            "--payloadless-json",
+            str(payloadless),
+            "--output-json",
+            str(tmp_path / "one_field.json"),
+        ]
+    )
+    result = module.run_one_field_handoff_canary(args)
+
+    assert result["passed"] is False
+    assert "payloadless_scale_metadata_handle_read_hash_invalid" in result[
+        "failures"
+    ]
+
+
+def test_one_field_handoff_canary_rejects_short_payloadless_fourth_runner_hash(
+    tmp_path: Path,
+):
+    module = _load_module()
+    payloadless = tmp_path / "payloadless.json"
+    payload = _payloadless_payload()
+    payload["fourth_field_handoff_runner_hash"] = "abc"
+    _write_json(payloadless, payload)
+
+    args = module.build_parser().parse_args(
+        [
+            "--payloadless-json",
+            str(payloadless),
+            "--output-json",
+            str(tmp_path / "one_field.json"),
+        ]
+    )
+    result = module.run_one_field_handoff_canary(args)
+
+    assert result["passed"] is False
+    assert "payloadless_fourth_field_handoff_runner_hash_invalid" in result[
+        "failures"
+    ]
+
+
+def test_one_field_handoff_canary_defaults_to_four_field_payloadless_artifact():
+    module = _load_module()
+
+    assert (
+        "future_wna16_typed_slot_kernel_variant_payloadless_execution_four_field_v1_native_run.json"
+        in str(module.DEFAULT_PAYLOADLESS_JSON)
+    )
 
 
 def test_one_field_handoff_canary_rejects_native_opt_out(tmp_path: Path):

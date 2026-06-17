@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 from typing import Any
@@ -51,6 +52,10 @@ def _load_json(path: Path) -> dict[str, Any]:
     if not isinstance(payload, dict):
         raise ValueError(f"summary JSON must be an object: {path}")
     return payload
+
+
+def _sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def _is_hex64(value: Any) -> bool:
@@ -1058,11 +1063,15 @@ def _build_parser() -> argparse.ArgumentParser:
 
 def main() -> None:
     args = _build_parser().parse_args()
+    checked_path = args.summary_json.resolve()
     result = check_premap_lab_preflight_summary(
         _load_json(args.summary_json),
         min_source_count=args.min_source_count,
         expected_online_merged_device=args.expected_online_merged_device,
     )
+    result["checked_preflight_json"] = str(checked_path)
+    result["checked_preflight_json_raw"] = str(args.summary_json)
+    result["checked_preflight_sha256"] = _sha256(args.summary_json)
     if args.output_json is not None:
         args.output_json.parent.mkdir(parents=True, exist_ok=True)
         args.output_json.write_text(

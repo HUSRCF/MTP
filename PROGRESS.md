@@ -2,8 +2,92 @@
 
 ## Progress Version
 
-- Version: `v1.05-four-field-wna16-typed-slot-strict-preflight-gate`
+- Version: `v1.06-four-field-payloadless-chain-strict-preflight-bound`
 - Updated: 2026-06-17
+- Latest future WNA16 typed-slot payloadless/all-field chain: the strict
+  lab preflight is now emitted in `--summary-only` form and the checker output
+  records the checked preflight path/SHA, so downstream harness artifacts can
+  reject stale or unbound `.check.json` files.
+
+  ```text
+  outputs/reports/premap_kernel_consumer/premap_lab_preflight_four_field_required_gate_check.json
+  outputs/reports/premap_kernel_consumer/premap_lab_preflight_four_field_required_gate_check.check.json
+  ```
+
+  The refreshed strict chain is:
+
+  ```text
+  strict summary-only preflight
+  -> bound preflight summary check
+  -> WNA16 typed-slot benchmark harness
+  -> future typed-slot entrypoint
+  -> native timing stub
+  -> repeat-3 benchmark wrapper
+  -> payloadless execution
+  -> scale_metadata_handle
+  -> aux_metadata_handle
+  -> packed_weight_descriptor
+  -> descriptor_ptr
+  ```
+
+  Latest refreshed evidence:
+
+  ```text
+  source_count = 128
+  row_count = 5345
+  field_read_row_ok_counts = 5345 for all four fields
+  descriptor_ptr hash = 6e08db27babecb6a
+  packed_weight_descriptor hash = c5ca7b791f2fef98
+  scale_metadata_handle hash = 564bfdbd0fc6aecb
+  aux_metadata_handle hash = a04665434ccddb4b
+  repeat_count_measured = 3
+  benchmark native_stub_host_wall_ms median = 337.775542
+  payloadless native_host_wall_ms = 333.588031
+  one_field scale_metadata_handle outer_wall_ms = 323.580228
+  second_field aux_metadata_handle outer_wall_ms = 332.353994
+  third_field packed_weight_descriptor outer_wall_ms = 330.646695
+  fourth_field descriptor_ptr outer_wall_ms = 458.506824
+  ```
+
+  Safety boundary remains unchanged:
+
+  ```text
+  payload_bytes = 0
+  payload_deref_allowed = false
+  kernel_arg_pass_allowed = false
+  passed_to_kernel = false
+  changes_kernel_launch_args = false
+  uses_current_wna16_args = false
+  passes_current_wna16_args = false
+  current_wna16_arg_compatible = false
+  requires_wna16_arg_reinterpretation = false
+  measures_tpot = false
+  measures_vllm_latency = false
+  ```
+
+  Validation:
+
+  ```text
+  conda run -n TRY python -m pytest \
+    tests/test_check_premap_lab_preflight_summary.py \
+    tests/test_run_wna16_typed_slot_benchmark_harness.py \
+    tests/test_run_future_wna16_typed_slot_kernel_variant_payloadless_execution.py \
+    tests/test_run_future_wna16_typed_slot_kernel_variant_one_field_handoff_canary.py -q
+  # 96 passed
+
+  conda run -n TRY python scripts/run_premap_lab_preflight.py --summary-only \
+    --output-json outputs/reports/premap_kernel_consumer/premap_lab_preflight_four_field_required_gate_check.json
+
+  conda run -n TRY python scripts/check_premap_lab_preflight_summary.py \
+    outputs/reports/premap_kernel_consumer/premap_lab_preflight_four_field_required_gate_check.json \
+    --output-json outputs/reports/premap_kernel_consumer/premap_lab_preflight_four_field_required_gate_check.check.json
+
+  conda run -n TRY python scripts/run_wna16_typed_slot_benchmark_harness.py \
+    --output-json outputs/reports/premap_kernel_consumer/wna16_typed_slot_benchmark_harness_four_field_preflight_v2.json \
+    --require-preflight-check --require-pass
+  # passed = true
+  ```
+
 - Latest strict lab preflight gate: the four-field future WNA16 typed-slot
   handoff chain is now required by the default readonly lab gate via evidence
   label

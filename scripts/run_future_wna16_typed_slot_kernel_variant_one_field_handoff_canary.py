@@ -31,7 +31,7 @@ DEFAULT_PAYLOADLESS_JSON = (
     / "outputs"
     / "reports"
     / "premap_kernel_consumer"
-    / "future_wna16_typed_slot_kernel_variant_payloadless_execution_v1_native_run.json"
+    / "future_wna16_typed_slot_kernel_variant_payloadless_execution_four_field_v1_native_run.json"
 )
 DEFAULT_OUTPUT_JSON = (
     REPO_ROOT
@@ -96,6 +96,7 @@ EXPECTED_PAYLOADLESS_FLAGS: dict[str, Any] = {
     "kernel_arg_pass_allowed": False,
     "passed_to_kernel": False,
     "changes_kernel_launch_args": False,
+    "fourth_field_handoff_ready": True,
     "next_runtime_stage": (
         "implement_future_wna16_typed_slot_kernel_variant_one_field_handoff_canary"
     ),
@@ -139,6 +140,10 @@ def _is_hex_u64(value: Any) -> bool:
     except ValueError:
         return False
     return 0 < parsed <= 0xFFFFFFFFFFFFFFFF
+
+
+def _is_hex_u64_fixed(value: Any) -> bool:
+    return isinstance(value, str) and len(value) == 16 and _is_hex_u64(value)
 
 
 def _positive_ms(value: Any) -> bool:
@@ -199,8 +204,28 @@ def _check_payloadless(
     for handle_field in HANDLE_FIELDS:
         if row_count is not None and row_ok_counts.get(handle_field) != row_count:
             failures.append(f"payloadless_{handle_field}_read_row_ok_count_mismatch")
-        if not _is_hex_u64(field_hashes.get(handle_field)):
+        if not _is_hex_u64_fixed(field_hashes.get(handle_field)):
             failures.append(f"payloadless_{handle_field}_read_hash_invalid")
+    fourth_source_count = _int_metric(payloadless, "fourth_field_handoff_source_count")
+    if fourth_source_count is None:
+        failures.append("payloadless_fourth_field_handoff_source_count_invalid")
+    elif source_count is not None and fourth_source_count != source_count:
+        failures.append("payloadless_fourth_field_handoff_source_count_mismatch")
+    fourth_row_count = _int_metric(payloadless, "fourth_field_handoff_row_count")
+    if fourth_row_count is None:
+        failures.append("payloadless_fourth_field_handoff_row_count_invalid")
+    elif row_count is not None and fourth_row_count != row_count:
+        failures.append("payloadless_fourth_field_handoff_row_count_mismatch")
+    fourth_row_ok_count = _int_metric(payloadless, "fourth_field_handoff_row_ok_count")
+    if fourth_row_ok_count is None:
+        failures.append("payloadless_fourth_field_handoff_row_ok_count_invalid")
+    elif fourth_row_count is not None and fourth_row_ok_count != fourth_row_count:
+        failures.append("payloadless_fourth_field_handoff_row_ok_count_mismatch")
+    descriptor_hash = field_hashes.get("descriptor_ptr")
+    if payloadless.get("fourth_field_handoff_field_read_hash") != descriptor_hash:
+        failures.append("payloadless_fourth_field_handoff_descriptor_hash_mismatch")
+    if not _is_hex_u64_fixed(payloadless.get("fourth_field_handoff_runner_hash")):
+        failures.append("payloadless_fourth_field_handoff_runner_hash_invalid")
     if field not in HANDLE_FIELDS:
         failures.append(f"unsupported_one_field_handoff_field:{field}")
     elif row_count is not None and row_ok_counts.get(field) != row_count:
@@ -369,6 +394,12 @@ def _payloadless_timing_stub(payloadless: dict[str, Any]) -> dict[str, Any]:
         "field_read_hashes",
         "row_hash_accumulator",
         "handle_projection_hash_accumulator",
+        "fourth_field_handoff_ready",
+        "fourth_field_handoff_source_count",
+        "fourth_field_handoff_row_count",
+        "fourth_field_handoff_row_ok_count",
+        "fourth_field_handoff_field_read_hash",
+        "fourth_field_handoff_runner_hash",
     ):
         if timing_stub.get(key) != payloadless.get(key):
             raise ValueError(f"payloadless timing stub {key} mismatch")

@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+import hashlib
 from pathlib import Path
 
 from scripts.check_premap_lab_preflight_summary import (
@@ -1443,3 +1444,8 @@ def test_check_premap_lab_preflight_summary_cli_writes_output(tmp_path: Path) ->
     result = json.loads(output_path.read_text(encoding="utf-8"))
     assert result["passed"] is True
     assert result["source"] == "premap_lab_preflight_summary_check"
+    assert result["checked_preflight_json"] == str(summary_path.resolve())
+    assert result["checked_preflight_json_raw"] == str(summary_path)
+    assert result["checked_preflight_sha256"] == hashlib.sha256(
+        summary_path.read_bytes()
+    ).hexdigest()

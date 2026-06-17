@@ -30,7 +30,7 @@ DEFAULT_BENCHMARK_JSON = (
     / "outputs"
     / "reports"
     / "premap_kernel_consumer"
-    / "future_wna16_typed_slot_kernel_variant_benchmark_v1_repeat3.json"
+    / "future_wna16_typed_slot_kernel_variant_benchmark_four_field_repeat3_v1.json"
 )
 DEFAULT_OUTPUT_JSON = (
     REPO_ROOT
@@ -84,6 +84,7 @@ EXPECTED_BENCHMARK_FLAGS: dict[str, Any] = {
     "kernel_arg_pass_allowed": False,
     "passed_to_kernel": False,
     "changes_kernel_launch_args": False,
+    "fourth_field_handoff_ready": True,
     "next_runtime_stage": (
         "implement_future_wna16_typed_slot_kernel_variant_payloadless_execution"
     ),
@@ -188,9 +189,29 @@ def _check_benchmark(
     for key in (
         "row_hash_accumulator",
         "handle_projection_hash_accumulator",
+        "fourth_field_handoff_field_read_hash",
+        "fourth_field_handoff_runner_hash",
     ):
         if not _is_hex_u64(benchmark.get(key)):
             failures.append(f"benchmark_{key}_invalid")
+    fourth_source_count = _int_metric(benchmark, "fourth_field_handoff_source_count")
+    if fourth_source_count is None:
+        failures.append("benchmark_fourth_field_handoff_source_count_invalid")
+    elif source_count is not None and fourth_source_count != source_count:
+        failures.append("benchmark_fourth_field_handoff_source_count_mismatch")
+    fourth_row_count = _int_metric(benchmark, "fourth_field_handoff_row_count")
+    if fourth_row_count is None:
+        failures.append("benchmark_fourth_field_handoff_row_count_invalid")
+    elif row_count is not None and fourth_row_count != row_count:
+        failures.append("benchmark_fourth_field_handoff_row_count_mismatch")
+    fourth_row_ok_count = _int_metric(benchmark, "fourth_field_handoff_row_ok_count")
+    if fourth_row_ok_count is None:
+        failures.append("benchmark_fourth_field_handoff_row_ok_count_invalid")
+    elif fourth_row_count is not None and fourth_row_ok_count != fourth_row_count:
+        failures.append("benchmark_fourth_field_handoff_row_ok_count_mismatch")
+    descriptor_hash = field_hashes.get("descriptor_ptr")
+    if benchmark.get("fourth_field_handoff_field_read_hash") != descriptor_hash:
+        failures.append("benchmark_fourth_field_handoff_descriptor_hash_mismatch")
     repeat_count = _int_metric(benchmark, "repeat_count_measured")
     if repeat_count is None or repeat_count < min_repeat_count:
         failures.append("benchmark_repeat_count_measured_invalid")
@@ -574,6 +595,22 @@ def run_payloadless_execution(args: argparse.Namespace) -> dict[str, Any]:
         "row_hash_accumulator": benchmark.get("row_hash_accumulator"),
         "handle_projection_hash_accumulator": benchmark.get(
             "handle_projection_hash_accumulator"
+        ),
+        "fourth_field_handoff_ready": benchmark.get("fourth_field_handoff_ready"),
+        "fourth_field_handoff_source_count": benchmark.get(
+            "fourth_field_handoff_source_count"
+        ),
+        "fourth_field_handoff_row_count": benchmark.get(
+            "fourth_field_handoff_row_count"
+        ),
+        "fourth_field_handoff_row_ok_count": benchmark.get(
+            "fourth_field_handoff_row_ok_count"
+        ),
+        "fourth_field_handoff_field_read_hash": benchmark.get(
+            "fourth_field_handoff_field_read_hash"
+        ),
+        "fourth_field_handoff_runner_hash": benchmark.get(
+            "fourth_field_handoff_runner_hash"
         ),
         "benchmark_repeat_count_measured": benchmark.get("repeat_count_measured"),
         "benchmark_native_stub_host_wall_ms_stats": benchmark.get(
