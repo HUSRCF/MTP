@@ -36171,3 +36171,74 @@ Review:
 GPT-5.5 subagent review found no blocker/major/minor after synchronizing the
 all-four CLI defaults and lab preflight evidence to v3.
 ```
+
+2026-06-19 - Independent future-WNA16 kernel-side typed consumer path added.
+
+Added a stricter post-v3-lab-gate consumer path:
+
+```text
+script:
+  scripts/run_future_wna16_kernel_side_typed_consumer_path.py
+
+input:
+  outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_all_four_field_consumer_v3_default.json
+
+output:
+  outputs/reports/premap_kernel_consumer/future_wna16_kernel_side_typed_consumer_path_v1.json
+```
+
+This stage consumes the v3 all-four typed-slot lab artifact, verifies the
+all-four/fourth/native-runner path/SHA and input manifest, then reruns the
+native typed-consumer stub with both future-WNA16 execution paths enabled:
+
+```text
+--require-future-wna16-kernel-side-consumer-execution
+--require-wna16-side-consumer-variant-execution
+```
+
+Real artifact result:
+
+```text
+passed = true
+source_count = 128
+row_count = 5345
+future_wna16_kernel_side_consumer_execution_all_handle_fields_read = true
+wna16_side_consumer_variant_execution_all_handle_fields_read = true
+payload_bytes = 0
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+uses_current_wna16_args = false
+measures_tpot = false
+wna16_benchmark_ready = false
+```
+
+Validation:
+
+```text
+conda run -n TRY python -m pytest \
+  tests/test_run_future_wna16_kernel_side_typed_consumer_path.py -q
+# 8 passed
+
+conda run -n TRY python scripts/run_future_wna16_kernel_side_typed_consumer_path.py \
+  --require-pass \
+  --output-json outputs/reports/premap_kernel_consumer/future_wna16_kernel_side_typed_consumer_path_v1.json \
+  --output-dir outputs/reports/premap_kernel_consumer/future_wna16_kernel_side_typed_consumer_path_v1
+# passed = true
+```
+
+Boundary:
+
+```text
+This is still an independent native/stub ABI gate.
+It does not connect to the current AWQ WNA16 fused-MoE kernel args,
+does not move payload, and does not measure vLLM latency/TPOT.
+```
+
+Review follow-up:
+
+```text
+After GPT-5.5 review, the gate now keeps upstream all_four_gate_ready separate
+from downstream native/stub failures, checks all-four selected_input_json_count,
+and independently validates the referenced fourth-field artifact's no-payload /
+no-current-WNA16 / no-TPOT semantics before native execution.
+```
