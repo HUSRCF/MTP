@@ -69,6 +69,12 @@ PREFLIGHT_EXECUTION_PREFIX = (
 PREFLIGHT_FOURTH_FIELD_PREFIX = (
     "default_kernel_consumer_future_wna16_fourth_field_handoff"
 )
+PREFLIGHT_ALL_FOUR_READY_PREFIX = (
+    "default_kernel_consumer_future_wna16_all_four_field_consumer"
+)
+PREFLIGHT_ALL_FOUR_CONSUMER_PREFIX = (
+    "default_kernel_consumer_future_wna16_all_four_consumer"
+)
 HANDLE_FIELDS = (
     "descriptor_ptr",
     "packed_weight_descriptor",
@@ -136,6 +142,28 @@ EXPECTED_PREFLIGHT_FOURTH_FIELD_FLAGS: dict[str, Any] = {
     f"{PREFLIGHT_FOURTH_FIELD_PREFIX}_measures_tpot": False,
     f"{PREFLIGHT_FOURTH_FIELD_PREFIX}_measures_vllm_latency": False,
     f"{PREFLIGHT_FOURTH_FIELD_PREFIX}_wna16_benchmark_ready": False,
+}
+EXPECTED_PREFLIGHT_ALL_FOUR_FLAGS: dict[str, Any] = {
+    f"{PREFLIGHT_ALL_FOUR_READY_PREFIX}_ready": True,
+    f"{PREFLIGHT_ALL_FOUR_READY_PREFIX}_fields_read": True,
+    f"{PREFLIGHT_ALL_FOUR_READY_PREFIX}_hashes_valid": True,
+    f"{PREFLIGHT_ALL_FOUR_CONSUMER_PREFIX}_evidence_passed": True,
+    f"{PREFLIGHT_ALL_FOUR_CONSUMER_PREFIX}_stage_type": "lab_gate",
+    f"{PREFLIGHT_ALL_FOUR_CONSUMER_PREFIX}_bench_semantics": False,
+    f"{PREFLIGHT_ALL_FOUR_CONSUMER_PREFIX}_native_executed": True,
+    f"{PREFLIGHT_ALL_FOUR_CONSUMER_PREFIX}_native_passed": True,
+    f"{PREFLIGHT_ALL_FOUR_CONSUMER_PREFIX}_future_kernel_side_all_fields_read": True,
+    f"{PREFLIGHT_ALL_FOUR_CONSUMER_PREFIX}_wna16_side_all_fields_read": True,
+    f"{PREFLIGHT_ALL_FOUR_CONSUMER_PREFIX}_payload_bytes": 0,
+    f"{PREFLIGHT_ALL_FOUR_CONSUMER_PREFIX}_payload_deref_allowed": False,
+    f"{PREFLIGHT_ALL_FOUR_CONSUMER_PREFIX}_kernel_arg_pass_allowed": False,
+    f"{PREFLIGHT_ALL_FOUR_CONSUMER_PREFIX}_passed_to_kernel": False,
+    f"{PREFLIGHT_ALL_FOUR_CONSUMER_PREFIX}_changes_kernel_launch_args": False,
+    f"{PREFLIGHT_ALL_FOUR_CONSUMER_PREFIX}_current_wna16_arg_compatible": False,
+    f"{PREFLIGHT_ALL_FOUR_CONSUMER_PREFIX}_requires_wna16_arg_reinterpretation": False,
+    f"{PREFLIGHT_ALL_FOUR_CONSUMER_PREFIX}_measures_tpot": False,
+    f"{PREFLIGHT_ALL_FOUR_CONSUMER_PREFIX}_measures_vllm_latency": False,
+    f"{PREFLIGHT_ALL_FOUR_CONSUMER_PREFIX}_wna16_benchmark_ready": False,
 }
 EXPECTED_PREFLIGHT_EXECUTION_FLAGS: dict[str, Any] = {
     f"{PREFLIGHT_EXECUTION_PREFIX}_required": True,
@@ -235,6 +263,16 @@ def _is_hex_u64(value: Any) -> bool:
     return 0 < parsed <= 0xFFFFFFFFFFFFFFFF
 
 
+def _is_sha256_hex(value: Any) -> bool:
+    if not isinstance(value, str) or len(value) != 64:
+        return False
+    try:
+        int(value, 16)
+    except ValueError:
+        return False
+    return True
+
+
 def _summary_payload(preflight: dict[str, Any]) -> dict[str, Any]:
     nested = preflight.get("lab_gate_status_summary")
     if isinstance(nested, dict):
@@ -293,6 +331,8 @@ def _check_preflight(
     for key, expected in EXPECTED_PREFLIGHT_FLAGS.items():
         _require_equal(summary, failures, key=key, expected=expected, label="preflight")
     for key, expected in EXPECTED_PREFLIGHT_FOURTH_FIELD_FLAGS.items():
+        _require_equal(summary, failures, key=key, expected=expected, label="preflight")
+    for key, expected in EXPECTED_PREFLIGHT_ALL_FOUR_FLAGS.items():
         _require_equal(summary, failures, key=key, expected=expected, label="preflight")
     source_count = _int_metric(summary, f"{PREFLIGHT_FOURTH_FIELD_PREFIX}_source_count")
     previous_source_count = _int_metric(
@@ -371,6 +411,83 @@ def _check_preflight(
         and fourth_row_count != row_count
     ):
         failures.append("preflight_fourth_field_handoff_wna16_row_count_mismatch")
+    all_four_source_count = _int_metric(
+        summary,
+        f"{PREFLIGHT_ALL_FOUR_CONSUMER_PREFIX}_source_count",
+    )
+    all_four_selected_input_count = _int_metric(
+        summary,
+        f"{PREFLIGHT_ALL_FOUR_CONSUMER_PREFIX}_selected_input_count",
+    )
+    all_four_row_count = _int_metric(
+        summary,
+        f"{PREFLIGHT_ALL_FOUR_CONSUMER_PREFIX}_row_count",
+    )
+    all_four_row_ok_count = _int_metric(
+        summary,
+        f"{PREFLIGHT_ALL_FOUR_CONSUMER_PREFIX}_row_ok_count",
+    )
+    if all_four_source_count is None or all_four_source_count < min_source_count:
+        failures.append("preflight_all_four_source_count_invalid")
+    if (
+        all_four_source_count is not None
+        and all_four_selected_input_count != all_four_source_count
+    ):
+        failures.append("preflight_all_four_selected_input_count_mismatch")
+    if (
+        source_count is not None
+        and all_four_source_count is not None
+        and all_four_source_count != source_count
+    ):
+        failures.append("preflight_all_four_fourth_source_count_mismatch")
+    if all_four_row_count is None or all_four_row_count < min_row_count:
+        failures.append("preflight_all_four_row_count_invalid")
+    elif all_four_row_ok_count != all_four_row_count:
+        failures.append("preflight_all_four_row_ok_count_mismatch")
+    if (
+        fourth_row_count is not None
+        and all_four_row_count is not None
+        and all_four_row_count != fourth_row_count
+    ):
+        failures.append("preflight_all_four_fourth_row_count_mismatch")
+    if (
+        row_count is not None
+        and all_four_row_count is not None
+        and all_four_row_count != row_count
+    ):
+        failures.append("preflight_all_four_wna16_row_count_mismatch")
+    selected_manifest = summary.get(
+        f"{PREFLIGHT_ALL_FOUR_CONSUMER_PREFIX}_selected_input_manifest_sha256"
+    )
+    post_manifest = summary.get(
+        f"{PREFLIGHT_ALL_FOUR_CONSUMER_PREFIX}_post_native_input_manifest_sha256"
+    )
+    if not _is_sha256_hex(selected_manifest):
+        failures.append("preflight_all_four_selected_input_manifest_invalid")
+    if not _is_sha256_hex(post_manifest):
+        failures.append("preflight_all_four_post_native_input_manifest_invalid")
+    elif post_manifest != selected_manifest:
+        failures.append("preflight_all_four_post_native_input_manifest_mismatch")
+    all_four_fourth_sha = summary.get(
+        f"{PREFLIGHT_ALL_FOUR_CONSUMER_PREFIX}_fourth_field_sha256"
+    )
+    fourth_evidence_sha = summary.get(f"{PREFLIGHT_FOURTH_FIELD_PREFIX}_evidence_sha256")
+    if not _is_sha256_hex(all_four_fourth_sha):
+        failures.append("preflight_all_four_fourth_sha_invalid")
+    if not _is_sha256_hex(fourth_evidence_sha):
+        failures.append("preflight_fourth_field_evidence_sha_invalid")
+    if all_four_fourth_sha != fourth_evidence_sha:
+        failures.append("preflight_all_four_fourth_sha_mismatch")
+    all_four_fourth_path = summary.get(
+        f"{PREFLIGHT_ALL_FOUR_CONSUMER_PREFIX}_fourth_field_path_label"
+    )
+    fourth_evidence_path = summary.get(f"{PREFLIGHT_FOURTH_FIELD_PREFIX}_evidence_path")
+    if not isinstance(all_four_fourth_path, str) or not all_four_fourth_path:
+        failures.append("preflight_all_four_fourth_path_missing")
+    if not isinstance(fourth_evidence_path, str) or not fourth_evidence_path:
+        failures.append("preflight_fourth_field_evidence_path_missing")
+    if all_four_fourth_path != fourth_evidence_path:
+        failures.append("preflight_all_four_fourth_path_mismatch")
     if fourth_descriptor_hash != descriptor_hash:
         failures.append("preflight_fourth_field_handoff_descriptor_hash_mismatch")
     if fourth_packed_hash != packed_hash:
@@ -651,6 +768,30 @@ def run_harness(args: argparse.Namespace) -> dict[str, Any]:
         ),
         "fourth_field_handoff_runner_hash": preflight_summary.get(
             f"{PREFLIGHT_FOURTH_FIELD_PREFIX}_runner_hash"
+        ),
+        "all_four_field_consumer_ready": preflight_summary.get(
+            f"{PREFLIGHT_ALL_FOUR_READY_PREFIX}_ready"
+        ),
+        "all_four_field_consumer_fields_read": preflight_summary.get(
+            f"{PREFLIGHT_ALL_FOUR_READY_PREFIX}_fields_read"
+        ),
+        "all_four_field_consumer_hashes_valid": preflight_summary.get(
+            f"{PREFLIGHT_ALL_FOUR_READY_PREFIX}_hashes_valid"
+        ),
+        "all_four_field_consumer_source_count": preflight_summary.get(
+            f"{PREFLIGHT_ALL_FOUR_CONSUMER_PREFIX}_source_count"
+        ),
+        "all_four_field_consumer_row_count": preflight_summary.get(
+            f"{PREFLIGHT_ALL_FOUR_CONSUMER_PREFIX}_row_count"
+        ),
+        "all_four_field_consumer_row_ok_count": preflight_summary.get(
+            f"{PREFLIGHT_ALL_FOUR_CONSUMER_PREFIX}_row_ok_count"
+        ),
+        "all_four_field_consumer_fourth_field_sha256": preflight_summary.get(
+            f"{PREFLIGHT_ALL_FOUR_CONSUMER_PREFIX}_fourth_field_sha256"
+        ),
+        "all_four_field_consumer_fourth_field_path_label": preflight_summary.get(
+            f"{PREFLIGHT_ALL_FOUR_CONSUMER_PREFIX}_fourth_field_path_label"
         ),
         "row_hash_accumulator": _runner_value(
             runner,

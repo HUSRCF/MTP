@@ -35582,4 +35582,45 @@ to hard-fail older WNA16-side source-provenance downgrade tests.  If WNA16-side 
 provenance is not ready, the preflight can still pass while next_runtime_stage remains
 refresh_wna16_side_variant_source_provenance instead of benchmark-harness work.
 ```
+
+2026-06-18 - All-four-aware benchmark harness gate.
+
+`scripts/run_wna16_typed_slot_benchmark_harness.py` now consumes the all-four
+preflight fields explicitly instead of relying only on the older fourth-field /
+WNA16 kernel-side execution checks.
+
+Additional harness requirements:
+
+```text
+all_four_ready = true
+all_four_fields_read = true
+all_four_hashes_valid = true
+selected/post-native input manifest are both SHA256 and equal
+all-four fourth_field_path_label == fourth-field evidence path
+all-four fourth_field_sha256 == fourth-field evidence SHA
+all-four source_count / row_count align with fourth-field and WNA16 execution rows
+payload/kernel/current-WNA16-arg safety fields remain closed
+```
+
+Validation:
+
+```text
+conda run -n TRY python -m pytest tests/test_run_wna16_typed_slot_benchmark_harness.py -q
+# 22 passed
+
+conda run -n TRY python scripts/run_wna16_typed_slot_benchmark_harness.py \
+  --output-json outputs/reports/premap_kernel_consumer/wna16_typed_slot_benchmark_harness_all_four_preflight_v2.json \
+  --require-preflight-check --require-pass
+# benchmark_harness_ready = true
+# row_count = 5345
+# all_four_field_consumer_ready = true
+# wna16_benchmark_ready = false
+# kernel_arg_pass_allowed = false
+```
+
+Review:
+
+```text
+GPT-5.5 subagent review found no blocker/major after tightening SHA/path validation.
+```
 ```
