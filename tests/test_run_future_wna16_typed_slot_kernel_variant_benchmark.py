@@ -46,6 +46,12 @@ def _timing_stub_payload(
     source_count: int = 128,
     host_wall_ms: float = 12.5,
 ) -> dict:
+    evidence_path = (
+        Path(__file__).resolve().parent
+        / "fixtures"
+        / "future_wna16_fourth_field_evidence.json"
+    )
+    evidence_sha = _sha256(evidence_path)
     return {
         "schema_version": 1,
         "artifact_kind": "future_wna16_typed_slot_kernel_timing_stub",
@@ -72,11 +78,21 @@ def _timing_stub_payload(
         "row_hash_accumulator": "1112131415161718",
         "handle_projection_hash_accumulator": "2122232425262728",
         "fourth_field_handoff_ready": True,
+        "fourth_field_handoff_evidence_path": str(evidence_path),
+        "fourth_field_handoff_evidence_sha256": evidence_sha,
         "fourth_field_handoff_source_count": source_count,
         "fourth_field_handoff_row_count": row_count,
         "fourth_field_handoff_row_ok_count": row_count,
         "fourth_field_handoff_field_read_hash": "3132333435363738",
         "fourth_field_handoff_runner_hash": "8182838485868788",
+        "all_four_field_consumer_ready": True,
+        "all_four_field_consumer_fields_read": True,
+        "all_four_field_consumer_hashes_valid": True,
+        "all_four_field_consumer_source_count": source_count,
+        "all_four_field_consumer_row_count": row_count,
+        "all_four_field_consumer_row_ok_count": row_count,
+        "all_four_field_consumer_fourth_field_path_label": str(evidence_path),
+        "all_four_field_consumer_fourth_field_sha256": evidence_sha,
         "timing_stub_ready": True,
         "native_stub_requested": True,
         "native_stub_executed": True,
@@ -160,7 +176,7 @@ def test_future_wna16_typed_slot_variant_benchmark_defaults_to_four_field_native
 
     default_path = Path(module.build_parser().parse_args([]).timing_stub_json)
 
-    assert default_path.name == "future_wna16_typed_slot_kernel_timing_stub_four_field_native_run_v1.json"
+    assert default_path.name == "future_wna16_typed_slot_kernel_timing_stub_four_field_v2_native_run.json"
     assert "premap_kernel_consumer" in default_path.parts
 
 
@@ -212,6 +228,30 @@ def test_future_wna16_typed_slot_variant_benchmark_rejects_current_arg_pass(
 
     assert result["passed"] is False
     assert any("passes_current_wna16_args" in item for item in result["failures"])
+
+
+def test_future_wna16_typed_slot_variant_benchmark_rejects_seed_failures(
+    tmp_path: Path,
+):
+    module = _load_module()
+    timing_stub = tmp_path / "timing_stub.json"
+    payload = _timing_stub_payload()
+    _attach_seed_artifacts(tmp_path, payload)
+    payload["failures"] = ["synthetic_seed_failure"]
+    _write_json(timing_stub, payload)
+
+    args = module.build_parser().parse_args(
+        [
+            "--timing-stub-json",
+            str(timing_stub),
+            "--output-json",
+            str(tmp_path / "benchmark.json"),
+        ]
+    )
+    result = module.run_benchmark(args)
+
+    assert result["passed"] is False
+    assert "timing_stub_failures_not_empty" in result["failures"]
 
 
 def test_future_wna16_typed_slot_variant_benchmark_rejects_untrusted_seed_repeat0(
@@ -402,6 +442,63 @@ def test_future_wna16_typed_slot_variant_benchmark_rejects_fourth_hash_mismatch(
     assert "timing_stub_fourth_field_handoff_descriptor_hash_mismatch" in result[
         "failures"
     ]
+
+
+def test_future_wna16_typed_slot_variant_benchmark_rejects_missing_all_four_ready(
+    tmp_path: Path,
+):
+    module = _load_module()
+    timing_stub = tmp_path / "timing_stub.json"
+    payload = _timing_stub_payload()
+    _attach_seed_artifacts(tmp_path, payload)
+    payload["all_four_field_consumer_ready"] = False
+    _write_json(timing_stub, payload)
+
+    args = module.build_parser().parse_args(
+        [
+            "--timing-stub-json",
+            str(timing_stub),
+            "--output-json",
+            str(tmp_path / "benchmark.json"),
+        ]
+    )
+    result = module.run_benchmark(args)
+
+    assert result["passed"] is False
+    assert any("all_four_field_consumer_ready" in item for item in result["failures"])
+
+
+def test_future_wna16_typed_slot_variant_benchmark_rejects_unrelated_fourth_evidence(
+    tmp_path: Path,
+):
+    module = _load_module()
+    timing_stub = tmp_path / "timing_stub.json"
+    unrelated = tmp_path / "unrelated.json"
+    unrelated.write_text('{"passed": true}\n', encoding="utf-8")
+    unrelated_sha = _sha256(unrelated)
+    payload = _timing_stub_payload()
+    _attach_seed_artifacts(tmp_path, payload)
+    payload["fourth_field_handoff_evidence_path"] = str(unrelated)
+    payload["fourth_field_handoff_evidence_sha256"] = unrelated_sha
+    payload["all_four_field_consumer_fourth_field_path_label"] = str(unrelated)
+    payload["all_four_field_consumer_fourth_field_sha256"] = unrelated_sha
+    _write_json(timing_stub, payload)
+
+    args = module.build_parser().parse_args(
+        [
+            "--timing-stub-json",
+            str(timing_stub),
+            "--output-json",
+            str(tmp_path / "benchmark.json"),
+        ]
+    )
+    result = module.run_benchmark(args)
+
+    assert result["passed"] is False
+    assert any(
+        "timing_stub_fourth_evidence_artifact_kind" in item
+        for item in result["failures"]
+    )
 
 
 def test_future_wna16_typed_slot_variant_benchmark_runs_fake_repeats(

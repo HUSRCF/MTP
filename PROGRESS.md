@@ -85,6 +85,60 @@
   # passed = true
   ```
 
+- Latest independent benchmark wrapper gate: the future WNA16 typed-slot
+  benchmark wrapper now consumes the v2 native timing-stub artifact by default
+  and revalidates the all-four/evidence envelope before using it as a seed.
+  It checks the fourth-field evidence path/SHA against the actual file, reuses
+  the timing-stub semantic evidence validator, and carries all-four fields
+  through repeat drift checks and the benchmark report.
+
+  Latest benchmark wrapper evidence:
+
+  ```text
+  outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_benchmark_four_field_v2_seed.json
+  outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_benchmark_four_field_repeat3_v2.json
+
+  repeat_count_measured = 3
+  source_count = 128
+  row_count = 5345
+  all_four_field_consumer_ready = true
+  all_four_field_consumer_fields_read = true
+  all_four_field_consumer_hashes_valid = true
+  native_stub_host_wall_ms median = 334.225960
+  benchmark_outer_wall_ms median = 335.939575
+  ```
+
+  Scope remains unchanged:
+
+  ```text
+  benchmark_is_current_wna16_fused_moe = false
+  measures_tpot = false
+  measures_vllm_latency = false
+  wna16_benchmark_ready = false
+  payload_bytes = 0
+  kernel_arg_pass_allowed = false
+  passed_to_kernel = false
+  changes_kernel_launch_args = false
+  current_wna16_arg_compatible = false
+  ```
+
+  Validation:
+
+  ```text
+  conda run -n TRY python -m pytest \
+    tests/test_run_future_wna16_typed_slot_kernel_variant_benchmark.py \
+    tests/test_run_future_wna16_typed_slot_kernel_timing_stub.py \
+    tests/test_run_future_wna16_typed_slot_kernel_variant_entrypoint.py \
+    tests/test_run_wna16_typed_slot_benchmark_harness.py -q
+  # 82 passed
+
+  conda run -n TRY python scripts/run_future_wna16_typed_slot_kernel_variant_benchmark.py \
+    --output-json outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_benchmark_four_field_repeat3_v2.json \
+    --repeat-count 3 \
+    --require-pass
+  # passed = true
+  ```
+
 - Latest future WNA16 typed-slot payloadless/all-field chain: the strict
   lab preflight is now emitted in `--summary-only` form and the checker output
   records the checked preflight path/SHA, so downstream harness artifacts can

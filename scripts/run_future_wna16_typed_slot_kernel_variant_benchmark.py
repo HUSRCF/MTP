@@ -31,7 +31,7 @@ DEFAULT_TIMING_STUB_JSON = (
     / "outputs"
     / "reports"
     / "premap_kernel_consumer"
-    / "future_wna16_typed_slot_kernel_timing_stub_four_field_native_run_v1.json"
+    / "future_wna16_typed_slot_kernel_timing_stub_four_field_v2_native_run.json"
 )
 DEFAULT_OUTPUT_JSON = (
     REPO_ROOT
@@ -165,6 +165,8 @@ def _check_timing_stub(
                 f"timing_stub_{key}_mismatch:"
                 f"{timing_stub.get(key)!r}!={expected!r}"
             )
+    if timing_stub.get("failures") != []:
+        failures.append("timing_stub_failures_not_empty")
     source_count = _int_metric(timing_stub, "source_count")
     if source_count is None or source_count < min_source_count:
         failures.append("timing_stub_source_count_invalid")
@@ -220,6 +222,84 @@ def _check_timing_stub(
     descriptor_hash = field_hashes.get("descriptor_ptr")
     if timing_stub.get("fourth_field_handoff_field_read_hash") != descriptor_hash:
         failures.append("timing_stub_fourth_field_handoff_descriptor_hash_mismatch")
+    fourth_evidence_path = timing_stub.get("fourth_field_handoff_evidence_path")
+    if not isinstance(fourth_evidence_path, str) or not fourth_evidence_path:
+        failures.append("timing_stub_fourth_field_handoff_evidence_path_missing")
+        resolved_fourth_evidence_path = None
+    else:
+        resolved_fourth_evidence_path = _resolve(fourth_evidence_path)
+        if not resolved_fourth_evidence_path.exists():
+            failures.append("timing_stub_fourth_field_handoff_evidence_path_not_found")
+    fourth_evidence_sha = timing_stub.get("fourth_field_handoff_evidence_sha256")
+    if not _is_sha256_hex(fourth_evidence_sha):
+        failures.append("timing_stub_fourth_field_handoff_evidence_sha_invalid")
+    elif (
+        resolved_fourth_evidence_path is not None
+        and resolved_fourth_evidence_path.exists()
+    ):
+        actual_sha, sha_failure = _sha256_or_failure(
+            resolved_fourth_evidence_path,
+            label="timing_stub_fourth_field_handoff_evidence",
+        )
+        if sha_failure is not None:
+            failures.append(sha_failure)
+        elif actual_sha != fourth_evidence_sha:
+            failures.append("timing_stub_fourth_field_handoff_evidence_sha_mismatch")
+        else:
+            try:
+                fourth_evidence = _load_json(resolved_fourth_evidence_path)
+            except (OSError, json.JSONDecodeError, ValueError):
+                failures.append("timing_stub_fourth_field_handoff_evidence_json_invalid")
+            else:
+                failures.extend(
+                    "timing_stub_" + item
+                    for item in timing_runner._check_fourth_evidence(  # noqa: SLF001
+                        fourth_evidence,
+                        entrypoint=timing_stub,
+                    )
+                )
+    all_four_expected = {
+        "all_four_field_consumer_ready": True,
+        "all_four_field_consumer_fields_read": True,
+        "all_four_field_consumer_hashes_valid": True,
+    }
+    for key, expected in all_four_expected.items():
+        if timing_stub.get(key) != expected:
+            failures.append(
+                f"timing_stub_{key}_mismatch:{timing_stub.get(key)!r}!={expected!r}"
+            )
+    all_four_source_count = _int_metric(timing_stub, "all_four_field_consumer_source_count")
+    if all_four_source_count is None:
+        failures.append("timing_stub_all_four_field_consumer_source_count_invalid")
+    elif source_count is not None and all_four_source_count != source_count:
+        failures.append("timing_stub_all_four_field_consumer_source_count_mismatch")
+    all_four_row_count = _int_metric(timing_stub, "all_four_field_consumer_row_count")
+    all_four_row_ok_count = _int_metric(
+        timing_stub,
+        "all_four_field_consumer_row_ok_count",
+    )
+    if all_four_row_count is None:
+        failures.append("timing_stub_all_four_field_consumer_row_count_invalid")
+    elif row_count is not None and all_four_row_count != row_count:
+        failures.append("timing_stub_all_four_field_consumer_row_count_mismatch")
+    if all_four_row_ok_count is None:
+        failures.append("timing_stub_all_four_field_consumer_row_ok_count_invalid")
+    elif all_four_row_count is not None and all_four_row_ok_count != all_four_row_count:
+        failures.append("timing_stub_all_four_field_consumer_row_ok_count_mismatch")
+    all_four_fourth_path = timing_stub.get(
+        "all_four_field_consumer_fourth_field_path_label"
+    )
+    if not isinstance(all_four_fourth_path, str) or not all_four_fourth_path:
+        failures.append("timing_stub_all_four_field_consumer_fourth_path_missing")
+    elif isinstance(fourth_evidence_path, str) and all_four_fourth_path != fourth_evidence_path:
+        failures.append("timing_stub_all_four_field_consumer_fourth_path_mismatch")
+    all_four_fourth_sha = timing_stub.get(
+        "all_four_field_consumer_fourth_field_sha256"
+    )
+    if not _is_sha256_hex(all_four_fourth_sha):
+        failures.append("timing_stub_all_four_field_consumer_fourth_sha_invalid")
+    elif _is_sha256_hex(fourth_evidence_sha) and all_four_fourth_sha != fourth_evidence_sha:
+        failures.append("timing_stub_all_four_field_consumer_fourth_sha_mismatch")
     if _numeric_ms(timing_stub, "native_stub_host_wall_ms") is None:
         failures.append("timing_stub_native_stub_host_wall_ms_invalid")
     return failures
@@ -365,11 +445,21 @@ def _repeat_contract_failures(
         "row_hash_accumulator",
         "handle_projection_hash_accumulator",
         "fourth_field_handoff_ready",
+        "fourth_field_handoff_evidence_path",
+        "fourth_field_handoff_evidence_sha256",
         "fourth_field_handoff_source_count",
         "fourth_field_handoff_row_count",
         "fourth_field_handoff_row_ok_count",
         "fourth_field_handoff_field_read_hash",
         "fourth_field_handoff_runner_hash",
+        "all_four_field_consumer_ready",
+        "all_four_field_consumer_fields_read",
+        "all_four_field_consumer_hashes_valid",
+        "all_four_field_consumer_source_count",
+        "all_four_field_consumer_row_count",
+        "all_four_field_consumer_row_ok_count",
+        "all_four_field_consumer_fourth_field_path_label",
+        "all_four_field_consumer_fourth_field_sha256",
     ):
         if repeat_report.get(key) != seed.get(key):
             failures.append(f"{key}_mismatch")
@@ -480,6 +570,12 @@ def run_benchmark(args: argparse.Namespace) -> dict[str, Any]:
             "handle_projection_hash_accumulator"
         ),
         "fourth_field_handoff_ready": timing_stub.get("fourth_field_handoff_ready"),
+        "fourth_field_handoff_evidence_path": timing_stub.get(
+            "fourth_field_handoff_evidence_path"
+        ),
+        "fourth_field_handoff_evidence_sha256": timing_stub.get(
+            "fourth_field_handoff_evidence_sha256"
+        ),
         "fourth_field_handoff_source_count": timing_stub.get(
             "fourth_field_handoff_source_count"
         ),
@@ -494,6 +590,30 @@ def run_benchmark(args: argparse.Namespace) -> dict[str, Any]:
         ),
         "fourth_field_handoff_runner_hash": timing_stub.get(
             "fourth_field_handoff_runner_hash"
+        ),
+        "all_four_field_consumer_ready": timing_stub.get(
+            "all_four_field_consumer_ready"
+        ),
+        "all_four_field_consumer_fields_read": timing_stub.get(
+            "all_four_field_consumer_fields_read"
+        ),
+        "all_four_field_consumer_hashes_valid": timing_stub.get(
+            "all_four_field_consumer_hashes_valid"
+        ),
+        "all_four_field_consumer_source_count": timing_stub.get(
+            "all_four_field_consumer_source_count"
+        ),
+        "all_four_field_consumer_row_count": timing_stub.get(
+            "all_four_field_consumer_row_count"
+        ),
+        "all_four_field_consumer_row_ok_count": timing_stub.get(
+            "all_four_field_consumer_row_ok_count"
+        ),
+        "all_four_field_consumer_fourth_field_path_label": timing_stub.get(
+            "all_four_field_consumer_fourth_field_path_label"
+        ),
+        "all_four_field_consumer_fourth_field_sha256": timing_stub.get(
+            "all_four_field_consumer_fourth_field_sha256"
         ),
         "repeat_count_requested": int(args.repeat_count),
         "repeat_count_measured": len(native_stub_wall_ms),
