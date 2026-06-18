@@ -30,7 +30,7 @@ DEFAULT_BENCHMARK_JSON = (
     / "outputs"
     / "reports"
     / "premap_kernel_consumer"
-    / "future_wna16_typed_slot_kernel_variant_benchmark_four_field_repeat3_v2.json"
+    / "future_wna16_typed_slot_kernel_variant_benchmark_four_field_repeat3_v3.json"
 )
 DEFAULT_OUTPUT_JSON = (
     REPO_ROOT

@@ -620,7 +620,7 @@ def test_payloadless_execution_defaults_to_four_field_repeat3_benchmark():
     default_path = Path(module.DEFAULT_BENCHMARK_JSON)
 
     assert (
-        "future_wna16_typed_slot_kernel_variant_benchmark_four_field_repeat3_v2.json"
+        "future_wna16_typed_slot_kernel_variant_benchmark_four_field_repeat3_v3.json"
         in str(default_path)
     )
     if default_path.exists():

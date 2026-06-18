@@ -31,7 +31,7 @@ DEFAULT_ENTRYPOINT_JSON = (
     / "outputs"
     / "reports"
     / "premap_kernel_consumer"
-    / "future_wna16_typed_slot_kernel_variant_entrypoint_four_field_v1.json"
+    / "future_wna16_typed_slot_kernel_variant_entrypoint_four_field_v3.json"
 )
 DEFAULT_OUTPUT_JSON = (
     REPO_ROOT
@@ -253,6 +253,119 @@ def _check_fourth_evidence(
         failures.append("fourth_evidence_runner_hash_invalid")
     elif _is_hex_u64(entry_runner_hash) and runner_hash != entry_runner_hash:
         failures.append("fourth_evidence_runner_hash_mismatch")
+    payloadless_root_path = payload.get("payloadless_execution_json")
+    payloadless_root_sha = payload.get("payloadless_execution_sha256")
+    if not isinstance(payloadless_root_path, str) or not payloadless_root_path:
+        failures.append("fourth_evidence_payloadless_root_path_missing")
+    elif (
+        "four_field_v1_native_run" in payloadless_root_path
+        or "payloadless_execution_v1" in payloadless_root_path
+    ):
+        failures.append("fourth_evidence_payloadless_root_is_legacy_v1")
+    elif not _is_sha256_hex(payloadless_root_sha):
+        failures.append("fourth_evidence_payloadless_root_sha_invalid")
+    else:
+        resolved_root_path = _resolve(payloadless_root_path)
+        if not resolved_root_path.exists():
+            failures.append("fourth_evidence_payloadless_root_not_found")
+        else:
+            try:
+                root_sha = _sha256(resolved_root_path)
+            except Exception as exc:
+                failures.append(
+                    "fourth_evidence_payloadless_root_sha256_failed:"
+                    f"{exc.__class__.__name__}:{exc}"
+                )
+            else:
+                if root_sha != payloadless_root_sha:
+                    failures.append("fourth_evidence_payloadless_root_sha_mismatch")
+                else:
+                    try:
+                        root_payload = _load_json(resolved_root_path)
+                    except Exception as exc:
+                        failures.append(
+                            "fourth_evidence_payloadless_root_json_invalid:"
+                            f"{exc.__class__.__name__}:{exc}"
+                        )
+                    else:
+                        if (
+                            root_payload.get("artifact_kind")
+                            != "future_wna16_typed_slot_kernel_variant_payloadless_execution"
+                        ):
+                            failures.append(
+                                "fourth_evidence_payloadless_root_artifact_kind_mismatch"
+                            )
+                        if root_payload.get("passed") is not True:
+                            failures.append("fourth_evidence_payloadless_root_not_passed")
+                        if root_payload.get("failures") != []:
+                            failures.append(
+                                "fourth_evidence_payloadless_root_failures_not_empty"
+                            )
+                        root_source_count = _int_metric(root_payload, "source_count")
+                        root_row_count = _int_metric(root_payload, "row_count")
+                        root_row_ok_count = _int_metric(root_payload, "row_ok_count")
+                        if source_count is not None and root_source_count != source_count:
+                            failures.append(
+                                "fourth_evidence_payloadless_root_source_count_mismatch"
+                            )
+                        if row_count is not None and root_row_count != row_count:
+                            failures.append(
+                                "fourth_evidence_payloadless_root_row_count_mismatch"
+                            )
+                        if root_row_count is not None and root_row_ok_count != root_row_count:
+                            failures.append(
+                                "fourth_evidence_payloadless_root_row_ok_count_mismatch"
+                            )
+                        optional_root_unsafe_keys = (
+                            "payload_bytes",
+                            "payload_deref_allowed",
+                            "kernel_arg_pass_allowed",
+                            "passed_to_kernel",
+                            "changes_kernel_launch_args",
+                            "uses_current_wna16_args",
+                            "passes_current_wna16_args",
+                            "current_wna16_arg_compatible",
+                            "requires_wna16_arg_reinterpretation",
+                            "measures_tpot",
+                            "measures_vllm_latency",
+                            "wna16_benchmark_ready",
+                        )
+                        required_root_expected_flags = {
+                            "expected_payload_bytes": 0,
+                            "expected_payload_deref_allowed": False,
+                            "expected_kernel_arg_pass_allowed": False,
+                            "expected_passed_to_kernel": False,
+                            "expected_changes_kernel_launch_args": False,
+                            "expected_uses_current_wna16_args": False,
+                            "expected_passes_current_wna16_args": False,
+                            "expected_current_wna16_arg_compatible": False,
+                            "expected_requires_wna16_arg_reinterpretation": False,
+                            "expected_measures_tpot": False,
+                            "expected_measures_vllm_latency": False,
+                            "expected_wna16_benchmark_ready": False,
+                        }
+                        for unsafe_key in optional_root_unsafe_keys:
+                            value = root_payload.get(unsafe_key)
+                            if value not in (None, False, 0):
+                                failures.append(
+                                    "fourth_evidence_payloadless_root_"
+                                    f"{unsafe_key}_unsafe_nonzero"
+                                )
+                        for expected_key, expected_value in (
+                            required_root_expected_flags.items()
+                        ):
+                            if expected_key not in root_payload:
+                                failures.append(
+                                    "fourth_evidence_payloadless_root_"
+                                    f"{expected_key}_missing"
+                                )
+                            elif root_payload.get(expected_key) != expected_value:
+                                failures.append(
+                                    "fourth_evidence_payloadless_root_"
+                                    f"{expected_key}_mismatch:"
+                                    f"{root_payload.get(expected_key)!r}"
+                                    f"!={expected_value!r}"
+                                )
     return failures
 
 

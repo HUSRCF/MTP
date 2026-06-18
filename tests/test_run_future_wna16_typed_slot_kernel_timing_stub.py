@@ -188,7 +188,7 @@ def test_future_wna16_typed_slot_timing_stub_defaults_to_four_field_entrypoint()
 
     default_path = Path(module.build_parser().parse_args([]).entrypoint_json)
 
-    assert default_path.name == "future_wna16_typed_slot_kernel_variant_entrypoint_four_field_v1.json"
+    assert default_path.name == "future_wna16_typed_slot_kernel_variant_entrypoint_four_field_v3.json"
     assert "premap_kernel_consumer" in default_path.parts
 
 

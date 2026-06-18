@@ -31,7 +31,7 @@ DEFAULT_TIMING_STUB_JSON = (
     / "outputs"
     / "reports"
     / "premap_kernel_consumer"
-    / "future_wna16_typed_slot_kernel_timing_stub_four_field_v2_native_run.json"
+    / "future_wna16_typed_slot_kernel_timing_stub_four_field_v3_native_run.json"
 )
 DEFAULT_OUTPUT_JSON = (
     REPO_ROOT

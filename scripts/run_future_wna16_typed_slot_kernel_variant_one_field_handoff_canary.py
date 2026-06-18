@@ -24,6 +24,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from scripts import run_premap_online_merged_native_arg_slot_canary as canary_runner
+from scripts import run_future_wna16_typed_slot_kernel_timing_stub as timing_runner
 
 
 DEFAULT_PAYLOADLESS_JSON = (
@@ -31,7 +32,7 @@ DEFAULT_PAYLOADLESS_JSON = (
     / "outputs"
     / "reports"
     / "premap_kernel_consumer"
-    / "future_wna16_typed_slot_kernel_variant_payloadless_execution_four_field_v1_native_run.json"
+    / "future_wna16_typed_slot_kernel_variant_payloadless_execution_four_field_v3_native_run.json"
 )
 DEFAULT_OUTPUT_JSON = (
     REPO_ROOT
@@ -96,6 +97,18 @@ EXPECTED_PAYLOADLESS_FLAGS: dict[str, Any] = {
     "kernel_arg_pass_allowed": False,
     "passed_to_kernel": False,
     "changes_kernel_launch_args": False,
+    "expected_payload_bytes": 0,
+    "expected_payload_deref_allowed": False,
+    "expected_kernel_arg_pass_allowed": False,
+    "expected_passed_to_kernel": False,
+    "expected_changes_kernel_launch_args": False,
+    "expected_uses_current_wna16_args": False,
+    "expected_passes_current_wna16_args": False,
+    "expected_current_wna16_arg_compatible": False,
+    "expected_requires_wna16_arg_reinterpretation": False,
+    "expected_measures_tpot": False,
+    "expected_measures_vllm_latency": False,
+    "expected_wna16_benchmark_ready": False,
     "fourth_field_handoff_ready": True,
     "next_runtime_stage": (
         "implement_future_wna16_typed_slot_kernel_variant_one_field_handoff_canary"
@@ -172,6 +185,8 @@ def _check_payloadless(
     min_row_count: int,
 ) -> list[str]:
     failures: list[str] = []
+    if payloadless.get("failures") != []:
+        failures.append("payloadless_failures_not_empty")
     for key, expected in EXPECTED_PAYLOADLESS_FLAGS.items():
         if payloadless.get(key) != expected:
             failures.append(
@@ -226,6 +241,134 @@ def _check_payloadless(
         failures.append("payloadless_fourth_field_handoff_descriptor_hash_mismatch")
     if not _is_hex_u64_fixed(payloadless.get("fourth_field_handoff_runner_hash")):
         failures.append("payloadless_fourth_field_handoff_runner_hash_invalid")
+    fourth_evidence_path = payloadless.get("fourth_field_handoff_evidence_path")
+    resolved_fourth_evidence_path: Path | None = None
+    if not isinstance(fourth_evidence_path, str) or not fourth_evidence_path:
+        failures.append("payloadless_fourth_field_handoff_evidence_path_missing")
+    else:
+        resolved_fourth_evidence_path = _resolve(fourth_evidence_path)
+        if not resolved_fourth_evidence_path.exists():
+            failures.append("payloadless_fourth_field_handoff_evidence_path_not_found")
+    fourth_evidence_sha = payloadless.get("fourth_field_handoff_evidence_sha256")
+    if not _is_sha256_hex(fourth_evidence_sha):
+        failures.append("payloadless_fourth_field_handoff_evidence_sha_invalid")
+    elif (
+        resolved_fourth_evidence_path is not None
+        and resolved_fourth_evidence_path.exists()
+    ):
+        try:
+            actual_sha = _sha256(resolved_fourth_evidence_path)
+        except Exception as exc:
+            failures.append(
+                "payloadless_fourth_field_handoff_evidence_sha256_failed:"
+                f"{exc.__class__.__name__}:{exc}"
+            )
+        else:
+            if actual_sha != fourth_evidence_sha:
+                failures.append("payloadless_fourth_field_handoff_evidence_sha_mismatch")
+            else:
+                try:
+                    fourth_evidence = _load_json(resolved_fourth_evidence_path)
+                except Exception as exc:
+                    failures.append(
+                        "payloadless_fourth_field_handoff_evidence_json_invalid:"
+                        f"{exc.__class__.__name__}:{exc}"
+                    )
+                else:
+                    failures.extend(
+                        "payloadless_"
+                        + item
+                        for item in timing_runner._check_fourth_evidence(  # noqa: SLF001
+                            fourth_evidence,
+                            entrypoint=payloadless,
+                        )
+                    )
+                    evidence_root_path = fourth_evidence.get(
+                        "payloadless_execution_json"
+                    )
+                    evidence_root_sha = fourth_evidence.get(
+                        "payloadless_execution_sha256"
+                    )
+                    if (
+                        not isinstance(evidence_root_path, str)
+                        or not evidence_root_path
+                    ):
+                        failures.append(
+                            "payloadless_fourth_evidence_payloadless_root_path_missing"
+                        )
+                    elif "four_field_v1_native_run" in evidence_root_path:
+                        failures.append(
+                            "payloadless_fourth_evidence_payloadless_root_is_legacy_v1"
+                        )
+                    elif not _is_sha256_hex(evidence_root_sha):
+                        failures.append(
+                            "payloadless_fourth_evidence_payloadless_root_sha_invalid"
+                        )
+                    else:
+                        resolved_root_path = _resolve(evidence_root_path)
+                        if not resolved_root_path.exists():
+                            failures.append(
+                                "payloadless_fourth_evidence_payloadless_root_not_found"
+                            )
+                        else:
+                            try:
+                                root_sha = _sha256(resolved_root_path)
+                            except Exception as exc:
+                                failures.append(
+                                    "payloadless_fourth_evidence_payloadless_root_"
+                                    f"sha256_failed:{exc.__class__.__name__}:{exc}"
+                                )
+                            else:
+                                if root_sha != evidence_root_sha:
+                                    failures.append(
+                                        "payloadless_fourth_evidence_payloadless_root_"
+                                        "sha_mismatch"
+                                    )
+    all_four_expected = {
+        "all_four_field_consumer_ready": True,
+        "all_four_field_consumer_fields_read": True,
+        "all_four_field_consumer_hashes_valid": True,
+    }
+    for key, expected in all_four_expected.items():
+        if payloadless.get(key) != expected:
+            failures.append(
+                f"payloadless_{key}_mismatch:{payloadless.get(key)!r}!={expected!r}"
+            )
+    all_four_source_count = _int_metric(
+        payloadless,
+        "all_four_field_consumer_source_count",
+    )
+    if all_four_source_count is None:
+        failures.append("payloadless_all_four_field_consumer_source_count_invalid")
+    elif source_count is not None and all_four_source_count != source_count:
+        failures.append("payloadless_all_four_field_consumer_source_count_mismatch")
+    all_four_row_count = _int_metric(payloadless, "all_four_field_consumer_row_count")
+    all_four_row_ok_count = _int_metric(
+        payloadless,
+        "all_four_field_consumer_row_ok_count",
+    )
+    if all_four_row_count is None:
+        failures.append("payloadless_all_four_field_consumer_row_count_invalid")
+    elif row_count is not None and all_four_row_count != row_count:
+        failures.append("payloadless_all_four_field_consumer_row_count_mismatch")
+    if all_four_row_ok_count is None:
+        failures.append("payloadless_all_four_field_consumer_row_ok_count_invalid")
+    elif all_four_row_count is not None and all_four_row_ok_count != all_four_row_count:
+        failures.append("payloadless_all_four_field_consumer_row_ok_count_mismatch")
+    all_four_fourth_path = payloadless.get(
+        "all_four_field_consumer_fourth_field_path_label"
+    )
+    if not isinstance(all_four_fourth_path, str) or not all_four_fourth_path:
+        failures.append("payloadless_all_four_field_consumer_fourth_path_missing")
+    elif isinstance(fourth_evidence_path, str) and all_four_fourth_path != fourth_evidence_path:
+        failures.append("payloadless_all_four_field_consumer_fourth_path_mismatch")
+    all_four_fourth_sha = payloadless.get(
+        "all_four_field_consumer_fourth_field_sha256"
+    )
+    if not _is_sha256_hex(all_four_fourth_sha):
+        failures.append("payloadless_all_four_field_consumer_fourth_sha_invalid")
+    elif _is_sha256_hex(fourth_evidence_sha) and all_four_fourth_sha != fourth_evidence_sha:
+        failures.append("payloadless_all_four_field_consumer_fourth_sha_mismatch")
     if field not in HANDLE_FIELDS:
         failures.append(f"unsupported_one_field_handoff_field:{field}")
     elif row_count is not None and row_ok_counts.get(field) != row_count:
@@ -330,6 +473,10 @@ def _check_canary_report(
         "kernel_arg_pass_allowed",
         "passed_to_kernel",
         "changes_kernel_launch_args",
+        "future_wna16_single_field_handoff_canary_payload_deref_allowed",
+        "future_wna16_single_field_handoff_canary_kernel_arg_pass_allowed",
+        "future_wna16_kernel_accept_typed_slot_payload_deref_allowed",
+        "future_wna16_kernel_accept_typed_slot_kernel_arg_pass_allowed",
     )
     for key in unsafe_true_keys:
         if not _is_false_like(canary.get(key)):
@@ -400,6 +547,16 @@ def _payloadless_timing_stub(payloadless: dict[str, Any]) -> dict[str, Any]:
         "fourth_field_handoff_row_ok_count",
         "fourth_field_handoff_field_read_hash",
         "fourth_field_handoff_runner_hash",
+        "fourth_field_handoff_evidence_path",
+        "fourth_field_handoff_evidence_sha256",
+        "all_four_field_consumer_ready",
+        "all_four_field_consumer_fields_read",
+        "all_four_field_consumer_hashes_valid",
+        "all_four_field_consumer_source_count",
+        "all_four_field_consumer_row_count",
+        "all_four_field_consumer_row_ok_count",
+        "all_four_field_consumer_fourth_field_path_label",
+        "all_four_field_consumer_fourth_field_sha256",
     ):
         if timing_stub.get(key) != payloadless.get(key):
             raise ValueError(f"payloadless timing stub {key} mismatch")
@@ -550,6 +707,9 @@ def run_one_field_handoff_canary(args: argparse.Namespace) -> dict[str, Any]:
                 f"payloadless_json_sha256_failed:{exc.__class__.__name__}:{exc}"
             )
     if payloadless:
+        payloadless["__payloadless_json_path"] = str(payloadless_path)
+        payloadless["__payloadless_json_sha256"] = payloadless_sha256
+    if payloadless:
         failures.extend(
             _check_payloadless(
                 payloadless,
@@ -652,6 +812,36 @@ def run_one_field_handoff_canary(args: argparse.Namespace) -> dict[str, Any]:
         "payloadless_row_count": payloadless.get("row_count"),
         "payloadless_field_read_row_ok_counts": row_ok_counts,
         "payloadless_field_read_hashes": field_hashes,
+        "payloadless_fourth_field_handoff_evidence_path": payloadless.get(
+            "fourth_field_handoff_evidence_path"
+        ),
+        "payloadless_fourth_field_handoff_evidence_sha256": payloadless.get(
+            "fourth_field_handoff_evidence_sha256"
+        ),
+        "payloadless_all_four_field_consumer_ready": payloadless.get(
+            "all_four_field_consumer_ready"
+        ),
+        "payloadless_all_four_field_consumer_fields_read": payloadless.get(
+            "all_four_field_consumer_fields_read"
+        ),
+        "payloadless_all_four_field_consumer_hashes_valid": payloadless.get(
+            "all_four_field_consumer_hashes_valid"
+        ),
+        "payloadless_all_four_field_consumer_source_count": payloadless.get(
+            "all_four_field_consumer_source_count"
+        ),
+        "payloadless_all_four_field_consumer_row_count": payloadless.get(
+            "all_four_field_consumer_row_count"
+        ),
+        "payloadless_all_four_field_consumer_row_ok_count": payloadless.get(
+            "all_four_field_consumer_row_ok_count"
+        ),
+        "payloadless_all_four_field_consumer_fourth_field_path_label": payloadless.get(
+            "all_four_field_consumer_fourth_field_path_label"
+        ),
+        "payloadless_all_four_field_consumer_fourth_field_sha256": payloadless.get(
+            "all_four_field_consumer_fourth_field_sha256"
+        ),
         "field_names": list(HANDLE_FIELDS),
         "one_field_handoff_field_name": args.field,
         "one_field_handoff_field_kind": field_kind,

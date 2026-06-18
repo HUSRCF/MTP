@@ -86,26 +86,28 @@
   ```
 
 - Latest payloadless execution gate: the payloadless execution stage now
-  consumes the v2 repeat benchmark artifact and revalidates the same
-  all-four/evidence envelope before allowing the payloadless native canary.
-  It also checks benchmark-vs-seed timing-stub drift for the new fourth-field
-  evidence and all-four fields.
+  consumes the v3 repeat benchmark artifact, whose upstream chain is rooted in
+  the refreshed v2 fourth-field/all-four evidence instead of the older v1
+  payloadless-rooted fourth-field artifact.  It revalidates the same
+  all-four/evidence envelope before allowing the payloadless native canary and
+  checks benchmark-vs-seed timing-stub drift for the fourth-field evidence and
+  all-four fields.
 
   Latest payloadless evidence:
 
   ```text
-  outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_payloadless_execution_four_field_v2.json
-  outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_payloadless_execution_four_field_v2_native_run.json
+  outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_payloadless_execution_four_field_v3_native_run.json
 
   source_count = 128
   row_count = 5345
   all_four_field_consumer_ready = true
   all_four_field_consumer_fields_read = true
   all_four_field_consumer_hashes_valid = true
+  fourth_field_handoff_evidence_path = outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_fourth_field_handoff_canary_v2.json
   benchmark_repeat_count_measured = 3
   payloadless_execution_native_executed = true
   payloadless_execution_native_passed = true
-  payloadless_execution_native_host_wall_ms = 326.454950
+  payloadless_execution_native_host_wall_ms = 336.184326
   ```
 
   Safety boundary remains closed:
@@ -138,8 +140,72 @@
   conda run -n TRY python scripts/run_future_wna16_typed_slot_kernel_variant_payloadless_execution.py \
     --run-native-execution \
     --require-native-execution \
-    --output-json outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_payloadless_execution_four_field_v2_native_run.json \
+    --output-json outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_payloadless_execution_four_field_v3_native_run.json \
     --require-pass
+  # passed = true
+  ```
+
+- Latest one-field handoff canary gate: the one-field handoff stage now
+  consumes the refreshed v3 payloadless native artifact by default and
+  revalidates the payloadless all-four/evidence envelope before running the
+  native single-field canary.  It rejects upstream payloadless failures,
+  legacy v1-rooted fourth-field evidence, unrelated fourth-field evidence,
+  missing or SHA-mismatched fourth-field payloadless roots, all-four
+  readiness/hash drift, and timing stub drift for the fourth/all-four
+  provenance fields.  Stage-specific payload/kernel-arg flags remain gated as
+  unsafe if present.  The provenance is a DAG rather than a mutual SHA loop:
+  payloadless v2 roots the four-field evidence, and payloadless v3 consumes the
+  v3 benchmark built from that refreshed four-field/all-four evidence.
+
+  Latest one-field evidence:
+
+  ```text
+  outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_one_field_handoff_canary_v3_default.json
+
+  source_count = 128
+  row_count = 5345
+  one_field_handoff_field_name = scale_metadata_handle
+  one_field_handoff_field_read_row_ok_count = 5345
+  one_field_handoff_canary_native_executed = true
+  one_field_handoff_canary_native_passed = true
+  one_field_handoff_canary_outer_wall_ms = 322.606777
+  payloadless_all_four_field_consumer_ready = true
+  payloadless_all_four_field_consumer_fields_read = true
+  payloadless_all_four_field_consumer_hashes_valid = true
+  payloadless_fourth_field_handoff_evidence_path = outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_fourth_field_handoff_canary_v2.json
+  ```
+
+  Safety boundary remains closed:
+
+  ```text
+  payload_bytes = 0
+  payload_deref_allowed = false
+  kernel_arg_pass_allowed = false
+  passed_to_kernel = false
+  changes_kernel_launch_args = false
+  uses_current_wna16_args = false
+  passes_current_wna16_args = false
+  current_wna16_arg_compatible = false
+  requires_wna16_arg_reinterpretation = false
+  measures_tpot = false
+  measures_vllm_latency = false
+  ```
+
+  Validation:
+
+  ```text
+  conda run -n TRY python -m pytest \
+    tests/test_run_future_wna16_typed_slot_kernel_variant_one_field_handoff_canary.py \
+    tests/test_run_future_wna16_typed_slot_kernel_variant_payloadless_execution.py \
+    tests/test_run_future_wna16_typed_slot_kernel_variant_benchmark.py \
+    tests/test_run_future_wna16_typed_slot_kernel_timing_stub.py \
+    tests/test_run_future_wna16_typed_slot_kernel_variant_entrypoint.py \
+    tests/test_run_wna16_typed_slot_benchmark_harness.py -q
+  # 140 passed
+
+  conda run -n TRY python scripts/run_future_wna16_typed_slot_kernel_variant_one_field_handoff_canary.py \
+    --require-pass \
+    --output-json outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_one_field_handoff_canary_v3_default.json
   # passed = true
   ```
 

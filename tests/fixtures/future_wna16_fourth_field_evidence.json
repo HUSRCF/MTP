@@ -34,6 +34,8 @@
   "passed": true,
   "passed_to_kernel": false,
   "passes_current_wna16_args": false,
+  "payloadless_execution_json": "tests/fixtures/future_wna16_payloadless_root_evidence.json",
+  "payloadless_execution_sha256": "7693f078e6d2d5695e1457c8392b9b344c58e65fed26e2eb78412492cb01828d",
   "payload_bytes": 0,
   "payload_deref_allowed": false,
   "requires_wna16_arg_reinterpretation": false,

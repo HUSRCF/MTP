@@ -1,0 +1,20 @@
+{
+  "artifact_kind": "future_wna16_typed_slot_kernel_variant_payloadless_execution",
+  "expected_changes_kernel_launch_args": false,
+  "expected_current_wna16_arg_compatible": false,
+  "expected_kernel_arg_pass_allowed": false,
+  "expected_measures_tpot": false,
+  "expected_measures_vllm_latency": false,
+  "expected_passed_to_kernel": false,
+  "expected_passes_current_wna16_args": false,
+  "expected_payload_bytes": 0,
+  "expected_payload_deref_allowed": false,
+  "expected_requires_wna16_arg_reinterpretation": false,
+  "expected_uses_current_wna16_args": false,
+  "expected_wna16_benchmark_ready": false,
+  "failures": [],
+  "passed": true,
+  "row_count": 257,
+  "row_ok_count": 257,
+  "source_count": 128
+}
