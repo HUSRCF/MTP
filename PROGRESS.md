@@ -36242,3 +36242,96 @@ from downstream native/stub failures, checks all-four selected_input_json_count,
 and independently validates the referenced fourth-field artifact's no-payload /
 no-current-WNA16 / no-TPOT semantics before native execution.
 ```
+
+## 2026-06-19: Future-WNA16 Kernel-Side Path Promoted to Default Lab Preflight Gate
+
+The default readonly lab gate now requires:
+
+```text
+future_wna16_kernel_side_typed_consumer_path_json:
+  outputs/reports/premap_kernel_consumer/future_wna16_kernel_side_typed_consumer_path_v1.json
+```
+
+`scripts/run_premap_lab_preflight.py` validates this evidence as a strict
+lab-gate precondition. The validator checks:
+
+```text
+artifact_kind = future_wna16_kernel_side_typed_consumer_path
+stage_type = lab_gate
+bench_semantics = false
+all_four_gate_ready = true
+native_consumer_executed/native_consumer_passed = true
+source_count >= 128
+input_json_count == source_count
+row_ok_count == row_count
+all_four_json path + sha256 match the required all-four evidence
+selected_input_manifest_sha256 matches the all-four evidence manifest
+payload_bytes = 0
+payload_deref_allowed = false
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+uses_current_wna16_args = false
+measures_tpot = false
+measures_vllm_latency = false
+```
+
+Strict real-artifact preflight:
+
+```text
+conda run -n TRY python scripts/run_premap_lab_preflight.py \
+  --summary-only \
+  --output-json outputs/reports/premap_lab_preflight_strict_future_wna16_kernel_side_path_gate.json
+
+passed = true
+required_evidence = 46 / 46
+future_wna16_kernel_side_typed_consumer_path_ready = true
+source_count = 128
+row_count = 5345
+payload_bytes = 0
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+measures_tpot = false
+```
+
+Validation:
+
+```text
+conda run -n TRY python -m pytest tests/test_run_premap_lab_preflight.py -q
+# 180 passed
+
+conda run -n TRY python -m pytest \
+  tests/test_run_future_wna16_kernel_side_typed_consumer_path.py \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_all_four_field_consumer.py \
+  tests/test_run_premap_lab_preflight.py \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_one_field_handoff_canary.py \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_second_field_handoff_canary.py \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_third_field_handoff_canary.py \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_fourth_field_handoff_canary.py \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_payloadless_execution.py \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_benchmark.py \
+  tests/test_run_future_wna16_typed_slot_kernel_timing_stub.py \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_entrypoint.py \
+  tests/test_run_wna16_typed_slot_benchmark_harness.py -q
+# 404 passed
+```
+
+Review:
+
+```text
+Codex 5.3 spark reviewed the change. Initial low-risk findings were fixed by
+binding selected_input_manifest_sha256 to the all-four manifest and adding
+negative tests for payload/kernel-arg/TPOT pollution, all-four path mismatch,
+all-four SHA mismatch, and manifest mismatch.
+
+Final review: no blocker / major / minor.
+```
+
+Boundary remains unchanged:
+
+```text
+This is a lab preflight/correctness gate.
+It still does not pass typed slots to current WNA16 fused-MoE kernel args,
+does not move payload, and does not measure TPOT/vLLM latency.
+```
