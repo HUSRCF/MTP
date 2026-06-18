@@ -33,15 +33,13 @@ DEFAULT_PREFLIGHT_JSON = (
     REPO_ROOT
     / "outputs"
     / "reports"
-    / "premap_kernel_consumer"
-    / "premap_lab_preflight_four_field_required_gate_check.json"
+    / "premap_lab_preflight_strict_future_wna16_kernel_side_path_gate.json"
 )
 DEFAULT_PREFLIGHT_CHECK_JSON = (
     REPO_ROOT
     / "outputs"
     / "reports"
-    / "premap_kernel_consumer"
-    / "premap_lab_preflight_four_field_required_gate_check.check.json"
+    / "premap_lab_preflight_strict_future_wna16_kernel_side_path_gate.check.json"
 )
 DEFAULT_RUNNER_JSON = (
     REPO_ROOT
@@ -74,6 +72,15 @@ PREFLIGHT_ALL_FOUR_READY_PREFIX = (
 )
 PREFLIGHT_ALL_FOUR_CONSUMER_PREFIX = (
     "default_kernel_consumer_future_wna16_all_four_consumer"
+)
+PREFLIGHT_KERNEL_SIDE_TYPED_PATH_READY_KEY = (
+    "default_kernel_consumer_future_wna16_kernel_side_typed_consumer_path_ready"
+)
+PREFLIGHT_KERNEL_SIDE_TYPED_PATH_HASHES_READY_KEY = (
+    "default_kernel_consumer_future_wna16_kernel_side_typed_consumer_path_hashes_valid"
+)
+PREFLIGHT_KERNEL_SIDE_TYPED_PATH_PREFIX = (
+    "default_kernel_consumer_future_wna16_kernel_side_typed_path"
 )
 HANDLE_FIELDS = (
     "descriptor_ptr",
@@ -189,6 +196,45 @@ EXPECTED_PREFLIGHT_EXECUTION_FLAGS: dict[str, Any] = {
     f"{PREFLIGHT_EXECUTION_PREFIX}_requires_wna16_arg_reinterpretation": False,
     f"{PREFLIGHT_EXECUTION_PREFIX}_explicit_typed_abi_slot": True,
     f"{PREFLIGHT_EXECUTION_PREFIX}_reuses_current_wna16_arg_slot": False,
+}
+EXPECTED_PREFLIGHT_KERNEL_SIDE_TYPED_PATH_FLAGS: dict[str, Any] = {
+    PREFLIGHT_KERNEL_SIDE_TYPED_PATH_READY_KEY: True,
+    PREFLIGHT_KERNEL_SIDE_TYPED_PATH_HASHES_READY_KEY: True,
+    f"{PREFLIGHT_KERNEL_SIDE_TYPED_PATH_PREFIX}_evidence_passed": True,
+    f"{PREFLIGHT_KERNEL_SIDE_TYPED_PATH_PREFIX}_artifact_kind": (
+        "future_wna16_kernel_side_typed_consumer_path"
+    ),
+    f"{PREFLIGHT_KERNEL_SIDE_TYPED_PATH_PREFIX}_name": (
+        "premap_future_wna16_kernel_side_typed_consumer_path_v1"
+    ),
+    f"{PREFLIGHT_KERNEL_SIDE_TYPED_PATH_PREFIX}_mode": (
+        "independent_future_wna16_kernel_side_typed_consumer_path"
+    ),
+    f"{PREFLIGHT_KERNEL_SIDE_TYPED_PATH_PREFIX}_source": (
+        "premap_future_wna16_typed_slot_all_four_field_consumer_v1"
+    ),
+    f"{PREFLIGHT_KERNEL_SIDE_TYPED_PATH_PREFIX}_stage_type": "lab_gate",
+    f"{PREFLIGHT_KERNEL_SIDE_TYPED_PATH_PREFIX}_bench_semantics": False,
+    f"{PREFLIGHT_KERNEL_SIDE_TYPED_PATH_PREFIX}_all_four_gate_ready": True,
+    f"{PREFLIGHT_KERNEL_SIDE_TYPED_PATH_PREFIX}_native_executed": True,
+    f"{PREFLIGHT_KERNEL_SIDE_TYPED_PATH_PREFIX}_native_passed": True,
+    f"{PREFLIGHT_KERNEL_SIDE_TYPED_PATH_PREFIX}_independent_path": True,
+    f"{PREFLIGHT_KERNEL_SIDE_TYPED_PATH_PREFIX}_explicit_typed_abi_slot": True,
+    f"{PREFLIGHT_KERNEL_SIDE_TYPED_PATH_PREFIX}_future_kernel_side_checked": True,
+    f"{PREFLIGHT_KERNEL_SIDE_TYPED_PATH_PREFIX}_future_kernel_side_all_fields_read": True,
+    f"{PREFLIGHT_KERNEL_SIDE_TYPED_PATH_PREFIX}_wna16_side_checked": True,
+    f"{PREFLIGHT_KERNEL_SIDE_TYPED_PATH_PREFIX}_wna16_side_all_fields_read": True,
+    f"{PREFLIGHT_KERNEL_SIDE_TYPED_PATH_PREFIX}_payload_bytes": 0,
+    f"{PREFLIGHT_KERNEL_SIDE_TYPED_PATH_PREFIX}_payload_deref_allowed": False,
+    f"{PREFLIGHT_KERNEL_SIDE_TYPED_PATH_PREFIX}_kernel_arg_pass_allowed": False,
+    f"{PREFLIGHT_KERNEL_SIDE_TYPED_PATH_PREFIX}_passed_to_kernel": False,
+    f"{PREFLIGHT_KERNEL_SIDE_TYPED_PATH_PREFIX}_changes_kernel_launch_args": False,
+    f"{PREFLIGHT_KERNEL_SIDE_TYPED_PATH_PREFIX}_current_wna16_arg_compatible": False,
+    f"{PREFLIGHT_KERNEL_SIDE_TYPED_PATH_PREFIX}_requires_wna16_arg_reinterpretation": False,
+    f"{PREFLIGHT_KERNEL_SIDE_TYPED_PATH_PREFIX}_uses_current_wna16_args": False,
+    f"{PREFLIGHT_KERNEL_SIDE_TYPED_PATH_PREFIX}_measures_tpot": False,
+    f"{PREFLIGHT_KERNEL_SIDE_TYPED_PATH_PREFIX}_measures_vllm_latency": False,
+    f"{PREFLIGHT_KERNEL_SIDE_TYPED_PATH_PREFIX}_wna16_benchmark_ready": False,
 }
 HASH_KEYS = (
     f"{WNA16_EXECUTION_PREFIX}_hash_accumulator",
@@ -373,6 +419,8 @@ def _check_preflight(
             failures.append(f"preflight_fourth_field_handoff_{suffix}_invalid")
     for key, expected in EXPECTED_PREFLIGHT_EXECUTION_FLAGS.items():
         _require_equal(summary, failures, key=key, expected=expected, label="preflight")
+    for key, expected in EXPECTED_PREFLIGHT_KERNEL_SIDE_TYPED_PATH_FLAGS.items():
+        _require_equal(summary, failures, key=key, expected=expected, label="preflight")
     row_count = _int_metric(summary, f"{PREFLIGHT_EXECUTION_PREFIX}_row_count")
     row_ok_count = _int_metric(summary, f"{PREFLIGHT_EXECUTION_PREFIX}_row_ok_count")
     if row_count is None or row_count < min_row_count:
@@ -492,6 +540,78 @@ def _check_preflight(
         failures.append("preflight_fourth_field_handoff_descriptor_hash_mismatch")
     if fourth_packed_hash != packed_hash:
         failures.append("preflight_fourth_field_handoff_packed_weight_hash_mismatch")
+    kernel_side_evidence_path = summary.get(
+        f"{PREFLIGHT_KERNEL_SIDE_TYPED_PATH_PREFIX}_evidence_path"
+    )
+    kernel_side_evidence_sha = summary.get(
+        f"{PREFLIGHT_KERNEL_SIDE_TYPED_PATH_PREFIX}_evidence_sha256"
+    )
+    if not isinstance(kernel_side_evidence_path, str) or not kernel_side_evidence_path:
+        failures.append("preflight_kernel_side_typed_path_evidence_path_missing")
+    if not _is_sha256_hex(kernel_side_evidence_sha):
+        failures.append("preflight_kernel_side_typed_path_evidence_sha256_invalid")
+    kernel_side_path_source_count = _int_metric(
+        summary,
+        f"{PREFLIGHT_KERNEL_SIDE_TYPED_PATH_PREFIX}_source_count",
+    )
+    kernel_side_path_input_count = _int_metric(
+        summary,
+        f"{PREFLIGHT_KERNEL_SIDE_TYPED_PATH_PREFIX}_input_json_count",
+    )
+    kernel_side_path_row_count = _int_metric(
+        summary,
+        f"{PREFLIGHT_KERNEL_SIDE_TYPED_PATH_PREFIX}_row_count",
+    )
+    kernel_side_path_row_ok_count = _int_metric(
+        summary,
+        f"{PREFLIGHT_KERNEL_SIDE_TYPED_PATH_PREFIX}_row_ok_count",
+    )
+    if kernel_side_path_source_count is None or kernel_side_path_source_count < min_source_count:
+        failures.append("preflight_kernel_side_typed_path_source_count_invalid")
+    if (
+        kernel_side_path_source_count is not None
+        and kernel_side_path_input_count != kernel_side_path_source_count
+    ):
+        failures.append("preflight_kernel_side_typed_path_input_json_count_mismatch")
+    if kernel_side_path_row_count is None or kernel_side_path_row_count < min_row_count:
+        failures.append("preflight_kernel_side_typed_path_row_count_invalid")
+    elif kernel_side_path_row_ok_count != kernel_side_path_row_count:
+        failures.append("preflight_kernel_side_typed_path_row_ok_count_mismatch")
+    if (
+        all_four_source_count is not None
+        and kernel_side_path_source_count is not None
+        and kernel_side_path_source_count != all_four_source_count
+    ):
+        failures.append("preflight_kernel_side_typed_path_all_four_source_count_mismatch")
+    if (
+        all_four_row_count is not None
+        and kernel_side_path_row_count is not None
+        and kernel_side_path_row_count != all_four_row_count
+    ):
+        failures.append("preflight_kernel_side_typed_path_all_four_row_count_mismatch")
+    kernel_side_all_four_path = summary.get(
+        f"{PREFLIGHT_KERNEL_SIDE_TYPED_PATH_PREFIX}_all_four_path_label"
+    )
+    kernel_side_all_four_sha = summary.get(
+        f"{PREFLIGHT_KERNEL_SIDE_TYPED_PATH_PREFIX}_all_four_sha256"
+    )
+    all_four_evidence_path = summary.get(
+        f"{PREFLIGHT_ALL_FOUR_CONSUMER_PREFIX}_evidence_path"
+    )
+    all_four_evidence_sha = summary.get(
+        f"{PREFLIGHT_ALL_FOUR_CONSUMER_PREFIX}_evidence_sha256"
+    )
+    if kernel_side_all_four_path != all_four_evidence_path:
+        failures.append("preflight_kernel_side_typed_path_all_four_path_mismatch")
+    if kernel_side_all_four_sha != all_four_evidence_sha:
+        failures.append("preflight_kernel_side_typed_path_all_four_sha_mismatch")
+    kernel_side_manifest = summary.get(
+        f"{PREFLIGHT_KERNEL_SIDE_TYPED_PATH_PREFIX}_selected_input_manifest_sha256"
+    )
+    if not _is_sha256_hex(kernel_side_manifest):
+        failures.append("preflight_kernel_side_typed_path_selected_manifest_invalid")
+    elif selected_manifest != kernel_side_manifest:
+        failures.append("preflight_kernel_side_typed_path_selected_manifest_mismatch")
     return summary, failures
 
 
@@ -798,6 +918,36 @@ def run_harness(args: argparse.Namespace) -> dict[str, Any]:
         ),
         "all_four_field_consumer_fourth_field_path_label": preflight_summary.get(
             f"{PREFLIGHT_ALL_FOUR_CONSUMER_PREFIX}_fourth_field_path_label"
+        ),
+        "future_wna16_kernel_side_typed_consumer_path_ready": preflight_summary.get(
+            PREFLIGHT_KERNEL_SIDE_TYPED_PATH_READY_KEY
+        ),
+        "future_wna16_kernel_side_typed_consumer_path_hashes_valid": preflight_summary.get(
+            PREFLIGHT_KERNEL_SIDE_TYPED_PATH_HASHES_READY_KEY
+        ),
+        "future_wna16_kernel_side_typed_consumer_path_evidence_path": preflight_summary.get(
+            f"{PREFLIGHT_KERNEL_SIDE_TYPED_PATH_PREFIX}_evidence_path"
+        ),
+        "future_wna16_kernel_side_typed_consumer_path_evidence_sha256": preflight_summary.get(
+            f"{PREFLIGHT_KERNEL_SIDE_TYPED_PATH_PREFIX}_evidence_sha256"
+        ),
+        "future_wna16_kernel_side_typed_consumer_path_source_count": preflight_summary.get(
+            f"{PREFLIGHT_KERNEL_SIDE_TYPED_PATH_PREFIX}_source_count"
+        ),
+        "future_wna16_kernel_side_typed_consumer_path_input_json_count": preflight_summary.get(
+            f"{PREFLIGHT_KERNEL_SIDE_TYPED_PATH_PREFIX}_input_json_count"
+        ),
+        "future_wna16_kernel_side_typed_consumer_path_row_count": preflight_summary.get(
+            f"{PREFLIGHT_KERNEL_SIDE_TYPED_PATH_PREFIX}_row_count"
+        ),
+        "future_wna16_kernel_side_typed_consumer_path_row_ok_count": preflight_summary.get(
+            f"{PREFLIGHT_KERNEL_SIDE_TYPED_PATH_PREFIX}_row_ok_count"
+        ),
+        "future_wna16_kernel_side_typed_consumer_path_all_four_sha256": preflight_summary.get(
+            f"{PREFLIGHT_KERNEL_SIDE_TYPED_PATH_PREFIX}_all_four_sha256"
+        ),
+        "future_wna16_kernel_side_typed_consumer_path_selected_input_manifest_sha256": preflight_summary.get(
+            f"{PREFLIGHT_KERNEL_SIDE_TYPED_PATH_PREFIX}_selected_input_manifest_sha256"
         ),
         "row_hash_accumulator": _runner_value(
             runner,

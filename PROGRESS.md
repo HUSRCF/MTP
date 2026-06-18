@@ -36335,3 +36335,100 @@ This is a lab preflight/correctness gate.
 It still does not pass typed slots to current WNA16 fused-MoE kernel args,
 does not move payload, and does not measure TPOT/vLLM latency.
 ```
+
+## Latest Update: WNA16 Typed-Slot Benchmark Harness Now Requires Kernel-Side Path Gate
+
+The future WNA16 typed-slot benchmark harness now consumes the strict lab
+preflight gate that includes the independent kernel-side typed consumer path.
+
+Default inputs:
+
+```text
+preflight_json =
+  outputs/reports/premap_lab_preflight_strict_future_wna16_kernel_side_path_gate.json
+
+preflight_check_json =
+  outputs/reports/premap_lab_preflight_strict_future_wna16_kernel_side_path_gate.check.json
+```
+
+This fixes the previous mismatch where the harness default preflight JSON had
+moved to the strict kernel-side gate but the default preflight-check artifact
+still pointed at the older four-field gate.
+
+Additional harness checks now require:
+
+```text
+future_wna16_kernel_side_typed_consumer_path_ready = true
+future_wna16_kernel_side_typed_consumer_path_hashes_valid = true
+evidence_path present
+evidence_sha256 is a valid sha256
+source_count >= 128
+input_json_count == source_count
+row_ok_count == row_count
+typed-path all_four_path_label == required all-four evidence path
+typed-path all_four_sha256 == required all-four evidence sha256
+typed-path selected_input_manifest_sha256 == all-four selected_input_manifest_sha256
+payload_bytes = 0
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+uses_current_wna16_args = false
+measures_tpot = false
+measures_vllm_latency = false
+```
+
+Real-artifact harness validation:
+
+```text
+conda run -n TRY python scripts/check_premap_lab_preflight_summary.py \
+  outputs/reports/premap_lab_preflight_strict_future_wna16_kernel_side_path_gate.json \
+  --output-json outputs/reports/premap_lab_preflight_strict_future_wna16_kernel_side_path_gate.check.json
+
+conda run -n TRY python scripts/run_wna16_typed_slot_benchmark_harness.py \
+  --require-preflight-check \
+  --require-pass \
+  --output-json outputs/reports/premap_kernel_consumer/wna16_typed_slot_benchmark_harness_kernel_side_path_preflight_v1.json
+
+passed = true
+source_count = 128
+row_count = 5345
+future_wna16_kernel_side_typed_consumer_path_ready = true
+payload_bytes = 0
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+wna16_benchmark_ready = false
+```
+
+Validation:
+
+```text
+conda run -n TRY python -m pytest tests/test_run_wna16_typed_slot_benchmark_harness.py -q
+# 25 passed
+
+conda run -n TRY python -m pytest \
+  tests/test_run_wna16_typed_slot_benchmark_harness.py \
+  tests/test_run_premap_lab_preflight.py \
+  tests/test_run_future_wna16_kernel_side_typed_consumer_path.py \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_all_four_field_consumer.py \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_entrypoint.py \
+  tests/test_run_future_wna16_typed_slot_kernel_timing_stub.py \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_benchmark.py \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_payloadless_execution.py \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_one_field_handoff_canary.py \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_second_field_handoff_canary.py \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_third_field_handoff_canary.py \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_fourth_field_handoff_canary.py -q
+# 407 passed
+```
+
+Review:
+
+```text
+Codex 5.3 spark reviewed the harness gate change.
+Initial high-priority finding: default preflight-check still pointed at the old
+four-field gate. Fixed by generating/binding the strict kernel-side-path check
+artifact and adding explicit evidence_path/evidence_sha256 checks.
+
+Follow-up review: no blocker / high / medium findings.
+```
