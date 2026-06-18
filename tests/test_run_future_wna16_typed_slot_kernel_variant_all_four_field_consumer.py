@@ -35,6 +35,20 @@ def _load_module():
     return module
 
 
+def test_default_paths_use_v3_four_field_gate() -> None:
+    module = _load_module()
+
+    assert module.DEFAULT_FOURTH_FIELD_JSON.name == (
+        "future_wna16_typed_slot_kernel_variant_fourth_field_handoff_canary_v3_default.json"
+    )
+    assert module.DEFAULT_OUTPUT_JSON.name == (
+        "future_wna16_typed_slot_kernel_variant_all_four_field_consumer_v3_default.json"
+    )
+    assert module.DEFAULT_OUTPUT_DIR.name == (
+        "future_wna16_typed_slot_kernel_variant_all_four_field_consumer_v3_default"
+    )
+
+
 def _write_json(path: Path, payload: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, sort_keys=True) + "\n", encoding="utf-8")

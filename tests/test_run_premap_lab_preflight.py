@@ -130,6 +130,23 @@ def test_default_lab_gate_uses_strict_nodefer_online_native_evidence() -> None:
     )
 
 
+def test_default_lab_gate_uses_v3_future_wna16_four_field_evidence() -> None:
+    gate_path = (
+        REPO_ROOT
+        / "configs/runtime/"
+        "premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_live_connected_readonly.yaml"
+    )
+    gate = yaml.safe_load(gate_path.read_text(encoding="utf-8"))
+    evidence = gate["evidence_paths"]
+
+    assert evidence["future_wna16_typed_slot_fourth_field_handoff_canary_json"].endswith(
+        "future_wna16_typed_slot_kernel_variant_fourth_field_handoff_canary_v3_default.json"
+    )
+    assert evidence["future_wna16_typed_slot_all_four_field_consumer_json"].endswith(
+        "future_wna16_typed_slot_kernel_variant_all_four_field_consumer_v3_default.json"
+    )
+
+
 def _valid_schema_payload() -> dict:
     row_fields = []
     required_by_name = {

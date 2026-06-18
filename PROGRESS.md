@@ -36118,3 +36118,56 @@ It does not move payload, pass kernel args, reinterpret current WNA16 args,
 or measure vLLM latency/TPOT.
 ```
 ```
+
+2026-06-18 - Strict lab preflight default now uses the v3 four-field typed-slot gate.
+
+The default lab gate config now requires the safety-closed v3 fourth-field
+handoff artifact and a regenerated v3 all-four consumer artifact:
+
+```text
+future_wna16_typed_slot_fourth_field_handoff_canary_json =
+  outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_fourth_field_handoff_canary_v3_default.json
+
+future_wna16_typed_slot_all_four_field_consumer_json =
+  outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_all_four_field_consumer_v3_default.json
+```
+
+The all-four consumer CLI defaults were also moved to the same v3 artifacts so
+future default regenerations cannot silently fall back to v1/v2 evidence.
+
+Validation:
+
+```text
+conda run -n TRY python scripts/run_future_wna16_typed_slot_kernel_variant_all_four_field_consumer.py \
+  --fourth-field-json outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_fourth_field_handoff_canary_v3_default.json \
+  --output-json outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_all_four_field_consumer_v3_default.json \
+  --output-dir outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_all_four_field_consumer_v3_default \
+  --require-native-consumer \
+  --require-pass
+# passed = true
+# source_count = 128
+# row_count = 5345
+# payload_bytes = 0
+# kernel_arg_pass_allowed = false
+# uses_current_wna16_args = false
+# measures_tpot = false
+
+conda run -n TRY python scripts/run_premap_lab_preflight.py \
+  --summary-only \
+  --output-json outputs/reports/premap_lab_preflight_strict_typed_slot_v3_default_gate_after_default_fix.json
+# passed = true
+# fourth evidence path = ...fourth_field_handoff_canary_v3_default.json
+# all-four evidence path = ...all_four_field_consumer_v3_default.json
+
+conda run -n TRY python -m pytest \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_all_four_field_consumer.py \
+  tests/test_run_premap_lab_preflight.py -q
+# 186 passed
+```
+
+Review:
+
+```text
+GPT-5.5 subagent review found no blocker/major/minor after synchronizing the
+all-four CLI defaults and lab preflight evidence to v3.
+```
