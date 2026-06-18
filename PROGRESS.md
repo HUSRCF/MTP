@@ -35482,3 +35482,104 @@ Move from benchmark-wrapper evidence into payloadless execution for the future
 typed-slot kernel variant.  Keep the path independent from current WNA16 fused
 MoE args until a real compatible kernel entry exists.
 ```
+
+2026-06-18 20:00 CST - All-four typed-slot consumer promoted to strict lab preflight.
+
+The default lab gate now requires `future_wna16_typed_slot_all_four_field_consumer_json`.
+The artifact consumes the fourth-field handoff canary, binds the selected input manifest,
+reruns the native typed consumer with both future WNA16 kernel-side and WNA16-side variant
+execution enabled, and validates all four readonly fields:
+
+```text
+descriptor_ptr
+packed_weight_descriptor
+scale_metadata_handle
+aux_metadata_handle
+```
+
+Real GPU1 evidence:
+
+```text
+source_count = 128
+row_count = row_ok_count = 5345
+future_wna16_kernel_side_consumer_execution_all_handle_fields_read = true
+wna16_side_consumer_variant_execution_all_handle_fields_read = true
+payload_bytes = 0
+payload_deref_allowed = false
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+current_wna16_arg_compatible = false
+```
+
+Validation:
+
+```text
+conda run -n TRY python -m pytest \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_all_four_field_consumer.py \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_fourth_field_handoff_canary.py \
+  tests/test_run_premap_online_merged_native_arg_slot_canary.py -q
+# 57 passed
+
+conda run -n TRY python -m pytest tests/test_run_premap_lab_preflight.py -q
+# 170 passed
+
+conda run -n TRY python scripts/run_future_wna16_typed_slot_kernel_variant_all_four_field_consumer.py \
+  --fourth-field-json outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_fourth_field_handoff_canary_v1.json \
+  --output-json outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_all_four_field_consumer_v1.json \
+  --output-dir outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_all_four_field_consumer \
+  --require-pass --device 1 --offload-arch gfx1100
+# passed = true
+
+conda run -n TRY python scripts/run_premap_lab_preflight.py \
+  --output-json outputs/reports/premap_kernel_consumer/premap_lab_preflight_four_field_required_gate_check.json
+# passed = true
+```
+
+The strict preflight summary now reports:
+
+```text
+all_four_ready = true
+fields_read = true
+hashes_valid = true
+next_runtime_stage = implement_wna16_typed_slot_benchmark_harness
+required_evidence passed = 45 / 45
+```
+
+Boundary:
+
+```text
+This is still a lab-gate / native-consumer readiness result.
+It is not a TPOT or vLLM latency benchmark, does not pass typed slots to the current WNA16 kernel,
+and does not reinterpret existing fused-MoE args.
+```
+
+Review follow-up:
+
+```text
+Fixed the required-evidence enforcement gap:
+future_wna16_typed_slot_all_four_field_consumer_json now has a content validator,
+and all_four_ready=false is a hard preflight failure.
+
+The validator now checks selected/post-native manifest closure, all four per-field read counts,
+all read/hash accumulators, payload/kernel/WNA16-arg safety fields, and fourth-field source
+cross-binding through source_count / row_count / fourth_field_sha256.
+
+Second review follow-up:
+
+```text
+Tightened fourth-field path binding:
+the all-four artifact's fourth_field_json must resolve to the required
+future_wna16_typed_slot_fourth_field_handoff_canary_json evidence path, and the
+resolved file SHA must match fourth_field_sha256.
+```
+
+Compatibility note:
+
+```text
+all_four_ready is strict for the all-four consumer artifact itself, but it is not used
+to hard-fail older WNA16-side source-provenance downgrade tests.  If WNA16-side source
+provenance is not ready, the preflight can still pass while next_runtime_stage remains
+refresh_wna16_side_variant_source_provenance instead of benchmark-harness work.
+```
+```

@@ -134,6 +134,8 @@ REQUIRED_DEFAULT_GATE_CONTRACT = {
     "future_wna16_typed_slot_fourth_field_handoff_canary_required": True,
     "future_wna16_typed_slot_fourth_field_handoff_canary_field": "descriptor_ptr",
     "future_wna16_typed_slot_fourth_field_handoff_canary_min_source_count": 128,
+    "future_wna16_typed_slot_all_four_field_consumer_required": True,
+    "future_wna16_typed_slot_all_four_field_consumer_min_source_count": 128,
     "wna16_side_consumer_variant_execution_required": True,
     "wna16_side_consumer_variant_execution_min_source_count": 128,
     "single_field_handle_handoff_canary_required": True,
@@ -280,6 +282,7 @@ REQUIRED_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
     "future_kernel_wna16_adjacent_typed_slot_standalone_canary_json",
     "future_wna16_single_field_handoff_all_fields_128strict_summary_json",
     "future_wna16_typed_slot_fourth_field_handoff_canary_json",
+    "future_wna16_typed_slot_all_four_field_consumer_json",
     "wna16_side_consumer_variant_execution_128strict_runner_json",
     "payload_cache_producer_state_native_canary_json",
     "payload_cache_producer_state_online_nonempty_issue_canary_json",
@@ -606,6 +609,16 @@ def _sha256_hex_metric(metrics: dict[str, Any], key: str) -> str | None:
     except ValueError:
         return None
     return value
+
+
+def _is_sha256_hex(value: Any) -> bool:
+    if not isinstance(value, str) or len(value) != 64:
+        return False
+    try:
+        int(value, 16)
+    except ValueError:
+        return False
+    return True
 
 
 def _validate_kernel_launch_context_runner_metrics(
@@ -1718,6 +1731,114 @@ def _validate_future_wna16_typed_slot_fourth_field_handoff_canary(
     return failures
 
 
+def _validate_future_wna16_typed_slot_all_four_field_consumer(
+    evidence: dict[str, Any],
+) -> list[str]:
+    failures: list[str] = []
+    expected_values = {
+        "artifact_kind": (
+            "future_wna16_typed_slot_kernel_variant_all_four_field_consumer"
+        ),
+        "all_four_field_consumer_name": (
+            "premap_future_wna16_typed_slot_all_four_field_consumer_v1"
+        ),
+        "all_four_field_consumer_mode": (
+            "readonly_future_wna16_typed_slot_all_four_field_consumer"
+        ),
+        "all_four_field_consumer_source": (
+            "premap_future_wna16_typed_slot_fourth_field_handoff_canary_v1"
+        ),
+        "stage_type": "lab_gate",
+        "bench_semantics": False,
+        "passed": True,
+        "failures": [],
+        "native_consumer_executed": True,
+        "native_consumer_passed": True,
+        "future_wna16_kernel_side_consumer_execution_all_handle_fields_read": True,
+        "wna16_side_consumer_variant_execution_all_handle_fields_read": True,
+        "kernel_arg_pass_allowed": False,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "payload_bytes": 0,
+        "payload_deref_allowed": False,
+        "uses_current_wna16_args": False,
+        "passes_current_wna16_args": False,
+        "current_wna16_arg_compatible": False,
+        "requires_wna16_arg_reinterpretation": False,
+        "measures_tpot": False,
+        "measures_vllm_latency": False,
+        "wna16_benchmark_ready": False,
+    }
+    for key, expected in expected_values.items():
+        failures.extend(_check_metric_equals(evidence, key, expected))
+
+    min_source_count = int(
+        REQUIRED_DEFAULT_GATE_CONTRACT[
+            "future_wna16_typed_slot_all_four_field_consumer_min_source_count"
+        ]
+    )
+    source_count = _int_metric(evidence, "source_count")
+    input_count = _int_metric(evidence, "input_json_count")
+    selected_input_count = _int_metric(evidence, "selected_input_json_count")
+    row_count = _int_metric(evidence, "row_count")
+    row_ok_count = _int_metric(evidence, "row_ok_count")
+    if source_count is None or source_count < min_source_count:
+        failures.append("source_count_invalid")
+    if input_count is not None and source_count is not None and input_count < source_count:
+        failures.append("input_json_count_lt_source_count")
+    if source_count is not None and selected_input_count != source_count:
+        failures.append("selected_input_json_count_mismatch")
+    selected_manifest = evidence.get("selected_input_manifest_sha256")
+    post_manifest = evidence.get("post_native_input_manifest_sha256")
+    if not _is_sha256_hex(selected_manifest):
+        failures.append("selected_input_manifest_sha256_invalid")
+    if not _is_sha256_hex(post_manifest):
+        failures.append("post_native_input_manifest_sha256_invalid")
+    elif post_manifest != selected_manifest:
+        failures.append("post_native_input_manifest_sha256_mismatch")
+    if row_count is None or row_count <= 0:
+        failures.append("row_count_invalid")
+    elif row_ok_count != row_count:
+        failures.append("row_ok_count_mismatch")
+
+    for path_key, sha_key in (
+        ("fourth_field_json", "fourth_field_sha256"),
+        ("native_consumer_json", "native_consumer_sha256"),
+        ("merged_input_json", "merged_input_sha256"),
+        ("stub_output_json", "stub_output_sha256"),
+    ):
+        value = evidence.get(path_key)
+        if not isinstance(value, str) or not value:
+            failures.append(f"{path_key}_missing")
+        if not _is_sha256_hex(evidence.get(sha_key)):
+            failures.append(f"{sha_key}_invalid")
+
+    field_names = evidence.get("field_names")
+    if field_names != list(ARG_SLOT_MIRROR_FIELDS):
+        failures.append("field_names_mismatch")
+    if row_count is not None:
+        for prefix in (
+            "future_wna16_kernel_side_consumer_execution",
+            "wna16_side_consumer_variant_execution",
+        ):
+            if evidence.get(f"{prefix}_all_handle_fields_read") is not True:
+                failures.append(f"{prefix}_all_handle_fields_read_mismatch")
+            for key in (
+                f"{prefix}_hash_accumulator",
+                f"{prefix}_handle_projection_hash_accumulator",
+            ):
+                if _hex64_metric(evidence, key) is None:
+                    failures.append(f"{key}_invalid")
+            for field in ARG_SLOT_MIRROR_FIELDS:
+                count_key = f"{prefix}_{field}_read_row_ok_count"
+                hash_key = f"{prefix}_{field}_read_hash_accumulator"
+                if _int_metric(evidence, count_key) != row_count:
+                    failures.append(f"{count_key}_mismatch")
+                if _hex64_metric(evidence, hash_key) is None:
+                    failures.append(f"{hash_key}_invalid")
+    return failures
+
+
 def _validate_wna16_side_consumer_variant_execution_runner(
     evidence: dict[str, Any],
 ) -> list[str]:
@@ -1904,6 +2025,7 @@ def _validate_required_evidence_payload(
         "future_kernel_wna16_adjacent_typed_slot_standalone_canary_json",
         "future_wna16_single_field_handoff_all_fields_128strict_summary_json",
         "future_wna16_typed_slot_fourth_field_handoff_canary_json",
+        "future_wna16_typed_slot_all_four_field_consumer_json",
         "wna16_side_consumer_variant_execution_128strict_runner_json",
         "payload_cache_producer_state_native_canary_json",
         "payload_cache_producer_state_nonempty_issue_stub_json",
@@ -2056,6 +2178,42 @@ def _validate_required_evidence_payload(
                 evidence
             )
         ]
+    if evidence_label == "future_wna16_typed_slot_all_four_field_consumer_json":
+        failures = [
+            f"{evidence_label}:{failure}"
+            for failure in _validate_future_wna16_typed_slot_all_four_field_consumer(
+                evidence
+            )
+        ]
+        if evidence_paths is not None and root is not None:
+            expected_fourth_path = evidence_paths.get(
+                "future_wna16_typed_slot_fourth_field_handoff_canary_json"
+            )
+            observed_fourth_path = evidence.get("fourth_field_json")
+            if isinstance(expected_fourth_path, str) and isinstance(
+                observed_fourth_path,
+                str,
+            ):
+                expected_label = _path_label(
+                    _path_for_label(expected_fourth_path, root),
+                    root=root,
+                )
+                observed_label = _path_label(
+                    _path_for_label(observed_fourth_path, root),
+                    root=root,
+                )
+                if observed_label != expected_label:
+                    failures.append(
+                        f"{evidence_label}:fourth_field_json_path_mismatch"
+                    )
+                observed_sha = _path_label_sha256(observed_fourth_path, root=root)
+                if observed_sha != evidence.get("fourth_field_sha256"):
+                    failures.append(
+                        f"{evidence_label}:fourth_field_json_sha256_mismatch"
+                    )
+            elif expected_fourth_path is not None or observed_fourth_path is not None:
+                failures.append(f"{evidence_label}:fourth_field_json_path_invalid")
+        return failures
     if evidence_label == "wna16_side_consumer_variant_execution_128strict_runner_json":
         return [
             f"{evidence_label}:{failure}"
@@ -8085,6 +8243,30 @@ def run_premap_lab_preflight(
         fourth_field_handoff_evidence_label,
         root=root,
     )
+    all_four_field_consumer_evidence_label = (
+        "future_wna16_typed_slot_all_four_field_consumer_json"
+    )
+    all_four_field_consumer_evidence_row = _find_evidence_row(
+        default_gate_required_evidence_check,
+        all_four_field_consumer_evidence_label,
+    )
+    all_four_field_consumer_payload = _load_evidence_payload_from_check(
+        default_gate_required_evidence_check,
+        all_four_field_consumer_evidence_label,
+        root=root,
+    )
+    all_four_field_consumer_fourth_field_json = (
+        all_four_field_consumer_payload.get("fourth_field_json")
+    )
+    all_four_field_consumer_fourth_field_path_label = (
+        _path_label(
+            _path_for_label(all_four_field_consumer_fourth_field_json, root),
+            root=root,
+        )
+        if isinstance(all_four_field_consumer_fourth_field_json, str)
+        and all_four_field_consumer_fourth_field_json
+        else None
+    )
     wna16_side_variant_stub_summary = wna16_side_variant_payload.get("stub_summary")
     if not isinstance(wna16_side_variant_stub_summary, dict):
         wna16_side_variant_stub_summary = {}
@@ -11141,6 +11323,114 @@ def run_premap_lab_preflight(
         "default_kernel_consumer_future_wna16_fourth_field_handoff_wna16_benchmark_ready": (
             _bool_metric(fourth_field_handoff_payload, "wna16_benchmark_ready")
         ),
+        "default_kernel_consumer_future_wna16_all_four_consumer_evidence_label": (
+            all_four_field_consumer_evidence_label
+        ),
+        "default_kernel_consumer_future_wna16_all_four_consumer_evidence_path": (
+            all_four_field_consumer_evidence_row.get("path")
+        ),
+        "default_kernel_consumer_future_wna16_all_four_consumer_evidence_sha256": (
+            _evidence_row_sha256(all_four_field_consumer_evidence_row)
+        ),
+        "default_kernel_consumer_future_wna16_all_four_consumer_evidence_passed": (
+            _evidence_row_passed(all_four_field_consumer_evidence_row)
+        ),
+        "default_kernel_consumer_future_wna16_all_four_consumer_artifact_kind": (
+            all_four_field_consumer_payload.get("artifact_kind")
+        ),
+        "default_kernel_consumer_future_wna16_all_four_consumer_name": (
+            all_four_field_consumer_payload.get("all_four_field_consumer_name")
+        ),
+        "default_kernel_consumer_future_wna16_all_four_consumer_mode": (
+            all_four_field_consumer_payload.get("all_four_field_consumer_mode")
+        ),
+        "default_kernel_consumer_future_wna16_all_four_consumer_source": (
+            all_four_field_consumer_payload.get("all_four_field_consumer_source")
+        ),
+        "default_kernel_consumer_future_wna16_all_four_consumer_stage_type": (
+            all_four_field_consumer_payload.get("stage_type")
+        ),
+        "default_kernel_consumer_future_wna16_all_four_consumer_bench_semantics": (
+            _bool_metric(all_four_field_consumer_payload, "bench_semantics")
+        ),
+        "default_kernel_consumer_future_wna16_all_four_consumer_source_count": (
+            _int_metric(all_four_field_consumer_payload, "source_count")
+        ),
+        "default_kernel_consumer_future_wna16_all_four_consumer_row_count": (
+            _int_metric(all_four_field_consumer_payload, "row_count")
+        ),
+        "default_kernel_consumer_future_wna16_all_four_consumer_row_ok_count": (
+            _int_metric(all_four_field_consumer_payload, "row_ok_count")
+        ),
+        "default_kernel_consumer_future_wna16_all_four_consumer_selected_input_count": (
+            _int_metric(all_four_field_consumer_payload, "selected_input_json_count")
+        ),
+        "default_kernel_consumer_future_wna16_all_four_consumer_selected_input_manifest_sha256": (
+            all_four_field_consumer_payload.get("selected_input_manifest_sha256")
+        ),
+        "default_kernel_consumer_future_wna16_all_four_consumer_post_native_input_manifest_sha256": (
+            all_four_field_consumer_payload.get("post_native_input_manifest_sha256")
+        ),
+        "default_kernel_consumer_future_wna16_all_four_consumer_fourth_field_json": (
+            all_four_field_consumer_payload.get("fourth_field_json")
+        ),
+        "default_kernel_consumer_future_wna16_all_four_consumer_fourth_field_path_label": (
+            all_four_field_consumer_fourth_field_path_label
+        ),
+        "default_kernel_consumer_future_wna16_all_four_consumer_fourth_field_sha256": (
+            all_four_field_consumer_payload.get("fourth_field_sha256")
+        ),
+        "default_kernel_consumer_future_wna16_all_four_consumer_native_executed": (
+            _bool_metric(all_four_field_consumer_payload, "native_consumer_executed")
+        ),
+        "default_kernel_consumer_future_wna16_all_four_consumer_native_passed": (
+            _bool_metric(all_four_field_consumer_payload, "native_consumer_passed")
+        ),
+        "default_kernel_consumer_future_wna16_all_four_consumer_future_kernel_side_all_fields_read": (
+            _bool_metric(
+                all_four_field_consumer_payload,
+                "future_wna16_kernel_side_consumer_execution_all_handle_fields_read",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_all_four_consumer_wna16_side_all_fields_read": (
+            _bool_metric(
+                all_four_field_consumer_payload,
+                "wna16_side_consumer_variant_execution_all_handle_fields_read",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_all_four_consumer_payload_bytes": (
+            _int_metric(all_four_field_consumer_payload, "payload_bytes")
+        ),
+        "default_kernel_consumer_future_wna16_all_four_consumer_payload_deref_allowed": (
+            _bool_metric(all_four_field_consumer_payload, "payload_deref_allowed")
+        ),
+        "default_kernel_consumer_future_wna16_all_four_consumer_kernel_arg_pass_allowed": (
+            _bool_metric(all_four_field_consumer_payload, "kernel_arg_pass_allowed")
+        ),
+        "default_kernel_consumer_future_wna16_all_four_consumer_passed_to_kernel": (
+            _bool_metric(all_four_field_consumer_payload, "passed_to_kernel")
+        ),
+        "default_kernel_consumer_future_wna16_all_four_consumer_changes_kernel_launch_args": (
+            _bool_metric(all_four_field_consumer_payload, "changes_kernel_launch_args")
+        ),
+        "default_kernel_consumer_future_wna16_all_four_consumer_current_wna16_arg_compatible": (
+            _bool_metric(all_four_field_consumer_payload, "current_wna16_arg_compatible")
+        ),
+        "default_kernel_consumer_future_wna16_all_four_consumer_requires_wna16_arg_reinterpretation": (
+            _bool_metric(
+                all_four_field_consumer_payload,
+                "requires_wna16_arg_reinterpretation",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_all_four_consumer_measures_tpot": (
+            _bool_metric(all_four_field_consumer_payload, "measures_tpot")
+        ),
+        "default_kernel_consumer_future_wna16_all_four_consumer_measures_vllm_latency": (
+            _bool_metric(all_four_field_consumer_payload, "measures_vllm_latency")
+        ),
+        "default_kernel_consumer_future_wna16_all_four_consumer_wna16_benchmark_ready": (
+            _bool_metric(all_four_field_consumer_payload, "wna16_benchmark_ready")
+        ),
         "default_kernel_consumer_wna16_side_variant_evidence_label": (
             wna16_side_variant_evidence_label
         ),
@@ -12941,8 +13231,169 @@ def run_premap_lab_preflight(
         )
         is False
     )
+    all_four_consumer_source_count = _int_metric(
+        lab_gate_status_summary,
+        "default_kernel_consumer_future_wna16_all_four_consumer_source_count",
+    )
+    all_four_consumer_row_count = _int_metric(
+        lab_gate_status_summary,
+        "default_kernel_consumer_future_wna16_all_four_consumer_row_count",
+    )
+    all_four_consumer_row_ok_count = _int_metric(
+        lab_gate_status_summary,
+        "default_kernel_consumer_future_wna16_all_four_consumer_row_ok_count",
+    )
+    all_four_consumer_fields_read = (
+        all_four_consumer_row_count is not None
+        and all(
+            _int_metric(
+                all_four_field_consumer_payload,
+                f"{prefix}_{field_name}_read_row_ok_count",
+            )
+            == all_four_consumer_row_count
+            for prefix in (
+                "future_wna16_kernel_side_consumer_execution",
+                "wna16_side_consumer_variant_execution",
+            )
+            for field_name in ARG_SLOT_MIRROR_FIELDS
+        )
+    )
+    all_four_consumer_hashes_valid = all(
+        _hex64_metric(all_four_field_consumer_payload, key) is not None
+        for key in (
+            "future_wna16_kernel_side_consumer_execution_hash_accumulator",
+            "future_wna16_kernel_side_consumer_execution_handle_projection_hash_accumulator",
+            "future_wna16_kernel_side_consumer_execution_descriptor_ptr_read_hash_accumulator",
+            "future_wna16_kernel_side_consumer_execution_packed_weight_descriptor_read_hash_accumulator",
+            "future_wna16_kernel_side_consumer_execution_scale_metadata_handle_read_hash_accumulator",
+            "future_wna16_kernel_side_consumer_execution_aux_metadata_handle_read_hash_accumulator",
+            "wna16_side_consumer_variant_execution_hash_accumulator",
+            "wna16_side_consumer_variant_execution_handle_projection_hash_accumulator",
+            "wna16_side_consumer_variant_execution_descriptor_ptr_read_hash_accumulator",
+            "wna16_side_consumer_variant_execution_packed_weight_descriptor_read_hash_accumulator",
+            "wna16_side_consumer_variant_execution_scale_metadata_handle_read_hash_accumulator",
+            "wna16_side_consumer_variant_execution_aux_metadata_handle_read_hash_accumulator",
+        )
+    )
+    all_four_field_consumer_ready = (
+        lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_all_four_consumer_evidence_passed"
+        )
+        is True
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_all_four_consumer_stage_type"
+        )
+        == "lab_gate"
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_all_four_consumer_bench_semantics"
+        )
+        is False
+        and all_four_consumer_source_count is not None
+        and all_four_consumer_source_count
+        >= int(
+            REQUIRED_DEFAULT_GATE_CONTRACT[
+                "future_wna16_typed_slot_all_four_field_consumer_min_source_count"
+            ]
+        )
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_all_four_consumer_selected_input_count"
+        )
+        == all_four_consumer_source_count
+        and _is_sha256_hex(
+            lab_gate_status_summary.get(
+                "default_kernel_consumer_future_wna16_all_four_consumer_selected_input_manifest_sha256"
+            )
+        )
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_all_four_consumer_post_native_input_manifest_sha256"
+        )
+        == lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_all_four_consumer_selected_input_manifest_sha256"
+        )
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_all_four_consumer_fourth_field_sha256"
+        )
+        == lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_fourth_field_handoff_evidence_sha256"
+        )
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_all_four_consumer_fourth_field_path_label"
+        )
+        == lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_fourth_field_handoff_evidence_path"
+        )
+        and all_four_consumer_row_count is not None
+        and all_four_consumer_row_count > 0
+        and all_four_consumer_row_ok_count == all_four_consumer_row_count
+        and all_four_consumer_source_count
+        == lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_fourth_field_handoff_source_count"
+        )
+        and all_four_consumer_row_count
+        == lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_fourth_field_handoff_row_count"
+        )
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_all_four_consumer_native_executed"
+        )
+        is True
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_all_four_consumer_native_passed"
+        )
+        is True
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_all_four_consumer_future_kernel_side_all_fields_read"
+        )
+        is True
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_all_four_consumer_wna16_side_all_fields_read"
+        )
+        is True
+        and all_four_consumer_fields_read
+        and all_four_consumer_hashes_valid
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_all_four_consumer_payload_bytes"
+        )
+        == 0
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_all_four_consumer_payload_deref_allowed"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_all_four_consumer_kernel_arg_pass_allowed"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_all_four_consumer_passed_to_kernel"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_all_four_consumer_changes_kernel_launch_args"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_all_four_consumer_current_wna16_arg_compatible"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_all_four_consumer_requires_wna16_arg_reinterpretation"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_all_four_consumer_measures_tpot"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_all_four_consumer_measures_vllm_latency"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_all_four_consumer_wna16_benchmark_ready"
+        )
+        is False
+    )
     wna16_benchmark_prerequisites_ready = (
-        wna16_kernel_side_execution_ready
+        all_four_field_consumer_ready
         and lab_gate_status_summary.get(
             "default_kernel_consumer_online_merged_multiprogram_current_wna16_arg_compatible"
         )
@@ -12956,8 +13407,19 @@ def run_premap_lab_preflight(
     # relax the current-WNA16-arg compatibility contract; until then, do not
     # advertise benchmark readiness from this checker-compatible preflight.
     wna16_benchmark_ready = False
-    if wna16_kernel_side_execution_ready:
+    if (
+        REQUIRED_DEFAULT_GATE_CONTRACT[
+            "future_wna16_typed_slot_all_four_field_consumer_required"
+        ]
+        and not all_four_field_consumer_ready
+    ):
+        failures.append(
+            "default_kernel_consumer_future_wna16_all_four_field_consumer_not_ready"
+        )
+    if all_four_field_consumer_ready and wna16_side_variant_ready:
         next_runtime_stage = "implement_wna16_typed_slot_benchmark_harness"
+    elif wna16_kernel_side_execution_ready:
+        next_runtime_stage = "promote_all_four_field_typed_slot_consumer_gate"
     elif wna16_side_variant_ready:
         next_runtime_stage = "implement_real_wna16_typed_slot_kernel_variant"
     elif wna16_side_variant_base_ready:
@@ -12981,6 +13443,15 @@ def run_premap_lab_preflight(
     lab_gate_status_summary[
         "default_kernel_consumer_wna16_kernel_side_execution_ready"
     ] = wna16_kernel_side_execution_ready
+    lab_gate_status_summary[
+        "default_kernel_consumer_future_wna16_all_four_field_consumer_ready"
+    ] = all_four_field_consumer_ready
+    lab_gate_status_summary[
+        "default_kernel_consumer_future_wna16_all_four_field_consumer_fields_read"
+    ] = all_four_consumer_fields_read
+    lab_gate_status_summary[
+        "default_kernel_consumer_future_wna16_all_four_field_consumer_hashes_valid"
+    ] = all_four_consumer_hashes_valid
     lab_gate_status_summary[
         "default_kernel_consumer_wna16_side_variant_ready"
     ] = wna16_side_variant_ready

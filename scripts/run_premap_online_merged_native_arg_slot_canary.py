@@ -20,6 +20,7 @@ real online-derived row stream across multiple native programs.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 import sys
@@ -1048,6 +1049,29 @@ def _write_json(path: Path, payload: dict[str, Any]) -> None:
         json.dumps(payload, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
+
+
+def _sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _input_manifest(paths: list[Path]) -> dict[str, Any]:
+    entries = [
+        {
+            "index": index,
+            "path": str(path),
+            "sha256": _sha256(path),
+        }
+        for index, path in enumerate(paths)
+    ]
+    digest = hashlib.sha256(
+        json.dumps(entries, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+    return {
+        "input_json_count": len(paths),
+        "input_manifest_sha256": digest,
+        "input_manifest_entries": entries,
+    }
 
 
 def _summary(payload: dict[str, Any]) -> dict[str, Any]:
@@ -3127,6 +3151,8 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
             f"selected source_count {source_count} is below required "
             f"{args.min_source_count}"
         )
+    selected_input_paths = input_paths[:source_count]
+    selected_input_manifest = _input_manifest(selected_input_paths)
     _write_json(merged_output_json, merged_input)
     row_count = int(merged_input["_meta"]["row_count"])
     dispatch_row_offset, dispatch_row_limit = _dispatch_bounds(
@@ -3745,7 +3771,11 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
         "failures": failures,
         "source": "online_merged_future_native_arg_slot_canary_runner",
         "runner_json": str(args.runner_json) if args.runner_json is not None else None,
-        "input_jsons": [str(path) for path in input_paths],
+        "input_jsons": [str(path) for path in selected_input_paths],
+        "selected_input_json_count": selected_input_manifest["input_json_count"],
+        "selected_input_manifest_sha256": selected_input_manifest[
+            "input_manifest_sha256"
+        ],
         "selected_source_count": source_count,
         "min_source_count": int(args.min_source_count),
         "merged_output_json": str(merged_output_json),
@@ -3794,9 +3824,13 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
         "device": int(args.device),
         "hip_visible_devices": args.hip_visible_devices,
         "no_payload": True,
+        "payload_bytes": 0,
+        "payload_deref_allowed": False,
+        "kernel_arg_pass_allowed": False,
         "passed_to_kernel": False,
         "changes_kernel_launch_args": False,
         "current_wna16_arg_compatible": False,
+        "requires_wna16_arg_reinterpretation": False,
         "not_a_single_vllm_launch_table": True,
         "handle_projection_field_names": list(ARG_SLOT_HANDLE_PROJECTION_FIELDS),
         "arg_slot_field_read_field_names": list(ARG_SLOT_FIELD_READ_FIELDS),
