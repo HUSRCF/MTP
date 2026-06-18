@@ -2,8 +2,89 @@
 
 ## Progress Version
 
-- Version: `v1.06-four-field-payloadless-chain-strict-preflight-bound`
+- Version: `v1.07-four-field-timing-stub-bound`
 - Updated: 2026-06-17
+- Latest timing-stub gate: the future WNA16 typed-slot timing stub now
+  requires the all-four consumer envelope from the entrypoint, not only the
+  fourth-field descriptor hash.  It also resolves the fourth-field evidence
+  path, recomputes the file SHA, and validates the referenced evidence JSON
+  identity/closed-semantics fields, so arbitrary existing files or copied
+  path/SHA strings cannot satisfy this gate.  It validates and reports:
+
+  ```text
+  fourth_field_handoff_evidence_path
+  fourth_field_handoff_evidence_sha256
+  all_four_field_consumer_ready
+  all_four_field_consumer_fields_read
+  all_four_field_consumer_hashes_valid
+  all_four_field_consumer_source_count / row_count / row_ok_count
+  all_four_field_consumer_fourth_field_path_label
+  all_four_field_consumer_fourth_field_sha256
+  ```
+
+  The refreshed chain is:
+
+  ```text
+  strict summary-only preflight
+  -> bound preflight summary check
+  -> WNA16 typed-slot benchmark harness
+  -> future typed-slot entrypoint
+  -> native timing stub
+  ```
+
+  Latest timing-stub evidence:
+
+  ```text
+  outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_timing_stub_four_field_v2.json
+  outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_timing_stub_four_field_v2_native_run.json
+
+  source_count = 128
+  row_count = 5345
+  all_four_field_consumer_ready = true
+  all_four_field_consumer_fields_read = true
+  all_four_field_consumer_hashes_valid = true
+  fourth_field_handoff_evidence_sha256 = 352617273b814eb7206ef16f2673ba27405826822d5a15d0df88ee94da4ce836
+  descriptor_ptr hash = 6e08db27babecb6a
+  packed_weight_descriptor hash = c5ca7b791f2fef98
+  scale_metadata_handle hash = 564bfdbd0fc6aecb
+  aux_metadata_handle hash = a04665434ccddb4b
+  native_stub_executed = true
+  native_stub_passed = true
+  native_stub_host_wall_ms = 324.036769
+  ```
+
+  This is still not a vLLM TPOT or current WNA16 kernel-arg benchmark:
+
+  ```text
+  payload_bytes = 0
+  payload_deref_allowed = false
+  kernel_arg_pass_allowed = false
+  passed_to_kernel = false
+  changes_kernel_launch_args = false
+  uses_current_wna16_args = false
+  passes_current_wna16_args = false
+  current_wna16_arg_compatible = false
+  requires_wna16_arg_reinterpretation = false
+  measures_tpot = false
+  measures_vllm_latency = false
+  ```
+
+  Validation:
+
+  ```text
+  conda run -n TRY python -m pytest \
+    tests/test_run_wna16_typed_slot_benchmark_harness.py \
+    tests/test_run_future_wna16_typed_slot_kernel_variant_entrypoint.py \
+    tests/test_run_future_wna16_typed_slot_kernel_timing_stub.py -q
+  # 62 passed
+
+  conda run -n TRY python scripts/run_future_wna16_typed_slot_kernel_timing_stub.py \
+    --run-native-stub \
+    --output-json outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_timing_stub_four_field_v2_native_run.json \
+    --require-pass
+  # passed = true
+  ```
+
 - Latest future WNA16 typed-slot payloadless/all-field chain: the strict
   lab preflight is now emitted in `--summary-only` form and the checker output
   records the checked preflight path/SHA, so downstream harness artifacts can

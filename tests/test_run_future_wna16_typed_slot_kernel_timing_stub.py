@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import json
 from pathlib import Path
@@ -36,6 +37,12 @@ def _write_json(path: Path, payload: dict) -> None:
 
 
 def _entrypoint_payload(*, row_count: int = 257, source_count: int = 128) -> dict:
+    evidence_path = (
+        Path(__file__).resolve().parent
+        / "fixtures"
+        / "future_wna16_fourth_field_evidence.json"
+    )
+    evidence_sha = hashlib.sha256(evidence_path.read_bytes()).hexdigest()
     return {
         "artifact_kind": "future_wna16_typed_slot_kernel_variant_entrypoint",
         "entrypoint_name": "premap_future_wna16_typed_slot_kernel_variant_entrypoint_v1",
@@ -71,11 +78,21 @@ def _entrypoint_payload(*, row_count: int = 257, source_count: int = 128) -> dic
         "row_hash_accumulator": "1112131415161718",
         "handle_projection_hash_accumulator": "2122232425262728",
         "fourth_field_handoff_ready": True,
+        "fourth_field_handoff_evidence_path": str(evidence_path),
+        "fourth_field_handoff_evidence_sha256": evidence_sha,
         "fourth_field_handoff_source_count": source_count,
         "fourth_field_handoff_row_count": row_count,
         "fourth_field_handoff_row_ok_count": row_count,
         "fourth_field_handoff_field_read_hash": "3132333435363738",
         "fourth_field_handoff_runner_hash": "8182838485868788",
+        "all_four_field_consumer_ready": True,
+        "all_four_field_consumer_fields_read": True,
+        "all_four_field_consumer_hashes_valid": True,
+        "all_four_field_consumer_source_count": source_count,
+        "all_four_field_consumer_row_count": row_count,
+        "all_four_field_consumer_row_ok_count": row_count,
+        "all_four_field_consumer_fourth_field_path_label": str(evidence_path),
+        "all_four_field_consumer_fourth_field_sha256": evidence_sha,
     }
 
 
@@ -140,11 +157,29 @@ def test_future_wna16_typed_slot_timing_stub_accepts_entrypoint(tmp_path: Path):
     assert result["wna16_benchmark_ready"] is False
     assert result["uses_current_wna16_args"] is False
     assert result["fourth_field_handoff_ready"] is True
+    evidence_path = (
+        Path(__file__).resolve().parent
+        / "fixtures"
+        / "future_wna16_fourth_field_evidence.json"
+    )
+    evidence_sha = hashlib.sha256(evidence_path.read_bytes()).hexdigest()
+    assert result["fourth_field_handoff_evidence_path"] == str(evidence_path)
+    assert result["fourth_field_handoff_evidence_sha256"] == evidence_sha
     assert result["fourth_field_handoff_source_count"] == 128
     assert result["fourth_field_handoff_row_count"] == 257
     assert result["fourth_field_handoff_row_ok_count"] == 257
     assert result["fourth_field_handoff_field_read_hash"] == "3132333435363738"
     assert result["fourth_field_handoff_runner_hash"] == "8182838485868788"
+    assert result["all_four_field_consumer_ready"] is True
+    assert result["all_four_field_consumer_fields_read"] is True
+    assert result["all_four_field_consumer_hashes_valid"] is True
+    assert result["all_four_field_consumer_source_count"] == 128
+    assert result["all_four_field_consumer_row_count"] == 257
+    assert result["all_four_field_consumer_row_ok_count"] == 257
+    assert result["all_four_field_consumer_fourth_field_path_label"] == str(
+        evidence_path
+    )
+    assert result["all_four_field_consumer_fourth_field_sha256"] == evidence_sha
     assert json.loads(output.read_text(encoding="utf-8"))["passed"] is True
 
 
@@ -320,6 +355,319 @@ def test_future_wna16_typed_slot_timing_stub_rejects_bad_runner_hash(
 
     assert result["passed"] is False
     assert "entrypoint_fourth_field_handoff_runner_hash_invalid" in result[
+        "failures"
+    ]
+
+
+def test_future_wna16_typed_slot_timing_stub_rejects_missing_fourth_evidence_path(
+    tmp_path: Path,
+):
+    module = _load_module()
+    entrypoint = tmp_path / "entrypoint.json"
+    payload = _entrypoint_payload()
+    payload.pop("fourth_field_handoff_evidence_path")
+    _write_json(entrypoint, payload)
+
+    args = module.build_parser().parse_args(
+        [
+            "--entrypoint-json",
+            str(entrypoint),
+            "--output-json",
+            str(tmp_path / "timing.json"),
+        ]
+    )
+    result = module.run_timing_stub(args)
+
+    assert result["passed"] is False
+    assert "entrypoint_fourth_field_handoff_evidence_path_missing" in result[
+        "failures"
+    ]
+
+
+def test_future_wna16_typed_slot_timing_stub_rejects_invalid_fourth_evidence_sha(
+    tmp_path: Path,
+):
+    module = _load_module()
+    entrypoint = tmp_path / "entrypoint.json"
+    payload = _entrypoint_payload()
+    payload["fourth_field_handoff_evidence_sha256"] = "not-a-sha"
+    _write_json(entrypoint, payload)
+
+    args = module.build_parser().parse_args(
+        [
+            "--entrypoint-json",
+            str(entrypoint),
+            "--output-json",
+            str(tmp_path / "timing.json"),
+        ]
+    )
+    result = module.run_timing_stub(args)
+
+    assert result["passed"] is False
+    assert "entrypoint_fourth_field_handoff_evidence_sha_invalid" in result[
+        "failures"
+    ]
+
+
+def test_future_wna16_typed_slot_timing_stub_rejects_forged_fourth_evidence_binding(
+    tmp_path: Path,
+):
+    module = _load_module()
+    entrypoint = tmp_path / "entrypoint.json"
+    forged_path = tmp_path / "missing_fourth.json"
+    payload = _entrypoint_payload()
+    payload["fourth_field_handoff_evidence_path"] = str(forged_path)
+    payload["fourth_field_handoff_evidence_sha256"] = "8" * 64
+    payload["all_four_field_consumer_fourth_field_path_label"] = str(forged_path)
+    payload["all_four_field_consumer_fourth_field_sha256"] = "8" * 64
+    _write_json(entrypoint, payload)
+
+    args = module.build_parser().parse_args(
+        [
+            "--entrypoint-json",
+            str(entrypoint),
+            "--output-json",
+            str(tmp_path / "timing.json"),
+        ]
+    )
+    result = module.run_timing_stub(args)
+
+    assert result["passed"] is False
+    assert "entrypoint_fourth_field_handoff_evidence_path_not_found" in result[
+        "failures"
+    ]
+
+
+def test_future_wna16_typed_slot_timing_stub_rejects_fourth_evidence_sha_mismatch(
+    tmp_path: Path,
+):
+    module = _load_module()
+    entrypoint = tmp_path / "entrypoint.json"
+    evidence = tmp_path / "fourth.json"
+    evidence.write_text('{"passed": true}\n', encoding="utf-8")
+    payload = _entrypoint_payload()
+    payload["fourth_field_handoff_evidence_path"] = str(evidence)
+    payload["fourth_field_handoff_evidence_sha256"] = "8" * 64
+    payload["all_four_field_consumer_fourth_field_path_label"] = str(evidence)
+    payload["all_four_field_consumer_fourth_field_sha256"] = "8" * 64
+    _write_json(entrypoint, payload)
+
+    args = module.build_parser().parse_args(
+        [
+            "--entrypoint-json",
+            str(entrypoint),
+            "--output-json",
+            str(tmp_path / "timing.json"),
+        ]
+    )
+    result = module.run_timing_stub(args)
+
+    assert result["passed"] is False
+    assert "entrypoint_fourth_field_handoff_evidence_sha_mismatch" in result[
+        "failures"
+    ]
+
+
+def test_future_wna16_typed_slot_timing_stub_rejects_unrelated_existing_evidence_file(
+    tmp_path: Path,
+):
+    module = _load_module()
+    entrypoint = tmp_path / "entrypoint.json"
+    unrelated = tmp_path / "unrelated.json"
+    unrelated.write_text('{"passed": true}\n', encoding="utf-8")
+    unrelated_sha = hashlib.sha256(unrelated.read_bytes()).hexdigest()
+    payload = _entrypoint_payload()
+    payload["fourth_field_handoff_evidence_path"] = str(unrelated)
+    payload["fourth_field_handoff_evidence_sha256"] = unrelated_sha
+    payload["all_four_field_consumer_fourth_field_path_label"] = str(unrelated)
+    payload["all_four_field_consumer_fourth_field_sha256"] = unrelated_sha
+    _write_json(entrypoint, payload)
+
+    args = module.build_parser().parse_args(
+        [
+            "--entrypoint-json",
+            str(entrypoint),
+            "--output-json",
+            str(tmp_path / "timing.json"),
+        ]
+    )
+    result = module.run_timing_stub(args)
+
+    assert result["passed"] is False
+    assert any("fourth_evidence_artifact_kind" in item for item in result["failures"])
+
+
+def test_future_wna16_typed_slot_timing_stub_rejects_fourth_evidence_tpot_semantics(
+    tmp_path: Path,
+):
+    module = _load_module()
+    entrypoint = tmp_path / "entrypoint.json"
+    evidence = tmp_path / "fourth.json"
+    source_evidence = (
+        Path(__file__).resolve().parent
+        / "fixtures"
+        / "future_wna16_fourth_field_evidence.json"
+    )
+    payload = json.loads(source_evidence.read_text(encoding="utf-8"))
+    payload["measures_tpot"] = True
+    _write_json(evidence, payload)
+    evidence_sha = hashlib.sha256(evidence.read_bytes()).hexdigest()
+    entrypoint_payload = _entrypoint_payload()
+    entrypoint_payload["fourth_field_handoff_evidence_path"] = str(evidence)
+    entrypoint_payload["fourth_field_handoff_evidence_sha256"] = evidence_sha
+    entrypoint_payload["all_four_field_consumer_fourth_field_path_label"] = str(
+        evidence
+    )
+    entrypoint_payload["all_four_field_consumer_fourth_field_sha256"] = evidence_sha
+    _write_json(entrypoint, entrypoint_payload)
+
+    args = module.build_parser().parse_args(
+        [
+            "--entrypoint-json",
+            str(entrypoint),
+            "--output-json",
+            str(tmp_path / "timing.json"),
+        ]
+    )
+    result = module.run_timing_stub(args)
+
+    assert result["passed"] is False
+    assert any("fourth_evidence_measures_tpot" in item for item in result["failures"])
+
+
+def test_future_wna16_typed_slot_timing_stub_rejects_fourth_evidence_failures(
+    tmp_path: Path,
+):
+    module = _load_module()
+    entrypoint = tmp_path / "entrypoint.json"
+    evidence = tmp_path / "fourth.json"
+    source_evidence = (
+        Path(__file__).resolve().parent
+        / "fixtures"
+        / "future_wna16_fourth_field_evidence.json"
+    )
+    payload = json.loads(source_evidence.read_text(encoding="utf-8"))
+    payload["failures"] = ["synthetic_failure"]
+    _write_json(evidence, payload)
+    evidence_sha = hashlib.sha256(evidence.read_bytes()).hexdigest()
+    entrypoint_payload = _entrypoint_payload()
+    entrypoint_payload["fourth_field_handoff_evidence_path"] = str(evidence)
+    entrypoint_payload["fourth_field_handoff_evidence_sha256"] = evidence_sha
+    entrypoint_payload["all_four_field_consumer_fourth_field_path_label"] = str(
+        evidence
+    )
+    entrypoint_payload["all_four_field_consumer_fourth_field_sha256"] = evidence_sha
+    _write_json(entrypoint, entrypoint_payload)
+
+    args = module.build_parser().parse_args(
+        [
+            "--entrypoint-json",
+            str(entrypoint),
+            "--output-json",
+            str(tmp_path / "timing.json"),
+        ]
+    )
+    result = module.run_timing_stub(args)
+
+    assert result["passed"] is False
+    assert "fourth_evidence_failures_not_empty" in result["failures"]
+
+
+def test_future_wna16_typed_slot_timing_stub_rejects_missing_all_four_ready(
+    tmp_path: Path,
+):
+    module = _load_module()
+    entrypoint = tmp_path / "entrypoint.json"
+    payload = _entrypoint_payload()
+    payload["all_four_field_consumer_ready"] = False
+    _write_json(entrypoint, payload)
+
+    args = module.build_parser().parse_args(
+        [
+            "--entrypoint-json",
+            str(entrypoint),
+            "--output-json",
+            str(tmp_path / "timing.json"),
+        ]
+    )
+    result = module.run_timing_stub(args)
+
+    assert result["passed"] is False
+    assert any("all_four_field_consumer_ready" in item for item in result["failures"])
+
+
+def test_future_wna16_typed_slot_timing_stub_rejects_all_four_row_mismatch(
+    tmp_path: Path,
+):
+    module = _load_module()
+    entrypoint = tmp_path / "entrypoint.json"
+    payload = _entrypoint_payload()
+    payload["all_four_field_consumer_row_count"] = 256
+    payload["all_four_field_consumer_row_ok_count"] = 256
+    _write_json(entrypoint, payload)
+
+    args = module.build_parser().parse_args(
+        [
+            "--entrypoint-json",
+            str(entrypoint),
+            "--output-json",
+            str(tmp_path / "timing.json"),
+        ]
+    )
+    result = module.run_timing_stub(args)
+
+    assert result["passed"] is False
+    assert "entrypoint_all_four_field_consumer_row_count_mismatch" in result[
+        "failures"
+    ]
+
+
+def test_future_wna16_typed_slot_timing_stub_rejects_all_four_path_mismatch(
+    tmp_path: Path,
+):
+    module = _load_module()
+    entrypoint = tmp_path / "entrypoint.json"
+    payload = _entrypoint_payload()
+    payload["all_four_field_consumer_fourth_field_path_label"] = "wrong.json"
+    _write_json(entrypoint, payload)
+
+    args = module.build_parser().parse_args(
+        [
+            "--entrypoint-json",
+            str(entrypoint),
+            "--output-json",
+            str(tmp_path / "timing.json"),
+        ]
+    )
+    result = module.run_timing_stub(args)
+
+    assert result["passed"] is False
+    assert "entrypoint_all_four_field_consumer_fourth_path_mismatch" in result[
+        "failures"
+    ]
+
+
+def test_future_wna16_typed_slot_timing_stub_rejects_all_four_sha_mismatch(
+    tmp_path: Path,
+):
+    module = _load_module()
+    entrypoint = tmp_path / "entrypoint.json"
+    payload = _entrypoint_payload()
+    payload["all_four_field_consumer_fourth_field_sha256"] = "7" * 64
+    _write_json(entrypoint, payload)
+
+    args = module.build_parser().parse_args(
+        [
+            "--entrypoint-json",
+            str(entrypoint),
+            "--output-json",
+            str(tmp_path / "timing.json"),
+        ]
+    )
+    result = module.run_timing_stub(args)
+
+    assert result["passed"] is False
+    assert "entrypoint_all_four_field_consumer_fourth_sha_mismatch" in result[
         "failures"
     ]
 

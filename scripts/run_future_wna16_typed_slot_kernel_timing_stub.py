@@ -102,6 +102,47 @@ EXPECTED_ENTRYPOINT_FLAGS: dict[str, Any] = {
     "next_runtime_stage": "implement_future_wna16_typed_slot_kernel_timing_stub",
     "fourth_field_handoff_ready": True,
 }
+EXPECTED_FOURTH_EVIDENCE_FLAGS: dict[str, Any] = {
+    "artifact_kind": "future_wna16_typed_slot_kernel_variant_fourth_field_handoff_canary",
+    "fourth_field_handoff_canary_name": "premap_future_wna16_typed_slot_fourth_field_handoff_canary_v1",
+    "fourth_field_handoff_canary_mode": "readonly_future_wna16_typed_slot_fourth_field_handoff_canary",
+    "fourth_field_handoff_canary_source": "premap_future_wna16_typed_slot_third_field_handoff_canary_v1",
+    "passed": True,
+    "previous_field_gate_ready": True,
+    "fourth_field_name": "descriptor_ptr",
+    "fourth_field_kind": 1,
+    "fourth_field_mask": 1,
+    "first_field_name": "scale_metadata_handle",
+    "second_field_name": "aux_metadata_handle",
+    "third_field_name": "packed_weight_descriptor",
+    "fourth_field_handoff_canary_native_executed": True,
+    "fourth_field_handoff_canary_native_passed": True,
+    "fourth_field_handoff_live_enabled": False,
+    "uses_current_wna16_args": False,
+    "passes_current_wna16_args": False,
+    "current_wna16_arg_compatible": False,
+    "requires_wna16_arg_reinterpretation": False,
+    "payload_bytes": 0,
+    "payload_deref_allowed": False,
+    "kernel_arg_pass_allowed": False,
+    "passed_to_kernel": False,
+    "changes_kernel_launch_args": False,
+    "measures_tpot": False,
+    "measures_vllm_latency": False,
+    "wna16_benchmark_ready": False,
+    "expected_uses_current_wna16_args": False,
+    "expected_passes_current_wna16_args": False,
+    "expected_current_wna16_arg_compatible": False,
+    "expected_requires_wna16_arg_reinterpretation": False,
+    "expected_payload_bytes": 0,
+    "expected_payload_deref_allowed": False,
+    "expected_kernel_arg_pass_allowed": False,
+    "expected_passed_to_kernel": False,
+    "expected_changes_kernel_launch_args": False,
+    "expected_measures_tpot": False,
+    "expected_measures_vllm_latency": False,
+    "expected_wna16_benchmark_ready": False,
+}
 
 
 def _resolve(path: str | Path) -> Path:
@@ -141,6 +182,78 @@ def _is_hex_u64(value: Any) -> bool:
     except ValueError:
         return False
     return 0 < parsed <= 0xFFFFFFFFFFFFFFFF
+
+
+def _is_sha256_hex(value: Any) -> bool:
+    if not isinstance(value, str) or len(value) != 64:
+        return False
+    try:
+        int(value, 16)
+    except ValueError:
+        return False
+    return True
+
+
+def _check_fourth_evidence(
+    payload: dict[str, Any],
+    *,
+    entrypoint: dict[str, Any],
+) -> list[str]:
+    failures: list[str] = []
+    for key, expected in EXPECTED_FOURTH_EVIDENCE_FLAGS.items():
+        if key not in payload:
+            # Older evidence may not carry previous_field_gate_ready; the
+            # timing stub still requires all direct fourth-field semantics.
+            if key == "previous_field_gate_ready":
+                continue
+            failures.append(f"fourth_evidence_{key}_missing")
+        elif payload.get(key) != expected:
+            failures.append(
+                f"fourth_evidence_{key}_mismatch:{payload.get(key)!r}!={expected!r}"
+            )
+    if payload.get("failures") != []:
+        failures.append("fourth_evidence_failures_not_empty")
+    source_count = _int_metric(payload, "source_count")
+    entry_source_count = _int_metric(entrypoint, "source_count")
+    if source_count is None:
+        failures.append("fourth_evidence_source_count_invalid")
+    elif entry_source_count is not None and source_count != entry_source_count:
+        failures.append("fourth_evidence_source_count_mismatch")
+    row_count = _int_metric(payload, "row_count")
+    row_ok_count = _int_metric(payload, "row_ok_count")
+    entry_row_count = _int_metric(entrypoint, "row_count")
+    if row_count is None:
+        failures.append("fourth_evidence_row_count_invalid")
+    elif entry_row_count is not None and row_count != entry_row_count:
+        failures.append("fourth_evidence_row_count_mismatch")
+    if row_ok_count is None:
+        failures.append("fourth_evidence_row_ok_count_invalid")
+    elif row_count is not None and row_ok_count != row_count:
+        failures.append("fourth_evidence_row_ok_count_mismatch")
+    field_row_ok_count = _int_metric(
+        payload,
+        "fourth_field_handoff_field_read_row_ok_count",
+    )
+    if field_row_ok_count is None:
+        failures.append("fourth_evidence_field_read_row_ok_count_invalid")
+    elif row_count is not None and field_row_ok_count != row_count:
+        failures.append("fourth_evidence_field_read_row_ok_count_mismatch")
+    field_hash = payload.get("fourth_field_handoff_field_read_hash")
+    entry_hashes = entrypoint.get("field_read_hashes")
+    descriptor_hash = (
+        entry_hashes.get("descriptor_ptr") if isinstance(entry_hashes, dict) else None
+    )
+    if not _is_hex_u64(field_hash):
+        failures.append("fourth_evidence_field_read_hash_invalid")
+    elif descriptor_hash is not None and field_hash != descriptor_hash:
+        failures.append("fourth_evidence_descriptor_hash_mismatch")
+    runner_hash = payload.get("fourth_field_handoff_canary_runner_hash")
+    entry_runner_hash = entrypoint.get("fourth_field_handoff_runner_hash")
+    if not _is_hex_u64(runner_hash):
+        failures.append("fourth_evidence_runner_hash_invalid")
+    elif _is_hex_u64(entry_runner_hash) and runner_hash != entry_runner_hash:
+        failures.append("fourth_evidence_runner_hash_mismatch")
+    return failures
 
 
 def _check_entrypoint(
@@ -210,6 +323,80 @@ def _check_entrypoint(
     descriptor_hash = field_hashes.get("descriptor_ptr")
     if entrypoint.get("fourth_field_handoff_field_read_hash") != descriptor_hash:
         failures.append("entrypoint_fourth_field_handoff_descriptor_hash_mismatch")
+    fourth_evidence_path = entrypoint.get("fourth_field_handoff_evidence_path")
+    if not isinstance(fourth_evidence_path, str) or not fourth_evidence_path:
+        failures.append("entrypoint_fourth_field_handoff_evidence_path_missing")
+        resolved_fourth_evidence_path = None
+        fourth_evidence_payload = None
+    else:
+        resolved_fourth_evidence_path = _resolve(fourth_evidence_path)
+        if not resolved_fourth_evidence_path.exists():
+            failures.append("entrypoint_fourth_field_handoff_evidence_path_not_found")
+            fourth_evidence_payload = None
+        else:
+            try:
+                fourth_evidence_payload = _load_json(resolved_fourth_evidence_path)
+            except (OSError, json.JSONDecodeError, ValueError):
+                failures.append("entrypoint_fourth_field_handoff_evidence_json_invalid")
+                fourth_evidence_payload = None
+    fourth_evidence_sha = entrypoint.get("fourth_field_handoff_evidence_sha256")
+    if not _is_sha256_hex(fourth_evidence_sha):
+        failures.append("entrypoint_fourth_field_handoff_evidence_sha_invalid")
+    elif (
+        resolved_fourth_evidence_path is not None
+        and resolved_fourth_evidence_path.exists()
+        and _sha256(resolved_fourth_evidence_path) != fourth_evidence_sha
+    ):
+        failures.append("entrypoint_fourth_field_handoff_evidence_sha_mismatch")
+    if fourth_evidence_payload is not None:
+        failures.extend(
+            _check_fourth_evidence(
+                fourth_evidence_payload,
+                entrypoint=entrypoint,
+            )
+        )
+    all_four_expected = {
+        "all_four_field_consumer_ready": True,
+        "all_four_field_consumer_fields_read": True,
+        "all_four_field_consumer_hashes_valid": True,
+    }
+    for key, expected in all_four_expected.items():
+        if entrypoint.get(key) != expected:
+            failures.append(
+                f"entrypoint_{key}_mismatch:{entrypoint.get(key)!r}!={expected!r}"
+            )
+    all_four_source_count = _int_metric(entrypoint, "all_four_field_consumer_source_count")
+    if all_four_source_count is None:
+        failures.append("entrypoint_all_four_field_consumer_source_count_invalid")
+    elif source_count is not None and all_four_source_count != source_count:
+        failures.append("entrypoint_all_four_field_consumer_source_count_mismatch")
+    all_four_row_count = _int_metric(entrypoint, "all_four_field_consumer_row_count")
+    all_four_row_ok_count = _int_metric(
+        entrypoint,
+        "all_four_field_consumer_row_ok_count",
+    )
+    if all_four_row_count is None:
+        failures.append("entrypoint_all_four_field_consumer_row_count_invalid")
+    elif row_count is not None and all_four_row_count != row_count:
+        failures.append("entrypoint_all_four_field_consumer_row_count_mismatch")
+    if all_four_row_ok_count is None:
+        failures.append("entrypoint_all_four_field_consumer_row_ok_count_invalid")
+    elif all_four_row_count is not None and all_four_row_ok_count != all_four_row_count:
+        failures.append("entrypoint_all_four_field_consumer_row_ok_count_mismatch")
+    all_four_fourth_path = entrypoint.get(
+        "all_four_field_consumer_fourth_field_path_label"
+    )
+    if not isinstance(all_four_fourth_path, str) or not all_four_fourth_path:
+        failures.append("entrypoint_all_four_field_consumer_fourth_path_missing")
+    elif isinstance(fourth_evidence_path, str) and all_four_fourth_path != fourth_evidence_path:
+        failures.append("entrypoint_all_four_field_consumer_fourth_path_mismatch")
+    all_four_fourth_sha = entrypoint.get(
+        "all_four_field_consumer_fourth_field_sha256"
+    )
+    if not _is_sha256_hex(all_four_fourth_sha):
+        failures.append("entrypoint_all_four_field_consumer_fourth_sha_invalid")
+    elif _is_sha256_hex(fourth_evidence_sha) and all_four_fourth_sha != fourth_evidence_sha:
+        failures.append("entrypoint_all_four_field_consumer_fourth_sha_mismatch")
     return failures
 
 
@@ -400,6 +587,12 @@ def run_timing_stub(args: argparse.Namespace) -> dict[str, Any]:
             "handle_projection_hash_accumulator"
         ),
         "fourth_field_handoff_ready": entrypoint.get("fourth_field_handoff_ready"),
+        "fourth_field_handoff_evidence_path": entrypoint.get(
+            "fourth_field_handoff_evidence_path"
+        ),
+        "fourth_field_handoff_evidence_sha256": entrypoint.get(
+            "fourth_field_handoff_evidence_sha256"
+        ),
         "fourth_field_handoff_source_count": entrypoint.get(
             "fourth_field_handoff_source_count"
         ),
@@ -414,6 +607,30 @@ def run_timing_stub(args: argparse.Namespace) -> dict[str, Any]:
         ),
         "fourth_field_handoff_runner_hash": entrypoint.get(
             "fourth_field_handoff_runner_hash"
+        ),
+        "all_four_field_consumer_ready": entrypoint.get(
+            "all_four_field_consumer_ready"
+        ),
+        "all_four_field_consumer_fields_read": entrypoint.get(
+            "all_four_field_consumer_fields_read"
+        ),
+        "all_four_field_consumer_hashes_valid": entrypoint.get(
+            "all_four_field_consumer_hashes_valid"
+        ),
+        "all_four_field_consumer_source_count": entrypoint.get(
+            "all_four_field_consumer_source_count"
+        ),
+        "all_four_field_consumer_row_count": entrypoint.get(
+            "all_four_field_consumer_row_count"
+        ),
+        "all_four_field_consumer_row_ok_count": entrypoint.get(
+            "all_four_field_consumer_row_ok_count"
+        ),
+        "all_four_field_consumer_fourth_field_path_label": entrypoint.get(
+            "all_four_field_consumer_fourth_field_path_label"
+        ),
+        "all_four_field_consumer_fourth_field_sha256": entrypoint.get(
+            "all_four_field_consumer_fourth_field_sha256"
         ),
         "timing_stub_ready": passed,
         "native_stub_requested": bool(args.run_native_stub),
