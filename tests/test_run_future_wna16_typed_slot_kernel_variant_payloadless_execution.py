@@ -46,8 +46,15 @@ def _timing_stub_payload(
     source_count: int = 128,
     host_wall_ms: float = 12.5,
 ) -> dict:
+    evidence_path = (
+        Path(__file__).resolve().parent
+        / "fixtures"
+        / "future_wna16_fourth_field_evidence.json"
+    )
+    evidence_sha = _sha256(evidence_path)
     return {
         "artifact_kind": "future_wna16_typed_slot_kernel_timing_stub",
+        "failures": [],
         "passed": True,
         "timing_stub_ready": True,
         "native_stub_requested": True,
@@ -81,6 +88,22 @@ def _timing_stub_payload(
         },
         "row_hash_accumulator": "1112131415161718",
         "handle_projection_hash_accumulator": "2122232425262728",
+        "fourth_field_handoff_ready": True,
+        "fourth_field_handoff_evidence_path": str(evidence_path),
+        "fourth_field_handoff_evidence_sha256": evidence_sha,
+        "fourth_field_handoff_source_count": source_count,
+        "fourth_field_handoff_row_count": row_count,
+        "fourth_field_handoff_row_ok_count": row_count,
+        "fourth_field_handoff_field_read_hash": "3132333435363738",
+        "fourth_field_handoff_runner_hash": "8182838485868788",
+        "all_four_field_consumer_ready": True,
+        "all_four_field_consumer_fields_read": True,
+        "all_four_field_consumer_hashes_valid": True,
+        "all_four_field_consumer_source_count": source_count,
+        "all_four_field_consumer_row_count": row_count,
+        "all_four_field_consumer_row_ok_count": row_count,
+        "all_four_field_consumer_fourth_field_path_label": str(evidence_path),
+        "all_four_field_consumer_fourth_field_sha256": evidence_sha,
         "native_stub_host_wall_ms": host_wall_ms,
     }
 
@@ -106,6 +129,7 @@ def _benchmark_payload(
         repeat_output_sha256s.append(_sha256(repeat_path))
     return {
         "artifact_kind": "future_wna16_typed_slot_kernel_variant_benchmark",
+        "failures": [],
         "benchmark_name": "premap_future_wna16_typed_slot_kernel_variant_benchmark_v1",
         "benchmark_mode": "independent_future_wna16_typed_slot_native_stub_benchmark",
         "benchmark_source": "premap_future_wna16_typed_slot_kernel_timing_stub_v1",
@@ -148,7 +172,27 @@ def _benchmark_payload(
         "fourth_field_handoff_row_count": row_count,
         "fourth_field_handoff_row_ok_count": row_count,
         "fourth_field_handoff_field_read_hash": "3132333435363738",
-        "fourth_field_handoff_runner_hash": "7172737475767778",
+        "fourth_field_handoff_runner_hash": timing_payload[
+            "fourth_field_handoff_runner_hash"
+        ],
+        "fourth_field_handoff_evidence_path": timing_payload[
+            "fourth_field_handoff_evidence_path"
+        ],
+        "fourth_field_handoff_evidence_sha256": timing_payload[
+            "fourth_field_handoff_evidence_sha256"
+        ],
+        "all_four_field_consumer_ready": True,
+        "all_four_field_consumer_fields_read": True,
+        "all_four_field_consumer_hashes_valid": True,
+        "all_four_field_consumer_source_count": source_count,
+        "all_four_field_consumer_row_count": row_count,
+        "all_four_field_consumer_row_ok_count": row_count,
+        "all_four_field_consumer_fourth_field_path_label": timing_payload[
+            "all_four_field_consumer_fourth_field_path_label"
+        ],
+        "all_four_field_consumer_fourth_field_sha256": timing_payload[
+            "all_four_field_consumer_fourth_field_sha256"
+        ],
         "repeat_count_measured": repeat_count,
         "repeat_output_jsons": repeat_output_jsons,
         "repeat_output_sha256s": repeat_output_sha256s,
@@ -350,6 +394,56 @@ def test_payloadless_execution_rejects_benchmark_seed_hash_drift(tmp_path: Path)
     assert "benchmark_seed_row_hash_accumulator_mismatch" in result["failures"]
 
 
+def test_payloadless_execution_rejects_benchmark_seed_fourth_evidence_drift(
+    tmp_path: Path,
+):
+    module = _load_module()
+    _, _, timing_stub, _ = _write_seed_artifacts(tmp_path)
+    benchmark = tmp_path / "benchmark.json"
+    payload = _benchmark_payload(timing_stub)
+    payload["fourth_field_handoff_evidence_sha256"] = "7" * 64
+    _write_json(benchmark, payload)
+
+    args = module.build_parser().parse_args(
+        [
+            "--benchmark-json",
+            str(benchmark),
+            "--output-json",
+            str(tmp_path / "payloadless.json"),
+        ]
+    )
+    result = module.run_payloadless_execution(args)
+
+    assert result["passed"] is False
+    assert "benchmark_seed_fourth_field_handoff_evidence_sha256_mismatch" in result[
+        "failures"
+    ]
+
+
+def test_payloadless_execution_rejects_benchmark_seed_all_four_drift(tmp_path: Path):
+    module = _load_module()
+    _, _, timing_stub, _ = _write_seed_artifacts(tmp_path)
+    benchmark = tmp_path / "benchmark.json"
+    payload = _benchmark_payload(timing_stub)
+    payload["all_four_field_consumer_row_count"] = payload["row_count"] - 1
+    _write_json(benchmark, payload)
+
+    args = module.build_parser().parse_args(
+        [
+            "--benchmark-json",
+            str(benchmark),
+            "--output-json",
+            str(tmp_path / "payloadless.json"),
+        ]
+    )
+    result = module.run_payloadless_execution(args)
+
+    assert result["passed"] is False
+    assert "benchmark_seed_all_four_field_consumer_row_count_mismatch" in result[
+        "failures"
+    ]
+
+
 def test_payloadless_execution_rejects_missing_fourth_field_handoff(
     tmp_path: Path,
 ):
@@ -400,6 +494,56 @@ def test_payloadless_execution_rejects_fourth_descriptor_hash_drift(
     assert "benchmark_fourth_field_handoff_descriptor_hash_mismatch" in result[
         "failures"
     ]
+
+
+def test_payloadless_execution_rejects_all_four_not_ready(tmp_path: Path):
+    module = _load_module()
+    _, _, timing_stub, _ = _write_seed_artifacts(tmp_path)
+    benchmark = tmp_path / "benchmark.json"
+    payload = _benchmark_payload(timing_stub)
+    payload["all_four_field_consumer_ready"] = False
+    _write_json(benchmark, payload)
+
+    args = module.build_parser().parse_args(
+        [
+            "--benchmark-json",
+            str(benchmark),
+            "--output-json",
+            str(tmp_path / "payloadless.json"),
+        ]
+    )
+    result = module.run_payloadless_execution(args)
+
+    assert result["passed"] is False
+    assert any("all_four_field_consumer_ready" in item for item in result["failures"])
+
+
+def test_payloadless_execution_rejects_unrelated_fourth_evidence(tmp_path: Path):
+    module = _load_module()
+    _, _, timing_stub, _ = _write_seed_artifacts(tmp_path)
+    benchmark = tmp_path / "benchmark.json"
+    unrelated = tmp_path / "unrelated.json"
+    unrelated.write_text('{"passed": true}\n', encoding="utf-8")
+    unrelated_sha = _sha256(unrelated)
+    payload = _benchmark_payload(timing_stub)
+    payload["fourth_field_handoff_evidence_path"] = str(unrelated)
+    payload["fourth_field_handoff_evidence_sha256"] = unrelated_sha
+    payload["all_four_field_consumer_fourth_field_path_label"] = str(unrelated)
+    payload["all_four_field_consumer_fourth_field_sha256"] = unrelated_sha
+    _write_json(benchmark, payload)
+
+    args = module.build_parser().parse_args(
+        [
+            "--benchmark-json",
+            str(benchmark),
+            "--output-json",
+            str(tmp_path / "payloadless.json"),
+        ]
+    )
+    result = module.run_payloadless_execution(args)
+
+    assert result["passed"] is False
+    assert any("benchmark_fourth_evidence_artifact_kind" in item for item in result["failures"])
 
 
 def test_payloadless_execution_rejects_fourth_row_count_mismatch(tmp_path: Path):
@@ -476,7 +620,7 @@ def test_payloadless_execution_defaults_to_four_field_repeat3_benchmark():
     default_path = Path(module.DEFAULT_BENCHMARK_JSON)
 
     assert (
-        "future_wna16_typed_slot_kernel_variant_benchmark_four_field_repeat3_v1.json"
+        "future_wna16_typed_slot_kernel_variant_benchmark_four_field_repeat3_v2.json"
         in str(default_path)
     )
     if default_path.exists():

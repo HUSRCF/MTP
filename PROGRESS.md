@@ -85,6 +85,64 @@
   # passed = true
   ```
 
+- Latest payloadless execution gate: the payloadless execution stage now
+  consumes the v2 repeat benchmark artifact and revalidates the same
+  all-four/evidence envelope before allowing the payloadless native canary.
+  It also checks benchmark-vs-seed timing-stub drift for the new fourth-field
+  evidence and all-four fields.
+
+  Latest payloadless evidence:
+
+  ```text
+  outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_payloadless_execution_four_field_v2.json
+  outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_payloadless_execution_four_field_v2_native_run.json
+
+  source_count = 128
+  row_count = 5345
+  all_four_field_consumer_ready = true
+  all_four_field_consumer_fields_read = true
+  all_four_field_consumer_hashes_valid = true
+  benchmark_repeat_count_measured = 3
+  payloadless_execution_native_executed = true
+  payloadless_execution_native_passed = true
+  payloadless_execution_native_host_wall_ms = 326.454950
+  ```
+
+  Safety boundary remains closed:
+
+  ```text
+  payload_bytes = 0
+  payload_deref_allowed = false
+  kernel_arg_pass_allowed = false
+  passed_to_kernel = false
+  changes_kernel_launch_args = false
+  uses_current_wna16_args = false
+  passes_current_wna16_args = false
+  current_wna16_arg_compatible = false
+  requires_wna16_arg_reinterpretation = false
+  measures_tpot = false
+  measures_vllm_latency = false
+  ```
+
+  Validation:
+
+  ```text
+  conda run -n TRY python -m pytest \
+    tests/test_run_future_wna16_typed_slot_kernel_variant_payloadless_execution.py \
+    tests/test_run_future_wna16_typed_slot_kernel_variant_benchmark.py \
+    tests/test_run_future_wna16_typed_slot_kernel_timing_stub.py \
+    tests/test_run_future_wna16_typed_slot_kernel_variant_entrypoint.py \
+    tests/test_run_wna16_typed_slot_benchmark_harness.py -q
+  # 106 passed
+
+  conda run -n TRY python scripts/run_future_wna16_typed_slot_kernel_variant_payloadless_execution.py \
+    --run-native-execution \
+    --require-native-execution \
+    --output-json outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_payloadless_execution_four_field_v2_native_run.json \
+    --require-pass
+  # passed = true
+  ```
+
 - Latest independent benchmark wrapper gate: the future WNA16 typed-slot
   benchmark wrapper now consumes the v2 native timing-stub artifact by default
   and revalidates the all-four/evidence envelope before using it as a seed.

@@ -30,7 +30,7 @@ DEFAULT_BENCHMARK_JSON = (
     / "outputs"
     / "reports"
     / "premap_kernel_consumer"
-    / "future_wna16_typed_slot_kernel_variant_benchmark_four_field_repeat3_v1.json"
+    / "future_wna16_typed_slot_kernel_variant_benchmark_four_field_repeat3_v2.json"
 )
 DEFAULT_OUTPUT_JSON = (
     REPO_ROOT
@@ -157,6 +157,8 @@ def _check_benchmark(
             failures.append(
                 f"benchmark_{key}_mismatch:{benchmark.get(key)!r}!={expected!r}"
             )
+    if benchmark.get("failures") != []:
+        failures.append("benchmark_failures_not_empty")
     source_count = _int_metric(benchmark, "source_count")
     if source_count is None or source_count < min_source_count:
         failures.append("benchmark_source_count_invalid")
@@ -212,6 +214,90 @@ def _check_benchmark(
     descriptor_hash = field_hashes.get("descriptor_ptr")
     if benchmark.get("fourth_field_handoff_field_read_hash") != descriptor_hash:
         failures.append("benchmark_fourth_field_handoff_descriptor_hash_mismatch")
+    fourth_evidence_path = benchmark.get("fourth_field_handoff_evidence_path")
+    if not isinstance(fourth_evidence_path, str) or not fourth_evidence_path:
+        failures.append("benchmark_fourth_field_handoff_evidence_path_missing")
+        resolved_fourth_evidence_path = None
+    else:
+        resolved_fourth_evidence_path = _resolve(fourth_evidence_path)
+        if not resolved_fourth_evidence_path.exists():
+            failures.append("benchmark_fourth_field_handoff_evidence_path_not_found")
+    fourth_evidence_sha = benchmark.get("fourth_field_handoff_evidence_sha256")
+    if not _is_sha256_hex(fourth_evidence_sha):
+        failures.append("benchmark_fourth_field_handoff_evidence_sha_invalid")
+    elif (
+        resolved_fourth_evidence_path is not None
+        and resolved_fourth_evidence_path.exists()
+    ):
+        try:
+            actual_sha = _sha256(resolved_fourth_evidence_path)
+        except Exception as exc:
+            failures.append(
+                f"benchmark_fourth_field_handoff_evidence_sha256_failed:"
+                f"{exc.__class__.__name__}:{exc}"
+            )
+        else:
+            if actual_sha != fourth_evidence_sha:
+                failures.append("benchmark_fourth_field_handoff_evidence_sha_mismatch")
+            else:
+                try:
+                    fourth_evidence = _load_json(resolved_fourth_evidence_path)
+                except Exception as exc:
+                    failures.append(
+                        "benchmark_fourth_field_handoff_evidence_json_invalid:"
+                        f"{exc.__class__.__name__}:{exc}"
+                    )
+                else:
+                    failures.extend(
+                        "benchmark_"
+                        + item
+                        for item in timing_runner._check_fourth_evidence(  # noqa: SLF001
+                            fourth_evidence,
+                            entrypoint=benchmark,
+                        )
+                    )
+    all_four_expected = {
+        "all_four_field_consumer_ready": True,
+        "all_four_field_consumer_fields_read": True,
+        "all_four_field_consumer_hashes_valid": True,
+    }
+    for key, expected in all_four_expected.items():
+        if benchmark.get(key) != expected:
+            failures.append(
+                f"benchmark_{key}_mismatch:{benchmark.get(key)!r}!={expected!r}"
+            )
+    all_four_source_count = _int_metric(benchmark, "all_four_field_consumer_source_count")
+    if all_four_source_count is None:
+        failures.append("benchmark_all_four_field_consumer_source_count_invalid")
+    elif source_count is not None and all_four_source_count != source_count:
+        failures.append("benchmark_all_four_field_consumer_source_count_mismatch")
+    all_four_row_count = _int_metric(benchmark, "all_four_field_consumer_row_count")
+    all_four_row_ok_count = _int_metric(
+        benchmark,
+        "all_four_field_consumer_row_ok_count",
+    )
+    if all_four_row_count is None:
+        failures.append("benchmark_all_four_field_consumer_row_count_invalid")
+    elif row_count is not None and all_four_row_count != row_count:
+        failures.append("benchmark_all_four_field_consumer_row_count_mismatch")
+    if all_four_row_ok_count is None:
+        failures.append("benchmark_all_four_field_consumer_row_ok_count_invalid")
+    elif all_four_row_count is not None and all_four_row_ok_count != all_four_row_count:
+        failures.append("benchmark_all_four_field_consumer_row_ok_count_mismatch")
+    all_four_fourth_path = benchmark.get(
+        "all_four_field_consumer_fourth_field_path_label"
+    )
+    if not isinstance(all_four_fourth_path, str) or not all_four_fourth_path:
+        failures.append("benchmark_all_four_field_consumer_fourth_path_missing")
+    elif isinstance(fourth_evidence_path, str) and all_four_fourth_path != fourth_evidence_path:
+        failures.append("benchmark_all_four_field_consumer_fourth_path_mismatch")
+    all_four_fourth_sha = benchmark.get(
+        "all_four_field_consumer_fourth_field_sha256"
+    )
+    if not _is_sha256_hex(all_four_fourth_sha):
+        failures.append("benchmark_all_four_field_consumer_fourth_sha_invalid")
+    elif _is_sha256_hex(fourth_evidence_sha) and all_four_fourth_sha != fourth_evidence_sha:
+        failures.append("benchmark_all_four_field_consumer_fourth_sha_mismatch")
     repeat_count = _int_metric(benchmark, "repeat_count_measured")
     if repeat_count is None or repeat_count < min_repeat_count:
         failures.append("benchmark_repeat_count_measured_invalid")
@@ -312,6 +398,21 @@ def _check_execution_timing_stub(
         "field_read_hashes",
         "row_hash_accumulator",
         "handle_projection_hash_accumulator",
+        "fourth_field_handoff_evidence_path",
+        "fourth_field_handoff_evidence_sha256",
+        "fourth_field_handoff_source_count",
+        "fourth_field_handoff_row_count",
+        "fourth_field_handoff_row_ok_count",
+        "fourth_field_handoff_field_read_hash",
+        "fourth_field_handoff_runner_hash",
+        "all_four_field_consumer_ready",
+        "all_four_field_consumer_fields_read",
+        "all_four_field_consumer_hashes_valid",
+        "all_four_field_consumer_source_count",
+        "all_four_field_consumer_row_count",
+        "all_four_field_consumer_row_ok_count",
+        "all_four_field_consumer_fourth_field_path_label",
+        "all_four_field_consumer_fourth_field_sha256",
     ):
         if report.get(key) != seed.get(key):
             failures.append(f"execution_{key}_mismatch")
@@ -357,6 +458,21 @@ def _check_benchmark_repeat_artifacts(
             "field_read_hashes",
             "row_hash_accumulator",
             "handle_projection_hash_accumulator",
+            "fourth_field_handoff_evidence_path",
+            "fourth_field_handoff_evidence_sha256",
+            "fourth_field_handoff_source_count",
+            "fourth_field_handoff_row_count",
+            "fourth_field_handoff_row_ok_count",
+            "fourth_field_handoff_field_read_hash",
+            "fourth_field_handoff_runner_hash",
+            "all_four_field_consumer_ready",
+            "all_four_field_consumer_fields_read",
+            "all_four_field_consumer_hashes_valid",
+            "all_four_field_consumer_source_count",
+            "all_four_field_consumer_row_count",
+            "all_four_field_consumer_row_ok_count",
+            "all_four_field_consumer_fourth_field_path_label",
+            "all_four_field_consumer_fourth_field_sha256",
         ):
             if benchmark.get(key) != seed.get(key):
                 failures.append(f"benchmark_seed_{key}_mismatch")
@@ -597,6 +713,12 @@ def run_payloadless_execution(args: argparse.Namespace) -> dict[str, Any]:
             "handle_projection_hash_accumulator"
         ),
         "fourth_field_handoff_ready": benchmark.get("fourth_field_handoff_ready"),
+        "fourth_field_handoff_evidence_path": benchmark.get(
+            "fourth_field_handoff_evidence_path"
+        ),
+        "fourth_field_handoff_evidence_sha256": benchmark.get(
+            "fourth_field_handoff_evidence_sha256"
+        ),
         "fourth_field_handoff_source_count": benchmark.get(
             "fourth_field_handoff_source_count"
         ),
@@ -611,6 +733,30 @@ def run_payloadless_execution(args: argparse.Namespace) -> dict[str, Any]:
         ),
         "fourth_field_handoff_runner_hash": benchmark.get(
             "fourth_field_handoff_runner_hash"
+        ),
+        "all_four_field_consumer_ready": benchmark.get(
+            "all_four_field_consumer_ready"
+        ),
+        "all_four_field_consumer_fields_read": benchmark.get(
+            "all_four_field_consumer_fields_read"
+        ),
+        "all_four_field_consumer_hashes_valid": benchmark.get(
+            "all_four_field_consumer_hashes_valid"
+        ),
+        "all_four_field_consumer_source_count": benchmark.get(
+            "all_four_field_consumer_source_count"
+        ),
+        "all_four_field_consumer_row_count": benchmark.get(
+            "all_four_field_consumer_row_count"
+        ),
+        "all_four_field_consumer_row_ok_count": benchmark.get(
+            "all_four_field_consumer_row_ok_count"
+        ),
+        "all_four_field_consumer_fourth_field_path_label": benchmark.get(
+            "all_four_field_consumer_fourth_field_path_label"
+        ),
+        "all_four_field_consumer_fourth_field_sha256": benchmark.get(
+            "all_four_field_consumer_fourth_field_sha256"
         ),
         "benchmark_repeat_count_measured": benchmark.get("repeat_count_measured"),
         "benchmark_native_stub_host_wall_ms_stats": benchmark.get(
