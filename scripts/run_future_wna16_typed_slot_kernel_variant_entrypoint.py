@@ -27,7 +27,7 @@ DEFAULT_HARNESS_JSON = (
     / "outputs"
     / "reports"
     / "premap_kernel_consumer"
-    / "wna16_typed_slot_benchmark_harness_four_field_preflight_v2.json"
+    / "wna16_typed_slot_benchmark_harness_all_four_preflight_v2.json"
 )
 DEFAULT_OUTPUT_JSON = (
     REPO_ROOT
@@ -71,6 +71,9 @@ EXPECTED_HARNESS_FLAGS: dict[str, Any] = {
         "implement_future_wna16_typed_slot_kernel_variant_entrypoint"
     ),
     "fourth_field_handoff_ready": True,
+    "all_four_field_consumer_ready": True,
+    "all_four_field_consumer_fields_read": True,
+    "all_four_field_consumer_hashes_valid": True,
 }
 
 
@@ -111,6 +114,16 @@ def _is_hex_u64(value: Any) -> bool:
     except ValueError:
         return False
     return 0 < parsed <= 0xFFFFFFFFFFFFFFFF
+
+
+def _is_sha256_hex(value: Any) -> bool:
+    if not isinstance(value, str) or len(value) != 64:
+        return False
+    try:
+        int(value, 16)
+    except ValueError:
+        return False
+    return True
 
 
 def _check_harness(
@@ -179,6 +192,37 @@ def _check_harness(
     descriptor_hash = field_hashes.get("descriptor_ptr")
     if harness.get("fourth_field_handoff_field_read_hash") != descriptor_hash:
         failures.append("harness_fourth_field_handoff_descriptor_hash_mismatch")
+    fourth_evidence_path = harness.get("fourth_field_handoff_evidence_path")
+    if not isinstance(fourth_evidence_path, str) or not fourth_evidence_path:
+        failures.append("harness_fourth_field_handoff_evidence_path_missing")
+    fourth_evidence_sha = harness.get("fourth_field_handoff_evidence_sha256")
+    if not _is_sha256_hex(fourth_evidence_sha):
+        failures.append("harness_fourth_field_handoff_evidence_sha_invalid")
+    all_four_source_count = _int_metric(harness, "all_four_field_consumer_source_count")
+    if all_four_source_count is None:
+        failures.append("harness_all_four_field_consumer_source_count_invalid")
+    elif source_count is not None and all_four_source_count != source_count:
+        failures.append("harness_all_four_field_consumer_source_count_mismatch")
+    all_four_row_count = _int_metric(harness, "all_four_field_consumer_row_count")
+    all_four_row_ok_count = _int_metric(harness, "all_four_field_consumer_row_ok_count")
+    if all_four_row_count is None:
+        failures.append("harness_all_four_field_consumer_row_count_invalid")
+    elif row_count is not None and all_four_row_count != row_count:
+        failures.append("harness_all_four_field_consumer_row_count_mismatch")
+    if all_four_row_ok_count is None:
+        failures.append("harness_all_four_field_consumer_row_ok_count_invalid")
+    elif all_four_row_count is not None and all_four_row_ok_count != all_four_row_count:
+        failures.append("harness_all_four_field_consumer_row_ok_count_mismatch")
+    fourth_path = harness.get("all_four_field_consumer_fourth_field_path_label")
+    if not isinstance(fourth_path, str) or not fourth_path:
+        failures.append("harness_all_four_field_consumer_fourth_path_missing")
+    elif isinstance(fourth_evidence_path, str) and fourth_path != fourth_evidence_path:
+        failures.append("harness_all_four_field_consumer_fourth_path_mismatch")
+    fourth_sha = harness.get("all_four_field_consumer_fourth_field_sha256")
+    if not _is_sha256_hex(fourth_sha):
+        failures.append("harness_all_four_field_consumer_fourth_sha_invalid")
+    elif _is_sha256_hex(fourth_evidence_sha) and fourth_sha != fourth_evidence_sha:
+        failures.append("harness_all_four_field_consumer_fourth_sha_mismatch")
     return failures
 
 
@@ -213,6 +257,12 @@ def run_entrypoint(args: argparse.Namespace) -> dict[str, Any]:
             "handle_projection_hash_accumulator"
         ),
         "fourth_field_handoff_ready": harness.get("fourth_field_handoff_ready"),
+        "fourth_field_handoff_evidence_path": harness.get(
+            "fourth_field_handoff_evidence_path"
+        ),
+        "fourth_field_handoff_evidence_sha256": harness.get(
+            "fourth_field_handoff_evidence_sha256"
+        ),
         "fourth_field_handoff_source_count": harness.get(
             "fourth_field_handoff_source_count"
         ),
@@ -227,6 +277,30 @@ def run_entrypoint(args: argparse.Namespace) -> dict[str, Any]:
         ),
         "fourth_field_handoff_runner_hash": harness.get(
             "fourth_field_handoff_runner_hash"
+        ),
+        "all_four_field_consumer_ready": harness.get(
+            "all_four_field_consumer_ready"
+        ),
+        "all_four_field_consumer_fields_read": harness.get(
+            "all_four_field_consumer_fields_read"
+        ),
+        "all_four_field_consumer_hashes_valid": harness.get(
+            "all_four_field_consumer_hashes_valid"
+        ),
+        "all_four_field_consumer_source_count": harness.get(
+            "all_four_field_consumer_source_count"
+        ),
+        "all_four_field_consumer_row_count": harness.get(
+            "all_four_field_consumer_row_count"
+        ),
+        "all_four_field_consumer_row_ok_count": harness.get(
+            "all_four_field_consumer_row_ok_count"
+        ),
+        "all_four_field_consumer_fourth_field_path_label": harness.get(
+            "all_four_field_consumer_fourth_field_path_label"
+        ),
+        "all_four_field_consumer_fourth_field_sha256": harness.get(
+            "all_four_field_consumer_fourth_field_sha256"
         ),
         "typed_slot_entrypoint_ready": passed,
         "entrypoint_accepts_typed_slot": passed,

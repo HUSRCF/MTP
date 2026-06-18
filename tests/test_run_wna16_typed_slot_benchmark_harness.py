@@ -289,6 +289,11 @@ def test_wna16_typed_slot_benchmark_harness_accepts_strict_artifacts(tmp_path: P
     assert result["row_count"] == 257
     assert result["field_read_row_ok_counts"]["scale_metadata_handle"] == 257
     assert result["fourth_field_handoff_ready"] is True
+    assert result["fourth_field_handoff_evidence_path"] == (
+        "outputs/reports/premap_kernel_consumer/"
+        "future_wna16_typed_slot_kernel_variant_fourth_field_handoff_canary_v1.json"
+    )
+    assert result["fourth_field_handoff_evidence_sha256"] == "8" * 64
     assert result["fourth_field_handoff_source_count"] == 128
     assert result["fourth_field_handoff_row_count"] == 257
     assert result["fourth_field_handoff_row_ok_count"] == 257

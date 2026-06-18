@@ -73,11 +73,27 @@ def _harness_payload(*, row_count: int = 257, source_count: int = 128) -> dict:
         "row_hash_accumulator": "1112131415161718",
         "handle_projection_hash_accumulator": "2122232425262728",
         "fourth_field_handoff_ready": True,
+        "fourth_field_handoff_evidence_path": (
+            "outputs/reports/premap_kernel_consumer/"
+            "future_wna16_typed_slot_kernel_variant_fourth_field_handoff_canary_v1.json"
+        ),
+        "fourth_field_handoff_evidence_sha256": "8" * 64,
         "fourth_field_handoff_source_count": source_count,
         "fourth_field_handoff_row_count": row_count,
         "fourth_field_handoff_row_ok_count": row_count,
         "fourth_field_handoff_field_read_hash": "3132333435363738",
         "fourth_field_handoff_runner_hash": "8182838485868788",
+        "all_four_field_consumer_ready": True,
+        "all_four_field_consumer_fields_read": True,
+        "all_four_field_consumer_hashes_valid": True,
+        "all_four_field_consumer_source_count": source_count,
+        "all_four_field_consumer_row_count": row_count,
+        "all_four_field_consumer_row_ok_count": row_count,
+        "all_four_field_consumer_fourth_field_path_label": (
+            "outputs/reports/premap_kernel_consumer/"
+            "future_wna16_typed_slot_kernel_variant_fourth_field_handoff_canary_v1.json"
+        ),
+        "all_four_field_consumer_fourth_field_sha256": "8" * 64,
     }
 
 
@@ -106,9 +122,16 @@ def test_future_wna16_typed_slot_entrypoint_accepts_harness(tmp_path: Path):
     assert result["measures_latency"] is False
     assert result["row_count"] == 257
     assert result["fourth_field_handoff_ready"] is True
+    assert result["fourth_field_handoff_evidence_path"] == (
+        "outputs/reports/premap_kernel_consumer/"
+        "future_wna16_typed_slot_kernel_variant_fourth_field_handoff_canary_v1.json"
+    )
     assert result["fourth_field_handoff_source_count"] == 128
     assert result["fourth_field_handoff_row_count"] == 257
     assert result["fourth_field_handoff_field_read_hash"] == "3132333435363738"
+    assert result["all_four_field_consumer_ready"] is True
+    assert result["all_four_field_consumer_source_count"] == 128
+    assert result["all_four_field_consumer_row_count"] == 257
     assert result["next_runtime_stage"] == (
         "implement_future_wna16_typed_slot_kernel_timing_stub"
     )
@@ -120,7 +143,7 @@ def test_future_wna16_typed_slot_entrypoint_defaults_to_four_field_harness():
 
     default_path = Path(module.build_parser().parse_args([]).harness_json)
 
-    assert default_path.name == "wna16_typed_slot_benchmark_harness_four_field_preflight_v2.json"
+    assert default_path.name == "wna16_typed_slot_benchmark_harness_all_four_preflight_v2.json"
     assert "premap_kernel_consumer" in default_path.parts
 
 
@@ -289,6 +312,122 @@ def test_future_wna16_typed_slot_entrypoint_rejects_missing_fourth_source(
 
     assert result["passed"] is False
     assert "harness_fourth_field_handoff_source_count_invalid" in result["failures"]
+
+
+def test_future_wna16_typed_slot_entrypoint_rejects_missing_all_four_ready(
+    tmp_path: Path,
+):
+    module = _load_module()
+    harness = tmp_path / "harness.json"
+    payload = _harness_payload()
+    payload["all_four_field_consumer_ready"] = False
+    _write_json(harness, payload)
+
+    args = module.build_parser().parse_args(
+        [
+            "--harness-json",
+            str(harness),
+            "--output-json",
+            str(tmp_path / "entrypoint.json"),
+        ]
+    )
+    result = module.run_entrypoint(args)
+
+    assert result["passed"] is False
+    assert any("all_four_field_consumer_ready" in item for item in result["failures"])
+
+
+def test_future_wna16_typed_slot_entrypoint_rejects_all_four_row_mismatch(
+    tmp_path: Path,
+):
+    module = _load_module()
+    harness = tmp_path / "harness.json"
+    payload = _harness_payload()
+    payload["all_four_field_consumer_row_count"] = 256
+    payload["all_four_field_consumer_row_ok_count"] = 256
+    _write_json(harness, payload)
+
+    args = module.build_parser().parse_args(
+        [
+            "--harness-json",
+            str(harness),
+            "--output-json",
+            str(tmp_path / "entrypoint.json"),
+        ]
+    )
+    result = module.run_entrypoint(args)
+
+    assert result["passed"] is False
+    assert "harness_all_four_field_consumer_row_count_mismatch" in result["failures"]
+
+
+def test_future_wna16_typed_slot_entrypoint_rejects_all_four_invalid_sha(
+    tmp_path: Path,
+):
+    module = _load_module()
+    harness = tmp_path / "harness.json"
+    payload = _harness_payload()
+    payload["all_four_field_consumer_fourth_field_sha256"] = "not-a-sha"
+    _write_json(harness, payload)
+
+    args = module.build_parser().parse_args(
+        [
+            "--harness-json",
+            str(harness),
+            "--output-json",
+            str(tmp_path / "entrypoint.json"),
+        ]
+    )
+    result = module.run_entrypoint(args)
+
+    assert result["passed"] is False
+    assert "harness_all_four_field_consumer_fourth_sha_invalid" in result["failures"]
+
+
+def test_future_wna16_typed_slot_entrypoint_rejects_all_four_path_mismatch(
+    tmp_path: Path,
+):
+    module = _load_module()
+    harness = tmp_path / "harness.json"
+    payload = _harness_payload()
+    payload["all_four_field_consumer_fourth_field_path_label"] = "wrong/fourth.json"
+    _write_json(harness, payload)
+
+    args = module.build_parser().parse_args(
+        [
+            "--harness-json",
+            str(harness),
+            "--output-json",
+            str(tmp_path / "entrypoint.json"),
+        ]
+    )
+    result = module.run_entrypoint(args)
+
+    assert result["passed"] is False
+    assert "harness_all_four_field_consumer_fourth_path_mismatch" in result["failures"]
+
+
+def test_future_wna16_typed_slot_entrypoint_rejects_all_four_sha_mismatch(
+    tmp_path: Path,
+):
+    module = _load_module()
+    harness = tmp_path / "harness.json"
+    payload = _harness_payload()
+    payload["all_four_field_consumer_fourth_field_sha256"] = "7" * 64
+    _write_json(harness, payload)
+
+    args = module.build_parser().parse_args(
+        [
+            "--harness-json",
+            str(harness),
+            "--output-json",
+            str(tmp_path / "entrypoint.json"),
+        ]
+    )
+    result = module.run_entrypoint(args)
+
+    assert result["passed"] is False
+    assert "harness_all_four_field_consumer_fourth_sha_mismatch" in result["failures"]
 
 
 def test_future_wna16_typed_slot_entrypoint_rejects_fourth_row_mismatch(

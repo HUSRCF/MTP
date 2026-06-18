@@ -55,7 +55,7 @@ DEFAULT_OUTPUT_JSON = (
     / "outputs"
     / "reports"
     / "premap_kernel_consumer"
-    / "wna16_typed_slot_benchmark_harness_v1.json"
+    / "wna16_typed_slot_benchmark_harness_all_four_preflight_v2.json"
 )
 
 HARNESS_NAME = "premap_wna16_typed_slot_benchmark_harness_v1"
@@ -753,6 +753,12 @@ def run_harness(args: argparse.Namespace) -> dict[str, Any]:
         "field_read_hashes": field_read_hashes,
         "fourth_field_handoff_ready": preflight_summary.get(
             f"{PREFLIGHT_FOURTH_FIELD_PREFIX}_ready"
+        ),
+        "fourth_field_handoff_evidence_path": preflight_summary.get(
+            f"{PREFLIGHT_FOURTH_FIELD_PREFIX}_evidence_path"
+        ),
+        "fourth_field_handoff_evidence_sha256": preflight_summary.get(
+            f"{PREFLIGHT_FOURTH_FIELD_PREFIX}_evidence_sha256"
         ),
         "fourth_field_handoff_source_count": preflight_summary.get(
             f"{PREFLIGHT_FOURTH_FIELD_PREFIX}_source_count"

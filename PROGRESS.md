@@ -35623,4 +35623,44 @@ Review:
 ```text
 GPT-5.5 subagent review found no blocker/major after tightening SHA/path validation.
 ```
+
+2026-06-18 - All-four-aware entrypoint gate.
+
+The next artifact, `future_wna16_typed_slot_kernel_variant_entrypoint`, now
+requires the all-four-aware benchmark harness instead of only the older
+fourth-field readiness.
+
+Updates:
+
+```text
+default harness path = wna16_typed_slot_benchmark_harness_all_four_preflight_v2.json
+entrypoint checks all_four_ready / fields_read / hashes_valid
+entrypoint checks all-four source/row counts match harness rows
+entrypoint checks all-four fourth path/SHA match propagated fourth-field evidence path/SHA
+still no payload, no current WNA16 args, no kernel arg pass, no latency claim
+```
+
+Validation:
+
+```text
+conda run -n TRY python -m pytest \
+  tests/test_run_wna16_typed_slot_benchmark_harness.py \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_entrypoint.py -q
+# 40 passed
+
+conda run -n TRY python scripts/run_wna16_typed_slot_benchmark_harness.py \
+  --require-preflight-check --require-pass
+# benchmark_harness_ready = true
+
+conda run -n TRY python scripts/run_future_wna16_typed_slot_kernel_variant_entrypoint.py \
+  --require-pass
+# typed_slot_entrypoint_ready = true
+```
+
+Review:
+
+```text
+GPT-5.5 subagent review found no blocker/major/minor after binding entrypoint to
+the propagated all-four and fourth-field evidence path/SHA.
+```
 ```
