@@ -37,14 +37,14 @@ DEFAULT_PREVIOUS_FIELD_JSON = (
     / "outputs"
     / "reports"
     / "premap_kernel_consumer"
-    / "future_wna16_typed_slot_kernel_variant_second_field_handoff_canary_v1.json"
+    / "future_wna16_typed_slot_kernel_variant_second_field_handoff_canary_v3_default.json"
 )
 DEFAULT_OUTPUT_JSON = (
     REPO_ROOT
     / "outputs"
     / "reports"
     / "premap_kernel_consumer"
-    / "future_wna16_typed_slot_kernel_variant_third_field_handoff_canary_v1.json"
+    / "future_wna16_typed_slot_kernel_variant_third_field_handoff_canary_v3_default.json"
 )
 DEFAULT_CANARY_OUTPUT_DIR = (
     REPO_ROOT
@@ -129,6 +129,43 @@ def _required_false_failures(prefix: str, payload: dict[str, Any]) -> list[str]:
 
 def _native_safety_failures(prefix: str, payload: dict[str, Any]) -> list[str]:
     return previous_gate._native_safety_failures(prefix, payload)
+
+
+def _native_top_level_safety_failures(
+    prefix: str,
+    payload: dict[str, Any],
+) -> list[str]:
+    failures: list[str] = []
+    expected = {
+        "payload_bytes": 0,
+        "payload_deref_allowed": False,
+        "kernel_arg_pass_allowed": False,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "current_wna16_arg_compatible": False,
+        "requires_wna16_arg_reinterpretation": False,
+    }
+    for key, value in expected.items():
+        if key not in payload:
+            failures.append(f"{prefix}_{key}_missing")
+        elif payload.get(key) != value:
+            failures.append(f"{prefix}_{key}_mismatch:{payload.get(key)!r}!={value!r}")
+    return failures
+
+
+def _check_bound_evidence_file(
+    *,
+    prefix: str,
+    payload: dict[str, Any],
+    path_key: str,
+    sha_key: str,
+) -> list[str]:
+    return previous_gate._check_bound_evidence_file(  # noqa: SLF001
+        prefix=prefix,
+        payload=payload,
+        path_key=path_key,
+        sha_key=sha_key,
+    )
 
 
 def _raw_runner_expected(field: str) -> dict[str, Any]:
@@ -317,6 +354,8 @@ def _check_previous_gate(
     for key, value in expected.items():
         if previous.get(key) != value:
             failures.append(f"previous_{key}_mismatch:{previous.get(key)!r}!={value!r}")
+    if previous.get("failures") != []:
+        failures.append("previous_failures_not_empty")
     source_count = _int_metric(previous, "source_count")
     row_count = _int_metric(previous, "row_count")
     row_ok_count = _int_metric(previous, "row_ok_count")
@@ -357,6 +396,52 @@ def _check_previous_gate(
             failures.append("previous_payloadless_second_field_row_ok_count_mismatch")
         if payloadless_counts.get(third_field) != row_count:
             failures.append("previous_payloadless_default_third_field_row_ok_count_mismatch")
+    all_four_expected = {
+        "payloadless_all_four_field_consumer_ready": True,
+        "payloadless_all_four_field_consumer_fields_read": True,
+        "payloadless_all_four_field_consumer_hashes_valid": True,
+    }
+    for key, value in all_four_expected.items():
+        if previous.get(key) != value:
+            failures.append(f"previous_{key}_mismatch:{previous.get(key)!r}!={value!r}")
+    all_four_source_count = _int_metric(
+        previous,
+        "payloadless_all_four_field_consumer_source_count",
+    )
+    all_four_row_count = _int_metric(
+        previous,
+        "payloadless_all_four_field_consumer_row_count",
+    )
+    all_four_row_ok_count = _int_metric(
+        previous,
+        "payloadless_all_four_field_consumer_row_ok_count",
+    )
+    if source_count is not None and all_four_source_count != source_count:
+        failures.append("previous_payloadless_all_four_source_count_mismatch")
+    if row_count is not None and all_four_row_count != row_count:
+        failures.append("previous_payloadless_all_four_row_count_mismatch")
+    if row_count is not None and all_four_row_ok_count != row_count:
+        failures.append("previous_payloadless_all_four_row_ok_count_mismatch")
+    fourth_path = previous.get("payloadless_fourth_field_handoff_evidence_path")
+    fourth_sha = previous.get("payloadless_fourth_field_handoff_evidence_sha256")
+    all_four_fourth_path = previous.get(
+        "payloadless_all_four_field_consumer_fourth_field_path_label"
+    )
+    all_four_fourth_sha = previous.get(
+        "payloadless_all_four_field_consumer_fourth_field_sha256"
+    )
+    if fourth_path != all_four_fourth_path:
+        failures.append("previous_payloadless_fourth_path_all_four_mismatch")
+    if fourth_sha != all_four_fourth_sha:
+        failures.append("previous_payloadless_fourth_sha_all_four_mismatch")
+    failures.extend(
+        _check_bound_evidence_file(
+            prefix="previous_payloadless_fourth_field_handoff_evidence",
+            payload=previous,
+            path_key="payloadless_fourth_field_handoff_evidence_path",
+            sha_key="payloadless_fourth_field_handoff_evidence_sha256",
+        )
+    )
     failures.extend(_required_false_failures("previous", previous))
 
     underlying_sha_value = previous.get("second_field_underlying_sha256")
@@ -551,6 +636,8 @@ def _check_third_underlying_json(
                 f"third_field_underlying_{key}_report_mismatch:"
                 f"{underlying.get(key)!r}!={third.get(key)!r}"
             )
+    failures.extend(_native_top_level_safety_failures("third_field_underlying", underlying))
+    failures.extend(_native_safety_failures("third_field_underlying", underlying))
     return underlying_sha256, failures
 
 
@@ -687,6 +774,36 @@ def run_third_field_handoff_canary(args: argparse.Namespace) -> dict[str, Any]:
         "third_field_underlying_sha256": underlying_sha256,
         "payloadless_execution_json": previous.get("payloadless_execution_json"),
         "payloadless_execution_sha256": previous.get("payloadless_execution_sha256"),
+        "payloadless_fourth_field_handoff_evidence_path": previous.get(
+            "payloadless_fourth_field_handoff_evidence_path"
+        ),
+        "payloadless_fourth_field_handoff_evidence_sha256": previous.get(
+            "payloadless_fourth_field_handoff_evidence_sha256"
+        ),
+        "payloadless_all_four_field_consumer_ready": previous.get(
+            "payloadless_all_four_field_consumer_ready"
+        ),
+        "payloadless_all_four_field_consumer_fields_read": previous.get(
+            "payloadless_all_four_field_consumer_fields_read"
+        ),
+        "payloadless_all_four_field_consumer_hashes_valid": previous.get(
+            "payloadless_all_four_field_consumer_hashes_valid"
+        ),
+        "payloadless_all_four_field_consumer_source_count": previous.get(
+            "payloadless_all_four_field_consumer_source_count"
+        ),
+        "payloadless_all_four_field_consumer_row_count": previous.get(
+            "payloadless_all_four_field_consumer_row_count"
+        ),
+        "payloadless_all_four_field_consumer_row_ok_count": previous.get(
+            "payloadless_all_four_field_consumer_row_ok_count"
+        ),
+        "payloadless_all_four_field_consumer_fourth_field_path_label": previous.get(
+            "payloadless_all_four_field_consumer_fourth_field_path_label"
+        ),
+        "payloadless_all_four_field_consumer_fourth_field_sha256": previous.get(
+            "payloadless_all_four_field_consumer_fourth_field_sha256"
+        ),
         "source_count": third_source_count,
         "row_count": third_row_count,
         "row_ok_count": third_row_ok_count,
