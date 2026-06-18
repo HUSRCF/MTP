@@ -634,6 +634,36 @@ def test_third_field_canary_rejects_forged_third_underlying_unsafe_field(
     )
 
 
+def test_third_field_canary_rejects_unsafe_native_report_top_level(
+    tmp_path: Path,
+    monkeypatch,
+):
+    module = _load_module()
+    previous = _seed_previous_gate(tmp_path)
+
+    def fake_run(args, *, input_paths):
+        report = _third_report()
+        unsafe_report = dict(report)
+        unsafe_report["measures_tpot"] = True
+        _write_json(
+            Path(args.canary_output_dir) / "third_field_native_canary_runner.json",
+            report,
+        )
+        return unsafe_report, 7.0
+
+    monkeypatch.setattr(module, "_run_third_field_native", fake_run)
+    args = module.build_parser().parse_args(
+        _base_args(previous, tmp_path / "third.json", tmp_path)
+    )
+    result = module.run_third_field_handoff_canary(args)
+
+    assert result["passed"] is False
+    assert any(
+        item.startswith("third_measures_tpot")
+        for item in result["failures"]
+    )
+
+
 def test_third_field_canary_rejects_forged_third_underlying_top_level_kernel_arg(
     tmp_path: Path,
     monkeypatch,

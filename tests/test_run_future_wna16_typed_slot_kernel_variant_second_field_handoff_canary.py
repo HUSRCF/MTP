@@ -94,9 +94,18 @@ def _native_runner_payload(
             "aaabe281160d022" if field == SECOND_FIELD else "5152535455565758"
         ),
         "no_payload": True,
+        "payload_bytes": 0,
+        "payload_deref_allowed": False,
+        "kernel_arg_pass_allowed": False,
         "passed_to_kernel": False,
         "changes_kernel_launch_args": False,
         "current_wna16_arg_compatible": False,
+        "requires_wna16_arg_reinterpretation": False,
+        "measures_vllm_latency": False,
+        "measures_tpot": False,
+        "wna16_benchmark_ready": False,
+        "uses_current_wna16_args": False,
+        "passes_current_wna16_args": False,
         "future_wna16_single_field_handoff_canary_live_enabled": False,
         "future_wna16_single_field_handoff_canary_payload_bytes": 0,
         "future_wna16_single_field_handoff_canary_passed_to_kernel": False,
@@ -456,6 +465,31 @@ def test_second_field_canary_rejects_payloadless_hash_missing(
     assert "first_payloadless_field_read_hashes_artifact_mismatch" in result["failures"]
 
 
+def test_second_field_canary_rejects_forged_first_runner_top_level_current_wna16(
+    tmp_path: Path,
+):
+    module = _load_module()
+    first, _ = _seed_first_gate(tmp_path)
+    payload = json.loads(first.read_text(encoding="utf-8"))
+    runner = Path(payload["canary_runner_json"])
+    runner_payload = json.loads(runner.read_text(encoding="utf-8"))
+    runner_payload["uses_current_wna16_args"] = True
+    _write_json(runner, runner_payload)
+    payload["canary_runner_sha256"] = _sha256(runner)
+    _write_json(first, payload)
+
+    args = module.build_parser().parse_args(
+        _base_args(first, tmp_path / "second.json", tmp_path)
+    )
+    result = module.run_second_field_handoff_canary(args)
+
+    assert result["passed"] is False
+    assert any(
+        item.startswith("first_runner_uses_current_wna16_args")
+        for item in result["failures"]
+    )
+
+
 def test_second_field_canary_rejects_first_failures_not_empty(tmp_path: Path):
     module = _load_module()
     first, _ = _seed_first_gate(tmp_path)
@@ -650,6 +684,66 @@ def test_second_field_canary_rejects_forged_second_underlying_unsafe_field(
         item.startswith(
             "second_field_underlying_future_wna16_kernel_side_consumer_execution_kernel_arg_pass_allowed"
         )
+        for item in result["failures"]
+    )
+
+
+def test_second_field_canary_rejects_unsafe_native_report_top_level(
+    tmp_path: Path,
+    monkeypatch,
+):
+    module = _load_module()
+    first, _ = _seed_first_gate(tmp_path)
+
+    def fake_run(args, *, input_paths):
+        report = _second_report()
+        unsafe_report = dict(report)
+        unsafe_report["uses_current_wna16_args"] = True
+        _write_json(
+            Path(args.canary_output_dir) / "second_field_native_canary_runner.json",
+            report,
+        )
+        return unsafe_report, 7.0
+
+    monkeypatch.setattr(module, "_run_second_field_native", fake_run)
+    args = module.build_parser().parse_args(
+        _base_args(first, tmp_path / "second.json", tmp_path)
+    )
+    result = module.run_second_field_handoff_canary(args)
+
+    assert result["passed"] is False
+    assert any(
+        item.startswith("second_uses_current_wna16_args")
+        for item in result["failures"]
+    )
+
+
+def test_second_field_canary_rejects_forged_second_underlying_tpot_claim(
+    tmp_path: Path,
+    monkeypatch,
+):
+    module = _load_module()
+    first, _ = _seed_first_gate(tmp_path)
+
+    def fake_run(args, *, input_paths):
+        report = _second_report()
+        persisted = dict(report)
+        persisted["measures_tpot"] = True
+        _write_json(
+            Path(args.canary_output_dir) / "second_field_native_canary_runner.json",
+            persisted,
+        )
+        return report, 7.0
+
+    monkeypatch.setattr(module, "_run_second_field_native", fake_run)
+    args = module.build_parser().parse_args(
+        _base_args(first, tmp_path / "second.json", tmp_path)
+    )
+    result = module.run_second_field_handoff_canary(args)
+
+    assert result["passed"] is False
+    assert any(
+        item.startswith("second_field_underlying_measures_tpot")
         for item in result["failures"]
     )
 

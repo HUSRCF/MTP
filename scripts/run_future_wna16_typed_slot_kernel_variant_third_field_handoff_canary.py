@@ -135,15 +135,9 @@ def _native_top_level_safety_failures(
     prefix: str,
     payload: dict[str, Any],
 ) -> list[str]:
-    failures: list[str] = []
+    failures: list[str] = _required_false_failures(prefix, payload)
     expected = {
-        "payload_bytes": 0,
-        "payload_deref_allowed": False,
-        "kernel_arg_pass_allowed": False,
-        "passed_to_kernel": False,
-        "changes_kernel_launch_args": False,
-        "current_wna16_arg_compatible": False,
-        "requires_wna16_arg_reinterpretation": False,
+        "no_payload": True,
     }
     for key, value in expected.items():
         if key not in payload:
@@ -263,6 +257,7 @@ def _check_raw_runner(
         failures.append(f"{prefix}_single_field_hash_invalid")
     elif expected_hash is not None and runner_hash != expected_hash:
         failures.append(f"{prefix}_single_field_hash_summary_mismatch")
+    failures.extend(_native_top_level_safety_failures(prefix, runner))
     failures.extend(_native_safety_failures(prefix, runner))
     return failures
 

@@ -36048,4 +36048,73 @@ Review:
 GPT-5.5 subagent review found no blocker/major/minor after binding entrypoint to
 the propagated all-four and fourth-field evidence path/SHA.
 ```
+
+2026-06-18 - Fourth-field typed-slot handoff bound to third-field v3 gate.
+
+The fourth-field canary now uses the third-field v3 default artifact as its
+upstream gate and emits a v3 default artifact for the descriptor_ptr field:
+
+```text
+previous = outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_third_field_handoff_canary_v3_default.json
+output   = outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_fourth_field_handoff_canary_v3_default.json
+```
+
+Additional fourth-field requirements:
+
+```text
+previous failures must be []
+payloadless all-four consumer ready / fields_read / hashes_valid must be true
+all-four source_count / row_count / row_ok_count must match the previous gate rows
+fourth-field evidence path/SHA must match the all-four propagated fourth-field path/SHA
+fourth-field evidence file must exist and SHA-match the propagated digest
+persisted fourth-field underlying JSON must keep top-level and prefixed native safety flags closed
+native runner reports must explicitly keep latency/TPOT/current-WNA16 benchmark flags closed
+second/third/fourth gates all reject unsafe top-level native report and persisted underlying fields
+second also rejects unsafe top-level first-runner provenance fields
+one gate now requires top-level safety fields to be present, not merely false-like
+payloadless native-run timing stub now uses a dedicated artifact directory to avoid shared-path SHA drift
+benchmark / payloadless / one / second / third / fourth default artifacts are regenerated
+with explicit top-level runner safety fields
+```
+
+Validation:
+
+```text
+conda run -n TRY python -m pytest \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_fourth_field_handoff_canary.py -q
+# 25 passed
+
+conda run -n TRY python scripts/run_future_wna16_typed_slot_kernel_variant_fourth_field_handoff_canary.py \
+  --require-pass \
+  --output-json outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_fourth_field_handoff_canary_v3_default.json
+# passed = true
+# source_count = 128
+# row_count = 5345
+# fourth_field_name = descriptor_ptr
+# payload_bytes = 0
+# kernel_arg_pass_allowed = false
+# uses_current_wna16_args = false
+# measures_tpot = false
+# wna16_benchmark_ready = false
+
+conda run -n TRY python -m pytest \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_one_field_handoff_canary.py \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_second_field_handoff_canary.py \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_third_field_handoff_canary.py \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_fourth_field_handoff_canary.py \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_payloadless_execution.py \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_benchmark.py \
+  tests/test_run_future_wna16_typed_slot_kernel_timing_stub.py \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_entrypoint.py \
+  tests/test_run_wna16_typed_slot_benchmark_harness.py -q
+# 206 passed
+```
+
+Boundary:
+
+```text
+This remains a typed-slot/native-consumer ABI gate.
+It does not move payload, pass kernel args, reinterpret current WNA16 args,
+or measure vLLM latency/TPOT.
+```
 ```

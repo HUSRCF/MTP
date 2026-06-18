@@ -192,6 +192,16 @@ def _native_safety_failures(prefix: str, payload: dict[str, Any]) -> list[str]:
     return failures
 
 
+def _native_top_level_safety_failures(
+    prefix: str,
+    payload: dict[str, Any],
+) -> list[str]:
+    failures = _required_false_failures(prefix, payload)
+    if payload.get("no_payload") is not True:
+        failures.append(f"{prefix}_no_payload_mismatch:{payload.get('no_payload')!r}!=True")
+    return failures
+
+
 def _check_bound_evidence_file(
     *,
     prefix: str,
@@ -485,6 +495,7 @@ def _check_first_native_runner(
         failures.append("first_runner_single_field_hash_invalid")
     elif runner_hash != first.get("one_field_handoff_canary_runner_hash"):
         failures.append("first_runner_single_field_hash_summary_mismatch")
+    failures.extend(_native_top_level_safety_failures("first_runner", runner))
     failures.extend(_native_safety_failures("first_runner", runner))
     return input_paths, failures
 
@@ -558,6 +569,7 @@ def _check_second_report(
     second_hash = second.get("future_wna16_single_field_handoff_canary_hash_accumulator")
     if not _is_hex_u64(second_hash):
         failures.append("second_field_read_hash_invalid")
+    failures.extend(_native_top_level_safety_failures("second", second))
     failures.extend(_native_safety_failures("second", second))
     return failures
 
@@ -609,6 +621,7 @@ def _check_second_underlying_json(
                 f"second_field_underlying_{key}_report_mismatch:"
                 f"{underlying.get(key)!r}!={second.get(key)!r}"
             )
+    failures.extend(_native_top_level_safety_failures("second_field_underlying", underlying))
     failures.extend(_native_safety_failures("second_field_underlying", underlying))
     return underlying_sha256, failures
 

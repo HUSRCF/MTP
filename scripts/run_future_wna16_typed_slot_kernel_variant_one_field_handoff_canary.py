@@ -478,9 +478,27 @@ def _check_canary_report(
         "future_wna16_kernel_accept_typed_slot_payload_deref_allowed",
         "future_wna16_kernel_accept_typed_slot_kernel_arg_pass_allowed",
     )
+    required_top_level_false_keys = {
+        "measures_vllm_latency",
+        "measures_tpot",
+        "wna16_benchmark_ready",
+        "uses_current_wna16_args",
+        "passes_current_wna16_args",
+        "current_wna16_arg_compatible",
+        "requires_wna16_arg_reinterpretation",
+        "payload_deref_allowed",
+        "kernel_arg_pass_allowed",
+        "passed_to_kernel",
+        "changes_kernel_launch_args",
+    }
     for key in unsafe_true_keys:
+        if key in required_top_level_false_keys and key not in canary:
+            failures.append(f"canary_{key}_missing")
+            continue
         if not _is_false_like(canary.get(key)):
             failures.append(f"canary_{key}_unsafe_nonzero:{canary.get(key)!r}")
+    if "payload_bytes" not in canary:
+        failures.append("canary_payload_bytes_missing")
     canary_payload_bytes = canary.get("payload_bytes")
     if not _is_false_like(canary_payload_bytes):
         failures.append(f"canary_payload_bytes_nonzero:{canary_payload_bytes!r}")

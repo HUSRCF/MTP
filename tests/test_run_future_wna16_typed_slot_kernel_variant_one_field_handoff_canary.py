@@ -220,9 +220,18 @@ def _canary_report(
             "5152535455565758"
         ),
         "no_payload": True,
+        "payload_bytes": 0,
+        "payload_deref_allowed": False,
+        "kernel_arg_pass_allowed": False,
         "passed_to_kernel": False,
         "changes_kernel_launch_args": False,
         "current_wna16_arg_compatible": False,
+        "requires_wna16_arg_reinterpretation": False,
+        "measures_vllm_latency": False,
+        "measures_tpot": False,
+        "wna16_benchmark_ready": False,
+        "uses_current_wna16_args": False,
+        "passes_current_wna16_args": False,
     }
 
 
@@ -450,6 +459,35 @@ def test_one_field_handoff_canary_rejects_native_top_level_unsafe_flag(
         item.startswith("canary_uses_current_wna16_args_unsafe_nonzero")
         for item in result["failures"]
     )
+
+
+def test_one_field_handoff_canary_rejects_missing_top_level_safety_field(
+    tmp_path: Path,
+    monkeypatch,
+):
+    module = _load_module()
+    payloadless = tmp_path / "payloadless.json"
+    _write_json(payloadless, _payloadless_payload())
+
+    def fake_run(args, *, payloadless):
+        assert payloadless["passed"] is True
+        report = _canary_report()
+        report.pop("uses_current_wna16_args")
+        return report, 8.0
+
+    monkeypatch.setattr(module, "_run_native_canary", fake_run)
+    args = module.build_parser().parse_args(
+        [
+            "--payloadless-json",
+            str(payloadless),
+            "--output-json",
+            str(tmp_path / "one_field.json"),
+        ]
+    )
+    result = module.run_one_field_handoff_canary(args)
+
+    assert result["passed"] is False
+    assert "canary_uses_current_wna16_args_missing" in result["failures"]
 
 
 def test_one_field_handoff_canary_rejects_numeric_unsafe_flag(
