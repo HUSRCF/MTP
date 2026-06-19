@@ -268,6 +268,9 @@ def _check_trace_config(
     *,
     min_samples: int,
     min_tokens: int,
+    expected_split_id: str | None,
+    expected_sample_start: int | None,
+    expected_sample_end: int | None,
 ) -> dict[str, Any]:
     model = payload.get("model")
     data = payload.get("data")
@@ -300,6 +303,15 @@ def _check_trace_config(
         failures.append("trace_max_samples_invalid")
     if max_tokens is None or max_tokens < min_tokens:
         failures.append("trace_max_tokens_invalid")
+    if expected_split_id is not None and trace.get("split_id") != expected_split_id:
+        failures.append("trace_split_id_mismatch")
+    if expected_sample_start is not None:
+        if trace.get("start_sample") != expected_sample_start:
+            failures.append("trace_start_sample_mismatch")
+        if trace.get("expected_sample_start") != expected_sample_start:
+            failures.append("trace_expected_sample_start_mismatch")
+    if expected_sample_end is not None and trace.get("expected_sample_end") != expected_sample_end:
+        failures.append("trace_expected_sample_end_mismatch")
 
     shadow = trace.get("runtime_shadow")
     if not isinstance(shadow, dict):
@@ -326,6 +338,9 @@ def _check_trace_config(
         "data": data,
         "output_dir": output_dir,
         "split_id": trace.get("split_id"),
+        "start_sample": trace.get("start_sample"),
+        "expected_sample_start": trace.get("expected_sample_start"),
+        "expected_sample_end": trace.get("expected_sample_end"),
         "max_samples": max_samples,
         "max_tokens": max_tokens,
         "runtime_shadow_enabled": shadow.get("enabled"),
@@ -365,6 +380,9 @@ def run_production_like_timing_gate(args: argparse.Namespace) -> dict[str, Any]:
         failures,
         min_samples=args.min_samples,
         min_tokens=args.min_tokens,
+        expected_split_id=args.expected_split_id,
+        expected_sample_start=args.expected_sample_start,
+        expected_sample_end=args.expected_sample_end,
     )
     passed = not failures
     safety_keys = (
@@ -461,6 +479,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--min-repeat-count", type=int, default=3)
     parser.add_argument("--min-samples", type=int, default=32)
     parser.add_argument("--min-tokens", type=int, default=64)
+    parser.add_argument("--expected-split-id")
+    parser.add_argument("--expected-sample-start", type=int)
+    parser.add_argument("--expected-sample-end", type=int)
     parser.add_argument("--require-pass", action="store_true")
     return parser
 

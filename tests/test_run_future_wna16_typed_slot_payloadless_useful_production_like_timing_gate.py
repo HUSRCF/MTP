@@ -115,6 +115,35 @@ def _run(module, runtime_path: Path, config_path: Path, output_path: Path) -> di
     return module.run_production_like_timing_gate(args)
 
 
+def _run_with_expected_split(
+    module,
+    runtime_path: Path,
+    config_path: Path,
+    output_path: Path,
+    *,
+    split_id: str,
+    sample_start: int,
+    sample_end: int,
+) -> dict:
+    args = module.build_parser().parse_args(
+        [
+            "--runtime-ablation-json",
+            str(runtime_path),
+            "--trace-config",
+            str(config_path),
+            "--output-json",
+            str(output_path),
+            "--expected-split-id",
+            split_id,
+            "--expected-sample-start",
+            str(sample_start),
+            "--expected-sample-end",
+            str(sample_end),
+        ]
+    )
+    return module.run_production_like_timing_gate(args)
+
+
 def _prepare_runtime_file(module, tmp_path: Path, payload: dict | None = None) -> Path:
     repeat_path = tmp_path / "repeat.json"
     _write_json(repeat_path, {"artifact_kind": "repeat-placeholder"})
@@ -147,6 +176,63 @@ def test_production_like_timing_gate_accepts_clean_config(tmp_path: Path):
     assert result["kernel_arg_pass_allowed"] is False
     assert result["trace_config_summary"]["max_samples"] == 32
     assert json.loads(output_path.read_text(encoding="utf-8"))["passed"] is True
+
+
+def test_production_like_timing_gate_accepts_expected_heldout_split(tmp_path: Path):
+    module = _load_module()
+    config_path = tmp_path / "prod_like_heldout.yaml"
+    output_path = tmp_path / "out.json"
+    runtime_path = _prepare_runtime_file(module, tmp_path)
+    config = _trace_config_payload()
+    config["trace"]["split_id"] = "heldout32"
+    config["trace"]["start_sample"] = 32
+    config["trace"]["expected_sample_start"] = 32
+    config["trace"]["expected_sample_end"] = 63
+    _write_yaml(config_path, config)
+
+    result = _run_with_expected_split(
+        module,
+        runtime_path,
+        config_path,
+        output_path,
+        split_id="heldout32",
+        sample_start=32,
+        sample_end=63,
+    )
+
+    assert result["passed"] is True
+    assert result["trace_config_summary"]["start_sample"] == 32
+    assert result["trace_config_summary"]["expected_sample_end"] == 63
+
+
+def test_production_like_timing_gate_rejects_expected_heldout_sample_mismatch(
+    tmp_path: Path,
+):
+    module = _load_module()
+    config_path = tmp_path / "prod_like_not_heldout.yaml"
+    output_path = tmp_path / "out.json"
+    runtime_path = _prepare_runtime_file(module, tmp_path)
+    config = _trace_config_payload()
+    config["trace"]["split_id"] = "heldout32"
+    config["trace"]["start_sample"] = 0
+    config["trace"]["expected_sample_start"] = 0
+    config["trace"]["expected_sample_end"] = 31
+    _write_yaml(config_path, config)
+
+    result = _run_with_expected_split(
+        module,
+        runtime_path,
+        config_path,
+        output_path,
+        split_id="heldout32",
+        sample_start=32,
+        sample_end=63,
+    )
+
+    assert result["passed"] is False
+    assert "trace_start_sample_mismatch" in result["failures"]
+    assert "trace_expected_sample_start_mismatch" in result["failures"]
+    assert "trace_expected_sample_end_mismatch" in result["failures"]
 
 
 def test_production_like_timing_gate_rejects_runtime_ablation_tpot(tmp_path: Path):

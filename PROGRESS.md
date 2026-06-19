@@ -5,7 +5,85 @@
 - Version: `v1.14-payloadless-live-config-repeat3-summary`
 - Updated: 2026-06-20
 
-## Latest Update: Payloadless Live-Config TPOT Repeat3 Summary Passed
+## Latest Update: Heldout32 Payloadless Live-Config Readiness Gate Added
+
+The payloadless live-config path now has a heldout prompt split readiness gate
+for the next production-like TPOT check.  This does not run vLLM and does not
+measure TPOT; it only validates that the next paired run can use samples 32-63
+with the same payloadless safety boundary as the original split:
+
+```text
+configs/trace/router_mtp_trace_external_prompt_gate_dolly_32_heldout32_awq_vllm_gpu1_decode_gen64_production_no_recorder_graph.yaml
+configs/trace/router_mtp_trace_external_prompt_gate_dolly_32_heldout32_awq_vllm_gpu1_decode_gen64_payloadless_useful_candidate_graph.yaml
+outputs/reports/premap_kernel_consumer/production_like_tpot/future_wna16_typed_slot_payloadless_useful_production_like_timing_gate_dolly32_heldout32_gen64_graph_v1.json
+outputs/reports/premap_kernel_consumer/production_like_tpot/future_wna16_typed_slot_payloadless_useful_candidate_config_gate_dolly32_heldout32_gen64_graph_v1.json
+```
+
+Heldout split contract:
+
+```text
+data = configs/data/external_prompt_gate_dolly_128.yaml
+start_sample = 32
+expected_sample_start = 32
+expected_sample_end = 63
+max_samples = 32
+max_tokens = 64
+requested_output_token_count = 2048
+```
+
+The candidate config checker is now parameterized so the same safety gate can
+validate either the original split or heldout32 without copying checker logic:
+
+```text
+scripts/check_future_wna16_typed_slot_payloadless_useful_candidate_config.py
+tests/test_check_future_wna16_typed_slot_payloadless_useful_candidate_config.py
+```
+
+Validated safety:
+
+```text
+runtime_shadow_enabled = false
+record_router_topk = false
+payload_bytes = 0
+payload_deref_allowed = false
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+uses_current_wna16_args = false
+passes_current_wna16_args = false
+current_wna16_arg_compatible = false
+requires_wna16_arg_reinterpretation = false
+```
+
+Validation:
+
+```text
+/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_check_future_wna16_typed_slot_payloadless_useful_candidate_config.py \
+  tests/test_run_future_wna16_typed_slot_payloadless_useful_production_like_timing_gate.py -q
+# 20 passed
+
+/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_check_future_wna16_typed_slot_payloadless_useful_candidate_config.py \
+  tests/test_run_future_wna16_typed_slot_payloadless_useful_production_like_timing_gate.py \
+  tests/test_summarize_future_wna16_typed_slot_payloadless_useful_ab_repeats.py \
+  tests/test_build_future_wna16_typed_slot_payloadless_useful_ab_comparison.py \
+  tests/test_run_future_wna16_typed_slot_payloadless_useful_candidate_tpot_benchmark.py \
+  tests/test_vllm_premap_capacity_gate.py -q
+# 132 passed
+```
+
+Next stage:
+
+```text
+run heldout32 paired TPOT:
+  production_like baseline
+  payloadless live-config candidate
+then compare with the existing original-split repeat3 summary before promoting
+the path toward a real future typed-slot consumer benchmark.
+```
+
+## Previous Update: Payloadless Live-Config TPOT Repeat3 Summary Passed
 
 The production-compatible payloadless live-config path now has a repeat-3
 paired A/B summary on GPU1 Dolly32/gen64:

@@ -152,15 +152,21 @@ def check_candidate_config(args: argparse.Namespace) -> dict[str, Any]:
         failures.append("runtime_shadow_section_missing")
     _check_expected(trace, TRACE_EXPECTED, failures, prefix="trace")
     _check_expected(shadow, SHADOW_EXPECTED, failures, prefix="runtime_shadow")
-    if config.get("model") != "configs/model/qwen3_6_35b_a3b_awq_4bit_prod_batch32_graph.yaml":
+    if config.get("model") != args.expected_model:
         failures.append("model_config_mismatch")
-    if config.get("data") != "configs/data/external_prompt_gate_dolly_128.yaml":
+    if config.get("data") != args.expected_data:
         failures.append("data_config_mismatch")
     split_id = trace.get("split_id")
-    if split_id != "external_prompt_gate_dolly_32_gen64_payloadless_useful_candidate":
+    if split_id != args.expected_split_id:
         failures.append("split_id_mismatch")
+    if trace.get("start_sample") != args.expected_sample_start:
+        failures.append("start_sample_mismatch")
+    if trace.get("expected_sample_start") != args.expected_sample_start:
+        failures.append("expected_sample_start_mismatch")
+    if trace.get("expected_sample_end") != args.expected_sample_end:
+        failures.append("expected_sample_end_mismatch")
     output_dir = config.get("output_dir")
-    if not isinstance(output_dir, str) or "payloadless_useful_candidate" not in output_dir:
+    if not isinstance(output_dir, str) or args.output_dir_substring not in output_dir:
         failures.append("output_dir_not_candidate")
     gate_path = shadow.get("premap_consumer_readonly_gate_path")
     gate_exists = False
@@ -207,6 +213,9 @@ def check_candidate_config(args: argparse.Namespace) -> dict[str, Any]:
         "data": config.get("data"),
         "output_dir": output_dir,
         "split_id": split_id,
+        "start_sample": trace.get("start_sample"),
+        "expected_sample_start": trace.get("expected_sample_start"),
+        "expected_sample_end": trace.get("expected_sample_end"),
         "sample_count": trace.get("max_samples"),
         "max_tokens": trace.get("max_tokens"),
         "requested_output_token_count": (
@@ -247,6 +256,18 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--trace-config", default=str(DEFAULT_TRACE_CONFIG))
     parser.add_argument("--output-json", default=str(DEFAULT_OUTPUT_JSON))
+    parser.add_argument(
+        "--expected-model",
+        default="configs/model/qwen3_6_35b_a3b_awq_4bit_prod_batch32_graph.yaml",
+    )
+    parser.add_argument("--expected-data", default="configs/data/external_prompt_gate_dolly_128.yaml")
+    parser.add_argument(
+        "--expected-split-id",
+        default="external_prompt_gate_dolly_32_gen64_payloadless_useful_candidate",
+    )
+    parser.add_argument("--expected-sample-start", type=int, default=0)
+    parser.add_argument("--expected-sample-end", type=int, default=31)
+    parser.add_argument("--output-dir-substring", default="payloadless_useful_candidate")
     parser.add_argument("--require-pass", action="store_true")
     return parser
 

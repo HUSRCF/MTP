@@ -44,7 +44,17 @@ def _readonly_gate(*, passed: bool = True, passed_to_kernel: bool = False) -> di
     }
 
 
-def _candidate_config(module, gate_path: Path, *, mutate_trace=None, mutate_shadow=None) -> dict:
+def _candidate_config(
+    module,
+    gate_path: Path,
+    *,
+    split_id: str = "external_prompt_gate_dolly_32_gen64_payloadless_useful_candidate",
+    sample_start: int = 0,
+    sample_end: int = 31,
+    output_dir: str = "data/traces/tmp_payloadless_useful_candidate",
+    mutate_trace=None,
+    mutate_shadow=None,
+) -> dict:
     trace = copy.deepcopy(module.TRACE_EXPECTED)
     shadow = copy.deepcopy(module.SHADOW_EXPECTED)
     shadow["premap_consumer_readonly_gate_path"] = str(gate_path)
@@ -55,19 +65,37 @@ def _candidate_config(module, gate_path: Path, *, mutate_trace=None, mutate_shad
     return {
         "model": "configs/model/qwen3_6_35b_a3b_awq_4bit_prod_batch32_graph.yaml",
         "data": "configs/data/external_prompt_gate_dolly_128.yaml",
-        "output_dir": "data/traces/tmp_payloadless_useful_candidate",
+        "output_dir": output_dir,
         "trace": {
             **trace,
-            "split_id": "external_prompt_gate_dolly_32_gen64_payloadless_useful_candidate",
+            "split_id": split_id,
+            "expected_sample_start": sample_start,
+            "expected_sample_end": sample_end,
+            "start_sample": sample_start,
             "runtime_shadow": shadow,
         },
     }
 
 
-def _run(module, trace_config: Path, output_json: Path) -> dict:
+def _run(
+    module,
+    trace_config: Path,
+    output_json: Path,
+    *,
+    expected_split_id: str = "external_prompt_gate_dolly_32_gen64_payloadless_useful_candidate",
+    expected_sample_start: int = 0,
+    expected_sample_end: int = 31,
+    output_dir_substring: str = "payloadless_useful_candidate",
+) -> dict:
     args = SimpleNamespace(
         trace_config=str(trace_config),
         output_json=str(output_json),
+        expected_model="configs/model/qwen3_6_35b_a3b_awq_4bit_prod_batch32_graph.yaml",
+        expected_data="configs/data/external_prompt_gate_dolly_128.yaml",
+        expected_split_id=expected_split_id,
+        expected_sample_start=expected_sample_start,
+        expected_sample_end=expected_sample_end,
+        output_dir_substring=output_dir_substring,
         require_pass=False,
     )
     return module.check_candidate_config(args)
@@ -93,6 +121,44 @@ def test_candidate_config_gate_accepts_payloadless_live_config(tmp_path: Path, m
     assert result["kernel_arg_pass_allowed"] is False
     assert result["passed_to_kernel"] is False
     assert result["changes_kernel_launch_args"] is False
+
+
+def test_candidate_config_gate_accepts_heldout_split_parameters(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    module = _load_module()
+    gate = tmp_path / "readonly_gate.yaml"
+    _write_yaml(gate, _readonly_gate())
+    expected_shadow = copy.deepcopy(module.SHADOW_EXPECTED)
+    expected_shadow["premap_consumer_readonly_gate_path"] = str(gate)
+    monkeypatch.setattr(module, "SHADOW_EXPECTED", expected_shadow)
+    trace_config = tmp_path / "candidate_heldout.yaml"
+    split_id = "external_prompt_gate_dolly_32_heldout32_gen64_payloadless_useful_candidate"
+    _write_yaml(
+        trace_config,
+        _candidate_config(
+            module,
+            gate,
+            split_id=split_id,
+            sample_start=32,
+            sample_end=63,
+            output_dir="data/traces/tmp_heldout_payloadless_useful_candidate",
+        ),
+    )
+
+    result = _run(
+        module,
+        trace_config,
+        tmp_path / "out.json",
+        expected_split_id=split_id,
+        expected_sample_start=32,
+        expected_sample_end=63,
+        output_dir_substring="heldout_payloadless_useful_candidate",
+    )
+
+    assert result["passed"] is True
+    assert result["split_id"] == split_id
 
 
 def test_candidate_config_gate_rejects_runtime_shadow_enabled(tmp_path: Path, monkeypatch) -> None:
