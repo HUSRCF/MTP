@@ -66,13 +66,38 @@ def _artifact(*, role: str, tpot: float = 0.01) -> dict:
     }
 
 
+def _decision_gate() -> dict:
+    return {
+        "artifact_kind": "payloadless_live_config_performance_decision_gate",
+        "decision_name": "premap_payloadless_live_config_performance_decision_v1",
+        "passed": True,
+        "failures": [],
+        "freeze_payloadless_live_config_performance_claim": True,
+        "payloadless_live_config_status": "safe_participation_path_not_performance_mainline",
+        "real_performance_next_path": "future_typed_slot_useful_consumer_or_payload_cache_manager",
+        "payload_bytes": 0,
+        "payload_deref_allowed": False,
+        "kernel_arg_pass_allowed": False,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "uses_current_wna16_args": False,
+        "passes_current_wna16_args": False,
+        "current_wna16_arg_compatible": False,
+        "requires_wna16_arg_reinterpretation": False,
+    }
+
+
 def _run(module, baseline: Path, candidate: Path, output: Path, *extra: str) -> dict:
+    decision = output.parent / "decision_gate.json"
+    _write_json(decision, _decision_gate())
     args = module.build_parser().parse_args(
         [
             "--baseline-json",
             str(baseline),
             "--candidate-json",
             str(candidate),
+            "--decision-gate-json",
+            str(decision),
             "--output-json",
             str(output),
             *extra,
@@ -81,7 +106,7 @@ def _run(module, baseline: Path, candidate: Path, output: Path, *extra: str) -> 
     return module.build_comparison(args)
 
 
-def test_ab_comparison_passes_positive_payloadless_candidate(tmp_path: Path) -> None:
+def test_ab_comparison_blocks_positive_payloadless_candidate(tmp_path: Path) -> None:
     module = _load_module()
     baseline = tmp_path / "baseline.json"
     candidate = tmp_path / "candidate.json"
@@ -90,10 +115,13 @@ def test_ab_comparison_passes_positive_payloadless_candidate(tmp_path: Path) -> 
 
     result = _run(module, baseline, candidate, tmp_path / "out.json")
 
-    assert result["passed"] is True
+    assert result["passed"] is False
     assert result["comparison_ready"] is True
     assert result["candidate_faster"] is True
-    assert result["performance_claim_ready"] is True
+    assert result["performance_claim_ready"] is False
+    assert result["payloadless_live_config_performance_claim_frozen"] is True
+    assert result["payloadless_ab_performance_claim_allowed"] is False
+    assert "payloadless_ab_comparison_blocked_by_decision_gate" in result["failures"]
     assert result["payload_bytes"] == 0
     assert result["kernel_arg_pass_allowed"] is False
     assert result["uses_current_wna16_args"] is False
@@ -111,6 +139,7 @@ def test_ab_comparison_rejects_missing_candidate(tmp_path: Path) -> None:
     assert result["passed"] is False
     assert result["comparison_ready"] is False
     assert "candidate_json_missing" in result["failures"]
+    assert "payloadless_ab_comparison_blocked_by_decision_gate" in result["failures"]
 
 
 def test_ab_comparison_rejects_unmeasured_candidate_as_not_ready(tmp_path: Path) -> None:
@@ -289,6 +318,7 @@ def test_ab_comparison_rejects_nonpositive_candidate_by_default(tmp_path: Path) 
     assert result["passed"] is False
     assert result["candidate_faster"] is False
     assert "candidate_not_faster_than_baseline" in result["failures"]
+    assert "payloadless_ab_comparison_blocked_by_decision_gate" in result["failures"]
 
 
 def test_ab_comparison_can_report_nonpositive_candidate_when_allowed(tmp_path: Path) -> None:
@@ -311,3 +341,4 @@ def test_ab_comparison_can_report_nonpositive_candidate_when_allowed(tmp_path: P
     assert result["performance_claim_ready"] is False
     assert result["diagnostic_only"] is True
     assert "candidate_not_faster_than_baseline_diagnostic_only" in result["failures"]
+    assert "payloadless_ab_comparison_blocked_by_decision_gate" in result["failures"]

@@ -2,10 +2,97 @@
 
 ## Progress Version
 
-- Version: `v1.16-payloadless-useful-native-stub-repeat-gate`
+- Version: `v1.17-payloadless-production-tpot-blocked-by-decision-gate`
 - Updated: 2026-06-20
 
-## Latest Update: Payloadless Useful Native-Stub Repeat Gate
+## Latest Update: Payloadless Production TPOT Blocked by Decision Gate
+
+The payloadless useful production-like timing readiness gate now consumes the
+payloadless live-config performance decision gate.  The config/runtime-ablation
+inputs are internally consistent, but the heldout-negative decision blocks
+another payloadless TPOT run:
+
+```text
+outputs/reports/premap_kernel_consumer/production_like_tpot/future_wna16_typed_slot_payloadless_useful_production_like_timing_gate_dolly32_gen64_graph_v2.json
+```
+
+Result:
+
+```text
+passed = true
+production_like_timing_ready = true
+production_like_benchmark_config_ready = true
+payloadless_live_config_performance_claim_frozen = true
+payloadless_production_tpot_allowed = false
+will_measure_tpot_next = false
+next_runtime_stage = future_typed_slot_useful_consumer_or_payload_cache_manager
+```
+
+The legacy payloadless TPOT wrappers are also blocked:
+
+```text
+outputs/reports/premap_kernel_consumer/production_like_tpot/future_wna16_typed_slot_payloadless_useful_production_like_tpot_baseline_blocked_by_decision_gate_v2.json
+outputs/reports/premap_kernel_consumer/production_like_tpot/future_wna16_typed_slot_payloadless_useful_production_like_tpot_candidate_blocked_by_decision_gate_v2.json
+outputs/reports/premap_kernel_consumer/production_like_tpot/future_wna16_typed_slot_payloadless_useful_ab_comparison_blocked_by_decision_gate_v2.json
+outputs/reports/premap_kernel_consumer/production_like_tpot/future_wna16_typed_slot_payloadless_useful_ab_repeat_summary_blocked_by_decision_gate_v2.json
+```
+
+Blocked wrapper evidence:
+
+```text
+baseline wrapper:
+  passed = false
+  failures = [
+    timing_gate_payloadless_tpot_blocked_by_decision_gate,
+    timing_gate_will_measure_tpot_next_not_true
+  ]
+  run_executed = false
+  measures_tpot = false
+
+candidate wrapper:
+  passed = false
+  failures = [payloadless_candidate_tpot_blocked_by_decision_gate]
+  run_executed = false
+  measures_tpot = false
+
+A/B comparison:
+  passed = false
+  comparison_ready = false
+  performance_claim_ready = false
+  diagnostic_only = true
+  failures includes payloadless_ab_comparison_blocked_by_decision_gate
+
+repeat summary:
+  passed = false
+  performance_claim_ready = false
+  positive_all_repeats = false
+  failures includes payloadless_repeat_summary_blocked_by_decision_gate
+```
+
+Interpretation:
+
+```text
+The payloadless config is production-like and safe, but the decision gate
+prevents it from being promoted into another TPOT/performance benchmark.
+Future performance work must use a real useful typed-slot/native consumer path
+or payload/cache-manager path with non-trivial useful work.
+```
+
+Validation:
+
+```text
+/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_summarize_future_wna16_typed_slot_payloadless_useful_ab_repeats.py \
+  tests/test_build_future_wna16_typed_slot_payloadless_useful_ab_comparison.py \
+  tests/test_run_future_wna16_typed_slot_payloadless_useful_production_like_tpot_benchmark.py \
+  tests/test_run_future_wna16_typed_slot_payloadless_useful_candidate_tpot_benchmark.py \
+  tests/test_run_future_wna16_typed_slot_payloadless_useful_production_like_timing_gate.py \
+  tests/test_build_payloadless_live_config_decision_gate.py -q
+
+53 passed
+```
+
+## Previous Update: Payloadless Useful Native-Stub Repeat Gate
 
 The independent typed-slot useful-consumer path now has a repeat/stability gate
 on GPU1.  This is not a vLLM TPOT result and not a current WNA16 fused-MoE

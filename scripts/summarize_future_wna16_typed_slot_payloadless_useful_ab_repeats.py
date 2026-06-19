@@ -19,27 +19,23 @@ DEFAULT_INPUTS = [
     / "reports"
     / "premap_kernel_consumer"
     / "production_like_tpot"
-    / "future_wna16_typed_slot_payloadless_useful_ab_comparison_v1.json",
-    REPO_ROOT
-    / "outputs"
-    / "reports"
-    / "premap_kernel_consumer"
-    / "production_like_tpot"
-    / "future_wna16_typed_slot_payloadless_useful_ab_comparison_repeat1.json",
-    REPO_ROOT
-    / "outputs"
-    / "reports"
-    / "premap_kernel_consumer"
-    / "production_like_tpot"
-    / "future_wna16_typed_slot_payloadless_useful_ab_comparison_repeat2.json",
+    / "future_wna16_typed_slot_payloadless_useful_ab_comparison_blocked_by_decision_gate_v2.json",
 ]
+DEFAULT_DECISION_GATE_JSON = (
+    REPO_ROOT
+    / "outputs"
+    / "reports"
+    / "premap_kernel_consumer"
+    / "production_like_tpot"
+    / "payloadless_live_config_performance_decision_gate_v1.json"
+)
 DEFAULT_OUTPUT_JSON = (
     REPO_ROOT
     / "outputs"
     / "reports"
     / "premap_kernel_consumer"
     / "production_like_tpot"
-    / "future_wna16_typed_slot_payloadless_useful_ab_repeat3_summary_v1.json"
+    / "future_wna16_typed_slot_payloadless_useful_ab_repeat_summary_blocked_by_decision_gate_v2.json"
 )
 
 ARTIFACT_KIND = "future_wna16_typed_slot_payloadless_useful_ab_repeat_summary"
@@ -194,10 +190,50 @@ def _check_comparison(path: Path, payload: dict[str, Any], failures: list[str]) 
     }
 
 
+def _check_decision_gate(payload: dict[str, Any], failures: list[str]) -> dict[str, Any]:
+    expected = {
+        "artifact_kind": "payloadless_live_config_performance_decision_gate",
+        "decision_name": "premap_payloadless_live_config_performance_decision_v1",
+        "passed": True,
+        "failures": [],
+        "freeze_payloadless_live_config_performance_claim": True,
+        "payloadless_live_config_status": "safe_participation_path_not_performance_mainline",
+        "real_performance_next_path": "future_typed_slot_useful_consumer_or_payload_cache_manager",
+        "payload_bytes": 0,
+        "payload_deref_allowed": False,
+        "kernel_arg_pass_allowed": False,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "uses_current_wna16_args": False,
+        "passes_current_wna16_args": False,
+        "current_wna16_arg_compatible": False,
+        "requires_wna16_arg_reinterpretation": False,
+    }
+    for key, expected_value in expected.items():
+        if payload.get(key) != expected_value:
+            failures.append(f"decision_gate_{key}_mismatch")
+    if payload.get("freeze_payloadless_live_config_performance_claim") is True:
+        failures.append("payloadless_repeat_summary_blocked_by_decision_gate")
+    return {
+        "freeze_payloadless_live_config_performance_claim": payload.get(
+            "freeze_payloadless_live_config_performance_claim"
+        ),
+        "payloadless_live_config_status": payload.get("payloadless_live_config_status"),
+        "real_performance_next_path": payload.get("real_performance_next_path"),
+    }
+
+
 def build_summary(args: argparse.Namespace) -> dict[str, Any]:
     output_path = _resolve(args.output_json)
     paths = [_resolve(path) for path in args.inputs]
+    decision_gate_path = _resolve(args.decision_gate_json)
     failures: list[str] = []
+    try:
+        decision_gate = _load_json(decision_gate_path)
+    except Exception as exc:
+        decision_gate = {}
+        failures.append(f"decision_gate_load_failed:{exc.__class__.__name__}:{exc}")
+    decision_summary = _check_decision_gate(decision_gate, failures)
     if len(set(paths)) != len(paths):
         failures.append("duplicate_input_paths")
     rows: list[dict[str, Any]] = []
@@ -248,6 +284,13 @@ def build_summary(args: argparse.Namespace) -> dict[str, Any]:
         "repeat_count": len(rows),
         "min_repeats": min_repeats,
         "positive_all_repeats": positive_all,
+        "performance_claim_ready": False,
+        "decision_gate_json": str(decision_gate_path),
+        "decision_summary": decision_summary,
+        "payloadless_live_config_performance_claim_frozen": decision_summary.get(
+            "freeze_payloadless_live_config_performance_claim"
+        ),
+        "payloadless_repeat_summary_allowed": False,
         "rows": rows,
         "speedup_stats": _stats(speedups),
         "improvement_pct_stats": _stats(improvements),
@@ -261,11 +304,15 @@ def build_summary(args: argparse.Namespace) -> dict[str, Any]:
         "current_wna16_arg_compatible": False,
         "requires_wna16_arg_reinterpretation": False,
         "claim_boundary": (
-            "Repeat summary for the payloadless live-config path only.  This is "
-            "not a real WNA16 typed-slot kernel benchmark and does not pass or "
-            "mutate kernel arguments."
+            "Blocked repeat summary for the payloadless live-config path. This "
+            "is not a performance claim, not a real WNA16 typed-slot kernel "
+            "benchmark, and does not pass or mutate kernel arguments."
         ),
-        "next_runtime_stage": NEXT_RUNTIME_STAGE,
+        "next_runtime_stage": (
+            decision_summary.get("real_performance_next_path")
+            if decision_summary.get("freeze_payloadless_live_config_performance_claim") is True
+            else NEXT_RUNTIME_STAGE
+        ),
     }
     _write_json(output_path, result)
     if args.require_pass and not passed:
@@ -276,6 +323,7 @@ def build_summary(args: argparse.Namespace) -> dict[str, Any]:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--inputs", nargs="+", default=[str(path) for path in DEFAULT_INPUTS])
+    parser.add_argument("--decision-gate-json", default=str(DEFAULT_DECISION_GATE_JSON))
     parser.add_argument("--output-json", default=str(DEFAULT_OUTPUT_JSON))
     parser.add_argument("--min-repeats", type=int, default=3)
     parser.add_argument("--require-pass", action="store_true")

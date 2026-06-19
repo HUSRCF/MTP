@@ -55,6 +55,31 @@ def _runtime_ablation_payload(module) -> dict:
     }
 
 
+def _decision_gate_payload() -> dict:
+    return {
+        "artifact_kind": "payloadless_live_config_performance_decision_gate",
+        "decision_name": "premap_payloadless_live_config_performance_decision_v1",
+        "decision_mode": "original_positive_heldout_negative_useful_consumer_ready",
+        "passed": True,
+        "failures": [],
+        "freeze_payloadless_live_config_performance_claim": True,
+        "payloadless_live_config_status": "safe_participation_path_not_performance_mainline",
+        "real_performance_next_path": "future_typed_slot_useful_consumer_or_payload_cache_manager",
+        "heldout_summary": {"performance_signal": "negative_heldout32"},
+        "repeat_summary": {"performance_signal": "small_positive_original_split"},
+        "useful_consumer_summary": {"consumer_signal": "ready_but_not_tpot_measured"},
+        "payload_bytes": 0,
+        "payload_deref_allowed": False,
+        "kernel_arg_pass_allowed": False,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "uses_current_wna16_args": False,
+        "passes_current_wna16_args": False,
+        "current_wna16_arg_compatible": False,
+        "requires_wna16_arg_reinterpretation": False,
+    }
+
+
 def _trace_config_payload() -> dict:
     return {
         "model": "configs/model/qwen3_6_35b_a3b_awq_4bit_prod_batch32_graph.yaml",
@@ -102,10 +127,14 @@ def _trace_config_payload() -> dict:
 
 
 def _run(module, runtime_path: Path, config_path: Path, output_path: Path) -> dict:
+    decision_path = output_path.parent / "decision_gate.json"
+    _write_json(decision_path, _decision_gate_payload())
     args = module.build_parser().parse_args(
         [
             "--runtime-ablation-json",
             str(runtime_path),
+            "--decision-gate-json",
+            str(decision_path),
             "--trace-config",
             str(config_path),
             "--output-json",
@@ -125,10 +154,14 @@ def _run_with_expected_split(
     sample_start: int,
     sample_end: int,
 ) -> dict:
+    decision_path = output_path.parent / "decision_gate.json"
+    _write_json(decision_path, _decision_gate_payload())
     args = module.build_parser().parse_args(
         [
             "--runtime-ablation-json",
             str(runtime_path),
+            "--decision-gate-json",
+            str(decision_path),
             "--trace-config",
             str(config_path),
             "--output-json",
@@ -172,10 +205,49 @@ def test_production_like_timing_gate_accepts_clean_config(tmp_path: Path):
     assert result["measures_tpot"] is False
     assert result["current_artifact_is_tpot_benchmark"] is False
     assert result["current_wna16_benchmark_ready"] is False
-    assert result["will_measure_tpot_next"] is True
+    assert result["payloadless_live_config_performance_claim_frozen"] is True
+    assert result["payloadless_production_tpot_allowed"] is False
+    assert result["will_measure_tpot_next"] is False
+    assert (
+        result["next_runtime_stage"]
+        == "future_typed_slot_useful_consumer_or_payload_cache_manager"
+    )
     assert result["kernel_arg_pass_allowed"] is False
     assert result["trace_config_summary"]["max_samples"] == 32
     assert json.loads(output_path.read_text(encoding="utf-8"))["passed"] is True
+
+
+def test_production_like_timing_gate_rejects_unfrozen_decision_gate(
+    tmp_path: Path,
+):
+    module = _load_module()
+    config_path = tmp_path / "prod_like.yaml"
+    output_path = tmp_path / "out.json"
+    runtime_path = _prepare_runtime_file(module, tmp_path)
+    decision_path = tmp_path / "decision_gate.json"
+    decision = _decision_gate_payload()
+    decision["freeze_payloadless_live_config_performance_claim"] = False
+    _write_json(decision_path, decision)
+    _write_yaml(config_path, _trace_config_payload())
+    args = module.build_parser().parse_args(
+        [
+            "--runtime-ablation-json",
+            str(runtime_path),
+            "--decision-gate-json",
+            str(decision_path),
+            "--trace-config",
+            str(config_path),
+            "--output-json",
+            str(output_path),
+        ]
+    )
+
+    result = module.run_production_like_timing_gate(args)
+
+    assert result["passed"] is False
+    assert "decision_gate_freeze_payloadless_live_config_performance_claim_mismatch" in result[
+        "failures"
+    ]
 
 
 def test_production_like_timing_gate_accepts_expected_heldout_split(tmp_path: Path):

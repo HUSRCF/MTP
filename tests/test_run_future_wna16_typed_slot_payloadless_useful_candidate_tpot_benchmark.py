@@ -54,6 +54,27 @@ def _gate(trace_config: Path, trace_dir: Path) -> dict:
     }
 
 
+def _decision_gate() -> dict:
+    return {
+        "artifact_kind": "payloadless_live_config_performance_decision_gate",
+        "decision_name": "premap_payloadless_live_config_performance_decision_v1",
+        "passed": True,
+        "failures": [],
+        "freeze_payloadless_live_config_performance_claim": True,
+        "payloadless_live_config_status": "safe_participation_path_not_performance_mainline",
+        "real_performance_next_path": "future_typed_slot_useful_consumer_or_payload_cache_manager",
+        "payload_bytes": 0,
+        "payload_deref_allowed": False,
+        "kernel_arg_pass_allowed": False,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "uses_current_wna16_args": False,
+        "passes_current_wna16_args": False,
+        "current_wna16_arg_compatible": False,
+        "requires_wna16_arg_reinterpretation": False,
+    }
+
+
 def _sha256(path: Path) -> str:
     import hashlib
 
@@ -106,10 +127,14 @@ def _performance_summary(**overrides) -> dict:
 
 
 def _run(module, gate_json: Path, output_json: Path, *extra: str) -> dict:
+    decision_json = output_json.parent / "decision_gate.json"
+    _write_json(decision_json, _decision_gate())
     args = module.build_parser().parse_args(
         [
             "--config-gate-json",
             str(gate_json),
+            "--decision-gate-json",
+            str(decision_json),
             "--output-json",
             str(output_json),
             *extra,
@@ -118,7 +143,7 @@ def _run(module, gate_json: Path, output_json: Path, *extra: str) -> dict:
     return module.run_candidate_tpot_benchmark(args)
 
 
-def test_candidate_tpot_wrapper_accepts_payloadless_live_config_summary(tmp_path: Path) -> None:
+def test_candidate_tpot_wrapper_blocks_payloadless_live_config_summary(tmp_path: Path) -> None:
     module = _load_module()
     trace_config = tmp_path / "trace.yaml"
     trace_config.write_text("trace:\n  runtime_shadow: {}\n", encoding="utf-8")
@@ -129,15 +154,18 @@ def test_candidate_tpot_wrapper_accepts_payloadless_live_config_summary(tmp_path
 
     result = _run(module, gate, tmp_path / "out.json")
 
-    assert result["passed"] is True
-    assert result["production_like_tpot_candidate_ready"] is True
+    assert result["passed"] is False
+    assert result["production_like_tpot_candidate_ready"] is False
+    assert "payloadless_candidate_tpot_blocked_by_decision_gate" in result["failures"]
     assert result["benchmark_mode"] == "production_like_payloadless_useful_candidate"
     assert result["benchmark_is_current_vllm_baseline"] is False
     assert result["benchmark_is_future_typed_slot_useful_path"] is True
     assert result["payloadless_useful_mode_enabled"] is True
+    assert result["payloadless_live_config_performance_claim_frozen"] is True
+    assert result["payloadless_candidate_tpot_allowed"] is False
     assert result["kernel_arg_pass_allowed"] is False
     assert result["passed_to_kernel"] is False
-    assert result["tokens_per_second"] == 1.0 / 0.006
+    assert result["measures_tpot"] is False
 
 
 def test_candidate_tpot_wrapper_rejects_missing_live_config_summary(tmp_path: Path) -> None:
@@ -157,10 +185,7 @@ def test_candidate_tpot_wrapper_rejects_missing_live_config_summary(tmp_path: Pa
     result = _run(module, gate, tmp_path / "out.json")
 
     assert result["passed"] is False
-    assert (
-        "performance_summary_runtime_shadow_premap_live_config_without_router_recorder_enabled_not_true"
-        in result["failures"]
-    )
+    assert "payloadless_candidate_tpot_blocked_by_decision_gate" in result["failures"]
 
 
 def test_candidate_tpot_wrapper_rejects_kernel_arg_pass(tmp_path: Path) -> None:
@@ -180,10 +205,7 @@ def test_candidate_tpot_wrapper_rejects_kernel_arg_pass(tmp_path: Path) -> None:
     result = _run(module, gate, tmp_path / "out.json")
 
     assert result["passed"] is False
-    assert (
-        "performance_summary_runtime_shadow_premap_kernel_arg_handoff_kernel_arg_pass_enabled_not_false"
-        in result["failures"]
-    )
+    assert "payloadless_candidate_tpot_blocked_by_decision_gate" in result["failures"]
 
 
 def test_candidate_tpot_wrapper_rejects_unbound_trace_dir(tmp_path: Path) -> None:
@@ -199,4 +221,4 @@ def test_candidate_tpot_wrapper_rejects_unbound_trace_dir(tmp_path: Path) -> Non
     result = _run(module, gate, tmp_path / "out.json", "--trace-dir", str(other_trace_dir))
 
     assert result["passed"] is False
-    assert "trace_dir_not_bound_to_config_gate" in result["failures"]
+    assert "payloadless_candidate_tpot_blocked_by_decision_gate" in result["failures"]

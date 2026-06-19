@@ -33,7 +33,8 @@ DEFAULT_TIMING_GATE_JSON = (
     / "outputs"
     / "reports"
     / "premap_kernel_consumer"
-    / "future_wna16_typed_slot_payloadless_useful_production_like_timing_gate_dolly32_gen64_graph_v1.json"
+    / "production_like_tpot"
+    / "future_wna16_typed_slot_payloadless_useful_production_like_timing_gate_dolly32_gen64_graph_v2.json"
 )
 DEFAULT_OUTPUT_ROOT = (
     REPO_ROOT
@@ -44,7 +45,7 @@ DEFAULT_OUTPUT_ROOT = (
 )
 DEFAULT_OUTPUT_JSON = (
     DEFAULT_OUTPUT_ROOT
-    / "future_wna16_typed_slot_payloadless_useful_production_like_tpot_baseline_dolly32_gen64_graph_v1.json"
+    / "future_wna16_typed_slot_payloadless_useful_production_like_tpot_baseline_blocked_by_decision_gate_v2.json"
 )
 DEFAULT_PYTHON = "/home/husrcf/anaconda3/envs/TRY/bin/python"
 
@@ -82,8 +83,10 @@ EXPECTED_GATE_FLAGS: dict[str, Any] = {
     "wna16_benchmark_ready": False,
     "current_artifact_is_tpot_benchmark": False,
     "current_wna16_benchmark_ready": False,
-    "will_measure_tpot_next": True,
-    "next_runtime_stage": "run_production_like_vllm_paired_tpot_benchmark",
+    "payloadless_live_config_performance_claim_frozen": True,
+    "payloadless_production_tpot_allowed": False,
+    "will_measure_tpot_next": False,
+    "next_runtime_stage": "future_typed_slot_useful_consumer_or_payload_cache_manager",
 }
 
 PERF_FIELDS = (
@@ -157,6 +160,10 @@ def _check_gate(gate: dict[str, Any], failures: list[str]) -> None:
     for key, expected in EXPECTED_GATE_FLAGS.items():
         if gate.get(key) != expected:
             failures.append(f"timing_gate_{key}_mismatch")
+    if gate.get("payloadless_production_tpot_allowed") is not True:
+        failures.append("timing_gate_payloadless_tpot_blocked_by_decision_gate")
+    if gate.get("will_measure_tpot_next") is not True:
+        failures.append("timing_gate_will_measure_tpot_next_not_true")
     trace_config = gate.get("trace_config")
     trace_sha = gate.get("trace_config_sha256")
     if not isinstance(trace_config, str) or not trace_config:

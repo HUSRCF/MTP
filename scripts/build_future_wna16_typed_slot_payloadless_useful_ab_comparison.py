@@ -32,7 +32,7 @@ DEFAULT_BASELINE_JSON = (
     / "reports"
     / "premap_kernel_consumer"
     / "production_like_tpot"
-    / "future_wna16_typed_slot_payloadless_useful_production_like_tpot_baseline_dolly32_gen64_graph_v1.json"
+    / "future_wna16_typed_slot_payloadless_useful_production_like_tpot_baseline_blocked_by_decision_gate_v2.json"
 )
 DEFAULT_CANDIDATE_JSON = (
     REPO_ROOT
@@ -40,7 +40,15 @@ DEFAULT_CANDIDATE_JSON = (
     / "reports"
     / "premap_kernel_consumer"
     / "production_like_tpot"
-    / "future_wna16_typed_slot_payloadless_useful_production_like_tpot_candidate_dolly32_gen64_graph_v1.json"
+    / "future_wna16_typed_slot_payloadless_useful_production_like_tpot_candidate_blocked_by_decision_gate_v2.json"
+)
+DEFAULT_DECISION_GATE_JSON = (
+    REPO_ROOT
+    / "outputs"
+    / "reports"
+    / "premap_kernel_consumer"
+    / "production_like_tpot"
+    / "payloadless_live_config_performance_decision_gate_v1.json"
 )
 DEFAULT_OUTPUT_JSON = (
     REPO_ROOT
@@ -48,7 +56,7 @@ DEFAULT_OUTPUT_JSON = (
     / "reports"
     / "premap_kernel_consumer"
     / "production_like_tpot"
-    / "future_wna16_typed_slot_payloadless_useful_ab_comparison_v1.json"
+    / "future_wna16_typed_slot_payloadless_useful_ab_comparison_blocked_by_decision_gate_v2.json"
 )
 
 ARTIFACT_KIND = "future_wna16_typed_slot_payloadless_useful_ab_comparison"
@@ -226,6 +234,39 @@ def _load_role(path: Path, failures: list[str], *, role: str) -> tuple[dict[str,
     return artifact, facts
 
 
+def _check_decision_gate(payload: dict[str, Any], failures: list[str]) -> dict[str, Any]:
+    expected = {
+        "artifact_kind": "payloadless_live_config_performance_decision_gate",
+        "decision_name": "premap_payloadless_live_config_performance_decision_v1",
+        "passed": True,
+        "failures": [],
+        "freeze_payloadless_live_config_performance_claim": True,
+        "payloadless_live_config_status": "safe_participation_path_not_performance_mainline",
+        "real_performance_next_path": "future_typed_slot_useful_consumer_or_payload_cache_manager",
+        "payload_bytes": 0,
+        "payload_deref_allowed": False,
+        "kernel_arg_pass_allowed": False,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "uses_current_wna16_args": False,
+        "passes_current_wna16_args": False,
+        "current_wna16_arg_compatible": False,
+        "requires_wna16_arg_reinterpretation": False,
+    }
+    for key, expected_value in expected.items():
+        if payload.get(key) != expected_value:
+            failures.append(f"decision_gate_{key}_mismatch")
+    if payload.get("freeze_payloadless_live_config_performance_claim") is True:
+        failures.append("payloadless_ab_comparison_blocked_by_decision_gate")
+    return {
+        "freeze_payloadless_live_config_performance_claim": payload.get(
+            "freeze_payloadless_live_config_performance_claim"
+        ),
+        "payloadless_live_config_status": payload.get("payloadless_live_config_status"),
+        "real_performance_next_path": payload.get("real_performance_next_path"),
+    }
+
+
 def _check_context(
     baseline: dict[str, Any],
     candidate: dict[str, Any],
@@ -295,9 +336,16 @@ def _artifact_has_valid_tpot(artifact: dict[str, Any], facts: dict[str, Any]) ->
 def build_comparison(args: argparse.Namespace) -> dict[str, Any]:
     baseline_path = _resolve(args.baseline_json)
     candidate_path = _resolve(args.candidate_json)
+    decision_gate_path = _resolve(args.decision_gate_json)
     output_path = _resolve(args.output_json)
     failures: list[str] = []
 
+    try:
+        decision_gate = _load_json(decision_gate_path)
+    except Exception as exc:
+        decision_gate = {}
+        failures.append(f"decision_gate_load_failed:{exc.__class__.__name__}:{exc}")
+    decision_summary = _check_decision_gate(decision_gate, failures)
     baseline_artifact, baseline = _load_role(baseline_path, failures, role="baseline")
     candidate_artifact, candidate = _load_role(candidate_path, failures, role="candidate")
     if baseline and candidate:
@@ -345,6 +393,13 @@ def build_comparison(args: argparse.Namespace) -> dict[str, Any]:
         "baseline_sha256": _sha256(baseline_path),
         "candidate_json": str(candidate_path),
         "candidate_sha256": _sha256(candidate_path),
+        "decision_gate_json": str(decision_gate_path),
+        "decision_gate_sha256": _sha256(decision_gate_path),
+        "decision_summary": decision_summary,
+        "payloadless_live_config_performance_claim_frozen": decision_summary.get(
+            "freeze_payloadless_live_config_performance_claim"
+        ),
+        "payloadless_ab_performance_claim_allowed": False,
         "baseline": baseline,
         "candidate": candidate,
         "baseline_benchmark_mode": baseline_artifact.get("benchmark_mode"),
@@ -376,9 +431,11 @@ def build_comparison(args: argparse.Namespace) -> dict[str, Any]:
         "speedup_vs_baseline": speedup,
         "improvement_pct": improvement_pct,
         "candidate_faster": candidate_faster,
-        "performance_claim_ready": bool(passed and candidate_faster),
+        "performance_claim_ready": False,
         "diagnostic_only": bool(
-            args.allow_nonpositive_candidate and candidate_faster is False
+            decision_summary.get("freeze_payloadless_live_config_performance_claim")
+            is True
+            or (args.allow_nonpositive_candidate and candidate_faster is False)
         ),
         "claim_boundary": (
             "Strict production-like TPOT comparison for a future payloadless useful "
@@ -387,7 +444,13 @@ def build_comparison(args: argparse.Namespace) -> dict[str, Any]:
             "kernel argument handoff."
         ),
         "next_runtime_stage": (
-            NEXT_RUNTIME_STAGE if passed else "produce_or_fix_payloadless_useful_candidate_tpot_artifact"
+            decision_summary.get("real_performance_next_path")
+            if decision_summary.get("freeze_payloadless_live_config_performance_claim") is True
+            else (
+                NEXT_RUNTIME_STAGE
+                if passed
+                else "produce_or_fix_payloadless_useful_candidate_tpot_artifact"
+            )
         ),
     }
     _write_json(output_path, result)
@@ -400,6 +463,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--baseline-json", default=str(DEFAULT_BASELINE_JSON))
     parser.add_argument("--candidate-json", default=str(DEFAULT_CANDIDATE_JSON))
+    parser.add_argument("--decision-gate-json", default=str(DEFAULT_DECISION_GATE_JSON))
     parser.add_argument("--output-json", default=str(DEFAULT_OUTPUT_JSON))
     parser.add_argument("--expected-sample-count", type=int, default=32)
     parser.add_argument("--expected-requested-output-token-count", type=int, default=2048)

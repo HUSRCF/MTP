@@ -68,11 +68,36 @@ def _comparison(
     }
 
 
+def _decision_gate() -> dict:
+    return {
+        "artifact_kind": "payloadless_live_config_performance_decision_gate",
+        "decision_name": "premap_payloadless_live_config_performance_decision_v1",
+        "passed": True,
+        "failures": [],
+        "freeze_payloadless_live_config_performance_claim": True,
+        "payloadless_live_config_status": "safe_participation_path_not_performance_mainline",
+        "real_performance_next_path": "future_typed_slot_useful_consumer_or_payload_cache_manager",
+        "payload_bytes": 0,
+        "payload_deref_allowed": False,
+        "kernel_arg_pass_allowed": False,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "uses_current_wna16_args": False,
+        "passes_current_wna16_args": False,
+        "current_wna16_arg_compatible": False,
+        "requires_wna16_arg_reinterpretation": False,
+    }
+
+
 def _run(module, inputs: list[Path], output: Path, *extra: str) -> dict:
+    decision = output.parent / "decision_gate.json"
+    _write_json(decision, _decision_gate())
     args = module.build_parser().parse_args(
         [
             "--inputs",
             *[str(path) for path in inputs],
+            "--decision-gate-json",
+            str(decision),
             "--output-json",
             str(output),
             *extra,
@@ -81,7 +106,7 @@ def _run(module, inputs: list[Path], output: Path, *extra: str) -> dict:
     return module.build_summary(args)
 
 
-def test_payloadless_ab_repeat_summary_passes_positive_repeats(tmp_path: Path) -> None:
+def test_payloadless_ab_repeat_summary_blocks_positive_repeats(tmp_path: Path) -> None:
     module = _load_module()
     inputs = []
     for idx, candidate_tpot in enumerate([0.99, 0.985, 0.98]):
@@ -91,9 +116,13 @@ def test_payloadless_ab_repeat_summary_passes_positive_repeats(tmp_path: Path) -
 
     result = _run(module, inputs, tmp_path / "out.json")
 
-    assert result["passed"] is True
+    assert result["passed"] is False
     assert result["repeat_count"] == 3
     assert result["positive_all_repeats"] is True
+    assert result["performance_claim_ready"] is False
+    assert result["payloadless_live_config_performance_claim_frozen"] is True
+    assert result["payloadless_repeat_summary_allowed"] is False
+    assert "payloadless_repeat_summary_blocked_by_decision_gate" in result["failures"]
     assert result["speedup_stats"]["count"] == 3
     assert result["speedup_stats"]["min"] > 1.0
     assert result["kernel_arg_pass_allowed"] is False

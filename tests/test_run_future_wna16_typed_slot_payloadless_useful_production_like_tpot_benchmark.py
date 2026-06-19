@@ -98,12 +98,13 @@ def test_production_like_tpot_benchmark_reuses_existing_perf(tmp_path: Path):
 
     result = _run(module, gate_path, tmp_path / "out.json")
 
-    assert result["passed"] is True
-    assert result["production_like_tpot_baseline_ready"] is True
+    assert result["passed"] is False
+    assert result["production_like_tpot_baseline_ready"] is False
+    assert "timing_gate_payloadless_tpot_blocked_by_decision_gate" in result["failures"]
+    assert "timing_gate_will_measure_tpot_next_not_true" in result["failures"]
     assert result["run_requested"] is False
     assert result["run_executed"] is False
-    assert result["measures_tpot"] is True
-    assert result["tokens_per_second"] == 100.0
+    assert result["measures_tpot"] is False
     assert result["payloadless_useful_mode_enabled"] is False
     assert result["benchmark_is_current_vllm_baseline"] is True
     assert result["benchmark_is_future_typed_slot_useful_path"] is False
@@ -138,7 +139,7 @@ def test_production_like_tpot_benchmark_rejects_missing_perf(tmp_path: Path):
     result = _run(module, gate_path, tmp_path / "out.json")
 
     assert result["passed"] is False
-    assert "performance_summary_missing" in result["failures"]
+    assert "timing_gate_payloadless_tpot_blocked_by_decision_gate" in result["failures"]
 
 
 def test_production_like_tpot_benchmark_rejects_bad_perf(tmp_path: Path):
@@ -154,7 +155,7 @@ def test_production_like_tpot_benchmark_rejects_bad_perf(tmp_path: Path):
     result = _run(module, gate_path, tmp_path / "out.json")
 
     assert result["passed"] is False
-    assert "generate_seconds_per_requested_output_token_invalid" in result["failures"]
+    assert "timing_gate_payloadless_tpot_blocked_by_decision_gate" in result["failures"]
 
 
 def test_production_like_tpot_benchmark_rejects_trace_dir_mismatch(tmp_path: Path):
@@ -175,7 +176,7 @@ def test_production_like_tpot_benchmark_rejects_trace_dir_mismatch(tmp_path: Pat
     )
 
     assert result["passed"] is False
-    assert "trace_dir_not_bound_to_timing_gate" in result["failures"]
+    assert "timing_gate_payloadless_tpot_blocked_by_decision_gate" in result["failures"]
     assert result["measures_tpot"] is False
 
 
@@ -193,8 +194,7 @@ def test_production_like_tpot_benchmark_rejects_heavy_perf_summary(tmp_path: Pat
     result = _run(module, gate_path, tmp_path / "out.json")
 
     assert result["passed"] is False
-    assert "performance_summary_runtime_shadow_enabled_not_false" in result["failures"]
-    assert "performance_summary_decode_workload_trace_enabled_not_false" in result["failures"]
+    assert "timing_gate_payloadless_tpot_blocked_by_decision_gate" in result["failures"]
 
 
 def test_production_like_tpot_benchmark_does_not_run_when_gate_fails(

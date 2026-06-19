@@ -32,6 +32,14 @@ DEFAULT_RUNTIME_ABLATION_JSON = (
     / "premap_kernel_consumer"
     / "future_wna16_typed_slot_payloadless_useful_runtime_ablation_entry_args_ptr_repeat3_gpu1_v1.json"
 )
+DEFAULT_DECISION_GATE_JSON = (
+    REPO_ROOT
+    / "outputs"
+    / "reports"
+    / "premap_kernel_consumer"
+    / "production_like_tpot"
+    / "payloadless_live_config_performance_decision_gate_v1.json"
+)
 DEFAULT_TRACE_CONFIG = (
     REPO_ROOT
     / "configs"
@@ -244,6 +252,59 @@ def _check_runtime_ablation(
             failures.append(f"runtime_ablation_{field}_field_hash_invalid")
 
 
+def _check_decision_gate(payload: dict[str, Any], failures: list[str]) -> dict[str, Any]:
+    expected = {
+        "artifact_kind": "payloadless_live_config_performance_decision_gate",
+        "decision_name": "premap_payloadless_live_config_performance_decision_v1",
+        "decision_mode": "original_positive_heldout_negative_useful_consumer_ready",
+        "passed": True,
+        "failures": [],
+        "freeze_payloadless_live_config_performance_claim": True,
+        "payloadless_live_config_status": "safe_participation_path_not_performance_mainline",
+        "real_performance_next_path": "future_typed_slot_useful_consumer_or_payload_cache_manager",
+        "payload_bytes": 0,
+        "payload_deref_allowed": False,
+        "kernel_arg_pass_allowed": False,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "uses_current_wna16_args": False,
+        "passes_current_wna16_args": False,
+        "current_wna16_arg_compatible": False,
+        "requires_wna16_arg_reinterpretation": False,
+    }
+    for key, expected_value in expected.items():
+        if payload.get(key) != expected_value:
+            failures.append(f"decision_gate_{key}_mismatch")
+    heldout_summary = payload.get("heldout_summary")
+    repeat_summary = payload.get("repeat_summary")
+    useful_summary = payload.get("useful_consumer_summary")
+    if not isinstance(heldout_summary, dict):
+        failures.append("decision_gate_heldout_summary_missing")
+        heldout_summary = {}
+    if not isinstance(repeat_summary, dict):
+        failures.append("decision_gate_repeat_summary_missing")
+        repeat_summary = {}
+    if not isinstance(useful_summary, dict):
+        failures.append("decision_gate_useful_consumer_summary_missing")
+        useful_summary = {}
+    if heldout_summary.get("performance_signal") != "negative_heldout32":
+        failures.append("decision_gate_heldout_signal_mismatch")
+    if repeat_summary.get("performance_signal") != "small_positive_original_split":
+        failures.append("decision_gate_repeat_signal_mismatch")
+    if useful_summary.get("consumer_signal") != "ready_but_not_tpot_measured":
+        failures.append("decision_gate_useful_signal_mismatch")
+    return {
+        "freeze_payloadless_live_config_performance_claim": payload.get(
+            "freeze_payloadless_live_config_performance_claim"
+        ),
+        "payloadless_live_config_status": payload.get("payloadless_live_config_status"),
+        "real_performance_next_path": payload.get("real_performance_next_path"),
+        "heldout_signal": heldout_summary.get("performance_signal"),
+        "repeat_signal": repeat_summary.get("performance_signal"),
+        "useful_signal": useful_summary.get("consumer_signal"),
+    }
+
+
 def _require_false(payload: dict[str, Any], key: str, failures: list[str], *, label: str) -> None:
     if payload.get(key) is not False:
         failures.append(f"{label}_{key}_not_false")
@@ -353,6 +414,7 @@ def _check_trace_config(
 
 def run_production_like_timing_gate(args: argparse.Namespace) -> dict[str, Any]:
     runtime_ablation_path = _resolve(args.runtime_ablation_json)
+    decision_gate_path = _resolve(args.decision_gate_json)
     trace_config_path = _resolve(args.trace_config)
     output_path = _resolve(args.output_json)
     failures: list[str] = []
@@ -362,6 +424,11 @@ def run_production_like_timing_gate(args: argparse.Namespace) -> dict[str, Any]:
     except Exception as exc:
         runtime_ablation = {}
         failures.append(f"runtime_ablation_load_failed:{exc.__class__.__name__}:{exc}")
+    try:
+        decision_gate = _load_json(decision_gate_path)
+    except Exception as exc:
+        decision_gate = {}
+        failures.append(f"decision_gate_load_failed:{exc.__class__.__name__}:{exc}")
     try:
         trace_config = _load_yaml(trace_config_path)
     except Exception as exc:
@@ -375,6 +442,7 @@ def run_production_like_timing_gate(args: argparse.Namespace) -> dict[str, Any]:
         min_row_count=args.min_row_count,
         min_repeat_count=args.min_repeat_count,
     )
+    decision_summary = _check_decision_gate(decision_gate, failures)
     trace_summary = _check_trace_config(
         trace_config,
         failures,
@@ -401,6 +469,10 @@ def run_production_like_timing_gate(args: argparse.Namespace) -> dict[str, Any]:
         "wna16_benchmark_ready",
     )
     observed_safety = {key: runtime_ablation.get(key) for key in safety_keys}
+    payloadless_performance_claim_frozen = (
+        decision_summary.get("freeze_payloadless_live_config_performance_claim") is True
+    )
+    payloadless_production_tpot_allowed = passed and not payloadless_performance_claim_frozen
 
     result: dict[str, Any] = {
         "artifact_kind": ARTIFACT_KIND,
@@ -422,6 +494,15 @@ def run_production_like_timing_gate(args: argparse.Namespace) -> dict[str, Any]:
         "runtime_ablation_sha256": _sha256(runtime_ablation_path)
         if runtime_ablation_path.exists()
         else None,
+        "decision_gate_json": str(decision_gate_path),
+        "decision_gate_sha256": _sha256(decision_gate_path)
+        if decision_gate_path.exists()
+        else None,
+        "decision_summary": decision_summary,
+        "payloadless_live_config_performance_claim_frozen": (
+            payloadless_performance_claim_frozen
+        ),
+        "payloadless_production_tpot_allowed": payloadless_production_tpot_allowed,
         "trace_config": str(trace_config_path),
         "trace_config_sha256": _sha256(trace_config_path) if trace_config_path.exists() else None,
         "trace_config_summary": trace_summary,
@@ -448,8 +529,12 @@ def run_production_like_timing_gate(args: argparse.Namespace) -> dict[str, Any]:
         "wna16_benchmark_ready": runtime_ablation.get("wna16_benchmark_ready"),
         "current_artifact_is_tpot_benchmark": False,
         "current_wna16_benchmark_ready": False,
-        "will_measure_tpot_next": passed,
-        "next_runtime_stage": NEXT_RUNTIME_STAGE,
+        "will_measure_tpot_next": payloadless_production_tpot_allowed,
+        "next_runtime_stage": (
+            decision_summary.get("real_performance_next_path")
+            if payloadless_performance_claim_frozen
+            else NEXT_RUNTIME_STAGE
+        ),
     }
     _write_json(output_path, result)
     if args.require_pass and not passed:
@@ -463,6 +548,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--runtime-ablation-json",
         default=str(DEFAULT_RUNTIME_ABLATION_JSON),
         help="Payloadless useful runtime-ablation artifact to bind.",
+    )
+    parser.add_argument(
+        "--decision-gate-json",
+        default=str(DEFAULT_DECISION_GATE_JSON),
+        help="Payloadless live-config performance decision gate artifact to bind.",
     )
     parser.add_argument(
         "--trace-config",

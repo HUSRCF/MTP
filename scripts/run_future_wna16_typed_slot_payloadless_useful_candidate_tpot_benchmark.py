@@ -34,6 +34,14 @@ DEFAULT_CONFIG_GATE_JSON = (
     / "production_like_tpot"
     / "future_wna16_typed_slot_payloadless_useful_candidate_config_gate_dolly32_gen64_graph_v1.json"
 )
+DEFAULT_DECISION_GATE_JSON = (
+    REPO_ROOT
+    / "outputs"
+    / "reports"
+    / "premap_kernel_consumer"
+    / "production_like_tpot"
+    / "payloadless_live_config_performance_decision_gate_v1.json"
+)
 DEFAULT_OUTPUT_ROOT = (
     REPO_ROOT
     / "outputs"
@@ -43,7 +51,7 @@ DEFAULT_OUTPUT_ROOT = (
 )
 DEFAULT_OUTPUT_JSON = (
     DEFAULT_OUTPUT_ROOT
-    / "future_wna16_typed_slot_payloadless_useful_production_like_tpot_candidate_dolly32_gen64_graph_v1.json"
+    / "future_wna16_typed_slot_payloadless_useful_production_like_tpot_candidate_blocked_by_decision_gate_v2.json"
 )
 DEFAULT_PYTHON = "/home/husrcf/anaconda3/envs/TRY/bin/python"
 
@@ -173,6 +181,39 @@ def _check_gate(gate: dict[str, Any], failures: list[str]) -> None:
         failures.append("config_gate_trace_config_sha256_mismatch")
 
 
+def _check_decision_gate(decision: dict[str, Any], failures: list[str]) -> dict[str, Any]:
+    expected = {
+        "artifact_kind": "payloadless_live_config_performance_decision_gate",
+        "decision_name": "premap_payloadless_live_config_performance_decision_v1",
+        "passed": True,
+        "failures": [],
+        "freeze_payloadless_live_config_performance_claim": True,
+        "payloadless_live_config_status": "safe_participation_path_not_performance_mainline",
+        "real_performance_next_path": "future_typed_slot_useful_consumer_or_payload_cache_manager",
+        "payload_bytes": 0,
+        "payload_deref_allowed": False,
+        "kernel_arg_pass_allowed": False,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "uses_current_wna16_args": False,
+        "passes_current_wna16_args": False,
+        "current_wna16_arg_compatible": False,
+        "requires_wna16_arg_reinterpretation": False,
+    }
+    for key, expected_value in expected.items():
+        if decision.get(key) != expected_value:
+            failures.append(f"decision_gate_{key}_mismatch")
+    if decision.get("freeze_payloadless_live_config_performance_claim") is True:
+        failures.append("payloadless_candidate_tpot_blocked_by_decision_gate")
+    return {
+        "freeze_payloadless_live_config_performance_claim": decision.get(
+            "freeze_payloadless_live_config_performance_claim"
+        ),
+        "payloadless_live_config_status": decision.get("payloadless_live_config_status"),
+        "real_performance_next_path": decision.get("real_performance_next_path"),
+    }
+
+
 def _default_trace_dir_from_gate(gate: dict[str, Any]) -> Path | None:
     output_dir = gate.get("output_dir")
     if not isinstance(output_dir, str) or not output_dir:
@@ -268,6 +309,7 @@ def _read_perf(trace_dir: Path, failures: list[str]) -> dict[str, Any]:
 
 def run_candidate_tpot_benchmark(args: argparse.Namespace) -> dict[str, Any]:
     gate_path = _resolve(args.config_gate_json)
+    decision_gate_path = _resolve(args.decision_gate_json)
     output_root = _resolve(args.output_root)
     output_path = _resolve(args.output_json)
     failures: list[str] = []
@@ -278,6 +320,12 @@ def run_candidate_tpot_benchmark(args: argparse.Namespace) -> dict[str, Any]:
         failures.append(f"config_gate_load_failed:{exc.__class__.__name__}:{exc}")
     if gate:
         _check_gate(gate, failures)
+    try:
+        decision_gate = _load_json(decision_gate_path)
+    except Exception as exc:
+        decision_gate = {}
+        failures.append(f"decision_gate_load_failed:{exc.__class__.__name__}:{exc}")
+    decision_summary = _check_decision_gate(decision_gate, failures)
 
     gate_trace_dir = _default_trace_dir_from_gate(gate) if gate else None
     trace_dir: Path | None = None
@@ -333,6 +381,15 @@ def run_candidate_tpot_benchmark(args: argparse.Namespace) -> dict[str, Any]:
         ),
         "config_gate_json": str(gate_path),
         "config_gate_sha256": _sha256(gate_path) if gate_path.exists() else None,
+        "decision_gate_json": str(decision_gate_path),
+        "decision_gate_sha256": _sha256(decision_gate_path)
+        if decision_gate_path.exists()
+        else None,
+        "decision_summary": decision_summary,
+        "payloadless_live_config_performance_claim_frozen": decision_summary.get(
+            "freeze_payloadless_live_config_performance_claim"
+        ),
+        "payloadless_candidate_tpot_allowed": False,
         "trace_config": gate.get("trace_config"),
         "trace_config_sha256": gate.get("trace_config_sha256"),
         "trace_config_for_run": None if trace_config_for_run is None else str(trace_config_for_run),
@@ -357,7 +414,10 @@ def run_candidate_tpot_benchmark(args: argparse.Namespace) -> dict[str, Any]:
         "measures_vllm_latency": bool(perf_summary),
         "benchmark_is_current_vllm_baseline": False,
         "benchmark_is_future_typed_slot_useful_path": True,
-        "next_runtime_stage": NEXT_RUNTIME_STAGE,
+        "next_runtime_stage": decision_summary.get(
+            "real_performance_next_path",
+            NEXT_RUNTIME_STAGE,
+        ),
         **perf_summary,
     }
     _write_json(output_path, result)
@@ -369,6 +429,7 @@ def run_candidate_tpot_benchmark(args: argparse.Namespace) -> dict[str, Any]:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config-gate-json", default=str(DEFAULT_CONFIG_GATE_JSON))
+    parser.add_argument("--decision-gate-json", default=str(DEFAULT_DECISION_GATE_JSON))
     parser.add_argument("--output-root", default=str(DEFAULT_OUTPUT_ROOT))
     parser.add_argument("--output-json", default=str(DEFAULT_OUTPUT_JSON))
     parser.add_argument("--trace-dir", default=None)
