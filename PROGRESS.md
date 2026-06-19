@@ -137,6 +137,65 @@ lookahead/queue requirements or continuing the metadata/premap/descriptor-prep
 path while keeping payload transfer disabled.
 ```
 
+Stream lookahead sizing:
+
+```text
+script:
+  scripts/sweep_premap_payload_cache_issue_stream_executor_lookahead.py
+
+artifact:
+  outputs/reports/premap_kernel_consumer/premap_payload_cache_issue_stream_executor_measured_copy_lookahead_sweep_dolly4_gen64_v1_20260620.json
+```
+
+Under the same measured-copy p95 envelope:
+
+```text
+first_model_passing_lookahead_us = 200000.0
+queue_deadline_us = 200.0
+queue_max_delay_us = 243153.79515216546
+queue_service_us = 243182.79515216546
+
+lookahead 0us:
+  demand_hit_rate = 0.40625
+  ready_late_miss_rate = 0.59375
+  used_per_issued_fetch = 0.0
+
+lookahead 100000us:
+  demand_hit_rate = 0.6205357142857143
+  ready_late_miss_rate = 0.3794642857142857
+  used_per_issued_fetch = 0.3609022556390977
+
+lookahead 200000us:
+  demand_hit_rate = 0.8839285714285714
+  ready_late_miss_rate = 0.11607142857142858
+  used_per_issued_fetch = 0.8045112781954887
+
+lookahead >= 243000us:
+  demand_hit_rate = 1.0
+  ready_late_miss_rate = 0.0
+  used_per_issued_fetch = 1.0
+```
+
+Boundary:
+
+```text
+full_fetch_allowed = false for every row
+payload_transfer_enabled = false
+real_ready_credit_granted = false
+kernel_arg_pass_allowed = false
+measures_tpot = false
+```
+
+Interpretation:
+
+```text
+The stream model quantifies the gap: with the current packet stream and H2D
+copy envelope, full payload fetch would need roughly 200ms lookahead to satisfy
+the configured thresholds and about 243ms to make all issued fetches useful.
+That is far outside same-step decode, so lab/default should continue blocking
+real full_fetch and keep premap/descriptor-prep as the near-term runtime path.
+```
+
 ## Previous Update: Payload Cache Full-Fetch Slack/Lookahead Decision Gate
 
 Follow-up lookahead sweep:
