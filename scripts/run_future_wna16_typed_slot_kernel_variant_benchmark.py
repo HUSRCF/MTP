@@ -88,6 +88,12 @@ EXPECTED_TIMING_STUB_FLAGS: dict[str, Any] = {
     "fourth_field_handoff_ready": True,
     f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_ready": True,
     f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_hashes_valid": True,
+    "entry_args_ptr_required": True,
+    "entry_args_ptr_sweep_device": 1,
+    "entry_args_ptr_sweep_window_size": 512,
+    "entry_args_ptr_sweep_require_kernel_arg_packet_abi": True,
+    "entry_args_ptr_sweep_require_kernel_entry_args_abi": True,
+    "entry_args_ptr_sweep_require_kernel_entry_args_ptr_abi": True,
 }
 
 
@@ -435,6 +441,35 @@ def _check_timing_stub(
     if not _is_sha256_hex(kernel_side_manifest):
         failures.append("timing_stub_kernel_side_typed_path_selected_manifest_invalid")
     _check_kernel_side_typed_path_evidence(timing_stub, failures, label="timing_stub")
+    sweep_row_count = _int_metric(timing_stub, "entry_args_ptr_sweep_row_count")
+    sweep_check_row_count = _int_metric(
+        timing_stub,
+        "entry_args_ptr_sweep_check_row_count",
+    )
+    if sweep_row_count is None or sweep_row_count < min_row_count:
+        failures.append("timing_stub_entry_args_ptr_sweep_row_count_invalid")
+    if sweep_check_row_count is None or sweep_check_row_count < min_row_count:
+        failures.append("timing_stub_entry_args_ptr_sweep_check_row_count_invalid")
+    if (
+        sweep_row_count is not None
+        and sweep_check_row_count is not None
+        and sweep_row_count != sweep_check_row_count
+    ):
+        failures.append("timing_stub_entry_args_ptr_sweep_check_row_count_mismatch")
+    if timing_stub.get("entry_args_ptr_sweep_mirror_fields") != list(HANDLE_FIELDS):
+        failures.append("timing_stub_entry_args_ptr_sweep_mirror_fields_mismatch")
+    for key in (
+        "entry_args_ptr_sweep_json",
+        "entry_args_ptr_sweep_check_json",
+    ):
+        if not isinstance(timing_stub.get(key), str) or not timing_stub.get(key):
+            failures.append(f"timing_stub_{key}_missing")
+    for key in (
+        "entry_args_ptr_sweep_sha256",
+        "entry_args_ptr_sweep_check_sha256",
+    ):
+        if not _is_sha256_hex(timing_stub.get(key)):
+            failures.append(f"timing_stub_{key}_invalid")
     if _numeric_ms(timing_stub, "native_stub_host_wall_ms") is None:
         failures.append("timing_stub_native_stub_host_wall_ms_invalid")
     return failures
@@ -779,6 +814,39 @@ def run_benchmark(args: argparse.Namespace) -> dict[str, Any]:
         ),
         "future_wna16_kernel_side_typed_consumer_path_selected_input_manifest_sha256": timing_stub.get(
             f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_selected_input_manifest_sha256"
+        ),
+        "entry_args_ptr_required": timing_stub.get("entry_args_ptr_required"),
+        "entry_args_ptr_sweep_json": timing_stub.get("entry_args_ptr_sweep_json"),
+        "entry_args_ptr_sweep_sha256": timing_stub.get(
+            "entry_args_ptr_sweep_sha256"
+        ),
+        "entry_args_ptr_sweep_check_json": timing_stub.get(
+            "entry_args_ptr_sweep_check_json"
+        ),
+        "entry_args_ptr_sweep_check_sha256": timing_stub.get(
+            "entry_args_ptr_sweep_check_sha256"
+        ),
+        "entry_args_ptr_sweep_row_count": timing_stub.get(
+            "entry_args_ptr_sweep_row_count"
+        ),
+        "entry_args_ptr_sweep_check_row_count": timing_stub.get(
+            "entry_args_ptr_sweep_check_row_count"
+        ),
+        "entry_args_ptr_sweep_device": timing_stub.get("entry_args_ptr_sweep_device"),
+        "entry_args_ptr_sweep_window_size": timing_stub.get(
+            "entry_args_ptr_sweep_window_size"
+        ),
+        "entry_args_ptr_sweep_mirror_fields": timing_stub.get(
+            "entry_args_ptr_sweep_mirror_fields"
+        ),
+        "entry_args_ptr_sweep_require_kernel_arg_packet_abi": timing_stub.get(
+            "entry_args_ptr_sweep_require_kernel_arg_packet_abi"
+        ),
+        "entry_args_ptr_sweep_require_kernel_entry_args_abi": timing_stub.get(
+            "entry_args_ptr_sweep_require_kernel_entry_args_abi"
+        ),
+        "entry_args_ptr_sweep_require_kernel_entry_args_ptr_abi": timing_stub.get(
+            "entry_args_ptr_sweep_require_kernel_entry_args_ptr_abi"
         ),
         "repeat_count_requested": int(args.repeat_count),
         "repeat_count_measured": len(native_stub_wall_ms),

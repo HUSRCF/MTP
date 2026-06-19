@@ -114,6 +114,21 @@ def _timing_stub_payload(
         "future_wna16_kernel_side_typed_consumer_path_all_four_sha256": "7" * 64,
         "future_wna16_kernel_side_typed_consumer_path_selected_input_manifest_sha256": "6"
         * 64,
+        "entry_args_ptr_required": True,
+        "entry_args_ptr_sweep_json": "outputs/reports/premap_kernel_consumer/sweep.json",
+        "entry_args_ptr_sweep_sha256": "4" * 64,
+        "entry_args_ptr_sweep_check_json": (
+            "outputs/reports/premap_kernel_consumer/sweep.check.json"
+        ),
+        "entry_args_ptr_sweep_check_sha256": "5" * 64,
+        "entry_args_ptr_sweep_row_count": row_count,
+        "entry_args_ptr_sweep_check_row_count": row_count,
+        "entry_args_ptr_sweep_device": 1,
+        "entry_args_ptr_sweep_window_size": 512,
+        "entry_args_ptr_sweep_mirror_fields": list(HANDLE_FIELDS),
+        "entry_args_ptr_sweep_require_kernel_arg_packet_abi": True,
+        "entry_args_ptr_sweep_require_kernel_entry_args_abi": True,
+        "entry_args_ptr_sweep_require_kernel_entry_args_ptr_abi": True,
         "timing_stub_ready": True,
         "native_stub_requested": True,
         "native_stub_executed": True,

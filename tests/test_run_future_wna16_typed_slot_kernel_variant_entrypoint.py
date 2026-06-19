@@ -120,6 +120,21 @@ def _harness_payload(*, row_count: int = 257, source_count: int = 128) -> dict:
         "future_wna16_kernel_side_typed_consumer_path_all_four_sha256": "7" * 64,
         "future_wna16_kernel_side_typed_consumer_path_selected_input_manifest_sha256": "6"
         * 64,
+        "entry_args_ptr_required": True,
+        "entry_args_ptr_sweep_json": "outputs/reports/premap_kernel_consumer/sweep.json",
+        "entry_args_ptr_sweep_sha256": "4" * 64,
+        "entry_args_ptr_sweep_check_json": (
+            "outputs/reports/premap_kernel_consumer/sweep.check.json"
+        ),
+        "entry_args_ptr_sweep_check_sha256": "5" * 64,
+        "entry_args_ptr_sweep_row_count": row_count,
+        "entry_args_ptr_sweep_check_row_count": row_count,
+        "entry_args_ptr_sweep_device": 1,
+        "entry_args_ptr_sweep_window_size": 512,
+        "entry_args_ptr_sweep_mirror_fields": list(HANDLE_FIELDS),
+        "entry_args_ptr_sweep_require_kernel_arg_packet_abi": True,
+        "entry_args_ptr_sweep_require_kernel_entry_args_abi": True,
+        "entry_args_ptr_sweep_require_kernel_entry_args_ptr_abi": True,
     }
 
 
@@ -174,7 +189,7 @@ def test_future_wna16_typed_slot_entrypoint_defaults_to_four_field_harness():
 
     assert (
         default_path.name
-        == "wna16_typed_slot_benchmark_harness_kernel_side_path_preflight_v1.json"
+        == "wna16_typed_slot_benchmark_harness_entry_args_ptr_preflight_v1.json"
     )
     assert "premap_kernel_consumer" in default_path.parts
 

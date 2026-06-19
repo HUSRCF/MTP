@@ -33,7 +33,7 @@ DEFAULT_PREFLIGHT_JSON = (
     REPO_ROOT
     / "outputs"
     / "reports"
-    / "premap_lab_preflight_strict_future_wna16_kernel_side_path_gate.json"
+    / "premap_lab_preflight_default_strict_20260619_entry_args_ptr_required_abs_python_portable.json"
 )
 DEFAULT_PREFLIGHT_CHECK_JSON = (
     REPO_ROOT
@@ -53,8 +53,9 @@ DEFAULT_OUTPUT_JSON = (
     / "outputs"
     / "reports"
     / "premap_kernel_consumer"
-    / "wna16_typed_slot_benchmark_harness_all_four_preflight_v2.json"
+    / "wna16_typed_slot_benchmark_harness_entry_args_ptr_preflight_v1.json"
 )
+DEFAULT_MIN_ENTRY_ARGS_PTR_ROW_COUNT = 513
 
 HARNESS_NAME = "premap_wna16_typed_slot_benchmark_harness_v1"
 HARNESS_MODE = "readonly_future_wna16_typed_slot_benchmark_harness"
@@ -87,6 +88,26 @@ HANDLE_FIELDS = (
     "packed_weight_descriptor",
     "scale_metadata_handle",
     "aux_metadata_handle",
+)
+ENTRY_ARGS_PTR_SWEEP_LABEL = (
+    "future_kernel_native_arg_slot_all_field_entry_args_ptr_sweep_json"
+)
+ENTRY_ARGS_PTR_SWEEP_CHECK_LABEL = (
+    "future_kernel_native_arg_slot_all_field_entry_args_ptr_sweep_check_json"
+)
+ENTRY_ARGS_PTR_SWEEP_SUFFIX = (
+    "outputs/reports/premap_kernel_consumer/"
+    "online_merged_future_native_arg_slot_all_field_window_sweep_kernel_entry_args_ptr_strict_20260619.json"
+)
+ENTRY_ARGS_PTR_SWEEP_CHECK_SUFFIX = (
+    "outputs/reports/premap_kernel_consumer/"
+    "online_merged_future_native_arg_slot_all_field_window_sweep_kernel_entry_args_ptr_strict_20260619.check.json"
+)
+ENTRY_ARGS_PTR_SWEEP_SOURCE = (
+    "online_merged_future_native_arg_slot_all_field_window_sweep_runner"
+)
+ENTRY_ARGS_PTR_SWEEP_CHECK_SOURCE = (
+    "online_merged_future_native_arg_slot_all_field_window_sweep_check"
 )
 EXPECTED_RUNNER_FLAGS: dict[str, Any] = {
     f"{WNA16_EXECUTION_PREFIX}_checked": True,
@@ -317,6 +338,327 @@ def _is_sha256_hex(value: Any) -> bool:
     except ValueError:
         return False
     return True
+
+
+def _path_label_matches(value: Any, expected_suffix: str) -> bool:
+    if not isinstance(value, str) or not value:
+        return False
+    normalized_value = value.replace("\\", "/")
+    normalized_expected = expected_suffix.replace("\\", "/")
+    return normalized_value == normalized_expected or normalized_value.endswith(
+        "/" + normalized_expected
+    )
+
+
+def _required_evidence_rows(preflight: dict[str, Any]) -> list[dict[str, Any]]:
+    check = preflight.get("default_readonly_gate_required_evidence_check")
+    if not isinstance(check, dict):
+        return []
+    rows = check.get("rows")
+    if not isinstance(rows, list):
+        return []
+    return [row for row in rows if isinstance(row, dict)]
+
+
+def _find_evidence_row(rows: list[dict[str, Any]], label: str) -> dict[str, Any] | None:
+    for row in rows:
+        if row.get("label") == label:
+            return row
+    return None
+
+
+def _check_evidence_row(
+    row: dict[str, Any] | None,
+    failures: list[str],
+    *,
+    label: str,
+    expected_suffix: str,
+) -> Path | None:
+    if row is None:
+        failures.append(f"{label}_required_evidence_row_missing")
+        return None
+    if row.get("exists") is not True:
+        failures.append(f"{label}_required_evidence_missing")
+    if row.get("valid_json") is not True:
+        failures.append(f"{label}_required_evidence_invalid_json")
+    if row.get("passed_value") is not True:
+        failures.append(f"{label}_required_evidence_not_passed")
+    if row.get("failures_value") not in ([], None):
+        failures.append(f"{label}_required_evidence_failures_not_empty")
+    if not _is_sha256_hex(row.get("sha256")):
+        failures.append(f"{label}_required_evidence_sha256_invalid")
+    path_label = row.get("path_label") or row.get("path")
+    if not _path_label_matches(path_label, expected_suffix):
+        failures.append(f"{label}_required_evidence_path_mismatch")
+    path_value = row.get("path")
+    if not isinstance(path_value, str) or not path_value:
+        failures.append(f"{label}_required_evidence_path_missing")
+        return None
+    return _resolve(path_value)
+
+
+def _check_artifact_sha(
+    path: Path,
+    row: dict[str, Any] | None,
+    failures: list[str],
+    *,
+    label: str,
+) -> str | None:
+    try:
+        actual_sha = _sha256(path)
+    except OSError:
+        failures.append(f"{label}_artifact_sha256_unreadable")
+        return None
+    expected_sha = row.get("sha256") if isinstance(row, dict) else None
+    if not _is_sha256_hex(expected_sha):
+        failures.append(f"{label}_required_evidence_sha256_invalid")
+    elif actual_sha != expected_sha:
+        failures.append(f"{label}_artifact_sha256_mismatch")
+    return actual_sha
+
+
+def _check_entry_args_ptr_sweep_payload(
+    payload: dict[str, Any],
+    failures: list[str],
+    *,
+    min_row_count: int,
+) -> int | None:
+    if payload.get("passed") is not True:
+        failures.append("entry_args_ptr_sweep_not_passed")
+    if payload.get("source") != ENTRY_ARGS_PTR_SWEEP_SOURCE:
+        failures.append("entry_args_ptr_sweep_source_mismatch")
+    if payload.get("device") != 1:
+        failures.append("entry_args_ptr_sweep_device_mismatch")
+    if payload.get("window_size") != 512:
+        failures.append("entry_args_ptr_sweep_window_size_mismatch")
+    if payload.get("mirror_fields") != list(HANDLE_FIELDS):
+        failures.append("entry_args_ptr_sweep_mirror_fields_mismatch")
+    for key in (
+        "require_kernel_arg_packet_abi",
+        "require_kernel_entry_args_abi",
+        "require_kernel_entry_args_ptr_abi",
+    ):
+        if payload.get(key) is not True:
+            failures.append(f"entry_args_ptr_sweep_{key}_not_required")
+    for key, expected in (
+        ("payload_bytes", 0),
+        ("passed_to_kernel", False),
+        ("changes_kernel_launch_args", False),
+    ):
+        if payload.get(key) != expected:
+            failures.append(f"entry_args_ptr_sweep_{key}_mismatch")
+    optional_safety_fields = {
+        "payload_deref_allowed": False,
+        "kernel_arg_pass_allowed": False,
+        "current_wna16_arg_compatible": False,
+        "requires_wna16_arg_reinterpretation": False,
+        "uses_current_wna16_args": False,
+        "passes_current_wna16_args": False,
+    }
+    for key, expected in optional_safety_fields.items():
+        if key in payload and payload.get(key) != expected:
+            failures.append(f"entry_args_ptr_sweep_{key}_mismatch")
+    row_counts = payload.get("row_counts")
+    if not isinstance(row_counts, dict):
+        failures.append("entry_args_ptr_sweep_row_counts_missing")
+        return None
+    counts: list[int] = []
+    for field in HANDLE_FIELDS:
+        count = row_counts.get(field)
+        if not isinstance(count, int) or isinstance(count, bool):
+            failures.append(f"entry_args_ptr_sweep_{field}_row_count_invalid")
+        else:
+            counts.append(count)
+    if not counts:
+        return None
+    row_count = counts[0]
+    if any(count != row_count for count in counts):
+        failures.append("entry_args_ptr_sweep_row_count_mismatch")
+    window_size = _int_metric(payload, "window_size")
+    if window_size is not None and row_count <= window_size:
+        failures.append("entry_args_ptr_sweep_row_count_not_above_window")
+    if row_count < min_row_count:
+        failures.append("entry_args_ptr_sweep_row_count_too_small")
+    field_reports = payload.get("field_reports")
+    if not isinstance(field_reports, dict):
+        failures.append("entry_args_ptr_sweep_field_reports_missing")
+    else:
+        for field in HANDLE_FIELDS:
+            report = field_reports.get(field)
+            if not isinstance(report, dict):
+                failures.append(f"entry_args_ptr_sweep_{field}_field_report_missing")
+                continue
+            if report.get("passed") is not True:
+                failures.append(f"entry_args_ptr_sweep_{field}_field_report_not_passed")
+            if report.get("row_count") != row_count:
+                failures.append(f"entry_args_ptr_sweep_{field}_field_report_row_count_mismatch")
+            if report.get("windows_checked") != ["full", "head", "middle", "tail"]:
+                failures.append(f"entry_args_ptr_sweep_{field}_windows_checked_mismatch")
+            if report.get("check_failures") not in ([], None):
+                failures.append(f"entry_args_ptr_sweep_{field}_check_failures_not_empty")
+            if report.get("sweep_failures") not in ([], None):
+                failures.append(f"entry_args_ptr_sweep_{field}_sweep_failures_not_empty")
+    return row_count
+
+
+def _check_entry_args_ptr_sweep_check_payload(
+    payload: dict[str, Any],
+    failures: list[str],
+    *,
+    sweep_path: Path | None,
+    sweep_row_count: int | None,
+    min_row_count: int,
+) -> int | None:
+    if payload.get("passed") is not True:
+        failures.append("entry_args_ptr_sweep_check_not_passed")
+    if payload.get("source") != ENTRY_ARGS_PTR_SWEEP_CHECK_SOURCE:
+        failures.append("entry_args_ptr_sweep_check_source_mismatch")
+    if payload.get("require_child_kernel_arg_packet_abi") is not True:
+        failures.append("entry_args_ptr_sweep_check_requires_child_kernel_arg_packet_missing")
+    if payload.get("require_child_kernel_entry_args_abi") is not True:
+        failures.append("entry_args_ptr_sweep_check_requires_child_kernel_entry_args_missing")
+    if payload.get("require_child_kernel_entry_args_ptr_abi") is not True:
+        failures.append("entry_args_ptr_sweep_check_requires_child_kernel_entry_args_ptr_missing")
+    if payload.get("mirror_fields_checked") != list(HANDLE_FIELDS):
+        failures.append("entry_args_ptr_sweep_check_mirror_fields_mismatch")
+    if payload.get("expected_window_size") != 512:
+        failures.append("entry_args_ptr_sweep_check_window_size_mismatch")
+    observed_sweep = payload.get("all_field_window_sweep_json")
+    if sweep_path is not None and not _path_label_matches(
+        observed_sweep,
+        str(sweep_path.relative_to(REPO_ROOT))
+        if sweep_path.is_relative_to(REPO_ROOT)
+        else str(sweep_path),
+    ):
+        failures.append("entry_args_ptr_sweep_check_child_path_mismatch")
+    row_count = _int_metric(payload, "row_count")
+    if row_count is None:
+        failures.append("entry_args_ptr_sweep_check_row_count_invalid")
+        return None
+    if row_count < min_row_count:
+        failures.append("entry_args_ptr_sweep_check_row_count_too_small")
+    expected_window_size = _int_metric(payload, "expected_window_size")
+    if expected_window_size is not None and row_count <= expected_window_size:
+        failures.append("entry_args_ptr_sweep_check_row_count_not_above_window")
+    if sweep_row_count is not None and row_count != sweep_row_count:
+        failures.append("entry_args_ptr_sweep_check_row_count_mismatch")
+    return row_count
+
+
+def _check_entry_args_ptr_required_evidence(
+    preflight: dict[str, Any],
+    failures: list[str],
+    *,
+    min_row_count: int,
+) -> dict[str, Any]:
+    rows = _required_evidence_rows(preflight)
+    sweep_row = _find_evidence_row(rows, ENTRY_ARGS_PTR_SWEEP_LABEL)
+    check_row = _find_evidence_row(rows, ENTRY_ARGS_PTR_SWEEP_CHECK_LABEL)
+    sweep_path = _check_evidence_row(
+        sweep_row,
+        failures,
+        label=ENTRY_ARGS_PTR_SWEEP_LABEL,
+        expected_suffix=ENTRY_ARGS_PTR_SWEEP_SUFFIX,
+    )
+    check_path = _check_evidence_row(
+        check_row,
+        failures,
+        label=ENTRY_ARGS_PTR_SWEEP_CHECK_LABEL,
+        expected_suffix=ENTRY_ARGS_PTR_SWEEP_CHECK_SUFFIX,
+    )
+    sweep_payload: dict[str, Any] | None = None
+    check_payload: dict[str, Any] | None = None
+    sweep_actual_sha: str | None = None
+    check_actual_sha: str | None = None
+    if sweep_path is not None:
+        if not sweep_path.exists():
+            failures.append("entry_args_ptr_sweep_artifact_not_found")
+        else:
+            sweep_actual_sha = _check_artifact_sha(
+                sweep_path,
+                sweep_row,
+                failures,
+                label=ENTRY_ARGS_PTR_SWEEP_LABEL,
+            )
+            try:
+                sweep_payload = _load_json(sweep_path)
+            except (OSError, json.JSONDecodeError, ValueError):
+                failures.append("entry_args_ptr_sweep_artifact_invalid_json")
+    if check_path is not None:
+        if not check_path.exists():
+            failures.append("entry_args_ptr_sweep_check_artifact_not_found")
+        else:
+            check_actual_sha = _check_artifact_sha(
+                check_path,
+                check_row,
+                failures,
+                label=ENTRY_ARGS_PTR_SWEEP_CHECK_LABEL,
+            )
+            try:
+                check_payload = _load_json(check_path)
+            except (OSError, json.JSONDecodeError, ValueError):
+                failures.append("entry_args_ptr_sweep_check_artifact_invalid_json")
+    sweep_row_count = (
+        _check_entry_args_ptr_sweep_payload(
+            sweep_payload,
+            failures,
+            min_row_count=min_row_count,
+        )
+        if sweep_payload is not None
+        else None
+    )
+    check_row_count = (
+        _check_entry_args_ptr_sweep_check_payload(
+            check_payload,
+            failures,
+            sweep_path=sweep_path,
+            sweep_row_count=sweep_row_count,
+            min_row_count=min_row_count,
+        )
+        if check_payload is not None
+        else None
+    )
+    return {
+        "entry_args_ptr_required": True,
+        "entry_args_ptr_sweep_json": str(sweep_path) if sweep_path is not None else None,
+        "entry_args_ptr_sweep_sha256": sweep_row.get("sha256")
+        if isinstance(sweep_row, dict)
+        else None,
+        "entry_args_ptr_sweep_actual_sha256": sweep_actual_sha,
+        "entry_args_ptr_sweep_check_json": str(check_path)
+        if check_path is not None
+        else None,
+        "entry_args_ptr_sweep_check_sha256": check_row.get("sha256")
+        if isinstance(check_row, dict)
+        else None,
+        "entry_args_ptr_sweep_check_actual_sha256": check_actual_sha,
+        "entry_args_ptr_sweep_row_count": sweep_row_count,
+        "entry_args_ptr_sweep_check_row_count": check_row_count,
+        "entry_args_ptr_sweep_device": sweep_payload.get("device")
+        if isinstance(sweep_payload, dict)
+        else None,
+        "entry_args_ptr_sweep_window_size": sweep_payload.get("window_size")
+        if isinstance(sweep_payload, dict)
+        else None,
+        "entry_args_ptr_sweep_mirror_fields": sweep_payload.get("mirror_fields")
+        if isinstance(sweep_payload, dict)
+        else None,
+        "entry_args_ptr_sweep_require_kernel_arg_packet_abi": (
+            sweep_payload.get("require_kernel_arg_packet_abi")
+            if isinstance(sweep_payload, dict)
+            else None
+        ),
+        "entry_args_ptr_sweep_require_kernel_entry_args_abi": (
+            sweep_payload.get("require_kernel_entry_args_abi")
+            if isinstance(sweep_payload, dict)
+            else None
+        ),
+        "entry_args_ptr_sweep_require_kernel_entry_args_ptr_abi": (
+            sweep_payload.get("require_kernel_entry_args_ptr_abi")
+            if isinstance(sweep_payload, dict)
+            else None
+        ),
+    }
 
 
 def _summary_payload(preflight: dict[str, Any]) -> dict[str, Any]:
@@ -820,6 +1162,11 @@ def run_harness(args: argparse.Namespace) -> dict[str, Any]:
                 preflight_path=preflight_path,
                 preflight_sha256=preflight_sha256,
             )
+    entry_args_ptr_status = _check_entry_args_ptr_required_evidence(
+        preflight,
+        failures,
+        min_row_count=args.min_row_count,
+    )
     row_count, runner_failures = _check_runner(
         runner,
         preflight_summary=preflight_summary,
@@ -949,6 +1296,7 @@ def run_harness(args: argparse.Namespace) -> dict[str, Any]:
         "future_wna16_kernel_side_typed_consumer_path_selected_input_manifest_sha256": preflight_summary.get(
             f"{PREFLIGHT_KERNEL_SIDE_TYPED_PATH_PREFIX}_selected_input_manifest_sha256"
         ),
+        **entry_args_ptr_status,
         "row_hash_accumulator": _runner_value(
             runner,
             f"{WNA16_EXECUTION_PREFIX}_hash_accumulator"
@@ -1004,7 +1352,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--runner-json", default=str(DEFAULT_RUNNER_JSON))
     parser.add_argument("--output-json", default=str(DEFAULT_OUTPUT_JSON))
     parser.add_argument("--min-source-count", type=int, default=128)
-    parser.add_argument("--min-row-count", type=int, default=1)
+    parser.add_argument(
+        "--min-row-count",
+        type=int,
+        default=DEFAULT_MIN_ENTRY_ARGS_PTR_ROW_COUNT,
+    )
     parser.add_argument("--require-preflight-check", action="store_true")
     parser.add_argument("--require-pass", action="store_true")
     return parser

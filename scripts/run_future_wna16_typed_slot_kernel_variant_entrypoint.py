@@ -27,7 +27,7 @@ DEFAULT_HARNESS_JSON = (
     / "outputs"
     / "reports"
     / "premap_kernel_consumer"
-    / "wna16_typed_slot_benchmark_harness_kernel_side_path_preflight_v1.json"
+    / "wna16_typed_slot_benchmark_harness_entry_args_ptr_preflight_v1.json"
 )
 DEFAULT_OUTPUT_JSON = (
     REPO_ROOT
@@ -77,6 +77,12 @@ EXPECTED_HARNESS_FLAGS: dict[str, Any] = {
     "all_four_field_consumer_hashes_valid": True,
     f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_ready": True,
     f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_hashes_valid": True,
+    "entry_args_ptr_required": True,
+    "entry_args_ptr_sweep_device": 1,
+    "entry_args_ptr_sweep_window_size": 512,
+    "entry_args_ptr_sweep_require_kernel_arg_packet_abi": True,
+    "entry_args_ptr_sweep_require_kernel_entry_args_abi": True,
+    "entry_args_ptr_sweep_require_kernel_entry_args_ptr_abi": True,
 }
 
 
@@ -358,6 +364,32 @@ def _check_harness(
     if not _is_sha256_hex(kernel_side_manifest):
         failures.append("harness_kernel_side_typed_path_selected_manifest_invalid")
     _check_kernel_side_typed_path_evidence(harness, failures, label="harness")
+    sweep_row_count = _int_metric(harness, "entry_args_ptr_sweep_row_count")
+    sweep_check_row_count = _int_metric(harness, "entry_args_ptr_sweep_check_row_count")
+    if sweep_row_count is None or sweep_row_count < min_row_count:
+        failures.append("harness_entry_args_ptr_sweep_row_count_invalid")
+    if sweep_check_row_count is None or sweep_check_row_count < min_row_count:
+        failures.append("harness_entry_args_ptr_sweep_check_row_count_invalid")
+    if (
+        sweep_row_count is not None
+        and sweep_check_row_count is not None
+        and sweep_row_count != sweep_check_row_count
+    ):
+        failures.append("harness_entry_args_ptr_sweep_check_row_count_mismatch")
+    if harness.get("entry_args_ptr_sweep_mirror_fields") != list(HANDLE_FIELDS):
+        failures.append("harness_entry_args_ptr_sweep_mirror_fields_mismatch")
+    for key in (
+        "entry_args_ptr_sweep_json",
+        "entry_args_ptr_sweep_check_json",
+    ):
+        if not isinstance(harness.get(key), str) or not harness.get(key):
+            failures.append(f"harness_{key}_missing")
+    for key in (
+        "entry_args_ptr_sweep_sha256",
+        "entry_args_ptr_sweep_check_sha256",
+    ):
+        if not _is_sha256_hex(harness.get(key)):
+            failures.append(f"harness_{key}_invalid")
     return failures
 
 
@@ -466,6 +498,37 @@ def run_entrypoint(args: argparse.Namespace) -> dict[str, Any]:
         ),
         "future_wna16_kernel_side_typed_consumer_path_selected_input_manifest_sha256": harness.get(
             f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_selected_input_manifest_sha256"
+        ),
+        "entry_args_ptr_required": harness.get("entry_args_ptr_required"),
+        "entry_args_ptr_sweep_json": harness.get("entry_args_ptr_sweep_json"),
+        "entry_args_ptr_sweep_sha256": harness.get("entry_args_ptr_sweep_sha256"),
+        "entry_args_ptr_sweep_check_json": harness.get(
+            "entry_args_ptr_sweep_check_json"
+        ),
+        "entry_args_ptr_sweep_check_sha256": harness.get(
+            "entry_args_ptr_sweep_check_sha256"
+        ),
+        "entry_args_ptr_sweep_row_count": harness.get(
+            "entry_args_ptr_sweep_row_count"
+        ),
+        "entry_args_ptr_sweep_check_row_count": harness.get(
+            "entry_args_ptr_sweep_check_row_count"
+        ),
+        "entry_args_ptr_sweep_device": harness.get("entry_args_ptr_sweep_device"),
+        "entry_args_ptr_sweep_window_size": harness.get(
+            "entry_args_ptr_sweep_window_size"
+        ),
+        "entry_args_ptr_sweep_mirror_fields": harness.get(
+            "entry_args_ptr_sweep_mirror_fields"
+        ),
+        "entry_args_ptr_sweep_require_kernel_arg_packet_abi": harness.get(
+            "entry_args_ptr_sweep_require_kernel_arg_packet_abi"
+        ),
+        "entry_args_ptr_sweep_require_kernel_entry_args_abi": harness.get(
+            "entry_args_ptr_sweep_require_kernel_entry_args_abi"
+        ),
+        "entry_args_ptr_sweep_require_kernel_entry_args_ptr_abi": harness.get(
+            "entry_args_ptr_sweep_require_kernel_entry_args_ptr_abi"
         ),
         "typed_slot_entrypoint_ready": passed,
         "entrypoint_accepts_typed_slot": passed,

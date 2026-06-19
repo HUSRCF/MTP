@@ -31,7 +31,7 @@ DEFAULT_ENTRYPOINT_JSON = (
     / "outputs"
     / "reports"
     / "premap_kernel_consumer"
-    / "future_wna16_typed_slot_kernel_variant_entrypoint_kernel_side_path_v1.json"
+    / "future_wna16_typed_slot_kernel_variant_entrypoint_entry_args_ptr_v1.json"
 )
 DEFAULT_OUTPUT_JSON = (
     REPO_ROOT
@@ -104,6 +104,12 @@ EXPECTED_ENTRYPOINT_FLAGS: dict[str, Any] = {
     "fourth_field_handoff_ready": True,
     f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_ready": True,
     f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_hashes_valid": True,
+    "entry_args_ptr_required": True,
+    "entry_args_ptr_sweep_device": 1,
+    "entry_args_ptr_sweep_window_size": 512,
+    "entry_args_ptr_sweep_require_kernel_arg_packet_abi": True,
+    "entry_args_ptr_sweep_require_kernel_entry_args_abi": True,
+    "entry_args_ptr_sweep_require_kernel_entry_args_ptr_abi": True,
 }
 EXPECTED_FOURTH_EVIDENCE_FLAGS: dict[str, Any] = {
     "artifact_kind": "future_wna16_typed_slot_kernel_variant_fourth_field_handoff_canary",
@@ -645,6 +651,35 @@ def _check_entrypoint(
     if not _is_sha256_hex(kernel_side_manifest):
         failures.append("entrypoint_kernel_side_typed_path_selected_manifest_invalid")
     _check_kernel_side_typed_path_evidence(entrypoint, failures, label="entrypoint")
+    sweep_row_count = _int_metric(entrypoint, "entry_args_ptr_sweep_row_count")
+    sweep_check_row_count = _int_metric(
+        entrypoint,
+        "entry_args_ptr_sweep_check_row_count",
+    )
+    if sweep_row_count is None or sweep_row_count < min_row_count:
+        failures.append("entrypoint_entry_args_ptr_sweep_row_count_invalid")
+    if sweep_check_row_count is None or sweep_check_row_count < min_row_count:
+        failures.append("entrypoint_entry_args_ptr_sweep_check_row_count_invalid")
+    if (
+        sweep_row_count is not None
+        and sweep_check_row_count is not None
+        and sweep_row_count != sweep_check_row_count
+    ):
+        failures.append("entrypoint_entry_args_ptr_sweep_check_row_count_mismatch")
+    if entrypoint.get("entry_args_ptr_sweep_mirror_fields") != list(HANDLE_FIELDS):
+        failures.append("entrypoint_entry_args_ptr_sweep_mirror_fields_mismatch")
+    for key in (
+        "entry_args_ptr_sweep_json",
+        "entry_args_ptr_sweep_check_json",
+    ):
+        if not isinstance(entrypoint.get(key), str) or not entrypoint.get(key):
+            failures.append(f"entrypoint_{key}_missing")
+    for key in (
+        "entry_args_ptr_sweep_sha256",
+        "entry_args_ptr_sweep_check_sha256",
+    ):
+        if not _is_sha256_hex(entrypoint.get(key)):
+            failures.append(f"entrypoint_{key}_invalid")
     return failures
 
 
@@ -909,6 +944,37 @@ def run_timing_stub(args: argparse.Namespace) -> dict[str, Any]:
         ),
         "future_wna16_kernel_side_typed_consumer_path_selected_input_manifest_sha256": entrypoint.get(
             f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_selected_input_manifest_sha256"
+        ),
+        "entry_args_ptr_required": entrypoint.get("entry_args_ptr_required"),
+        "entry_args_ptr_sweep_json": entrypoint.get("entry_args_ptr_sweep_json"),
+        "entry_args_ptr_sweep_sha256": entrypoint.get("entry_args_ptr_sweep_sha256"),
+        "entry_args_ptr_sweep_check_json": entrypoint.get(
+            "entry_args_ptr_sweep_check_json"
+        ),
+        "entry_args_ptr_sweep_check_sha256": entrypoint.get(
+            "entry_args_ptr_sweep_check_sha256"
+        ),
+        "entry_args_ptr_sweep_row_count": entrypoint.get(
+            "entry_args_ptr_sweep_row_count"
+        ),
+        "entry_args_ptr_sweep_check_row_count": entrypoint.get(
+            "entry_args_ptr_sweep_check_row_count"
+        ),
+        "entry_args_ptr_sweep_device": entrypoint.get("entry_args_ptr_sweep_device"),
+        "entry_args_ptr_sweep_window_size": entrypoint.get(
+            "entry_args_ptr_sweep_window_size"
+        ),
+        "entry_args_ptr_sweep_mirror_fields": entrypoint.get(
+            "entry_args_ptr_sweep_mirror_fields"
+        ),
+        "entry_args_ptr_sweep_require_kernel_arg_packet_abi": entrypoint.get(
+            "entry_args_ptr_sweep_require_kernel_arg_packet_abi"
+        ),
+        "entry_args_ptr_sweep_require_kernel_entry_args_abi": entrypoint.get(
+            "entry_args_ptr_sweep_require_kernel_entry_args_abi"
+        ),
+        "entry_args_ptr_sweep_require_kernel_entry_args_ptr_abi": entrypoint.get(
+            "entry_args_ptr_sweep_require_kernel_entry_args_ptr_abi"
         ),
         "timing_stub_ready": passed,
         "native_stub_requested": bool(args.run_native_stub),

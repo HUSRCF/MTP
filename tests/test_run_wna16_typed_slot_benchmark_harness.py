@@ -40,7 +40,106 @@ def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def _preflight_payload(*, row_count: int = 257) -> dict:
+def _entry_args_ptr_sweep_payload(*, row_count: int = 1025) -> dict:
+    return {
+        "passed": True,
+        "source": "online_merged_future_native_arg_slot_all_field_window_sweep_runner",
+        "device": 1,
+        "window_size": 512,
+        "mirror_fields": HANDLE_FIELDS,
+        "require_kernel_arg_packet_abi": True,
+        "require_kernel_entry_args_abi": True,
+        "require_kernel_entry_args_ptr_abi": True,
+        "payload_bytes": 0,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "row_counts": {field: row_count for field in HANDLE_FIELDS},
+        "field_reports": {
+            field: {
+                "passed": True,
+                "row_count": row_count,
+                "window_size": 512,
+                "windows_checked": ["full", "head", "middle", "tail"],
+                "check_failures": [],
+                "sweep_failures": [],
+            }
+            for field in HANDLE_FIELDS
+        },
+    }
+
+
+def _entry_args_ptr_sweep_check_payload(
+    sweep: Path,
+    *,
+    row_count: int = 1025,
+) -> dict:
+    return {
+        "passed": True,
+        "source": "online_merged_future_native_arg_slot_all_field_window_sweep_check",
+        "all_field_window_sweep_json": str(sweep),
+        "expected_window_size": 512,
+        "min_row_count": 513,
+        "mirror_fields_checked": HANDLE_FIELDS,
+        "require_child_consumer_view_row_layout": True,
+        "require_child_field_masks": True,
+        "require_child_kernel_arg_packet_abi": True,
+        "require_child_kernel_entry_args_abi": True,
+        "require_child_kernel_entry_args_ptr_abi": True,
+        "require_child_kernel_entry_row_metadata": True,
+        "row_count": row_count,
+    }
+
+
+def _add_entry_args_ptr_required_evidence(
+    payload: dict,
+    tmp_path: Path,
+    *,
+    row_count: int = 1025,
+) -> None:
+    sweep = tmp_path / "online_merged_future_native_arg_slot_all_field_window_sweep_kernel_entry_args_ptr_strict_20260619.json"
+    check = tmp_path / "online_merged_future_native_arg_slot_all_field_window_sweep_kernel_entry_args_ptr_strict_20260619.check.json"
+    _write_json(sweep, _entry_args_ptr_sweep_payload(row_count=row_count))
+    _write_json(check, _entry_args_ptr_sweep_check_payload(sweep, row_count=row_count))
+    payload["default_readonly_gate_required_evidence_check"] = {
+        "passed": True,
+        "failures": [],
+        "required_labels": [
+            "future_kernel_native_arg_slot_all_field_entry_args_ptr_sweep_check_json",
+            "future_kernel_native_arg_slot_all_field_entry_args_ptr_sweep_json",
+        ],
+        "deferred_labels": [],
+        "rows": [
+            {
+                "exists": True,
+                "failures_value": [],
+                "label": "future_kernel_native_arg_slot_all_field_entry_args_ptr_sweep_check_json",
+                "passed_value": True,
+                "path": str(check),
+                "path_label": (
+                    "outputs/reports/premap_kernel_consumer/"
+                    "online_merged_future_native_arg_slot_all_field_window_sweep_kernel_entry_args_ptr_strict_20260619.check.json"
+                ),
+                "sha256": _sha256(check),
+                "valid_json": True,
+            },
+            {
+                "exists": True,
+                "failures_value": [],
+                "label": "future_kernel_native_arg_slot_all_field_entry_args_ptr_sweep_json",
+                "passed_value": True,
+                "path": str(sweep),
+                "path_label": (
+                    "outputs/reports/premap_kernel_consumer/"
+                    "online_merged_future_native_arg_slot_all_field_window_sweep_kernel_entry_args_ptr_strict_20260619.json"
+                ),
+                "sha256": _sha256(sweep),
+                "valid_json": True,
+            },
+        ],
+    }
+
+
+def _preflight_payload(*, row_count: int = 1025) -> dict:
     prefix = "default_kernel_consumer_wna16_kernel_side_execution"
     fourth_prefix = "default_kernel_consumer_future_wna16_fourth_field_handoff"
     all_four_ready = "default_kernel_consumer_future_wna16_all_four_field_consumer"
@@ -216,7 +315,17 @@ def _preflight_payload(*, row_count: int = 257) -> dict:
     return payload
 
 
-def _runner_payload(*, row_count: int = 257, source_count: int = 128) -> dict:
+def _preflight_payload_with_entry_args(
+    tmp_path: Path,
+    *,
+    row_count: int = 1025,
+) -> dict:
+    payload = _preflight_payload(row_count=row_count)
+    _add_entry_args_ptr_required_evidence(payload, tmp_path, row_count=row_count)
+    return payload
+
+
+def _runner_payload(*, row_count: int = 1025, source_count: int = 128) -> dict:
     prefix = "future_wna16_kernel_side_consumer_execution"
     payload = {
         "passed": True,
@@ -252,7 +361,7 @@ def _runner_payload(*, row_count: int = 257, source_count: int = 128) -> dict:
     return payload
 
 
-def _runner_payload_real_like(*, row_count: int = 257, source_count: int = 128) -> dict:
+def _runner_payload_real_like(*, row_count: int = 1025, source_count: int = 128) -> dict:
     prefix = "future_wna16_kernel_side_consumer_execution"
     full = _runner_payload(row_count=row_count, source_count=source_count)
     stub_summary = {}
@@ -311,7 +420,7 @@ def test_wna16_typed_slot_benchmark_harness_accepts_strict_artifacts(tmp_path: P
     check = tmp_path / "preflight.check.json"
     runner = tmp_path / "runner.json"
     output = tmp_path / "out.json"
-    _write_json(preflight, _preflight_payload())
+    _write_json(preflight, _preflight_payload_with_entry_args(tmp_path))
     _write_json(
         check,
         {
@@ -344,8 +453,8 @@ def test_wna16_typed_slot_benchmark_harness_accepts_strict_artifacts(tmp_path: P
     assert result["current_wna16_arg_pass"] is False
     assert result["kernel_arg_pass_allowed"] is False
     assert result["payload_deref_allowed"] is False
-    assert result["row_count"] == 257
-    assert result["field_read_row_ok_counts"]["scale_metadata_handle"] == 257
+    assert result["row_count"] == 1025
+    assert result["field_read_row_ok_counts"]["scale_metadata_handle"] == 1025
     assert result["fourth_field_handoff_ready"] is True
     assert result["fourth_field_handoff_evidence_path"] == (
         "outputs/reports/premap_kernel_consumer/"
@@ -353,18 +462,18 @@ def test_wna16_typed_slot_benchmark_harness_accepts_strict_artifacts(tmp_path: P
     )
     assert result["fourth_field_handoff_evidence_sha256"] == "8" * 64
     assert result["fourth_field_handoff_source_count"] == 128
-    assert result["fourth_field_handoff_row_count"] == 257
-    assert result["fourth_field_handoff_row_ok_count"] == 257
+    assert result["fourth_field_handoff_row_count"] == 1025
+    assert result["fourth_field_handoff_row_ok_count"] == 1025
     assert result["fourth_field_handoff_field_read_hash"] == "3132333435363738"
     assert result["fourth_field_handoff_runner_hash"] == "8182838485868788"
     assert result["all_four_field_consumer_ready"] is True
     assert result["all_four_field_consumer_fields_read"] is True
     assert result["all_four_field_consumer_hashes_valid"] is True
     assert result["all_four_field_consumer_source_count"] == 128
-    assert result["all_four_field_consumer_row_count"] == 257
+    assert result["all_four_field_consumer_row_count"] == 1025
     assert result["future_wna16_kernel_side_typed_consumer_path_ready"] is True
     assert result["future_wna16_kernel_side_typed_consumer_path_source_count"] == 128
-    assert result["future_wna16_kernel_side_typed_consumer_path_row_count"] == 257
+    assert result["future_wna16_kernel_side_typed_consumer_path_row_count"] == 1025
     assert (
         result["future_wna16_kernel_side_typed_consumer_path_all_four_sha256"]
         == "7" * 64
@@ -381,7 +490,7 @@ def test_wna16_typed_slot_benchmark_harness_accepts_real_like_stub_summary(
     module = _load_module()
     preflight = tmp_path / "preflight.json"
     runner = tmp_path / "runner.json"
-    _write_json(preflight, _preflight_payload())
+    _write_json(preflight, _preflight_payload_with_entry_args(tmp_path))
     _write_json(runner, _runner_payload_real_like())
 
     args = module.build_parser().parse_args(
@@ -406,7 +515,7 @@ def test_wna16_typed_slot_benchmark_harness_rejects_missing_kernel_side_path_gat
     module = _load_module()
     preflight = tmp_path / "preflight.json"
     runner = tmp_path / "runner.json"
-    payload = _preflight_payload()
+    payload = _preflight_payload_with_entry_args(tmp_path)
     payload["default_kernel_consumer_future_wna16_kernel_side_typed_consumer_path_ready"] = False
     _write_json(preflight, payload)
     _write_json(runner, _runner_payload())
@@ -437,7 +546,7 @@ def test_wna16_typed_slot_benchmark_harness_rejects_kernel_side_path_bad_hash_ga
     module = _load_module()
     preflight = tmp_path / "preflight.json"
     runner = tmp_path / "runner.json"
-    payload = _preflight_payload()
+    payload = _preflight_payload_with_entry_args(tmp_path)
     payload[
         "default_kernel_consumer_future_wna16_kernel_side_typed_consumer_path_hashes_valid"
     ] = False
@@ -470,7 +579,7 @@ def test_wna16_typed_slot_benchmark_harness_rejects_kernel_side_path_bad_evidenc
     module = _load_module()
     preflight = tmp_path / "preflight.json"
     runner = tmp_path / "runner.json"
-    payload = _preflight_payload()
+    payload = _preflight_payload_with_entry_args(tmp_path)
     payload["default_kernel_consumer_future_wna16_kernel_side_typed_path_evidence_path"] = ""
     payload["default_kernel_consumer_future_wna16_kernel_side_typed_path_evidence_sha256"] = "not-sha"
     _write_json(preflight, payload)
@@ -499,7 +608,7 @@ def test_wna16_typed_slot_benchmark_harness_rejects_benchmark_ready(
     module = _load_module()
     preflight = tmp_path / "preflight.json"
     runner = tmp_path / "runner.json"
-    payload = _preflight_payload()
+    payload = _preflight_payload_with_entry_args(tmp_path)
     payload["default_kernel_consumer_wna16_benchmark_ready"] = True
     _write_json(preflight, payload)
     _write_json(runner, _runner_payload())
@@ -526,7 +635,7 @@ def test_wna16_typed_slot_benchmark_harness_rejects_nested_summary_conflict(
     module = _load_module()
     preflight = tmp_path / "preflight.json"
     runner = tmp_path / "runner.json"
-    payload = _preflight_payload()
+    payload = _preflight_payload_with_entry_args(tmp_path)
     nested = dict(payload)
     nested["default_kernel_consumer_wna16_benchmark_ready"] = True
     payload["lab_gate_status_summary"] = nested
@@ -558,7 +667,7 @@ def test_wna16_typed_slot_benchmark_harness_rejects_missing_fourth_field_ready(
     module = _load_module()
     preflight = tmp_path / "preflight.json"
     runner = tmp_path / "runner.json"
-    payload = _preflight_payload()
+    payload = _preflight_payload_with_entry_args(tmp_path)
     payload["default_kernel_consumer_future_wna16_fourth_field_handoff_ready"] = False
     _write_json(preflight, payload)
     _write_json(runner, _runner_payload())
@@ -585,7 +694,7 @@ def test_wna16_typed_slot_benchmark_harness_rejects_missing_all_four_gate(
     module = _load_module()
     preflight = tmp_path / "preflight.json"
     runner = tmp_path / "runner.json"
-    payload = _preflight_payload()
+    payload = _preflight_payload_with_entry_args(tmp_path)
     payload["default_kernel_consumer_future_wna16_all_four_field_consumer_ready"] = (
         False
     )
@@ -614,7 +723,7 @@ def test_wna16_typed_slot_benchmark_harness_rejects_all_four_fourth_binding_mism
     module = _load_module()
     preflight = tmp_path / "preflight.json"
     runner = tmp_path / "runner.json"
-    payload = _preflight_payload()
+    payload = _preflight_payload_with_entry_args(tmp_path)
     payload[
         "default_kernel_consumer_future_wna16_all_four_consumer_fourth_field_path_label"
     ] = "outputs/reports/premap_kernel_consumer/wrong_fourth.json"
@@ -643,7 +752,7 @@ def test_wna16_typed_slot_benchmark_harness_rejects_all_four_missing_fourth_path
     module = _load_module()
     preflight = tmp_path / "preflight.json"
     runner = tmp_path / "runner.json"
-    payload = _preflight_payload()
+    payload = _preflight_payload_with_entry_args(tmp_path)
     payload.pop(
         "default_kernel_consumer_future_wna16_all_four_consumer_fourth_field_path_label"
     )
@@ -674,7 +783,7 @@ def test_wna16_typed_slot_benchmark_harness_rejects_all_four_invalid_sha(
     module = _load_module()
     preflight = tmp_path / "preflight.json"
     runner = tmp_path / "runner.json"
-    payload = _preflight_payload()
+    payload = _preflight_payload_with_entry_args(tmp_path)
     payload[
         "default_kernel_consumer_future_wna16_all_four_consumer_fourth_field_sha256"
     ] = "not-a-sha"
@@ -707,7 +816,7 @@ def test_wna16_typed_slot_benchmark_harness_rejects_all_four_manifest_mismatch(
     module = _load_module()
     preflight = tmp_path / "preflight.json"
     runner = tmp_path / "runner.json"
-    payload = _preflight_payload()
+    payload = _preflight_payload_with_entry_args(tmp_path)
     payload[
         "default_kernel_consumer_future_wna16_all_four_consumer_post_native_input_manifest_sha256"
     ] = "a" * 64
@@ -736,10 +845,10 @@ def test_wna16_typed_slot_benchmark_harness_rejects_all_four_source_row_mismatch
     module = _load_module()
     preflight = tmp_path / "preflight.json"
     runner = tmp_path / "runner.json"
-    payload = _preflight_payload()
+    payload = _preflight_payload_with_entry_args(tmp_path)
     payload["default_kernel_consumer_future_wna16_all_four_consumer_source_count"] = 129
-    payload["default_kernel_consumer_future_wna16_all_four_consumer_row_count"] = 258
-    payload["default_kernel_consumer_future_wna16_all_four_consumer_row_ok_count"] = 258
+    payload["default_kernel_consumer_future_wna16_all_four_consumer_row_count"] = 1026
+    payload["default_kernel_consumer_future_wna16_all_four_consumer_row_ok_count"] = 1026
     _write_json(preflight, payload)
     _write_json(runner, _runner_payload())
 
@@ -768,7 +877,7 @@ def test_wna16_typed_slot_benchmark_harness_rejects_fourth_field_row_mismatch(
     module = _load_module()
     preflight = tmp_path / "preflight.json"
     runner = tmp_path / "runner.json"
-    payload = _preflight_payload(row_count=257)
+    payload = _preflight_payload_with_entry_args(tmp_path, row_count=1025)
     fourth_prefix = "default_kernel_consumer_future_wna16_fourth_field_handoff"
     for suffix in (
         "row_count",
@@ -777,7 +886,7 @@ def test_wna16_typed_slot_benchmark_harness_rejects_fourth_field_row_mismatch(
         "runner_row_count",
         "runner_row_ok_count",
     ):
-        payload[f"{fourth_prefix}_{suffix}"] = 258
+        payload[f"{fourth_prefix}_{suffix}"] = 1026
     _write_json(preflight, payload)
     _write_json(runner, _runner_payload())
 
@@ -803,7 +912,7 @@ def test_wna16_typed_slot_benchmark_harness_rejects_fourth_field_hash_mismatch(
     module = _load_module()
     preflight = tmp_path / "preflight.json"
     runner = tmp_path / "runner.json"
-    payload = _preflight_payload()
+    payload = _preflight_payload_with_entry_args(tmp_path)
     payload[
         "default_kernel_consumer_future_wna16_fourth_field_handoff_field_read_hash"
     ] = "7172737475767778"
@@ -834,7 +943,7 @@ def test_wna16_typed_slot_benchmark_harness_rejects_preflight_check_sha_mismatch
     preflight = tmp_path / "preflight.json"
     check = tmp_path / "preflight.check.json"
     runner = tmp_path / "runner.json"
-    _write_json(preflight, _preflight_payload())
+    _write_json(preflight, _preflight_payload_with_entry_args(tmp_path))
     _write_json(
         check,
         {
@@ -872,7 +981,7 @@ def test_wna16_typed_slot_benchmark_harness_rejects_unbound_preflight_check(
     preflight = tmp_path / "preflight.json"
     check = tmp_path / "preflight.check.json"
     runner = tmp_path / "runner.json"
-    _write_json(preflight, _preflight_payload())
+    _write_json(preflight, _preflight_payload_with_entry_args(tmp_path))
     _write_json(check, {"passed": True, "result": {"passed": True}})
     _write_json(runner, _runner_payload())
 
@@ -904,8 +1013,8 @@ def test_wna16_typed_slot_benchmark_harness_rejects_preflight_check_target_misma
     other_preflight = tmp_path / "other_preflight.json"
     check = tmp_path / "preflight.check.json"
     runner = tmp_path / "runner.json"
-    _write_json(preflight, _preflight_payload())
-    _write_json(other_preflight, _preflight_payload())
+    _write_json(preflight, _preflight_payload_with_entry_args(tmp_path))
+    _write_json(other_preflight, _preflight_payload_with_entry_args(tmp_path))
     _write_json(
         check,
         {
@@ -942,7 +1051,7 @@ def test_wna16_typed_slot_benchmark_harness_rejects_source_count_mismatch(
     module = _load_module()
     preflight = tmp_path / "preflight.json"
     runner = tmp_path / "runner.json"
-    _write_json(preflight, _preflight_payload())
+    _write_json(preflight, _preflight_payload_with_entry_args(tmp_path))
     _write_json(runner, _runner_payload(source_count=129))
 
     args = module.build_parser().parse_args(
@@ -971,7 +1080,7 @@ def test_wna16_typed_slot_benchmark_harness_rejects_runner_safety_open(
     runner_payload[
         "future_wna16_kernel_side_consumer_execution_kernel_arg_pass_allowed"
     ] = True
-    _write_json(preflight, _preflight_payload())
+    _write_json(preflight, _preflight_payload_with_entry_args(tmp_path))
     _write_json(runner, runner_payload)
 
     args = module.build_parser().parse_args(
@@ -1000,7 +1109,7 @@ def test_wna16_typed_slot_benchmark_harness_rejects_stub_summary_safety_conflict
     runner_payload["stub_summary"][
         "future_wna16_kernel_side_consumer_execution_kernel_arg_pass_allowed"
     ] = True
-    _write_json(preflight, _preflight_payload())
+    _write_json(preflight, _preflight_payload_with_entry_args(tmp_path))
     _write_json(runner, runner_payload)
 
     args = module.build_parser().parse_args(
@@ -1025,8 +1134,8 @@ def test_wna16_typed_slot_benchmark_harness_rejects_row_mismatch(
     module = _load_module()
     preflight = tmp_path / "preflight.json"
     runner = tmp_path / "runner.json"
-    _write_json(preflight, _preflight_payload(row_count=257))
-    _write_json(runner, _runner_payload(row_count=258))
+    _write_json(preflight, _preflight_payload_with_entry_args(tmp_path, row_count=1025))
+    _write_json(runner, _runner_payload(row_count=1026))
 
     args = module.build_parser().parse_args(
         [
@@ -1054,7 +1163,7 @@ def test_wna16_typed_slot_benchmark_harness_rejects_cross_hash_mismatch(
     runner_payload[
         "future_wna16_kernel_side_consumer_execution_scale_metadata_handle_read_hash_accumulator"
     ] = "aaaaaaaaaaaaaaaa"
-    _write_json(preflight, _preflight_payload())
+    _write_json(preflight, _preflight_payload_with_entry_args(tmp_path))
     _write_json(runner, runner_payload)
 
     args = module.build_parser().parse_args(
@@ -1083,7 +1192,7 @@ def test_wna16_typed_slot_benchmark_harness_rejects_weak_hash(
     runner_payload[
         "future_wna16_kernel_side_consumer_execution_hash_accumulator"
     ] = "0"
-    _write_json(preflight, _preflight_payload())
+    _write_json(preflight, _preflight_payload_with_entry_args(tmp_path))
     _write_json(runner, runner_payload)
 
     args = module.build_parser().parse_args(
@@ -1100,3 +1209,120 @@ def test_wna16_typed_slot_benchmark_harness_rejects_weak_hash(
 
     assert result["passed"] is False
     assert any("hash_accumulator_invalid" in item for item in result["failures"])
+
+
+def test_wna16_typed_slot_benchmark_harness_rejects_missing_entry_args_ptr_row(
+    tmp_path: Path,
+):
+    module = _load_module()
+    preflight = tmp_path / "preflight.json"
+    runner = tmp_path / "runner.json"
+    payload = _preflight_payload_with_entry_args(tmp_path)
+    rows = payload["default_readonly_gate_required_evidence_check"]["rows"]
+    payload["default_readonly_gate_required_evidence_check"]["rows"] = [
+        row
+        for row in rows
+        if row["label"]
+        != "future_kernel_native_arg_slot_all_field_entry_args_ptr_sweep_json"
+    ]
+    _write_json(preflight, payload)
+    _write_json(runner, _runner_payload())
+
+    args = module.build_parser().parse_args(
+        [
+            "--preflight-json",
+            str(preflight),
+            "--runner-json",
+            str(runner),
+            "--output-json",
+            str(tmp_path / "out.json"),
+        ]
+    )
+    result = module.run_harness(args)
+
+    assert result["passed"] is False
+    assert (
+        "future_kernel_native_arg_slot_all_field_entry_args_ptr_sweep_json_required_evidence_row_missing"
+        in result["failures"]
+    )
+
+
+def test_wna16_typed_slot_benchmark_harness_rejects_entry_args_ptr_child_abi_gap(
+    tmp_path: Path,
+):
+    module = _load_module()
+    preflight = tmp_path / "preflight.json"
+    runner = tmp_path / "runner.json"
+    payload = _preflight_payload_with_entry_args(tmp_path)
+    rows = payload["default_readonly_gate_required_evidence_check"]["rows"]
+    sweep_path = Path(
+        next(
+            row["path"]
+            for row in rows
+            if row["label"]
+            == "future_kernel_native_arg_slot_all_field_entry_args_ptr_sweep_json"
+        )
+    )
+    sweep_payload = json.loads(sweep_path.read_text(encoding="utf-8"))
+    sweep_payload["require_kernel_entry_args_ptr_abi"] = False
+    _write_json(sweep_path, sweep_payload)
+    _write_json(preflight, payload)
+    _write_json(runner, _runner_payload())
+
+    args = module.build_parser().parse_args(
+        [
+            "--preflight-json",
+            str(preflight),
+            "--runner-json",
+            str(runner),
+            "--output-json",
+            str(tmp_path / "out.json"),
+        ]
+    )
+    result = module.run_harness(args)
+
+    assert result["passed"] is False
+    assert (
+        "entry_args_ptr_sweep_require_kernel_entry_args_ptr_abi_not_required"
+        in result["failures"]
+    )
+    assert (
+        "future_kernel_native_arg_slot_all_field_entry_args_ptr_sweep_json_artifact_sha256_mismatch"
+        in result["failures"]
+    )
+
+
+def test_wna16_typed_slot_benchmark_harness_rejects_entry_args_ptr_stale_sha(
+    tmp_path: Path,
+):
+    module = _load_module()
+    preflight = tmp_path / "preflight.json"
+    runner = tmp_path / "runner.json"
+    payload = _preflight_payload_with_entry_args(tmp_path)
+    rows = payload["default_readonly_gate_required_evidence_check"]["rows"]
+    for row in rows:
+        if (
+            row["label"]
+            == "future_kernel_native_arg_slot_all_field_entry_args_ptr_sweep_json"
+        ):
+            row["sha256"] = "0" * 64
+    _write_json(preflight, payload)
+    _write_json(runner, _runner_payload())
+
+    args = module.build_parser().parse_args(
+        [
+            "--preflight-json",
+            str(preflight),
+            "--runner-json",
+            str(runner),
+            "--output-json",
+            str(tmp_path / "out.json"),
+        ]
+    )
+    result = module.run_harness(args)
+
+    assert result["passed"] is False
+    assert (
+        "future_kernel_native_arg_slot_all_field_entry_args_ptr_sweep_json_artifact_sha256_mismatch"
+        in result["failures"]
+    )
