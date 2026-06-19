@@ -39168,3 +39168,115 @@ Next gate:
 ```text
 implement_payload_cache_manager_issue_executor
 ```
+
+## 2026-06-20 payload-cache issue-plan executor passed
+
+Added the first ready-time executor above the native issue-plan gate:
+
+```text
+script:
+  scripts/run_premap_payload_cache_issue_plan_executor.py
+
+tests:
+  tests/test_run_premap_payload_cache_issue_plan_executor.py
+
+artifact:
+  outputs/reports/premap_kernel_consumer/
+    premap_payload_cache_issue_plan_executor_dolly128_gen64_ready_time_v1.json
+```
+
+Input:
+
+```text
+outputs/reports/premap_kernel_consumer/
+  premap_payload_cache_issue_plan_gate_dolly128_gen64_native_v1.json
+```
+
+The executor feeds the issue experts into `ReadyTimeExpertCacheManager`:
+
+```text
+issue_candidate_count = 8
+capacity = 12288
+service_us_per_issue = 10.0
+queue_batch_size = 8
+queue_deadline_us = 200.0
+```
+
+Current result:
+
+```text
+issued_prefetch_count = 8
+demand_count = 8
+demand_hit_count = 8
+demand_hit_rate = 1.0
+ready_late_miss_count = 0
+used_per_issued_fetch = 1.0
+queue_batch_count = 1
+queue_service_us = 80.0
+queue_total_span_us = 80.0
+```
+
+The executor revalidates the issue-plan binding before running:
+
+```text
+issue_candidate_count == len(issue_candidate_experts)
+issue_candidate_hash == fnv64(issue_candidate_experts + count)
+```
+
+This prevents a stale gate from carrying one native issue hash while executing a
+different expert list.
+
+Safety boundary remains closed:
+
+```text
+payload_bytes = 0
+ready_credit = false
+ready_before_demand_credit = false
+real_ready_credit_granted = false
+payload_transfer_enabled = false
+payload_deref_allowed = false
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+uses_current_wna16_args = false
+passes_current_wna16_args = false
+measures_tpot = false
+measures_vllm_latency = false
+```
+
+The reported 8/8 hit is explicitly a ready-time deadline-window model result:
+
+```text
+deadline_window_model_only = true
+same_arrival_demand_model = true
+ready_time_model_hit_count = 8
+real_payload_ready_hit_count = 0
+```
+
+Validation:
+
+```text
+/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_run_premap_payload_cache_issue_plan_executor.py \
+  tests/test_build_premap_payload_cache_issue_plan_gate.py \
+  tests/test_cache_manager.py -q
+# 21 passed
+
+/home/husrcf/anaconda3/envs/TRY/bin/python \
+  scripts/run_premap_payload_cache_issue_plan_executor.py --require-pass
+# passed = true
+```
+
+Interpretation:
+
+```text
+This is still not payload movement and not endpoint latency.
+It proves the producer-side issue plan can be consumed by the ready-time
+payload-cache manager model with explicit queue/deadline accounting.
+```
+
+Next gate:
+
+```text
+implement_real_payload_cache_manager_or_measured_copy_executor
+```
