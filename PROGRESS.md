@@ -24,6 +24,7 @@ outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_payloadless_usefu
 outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_payloadless_useful_benchmark_harness_entry_args_ptr_v1.json
 outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_payloadless_useful_repeat_benchmark_entry_args_ptr_seed_v1.json
 outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_payloadless_useful_repeat_benchmark_entry_args_ptr_repeat1_gpu1_v1.json
+outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_payloadless_useful_repeat_benchmark_entry_args_ptr_repeat3_gpu1_v1.json
 ```
 
 The runtime gate consumes the strict preflight summary/check and requires the
@@ -93,7 +94,21 @@ env HIP_VISIBLE_DEVICES=1 /home/husrcf/anaconda3/envs/TRY/bin/python \
 # repeat_count_measured = 1
 # measurement_source = repeated_independent_native_typed_slot_timing_stub
 # native_stub_host_wall_ms = 577.908960
+
+env HIP_VISIBLE_DEVICES=1 /home/husrcf/anaconda3/envs/TRY/bin/python \
+  scripts/run_future_wna16_typed_slot_payloadless_useful_repeat_benchmark.py \
+  --repeat-count 3 --device 0 --hip-visible-devices 1 --require-pass \
+  --repeat-output-dir outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_payloadless_useful_repeat_benchmark_repeats_gpu1_repeat3 \
+  --output-json outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_payloadless_useful_repeat_benchmark_entry_args_ptr_repeat3_gpu1_v1.json
+# passed = true
+# repeat_count_requested = 3
+# repeat_count_measured = 3
+# measurement_source = repeated_independent_native_typed_slot_timing_stub
+# native_stub_host_wall_ms median = 337.903546
 ```
+
+For the explicit repeat runs, `--device 0` is the logical ROCm ordinal after
+`HIP_VISIBLE_DEVICES=1`, so it corresponds to physical GPU1.
 
 Next stage:
 
