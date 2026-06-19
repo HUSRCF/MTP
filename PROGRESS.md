@@ -2,10 +2,10 @@
 
 ## Progress Version
 
-- Version: `v1.19-payload-cache-full-fetch-decision-gate`
+- Version: `v1.20-payload-cache-full-fetch-slack-lookahead-decision-gate`
 - Updated: 2026-06-20
 
-## Latest Update: Payload Cache Full-Fetch Decision Gate
+## Latest Update: Payload Cache Full-Fetch Slack/Lookahead Decision Gate
 
 Follow-up lookahead sweep:
 
@@ -74,12 +74,18 @@ Decision at the current decode deadline:
 
 ```text
 current_deadline_us = 200.0
+current_lookahead_us = 0.0
 first_model_passing_deadline_us = 14661.311949203082
+first_model_passing_lookahead_us = 14461.311949203082
 required_lookahead_slack_us = 14661.311949203082
+required_issue_to_demand_lookahead_us = 14461.311949203082
 slack_deficit_us = 14461.311949203082
+lookahead_deficit_us = 14461.311949203082
 ready_time_model_slack_satisfied = false
+ready_time_model_lookahead_satisfied = false
+ready_time_any_model_route_satisfied = false
 full_fetch_runtime_allowed = false
-full_fetch_block_reason = insufficient_ready_time_slack
+full_fetch_block_reason = insufficient_ready_time_and_lookahead
 metadata_premap_runtime_preferred = true
 descriptor_prep_runtime_preferred = true
 ```
