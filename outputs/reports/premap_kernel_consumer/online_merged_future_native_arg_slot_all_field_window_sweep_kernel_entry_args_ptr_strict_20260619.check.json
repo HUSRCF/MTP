@@ -1,0 +1,27 @@
+{
+  "all_field_window_sweep_json": "outputs/reports/premap_kernel_consumer/online_merged_future_native_arg_slot_all_field_window_sweep_kernel_entry_args_ptr_strict_20260619.json",
+  "expected_block_threads": 256,
+  "expected_window_size": 512,
+  "failures": [],
+  "min_row_count": 257,
+  "mirror_fields_checked": [
+    "descriptor_ptr",
+    "packed_weight_descriptor",
+    "scale_metadata_handle",
+    "aux_metadata_handle"
+  ],
+  "passed": true,
+  "require_child_checks": true,
+  "require_child_consumer_view": true,
+  "require_child_consumer_view_handle_projection": true,
+  "require_child_consumer_view_layout": true,
+  "require_child_consumer_view_row_layout": true,
+  "require_child_field_masks": true,
+  "require_child_kernel_arg_packet_abi": true,
+  "require_child_kernel_entry_args_abi": true,
+  "require_child_kernel_entry_args_ptr_abi": true,
+  "require_child_kernel_entry_row_metadata": true,
+  "require_child_program_view_ptr_abi": true,
+  "row_count": 1841,
+  "source": "online_merged_future_native_arg_slot_all_field_window_sweep_check"
+}

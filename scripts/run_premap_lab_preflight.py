@@ -277,6 +277,8 @@ REQUIRED_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
     "future_kernel_native_arg_slot_online_merged_descriptor_ptr_mirror_runner_json",
     "future_kernel_native_arg_slot_online_merged_packed_weight_mirror_canary_json",
     "future_kernel_native_arg_slot_online_merged_packed_weight_mirror_runner_json",
+    "future_kernel_native_arg_slot_all_field_entry_args_ptr_sweep_json",
+    "future_kernel_native_arg_slot_all_field_entry_args_ptr_sweep_check_json",
     "future_kernel_native_arg_slot_online_merged_multiprogram_runner_json",
     "future_kernel_native_arg_slot_online_merged_multiprogram_canary_json",
     "future_kernel_wna16_adjacent_typed_slot_canary_json",
@@ -420,6 +422,12 @@ _TYPED_ROW_CONSUMER_PATH_METRIC_PREFIX = (
     "kernel_side_typed_row_consumer_path_"
 )
 _FUTURE_KERNEL_REQUIRED_FIELD_MASK = 0x7
+_FUTURE_KERNEL_TYPED_SLOT_MIRROR_FIELDS = (
+    "descriptor_ptr",
+    "packed_weight_descriptor",
+    "scale_metadata_handle",
+    "aux_metadata_handle",
+)
 _FUTURE_KERNEL_ALL_FIELD_MASK = 0xF
 _FUTURE_KERNEL_AUX_FIELD_MASK = 0x8
 _FUTURE_WNA16_SINGLE_FIELD_HANDOFF_FIELDS = {
@@ -1934,6 +1942,123 @@ def _validate_future_wna16_kernel_side_typed_consumer_path(
     return failures
 
 
+def _validate_future_native_arg_slot_all_field_entry_args_ptr_sweep(
+    evidence: dict[str, Any],
+) -> list[str]:
+    failures: list[str] = []
+    expected_values: dict[str, Any] = {
+        "source": "online_merged_future_native_arg_slot_all_field_window_sweep_runner",
+        "passed": True,
+        "failures": [],
+        "dry_run": False,
+        "payload_bytes": 0,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "window_size": 512,
+        "block_threads": 256,
+        "require_program_view_ptr_abi": True,
+        "require_kernel_arg_packet_abi": True,
+        "require_kernel_entry_args_abi": True,
+        "require_kernel_entry_args_ptr_abi": True,
+        "mirror_fields": list(_FUTURE_KERNEL_TYPED_SLOT_MIRROR_FIELDS),
+    }
+    for key, expected in expected_values.items():
+        if evidence.get(key) != expected:
+            failures.append(f"{key}_mismatch")
+    if not _targets_default_lab_gpu1(evidence):
+        failures.append("device_not_gpu1")
+
+    row_counts = evidence.get("row_counts")
+    if not isinstance(row_counts, dict):
+        failures.append("row_counts_missing")
+        row_counts = {}
+    values: list[int] = []
+    for field in _FUTURE_KERNEL_TYPED_SLOT_MIRROR_FIELDS:
+        value = row_counts.get(field)
+        if not isinstance(value, int) or isinstance(value, bool):
+            failures.append(f"{field}_row_count_invalid")
+            continue
+        values.append(value)
+    if values:
+        row_count = values[0]
+        if any(value != row_count for value in values):
+            failures.append("field_row_counts_not_equal")
+        if row_count <= 512:
+            failures.append("row_count_not_larger_than_window_size")
+    else:
+        row_count = None
+
+    reports = evidence.get("field_reports")
+    if not isinstance(reports, dict):
+        failures.append("field_reports_missing")
+        reports = {}
+    for field in _FUTURE_KERNEL_TYPED_SLOT_MIRROR_FIELDS:
+        report = reports.get(field)
+        if not isinstance(report, dict):
+            failures.append(f"{field}_field_report_missing")
+            continue
+        expected_report_values = {
+            "passed": True,
+            "sweep_failures": [],
+            "check_failures": [],
+            "window_size": 512,
+            "windows_checked": ["full", "head", "middle", "tail"],
+        }
+        for key, expected in expected_report_values.items():
+            if report.get(key) != expected:
+                failures.append(f"{field}_{key}_mismatch")
+        if row_count is not None and report.get("row_count") != row_count:
+            failures.append(f"{field}_report_row_count_mismatch")
+        if not isinstance(report.get("sweep_json"), str) or not report.get(
+            "sweep_json"
+        ):
+            failures.append(f"{field}_sweep_json_missing")
+        if not isinstance(report.get("check_json"), str) or not report.get(
+            "check_json"
+        ):
+            failures.append(f"{field}_check_json_missing")
+    return failures
+
+
+def _validate_future_native_arg_slot_all_field_entry_args_ptr_sweep_check(
+    evidence: dict[str, Any],
+) -> list[str]:
+    failures: list[str] = []
+    expected_values: dict[str, Any] = {
+        "source": "online_merged_future_native_arg_slot_all_field_window_sweep_check",
+        "passed": True,
+        "failures": [],
+        "expected_window_size": 512,
+        "expected_block_threads": 256,
+        "min_row_count": 257,
+        "require_child_checks": True,
+        "require_child_field_masks": True,
+        "require_child_consumer_view": True,
+        "require_child_consumer_view_layout": True,
+        "require_child_consumer_view_row_layout": True,
+        "require_child_consumer_view_handle_projection": True,
+        "require_child_program_view_ptr_abi": True,
+        "require_child_kernel_arg_packet_abi": True,
+        "require_child_kernel_entry_args_abi": True,
+        "require_child_kernel_entry_args_ptr_abi": True,
+        "require_child_kernel_entry_row_metadata": True,
+        "mirror_fields_checked": list(_FUTURE_KERNEL_TYPED_SLOT_MIRROR_FIELDS),
+    }
+    for key, expected in expected_values.items():
+        if evidence.get(key) != expected:
+            failures.append(f"{key}_mismatch")
+    row_count = evidence.get("row_count")
+    if not isinstance(row_count, int) or isinstance(row_count, bool):
+        failures.append("row_count_invalid")
+    elif row_count <= 512:
+        failures.append("row_count_not_larger_than_window_size")
+    if not isinstance(evidence.get("all_field_window_sweep_json"), str) or not evidence.get(
+        "all_field_window_sweep_json"
+    ):
+        failures.append("all_field_window_sweep_json_missing")
+    return failures
+
+
 def _validate_wna16_side_consumer_variant_execution_runner(
     evidence: dict[str, Any],
 ) -> list[str]:
@@ -2115,6 +2240,8 @@ def _validate_required_evidence_payload(
         "future_kernel_native_arg_slot_multiprogram_canary_json",
         "future_kernel_native_arg_slot_online_merged_multiprogram_runner_json",
         "future_kernel_native_arg_slot_online_merged_multiprogram_canary_json",
+        "future_kernel_native_arg_slot_all_field_entry_args_ptr_sweep_json",
+        "future_kernel_native_arg_slot_all_field_entry_args_ptr_sweep_check_json",
         "future_kernel_wna16_adjacent_typed_slot_canary_json",
         "future_kernel_wna16_adjacent_typed_slot_stub_json",
         "future_kernel_wna16_adjacent_typed_slot_standalone_canary_json",
@@ -2254,6 +2381,76 @@ def _validate_required_evidence_payload(
         return [
             f"{evidence_label}:{failure}"
             for failure in _validate_wna16_adjacent_typed_slot_standalone_evidence(
+                evidence
+            )
+        ]
+    if evidence_label == "future_kernel_native_arg_slot_all_field_entry_args_ptr_sweep_json":
+        failures = [
+            f"{evidence_label}:{failure}"
+            for failure in _validate_future_native_arg_slot_all_field_entry_args_ptr_sweep(
+                evidence
+            )
+        ]
+        if evidence_paths is not None and root is not None:
+            check_path = evidence_paths.get(
+                "future_kernel_native_arg_slot_all_field_entry_args_ptr_sweep_check_json"
+            )
+            if isinstance(check_path, str):
+                try:
+                    check_payload = _load_json_object_path(check_path, root=root)
+                except (FileNotFoundError, ValueError, json.JSONDecodeError, OSError):
+                    failures.append(f"{evidence_label}:sweep_check_json_read_failed")
+                else:
+                    observed_sweep = check_payload.get("all_field_window_sweep_json")
+                    raw_sweep = evidence_paths.get(evidence_label)
+                    if isinstance(observed_sweep, str) and isinstance(raw_sweep, str):
+                        if not _path_labels_match(
+                            observed_sweep,
+                            raw_sweep,
+                            root=root,
+                        ):
+                            failures.append(
+                                f"{evidence_label}:sweep_check_path_mismatch"
+                            )
+                    else:
+                        failures.append(
+                            f"{evidence_label}:sweep_check_path_invalid"
+                        )
+                    row_counts = evidence.get("row_counts")
+                    if isinstance(row_counts, dict):
+                        field_row_counts = [
+                            row_counts.get(field)
+                            for field in _FUTURE_KERNEL_TYPED_SLOT_MIRROR_FIELDS
+                        ]
+                        if all(
+                            isinstance(value, int) and not isinstance(value, bool)
+                            for value in field_row_counts
+                        ):
+                            check_row_count = check_payload.get("row_count")
+                            if check_row_count != field_row_counts[0]:
+                                failures.append(
+                                    f"{evidence_label}:sweep_check_row_count_mismatch"
+                                )
+                    observed_check_path = evidence.get("check_json")
+                    if isinstance(observed_check_path, str) and observed_check_path:
+                        if not _path_labels_match(
+                            observed_check_path,
+                            check_path,
+                            root=root,
+                        ):
+                            failures.append(
+                                f"{evidence_label}:check_json_path_mismatch"
+                            )
+            else:
+                failures.append(f"{evidence_label}:sweep_check_path_missing")
+        return failures
+    if (
+        evidence_label
+        == "future_kernel_native_arg_slot_all_field_entry_args_ptr_sweep_check_json"
+    ):
+        return [
+            f"{evidence_label}:{failure}"
+            for failure in _validate_future_native_arg_slot_all_field_entry_args_ptr_sweep_check(
                 evidence
             )
         ]
@@ -7271,6 +7468,21 @@ def _path_label(path: Path, *, root: Path) -> str:
     path = path.resolve()
     root = root.resolve()
     return path.relative_to(root).as_posix() if path.is_relative_to(root) else str(path)
+
+
+def _path_labels_match(observed_raw: str, expected_raw: str, *, root: Path) -> bool:
+    observed_label = _path_label(_path_for_label(observed_raw, root), root=root)
+    expected_label = _path_label(_path_for_label(expected_raw, root), root=root)
+    if observed_label == expected_label:
+        return True
+    observed_posix = Path(observed_raw).as_posix()
+    expected_posix = Path(expected_raw).as_posix()
+    return (
+        observed_posix == expected_label
+        or observed_posix.endswith(f"/{expected_label}")
+        or expected_posix == observed_label
+        or expected_posix.endswith(f"/{observed_label}")
+    )
 
 
 def _path_for_label(raw_path: str, root: Path) -> Path:

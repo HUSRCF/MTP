@@ -3466,6 +3466,84 @@ def _future_wna16_kernel_side_typed_consumer_path_payload(
     }
 
 
+_ALL_FIELD_ENTRY_ARGS_PTR_MIRROR_FIELDS = [
+    "descriptor_ptr",
+    "packed_weight_descriptor",
+    "scale_metadata_handle",
+    "aux_metadata_handle",
+]
+
+
+def _future_native_arg_slot_all_field_entry_args_ptr_sweep_payload(
+    *,
+    check_json: str,
+    row_count: int = 1841,
+) -> dict[str, object]:
+    return {
+        "source": "online_merged_future_native_arg_slot_all_field_window_sweep_runner",
+        "passed": True,
+        "failures": [],
+        "device": 1,
+        "dry_run": False,
+        "payload_bytes": 0,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "window_size": 512,
+        "block_threads": 256,
+        "mirror_fields": list(_ALL_FIELD_ENTRY_ARGS_PTR_MIRROR_FIELDS),
+        "require_program_view_ptr_abi": True,
+        "require_kernel_arg_packet_abi": True,
+        "require_kernel_entry_args_abi": True,
+        "require_kernel_entry_args_ptr_abi": True,
+        "row_counts": {
+            field: row_count for field in _ALL_FIELD_ENTRY_ARGS_PTR_MIRROR_FIELDS
+        },
+        "field_reports": {
+            field: {
+                "passed": True,
+                "sweep_failures": [],
+                "check_failures": [],
+                "row_count": row_count,
+                "window_size": 512,
+                "windows_checked": ["full", "head", "middle", "tail"],
+                "sweep_json": f"reports/{field}_entry_args_ptr_window_sweep.json",
+                "check_json": f"reports/{field}_entry_args_ptr_window_check.json",
+            }
+            for field in _ALL_FIELD_ENTRY_ARGS_PTR_MIRROR_FIELDS
+        },
+        "check_json": check_json,
+    }
+
+
+def _future_native_arg_slot_all_field_entry_args_ptr_sweep_check_payload(
+    *,
+    sweep_json: str,
+    row_count: int = 1841,
+) -> dict[str, object]:
+    return {
+        "source": "online_merged_future_native_arg_slot_all_field_window_sweep_check",
+        "passed": True,
+        "failures": [],
+        "all_field_window_sweep_json": sweep_json,
+        "expected_window_size": 512,
+        "expected_block_threads": 256,
+        "min_row_count": 257,
+        "require_child_checks": True,
+        "require_child_field_masks": True,
+        "require_child_consumer_view": True,
+        "require_child_consumer_view_layout": True,
+        "require_child_consumer_view_row_layout": True,
+        "require_child_consumer_view_handle_projection": True,
+        "require_child_program_view_ptr_abi": True,
+        "require_child_kernel_arg_packet_abi": True,
+        "require_child_kernel_entry_args_abi": True,
+        "require_child_kernel_entry_args_ptr_abi": True,
+        "require_child_kernel_entry_row_metadata": True,
+        "mirror_fields_checked": list(_ALL_FIELD_ENTRY_ARGS_PTR_MIRROR_FIELDS),
+        "row_count": row_count,
+    }
+
+
 def _wna16_side_consumer_variant_execution_runner_payload(
     input_path: str,
     stub_path: str,
@@ -4065,6 +4143,12 @@ def _write_gate(
     future_wna16_kernel_side_typed_consumer_path = (
         f"reports/{name}_future_wna16_kernel_side_typed_consumer_path.json"
     )
+    future_native_arg_slot_all_field_entry_args_ptr_sweep_path = (
+        f"reports/{name}_future_native_arg_slot_all_field_entry_args_ptr_sweep.json"
+    )
+    future_native_arg_slot_all_field_entry_args_ptr_sweep_check_path = (
+        f"reports/{name}_future_native_arg_slot_all_field_entry_args_ptr_sweep_check.json"
+    )
     wna16_side_consumer_variant_execution_input_path = (
         f"reports/{name}_wna16_side_consumer_variant_execution_input.json"
     )
@@ -4603,6 +4687,26 @@ def _write_gate(
             + "\n",
         )
         _write(
+            root / future_native_arg_slot_all_field_entry_args_ptr_sweep_path,
+            json.dumps(
+                _future_native_arg_slot_all_field_entry_args_ptr_sweep_payload(
+                    check_json=(
+                        future_native_arg_slot_all_field_entry_args_ptr_sweep_check_path
+                    )
+                )
+            )
+            + "\n",
+        )
+        _write(
+            root / future_native_arg_slot_all_field_entry_args_ptr_sweep_check_path,
+            json.dumps(
+                _future_native_arg_slot_all_field_entry_args_ptr_sweep_check_payload(
+                    sweep_json=future_native_arg_slot_all_field_entry_args_ptr_sweep_path
+                )
+            )
+            + "\n",
+        )
+        _write(
             root / wna16_side_consumer_variant_execution_input_path,
             json.dumps(_wna16_side_arg_slot_multiprogram_input_payload()) + "\n",
         )
@@ -4986,6 +5090,10 @@ def _write_gate(
             f"{future_wna16_typed_slot_all_four_field_consumer_path}\n"
             "  future_wna16_kernel_side_typed_consumer_path_json: "
             f"{future_wna16_kernel_side_typed_consumer_path}\n"
+            "  future_kernel_native_arg_slot_all_field_entry_args_ptr_sweep_json: "
+            f"{future_native_arg_slot_all_field_entry_args_ptr_sweep_path}\n"
+            "  future_kernel_native_arg_slot_all_field_entry_args_ptr_sweep_check_json: "
+            f"{future_native_arg_slot_all_field_entry_args_ptr_sweep_check_path}\n"
             "  wna16_side_consumer_variant_execution_128strict_runner_json: "
             f"{wna16_side_consumer_variant_execution_runner_path}\n"
             "  payload_cache_producer_state_native_canary_json: "
@@ -5089,7 +5197,7 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert result["passed"] is True
     assert result["failures"] == []
     assert result["runtime_gate_evidence_scan"]["gate_count"] == 5
-    assert result["runtime_gate_evidence_scan"]["evidence_path_count"] == 112
+    assert result["runtime_gate_evidence_scan"]["evidence_path_count"] == 116
     assert result["default_readonly_gate_required_evidence_check"]["passed"] is True
     summary = result["lab_gate_status_summary"]
     assert summary["passed"] is True
@@ -6521,9 +6629,9 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert summary["payload_bytes_required"] == 0
     assert summary["passed_to_kernel_required"] is False
     assert summary["changes_kernel_launch_args_required"] is False
-    assert summary["required_evidence"]["required_count"] == 46
-    assert summary["required_evidence"]["present_count"] == 46
-    assert summary["required_evidence"]["passed_count"] == 46
+    assert summary["required_evidence"]["required_count"] == 48
+    assert summary["required_evidence"]["present_count"] == 48
+    assert summary["required_evidence"]["passed_count"] == 48
     assert summary["optional_evidence"]["required_count"] == 13
     assert summary["optional_evidence"]["present_count"] == 13
     assert summary["optional_evidence"]["passed_count"] == 13
@@ -7239,7 +7347,7 @@ def test_premap_lab_preflight_rejects_missing_optional_future_args_coverage(
         "default_kernel_consumer_future_kernel_args_total_mirror_coverage_incomplete"
         in result["failures"]
     )
-    assert summary["required_evidence"]["passed_count"] == 46
+    assert summary["required_evidence"]["passed_count"] == 48
     assert summary["default_optional_evidence_passed"] is True
     assert (
         summary[
@@ -9325,6 +9433,8 @@ def test_premap_lab_preflight_rejects_default_gate_without_typed_evidence(
         "future_wna16_typed_slot_fourth_field_handoff_canary_json:missing_evidence_path",
         "future_wna16_typed_slot_all_four_field_consumer_json:missing_evidence_path",
         "future_wna16_kernel_side_typed_consumer_path_json:missing_evidence_path",
+        "future_kernel_native_arg_slot_all_field_entry_args_ptr_sweep_json:missing_evidence_path",
+        "future_kernel_native_arg_slot_all_field_entry_args_ptr_sweep_check_json:missing_evidence_path",
         "wna16_side_consumer_variant_execution_128strict_runner_json:missing_evidence_path",
         "payload_cache_producer_state_native_canary_json:missing_evidence_path",
         "payload_cache_producer_state_online_nonempty_issue_canary_json:missing_evidence_path",
@@ -9789,6 +9899,154 @@ def test_premap_lab_preflight_rejects_kernel_side_path_manifest_mismatch(
         "future_wna16_kernel_side_typed_consumer_path_json:selected_input_manifest_sha256_mismatch"
         in required_failures
     )
+
+
+def test_premap_lab_preflight_rejects_all_field_entry_args_ptr_sweep_mismatch(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+    path = (
+        tmp_path
+        / "reports/default_gate_future_native_arg_slot_all_field_entry_args_ptr_sweep.json"
+    )
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["row_counts"]["aux_metadata_handle"] = 17
+    path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    required_failures = result["default_readonly_gate_required_evidence_check"][
+        "failures"
+    ]
+    assert result["passed"] is False
+    assert (
+        "future_kernel_native_arg_slot_all_field_entry_args_ptr_sweep_json:"
+        "field_row_counts_not_equal"
+    ) in required_failures
+
+
+def test_premap_lab_preflight_rejects_all_field_entry_args_ptr_wrong_device(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+    path = (
+        tmp_path
+        / "reports/default_gate_future_native_arg_slot_all_field_entry_args_ptr_sweep.json"
+    )
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["device"] = 0
+    path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    required_failures = result["default_readonly_gate_required_evidence_check"][
+        "failures"
+    ]
+    assert result["passed"] is False
+    assert (
+        "future_kernel_native_arg_slot_all_field_entry_args_ptr_sweep_json:"
+        "device_not_gpu1"
+    ) in required_failures
+
+
+def test_premap_lab_preflight_rejects_all_field_entry_args_ptr_check_mismatch(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+    path = (
+        tmp_path
+        / "reports/default_gate_future_native_arg_slot_all_field_entry_args_ptr_sweep_check.json"
+    )
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["require_child_kernel_entry_args_ptr_abi"] = False
+    path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    required_failures = result["default_readonly_gate_required_evidence_check"][
+        "failures"
+    ]
+    assert result["passed"] is False
+    assert (
+        "future_kernel_native_arg_slot_all_field_entry_args_ptr_sweep_check_json:"
+        "require_child_kernel_entry_args_ptr_abi_mismatch"
+    ) in required_failures
+
+
+def test_premap_lab_preflight_rejects_all_field_entry_args_ptr_check_row_mismatch(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+    path = (
+        tmp_path
+        / "reports/default_gate_future_native_arg_slot_all_field_entry_args_ptr_sweep_check.json"
+    )
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["row_count"] = 512
+    path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    required_failures = result["default_readonly_gate_required_evidence_check"][
+        "failures"
+    ]
+    assert result["passed"] is False
+    assert (
+        "future_kernel_native_arg_slot_all_field_entry_args_ptr_sweep_json:"
+        "sweep_check_row_count_mismatch"
+    ) in required_failures
+    assert (
+        "future_kernel_native_arg_slot_all_field_entry_args_ptr_sweep_check_json:"
+        "row_count_not_larger_than_window_size"
+    ) in required_failures
 
 
 def test_premap_lab_preflight_rejects_failed_typed_evidence(
@@ -12560,9 +12818,9 @@ def test_premap_lab_preflight_can_defer_self_referential_runner_evidence(
     assert summary["deferred_online_prelaunch_artifact_evidence"] is False
     assert summary["runtime_gate_evidence_deferred_count"] == 10
     assert summary["strict_default_gate_evidence_deferred_count"] == 5
-    assert summary["required_evidence"]["required_count"] == 46
-    assert summary["required_evidence"]["present_count"] == 44
-    assert summary["required_evidence"]["passed_count"] == 44
+    assert summary["required_evidence"]["required_count"] == 48
+    assert summary["required_evidence"]["present_count"] == 46
+    assert summary["required_evidence"]["passed_count"] == 46
     assert summary["optional_evidence"]["passed_count"] == 13
     for label in (
         "future_kernel_args_compatible_path_16_128export_artifact_check_json",
@@ -13138,7 +13396,7 @@ def test_premap_lab_preflight_cli_writes_summary(tmp_path: Path):
     assert result["lab_gate_status_summary"]["passed"] is True
     assert (
         result["lab_gate_status_summary"]["required_evidence"]["passed_count"]
-        == 46
+        == 48
     )
 
 
@@ -13174,7 +13432,7 @@ def test_premap_lab_preflight_cli_summary_only_writes_status_block(tmp_path: Pat
     assert exit_code == 0
     assert result["passed"] is True
     assert result["default_readonly_gate_path"] == default_gate
-    assert result["required_evidence"]["passed_count"] == 46
+    assert result["required_evidence"]["passed_count"] == 48
     assert result["optional_evidence"]["passed_count"] == 13
     assert "lab_gate_status_summary" not in result
 

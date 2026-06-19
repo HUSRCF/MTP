@@ -37059,3 +37059,120 @@ This closes the default-path drift found during review:
 fourth gate -> all-four gate -> kernel-side typed consumer path -> lab preflight
 all now use the kernel_side_path_v1 artifact chain by default.
 ```
+
+## Latest Update: Strict All-Field Native Arg-Slot Window Sweep Reached Kernel Entry Args Ptr ABI
+
+The online-merged future native arg-slot window sweep was refreshed with the
+strictest current standalone ABI requirement:
+
+```text
+--require-kernel-entry-args-ptr-abi
+```
+
+This forces every per-field child sweep to validate the full pointer chain:
+
+```text
+program-view ptr
+-> kernel-arg packet
+-> kernel-entry args
+-> kernel-entry args ptr
+```
+
+Generated artifacts:
+
+```text
+outputs/reports/premap_kernel_consumer/online_merged_future_native_arg_slot_all_field_window_sweep_kernel_entry_args_ptr_strict_20260619.json
+outputs/reports/premap_kernel_consumer/online_merged_future_native_arg_slot_all_field_window_sweep_kernel_entry_args_ptr_strict_20260619.check.json
+```
+
+Validation summary:
+
+```text
+passed = true
+mirror_fields = descriptor_ptr / packed_weight_descriptor / scale_metadata_handle / aux_metadata_handle
+row_count = 1841 for every field
+windows_checked = full / head / middle / tail
+window_size = 512
+require_program_view_ptr_abi = true
+require_kernel_arg_packet_abi = true
+require_kernel_entry_args_abi = true
+require_kernel_entry_args_ptr_abi = true
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+```
+
+Checker validation:
+
+```text
+conda run -n TRY python scripts/check_premap_online_merged_native_arg_slot_all_field_window_sweep.py \
+  outputs/reports/premap_kernel_consumer/online_merged_future_native_arg_slot_all_field_window_sweep_kernel_entry_args_ptr_strict_20260619.json \
+  --output-json outputs/reports/premap_kernel_consumer/online_merged_future_native_arg_slot_all_field_window_sweep_kernel_entry_args_ptr_strict_20260619.check.json \
+  --require-child-program-view-ptr-abi \
+  --require-child-kernel-arg-packet-abi \
+  --require-child-kernel-entry-args-abi \
+  --require-child-kernel-entry-args-ptr-abi
+# passed = true
+```
+
+Boundary remains unchanged:
+
+```text
+This is still a standalone future native arg-slot / entry-args-ptr ABI check.
+It does not pass anything to the current WNA16 fused-MoE kernel, does not
+dereference payload, and does not measure vLLM TPOT.
+```
+
+## Latest Update: Entry-Args Ptr All-Field Sweep Is Now Required Lab Preflight Evidence
+
+The strict all-field entry-args-ptr sweep was promoted from referenced evidence
+to required default lab-gate evidence:
+
+```text
+future_kernel_native_arg_slot_all_field_entry_args_ptr_sweep_json
+future_kernel_native_arg_slot_all_field_entry_args_ptr_sweep_check_json
+```
+
+The preflight now validates more than file presence:
+
+```text
+source == online_merged_future_native_arg_slot_all_field_window_sweep_runner/check
+target device == GPU1, or logical GPU0 under HIP_VISIBLE_DEVICES=1
+all four typed handle fields are present
+field row counts are equal and larger than the 512-row window
+full/head/middle/tail windows are present
+program-view ptr / kernel-arg packet / kernel-entry args / entry-args ptr flags are required
+payload_bytes == 0
+passed_to_kernel == false
+changes_kernel_launch_args == false
+companion check artifact points back to the required sweep artifact
+check row_count matches the sweep row_counts
+```
+
+Validation:
+
+```text
+/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_run_premap_lab_preflight.py \
+  tests/test_check_premap_online_merged_native_arg_slot_all_field_window_sweep.py \
+  tests/test_run_premap_online_merged_native_arg_slot_all_field_window_sweep.py -q
+# 197 passed
+
+/home/husrcf/anaconda3/envs/TRY/bin/python scripts/run_premap_lab_preflight.py \
+  --output-json outputs/reports/premap_lab_preflight_default_strict_20260619_entry_args_ptr_required_abs_python_portable.json
+# passed = true, required evidence = 48/48/48
+```
+
+The check artifact now stores its top-level sweep reference as a repo-relative
+path, and the preflight path cross-check accepts either repo-relative paths or
+absolute paths that suffix-match the current repo-relative label. This prevents
+the lab gate from becoming tied to a single checkout root.
+
+This keeps the same safety boundary:
+
+```text
+required lab preflight evidence only;
+no current WNA16 kernel arg pass;
+no payload dereference;
+no vLLM TPOT claim.
+```

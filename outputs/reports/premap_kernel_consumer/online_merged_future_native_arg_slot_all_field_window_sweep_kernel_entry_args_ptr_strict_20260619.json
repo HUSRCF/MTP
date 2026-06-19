@@ -1,0 +1,91 @@
+{
+  "block_threads": 256,
+  "changes_kernel_launch_args": false,
+  "device": 1,
+  "dry_run": false,
+  "failures": [],
+  "field_reports": {
+    "aux_metadata_handle": {
+      "check_failures": [],
+      "check_json": "all_field_window_sweep_kernel_entry_args_ptr_strict_20260619/online_merged_future_native_arg_slot_window_sweep_aux_metadata_handle_check.json",
+      "passed": true,
+      "row_count": 1841,
+      "sweep_failures": [],
+      "sweep_json": "all_field_window_sweep_kernel_entry_args_ptr_strict_20260619/online_merged_future_native_arg_slot_window_sweep_aux_metadata_handle_runner.json",
+      "window_size": 512,
+      "windows_checked": [
+        "full",
+        "head",
+        "middle",
+        "tail"
+      ]
+    },
+    "descriptor_ptr": {
+      "check_failures": [],
+      "check_json": "all_field_window_sweep_kernel_entry_args_ptr_strict_20260619/online_merged_future_native_arg_slot_window_sweep_descriptor_ptr_check.json",
+      "passed": true,
+      "row_count": 1841,
+      "sweep_failures": [],
+      "sweep_json": "all_field_window_sweep_kernel_entry_args_ptr_strict_20260619/online_merged_future_native_arg_slot_window_sweep_descriptor_ptr_runner.json",
+      "window_size": 512,
+      "windows_checked": [
+        "full",
+        "head",
+        "middle",
+        "tail"
+      ]
+    },
+    "packed_weight_descriptor": {
+      "check_failures": [],
+      "check_json": "all_field_window_sweep_kernel_entry_args_ptr_strict_20260619/online_merged_future_native_arg_slot_window_sweep_packed_weight_descriptor_check.json",
+      "passed": true,
+      "row_count": 1841,
+      "sweep_failures": [],
+      "sweep_json": "all_field_window_sweep_kernel_entry_args_ptr_strict_20260619/online_merged_future_native_arg_slot_window_sweep_packed_weight_descriptor_runner.json",
+      "window_size": 512,
+      "windows_checked": [
+        "full",
+        "head",
+        "middle",
+        "tail"
+      ]
+    },
+    "scale_metadata_handle": {
+      "check_failures": [],
+      "check_json": "all_field_window_sweep_kernel_entry_args_ptr_strict_20260619/online_merged_future_native_arg_slot_window_sweep_scale_metadata_handle_check.json",
+      "passed": true,
+      "row_count": 1841,
+      "sweep_failures": [],
+      "sweep_json": "all_field_window_sweep_kernel_entry_args_ptr_strict_20260619/online_merged_future_native_arg_slot_window_sweep_scale_metadata_handle_runner.json",
+      "window_size": 512,
+      "windows_checked": [
+        "full",
+        "head",
+        "middle",
+        "tail"
+      ]
+    }
+  },
+  "mirror_fields": [
+    "descriptor_ptr",
+    "packed_weight_descriptor",
+    "scale_metadata_handle",
+    "aux_metadata_handle"
+  ],
+  "passed": true,
+  "passed_to_kernel": false,
+  "payload_bytes": 0,
+  "require_kernel_arg_packet_abi": true,
+  "require_kernel_entry_args_abi": true,
+  "require_kernel_entry_args_ptr_abi": true,
+  "require_program_view_ptr_abi": true,
+  "row_counts": {
+    "aux_metadata_handle": 1841,
+    "descriptor_ptr": 1841,
+    "packed_weight_descriptor": 1841,
+    "scale_metadata_handle": 1841
+  },
+  "runner_json": "online_prelaunch_native_stub_canary_arg_slot_32input_hard_hashchain_preflight_32tables.json",
+  "source": "online_merged_future_native_arg_slot_all_field_window_sweep_runner",
+  "window_size": 512
+}
