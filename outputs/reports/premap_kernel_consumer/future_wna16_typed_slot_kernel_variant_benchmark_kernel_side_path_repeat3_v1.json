@@ -1,7 +1,7 @@
 {
   "all_four_field_consumer_fields_read": true,
   "all_four_field_consumer_fourth_field_path_label": "outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_fourth_field_handoff_canary_kernel_side_path_v1.json",
-  "all_four_field_consumer_fourth_field_sha256": "b80a35bc37c71cac262137bfb119a0b6cf209068a37bb1e7f1e8294c329a7839",
+  "all_four_field_consumer_fourth_field_sha256": "f4e6c5d33c973140719fbfe83b1aecc767cb5f2f772c3b75943d1e21025b05e5",
   "all_four_field_consumer_hashes_valid": true,
   "all_four_field_consumer_ready": true,
   "all_four_field_consumer_row_count": 5345,
@@ -13,17 +13,17 @@
   "benchmark_name": "premap_future_wna16_typed_slot_kernel_variant_benchmark_v1",
   "benchmark_outer_wall_ms_stats": {
     "count": 3,
-    "max_ms": 328.655728,
-    "mean_ms": 325.13185433333337,
-    "median_ms": 326.329477,
-    "min_ms": 320.410358,
-    "p10_ms": 320.410358,
-    "p90_ms": 328.655728
+    "max_ms": 338.792169,
+    "mean_ms": 331.54764066666667,
+    "median_ms": 329.147412,
+    "min_ms": 326.703341,
+    "p10_ms": 326.703341,
+    "p90_ms": 338.792169
   },
   "benchmark_outer_wall_ms_values": [
-    328.655728,
-    326.329477,
-    320.410358
+    338.792169,
+    326.703341,
+    329.147412
   ],
   "benchmark_scope": "independent_native_typed_slot_stub_host_wall",
   "benchmark_source": "premap_future_wna16_typed_slot_kernel_timing_stub_v1",
@@ -51,16 +51,16 @@
     "scale_metadata_handle": 5345
   },
   "fourth_field_handoff_evidence_path": "outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_fourth_field_handoff_canary_kernel_side_path_v1.json",
-  "fourth_field_handoff_evidence_sha256": "b80a35bc37c71cac262137bfb119a0b6cf209068a37bb1e7f1e8294c329a7839",
+  "fourth_field_handoff_evidence_sha256": "f4e6c5d33c973140719fbfe83b1aecc767cb5f2f772c3b75943d1e21025b05e5",
   "fourth_field_handoff_field_read_hash": "6e08db27babecb6a",
   "fourth_field_handoff_ready": true,
   "fourth_field_handoff_row_count": 5345,
   "fourth_field_handoff_row_ok_count": 5345,
   "fourth_field_handoff_runner_hash": "ba2e219a8ff9ccfe",
   "fourth_field_handoff_source_count": 128,
-  "future_wna16_kernel_side_typed_consumer_path_all_four_sha256": "d0cad163a2bee97f5d6b5c492225a277e3e86da31e1572a5696b1c48f841424f",
+  "future_wna16_kernel_side_typed_consumer_path_all_four_sha256": "a9b3de62ef44306056401971542f4b14e65b5dbb57da31c34c68cd3ba4e1a925",
   "future_wna16_kernel_side_typed_consumer_path_evidence_path": "outputs/reports/premap_kernel_consumer/future_wna16_kernel_side_typed_consumer_path_v1.json",
-  "future_wna16_kernel_side_typed_consumer_path_evidence_sha256": "b59931298225e6e81c744a46b3c97d050d09c47ff56ec595201c932718ebaf62",
+  "future_wna16_kernel_side_typed_consumer_path_evidence_sha256": "7bc2962b218ffc2fcbd7b08020ad1060acbb4e3554b5415f62018f9e82987f25",
   "future_wna16_kernel_side_typed_consumer_path_hashes_valid": true,
   "future_wna16_kernel_side_typed_consumer_path_input_json_count": 128,
   "future_wna16_kernel_side_typed_consumer_path_ready": true,
@@ -79,17 +79,17 @@
   "measures_vllm_latency": false,
   "native_stub_host_wall_ms_stats": {
     "count": 3,
-    "max_ms": 326.870866,
-    "mean_ms": 323.34350233333333,
-    "median_ms": 324.549133,
-    "min_ms": 318.610508,
-    "p10_ms": 318.610508,
-    "p90_ms": 326.870866
+    "max_ms": 336.949399,
+    "mean_ms": 329.74371033333335,
+    "median_ms": 327.43057,
+    "min_ms": 324.851162,
+    "p10_ms": 324.851162,
+    "p90_ms": 336.949399
   },
   "native_stub_host_wall_ms_values": [
-    326.870866,
-    324.549133,
-    318.610508
+    336.949399,
+    324.851162,
+    327.43057
   ],
   "next_runtime_stage": "implement_future_wna16_typed_slot_kernel_variant_payloadless_execution",
   "offload_arch": "gfx1100",
@@ -101,14 +101,14 @@
   "repeat_count_measured": 3,
   "repeat_count_requested": 3,
   "repeat_output_jsons": [
-    "/home/husrcf/Code/ProtBind/MTP/outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_benchmark_kernel_side_path_repeat3_v1_repeats/timing_stub_repeat_000.json",
-    "/home/husrcf/Code/ProtBind/MTP/outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_benchmark_kernel_side_path_repeat3_v1_repeats/timing_stub_repeat_001.json",
-    "/home/husrcf/Code/ProtBind/MTP/outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_benchmark_kernel_side_path_repeat3_v1_repeats/timing_stub_repeat_002.json"
+    "/home/husrcf/Code/ProtBind/MTP/outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_benchmark_repeats/timing_stub_repeat_000.json",
+    "/home/husrcf/Code/ProtBind/MTP/outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_benchmark_repeats/timing_stub_repeat_001.json",
+    "/home/husrcf/Code/ProtBind/MTP/outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_benchmark_repeats/timing_stub_repeat_002.json"
   ],
   "repeat_output_sha256s": [
-    "1df9a3628b31ac8be1b0a51514ab881490ead49e479b6a4e7e593fee34c526dc",
-    "757db70755c53de794481351d74d036d0aa4cd47557b216b0e4e54073f032988",
-    "ac41449b8e392034166ef6215d59e2a6728798f9fcdc63debac1db1e398dcbe1"
+    "0a7c0d7a9da695bd9df317fcc7636e56fa6af9b725870e07697e27efac79cf82",
+    "da6ccf16fe840beade7bad12aa6a3a0d4beafc945debf5b578a153df228f730b",
+    "f0464e9530eb4a5bf99a0ceea6db5322e0178004296a98749d6dfdefb7c555d2"
   ],
   "requires_wna16_arg_reinterpretation": false,
   "row_count": 5345,
@@ -117,7 +117,7 @@
   "schema_version": 1,
   "source_count": 128,
   "timing_stub_json": "/home/husrcf/Code/ProtBind/MTP/outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_timing_stub_kernel_side_path_native_v1.json",
-  "timing_stub_sha256": "ab9fc34f2f1628443c59988a244a2a73c03f2a14a2b9c173bcbc07ff1cb05ec8",
+  "timing_stub_sha256": "1f5ba3b212aa4201ff64386eebbb00c85b2fbc7f4892c2a28f64ebcf18018227",
   "typed_slot_variant_benchmark_ready": true,
   "uses_current_wna16_args": false,
   "wna16_benchmark_ready": false

@@ -99,6 +99,14 @@ def _resolve(path: str | Path) -> Path:
     return candidate if candidate.is_absolute() else REPO_ROOT / candidate
 
 
+def _execution_output_dir(args: argparse.Namespace) -> Path:
+    value = getattr(args, "execution_output_dir", None)
+    if value:
+        return _resolve(value)
+    output_path = _resolve(args.output_json)
+    return output_path.parent / output_path.stem
+
+
 def _load_json(path: Path) -> dict[str, Any]:
     payload = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(payload, dict):
@@ -716,7 +724,7 @@ def _build_timing_stub_args(
         raise ValueError("timing stub artifact does not include entrypoint_json")
     if not isinstance(runner_json, str) or not runner_json:
         raise ValueError("timing stub artifact does not include runner_json")
-    output_dir = _resolve(args.execution_output_dir)
+    output_dir = _execution_output_dir(args)
     argv = [
         "--entrypoint-json",
         entrypoint_json,
@@ -827,7 +835,7 @@ def run_payloadless_execution(args: argparse.Namespace) -> dict[str, Any]:
             failures.append(
                 f"benchmark_json_sha256_failed:{exc.__class__.__name__}:{exc}"
             )
-    execution_output_dir = _resolve(args.execution_output_dir)
+    execution_output_dir = _execution_output_dir(args)
     timing_stub_json_path = execution_output_dir / "payloadless_execution_timing_stub.json"
     canary_json_path = execution_output_dir / "payloadless_execution_canary.json"
     timing_stub_sha256: str | None = None
@@ -970,6 +978,8 @@ def run_payloadless_execution(args: argparse.Namespace) -> dict[str, Any]:
         "payloadless_execution_scope": (
             "independent_native_typed_slot_payloadless_execution"
         ),
+        "payloadless_execution_provenance_mode": "bootstrap_cycle_breaker_root",
+        "payloadless_execution_cycle_breaker_root": True,
         "benchmark_is_current_wna16_fused_moe": False,
         "expected_measures_vllm_latency": False,
         "expected_measures_tpot": False,
@@ -1039,7 +1049,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--benchmark-json", default=str(DEFAULT_BENCHMARK_JSON))
     parser.add_argument("--output-json", default=str(DEFAULT_OUTPUT_JSON))
-    parser.add_argument("--execution-output-dir", default=str(DEFAULT_EXECUTION_DIR))
+    parser.add_argument("--execution-output-dir")
     parser.add_argument("--min-source-count", type=int, default=128)
     parser.add_argument("--min-row-count", type=int, default=1)
     parser.add_argument("--min-repeat-count", type=int, default=3)

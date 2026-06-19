@@ -1429,7 +1429,7 @@
         "passed_value": true,
         "path": "outputs/reports/premap_kernel_consumer/future_wna16_kernel_side_typed_consumer_path_v1.json",
         "path_label": "outputs/reports/premap_kernel_consumer/future_wna16_kernel_side_typed_consumer_path_v1.json",
-        "sha256": "b59931298225e6e81c744a46b3c97d050d09c47ff56ec595201c932718ebaf62",
+        "sha256": "7bc2962b218ffc2fcbd7b08020ad1060acbb4e3554b5415f62018f9e82987f25",
         "valid_json": true
       },
       {
@@ -1449,7 +1449,7 @@
         "passed_value": true,
         "path": "outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_all_four_field_consumer_kernel_side_path_v1.json",
         "path_label": "outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_all_four_field_consumer_kernel_side_path_v1.json",
-        "sha256": "d0cad163a2bee97f5d6b5c492225a277e3e86da31e1572a5696b1c48f841424f",
+        "sha256": "a9b3de62ef44306056401971542f4b14e65b5dbb57da31c34c68cd3ba4e1a925",
         "valid_json": true
       },
       {
@@ -1459,7 +1459,7 @@
         "passed_value": true,
         "path": "outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_fourth_field_handoff_canary_kernel_side_path_v1.json",
         "path_label": "outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_fourth_field_handoff_canary_kernel_side_path_v1.json",
-        "sha256": "b80a35bc37c71cac262137bfb119a0b6cf209068a37bb1e7f1e8294c329a7839",
+        "sha256": "f4e6c5d33c973140719fbfe83b1aecc767cb5f2f772c3b75943d1e21025b05e5",
         "valid_json": true
       },
       {
@@ -2052,10 +2052,10 @@
     "default_kernel_consumer_future_wna16_all_four_consumer_evidence_label": "future_wna16_typed_slot_all_four_field_consumer_json",
     "default_kernel_consumer_future_wna16_all_four_consumer_evidence_passed": true,
     "default_kernel_consumer_future_wna16_all_four_consumer_evidence_path": "outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_all_four_field_consumer_kernel_side_path_v1.json",
-    "default_kernel_consumer_future_wna16_all_four_consumer_evidence_sha256": "d0cad163a2bee97f5d6b5c492225a277e3e86da31e1572a5696b1c48f841424f",
+    "default_kernel_consumer_future_wna16_all_four_consumer_evidence_sha256": "a9b3de62ef44306056401971542f4b14e65b5dbb57da31c34c68cd3ba4e1a925",
     "default_kernel_consumer_future_wna16_all_four_consumer_fourth_field_json": "/home/husrcf/Code/ProtBind/MTP/outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_fourth_field_handoff_canary_kernel_side_path_v1.json",
     "default_kernel_consumer_future_wna16_all_four_consumer_fourth_field_path_label": "outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_fourth_field_handoff_canary_kernel_side_path_v1.json",
-    "default_kernel_consumer_future_wna16_all_four_consumer_fourth_field_sha256": "b80a35bc37c71cac262137bfb119a0b6cf209068a37bb1e7f1e8294c329a7839",
+    "default_kernel_consumer_future_wna16_all_four_consumer_fourth_field_sha256": "f4e6c5d33c973140719fbfe83b1aecc767cb5f2f772c3b75943d1e21025b05e5",
     "default_kernel_consumer_future_wna16_all_four_consumer_future_kernel_side_all_fields_read": true,
     "default_kernel_consumer_future_wna16_all_four_consumer_kernel_arg_pass_allowed": false,
     "default_kernel_consumer_future_wna16_all_four_consumer_measures_tpot": false,
@@ -2088,7 +2088,7 @@
     "default_kernel_consumer_future_wna16_fourth_field_handoff_evidence_label": "future_wna16_typed_slot_fourth_field_handoff_canary_json",
     "default_kernel_consumer_future_wna16_fourth_field_handoff_evidence_passed": true,
     "default_kernel_consumer_future_wna16_fourth_field_handoff_evidence_path": "outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_fourth_field_handoff_canary_kernel_side_path_v1.json",
-    "default_kernel_consumer_future_wna16_fourth_field_handoff_evidence_sha256": "b80a35bc37c71cac262137bfb119a0b6cf209068a37bb1e7f1e8294c329a7839",
+    "default_kernel_consumer_future_wna16_fourth_field_handoff_evidence_sha256": "f4e6c5d33c973140719fbfe83b1aecc767cb5f2f772c3b75943d1e21025b05e5",
     "default_kernel_consumer_future_wna16_fourth_field_handoff_expected_payload_bytes": 0,
     "default_kernel_consumer_future_wna16_fourth_field_handoff_field_read_hash": "6e08db27babecb6a",
     "default_kernel_consumer_future_wna16_fourth_field_handoff_field_read_row_ok_count": 5345,
@@ -2131,7 +2131,7 @@
     "default_kernel_consumer_future_wna16_kernel_side_typed_path_all_four_gate_ready": true,
     "default_kernel_consumer_future_wna16_kernel_side_typed_path_all_four_json": "/home/husrcf/Code/ProtBind/MTP/outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_all_four_field_consumer_kernel_side_path_v1.json",
     "default_kernel_consumer_future_wna16_kernel_side_typed_path_all_four_path_label": "outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_all_four_field_consumer_kernel_side_path_v1.json",
-    "default_kernel_consumer_future_wna16_kernel_side_typed_path_all_four_sha256": "d0cad163a2bee97f5d6b5c492225a277e3e86da31e1572a5696b1c48f841424f",
+    "default_kernel_consumer_future_wna16_kernel_side_typed_path_all_four_sha256": "a9b3de62ef44306056401971542f4b14e65b5dbb57da31c34c68cd3ba4e1a925",
     "default_kernel_consumer_future_wna16_kernel_side_typed_path_artifact_kind": "future_wna16_kernel_side_typed_consumer_path",
     "default_kernel_consumer_future_wna16_kernel_side_typed_path_bench_semantics": false,
     "default_kernel_consumer_future_wna16_kernel_side_typed_path_changes_kernel_launch_args": false,
@@ -2139,7 +2139,7 @@
     "default_kernel_consumer_future_wna16_kernel_side_typed_path_evidence_label": "future_wna16_kernel_side_typed_consumer_path_json",
     "default_kernel_consumer_future_wna16_kernel_side_typed_path_evidence_passed": true,
     "default_kernel_consumer_future_wna16_kernel_side_typed_path_evidence_path": "outputs/reports/premap_kernel_consumer/future_wna16_kernel_side_typed_consumer_path_v1.json",
-    "default_kernel_consumer_future_wna16_kernel_side_typed_path_evidence_sha256": "b59931298225e6e81c744a46b3c97d050d09c47ff56ec595201c932718ebaf62",
+    "default_kernel_consumer_future_wna16_kernel_side_typed_path_evidence_sha256": "7bc2962b218ffc2fcbd7b08020ad1060acbb4e3554b5415f62018f9e82987f25",
     "default_kernel_consumer_future_wna16_kernel_side_typed_path_explicit_typed_abi_slot": true,
     "default_kernel_consumer_future_wna16_kernel_side_typed_path_future_kernel_side_all_fields_read": true,
     "default_kernel_consumer_future_wna16_kernel_side_typed_path_future_kernel_side_checked": true,
@@ -3013,7 +3013,7 @@
           "path_label": "outputs/reports/premap_kernel_consumer/future_wna16_kernel_side_typed_consumer_path_v1.json",
           "present": true,
           "self_finalization_allowed": null,
-          "sha256": "b59931298225e6e81c744a46b3c97d050d09c47ff56ec595201c932718ebaf62"
+          "sha256": "7bc2962b218ffc2fcbd7b08020ad1060acbb4e3554b5415f62018f9e82987f25"
         },
         "future_wna16_single_field_handoff_all_fields_128strict_summary_json": {
           "failure": null,
@@ -3031,7 +3031,7 @@
           "path_label": "outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_all_four_field_consumer_kernel_side_path_v1.json",
           "present": true,
           "self_finalization_allowed": null,
-          "sha256": "d0cad163a2bee97f5d6b5c492225a277e3e86da31e1572a5696b1c48f841424f"
+          "sha256": "a9b3de62ef44306056401971542f4b14e65b5dbb57da31c34c68cd3ba4e1a925"
         },
         "future_wna16_typed_slot_fourth_field_handoff_canary_json": {
           "failure": null,
@@ -3040,7 +3040,7 @@
           "path_label": "outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_fourth_field_handoff_canary_kernel_side_path_v1.json",
           "present": true,
           "self_finalization_allowed": null,
-          "sha256": "b80a35bc37c71cac262137bfb119a0b6cf209068a37bb1e7f1e8294c329a7839"
+          "sha256": "f4e6c5d33c973140719fbfe83b1aecc767cb5f2f772c3b75943d1e21025b05e5"
         },
         "native_typed_consumer_bridge_smoke_json": {
           "failure": null,
@@ -6045,7 +6045,7 @@
             "exists": true,
             "label": "future_wna16_typed_slot_fourth_field_handoff_canary_json",
             "path": "outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_fourth_field_handoff_canary_kernel_side_path_v1.json",
-            "size_bytes": 4735,
+            "size_bytes": 4753,
             "type": "file",
             "valid_json": true
           },
@@ -7070,7 +7070,7 @@
           "exists": true,
           "label": "future_wna16_typed_slot_fourth_field_handoff_canary_json",
           "path": "outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_fourth_field_handoff_canary_kernel_side_path_v1.json",
-          "size_bytes": 4735,
+          "size_bytes": 4753,
           "type": "file",
           "valid_json": true
         },

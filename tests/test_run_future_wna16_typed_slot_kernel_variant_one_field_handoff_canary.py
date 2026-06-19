@@ -965,6 +965,135 @@ def test_one_field_handoff_canary_rejects_fourth_evidence_root_sha_mismatch(
     ]
 
 
+def test_one_field_handoff_canary_accepts_bootstrap_payloadless_downstream_sha_drift(
+    tmp_path: Path,
+    monkeypatch,
+):
+    module = _load_module()
+    payloadless = tmp_path / "payloadless.json"
+    output = tmp_path / "one_field.json"
+    payload = _payloadless_payload()
+    payload["payloadless_execution_provenance_mode"] = "bootstrap_cycle_breaker_root"
+    payload["payloadless_execution_cycle_breaker_root"] = True
+    payload["fourth_field_handoff_evidence_sha256"] = "1" * 64
+    payload["all_four_field_consumer_fourth_field_sha256"] = "1" * 64
+    payload["future_wna16_kernel_side_typed_consumer_path_evidence_sha256"] = (
+        "2" * 64
+    )
+    payload["future_wna16_kernel_side_typed_consumer_path_all_four_sha256"] = (
+        "3" * 64
+    )
+    _write_json(payloadless, payload)
+
+    monkeypatch.setattr(
+        module,
+        "_run_native_canary",
+        lambda *args, **kwargs: (_canary_report(), 1.0),
+    )
+
+    args = module.build_parser().parse_args(
+        [
+            "--payloadless-json",
+            str(payloadless),
+            "--output-json",
+            str(output),
+            "--require-pass",
+        ]
+    )
+    result = module.run_one_field_handoff_canary(args)
+
+    assert result["passed"] is True
+    assert result["failures"] == []
+
+
+def test_one_field_handoff_canary_bootstrap_still_rejects_missing_kernel_side_evidence(
+    tmp_path: Path,
+):
+    module = _load_module()
+    payloadless = tmp_path / "payloadless.json"
+    payload = _payloadless_payload()
+    payload["payloadless_execution_provenance_mode"] = "bootstrap_cycle_breaker_root"
+    payload["payloadless_execution_cycle_breaker_root"] = True
+    payload["future_wna16_kernel_side_typed_consumer_path_evidence_path"] = str(
+        tmp_path / "missing_kernel_side_evidence.json"
+    )
+    payload["future_wna16_kernel_side_typed_consumer_path_evidence_sha256"] = "2" * 64
+    _write_json(payloadless, payload)
+
+    args = module.build_parser().parse_args(
+        [
+            "--payloadless-json",
+            str(payloadless),
+            "--output-json",
+            str(tmp_path / "one_field.json"),
+        ]
+    )
+    result = module.run_one_field_handoff_canary(args)
+
+    assert result["passed"] is False
+    assert "payloadless_kernel_side_typed_path_evidence_path_not_found" in result[
+        "failures"
+    ]
+
+
+def test_one_field_handoff_canary_bootstrap_still_rejects_bad_fourth_evidence(
+    tmp_path: Path,
+):
+    module = _load_module()
+    payloadless = tmp_path / "payloadless.json"
+    evidence = tmp_path / "bad_fourth_evidence.json"
+    _write_json(evidence, {"artifact_kind": "unrelated"})
+    payload = _payloadless_payload()
+    payload["payloadless_execution_provenance_mode"] = "bootstrap_cycle_breaker_root"
+    payload["payloadless_execution_cycle_breaker_root"] = True
+    payload["fourth_field_handoff_evidence_path"] = str(evidence)
+    payload["fourth_field_handoff_evidence_sha256"] = "1" * 64
+    payload["all_four_field_consumer_fourth_field_path_label"] = str(evidence)
+    payload["all_four_field_consumer_fourth_field_sha256"] = "1" * 64
+    _write_json(payloadless, payload)
+
+    args = module.build_parser().parse_args(
+        [
+            "--payloadless-json",
+            str(payloadless),
+            "--output-json",
+            str(tmp_path / "one_field.json"),
+        ]
+    )
+    result = module.run_one_field_handoff_canary(args)
+
+    assert result["passed"] is False
+    assert any("fourth_evidence" in item for item in result["failures"])
+
+
+def test_one_field_handoff_canary_bootstrap_rejects_fourth_sha_internal_mismatch(
+    tmp_path: Path,
+):
+    module = _load_module()
+    payloadless = tmp_path / "payloadless.json"
+    payload = _payloadless_payload()
+    payload["payloadless_execution_provenance_mode"] = "bootstrap_cycle_breaker_root"
+    payload["payloadless_execution_cycle_breaker_root"] = True
+    payload["fourth_field_handoff_evidence_sha256"] = "1" * 64
+    payload["all_four_field_consumer_fourth_field_sha256"] = "2" * 64
+    _write_json(payloadless, payload)
+
+    args = module.build_parser().parse_args(
+        [
+            "--payloadless-json",
+            str(payloadless),
+            "--output-json",
+            str(tmp_path / "one_field.json"),
+        ]
+    )
+    result = module.run_one_field_handoff_canary(args)
+
+    assert result["passed"] is False
+    assert "payloadless_all_four_field_consumer_fourth_sha_mismatch" in result[
+        "failures"
+    ]
+
+
 def test_one_field_handoff_canary_rejects_fourth_evidence_root_expected_flag(
     tmp_path: Path,
 ):
