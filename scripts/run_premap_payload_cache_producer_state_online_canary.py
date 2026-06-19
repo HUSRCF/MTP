@@ -341,6 +341,19 @@ def run_online_canary(args: argparse.Namespace) -> dict[str, Any]:
     payload["selected_packet_index"] = int(selected_packet_index)
     payload["selected_packet_json"] = str(selected_packet)
     payload["selected_packet_selection_mode"] = str(selection_mode)
+    payload["payload_bytes"] = 0
+    payload["ready_credit"] = False
+    payload["ready_before_demand_credit"] = False
+    payload["real_ready_credit_granted"] = False
+    payload["payload_transfer_enabled"] = False
+    payload["payload_deref_allowed"] = False
+    payload["kernel_arg_pass_allowed"] = False
+    payload["passed_to_kernel"] = False
+    payload["changes_kernel_launch_args"] = False
+    payload["uses_current_wna16_args"] = False
+    payload["passes_current_wna16_args"] = False
+    payload["measures_tpot"] = False
+    payload["measures_vllm_latency"] = False
     if performance is not None:
         export_prefix = (
             "runtime_shadow_premap_payload_cache_producer_state_packet_export_"

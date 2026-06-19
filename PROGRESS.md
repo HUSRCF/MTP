@@ -86,6 +86,57 @@ thresholds still fail, keep full_fetch disabled and use the result to size
 lookahead/queue requirements before any real payload runtime.
 ```
 
+Fresh online producer export + stream executor evidence:
+
+```text
+trace:
+  data/traces/external_prompt_gate_dolly_4_awq_vllm_gpu1_decode_gen64_producer_state_packet_export_nonempty_smoke/performance_summary.json
+
+online canary:
+  outputs/reports/premap_kernel_consumer/payload_cache_producer_state_online_canary_dolly4_gen64_nonempty_issue_real_summary_v2_20260620.json
+
+stream model-only:
+  outputs/reports/premap_kernel_consumer/premap_payload_cache_issue_stream_executor_dolly4_gen64_ready_time_v2_20260620.json
+
+stream measured-copy:
+  outputs/reports/premap_kernel_consumer/premap_payload_cache_issue_stream_executor_dolly4_gen64_measured_copy_blocked_v2_20260620.json
+```
+
+The fresh export now carries explicit no-op fields at both the packet and
+`_export_context` levels:
+
+```text
+packet_count = 32
+nonempty_issue_count = 28
+first_nonempty_issue_count = 8
+scan_error_count = 0
+```
+
+The stream executor contract is clean, but the ready-time model does not pass:
+
+```text
+model-only demand_hit_rate = 0.47767857142857145
+model-only ready_late_miss_rate = 0.5223214285714286
+model-only used_per_issued_fetch = 0.12030075187969924
+
+measured-copy demand_hit_rate = 0.40625
+measured-copy ready_late_miss_rate = 0.59375
+measured-copy used_per_issued_fetch = 0.0
+measured_copy_us_per_batch = 14627.536550506193
+full_fetch_allowed = false
+full_fetch_block_reason = measured_copy_stream_deadline_miss
+```
+
+Interpretation:
+
+```text
+The online producer-state stream can now be consumed by the ready-time manager
+under a strict no-op contract, but same-step full payload fetch is not viable.
+The next useful step is not enabling full_fetch; it is sizing earlier
+lookahead/queue requirements or continuing the metadata/premap/descriptor-prep
+path while keeping payload transfer disabled.
+```
+
 ## Previous Update: Payload Cache Full-Fetch Slack/Lookahead Decision Gate
 
 Follow-up lookahead sweep:
