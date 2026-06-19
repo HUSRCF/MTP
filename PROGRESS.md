@@ -13,6 +13,7 @@ has been formalized as a paired repeat3 artifact:
 ```text
 outputs/reports/premap_kernel_consumer/production_like_tpot/future_wna16_assignment_variant_paired_tpot_repeat3_v1.json
 outputs/reports/premap_kernel_consumer/production_like_tpot/future_wna16_assignment_variant_participation_smoke32_v1.json
+outputs/reports/premap_kernel_consumer/production_like_tpot/future_wna16_assignment_variant_evidence_bundle_v1.json
 ```
 
 This summary consumes existing `run_awq_telemetry_ladder.py` results only; it
@@ -118,6 +119,27 @@ detailed counter path to prove participation, while the counter-off paired TPOT
 artifact above provides the low-overhead weak-positive endpoint/chunk TPOT
 evidence.
 
+Combined bundle:
+
+```text
+artifact_kind = future_wna16_assignment_variant_evidence_bundle
+combined_evidence_ready = true
+performance_claim_strength = weak_positive_with_separate_participation_evidence
+performance_claim_scope = counter_off_endpoint_or_chunk_tpot_only
+paired_tpot_median_speedup = 1.0051647274134494
+participation_launch_count = 5120
+participation_expected_launch_count = 5120
+runtime_participation_counters_available_in_tpot_run = false
+diagnostic_participation_counter_path = true
+endpoint_or_chunk_tpot_only = true
+tail_latency_claim_supported = false
+```
+
+This bundle is the current safest summary of the assignment-kernel variant:
+counter-off TPOT evidence is weak positive, and a separate detailed run proves
+participation.  It still does not support a p95/p99 claim or a future
+typed-table/current WNA16 ABI replacement claim.
+
 Validation:
 
 ```text
@@ -127,6 +149,14 @@ Validation:
 
 /home/husrcf/anaconda3/envs/TRY/bin/python \
   scripts/summarize_future_wna16_assignment_variant_participation.py --require-pass
+# passed = true
+
+/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_build_future_wna16_assignment_variant_evidence_bundle.py -q
+# 9 passed
+
+/home/husrcf/anaconda3/envs/TRY/bin/python \
+  scripts/build_future_wna16_assignment_variant_evidence_bundle.py --require-pass
 # passed = true
 ```
 
