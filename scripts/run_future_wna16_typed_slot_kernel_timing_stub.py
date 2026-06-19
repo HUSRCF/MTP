@@ -995,6 +995,11 @@ def run_timing_stub(args: argparse.Namespace) -> dict[str, Any]:
         "native_stub_source_manifest_json": str(_resolve(args.source_manifest_json)),
         "native_stub_merged_output_json": str(_resolve(args.merged_output_json)),
         "native_stub_output_json": str(_resolve(args.stub_output_json)),
+        "native_stub_output_sha256": (
+            _sha256(_resolve(args.stub_output_json))
+            if _resolve(args.stub_output_json).exists()
+            else None
+        ),
         "block_threads": int(args.block_threads),
         "device": int(args.device),
         "offload_arch": str(args.offload_arch),
