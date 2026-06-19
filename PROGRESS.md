@@ -2,8 +2,98 @@
 
 ## Progress Version
 
-- Version: `v1.08-payloadless-execution-required-preflight`
+- Version: `v1.09-payloadless-useful-repeat-benchmark-gate`
 - Updated: 2026-06-19
+
+## Latest Update: Payloadless Useful Runtime/Harness/Repeat Gates Added
+
+The future-WNA16 typed-slot path now has three additional payloadless useful
+gates after the default lab preflight:
+
+```text
+premap lab preflight summary/check
+-> payloadless useful runtime gate
+-> payloadless useful benchmark harness
+-> payloadless useful repeat benchmark gate
+```
+
+Latest artifacts:
+
+```text
+outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_payloadless_useful_runtime_gate_entry_args_ptr_v1.json
+outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_payloadless_useful_benchmark_harness_entry_args_ptr_v1.json
+outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_payloadless_useful_repeat_benchmark_entry_args_ptr_seed_v1.json
+```
+
+The runtime gate consumes the strict preflight summary/check and requires the
+payloadless useful execution chain to be a passed lab precondition.  The
+benchmark harness then binds the runtime gate to the native timing/stub
+evidence, including timing-to-stub path/SHA consistency.  The repeat benchmark
+currently runs in seed-only mode:
+
+```text
+seed_only = true
+measurement_source = validated_harness_seed_native_stub_host_wall
+repeat_count_requested = 0
+repeat_count_measured = 1
+seed_native_stub_host_wall_ms_values = [323.854801]
+```
+
+This is a native-stub host-wall measurement only.  It is not a vLLM TPOT
+benchmark, not a current AWQ WNA16 fused-MoE benchmark, and not a payload or
+kernel-argument handoff.
+
+Safety boundary remains closed across all three gates:
+
+```text
+payload_bytes = 0
+payload_deref_allowed = false
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+uses_current_wna16_args = false
+passes_current_wna16_args = false
+current_wna16_arg_compatible = false
+requires_wna16_arg_reinterpretation = false
+measures_tpot = false
+measures_vllm_latency = false
+wna16_benchmark_ready = false
+benchmark_is_current_wna16_fused_moe = false
+```
+
+Validation:
+
+```text
+/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_run_future_wna16_typed_slot_payloadless_useful_repeat_benchmark.py \
+  tests/test_run_future_wna16_typed_slot_payloadless_useful_benchmark_harness.py \
+  tests/test_run_future_wna16_typed_slot_payloadless_useful_runtime_gate.py \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_payloadless_useful_execution.py -q
+# 29 passed
+
+/home/husrcf/anaconda3/envs/TRY/bin/python \
+  scripts/run_future_wna16_typed_slot_payloadless_useful_runtime_gate.py --require-pass
+# passed = true
+
+/home/husrcf/anaconda3/envs/TRY/bin/python \
+  scripts/run_future_wna16_typed_slot_payloadless_useful_benchmark_harness.py --require-pass
+# passed = true
+
+/home/husrcf/anaconda3/envs/TRY/bin/python \
+  scripts/run_future_wna16_typed_slot_payloadless_useful_repeat_benchmark.py --require-pass
+# passed = true
+```
+
+Next stage:
+
+```text
+implement_future_wna16_typed_slot_payloadless_useful_runtime_ablation
+```
+
+The next useful step is to decide whether to promote the seed-only repeat gate
+into the default preflight summary/checker, or first run explicit repeat_count>0
+native-stub repeats.  Neither path should open current WNA16 args or payload
+movement yet.
 
 ## Latest Update: Payloadless Native Execution Added To Default Lab Preflight
 
