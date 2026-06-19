@@ -63,9 +63,7 @@ def _check_full_fetch(section: dict[str, Any], *, root: Path) -> dict[str, Any]:
     report_path = _resolve(section.get("ready_time_gate_report"), root=root)
     report = _load_json(report_path, failures, label="ready_time_gate_report")
     passed = bool(report.get("passed", False)) if isinstance(report, dict) else False
-    allow = (
-        bool(report.get("allow_full_fetch", False)) if isinstance(report, dict) else False
-    )
+    allow = _ready_time_allow_full_fetch(report, failures)
     metrics = report.get("metrics") if isinstance(report, dict) else None
     metrics = metrics if isinstance(metrics, dict) else {}
     if not passed:
@@ -82,7 +80,7 @@ def _check_full_fetch(section: dict[str, Any], *, root: Path) -> dict[str, Any]:
         "ready_time_report_passed": passed,
         "ready_time_allow_full_fetch": allow,
         "ready_time_decision_reason": (
-            report.get("decision_reason") if isinstance(report, dict) else None
+            _ready_time_decision_reason(report) if isinstance(report, dict) else None
         ),
         "ready_time_threshold_failures": _string_list(
             report.get("threshold_failures") if isinstance(report, dict) else None
@@ -102,6 +100,58 @@ def _check_full_fetch(section: dict[str, Any], *, root: Path) -> dict[str, Any]:
         ),
         "ready_time_used_fetch_count": _optional_int(metrics, "used_fetch_count"),
     }
+
+
+def _ready_time_allow_full_fetch(
+    report: dict[str, Any],
+    failures: list[str],
+) -> bool:
+    artifact_kind = report.get("artifact_kind")
+    runtime_allow = report.get("full_fetch_runtime_allowed")
+    if artifact_kind == "premap_payload_cache_full_fetch_decision_gate":
+        if not isinstance(runtime_allow, bool):
+            failures.append("ready_time_gate_report_missing_full_fetch_runtime_allowed")
+            return False
+        _check_full_fetch_decision_gate_noop_safety(report, failures)
+        return runtime_allow
+    if isinstance(runtime_allow, bool):
+        if artifact_kind != "premap_payload_cache_full_fetch_decision_gate":
+            failures.append("ready_time_gate_report_artifact_kind_mismatch")
+            return False
+        return runtime_allow
+    return bool(report.get("allow_full_fetch", False))
+
+
+def _check_full_fetch_decision_gate_noop_safety(
+    report: dict[str, Any],
+    failures: list[str],
+) -> None:
+    if report.get("payload_bytes") != 0:
+        failures.append("ready_time_gate_report_payload_bytes_nonzero")
+    for field in (
+        "payload_transfer_enabled",
+        "payload_deref_allowed",
+        "ready_credit",
+        "ready_before_demand_credit",
+        "real_ready_credit_granted",
+        "kernel_arg_pass_allowed",
+        "passed_to_kernel",
+        "changes_kernel_launch_args",
+        "uses_current_wna16_args",
+        "passes_current_wna16_args",
+        "measures_tpot",
+        "measures_vllm_latency",
+    ):
+        if report.get(field) is not False:
+            failures.append(f"ready_time_gate_report_{field}_not_false")
+
+
+def _ready_time_decision_reason(report: dict[str, Any]) -> str | None:
+    reason = report.get("full_fetch_block_reason")
+    if isinstance(reason, str):
+        return reason
+    reason = report.get("decision_reason")
+    return reason if isinstance(reason, str) else None
 
 
 def _check_metadata(section: dict[str, Any], *, root: Path) -> dict[str, Any]:

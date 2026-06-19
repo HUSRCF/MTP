@@ -10,6 +10,22 @@ from scripts.check_prefetch_lab_default_gate import (
     main,
 )
 
+_FULL_FETCH_DECISION_NOOP_FIELDS = {
+    "payload_bytes": 0,
+    "payload_transfer_enabled": False,
+    "payload_deref_allowed": False,
+    "ready_credit": False,
+    "ready_before_demand_credit": False,
+    "real_ready_credit_granted": False,
+    "kernel_arg_pass_allowed": False,
+    "passed_to_kernel": False,
+    "changes_kernel_launch_args": False,
+    "uses_current_wna16_args": False,
+    "passes_current_wna16_args": False,
+    "measures_tpot": False,
+    "measures_vllm_latency": False,
+}
+
 
 def _write_fixture(tmp_path: Path, *, allow_full_fetch: bool = False) -> Path:
     ready = tmp_path / "ready_gate.json"
@@ -88,6 +104,117 @@ def test_prefetch_lab_default_gate_rejects_full_fetch_allow_report(tmp_path: Pat
 
     assert result["passed"] is False
     assert "full_fetch:ready_time_gate_report_allows_full_fetch" in result["failures"]
+
+
+def test_prefetch_lab_default_gate_accepts_full_fetch_decision_gate(tmp_path: Path):
+    config = _write_fixture(tmp_path)
+    payload = yaml.safe_load(config.read_text(encoding="utf-8"))
+    ready = Path(payload["full_fetch"]["ready_time_gate_report"])
+    ready.write_text(
+        json.dumps(
+            {
+                "artifact_kind": "premap_payload_cache_full_fetch_decision_gate",
+                "passed": True,
+                "full_fetch_runtime_allowed": False,
+                "full_fetch_block_reason": "insufficient_ready_time_and_lookahead",
+                **_FULL_FETCH_DECISION_NOOP_FIELDS,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = check_prefetch_lab_default_gate(config, root=tmp_path)
+    full_fetch = result["sections"]["full_fetch"]
+
+    assert result["passed"] is True
+    assert full_fetch["ready_time_allow_full_fetch"] is False
+    assert (
+        full_fetch["ready_time_decision_reason"]
+        == "insufficient_ready_time_and_lookahead"
+    )
+
+
+def test_prefetch_lab_default_gate_rejects_malformed_full_fetch_decision_gate(
+    tmp_path: Path,
+):
+    config = _write_fixture(tmp_path)
+    payload = yaml.safe_load(config.read_text(encoding="utf-8"))
+    ready = Path(payload["full_fetch"]["ready_time_gate_report"])
+    ready.write_text(
+        json.dumps(
+            {
+                "artifact_kind": "wrong_kind",
+                "passed": True,
+                "full_fetch_runtime_allowed": True,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = check_prefetch_lab_default_gate(config, root=tmp_path)
+
+    assert result["passed"] is False
+    assert "full_fetch:ready_time_gate_report_artifact_kind_mismatch" in result[
+        "failures"
+    ]
+
+
+def test_prefetch_lab_default_gate_rejects_decision_gate_missing_runtime_allow(
+    tmp_path: Path,
+):
+    config = _write_fixture(tmp_path)
+    payload = yaml.safe_load(config.read_text(encoding="utf-8"))
+    ready = Path(payload["full_fetch"]["ready_time_gate_report"])
+    ready.write_text(
+        json.dumps(
+            {
+                "artifact_kind": "premap_payload_cache_full_fetch_decision_gate",
+                "passed": True,
+                "allow_full_fetch": False,
+                **_FULL_FETCH_DECISION_NOOP_FIELDS,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = check_prefetch_lab_default_gate(config, root=tmp_path)
+
+    assert result["passed"] is False
+    assert "full_fetch:ready_time_gate_report_missing_full_fetch_runtime_allowed" in (
+        result["failures"]
+    )
+
+
+def test_prefetch_lab_default_gate_rejects_decision_gate_payload_or_kernel_side_effect(
+    tmp_path: Path,
+):
+    config = _write_fixture(tmp_path)
+    payload = yaml.safe_load(config.read_text(encoding="utf-8"))
+    ready = Path(payload["full_fetch"]["ready_time_gate_report"])
+    fields = dict(_FULL_FETCH_DECISION_NOOP_FIELDS)
+    fields["payload_transfer_enabled"] = True
+    fields["kernel_arg_pass_allowed"] = True
+    ready.write_text(
+        json.dumps(
+            {
+                "artifact_kind": "premap_payload_cache_full_fetch_decision_gate",
+                "passed": True,
+                "full_fetch_runtime_allowed": False,
+                **fields,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = check_prefetch_lab_default_gate(config, root=tmp_path)
+
+    assert result["passed"] is False
+    assert "full_fetch:ready_time_gate_report_payload_transfer_enabled_not_false" in (
+        result["failures"]
+    )
+    assert "full_fetch:ready_time_gate_report_kernel_arg_pass_allowed_not_false" in (
+        result["failures"]
+    )
 
 
 def test_prefetch_lab_default_gate_sanitizes_malformed_ready_time_diagnostics(
