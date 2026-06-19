@@ -134,6 +134,170 @@ def test_issue_plan_executor_rejects_late_ready_miss(tmp_path: Path):
     assert result["ready_late_miss_count"] == 1
 
 
+def test_issue_plan_executor_uses_measured_copy_envelope(tmp_path: Path):
+    module = _load_module()
+    gate_path = tmp_path / "gate.json"
+    measured_copy_path = tmp_path / "measured_copy.json"
+    _write_json(gate_path, _gate_payload(experts=tuple(range(8))))
+    _write_json(
+        measured_copy_path,
+        {
+            "rows": [
+                {
+                    "direction": "h2d",
+                    "pinned": True,
+                    "experts": 8,
+                    "p95_ms": 16.0,
+                    "p95_gbps": 0.8,
+                }
+            ]
+        },
+    )
+
+    result = _run(
+        module,
+        gate_path,
+        tmp_path / "out.json",
+        [
+            "--measured-copy-json",
+            str(measured_copy_path),
+            "--measured-copy-stat",
+            "p95",
+            "--measured-copy-experts",
+            "8",
+            "--measured-copy-pinned",
+            "true",
+            "--queue-deadline-us",
+            "200",
+        ],
+    )
+
+    assert result["passed"] is False
+    assert result["measured_copy_model_enabled"] is True
+    assert result["measured_copy_us_per_batch"] == 16000.0
+    assert result["measured_copy_us_per_issue"] == 2000.0
+    assert result["measured_copy_effective_gbps"] == 0.8
+    assert result["measured_copy_expert_count_matches_issue_plan"] is True
+    assert result["full_fetch_allowed"] is False
+    assert result["full_fetch_block_reason"] == "measured_copy_deadline_miss"
+    assert result["queue_batch_size"] == 8
+    assert "demand_hit_rate_below_threshold" in result["failures"]
+    assert result["real_payload_ready_hit_count"] == 0
+
+
+def test_issue_plan_executor_rejects_missing_measured_copy_row(tmp_path: Path):
+    module = _load_module()
+    gate_path = tmp_path / "gate.json"
+    measured_copy_path = tmp_path / "measured_copy.json"
+    _write_json(gate_path, _gate_payload(experts=(3,)))
+    _write_json(
+        measured_copy_path,
+        {"rows": [{"direction": "d2h", "pinned": True, "experts": 1, "p95_ms": 1.0}]},
+    )
+
+    result = _run(
+        module,
+        gate_path,
+        tmp_path / "out.json",
+        ["--measured-copy-json", str(measured_copy_path)],
+    )
+
+    assert result["passed"] is False
+    assert any(
+        failure.startswith("measured_copy_select_failed")
+        for failure in result["failures"]
+    )
+    assert result["full_fetch_allowed"] is False
+    assert result["full_fetch_block_reason"] == "measured_copy_invalid"
+
+
+def test_issue_plan_executor_rejects_measured_copy_issue_count_mismatch(
+    tmp_path: Path,
+):
+    module = _load_module()
+    gate_path = tmp_path / "gate.json"
+    measured_copy_path = tmp_path / "measured_copy.json"
+    _write_json(gate_path, _gate_payload(experts=tuple(range(8))))
+    _write_json(
+        measured_copy_path,
+        {
+            "rows": [
+                {
+                    "direction": "h2d",
+                    "pinned": True,
+                    "experts": 4,
+                    "p95_ms": 4.0,
+                }
+            ]
+        },
+    )
+
+    result = _run(
+        module,
+        gate_path,
+        tmp_path / "out.json",
+        [
+            "--measured-copy-json",
+            str(measured_copy_path),
+            "--measured-copy-experts",
+            "4",
+            "--measured-copy-pinned",
+            "true",
+        ],
+    )
+
+    assert result["passed"] is False
+    assert "measured_copy_expert_count_issue_plan_mismatch" in result["failures"]
+    assert result["measured_copy_expert_count_matches_issue_plan"] is False
+    assert result["full_fetch_block_reason"] == "measured_copy_issue_plan_mismatch"
+
+
+def test_issue_plan_executor_rejects_invalid_measured_copy_pinned_filter(
+    tmp_path: Path,
+):
+    module = _load_module()
+    gate_path = tmp_path / "gate.json"
+    measured_copy_path = tmp_path / "measured_copy.json"
+    _write_json(gate_path, _gate_payload(experts=(3,)))
+    _write_json(
+        measured_copy_path,
+        {"rows": [{"direction": "h2d", "pinned": True, "experts": 1, "p95_ms": 1.0}]},
+    )
+
+    result = _run(
+        module,
+        gate_path,
+        tmp_path / "out.json",
+        ["--measured-copy-json", str(measured_copy_path), "--measured-copy-pinned", "maybe"],
+    )
+
+    assert result["passed"] is False
+    assert result["full_fetch_block_reason"] == "measured_copy_invalid"
+
+
+def test_issue_plan_executor_rejects_nonpositive_measured_copy_time(
+    tmp_path: Path,
+):
+    module = _load_module()
+    gate_path = tmp_path / "gate.json"
+    measured_copy_path = tmp_path / "measured_copy.json"
+    _write_json(gate_path, _gate_payload(experts=(3,)))
+    _write_json(
+        measured_copy_path,
+        {"rows": [{"direction": "h2d", "pinned": True, "experts": 1, "p95_ms": 0.0}]},
+    )
+
+    result = _run(
+        module,
+        gate_path,
+        tmp_path / "out.json",
+        ["--measured-copy-json", str(measured_copy_path)],
+    )
+
+    assert result["passed"] is False
+    assert result["full_fetch_block_reason"] == "measured_copy_invalid"
+
+
 def test_issue_plan_executor_rejects_unsafe_gate(tmp_path: Path):
     module = _load_module()
     gate_path = tmp_path / "gate.json"

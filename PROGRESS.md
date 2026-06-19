@@ -39183,6 +39183,7 @@ tests:
 artifact:
   outputs/reports/premap_kernel_consumer/
     premap_payload_cache_issue_plan_executor_dolly128_gen64_ready_time_v1.json
+    premap_payload_cache_issue_plan_executor_dolly128_gen64_measured_copy_blocked_v1.json
 ```
 
 Input:
@@ -39260,23 +39261,71 @@ Validation:
   tests/test_run_premap_payload_cache_issue_plan_executor.py \
   tests/test_build_premap_payload_cache_issue_plan_gate.py \
   tests/test_cache_manager.py -q
-# 21 passed
+# 26 passed
 
 /home/husrcf/anaconda3/envs/TRY/bin/python \
   scripts/run_premap_payload_cache_issue_plan_executor.py --require-pass
 # passed = true
 ```
 
+The same executor also supports measured-copy envelope input:
+
+```text
+/home/husrcf/anaconda3/envs/TRY/bin/python \
+  scripts/run_premap_payload_cache_issue_plan_executor.py \
+  --measured-copy-json configs/runtime/premap_payload_cache_gpu1_h2d_smoke_measured_copy.json \
+  --measured-copy-stat p95 \
+  --measured-copy-experts 8 \
+  --measured-copy-pinned true \
+  --output-json outputs/reports/premap_kernel_consumer/\
+premap_payload_cache_issue_plan_executor_dolly128_gen64_measured_copy_blocked_v1.json
+```
+
+Measured-copy result:
+
+```text
+measured_copy_model_enabled = true
+measured_copy_us_per_batch = 14661.311949203082
+measured_copy_us_per_issue = 1832.6639936503852
+measured_copy_effective_gbps = 0.9003287049435905
+measured_copy_expert_count_matches_issue_plan = true
+
+demand_hit_count = 0
+ready_late_miss_count = 8
+used_per_issued_fetch = 0.0
+passed = false
+full_fetch_allowed = false
+full_fetch_block_reason = measured_copy_deadline_miss
+failures =
+  demand_hit_rate_below_threshold
+  ready_late_miss_rate_above_threshold
+  used_per_issued_fetch_below_threshold
+```
+
+The measured-copy row must match the issue-plan expert count.  Invalid copy
+rows, invalid pinned filters, non-positive copy times, or issue-plan count
+mismatches fail before they can be interpreted as full_fetch evidence.
+
 Interpretation:
 
 ```text
-This is still not payload movement and not endpoint latency.
-It proves the producer-side issue plan can be consumed by the ready-time
-payload-cache manager model with explicit queue/deadline accounting.
+The idealized ready-time issue executor can consume the producer-side issue
+plan, but measured H2D copy under the current 200us deadline is correctly
+blocked.  This keeps full_fetch disabled until either lookahead/slack increases
+or the path moves to a lower-risk metadata/premap/cache-manager action.
+```
+
+Interpretation:
+
+```text
+This is still not payload movement and not endpoint latency.  It proves the
+producer-side issue plan can be consumed by the ready-time payload-cache manager
+model, and that the measured-copy envelope blocks unsafe full_fetch under the
+current deadline.
 ```
 
 Next gate:
 
 ```text
-implement_real_payload_cache_manager_or_measured_copy_executor
+implement_payload_cache_manager_issue_path_or_increase_slack
 ```
