@@ -2,10 +2,106 @@
 
 ## Progress Version
 
-- Version: `v1.11-payloadless-useful-runtime-ablation-gate`
+- Version: `v1.12-payloadless-useful-production-like-tpot-gate`
 - Updated: 2026-06-20
 
-## Latest Update: Assignment Variant Paired TPOT Summary Added
+## Latest Update: Payloadless Useful Typed-Slot Chain Revalidated To Production-Like TPOT Gate
+
+The future WNA16 typed-slot payloadless chain has been revalidated from the
+strict lab preflight through native-stub repeat stability and into the
+production-like TPOT benchmark gate:
+
+```text
+outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_payloadless_useful_runtime_gate_entry_args_ptr_v1.json
+outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_payloadless_useful_benchmark_harness_entry_args_ptr_v1.json
+outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_payloadless_useful_repeat_benchmark_entry_args_ptr_repeat3_gpu1_v1.json
+outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_payloadless_useful_runtime_ablation_entry_args_ptr_repeat3_gpu1_v1.json
+outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_payloadless_useful_production_like_timing_gate_dolly32_gen64_graph_v1.json
+outputs/reports/premap_kernel_consumer/production_like_tpot/future_wna16_typed_slot_payloadless_useful_production_like_tpot_baseline_dolly32_gen64_graph_v1.json
+```
+
+The runtime gate now accepts a strict allowlist of preflight next-stage values:
+
+```text
+implement_future_wna16_typed_slot_payloadless_useful_runtime_gate
+implement_future_wna16_typed_slot_payloadless_useful_runtime_ablation
+```
+
+This keeps the gate compatible with newer lab preflight artifacts without
+falling back to stale JSON.  The observed preflight stage is recorded as:
+
+```text
+preflight_next_runtime_stage = implement_future_wna16_typed_slot_payloadless_useful_runtime_ablation
+```
+
+Safety boundary remains unchanged:
+
+```text
+payload_bytes = 0
+payload_deref_allowed = false
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+uses_current_wna16_args = false
+passes_current_wna16_args = false
+current_wna16_arg_compatible = false
+requires_wna16_arg_reinterpretation = false
+```
+
+Native-stub repeat3 stability on GPU1:
+
+```text
+native_stub_host_wall_ms_values = [342.33831, 334.807348, 342.253358]
+median = 342.253358 ms
+relative_range = 0.022004055837488636
+coefficient_of_variation = 0.012724226689377149
+runtime_ablation_ready = true
+```
+
+Production-like baseline TPOT artifact:
+
+```text
+sample_count = 32
+requested_output_token_count = 2048
+generate_seconds_per_requested_output_token = 0.006482441018066406
+tokens_per_second = 154.2628767794453
+runtime_shadow_enabled = false
+record_router_topk = false
+payloadless_useful_mode_enabled = false
+benchmark_is_current_vllm_baseline = true
+benchmark_is_future_typed_slot_useful_path = false
+```
+
+Boundary:
+
+```text
+This is still a baseline-only production-like TPOT artifact plus a payloadless
+native typed-slot readiness chain.  It does not pass typed slots to the current
+WNA16 fused-MoE kernel, does not dereference payload, and does not prove future
+typed-slot runtime speedup.  The next valid stage is a paired A/B comparison
+with an explicitly enabled payloadless useful mode.
+```
+
+Validation:
+
+```text
+/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_run_future_wna16_typed_slot_payloadless_useful_runtime_gate.py \
+  tests/test_run_future_wna16_typed_slot_payloadless_useful_benchmark_harness.py \
+  tests/test_run_future_wna16_typed_slot_payloadless_useful_repeat_benchmark.py \
+  tests/test_run_future_wna16_typed_slot_payloadless_useful_runtime_ablation.py \
+  tests/test_run_future_wna16_typed_slot_payloadless_useful_production_like_timing_gate.py \
+  tests/test_run_future_wna16_typed_slot_payloadless_useful_production_like_tpot_benchmark.py -q
+# 47 passed
+```
+
+Next stage:
+
+```text
+implement_payloadless_useful_typed_slot_ab_comparison
+```
+
+## Previous Update: Assignment Variant Paired TPOT Summary Added
 
 The first production-like TPOT evidence for the live assignment-kernel variant
 has been formalized as a paired repeat3 artifact:

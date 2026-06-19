@@ -150,9 +150,38 @@ def test_payloadless_useful_runtime_gate_accepts_strict_preflight(
     assert result["next_runtime_stage"] == (
         "implement_future_wna16_typed_slot_payloadless_useful_benchmark_harness"
     )
+    assert result["preflight_next_runtime_stage"] == (
+        "implement_future_wna16_typed_slot_payloadless_useful_runtime_gate"
+    )
+    assert result["accepted_preflight_next_runtime_stages"] == list(
+        module.ACCEPTED_PREFLIGHT_NEXT_RUNTIME_STAGES
+    )
     assert json.loads((tmp_path / "out.json").read_text(encoding="utf-8"))[
         "passed"
     ] is True
+
+
+def test_payloadless_useful_runtime_gate_accepts_allowed_preflight_stages(
+    tmp_path: Path,
+):
+    module = _load_module()
+    for index, stage in enumerate(module.ACCEPTED_PREFLIGHT_NEXT_RUNTIME_STAGES):
+        summary_path, check_path = _materialize_inputs(
+            tmp_path / f"case_{index}",
+            module,
+            summary_mutation=lambda summary, stage=stage: summary.update(
+                {"default_kernel_consumer_next_runtime_stage": stage}
+            ),
+        )
+
+        result = _run(module, summary_path, check_path, tmp_path / f"out_{index}.json")
+
+        assert result["passed"] is True
+        assert result["runtime_gate_ready"] is True
+        assert result["preflight_next_runtime_stage"] == stage
+        assert result["accepted_preflight_next_runtime_stages"] == list(
+            module.ACCEPTED_PREFLIGHT_NEXT_RUNTIME_STAGES
+        )
 
 
 def test_payloadless_useful_runtime_gate_rejects_failed_preflight_check(

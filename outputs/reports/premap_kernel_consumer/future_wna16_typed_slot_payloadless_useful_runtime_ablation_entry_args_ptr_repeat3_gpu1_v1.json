@@ -27,19 +27,19 @@
   "measures_tpot": false,
   "measures_vllm_latency": false,
   "native_stub_host_wall_ms_stats": {
-    "coefficient_of_variation": 0.005736836576561602,
+    "coefficient_of_variation": 0.012724226689377149,
     "count": 3,
-    "max_ms": 340.342343,
-    "mean_ms": 338.251436,
-    "median_ms": 337.903546,
-    "min_ms": 336.508419,
-    "relative_range": 0.011346208246065652,
-    "stdev_ms": 1.9404932101192858
+    "max_ms": 342.33831,
+    "mean_ms": 339.799672,
+    "median_ms": 342.253358,
+    "min_ms": 334.807348,
+    "relative_range": 0.022004055837488636,
+    "stdev_ms": 4.323688055504001
   },
   "native_stub_host_wall_ms_values": [
-    336.508419,
-    337.903546,
-    340.342343
+    342.33831,
+    334.807348,
+    342.253358
   ],
   "next_runtime_stage": "implement_future_wna16_typed_slot_payloadless_useful_production_like_timing",
   "passed": true,
@@ -49,7 +49,7 @@
   "payload_deref_allowed": false,
   "payloadless_useful_runtime_ablation_ready": true,
   "repeat_benchmark_json": "/home/husrcf/Code/ProtBind/MTP/outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_payloadless_useful_repeat_benchmark_entry_args_ptr_repeat3_gpu1_v1.json",
-  "repeat_benchmark_sha256": "70dde66e58e8814574c01acd156c53003b5a53681fb0d86435fbd7393d12f82d",
+  "repeat_benchmark_sha256": "0d5091918977d0415a02d525de738afcd096f7176b9480c8676f6ccf04393f89",
   "repeat_count_measured": 3,
   "repeat_count_requested": 3,
   "requires_wna16_arg_reinterpretation": false,

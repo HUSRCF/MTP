@@ -5,15 +5,15 @@
   "benchmark_name": "premap_future_wna16_typed_slot_payloadless_useful_repeat_benchmark_v1",
   "benchmark_outer_wall_ms_stats": {
     "count": 3,
-    "max_ms": 342.269615,
-    "mean_ms": 340.294833,
-    "median_ms": 339.870258,
-    "min_ms": 338.744626
+    "max_ms": 344.500666,
+    "mean_ms": 341.852085,
+    "median_ms": 344.301542,
+    "min_ms": 336.754047
   },
   "benchmark_outer_wall_ms_values": [
-    338.744626,
-    339.870258,
-    342.269615
+    344.500666,
+    336.754047,
+    344.301542
   ],
   "benchmark_scope": "payloadless_useful_independent_native_stub_host_wall",
   "benchmark_source": "premap_future_wna16_typed_slot_payloadless_useful_benchmark_harness_v1",
@@ -33,7 +33,7 @@
     "scale_metadata_handle": "564bfdbd0fc6aecb"
   },
   "harness_json": "/home/husrcf/Code/ProtBind/MTP/outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_payloadless_useful_benchmark_harness_entry_args_ptr_v1.json",
-  "harness_sha256": "62633bfef00cc00a5bba2bf5f19a78878e6d3e3d09905c66217c99a002eab6bc",
+  "harness_sha256": "b9b67f8f8d753b7f0dad09f95885ae50820988d2f1cdb3c9123bad684ac65b86",
   "kernel_arg_pass_allowed": false,
   "measurement_source": "repeated_independent_native_typed_slot_timing_stub",
   "measures_native_stub_host_wall_time": true,
@@ -41,15 +41,15 @@
   "measures_vllm_latency": false,
   "native_stub_host_wall_ms_stats": {
     "count": 3,
-    "max_ms": 340.342343,
-    "mean_ms": 338.251436,
-    "median_ms": 337.903546,
-    "min_ms": 336.508419
+    "max_ms": 342.33831,
+    "mean_ms": 339.799672,
+    "median_ms": 342.253358,
+    "min_ms": 334.807348
   },
   "native_stub_host_wall_ms_values": [
-    336.508419,
-    337.903546,
-    340.342343
+    342.33831,
+    334.807348,
+    342.253358
   ],
   "native_timing_seed_json": "/home/husrcf/Code/ProtBind/MTP/outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_execution_entry_args_ptr_native_v1/future_wna16_variant_execution_timing_stub.json",
   "native_timing_seed_sha256": "e78f179ec2310df2f37c6049cecde51e1bd0570c224b49ff9e3a2fff6f57194d",
@@ -68,9 +68,9 @@
     "/home/husrcf/Code/ProtBind/MTP/outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_payloadless_useful_repeat_benchmark_repeats_gpu1_repeat3/timing_stub_repeat_002.json"
   ],
   "repeat_output_sha256s": [
-    "33a6d3a2681c3cb8165dfc302506f933f1080241a0e7a739f7faeb70fd3fc9e9",
-    "a6f739cc71c2af1fea1f52c3e582fff6eacea8a78e566b95133154d493430b5c",
-    "c89a94af7f3d77fccbe4e6ac862f4735b990c2fb541a9d6967f24c58ebd526b3"
+    "19f77d1c210146d8e8886921734cbbcb7fce48e088d9b9beee4bb89f5f264919",
+    "4b0406320a2903eafbd23812fd00de31a4e48b746b7d790c40095cc3e02ee7f6",
+    "c87d6f8e03d3e4f12c2a2a27cfeb7391679be8d24388a69c879eb5d3bdc9b903"
   ],
   "requires_wna16_arg_reinterpretation": false,
   "row_count": 5345,

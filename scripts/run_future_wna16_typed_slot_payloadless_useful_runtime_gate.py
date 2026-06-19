@@ -48,6 +48,10 @@ GATE_NAME = "premap_future_wna16_typed_slot_payloadless_useful_runtime_gate_v1"
 GATE_MODE = "readonly_payloadless_useful_runtime_gate"
 GATE_SOURCE = "premap_lab_preflight_payloadless_useful_execution_gate"
 NEXT_RUNTIME_STAGE = "implement_future_wna16_typed_slot_payloadless_useful_benchmark_harness"
+ACCEPTED_PREFLIGHT_NEXT_RUNTIME_STAGES = (
+    "implement_future_wna16_typed_slot_payloadless_useful_runtime_gate",
+    "implement_future_wna16_typed_slot_payloadless_useful_runtime_ablation",
+)
 FIELDS = (
     "descriptor_ptr",
     "packed_weight_descriptor",
@@ -184,9 +188,8 @@ def run_payloadless_useful_runtime_gate(args: argparse.Namespace) -> dict[str, A
             failures.append("payloadless_useful_execution_chain_not_checked")
         if summary.get(f"{PREFIX}_native_stub_checked") is not True:
             failures.append("payloadless_useful_execution_native_stub_not_checked")
-        if summary.get("default_kernel_consumer_next_runtime_stage") != (
-            "implement_future_wna16_typed_slot_payloadless_useful_runtime_gate"
-        ):
+        preflight_next_stage = summary.get("default_kernel_consumer_next_runtime_stage")
+        if preflight_next_stage not in ACCEPTED_PREFLIGHT_NEXT_RUNTIME_STAGES:
             failures.append("preflight_next_runtime_stage_mismatch")
         _check_noop_summary_flags(summary, failures)
 
@@ -269,6 +272,12 @@ def run_payloadless_useful_runtime_gate(args: argparse.Namespace) -> dict[str, A
         "payloadless_useful_runtime_gate_ready": passed,
         "payloadless_useful_execution_gate_ready": summary.get(f"{PREFIX}_gate_ready"),
         "payloadless_useful_execution_chain_hash": summary.get(f"{PREFIX}_chain_hash"),
+        "preflight_next_runtime_stage": summary.get(
+            "default_kernel_consumer_next_runtime_stage"
+        ),
+        "accepted_preflight_next_runtime_stages": list(
+            ACCEPTED_PREFLIGHT_NEXT_RUNTIME_STAGES
+        ),
         "benchmark_is_current_wna16_fused_moe": False,
         "measures_vllm_latency": False,
         "measures_tpot": False,

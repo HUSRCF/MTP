@@ -36,7 +36,7 @@
   "run_requested": false,
   "sample_count": 32,
   "timing_gate_json": "/home/husrcf/Code/ProtBind/MTP/outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_payloadless_useful_production_like_timing_gate_dolly32_gen64_graph_v1.json",
-  "timing_gate_sha256": "2c43e243a68f5518706abd678ca60d93fd25c5f8075c819ce11a82e0214be285",
+  "timing_gate_sha256": "bdfd9783c00f4d9bd5404ab42f12e402f920bb0c700d88f83fe4b2dd3d2f2c22",
   "tokens_per_second": 154.2628767794453,
   "total_trace_wall_seconds": 446.413776276,
   "trace_config": "/home/husrcf/Code/ProtBind/MTP/configs/trace/router_mtp_trace_external_prompt_gate_dolly_32_awq_vllm_gpu1_decode_gen64_production_no_recorder_graph.yaml",

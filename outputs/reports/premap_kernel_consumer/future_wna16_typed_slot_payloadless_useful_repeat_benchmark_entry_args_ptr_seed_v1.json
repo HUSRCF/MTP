@@ -29,7 +29,7 @@
     "scale_metadata_handle": "564bfdbd0fc6aecb"
   },
   "harness_json": "/home/husrcf/Code/ProtBind/MTP/outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_payloadless_useful_benchmark_harness_entry_args_ptr_v1.json",
-  "harness_sha256": "62633bfef00cc00a5bba2bf5f19a78878e6d3e3d09905c66217c99a002eab6bc",
+  "harness_sha256": "b9b67f8f8d753b7f0dad09f95885ae50820988d2f1cdb3c9123bad684ac65b86",
   "kernel_arg_pass_allowed": false,
   "measurement_source": "validated_harness_seed_native_stub_host_wall",
   "measures_native_stub_host_wall_time": true,

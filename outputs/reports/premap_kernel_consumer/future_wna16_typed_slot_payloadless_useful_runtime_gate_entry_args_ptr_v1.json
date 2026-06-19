@@ -1,4 +1,8 @@
 {
+  "accepted_preflight_next_runtime_stages": [
+    "implement_future_wna16_typed_slot_payloadless_useful_runtime_gate",
+    "implement_future_wna16_typed_slot_payloadless_useful_runtime_ablation"
+  ],
   "artifact_kind": "future_wna16_typed_slot_payloadless_useful_runtime_gate",
   "benchmark_is_current_wna16_fused_moe": false,
   "changes_kernel_launch_args": false,
@@ -37,9 +41,10 @@
   "payloadless_useful_execution_sha256": "9018c1f717b5a9f4f21241623144ea40a4f06b6ae7832aaa39c57eb5e0dbc71a",
   "payloadless_useful_runtime_gate_ready": true,
   "preflight_check_json": "/home/husrcf/Code/ProtBind/MTP/outputs/reports/premap_kernel_consumer/premap_lab_preflight_entry_args_ptr_all_four_default_gate.check.json",
-  "preflight_check_sha256": "400aeaf40f0fb6cf988e7636af7f557a8f5820f32c2cee2b4b9d481fc8445d30",
+  "preflight_check_sha256": "179ab2e7cbdf2b9ad0565ff88548629b14f03473b508025e9b2e65b9bb4821b3",
+  "preflight_next_runtime_stage": "implement_future_wna16_typed_slot_payloadless_useful_runtime_ablation",
   "preflight_summary_json": "/home/husrcf/Code/ProtBind/MTP/outputs/reports/premap_kernel_consumer/premap_lab_preflight_entry_args_ptr_all_four_default_gate.json",
-  "preflight_summary_sha256": "3d0b474acce350c05a7bce60e96d20ad2514288462d0693d1184577c57596ff4",
+  "preflight_summary_sha256": "46c29628f112c37efadf61b3ff9748ea372e3c26cd5c1fb7967c84b7794a801d",
   "requires_wna16_arg_reinterpretation": false,
   "row_count": 5345,
   "row_ok_count": 5345,

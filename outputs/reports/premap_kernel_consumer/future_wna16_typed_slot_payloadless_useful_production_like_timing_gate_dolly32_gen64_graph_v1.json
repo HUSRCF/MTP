@@ -45,7 +45,7 @@
   "row_count": 5345,
   "runtime_ablation_json": "/home/husrcf/Code/ProtBind/MTP/outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_payloadless_useful_runtime_ablation_entry_args_ptr_repeat3_gpu1_v1.json",
   "runtime_ablation_ready": true,
-  "runtime_ablation_sha256": "d73e0cec8594c56f8872501f7602980997da411b3ca6223b7f85b96000f87375",
+  "runtime_ablation_sha256": "96bbd2288659721632d42254df546b9705d13c3fa2362ceb1e15946e1712583f",
   "source_count": 128,
   "timing_gate_mode": "production_like_config_readiness_gate",
   "timing_gate_name": "premap_future_wna16_typed_slot_payloadless_useful_production_like_timing_gate_v1",
