@@ -32,7 +32,7 @@ DEFAULT_PAYLOADLESS_JSON = (
     / "outputs"
     / "reports"
     / "premap_kernel_consumer"
-    / "future_wna16_typed_slot_kernel_variant_payloadless_execution_kernel_side_path_native_v1.json"
+    / "future_wna16_typed_slot_kernel_variant_payloadless_execution_entry_args_ptr_native_v1.json"
 )
 DEFAULT_OUTPUT_JSON = (
     REPO_ROOT
@@ -60,6 +60,21 @@ HANDLE_FIELDS = (
     "packed_weight_descriptor",
     "scale_metadata_handle",
     "aux_metadata_handle",
+)
+ENTRY_ARGS_PTR_KEYS = (
+    "entry_args_ptr_required",
+    "entry_args_ptr_sweep_json",
+    "entry_args_ptr_sweep_sha256",
+    "entry_args_ptr_sweep_check_json",
+    "entry_args_ptr_sweep_check_sha256",
+    "entry_args_ptr_sweep_row_count",
+    "entry_args_ptr_sweep_check_row_count",
+    "entry_args_ptr_sweep_device",
+    "entry_args_ptr_sweep_window_size",
+    "entry_args_ptr_sweep_mirror_fields",
+    "entry_args_ptr_sweep_require_kernel_arg_packet_abi",
+    "entry_args_ptr_sweep_require_kernel_entry_args_abi",
+    "entry_args_ptr_sweep_require_kernel_entry_args_ptr_abi",
 )
 KERNEL_SIDE_TYPED_PATH_PREFIX = "future_wna16_kernel_side_typed_consumer_path"
 BOOTSTRAP_SHA_DRIFT_KEYS = {
@@ -91,6 +106,8 @@ EXPECTED_PAYLOADLESS_FLAGS: dict[str, Any] = {
     "payloadless_execution_native_requested": True,
     "payloadless_execution_native_executed": True,
     "payloadless_execution_native_passed": True,
+    "payloadless_execution_native_artifact_ready": True,
+    "payloadless_execution_lab_preflight_ready": True,
     "benchmark_is_current_wna16_fused_moe": False,
     "measures_vllm_latency": False,
     "measures_tpot": False,
@@ -119,6 +136,12 @@ EXPECTED_PAYLOADLESS_FLAGS: dict[str, Any] = {
     "fourth_field_handoff_ready": True,
     f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_ready": True,
     f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_hashes_valid": True,
+    "entry_args_ptr_required": True,
+    "entry_args_ptr_sweep_device": 1,
+    "entry_args_ptr_sweep_window_size": 512,
+    "entry_args_ptr_sweep_require_kernel_arg_packet_abi": True,
+    "entry_args_ptr_sweep_require_kernel_entry_args_abi": True,
+    "entry_args_ptr_sweep_require_kernel_entry_args_ptr_abi": True,
     "next_runtime_stage": (
         "implement_future_wna16_typed_slot_kernel_variant_one_field_handoff_canary"
     ),
@@ -315,6 +338,23 @@ def _check_payloadless(
         failures.append("payloadless_row_ok_count_mismatch")
     if payloadless.get("field_names") != list(HANDLE_FIELDS):
         failures.append("payloadless_field_names_mismatch")
+    sweep_row_count = _int_metric(payloadless, "entry_args_ptr_sweep_row_count")
+    sweep_check_row_count = _int_metric(
+        payloadless,
+        "entry_args_ptr_sweep_check_row_count",
+    )
+    if sweep_row_count is None or sweep_row_count < min_row_count:
+        failures.append("payloadless_entry_args_ptr_sweep_row_count_invalid")
+    if sweep_check_row_count is None or sweep_check_row_count < min_row_count:
+        failures.append("payloadless_entry_args_ptr_sweep_check_row_count_invalid")
+    if (
+        sweep_row_count is not None
+        and sweep_check_row_count is not None
+        and sweep_row_count != sweep_check_row_count
+    ):
+        failures.append("payloadless_entry_args_ptr_sweep_check_row_count_mismatch")
+    if payloadless.get("entry_args_ptr_sweep_mirror_fields") != list(HANDLE_FIELDS):
+        failures.append("payloadless_entry_args_ptr_sweep_mirror_fields_mismatch")
     row_ok_counts = payloadless.get("field_read_row_ok_counts")
     if not isinstance(row_ok_counts, dict):
         failures.append("payloadless_field_read_row_ok_counts_missing")
@@ -773,6 +813,7 @@ def _payloadless_timing_stub(payloadless: dict[str, Any]) -> dict[str, Any]:
         f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_row_ok_count",
         f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_all_four_sha256",
         f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_selected_input_manifest_sha256",
+        *ENTRY_ARGS_PTR_KEYS,
     ):
         if timing_stub.get(key) != payloadless.get(key):
             if bootstrap_payloadless_root and key in BOOTSTRAP_SHA_DRIFT_KEYS:
@@ -1221,7 +1262,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--input-json", type=Path, action="append", default=[])
     parser.add_argument("--max-inputs", type=int, default=128)
     parser.add_argument("--min-source-count", type=int, default=128)
-    parser.add_argument("--min-row-count", type=int, default=1)
+    parser.add_argument("--min-row-count", type=int, default=513)
     parser.add_argument("--block-threads", type=int, default=256)
     parser.add_argument("--device", type=int, default=1)
     parser.add_argument("--hip-visible-devices")

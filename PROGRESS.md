@@ -37176,3 +37176,111 @@ no current WNA16 kernel arg pass;
 no payload dereference;
 no vLLM TPOT claim.
 ```
+
+## Latest Update: Payloadless Execution Now Requires Entry-Args Ptr Benchmark Evidence
+
+The independent future WNA16 typed-slot payloadless execution stage now consumes
+the entry-args-ptr repeat-3 benchmark artifact by default:
+
+```text
+outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_benchmark_entry_args_ptr_repeat3_v1.json
+```
+
+The payloadless gate now validates:
+
+```text
+entry_args_ptr_required = true
+entry_args_ptr_sweep_device = 1
+entry_args_ptr_sweep_window_size = 512
+entry_args_ptr_sweep_mirror_fields = [
+  descriptor_ptr,
+  packed_weight_descriptor,
+  scale_metadata_handle,
+  aux_metadata_handle
+]
+require_kernel_arg_packet_abi = true
+require_kernel_entry_args_abi = true
+require_kernel_entry_args_ptr_abi = true
+sweep row count == check row count >= 513
+sweep/check JSON paths exist and SHA256-match
+sweep/check JSON contents declare passed=true, failures=[], expected sources,
+mirror fields, row counts, child ABI flags, and no payload/kernel mutation
+field_reports declare passed=true, empty sweep/check failures, matching row
+counts, window_size=512, full/head/middle/tail windows, and child paths
+check artifact points to the exact same resolved sweep artifact path
+```
+
+The refreshed payloadless evidence passed in both no-native and native-stub
+modes:
+
+```text
+outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_payloadless_execution_entry_args_ptr_v1.json
+outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_payloadless_execution_entry_args_ptr_native_v1.json
+
+source_count = 128
+row_count = 5345
+entry_args_ptr_sweep_row_count = 1841
+payloadless_execution_native_passed = true
+payloadless_execution_native_host_wall_ms = 334.865459
+payloadless_execution_lab_preflight_ready = true
+```
+
+No-native payloadless reports can still validate the upstream benchmark gate, but
+they now explicitly set:
+
+```text
+payloadless_execution_native_artifact_ready = false
+payloadless_execution_lab_preflight_ready = false
+```
+
+This prevents a benchmark-only gate artifact from being mistaken for the native
+payloadless preflight artifact required by later one-field canaries.
+
+Validation:
+
+```text
+/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_payloadless_execution.py \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_one_field_handoff_canary.py -q
+# 72 passed
+
+/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_benchmark.py \
+  tests/test_run_future_wna16_typed_slot_kernel_timing_stub.py \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_payloadless_execution.py -q
+# 78 passed
+```
+
+The next one-field stage now also compares `entry_args_ptr_*` fields between
+the payloadless report and its native timing-stub provenance, so entry-args-ptr
+drift cannot pass through the downstream handoff canary silently.
+
+The one-field handoff canary now also uses the entry-args-ptr native payloadless
+artifact by default and requires:
+
+```text
+payloadless_execution_native_artifact_ready = true
+payloadless_execution_lab_preflight_ready = true
+entry_args_ptr_required = true
+entry_args_ptr_sweep_row_count == entry_args_ptr_sweep_check_row_count >= 513
+```
+
+Refreshed one-field evidence:
+
+```text
+outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_one_field_handoff_canary_entry_args_ptr_default.json
+
+row_count = 5345
+one_field_handoff_field_name = scale_metadata_handle
+one_field_handoff_canary_native_passed = true
+one_field_handoff_canary_outer_wall_ms = 318.63777
+```
+
+Boundary remains unchanged:
+
+```text
+This is still an independent future typed-slot ABI/native stub payloadless
+execution gate. It does not pass typed slots into the current WNA16 fused-MoE
+kernel, does not dereference payload, does not change launch args, and does not
+measure vLLM TPOT.
+```

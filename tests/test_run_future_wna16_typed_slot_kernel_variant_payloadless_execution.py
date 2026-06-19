@@ -42,7 +42,7 @@ def _sha256(path: Path) -> str:
 
 def _timing_stub_payload(
     *,
-    row_count: int = 257,
+    row_count: int = 513,
     source_count: int = 128,
     host_wall_ms: float = 12.5,
 ) -> dict:
@@ -126,6 +126,19 @@ def _timing_stub_payload(
         "future_wna16_kernel_side_typed_consumer_path_selected_input_manifest_sha256": (
             "6" * 64
         ),
+        "entry_args_ptr_required": True,
+        "entry_args_ptr_sweep_json": "",
+        "entry_args_ptr_sweep_sha256": "",
+        "entry_args_ptr_sweep_check_json": "",
+        "entry_args_ptr_sweep_check_sha256": "",
+        "entry_args_ptr_sweep_row_count": row_count,
+        "entry_args_ptr_sweep_check_row_count": row_count,
+        "entry_args_ptr_sweep_device": 1,
+        "entry_args_ptr_sweep_window_size": 512,
+        "entry_args_ptr_sweep_mirror_fields": list(HANDLE_FIELDS),
+        "entry_args_ptr_sweep_require_kernel_arg_packet_abi": True,
+        "entry_args_ptr_sweep_require_kernel_entry_args_abi": True,
+        "entry_args_ptr_sweep_require_kernel_entry_args_ptr_abi": True,
         "native_stub_host_wall_ms": host_wall_ms,
     }
 
@@ -133,7 +146,7 @@ def _timing_stub_payload(
 def _benchmark_payload(
     timing_stub_json: Path,
     *,
-    row_count: int = 257,
+    row_count: int = 513,
     source_count: int = 128,
     repeat_count: int = 3,
 ) -> dict:
@@ -237,6 +250,33 @@ def _benchmark_payload(
         "future_wna16_kernel_side_typed_consumer_path_selected_input_manifest_sha256": timing_payload[
             "future_wna16_kernel_side_typed_consumer_path_selected_input_manifest_sha256"
         ],
+        "entry_args_ptr_required": timing_payload["entry_args_ptr_required"],
+        "entry_args_ptr_sweep_json": timing_payload["entry_args_ptr_sweep_json"],
+        "entry_args_ptr_sweep_sha256": timing_payload["entry_args_ptr_sweep_sha256"],
+        "entry_args_ptr_sweep_check_json": timing_payload[
+            "entry_args_ptr_sweep_check_json"
+        ],
+        "entry_args_ptr_sweep_check_sha256": timing_payload[
+            "entry_args_ptr_sweep_check_sha256"
+        ],
+        "entry_args_ptr_sweep_row_count": row_count,
+        "entry_args_ptr_sweep_check_row_count": row_count,
+        "entry_args_ptr_sweep_device": timing_payload["entry_args_ptr_sweep_device"],
+        "entry_args_ptr_sweep_window_size": timing_payload[
+            "entry_args_ptr_sweep_window_size"
+        ],
+        "entry_args_ptr_sweep_mirror_fields": timing_payload[
+            "entry_args_ptr_sweep_mirror_fields"
+        ],
+        "entry_args_ptr_sweep_require_kernel_arg_packet_abi": timing_payload[
+            "entry_args_ptr_sweep_require_kernel_arg_packet_abi"
+        ],
+        "entry_args_ptr_sweep_require_kernel_entry_args_abi": timing_payload[
+            "entry_args_ptr_sweep_require_kernel_entry_args_abi"
+        ],
+        "entry_args_ptr_sweep_require_kernel_entry_args_ptr_abi": timing_payload[
+            "entry_args_ptr_sweep_require_kernel_entry_args_ptr_abi"
+        ],
         "repeat_count_measured": repeat_count,
         "repeat_output_jsons": repeat_output_jsons,
         "repeat_output_sha256s": repeat_output_sha256s,
@@ -261,6 +301,111 @@ def _write_seed_artifacts(tmp_path: Path) -> tuple[Path, Path, Path, dict]:
     _write_json(entrypoint, {"ok": True})
     _write_json(runner, {"online_prelaunch_input_jsons": [str(tmp_path / "input.json")]})
     timing_payload = _timing_stub_payload()
+    fixture_dir = Path(__file__).resolve().parent / "fixtures"
+    payloadless_root = tmp_path / "payloadless_root_evidence.json"
+    root_payload = json.loads(
+        (fixture_dir / "future_wna16_payloadless_root_evidence.json").read_text(
+            encoding="utf-8",
+        )
+    )
+    root_payload["source_count"] = timing_payload["source_count"]
+    root_payload["row_count"] = timing_payload["row_count"]
+    root_payload["row_ok_count"] = timing_payload["row_count"]
+    _write_json(payloadless_root, root_payload)
+    fourth_evidence = tmp_path / "fourth_field_evidence.json"
+    fourth_payload = json.loads(
+        (fixture_dir / "future_wna16_fourth_field_evidence.json").read_text(
+            encoding="utf-8",
+        )
+    )
+    fourth_payload["source_count"] = timing_payload["source_count"]
+    fourth_payload["row_count"] = timing_payload["row_count"]
+    fourth_payload["row_ok_count"] = timing_payload["row_count"]
+    fourth_payload["fourth_field_handoff_field_read_row_ok_count"] = timing_payload[
+        "row_count"
+    ]
+    fourth_payload["payloadless_execution_json"] = str(payloadless_root)
+    fourth_payload["payloadless_execution_sha256"] = _sha256(payloadless_root)
+    _write_json(fourth_evidence, fourth_payload)
+    kernel_side_evidence = tmp_path / "kernel_side_typed_path_evidence.json"
+    kernel_side_payload = json.loads(
+        (fixture_dir / "future_wna16_kernel_side_typed_path_evidence.json").read_text(
+            encoding="utf-8",
+        )
+    )
+    kernel_side_payload["source_count"] = timing_payload["source_count"]
+    kernel_side_payload["input_json_count"] = timing_payload["source_count"]
+    kernel_side_payload["row_count"] = timing_payload["row_count"]
+    kernel_side_payload["row_ok_count"] = timing_payload["row_count"]
+    _write_json(kernel_side_evidence, kernel_side_payload)
+    timing_payload["fourth_field_handoff_evidence_path"] = str(fourth_evidence)
+    timing_payload["fourth_field_handoff_evidence_sha256"] = _sha256(fourth_evidence)
+    timing_payload["all_four_field_consumer_fourth_field_path_label"] = str(
+        fourth_evidence
+    )
+    timing_payload["all_four_field_consumer_fourth_field_sha256"] = _sha256(
+        fourth_evidence
+    )
+    timing_payload["future_wna16_kernel_side_typed_consumer_path_evidence_path"] = str(
+        kernel_side_evidence
+    )
+    timing_payload["future_wna16_kernel_side_typed_consumer_path_evidence_sha256"] = (
+        _sha256(kernel_side_evidence)
+    )
+    sweep = tmp_path / "entry_args_ptr_sweep.json"
+    sweep_check = tmp_path / "entry_args_ptr_sweep.check.json"
+    _write_json(
+        sweep,
+        {
+            "source": "online_merged_future_native_arg_slot_all_field_window_sweep_runner",
+            "passed": True,
+            "failures": [],
+            "device": 1,
+            "window_size": 512,
+            "mirror_fields": list(HANDLE_FIELDS),
+            "row_counts": {field: timing_payload["row_count"] for field in HANDLE_FIELDS},
+            "field_reports": {
+                field: {
+                    "passed": True,
+                    "sweep_failures": [],
+                    "check_failures": [],
+                    "row_count": timing_payload["row_count"],
+                    "window_size": 512,
+                    "windows_checked": ["full", "head", "middle", "tail"],
+                    "sweep_json": f"window_sweep_{field}.json",
+                    "check_json": f"window_sweep_{field}.check.json",
+                }
+                for field in HANDLE_FIELDS
+            },
+            "require_program_view_ptr_abi": True,
+            "require_kernel_arg_packet_abi": True,
+            "require_kernel_entry_args_abi": True,
+            "require_kernel_entry_args_ptr_abi": True,
+            "payload_bytes": 0,
+            "passed_to_kernel": False,
+            "changes_kernel_launch_args": False,
+        },
+    )
+    _write_json(
+        sweep_check,
+        {
+            "source": "online_merged_future_native_arg_slot_all_field_window_sweep_check",
+            "passed": True,
+            "failures": [],
+            "all_field_window_sweep_json": str(sweep),
+            "expected_window_size": 512,
+            "mirror_fields_checked": list(HANDLE_FIELDS),
+            "require_child_program_view_ptr_abi": True,
+            "require_child_kernel_arg_packet_abi": True,
+            "require_child_kernel_entry_args_abi": True,
+            "require_child_kernel_entry_args_ptr_abi": True,
+            "row_count": timing_payload["row_count"],
+        },
+    )
+    timing_payload["entry_args_ptr_sweep_json"] = str(sweep)
+    timing_payload["entry_args_ptr_sweep_sha256"] = _sha256(sweep)
+    timing_payload["entry_args_ptr_sweep_check_json"] = str(sweep_check)
+    timing_payload["entry_args_ptr_sweep_check_sha256"] = _sha256(sweep_check)
     timing_payload["entrypoint_json"] = str(entrypoint)
     timing_payload["runner_json"] = str(runner)
     timing_payload["entrypoint_sha256"] = _sha256(entrypoint)
@@ -289,6 +434,8 @@ def test_payloadless_execution_accepts_benchmark_without_native_run(tmp_path: Pa
     assert result["passed"] is True
     assert result["payloadless_execution_gate_ready"] is True
     assert result["payloadless_execution_native_executed"] is False
+    assert result["payloadless_execution_native_artifact_ready"] is False
+    assert result["payloadless_execution_lab_preflight_ready"] is False
     assert result["payloadless_execution_timing_stub_sha256"] is None
     assert result["payloadless_execution_runner_json"] is None
     assert result["payloadless_execution_runner_sha256"] is None
@@ -299,7 +446,10 @@ def test_payloadless_execution_accepts_benchmark_without_native_run(tmp_path: Pa
     assert result["measures_tpot"] is False
     assert result["future_wna16_kernel_side_typed_consumer_path_ready"] is True
     assert result["future_wna16_kernel_side_typed_consumer_path_source_count"] == 128
-    assert result["future_wna16_kernel_side_typed_consumer_path_row_count"] == 257
+    assert result["future_wna16_kernel_side_typed_consumer_path_row_count"] == 513
+    assert result["entry_args_ptr_required"] is True
+    assert result["entry_args_ptr_sweep_row_count"] == 513
+    assert result["entry_args_ptr_sweep_check_row_count"] == 513
     assert json.loads(output.read_text(encoding="utf-8"))["passed"] is True
 
 
@@ -603,6 +753,128 @@ def test_payloadless_execution_rejects_fourth_descriptor_hash_drift(
     ]
 
 
+def test_payloadless_execution_rejects_missing_entry_args_ptr_contract(
+    tmp_path: Path,
+):
+    module = _load_module()
+    _, _, timing_stub, _ = _write_seed_artifacts(tmp_path)
+    benchmark = tmp_path / "benchmark.json"
+    payload = _benchmark_payload(timing_stub)
+    payload["entry_args_ptr_required"] = False
+    payload["entry_args_ptr_sweep_mirror_fields"] = ["descriptor_ptr"]
+    payload["entry_args_ptr_sweep_check_row_count"] = payload["row_count"] - 1
+    _write_json(benchmark, payload)
+
+    args = module.build_parser().parse_args(
+        [
+            "--benchmark-json",
+            str(benchmark),
+            "--output-json",
+            str(tmp_path / "payloadless.json"),
+        ]
+    )
+    result = module.run_payloadless_execution(args)
+
+    assert result["passed"] is False
+    assert any("entry_args_ptr_required" in item for item in result["failures"])
+    assert "benchmark_entry_args_ptr_sweep_mirror_fields_mismatch" in result[
+        "failures"
+    ]
+    assert "benchmark_entry_args_ptr_sweep_check_row_count_mismatch" in result[
+        "failures"
+    ]
+
+
+def test_payloadless_execution_rejects_entry_args_ptr_evidence_content_drift(
+    tmp_path: Path,
+):
+    module = _load_module()
+    _, _, timing_stub, _ = _write_seed_artifacts(tmp_path)
+    benchmark = tmp_path / "benchmark.json"
+    payload = _benchmark_payload(timing_stub)
+    sweep_path = Path(payload["entry_args_ptr_sweep_json"])
+    sweep_payload = json.loads(sweep_path.read_text(encoding="utf-8"))
+    sweep_payload["require_kernel_entry_args_ptr_abi"] = False
+    _write_json(sweep_path, sweep_payload)
+    payload["entry_args_ptr_sweep_sha256"] = _sha256(sweep_path)
+    _write_json(benchmark, payload)
+
+    args = module.build_parser().parse_args(
+        [
+            "--benchmark-json",
+            str(benchmark),
+            "--output-json",
+            str(tmp_path / "payloadless.json"),
+        ]
+    )
+    result = module.run_payloadless_execution(args)
+
+    assert result["passed"] is False
+    assert "benchmark_entry_args_ptr_sweep_require_kernel_entry_args_ptr_abi_mismatch:False!=True" in result[
+        "failures"
+    ]
+
+
+def test_payloadless_execution_rejects_entry_args_ptr_field_report_drift(
+    tmp_path: Path,
+):
+    module = _load_module()
+    _, _, timing_stub, _ = _write_seed_artifacts(tmp_path)
+    benchmark = tmp_path / "benchmark.json"
+    payload = _benchmark_payload(timing_stub)
+    sweep_path = Path(payload["entry_args_ptr_sweep_json"])
+    sweep_payload = json.loads(sweep_path.read_text(encoding="utf-8"))
+    sweep_payload["field_reports"]["descriptor_ptr"]["passed"] = False
+    _write_json(sweep_path, sweep_payload)
+    payload["entry_args_ptr_sweep_sha256"] = _sha256(sweep_path)
+    _write_json(benchmark, payload)
+
+    args = module.build_parser().parse_args(
+        [
+            "--benchmark-json",
+            str(benchmark),
+            "--output-json",
+            str(tmp_path / "payloadless.json"),
+        ]
+    )
+    result = module.run_payloadless_execution(args)
+
+    assert result["passed"] is False
+    assert "benchmark_entry_args_ptr_sweep_descriptor_ptr_passed_mismatch:False!=True" in result[
+        "failures"
+    ]
+
+
+def test_payloadless_execution_rejects_entry_args_ptr_check_path_mismatch(
+    tmp_path: Path,
+):
+    module = _load_module()
+    _, _, timing_stub, _ = _write_seed_artifacts(tmp_path)
+    benchmark = tmp_path / "benchmark.json"
+    payload = _benchmark_payload(timing_stub)
+    check_path = Path(payload["entry_args_ptr_sweep_check_json"])
+    check_payload = json.loads(check_path.read_text(encoding="utf-8"))
+    check_payload["all_field_window_sweep_json"] = "entry_args_ptr_sweep.json"
+    _write_json(check_path, check_payload)
+    payload["entry_args_ptr_sweep_check_sha256"] = _sha256(check_path)
+    _write_json(benchmark, payload)
+
+    args = module.build_parser().parse_args(
+        [
+            "--benchmark-json",
+            str(benchmark),
+            "--output-json",
+            str(tmp_path / "payloadless.json"),
+        ]
+    )
+    result = module.run_payloadless_execution(args)
+
+    assert result["passed"] is False
+    assert "benchmark_entry_args_ptr_sweep_check_sweep_path_mismatch" in result[
+        "failures"
+    ]
+
+
 def test_payloadless_execution_rejects_all_four_not_ready(tmp_path: Path):
     module = _load_module()
     _, _, timing_stub, _ = _write_seed_artifacts(tmp_path)
@@ -727,7 +999,7 @@ def test_payloadless_execution_defaults_to_four_field_repeat3_benchmark():
     default_path = Path(module.DEFAULT_BENCHMARK_JSON)
 
     assert (
-        "future_wna16_typed_slot_kernel_variant_benchmark_kernel_side_path_repeat3_v1.json"
+        "future_wna16_typed_slot_kernel_variant_benchmark_entry_args_ptr_repeat3_v1.json"
         in str(default_path)
     )
     if default_path.exists():
@@ -739,6 +1011,13 @@ def test_payloadless_execution_defaults_to_four_field_repeat3_benchmark():
         )
         assert len(payload["repeat_output_jsons"]) == payload["repeat_count_measured"]
         assert len(payload["repeat_output_sha256s"]) == payload["repeat_count_measured"]
+        assert payload["entry_args_ptr_required"] is True
+        assert payload["entry_args_ptr_sweep_row_count"] >= module.build_parser().get_default(
+            "min_row_count"
+        )
+        assert payload["entry_args_ptr_sweep_check_row_count"] == payload[
+            "entry_args_ptr_sweep_row_count"
+        ]
         assert module._check_benchmark(  # noqa: SLF001
             payload,
             min_source_count=module.build_parser().get_default("min_source_count"),
@@ -805,6 +1084,8 @@ def test_payloadless_execution_runs_fake_native_execution(tmp_path: Path, monkey
     assert result["passed"] is True
     assert result["payloadless_execution_native_executed"] is True
     assert result["payloadless_execution_native_passed"] is True
+    assert result["payloadless_execution_native_artifact_ready"] is True
+    assert result["payloadless_execution_lab_preflight_ready"] is True
     assert result["payloadless_execution_native_host_wall_ms"] == 42.0
     assert result["changes_kernel_launch_args"] is False
 

@@ -4,6 +4,7 @@ import importlib.util
 import hashlib
 import json
 from pathlib import Path
+import tempfile
 
 
 HANDLE_FIELDS = [
@@ -50,14 +51,55 @@ def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def _payloadless_evidence_paths(
+    *,
+    source_count: int,
+    row_count: int,
+) -> tuple[Path, str, Path, str]:
+    evidence_dir = Path(tempfile.mkdtemp(prefix="mtp_one_field_payloadless_"))
+    root_path = evidence_dir / "payloadless_root_evidence.json"
+    root_payload = json.loads(
+        (Path(__file__).resolve().parent / "fixtures" / "future_wna16_payloadless_root_evidence.json").read_text(
+            encoding="utf-8",
+        )
+    )
+    root_payload["source_count"] = source_count
+    root_payload["row_count"] = row_count
+    root_payload["row_ok_count"] = row_count
+    _write_json(root_path, root_payload)
+
+    fourth_path = evidence_dir / "fourth_field_evidence.json"
+    fourth_payload = json.loads(FOURTH_EVIDENCE_PATH.read_text(encoding="utf-8"))
+    fourth_payload["source_count"] = source_count
+    fourth_payload["row_count"] = row_count
+    fourth_payload["row_ok_count"] = row_count
+    fourth_payload["fourth_field_handoff_field_read_row_ok_count"] = row_count
+    fourth_payload["payloadless_execution_json"] = str(root_path)
+    fourth_payload["payloadless_execution_sha256"] = _sha256(root_path)
+    _write_json(fourth_path, fourth_payload)
+
+    kernel_path = evidence_dir / "kernel_side_typed_path_evidence.json"
+    kernel_payload = json.loads(KERNEL_SIDE_EVIDENCE_PATH.read_text(encoding="utf-8"))
+    kernel_payload["source_count"] = source_count
+    kernel_payload["input_json_count"] = source_count
+    kernel_payload["row_count"] = row_count
+    kernel_payload["row_ok_count"] = row_count
+    _write_json(kernel_path, kernel_payload)
+    return fourth_path, _sha256(fourth_path), kernel_path, _sha256(kernel_path)
+
+
 def _payloadless_payload(
     *,
     source_count: int = 128,
-    row_count: int = 257,
+    row_count: int = 513,
     timing_stub_json: str | None = None,
 ) -> dict:
-    fourth_evidence_sha = _sha256(FOURTH_EVIDENCE_PATH)
-    kernel_side_evidence_sha = _sha256(KERNEL_SIDE_EVIDENCE_PATH)
+    (
+        fourth_evidence_path,
+        fourth_evidence_sha,
+        kernel_side_evidence_path,
+        kernel_side_evidence_sha,
+    ) = _payloadless_evidence_paths(source_count=source_count, row_count=row_count)
     payload = {
         "artifact_kind": "future_wna16_typed_slot_kernel_variant_payloadless_execution",
         "payloadless_execution_name": (
@@ -76,6 +118,8 @@ def _payloadless_payload(
         "payloadless_execution_native_requested": True,
         "payloadless_execution_native_executed": True,
         "payloadless_execution_native_passed": True,
+        "payloadless_execution_native_artifact_ready": True,
+        "payloadless_execution_lab_preflight_ready": True,
         "payloadless_execution_native_host_wall_ms": 33.0,
         "benchmark_is_current_wna16_fused_moe": False,
         "measures_vllm_latency": False,
@@ -124,7 +168,7 @@ def _payloadless_payload(
         "fourth_field_handoff_row_ok_count": row_count,
         "fourth_field_handoff_field_read_hash": "3132333435363738",
         "fourth_field_handoff_runner_hash": "8182838485868788",
-        "fourth_field_handoff_evidence_path": str(FOURTH_EVIDENCE_PATH),
+        "fourth_field_handoff_evidence_path": str(fourth_evidence_path),
         "fourth_field_handoff_evidence_sha256": fourth_evidence_sha,
         "all_four_field_consumer_ready": True,
         "all_four_field_consumer_fields_read": True,
@@ -132,12 +176,12 @@ def _payloadless_payload(
         "all_four_field_consumer_source_count": source_count,
         "all_four_field_consumer_row_count": row_count,
         "all_four_field_consumer_row_ok_count": row_count,
-        "all_four_field_consumer_fourth_field_path_label": str(FOURTH_EVIDENCE_PATH),
+        "all_four_field_consumer_fourth_field_path_label": str(fourth_evidence_path),
         "all_four_field_consumer_fourth_field_sha256": fourth_evidence_sha,
         "future_wna16_kernel_side_typed_consumer_path_ready": True,
         "future_wna16_kernel_side_typed_consumer_path_hashes_valid": True,
         "future_wna16_kernel_side_typed_consumer_path_evidence_path": str(
-            KERNEL_SIDE_EVIDENCE_PATH
+            kernel_side_evidence_path
         ),
         "future_wna16_kernel_side_typed_consumer_path_evidence_sha256": (
             kernel_side_evidence_sha
@@ -150,6 +194,25 @@ def _payloadless_payload(
         "future_wna16_kernel_side_typed_consumer_path_selected_input_manifest_sha256": (
             "6" * 64
         ),
+        "entry_args_ptr_required": True,
+        "entry_args_ptr_sweep_json": str(
+            Path(__file__).resolve().parent / "fixtures" / "entry_args_ptr_sweep.json"
+        ),
+        "entry_args_ptr_sweep_sha256": "4" * 64,
+        "entry_args_ptr_sweep_check_json": str(
+            Path(__file__).resolve().parent
+            / "fixtures"
+            / "entry_args_ptr_sweep.check.json"
+        ),
+        "entry_args_ptr_sweep_check_sha256": "5" * 64,
+        "entry_args_ptr_sweep_row_count": row_count,
+        "entry_args_ptr_sweep_check_row_count": row_count,
+        "entry_args_ptr_sweep_device": 1,
+        "entry_args_ptr_sweep_window_size": 512,
+        "entry_args_ptr_sweep_mirror_fields": list(HANDLE_FIELDS),
+        "entry_args_ptr_sweep_require_kernel_arg_packet_abi": True,
+        "entry_args_ptr_sweep_require_kernel_entry_args_abi": True,
+        "entry_args_ptr_sweep_require_kernel_entry_args_ptr_abi": True,
     }
     if timing_stub_json is not None:
         payload["payloadless_execution_timing_stub_json"] = timing_stub_json
@@ -159,7 +222,7 @@ def _payloadless_payload(
 def _canary_report(
     *,
     source_count: int = 128,
-    row_count: int = 257,
+    row_count: int = 513,
     field: str = "scale_metadata_handle",
 ) -> dict:
     field_kind = {
@@ -292,7 +355,7 @@ def test_one_field_handoff_canary_runs_native_gate(tmp_path: Path, monkeypatch):
     assert result["measures_tpot"] is False
     assert result["payloadless_future_wna16_kernel_side_typed_consumer_path_ready"] is True
     assert result["payloadless_future_wna16_kernel_side_typed_consumer_path_source_count"] == 128
-    assert result["payloadless_future_wna16_kernel_side_typed_consumer_path_row_count"] == 257
+    assert result["payloadless_future_wna16_kernel_side_typed_consumer_path_row_count"] == 513
     assert json.loads(output.read_text(encoding="utf-8"))["passed"] is True
 
 
@@ -401,7 +464,7 @@ def test_one_field_handoff_canary_rejects_native_live_handoff(tmp_path: Path, mo
 def test_one_field_handoff_canary_rejects_row_count_mismatch(tmp_path: Path, monkeypatch):
     module = _load_module()
     payloadless = tmp_path / "payloadless.json"
-    _write_json(payloadless, _payloadless_payload(row_count=257))
+    _write_json(payloadless, _payloadless_payload(row_count=513))
 
     def fake_run(args, *, payloadless):
         assert payloadless["passed"] is True
@@ -429,11 +492,11 @@ def test_one_field_handoff_canary_rejects_partial_dispatch_coverage(
 ):
     module = _load_module()
     payloadless = tmp_path / "payloadless.json"
-    _write_json(payloadless, _payloadless_payload(row_count=257))
+    _write_json(payloadless, _payloadless_payload(row_count=513))
 
     def fake_run(args, *, payloadless):
         assert payloadless["passed"] is True
-        report = _canary_report(row_count=257)
+        report = _canary_report(row_count=513)
         report["dispatch_active_rows"] = 128
         report["future_wna16_single_field_handoff_canary_row_count"] = 128
         report["future_wna16_single_field_handoff_canary_row_ok_count"] = 128
@@ -611,8 +674,8 @@ def test_one_field_handoff_canary_rejects_string_payload_bytes(
 def test_one_field_handoff_canary_rejects_incomplete_selected_field(tmp_path: Path):
     module = _load_module()
     payloadless = tmp_path / "payloadless.json"
-    payload = _payloadless_payload(row_count=257)
-    payload["field_read_row_ok_counts"]["scale_metadata_handle"] = 256
+    payload = _payloadless_payload(row_count=513)
+    payload["field_read_row_ok_counts"]["scale_metadata_handle"] = 512
     _write_json(payloadless, payload)
 
     args = module.build_parser().parse_args(
@@ -735,7 +798,7 @@ def test_one_field_handoff_canary_defaults_to_four_field_payloadless_artifact():
     module = _load_module()
 
     assert (
-        "future_wna16_typed_slot_kernel_variant_payloadless_execution_kernel_side_path_native_v1.json"
+        "future_wna16_typed_slot_kernel_variant_payloadless_execution_entry_args_ptr_native_v1.json"
         in str(module.DEFAULT_PAYLOADLESS_JSON)
     )
     default_path = Path(module.DEFAULT_PAYLOADLESS_JSON)
@@ -796,9 +859,9 @@ def test_one_field_handoff_canary_rejects_payloadless_kernel_side_row_drift(
 ):
     module = _load_module()
     payloadless = tmp_path / "payloadless.json"
-    payload = _payloadless_payload(row_count=257)
-    payload["future_wna16_kernel_side_typed_consumer_path_row_count"] = 128
-    payload["future_wna16_kernel_side_typed_consumer_path_row_ok_count"] = 128
+    payload = _payloadless_payload(row_count=513)
+    payload["future_wna16_kernel_side_typed_consumer_path_row_count"] = 512
+    payload["future_wna16_kernel_side_typed_consumer_path_row_ok_count"] = 512
     _write_json(payloadless, payload)
 
     args = module.build_parser().parse_args(
@@ -1188,14 +1251,15 @@ def test_one_field_handoff_canary_rejects_all_four_timing_stub_drift(
     input_json = tmp_path / "input.json"
     _write_json(input_json, {"ok": True})
     _write_json(runner, {"input_jsons": [str(input_json)]})
+    base_payload = _payloadless_payload()
     timing_payload = {
-        **_payloadless_payload(),
+        **base_payload,
         "runner_json": str(runner),
         "runner_sha256": _sha256(runner),
     }
     timing_payload["all_four_field_consumer_row_count"] = 123
     _write_json(timing_stub, timing_payload)
-    payload = _payloadless_payload(timing_stub_json=str(timing_stub))
+    payload = {**base_payload, "payloadless_execution_timing_stub_json": str(timing_stub)}
     payload.update(
         {
             "payloadless_execution_timing_stub_sha256": _sha256(timing_stub),
@@ -1229,14 +1293,15 @@ def test_one_field_handoff_canary_rejects_kernel_side_timing_stub_drift(
     input_json = tmp_path / "input.json"
     _write_json(input_json, {"ok": True})
     _write_json(runner, {"input_jsons": [str(input_json)]})
+    base_payload = _payloadless_payload()
     timing_payload = {
-        **_payloadless_payload(),
+        **base_payload,
         "runner_json": str(runner),
         "runner_sha256": _sha256(runner),
     }
     timing_payload["future_wna16_kernel_side_typed_consumer_path_row_count"] = 123
     _write_json(timing_stub, timing_payload)
-    payload = _payloadless_payload(timing_stub_json=str(timing_stub))
+    payload = {**base_payload, "payloadless_execution_timing_stub_json": str(timing_stub)}
     payload.update(
         {
             "payloadless_execution_timing_stub_sha256": _sha256(timing_stub),
@@ -1259,6 +1324,56 @@ def test_one_field_handoff_canary_rejects_kernel_side_timing_stub_drift(
     assert result["passed"] is False
     assert any(
         "future_wna16_kernel_side_typed_consumer_path_row_count mismatch" in item
+        for item in result["failures"]
+    )
+
+
+def test_one_field_handoff_canary_rejects_entry_args_ptr_timing_stub_drift(
+    tmp_path: Path,
+):
+    module = _load_module()
+    runner = tmp_path / "runner.json"
+    timing_stub = tmp_path / "timing_stub.json"
+    payloadless = tmp_path / "payloadless.json"
+    input_json = tmp_path / "input.json"
+    _write_json(input_json, {"ok": True})
+    _write_json(runner, {"input_jsons": [str(input_json)]})
+    base_payload = _payloadless_payload()
+    timing_payload = {
+        **base_payload,
+        "runner_json": str(runner),
+        "runner_sha256": _sha256(runner),
+        "entry_args_ptr_required": True,
+        "entry_args_ptr_sweep_row_count": 513,
+        "entry_args_ptr_sweep_check_row_count": 512,
+    }
+    _write_json(timing_stub, timing_payload)
+    payload = {**base_payload, "payloadless_execution_timing_stub_json": str(timing_stub)}
+    payload.update(
+        {
+            "payloadless_execution_timing_stub_sha256": _sha256(timing_stub),
+            "payloadless_execution_runner_json": str(runner),
+            "payloadless_execution_runner_sha256": _sha256(runner),
+            "entry_args_ptr_required": True,
+            "entry_args_ptr_sweep_row_count": 513,
+            "entry_args_ptr_sweep_check_row_count": 513,
+        }
+    )
+    _write_json(payloadless, payload)
+
+    args = module.build_parser().parse_args(
+        [
+            "--payloadless-json",
+            str(payloadless),
+            "--output-json",
+            str(tmp_path / "one_field.json"),
+        ]
+    )
+    result = module.run_one_field_handoff_canary(args)
+
+    assert result["passed"] is False
+    assert any(
+        "entry_args_ptr_sweep_check_row_count mismatch" in item
         for item in result["failures"]
     )
 
@@ -1425,8 +1540,9 @@ def test_one_field_handoff_canary_uses_payloadless_runner_provenance(tmp_path: P
     input_json = tmp_path / "input.json"
     _write_json(input_json, {"ok": True})
     _write_json(runner, {"input_jsons": [str(input_json)]})
+    base_payload = _payloadless_payload()
     timing_payload = {
-        **_payloadless_payload(),
+        **base_payload,
         "runner_json": str(runner),
         "runner_sha256": _sha256(runner),
     }
@@ -1435,10 +1551,9 @@ def test_one_field_handoff_canary_uses_payloadless_runner_provenance(tmp_path: P
     _write_json(timing_stub, timing_payload)
     _write_json(
         payloadless,
-        _payloadless_payload(
-            timing_stub_json=str(timing_stub),
-        )
-        | {
+        {
+            **base_payload,
+            "payloadless_execution_timing_stub_json": str(timing_stub),
             "payloadless_execution_timing_stub_sha256": _sha256(timing_stub),
             "payloadless_execution_runner_json": str(runner),
             "payloadless_execution_runner_sha256": _sha256(runner),
@@ -1472,13 +1587,14 @@ def test_one_field_handoff_canary_rejects_top_level_runner_sha_mismatch(
     input_json = tmp_path / "input.json"
     _write_json(input_json, {"ok": True})
     _write_json(runner, {"input_jsons": [str(input_json)]})
+    base_payload = _payloadless_payload()
     timing_payload = {
-        **_payloadless_payload(),
+        **base_payload,
         "runner_json": str(runner),
         "runner_sha256": _sha256(runner),
     }
     _write_json(timing_stub, timing_payload)
-    payload = _payloadless_payload(timing_stub_json=str(timing_stub))
+    payload = {**base_payload, "payloadless_execution_timing_stub_json": str(timing_stub)}
     payload.update(
         {
             "payloadless_execution_timing_stub_sha256": _sha256(timing_stub),
