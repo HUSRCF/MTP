@@ -35,18 +35,18 @@ def _load_module():
     return module
 
 
-def test_default_paths_use_kernel_side_four_field_gate() -> None:
+def test_default_paths_use_entry_args_ptr_four_field_gate() -> None:
     module = _load_module()
 
     assert module.DEFAULT_FOURTH_FIELD_JSON.name == (
-        "future_wna16_typed_slot_kernel_variant_fourth_field_handoff_canary_kernel_side_path_v1.json"
+        "future_wna16_typed_slot_kernel_variant_fourth_field_handoff_canary_entry_args_ptr_default.json"
     )
     assert module.DEFAULT_FOURTH_FIELD_JSON.exists()
     assert module.DEFAULT_OUTPUT_JSON.name == (
-        "future_wna16_typed_slot_kernel_variant_all_four_field_consumer_kernel_side_path_v1.json"
+        "future_wna16_typed_slot_kernel_variant_all_four_field_consumer_entry_args_ptr_default.json"
     )
     assert module.DEFAULT_OUTPUT_DIR.name == (
-        "future_wna16_typed_slot_kernel_variant_all_four_field_consumer_kernel_side_path_v1"
+        "future_wna16_typed_slot_kernel_variant_all_four_field_consumer_entry_args_ptr_default"
     )
 
 
@@ -66,6 +66,116 @@ def _input_manifest_sha(input_paths: list[Path]) -> str:
     ]
     data = json.dumps(entries, sort_keys=True, separators=(",", ":")).encode("utf-8")
     return hashlib.sha256(data).hexdigest()
+
+
+def _entry_args_ptr_sweep_payload(*, row_count: int = 513) -> dict:
+    return {
+        "source": "online_merged_future_native_arg_slot_all_field_window_sweep_runner",
+        "passed": True,
+        "failures": [],
+        "dry_run": False,
+        "payload_bytes": 0,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "window_size": 512,
+        "block_threads": 256,
+        "mirror_fields": list(FIELDS),
+        "require_program_view_ptr_abi": True,
+        "require_kernel_arg_packet_abi": True,
+        "require_kernel_entry_args_abi": True,
+        "require_kernel_entry_args_ptr_abi": True,
+        "row_counts": {field: row_count for field in FIELDS},
+        "field_reports": {
+            field: {
+                "passed": True,
+                "sweep_failures": [],
+                "check_failures": [],
+                "row_count": row_count,
+                "window_size": 512,
+                "windows_checked": ["full", "head", "middle", "tail"],
+                "sweep_json": f"{field}.sweep.json",
+                "check_json": f"{field}.check.json",
+            }
+            for field in FIELDS
+        },
+    }
+
+
+def _entry_args_ptr_check_payload(sweep_json: Path, *, row_count: int = 513) -> dict:
+    return {
+        "source": "online_merged_future_native_arg_slot_all_field_window_sweep_check",
+        "passed": True,
+        "failures": [],
+        "all_field_window_sweep_json": str(sweep_json),
+        "expected_window_size": 512,
+        "expected_block_threads": 256,
+        "min_row_count": 257,
+        "require_child_checks": True,
+        "require_child_field_masks": True,
+        "require_child_consumer_view": True,
+        "require_child_consumer_view_layout": True,
+        "require_child_consumer_view_row_layout": True,
+        "require_child_consumer_view_handle_projection": True,
+        "require_child_program_view_ptr_abi": True,
+        "require_child_kernel_arg_packet_abi": True,
+        "require_child_kernel_entry_args_abi": True,
+        "require_child_kernel_entry_args_ptr_abi": True,
+        "require_child_kernel_entry_row_metadata": True,
+        "mirror_fields_checked": list(FIELDS),
+        "row_count": row_count,
+    }
+
+
+def _entry_args_ptr_payloadless_payload(
+    *,
+    sweep_json: Path,
+    check_json: Path,
+    source_count: int = 128,
+    row_count: int = 257,
+    sweep_row_count: int = 513,
+) -> dict:
+    return {
+        "passed": True,
+        "source_count": source_count,
+        "row_count": row_count,
+        "payloadless_execution_native_artifact_ready": True,
+        "payloadless_execution_lab_preflight_ready": True,
+        "payloadless_execution_native_requested": True,
+        "payloadless_execution_native_executed": True,
+        "payloadless_execution_native_passed": True,
+        "payload_bytes": 0,
+        "payload_deref_allowed": False,
+        "kernel_arg_pass_allowed": False,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "uses_current_wna16_args": False,
+        "passes_current_wna16_args": False,
+        "current_wna16_arg_compatible": False,
+        "requires_wna16_arg_reinterpretation": False,
+        "measures_vllm_latency": False,
+        "measures_tpot": False,
+        "wna16_benchmark_ready": False,
+        "entry_args_ptr_required": True,
+        "entry_args_ptr_sweep_device": 1,
+        "entry_args_ptr_sweep_window_size": 512,
+        "entry_args_ptr_sweep_require_kernel_arg_packet_abi": True,
+        "entry_args_ptr_sweep_require_kernel_entry_args_abi": True,
+        "entry_args_ptr_sweep_require_kernel_entry_args_ptr_abi": True,
+        "entry_args_ptr_sweep_mirror_fields": list(FIELDS),
+        "entry_args_ptr_sweep_row_count": sweep_row_count,
+        "entry_args_ptr_sweep_check_row_count": sweep_row_count,
+        "entry_args_ptr_sweep_json": str(sweep_json),
+        "entry_args_ptr_sweep_sha256": _sha256(sweep_json),
+        "entry_args_ptr_sweep_check_json": str(check_json),
+        "entry_args_ptr_sweep_check_sha256": _sha256(check_json),
+        "field_read_hashes": {
+            "descriptor_ptr": "1111111111111111",
+            "packed_weight_descriptor": "5555555555555555",
+            "scale_metadata_handle": "6666666666666666",
+            "aux_metadata_handle": "7777777777777777",
+        },
+        "field_read_row_ok_counts": {field: row_count for field in FIELDS},
+    }
 
 
 def _merged_input(input_paths: list[Path]) -> dict:
@@ -106,6 +216,20 @@ def _seed_fourth_gate(
             "input_jsons": [str(path) for path in input_paths],
         },
     )
+    sweep = tmp_path / "entry_args_ptr_sweep.json"
+    check = tmp_path / "entry_args_ptr_sweep.check.json"
+    _write_json(sweep, _entry_args_ptr_sweep_payload())
+    _write_json(check, _entry_args_ptr_check_payload(sweep))
+    payloadless = tmp_path / "payloadless_entry_args_ptr.json"
+    _write_json(
+        payloadless,
+        _entry_args_ptr_payloadless_payload(
+            sweep_json=sweep,
+            check_json=check,
+            source_count=source_count,
+            row_count=row_count,
+        ),
+    )
     fourth = tmp_path / "fourth.json"
     _write_json(
         fourth,
@@ -123,6 +247,7 @@ def _seed_fourth_gate(
                 "premap_future_wna16_typed_slot_third_field_handoff_canary_v1"
             ),
             "passed": True,
+            "failures": [],
             "previous_field_gate_ready": True,
             "fourth_field_name": "descriptor_ptr",
             "fourth_field_handoff_live_enabled": False,
@@ -142,6 +267,18 @@ def _seed_fourth_gate(
             "third_field_native_hash": "4444444444444444",
             "fourth_field_underlying_json": str(underlying),
             "fourth_field_underlying_sha256": _sha256(underlying),
+            "payloadless_execution_json": str(payloadless),
+            "payloadless_execution_sha256": _sha256(payloadless),
+            "payloadless_execution_native_artifact_ready": True,
+            "payloadless_execution_lab_preflight_ready": True,
+            "payloadless_entry_args_ptr_required": True,
+            "payloadless_entry_args_ptr_sweep_json": str(sweep),
+            "payloadless_entry_args_ptr_sweep_sha256": _sha256(sweep),
+            "payloadless_entry_args_ptr_sweep_check_json": str(check),
+            "payloadless_entry_args_ptr_sweep_check_sha256": _sha256(check),
+            "payloadless_entry_args_ptr_sweep_row_count": 513,
+            "payloadless_entry_args_ptr_sweep_check_row_count": 513,
+            "payloadless_entry_args_ptr_sweep_mirror_fields": list(FIELDS),
             "uses_current_wna16_args": False,
             "passes_current_wna16_args": False,
             "current_wna16_arg_compatible": False,
@@ -191,6 +328,8 @@ def _native_report(
         "changes_kernel_launch_args": False,
         "current_wna16_arg_compatible": False,
         "requires_wna16_arg_reinterpretation": False,
+        "uses_current_wna16_args": False,
+        "passes_current_wna16_args": False,
     }
 
 
@@ -295,6 +434,31 @@ def test_all_four_field_consumer_rejects_current_wna16_arg_compatible(
     assert "native_report_current_wna16_arg_compatible_not_false" in result["failures"]
 
 
+def test_all_four_field_consumer_rejects_native_current_wna16_arg_use(
+    tmp_path: Path,
+    monkeypatch,
+):
+    module = _load_module()
+    fourth = _seed_fourth_gate(tmp_path)
+
+    def fake_run(args, *, input_paths):
+        out_dir = Path(args.output_dir)
+        _write_json(out_dir / "all_four_field_typed_consumer_stub.json", _stub_payload())
+        _write_json(out_dir / "all_four_field_merged_input.json", _merged_input(input_paths))
+        report = _native_report(input_paths=input_paths)
+        report["uses_current_wna16_args"] = True
+        return report, 1.0
+
+    monkeypatch.setattr(module, "_run_native", fake_run)
+    args = module.build_parser().parse_args(
+        _base_args(module, fourth, tmp_path / "out.json", tmp_path)
+    )
+    result = module.run_all_four_field_consumer(args)
+
+    assert result["passed"] is False
+    assert "native_report_uses_current_wna16_args_not_false" in result["failures"]
+
+
 def test_all_four_field_consumer_rejects_row_mismatch(tmp_path: Path, monkeypatch):
     module = _load_module()
     fourth = _seed_fourth_gate(tmp_path, row_count=257)
@@ -376,6 +540,62 @@ def test_all_four_field_consumer_rejects_underlying_sha_mismatch(tmp_path: Path)
 
     assert result["passed"] is False
     assert "fourth_field_underlying_sha256_mismatch" in result["failures"]
+
+
+def test_all_four_field_consumer_rejects_fourth_failures(tmp_path: Path):
+    module = _load_module()
+    fourth = _seed_fourth_gate(tmp_path)
+    payload = json.loads(fourth.read_text(encoding="utf-8"))
+    payload["failures"] = ["injected"]
+    _write_json(fourth, payload)
+    args = module.build_parser().parse_args(
+        _base_args(module, fourth, tmp_path / "out.json", tmp_path)
+    )
+    result = module.run_all_four_field_consumer(args)
+
+    assert result["passed"] is False
+    assert "fourth_failures_not_empty" in result["failures"]
+
+
+def test_all_four_field_consumer_rejects_payloadless_passed_false(tmp_path: Path):
+    module = _load_module()
+    fourth = _seed_fourth_gate(tmp_path)
+    fourth_payload = json.loads(fourth.read_text(encoding="utf-8"))
+    payloadless = Path(fourth_payload["payloadless_execution_json"])
+    payloadless_payload = json.loads(payloadless.read_text(encoding="utf-8"))
+    payloadless_payload["passed"] = False
+    _write_json(payloadless, payloadless_payload)
+    fourth_payload["payloadless_execution_sha256"] = _sha256(payloadless)
+    _write_json(fourth, fourth_payload)
+    args = module.build_parser().parse_args(
+        _base_args(module, fourth, tmp_path / "out.json", tmp_path)
+    )
+    result = module.run_all_four_field_consumer(args)
+
+    assert result["passed"] is False
+    assert "fourth_payloadless_execution_passed_mismatch" in result["failures"]
+
+
+def test_all_four_field_consumer_rejects_flattened_payloadless_sha_mismatch(
+    tmp_path: Path,
+):
+    module = _load_module()
+    fourth = _seed_fourth_gate(tmp_path)
+    payload = json.loads(fourth.read_text(encoding="utf-8"))
+    payload["payloadless_entry_args_ptr_sweep_sha256"] = "0" * 64
+    _write_json(fourth, payload)
+    args = module.build_parser().parse_args(
+        _base_args(module, fourth, tmp_path / "out.json", tmp_path)
+    )
+    result = module.run_all_four_field_consumer(args)
+
+    assert result["passed"] is False
+    assert any(
+        failure.startswith(
+            "fourth_payloadless_entry_args_ptr_sweep_sha256_payloadless_mismatch"
+        )
+        for failure in result["failures"]
+    )
 
 
 def test_all_four_field_consumer_rejects_missing_boundary_field(

@@ -1,0 +1,16 @@
+{
+  "checked_preflight_json": "/home/husrcf/Code/ProtBind/MTP/outputs/reports/premap_kernel_consumer/premap_lab_preflight_entry_args_ptr_all_four_default_gate.json",
+  "checked_preflight_json_raw": "outputs/reports/premap_kernel_consumer/premap_lab_preflight_entry_args_ptr_all_four_default_gate.json",
+  "checked_preflight_sha256": "02f2e3d843a7e7d991813e71e4f3807c1ac76ac3416c2195e94fda05c5904a04",
+  "expected_online_merged_device": 1,
+  "failures": [],
+  "min_source_count": 32,
+  "online_merged_device": 0,
+  "online_merged_dispatch_active_rows": 1841,
+  "online_merged_hip_visible_devices": "1",
+  "online_merged_mirror_field": "scale_metadata_handle",
+  "online_merged_row_count": 1841,
+  "online_merged_source_count": 32,
+  "passed": true,
+  "source": "premap_lab_preflight_summary_check"
+}

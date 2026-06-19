@@ -4,6 +4,91 @@
 
 - Version: `v1.07-four-field-timing-stub-bound`
 - Updated: 2026-06-17
+
+## Latest Update: Entry-Args-Ptr All-Four Consumer Promoted Into Default Lab Gate
+
+The all-four future WNA16 typed-slot consumer now consumes the entry-args-ptr
+fourth-field canary by default instead of the older kernel-side-path fourth-field
+artifact.  The default lab gate has also been updated so the preflight path is:
+
+```text
+fourth_field_handoff_canary_entry_args_ptr_default
+-> all_four_field_consumer_entry_args_ptr_default
+-> future_wna16_kernel_side_typed_consumer_path_v1
+-> premap lab preflight summary/check
+```
+
+The all-four gate now revalidates the fourth-field payloadless evidence rather
+than trusting flattened summary strings:
+
+```text
+payloadless_execution_json SHA256
+payloadless passed/source_count/row_count
+field_read_hashes for descriptor_ptr / packed_weight_descriptor / scale_metadata_handle / aux_metadata_handle
+field_read_row_ok_counts for all four fields
+entry_args_ptr sweep/check paths, SHA256s, row counts, mirror fields, and content
+native report uses_current_wna16_args = false
+native report passes_current_wna16_args = false
+```
+
+Latest evidence:
+
+```text
+outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_all_four_field_consumer_entry_args_ptr_default.json
+outputs/reports/premap_kernel_consumer/future_wna16_kernel_side_typed_consumer_path_v1.json
+outputs/reports/premap_kernel_consumer/premap_lab_preflight_entry_args_ptr_all_four_default_gate.json
+outputs/reports/premap_kernel_consumer/premap_lab_preflight_entry_args_ptr_all_four_default_gate.check.json
+
+source_count = 128
+row_count = row_ok_count = 5345
+future_wna16_kernel_side_consumer_execution_all_handle_fields_read = true
+wna16_side_consumer_variant_execution_all_handle_fields_read = true
+```
+
+Safety boundary remains closed:
+
+```text
+payload_bytes = 0
+payload_deref_allowed = false
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+uses_current_wna16_args = false
+passes_current_wna16_args = false
+current_wna16_arg_compatible = false
+requires_wna16_arg_reinterpretation = false
+measures_tpot = false
+measures_vllm_latency = false
+```
+
+Validation:
+
+```text
+/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_all_four_field_consumer.py \
+  tests/test_run_future_wna16_kernel_side_typed_consumer_path.py \
+  tests/test_run_premap_lab_preflight.py -q
+# 206 passed
+
+/home/husrcf/anaconda3/envs/TRY/bin/python scripts/run_future_wna16_typed_slot_kernel_variant_all_four_field_consumer.py \
+  --require-pass --device 1 --offload-arch gfx1100
+# passed = true
+
+/home/husrcf/anaconda3/envs/TRY/bin/python scripts/run_future_wna16_kernel_side_typed_consumer_path.py \
+  --require-pass --device 1 --offload-arch gfx1100
+# passed = true
+
+/home/husrcf/anaconda3/envs/TRY/bin/python scripts/run_premap_lab_preflight.py \
+  --summary-only \
+  --output-json outputs/reports/premap_kernel_consumer/premap_lab_preflight_entry_args_ptr_all_four_default_gate.json
+# passed
+
+/home/husrcf/anaconda3/envs/TRY/bin/python scripts/check_premap_lab_preflight_summary.py \
+  outputs/reports/premap_kernel_consumer/premap_lab_preflight_entry_args_ptr_all_four_default_gate.json \
+  --output-json outputs/reports/premap_kernel_consumer/premap_lab_preflight_entry_args_ptr_all_four_default_gate.check.json
+# passed
+```
+
 - Latest timing-stub gate: the future WNA16 typed-slot timing stub now
   requires the all-four consumer envelope from the entrypoint, not only the
   fourth-field descriptor hash.  It also resolves the fourth-field evidence

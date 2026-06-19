@@ -31,7 +31,7 @@ DEFAULT_ALL_FOUR_JSON = (
     / "outputs"
     / "reports"
     / "premap_kernel_consumer"
-    / "future_wna16_typed_slot_kernel_variant_all_four_field_consumer_kernel_side_path_v1.json"
+    / "future_wna16_typed_slot_kernel_variant_all_four_field_consumer_entry_args_ptr_default.json"
 )
 DEFAULT_OUTPUT_JSON = (
     REPO_ROOT

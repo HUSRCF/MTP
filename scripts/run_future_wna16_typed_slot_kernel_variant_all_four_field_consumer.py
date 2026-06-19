@@ -32,6 +32,10 @@ from scripts import (  # noqa: E402
     as fourth_gate,
 )
 from scripts import (  # noqa: E402
+    run_future_wna16_typed_slot_kernel_variant_second_field_handoff_canary
+    as abi_contract,
+)
+from scripts import (  # noqa: E402
     run_premap_online_merged_native_arg_slot_canary as native_runner,
 )
 
@@ -41,21 +45,21 @@ DEFAULT_FOURTH_FIELD_JSON = (
     / "outputs"
     / "reports"
     / "premap_kernel_consumer"
-    / "future_wna16_typed_slot_kernel_variant_fourth_field_handoff_canary_kernel_side_path_v1.json"
+    / "future_wna16_typed_slot_kernel_variant_fourth_field_handoff_canary_entry_args_ptr_default.json"
 )
 DEFAULT_OUTPUT_JSON = (
     REPO_ROOT
     / "outputs"
     / "reports"
     / "premap_kernel_consumer"
-    / "future_wna16_typed_slot_kernel_variant_all_four_field_consumer_kernel_side_path_v1.json"
+    / "future_wna16_typed_slot_kernel_variant_all_four_field_consumer_entry_args_ptr_default.json"
 )
 DEFAULT_OUTPUT_DIR = (
     REPO_ROOT
     / "outputs"
     / "reports"
     / "premap_kernel_consumer"
-    / "future_wna16_typed_slot_kernel_variant_all_four_field_consumer_kernel_side_path_v1"
+    / "future_wna16_typed_slot_kernel_variant_all_four_field_consumer_entry_args_ptr_default"
 )
 
 ARTIFACT_KIND = "future_wna16_typed_slot_kernel_variant_all_four_field_consumer"
@@ -145,6 +149,130 @@ def _bool_is(payload: dict[str, Any], key: str, expected: bool) -> bool:
     return payload.get(key) is expected
 
 
+def _check_fourth_payloadless_evidence(
+    fourth: dict[str, Any],
+    *,
+    fourth_path: Path,
+    source_count: int | None,
+    row_count: int | None,
+    min_row_count: int,
+) -> list[str]:
+    failures: list[str] = []
+    expected_flattened = {
+        "payloadless_execution_native_artifact_ready": True,
+        "payloadless_execution_lab_preflight_ready": True,
+        "payloadless_entry_args_ptr_required": True,
+    }
+    for key, expected in expected_flattened.items():
+        if fourth.get(key) != expected:
+            failures.append(f"fourth_{key}_mismatch:{fourth.get(key)!r}!={expected!r}")
+    if list(fourth.get("payloadless_entry_args_ptr_sweep_mirror_fields") or []) != list(
+        abi_contract.ENTRY_ARGS_PTR_MIRROR_FIELDS
+    ):
+        failures.append("fourth_payloadless_entry_args_ptr_sweep_mirror_fields_mismatch")
+    sweep_rows = _int_metric(fourth, "payloadless_entry_args_ptr_sweep_row_count")
+    check_rows = _int_metric(fourth, "payloadless_entry_args_ptr_sweep_check_row_count")
+    if sweep_rows is None or sweep_rows < min_row_count:
+        failures.append("fourth_payloadless_entry_args_ptr_sweep_row_count_invalid")
+    if check_rows is None or check_rows < min_row_count:
+        failures.append("fourth_payloadless_entry_args_ptr_sweep_check_row_count_invalid")
+    if sweep_rows is not None and check_rows is not None and sweep_rows != check_rows:
+        failures.append("fourth_payloadless_entry_args_ptr_sweep_check_row_count_mismatch")
+
+    payloadless_path, path_failures = fourth_gate._resolve_artifact_reference(
+        fourth.get("payloadless_execution_json"),
+        roots=[REPO_ROOT, fourth_path.parent],
+        label="fourth_payloadless_execution_json",
+    )
+    failures.extend(path_failures)
+    payloadless_sha = fourth.get("payloadless_execution_sha256")
+    if payloadless_path is None:
+        return failures
+    if not _is_sha256_hex(payloadless_sha):
+        failures.append("fourth_payloadless_execution_sha256_invalid")
+        return failures
+    if not payloadless_path.exists():
+        failures.append(f"fourth_payloadless_execution_json_missing:{payloadless_path}")
+        return failures
+    actual_sha = _sha256(payloadless_path)
+    if actual_sha != payloadless_sha:
+        failures.append("fourth_payloadless_execution_sha256_mismatch")
+        return failures
+    try:
+        payloadless = _load_json(payloadless_path)
+    except Exception as exc:
+        failures.append(
+            f"fourth_payloadless_execution_load_failed:{exc.__class__.__name__}:{exc}"
+        )
+        return failures
+    if payloadless.get("passed") is not True:
+        failures.append("fourth_payloadless_execution_passed_mismatch")
+    if payloadless.get("source_count") != source_count:
+        failures.append("fourth_payloadless_source_count_mismatch")
+    if payloadless.get("row_count") != row_count:
+        failures.append("fourth_payloadless_row_count_mismatch")
+    field_hashes = payloadless.get("field_read_hashes")
+    field_counts = payloadless.get("field_read_row_ok_counts")
+    if not isinstance(field_hashes, dict):
+        failures.append("fourth_payloadless_field_read_hashes_missing")
+    else:
+        for field in HANDLE_FIELDS:
+            if not _is_hex_u64(field_hashes.get(field)):
+                failures.append(f"fourth_payloadless_{field}_hash_invalid")
+        if field_hashes.get("descriptor_ptr") != fourth.get(
+            "fourth_field_handoff_field_read_hash"
+        ):
+            failures.append("fourth_payloadless_descriptor_ptr_hash_mismatch")
+    if not isinstance(field_counts, dict):
+        failures.append("fourth_payloadless_field_read_row_ok_counts_missing")
+    else:
+        for field in HANDLE_FIELDS:
+            if field_counts.get(field) != row_count:
+                failures.append(f"fourth_payloadless_{field}_row_ok_count_mismatch")
+        if field_counts.get("descriptor_ptr") != fourth.get(
+            "fourth_field_handoff_field_read_row_ok_count"
+        ):
+            failures.append("fourth_payloadless_descriptor_ptr_row_ok_mismatch")
+    flattened_pairs = (
+        ("payloadless_entry_args_ptr_required", "entry_args_ptr_required"),
+        ("payloadless_entry_args_ptr_sweep_json", "entry_args_ptr_sweep_json"),
+        ("payloadless_entry_args_ptr_sweep_sha256", "entry_args_ptr_sweep_sha256"),
+        (
+            "payloadless_entry_args_ptr_sweep_check_json",
+            "entry_args_ptr_sweep_check_json",
+        ),
+        (
+            "payloadless_entry_args_ptr_sweep_check_sha256",
+            "entry_args_ptr_sweep_check_sha256",
+        ),
+        ("payloadless_entry_args_ptr_sweep_row_count", "entry_args_ptr_sweep_row_count"),
+        (
+            "payloadless_entry_args_ptr_sweep_check_row_count",
+            "entry_args_ptr_sweep_check_row_count",
+        ),
+        (
+            "payloadless_entry_args_ptr_sweep_mirror_fields",
+            "entry_args_ptr_sweep_mirror_fields",
+        ),
+    )
+    for fourth_key, payloadless_key in flattened_pairs:
+        if fourth.get(fourth_key) != payloadless.get(payloadless_key):
+            failures.append(
+                f"fourth_{fourth_key}_payloadless_mismatch:"
+                f"{fourth.get(fourth_key)!r}!={payloadless.get(payloadless_key)!r}"
+            )
+    failures.extend(
+        abi_contract._check_entry_args_ptr_payloadless_artifact(  # noqa: SLF001
+            payloadless,
+            source_count=source_count,
+            row_count=row_count,
+            min_row_count=min_row_count,
+            prefix="fourth_payloadless_execution",
+        )
+    )
+    return failures
+
+
 def _check_false_boundary(prefix: str, payload: dict[str, Any]) -> list[str]:
     failures: list[str] = []
     for key in REQUIRED_FALSE_BOUNDARY_KEYS:
@@ -204,6 +332,8 @@ def _load_fourth_gate(
     for key, value in expected.items():
         if fourth.get(key) != value:
             failures.append(f"fourth_{key}_mismatch:{fourth.get(key)!r}!={value!r}")
+    if fourth.get("failures") != []:
+        failures.append("fourth_failures_not_empty")
     source_count = _int_metric(fourth, "source_count")
     row_count = _int_metric(fourth, "row_count")
     if source_count is None or source_count < min_source_count:
@@ -227,6 +357,15 @@ def _load_fourth_gate(
     ):
         if not _is_hex_u64(fourth.get(key)):
             failures.append(f"fourth_{key}_invalid")
+    failures.extend(
+        _check_fourth_payloadless_evidence(
+            fourth,
+            fourth_path=path,
+            source_count=source_count,
+            row_count=row_count,
+            min_row_count=min_row_count,
+        )
+    )
 
     underlying_path, path_failures = fourth_gate._resolve_artifact_reference(
         fourth.get("fourth_field_underlying_json"),
@@ -394,6 +533,11 @@ def _check_native_report(
         if report.get(key) is not True:
             failures.append(f"{key}_not_true")
     failures.extend(_check_false_boundary("native_report", report))
+    for key in ("uses_current_wna16_args", "passes_current_wna16_args"):
+        if key not in report:
+            failures.append(f"native_report_{key}_missing")
+        elif report.get(key) is not False:
+            failures.append(f"native_report_{key}_not_false")
     if report.get("no_payload") is not True:
         failures.append("native_report_no_payload_not_true")
     for prefix in REQUIRED_PREFIXES:
