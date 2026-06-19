@@ -37867,3 +37867,84 @@ Validation:
 
 This artifact is the final readiness check before a real production-like paired
 vLLM timing run.  It is not itself a performance result.
+
+## 2026-06-20 production-like vLLM TPOT baseline archived
+
+Added a conservative production-like TPOT benchmark wrapper:
+
+```text
+script:
+  scripts/run_future_wna16_typed_slot_payloadless_useful_production_like_tpot_benchmark.py
+
+artifact:
+  outputs/reports/premap_kernel_consumer/production_like_tpot/
+    future_wna16_typed_slot_payloadless_useful_production_like_tpot_baseline_dolly32_gen64_graph_v1.json
+```
+
+The wrapper consumes the production-like timing readiness gate before it will
+read or run a vLLM performance summary.  The initial artifact reuses the
+existing Dolly32/gen64 production-no-recorder graph run:
+
+```text
+performance_summary:
+  data/traces/external_prompt_gate_dolly_32_awq_vllm_gpu1_decode_production_no_recorder_graph/
+    performance_summary.json
+
+sample_count = 32
+requested_output_token_count = 2048
+generate_wall_seconds = 13.276039205
+generate_seconds_per_requested_output_token = 0.006482441018066406
+tokens_per_second = 154.2628767794453
+llm_init_wall_seconds = 423.641595003
+total_trace_wall_seconds = 446.413776276
+```
+
+Boundary:
+
+```text
+benchmark_is_current_vllm_baseline = true
+benchmark_is_future_typed_slot_useful_path = false
+payloadless_useful_mode_enabled = false
+run_requested = false
+run_executed = false
+gate_trace_dir == trace_dir
+payload_bytes = 0
+payload_deref_allowed = false
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+uses_current_wna16_args = false
+passes_current_wna16_args = false
+```
+
+The wrapper is tied to the readiness gate:
+
+```text
+failed timing gate => no vLLM run is launched
+skip-run mode only accepts the gate-bound trace directory
+performance_summary must report:
+  decode_workload_trace_enabled = false
+  runtime_shadow_enabled = false
+  runtime_shadow_record_router_topk = false
+  source timing / MoE / WNA16 / premap live-handoff emits = false
+```
+
+This is a baseline archive for future A/B.  It is not a typed-slot useful-path
+win and does not enable the future WNA16 consumer path.
+
+Validation:
+
+```text
+/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_run_future_wna16_typed_slot_payloadless_useful_production_like_tpot_benchmark.py -q
+# 7 passed
+
+/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_run_future_wna16_typed_slot_payloadless_useful_runtime_gate.py \
+  tests/test_run_future_wna16_typed_slot_payloadless_useful_benchmark_harness.py \
+  tests/test_run_future_wna16_typed_slot_payloadless_useful_repeat_benchmark.py \
+  tests/test_run_future_wna16_typed_slot_payloadless_useful_runtime_ablation.py \
+  tests/test_run_future_wna16_typed_slot_payloadless_useful_production_like_timing_gate.py \
+  tests/test_run_future_wna16_typed_slot_payloadless_useful_production_like_tpot_benchmark.py -q
+# 46 passed
+```
