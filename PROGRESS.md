@@ -5,7 +5,88 @@
 - Version: `v1.14-payloadless-live-config-repeat3-summary`
 - Updated: 2026-06-20
 
-## Latest Update: Heldout32 Payloadless Live-Config Readiness Gate Added
+## Latest Update: Heldout32 Payloadless Live-Config TPOT Check Failed Positive Gate
+
+The heldout32 paired TPOT run is complete.  It does not reproduce the original
+split's small positive signal:
+
+```text
+outputs/reports/premap_kernel_consumer/production_like_tpot_heldout32/future_wna16_typed_slot_payloadless_useful_production_like_tpot_baseline_dolly32_heldout32_gen64_graph_v1.json
+outputs/reports/premap_kernel_consumer/production_like_tpot_heldout32/future_wna16_typed_slot_payloadless_useful_production_like_tpot_candidate_dolly32_heldout32_gen64_graph_v1.json
+outputs/reports/premap_kernel_consumer/production_like_tpot_heldout32/future_wna16_typed_slot_payloadless_useful_ab_comparison_dolly32_heldout32_gen64_graph_v1.json
+```
+
+Measured heldout32 TPOT:
+
+```text
+baseline_tpot  = 0.0034740482456054687 s/token
+candidate_tpot = 0.0035558123984375 s/token
+speedup         = 0.9770054930715804x
+improvement     = -2.3535698715600795%
+candidate_faster = false
+performance_claim_ready = false
+```
+
+The comparison artifact is intentionally failed:
+
+```text
+passed = false
+diagnostic_only = true
+failures = ["candidate_not_faster_than_baseline_diagnostic_only"]
+payload_bytes = 0
+payload_deref_allowed = false
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+uses_current_wna16_args = false
+passes_current_wna16_args = false
+current_wna16_arg_compatible = false
+requires_wna16_arg_reinterpretation = false
+```
+
+Interpretation:
+
+```text
+The payloadless live-config path is safe and low-overhead, but its small
+original-split positive signal is not robust enough to claim a runtime win.
+
+Do not promote payloadless live-config to a performance feature based on the
+current evidence.  Keep it as a safety/participation path, and move performance
+work toward a real future typed-slot/native consumer path or another useful
+payload/cache-manager action with a stronger Amdahl target.
+```
+
+Validation:
+
+```text
+baseline run:
+  passed = true
+  sample_count = 32
+  requested_output_token_count = 2048
+  input_token_count = 1727
+
+candidate run:
+  passed = true
+  sample_count = 32
+  requested_output_token_count = 2048
+  input_token_count = 1727
+
+comparison:
+  comparison_ready = true
+  measures_tpot = true
+  measures_vllm_latency = true
+  performance_claim_ready = false
+```
+
+Next stage:
+
+```text
+freeze payloadless live-config as safe but not performance-robust;
+continue with a real future WNA16 typed-slot/native consumer benchmark or a
+payload/cache-manager path that can create non-trivial useful work.
+```
+
+## Previous Update: Heldout32 Payloadless Live-Config Readiness Gate Added
 
 The payloadless live-config path now has a heldout prompt split readiness gate
 for the next production-like TPOT check.  This does not run vLLM and does not
